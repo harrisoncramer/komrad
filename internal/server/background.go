@@ -114,7 +114,7 @@ func (s *Server) Stop(ctx context.Context) {
 	s.background.stop(ctx)
 }
 
-// StopRequested answers when something has asked the service to stop over its own stop route.
+// StopRequested answers when something has asked the server to stop over its own stop route.
 func (s *Server) StopRequested() <-chan struct{} {
 	return s.stopRequested
 }

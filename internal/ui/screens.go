@@ -214,7 +214,7 @@ type listScroller interface {
 	scrollList(m *model, rows int) tea.Cmd
 }
 
-// loadingReporter is a screen that can be waiting on the service for what it renders.
+// loadingReporter is a screen that can be waiting on the server for what it renders.
 type loadingReporter interface {
 	isLoading(m *model) bool
 }

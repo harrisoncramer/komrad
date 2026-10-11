@@ -55,7 +55,7 @@ type api struct {
 	tasks        taskv1connect.TaskServiceClient
 }
 
-// reads is the half of the service a screen reads through.
+// reads is the half of the server a screen reads through.
 type reads struct {
 	agents agentReads
 	logs   logv1connect.LogServiceClient
@@ -73,7 +73,7 @@ type agentReads interface {
 	ListReviewViewedFiles(ctx context.Context, req *connect.Request[agentv1.ListReviewViewedFilesRequest]) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error)
 }
 
-// reads is the half of the service a screen reads through.
+// reads is the half of the server a screen reads through.
 func (a api) reads() reads {
 	return reads{agents: a.agents, logs: a.logs}
 }
@@ -791,7 +791,7 @@ func (a reads) listTaskLogSources(taskID string) ([]*logv1.LogSource, error) {
 	})
 }
 
-// wakeLoop asks the service to run a background loop before its next tick.
+// wakeLoop asks the server to run a background loop before its next tick.
 func (a api) wakeLoop(loop loopv1.Loop) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.loops.WakeLoop(ctx, connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loop}))

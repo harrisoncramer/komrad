@@ -18,7 +18,7 @@ const (
 	bodyWidth  = 30
 )
 
-// entry is a decoded service log line, keyed by attribute name.
+// entry is a decoded server log line, keyed by attribute name.
 type entry map[string]any
 
 // field is an attribute the compact view shows and the function that renders it.
@@ -46,7 +46,7 @@ var visibleFields = []field{
 	{"rpc.connect_rpc.error_code", errorCodeField},
 }
 
-// Compact is a structured service log line rendered on one row as its time, level, message and
+// Compact is a structured server log line rendered on one row as its time, level, message and
 // fields, or the line as it stands when it is not a JSON object.
 func Compact(palette paint.Palette, line string) string {
 	record := parse(line)

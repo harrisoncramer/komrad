@@ -362,7 +362,7 @@ func TestMessagesRefusedWrites(t *testing.T) {
 
 			pane := joinProse(readStage(harness.readFrame()))
 			assert.Contains(t, pane, tt.wantSummary)
-			assert.Contains(t, pane, tt.reason, "the service's reason is shown rather than the connect code in front of it")
+			assert.Contains(t, pane, tt.reason, "the server's reason is shown rather than the connect code in front of it")
 		})
 	}
 

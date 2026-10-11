@@ -401,7 +401,7 @@ func (m *model) beginWrite(doing string) int {
 	return m.writes.count
 }
 
-// clients is the service a write that lands its own message is sent through.
+// clients is the server a write that lands its own message is sent through.
 func (m *model) clients() api {
 	return m.api
 }

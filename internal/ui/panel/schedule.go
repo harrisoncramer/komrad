@@ -6,7 +6,7 @@ import (
 	schedulev1 "komrad/proto/gen/schedule/v1"
 )
 
-// Schedule is one recurring launch as the service listed it.
+// Schedule is one recurring launch as the server listed it.
 type Schedule struct {
 	ID             string
 	Name           string

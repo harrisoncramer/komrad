@@ -621,7 +621,7 @@
         },
         {
           "path": "keybindings.logs",
-          "description": "The logs screen, which tails what the service logged about one agent.",
+          "description": "The logs screen, which tails what the server logged about one agent.",
           "settings": [
             {
               "key": "copy",
@@ -984,7 +984,7 @@
               "key": "logs",
               "path": "keybindings.menu.logs",
               "type": "array",
-              "description": "Open the agent's logs, the service log lines about it.",
+              "description": "Open the agent's logs, the server log lines about it.",
               "default": "[\"l\"]"
             },
             {
@@ -1899,7 +1899,7 @@
     },
     {
       "path": "log",
-      "description": "The log the background service writes, which the panel's log key pages.",
+      "description": "The log the server writes, which the panel's log key pages.",
       "settings": [
         {
           "key": "level",
@@ -1933,12 +1933,12 @@
       "sections": [
         {
           "path": "debug.pprof",
-          "description": "Go's pprof profiler, served by the background service and the panel.",
+          "description": "Go's pprof profiler, served by the server and the panel.",
           "settings": [],
           "sections": [
             {
               "path": "debug.pprof.server",
-              "description": "The background service, which runs the agents and answers the API.",
+              "description": "The server, which runs the agents and answers the API.",
               "settings": [
                 {
                   "key": "enabled",
@@ -1959,7 +1959,7 @@
             },
             {
               "path": "debug.pprof.panel",
-              "description": "The panel, which draws the screen and talks to the service.",
+              "description": "The panel, which draws the screen and talks to the server.",
               "settings": [
                 {
                   "key": "enabled",
@@ -2011,7 +2011,7 @@
           "key": "addr",
           "path": "connection.addr",
           "type": "string",
-          "description": "Where the background service listens, and where the panel, the CLI and the MCP\nendpoint all reach it. Change it to run two komrads on one machine. It has to be a\nloopback host, since the api has no auth and its writes spawn agents.",
+          "description": "Where the server listens, and where the panel, the CLI and the MCP\nendpoint all reach it. Change it to run two komrads on one machine. It has to be a\nloopback host, since the api has no auth and its writes spawn agents.",
           "default": "\"127.0.0.1:8787\""
         },
         {
@@ -2025,7 +2025,7 @@
           "key": "cache_dir",
           "path": "connection.cache_dir",
           "type": "string",
-          "description": "Where komrad keeps what it generates: the service log, the built-in scripts it\nwrites out on every start, and the temp files a harness passes a prompt through.\nLeft empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.\nEverything under it is komrad's to delete and rewrite, so nothing of yours belongs here.",
+          "description": "Where komrad keeps what it generates: the server log, the built-in scripts it\nwrites out on every start, and the temp files a harness passes a prompt through.\nLeft empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.\nEverything under it is komrad's to delete and rewrite, so nothing of yours belongs here.",
           "default": "\"\""
         },
         {

@@ -11,11 +11,11 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Komrad is one binary. The binary is used to run the panel, or the server, known as the _engine_.
+Komrad is one binary. It runs the panel, and it runs the server.
 
 The panel runs on your machine. It renders the view of komrad's state in your terminal, and wraps around existing CLI tools like Claude or Codex.
 
-The server, known as the engine, runs your agents and records their activity into Postgres, so you can search through chat history, spawn multiple at once, or have them communicate. The engine can run on your machine or on a remote box. You can also connect to different engines from one machine.
+The server runs your agents and records their activity into Postgres, so you can search through chat history, spawn multiple at once, or have them communicate. A server, with its database, its tmux and its agents, makes up an _engine_. An engine can run on your machine or on a remote box, and one panel can connect to different engines.
 
 ## Install the binary
 
@@ -82,13 +82,13 @@ owner_database_url = "postgres://komrad_owner:password123@localhost:5432/komrad"
 database_url = "postgres://komrad_engine_laptop:8f3a1c9e2b7d4e6f@localhost:5432/komrad"
 ```
 
-The <Setting path="connection.owner_database_url" label="owner_database_url" /> is only used by <Command path="migrate" /> and <Command path="engine ensure" />. The service itself connects with <Setting path="connection.database_url" label="database_url" />.
+The <Setting path="connection.owner_database_url" label="owner_database_url" /> is only used by <Command path="migrate" /> and <Command path="engine ensure" />. The server itself connects with <Setting path="connection.database_url" label="database_url" />.
 
 ### Open the panel
 
 Komrad runs every agent in a tmux server of its own, so tmux must be installed. Using tmux yourself is optional.
 
-Run <Command path="open" /> to open the panel. The first open starts the service in the background.
+Run <Command path="open" /> to open the panel. The first open starts the server in the background.
 
 <figure>
   <img
@@ -101,7 +101,7 @@ Run <Command path="open" /> to open the panel. The first open starts the service
 
 ## Komrad + Tmux
 
-The panel takes over the terminal you open it in, and a tmux pane works like any other. <Command path="attach" /> shows the same panel in a second terminal. Closing the panel with `ctrl+c` only detaches it, so the service and your agents keep running.
+The panel takes over the terminal you open it in, and a tmux pane works like any other. <Command path="attach" /> shows the same panel in a second terminal. Closing the panel with `ctrl+c` only detaches it, so the server and your agents keep running.
 
 If your own tmux prefix is `ctrl+space`, give your tmux a different one, since the panel keeps its own keys behind it.
 
@@ -156,13 +156,13 @@ Some hosts take SSH paths like `ssh.gitlab.example.com`. List each pair in <Sett
 
 ## Upgrading
 
-Download the new binary over the old one, then stop the service and migrate.
+Download the new binary over the old one, then stop the server and migrate.
 
 ```sh
 komrad stop
 komrad migrate
 ```
 
-A running service keeps its old build until it is stopped, so the stop is what swaps it. Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the service.
+A running server keeps its old build until it is stopped, so the stop is what swaps it. Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the server.
 
 The panel is open and empty. The first thing it needs is a [workflow](../workflows/).

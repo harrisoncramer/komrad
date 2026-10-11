@@ -31,7 +31,7 @@ type Format int
 const (
 	// FormatRaw renders each line as it was written.
 	FormatRaw Format = iota
-	// FormatCompact renders each structured service log line on one row.
+	// FormatCompact renders each structured server log line on one row.
 	FormatCompact
 )
 

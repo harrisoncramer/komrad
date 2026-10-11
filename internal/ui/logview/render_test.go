@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestCompact covers the text of a service log line rendered on one row.
+// TestCompact covers the text of a server log line rendered on one row.
 func TestCompact(t *testing.T) {
 	t.Parallel()
 

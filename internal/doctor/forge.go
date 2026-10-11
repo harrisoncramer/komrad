@@ -13,7 +13,7 @@ const connectFirstFix = "komrad setup, or komrad forge connect <host>"
 
 var errForgesUnreadable = &ProblemError{
 	Code:    CodeForgesUnreadable,
-	Message: "the service could not check its forges",
+	Message: "the server could not check its forges",
 }
 
 var errForgeRefused = &ProblemError{
@@ -36,7 +36,7 @@ var errForgeUnreachable = &ProblemError{
 	Message: "a connected forge could not be reached",
 }
 
-// classifyForgeProblem says which kind of trouble the service said a connection is in.
+// classifyForgeProblem says which kind of trouble the server said a connection is in.
 func classifyForgeProblem(kind string) *ProblemError {
 	switch kind {
 	case "no_credential":
@@ -64,7 +64,7 @@ func worseForgeProblem(current, candidate *ProblemError) *ProblemError {
 	return current
 }
 
-// ForgeStatus is one connected forge and whether it still answers, as the service checked it.
+// ForgeStatus is one connected forge and whether it still answers, as the server checked it.
 type ForgeStatus struct {
 	Host  string
 	Login string
@@ -78,12 +78,12 @@ type ForgeStatus struct {
 	ProblemKind string
 }
 
-// newForgesCheck asks the service to check every forge it is connected to and warns for each
+// newForgesCheck asks the server to check every forge it is connected to and warns for each
 // one that no longer answers.
 func newForgesCheck() Check {
 	return Check{
 		Name:        CheckForges,
-		Description: "pull requests are read through the forges the service is connected to",
+		Description: "pull requests are read through the forges the server is connected to",
 		Needs:       []string{CheckServer},
 		Run: func(ctx context.Context, env Env) Result {
 			statuses, err := env.CheckForges(ctx)

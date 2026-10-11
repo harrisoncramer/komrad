@@ -1189,7 +1189,7 @@ func buildDocumentAuthors() []proto.Message {
 	}
 }
 
-// documentShelf is what the service holds of every agent's documents, answering the list and
+// documentShelf is what the server holds of every agent's documents, answering the list and
 // the read.
 type documentShelf struct {
 	mu     sync.Mutex

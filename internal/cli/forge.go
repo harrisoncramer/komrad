@@ -25,10 +25,10 @@ func forgeCmd(state *app) *cobra.Command {
 		Long: `Connect komrad to the services pull requests live on.
 
 Komrad reads the pull requests its agents open through a connection to each forge,
-made once and kept until it is disconnected. The service holds the connection: a
+made once and kept until it is disconnected. The server holds the connection: a
 token lives in a file under its state directory that only its user can read, and
 the row in its database records who the forge said the credential belongs to.
-Every command here talks to the service, so with --engine it connects the engine.`,
+Every command here talks to the server, so with --engine it connects the engine.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -60,18 +60,18 @@ A GitLab token is a personal access token with the api scope. A remote on an SSH
 host of its own, such as ssh.gitlab.example.com, reaches the connection for its web
 host once [git] ssh_hosts in the config names the pair.
 
-With --method github-app nothing is read. The service mints a token from the App
+With --method github-app nothing is read. The server mints a token from the App
 named under [github_app] in its own config, checks the installation reaches at
 least one repository, and records the App's own name as the login. That is the
 engine's path, where nobody is there to paste a token and the App's key is already
 on the machine: komrad forge connect github.com --method github-app --engine remote.
 
 With --method rotating-token the token is read as for token, and the host has to
-run GitLab. The token needs the api scope. The service rotates it at once and keeps
+run GitLab. The token needs the api scope. The server rotates it at once and keeps
 only the new one, then rotates it again each day before it expires, so the token
 you pasted stops working as soon as the connection is made.
 
-The service asks the forge who the credential belongs to before storing anything,
+The server asks the forge who the credential belongs to before storing anything,
 so a token that is wrong or expired is refused here rather than found out later.
 That proves the token is real, not that it can read your repositories: a token with
 no permissions answers the same question, and shows up later as a repository the
@@ -124,7 +124,7 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 	cmd.Flags().StringVar(&kind, "kind", "", "which forge the host runs, github or gitlab, when the host does not say")
 	cmd.Flags().StringVar(&apiURL, "api-url", "", "where the forge answers API calls, for an enterprise host")
 	cmd.Flags().StringVar(&tokenFile, "token-file", "", "read the token from this file instead of stdin")
-	cmd.Flags().StringVar(&method, "method", "token", "how the credential comes: token or rotating-token from stdin, or github-app from the App in the service's config")
+	cmd.Flags().StringVar(&method, "method", "token", "how the credential comes: token or rotating-token from stdin, or github-app from the App in the server's config")
 
 	return cmd
 }

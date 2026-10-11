@@ -93,7 +93,7 @@ const branchFieldKey = "branch"
 // checkoutFieldsParams is a task and what was read of its directory.
 type checkoutFieldsParams struct {
 	task panel.Task
-	// worktree is what the service has answered about the task's directory, and read says
+	// worktree is what the server has answered about the task's directory, and read says
 	// whether it has answered that the directory is a worktree at all.
 	worktree worktreeInspection
 	read     bool

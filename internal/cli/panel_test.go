@@ -37,7 +37,7 @@ func TestInstallPanelLoggerWritesToTheLogFile(t *testing.T) {
 
 	assert.Equal(t, "panicked", record[logging.BodyKey])
 	assert.Equal(t, logging.ProcessPanel, record[logging.ProcessName],
-		"the service appends to this file too, so a record has to say which process wrote it")
+		"the server appends to this file too, so a record has to say which process wrote it")
 }
 
 // TestInstallPanelLoggerCatchesThePanicHandler covers the record main writes on the way out,

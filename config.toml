@@ -249,7 +249,7 @@ auto_merge    = ["u"]
 # which now holds its work.
 merge_rebase  = ["r"]
 
-# The logs screen, which tails what the service logged about one agent.
+# The logs screen, which tails what the server logged about one agent.
 [keybindings.logs]
 # Copy the log line the cursor is on to the system clipboard.
 copy = ["y"]
@@ -385,7 +385,7 @@ open          = ["space"]
 # Open the review of the task's diff. The entry is gray on a task with no worktree, and in
 # the archive.
 review        = ["r"]
-# Open the agent's logs, the service log lines about it.
+# Open the agent's logs, the server log lines about it.
 logs          = ["l"]
 # Open the status checks run on the task's pull request.
 status_checks = ["x"]
@@ -725,7 +725,7 @@ delivery_deadline = "3h"
 # negative limit is refused.
 max_exchange      = 40
 
-# The log the background service writes, which the panel's log key pages.
+# The log the server writes, which the panel's log key pages.
 [log]
 # How much is written, one of debug, info, warn, or error.
 level = "info"
@@ -739,16 +739,16 @@ frames        = false
 # below zero takes the default.
 frame_history = 500
 
-# Go's pprof profiler, served by the background service and the panel.
+# Go's pprof profiler, served by the server and the panel.
 
-# The background service, which runs the agents and answers the API.
+# The server, which runs the agents and answers the API.
 [debug.pprof.server]
 # Whether the process serves profiles, read when it starts.
 enabled = false
 # The host and port the profiles are served on.
 address = "localhost:6060"
 
-# The panel, which draws the screen and talks to the service.
+# The panel, which draws the screen and talks to the server.
 [debug.pprof.panel]
 # Whether the process serves profiles, read when it starts.
 enabled = false
@@ -768,14 +768,14 @@ owner_database_url    = ""
 # Left empty this is database_url with the engine's reader login, which is its own login
 # with _reader on the end and the same password.
 readonly_database_url = ""
-# Where the background service listens, and where the panel, the CLI and the MCP
+# Where the server listens, and where the panel, the CLI and the MCP
 # endpoint all reach it. Change it to run two komrads on one machine. It has to be a
 # loopback host, since the api has no auth and its writes spawn agents.
 addr                  = "127.0.0.1:8787"
 # The tmux socket komrad runs its own server on. Nothing in your normal tmux sees
 # that server, which is why `tmux -L komrad ls` is how you look at it directly.
 tmux_socket           = "komrad"
-# Where komrad keeps what it generates: the service log, the built-in scripts it
+# Where komrad keeps what it generates: the server log, the built-in scripts it
 # writes out on every start, and the temp files a harness passes a prompt through.
 # Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
 # Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.

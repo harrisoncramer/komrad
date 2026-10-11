@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestRenameSends covers a name typed over its row going out as the write the service renames by.
+// TestRenameSends covers a name typed over its row going out as the write the server renames by.
 func TestRenameSends(t *testing.T) {
 	tests := []struct {
 		name      string

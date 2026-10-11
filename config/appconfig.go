@@ -55,7 +55,7 @@ type Config struct {
 	Context Context `mapstructure:"context"`
 	// How mail between agents is delivered.
 	Mail Mail `mapstructure:"mail"`
-	// The log the background service writes, which the panel's log key pages.
+	// The log the server writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
 	// Puts komrad into debug mode which records additional information used to help diagnose issues.
 	Debug Debug `mapstructure:"debug"`

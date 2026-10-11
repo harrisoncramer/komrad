@@ -43,7 +43,7 @@ type Keybindings struct {
 	HideMenu HideMenuKeys `mapstructure:"hide_menu"`
 	// The merge menu, nested under the git menu, which merges the hovered agent's pull request.
 	Merge MergeKeys `mapstructure:"merge"`
-	// The logs screen, which tails what the service logged about one agent.
+	// The logs screen, which tails what the server logged about one agent.
 	Logs LogsKeys `mapstructure:"logs"`
 	// The messages komrad pushed, read in the main pane.
 	Messages MessagesKeys `mapstructure:"messages"`
@@ -250,7 +250,7 @@ type MenuKeys struct {
 	// Open the review of the task's diff. The entry is gray on a task with no worktree, and in
 	// the archive.
 	Review []string `mapstructure:"review" default:"r"`
-	// Open the agent's logs, the service log lines about it.
+	// Open the agent's logs, the server log lines about it.
 	Logs []string `mapstructure:"logs" default:"l"`
 	// Open the status checks run on the task's pull request.
 	StatusChecks []string `mapstructure:"status_checks" default:"x"`

@@ -1,9 +1,9 @@
 // Package ui is the panel: one bubbletea program, rendered in its own tmux session, that holds no
-// database connection and knows nothing the service has not told it.
+// database connection and knows nothing the server has not told it.
 //
 // It is a client like any other. A keypress becomes an RPC, and the panel learns what came of
 // it from the watch stream rather than by changing its own state first, so what is on screen is
-// what the service last said was true. It is the largest package in the tree and README.md in
+// what the server last said was true. It is the largest package in the tree and README.md in
 // this directory is the map of it.
 package ui
 
@@ -192,7 +192,7 @@ type harnessFrameReader interface {
 
 // PanelSettings is what the panel was configured with, read once at launch.
 type PanelSettings struct {
-	// Addr is the address the service answers at.
+	// Addr is the address the server answers at.
 	Addr string
 	// Editor is the command a text field or a reviewed file is opened in.
 	Editor string
@@ -272,7 +272,7 @@ type model struct {
 	logs            logsScreen
 	statusChecks    statusChecksScreen
 	statusCheckLogs statusCheckLogsScreen
-	// inspections is what the service answered for each worktree directory.
+	// inspections is what the server answered for each worktree directory.
 	inspections map[string]worktreeInspection
 	lastScreen  lastScreen
 	said        saidTranscript

@@ -13,7 +13,7 @@ import (
 	"charm.land/huh/v2"
 )
 
-// documentTypeNameLimit is the longest name the service takes for a document type.
+// documentTypeNameLimit is the longest name the server takes for a document type.
 const documentTypeNameLimit = 100
 
 // documentTypeFormValues is what the document type forms ask for.

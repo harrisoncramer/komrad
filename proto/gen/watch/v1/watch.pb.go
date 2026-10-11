@@ -33,7 +33,7 @@ const (
 type Resource int32
 
 const (
-	// No resource was set, which the service never sends.
+	// No resource was set, which the server never sends.
 	Resource_RESOURCE_UNSPECIFIED Resource = 0
 	// A row of agents.
 	Resource_RESOURCE_AGENT Resource = 1

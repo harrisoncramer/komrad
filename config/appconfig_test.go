@@ -450,7 +450,7 @@ func TestLoadFrameHistoryRefusesToBeUnbounded(t *testing.T) {
 	}
 }
 
-// TestLoadLogLevel covers the level the service logs at, including a word slog has no answer
+// TestLoadLogLevel covers the level the server logs at, including a word slog has no answer
 // for.
 func TestLoadLogLevel(t *testing.T) {
 	tests := []struct {
@@ -879,7 +879,7 @@ func loadStrict(t *testing.T, file string) (*Config, error) {
 	return LoadStack(Stack{Paths: []string{path}})
 }
 
-// TestLoadRejectsMailTheServiceCouldNotSendOn covers the two mail settings the service reads at
+// TestLoadRejectsMailTheServiceCouldNotSendOn covers the two mail settings the server reads at
 // send time, where a value it cannot read stops every send rather than the config being read.
 func TestLoadRejectsMailTheServiceCouldNotSendOn(t *testing.T) {
 	tests := []struct {
@@ -908,13 +908,13 @@ func TestLoadRejectsMailTheServiceCouldNotSendOn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := loadStrict(t, tt.file)
 
-			require.Error(t, err, "the service reads this per send, so a bad value stops mail rather than startup")
+			require.Error(t, err, "the server reads this per send, so a bad value stops mail rather than startup")
 			assert.ErrorContains(t, err, tt.want)
 		})
 	}
 }
 
-// TestLoadRejectsAnAddressTheApiShouldNotAnswerOn covers the address the service listens on,
+// TestLoadRejectsAnAddressTheApiShouldNotAnswerOn covers the address the server listens on,
 // which has no auth and whose writes spawn agents.
 func TestLoadRejectsAnAddressTheApiShouldNotAnswerOn(t *testing.T) {
 	tests := []struct {

@@ -57,14 +57,14 @@ type Connection struct {
 	// Left empty this is database_url with the engine's reader login, which is its own login
 	// with _reader on the end and the same password.
 	ReadOnlyDatabaseURL string `mapstructure:"readonly_database_url"`
-	// Where the background service listens, and where the panel, the CLI and the MCP
+	// Where the server listens, and where the panel, the CLI and the MCP
 	// endpoint all reach it. Change it to run two komrads on one machine. It has to be a
 	// loopback host, since the api has no auth and its writes spawn agents.
 	Addr string `mapstructure:"addr"`
 	// The tmux socket komrad runs its own server on. Nothing in your normal tmux sees
 	// that server, which is why `tmux -L komrad ls` is how you look at it directly.
 	TmuxSocket string `mapstructure:"tmux_socket"`
-	// Where komrad keeps what it generates: the service log, the built-in scripts it
+	// Where komrad keeps what it generates: the server log, the built-in scripts it
 	// writes out on every start, and the temp files a harness passes a prompt through.
 	// Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
 	// Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.
@@ -105,7 +105,7 @@ func (c *Connection) normalize() {
 	}
 }
 
-// validate rejects an address the service could not listen on or should not, and a
+// validate rejects an address the server could not listen on or should not, and a
 // database url that is not one Postgres would answer.
 func (c Connection) validate() error {
 	if err := ValidateAddr(c.Addr); err != nil {
@@ -118,7 +118,7 @@ func (c Connection) validate() error {
 // loopbackHosts are the hosts that reach only this machine, spelled the ways a person writes them.
 var loopbackHosts = []string{"localhost", "::1"}
 
-// ValidateAddr rejects an address the service could not listen on, or should not. The caller
+// ValidateAddr rejects an address the server could not listen on, or should not. The caller
 // names where the address came from, since it is a flag as often as it is a setting.
 func ValidateAddr(addr string) error {
 	trimmed := strings.TrimSpace(addr)

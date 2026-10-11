@@ -68,7 +68,7 @@ func (m *model) takeWatch(batch client.WatchBatch) tea.Cmd {
 }
 
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise, and
-// says nothing of a close the service chose, which the reopen follows.
+// says nothing of a close the server chose, which the reopen follows.
 func (m *model) applyWatchLost(msg watchLostMsg) {
 	if msg.err == nil {
 		return

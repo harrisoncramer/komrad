@@ -144,7 +144,7 @@ func TestToolHints(t *testing.T) {
 	}
 }
 
-// TestInputSchema confirms what the service rejects empty is described as required and
+// TestInputSchema confirms what the server rejects empty is described as required and
 // everything else can be left out.
 func TestInputSchema(t *testing.T) {
 	tests := []struct {
@@ -212,7 +212,7 @@ func TestInputSchema(t *testing.T) {
 			required, ok := schema["required"].([]string)
 			require.True(t, ok)
 			assert.ElementsMatch(t, tt.wantRequired, required,
-				"only the fields the service rejects empty are required")
+				"only the fields the server rejects empty are required")
 		})
 	}
 }

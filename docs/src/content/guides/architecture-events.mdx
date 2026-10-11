@@ -30,7 +30,7 @@ Komrad never polls the database to find out what changed. The database tells it.
 
 Every table the panel draws has a trigger. When a row is inserted, updated or deleted, the trigger calls `pg_notify` with the table name and the row's key. It sends no data. It just says which row to look at. Because it rides on the transaction, it fires only when the write commits.
 
-The service keeps one connection open just to listen. When a notification arrives, it adds the key to a pending set and pokes the render loop. The poke is a channel with room for one message. If the loop is busy, the poke is dropped, and the key is still in the set. So a hundred writes to the same row become one re-read.
+The server keeps one connection open just to listen. When a notification arrives, it adds the key to a pending set and pokes the render loop. The poke is a channel with room for one message. If the loop is busy, the poke is dropped, and the key is still in the set. So a hundred writes to the same row become one re-read.
 
 The render loop reads the pending rows back using the same queries the List RPCs use. Each subscriber remembers what it was last sent and only gets what differs. A row that no longer exists becomes a tombstone.
 
@@ -42,7 +42,7 @@ The panel and MCP see the same rows. One function joins an agent to its mail, pu
 
 ## Sync loops
 
-The outside world does not send notifications. tmux does not say when an agent goes idle. GitHub does not say when a pull request merges. So the service runs loops that go and look on a timer and write what they find onto a row. From there, the trigger and the stream do the rest.
+The outside world does not send notifications. tmux does not say when an agent goes idle. GitHub does not say when a pull request merges. So the server runs loops that go and look on a timer and write what they find onto a row. From there, the trigger and the stream do the rest.
 
 For instance, the reconcile loop reads the bottom of each agent's pane and decides whether the agent is working, waiting, or idle. It reads the screen instead of trusting hooks, because a hook can be missed and a screen cannot lie. Other loops deliver mail, sync pull requests, and measure worktrees.
 
@@ -52,7 +52,7 @@ Sometimes it's better for komrad to notice changes more quickly than background 
 
 Komrad doesn't handle this by patching state. State only flows into komrad's database from an external system via the loop cycle.
 
-In these cases, the service can "wake" a loop, which asks it to run now instead of at its next tick.
+In these cases, the server can "wake" a loop, which asks it to run now instead of at its next tick.
 
 The wake only says "look again". It never carries what changed, so all writes still flow through the same loop path.
 

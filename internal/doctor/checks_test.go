@@ -12,7 +12,7 @@ import (
 // TestChecksAreWellFormed covers the wiring of each list rather than any one assertion: a
 // typo in a dependency name would silently run a check meant to be skipped, a duplicate
 // name would read the wrong check's conclusion, and a dependency listed only on the other
-// machine would skip a check the service makes on its own; none of which shows up at runtime
+// machine would skip a check the server makes on its own; none of which shows up at runtime
 // as more than a confusing report.
 func TestChecksAreWellFormed(t *testing.T) {
 	settings := Settings{Harnesses: []harnessInfo{

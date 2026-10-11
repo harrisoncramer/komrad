@@ -3,7 +3,7 @@ package doctor
 import "komrad/lib/xslice"
 
 // HereChecks is what the doctor makes on the machine it runs on: what the panel and the CLI
-// there need, and the service as it is reached from there.
+// there need, and the server as it is reached from there.
 func HereChecks() []Check {
 	return []Check{
 		newKomradCheck(),
@@ -24,7 +24,7 @@ func HereChecks() []Check {
 	}
 }
 
-// EngineChecks is what the service makes on the machine the engine runs on, and what the doctor
+// EngineChecks is what the server makes on the machine the engine runs on, and what the doctor
 // asks an engine for: what the agents there need.
 func EngineChecks(settings Settings) []Check {
 	checks := []Check{

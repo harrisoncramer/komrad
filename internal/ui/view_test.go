@@ -15,7 +15,7 @@ import (
 // TestViewFatalScreens covers the screens that take the whole panel when it cannot start.
 func TestViewFatalScreens(t *testing.T) {
 	configErr := errors.New("failed to parse config /home/u/.config/komrad/config.toml: keybindings.list is not a setting")
-	startupErr := errors.New("the agent server stopped during startup: failed to reach db: connection refused")
+	startupErr := errors.New("the server stopped during startup: failed to reach db: connection refused")
 
 	tests := []struct {
 		name        string
@@ -33,7 +33,7 @@ func TestViewFatalScreens(t *testing.T) {
 		{
 			name:        "a startup failure carries the reason the server gave",
 			startupErr:  startupErr,
-			wantContain: []string{"The agent server could not be started", "connection refused"},
+			wantContain: []string{"The server could not be started", "connection refused"},
 			wantAbsent:  []string{"Cannot reach the server"},
 		},
 		{
@@ -41,7 +41,7 @@ func TestViewFatalScreens(t *testing.T) {
 			configErr:   configErr,
 			startupErr:  startupErr,
 			wantContain: []string{"Your configuration could not be read"},
-			wantAbsent:  []string{"The agent server could not be started"},
+			wantAbsent:  []string{"The server could not be started"},
 		},
 	}
 

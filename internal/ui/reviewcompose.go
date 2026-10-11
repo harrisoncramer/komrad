@@ -222,7 +222,7 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 			// The old side of these numbers came from whatever the diff was measured from, so the
 			// thread records that rather than leaving a later reader to assume the round's own base.
 			base: r.diff.View().GetBaseSHA(),
-			// The new side names the snapshot it was read from, which the service compares against
+			// The new side names the snapshot it was read from, which the server compares against
 			// the round it would file the thread under rather than trusting the numbers.
 			snapshot: r.diff.View().GetSnapshotSHA(),
 		}
@@ -236,7 +236,7 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 	return keepUnsent(kept, r.createThreadCmd(m, *place, body))
 }
 
-// reviewUnsent is a message on its way to the service, held until the write carrying it lands.
+// reviewUnsent is a message on its way to the server, held until the write carrying it lands.
 type reviewUnsent struct {
 	editing string
 	body    string
@@ -277,7 +277,7 @@ func keepUnsent(kept reviewUnsent, write tea.Cmd) tea.Cmd {
 	}
 }
 
-// restoreMessage opens the composer again on a message the service refused.
+// restoreMessage opens the composer again on a message the server refused.
 func (r *reviewScreen) restoreMessage(m *model, unsent reviewUnsent) tea.Cmd {
 	if r.threads.composing || r.threads.releasing {
 		return nil

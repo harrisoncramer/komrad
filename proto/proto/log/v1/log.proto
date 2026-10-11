@@ -72,7 +72,7 @@ message ReadAgentLogsRequest {
     gte: 0
     lte: 1000
   }];
-  // Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent.
+  // Which of the agent's log sources to read, as list_agent_log_sources names them. The server log when unset. A script run's source reads exactly one agent.
   string source = 4 [(buf.validate.field).string.max_len = 256];
   // A regular expression in Go syntax that a line must match to be answered. Every line when unset. The newest lines are searched within the last 64 MB of the source.
   string pattern = 5 [(buf.validate.field).string.max_len = 256];
@@ -94,9 +94,9 @@ message LogSource {
   string id = 1;
   // What the source is called, such as service or 003 agent.pre-launch setup.
   string name = 2;
-  // The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log.
+  // The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the server log.
   optional int32 run = 3;
-  // The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the service log.
+  // The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the server log.
   string agent_id = 4;
   // Whether the script run failed, set only on a task's log sources.
   bool failed = 5;
@@ -108,7 +108,7 @@ message ListAgentLogSourcesRequest {
 }
 
 message ListAgentLogSourcesResponse {
-  // The service log first, then each script run the agent recorded, newest first.
+  // The server log first, then each script run the agent recorded, newest first.
   repeated LogSource sources = 1;
 }
 
@@ -122,7 +122,7 @@ message ListTaskLogSourcesResponse {
   repeated LogSource sources = 1;
 }
 
-// LogService reads the service's own log back, by the trace id its lines carry.
+// LogService reads the server's own log back, by the trace id its lines carry.
 service LogService {
   rpc GetLogLines(GetLogLinesRequest) returns (GetLogLinesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -140,7 +140,7 @@ service LogService {
       cli: true
       mcp: true
       name: "list_recent_traces"
-      description: "List the traces the service log ends with, oldest first, to find the one to read with get_log_lines."
+      description: "List the traces the server log ends with, oldest first, to find the one to read with get_log_lines."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -150,7 +150,7 @@ service LogService {
       cli: true
       mcp: true
       name: "read_agent_logs"
-      description: "Read what the service logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output."
+      description: "Read what the server logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -160,7 +160,7 @@ service LogService {
       cli: true
       mcp: true
       name: "list_agent_log_sources"
-      description: "List where an agent's logs can be read from, the service log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources."
+      description: "List where an agent's logs can be read from, the server log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

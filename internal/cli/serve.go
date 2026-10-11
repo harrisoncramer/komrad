@@ -30,8 +30,8 @@ func serveCmd(state *app) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Run the komrad service in the foreground",
-		Long: `Run the komrad service in the foreground.
+		Short: "Run the komrad server in the foreground",
+		Long: `Run the komrad server in the foreground.
 
 It opens the database, mounts the Connect handlers and the MCP endpoint on one
 address, runs the loops that read each pane's state and sync transcripts, and fires

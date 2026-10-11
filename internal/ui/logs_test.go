@@ -25,7 +25,7 @@ import (
 func TestLogsOpen(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the menu lists the sources and opens the newest lines of the service log", func(t *testing.T) {
+	t.Run("the menu lists the sources and opens the newest lines of the server log", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
@@ -130,11 +130,11 @@ func TestLogsFailedRunRead(t *testing.T) {
 	}
 }
 
-// TestLogsFormat covers the service log rendered compact or raw from the format strip.
+// TestLogsFormat covers the server log rendered compact or raw from the format strip.
 func TestLogsFormat(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the service log opens compact under its strip", func(t *testing.T) {
+	t.Run("the server log opens compact under its strip", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
@@ -145,7 +145,7 @@ func TestLogsFormat(t *testing.T) {
 		assert.NotContains(t, readStageText(frame), `{"body"`)
 	})
 
-	t.Run("the strip steps the service log to raw", func(t *testing.T) {
+	t.Run("the strip steps the server log to raw", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
@@ -863,7 +863,7 @@ func serviceReadMatching(pattern, cursor string) *logv1.ReadAgentLogsRequest {
 	return read
 }
 
-// longLog is a service log of a hundred numbered entries, taller than the block renders.
+// longLog is a server log of a hundred numbered entries, taller than the block renders.
 func longLog() logReads {
 	var lines []string
 	for i := 1; i <= 100; i++ {

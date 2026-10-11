@@ -40,13 +40,13 @@ message Summary {
 }
 
 message RunDoctorResponse {
-  // Every check the service made, in the order it made them.
+  // Every check the server made, in the order it made them.
   repeated Finding findings = 1;
   // The findings counted up.
   Summary summary = 2;
 }
 
-// DoctorService makes the checks the doctor makes, on the machine the service runs on.
+// DoctorService makes the checks the doctor makes, on the machine the server runs on.
 service DoctorService {
   rpc RunDoctor(google.protobuf.Empty) returns (RunDoctorResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -54,7 +54,7 @@ service DoctorService {
       cli: true
       mcp: true
       name: "run_doctor"
-      description: "Check whether the machine the service runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database."
+      description: "Check whether the machine the server runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

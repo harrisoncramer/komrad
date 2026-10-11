@@ -13,7 +13,7 @@ import (
 	"charm.land/huh/v2"
 )
 
-// documentNameLimit is the longest name the service takes for a document.
+// documentNameLimit is the longest name the server takes for a document.
 const documentNameLimit = 200
 
 // documentFormValues is what the new document form asks for.

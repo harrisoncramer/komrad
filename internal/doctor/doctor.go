@@ -1,6 +1,6 @@
 // Package doctor checks the things komrad needs from the machine around it and reports what is
 // wrong in terms a person can act on: the configuration file, the database and its schema, the
-// service, tmux and its shell, the directories the hooks and worktree features read and write,
+// server, tmux and its shell, the directories the hooks and worktree features read and write,
 // and the CLI binary each harness runs.
 //
 // Every one of these fails at a distance from where it is noticed. A missing tmux shell shows
@@ -105,7 +105,7 @@ type Finding struct {
 	Where string `json:"where,omitempty"`
 }
 
-// whereEngine is what a finding the engine's service made carries in Where.
+// whereEngine is what a finding the engine's server made carries in Where.
 const whereEngine = "engine"
 
 var errEngineUnanswered = &ProblemError{
@@ -113,7 +113,7 @@ var errEngineUnanswered = &ProblemError{
 	Message: "the engine did not answer with its checks",
 }
 
-const engineDescription = "the checks the engine's service makes on its own machine"
+const engineDescription = "the checks the engine's server makes on its own machine"
 
 // EngineNotChecked stands in for the engine's checks when the server check did not pass.
 func EngineNotChecked() Finding {
@@ -126,7 +126,7 @@ func EngineNotChecked() Finding {
 	}
 }
 
-// EngineUnanswered stands in for the engine's checks when the service was asked for them and
+// EngineUnanswered stands in for the engine's checks when the server was asked for them and
 // the call failed.
 func EngineUnanswered(err error) Finding {
 	wrapped := fmt.Errorf("%w: %w", errEngineUnanswered, err)
@@ -137,12 +137,12 @@ func EngineUnanswered(err error) Finding {
 		Status:      StatusFail,
 		Code:        codeOf(wrapped),
 		Error:       wrapped.Error(),
-		Fix:         "run komrad doctor on the engine, or read the service's log there",
+		Fix:         "run komrad doctor on the engine, or read the server's log there",
 		Where:       whereEngine,
 	}
 }
 
-// WithEngine is the report with the findings an engine's service made added after the ones
+// WithEngine is the report with the findings an engine's server made added after the ones
 // made here, each marked as the engine's and counted into the summary.
 func (r Report) WithEngine(findings []Finding) Report {
 	merged := Report{Findings: make([]Finding, 0, len(r.Findings)+len(findings))}

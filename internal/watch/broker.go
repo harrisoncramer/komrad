@@ -30,7 +30,7 @@ const readTimeout = 10 * time.Second
 const retryAfter = time.Second
 
 // ErrClosed says the broker has stopped and takes no more watchers.
-var ErrClosed = fail.Precondition("the service is stopping, so no watch can be opened")
+var ErrClosed = fail.Precondition("the server is stopping, so no watch can be opened")
 
 // errNotListening says the broker has no connection listening on the database, so a snapshot taken
 // now could miss a change.

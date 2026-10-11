@@ -169,7 +169,7 @@ func TestRunSurvivesACheckThatPanics(t *testing.T) {
 }
 
 // TestWithEngineMarksAndCountsTheEngineFindings covers the report the doctor prints for a
-// remote engine: what the service answered comes after what was made here, marked as the
+// remote engine: what the server answered comes after what was made here, marked as the
 // engine's, and the summary counts both.
 func TestWithEngineMarksAndCountsTheEngineFindings(t *testing.T) {
 	t.Parallel()

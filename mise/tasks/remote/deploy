@@ -7,7 +7,7 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run remote:deploy [instance-id]"
 	echo
-	echo "Cross-compiles komrad for the engine, installs it there, migrates as the owner, and restarts the service."
+	echo "Cross-compiles komrad for the engine, installs it there, migrates as the owner, and restarts the server."
 	echo "A clean deploy carries this checkout's commit, which is what the panel compares"
 	echo "against, so a panel built from the same commit needs nothing further. A deploy"
 	echo "from a dirty tree names no commit, so it also builds a local binary at the same"

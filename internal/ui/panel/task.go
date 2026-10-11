@@ -7,7 +7,7 @@ import (
 	taskv1 "komrad/proto/gen/task/v1"
 )
 
-// Task is one task as the service listed it, with the pull requests on its branch and the comments
+// Task is one task as the server listed it, with the pull requests on its branch and the comments
 // on its work.
 type Task struct {
 	ID              string

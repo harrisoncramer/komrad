@@ -78,7 +78,7 @@ func openReadOnlyPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// connectReadOnly opens the read-only pool as the service does, paired with the engine databaseURL logs in as.
+// connectReadOnly opens the read-only pool as the server does, paired with the engine databaseURL logs in as.
 func connectReadOnly(ctx context.Context, url, databaseURL string) error {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
@@ -98,7 +98,7 @@ func connectReadOnly(ctx context.Context, url, databaseURL string) error {
 	return nil
 }
 
-// readEngine names the engine the login in url belongs to, opening the store the way the service does.
+// readEngine names the engine the login in url belongs to, opening the store the way the server does.
 func readEngine(ctx context.Context, url string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
