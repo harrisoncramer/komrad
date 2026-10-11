@@ -18,13 +18,13 @@ They are also durable. You can shut down or restart your machine without losing 
 
 ## Three kinds of agent
 
-Komrad has three kinds of agent.
+Komrad has three kinds of agents.
 
-The _orchestrator_ belongs to the workflow. There is one per workflow, and it coordinates the work rather than doing it. You met it in the [workflows](../workflows/#the-orchestrator) guide.
+There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator), which coordinates work by each of the tasks within the workflow.
 
-An _implementer_ does the work of a task. The implementer that holds a task's checkout is the task's [writer](../tasks/#the-writer). It edits the code, commits, and opens the pull request. Although only one implementer can can be a task's active writer, you can "hand off" work to a new writer if you want.
+Each task has one active _implementer_ agent, which makes edits, commits, open pull requests. Although only one implementer can can be a task's active [writer](../tasks/#the-writer), you can "hand off" work to a new writer if you want.
 
-Finally, _reviewer_ agents read an implementer's change and comment on it. These agents share the implementer's checkout, and makes no changes of their own. There can be many reviewers per task.
+Finally, _reviewer_ agents read an implementer's changes and comment on them. These agents share the implementer's checkout, and makes no changes of their own. There can be many reviewers per task.
 
 ```
   workflow (and its orchestrator)
