@@ -18,14 +18,19 @@ const pullRequestWindowRows = 10
 // once its title has been read from the forge.
 func (r reviewScreen) currentPullRequest(m *model) (panel.PullRequest, bool) {
 	item, ok := m.listing.anyAgent(r.agentID)
-	if !ok || len(item.PullRequests) == 0 || item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
-		return panel.PullRequest{}, false
-	}
-	if item.PullRequests[0].Title == "" {
+	if !ok {
 		return panel.PullRequest{}, false
 	}
 
-	return item.PullRequests[0], true
+	task := m.listing.findTask(item.Agent)
+	if len(task.PullRequests) == 0 || task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
+		return panel.PullRequest{}, false
+	}
+	if task.PullRequests[0].Title == "" {
+		return panel.PullRequest{}, false
+	}
+
+	return task.PullRequests[0], true
 }
 
 // pullRequestView is the pull request's number, title, author and a window on its description

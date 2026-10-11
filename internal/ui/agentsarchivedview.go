@@ -75,6 +75,7 @@ func (a *archivedAgents) snapshot(m *model, pane listPane) view.Snapshot {
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, rows, m.agentRowFits),
+		tasks:        m.listing.tasks,
 		renaming:     a.renamingField(),
 		showHidden:   true,
 		flat:         a.sort.flat,

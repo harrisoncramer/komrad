@@ -16,7 +16,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-func agentFrom(s *agentv1.Agent, task *taskv1.Task) panel.Agent {
+func agentFrom(s *agentv1.Agent) panel.Agent {
 	return panel.Agent{
 		ID:                s.GetId(),
 		Name:              s.GetName(),
@@ -35,13 +35,10 @@ func agentFrom(s *agentv1.Agent, task *taskv1.Task) panel.Agent {
 		CreatedAt:         dates.Parse(s.GetCreatedAt()),
 		StateChangedAt:    dates.Parse(s.GetStateChangedAt()),
 		ArchivedAt:        dates.ParsePtr(s.GetArchivedAt()),
-		WorktreeRemoved:   task.GetWorktreeRemoved(),
-		Sequence:          sequenceFrom(task.GetSequence()),
 		ParentAgentID:     s.ParentAgentId,
 		HeldAt:            dates.ParsePtr(s.GetHeldAt()),
 		HeldByAgentID:     s.GetHeldByAgentId(),
 		TaskID:            s.GetTaskId(),
-		TaskSlug:          s.GetTaskSlug(),
 		ProvisionDisabled: s.GetProvisionDisabled(),
 	}
 }
@@ -144,29 +141,22 @@ func sequenceFrom(sequence taskv1.Sequence) panel.Sequence {
 	return panel.SequenceUnknown
 }
 
-// agentRowsFrom is a listing of assembled rows as the panel keeps them, each beside its task.
-func agentRowsFrom(listed []*agentv1.AgentRow, tasks map[string]*taskv1.Task) []panel.AgentRow {
-	return xslice.Map(listed, func(row *agentv1.AgentRow) panel.AgentRow {
-		return agentRowFrom(row, tasks[row.GetAgent().GetTaskId()])
-	})
+// agentRowsFrom is a listing of assembled rows as the panel keeps them.
+func agentRowsFrom(listed []*agentv1.AgentRow) []panel.AgentRow {
+	return xslice.Map(listed, agentRowFrom)
 }
 
-func agentRowFrom(row *agentv1.AgentRow, task *taskv1.Task) panel.AgentRow {
+func agentRowFrom(row *agentv1.AgentRow) panel.AgentRow {
 	agent := row.GetAgent()
 
 	return panel.AgentRow{
-		Agent:              agentFrom(agent, task),
+		Agent:              agentFrom(agent),
 		Alive:              agent.GetAlive(),
 		UnreadMail:         row.GetUnreadMail(),
 		FailedRun:          agent.GetFailedRun(),
 		FailedRunLog:       agent.FailedRunLog,
 		Documents:          agent.GetDocuments(),
 		DocumentsUpdatedAt: dates.ParsePtr(agent.GetDocumentsUpdatedAt()),
-		PullRequest:        pullRequestStandingFrom(row.GetPullRequest()),
-		PullRequests:       xslice.Map(row.GetPullRequests(), pullRequestFrom),
-		MovedSinceRound:    task.GetMovedSinceRound(),
-		ReviewerComments:   row.GetReviewerComments(),
-		PersonComments:     row.GetPersonComments(),
 	}
 }
 

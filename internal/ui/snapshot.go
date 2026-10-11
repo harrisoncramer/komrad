@@ -31,6 +31,8 @@ type snapshotParams struct {
 	matcher *regexp.Regexp
 	// picked are the keys of the rows the search's qualifiers pick, nil when it names none.
 	picked map[string]bool
+	// tasks are the tasks the agents work on, keyed by id.
+	tasks map[string]panel.Task
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
 	scheduled map[string]bool
 	// workflowDirs is the directory each workflow launches its agents in, keyed by workflow id.
@@ -82,7 +84,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Documents = r.task.Documents > 0
 		row.Process = view.ProcessNone
 		row.Repo = snapshotRepo(r.task.WorktreeRemoved, r.task.Sequence)
-		row.InWorkflowDir = isInWorkflowDir(r.lead.Agent, params.workflowDirs)
+		row.InWorkflowDir = isInWorkflowDir(r.task.WorkflowID, r.task.Cwd, params.workflowDirs)
 		row.ReviewerComments, row.PersonComments = convertComments(r.task.ReviewerComments), convertComments(r.task.PersonComments)
 		row.Forge = snapshotForge(r.task.PullRequest)
 		row.AutoMerge = r.task.PullRequest.MergeReadiness.AutoMerge
@@ -117,17 +119,20 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	}
 
 	item := r.item
+	task := findAgentTask(params.tasks, item.Agent)
 	row = agentFacts(row, item)
 	row.Documents = row.Documents && !r.underTask
 	row.Kind = snapshotKind(r, params.flat)
 	row.Nested = r.underTask
 	row.Name = item.Agent.Name
 	row.Matches = params.matchesOf(r, item.Agent.Name)
-	row.Repo = snapshotRepo(item.Agent.WorktreeRemoved, item.Agent.Sequence)
-	row.InWorkflowDir = isInWorkflowDir(item.Agent, params.workflowDirs)
-	row.ReviewerComments, row.PersonComments = convertComments(item.ReviewerComments), convertComments(item.PersonComments)
-	row.Forge = snapshotForge(item.PullRequest)
-	row.AutoMerge = item.PullRequest.MergeReadiness.AutoMerge
+	row.Repo = snapshotRepo(task.WorktreeRemoved, task.Sequence)
+	row.InWorkflowDir = isInWorkflowDir(item.Agent.WorkflowID, item.Agent.Cwd, params.workflowDirs)
+	if item.Agent.ParentAgentID == nil {
+		row.ReviewerComments, row.PersonComments = convertComments(task.ReviewerComments), convertComments(task.PersonComments)
+	}
+	row.Forge = snapshotForge(task.PullRequest)
+	row.AutoMerge = task.PullRequest.MergeReadiness.AutoMerge
 	row.LoaderFrame = params.loaderFrame
 	row.Selected = params.selected.has(toTreeRowKey(key))
 
@@ -302,11 +307,11 @@ func snapshotRepo(removed bool, sequence panel.Sequence) view.Repo {
 	return view.RepoClean
 }
 
-// isInWorkflowDir reports whether an agent works in its workflow's own directory rather than a worktree.
-func isInWorkflowDir(agent panel.Agent, dirs map[string]string) bool {
-	dir, ok := dirs[agent.WorkflowID]
+// isInWorkflowDir reports whether a directory is its workflow's own rather than a worktree.
+func isInWorkflowDir(workflowID, cwd string, dirs map[string]string) bool {
+	dir, ok := dirs[workflowID]
 
-	return ok && agent.Cwd != "" && filepath.Clean(agent.Cwd) == filepath.Clean(dir)
+	return ok && cwd != "" && filepath.Clean(cwd) == filepath.Clean(dir)
 }
 
 func convertComments(counts *agentv1.CommentCounts) *view.Comments {

@@ -21,14 +21,14 @@ const (
 	mergeChoiceMergeRebase
 )
 
-var errArchiveArchived = errors.New("an archived agent is already archived")
+var errArchiveArchived = errors.New("an archived task is already archived")
 
-// mergeMenu is the ways to merge an agent's pull request, opened from the git menu.
-func mergeMenu(m *model, item panel.AgentRow) submenu {
-	agentID := item.Agent.ID
-	refused := openPullRequestRefusal(item) != nil
+// mergeMenu is the ways to merge a task's pull request, opened from the git menu.
+func mergeMenu(m *model, task panel.Task) submenu {
+	taskID := task.ID
+	refused := openPullRequestRefusal(task) != nil
 	run := func(choice mergeChoice) func(*model) tea.Cmd {
-		return func(m *model) tea.Cmd { return m.runMerge(agentID, choice) }
+		return func(m *model) tea.Cmd { return m.runMerge(taskID, choice) }
 	}
 
 	return submenu{
@@ -44,116 +44,114 @@ func mergeMenu(m *model, item panel.AgentRow) submenu {
 			{
 				label: "merge and archive",
 				keys:  m.keys.Merge.MergeArchive,
-				isOff: refused || item.Agent.ArchivedAt != nil,
+				isOff: refused || task.ArchivedAt != nil,
 				write: run(mergeChoiceMergeArchive),
 			},
 			{
-				label: autoMergeLabel(item),
+				label: autoMergeLabel(task),
 				keys:  m.keys.Merge.AutoMerge,
-				isOff: autoMergeRefusal(item) != nil,
+				isOff: autoMergeRefusal(task) != nil,
 				write: run(mergeChoiceAutoMerge),
 			},
 			{
 				label: "merge then rebase",
 				keys:  m.keys.Merge.MergeRebase,
-				isOff: mergeRebaseRefusal(m.listing, item) != nil,
+				isOff: mergeRebaseRefusal(m.listing, task) != nil,
 				write: run(mergeChoiceMergeRebase),
 			},
 		},
 	}
 }
 
-// runMerge asks the forge to merge the agent's pull request, or says why it cannot.
-func (m *model) runMerge(agentID string, choice mergeChoice) tea.Cmd {
+// runMerge asks the forge to merge the task's pull request, or says why it cannot.
+func (m *model) runMerge(taskID string, choice mergeChoice) tea.Cmd {
 	// The list may have moved under the open menu.
-	item, ok := m.listing.anyAgent(agentID)
-
+	task, ok := m.findGitTask(taskID)
 	if !ok {
-		m.report("Could not act on the agent", errAgentGone)
+		m.report("Could not act on the task", errTaskGone)
 
 		return nil
 	}
 
 	if choice == mergeChoiceAutoMerge {
-		return m.toggleAutoMerge(item)
+		return m.toggleAutoMerge(task)
 	}
 
 	if choice == mergeChoiceMergeRebase {
-		if err := mergeRebaseRefusal(m.listing, item); err != nil {
-			m.report("Could not merge and rebase "+item.Agent.Name, err)
+		if err := mergeRebaseRefusal(m.listing, task); err != nil {
+			m.report("Could not merge and rebase "+task.Slug, err)
 
 			return nil
 		}
 
-		return m.runGitCmd(mergeRebaseOp(item))
+		return m.runGitCmd(mergeRebaseOp(task))
 	}
 
 	archive := choice == mergeChoiceMergeArchive
-	if err := openPullRequestRefusal(item); err != nil {
-		m.report("Could not merge the "+item.PullRequest.Noun()+" of "+item.Agent.Name, err)
+	if err := openPullRequestRefusal(task); err != nil {
+		m.report("Could not merge the "+task.PullRequest.Noun()+" of "+task.Slug, err)
 
 		return nil
 	}
-	if archive && item.Agent.ArchivedAt != nil {
-		m.report("Could not archive "+item.Agent.Name, errArchiveArchived)
+	if archive && task.ArchivedAt != nil {
+		m.report("Could not archive "+task.Slug, errArchiveArchived)
 
 		return nil
 	}
 
-	return m.runGitCmd(mergeOp(item, archive))
+	return m.runGitCmd(mergeOp(task, archive))
 }
 
-func mergeOp(item panel.AgentRow, archive bool) gitOp {
+func mergeOp(task panel.Task, archive bool) gitOp {
 	return gitOp{
-		running: "merging " + item.PullRequest.Ref(),
+		running: "merging " + task.PullRequest.Ref(),
 		run: func(clients api) gitReport {
-			err := clients.mergePullRequest(item.PullRequest.URL)
+			err := clients.mergePullRequest(task.PullRequest.URL)
 
 			return func(m *model) tea.Cmd {
-				return m.reportMerged(item, archive, err)
+				return m.reportMerged(task, archive, err)
 			}
 		},
 	}
 }
 
-func (m *model) reportMerged(item panel.AgentRow, archive bool, err error) tea.Cmd {
-	standing := item.PullRequest
+func (m *model) reportMerged(task panel.Task, archive bool, err error) tea.Cmd {
+	standing := task.PullRequest
 	if err != nil {
-		m.report("Could not merge "+standing.Ref()+" of "+item.Agent.Name, err)
+		m.report("Could not merge "+standing.Ref()+" of "+task.Slug, err)
 
 		return nil
 	}
 
 	m.pushMessage(message{
 		kind:    messageInfo,
-		summary: item.Agent.Name + ": merged " + standing.Ref(),
+		summary: task.Slug + ": merged " + standing.Ref(),
 		detail:  standing.Title,
 	})
 
-	live, ok := m.listing.liveAgent(item.Agent.ID)
-	if !ok || !archive {
+	if !archive {
 		return nil
 	}
 
-	return m.archiveAgents([]panel.Agent{live.Agent})
+	return m.archiveTasks([]panel.Task{task})
 }
 
-func mergeRebaseOp(item panel.AgentRow) gitOp {
-	taskID, name := item.Agent.TaskID, item.Agent.Name
+func mergeRebaseOp(task panel.Task) gitOp {
+	taskID, name := task.ID, task.Slug
 
 	return gitOp{
-		running: "merging " + item.PullRequest.Ref() + " and rebasing " + name,
+		running: "merging " + task.PullRequest.Ref() + " and rebasing " + name,
 		run: func(clients api) gitReport {
-			if err := clients.mergePullRequest(item.PullRequest.URL); err != nil {
+			if err := clients.mergePullRequest(task.PullRequest.URL); err != nil {
 				return func(m *model) tea.Cmd {
-					return m.reportMerged(item, false, err)
+					return m.reportMerged(task, false, err)
 				}
 			}
 
 			result, err := clients.rebaseWorktree(taskID)
 
 			return func(m *model) tea.Cmd {
-				m.reportMerged(item, false, nil)
+				m.reportMerged(task, false, nil)
 				m.reportRebased(name, result, err)
 
 				return nil

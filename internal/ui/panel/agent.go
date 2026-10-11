@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"komrad/lib/xslice"
-	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // State is what an agent is doing.
@@ -87,23 +86,19 @@ type Agent struct {
 	ArchivedAt     *time.Time
 	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
 	// follows.
-	ParentAgentID   *string
-	WorktreeRemoved bool
-	// Sequence is what git has part-way through the agent's checkout and waiting on somebody.
-	Sequence Sequence
+	ParentAgentID *string
 	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
 	HeldAt *time.Time
 	// HeldByAgentID is the agent that took the hold, empty when the panel took it.
 	HeldByAgentID string
 	// TaskID is the task the agent works on, empty for an orchestrator.
-	TaskID   string
-	TaskSlug string
+	TaskID string
 	// ProvisionDisabled is whether it was told to keep the directory it was given rather than be provisioned a worktree.
 	ProvisionDisabled bool
 }
 
 // AgentRow is an agent as the listing renders it: the agent, whether its pane is alive, the mail
-// waiting for it, its unread failure, its local review and the pull requests on its branch.
+// waiting for it, and its unread failure.
 type AgentRow struct {
 	Agent      Agent
 	Alive      bool
@@ -115,18 +110,6 @@ type AgentRow struct {
 	Documents int32
 	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
 	DocumentsUpdatedAt *time.Time
-	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
-	MovedSinceRound string
-	// ReviewerComments counts the comments reviewer agents left on its work, nil while there
-	// are none to show.
-	ReviewerComments *agentv1.CommentCounts
-	// PersonComments counts the comments the person left on its work, nil while there are none
-	// to show.
-	PersonComments *agentv1.CommentCounts
-	// PullRequest is where the pull request opened from its branch stands.
-	PullRequest PullRequestStanding
-	// PullRequests is every pull request opened from its branch, the current one first.
-	PullRequests []PullRequest
 }
 
 // IDs is the id of each agent, in the order they were given.

@@ -66,6 +66,8 @@ func TestTriageRefresh(t *testing.T) {
 		name string
 		was  map[string]triageEntry
 		item panel.AgentRow
+		// task is the task the agent works on.
+		task panel.Task
 		// others are the rest of the listing beside the agent.
 		others []panel.AgentRow
 		want   string
@@ -104,20 +106,16 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name: "a conflict an agent is working through is not in triage",
-			item: func() panel.AgentRow {
-				item := live(panel.StateThinking)
-				item.Agent.Sequence = panel.SequenceRebase
-
-				return item
-			}(),
+			item: live(panel.StateThinking),
+			task: panel.Task{Sequence: panel.SequenceRebase},
 			want: "",
 		},
 		{
 			name: "a child in its parent's conflicted checkout is not in triage",
 			item: idle(func(item *panel.AgentRow) {
-				item.Agent.Sequence = panel.SequenceRebase
 				item.Agent.ParentAgentID = xptr.Ptr("p1")
 			}),
+			task: panel.Task{Sequence: panel.SequenceRebase},
 			want: "",
 		},
 		{
@@ -127,32 +125,36 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name: "an implementer waiting on its checks is not in triage",
-			item: implementer(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
-				item.PullRequest.MergeReadiness.Checks = pullrequestv1.Checks_CHECKS_PENDING
-			}),
+			item: implementer(func(*panel.AgentRow) {}),
+			task: panel.Task{PullRequest: panel.PullRequestStanding{
+				State:          pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
+				MergeReadiness: panel.MergeReadiness{Checks: pullrequestv1.Checks_CHECKS_PENDING},
+			}},
 			want: "",
 		},
 		{
 			name: "an implementer with a failure while checks still run is not in triage",
-			item: implementer(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
-				item.PullRequest.MergeReadiness.Checks = pullrequestv1.Checks_CHECKS_FAILING_RUNNING
-			}),
+			item: implementer(func(*panel.AgentRow) {}),
+			task: panel.Task{PullRequest: panel.PullRequestStanding{
+				State:          pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+				MergeReadiness: panel.MergeReadiness{Checks: pullrequestv1.Checks_CHECKS_FAILING_RUNNING},
+			}},
 			want: "",
 		},
 		{
 			name: "an implementer whose reviewers were asked to look again is not in triage",
-			item: implementer(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
-			}),
+			item: implementer(func(*panel.AgentRow) {}),
+			task: panel.Task{PullRequest: panel.PullRequestStanding{
+				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED,
+			}},
 			want: "",
 		},
 		{
 			name: "an implementer whose pull request has changes requested is finished",
-			item: implementer(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED
-			}),
+			item: implementer(func(*panel.AgentRow) {}),
+			task: panel.Task{PullRequest: panel.PullRequestStanding{
+				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
+			}},
 			want:  "finished",
 			since: changed,
 		},
@@ -160,9 +162,11 @@ func TestTriageRefresh(t *testing.T) {
 			name: "pending checks do not clear what only a person can",
 			item: idle(func(item *panel.AgentRow) {
 				item.FailedRun = true
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
-				item.PullRequest.MergeReadiness.Checks = pullrequestv1.Checks_CHECKS_PENDING
 			}),
+			task: panel.Task{PullRequest: panel.PullRequestStanding{
+				State:          pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
+				MergeReadiness: panel.MergeReadiness{Checks: pullrequestv1.Checks_CHECKS_PENDING},
+			}},
 			want:  "script failed",
 			since: seen,
 		},
@@ -236,7 +240,8 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name:  "a conflict left for a person",
-			item:  idle(func(item *panel.AgentRow) { item.Agent.Sequence = panel.SequenceRebase }),
+			item:  idle(func(*panel.AgentRow) {}),
+			task:  panel.Task{Sequence: panel.SequenceRebase},
 			want:  "checkout conflict",
 			since: seen,
 		},
@@ -270,18 +275,20 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name: "an implementer that stopped on a failing pull request is finished",
-			item: implementer(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING
-			}),
+			item: implementer(func(*panel.AgentRow) {}),
+			task: panel.Task{PullRequest: panel.PullRequestStanding{
+				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
+			}},
 			want:  "finished",
 			since: changed,
 		},
 		{
 			name: "an implementer whose pull request merged with checks still running is finished",
-			item: implementer(func(item *panel.AgentRow) {
-				item.PullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
-				item.PullRequest.MergeReadiness.Checks = pullrequestv1.Checks_CHECKS_PENDING
-			}),
+			item: implementer(func(*panel.AgentRow) {}),
+			task: panel.Task{PullRequest: panel.PullRequestStanding{
+				State:          pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
+				MergeReadiness: panel.MergeReadiness{Checks: pullrequestv1.Checks_CHECKS_PENDING},
+			}},
 			want:  "finished",
 			since: changed,
 		},
@@ -298,7 +305,16 @@ func TestTriageRefresh(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			zone := triageZone{capacity: 1, entries: tt.was}
 
-			zone.refresh(append([]panel.AgentRow{tt.item}, tt.others...), map[string]panel.Task{"hidden": {ID: "hidden", Hidden: true}}, seen)
+			item := tt.item
+			if item.Agent.TaskID == "" {
+				item.Agent.TaskID = "t1"
+			}
+			tasks := map[string]panel.Task{
+				"hidden": {ID: "hidden", Hidden: true},
+				"t1":     tt.task,
+			}
+
+			zone.refresh(append([]panel.AgentRow{item}, tt.others...), tasks, seen)
 
 			entry, queued := zone.entries["a1"]
 			assert.Equal(t, tt.want, entry.rule.name)

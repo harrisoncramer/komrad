@@ -41,7 +41,7 @@ func (m *model) isLoading() bool {
 }
 
 func (a *agentsScreen) isLoading(m *model) bool {
-	return slices.ContainsFunc(a.rows(m), isRowLoading)
+	return slices.ContainsFunc(a.rows(m), m.listing.isRowLoading)
 }
 
 func (r reviewScreen) isLoading(m *model) bool {
@@ -51,10 +51,10 @@ func (r reviewScreen) isLoading(m *model) bool {
 
 	item, ok := m.listing.liveAgent(r.agentID)
 
-	return ok && isChecksRunning(item.PullRequest)
+	return ok && isChecksRunning(m.listing.findTask(item.Agent).PullRequest)
 }
 
-func isRowLoading(r agentRow) bool {
+func (l listing) isRowLoading(r agentRow) bool {
 	if r.isTask() {
 		return isChecksRunning(r.task.PullRequest)
 	}
@@ -62,7 +62,7 @@ func isRowLoading(r agentRow) bool {
 		return r.orchestrator != nil && isThinking(*r.orchestrator)
 	}
 
-	return isChecksRunning(r.item.PullRequest) || r.item.Agent.State == panel.StateSettingUp || isThinking(r.item)
+	return isChecksRunning(l.findTask(r.item.Agent).PullRequest) || r.item.Agent.State == panel.StateSettingUp || isThinking(r.item)
 }
 
 // isThinking reports whether an agent is at work behind a pane still running, which turns the

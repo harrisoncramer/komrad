@@ -21,36 +21,36 @@ type draftedMsg struct {
 	write int
 }
 
-// isDraft says whether the agent's pull request is a draft.
-func isDraft(item panel.AgentRow) bool {
-	return item.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
+// isDraft says whether the task's pull request is a draft.
+func isDraft(task panel.Task) bool {
+	return task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
 }
 
 // draftLabel is the git menu entry that toggles the draft, naming which way it goes.
-func draftLabel(item panel.AgentRow) string {
-	if isDraft(item) {
+func draftLabel(task panel.Task) string {
+	if isDraft(task) {
 		return "toggle draft off"
 	}
 
 	return "toggle draft on"
 }
 
-// toggleDraft asks the forge to flip whether the agent's pull request is a draft, or says why it
+// toggleDraft asks the forge to flip whether the task's pull request is a draft, or says why it
 // cannot.
-func (m *model) toggleDraft(item panel.AgentRow) tea.Cmd {
-	if err := openPullRequestRefusal(item); err != nil {
-		m.report("Could not change the "+item.PullRequest.Noun()+" of "+item.Agent.Name, err)
+func (m *model) toggleDraft(task panel.Task) tea.Cmd {
+	if err := openPullRequestRefusal(task); err != nil {
+		m.report("Could not change the "+task.PullRequest.Noun()+" of "+task.Slug, err)
 
 		return nil
 	}
 
 	clients := m.api
-	standing := item.PullRequest
+	standing := task.PullRequest
 	drafted := draftedMsg{
-		name:  item.Agent.Name,
+		name:  task.Slug,
 		ref:   standing.Ref(),
 		title: standing.Title,
-		draft: !isDraft(item),
+		draft: !isDraft(task),
 	}
 	drafted.write = m.beginWrite(draftingLabel(drafted))
 

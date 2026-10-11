@@ -15,36 +15,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProtoToAgentCarriesTheSyncedColumns pins the worktree removal flag of the agent's task
-// surviving the conversion.
-func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
-	converted := agentFrom(&agentv1.Agent{Id: "a1"}, &taskv1.Task{
-		Id:              "t1",
-		WorktreeRemoved: true,
-	})
-
-	assert.True(t, converted.WorktreeRemoved)
-}
-
-// TestTaskFromCarriesTheCheckout pins the branch and the diff stat of a task's checkout
-// surviving the conversion.
+// TestTaskFromCarriesTheCheckout pins the branch, the diff stat and the removal of a task's
+// checkout surviving the conversion.
 func TestTaskFromCarriesTheCheckout(t *testing.T) {
 	branch := "fix/thing"
 	converted := taskFrom(assemble.TaskRow{Task: &taskv1.Task{
-		Id:       "t1",
-		Branch:   &branch,
-		DiffStat: &taskv1.DiffStat{Added: 3, Removed: 1},
+		Id:              "t1",
+		Branch:          &branch,
+		DiffStat:        &taskv1.DiffStat{Added: 3, Removed: 1},
+		WorktreeRemoved: true,
 	}})
 
 	require.NotNil(t, converted.Branch)
 	assert.Equal(t, branch, *converted.Branch)
 	assert.Equal(t, int32(3), converted.DiffStat.GetAdded())
 	assert.Equal(t, int32(1), converted.DiffStat.GetRemoved())
+	assert.True(t, converted.WorktreeRemoved)
 }
 
 // TestProtoToAgentCarriesAFailedTurn pins the text a turn an API error ended is rendered with.
 func TestProtoToAgentCarriesAFailedTurn(t *testing.T) {
-	assert.Equal(t, "Overloaded", agentFrom(&agentv1.Agent{Id: "a1", TurnError: "Overloaded"}, nil).TurnError)
+	assert.Equal(t, "Overloaded", agentFrom(&agentv1.Agent{Id: "a1", TurnError: "Overloaded"}).TurnError)
 }
 
 // TestProtoToAgentCarriesTheStateChange pins the timestamp the row's state is dated by.
@@ -53,7 +44,7 @@ func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 	converted := agentFrom(&agentv1.Agent{
 		Id:             "a1",
 		StateChangedAt: changed.Format(time.RFC3339),
-	}, nil)
+	})
 
 	assert.True(t, converted.StateChangedAt.Equal(changed))
 }
@@ -61,7 +52,7 @@ func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 // TestProtoToAgentWithoutAStateChange covers a server that sent no timestamp, which leaves the
 // zero time rather than an instant nothing dated it from.
 func TestProtoToAgentWithoutAStateChange(t *testing.T) {
-	assert.True(t, agentFrom(&agentv1.Agent{Id: "a1"}, nil).StateChangedAt.IsZero())
+	assert.True(t, agentFrom(&agentv1.Agent{Id: "a1"}).StateChangedAt.IsZero())
 }
 
 // TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field.

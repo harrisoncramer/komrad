@@ -97,7 +97,6 @@ func findAgentTask(tasks map[string]panel.Task, agent panel.Agent) panel.Task {
 	return panel.Task{
 		ID:         agent.TaskID,
 		WorkflowID: agent.WorkflowID,
-		Slug:       agent.TaskSlug,
 	}
 }
 
@@ -106,12 +105,45 @@ func isOnHiddenTask(tasks map[string]panel.Task, agent panel.Agent) bool {
 	return tasks[agent.TaskID].Hidden
 }
 
-// findTaskWriter is the agent that provisioned the task's checkout, or the lead when none on the
-// list did.
-func (l listing) findTaskWriter(task panel.Task, lead panel.AgentRow) panel.AgentRow {
+// findTaskLead is the agent a task is opened through.
+func (l listing) findTaskLead(task panel.Task) (panel.AgentRow, bool) {
+	return findLead(l.taskAgents(task))
+}
+
+// findLead is the newest of the agents on a task no parent among them stands over, preferring
+// one with a pane.
+func findLead(onTask []panel.AgentRow) (panel.AgentRow, bool) {
+	byID := keyAgentsByID(onTask)
+	heads := xslice.Filter(onTask, func(item panel.AgentRow) bool {
+		if item.Agent.ParentAgentID == nil {
+			return true
+		}
+		_, onIt := byID[*item.Agent.ParentAgentID]
+
+		return !onIt
+	})
+	if len(heads) == 0 {
+		return panel.AgentRow{}, false
+	}
+
+	lead := heads[0]
+	for _, head := range heads[1:] {
+		if isBetterLead(head, lead) {
+			lead = head
+		}
+	}
+
+	return lead, true
+}
+
+// findTaskWriter is the agent that provisioned the task's checkout, or the task's lead when none
+// on the list did.
+func (l listing) findTaskWriter(task panel.Task) panel.AgentRow {
 	onTask := l.taskAgents(task)
 	at := slices.IndexFunc(onTask, func(item panel.AgentRow) bool { return isTaskWriter(item.Agent) })
 	if at < 0 {
+		lead, _ := l.findTaskLead(task)
+
 		return lead
 	}
 
@@ -119,8 +151,8 @@ func (l listing) findTaskWriter(task panel.Task, lead panel.AgentRow) panel.Agen
 }
 
 // findCheckoutWriter is the task's writer while it works in the task's own checkout.
-func (l listing) findCheckoutWriter(task panel.Task, lead panel.AgentRow) (panel.AgentRow, bool) {
-	writer := l.findTaskWriter(task, lead)
+func (l listing) findCheckoutWriter(task panel.Task) (panel.AgentRow, bool) {
+	writer := l.findTaskWriter(task)
 	if task.Cwd == "" || writer.Agent.Cwd != task.Cwd {
 		return panel.AgentRow{}, false
 	}
@@ -390,4 +422,13 @@ func (w chosenWork) rechecked(l listing) chosenWork {
 // affected is every live agent the work takes.
 func (w chosenWork) affected(l listing) []panel.Agent {
 	return slices.Concat(l.agentsOnTasks(w.wholeTasks), w.loneAgents)
+}
+
+// isBetterLead reports whether a task should stand for the head over the lead it has so far.
+func isBetterLead(head, lead panel.AgentRow) bool {
+	if hasPane(head) != hasPane(lead) {
+		return hasPane(head)
+	}
+
+	return head.Agent.CreatedAt.After(lead.Agent.CreatedAt)
 }
