@@ -175,7 +175,7 @@ func (m *model) stageSelection() {
 	defer m.afterStaging()
 
 	staged, ok := m.agents.hoveredPane(m)
-	if !ok {
+	if !ok && m.wantsSolo() {
 		m.reclaimStageKeys()
 	}
 

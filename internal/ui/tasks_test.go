@@ -384,6 +384,20 @@ func TestTasksRow(t *testing.T) {
 			assert.Contains(t, stage, text)
 		}
 	})
+
+	t.Run("a task's row leaves the keys on the stage while the terminal keeps the panel from the window", func(t *testing.T) {
+		agent := newStagedShellAgent(t.TempDir())
+		harness := openTerminal(t, panelHarnessParams{}, agent)
+		harness.press("space", "t")
+		selected := len(harness.panel.ReadSelectedPanes())
+		harness.panel.SetActivePane(harness.panel.ReadStagePane())
+		harness.send(tea.BlurMsg{})
+
+		harness.watch(buildSnapshot(withTasks([]proto.Message{newLiveWorkflow("w1", "backend"), agent})...))
+
+		assert.Empty(t, harness.panel.ReadSelectedPanes()[selected:])
+		assert.False(t, harness.panel.IsZoomed())
+	})
 }
 
 func buildHandOff() []proto.Message {

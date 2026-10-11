@@ -175,6 +175,11 @@ func (m *model) holdsWindow() bool {
 	return spec.holds == nil || spec.holds(m)
 }
 
+// wantsSolo reports whether the panel should hold the whole window.
+func (m *model) wantsSolo() bool {
+	return m.holdsWindow() && m.terminalDir == ""
+}
+
 // reconcileSolo settles whether the panel has the whole window, and hands it back while the info
 // pane is up, which a sidebar holding the window would cover.
 func (m *model) reconcileSolo() {
@@ -182,7 +187,7 @@ func (m *model) reconcileSolo() {
 	// false on purpose to clear a zoom a dead panel left behind: the frame answers from what it
 	// holds, while Solo asks tmux with a subprocess, and this runs on every listing change and
 	// every cursor move.
-	want := m.holdsWindow() && m.terminalDir == ""
+	want := m.wantsSolo()
 	if want == m.frame.IsSolo() {
 		return
 	}
