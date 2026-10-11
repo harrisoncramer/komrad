@@ -38,8 +38,9 @@ const tunnelWait = 15 * time.Second
 
 func panelCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:   "panel",
-		Short: "Run the panel itself, as the manager session's own command",
+		Use:         "panel",
+		Annotations: map[string]string{survivesBadConfig: ""},
+		Short:       "Run the panel itself, as the manager session's own command",
 		Long: `Run the panel itself.
 
 This is the command the manager tmux session runs, not the one to type. It starts

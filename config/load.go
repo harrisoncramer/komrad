@@ -113,6 +113,15 @@ func LoadWithReport(stack Stack) (*Config, *Report, error) {
 		return nil, nil, err
 	}
 
+	return loadLayers(layers)
+}
+
+// LoadDefaults resolves the configuration from the defaults and the environment without reading any file.
+func LoadDefaults() (*Config, *Report, error) {
+	return loadLayers(nil)
+}
+
+func loadLayers(layers []Layer) (*Config, *Report, error) {
 	merged := viper.New()
 	merged.SetConfigType("toml")
 	if err := registerDefaults(merged); err != nil {

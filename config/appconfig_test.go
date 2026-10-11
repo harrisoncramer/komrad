@@ -730,6 +730,20 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	assert.Equal(t, sourceEnvironment, report.Sources["addr"])
 }
 
+// TestLoadDefaultsKeepsTheEnvironment pins that the defaults a broken config falls back to still take the connection from the environment.
+func TestLoadDefaultsKeepsTheEnvironment(t *testing.T) {
+	clearConnectionEnvironment(t)
+	t.Setenv("KOMRAD_ADDR", "127.0.0.3:3")
+
+	cfg, report, err := LoadDefaults()
+	require.NoError(t, err)
+
+	assert.Equal(t, "127.0.0.3:3", cfg.Connection.Addr)
+	assert.Equal(t, sourceEnvironment, report.Sources["addr"])
+	assert.Equal(t, sourceDefault, report.Sources["tmux_socket"])
+	assert.NotEmpty(t, cfg.Connection.CacheDir)
+}
+
 // TestLoadDerivesConnectionValuesAfterPrecedence pins that a derived value is worked out from
 // the setting that won rather than from the one it replaced.
 func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -202,7 +204,7 @@ func TestIntegrationClampReason(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clamped := clampReason(tt.reason)
+			clamped := clampPrintable(tt.reason, reasonLimit)
 			assert.Equal(t, tt.want, clamped)
 			assert.True(t, utf8.ValidString(clamped), "a cut that split a rune would be refused as well")
 		})
@@ -298,6 +300,47 @@ func TestIntegrationStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	assert.Empty(t, out.String(), "the turn is never blocked because komrad is down")
 	assert.Contains(t, errOut.String(), "komrad could not be reached")
+}
+
+// TestIntegrationStopHookDeliversMailPastABrokenConfig pins that a config which does not parse still leaves the hook delivering mail and saying why.
+func TestIntegrationStopHookDeliversMailPastABrokenConfig(t *testing.T) {
+	var asked caller.Caller
+	var logged []string
+	var reports []recordedReport
+	addr := fakeMailServer(t, fakeMailParams{
+		mail:    []mailItem{{ID: "mail-1", Body: "stand down"}},
+		asked:   &asked,
+		logged:  &logged,
+		reports: &reports,
+	})
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KOMRAD_CONFIG", "")
+	t.Setenv("KOMRAD_CACHE_DIR", filepath.Join(home, "cache"))
+	t.Setenv("KOMRAD_STATE_DIR", filepath.Join(home, "state"))
+	t.Setenv("KOMRAD_ADDR", addr)
+	t.Setenv("KOMRAD_AGENT_ID", "agent-a")
+	broken := filepath.Join(home, "config.toml")
+	require.NoError(t, os.WriteFile(broken, []byte("[nonsense]\nkey = 1\n"), 0o600))
+
+	var out, errOut bytes.Buffer
+	root := NewRootCommand()
+	root.SetIn(bytes.NewBufferString(`{"stop_hook_active":false}`))
+	root.SetOut(&out)
+	root.SetErr(&errOut)
+	root.SetArgs([]string{"--config", broken, "hook", "stop"})
+
+	require.NoError(t, root.Execute())
+
+	assert.Equal(t, "agent-a", asked.AgentID, "the mailbox is read from the server the environment names")
+	var printed hookOutput
+	require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
+	assert.Contains(t, printed.HookSpecificOutput.AdditionalContext, "stand down")
+	assert.Contains(t, errOut.String(), "komrad could not read its config")
+	require.Len(t, logged, 2)
+	assert.Contains(t, logged[0], "komrad could not read its config")
+	assert.Contains(t, logged[0], "nonsense")
 }
 
 // recordedReport is one call of the endpoint every hook event reports through.

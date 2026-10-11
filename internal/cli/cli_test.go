@@ -39,13 +39,13 @@ func TestIntegrationIsConfigFatal(t *testing.T) {
 			want:    true,
 		},
 		{
-			name:    "migrate, which writes schema",
-			command: "migrate",
+			name:    "stop, which shares its name with a hook",
+			command: "stop",
 			want:    true,
 		},
 		{
-			name:    "readonly-role, which grants on a database",
-			command: "readonly-role",
+			name:    "migrate, which writes schema",
+			command: "migrate",
 			want:    true,
 		},
 		{
@@ -63,13 +63,30 @@ func TestIntegrationIsConfigFatal(t *testing.T) {
 			command: "panel",
 			want:    false,
 		},
+		{
+			name:    "the stop hook, which delivers mail",
+			command: "hook stop",
+			want:    false,
+		},
+		{
+			name:    "the turn-end hook, which records the boundary",
+			command: "hook turn-end",
+			want:    false,
+		},
+		{
+			name:    "the pre-tool-use hook, which records the tool",
+			command: "hook pre-tool-use",
+			want:    false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isConfigFatal(&cobra.Command{Use: tt.command})
+			cmd, _, err := NewRootCommand().Find(strings.Fields(tt.command))
+			require.NoError(t, err)
+			require.Equal(t, tt.command, strings.TrimPrefix(cmd.CommandPath(), "komrad "))
 
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, isConfigFatal(cmd))
 		})
 	}
 }

@@ -31,8 +31,9 @@ func doctorCmd(state *app) *cobra.Command {
 	var color string
 
 	cmd := &cobra.Command{
-		Use:   "doctor",
-		Short: "Check that this machine has everything komrad needs",
+		Use:         "doctor",
+		Annotations: map[string]string{survivesBadConfig: ""},
+		Short:       "Check that this machine has everything komrad needs",
 		Long: `Check that this machine has everything komrad needs, one line per dependency.
 
 It checks tmux and its version, the shell tmux starts panes with, whether the

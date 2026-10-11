@@ -8,8 +8,9 @@ import (
 
 func versionCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:   "version",
-		Short: "Print which build this binary is, and which one is serving",
+		Use:         "version",
+		Annotations: map[string]string{survivesBadConfig: ""},
+		Short:       "Print which build this binary is, and which one is serving",
 		Long: `Print which build this binary is, and which one is answering on the address.
 
 The two can differ. The server is long-lived and keeps the binary it started with,
