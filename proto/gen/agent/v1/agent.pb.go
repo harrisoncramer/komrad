@@ -1061,8 +1061,7 @@ func (x *CreateAgentResponse) GetAgent() *Agent {
 
 type RequestReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The whole briefing the reviewer is given, so it has to say what the change is meant to do
-	// and where the author is unsure of it.
+	// The whole briefing the reviewer is given, naming only the pass and the change to review.
 	Prompt string `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// Whose work to have read, or unset for the caller's own.
 	AgentId *string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`

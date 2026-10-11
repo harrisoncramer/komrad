@@ -4971,7 +4971,7 @@
             "required",
             "at most 50000 characters"
           ],
-          "description": "The whole briefing the reviewer is given, so it has to say what the change is meant to do and where the author is unsure of it."
+          "description": "The whole briefing the reviewer is given, naming only the pass and the change to review."
         },
         {
           "name": "agent_id",

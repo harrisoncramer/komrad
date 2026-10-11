@@ -4,7 +4,7 @@ Your task's notes are what the next agent on it starts from, and the person read
 
 ### Getting your own work read
 
-Work is not finished until a reviewer has read it. Commit on your branch, then call request_review yourself. Its prompt is the reviewer's whole briefing, so say what the change is meant to do and where you are unsure. Its response says how to settle what the reviewer raises.
+Work is not finished until a reviewer has read it. Commit on your branch, then call request_review yourself. Its prompt is the reviewer's whole briefing, so name the change and the pass you want, and nothing more. Leave out where to look, what you changed, why, and what you are unsure of, since a reviewer steered by you finds only what you already suspected. Raise a doubt you cannot settle with whoever spawned you instead. Its response says how to settle what the reviewer raises.
 
 Carry on without waiting for whoever spawned you whenever you can.
 

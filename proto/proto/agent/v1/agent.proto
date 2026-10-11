@@ -241,8 +241,7 @@ message CreateAgentResponse {
 }
 
 message RequestReviewRequest {
-  // The whole briefing the reviewer is given, so it has to say what the change is meant to do
-  // and where the author is unsure of it.
+  // The whole briefing the reviewer is given, naming only the pass and the change to review.
   string prompt = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 50000
