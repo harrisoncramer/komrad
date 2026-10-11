@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/ui/paint/label"
@@ -21,13 +22,44 @@ func (l listing) taskAgents(taskID string) []panel.AgentRow {
 	return xslice.Filter(l.agents, func(item panel.AgentRow) bool { return item.Agent.TaskID == taskID })
 }
 
-func taskFields(task panel.Task, agents []panel.AgentRow) []recordField {
+// taskFieldsParams is a task and what its record says about the work on it: the agents on it, the
+// writer whose branch and pull request it carries, and what has been read of its worktree.
+type taskFieldsParams struct {
+	task     panel.Task
+	agents   []panel.AgentRow
+	writer   panel.AgentRow
+	worktree worktreeInspection
+	read     bool
+	now      time.Time
+}
+
+func taskFields(params taskFieldsParams) []recordField {
+	task, writer := params.task, params.writer
+	names := xslice.Map(params.agents, func(item panel.AgentRow) string { return item.Agent.Name })
 	fields := []recordField{
 		{label: "task", value: task.Slug},
 		{label: "title", value: label.OrDash(task.Title)},
-		{label: "agents", value: fmt.Sprintf("%d", len(agents))},
-		{label: "task_id", value: task.ID},
+		{label: "agents", value: label.OrDash(strings.Join(names, ", "))},
 	}
+	if isTaskWriter(writer.Agent) {
+		fields = append(fields, recordField{label: "writer", value: writer.Agent.Name})
+	}
+
+	directory := label.OrDash(task.Cwd)
+	if task.WorktreeRemoved {
+		directory = "— (removed)"
+	}
+	fields = append(fields, recordField{label: "directory", value: directory})
+
+	if writer.Agent.Branch != nil {
+		fields = append(fields, recordField{label: branchFieldKey, value: *writer.Agent.Branch})
+		fields = append(fields, pullRequestFields(writer.PullRequest, writer.PullRequests)...)
+	}
+	if params.read {
+		fields = append(fields, worktreeStandingFields(params.worktree, writer.Agent.ID, params.now)...)
+	}
+
+	fields = append(fields, recordField{label: "task_id", value: task.ID})
 	if created := label.Friendly(task.CreatedAt); created != "" {
 		fields = append(fields, recordField{label: "created", value: created})
 	}
@@ -35,9 +67,8 @@ func taskFields(task panel.Task, agents []panel.AgentRow) []recordField {
 	return fields
 }
 
-// taskMarkdown is a task's goal and notes with the agents working on it, each with its branch and
-// pull request.
-func taskMarkdown(task panel.Task, agents []panel.AgentRow) string {
+// taskMarkdown is what agents have written down about a task: its goal and its notes.
+func taskMarkdown(task panel.Task) string {
 	goal := task.Goal
 	if strings.TrimSpace(goal) == "" {
 		goal = "_no goal set_"
@@ -47,23 +78,7 @@ func taskMarkdown(task panel.Task, agents []panel.AgentRow) string {
 		notes = "_no notes yet_"
 	}
 
-	lines := xslice.Map(agents, func(item panel.AgentRow) string {
-		parts := []string{item.Agent.Name}
-		if item.Agent.Role != "" {
-			parts = append(parts, string(item.Agent.Role))
-		}
-		if item.Agent.Branch != nil {
-			parts = append(parts, "on `"+*item.Agent.Branch+"`")
-		}
-		if len(item.PullRequests) > 0 {
-			current := item.PullRequests[0]
-			parts = append(parts, current.Ref()+" "+pullRequestWords(current))
-		}
-
-		return "- " + strings.Join(parts, ", ")
-	})
-
-	return renderDocument(task.Title, "", goal+"\n\n## Notes\n\n"+notes, strings.Join(lines, "\n"))
+	return renderDocument(task.Title, "", goal+"\n\n## Notes\n\n"+notes, "")
 }
 
 // agentsOnTasks is the live agents on any of the tasks, hidden ones included.

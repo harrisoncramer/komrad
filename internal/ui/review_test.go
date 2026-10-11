@@ -38,7 +38,7 @@ func TestReviewOpen(t *testing.T) {
 		harness := openReview(t, newReviewServerOver(repo))
 
 		frame := harness.readFrame()
-		assert.False(t, harness.panel.IsZoomed())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, frame, "Nothing to review in auth")
 		assert.Contains(t, readOpenMessages(harness), "no change against the base branch")
 	})
@@ -73,7 +73,7 @@ func TestReviewOpen(t *testing.T) {
 
 		harness := openReview(t, server)
 
-		assert.False(t, harness.panel.IsZoomed())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
 	})
 
@@ -96,7 +96,7 @@ func TestReviewOpen(t *testing.T) {
 		harness := openReview(t, newReviewServerOver(repo))
 
 		frame := harness.readFrame()
-		assert.False(t, harness.panel.IsZoomed())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, frame, "Could not read the diff of")
 		assert.Contains(t, readOpenMessages(harness), gittest.ErrNoGit.Error())
 	})
@@ -1357,7 +1357,7 @@ func TestReviewReload(t *testing.T) {
 		server.repo.Wrote(gittest.WroteParams{Tree: "tree-of-the-base"})
 		harness.press("space", "R")
 
-		assert.False(t, harness.panel.IsZoomed())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, harness.readFrame(), "Nothing to review in auth")
 	})
 
@@ -1374,8 +1374,8 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 
 		frame := harness.readFrame()
-		assert.False(t, harness.panel.IsZoomed())
-		assert.Contains(t, frame, "excluded from the diff")
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Contains(t, readOpenMessages(harness), "excluded from the diff")
 		assert.NotContains(t, frame, "Nothing to review")
 	})
 
@@ -2052,7 +2052,7 @@ func TestReviewPin(t *testing.T) {
 
 		harness := openReview(t, server)
 
-		assert.False(t, harness.panel.IsZoomed())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readOpenMessages(harness), "the server went away")
 	})
 
@@ -2065,7 +2065,7 @@ func TestReviewPin(t *testing.T) {
 			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 		}}
 		harness := openReview(t, server)
-		assert.False(t, harness.panel.IsZoomed())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 
 		server.reviews = nil
 		harness.press("space", "r")
@@ -2429,7 +2429,7 @@ func TestReviewHold(t *testing.T) {
 		server.repo.RootErr = gittest.ErrNoGit
 		harness.press("space", "R")
 
-		assert.False(t, harness.panel.IsZoomed())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readReleaseSaid(t, harness), "greet.go")
 	})
 

@@ -64,10 +64,10 @@ func (r agentRow) isTask() bool {
 }
 
 // paneItem is the agent whose pane this row shows, which for a workflow header is the
-// orchestrator standing behind it and for a task the lead while it has a pane.
+// orchestrator standing behind it and for a task is none.
 func (r agentRow) paneItem() (panel.AgentRow, bool) {
 	if r.isTask() {
-		return *r.lead, hasPane(*r.lead)
+		return panel.AgentRow{}, false
 	}
 	if r.header {
 		if r.orchestrator == nil {

@@ -155,8 +155,8 @@ func buildDiffStatTag(stat *taskv1.DiffStat) string {
 	return paint.Panel.Style(paint.ToneSuccess).Render(fmt.Sprintf("+%d", stat.GetAdded())) + " " + paint.Panel.Style(paint.ToneDanger).Render(fmt.Sprintf("−%d", stat.GetRemoved()))
 }
 
-// hoveredRecordAgent is the agent the record under the agents list or the archive is about, and
-// none on any other screen or row.
+// hoveredRecordAgent is the agent the record under the agents list or the archive is about, which
+// for a task is its writer, and none on any other screen or row.
 func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 	screen, ok := m.active().(hoveredAgentReporter)
 	if !ok {
@@ -164,6 +164,9 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 	}
 
 	row, ok := screen.hoveredRow(m)
+	if ok && row.isTask() {
+		return m.listing.findTaskWriter(*row.task, *row.lead), true
+	}
 	if !ok || row.header {
 		return panel.AgentRow{}, false
 	}

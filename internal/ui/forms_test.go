@@ -650,16 +650,15 @@ func TestFormsArchivePrompt(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "dormant")
 	})
 
-	t.Run("a refused task delete puts the pane back on the stage", func(t *testing.T) {
+	t.Run("a refused task delete leaves the agent on it live", func(t *testing.T) {
 		harness := openTaskForms(t, newLiveAuthor())
 		harness.press("j")
 		harness.fireTimers()
-		require.Equal(t, "%9", harness.panel.ReadGuestPane())
 		harness.refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
 
 		harness.press("space", "a", "down", "enter", "y")
 
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.True(t, harness.panel.IsAgentAlive("a1"))
 	})
 
@@ -1085,7 +1084,6 @@ func TestFormsLayout(t *testing.T) {
 			harness := openTaskForms(t, newLiveAuthor())
 			harness.press("j")
 			harness.fireTimers()
-			require.False(t, harness.panel.IsZoomed(), "a live agent's pane shares the window")
 
 			harness.press(tt.press...)
 
