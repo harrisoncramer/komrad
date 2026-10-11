@@ -20,7 +20,7 @@ They are also durable. You can shut down or restart your machine without losing 
 
 Komrad has three kinds of agents.
 
-There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator), which coordinates tasks.
+There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator), which coordinates tasks and their agents.
 
 An _implementer_ does a task's work. It makes edits, commits, and opens the pull request. Only one live implementer at a time holds a task's checkout, and komrad calls it the task's [writer](../tasks/#the-writer). You can [hand off](../tasks/#handing-off) the work to a new writer whenever you want.
 
