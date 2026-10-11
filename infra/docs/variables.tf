@@ -37,7 +37,7 @@ variable "engine_ip" {
   default = ""
 
   validation {
-    condition     = var.engine_ip == "" || can(cidrhost("${var.engine_ip}/32", 0))
+    condition     = var.engine_ip == "" || can(cidrnetmask("${var.engine_ip}/32"))
     error_message = "The engine IP is an IPv4 address like 203.0.113.10, since it is the target of an A record."
   }
 }
