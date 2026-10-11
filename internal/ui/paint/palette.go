@@ -56,9 +56,6 @@ const (
 type Palette struct {
 	colors theme.Colors
 
-	// blinkedOut is the off beat of the blink whatever holds the keys is rendered on.
-	blinkedOut bool
-
 	// stage is held behind a pointer.
 	stage *ansi.StyleConfig
 }

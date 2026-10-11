@@ -1203,38 +1203,6 @@ func TestFormsLayout(t *testing.T) {
 		assert.False(t, harness.panel.IsZoomed())
 	})
 
-	t.Run("the list's cursor stands still beside a form", func(t *testing.T) {
-		t.Parallel()
-
-		tests := []struct {
-			name       string
-			press      []string
-			wantCursor bool
-		}{
-			{
-				name: "the list alone blinks its cursor out",
-			},
-			{
-				name:       "a form holding the keys leaves it rendered",
-				press:      []string{"space", "w"},
-				wantCursor: true,
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				t.Parallel()
-
-				harness := openForms(t, newFormWorkflow(), newFormAuthor())
-				harness.press(tt.press...)
-
-				harness.fireTimers()
-
-				assert.Equal(t, tt.wantCursor, readHoveredRow(harness.readFrame()) != "")
-			})
-		}
-	})
-
 	t.Run("a held form renders its notice under it at every height", func(t *testing.T) {
 		t.Parallel()
 

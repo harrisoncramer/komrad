@@ -46,10 +46,11 @@ type prepareLineParams struct {
 // prepareLine resolves one row to the glyphs, tones and weight it is rendered in.
 func prepareLine(params prepareLineParams) line {
 	row, focused := params.row, params.focused
+	caret := focused && params.caret == CaretRendered
 
 	return line{
 		Focused:  focused,
-		Focus:    textCell(chromeIf(focused && params.caret == CaretRendered, glyph.Focus), paint.TonePrimary),
+		Focus:    textCell(chromeIf(caret, glyph.Focus), paint.TonePrimary),
 		Columns:  columnCells(row, params.columns),
 		Branch:   branchFor(row.Tree),
 		Rule:     row.Kind == KindChild && row.Tree == nil,
@@ -60,7 +61,7 @@ func prepareLine(params prepareLineParams) line {
 		Editing:  row.Editing,
 		Behind:   row.Behind,
 		Weight:   weightFor(row.Kind),
-		Emphasis: emphasisFor(row, focused && params.caret != CaretAbsent),
+		Emphasis: emphasisFor(row, caret),
 		Working:  workingCell(row),
 		Held:     HeldCell(row),
 		Hidden:   HiddenCell(row),

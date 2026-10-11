@@ -580,11 +580,12 @@ func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
 }
 
 // view renders the search line whether or not there is a search.
-func (f filterState) view(palette paint.Palette, glyphs glyph.Set) string {
-	return f.line(palette, glyphs) + "\n\n"
+func (f filterState) view(glyphs glyph.Set) string {
+	return f.line(glyphs) + "\n\n"
 }
 
-func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
+func (f filterState) line(glyphs glyph.Set) string {
+	palette := paint.Panel
 	before, after := f.input.split()
 	text := lipgloss.NewStyle()
 	if f.broken {
@@ -592,11 +593,8 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 	}
 
 	slash := palette.Cursor()
-	switch {
-	case !f.typing && !f.isStanding():
+	if !f.typing && !f.isStanding() {
 		slash = dimStyle()
-	case !f.typing:
-		slash = palette.Blinking(false).Cursor()
 	}
 
 	line := slash.Render(f.mode.glyph(glyphs)) + " "
@@ -616,7 +614,7 @@ func (f filterState) line(palette paint.Palette, glyphs glyph.Set) string {
 // blank row.
 func (f filterState) head(count, said string, width int, glyphs glyph.Set) []string {
 	indent := strings.Repeat(" ", docMargin())
-	head := []string{fitRow(indent+f.line(paint.Panel, glyphs)+count, width)}
+	head := []string{fitRow(indent+f.line(glyphs)+count, width)}
 	if said != "" {
 		head = append(head, fitRow(indent+dimStyle().Render(said), width))
 	}

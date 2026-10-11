@@ -118,7 +118,7 @@ func (m *model) viewsRow() string {
 		row.lit = m.viewIndex()
 	}
 
-	return row.view(m.focusPalette())
+	return row.view()
 }
 
 // viewIndex is where the screen that is up sits on the switcher, and noStop when it is not there.

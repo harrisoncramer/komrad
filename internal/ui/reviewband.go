@@ -12,7 +12,7 @@ const reviewScopeOnTone = paint.TonePrimary
 // bandView is what stands over the diff: whose work is being read and the pattern it is searched for.
 func (r reviewScreen) bandView(m *model) string {
 	return paint.Panel.Title("Review"+separated+r.agentName) + "\n" +
-		r.diff.filter.view(paint.Panel, m.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
+		r.diff.filter.view(m.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
 // reviewColumnStyle is the markdown a notice standing in for the patch is rendered in.

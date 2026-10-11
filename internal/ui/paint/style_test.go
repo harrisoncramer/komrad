@@ -42,12 +42,6 @@ func TestWrapRows(t *testing.T) {
 	}
 }
 
-// TestBlinking covers the cursor style dimming on the blink's off beat.
-func TestBlinking(t *testing.T) {
-	assert.Equal(t, Panel.Cursor().Render("x"), Panel.Blinking(false).Cursor().Render("x"))
-	assert.Equal(t, Panel.Style(ToneMuted).Bold(true).Render("x"), Panel.Blinking(true).Cursor().Render("x"))
-}
-
 // TestHighlightStyled covers a search hit painted over a row that already carries styling.
 func TestHighlightStyled(t *testing.T) {
 	t.Parallel()

@@ -155,7 +155,7 @@ func (m *model) messagesCursorPrefix(hovered bool) string {
 		return strings.Repeat(" ", messagesIndent)
 	}
 
-	return caretGlyph(m.blinkingCaret(true))
+	return renderedCaret()
 }
 
 func kindIcon(glyphs glyph.Set, kind messageKind) string {

@@ -321,11 +321,13 @@ func (a *agentsScreen) buildFrame(m *model) {
 
 func (a *agentsScreen) buildLayout(m *model) agentsLayout {
 	zone, waiting := buildZone(a.triage, m, a.showHidden)
+	tree := a.buildTree(m)
 
 	return agentsLayout{
 		zone:    zone,
 		waiting: waiting,
-		tree:    a.buildTree(m),
+		tree:    tree,
+		all:     slices.Concat(zone, tree),
 	}
 }
 

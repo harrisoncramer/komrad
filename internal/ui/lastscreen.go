@@ -26,6 +26,12 @@ type lastScreen struct {
 	answered bool
 	screen   *agentv1.GetLastScreenResponse
 	err      error
+	fitted   derived[screenSize, string]
+}
+
+type screenSize struct {
+	width  int
+	height int
 }
 
 type lastScreenMsg struct {
@@ -134,7 +140,7 @@ func (m *model) applyLastScreen(msg lastScreenMsg) {
 }
 
 type lastScreenRowsParams struct {
-	screen  lastScreen
+	screen  *lastScreen
 	agentID string
 	width   int
 	height  int
@@ -161,9 +167,12 @@ func lastScreenRows(params lastScreenRowsParams) []string {
 		label.Friendly(saved.GetCapturedAt().AsTime()),
 		fmt.Sprintf("%dx%d", saved.GetWidth(), saved.GetHeight()),
 	}, separated))
-	height := min(max(params.height-1, 1), int(saved.GetHeight()))
+	size := screenSize{width: max(params.width, 1), height: min(max(params.height-1, 1), int(saved.GetHeight()))}
+	fitted := shown.fitted.read(size, func() string {
+		return savedscreen.Fit(saved.GetFrame(), size.width, size.height)
+	})
 
-	return append([]string{banner}, strings.Split(savedscreen.Fit(saved.GetFrame(), max(params.width, 1), height), "\n")...)
+	return append([]string{banner}, strings.Split(fitted, "\n")...)
 }
 
 func noticeRows(notice string, width int) []string {
@@ -250,7 +259,7 @@ func (m *model) withLastScreen(rows []string, width int) []string {
 	}
 
 	return slices.Concat(top, []string{""}, lastScreenRows(lastScreenRowsParams{
-		screen:  m.lastScreen,
+		screen:  &m.lastScreen,
 		agentID: agentID,
 		width:   width,
 		height:  height,

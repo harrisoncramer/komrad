@@ -74,7 +74,7 @@ func (l *logsScreen) block(m *model, width int) []string {
 // logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
 func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 	if l.logFilter.typing {
-		return l.logFilter.line(paint.Panel, glyphs)
+		return l.logFilter.line(glyphs)
 	}
 
 	return dimStyle().Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query())
@@ -104,7 +104,7 @@ func (l *logsScreen) logRows(m *model, width, height int) []string {
 	for i, row := range rows {
 		prefix := blankCursor
 		if focused && i == cursor {
-			prefix = caretGlyph(m.blinkingCaret(true))
+			prefix = renderedCaret()
 		}
 		rows[i] = prefix + row
 	}

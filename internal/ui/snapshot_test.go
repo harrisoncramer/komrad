@@ -860,19 +860,19 @@ func TestSnapshotHeldWorking(t *testing.T) {
 	}
 }
 
-// TestSnapshotCarriesTheBlink pins the caret's blink reaching the view as a fact rather than the
-// view inventing one, the focused row being named either way.
-func TestSnapshotCarriesTheBlink(t *testing.T) {
+// TestSnapshotCarriesTheCaret pins the caret reaching the view as a fact rather than the view
+// inventing one, the focused row being named either way.
+func TestSnapshotCarriesTheCaret(t *testing.T) {
 	rows := []agentRow{{item: panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "worker"}}}}
 
 	hidden := agentsSnapshot(snapshotParams{
 		rows:    rows,
 		focused: "agent:a1",
-		caret:   view.CaretBlinkedOut,
+		caret:   view.CaretAbsent,
 	})
 	shown := agentsSnapshot(snapshotParams{rows: rows, focused: "agent:a1"})
 
-	assert.Equal(t, view.CaretBlinkedOut, hidden.Caret)
+	assert.Equal(t, view.CaretAbsent, hidden.Caret)
 	assert.Equal(t, view.CaretRendered, shown.Caret)
 	assert.Equal(t, "agent:a1", hidden.Focused)
 }

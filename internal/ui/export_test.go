@@ -945,7 +945,6 @@ func (f *recordingClipboard) WriteAll(text string) error {
 
 func init() {
 	startTimer = fireAtOnce
-	rowCursorBlink = time.Nanosecond
 }
 
 func fireAtOnce(_ time.Duration, fn func(time.Time) tea.Msg) tea.Cmd {

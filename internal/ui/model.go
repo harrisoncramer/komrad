@@ -39,7 +39,6 @@ import (
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
-	"charm.land/bubbles/v2/cursor"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
 )
@@ -278,7 +277,6 @@ type model struct {
 	said        saidTranscript
 	review      reviewScreen
 	filter      filterState
-	rowCursor   cursor.Model
 	form        formState
 	// register is the text vim last yanked or deleted in any field, nil when vim is off.
 	register *vim.Register
@@ -414,7 +412,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		screen:          screenAgents,
 		agents:          agentsScreen{triage: triageZone{capacity: deps.Layout.TriageRows}},
 		worktrees:       worktreesScreen{sort: tabsState{flat: true}},
-		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),
 		loading:         loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
 		reactors:        newWorldReactors(),

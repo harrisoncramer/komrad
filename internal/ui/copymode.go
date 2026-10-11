@@ -67,9 +67,7 @@ func (m *model) renderCopyLayout() panes.CopyStandIn {
 		}
 	}
 
-	rendered := *m
-	rendered.rowCursor.IsBlinked = false
-	lines := strings.Split(rendered.renderInMode(paint.ToneModeVisual, visualModeLabel), "\n")
+	lines := strings.Split(m.renderInMode(paint.ToneModeVisual, visualModeLabel), "\n")
 
 	row, col := rect.Top, rect.Left
 	for i := rect.Top; i < min(rect.Top+rect.Height, len(lines)); i++ {
