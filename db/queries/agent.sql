@@ -1298,14 +1298,6 @@ WHERE
     AND s.role = 'orchestrator'
 LIMIT 1;
 
--- name: SetAgentTaskID :execrows
-UPDATE
-    agents
-SET
-    task_id = sqlc.narg('task_id')
-WHERE
-    id = sqlc.arg('id');
-
 -- name: ListProvisionedAgentIDsByTask :many
 SELECT
     a.id

@@ -122,28 +122,3 @@ func (s *AgentStore) Rename(ctx context.Context, id, name string) (bool, error) 
 
 	return len(renamed) > 0, nil
 }
-
-// SetTaskID links an agent to a task, or unlinks it when taskID is nil.
-func (s *AgentStore) SetTaskID(ctx context.Context, id string, taskID *string) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	if taskID != nil && !store.IsID(*taskID) {
-		return store.ErrNotFound.Saying("no task with id %q", *taskID)
-	}
-
-	updated, err := s.queries.SetAgentTaskID(ctx, models.SetAgentTaskIDParams{ID: id, TaskID: taskID})
-	if db.IsForeignKeyViolation(err, "agents_task_id_fkey") {
-		return store.ErrNotFound.Saying("no task with id %q", *taskID)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to set the task of agent %q: %w", id, err)
-	}
-
-	if updated == 0 {
-		return store.ErrNotFound.Saying("no agent with id %q", id)
-	}
-
-	return nil
-}

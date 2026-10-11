@@ -3369,28 +3369,6 @@ func (q *Queries) SetAgentStateByID(ctx context.Context, arg SetAgentStateByIDPa
 	return err
 }
 
-const setAgentTaskID = `-- name: SetAgentTaskID :execrows
-UPDATE
-    agents
-SET
-    task_id = $1
-WHERE
-    id = $2
-`
-
-type SetAgentTaskIDParams struct {
-	TaskID *string
-	ID     string
-}
-
-func (q *Queries) SetAgentTaskID(ctx context.Context, arg SetAgentTaskIDParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setAgentTaskID, arg.TaskID, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const setAgentTurnEndedByID = `-- name: SetAgentTurnEndedByID :exec
 UPDATE
     agents

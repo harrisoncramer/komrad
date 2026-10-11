@@ -13,11 +13,9 @@ import (
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	"komrad/lib/dates"
-	"komrad/lib/xptr"
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
-	taskstore "komrad/internal/store/task"
 )
 
 var errNothingToForward = fail.Precondition("the source has no turns synced yet, so there is nothing to forward")
@@ -122,9 +120,9 @@ func (r *TranscriptReader) composeForward(ctx context.Context, params composeFor
 		return nil, errNothingToForward.Saying("%q has no turns synced yet, so there is nothing to forward", params.Source.Name)
 	}
 
-	branch, err := r.readTaskBranch(ctx, params.Source)
+	branch, err := r.tasks.GetLinkedBranch(ctx, params.Source.TaskID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read the task of %q: %w", params.Source.ID, err)
 	}
 
 	body := buildForwardBody(buildForwardBodyParams{
@@ -187,17 +185,4 @@ func buildForwardBody(params buildForwardBodyParams) string {
 	}
 
 	return strings.TrimSuffix(b.String(), "\n")
-}
-
-// readTaskBranch is the branch the checkout of an agent's task is on, empty when there is none.
-func (r *TranscriptReader) readTaskBranch(ctx context.Context, agent agentstore.Agent) (string, error) {
-	task, err := r.tasks.GetByAgentID(ctx, agent.ID)
-	if errors.Is(err, taskstore.ErrNoTask) {
-		return "", nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed to read the task of %q: %w", agent.ID, err)
-	}
-
-	return xptr.Deref(task.Checkout.Branch), nil
 }

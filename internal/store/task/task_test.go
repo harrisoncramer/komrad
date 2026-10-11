@@ -148,19 +148,19 @@ func TestGet(t *testing.T) {
 		},
 		{
 			name:    "an agent on no task has no task",
-			get:     func() (*taskstore.Task, error) { return stores.Tasks.GetByAgentID(ctx, orchestrator.ID) },
+			get:     func() (*taskstore.Task, error) { return stores.Tasks.GetLinked(ctx, orchestrator.TaskID) },
 			wantErr: taskstore.ErrNoTask,
 		},
 		{
-			name: "an id no agent holds has no task",
+			name: "a task id no task holds has no task",
 			get: func() (*taskstore.Task, error) {
-				return stores.Tasks.GetByAgentID(ctx, "01a11e6f-af0b-7497-91fb-d3750f8cbef2")
+				return stores.Tasks.GetLinked(ctx, xptr.Ptr("01a11e6f-af0b-7497-91fb-d3750f8cbef2"))
 			},
 			wantErr: taskstore.ErrNoTask,
 		},
 		{
-			name:   "an agent's task reads back by the agent's id",
-			get:    func() (*taskstore.Task, error) { return stores.Tasks.GetByAgentID(ctx, worker.ID) },
+			name:   "an agent's task reads back by the task id it carries",
+			get:    func() (*taskstore.Task, error) { return stores.Tasks.GetLinked(ctx, worker.TaskID) },
 			wantID: live.ID,
 		},
 		{
