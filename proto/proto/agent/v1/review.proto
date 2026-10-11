@@ -233,9 +233,12 @@ message ForgeOrigin {
 }
 
 message ListReviewThreadsRequest {
-  // The agent whose diff is being reviewed. An agent reading its own threads may leave this
-  // unset, since the call already carries which agent is asking.
-  optional string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's diff to read the threads of, by id or by slug. Leave it unset for your own task.
+  optional string task = 1 [(buf.validate.field).cel = {
+    id: "task.named"
+    message: "pass task by id or by slug, or leave it unset"
+    expression: "this.size() > 0"
+  }];
 }
 
 message ListReviewThreadsResponse {
@@ -246,8 +249,12 @@ message ListReviewThreadsResponse {
 }
 
 message CreateReviewThreadRequest {
-  // Whose diff to pin the comment to.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's diff to pin the comment to, by id or by slug. Leave it unset for your own task.
+  optional string task = 1 [(buf.validate.field).cel = {
+    id: "task.named"
+    message: "pass task by id or by slug, or leave it unset"
+    expression: "this.size() > 0"
+  }];
   // Which file, relative to the checkout.
   string file_path = 2;
   // The commit the old side of these line numbers was read against, empty for the round's own
@@ -361,8 +368,12 @@ message SetReviewThreadResolvedResponse {
 // round. A tree that has not moved since the last round is that round again rather than a new
 // one, so opening the diff twice does not walk the ordinal on.
 message OpenReviewRoundRequest {
-  // Whose worktree to freeze.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's checkout to freeze, by id or by slug. Leave it unset for your own task.
+  optional string task = 1 [(buf.validate.field).cel = {
+    id: "task.named"
+    message: "pass task by id or by slug, or leave it unset"
+    expression: "this.size() > 0"
+  }];
 }
 
 message OpenReviewRoundResponse {
@@ -371,8 +382,12 @@ message OpenReviewRoundResponse {
 }
 
 message ListReviewRoundsRequest {
-  // Whose rounds to read.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's rounds to read, by id or by slug. Leave it unset for your own task.
+  optional string task = 1 [(buf.validate.field).cel = {
+    id: "task.named"
+    message: "pass task by id or by slug, or leave it unset"
+    expression: "this.size() > 0"
+  }];
 }
 
 message ListReviewRoundsResponse {
@@ -410,8 +425,12 @@ message GetReviewResponse {
 }
 
 message ListReviewsRequest {
-  // Whose reviews to read.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's reviews to read, by id or by slug. Leave it unset for your own task.
+  optional string task = 1 [(buf.validate.field).cel = {
+    id: "task.named"
+    message: "pass task by id or by slug, or leave it unset"
+    expression: "this.size() > 0"
+  }];
 }
 
 message ListReviewsResponse {
@@ -423,8 +442,12 @@ message ListReviewsResponse {
 // ordinary mail naming the review, which it reads whole with get_review. A person's review stops
 // the agent mid-turn first, so it reads the comments now.
 message ReleaseReviewRequest {
-  // Whose work the batch was written against.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task the review was written on, by id or by slug. Leave it unset for your own task.
+  optional string task = 1 [(buf.validate.field).cel = {
+    id: "task.named"
+    message: "pass task by id or by slug, or leave it unset"
+    expression: "this.size() > 0"
+  }];
   // What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
   // agent must set it and a person must leave it unset.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
@@ -457,8 +480,12 @@ message ReviewViewedFile {
 }
 
 message SetReviewFileViewedRequest {
-  // Which agent the mark belongs to.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's diff the file is in, by id or by slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
   // Which file, relative to the checkout.
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
   // Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
@@ -474,8 +501,12 @@ message SetReviewFileViewedResponse {
 }
 
 message ListReviewViewedFilesRequest {
-  // Which agent's marks to read.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's marks to read, by id or by slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
 }
 
 message ListReviewViewedFilesResponse {

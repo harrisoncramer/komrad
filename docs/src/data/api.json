@@ -645,8 +645,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the comment threads on an agent's diff, yours by default.",
-          "description": "List the comment threads on an agent's diff, yours by default. Line numbers are true of each thread's round, so search for the quoted lines once code has moved.",
+          "summary": "List the comment threads on a task's diff, your own task's by default.",
+          "description": "List the comment threads on a task's diff, your own task's by default. Line numbers are true of each thread's round, so search for the quoted lines once code has moved.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -821,8 +821,8 @@
           "roles": [
             "reviewer"
           ],
-          "summary": "Freeze an agent's worktree as a round to review against, then diff its base_sha against its snapshot_sha.",
-          "description": "Freeze an agent's worktree as a round to review against, then diff its base_sha against its snapshot_sha. An unchanged tree returns the last round.",
+          "summary": "Freeze a task's checkout as a round to review against, your own task's by default, then diff its base_sha against its snapshot_sha.",
+          "description": "Freeze a task's checkout as a round to review against, your own task's by default, then diff its base_sha against its snapshot_sha. An unchanged tree returns the last round.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -841,8 +841,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the rounds taken of an agent, oldest first.",
-          "description": "List the rounds taken of an agent, oldest first. Diff one round's snapshot_sha against the next to see what changed between them.",
+          "summary": "List the rounds taken of a task, your own by default, oldest first.",
+          "description": "List the rounds taken of a task, your own by default, oldest first. Diff one round's snapshot_sha against the next to see what changed between them.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -861,8 +861,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the reviews released on an agent, in round order, each with its verdict.",
-          "description": "List the reviews released on an agent, in round order, each with its verdict.",
+          "summary": "List the reviews released on a task, your own by default, in round order, each with its verdict.",
+          "description": "List the reviews released on a task, your own by default, in round order, each with its verdict.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -2669,16 +2669,14 @@
       "description": "",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose diff to pin the comment to."
+          "rules": [],
+          "description": "Which task's diff to pin the comment to, by id or by slug. Leave it unset for your own task."
         },
         {
           "name": "file_path",
@@ -4124,16 +4122,14 @@
       "description": "",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose rounds to read."
+          "rules": [],
+          "description": "Which task's rounds to read, by id or by slug. Leave it unset for your own task."
         }
       ]
     },
@@ -4158,14 +4154,14 @@
       "description": "",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent whose diff is being reviewed. An agent reading its own threads may leave this unset, since the call already carries which agent is asking."
+          "description": "Which task's diff to read the threads of, by id or by slug. Leave it unset for your own task."
         }
       ]
     },
@@ -4190,16 +4186,14 @@
       "description": "",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose reviews to read."
+          "rules": [],
+          "description": "Which task's reviews to read, by id or by slug. Leave it unset for your own task."
         }
       ]
     },
@@ -4371,16 +4365,14 @@
       "description": "OpenReviewRoundRequest freezes what an agent has written now and records it as its next round. A tree that has not moved since the last round is that round again rather than a new one, so opening the diff twice does not walk the ordinal on.",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose worktree to freeze."
+          "rules": [],
+          "description": "Which task's checkout to freeze, by id or by slug. Leave it unset for your own task."
         }
       ]
     },
@@ -4895,16 +4887,14 @@
       "description": "ReleaseReviewRequest lets go of the author's open batch. Komrad sends the agent one piece of ordinary mail naming the review, which it reads whole with get_review. A person's review stops the agent mid-turn first, so it reads the comments now.",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose work the batch was written against."
+          "rules": [],
+          "description": "Which task the review was written on, by id or by slug. Leave it unset for your own task."
         },
         {
           "name": "verdict",

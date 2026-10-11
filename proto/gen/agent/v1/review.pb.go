@@ -1150,9 +1150,8 @@ func (x *ForgeOrigin) GetEditedAt() string {
 
 type ListReviewThreadsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The agent whose diff is being reviewed. An agent reading its own threads may leave this
-	// unset, since the call already carries which agent is asking.
-	AgentId       *string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
+	// Which task's diff to read the threads of, by id or by slug. Leave it unset for your own task.
+	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1187,9 +1186,9 @@ func (*ListReviewThreadsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *ListReviewThreadsRequest) GetAgentId() string {
-	if x != nil && x.AgentId != nil {
-		return *x.AgentId
+func (x *ListReviewThreadsRequest) GetTask() string {
+	if x != nil && x.Task != nil {
+		return *x.Task
 	}
 	return ""
 }
@@ -1243,8 +1242,8 @@ func (x *ListReviewThreadsResponse) GetThreads() []*ReviewThread {
 
 type CreateReviewThreadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose diff to pin the comment to.
-	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's diff to pin the comment to, by id or by slug. Leave it unset for your own task.
+	Task *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// The commit the old side of these line numbers was read against, empty for the round's own
@@ -1302,9 +1301,9 @@ func (*CreateReviewThreadRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *CreateReviewThreadRequest) GetAgentId() string {
-	if x != nil {
-		return x.AgentId
+func (x *CreateReviewThreadRequest) GetTask() string {
+	if x != nil && x.Task != nil {
+		return *x.Task
 	}
 	return ""
 }
@@ -1948,8 +1947,8 @@ func (x *SetReviewThreadResolvedResponse) GetThread() *ReviewThread {
 // one, so opening the diff twice does not walk the ordinal on.
 type OpenReviewRoundRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose worktree to freeze.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's checkout to freeze, by id or by slug. Leave it unset for your own task.
+	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1984,9 +1983,9 @@ func (*OpenReviewRoundRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *OpenReviewRoundRequest) GetAgentId() string {
-	if x != nil {
-		return x.AgentId
+func (x *OpenReviewRoundRequest) GetTask() string {
+	if x != nil && x.Task != nil {
+		return *x.Task
 	}
 	return ""
 }
@@ -2038,8 +2037,8 @@ func (x *OpenReviewRoundResponse) GetRound() *ReviewRound {
 
 type ListReviewRoundsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose rounds to read.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's rounds to read, by id or by slug. Leave it unset for your own task.
+	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2074,9 +2073,9 @@ func (*ListReviewRoundsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *ListReviewRoundsRequest) GetAgentId() string {
-	if x != nil {
-		return x.AgentId
+func (x *ListReviewRoundsRequest) GetTask() string {
+	if x != nil && x.Task != nil {
+		return *x.Task
 	}
 	return ""
 }
@@ -2298,8 +2297,8 @@ func (x *GetReviewResponse) GetThreads() []*ReviewThreadInContext {
 
 type ListReviewsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose reviews to read.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's reviews to read, by id or by slug. Leave it unset for your own task.
+	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2334,9 +2333,9 @@ func (*ListReviewsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *ListReviewsRequest) GetAgentId() string {
-	if x != nil {
-		return x.AgentId
+func (x *ListReviewsRequest) GetTask() string {
+	if x != nil && x.Task != nil {
+		return *x.Task
 	}
 	return ""
 }
@@ -2391,8 +2390,8 @@ func (x *ListReviewsResponse) GetReviews() []*Review {
 // the agent mid-turn first, so it reads the comments now.
 type ReleaseReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose work the batch was written against.
-	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task the review was written on, by id or by slug. Leave it unset for your own task.
+	Task *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	// What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
 	// agent must set it and a person must leave it unset.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
@@ -2433,9 +2432,9 @@ func (*ReleaseReviewRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{29}
 }
 
-func (x *ReleaseReviewRequest) GetAgentId() string {
-	if x != nil {
-		return x.AgentId
+func (x *ReleaseReviewRequest) GetTask() string {
+	if x != nil && x.Task != nil {
+		return *x.Task
 	}
 	return ""
 }
@@ -2594,8 +2593,8 @@ func (x *ReviewViewedFile) GetFingerprint() string {
 
 type SetReviewFileViewedRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which agent the mark belongs to.
-	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's diff the file is in, by id or by slug.
+	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
@@ -2637,9 +2636,9 @@ func (*SetReviewFileViewedRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{32}
 }
 
-func (x *SetReviewFileViewedRequest) GetAgentId() string {
+func (x *SetReviewFileViewedRequest) GetTask() string {
 	if x != nil {
-		return x.AgentId
+		return x.Task
 	}
 	return ""
 }
@@ -2712,8 +2711,8 @@ func (x *SetReviewFileViewedResponse) GetViewed() *ReviewViewedFile {
 
 type ListReviewViewedFilesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which agent's marks to read.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's marks to read, by id or by slug.
+	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2748,9 +2747,9 @@ func (*ListReviewViewedFilesRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{34}
 }
 
-func (x *ListReviewViewedFilesRequest) GetAgentId() string {
+func (x *ListReviewViewedFilesRequest) GetTask() string {
 	if x != nil {
-		return x.AgentId
+		return x.Task
 	}
 	return ""
 }
@@ -3275,14 +3274,18 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"comment_id\x18\x02 \x01(\tR\tcommentId\x12 \n" +
 	"\tedited_at\x18\x03 \x01(\tH\x00R\beditedAt\x88\x01\x01B\f\n" +
 	"\n" +
-	"_edited_at\"P\n" +
-	"\x18ListReviewThreadsRequest\x12'\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01B\v\n" +
-	"\t_agent_id\"M\n" +
+	"_edited_at\"\x90\x01\n" +
+	"\x18ListReviewThreadsRequest\x12k\n" +
+	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
+	"\n" +
+	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
+	"\x05_task\"M\n" +
 	"\x19ListReviewThreadsResponse\x120\n" +
-	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xe9\x02\n" +
-	"\x19CreateReviewThreadRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\x1b\n" +
+	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xbb\x03\n" +
+	"\x19CreateReviewThreadRequest\x12k\n" +
+	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
+	"\n" +
+	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x19\n" +
 	"\bbase_sha\x18\x03 \x01(\tR\abaseSha\x12!\n" +
 	"\fsnapshot_sha\x18\x04 \x01(\tR\vsnapshotSha\x12\x1b\n" +
@@ -3296,7 +3299,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\v \x03(\tR\n" +
-	"suggestion\"L\n" +
+	"suggestionB\a\n" +
+	"\x05_task\"L\n" +
 	"\x1aCreateReviewThreadResponse\x12.\n" +
 	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x9d\x01\n" +
 	"\x17AddReviewMessageRequest\x12$\n" +
@@ -3332,13 +3336,19 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\bR\bresolved\"Q\n" +
 	"\x1fSetReviewThreadResolvedResponse\x12.\n" +
-	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"<\n" +
-	"\x16OpenReviewRoundRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"F\n" +
+	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x8e\x01\n" +
+	"\x16OpenReviewRoundRequest\x12k\n" +
+	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
+	"\n" +
+	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
+	"\x05_task\"F\n" +
 	"\x17OpenReviewRoundResponse\x12+\n" +
-	"\x05round\x18\x01 \x01(\v2\x15.agent.v1.ReviewRoundR\x05round\"=\n" +
-	"\x17ListReviewRoundsRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"I\n" +
+	"\x05round\x18\x01 \x01(\v2\x15.agent.v1.ReviewRoundR\x05round\"\x8f\x01\n" +
+	"\x17ListReviewRoundsRequest\x12k\n" +
+	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
+	"\n" +
+	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
+	"\x05_task\"I\n" +
 	"\x18ListReviewRoundsResponse\x12-\n" +
 	"\x06rounds\x18\x01 \x03(\v2\x15.agent.v1.ReviewRoundR\x06rounds\"a\n" +
 	"\x15ReviewThreadInContext\x12.\n" +
@@ -3349,15 +3359,21 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x11GetReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12+\n" +
 	"\x05round\x18\x02 \x01(\v2\x15.agent.v1.ReviewRoundR\x05round\x129\n" +
-	"\athreads\x18\x03 \x03(\v2\x1f.agent.v1.ReviewThreadInContextR\athreads\"8\n" +
-	"\x12ListReviewsRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"A\n" +
+	"\athreads\x18\x03 \x03(\v2\x1f.agent.v1.ReviewThreadInContextR\athreads\"\x8a\x01\n" +
+	"\x12ListReviewsRequest\x12k\n" +
+	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
+	"\n" +
+	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
+	"\x05_task\"A\n" +
 	"\x13ListReviewsResponse\x12*\n" +
-	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\x95\x01\n" +
-	"\x14ReleaseReviewRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12;\n" +
+	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xe7\x01\n" +
+	"\x14ReleaseReviewRequest\x12k\n" +
+	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
+	"\n" +
+	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01\x12;\n" +
 	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\b\xbaH\x05\x82\x01\x02\x10\x01R\averdict\x12\x1c\n" +
-	"\x04body\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04body\"q\n" +
+	"\x04body\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04bodyB\a\n" +
+	"\x05_task\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +
@@ -3366,16 +3382,18 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x1b\n" +
 	"\tviewed_at\x18\x03 \x01(\tR\bviewedAt\x12 \n" +
-	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"\xa0\x01\n" +
-	"\x1aSetReviewFileViewedRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
+	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"\xd5\x01\n" +
+	"\x1aSetReviewFileViewedRequest\x12W\n" +
+	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12$\n" +
 	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x16\n" +
 	"\x06viewed\x18\x03 \x01(\bR\x06viewed\x12 \n" +
 	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"Q\n" +
 	"\x1bSetReviewFileViewedResponse\x122\n" +
-	"\x06viewed\x18\x01 \x01(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"B\n" +
-	"\x1cListReviewViewedFilesRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"S\n" +
+	"\x06viewed\x18\x01 \x01(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"w\n" +
+	"\x1cListReviewViewedFilesRequest\x12W\n" +
+	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"S\n" +
 	"\x1dListReviewViewedFilesResponse\x122\n" +
 	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xee\x02\n" +
 	"\n" +
@@ -3539,6 +3557,11 @@ func file_agent_v1_review_proto_init() {
 	file_agent_v1_review_proto_msgTypes[4].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[5].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[6].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[8].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[20].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[22].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[27].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[29].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[36].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

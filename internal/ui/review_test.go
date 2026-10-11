@@ -64,7 +64,7 @@ func TestReviewOpen(t *testing.T) {
 		harness.press("space", "r")
 
 		assert.True(t, harness.panel.IsZoomed())
-		harness.assertSentTo(agentv1connect.AgentServiceOpenReviewRoundProcedure, &agentv1.OpenReviewRoundRequest{AgentId: "a1"})
+		harness.assertSentTo(agentv1connect.AgentServiceOpenReviewRoundProcedure, &agentv1.OpenReviewRoundRequest{Task: xptr.Ptr("t1")})
 	})
 
 	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
@@ -227,7 +227,7 @@ func TestReviewCursor(t *testing.T) {
 		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			AgentId:     "a1",
+			Task:        xptr.Ptr("t1"),
 			FilePath:    gittest.File,
 			OldStart:    1,
 			OldEnd:      1,
@@ -350,7 +350,7 @@ func TestReviewThreads(t *testing.T) {
 		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			AgentId:     "a1",
+			Task:        xptr.Ptr("t1"),
 			FilePath:    gittest.File,
 			OldStart:    1,
 			OldEnd:      1,
@@ -897,7 +897,7 @@ func TestReviewViewed(t *testing.T) {
 		sent := harness.readSent(agentv1connect.AgentServiceSetReviewFileViewedProcedure)
 		require.Len(t, sent, 2)
 		marked, _ := sent[0].(*agentv1.SetReviewFileViewedRequest)
-		assert.Equal(t, "a1", marked.GetAgentId())
+		assert.Equal(t, "t1", marked.GetTask())
 		assert.Equal(t, gittest.File, marked.GetFilePath())
 		assert.True(t, marked.GetViewed())
 		assert.NotEmpty(t, marked.GetFingerprint())
@@ -1132,7 +1132,7 @@ func TestReviewRelease(t *testing.T) {
 		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
-			AgentId: "a1",
+			Task: xptr.Ptr("t1"),
 		})
 		assert.Contains(t, readEngineLine(harness.readFrame()), "review sent")
 	})
@@ -1145,8 +1145,8 @@ func TestReviewRelease(t *testing.T) {
 		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
-			AgentId: "a1",
-			Body:    "the shape is right",
+			Task: xptr.Ptr("t1"),
+			Body: "the shape is right",
 		})
 	})
 
@@ -1166,7 +1166,7 @@ func TestReviewRelease(t *testing.T) {
 		harness.press("space", "S", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
-			AgentId: "a1",
+			Task: xptr.Ptr("t1"),
 		})
 		assert.Contains(t, readEngineLine(harness.readFrame()), "review queued for resume")
 	})
@@ -1904,7 +1904,7 @@ func TestReviewRounds(t *testing.T) {
 		harness.press("enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			AgentId:     "a1",
+			Task:        xptr.Ptr("t1"),
 			FilePath:    "second.go",
 			NewStart:    1,
 			NewEnd:      1,

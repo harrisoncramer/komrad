@@ -50,6 +50,11 @@ type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
+// taskFinder reads a task by id or by slug.
+type taskFinder interface {
+	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
+}
+
 type agentInterrupter interface {
 	Interrupt(ctx context.Context, agentID string) error
 }
@@ -79,6 +84,7 @@ type NewReviewServiceParams struct {
 	Workflows   *workflowstore.WorkflowStore
 	Agents      *agentstore.AgentStore
 	Tasks       *taskstore.TaskStore
+	TaskFinder  taskFinder
 	Events      eventRecorder
 	Interrupter agentInterrupter
 	// StateDir is where komrad keeps its own files.
@@ -93,6 +99,7 @@ type ReviewService struct {
 	workflows   *workflowstore.WorkflowStore
 	agents      *agentstore.AgentStore
 	tasks       *taskstore.TaskStore
+	taskFinder  taskFinder
 	events      eventRecorder
 	interrupter agentInterrupter
 	stateDir    string
@@ -107,6 +114,7 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 		workflows:   params.Workflows,
 		agents:      params.Agents,
 		tasks:       params.Tasks,
+		taskFinder:  params.TaskFinder,
 		events:      params.Events,
 		interrupter: params.Interrupter,
 		stateDir:    params.StateDir,
@@ -114,19 +122,20 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 	}
 }
 
-// ListReviewThreadsParams says whose diff to read the conversations of, and as whom.
+// ListReviewThreadsParams says which task's diff to read the conversations of, and as whom.
 type ListReviewThreadsParams struct {
-	AgentID string
-	Author  ReviewAuthor
+	// Task is the task by id or by slug, empty for the caller's own.
+	Task   string
+	Author ReviewAuthor
 }
 
-// ListReviewThreads is every thread on the task of an agent with its messages, all of it for the
+// ListReviewThreads is every thread on a task with its messages, all of it for the
 // person reviewing and only the released part for an agent.
 func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
 	params ListReviewThreadsParams,
 ) ([]ReviewThreadWithMessages, error) {
-	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
+	task, err := s.getTask(ctx, params.Task, params.Author)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +233,9 @@ func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 
 // CreateReviewThreadParams is the place a new conversation is pinned to and what it says.
 type CreateReviewThreadParams struct {
-	AgentID string
+	// Task is the task whose diff the thread is pinned to, by id or by slug, empty for the
+	// caller's own.
+	Task string
 	// RoundID is the round the anchor's line numbers were measured in, empty for a caller that
 	// leaves the round to be worked out from the snapshot it names.
 	RoundID string
@@ -257,7 +268,7 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, errReviewThreadNoFile
 	}
 
-	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
+	task, err := s.getTask(ctx, params.Task, params.Author)
 	if err != nil {
 		return nil, err
 	}
@@ -558,9 +569,10 @@ func (s *ReviewService) SetReviewThreadResolved(
 	})
 }
 
-// SetReviewFileViewedParams names one file of the diff of an agent's task to mark read or unread.
+// SetReviewFileViewedParams names one file of a task's diff to mark read or unread.
 type SetReviewFileViewedParams struct {
-	AgentID     string
+	// Task is the task by id or by slug.
+	Task        string
 	FilePath    string
 	Fingerprint string
 	Viewed      bool
@@ -577,7 +589,7 @@ func (s *ReviewService) SetReviewFileViewed(
 		return nil, fmt.Errorf("%w: marking a file viewed", ErrReviewHumanOnly)
 	}
 
-	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
+	task, err := s.getTask(ctx, params.Task, params.Author)
 	if err != nil {
 		return nil, err
 	}
@@ -586,21 +598,27 @@ func (s *ReviewService) SetReviewFileViewed(
 		return nil, s.reviews.UnmarkFileViewed(ctx, task.ID, params.FilePath)
 	}
 
+	agentID, err := s.recordedAgentID(ctx, *task, params.Author)
+	if err != nil {
+		return nil, err
+	}
+
 	return s.reviews.MarkFileViewed(ctx, reviewstore.MarkFileViewedParams{
-		AgentID:     params.AgentID,
+		AgentID:     agentID,
 		TaskID:      task.ID,
 		FilePath:    params.FilePath,
 		Fingerprint: params.Fingerprint,
 	})
 }
 
-// ListReviewViewedFilesParams names the agent whose task's read files are wanted.
+// ListReviewViewedFilesParams names the task whose read files are wanted.
 type ListReviewViewedFilesParams struct {
-	AgentID string
-	Author  ReviewAuthor
+	// Task is the task by id or by slug.
+	Task   string
+	Author ReviewAuthor
 }
 
-// ListReviewViewedFiles is every file of an agent's task the person reviewing has marked read.
+// ListReviewViewedFiles is every file of a task the person reviewing has marked read.
 func (s *ReviewService) ListReviewViewedFiles(
 	ctx context.Context,
 	params ListReviewViewedFilesParams,
@@ -609,7 +627,7 @@ func (s *ReviewService) ListReviewViewedFiles(
 		return nil, fmt.Errorf("%w: reading which files have been viewed", ErrReviewHumanOnly)
 	}
 
-	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
+	task, err := s.getTask(ctx, params.Task, params.Author)
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,6 @@ import (
 	"komrad/internal/komradtest"
 	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
-	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -54,7 +53,7 @@ func TestIntegrationReviews(t *testing.T) {
 	var threadID string
 
 	t.Run("the reviewer takes a round of the committed branch and comments on it", func(t *testing.T) {
-		opened := connect.NewRequest(&agentv1.OpenReviewRoundRequest{AgentId: worker.GetId()})
+		opened := connect.NewRequest(&agentv1.OpenReviewRoundRequest{})
 		callAs(opened, reviewer.GetId())
 
 		round, err := instance.Agents.OpenReviewRound(ctx, opened)
@@ -62,7 +61,6 @@ func TestIntegrationReviews(t *testing.T) {
 		assert.Equal(t, int32(1), round.Msg.GetRound().GetOrdinal())
 
 		written := connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-			AgentId:     worker.GetId(),
 			SnapshotSha: round.Msg.GetRound().GetSnapshotSha(),
 			FilePath:    "greet.go",
 			NewStart:    3,
@@ -80,7 +78,7 @@ func TestIntegrationReviews(t *testing.T) {
 
 	t.Run("the worker is shown nothing of a review still being written", func(t *testing.T) {
 		assert.Empty(t, listThreadBodies(t, instance, listThreadBodiesParams{
-			AgentID:  worker.GetId(),
+			Task:     worker.GetTaskId(),
 			ReaderID: worker.GetId(),
 		}))
 		assert.Equal(t, mail.DeliveryDone, instance.Deliver(worker.GetId()))
@@ -90,7 +88,6 @@ func TestIntegrationReviews(t *testing.T) {
 
 	t.Run("releasing it rings the worker's doorbell once", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.ReleaseReviewRequest{
-			AgentId: worker.GetId(),
 			Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 		})
 		callAs(req, reviewer.GetId())
@@ -125,7 +122,7 @@ func TestIntegrationReviews(t *testing.T) {
 		require.Len(t, whole.Msg.GetThreads(), 1)
 		assert.Contains(t, whole.Msg.GetThreads()[0].GetContext(), ">> 3  func Hello() {}")
 		assert.Equal(t, []string{"say who it greets"}, listThreadBodies(t, instance, listThreadBodiesParams{
-			AgentID:  worker.GetId(),
+			Task:     worker.GetTaskId(),
 			ReaderID: worker.GetId(),
 		}))
 	})
@@ -163,7 +160,7 @@ func TestIntegrationReviews(t *testing.T) {
 		assert.Contains(t, rung[0].GetBody(), "list_review_threads")
 
 		assert.Equal(t, []string{"say who it greets", "it greets the caller now"}, listThreadBodies(t, instance, listThreadBodiesParams{
-			AgentID:  worker.GetId(),
+			Task:     worker.GetTaskId(),
 			ReaderID: reviewer.GetId(),
 		}))
 	})
@@ -182,7 +179,7 @@ func TestIntegrationReviews(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, added.Msg.GetMessage().GetRoundId())
 
-		listed := connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: xptr.Ptr(worker.GetId())})
+		listed := connect.NewRequest(&agentv1.ListReviewThreadsRequest{})
 		callAs(listed, worker.GetId())
 
 		threads, err := instance.Agents.ListReviewThreads(ctx, listed)
@@ -192,17 +189,17 @@ func TestIntegrationReviews(t *testing.T) {
 	})
 }
 
-// listThreadBodiesParams names whose diff to read and who is reading it.
+// listThreadBodiesParams names which task's diff to read and who is reading it.
 type listThreadBodiesParams struct {
-	AgentID  string
+	Task     string
 	ReaderID string
 }
 
-// listThreadBodies is every message the reader is shown on an agent's diff.
+// listThreadBodies is every message the reader is shown on a task.
 func listThreadBodies(t *testing.T, instance *komradtest.Instance, params listThreadBodiesParams) []string {
 	t.Helper()
 
-	req := connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: &params.AgentID})
+	req := connect.NewRequest(&agentv1.ListReviewThreadsRequest{Task: &params.Task})
 	callAs(req, params.ReaderID)
 
 	threads, err := instance.Agents.ListReviewThreads(t.Context(), req)

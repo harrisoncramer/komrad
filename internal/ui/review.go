@@ -14,6 +14,7 @@ const reviewTimeout = 30 * time.Second
 // reviewScreen is the review of one agent's diff, while that screen is up.
 type reviewScreen struct {
 	agentID   string
+	taskID    string
 	agentName string
 	dir       string
 	root      string

@@ -29,6 +29,12 @@ const reviewDirName = "reviews"
 // ErrReviewNoRound is answered when a review is asked for on a task no round has been taken of.
 var ErrReviewNoRound = fail.Precondition("no round has been taken of that task yet")
 
+// errReviewUnnamedTask is answered when a call names no task and the caller is on none.
+var errReviewUnnamedTask = fail.InvalidArgument("pass task, by id or by slug")
+
+// errReviewNoAgent is answered when a person opens a round on a task no agent was ever on.
+var errReviewNoAgent = fail.Precondition("that task has never had an agent on it")
+
 // errReviewNoTask is answered when a review call names an orchestrator, which works on no task.
 var errReviewNoTask = fail.Precondition("that agent works on no task, so it has no work to review")
 
@@ -72,17 +78,9 @@ type reviewSnapshotter interface {
 	ReleaseRef(ctx context.Context, dir, ref string) error
 }
 
-// OpenRound freezes the checkout of an agent's task now and records it as the task's next round.
-func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author ReviewAuthor) (*reviewstore.Round, error) {
-	agent, err := s.getAgent(ctx, agentID)
-	if err != nil {
-		return nil, err
-	}
-	if agent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", agenterr.ErrReviewNeedsOwnWork, agent.Name)
-	}
-
-	task, err := s.getTaskOfAgent(ctx, *agent)
+// OpenRound freezes the checkout of a task now and records it as the task's next round.
+func (s *ReviewService) OpenRound(ctx context.Context, ref string, author ReviewAuthor) (*reviewstore.Round, error) {
+	task, err := s.getTask(ctx, ref, author)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +88,30 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, err
 	}
 
-	return s.openTaskRound(ctx, *task, agent.ID)
+	agentID, err := s.recordedAgentID(ctx, *task, author)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.openTaskRound(ctx, *task, agentID)
+}
+
+// recordedAgentID is the agent a row written on a task is filed under: the caller when it is an
+// agent, and otherwise the newest agent on the task.
+func (s *ReviewService) recordedAgentID(ctx context.Context, task taskstore.Task, author ReviewAuthor) (string, error) {
+	if author.AgentID != nil {
+		return *author.AgentID, nil
+	}
+
+	agents, err := s.agents.ListOnTasks(ctx, []string{task.ID})
+	if err != nil {
+		return "", err
+	}
+	if len(agents) == 0 {
+		return "", fmt.Errorf("%w: %q", errReviewNoAgent, task.Slug)
+	}
+
+	return agents[len(agents)-1].ID, nil
 }
 
 // openTaskRound freezes a task's checkout through one of its agents, handing back the newest
@@ -168,13 +189,13 @@ func (s *ReviewService) getLatestRound(ctx context.Context, taskID string) (*rev
 	return round, nil
 }
 
-// ListRounds is every round taken of an agent's task, oldest first.
+// ListRounds is every round taken of a task, oldest first.
 func (s *ReviewService) ListRounds(
 	ctx context.Context,
-	agentID string,
+	ref string,
 	author ReviewAuthor,
 ) ([]reviewstore.Round, error) {
-	task, err := s.getTaskOfAgentID(ctx, agentID)
+	task, err := s.getTask(ctx, ref, author)
 	if err != nil {
 		return nil, err
 	}
@@ -185,15 +206,15 @@ func (s *ReviewService) ListRounds(
 	return s.reviews.ListRounds(ctx, task.ID)
 }
 
-// ListReviews is every review given on an agent's task, in the order their rounds were taken,
+// ListReviews is every review given on a task, in the order their rounds were taken,
 // keeping another author's unreleased review, and the path of their released one, from an agent
 // caller.
 func (s *ReviewService) ListReviews(
 	ctx context.Context,
-	agentID string,
+	ref string,
 	author ReviewAuthor,
 ) ([]reviewstore.Review, error) {
-	task, err := s.getTaskOfAgentID(ctx, agentID)
+	task, err := s.getTask(ctx, ref, author)
 	if err != nil {
 		return nil, err
 	}
@@ -409,6 +430,19 @@ func (s *ReviewService) getAuthorOnTask(
 	return agent, nil
 }
 
+// getTask reads the task a call names, by id or by slug, or the caller's own task when it names
+// none.
+func (s *ReviewService) getTask(ctx context.Context, ref string, author ReviewAuthor) (*taskstore.Task, error) {
+	if ref != "" {
+		return s.taskFinder.GetTask(ctx, ref)
+	}
+	if author.AgentID == nil {
+		return nil, errReviewUnnamedTask
+	}
+
+	return s.getTaskOfAgentID(ctx, *author.AgentID)
+}
+
 // getTaskOfAgentID reads the task the agent with this id works on.
 func (s *ReviewService) getTaskOfAgentID(ctx context.Context, agentID string) (*taskstore.Task, error) {
 	agent, err := s.getAgent(ctx, agentID)
@@ -460,7 +494,8 @@ type ReleaseReviewResult struct {
 
 // ReleaseReviewParams says whose review to let go of and what it concluded.
 type ReleaseReviewParams struct {
-	AgentID string
+	// Task is the task the review is of, by id or by slug, empty for the caller's own.
+	Task string
 	// Verdict is what a reviewing agent concluded, empty from a person, who sends comments alone.
 	Verdict reviewstore.Verdict
 	// Body is what the reviewer says about the change as a whole rather than about any one line,
@@ -475,7 +510,7 @@ func (s *ReviewService) ReleaseReview(
 	ctx context.Context,
 	params ReleaseReviewParams,
 ) (*ReleaseReviewResult, error) {
-	task, err := s.getTaskOfAgentID(ctx, params.AgentID)
+	task, err := s.getTask(ctx, params.Task, params.Author)
 	if err != nil {
 		return nil, err
 	}

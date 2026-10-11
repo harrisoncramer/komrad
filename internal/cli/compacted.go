@@ -53,7 +53,7 @@ it back as additional context. A panel that cannot be reached prints nothing.`,
 			return nil
 		}
 
-		threads, err := readOpenThreads(cmd.Context(), state, threadOwner(row.GetAgent()))
+		threads, err := readOpenThreads(cmd.Context(), state, threadTask(row.GetAgent()))
 		if err != nil {
 			reportHookProblem(cmd, "komrad could not read the review threads, so they are left out", err)
 		}
@@ -69,12 +69,10 @@ it back as additional context. A panel that cannot be reached prints nothing.`,
 	return cmd
 }
 
-func threadOwner(agent *agentv1.Agent) string {
+func threadTask(agent *agentv1.Agent) string {
 	switch agent.GetRole() {
-	case agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
-		return agent.GetId()
-	case agentv1.AgentRole_AGENT_ROLE_REVIEWER:
-		return agent.GetParentAgentId()
+	case agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER, agentv1.AgentRole_AGENT_ROLE_REVIEWER:
+		return agent.GetTaskId()
 	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
 		return ""
 	default:
@@ -95,15 +93,15 @@ func readOwnRow(ctx context.Context, state *app) (*agentv1.GetAgentResponse, err
 	return &resp, nil
 }
 
-func readOpenThreads(ctx context.Context, state *app, owner string) ([]*agentv1.ReviewThread, error) {
-	if owner == "" {
+func readOpenThreads(ctx context.Context, state *app, task string) ([]*agentv1.ReviewThread, error) {
+	if task == "" {
 		return nil, nil
 	}
 
 	var resp agentv1.ListReviewThreadsResponse
 	if err := callHookRPC(ctx, state, hookRPC{
 		path:    agentv1connect.AgentServiceListReviewThreadsProcedure,
-		request: map[string]any{"agent_id": owner},
+		request: map[string]any{"task": task},
 		into:    &resp,
 	}); err != nil {
 		return nil, err

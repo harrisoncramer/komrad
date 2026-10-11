@@ -24,34 +24,20 @@ type reviewConversation interface {
 	EditReviewMessage(ctx context.Context, params reviews.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
 	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
-	OpenRound(ctx context.Context, agentID string, author reviews.ReviewAuthor) (*reviewstore.Round, error)
-	ListRounds(ctx context.Context, agentID string, author reviews.ReviewAuthor) ([]reviewstore.Round, error)
-	ListReviews(ctx context.Context, agentID string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
+	OpenRound(ctx context.Context, task string, author reviews.ReviewAuthor) (*reviewstore.Round, error)
+	ListRounds(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Round, error)
+	ListReviews(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
 	GetReview(ctx context.Context, reviewID string, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
 	ReleaseReview(ctx context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error)
 	SetReviewFileViewed(ctx context.Context, params reviews.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
 	ListReviewViewedFiles(ctx context.Context, params reviews.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
 }
 
-// errUnnamedReview is a request to read a review without saying whose, from something that is
-// not an agent with a review of its own.
-var errUnnamedReview = fail.InvalidArgument("name the agent whose review you are reading")
-
-// ListReviewThreads reads the review pinned to an agent's diff.
+// ListReviewThreads reads the review pinned to a task's diff.
 func (s *Handler) ListReviewThreads(ctx context.Context, req *agentv1.ListReviewThreadsRequest) (*agentv1.ListReviewThreadsResponse, *fail.Error) {
-	author := reviewAuthorFrom(ctx)
-
-	agentID := req.GetAgentId()
-	if agentID == "" && author.AgentID != nil {
-		agentID = *author.AgentID
-	}
-	if agentID == "" {
-		return nil, errUnnamedReview
-	}
-
 	threads, err := s.review.ListReviewThreads(ctx, reviews.ListReviewThreadsParams{
-		AgentID: agentID,
-		Author:  author,
+		Task:   req.GetTask(),
+		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the review threads")
@@ -67,7 +53,7 @@ func (s *Handler) ListReviewThreads(ctx context.Context, req *agentv1.ListReview
 // CreateReviewThread pins a conversation to a place in a diff and writes its first message.
 func (s *Handler) CreateReviewThread(ctx context.Context, req *agentv1.CreateReviewThreadRequest) (*agentv1.CreateReviewThreadResponse, *fail.Error) {
 	thread, err := s.review.CreateReviewThread(ctx, reviews.CreateReviewThreadParams{
-		AgentID:     req.GetAgentId(),
+		Task:        req.GetTask(),
 		BaseSHA:     req.GetBaseSha(),
 		SnapshotSHA: req.GetSnapshotSha(),
 		FilePath:    req.GetFilePath(),
@@ -165,9 +151,9 @@ func (s *Handler) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetR
 	}, nil
 }
 
-// OpenReviewRound freezes what an agent has written and records it as its next round.
+// OpenReviewRound freezes a task's checkout and records it as the task's next round.
 func (s *Handler) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRoundRequest) (*agentv1.OpenReviewRoundResponse, *fail.Error) {
-	round, err := s.review.OpenRound(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
+	round, err := s.review.OpenRound(ctx, req.GetTask(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to open a review round")
 	}
@@ -175,9 +161,9 @@ func (s *Handler) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRo
 	return &agentv1.OpenReviewRoundResponse{Round: render.ReviewRound(*round)}, nil
 }
 
-// ListReviewRounds reads every round taken of an agent.
+// ListReviewRounds reads every round taken of a task.
 func (s *Handler) ListReviewRounds(ctx context.Context, req *agentv1.ListReviewRoundsRequest) (*agentv1.ListReviewRoundsResponse, *fail.Error) {
-	rounds, err := s.review.ListRounds(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
+	rounds, err := s.review.ListRounds(ctx, req.GetTask(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the review rounds")
 	}
@@ -187,9 +173,9 @@ func (s *Handler) ListReviewRounds(ctx context.Context, req *agentv1.ListReviewR
 	return &agentv1.ListReviewRoundsResponse{Rounds: answered}, nil
 }
 
-// ListReviews reads every review given on an agent.
+// ListReviews reads every review given on a task.
 func (s *Handler) ListReviews(ctx context.Context, req *agentv1.ListReviewsRequest) (*agentv1.ListReviewsResponse, *fail.Error) {
-	reviews, err := s.review.ListReviews(ctx, req.GetAgentId(), reviewAuthorFrom(ctx))
+	reviews, err := s.review.ListReviews(ctx, req.GetTask(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the reviews")
 	}
@@ -216,7 +202,7 @@ func (s *Handler) GetReview(ctx context.Context, req *agentv1.GetReviewRequest) 
 // ReleaseReview releases the caller's open review, writing it out and mailing the path.
 func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
 	result, err := s.review.ReleaseReview(ctx, reviews.ReleaseReviewParams{
-		AgentID: req.GetAgentId(),
+		Task:    req.GetTask(),
 		Verdict: fromReviewVerdict(req.GetVerdict()),
 		Body:    req.GetBody(),
 		Author:  reviewAuthorFrom(ctx),
@@ -235,7 +221,7 @@ func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewR
 // SetReviewFileViewed marks one file of a diff read, or drops the mark.
 func (s *Handler) SetReviewFileViewed(ctx context.Context, req *agentv1.SetReviewFileViewedRequest) (*agentv1.SetReviewFileViewedResponse, *fail.Error) {
 	viewed, err := s.review.SetReviewFileViewed(ctx, reviews.SetReviewFileViewedParams{
-		AgentID:     req.GetAgentId(),
+		Task:        req.GetTask(),
 		FilePath:    req.GetFilePath(),
 		Fingerprint: req.GetFingerprint(),
 		Viewed:      req.GetViewed(),
@@ -253,11 +239,11 @@ func (s *Handler) SetReviewFileViewed(ctx context.Context, req *agentv1.SetRevie
 	return answered, nil
 }
 
-// ListReviewViewedFiles reads which files of an agent's diff have been marked read.
+// ListReviewViewedFiles reads which files of a task's diff have been marked read.
 func (s *Handler) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
 	files, err := s.review.ListReviewViewedFiles(ctx, reviews.ListReviewViewedFilesParams{
-		AgentID: req.GetAgentId(),
-		Author:  reviewAuthorFrom(ctx),
+		Task:   req.GetTask(),
+		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the viewed files")

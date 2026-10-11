@@ -1088,7 +1088,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_review_threads"
-      description: "List the comment threads on an agent's diff, yours by default. Line numbers are true of each thread's round, so search for the quoted lines once code has moved."
+      description: "List the comment threads on a task's diff, your own task's by default. Line numbers are true of each thread's round, so search for the quoted lines once code has moved."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
@@ -1243,7 +1243,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "open_review_round"
-      description: "Freeze an agent's worktree as a round to review against, then diff its base_sha against its snapshot_sha. An unchanged tree returns the last round."
+      description: "Freeze a task's checkout as a round to review against, your own task's by default, then diff its base_sha against its snapshot_sha. An unchanged tree returns the last round."
       destructive: false
       idempotent: true
       roles: [ROLE_REVIEWER]
@@ -1255,7 +1255,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_review_rounds"
-      description: "List the rounds taken of an agent, oldest first. Diff one round's snapshot_sha against the next to see what changed between them."
+      description: "List the rounds taken of a task, your own by default, oldest first. Diff one round's snapshot_sha against the next to see what changed between them."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,
@@ -1269,7 +1269,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_reviews"
-      description: "List the reviews released on an agent, in round order, each with its verdict."
+      description: "List the reviews released on a task, your own by default, in round order, each with its verdict."
       roles: [
         ROLE_IMPLEMENTER,
         ROLE_REVIEWER,

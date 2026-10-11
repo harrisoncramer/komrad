@@ -85,6 +85,7 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
 
 	*r = reviewScreen{
 		agentID:   agent.ID,
+		taskID:    agent.TaskID,
 		agentName: agent.Name,
 		dir:       agent.Cwd,
 		exclude:   worktree.DiffExclude,
@@ -139,15 +140,17 @@ func describeRefusedReview(name string, err error) string {
 func (r reviewScreen) loadWholeCmd(m *model) tea.Cmd {
 	return loadReviewCmd(m, loadReviewCmdParams{
 		AgentID: r.agentID,
+		TaskID:  r.taskID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
 	})
 }
 
-// loadReviewCmdParams says which agent's round to open, where to read it, and what to measure it
+// loadReviewCmdParams says which task's round to open, for which agent on screen, where to read it, and what to measure it
 // from.
 type loadReviewCmdParams struct {
 	AgentID string
+	TaskID  string
 	Dir     string
 	Exclude []string
 	Spec    diffSpec
@@ -168,10 +171,10 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 		defer cancel()
 
 		record, err := readReviewRecord(ctx, readReviewRecordParams{
-			Agents:  agents,
-			AgentID: agentID,
-			Live:    live,
-			Held:    held,
+			Agents: agents,
+			TaskID: params.TaskID,
+			Live:   live,
+			Held:   held,
 		})
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
@@ -183,10 +186,10 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 		}
 
 		picked, err := pickReviewRound(ctx, pickReviewRoundParams{
-			Agents:  agents,
-			AgentID: agentID,
-			Record:  record,
-			Fresh:   params.Fresh,
+			Agents: agents,
+			TaskID: params.TaskID,
+			Record: record,
+			Fresh:  params.Fresh,
 		})
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
@@ -209,7 +212,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			}
 		}
 
-		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
+		viewed, err := listReviewViewedFiles(ctx, agents, params.TaskID)
 		earlier := findPreviousReviewedRound(record.reviews, rounds, round)
 		chapters := replayChapters(ctx, replayChaptersParams{
 			Git: repo,
@@ -268,8 +271,8 @@ type reviewRecord struct {
 
 // readReviewRecordParams says whose review record to read, and which threads the world already holds.
 type readReviewRecordParams struct {
-	Agents  agentReads
-	AgentID string
+	Agents agentReads
+	TaskID string
 	// Live says the agent's threads are the world's.
 	Live bool
 	Held []*agentv1.ReviewThread
@@ -278,7 +281,7 @@ type readReviewRecordParams struct {
 func readReviewRecord(ctx context.Context, params readReviewRecordParams) (*reviewRecord, error) {
 	threads := params.Held
 	if !params.Live {
-		listed, err := listReviewThreads(ctx, params.Agents, params.AgentID)
+		listed, err := listReviewThreads(ctx, params.Agents, params.TaskID)
 		if err != nil {
 			return nil, err
 		}
@@ -286,14 +289,14 @@ func readReviewRecord(ctx context.Context, params readReviewRecordParams) (*revi
 		threads = listed
 	}
 
-	reviews, err := listReviews(ctx, params.Agents, params.AgentID)
+	reviews, err := listReviews(ctx, params.Agents, params.TaskID)
 	if err != nil {
 		return nil, err
 	}
 
 	// The rounds are a better answer where they can be had rather than one the screen depends
 	// on, so only the pin, which cannot be placed without them, gives up when they cannot.
-	rounds, roundsErr := listReviewRounds(ctx, params.Agents, params.AgentID)
+	rounds, roundsErr := listReviewRounds(ctx, params.Agents, params.TaskID)
 
 	openBatch := openBatchRoundID(reviews)
 	if openBatch != "" && roundsErr != nil {
@@ -354,10 +357,10 @@ type pickedRound struct {
 }
 
 type pickReviewRoundParams struct {
-	Agents  agentReads
-	AgentID string
-	Record  *reviewRecord
-	Fresh   bool
+	Agents agentReads
+	TaskID string
+	Record *reviewRecord
+	Fresh  bool
 }
 
 func pickReviewRound(ctx context.Context, params pickReviewRoundParams) (*pickedRound, error) {
@@ -371,7 +374,7 @@ func pickReviewRound(ctx context.Context, params pickReviewRoundParams) (*picked
 	}
 
 	opened, err := params.Agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-		AgentId: params.AgentID,
+		Task: &params.TaskID,
 	}))
 	switch {
 	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(picked.rounds) > 0:
@@ -706,6 +709,7 @@ func (r *reviewScreen) load(m *model, fresh bool) tea.Cmd {
 
 	return loadReviewCmd(m, loadReviewCmdParams{
 		AgentID: r.agentID,
+		TaskID:  r.taskID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
 		Spec:    r.diff.spec,

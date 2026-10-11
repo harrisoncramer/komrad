@@ -60,6 +60,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	require.NoError(t, err)
 
 	agentID, tree := created.Msg.GetAgent().GetId(), created.Msg.GetAgent().GetCwd()
+	taskID := created.Msg.GetAgent().GetTaskId()
 	require.DirExists(t, tree)
 	instance.WaitForHarness(agentID)
 	runGitIn(t, tree, "config", "user.email", "test@komrad.test")
@@ -70,12 +71,12 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	runGitIn(t, tree, "commit", "--quiet", "-m", "round one")
 
 	first, err := instance.Agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-		AgentId: agentID,
+		Task: &taskID,
 	}))
 	require.NoError(t, err)
 
 	_, err = instance.Agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-		AgentId:     agentID,
+		Task:        &taskID,
 		FilePath:    "greet.go",
 		NewStart:    5,
 		NewEnd:      5,
@@ -85,7 +86,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	require.NoError(t, err)
 
 	_, err = instance.Agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-		AgentId: agentID,
+		Task: &taskID,
 	}))
 	require.NoError(t, err)
 
@@ -97,7 +98,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	runGitIn(t, repo, "push", "--quiet")
 
 	rebased, err := instance.Agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{
-		Task: created.Msg.GetAgent().GetTaskId(),
+		Task: taskID,
 	}))
 	require.NoError(t, err)
 
@@ -117,7 +118,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	writeIn(t, tree, "greet.go", strings.Replace(rebasedGreet, "func Agent() {}", "func Agent() {}\n\nfunc Again() {}", 1))
 
 	second, err := instance.Agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-		AgentId: agentID,
+		Task: &taskID,
 	}))
 	require.NoError(t, err)
 	require.NotEqual(t, first.Msg.GetRound().GetBaseSha(), second.Msg.GetRound().GetBaseSha(),

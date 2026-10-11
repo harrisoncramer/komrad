@@ -25,18 +25,19 @@ import (
 // TestCompactedHookRemindsTheAgent pins what an agent is handed back once it has compacted.
 func TestCompactedHookRemindsTheAgent(t *testing.T) {
 	tests := []struct {
-		name             string
-		row              *agentv1.GetAgentResponse
-		threads          []*agentv1.ReviewThread
-		wantThreadsOwner string
-		wantText         []string
-		wantAbsent       []string
+		name            string
+		row             *agentv1.GetAgentResponse
+		threads         []*agentv1.ReviewThread
+		wantThreadsTask string
+		wantText        []string
+		wantAbsent      []string
 	}{
 		{
 			name: "an implementer is handed its branch, pull request, open threads and task",
 			row: &agentv1.GetAgentResponse{
 				Agent: &agentv1.Agent{
 					Id:     "agent-a",
+					TaskId: xptr.Ptr("task-a"),
 					Name:   "compaction",
 					Role:   agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
 					Prompt: "build the usage block",
@@ -61,7 +62,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 					ResolvedAt: "2026-09-25T10:00:00Z",
 				},
 			},
-			wantThreadsOwner: "agent-a",
+			wantThreadsTask: "task-a",
 			wantText: []string{
 				"You are compaction (agent-a), the implementer agent.",
 				"Branch: agent/compaction",
@@ -77,6 +78,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			name: "a reviewer is handed the threads on the work it reads",
 			row: &agentv1.GetAgentResponse{Agent: &agentv1.Agent{
 				Id:            "agent-r",
+				TaskId:        xptr.Ptr("task-a"),
 				Name:          "compaction-review",
 				Role:          agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 				ParentAgentId: xptr.Ptr("agent-a"),
@@ -87,7 +89,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 				NewStart: 1,
 				NewEnd:   1,
 			}},
-			wantThreadsOwner: "agent-a",
+			wantThreadsTask: "task-a",
 			wantText: []string{
 				"the reviewer agent",
 				"Parent agent: agent-a",
@@ -110,19 +112,20 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			name: "a long task is cut and says where the rest is",
 			row: &agentv1.GetAgentResponse{Agent: &agentv1.Agent{
 				Id:     "agent-a",
+				TaskId: xptr.Ptr("task-a"),
 				Name:   "long",
 				Role:   agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
 				Prompt: strings.Repeat("x", promptLimit+50),
 			}},
-			wantThreadsOwner: "agent-a",
-			wantText:         []string{strings.Repeat("x", promptLimit) + "\n(cut here; get_agent returns the whole task)"},
-			wantAbsent:       []string{strings.Repeat("x", promptLimit+1)},
+			wantThreadsTask: "task-a",
+			wantText:        []string{strings.Repeat("x", promptLimit) + "\n(cut here; get_agent returns the whole task)"},
+			wantAbsent:      []string{strings.Repeat("x", promptLimit+1)},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var threadsOwner string
+			var threadsTask string
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
@@ -133,10 +136,10 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 					out, err = protojson.Marshal(tt.row)
 				case agentv1connect.AgentServiceListReviewThreadsProcedure:
 					var req struct {
-						AgentID string `json:"agent_id"`
+						Task string `json:"task"`
 					}
 					assert.NoError(t, json.Unmarshal(body, &req))
-					threadsOwner = req.AgentID
+					threadsTask = req.Task
 					out, err = protojson.Marshal(&agentv1.ListReviewThreadsResponse{Threads: tt.threads})
 				default:
 					t.Errorf("unexpected call to %s", r.URL.Path)
@@ -159,7 +162,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			cmd.SetArgs([]string{})
 			require.NoError(t, cmd.Execute())
 
-			assert.Equal(t, tt.wantThreadsOwner, threadsOwner, "threads are read for the diff the agent works on")
+			assert.Equal(t, tt.wantThreadsTask, threadsTask, "threads are read for the diff the agent works on")
 
 			var printed hookOutput
 			require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
