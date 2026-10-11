@@ -319,7 +319,7 @@ func TestReadAgentLogs(t *testing.T) {
 		},
 		{
 			name:   "the service source reads the service log",
-			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "service"},
+			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "server"},
 			window: &logread.Window{Lines: []string{"one"}, Offset: 42},
 			wantRead: agentRead{
 				ids:    []string{"a1"},
@@ -445,7 +445,7 @@ func TestListAgentLogSources(t *testing.T) {
 	require.NoError(t, err)
 
 	want := &logv1.ListAgentLogSourcesResponse{Sources: []*logv1.LogSource{
-		{Id: "service", Name: "service"},
+		{Id: "server", Name: "server"},
 		{
 			Id:      "002-agent.pre-launch-setup.log",
 			Name:    "002 agent.pre-launch setup",
