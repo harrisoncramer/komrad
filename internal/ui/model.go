@@ -410,7 +410,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		engineStatus:    deps.EngineStatus,
 		engineBuild:     deps.EngineStatus.Build,
 		screen:          screenAgents,
-		agents:          agentsScreen{triage: triageZone{capacity: deps.Layout.TriageRows}, archived: archivedAgents{sort: tabsState{flat: true}}},
+		agents:          agentsScreen{triage: triageZone{capacity: deps.Layout.TriageRows}},
 		worktrees:       worktreesScreen{sort: tabsState{flat: true}},
 		rowCursor:       newRowCursor(),
 		warm:            newWarmupState(),

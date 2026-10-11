@@ -16,9 +16,14 @@ import (
 	"charm.land/huh/v2"
 )
 
-// taskAgents is the live agents on a task, oldest first.
-func (l listing) taskAgents(taskID string) []panel.AgentRow {
-	return xslice.Filter(l.agents, func(item panel.AgentRow) bool { return item.Agent.TaskID == taskID })
+// taskAgents is the agents on a task, the archived ones for an archived task and the live ones otherwise.
+func (l listing) taskAgents(task panel.Task) []panel.AgentRow {
+	pool := l.agents
+	if task.ArchivedAt != nil {
+		pool = l.archivedAgents
+	}
+
+	return xslice.Filter(pool, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
 }
 
 // taskFieldsParams is a task's checkout with the agents and writer its info panel shows.
@@ -100,14 +105,13 @@ func isOnHiddenTask(tasks map[string]panel.Task, agent panel.Agent) bool {
 // findTaskWriter is the agent that provisioned the task's checkout, or the lead when none on the
 // list did.
 func (l listing) findTaskWriter(task panel.Task, lead panel.AgentRow) panel.AgentRow {
-	at := slices.IndexFunc(l.agents, func(item panel.AgentRow) bool {
-		return item.Agent.TaskID == task.ID && isTaskWriter(item.Agent)
-	})
+	onTask := l.taskAgents(task)
+	at := slices.IndexFunc(onTask, func(item panel.AgentRow) bool { return isTaskWriter(item.Agent) })
 	if at < 0 {
 		return lead
 	}
 
-	return l.agents[at]
+	return onTask[at]
 }
 
 // findCheckoutWriter is the task's writer while it works in the task's own checkout.
@@ -352,7 +356,9 @@ func splitAcross(l listing, chosen []panel.Agent, candidates []panel.Task) chose
 	isUnchosen := func(agent panel.Agent) bool { return !slices.Contains(ids, agent.ID) }
 
 	wholeTasks := xslice.Filter(candidates, func(task panel.Task) bool {
-		return !slices.ContainsFunc(l.agentsOnTasks([]panel.Task{task}), isUnchosen)
+		onTask := xslice.Map(l.taskAgents(task), func(item panel.AgentRow) panel.Agent { return item.Agent })
+
+		return len(onTask) > 0 && !slices.ContainsFunc(onTask, isUnchosen)
 	})
 
 	whole := taskIDs(wholeTasks)

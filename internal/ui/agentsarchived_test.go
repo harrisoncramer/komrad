@@ -16,6 +16,7 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
@@ -201,7 +202,6 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			name:  "confirming the delete destroys the agent it was opened on",
 			rows:  buildOneArchivedAgent(),
 			press: []string{"j", "space", "a", "d", "y"},
-			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
 			wantSent: []request{{
 				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
 				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a1"}},
@@ -316,7 +316,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 			wantRows: []string{"backend", "└─ auth"},
 		},
 		{
-			name: "an orchestrator is a row of its own rather than folded onto its folder",
+			name: "an orchestrator folds onto its folder",
 			rows: []proto.Message{
 				newLiveWorkflow("w1", "backend"),
 				&agentv1.Agent{
@@ -327,7 +327,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 					ArchivedAt: xptr.Ptr(archivedAt),
 				},
 			},
-			wantRows: []string{"backend", "└─ orchestrator"},
+			wantRows: []string{"backend"},
 		},
 		{
 			name: "live and archived folders are rendered together by name",
@@ -524,6 +524,7 @@ func TestArchivedAgentsDocument(t *testing.T) {
 	measured := newArchivedAgent("a1", "api-refactor", "w1")
 	measuredTask := newTaskOf(measured)
 	measuredTask.DiffStat = &taskv1.DiffStat{Added: 200, Removed: 100}
+	measuredTask.ArchivedAt = xptr.Ptr(archivedAt)
 
 	tests := []struct {
 		name       string
@@ -554,8 +555,15 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		{
 			name:       "an archived agent renders no diff stat",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured, measuredTask},
-			press:      []string{"j"},
+			press:      []string{"j", "j"},
 			want:       []string{"archived — kept until deleted"},
+			wantAbsent: []string{"+200"},
+		},
+		{
+			name:       "an archived task renders no diff stat",
+			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), measured, measuredTask},
+			press:      []string{"j"},
+			want:       []string{"task-a1", "no goal set"},
 			wantAbsent: []string{"+200"},
 		},
 	}
@@ -602,8 +610,11 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		harness.press(append([]string{"j", "pick:record"}, widenListPresses...)...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "agent/a1")
+		assert.Contains(t, frame, "agent/a1", "the task's record carries its checkout")
 		assert.Contains(t, frame, "its pull request is merged")
+
+		harness.press("esc", "j", "pick:record")
+		frame = harness.readFrame()
 		created, archived := findRecordLine(frame, "created"), findRecordLine(frame, "archived")
 		require.Positive(t, created)
 		assert.Less(t, created, archived, "when it was put away comes after when it was made")
@@ -667,13 +678,13 @@ func TestArchivedAgentsSort(t *testing.T) {
 		})
 	}
 
-	t.Run("the archived agents open flat, the most recently archived first", func(t *testing.T) {
+	t.Run("the archived agents open under their folders, the most recently archived first", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		harness.watch(buildSnapshot(unsorted...))
 
 		harness.press("F", "tab", "esc")
 
-		assert.Equal(t, []string{"mid", "zeta", "alpha"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"backend", "├─ mid", "├─ zeta", "└─ alpha"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("the top and bottom keys walk the archived agents' own rows", func(t *testing.T) {
@@ -751,10 +762,10 @@ func TestArchivedAgentsWindow(t *testing.T) {
 		})
 		harness.watch(buildSnapshot(buildOneArchivedAgent()...))
 
-		harness.press("F", "tab", "esc", "?")
+		harness.press("F", "tab", "esc", "j", "?")
 
 		frame := harness.readFrame()
-		assert.Equal(t, []string{"api-refactor"}, readListRows(frame), "the list keeps its column")
+		assert.Equal(t, []string{"backend", "└─ api-refactor"}, readListRows(frame), "the list keeps its column")
 		assert.Contains(t, frame, "archived — kept until deleted", "beside the hovered row's document")
 		assert.Len(t, splitLines(frame), 10, "the view is exactly the pane")
 		assert.Contains(t, frame, "show help", "the legend gave up its expansion for the rows")
@@ -1181,7 +1192,7 @@ func openArchivedAgents(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
 	harness := newPanelHarness(t, panelHarnessParams{})
-	harness.press("F", "tab", "esc", "f", "shift+tab", "j", "esc")
+	harness.press("F", "tab", "esc")
 	harness.watch(buildSnapshot(rows...))
 
 	return harness
@@ -1263,4 +1274,167 @@ func requireLastScreenFor(t *testing.T, harness *panelHarness, agentIDs ...strin
 		return read.GetAgentId()
 	})
 	require.Equal(t, agentIDs, sent)
+}
+
+// TestArchivedTasks covers the archive acting on whole tasks.
+func TestArchivedTasks(t *testing.T) {
+	unstarted := buildArchivedTasks()
+	for _, row := range unstarted {
+		if agent, ok := row.(*agentv1.Agent); ok && agent.GetId() == "a2" {
+			agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+		}
+	}
+	emptied := slices.DeleteFunc(buildArchivedTasks(), func(row proto.Message) bool {
+		agent, ok := row.(*agentv1.Agent)
+
+		return ok && agent.GetId() == "a5"
+	})
+	onAPIWork := []string{"j", "j", "j", "j", "j"}
+
+	tests := []struct {
+		name      string
+		rows      []proto.Message
+		press     []string
+		wantFrame string
+		wantSent  []request
+	}{
+		{
+			name:  "restore on a task restores every agent on it",
+			rows:  buildArchivedTasks(),
+			press: append(onAPIWork, "space", "a", "r"),
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a2", "a1"}},
+			}},
+		},
+		{
+			name:  "restore and open on a task restores it and opens its lead",
+			rows:  buildArchivedTasks(),
+			press: append(onAPIWork, "space", "a", "o"),
+			wantSent: []request{
+				{
+					procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+					msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a2", "a1"}},
+				},
+				{
+					procedure: agentv1connect.AgentServiceResumeAgentProcedure,
+					msg:       &agentv1.ResumeAgentRequest{Id: "a2"},
+				},
+			},
+		},
+		{
+			name:      "restore and open passes over a task whose lead never started",
+			rows:      unstarted,
+			press:     append(onAPIWork, "space", "a", "o", "ctrl+g"),
+			wantFrame: "no conversation to open",
+		},
+		{
+			name:  "delete on a task deletes the task",
+			rows:  buildArchivedTasks(),
+			press: append(onAPIWork, "space", "a", "d", "y"),
+			wantSent: []request{{
+				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t1"}},
+			}},
+		},
+		{
+			name:      "the delete prompt on a task says the task goes",
+			rows:      buildArchivedTasks(),
+			press:     append(onAPIWork, "space", "a", "d"),
+			wantFrame: `Task "api-work" goes too`,
+		},
+		{
+			name:  "restore on a live task's header restores only its archived agents",
+			rows:  buildArchivedTasks(),
+			press: []string{"j", "space", "a", "r"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a4"}},
+			}},
+		},
+		{
+			name:  "delete on a live task's header deletes only its archived agents",
+			rows:  buildArchivedTasks(),
+			press: []string{"j", "space", "a", "d", "y"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
+				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a4"}},
+			}},
+		},
+		{
+			name:  "delete on a live task with no live agent left still spares the task",
+			rows:  emptied,
+			press: []string{"j", "space", "a", "d", "y"},
+			wantSent: []request{{
+				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
+				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a4"}},
+			}},
+		},
+		{
+			name:  "the range key takes the tasks between",
+			rows:  buildArchivedTasks(),
+			press: []string{"j", "j", "j", "v", "j", "j", "V", "space", "a", "d", "y"},
+			wantSent: []request{{
+				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2", "t1"}},
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openArchivedAgents(t, tt.rows...)
+			answerResume(harness)
+
+			harness.press(tt.press...)
+
+			if tt.wantFrame != "" {
+				assert.Contains(t, harness.readFrame(), tt.wantFrame)
+			}
+			harness.assertSent(tt.wantSent...)
+		})
+	}
+
+	t.Run("a task's menu leaves out what only a live task takes", func(t *testing.T) {
+		harness := openArchivedAgents(t, buildArchivedTasks()...)
+
+		harness.press(append(onAPIWork, "space")...)
+
+		frame := harness.readFrame()
+		require.Regexp(t, `archive ›\s+a`, frame)
+		assert.NotContains(t, frame, "hide")
+		assert.NotContains(t, frame, "edit task")
+	})
+
+	t.Run("a task's record lists the archived agents on it", func(t *testing.T) {
+		harness := openArchivedAgents(t, buildArchivedTasks()...)
+
+		harness.press(onAPIWork...)
+
+		assert.Contains(t, harness.readFrame(), "api-review, api-refactor")
+	})
+}
+
+// buildArchivedTasks is two archived tasks and a live one with an agent archived out of it.
+func buildArchivedTasks() []proto.Message {
+	refactor := newArchivedAgent("a1", "api-refactor", "w1")
+	review := newArchivedAgent("a2", "api-review", "w1")
+	tune := newArchivedAgent("a3", "db-tune", "w1")
+	auth := newArchivedAgent("a4", "auth", "w1")
+	authLive := newAgent("a5", "auth-live", "w1")
+	for _, agent := range []*agentv1.Agent{refactor, review} {
+		agent.TaskId = xptr.Ptr("t1")
+	}
+	tune.TaskId = xptr.Ptr("t2")
+	for _, agent := range []*agentv1.Agent{auth, authLive} {
+		agent.TaskId = xptr.Ptr("t3")
+	}
+
+	return []proto.Message{
+		newLiveWorkflow("w1", "backend"),
+		refactor, review, tune, auth, authLive,
+		&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "api-work", ArchivedAt: xptr.Ptr(archivedAt)},
+		&taskv1.Task{Id: "t2", WorkflowId: "w1", Slug: "db-work", ArchivedAt: xptr.Ptr(archivedAt)},
+		&taskv1.Task{Id: "t3", WorkflowId: "w1", Slug: "auth-work"},
+	}
 }

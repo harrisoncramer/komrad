@@ -51,7 +51,7 @@ func TestWorktreesOpen(t *testing.T) {
 		},
 		{
 			name:        "from the archived agents it lands on the archived agent's directory",
-			press:       []string{"F", "tab", "esc", "shift+tab", "esc"},
+			press:       []string{"F", "tab", "esc", "j", "shift+tab", "esc"},
 			wantHovered: "reviewer",
 		},
 	}

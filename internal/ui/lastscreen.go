@@ -45,9 +45,14 @@ func (m *model) screenedAgentID() (string, bool) {
 }
 
 func (a *archivedAgents) screenedAgentID(m *model) (string, bool) {
-	agent, ok := a.hoveredAgent(m)
+	row, ok := a.hoveredRow(m)
+	if !ok {
+		return "", false
+	}
 
-	return agent.ID, ok
+	item, held := row.paneItem()
+
+	return item.Agent.ID, held
 }
 
 func (a *agentsScreen) screenedAgentID(m *model) (string, bool) {

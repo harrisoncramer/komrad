@@ -66,7 +66,7 @@ func taskDetailFields(m *model, task panel.Task, lead panel.AgentRow) []recordFi
 
 	return taskFields(taskFieldsParams{
 		checkout: m.buildCheckoutParams(task),
-		agents:   m.listing.taskAgents(task.ID),
+		agents:   m.listing.taskAgents(task),
 		writer:   writer,
 	})
 }
