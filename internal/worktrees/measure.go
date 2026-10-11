@@ -100,7 +100,11 @@ func (m *Measurer) Measure(ctx context.Context) error {
 	dirs := xslice.Map(present, func(worktree Worktree) string { return worktree.Dir })
 	storedByDir := xslice.KeyBy(stored, func(worktree worktreestore.Worktree) string { return worktree.Dir })
 	for _, dir := range choose(dirs, storedByDir, m.now()) {
-		if err := m.measure(ctx, byDir[dir]); err != nil {
+		read := m.measure
+		if isSettled(storedByDir[dir]) {
+			read = m.readStanding
+		}
+		if err := read(ctx, byDir[dir]); err != nil {
 			if ctx.Err() != nil {
 				return err
 			}
@@ -116,6 +120,7 @@ func (m *Measurer) Measure(ctx context.Context) error {
 // it stands, or forgets a directory that has gone.
 func (m *Measurer) measure(ctx context.Context, worktree Worktree) error {
 	dir := worktree.Dir
+	start := m.now()
 	walkCtx, cancel := context.WithTimeout(ctx, measureDeadline)
 	measured, err := measure(walkCtx, dir)
 	cancel()
@@ -127,7 +132,7 @@ func (m *Measurer) measure(ctx context.Context, worktree Worktree) error {
 		return m.worktrees.Delete(ctx, []string{dir})
 	}
 
-	size := worktreestore.Size{Dir: dir, MeasuredAt: m.now()}
+	size := worktreestore.Size{Dir: dir, MeasuredAt: start}
 	if err != nil {
 		size.Error = storableText(err.Error())
 	} else {
@@ -139,6 +144,11 @@ func (m *Measurer) measure(ctx context.Context, worktree Worktree) error {
 		return err
 	}
 
+	return m.readStanding(ctx, worktree)
+}
+
+// readStanding reads and records where one directory stands against its base.
+func (m *Measurer) readStanding(ctx context.Context, worktree Worktree) error {
 	readCtx, cancel := context.WithTimeout(ctx, measureDeadline)
 	standing := m.standings.readStanding(readCtx, worktree)
 	cancel()
@@ -197,7 +207,7 @@ func forgotten(listing *Listing, present []Worktree, stored []worktreestore.Work
 }
 
 // choose is the directories a pass walks: the unmeasured first, in listing order, then the
-// stale ones oldest first save the settled, cut to what one pass takes.
+// stale ones oldest first, cut to what one pass takes.
 func choose(paths []string, stored map[string]worktreestore.Worktree, now time.Time) []string {
 	var unmeasured, stale []string
 	for _, dir := range paths {
@@ -205,13 +215,12 @@ func choose(paths []string, stored map[string]worktreestore.Worktree, now time.T
 		switch {
 		case size == nil:
 			unmeasured = append(unmeasured, dir)
-		case isSettled(stored[dir]):
-		case now.Sub(size.MeasuredAt) >= measureStaleAfter:
+		case now.Sub(lastRead(stored[dir])) >= measureStaleAfter:
 			stale = append(stale, dir)
 		}
 	}
 	slices.SortStableFunc(stale, func(a, b string) int {
-		return cmp.Compare(stored[a].Size.MeasuredAt.UnixNano(), stored[b].Size.MeasuredAt.UnixNano())
+		return cmp.Compare(lastRead(stored[a]).UnixNano(), lastRead(stored[b]).UnixNano())
 	})
 
 	chosen := slices.Concat(unmeasured, stale)
@@ -222,4 +231,17 @@ func choose(paths []string, stored map[string]worktreestore.Worktree, now time.T
 // isSettled says a directory was measured after its task was archived, and so will not grow.
 func isSettled(worktree worktreestore.Worktree) bool {
 	return worktree.TaskArchivedAt != nil && worktree.Size != nil && worktree.Size.MeasuredAt.After(*worktree.TaskArchivedAt)
+}
+
+// lastRead is when a pass last took a measured directory: its standing once it is settled, else
+// its size.
+func lastRead(worktree worktreestore.Worktree) time.Time {
+	if !isSettled(worktree) {
+		return worktree.Size.MeasuredAt
+	}
+	if worktree.Standing == nil {
+		return time.Time{}
+	}
+
+	return worktree.Standing.ReadAt
 }
