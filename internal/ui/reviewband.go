@@ -32,14 +32,14 @@ func (r reviewScreen) frozenView(m *model) string {
 		separated, m.menuChordLabel(m.keys.Review.Reload))
 
 	var out strings.Builder
-	for _, row := range paint.WrapRows(said, r.bandWidth(m)) {
+	for _, row := range paint.WrapRows(said, r.measureBandWidth(m)) {
 		out.WriteString(paint.Panel.Style(reviewFrozenTone).Render(row) + "\n")
 	}
 
 	return out.String()
 }
 
-func (r reviewScreen) bandWidth(m *model) int {
+func (r reviewScreen) measureBandWidth(m *model) int {
 	if split, ok := m.columnGeometry(); ok {
 		return split.column
 	}
