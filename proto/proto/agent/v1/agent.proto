@@ -95,9 +95,9 @@ message Agent {
   bool failed_run = 24;
   // The run log that failure was written to, which is the run the panel opens on.
   optional int32 failed_run_log = 25;
-  // How many documents it has written outside any task, which only an orchestrator does.
+  // How many documents it has written, which list_documents returns.
   int32 documents = 26;
-  // When the newest of those was last written, in RFC 3339, unset when it has none.
+  // When the newest of its documents was last written, in RFC 3339, unset when it has none.
   optional string documents_updated_at = 27;
   // When the state above last moved, in RFC 3339.
   string state_changed_at = 28;

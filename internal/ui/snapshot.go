@@ -118,6 +118,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 
 	item := r.item
 	row = agentFacts(row, item)
+	row.Documents = row.Documents && !r.underTask
 	row.Kind = snapshotKind(r, params.flat)
 	row.Nested = r.underTask
 	row.Name = item.Agent.Name

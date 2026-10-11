@@ -341,24 +341,17 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 	return tea.Batch(m.readHoveredDocumentCmd(), m.readHistoryCmd())
 }
 
-// documentsWritten is what has been written for every task and outside them, as their rows say.
+// documentsWritten is what every agent has written, as their rows say.
 func (m *model) documentsWritten() documentsWritten {
 	var written documentsWritten
-	for _, task := range m.listing.tasks {
-		written.add(task.Documents, task.DocumentsUpdatedAt)
-	}
 	for _, item := range slices.Concat(m.listing.agents, m.listing.archivedAgents) {
-		written.add(item.Documents, item.DocumentsUpdatedAt)
+		written.count += item.Documents
+		if item.DocumentsUpdatedAt != nil && (written.newest == nil || item.DocumentsUpdatedAt.After(*written.newest)) {
+			written.newest = item.DocumentsUpdatedAt
+		}
 	}
 
 	return written
-}
-
-func (w *documentsWritten) add(count int32, updatedAt *time.Time) {
-	w.count += count
-	if updatedAt != nil && (w.newest == nil || updatedAt.After(*w.newest)) {
-		w.newest = updatedAt
-	}
 }
 
 func sameStamp(a, b *time.Time) bool {

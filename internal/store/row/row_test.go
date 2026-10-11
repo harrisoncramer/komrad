@@ -87,12 +87,12 @@ func TestFailedRun(t *testing.T) {
 	assert.False(t, rowOf(t, st, alpha.ID).FailedRun, "reading it clears the mark")
 }
 
-// TestDocuments pins the count of an orchestrator's documents and the time of its newest write, which
+// TestDocuments pins the count of an agent's documents and the time of its newest write, which
 // a rewrite moves without changing the count.
 func TestDocuments(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
-	author := st.SeedAgent(t, agentstore.Agent{Name: "author", Role: agentstore.RoleOrchestrator})
+	author := st.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := st.SeedAgent(t, agentstore.Agent{Name: "other"})
 
 	row := rowOf(t, st, author.ID)
@@ -117,9 +117,7 @@ func TestDocuments(t *testing.T) {
 	assert.Equal(t, int32(2), row.Documents)
 	require.NotNil(t, row.DocumentsUpdatedAt)
 	assert.True(t, row.DocumentsUpdatedAt.Equal(second.UpdatedAt), "the newest write is the one that landed last")
-	_, err := st.Documents.Create(ctx, documentstore.CreateParams{AgentID: other.ID, Name: "on task", Type: "RFC", Body: "on task"})
-	require.NoError(t, err)
-	assert.Zero(t, rowOf(t, st, other.ID).Documents, "a document written on a task is counted on the task")
+	assert.Zero(t, rowOf(t, st, other.ID).Documents, "another agent's documents are not counted")
 
 	rewritten, err := st.Documents.Update(ctx, documentstore.UpdateParams{
 		ID:      second.ID,
