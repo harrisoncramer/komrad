@@ -13,7 +13,7 @@ usage() {
 	echo "With --hard the tmux server goes too, which is what picks up a change to the"
 	echo "manager session itself. Every agent on the box stops and does not come back."
 	echo
-	echo "A stopped engine is started instead, since booting it starts the service fresh."
+	echo "A stopped engine is started instead, since booting it starts the server fresh."
 	echo
 	echo "The account this connects as cannot become root, so the restart is sent through"
 	echo "Systems Manager rather than over ssh."

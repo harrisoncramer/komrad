@@ -12,7 +12,7 @@ import (
 )
 
 // TestStopHandlerRefusesAnythingButPost keeps the route shut against a GET, which would let
-// a link preview or a crawler take the service down.
+// a link preview or a crawler take the server down.
 func TestStopHandlerRefusesAnythingButPost(t *testing.T) {
 	requested := make(chan struct{}, 1)
 	handler := newStopHandler(requested)

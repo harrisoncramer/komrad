@@ -118,7 +118,7 @@ func TestFold(t *testing.T) {
 // TestScreensFitTheirPane covers the whole of every screen against the pane it renders into, prose
 // and hints included.
 func TestScreensFitTheirPane(t *testing.T) {
-	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
+	err := errors.New("the server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
 
 	tests := []struct {
 		name     string
@@ -171,11 +171,11 @@ func TestConfig(t *testing.T) {
 // came out of its log and is the only thing on screen saying what failed, so it has to
 // survive the render whole.
 func TestStartup(t *testing.T) {
-	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
+	err := errors.New("the server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
 
 	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil)), " ")
 
-	assert.Contains(t, rendered, "The agent server could not be started")
+	assert.Contains(t, rendered, "The server could not be started")
 	assert.Contains(t, rendered, "connect: connection refused")
 	assert.Contains(t, rendered, "komrad doctor",
 		"with nothing found, the command that would find something is named")
@@ -185,7 +185,7 @@ func TestStartup(t *testing.T) {
 // the reason a server gave says what failed, while the findings say which dependency is
 // missing and what repairs it, the only part anyone can act on.
 func TestStartupCarriesTheFindings(t *testing.T) {
-	err := errors.New("the agent server stopped during startup: failed to reach db read-only")
+	err := errors.New("the server stopped during startup: failed to reach db read-only")
 
 	rendered := strings.Join(strings.Fields(RenderStartupError(widePane, err, []Finding{{
 		Name:   "readonly login",
@@ -199,7 +199,7 @@ func TestStartupCarriesTheFindings(t *testing.T) {
 		"nothing points at the doctor once the doctor has already answered")
 }
 
-// TestReason covers reducing a service error to the part worth reading.
+// TestReason covers reducing a server error to the part worth reading.
 func TestReason(t *testing.T) {
 	tests := []struct {
 		name string
@@ -225,7 +225,7 @@ func TestReason(t *testing.T) {
 	}
 }
 
-// TestTraceOf covers the id the service returns on a failure.
+// TestTraceOf covers the id the server returns on a failure.
 func TestTraceOf(t *testing.T) {
 	tests := []struct {
 		name string
@@ -233,17 +233,17 @@ func TestTraceOf(t *testing.T) {
 		want string
 	}{
 		{
-			name: "an error that never reached the service carries none",
+			name: "an error that never reached the server carries none",
 			err:  errors.New("dial tcp: connection refused"),
 			want: "",
 		},
 		{
-			name: "a refusal the service answered without one",
+			name: "a refusal the server answered without one",
 			err:  connect.NewError(connect.CodeNotFound, errors.New("no agent has that id")),
 			want: "",
 		},
 		{
-			name: "a refusal the service traced",
+			name: "a refusal the server traced",
 			err:  tracedError("019fd9f8-8327-7e4c-82b3-5339543f9e7e"),
 			want: "019fd9f8-8327-7e4c-82b3-5339543f9e7e",
 		},
@@ -257,7 +257,7 @@ func TestTraceOf(t *testing.T) {
 }
 
 // TestIsNotFound covers the one refusal the panel reads the code of, which a wrapped answer
-// still carries and a failure that never reached the service never does.
+// still carries and a failure that never reached the server never does.
 func TestIsNotFound(t *testing.T) {
 	tests := []struct {
 		name string
@@ -265,7 +265,7 @@ func TestIsNotFound(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "the service saying it is not there",
+			name: "the server saying it is not there",
 			err:  connect.NewError(connect.CodeNotFound, errors.New("no agent has that id")),
 			want: true,
 		},
@@ -280,7 +280,7 @@ func TestIsNotFound(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "an error that never reached the service",
+			name: "an error that never reached the server",
 			err:  errors.New("dial tcp: connection refused"),
 			want: false,
 		},
@@ -308,6 +308,6 @@ func TestStartupOnARebuiltPanel(t *testing.T) {
 	assert.Contains(t, rendered, "komrad was rebuilt")
 	assert.Contains(t, rendered, "Run komrad open to start a panel from the new build")
 	assert.Contains(t, rendered, "Press any key to close")
-	assert.NotContains(t, rendered, "The agent server could not be started")
+	assert.NotContains(t, rendered, "The server could not be started")
 	assert.NotContains(t, rendered, "komrad doctor")
 }

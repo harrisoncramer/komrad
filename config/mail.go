@@ -68,7 +68,7 @@ func (m Mail) GetMaxExchange() (int, error) {
 	return m.MaxExchange, nil
 }
 
-// validate rejects the two mail settings the service reads at send time.
+// validate rejects the two mail settings the server reads at send time.
 func (m Mail) validate() error {
 	if _, err := m.GetDeliveryDeadline(); err != nil {
 		return fmt.Errorf("mail.delivery_deadline: %w", err)

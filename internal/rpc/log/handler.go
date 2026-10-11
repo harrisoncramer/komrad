@@ -26,11 +26,11 @@ import (
 // defaultAgentLogLimit is how many lines a read of agent logs answers when the caller names no count.
 const defaultAgentLogLimit = 200
 
-// serviceSource is the source that reads the service log.
-const serviceSource = "service"
+// serverSource is the source that reads the server log.
+const serverSource = "server"
 
 var (
-	errBadCursor      = fail.InvalidArgument("the cursor is not one this service answered")
+	errBadCursor      = fail.InvalidArgument("the cursor is not one this server answered")
 	errOneAgentPerRun = fail.InvalidArgument("a script run's source is read for one agent at a time")
 	errBadPattern     = fail.InvalidArgument("the pattern is not a regular expression")
 )
@@ -123,7 +123,7 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 	if req.GetCursor() != "" {
 		parsed, err := strconv.ParseInt(req.GetCursor(), 10, 64)
 		if err != nil || parsed < 0 {
-			return nil, errBadCursor.Saying("cursor %q is not one this service answered", req.GetCursor())
+			return nil, errBadCursor.Saying("cursor %q is not one this server answered", req.GetCursor())
 		}
 		offset = parsed
 	}
@@ -136,7 +136,7 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 		query.Pattern = pattern
 	}
 
-	isRun := req.GetSource() != "" && req.GetSource() != serviceSource
+	isRun := req.GetSource() != "" && req.GetSource() != serverSource
 	if isRun && len(req.GetAgentIds()) != 1 {
 		return nil, errOneAgentPerRun.Saying("source %q was asked of %d agents", req.GetSource(), len(req.GetAgentIds()))
 	}
@@ -182,7 +182,7 @@ func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1.ListAgentLog
 	})
 
 	return &logv1.ListAgentLogSourcesResponse{
-		Sources: slices.Concat([]*logv1.LogSource{{Id: serviceSource, Name: serviceSource}}, runs),
+		Sources: slices.Concat([]*logv1.LogSource{{Id: serverSource, Name: serverSource}}, runs),
 	}, nil
 }
 

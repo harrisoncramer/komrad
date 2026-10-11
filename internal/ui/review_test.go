@@ -368,7 +368,7 @@ func TestReviewThreads(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "  Comment")
 	})
 
-	t.Run("a comment the service refuses stays in the composer", func(t *testing.T) {
+	t.Run("a comment the server refuses stays in the composer", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		harness.refuse(agentv1connect.AgentServiceCreateReviewThreadProcedure,
 			connect.NewError(connect.CodeFailedPrecondition, errors.New("not now")))

@@ -62,7 +62,7 @@ func (w *worktreesScreen) stage(m *model) {
 	m.stageTerminal()
 }
 
-// inspectWorktreeCmd asks the service for the hovered directory's standing.
+// inspectWorktreeCmd asks the server for the hovered directory's standing.
 func (m *model) inspectWorktreeCmd() tea.Cmd {
 	row, ok := m.worktrees.hovered(m)
 	if !ok {
@@ -72,7 +72,7 @@ func (m *model) inspectWorktreeCmd() tea.Cmd {
 	return m.readWorktreeCmd(row.item.dir)
 }
 
-// readWorktreeCmd asks the service for one directory's standing, once at a time.
+// readWorktreeCmd asks the server for one directory's standing, once at a time.
 func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	last, asked := m.inspections[dir]
 	if asked && last.pending {

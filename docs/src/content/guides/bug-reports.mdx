@@ -36,7 +36,7 @@ When a request fails, the panel shows its trace ID as a <Command path="log" args
 
 Run that command and paste what it prints. If you missed the id, <Command path="log" args="--recent" /> lists the latest ones.
 
-The service also writes a log file, `komrad.log`, in your cache directory. That's `~/Library/Caches/komrad/` on macOS and `~/.cache/komrad/` on Linux. It explains failures to launch, reconcile, or index. Paste only the lines from around the time of the bug, and filter by the agent's id if one was involved.
+The server also writes a log file, `komrad.log`, in your cache directory. That's `~/Library/Caches/komrad/` on macOS and `~/.cache/komrad/` on Linux. It explains failures to launch, reconcile, or index. Paste only the lines from around the time of the bug, and filter by the agent's id if one was involved.
 
 Finally, if an agent shows the wrong state, such as thinking when its pane has stopped, the recorded pane frames really help. Please set <Setting path="debug.frames" label="frames = true" /> under <Setting path="debug" label="[debug]" /> in your config, replicate the issue, and attach the frame file. The files are kept by default in `komrad-frames/<agent id>/` in the same cache directory.
 
@@ -44,7 +44,7 @@ For anything visual (UI flicker, regressions, etc) please attach a screenshot or
 
 ## Performance problems
 
-Komrad runs two services: the background service, which runs the agents and answers the API, and the panel, which draws the screen. Each can serve Go's [pprof](https://pkg.go.dev/net/http/pprof) profiles on its own port to debug performance issues.
+Komrad runs two processes: the server, which runs the agents and answers the API, and the panel, which draws the screen. Each can serve Go's [pprof](https://pkg.go.dev/net/http/pprof) profiles on its own port to debug performance issues.
 
 <Alert variant="warning">
   It's likely that your performance issues are actually related to something outside Komrad, such as old Docker pods for
@@ -62,9 +62,9 @@ enabled = true
 enabled = true
 ```
 
-The service serves on <Setting path="debug.pprof.server.address" label="localhost:6060" /> and the panel on <Setting path="debug.pprof.panel.address" label="localhost:6061" />. Both read your configuration only when komrad starts, so run <Command path="stop" /> and restart the panel after changing it.
+The server serves on <Setting path="debug.pprof.server.address" label="localhost:6060" /> and the panel on <Setting path="debug.pprof.panel.address" label="localhost:6061" />. Both read your configuration only when komrad starts, so run <Command path="stop" /> and restart the panel after changing it.
 
-Turning profiling on doesn't record anything by itself. It only opens a port that answers questions about the running process. For instance, use these commands to dump information about the currently running service after turning on profiling:
+Turning profiling on doesn't record anything by itself. It only opens a port that answers questions about the running process. For instance, use these commands to dump information about the currently running server after turning on profiling:
 
 ```sh
 curl -o heap.pb.gz 'http://localhost:6060/debug/pprof/heap'

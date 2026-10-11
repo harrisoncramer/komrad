@@ -12,7 +12,7 @@ func migrateCmd(state *app) *cobra.Command {
 		Short: "Apply any pending database migrations",
 		Long: `Apply any pending database migrations, connecting as the login that owns the schema.
 
-The service never migrates: an engine connects as a login that cannot change the schema,
+The server never migrates: an engine connects as a login that cannot change the schema,
 and it refuses to start against a database missing migrations its build carries. So
 every upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE_URL)
 naming the owner, which falls back to database_url on a database no engine has joined.

@@ -142,7 +142,7 @@ func newEngineCheck() Check {
 }
 
 // newReadOnlyLoginCheck asserts the least-privilege login exists and can connect, connecting the
-// same way the service does.
+// same way the server does.
 func newReadOnlyLoginCheck() Check {
 	return Check{
 		Name:        "readonly login",

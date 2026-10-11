@@ -1,5 +1,5 @@
 // Package cli builds the komrad command tree, which opens the panel when run with no subcommand
-// and otherwise starts the service, attaches to an agent, runs the doctor, or calls one RPC.
+// and otherwise starts the server, attaches to an agent, runs the doctor, or calls one RPC.
 //
 // The rpc subcommands are not written here. They are generated from the same proto descriptors
 // the handlers and the MCP tools come from, so every endpoint is reachable from a shell without
@@ -47,14 +47,14 @@ func NewRootCommand() *cobra.Command {
 		Short: "Run, search and schedule Claude Code and Codex agents from tmux",
 		Long: `Komrad runs coding agents in tmux panes and keeps track of them.
 
-There are two processes. ` + "`komrad serve`" + ` is the long-lived service that owns the
+There are two processes. ` + "`komrad serve`" + ` is the long-lived server that owns the
 database, answers the API and the MCP endpoint, and watches every pane. The panel
 is a client of it, which is why it can be closed and reopened without stopping
 anything. Every other command here is a client of the same service.
 
 ` + "`komrad open`" + ` brings the panel up in this terminal, and the other commands are
 for the times something has to be done by hand: check the machine, start or stop
-the service, or call an endpoint from a script.`,
+the server, or call an endpoint from a script.`,
 		Version:       version.Describe(version.Version(), version.Commit()),
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,

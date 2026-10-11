@@ -69,7 +69,7 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 	cmd.Stderr = logFile
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start the agent server: %w", err)
+		return fmt.Errorf("failed to start the server: %w", err)
 	}
 
 	exited := make(chan struct{})
@@ -89,15 +89,15 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 		select {
 		case <-exited:
 			if reason := serveLogTail(logPath, logEnd); reason != "" {
-				return fmt.Errorf("the agent server stopped during startup: %s", reason)
+				return fmt.Errorf("the server stopped during startup: %s", reason)
 			}
 
-			return fmt.Errorf("the agent server stopped during startup without saying why, see %s", logPath)
+			return fmt.Errorf("the server stopped during startup without saying why, see %s", logPath)
 		case <-time.After(serveWaitInterval):
 		}
 	}
 
-	return fmt.Errorf("the agent server did not become ready at %s within %s, see %s", addr, serveWaitFor, logPath)
+	return fmt.Errorf("the server did not become ready at %s within %s, see %s", addr, serveWaitFor, logPath)
 }
 
 type serverProbe struct {

@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Workflow is one workflow as the service listed it.
+// Workflow is one workflow as the server listed it.
 type Workflow struct {
 	ID              string
 	Name            string

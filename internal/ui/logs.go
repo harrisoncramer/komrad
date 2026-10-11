@@ -48,7 +48,7 @@ type logsScreen struct {
 	pattern   string
 	edits     int
 	replacing bool
-	// format is how a service log is rendered, and formatFocus says its strip holds the keys.
+	// format is how a server log is rendered, and formatFocus says its strip holds the keys.
 	format      logview.Format
 	formatFocus bool
 }
@@ -69,8 +69,8 @@ func sourceKey(source *logv1.LogSource) string {
 	return "log:" + source.GetAgentId() + "/" + source.GetId()
 }
 
-// isServiceLog reports whether the row is komrad's own structured service log rather than a run's output.
-func (r logSourceRow) isServiceLog() bool {
+// isServerLog reports whether the row is komrad's own structured server log rather than a run's output.
+func (r logSourceRow) isServerLog() bool {
 	return r.source.Run == nil
 }
 
@@ -560,7 +560,7 @@ func (l *logsScreen) moveToEnd(_ *model, direction int) tea.Cmd {
 	return l.move(direction * l.viewer.Len())
 }
 
-// logFormatLabels name each format a service log is rendered in, indexed by logview.Format.
+// logFormatLabels name each format a server log is rendered in, indexed by logview.Format.
 var logFormatLabels = []string{"raw", "compact"}
 
 func (l *logsScreen) kinds(*model) stops {
@@ -571,11 +571,11 @@ func (l *logsScreen) kinds(*model) stops {
 	}
 }
 
-// kindsFit renders the format strip only over a service log.
+// kindsFit renders the format strip only over a server log.
 func (l *logsScreen) kindsFit(m *model) bool {
 	row, ok := rowAt(l.rows(m), l.rowCursor.cursor)
 
-	return ok && row.isServiceLog() && m.listFitsTabs(l.listParams(m))
+	return ok && row.isServerLog() && m.listFitsTabs(l.listParams(m))
 }
 
 func (l *logsScreen) kindsFocused(*model) *bool {
@@ -586,7 +586,7 @@ func (l *logsScreen) kindsSwitch(*model) bool {
 	return true
 }
 
-// stepKind renders the service log in another format.
+// stepKind renders the server log in another format.
 func (l *logsScreen) stepKind(m *model, delta int) tea.Cmd {
 	l.format = logview.Format(stepStop(int(l.format), delta, len(logFormatLabels)))
 	if row, ok := rowAt(l.rows(m), l.rowCursor.cursor); ok {
@@ -596,9 +596,9 @@ func (l *logsScreen) stepKind(m *model, delta int) tea.Cmd {
 	return nil
 }
 
-// applyFormat renders a service log in the chosen format and a run's output as it was written.
+// applyFormat renders a server log in the chosen format and a run's output as it was written.
 func (l *logsScreen) applyFormat(row logSourceRow) {
-	if !row.isServiceLog() {
+	if !row.isServerLog() {
 		l.viewer.SetFormat(logview.FormatRaw)
 
 		return

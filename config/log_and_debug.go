@@ -6,25 +6,25 @@ import (
 	"strings"
 )
 
-// defaultLogLevel is how much the service writes when the config says nothing. Failures
+// defaultLogLevel is how much the server writes when the config says nothing. Failures
 // are written at error and everything else at debug, so the file stays empty while the
-// service works.
+// server works.
 const defaultLogLevel = "info"
 
-// defaultPprofServerAddress is where the service serves profiles when the config names no address.
+// defaultPprofServerAddress is where the server serves profiles when the config names no address.
 const defaultPprofServerAddress = "localhost:6060"
 
 // defaultPprofPanelAddress is where the panel serves profiles when the config names no address.
 const defaultPprofPanelAddress = "localhost:6061"
 
-// Log is how much the background service writes about itself. Where it writes is not
+// Log is how much the server writes about itself. Where it writes is not
 // configurable.
 type Log struct {
 	// How much is written, one of debug, info, warn, or error.
 	Level string `mapstructure:"level"`
 }
 
-// logLevels are the levels the service understands. One it does not know decodes as debug,
+// logLevels are the levels the server understands. One it does not know decodes as debug,
 // so an unchecked typo turns the log up instead of saying the word was wrong.
 var logLevels = []string{"debug", "info", "warn", "error"}
 
@@ -34,7 +34,7 @@ func (l *Log) normalize() {
 	}
 }
 
-// validate rejects a level the service could not act on.
+// validate rejects a level the server could not act on.
 func (l Log) validate() error {
 	level := strings.TrimSpace(l.Level)
 	if level == "" || slices.Contains(logLevels, strings.ToLower(level)) {
@@ -58,15 +58,15 @@ type Debug struct {
 	// How many frames are kept for one agent before the oldest is dropped. A number at or
 	// below zero takes the default.
 	FrameHistory int `mapstructure:"frame_history"`
-	// Go's pprof profiler, served by the background service and the panel.
+	// Go's pprof profiler, served by the server and the panel.
 	Pprof Pprof `mapstructure:"pprof"`
 }
 
 // Pprof is where each komrad process serves its runtime profiles.
 type Pprof struct {
-	// The background service, which runs the agents and answers the API.
+	// The server, which runs the agents and answers the API.
 	Server Profiler `mapstructure:"server"`
-	// The panel, which draws the screen and talks to the service.
+	// The panel, which draws the screen and talks to the server.
 	Panel Profiler `mapstructure:"panel"`
 }
 

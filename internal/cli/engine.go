@@ -27,7 +27,7 @@ func engineCmd(state *app) *cobra.Command {
 		Short: "Create an engine's identity and logins, or reset their password",
 		Long: `Create an engine's identity and logins, or reset their password.
 
-An engine is one komrad service on one machine. Everything it writes belongs to it, and
+An engine is one komrad server and what it owns. Everything it writes belongs to it, and
 Postgres keeps every other engine's rows out of its reach, because it connects as a login
 of its own that the database maps to its identity. This creates that identity if no engine
 has the name yet, a login for it and a read-only login for its MCP query tools, and the

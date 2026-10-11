@@ -45,7 +45,7 @@ type ServerStatus struct {
 func newServerCheck() Check {
 	return Check{
 		Name:        CheckServer,
-		Description: "the panel reads and changes agents through a local service",
+		Description: "the panel reads and changes agents through a local server",
 		Run: func(ctx context.Context, env Env) Result {
 			if err := requireListenable(ctx, env.Addr); err != nil {
 				return fail(err, env.Addr, "set KOMRAD_ADDR to a host and port, such as 127.0.0.1:8787")
@@ -65,7 +65,7 @@ func newServerCheck() Check {
 				return fail(
 					fmt.Errorf("%w: the engine answers nothing on %s", errServerDown, env.Addr),
 					env.Addr,
-					"start komrad on the engine, since its service runs whether or not a panel is open",
+					"start komrad on the engine, since its server runs whether or not a panel is open",
 				)
 
 			case !status.Answering:

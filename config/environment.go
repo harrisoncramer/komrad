@@ -81,7 +81,7 @@ func LookupEnv(name string) (string, bool) {
 	return value, set && value != ""
 }
 
-// LogPath is the file the background service writes to.
+// LogPath is the file the server writes to.
 func (e *Environment) LogPath() string {
 	return filepath.Join(e.CacheDir, "komrad.log")
 }

@@ -31,7 +31,7 @@ func RenderConfigError(width int, err error) string {
 func RenderStartupError(width int, err error, findings []Finding) string {
 	screen := screen{
 		Width: width,
-		Title: "The agent server could not be started",
+		Title: "The server could not be started",
 		Body: []string{
 			"The panel did not start. Nothing about your agents has changed, and none of them were stopped: the server is only how the panel reads and changes them.",
 		},

@@ -36,7 +36,7 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// NewServerParams is what the service is built over.
+// NewServerParams is what the server is built over.
 type NewServerParams struct {
 	Env                *config.Environment
 	ConfigStack        config.Stack
@@ -68,7 +68,7 @@ type Server struct {
 	closers       []func()
 }
 
-// NewServer builds the service, with nothing listening and no loop running until the caller
+// NewServer builds the server, with nothing listening and no loop running until the caller
 // says so.
 func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	if err := harness.RequirePOSIXShell(params.Tmux.GetDefaultShell()); err != nil {

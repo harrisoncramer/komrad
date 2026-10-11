@@ -39,7 +39,7 @@ It checks tmux and its version, the shell tmux starts panes with, whether the
 config file parses and names a harness that exists, the hooks and worktrees
 directories and whether any worktree there is left without an agent, the database
 and whether its schema is current, the read-only login the MCP query tools connect
-as, the service on its address, and the CLI binary behind each harness and its
+as, the server on its address, and the CLI binary behind each harness and its
 version. It repairs nothing, since a command that changed what it was describing
 could not be trusted to say what is wrong.
 
@@ -57,9 +57,9 @@ claims rather than what a terminal does. Nothing is asked of a terminal that is
 not there, and whether the font has a glyph at all is not tested.
 
 Pointed at an engine with --engine, the checks about this machine run here and the
-ones about the engine are asked of its service, which makes them on its own
+ones about the engine are asked of its server, which makes them on its own
 machine; they are printed under an "on the engine" heading, and marked not checked
-when the service cannot be reached.
+when the server cannot be reached.
 
 The exit status is non-zero when any check failed, so it can gate a script, and
 --json prints the report rather than the summary. Run this first when the panel is
@@ -102,7 +102,7 @@ doing something that makes no sense.`,
 }
 
 // runDoctor makes the checks about this machine and, when the engine is elsewhere, asks its
-// service for the checks about that one; onTTY is whether a person typed the command.
+// server for the checks about that one; onTTY is whether a person typed the command.
 func (a *app) runDoctor(ctx context.Context, onTTY bool) (doctor.Report, error) {
 	env, settings, err := a.buildDoctor()
 	if err != nil {
@@ -141,7 +141,7 @@ func isServerOK(report doctor.Report) bool {
 	return false
 }
 
-// askEngineDoctor is the checks the engine's service made on its own machine, read back into
+// askEngineDoctor is the checks the engine's server made on its own machine, read back into
 // the doctor's own findings.
 func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
 	addr, release, err := a.dialAPI(ctx)

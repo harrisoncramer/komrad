@@ -61,7 +61,7 @@ func TestIntegrationShutdownSignalStopsOnASignal(t *testing.T) {
 	}
 }
 
-// TestIntegrationServeListensWhereEverythingElseTalks covers the address the service binds: every
+// TestIntegrationServeListensWhereEverythingElseTalks covers the address the server binds: every
 // other command reads it out of KOMRAD_ADDR, so a serve that ignores the variable binds an
 // address nothing is looking at and the panel goes on saying the server cannot be reached.
 func TestIntegrationServeListensWhereEverythingElseTalks(t *testing.T) {

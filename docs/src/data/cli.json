@@ -6,7 +6,7 @@
     "usage": "komrad",
     "aliases": [],
     "short": "Run, search and schedule Claude Code and Codex agents from tmux",
-    "long": "Komrad runs coding agents in tmux panes and keeps track of them.\n\nThere are two processes. `komrad serve` is the long-lived service that owns the\ndatabase, answers the API and the MCP endpoint, and watches every pane. The panel\nis a client of it, which is why it can be closed and reopened without stopping\nanything. Every other command here is a client of the same service.\n\n`komrad open` brings the panel up in this terminal, and the other commands are\nfor the times something has to be done by hand: check the machine, start or stop\nthe service, or call an endpoint from a script.",
+    "long": "Komrad runs coding agents in tmux panes and keeps track of them.\n\nThere are two processes. `komrad serve` is the long-lived server that owns the\ndatabase, answers the API and the MCP endpoint, and watches every pane. The panel\nis a client of it, which is why it can be closed and reopened without stopping\nanything. Every other command here is a client of the same service.\n\n`komrad open` brings the panel up in this terminal, and the other commands are\nfor the times something has to be done by hand: check the machine, start or stop\nthe server, or call an endpoint from a script.",
     "example": "",
     "flags": [
       {
@@ -84,7 +84,7 @@
     "usage": "komrad doctor [flags]",
     "aliases": [],
     "short": "Check that this machine has everything komrad needs",
-    "long": "Check that this machine has everything komrad needs, one line per dependency.\n\nIt checks tmux and its version, the shell tmux starts panes with, whether the\nconfig file parses and names a harness that exists, the hooks and worktrees\ndirectories and whether any worktree there is left without an agent, the database\nand whether its schema is current, the read-only login the MCP query tools connect\nas, the service on its address, and the CLI binary behind each harness and its\nversion. It repairs nothing, since a command that changed what it was describing\ncould not be trusted to say what is wrong.\n\nIt also reports what a bug report needs: the build of this binary, the operating\nsystem with its release and architecture, and the terminal the panel is drawn in,\nwhich inside tmux is asked of tmux, since tmux names itself to what it runs.\n\nIt also asks the terminal what it can draw. Every glyph the agents list uses is\nwritten out and the cursor position queried, so what comes back is how far the\ncursor moved rather than how wide the ink was. Inside tmux that answer comes\nfrom tmux's own grid rather than from the terminal underneath it. Bold and\nitalic are read out of the terminfo entry of the terminal tmux paints to, and\ncolour depth out of the entry this process emits for, which is what an entry\nclaims rather than what a terminal does. Nothing is asked of a terminal that is\nnot there, and whether the font has a glyph at all is not tested.\n\nPointed at an engine with --engine, the checks about this machine run here and the\nones about the engine are asked of its service, which makes them on its own\nmachine; they are printed under an \"on the engine\" heading, and marked not checked\nwhen the service cannot be reached.\n\nThe exit status is non-zero when any check failed, so it can gate a script, and\n--json prints the report rather than the summary. Run this first when the panel is\ndoing something that makes no sense.",
+    "long": "Check that this machine has everything komrad needs, one line per dependency.\n\nIt checks tmux and its version, the shell tmux starts panes with, whether the\nconfig file parses and names a harness that exists, the hooks and worktrees\ndirectories and whether any worktree there is left without an agent, the database\nand whether its schema is current, the read-only login the MCP query tools connect\nas, the server on its address, and the CLI binary behind each harness and its\nversion. It repairs nothing, since a command that changed what it was describing\ncould not be trusted to say what is wrong.\n\nIt also reports what a bug report needs: the build of this binary, the operating\nsystem with its release and architecture, and the terminal the panel is drawn in,\nwhich inside tmux is asked of tmux, since tmux names itself to what it runs.\n\nIt also asks the terminal what it can draw. Every glyph the agents list uses is\nwritten out and the cursor position queried, so what comes back is how far the\ncursor moved rather than how wide the ink was. Inside tmux that answer comes\nfrom tmux's own grid rather than from the terminal underneath it. Bold and\nitalic are read out of the terminfo entry of the terminal tmux paints to, and\ncolour depth out of the entry this process emits for, which is what an entry\nclaims rather than what a terminal does. Nothing is asked of a terminal that is\nnot there, and whether the font has a glyph at all is not tested.\n\nPointed at an engine with --engine, the checks about this machine run here and the\nones about the engine are asked of its server, which makes them on its own\nmachine; they are printed under an \"on the engine\" heading, and marked not checked\nwhen the server cannot be reached.\n\nThe exit status is non-zero when any check failed, so it can gate a script, and\n--json prints the report rather than the summary. Run this first when the panel is\ndoing something that makes no sense.",
     "example": "",
     "flags": [
       {
@@ -157,7 +157,7 @@
     "usage": "komrad engine ensure NAME",
     "aliases": [],
     "short": "Create an engine's identity and logins, or reset their password",
-    "long": "Create an engine's identity and logins, or reset their password.\n\nAn engine is one komrad service on one machine. Everything it writes belongs to it, and\nPostgres keeps every other engine's rows out of its reach, because it connects as a login\nof its own that the database maps to its identity. This creates that identity if no engine\nhas the name yet, a login for it and a read-only login for its MCP query tools, and the\nschema its job queue lives in, connecting as owner_database_url.\n\nBoth logins take the password in KOMRAD_ENGINE_PASSWORD, or a fresh one when that is unset,\nand running it again resets them to it. It prints the database_url the engine connects with.\nNaming an engine that already exists, such as the default one every row written before\nengines had logins belongs to, hands it new logins and keeps its rows.",
+    "long": "Create an engine's identity and logins, or reset their password.\n\nAn engine is one komrad server and what it owns. Everything it writes belongs to it, and\nPostgres keeps every other engine's rows out of its reach, because it connects as a login\nof its own that the database maps to its identity. This creates that identity if no engine\nhas the name yet, a login for it and a read-only login for its MCP query tools, and the\nschema its job queue lives in, connecting as owner_database_url.\n\nBoth logins take the password in KOMRAD_ENGINE_PASSWORD, or a fresh one when that is unset,\nand running it again resets them to it. It prints the database_url the engine connects with.\nNaming an engine that already exists, such as the default one every row written before\nengines had logins belongs to, hands it new logins and keeps its rows.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -185,7 +185,7 @@
     "usage": "komrad forge",
     "aliases": [],
     "short": "Connect komrad to the services pull requests live on",
-    "long": "Connect komrad to the services pull requests live on.\n\nKomrad reads the pull requests its agents open through a connection to each forge,\nmade once and kept until it is disconnected. The service holds the connection: a\ntoken lives in a file under its state directory that only its user can read, and\nthe row in its database records who the forge said the credential belongs to.\nEvery command here talks to the service, so with --engine it connects the engine.",
+    "long": "Connect komrad to the services pull requests live on.\n\nKomrad reads the pull requests its agents open through a connection to each forge,\nmade once and kept until it is disconnected. The server holds the connection: a\ntoken lives in a file under its state directory that only its user can read, and\nthe row in its database records who the forge said the credential belongs to.\nEvery command here talks to the server, so with --engine it connects the engine.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -246,7 +246,7 @@
     "usage": "komrad forge connect \u003chost\u003e [flags]",
     "aliases": [],
     "short": "Connect a forge with a token read from stdin, or as the engine's GitHub App",
-    "long": "Connect a forge with a token read from stdin, or as the engine's GitHub App.\n\nWith --method token, the default, the token is read from standard input, or from\nthe file --token-file names. It is never taken as an argument, since arguments are\nvisible to every process on the machine. Pipe it in:\n\n    gh auth token | komrad forge connect github.com\n    op read op://vault/github/token | komrad forge connect github.com\n    komrad forge connect gitlab.com --token-file ~/.config/gitlab-token\n    komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token\n\nA GitLab token is a personal access token with the api scope. A remote on an SSH\nhost of its own, such as ssh.gitlab.example.com, reaches the connection for its web\nhost once [git] ssh_hosts in the config names the pair.\n\nWith --method github-app nothing is read. The service mints a token from the App\nnamed under [github_app] in its own config, checks the installation reaches at\nleast one repository, and records the App's own name as the login. That is the\nengine's path, where nobody is there to paste a token and the App's key is already\non the machine: komrad forge connect github.com --method github-app --engine remote.\n\nWith --method rotating-token the token is read as for token, and the host has to\nrun GitLab. The token needs the api scope. The service rotates it at once and keeps\nonly the new one, then rotates it again each day before it expires, so the token\nyou pasted stops working as soon as the connection is made.\n\nThe service asks the forge who the credential belongs to before storing anything,\nso a token that is wrong or expired is refused here rather than found out later.\nThat proves the token is real, not that it can read your repositories: a token with\nno permissions answers the same question, and shows up later as a repository the\nforge says it cannot find. github.com and gitlab.com say which forge they run; any\nother host needs --kind, and --api-url when the API is not at https://\u003chost\u003e/api/v3\nfor GitHub or /api/v4 for GitLab. The address has to be https.",
+    "long": "Connect a forge with a token read from stdin, or as the engine's GitHub App.\n\nWith --method token, the default, the token is read from standard input, or from\nthe file --token-file names. It is never taken as an argument, since arguments are\nvisible to every process on the machine. Pipe it in:\n\n    gh auth token | komrad forge connect github.com\n    op read op://vault/github/token | komrad forge connect github.com\n    komrad forge connect gitlab.com --token-file ~/.config/gitlab-token\n    komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token\n\nA GitLab token is a personal access token with the api scope. A remote on an SSH\nhost of its own, such as ssh.gitlab.example.com, reaches the connection for its web\nhost once [git] ssh_hosts in the config names the pair.\n\nWith --method github-app nothing is read. The server mints a token from the App\nnamed under [github_app] in its own config, checks the installation reaches at\nleast one repository, and records the App's own name as the login. That is the\nengine's path, where nobody is there to paste a token and the App's key is already\non the machine: komrad forge connect github.com --method github-app --engine remote.\n\nWith --method rotating-token the token is read as for token, and the host has to\nrun GitLab. The token needs the api scope. The server rotates it at once and keeps\nonly the new one, then rotates it again each day before it expires, so the token\nyou pasted stops working as soon as the connection is made.\n\nThe server asks the forge who the credential belongs to before storing anything,\nso a token that is wrong or expired is refused here rather than found out later.\nThat proves the token is real, not that it can read your repositories: a token with\nno permissions answers the same question, and shows up later as a repository the\nforge says it cannot find. github.com and gitlab.com say which forge they run; any\nother host needs --kind, and --api-url when the API is not at https://\u003chost\u003e/api/v3\nfor GitHub or /api/v4 for GitLab. The address has to be https.",
     "example": "",
     "flags": [
       {
@@ -268,7 +268,7 @@
         "shorthand": "",
         "type": "string",
         "default": "token",
-        "usage": "how the credential comes: token or rotating-token from stdin, or github-app from the App in the service's config"
+        "usage": "how the credential comes: token or rotating-token from stdin, or github-app from the App in the server's config"
       },
       {
         "name": "token-file",
@@ -794,8 +794,8 @@
     "parent": "",
     "usage": "komrad log [trace-id] [flags]",
     "aliases": [],
-    "short": "Show the log lines the service wrote under one trace id",
-    "long": "Show the log lines the service wrote under one trace id.\n\nEvery line the service logs carries a trace id, which is one id for one request end\nto end or one pass of a background loop. A call that fails answers with its trace\nid, so following what happened behind a failure is a matter of naming the id here.\nThe service reads its own log back, so this works against a remote engine the same\nas against this machine.\n\nRun with --recent instead of an id to list the trace ids the log ends with, which\nis where to start when you know what you did but not what it was called.",
+    "short": "Show the log lines the server wrote under one trace id",
+    "long": "Show the log lines the server wrote under one trace id.\n\nEvery line the server logs carries a trace id, which is one id for one request end\nto end or one pass of a background loop. A call that fails answers with its trace\nid, so following what happened behind a failure is a matter of naming the id here.\nThe server reads its own log back, so this works against a remote engine the same\nas against this machine.\n\nRun with --recent instead of an id to list the trace ids the log ends with, which\nis where to start when you know what you did but not what it was called.",
     "example": "",
     "flags": [
       {
@@ -831,7 +831,7 @@
     "usage": "komrad migrate",
     "aliases": [],
     "short": "Apply any pending database migrations",
-    "long": "Apply any pending database migrations, connecting as the login that owns the schema.\n\nThe service never migrates: an engine connects as a login that cannot change the schema,\nand it refuses to start against a database missing migrations its build carries. So\nevery upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE_URL)\nnaming the owner, which falls back to database_url on a database no engine has joined.\n\nIt refuses while another komrad is connected and the build holds migrations the database\nhas not seen, since a change it makes could break them. It is safe to run against a\ndatabase that is already current; it says so and exits zero.",
+    "long": "Apply any pending database migrations, connecting as the login that owns the schema.\n\nThe server never migrates: an engine connects as a login that cannot change the schema,\nand it refuses to start against a database missing migrations its build carries. So\nevery upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE_URL)\nnaming the owner, which falls back to database_url on a database no engine has joined.\n\nIt refuses while another komrad is connected and the build holds migrations the database\nhas not seen, since a change it makes could break them. It is safe to run against a\ndatabase that is already current; it says so and exits zero.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -902,7 +902,7 @@
     "usage": "komrad panel",
     "aliases": [],
     "short": "Run the panel itself, as the manager session's own command",
-    "long": "Run the panel itself.\n\nThis is the command the manager tmux session runs, not the one to type. It starts\nthe service if nothing is answering, then draws the panel and talks to that service\nover the API like any other client. Run by hand outside the manager session it will\ndraw, but the key bindings around it will not be there.\n\nUse `komrad open` to bring the panel up.",
+    "long": "Run the panel itself.\n\nThis is the command the manager tmux session runs, not the one to type. It starts\nthe server if nothing is answering, then draws the panel and talks to that server\nover the API like any other client. Run by hand outside the manager session it will\ndraw, but the key bindings around it will not be there.\n\nUse `komrad open` to bring the panel up.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -987,8 +987,8 @@
     "parent": "",
     "usage": "komrad rpc",
     "aliases": [],
-    "short": "Call the service's endpoints, one subcommand per RPC",
-    "long": "Call the service's endpoints from a script.\n\nEvery subcommand here is one RPC, named as the MCP tool surface names it, so a\nscript and a model ask for the same operation by the same name. Request fields are\nflags, and the response is the API's own JSON on stdout.",
+    "short": "Call the server's endpoints, one subcommand per RPC",
+    "long": "Call the server's endpoints from a script.\n\nEvery subcommand here is one RPC, named as the MCP tool surface names it, so a\nscript and a model ask for the same operation by the same name. Request fields are\nflags, and the response is the API's own JSON on stdout.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -1015,8 +1015,8 @@
     "parent": "",
     "usage": "komrad serve [flags]",
     "aliases": [],
-    "short": "Run the komrad service in the foreground",
-    "long": "Run the komrad service in the foreground.\n\nIt opens the database, mounts the Connect handlers and the MCP endpoint on one\naddress, runs the loops that read each pane's state and sync transcripts, and fires\nschedules. The panel and the rest of these commands are clients of it, so\nnothing works without it.\n\n`komrad start` spawns this detached with its output going to the log file, which is\nhow it usually runs. Run it here to watch that output directly. It stops on an\ninterrupt, or when `komrad stop` asks it to.",
+    "short": "Run the komrad server in the foreground",
+    "long": "Run the komrad server in the foreground.\n\nIt opens the database, mounts the Connect handlers and the MCP endpoint on one\naddress, runs the loops that read each pane's state and sync transcripts, and fires\nschedules. The panel and the rest of these commands are clients of it, so\nnothing works without it.\n\n`komrad start` spawns this detached with its output going to the log file, which is\nhow it usually runs. Run it here to watch that output directly. It stops on an\ninterrupt, or when `komrad stop` asks it to.",
     "example": "",
     "flags": [
       {
@@ -1130,8 +1130,8 @@
     "parent": "",
     "usage": "komrad start",
     "aliases": [],
-    "short": "Start the service in the background if it is not already running",
-    "long": "Start the service in the background if it is not already running.\n\nIt asks the configured address who is there first. A server already answering is\nleft alone, whatever build it runs, so a rebuilt binary takes over only after\n`komrad stop`. Otherwise `komrad serve` is spawned detached, with its output\ngoing to the log file, and this waits for the address to answer before returning.\n\nOpening the panel does the same thing on its own, so this is for scripts and for\nbringing the service up without a panel.",
+    "short": "Start the server in the background if it is not already running",
+    "long": "Start the server in the background if it is not already running.\n\nIt asks the configured address who is there first. A server already answering is\nleft alone, whatever build it runs, so a rebuilt binary takes over only after\n`komrad stop`. Otherwise `komrad serve` is spawned detached, with its output\ngoing to the log file, and this waits for the address to answer before returning.\n\nOpening the panel does the same thing on its own, so this is for scripts and for\nbringing the server up without a panel.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -1158,8 +1158,8 @@
     "parent": "",
     "usage": "komrad stop",
     "aliases": [],
-    "short": "Ask the running service to stop, and wait until it is gone",
-    "long": "Ask the running service to stop, and wait until it is gone.\n\nThis asks rather than signals, so the service can finish the launch it is in the\nmiddle of and say when it is done. It returns once the process has actually gone,\nnot when the address stops answering, which happens well before the shutdown is\nfinished. Nothing serving at the address is not an error.\n\nAgents keep running: they are tmux panes, not children of this process. They are\npicked back up when the service returns.",
+    "short": "Ask the running server to stop, and wait until it is gone",
+    "long": "Ask the running server to stop, and wait until it is gone.\n\nThis asks rather than signals, so the server can finish the launch it is in the\nmiddle of and say when it is done. It returns once the process has actually gone,\nnot when the address stops answering, which happens well before the shutdown is\nfinished. Nothing serving at the address is not an error.\n\nAgents keep running: they are tmux panes, not children of this process. They are\npicked back up when the server returns.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -1223,7 +1223,7 @@
     "usage": "komrad version",
     "aliases": [],
     "short": "Print which build this binary is, and which one is serving",
-    "long": "Print which build this binary is, and which one is answering on the address.\n\nThe two can differ. The service is long-lived and keeps the binary it started with,\nso rebuilding replaces the file on disk without changing what is running. When the\nsecond line is not the first, restart the service.",
+    "long": "Print which build this binary is, and which one is answering on the address.\n\nThe two can differ. The server is long-lived and keeps the binary it started with,\nso rebuilding replaces the file on disk without changing what is running. When the\nsecond line is not the first, restart the server.",
     "example": "",
     "flags": [],
     "inherited": [

@@ -12,9 +12,9 @@ func versionCmd(state *app) *cobra.Command {
 		Short: "Print which build this binary is, and which one is serving",
 		Long: `Print which build this binary is, and which one is answering on the address.
 
-The two can differ. The service is long-lived and keeps the binary it started with,
+The two can differ. The server is long-lived and keeps the binary it started with,
 so rebuilding replaces the file on disk without changing what is running. When the
-second line is not the first, restart the service.`,
+second line is not the first, restart the server.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

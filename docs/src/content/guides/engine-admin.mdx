@@ -38,7 +38,7 @@ Finally, clone the repositories agents will work in onto the data disk, point yo
 
 ## Keeping it up to date
 
-Publishing a release deploys it to the engine. A deploy restarts the service but leaves the agents running. You can also deploy by hand with `mise run remote:deploy`.
+Publishing a release deploys it to the engine. A deploy restarts the server but leaves the agents running. You can also deploy by hand with `mise run remote:deploy`.
 
 The machine image changes rarely. Building one from the Actions tab records it without applying it. `mise run remote:reimage` applies it, which replaces the machine and stops every agent. It names them and asks first.
 

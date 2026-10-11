@@ -67,7 +67,7 @@ If the orchestrator is archived or deleted, the schedule's runs are cancelled. E
 
 ## Missed and paused runs
 
-Komrad never catches up on missed runs. If the service is down when a run was due, that run is skipped. This is on purpose, so agents do not start at odd hours.
+Komrad never catches up on missed runs. If the server is down when a run was due, that run is skipped. This is on purpose, so agents do not start at odd hours.
 
 Runs that cannot succeed are cancelled with a reason, which shows as the schedule's last run. An implementer schedule whose workflow no longer exists is cancelled, for instance.
 

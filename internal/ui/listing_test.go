@@ -292,7 +292,7 @@ func TestListingUnreachable(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "messages 1 of 1", "a server still down says nothing more")
 	})
 
-	t.Run("a close the service chose leaves a lost server lost", func(t *testing.T) {
+	t.Run("a close the server chose leaves a lost server lost", func(t *testing.T) {
 		harness := openUnreachable(t, engine.Remote{})
 
 		harness.send(ui.NewWatchLost(nil))

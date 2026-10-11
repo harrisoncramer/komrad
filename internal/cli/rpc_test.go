@@ -42,7 +42,7 @@ func TestIntegrationRefusalReadsWhatTheServiceSaid(t *testing.T) {
 			want:    "the request was not valid",
 		},
 		{
-			name:    "a body that is not the service talking, which is kept rather than dropped",
+			name:    "a body that is not the server talking, which is kept rather than dropped",
 			payload: "502 Bad Gateway\nupstream closed",
 			status:  "502 Bad Gateway",
 			want:    "502 Bad Gateway: 502 Bad Gateway\nupstream closed",
@@ -111,7 +111,7 @@ func TestIntegrationResponseIsWrittenForWhoeverIsReadingIt(t *testing.T) {
 	}
 }
 
-// TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor pins the request as the service receives it.
+// TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor pins the request as the server receives it.
 func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 	var (
 		gotBody   map[string]any
@@ -145,7 +145,7 @@ func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 }
 
 // TestIntegrationCallReportsWhatWentWrongRatherThanTheBody pins the two ways a call fails short of an
-// answer: a service that refused it, and a server that was not there to ask.
+// answer: a server that refused it, and an address with nothing listening.
 func TestIntegrationCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
 	refusing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -234,7 +234,7 @@ func TestIntegrationRpcSubcommandCarriesItsFlagsToTheService(t *testing.T) {
 	assert.NotContains(t, strings.TrimSpace(out.String()), "\n", "--compact keeps it to one line")
 }
 
-// TestIntegrationRpcSubcommandRefusalReachesTheCaller pins that a service saying no comes back as the
+// TestIntegrationRpcSubcommandRefusalReachesTheCaller pins that a server saying no comes back as the
 // command failing with what it said.
 func TestIntegrationRpcSubcommandRefusalReachesTheCaller(t *testing.T) {
 	service := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

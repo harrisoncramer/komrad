@@ -8,7 +8,7 @@ import "google/protobuf/empty.proto";
 
 option go_package = "komrad/proto/gen/loop/v1;loopv1";
 
-// Loop names a background loop the service runs that can be woken before its next tick.
+// Loop names a background loop the server runs that can be woken before its next tick.
 enum Loop {
   // No loop was named, which a wake refuses.
   LOOP_UNSPECIFIED = 0;
@@ -28,7 +28,7 @@ message WakeLoopRequest {
   }];
 }
 
-// LoopService wakes the service's background loops.
+// LoopService wakes the server's background loops.
 service LoopService {
   // WakeLoop asks a loop to run before its next tick, no sooner than its floor allows.
   rpc WakeLoop(WakeLoopRequest) returns (google.protobuf.Empty) {

@@ -7,8 +7,8 @@ import (
 func startCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
-		Short: "Start the service in the background if it is not already running",
-		Long: `Start the service in the background if it is not already running.
+		Short: "Start the server in the background if it is not already running",
+		Long: `Start the server in the background if it is not already running.
 
 It asks the configured address who is there first. A server already answering is
 left alone, whatever build it runs, so a rebuilt binary takes over only after
@@ -16,7 +16,7 @@ left alone, whatever build it runs, so a rebuilt binary takes over only after
 going to the log file, and this waits for the address to answer before returning.
 
 Opening the panel does the same thing on its own, so this is for scripts and for
-bringing the service up without a panel.`,
+bringing the server up without a panel.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

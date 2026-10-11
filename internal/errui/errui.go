@@ -1,9 +1,9 @@
 // Package errui renders the failures a person has to see: the full screens komrad falls back to
-// when it cannot start, and the readers that reduce a service error to the part worth showing.
+// when it cannot start, and the readers that reduce a server error to the part worth showing.
 //
 // A failure at startup has no panel to report itself inside, so it is rendered as a screen of
 // its own carrying the reason, the details needed to fix it, and the trace id to search the
-// service log by. Every failure while the panel is already running is reported in the panel's
+// server log by. Every failure while the panel is already running is reported in the panel's
 // own message region instead.
 package errui
 

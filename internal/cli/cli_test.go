@@ -29,12 +29,12 @@ func TestIntegrationIsConfigFatal(t *testing.T) {
 			want:    true,
 		},
 		{
-			name:    "open, which spawns the service",
+			name:    "open, which spawns the server",
 			command: "open",
 			want:    true,
 		},
 		{
-			name:    "start, which spawns the service",
+			name:    "start, which spawns the server",
 			command: "start",
 			want:    true,
 		},

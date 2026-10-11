@@ -24,7 +24,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Loop names a background loop the service runs that can be woken before its next tick.
+// Loop names a background loop the server runs that can be woken before its next tick.
 type Loop int32
 
 const (

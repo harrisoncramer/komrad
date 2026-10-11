@@ -180,7 +180,7 @@ func TestSchemaCheck(t *testing.T) {
 		schema := fakeSchema{pending: []string{"20260727000000_initial.sql", "20260801000000_next.sql"}}
 		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
 
-		assert.Equal(t, StatusFail, result.Status, "the service refuses a schema behind its build")
+		assert.Equal(t, StatusFail, result.Status, "the server refuses a schema behind its build")
 		assert.Equal(t, "schema_behind", codeOf(result.Err))
 		assert.Contains(t, result.Fix, "komrad migrate")
 		assert.ErrorContains(t, result.Err, "2 migrations")
@@ -202,7 +202,7 @@ func TestSchemaCheck(t *testing.T) {
 	})
 }
 
-// TestReadOnlyLoginCheck covers the login the service hard-requires: without it serve exits
+// TestReadOnlyLoginCheck covers the login the server hard-requires: without it serve exits
 // before it listens, and the panel shows a startup error naming none of this.
 func TestReadOnlyLoginCheck(t *testing.T) {
 	t.Run("a login that works", func(t *testing.T) {

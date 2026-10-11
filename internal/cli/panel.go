@@ -43,7 +43,7 @@ func panelCmd(state *app) *cobra.Command {
 		Long: `Run the panel itself.
 
 This is the command the manager tmux session runs, not the one to type. It starts
-the service if nothing is answering, then draws the panel and talks to that service
+the server if nothing is answering, then draws the panel and talks to that server
 over the API like any other client. Run by hand outside the manager session it will
 draw, but the key bindings around it will not be there.
 

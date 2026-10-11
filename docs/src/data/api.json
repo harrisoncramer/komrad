@@ -1247,7 +1247,7 @@
       "slug": "doctor",
       "title": "Doctor",
       "name": "doctor.v1.DoctorService",
-      "description": "DoctorService makes the checks the doctor makes, on the machine the service runs on.",
+      "description": "DoctorService makes the checks the doctor makes, on the machine the server runs on.",
       "methods": [
         {
           "slug": "run-doctor",
@@ -1259,8 +1259,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Check whether the machine the service runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.",
-          "description": "Check whether the machine the service runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.",
+          "summary": "Check whether the machine the server runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.",
+          "description": "Check whether the machine the server runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1299,7 +1299,7 @@
       "slug": "log",
       "title": "Log",
       "name": "log.v1.LogService",
-      "description": "LogService reads the service's own log back, by the trace id its lines carry.",
+      "description": "LogService reads the server's own log back, by the trace id its lines carry.",
       "methods": [
         {
           "slug": "get-log-lines",
@@ -1329,8 +1329,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List the traces the service log ends with, oldest first, to find the one to read with get_log_lines.",
-          "description": "List the traces the service log ends with, oldest first, to find the one to read with get_log_lines.",
+          "summary": "List the traces the server log ends with, oldest first, to find the one to read with get_log_lines.",
+          "description": "List the traces the server log ends with, oldest first, to find the one to read with get_log_lines.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1347,8 +1347,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Read what the service logged about one or more agents, passing the cursor back for only what is new.",
-          "description": "Read what the service logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output.",
+          "summary": "Read what the server logged about one or more agents, passing the cursor back for only what is new.",
+          "description": "Read what the server logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1365,8 +1365,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List where an agent's logs can be read from, the service log and each script run of its own moments it recorded.",
-          "description": "List where an agent's logs can be read from, the service log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources.",
+          "summary": "List where an agent's logs can be read from, the server log and each script run of its own moments it recorded.",
+          "description": "List where an agent's logs can be read from, the server log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -6582,7 +6582,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every check the service made, in the order it made them."
+          "description": "Every check the server made, in the order it made them."
         },
         {
           "name": "summary",
@@ -7335,7 +7335,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The service log first, then each script run the agent recorded, newest first."
+          "description": "The server log first, then each script run the agent recorded, newest first."
         }
       ]
     },
@@ -7485,7 +7485,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log."
+          "description": "The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the server log."
         },
         {
           "name": "agent_id",
@@ -7495,7 +7495,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the service log."
+          "description": "The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the server log."
         },
         {
           "name": "failed",
@@ -7557,7 +7557,7 @@
           "rules": [
             "at most 256 characters"
           ],
-          "description": "Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent."
+          "description": "Which of the agent's log sources to read, as list_agent_log_sources names them. The server log when unset. A script run's source reads exactly one agent."
         },
         {
           "name": "pattern",

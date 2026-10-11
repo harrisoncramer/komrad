@@ -1,4 +1,4 @@
-// Package panel is what the service has told the panel, in the panel's own shape.
+// Package panel is what the server has told the panel, in the panel's own shape.
 package panel
 
 import (
@@ -65,7 +65,7 @@ func (s Sequence) IsInProgress() bool {
 	return s != SequenceNone
 }
 
-// Agent is one agent as the service listed it.
+// Agent is one agent as the server listed it.
 type Agent struct {
 	ID             string
 	Name           string

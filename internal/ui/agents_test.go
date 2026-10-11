@@ -1072,7 +1072,7 @@ func TestAgentsRecordFocusAndSize(t *testing.T) {
 	})
 }
 
-// TestAgentsRecordWorktree covers the task's record carrying what the service read of its directory.
+// TestAgentsRecordWorktree covers the task's record carrying what the server read of its directory.
 func TestAgentsRecordWorktree(t *testing.T) {
 	unreadable := buildWorktreeRead()
 	unreadable.Worktree.Readable = false

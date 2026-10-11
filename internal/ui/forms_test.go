@@ -188,7 +188,7 @@ func TestFormsSubmit(t *testing.T) {
 			}
 
 			harness.assertSentToWith(tt.procedure, ignoringEventPrompts, tt.want)
-			assert.NotContains(t, harness.readFrame(), "Could not", "the service accepted the write")
+			assert.NotContains(t, harness.readFrame(), "Could not", "the server accepted the write")
 			assert.NotContains(t, harness.readFrame(), "enter submit", "and the form it closed is gone")
 		})
 	}

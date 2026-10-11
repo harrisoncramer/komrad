@@ -23,13 +23,13 @@ func logCmd(state *app) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "log [trace-id]",
-		Short: "Show the log lines the service wrote under one trace id",
-		Long: `Show the log lines the service wrote under one trace id.
+		Short: "Show the log lines the server wrote under one trace id",
+		Long: `Show the log lines the server wrote under one trace id.
 
-Every line the service logs carries a trace id, which is one id for one request end
+Every line the server logs carries a trace id, which is one id for one request end
 to end or one pass of a background loop. A call that fails answers with its trace
 id, so following what happened behind a failure is a matter of naming the id here.
-The service reads its own log back, so this works against a remote engine the same
+The server reads its own log back, so this works against a remote engine the same
 as against this machine.
 
 Run with --recent instead of an id to list the trace ids the log ends with, which

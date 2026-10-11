@@ -356,7 +356,7 @@ type ReadAgentLogsRequest struct {
 	Cursor string `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	// The most lines to answer. 200 when unset.
 	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	// Which of the agent's log sources to read, as list_agent_log_sources names them. The service log when unset. A script run's source reads exactly one agent.
+	// Which of the agent's log sources to read, as list_agent_log_sources names them. The server log when unset. A script run's source reads exactly one agent.
 	Source string `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
 	// A regular expression in Go syntax that a line must match to be answered. Every line when unset. The newest lines are searched within the last 64 MB of the source.
 	Pattern       string `protobuf:"bytes,5,opt,name=pattern,proto3" json:"pattern,omitempty"`
@@ -507,9 +507,9 @@ type LogSource struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// What the source is called, such as service or 003 agent.pre-launch setup.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the service log.
+	// The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the server log.
 	Run *int32 `protobuf:"varint,3,opt,name=run,proto3,oneof" json:"run,omitempty"`
-	// The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the service log.
+	// The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the server log.
 	AgentId string `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// Whether the script run failed, set only on a task's log sources.
 	Failed        bool `protobuf:"varint,5,opt,name=failed,proto3" json:"failed,omitempty"`
@@ -629,7 +629,7 @@ func (x *ListAgentLogSourcesRequest) GetAgentId() string {
 
 type ListAgentLogSourcesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The service log first, then each script run the agent recorded, newest first.
+	// The server log first, then each script run the agent recorded, newest first.
 	Sources       []*LogSource `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -815,14 +815,14 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x19ListTaskLogSourcesRequest\x12 \n" +
 	"\atask_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06taskId\"I\n" +
 	"\x1aListTaskLogSourcesResponse\x12+\n" +
-	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources2\xc2\n" +
+	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources2\xbf\n" +
 	"\n" +
 	"\n" +
 	"LogService\x12\xc4\x01\n" +
-	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"|\x9a\xb5\x18u\b\x01\x10\x01\x1a\rget_log_lines\"]Read every log line written under one trace id, in order. A failed call answers its trace id.:\x01\x03\x90\x02\x01\x12\xe1\x01\n" +
-	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x89\x01\x9a\xb5\x18\x81\x01\b\x01\x10\x01\x1a\x12list_recent_traces\"dList the traces the service log ends with, oldest first, to find the one to read with get_log_lines.:\x01\x03\x90\x02\x01\x12\x9b\x02\n" +
-	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\xcc\x01\x9a\xb5\x18\xc4\x01\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xa9\x01Read what the service logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output.:\x01\x03\x90\x02\x01\x12\xb3\x02\n" +
-	"\x13ListAgentLogSources\x12\".log.v1.ListAgentLogSourcesRequest\x1a#.log.v1.ListAgentLogSourcesResponse\"\xd2\x01\x9a\xb5\x18\xca\x01\b\x01\x10\x01\x1a\x16list_agent_log_sources\"\xa8\x01List where an agent's logs can be read from, the service log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources.:\x01\x03\x90\x02\x01\x12\xb4\x02\n" +
+	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"|\x9a\xb5\x18u\b\x01\x10\x01\x1a\rget_log_lines\"]Read every log line written under one trace id, in order. A failed call answers its trace id.:\x01\x03\x90\x02\x01\x12\xe0\x01\n" +
+	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x88\x01\x9a\xb5\x18\x80\x01\b\x01\x10\x01\x1a\x12list_recent_traces\"cList the traces the server log ends with, oldest first, to find the one to read with get_log_lines.:\x01\x03\x90\x02\x01\x12\x9a\x02\n" +
+	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\xcb\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xa8\x01Read what the server logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output.:\x01\x03\x90\x02\x01\x12\xb2\x02\n" +
+	"\x13ListAgentLogSources\x12\".log.v1.ListAgentLogSourcesRequest\x1a#.log.v1.ListAgentLogSourcesResponse\"\xd1\x01\x9a\xb5\x18\xc9\x01\b\x01\x10\x01\x1a\x16list_agent_log_sources\"\xa7\x01List where an agent's logs can be read from, the server log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources.:\x01\x03\x90\x02\x01\x12\xb4\x02\n" +
 	"\x12ListTaskLogSources\x12!.log.v1.ListTaskLogSourcesRequest\x1a\".log.v1.ListTaskLogSourcesResponse\"\xd6\x01\x9a\xb5\x18\xce\x01\b\x01\x10\x01\x1a\x15list_task_log_sources\"\xad\x01List the script runs recorded on a task, its own moments and those of every agent on it, newest first. Pass a source with its agent_id to read_agent_logs to read its output.:\x01\x03\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/log/v1;logv1b\x06proto3"
 
 var (

@@ -158,7 +158,7 @@ func TestListenAddressIsCheckedFirst(t *testing.T) {
 }
 
 // TestServerCheckOnARemoteEngine covers the arms whose wording and advice only make sense about
-// the machine holding the service, which for a remote engine is not this one.
+// the machine holding the server, which for a remote engine is not this one.
 func TestServerCheckOnARemoteEngine(t *testing.T) {
 	t.Parallel()
 
@@ -182,7 +182,7 @@ func TestServerCheckOnARemoteEngine(t *testing.T) {
 			status:     ServerStatus{},
 			wantStatus: StatusFail,
 			wantCode:   "server_down",
-			wantFix:    "start komrad on the engine, since its service runs whether or not a panel is open",
+			wantFix:    "start komrad on the engine, since its server runs whether or not a panel is open",
 		},
 		{
 			name:       "something on the engine holds the address",

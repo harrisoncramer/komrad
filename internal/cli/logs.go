@@ -11,7 +11,7 @@ import (
 
 var errLogged = errors.New("logged")
 
-// openLogFile opens the one file both the service and the panel append their records to.
+// openLogFile opens the one file both the server and the panel append their records to.
 func openLogFile(path string) (*os.File, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create the directory for the server log %s: %w", path, err)
