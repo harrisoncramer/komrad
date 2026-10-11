@@ -44,7 +44,7 @@ func NewRootCommand() *cobra.Command {
 
 	root := &cobra.Command{
 		Use:   "komrad",
-		Short: "tmux panel and CLI for background coding agents",
+		Short: "Run, search and schedule Claude Code and Codex agents from tmux",
 		Long: `Komrad runs coding agents in tmux panes and keeps track of them.
 
 There are two processes. ` + "`komrad serve`" + ` is the long-lived service that owns the

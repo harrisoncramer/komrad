@@ -10,6 +10,24 @@ resource "aws_cloudfront_response_headers_policy" "security" {
   name = "${var.name}-security-headers"
 
   security_headers_config {
+    content_security_policy {
+      content_security_policy = join("; ", [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data:",
+        "font-src 'self' data:",
+        "media-src 'self'",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "upgrade-insecure-requests",
+      ])
+      override = true
+    }
+
     strict_transport_security {
       access_control_max_age_sec = 63072000
       include_subdomains         = false

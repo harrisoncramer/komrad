@@ -5,7 +5,7 @@
     "parent": "",
     "usage": "komrad",
     "aliases": [],
-    "short": "tmux panel and CLI for background coding agents",
+    "short": "Run, search and schedule Claude Code and Codex agents from tmux",
     "long": "Komrad runs coding agents in tmux panes and keeps track of them.\n\nThere are two processes. `komrad serve` is the long-lived service that owns the\ndatabase, answers the API and the MCP endpoint, and watches every pane. The panel\nis a client of it, which is why it can be closed and reopened without stopping\nanything. Every other command here is a client of the same service.\n\n`komrad open` brings the panel up in this terminal, and the other commands are\nfor the times something has to be done by hand: check the machine, start or stop\nthe service, or call an endpoint from a script.",
     "example": "",
     "flags": [
