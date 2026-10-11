@@ -17,8 +17,8 @@ type rowRef struct {
 	task string
 }
 
-func (r rowRef) isWorkflow() bool {
-	return r.header && r.task == ""
+func (r rowRef) isTask() bool {
+	return r.header && r.task != ""
 }
 
 type selection struct {
@@ -60,7 +60,7 @@ func (s selection) toggle(refs []rowRef, cursor int) selection {
 }
 
 func (s selection) extend(refs []rowRef, cursor int) selection {
-	if ref, ok := rowAt(refs, cursor); !ok || ref.isWorkflow() {
+	if ref, ok := rowAt(refs, cursor); !ok || (ref.header && !ref.isTask()) {
 		return s
 	}
 
@@ -74,7 +74,7 @@ func (s selection) extend(refs []rowRef, cursor int) selection {
 		switch {
 		case !r.header:
 			keys = append(keys, r.key)
-		case !r.isWorkflow():
+		case r.isTask():
 			keys = append(keys, groupKeys(refs, r)...)
 		}
 	}
