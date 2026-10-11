@@ -46,7 +46,7 @@ type NewResumeServiceParams struct {
 	Agents             *agentstore.AgentStore
 	Workflows          *workflowstore.WorkflowStore
 	Launcher           *Launcher
-	Launch             *LaunchService
+	LaunchService      *LaunchService
 	Harnesses          harnessGetter
 	Scripts            agentScriptRunner
 	Locks              treeLocker
@@ -58,7 +58,7 @@ type NewResumeServiceParams struct {
 type ResumeService struct {
 	tmux               paneController
 	starter            *agentStarter
-	launch             *LaunchService
+	launchService      *LaunchService
 	agents             *agentstore.AgentStore
 	workflows          *workflowstore.WorkflowStore
 	harnesses          harnessGetter
@@ -85,7 +85,7 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 			scripts:  params.Scripts,
 		},
 		agents:             params.Agents,
-		launch:             params.Launch,
+		launchService:      params.LaunchService,
 		workflows:          params.Workflows,
 		harnesses:          params.Harnesses,
 		locks:              params.Locks,
@@ -307,7 +307,7 @@ func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 
 func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
 	if r.restart != nil {
-		if err := r.setSession(ctx, *agent); err != nil {
+		if err := r.setHarness(ctx, *agent); err != nil {
 			return fmt.Errorf("failed to start a new conversation for %q: %w", agent.Name, err)
 		}
 	}
@@ -375,8 +375,8 @@ func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error 
 	return nil
 }
 
-// setSession points the agent at its conversation, on the CLI and flags it names.
-func (r *resumeStart) setSession(ctx context.Context, agent agentstore.Agent) error {
+// setHarness points the agent at its conversation, on the CLI and flags it names.
+func (r *resumeStart) setHarness(ctx context.Context, agent agentstore.Agent) error {
 	return r.service.agents.SetHarness(ctx, agentstore.SetHarnessParams{
 		ID:        agent.ID,
 		Harness:   agent.Harness,
@@ -395,8 +395,8 @@ func (r *resumeStart) rollBack(ctx context.Context, agent agentstore.Agent, _ er
 	if r.restart == nil {
 		return
 	}
-	if err := r.setSession(ctx, r.restart.earlier); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the conversation of a writer whose restart gave up",
+	if err := r.setHarness(ctx, r.restart.earlier); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the conversation, CLI and flags of a writer whose restart gave up",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }

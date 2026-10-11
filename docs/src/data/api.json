@@ -322,8 +322,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Relaunch a task's writer on a new conversation, on its own CLI and flags or on others, such as another model, briefed from the task's notes and its checkout.",
-          "description": "Relaunch a task's writer on a new conversation, on its own CLI and flags or on others, such as another model, briefed from the task's notes and its checkout. Its earlier conversation stays in its transcript, and the task's reviewers carry on.",
+          "summary": "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout.",
+          "description": "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. It keeps its CLI and flags unless others are named, such as another model. Its earlier conversation stays in its transcript, and the task's reviewers carry on.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,

@@ -80,7 +80,7 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 
 	earlier := *agent
 	wf := workflowFor(ctx, s.workflows, *agent)
-	s.launch.moveOnto(moveOntoParams{
+	s.launchService.moveOnto(moveOntoParams{
 		agent:    agent,
 		workflow: wf,
 		harness:  wanted,
