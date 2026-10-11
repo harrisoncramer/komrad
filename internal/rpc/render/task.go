@@ -34,7 +34,7 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		NotesUpdatedAt:     dates.PreciseStampPtr(stored.NotesUpdatedAt),
 		FailedRun:          stored.FailedRun,
 		Documents:          stored.Documents,
-		DocumentsUpdatedAt: dates.StampPtr(stored.DocumentsUpdatedAt),
+		DocumentsUpdatedAt: dates.PreciseStampPtr(stored.DocumentsUpdatedAt),
 		Hidden:             stored.Hidden,
 	}
 }
