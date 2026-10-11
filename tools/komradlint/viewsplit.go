@@ -43,28 +43,33 @@ func newViewSplit(settings config.ViewSplitConfig) (*analysis.Analyzer, error) {
 					continue
 				}
 
-				inView := isViewFile(pass.Fset.Position(file.Pos()).Filename)
-				for _, decl := range file.Decls {
-					fn, ok := decl.(*ast.FuncDecl)
-					if !ok || fn.Body == nil {
-						continue
-					}
-
-					if inView {
-						reportViewWrites(pass, fn)
-
-						continue
-					}
-
-					if isDrawing(pass, fn) {
-						pass.Reportf(fn.Name.Pos(), "%s draws, so it belongs in a file ending in %s beside the file holding its state", fn.Name.Name, viewFileSuffix)
-					}
-				}
+				reportViewSplit(pass, file)
 			}
 
 			return nil, nil
 		},
 	}, nil
+}
+
+// reportViewSplit reports the writes a view file's functions make and the drawing any other file holds.
+func reportViewSplit(pass *analysis.Pass, file *ast.File) {
+	inView := isViewFile(pass.Fset.Position(file.Pos()).Filename)
+	for _, decl := range file.Decls {
+		function, ok := decl.(*ast.FuncDecl)
+		if !ok || function.Body == nil {
+			continue
+		}
+
+		if inView {
+			reportViewWrites(pass, function)
+
+			continue
+		}
+
+		if isDrawing(pass, function) {
+			pass.Reportf(function.Name.Pos(), "%s draws, so it belongs in a file ending in %s beside the file holding its state", function.Name.Name, viewFileSuffix)
+		}
+	}
 }
 
 // isViewFile says whether a file is named for another beside it with view put before the extension.
@@ -81,13 +86,13 @@ func isViewFile(path string) bool {
 }
 
 // isDrawing says whether a function is named as a view and returns the string it draws.
-func isDrawing(pass *analysis.Pass, fn *ast.FuncDecl) bool {
-	name := fn.Name.Name
+func isDrawing(pass *analysis.Pass, function *ast.FuncDecl) bool {
+	name := function.Name.Name
 	if name != "view" && !strings.HasSuffix(name, "View") {
 		return false
 	}
 
-	obj, ok := pass.TypesInfo.Defs[fn.Name].(*types.Func)
+	obj, ok := pass.TypesInfo.Defs[function.Name].(*types.Func)
 	if !ok {
 		return false
 	}
@@ -108,9 +113,9 @@ func isDrawing(pass *analysis.Pass, fn *ast.FuncDecl) bool {
 }
 
 // reportViewWrites reports every write a view function makes that reaches its caller through its receiver or parameters.
-func reportViewWrites(pass *analysis.Pass, fn *ast.FuncDecl) {
+func reportViewWrites(pass *analysis.Pass, function *ast.FuncDecl) {
 	held := map[types.Object]struct{}{}
-	for _, fields := range []*ast.FieldList{fn.Recv, fn.Type.Params} {
+	for _, fields := range []*ast.FieldList{function.Recv, function.Type.Params} {
 		if fields == nil {
 			continue
 		}
@@ -131,11 +136,11 @@ func reportViewWrites(pass *analysis.Pass, fn *ast.FuncDecl) {
 		}
 
 		if _, ok := held[pass.TypesInfo.Uses[root]]; ok {
-			pass.Reportf(target.Pos(), "%s writes %s while it draws; change state where a message is handled and let the view read it", fn.Name.Name, root.Name)
+			pass.Reportf(target.Pos(), "%s writes %s while it draws; change state where a message is handled and let the view read it", function.Name.Name, root.Name)
 		}
 	}
 
-	ast.Inspect(fn.Body, func(node ast.Node) bool {
+	ast.Inspect(function.Body, func(node ast.Node) bool {
 		switch stmt := node.(type) {
 		case *ast.AssignStmt:
 			if stmt.Tok == token.DEFINE {
