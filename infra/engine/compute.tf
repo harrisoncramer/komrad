@@ -40,6 +40,7 @@ resource "aws_instance" "komrad" {
     database_name       = aws_db_instance.komrad.db_name
     aws_region          = var.aws_region
     ssh_public_key      = var.ssh_public_key
+    domain_name         = var.domain_name
   })
 
   # User data now carries the database's address and secret, which move if RDS is ever replaced

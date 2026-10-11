@@ -40,3 +40,19 @@ fi
 
 systemctl start komrad-database-credentials.service
 systemctl start komrad.service
+
+if [ -n "${domain_name}" ]; then
+	install -d -m 700 /var/lib/komrad/caddy
+	chown -R caddy:caddy /var/lib/komrad/caddy
+	cat >/etc/caddy/Caddyfile <<CADDYFILE
+{
+	storage file_system /var/lib/komrad/caddy
+	grace_period 10s
+}
+
+${domain_name} {
+	respond 404
+}
+CADDYFILE
+	systemctl enable --now caddy.service
+fi

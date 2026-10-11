@@ -52,3 +52,14 @@ resource "cloudflare_dns_record" "site" {
   ttl     = 1
   proxied = false
 }
+
+resource "cloudflare_dns_record" "engine" {
+  count = var.engine_ip == "" ? 0 : 1
+
+  zone_id = data.cloudflare_zone.main.zone_id
+  name    = "engine.${var.domain_name}"
+  type    = "A"
+  content = var.engine_ip
+  ttl     = 1
+  proxied = false
+}

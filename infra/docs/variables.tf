@@ -32,6 +32,16 @@ variable "domain_name" {
   default = "komrad.dev"
 }
 
+variable "engine_ip" {
+  type    = string
+  default = ""
+
+  validation {
+    condition     = var.engine_ip == "" || can(cidrhost("${var.engine_ip}/32", 0))
+    error_message = "The engine IP is an IPv4 address like 203.0.113.10, since it is the target of an A record."
+  }
+}
+
 variable "redirect_domain_names" {
   type    = list(string)
   default = ["komrad.ai", "komrade.app", "komrade.dev"]
