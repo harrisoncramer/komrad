@@ -439,7 +439,7 @@ func (s *LaunchService) roleDefaults(wf *workflowstore.Workflow, role agentstore
 	return reviewerHarness, wf.Flags
 }
 
-func (p *launchPlan) agent(params NewAgentParams, spawner *agentstore.Agent) (*agentstore.Agent, error) {
+func (p *launchPlan) newAgent(params NewAgentParams, spawner *agentstore.Agent) (*agentstore.Agent, error) {
 	id, err := store.NewID()
 	if err != nil {
 		return nil, err
@@ -457,7 +457,7 @@ func (p *launchPlan) agent(params NewAgentParams, spawner *agentstore.Agent) (*a
 		Flags:            p.flags,
 		ProvisionEnabled: params.ProvisionEnabled,
 		Prompt:           params.Prompt,
-		State:            agentstore.StateIdle,
+		State:            agentstore.StateSettingUp,
 		Harness:          p.harnessID,
 		SessionID:        harness.MintSessionID(p.harness),
 		WorkflowID:       params.WorkflowID,
@@ -496,12 +496,11 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		return nil, tasks.ErrArchived.Saying("task %q is archived", joined.Slug)
 	}
 
-	agent, err := plan.agent(params, spawner)
+	agent, err := plan.newAgent(params, spawner)
 	if err != nil {
 		return nil, err
 	}
 	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
-	agent.State = agentstore.StateSettingUp
 
 	placed, err := s.createUnderCeiling(ctx, creation{
 		agent:         agent,
