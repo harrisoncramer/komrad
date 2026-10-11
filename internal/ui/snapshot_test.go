@@ -607,7 +607,6 @@ func TestSnapshotKinds(t *testing.T) {
 				workflow:  checkoutWorkflow(),
 				item:      panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "writer", Role: panel.RoleImplementer}},
 				underTask: true,
-				writer:    true,
 			},
 			want: view.Row{
 				Key:    "agent:a1",

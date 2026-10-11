@@ -209,10 +209,10 @@ func standingIn(count int, showHidden bool) int {
 	return count
 }
 
-// snapshotKind is where an agent sits in the tree, a task's live writer standing over the rest on it.
+// snapshotKind is where an agent sits in the tree, every agent on a task but its live writer drawn as a child.
 func snapshotKind(r agentRow, flat bool) view.RowKind {
 	switch {
-	case r.child, r.underTask && !r.writer:
+	case r.child, r.underTask && !isLiveWriter(r.item.Agent):
 		return view.KindChild
 	case flat:
 		return view.KindResult
