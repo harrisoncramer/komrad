@@ -10,7 +10,7 @@ import (
 const warmupPoll = 100 * time.Millisecond
 
 // warmupCap is how long a pane is waited on before it is shown regardless, so a launch that
-// never starts a harness does not hold the stage forever.
+// never starts a harness does not hold a parked write forever.
 const warmupCap = 4 * time.Second
 
 type warmupTickMsg struct{}
@@ -31,8 +31,7 @@ func newWarmupState() warmupState {
 	return warmupState{ready: map[string]bool{}, since: map[string]time.Time{}}
 }
 
-// isPaneWarm reports whether a pane may be swapped into the stage, which holds once its harness
-// has rendered itself there.
+// isPaneWarm reports whether a pane's harness has rendered itself, or the wait on it has run out.
 func (m *model) isPaneWarm(pane, harnessID string) bool {
 	if pane == "" {
 		return false
