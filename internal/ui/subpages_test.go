@@ -169,6 +169,17 @@ func TestSubpagesInArchive(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "an archived task's worktree is not touched")
 	})
 
+	t.Run("an archived agent on a live task has no git, since the checkout is not its own", func(t *testing.T) {
+		t.Parallel()
+
+		author := newArchivedAgent("author", "author", "w1")
+		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author, newTaskOf(author))
+		harness.press("j", "j", "space")
+		require.Contains(t, harness.readFrame(), "  author")
+
+		assert.NotContains(t, readStageText(harness.readFrame()), "git")
+	})
+
 	t.Run("documents open filtered to the archived agent", func(t *testing.T) {
 		t.Parallel()
 
