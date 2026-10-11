@@ -516,7 +516,7 @@ linters:
               - rows
             exclude:
               - ^internal/fail/
-              # Reading the agents' logs picks between the service log and a run's log, which is a
+              # Reading the agents' logs picks between the server log and a run's log, which is a
               # choice of source the request makes rather than a combining of two answers.
               - ^internal/rpc/log/handler\.go$
       fussy:
