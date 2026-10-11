@@ -1,8 +1,8 @@
 ---
 title: Agents
-description: What an agent is, what the panel shows about it, and how agents work together.
+description: The three kinds of agent, how they work together on tasks, and how komrad knows what each one is doing.
 group: start
-order: 3
+order: 4
 ---
 
 import Setting from "../../components/Setting.astro";
@@ -10,57 +10,41 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { link, media } from "../../site";
 
-<Alert variant="warning">
-  This guide assumes you know what a [workflow](../workflows/) is, and you've created one.
-</Alert>
+Agents perform work in komrad. Each one is a real Claude or Codex session running in a terminal that komrad manages for you. Agents are designed to be stateless in komrad, so that you can easily create or discard them without losing work.
 
-Agents run your workloads. They are spawned according to workflows.
+<Alert variant="warning">This guide assumes you know what a [workflow](../workflows/) and a [task](../tasks/) are.</Alert>
 
-Komrad currently supports Claude and Codex. Agents are designed to be durable: you can shut down or restart your machine without losing any history or context, and easily restore or search through old sessions. You can even have agents spawn and manage other agents.
+They are also durable. You can shut down or restart your machine without losing any history or context with an agent, and easily restore or search through their conversations later. Agents can also start and manage other agents.
 
-This is komrad's core benefit: durable agentic sessions, that you can run and manage yourself.
+## Three kinds of agent
 
-Komrad has three types of agents, and you've already seen one: the [orchestrator](../workflows/#the-orchestrator). Orchestrator agents can spawn children called "implementer" agents, which each (typically) work on a task of their own, in that task's worktree. Implementer agents can spawn reviewer agents. Reviewer agents live inside the same directory as the implementer.
+Komrad has three kinds of agent.
+
+The _orchestrator_ belongs to the workflow. There is one per workflow, and it coordinates the work rather than doing it. You met it in the [workflows](../workflows/#the-orchestrator) guide.
+
+An _implementer_ does the work of a task. The implementer that holds a task's checkout is the task's [writer](../tasks/#the-writer). It edits the code, commits, and opens the pull request. Although only one implementer can can be a task's active writer, you can "hand off" work to a new writer if you want.
+
+Finally, _reviewer_ agents read an implementer's change and comment on it. These agents share the implementer's checkout, and makes no changes of their own. There can be many reviewers per task.
 
 ```
-  workflow
+  workflow (and its orchestrator)
    |
-   '-- orchestrator                <-- one per workflow, coordinates work
-           |
-           |-- implementer         <-- multiple per orchestrator, writes code
-           |       |
-           |       '-- reviewer    <-- multiple per implementer, provides feedback
-           |       |
-           |       '-- reviewer
-           |
-           '-- implementer
-                    |
-                    '-- reviewer
+   |-- task: fix-login
+   |      |
+   |      '-- implementer        <-- the task's writer
+   |             |
+   |             '-- reviewer    <-- reads the writer's change
+   |
+   '-- task: rfc-truncate
+          |
+          '-- implementer
 ```
 
-Let's ask our orchestrator to spawn our first implementer agent. You can also hover over the orchestrator, open the menu with <Key name="menu.open" /> and press <Key name="menu.new_agent" /> to spawn the implementer directly.
+The list draws the same tree. Each workflow row holds its tasks, and each task holds the agents working on it.
 
-<figure>
-  <video
-    preload="none"
-    loop
-    muted
-    playsinline
-    poster={media("first-agent.png")}
-    width="1440"
-    height="920"
-    aria-label="Pressing c on the neovim workflow, asking where :checkhealth is implemented, naming the agent find-checkhealth, and opening it to read its answer."
-  >
-    <source src={media("first-agent.webm")} type="video/webm" />
-    <source src={media("first-agent.mp4")} type="video/mp4" />
-  </video>
-</figure>
+## Starting agents
 
-The agent responds to our question. If it needs to, it can send and receive messages from the orchestrator.
-
-## Implementer Agents
-
-For kicks, let's ask our orchestrator to spawn three implementer agents to do some research before they start writing code:
+Most of the time you start an agent by [starting a task](../tasks/#starting-a-task), which launches its first implementer. The other way is to ask the orchestrator. Tell it what you want done and it creates the tasks, puts an implementer on each, and writes each one a brief.
 
 <figure>
   <video
@@ -71,43 +55,55 @@ For kicks, let's ask our orchestrator to spawn three implementer agents to do so
     poster={media("agent-children.png")}
     width="1440"
     height="920"
-    aria-label="Asking the neovim workflow's orchestrator to split some reading into three agents, and the three appearing in the list beneath it."
+    aria-label="Asking the neovim workflow's orchestrator to split some reading into three tasks, and the three tasks appearing under the workflow, each with its own agent."
   >
     <source src={media("agent-children.webm")} type="video/webm" />
     <source src={media("agent-children.mp4")} type="video/mp4" />
   </video>
 </figure>
 
-## Reviewer Agents
+Open an agent by moving the cursor onto it and pressing enter. Its terminal fills the main view, and you can talk to it like any other Claude or Codex session.
 
-Reviewer agents are attached to an implementer agent, and can be used to review its work. Don't try to have reviewer agents run work: each change should be implemented by an implementer agent, so that isolation between edits is guaranteed.
+<figure>
+  <video
+    preload="none"
+    loop
+    muted
+    playsinline
+    poster={media("first-agent.png")}
+    width="1440"
+    height="920"
+    aria-label="Starting a task on the neovim workflow that asks where :checkhealth is implemented, then opening its agent to read the answer."
+  >
+    <source src={media("first-agent.webm")} type="video/webm" />
+    <source src={media("first-agent.mp4")} type="video/mp4" />
+  </video>
+</figure>
 
-Reviewer agents share the implementer's checkout. They make no changes of their own, but provide feedback on their parent's changes. Set the <Setting path="usage.implementer.max_children" /> value to cap how many reviewers one implementer may hold at a time.
+## Reviewers
+
+An implementer asks for a review when it thinks its work is ready. Komrad starts a reviewer under it on the same task. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the implementer answers them.
+
+Keep the writing with implementers. A reviewer that edited the checkout would be working under the writer's feet. Set <Setting path="usage.implementer.max_children" /> to cap how many reviewers one implementer can hold at a time.
 
 ## Adopting work
 
-If you need to resume work that started outside of komrad (such as reviewing a pull request from a colleague, or resuming work from another machine) you can _adopt_ the branch. Adopting the branch lets komrad spawn an implementer agent into that branch responsible for resuming work on it.
+Sometimes the work started outside komrad, such as a colleague's pull request or a branch you began on another machine. Hover the workflow, open the menu with <Key name="menu.open" /> and press <Key name="menu.adopt" />. Name the branch and say what to do with it. Komrad starts a task on that branch with an implementer as its writer, in a worktree of its own when the workflow cuts them.
 
-To adopt a branch, hover over a workflow, open the menu with <Key name="menu.open" /> and press <Key name="menu.adopt" />.
+The branch has to be in the workflow's repository, either pushed to its origin or already on disk.
 
-Because adoption creates a new implementer agent, the adopted branch must be available in the repository controlled by the workflow you are adopting work into.
+## Archiving and deleting an agent
 
-## Tearing down
+Archiving an agent stops it and takes it out of the list. Its conversation stays in the database, so you can still search it or restore it later. Archiving an implementer archives its reviewers too, and archiving the last live agent on a task archives the task.
 
-In komrad, you can either _archive_ or _delete_ an agent.
+Deleting an archived agent is permanent and removes its conversation. Its task, with the worktree and reviews, stays until the task itself is [deleted](../tasks/#deleting).
 
-Archiving an agent will stop it immediately, and remove it from the agent sidebar. It will not remove its conversation from Postgres, so you can still search for it or resume it later.
+## How komrad knows what an agent is doing
 
-Deleting an agent is permanent. When you choose to delete an agent, its conversation is removed. Its worktree belongs to its task and is removed only when the task is deleted.
+Most agent tools learn what an agent is doing from hooks the agent fires. Hooks can be dropped, reordered, or never sent, for example when the CLI crashes. When that happens, those tools show an agent as working when it is idle, or waiting when it is done.
 
-## Agent State
+Komrad reads each agent's state from what its terminal actually shows, which komrad calls the pane. The [Claude test panes](https://github.com/harrisoncramer/komrad/tree/main/internal/harness/claude/testdata) show what it reads.
 
-Komrad is a bit different from other agent orchestration tools.
+This has a cost. If a process dies, komrad still sees it, but a new release of Claude or Codex that draws its screen differently can confuse it. If Claude or Codex ever ship real-time state notifications, komrad will move to them. Until then, reading the pane is the more reliable choice.
 
-Most of them right now learn what an agent is doing from "hooks" the agent fires. This is unreliable, because the hooks can be dropped, reordered, or never sent at all, for example when your CLI crashes. When that happens, those tools show an agent as working when it is idle, or waiting when it is done.
-
-Komrad reads each agent's state from what its terminal actually shows, which komrad calls the pane ([see Claude test panes](https://github.com/harrisoncramer/komrad/tree/main/internal/harness/claude/testdata) for reference).
-
-This has pros and cons. On the plus side, it means that if processes die or are killed, we don't miss state. But it also means that Komrad is bound to have defects related to reading the CLI view that a new version of Claude or Codex ships. I'd love to change this, and if Claude or Codex ever ship support for real-time state notifications, I'll move to that model right away. For now, though, this is the next-best thing.
-
-If you notice that the state is not correctly tracking your CLI, please <a href={link('/guides/bug-reports')}>submit an issue</a> on GitHub.
+If the state shown does not match your CLI, please <a href={link('/guides/bug-reports')}>submit an issue</a> on GitHub.
