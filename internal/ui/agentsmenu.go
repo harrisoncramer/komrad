@@ -51,7 +51,7 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			},
 			handOffEntries(m, task),
 			a.snoozeEntries(m, lead),
-			a.editEntries(m, m.listing.findTaskWriter(task)),
+			a.editEntries(m, m.listing.findCheckoutOwner(task)),
 			[]submenuEntry{
 				nestedEntry("git", m.keys.Menu.Git, gitMenu(m, task)),
 				nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, lead.Agent.ID, task.ID)),

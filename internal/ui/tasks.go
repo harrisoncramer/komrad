@@ -26,23 +26,23 @@ func (l listing) taskAgents(task panel.Task) []panel.AgentRow {
 	return xslice.Filter(pool, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
 }
 
-// taskFieldsParams is a task's checkout with the agents and writer its info panel shows.
+// taskFieldsParams is a task's checkout with the agents and checkout owner its info panel shows.
 type taskFieldsParams struct {
 	checkout checkoutFieldsParams
 	agents   []panel.AgentRow
-	writer   panel.AgentRow
+	owner    panel.AgentRow
 }
 
 func taskFields(params taskFieldsParams) []recordField {
-	task, writer := params.checkout.task, params.writer
+	task, owner := params.checkout.task, params.owner
 	names := xslice.Map(params.agents, func(item panel.AgentRow) string { return item.Agent.Name })
 	fields := []recordField{
 		{label: "task", value: task.Slug},
 		{label: "title", value: label.OrDash(task.Title)},
 		{label: "agents", value: label.OrDash(strings.Join(names, ", "))},
 	}
-	if isTaskWriter(writer.Agent) {
-		fields = append(fields, recordField{label: "writer", value: writer.Agent.Name})
+	if isCheckoutOwner(owner.Agent) {
+		fields = append(fields, recordField{label: "writer", value: owner.Agent.Name})
 	}
 
 	directory := label.OrDash(task.Cwd)
@@ -136,11 +136,11 @@ func findLead(onTask []panel.AgentRow) (panel.AgentRow, bool) {
 	return lead, true
 }
 
-// findTaskWriter is the agent that provisioned the task's checkout, or the task's lead when none
+// findCheckoutOwner is the agent that provisioned the task's checkout, or the task's lead when none
 // on the list did.
-func (l listing) findTaskWriter(task panel.Task) panel.AgentRow {
+func (l listing) findCheckoutOwner(task panel.Task) panel.AgentRow {
 	onTask := l.taskAgents(task)
-	at := slices.IndexFunc(onTask, func(item panel.AgentRow) bool { return isTaskWriter(item.Agent) })
+	at := slices.IndexFunc(onTask, func(item panel.AgentRow) bool { return isCheckoutOwner(item.Agent) })
 	if at < 0 {
 		lead, _ := l.findTaskLead(task)
 
@@ -150,18 +150,18 @@ func (l listing) findTaskWriter(task panel.Task) panel.AgentRow {
 	return onTask[at]
 }
 
-// findCheckoutWriter is the task's writer while it works in the task's own checkout.
-func (l listing) findCheckoutWriter(task panel.Task) (panel.AgentRow, bool) {
-	writer := l.findTaskWriter(task)
-	if task.Cwd == "" || writer.Agent.Cwd != task.Cwd {
+// findOwnerInCheckout is the task's checkout owner while it works in that checkout.
+func (l listing) findOwnerInCheckout(task panel.Task) (panel.AgentRow, bool) {
+	owner := l.findCheckoutOwner(task)
+	if task.Cwd == "" || owner.Agent.Cwd != task.Cwd {
 		return panel.AgentRow{}, false
 	}
 
-	return writer, true
+	return owner, true
 }
 
-// isTaskWriter reports whether the agent is the one its task's checkout was provisioned for.
-func isTaskWriter(agent panel.Agent) bool {
+// isCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.
+func isCheckoutOwner(agent panel.Agent) bool {
 	return agent.ParentAgentID == nil && !agent.ProvisionDisabled
 }
 
