@@ -260,9 +260,9 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name: "planning a rebase of an agent with no worktree",
+			name: "planning a rebase of a task with no worktree",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: alphaID}))
+				_, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: alphaID}))
 
 				return err
 			},
@@ -272,7 +272,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a rebase of a dirty worktree",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: alphaID}))
+				_, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: alphaID}))
 
 				return err
 			},
@@ -282,7 +282,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a push origin turned away because it moved on",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: alphaID}))
+				_, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: alphaID}))
 
 				return err
 			},
@@ -292,7 +292,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an abort of a worktree with nothing in progress",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: alphaID}))
+				_, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: alphaID}))
 
 				return err
 			},
@@ -608,7 +608,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		{
 			name: "planning a rebase",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: ids[0]}))
+				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: ids[0]}))
 				if err != nil {
 					return "", err
 				}
@@ -623,7 +623,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		{
 			name: "rebasing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: ids[0]}))
+				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: ids[0]}))
 				if err != nil {
 					return "", err
 				}
@@ -638,7 +638,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		{
 			name: "planning a push",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				planned, err := svc.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{AgentId: ids[0]}))
+				planned, err := svc.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: ids[0]}))
 				if err != nil {
 					return "", err
 				}
@@ -653,7 +653,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		{
 			name: "pushing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				pushed, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: ids[0]}))
+				pushed, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: ids[0]}))
 				if err != nil {
 					return "", err
 				}
@@ -668,7 +668,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		{
 			name: "aborting",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				aborted, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: ids[0]}))
+				aborted, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: ids[0]}))
 				if err != nil {
 					return "", err
 				}
@@ -1252,8 +1252,8 @@ func (f *recordingAgentServices) Start(_ context.Context, workflowID, _ string) 
 	return f.answer()
 }
 
-func (f *recordingAgentServices) PlanRebase(_ context.Context, agentID string) (*checkouts.RebasePlan, error) {
-	f.planned = append(f.planned, agentID)
+func (f *recordingAgentServices) PlanRebase(_ context.Context, task string) (*checkouts.RebasePlan, error) {
+	f.planned = append(f.planned, task)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -1266,8 +1266,8 @@ func (f *recordingAgentServices) PlanRebase(_ context.Context, agentID string) (
 	}, nil
 }
 
-func (f *recordingAgentServices) Rebase(_ context.Context, agentID string) (*checkouts.RebaseResult, error) {
-	f.rebased = append(f.rebased, agentID)
+func (f *recordingAgentServices) Rebase(_ context.Context, task string) (*checkouts.RebaseResult, error) {
+	f.rebased = append(f.rebased, task)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -1281,8 +1281,8 @@ func (f *recordingAgentServices) Rebase(_ context.Context, agentID string) (*che
 	}, nil
 }
 
-func (f *recordingAgentServices) PlanPush(_ context.Context, agentID string) (*checkouts.PushPlan, error) {
-	f.pushPlanned = append(f.pushPlanned, agentID)
+func (f *recordingAgentServices) PlanPush(_ context.Context, task string) (*checkouts.PushPlan, error) {
+	f.pushPlanned = append(f.pushPlanned, task)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -1295,8 +1295,8 @@ func (f *recordingAgentServices) PlanPush(_ context.Context, agentID string) (*c
 	}, nil
 }
 
-func (f *recordingAgentServices) Push(_ context.Context, agentID string) (*checkouts.PushResult, error) {
-	f.pushed = append(f.pushed, agentID)
+func (f *recordingAgentServices) Push(_ context.Context, task string) (*checkouts.PushResult, error) {
+	f.pushed = append(f.pushed, task)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -1604,8 +1604,8 @@ func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *recordin
 	return agentv1connect.NewAgentServiceClient(server.Client(), server.URL), services
 }
 
-func (f *recordingAgentServices) Abort(_ context.Context, agentID string) (*checkouts.AbortResult, error) {
-	f.aborted = append(f.aborted, agentID)
+func (f *recordingAgentServices) Abort(_ context.Context, task string) (*checkouts.AbortResult, error) {
+	f.aborted = append(f.aborted, task)
 	if f.err != nil {
 		return nil, f.err
 	}

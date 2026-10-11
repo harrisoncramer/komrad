@@ -11,7 +11,6 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 )
 
@@ -33,26 +32,25 @@ type AbortResult struct {
 	Interrupted bool `json:"interrupted"`
 }
 
-// Abort undoes whatever rebase, am, merge or pick is part-way through the agent's worktree,
-// parking the checkout first so nothing the agent had resolved is lost.
-func (s *Service) Abort(ctx context.Context, agentID string) (*AbortResult, error) {
-	target, err := s.eligible(ctx, agentID)
+// Abort undoes whatever rebase, am, merge or pick is part-way through the task's worktree,
+// parking the checkout first so nothing its writer had resolved is lost.
+func (s *Service) Abort(ctx context.Context, ref string) (*AbortResult, error) {
+	target, err := s.eligible(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
-	agent := target.agent
 
-	unlock, err := s.lockTree(agent.Cwd)
+	unlock, err := s.lockTree(target.dir())
 	if err != nil {
 		return nil, err
 	}
 	defer unlock()
 
-	if _, err := s.readSequence(ctx, *agent); err != nil {
+	if _, err := s.readSequence(ctx, target.dir()); err != nil {
 		return nil, err
 	}
 
-	interrupted, err := s.settle(ctx, *agent)
+	interrupted, err := s.settle(ctx, *target)
 	if err != nil {
 		return nil, err
 	}
@@ -60,26 +58,25 @@ func (s *Service) Abort(ctx context.Context, agentID string) (*AbortResult, erro
 	result, err := s.abort(ctx, *target)
 	if err != nil {
 		if interrupted {
-			s.queueEvent(ctx, agent.ID, aborted{AgentID: agent.ID, Failure: err.Error()})
+			s.queueEvent(ctx, target.task.ID, aborted{TaskID: target.task.ID, Failure: err.Error()})
 		}
 
 		return nil, err
 	}
 	result.Interrupted = interrupted
 
-	s.queueEvent(ctx, agent.ID, aborted{AgentID: agent.ID, Result: result})
+	s.queueEvent(ctx, target.task.ID, aborted{TaskID: target.task.ID, Result: result})
 
 	return result, nil
 }
 
 // abort reads the sequence again, parks the checkout and undoes it.
 func (s *Service) abort(ctx context.Context, target checkoutTarget) (*AbortResult, error) {
-	agent := *target.agent
-	if _, err := s.read(ctx, agent.ID); err != nil {
+	if err := s.recheckWriter(ctx, target); err != nil {
 		return nil, err
 	}
 
-	sequence, err := s.readSequence(ctx, agent)
+	sequence, err := s.readSequence(ctx, target.dir())
 	if err != nil {
 		return nil, err
 	}
@@ -92,15 +89,15 @@ func (s *Service) abort(ctx context.Context, target checkoutTarget) (*AbortResul
 	result := &AbortResult{
 		Sequence:  sequenceOf(sequence),
 		Command:   sequence.GetCommand(),
-		ParkedRef: buildParkRef(parkAbort, agent.ID),
+		ParkedRef: buildParkRef(parkAbort, target.task.ID),
 		Ours:      ours,
 	}
-	if _, err := s.git.Park(ctx, agent.Cwd, result.ParkedRef); err != nil {
+	if _, err := s.git.Park(ctx, target.dir(), result.ParkedRef); err != nil {
 		return nil, err
 	}
 	defer s.checkoutSync.Wake()
 
-	err = s.git.AbortSequence(ctx, agent.Cwd, sequence)
+	err = s.git.AbortSequence(ctx, target.dir(), sequence)
 	if errors.Is(err, git.ErrIndexLocked) {
 		return nil, fmt.Errorf("%w: %w", errBusy, err)
 	}
@@ -110,7 +107,7 @@ func (s *Service) abort(ctx context.Context, target checkoutTarget) (*AbortResul
 
 	s.recordAborted(ctx, *target.task)
 
-	state, err := s.git.ReadTreeState(ctx, agent.Cwd)
+	state, err := s.git.ReadTreeState(ctx, target.dir())
 	if err != nil {
 		return nil, err
 	}
@@ -120,8 +117,8 @@ func (s *Service) abort(ctx context.Context, target checkoutTarget) (*AbortResul
 }
 
 // readSequence is what is part-way through the checkout, refusing one with nothing.
-func (s *Service) readSequence(ctx context.Context, agent agentstore.Agent) (git.Sequence, error) {
-	sequence, err := s.git.ReadSequence(ctx, agent.Cwd)
+func (s *Service) readSequence(ctx context.Context, dir string) (git.Sequence, error) {
+	sequence, err := s.git.ReadSequence(ctx, dir)
 	if err != nil {
 		return git.SequenceNone, err
 	}
@@ -133,7 +130,7 @@ func (s *Service) readSequence(ctx context.Context, agent agentstore.Agent) (git
 }
 
 // isOwnRebase reports whether the sequence is the rebase komrad started and left stopped on
-// conflicts, which is the one the agent was told to wait on.
+// conflicts, which is the one the writer was told to wait on.
 func (s *Service) isOwnRebase(ctx context.Context, target checkoutTarget, sequence git.Sequence) (bool, error) {
 	if sequence != git.SequenceRebase {
 		return false, nil
@@ -155,7 +152,7 @@ func (s *Service) isOwnRebase(ctx context.Context, target checkoutTarget, sequen
 		return false, nil
 	}
 
-	onto, err := s.git.ReadRebaseOnto(ctx, target.agent.Cwd)
+	onto, err := s.git.ReadRebaseOnto(ctx, target.dir())
 	if err != nil {
 		return false, err
 	}
@@ -171,7 +168,7 @@ func (s *Service) recordAborted(ctx context.Context, task taskstore.Task) {
 	}
 }
 
-// abortedMail is what an agent is told once the panel aborted what its worktree had part-way
+// abortedMail is what a writer is told once the panel aborted what its worktree had part-way
 // through, which turns on whether komrad or the agent started it.
 func abortedMail(aborted aborted) string {
 	if aborted.Result == nil {

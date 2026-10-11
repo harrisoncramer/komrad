@@ -29,13 +29,13 @@ type rebasePlan struct {
 	conflictPaths []string
 }
 
-func rebaseOp(agentID, name string) gitOp {
+func rebaseOp(taskID, name string) gitOp {
 	return gitOp{
 		kind:       formAgentRebase,
 		planning:   "planning the rebase of " + name,
 		planFailed: "Could not work out what a rebase would do",
 		plan: func(clients api) (gitConfirmForm, error) {
-			response, err := clients.planRebase(agentID)
+			response, err := clients.planRebase(taskID)
 			if err != nil {
 				return nil, err
 			}
@@ -55,7 +55,7 @@ func rebaseOp(agentID, name string) gitOp {
 		},
 		running: "rebasing " + name,
 		run: func(clients api) gitReport {
-			result, err := clients.rebaseWorktree(agentID)
+			result, err := clients.rebaseWorktree(taskID)
 
 			return func(m *model) tea.Cmd {
 				m.reportRebased(name, result, err)

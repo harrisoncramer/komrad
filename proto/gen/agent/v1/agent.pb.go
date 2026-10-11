@@ -1515,8 +1515,8 @@ func (x *GetAgentResponse) GetTask() *v13.Task {
 // PlanRebaseRequest asks what a rebase would do without doing it.
 type PlanRebaseRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose branch the rebase would move.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's branch the rebase would move, by id or by slug.
+	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1551,9 +1551,9 @@ func (*PlanRebaseRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *PlanRebaseRequest) GetAgentId() string {
+func (x *PlanRebaseRequest) GetTask() string {
 	if x != nil {
-		return x.AgentId
+		return x.Task
 	}
 	return ""
 }
@@ -1768,8 +1768,8 @@ func (x *StartOrchestratorResponse) GetAgent() *Agent {
 
 type RebaseWorktreeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose branch to move onto its base.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's branch to move onto its base, by id or by slug.
+	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1804,9 +1804,9 @@ func (*RebaseWorktreeRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{18}
 }
 
-func (x *RebaseWorktreeRequest) GetAgentId() string {
+func (x *RebaseWorktreeRequest) GetTask() string {
 	if x != nil {
-		return x.AgentId
+		return x.Task
 	}
 	return ""
 }
@@ -1923,8 +1923,8 @@ func (x *RebaseWorktreeResponse) GetReplayCommits() int32 {
 // PlanPushRequest asks what a push would do without doing it.
 type PlanPushRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose branch the push would send.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's branch the push would send, by id or by slug.
+	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1959,9 +1959,9 @@ func (*PlanPushRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *PlanPushRequest) GetAgentId() string {
+func (x *PlanPushRequest) GetTask() string {
 	if x != nil {
-		return x.AgentId
+		return x.Task
 	}
 	return ""
 }
@@ -2050,8 +2050,8 @@ func (x *PlanPushResponse) GetInSync() bool {
 
 type PushWorktreeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose branch to send to origin.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's branch to send to origin, by id or by slug.
+	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2086,9 +2086,9 @@ func (*PushWorktreeRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *PushWorktreeRequest) GetAgentId() string {
+func (x *PushWorktreeRequest) GetTask() string {
 	if x != nil {
-		return x.AgentId
+		return x.Task
 	}
 	return ""
 }
@@ -2167,8 +2167,8 @@ func (x *PushWorktreeResponse) GetSha() string {
 
 type AbortSequenceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose worktree to abort the sequence in.
-	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Which task's worktree to abort the sequence in, by id or by slug.
+	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2203,9 +2203,9 @@ func (*AbortSequenceRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{24}
 }
 
-func (x *AbortSequenceRequest) GetAgentId() string {
+func (x *AbortSequenceRequest) GetTask() string {
 	if x != nil {
-		return x.AgentId
+		return x.Task
 	}
 	return ""
 }
@@ -3248,9 +3248,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x04task\x18\b \x01(\v2\r.task.v1.TaskH\x02R\x04task\x88\x01\x01B\x14\n" +
 	"\x12_reviewer_commentsB\x12\n" +
 	"\x10_person_commentsB\a\n" +
-	"\x05_task\"7\n" +
-	"\x11PlanRebaseRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x89\x02\n" +
+	"\x05_task\"l\n" +
+	"\x11PlanRebaseRequest\x12W\n" +
+	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"\x89\x02\n" +
 	"\x12PlanRebaseResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
@@ -3265,9 +3266,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"workflowId\x12!\n" +
 	"\x06prompt\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x06prompt\"B\n" +
 	"\x19StartOrchestratorResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\";\n" +
-	"\x15RebaseWorktreeRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x84\x02\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"p\n" +
+	"\x15RebaseWorktreeRequest\x12W\n" +
+	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"\x84\x02\n" +
 	"\x16RebaseWorktreeResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
@@ -3278,24 +3280,27 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"conflicted\x12\x14\n" +
 	"\x05moved\x18\x06 \x01(\bR\x05moved\x12%\n" +
 	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
-	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"5\n" +
-	"\x0fPlanPushRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xa2\x01\n" +
+	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"j\n" +
+	"\x0fPlanPushRequest\x12W\n" +
+	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"\xa2\x01\n" +
 	"\x10PlanPushResponse\x12\x16\n" +
 	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x18\n" +
 	"\acommits\x18\x02 \x01(\x05R\acommits\x12\x16\n" +
 	"\x06forced\x18\x03 \x01(\bR\x06forced\x12+\n" +
 	"\x11uncommitted_files\x18\x04 \x01(\x05R\x10uncommittedFiles\x12\x17\n" +
-	"\ain_sync\x18\x05 \x01(\bR\x06inSync\"9\n" +
-	"\x13PushWorktreeRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"r\n" +
+	"\ain_sync\x18\x05 \x01(\bR\x06inSync\"n\n" +
+	"\x13PushWorktreeRequest\x12W\n" +
+	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"r\n" +
 	"\x14PushWorktreeResponse\x12\x16\n" +
 	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x18\n" +
 	"\acommits\x18\x02 \x01(\x05R\acommits\x12\x16\n" +
 	"\x06forced\x18\x03 \x01(\bR\x06forced\x12\x10\n" +
-	"\x03sha\x18\x04 \x01(\tR\x03sha\":\n" +
-	"\x14AbortSequenceRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x9f\x01\n" +
+	"\x03sha\x18\x04 \x01(\tR\x03sha\"o\n" +
+	"\x14AbortSequenceRequest\x12W\n" +
+	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"\x9f\x01\n" +
 	"\x15AbortSequenceResponse\x12-\n" +
 	"\bsequence\x18\x01 \x01(\x0e2\x11.task.v1.SequenceR\bsequence\x12\x16\n" +
 	"\x06branch\x18\x02 \x01(\tR\x06branch\x12\x1d\n" +
@@ -3368,7 +3373,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
-	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\xffz\n" +
+	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x032\x86{\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.:\x03\x01\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3417,13 +3422,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01B\xce\x01What was said in a review is a record of what the two sides knew at the time, so an agent corrects itself with another message through add_review_message rather than rewriting one somebody has already read.\x90\x02\x02\x12\xb7\x01\n" +
 	"\fReplyOnForge\x12\x1d.agent.v1.ReplyOnForgeRequest\x1a\x1e.agent.v1.ReplyOnForgeResponse\"h\x9a\xb5\x18dBbKomrad posts on the forge as the person, so only the person writes a reply that goes there unseen.\x12\xd7\x01\n" +
 	"\x0fRetryForgeReply\x12 .agent.v1.RetryForgeReplyRequest\x1a!.agent.v1.RetryForgeReplyResponse\"\x7f\x9a\xb5\x18{ByPosting again after the forge refused a reply is the person's call, made in the panel where they read why it was refused.\x12\x90\x01\n" +
-	"\x11DiscardForgeReply\x12\".agent.v1.DiscardForgeReplyRequest\x1a\x16.google.protobuf.Empty\"?\x9a\xb5\x18;B9Only the person decides a reply will not go to the forge.\x12\x80\x02\n" +
+	"\x11DiscardForgeReply\x12\".agent.v1.DiscardForgeReplyRequest\x1a\x16.google.protobuf.Empty\"?\x9a\xb5\x18;B9Only the person decides a reply will not go to the forge.\x12\xfe\x01\n" +
 	"\n" +
-	"PlanRebase\x12\x1b.agent.v1.PlanRebaseRequest\x1a\x1c.agent.v1.PlanRebaseResponse\"\xb6\x01\x9a\xb5\x18\xb1\x01\b\x01\x10\x01\x1a\vplan_rebase\"\x96\x01Preview rebasing an agent's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict.(\x000\x01:\x01\x03\x12\xe1\x02\n" +
-	"\x0eRebaseWorktree\x12\x1f.agent.v1.RebaseWorktreeRequest\x1a .agent.v1.RebaseWorktreeResponse\"\x8b\x02\x9a\xb5\x18\x86\x02\b\x01\x10\x01\x1a\x0frebase_worktree\"\xe7\x01Rebase an agent's branch onto the latest commit of its base, parking the checkout at a ref first and mailing the agent that its files moved. Read plan_rebase first. A rebase that conflicts stops and is left for the agent to settle.(\x010\x00:\x01\x03\x12\x97\x02\n" +
-	"\bPlanPush\x12\x19.agent.v1.PlanPushRequest\x1a\x1a.agent.v1.PlanPushResponse\"\xd3\x01\x9a\xb5\x18\xce\x01\b\x01\x1a\tplan_push\"EPreview pushing an agent's branch to origin without sending anything.BxAgents push their own branches with git, so pushing one from outside is for the person at the panel or the command line.\x12\xeb\x02\n" +
-	"\fPushWorktree\x12\x1d.agent.v1.PushWorktreeRequest\x1a\x1e.agent.v1.PushWorktreeResponse\"\x9b\x02\x9a\xb5\x18\x96\x02\b\x01\x1a\rpush_worktree\"\x88\x01Push an agent's branch to origin under its own name, overwriting origin's copy after a rebase only when nothing on origin would be lost.BxAgents push their own branches with git, so pushing one from outside is for the person at the panel or the command line.\x12\x92\x03\n" +
-	"\rAbortSequence\x12\x1e.agent.v1.AbortSequenceRequest\x1a\x1f.agent.v1.AbortSequenceResponse\"\xbf\x02\x9a\xb5\x18\xba\x02\b\x01\x1a\x0eabort_sequence\"\xa5\x01Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, keeping the worktree under a ref first and mailing the agent what was undone.B~The agent is told not to settle a conflicted rebase itself, so undoing one is for the person at the panel or the command line.\x12\xd9\x01\n" +
+	"PlanRebase\x12\x1b.agent.v1.PlanRebaseRequest\x1a\x1c.agent.v1.PlanRebaseResponse\"\xb4\x01\x9a\xb5\x18\xaf\x01\b\x01\x10\x01\x1a\vplan_rebase\"\x94\x01Preview rebasing a task's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict.(\x000\x01:\x01\x03\x12\xe8\x02\n" +
+	"\x0eRebaseWorktree\x12\x1f.agent.v1.RebaseWorktreeRequest\x1a .agent.v1.RebaseWorktreeResponse\"\x92\x02\x9a\xb5\x18\x8d\x02\b\x01\x10\x01\x1a\x0frebase_worktree\"\xee\x01Rebase a task's branch onto the latest commit of its base, parking the checkout at a ref first and mailing the task's writer that its files moved. Read plan_rebase first. A rebase that conflicts stops and is left for the writer to settle.(\x010\x00:\x01\x03\x12\x95\x02\n" +
+	"\bPlanPush\x12\x19.agent.v1.PlanPushRequest\x1a\x1a.agent.v1.PlanPushResponse\"\xd1\x01\x9a\xb5\x18\xcc\x01\b\x01\x1a\tplan_push\"CPreview pushing a task's branch to origin without sending anything.BxAgents push their own branches with git, so pushing one from outside is for the person at the panel or the command line.\x12\xe9\x02\n" +
+	"\fPushWorktree\x12\x1d.agent.v1.PushWorktreeRequest\x1a\x1e.agent.v1.PushWorktreeResponse\"\x99\x02\x9a\xb5\x18\x94\x02\b\x01\x1a\rpush_worktree\"\x86\x01Push a task's branch to origin under its own name, overwriting origin's copy after a rebase only when nothing on origin would be lost.BxAgents push their own branches with git, so pushing one from outside is for the person at the panel or the command line.\x12\x98\x03\n" +
+	"\rAbortSequence\x12\x1e.agent.v1.AbortSequenceRequest\x1a\x1f.agent.v1.AbortSequenceResponse\"\xc5\x02\x9a\xb5\x18\xc0\x02\b\x01\x1a\x0eabort_sequence\"\xab\x01Undo the rebase, am, merge, cherry-pick or revert part-way through a task's worktree, keeping the worktree under a ref first and mailing the task's writer what was undone.B~The agent is told not to settle a conflicted rebase itself, so undoing one is for the person at the panel or the command line.\x12\xd9\x01\n" +
 	"\x11StartOrchestrator\x12\".agent.v1.StartOrchestratorRequest\x1a#.agent.v1.StartOrchestratorResponse\"{\x9a\xb5\x18t\b\x01\x10\x01\x1a\x12start_orchestrator\"UBring a workflow's orchestrator back, or start one if the workflow has never had one.(\x00:\x01\x03\x90\x02\x02\x12\xe0\x01\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"y\x9a\xb5\x18rBpCatching up on a review thread is a person's own reading, and the handler refuses a caller that is not a person.\x90\x02\x02\x12\x85\x02\n" +
 	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x94\x01\x9a\xb5\x18\x8c\x01\b\x01\x10\x01\x1a\x15resolve_review_thread\"hSettle a review thread you wrote, or reopen one. Only the thread's author, or the person, may settle it.(\x000\x01:\x01\x02\x90\x02\x02\x12\x92\x02\n" +

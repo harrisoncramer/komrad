@@ -235,7 +235,7 @@ func TestIntegrationRebase(t *testing.T) {
 
 	instance := komradtest.Start(t, komradtest.Params{WorktreesDir: t.TempDir()})
 	repo := initGitRepo(t)
-	agentID, tree := createRebaseAgent(t, instance, repo)
+	agentID, taskID, tree := createRebaseAgent(t, instance, repo)
 	landOnTheBase(t, repo)
 	writeIn(t, tree, "uncommitted.txt", "never committed\n")
 	before := readGitOutput(t, tree, "rev-parse", "HEAD")
@@ -257,7 +257,7 @@ func TestIntegrationRebase(t *testing.T) {
 
 	started := time.Now()
 	rebased, err := instance.Agents.RebaseWorktree(t.Context(), connect.NewRequest(&agentv1.RebaseWorktreeRequest{
-		AgentId: agentID,
+		Task: taskID,
 	}))
 	require.NoError(t, err)
 
@@ -274,7 +274,7 @@ func TestIntegrationRebase(t *testing.T) {
 	})
 
 	t.Run("the checkout is parked before it moves", func(t *testing.T) {
-		parked := readGitOutput(t, tree, "for-each-ref", "--format=%(refname)", "refs/komrad/prerefresh/"+agentID+"/")
+		parked := readGitOutput(t, tree, "for-each-ref", "--format=%(refname)", "refs/komrad/prerefresh/"+taskID+"/")
 		require.NotEmpty(t, parked)
 
 		assert.Equal(t, before, readGitOutput(t, tree, "rev-parse", parked+"^"), "the park stands on the commit the branch was at")
@@ -291,12 +291,12 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{WorktreesDir: t.TempDir()})
 	ctx := t.Context()
 	repo := initGitRepo(t)
-	agentID, tree := createRebaseAgent(t, instance, repo)
+	agentID, taskID, tree := createRebaseAgent(t, instance, repo)
 	branch := readGitOutput(t, tree, "rev-parse", "--abbrev-ref", "HEAD")
 	head := readGitOutput(t, tree, "rev-parse", "HEAD")
 
 	t.Run("the plan counts the branch's own commits against the base", func(t *testing.T) {
-		plan, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{AgentId: agentID}))
+		plan, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: taskID}))
 		require.NoError(t, err)
 		assert.Equal(t, branch, plan.Msg.GetBranch())
 		assert.Equal(t, int32(2), plan.Msg.GetCommits())
@@ -304,7 +304,7 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	})
 
 	t.Run("a push puts the branch on origin", func(t *testing.T) {
-		pushed, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: agentID}))
+		pushed, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: taskID}))
 		require.NoError(t, err)
 		assert.Equal(t, head, pushed.Msg.GetSha())
 
@@ -318,7 +318,7 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	require.Errorf(t, err, "the rebase stops on the conflict in own.txt: %s", output)
 
 	t.Run("an abort puts the branch back and keeps the conflicted tree", func(t *testing.T) {
-		aborted, err := instance.Agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: agentID}))
+		aborted, err := instance.Agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: taskID}))
 		require.NoError(t, err)
 		assert.Equal(t, taskv1.Sequence_SEQUENCE_REBASE, aborted.Msg.GetSequence())
 		assert.Equal(t, branch, aborted.Msg.GetBranch())
@@ -326,7 +326,7 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 		assert.Empty(t, readGitOutput(t, tree, "status", "--porcelain"))
 
 		parked := aborted.Msg.GetParkedRef()
-		assert.True(t, strings.HasPrefix(parked, "refs/komrad/aborted/"+agentID+"/"))
+		assert.True(t, strings.HasPrefix(parked, "refs/komrad/aborted/"+taskID+"/"))
 		assert.Contains(t, readGitOutput(t, tree, "show", parked+":own.txt"), "<<<<<<<", "the park holds the tree as the conflict left it")
 	})
 
@@ -343,11 +343,11 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	rebased := readGitOutput(t, tree, "rev-parse", "HEAD")
 
 	t.Run("a rebased branch overwrites origin's copy", func(t *testing.T) {
-		plan, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{AgentId: agentID}))
+		plan, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: taskID}))
 		require.NoError(t, err)
 		assert.True(t, plan.Msg.GetForced())
 
-		pushed, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: agentID}))
+		pushed, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: taskID}))
 		require.NoError(t, err)
 		assert.True(t, pushed.Msg.GetForced())
 
@@ -375,8 +375,8 @@ func commitIn(t *testing.T, dir, name, subject string) {
 	runGitIn(t, dir, "commit", "--quiet", "-m", subject)
 }
 
-// createRebaseAgent is an agent on a worktree of its own with two commits on its branch.
-func createRebaseAgent(t *testing.T, instance *komradtest.Instance, repo string) (agentID, tree string) {
+// createRebaseAgent is an agent on a task with a worktree of its own and two commits on its branch.
+func createRebaseAgent(t *testing.T, instance *komradtest.Instance, repo string) (agentID, taskID, tree string) {
 	t.Helper()
 
 	ctx := t.Context()
@@ -402,7 +402,7 @@ func createRebaseAgent(t *testing.T, instance *komradtest.Instance, repo string)
 	commitIn(t, tree, "own.txt", "a first draft")
 	commitIn(t, tree, "own.txt", "the agent's work")
 
-	return agent.Msg.GetAgent().GetId(), tree
+	return agent.Msg.GetAgent().GetId(), agent.Msg.GetAgent().GetTaskId(), tree
 }
 
 // landOnTheBase puts the finished content of the agent's file on main as a commit of its own,

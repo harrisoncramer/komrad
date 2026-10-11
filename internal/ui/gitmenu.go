@@ -195,7 +195,7 @@ func (m *model) runGitChoice(agentID string, choice gitChoice) tea.Cmd {
 			return nil
 		}
 
-		return m.planGitCmd(rebaseOp(agent.ID, agent.Name))
+		return m.planGitCmd(rebaseOp(agent.TaskID, agent.Name))
 	case gitChoicePush:
 		if err := pushRefusal(m.listing, agent); err != nil {
 			m.report("Could not push the branch of "+agent.Name, err)
@@ -260,5 +260,5 @@ func (m *model) openGitAbort(agentID string) tea.Cmd {
 
 	m.leaveForm()
 
-	return m.openGitConfirm(abortOp(agent.ID, agent.Name, agent.Sequence), abortForm(agent.Name, agent.Sequence))
+	return m.openGitConfirm(abortOp(agent.TaskID, agent.Name, agent.Sequence), abortForm(agent.Name, agent.Sequence))
 }

@@ -1,24 +1,38 @@
 package checkouts
 
-import "sync"
+import (
+	"path/filepath"
+	"sync"
+)
 
-// treeLocks serialises the operations that write to an agent's checkout.
-type treeLocks struct {
+// TreeLocks serialises the operations that write to a task's checkout.
+type TreeLocks struct {
 	mu   sync.Mutex
 	held map[string]struct{}
 }
 
-// newTreeLocks builds an empty set of locks.
-func newTreeLocks() *treeLocks {
-	return &treeLocks{held: map[string]struct{}{}}
+// NewTreeLocks builds an empty set of locks.
+func NewTreeLocks() *TreeLocks {
+	return &TreeLocks{held: map[string]struct{}{}}
+}
+
+// IsMoving reports whether a rebase, push or abort holds the checkout at dir.
+func (l *TreeLocks) IsMoving(dir string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	_, taken := l.held[filepath.Clean(dir)]
+
+	return taken
 }
 
 // tryLock takes the lock on a directory and hands back what releases it.
-func (l *treeLocks) tryLock(dir string) (func(), bool) {
+func (l *TreeLocks) tryLock(dir string) (func(), bool) {
 	// Refused rather than granted.
 	if dir == "" {
 		return nil, false
 	}
+	dir = filepath.Clean(dir)
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
