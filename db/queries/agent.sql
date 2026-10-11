@@ -92,80 +92,7 @@ WITH claimed AS (
             WHERE
                 w.id = ANY (@ids::uuid[])
                 AND w.role = 'writer'))
-    AND a.deleting_at IS NULL
-RETURNING
-    a.id,
-    a.task_id,
-    a.role,
-    a.workflow_id,
-    a.deleting_at
-),
-marked AS (
-    UPDATE
-        workflows w
-    SET
-        deleting_at = NOW()
-    WHERE
-        w.archived_at IS NOT NULL
-        AND w.deleting_at IS NULL
-        AND w.id IN (
-            SELECT
-                workflow_id
-            FROM
-                claimed)
-            AND NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    agents a
-                WHERE
-                    a.workflow_id = w.id
-                    AND a.archived_at IS NOT NULL
-                    AND a.deleting_at IS NULL
-                    AND a.id NOT IN (
-                        SELECT
-                            id
-                        FROM
-                            claimed))
-                RETURNING
-                    w.id
-)
-        SELECT
-            id,
-            task_id,
-            role,
-            deleting_at
-        FROM
-            claimed;
-
--- name: MarkArchivedAgentsDeletingByID :many
-WITH claimed AS (
-    UPDATE
-        agents a
-    SET
-        deleting_at = NOW()
-    WHERE (a.id = ANY (@ids::uuid[])
-        OR a.task_id IN (
-            SELECT
-                w.task_id
-            FROM
-                agents w
-            WHERE
-                w.id = ANY (@ids::uuid[])
-                AND w.role = 'writer'))
-    AND a.archived_at IS NOT NULL
-    AND a.state <> 'failed_to_cleanup'
-    AND a.deleting_at IS NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents w
-        WHERE
-            a.role = 'reviewer'
-            AND w.task_id = a.task_id
-            AND w.role = 'writer'
-            AND w.state = 'failed_to_cleanup')
+        AND a.deleting_at IS NULL
     RETURNING
         a.id,
         a.task_id,
@@ -206,7 +133,80 @@ marked AS (
         SELECT
             id,
             task_id,
-            role,
+            ROLE,
+            deleting_at
+        FROM
+            claimed;
+
+-- name: MarkArchivedAgentsDeletingByID :many
+WITH claimed AS (
+    UPDATE
+        agents a
+    SET
+        deleting_at = NOW()
+    WHERE (a.id = ANY (@ids::uuid[])
+        OR a.task_id IN (
+            SELECT
+                w.task_id
+            FROM
+                agents w
+            WHERE
+                w.id = ANY (@ids::uuid[])
+                AND w.role = 'writer'))
+        AND a.archived_at IS NOT NULL
+        AND a.state <> 'failed_to_cleanup'
+        AND a.deleting_at IS NULL
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                agents w
+            WHERE
+                a.role = 'reviewer'
+                AND w.task_id = a.task_id
+                AND w.role = 'writer'
+                AND w.state = 'failed_to_cleanup')
+        RETURNING
+            a.id,
+            a.task_id,
+            a.role,
+            a.workflow_id,
+            a.deleting_at
+),
+marked AS (
+    UPDATE
+        workflows w
+    SET
+        deleting_at = NOW()
+    WHERE
+        w.archived_at IS NOT NULL
+        AND w.deleting_at IS NULL
+        AND w.id IN (
+            SELECT
+                workflow_id
+            FROM
+                claimed)
+            AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    agents a
+                WHERE
+                    a.workflow_id = w.id
+                    AND a.archived_at IS NOT NULL
+                    AND a.deleting_at IS NULL
+                    AND a.id NOT IN (
+                        SELECT
+                            id
+                        FROM
+                            claimed))
+                RETURNING
+                    w.id
+)
+        SELECT
+            id,
+            task_id,
+            ROLE,
             deleting_at
         FROM
             claimed;
@@ -226,10 +226,10 @@ WITH released AS (
             WHERE
                 w.id = ANY (@ids::uuid[])
                 AND w.role = 'writer'))
-    AND a.deleting_at IS NOT NULL
-RETURNING
-    a.workflow_id,
-    a.task_id
+        AND a.deleting_at IS NOT NULL
+    RETURNING
+        a.workflow_id,
+        a.task_id
 ),
 released_tasks AS (
     UPDATE
@@ -564,7 +564,7 @@ FROM
     agents
 WHERE
     task_id = @task_id
-    AND role = 'reviewer'
+    AND ROLE = 'reviewer'
     AND archived_at IS NULL;
 
 -- name: CountLiveTasksStartedBy :one
@@ -574,7 +574,7 @@ FROM
     agents
 WHERE
     spawned_by_agent_id = @spawned_by_agent_id
-    AND role = 'writer'
+    AND ROLE = 'writer'
     AND archived_at IS NULL
     AND state NOT IN ('failed_to_create', 'failed_to_cleanup');
 

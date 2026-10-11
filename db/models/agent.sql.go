@@ -127,10 +127,10 @@ WITH released AS (
             WHERE
                 w.id = ANY ($1::uuid[])
                 AND w.role = 'writer'))
-    AND a.deleting_at IS NOT NULL
-RETURNING
-    a.workflow_id,
-    a.task_id
+        AND a.deleting_at IS NOT NULL
+    RETURNING
+        a.workflow_id,
+        a.task_id
 ),
 released_tasks AS (
     UPDATE
@@ -204,7 +204,7 @@ FROM
     agents
 WHERE
     task_id = $1
-    AND role = 'reviewer'
+    AND ROLE = 'reviewer'
     AND archived_at IS NULL
 `
 
@@ -222,7 +222,7 @@ FROM
     agents
 WHERE
     spawned_by_agent_id = $1
-    AND role = 'writer'
+    AND ROLE = 'writer'
     AND archived_at IS NULL
     AND state NOT IN ('failed_to_create', 'failed_to_cleanup')
 `
@@ -2304,13 +2304,13 @@ WITH claimed AS (
             WHERE
                 w.id = ANY ($1::uuid[])
                 AND w.role = 'writer'))
-    AND a.deleting_at IS NULL
-RETURNING
-    a.id,
-    a.task_id,
-    a.role,
-    a.workflow_id,
-    a.deleting_at
+        AND a.deleting_at IS NULL
+    RETURNING
+        a.id,
+        a.task_id,
+        a.role,
+        a.workflow_id,
+        a.deleting_at
 ),
 marked AS (
     UPDATE
@@ -2345,7 +2345,7 @@ marked AS (
         SELECT
             id,
             task_id,
-            role,
+            ROLE,
             deleting_at
         FROM
             claimed
@@ -2398,25 +2398,25 @@ WITH claimed AS (
             WHERE
                 w.id = ANY ($1::uuid[])
                 AND w.role = 'writer'))
-    AND a.archived_at IS NOT NULL
-    AND a.state <> 'failed_to_cleanup'
-    AND a.deleting_at IS NULL
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents w
-        WHERE
-            a.role = 'reviewer'
-            AND w.task_id = a.task_id
-            AND w.role = 'writer'
-            AND w.state = 'failed_to_cleanup')
-    RETURNING
-        a.id,
-        a.task_id,
-        a.role,
-        a.workflow_id,
-        a.deleting_at
+        AND a.archived_at IS NOT NULL
+        AND a.state <> 'failed_to_cleanup'
+        AND a.deleting_at IS NULL
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                agents w
+            WHERE
+                a.role = 'reviewer'
+                AND w.task_id = a.task_id
+                AND w.role = 'writer'
+                AND w.state = 'failed_to_cleanup')
+        RETURNING
+            a.id,
+            a.task_id,
+            a.role,
+            a.workflow_id,
+            a.deleting_at
 ),
 marked AS (
     UPDATE
@@ -2451,7 +2451,7 @@ marked AS (
         SELECT
             id,
             task_id,
-            role,
+            ROLE,
             deleting_at
         FROM
             claimed
