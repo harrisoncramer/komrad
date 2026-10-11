@@ -23,7 +23,7 @@ bringing the server up without a panel.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			addr := state.env.Addr
 
-			if probeServer(cmd.Context(), addr).answering {
+			if probeServer(cmd.Context(), formatBase(addr)).answering {
 				cmd.Printf("the server at %s is already running\n", addr)
 
 				return nil

@@ -326,7 +326,7 @@ func TestIntegrationProbeServer(t *testing.T) {
 				addr = fakeServer(t, fakeServerParams{status: tt.status, body: tt.body})
 			}
 
-			assert.Equal(t, tt.want, probeServer(t.Context(), addr))
+			assert.Equal(t, tt.want, probeServer(t.Context(), formatBase(addr)))
 		})
 	}
 }

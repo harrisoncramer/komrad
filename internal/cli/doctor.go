@@ -145,14 +145,14 @@ func isServerOK(report doctor.Report) bool {
 // askEngineDoctor is the checks the engine's server made on its own machine, read back into
 // the doctor's own findings.
 func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
-	addr, release, err := a.dialAPI(ctx)
+	base, release, err := a.dialAPI(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	defer release()
 
-	client := doctorv1connect.NewDoctorServiceClient(xhttp.NewClient(apiCallTimeout), "http://"+addr)
+	client := doctorv1connect.NewDoctorServiceClient(xhttp.NewClient(apiCallTimeout), base)
 	resp, err := client.RunDoctor(ctx, connect.NewRequest(&emptypb.Empty{}))
 	if err != nil {
 		return nil, err
@@ -184,14 +184,14 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 	// A remote engine answers on its own loopback, so the address it was configured with is
 	// reached through a forward rather than dialled here.
 	env.ProbeServer = func(ctx context.Context) (doctor.ServerStatus, error) {
-		addr, release, err := a.dialAPI(ctx)
+		base, release, err := a.dialAPI(ctx)
 		if err != nil {
 			return doctor.ServerStatus{}, err
 		}
 
 		defer release()
 
-		found := probeServer(ctx, addr)
+		found := probeServer(ctx, base)
 
 		return doctor.ServerStatus{
 			Answering: found.answering,
@@ -202,14 +202,14 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 	}
 
 	env.CheckForges = func(ctx context.Context) ([]doctor.ForgeStatus, error) {
-		addr, release, err := a.dialAPI(ctx)
+		base, release, err := a.dialAPI(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		defer release()
 
-		resp, err := forgeClient("http://"+addr).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+		resp, err := forgeClient(base).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 		if err != nil {
 			return nil, err
 		}

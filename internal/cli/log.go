@@ -41,17 +41,17 @@ is where to start when you know what you did but not what it was called.`,
 			ctx, cancel := context.WithTimeout(cmd.Context(), logTimeout)
 			defer cancel()
 
-			addr, release, err := state.dialAPI(ctx)
+			base, release, err := state.dialAPI(ctx)
 			if err != nil {
 				return err
 			}
 			defer release()
 
-			if err := requireServer(ctx, addr, state.env.Addr); err != nil {
+			if err := requireServer(ctx, base, state.nameServer()); err != nil {
 				return err
 			}
 
-			client := logv1connect.NewLogServiceClient(xhttp.NewClient(logTimeout), "http://"+addr)
+			client := logv1connect.NewLogServiceClient(xhttp.NewClient(logTimeout), base)
 			if recent || len(args) == 0 {
 				return listRecentTraces(ctx, cmd.OutOrStdout(), client)
 			}

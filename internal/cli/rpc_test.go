@@ -129,7 +129,7 @@ func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 	t.Cleanup(service.Close)
 
 	payload, err := callRPC(t.Context(), callRPCParams{
-		Addr:    strings.TrimPrefix(service.URL, "http://"),
+		Base:    service.URL,
 		Path:    "/agent.v1.AgentService/GetAgent",
 		From:    caller.Caller{AgentID: "agent-one", SessionID: "session-one"},
 		Request: map[string]any{"id": "a1"},
@@ -154,13 +154,13 @@ func TestIntegrationCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
 	t.Cleanup(refusing.Close)
 
 	_, err := callRPC(t.Context(), callRPCParams{
-		Addr: strings.TrimPrefix(refusing.URL, "http://"),
+		Base: refusing.URL,
 		Path: "/agent.v1.AgentService/GetAgent",
 	})
 	require.Error(t, err)
 	require.EqualError(t, err, "not_found: no agent holds that id")
 
-	_, err = callRPC(t.Context(), callRPCParams{Addr: deadAddr(t), Path: "/agent.v1.AgentService/GetAgent"})
+	_, err = callRPC(t.Context(), callRPCParams{Base: formatBase(deadAddr(t)), Path: "/agent.v1.AgentService/GetAgent"})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to reach the server", "the address is named rather than the socket error alone")
 }
@@ -175,18 +175,23 @@ func TestIntegrationRequireServerSaysHowToStartOne(t *testing.T) {
 	t.Cleanup(answering.Close)
 
 	addr := strings.TrimPrefix(answering.URL, "http://")
-	require.NoError(t, requireServer(t.Context(), addr, addr))
+	require.NoError(t, requireServer(t.Context(), answering.URL, addr))
 	assert.Equal(t, server.HealthPath, healthPath, "the probe asks the health route rather than the call's own")
 
 	dead := deadAddr(t)
 
-	err := requireServer(t.Context(), dead, dead)
+	err := requireServer(t.Context(), formatBase(dead), dead)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "komrad start", "the refusal says what to do about it")
 
-	err = requireServer(t.Context(), dead, "127.0.0.1:8787")
+	err = requireServer(t.Context(), formatBase(dead), "127.0.0.1:8787")
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
+	require.ErrorContains(t, err, "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
+
+	err = requireServer(t.Context(), "https://"+dead, "https://"+dead)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "https://"+dead, "an engine at a url is named by its url")
+	assert.NotContains(t, err.Error(), "komrad start", "an engine at a url is not one this machine starts")
 }
 
 // deadAddr is an address nothing is listening on, taken by opening a server and closing it so

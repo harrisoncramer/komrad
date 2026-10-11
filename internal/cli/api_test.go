@@ -24,14 +24,22 @@ func TestDialAPIReachesARemoteEngineThroughItsForward(t *testing.T) {
 	tests := []struct {
 		name string
 		ssh  string
+		url  string
 	}{
 		{
 			name: "the engine is this machine, so the configured address is dialled",
 			ssh:  "",
+			url:  "",
 		},
 		{
 			name: "the engine is elsewhere, so the forward is dialled instead",
 			ssh:  "komrad@203.0.113.4",
+			url:  "",
+		},
+		{
+			name: "the engine is served at a url, so the url is dialled with no forward",
+			ssh:  "",
+			url:  "https://komrad.example.com",
 		},
 	}
 
@@ -39,21 +47,24 @@ func TestDialAPIReachesARemoteEngineThroughItsForward(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			state := &app{env: &config.Environment{Addr: engineAddr, SSH: tt.ssh}}
+			state := &app{env: &config.Environment{Addr: engineAddr, SSH: tt.ssh, URL: tt.url}}
 
-			want := engineAddr
-			if tt.ssh != "" {
+			want := formatBase(engineAddr)
+			switch {
+			case tt.url != "":
+				want = tt.url
+			case tt.ssh != "":
 				// A forward already carrying the engine is reused rather than replaced, so a
 				// listener on the port it always lands on stands in for ssh.
-				want = listenOnTunnelPort(t, state.engine(), engineAddr)
+				want = formatBase(listenOnTunnelPort(t, state.engine(), engineAddr))
 			}
 
-			addr, release, err := state.dialAPI(t.Context())
+			base, release, err := state.dialAPI(t.Context())
 			require.NoError(t, err)
 
 			t.Cleanup(release)
 
-			assert.Equal(t, want, addr)
+			assert.Equal(t, want, base)
 		})
 	}
 }

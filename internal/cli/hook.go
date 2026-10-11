@@ -317,7 +317,7 @@ func recordReport(ctx context.Context, state *app, report harness.Report) {
 	defer cancel()
 
 	_, _ = callRPC(ctx, callRPCParams{ //nolint:errcheck // no caller of this has anything to do with a failure here
-		Addr: state.env.Addr,
+		Base: formatBase(state.env.Addr),
 		Path: agentv1connect.AgentServiceRecordReportProcedure,
 		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 		Request: map[string]any{
@@ -363,7 +363,7 @@ func readMail(ctx context.Context, state *app) (*deliveredMail, error) {
 	defer cancel()
 
 	payload, err := callRPC(ctx, callRPCParams{
-		Addr:    state.env.Addr,
+		Base:    formatBase(state.env.Addr),
 		Path:    path,
 		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 		Request: map[string]any{},
@@ -420,7 +420,7 @@ func logToKomrad(ctx context.Context, state *app, message string) error {
 	defer cancel()
 
 	_, err = callRPC(ctx, callRPCParams{
-		Addr:    state.env.Addr,
+		Base:    formatBase(state.env.Addr),
 		Path:    path,
 		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 		Request: map[string]any{"message": clampPrintable(message, logLimit)},

@@ -22,21 +22,21 @@ second line is not the first, restart the server.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.Printf("this binary: %s\n", version.Describe(version.Version(), version.Commit()))
 
-			addr, release, err := state.dialAPI(cmd.Context())
+			base, release, err := state.dialAPI(cmd.Context())
 			if err != nil {
 				return err
 			}
 
 			defer release()
 
-			probe := probeServer(cmd.Context(), addr)
+			probe := probeServer(cmd.Context(), base)
 			if !probe.answering {
-				cmd.Printf("nothing is serving at %s\n", state.env.Addr)
+				cmd.Printf("nothing is serving at %s\n", state.nameServer())
 
 				return nil
 			}
 
-			cmd.Printf("the server at %s: %s\n", state.env.Addr, version.Describe(probe.version, probe.commit))
+			cmd.Printf("the server at %s: %s\n", state.nameServer(), version.Describe(probe.version, probe.commit))
 
 			return nil
 		},

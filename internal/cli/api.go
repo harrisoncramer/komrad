@@ -8,14 +8,17 @@ import (
 	"komrad/internal/caller"
 )
 
-// dialAPI returns the address this machine reaches the engine's api on, and a release for the
+// dialAPI returns the base url this machine reaches the engine's api on, and a release for the
 // forward it opened.
 func (a *app) dialAPI(ctx context.Context) (string, func(), error) {
 	release := func() {}
 
 	remote := a.engine()
-	if !remote.IsRemote() {
-		return a.env.Addr, release, nil
+	switch {
+	case !remote.IsRemote():
+		return formatBase(a.env.Addr), release, nil
+	case remote.URL != "":
+		return remote.URL, release, nil
 	}
 
 	tunnel, err := remote.Dial(ctx, a.env.Addr, tunnelWait)
@@ -23,7 +26,19 @@ func (a *app) dialAPI(ctx context.Context) (string, func(), error) {
 		return "", release, fmt.Errorf("failed to forward a port to the engine serving %s: %w", a.env.Addr, err)
 	}
 
-	return tunnel.Local, func() { _ = tunnel.Close() }, nil
+	return formatBase(tunnel.Local), func() { _ = tunnel.Close() }, nil
+}
+
+func formatBase(addr string) string {
+	return "http://" + addr
+}
+
+func (a *app) nameServer() string {
+	if a.env.URL != "" {
+		return a.env.URL
+	}
+
+	return a.env.Addr
 }
 
 // apiCallTimeout bounds one call a command makes to the server.
@@ -39,21 +54,21 @@ func (a *app) caller() caller.Caller {
 	return caller.Caller{AgentID: a.env.AgentID, SessionID: a.env.SessionID}
 }
 
-// withAPI reaches the server this komrad is pointed at, on this machine or through a forward
-// to the engine, and hands the address to run for the length of one command.
+// withAPI reaches the server this komrad is pointed at, on this machine, through a forward to
+// the engine, or at the engine's url, and hands the base url to run for the length of one command.
 func (a *app) withAPI(ctx context.Context, run func(ctx context.Context, base string) error) error {
 	ctx, cancel := context.WithTimeout(ctx, apiCallTimeout)
 	defer cancel()
 
-	addr, release, err := a.dialAPI(ctx)
+	base, release, err := a.dialAPI(ctx)
 	if err != nil {
 		return err
 	}
 	defer release()
 
-	if err := requireServer(ctx, addr, a.env.Addr); err != nil {
+	if err := requireServer(ctx, base, a.nameServer()); err != nil {
 		return err
 	}
 
-	return run(ctx, "http://"+addr)
+	return run(ctx, base)
 }

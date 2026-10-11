@@ -17,11 +17,13 @@ type Remote struct {
 	// Forward carries a port from this machine to the engine, with LocalPortPlaceholder and
 	// RemotePortPlaceholder standing for the two ends.
 	Forward []string
+	// URL is the https address the engine is served on, reached as it is with no forward.
+	URL string
 }
 
 // IsRemote reports whether the engine is somewhere this panel's tmux cannot reach.
 func (r Remote) IsRemote() bool {
-	return strings.TrimSpace(r.Destination) != "" || len(r.Forward) > 0
+	return strings.TrimSpace(r.Destination) != "" || len(r.Forward) > 0 || r.URL != ""
 }
 
 // Placeholders a forward's argv may carry, replaced with the two ends of the forward.
@@ -54,6 +56,10 @@ func fill(argv []string, values map[string]string) []string {
 func (r Remote) String() string {
 	if !r.IsRemote() {
 		return "local"
+	}
+
+	if r.URL != "" {
+		return r.URL
 	}
 
 	if r.Destination == "" {

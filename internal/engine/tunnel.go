@@ -93,6 +93,9 @@ func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration)
 	if !r.IsRemote() {
 		return nil, fmt.Errorf("the engine is this machine, so there is nothing to tunnel to")
 	}
+	if r.URL != "" {
+		return nil, fmt.Errorf("the engine is reached at %s, so there is nothing to tunnel to", r.URL)
+	}
 
 	local := net.JoinHostPort("127.0.0.1", strconv.Itoa(r.TunnelPort(engineAddr)))
 

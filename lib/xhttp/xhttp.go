@@ -148,17 +148,19 @@ const streamPingAfter = 15 * time.Second
 // streamPingTimeout is how long a ping waits for its answer before the connection is dropped.
 const streamPingTimeout = 15 * time.Second
 
-// NewStreamTransport is the transport a long-lived stream sits on, speaking HTTP/2 without TLS
-// and pinging a silent connection.
+// NewStreamTransport is the transport a long-lived stream sits on, speaking HTTP/2 over TLS to an
+// https url and without it to an http one, and pinging a silent connection.
 func NewStreamTransport() *http.Transport {
 	protocols := new(http.Protocols)
+	protocols.SetHTTP2(true)
 	protocols.SetUnencryptedHTTP2(true)
 
 	return &http.Transport{
-		Proxy:           http.ProxyFromEnvironment,
-		DialContext:     (&net.Dialer{Timeout: dialTimeout, KeepAlive: 30 * time.Second}).DialContext,
-		IdleConnTimeout: idleConnTimeout,
-		Protocols:       protocols,
+		Proxy:               http.ProxyFromEnvironment,
+		DialContext:         (&net.Dialer{Timeout: dialTimeout, KeepAlive: 30 * time.Second}).DialContext,
+		TLSHandshakeTimeout: tlsHandshakeTimeout,
+		IdleConnTimeout:     idleConnTimeout,
+		Protocols:           protocols,
 		HTTP2: &http.HTTP2Config{
 			SendPingTimeout: streamPingAfter,
 			PingTimeout:     streamPingTimeout,

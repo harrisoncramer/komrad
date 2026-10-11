@@ -27,6 +27,7 @@ type Environment struct {
 	StateDir  string
 	SSH       string
 	Forward   []string
+	URL       string
 	Tmux      string
 	TmuxPane  string
 	AgentID   string

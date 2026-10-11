@@ -88,6 +88,7 @@ tmux keeps the session nothing is lost.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
+			base := formatBase(addr)
 			if addr == "" {
 				dialed, release, err := state.dialAPI(ctx)
 				if err != nil {
@@ -95,10 +96,10 @@ tmux keeps the session nothing is lost.`,
 				}
 				defer release()
 
-				addr = dialed
+				base = dialed
 			}
 
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), "http://"+addr)
+			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), base)
 			code, err := runConsole(ctx, runConsoleParams{
 				Dial:   dialAttach(client, args[0], state.env.Term),
 				Redial: redialFor,

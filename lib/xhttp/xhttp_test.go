@@ -101,3 +101,55 @@ func TestJSONReportsAnUnreachableHost(t *testing.T) {
 	_, err := JSON(t.Context(), JSONParams{Method: http.MethodGet, URL: "http://127.0.0.1:1/"}, nil)
 	require.Error(t, err)
 }
+
+// TestStreamTransportSpeaksHTTP2 covers a stream reaching an engine over TLS at a url as well as
+// without it on this machine or through a forward.
+func TestStreamTransportSpeaksHTTP2(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		tls  bool
+	}{
+		{
+			name: "without TLS, to an http url",
+			tls:  false,
+		},
+		{
+			name: "over TLS, to an https url",
+			tls:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(r.Proto))
+			}))
+			transport := NewStreamTransport()
+
+			if tt.tls {
+				server.EnableHTTP2 = true
+				server.StartTLS()
+
+				trusting, ok := server.Client().Transport.(*http.Transport)
+				require.True(t, ok)
+
+				transport.TLSClientConfig = trusting.TLSClientConfig
+			} else {
+				server.Config.Protocols = NewServerProtocols()
+				server.Start()
+			}
+			t.Cleanup(server.Close)
+
+			res, err := NewClientOver(transport, 0).Get(server.URL)
+			require.NoError(t, err)
+
+			t.Cleanup(func() { _ = res.Body.Close() })
+
+			assert.Equal(t, 2, res.ProtoMajor)
+		})
+	}
+}
