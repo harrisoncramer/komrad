@@ -39,27 +39,41 @@ func tryRun(ctx context.Context, dir string, args ...string) (string, bool) {
 
 // runBytes is git's output whole, for the callers reading a patch or a file rather than a line.
 func runBytes(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	return runInput(ctx, dir, nil, nil, args...)
+	return runInput(ctx, runInputParams{
+		Dir:  dir,
+		Args: args,
+	})
 }
 
 // runWithEnv is git run with an environment of its own, which writing an index or a commit
 // outside the agent's own repository state needs.
 func runWithEnv(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
-	return runInput(ctx, dir, env, nil, args...)
+	return runInput(ctx, runInputParams{
+		Dir:  dir,
+		Env:  env,
+		Args: args,
+	})
+}
+
+type runInputParams struct {
+	Dir   string
+	Env   []string
+	Input []byte
+	Args  []string
 }
 
 // runInput is git run with something written to its standard input, for the commands that take
 // their paths that way rather than as arguments.
-func runInput(ctx context.Context, dir string, env []string, input []byte, args ...string) ([]byte, error) { //nolint:revive // a params struct is the follow-up
+func runInput(ctx context.Context, params runInputParams) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
 
-	cmd := command(ctx, dir, env, args...)
-	cmd.Stdin = bytes.NewReader(input)
+	cmd := command(ctx, params.Dir, params.Env, params.Args...)
+	cmd.Stdin = bytes.NewReader(params.Input)
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to run git %s: %w", strings.Join(args, " "), err)
+		return nil, fmt.Errorf("failed to run git %s: %w", strings.Join(params.Args, " "), err)
 	}
 
 	return out, nil

@@ -10,27 +10,34 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
+type runDeprovisionParams struct {
+	deprovision agentScriptRunner
+	agent       agentstore.Agent
+	name        string
+	done        func(error)
+}
+
 // runDeprovision starts a deprovisioner, calling done exactly once with the outcome,
 // including a refusal to start.
-func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent agentstore.Agent, name string, done func(error)) { //nolint:revive // a params struct is the follow-up
-	if deprovision == nil || name == "" {
-		if done != nil {
-			done(nil)
+func runDeprovision(ctx context.Context, params runDeprovisionParams) {
+	if params.deprovision == nil || params.name == "" {
+		if params.done != nil {
+			params.done(nil)
 		}
 
 		return
 	}
 
-	if err := deprovision.RunDeprovision(ctx, agent, name, done); err != nil {
+	if err := params.deprovision.RunDeprovision(ctx, params.agent, params.name, params.done); err != nil {
 		attrs := []slog.Attr{
-			slog.String(logging.ScriptName, name),
-			slog.String(logging.ScriptAgentID, agent.ID),
-			slog.String(logging.ScriptAgentCwd, agent.Cwd),
+			slog.String(logging.ScriptName, params.name),
+			slog.String(logging.ScriptAgentID, params.agent.ID),
+			slog.String(logging.ScriptAgentCwd, params.agent.Cwd),
 		}
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovisioner would not start", append(attrs, logging.Err(err)...)...)
 
-		if done != nil {
-			done(err)
+		if params.done != nil {
+			params.done(err)
 		}
 	}
 }

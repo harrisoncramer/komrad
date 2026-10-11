@@ -19,7 +19,14 @@ func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
 	lifecycle := &fakeLifecycle{deprovisionStartErr: scripts.ErrScriptNotFound}
 	ctx, records := loggedContext(t)
 
-	runDeprovision(ctx, lifecycle, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed", nil)
+	runDeprovision(ctx, runDeprovisionParams{
+		deprovision: lifecycle,
+		agent: agentstore.Agent{
+			ID:  "a1",
+			Cwd: "/repo/.worktrees/auth",
+		},
+		name: "was-renamed",
+	})
 
 	got := recordFor(t, records(), "the deprovisioner would not start")
 	assert.Equal(t, "ERROR", got["severity_text"])

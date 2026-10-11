@@ -211,7 +211,12 @@ func (c *Client) DoesBaseHoldRemote(ctx context.Context, params DoesBaseHoldRemo
 		return false, fmt.Errorf("failed to read the tree of %s against origin's copy of %s: %w", params.Base, params.Branch, err)
 	}
 
-	held, err := doesHoldWhole(ctx, params.Dir, params.Base, baseTree, ref)
+	held, err := doesHoldWhole(ctx, doesHoldWholeParams{
+		Dir:      params.Dir,
+		Base:     params.Base,
+		BaseTree: baseTree,
+		SHA:      ref,
+	})
 	if err != nil {
 		return false, fmt.Errorf("failed to test whether %s holds origin's copy of %s: %w", params.Base, params.Branch, err)
 	}

@@ -28,7 +28,13 @@ func deleteWorktreesForm(deletion worktreeDeletion, keys config.FixedKeys) (*huh
 	}
 	lines = append(lines, "Uncommitted changes go with the directories.")
 
-	return confirmFormStartingOn(false, title, strings.Join(lines, " "), "Delete", keys)
+	return confirmFormStartingOn(confirmFormStartingOnParams{
+		confirmed:   false,
+		title:       title,
+		description: strings.Join(lines, " "),
+		affirmative: "Delete",
+		keys:        keys,
+	})
 }
 
 // deleteMixedForm asks before task checkouts and other directories are deleted together.
@@ -44,5 +50,11 @@ func deleteMixedForm(deletion worktreeDeletion, agentCount int, keys config.Fixe
 	}
 	lines = append(lines, "Uncommitted changes go with the directories.")
 
-	return confirmFormStartingOn(false, title, strings.Join(lines, " "), "Delete", keys)
+	return confirmFormStartingOn(confirmFormStartingOnParams{
+		confirmed:   false,
+		title:       title,
+		description: strings.Join(lines, " "),
+		affirmative: "Delete",
+		keys:        keys,
+	})
 }

@@ -141,7 +141,11 @@ func (c *Client) ReadFiles(ctx context.Context, dir string, revisions []FileRevi
 		input.WriteString(revision.SHA + ":" + revision.Path + "\n")
 	}
 
-	out, err := runInput(ctx, dir, nil, input.Bytes(), "cat-file", "--batch")
+	out, err := runInput(ctx, runInputParams{
+		Dir:   dir,
+		Input: input.Bytes(),
+		Args:  []string{"cat-file", "--batch"},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %d files of %q: %w", len(revisions), dir, err)
 	}

@@ -439,30 +439,34 @@ func (s *LaunchService) roleDefaults(wf *workflowstore.Workflow, role agentstore
 	return reviewerHarness, wf.Flags
 }
 
-func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane string, spawner *agentstore.Agent) agentstore.Agent { //nolint:revive // a params struct is the follow-up
+func (p *launchPlan) newAgent(params NewAgentParams, spawner *agentstore.Agent) (*agentstore.Agent, error) {
+	id, err := store.NewID()
+	if err != nil {
+		return nil, err
+	}
+
 	var spawnedBy *string
 	if spawner != nil {
 		spawnedBy = &spawner.ID
 	}
 
-	return agentstore.Agent{
+	return &agentstore.Agent{
 		ID:               id,
 		Name:             p.name,
-		Pane:             pane,
-		Cwd:              dir,
+		Cwd:              p.dir,
 		Flags:            p.flags,
 		ProvisionEnabled: params.ProvisionEnabled,
 		Prompt:           params.Prompt,
-		State:            agentstore.StateIdle,
+		State:            agentstore.StateSettingUp,
 		Harness:          p.harnessID,
-		SessionID:        sessionID,
+		SessionID:        harness.MintSessionID(p.harness),
 		WorkflowID:       params.WorkflowID,
 		ScheduleID:       params.ScheduleID,
 		IdempotencyKey:   nullable(params.IdempotencyKey),
 		SpawnedByAgentID: spawnedBy,
 		ParentAgentID:    nullable(params.ParentAgentID),
 		Role:             params.Role,
-	}
+	}, nil
 }
 
 func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, spawner, parent *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
@@ -492,17 +496,14 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		return nil, tasks.ErrArchived.Saying("task %q is archived", joined.Slug)
 	}
 
-	id, err := store.NewID()
+	agent, err := plan.newAgent(params, spawner)
 	if err != nil {
 		return nil, err
 	}
-	sessionID := harness.MintSessionID(plan.harness)
-	agent := plan.agent(params, id, sessionID, plan.dir, "", spawner)
 	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
-	agent.State = agentstore.StateSettingUp
 
 	placed, err := s.createUnderCeiling(ctx, creation{
-		agent:         &agent,
+		agent:         agent,
 		task:          joined,
 		spawner:       spawner,
 		parent:        parent,
@@ -522,7 +523,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		defer placed.openTurn.Done()
 	}
 
-	return s.startInPane(ctx, agent, resolvedLaunch{
+	return s.startInPane(ctx, *agent, resolvedLaunch{
 		harness:        plan.harness,
 		provisioner:    plan.provisioner,
 		deprovisioner:  plan.deprovisioner,
@@ -530,7 +531,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		defaultDir:     plan.dir,
 		spawner:        spawner,
 		parent:         parent,
-		claimsCheckout: isCheckoutClaimant(agent, plan.provisioner),
+		claimsCheckout: isCheckoutClaimant(*agent, plan.provisioner),
 		workflow:       plan.workflow,
 		task:           placed.task,
 		restoredTask:   placed.restored,
@@ -730,15 +731,26 @@ const teardownTimeout = 30 * time.Second
 
 func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
 	agent.Pane = ""
-	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
+	failAs(ctx, failAsParams{
+		agents: s.agents,
+		agent:  agent,
+		state:  agentstore.StateFailedToCreate,
+		verb:   "create",
+		cause:  cause,
+	})
 }
 
 // awaitDeprovision runs a deprovisioner and waits for it, so a create that failed gives back
 // the directory it provisioned before the row is closed out.
 func awaitDeprovision(ctx context.Context, deprovision agentScriptRunner, agent agentstore.Agent, name string) {
 	finished := make(chan error, 1)
-	runDeprovision(ctx, deprovision, agent, name, func(deprovisionErr error) {
-		finished <- deprovisionErr
+	runDeprovision(ctx, runDeprovisionParams{
+		deprovision: deprovision,
+		agent:       agent,
+		name:        name,
+		done: func(deprovisionErr error) {
+			finished <- deprovisionErr
+		},
 	})
 
 	select {

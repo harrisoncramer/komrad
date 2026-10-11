@@ -73,7 +73,14 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, tasks map[string]panel.T
 		standing, failure = r.task.PullRequest, ""
 	}
 
-	notices := appendNotice(nil, failure != "", glyphs.Spell(glyph.MessageError), paint.ToneDanger, failure)
+	var notices []notice
+	if failure != "" {
+		notices = append(notices, notice{
+			icon: glyphs.Spell(glyph.MessageError),
+			tone: paint.ToneDanger,
+			text: failure,
+		})
+	}
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeAlertSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
@@ -95,23 +102,23 @@ func appendUnreadNotice(notices []notice, glyphs glyph.Set, row view.Row) []noti
 
 	text := fmt.Sprintf("your comments with a reply you have not read: %d", row.PersonComments.Unread)
 
-	return appendNotice(notices, true, glyphs.Spell(glyph.Unread), paint.ToneWarning, text)
+	return append(notices, notice{
+		icon: glyphs.Spell(glyph.Unread),
+		tone: paint.ToneWarning,
+		text: text,
+	})
 }
 
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone
 // from that cell, and saying nothing where the row renders nothing.
 func appendCellNotice(notices []notice, glyphs glyph.Set, cell view.Cell, text string) []notice {
-	return appendNotice(notices, !cell.IsBlank() && text != "", view.Spell(glyphs, cell), cell.Tone, text)
-}
-
-func appendNotice(notices []notice, show bool, icon string, tone paint.Tone, text string) []notice { //nolint:revive // a params struct is the follow-up
-	if !show {
+	if cell.IsBlank() || text == "" {
 		return notices
 	}
 
 	return append(notices, notice{
-		icon: icon,
-		tone: tone,
+		icon: view.Spell(glyphs, cell),
+		tone: cell.Tone,
 		text: text,
 	})
 }

@@ -280,7 +280,12 @@ func TestIntegrationUnflaggingKeepsTheIndexTime(t *testing.T) {
 	before, err := os.Stat(index)
 	require.NoError(t, err)
 
-	require.NoError(t, revealPaths(t.Context(), root, index, env, []string{"kept.go"}))
+	require.NoError(t, revealPaths(t.Context(), revealPathsParams{
+		Root:  root,
+		Index: index,
+		Env:   env,
+		Paths: []string{"kept.go"},
+	}))
 
 	after, err := os.Stat(index)
 	require.NoError(t, err)
