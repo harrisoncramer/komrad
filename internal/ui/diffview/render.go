@@ -20,6 +20,22 @@ const GutterWidth = 13
 
 const tabWidth = 4
 
+// Cursor is how the row the reader is standing on is rendered, dim while the keys are somewhere
+// else.
+type Cursor int
+
+const (
+	noCursor Cursor = iota
+	LiveCursor
+	DimCursor
+)
+
+var (
+	plainBackground = lipgloss.NoColor{}
+	fileStyle       = lipgloss.NewStyle().Bold(true)
+	metadataStyle   = lipgloss.NewStyle().Faint(true)
+)
+
 // Render is the window of rows the pane shows, with the cursor's row marked as given and blank
 // lines under a view shorter than the pane.
 func (p *Pane) Render(window Window, held Cursor) []string {
@@ -63,22 +79,6 @@ func (p *Pane) coverWithHeader(lines []string, start int, window Window) {
 		lines[i] = strings.Repeat(" ", window.Width)
 	}
 }
-
-// Cursor is how the row the reader is standing on is rendered, dim while the keys are somewhere
-// else.
-type Cursor int
-
-const (
-	noCursor Cursor = iota
-	LiveCursor
-	DimCursor
-)
-
-var (
-	plainBackground = lipgloss.NoColor{}
-	fileStyle       = lipgloss.NewStyle().Bold(true)
-	metadataStyle   = lipgloss.NewStyle().Faint(true)
-)
 
 // renderRow renders one row of the diff at the width it is shown at, taking the cursor as an
 // argument since only the row under it is rerendered as it moves.

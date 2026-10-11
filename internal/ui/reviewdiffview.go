@@ -46,7 +46,7 @@ func (r reviewScreen) bandView(m *model) string {
 }
 
 func (r reviewScreen) frozenView(m *model) string {
-	round, ok := r.frozenRound()
+	round, ok := r.isFrozen()
 	if !ok {
 		return ""
 	}
