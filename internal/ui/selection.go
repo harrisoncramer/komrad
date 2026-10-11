@@ -17,6 +17,10 @@ type rowRef struct {
 	task string
 }
 
+func (r rowRef) isWorkflow() bool {
+	return r.header && r.task == ""
+}
+
 type selection struct {
 	keys []string
 }
@@ -56,7 +60,7 @@ func (s selection) toggle(refs []rowRef, cursor int) selection {
 }
 
 func (s selection) extend(refs []rowRef, cursor int) selection {
-	if ref, ok := rowAt(refs, cursor); !ok || ref.header {
+	if ref, ok := rowAt(refs, cursor); !ok || ref.isWorkflow() {
 		return s
 	}
 
@@ -65,8 +69,15 @@ func (s selection) extend(refs []rowRef, cursor int) selection {
 		first, last = min(anchor, cursor), max(anchor, cursor)
 	}
 
-	unheadered := xslice.Filter(refs[first:last+1], func(r rowRef) bool { return !r.header })
-	keys := xslice.Map(unheadered, func(r rowRef) string { return r.key })
+	var keys []string
+	for _, r := range refs[first : last+1] {
+		switch {
+		case !r.header:
+			keys = append(keys, r.key)
+		case !r.isWorkflow():
+			keys = append(keys, groupKeys(refs, r)...)
+		}
+	}
 
 	return s.with(keys...)
 }

@@ -2456,6 +2456,16 @@ func TestAgentsSelection(t *testing.T) {
 			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
+			name:      "a range ending on a task row takes the task",
+			press:     []string{"v", "j", "j", "j", "V"},
+			wantTasks: []string{"task-auth", "task-api", "task-db"},
+		},
+		{
+			name:      "and reaching up to one takes it too",
+			press:     []string{"j", "j", "j", "j", "v", "k", "k", "k", "V"},
+			wantTasks: []string{"task-api", "task-db"},
+		},
+		{
 			name:      "a header inside the range is passed over",
 			press:     []string{"j", "j", "j", "j", "v", "G", "V"},
 			wantTasks: []string{"task-db", "task-ui"},
