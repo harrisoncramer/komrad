@@ -16,6 +16,7 @@ import (
 
 	"komrad/config"
 	"komrad/db/testmodels"
+	"komrad/internal/checkouts"
 	"komrad/internal/frames"
 	"komrad/internal/gittest"
 	"komrad/internal/harness"
@@ -152,6 +153,7 @@ type agentServiceOptions struct {
 	tx        txRunner
 	stateDir  string
 	sleeper   clock.Sleeper
+	locks     treeLocker
 }
 
 // taskScriptRunner is what a task service needs of the scripts a test hands its agents.
@@ -168,6 +170,10 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	sleeper := options.sleeper
 	if sleeper == nil {
 		sleeper = &clocktest.Sleeper{}
+	}
+	locks := options.locks
+	if locks == nil {
+		locks = checkouts.NewTreeLocks()
 	}
 
 	launcher := NewLauncher(NewLauncherParams{
@@ -221,6 +227,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Launcher:  launcher,
 			Harnesses: options.harnesses,
 			Scripts:   options.lifecycle,
+			Locks:     locks,
 		}),
 		adopt: NewAdoptService(NewAdoptServiceParams{
 			Agents:    s.Agents,

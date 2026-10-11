@@ -26,8 +26,8 @@ func (l *TreeLocks) IsMoving(dir string) bool {
 	return taken
 }
 
-// tryLock takes the lock on a directory and hands back what releases it.
-func (l *TreeLocks) tryLock(dir string) (func(), bool) {
+// TryLock takes the lock on a directory and hands back what releases it.
+func (l *TreeLocks) TryLock(dir string) (func(), bool) {
 	// Refused rather than granted.
 	if dir == "" {
 		return nil, false

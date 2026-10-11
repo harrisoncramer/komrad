@@ -11,6 +11,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/agenterr"
+	"komrad/internal/checkouts"
 	"komrad/internal/harness"
 	"komrad/internal/harness/pane"
 	"komrad/internal/harnesstest"
@@ -766,6 +767,75 @@ func TestResumeRefusesArchived(t *testing.T) {
 	require.ErrorIs(t, err, agenterr.ErrAgentArchived)
 	require.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
 	assert.Empty(t, tmux.NewWindows, "and opens no window")
+}
+
+// TestResumeHoldsTheCheckoutForItsLaunch keeps a relaunch out of a tree komrad is rebasing,
+// pushing or aborting in, and frees the tree once the launch is done.
+func TestResumeHoldsTheCheckoutForItsLaunch(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	harness := &harnesstest.Fake{}
+	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+	agent.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(t.Context(), agent))
+	locks := checkouts.NewTreeLocks()
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: harness},
+		lifecycle: &fakeLifecycle{},
+		locks:     locks,
+	})
+
+	release, taken := locks.TryLock(agent.Cwd)
+	require.True(t, taken)
+	_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
+	require.ErrorIs(t, err, errResumeMoving)
+	assert.Empty(t, harness.Launches, "and launches nothing")
+	release()
+
+	_, err = manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
+	require.NoError(t, err)
+	assert.Len(t, harness.Launches, 1, "launches once the move has finished")
+	again, taken := locks.TryLock(agent.Cwd)
+	require.True(t, taken, "and lets go of the tree after the launch")
+	again()
+}
+
+// TestResumeLeavesAHeldCheckoutToItsWriter pins a reviewer launching in its parent's locked checkout.
+func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+	harness := &harnesstest.Fake{}
+	parent := seed(t, st, "auth", "", agentstore.StateIdle)
+	parent.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(ctx, parent))
+	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
+		Name:             "reviewer",
+		State:            agentstore.StateIdle,
+		Cwd:              parent.Cwd,
+		WorkflowID:       parent.WorkflowID,
+		Role:             agentstore.RoleReviewer,
+		ParentAgentID:    &parent.ID,
+		ProvisionEnabled: xptr.Ptr(false),
+	}))
+	reviewer, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, "reviewer")
+	require.NoError(t, err)
+	locks := checkouts.NewTreeLocks()
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmuxtest.NewFake(),
+		harnesses: harnesstest.Registry{Harness: harness},
+		lifecycle: &fakeLifecycle{},
+		locks:     locks,
+	})
+
+	release, taken := locks.TryLock(parent.Cwd)
+	require.True(t, taken)
+	defer release()
+
+	_, err = manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: reviewer.ID})
+
+	require.NoError(t, err)
+	assert.Len(t, harness.Launches, 1)
 }
 
 // TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator pins which agents a caller other than an orchestrator may wake.

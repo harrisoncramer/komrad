@@ -31,6 +31,14 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 // errResumeNotYours is an agent other than an orchestrator resuming an agent that is neither its parent nor its workflow's orchestrator.
 var errResumeNotYours = fail.Denied("an agent may resume only its parent and its workflow's orchestrator")
 
+// errResumeMoving is a resume into a checkout komrad is rebasing, pushing or aborting in.
+var errResumeMoving = fail.Precondition("komrad is rebasing, pushing or aborting in this agent's checkout, so resume it once that finishes")
+
+// treeLocker holds a checkout against a rebase, push or abort.
+type treeLocker interface {
+	TryLock(dir string) (func(), bool)
+}
+
 type NewResumeServiceParams struct {
 	Tmux               paneController
 	Agents             *agentstore.AgentStore
@@ -38,6 +46,7 @@ type NewResumeServiceParams struct {
 	Launcher           *Launcher
 	Harnesses          harnessGetter
 	Scripts            agentScriptRunner
+	Locks              treeLocker
 	FallbackResumeRoot string
 }
 
@@ -47,6 +56,7 @@ type ResumeService struct {
 	agents             *agentstore.AgentStore
 	workflows          *workflowstore.WorkflowStore
 	harnesses          harnessGetter
+	locks              treeLocker
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming.
 	inFlight   map[string]struct{}
@@ -69,6 +79,7 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 		agents:             params.Agents,
 		workflows:          params.Workflows,
 		harnesses:          params.Harnesses,
+		locks:              params.Locks,
 		fallbackResumeRoot: params.FallbackResumeRoot,
 		inFlight:           map[string]struct{}{},
 	}
@@ -102,6 +113,11 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, params ResumeAgentParam
 	if isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID) {
 		return agent, nil
 	}
+	release, err := s.lockTree(*agent)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 
 	if err := s.resume(ctx, *agent); err != nil {
 		return nil, err
@@ -131,6 +147,25 @@ func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID stri
 	}
 
 	return errResumeNotYours.Saying("%s is neither the parent of %s nor its workflow's orchestrator", target.Name, asker.Name)
+}
+
+// lockTree holds a task writer's checkout for its launch, refusing one komrad is moving.
+func (s *ResumeService) lockTree(agent agentstore.Agent) (func(), error) {
+	if agent.Cwd == "" || !isTaskImplementer(agent) {
+		return func() {}, nil
+	}
+
+	release, taken := s.locks.TryLock(agent.Cwd)
+	if !taken {
+		return nil, errResumeMoving.Saying("%q works in %q, which komrad is moving", agent.Name, agent.Cwd)
+	}
+
+	return release, nil
+}
+
+// isTaskImplementer reports whether the agent is the top-level implementer on a task.
+func isTaskImplementer(agent agentstore.Agent) bool {
+	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role.IsImplementer()
 }
 
 func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {

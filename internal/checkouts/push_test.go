@@ -120,7 +120,7 @@ func TestPushRefusals(t *testing.T) {
 				fixture.seedMerged(t, tt.pusher.State.Branch)
 			}
 			locks := NewTreeLocks()
-			release, taken := locks.tryLock("/locked")
+			release, taken := locks.TryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 

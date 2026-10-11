@@ -55,7 +55,7 @@ func TestAbortRefusals(t *testing.T) {
 			agent := fixture.seed(t, tt.agent)
 			require.NoError(t, fixture.stores.Tasks.SetSequence(t.Context(), *agent.TaskID, taskstore.SequenceRebase))
 			locks := NewTreeLocks()
-			release, taken := locks.tryLock("/locked")
+			release, taken := locks.TryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 
