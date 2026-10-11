@@ -80,8 +80,8 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 	if err := s.relaunch(ctx, relaunchParams{
 		agent:   *agent,
 		harness: hn,
-		fresh: &freshStart{
-			prompt:           restartBrief(params.Note),
+		restart: &restartLaunch{
+			prompt:           buildRestartPrompt(params.Note),
 			task:             task,
 			workflow:         workflowFor(ctx, s.workflows, *agent),
 			spawner:          s.findSpawner(ctx, *agent),
@@ -117,8 +117,8 @@ func (s *ResumeService) findSpawner(ctx context.Context, agent agentstore.Agent)
 	return spawner
 }
 
-// restartBrief is the restarted writer's first prompt, with the note it was restarted with.
-func restartBrief(note string) string {
+// buildRestartPrompt is the restarted writer's first prompt, with the note it was restarted with.
+func buildRestartPrompt(note string) string {
 	if note = strings.TrimSpace(note); note != "" {
 		return restartPrompt + "\n\n" + note
 	}
@@ -126,8 +126,8 @@ func restartBrief(note string) string {
 	return restartPrompt
 }
 
-// freshStart is what a writer starting a new conversation is briefed with.
-type freshStart struct {
+// restartLaunch is what a writer restarting on a new conversation is briefed with.
+type restartLaunch struct {
 	prompt           string
 	task             *taskstore.Task
 	workflow         *workflowstore.Workflow
@@ -136,7 +136,7 @@ type freshStart struct {
 }
 
 // plan is the writer's launch on its new conversation, briefed the way it was when it was made.
-func (f *freshStart) plan(hn harness.Harness, agent agentstore.Agent) paneLaunch {
+func (f *restartLaunch) plan(hn harness.Harness, agent agentstore.Agent) paneLaunch {
 	launch := launchParams{
 		Pane:         agent.Pane,
 		Dir:          agent.Cwd,

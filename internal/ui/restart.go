@@ -54,8 +54,7 @@ func openRestart(m *model, task panel.Task, writer panel.Agent) tea.Cmd {
 	}))
 }
 
-// restartWriter relaunches the writer on a new conversation in the same checkout, taking its pane
-// off the stage first since the restart kills it.
+// restartWriter relaunches the writer on a new conversation in the same checkout.
 func (m *model) restartWriter(writer panel.Agent, values restartValues) tea.Cmd {
 	pending := m.unstageAhead([]panel.Agent{writer})
 

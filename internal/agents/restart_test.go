@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRestartAgentStartsANewConversation pins a writer relaunched fresh, briefed from its task,
+// TestRestartAgentStartsANewConversation pins a writer relaunched on a new conversation, briefed from its task,
 // on a session it has not held before.
 func TestRestartAgentStartsANewConversation(t *testing.T) {
 	const earlier = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"

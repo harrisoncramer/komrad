@@ -239,10 +239,10 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 type relaunchParams struct {
 	agent   agentstore.Agent
 	harness harness.Harness
-	fresh   *freshStart
+	restart *restartLaunch
 }
 
-// relaunch puts an agent back in a pane, on its own conversation or, when fresh, on a new one.
+// relaunch puts an agent back in a pane, on its own conversation or, when restarting, on a new one.
 func (s *ResumeService) relaunch(ctx context.Context, params relaunchParams) error {
 	agent := params.agent
 
@@ -264,7 +264,7 @@ func (s *ResumeService) relaunch(ctx context.Context, params relaunchParams) err
 		scripts: s.starter.scripts,
 		harness: params.harness,
 		prior:   prior,
-		fresh:   params.fresh,
+		restart: params.restart,
 	})
 }
 
@@ -273,7 +273,7 @@ type resumeStart struct {
 	scripts agentScriptRunner
 	harness harness.Harness
 	prior   agentstore.State
-	fresh   *freshStart
+	restart *restartLaunch
 }
 
 func (r *resumeStart) runSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
@@ -303,7 +303,7 @@ func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 }
 
 func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
-	if r.fresh != nil {
+	if r.restart != nil {
 		if err := r.setSession(ctx, *agent, agent.SessionID); err != nil {
 			return fmt.Errorf("failed to start a new conversation for %q: %w", agent.Name, err)
 		}
@@ -325,8 +325,8 @@ func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 }
 
 func (r *resumeStart) planLaunch(agent agentstore.Agent) paneLaunch {
-	if r.fresh != nil {
-		return r.fresh.plan(r.harness, agent)
+	if r.restart != nil {
+		return r.restart.plan(r.harness, agent)
 	}
 
 	// Codex takes no session id on the command line, so an agent may have none and its relaunch is
@@ -356,7 +356,7 @@ func (r *resumeStart) planLaunch(agent agentstore.Agent) paneLaunch {
 
 func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error {
 	// A recorded turn does not outlive the relaunch, and a new conversation has none.
-	if agent.InterruptedAt != nil || r.fresh != nil {
+	if agent.InterruptedAt != nil || r.restart != nil {
 		if err := r.service.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
 			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)
 		}
@@ -388,10 +388,10 @@ func (r *resumeStart) rollBack(ctx context.Context, agent agentstore.Agent, _ er
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
-	if r.fresh == nil {
+	if r.restart == nil {
 		return
 	}
-	if err := r.setSession(ctx, agent, r.fresh.earlierSessionID); err != nil {
+	if err := r.setSession(ctx, agent, r.restart.earlierSessionID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the conversation of a writer whose restart gave up",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
