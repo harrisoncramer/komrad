@@ -16,6 +16,9 @@ import (
 	"charm.land/huh/v2"
 )
 
+// taskIndex is the panel's tasks keyed by id.
+type taskIndex map[string]panel.Task
+
 // taskAgents is the agents on a task, the archived ones for an archived task and the live ones otherwise.
 func (l listing) taskAgents(task panel.Task) []panel.AgentRow {
 	pool := l.agents
@@ -82,15 +85,9 @@ func (l listing) agentsOnTasks(tasks []panel.Task) []panel.Agent {
 	return xslice.Map(onTasks, func(item panel.AgentRow) panel.Agent { return item.Agent })
 }
 
-// findTask is the agent's task, or one spelled from the agent when the listing has none.
-func (l listing) findTask(agent panel.Agent) panel.Task {
-	return findAgentTask(l.tasks, agent)
-}
-
-// findAgentTask is the agent's task among the tasks, or one spelled from the agent when they
-// hold none.
-func findAgentTask(tasks map[string]panel.Task, agent panel.Agent) panel.Task {
-	if task, ok := tasks[agent.TaskID]; ok {
+// findForAgent is the agent's task, or one spelled from the agent when the index holds none.
+func (t taskIndex) findForAgent(agent panel.Agent) panel.Task {
+	if task, ok := t[agent.TaskID]; ok {
 		return task
 	}
 
@@ -100,9 +97,9 @@ func findAgentTask(tasks map[string]panel.Task, agent panel.Agent) panel.Task {
 	}
 }
 
-// isOnHiddenTask reports whether the agent works on a hidden task.
-func isOnHiddenTask(tasks map[string]panel.Task, agent panel.Agent) bool {
-	return tasks[agent.TaskID].Hidden
+// isHidden reports whether the agent works on a hidden task.
+func (t taskIndex) isHidden(agent panel.Agent) bool {
+	return t[agent.TaskID].Hidden
 }
 
 // findTaskLead is the agent a task is opened through.
@@ -390,7 +387,7 @@ func splitChosen(l listing, chosen []panel.Agent) chosenWork {
 	onTasks := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" })
 	unique := xslice.UniqueBy(onTasks, func(agent panel.Agent) string { return agent.TaskID })
 
-	return splitAcross(l, chosen, xslice.Map(unique, l.findTask))
+	return splitAcross(l, chosen, xslice.Map(unique, l.tasks.findForAgent))
 }
 
 // splitAcross sorts the chosen agents into the candidate tasks they wholly cover and the agents left over.

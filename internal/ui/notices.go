@@ -66,9 +66,9 @@ var (
 
 // agentNotices orders the marks by how much each wants a person's attention, reading the row the
 // list would render so a column the row leaves empty is a column the record says nothing about.
-func agentNotices(glyphs glyph.Set, loaderFrame string, tasks map[string]panel.Task, r agentRow) []notice {
+func agentNotices(glyphs glyph.Set, loaderFrame string, tasks taskIndex, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame, tasks: tasks})
-	standing, failure := findAgentTask(tasks, item.Agent).PullRequest, describeFailure(item)
+	standing, failure := tasks.findForAgent(item.Agent).PullRequest, describeFailure(item)
 	if r.isTask() {
 		standing, failure = r.task.PullRequest, ""
 	}

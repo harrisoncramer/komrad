@@ -240,5 +240,5 @@ func (m *model) hoveredRecordTask() (panel.Task, bool) {
 		return panel.Task{}, false
 	}
 
-	return m.listing.findTask(row.item.Agent), true
+	return m.listing.tasks.findForAgent(row.item.Agent), true
 }

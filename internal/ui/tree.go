@@ -101,7 +101,7 @@ type treeRowsParams struct {
 	// flat renders the families in the order given, with no header over them.
 	flat bool
 	// tasks are the tasks the agents work on, keyed by id, and nil renders no task headers.
-	tasks map[string]panel.Task
+	tasks taskIndex
 }
 
 func treeRows(params treeRowsParams) []agentRow {
@@ -134,7 +134,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 
 		workflowID := it.Agent.WorkflowID
-		if isOnHiddenTask(params.tasks, it.Agent) {
+		if params.tasks.isHidden(it.Agent) {
 			if !countedTasks[it.Agent.TaskID] {
 				countedTasks[it.Agent.TaskID] = true
 				hiddenCounts[workflowID]++
@@ -189,7 +189,7 @@ func treeRows(params treeRowsParams) []agentRow {
 
 // taskRows lays out a workflow's families, gathering those on one task under a header for it,
 // so only an agent on no task, an orchestrator, sits at the agent's step.
-func taskRows(families []family, tasks map[string]panel.Task) []agentRow {
+func taskRows(families []family, tasks taskIndex) []agentRow {
 	if tasks == nil {
 		return slices.Concat(xslice.Map(families, func(f family) []agentRow { return f.rows })...)
 	}
@@ -228,8 +228,8 @@ func taskRows(families []family, tasks map[string]panel.Task) []agentRow {
 }
 
 // taskHeader is the row over the families on one task.
-func taskHeader(gathered []family, tasks map[string]panel.Task) agentRow {
-	task := findAgentTask(tasks, gathered[0].rows[0].item.Agent)
+func taskHeader(gathered []family, tasks taskIndex) agentRow {
+	task := tasks.findForAgent(gathered[0].rows[0].item.Agent)
 
 	return agentRow{
 		header: true,
@@ -677,7 +677,7 @@ type listing struct {
 	workflows         []panel.Workflow
 	archivedAgents    []panel.AgentRow
 	archivedWorkflows []panel.Workflow
-	tasks             map[string]panel.Task
+	tasks             taskIndex
 	schedules         []scheduleItem
 	archivedSchedules []scheduleItem
 	worktrees         []worktreeItem
@@ -742,7 +742,7 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 
 // showHiddenFor shows the hidden tasks when the agent works on one.
 func (a *agentsScreen) showHiddenFor(m *model, id string) {
-	if isOnHiddenTask(m.listing.tasks, keyAgentsByID(m.listing.agents)[id].Agent) {
+	if m.listing.tasks.isHidden(m.listing.agentsByID[id].Agent) {
 		a.showHidden = true
 	}
 }

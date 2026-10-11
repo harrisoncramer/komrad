@@ -304,7 +304,7 @@ func (m *model) statusChecksPullRequestID(agentID string) string {
 		return ""
 	}
 
-	pullRequests := m.listing.findTask(item.Agent).PullRequests
+	pullRequests := m.listing.tasks.findForAgent(item.Agent).PullRequests
 	if len(pullRequests) == 0 {
 		return ""
 	}
@@ -326,7 +326,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 	}
 
 	item, _ := m.listing.anyAgent(c.agentID)
-	head := m.listing.findTask(item.Agent).PullRequest.HeadSHA
+	head := m.listing.tasks.findForAgent(item.Agent).PullRequest.HeadSHA
 	if c.listed && c.listedPullRequest == pullRequestID && c.listedHead == head {
 		return nil
 	}

@@ -139,7 +139,7 @@ func taskDir(task panel.Task, workflow panel.Workflow) string {
 func taskReviewEntry(m *model, lead panel.Agent) submenuEntry {
 	entry := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
 		if !m.listing.isReviewable(lead) {
-			return m.refuseSubpage("Could not open the review of "+m.listing.findTask(lead).Slug, errReviewNoCheckout)
+			return m.refuseSubpage("Could not open the review of "+m.listing.tasks.findForAgent(lead).Slug, errReviewNoCheckout)
 		}
 
 		return m.enterReview(lead)

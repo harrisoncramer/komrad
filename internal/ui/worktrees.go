@@ -85,11 +85,11 @@ type worktreeHolders struct {
 	// byTask holds the top-level agents provisioned for each task.
 	byTask map[string][]panel.Agent
 	byCwd  map[string][]panel.Agent
-	tasks  map[string]panel.Task
+	tasks  taskIndex
 }
 
 // worktreeItemsFrom renders every directory in the world with its task and the agents working in it.
-func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow, tasks map[string]panel.Task) []worktreeItem {
+func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents []panel.AgentRow, tasks taskIndex) []worktreeItem {
 	holders := worktreeHolders{
 		byTask: map[string][]panel.Agent{},
 		tasks:  tasks,

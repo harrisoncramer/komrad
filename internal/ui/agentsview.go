@@ -46,7 +46,7 @@ func taskDetails(m *model, r agentRow) details {
 // agentDetails is the record for an agent's row, carrying its task's checkout where no task
 // header stands over it and the rule's tags too while the agent is live.
 func agentDetails(m *model, r agentRow) details {
-	task := m.listing.findTask(r.item.Agent)
+	task := m.listing.tasks.findForAgent(r.item.Agent)
 	params := agentFieldsParams{
 		agent:    r.item.Agent,
 		task:     task.Slug,

@@ -35,7 +35,7 @@ func (r reviewScreen) findMovedRound(m *model) string {
 		return ""
 	}
 
-	moved := m.listing.findTask(item.Agent).MovedSinceRound
+	moved := m.listing.tasks.findForAgent(item.Agent).MovedSinceRound
 	if moved == "" || moved != r.round.GetSnapshotSha() {
 		return ""
 	}

@@ -82,7 +82,7 @@ func (m *model) agentFits(row panel.AgentRow, clause searchsyntax.Clause) bool {
 	case searchsyntax.KeyIs:
 		return strings.EqualFold(string(agent.Role), clause.Value)
 	case searchsyntax.KeyTask:
-		return containsFold(m.listing.findTask(agent).Slug, clause.Value)
+		return containsFold(m.listing.tasks.findForAgent(agent).Slug, clause.Value)
 	case searchsyntax.KeyHarness:
 		return strings.EqualFold(agent.Harness, clause.Value)
 	case searchsyntax.KeyPR:
@@ -91,7 +91,7 @@ func (m *model) agentFits(row panel.AgentRow, clause searchsyntax.Clause) bool {
 			return false
 		}
 
-		return slices.ContainsFunc(m.listing.findTask(agent).PullRequests, func(pr panel.PullRequest) bool { return int(pr.Number) == number })
+		return slices.ContainsFunc(m.listing.tasks.findForAgent(agent).PullRequests, func(pr panel.PullRequest) bool { return int(pr.Number) == number })
 	case searchsyntax.KeySince:
 		at, err := searchsyntax.ParseStart(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
 

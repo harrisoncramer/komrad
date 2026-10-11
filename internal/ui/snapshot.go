@@ -32,7 +32,7 @@ type snapshotParams struct {
 	// picked are the keys of the rows the search's qualifiers pick, nil when it names none.
 	picked map[string]bool
 	// tasks are the tasks the agents work on, keyed by id.
-	tasks map[string]panel.Task
+	tasks taskIndex
 	// scheduled are the workflows at least one schedule launches into, keyed by workflow id.
 	scheduled map[string]bool
 	// workflowDirs is the directory each workflow launches its agents in, keyed by workflow id.
@@ -119,7 +119,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	}
 
 	item := r.item
-	task := findAgentTask(params.tasks, item.Agent)
+	task := params.tasks.findForAgent(item.Agent)
 	row = agentFacts(row, item)
 	row.Documents = row.Documents && !r.underTask
 	row.Kind = snapshotKind(r, params.flat)

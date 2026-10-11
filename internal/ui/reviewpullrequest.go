@@ -22,7 +22,7 @@ func (r reviewScreen) currentPullRequest(m *model) (panel.PullRequest, bool) {
 		return panel.PullRequest{}, false
 	}
 
-	task := m.listing.findTask(item.Agent)
+	task := m.listing.tasks.findForAgent(item.Agent)
 	if len(task.PullRequests) == 0 || task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE {
 		return panel.PullRequest{}, false
 	}
