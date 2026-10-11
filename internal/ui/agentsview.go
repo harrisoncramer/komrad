@@ -19,7 +19,7 @@ func (a *agentsScreen) details(m *model) details {
 		writer := m.listing.findTaskWriter(*r.task, *r.lead)
 		worktree, read := agentWorktree(m.inspections, r.task.Cwd)
 		var tags []string
-		if item, ok := m.listing.taskWorktreeAgent(*r.task, *r.lead); ok {
+		if item, ok := m.listing.findCheckoutWriter(*r.task, *r.lead); ok {
 			tags = agentDetailsTags(m, item)
 		}
 
