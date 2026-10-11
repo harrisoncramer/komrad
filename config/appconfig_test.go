@@ -879,9 +879,9 @@ func loadStrict(t *testing.T, file string) (*Config, error) {
 	return LoadStack(Stack{Paths: []string{path}})
 }
 
-// TestLoadRejectsMailTheServiceCouldNotSendOn covers the two mail settings the server reads at
+// TestLoadRejectsMailTheServerCouldNotSendOn covers the two mail settings the server reads at
 // send time, where a value it cannot read stops every send rather than the config being read.
-func TestLoadRejectsMailTheServiceCouldNotSendOn(t *testing.T) {
+func TestLoadRejectsMailTheServerCouldNotSendOn(t *testing.T) {
 	tests := []struct {
 		name string
 		file string
