@@ -38,7 +38,7 @@ const (
 	// The directory's task is open, which nothing takes.
 	WorktreeFate_WORKTREE_FATE_LIVE WorktreeFate = 3
 	// A delete has claimed the directory's task, which that delete takes.
-	WorktreeFate_WORKTREE_FATE_DELETING WorktreeFate = 5
+	WorktreeFate_WORKTREE_FATE_DELETING WorktreeFate = 4
 )
 
 // Enum value maps for WorktreeFate.
@@ -48,14 +48,14 @@ var (
 		1: "WORKTREE_FATE_UNOWNED",
 		2: "WORKTREE_FATE_ARCHIVED",
 		3: "WORKTREE_FATE_LIVE",
-		5: "WORKTREE_FATE_DELETING",
+		4: "WORKTREE_FATE_DELETING",
 	}
 	WorktreeFate_value = map[string]int32{
 		"WORKTREE_FATE_UNSPECIFIED": 0,
 		"WORKTREE_FATE_UNOWNED":     1,
 		"WORKTREE_FATE_ARCHIVED":    2,
 		"WORKTREE_FATE_LIVE":        3,
-		"WORKTREE_FATE_DELETING":    5,
+		"WORKTREE_FATE_DELETING":    4,
 	}
 )
 
@@ -245,27 +245,27 @@ type Worktree struct {
 	// for the directory.
 	Readable bool `protobuf:"varint,4,opt,name=readable,proto3" json:"readable,omitempty"`
 	// The agents working in this directory, live ones first.
-	Occupants []*WorktreeAgent `protobuf:"bytes,6,rep,name=occupants,proto3" json:"occupants,omitempty"`
+	Occupants []*WorktreeAgent `protobuf:"bytes,5,rep,name=occupants,proto3" json:"occupants,omitempty"`
 	// The disk the directory takes, in bytes, as it was last measured in the background or by
 	// get_worktree: blocks rather than length, a hard linked file counted once. Unset until it has
 	// been measured, and while the last walk failed.
-	SizeBytes *int64 `protobuf:"varint,7,opt,name=size_bytes,json=sizeBytes,proto3,oneof" json:"size_bytes,omitempty"`
+	SizeBytes *int64 `protobuf:"varint,6,opt,name=size_bytes,json=sizeBytes,proto3,oneof" json:"size_bytes,omitempty"`
 	// When the size was last measured, or last failed to be, in RFC 3339. Unset until the
 	// background loop has reached the directory.
-	MeasuredAt *string `protobuf:"bytes,8,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
+	MeasuredAt *string `protobuf:"bytes,7,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
 	// Why the last walk failed, empty when it did not.
-	SizeError string `protobuf:"bytes,9,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
+	SizeError string `protobuf:"bytes,8,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
 	// When the directory was last active, in RFC 3339: the latest state change or archiving of
 	// its occupants when it has any, else when git last wrote the directory's .git file, else the
 	// directory's own modification time.
-	LastActiveAt string `protobuf:"bytes,10,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
+	LastActiveAt string `protobuf:"bytes,9,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
 	// Which delete path the directory takes.
-	Fate WorktreeFate `protobuf:"varint,11,opt,name=fate,proto3,enum=worktree.v1.WorktreeFate" json:"fate,omitempty"`
+	Fate WorktreeFate `protobuf:"varint,10,opt,name=fate,proto3,enum=worktree.v1.WorktreeFate" json:"fate,omitempty"`
 	// The directory's share of size_bytes, each hard linked file's blocks split evenly across its
 	// links. Unset with size_bytes.
-	ShareBytes *int64 `protobuf:"varint,12,opt,name=share_bytes,json=shareBytes,proto3,oneof" json:"share_bytes,omitempty"`
+	ShareBytes *int64 `protobuf:"varint,11,opt,name=share_bytes,json=shareBytes,proto3,oneof" json:"share_bytes,omitempty"`
 	// The task whose checkout the directory is, unset when none answers for it.
-	Task          *WorktreeTask `protobuf:"bytes,13,opt,name=task,proto3" json:"task,omitempty"`
+	Task          *WorktreeTask `protobuf:"bytes,12,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -846,33 +846,33 @@ type GetWorktreeResponse struct {
 	// The directory as list_worktrees reports it.
 	Worktree *Worktree `protobuf:"bytes,1,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// The disk the directory takes, in bytes, walked for this call.
-	SizeBytes int64 `protobuf:"varint,12,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	SizeBytes int64 `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	// The top-level entries with the disk each takes, biggest first, from the same walk.
-	Entries []*Entry `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
+	Entries []*Entry `protobuf:"bytes,3,rep,name=entries,proto3" json:"entries,omitempty"`
 	// The paths git tracks that differ from HEAD.
-	Modified []string `protobuf:"bytes,3,rep,name=modified,proto3" json:"modified,omitempty"`
+	Modified []string `protobuf:"bytes,4,rep,name=modified,proto3" json:"modified,omitempty"`
 	// The paths git neither tracks nor ignores.
-	Untracked []string `protobuf:"bytes,4,rep,name=untracked,proto3" json:"untracked,omitempty"`
+	Untracked []string `protobuf:"bytes,5,rep,name=untracked,proto3" json:"untracked,omitempty"`
 	// The ref the branch is measured against, which is the workflow's base branch as the clone
 	// holds it, empty when the repository cannot be read or the clone does not hold the base, in
 	// which case nothing below is measured.
-	BaseRef string `protobuf:"bytes,5,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
+	BaseRef string `protobuf:"bytes,6,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
 	// Why the base could not be named, when base_ref is empty for that reason.
-	BaseError string `protobuf:"bytes,13,opt,name=base_error,json=baseError,proto3" json:"base_error,omitempty"`
+	BaseError string `protobuf:"bytes,7,opt,name=base_error,json=baseError,proto3" json:"base_error,omitempty"`
 	// How many of the branch's commits the base does not hold.
-	Ahead int32 `protobuf:"varint,6,opt,name=ahead,proto3" json:"ahead,omitempty"`
+	Ahead int32 `protobuf:"varint,8,opt,name=ahead,proto3" json:"ahead,omitempty"`
 	// How many of the base's commits the branch does not hold.
-	Behind int32 `protobuf:"varint,7,opt,name=behind,proto3" json:"behind,omitempty"`
+	Behind int32 `protobuf:"varint,9,opt,name=behind,proto3" json:"behind,omitempty"`
 	// How many of the branch's own commits the base already holds whole, which is what a squash
 	// merge leaves behind.
-	LandedCommits int32 `protobuf:"varint,8,opt,name=landed_commits,json=landedCommits,proto3" json:"landed_commits,omitempty"`
+	LandedCommits int32 `protobuf:"varint,10,opt,name=landed_commits,json=landedCommits,proto3" json:"landed_commits,omitempty"`
 	// Whether a merge, a rebase or a cherry-pick is part-way through.
-	SequenceInProgress bool `protobuf:"varint,9,opt,name=sequence_in_progress,json=sequenceInProgress,proto3" json:"sequence_in_progress,omitempty"`
+	SequenceInProgress bool `protobuf:"varint,11,opt,name=sequence_in_progress,json=sequenceInProgress,proto3" json:"sequence_in_progress,omitempty"`
 	// Whether deleting the agent would keep the branch, which cleanup does for an adopted branch
 	// and for one whose commits are on no other ref.
-	KeepsBranch bool `protobuf:"varint,10,opt,name=keeps_branch,json=keepsBranch,proto3" json:"keeps_branch,omitempty"`
+	KeepsBranch bool `protobuf:"varint,12,opt,name=keeps_branch,json=keepsBranch,proto3" json:"keeps_branch,omitempty"`
 	// The branch's commits the base does not hold, newest first, at most fifty.
-	Commits []*Commit `protobuf:"bytes,11,rep,name=commits,proto3" json:"commits,omitempty"`
+	Commits []*Commit `protobuf:"bytes,13,rep,name=commits,proto3" json:"commits,omitempty"`
 	// The lines the working tree adds since the branch left the base, leaving out the workflow's
 	// diff exclusions, and unset where there is no base or one the branch shares no history with.
 	AddedLines *int32 `protobuf:"varint,14,opt,name=added_lines,json=addedLines,proto3,oneof" json:"added_lines,omitempty"`
@@ -1255,42 +1255,42 @@ var File_worktree_v1_worktree_proto protoreflect.FileDescriptor
 
 const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xa4\x01\n" +
+	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x95\x01\n" +
 	"\rWorktreeAgent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
 	"\x05state\x18\x03 \x01(\x0e2\x14.agent.v1.AgentStateR\x05state\x12$\n" +
 	"\varchived_at\x18\x04 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01B\x0e\n" +
-	"\f_archived_atJ\x04\b\x05\x10\x06R\aadopted\"\x82\x01\n" +
+	"\f_archived_at\"\x82\x01\n" +
 	"\fWorktreeTask\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12$\n" +
 	"\varchived_at\x18\x03 \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x18\n" +
 	"\aadopted\x18\x04 \x01(\bR\aadoptedB\x0e\n" +
-	"\f_archived_at\"\xf4\x03\n" +
+	"\f_archived_at\"\xe7\x03\n" +
 	"\bWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
 	"\x06branch\x18\x03 \x01(\tR\x06branch\x12\x1a\n" +
 	"\breadable\x18\x04 \x01(\bR\breadable\x128\n" +
-	"\toccupants\x18\x06 \x03(\v2\x1a.worktree.v1.WorktreeAgentR\toccupants\x12\"\n" +
+	"\toccupants\x18\x05 \x03(\v2\x1a.worktree.v1.WorktreeAgentR\toccupants\x12\"\n" +
 	"\n" +
-	"size_bytes\x18\a \x01(\x03H\x00R\tsizeBytes\x88\x01\x01\x12$\n" +
-	"\vmeasured_at\x18\b \x01(\tH\x01R\n" +
+	"size_bytes\x18\x06 \x01(\x03H\x00R\tsizeBytes\x88\x01\x01\x12$\n" +
+	"\vmeasured_at\x18\a \x01(\tH\x01R\n" +
 	"measuredAt\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"size_error\x18\t \x01(\tR\tsizeError\x12$\n" +
-	"\x0elast_active_at\x18\n" +
-	" \x01(\tR\flastActiveAt\x12-\n" +
-	"\x04fate\x18\v \x01(\x0e2\x19.worktree.v1.WorktreeFateR\x04fate\x12$\n" +
-	"\vshare_bytes\x18\f \x01(\x03H\x02R\n" +
+	"size_error\x18\b \x01(\tR\tsizeError\x12$\n" +
+	"\x0elast_active_at\x18\t \x01(\tR\flastActiveAt\x12-\n" +
+	"\x04fate\x18\n" +
+	" \x01(\x0e2\x19.worktree.v1.WorktreeFateR\x04fate\x12$\n" +
+	"\vshare_bytes\x18\v \x01(\x03H\x02R\n" +
 	"shareBytes\x88\x01\x01\x12-\n" +
-	"\x04task\x18\r \x01(\v2\x19.worktree.v1.WorktreeTaskR\x04taskB\r\n" +
+	"\x04task\x18\f \x01(\v2\x19.worktree.v1.WorktreeTaskR\x04taskB\r\n" +
 	"\v_size_bytesB\x0e\n" +
 	"\f_measured_atB\x0e\n" +
-	"\f_share_bytesJ\x04\b\x05\x10\x06R\x05agent\"\x8c\x03\n" +
+	"\f_share_bytes\"\x8c\x03\n" +
 	"\x0fWatchedWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
@@ -1338,20 +1338,20 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x13GetWorktreeResponse\x121\n" +
 	"\bworktree\x18\x01 \x01(\v2\x15.worktree.v1.WorktreeR\bworktree\x12\x1d\n" +
 	"\n" +
-	"size_bytes\x18\f \x01(\x03R\tsizeBytes\x12,\n" +
-	"\aentries\x18\x02 \x03(\v2\x12.worktree.v1.EntryR\aentries\x12\x1a\n" +
-	"\bmodified\x18\x03 \x03(\tR\bmodified\x12\x1c\n" +
-	"\tuntracked\x18\x04 \x03(\tR\tuntracked\x12\x19\n" +
-	"\bbase_ref\x18\x05 \x01(\tR\abaseRef\x12\x1d\n" +
+	"size_bytes\x18\x02 \x01(\x03R\tsizeBytes\x12,\n" +
+	"\aentries\x18\x03 \x03(\v2\x12.worktree.v1.EntryR\aentries\x12\x1a\n" +
+	"\bmodified\x18\x04 \x03(\tR\bmodified\x12\x1c\n" +
+	"\tuntracked\x18\x05 \x03(\tR\tuntracked\x12\x19\n" +
+	"\bbase_ref\x18\x06 \x01(\tR\abaseRef\x12\x1d\n" +
 	"\n" +
-	"base_error\x18\r \x01(\tR\tbaseError\x12\x14\n" +
-	"\x05ahead\x18\x06 \x01(\x05R\x05ahead\x12\x16\n" +
-	"\x06behind\x18\a \x01(\x05R\x06behind\x12%\n" +
-	"\x0elanded_commits\x18\b \x01(\x05R\rlandedCommits\x120\n" +
-	"\x14sequence_in_progress\x18\t \x01(\bR\x12sequenceInProgress\x12!\n" +
-	"\fkeeps_branch\x18\n" +
-	" \x01(\bR\vkeepsBranch\x12-\n" +
-	"\acommits\x18\v \x03(\v2\x13.worktree.v1.CommitR\acommits\x12$\n" +
+	"base_error\x18\a \x01(\tR\tbaseError\x12\x14\n" +
+	"\x05ahead\x18\b \x01(\x05R\x05ahead\x12\x16\n" +
+	"\x06behind\x18\t \x01(\x05R\x06behind\x12%\n" +
+	"\x0elanded_commits\x18\n" +
+	" \x01(\x05R\rlandedCommits\x120\n" +
+	"\x14sequence_in_progress\x18\v \x01(\bR\x12sequenceInProgress\x12!\n" +
+	"\fkeeps_branch\x18\f \x01(\bR\vkeepsBranch\x12-\n" +
+	"\acommits\x18\r \x03(\v2\x13.worktree.v1.CommitR\acommits\x12$\n" +
 	"\vadded_lines\x18\x0e \x01(\x05H\x00R\n" +
 	"addedLines\x88\x01\x01\x12(\n" +
 	"\rremoved_lines\x18\x0f \x01(\x05H\x01R\fremovedLines\x88\x01\x01\x12\x16\n" +
@@ -1371,19 +1371,19 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused\">\n" +
 	"\x16DeleteWorktreesRequest\x12$\n" +
 	"\x04dirs\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs*\xb2\x01\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs*\x98\x01\n" +
 	"\fWorktreeFate\x12\x1d\n" +
 	"\x19WORKTREE_FATE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
 	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
 	"\x12WORKTREE_FATE_LIVE\x10\x03\x12\x1a\n" +
-	"\x16WORKTREE_FATE_DELETING\x10\x05\"\x04\b\x04\x10\x04*\x12WORKTREE_FATE_TASK2\xdc\n" +
+	"\x16WORKTREE_FATE_DELETING\x10\x042\xdc\n" +
 	"\n" +
 	"\x0fWorktreeService\x12\xf6\x01\n" +
-	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xa8\x01\x9a\xb5\x18\xa0\x01\b\x01\x10\x01\x1a\x0elist_worktrees\"\x86\x01List every worktree directory komrad holds, with its repository, branch, agent and last measured size. It runs no git, so it is cheap.B\x01\x03\x90\x02\x01\x12\x85\x02\n" +
-	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\fget_worktree\"\x92\x01Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base. Set fetch to ask origin first.B\x01\x03\x90\x02\x01\x12\xa8\x02\n" +
-	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\x86\x01Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.(\x01B\x01\x03\x90\x02\x02\x12\x9c\x04\n" +
-	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xcb\x03\x9a\xb5\x18\xc3\x03\b\x01\x1a\x10delete_worktrees\"\x96\x01Queue deleting worktree directories in the background, each through the path its agent's state decides. A directory whose agent is live is left alone.(\x01:\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
+	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xa8\x01\x9a\xb5\x18\xa0\x01\b\x01\x10\x01\x1a\x0elist_worktrees\"\x86\x01List every worktree directory komrad holds, with its repository, branch, agent and last measured size. It runs no git, so it is cheap.:\x01\x03\x90\x02\x01\x12\x85\x02\n" +
+	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\fget_worktree\"\x92\x01Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base. Set fetch to ask origin first.:\x01\x03\x90\x02\x01\x12\xa8\x02\n" +
+	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\x86\x01Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.(\x01:\x01\x03\x90\x02\x02\x12\x9c\x04\n" +
+	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xcb\x03\x9a\xb5\x18\xc3\x03\b\x01\x1a\x10delete_worktrees\"\x96\x01Queue deleting worktree directories in the background, each through the path its agent's state decides. A directory whose agent is live is left alone.(\x01B\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
 var (
 	file_worktree_v1_worktree_proto_rawDescOnce sync.Once

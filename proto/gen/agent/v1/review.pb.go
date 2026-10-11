@@ -210,30 +210,30 @@ const (
 	// No state was recorded.
 	ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED ForgeReplyState = 0
 	// Approved and waiting to be posted.
-	ForgeReplyState_FORGE_REPLY_STATE_APPROVED ForgeReplyState = 2
+	ForgeReplyState_FORGE_REPLY_STATE_APPROVED ForgeReplyState = 1
 	// Being posted, and possibly already on the forge.
-	ForgeReplyState_FORGE_REPLY_STATE_SENDING ForgeReplyState = 3
+	ForgeReplyState_FORGE_REPLY_STATE_SENDING ForgeReplyState = 2
 	// Accepted by the forge.
-	ForgeReplyState_FORGE_REPLY_STATE_SENT ForgeReplyState = 4
+	ForgeReplyState_FORGE_REPLY_STATE_SENT ForgeReplyState = 3
 	// Refused by the forge on its latest attempt, waiting for the person to retry or discard it.
-	ForgeReplyState_FORGE_REPLY_STATE_FAILED ForgeReplyState = 5
+	ForgeReplyState_FORGE_REPLY_STATE_FAILED ForgeReplyState = 4
 )
 
 // Enum value maps for ForgeReplyState.
 var (
 	ForgeReplyState_name = map[int32]string{
 		0: "FORGE_REPLY_STATE_UNSPECIFIED",
-		2: "FORGE_REPLY_STATE_APPROVED",
-		3: "FORGE_REPLY_STATE_SENDING",
-		4: "FORGE_REPLY_STATE_SENT",
-		5: "FORGE_REPLY_STATE_FAILED",
+		1: "FORGE_REPLY_STATE_APPROVED",
+		2: "FORGE_REPLY_STATE_SENDING",
+		3: "FORGE_REPLY_STATE_SENT",
+		4: "FORGE_REPLY_STATE_FAILED",
 	}
 	ForgeReplyState_value = map[string]int32{
 		"FORGE_REPLY_STATE_UNSPECIFIED": 0,
-		"FORGE_REPLY_STATE_APPROVED":    2,
-		"FORGE_REPLY_STATE_SENDING":     3,
-		"FORGE_REPLY_STATE_SENT":        4,
-		"FORGE_REPLY_STATE_FAILED":      5,
+		"FORGE_REPLY_STATE_APPROVED":    1,
+		"FORGE_REPLY_STATE_SENDING":     2,
+		"FORGE_REPLY_STATE_SENT":        3,
+		"FORGE_REPLY_STATE_FAILED":      4,
 	}
 )
 
@@ -272,7 +272,7 @@ type ReviewRound struct {
 	// The handle a review or a viewed-file record names this round by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The task whose checkout the snapshot was taken of.
-	TaskId string `protobuf:"bytes,7,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// Which round this is for its task, counting from one.
 	Ordinal int32 `protobuf:"varint,3,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
 	// The commit the agent's branch left its base at when the round was taken.
@@ -364,7 +364,7 @@ type Review struct {
 	// The handle the threads in this batch name it by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The task whose work is being read.
-	TaskId string `protobuf:"bytes,16,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The snapshot the batch was written against.
 	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	// Which round that is, counting from one, so a caller need not fetch the round to say.
@@ -539,7 +539,7 @@ type WatchedReview struct {
 	// The handle the threads in this batch name it by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The task whose work is being read.
-	TaskId string `protobuf:"bytes,15,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The snapshot the batch was written against.
 	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	// Which round that is, counting from one.
@@ -702,45 +702,45 @@ type ReviewThread struct {
 	// The handle a reply or a resolve names this thread by.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The task whose diff the thread is pinned to.
-	TaskId string `protobuf:"bytes,21,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The batch this thread was opened as part of.
-	ReviewId string `protobuf:"bytes,15,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
+	ReviewId string `protobuf:"bytes,3,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
 	// The round the thread is anchored to, which never moves.
-	RoundId string `protobuf:"bytes,16,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	RoundId string `protobuf:"bytes,4,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	// Which round that is, counting from one.
-	RoundOrdinal int32 `protobuf:"varint,17,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
+	RoundOrdinal int32 `protobuf:"varint,5,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
 	// The commit the old side of these line numbers was read against, which is the round's own
 	// base unless the diff was narrowed to an earlier round when the thread was written.
-	BaseSha string `protobuf:"bytes,19,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	BaseSha string `protobuf:"bytes,6,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// Which file, relative to the checkout.
-	FilePath string `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FilePath string `protobuf:"bytes,7,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// Where the range begins on the old side of the diff, counting from one.
-	OldStart int32 `protobuf:"varint,4,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
+	OldStart int32 `protobuf:"varint,8,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
 	// Where it ends on the old side, inclusive.
-	OldEnd int32 `protobuf:"varint,5,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
+	OldEnd int32 `protobuf:"varint,9,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
 	// Where the range begins on the new side.
-	NewStart int32 `protobuf:"varint,6,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
+	NewStart int32 `protobuf:"varint,10,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
 	// Where it ends on the new side, inclusive.
-	NewEnd int32 `protobuf:"varint,7,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	NewEnd int32 `protobuf:"varint,11,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
 	// The diff lines the thread was written against, each keeping its leading marker.
-	QuotedLines []string `protobuf:"bytes,8,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
+	QuotedLines []string `protobuf:"bytes,12,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
 	// When the person reviewing settled this thread, empty while it is still owed an answer.
 	// Whether a thread is settled is a different question from whether the code under it has
 	// moved, and it is this one that decides whether the thread is still asking for something.
-	ResolvedAt string `protobuf:"bytes,9,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
+	ResolvedAt string `protobuf:"bytes,13,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
 	// Whether the agent has replied since the person reviewing last looked.
-	UnreadByHuman bool `protobuf:"varint,11,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
+	UnreadByHuman bool `protobuf:"varint,14,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
 	// Everything said in the thread, oldest first.
-	Messages []*ReviewMessage `protobuf:"bytes,12,rep,name=messages,proto3" json:"messages,omitempty"`
+	Messages []*ReviewMessage `protobuf:"bytes,15,rep,name=messages,proto3" json:"messages,omitempty"`
 	// When the thread was opened.
-	CreatedAt string `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt string `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When anything in it last moved.
-	UpdatedAt string `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// Whether the thread mirrors one on the pull request, where a reply is public.
 	MirrorsForge bool `protobuf:"varint,18,opt,name=mirrors_forge,json=mirrorsForge,proto3" json:"mirrors_forge,omitempty"`
 	// What komrad has drafted, posted or failed to post on the forge thread, oldest first. Only
 	// the person reviewing is shown these.
-	ForgeReplies  []*ForgeReply `protobuf:"bytes,20,rep,name=forge_replies,json=forgeReplies,proto3" json:"forge_replies,omitempty"`
+	ForgeReplies  []*ForgeReply `protobuf:"bytes,19,rep,name=forge_replies,json=forgeReplies,proto3" json:"forge_replies,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -924,17 +924,17 @@ type ReviewMessage struct {
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines the author proposes for the thread's range, empty for an ordinary
 	// comment. An agent applies these rather than reasoning about them.
-	Suggestion []string `protobuf:"bytes,11,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
+	Suggestion []string `protobuf:"bytes,6,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
 	// When it was written.
-	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When it was last edited.
-	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt string `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// How far this comment has got towards the agent reading it.
-	Delivery ReviewDeliveryState `protobuf:"varint,8,opt,name=delivery,proto3,enum=agent.v1.ReviewDeliveryState" json:"delivery,omitempty"`
+	Delivery ReviewDeliveryState `protobuf:"varint,9,opt,name=delivery,proto3,enum=agent.v1.ReviewDeliveryState" json:"delivery,omitempty"`
 	// When the person reviewing released this comment, empty while it is only written down.
-	SentAt string `protobuf:"bytes,9,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	SentAt string `protobuf:"bytes,10,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
 	// When the agent claimed the doorbell raised for this comment, empty until it has.
-	DeliveredAt string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
+	DeliveredAt string `protobuf:"bytes,11,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
 	// The review this message went out with, absent for an answer written by the agent under
 	// review, which belongs to no batch.
 	ReviewId *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
@@ -1249,25 +1249,25 @@ type CreateReviewThreadRequest struct {
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// The commit the old side of these line numbers was read against, empty for the round's own
 	// base.
-	BaseSha string `protobuf:"bytes,10,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	BaseSha string `protobuf:"bytes,3,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// The commit the new side of these line numbers was read against, empty for a caller that read
 	// the round's own snapshot.
-	SnapshotSha string `protobuf:"bytes,11,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
+	SnapshotSha string `protobuf:"bytes,4,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
 	// Where the range begins on the old side of the diff, counting from one.
-	OldStart int32 `protobuf:"varint,3,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
+	OldStart int32 `protobuf:"varint,5,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
 	// Where it ends on the old side, inclusive.
-	OldEnd int32 `protobuf:"varint,4,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
+	OldEnd int32 `protobuf:"varint,6,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
 	// Where the range begins on the new side.
-	NewStart int32 `protobuf:"varint,5,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
+	NewStart int32 `protobuf:"varint,7,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
 	// Where it ends on the new side, inclusive.
-	NewEnd int32 `protobuf:"varint,6,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	NewEnd int32 `protobuf:"varint,8,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
 	// The diff lines being written about, each keeping its leading marker, so the anchor still
 	// says something once the code moves.
-	QuotedLines []string `protobuf:"bytes,7,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
+	QuotedLines []string `protobuf:"bytes,9,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
 	// The first thing said. The ceiling refuses an essay and is not a length to write up to.
-	Body string `protobuf:"bytes,8,opt,name=body,proto3" json:"body,omitempty"`
+	Body string `protobuf:"bytes,10,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the range, empty for an ordinary comment.
-	Suggestion    []string `protobuf:"bytes,9,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
+	Suggestion    []string `protobuf:"bytes,11,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2398,7 +2398,7 @@ type ReleaseReviewRequest struct {
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// What to say about the work as a whole rather than about any one line, which the agent reads
 	// before the first thread. Optional: a review of pinned comments alone is complete.
-	Body          string `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
+	Body          string `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2522,7 +2522,7 @@ func (x *ReleaseReviewResponse) GetPath() string {
 type ReviewViewedFile struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which task the file belongs to.
-	TaskId string `protobuf:"bytes,5,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// When it was marked, in RFC 3339.
@@ -2810,19 +2810,19 @@ type ForgeReply struct {
 	// Where it is on its way to the forge.
 	State ForgeReplyState `protobuf:"varint,3,opt,name=state,proto3,enum=agent.v1.ForgeReplyState" json:"state,omitempty"`
 	// The words that go to the forge.
-	Body string `protobuf:"bytes,7,opt,name=body,proto3" json:"body,omitempty"`
+	Body string `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
 	// When the person wrote it for posting.
-	ApprovedAt string `protobuf:"bytes,8,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`
+	ApprovedAt string `protobuf:"bytes,5,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`
 	// When komrad last began posting it, empty until then.
-	SendingStartedAt string `protobuf:"bytes,9,opt,name=sending_started_at,json=sendingStartedAt,proto3" json:"sending_started_at,omitempty"`
+	SendingStartedAt string `protobuf:"bytes,6,opt,name=sending_started_at,json=sendingStartedAt,proto3" json:"sending_started_at,omitempty"`
 	// When the forge accepted it, empty until then.
-	SentAt string `protobuf:"bytes,10,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	SentAt string `protobuf:"bytes,7,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
 	// The mirrored message it came back as from the forge, absent until a sync copies it.
-	ForgeCommentId *string `protobuf:"bytes,11,opt,name=forge_comment_id,json=forgeCommentId,proto3,oneof" json:"forge_comment_id,omitempty"`
+	ForgeCommentId *string `protobuf:"bytes,8,opt,name=forge_comment_id,json=forgeCommentId,proto3,oneof" json:"forge_comment_id,omitempty"`
 	// What the forge said when it last refused it, absent unless it failed.
-	Error *string `protobuf:"bytes,12,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	Error *string `protobuf:"bytes,9,opt,name=error,proto3,oneof" json:"error,omitempty"`
 	// When it was written.
-	CreatedAt     string `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt     string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3165,18 +3165,18 @@ var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xbd\x01\n" +
+	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xad\x01\n" +
 	"\vReviewRound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\atask_id\x18\a \x01(\tR\x06taskId\x12\x18\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x18\n" +
 	"\aordinal\x18\x03 \x01(\x05R\aordinal\x12\x19\n" +
 	"\bbase_sha\x18\x04 \x01(\tR\abaseSha\x12!\n" +
 	"\fsnapshot_sha\x18\x05 \x01(\tR\vsnapshotSha\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAtJ\x04\b\x02\x10\x03R\bagent_id\"\xa6\x04\n" +
+	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\x96\x04\n" +
 	"\x06Review\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\atask_id\x18\x10 \x01(\tR\x06taskId\x12\x19\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bround_id\x18\x03 \x01(\tR\aroundId\x12#\n" +
 	"\rround_ordinal\x18\x04 \x01(\x05R\froundOrdinal\x12;\n" +
 	"\vauthor_kind\x18\x05 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
@@ -3195,10 +3195,10 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
 	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreads\x12%\n" +
 	"\x0eexternal_login\x18\x0f \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_idJ\x04\b\x02\x10\x03R\bagent_id\"\xb8\x04\n" +
+	"\x10_author_agent_id\"\xa8\x04\n" +
 	"\rWatchedReview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\atask_id\x18\x0f \x01(\tR\x06taskId\x12\x19\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
 	"\bround_id\x18\x03 \x01(\tR\aroundId\x12#\n" +
 	"\rround_ordinal\x18\x04 \x01(\x05R\froundOrdinal\x12,\n" +
 	"\x12round_snapshot_sha\x18\x05 \x01(\tR\x10roundSnapshotSha\x12;\n" +
@@ -3216,30 +3216,31 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12&\n" +
 	"\x0fround_landed_at\x18\r \x01(\tR\rroundLandedAt\x12%\n" +
 	"\x0eexternal_login\x18\x0e \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_idJ\x04\b\x02\x10\x03R\bagent_id\"\x87\x05\n" +
+	"\x10_author_agent_id\"\xf7\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\atask_id\x18\x15 \x01(\tR\x06taskId\x12\x1b\n" +
-	"\treview_id\x18\x0f \x01(\tR\breviewId\x12\x19\n" +
-	"\bround_id\x18\x10 \x01(\tR\aroundId\x12#\n" +
-	"\rround_ordinal\x18\x11 \x01(\x05R\froundOrdinal\x12\x19\n" +
-	"\bbase_sha\x18\x13 \x01(\tR\abaseSha\x12\x1b\n" +
-	"\tfile_path\x18\x03 \x01(\tR\bfilePath\x12\x1b\n" +
-	"\told_start\x18\x04 \x01(\x05R\boldStart\x12\x17\n" +
-	"\aold_end\x18\x05 \x01(\x05R\x06oldEnd\x12\x1b\n" +
-	"\tnew_start\x18\x06 \x01(\x05R\bnewStart\x12\x17\n" +
-	"\anew_end\x18\a \x01(\x05R\x06newEnd\x12!\n" +
-	"\fquoted_lines\x18\b \x03(\tR\vquotedLines\x12\x1f\n" +
-	"\vresolved_at\x18\t \x01(\tR\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x1b\n" +
+	"\treview_id\x18\x03 \x01(\tR\breviewId\x12\x19\n" +
+	"\bround_id\x18\x04 \x01(\tR\aroundId\x12#\n" +
+	"\rround_ordinal\x18\x05 \x01(\x05R\froundOrdinal\x12\x19\n" +
+	"\bbase_sha\x18\x06 \x01(\tR\abaseSha\x12\x1b\n" +
+	"\tfile_path\x18\a \x01(\tR\bfilePath\x12\x1b\n" +
+	"\told_start\x18\b \x01(\x05R\boldStart\x12\x17\n" +
+	"\aold_end\x18\t \x01(\x05R\x06oldEnd\x12\x1b\n" +
+	"\tnew_start\x18\n" +
+	" \x01(\x05R\bnewStart\x12\x17\n" +
+	"\anew_end\x18\v \x01(\x05R\x06newEnd\x12!\n" +
+	"\fquoted_lines\x18\f \x03(\tR\vquotedLines\x12\x1f\n" +
+	"\vresolved_at\x18\r \x01(\tR\n" +
 	"resolvedAt\x12&\n" +
-	"\x0funread_by_human\x18\v \x01(\bR\runreadByHuman\x123\n" +
-	"\bmessages\x18\f \x03(\v2\x17.agent.v1.ReviewMessageR\bmessages\x12\x1d\n" +
+	"\x0funread_by_human\x18\x0e \x01(\bR\runreadByHuman\x123\n" +
+	"\bmessages\x18\x0f \x03(\v2\x17.agent.v1.ReviewMessageR\bmessages\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\x10 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\tR\tupdatedAt\x12#\n" +
+	"updated_at\x18\x11 \x01(\tR\tupdatedAt\x12#\n" +
 	"\rmirrors_forge\x18\x12 \x01(\bR\fmirrorsForge\x129\n" +
-	"\rforge_replies\x18\x14 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeRepliesJ\x04\b\x02\x10\x03R\bagent_id\"\xf8\x04\n" +
+	"\rforge_replies\x18\x13 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeReplies\"\xf8\x04\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -3248,16 +3249,16 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x0fauthor_agent_id\x18\x04 \x01(\tH\x00R\rauthorAgentId\x88\x01\x01\x12\x12\n" +
 	"\x04body\x18\x05 \x01(\tR\x04body\x12\x1e\n" +
 	"\n" +
-	"suggestion\x18\v \x03(\tR\n" +
+	"suggestion\x18\x06 \x03(\tR\n" +
 	"suggestion\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAt\x129\n" +
-	"\bdelivery\x18\b \x01(\x0e2\x1d.agent.v1.ReviewDeliveryStateR\bdelivery\x12\x17\n" +
-	"\asent_at\x18\t \x01(\tR\x06sentAt\x12!\n" +
-	"\fdelivered_at\x18\n" +
-	" \x01(\tR\vdeliveredAt\x12 \n" +
+	"updated_at\x18\b \x01(\tR\tupdatedAt\x129\n" +
+	"\bdelivery\x18\t \x01(\x0e2\x1d.agent.v1.ReviewDeliveryStateR\bdelivery\x12\x17\n" +
+	"\asent_at\x18\n" +
+	" \x01(\tR\x06sentAt\x12!\n" +
+	"\fdelivered_at\x18\v \x01(\tR\vdeliveredAt\x12 \n" +
 	"\treview_id\x18\f \x01(\tH\x01R\breviewId\x88\x01\x01\x12\x1e\n" +
 	"\bround_id\x18\r \x01(\tH\x02R\aroundId\x88\x01\x01\x120\n" +
 	"\x05forge\x18\x0e \x01(\v2\x15.agent.v1.ForgeOriginH\x03R\x05forge\x88\x01\x01\x12(\n" +
@@ -3283,18 +3284,18 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x19CreateReviewThreadRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x19\n" +
-	"\bbase_sha\x18\n" +
-	" \x01(\tR\abaseSha\x12!\n" +
-	"\fsnapshot_sha\x18\v \x01(\tR\vsnapshotSha\x12\x1b\n" +
-	"\told_start\x18\x03 \x01(\x05R\boldStart\x12\x17\n" +
-	"\aold_end\x18\x04 \x01(\x05R\x06oldEnd\x12\x1b\n" +
-	"\tnew_start\x18\x05 \x01(\x05R\bnewStart\x12\x17\n" +
-	"\anew_end\x18\x06 \x01(\x05R\x06newEnd\x12!\n" +
-	"\fquoted_lines\x18\a \x03(\tR\vquotedLines\x12\x1e\n" +
-	"\x04body\x18\b \x01(\tB\n" +
+	"\bbase_sha\x18\x03 \x01(\tR\abaseSha\x12!\n" +
+	"\fsnapshot_sha\x18\x04 \x01(\tR\vsnapshotSha\x12\x1b\n" +
+	"\told_start\x18\x05 \x01(\x05R\boldStart\x12\x17\n" +
+	"\aold_end\x18\x06 \x01(\x05R\x06oldEnd\x12\x1b\n" +
+	"\tnew_start\x18\a \x01(\x05R\bnewStart\x12\x17\n" +
+	"\anew_end\x18\b \x01(\x05R\x06newEnd\x12!\n" +
+	"\fquoted_lines\x18\t \x03(\tR\vquotedLines\x12\x1e\n" +
+	"\x04body\x18\n" +
+	" \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
-	"suggestion\x18\t \x03(\tR\n" +
+	"suggestion\x18\v \x03(\tR\n" +
 	"suggestion\"L\n" +
 	"\x1aCreateReviewThreadResponse\x12.\n" +
 	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x9d\x01\n" +
@@ -3352,20 +3353,20 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x12ListReviewsRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"A\n" +
 	"\x13ListReviewsResponse\x12*\n" +
-	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xa6\x01\n" +
+	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\x95\x01\n" +
 	"\x14ReleaseReviewRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12;\n" +
 	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\b\xbaH\x05\x82\x01\x02\x10\x01R\averdict\x12\x1c\n" +
-	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04bodyJ\x04\b\x03\x10\x04R\tinterrupt\"q\n" +
+	"\x04body\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04body\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\"\x97\x01\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"\x87\x01\n" +
 	"\x10ReviewViewedFile\x12\x17\n" +
-	"\atask_id\x18\x05 \x01(\tR\x06taskId\x12\x1b\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x1b\n" +
 	"\tviewed_at\x18\x03 \x01(\tR\bviewedAt\x12 \n" +
-	"\vfingerprint\x18\x04 \x01(\tR\vfingerprintJ\x04\b\x01\x10\x02R\bagent_id\"\xa0\x01\n" +
+	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"\xa0\x01\n" +
 	"\x1aSetReviewFileViewedRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
 	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x16\n" +
@@ -3376,24 +3377,24 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1cListReviewViewedFilesRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"S\n" +
 	"\x1dListReviewViewedFilesResponse\x122\n" +
-	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xad\x03\n" +
+	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xee\x02\n" +
 	"\n" +
 	"ForgeReply\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12/\n" +
 	"\x05state\x18\x03 \x01(\x0e2\x19.agent.v1.ForgeReplyStateR\x05state\x12\x12\n" +
-	"\x04body\x18\a \x01(\tR\x04body\x12\x1f\n" +
-	"\vapproved_at\x18\b \x01(\tR\n" +
+	"\x04body\x18\x04 \x01(\tR\x04body\x12\x1f\n" +
+	"\vapproved_at\x18\x05 \x01(\tR\n" +
 	"approvedAt\x12,\n" +
-	"\x12sending_started_at\x18\t \x01(\tR\x10sendingStartedAt\x12\x17\n" +
-	"\asent_at\x18\n" +
-	" \x01(\tR\x06sentAt\x12-\n" +
-	"\x10forge_comment_id\x18\v \x01(\tH\x00R\x0eforgeCommentId\x88\x01\x01\x12\x19\n" +
-	"\x05error\x18\f \x01(\tH\x01R\x05error\x88\x01\x01\x12\x1d\n" +
+	"\x12sending_started_at\x18\x06 \x01(\tR\x10sendingStartedAt\x12\x17\n" +
+	"\asent_at\x18\a \x01(\tR\x06sentAt\x12-\n" +
+	"\x10forge_comment_id\x18\b \x01(\tH\x00R\x0eforgeCommentId\x88\x01\x01\x12\x19\n" +
+	"\x05error\x18\t \x01(\tH\x01R\x05error\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\r \x01(\tR\tcreatedAtB\x13\n" +
+	"created_at\x18\n" +
+	" \x01(\tR\tcreatedAtB\x13\n" +
 	"\x11_forge_comment_idB\b\n" +
-	"\x06_errorJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\vauthor_kindR\x0fauthor_agent_idR\rproposed_body\"X\n" +
+	"\x06_error\"X\n" +
 	"\x13ReplyOnForgeRequest\x12$\n" +
 	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1b\n" +
 	"\x04body\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04body\"B\n" +
@@ -3420,13 +3421,13 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1aREVIEW_VERDICT_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17REVIEW_VERDICT_APPROVED\x10\x01\x12$\n" +
 	" REVIEW_VERDICT_CHANGES_REQUESTED\x10\x02\x12\x1c\n" +
-	"\x18REVIEW_VERDICT_COMMENTED\x10\x03*\xcc\x01\n" +
+	"\x18REVIEW_VERDICT_COMMENTED\x10\x03*\xad\x01\n" +
 	"\x0fForgeReplyState\x12!\n" +
 	"\x1dFORGE_REPLY_STATE_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aFORGE_REPLY_STATE_APPROVED\x10\x02\x12\x1d\n" +
-	"\x19FORGE_REPLY_STATE_SENDING\x10\x03\x12\x1a\n" +
-	"\x16FORGE_REPLY_STATE_SENT\x10\x04\x12\x1c\n" +
-	"\x18FORGE_REPLY_STATE_FAILED\x10\x05\"\x04\b\x01\x10\x01*\x17FORGE_REPLY_STATE_DRAFTB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x1aFORGE_REPLY_STATE_APPROVED\x10\x01\x12\x1d\n" +
+	"\x19FORGE_REPLY_STATE_SENDING\x10\x02\x12\x1a\n" +
+	"\x16FORGE_REPLY_STATE_SENT\x10\x03\x12\x1c\n" +
+	"\x18FORGE_REPLY_STATE_FAILED\x10\x04B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_review_proto_rawDescOnce sync.Once

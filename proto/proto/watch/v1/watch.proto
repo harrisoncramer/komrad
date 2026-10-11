@@ -54,21 +54,21 @@ message Row {
     // A schedule as ListSchedules renders it.
     schedule.v1.Schedule schedule = 3;
     // A piece of mail as ListMail renders it.
-    agent.v1.Mail mail = 5;
+    agent.v1.Mail mail = 4;
     // A pull request as ListPullRequests renders it.
-    pullrequest.v1.PullRequest pull_request = 6;
+    pullrequest.v1.PullRequest pull_request = 5;
     // A repository and whether its pull requests have been read.
-    pullrequest.v1.Repository repository = 7;
+    pullrequest.v1.Repository repository = 6;
     // A review of an agent's work, without its body.
-    agent.v1.WatchedReview review = 8;
+    agent.v1.WatchedReview review = 7;
     // A review thread with its messages.
-    agent.v1.ReviewThread review_thread = 9;
+    agent.v1.ReviewThread review_thread = 8;
     // A worktree as the filesystem holds it.
-    worktree.v1.WatchedWorktree worktree = 10;
+    worktree.v1.WatchedWorktree worktree = 9;
     // A document type with its context.
-    agent.v1.DocumentType document_type = 11;
+    agent.v1.DocumentType document_type = 10;
     // A task as ListTasks renders it.
-    task.v1.Task task = 12;
+    task.v1.Task task = 11;
   }
 }
 
@@ -83,21 +83,21 @@ enum Resource {
   // A row of schedules.
   RESOURCE_SCHEDULE = 3;
   // A row of mail.
-  RESOURCE_MAIL = 5;
+  RESOURCE_MAIL = 4;
   // A row of pull_requests.
-  RESOURCE_PULL_REQUEST = 6;
+  RESOURCE_PULL_REQUEST = 5;
   // A row of pull_request_syncs.
-  RESOURCE_REPOSITORY = 7;
+  RESOURCE_REPOSITORY = 6;
   // A row of reviews.
-  RESOURCE_REVIEW = 8;
+  RESOURCE_REVIEW = 7;
   // A row of review_threads.
-  RESOURCE_REVIEW_THREAD = 9;
+  RESOURCE_REVIEW_THREAD = 8;
   // A row of worktrees.
-  RESOURCE_WORKTREE = 10;
+  RESOURCE_WORKTREE = 9;
   // A row of document_types.
-  RESOURCE_DOCUMENT_TYPE = 11;
+  RESOURCE_DOCUMENT_TYPE = 10;
   // A row of tasks.
-  RESOURCE_TASK = 12;
+  RESOURCE_TASK = 11;
 }
 
 // Deleted names a row its watched set no longer holds, whether it was removed or claimed for a

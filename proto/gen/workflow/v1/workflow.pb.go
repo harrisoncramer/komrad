@@ -43,20 +43,20 @@ type Workflow struct {
 	// Which CLI its agents run, blank for komrad's default.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
 	// When it was hidden from the panel, unset while it is live.
-	ArchivedAt *string `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	ArchivedAt *string `protobuf:"bytes,7,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	// Whether its agents each get a worktree of their own, and how those are built.
-	Worktree *WorktreeConfig `protobuf:"bytes,10,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// Scripts hung on moments in its agents' lives, one per moment.
-	Hooks []*WorkflowHook `protobuf:"bytes,12,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	Hooks []*WorkflowHook `protobuf:"bytes,9,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	// Whether context holds only its opening, which a summary listing returns.
-	ContextTruncated bool `protobuf:"varint,14,opt,name=context_truncated,json=contextTruncated,proto3" json:"context_truncated,omitempty"`
+	ContextTruncated bool `protobuf:"varint,10,opt,name=context_truncated,json=contextTruncated,proto3" json:"context_truncated,omitempty"`
 	// Which CLI its reviewers run, blank for the one its other agents run.
-	ReviewerHarness string `protobuf:"bytes,15,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
+	ReviewerHarness string `protobuf:"bytes,11,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
 	// Command-line flags for each new reviewer, blank for the other agents' flags when the CLI is
 	// the same.
-	ReviewerFlags string `protobuf:"bytes,16,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
+	ReviewerFlags string `protobuf:"bytes,12,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
 	// What its agents are asked to do when komrad mails them an event, one per event.
-	EventPrompts  []*WorkflowEventPrompt `protobuf:"bytes,17,rep,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
+	EventPrompts  []*WorkflowEventPrompt `protobuf:"bytes,13,rep,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -657,16 +657,16 @@ type CreateWorkflowRequest struct {
 	// Which CLI its agents run, blank for komrad's default.
 	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
 	// Whether its agents each get a worktree, and how those are built.
-	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	Worktree *WorktreeConfig `protobuf:"bytes,6,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// Scripts to hang on moments in its agents' lives.
-	Hooks []*WorkflowHook `protobuf:"bytes,10,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	Hooks []*WorkflowHook `protobuf:"bytes,7,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	// Which CLI its reviewers run, blank for the one its other agents run.
-	ReviewerHarness string `protobuf:"bytes,11,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
+	ReviewerHarness string `protobuf:"bytes,8,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
 	// Flags for each new reviewer, blank for the other agents' flags when the CLI is the same.
-	ReviewerFlags string `protobuf:"bytes,12,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
+	ReviewerFlags string `protobuf:"bytes,9,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
 	// What its agents are asked to do when komrad mails them an event. Left unset, the workflow
 	// starts with komrad's default prompt for each event, and set with no prompts it starts with none.
-	EventPrompts  *WorkflowEventPrompts `protobuf:"bytes,13,opt,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
+	EventPrompts  *WorkflowEventPrompts `protobuf:"bytes,10,opt,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -832,15 +832,15 @@ type UpdateWorkflowRequest struct {
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
 	// Turning worktrees off reaches agents already running, since whether komrad removes a
 	// directory is read when the agent is deleted.
-	Worktree *WorktreeConfig `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
+	Worktree *WorktreeConfig `protobuf:"bytes,7,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// The whole hook list, so send back the ones you are keeping.
-	Hooks []*WorkflowHook `protobuf:"bytes,11,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	Hooks []*WorkflowHook `protobuf:"bytes,8,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	// Which CLI reviewers spawned afterwards run.
-	ReviewerHarness string `protobuf:"bytes,12,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
+	ReviewerHarness string `protobuf:"bytes,9,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
 	// Flags for reviewers spawned afterwards.
-	ReviewerFlags string `protobuf:"bytes,13,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
+	ReviewerFlags string `protobuf:"bytes,10,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
 	// The whole prompt list, so send back the ones you are keeping.
-	EventPrompts  []*WorkflowEventPrompt `protobuf:"bytes,14,rep,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
+	EventPrompts  []*WorkflowEventPrompt `protobuf:"bytes,11,rep,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1144,15 +1144,15 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x03cwd\x18\x04 \x01(\tR\x03cwd\x12\x14\n" +
 	"\x05flags\x18\x05 \x01(\tR\x05flags\x12\x18\n" +
 	"\aharness\x18\x06 \x01(\tR\aharness\x12$\n" +
-	"\varchived_at\x18\t \x01(\tH\x00R\n" +
+	"\varchived_at\x18\a \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x127\n" +
-	"\bworktree\x18\n" +
-	" \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
-	"\x05hooks\x18\f \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooks\x12+\n" +
-	"\x11context_truncated\x18\x0e \x01(\bR\x10contextTruncated\x12)\n" +
-	"\x10reviewer_harness\x18\x0f \x01(\tR\x0freviewerHarness\x12%\n" +
-	"\x0ereviewer_flags\x18\x10 \x01(\tR\rreviewerFlags\x12E\n" +
-	"\revent_prompts\x18\x11 \x03(\v2 .workflow.v1.WorkflowEventPromptR\feventPromptsB\x0e\n" +
+	"\bworktree\x18\b \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
+	"\x05hooks\x18\t \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooks\x12+\n" +
+	"\x11context_truncated\x18\n" +
+	" \x01(\bR\x10contextTruncated\x12)\n" +
+	"\x10reviewer_harness\x18\v \x01(\tR\x0freviewerHarness\x12%\n" +
+	"\x0ereviewer_flags\x18\f \x01(\tR\rreviewerFlags\x12E\n" +
+	"\revent_prompts\x18\r \x03(\v2 .workflow.v1.WorkflowEventPromptR\feventPromptsB\x0e\n" +
 	"\f_archived_at\"\xa8\x05\n" +
 	"\x13WorkflowEventPrompt\x12\xd8\x04\n" +
 	"\x05event\x18\x01 \x01(\tB\xc1\x04\xbaH\xbd\x04r\xba\x04R#pull_request.checks_failing_runningR\x1bpull_request.checks_failingR\x1bpull_request.checks_passingR\x1epull_request.changes_requestedR\x15pull_request.approvedR\x18pull_request.conflictingR\x13pull_request.behindR\x13pull_request.mergedR\x13pull_request.closedR\x1apull_request.auto_merge_onR\x10worktree.rebasedR\x0fworktree.landedR\x1aworktree.rebase_conflictedR\x16worktree.rebase_failedR\x1adocument.written_by_personR\x0freview.approvedR\x18review.changes_requestedR\x10review.commentedR\x1areview.commented_by_personR\x16review.forge_commentedR\x0freview.answeredR\x1creview.forge_reply_requestedR\x1areview.forge_reply_decidedR\x05event\x12 \n" +
@@ -1193,12 +1193,12 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x03cwd\x18\x03 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
 	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
 	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x127\n" +
-	"\bworktree\x18\b \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x129\n" +
-	"\x05hooks\x18\n" +
-	" \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooks\x12@\n" +
-	"\x10reviewer_harness\x18\v \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\x0freviewerHarness\x123\n" +
-	"\x0ereviewer_flags\x18\f \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\rreviewerFlags\x12F\n" +
-	"\revent_prompts\x18\r \x01(\v2!.workflow.v1.WorkflowEventPromptsR\feventPrompts\"K\n" +
+	"\bworktree\x18\x06 \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x129\n" +
+	"\x05hooks\x18\a \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooks\x12@\n" +
+	"\x10reviewer_harness\x18\b \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\x0freviewerHarness\x123\n" +
+	"\x0ereviewer_flags\x18\t \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\rreviewerFlags\x12F\n" +
+	"\revent_prompts\x18\n" +
+	" \x01(\v2!.workflow.v1.WorkflowEventPromptsR\feventPrompts\"K\n" +
 	"\x16CreateWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xaa\x04\n" +
 	"\x15UpdateWorkflowRequest\x12\x17\n" +
@@ -1208,11 +1208,12 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x03cwd\x18\x04 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
 	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
 	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x127\n" +
-	"\bworktree\x18\t \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x129\n" +
-	"\x05hooks\x18\v \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooks\x12@\n" +
-	"\x10reviewer_harness\x18\f \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\x0freviewerHarness\x123\n" +
-	"\x0ereviewer_flags\x18\r \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\rreviewerFlags\x12O\n" +
-	"\revent_prompts\x18\x0e \x03(\v2 .workflow.v1.WorkflowEventPromptB\b\xbaH\x05\x92\x01\x02\x102R\feventPrompts\"1\n" +
+	"\bworktree\x18\a \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x129\n" +
+	"\x05hooks\x18\b \x03(\v2\x19.workflow.v1.WorkflowHookB\b\xbaH\x05\x92\x01\x02\x102R\x05hooks\x12@\n" +
+	"\x10reviewer_harness\x18\t \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\x0freviewerHarness\x123\n" +
+	"\x0ereviewer_flags\x18\n" +
+	" \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\rreviewerFlags\x12O\n" +
+	"\revent_prompts\x18\v \x03(\v2 .workflow.v1.WorkflowEventPromptB\b\xbaH\x05\x92\x01\x02\x102R\feventPrompts\"1\n" +
 	"\x16ArchiveWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"1\n" +
 	"\x16RestoreWorkflowRequest\x12\x17\n" +
@@ -1222,13 +1223,13 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xb5\f\n" +
 	"\x0fWorkflowService\x12\xf9\x01\n" +
-	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa0\x01\x9a\xb5\x18\x98\x01\b\x01\x10\x01\x1a\x0elist_workflows\"}List the workflows, alphabetically, with the opening of each context. Archived workflows are left out unless archived is set.B\x03\x01\x02\x03\x90\x02\x01\x12\x8b\x01\n" +
-	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"9\x9a\xb5\x182\b\x01\x10\x01\x1a\fget_workflow\"\x19Fetch one workflow by id.B\x03\x01\x02\x03\x90\x02\x01\x12\xde\x01\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x82\x01\x9a\xb5\x18~\b\x01\x10\x01\x1a\x0fcreate_workflow\"bCreate a workflow to group agents under. docs/src/content/guides/workflows.md explains each field.(\x00B\x01\x03\x12\xa9\x02\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xda\x01\x9a\xb5\x18\xd2\x01\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xb5\x01Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing. A context edit reaches only agents spawned afterwards.(\x00B\x01\x03\x90\x02\x02\x12\xcd\x01\n" +
-	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"}\x9a\xb5\x18v\b\x01\x10\x01\x1a\x10archive_workflow\"YArchive a workflow and the agents in it. Refused while a schedule still launches into it.(\x00B\x01\x03\x90\x02\x02\x12\xf0\x01\n" +
-	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x10restore_workflow\"lTake a workflow out of the archive with its agents, dormant. Call resume_agent on the ones you want running.(\x00B\x01\x03\x90\x02\x02\x12\xc7\x01\n" +
-	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"y\x9a\xb5\x18r\b\x01\x10\x01\x1a\x0fdelete_workflow\"VPermanently delete an archived workflow with its archived agents, tasks and schedules.(\x01B\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa0\x01\x9a\xb5\x18\x98\x01\b\x01\x10\x01\x1a\x0elist_workflows\"}List the workflows, alphabetically, with the opening of each context. Archived workflows are left out unless archived is set.:\x03\x01\x02\x03\x90\x02\x01\x12\x8b\x01\n" +
+	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"9\x9a\xb5\x182\b\x01\x10\x01\x1a\fget_workflow\"\x19Fetch one workflow by id.:\x03\x01\x02\x03\x90\x02\x01\x12\xde\x01\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x82\x01\x9a\xb5\x18~\b\x01\x10\x01\x1a\x0fcreate_workflow\"bCreate a workflow to group agents under. docs/src/content/guides/workflows.md explains each field.(\x00:\x01\x03\x12\xa9\x02\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xda\x01\x9a\xb5\x18\xd2\x01\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xb5\x01Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing. A context edit reaches only agents spawned afterwards.(\x00:\x01\x03\x90\x02\x02\x12\xcd\x01\n" +
+	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"}\x9a\xb5\x18v\b\x01\x10\x01\x1a\x10archive_workflow\"YArchive a workflow and the agents in it. Refused while a schedule still launches into it.(\x00:\x01\x03\x90\x02\x02\x12\xf0\x01\n" +
+	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x10restore_workflow\"lTake a workflow out of the archive with its agents, dormant. Call resume_agent on the ones you want running.(\x00:\x01\x03\x90\x02\x02\x12\xc7\x01\n" +
+	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"y\x9a\xb5\x18r\b\x01\x10\x01\x1a\x0fdelete_workflow\"VPermanently delete an archived workflow with its archived agents, tasks and schedules.(\x01:\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

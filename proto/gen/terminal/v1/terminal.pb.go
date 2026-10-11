@@ -709,8 +709,8 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"\x04exit\x18\x03 \x01(\v2\x11.terminal.v1.ExitH\x00R\x04exitB\t\n" +
 	"\amessage2\xa1\x02\n" +
 	"\x0fTerminalService\x12\x82\x01\n" +
-	"\x05Shell\x12\x19.terminal.v1.ShellRequest\x1a\x1a.terminal.v1.ShellResponse\">\x9a\xb5\x18::8a terminal a person types into, which komrad shell opens(\x010\x01\x12\x88\x01\n" +
-	"\x06Attach\x12\x1a.terminal.v1.AttachRequest\x1a\x1b.terminal.v1.AttachResponse\"A\x9a\xb5\x18=:;a terminal a person types into, which komrad terminal opens(\x010\x01B)Z'komrad/proto/gen/terminal/v1;terminalv1b\x06proto3"
+	"\x05Shell\x12\x19.terminal.v1.ShellRequest\x1a\x1a.terminal.v1.ShellResponse\">\x9a\xb5\x18:B8a terminal a person types into, which komrad shell opens(\x010\x01\x12\x88\x01\n" +
+	"\x06Attach\x12\x1a.terminal.v1.AttachRequest\x1a\x1b.terminal.v1.AttachResponse\"A\x9a\xb5\x18=B;a terminal a person types into, which komrad terminal opens(\x010\x01B)Z'komrad/proto/gen/terminal/v1;terminalv1b\x06proto3"
 
 var (
 	file_terminal_v1_terminal_proto_rawDescOnce sync.Once

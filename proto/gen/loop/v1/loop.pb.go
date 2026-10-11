@@ -140,7 +140,7 @@ const file_loop_v1_loop_proto_rawDesc = "" +
 	"\x14LOOP_TRANSCRIPT_SYNC\x10\x02\x12\x1a\n" +
 	"\x16LOOP_PULL_REQUEST_SYNC\x10\x032\x92\x01\n" +
 	"\vLoopService\x12\x82\x01\n" +
-	"\bWakeLoop\x12\x18.loop.v1.WakeLoopRequest\x1a\x16.google.protobuf.Empty\"D\x9a\xb5\x18=:;the panel wakes a loop when a person looks at what it reads\x90\x02\x02B!Z\x1fkomrad/proto/gen/loop/v1;loopv1b\x06proto3"
+	"\bWakeLoop\x12\x18.loop.v1.WakeLoopRequest\x1a\x16.google.protobuf.Empty\"D\x9a\xb5\x18=B;the panel wakes a loop when a person looks at what it reads\x90\x02\x02B!Z\x1fkomrad/proto/gen/loop/v1;loopv1b\x06proto3"
 
 var (
 	file_loop_v1_loop_proto_rawDescOnce sync.Once

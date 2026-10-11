@@ -1140,14 +1140,14 @@ const file_git_v1_git_proto_rawDesc = "" +
 	"isAncestor2\xf1\a\n" +
 	"\n" +
 	"GitService\x12\x86\x01\n" +
-	"\aGetRoot\x12\x16.git.v1.GetRootRequest\x1a\x17.git.v1.GetRootResponse\"J\x9a\xb5\x18C:Athe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x8c\x01\n" +
-	"\tReadFiles\x12\x18.git.v1.ReadFilesRequest\x1a\x19.git.v1.ReadFilesResponse\"J\x9a\xb5\x18C:Athe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\xa4\x01\n" +
-	"\x11CountChangedFiles\x12 .git.v1.CountChangedFilesRequest\x1a!.git.v1.CountChangedFilesResponse\"J\x9a\xb5\x18C:Athe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12}\n" +
-	"\x04Diff\x12\x13.git.v1.DiffRequest\x1a\x14.git.v1.DiffResponse\"J\x9a\xb5\x18C:Athe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x8c\x01\n" +
-	"\tMapRanges\x12\x18.git.v1.MapRangesRequest\x1a\x19.git.v1.MapRangesResponse\"J\x9a\xb5\x18C:Athe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x83\x01\n" +
-	"\x06Replay\x12\x15.git.v1.ReplayRequest\x1a\x16.git.v1.ReplayResponse\"J\x9a\xb5\x18C:Athe review screen's git on a remote engine, which the panel calls\x90\x02\x02\x12\x8f\x01\n" +
+	"\aGetRoot\x12\x16.git.v1.GetRootRequest\x1a\x17.git.v1.GetRootResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x8c\x01\n" +
+	"\tReadFiles\x12\x18.git.v1.ReadFilesRequest\x1a\x19.git.v1.ReadFilesResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\xa4\x01\n" +
+	"\x11CountChangedFiles\x12 .git.v1.CountChangedFilesRequest\x1a!.git.v1.CountChangedFilesResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12}\n" +
+	"\x04Diff\x12\x13.git.v1.DiffRequest\x1a\x14.git.v1.DiffResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x8c\x01\n" +
+	"\tMapRanges\x12\x18.git.v1.MapRangesRequest\x1a\x19.git.v1.MapRangesResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x83\x01\n" +
+	"\x06Replay\x12\x15.git.v1.ReplayRequest\x1a\x16.git.v1.ReplayResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x02\x12\x8f\x01\n" +
 	"\n" +
-	"IsAncestor\x12\x19.git.v1.IsAncestorRequest\x1a\x1a.git.v1.IsAncestorResponse\"J\x9a\xb5\x18C:Athe review screen's git on a remote engine, which the panel calls\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/git/v1;gitv1b\x06proto3"
+	"IsAncestor\x12\x19.git.v1.IsAncestorRequest\x1a\x1a.git.v1.IsAncestorResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/git/v1;gitv1b\x06proto3"
 
 var (
 	file_git_v1_git_proto_rawDescOnce sync.Once

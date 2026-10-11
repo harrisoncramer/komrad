@@ -155,9 +155,9 @@ message CreateScheduleRequest {
   bool enabled = 4;
   // True to start the task each launch works on hidden from the panel's sidebar, ignored by an
   // orchestrator schedule.
-  bool hide_agents = 7;
+  bool hide_agents = 5;
   // The opening prompt each launch is given, or the mail an orchestrator is sent.
-  string prompt = 5 [(buf.validate.field).string = {
+  string prompt = 6 [(buf.validate.field).string = {
     min_len: 1
     max_len: 50000
   }];
@@ -165,7 +165,7 @@ message CreateScheduleRequest {
   oneof target {
     option (buf.validate.oneof).required = true;
     // Launch an implementer into this workflow, whose cwd and flags it inherits.
-    string workflow_id = 6 [(buf.validate.field).string.min_len = 1];
+    string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
     // Mail the prompt to this orchestrator.
     string orchestrator_agent_id = 8 [(buf.validate.field).string.min_len = 1];
   }
@@ -205,10 +205,10 @@ message UpdateScheduleRequest {
     // Launch an implementer into this workflow.
     string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
     // Mail the prompt to this orchestrator.
-    string orchestrator_agent_id = 9 [(buf.validate.field).string.min_len = 1];
+    string orchestrator_agent_id = 8 [(buf.validate.field).string.min_len = 1];
   }
   // Whether the tasks of later launches start hidden, leaving existing tasks alone.
-  bool hide_agents = 8;
+  bool hide_agents = 9;
 }
 
 message SetScheduleEnabledRequest {

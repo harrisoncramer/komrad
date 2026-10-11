@@ -99,10 +99,10 @@ type Surfaces struct {
 	// idempotency_level says.
 	Idempotent *bool `protobuf:"varint,6,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
 	// Which agent roles may call the method and are offered it as a tool, required of every tool.
-	Roles []Role `protobuf:"varint,8,rep,packed,name=roles,proto3,enum=annotation.v1.Role" json:"roles,omitempty"`
+	Roles []Role `protobuf:"varint,7,rep,packed,name=roles,proto3,enum=annotation.v1.Role" json:"roles,omitempty"`
 	// Why a surface is left off, in a sentence, so the next reader is told rather than left to
 	// work it out. Required when either surface is off.
-	Reason        string `protobuf:"bytes,7,opt,name=reason,proto3" json:"reason,omitempty"`
+	Reason        string `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -227,8 +227,8 @@ const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\n" +
 	"idempotent\x18\x06 \x01(\bH\x01R\n" +
 	"idempotent\x88\x01\x01\x12)\n" +
-	"\x05roles\x18\b \x03(\x0e2\x13.annotation.v1.RoleR\x05roles\x12\x16\n" +
-	"\x06reason\x18\a \x01(\tR\x06reasonB\x0e\n" +
+	"\x05roles\x18\a \x03(\x0e2\x13.annotation.v1.RoleR\x05roles\x12\x16\n" +
+	"\x06reason\x18\b \x01(\tR\x06reasonB\x0e\n" +
 	"\f_destructiveB\r\n" +
 	"\v_idempotent*\\\n" +
 	"\x04Role\x12\x14\n" +
