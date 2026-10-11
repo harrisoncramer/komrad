@@ -330,7 +330,7 @@ func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams
 
 const getTaskByAgentID = `-- name: GetTaskByAgentID :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden
 FROM
     tasks
 WHERE
@@ -373,6 +373,7 @@ func (q *Queries) GetTaskByAgentID(ctx context.Context, agentID string) (*Task, 
 		&i.FailureReason,
 		&i.Notes,
 		&i.NotesUpdatedAt,
+		&i.IsHidden,
 	)
 	return &i, err
 }
