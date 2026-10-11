@@ -153,28 +153,34 @@ func sortWorktreeItems(items []worktreeItem, order sortOrder) {
 	})
 }
 
-// rows is the list as the frame renders it, built once per frame and read from that build after.
+type worktreeRowsKey struct {
+	revision int
+	scope    worktreeScope
+	order    sortOrder
+	flat     bool
+	filter   filterKey
+}
+
 func (w *worktreesScreen) rows(m *model) []worktreeRow {
-	if w.frameRows != nil {
-		return w.frameRows
+	order := worktreesTabs().order(w.sort)
+	key := worktreeRowsKey{
+		revision: w.revision,
+		scope:    w.scope,
+		order:    order,
+		flat:     w.sort.flat,
+		filter:   m.filter.key(),
 	}
 
-	return w.buildRows(m)
-}
-
-func (w *worktreesScreen) buildFrame(m *model) {
-	w.frameRows = w.buildRows(m)
-}
-
-func (w *worktreesScreen) buildRows(m *model) []worktreeRow {
-	return narrowed(m.filter, narrowedParams[worktreeRow]{
-		rows: worktreeRows(worktreeRowsParams{
-			items: w.shown(),
-			order: worktreesTabs().order(w.sort),
-			flat:  w.sort.flat,
-		}),
-		depth: worktreeRowDepth,
-		name:  worktreeRow.name,
+	return w.built.read(key, func() []worktreeRow {
+		return narrowed(m.filter, narrowedParams[worktreeRow]{
+			rows: worktreeRows(worktreeRowsParams{
+				items: w.shown(),
+				order: order,
+				flat:  w.sort.flat,
+			}),
+			depth: worktreeRowDepth,
+			name:  worktreeRow.name,
+		})
 	})
 }
 

@@ -8,10 +8,6 @@ type frameBuilder interface {
 // dropFrames forgets what the screens built for the last frame, so an update reads the state it changes.
 func (m *model) dropFrames() {
 	m.agents.rendered = nil
-	m.worktrees.frameRows = nil
-	m.schedules.frameRows = nil
-	m.agents.archived.frameRows = nil
-	m.schedules.archived.frameRows = nil
 }
 
 // buildFrame builds what the active screen renders from the state the update left.
@@ -19,6 +15,20 @@ func (m *model) buildFrame() {
 	if builder, ok := m.active().(frameBuilder); ok {
 		builder.buildFrame(m)
 	}
+}
+
+type shownScreen struct {
+	screen    screen
+	agents    agentsKind
+	schedules schedulesKind
+}
+
+func (m *model) shownScreen() shownScreen {
+	return shownScreen{screen: m.screen, agents: m.agents.kind, schedules: m.schedules.kind}
+}
+
+func (m *model) forgetDetailsFit() {
+	m.detailsFits = derived[shownScreen, bool]{}
 }
 
 // dropRenderedView forgets the frame View last rendered, keeping it while the panel waits to be told its size.

@@ -47,6 +47,9 @@ type documentsScreen struct {
 	kindFocus     bool
 	documentTypes rowCursor
 	items         []documentItem
+	revision      int
+	built         derived[documentRowsKey, []documentRow]
+	builtTypes    derived[listingKey, []documentTypeRow]
 	// listedAt is the newest write the list was read at, and listedCount how many were written.
 	listedAt    *time.Time
 	listedCount int32
@@ -196,24 +199,37 @@ func (d *documentsScreen) documentTypeList() screenList[documentTypeRow] {
 	}
 }
 
+type documentRowsKey struct {
+	revision int
+	listing  listingKey
+	agentID  string
+	taskID   string
+}
+
 func (d *documentsScreen) rows(m *model) []documentRow {
-	return narrowed(m.filter, narrowedParams[documentRow]{
-		rows: xslice.Map(d.items, func(item documentItem) documentRow {
-			return documentRow{item: item}
-		}),
-		depth: func(documentRow) int { return 0 },
-		name:  documentRowName,
-		fits:  m.documentRowFits,
+	key := documentRowsKey{revision: d.revision, listing: m.listingKey(), agentID: d.agentID, taskID: d.taskID}
+
+	return d.built.read(key, func() []documentRow {
+		return narrowed(m.filter, narrowedParams[documentRow]{
+			rows: xslice.Map(d.items, func(item documentItem) documentRow {
+				return documentRow{item: item}
+			}),
+			depth: func(documentRow) int { return 0 },
+			name:  documentRowName,
+			fits:  m.documentRowFits,
+		})
 	})
 }
 
 func (d *documentsScreen) documentTypeRows(m *model) []documentTypeRow {
-	return narrowed(m.filter, narrowedParams[documentTypeRow]{
-		rows: xslice.Map(m.listing.documentTypes, func(t *agentv1.DocumentType) documentTypeRow {
-			return documentTypeRow{documentType: t}
-		}),
-		depth: func(documentTypeRow) int { return 0 },
-		name:  documentTypeRowName,
+	return d.builtTypes.read(m.listingKey(), func() []documentTypeRow {
+		return narrowed(m.filter, narrowedParams[documentTypeRow]{
+			rows: xslice.Map(m.listing.documentTypes, func(t *agentv1.DocumentType) documentTypeRow {
+				return documentTypeRow{documentType: t}
+			}),
+			depth: func(documentTypeRow) int { return 0 },
+			name:  documentTypeRowName,
+		})
 	})
 }
 
@@ -408,6 +424,7 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 
 	hovered := d.list().hovered(m)
 	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
+	d.revision++
 	d.keepCursor(m, hovered)
 
 	return m.readDocumentsCmd()

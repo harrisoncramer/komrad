@@ -310,7 +310,9 @@ type model struct {
 	loading loadingState
 
 	// picker is the window as the pane picker froze it.
-	picker pickerState
+	picker      pickerState
+	wheelHit    wheelHit
+	detailsFits derived[shownScreen, bool]
 
 	// leading is whether the leader was pressed and the key after it is still to come.
 	leading bool

@@ -26,9 +26,8 @@ const (
 // how they are ordered.
 type archivedAgents struct {
 	rowCursor
-	sort tabsState
-	// frameRows is the rows built for the frame once an update settles, and nil while one runs.
-	frameRows []agentRow
+	sort  tabsState
+	built derived[archivedRowsKey, []agentRow]
 	renameSlot
 }
 
@@ -172,30 +171,32 @@ var archivedAgentSorts = []sortColumn[panel.AgentRow]{
 	},
 }
 
-// listRows is the list as rendered, or as it would be rendered when nothing has cached it.
+type archivedRowsKey struct {
+	generation int
+	order      sortOrder
+	flat       bool
+	filter     filterKey
+}
+
 func (a *archivedAgents) listRows(m *model) []agentRow {
-	if a.frameRows != nil {
-		return a.frameRows
+	order := archivedAgentTabs().order(a.sort)
+	key := archivedRowsKey{
+		generation: m.listing.generation,
+		order:      order,
+		flat:       a.sort.flat,
+		filter:     m.filter.key(),
 	}
 
-	return a.buildRows(m)
-}
-
-func (a *archivedAgents) buildFrame(m *model) {
-	a.frameRows = a.buildRows(m)
-}
-
-func (a *archivedAgents) buildRows(m *model) []agentRow {
-	rows := treeRows(treeRowsParams{
-		workflows:         archivedAgentHeaders(m.listing),
-		agents:            sortedAgents(m.listing.archivedAgents, archivedAgentSorts, archivedAgentTabs().order(a.sort)),
-		showHidden:        true,
-		foldOrchestrators: !a.sort.flat,
-		flat:              a.sort.flat,
-		tasks:             m.listing.tasks,
+	return a.built.read(key, func() []agentRow {
+		return narrowedAgentRows(m, treeRows(treeRowsParams{
+			workflows:         archivedAgentHeaders(m.listing),
+			agents:            sortedAgents(m.listing.archivedAgents, archivedAgentSorts, order),
+			showHidden:        true,
+			foldOrchestrators: !a.sort.flat,
+			flat:              a.sort.flat,
+			tasks:             m.listing.tasks,
+		}))
 	})
-
-	return narrowedAgentRows(m, rows)
 }
 
 // archivedAgentHeaders is every workflow the archived agents render a folder for: the archived ones, and the
@@ -250,7 +251,7 @@ func (a *archivedAgents) hoveredAgent(m *model) (panel.Agent, bool) {
 // hoveredWorkflow is the archived workflow the cursor is on, and none on an agent or on the
 // folder of a live workflow.
 func (a *archivedAgents) hoveredWorkflow(m *model) (panel.Workflow, bool) {
-	workflow, ok := hoveredHeader(a.listRows(m), a.cursor)
+	workflow, ok := hoveredHeader(rowAt(a.listRows(m), a.cursor))
 	if !ok || workflow.ArchivedAt == nil {
 		return panel.Workflow{}, false
 	}

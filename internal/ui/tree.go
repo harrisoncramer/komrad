@@ -24,6 +24,7 @@ type agentsScreen struct {
 	sort       tabsState
 	// rendered is the list built for the frame once an update settles, and nil while one runs.
 	rendered *agentsLayout
+	tree     derived[agentTreeKey, []agentRow]
 	triage   triageZone
 	editing  *agentEdit
 	// resuming is the agents a resume is in flight for.
@@ -337,20 +338,42 @@ func (a *agentsScreen) buildFrame(m *model) {
 
 func (a *agentsScreen) buildLayout(m *model) agentsLayout {
 	zone, waiting := buildZone(a.triage, m, a.showHidden)
-	tree := treeRows(treeRowsParams{
-		workflows:         m.listing.workflows,
-		agents:            sortedAgents(m.listing.agents, agentSorts, agentsTabs().order(a.sort)),
-		showHidden:        a.showHidden,
-		foldOrchestrators: true,
-		flat:              a.sort.flat,
-		tasks:             m.listing.tasks,
-	})
 
 	return agentsLayout{
 		zone:    zone,
 		waiting: waiting,
-		tree:    narrowedAgentRows(m, tree),
+		tree:    a.buildTree(m),
 	}
+}
+
+type agentTreeKey struct {
+	generation int
+	order      sortOrder
+	flat       bool
+	showHidden bool
+	filter     filterKey
+}
+
+func (a *agentsScreen) buildTree(m *model) []agentRow {
+	order := agentsTabs().order(a.sort)
+	key := agentTreeKey{
+		generation: m.listing.generation,
+		order:      order,
+		flat:       a.sort.flat,
+		showHidden: a.showHidden,
+		filter:     m.filter.key(),
+	}
+
+	return a.tree.read(key, func() []agentRow {
+		return narrowedAgentRows(m, treeRows(treeRowsParams{
+			workflows:         m.listing.workflows,
+			agents:            sortedAgents(m.listing.agents, agentSorts, order),
+			showHidden:        a.showHidden,
+			foldOrchestrators: true,
+			flat:              a.sort.flat,
+			tasks:             m.listing.tasks,
+		}))
+	})
 }
 
 func narrowedAgentRows(m *model, rows []agentRow) []agentRow {
@@ -363,11 +386,11 @@ func narrowedAgentRows(m *model, rows []agentRow) []agentRow {
 }
 
 func (a *agentsScreen) hoveredRow(m *model) (agentRow, bool) {
-	return rowAt(a.rows(m), a.cursor)
+	return a.layout(m).cursorRow(a.cursor)
 }
 
 func (a *agentsScreen) hoveredWorkflow(m *model) (panel.Workflow, bool) {
-	return hoveredHeader(a.rows(m), a.cursor)
+	return hoveredHeader(a.hoveredRow(m))
 }
 
 // hoveredPane is the agent whose pane the row under the cursor shows, and none where that row
@@ -428,8 +451,7 @@ func (a *agentsScreen) hoveredPaneItem(m *model) (panel.AgentRow, bool) {
 	return row.paneItem()
 }
 
-func hoveredHeader(rows []agentRow, cursor int) (panel.Workflow, bool) {
-	row, ok := rowAt(rows, cursor)
+func hoveredHeader(row agentRow, ok bool) (panel.Workflow, bool) {
 	if !ok || !row.header || row.isTask() {
 		return panel.Workflow{}, false
 	}
@@ -677,10 +699,14 @@ type listing struct {
 	archivedSchedules []scheduleItem
 	worktrees         []worktreeItem
 	documentTypes     []*agentv1.DocumentType
+	agentsByID        map[string]panel.AgentRow
+	children          map[string][]panel.AgentRow
+	generation        int
 }
 
 // assemble renders the listings, live and archived, from the world as it stands now.
 func (l *listing) assemble(now time.Time) {
+	l.generation++
 	agents := agentRowsFrom(assemble.AgentRows(l.world, now), l.world.Tasks)
 	l.tasks = tasksFrom(assemble.TaskRows(l.world))
 	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents, l.tasks)
@@ -691,6 +717,8 @@ func (l *listing) assemble(now time.Time) {
 	l.archivedAgents = slices.DeleteFunc(agents, func(row panel.AgentRow) bool {
 		return !isArchivedAgent(row)
 	})
+	l.agentsByID = keyAgentsByID(l.agents)
+	l.children = childrenByParent(l.agents)
 
 	workflows := workflowsFrom(slices.Collect(maps.Values(l.world.Workflows)))
 	slices.SortFunc(workflows, func(a, b panel.Workflow) int {

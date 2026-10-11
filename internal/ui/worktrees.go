@@ -305,14 +305,15 @@ type worktreesScreen struct {
 	scope      worktreeScope
 	scopeFocus bool
 	sort       tabsState
-	// frameRows is the rows built for the frame once an update settles, and nil while one runs.
-	frameRows []worktreeRow
+	revision   int
+	built      derived[worktreeRowsKey, []worktreeRow]
 }
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
 // screen was opened for.
 func (w *worktreesScreen) apply(m *model, items []worktreeItem, hovered string) {
 	w.items = items
+	w.revision++
 
 	focus := w.focus
 	w.focus = ""

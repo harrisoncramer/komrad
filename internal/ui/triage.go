@@ -284,7 +284,7 @@ func (z *triageZone) refreeze(agents []panel.AgentRow) {
 
 	byID := keyAgentsByID(agents)
 	frozen := xslice.Filter(z.frozen, func(id string) bool { return !z.isSnoozed(triageKey(byID[id])) })
-	waiting := xslice.Filter(findTriageFamilies(z.entries, agents), func(f triageFamily) bool {
+	waiting := xslice.Filter(findTriageFamilies(z.entries, agents, byID), func(f triageFamily) bool {
 		return !z.isSnoozed(triageKey(f.head)) && !slices.Contains(frozen, f.head.Agent.ID)
 	})
 	slices.SortFunc(waiting, z.compareFamilies)
@@ -323,7 +323,7 @@ func (z *triageZone) findFamily(item panel.AgentRow, agents []panel.AgentRow) (t
 // familiesByKey is the most urgent family in triage on each task, or of each agent standing alone.
 func (z *triageZone) familiesByKey(agents []panel.AgentRow) map[string]triageFamily {
 	byKey := make(map[string]triageFamily)
-	for _, family := range findTriageFamilies(z.entries, agents) {
+	for _, family := range findTriageFamilies(z.entries, agents, keyAgentsByID(agents)) {
 		key := triageKey(family.head)
 		if was, ok := byKey[key]; ok && compareUrgency(was.entry, family.entry) <= 0 {
 			continue
@@ -345,8 +345,7 @@ func triageKey(head panel.AgentRow) string {
 }
 
 // findTriageFamilies groups the agents in triage under their heads, in the listing's order.
-func findTriageFamilies(entries map[string]triageEntry, agents []panel.AgentRow) []triageFamily {
-	byID := keyAgentsByID(agents)
+func findTriageFamilies(entries map[string]triageEntry, agents []panel.AgentRow, byID map[string]panel.AgentRow) []triageFamily {
 	at := make(map[string]int)
 	var families []triageFamily
 	for _, item := range agents {
@@ -499,10 +498,18 @@ func (l agentsLayout) cursorRows() []agentRow {
 	return slices.Concat(l.zone, l.tree)
 }
 
+func (l agentsLayout) cursorRow(cursor int) (agentRow, bool) {
+	if cursor < len(l.zone) {
+		return rowAt(l.zone, cursor)
+	}
+
+	return rowAt(l.tree, cursor-len(l.zone))
+}
+
 // buildZone renders the most urgent families the zone has slots for and counts those left waiting.
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
-	children := childrenByParent(m.listing.agents)
-	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
+	children := m.listing.children
+	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents, m.listing.agentsByID), func(f triageFamily) bool {
 		return (!isOnHiddenTask(m.listing.tasks, f.head.Agent) || showHidden) && !z.isSnoozed(triageKey(f.head))
 	})
 	ordered := z.orderFamilies(families)

@@ -140,7 +140,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 
 // focusBlockAt hands the keys to the block under the mouse, as jumping to it would.
 func (m *model) focusBlockAt(x, y int) tea.Cmd {
-	for _, block := range slices.Backward(m.findSidebarBlocks()) {
+	for _, block := range slices.Backward(m.findWheelBlocks()) {
 		if !isInRect(block.rect, x, y) {
 			continue
 		}
@@ -190,4 +190,21 @@ func (m *model) wheelKeys(rows int) []string {
 	}
 
 	return m.keys.Column.ScrollDown
+}
+
+const wheelGesture = 250 * time.Millisecond
+
+type wheelHit struct {
+	blocks []sidebarBlock
+	at     time.Time
+}
+
+func (m *model) findWheelBlocks() []sidebarBlock {
+	now := time.Now()
+	if m.wheelHit.blocks == nil || now.Sub(m.wheelHit.at) >= wheelGesture {
+		m.wheelHit.blocks = m.findSidebarBlocks()
+	}
+	m.wheelHit.at = now
+
+	return m.wheelHit.blocks
 }

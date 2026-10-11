@@ -18,8 +18,7 @@ var errUnknownScheduleKind = errors.New("this build of komrad does not know the 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
 	rowCursor
-	// frameRows is the rows built for the frame once an update settles, and nil while one runs.
-	frameRows []scheduleItem
+	built derived[listingKey, []scheduleItem]
 	renameSlot
 	kind      schedulesKind
 	kindFocus bool
@@ -74,25 +73,14 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 	}
 }
 
-// listRows is the list as rendered, or as it would be rendered when nothing has cached it.
 func (w *schedulesScreen) listRows(m *model) []scheduleItem {
-	if w.frameRows != nil {
-		return w.frameRows
-	}
-
-	return w.buildRows(m)
-}
-
-func (w *schedulesScreen) buildFrame(m *model) {
-	w.frameRows = w.buildRows(m)
-}
-
-func (w *schedulesScreen) buildRows(m *model) []scheduleItem {
-	return narrowed(m.filter, narrowedParams[scheduleItem]{
-		rows:  m.listing.schedules,
-		depth: func(scheduleItem) int { return 0 },
-		name:  scheduleItemName,
-		fits:  m.scheduleItemFits,
+	return w.built.read(m.listingKey(), func() []scheduleItem {
+		return narrowed(m.filter, narrowedParams[scheduleItem]{
+			rows:  m.listing.schedules,
+			depth: func(scheduleItem) int { return 0 },
+			name:  scheduleItemName,
+			fits:  m.scheduleItemFits,
+		})
 	})
 }
 

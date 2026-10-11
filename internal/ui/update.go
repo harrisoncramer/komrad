@@ -41,6 +41,9 @@ func (m *model) Init() tea.Cmd {
 
 // Update routes a message to the screen that owns it, and keeps the row cursor blinking.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if _, ok := msg.(tea.KeyPressMsg); ok {
+		m.wheelHit = wheelHit{}
+	}
 	m.dropFrames()
 	was := m.atStop()
 	landed := m.messages.landed
@@ -52,6 +55,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	warming := m.pollWarmup()
 	spinning := m.spinLoader()
 	pulse := m.pulseMessages(landed)
+	m.forgetDetailsFit()
 	m.releaseHiddenDetails()
 	m.dropStaleDoc()
 	said := m.readSaidCmd()
@@ -80,6 +84,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		}
 
 		m.resizeTo(size)
+		m.wheelHit = wheelHit{}
 	}
 
 	key, isKey := msg.(tea.KeyPressMsg)
