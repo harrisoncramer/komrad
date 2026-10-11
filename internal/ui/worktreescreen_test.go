@@ -250,7 +250,7 @@ func TestWorktreesDelete(t *testing.T) {
 		harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}})
 	})
 
-	t.Run("a choice mixing a task checkout with the rest says why it deletes nothing", func(t *testing.T) {
+	t.Run("a choice mixing a task checkout with the rest asks once and deletes each its own way", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t, buildTaskWorktrees()...)
@@ -258,9 +258,12 @@ func TestWorktreesDelete(t *testing.T) {
 
 		harness.press("v", "j", "v", "space", "a", "d")
 
-		assert.Contains(t, harness.readFrame(), "Could not delete 2 worktrees")
-		harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure)
-		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
+		assert.Contains(t, harness.readFrame(), "Delete 2 worktrees?")
+
+		harness.press("y")
+
+		harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{Tasks: []string{"t9"}})
+		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, &worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/zz"}})
 	})
 }
 

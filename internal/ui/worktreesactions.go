@@ -168,8 +168,8 @@ func (d worktreeDeletion) chosen() int {
 	return d.count() + len(d.tasks)
 }
 
-// confirmDeleteChosen asks before the chosen directories go, refusing a choice that mixes task
-// checkouts with the rest.
+// confirmDeleteChosen asks once before the chosen directories go, the task checkouts with their
+// tasks and the rest through the remover.
 func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
 	switch {
 	case len(deletion.tasks) == 0:
@@ -178,12 +178,20 @@ func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
 		return confirmDeleteTasks(m, deletion.tasks)
 	}
 
-	m.reportBrief(
-		"Could not delete "+label.Count(deletion.chosen(), "worktree", "worktrees"),
-		"a task's worktree goes with its task, so choose those apart from the rest",
-	)
+	form, confirmed := deleteMixedForm(deletion, len(m.listing.agentsOnTasks(deletion.tasks)), fixedKeys())
 
-	return nil
+	return m.openForm(formState{
+		kind:   formWorktreesDelete,
+		form:   form,
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
+			if !*confirmed {
+				return nil
+			}
+
+			return tea.Batch(m.deleteTasks(deletion.tasks), deleteWorktreesCmd(m, deletion))
+		}),
+	})
 }
 
 // confirmDeleteWorktrees asks before a deletion.
