@@ -25,8 +25,12 @@ func TestIsOpening(t *testing.T) {
 			agent: agentstore.Agent{ID: "starting"},
 		},
 		{
-			name:  "a child opens nothing",
-			agent: agentstore.Agent{ID: "starting", TaskID: &taskID, ParentAgentID: &parentID},
+			name: "a child opens nothing",
+			agent: agentstore.Agent{
+				ID:            "starting",
+				TaskID:        &taskID,
+				ParentAgentID: &parentID,
+			},
 		},
 		{
 			name:  "another live agent holds the task open",

@@ -707,12 +707,20 @@ func TestAgentsRecordFocus(t *testing.T) {
 		y := findRecordLine(harness.readFrame(), "agent")
 		require.GreaterOrEqual(t, y, 0)
 
-		harness.send(tea.MouseWheelMsg{X: 1, Y: y, Button: tea.MouseWheelDown})
+		harness.send(tea.MouseWheelMsg{
+			X:      1,
+			Y:      y,
+			Button: tea.MouseWheelDown,
+		})
 
 		frame := harness.readFrame()
 		assert.Regexp(t, `^directory\s+/repo$`, readRecordCursor(frame))
 
-		harness.send(tea.MouseWheelMsg{X: 1, Y: 9, Button: tea.MouseWheelUp})
+		harness.send(tea.MouseWheelMsg{
+			X:      1,
+			Y:      9,
+			Button: tea.MouseWheelUp,
+		})
 
 		frame = harness.readFrame()
 		assert.Empty(t, readRecordCursor(frame))

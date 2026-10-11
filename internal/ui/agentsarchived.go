@@ -279,7 +279,11 @@ func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 	if a.selected.isActive() {
 		work := splitChosen(m.listing, chosenAgents(a.selected, a.listRows(m)))
 
-		return archived{work: work, title: describeAgents(work.chosen), chosen: true}, len(work.chosen) > 0
+		return archived{
+			work:   work,
+			title:  describeAgents(work.chosen),
+			chosen: true,
+		}, len(work.chosen) > 0
 	}
 
 	if workflow, ok := a.hoveredWorkflow(m); ok {

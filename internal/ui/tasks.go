@@ -94,7 +94,11 @@ func findAgentTask(tasks map[string]panel.Task, agent panel.Agent) panel.Task {
 		return task
 	}
 
-	return panel.Task{ID: agent.TaskID, WorkflowID: agent.WorkflowID, Slug: agent.TaskSlug}
+	return panel.Task{
+		ID:         agent.TaskID,
+		WorkflowID: agent.WorkflowID,
+		Slug:       agent.TaskSlug,
+	}
 }
 
 // isOnHiddenTask reports whether the agent works on a hidden task.
@@ -263,7 +267,11 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 				return formResized()
 			}
 
-			params := updateTaskParams{id: task.ID, title: &title, goal: &goal}
+			params := updateTaskParams{
+				id:    task.ID,
+				title: &title,
+				goal:  &goal,
+			}
 			if notes := strings.TrimSpace(values.Notes); notes != strings.TrimSpace(task.Notes) {
 				params.notes, params.notesUpdatedAt = &notes, task.NotesUpdatedAt
 			}
@@ -364,7 +372,11 @@ func splitAcross(l listing, chosen []panel.Agent, candidates []panel.Task) chose
 	whole := taskIDs(wholeTasks)
 	loneAgents := xslice.Filter(chosen, func(agent panel.Agent) bool { return !slices.Contains(whole, agent.TaskID) })
 
-	return chosenWork{chosen: chosen, wholeTasks: wholeTasks, loneAgents: loneAgents}
+	return chosenWork{
+		chosen:     chosen,
+		wholeTasks: wholeTasks,
+		loneAgents: loneAgents,
+	}
 }
 
 // rechecked is the work with each task an agent has joined since handed back to its chosen agents.

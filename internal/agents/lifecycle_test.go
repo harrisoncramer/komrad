@@ -1748,7 +1748,11 @@ func newTaskDeleteFixture(t *testing.T, lifecycle *fakeLifecycle, config workflo
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	built := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-	created, err := st.workflowService(workflowServiceOptions{tmux: tmux, lifecycle: lifecycle, hooks: everyHook{}}).NewWorkflow(t.Context(), config)
+	created, err := st.workflowService(workflowServiceOptions{
+		tmux:      tmux,
+		lifecycle: lifecycle,
+		hooks:     everyHook{},
+	}).NewWorkflow(t.Context(), config)
 	require.NoError(t, err)
 
 	return &taskDeleteFixture{

@@ -200,8 +200,12 @@ func TestCreateForAgent(t *testing.T) {
 			wantGoal:  "Fix the login page.",
 		},
 		{
-			name:      "a title is kept over the name",
-			params:    createForAgentParams{Name: "fix-login", Title: " Login is broken ", Prompt: "go"},
+			name: "a title is kept over the name",
+			params: createForAgentParams{
+				Name:   "fix-login",
+				Title:  " Login is broken ",
+				Prompt: "go",
+			},
 			wantSlug:  "fix-login",
 			wantTitle: "Login is broken",
 			wantGoal:  "go",
@@ -237,11 +241,32 @@ func TestUpdateTaskNotes(t *testing.T) {
 	elsewhere := stores.SeedWorkflow(t, workflowstore.Config{Name: "elsewhere"})
 	work := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
 	other := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "other"})
-	writer := stores.SeedAgent(t, agentstore.Agent{Name: "writer", WorkflowID: workflow.ID, TaskID: &work.ID})
-	reviewer := stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", WorkflowID: workflow.ID, ParentAgentID: &writer.ID, TaskID: &work.ID})
-	stranger := stores.SeedAgent(t, agentstore.Agent{Name: "stranger", WorkflowID: workflow.ID, TaskID: &other.ID})
-	orchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "orchestrator", WorkflowID: workflow.ID, Role: agentstore.RoleOrchestrator})
-	farOrchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "far", WorkflowID: elsewhere.ID, Role: agentstore.RoleOrchestrator})
+	writer := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "writer",
+		WorkflowID: workflow.ID,
+		TaskID:     &work.ID,
+	})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{
+		Name:          "reviewer",
+		WorkflowID:    workflow.ID,
+		ParentAgentID: &writer.ID,
+		TaskID:        &work.ID,
+	})
+	stranger := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "stranger",
+		WorkflowID: workflow.ID,
+		TaskID:     &other.ID,
+	})
+	orchestrator := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "orchestrator",
+		WorkflowID: workflow.ID,
+		Role:       agentstore.RoleOrchestrator,
+	})
+	farOrchestrator := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "far",
+		WorkflowID: elsewhere.ID,
+		Role:       agentstore.RoleOrchestrator,
+	})
 
 	tests := []struct {
 		name     string

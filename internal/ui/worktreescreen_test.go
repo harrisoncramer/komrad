@@ -485,7 +485,11 @@ func TestWorktreesRecord(t *testing.T) {
 
 		harness := openWorktrees(t,
 			newLiveWorkflow("w1", "komrad"),
-			&taskv1.Task{Id: "t9", WorkflowId: "w1", Slug: "fix-login"},
+			&taskv1.Task{
+				Id:         "t9",
+				WorkflowId: "w1",
+				Slug:       "fix-login",
+			},
 			&worktreev1.WatchedWorktree{
 				Dir:      "/trees/t9",
 				RepoDir:  "/home/h/komrad",
@@ -1277,10 +1281,33 @@ func newWorktreeTask(agent *agentv1.Agent) *taskv1.Task {
 func buildTaskWorktrees() []proto.Message {
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
-		&taskv1.Task{Id: "t8", WorkflowId: "w1", Slug: "alpha"},
-		&taskv1.Task{Id: "t9", WorkflowId: "w1", Slug: "beta"},
-		&worktreev1.WatchedWorktree{Dir: "/trees/t8", RepoDir: "/home/h/komrad", Branch: "task/t8", Readable: true},
-		&worktreev1.WatchedWorktree{Dir: "/trees/t9", RepoDir: "/home/h/komrad", Branch: "task/t9", Readable: true},
-		&worktreev1.WatchedWorktree{Dir: "/trees/zz", RepoDir: "/home/h/komrad", Branch: "agent/zz", Readable: true},
+		&taskv1.Task{
+			Id:         "t8",
+			WorkflowId: "w1",
+			Slug:       "alpha",
+		},
+		&taskv1.Task{
+			Id:         "t9",
+			WorkflowId: "w1",
+			Slug:       "beta",
+		},
+		&worktreev1.WatchedWorktree{
+			Dir:      "/trees/t8",
+			RepoDir:  "/home/h/komrad",
+			Branch:   "task/t8",
+			Readable: true,
+		},
+		&worktreev1.WatchedWorktree{
+			Dir:      "/trees/t9",
+			RepoDir:  "/home/h/komrad",
+			Branch:   "task/t9",
+			Readable: true,
+		},
+		&worktreev1.WatchedWorktree{
+			Dir:      "/trees/zz",
+			RepoDir:  "/home/h/komrad",
+			Branch:   "agent/zz",
+			Readable: true,
+		},
 	}
 }

@@ -1444,8 +1444,22 @@ func buildArchivedTasks() []proto.Message {
 	return []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		refactor, review, tune, auth, authLive,
-		&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "api-work", ArchivedAt: xptr.Ptr(archivedAt)},
-		&taskv1.Task{Id: "t2", WorkflowId: "w1", Slug: "db-work", ArchivedAt: xptr.Ptr(archivedAt)},
-		&taskv1.Task{Id: "t3", WorkflowId: "w1", Slug: "auth-work"},
+		&taskv1.Task{
+			Id:         "t1",
+			WorkflowId: "w1",
+			Slug:       "api-work",
+			ArchivedAt: xptr.Ptr(archivedAt),
+		},
+		&taskv1.Task{
+			Id:         "t2",
+			WorkflowId: "w1",
+			Slug:       "db-work",
+			ArchivedAt: xptr.Ptr(archivedAt),
+		},
+		&taskv1.Task{
+			Id:         "t3",
+			WorkflowId: "w1",
+			Slug:       "auth-work",
+		},
 	}
 }

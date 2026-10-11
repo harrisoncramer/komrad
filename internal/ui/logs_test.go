@@ -970,8 +970,16 @@ func TestLogsTask(t *testing.T) {
 
 		assert.Contains(t, readStageText(harness.readFrame()), "launched the author")
 		harness.assertSentTo(logv1connect.LogServiceReadAgentLogsProcedure,
-			&logv1.ReadAgentLogsRequest{AgentIds: []string{"a2"}, Source: "001-task.pre-open-setup.log", Limit: 500},
-			&logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-agent.pre-launch-setup.log", Limit: 500},
+			&logv1.ReadAgentLogsRequest{
+				AgentIds: []string{"a2"},
+				Source:   "001-task.pre-open-setup.log",
+				Limit:    500,
+			},
+			&logv1.ReadAgentLogsRequest{
+				AgentIds: []string{"a1"},
+				Source:   "001-agent.pre-launch-setup.log",
+				Limit:    500,
+			},
 		)
 	})
 }

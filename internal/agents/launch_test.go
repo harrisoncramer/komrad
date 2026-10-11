@@ -1438,49 +1438,85 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		{
 			name: "a task in another workflow is refused",
 			params: func(workflowID string, _, elsewhere *taskstore.Task) NewAgentParams {
-				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: elsewhere.Slug}
+				return NewAgentParams{
+					Title:      "fix-login",
+					Prompt:     "go",
+					WorkflowID: workflowID,
+					Task:       elsewhere.Slug,
+				}
 			},
 			wantErrIs: tasks.ErrOtherWorkflow,
 		},
 		{
 			name: "a task named by id is joined",
 			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
-				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: work.ID}
+				return NewAgentParams{
+					Title:      "fix-login",
+					Prompt:     "go",
+					WorkflowID: workflowID,
+					Task:       work.ID,
+				}
 			},
 			wantTask: "work",
 		},
 		{
 			name: "a task named by slug is joined",
 			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
-				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: work.Slug}
+				return NewAgentParams{
+					Title:      "fix-login",
+					Prompt:     "go",
+					WorkflowID: workflowID,
+					Task:       work.Slug,
+				}
 			},
 			wantTask: "work",
 		},
 		{
 			name: "no task makes one of its own under an unused slug",
 			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
-				return NewAgentParams{Title: "work", Prompt: "Fix the login page.\nMore.", WorkflowID: workflowID}
+				return NewAgentParams{
+					Title:      "work",
+					Prompt:     "Fix the login page.\nMore.",
+					WorkflowID: workflowID,
+				}
 			},
 			wantTask: "work-2",
 		},
 		{
 			name: "joining a task and describing one to make is refused",
 			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
-				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, Task: work.ID, TaskSlug: "login"}
+				return NewAgentParams{
+					Title:      "fix-login",
+					Prompt:     "go",
+					WorkflowID: workflowID,
+					Task:       work.ID,
+					TaskSlug:   "login",
+				}
 			},
 			wantErrIs: errTaskMadeAndJoined,
 		},
 		{
 			name: "a slug asked for that a task already has is refused",
 			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
-				return NewAgentParams{Title: "fix-login", Prompt: "go", WorkflowID: workflowID, TaskSlug: work.Slug}
+				return NewAgentParams{
+					Title:      "fix-login",
+					Prompt:     "go",
+					WorkflowID: workflowID,
+					TaskSlug:   work.Slug,
+				}
 			},
 			wantErrIs: store.ErrNameTaken,
 		},
 		{
 			name: "a slug and a goal asked for make the task as given",
 			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
-				return NewAgentParams{Title: "Fix login", Prompt: "Look at it.", WorkflowID: workflowID, TaskSlug: "login", TaskGoal: "Logins work."}
+				return NewAgentParams{
+					Title:      "Fix login",
+					Prompt:     "Look at it.",
+					WorkflowID: workflowID,
+					TaskSlug:   "login",
+					TaskGoal:   "Logins work.",
+				}
 			},
 			wantTask: "login",
 			wantGoal: "Logins work.",
@@ -1488,7 +1524,12 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		{
 			name: "an orchestrator is put on no task",
 			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
-				return NewAgentParams{Title: "lead", Prompt: "go", WorkflowID: workflowID, Role: agentstore.RoleOrchestrator}
+				return NewAgentParams{
+					Title:      "lead",
+					Prompt:     "go",
+					WorkflowID: workflowID,
+					Role:       agentstore.RoleOrchestrator,
+				}
 			},
 		},
 	}
@@ -1576,7 +1617,13 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 		{
 			name: "a second writer is refused while the first is live",
 			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
-				return NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir}
+				return NewAgentParams{
+					Title:      "rival",
+					Prompt:     "go",
+					WorkflowID: first.WorkflowID,
+					Task:       task.ID,
+					Dir:        dir,
+				}
 			},
 			wantErrIs:    tasks.ErrHasWriter,
 			wantCheckout: true,
@@ -1584,7 +1631,14 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 		{
 			name: "an agent told to keep the directory it was given joins without a checkout",
 			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
-				return NewAgentParams{Title: "helper", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir, ProvisionEnabled: xptr.Ptr(false)}
+				return NewAgentParams{
+					Title:            "helper",
+					Prompt:           "go",
+					WorkflowID:       first.WorkflowID,
+					Task:             task.ID,
+					Dir:              dir,
+					ProvisionEnabled: xptr.Ptr(false),
+				}
 			},
 			wantCheckout: true,
 		},
@@ -1599,7 +1653,13 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 			name:        "agents in a workflow without worktrees share the task and claim no checkout",
 			noWorktrees: true,
 			second: func(first agentstore.Agent, task *taskstore.Task, dir string) NewAgentParams {
-				return NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: first.WorkflowID, Task: task.ID, Dir: dir}
+				return NewAgentParams{
+					Title:      "rival",
+					Prompt:     "go",
+					WorkflowID: first.WorkflowID,
+					Task:       task.ID,
+					Dir:        dir,
+				}
 			},
 		},
 	}
@@ -1617,7 +1677,13 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 			require.NoError(t, err)
 			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
 
-			first, err := manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			first, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      "writer",
+				Prompt:     "go",
+				WorkflowID: workflow.ID,
+				Task:       work.ID,
+				Dir:        t.TempDir(),
+			})
 			require.NoError(t, err)
 
 			_, err = manager.launch.NewAgent(t.Context(), tt.second(*first, work, t.TempDir()))
@@ -1687,7 +1753,13 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 			require.NoError(t, err)
 			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
 
-			first, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			first, err := manager.launch.NewAgent(ctx, NewAgentParams{
+				Title:      "writer",
+				Prompt:     "go",
+				WorkflowID: workflow.ID,
+				Task:       work.ID,
+				Dir:        t.TempDir(),
+			})
 			require.NoError(t, err)
 			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
 
@@ -1698,7 +1770,12 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 				tt.remove(t, st, *before)
 			}
 
-			next, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "next", Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
+			next, err := manager.launch.NewAgent(ctx, NewAgentParams{
+				Title:      "next",
+				Prompt:     "carry on",
+				WorkflowID: workflow.ID,
+				Task:       work.ID,
+			})
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				assert.Nil(t, next)
@@ -1753,11 +1830,22 @@ func TestRetryRejoinsTheTasksCheckout(t *testing.T) {
 			workflow, err := newWorkflowService(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
 			require.NoError(t, err)
 			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
-			first, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			first, err := manager.launch.NewAgent(ctx, NewAgentParams{
+				Title:      "writer",
+				Prompt:     "go",
+				WorkflowID: workflow.ID,
+				Task:       work.ID,
+				Dir:        t.TempDir(),
+			})
 			require.NoError(t, err)
 			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
 			tmux.RespawnErr = errors.New("bad flags")
-			_, err = manager.launch.NewAgent(ctx, NewAgentParams{Title: "next", Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
+			_, err = manager.launch.NewAgent(ctx, NewAgentParams{
+				Title:      "next",
+				Prompt:     "carry on",
+				WorkflowID: workflow.ID,
+				Task:       work.ID,
+			})
 			require.Error(t, err)
 			tmux.RespawnErr = nil
 			listed, err := st.Agents.List(ctx)
@@ -1765,7 +1853,12 @@ func TestRetryRejoinsTheTasksCheckout(t *testing.T) {
 			failed := xslice.Filter(listed, func(agent agentstore.Agent) bool { return agent.State == agentstore.StateFailedToCreate })
 			require.Len(t, failed, 1)
 			if tt.otherJoins {
-				_, err = manager.launch.NewAgent(ctx, NewAgentParams{Title: "other", Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
+				_, err = manager.launch.NewAgent(ctx, NewAgentParams{
+					Title:      "other",
+					Prompt:     "carry on",
+					WorkflowID: workflow.ID,
+					Task:       work.ID,
+				})
 				require.NoError(t, err)
 			}
 
@@ -1802,7 +1895,13 @@ func TestConcurrentWritersJoinOnce(t *testing.T) {
 	require.NoError(t, err)
 	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
 
-	first, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+	first, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "writer",
+		Prompt:     "go",
+		WorkflowID: workflow.ID,
+		Task:       work.ID,
+		Dir:        t.TempDir(),
+	})
 	require.NoError(t, err)
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
 
@@ -1810,7 +1909,12 @@ func TestConcurrentWritersJoinOnce(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range errs {
 		wg.Go(func() {
-			_, errs[i] = manager.launch.NewAgent(ctx, NewAgentParams{Title: fmt.Sprintf("next-%d", i), Prompt: "carry on", WorkflowID: workflow.ID, Task: work.ID})
+			_, errs[i] = manager.launch.NewAgent(ctx, NewAgentParams{
+				Title:      fmt.Sprintf("next-%d", i),
+				Prompt:     "carry on",
+				WorkflowID: workflow.ID,
+				Task:       work.ID,
+			})
 		})
 	}
 	wg.Wait()
@@ -1856,7 +1960,13 @@ func TestFailedCreateGivesUpItsTasksCheckout(t *testing.T) {
 			require.NoError(t, err)
 			work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
 
-			_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "writer", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+			_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
+				Title:      "writer",
+				Prompt:     "go",
+				WorkflowID: workflow.ID,
+				Task:       work.ID,
+				Dir:        t.TempDir(),
+			})
 			require.Error(t, err)
 			failed, err := st.Agents.List(t.Context())
 			require.NoError(t, err)
@@ -1865,7 +1975,13 @@ func TestFailedCreateGivesUpItsTasksCheckout(t *testing.T) {
 
 			holder := failed[0].ID
 			if tt.rival {
-				rival, err := manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "rival", Prompt: "go", WorkflowID: workflow.ID, Task: work.ID, Dir: t.TempDir()})
+				rival, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+					Title:      "rival",
+					Prompt:     "go",
+					WorkflowID: workflow.ID,
+					Task:       work.ID,
+					Dir:        t.TempDir(),
+				})
 				require.NoError(t, err)
 				holder = rival.ID
 			}
@@ -2024,7 +2140,11 @@ func TestNewAgentIsBriefedOnItsTask(t *testing.T) {
 	st := newStore(t)
 	manager, fakeHarness := newManagerWithHarness(tmux, st, "")
 	workflowID := seedWorkflow(t, st)
-	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "fix-login", Goal: "Logins work."})
+	work := st.SeedTask(t, taskstore.CreateParams{
+		WorkflowID: workflowID,
+		Slug:       "fix-login",
+		Goal:       "Logins work.",
+	})
 	_, err := st.Tasks.Update(t.Context(), work.ID, taskstore.UpdateParams{Notes: xptr.Ptr("The cookie expires early.")})
 	require.NoError(t, err)
 

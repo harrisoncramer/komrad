@@ -198,7 +198,11 @@ func (s *Service) eligible(ctx context.Context, ref string) (*checkoutTarget, er
 		return nil, err
 	}
 
-	return &checkoutTarget{task: task, workflow: flow, writer: writer}, nil
+	return &checkoutTarget{
+		task:     task,
+		workflow: flow,
+		writer:   writer,
+	}, nil
 }
 
 // readWriter is the task's live writer, answering store.ErrNotFound when it has none and refusing

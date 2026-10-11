@@ -1122,7 +1122,12 @@ func TestJoinOpensTheTaskItRestores(t *testing.T) {
 			require.NoError(t, fx.agents.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
 			lifecycle.hookErrs = map[string]error{taskHook: tt.hookErr}
 
-			next, err := fx.agents.launch.NewAgent(ctx, NewAgentParams{Title: "next", Prompt: "carry on", WorkflowID: fx.workflow.ID, Task: *first.TaskID})
+			next, err := fx.agents.launch.NewAgent(ctx, NewAgentParams{
+				Title:      "next",
+				Prompt:     "carry on",
+				WorkflowID: fx.workflow.ID,
+				Task:       *first.TaskID,
+			})
 
 			task, getErr := fx.st.Tasks.Get(ctx, *first.TaskID)
 			require.NoError(t, getErr)

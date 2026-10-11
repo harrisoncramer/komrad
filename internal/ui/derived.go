@@ -10,7 +10,11 @@ type derived[K comparable, V any] struct {
 
 func (d *derived[K, V]) read(key K, build func() V) V {
 	if !d.built || d.key != key {
-		*d = derived[K, V]{built: true, key: key, value: build()}
+		*d = derived[K, V]{
+			built: true,
+			key:   key,
+			value: build(),
+		}
 	}
 
 	return d.value

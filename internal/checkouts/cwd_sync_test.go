@@ -748,8 +748,12 @@ func TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead(t *testing.T) {
 					Fingerprints: map[string]string{cwd: "fingerprint-one"},
 					DiffStats:    map[string]git.DiffStat{cwd: {Added: 4, Removed: 1}},
 				},
-				heads: buildHeads(cwd, git.HeadState{Root: cwd, SHA: "head-one", SnapshotTree: "round-tree"}),
-				cwd:   cwd,
+				heads: buildHeads(cwd, git.HeadState{
+					Root:         cwd,
+					SHA:          "head-one",
+					SnapshotTree: "round-tree",
+				}),
+				cwd: cwd,
 			}
 			if tt.setup != nil {
 				tt.setup(t, scene)

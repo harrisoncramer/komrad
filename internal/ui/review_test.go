@@ -55,7 +55,11 @@ func TestReviewOpen(t *testing.T) {
 			State:      agentv1.AgentState_AGENT_STATE_IDLE,
 			CreatedAt:  "2026-09-20T12:00:00Z",
 		}}
-		harness := newPanelHarness(t, panelHarnessParams{width: reviewWidth, height: reviewHeight, git: server.repo})
+		harness := newPanelHarness(t, panelHarnessParams{
+			width:  reviewWidth,
+			height: reviewHeight,
+			git:    server.repo,
+		})
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
 		harness.press("k")

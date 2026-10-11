@@ -242,7 +242,11 @@ func taskHeader(gathered []family, tasks map[string]panel.Task) agentRow {
 
 	task := findAgentTask(tasks, lead.Agent)
 
-	return agentRow{header: true, task: &task, lead: &lead}
+	return agentRow{
+		header: true,
+		task:   &task,
+		lead:   &lead,
+	}
 }
 
 // isBetterLead reports whether a task's header should wear the head over the lead it has so far.

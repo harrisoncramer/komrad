@@ -24,7 +24,11 @@ type shownScreen struct {
 }
 
 func (m *model) shownScreen() shownScreen {
-	return shownScreen{screen: m.screen, agents: m.agents.kind, schedules: m.schedules.kind}
+	return shownScreen{
+		screen:    m.screen,
+		agents:    m.agents.kind,
+		schedules: m.schedules.kind,
+	}
 }
 
 func (m *model) forgetDetailsFit() {
