@@ -152,7 +152,8 @@ type triageSnooze struct {
 	began  time.Time
 }
 
-// triageTask is a task in triage, led by its writer with its reviewers, or an agent on no task, named by the most urgent entry among them.
+// triageTask is a task in triage led by its writer, or an agent on no task, named by the most
+// urgent entry among them.
 type triageTask struct {
 	head  panel.AgentRow
 	entry triageEntry
