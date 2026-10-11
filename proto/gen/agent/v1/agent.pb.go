@@ -112,8 +112,6 @@ type AgentRole int32
 const (
 	// No role was recorded, which no stored agent answers with.
 	AgentRole_AGENT_ROLE_UNSPECIFIED AgentRole = 0
-	// An agent that lands work on a branch of its own.
-	AgentRole_AGENT_ROLE_IMPLEMENTER AgentRole = 1
 	// An agent on a task that reads its change and gives a review.
 	AgentRole_AGENT_ROLE_REVIEWER AgentRole = 2
 	// The agent drawn on a workflow's own row that hands work out.
@@ -126,14 +124,12 @@ const (
 var (
 	AgentRole_name = map[int32]string{
 		0: "AGENT_ROLE_UNSPECIFIED",
-		1: "AGENT_ROLE_IMPLEMENTER",
 		2: "AGENT_ROLE_REVIEWER",
 		3: "AGENT_ROLE_ORCHESTRATOR",
 		4: "AGENT_ROLE_WRITER",
 	}
 	AgentRole_value = map[string]int32{
 		"AGENT_ROLE_UNSPECIFIED":  0,
-		"AGENT_ROLE_IMPLEMENTER":  1,
 		"AGENT_ROLE_REVIEWER":     2,
 		"AGENT_ROLE_ORCHESTRATOR": 3,
 		"AGENT_ROLE_WRITER":       4,
@@ -201,8 +197,6 @@ type Agent struct {
 	IdempotencyKey *string `protobuf:"bytes,15,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	// Which agent called create, unset for one a person spawned.
 	SpawnedByAgentId *string `protobuf:"bytes,16,opt,name=spawned_by_agent_id,json=spawnedByAgentId,proto3,oneof" json:"spawned_by_agent_id,omitempty"`
-	// Unused.
-	ParentAgentId *string `protobuf:"bytes,17,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
 	// Whether a script komrad fired for the agent failed and nobody has looked at it since.
 	FailedRun bool `protobuf:"varint,18,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
 	// The run log that failure was written to, which is the run the panel opens on.
@@ -375,13 +369,6 @@ func (x *Agent) GetIdempotencyKey() string {
 func (x *Agent) GetSpawnedByAgentId() string {
 	if x != nil && x.SpawnedByAgentId != nil {
 		return *x.SpawnedByAgentId
-	}
-	return ""
-}
-
-func (x *Agent) GetParentAgentId() string {
-	if x != nil && x.ParentAgentId != nil {
-		return *x.ParentAgentId
 	}
 	return ""
 }
@@ -893,8 +880,6 @@ type CreateAgentRequest struct {
 	// False to run in the directory named above rather than a fresh worktree, which is how an
 	// agent reads a checkout somebody else has open. Unset to do whatever the workflow does.
 	ProvisionEnabled *bool `protobuf:"varint,7,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
-	// Refused. Pass task instead.
-	ParentAgentId *string `protobuf:"bytes,8,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
 	// Which task to put it on, by id or slug, which must be in workflow_id. It is the task's writer
 	// when the task has none yet, and otherwise a reviewer in the writer's checkout, for which
 	// provision_enabled is refused. Unset to start a task of its own, made from its title and
@@ -987,13 +972,6 @@ func (x *CreateAgentRequest) GetProvisionEnabled() bool {
 		return *x.ProvisionEnabled
 	}
 	return false
-}
-
-func (x *CreateAgentRequest) GetParentAgentId() string {
-	if x != nil && x.ParentAgentId != nil {
-		return *x.ParentAgentId
-	}
-	return ""
 }
 
 func (x *CreateAgentRequest) GetTask() string {
@@ -3191,8 +3169,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12task/v1/task.proto\x1a\x12view/v1/view.proto\"\x8c\n" +
-	"\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12task/v1/task.proto\x1a\x12view/v1/view.proto\"\xcb\t\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -3215,13 +3192,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"scheduleId\x88\x01\x01\x12\x19\n" +
 	"\x05alive\x18\x0e \x01(\bH\x02R\x05alive\x88\x01\x01\x12,\n" +
 	"\x0fidempotency_key\x18\x0f \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
-	"\x13spawned_by_agent_id\x18\x10 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12+\n" +
-	"\x0fparent_agent_id\x18\x11 \x01(\tH\x05R\rparentAgentId\x88\x01\x01\x12\x1d\n" +
+	"\x13spawned_by_agent_id\x18\x10 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"failed_run\x18\x12 \x01(\bR\tfailedRun\x12)\n" +
-	"\x0efailed_run_log\x18\x13 \x01(\x05H\x06R\ffailedRunLog\x88\x01\x01\x12\x1c\n" +
+	"\x0efailed_run_log\x18\x13 \x01(\x05H\x05R\ffailedRunLog\x88\x01\x01\x12\x1c\n" +
 	"\tdocuments\x18\x14 \x01(\x05R\tdocuments\x125\n" +
-	"\x14documents_updated_at\x18\x15 \x01(\tH\aR\x12documentsUpdatedAt\x88\x01\x01\x12(\n" +
+	"\x14documents_updated_at\x18\x15 \x01(\tH\x06R\x12documentsUpdatedAt\x88\x01\x01\x12(\n" +
 	"\x10state_changed_at\x18\x16 \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x17 \x01(\tR\x0ereportedReason\x12%\n" +
 	"\x0efailure_reason\x18\x18 \x01(\tR\rfailureReason\x12\x1d\n" +
@@ -3231,15 +3207,14 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10prompt_truncated\x18\x1b \x01(\bR\x0fpromptTruncated\x12\x17\n" +
 	"\aheld_at\x18\x1c \x01(\tR\x06heldAt\x12'\n" +
 	"\x10held_by_agent_id\x18\x1d \x01(\tR\rheldByAgentId\x12\x1c\n" +
-	"\atask_id\x18\x1e \x01(\tH\bR\x06taskId\x88\x01\x01\x12 \n" +
-	"\ttask_slug\x18\x1f \x01(\tH\tR\btaskSlug\x88\x01\x01\x12-\n" +
+	"\atask_id\x18\x1e \x01(\tH\aR\x06taskId\x88\x01\x01\x12 \n" +
+	"\ttask_slug\x18\x1f \x01(\tH\bR\btaskSlug\x88\x01\x01\x12-\n" +
 	"\x12provision_disabled\x18  \x01(\bR\x11provisionDisabledB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\x12\n" +
 	"\x10_idempotency_keyB\x16\n" +
-	"\x14_spawned_by_agent_idB\x12\n" +
-	"\x10_parent_agent_idB\x11\n" +
+	"\x14_spawned_by_agent_idB\x11\n" +
 	"\x0f_failed_run_logB\x17\n" +
 	"\x15_documents_updated_atB\n" +
 	"\n" +
@@ -3284,7 +3259,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12*\n" +
 	"\x06agents\x18\x01 \x03(\v2\x12.agent.v1.AgentRowR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xe2\x04\n" +
+	"\x10_next_page_token\"\x98\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\"\n" +
 	"\x05title\x18\x02 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x12\"\n" +
@@ -3294,15 +3269,13 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x120\n" +
-	"\x11provision_enabled\x18\a \x01(\bH\x01R\x10provisionEnabled\x88\x01\x01\x124\n" +
-	"\x0fparent_agent_id\x18\b \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\rparentAgentId\x88\x01\x01\x12 \n" +
-	"\x04task\x18\t \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\x04task\x88\x01\x01\x12C\n" +
+	"\x11provision_enabled\x18\a \x01(\bH\x01R\x10provisionEnabled\x88\x01\x01\x12 \n" +
+	"\x04task\x18\t \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\x04task\x88\x01\x01\x12C\n" +
 	"\ttask_slug\x18\n" +
-	" \x01(\tB!\xbaH\x1er\x1c\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x04R\btaskSlug\x88\x01\x01\x12&\n" +
+	" \x01(\tB!\xbaH\x1er\x1c\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x03R\btaskSlug\x88\x01\x01\x12&\n" +
 	"\ttask_goal\x18\v \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\btaskGoalB\x12\n" +
 	"\x10_idempotency_keyB\x14\n" +
-	"\x12_provision_enabledB\x12\n" +
-	"\x10_parent_agent_idB\a\n" +
+	"\x12_provision_enabledB\a\n" +
 	"\x05_taskB\f\n" +
 	"\n" +
 	"_task_slug\"<\n" +
@@ -3474,10 +3447,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x1cAGENT_STATE_FAILED_TO_CREATE\x10\x05\x12!\n" +
 	"\x1dAGENT_STATE_FAILED_TO_CLEANUP\x10\x06\x12\x19\n" +
 	"\x15AGENT_STATE_UNCERTAIN\x10\a\x12\x17\n" +
-	"\x13AGENT_STATE_ERRORED\x10\b*\x90\x01\n" +
+	"\x13AGENT_STATE_ERRORED\x10\b*t\n" +
 	"\tAgentRole\x12\x1a\n" +
-	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
+	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
 	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x03\x12\x15\n" +
 	"\x11AGENT_ROLE_WRITER\x10\x042\xa6\x80\x01\n" +

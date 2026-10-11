@@ -108,10 +108,6 @@ type Agent struct {
 	SpawnedByAgentID   *string
 	RequestedByAgentID *string
 
-	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
-	// follows.
-	ParentAgentID *string
-
 	// TaskID is the task the agent works on, nil only for an orchestrator.
 	TaskID        *string
 	CreatedAt     time.Time
@@ -282,7 +278,6 @@ func FromRow(agent models.Agent) Agent {
 		NudgeSentAt:        agent.NudgeSentAt,
 		SpawnedByAgentID:   agent.SpawnedByAgentID,
 		RequestedByAgentID: agent.RequestedByAgentID,
-		ParentAgentID:      agent.ParentAgentID,
 		TaskID:             agent.TaskID,
 		CreatedAt:          agent.CreatedAt,
 		UpdatedAt:          agent.UpdatedAt,

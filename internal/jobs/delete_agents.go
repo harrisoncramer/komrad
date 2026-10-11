@@ -27,7 +27,7 @@ func NewAgentDelete(queue *Enqueuer) *AgentDelete {
 	return &AgentDelete{queue: queue}
 }
 
-// DeleteAgents claims agents and their children and queues a delete for each claimed root.
+// DeleteAgents claims agents and the reviewers on a writer's task, and queues a delete for each claimed root.
 func (d *AgentDelete) DeleteAgents(ctx context.Context, ids []string) error {
 	return d.queue.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
 		store := agentstore.NewAgentStore(tx)

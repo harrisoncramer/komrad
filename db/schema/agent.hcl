@@ -8,7 +8,7 @@ enum "agent_state" {
 
 enum "agent_role" {
   schema = schema.public
-  values = ["implementer", "writer", "reviewer", "orchestrator"]
+  values = ["writer", "reviewer", "orchestrator"]
 }
 
 enum "agent_sequence" {
@@ -750,10 +750,6 @@ table "agents" {
     type    = text
     default = ""
   }
-  column "parent_agent_id" {
-    null = true
-    type = uuid
-  }
   column "turn_ended_at" {
     null = true
     type = timestamptz
@@ -782,8 +778,8 @@ table "agents" {
   column "role" {
     null    = false
     type    = enum.agent_role
-    default = "implementer"
-    comment = "What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of the agent it is a child of and never writes any code of its own."
+    default = "writer"
+    comment = "What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of its task's writer and never writes any code of its own."
   }
   column "failure_reason" {
     null    = false
@@ -899,12 +895,6 @@ table "agents" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
-  foreign_key "agents_parent_agent_id_fkey" {
-    columns     = [column.engine_id, column.parent_agent_id]
-    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
-    on_delete   = CASCADE
-    on_update   = NO_ACTION
-  }
   foreign_key "agents_task_id_fkey" {
     columns     = [column.engine_id, column.task_id]
     ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
@@ -927,20 +917,11 @@ table "agents" {
   index "agents_schedule_id" {
     columns = [column.schedule_id]
   }
-  index "agents_parent_agent_id" {
-    columns = [column.parent_agent_id]
-  }
   index "agents_task_id" {
     columns = [column.task_id]
   }
   check "agents_task_unless_orchestrator" {
     expr = "role = 'orchestrator' OR task_id IS NOT NULL"
-  }
-  index "agents_idempotency_key" {
-    unique  = true
-    columns = [column.engine_id, column.requested_by_agent_id, column.parent_agent_id, column.idempotency_key]
-    nulls_distinct = false
-    where   = "idempotency_key IS NOT NULL"
   }
   index "agents_requested_idempotency_key" {
     unique         = true

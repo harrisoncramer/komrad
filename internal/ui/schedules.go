@@ -207,7 +207,6 @@ func knownScheduleKind(kind schedulev1.ScheduleKind) bool {
 		schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 		schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR:
 		return true
-	case schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER:
 	}
 
 	return false

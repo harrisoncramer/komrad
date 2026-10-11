@@ -30,13 +30,13 @@ import (
 // TestDeleteAgentLeavesItsTasksCheckout covers the task's worktree outliving every agent on it.
 func TestDeleteAgentLeavesItsTasksCheckout(t *testing.T) {
 	tests := []struct {
-		name    string
-		archive bool
-		child   bool
+		name     string
+		archive  bool
+		reviewer bool
 	}{
 		{
-			name:  "deleting a child",
-			child: true,
+			name:     "deleting a reviewer",
+			reviewer: true,
 		},
 		{
 			name: "deleting the task's writer",
@@ -65,7 +65,7 @@ func TestDeleteAgentLeavesItsTasksCheckout(t *testing.T) {
 			require.NoError(t, err)
 
 			target := agent
-			if tt.child {
+			if tt.reviewer {
 				target, err = manager.launch.NewAgent(t.Context(), reviewerOf(*agent, "reviewer"))
 				require.NoError(t, err)
 			}

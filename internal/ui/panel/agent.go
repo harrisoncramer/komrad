@@ -84,9 +84,6 @@ type Agent struct {
 	ScheduleID     *string
 	CreatedAt      time.Time
 	ArchivedAt     *time.Time
-	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
-	// follows.
-	ParentAgentID *string
 	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
 	HeldAt *time.Time
 	// HeldByAgentID is the agent that took the hold, empty when the panel took it.

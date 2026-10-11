@@ -16,8 +16,6 @@ extend google.protobuf.MethodOptions {
 enum Role {
   // No role, which is offered every tool.
   ROLE_UNSPECIFIED = 0;
-  // An agent that lands work on a branch of its own.
-  ROLE_IMPLEMENTER = 1;
   // An agent on a task that reads its change and gives a review.
   ROLE_REVIEWER = 2;
   // The agent drawn on a workflow's own row that hands work out.
