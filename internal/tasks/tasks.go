@@ -31,6 +31,8 @@ var (
 	errHasCheckout = fail.Precondition("this task already has a checkout, so launch a child of the agent working in it or give this one a task of its own")
 	// ErrHasWriter is a writer launched onto a task whose writer is still live.
 	ErrHasWriter = fail.Precondition("this task already has a live writer, so launch a child of it or hand the task off")
+	// errCheckoutMoving is a writer launched onto a task whose checkout komrad is rebasing, pushing or aborting in.
+	errCheckoutMoving = fail.Precondition("komrad is rebasing, pushing or aborting in this task's checkout, so try again once it finishes")
 	// ErrWorktreeRemoved is a writer launched onto a task whose worktree was removed.
 	ErrWorktreeRemoved = fail.Precondition("this task's worktree was removed, so give this agent a task of its own")
 	// ErrArchived is an archived task an agent was asked to join.
@@ -49,6 +51,11 @@ type taskScriptRunner interface {
 	RunTaskDeprovision(ctx context.Context, task taskstore.Task, name string) error
 }
 
+// checkoutMoves says whether komrad is rebasing, pushing or aborting in a checkout.
+type checkoutMoves interface {
+	IsMoving(dir string) bool
+}
+
 // snapshotReleaser lets go of the ref holding a round's snapshot.
 type snapshotReleaser interface {
 	ReleaseRef(ctx context.Context, dir, ref string) error
@@ -63,6 +70,7 @@ type NewTaskServiceParams struct {
 	Reviews   *reviewstore.ReviewStore
 	Snapshots snapshotReleaser
 	Scripts   taskScriptRunner
+	Moves     checkoutMoves
 	Tx        txRunner
 }
 
@@ -75,6 +83,7 @@ type TaskService struct {
 	reviews   *reviewstore.ReviewStore
 	snapshots snapshotReleaser
 	scripts   taskScriptRunner
+	moves     checkoutMoves
 	tx        txRunner
 }
 
@@ -89,6 +98,7 @@ func NewTaskService(params NewTaskServiceParams) *TaskService {
 		reviews:   params.Reviews,
 		snapshots: params.Snapshots,
 		scripts:   params.Scripts,
+		moves:     params.Moves,
 		tx:        params.Tx,
 	}
 }

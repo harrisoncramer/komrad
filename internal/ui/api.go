@@ -355,9 +355,9 @@ func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
 
 func (a api) planRebase(id string) (*agentv1.PlanRebaseResponse, error) {
 	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanRebaseResponse, error) {
-		resp, err := a.agents.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{AgentId: id}))
+		resp, err := a.agents.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: id}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to work out what a rebase of agent %q would do: %w", id, err)
+			return nil, fmt.Errorf("failed to work out what a rebase of task %q would do: %w", id, err)
 		}
 
 		return resp.Msg, nil
@@ -366,9 +366,9 @@ func (a api) planRebase(id string) (*agentv1.PlanRebaseResponse, error) {
 
 func (a api) rebaseWorktree(id string) (*agentv1.RebaseWorktreeResponse, error) {
 	return call(rebaseTimeout, func(ctx context.Context) (*agentv1.RebaseWorktreeResponse, error) {
-		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{AgentId: id}))
+		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: id}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to rebase the worktree of agent %q: %w", id, err)
+			return nil, fmt.Errorf("failed to rebase the worktree of task %q: %w", id, err)
 		}
 
 		return resp.Msg, nil
@@ -377,9 +377,9 @@ func (a api) rebaseWorktree(id string) (*agentv1.RebaseWorktreeResponse, error) 
 
 func (a api) planPush(id string) (*agentv1.PlanPushResponse, error) {
 	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanPushResponse, error) {
-		resp, err := a.agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{AgentId: id}))
+		resp, err := a.agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: id}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to work out what a push of agent %q would do: %w", id, err)
+			return nil, fmt.Errorf("failed to work out what a push of task %q would do: %w", id, err)
 		}
 
 		return resp.Msg, nil
@@ -388,9 +388,9 @@ func (a api) planPush(id string) (*agentv1.PlanPushResponse, error) {
 
 func (a api) pushWorktree(id string) (*agentv1.PushWorktreeResponse, error) {
 	return call(pushTimeout, func(ctx context.Context) (*agentv1.PushWorktreeResponse, error) {
-		resp, err := a.agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{AgentId: id}))
+		resp, err := a.agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: id}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to push the branch of agent %q: %w", id, err)
+			return nil, fmt.Errorf("failed to push the branch of task %q: %w", id, err)
 		}
 
 		return resp.Msg, nil
@@ -399,9 +399,9 @@ func (a api) pushWorktree(id string) (*agentv1.PushWorktreeResponse, error) {
 
 func (a api) abortSequence(id string) (*agentv1.AbortSequenceResponse, error) {
 	return call(rebaseTimeout, func(ctx context.Context) (*agentv1.AbortSequenceResponse, error) {
-		resp, err := a.agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{AgentId: id}))
+		resp, err := a.agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: id}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to abort what the worktree of agent %q has in progress: %w", id, err)
+			return nil, fmt.Errorf("failed to abort what the worktree of task %q has in progress: %w", id, err)
 		}
 
 		return resp.Msg, nil

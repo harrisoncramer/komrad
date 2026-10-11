@@ -139,7 +139,7 @@ func (m *model) reportMerged(item panel.AgentRow, archive bool, err error) tea.C
 }
 
 func mergeRebaseOp(item panel.AgentRow) gitOp {
-	agentID, name := item.Agent.ID, item.Agent.Name
+	taskID, name := item.Agent.TaskID, item.Agent.Name
 
 	return gitOp{
 		running: "merging " + item.PullRequest.Ref() + " and rebasing " + name,
@@ -150,7 +150,7 @@ func mergeRebaseOp(item panel.AgentRow) gitOp {
 				}
 			}
 
-			result, err := clients.rebaseWorktree(agentID)
+			result, err := clients.rebaseWorktree(taskID)
 
 			return func(m *model) tea.Cmd {
 				m.reportMerged(item, false, nil)

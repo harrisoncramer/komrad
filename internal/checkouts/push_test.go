@@ -119,12 +119,12 @@ func TestPushRefusals(t *testing.T) {
 			if tt.landed {
 				fixture.seedMerged(t, tt.pusher.State.Branch)
 			}
-			locks := newTreeLocks()
+			locks := NewTreeLocks()
 			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 
-			_, err := fixture.newService(NewServiceParams{Git: &tt.pusher, Locks: locks}).Push(t.Context(), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: &tt.pusher, Locks: locks}).Push(t.Context(), *agent.TaskID)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, tt.pusher.Pushed)
@@ -143,7 +143,7 @@ func TestPlanPushInSync(t *testing.T) {
 		Remote: git.RemoteStanding{Pushed: true},
 	}
 
-	plan, err := fixture.newService(NewServiceParams{Git: &pusher}).PlanPush(t.Context(), agent.ID)
+	plan, err := fixture.newService(NewServiceParams{Git: &pusher}).PlanPush(t.Context(), *agent.TaskID)
 
 	require.NoError(t, err)
 	assert.Equal(t, PushPlan{Branch: "agent/a1", InSync: true}, *plan)
@@ -239,12 +239,12 @@ func TestPushSendsTheBranch(t *testing.T) {
 			}
 			service := fixture.newService(NewServiceParams{Git: &tt.pusher})
 
-			plan, err := service.PlanPush(t.Context(), agent.ID)
+			plan, err := service.PlanPush(t.Context(), *agent.TaskID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantPlan, *plan)
 			assert.NotContains(t, tt.pusher.Calls, "refresh", "a preview leaves origin's copy alone")
 
-			result, err := service.Push(t.Context(), agent.ID)
+			result, err := service.Push(t.Context(), *agent.TaskID)
 			require.NoError(t, err)
 
 			assert.Equal(t, "abcdef1234567", result.SHA)
@@ -284,7 +284,7 @@ func TestPushReportsWhatOriginSaid(t *testing.T) {
 		PushErr: git.ErrPushRejected,
 	}
 
-	_, err := fixture.newService(NewServiceParams{Git: pusher}).Push(t.Context(), agent.ID)
+	_, err := fixture.newService(NewServiceParams{Git: pusher}).Push(t.Context(), *agent.TaskID)
 
 	require.ErrorIs(t, err, git.ErrPushRejected)
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes, "origin may have been read afresh, so the counts are read back")

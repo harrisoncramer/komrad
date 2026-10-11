@@ -54,12 +54,12 @@ func TestAbortRefusals(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, tt.agent)
 			require.NoError(t, fixture.stores.Tasks.SetSequence(t.Context(), *agent.TaskID, taskstore.SequenceRebase))
-			locks := newTreeLocks()
+			locks := NewTreeLocks()
 			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 
-			_, err := fixture.newService(NewServiceParams{Git: &tt.aborter, Locks: locks}).Abort(t.Context(), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: &tt.aborter, Locks: locks}).Abort(t.Context(), *agent.TaskID)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.wantCalls, tt.aborter.Calls)
@@ -142,7 +142,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			}
 			sequence := tt.aborter.Sequence
 
-			result, err := fixture.newService(NewServiceParams{Git: &tt.aborter}).Abort(t.Context(), agent.ID)
+			result, err := fixture.newService(NewServiceParams{Git: &tt.aborter}).Abort(t.Context(), *agent.TaskID)
 			require.NoError(t, err)
 
 			assert.Equal(t, sequenceOf(sequence), result.Sequence)
@@ -150,7 +150,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			assert.Equal(t, tt.wantOurs, result.Ours)
 			assert.Equal(t, []string{"park", "abort " + string(sequence)}, tt.aborter.Calls)
 			assert.Equal(t, []string{result.ParkedRef}, tt.aborter.Parked)
-			assert.Contains(t, result.ParkedRef, "refs/komrad/aborted/"+agent.ID+"/")
+			assert.Contains(t, result.ParkedRef, "refs/komrad/aborted/"+*agent.TaskID+"/")
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 
 			assert.Equal(t, taskstore.SequenceNone, fixture.readCheckout(t, agent).Sequence)
@@ -200,7 +200,7 @@ func TestAbortTellsAnAgentWhoseTurnWasCut(t *testing.T) {
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     aborter,
-			}).Abort(t.Context(), agent.ID)
+			}).Abort(t.Context(), *agent.TaskID)
 			if tt.abortErr != nil {
 				require.ErrorIs(t, err, tt.abortErr)
 			} else {

@@ -97,7 +97,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	runGitIn(t, repo, "push", "--quiet")
 
 	rebased, err := instance.Agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{
-		AgentId: agentID,
+		Task: created.Msg.GetAgent().GetTaskId(),
 	}))
 	require.NoError(t, err)
 

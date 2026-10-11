@@ -701,8 +701,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Preview rebasing an agent's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict.",
-          "description": "Preview rebasing an agent's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict.",
+          "summary": "Preview rebasing a task's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict.",
+          "description": "Preview rebasing a task's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -719,8 +719,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Rebase an agent's branch onto the latest commit of its base, parking the checkout at a ref first and mailing the agent that its files moved.",
-          "description": "Rebase an agent's branch onto the latest commit of its base, parking the checkout at a ref first and mailing the agent that its files moved. Read plan_rebase first. A rebase that conflicts stops and is left for the agent to settle.",
+          "summary": "Rebase a task's branch onto the latest commit of its base, parking the checkout at a ref first and mailing the task's writer that its files moved.",
+          "description": "Rebase a task's branch onto the latest commit of its base, parking the checkout at a ref first and mailing the task's writer that its files moved. Read plan_rebase first. A rebase that conflicts stops and is left for the writer to settle.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
@@ -735,8 +735,8 @@
           "tool": "plan_push",
           "mcp": false,
           "roles": [],
-          "summary": "Preview pushing an agent's branch to origin without sending anything.",
-          "description": "Preview pushing an agent's branch to origin without sending anything.",
+          "summary": "Preview pushing a task's branch to origin without sending anything.",
+          "description": "Preview pushing a task's branch to origin without sending anything.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
@@ -751,8 +751,8 @@
           "tool": "push_worktree",
           "mcp": false,
           "roles": [],
-          "summary": "Push an agent's branch to origin under its own name, overwriting origin's copy after a rebase only when nothing on origin would be lost.",
-          "description": "Push an agent's branch to origin under its own name, overwriting origin's copy after a rebase only when nothing on origin would be lost.",
+          "summary": "Push a task's branch to origin under its own name, overwriting origin's copy after a rebase only when nothing on origin would be lost.",
+          "description": "Push a task's branch to origin under its own name, overwriting origin's copy after a rebase only when nothing on origin would be lost.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
@@ -767,8 +767,8 @@
           "tool": "abort_sequence",
           "mcp": false,
           "roles": [],
-          "summary": "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, keeping the worktree under a ref first and mailing the agent what was undone.",
-          "description": "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, keeping the worktree under a ref first and mailing the agent what was undone.",
+          "summary": "Undo the rebase, am, merge, cherry-pick or revert part-way through a task's worktree, keeping the worktree under a ref first and mailing the task's writer what was undone.",
+          "description": "Undo the rebase, am, merge, cherry-pick or revert part-way through a task's worktree, keeping the worktree under a ref first and mailing the task's writer what was undone.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
@@ -1805,16 +1805,14 @@
       "description": "",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose worktree to abort the sequence in."
+          "rules": [],
+          "description": "Which task's worktree to abort the sequence in, by id or by slug."
         }
       ]
     },
@@ -4407,16 +4405,14 @@
       "description": "PlanPushRequest asks what a push would do without doing it.",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose branch the push would send."
+          "rules": [],
+          "description": "Which task's branch the push would send, by id or by slug."
         }
       ]
     },
@@ -4481,16 +4477,14 @@
       "description": "PlanRebaseRequest asks what a rebase would do without doing it.",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose branch the rebase would move."
+          "rules": [],
+          "description": "Which task's branch the rebase would move, by id or by slug."
         }
       ]
     },
@@ -4661,16 +4655,14 @@
       "description": "",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose branch to send to origin."
+          "rules": [],
+          "description": "Which task's branch to send to origin, by id or by slug."
         }
       ]
     },
@@ -4757,16 +4749,14 @@
       "description": "",
       "fields": [
         {
-          "name": "agent_id",
+          "name": "task",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Whose branch to move onto its base."
+          "rules": [],
+          "description": "Which task's branch to move onto its base, by id or by slug."
         }
       ]
     },

@@ -346,8 +346,12 @@ message GetAgentResponse {
 
 // PlanRebaseRequest asks what a rebase would do without doing it.
 message PlanRebaseRequest {
-  // Whose branch the rebase would move.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's branch the rebase would move, by id or by slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
 }
 
 message PlanRebaseResponse {
@@ -383,8 +387,12 @@ message StartOrchestratorResponse {
 }
 
 message RebaseWorktreeRequest {
-  // Whose branch to move onto its base.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's branch to move onto its base, by id or by slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
 }
 
 message RebaseWorktreeResponse {
@@ -409,8 +417,12 @@ message RebaseWorktreeResponse {
 
 // PlanPushRequest asks what a push would do without doing it.
 message PlanPushRequest {
-  // Whose branch the push would send.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's branch the push would send, by id or by slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
 }
 
 message PlanPushResponse {
@@ -428,8 +440,12 @@ message PlanPushResponse {
 }
 
 message PushWorktreeRequest {
-  // Whose branch to send to origin.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's branch to send to origin, by id or by slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
 }
 
 message PushWorktreeResponse {
@@ -444,8 +460,12 @@ message PushWorktreeResponse {
 }
 
 message AbortSequenceRequest {
-  // Whose worktree to abort the sequence in.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Which task's worktree to abort the sequence in, by id or by slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
 }
 
 message AbortSequenceResponse {
@@ -1143,7 +1163,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "plan_rebase"
-      description: "Preview rebasing an agent's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict."
+      description: "Preview rebasing a task's branch onto its base without moving anything: what would be replayed, dropped and flattened, and which paths may conflict."
       destructive: false
       idempotent: true
       roles: [ROLE_ORCHESTRATOR]
@@ -1154,7 +1174,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "rebase_worktree"
-      description: "Rebase an agent's branch onto the latest commit of its base, parking the checkout at a ref first and mailing the agent that its files moved. Read plan_rebase first. A rebase that conflicts stops and is left for the agent to settle."
+      description: "Rebase a task's branch onto the latest commit of its base, parking the checkout at a ref first and mailing the task's writer that its files moved. Read plan_rebase first. A rebase that conflicts stops and is left for the writer to settle."
       destructive: true
       idempotent: false
       roles: [ROLE_ORCHESTRATOR]
@@ -1165,7 +1185,7 @@ service AgentService {
       cli: true
       mcp: false
       name: "plan_push"
-      description: "Preview pushing an agent's branch to origin without sending anything."
+      description: "Preview pushing a task's branch to origin without sending anything."
       reason: "Agents push their own branches with git, so pushing one from outside is for the person at the panel or the command line."
     };
   }
@@ -1174,7 +1194,7 @@ service AgentService {
       cli: true
       mcp: false
       name: "push_worktree"
-      description: "Push an agent's branch to origin under its own name, overwriting origin's copy after a rebase only when nothing on origin would be lost."
+      description: "Push a task's branch to origin under its own name, overwriting origin's copy after a rebase only when nothing on origin would be lost."
       reason: "Agents push their own branches with git, so pushing one from outside is for the person at the panel or the command line."
     };
   }
@@ -1183,7 +1203,7 @@ service AgentService {
       cli: true
       mcp: false
       name: "abort_sequence"
-      description: "Undo the rebase, am, merge, cherry-pick or revert part-way through an agent's worktree, keeping the worktree under a ref first and mailing the agent what was undone."
+      description: "Undo the rebase, am, merge, cherry-pick or revert part-way through a task's worktree, keeping the worktree under a ref first and mailing the task's writer what was undone."
       reason: "The agent is told not to settle a conflicted rebase itself, so undoing one is for the person at the panel or the command line."
     };
   }

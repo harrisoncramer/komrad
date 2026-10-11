@@ -87,7 +87,7 @@ func TestGitMenu(t *testing.T) {
 		harness.press("r")
 
 		assert.NotContains(t, harness.readFrame(), gitMenuEntry)
-		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{AgentId: "a1"})
+		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{Task: "task-a1"})
 	})
 
 	t.Run("a merge request's entries are named the way GitLab does", func(t *testing.T) {
@@ -335,7 +335,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 	}{
 		{
 			name:         "a merged pull request has its worktree moved onto the base",
-			wantRebases:  []proto.Message{&agentv1.RebaseWorktreeRequest{AgentId: "a1"}},
+			wantRebases:  []proto.Message{&agentv1.RebaseWorktreeRequest{Task: "task-a1"}},
 			wantMessages: []string{"api: merged #740", "api: moved onto main"},
 		},
 		{
@@ -445,8 +445,8 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 func TestGitMenuPushes(t *testing.T) {
 	t.Parallel()
 
-	plan := &agentv1.PlanPushRequest{AgentId: "a1"}
-	push := &agentv1.PushWorktreeRequest{AgentId: "a1"}
+	plan := &agentv1.PlanPushRequest{Task: "task-a1"}
+	push := &agentv1.PushWorktreeRequest{Task: "task-a1"}
 
 	tests := []struct {
 		name        string
@@ -596,7 +596,7 @@ func TestGitMenuPushes(t *testing.T) {
 func TestGitMenuAborts(t *testing.T) {
 	t.Parallel()
 
-	abort := &agentv1.AbortSequenceRequest{AgentId: "a1"}
+	abort := &agentv1.AbortSequenceRequest{Task: "task-a1"}
 
 	tests := []struct {
 		name        string

@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"time"
 
-	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/events"
 	"komrad/internal/fail"
@@ -31,8 +30,8 @@ const (
 )
 
 var (
-	// ErrNoWorktree says the agent sits in a directory komrad did not cut.
-	ErrNoWorktree = fail.Precondition("this agent has no worktree of its own for komrad to act on")
+	// ErrNoWorktree says the task has no checkout komrad cut for it.
+	ErrNoWorktree = fail.Precondition("this task has no worktree of its own for komrad to act on")
 
 	// errBusy says something else is already moving the worktree.
 	errBusy = fail.Precondition("something else is already moving this worktree")
@@ -44,11 +43,27 @@ var (
 // parkSpace is the ref namespace a park sits under.
 type parkSpace string
 
-// checkoutTarget is an agent whose task's checkout komrad may act on, with the workflow it was cut for.
+// checkoutTarget is a task whose checkout komrad may act on, with the workflow it was cut for and
+// its live writer, nil when it has none.
 type checkoutTarget struct {
-	agent    *agentstore.Agent
 	task     *taskstore.Task
 	workflow *workflowstore.Workflow
+	writer   *agentstore.Agent
+}
+
+// dir is the checkout the target is acted on in.
+func (t checkoutTarget) dir() string {
+	return t.task.Checkout.Cwd
+}
+
+// taskFinder reads the task an id or a slug names.
+type taskFinder interface {
+	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
+}
+
+// txRunner runs a function inside one transaction.
+type txRunner interface {
+	InTx(ctx context.Context, fn func(store.DBTX) error) error
 }
 
 // agentSettler brings an agent to rest, reporting whether a turn was cut to do it.
@@ -87,26 +102,30 @@ type branchMover interface {
 type NewServiceParams struct {
 	Agents          *agentstore.AgentStore
 	Tasks           *taskstore.TaskStore
+	Refs            taskFinder
 	Workflows       *workflowstore.WorkflowStore
 	Settler         agentSettler
 	Events          eventRecorder
 	Git             branchMover
 	PullRequests    *pullrequeststore.PullRequestStore
-	Locks           *treeLocks
+	Locks           *TreeLocks
+	Tx              txRunner
 	CheckoutSync    wake.Waker
 	PullRequestSync wake.Heater
 }
 
-// Service rebases, pushes and aborts in an agent's existing worktree on a person's say-so.
+// Service rebases, pushes and aborts in a task's existing worktree on a person's say-so.
 type Service struct {
 	agents          *agentstore.AgentStore
 	tasks           *taskstore.TaskStore
+	refs            taskFinder
 	workflows       *workflowstore.WorkflowStore
 	settler         agentSettler
 	events          eventRecorder
 	git             branchMover
 	pullRequests    *pullrequeststore.PullRequestStore
-	locks           *treeLocks
+	locks           *TreeLocks
+	tx              txRunner
 	checkoutSync    wake.Waker
 	pullRequestSync wake.Heater
 }
@@ -115,124 +134,120 @@ type Service struct {
 func NewService(params NewServiceParams) *Service {
 	locks := params.Locks
 	if locks == nil {
-		locks = newTreeLocks()
+		locks = NewTreeLocks()
 	}
 
 	return &Service{
 		agents:          params.Agents,
 		tasks:           params.Tasks,
+		refs:            params.Refs,
 		workflows:       params.Workflows,
 		settler:         params.Settler,
 		events:          params.Events,
 		git:             params.Git,
 		pullRequests:    params.PullRequests,
 		locks:           locks,
+		tx:              params.Tx,
 		checkoutSync:    params.CheckoutSync,
 		pullRequestSync: params.PullRequestSync,
 	}
 }
 
-// settle brings the agent to rest before its files move, reporting whether a turn was cut.
-func (s *Service) settle(ctx context.Context, agent agentstore.Agent) (bool, error) {
-	if agent.Pane == "" {
+// settle brings the task's writer to rest before its files move, reporting whether a turn was cut.
+func (s *Service) settle(ctx context.Context, target checkoutTarget) (bool, error) {
+	if target.writer == nil || target.writer.Pane == "" {
 		return false, nil
 	}
 
-	return s.settler.Settle(ctx, agent)
+	return s.settler.Settle(ctx, *target.writer)
 }
 
 // buildParkRef names where a checkout is held before it is moved, under the space for that kind of move.
-func buildParkRef(space parkSpace, agentID string) string {
-	return fmt.Sprintf("refs/komrad/%s/%s/%d", space, agentID, time.Now().UnixNano())
+func buildParkRef(space parkSpace, taskID string) string {
+	return fmt.Sprintf("refs/komrad/%s/%s/%d", space, taskID, time.Now().UnixNano())
 }
 
-// eligible answers the agent and its workflow when its worktree is komrad's to act on, or the reason it is not.
-func (s *Service) eligible(ctx context.Context, agentID string) (*checkoutTarget, error) {
-	agent, err := s.read(ctx, agentID)
+// eligible answers the task and its workflow when its worktree is komrad's to act on, or the reason it is not.
+func (s *Service) eligible(ctx context.Context, ref string) (*checkoutTarget, error) {
+	task, err := s.refs.GetTask(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.refuseTheCaller(ctx, *agent); err != nil {
+	if err := s.refuseTheCaller(ctx, *task); err != nil {
 		return nil, err
 	}
 
-	if agent.State == agentstore.StateSettingUp {
-		return nil, fmt.Errorf("%w: %q is still being set up", errBusy, agent.Name)
+	if task.DeletingAt != nil {
+		return nil, fmt.Errorf("%w: %q is being deleted", ErrNoWorktree, task.Slug)
+	}
+	if task.Checkout.Cwd == "" || task.Checkout.WorktreeRemoved {
+		return nil, fmt.Errorf("%w: %q has no directory on disk", ErrNoWorktree, task.Slug)
 	}
 
-	// A child runs in its parent's checkout, so this would act on the parent's branch.
-	if agent.ParentAgentID != nil {
-		return nil, fmt.Errorf("%w: it runs in its parent's checkout", ErrNoWorktree)
-	}
-	if agent.IsProvisionerDisabled() {
-		return nil, fmt.Errorf("%w: it was told to keep the directory it was given", ErrNoWorktree)
-	}
-	if agent.Cwd == "" {
-		return nil, fmt.Errorf("%w: it has no directory on disk", ErrNoWorktree)
-	}
-
-	task, err := s.readCheckoutTask(ctx, *agent)
+	flow, err := s.workflows.Get(ctx, task.WorkflowID)
 	if err != nil {
-		return nil, err
-	}
-
-	flow, err := s.workflows.Get(ctx, agent.WorkflowID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the workflow of agent %q: %w", agent.Name, err)
+		return nil, fmt.Errorf("failed to read the workflow of task %q: %w", task.Slug, err)
 	}
 	if !flow.Worktree.Enabled {
 		return nil, fmt.Errorf("%w: its workflow does not make worktrees", ErrNoWorktree)
 	}
 
-	return &checkoutTarget{agent: agent, task: task, workflow: flow}, nil
+	writer, err := s.readWriter(ctx, s.agents, *task)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+
+	return &checkoutTarget{task: task, workflow: flow, writer: writer}, nil
 }
 
-// readCheckoutTask is the task whose checkout the agent works in, refusing an agent outside it.
-func (s *Service) readCheckoutTask(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
-	task, err := s.tasks.GetByAgentID(ctx, agent.ID)
-	if errors.Is(err, taskstore.ErrNoTask) {
-		return nil, fmt.Errorf("%w: it is on no task", ErrNoWorktree)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
-	}
-	if !xpath.IsSameDir(task.Checkout.Cwd, agent.Cwd) {
-		return nil, fmt.Errorf("%w: it does not work in its task's checkout", ErrNoWorktree)
-	}
-	if task.Checkout.WorktreeRemoved {
-		return nil, fmt.Errorf("%w: it has no directory on disk", ErrNoWorktree)
-	}
-
-	return task, nil
-}
-
-// read fetches the row, refusing an agent that is archived or that a person is holding.
-func (s *Service) read(ctx context.Context, agentID string) (*agentstore.Agent, error) {
-	agent, err := s.agents.GetByID(ctx, agentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)
-	}
+// readWriter is the task's live writer, answering store.ErrNotFound when it has none and refusing
+// one that is still being set up or that a person is holding.
+func (s *Service) readWriter(ctx context.Context, agents *agentstore.AgentStore, task taskstore.Task) (*agentstore.Agent, error) {
+	writer, err := agents.GetTaskWriter(ctx, task.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := agent.ValidateActionable(); err != nil {
+	if writer.State == agentstore.StateSettingUp {
+		return nil, fmt.Errorf("%w: %q is still being set up", errBusy, writer.Name)
+	}
+	if err := writer.ValidateActionable(); err != nil {
 		return nil, err
 	}
 
-	return agent, nil
+	return writer, nil
+}
+
+// recheckWriter reads the task's writer again once its checkout is locked, waiting out a launch
+// claiming the task as it does, and refuses a writer that joined since the target was read.
+func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) error {
+	return s.tx.InTx(ctx, func(db store.DBTX) error {
+		if _, err := taskstore.NewTaskStore(db).GetUndeletedForUpdate(ctx, target.task.ID); err != nil {
+			return err
+		}
+
+		writer, err := s.readWriter(ctx, agentstore.NewAgentStore(db), *target.task)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if target.writer == nil || writer.ID != target.writer.ID {
+			return fmt.Errorf("%w: %q started writing task %q", errBusy, writer.Name, target.task.Slug)
+		}
+
+		return nil
+	})
 }
 
 // refuseTheCaller turns down an agent asking for the checkout it is itself working in, which a
 // child shares with its parent.
-func (s *Service) refuseTheCaller(ctx context.Context, agent agentstore.Agent) error {
+func (s *Service) refuseTheCaller(ctx context.Context, task taskstore.Task) error {
 	from := caller.From(ctx).AgentID
 	if from == "" {
 		return nil
-	}
-	if from == agent.ID {
-		return fmt.Errorf("%w: %q is the one it is working in", errSelf, agent.Name)
 	}
 
 	asker, err := s.agents.GetByID(ctx, from)
@@ -240,17 +255,17 @@ func (s *Service) refuseTheCaller(ctx context.Context, agent agentstore.Agent) e
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("failed to read the agent asking to rebase %q: %w", agent.Name, err)
+		return fmt.Errorf("failed to read the agent asking to act on task %q: %w", task.Slug, err)
 	}
-	if asker.Cwd == "" || !xpath.IsSameDir(asker.Cwd, agent.Cwd) {
+	if asker.Cwd == "" || !xpath.IsSameDir(asker.Cwd, task.Checkout.Cwd) {
 		return nil
 	}
 
-	return fmt.Errorf("%w: %q sits in %s", errSelf, agent.Name, asker.Cwd)
+	return fmt.Errorf("%w: %q sits in %s", errSelf, asker.Name, asker.Cwd)
 }
 
-// queueEvent queues one event about an agent on its own, warning rather than failing when it cannot.
-func (s *Service) queueEvent(ctx context.Context, agentID string, payload events.Payload) {
+// queueEvent queues one event about a task on its own, warning rather than failing when it cannot.
+func (s *Service) queueEvent(ctx context.Context, taskID string, payload events.Payload) {
 	event, err := events.NewEvent(payload)
 	if err == nil {
 		err = s.events.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
@@ -258,8 +273,8 @@ func (s *Service) queueEvent(ctx context.Context, agentID string, payload events
 		})
 	}
 	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to queue an event for an agent",
-			append([]slog.Attr{slog.String(logging.AgentID, agentID), slog.String("topic", payload.Topic())}, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to queue an event for a task",
+			append([]slog.Attr{slog.String(logging.TaskID, taskID), slog.String("topic", payload.Topic())}, logging.Err(err)...)...)
 	}
 }
 

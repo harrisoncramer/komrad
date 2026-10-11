@@ -12,12 +12,12 @@ import (
 	"charm.land/huh/v2"
 )
 
-func abortOp(agentID, name string, sequence panel.Sequence) gitOp {
+func abortOp(taskID, name string, sequence panel.Sequence) gitOp {
 	return gitOp{
 		kind:    formAgentAbort,
 		running: "aborting the " + string(sequence) + " of " + name,
 		run: func(clients api) gitReport {
-			result, err := clients.abortSequence(agentID)
+			result, err := clients.abortSequence(taskID)
 
 			return func(m *model) tea.Cmd {
 				m.reportAborted(name, sequence, result, err)

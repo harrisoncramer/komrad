@@ -56,8 +56,8 @@ type PushResult struct {
 }
 
 // PlanPush reads what a push would do without sending anything.
-func (s *Service) PlanPush(ctx context.Context, agentID string) (*PushPlan, error) {
-	target, err := s.eligible(ctx, agentID)
+func (s *Service) PlanPush(ctx context.Context, ref string) (*PushPlan, error) {
+	target, err := s.eligible(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -65,16 +65,15 @@ func (s *Service) PlanPush(ctx context.Context, agentID string) (*PushPlan, erro
 	return s.planPush(ctx, *target, false)
 }
 
-// Push sends the agent's branch to origin, overwriting origin's copy when a rebase moved the
+// Push sends the task's branch to origin, overwriting origin's copy when a rebase moved the
 // branch apart from it.
-func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error) {
-	target, err := s.eligible(ctx, agentID)
+func (s *Service) Push(ctx context.Context, ref string) (*PushResult, error) {
+	target, err := s.eligible(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
-	agent := target.agent
 
-	unlock, err := s.lockTree(agent.Cwd)
+	unlock, err := s.lockTree(target.dir())
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +94,7 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 	defer s.heat(*target.task)
 
 	sha, err := s.git.Push(ctx, git.PushParams{
-		Dir:    agent.Cwd,
+		Dir:    target.dir(),
 		Branch: plan.Branch,
 		Force:  plan.Forced,
 	})
@@ -105,10 +104,10 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 
 	result := &PushResult{PushPlan: *plan, SHA: sha}
 	if result.Forced {
-		s.queueEvent(ctx, agent.ID, pushed{
-			AgentID: agent.ID,
-			Branch:  result.Branch,
-			SHA:     result.SHA,
+		s.queueEvent(ctx, target.task.ID, pushed{
+			TaskID: target.task.ID,
+			Branch: result.Branch,
+			SHA:    result.SHA,
 		})
 	}
 
@@ -118,8 +117,8 @@ func (s *Service) Push(ctx context.Context, agentID string) (*PushResult, error)
 // planPush reads the checkout and says what a push of it would do, or why it may not have one,
 // reading origin's copy of a finished branch afresh first when refresh is set.
 func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh bool) (*PushPlan, error) {
-	agent, checkout, flow := *target.agent, target.task.Checkout, target.workflow
-	state, err := s.git.ReadTreeState(ctx, agent.Cwd)
+	dir, checkout, flow := target.dir(), target.task.Checkout, target.workflow
+	state, err := s.git.ReadTreeState(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -140,12 +139,12 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh b
 		return nil, err
 	}
 	if finished && refresh {
-		if err := s.git.RefreshRemoteBranch(ctx, agent.Cwd, state.Branch); err != nil {
+		if err := s.git.RefreshRemoteBranch(ctx, dir, state.Branch); err != nil {
 			return nil, err
 		}
 	}
 
-	plan, err := s.countPush(ctx, agent.Cwd, state.Branch, flow.Worktree.BaseBranch)
+	plan, err := s.countPush(ctx, dir, state.Branch, flow.Worktree.BaseBranch)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +152,7 @@ func (s *Service) planPush(ctx context.Context, target checkoutTarget, refresh b
 		return nil, fmt.Errorf("%w: %s", errPushAdoptedForce, checkout.AdoptedBranch)
 	}
 
-	changes, err := s.git.PeekChanges(ctx, agent.Cwd)
+	changes, err := s.git.PeekChanges(ctx, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +222,7 @@ func (s *Service) refuseFinished(ctx context.Context, target checkoutTarget, sta
 		return false, fmt.Errorf("%w: %s", errPushFinished, pr.URL)
 	}
 	if pr.MergedAt != nil && pr.HeadSHA != "" {
-		held, err := s.git.HoldsCommit(ctx, target.agent.Cwd, pr.HeadSHA)
+		held, err := s.git.HoldsCommit(ctx, target.dir(), pr.HeadSHA)
 		if err != nil {
 			return false, err
 		}
@@ -235,7 +234,7 @@ func (s *Service) refuseFinished(ctx context.Context, target checkoutTarget, sta
 	return true, nil
 }
 
-// pushedMail is what an agent is told once its branch on origin was overwritten from the panel.
+// pushedMail is what a writer is told once its branch on origin was overwritten from the panel.
 func pushedMail(pushed pushed) string {
 	return fmt.Sprintf("Your branch %s was force-pushed to origin from the panel, replacing the copy origin held. "+
 		"Origin's copy now matches your checkout at %s.\n\n"+

@@ -68,7 +68,7 @@ func (s *TaskService) Open(ctx context.Context, db store.DBTX, params OpenParams
 
 	agent.TaskID = &opened.Task.ID
 	if params.JoinsCheckout {
-		claimed, restored, err := ClaimWriter(ctx, db, ClaimWriterParams{TaskID: opened.Task.ID, Cwd: agent.Cwd})
+		claimed, restored, err := s.ClaimWriter(ctx, db, ClaimWriterParams{TaskID: opened.Task.ID, Cwd: agent.Cwd})
 		if err != nil {
 			return nil, err
 		}
@@ -106,9 +106,9 @@ type ClaimWriterParams struct {
 }
 
 // ClaimWriter makes a launch joining its task's checkout at Cwd the task's writer, refusing it while
-// another writer is live or once the worktree is gone, and reports whether it brought an archived
-// task back.
-func ClaimWriter(ctx context.Context, db store.DBTX, params ClaimWriterParams) (*taskstore.Task, bool, error) {
+// another writer is live, while komrad is moving the worktree or once it is gone, and reports
+// whether it brought an archived task back.
+func (s *TaskService) ClaimWriter(ctx context.Context, db store.DBTX, params ClaimWriterParams) (*taskstore.Task, bool, error) {
 	taskStore := taskstore.NewTaskStore(db)
 
 	task, err := taskStore.GetUndeletedForUpdate(ctx, params.TaskID)
@@ -117,6 +117,9 @@ func ClaimWriter(ctx context.Context, db store.DBTX, params ClaimWriterParams) (
 	}
 	if !task.Checkout.IsUsable() || task.Checkout.Cwd != params.Cwd {
 		return nil, false, ErrWorktreeRemoved.Saying("task %q no longer has its worktree at %q", task.Slug, params.Cwd)
+	}
+	if s.moves != nil && s.moves.IsMoving(task.Checkout.Cwd) {
+		return nil, false, errCheckoutMoving.Saying("task %q is mid-move at %q", task.Slug, task.Checkout.Cwd)
 	}
 
 	writer, err := agentstore.NewAgentStore(db).GetTaskWriter(ctx, task.ID)

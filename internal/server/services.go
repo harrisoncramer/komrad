@@ -141,6 +141,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Channel:  paneChannel,
 		Observer: paneChannel,
 	})
+	checkoutLocks := checkouts.NewTreeLocks()
 	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{
 		Tasks:     st.tasks,
 		Agents:    st.agents,
@@ -150,6 +151,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Reviews:   st.review,
 		Snapshots: gitClient,
 		Scripts:   scriptService,
+		Moves:     checkoutLocks,
 		Tx:        st.pool,
 	})
 	agentGroup := buildAgents(buildAgentsParams{
@@ -248,11 +250,14 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			service: checkouts.NewService(checkouts.NewServiceParams{
 				Agents:          st.agents,
 				Tasks:           st.tasks,
+				Refs:            taskService,
 				Workflows:       st.workflows,
 				Settler:         settler,
 				Events:          queue,
 				Git:             gitClient,
 				PullRequests:    st.pullRequests,
+				Locks:           checkoutLocks,
+				Tx:              st.pool,
 				CheckoutSync:    wakers.cwdSync,
 				PullRequestSync: pullRequestGroup.sync,
 			}),

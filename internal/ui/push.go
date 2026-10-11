@@ -31,14 +31,14 @@ type pushPlan struct {
 }
 
 func pushOp(item panel.AgentRow) gitOp {
-	agentID, name := item.Agent.ID, item.Agent.Name
+	taskID, name := item.Agent.TaskID, item.Agent.Name
 
 	return gitOp{
 		kind:       formAgentPush,
 		planning:   "planning the push of " + name,
 		planFailed: "Could not work out what a push would do",
 		plan: func(clients api) (gitConfirmForm, error) {
-			response, err := clients.planPush(agentID)
+			response, err := clients.planPush(taskID)
 			if err != nil {
 				return nil, err
 			}
@@ -59,7 +59,7 @@ func pushOp(item panel.AgentRow) gitOp {
 		},
 		running: "pushing " + name,
 		run: func(clients api) gitReport {
-			result, err := clients.pushWorktree(agentID)
+			result, err := clients.pushWorktree(taskID)
 
 			return func(m *model) tea.Cmd {
 				m.reportPushed(name, result, err)

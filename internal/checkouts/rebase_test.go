@@ -21,9 +21,9 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/internal/tasks"
 	"komrad/internal/waketest"
 	"komrad/lib/clock/clocktest"
-	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -38,93 +38,90 @@ type rebaseFixture struct {
 	pullRequestSync *waketest.Counter
 }
 
-// TestRebaseRefusals covers every state of the row a rebase declines.
+// TestRebaseRefusals covers every state of the task a rebase declines.
 func TestRebaseRefusals(t *testing.T) {
 	tests := []struct {
 		name    string
-		lay     func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent
+		lay     func(t *testing.T, fixture *rebaseFixture) string
 		wantErr error
 	}{
 		{
-			name: "an agent whose worktree is still being provisioned",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				return fixture.seed(t, agentstore.Agent{State: agentstore.StateSettingUp})
+			name: "a task no id or slug names",
+			lay: func(*testing.T, *rebaseFixture) string {
+				return "no-such-task"
+			},
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name: "a task whose writer is still being set up",
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
+				return *fixture.seed(t, agentstore.Agent{State: agentstore.StateSettingUp}).TaskID
 			},
 			wantErr: errBusy,
 		},
 		{
 			name: "a branch a human made, whose history is not komrad's to rewrite",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
 				agent := fixture.seed(t, agentstore.Agent{})
 				claimed, err := fixture.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *agent.TaskID, AdoptedBranch: "harry/spike"})
 				require.NoError(t, err)
 				require.True(t, claimed)
 
-				return agent
+				return *agent.TaskID
 			},
 			wantErr: errRebaseAdopted,
 		},
 		{
-			name: "a child, since rebasing one rewrites its parent's branch",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				parent := fixture.seed(t, agentstore.Agent{Name: "parent"})
-
-				return fixture.seed(t, agentstore.Agent{ParentAgentID: &parent.ID})
+			name: "a task komrad cut no checkout for",
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
+				return fixture.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fixture.workflowID, Slug: "bare"}).Slug
 			},
 			wantErr: ErrNoWorktree,
 		},
 		{
-			name: "an agent told to keep the directory it was given",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				return fixture.seed(t, agentstore.Agent{ProvisionEnabled: xptr.Ptr(false)})
-			},
-			wantErr: ErrNoWorktree,
-		},
-		{
-			name: "an agent whose directory is gone",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+			name: "a task whose directory is gone",
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
 				agent := fixture.seed(t, agentstore.Agent{})
 				fixture.stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemoved: true})
 
-				return agent
+				return *agent.TaskID
 			},
 			wantErr: ErrNoWorktree,
 		},
 		{
-			name: "an agent in a workflow that makes no worktrees",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+			name: "a task being deleted",
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
+				agent := fixture.seed(t, agentstore.Agent{})
+				require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{*agent.TaskID}))
+
+				return *agent.TaskID
+			},
+			wantErr: ErrNoWorktree,
+		},
+		{
+			name: "a task in a workflow that makes no worktrees",
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
 				flow := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "no-worktrees"})
 
-				return fixture.seed(t, agentstore.Agent{WorkflowID: flow.ID})
+				return *fixture.seed(t, agentstore.Agent{WorkflowID: flow.ID}).TaskID
 			},
 			wantErr: ErrNoWorktree,
 		},
 		{
-			name: "an archived agent",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				agent := fixture.seed(t, agentstore.Agent{})
-				_, err := fixture.stores.Agents.Archive(t.Context(), []string{agent.ID})
-				require.NoError(t, err)
-
-				return agent
-			},
-			wantErr: agenterr.ErrAgentArchived,
-		},
-		{
-			name: "a held agent, before anything types at it or moves the branch",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
+			name: "a held writer, before anything types at it or moves the branch",
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
 				agent := fixture.seed(t, agentstore.Agent{})
 				_, err := fixture.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: agent.ID, At: time.Now()})
 				require.NoError(t, err)
 
-				return agent
+				return *agent.TaskID
 			},
 			wantErr: agenterr.ErrAgentHeld,
 		},
 		{
-			name: "an agent whose tree something else is working in",
-			lay: func(t *testing.T, fixture *rebaseFixture) *agentstore.Agent {
-				return fixture.seed(t, agentstore.Agent{Cwd: "/locked"})
+			name: "a task whose tree something else is working in",
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
+				return *fixture.seed(t, agentstore.Agent{Cwd: "/locked"}).TaskID
 			},
 			wantErr: errBusy,
 		},
@@ -133,14 +130,14 @@ func TestRebaseRefusals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
-			agent := tt.lay(t, fixture)
-			locks := newTreeLocks()
+			ref := tt.lay(t, fixture)
+			locks := NewTreeLocks()
 			release, taken := locks.tryLock("/locked")
 			require.True(t, taken)
 			t.Cleanup(release)
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser, Locks: locks}).Rebase(t.Context(), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser, Locks: locks}).Rebase(t.Context(), ref)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, rebaser.Calls)
@@ -149,9 +146,35 @@ func TestRebaseRefusals(t *testing.T) {
 	}
 }
 
+// TestRebaseWithNoWriter covers a task whose writer is gone being rebased by its slug, with no
+// turn to cut and nobody to tell.
+func TestRebaseWithNoWriter(t *testing.T) {
+	fixture := newRebaseFixture(t)
+	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
+	_, err := fixture.stores.Agents.Archive(t.Context(), []string{agent.ID})
+	require.NoError(t, err)
+	task, err := fixture.stores.Tasks.Get(t.Context(), *agent.TaskID)
+	require.NoError(t, err)
+	channel := &harnesstest.Channel{}
+	observer := harnesstest.NewActivityObserver(harness.ActivityWorking)
+	rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
+
+	result, err := fixture.newService(NewServiceParams{
+		Settler: buildSettler(channel, observer),
+		Git:     rebaser,
+	}).Rebase(t.Context(), task.Slug)
+	require.NoError(t, err)
+
+	assert.False(t, result.Interrupted)
+	assert.Zero(t, observer.Reads, "no writer, so no pane to read")
+	assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
+	assert.Empty(t, fixture.readInbox(t, agent.ID), "the archived agent is not the writer, so it is told nothing")
+	assert.Contains(t, rebaser.Parked[0], "/"+task.ID+"/", "the park is kept under the task")
+}
+
 // TestTreeLocksHoldOnePathAtATime covers two agents in different trees not blocking each other.
 func TestTreeLocksHoldOnePathAtATime(t *testing.T) {
-	locks := newTreeLocks()
+	locks := NewTreeLocks()
 
 	release, taken := locks.tryLock("/one")
 	require.True(t, taken)
@@ -171,7 +194,7 @@ func TestTreeLocksHoldOnePathAtATime(t *testing.T) {
 
 // TestTreeLocksRefuseAnEmptyPath covers the fail-open a blank path would otherwise be.
 func TestTreeLocksRefuseAnEmptyPath(t *testing.T) {
-	release, taken := newTreeLocks().tryLock("")
+	release, taken := NewTreeLocks().tryLock("")
 
 	assert.False(t, taken, "an empty path is refused")
 	assert.Nil(t, release)
@@ -212,7 +235,7 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     &gittest.Mover{State: tt.state},
-			}).Rebase(t.Context(), agent.ID)
+			}).Rebase(t.Context(), *agent.TaskID)
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Zero(t, channel.Interrupts, "a tree that cannot move costs the agent no turn")
@@ -267,7 +290,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{})
 
-			result, err := fixture.newService(NewServiceParams{Git: tt.rebaser}).Rebase(t.Context(), agent.ID)
+			result, err := fixture.newService(NewServiceParams{Git: tt.rebaser}).Rebase(t.Context(), *agent.TaskID)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantCalls, tt.rebaser.Calls)
@@ -294,7 +317,7 @@ func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 		ReplayErr:  errors.New("the post-rewrite hook failed"),
 	}
 
-	_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), agent.ID)
+	_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), *agent.TaskID)
 
 	require.Error(t, err)
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes)
@@ -339,7 +362,7 @@ func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     rebaser,
-			}).Rebase(t.Context(), agent.ID)
+			}).Rebase(t.Context(), *agent.TaskID)
 
 			require.ErrorIs(t, err, agenterr.ErrUnsettled)
 			require.ErrorContains(t, err, tt.wantSaid)
@@ -410,7 +433,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			result, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     rebaser,
-			}).Rebase(t.Context(), agent.ID)
+			}).Rebase(t.Context(), *agent.TaskID)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantInterrupts > 0, result.Interrupted)
@@ -460,6 +483,18 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			wantCalls: []string{"park", "rebase"},
 			wantMail:  "Your branch is still the same branch",
 		},
+		{
+			name: "a new writer launched onto the task while the old one settled",
+			settling: func(t *testing.T, fixture *rebaseFixture, id string) {
+				old, err := fixture.stores.Agents.GetByID(t.Context(), id)
+				require.NoError(t, err)
+				_, err = fixture.stores.Agents.Archive(t.Context(), []string{id})
+				require.NoError(t, err)
+				fixture.stores.SeedAgent(t, agentstore.Agent{Name: "successor", Cwd: old.Cwd, WorkflowID: old.WorkflowID, TaskID: old.TaskID})
+			},
+			readings: []harness.Activity{harness.ActivityIdle},
+			wantErr:  errBusy,
+		},
 	}
 
 	for _, tt := range tests {
@@ -474,7 +509,7 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     rebaser,
-			}).Rebase(t.Context(), agent.ID)
+			}).Rebase(t.Context(), *agent.TaskID)
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -555,8 +590,8 @@ func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 	}
 }
 
-// TestRebaseRefusesAnAgentInTheCallersCheckout covers a caller asking to rebase the checkout it works in.
-func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
+// TestRebaseRefusesATaskInTheCallersCheckout covers a caller asking to rebase the checkout it works in.
+func TestRebaseRefusesATaskInTheCallersCheckout(t *testing.T) {
 	target := t.TempDir()
 	linked := filepath.Join(t.TempDir(), "link")
 	require.NoError(t, os.Symlink(target, linked))
@@ -569,7 +604,7 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 		wantErr  error
 	}{
 		{
-			name: "the agent itself, whose turn the rebase would cut off",
+			name: "the writer itself, whose turn the rebase would cut off",
 			asker: func(targetID string) caller.Caller {
 				return caller.Caller{AgentID: targetID}
 			},
@@ -618,7 +653,7 @@ func TestRebaseRefusesAnAgentInTheCallersCheckout(t *testing.T) {
 			}
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), from), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), from), *agent.TaskID)
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
@@ -662,7 +697,7 @@ func TestRebaseLetsThroughAnAskerWithNoCheckout(t *testing.T) {
 			agent := fixture.seed(t, agentstore.Agent{})
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), agent.ID)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), *agent.TaskID)
 			require.NoError(t, err)
 
 			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
@@ -721,6 +756,8 @@ func (f *rebaseFixture) readCheckout(t *testing.T, agent *agentstore.Agent) task
 func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 	params.Agents = f.stores.Agents
 	params.Tasks = f.stores.Tasks
+	params.Refs = tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: f.stores.Tasks})
+	params.Tx = f.stores.Pool
 	params.Workflows = f.stores.Workflows
 	if params.Events == nil {
 		params.Events = f.events
@@ -784,7 +821,7 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 	queue := fixture.events
 	service := fixture.newService(NewServiceParams{})
-	target, err := service.rebaseEligible(t.Context(), agent.ID)
+	target, err := service.rebaseEligible(t.Context(), *agent.TaskID)
 	require.NoError(t, err)
 
 	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Failure: "the older rebase failed"}))

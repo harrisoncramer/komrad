@@ -9,15 +9,15 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// worktreeRebaser brings an agent's existing worktree up to date in place.
+// worktreeRebaser brings a task's existing worktree up to date in place.
 type worktreeRebaser interface {
-	PlanRebase(ctx context.Context, agentID string) (*checkouts.RebasePlan, error)
-	Rebase(ctx context.Context, agentID string) (*checkouts.RebaseResult, error)
+	PlanRebase(ctx context.Context, task string) (*checkouts.RebasePlan, error)
+	Rebase(ctx context.Context, task string) (*checkouts.RebaseResult, error)
 }
 
 // PlanRebase reads what a rebase would do without doing it.
 func (s *Handler) PlanRebase(ctx context.Context, req *agentv1.PlanRebaseRequest) (*agentv1.PlanRebaseResponse, *fail.Error) {
-	plan, err := s.rebaser.PlanRebase(ctx, req.GetAgentId())
+	plan, err := s.rebaser.PlanRebase(ctx, req.GetTask())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to work out what a rebase would do")
 	}
@@ -34,9 +34,9 @@ func (s *Handler) PlanRebase(ctx context.Context, req *agentv1.PlanRebaseRequest
 	}, nil
 }
 
-// RebaseWorktree moves the agent's branch onto the latest base in place.
+// RebaseWorktree moves the task's branch onto the latest base in place.
 func (s *Handler) RebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, *fail.Error) {
-	result, err := s.rebaser.Rebase(ctx, req.GetAgentId())
+	result, err := s.rebaser.Rebase(ctx, req.GetTask())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to rebase the worktree")
 	}

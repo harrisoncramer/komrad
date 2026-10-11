@@ -216,7 +216,7 @@ func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agen
 	marked := &retryMark{joins: joins}
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		if joins {
-			_, restored, err := tasks.ClaimWriter(ctx, db, tasks.ClaimWriterParams{TaskID: task.ID, Cwd: agent.Cwd})
+			_, restored, err := s.tasks.ClaimWriter(ctx, db, tasks.ClaimWriterParams{TaskID: task.ID, Cwd: agent.Cwd})
 			if err != nil {
 				return err
 			}
