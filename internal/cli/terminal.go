@@ -443,7 +443,8 @@ func redial(ctx context.Context, params runTerminalParams) (terminalConn, error)
 	}
 }
 
-// isDropped reports whether a stream failed with one of codes, or ended without a word.
+// isDropped reports whether a stream ended without a word, broke under the engine rather than
+// being failed by it, or failed with one of codes.
 func isDropped(ctx context.Context, err error, codes []connect.Code) bool {
 	if ctx.Err() != nil {
 		return false
@@ -458,7 +459,7 @@ func isDropped(ctx context.Context, err error, codes []connect.Code) bool {
 		return false
 	}
 
-	return slices.Contains(codes, connectErr.Code())
+	return !connect.IsWireError(connectErr) || slices.Contains(codes, connectErr.Code())
 }
 
 func readConsoleSize(fd int) *terminalv1.Size {

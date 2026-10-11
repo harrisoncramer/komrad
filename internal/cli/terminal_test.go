@@ -22,16 +22,19 @@ import (
 )
 
 type attachStep struct {
-	refuse error
-	output string
-	exit   bool
+	refuse     error
+	output     string
+	exit       bool
+	reset      bool
+	disconnect bool
 }
 
 type fakeAttachService struct {
 	terminalv1connect.UnimplementedTerminalServiceHandler
-	mu     sync.Mutex
-	steps  []attachStep
-	opened []*terminalv1.OpenAttach
+	mu               sync.Mutex
+	steps            []attachStep
+	opened           []*terminalv1.OpenAttach
+	closeConnections func()
 }
 
 func (f *fakeAttachService) Attach(_ context.Context, stream *connect.BidiStream[terminalv1.AttachRequest, terminalv1.AttachResponse]) error {
@@ -58,6 +61,16 @@ func (f *fakeAttachService) Attach(_ context.Context, stream *connect.BidiStream
 
 	if err := stream.Send(&terminalv1.AttachResponse{Message: &terminalv1.AttachResponse_Output{Output: []byte(step.output)}}); err != nil {
 		return err
+	}
+
+	if step.reset {
+		panic(http.ErrAbortHandler)
+	}
+
+	if step.disconnect {
+		f.closeConnections()
+
+		return nil
 	}
 
 	if !step.exit {
@@ -113,6 +126,18 @@ func TestRunTerminal(t *testing.T) {
 			wantOpened: 2,
 		},
 		{
+			name:       "an attach whose stream is reset is dialled again and resumes",
+			steps:      []attachStep{{output: "before ", reset: true}, {output: "after", exit: true}},
+			wantOut:    "before after",
+			wantOpened: 2,
+		},
+		{
+			name:       "an attach whose connection is closed is dialled again and resumes",
+			steps:      []attachStep{{output: "before ", disconnect: true}, {output: "after", exit: true}},
+			wantOut:    "before after",
+			wantOpened: 2,
+		},
+		{
 			name:       "a dropped attach is dialled again and resumes",
 			steps:      []attachStep{{output: "before "}, {output: "after", exit: true}},
 			wantOut:    "before after",
@@ -134,6 +159,7 @@ func TestRunTerminal(t *testing.T) {
 			server := httptest.NewUnstartedServer(mux)
 			server.Config.Protocols = xhttp.NewServerProtocols()
 			server.Start()
+			service.closeConnections = server.CloseClientConnections
 			t.Cleanup(server.Close)
 			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), server.URL)
 
