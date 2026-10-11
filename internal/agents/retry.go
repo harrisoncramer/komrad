@@ -116,7 +116,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		}
 	}
 
-	placed, err := s.placeRetry(ctx, *agent)
+	placed, err := s.placeRetry(ctx, *agent, marked.task)
 	if err != nil {
 		failRetry(err)
 		return nil, err
@@ -152,14 +152,10 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	})
 }
 
-// placeRetry reads the task a retried agent is on, taking a place in its hook queue when the retry opens it.
-func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) (*placement, error) {
-	task, err := s.tasks.GetAgentTask(ctx, agent.ID)
-	if errors.Is(err, taskstore.ErrNoTask) {
+// placeRetry takes a retried agent a place in its task's hook queue when the retry opens it.
+func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent, task *taskstore.Task) (*placement, error) {
+	if task == nil {
 		return &placement{}, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}
 
 	live, err := s.agents.ListLiveOnTask(ctx, task.ID)
@@ -203,9 +199,10 @@ func (s *LaunchService) moveOntoHarness(ctx context.Context, params moveOntoHarn
 	})
 }
 
-// retryMark is how a retry was marked: whether it rejoins its task's worktree as the writer, and
-// whether rejoining brought the task back from the archive.
+// retryMark is how a retry was marked: the task it is on, whether it rejoins the task's worktree as
+// the writer, and whether rejoining brought the task back from the archive.
 type retryMark struct {
+	task     *taskstore.Task
 	joins    bool
 	restored bool
 }
@@ -213,7 +210,7 @@ type retryMark struct {
 // markRetrying marks a failed agent for its retry, first making it its task's writer again when it
 // rejoins the task's worktree, so no other writer starts on the task in between.
 func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agent, provisioner string) (*retryMark, error) {
-	task, err := s.tasks.GetAgentTask(ctx, agent.ID)
+	task, err := s.tasks.GetAgentTask(ctx, *agent)
 	if err != nil && !errors.Is(err, taskstore.ErrNoTask) {
 		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}
@@ -226,14 +223,14 @@ func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agen
 		agent.Cwd = task.Checkout.Cwd
 	}
 
-	marked := &retryMark{joins: joins}
+	marked := &retryMark{task: task, joins: joins}
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		if joins {
-			_, restored, err := s.tasks.ClaimWriter(ctx, db, tasks.ClaimWriterParams{TaskID: task.ID, Cwd: agent.Cwd})
+			claimed, restored, err := s.tasks.ClaimWriter(ctx, db, tasks.ClaimWriterParams{TaskID: task.ID, Cwd: agent.Cwd})
 			if err != nil {
 				return err
 			}
-			marked.restored = restored
+			marked.task, marked.restored = claimed, restored
 		}
 
 		ok, err := agentstore.NewAgentStore(db).MarkSettingUpIfFailedToCreate(ctx, agent.ID)

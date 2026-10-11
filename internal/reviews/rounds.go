@@ -440,11 +440,12 @@ func (s *ReviewService) getTask(ctx context.Context, ref string, author ReviewAu
 		return nil, errReviewUnnamedTask
 	}
 
-	if _, err := s.getAgent(ctx, *author.AgentID); err != nil {
+	agent, err := s.getAgent(ctx, *author.AgentID)
+	if err != nil {
 		return nil, err
 	}
 
-	task, err := s.tasks.GetByAgentID(ctx, *author.AgentID)
+	task, err := s.tasks.GetLinked(ctx, agent.TaskID)
 	if errors.Is(err, taskstore.ErrNoTask) {
 		return nil, errReviewNoTask
 	}

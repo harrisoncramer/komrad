@@ -121,8 +121,13 @@ func (s *TaskService) GetTask(ctx context.Context, ref string) (*taskstore.Task,
 }
 
 // GetAgentTask returns the task an agent is on, refusing an agent on no task.
-func (s *TaskService) GetAgentTask(ctx context.Context, agentID string) (*taskstore.Task, error) {
-	return s.tasks.GetByAgentID(ctx, agentID)
+func (s *TaskService) GetAgentTask(ctx context.Context, agent agentstore.Agent) (*taskstore.Task, error) {
+	return s.tasks.GetLinked(ctx, agent.TaskID)
+}
+
+// GetAgentBranch returns the branch of the checkout an agent's task is on, empty when there is none.
+func (s *TaskService) GetAgentBranch(ctx context.Context, agent agentstore.Agent) (string, error) {
+	return s.tasks.GetLinkedBranch(ctx, agent.TaskID)
 }
 
 // ListTasks returns a workflow's live or archived tasks, the newest first.

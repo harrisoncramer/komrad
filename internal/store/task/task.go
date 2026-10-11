@@ -3,6 +3,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -21,7 +22,7 @@ var ErrBadSlug = fail.InvalidArgument("a task slug is lowercase letters and digi
 // ErrNotesChanged is a write of a task's notes made over a version that has since been rewritten.
 var ErrNotesChanged = fail.Precondition("the task's notes have been written since they were read")
 
-// ErrNoTask is an agent on no task, or one no agent holds.
+// ErrNoTask is an agent on no task, or on one since deleted.
 var ErrNoTask = fail.NotFound("the agent is on no task")
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -186,23 +187,34 @@ func (s *TaskStore) Get(ctx context.Context, id string) (*Task, error) {
 	return &got, nil
 }
 
-// GetByAgentID returns the task an agent is on, refusing an agent on no task.
-func (s *TaskStore) GetByAgentID(ctx context.Context, agentID string) (*Task, error) {
-	if !store.IsID(agentID) {
-		return nil, fmt.Errorf("%w: agent %q", ErrNoTask, agentID)
+// GetLinked returns the task an agent's task id names, refusing an agent on no task.
+func (s *TaskStore) GetLinked(ctx context.Context, taskID *string) (*Task, error) {
+	if taskID == nil {
+		return nil, ErrNoTask
 	}
 
-	row, err := s.queries.GetTaskByAgentID(ctx, agentID)
-	if db.IsNoRows(err) {
-		return nil, fmt.Errorf("%w: agent %q", ErrNoTask, agentID)
+	found, err := s.Get(ctx, *taskID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: task %q", ErrNoTask, *taskID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the task of agent %q: %w", agentID, err)
+		return nil, err
 	}
 
-	got := fromRow(row)
+	return found, nil
+}
 
-	return &got, nil
+// GetLinkedBranch returns the branch of the checkout an agent's task id names, empty when there is none.
+func (s *TaskStore) GetLinkedBranch(ctx context.Context, taskID *string) (string, error) {
+	task, err := s.GetLinked(ctx, taskID)
+	if errors.Is(err, ErrNoTask) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return xptr.Deref(task.Checkout.Branch), nil
 }
 
 // GetBySlug returns one task by its slug, archived or not.

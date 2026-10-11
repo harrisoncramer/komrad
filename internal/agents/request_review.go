@@ -9,8 +9,6 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	taskstore "komrad/internal/store/task"
-	"komrad/lib/xptr"
 )
 
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the sidebar says
@@ -68,9 +66,9 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 			agenterr.ErrReviewerAlreadyRunning, running.Name, running.ID)
 	}
 
-	branch, err := s.readTaskBranch(ctx, *author)
+	branch, err := s.tasks.GetAgentBranch(ctx, *author)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to read the task of agent %q: %w", author.Name, err)
 	}
 
 	reviewer, err := s.NewAgent(ctx, NewAgentParams{
@@ -110,19 +108,6 @@ func reviewerTitle(title, authorName string) string {
 	}
 
 	return authorName + reviewerNameSuffix
-}
-
-// readTaskBranch is the branch the checkout of an agent's task is on, empty when it names none.
-func (s *LaunchService) readTaskBranch(ctx context.Context, agent agentstore.Agent) (string, error) {
-	task, err := s.tasks.GetAgentTask(ctx, agent.ID)
-	if errors.Is(err, taskstore.ErrNoTask) {
-		return "", nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
-	}
-
-	return xptr.Deref(task.Checkout.Branch), nil
 }
 
 // reviewerPrompt says whose work this is and where it sits before handing over what the agent
