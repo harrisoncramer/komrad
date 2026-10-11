@@ -10,9 +10,8 @@ import (
 	"komrad/internal/wake"
 )
 
-// turnRecorder is where what an agent's own CLI reports about itself reaches the reconcile loop.
-type turnRecorder interface {
-	RecordTurnBoundary(agentID string)
+// reportedReasonRecorder is where what an agent's CLI says it is doing reaches the reconcile loop.
+type reportedReasonRecorder interface {
 	RecordReportedReason(agentID, reason string)
 }
 
@@ -20,7 +19,7 @@ type turnRecorder interface {
 type NewRowWriterParams struct {
 	Agents         *agentstore.AgentStore
 	Runs           *runstore.RunStore
-	Reconciler     turnRecorder
+	Reconciler     reportedReasonRecorder
 	CwdSync        wake.Waker
 	TranscriptSync wake.Waker
 }
@@ -29,7 +28,7 @@ type NewRowWriterParams struct {
 type RowWriter struct {
 	agents         *agentstore.AgentStore
 	runs           *runstore.RunStore
-	reconciler     turnRecorder
+	reconciler     reportedReasonRecorder
 	cwdSync        wake.Waker
 	transcriptSync wake.Waker
 }
@@ -89,15 +88,11 @@ type RecordReportParams struct {
 	TurnError string
 }
 
-// RecordReport puts the reason beside the state the pane decided and stamps a reported turn end,
-// telling the reconciler both before either reaches the store, and wakes the cwd and transcript
-// syncs once a turn ends.
+// RecordReport puts the reason beside the state the pane decided, stamps a reported turn end, and
+// wakes the cwd and transcript syncs once a turn ends.
 func (w *RowWriter) RecordReport(ctx context.Context, params RecordReportParams) error {
-	// Both stamps are taken before either write, so a store that is down costs the flags it
-	// would have raised rather than also costing the reconciler its shortcut to idle.
 	w.reconciler.RecordReportedReason(params.AgentID, params.Reason)
 	if params.TurnEnded {
-		w.reconciler.RecordTurnBoundary(params.AgentID)
 		w.cwdSync.Wake()
 		w.transcriptSync.Wake()
 	}
