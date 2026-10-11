@@ -42,7 +42,7 @@ systemctl start komrad-database-credentials.service
 systemctl start komrad.service
 
 if [ -n "${domain_name}" ]; then
-	install -d -m 700 -o caddy -g caddy /var/lib/komrad/caddy
+	install -d -m 700 /var/lib/komrad/caddy
 	chown -R caddy:caddy /var/lib/komrad/caddy
 	cat >/etc/caddy/Caddyfile <<CADDYFILE
 {
