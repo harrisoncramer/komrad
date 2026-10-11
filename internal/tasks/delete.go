@@ -50,7 +50,7 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 		return errors.Join(failed, s.tasks.RecordCleanupFailure(cleanup, found.ID, err))
 	}
 
-	s.releaseRounds(cleanup, *found)
+	held := s.findRoundRefs(cleanup, *found)
 
 	if err := s.worktrees.DeleteForTask(cleanup, found.ID); err != nil {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, found.ID))
@@ -59,6 +59,8 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 	if err := s.tasks.Delete(cleanup, found.ID); err != nil {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, found.ID))
 	}
+
+	s.releaseRoundRefs(cleanup, held)
 
 	return nil
 }
@@ -133,11 +135,18 @@ func (s *TaskService) deprovision(ctx context.Context, task taskstore.Task, flow
 	return s.scripts.RunTaskDeprovision(ctx, task, deprovisioner)
 }
 
-// releaseRounds drops the refs holding the snapshots of a task's rounds, which would otherwise pin
-// a commit covering the whole worktree long after the task is gone.
-func (s *TaskService) releaseRounds(ctx context.Context, task taskstore.Task) {
+// roundRefs is the refs holding the snapshots of a task's rounds, and a checkout they are held in.
+type roundRefs struct {
+	taskID string
+	dir    string
+	refs   []string
+}
+
+// findRoundRefs reads the refs of a task's rounds while its rows still stand, so they can be let
+// go of once the task is gone.
+func (s *TaskService) findRoundRefs(ctx context.Context, task taskstore.Task) roundRefs {
 	if s.reviews == nil {
-		return
+		return roundRefs{}
 	}
 
 	rounds, err := s.reviews.ListRounds(ctx, task.ID)
@@ -145,10 +154,10 @@ func (s *TaskService) releaseRounds(ctx context.Context, task taskstore.Task) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of a task being deleted",
 			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 
-		return
+		return roundRefs{}
 	}
 	if len(rounds) == 0 {
-		return
+		return roundRefs{}
 	}
 
 	dir, err := s.findRoundRefDir(ctx, task)
@@ -156,13 +165,25 @@ func (s *TaskService) releaseRounds(ctx context.Context, task taskstore.Task) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to find a checkout holding the rounds of a task being deleted",
 			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 
-		return
+		return roundRefs{}
 	}
 
-	for _, round := range rounds {
-		if err := s.snapshots.ReleaseRef(ctx, dir, reviewstore.RoundRef(task.ID, round.SnapshotSHA)); err != nil {
+	return roundRefs{
+		taskID: task.ID,
+		dir:    dir,
+		refs: xslice.Map(rounds, func(round reviewstore.Round) string {
+			return reviewstore.RoundRef(task.ID, round.SnapshotSHA)
+		}),
+	}
+}
+
+// releaseRoundRefs drops the refs holding a deleted task's snapshots, which would otherwise pin a
+// commit covering the whole worktree long after the task is gone.
+func (s *TaskService) releaseRoundRefs(ctx context.Context, held roundRefs) {
+	for _, ref := range held.refs {
+		if err := s.snapshots.ReleaseRef(ctx, held.dir, ref); err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
-				append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+				append([]slog.Attr{slog.String(logging.TaskID, held.taskID)}, logging.Err(err)...)...)
 		}
 	}
 }
