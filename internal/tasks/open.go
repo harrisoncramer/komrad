@@ -156,6 +156,20 @@ func ClaimCheckout(ctx context.Context, db store.DBTX, params ClaimCheckoutParam
 	return nil
 }
 
+// ClaimCheckoutAgain claims the checkout of a retried agent's task again, refusing when another launch
+// has claimed it since.
+func (s *TaskService) ClaimCheckoutAgain(ctx context.Context, agent agentstore.Agent) error {
+	claimed, err := s.tasks.ClaimCheckoutAgain(ctx, *agent.TaskID)
+	if err != nil {
+		return fmt.Errorf("failed to claim the checkout of task %q again for agent %q: %w", *agent.TaskID, agent.Name, err)
+	}
+	if !claimed {
+		return ErrHasCheckout
+	}
+
+	return nil
+}
+
 // Rearchive archives again the task a failed join brought back, unless an agent besides agentID has
 // since started on it, logging any failure.
 func (s *TaskService) Rearchive(ctx context.Context, taskID, agentID string) {

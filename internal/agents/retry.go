@@ -122,7 +122,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 
 	claimsCheckout := isCheckoutClaimant(*agent, provisioner)
 	if claimsCheckout {
-		if err := s.claimCheckoutAgain(ctx, *agent); err != nil {
+		if err := s.tasks.ClaimCheckoutAgain(ctx, *agent); err != nil {
 			failRetry(err)
 			return nil, err
 		}
@@ -167,20 +167,6 @@ func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) 
 		task:     task,
 		openTurn: s.tasks.QueueOpening(agent, live),
 	}, nil
-}
-
-// claimCheckoutAgain claims the checkout of a retried agent's task again, refusing when another launch
-// has claimed it since.
-func (s *LaunchService) claimCheckoutAgain(ctx context.Context, agent agentstore.Agent) error {
-	claimed, err := s.tasks.ClaimCheckoutAgain(ctx, *agent.TaskID)
-	if err != nil {
-		return fmt.Errorf("failed to claim the checkout of task %q again for agent %q: %w", *agent.TaskID, agent.Name, err)
-	}
-	if !claimed {
-		return tasks.ErrHasCheckout
-	}
-
-	return nil
 }
 
 // moveOntoHarness records the CLI a retry corrected an agent onto, with the flags and the
