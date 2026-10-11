@@ -52,7 +52,11 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 		}
 
 		work := splitChosen(m.listing, chosen)
-		menu := withNested(rowMenu(describeAgents(chosen)), "hide", m.keys.Menu.Hide, a.hideMenu(m, work.wholeTasks))
+		hideable := work.wholeTasks
+		if len(work.loneAgents) > 0 {
+			hideable = nil
+		}
+		menu := withNested(rowMenu(describeAgents(chosen)), "hide", m.keys.Menu.Hide, a.hideMenu(m, hideable))
 
 		return withNested(menu, "archive", m.keys.Menu.Archive, chosenArchiveMenu(m, work)), true
 	}

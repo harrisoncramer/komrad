@@ -222,6 +222,22 @@ func TestAgentsShowHidden(t *testing.T) {
 		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a2", Hidden: false})
 	})
 
+	t.Run("a selection covering a whole task hides it", func(t *testing.T) {
+		harness := openAgents(t, buildTaskFamily()...)
+
+		harness.press("v", "space", "h", "h")
+
+		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-fix-gutter", Hidden: true})
+	})
+
+	t.Run("a selection reaching part of a task holds hide gray", func(t *testing.T) {
+		harness := openAgents(t, buildTaskFamily()...)
+
+		harness.press("v", "j", "j", "j", "v", "space", "h")
+
+		assert.Regexp(t, readOffEntry("hide", "h"), harness.readRawFrame())
+	})
+
 	tests := []struct {
 		name  string
 		press []string
