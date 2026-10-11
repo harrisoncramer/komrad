@@ -38,9 +38,6 @@ if [ -n "${ssh_public_key}" ]; then
 	chown komrad:komrad /var/lib/komrad/home/.ssh/authorized_keys
 fi
 
-systemctl start komrad-database-credentials.service
-systemctl start komrad.service
-
 if [ -n "${domain_name}" ]; then
 	install -d -m 700 /var/lib/komrad/caddy
 	chown -R caddy:caddy /var/lib/komrad/caddy
@@ -56,3 +53,6 @@ ${domain_name} {
 CADDYFILE
 	systemctl enable --now caddy.service
 fi
+
+systemctl start komrad-database-credentials.service
+systemctl start komrad.service
