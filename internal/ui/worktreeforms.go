@@ -30,3 +30,19 @@ func deleteWorktreesForm(deletion worktreeDeletion, keys config.FixedKeys) (*huh
 
 	return confirmFormStartingOn(false, title, strings.Join(lines, " "), "Delete", keys)
 }
+
+// deleteMixedForm asks before task checkouts and other directories are deleted together.
+func deleteMixedForm(deletion worktreeDeletion, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
+	title := fmt.Sprintf("Permanently delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees"))
+
+	lines := []string{
+		"A task's worktree goes with its task, for good, along with its agents, documents and reviews.",
+		"The directories no task answers for are removed on their own, and no branch is touched.",
+	}
+	if agentCount > 0 {
+		lines = append(lines, label.Count(agentCount, "live agent is", "live agents are")+" archived first.")
+	}
+	lines = append(lines, "Uncommitted changes go with the directories.")
+
+	return confirmFormStartingOn(false, title, strings.Join(lines, " "), "Delete", keys)
+}
