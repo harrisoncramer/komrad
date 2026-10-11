@@ -111,7 +111,7 @@ func TestAgentFields(t *testing.T) {
 	tests := []struct {
 		name       string
 		schedule   string
-		branch     *string
+		taskCwd    string
 		failure    string
 		wantLabels []string
 		wantValues []string
@@ -135,14 +135,15 @@ func TestAgentFields(t *testing.T) {
 			wantAbsent: []string{"launched by"},
 		},
 		{
-			name:       "an agent off any branch renders none",
-			wantAbsent: []string{"branch"},
+			name:       "an agent in its task's directory leaves the directory to the task",
+			taskCwd:    "/repo",
+			wantAbsent: []string{"directory", "/repo"},
 		},
 		{
-			name:       "the branch the checkout is on shows without the agent recording it",
-			branch:     xptr.Ptr("harry/rate-limits"),
-			wantLabels: []string{"branch"},
-			wantValues: []string{"harry/rate-limits"},
+			name:       "an agent working outside its task's directory names its own",
+			taskCwd:    "/elsewhere",
+			wantLabels: []string{"directory"},
+			wantValues: []string{"/repo"},
 		},
 		{
 			name:       "why a create or cleanup failed is left to the failed placeholder, not repeated here",
@@ -155,9 +156,8 @@ func TestAgentFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := agent
 			agent.FailureReason = tt.failure
-			agent.Branch = tt.branch
 
-			fields := agentFields(agentFieldsParams{agent: agent, schedule: tt.schedule})
+			fields := agentFields(agentFieldsParams{agent: agent, schedule: tt.schedule, taskCwd: tt.taskCwd})
 			require.NotEmpty(t, fields)
 			assert.Equal(t, "agent", fields[0].label, "the harness leads")
 

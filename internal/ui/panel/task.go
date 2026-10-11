@@ -1,6 +1,10 @@
 package panel
 
-import "time"
+import (
+	"time"
+
+	taskv1 "komrad/proto/gen/task/v1"
+)
 
 // Task is one task as the service listed it.
 type Task struct {
@@ -14,7 +18,10 @@ type Task struct {
 	CreatedAt       time.Time
 	ArchivedAt      *time.Time
 	Cwd             string
+	Branch          *string
 	WorktreeRemoved bool
+	// DiffStat is the lines its checkout adds and removes since its base, nil where there is none.
+	DiffStat *taskv1.DiffStat
 	// FailedRun is whether a script run on the task failed and its logs have not been opened since.
 	FailedRun bool
 }

@@ -103,7 +103,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
 func (m *model) afterListing() tea.Cmd {
-	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectAgentWorktreeCmd(time.Now()), m.readDocumentsCmd(), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
+	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectTaskWorktreeCmd(time.Now()), m.readDocumentsCmd(), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
 
 	// A screen that renders what it holds beside its own list stages nothing at all.
 	active := m.active()

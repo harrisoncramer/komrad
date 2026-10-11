@@ -12,35 +12,33 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
-	"komrad/lib/xslice"
 	loopv1 "komrad/proto/gen/loop/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
 
-// worktreeReadTTL is how long a reading of an agent's directory stands before the cursor resting
+// worktreeReadTTL is how long a reading of a task's directory stands before the cursor resting
 // on the row asks for it again.
 const worktreeReadTTL = time.Minute
 
-// inspectAgentWorktreeCmd asks for the hovered agent's directory where nothing stands for it or
+// inspectTaskWorktreeCmd asks for the hovered task's directory where nothing stands for it or
 // what stands is stale.
-func (m *model) inspectAgentWorktreeCmd(now time.Time) tea.Cmd {
-	item, ok := m.hoveredRecordAgent()
-	if !ok || item.Agent.Cwd == "" {
+func (m *model) inspectTaskWorktreeCmd(now time.Time) tea.Cmd {
+	task, ok := m.hoveredRecordTask()
+	if !ok || task.Cwd == "" {
 		return nil
 	}
-	if read, asked := m.inspections[item.Agent.Cwd]; asked && !read.isStale(now) {
+	if read, asked := m.inspections[task.Cwd]; asked && !read.isStale(now) {
 		return nil
 	}
 
-	return m.readWorktreeCmd(item.Agent.Cwd)
+	return m.readWorktreeCmd(task.Cwd)
 }
 
-// wakeCwdSyncCmd wakes the cwd sync while the cursor rests on a live agent.
+// wakeCwdSyncCmd wakes the cwd sync while the cursor rests on a live task or agent.
 func (m *model) wakeCwdSyncCmd() tea.Cmd {
-	item, ok := m.hoveredRecordAgent()
-	if !ok || item.Agent.Cwd == "" || item.Agent.ArchivedAt != nil {
+	if !m.isHoveringLiveCheckout() {
 		return nil
 	}
 	clients := m.api
@@ -57,20 +55,30 @@ func (m *model) wakeCwdSyncCmd() tea.Cmd {
 	}
 }
 
-// rereadAgentWorktreeCmd asks for the hovered agent's directory again however fresh what stands
-// for it is, short of an answer that will never change.
-func (m *model) rereadAgentWorktreeCmd() tea.Cmd {
+// isHoveringLiveCheckout reports whether the record is about a live task or agent with a directory.
+func (m *model) isHoveringLiveCheckout() bool {
+	if task, ok := m.hoveredRecordTask(); ok && task.Cwd != "" && task.ArchivedAt == nil {
+		return true
+	}
 	item, ok := m.hoveredRecordAgent()
-	if !ok || item.Agent.Cwd == "" || m.inspections[item.Agent.Cwd].isSettled() {
+
+	return ok && item.Agent.Cwd != "" && item.Agent.ArchivedAt == nil
+}
+
+// rereadTaskWorktreeCmd asks for the hovered task's directory again however fresh what stands
+// for it is, short of an answer that will never change.
+func (m *model) rereadTaskWorktreeCmd() tea.Cmd {
+	task, ok := m.hoveredRecordTask()
+	if !ok || task.Cwd == "" || m.inspections[task.Cwd].isSettled() {
 		return nil
 	}
 
-	return m.readWorktreeCmd(item.Agent.Cwd)
+	return m.readWorktreeCmd(task.Cwd)
 }
 
-// agentWorktree is what has been read of an agent's directory, and nothing for one that is not
-// a worktree komrad holds.
-func agentWorktree(inspections map[string]worktreeInspection, cwd string) (worktreeInspection, bool) {
+// taskWorktree is what has been read of a task's directory, and nothing for one that is not a
+// worktree komrad holds.
+func taskWorktree(inspections map[string]worktreeInspection, cwd string) (worktreeInspection, bool) {
 	read, ok := inspections[cwd]
 	if !ok || !read.answered || read.isSettled() {
 		return worktreeInspection{}, false
@@ -79,10 +87,10 @@ func agentWorktree(inspections map[string]worktreeInspection, cwd string) (workt
 	return read, true
 }
 
-// worktreeStandingFields are the record's rows for where an agent's directory stands: what is
-// uncommitted in it, what it takes on disk and who else works there, with the refusal above them
-// when the last read failed.
-func worktreeStandingFields(read worktreeInspection, agentID string, now time.Time) []recordField {
+// worktreeStandingFields are the record's rows for where a task's directory stands: what is
+// uncommitted in it and what it takes on disk, with the refusal above them when the last read
+// failed.
+func worktreeStandingFields(read worktreeInspection, now time.Time) []recordField {
 	fields := []recordField{}
 	if read.err != nil {
 		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
@@ -101,17 +109,14 @@ func worktreeStandingFields(read worktreeInspection, agentID string, now time.Ti
 		}
 	}
 
-	fields = append(fields, recordField{label: "size", value: sizeField(read.item, now)})
-	others := xslice.Filter(read.item.occupants, func(occupant worktreeAgent) bool { return occupant.id != agentID })
-
-	return appendOccupantsField(fields, "also here", others)
+	return append(fields, recordField{label: "size", value: sizeField(read.item, now)})
 }
 
-// agentDetailsTags is what the record's rule carries for an agent.
-func agentDetailsTags(m *model, item panel.AgentRow) []string {
-	worktree, _ := agentWorktree(m.inspections, item.Agent.Cwd)
+// taskDetailsTags is what the record's rule carries for a task.
+func taskDetailsTags(m *model, task panel.Task) []string {
+	worktree, _ := taskWorktree(m.inspections, task.Cwd)
 
-	return append(buildWorktreeStateTags(worktree), buildDiffStatTag(item.DiffStat))
+	return append(buildWorktreeStateTags(worktree), buildDiffStatTag(task.DiffStat))
 }
 
 // buildWorktreeStateTags is what is uncommitted, unpushed and unpulled in the directory.
@@ -175,4 +180,25 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 	}
 
 	return row.item, true
+}
+
+// hoveredRecordTask is the task whose checkout the record under the agents list or the archive
+// shows, and none on any other screen or row.
+func (m *model) hoveredRecordTask() (panel.Task, bool) {
+	screen, ok := m.active().(hoveredAgentReporter)
+	if !ok {
+		return panel.Task{}, false
+	}
+
+	row, ok := screen.hoveredRow(m)
+	switch {
+	case !ok:
+		return panel.Task{}, false
+	case row.isTask():
+		return *row.task, true
+	case row.header || row.underTask:
+		return panel.Task{}, false
+	}
+
+	return m.listing.findTask(row.item.Agent), true
 }

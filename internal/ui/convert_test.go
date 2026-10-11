@@ -14,19 +14,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProtoToAgentCarriesTheSyncedColumns pins the branch and the worktree removal flag of the
-// agent's task surviving the conversion.
+// TestProtoToAgentCarriesTheSyncedColumns pins the worktree removal flag of the agent's task
+// surviving the conversion.
 func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
-	branch := "fix/thing"
 	converted := agentFrom(&agentv1.Agent{Id: "a1"}, &taskv1.Task{
 		Id:              "t1",
-		Branch:          &branch,
 		WorktreeRemoved: true,
 	})
 
-	require.NotNil(t, converted.Branch)
-	assert.Equal(t, branch, *converted.Branch)
 	assert.True(t, converted.WorktreeRemoved)
+}
+
+// TestTasksFromCarriesTheCheckout pins the branch and the diff stat of a task's checkout
+// surviving the conversion.
+func TestTasksFromCarriesTheCheckout(t *testing.T) {
+	branch := "fix/thing"
+	converted := tasksFrom([]*taskv1.Task{{
+		Id:       "t1",
+		Branch:   &branch,
+		DiffStat: &taskv1.DiffStat{Added: 3, Removed: 1},
+	}})
+
+	require.Len(t, converted, 1)
+	require.NotNil(t, converted[0].Branch)
+	assert.Equal(t, branch, *converted[0].Branch)
+	assert.Equal(t, int32(3), converted[0].DiffStat.GetAdded())
+	assert.Equal(t, int32(1), converted[0].DiffStat.GetRemoved())
 }
 
 // TestProtoToAgentCarriesAFailedTurn pins the text a turn an API error ended is rendered with.

@@ -6,7 +6,6 @@ import (
 
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
-	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // State is what an agent is doing.
@@ -87,7 +86,6 @@ type Agent struct {
 	CreatedAt      time.Time
 	ArchivedAt     *time.Time
 	Hidden         bool
-	Branch         *string
 	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
 	// follows.
 	ParentAgentID   *string
@@ -120,8 +118,6 @@ type AgentRow struct {
 	DocumentsUpdatedAt *time.Time
 	// MovedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
 	MovedSinceRound string
-	// DiffStat is the lines its checkout adds and removes since its base, nil where there is none.
-	DiffStat *taskv1.DiffStat
 	// ReviewerComments counts the comments reviewer agents left on its work, nil while there
 	// are none to show.
 	ReviewerComments *agentv1.CommentCounts

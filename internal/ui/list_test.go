@@ -93,7 +93,7 @@ func TestListScrollKeys(t *testing.T) {
 		harness.press("pick:record")
 
 		harness.press("ctrl+n")
-		assert.Equal(t, "directory  —", readRecordCursor(harness.readFrame()), "a turn down is a field")
+		assert.Equal(t, "flags      —", readRecordCursor(harness.readFrame()), "a turn down is a field")
 
 		harness.press("ctrl+p")
 		assert.Equal(t, "agent      —", readRecordCursor(harness.readFrame()))

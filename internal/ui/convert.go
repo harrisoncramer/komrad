@@ -35,7 +35,6 @@ func agentFrom(s *agentv1.Agent, task *taskv1.Task) panel.Agent {
 		StateChangedAt:    dates.Parse(s.GetStateChangedAt()),
 		ArchivedAt:        dates.ParsePtr(s.GetArchivedAt()),
 		Hidden:            s.GetHidden(),
-		Branch:            branchOf(task),
 		WorktreeRemoved:   task.GetWorktreeRemoved(),
 		Sequence:          sequenceFrom(task.GetSequence()),
 		ParentAgentID:     s.ParentAgentId,
@@ -45,15 +44,6 @@ func agentFrom(s *agentv1.Agent, task *taskv1.Task) panel.Agent {
 		TaskSlug:          s.GetTaskSlug(),
 		ProvisionDisabled: s.GetProvisionDisabled(),
 	}
-}
-
-// branchOf is the branch a task's checkout is on, nil for no task or none.
-func branchOf(task *taskv1.Task) *string {
-	if task == nil {
-		return nil
-	}
-
-	return task.Branch
 }
 
 func tasksFrom(listed []*taskv1.Task) []panel.Task {
@@ -70,6 +60,8 @@ func tasksFrom(listed []*taskv1.Task) []panel.Task {
 			ArchivedAt:      dates.ParsePtr(t.GetArchivedAt()),
 			FailedRun:       t.GetFailedRun(),
 			Cwd:             t.GetCwd(),
+			Branch:          t.Branch,
+			DiffStat:        t.GetDiffStat(),
 			WorktreeRemoved: t.GetWorktreeRemoved(),
 		}
 	})
@@ -154,7 +146,6 @@ func agentRowFrom(row *agentv1.AgentRow, task *taskv1.Task) panel.AgentRow {
 		PullRequest:        pullRequestStandingFrom(row.GetPullRequest()),
 		PullRequests:       xslice.Map(row.GetPullRequests(), pullRequestFrom),
 		MovedSinceRound:    task.GetMovedSinceRound(),
-		DiffStat:           task.GetDiffStat(),
 		ReviewerComments:   row.GetReviewerComments(),
 		PersonComments:     row.GetPersonComments(),
 	}

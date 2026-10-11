@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
@@ -85,18 +84,15 @@ func workflowProse(w panel.Workflow) string {
 }
 
 // agentFieldsParams is an agent and what the record says about it that is not on its row: the
-// names of what launched it and what it hangs off, and the pull requests from its branch.
+// names of what launched it and what it hangs off, and its task's directory and checkout.
 type agentFieldsParams struct {
-	agent        panel.Agent
-	schedule     string
-	parent       string
-	standing     panel.PullRequestStanding
-	pullRequests []panel.PullRequest
-	// worktree is what the service has answered about the agent's directory, and read says
-	// whether it has answered that the directory is a worktree at all.
-	worktree worktreeInspection
-	read     bool
-	now      time.Time
+	agent    panel.Agent
+	schedule string
+	parent   string
+	// taskCwd is the directory of the task header standing over the agent, empty where none does.
+	taskCwd string
+	// checkout is its task's checkout rows, for a record no task header stands over.
+	checkout []recordField
 }
 
 func agentFields(params agentFieldsParams) []recordField {
@@ -112,18 +108,11 @@ func agentFields(params agentFieldsParams) []recordField {
 		fields = append(fields, recordField{label: "task", value: agent.TaskSlug})
 	}
 
-	fields = append(fields,
-		recordField{label: "agent", value: label.OrDash(agent.Harness)},
-		recordField{label: "directory", value: label.OrDash(agent.Cwd)},
-	)
-
-	if agent.Branch != nil {
-		fields = append(fields, recordField{label: branchFieldKey, value: *agent.Branch})
-		fields = append(fields, pullRequestFields(params.standing, params.pullRequests)...)
+	fields = append(fields, recordField{label: "agent", value: label.OrDash(agent.Harness)})
+	if agent.Cwd != "" && agent.Cwd != params.taskCwd {
+		fields = append(fields, recordField{label: "directory", value: agent.Cwd})
 	}
-	if params.read {
-		fields = append(fields, worktreeStandingFields(params.worktree, agent.ID, params.now)...)
-	}
+	fields = append(fields, params.checkout...)
 
 	fields = append(fields,
 		recordField{label: "flags", value: label.OrDash(agent.Flags)},

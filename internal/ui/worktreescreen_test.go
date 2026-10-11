@@ -794,13 +794,12 @@ func TestWorktreesInspection(t *testing.T) {
 		t.Parallel()
 
 		harness := openGroupedWorktrees(t)
-		read := &worktreev1.GetWorktreeRequest{Dir: "/trees/live"}
 
 		harness.press("g", "g", "j", "j", "j")
-		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, read)
+		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
 		harness.fireTimers()
 
-		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, read, &worktreev1.GetWorktreeRequest{Dir: "/trees/archived"})
+		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, &worktreev1.GetWorktreeRequest{Dir: "/trees/archived"})
 	})
 
 	t.Run("a listing that moves leaves the cursor on its row", func(t *testing.T) {

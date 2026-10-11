@@ -19,11 +19,7 @@ func (a *archivedAgents) details(m *model) details {
 		}
 	}
 
-	return details{
-		id:      r.item.Agent.ID,
-		notices: agentNotices(m.glyphs, m.loading.frame(), r),
-		fields:  agentDetailFields(m, r.item),
-	}
+	return agentDetails(m, r)
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.

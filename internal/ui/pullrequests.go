@@ -11,8 +11,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// pullRequestFields are the record's rows for the branch's pull requests: the current one's title
-// and author, then the rest, all of them when the branch has moved past its last one.
+// pullRequestFields are the record's rows for the branch's pull requests: the current one and its
+// author, then the rest, all of them when the branch has moved past its last one.
 func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.PullRequest) []recordField {
 	if len(pullRequests) == 0 {
 		return nil
@@ -24,7 +24,7 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 		current := pullRequests[0]
 		rest = pullRequests[1:]
 		if current.Title != "" {
-			fields = append(fields, recordField{label: "title", value: current.Title})
+			fields = append(fields, recordField{label: current.Noun(), value: current.Ref() + " " + current.Title})
 		}
 		if current.Author != "" {
 			fields = append(fields, recordField{label: "author", value: "@" + current.Author})
