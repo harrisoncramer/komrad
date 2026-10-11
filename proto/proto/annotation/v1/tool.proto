@@ -18,10 +18,12 @@ enum Role {
   ROLE_UNSPECIFIED = 0;
   // An agent that lands work on a branch of its own.
   ROLE_IMPLEMENTER = 1;
-  // A child that reads another agent's work and gives a review.
+  // An agent on a task that reads its change and gives a review.
   ROLE_REVIEWER = 2;
   // The agent drawn on a workflow's own row that hands work out.
   ROLE_ORCHESTRATOR = 3;
+  // The one agent on a task that writes its change.
+  ROLE_WRITER = 4;
 }
 
 message Surfaces {

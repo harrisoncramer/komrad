@@ -10,11 +10,10 @@ import (
 	"komrad/lib/xptr"
 )
 
-// IdempotencyKey is a caller's key together with the requester and parent it is scoped to.
+// IdempotencyKey is a caller's key together with the requester it is scoped to.
 type IdempotencyKey struct {
 	Key                string
 	RequestedByAgentID *string
-	ParentAgentID      *string
 }
 
 // GetByIdempotencyKey returns the live or archived agent recorded under a key.
@@ -26,7 +25,6 @@ func (s *AgentStore) GetByIdempotencyKey(ctx context.Context, key IdempotencyKey
 	row, err := s.queries.GetAgentByIdempotencyKey(ctx, models.GetAgentByIdempotencyKeyParams{
 		IdempotencyKey:     &key.Key,
 		RequestedByAgentID: key.RequestedByAgentID,
-		ParentAgentID:      key.ParentAgentID,
 	})
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: agent for idempotency key %q", store.ErrNotFound, key.Key)
@@ -48,7 +46,6 @@ func (s *AgentStore) ReleaseIdempotencyKey(ctx context.Context, key IdempotencyK
 	released, err := s.queries.ReleaseAgentIdempotencyKey(ctx, models.ReleaseAgentIdempotencyKeyParams{
 		IdempotencyKey:     &key.Key,
 		RequestedByAgentID: key.RequestedByAgentID,
-		ParentAgentID:      key.ParentAgentID,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to release idempotency key %q: %w", key.Key, err)

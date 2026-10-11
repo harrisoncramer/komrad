@@ -1460,7 +1460,7 @@ func newFormAuthor() *agentv1.Agent {
 
 func newLiveAuthor() *agentv1.Agent {
 	author := newAgent("a1", "author", "w1")
-	author.Role = agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
+	author.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 	author.PaneId = "%9"
 	author.Alive = xptr.Ptr(true)
 

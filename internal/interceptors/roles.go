@@ -42,7 +42,7 @@ func isRestricted(surfaces *annotationv1.Surfaces) bool {
 
 	for number := range annotationv1.Role_name {
 		role := annotationv1.Role(number)
-		if role != annotationv1.Role_ROLE_UNSPECIFIED && !slices.Contains(surfaces.GetRoles(), role) {
+		if role != annotationv1.Role_ROLE_UNSPECIFIED && role != annotationv1.Role_ROLE_IMPLEMENTER && !slices.Contains(surfaces.GetRoles(), role) {
 			return true
 		}
 	}

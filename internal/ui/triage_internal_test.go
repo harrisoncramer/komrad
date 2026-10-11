@@ -34,9 +34,9 @@ func TestTriageRefresh(t *testing.T) {
 
 		return item
 	}
-	implementer := func(change func(*panel.AgentRow)) panel.AgentRow {
+	writer := func(change func(*panel.AgentRow)) panel.AgentRow {
 		return idle(func(item *panel.AgentRow) {
-			item.Agent.Role = panel.RoleImplementer
+			item.Agent.Role = panel.RoleWriter
 			change(item)
 		})
 	}
@@ -120,12 +120,12 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name: "an agent holding mail is not in triage for what it can fix",
-			item: implementer(func(item *panel.AgentRow) { item.UnreadMail = true }),
+			item: writer(func(item *panel.AgentRow) { item.UnreadMail = true }),
 			want: "",
 		},
 		{
-			name: "an implementer waiting on its checks is not in triage",
-			item: implementer(func(*panel.AgentRow) {}),
+			name: "a writer waiting on its checks is not in triage",
+			item: writer(func(*panel.AgentRow) {}),
 			task: panel.Task{PullRequest: panel.PullRequestStanding{
 				State:          pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
 				MergeReadiness: panel.MergeReadiness{Checks: pullrequestv1.Checks_CHECKS_PENDING},
@@ -133,8 +133,8 @@ func TestTriageRefresh(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "an implementer with a failure while checks still run is not in triage",
-			item: implementer(func(*panel.AgentRow) {}),
+			name: "a writer with a failure while checks still run is not in triage",
+			item: writer(func(*panel.AgentRow) {}),
 			task: panel.Task{PullRequest: panel.PullRequestStanding{
 				State:          pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 				MergeReadiness: panel.MergeReadiness{Checks: pullrequestv1.Checks_CHECKS_FAILING_RUNNING},
@@ -142,16 +142,16 @@ func TestTriageRefresh(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "an implementer whose reviewers were asked to look again is not in triage",
-			item: implementer(func(*panel.AgentRow) {}),
+			name: "a writer whose reviewers were asked to look again is not in triage",
+			item: writer(func(*panel.AgentRow) {}),
 			task: panel.Task{PullRequest: panel.PullRequestStanding{
 				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED,
 			}},
 			want: "",
 		},
 		{
-			name: "an implementer whose pull request has changes requested is finished",
-			item: implementer(func(*panel.AgentRow) {}),
+			name: "a writer whose pull request has changes requested is finished",
+			item: writer(func(*panel.AgentRow) {}),
 			task: panel.Task{PullRequest: panel.PullRequestStanding{
 				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 			}},
@@ -171,15 +171,10 @@ func TestTriageRefresh(t *testing.T) {
 			since: seen,
 		},
 		{
-			name:   "an idle implementer with a child at work is not in triage",
-			item:   implementer(func(*panel.AgentRow) {}),
+			name:   "an idle writer with a child at work is not in triage",
+			item:   writer(func(*panel.AgentRow) {}),
 			others: []panel.AgentRow{child(panel.StateThinking)},
 			want:   "",
-		},
-		{
-			name: "an idle child is not in triage",
-			item: implementer(func(item *panel.AgentRow) { item.Agent.ParentAgentID = xptr.Ptr("p1") }),
-			want: "",
 		},
 		{
 			name: "an idle reviewer is not in triage",
@@ -274,8 +269,8 @@ func TestTriageRefresh(t *testing.T) {
 			since: seen,
 		},
 		{
-			name: "an implementer that stopped on a failing pull request is finished",
-			item: implementer(func(*panel.AgentRow) {}),
+			name: "a writer that stopped on a failing pull request is finished",
+			item: writer(func(*panel.AgentRow) {}),
 			task: panel.Task{PullRequest: panel.PullRequestStanding{
 				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 			}},
@@ -283,8 +278,8 @@ func TestTriageRefresh(t *testing.T) {
 			since: changed,
 		},
 		{
-			name: "an implementer whose pull request merged with checks still running is finished",
-			item: implementer(func(*panel.AgentRow) {}),
+			name: "a writer whose pull request merged with checks still running is finished",
+			item: writer(func(*panel.AgentRow) {}),
 			task: panel.Task{PullRequest: panel.PullRequestStanding{
 				State:          pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 				MergeReadiness: panel.MergeReadiness{Checks: pullrequestv1.Checks_CHECKS_PENDING},
@@ -293,8 +288,8 @@ func TestTriageRefresh(t *testing.T) {
 			since: changed,
 		},
 		{
-			name:   "an implementer that finished its turn is finished",
-			item:   implementer(func(*panel.AgentRow) {}),
+			name:   "a writer that finished its turn is finished",
+			item:   writer(func(*panel.AgentRow) {}),
 			others: []panel.AgentRow{child(panel.StateIdle)},
 			want:   "finished",
 			since:  changed,

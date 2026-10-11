@@ -156,6 +156,9 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		parent = found
 		params = childParams(params, *found)
 	}
+	if params.Role == "" {
+		params.Role = agentstore.DefaultRole(parent != nil)
+	}
 
 	if err := requireRoomForAgents(ctx, s.agents, s.usage.MaxAgents, 1); err != nil {
 		return nil, err
@@ -181,7 +184,6 @@ func idempotencyKey(ctx context.Context, params NewAgentParams) agentstore.Idemp
 	return agentstore.IdempotencyKey{
 		Key:                params.IdempotencyKey,
 		RequestedByAgentID: nullable(caller.From(ctx).AgentID),
-		ParentAgentID:      nullable(params.ParentAgentID),
 	}
 }
 
@@ -194,9 +196,10 @@ func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
 	return fmt.Errorf("%w: %q stands behind workflow %q", agenterr.ErrOutsideWorkflow, spawner.Name, spawner.WorkflowID)
 }
 
-// findSpawnedBy picks the agent a new one answers to, the workflow's orchestrator for an implementer's standalone spawn.
+// findSpawnedBy picks the agent a new one answers to, the workflow's orchestrator for a standalone
+// spawn by a writer.
 func (s *LaunchService) findSpawnedBy(ctx context.Context, spawner agentstore.Agent, params NewAgentParams) (*agentstore.Agent, error) {
-	if spawner.Role != agentstore.RoleImplementer || params.ParentAgentID != "" {
+	if spawner.Role != agentstore.RoleWriter || params.ParentAgentID != "" {
 		return &spawner, nil
 	}
 
@@ -350,7 +353,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 // joinCheckout points a writer launched onto a task that already has a worktree at that worktree in
 // place of a new one, reporting whether it did.
 func (p *launchPlan) joinCheckout(params NewAgentParams, task *taskstore.Task) (bool, error) {
-	joins, err := isJoining(task, p.provisioner, params.ParentAgentID == "" && params.Role.IsImplementer())
+	joins, err := isJoining(task, p.provisioner, params.Role == agentstore.RoleWriter)
 	if err != nil || !joins {
 		return false, err
 	}

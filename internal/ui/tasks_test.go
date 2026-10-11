@@ -181,7 +181,7 @@ func TestTasksTree(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				writer := newTaskAgent("a1", "author", "t1", 0)
-				writer.Harness, writer.Flags, writer.Role = "claude", "--model opus", agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
+				writer.Harness, writer.Flags, writer.Role = "claude", "--model opus", agentv1.AgentRole_AGENT_ROLE_WRITER
 				writer.State = tt.writer
 				harness := openAgents(t, newLiveWorkflow("w1", "komrad"), tt.task, writer)
 				answerAgentCreate(harness, "")
@@ -431,7 +431,7 @@ func TestTasksRow(t *testing.T) {
 
 func buildHandOff() []proto.Message {
 	writer := newTaskAgent("a1", "author", "t1", 0)
-	writer.Harness, writer.Flags, writer.Role = "claude", "--model opus", agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
+	writer.Harness, writer.Flags, writer.Role = "claude", "--model opus", agentv1.AgentRole_AGENT_ROLE_WRITER
 	writer.Cwd = "/worktrees/fix-login"
 	child := newTaskAgent("a2", "helper", "t1", 5)
 	child.ParentAgentId = xptr.Ptr("a1")

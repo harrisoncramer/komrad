@@ -368,8 +368,8 @@ func TestKind(t *testing.T) {
 		wantKind          Kind
 	}{
 		{
-			name:     "a schedule given no kind launches an implementer",
-			wantKind: KindImplementer,
+			name:     "a schedule given no kind starts a task",
+			wantKind: KindTask,
 		},
 		{
 			name:              "an orchestrator schedule names the orchestrator it mails",
@@ -389,8 +389,8 @@ func TestKind(t *testing.T) {
 			wantErr:       true,
 		},
 		{
-			name:              "an implementer schedule naming an orchestrator is refused",
-			kind:              KindImplementer,
+			name:              "a task schedule naming an orchestrator is refused",
+			kind:              KindTask,
 			namesOrchestrator: true,
 			wantErr:           true,
 		},

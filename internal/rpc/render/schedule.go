@@ -56,7 +56,7 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 }
 
 var scheduleKinds = map[schedulestore.Kind]schedulev1.ScheduleKind{
-	schedulestore.KindImplementer:  schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+	schedulestore.KindTask:         schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 	schedulestore.KindOrchestrator: schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 }
 

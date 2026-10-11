@@ -61,9 +61,9 @@ func TestParseSearch(t *testing.T) {
 		},
 		{
 			name: "kinds wanted and left out",
-			text: "is:reviewer is:implementer -is:orchestrator",
+			text: "is:reviewer is:writer -is:orchestrator",
 			want: search{Filter: transcriptstore.Filter{
-				Kinds:         []string{"reviewer", "implementer"},
+				Kinds:         []string{"reviewer", "writer"},
 				ExcludedKinds: []string{"orchestrator"},
 			}},
 		},

@@ -33,13 +33,13 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 		wantAbsent      []string
 	}{
 		{
-			name: "an implementer is handed its branch, pull request, open threads and task",
+			name: "a writer is handed its branch, pull request, open threads and task",
 			row: &agentv1.GetAgentResponse{
 				Agent: &agentv1.Agent{
 					Id:     "agent-a",
 					TaskId: xptr.Ptr("task-a"),
 					Name:   "compaction",
-					Role:   agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
+					Role:   agentv1.AgentRole_AGENT_ROLE_WRITER,
 					Prompt: "build the usage block",
 				},
 				Task:       &taskv1.Task{Branch: xptr.Ptr("agent/compaction")},
@@ -64,7 +64,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			},
 			wantThreadsTask: "task-a",
 			wantText: []string{
-				"You are compaction (agent-a), the implementer agent.",
+				"You are compaction (agent-a), the writer agent.",
 				"Branch: agent/compaction",
 				"Pull request: https://github.com/o/r/pull/9 (changes requested)",
 				"Open review threads on your work (1), answered with add_review_message",
@@ -114,7 +114,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 				Id:     "agent-a",
 				TaskId: xptr.Ptr("task-a"),
 				Name:   "long",
-				Role:   agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
+				Role:   agentv1.AgentRole_AGENT_ROLE_WRITER,
 				Prompt: strings.Repeat("x", promptLimit+50),
 			}},
 			wantThreadsTask: "task-a",

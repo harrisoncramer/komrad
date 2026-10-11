@@ -180,7 +180,7 @@ func scheduleFields(sched panel.Schedule, target scheduleTarget) []recordField {
 		return append(fields, recordField{label: "kind", value: "unknown"})
 	}
 
-	fields = append(fields, recordField{label: "kind", value: "implementer"})
+	fields = append(fields, recordField{label: "kind", value: "task"})
 	if target.workflow == nil {
 		return append(fields, recordField{label: "workflow", value: "— (archived)"})
 	}

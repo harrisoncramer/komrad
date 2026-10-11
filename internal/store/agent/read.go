@@ -205,7 +205,7 @@ func (s *AgentStore) ListOnTasks(ctx context.Context, taskIDs []string) ([]Agent
 	return fromRows(rows), nil
 }
 
-// GetTaskWriter returns the live top-level implementer of a task, ErrNotFound when it has none.
+// GetTaskWriter returns the live writer of a task, ErrNotFound when it has none.
 func (s *AgentStore) GetTaskWriter(ctx context.Context, taskID string) (*Agent, error) {
 	if !store.IsID(taskID) {
 		return nil, store.ErrNotFound.Saying("no writer on task %q", taskID)

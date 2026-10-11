@@ -231,30 +231,75 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
 }
 
-// TestRequestReviewKeyIsScopedToCallerAndAuthor pins that one key on another author or from another
-// caller is a new ask.
-func TestRequestReviewKeyIsScopedToCallerAndAuthor(t *testing.T) {
+// TestRequestReviewKeyIsScopedToCaller pins that one key from another caller is a new ask.
+func TestRequestReviewKeyIsScopedToCaller(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	ids := map[string]string{}
+	for _, name := range []string{"author", "other author"} {
+		author, err := manager.launch.NewAgent(ctx, NewAgentParams{
+			Title:      name,
+			Dir:        t.TempDir(),
+			Prompt:     "write the change",
+			WorkflowID: seedWorkflow(t, st),
+		})
+		require.NoError(t, err)
+		ids[name] = author.ID
+	}
+
+	first, _, err := manager.launch.RequestReview(caller.With(ctx, caller.Caller{AgentID: ids["author"]}), RequestReviewParams{
+		AgentID:        ids["author"],
+		Prompt:         "read it",
+		IdempotencyKey: "abc",
+	})
+	require.NoError(t, err)
+
+	second, _, err := manager.launch.RequestReview(caller.With(ctx, caller.Caller{AgentID: ids["other author"]}), RequestReviewParams{
+		AgentID:        ids["other author"],
+		Prompt:         "read it",
+		IdempotencyKey: "abc",
+	})
+	require.NoError(t, err)
+	assert.NotEqual(t, first.ID, second.ID)
+	require.NotNil(t, second.ParentAgentID)
+	assert.Equal(t, ids["other author"], *second.ParentAgentID)
+}
+
+// TestRequestReviewRefusesAKeySpentOnAnotherAgent pins that a key one caller already spent on an
+// agent other than this author's reviewer is refused rather than answered with that agent.
+func TestRequestReviewRefusesAKeySpentOnAnotherAgent(t *testing.T) {
 	tests := []struct {
-		name         string
-		firstCaller  string
-		firstAuthor  string
-		secondCaller string
-		secondAuthor string
-		key          string
+		name  string
+		spend func(t *testing.T, launch *LaunchService, ids map[string]string)
+		asker string
 	}{
 		{
-			name:         "another author's key is not a retry of this one's call",
-			firstCaller:  "author",
-			firstAuthor:  "author",
-			secondCaller: "other author",
-			secondAuthor: "other author",
-			key:          "abc",
+			name: "a key spent on a spawn of the author's own",
+			spend: func(t *testing.T, launch *LaunchService, ids map[string]string) {
+				_, err := launch.NewAgent(caller.With(t.Context(), caller.Caller{AgentID: ids["author"]}), NewAgentParams{
+					Title:          "side work",
+					Dir:            t.TempDir(),
+					Prompt:         "look into it",
+					WorkflowID:     ids["workflow"],
+					IdempotencyKey: "abc",
+				})
+				require.NoError(t, err)
+			},
+			asker: "author",
 		},
 		{
-			name:         "one caller's key on two authors is two asks",
-			firstAuthor:  "author",
-			secondAuthor: "other author",
-			key:          "xyz",
+			name: "one caller's key on two authors",
+			spend: func(t *testing.T, launch *LaunchService, ids map[string]string) {
+				_, _, err := launch.RequestReview(t.Context(), RequestReviewParams{
+					AgentID:        ids["other author"],
+					Prompt:         "read it",
+					IdempotencyKey: "abc",
+				})
+				require.NoError(t, err)
+			},
 		},
 	}
 
@@ -265,34 +310,25 @@ func TestRequestReviewKeyIsScopedToCallerAndAuthor(t *testing.T) {
 			manager := newManager(tmux, st, "")
 			ctx := t.Context()
 
-			ids := map[string]string{}
+			ids := map[string]string{"workflow": seedWorkflow(t, st)}
 			for _, name := range []string{"author", "other author"} {
 				author, err := manager.launch.NewAgent(ctx, NewAgentParams{
 					Title:      name,
 					Dir:        t.TempDir(),
 					Prompt:     "write the change",
-					WorkflowID: seedWorkflow(t, st),
+					WorkflowID: ids["workflow"],
 				})
 				require.NoError(t, err)
 				ids[name] = author.ID
 			}
+			tt.spend(t, manager.launch, ids)
 
-			first, _, err := manager.launch.RequestReview(caller.With(ctx, caller.Caller{AgentID: ids[tt.firstCaller]}), RequestReviewParams{
-				AgentID:        ids[tt.firstAuthor],
+			_, _, err := manager.launch.RequestReview(caller.With(ctx, caller.Caller{AgentID: ids[tt.asker]}), RequestReviewParams{
+				AgentID:        ids["author"],
 				Prompt:         "read it",
-				IdempotencyKey: tt.key,
+				IdempotencyKey: "abc",
 			})
-			require.NoError(t, err)
-
-			second, _, err := manager.launch.RequestReview(caller.With(ctx, caller.Caller{AgentID: ids[tt.secondCaller]}), RequestReviewParams{
-				AgentID:        ids[tt.secondAuthor],
-				Prompt:         "read it",
-				IdempotencyKey: tt.key,
-			})
-			require.NoError(t, err)
-			assert.NotEqual(t, first.ID, second.ID)
-			require.NotNil(t, second.ParentAgentID)
-			assert.Equal(t, ids[tt.secondAuthor], *second.ParentAgentID)
+			require.ErrorIs(t, err, errKeySpentElsewhere)
 		})
 	}
 }
@@ -392,7 +428,7 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 		WorkflowID: workflow.ID,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, agentstore.RoleImplementer, author.Role, "an agent that names no role writes rather than reads")
+	assert.Equal(t, agentstore.RoleWriter, author.Role, "an agent that names no role writes rather than reads")
 
 	require.Len(t, fakeHarness.Launches, 1)
 	briefing := fakeHarness.Launches[0].Context

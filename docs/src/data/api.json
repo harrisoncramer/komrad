@@ -14,7 +14,7 @@
           "tool": "list_agents",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -34,7 +34,7 @@
           "tool": "get_agent",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -54,7 +54,7 @@
           "tool": "create_agent",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "orchestrator"
           ],
           "summary": "Launch a new agent with an opening prompt, which is everything it has to go on.",
@@ -73,7 +73,7 @@
           "tool": "request_review",
           "mcp": true,
           "roles": [
-            "implementer"
+            "writer"
           ],
           "summary": "Spawn a reviewer for your committed work, as your child in your checkout.",
           "description": "Spawn a reviewer for your committed work, as your child in your checkout. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person.",
@@ -109,7 +109,7 @@
           "tool": "log",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -129,7 +129,7 @@
           "tool": "send_mail",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -149,7 +149,7 @@
           "tool": "forward_last_turns",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -169,7 +169,7 @@
           "tool": "read_mail",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -189,7 +189,7 @@
           "tool": "list_mail",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -227,7 +227,7 @@
           "tool": "archive_agents",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "orchestrator"
           ],
           "summary": "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents.",
@@ -300,12 +300,12 @@
           "tool": "resume_agent",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
           "summary": "Relaunch an agent's CLI on the same conversation, such as when its pane died.",
-          "description": "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An implementer or reviewer may resume only its parent and its workflow's orchestrator.",
+          "description": "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An agent on a task may resume only its parent and its workflow's orchestrator.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -374,7 +374,7 @@
           "tool": "search_transcripts",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -394,7 +394,7 @@
           "tool": "get_transcript",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -414,7 +414,7 @@
           "tool": "get_last_turns",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -434,7 +434,7 @@
           "tool": "write_document",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "orchestrator"
           ],
           "summary": "Write a markdown document for a person to read, as a type from list_document_types and following its context.",
@@ -453,7 +453,7 @@
           "tool": "list_documents",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -473,7 +473,7 @@
           "tool": "search_documents",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -493,7 +493,7 @@
           "tool": "get_document",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -513,7 +513,7 @@
           "tool": "list_document_versions",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -533,7 +533,7 @@
           "tool": "list_document_types",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -553,7 +553,7 @@
           "tool": "get_document_type",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -573,7 +573,7 @@
           "tool": "list_document_type_versions",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -641,7 +641,7 @@
           "tool": "list_review_threads",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -679,7 +679,7 @@
           "tool": "add_review_message",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -837,7 +837,7 @@
           "tool": "list_review_rounds",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -857,7 +857,7 @@
           "tool": "list_reviews",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -877,7 +877,7 @@
           "tool": "get_review",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -923,7 +923,7 @@
           "tool": "list_workflows",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -943,7 +943,7 @@
           "tool": "get_workflow",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -1051,7 +1051,7 @@
       "slug": "schedule",
       "title": "Schedule",
       "name": "schedule.v1.ScheduleService",
-      "description": "ScheduleService is the recurring firings, which spawn an implementer into a workflow or mail an orchestrator whenever their cron expression next matches.",
+      "description": "ScheduleService is the recurring firings, which start a task in a workflow or mail an orchestrator whenever their cron expression next matches.",
       "methods": [
         {
           "slug": "list-schedules",
@@ -1117,8 +1117,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Create a schedule that fires on a cron expression, launching an implementer into workflowId or mailing the prompt to orchestratorAgentId.",
-          "description": "Create a schedule that fires on a cron expression, launching an implementer into workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.",
+          "summary": "Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId.",
+          "description": "Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1549,7 +1549,7 @@
           "tool": "list_pull_requests",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "orchestrator"
           ],
           "summary": "List the pull requests komrad has stored for a repository, unfinished first.",
@@ -1672,7 +1672,7 @@
           "tool": "get_task",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -1692,7 +1692,7 @@
           "tool": "list_tasks",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -1730,7 +1730,7 @@
           "tool": "set_task_notes",
           "mcp": true,
           "roles": [
-            "implementer",
+            "writer",
             "reviewer",
             "orchestrator"
           ],
@@ -8142,7 +8142,7 @@
           "map": false,
           "oneof": "target",
           "rules": [],
-          "description": "Launch an implementer into this workflow, whose cwd and flags it inherits."
+          "description": "Start a task in this workflow, whose cwd and flags its writer inherits."
         },
         {
           "name": "orchestrator_agent_id",
@@ -8442,7 +8442,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether it launches an implementer or mails an orchestrator."
+          "description": "Whether it starts a task or mails an orchestrator."
         },
         {
           "name": "orchestrator_agent_id",
@@ -8694,7 +8694,7 @@
           "map": false,
           "oneof": "target",
           "rules": [],
-          "description": "Launch an implementer into this workflow."
+          "description": "Start a task in this workflow."
         },
         {
           "name": "orchestrator_agent_id",
@@ -10740,11 +10740,15 @@
         },
         {
           "name": "AGENT_ROLE_REVIEWER",
-          "description": "A child that reads another agent's work and gives a review."
+          "description": "An agent on a task that reads its change and gives a review."
         },
         {
           "name": "AGENT_ROLE_ORCHESTRATOR",
           "description": "The agent drawn on a workflow's own row that hands work out."
+        },
+        {
+          "name": "AGENT_ROLE_WRITER",
+          "description": "The one agent on a task that writes its change, for the task's whole life."
         }
       ]
     },
@@ -11069,6 +11073,10 @@
         {
           "name": "SCHEDULE_KIND_ORCHESTRATOR",
           "description": "Mails the prompt to an orchestrator that is already running."
+        },
+        {
+          "name": "SCHEDULE_KIND_TASK",
+          "description": "Starts a new task in the workflow, its writer given the prompt."
         }
       ]
     },

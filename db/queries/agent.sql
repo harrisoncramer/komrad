@@ -404,7 +404,6 @@ FROM
 WHERE
     s.idempotency_key = @idempotency_key
     AND s.requested_by_agent_id IS NOT DISTINCT FROM sqlc.narg('requested_by_agent_id')::uuid
-    AND s.parent_agent_id IS NOT DISTINCT FROM sqlc.narg('parent_agent_id')::uuid
 LIMIT 1;
 
 -- name: ReleaseAgentIdempotencyKey :many
@@ -415,7 +414,6 @@ SET
 WHERE
     idempotency_key = @idempotency_key
     AND requested_by_agent_id IS NOT DISTINCT FROM sqlc.narg('requested_by_agent_id')::uuid
-    AND parent_agent_id IS NOT DISTINCT FROM sqlc.narg('parent_agent_id')::uuid
     AND state = 'failed_to_create'
 RETURNING
     id;
@@ -598,8 +596,7 @@ FROM
     agents
 WHERE
     task_id = sqlc.arg('task_id')::uuid
-    AND ROLE = 'implementer'
-    AND parent_agent_id IS NULL
+    AND ROLE = 'writer'
     AND archived_at IS NULL
     AND deleting_at IS NULL
     AND state <> 'failed_to_create'

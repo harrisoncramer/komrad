@@ -52,7 +52,7 @@ func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
 
 func kindField(values *panel.ScheduleConfig, orchestrators []panel.Agent) huh.Field {
 	options := []huh.Option[schedulev1.ScheduleKind]{
-		huh.NewOption("Implementer  launch a new agent", schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER),
+		huh.NewOption("Task  start a new task", schedulev1.ScheduleKind_SCHEDULE_KIND_TASK),
 	}
 	description := "what each firing does"
 	if len(orchestrators) > 0 || values.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {

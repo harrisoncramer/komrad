@@ -215,7 +215,7 @@ func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agen
 		return nil, fmt.Errorf("failed to read the task of agent %q: %w", agent.Name, err)
 	}
 
-	joins, err := isJoining(task, provisioner, agent.IsTopLevelImplementer())
+	joins, err := isJoining(task, provisioner, agent.IsWriter())
 	if err != nil {
 		return nil, err
 	}

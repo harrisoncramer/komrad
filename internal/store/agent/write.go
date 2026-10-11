@@ -28,7 +28,7 @@ func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
 		Flags:              agent.Flags,
 		Prompt:             agent.Prompt,
 		PaneID:             agent.Pane,
-		Role:               models.AgentRole(agent.Role.orDefault()),
+		Role:               models.AgentRole(agent.roleOrDefault()),
 		State:              models.AgentState(agent.State),
 		Harness:            agent.Harness,
 		SessionID:          agent.SessionID,

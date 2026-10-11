@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/fail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 )
@@ -14,6 +15,10 @@ import (
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the sidebar says
 // whose work a row is for.
 const reviewerNameSuffix = "-reviewer"
+
+// errKeySpentElsewhere is a request_review retry key that already launched an agent other than this
+// author's reviewer.
+var errKeySpentElsewhere = fail.AlreadyExists("this idempotency key already launched an agent that is not this agent's reviewer")
 
 type RequestReviewParams struct {
 	AgentID        string
@@ -81,11 +86,20 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		Role:           agentstore.RoleReviewer,
 		IdempotencyKey: params.IdempotencyKey,
 	})
+	if errors.Is(err, agenterr.ErrAlreadyLaunched) && !isReviewerOf(*reviewer, *author) {
+		return nil, "", errKeySpentElsewhere.Saying("key %q launched %q, so ask with a key of its own", params.IdempotencyKey, reviewer.Name)
+	}
 	if err != nil && !errors.Is(err, agenterr.ErrAlreadyLaunched) {
 		return nil, "", err
 	}
 
 	return reviewer, settlingDoc, nil
+}
+
+// isReviewerOf reports whether the agent reviews the author's task.
+func isReviewerOf(agent, author agentstore.Agent) bool {
+	return agent.Role == agentstore.RoleReviewer &&
+		agent.TaskID != nil && author.TaskID != nil && *agent.TaskID == *author.TaskID
 }
 
 // liveReviewerFor is the reviewer an agent still has to answer to, skipping one that has

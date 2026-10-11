@@ -71,9 +71,9 @@ it back as additional context. A panel that cannot be reached prints nothing.`,
 
 func threadTask(agent *agentv1.Agent) string {
 	switch agent.GetRole() {
-	case agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER, agentv1.AgentRole_AGENT_ROLE_REVIEWER:
+	case agentv1.AgentRole_AGENT_ROLE_WRITER, agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 		return agent.GetTaskId()
-	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
+	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
 		return ""
 	default:
 		return ""

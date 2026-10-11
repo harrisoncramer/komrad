@@ -62,7 +62,7 @@ func TestIntegrationOrchestrator(t *testing.T) {
 
 		created, err := instance.Agents.CreateAgent(ctx, req)
 		require.NoError(t, err)
-		assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER, created.Msg.GetAgent().GetRole())
+		assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_WRITER, created.Msg.GetAgent().GetRole())
 	})
 
 	t.Run("it cannot spawn into another workflow", func(t *testing.T) {

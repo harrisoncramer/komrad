@@ -122,8 +122,8 @@ func AgentStateOf(state agentstore.State) agentv1.AgentState {
 // agentRoleOf is a stored role as the wire carries it.
 func agentRoleOf(role agentstore.Role) agentv1.AgentRole {
 	switch role {
-	case agentstore.RoleImplementer:
-		return agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
+	case agentstore.RoleWriter:
+		return agentv1.AgentRole_AGENT_ROLE_WRITER
 	case agentstore.RoleReviewer:
 		return agentv1.AgentRole_AGENT_ROLE_REVIEWER
 	case agentstore.RoleOrchestrator:

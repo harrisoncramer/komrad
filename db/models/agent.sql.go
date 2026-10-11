@@ -411,18 +411,16 @@ FROM
 WHERE
     s.idempotency_key = $1
     AND s.requested_by_agent_id IS NOT DISTINCT FROM $2::uuid
-    AND s.parent_agent_id IS NOT DISTINCT FROM $3::uuid
 LIMIT 1
 `
 
 type GetAgentByIdempotencyKeyParams struct {
 	IdempotencyKey     *string
 	RequestedByAgentID *string
-	ParentAgentID      *string
 }
 
 func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, arg GetAgentByIdempotencyKeyParams) (*Agent, error) {
-	row := q.db.QueryRow(ctx, getAgentByIdempotencyKey, arg.IdempotencyKey, arg.RequestedByAgentID, arg.ParentAgentID)
+	row := q.db.QueryRow(ctx, getAgentByIdempotencyKey, arg.IdempotencyKey, arg.RequestedByAgentID)
 	var i Agent
 	err := row.Scan(
 		&i.ID,
@@ -559,8 +557,7 @@ FROM
     agents
 WHERE
     task_id = $1::uuid
-    AND ROLE = 'implementer'
-    AND parent_agent_id IS NULL
+    AND ROLE = 'writer'
     AND archived_at IS NULL
     AND deleting_at IS NULL
     AND state <> 'failed_to_create'
@@ -2763,7 +2760,6 @@ SET
 WHERE
     idempotency_key = $1
     AND requested_by_agent_id IS NOT DISTINCT FROM $2::uuid
-    AND parent_agent_id IS NOT DISTINCT FROM $3::uuid
     AND state = 'failed_to_create'
 RETURNING
     id
@@ -2772,11 +2768,10 @@ RETURNING
 type ReleaseAgentIdempotencyKeyParams struct {
 	IdempotencyKey     *string
 	RequestedByAgentID *string
-	ParentAgentID      *string
 }
 
 func (q *Queries) ReleaseAgentIdempotencyKey(ctx context.Context, arg ReleaseAgentIdempotencyKeyParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, releaseAgentIdempotencyKey, arg.IdempotencyKey, arg.RequestedByAgentID, arg.ParentAgentID)
+	rows, err := q.db.Query(ctx, releaseAgentIdempotencyKey, arg.IdempotencyKey, arg.RequestedByAgentID)
 	if err != nil {
 		return nil, err
 	}

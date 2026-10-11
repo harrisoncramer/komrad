@@ -743,7 +743,7 @@ func TestResumeCompactsAtItsRolesPoint(t *testing.T) {
 	})
 
 	agent := seed(t, st, "auth", "", agentstore.StateThinking)
-	require.Equal(t, agentstore.RoleImplementer, agent.Role)
+	require.Equal(t, agentstore.RoleWriter, agent.Role)
 
 	_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 
@@ -853,8 +853,8 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 			wantErrIs: errResumeNotYours,
 		},
 		{
-			name:      "an implementer waking a peer",
-			from:      "implementer",
+			name:      "a writer waking a peer",
+			from:      "writer",
 			resume:    "peer",
 			wantErrIs: errResumeNotYours,
 		},
@@ -865,14 +865,14 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 			wantErrIs: errResumeNotYours,
 		},
 		{
-			name:   "an implementer waking its workflow's orchestrator",
-			from:   "implementer",
+			name:   "a writer waking its workflow's orchestrator",
+			from:   "writer",
 			resume: "orchestrator",
 		},
 		{
 			name:   "a reviewer waking its parent",
 			from:   "reviewer",
-			resume: "implementer",
+			resume: "writer",
 		},
 		{
 			name:   "a reviewer waking its workflow's orchestrator",
@@ -897,11 +897,11 @@ func TestResumeAgentHoldsAnAgentToItsParentAndOrchestrator(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			orchestrator := seedOrchestrator(t, st, tmux)
-			implementer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "implementer", "%1")
+			writer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "writer", "%1")
 			seeded := map[string]string{
 				"orchestrator": orchestrator.ID,
-				"implementer":  implementer.ID,
-				"reviewer":     seedChild(t, st, tmux, implementer).ID,
+				"writer":       writer.ID,
+				"reviewer":     seedChild(t, st, tmux, writer).ID,
 				"peer":         seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "peer", "%2").ID,
 				"stranger":     seedRunning(t, st, tmux, "stranger", "%3", agentstore.StateIdle).ID,
 			}

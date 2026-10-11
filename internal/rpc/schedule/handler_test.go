@@ -333,7 +333,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 		HideAgents: true,
 		Prompt:     "check CI",
 		WorkflowID: "01a0d228-0000-7000-8000-0000000000ff",
-		Kind:       schedulestore.KindImplementer,
+		Kind:       schedulestore.KindTask,
 	}
 	orchestratorID := "01a0d228-0000-7000-8000-0000000000aa"
 	mailing := schedulestore.Config{
@@ -509,13 +509,13 @@ func TestCreateSchedule(t *testing.T) {
 	}{
 		{
 			name:     "a paused schedule has no next run to report",
-			wantKind: schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+			wantKind: schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 		},
 		{
 			name:        "an armed schedule reports when it next fires",
 			enabled:     true,
 			wantNextRun: true,
-			wantKind:    schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+			wantKind:    schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 		},
 		{
 			name:             "an orchestrator schedule names the orchestrator it mails",

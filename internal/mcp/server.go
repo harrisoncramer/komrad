@@ -7,7 +7,7 @@
 // hand-written surface in step with the first.
 //
 // A tool's annotation also says which roles it is offered to, and the caller names itself on
-// every request, so a reviewer is served the tools for reading work and an implementer the
+// every request, so a reviewer is served the tools for reading work and a writer the
 // tools for writing it.
 package mcp
 
@@ -31,7 +31,7 @@ import (
 // servedRoles is the roles a server is built for.
 var servedRoles = []annotationv1.Role{
 	annotationv1.Role_ROLE_UNSPECIFIED,
-	annotationv1.Role_ROLE_IMPLEMENTER,
+	annotationv1.Role_ROLE_WRITER,
 	annotationv1.Role_ROLE_REVIEWER,
 	annotationv1.Role_ROLE_ORCHESTRATOR,
 }

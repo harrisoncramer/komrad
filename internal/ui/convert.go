@@ -109,13 +109,13 @@ func stateFrom(state agentv1.AgentState) panel.State {
 // roleFrom is a wire role as the panel keeps it.
 func roleFrom(role agentv1.AgentRole) panel.Role {
 	switch role {
-	case agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
-		return panel.RoleImplementer
+	case agentv1.AgentRole_AGENT_ROLE_WRITER:
+		return panel.RoleWriter
 	case agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 		return panel.RoleReviewer
 	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
 		return panel.RoleOrchestrator
-	case agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
+	case agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:
 	}
 
 	return ""
