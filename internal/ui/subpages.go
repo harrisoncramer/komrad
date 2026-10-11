@@ -30,7 +30,7 @@ var (
 // agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
 func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 	agent := item.Agent
-	task := m.listing.findTask(agent)
+	task := m.listing.tasks.findForAgent(agent)
 
 	entries := slices.Concat(subpageEntries(m, item, agentSubpages(agent)), own)
 	if agent.ArchivedAt == nil || task.ArchivedAt != nil {

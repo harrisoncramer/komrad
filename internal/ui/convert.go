@@ -44,8 +44,8 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 }
 
 // tasksFrom is the assembled task rows as the panel keeps them, by task id.
-func tasksFrom(rows map[string]assemble.TaskRow) map[string]panel.Task {
-	tasks := make(map[string]panel.Task, len(rows))
+func tasksFrom(rows map[string]assemble.TaskRow) taskIndex {
+	tasks := make(taskIndex, len(rows))
 	for id, row := range rows {
 		tasks[id] = taskFrom(row)
 	}

@@ -164,7 +164,7 @@ func (z *triageZone) isOn() bool {
 }
 
 // refresh reads which agents need triage from the listing, timing new waits from now.
-func (z *triageZone) refresh(agents []panel.AgentRow, tasks map[string]panel.Task, now time.Time) {
+func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.Time) {
 	if !z.isOn() {
 		z.entries = nil
 		z.snoozed = nil
@@ -176,7 +176,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks map[string]panel.Tas
 	entries := make(map[string]triageEntry)
 	for _, item := range agents {
 		id := item.Agent.ID
-		if isOnHiddenTask(tasks, item.Agent) || item.Agent.HeldAt != nil {
+		if tasks.isHidden(item.Agent) || item.Agent.HeldAt != nil {
 			continue
 		}
 
@@ -190,7 +190,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks map[string]panel.Tas
 			continue
 		}
 
-		rule, ok := findTriageRule(triageSubject{item: item, task: findAgentTask(tasks, item.Agent), hasThinkingChild: thinkingParents[id]})
+		rule, ok := findTriageRule(triageSubject{item: item, task: tasks.findForAgent(item.Agent), hasThinkingChild: thinkingParents[id]})
 		if !ok {
 			if wasQueued && z.isHeld(item) {
 				entries[id] = was
@@ -230,11 +230,11 @@ func (z *triageZone) isHeld(item panel.AgentRow) bool {
 }
 
 // pruneSnoozes ends every snooze whose task has left triage or now waits on something else.
-func (z *triageZone) pruneSnoozes(agents []panel.AgentRow, tasks map[string]panel.Task) {
+func (z *triageZone) pruneSnoozes(agents []panel.AgentRow, tasks taskIndex) {
 	byID := keyAgentsByID(agents)
 	families := z.familiesByKey(agents)
 	for key, snooze := range z.snoozed {
-		if isOnHiddenTask(tasks, byID[snooze.headID].Agent) {
+		if tasks.isHidden(byID[snooze.headID].Agent) {
 			continue
 		}
 
@@ -511,7 +511,7 @@ func (l agentsLayout) cursorRow(cursor int) (agentRow, bool) {
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
 	children := m.listing.children
 	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents, m.listing.agentsByID), func(f triageFamily) bool {
-		return (!isOnHiddenTask(m.listing.tasks, f.head.Agent) || showHidden) && !z.isSnoozed(triageKey(f.head))
+		return (!m.listing.tasks.isHidden(f.head.Agent) || showHidden) && !z.isSnoozed(triageKey(f.head))
 	})
 	ordered := z.orderFamilies(families)
 	slotted := ordered[:min(len(ordered), z.capacity)]
