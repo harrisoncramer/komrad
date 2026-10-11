@@ -3082,9 +3082,27 @@ func newFrozenServer(t *testing.T) *reviewServer {
 
 	server := newReviewServer(t)
 	server.rounds = []*agentv1.ReviewRound{
-		{Id: "round-1", TaskId: "t1", Ordinal: 1, BaseSha: gittest.BaseSHA, SnapshotSha: gittest.SnapshotSHA},
-		{Id: "round-2", TaskId: "t1", Ordinal: 2, BaseSha: gittest.BaseSHA, SnapshotSha: "snapshot-of-round-2"},
-		{Id: "round-3", TaskId: "t1", Ordinal: 3, BaseSha: rebasedBase, SnapshotSha: "snapshot-of-round-3"},
+		{
+			Id:          "round-1",
+			TaskId:      "t1",
+			Ordinal:     1,
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+		},
+		{
+			Id:          "round-2",
+			TaskId:      "t1",
+			Ordinal:     2,
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: "snapshot-of-round-2",
+		},
+		{
+			Id:          "round-3",
+			TaskId:      "t1",
+			Ordinal:     3,
+			BaseSha:     rebasedBase,
+			SnapshotSha: "snapshot-of-round-3",
+		},
 	}
 	server.reviews = []*agentv1.Review{{
 		Id:           "v1",

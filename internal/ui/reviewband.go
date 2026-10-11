@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -9,16 +8,12 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/lib/dates"
-	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2/ansi"
 )
 
 // reviewScopeOnTone is the half of the scope switch that is in force.
 const reviewScopeOnTone = paint.TonePrimary
-
-const reviewFrozenTone = paint.ToneWarning
 
 // bandView is what stands over the diff: whose work is being read, the round it is frozen on, and
 // the pattern it is searched for.
@@ -33,11 +28,11 @@ func (r reviewScreen) frozenView(m *model) string {
 		return ""
 	}
 
-	said := fmt.Sprintf("frozen on round %d (%s", r.round.GetOrdinal(), git.ShortSHA(r.round.GetSnapshotSha()))
+	snapshot := git.ShortSHA(r.round.GetSnapshotSha())
 	if at := label.Friendly(dates.Parse(r.round.GetCreatedAt())); at != "" {
-		said += ", taken " + at
+		snapshot += ", taken " + at
 	}
-	said += ") until you send your review"
+	said := fmt.Sprintf("frozen on round %d (%s) until you send your review", r.round.GetOrdinal(), snapshot)
 
 	style := dimStyle()
 	if behind := r.behindSaid(m); behind != "" {
@@ -63,15 +58,16 @@ func (r reviewScreen) behindSaid(m *model) string {
 		newest = r.diff.rounds[len(r.diff.rounds)-1]
 	}
 
-	rounds := int(newest.GetOrdinal() - r.round.GetOrdinal())
-	moved := r.isCheckoutMoved(m)
+	roundsBehind := int(newest.GetOrdinal() - r.round.GetOrdinal())
+	movedSince, _ := r.findTaskMove(m)
+	moved := movedSince != ""
 
 	var parts []string
 	switch {
-	case rounds > 0 && moved:
-		parts = append(parts, label.Counted(rounds, "round")+" behind, with more written since")
-	case rounds > 0:
-		parts = append(parts, label.Counted(rounds, "round")+" behind")
+	case roundsBehind > 0 && moved:
+		parts = append(parts, label.Counted(roundsBehind, "round")+" behind, with more written since")
+	case roundsBehind > 0:
+		parts = append(parts, label.Counted(roundsBehind, "round")+" behind")
 	case moved:
 		parts = append(parts, "the worktree has moved since")
 	}
@@ -82,12 +78,6 @@ func (r reviewScreen) behindSaid(m *model) string {
 	}
 
 	return strings.Join(parts, separated)
-}
-
-func (r reviewScreen) isCheckoutMoved(m *model) bool {
-	item, ok := r.agentRow(m)
-
-	return ok && m.listing.tasks.findForAgent(item.Agent).MovedSinceRound != ""
 }
 
 func (r reviewScreen) bandWidth(m *model) int {
@@ -101,50 +91,4 @@ func (r reviewScreen) bandWidth(m *model) int {
 // reviewColumnStyle is the markdown a notice standing in for the patch is rendered in.
 func reviewColumnStyle() ansi.StyleConfig {
 	return paint.Panel.Stage()
-}
-
-type reviewRoundsReadMsg struct {
-	agentID string
-	moved   string
-	rounds  []*agentv1.ReviewRound
-	err     error
-}
-
-func (r *reviewScreen) followRounds(m *model) tea.Cmd {
-	if !r.isFrozen() || r.loading {
-		return nil
-	}
-
-	item, ok := r.agentRow(m)
-	if !ok {
-		return nil
-	}
-
-	moved := m.listing.tasks.findForAgent(item.Agent).MovedSinceRound
-	if moved == r.diff.roundsMove || m.listing.generation == r.diff.roundsAsked {
-		return nil
-	}
-	r.diff.roundsAsked = m.listing.generation
-
-	agents, agentID, taskID := m.api.reads().agents, r.agentID, r.taskID
-
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
-
-		rounds, err := listReviewRounds(ctx, agents, taskID)
-
-		return reviewRoundsReadMsg{agentID: agentID, moved: moved, rounds: rounds, err: err}
-	}
-}
-
-func (r *reviewScreen) applyRoundsRead(msg reviewRoundsReadMsg) {
-	if msg.agentID != r.agentID || msg.err != nil {
-		return
-	}
-
-	r.diff.roundsMove = msg.moved
-	if len(msg.rounds) >= len(r.diff.rounds) {
-		r.diff.rounds = msg.rounds
-	}
 }
