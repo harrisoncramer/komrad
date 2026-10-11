@@ -82,7 +82,11 @@ func (f *fakeDocuments) GetDocument(_ context.Context, _ string, version *int32)
 
 // ListDocuments records whose documents were asked for and answers stored without its body.
 func (f *fakeDocuments) ListDocuments(_ context.Context, params documents.ListDocumentsParams) ([]documentstore.Document, error) {
-	f.listed = append(f.listed, fakeDocumentsList{AgentID: params.AgentID, Task: params.Task, Type: params.Type})
+	f.listed = append(f.listed, fakeDocumentsList{
+		AgentID: params.AgentID,
+		Task:    params.Task,
+		Type:    params.Type,
+	})
 	if f.err != nil {
 		return nil, f.err
 	}

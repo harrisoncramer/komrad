@@ -490,7 +490,12 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 				require.NoError(t, err)
 				_, err = fixture.stores.Agents.Archive(t.Context(), []string{id})
 				require.NoError(t, err)
-				fixture.stores.SeedAgent(t, agentstore.Agent{Name: "successor", Cwd: old.Cwd, WorkflowID: old.WorkflowID, TaskID: old.TaskID})
+				fixture.stores.SeedAgent(t, agentstore.Agent{
+					Name:       "successor",
+					Cwd:        old.Cwd,
+					WorkflowID: old.WorkflowID,
+					TaskID:     old.TaskID,
+				})
 			},
 			readings: []harness.Activity{harness.ActivityIdle},
 			wantErr:  errBusy,

@@ -207,7 +207,12 @@ type documentRowsKey struct {
 }
 
 func (d *documentsScreen) rows(m *model) []documentRow {
-	key := documentRowsKey{revision: d.revision, listing: m.listingKey(), agentID: d.agentID, taskID: d.taskID}
+	key := documentRowsKey{
+		revision: d.revision,
+		listing:  m.listingKey(),
+		agentID:  d.agentID,
+		taskID:   d.taskID,
+	}
 
 	return d.built.read(key, func() []documentRow {
 		return narrowed(m.filter, narrowedParams[documentRow]{

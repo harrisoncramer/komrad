@@ -306,12 +306,12 @@ func (t *reviewThreads) cancelMessage() {
 }
 
 func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, body string) tea.Cmd {
-	agents, agentID := m.clients().agents, r.agentID
+	agents, taskID := m.clients().agents, r.taskID
 	anchor := place.anchor
 
 	return r.writeCmd(m, m.beginWrite("opening a thread"), "thread opened", func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-			AgentId:     agentID,
+			Task:        &taskID,
 			BaseSha:     place.base,
 			SnapshotSha: place.snapshot,
 			FilePath:    anchor.FilePath,
@@ -381,12 +381,12 @@ func (r *reviewScreen) toggleViewed(m *model) tea.Cmd {
 
 	r.scrollToCursor(m)
 
-	agents, agentID := m.clients().agents, r.agentID
+	agents, taskID := m.clients().agents, r.taskID
 	fingerprint := file.Fingerprint()
 
 	return r.writeCmd(m, m.beginWrite(doing), notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
-			AgentId:     agentID,
+			Task:        taskID,
 			FilePath:    path,
 			Fingerprint: fingerprint,
 			Viewed:      viewed,
@@ -459,13 +459,13 @@ func (r *reviewScreen) send(m *model) tea.Cmd {
 
 	r.threads.closeRelease()
 
-	agents, agentID := m.clients().agents, r.agentID
+	agents, taskID := m.clients().agents, r.taskID
 	item, _ := r.agentRow(m)
 
 	return r.sendCmd(m, "sending the review", func(ctx context.Context) (string, error) {
 		_, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-			AgentId: agentID,
-			Body:    body,
+			Task: &taskID,
+			Body: body,
 		}))
 		if err != nil {
 			return "", err
@@ -509,7 +509,7 @@ func (r reviewScreen) sendCmd(m *model, doing string, write func(context.Context
 
 // writeMsgCmd runs one write, marking whose answer it is, and reads an archived agent's threads back.
 func (r reviewScreen) writeMsgCmd(m *model, counted int, write func(context.Context) (string, error)) tea.Cmd {
-	agents, agentID := m.api.reads().agents, r.agentID
+	agents, agentID, taskID := m.api.reads().agents, r.agentID, r.taskID
 	_, live := r.agentRow(m)
 
 	return func() tea.Msg {
@@ -528,7 +528,7 @@ func (r reviewScreen) writeMsgCmd(m *model, counted int, write func(context.Cont
 		}
 
 		wrote.readBack = true
-		wrote.threads, wrote.readErr = listReviewThreads(ctx, agents, agentID)
+		wrote.threads, wrote.readErr = listReviewThreads(ctx, agents, taskID)
 
 		return wrote
 	}

@@ -753,7 +753,11 @@ func TestTaskBriefing(t *testing.T) {
 		},
 		{
 			name: "notes over the cap are read with get_task",
-			task: &taskstore.Task{Slug: "fix-login", Goal: "Logins work.", Notes: strings.Repeat("x", maxBriefedTask)},
+			task: &taskstore.Task{
+				Slug:  "fix-login",
+				Goal:  "Logins work.",
+				Notes: strings.Repeat("x", maxBriefedTask),
+			},
 			want: pointers + "Its goal and notes are too long to repeat here, so read them with get_task before you start.",
 		},
 		{
@@ -768,7 +772,11 @@ func TestTaskBriefing(t *testing.T) {
 		},
 		{
 			name: "notes under the cap are inlined",
-			task: &taskstore.Task{Slug: "fix-login", Goal: "Logins work.", Notes: "The cookie expires early."},
+			task: &taskstore.Task{
+				Slug:  "fix-login",
+				Goal:  "Logins work.",
+				Notes: "The cookie expires early.",
+			},
 			want: pointers + "Its goal:\n\nLogins work.\n\nIts notes as they stood when you started:\n\nThe cookie expires early.",
 		},
 	}

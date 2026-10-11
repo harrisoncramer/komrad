@@ -157,7 +157,11 @@ func TestAgentFields(t *testing.T) {
 			agent := agent
 			agent.FailureReason = tt.failure
 
-			fields := agentFields(agentFieldsParams{agent: agent, schedule: tt.schedule, headerCwd: tt.headerCwd})
+			fields := agentFields(agentFieldsParams{
+				agent:     agent,
+				schedule:  tt.schedule,
+				headerCwd: tt.headerCwd,
+			})
 			require.NotEmpty(t, fields)
 			assert.Equal(t, "agent", fields[0].label, "the harness leads")
 

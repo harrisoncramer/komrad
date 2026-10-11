@@ -27,7 +27,11 @@ func TestClaimWriterRefusesACheckoutKomradIsMoving(t *testing.T) {
 	task := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: flow.ID, Slug: "work"})
 	dir := t.TempDir()
 	require.NoError(t, stores.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
-	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks, Moves: fakeMoves{moving: dir}, Tx: stores.Pool})
+	svc := NewTaskService(NewTaskServiceParams{
+		Tasks: stores.Tasks,
+		Moves: fakeMoves{moving: dir},
+		Tx:    stores.Pool,
+	})
 
 	err := stores.Pool.InTx(t.Context(), func(db store.DBTX) error {
 		_, _, err := svc.ClaimWriter(t.Context(), db, ClaimWriterParams{TaskID: task.ID, Cwd: dir})

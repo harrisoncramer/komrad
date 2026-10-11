@@ -206,7 +206,11 @@ func TestListWatched(t *testing.T) {
 func TestListWatchedCarriesTheTaskSlug(t *testing.T) {
 	st := storetest.Open(t)
 	task := st.SeedTask(t, taskstore.CreateParams{Slug: "fix-login"})
-	working := st.SeedAgent(t, agentstore.Agent{Name: "working", WorkflowID: task.WorkflowID, TaskID: &task.ID})
+	working := st.SeedAgent(t, agentstore.Agent{
+		Name:       "working",
+		WorkflowID: task.WorkflowID,
+		TaskID:     &task.ID,
+	})
 	idle := st.SeedAgent(t, agentstore.Agent{Name: "idle", Role: agentstore.RoleOrchestrator})
 
 	rows, err := st.Rows.ListWatched(t.Context(), []string{working.ID, idle.ID})

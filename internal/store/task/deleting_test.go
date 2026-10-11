@@ -18,7 +18,11 @@ func TestClaimEmpty(t *testing.T) {
 	ctx := t.Context()
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
 	busy := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "busy"})
-	stores.SeedAgent(t, agentstore.Agent{Name: "worker", WorkflowID: live.WorkflowID, TaskID: &busy.ID})
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:       "worker",
+		WorkflowID: live.WorkflowID,
+		TaskID:     &busy.ID,
+	})
 	taken := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "taken"})
 	empty := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "empty"})
 	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{busy.ID, taken.ID, empty.ID}))
@@ -120,11 +124,19 @@ func TestClearAbandonedDeleting(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
 	held := stores.SeedTask(t, taskstore.CreateParams{Slug: "held"})
-	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving", WorkflowID: held.WorkflowID, TaskID: &held.ID})
+	leaving := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "leaving",
+		WorkflowID: held.WorkflowID,
+		TaskID:     &held.ID,
+	})
 	_, err := stores.Agents.MarkDeleting(ctx, []string{leaving.ID})
 	require.NoError(t, err)
 	staying := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: held.WorkflowID, Slug: "staying"})
-	stores.SeedAgent(t, agentstore.Agent{Name: "staying", WorkflowID: held.WorkflowID, TaskID: &staying.ID})
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:       "staying",
+		WorkflowID: held.WorkflowID,
+		TaskID:     &staying.ID,
+	})
 	empty := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: held.WorkflowID, Slug: "empty"})
 	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{held.ID, staying.ID, empty.ID}))
 

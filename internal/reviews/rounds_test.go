@@ -46,7 +46,7 @@ func TestOpenRound(t *testing.T) {
 			fx := newReviewFixture(t)
 			fx.snapshots.SHA = tt.snapshot
 
-			round, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
+			round, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, personAuthor)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
@@ -66,7 +66,7 @@ func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
 		require.NoError(t, fx.stores.Workflows.Delete(t.Context(), fx.worker.WorkflowID))
 	}
 
-	_, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
+	_, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, personAuthor)
 	require.Error(t, err)
 
 	assert.Equal(t, []string{reviewstore.RoundRef(*fx.worker.TaskID, secondSnapshot)}, fx.snapshots.Released)
@@ -86,7 +86,7 @@ func TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce(t *testing.T) {
 	errs := make([]error, 2)
 	for i := range ordinals {
 		group.Go(func() {
-			round, err := fx.service.OpenRound(t.Context(), fx.worker.ID, personAuthor)
+			round, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, personAuthor)
 			errs[i] = err
 			if err == nil {
 				ordinals[i] = round.Ordinal
@@ -129,7 +129,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				fx.snapshots.Files["greet.go"] = buildGreetSource()
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					AgentID:  fx.worker.ID,
+					Task:     *fx.worker.TaskID,
 					FilePath: "greet.go",
 					NewStart: 12,
 					NewEnd:   13,
@@ -326,7 +326,7 @@ func TestReleaseReviewApprovalMail(t *testing.T) {
 			fx := newReviewFixture(t)
 
 			_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-				AgentID: fx.worker.ID,
+				Task:    *fx.worker.TaskID,
 				Verdict: reviewstore.VerdictApproved,
 				Body:    tt.body,
 				Author:  newAgentAuthor(fx.reviewer),
@@ -348,7 +348,7 @@ func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 	fillMailbox(t, fx)
 
 	_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		AgentID: fx.worker.ID,
+		Task:    *fx.worker.TaskID,
 		Verdict: reviewstore.VerdictChangesRequested,
 		Author:  newAgentAuthor(fx.reviewer),
 	})
@@ -358,7 +358,7 @@ func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 	require.Len(t, errs, 1)
 	require.ErrorIs(t, errs[0], mail.ErrMailboxFull)
 
-	listed, err := fx.service.ListReviews(t.Context(), fx.worker.ID, personAuthor)
+	listed, err := fx.service.ListReviews(t.Context(), *fx.worker.TaskID, personAuthor)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.NotNil(t, listed[0].ReleasedAt)
@@ -370,7 +370,7 @@ func TestGetReview(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.Files["greet.go"] = buildGreetSource()
 	opened, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		AgentID:  fx.worker.ID,
+		Task:     *fx.worker.TaskID,
 		FilePath: "greet.go",
 		NewStart: 12,
 		NewEnd:   13,
@@ -380,7 +380,7 @@ func TestGetReview(t *testing.T) {
 	require.NoError(t, err)
 
 	gone, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		AgentID:     fx.worker.ID,
+		Task:        *fx.worker.TaskID,
 		FilePath:    "gone.go",
 		QuotedLines: []string{"+\tgreet(nil)"},
 		Body:        "and this file",
@@ -389,9 +389,9 @@ func TestGetReview(t *testing.T) {
 	require.NoError(t, err)
 
 	first, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		AgentID: fx.worker.ID,
-		Body:    "two things before it goes",
-		Author:  personAuthor,
+		Task:   *fx.worker.TaskID,
+		Body:   "two things before it goes",
+		Author: personAuthor,
 	})
 	require.NoError(t, err)
 
@@ -440,7 +440,7 @@ func TestAReviewCarriedAcrossRounds(t *testing.T) {
 
 	commentOn := func(snapshot string) *ReviewThreadWithMessages {
 		written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-			AgentID:     fx.worker.ID,
+			Task:        *fx.worker.TaskID,
 			SnapshotSHA: snapshot,
 			FilePath:    "greet.go",
 			NewStart:    1,
@@ -562,7 +562,7 @@ func TestListReviews(t *testing.T) {
 			fx.releaseFirstReview(t)
 			fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
 
-			listed, err := fx.service.ListReviews(t.Context(), fx.worker.ID, tt.reader(fx))
+			listed, err := fx.service.ListReviews(t.Context(), *fx.worker.TaskID, tt.reader(fx))
 			require.NoError(t, err)
 
 			paths := xslice.Map(listed, func(review reviewstore.Review) bool {
@@ -614,4 +614,39 @@ func readBodies(messages []reviewstore.Message) []string {
 	return xslice.Map(messages, func(message reviewstore.Message) string {
 		return message.Body
 	})
+}
+
+// TestOpenRoundFilesTheRoundUnderAnAgent pins which agent a round is recorded as taken by.
+func TestOpenRoundFilesTheRoundUnderAnAgent(t *testing.T) {
+	tests := []struct {
+		name      string
+		author    func(fx *reviewFixture) ReviewAuthor
+		wantAgent func(fx *reviewFixture) string
+	}{
+		{
+			name:      "an agent calling files it under itself",
+			author:    func(fx *reviewFixture) ReviewAuthor { return newAgentAuthor(fx.worker) },
+			wantAgent: func(fx *reviewFixture) string { return fx.worker.ID },
+		},
+		{
+			name:      "the person calling files it under the newest agent on the task",
+			author:    func(*reviewFixture) ReviewAuthor { return personAuthor },
+			wantAgent: func(fx *reviewFixture) string { return fx.reviewer.ID },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newReviewFixture(t)
+			fx.snapshots.SHA = secondSnapshot
+
+			round, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, tt.author(fx))
+			require.NoError(t, err)
+
+			var roundAgent string
+			require.NoError(t, fx.stores.Pool.GetDB().QueryRow(t.Context(),
+				"SELECT agent_id FROM review_rounds WHERE id = $1", round.ID).Scan(&roundAgent))
+			assert.Equal(t, tt.wantAgent(fx), roundAgent)
+		})
+	}
 }

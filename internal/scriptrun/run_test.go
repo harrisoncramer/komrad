@@ -374,7 +374,12 @@ func TestTaskEnvOnlyWhenTheAgentWorksOnOne(t *testing.T) {
 
 			st := storetest.Open(t)
 			workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"})
-			agent := agentstore.Agent{ID: fixtureAgentID, Name: "auth", WorkflowID: workflow.ID, Role: tt.role}
+			agent := agentstore.Agent{
+				ID:         fixtureAgentID,
+				Name:       "auth",
+				WorkflowID: workflow.ID,
+				Role:       tt.role,
+			}
 			var task *taskstore.Task
 			if tt.wantSlug != "" {
 				task = st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: tt.wantSlug})
@@ -383,7 +388,12 @@ func TestTaskEnvOnlyWhenTheAgentWorksOnOne(t *testing.T) {
 			st.SeedAgent(t, agent)
 
 			runner := &recordingRunner{}
-			service := scriptServiceOver(t, scriptServiceOverParams{Stores: st, Dir: dir, Runner: runner, LogsDir: t.TempDir()})
+			service := scriptServiceOver(t, scriptServiceOverParams{
+				Stores:  st,
+				Dir:     dir,
+				Runner:  runner,
+				LogsDir: t.TempDir(),
+			})
 			require.NoError(t, fireScript(t.Context(), t, service))
 
 			values := map[string]string{}

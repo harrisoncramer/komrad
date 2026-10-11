@@ -1109,7 +1109,12 @@ func TestRenderResultList(t *testing.T) {
 // the gutter speaking for the task and each name for what its agent is doing.
 func TestRenderTaskTree(t *testing.T) {
 	rows := []Row{
-		{Key: "komrad", Kind: KindWorkflow, Name: "komrad", Status: StatusWaiting},
+		{
+			Key:    "komrad",
+			Kind:   KindWorkflow,
+			Name:   "komrad",
+			Status: StatusWaiting,
+		},
 		{
 			Key:              "fix-login",
 			Kind:             KindTask,
@@ -1119,10 +1124,35 @@ func TestRenderTaskTree(t *testing.T) {
 			ReviewerComments: &Comments{Open: 3},
 			Tree:             &Tree{},
 		},
-		{Key: "author", Name: "author", Status: StatusWaiting, Nested: true, Tree: &Tree{Above: []bool{false}}},
-		{Key: "reviewer", Name: "reviewer", Status: StatusThinking, Nested: true, Tree: &Tree{Above: []bool{false}, Last: true}},
-		{Key: "docs", Kind: KindTask, Name: "docs", Forge: ForgeMerged, Process: ProcessNone, Tree: &Tree{Last: true}},
-		{Key: "writer", Name: "writer", Process: ProcessStopped, Nested: true, Tree: &Tree{Above: []bool{true}, Last: true}},
+		{
+			Key:    "author",
+			Name:   "author",
+			Status: StatusWaiting,
+			Nested: true,
+			Tree:   &Tree{Above: []bool{false}},
+		},
+		{
+			Key:    "reviewer",
+			Name:   "reviewer",
+			Status: StatusThinking,
+			Nested: true,
+			Tree:   &Tree{Above: []bool{false}, Last: true},
+		},
+		{
+			Key:     "docs",
+			Kind:    KindTask,
+			Name:    "docs",
+			Forge:   ForgeMerged,
+			Process: ProcessNone,
+			Tree:    &Tree{Last: true},
+		},
+		{
+			Key:     "writer",
+			Name:    "writer",
+			Process: ProcessStopped,
+			Nested:  true,
+			Tree:    &Tree{Above: []bool{true}, Last: true},
+		},
 	}
 
 	list := Prepare(Snapshot{Rows: rows, Pane: canonicalPane})

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/mail"
 	"komrad/internal/reviews"
+	"komrad/internal/store"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -22,6 +22,8 @@ import (
 )
 
 var reviewedAt = time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC)
+
+const betaTask = "task-beta"
 
 // fakeReviewer answers every review call with err or with the rows it holds.
 type fakeReviewer struct {
@@ -41,33 +43,22 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		name     string
 		call     func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		err      error
-		asNobody bool
 		wantCode connect.Code
 	}{
 		{
-			name: "listing threads with no agent named and no caller identity",
+			name: "listing the threads of a task that does not exist",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
 
 				return err
 			},
-			asNobody: true,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name: "listing the threads of an agent that does not exist",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{}))
-
-				return err
-			},
-			err:      agenterr.ErrAgentNotFound,
+			err:      store.ErrNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name: "a comment read from a snapshot komrad never froze",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
+				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{Task: xptr.Ptr(betaTask)}))
 
 				return err
 			},
@@ -78,7 +69,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 			name: "a person releasing with a verdict",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-					AgentId: betaID,
+					Task:    xptr.Ptr(betaTask),
 					Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				}))
 
@@ -140,7 +131,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a round of an agent with no directory",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{AgentId: betaID}))
+				_, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{Task: xptr.Ptr(betaTask)}))
 
 				return err
 			},
@@ -150,7 +141,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "the rounds of an agent the caller is not reviewing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{AgentId: betaID}))
+				_, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{Task: xptr.Ptr(betaTask)}))
 
 				return err
 			},
@@ -160,7 +151,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "the reviews of an agent the caller is not reviewing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{AgentId: betaID}))
+				_, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{Task: xptr.Ptr(betaTask)}))
 
 				return err
 			},
@@ -180,7 +171,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "releasing notes with nothing in them",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{AgentId: betaID}))
+				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{Task: xptr.Ptr(betaTask)}))
 
 				return err
 			},
@@ -190,7 +181,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "releasing to an agent whose mailbox is full",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{AgentId: betaID}))
+				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{Task: xptr.Ptr(betaTask)}))
 
 				return err
 			},
@@ -200,7 +191,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent marking a file viewed",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{AgentId: betaID}))
+				_, err := svc.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{Task: betaTask}))
 
 				return err
 			},
@@ -210,7 +201,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent listing the files viewed",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{AgentId: betaID}))
+				_, err := svc.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{Task: betaTask}))
 
 				return err
 			},
@@ -223,12 +214,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newReviewHandler(&fakeReviewer{err: tt.err})
 
-			ctx := t.Context()
-			if !tt.asNobody {
-				ctx = caller.With(ctx, caller.Caller{AgentID: alphaID})
-			}
-
-			err := tt.call(ctx, svc)
+			err := tt.call(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), svc)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 			if tt.err != nil {
 				require.ErrorIs(t, err, tt.err)
@@ -247,7 +233,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		{
 			name: "opening a thread",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{AgentId: betaID}))
+				got, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{Task: xptr.Ptr(betaTask)}))
 				if err != nil {
 					return "", err
 				}
@@ -307,7 +293,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		{
 			name: "opening a round",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{AgentId: betaID}))
+				got, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{Task: xptr.Ptr(betaTask)}))
 				if err != nil {
 					return "", err
 				}
@@ -319,7 +305,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		{
 			name: "listing the rounds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{AgentId: betaID}))
+				got, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{Task: xptr.Ptr(betaTask)}))
 				if err != nil {
 					return "", err
 				}
@@ -335,7 +321,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		{
 			name: "listing the reviews",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{AgentId: betaID}))
+				got, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{Task: xptr.Ptr(betaTask)}))
 				if err != nil {
 					return "", err
 				}
@@ -371,14 +357,13 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 	tests := []struct {
 		name       string
 		callerID   string
-		agentID    *string
+		task       *string
 		wantListed reviews.ListReviewThreadsParams
 	}{
 		{
 			name:     "an agent naming nobody reads its own",
 			callerID: alphaID,
 			wantListed: reviews.ListReviewThreadsParams{
-				AgentID: alphaID,
 				Author: reviews.ReviewAuthor{
 					Kind:    reviewstore.AuthorAgent,
 					AgentID: xptr.Ptr(alphaID),
@@ -388,9 +373,9 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 		{
 			name:     "an agent reading another's",
 			callerID: alphaID,
-			agentID:  xptr.Ptr(betaID),
+			task:     xptr.Ptr(betaTask),
 			wantListed: reviews.ListReviewThreadsParams{
-				AgentID: betaID,
+				Task: betaTask,
 				Author: reviews.ReviewAuthor{
 					Kind:    reviewstore.AuthorAgent,
 					AgentID: xptr.Ptr(alphaID),
@@ -398,11 +383,11 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 			},
 		},
 		{
-			name:    "the panel reads as the person",
-			agentID: xptr.Ptr(betaID),
+			name: "the panel reads as the person",
+			task: xptr.Ptr(betaTask),
 			wantListed: reviews.ListReviewThreadsParams{
-				AgentID: betaID,
-				Author:  reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+				Task:   betaTask,
+				Author: reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
 			},
 		},
 	}
@@ -417,7 +402,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerID})
 			}
 
-			_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{AgentId: tt.agentID}))
+			_, err := svc.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{Task: tt.task}))
 			require.NoError(t, err)
 			assert.Equal(t, []reviews.ListReviewThreadsParams{tt.wantListed}, reviewer.listed)
 		})
@@ -459,14 +444,14 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 			svc := newReviewHandler(reviewer)
 
 			_, err := svc.ReleaseReview(t.Context(), connect.NewRequest(&agentv1.ReleaseReviewRequest{
-				AgentId: betaID,
+				Task:    xptr.Ptr(betaTask),
 				Verdict: tt.verdict,
 				Body:    "two things before it goes",
 			}))
 			require.NoError(t, err)
 
 			assert.Equal(t, []reviews.ReleaseReviewParams{{
-				AgentID: betaID,
+				Task:    betaTask,
 				Verdict: tt.wantVerdict,
 				Body:    "two things before it goes",
 				Author:  reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
@@ -581,7 +566,7 @@ func TestSetReviewFileViewedRendersTheMark(t *testing.T) {
 			svc := newReviewHandler(&fakeReviewer{viewed: tt.viewed})
 
 			got, err := svc.SetReviewFileViewed(t.Context(), connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
-				AgentId:  betaID,
+				Task:     betaTask,
 				FilePath: "greet.go",
 				Viewed:   tt.viewed != nil,
 			}))

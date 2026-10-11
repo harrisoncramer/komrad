@@ -91,27 +91,48 @@ func TestTasksTree(t *testing.T) {
 			want     *agentv1.CreateAgentRequest
 		}{
 			{
-				name:    "is not offered once the task's worktree was removed",
-				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login"), WorktreeRemoved: true},
+				name: "is not offered once the task's worktree was removed",
+				task: &taskv1.Task{
+					Id:              "t1",
+					WorkflowId:      "w1",
+					Slug:            "fix-login",
+					Cwd:             xptr.Ptr("/worktrees/fix-login"),
+					WorktreeRemoved: true,
+				},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: false,
 			},
 			{
-				name:    "is not offered on an archived task with no checkout",
-				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", ArchivedAt: xptr.Ptr("2026-10-10T10:00:00Z")},
+				name: "is not offered on an archived task with no checkout",
+				task: &taskv1.Task{
+					Id:         "t1",
+					WorkflowId: "w1",
+					Slug:       "fix-login",
+					ArchivedAt: xptr.Ptr("2026-10-10T10:00:00Z"),
+				},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: false,
 			},
 			{
-				name:     "is not offered once the task is being deleted",
-				task:     &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login")},
+				name: "is not offered once the task is being deleted",
+				task: &taskv1.Task{
+					Id:         "t1",
+					WorkflowId: "w1",
+					Slug:       "fix-login",
+					Cwd:        xptr.Ptr("/worktrees/fix-login"),
+				},
 				writer:   agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				deleting: true,
 				offered:  false,
 			},
 			{
-				name:    "on a task with a live writer starts a child of the writer",
-				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login")},
+				name: "on a task with a live writer starts a child of the writer",
+				task: &taskv1.Task{
+					Id:         "t1",
+					WorkflowId: "w1",
+					Slug:       "fix-login",
+					Cwd:        xptr.Ptr("/worktrees/fix-login"),
+				},
 				writer:  agentv1.AgentState_AGENT_STATE_IDLE,
 				offered: true,
 				form:    `Child of "author"`,
@@ -123,8 +144,13 @@ func TestTasksTree(t *testing.T) {
 				},
 			},
 			{
-				name:    "on a task with a checkout and no live writer starts the writer in it",
-				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Cwd: xptr.Ptr("/worktrees/fix-login")},
+				name: "on a task with a checkout and no live writer starts the writer in it",
+				task: &taskv1.Task{
+					Id:         "t1",
+					WorkflowId: "w1",
+					Slug:       "fix-login",
+					Cwd:        xptr.Ptr("/worktrees/fix-login"),
+				},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: true,
 				form:    "Becomes the task's writer",
@@ -135,8 +161,12 @@ func TestTasksTree(t *testing.T) {
 				},
 			},
 			{
-				name:    "on a task with no checkout starts its first writer",
-				task:    &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login"},
+				name: "on a task with no checkout starts its first writer",
+				task: &taskv1.Task{
+					Id:         "t1",
+					WorkflowId: "w1",
+					Slug:       "fix-login",
+				},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: true,
 				form:    "Becomes the task's first writer",
@@ -191,8 +221,21 @@ func TestTasksTree(t *testing.T) {
 func buildTasks() []proto.Message {
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
-		&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login", Goal: "Logins work again.", Notes: "The session cookie expires early.", NotesUpdatedAt: xptr.Ptr("2026-10-10T10:00:00.5Z")},
-		&taskv1.Task{Id: "t2", WorkflowId: "w1", Slug: "solo", Title: "Solo"},
+		&taskv1.Task{
+			Id:             "t1",
+			WorkflowId:     "w1",
+			Slug:           "fix-login",
+			Title:          "Fix login",
+			Goal:           "Logins work again.",
+			Notes:          "The session cookie expires early.",
+			NotesUpdatedAt: xptr.Ptr("2026-10-10T10:00:00.5Z"),
+		},
+		&taskv1.Task{
+			Id:         "t2",
+			WorkflowId: "w1",
+			Slug:       "solo",
+			Title:      "Solo",
+		},
 		newTaskAgent("a1", "author", "t1", 0),
 		newTaskAgent("a2", "follow-up", "t1", 5),
 		newTaskAgent("a3", "loner", "t2", 10),
@@ -395,7 +438,15 @@ func buildHandOff() []proto.Message {
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
-		&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login", Goal: "Logins work again.", Cwd: xptr.Ptr("/worktrees/fix-login"), Branch: xptr.Ptr("fix-login")},
+		&taskv1.Task{
+			Id:         "t1",
+			WorkflowId: "w1",
+			Slug:       "fix-login",
+			Title:      "Fix login",
+			Goal:       "Logins work again.",
+			Cwd:        xptr.Ptr("/worktrees/fix-login"),
+			Branch:     xptr.Ptr("fix-login"),
+		},
 		child,
 		writer,
 	}

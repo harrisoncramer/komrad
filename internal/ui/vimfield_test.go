@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/gittest"
 	"komrad/internal/ui"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -150,7 +151,7 @@ func TestVimEditing(t *testing.T) {
 		harness.press("esc", "b", "d", "w", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			AgentId:     "a1",
+			Task:        xptr.Ptr("t1"),
 			FilePath:    gittest.File,
 			OldStart:    1,
 			OldEnd:      1,
@@ -193,7 +194,7 @@ func TestVimEditing(t *testing.T) {
 		harness.press("esc", "b", "d", "w", "enter")
 
 		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			AgentId:     "a1",
+			Task:        xptr.Ptr("t1"),
 			FilePath:    gittest.File,
 			OldStart:    1,
 			OldEnd:      1,

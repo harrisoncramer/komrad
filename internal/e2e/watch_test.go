@@ -73,7 +73,11 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	base := agentOn(t, st, pipeline.ID, "base", watchedRepository, "main")
 	quiet := agentOn(t, st, docs.ID, "quiet", watchedRepository, "agent/quiet")
 	fixLogin := st.SeedTask(t, taskstore.CreateParams{WorkflowID: pipeline.ID, Slug: "fix-login"})
-	working := st.SeedAgent(t, agentstore.Agent{Name: "working", WorkflowID: pipeline.ID, TaskID: &fixLogin.ID})
+	working := st.SeedAgent(t, agentstore.Agent{
+		Name:       "working",
+		WorkflowID: pipeline.ID,
+		TaskID:     &fixLogin.ID,
+	})
 	st.SeedAgent(t, agentstore.Agent{Name: "local", WorkflowID: docs.ID})
 	gone := st.SeedAgent(t, agentstore.Agent{Name: "gone", WorkflowID: docs.ID})
 	_, err := st.Agents.Archive(ctx, []string{gone.ID})

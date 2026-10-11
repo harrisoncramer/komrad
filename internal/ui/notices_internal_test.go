@@ -79,7 +79,11 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "a hidden task",
-			row:  agentRow{header: true, task: &panel.Task{Hidden: true}, lead: &panel.AgentRow{}},
+			row: agentRow{
+				header: true,
+				task:   &panel.Task{Hidden: true},
+				lead:   &panel.AgentRow{},
+			},
 			want: []string{hiddenNotice},
 		},
 		{
@@ -89,12 +93,20 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "documents written for a task",
-			row:  agentRow{header: true, task: &panel.Task{Documents: 2}, lead: &panel.AgentRow{}},
+			row: agentRow{
+				header: true,
+				task:   &panel.Task{Documents: 2},
+				lead:   &panel.AgentRow{},
+			},
 			want: []string{documentsNotice},
 		},
 		{
 			name: "documents written by an agent under its task header",
-			row:  agentRow{item: panel.AgentRow{Documents: 2}, underTask: true, workflow: panel.Workflow{Worktree: panel.WorktreeConfig{Enabled: true}}},
+			row: agentRow{
+				item:      panel.AgentRow{Documents: 2},
+				underTask: true,
+				workflow:  panel.Workflow{Worktree: panel.WorktreeConfig{Enabled: true}},
+			},
 			want: []string{},
 		},
 		{
@@ -104,12 +116,20 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "unread replies on a task",
-			row:  agentRow{header: true, task: &panel.Task{PersonComments: &agentv1.CommentCounts{Unread: 1}}, lead: &panel.AgentRow{}},
+			row: agentRow{
+				header: true,
+				task:   &panel.Task{PersonComments: &agentv1.CommentCounts{Unread: 1}},
+				lead:   &panel.AgentRow{},
+			},
 			want: []string{"your comments with a reply you have not read: 1"},
 		},
 		{
 			name: "a task does not say its lead's turn failed",
-			row:  agentRow{header: true, task: &panel.Task{}, lead: &panel.AgentRow{Agent: panel.Agent{State: panel.StateErrored}}},
+			row: agentRow{
+				header: true,
+				task:   &panel.Task{},
+				lead:   &panel.AgentRow{Agent: panel.Agent{State: panel.StateErrored}},
+			},
 			want: []string{},
 		},
 		{

@@ -114,8 +114,16 @@ func TestGet(t *testing.T) {
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live-work"})
 	archived := stores.SeedTask(t, taskstore.CreateParams{Slug: "archived-work"})
 	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
-	worker := stores.SeedAgent(t, agentstore.Agent{Name: "worker", WorkflowID: live.WorkflowID, TaskID: &live.ID})
-	orchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "orchestrator", WorkflowID: live.WorkflowID, Role: agentstore.RoleOrchestrator})
+	worker := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "worker",
+		WorkflowID: live.WorkflowID,
+		TaskID:     &live.ID,
+	})
+	orchestrator := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "orchestrator",
+		WorkflowID: live.WorkflowID,
+		Role:       agentstore.RoleOrchestrator,
+	})
 
 	tests := []struct {
 		name    string
@@ -249,9 +257,17 @@ func TestArchiveIdle(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
 	busy := stores.SeedTask(t, taskstore.CreateParams{Slug: "busy"})
-	stores.SeedAgent(t, agentstore.Agent{Name: "worker", WorkflowID: busy.WorkflowID, TaskID: &busy.ID})
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:       "worker",
+		WorkflowID: busy.WorkflowID,
+		TaskID:     &busy.ID,
+	})
 	done := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "done"})
-	finished := stores.SeedAgent(t, agentstore.Agent{Name: "finished", WorkflowID: busy.WorkflowID, TaskID: &done.ID})
+	finished := stores.SeedAgent(t, agentstore.Agent{
+		Name:       "finished",
+		WorkflowID: busy.WorkflowID,
+		TaskID:     &done.ID,
+	})
 	_, err := stores.Agents.Archive(ctx, []string{finished.ID})
 	require.NoError(t, err)
 	empty := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "empty"})
@@ -267,8 +283,16 @@ func TestArchiveIdle(t *testing.T) {
 		wantArchived bool
 	}{
 		{name: "a task a live agent works on stays live", id: busy.ID},
-		{name: "a task whose agents are all archived is archived", id: done.ID, wantArchived: true},
-		{name: "a task no agent works on is archived", id: empty.ID, wantArchived: true},
+		{
+			name:         "a task whose agents are all archived is archived",
+			id:           done.ID,
+			wantArchived: true,
+		},
+		{
+			name:         "a task no agent works on is archived",
+			id:           empty.ID,
+			wantArchived: true,
+		},
 		{name: "a task not named stays live", id: unnamed.ID},
 	}
 
@@ -305,9 +329,17 @@ func TestArchiveIdleBesides(t *testing.T) {
 			stores := storetest.Open(t)
 			ctx := t.Context()
 			task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
-			named := stores.SeedAgent(t, agentstore.Agent{Name: "joiner", WorkflowID: task.WorkflowID, TaskID: &task.ID})
+			named := stores.SeedAgent(t, agentstore.Agent{
+				Name:       "joiner",
+				WorkflowID: task.WorkflowID,
+				TaskID:     &task.ID,
+			})
 			if tt.other {
-				stores.SeedAgent(t, agentstore.Agent{Name: "other", WorkflowID: task.WorkflowID, TaskID: &task.ID})
+				stores.SeedAgent(t, agentstore.Agent{
+					Name:       "other",
+					WorkflowID: task.WorkflowID,
+					TaskID:     &task.ID,
+				})
 			}
 
 			require.NoError(t, stores.Tasks.ArchiveIdleBesides(ctx, task.ID, named.ID))
@@ -340,8 +372,16 @@ func TestRestore(t *testing.T) {
 		wantHidden   bool
 	}{
 		{name: "an archived task named is restored unhidden", id: archived.ID},
-		{name: "a live task named stays live and hidden", id: live.ID, wantHidden: true},
-		{name: "an archived task not named stays archived", id: unnamed.ID, wantArchived: true},
+		{
+			name:       "a live task named stays live and hidden",
+			id:         live.ID,
+			wantHidden: true,
+		},
+		{
+			name:         "an archived task not named stays archived",
+			id:           unnamed.ID,
+			wantArchived: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -480,7 +520,12 @@ func TestListWatchedDocuments(t *testing.T) {
 	assert.Nil(t, task.DocumentsUpdatedAt, "a task with no documents has no newest write")
 
 	write := func(agentID, name string) *documentstore.Document {
-		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{AgentID: agentID, Name: name, Type: "RFC", Body: name})
+		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
+			AgentID: agentID,
+			Name:    name,
+			Type:    "RFC",
+			Body:    name,
+		})
 		require.NoError(t, err)
 
 		return created
@@ -499,7 +544,11 @@ func TestListWatchedDocuments(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
-	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work", Title: "Work", Goal: "It works."})
+	task := stores.SeedTask(t, taskstore.CreateParams{
+		Slug:  "work",
+		Title: "Work",
+		Goal:  "It works.",
+	})
 	other := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: task.WorkflowID, Slug: "other"})
 	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: task.WorkflowID, Slug: "deleting"})
 	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))

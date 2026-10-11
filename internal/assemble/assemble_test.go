@@ -216,15 +216,23 @@ func TestAgentRows(t *testing.T) {
 			},
 		},
 		{
-			name:  "a read repository with nothing on the branch is none",
-			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}, Tasks: tasks(task(newer)), Repositories: readRepositories(repo)},
+			name: "a read repository with nothing on the branch is none",
+			world: assemble.World{
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer)),
+				Repositories: readRepositories(repo),
+			},
 			want: []*agentv1.AgentRow{
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE)},
 			},
 		},
 		{
-			name:  "a read repository that is not the agent's leaves it unread",
-			world: assemble.World{Agents: map[string]*agentv1.Agent{newer: agent(newer)}, Tasks: tasks(task(newer)), Repositories: readRepositories(fork)},
+			name: "a read repository that is not the agent's leaves it unread",
+			world: assemble.World{
+				Agents:       map[string]*agentv1.Agent{newer: agent(newer)},
+				Tasks:        tasks(task(newer)),
+				Repositories: readRepositories(fork),
+			},
 			want: []*agentv1.AgentRow{
 				{Agent: agent(newer), PullRequest: standing(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_UNREAD)},
 			},

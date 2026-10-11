@@ -30,20 +30,36 @@ func TestWorkingCell(t *testing.T) {
 	}{
 		{
 			name: "a thinking agent turns the loader after its name",
-			row:  Row{Process: ProcessAlive, Status: StatusThinking, LoaderFrame: "⠋"},
+			row: Row{
+				Process:     ProcessAlive,
+				Status:      StatusThinking,
+				LoaderFrame: "⠋",
+			},
 			want: Cell{Text: "⠋", Tone: paint.ToneMuted},
 		},
 		{
 			name: "an idle agent turns nothing",
-			row:  Row{Process: ProcessAlive, Status: StatusIdle, LoaderFrame: "⠋"},
+			row: Row{
+				Process:     ProcessAlive,
+				Status:      StatusIdle,
+				LoaderFrame: "⠋",
+			},
 		},
 		{
 			name: "an agent waiting on a person turns nothing",
-			row:  Row{Process: ProcessAlive, Status: StatusWaiting, LoaderFrame: "⠋"},
+			row: Row{
+				Process:     ProcessAlive,
+				Status:      StatusWaiting,
+				LoaderFrame: "⠋",
+			},
 		},
 		{
 			name: "a stopped agent turns nothing",
-			row:  Row{Process: ProcessStopped, Status: StatusThinking, LoaderFrame: "⠋"},
+			row: Row{
+				Process:     ProcessStopped,
+				Status:      StatusThinking,
+				LoaderFrame: "⠋",
+			},
 		},
 		{
 			name: "a row without a frame turns nothing",
@@ -1413,7 +1429,11 @@ func TestHitRowGivesItsLeadRoom(t *testing.T) {
 // TestPrepareTaskRowCarriesTheWork pins that a task's row wears the checkout, pull request and
 // comments of the work on it, and an agent under it wears none of them.
 func TestPrepareTaskRowCarriesTheWork(t *testing.T) {
-	work := Row{Repo: RepoGone, Forge: ForgeMerged, ReviewerComments: &Comments{Open: 2}}
+	work := Row{
+		Repo:             RepoGone,
+		Forge:            ForgeMerged,
+		ReviewerComments: &Comments{Open: 2},
+	}
 	own := prepareOne(t, work)
 
 	task := work
