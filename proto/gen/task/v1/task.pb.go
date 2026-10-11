@@ -201,9 +201,13 @@ type Task struct {
 	// Whether a script run on it failed and the person has not opened its logs since.
 	FailedRun bool `protobuf:"varint,21,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
 	// Whether a person hid the task from the panel, which leaves its agents running.
-	Hidden        bool `protobuf:"varint,22,opt,name=hidden,proto3" json:"hidden,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Hidden bool `protobuf:"varint,22,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	// How many documents agents have written for it, which list_documents returns.
+	Documents int32 `protobuf:"varint,23,opt,name=documents,proto3" json:"documents,omitempty"`
+	// When the newest of its documents was last written, in RFC 3339, unset when it has none.
+	DocumentsUpdatedAt *string `protobuf:"bytes,24,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Task) Reset() {
@@ -388,6 +392,20 @@ func (x *Task) GetHidden() bool {
 		return x.Hidden
 	}
 	return false
+}
+
+func (x *Task) GetDocuments() int32 {
+	if x != nil {
+		return x.Documents
+	}
+	return 0
+}
+
+func (x *Task) GetDocumentsUpdatedAt() string {
+	if x != nil && x.DocumentsUpdatedAt != nil {
+		return *x.DocumentsUpdatedAt
+	}
+	return ""
 }
 
 type CreateTaskRequest struct {
@@ -1139,7 +1157,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xdc\x06\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xca\a\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -1168,7 +1186,9 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x10notes_updated_at\x18\x14 \x01(\tH\aR\x0enotesUpdatedAt\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"failed_run\x18\x15 \x01(\bR\tfailedRun\x12\x16\n" +
-	"\x06hidden\x18\x16 \x01(\bR\x06hiddenB\x0e\n" +
+	"\x06hidden\x18\x16 \x01(\bR\x06hidden\x12\x1c\n" +
+	"\tdocuments\x18\x17 \x01(\x05R\tdocuments\x125\n" +
+	"\x14documents_updated_at\x18\x18 \x01(\tH\bR\x12documentsUpdatedAt\x88\x01\x01B\x0e\n" +
 	"\f_archived_atB\x06\n" +
 	"\x04_cwdB\t\n" +
 	"\a_branchB\x11\n" +
@@ -1177,7 +1197,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\n" +
 	"_diff_statB\x11\n" +
 	"\x0f_adopted_branchB\x13\n" +
-	"\x11_notes_updated_at\"\xbb\x01\n" +
+	"\x11_notes_updated_atB\x17\n" +
+	"\x15_documents_updated_at\"\xbb\x01\n" +
 	"\x11CreateTaskRequest\x127\n" +
 	"\x04slug\x18\x01 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$R\x04slug\x12$\n" +
 	"\x05title\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x05title\x12\x1d\n" +

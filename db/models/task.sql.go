@@ -824,6 +824,27 @@ func (q *Queries) ListUndeletedTaskSlugs(ctx context.Context) ([]*ListUndeletedT
 }
 
 const listWatchedTasks = `-- name: ListWatchedTasks :many
+WITH watched AS (
+    SELECT
+        t.id
+    FROM
+        tasks t
+    WHERE
+        t.deleting_at IS NULL
+        AND ($1::text[] IS NULL
+            OR t.id = ANY ($1::uuid[]))
+),
+written AS (
+    SELECT
+        d.task_id,
+        COUNT(*)::integer AS documents,
+        MAX(d.updated_at)::timestamptz AS documents_updated_at
+    FROM
+        watched w
+        JOIN documents d ON d.task_id = w.id
+    GROUP BY
+        d.task_id
+)
 SELECT
     t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden,
     EXISTS (
@@ -833,20 +854,22 @@ SELECT
         WHERE
             r.task_id = t.id
             AND r.failure <> ''
-            AND r.viewed_at IS NULL)::boolean AS failed_run
+            AND r.viewed_at IS NULL)::boolean AS failed_run,
+    COALESCE(d.documents, 0)::integer AS documents,
+    d.documents_updated_at
 FROM
-    tasks t
-WHERE
-    t.deleting_at IS NULL
-    AND ($1::text[] IS NULL
-        OR t.id = ANY ($1::uuid[]))
+    watched w
+    JOIN tasks t ON t.id = w.id
+    LEFT JOIN written d ON d.task_id = t.id
 ORDER BY
     t.id DESC
 `
 
 type ListWatchedTasksRow struct {
-	Task      Task
-	FailedRun bool
+	Task               Task
+	FailedRun          bool
+	Documents          int32
+	DocumentsUpdatedAt *time.Time
 }
 
 func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*ListWatchedTasksRow, error) {
@@ -887,6 +910,8 @@ func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*ListW
 			&i.Task.NotesUpdatedAt,
 			&i.Task.IsHidden,
 			&i.FailedRun,
+			&i.Documents,
+			&i.DocumentsUpdatedAt,
 		); err != nil {
 			return nil, err
 		}

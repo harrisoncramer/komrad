@@ -203,9 +203,9 @@ type Agent struct {
 	FailedRun bool `protobuf:"varint,24,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
 	// The run log that failure was written to, which is the run the panel opens on.
 	FailedRunLog *int32 `protobuf:"varint,25,opt,name=failed_run_log,json=failedRunLog,proto3,oneof" json:"failed_run_log,omitempty"`
-	// How many documents it has written, which list_documents returns.
+	// How many documents it has written outside any task, which only an orchestrator does.
 	Documents int32 `protobuf:"varint,26,opt,name=documents,proto3" json:"documents,omitempty"`
-	// When the newest of its documents was last written, in RFC 3339, unset when it has none.
+	// When the newest of those was last written, in RFC 3339, unset when it has none.
 	DocumentsUpdatedAt *string `protobuf:"bytes,27,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
 	// When the state above last moved, in RFC 3339.
 	StateChangedAt string `protobuf:"bytes,28,opt,name=state_changed_at,json=stateChangedAt,proto3" json:"state_changed_at,omitempty"`

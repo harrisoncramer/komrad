@@ -88,6 +88,11 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{documentsNotice},
 		},
 		{
+			name: "documents written for a task",
+			row:  agentRow{header: true, task: &panel.Task{Documents: 2}, lead: &panel.AgentRow{}},
+			want: []string{documentsNotice},
+		},
+		{
 			name: "mail waiting",
 			row:  buildNoticeRow(panel.AgentRow{UnreadMail: true}),
 			want: []string{unreadMailNotice},

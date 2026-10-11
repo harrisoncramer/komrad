@@ -20,7 +20,7 @@ type Row struct {
 	FailedRun bool
 	// FailedRunLog is the log the unread failure went to.
 	FailedRunLog *int32
-	// Documents is how many documents the agent has written.
+	// Documents is how many documents the agent has written outside any task.
 	Documents int32
 	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
 	DocumentsUpdatedAt *time.Time

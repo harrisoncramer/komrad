@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	documentstore "komrad/internal/store/document"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -455,6 +456,43 @@ func TestListWatched(t *testing.T) {
 			assert.ElementsMatch(t, tt.wantSlugs, xslice.Map(listed, func(task taskstore.Task) string { return task.Slug }))
 		})
 	}
+}
+
+// TestListWatchedDocuments pins the count of a task's documents across every agent on it and the
+// time of its newest write.
+func TestListWatchedDocuments(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	first := stores.SeedAgent(t, agentstore.Agent{Name: "first"})
+	second := stores.SeedAgent(t, agentstore.Agent{Name: "second", TaskID: first.TaskID})
+	elsewhere := stores.SeedAgent(t, agentstore.Agent{Name: "elsewhere"})
+
+	documents := func(id string) taskstore.Task {
+		listed, err := stores.Tasks.ListWatched(ctx, []string{id})
+		require.NoError(t, err)
+		require.Len(t, listed, 1)
+
+		return listed[0]
+	}
+
+	task := documents(*first.TaskID)
+	assert.Zero(t, task.Documents)
+	assert.Nil(t, task.DocumentsUpdatedAt, "a task with no documents has no newest write")
+
+	write := func(agentID, name string) *documentstore.Document {
+		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{AgentID: agentID, Name: name, Type: "RFC", Body: name})
+		require.NoError(t, err)
+
+		return created
+	}
+	write(first.ID, "plan")
+	newest := write(second.ID, "notes")
+
+	task = documents(*first.TaskID)
+	assert.Equal(t, int32(2), task.Documents, "every agent on the task counts toward it")
+	require.NotNil(t, task.DocumentsUpdatedAt)
+	assert.True(t, task.DocumentsUpdatedAt.Equal(newest.UpdatedAt), "the newest write is the one that landed last")
+	assert.Zero(t, documents(*elsewhere.TaskID).Documents, "another task's documents are not counted")
 }
 
 // TestUpdate pins which rewrites of a task are refused and that a field left unset keeps its value.

@@ -58,6 +58,8 @@ written AS (
     FROM
         watched w
         JOIN documents d ON d.agent_id = ANY (w.ids)
+    WHERE
+        d.task_id IS NULL
     GROUP BY
         d.agent_id
 )

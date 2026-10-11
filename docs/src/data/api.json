@@ -2261,7 +2261,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many documents it has written, which list_documents returns."
+          "description": "How many documents it has written outside any task, which only an orchestrator does."
         },
         {
           "name": "documents_updated_at",
@@ -2271,7 +2271,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the newest of its documents was last written, in RFC 3339, unset when it has none."
+          "description": "When the newest of those was last written, in RFC 3339, unset when it has none."
         },
         {
           "name": "state_changed_at",
@@ -9260,6 +9260,26 @@
           "oneof": "",
           "rules": [],
           "description": "Whether a person hid the task from the panel, which leaves its agents running."
+        },
+        {
+          "name": "documents",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many documents agents have written for it, which list_documents returns."
+        },
+        {
+          "name": "documents_updated_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When the newest of its documents was last written, in RFC 3339, unset when it has none."
         }
       ]
     },

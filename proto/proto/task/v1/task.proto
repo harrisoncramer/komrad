@@ -87,6 +87,10 @@ message Task {
   bool failed_run = 21;
   // Whether a person hid the task from the panel, which leaves its agents running.
   bool hidden = 22;
+  // How many documents agents have written for it, which list_documents returns.
+  int32 documents = 23;
+  // When the newest of its documents was last written, in RFC 3339, unset when it has none.
+  optional string documents_updated_at = 24;
 }
 
 message CreateTaskRequest {
