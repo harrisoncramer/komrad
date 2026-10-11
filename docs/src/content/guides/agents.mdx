@@ -30,17 +30,14 @@ Finally, _reviewer_ agents read the writer's change and comment on it. Only the 
   workflow (and its orchestrator)
    |
    |-- task: fix-login
-   |      |
-   |      '-- writer             <-- an implementer, owns the checkout
-   |             |
-   |             '-- reviewer    <-- the writer's child, reads its change
+   |      |-- writer        <-- an implementer, owns the checkout
+   |      '-- reviewer      <-- the writer's child, reads its change
    |
    '-- task: rfc-truncate
-          |
           '-- writer
 ```
 
-The list draws the same tree. Each workflow row holds its tasks, each task holds its writer, and the writer's children are drawn right under it.
+The list draws the same tree. Each workflow row holds its tasks, and each task lists every agent on it. The writer's children sit beside it under the task, drawn in the child style, so you can tell them apart from the writer.
 
 ## Starting agents
 
