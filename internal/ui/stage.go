@@ -174,9 +174,12 @@ func (m *model) stageSelection() {
 	m.frame.Begin()
 	defer m.afterStaging()
 
-	m.reconcileSolo()
-
 	staged, ok := m.agents.hoveredPane(m)
+	if !ok {
+		m.reclaimStageKeys()
+	}
+
+	m.reconcileSolo()
 
 	switch {
 	case ok && m.isPaneStageable(staged.Agent.Pane):
@@ -188,6 +191,21 @@ func (m *model) stageSelection() {
 	}
 
 	m.stageTerminal()
+}
+
+// reclaimStageKeys puts the keys back on the panel when they sit on the pane in the stage.
+func (m *model) reclaimStageKeys() {
+	if !m.term.keysElsewhere {
+		return
+	}
+
+	active := m.tmux.GetActivePane(m.settings.Pane)
+	if active == "" || (active != m.frame.GuestPane() && active != m.frame.Pane(layout.RegionStage)) {
+		return
+	}
+
+	m.tmux.SelectPane(m.settings.Pane)
+	m.term.keysElsewhere = false
 }
 
 // isPaneStageable reports whether a pane may be shown as the cursor lands on it, holding back

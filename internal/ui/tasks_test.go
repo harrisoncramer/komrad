@@ -14,6 +14,7 @@ import (
 	watchv1 "komrad/proto/gen/watch/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
+	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -355,7 +356,33 @@ func TestTasksRow(t *testing.T) {
 		harness.fireTimers()
 
 		assert.Empty(t, harness.panel.ReadGuestPane())
-		assert.Contains(t, harness.readFrame(), "The session cookie expires early.")
+		assert.True(t, harness.panel.IsZoomed())
+		stage := readStageText(harness.readFrame())
+		for _, text := range []string{"Fix login", "Logins work again.", "The session cookie expires early."} {
+			assert.Contains(t, stage, text)
+		}
+	})
+
+	t.Run("a task's row takes the keys back from the agent's pane to show what is written about it", func(t *testing.T) {
+		rows := buildTasks()
+		loner := rows[5].(*agentv1.Agent)
+		loner.PaneId = "%5"
+		loner.Alive = xptr.Ptr(true)
+		harness := openAgents(t, rows...)
+		harness.fireTimers()
+		require.Equal(t, "%5", harness.panel.ReadGuestPane())
+		harness.panel.SetActivePane("%5")
+		harness.send(tea.BlurMsg{})
+
+		wheelOver(harness, 5)
+		harness.fireTimers()
+
+		assert.Equal(t, []string{"%0"}, harness.panel.ReadSelectedPanes())
+		assert.True(t, harness.panel.IsZoomed())
+		stage := readStageText(harness.readFrame())
+		for _, text := range []string{"Fix login", "Logins work again.", "The session cookie expires early."} {
+			assert.Contains(t, stage, text)
+		}
 	})
 }
 
