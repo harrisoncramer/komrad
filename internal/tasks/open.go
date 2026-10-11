@@ -150,7 +150,7 @@ func ClaimCheckout(ctx context.Context, db store.DBTX, params ClaimCheckoutParam
 		return fmt.Errorf("failed to claim the checkout of task %q for agent %q: %w", params.TaskID, params.AgentName, err)
 	}
 	if !claimed {
-		return ErrHasCheckout
+		return errHasCheckout
 	}
 
 	return nil
@@ -164,7 +164,7 @@ func (s *TaskService) ClaimCheckoutAgain(ctx context.Context, agent agentstore.A
 		return fmt.Errorf("failed to claim the checkout of task %q again for agent %q: %w", *agent.TaskID, agent.Name, err)
 	}
 	if !claimed {
-		return ErrHasCheckout
+		return errHasCheckout
 	}
 
 	return nil

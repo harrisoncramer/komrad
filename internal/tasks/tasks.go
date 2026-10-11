@@ -26,8 +26,8 @@ var (
 	ErrOtherWorkflow = fail.InvalidArgument("an agent works only on a task in its own workflow")
 	// ErrNotesNotYours is an agent writing the notes of a task it does not work on or orchestrate.
 	ErrNotesNotYours = fail.Denied("an agent writes only the notes of its own task or of one in the workflow it orchestrates")
-	// ErrHasCheckout is a launch that would make a checkout for a task that already has one.
-	ErrHasCheckout = fail.Precondition("this task already has a checkout, so launch a child of the agent working in it or give this one a task of its own")
+	// errHasCheckout is a launch that would make a checkout for a task that already has one.
+	errHasCheckout = fail.Precondition("this task already has a checkout, so launch a child of the agent working in it or give this one a task of its own")
 	// ErrHasWriter is a writer launched onto a task whose writer is still live.
 	ErrHasWriter = fail.Precondition("this task already has a live writer, so launch a child of it or hand the task off")
 	// ErrWorktreeRemoved is a writer launched onto a task whose worktree was removed.
