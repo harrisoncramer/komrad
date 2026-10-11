@@ -150,6 +150,16 @@ variable "ssh_allowed_cidrs" {
   }
 }
 
+variable "domain_name" {
+  type    = string
+  default = ""
+
+  validation {
+    condition     = var.domain_name == "" || can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", var.domain_name))
+    error_message = "A domain name is a lowercase hostname like komrad.example.com, since it is written into the web server's config."
+  }
+}
+
 variable "github_repository" {
   type    = string
   default = ""

@@ -49,6 +49,17 @@ resource "aws_security_group" "komrad" {
     }
   }
 
+  dynamic "ingress" {
+    for_each = var.domain_name != "" ? [1] : []
+
+    content {
+      cidr_blocks = ["0.0.0.0/0"]
+      from_port   = 80
+      protocol    = "tcp"
+      to_port     = 80
+    }
+  }
+
   egress {
     cidr_blocks = ["0.0.0.0/0"]
     from_port   = 0
