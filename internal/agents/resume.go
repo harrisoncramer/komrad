@@ -303,6 +303,12 @@ func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 }
 
 func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
+	if r.fresh != nil {
+		if err := r.setSession(ctx, *agent, agent.SessionID); err != nil {
+			return fmt.Errorf("failed to start a new conversation for %q: %w", agent.Name, err)
+		}
+	}
+
 	agent.Pane = pane
 	agent.State = agentstore.StateSettingUp
 	// An archive or a delete takes the row without reading the resume mark, so this write is where
@@ -349,8 +355,8 @@ func (r *resumeStart) planLaunch(agent agentstore.Agent) paneLaunch {
 }
 
 func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error {
-	// A recorded turn does not outlive the relaunch.
-	if agent.InterruptedAt != nil {
+	// A recorded turn does not outlive the relaunch, and a new conversation has none.
+	if agent.InterruptedAt != nil || r.fresh != nil {
 		if err := r.service.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
 			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)
 		}
@@ -366,10 +372,27 @@ func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error 
 	return nil
 }
 
-// rollBack puts back the state the resume found.
+// setSession points the agent at a conversation.
+func (r *resumeStart) setSession(ctx context.Context, agent agentstore.Agent, sessionID string) error {
+	return r.service.agents.SetHarness(ctx, agentstore.SetHarnessParams{
+		ID:        agent.ID,
+		Harness:   agent.Harness,
+		Flags:     agent.Flags,
+		SessionID: sessionID,
+	})
+}
+
+// rollBack puts back the state the resume found, and the conversation a restart left.
 func (r *resumeStart) rollBack(ctx context.Context, agent agentstore.Agent, _ error) {
 	if err := r.service.agents.SetStateByID(ctx, agent.ID, r.prior); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
+	if r.fresh == nil {
+		return
+	}
+	if err := r.setSession(ctx, agent, r.fresh.earlierSessionID); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the conversation of a writer whose restart gave up",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }

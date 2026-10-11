@@ -1,7 +1,9 @@
 package agents
 
 import (
+	"errors"
 	"testing"
+	"time"
 
 	"komrad/internal/agenterr"
 	agentstore "komrad/internal/store/agent"
@@ -20,6 +22,10 @@ func TestRestartAgentStartsANewConversation(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
 	require.NoError(t, st.Agents.SetSessionID(t.Context(), writer.ID, earlier))
+	tmux.AfterKillPane = func(string) {
+		at := time.Now()
+		require.NoError(t, st.Agents.SetInterruptedAtByID(t.Context(), writer.ID, &at))
+	}
 	service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
 	restarted, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: writer.ID, Note: " pick up the review "})
@@ -32,6 +38,45 @@ func TestRestartAgentStartsANewConversation(t *testing.T) {
 	assert.NotEqual(t, earlier, launch.SessionID)
 	assert.Equal(t, launch.SessionID, restarted.SessionID)
 	assert.Contains(t, tmux.KilledPanes, "%1", "the earlier pane goes")
+	assert.Nil(t, restarted.InterruptedAt, "a new conversation has no cut-off turn")
+}
+
+// TestRestartAgentGivingUpKeepsTheEarlierConversation pins a writer whose restart fails left on the
+// conversation it had.
+func TestRestartAgentGivingUpKeepsTheEarlierConversation(t *testing.T) {
+	const earlier = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
+
+	tests := []struct {
+		name string
+		fail func(tmux *tmuxtest.Fake)
+	}{
+		{
+			name: "a window that does not open",
+			fail: func(tmux *tmuxtest.Fake) { tmux.NewWindowErr = errors.New("no window") },
+		},
+		{
+			name: "a launch that fails",
+			fail: func(tmux *tmuxtest.Fake) { tmux.RespawnErr = errors.New("no respawn") },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := tmuxtest.NewFake()
+			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
+			require.NoError(t, st.Agents.SetSessionID(t.Context(), writer.ID, earlier))
+			service, _ := newManagerWithHarness(tmux, st, "")
+			tt.fail(tmux)
+
+			_, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: writer.ID})
+
+			require.Error(t, err)
+			got, err := st.Agents.GetByID(t.Context(), writer.ID)
+			require.NoError(t, err)
+			assert.Equal(t, earlier, got.SessionID)
+		})
+	}
 }
 
 // TestRestartAgentRefuses pins which agents a restart turns away.

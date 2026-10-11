@@ -74,24 +74,18 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 	killOwnedPanes(ctx, s.tmux, []agentstore.Agent{*agent})
 	s.syncTranscript(ctx, *agent)
 
+	earlier := agent.SessionID
 	agent.SessionID = harness.MintSessionID(hn)
-	if err := s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
-		ID:        agent.ID,
-		Harness:   agent.Harness,
-		Flags:     agent.Flags,
-		SessionID: agent.SessionID,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to start a new conversation for %q: %w", agent.Name, err)
-	}
 
 	if err := s.relaunch(ctx, relaunchParams{
 		agent:   *agent,
 		harness: hn,
 		fresh: &freshStart{
-			prompt:   restartBrief(params.Note),
-			task:     task,
-			workflow: workflowFor(ctx, s.workflows, *agent),
-			spawner:  s.findSpawner(ctx, *agent),
+			prompt:           restartBrief(params.Note),
+			task:             task,
+			workflow:         workflowFor(ctx, s.workflows, *agent),
+			spawner:          s.findSpawner(ctx, *agent),
+			earlierSessionID: earlier,
 		},
 	}); err != nil {
 		return nil, err
@@ -134,10 +128,11 @@ func restartBrief(note string) string {
 
 // freshStart is what a writer starting a new conversation is briefed with.
 type freshStart struct {
-	prompt   string
-	task     *taskstore.Task
-	workflow *workflowstore.Workflow
-	spawner  *agentstore.Agent
+	prompt           string
+	task             *taskstore.Task
+	workflow         *workflowstore.Workflow
+	spawner          *agentstore.Agent
+	earlierSessionID string
 }
 
 // plan is the writer's launch on its new conversation, briefed the way it was when it was made.
