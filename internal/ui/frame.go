@@ -43,3 +43,20 @@ func (m *model) dropRenderedView() {
 
 	m.term.renderedView = ""
 }
+
+// render is the active screen inside its gutters, kept until the next update drops it.
+func (m *model) render() string {
+	if m.configErr != nil || m.startupErr != nil {
+		return m.renderInset(m.insideView())
+	}
+
+	if m.picker.frozen != "" {
+		return m.fitFrame(m.picker.frozen)
+	}
+
+	if m.term.renderedView == "" {
+		m.term.renderedView = m.renderInMode(m.findMode())
+	}
+
+	return m.term.renderedView
+}

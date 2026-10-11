@@ -25,23 +25,6 @@ func (m *model) View() tea.View {
 	return view
 }
 
-// render renders the active screen inside its gutters.
-func (m *model) render() string {
-	if m.configErr != nil || m.startupErr != nil {
-		return m.renderInset(m.insideView())
-	}
-
-	if m.picker.frozen != "" {
-		return m.fitFrame(m.picker.frozen)
-	}
-
-	if m.term.renderedView == "" {
-		m.term.renderedView = m.renderInMode(m.findMode())
-	}
-
-	return m.term.renderedView
-}
-
 // insideView is the frame the gutters surround, taking the failures in the order they happen.
 func (m *model) insideView() string {
 	if m.configErr != nil {

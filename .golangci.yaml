@@ -519,6 +519,12 @@ linters:
               # Reading the agents' logs picks between the server log and a run's log, which is a
               # choice of source the request makes rather than a combining of two answers.
               - ^internal/rpc/log/handler\.go$
+          view_split:
+            skip: false
+            # Unanchored regexps over the import path. The panel keeps each screen's drawing in a
+            # file of its own that only reads what the screen holds.
+            packages:
+              - ^komrad/internal/ui$
       fussy:
         type: module
         description: General Go checks from fussy.

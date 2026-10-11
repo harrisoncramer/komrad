@@ -57,7 +57,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.releaseHiddenDetails()
 	m.dropStaleDoc()
 	said := m.readSaidCmd()
-	m.openSaid()
+	if m.layoutSaid() {
+		m.openSaid()
+	}
 	if m.atStop() != was {
 		m.leftStop = was
 	}
