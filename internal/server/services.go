@@ -154,19 +154,25 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Moves:     checkoutLocks,
 		Tx:        st.pool,
 	})
+	transcriptSync := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
+		Agents:      st.agents,
+		Transcripts: st.transcripts,
+		Harnesses:   params.Harnesses,
+	})
 	agentGroup := buildAgents(buildAgentsParams{
-		Tasks:      taskService,
-		Server:     params,
-		Stores:     st,
-		Wakers:     wakers,
-		Git:        gitClient,
-		Queue:      queue,
-		Scripts:    scriptService,
-		Panes:      paneChannel,
-		Settler:    settler,
-		Locks:      checkoutLocks,
-		RunLogsDir: runLogsDir,
-		LoadConfig: loadConfig,
+		Tasks:       taskService,
+		Server:      params,
+		Stores:      st,
+		Wakers:      wakers,
+		Git:         gitClient,
+		Queue:       queue,
+		Scripts:     scriptService,
+		Panes:       paneChannel,
+		Settler:     settler,
+		Locks:       checkoutLocks,
+		RunLogsDir:  runLogsDir,
+		Transcripts: transcriptSync,
+		LoadConfig:  loadConfig,
 	})
 	pullRequestGroup := buildPullRequests(buildPullRequestsParams{
 		Server:     params,
@@ -240,11 +246,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 				Tasks:       st.tasks,
 				Mail:        mailService,
 			}),
-			sync: transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
-				Agents:      st.agents,
-				Transcripts: st.transcripts,
-				Harnesses:   params.Harnesses,
-			}),
+			sync: transcriptSync,
 		},
 		pullRequests: pullRequestGroup,
 		git:          gitClient,
@@ -331,18 +333,19 @@ func buildScripts(params buildScriptsParams) (*scriptrun.ScriptService, error) {
 }
 
 type buildAgentsParams struct {
-	Server     NewServerParams
-	Stores     *stores
-	Wakers     *loopWakers
-	Git        *git.Client
-	Queue      *jobs.Enqueuer
-	Scripts    *scriptrun.ScriptService
-	Panes      *pane.Pane
-	Settler    *agents.Settler
-	Tasks      *tasks.TaskService
-	Locks      *checkouts.TreeLocks
-	RunLogsDir string
-	LoadConfig func() (*config.Config, error)
+	Server      NewServerParams
+	Stores      *stores
+	Wakers      *loopWakers
+	Git         *git.Client
+	Queue       *jobs.Enqueuer
+	Scripts     *scriptrun.ScriptService
+	Panes       *pane.Pane
+	Settler     *agents.Settler
+	Tasks       *tasks.TaskService
+	Locks       *checkouts.TreeLocks
+	RunLogsDir  string
+	Transcripts *transcripts.TranscriptSyncer
+	LoadConfig  func() (*config.Config, error)
 }
 
 func buildAgents(params buildAgentsParams) agentServices {
@@ -380,6 +383,8 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Harnesses:          server.Harnesses,
 		Scripts:            params.Scripts,
 		Locks:              params.Locks,
+		Transcripts:        params.Transcripts,
+		Tasks:              params.Tasks,
 		FallbackResumeRoot: server.FallbackResumeRoot,
 	})
 	agentDelete := jobs.NewAgentDelete(params.Queue)

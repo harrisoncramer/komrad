@@ -422,10 +422,10 @@ retry         = ["R"]
 snooze        = ["z"]
 # Edit the hovered workflow, or the hovered task's title, goal and notes.
 edit_row      = ["E"]
-# Archive the hovered task's writer and its children and start a new writer in the same
-# checkout, from a form asking for a note to it. The entry is only on a task, and does nothing
-# on one with no live writer.
-hand_off      = ["o"]
+# Restart the hovered task's writer on a new conversation in the same checkout, from a form
+# asking for a note to it. The entry is only on a task, and does nothing on one with no live
+# writer.
+restart       = ["o"]
 # Put an agent on a branch that already exists, in the hovered workflow.
 adopt         = ["A"]
 # Start a new task on the hovered workflow. On the hovered task it starts a child of the live

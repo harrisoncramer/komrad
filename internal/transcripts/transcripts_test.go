@@ -403,6 +403,33 @@ func TestSyncKeepsEarlierConversations(t *testing.T) {
 	assert.Equal(t, agent.ID, found.Matches[0].AgentID)
 }
 
+// TestSyncAgentReadsOnlyThatAgent pins that syncing one agent leaves every other agent's log unread.
+func TestSyncAgentReadsOnlyThatAgent(t *testing.T) {
+	st := storetest.Open(t)
+	ctx := t.Context()
+	configDir := t.TempDir()
+
+	writer := seedWithSessionID(t, st, "claude-writer", "writer")
+	reviewer := seedWithSessionID(t, st, "claude-reviewer", "reviewer")
+	writeLogFor(t, configDir, "claude-writer", `{"type":"user","message":{"content":"what the writer said"}}`+"\n")
+	writeLogFor(t, configDir, "claude-reviewer", `{"type":"user","message":{"content":"what the reviewer said"}}`+"\n")
+
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: configDir})),
+	})
+	require.NoError(t, syncer.SyncAgent(ctx, writer))
+
+	stored, err := st.Transcripts.Get(ctx, writer.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "what the writer said", stored)
+
+	unread, err := st.Transcripts.Get(ctx, reviewer.ID)
+	require.NoError(t, err)
+	assert.Empty(t, unread)
+}
+
 // TestSyncStartsOverOnlyWithinOneConversation pins that a log read again from its start clears
 // what that conversation held and nothing of the conversations before it.
 func TestSyncStartsOverOnlyWithinOneConversation(t *testing.T) {

@@ -33,6 +33,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
+	"komrad/internal/transcripts"
 	"komrad/lib/clock"
 	"komrad/lib/clock/clocktest"
 	"komrad/lib/xptr"
@@ -228,6 +229,12 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Harnesses: options.harnesses,
 			Scripts:   options.lifecycle,
 			Locks:     locks,
+			Tasks:     taskService,
+			Transcripts: transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
+				Agents:      s.Agents,
+				Transcripts: s.Transcripts,
+				Harnesses:   options.harnesses,
+			}),
 		}),
 		adopt: NewAdoptService(NewAdoptServiceParams{
 			Agents:    s.Agents,

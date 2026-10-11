@@ -1065,10 +1065,10 @@
               "default": "[\"E\"]"
             },
             {
-              "key": "hand_off",
-              "path": "keybindings.menu.hand_off",
+              "key": "restart",
+              "path": "keybindings.menu.restart",
               "type": "array",
-              "description": "Archive the hovered task's writer and its children and start a new writer in the same\ncheckout, from a form asking for a note to it. The entry is only on a task, and does nothing\non one with no live writer.",
+              "description": "Restart the hovered task's writer on a new conversation in the same checkout, from a form\nasking for a note to it. The entry is only on a task, and does nothing on one with no live\nwriter.",
               "default": "[\"o\"]"
             },
             {

@@ -34,6 +34,7 @@ type AgentServiceImpl interface {
 	HoldAgent(context.Context, *v1.HoldAgentRequest) (*v1.HoldAgentResponse, *fail.Error)
 	ReleaseAgent(context.Context, *v1.ReleaseAgentRequest) (*v1.ReleaseAgentResponse, *fail.Error)
 	ResumeAgent(context.Context, *v1.ResumeAgentRequest) (*v1.ResumeAgentResponse, *fail.Error)
+	RestartAgent(context.Context, *v1.RestartAgentRequest) (*v1.RestartAgentResponse, *fail.Error)
 	RetryAgent(context.Context, *v1.RetryAgentRequest) (*v1.RetryAgentResponse, *fail.Error)
 	DeleteAgents(context.Context, *v1.DeleteAgentsRequest) (*emptypb.Empty, *fail.Error)
 	UpdateAgent(context.Context, *v1.UpdateAgentRequest) (*emptypb.Empty, *fail.Error)
@@ -163,6 +164,11 @@ func (a AgentServiceAdapter) ReleaseAgent(ctx context.Context, req *connect.Requ
 // ResumeAgent answers the request as connect serves it.
 func (a AgentServiceAdapter) ResumeAgent(ctx context.Context, req *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error) {
 	return rpcerr.Answer(a.Impl.ResumeAgent(ctx, req.Msg))
+}
+
+// RestartAgent answers the request as connect serves it.
+func (a AgentServiceAdapter) RestartAgent(ctx context.Context, req *connect.Request[v1.RestartAgentRequest]) (*connect.Response[v1.RestartAgentResponse], error) {
+	return rpcerr.Answer(a.Impl.RestartAgent(ctx, req.Msg))
 }
 
 // RetryAgent answers the request as connect serves it.

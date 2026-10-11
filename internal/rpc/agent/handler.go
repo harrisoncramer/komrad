@@ -52,6 +52,7 @@ type agentLifecycle interface {
 
 type agentResumer interface {
 	ResumeAgent(ctx context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error)
+	RestartAgent(ctx context.Context, params agents.RestartAgentParams) (*agentstore.Agent, error)
 }
 
 type agentHolder interface {
@@ -443,6 +444,24 @@ func (s *Handler) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 	}
 
 	return &agentv1.ResumeAgentResponse{Agent: rendered}, nil
+}
+
+// RestartAgent relaunches a task's writer on a new conversation and returns it as stored.
+func (s *Handler) RestartAgent(ctx context.Context, req *agentv1.RestartAgentRequest) (*agentv1.RestartAgentResponse, *fail.Error) {
+	restarted, err := s.resumer.RestartAgent(ctx, agents.RestartAgentParams{
+		ID:   req.GetId(),
+		Note: req.GetNote(),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to restart agent")
+	}
+
+	rendered, failure := s.renderOneAgent(ctx, restarted.ID)
+	if failure != nil {
+		return nil, failure
+	}
+
+	return &agentv1.RestartAgentResponse{Agent: rendered}, nil
 }
 
 // RetryAgent relaunches an agent that failed to create, optionally with corrected flags.

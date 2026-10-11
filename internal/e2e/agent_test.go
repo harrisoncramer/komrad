@@ -163,6 +163,29 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 		assert.Contains(t, transcript.Msg.GetContent(), "resumed")
 	})
 
+	t.Run("restarting starts a new conversation and keeps the earlier one", func(t *testing.T) {
+		restarted, err := instance.Agents.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{
+			Id:   agent.GetId(),
+			Note: "pick up the cookie fix",
+		}))
+		require.NoError(t, err)
+
+		fresh := restarted.Msg.GetAgent()
+		assert.NotEqual(t, agent.GetSessionId(), fresh.GetSessionId())
+		require.NotEmpty(t, fresh.GetPaneId())
+		assert.Equal(t, fresh.GetPaneId(), instance.GetOwnedPane(agent.GetId()))
+
+		instance.Tmux.WaitForFrame(fresh.GetPaneId(), "fake:")
+		instance.SyncTranscripts()
+
+		transcript, err := instance.Agents.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{
+			AgentId: agent.GetId(),
+		}))
+		require.NoError(t, err)
+		assert.Contains(t, transcript.Msg.GetContent(), "token refresh", "the earlier conversation stays")
+		assert.Contains(t, transcript.Msg.GetContent(), "on a new conversation", "and the new one follows it")
+	})
+
 	t.Run("deleting its task leaves nothing behind", func(t *testing.T) {
 		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
 			Tasks: []string{agent.GetTaskId()},

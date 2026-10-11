@@ -20,6 +20,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 )
 
 // interruptedPrompt is what a resumed agent is asked on the way back in.
@@ -48,6 +49,8 @@ type NewResumeServiceParams struct {
 	Harnesses          harnessGetter
 	Scripts            agentScriptRunner
 	Locks              treeLocker
+	Transcripts        transcriptSyncer
+	Tasks              *tasks.TaskService
 	FallbackResumeRoot string
 }
 
@@ -58,6 +61,8 @@ type ResumeService struct {
 	workflows          *workflowstore.WorkflowStore
 	harnesses          harnessGetter
 	locks              treeLocker
+	transcripts        transcriptSyncer
+	tasks              *tasks.TaskService
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming.
 	inFlight   map[string]struct{}
@@ -81,6 +86,8 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 		workflows:          params.Workflows,
 		harnesses:          params.Harnesses,
 		locks:              params.Locks,
+		transcripts:        params.Transcripts,
+		tasks:              params.Tasks,
 		fallbackResumeRoot: params.FallbackResumeRoot,
 		inFlight:           map[string]struct{}{},
 	}
@@ -226,6 +233,19 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		agent.InterruptedAt = &at
 	}
 
+	return s.relaunch(ctx, relaunchParams{agent: agent, harness: hn})
+}
+
+type relaunchParams struct {
+	agent   agentstore.Agent
+	harness harness.Harness
+	fresh   *freshStart
+}
+
+// relaunch puts an agent back in a pane, on its own conversation or, when fresh, on a new one.
+func (s *ResumeService) relaunch(ctx context.Context, params relaunchParams) error {
+	agent := params.agent
+
 	// Until this write the row reads as a dormant agent nobody is touching.
 	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
 	if err != nil {
@@ -242,8 +262,9 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	return s.starter.start(ctx, agent, &resumeStart{
 		service: s,
 		scripts: s.starter.scripts,
-		harness: hn,
+		harness: params.harness,
 		prior:   prior,
+		fresh:   params.fresh,
 	})
 }
 
@@ -252,6 +273,7 @@ type resumeStart struct {
 	scripts agentScriptRunner
 	harness harness.Harness
 	prior   agentstore.State
+	fresh   *freshStart
 }
 
 func (r *resumeStart) runSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
@@ -297,6 +319,10 @@ func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 }
 
 func (r *resumeStart) planLaunch(agent agentstore.Agent) paneLaunch {
+	if r.fresh != nil {
+		return r.fresh.plan(r.harness, agent)
+	}
+
 	// Codex takes no session id on the command line, so an agent may have none and its relaunch is
 	// a fresh conversation with no turn to read back over.
 	resuming := agent.SessionID != ""
