@@ -620,6 +620,30 @@ func TestFormsArchivePrompt(t *testing.T) {
 				harness.assertSent(append(before, tt.wantSent...)...)
 			})
 		}
+
+		t.Run("an agent joining a chosen task before the confirm keeps the task standing", func(t *testing.T) {
+			harness := openAgents(t, buildTaskFamily()...)
+			harness.press(wholeTask...)
+			harness.press("space", "a", "down", "enter")
+			before := harness.readRequests()
+
+			late := newAgentAt("late", "w1", 3)
+			late.TaskId = xptr.Ptr("task-author")
+			harness.watch(buildSnapshot(append(buildTaskFamily(), late)...))
+			harness.press("y")
+
+			ids := []string{"author", "a4", "a3"}
+			harness.assertSent(append(before,
+				request{
+					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+					msg:       &agentv1.ArchiveAgentsRequest{Ids: ids},
+				},
+				request{
+					procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
+					msg:       &agentv1.DeleteAgentsRequest{Ids: ids},
+				},
+			)...)
+		})
 	})
 
 	t.Run("the workflow menu stays up until the archive lands", func(t *testing.T) {

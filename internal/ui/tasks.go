@@ -324,12 +324,19 @@ type chosenWork struct {
 
 // splitChosen sorts the chosen agents into the tasks they wholly cover and the agents left over.
 func splitChosen(l listing, chosen []panel.Agent) chosenWork {
+	onTasks := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" })
+	unique := xslice.UniqueBy(onTasks, func(agent panel.Agent) string { return agent.TaskID })
+
+	return keepWhole(l, chosen, xslice.Map(unique, l.findTask))
+}
+
+// keepWhole sorts the chosen agents into those of the candidate tasks every live agent on is chosen
+// and the agents left over.
+func keepWhole(l listing, chosen []panel.Agent, candidates []panel.Task) chosenWork {
 	ids := panel.IDs(chosen)
 	isChosen := func(agent panel.Agent) bool { return slices.Contains(ids, agent.ID) }
 
-	onTasks := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" })
-	unique := xslice.UniqueBy(onTasks, func(agent panel.Agent) string { return agent.TaskID })
-	tasks := xslice.Filter(xslice.Map(unique, l.findTask), func(task panel.Task) bool {
+	tasks := xslice.Filter(candidates, func(task panel.Task) bool {
 		return !slices.ContainsFunc(l.agentsOnTasks([]panel.Task{task}), func(agent panel.Agent) bool { return !isChosen(agent) })
 	})
 
@@ -337,6 +344,11 @@ func splitChosen(l listing, chosen []panel.Agent) chosenWork {
 	agents := xslice.Filter(chosen, func(agent panel.Agent) bool { return !slices.Contains(whole, agent.TaskID) })
 
 	return chosenWork{chosen: chosen, tasks: tasks, agents: agents}
+}
+
+// rechecked is the work with each task an agent has joined since handed back to its chosen agents.
+func (w chosenWork) rechecked(l listing) chosenWork {
+	return keepWhole(l, w.chosen, w.tasks)
 }
 
 // affected is every live agent the work takes.
