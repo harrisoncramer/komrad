@@ -98,6 +98,21 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{},
 		},
 		{
+			name: "unread replies on an agent under its task header",
+			row:  agentRow{item: panel.AgentRow{PersonComments: &agentv1.CommentCounts{Unread: 1}}, underTask: true},
+			want: []string{},
+		},
+		{
+			name: "unread replies on a task",
+			row:  agentRow{header: true, task: &panel.Task{PersonComments: &agentv1.CommentCounts{Unread: 1}}, lead: &panel.AgentRow{}},
+			want: []string{"your comments with a reply you have not read: 1"},
+		},
+		{
+			name: "a task does not say its lead's turn failed",
+			row:  agentRow{header: true, task: &panel.Task{}, lead: &panel.AgentRow{Agent: panel.Agent{State: panel.StateErrored}}},
+			want: []string{},
+		},
+		{
 			name: "mail waiting",
 			row:  buildNoticeRow(panel.AgentRow{UnreadMail: true}),
 			want: []string{unreadMailNotice},
