@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,7 +26,6 @@ import (
 	"komrad/internal/tasks"
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
-	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 )
 
@@ -259,8 +259,11 @@ func (s *LaunchService) joinParams(ctx context.Context, params NewAgentParams, t
 		return params, err
 	}
 
-	writers := xslice.Filter(onTask, isTaskWriter)
-	if len(writers) == 0 && params.Role != agentstore.RoleReviewer {
+	var writer *agentstore.Agent
+	if i := slices.IndexFunc(onTask, isTaskWriter); i >= 0 {
+		writer = &onTask[i]
+	}
+	if writer == nil && params.Role != agentstore.RoleReviewer {
 		return params, nil
 	}
 
@@ -275,7 +278,7 @@ func (s *LaunchService) joinParams(ctx context.Context, params NewAgentParams, t
 		return params, tasks.ErrWorktreeRemoved.Saying("task %q's worktree was removed, so there is no checkout to review", task.Slug)
 	}
 
-	dir := reviewerDir(task, writers)
+	dir := reviewerDir(task, writer)
 	if dir == "" {
 		return params, fmt.Errorf("%w: task %q has none recorded", agenterr.ErrReviewerNeedsDirectory, task.Slug)
 	}
@@ -289,12 +292,12 @@ func (s *LaunchService) joinParams(ctx context.Context, params NewAgentParams, t
 
 // reviewerDir is where a reviewer on a task runs: the task's checkout, or the directory its writer
 // works in when the task has none of its own.
-func reviewerDir(task taskstore.Task, writers []agentstore.Agent) string {
+func reviewerDir(task taskstore.Task, writer *agentstore.Agent) string {
 	if task.Checkout.IsUsable() {
 		return task.Checkout.Cwd
 	}
-	if len(writers) > 0 {
-		return writers[0].Cwd
+	if writer != nil {
+		return writer.Cwd
 	}
 
 	return ""
@@ -793,8 +796,10 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			c.agent.TaskID = &opened.Task.ID
 		}
 
-		if err := claimRoomForReviewer(ctx, agentStore, s.usage.Task.MaxReviewers, *c.agent); err != nil {
-			return err
+		if c.agent.Role == agentstore.RoleReviewer {
+			if err := claimRoomForReviewer(ctx, agentStore, s.usage.Task.MaxReviewers, *c.agent.TaskID); err != nil {
+				return err
+			}
 		}
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)

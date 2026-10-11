@@ -67,15 +67,15 @@ func TestTriageRows(t *testing.T) {
 				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
 			}),
 				newReviewer("reviewer", "reviewer", "asker"),
-				newReviewer("tester", "tester", "asker"),
+				newReviewer("second-reviewer", "second-reviewer", "asker"),
 			),
-			want: []string{"asker backend", "└ tester", "└ reviewer", "backend", "├─ task-asker", "│ ├─ asker", "│ ├─ tester", "│ └─ reviewer", "└─ task-quiet", "└─ quiet"},
+			want: []string{"asker backend", "└ second-reviewer", "└ reviewer", "backend", "├─ task-asker", "│ ├─ asker", "│ ├─ second-reviewer", "│ └─ reviewer", "└─ task-quiet", "└─ quiet"},
 		},
 		{
 			name:     "a reviewer in triage brings its writer with it",
 			capacity: 2,
 			rows:     buildTriageFamily()[:5],
-			want:     []string{"author backend", "└ reviewer", "backend", "├─ task-author", "│ ├─ author", "│ └─ reviewer", "└─ quiet"},
+			want:     []string{"writer backend", "└ reviewer", "backend", "├─ task-writer", "│ ├─ writer", "│ └─ reviewer", "└─ quiet"},
 		},
 		{
 			name:     "the most urgent tier takes the slots and the rest wait in the tree",
@@ -93,19 +93,19 @@ func TestTriageRows(t *testing.T) {
 			name:     "a family with a reviewer asking takes one slot",
 			capacity: 2,
 			rows:     append(withTasks(buildTriage()[:3]), buildTriageFamily()[2:5]...),
-			want:     []string{"asker backend", "author backend", "└ reviewer", "backend", "├─ task-asker", "│ └─ asker", "├─ task-author", "│ ├─ author", "│ └─ reviewer", "└─ task-quiet", "└─ quiet"},
+			want:     []string{"asker backend", "writer backend", "└ reviewer", "backend", "├─ task-asker", "│ └─ asker", "├─ task-writer", "│ ├─ writer", "│ └─ reviewer", "└─ task-quiet", "└─ quiet"},
 		},
 		{
 			name:     "three families come whole with their reviewers and a fourth waits for a slot",
 			capacity: 3,
 			rows: append(withTasks(buildTriage()),
-				newReviewer("tester", "tester", "asker"),
+				newReviewer("second-reviewer", "second-reviewer", "asker"),
 				buildTriageFamily()[2],
 				buildTriageFamily()[3],
 				buildTriageFamily()[4],
 				newReviewer("third-reviewer", "third-reviewer", "third"),
 			),
-			want: []string{"asker backend", "└ tester", "author backend", "└ reviewer", "third backend", "└ third-reviewer", "+1 more waiting for a slot", "backend", "├─ task-third", "│ ├─ third", "│ └─ third-reviewer", "├─ task-asker", "│ ├─ asker", "│ └─ tester", "├─ task-broken", "│ └─ broken"},
+			want: []string{"asker backend", "└ second-reviewer", "writer backend", "└ reviewer", "third backend", "└ third-reviewer", "+1 more waiting for a slot", "backend", "├─ task-third", "│ ├─ third", "│ └─ third-reviewer", "├─ task-asker", "│ ├─ asker", "│ └─ second-reviewer", "├─ task-writer", "│ ├─ writer"},
 		},
 	}
 
@@ -205,7 +205,7 @@ func TestTriageSnooze(t *testing.T) {
 			press:    []string{"t", "space", "z"},
 			relisted: []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), buildTriageFamily()[5]},
 			then:     buildTriageFamily(),
-			want:     []string{"author backend", "└ reviewer", "third", "backend", "├─ third", "├─ task-author", "│ ├─ author", "│ └─ reviewer", "└─ quiet"},
+			want:     []string{"writer backend", "└ reviewer", "third", "backend", "├─ third", "├─ task-writer", "│ ├─ writer", "│ └─ reviewer", "└─ quiet"},
 		},
 		{
 			name:     "a family hidden and shown again keeps its snooze",
@@ -628,18 +628,18 @@ func newFinishedAgent(name string, minute int) *agentv1.Agent {
 // buildTriageFamily is a workflow with a writer whose reviewer is asking, ahead of another agent
 // asking.
 func buildTriageFamily() []proto.Message {
-	author := newTriageAgent("author", agentv1.AgentState_AGENT_STATE_IDLE, 2)
-	authorTask := newTaskOf(author)
+	writer := newTriageAgent("writer", agentv1.AgentState_AGENT_STATE_IDLE, 2)
+	writerTask := newTaskOf(writer)
 	reviewer := newTriageAgent("reviewer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
-	reviewer.TaskId = author.TaskId
+	reviewer.TaskId = writer.TaskId
 	reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newAgentAt("quiet", "w1", 1),
-		author,
+		writer,
 		reviewer,
-		authorTask,
+		writerTask,
 		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
 	}
 }

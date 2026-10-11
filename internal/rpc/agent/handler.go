@@ -163,12 +163,13 @@ var errCallerHasNoAgent = fail.InvalidArgument("the caller has no agent id of it
 // errNoIDToFallBackOn is a request naming no agent, made by something that is not one.
 var errNoIDToFallBackOn = fail.InvalidArgument("no id given, and the caller has none of its own to fall back to")
 
-var errParentAgentID = fail.InvalidArgument("parent_agent_id is not taken, so pass task to put the agent on its task")
+// errParentAgentIDRefused is a create naming parent_agent_id, where task says what an agent joins.
+var errParentAgentIDRefused = fail.InvalidArgument("parent_agent_id is not taken, so pass task to put the agent on its task")
 
 // CreateAgent launches a background agent and returns it as stored.
 func (s *Handler) CreateAgent(ctx context.Context, req *agentv1.CreateAgentRequest) (*agentv1.CreateAgentResponse, *fail.Error) {
 	if req.ParentAgentId != nil {
-		return nil, errParentAgentID
+		return nil, errParentAgentIDRefused
 	}
 
 	created, err := s.creator.NewAgent(ctx, agents.NewAgentParams{

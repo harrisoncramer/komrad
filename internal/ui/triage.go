@@ -172,8 +172,8 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.
 		return
 	}
 
-	thinkingWriters := findThinkingWriters(agents)
 	writers := writersByTask(agents)
+	thinkingWriters := findThinkingWriters(agents, writers)
 	entries := make(map[string]triageEntry)
 	for _, item := range agents {
 		id := item.Agent.ID
@@ -469,8 +469,7 @@ func isFinishedWriter(s triageSubject) bool {
 }
 
 // findThinkingWriters is the ids of the writers with a reviewer on their task at work.
-func findThinkingWriters(agents []panel.AgentRow) map[string]bool {
-	writers := writersByTask(agents)
+func findThinkingWriters(agents []panel.AgentRow, writers map[string]panel.AgentRow) map[string]bool {
 	thinking := make(map[string]bool)
 	for _, item := range agents {
 		if writer, ok := findWriter(item, writers); ok && displayState(item) == panel.StateThinking {

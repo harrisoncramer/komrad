@@ -1456,7 +1456,7 @@ func TestCreateAgentValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "a parent agent, which pass task in place of",
+			name:    "a parent agent id is refused in favour of task",
 			req:     &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: "wf-1", ParentAgentId: xptr.Ptr("agent-1")},
 			wantErr: true,
 		},

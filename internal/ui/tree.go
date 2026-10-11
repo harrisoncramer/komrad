@@ -108,7 +108,7 @@ func treeRows(params treeRowsParams) []agentRow {
 	workflows, agents := params.workflows, params.agents
 
 	writers := writersByTask(agents)
-	reviewers := reviewersByWriter(agents)
+	reviewers := reviewersByWriter(agents, writers)
 	rendersRow := make(map[string]bool, len(agents))
 	orchestrators := make(map[string]panel.AgentRow)
 	for _, it := range agents {
@@ -265,8 +265,7 @@ func findWriter(item panel.AgentRow, writers map[string]panel.AgentRow) (panel.A
 }
 
 // reviewersByWriter is the reviewers on each writer's task, keyed by the writer.
-func reviewersByWriter(agents []panel.AgentRow) map[string][]panel.AgentRow {
-	writers := writersByTask(agents)
+func reviewersByWriter(agents []panel.AgentRow, writers map[string]panel.AgentRow) map[string][]panel.AgentRow {
 	reviewers := make(map[string][]panel.AgentRow)
 	for _, item := range agents {
 		if writer, ok := findWriter(item, writers); ok {
@@ -722,7 +721,7 @@ func (l *listing) assemble(now time.Time) {
 		return !isArchivedAgent(row)
 	})
 	l.agentsByID = keyAgentsByID(l.agents)
-	l.reviewers = reviewersByWriter(l.agents)
+	l.reviewers = reviewersByWriter(l.agents, writersByTask(l.agents))
 
 	workflows := workflowsFrom(slices.Collect(maps.Values(l.world.Workflows)))
 	slices.SortFunc(workflows, func(a, b panel.Workflow) int {

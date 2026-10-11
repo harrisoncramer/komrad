@@ -121,8 +121,8 @@ func (s *LifecycleService) listTaskReviewers(ctx context.Context, agent agentsto
 		return nil, err
 	}
 
-	return xslice.Filter(onTask, func(onTask agentstore.Agent) bool {
-		return onTask.Role == agentstore.RoleReviewer
+	return xslice.Filter(onTask, func(other agentstore.Agent) bool {
+		return other.Role == agentstore.RoleReviewer
 	}), nil
 }
 

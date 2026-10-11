@@ -31,8 +31,8 @@ func TestCountLiveReviewers(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
-	writer, err := f.Get(ctx, "author")
+	require.NoError(t, f.Create(ctx, Agent{Name: "writer", State: StateIdle}))
+	writer, err := f.Get(ctx, "writer")
 	require.NoError(t, err)
 	require.NoError(t, f.Create(ctx, Agent{Name: "other", State: StateIdle}))
 	other, err := f.Get(ctx, "other")
@@ -63,16 +63,16 @@ func TestCountLiveTasksStartedBy(t *testing.T) {
 	require.NoError(t, f.Create(ctx, Agent{Name: "orchestrator", Role: RoleOrchestrator, State: StateIdle}))
 	orchestrator, err := f.Get(ctx, "orchestrator")
 	require.NoError(t, err)
-	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
-	author, err := f.Get(ctx, "author")
+	require.NoError(t, f.Create(ctx, Agent{Name: "writer", State: StateIdle}))
+	writer, err := f.Get(ctx, "writer")
 	require.NoError(t, err)
 
 	for _, agent := range []Agent{
 		{Name: "live", State: StateIdle, SpawnedByAgentID: &orchestrator.ID},
 		{Name: "archived", State: StateIdle, SpawnedByAgentID: &orchestrator.ID},
 		{Name: "failed", State: StateFailedToCreate, SpawnedByAgentID: &orchestrator.ID},
-		{Name: "reviewer", State: StateIdle, SpawnedByAgentID: &orchestrator.ID, Role: RoleReviewer, TaskID: author.TaskID},
-		{Name: "started-by-author", State: StateIdle, SpawnedByAgentID: &author.ID},
+		{Name: "reviewer", State: StateIdle, SpawnedByAgentID: &orchestrator.ID, Role: RoleReviewer, TaskID: writer.TaskID},
+		{Name: "started-by-writer", State: StateIdle, SpawnedByAgentID: &writer.ID},
 	} {
 		require.NoError(t, f.Create(ctx, agent))
 	}

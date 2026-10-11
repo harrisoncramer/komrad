@@ -29,8 +29,8 @@ func claimRoomForAgents(ctx context.Context, agents *agentstore.AgentStore, maxA
 
 // claimRoomForReviewer holds one task to the reviewers it may run at once, a lower ceiling than the
 // panel's own.
-func claimRoomForReviewer(ctx context.Context, agents *agentstore.AgentStore, maxReviewers int, agent agentstore.Agent) error {
-	if agent.Role != agentstore.RoleReviewer || agent.TaskID == nil || maxReviewers <= 0 {
+func claimRoomForReviewer(ctx context.Context, agents *agentstore.AgentStore, maxReviewers int, taskID string) error {
+	if maxReviewers <= 0 {
 		return nil
 	}
 	if err := agents.LockSlots(ctx); err != nil {
@@ -38,8 +38,7 @@ func claimRoomForReviewer(ctx context.Context, agents *agentstore.AgentStore, ma
 	}
 
 	return requireRoomForReviewers(ctx, agents, maxReviewers, []room{{
-		id:   *agent.TaskID,
-		name: *agent.TaskID,
+		id:   taskID,
 		want: 1,
 	}})
 }
@@ -71,7 +70,6 @@ func claimRoomForRestoredReviewers(ctx context.Context, agents *agentstore.Agent
 	return requireRoomForReviewers(ctx, agents, maxReviewers, xslice.Map(taskIDs, func(id string) room {
 		return room{
 			id:   id,
-			name: id,
 			want: want[id],
 		}
 	}))
@@ -166,11 +164,11 @@ func requireRoomForReviewers(ctx context.Context, agents *agentstore.AgentStore,
 	for _, task := range wanted {
 		held, err := agents.CountLiveReviewers(ctx, task.id)
 		if err != nil {
-			return fmt.Errorf("failed to count the reviewers of task %s: %w", task.name, err)
+			return fmt.Errorf("failed to count the reviewers of task %s: %w", task.id, err)
 		}
 		if held+task.want > maxReviewers {
 			return fmt.Errorf("%w: task %s may hold %d at once and this would make %d, and they share one checkout",
-				agenterr.ErrTooManyReviewers, task.name, maxReviewers, held+task.want)
+				agenterr.ErrTooManyReviewers, task.id, maxReviewers, held+task.want)
 		}
 	}
 

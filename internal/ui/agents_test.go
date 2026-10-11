@@ -35,7 +35,7 @@ import (
 
 // TestAgentsRows covers which rows the agents tree renders and where.
 func TestAgentsRows(t *testing.T) {
-	archivedAuthor := newArchivedAgent("author", "author", "w1")
+	archivedWriter := newArchivedAgent("writer", "writer", "w1")
 
 	tests := []struct {
 		name string
@@ -79,19 +79,19 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "a reviewer is rendered under its writer rather than where the listing put it",
 			rows: buildTaskFamily(),
-			want: []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author", "   ├─ author", "   ├─ test-runner", "   └─ reviewer"},
+			want: []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author", "   ├─ author", "   ├─ second-reviewer", "   └─ reviewer"},
 		},
 		{
 			name: "a reviewer whose writer is archived stays under its task",
 			rows: []proto.Message{
 				newLiveWorkflow("w1", "komrad"),
 				newAgentAt("fix-gutter", "w1", 2),
-				archivedAuthor,
-				newTaskOf(archivedAuthor),
-				newReviewer("a3", "reviewer", "author"),
-				newReviewer("a4", "test-runner", "author"),
+				archivedWriter,
+				newTaskOf(archivedWriter),
+				newReviewer("a3", "reviewer", "writer"),
+				newReviewer("a4", "second-reviewer", "writer"),
 			},
-			want: []string{"komrad", "├─ fix-gutter", "└─ task-author", "   ├─ test-runner", "   └─ reviewer"},
+			want: []string{"komrad", "├─ fix-gutter", "└─ task-writer", "   ├─ second-reviewer", "   └─ reviewer"},
 		},
 		{
 			name: "a hidden task gives its row to its workflow's count",
@@ -198,7 +198,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.press("k", "space", "h", "H")
 
-		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author" + hiddenMark, "   ├─ author", "   ├─ test-runner", "   └─ reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author" + hiddenMark, "   ├─ author", "   ├─ second-reviewer", "   └─ reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
@@ -2224,12 +2224,12 @@ func TestAgentsOrchestrator(t *testing.T) {
 			newOrchestrator(),
 			telescope,
 			newTaskOf(telescope),
-			newReviewer("a2", "reader", "telescope"),
+			newReviewer("a2", "reviewer", "telescope"),
 		)
 
 		harness.press("f", "shift+tab", "j")
 
-		assert.Equal(t, []string{"telescope", "  └ reader"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"telescope", "  └ reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("a workflow made in the panel comes with its orchestrator", func(t *testing.T) {
@@ -2302,17 +2302,17 @@ func TestAgentsReviewers(t *testing.T) {
 	}
 
 	t.Run("the hard delete counts the reviewers in the archive's own rows", func(t *testing.T) {
-		author := newArchivedAgent("a1", "author", "w1")
-		authorTask := newTaskOf(author)
+		writer := newArchivedAgent("a1", "writer", "w1")
+		writerTask := newTaskOf(writer)
 		reviewer := newArchivedAgent("a3", "reviewer", "w1")
-		reviewer.TaskId = author.TaskId
+		reviewer.TaskId = writer.TaskId
 		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
-		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author, authorTask, reviewer)
+		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), writer, writerTask, reviewer)
 
 		harness.press("j", "j", "space", "a", "d")
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, `Permanently delete agent "author" and its reviewer?`)
+		assert.Contains(t, frame, `Permanently delete agent "writer" and its reviewer?`)
 		assert.Contains(t, frame, "Their transcripts go with them")
 	})
 
@@ -2323,10 +2323,10 @@ func TestAgentsReviewers(t *testing.T) {
 			Name:     "komrad",
 			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 		}
-		author, _ := rows[3].(*agentv1.Agent)
-		author.Cwd = "/tmp/tree"
-		authorTask, _ := rows[6].(*taskv1.Task)
-		authorTask.Cwd = xptr.Ptr("/tmp/tree")
+		writer, _ := rows[3].(*agentv1.Agent)
+		writer.Cwd = "/tmp/tree"
+		writerTask, _ := rows[6].(*taskv1.Task)
+		writerTask.Cwd = xptr.Ptr("/tmp/tree")
 		harness := openAgents(t, rows...)
 
 		harness.press("j", "space", "g")
@@ -2631,8 +2631,8 @@ func buildTaskFamily() []proto.Message {
 	fixGutter := newAgentAt("fix-gutter", "w1", 2)
 	author := newAgentAt("author", "w1", 1)
 	reviewer := newReviewer("a3", "reviewer", "author")
-	runner := newReviewer("a4", "test-runner", "author")
-	runner.CreatedAt = "2026-09-20T12:09:00Z"
+	secondReviewer := newReviewer("a4", "second-reviewer", "author")
+	secondReviewer.CreatedAt = "2026-09-20T12:09:00Z"
 	authorTask := newTaskOf(author)
 
 	return []proto.Message{
@@ -2641,7 +2641,7 @@ func buildTaskFamily() []proto.Message {
 		newTaskOf(fixGutter),
 		author,
 		reviewer,
-		runner,
+		secondReviewer,
 		authorTask,
 	}
 }

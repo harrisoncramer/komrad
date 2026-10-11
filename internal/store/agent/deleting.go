@@ -102,15 +102,15 @@ func (s *AgentStore) ListDeletingRoots(ctx context.Context) ([]Claim, error) {
 // ClaimRoots are the claimed agents other than a reviewer whose task's writer the same claim took,
 // one per delete.
 func ClaimRoots(claims []Claim) []Claim {
-	written := make(map[string]bool, len(claims))
+	writerClaimed := make(map[string]bool, len(claims))
 	for _, claim := range claims {
 		if claim.Role == RoleWriter && claim.TaskID != nil {
-			written[*claim.TaskID] = true
+			writerClaimed[*claim.TaskID] = true
 		}
 	}
 
 	return xslice.Filter(claims, func(claim Claim) bool {
-		return claim.Role != RoleReviewer || claim.TaskID == nil || !written[*claim.TaskID]
+		return claim.Role != RoleReviewer || claim.TaskID == nil || !writerClaimed[*claim.TaskID]
 	})
 }
 
