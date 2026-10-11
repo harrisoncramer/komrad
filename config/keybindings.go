@@ -219,10 +219,9 @@ type GitKeys struct {
 
 // HideMenuKeys are the bindings for the hide menu, which opens from the menu on the agents list.
 type HideMenuKeys struct {
-	// Hide the hovered task and every agent on it, or every chosen task, or unhide them when they
-	// are all hidden.
+	// Hide the hovered task or every chosen task, or unhide them when they are all hidden.
 	Hide []string `mapstructure:"hide" default:"h"`
-	// Show the hidden tasks and agents alongside the rest, or put them away again.
+	// Show the hidden tasks alongside the rest, or put them away again.
 	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
 

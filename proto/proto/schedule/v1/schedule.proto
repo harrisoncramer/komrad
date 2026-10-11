@@ -73,7 +73,7 @@ message Schedule {
   string timezone = 4;
   // Whether it is armed, since a paused schedule keeps its record and stops firing.
   bool enabled = 5;
-  // Whether its launches stay out of the panel's sidebar while still running.
+  // Whether the task each launch works on starts hidden from the panel's sidebar.
   bool hide_agents = 6;
   // The opening prompt every agent it launches is given, or the mail its orchestrator is sent.
   string prompt = 7;
@@ -153,7 +153,8 @@ message CreateScheduleRequest {
   string timezone = 3 [(buf.validate.field).string.max_len = 100];
   // False to write the schedule down without arming it.
   bool enabled = 4;
-  // True to keep its launches out of the panel's sidebar, ignored by an orchestrator schedule.
+  // True to start the task each launch works on hidden from the panel's sidebar, ignored by an
+  // orchestrator schedule.
   bool hide_agents = 7;
   // The opening prompt each launch is given, or the mail an orchestrator is sent.
   string prompt = 5 [(buf.validate.field).string = {
@@ -206,7 +207,7 @@ message UpdateScheduleRequest {
     // Mail the prompt to this orchestrator.
     string orchestrator_agent_id = 9 [(buf.validate.field).string.min_len = 1];
   }
-  // Whether later launches stay out of the sidebar, leaving existing agents alone.
+  // Whether the tasks of later launches start hidden, leaving existing tasks alone.
   bool hide_agents = 8;
 }
 

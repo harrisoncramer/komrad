@@ -389,20 +389,6 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 			},
 		},
 		{
-			name: "a hidden agent carries the fact as a mark of its own",
-			item: panel.AgentRow{Agent: panel.Agent{
-				ID:     "a1",
-				Name:   "hidden",
-				Hidden: true,
-			}},
-			want: view.Row{
-				Key:    "agent:a1",
-				Name:   "hidden",
-				Hidden: true,
-				Tree:   &view.Tree{Last: true},
-			},
-		},
-		{
 			name: "an archived agent says so rather than being greyed by hand",
 			item: panel.AgentRow{Agent: panel.Agent{
 				ID:         "a1",
@@ -867,42 +853,6 @@ func TestSnapshotOfAnEmptyPanelIsEmpty(t *testing.T) {
 	snapshot := agentsSnapshot(snapshotParams{})
 
 	assert.Empty(t, snapshot.Rows)
-}
-
-// TestSnapshotChildRowCarriesNoTally pins half of why the busiest row a panel can render is
-// narrower than the busiest row the model can express: a hidden child is counted on the parent
-// rendered above it, so a child row never stands in for anything.
-func TestSnapshotChildRowCarriesNoTally(t *testing.T) {
-	parent := panel.Agent{
-		ID:         "a1",
-		Name:       "parent",
-		WorkflowID: "w1",
-		State:      panel.StateIdle,
-	}
-	child := panel.Agent{
-		ID:            "a2",
-		Name:          "child",
-		WorkflowID:    "w1",
-		State:         panel.StateIdle,
-		Hidden:        true,
-		ParentAgentID: xptr.Ptr("a1"),
-	}
-
-	rows := treeRows(treeRowsParams{
-		workflows: []panel.Workflow{{ID: "w1", Name: "komrad"}},
-		agents:    []panel.AgentRow{{Agent: parent}, {Agent: child}},
-	})
-
-	snapshot := agentsSnapshot(snapshotParams{rows: rows})
-	require.NotEmpty(t, snapshot.Rows)
-
-	for _, row := range snapshot.Rows {
-		if row.Kind == view.KindChild {
-			assert.Zero(t, row.HiddenCount, "a child row stands in for nothing")
-		}
-	}
-
-	assert.Equal(t, 1, snapshot.Rows[1].HiddenCount, "the count lands on the parent instead")
 }
 
 // checkoutWorkflow is a workflow komrad cuts a worktree from.

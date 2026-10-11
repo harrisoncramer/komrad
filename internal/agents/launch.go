@@ -99,7 +99,7 @@ type NewAgentParams struct {
 	Harness          string
 	WorkflowID       string
 	ScheduleID       *string
-	Hidden           bool
+	HideTask         bool
 	IdempotencyKey   string
 	AdoptedBranch    string
 	RepositoryURL    string
@@ -462,7 +462,6 @@ func (p *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane strin
 		IdempotencyKey:   nullable(params.IdempotencyKey),
 		SpawnedByAgentID: spawnedBy,
 		ParentAgentID:    nullable(params.ParentAgentID),
-		Hidden:           params.Hidden,
 		Role:             params.Role,
 	}
 }
@@ -515,6 +514,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		repositoryURL: params.RepositoryURL,
 		provisioner:   plan.provisioner,
 		joinsCheckout: joinsCheckout,
+		hideTask:      params.HideTask,
 	})
 	if err != nil {
 		return nil, err
@@ -789,6 +789,7 @@ type creation struct {
 	provisioner   string
 	// joinsCheckout is whether the agent becomes the writer of its task's existing checkout.
 	joinsCheckout bool
+	hideTask      bool
 }
 
 // isCheckoutClaimant reports whether an agent's directory becomes its task's checkout, which only a
@@ -833,6 +834,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			Slug:          c.taskSlug,
 			Goal:          c.taskGoal,
 			JoinsCheckout: c.joinsCheckout,
+			Hidden:        c.hideTask,
 		})
 		if err != nil {
 			return err

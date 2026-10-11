@@ -46,8 +46,6 @@ const (
 	AgentServiceRequestReviewProcedure = "/agent.v1.AgentService/RequestReview"
 	// AgentServiceAdoptProcedure is the fully-qualified name of the AgentService's Adopt RPC.
 	AgentServiceAdoptProcedure = "/agent.v1.AgentService/Adopt"
-	// AgentServiceSetHiddenProcedure is the fully-qualified name of the AgentService's SetHidden RPC.
-	AgentServiceSetHiddenProcedure = "/agent.v1.AgentService/SetHidden"
 	// AgentServiceLogProcedure is the fully-qualified name of the AgentService's Log RPC.
 	AgentServiceLogProcedure = "/agent.v1.AgentService/Log"
 	// AgentServiceSendMailProcedure is the fully-qualified name of the AgentService's SendMail RPC.
@@ -209,7 +207,6 @@ type AgentServiceClient interface {
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	RequestReview(context.Context, *connect.Request[v1.RequestReviewRequest]) (*connect.Response[v1.RequestReviewResponse], error)
 	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
-	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
 	ForwardLastTurns(context.Context, *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error)
@@ -307,13 +304,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceAdoptProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("Adopt")),
-			connect.WithClientOptions(opts...),
-		),
-		setHidden: connect.NewClient[v1.SetHiddenRequest, emptypb.Empty](
-			httpClient,
-			baseURL+AgentServiceSetHiddenProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("SetHidden")),
-			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		log: connect.NewClient[v1.LogRequest, emptypb.Empty](
@@ -682,7 +672,6 @@ type agentServiceClient struct {
 	createAgent              *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
 	requestReview            *connect.Client[v1.RequestReviewRequest, v1.RequestReviewResponse]
 	adopt                    *connect.Client[v1.AdoptRequest, v1.AdoptResponse]
-	setHidden                *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	log                      *connect.Client[v1.LogRequest, emptypb.Empty]
 	sendMail                 *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
 	forwardLastTurns         *connect.Client[v1.ForwardLastTurnsRequest, v1.ForwardLastTurnsResponse]
@@ -762,11 +751,6 @@ func (c *agentServiceClient) RequestReview(ctx context.Context, req *connect.Req
 // Adopt calls agent.v1.AgentService.Adopt.
 func (c *agentServiceClient) Adopt(ctx context.Context, req *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
 	return c.adopt.CallUnary(ctx, req)
-}
-
-// SetHidden calls agent.v1.AgentService.SetHidden.
-func (c *agentServiceClient) SetHidden(ctx context.Context, req *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.setHidden.CallUnary(ctx, req)
 }
 
 // Log calls agent.v1.AgentService.Log.
@@ -1046,7 +1030,6 @@ type AgentServiceHandler interface {
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	RequestReview(context.Context, *connect.Request[v1.RequestReviewRequest]) (*connect.Response[v1.RequestReviewResponse], error)
 	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
-	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
 	SendMail(context.Context, *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error)
 	ForwardLastTurns(context.Context, *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error)
@@ -1140,13 +1123,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceAdoptProcedure,
 		svc.Adopt,
 		connect.WithSchema(agentServiceMethods.ByName("Adopt")),
-		connect.WithHandlerOptions(opts...),
-	)
-	agentServiceSetHiddenHandler := connect.NewUnaryHandler(
-		AgentServiceSetHiddenProcedure,
-		svc.SetHidden,
-		connect.WithSchema(agentServiceMethods.ByName("SetHidden")),
-		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceLogHandler := connect.NewUnaryHandler(
@@ -1517,8 +1493,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceRequestReviewHandler.ServeHTTP(w, r)
 		case AgentServiceAdoptProcedure:
 			agentServiceAdoptHandler.ServeHTTP(w, r)
-		case AgentServiceSetHiddenProcedure:
-			agentServiceSetHiddenHandler.ServeHTTP(w, r)
 		case AgentServiceLogProcedure:
 			agentServiceLogHandler.ServeHTTP(w, r)
 		case AgentServiceSendMailProcedure:
@@ -1654,10 +1628,6 @@ func (UnimplementedAgentServiceHandler) RequestReview(context.Context, *connect.
 
 func (UnimplementedAgentServiceHandler) Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.Adopt is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetHidden is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {

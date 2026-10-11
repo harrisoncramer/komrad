@@ -70,6 +70,46 @@ func TestGetTask(t *testing.T) {
 	}
 }
 
+// TestSetTaskHidden pins which tasks a slug may hide.
+func TestSetTaskHidden(t *testing.T) {
+	stores := storetest.Open(t)
+	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks})
+	work := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
+	archived := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: work.WorkflowID, Slug: "old-work"})
+	require.NoError(t, stores.Tasks.Archive(t.Context(), archived.ID))
+
+	tests := []struct {
+		name    string
+		ref     string
+		wantErr error
+	}{
+		{
+			name:    "an archived task is refused",
+			ref:     "old-work",
+			wantErr: ErrTaskNotLive,
+		},
+		{
+			name: "a live task is hidden by its slug",
+			ref:  "work",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := svc.SetTaskHidden(t.Context(), tt.ref, true)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			got, err := svc.GetTask(t.Context(), tt.ref)
+			require.NoError(t, err)
+			assert.True(t, got.Hidden)
+		})
+	}
+}
+
 // TestGetTaskForWorkflow pins which tasks an agent being created may be put on.
 func TestGetTaskForWorkflow(t *testing.T) {
 	stores := storetest.Open(t)

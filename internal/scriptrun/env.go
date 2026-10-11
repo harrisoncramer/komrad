@@ -37,7 +37,6 @@ type scriptPayload struct {
 	PromptTruncated bool   `json:"prompt_truncated"`
 	Pane            string `json:"pane"`
 	Workflow        string `json:"workflow"`
-	Hidden          bool   `json:"hidden"`
 	CreatedAt       string `json:"created_at"`
 }
 
@@ -136,7 +135,6 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 		Flags:     agent.Flags,
 		Pane:      agent.Pane,
 		Workflow:  workflowName(workflow),
-		Hidden:    agent.Hidden,
 	}
 	payload.Prompt, payload.PromptTruncated = xstr.Head(agent.Prompt, maxScriptPrompt)
 	if !agent.CreatedAt.IsZero() {

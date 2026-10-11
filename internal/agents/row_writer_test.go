@@ -41,13 +41,6 @@ func TestRowWriterRefusals(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "hiding an id nobody holds",
-			write: func(ctx context.Context, writer *RowWriter, _ agentstore.Agent) error {
-				return writer.SetHidden(ctx, uuid.NewString(), true)
-			},
-			wantErr: agenterr.ErrAgentNotFound,
-		},
-		{
 			name: "renaming an id nobody holds",
 			write: func(ctx context.Context, writer *RowWriter, _ agentstore.Agent) error {
 				return writer.Rename(ctx, uuid.NewString(), "renamed")
@@ -83,15 +76,6 @@ func TestRowWriterWrites(t *testing.T) {
 		write func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error
 		check func(t *testing.T, row rowstore.Row)
 	}{
-		{
-			name: "hiding",
-			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {
-				return writer.SetHidden(ctx, agent.ID, true)
-			},
-			check: func(t *testing.T, row rowstore.Row) {
-				assert.True(t, row.Hidden)
-			},
-		},
 		{
 			name: "claiming the failed runs",
 			write: func(ctx context.Context, writer *RowWriter, agent agentstore.Agent) error {

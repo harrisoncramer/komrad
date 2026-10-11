@@ -367,7 +367,6 @@ INSERT INTO agents(
     workflow_id,
     schedule_id,
     idempotency_key,
-    is_hidden,
     provision_enabled,
     spawned_by_agent_id,
     requested_by_agent_id,
@@ -388,7 +387,6 @@ VALUES (
     @workflow_id,
     sqlc.narg('schedule_id'),
     sqlc.narg('idempotency_key'),
-    @is_hidden,
     sqlc.narg('provision_enabled'),
     sqlc.narg('spawned_by_agent_id'),
     sqlc.narg('requested_by_agent_id'),
@@ -613,7 +611,6 @@ LIMIT 1;
 UPDATE
     agents a
 SET
-    is_hidden = FALSE,
     archived_at = NULL,
     archive_batch_id = NULL
 WHERE
@@ -868,17 +865,6 @@ SET
 WHERE
     id = ANY (@ids::uuid[]);
 
--- name: SetAgentHidden :many
-UPDATE
-    agents
-SET
-    is_hidden = @hidden
-WHERE
-    id = @id
-    AND archived_at IS NULL
-RETURNING
-    id;
-
 -- name: SetAgentFailureReason :many
 UPDATE
     agents
@@ -972,7 +958,6 @@ RETURNING
 UPDATE
     agents
 SET
-    is_hidden = FALSE,
     archived_at = NULL,
     archive_batch_id = NULL
 WHERE

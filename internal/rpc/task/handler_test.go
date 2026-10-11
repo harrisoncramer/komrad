@@ -38,6 +38,7 @@ type fakeTasks struct {
 	archived []string
 	deleted  [][]string
 	marked   []string
+	hidden   map[string]bool
 }
 
 // CreateTask records the params and answers them as stored unless err refuses it.
@@ -103,6 +104,16 @@ func (f *fakeTasks) DeleteTasks(_ context.Context, refs []string) error {
 // MarkTaskRunsRead records the task and answers err.
 func (f *fakeTasks) MarkTaskRunsRead(_ context.Context, taskID string) error {
 	f.marked = append(f.marked, taskID)
+
+	return f.err
+}
+
+// SetTaskHidden records the ref and answers err.
+func (f *fakeTasks) SetTaskHidden(_ context.Context, ref string, hidden bool) error {
+	if f.hidden == nil {
+		f.hidden = map[string]bool{}
+	}
+	f.hidden[ref] = hidden
 
 	return f.err
 }
@@ -210,6 +221,16 @@ func TestTaskRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
+			name: "hiding a task that is no longer live",
+			call: func(ctx context.Context, svc taskv1komrad.TaskServiceAdapter) error {
+				_, err := svc.SetTaskHidden(ctx, connect.NewRequest(&taskv1.SetTaskHiddenRequest{Task: "fix-login", Hidden: true}))
+
+				return err
+			},
+			err:      tasks.ErrTaskNotLive,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
 			name: "a listing the store could not read",
 			call: func(ctx context.Context, svc taskv1komrad.TaskServiceAdapter) error {
 				_, err := svc.ListTasks(ctx, connect.NewRequest(&taskv1.ListTasksRequest{WorkflowId: "workflow"}))
@@ -242,6 +263,7 @@ func TestTaskCallsPassDown(t *testing.T) {
 		Title:      "Fix login",
 		Goal:       "The login page loads.",
 		ArchivedAt: &archivedAt,
+		Hidden:     true,
 	}}
 	svc := newTaskHandler(fake)
 	ctx := t.Context()
@@ -267,6 +289,7 @@ func TestTaskCallsPassDown(t *testing.T) {
 	assert.Equal(t, []string{"fix-login"}, fake.got)
 	assert.Equal(t, "The login page loads.", got.Msg.GetTask().GetGoal())
 	assert.NotNil(t, got.Msg.GetTask().ArchivedAt, "an archived task carries its stamp")
+	assert.True(t, got.Msg.GetTask().GetHidden(), "a hidden task carries its flag")
 
 	listed, err := svc.ListTasks(ctx, connect.NewRequest(&taskv1.ListTasksRequest{WorkflowId: "workflow", Archived: true}))
 	require.NoError(t, err)
@@ -293,6 +316,10 @@ func TestTaskCallsPassDown(t *testing.T) {
 	_, err = svc.MarkTaskRunsRead(ctx, connect.NewRequest(&taskv1.MarkTaskRunsReadRequest{Id: taskID}))
 	require.NoError(t, err)
 	assert.Equal(t, []string{taskID}, fake.marked)
+
+	_, err = svc.SetTaskHidden(ctx, connect.NewRequest(&taskv1.SetTaskHiddenRequest{Task: "fix-login", Hidden: true}))
+	require.NoError(t, err)
+	assert.Equal(t, map[string]bool{"fix-login": true}, fake.hidden)
 }
 
 // TestSetTaskNotesPassesDown pins that a notes write hands down the caller and the version it read,

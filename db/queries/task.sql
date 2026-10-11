@@ -86,10 +86,21 @@ RETURNING
 UPDATE
     tasks
 SET
-    archived_at = NULL
+    archived_at = NULL,
+    is_hidden = FALSE
 WHERE
     id = ANY (sqlc.arg('ids')::uuid[])
     AND archived_at IS NOT NULL;
+
+-- name: SetTaskHidden :execrows
+UPDATE
+    tasks
+SET
+    is_hidden = sqlc.arg('hidden')
+WHERE
+    id = sqlc.arg('id')
+    AND archived_at IS NULL
+    AND deleting_at IS NULL;
 
 -- name: IsTaskSlugTaken :one
 SELECT

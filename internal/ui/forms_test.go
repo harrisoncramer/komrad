@@ -282,6 +282,12 @@ func TestFormsRefused(t *testing.T) {
 
 // TestFormsAdoptExisting covers an adoption answered with the agent already on the branch.
 func TestFormsAdoptExisting(t *testing.T) {
+	tucked := newAgent("a4", "tucked", "w1")
+	tuckedTask := newTaskOf(tucked)
+	tuckedTask.Hidden = true
+	nested := newChild("a5", "nested", "a4")
+	nested.TaskId = tucked.TaskId
+
 	tests := []struct {
 		name        string
 		existing    *agentv1.Agent
@@ -295,14 +301,14 @@ func TestFormsAdoptExisting(t *testing.T) {
 			wantHovered: "author",
 		},
 		{
-			name:        "a hidden agent shows the hidden agents and lands on its row",
-			existing:    newHiddenAgent("a4", "tucked"),
+			name:        "an agent on a hidden task shows the hidden tasks and lands on its row",
+			existing:    tucked,
 			wantScreen:  agentsScreen,
 			wantHovered: "tucked",
 		},
 		{
-			name:        "a child under a hidden head shows the hidden agents and lands on its row",
-			existing:    newChild("a5", "nested", "a4"),
+			name:        "a child on a hidden task shows the hidden tasks and lands on its row",
+			existing:    nested,
 			wantScreen:  agentsScreen,
 			wantHovered: "nested",
 		},
@@ -316,7 +322,7 @@ func TestFormsAdoptExisting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"), newHiddenAgent("a4", "tucked"), newChild("a5", "nested", "a4"))
+			harness := openAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"), tucked, tuckedTask, nested)
 			harness.press("g", "g")
 			harness.answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.AdoptResponse{Agent: tt.existing, Existing: true}), nil

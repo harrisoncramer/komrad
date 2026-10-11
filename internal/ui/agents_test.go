@@ -90,24 +90,18 @@ func TestAgentsRows(t *testing.T) {
 			want: []string{"komrad", "├─ fix-gutter", "├─ test-runner", "└─ reviewer"},
 		},
 		{
-			name: "a hidden agent gives its row to its workflow's count",
-			rows: []proto.Message{
-				newLiveWorkflow("w1", "backend"),
-				newAgent("a1", "auth", "w1"),
-				newHiddenAgent("a2", "chore"),
-				newHiddenAgent("a3", "sweep"),
-			},
+			name: "a hidden task gives its row to its workflow's count",
+			rows: slices.Concat(
+				[]proto.Message{newLiveWorkflow("w1", "backend"), newAgent("a1", "auth", "w1")},
+				newAgentOnHiddenTask("a2", "chore"),
+				newAgentOnHiddenTask("a3", "sweep"),
+			),
 			want: []string{"backend +2", "└─ auth"},
 		},
 		{
-			name: "a hidden parent takes its children with it",
-			rows: hideAgent(buildFamily(), "author"),
-			want: []string{"komrad +3", "└─ fix-gutter"},
-		},
-		{
-			name: "a hidden child counts on its parent rather than on the workflow",
-			rows: hideAgent(buildFamily(), "a3"),
-			want: []string{"komrad", "├─ fix-gutter", "└─ author +1", "   └─ test-runner"},
+			name: "a hidden task takes every agent on it and counts once",
+			rows: hideTaskOf(buildTaskFamily(), "author"),
+			want: []string{"komrad +1", "└─ task-fix-gutter", "   └─ fix-gutter"},
 		},
 		{
 			name: "an orchestrator is rendered on its workflow's row rather than as a row of its own",
@@ -181,22 +175,16 @@ func TestAgentsRows(t *testing.T) {
 	})
 }
 
-// TestAgentsShowHidden covers the hide menu, which hides the hovered agent and shows and puts away
+// TestAgentsShowHidden covers the hide menu, which hides the hovered task and shows and puts away
 // the hidden ones.
 func TestAgentsShowHidden(t *testing.T) {
 	auth := newAgent("a1", "auth", "w1")
-	chore := newHiddenAgent("a2", "chore")
 	ui := newAgent("a3", "ui", "w2")
-	rows := []proto.Message{
-		newLiveWorkflow("w1", "backend"),
-		newLiveWorkflow("w2", "frontend"),
-		auth,
-		newTaskOf(auth),
-		chore,
-		newTaskOf(chore),
-		ui,
-		newTaskOf(ui),
-	}
+	rows := slices.Concat(
+		[]proto.Message{newLiveWorkflow("w1", "backend"), newLiveWorkflow("w2", "frontend"), auth, newTaskOf(auth)},
+		newAgentOnHiddenTask("a2", "chore"),
+		[]proto.Message{ui, newTaskOf(ui)},
+	)
 
 	t.Run("a hidden task comes back under its own workflow and the cursor keeps its row", func(t *testing.T) {
 		harness := openAgents(t, rows...)
@@ -206,35 +194,24 @@ func TestAgentsShowHidden(t *testing.T) {
 		harness.press("space", "h", "H")
 
 		frame := harness.readFrame()
-		assert.Equal(t, []string{"backend", "├─ task-a2", "│  └─ chore" + hiddenMark, "└─ task-a1", "   └─ auth", "frontend", "└─ task-a3", "   └─ ui"}, readListRows(frame))
+		assert.Equal(t, []string{"backend", "├─ task-a2" + hiddenMark, "│  └─ chore", "└─ task-a1", "   └─ auth", "frontend", "└─ task-a3", "   └─ ui"}, readListRows(frame))
 		assert.Equal(t, "└─ task-a3", readHoveredRow(frame))
 	})
 
-	t.Run("the hidden parent's family comes back whole", func(t *testing.T) {
-		harness := openAgents(t, hideAgent(buildFamily(), "author")...)
+	t.Run("a hidden task comes back with every agent on it", func(t *testing.T) {
+		harness := openAgents(t, hideTaskOf(buildTaskFamily(), "author")...)
 
 		harness.press("k", "space", "h", "H")
 
-		assert.Equal(t, []string{"komrad", "├─ fix-gutter", "└─ author" + hiddenMark, "   ├─ test-runner", "   └─ reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author" + hiddenMark, "   ├─ author", "   ├─ test-runner", "   └─ reviewer"}, readListRows(harness.readFrame()))
 	})
 
-	t.Run("the hide entry hides the hovered task's agents", func(t *testing.T) {
+	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
 		harness.press("k", "space", "h", "h")
 
-		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure, &agentv1.SetHiddenRequest{Id: "a1", Hidden: true})
-	})
-
-	t.Run("the hide entry hides every agent on the task", func(t *testing.T) {
-		harness := openAgents(t, buildTasks()...)
-
-		harness.press("j", "space", "h", "h")
-
-		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure,
-			&agentv1.SetHiddenRequest{Id: "a2", Hidden: true},
-			&agentv1.SetHiddenRequest{Id: "a1", Hidden: true},
-		)
+		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a1", Hidden: true})
 	})
 
 	t.Run("the hide entry unhides a revealed task", func(t *testing.T) {
@@ -242,7 +219,23 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.press("k", "space", "h", "H", "k", "k", "space", "h", "h")
 
-		harness.assertSentTo(agentv1connect.AgentServiceSetHiddenProcedure, &agentv1.SetHiddenRequest{Id: "a2", Hidden: false})
+		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a2", Hidden: false})
+	})
+
+	t.Run("a selection covering a whole task hides it", func(t *testing.T) {
+		harness := openAgents(t, buildTaskFamily()...)
+
+		harness.press("v", "space", "h", "h")
+
+		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-fix-gutter", Hidden: true})
+	})
+
+	t.Run("a selection reaching part of a task holds hide gray", func(t *testing.T) {
+		harness := openAgents(t, buildTaskFamily()...)
+
+		harness.press("v", "j", "j", "j", "v", "space", "h")
+
+		assert.Regexp(t, readOffEntry("hide", "h"), harness.readRawFrame())
 	})
 
 	tests := []struct {
@@ -253,17 +246,17 @@ func TestAgentsShowHidden(t *testing.T) {
 		{
 			name:  "on a listed task the menu offers to hide it and show the rest",
 			press: []string{"k"},
-			want:  []string{"› hide", "show hidden"},
+			want:  []string{"› hide", "show hidden tasks"},
 		},
 		{
 			name:  "on a revealed task the menu offers to unhide it and put the rest away",
 			press: []string{"k", "space", "h", "H", "k", "k"},
-			want:  []string{"› unhide", "put hidden away"},
+			want:  []string{"› unhide", "put hidden tasks away"},
 		},
 		{
 			name:  "on a workflow header only the toggle is live",
 			press: []string{"k", "k"},
-			want:  []string{"› show hidden"},
+			want:  []string{"› show hidden tasks"},
 		},
 	}
 
@@ -2430,7 +2423,7 @@ func TestAgentsSelection(t *testing.T) {
 			wantTasks: []string{"task-auth"},
 		},
 		{
-			name:      "a header takes its whole folder less the hidden agent with no row",
+			name:      "a header takes its whole folder less the hidden task with no row",
 			press:     []string{"k", "k", "v"},
 			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
@@ -2667,10 +2660,16 @@ func buildSortable() []proto.Message {
 	}
 }
 
-func hideAgent(rows []proto.Message, id string) []proto.Message {
+func hideTaskOf(rows []proto.Message, agentID string) []proto.Message {
+	var taskID string
 	for _, row := range rows {
-		if agent, isAgent := row.(*agentv1.Agent); isAgent && agent.GetId() == id {
-			agent.Hidden = true
+		if agent, isAgent := row.(*agentv1.Agent); isAgent && agent.GetId() == agentID {
+			taskID = agent.GetTaskId()
+		}
+	}
+	for _, row := range rows {
+		if task, isTask := row.(*taskv1.Task); isTask && task.GetId() == taskID {
+			task.Hidden = true
 		}
 	}
 
@@ -2716,11 +2715,12 @@ func newAgentAt(name, workflowID string, minute int) *agentv1.Agent {
 	return agent
 }
 
-func newHiddenAgent(id, name string) *agentv1.Agent {
+func newAgentOnHiddenTask(id, name string) []proto.Message {
 	agent := newAgent(id, name, "w1")
-	agent.Hidden = true
+	task := newTaskOf(agent)
+	task.Hidden = true
 
-	return agent
+	return []proto.Message{agent, task}
 }
 
 func newChild(id, name, parentID string) *agentv1.Agent {
@@ -2952,15 +2952,14 @@ func newBranchAgent(id, name, branch string) (*agentv1.Agent, *taskv1.Task) {
 }
 
 func buildSelectable() []proto.Message {
-	return []proto.Message{
+	return slices.Concat([]proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newLiveWorkflow("w2", "frontend"),
 		newAgentAt("auth", "w1", 5),
 		newAgentAt("api", "w1", 4),
 		newAgentAt("db", "w1", 3),
-		newHiddenAgent("sweep", "sweep"),
 		newAgentAt("ui", "w2", 1),
-	}
+	}, newAgentOnHiddenTask("sweep", "sweep"))
 }
 
 func newEditable(held string) *agentv1.Agent {

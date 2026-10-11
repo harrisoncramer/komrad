@@ -318,13 +318,15 @@ func TestArchiveIdleBesides(t *testing.T) {
 	}
 }
 
-// TestRestore pins that restoring returns the named archived tasks and leaves every other task as it was.
+// TestRestore pins that restoring returns the named archived tasks to the sidebar and leaves every other task as it was.
 func TestRestore(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
 	archived := stores.SeedTask(t, taskstore.CreateParams{Slug: "archived"})
+	hide(t, stores, archived.ID)
 	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
 	live := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: archived.WorkflowID, Slug: "live"})
+	hide(t, stores, live.ID)
 	unnamed := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: archived.WorkflowID, Slug: "unnamed"})
 	require.NoError(t, stores.Tasks.Archive(ctx, unnamed.ID))
 
@@ -334,9 +336,10 @@ func TestRestore(t *testing.T) {
 		name         string
 		id           string
 		wantArchived bool
+		wantHidden   bool
 	}{
-		{name: "an archived task named is restored", id: archived.ID},
-		{name: "a live task named stays live", id: live.ID},
+		{name: "an archived task named is restored unhidden", id: archived.ID},
+		{name: "a live task named stays live and hidden", id: live.ID, wantHidden: true},
 		{name: "an archived task not named stays archived", id: unnamed.ID, wantArchived: true},
 	}
 
@@ -345,6 +348,7 @@ func TestRestore(t *testing.T) {
 			got, err := stores.Tasks.Get(ctx, tt.id)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantArchived, got.ArchivedAt != nil)
+			assert.Equal(t, tt.wantHidden, got.Hidden)
 		})
 	}
 }
@@ -545,4 +549,75 @@ func TestUpdateNotesVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "Two.", second.Notes)
 	assert.True(t, second.NotesUpdatedAt.After(*first.NotesUpdatedAt))
+}
+
+// TestSetHidden pins which tasks take a hide and which are refused.
+func TestSetHidden(t *testing.T) {
+	tests := []struct {
+		name        string
+		id          func(t *testing.T, stores *storetest.Stores) string
+		hidden      bool
+		wantChanged bool
+		wantHidden  bool
+	}{
+		{
+			name: "an archived task is refused",
+			id: func(t *testing.T, stores *storetest.Stores) string {
+				task := stores.SeedTask(t, taskstore.CreateParams{Slug: "archived"})
+				require.NoError(t, stores.Tasks.Archive(t.Context(), task.ID))
+
+				return task.ID
+			},
+			hidden: true,
+		},
+		{
+			name: "a live task is hidden",
+			id: func(t *testing.T, stores *storetest.Stores) string {
+				return stores.SeedTask(t, taskstore.CreateParams{Slug: "live"}).ID
+			},
+			hidden:      true,
+			wantChanged: true,
+			wantHidden:  true,
+		},
+		{
+			name: "a hidden task is shown again",
+			id: func(t *testing.T, stores *storetest.Stores) string {
+				task := stores.SeedTask(t, taskstore.CreateParams{Slug: "hidden"})
+				hide(t, stores, task.ID)
+
+				return task.ID
+			},
+			wantChanged: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			id := tt.id(t, stores)
+
+			changed, err := stores.Tasks.SetHidden(t.Context(), id, tt.hidden)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantChanged, changed)
+
+			got, err := stores.Tasks.Get(t.Context(), id)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantHidden, got.Hidden)
+		})
+	}
+}
+
+// TestSetHiddenIgnoresAnIDNoRowCouldHold pins the guard that keeps a malformed id from Postgres.
+func TestSetHiddenIgnoresAnIDNoRowCouldHold(t *testing.T) {
+	changed, err := storetest.Open(t).Tasks.SetHidden(t.Context(), "not-a-uuid", true)
+	require.NoError(t, err)
+	assert.False(t, changed, "nothing was hidden")
+}
+
+func hide(t *testing.T, stores *storetest.Stores, id string) {
+	t.Helper()
+
+	changed, err := stores.Tasks.SetHidden(t.Context(), id, true)
+	require.NoError(t, err)
+	require.True(t, changed)
 }

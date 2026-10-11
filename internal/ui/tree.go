@@ -38,8 +38,7 @@ type agentsScreen struct {
 type agentRow struct {
 	header bool
 	item   panel.AgentRow
-	// hiddenCount is the rows this one stands in for: a workflow header counts the hidden agents
-	// under it, and a parent counts its own hidden children.
+	// hiddenCount is the hidden tasks a workflow header stands in for.
 	hiddenCount int
 	workflow    panel.Workflow
 	// child says the row is rendered under the one above it rather than under the workflow, which is
@@ -96,7 +95,7 @@ func isFolded(params treeRowsParams, it panel.AgentRow) bool {
 type treeRowsParams struct {
 	workflows []panel.Workflow
 	agents    []panel.AgentRow
-	// showHidden renders the agents a person has hidden alongside the rest.
+	// showHidden renders the tasks a person has hidden alongside the rest.
 	showHidden bool
 	// foldOrchestrators renders a workflow's orchestrator on the workflow's own row rather than
 	// as a row of its own.
@@ -122,6 +121,7 @@ func treeRows(params treeRowsParams) []agentRow {
 
 	var families []family
 	hiddenCounts := make(map[string]int)
+	countedTasks := make(map[string]bool)
 	for _, it := range agents {
 		// An orchestrator is rendered on its workflow's own row, so it stands in no count and no
 		// key reveals it here.
@@ -136,10 +136,11 @@ func treeRows(params treeRowsParams) []agentRow {
 		}
 
 		workflowID := it.Agent.WorkflowID
-		if it.Agent.Hidden {
-			// Hiding the head takes the rows under it too, so the whole family stands in the
-			// workflow's own count.
-			hiddenCounts[workflowID] += 1 + len(children[it.Agent.ID])
+		if isOnHiddenTask(params.tasks, it.Agent) {
+			if !countedTasks[it.Agent.TaskID] {
+				countedTasks[it.Agent.TaskID] = true
+				hiddenCounts[workflowID]++
+			}
 			if !params.showHidden {
 				continue
 			}
@@ -148,7 +149,7 @@ func treeRows(params treeRowsParams) []agentRow {
 		families = append(families, family{
 			workflowID: workflowID,
 			taskID:     it.Agent.TaskID,
-			rows:       buildFamilyRows(it, children[it.Agent.ID], params.showHidden),
+			rows:       buildFamilyRows(it, children[it.Agent.ID]),
 		})
 	}
 
@@ -267,22 +268,10 @@ func childrenByParent(agents []panel.AgentRow) map[string][]panel.AgentRow {
 	return children
 }
 
-func buildFamilyRows(head panel.AgentRow, children []panel.AgentRow, showHidden bool) []agentRow {
-	rows := []agentRow{{item: head}}
-	for _, child := range children {
-		// A hidden child leaves its count on the parent rendered above it rather than on the
-		// workflow.
-		if child.Agent.Hidden {
-			rows[0].hiddenCount++
-			if !showHidden {
-				continue
-			}
-		}
-
-		rows = append(rows, agentRow{item: child, child: true})
-	}
-
-	return rows
+func buildFamilyRows(head panel.AgentRow, children []panel.AgentRow) []agentRow {
+	return append([]agentRow{{item: head}}, xslice.Map(children, func(child panel.AgentRow) agentRow {
+		return agentRow{item: child, child: true}
+	})...)
 }
 
 // agentSorts is every column the agents list can be ordered by.
@@ -740,17 +729,9 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 	}
 }
 
-// showHiddenFor shows the hidden agents when the agent or its parent is hidden.
+// showHiddenFor shows the hidden tasks when the agent works on one.
 func (a *agentsScreen) showHiddenFor(m *model, id string) {
-	byID := keyAgentsByID(m.listing.agents)
-	agent := byID[id].Agent
-	if agent.Hidden {
-		a.showHidden = true
-
-		return
-	}
-
-	if agent.ParentAgentID != nil && byID[*agent.ParentAgentID].Agent.Hidden {
+	if isOnHiddenTask(m.listing.tasks, keyAgentsByID(m.listing.agents)[id].Agent) {
 		a.showHidden = true
 	}
 }

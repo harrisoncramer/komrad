@@ -64,7 +64,7 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	})
 
 	tasks := []panel.Task{task}
-	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, m.listing.agentsOnTasks(tasks), describeTasks(tasks)))
+	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, tasks))
 
 	return withNested(menu, "archive", m.keys.Menu.Archive, taskArchiveMenu(m, task))
 }

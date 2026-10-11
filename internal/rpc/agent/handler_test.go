@@ -313,19 +313,6 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeAlreadyExists,
 		},
 		{
-			name: "hiding an agent nobody holds",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{
-					Id:     alphaID,
-					Hidden: true,
-				}))
-
-				return err
-			},
-			err:      agenterr.ErrAgentNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
 			name: "a report from nothing that is an agent",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
@@ -762,20 +749,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 		},
 		{
-			name: "hiding",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				_, err := svc.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{
-					Id:     ids[0],
-					Hidden: true,
-				}))
-
-				return "", err
-			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, map[string]bool{ids[0]: true}, services.hidden)
-			},
-		},
-		{
 			name: "claiming the failed runs",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				_, err := svc.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: ids[0]}))
@@ -1201,7 +1174,6 @@ type recordingAgentServices struct {
 	restored      []string
 	runsRead      []string
 	renamed       map[string]string
-	hidden        map[string]bool
 }
 
 // spawn seeds the agent the fake answers with among the rows.
@@ -1361,15 +1333,6 @@ func (f *recordingAgentServices) RestoreAgents(_ context.Context, ids []string) 
 	return xslice.Map(ids, func(id string) agentstore.Agent {
 		return agentstore.Agent{ID: id}
 	}), nil
-}
-
-func (f *recordingAgentServices) SetHidden(_ context.Context, id string, hidden bool) error {
-	if f.hidden == nil {
-		f.hidden = map[string]bool{}
-	}
-	f.hidden[id] = hidden
-
-	return f.err
 }
 
 func (f *recordingAgentServices) Rename(_ context.Context, id, name string) error {

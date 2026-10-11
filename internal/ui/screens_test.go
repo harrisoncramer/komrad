@@ -599,7 +599,7 @@ func TestScreensCutLongNames(t *testing.T) {
 	t.Run("a workflow in the tree keeps its hidden tally", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{width: 80})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", long), newHiddenAgent("a1", "sweep")))
+		harness.watch(buildSnapshot(append([]proto.Message{newLiveWorkflow("w1", long)}, newAgentOnHiddenTask("a1", "sweep")...)...))
 
 		row := findRowWith(t, harness.readFrame(), long[:10])
 		assert.Contains(t, row, "…", "the name says it was cut")

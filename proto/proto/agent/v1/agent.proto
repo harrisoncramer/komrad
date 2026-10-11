@@ -81,8 +81,8 @@ message Agent {
   optional string schedule_id = 13;
   // Whether its pane is still there, which a dormant agent's is not.
   optional bool alive = 14;
-  // Whether the panel draws a row for it, which changes nothing about the agent itself.
-  bool hidden = 15;
+  reserved 15;
+  reserved "hidden";
   // The key a retry of its create carried, which is what answers a repeat with this agent.
   optional string idempotency_key = 16;
   // Which agent called create, unset for one a person spawned.
@@ -465,13 +465,6 @@ message AbortSequenceResponse {
   bool interrupted = 4;
 }
 
-message SetHiddenRequest {
-  // Which agent to hide or unhide.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-  // True to hide the row, false to draw it again.
-  bool hidden = 2;
-}
-
 message RecordReportRequest {
   // What the CLI says it is doing, which annotates the state the pane decided.
   string reason = 1 [(buf.validate.field).string = {
@@ -687,17 +680,6 @@ service AgentService {
       mcp: true
       name: "adopt"
       description: "Start an agent on a branch that already exists, such as one a person pushed. Nothing here creates, resets or deletes the branch, and a branch that already has an agent answers with that agent."
-      destructive: false
-      roles: [ROLE_ORCHESTRATOR]
-    };
-  }
-  rpc SetHidden(SetHiddenRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.surfaces) = {
-      cli: true
-      mcp: true
-      name: "set_agent_hidden"
-      description: "Hide an agent's row from the panel, or show it again. The agent keeps running. Hide one only when asked."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

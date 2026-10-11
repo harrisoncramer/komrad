@@ -48,7 +48,6 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		TurnError:          readTurnError(stored),
 		ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
 		Alive:              xptr.Ptr(stored.Alive),
-		Hidden:             stored.Hidden,
 		IdempotencyKey:     stored.IdempotencyKey,
 		SpawnedByAgentId:   stored.SpawnedByAgentID,
 		ParentAgentId:      stored.ParentAgentID,

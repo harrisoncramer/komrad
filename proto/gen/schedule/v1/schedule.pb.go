@@ -270,7 +270,7 @@ type Schedule struct {
 	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	// Whether it is armed, since a paused schedule keeps its record and stops firing.
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Whether its launches stay out of the panel's sidebar while still running.
+	// Whether the task each launch works on starts hidden from the panel's sidebar.
 	HideAgents bool `protobuf:"varint,6,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	// The opening prompt every agent it launches is given, or the mail its orchestrator is sent.
 	Prompt string `protobuf:"bytes,7,opt,name=prompt,proto3" json:"prompt,omitempty"`
@@ -746,7 +746,8 @@ type CreateScheduleRequest struct {
 	Timezone string `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
 	// False to write the schedule down without arming it.
 	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// True to keep its launches out of the panel's sidebar, ignored by an orchestrator schedule.
+	// True to start the task each launch works on hidden from the panel's sidebar, ignored by an
+	// orchestrator schedule.
 	HideAgents bool `protobuf:"varint,7,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	// The opening prompt each launch is given, or the mail an orchestrator is sent.
 	Prompt string `protobuf:"bytes,5,opt,name=prompt,proto3" json:"prompt,omitempty"`
@@ -942,7 +943,7 @@ type UpdateScheduleRequest struct {
 	//	*UpdateScheduleRequest_WorkflowId
 	//	*UpdateScheduleRequest_OrchestratorAgentId
 	Target isUpdateScheduleRequest_Target `protobuf_oneof:"target"`
-	// Whether later launches stay out of the sidebar, leaving existing agents alone.
+	// Whether the tasks of later launches start hidden, leaving existing tasks alone.
 	HideAgents    bool `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

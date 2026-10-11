@@ -85,7 +85,6 @@ type Agent struct {
 	ScheduleID     *string
 	CreatedAt      time.Time
 	ArchivedAt     *time.Time
-	Hidden         bool
 	// ParentAgentID is the agent this one is attached to, whose archive, delete and restore it
 	// follows.
 	ParentAgentID   *string

@@ -81,7 +81,7 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	change(&m.listing)
 
 	now := time.Now()
-	m.agents.triage.refresh(m.listing.agents, now)
+	m.agents.triage.refresh(m.listing.agents, m.listing.tasks, now)
 	m.agents.apply(m, treeRow)
 	m.agents.followAwaitingCLI(m)
 	m.agents.landInTriage(m, treeRow, triageSlot)

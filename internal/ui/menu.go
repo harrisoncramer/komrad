@@ -51,10 +51,14 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 			return submenu{}, false
 		}
 
-		subject := describeAgents(chosen)
-		menu := withNested(rowMenu(subject), "hide", m.keys.Menu.Hide, a.hideMenu(m, chosen, subject))
+		work := splitChosen(m.listing, chosen)
+		hideable := work.wholeTasks
+		if len(work.loneAgents) > 0 {
+			hideable = nil
+		}
+		menu := withNested(rowMenu(describeAgents(chosen)), "hide", m.keys.Menu.Hide, a.hideMenu(m, hideable))
 
-		return withNested(menu, "archive", m.keys.Menu.Archive, chosenArchiveMenu(m, splitChosen(m.listing, chosen))), true
+		return withNested(menu, "archive", m.keys.Menu.Archive, chosenArchiveMenu(m, work)), true
 	}
 
 	if !a.isBrowsing(m) {
@@ -78,7 +82,7 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 		}
 		menu.entries = append(menu.entries, workflowEntries(m, workflow)...)
 
-		menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, nil, ""))
+		menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, nil))
 
 		return withNested(menu, "archive", m.keys.Menu.Archive, workflowArchiveMenu(m, workflow)), true
 	}

@@ -597,7 +597,7 @@ func TestSchedulesForm(t *testing.T) {
 		form := readStageText(harness.readFrame())
 		assert.Contains(t, form, "› orchestrator  api")
 		assert.NotContains(t, form, "  Workflow")
-		assert.NotContains(t, form, "Hide its runs?")
+		assert.NotContains(t, form, "Hide its tasks?")
 
 		harness.press("tab")
 		typeText(harness, "nightly")

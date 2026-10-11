@@ -6,7 +6,7 @@ import (
 
 	"komrad/internal/ui"
 	agentv1 "komrad/proto/gen/agent/v1"
-	"komrad/proto/gen/agent/v1/agentv1connect"
+	"komrad/proto/gen/task/v1/taskv1connect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,7 +56,7 @@ func TestRebuilt(t *testing.T) {
 			{
 				name: "a write in flight",
 				busy: func(harness *panelHarness) {
-					harness.hold(agentv1connect.AgentServiceSetHiddenProcedure)
+					harness.hold(taskv1connect.TaskServiceSetTaskHiddenProcedure)
 					harness.press("space", "h", "h")
 				},
 			},
@@ -142,7 +142,8 @@ func openRebuilt(t *testing.T, binary ui.BinaryWatcher) *panelHarness {
 
 	harness := newPanelHarness(t, panelHarnessParams{binary: binary})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
+	running := newRunning()
+	harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), running, newTaskOf(running)))
 	harness.press("j")
 	harness.fireTimers()
 
