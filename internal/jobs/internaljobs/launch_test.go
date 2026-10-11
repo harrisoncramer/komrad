@@ -107,7 +107,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantRuns:   []schedulestore.RunState{schedulestore.RunStateDiscarded},
 		},
 		{
-			name:         "a schedule hiding its runs launches a hidden agent",
+			name:         "a schedule hiding its runs launches onto a hidden task",
 			hideAgents:   true,
 			wantRuns:     []schedulestore.RunState{schedulestore.RunStateCompleted},
 			wantLaunched: true,
@@ -221,7 +221,10 @@ func TestLaunchAgentWorker(t *testing.T) {
 			assert.Equal(t, "check CI", launched[0].Prompt)
 			assert.Equal(t, workflow.ID, launched[0].WorkflowID)
 			assert.Equal(t, cwd, launched[0].Cwd, "the directory is the workflow's")
-			assert.Equal(t, tt.wantHidden, launched[0].Hidden)
+			require.NotNil(t, launched[0].TaskID)
+			task, err := stores.Tasks.Get(ctx, *launched[0].TaskID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantHidden, task.Hidden, "the run's task starts hidden when the schedule hides its runs")
 			require.NotNil(t, launched[0].IdempotencyKey)
 			assert.Equal(t, "schedule:"+schedule.ID+":2026-07-28T09:00:00Z", *launched[0].IdempotencyKey)
 		})

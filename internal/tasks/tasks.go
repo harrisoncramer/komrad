@@ -34,6 +34,8 @@ var (
 	ErrWorktreeRemoved = fail.Precondition("this task's worktree was removed, so give this agent a task of its own")
 	// ErrArchived is an archived task an agent was asked to join.
 	ErrArchived = fail.Precondition("an agent works only on a live task")
+	// ErrTaskNotLive is a task hidden or unhidden once it is archived or being deleted.
+	ErrTaskNotLive = fail.Precondition("only a live task is hidden or unhidden")
 )
 
 type txRunner interface {
@@ -114,6 +116,24 @@ func (s *TaskService) ListRuns(ctx context.Context, taskID string) ([]runstore.R
 // MarkTaskRunsRead claims the failed runs on a task.
 func (s *TaskService) MarkTaskRunsRead(ctx context.Context, taskID string) error {
 	return s.runs.MarkTaskRead(ctx, taskID)
+}
+
+// SetTaskHidden hides the task an id or a slug names, or shows it again.
+func (s *TaskService) SetTaskHidden(ctx context.Context, ref string, hidden bool) error {
+	found, err := s.GetTask(ctx, ref)
+	if err != nil {
+		return err
+	}
+
+	changed, err := s.tasks.SetHidden(ctx, found.ID, hidden)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return ErrTaskNotLive.Saying("task %q is not live", found.Slug)
+	}
+
+	return nil
 }
 
 type UpdateTaskParams struct {

@@ -85,6 +85,8 @@ message Task {
   optional string notes_updated_at = 20;
   // Whether a script run on it failed and the person has not opened its logs since.
   bool failed_run = 21;
+  // Whether a person hid the task from the panel, which leaves its agents running.
+  bool hidden = 22;
 }
 
 message CreateTaskRequest {
@@ -182,6 +184,13 @@ message SetTaskNotesResponse {
 message ArchiveTaskRequest {
   // Which task to archive, by id or by slug.
   string task = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message SetTaskHiddenRequest {
+  // Which task to hide or unhide, by id or by slug.
+  string task = 1 [(buf.validate.field).string.min_len = 1];
+  // True to hide the task, false to show it again.
+  bool hidden = 2;
 }
 
 message MarkTaskRunsReadRequest {
@@ -285,6 +294,17 @@ service TaskService {
       name: "delete_tasks"
       description: "Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked."
       destructive: true
+      roles: [ROLE_ORCHESTRATOR]
+    };
+  }
+  rpc SetTaskHidden(SetTaskHiddenRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: true
+      name: "set_task_hidden"
+      description: "Hide a task from the panel by id or slug, or show it again. Its agents keep running. Hide one only when asked."
+      destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
   }

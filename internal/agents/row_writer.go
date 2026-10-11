@@ -45,19 +45,6 @@ func NewRowWriter(params NewRowWriterParams) *RowWriter {
 	}
 }
 
-// SetHidden hides an agent from the panel's sidebar or brings it back.
-func (w *RowWriter) SetHidden(ctx context.Context, id string, hidden bool) error {
-	changed, err := w.agents.SetHidden(ctx, id, hidden)
-	if err != nil {
-		return fmt.Errorf("failed to hide agent %q: %w", id, err)
-	}
-	if !changed {
-		return agenterr.ErrAgentNotFound.Saying("no agent with id %q", id)
-	}
-
-	return nil
-}
-
 // Rename gives an agent a new display name, refusing one another agent in its workflow holds.
 func (w *RowWriter) Rename(ctx context.Context, id, name string) error {
 	renamed, err := w.agents.Rename(ctx, id, name)

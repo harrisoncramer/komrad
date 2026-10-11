@@ -36,6 +36,7 @@ type Task struct {
 	Notes          string
 	NotesUpdatedAt *time.Time
 	Checkout       Checkout
+	Hidden         bool
 	ArchivedAt     *time.Time
 	DeletingAt     *time.Time
 	FailureReason  string
@@ -64,6 +65,7 @@ func fromRow(row *models.Task) Task {
 		Notes:          row.Notes,
 		NotesUpdatedAt: row.NotesUpdatedAt,
 		Checkout:       checkoutFrom(row),
+		Hidden:         row.IsHidden,
 		ArchivedAt:     row.ArchivedAt,
 		DeletingAt:     row.DeletingAt,
 		FailureReason:  row.FailureReason,
@@ -299,4 +301,19 @@ func (s *TaskStore) LockSlugs(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// SetHidden hides a live task from the panel or shows it again, reporting whether a task took
+// the change.
+func (s *TaskStore) SetHidden(ctx context.Context, id string, hidden bool) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	changed, err := s.queries.SetTaskHidden(ctx, models.SetTaskHiddenParams{ID: id, Hidden: hidden})
+	if err != nil {
+		return false, fmt.Errorf("failed to hide task %q: %w", id, err)
+	}
+
+	return changed > 0, nil
 }

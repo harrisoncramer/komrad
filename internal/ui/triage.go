@@ -163,7 +163,7 @@ func (z *triageZone) isOn() bool {
 }
 
 // refresh reads which agents need triage from the listing, timing new waits from now.
-func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
+func (z *triageZone) refresh(agents []panel.AgentRow, tasks map[string]panel.Task, now time.Time) {
 	if !z.isOn() {
 		z.entries = nil
 		z.snoozed = nil
@@ -175,7 +175,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 	entries := make(map[string]triageEntry)
 	for _, item := range agents {
 		id := item.Agent.ID
-		if item.Agent.Hidden || item.Agent.HeldAt != nil {
+		if isOnHiddenTask(tasks, item.Agent) || item.Agent.HeldAt != nil {
 			continue
 		}
 
@@ -215,7 +215,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, now time.Time) {
 	}
 
 	z.entries = entries
-	z.pruneSnoozes(agents)
+	z.pruneSnoozes(agents, tasks)
 }
 
 // isHeld reports whether the agent is in the family the cursor is on.
@@ -229,11 +229,11 @@ func (z *triageZone) isHeld(item panel.AgentRow) bool {
 }
 
 // pruneSnoozes ends every snooze whose task has left triage or now waits on something else.
-func (z *triageZone) pruneSnoozes(agents []panel.AgentRow) {
+func (z *triageZone) pruneSnoozes(agents []panel.AgentRow, tasks map[string]panel.Task) {
 	byID := keyAgentsByID(agents)
 	families := z.familiesByKey(agents)
 	for key, snooze := range z.snoozed {
-		if byID[snooze.headID].Agent.Hidden {
+		if isOnHiddenTask(tasks, byID[snooze.headID].Agent) {
 			continue
 		}
 
@@ -503,13 +503,13 @@ func (l agentsLayout) cursorRows() []agentRow {
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
 	children := childrenByParent(m.listing.agents)
 	families := xslice.Filter(findTriageFamilies(z.entries, m.listing.agents), func(f triageFamily) bool {
-		return (!f.head.Agent.Hidden || showHidden) && !z.isSnoozed(triageKey(f.head))
+		return (!isOnHiddenTask(m.listing.tasks, f.head.Agent) || showHidden) && !z.isSnoozed(triageKey(f.head))
 	})
 	ordered := z.orderFamilies(families)
 	slotted := ordered[:min(len(ordered), z.capacity)]
 	workflows := xslice.KeyBy(m.listing.workflows, func(w panel.Workflow) string { return w.ID })
 	for _, family := range slotted {
-		for _, row := range buildFamilyRows(family.head, children[family.head.Agent.ID], showHidden) {
+		for _, row := range buildFamilyRows(family.head, children[family.head.Agent.ID]) {
 			row.workflow = workflows[row.item.Agent.WorkflowID]
 			row.triage = true
 			zone = append(zone, row)

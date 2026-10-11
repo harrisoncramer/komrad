@@ -77,6 +77,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Name = r.task.Slug
 		row.Matches = params.matchesOf(r, r.task.Slug)
 		row.Archived = r.task.ArchivedAt != nil
+		row.Hidden = r.task.Hidden && !row.Archived
 		row.FailedRun = r.task.FailedRun
 		row.Process = view.ProcessNone
 		row.Repo = snapshotRepo(r.lead.Agent)
@@ -136,7 +137,6 @@ func agentFacts(row view.Row, item panel.AgentRow) view.Row {
 	row.Status = snapshotStatus(item)
 	row.Process = snapshotProcess(item)
 	row.Archived = item.Agent.ArchivedAt != nil
-	row.Hidden = item.Agent.Hidden && !row.Archived
 	row.Held = item.Agent.HeldAt != nil
 	row.HeldWorking = row.Held && isHeldWorking(item)
 	row.UnreadMail = item.UnreadMail

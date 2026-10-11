@@ -78,8 +78,8 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{sequenceNotice},
 		},
 		{
-			name: "a hidden row",
-			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{Hidden: true}}),
+			name: "a hidden task",
+			row:  agentRow{header: true, task: &panel.Task{Hidden: true}, lead: &panel.AgentRow{}},
 			want: []string{hiddenNotice},
 		},
 		{
@@ -144,13 +144,12 @@ func TestAgentNotices(t *testing.T) {
 				Agent: panel.Agent{
 					State:           panel.StateFailedToCleanup,
 					WorktreeRemoved: true,
-					Hidden:          true,
 				},
 				UnreadMail: true,
 				FailedRun:  true,
 				Documents:  1,
 			}),
-			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, hiddenNotice, documentsNotice},
+			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, documentsNotice},
 		},
 		{
 			name: "a pull request that needs a push comes before mail, and one that asks nothing comes last",

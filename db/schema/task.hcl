@@ -96,6 +96,12 @@ table "tasks" {
     type    = text
     comment = "The snapshot of the newest review round of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no round."
   }
+  column "is_hidden" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether a person hid the task from the sidebar."
+  }
   column "archived_at" {
     null = true
     type = timestamptz

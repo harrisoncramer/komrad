@@ -26,6 +26,7 @@ type taskReadWriter interface {
 	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
 	UpdateTask(ctx context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error)
 	MarkTaskRunsRead(ctx context.Context, taskID string) error
+	SetTaskHidden(ctx context.Context, ref string, hidden bool) error
 }
 
 type taskArchiver interface {
@@ -142,6 +143,15 @@ func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1.ArchiveTaskReques
 func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.deleter.DeleteTasks(ctx, req.GetTasks()); err != nil {
 		return nil, rpcerr.From(err, "failed to delete tasks")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// SetTaskHidden hides a task from the panel's sidebar or shows it again.
+func (s *Handler) SetTaskHidden(ctx context.Context, req *taskv1.SetTaskHiddenRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.tasks.SetTaskHidden(ctx, req.GetTask(), req.GetHidden()); err != nil {
+		return nil, rpcerr.From(err, "failed to hide the task")
 	}
 
 	return &emptypb.Empty{}, nil

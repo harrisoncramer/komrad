@@ -102,24 +102,6 @@
           "response": "agent.v1.AdoptResponse"
         },
         {
-          "slug": "set-agent-hidden",
-          "name": "SetHidden",
-          "path": "/agent.v1.AgentService/SetHidden",
-          "command": "komrad rpc set-agent-hidden",
-          "tool": "set_agent_hidden",
-          "mcp": true,
-          "roles": [
-            "orchestrator"
-          ],
-          "summary": "Hide an agent's row from the panel, or show it again.",
-          "description": "Hide an agent's row from the panel, or show it again. The agent keeps running. Hide one only when asked.",
-          "readOnly": false,
-          "idempotent": true,
-          "destructive": false,
-          "request": "agent.v1.SetHiddenRequest",
-          "response": "google.protobuf.Empty"
-        },
-        {
           "slug": "log",
           "name": "Log",
           "path": "/agent.v1.AgentService/Log",
@@ -1795,6 +1777,24 @@
           "destructive": true,
           "request": "task.v1.DeleteTasksRequest",
           "response": "google.protobuf.Empty"
+        },
+        {
+          "slug": "set-task-hidden",
+          "name": "SetTaskHidden",
+          "path": "/task.v1.TaskService/SetTaskHidden",
+          "command": "komrad rpc set-task-hidden",
+          "tool": "set_task_hidden",
+          "mcp": true,
+          "roles": [
+            "orchestrator"
+          ],
+          "summary": "Hide a task from the panel by id or slug, or show it again.",
+          "description": "Hide a task from the panel by id or slug, or show it again. Its agents keep running. Hide one only when asked.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": false,
+          "request": "task.v1.SetTaskHiddenRequest",
+          "response": "google.protobuf.Empty"
         }
       ]
     }
@@ -2202,16 +2202,6 @@
           "oneof": "",
           "rules": [],
           "description": "Whether its pane is still there, which a dormant agent's is not."
-        },
-        {
-          "name": "hidden",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether the panel draws a row for it, which changes nothing about the agent itself."
         },
         {
           "name": "idempotency_key",
@@ -6156,34 +6146,6 @@
         }
       ]
     },
-    "agent.v1.SetHiddenRequest": {
-      "name": "SetHiddenRequest",
-      "description": "",
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "Which agent to hide or unhide."
-        },
-        {
-          "name": "hidden",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "True to hide the row, false to draw it again."
-        }
-      ]
-    },
     "agent.v1.SetReviewThreadResolvedRequest": {
       "name": "SetReviewThreadResolvedRequest",
       "description": "",
@@ -8177,7 +8139,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True to keep its launches out of the panel's sidebar, ignored by an orchestrator schedule."
+          "description": "True to start the task each launch works on hidden from the panel's sidebar, ignored by an orchestrator schedule."
         },
         {
           "name": "prompt",
@@ -8470,7 +8432,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether its launches stay out of the panel's sidebar while still running."
+          "description": "Whether the task each launch works on starts hidden from the panel's sidebar."
         },
         {
           "name": "prompt",
@@ -8772,7 +8734,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether later launches stay out of the sidebar, leaving existing agents alone."
+          "description": "Whether the tasks of later launches start hidden, leaving existing tasks alone."
         }
       ]
     },
@@ -8986,6 +8948,34 @@
           "oneof": "",
           "rules": [],
           "description": "The workflow's tasks, newest first."
+        }
+      ]
+    },
+    "task.v1.SetTaskHiddenRequest": {
+      "name": "SetTaskHiddenRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "Which task to hide or unhide, by id or by slug."
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "True to hide the task, false to show it again."
         }
       ]
     },
@@ -9260,6 +9250,16 @@
           "oneof": "",
           "rules": [],
           "description": "Whether a script run on it failed and the person has not opened its logs since."
+        },
+        {
+          "name": "hidden",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether a person hid the task from the panel, which leaves its agents running."
         }
       ]
     },

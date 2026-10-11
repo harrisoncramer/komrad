@@ -93,10 +93,10 @@ func TestTriageRefresh(t *testing.T) {
 			want: "",
 		},
 		{
-			name: "a hidden agent is not in triage",
+			name: "an agent on a hidden task is not in triage",
 			item: func() panel.AgentRow {
 				item := live(panel.StateWaiting)
-				item.Agent.Hidden = true
+				item.Agent.TaskID = "hidden"
 
 				return item
 			}(),
@@ -298,7 +298,7 @@ func TestTriageRefresh(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			zone := triageZone{capacity: 1, entries: tt.was}
 
-			zone.refresh(append([]panel.AgentRow{tt.item}, tt.others...), seen)
+			zone.refresh(append([]panel.AgentRow{tt.item}, tt.others...), map[string]panel.Task{"hidden": {ID: "hidden", Hidden: true}}, seen)
 
 			entry, queued := zone.entries["a1"]
 			assert.Equal(t, tt.want, entry.rule.name)

@@ -747,7 +747,6 @@ INSERT INTO agents(
     workflow_id,
     schedule_id,
     idempotency_key,
-    is_hidden,
     provision_enabled,
     spawned_by_agent_id,
     requested_by_agent_id,
@@ -773,8 +772,7 @@ VALUES (
     $15,
     $16,
     $17,
-    $18,
-    $19)
+    $18)
 RETURNING
     id
 `
@@ -792,7 +790,6 @@ type InsertAgentParams struct {
 	WorkflowID         string
 	ScheduleID         *string
 	IdempotencyKey     *string
-	IsHidden           bool
 	ProvisionEnabled   *bool
 	SpawnedByAgentID   *string
 	RequestedByAgentID *string
@@ -815,7 +812,6 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.WorkflowID,
 		arg.ScheduleID,
 		arg.IdempotencyKey,
-		arg.IsHidden,
 		arg.ProvisionEnabled,
 		arg.SpawnedByAgentID,
 		arg.RequestedByAgentID,
@@ -2643,7 +2639,6 @@ const markWorkflowAgentsRestored = `-- name: MarkWorkflowAgentsRestored :exec
 UPDATE
     agents a
 SET
-    is_hidden = FALSE,
     archived_at = NULL,
     archive_batch_id = NULL
 WHERE
@@ -2840,7 +2835,6 @@ const restoreAgents = `-- name: RestoreAgents :exec
 UPDATE
     agents
 SET
-    is_hidden = FALSE,
     archived_at = NULL,
     archive_batch_id = NULL
 WHERE
@@ -3269,43 +3263,6 @@ func (q *Queries) SetAgentHarness(ctx context.Context, arg SetAgentHarnessParams
 		arg.ID,
 	)
 	return err
-}
-
-const setAgentHidden = `-- name: SetAgentHidden :many
-UPDATE
-    agents
-SET
-    is_hidden = $1
-WHERE
-    id = $2
-    AND archived_at IS NULL
-RETURNING
-    id
-`
-
-type SetAgentHiddenParams struct {
-	Hidden bool
-	ID     string
-}
-
-func (q *Queries) SetAgentHidden(ctx context.Context, arg SetAgentHiddenParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, setAgentHidden, arg.Hidden, arg.ID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const setAgentInterruptedAtByID = `-- name: SetAgentInterruptedAtByID :exec

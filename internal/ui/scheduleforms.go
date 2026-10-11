@@ -43,7 +43,7 @@ func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
 	)
 	if values.Kind != schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
 		fields = append(fields,
-			huh.NewConfirm().Key("hide_agents").Title("Hide its runs?").Description("they still run, they just take no row").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
+			huh.NewConfirm().Key("hide_agents").Title("Hide its tasks?").Description("each run still runs, its task just starts hidden").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
 		)
 	}
 

@@ -11,8 +11,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// enter lands on the agent the target names, showing it if it is hidden, or comes back to the
-// list as it stands.
+// enter lands on the agent the target names, showing the hidden tasks when it works on one, or
+// comes back to the list as it stands.
 func (a *agentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	if target.agentID != "" {
 		a.revealAgent(m, target.agentID)

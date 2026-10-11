@@ -266,9 +266,9 @@ func (a api) requestPullRequestRereview(address string) error {
 	return err
 }
 
-func (a api) setHidden(agent panel.Agent, hidden bool) error {
+func (a api) setTaskHidden(taskID string, hidden bool) error {
 	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))
+		return a.tasks.SetTaskHidden(ctx, connect.NewRequest(&taskv1.SetTaskHiddenRequest{Task: taskID, Hidden: hidden}))
 	})
 }
 

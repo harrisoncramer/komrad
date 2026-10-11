@@ -119,7 +119,6 @@ type Agent struct {
 	// NudgeSentAt is when an agent was last told about its mail, which a claimed nudge that
 	// typed nothing does not set.
 	NudgeSentAt        *time.Time
-	Hidden             bool
 	SpawnedByAgentID   *string
 	RequestedByAgentID *string
 
@@ -281,7 +280,6 @@ func FromRow(agent models.Agent) Agent {
 		DeletingAt:         agent.DeletingAt,
 		NudgedAt:           agent.NudgedAt,
 		NudgeSentAt:        agent.NudgeSentAt,
-		Hidden:             agent.IsHidden,
 		SpawnedByAgentID:   agent.SpawnedByAgentID,
 		RequestedByAgentID: agent.RequestedByAgentID,
 		ParentAgentID:      agent.ParentAgentID,

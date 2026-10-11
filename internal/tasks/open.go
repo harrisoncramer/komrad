@@ -31,6 +31,8 @@ type OpenParams struct {
 	Goal   string
 	// JoinsCheckout is whether the agent becomes the writer of its task's existing checkout.
 	JoinsCheckout bool
+	// Hidden is whether the task is hidden as the agent joins it.
+	Hidden bool
 }
 
 // Open puts an agent about to be written in db on its task, making it one of its own when it needs one.
@@ -71,6 +73,12 @@ func (s *TaskService) Open(ctx context.Context, db store.DBTX, params OpenParams
 			return nil, err
 		}
 		opened.Task, opened.Restored = claimed, restored
+	}
+	if params.Hidden {
+		if _, err := taskStore.SetHidden(ctx, opened.Task.ID, true); err != nil {
+			return nil, err
+		}
+		opened.Task.Hidden = true
 	}
 
 	if err := taskStore.LockUndeleted(ctx, *agent.TaskID); err != nil {

@@ -255,7 +255,6 @@ func TestRestore(t *testing.T) {
 	tests := []struct {
 		name         string
 		withWorkflow bool
-		hidden       bool
 	}{
 		{
 			name: "a restored agent keeps its id and its conversation",
@@ -263,10 +262,6 @@ func TestRestore(t *testing.T) {
 		{
 			name:         "and the workflow it belonged to",
 			withWorkflow: true,
-		},
-		{
-			name:   "one hidden before it was archived comes back listed",
-			hidden: true,
 		},
 	}
 
@@ -293,11 +288,6 @@ func TestRestore(t *testing.T) {
 			original, err := st.GetInWorkflow(ctx, scope, "beta")
 			require.NoError(t, err)
 			require.NotNil(t, original)
-			if tt.hidden {
-				changed, err := st.SetHidden(ctx, original.ID, true)
-				require.NoError(t, err)
-				require.True(t, changed)
-			}
 			_, archiveErr := st.Archive(ctx, []string{original.ID})
 			require.NoError(t, archiveErr)
 
@@ -313,7 +303,6 @@ func TestRestore(t *testing.T) {
 			assert.Equal(t, original.ID, got.ID, "a restored row keeps its id")
 			assert.Equal(t, StateIdle, got.State)
 			assert.Equal(t, "sess-1", got.SessionID, "restore preserves the conversation")
-			assert.False(t, got.Hidden, "a restored agent comes back to a row")
 			assert.Nil(t, got.ArchivedAt, "and carries no deletion time")
 
 			all, err := st.ListAll(ctx)

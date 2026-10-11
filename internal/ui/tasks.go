@@ -92,6 +92,11 @@ func findAgentTask(tasks map[string]panel.Task, agent panel.Agent) panel.Task {
 	return panel.Task{ID: agent.TaskID, WorkflowID: agent.WorkflowID, Slug: agent.TaskSlug}
 }
 
+// isOnHiddenTask reports whether the agent works on a hidden task.
+func isOnHiddenTask(tasks map[string]panel.Task, agent panel.Agent) bool {
+	return tasks[agent.TaskID].Hidden
+}
+
 // findTaskWriter is the agent that provisioned the task's checkout, or the lead when none on the
 // list did.
 func (l listing) findTaskWriter(task panel.Task, lead panel.AgentRow) panel.AgentRow {
@@ -197,24 +202,24 @@ func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
 	})
 }
 
-// isEveryAgentHidden reports whether there are agents and every one of them is hidden.
-func isEveryAgentHidden(agents []panel.Agent) bool {
-	return len(agents) > 0 && !slices.ContainsFunc(agents, func(agent panel.Agent) bool { return !agent.Hidden })
+// isEveryTaskHidden reports whether there are tasks and every one of them is hidden.
+func isEveryTaskHidden(tasks []panel.Task) bool {
+	return len(tasks) > 0 && !slices.ContainsFunc(tasks, func(task panel.Task) bool { return !task.Hidden })
 }
 
-// hideAgents hides the agents, or unhides them when they are all hidden.
-func hideAgents(m *model, agents []panel.Agent, subject string) tea.Cmd {
-	hidden := !isEveryAgentHidden(agents)
-	changed := xslice.Filter(agents, func(agent panel.Agent) bool { return agent.Hidden != hidden })
+// hideTasks hides the tasks, or unhides them when they are all hidden.
+func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
+	hidden := !isEveryTaskHidden(tasks)
+	changed := xslice.Filter(tasks, func(task panel.Task) bool { return task.Hidden != hidden })
 
-	doing, failure := "hiding "+subject, "Could not hide "+subject
+	doing, failure := "hiding "+describeTasks(tasks), "Could not hide "+describeTasks(tasks)
 	if !hidden {
-		doing, failure = "unhiding "+subject, "Could not unhide "+subject
+		doing, failure = "unhiding "+describeTasks(tasks), "Could not unhide "+describeTasks(tasks)
 	}
 
 	return m.writeCmd(doing, failure, func(a api) error {
-		for _, agent := range changed {
-			if err := a.setHidden(agent, hidden); err != nil {
+		for _, task := range changed {
+			if err := a.setTaskHidden(task.ID, hidden); err != nil {
 				return err
 			}
 		}

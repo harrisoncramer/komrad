@@ -25,6 +25,7 @@ type TaskServiceImpl interface {
 	SetTaskNotes(context.Context, *v1.SetTaskNotesRequest) (*v1.SetTaskNotesResponse, *fail.Error)
 	ArchiveTask(context.Context, *v1.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error)
 	DeleteTasks(context.Context, *v1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error)
+	SetTaskHidden(context.Context, *v1.SetTaskHiddenRequest) (*emptypb.Empty, *fail.Error)
 	MarkTaskRunsRead(context.Context, *v1.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error)
 }
 
@@ -67,6 +68,11 @@ func (a TaskServiceAdapter) ArchiveTask(ctx context.Context, req *connect.Reques
 // DeleteTasks answers the request as connect serves it.
 func (a TaskServiceAdapter) DeleteTasks(ctx context.Context, req *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.DeleteTasks(ctx, req.Msg))
+}
+
+// SetTaskHidden answers the request as connect serves it.
+func (a TaskServiceAdapter) SetTaskHidden(ctx context.Context, req *connect.Request[v1.SetTaskHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
+	return rpcerr.Answer(a.Impl.SetTaskHidden(ctx, req.Msg))
 }
 
 // MarkTaskRunsRead answers the request as connect serves it.

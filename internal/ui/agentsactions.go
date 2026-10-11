@@ -159,8 +159,8 @@ func (a *agentsScreen) browsingLegend() []screenLegendRow {
 
 func (a *agentsScreen) showHiddenDesc() string {
 	if a.showHidden {
-		return "put hidden away"
+		return "put hidden tasks away"
 	}
 
-	return "show hidden"
+	return "show hidden tasks"
 }

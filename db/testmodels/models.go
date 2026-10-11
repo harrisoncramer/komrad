@@ -1182,6 +1182,8 @@ type Task struct {
 	Notes string
 	// When the notes were last written, null until they first are. A write names the value it read and is refused once it has moved.
 	NotesUpdatedAt pgtype.Timestamptz
+	// Whether a person hid the task from the sidebar.
+	IsHidden bool
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

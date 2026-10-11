@@ -171,7 +171,7 @@ func (w *LaunchAgentWorker) launch(ctx context.Context, schedule *schedulestore.
 		Prompt:         schedule.Prompt,
 		WorkflowID:     schedule.WorkflowID,
 		ScheduleID:     xptr.Ptr(schedule.ID),
-		Hidden:         schedule.HideAgents,
+		HideTask:       schedule.HideAgents,
 		IdempotencyKey: launchKey(schedule.ID, args.ScheduledFor),
 	})
 

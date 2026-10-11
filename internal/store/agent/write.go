@@ -35,7 +35,6 @@ func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
 		WorkflowID:         agent.WorkflowID,
 		ScheduleID:         agent.ScheduleID,
 		IdempotencyKey:     agent.IdempotencyKey,
-		IsHidden:           agent.Hidden,
 		ProvisionEnabled:   agent.ProvisionEnabled,
 		SpawnedByAgentID:   agent.SpawnedByAgentID,
 		RequestedByAgentID: agent.RequestedByAgentID,

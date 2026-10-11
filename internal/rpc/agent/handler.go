@@ -65,7 +65,6 @@ type agentReader interface {
 
 // rowWriter changes what an agent's row says.
 type rowWriter interface {
-	SetHidden(ctx context.Context, id string, hidden bool) error
 	Rename(ctx context.Context, id, name string) error
 	MarkRunsRead(ctx context.Context, id string) error
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
@@ -306,15 +305,6 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 		PersonComments:    drawn.PersonComments,
 		Task:              world.Tasks[drawn.GetAgent().GetTaskId()],
 	}, nil
-}
-
-// SetHidden hides an agent from the panel's sidebar or brings it back.
-func (s *Handler) SetHidden(ctx context.Context, req *agentv1.SetHiddenRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.writer.SetHidden(ctx, req.GetId(), req.GetHidden()); err != nil {
-		return nil, rpcerr.From(err, "failed to hide the agent")
-	}
-
-	return &emptypb.Empty{}, nil
 }
 
 // MarkRunsRead claims the failed runs an agent is holding, and carries no tool annotation

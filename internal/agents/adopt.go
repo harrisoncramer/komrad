@@ -80,7 +80,6 @@ type AdoptParams struct {
 	Prompt         string
 	Harness        string
 	WorkflowID     string
-	Hidden         bool
 	IdempotencyKey string
 }
 
@@ -131,7 +130,6 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 		Prompt:         adoptPrompt(branch, params.Prompt),
 		Harness:        params.Harness,
 		WorkflowID:     params.WorkflowID,
-		Hidden:         params.Hidden,
 		IdempotencyKey: params.IdempotencyKey,
 		AdoptedBranch:  branch,
 	}
