@@ -34,7 +34,7 @@ func checkAgentsClause(clause searchsyntax.Clause, now time.Time) error {
 			return nil
 		}
 
-		return searchsyntax.ErrBadQualifier.Saying("is:%s is not one of writer, helper, reviewer or orchestrator", clause.Value)
+		return searchsyntax.ErrBadQualifier.Saying("is:%s is not one of writer, reviewer or orchestrator", clause.Value)
 	case searchsyntax.KeySince:
 		_, err := searchsyntax.ParseStart(clause.Key, clause.Value, now)
 

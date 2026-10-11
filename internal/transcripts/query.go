@@ -100,7 +100,7 @@ func (q *search) applyIs(value string, negated bool) error {
 		return nil
 	}
 
-	return searchsyntax.ErrBadQualifier.Saying("is:%s is not one of writer, helper, reviewer or orchestrator", value)
+	return searchsyntax.ErrBadQualifier.Saying("is:%s is not one of writer, reviewer or orchestrator", value)
 }
 
 func parseSpeaker(value string) (string, error) {
