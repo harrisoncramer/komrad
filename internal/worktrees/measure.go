@@ -211,11 +211,11 @@ func forgotten(listing *Listing, present []Worktree, stored []worktreestore.Work
 func choose(paths []string, stored map[string]worktreestore.Worktree, now time.Time) []string {
 	var unmeasured, stale []string
 	for _, dir := range paths {
-		size := stored[dir].Size
+		worktree := stored[dir]
 		switch {
-		case size == nil:
+		case worktree.Size == nil:
 			unmeasured = append(unmeasured, dir)
-		case now.Sub(lastTakenAt(stored[dir])) >= measureStaleAfter:
+		case now.Sub(lastTakenAt(worktree)) >= measureStaleAfter:
 			stale = append(stale, dir)
 		}
 	}
