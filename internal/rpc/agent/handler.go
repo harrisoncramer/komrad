@@ -448,8 +448,10 @@ func (s *Handler) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 // RestartAgent relaunches a task's writer on a new conversation and returns it as stored.
 func (s *Handler) RestartAgent(ctx context.Context, req *agentv1.RestartAgentRequest) (*agentv1.RestartAgentResponse, *fail.Error) {
 	restarted, err := s.resumer.RestartAgent(ctx, agents.RestartAgentParams{
-		ID:   req.GetId(),
-		Note: req.GetNote(),
+		ID:      req.GetId(),
+		Note:    req.GetNote(),
+		Harness: req.GetHarness(),
+		Flags:   req.GetFlags(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to restart agent")

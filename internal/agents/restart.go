@@ -27,10 +27,13 @@ type transcriptSyncer interface {
 	SyncAgent(ctx context.Context, agent agentstore.Agent) error
 }
 
-// RestartAgentParams is the writer to restart and what it is told on top of its briefing.
+// RestartAgentParams is the writer to restart, what it is told on top of its briefing, and the CLI
+// and flags it moves onto, blank for the ones it runs.
 type RestartAgentParams struct {
-	ID   string
-	Note string
+	ID      string
+	Note    string
+	Harness string
+	Flags   string
 }
 
 // RestartAgent relaunches a task's writer on a new conversation, briefed from its task, its earlier
@@ -62,7 +65,8 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 	}
 	defer release()
 
-	hn, err := s.harnesses.GetByID(agent.Harness)
+	wanted := wantedHarness(*agent, params.Harness)
+	hn, err := s.harnesses.GetByID(wanted)
 	if err != nil {
 		return nil, err
 	}
@@ -74,18 +78,25 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 	killOwnedPanes(ctx, s.tmux, []agentstore.Agent{*agent})
 	s.syncTranscript(ctx, *agent)
 
-	earlier := agent.SessionID
+	earlier := *agent
+	wf := workflowFor(ctx, s.workflows, *agent)
+	s.launch.moveOnto(moveOntoParams{
+		agent:    agent,
+		workflow: wf,
+		harness:  wanted,
+		flags:    params.Flags,
+	})
 	agent.SessionID = harness.MintSessionID(hn)
 
 	if err := s.relaunch(ctx, relaunchParams{
 		agent:   *agent,
 		harness: hn,
 		restart: &restartLaunch{
-			prompt:           buildRestartPrompt(params.Note),
-			task:             task,
-			workflow:         workflowFor(ctx, s.workflows, *agent),
-			spawner:          s.findSpawner(ctx, *agent),
-			earlierSessionID: earlier,
+			prompt:   buildRestartPrompt(params.Note),
+			task:     task,
+			workflow: wf,
+			spawner:  s.findSpawner(ctx, *agent),
+			earlier:  earlier,
 		},
 	}); err != nil {
 		return nil, err
@@ -128,11 +139,11 @@ func buildRestartPrompt(note string) string {
 
 // restartLaunch is what a writer restarting on a new conversation is briefed with.
 type restartLaunch struct {
-	prompt           string
-	task             *taskstore.Task
-	workflow         *workflowstore.Workflow
-	spawner          *agentstore.Agent
-	earlierSessionID string
+	prompt   string
+	task     *taskstore.Task
+	workflow *workflowstore.Workflow
+	spawner  *agentstore.Agent
+	earlier  agentstore.Agent
 }
 
 // plan is the writer's launch on its new conversation, briefed the way it was when it was made.

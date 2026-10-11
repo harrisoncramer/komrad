@@ -226,6 +226,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Agents:    s.Agents,
 			Workflows: s.Workflows,
 			Launcher:  launcher,
+			Launch:    launch,
 			Harnesses: options.harnesses,
 			Scripts:   options.lifecycle,
 			Locks:     locks,

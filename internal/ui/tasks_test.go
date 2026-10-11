@@ -364,8 +364,25 @@ func TestTasksRow(t *testing.T) {
 		harness.press(slices.Concat([]string{"k", "space", "o"}, spellKeys("finish the cookie fix"), []string{"enter"})...)
 
 		harness.assertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
-			Id:   "a1",
-			Note: "finish the cookie fix",
+			Id:      "a1",
+			Note:    "finish the cookie fix",
+			Harness: "claude",
+			Flags:   "--model opus",
+		})
+	})
+
+	t.Run("a restart moves the writer onto another CLI and model", func(t *testing.T) {
+		harness := openAgents(t, buildRestart()...)
+		harness.answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: &agentv1.Agent{Id: "a1"}}), nil
+		})
+
+		harness.press(slices.Concat([]string{"k", "space", "o", "tab", "ctrl+u"}, spellKeys("codex"), []string{"tab", "ctrl+u"}, spellKeys("--model o3"), []string{"enter"})...)
+
+		harness.assertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
+			Id:      "a1",
+			Harness: "codex",
+			Flags:   "--model o3",
 		})
 	})
 

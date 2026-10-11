@@ -55,38 +55,29 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		return nil, err
 	}
 
-	// The panel prefills its retry form with the flags already composed for the CLI the agent is
-	// on, so flags that came back unchanged name nothing.
-	flags := strings.TrimSpace(params.Flags)
-	if flags == strings.TrimSpace(agent.Flags) {
-		flags = ""
-	}
-	if flags != "" {
-		agent.Flags = flags
-	}
 	if prompt := strings.TrimSpace(params.Prompt); prompt != "" {
 		agent.Prompt = prompt
 	}
 
-	wanted := strings.TrimSpace(params.Harness)
-	switched := wanted != "" && wanted != agent.Harness
-	if wanted == "" {
-		wanted = agent.Harness
-	}
-
+	wanted := wantedHarness(*agent, params.Harness)
 	hn, err := s.harnesses.GetByID(wanted)
 	if err != nil {
 		s.failCreate(ctx, *agent, err)
 		return nil, err
 	}
 
-	if switched {
-		agent.Harness = wanted
-		if err := s.moveOntoHarness(ctx, moveOntoHarnessParams{
-			agent:    agent,
-			workflow: wf,
-			flags:    flags,
-			harness:  hn,
+	if s.moveOnto(moveOntoParams{
+		agent:    agent,
+		workflow: wf,
+		harness:  wanted,
+		flags:    params.Flags,
+	}) {
+		agent.SessionID = harness.MintSessionID(hn)
+		if err := s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
+			ID:        agent.ID,
+			Harness:   agent.Harness,
+			Flags:     agent.Flags,
+			SessionID: agent.SessionID,
 		}); err != nil {
 			s.failCreate(ctx, *agent, err)
 			return nil, err
@@ -149,34 +140,52 @@ func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent, 
 	}, nil
 }
 
-type moveOntoHarnessParams struct {
-	agent    *agentstore.Agent
-	workflow *workflowstore.Workflow
-	flags    string
-	harness  harness.Harness
+// wantedHarness is the CLI a relaunch asked for, or the one the agent runs when it named none.
+func wantedHarness(agent agentstore.Agent, asked string) string {
+	if asked = strings.TrimSpace(asked); asked != "" {
+		return asked
+	}
+
+	return agent.Harness
 }
 
-// moveOntoHarness records the CLI a retry corrected an agent onto, with the flags and the
-// conversation that belong to it.
-func (s *LaunchService) moveOntoHarness(ctx context.Context, params moveOntoHarnessParams) error {
-	agent := params.agent
-	workflowHarness, workflowFlags := s.roleDefaults(params.workflow, agent.Role)
+type moveOntoParams struct {
+	agent    *agentstore.Agent
+	workflow *workflowstore.Workflow
+	harness  string
+	flags    string
+}
 
+// moveOnto puts on an agent the CLI and flags a relaunch asked for, and reports whether its CLI
+// changed.
+func (s *LaunchService) moveOnto(params moveOntoParams) bool {
+	agent := params.agent
+
+	// The panel prefills its retry and restart forms with the flags already composed for the CLI
+	// the agent is on, so flags that came back unchanged name nothing.
+	flags := strings.TrimSpace(params.flags)
+	if flags == strings.TrimSpace(agent.Flags) {
+		flags = ""
+	}
+
+	if params.harness == agent.Harness {
+		if flags != "" {
+			agent.Flags = flags
+		}
+
+		return false
+	}
+
+	agent.Harness = params.harness
+	workflowHarness, workflowFlags := s.roleDefaults(params.workflow, agent.Role)
 	agent.Flags = s.launchFlags(launchFlagsParams{
 		harnessID:       agent.Harness,
 		workflowHarness: workflowHarness,
-		agentFlags:      params.flags,
+		agentFlags:      flags,
 		workflowFlags:   workflowFlags,
 	})
 
-	agent.SessionID = harness.MintSessionID(params.harness)
-
-	return s.agents.SetHarness(ctx, agentstore.SetHarnessParams{
-		ID:        agent.ID,
-		Harness:   agent.Harness,
-		Flags:     agent.Flags,
-		SessionID: agent.SessionID,
-	})
+	return true
 }
 
 // markRetrying marks a failed agent for its retry, returning the task it is on.
