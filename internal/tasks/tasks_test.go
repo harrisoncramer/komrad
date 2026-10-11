@@ -70,20 +70,6 @@ func TestGetTask(t *testing.T) {
 	}
 }
 
-// TestArchiveTask pins that a slug archives its task.
-func TestArchiveTask(t *testing.T) {
-	stores := storetest.Open(t)
-	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks})
-	work := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
-
-	require.ErrorIs(t, svc.ArchiveTask(t.Context(), "missing"), store.ErrNotFound)
-	require.NoError(t, svc.ArchiveTask(t.Context(), "work"))
-
-	got, err := stores.Tasks.Get(t.Context(), work.ID)
-	require.NoError(t, err)
-	assert.NotNil(t, got.ArchivedAt)
-}
-
 // TestGetTaskForWorkflow pins which tasks an agent being created may be put on.
 func TestGetTaskForWorkflow(t *testing.T) {
 	stores := storetest.Open(t)
@@ -139,14 +125,14 @@ func TestCreateForAgent(t *testing.T) {
 	tests := []struct {
 		name      string
 		taken     []string
-		params    CreateForAgentParams
+		params    createForAgentParams
 		wantSlug  string
 		wantTitle string
 		wantGoal  string
 	}{
 		{
 			name:      "a name with nothing sluggable is called task",
-			params:    CreateForAgentParams{Name: "!!!", Prompt: "go"},
+			params:    createForAgentParams{Name: "!!!", Prompt: "go"},
 			wantSlug:  "task",
 			wantTitle: "!!!",
 			wantGoal:  "go",
@@ -154,28 +140,28 @@ func TestCreateForAgent(t *testing.T) {
 		{
 			name:      "a taken slug is suffixed until it is free",
 			taken:     []string{"fix-login", "fix-login-2"},
-			params:    CreateForAgentParams{Name: "fix-login", Prompt: "go"},
+			params:    createForAgentParams{Name: "fix-login", Prompt: "go"},
 			wantSlug:  "fix-login-3",
 			wantTitle: "fix-login",
 			wantGoal:  "go",
 		},
 		{
 			name:      "the slug comes from the name and the goal from the prompt's first line",
-			params:    CreateForAgentParams{Name: "Fix Login", Prompt: "  Fix the login page.  \nMore detail."},
+			params:    createForAgentParams{Name: "Fix Login", Prompt: "  Fix the login page.  \nMore detail."},
 			wantSlug:  "fix-login",
 			wantTitle: "Fix Login",
 			wantGoal:  "Fix the login page.",
 		},
 		{
 			name:      "a prompt opening on a blank line takes its first line with text as the goal",
-			params:    CreateForAgentParams{Name: "fix-login", Prompt: "\n\n  Fix the login page.\nMore."},
+			params:    createForAgentParams{Name: "fix-login", Prompt: "\n\n  Fix the login page.\nMore."},
 			wantSlug:  "fix-login",
 			wantTitle: "fix-login",
 			wantGoal:  "Fix the login page.",
 		},
 		{
 			name:      "a title is kept over the name",
-			params:    CreateForAgentParams{Name: "fix-login", Title: " Login is broken ", Prompt: "go"},
+			params:    createForAgentParams{Name: "fix-login", Title: " Login is broken ", Prompt: "go"},
 			wantSlug:  "fix-login",
 			wantTitle: "Login is broken",
 			wantGoal:  "go",
@@ -192,7 +178,7 @@ func TestCreateForAgent(t *testing.T) {
 
 			params := tt.params
 			params.WorkflowID = workflow.ID
-			got, err := CreateForAgent(t.Context(), stores.Tasks, params)
+			got, err := createForAgent(t.Context(), stores.Tasks, params)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantSlug, got.Slug)

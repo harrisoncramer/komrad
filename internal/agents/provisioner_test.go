@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xptr"
@@ -100,7 +101,7 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 		{
 			name:          "the toggle on names the built-in pair",
 			worktree:      true,
-			wantProvision: worktreeProvisioner,
+			wantProvision: scriptrun.WorktreeProvisioner,
 		},
 		{
 			name:      "an agent told to keep its own directory runs neither half",
@@ -111,7 +112,7 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 			name:          "an agent following its workflow runs both",
 			worktree:      true,
 			provision:     xptr.Ptr(true),
-			wantProvision: worktreeProvisioner,
+			wantProvision: scriptrun.WorktreeProvisioner,
 		},
 		{
 			name:      "the override cannot conjure a worktree a workflow does not make",

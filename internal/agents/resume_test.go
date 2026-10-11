@@ -14,6 +14,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harness/pane"
 	"komrad/internal/harnesstest"
+	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
@@ -616,7 +617,7 @@ func TestResumeRunsTheProvisioner(t *testing.T) {
 
 			resumed, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 
-			assert.Equal(t, []string{worktreeProvisioner}, lifecycle.resumed, "the workflow's own script is what fired")
+			assert.Equal(t, []string{scriptrun.WorktreeProvisioner}, lifecycle.resumed, "the workflow's own script is what fired")
 
 			if tt.wantErr != "" {
 				require.Error(t, err)

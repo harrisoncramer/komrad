@@ -9,10 +9,12 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/fail"
 	"komrad/internal/harness"
+	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 )
 
 var ErrAgentNotFailed = fail.Precondition("agent is not in a failed state")
@@ -46,7 +48,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	}
 
 	wf := workflowFor(ctx, s.workflows, *agent)
-	provisioner, deprovisioner := worktreeScripts(wf, agent.ProvisionEnabled)
+	provisioner, deprovisioner := scriptrun.WorktreeScripts(wf, agent.ProvisionEnabled)
 	hooks := hooksFor(wf, agent.ParentAgentID != nil, agent.ProvisionEnabled)
 
 	marked, err := s.markRetrying(ctx, agent, provisioner)
@@ -59,7 +61,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	failRetry := func(err error) {
 		s.failCreate(ctx, *agent, err)
 		if marked.restored {
-			s.rearchiveTask(ctx, *agent)
+			s.tasks.Rearchive(ctx, *agent.TaskID, agent.ID)
 		}
 	}
 
@@ -120,7 +122,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 
 	claimsCheckout := isCheckoutClaimant(*agent, provisioner)
 	if claimsCheckout {
-		if err := s.claimCheckoutAgain(ctx, *agent); err != nil {
+		if err := s.tasks.ClaimCheckoutAgain(ctx, *agent); err != nil {
 			failRetry(err)
 			return nil, err
 		}
@@ -163,22 +165,8 @@ func (s *LaunchService) placeRetry(ctx context.Context, agent agentstore.Agent) 
 
 	return &placement{
 		task:     task,
-		openTurn: s.queueOpening(agent, live),
+		openTurn: s.tasks.QueueOpening(agent, live),
 	}, nil
-}
-
-// claimCheckoutAgain claims the checkout of a retried agent's task again, refusing when another launch
-// has claimed it since.
-func (s *LaunchService) claimCheckoutAgain(ctx context.Context, agent agentstore.Agent) error {
-	claimed, err := s.tasks.ClaimCheckoutAgain(ctx, *agent.TaskID)
-	if err != nil {
-		return fmt.Errorf("failed to claim the checkout of task %q again for agent %q: %w", *agent.TaskID, agent.Name, err)
-	}
-	if !claimed {
-		return errTaskHasCheckout
-	}
-
-	return nil
 }
 
 // moveOntoHarness records the CLI a retry corrected an agent onto, with the flags and the
@@ -233,7 +221,7 @@ func (s *LaunchService) markRetrying(ctx context.Context, agent *agentstore.Agen
 	marked := &retryMark{joins: joins}
 	err = s.tx.InTx(ctx, func(db store.DBTX) error {
 		if joins {
-			_, restored, err := claimWriter(ctx, db, claimWriterParams{TaskID: task.ID, Cwd: agent.Cwd})
+			_, restored, err := tasks.ClaimWriter(ctx, db, tasks.ClaimWriterParams{TaskID: task.ID, Cwd: agent.Cwd})
 			if err != nil {
 				return err
 			}

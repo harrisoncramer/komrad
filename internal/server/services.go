@@ -142,9 +142,13 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Observer: paneChannel,
 	})
 	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{
-		Tasks:  st.tasks,
-		Agents: st.agents,
-		Runs:   st.runs,
+		Tasks:     st.tasks,
+		Agents:    st.agents,
+		Runs:      st.runs,
+		Workflows: st.workflows,
+		Worktrees: st.worktrees,
+		Scripts:   scriptService,
+		Tx:        st.pool,
 	})
 	agentGroup := buildAgents(buildAgentsParams{
 		Tasks:      taskService,
@@ -368,17 +372,11 @@ func buildAgents(params buildAgentsParams) agentServices {
 		FallbackResumeRoot: server.FallbackResumeRoot,
 	})
 	agentDelete := jobs.NewAgentDelete(params.Queue)
-	emptyTasks := agents.NewEmptyTaskDeleter(agents.NewEmptyTaskDeleterParams{
-		Tasks:     st.tasks,
-		Workflows: st.workflows,
-		Worktrees: st.worktrees,
-		Scripts:   params.Scripts,
-	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
 		Agents:    st.agents,
 		Schedules: st.schedules,
-		Tasks:     emptyTasks,
+		Tasks:     params.Tasks,
 	})
 	screenKeeper := agents.NewScreenKeeper(agents.NewScreenKeeperParams{
 		Panes:   server.Tmux,
@@ -389,7 +387,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Agents:         st.agents,
 		Workflows:      st.workflows,
 		EmptyWorkflows: emptyWorkflows,
-		EmptyTasks:     emptyTasks,
 		AgentDeleter:   agentDelete,
 		Tx:             st.pool,
 		Scripts:        params.Scripts,

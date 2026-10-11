@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -32,18 +31,6 @@ import (
 
 // errTaskMadeAndJoined is a launch naming a task to join and describing one to make.
 var errTaskMadeAndJoined = fail.InvalidArgument("an agent either joins a task or has one made for it, not both")
-
-// errTaskHasCheckout is a launch that would make a checkout for a task that already has one.
-var errTaskHasCheckout = fail.Precondition("this task already has a checkout, so launch a child of the agent working in it or give this one a task of its own")
-
-// errTaskHasWriter is a writer launched onto a task whose writer is still live.
-var errTaskHasWriter = fail.Precondition("this task already has a live writer, so launch a child of it or hand the task off")
-
-// errTaskWorktreeRemoved is a writer launched onto a task whose worktree was removed.
-var errTaskWorktreeRemoved = fail.Precondition("this task's worktree was removed, so give this agent a task of its own")
-
-// errTaskArchived is an archived task an agent was asked to join.
-var errTaskArchived = fail.Precondition("an agent works only on a live task")
 
 type NewLaunchServiceParams struct {
 	Tmux               paneController
@@ -341,7 +328,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (
 		return nil, err
 	}
 
-	provisioner, deprovisioner := worktreeScripts(wf, params.ProvisionEnabled)
+	provisioner, deprovisioner := scriptrun.WorktreeScripts(wf, params.ProvisionEnabled)
 
 	return &launchPlan{
 		name:      s.uniqueAgentName(ctx, params.WorkflowID, params.Title, params.Prompt),
@@ -383,13 +370,13 @@ func isJoining(task *taskstore.Task, provisioner string, isWriter bool) (bool, e
 		return false, nil
 	}
 	if task.Checkout.WorktreeRemoved {
-		return false, errTaskWorktreeRemoved.Saying("task %q has no worktree left", task.Slug)
+		return false, tasks.ErrWorktreeRemoved.Saying("task %q has no worktree left", task.Slug)
 	}
 	if !task.Checkout.IsUsable() {
 		return false, nil
 	}
 	if err := scripts.RequireUsableDir(task.Checkout.Cwd); err != nil {
-		return false, errTaskWorktreeRemoved.Saying("task %q has no worktree at %q: %v", task.Slug, task.Checkout.Cwd, err)
+		return false, tasks.ErrWorktreeRemoved.Saying("task %q has no worktree at %q: %v", task.Slug, task.Checkout.Cwd, err)
 	}
 
 	return true, nil
@@ -504,7 +491,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		return nil, err
 	}
 	if joined != nil && joined.ArchivedAt != nil && !joinsCheckout {
-		return nil, errTaskArchived.Saying("task %q is archived", joined.Slug)
+		return nil, tasks.ErrArchived.Saying("task %q is archived", joined.Slug)
 	}
 
 	id, err := store.NewID()
@@ -621,50 +608,26 @@ func (c *createStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 		return err
 	}
 
-	return runPreHooks(ctx, hookRunParams{
-		scripts: c.scripts,
-		agent:   agent,
-		hooks:   c.resolved.hooks,
-		event:   workflowstore.HookAgentPreLaunch,
-	})
+	return scriptrun.HookRun{
+		Scripts: c.scripts,
+		Agent:   agent,
+		Hooks:   c.resolved.hooks,
+		Event:   workflowstore.HookAgentPreLaunch,
+	}.RunInTurn(ctx)
 }
 
-// openTask runs the pre-open hooks of the task an agent opens, and otherwise waits for an agent opening it
-// already, opening it in that agent's place when it failed.
+// openTask runs the pre-open hooks of the task an agent opens, or waits on the agent opening it already.
 func (c *createStart) openTask(ctx context.Context, agent agentstore.Agent) error {
-	if c.scripts == nil || agent.TaskID == nil || c.resolved.task == nil {
+	if c.resolved.task == nil {
 		return nil
 	}
 
-	turn := c.resolved.openTurn
-	if turn == nil {
-		if err := c.scripts.AwaitHooks(ctx, *agent.TaskID); err != nil {
-			return err
-		}
-
-		live, err := c.service.agents.ListLiveOnTask(ctx, *agent.TaskID)
-		if err != nil {
-			return err
-		}
-		if !isOpening(agent, live) {
-			return nil
-		}
-
-		turn = c.scripts.QueueHooks(*agent.TaskID)
-		defer turn.Done()
-	}
-
-	if err := turn.Wait(ctx); err != nil {
-		return err
-	}
-
-	return runHooks(ctx, taskHookParams{
-		scripts:  c.scripts,
-		workflow: c.resolved.workflow,
-		task:     c.buildOpenedTask(agent),
-		actor:    &agent,
-		event:    workflowstore.HookTaskPreOpen,
-	}.toHookRun())
+	return c.service.tasks.RunPreOpen(ctx, tasks.RunPreOpenParams{
+		Agent:    agent,
+		Task:     c.buildOpenedTask(agent),
+		Workflow: c.resolved.workflow,
+		Turn:     c.resolved.openTurn,
+	})
 }
 
 // buildOpenedTask builds the task the agent opens, carrying the checkout it was just given before the row records it.
@@ -728,12 +691,12 @@ func (c *createStart) planLaunch(agent agentstore.Agent) paneLaunch {
 }
 
 func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error {
-	startHooks(ctx, hookRunParams{
-		scripts: c.scripts,
-		agent:   agent,
-		hooks:   c.resolved.hooks,
-		event:   workflowstore.HookAgentPostLaunch,
-	})
+	scriptrun.HookRun{
+		Scripts: c.scripts,
+		Agent:   agent,
+		Hooks:   c.resolved.hooks,
+		Event:   workflowstore.HookAgentPostLaunch,
+	}.Start(ctx)
 	c.service.watchStartup(ctx, agent)
 
 	return nil
@@ -748,22 +711,7 @@ func (c *createStart) rollBack(ctx context.Context, agent agentstore.Agent, caus
 	}
 	c.service.failCreate(ctx, agent, cause)
 	if c.resolved.restoredTask {
-		c.service.rearchiveTask(ctx, agent)
-	}
-}
-
-// rearchiveTask archives again the task a failed join brought back, unless another agent has since
-// started on it, logging any failure.
-func (s *LaunchService) rearchiveTask(ctx context.Context, agent agentstore.Agent) {
-	err := s.tx.InTx(ctx, func(db store.DBTX) error {
-		return taskstore.NewTaskStore(db).ArchiveIdleBesides(ctx, *agent.TaskID, agent.ID)
-	})
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to archive the task a failed join restored",
-			append([]slog.Attr{
-				slog.String(logging.AgentID, agent.ID),
-				slog.String(logging.TaskID, *agent.TaskID),
-			}, logging.Err(err)...)...)
+		c.service.tasks.Rearchive(ctx, *agent.TaskID, agent.ID)
 	}
 }
 
@@ -843,12 +791,6 @@ type creation struct {
 	joinsCheckout bool
 }
 
-// needsOwnTask is whether the agent is given a task of its own as it is written, which a child
-// sharing its parent's and an orchestrator are not.
-func (c creation) needsOwnTask() bool {
-	return c.task == nil && c.parent == nil && c.agent.Role != agentstore.RoleOrchestrator
-}
-
 // isCheckoutClaimant reports whether an agent's directory becomes its task's checkout, which only a
 // top-level agent that provisions does.
 func isCheckoutClaimant(agent agentstore.Agent, provisioner string) bool {
@@ -866,12 +808,9 @@ type placement struct {
 // createUnderCeiling writes the agent, and the task it works on when it needs one of its own,
 // returning where it was placed.
 func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*placement, error) {
-	task := c.task
-	var restored bool
-	var openTurn *scriptrun.HookTurn
+	var opened *tasks.Opened
 	err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.NewAgentStore(db)
-		taskStore := taskstore.NewTaskStore(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.usage.MaxAgents, 1); err != nil {
 			return err
@@ -885,149 +824,50 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			}
 		}
 
-		if c.needsOwnTask() {
-			created, err := tasks.CreateForAgent(ctx, taskStore, tasks.CreateForAgentParams{
-				WorkflowID: c.agent.WorkflowID,
-				Name:       c.agent.Name,
-				Title:      c.title,
-				Prompt:     c.agent.Prompt,
-				Slug:       c.taskSlug,
-				Goal:       c.taskGoal,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to make a task for agent %q: %w", c.agent.Name, err)
-			}
-			task = created
+		var err error
+		opened, err = s.tasks.Open(ctx, db, tasks.OpenParams{
+			Agent:         *c.agent,
+			Joined:        c.task,
+			Parent:        c.parent,
+			Title:         c.title,
+			Slug:          c.taskSlug,
+			Goal:          c.taskGoal,
+			JoinsCheckout: c.joinsCheckout,
+		})
+		if err != nil {
+			return err
 		}
-		if task == nil && c.parent != nil && c.parent.TaskID != nil {
-			found, err := taskStore.Get(ctx, *c.parent.TaskID)
-			if err != nil {
-				return fmt.Errorf("failed to read the task of agent %q's parent: %w", c.agent.Name, err)
-			}
-			task = found
+		if opened.Task != nil {
+			c.agent.TaskID = &opened.Task.ID
 		}
-		if task != nil {
-			c.agent.TaskID = &task.ID
-		}
-		if c.joinsCheckout {
-			claimed, wasRestored, err := claimWriter(ctx, db, claimWriterParams{TaskID: task.ID, Cwd: c.agent.Cwd})
-			if err != nil {
-				return err
-			}
-			task, restored = claimed, wasRestored
-		}
-		if c.agent.TaskID != nil {
-			if err := taskStore.LockUndeleted(ctx, *c.agent.TaskID); err != nil {
-				return err
-			}
 
-			live, err := agentStore.ListLiveOnTask(ctx, *c.agent.TaskID)
-			if err != nil {
-				return err
-			}
-			openTurn = s.queueOpening(*c.agent, live)
-		}
 		if err := agentStore.Create(ctx, *c.agent); err != nil {
 			return fmt.Errorf("failed to record agent %q: %w", c.agent.Name, err)
 		}
-		if isCheckoutClaimant(*c.agent, c.provisioner) {
-			if err := claimCheckout(ctx, taskStore, c, task.ID); err != nil {
-				return err
-			}
+		if !isCheckoutClaimant(*c.agent, c.provisioner) {
+			return nil
 		}
 
-		return nil
+		return tasks.ClaimCheckout(ctx, db, tasks.ClaimCheckoutParams{
+			TaskID:        opened.Task.ID,
+			AgentName:     c.agent.Name,
+			AdoptedBranch: c.adoptedBranch,
+			RepositoryURL: c.repositoryURL,
+		})
 	})
 	if err != nil {
-		if openTurn != nil {
-			openTurn.Done()
+		if opened != nil && opened.Turn != nil {
+			opened.Turn.Done()
 		}
 
 		return nil, err
 	}
 
 	return &placement{
-		task:     task,
-		restored: restored,
-		openTurn: openTurn,
+		task:     opened.Task,
+		restored: opened.Restored,
+		openTurn: opened.Turn,
 	}, nil
-}
-
-// queueOpening takes a place in its task's hook queue for an agent opening the task, nil when it does not open it.
-func (s *LaunchService) queueOpening(agent agentstore.Agent, live []agentstore.Agent) *scriptrun.HookTurn {
-	if s.starter.scripts == nil || !isOpening(agent, live) {
-		return nil
-	}
-
-	return s.starter.scripts.QueueHooks(*agent.TaskID)
-}
-
-// isOpening reports whether an agent starting on a task opens it, which it does when no other agent on the task is live.
-func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
-	if agent.TaskID == nil || agent.ParentAgentID != nil {
-		return false
-	}
-
-	return !slices.ContainsFunc(live, func(other agentstore.Agent) bool {
-		return other.ID != agent.ID && other.State != agentstore.StateFailedToCreate
-	})
-}
-
-type claimWriterParams struct {
-	TaskID string
-	Cwd    string
-}
-
-// claimWriter makes a launch joining its task's checkout at Cwd the task's writer, refusing it while
-// another writer is live or once the worktree is gone, and reports whether it brought an archived
-// task back.
-func claimWriter(ctx context.Context, db store.DBTX, params claimWriterParams) (*taskstore.Task, bool, error) {
-	taskStore := taskstore.NewTaskStore(db)
-
-	task, err := taskStore.GetUndeletedForUpdate(ctx, params.TaskID)
-	if err != nil {
-		return nil, false, err
-	}
-	if !task.Checkout.IsUsable() || task.Checkout.Cwd != params.Cwd {
-		return nil, false, errTaskWorktreeRemoved.Saying("task %q no longer has its worktree at %q", task.Slug, params.Cwd)
-	}
-
-	writer, err := agentstore.NewAgentStore(db).GetTaskWriter(ctx, task.ID)
-	switch {
-	case err == nil:
-		return nil, false, errTaskHasWriter.Saying("%q is still writing task %q", writer.Name, task.Slug)
-	case !errors.Is(err, store.ErrNotFound):
-		return nil, false, err
-	}
-
-	if task.ArchivedAt == nil {
-		return task, false, nil
-	}
-
-	if err := taskStore.Restore(ctx, []string{task.ID}); err != nil {
-		return nil, false, fmt.Errorf("failed to restore task %q for its new writer: %w", task.Slug, err)
-	}
-	task.ArchivedAt = nil
-
-	return task, true, nil
-}
-
-// claimCheckout records on a task how its checkout is to be made, ahead of the directory the
-// launch then provisions.
-func claimCheckout(ctx context.Context, tasks *taskstore.TaskStore, c creation, taskID string) error {
-	claimed, err := tasks.ClaimCheckout(ctx, taskstore.ClaimCheckoutParams{
-		ID:            taskID,
-		AdoptedBranch: c.adoptedBranch,
-		RepositoryURL: c.repositoryURL,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to claim the checkout of task %q for agent %q: %w", taskID, c.agent.Name, err)
-	}
-	if !claimed {
-		return errTaskHasCheckout
-	}
-
-	return nil
 }
 
 func claimRoomForAgents(ctx context.Context, agents *agentstore.AgentStore, maxAgents, want int) error {

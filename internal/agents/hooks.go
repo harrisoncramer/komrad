@@ -5,69 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"sync"
 
 	"komrad/internal/logging"
+	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 )
-
-// hookRunParams is one moment's worth of work: the hooks a workflow lists, the agent they run
-// against, and the moment itself.
-type hookRunParams struct {
-	scripts hookRunner
-	agent   agentstore.Agent
-	hooks   []workflowstore.Hook
-	event   string
-}
-
-// runHooks runs the hooks on one moment in order, waiting for each and stopping at the first
-// that fails.
-func runHooks(ctx context.Context, params hookRunParams) error {
-	if params.scripts == nil {
-		return nil
-	}
-
-	for _, hook := range params.hooks {
-		if hook.Event != params.event {
-			continue
-		}
-
-		if err := params.scripts.RunHook(ctx, params.agent, hook.Script, params.event); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// queueKey is what a moment's hooks queue under, the task's id for a moment in a task's life and the agent's otherwise.
-func (p hookRunParams) queueKey() string {
-	if workflowstore.IsTaskEvent(p.event) && p.agent.TaskID != nil {
-		return *p.agent.TaskID
-	}
-
-	return p.agent.ID
-}
-
-func runPreHooks(ctx context.Context, params hookRunParams) error {
-	if params.scripts == nil || !hasHookOn(params.hooks, params.event) {
-		return nil
-	}
-
-	turn := params.scripts.QueueHooks(params.queueKey())
-	defer turn.Done()
-
-	if err := turn.Wait(ctx); err != nil {
-		return err
-	}
-
-	return runHooks(ctx, params)
-}
 
 type batchHooksParams struct {
 	scripts     agentScriptRunner
@@ -88,7 +35,7 @@ func runPreHooksFor(ctx context.Context, params batchHooksParams) map[string]err
 
 	for _, agent := range params.agents {
 		hooks := agentHooks(ctx, params.workflows, agent)
-		if !hasHookOn(hooks, params.event) {
+		if !scriptrun.HasHookOn(hooks, params.event) {
 			continue
 		}
 		if params.skipGoneDir && scripts.RequireUsableDir(agent.Cwd) != nil {
@@ -96,12 +43,12 @@ func runPreHooksFor(ctx context.Context, params batchHooksParams) map[string]err
 		}
 
 		wg.Go(func() {
-			err := runPreHooks(ctx, hookRunParams{
-				scripts: params.scripts,
-				agent:   agent,
-				hooks:   hooks,
-				event:   params.event,
-			})
+			err := scriptrun.HookRun{
+				Scripts: params.scripts,
+				Agent:   agent,
+				Hooks:   hooks,
+				Event:   params.event,
+			}.RunInTurn(ctx)
 			if err == nil {
 				return
 			}
@@ -129,50 +76,14 @@ func joinRefusals(agents []agentstore.Agent, refused map[string]error) error {
 	return errors.Join(errs...)
 }
 
-// hasHookOn reports whether a workflow hangs any script on one moment.
-func hasHookOn(hooks []workflowstore.Hook, event string) bool {
-	return slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Event == event })
-}
-
-// startHooks runs a moment's hooks in the background.
-func startHooks(ctx context.Context, params hookRunParams) {
-	if params.scripts == nil || !hasHookOn(params.hooks, params.event) {
-		return
-	}
-
-	bg := context.WithoutCancel(ctx)
-	turn := params.scripts.QueueHooks(params.queueKey())
-
-	go func() {
-		defer turn.Done()
-
-		if err := turn.Wait(bg); err != nil {
-			return
-		}
-
-		if err := runHooks(bg, hookRunParams{
-			scripts: params.scripts,
-			agent:   params.agent,
-			hooks:   params.hooks,
-			event:   params.event,
-		}); err != nil {
-			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
-				append([]slog.Attr{
-					slog.String(logging.RunTrigger, params.event),
-					slog.String(logging.ScriptAgentID, params.agent.ID),
-				}, logging.Err(err)...)...)
-		}
-	}()
-}
-
 func startHooksFor(ctx context.Context, params batchHooksParams) {
 	for _, agent := range params.agents {
-		startHooks(ctx, hookRunParams{
-			scripts: params.scripts,
-			agent:   agent,
-			hooks:   agentHooks(ctx, params.workflows, agent),
-			event:   params.event,
-		})
+		scriptrun.HookRun{
+			Scripts: params.scripts,
+			Agent:   agent,
+			Hooks:   agentHooks(ctx, params.workflows, agent),
+			Event:   params.event,
+		}.Start(ctx)
 	}
 }
 
@@ -197,19 +108,17 @@ func hooksFor(wf *workflowstore.Workflow, hasParent bool, provisionEnabled *bool
 }
 
 func workflowFor(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) *workflowstore.Workflow {
-	return readWorkflow(ctx, workflows, agent.WorkflowID,
-		slog.String(logging.ScriptAgentID, agent.ID),
-		slog.String(logging.ScriptAgentCwd, agent.Cwd))
-}
-
-func readWorkflow(ctx context.Context, workflows *workflowstore.WorkflowStore, workflowID string, about ...slog.Attr) *workflowstore.Workflow {
-	wf, err := workflows.GetIncludingArchived(ctx, workflowID)
+	wf, err := workflows.GetIncludingArchived(ctx, agent.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
-		attrs := append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, about...)
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow could not be read", append(attrs, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow could not be read",
+			append([]slog.Attr{
+				slog.String(logging.WorkflowID, agent.WorkflowID),
+				slog.String(logging.ScriptAgentID, agent.ID),
+				slog.String(logging.ScriptAgentCwd, agent.Cwd),
+			}, logging.Err(err)...)...)
 
 		return nil
 	}

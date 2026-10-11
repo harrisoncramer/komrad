@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"komrad/internal/store"
+	"komrad/internal/tasks"
 
 	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
@@ -16,7 +17,7 @@ type NewEmptyWorkflowDeleterParams struct {
 	Workflows *workflowstore.WorkflowStore
 	Agents    *agentstore.AgentStore
 	Schedules *schedulestore.ScheduleStore
-	Tasks     *EmptyTaskDeleter
+	Tasks     *tasks.TaskService
 }
 
 // EmptyWorkflowDeleter removes an archived workflow once nothing is left inside it, taking its
@@ -25,7 +26,7 @@ type EmptyWorkflowDeleter struct {
 	workflows *workflowstore.WorkflowStore
 	agents    *agentstore.AgentStore
 	schedules *schedulestore.ScheduleStore
-	tasks     *EmptyTaskDeleter
+	tasks     *tasks.TaskService
 }
 
 // NewEmptyWorkflowDeleter builds the deleter over the stores a workflow's removal touches.
@@ -67,7 +68,7 @@ func (d *EmptyWorkflowDeleter) deleteIfEmpty(ctx context.Context, existing *work
 }
 
 func (d *EmptyWorkflowDeleter) deleteWithSchedules(ctx context.Context, existing *workflowstore.Workflow) error {
-	cleared, err := d.tasks.clearWorkflow(ctx, existing.ID)
+	cleared, err := d.tasks.ClearWorkflow(ctx, existing.ID)
 	if err != nil || !cleared {
 		return err
 	}

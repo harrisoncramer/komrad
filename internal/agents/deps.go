@@ -82,16 +82,9 @@ func buildTarget(agent agentstore.Agent) harness.Target {
 	}
 }
 
-// hookRunner runs a workflow's hooks, each in its turn among those queued under the same key.
-type hookRunner interface {
-	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
-	AwaitHooks(ctx context.Context, key string) error
-	QueueHooks(key string) *scriptrun.HookTurn
-}
-
 // agentScriptRunner is the seam onto the executables a user hangs off an agent's life.
 type agentScriptRunner interface {
-	hookRunner
+	scriptrun.HookRunner
 	RunProvision(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunResume(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error

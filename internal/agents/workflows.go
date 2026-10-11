@@ -20,11 +20,6 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 )
 
-const (
-	worktreeProvisioner   = "_worktree_setup"
-	worktreeDeprovisioner = "_worktree_cleanup"
-)
-
 var ErrWorkflowHasSchedules = fail.Precondition("workflow still has schedules")
 
 var ErrWorktreeNeedsCwd = fail.InvalidArgument("a worktree-enabled workflow needs a cwd naming the repo")
