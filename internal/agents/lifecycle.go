@@ -529,7 +529,7 @@ func (s *LifecycleService) requireTasksLive(ctx context.Context, agents []agents
 func refuseWriters(agents []agentstore.Agent, verb string) error {
 	for _, agent := range agents {
 		if isTaskWriter(agent) {
-			return agenterr.ErrWriterGoesWithTask.Saying("%s the task %q writes for instead", verb, agent.Name)
+			return agenterr.ErrWriterGoesWithTask.Saying("%s task %s, which %q writes for, instead", verb, *agent.TaskID, agent.Name)
 		}
 	}
 

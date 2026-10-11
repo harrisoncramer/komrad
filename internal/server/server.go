@@ -133,6 +133,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Remover:       svc.worktrees.remover,
 		Resumer:       svc.agents.resume,
 		Archiver:      svc.agents.lifecycle,
+		Agents:        st.agents,
 		Forges:        svc.pullRequests.forge,
 		MaxLogBytes:   svc.getMaxCheckLogBytes,
 		Router: events.NewRouter(events.NewRouterParams{

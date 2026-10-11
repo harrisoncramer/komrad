@@ -2458,8 +2458,8 @@ func (x *LogRequest) GetScript() string {
 
 type ArchiveAgentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The agents to stop and hide, keeping their records and transcripts, children along with
-	// them. The batch goes whole or not at all.
+	// The agents to stop and hide, keeping their records and transcripts. A task's writer is
+	// refused. The batch goes whole or not at all.
 	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3377,7 +3377,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_IMPLEMENTER\x10\x01\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
 	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x03\x12\x15\n" +
-	"\x11AGENT_ROLE_WRITER\x10\x042\xc7{\n" +
+	"\x11AGENT_ROLE_WRITER\x10\x042\x9c}\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.:\x03\x04\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3391,16 +3391,16 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bReadMail\x12\x19.agent.v1.ReadMailRequest\x1a\x1a.agent.v1.ReadMailResponse\"\xe0\x01\x9a\xb5\x18\xdb\x01\b\x01\x10\x01\x1a\tread_mail\"\xc0\x01Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which is almost never what you want.(\x000\x00:\x03\x04\x02\x03\x12\xc0\x01\n" +
 	"\bListMail\x12\x19.agent.v1.ListMailRequest\x1a\x1a.agent.v1.ListMailResponse\"}\x9a\xb5\x18v\b\x01\x10\x01\x1a\tlist_mail\"`List an agent's mail without claiming it, most recent first. Set direction to list what it sent.:\x03\x04\x02\x03\x90\x02\x01\x12\xa9\x01\n" +
 	"\n" +
-	"DeleteMail\x12\x1b.agent.v1.DeleteMailRequest\x1a\x16.google.protobuf.Empty\"f\x9a\xb5\x18_\b\x01\x10\x01\x1a\vdelete_mail\"GErase mail for good by id, read or not. One unknown id deletes nothing.(\x01:\x01\x03\x90\x02\x02\x12\x95\x02\n" +
-	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xcb\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0earchive_agents\"\xa6\x01Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Children go with their parent, and a child named alone goes alone.(\x00:\x02\x04\x03\x90\x02\x02\x12\xe6\x01\n" +
-	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\x0erestore_agents\"pBring archived agents back, dormant, along with their workflows. Call resume_agent on each one you want running.(\x00:\x01\x03\x90\x02\x02\x12\xfc\x01\n" +
+	"DeleteMail\x12\x1b.agent.v1.DeleteMailRequest\x1a\x16.google.protobuf.Empty\"f\x9a\xb5\x18_\b\x01\x10\x01\x1a\vdelete_mail\"GErase mail for good by id, read or not. One unknown id deletes nothing.(\x01:\x01\x03\x90\x02\x02\x12\xb6\x02\n" +
+	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xec\x01\x9a\xb5\x18\xe4\x01\b\x01\x10\x01\x1a\x0earchive_agents\"\xc7\x01Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Each goes alone. A task's writer is refused, since it goes only with its task through archive_task.(\x00:\x02\x04\x03\x90\x02\x02\x12\xc7\x02\n" +
+	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xf4\x01\x9a\xb5\x18\xec\x01\b\x01\x10\x01\x1a\x0erestore_agents\"\xd0\x01Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it, and a reviewer is refused until its task is back. Call resume_agent on each one you want running.(\x00:\x01\x03\x90\x02\x02\x12\xfc\x01\n" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xb5\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\n" +
 	"hold_agent\"\x98\x01Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked.(\x00:\x01\x03\x12\xaf\x01\n" +
 	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00:\x01\x03\x12\xb7\x02\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\xea\x01\x9a\xb5\x18\xe2\x01\b\x01\x10\x01\x1a\fresume_agent\"\xc6\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. An agent on a task may resume only its parent and its workflow's orchestrator.(\x00:\x03\x04\x02\x03\x90\x02\x02\x12\xbf\x01\n" +
 	"\n" +
-	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"v\x9a\xb5\x18r\b\x01\x10\x01\x1a\vretry_agent\"ZRelaunch an agent whose create failed, optionally with corrected flags, prompt or harness.(\x00:\x01\x03\x12\x95\x02\n" +
-	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\xcd\x01\x9a\xb5\x18\xc5\x01\b\x01\x10\x01\x1a\rdelete_agents\"\xaa\x01Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. Prefer archive_agents, and delete only when asked.(\x01:\x01\x03\x90\x02\x02\x12{\n" +
+	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"v\x9a\xb5\x18r\b\x01\x10\x01\x1a\vretry_agent\"ZRelaunch an agent whose create failed, optionally with corrected flags, prompt or harness.(\x00:\x01\x03\x12\xe8\x02\n" +
+	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\xa0\x02\x9a\xb5\x18\x98\x02\b\x01\x10\x01\x1a\rdelete_agents\"\xfd\x01Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. A task's writer is refused, since it goes only with its task through delete_tasks. Prefer archive_agents, and delete only when asked.(\x01:\x01\x03\x90\x02\x02\x12{\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"6\x9a\xb5\x18/\b\x01\x10\x01\x1a\frename_agent\"\x16Rename an agent by id.(\x00:\x01\x03\x90\x02\x02\x12\xa4\x03\n" +
 	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xc5\x02\x9a\xb5\x18\xbd\x02\b\x01\x10\x01\x1a\x12search_transcripts\"\x9d\x02Search agent conversations by full text, archived ones included. Quote phrases, prefix - to exclude, and narrow with qualifiers such as from:me, agent:NAME, workflow:NAME, is:reviewer, since:2d and on:DATE. Your own conversation is searched unless agent_id or a qualifier names others.:\x03\x04\x02\x03\x90\x02\x01\x12\xdc\x01\n" +
 	"\rGetTranscript\x12\x1e.agent.v1.GetTranscriptRequest\x1a\x1f.agent.v1.GetTranscriptResponse\"\x89\x01\x9a\xb5\x18\x81\x01\b\x01\x10\x01\x1a\x0eget_transcript\"fRead an agent's whole conversation, one window at a time, passing the returned cursor back to read on.:\x03\x04\x02\x03\x90\x02\x01\x12\x85\x02\n" +

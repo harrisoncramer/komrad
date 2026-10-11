@@ -48,6 +48,7 @@ type NewClientParams struct {
 	Remover       internaljobs.WorktreeRemover
 	Resumer       internaljobs.AgentResumer
 	Archiver      internaljobs.AgentArchiver
+	Agents        internaljobs.AgentGetter
 	Router        internaljobs.EventRouter
 	Forges        internaljobs.ForgeFinder
 	MaxLogBytes   func() (int64, error)
@@ -75,7 +76,10 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	}))
 	river.AddWorker(workers, internaljobs.NewEventWorker(params.Pool, params.Router))
 	river.AddWorker(workers, internaljobs.NewWakeAgentWorker(params.Resumer))
-	river.AddWorker(workers, internaljobs.NewArchiveAgentWorker(params.Archiver))
+	river.AddWorker(workers, internaljobs.NewArchiveAgentWorker(internaljobs.NewArchiveAgentWorkerParams{
+		Archiver: params.Archiver,
+		Agents:   params.Agents,
+	}))
 	river.AddWorker(workers, internaljobs.NewFetchCheckLogWorker(internaljobs.NewFetchCheckLogWorkerParams{
 		Store:    params.Store,
 		Forges:   params.Forges,
