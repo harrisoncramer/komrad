@@ -14,8 +14,8 @@ const defaultLogLevel = "info"
 // defaultPprofServerAddress is where the service serves profiles when the config names no address.
 const defaultPprofServerAddress = "localhost:6060"
 
-// defaultPprofClientAddress is where the panel serves profiles when the config names no address.
-const defaultPprofClientAddress = "localhost:6061"
+// defaultPprofPanelAddress is where the panel serves profiles when the config names no address.
+const defaultPprofPanelAddress = "localhost:6061"
 
 // Log is how much the background service writes about itself. Where it writes is not
 // configurable.
@@ -67,7 +67,7 @@ type Pprof struct {
 	// The background service, which runs the agents and answers the API.
 	Server Profiler `mapstructure:"server"`
 	// The panel, which draws the screen and talks to the service.
-	Client Profiler `mapstructure:"client"`
+	Panel Profiler `mapstructure:"panel"`
 }
 
 // Profiler is whether and where one process serves its runtime profiles.
@@ -87,7 +87,7 @@ func (d *Debug) normalize() {
 		d.Pprof.Server.Address = defaultPprofServerAddress
 	}
 
-	if d.Pprof.Client.Address == "" {
-		d.Pprof.Client.Address = defaultPprofClientAddress
+	if d.Pprof.Panel.Address == "" {
+		d.Pprof.Panel.Address = defaultPprofPanelAddress
 	}
 }

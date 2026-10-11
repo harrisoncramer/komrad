@@ -60,7 +60,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			}
 
 			logger := logging.From(cmd.Context())
-			if pprofServer := startPprof(cmd.Context(), logger, state.debug.Pprof.Client); pprofServer != nil {
+			if pprofServer := startPprof(cmd.Context(), logger, state.debug.Pprof.Panel); pprofServer != nil {
 				defer func() {
 					if err := pprofServer.Close(); err != nil {
 						logger.LogAttrs(cmd.Context(), slog.LevelError, "the pprof server would not close", logging.Err(err)...)

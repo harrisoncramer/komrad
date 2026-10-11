@@ -1958,19 +1958,19 @@
               "sections": []
             },
             {
-              "path": "debug.pprof.client",
+              "path": "debug.pprof.panel",
               "description": "The panel, which draws the screen and talks to the service.",
               "settings": [
                 {
                   "key": "enabled",
-                  "path": "debug.pprof.client.enabled",
+                  "path": "debug.pprof.panel.enabled",
                   "type": "boolean",
                   "description": "Whether the process serves profiles, read when it starts.",
                   "default": "false"
                 },
                 {
                   "key": "address",
-                  "path": "debug.pprof.client.address",
+                  "path": "debug.pprof.panel.address",
                   "type": "string",
                   "description": "The host and port the profiles are served on.",
                   "default": "\"localhost:6061\""

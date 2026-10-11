@@ -80,7 +80,7 @@ func Defaults() *Config {
 			FrameHistory: DefaultFrameHistory,
 			Pprof: Pprof{
 				Server: Profiler{Address: defaultPprofServerAddress},
-				Client: Profiler{Address: defaultPprofClientAddress},
+				Panel:  Profiler{Address: defaultPprofPanelAddress},
 			},
 		},
 		Diff:       Diff{Wrap: true},
