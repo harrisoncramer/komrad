@@ -56,13 +56,13 @@ You can limit how much mail two agents exchange by setting <Setting path="mail.m
 
 Komrad also mails an agent itself when something changes that the agent should hear about.
 
-| What changed                                                         | Who is told                              |
-| -------------------------------------------------------------------- | ---------------------------------------- |
-| The pull request's status changed: checks failed, it conflicts, etc. | The writer of each task on its branch     |
-| You wrote or edited a [document](../documents/) in the panel         | The agent that owns it                   |
-| A task's branch was rebased, force-pushed, or had a rebase aborted    | The task's writer                        |
-| A [local review](../reviews/) of a task's change was released        | The task's writer                        |
-| The writer answered a reviewer's threads                          | That reviewer, which is also woken       |
+| What changed                                                         | Who is told                           |
+| -------------------------------------------------------------------- | ------------------------------------- |
+| The pull request's status changed: checks failed, it conflicts, etc. | The writer of each task on its branch |
+| You wrote or edited a [document](../documents/) in the panel         | The agent that owns it                |
+| A task's branch was rebased, force-pushed, or had a rebase aborted   | The task's writer                     |
+| A [local review](../reviews/) of a task's change was released        | The task's writer                     |
+| The writer answered a reviewer's threads                             | That reviewer, which is also woken    |
 
 An agent holds at most one unread piece of mail from komrad about any one thing. If a pull request's checks fail and then its branch conflicts before the agent has read anything, the agent gets one piece of mail saying both. Later changes rewrite the unread mail rather than adding more. Once the agent has read its mail, the next change starts a new one.
 
