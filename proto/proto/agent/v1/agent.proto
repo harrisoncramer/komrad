@@ -580,6 +580,16 @@ message RestartAgentRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   // What the writer is told on top of its briefing, blank for nothing more.
   string note = 2 [(buf.validate.field).string.max_len = 50000];
+  // The CLI the writer moves onto, blank to keep the one it runs.
+  string harness = 3 [(buf.validate.field).string = {
+    max_len: 40
+    pattern: "^[a-z0-9-]*$"
+  }];
+  // Flags for its CLI, blank to keep the ones it runs with, or on a new CLI to take that CLI's own.
+  string flags = 4 [(buf.validate.field).string = {
+    max_len: 500
+    [rules.v1.shell_safe]: true
+  }];
 }
 
 message RestartAgentResponse {
@@ -854,7 +864,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "restart_agent"
-      description: "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. Its earlier conversation stays in its transcript, and the task's reviewers carry on."
+      description: "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. It keeps its CLI and flags unless others are named, such as another model. Its earlier conversation stays in its transcript, and the task's reviewers carry on."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };

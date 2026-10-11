@@ -2781,7 +2781,11 @@ type RestartAgentRequest struct {
 	// Which writer to relaunch on a new conversation.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// What the writer is told on top of its briefing, blank for nothing more.
-	Note          string `protobuf:"bytes,2,opt,name=note,proto3" json:"note,omitempty"`
+	Note string `protobuf:"bytes,2,opt,name=note,proto3" json:"note,omitempty"`
+	// The CLI the writer moves onto, blank to keep the one it runs.
+	Harness string `protobuf:"bytes,3,opt,name=harness,proto3" json:"harness,omitempty"`
+	// Flags for its CLI, blank to keep the ones it runs with, or on a new CLI to take that CLI's own.
+	Flags         string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2826,6 +2830,20 @@ func (x *RestartAgentRequest) GetId() string {
 func (x *RestartAgentRequest) GetNote() string {
 	if x != nil {
 		return x.Note
+	}
+	return ""
+}
+
+func (x *RestartAgentRequest) GetHarness() string {
+	if x != nil {
+		return x.Harness
+	}
+	return ""
+}
+
+func (x *RestartAgentRequest) GetFlags() string {
+	if x != nil {
+		return x.Flags
 	}
 	return ""
 }
@@ -3415,10 +3433,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ResumeAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"<\n" +
 	"\x13ResumeAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"M\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xa2\x01\n" +
 	"\x13RestartAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1d\n" +
-	"\x04note\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x04note\"=\n" +
+	"\x04note\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x04note\x12/\n" +
+	"\aharness\x18\x03 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12\"\n" +
+	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\"=\n" +
 	"\x14RestartAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"+\n" +
 	"\x10HoldAgentRequest\x12\x17\n" +
@@ -3452,7 +3472,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x02\x12\x1b\n" +
 	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x03\x12\x15\n" +
-	"\x11AGENT_ROLE_WRITER\x10\x042\xa6\x80\x01\n" +
+	"\x11AGENT_ROLE_WRITER\x10\x042\xf1\x80\x01\n" +
 	"\fAgentService\x12\xfc\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\vlist_agents\"\x91\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.:\x03\x04\x02\x03\x90\x02\x01\x12\xa4\x01\n" +
@@ -3472,8 +3492,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xb5\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\n" +
 	"hold_agent\"\x98\x01Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked.(\x00:\x01\x03\x12\xaf\x01\n" +
 	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00:\x01\x03\x12\xe2\x02\n" +
-	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x95\x02\x9a\xb5\x18\x8d\x02\b\x01\x10\x01\x1a\fresume_agent\"\xf1\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either its workflow's orchestrator.(\x00:\x03\x04\x02\x03\x90\x02\x02\x12\xa4\x02\n" +
-	"\fRestartAgent\x12\x1d.agent.v1.RestartAgentRequest\x1a\x1e.agent.v1.RestartAgentResponse\"\xd4\x01\x9a\xb5\x18\xcf\x01\b\x01\x10\x01\x1a\rrestart_agent\"\xb4\x01Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. Its earlier conversation stays in its transcript, and the task's reviewers carry on.(\x01:\x01\x03\x12\xbf\x01\n" +
+	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x95\x02\x9a\xb5\x18\x8d\x02\b\x01\x10\x01\x1a\fresume_agent\"\xf1\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either its workflow's orchestrator.(\x00:\x03\x04\x02\x03\x90\x02\x02\x12\xef\x02\n" +
+	"\fRestartAgent\x12\x1d.agent.v1.RestartAgentRequest\x1a\x1e.agent.v1.RestartAgentResponse\"\x9f\x02\x9a\xb5\x18\x9a\x02\b\x01\x10\x01\x1a\rrestart_agent\"\xff\x01Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. It keeps its CLI and flags unless others are named, such as another model. Its earlier conversation stays in its transcript, and the task's reviewers carry on.(\x01:\x01\x03\x12\xbf\x01\n" +
 	"\n" +
 	"RetryAgent\x12\x1b.agent.v1.RetryAgentRequest\x1a\x1c.agent.v1.RetryAgentResponse\"v\x9a\xb5\x18r\b\x01\x10\x01\x1a\vretry_agent\"ZRelaunch an agent whose create failed, optionally with corrected flags, prompt or harness.(\x00:\x01\x03\x12\xe8\x02\n" +
 	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\xa0\x02\x9a\xb5\x18\x98\x02\b\x01\x10\x01\x1a\rdelete_agents\"\xfd\x01Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. A task's writer is refused, since it goes only with its task through delete_tasks. Prefer archive_agents, and delete only when asked.(\x01:\x01\x03\x90\x02\x02\x12{\n" +

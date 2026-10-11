@@ -379,6 +379,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		Agents:             st.agents,
 		Workflows:          st.workflows,
 		Launcher:           harnessLauncher,
+		LaunchService:      launchService,
 		Harnesses:          server.Harnesses,
 		Scripts:            params.Scripts,
 		Locks:              params.Locks,

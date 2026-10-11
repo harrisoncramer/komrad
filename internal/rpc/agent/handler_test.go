@@ -539,7 +539,12 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		{
 			name: "restarting",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				restarted, err := svc.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{Id: ids[0], Note: "pick up the review"}))
+				restarted, err := svc.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{
+					Id:      ids[0],
+					Note:    "pick up the review",
+					Harness: "codex",
+					Flags:   "--model o3",
+				}))
 				if err != nil {
 					return "", err
 				}
@@ -548,7 +553,12 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, []agents.RestartAgentParams{{ID: ids[0], Note: "pick up the review"}}, services.restarted)
+				assert.Equal(t, []agents.RestartAgentParams{{
+					ID:      ids[0],
+					Note:    "pick up the review",
+					Harness: "codex",
+					Flags:   "--model o3",
+				}}, services.restarted)
 			},
 		},
 		{

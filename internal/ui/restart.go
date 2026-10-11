@@ -15,7 +15,9 @@ import (
 var errNoLiveWriter = errors.New("this task has no live writer, so start a new agent on it instead")
 
 type restartValues struct {
-	Note string
+	Note    string
+	Harness string
+	Flags   string
 }
 
 // restartEntries is the entry that restarts a task's live writer on a new conversation, and none
@@ -42,7 +44,10 @@ func restartEntries(m *model, task panel.Task) []submenuEntry {
 
 // openRestart opens the form that restarts a task's writer on a new conversation.
 func openRestart(m *model, task panel.Task, writer panel.Agent) tea.Cmd {
-	values := &restartValues{}
+	values := &restartValues{
+		Harness: writer.Harness,
+		Flags:   writer.Flags,
+	}
 
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formAgent,
@@ -62,7 +67,12 @@ func (m *model) restartWriter(writer panel.Agent, values restartValues) tea.Cmd 
 		"restarting "+writer.Name,
 		fmt.Sprintf("Could not restart agent %q", writer.Name),
 		func(a api) (*agentv1.Agent, error) {
-			return a.restartAgent(writer.ID, values.Note)
+			return a.restartAgent(restartAgentParams{
+				ID:      writer.ID,
+				Note:    values.Note,
+				Harness: values.Harness,
+				Flags:   values.Flags,
+			})
 		},
 	))
 }
@@ -72,5 +82,7 @@ func restartForm(keys config.FixedKeys, values *restartValues, task panel.Task, 
 		textField("note").Title(fmt.Sprintf("Restart %q on %q with a new conversation", writer.Name, task.Slug)).
 			Description(fmt.Sprintf("what the writer is told on top of the task's notes; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
 			Value(&values.Note),
+		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
+		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	)
 }

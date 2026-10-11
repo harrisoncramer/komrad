@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
 	"komrad/internal/tmuxtest"
 
@@ -41,8 +42,80 @@ func TestRestartAgentStartsANewConversation(t *testing.T) {
 	assert.Nil(t, restarted.InterruptedAt, "a new conversation has no cut-off turn")
 }
 
+// TestRestartAgentOntoAnotherHarnessOrFlags pins the CLI and flags a restarted writer runs on, given
+// the ones the panel's form sends back.
+func TestRestartAgentOntoAnotherHarnessOrFlags(t *testing.T) {
+	tests := []struct {
+		name        string
+		harness     string
+		flags       string
+		wantHarness string
+		wantFlags   string
+	}{
+		{
+			name:        "another CLI drops the flags written for the one it left",
+			harness:     "codex",
+			flags:       "--model opus",
+			wantHarness: "codex",
+			wantFlags:   "",
+		},
+		{
+			name:        "another CLI keeps flags typed for it",
+			harness:     "codex",
+			flags:       "--model o3",
+			wantHarness: "codex",
+			wantFlags:   "--model o3",
+		},
+		{
+			name:        "another model on the same CLI",
+			harness:     harnesstest.FakeID,
+			flags:       "--model sonnet",
+			wantHarness: harnesstest.FakeID,
+			wantFlags:   "--model sonnet",
+		},
+		{
+			name:        "the same CLI and flags",
+			harness:     harnesstest.FakeID,
+			flags:       "--model opus",
+			wantHarness: harnesstest.FakeID,
+			wantFlags:   "--model opus",
+		},
+		{
+			name:        "nothing named",
+			wantHarness: harnesstest.FakeID,
+			wantFlags:   "--model opus",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := tmuxtest.NewFake()
+			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
+			require.NoError(t, st.Agents.SetHarness(t.Context(), agentstore.SetHarnessParams{
+				ID:      writer.ID,
+				Harness: harnesstest.FakeID,
+				Flags:   "--model opus",
+			}))
+			service, fakeHarness := newManagerWithHarness(tmux, st, "")
+
+			restarted, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{
+				ID:      writer.ID,
+				Harness: tt.harness,
+				Flags:   tt.flags,
+			})
+			require.NoError(t, err)
+
+			require.Len(t, fakeHarness.Launches, 1)
+			assert.Equal(t, tt.wantFlags, fakeHarness.Launches[0].Flags)
+			assert.Equal(t, tt.wantHarness, restarted.Harness)
+			assert.Equal(t, tt.wantFlags, restarted.Flags)
+		})
+	}
+}
+
 // TestRestartAgentGivingUpKeepsTheEarlierConversation pins a writer whose restart fails left on the
-// conversation it had.
+// conversation, CLI and flags it had.
 func TestRestartAgentGivingUpKeepsTheEarlierConversation(t *testing.T) {
 	const earlier = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
 
@@ -65,16 +138,27 @@ func TestRestartAgentGivingUpKeepsTheEarlierConversation(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
 			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
-			require.NoError(t, st.Agents.SetSessionID(t.Context(), writer.ID, earlier))
+			require.NoError(t, st.Agents.SetHarness(t.Context(), agentstore.SetHarnessParams{
+				ID:        writer.ID,
+				Harness:   harnesstest.FakeID,
+				Flags:     "--model opus",
+				SessionID: earlier,
+			}))
 			service, _ := newManagerWithHarness(tmux, st, "")
 			tt.fail(tmux)
 
-			_, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: writer.ID})
+			_, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{
+				ID:      writer.ID,
+				Harness: "codex",
+				Flags:   "--model o3",
+			})
 
 			require.Error(t, err)
 			got, err := st.Agents.GetByID(t.Context(), writer.ID)
 			require.NoError(t, err)
 			assert.Equal(t, earlier, got.SessionID)
+			assert.Equal(t, harnesstest.FakeID, got.Harness)
+			assert.Equal(t, "--model opus", got.Flags)
 		})
 	}
 }
