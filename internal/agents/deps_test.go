@@ -175,6 +175,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Addr:  options.addr,
 		Usage: options.usage,
 	})
+	snapshots := &gittest.Snapshots{}
 	taskScripts, _ := options.lifecycle.(taskScriptRunner)
 	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{
 		Tasks:     s.Tasks,
@@ -182,6 +183,8 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Runs:      s.Runs,
 		Workflows: s.Workflows,
 		Worktrees: worktreestore.NewWorktreeStore(s.Pool.GetDB()),
+		Reviews:   reviewstore.NewReviewStore(s.Pool.GetDB()),
+		Snapshots: snapshots,
 		Scripts:   taskScripts,
 		Tx:        tx,
 	})
@@ -207,8 +210,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Usage:              options.usage,
 		Sleeper:            sleeper,
 	})
-
-	snapshots := &gittest.Snapshots{}
 
 	built := &testAgents{
 		launch:    launch,
@@ -236,7 +237,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Tx:             tx,
 			Scripts:        options.lifecycle,
 			Reviews:        reviewstore.NewReviewStore(s.Pool.GetDB()),
-			Snapshots:      snapshots,
 			Screens:        NewScreenKeeper(NewScreenKeeperParams{Panes: options.tmux, Screens: s.Screens}),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,

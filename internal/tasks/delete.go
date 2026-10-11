@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"os"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/logging"
 	"komrad/internal/scriptrun"
 	"komrad/lib/xslice"
 
+	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 )
@@ -46,6 +50,8 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 		return errors.Join(failed, s.tasks.RecordCleanupFailure(cleanup, found.ID, err))
 	}
 
+	held := s.findRoundRefs(cleanup, *found)
+
 	if err := s.worktrees.DeleteForTask(cleanup, found.ID); err != nil {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, found.ID))
 	}
@@ -53,6 +59,8 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 	if err := s.tasks.Delete(cleanup, found.ID); err != nil {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, found.ID))
 	}
+
+	s.releaseRoundRefs(cleanup, held)
 
 	return nil
 }
@@ -125,4 +133,72 @@ func (s *TaskService) deprovision(ctx context.Context, task taskstore.Task, flow
 	}
 
 	return s.scripts.RunTaskDeprovision(ctx, task, deprovisioner)
+}
+
+// roundRefs is the refs holding the snapshots of a task's rounds, and a checkout they are held in.
+type roundRefs struct {
+	taskID string
+	dir    string
+	refs   []string
+}
+
+// findRoundRefs reads the refs of a task's rounds while its rows still stand, so they can be let
+// go of once the task is gone.
+func (s *TaskService) findRoundRefs(ctx context.Context, task taskstore.Task) roundRefs {
+	if s.reviews == nil {
+		return roundRefs{}
+	}
+
+	rounds, err := s.reviews.ListRounds(ctx, task.ID)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of a task being deleted",
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+
+		return roundRefs{}
+	}
+	if len(rounds) == 0 {
+		return roundRefs{}
+	}
+
+	dir, err := s.findRoundRefDir(ctx, task)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to find a checkout holding the rounds of a task being deleted",
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+
+		return roundRefs{}
+	}
+
+	return roundRefs{
+		taskID: task.ID,
+		dir:    dir,
+		refs: xslice.Map(rounds, func(round reviewstore.Round) string {
+			return reviewstore.RoundRef(task.ID, round.SnapshotSHA)
+		}),
+	}
+}
+
+// releaseRoundRefs drops the refs holding a deleted task's snapshots, which would otherwise pin a
+// commit covering the whole worktree long after the task is gone.
+func (s *TaskService) releaseRoundRefs(ctx context.Context, held roundRefs) {
+	for _, ref := range held.refs {
+		if err := s.snapshots.ReleaseRef(ctx, held.dir, ref); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
+				append([]slog.Attr{slog.String(logging.TaskID, held.taskID)}, logging.Err(err)...)...)
+		}
+	}
+}
+
+// findRoundRefDir finds a checkout holding a task's round refs, the task's own while it stands or
+// else its workflow's.
+func (s *TaskService) findRoundRefDir(ctx context.Context, task taskstore.Task) (string, error) {
+	if info, err := os.Stat(task.Checkout.Cwd); err == nil && info.IsDir() {
+		return task.Checkout.Cwd, nil
+	}
+
+	flow, err := s.workflows.GetIncludingArchived(ctx, task.WorkflowID)
+	if err != nil {
+		return "", fmt.Errorf("failed to read workflow %q: %w", task.WorkflowID, err)
+	}
+
+	return flow.Cwd, nil
 }

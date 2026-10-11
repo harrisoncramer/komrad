@@ -1557,59 +1557,6 @@ func (q *Queries) ListReviews(ctx context.Context, taskID string) ([]*ListReview
 	return items, nil
 }
 
-const listRoundsLeftByAgents = `-- name: ListRoundsLeftByAgents :many
-SELECT
-    r.id, r.agent_id, r.ordinal, r.base_sha, r.snapshot_sha, r.created_at, r.engine_id, r.landed_at, r.task_id
-FROM
-    review_rounds r
-WHERE
-    r.task_id IN (
-        SELECT
-            a.task_id
-        FROM
-            agents a
-        WHERE
-            a.id = ANY ($1::uuid[]))
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            agents o
-        WHERE
-            o.task_id = r.task_id
-            AND o.id <> ALL ($1::uuid[]))
-`
-
-func (q *Queries) ListRoundsLeftByAgents(ctx context.Context, agentIds []string) ([]*ReviewRound, error) {
-	rows, err := q.db.Query(ctx, listRoundsLeftByAgents, agentIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ReviewRound
-	for rows.Next() {
-		var i ReviewRound
-		if err := rows.Scan(
-			&i.ID,
-			&i.AgentID,
-			&i.Ordinal,
-			&i.BaseSha,
-			&i.SnapshotSha,
-			&i.CreatedAt,
-			&i.EngineID,
-			&i.LandedAt,
-			&i.TaskID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listUnlandedReviewRounds = `-- name: ListUnlandedReviewRounds :many
 SELECT
     r.task_id::uuid AS task_id,

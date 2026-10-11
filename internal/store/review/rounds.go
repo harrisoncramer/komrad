@@ -190,23 +190,6 @@ func (s *ReviewStore) ListRounds(ctx context.Context, taskID string) ([]Round, e
 	return rounds, nil
 }
 
-// ListRoundsLeftBy is every round holding a ref whose task has no agent but the given ones.
-func (s *ReviewStore) ListRoundsLeftBy(ctx context.Context, agentIDs []string) ([]Round, error) {
-	storable := store.KeepIDs(agentIDs)
-	if len(storable) == 0 {
-		return nil, nil
-	}
-
-	rows, err := s.queries.ListRoundsLeftByAgents(ctx, storable)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the review rounds left by %d agent(s): %w", len(storable), err)
-	}
-
-	return xslice.Map(rows, func(row *models.ReviewRound) Round {
-		return roundFromRow(*row)
-	}), nil
-}
-
 type OpenReviewParams struct {
 	TaskID        string
 	RoundID       string

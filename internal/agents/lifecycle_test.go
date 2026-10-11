@@ -746,84 +746,22 @@ func TestRestoreCeiling(t *testing.T) {
 	require.NoError(t, err, "archiving one makes room again")
 }
 
-// TestDeletingAnAgentLeavesAnotherTasksRoundHeld pins that two tasks whose worktrees hash the same each keep their own round ref.
-func TestDeletingAnAgentLeavesAnotherTasksRoundHeld(t *testing.T) {
+// TestDeletingATasksLastAgentKeepsItsRounds pins that a task outliving its last agent keeps the
+// snapshots its review diffs are drawn against.
+func TestDeletingATasksLastAgentKeepsItsRounds(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
-	root := t.TempDir()
-	going := seedRoundedAgent(t, st, reviews, "going", root, "same-sha")
-	seedRoundedAgent(t, st, reviews, "staying", root, "same-sha")
-	goingTask := *agentByID(t, st, going).TaskID
+	going := seedRoundedAgent(t, st, reviews, "going", t.TempDir(), "sha")
+	task := *agentByID(t, st, going).TaskID
 
 	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{going}))
 
-	assert.Equal(t, []string{reviewstore.RoundRef(goingTask, "same-sha")}, manager.snapshots.Released,
-		"only the going agent's round is let go of, since the other's ref names the other task")
-}
-
-// TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands pins that a removed worktree hands
-// the release to its workflow's checkout, which shares the refs.
-func TestDeletingAnAgentReleasesItsRoundsFromACheckoutThatStands(t *testing.T) {
-	tests := []struct {
-		name            string
-		dirGone         bool
-		wantWorkflowDir bool
-	}{
-		{
-			name:            "a worktree already removed",
-			dirGone:         true,
-			wantWorkflowDir: true,
-		},
-		{
-			name:            "a worktree that stands",
-			dirGone:         false,
-			wantWorkflowDir: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := tmuxtest.NewFake()
-			st := newStore(t)
-			manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
-			reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
-
-			flow, err := st.Workflows.Create(t.Context(), worktreeConfig(t, "workflow-"+uuid.NewString()))
-			require.NoError(t, err)
-
-			agentDir := t.TempDir()
-			require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
-				Name:       "going",
-				Cwd:        agentDir,
-				State:      agentstore.StateIdle,
-				WorkflowID: flow.ID,
-			}))
-			going, err := st.Get(t.Context(), "going")
-			require.NoError(t, err)
-
-			_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-				AgentID:     going.ID,
-				TaskID:      *going.TaskID,
-				BaseSHA:     "base",
-				SnapshotSHA: "sha",
-			})
-			require.NoError(t, err)
-			if tt.dirGone {
-				require.NoError(t, os.RemoveAll(agentDir))
-			}
-
-			require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{going.ID}))
-
-			want := agentDir
-			if tt.wantWorkflowDir {
-				want = flow.Cwd
-			}
-			assert.Equal(t, []string{want}, manager.snapshots.ReleasedFrom)
-		})
-	}
+	_, err := st.Tasks.Get(t.Context(), task)
+	require.NoError(t, err, "the task outlives its last agent")
+	assert.Empty(t, manager.snapshots.Released)
 }
 
 // TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews pins the two halves apart: a batch nobody
