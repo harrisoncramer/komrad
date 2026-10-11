@@ -44,6 +44,7 @@ func TestTerminal(t *testing.T) {
 
 		assert.Len(t, readShells(harness), 1)
 	})
+
 	t.Run("the shell stays where it opened as the cursor moves", func(t *testing.T) {
 		first, second := t.TempDir(), t.TempDir()
 		harness := openTerminal(t, panelHarnessParams{}, newStagedShellAgent(first), newShellAgent("a2", second))
