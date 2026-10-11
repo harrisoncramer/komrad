@@ -41,7 +41,7 @@ func taskFields(params taskFieldsParams) []recordField {
 		{label: "title", value: label.OrDash(task.Title)},
 		{label: "agents", value: label.OrDash(strings.Join(names, ", "))},
 	}
-	if isTaskWriter(writer.Agent) {
+	if isCheckoutOwner(writer.Agent) {
 		fields = append(fields, recordField{label: "writer", value: writer.Agent.Name})
 	}
 
@@ -136,11 +136,11 @@ func findLead(onTask []panel.AgentRow) (panel.AgentRow, bool) {
 	return lead, true
 }
 
-// findTaskWriter is the agent that provisioned the task's checkout, or the task's lead when none
+// findCheckoutOwner is the agent that provisioned the task's checkout, or the task's lead when none
 // on the list did.
-func (l listing) findTaskWriter(task panel.Task) panel.AgentRow {
+func (l listing) findCheckoutOwner(task panel.Task) panel.AgentRow {
 	onTask := l.taskAgents(task)
-	at := slices.IndexFunc(onTask, func(item panel.AgentRow) bool { return isTaskWriter(item.Agent) })
+	at := slices.IndexFunc(onTask, func(item panel.AgentRow) bool { return isCheckoutOwner(item.Agent) })
 	if at < 0 {
 		lead, _ := l.findTaskLead(task)
 
@@ -150,9 +150,9 @@ func (l listing) findTaskWriter(task panel.Task) panel.AgentRow {
 	return onTask[at]
 }
 
-// findCheckoutWriter is the task's writer while it works in the task's own checkout.
-func (l listing) findCheckoutWriter(task panel.Task) (panel.AgentRow, bool) {
-	writer := l.findTaskWriter(task)
+// findOwnerInCheckout is the task's checkout owner while it works in that checkout.
+func (l listing) findOwnerInCheckout(task panel.Task) (panel.AgentRow, bool) {
+	writer := l.findCheckoutOwner(task)
 	if task.Cwd == "" || writer.Agent.Cwd != task.Cwd {
 		return panel.AgentRow{}, false
 	}
@@ -160,8 +160,8 @@ func (l listing) findCheckoutWriter(task panel.Task) (panel.AgentRow, bool) {
 	return writer, true
 }
 
-// isTaskWriter reports whether the agent is the one its task's checkout was provisioned for.
-func isTaskWriter(agent panel.Agent) bool {
+// isCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.
+func isCheckoutOwner(agent panel.Agent) bool {
 	return agent.ParentAgentID == nil && !agent.ProvisionDisabled
 }
 

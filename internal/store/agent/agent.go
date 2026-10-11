@@ -194,6 +194,11 @@ func (a Agent) IsProvisionerDisabled() bool {
 	return IsProvisionerDisabled(a.ProvisionEnabled)
 }
 
+// IsTopLevelImplementer reports whether the agent is an implementer with no parent agent.
+func (a Agent) IsTopLevelImplementer() bool {
+	return a.ParentAgentID == nil && a.Role.IsImplementer()
+}
+
 // IsProvisionerDisabled reports whether an override tells an agent to keep the directory it was
 // given rather than be provisioned one.
 func IsProvisionerDisabled(override *bool) bool {

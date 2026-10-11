@@ -165,7 +165,7 @@ func (s *ResumeService) lockTree(agent agentstore.Agent) (func(), error) {
 
 // isTaskImplementer reports whether the agent is the top-level implementer on a task.
 func isTaskImplementer(agent agentstore.Agent) bool {
-	return agent.TaskID != nil && agent.ParentAgentID == nil && agent.Role.IsImplementer()
+	return agent.TaskID != nil && agent.IsTopLevelImplementer()
 }
 
 func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {

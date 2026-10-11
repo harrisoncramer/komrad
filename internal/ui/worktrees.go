@@ -98,7 +98,7 @@ func worktreeItemsFrom(worktrees map[string]*worktreev1.WatchedWorktree, agents 
 	for _, row := range agents {
 		cwd := filepath.Clean(row.Agent.Cwd)
 		holders.byCwd[cwd] = append(holders.byCwd[cwd], row.Agent)
-		if row.Agent.TaskID != "" && isTaskWriter(row.Agent) {
+		if row.Agent.TaskID != "" && isCheckoutOwner(row.Agent) {
 			holders.byTask[row.Agent.TaskID] = append(holders.byTask[row.Agent.TaskID], row.Agent)
 		}
 	}
