@@ -22,8 +22,7 @@ func (l listing) taskAgents(taskID string) []panel.AgentRow {
 	return xslice.Filter(l.agents, func(item panel.AgentRow) bool { return item.Agent.TaskID == taskID })
 }
 
-// taskFieldsParams is a task and what its record says about the work on it: the agents on it, the
-// writer whose branch and pull request it carries, and what has been read of its worktree.
+// taskFieldsParams is a task with the agents, writer and worktree read its info panel shows.
 type taskFieldsParams struct {
 	task     panel.Task
 	agents   []panel.AgentRow
