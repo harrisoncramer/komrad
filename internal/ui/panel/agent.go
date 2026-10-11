@@ -42,7 +42,7 @@ func (s State) IsFailed() bool {
 type Role string
 
 const (
-	RoleImplementer  Role = "implementer"
+	RoleWriter       Role = "writer"
 	RoleReviewer     Role = "reviewer"
 	RoleOrchestrator Role = "orchestrator"
 )

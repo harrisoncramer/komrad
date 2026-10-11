@@ -233,7 +233,7 @@ service TaskService {
       name: "get_task"
       description: "Fetch one task by id or slug, with its whole goal and its notes."
       roles: [
-        ROLE_IMPLEMENTER,
+        ROLE_WRITER,
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
@@ -247,7 +247,7 @@ service TaskService {
       name: "list_tasks"
       description: "List a workflow's tasks, newest first. Archived tasks are left out unless archived is set."
       roles: [
-        ROLE_IMPLEMENTER,
+        ROLE_WRITER,
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
@@ -273,7 +273,7 @@ service TaskService {
       description: "Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since."
       destructive: false
       roles: [
-        ROLE_IMPLEMENTER,
+        ROLE_WRITER,
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]

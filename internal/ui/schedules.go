@@ -140,7 +140,7 @@ func newScheduleForm(m *model) tea.Cmd {
 	}
 
 	values := panel.ScheduleConfig{
-		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 		Enabled:    true,
 		WorkflowID: m.listing.workflows[0].ID,
 	}
@@ -204,9 +204,10 @@ func editScheduleForm(m *model, schedule panel.Schedule) tea.Cmd {
 func knownScheduleKind(kind schedulev1.ScheduleKind) bool {
 	switch kind {
 	case schedulev1.ScheduleKind_SCHEDULE_KIND_UNSPECIFIED,
-		schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+		schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 		schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR:
 		return true
+	case schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER:
 	}
 
 	return false

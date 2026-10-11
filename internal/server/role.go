@@ -14,7 +14,7 @@ import (
 
 // toolRoles maps what an agent was launched to do onto the annotation the tools declare.
 var toolRoles = map[agentstore.Role]annotationv1.Role{
-	agentstore.RoleImplementer:  annotationv1.Role_ROLE_IMPLEMENTER,
+	agentstore.RoleWriter:       annotationv1.Role_ROLE_WRITER,
 	agentstore.RoleReviewer:     annotationv1.Role_ROLE_REVIEWER,
 	agentstore.RoleOrchestrator: annotationv1.Role_ROLE_ORCHESTRATOR,
 }

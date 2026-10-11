@@ -41,10 +41,10 @@ func TestIntegrationMCPTools(t *testing.T) {
 	require.NoError(t, err)
 	reviewer := requested.Msg.GetReviewer()
 
-	implementerTools := connectMCP(t, instance, api.GetId())
+	writerTools := connectMCP(t, instance, api.GetId())
 
-	t.Run("an implementer is served the tools for writing work", func(t *testing.T) {
-		served := implementerTools.listTools(t)
+	t.Run("a writer is served the tools for writing work", func(t *testing.T) {
+		served := writerTools.listTools(t)
 
 		assert.Subset(t, served, []string{"send_mail", "read_mail", "create_agent", "request_review", "query"})
 		assert.NotContains(t, served, "start_orchestrator")
@@ -68,12 +68,12 @@ func TestIntegrationMCPTools(t *testing.T) {
 	t.Run("a caller komrad cannot place is served every tool", func(t *testing.T) {
 		served := connectMCP(t, instance, "").listTools(t)
 
-		assert.Subset(t, served, implementerTools.listTools(t))
+		assert.Subset(t, served, writerTools.listTools(t))
 		assert.Subset(t, served, []string{"start_orchestrator", "rebase_worktree"})
 	})
 
 	t.Run("a call is made as the agent calling it", func(t *testing.T) {
-		answer, failed := implementerTools.call(t, "send_mail", map[string]any{
+		answer, failed := writerTools.call(t, "send_mail", map[string]any{
 			"to":   migrations.GetId(),
 			"body": "what is the refund column called?",
 		})
@@ -90,7 +90,7 @@ func TestIntegrationMCPTools(t *testing.T) {
 	})
 
 	t.Run("a refusal comes back as a tool error naming its code", func(t *testing.T) {
-		answer, failed := implementerTools.call(t, "send_mail", map[string]any{
+		answer, failed := writerTools.call(t, "send_mail", map[string]any{
 			"to":   "nobody",
 			"body": "hello?",
 		})
@@ -100,8 +100,8 @@ func TestIntegrationMCPTools(t *testing.T) {
 	})
 
 	t.Run("a query reads the database", func(t *testing.T) {
-		answer, failed := implementerTools.call(t, "query", map[string]any{
-			"sql": "SELECT name FROM agents WHERE role = 'implementer' ORDER BY name",
+		answer, failed := writerTools.call(t, "query", map[string]any{
+			"sql": "SELECT name FROM agents WHERE role = 'writer' ORDER BY name",
 		})
 		require.False(t, failed, answer)
 
@@ -116,7 +116,7 @@ func TestIntegrationMCPTools(t *testing.T) {
 	})
 
 	t.Run("a query cannot write", func(t *testing.T) {
-		answer, failed := implementerTools.call(t, "query", map[string]any{
+		answer, failed := writerTools.call(t, "query", map[string]any{
 			"sql": "DELETE FROM agents",
 		})
 

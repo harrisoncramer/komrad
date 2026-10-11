@@ -30,11 +30,11 @@ func checkAgentsClause(clause searchsyntax.Clause, now time.Time) error {
 	switch clause.Key {
 	case searchsyntax.KeyIs:
 		switch strings.ToLower(clause.Value) {
-		case "implementer", "reviewer", "orchestrator":
+		case "writer", "reviewer", "orchestrator":
 			return nil
 		}
 
-		return searchsyntax.ErrBadQualifier.Saying("is:%s is not one of implementer, reviewer or orchestrator", clause.Value)
+		return searchsyntax.ErrBadQualifier.Saying("is:%s is not one of writer, helper, reviewer or orchestrator", clause.Value)
 	case searchsyntax.KeySince:
 		_, err := searchsyntax.ParseStart(clause.Key, clause.Value, now)
 

@@ -1652,7 +1652,7 @@ func TestArchivingAgentsArchivesTheirIdleTasks(t *testing.T) {
 			archive: func(_, followUp, _ agentstore.Agent) []string { return []string{followUp.ID} },
 		},
 		{
-			name:    "an implementer archiving its reviewer leaves the task live",
+			name:    "a writer archiving its reviewer leaves the task live",
 			archive: func(_, _, reviewer agentstore.Agent) []string { return []string{reviewer.ID} },
 		},
 		{

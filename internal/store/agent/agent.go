@@ -58,26 +58,22 @@ func (s State) IsTurnUnfinished() bool {
 type Role string
 
 const (
-	RoleImplementer  Role = Role(models.AgentRoleImplementer)
+	RoleWriter       Role = Role(models.AgentRoleWriter)
 	RoleReviewer     Role = Role(models.AgentRoleReviewer)
 	RoleOrchestrator Role = Role(models.AgentRoleOrchestrator)
 )
 
 // Roles is every role an agent may hold.
-var Roles = []Role{RoleImplementer, RoleReviewer, RoleOrchestrator}
+var Roles = []Role{RoleWriter, RoleReviewer, RoleOrchestrator}
 
-// IsImplementer reports whether the role is an implementer, which an agent naming none is.
-func (r Role) IsImplementer() bool {
-	return r.orDefault() == RoleImplementer
-}
-
-// orDefault is the role an agent that names none is given.
-func (r Role) orDefault() Role {
-	if r == "" {
-		return RoleImplementer
+// DefaultRole is the role an agent naming none takes, a reviewer when it is attached to a parent and
+// otherwise the writer of its task.
+func DefaultRole(hasParent bool) Role {
+	if hasParent {
+		return RoleReviewer
 	}
 
-	return r
+	return RoleWriter
 }
 
 type Agent struct {
@@ -194,9 +190,18 @@ func (a Agent) IsProvisionerDisabled() bool {
 	return IsProvisionerDisabled(a.ProvisionEnabled)
 }
 
-// IsTopLevelImplementer reports whether the agent is an implementer with no parent agent.
-func (a Agent) IsTopLevelImplementer() bool {
-	return a.ParentAgentID == nil && a.Role.IsImplementer()
+// IsWriter reports whether the agent is its task's writer.
+func (a Agent) IsWriter() bool {
+	return a.roleOrDefault() == RoleWriter
+}
+
+// roleOrDefault is the agent's role, or the one it takes when it names none.
+func (a Agent) roleOrDefault() Role {
+	if a.Role == "" {
+		return DefaultRole(a.ParentAgentID != nil)
+	}
+
+	return a.Role
 }
 
 // IsProvisionerDisabled reports whether an override tells an agent to keep the directory it was

@@ -300,7 +300,7 @@ func TestFilterNarrow(t *testing.T) {
 			press:       slices.Concat([]string{"/", "tab"}, spellKeys("is:boss db"), []string{"enter"}),
 			wantRows:    filterableRows,
 			wantHovered: "backend",
-			wantSearch:  "▽ is:boss db  is:boss is not one of implemen",
+			wantSearch:  "▽ is:boss db  is:boss is not one of writer,",
 		},
 		{
 			name:        "opening the input again starts a search",

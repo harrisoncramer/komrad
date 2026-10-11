@@ -306,7 +306,7 @@ service WorkflowService {
       name: "list_workflows"
       description: "List the workflows, alphabetically, with the opening of each context. Archived workflows are left out unless archived is set."
       roles: [
-        ROLE_IMPLEMENTER,
+        ROLE_WRITER,
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]
@@ -320,7 +320,7 @@ service WorkflowService {
       name: "get_workflow"
       description: "Fetch one workflow by id."
       roles: [
-        ROLE_IMPLEMENTER,
+        ROLE_WRITER,
         ROLE_REVIEWER,
         ROLE_ORCHESTRATOR
       ]

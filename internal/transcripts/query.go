@@ -90,7 +90,7 @@ func (q *search) apply(clause searchsyntax.Clause, seen map[string]bool, now tim
 
 func (q *search) applyIs(value string, negated bool) error {
 	switch value {
-	case "implementer", "reviewer", "orchestrator":
+	case "writer", "reviewer", "orchestrator":
 		if negated {
 			q.Filter.ExcludedKinds = append(q.Filter.ExcludedKinds, value)
 		} else {
@@ -100,7 +100,7 @@ func (q *search) applyIs(value string, negated bool) error {
 		return nil
 	}
 
-	return searchsyntax.ErrBadQualifier.Saying("is:%s is not one of implementer, reviewer or orchestrator", value)
+	return searchsyntax.ErrBadQualifier.Saying("is:%s is not one of writer, helper, reviewer or orchestrator", value)
 }
 
 func parseSpeaker(value string) (string, error) {

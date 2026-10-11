@@ -448,7 +448,7 @@ func TestReviewThreads(t *testing.T) {
 
 		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "reviewer this drops the error")
-		assert.Contains(t, sidebar, "implementer wrapped it")
+		assert.Contains(t, sidebar, "writer wrapped it")
 	})
 
 	t.Run("a conversation an agent opened is hidden until the menu shows it", func(t *testing.T) {

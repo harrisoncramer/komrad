@@ -63,7 +63,7 @@ func endColumnOf(start, end int) int {
 
 func rolelessMessage(method string) string {
 	return fmt.Sprintf(
-		"%q is offered as a tool without naming the roles it is served to. A tool list is the largest fixed cost in an agent's context, so every tool says which of ROLE_IMPLEMENTER, ROLE_REVIEWER and ROLE_ORCHESTRATOR it is for; name all three where it is for all three.",
+		"%q is offered as a tool without naming the roles it is served to. A tool list is the largest fixed cost in an agent's context, so every tool says which of ROLE_WRITER, ROLE_REVIEWER and ROLE_ORCHESTRATOR it is for; name all three where it is for all three.",
 		method,
 	)
 }

@@ -368,10 +368,9 @@ FROM ( SELECT DISTINCT ON (t.id)
         LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
     WHERE
         p.id = sqlc.arg('id')
-        AND a.role = 'implementer'
+        AND a.role = 'writer'
         AND a.deleting_at IS NULL
         AND a.archived_at IS NULL
-        AND a.parent_agent_id IS NULL
         AND a.state <> 'failed_to_create'
         AND t.branch <> ''
         AND (c.worktree_base_branch IS NULL

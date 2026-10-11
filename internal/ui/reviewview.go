@@ -381,7 +381,7 @@ func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.To
 	}
 
 	if message.GetAuthorAgentId() == r.agentID {
-		return "implementer", reviewAgentTone
+		return "writer", reviewAgentTone
 	}
 
 	return "reviewer", reviewerTone

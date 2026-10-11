@@ -204,7 +204,7 @@ func TestAgentFieldsReviewingRow(t *testing.T) {
 		},
 		{
 			name:       "an ordinary child is rendered as attached rather than reviewing",
-			role:       panel.RoleImplementer,
+			role:       panel.RoleWriter,
 			wantLabels: []string{"attached to"},
 			wantAbsent: []string{"reviewing"},
 		},

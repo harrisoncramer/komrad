@@ -30,10 +30,12 @@ const (
 	Role_ROLE_UNSPECIFIED Role = 0
 	// An agent that lands work on a branch of its own.
 	Role_ROLE_IMPLEMENTER Role = 1
-	// A child that reads another agent's work and gives a review.
+	// An agent on a task that reads its change and gives a review.
 	Role_ROLE_REVIEWER Role = 2
 	// The agent drawn on a workflow's own row that hands work out.
 	Role_ROLE_ORCHESTRATOR Role = 3
+	// The one agent on a task that writes its change.
+	Role_ROLE_WRITER Role = 4
 )
 
 // Enum value maps for Role.
@@ -43,12 +45,14 @@ var (
 		1: "ROLE_IMPLEMENTER",
 		2: "ROLE_REVIEWER",
 		3: "ROLE_ORCHESTRATOR",
+		4: "ROLE_WRITER",
 	}
 	Role_value = map[string]int32{
 		"ROLE_UNSPECIFIED":  0,
 		"ROLE_IMPLEMENTER":  1,
 		"ROLE_REVIEWER":     2,
 		"ROLE_ORCHESTRATOR": 3,
+		"ROLE_WRITER":       4,
 	}
 )
 
@@ -230,12 +234,13 @@ const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\x05roles\x18\a \x03(\x0e2\x13.annotation.v1.RoleR\x05roles\x12\x16\n" +
 	"\x06reason\x18\b \x01(\tR\x06reasonB\x0e\n" +
 	"\f_destructiveB\r\n" +
-	"\v_idempotent*\\\n" +
+	"\v_idempotent*m\n" +
 	"\x04Role\x12\x14\n" +
 	"\x10ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10ROLE_IMPLEMENTER\x10\x01\x12\x11\n" +
 	"\rROLE_REVIEWER\x10\x02\x12\x15\n" +
-	"\x11ROLE_ORCHESTRATOR\x10\x03:U\n" +
+	"\x11ROLE_ORCHESTRATOR\x10\x03\x12\x0f\n" +
+	"\vROLE_WRITER\x10\x04:U\n" +
 	"\bsurfaces\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x17.annotation.v1.SurfacesR\bsurfacesB-Z+komrad/proto/gen/annotation/v1;annotationv1b\x06proto3"
 
 var (

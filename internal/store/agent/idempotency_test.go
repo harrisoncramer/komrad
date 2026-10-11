@@ -9,17 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIdempotencyKeyIsUnique pins that two agents cannot claim one key from the same requester under
-// the same parent while any number of them may claim none.
+// TestIdempotencyKeyIsUnique pins that two agents cannot claim one key from the same requester while
+// any number of them may claim none.
 func TestIdempotencyKeyIsUnique(t *testing.T) {
 	tests := []struct {
 		name            string
 		first           *string
 		firstRequester  string
-		firstParent     string
 		second          *string
 		secondRequester string
-		secondParent    string
 		wantFail        bool
 	}{
 		{
@@ -29,13 +27,11 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			wantFail: true,
 		},
 		{
-			name:            "the same key twice from one requester under one parent is refused",
+			name:            "the same key twice from one requester is refused",
 			first:           xptr.Ptr("launch-1"),
 			firstRequester:  "requester",
-			firstParent:     "parent",
 			second:          xptr.Ptr("launch-1"),
 			secondRequester: "requester",
-			secondParent:    "parent",
 			wantFail:        true,
 		},
 		{
@@ -50,15 +46,6 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			first:           xptr.Ptr("launch-1"),
 			second:          xptr.Ptr("launch-1"),
 			secondRequester: "requester",
-		},
-		{
-			name:            "the same key from one requester under two parents is fine",
-			first:           xptr.Ptr("launch-1"),
-			firstRequester:  "requester",
-			firstParent:     "parent",
-			second:          xptr.Ptr("launch-1"),
-			secondRequester: "requester",
-			secondParent:    "other parent",
 		},
 		{
 			name:   "two different keys are fine",
@@ -76,7 +63,7 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			ctx := t.Context()
 
 			ids := map[string]*string{"": nil}
-			for _, name := range []string{"requester", "other requester", "parent", "other parent"} {
+			for _, name := range []string{"requester", "other requester"} {
 				require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
 				created, err := st.Get(ctx, name)
 				require.NoError(t, err)
@@ -89,7 +76,6 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 				State:              StateIdle,
 				IdempotencyKey:     tt.first,
 				RequestedByAgentID: ids[tt.firstRequester],
-				ParentAgentID:      ids[tt.firstParent],
 			}))
 
 			err := st.Create(ctx, Agent{
@@ -97,7 +83,6 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 				State:              StateIdle,
 				IdempotencyKey:     tt.second,
 				RequestedByAgentID: ids[tt.secondRequester],
-				ParentAgentID:      ids[tt.secondParent],
 			})
 			if tt.wantFail {
 				require.Error(t, err)

@@ -1,11 +1,11 @@
 enum "schedule_kind" {
   schema = schema.public
-  values = ["implementer", "orchestrator"]
+  values = ["implementer", "task", "orchestrator"]
 }
 
 table "schedules" {
   schema  = schema.public
-  comment = "A recurring firing, holding when to fire and the prompt it launches an implementer with or mails an orchestrator."
+  comment = "A recurring firing, holding when to fire and the prompt it starts a task with or mails an orchestrator."
   column "id" {
     null    = false
     type    = uuid
@@ -47,7 +47,7 @@ table "schedules" {
     null    = false
     type    = enum.schedule_kind
     default = "implementer"
-    comment = "Whether a firing launches an implementer into the workflow or mails the prompt to an orchestrator."
+    comment = "Whether a firing starts a task in the workflow or mails the prompt to an orchestrator."
   }
   column "orchestrator_agent_id" {
     null    = true

@@ -14,6 +14,7 @@ type AgentRole string
 
 const (
 	AgentRoleImplementer  AgentRole = "implementer"
+	AgentRoleWriter       AgentRole = "writer"
 	AgentRoleReviewer     AgentRole = "reviewer"
 	AgentRoleOrchestrator AgentRole = "orchestrator"
 )
@@ -371,6 +372,7 @@ type ScheduleKind string
 
 const (
 	ScheduleKindImplementer  ScheduleKind = "implementer"
+	ScheduleKindTask         ScheduleKind = "task"
 	ScheduleKindOrchestrator ScheduleKind = "orchestrator"
 )
 
@@ -1099,7 +1101,7 @@ type ReviewViewedFile struct {
 	TaskID *string
 }
 
-// A recurring firing, holding when to fire and the prompt it launches an implementer with or mails an orchestrator.
+// A recurring firing, holding when to fire and the prompt it starts a task with or mails an orchestrator.
 type Schedule struct {
 	ID         string
 	Name       string
@@ -1114,7 +1116,7 @@ type Schedule struct {
 	UpdatedAt  time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
-	// Whether a firing launches an implementer into the workflow or mails the prompt to an orchestrator.
+	// Whether a firing starts a task in the workflow or mails the prompt to an orchestrator.
 	Kind ScheduleKind
 	// The orchestrator an orchestrator schedule mails.
 	OrchestratorAgentID *string

@@ -197,7 +197,7 @@ func TestAgentRoleOf(t *testing.T) {
 	t.Parallel()
 
 	roles := map[agentstore.Role]agentv1.AgentRole{
-		agentstore.RoleImplementer:  agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER,
+		agentstore.RoleWriter:       agentv1.AgentRole_AGENT_ROLE_WRITER,
 		agentstore.RoleReviewer:     agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		agentstore.RoleOrchestrator: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	}

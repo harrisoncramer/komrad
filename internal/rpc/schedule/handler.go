@@ -192,7 +192,7 @@ func withTarget(cfg schedulestore.Config, workflowID, orchestratorID string) sch
 		return cfg
 	}
 
-	cfg.Kind = schedulestore.KindImplementer
+	cfg.Kind = schedulestore.KindTask
 	cfg.WorkflowID = workflowID
 
 	return cfg

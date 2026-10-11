@@ -80,7 +80,7 @@ func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker 
 	}
 }
 
-// Work fires the schedule, launching its implementer or mailing its orchestrator, cancelling the
+// Work fires the schedule, starting its task or mailing its orchestrator, cancelling the
 // job with its reason for every firing that deliberately does nothing so River's record says why.
 func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgentArgs]) error {
 	schedule, err := w.schedules.Get(ctx, job.Args.ScheduleID)

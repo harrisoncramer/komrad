@@ -148,8 +148,8 @@ func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 		want int
 	}{
 		{
-			name: "an implementer",
-			role: agentstore.RoleImplementer,
+			name: "a writer",
+			role: agentstore.RoleWriter,
 			want: 250000,
 		},
 		{name: "an agent created without naming a role", want: 250000},
@@ -472,7 +472,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 	}{
 		{
 			name:         "an agent with a checkout of its own is told to get its work read",
-			role:         agentstore.RoleImplementer,
+			role:         agentstore.RoleWriter,
 			ownsCheckout: true,
 			wantContain:  []string{asking, answering, "Commit on your branch, then call request_review"},
 			wantAbsent:   []string{giving, "open_review_round"},
@@ -492,7 +492,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 		},
 		{
 			name:        "an agent reading somebody else's tree is sent neither half",
-			role:        agentstore.RoleImplementer,
+			role:        agentstore.RoleWriter,
 			wantContain: []string{answering},
 			wantAbsent:  []string{asking, giving},
 		},
@@ -560,12 +560,12 @@ func TestRoleBriefing(t *testing.T) {
 		},
 		{
 			name:   "an agent holding its own checkout gets it read",
-			params: launchParams{Role: agentstore.RoleImplementer, OwnsCheckout: true},
-			want:   implementerDoc,
+			params: launchParams{Role: agentstore.RoleWriter, OwnsCheckout: true},
+			want:   writerDoc,
 		},
 		{
 			name:   "an agent holding no checkout is told nothing of the three",
-			params: launchParams{Role: agentstore.RoleImplementer},
+			params: launchParams{Role: agentstore.RoleWriter},
 			want:   "",
 		},
 	}
@@ -577,7 +577,7 @@ func TestRoleBriefing(t *testing.T) {
 	}
 }
 
-// TestSpawningBriefing pins that every implementer, with a checkout or without, is told to use create_agent and no reviewer is.
+// TestSpawningBriefing pins that every writer, with a checkout or without, is told to use create_agent and no reviewer is.
 func TestSpawningBriefing(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -585,13 +585,13 @@ func TestSpawningBriefing(t *testing.T) {
 		want   string
 	}{
 		{
-			name:   "an implementer holding its own checkout spawns",
-			params: launchParams{Role: agentstore.RoleImplementer, OwnsCheckout: true},
+			name:   "a writer holding its own checkout spawns",
+			params: launchParams{Role: agentstore.RoleWriter, OwnsCheckout: true},
 			want:   spawningDoc,
 		},
 		{
-			name:   "an implementer holding no checkout still spawns",
-			params: launchParams{Role: agentstore.RoleImplementer},
+			name:   "a writer holding no checkout still spawns",
+			params: launchParams{Role: agentstore.RoleWriter},
 			want:   spawningDoc,
 		},
 		{
@@ -637,7 +637,7 @@ func TestContextBriefing(t *testing.T) {
 			name: "an orchestrator is told whose job the context describes",
 			params: launchParams{
 				Role:            agentstore.RoleOrchestrator,
-				WorkflowContext: "the implementer lands work on a branch",
+				WorkflowContext: "the writer lands work on a branch",
 			},
 			wantDoc:  orchestratorContextDoc,
 			wantLast: true,
@@ -649,8 +649,8 @@ func TestContextBriefing(t *testing.T) {
 		{
 			name: "every other role reads the context unframed",
 			params: launchParams{
-				Role:            agentstore.RoleImplementer,
-				WorkflowContext: "the implementer lands work on a branch",
+				Role:            agentstore.RoleWriter,
+				WorkflowContext: "the writer lands work on a branch",
 			},
 			wantLast: true,
 		},

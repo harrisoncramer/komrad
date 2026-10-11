@@ -53,7 +53,7 @@ func TestTriageRows(t *testing.T) {
 			want: []string{"backend", "backend"},
 		},
 		{
-			name:     "an implementer is followed by its workflow",
+			name:     "a writer is followed by its workflow",
 			capacity: 2,
 			rows:     []proto.Message{newLiveWorkflow("w1", "backend"), newFinishedAgent("done", 5)},
 			want:     []string{"done backend", "backend", "└─ done"},
@@ -613,7 +613,7 @@ func readTriageList(frame string) []string {
 	})
 }
 
-// buildFinished is a workflow with an agent asking and two implementers that have finished their
+// buildFinished is a workflow with an agent asking and two writers that have finished their
 // turns, the earlier ahead of the later.
 func buildFinished() []proto.Message {
 	return []proto.Message{
@@ -627,7 +627,7 @@ func buildFinished() []proto.Message {
 
 func newFinishedAgent(name string, minute int) *agentv1.Agent {
 	agent := newTriageAgent(name, agentv1.AgentState_AGENT_STATE_IDLE, minute)
-	agent.Role = agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER
+	agent.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 	agent.PaneId = "%" + name
 
 	return agent

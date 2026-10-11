@@ -116,7 +116,7 @@ var triageRules = []triageRule{
 		tier:  tierFinished,
 		kind:  kindAgent,
 		clock: clockState,
-		is:    isFinishedImplementer,
+		is:    isFinishedWriter,
 	},
 }
 
@@ -461,15 +461,14 @@ func isPullRequestOpen(state pullrequestv1.PullRequestState) bool {
 	return false
 }
 
-// isFinishedImplementer reports whether a top-level implementer has finished its turn with nothing
-// under it still working and no reviewer asked to look again.
-func isFinishedImplementer(s triageSubject) bool {
+// isFinishedWriter reports whether a writer has finished its turn with nothing under it still
+// working and no reviewer asked to look again.
+func isFinishedWriter(s triageSubject) bool {
 	agent := s.item.Agent
 
 	return s.item.Alive &&
 		displayState(s.item) == panel.StateIdle &&
-		agent.Role == panel.RoleImplementer &&
-		agent.ParentAgentID == nil &&
+		agent.Role == panel.RoleWriter &&
 		!s.hasThinkingChild &&
 		s.task.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
 }
@@ -698,7 +697,7 @@ func triageRows(params snapshotParams) []view.Row {
 		if r.item.Agent.Role == panel.RoleOrchestrator {
 			row.Name = r.workflow.Name
 		}
-		if !r.child && r.item.Agent.Role == panel.RoleImplementer {
+		if !r.child && r.item.Agent.Role == panel.RoleWriter {
 			row.Workflow = r.workflow.Name
 		}
 		rows = append(rows, row)

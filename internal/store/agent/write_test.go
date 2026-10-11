@@ -153,8 +153,8 @@ func TestCreateNeedsATask(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "an implementer with no task is refused",
-			role:    RoleImplementer,
+			name:    "a writer with no task is refused",
+			role:    RoleWriter,
 			wantErr: true,
 		},
 		{
@@ -539,8 +539,8 @@ func TestCreateWithRole(t *testing.T) {
 	}{
 		{
 			name: "an agent writing work of its own",
-			role: RoleImplementer,
-			want: RoleImplementer,
+			role: RoleWriter,
+			want: RoleWriter,
 		},
 		{
 			name: "an agent launched to read somebody else's",

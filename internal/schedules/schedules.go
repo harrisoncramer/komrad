@@ -254,7 +254,7 @@ func (s *ScheduleService) ListScheduleRuns(ctx context.Context, params ListSched
 // orchestrator's workflow.
 func (s *ScheduleService) resolveTarget(ctx context.Context, cfg schedulestore.Config) (schedulestore.Config, error) {
 	switch cfg.Kind {
-	case schedulestore.KindImplementer:
+	case schedulestore.KindTask:
 		cfg.OrchestratorAgentID = nil
 		if err := s.requireWorkflow(ctx, cfg.WorkflowID); err != nil {
 			return schedulestore.Config{}, err
@@ -329,7 +329,7 @@ func normalize(cfg schedulestore.Config) (schedulestore.Config, error) {
 	cfg.Timezone = strings.TrimSpace(cfg.Timezone)
 	cfg.Prompt = strings.TrimSpace(cfg.Prompt)
 	if cfg.Kind == "" {
-		cfg.Kind = schedulestore.KindImplementer
+		cfg.Kind = schedulestore.KindTask
 	}
 
 	if _, err := ParseCron(cfg.Cron, cfg.Timezone); err != nil {

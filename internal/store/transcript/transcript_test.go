@@ -1189,7 +1189,7 @@ func TestSearchFilter(t *testing.T) {
 // by page, with turns that have no time last.
 func TestSearchBrowsesNewestFirst(t *testing.T) {
 	st := seedNarrowed(t)
-	every := Filter{Kinds: []string{"implementer", "reviewer", "orchestrator"}}
+	every := Filter{Kinds: []string{"writer", "reviewer", "orchestrator"}}
 
 	tests := []struct {
 		name  string

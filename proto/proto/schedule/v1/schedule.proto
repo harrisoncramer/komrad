@@ -42,6 +42,8 @@ enum ScheduleKind {
   SCHEDULE_KIND_IMPLEMENTER = 1;
   // Mails the prompt to an orchestrator that is already running.
   SCHEDULE_KIND_ORCHESTRATOR = 2;
+  // Starts a new task in the workflow, its writer given the prompt.
+  SCHEDULE_KIND_TASK = 3;
 }
 
 // ScheduleRun is one firing of a schedule, as the job that carried it out stands.
@@ -79,7 +81,7 @@ message Schedule {
   string prompt = 7;
   // Which workflow it is filed under, which for an orchestrator schedule is its orchestrator's.
   string workflow_id = 8;
-  // Whether it launches an implementer or mails an orchestrator.
+  // Whether it starts a task or mails an orchestrator.
   ScheduleKind kind = 9;
   // The orchestrator it mails, set only on an orchestrator schedule.
   optional string orchestrator_agent_id = 10;
@@ -164,7 +166,7 @@ message CreateScheduleRequest {
   // What each firing does.
   oneof target {
     option (buf.validate.oneof).required = true;
-    // Launch an implementer into this workflow, whose cwd and flags it inherits.
+    // Start a task in this workflow, whose cwd and flags its writer inherits.
     string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
     // Mail the prompt to this orchestrator.
     string orchestrator_agent_id = 8 [(buf.validate.field).string.min_len = 1];
@@ -202,7 +204,7 @@ message UpdateScheduleRequest {
   // What later firings do.
   oneof target {
     option (buf.validate.oneof).required = true;
-    // Launch an implementer into this workflow.
+    // Start a task in this workflow.
     string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
     // Mail the prompt to this orchestrator.
     string orchestrator_agent_id = 8 [(buf.validate.field).string.min_len = 1];
@@ -233,7 +235,7 @@ message DeleteScheduleRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// ScheduleService is the recurring firings, which spawn an implementer into a workflow or mail an
+// ScheduleService is the recurring firings, which start a task in a workflow or mail an
 // orchestrator whenever their cron expression next matches.
 service ScheduleService {
   rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse) {
@@ -271,7 +273,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "create_schedule"
-      description: "Create a schedule that fires on a cron expression, launching an implementer into workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed."
+      description: "Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

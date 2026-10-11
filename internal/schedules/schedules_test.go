@@ -409,9 +409,9 @@ func TestOrchestratorSchedule(t *testing.T) {
 		},
 		{
 			name:       "an agent that is not an orchestrator",
-			role:       agentstore.RoleImplementer,
+			role:       agentstore.RoleWriter,
 			wantErr:    ErrNotAnOrchestrator,
-			wantSaying: "implementer",
+			wantSaying: "writer",
 		},
 		{
 			name:    "a prompt longer than mail holds",
@@ -496,11 +496,11 @@ func TestOrchestratorSchedule(t *testing.T) {
 				Cron:       "0 9 * * *",
 				Prompt:     "go",
 				WorkflowID: elsewhere,
-				Kind:       schedulestore.KindImplementer,
+				Kind:       schedulestore.KindTask,
 			}))
 			got, err = svc.GetSchedule(ctx, created.ID)
 			require.NoError(t, err)
-			assert.Equal(t, schedulestore.KindImplementer, got.Kind, "an update may turn it back into an implementer schedule")
+			assert.Equal(t, schedulestore.KindTask, got.Kind, "an update may turn it back into a task schedule")
 			assert.Nil(t, got.OrchestratorAgentID)
 			assert.Equal(t, elsewhere, got.WorkflowID)
 		})

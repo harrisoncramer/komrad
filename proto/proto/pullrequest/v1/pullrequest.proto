@@ -409,7 +409,7 @@ service PullRequestService {
       name: "list_pull_requests"
       description: "List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself."
       roles: [
-        ROLE_IMPLEMENTER,
+        ROLE_WRITER,
         ROLE_ORCHESTRATOR
       ]
     };

@@ -508,17 +508,17 @@ func TestBuildCommandSetsTheCompactionPoint(t *testing.T) {
 		return command
 	}
 
-	implementer := build("implementer", 250000)
+	writer := build("writer", 250000)
 	orchestrator := build("orchestrator", 150000)
 	unset := build("", 0)
 	belowFloor := build("reviewer", 40000)
 
-	assert.Equal(t, 250000, readSettings(t, implementer).AutoCompactWindow, "a launch just after it did not overwrite its settings")
+	assert.Equal(t, 250000, readSettings(t, writer).AutoCompactWindow, "a launch just after it did not overwrite its settings")
 	assert.Equal(t, 150000, readSettings(t, orchestrator).AutoCompactWindow)
 	assert.Zero(t, readSettings(t, unset).AutoCompactWindow, "no point leaves claude its own")
 	assert.Equal(t, minAutoCompactWindow, readSettings(t, belowFloor).AutoCompactWindow, "claude ignores a window under its floor, so it is raised to it")
 	assert.Equal(t, filepath.Join(configDir, "komrad-settings.json"), settingsPath(t, unset))
-	assert.Equal(t, filepath.Join(configDir, "komrad-settings-implementer.json"), settingsPath(t, implementer))
+	assert.Equal(t, filepath.Join(configDir, "komrad-settings-writer.json"), settingsPath(t, writer))
 	assert.Equal(t, filepath.Join(configDir, "komrad-settings-orchestrator.json"), settingsPath(t, orchestrator))
 }
 

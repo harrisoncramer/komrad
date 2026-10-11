@@ -198,20 +198,20 @@ func TestNewAgentIdempotency(t *testing.T) {
 			wantErr:  agenterr.ErrAlreadyLaunched,
 		},
 		{
-			name:         "the same key from one implementer returns the agent already created",
+			name:         "the same key from one writer returns the agent already created",
 			first:        "launch-1",
-			firstCaller:  "implementer",
+			firstCaller:  "writer",
 			second:       "launch-1",
-			secondCaller: "implementer",
+			secondCaller: "writer",
 			wantSame:     true,
 			wantErr:      agenterr.ErrAlreadyLaunched,
 		},
 		{
-			name:         "the same key from two implementers under one orchestrator is two agents",
+			name:         "the same key from two writers under one orchestrator is two agents",
 			first:        "launch-1",
-			firstCaller:  "implementer",
+			firstCaller:  "writer",
 			second:       "launch-1",
-			secondCaller: "other implementer",
+			secondCaller: "other writer",
 		},
 		{
 			name:   "the next occurrence is a different agent",
@@ -234,8 +234,8 @@ func TestNewAgentIdempotency(t *testing.T) {
 			callerIDs := map[string]string{}
 			if tt.firstCaller != "" {
 				seedWithRole(t, st, workflowID, "orchestrator", agentstore.RoleOrchestrator)
-				for _, name := range []string{"implementer", "other implementer"} {
-					seeded := seedWithRole(t, st, workflowID, name, agentstore.RoleImplementer)
+				for _, name := range []string{"writer", "other writer"} {
+					seeded := seedWithRole(t, st, workflowID, name, agentstore.RoleWriter)
 					callerIDs[name] = seeded.ID
 				}
 			}
@@ -383,23 +383,23 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			name: "a person creating from the panel records no parent",
 		},
 		{
-			name:        "an implementer in a workflow with no orchestrator answers for what it spawns",
-			spawnerRole: agentstore.RoleImplementer,
+			name:        "a writer in a workflow with no orchestrator answers for what it spawns",
+			spawnerRole: agentstore.RoleWriter,
 		},
 		{
-			name:             "an implementer's standalone agent answers to the workflow's orchestrator",
-			spawnerRole:      agentstore.RoleImplementer,
+			name:             "a writer's standalone agent answers to the workflow's orchestrator",
+			spawnerRole:      agentstore.RoleWriter,
 			orchestrator:     liveOrchestrator,
 			wantOrchestrator: true,
 		},
 		{
-			name:         "an implementer whose orchestrator is archived answers for what it spawns",
-			spawnerRole:  agentstore.RoleImplementer,
+			name:         "a writer whose orchestrator is archived answers for what it spawns",
+			spawnerRole:  agentstore.RoleWriter,
 			orchestrator: archivedOrchestrator,
 		},
 		{
-			name:         "an implementer's child answers to the implementer",
-			spawnerRole:  agentstore.RoleImplementer,
+			name:         "a writer's child answers to the writer",
+			spawnerRole:  agentstore.RoleWriter,
 			orchestrator: liveOrchestrator,
 			child:        true,
 		},
@@ -1796,7 +1796,7 @@ func TestNewWriterJoinsItsTasksCheckout(t *testing.T) {
 			assert.Equal(t, next.ID, writer.ID)
 
 			require.Len(t, fakeHarness.Launches, 2)
-			assert.Contains(t, fakeHarness.Launches[1].Context, strings.TrimSpace(implementerDoc), "the joined writer is briefed as the implementer")
+			assert.Contains(t, fakeHarness.Launches[1].Context, strings.TrimSpace(writerDoc), "the joined writer is briefed as the writer")
 		})
 	}
 }
@@ -2378,8 +2378,8 @@ func TestReviewerTakesTheWorkflowsReviewerLaunch(t *testing.T) {
 			wantFlags:     "--default-flag --model sonnet",
 		},
 		{
-			name:            "an implementer ignores the reviewer launch",
-			role:            agentstore.RoleImplementer,
+			name:            "a writer ignores the reviewer launch",
+			role:            agentstore.RoleWriter,
 			reviewerHarness: "codex",
 			reviewerFlags:   "--model gpt-5",
 			wantHarness:     harnesstest.FakeID,

@@ -20,8 +20,8 @@ import (
 //go:embed briefing.md
 var briefingDoc string
 
-//go:embed briefing_implementer.md
-var implementerDoc string
+//go:embed briefing_writer.md
+var writerDoc string
 
 //go:embed briefing_orchestrator.md
 var orchestratorDoc string
@@ -121,7 +121,7 @@ func roleBriefing(params launchParams) string {
 	case params.Role == agentstore.RoleReviewer:
 		return reviewerDoc
 	case params.OwnsCheckout:
-		return implementerDoc
+		return writerDoc
 	}
 
 	return ""
@@ -157,7 +157,7 @@ func taskBriefing(task *taskstore.Task) string {
 
 // spawningBriefing is what an agent is told about launching agents of its own.
 func spawningBriefing(params launchParams) string {
-	if params.Role != agentstore.RoleImplementer {
+	if params.Role != agentstore.RoleWriter {
 		return ""
 	}
 
@@ -236,7 +236,7 @@ func (l *Launcher) getAutoCompaction(role agentstore.Role) int {
 		return l.usage.Reviewer.AutoCompaction
 	case agentstore.RoleOrchestrator:
 		return l.usage.Orchestrator.AutoCompaction
-	case agentstore.RoleImplementer:
+	case agentstore.RoleWriter:
 		return l.usage.Implementer.AutoCompaction
 	default:
 		return 0
@@ -267,7 +267,7 @@ type launchParams struct {
 func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchParams) error {
 	role := params.Role
 	if role == "" {
-		role = agentstore.RoleImplementer
+		role = agentstore.RoleWriter
 	}
 
 	if l.trustLaunchDirs[h.ID()] && params.Dir != "" {

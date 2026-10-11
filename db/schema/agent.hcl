@@ -8,7 +8,7 @@ enum "agent_state" {
 
 enum "agent_role" {
   schema = schema.public
-  values = ["implementer", "reviewer", "orchestrator"]
+  values = ["implementer", "writer", "reviewer", "orchestrator"]
 }
 
 enum "agent_sequence" {
@@ -941,5 +941,11 @@ table "agents" {
     columns = [column.engine_id, column.requested_by_agent_id, column.parent_agent_id, column.idempotency_key]
     nulls_distinct = false
     where   = "idempotency_key IS NOT NULL"
+  }
+  index "agents_requested_idempotency_key" {
+    unique         = true
+    columns        = [column.engine_id, column.requested_by_agent_id, column.idempotency_key]
+    nulls_distinct = false
+    where          = "idempotency_key IS NOT NULL"
   }
 }

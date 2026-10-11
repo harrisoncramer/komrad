@@ -40,7 +40,7 @@ func TestHandlerCallerRole(t *testing.T) {
 		},
 		{
 			name:       "a known agent is served",
-			agentID:    "implementer",
+			agentID:    "writer",
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -54,7 +54,7 @@ func TestHandlerCallerRole(t *testing.T) {
 			handler, err := NewHandler(NewHandlerParams{
 				BaseURL: "http://127.0.0.1:1",
 				RoleOf: func(context.Context, string) (annotationv1.Role, error) {
-					return annotationv1.Role_ROLE_IMPLEMENTER, tt.lookup
+					return annotationv1.Role_ROLE_WRITER, tt.lookup
 				},
 				Logger: slog.New(slog.DiscardHandler),
 			})

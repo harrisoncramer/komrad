@@ -602,7 +602,7 @@ func TestSnapshotKinds(t *testing.T) {
 			name: "a task's live writer stands upright under it",
 			row: agentRow{
 				workflow:  checkoutWorkflow(),
-				item:      panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "writer", Role: panel.RoleImplementer}},
+				item:      panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "writer", Role: panel.RoleWriter}},
 				underTask: true,
 			},
 			want: view.Row{

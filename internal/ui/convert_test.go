@@ -133,7 +133,8 @@ func TestRoleFromReadsEveryWireRole(t *testing.T) {
 
 	roles := map[agentv1.AgentRole]panel.Role{
 		agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:  "",
-		agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:  panel.RoleImplementer,
+		agentv1.AgentRole_AGENT_ROLE_IMPLEMENTER:  "",
+		agentv1.AgentRole_AGENT_ROLE_WRITER:       panel.RoleWriter,
 		agentv1.AgentRole_AGENT_ROLE_REVIEWER:     panel.RoleReviewer,
 		agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR: panel.RoleOrchestrator,
 	}

@@ -23,7 +23,7 @@ func TestRoles(t *testing.T) {
 	t.Parallel()
 
 	roles := map[string]annotationv1.Role{
-		"implementer":  annotationv1.Role_ROLE_IMPLEMENTER,
+		"writer":       annotationv1.Role_ROLE_WRITER,
 		"reviewer":     annotationv1.Role_ROLE_REVIEWER,
 		"orchestrator": annotationv1.Role_ROLE_ORCHESTRATOR,
 	}
@@ -43,8 +43,8 @@ func TestRoles(t *testing.T) {
 			wantLookup: true,
 		},
 		{
-			name:       "an implementer is refused a schedule",
-			agentID:    "implementer",
+			name:       "a writer is refused a schedule",
+			agentID:    "writer",
 			procedure:  schedulev1connect.ScheduleServiceCreateScheduleProcedure,
 			wantCode:   connect.CodePermissionDenied,
 			wantLookup: true,
@@ -64,8 +64,8 @@ func TestRoles(t *testing.T) {
 			wantLookup: true,
 		},
 		{
-			name:       "an implementer writes a document",
-			agentID:    "implementer",
+			name:       "a writer writes a document",
+			agentID:    "writer",
 			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
 			wantLookup: true,
 		},

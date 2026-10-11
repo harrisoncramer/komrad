@@ -478,7 +478,7 @@ func TestSchedulesRecord(t *testing.T) {
 				"name morning-ci",
 				"cron 0 9 * * 1-5",
 				"timezone UTC",
-				"kind implementer",
+				"kind task",
 				"workflow — (archived)",
 			},
 		},
@@ -489,7 +489,7 @@ func TestSchedulesRecord(t *testing.T) {
 				"name morning-ci",
 				"cron 0 9 * * 1-5",
 				"timezone UTC",
-				"kind implementer",
+				"kind task",
 				"workflow api",
 				"default agent —",
 				"directory —",
@@ -504,7 +504,7 @@ func TestSchedulesRecord(t *testing.T) {
 				"name morning-ci",
 				"cron 0 9 * * 1-5",
 				"timezone UTC",
-				"kind implementer",
+				"kind task",
 				"workflow api",
 				"default agent codex",
 				"directory /work/api",
@@ -613,7 +613,7 @@ func TestSchedulesForm(t *testing.T) {
 		})
 	})
 
-	t.Run("with no live orchestrator only an implementer schedule is offered", func(t *testing.T) {
+	t.Run("with no live orchestrator only a task schedule is offered", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 
 		harness.press(widenListPresses...)
@@ -819,7 +819,7 @@ func newSchedule(id, name string) *schedulev1.Schedule {
 		Enabled:    true,
 		Prompt:     "check CI",
 		WorkflowId: "w1",
-		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_IMPLEMENTER,
+		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 	}
 }
 

@@ -115,6 +115,8 @@ const (
 	ScheduleKind_SCHEDULE_KIND_IMPLEMENTER ScheduleKind = 1
 	// Mails the prompt to an orchestrator that is already running.
 	ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR ScheduleKind = 2
+	// Starts a new task in the workflow, its writer given the prompt.
+	ScheduleKind_SCHEDULE_KIND_TASK ScheduleKind = 3
 )
 
 // Enum value maps for ScheduleKind.
@@ -123,11 +125,13 @@ var (
 		0: "SCHEDULE_KIND_UNSPECIFIED",
 		1: "SCHEDULE_KIND_IMPLEMENTER",
 		2: "SCHEDULE_KIND_ORCHESTRATOR",
+		3: "SCHEDULE_KIND_TASK",
 	}
 	ScheduleKind_value = map[string]int32{
 		"SCHEDULE_KIND_UNSPECIFIED":  0,
 		"SCHEDULE_KIND_IMPLEMENTER":  1,
 		"SCHEDULE_KIND_ORCHESTRATOR": 2,
+		"SCHEDULE_KIND_TASK":         3,
 	}
 )
 
@@ -276,7 +280,7 @@ type Schedule struct {
 	Prompt string `protobuf:"bytes,7,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// Which workflow it is filed under, which for an orchestrator schedule is its orchestrator's.
 	WorkflowId string `protobuf:"bytes,8,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	// Whether it launches an implementer or mails an orchestrator.
+	// Whether it starts a task or mails an orchestrator.
 	Kind ScheduleKind `protobuf:"varint,9,opt,name=kind,proto3,enum=schedule.v1.ScheduleKind" json:"kind,omitempty"`
 	// The orchestrator it mails, set only on an orchestrator schedule.
 	OrchestratorAgentId *string `protobuf:"bytes,10,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof" json:"orchestrator_agent_id,omitempty"`
@@ -864,7 +868,7 @@ type isCreateScheduleRequest_Target interface {
 }
 
 type CreateScheduleRequest_WorkflowId struct {
-	// Launch an implementer into this workflow, whose cwd and flags it inherits.
+	// Start a task in this workflow, whose cwd and flags its writer inherits.
 	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof"`
 }
 
@@ -1058,7 +1062,7 @@ type isUpdateScheduleRequest_Target interface {
 }
 
 type UpdateScheduleRequest_WorkflowId struct {
-	// Launch an implementer into this workflow.
+	// Start a task in this workflow.
 	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof"`
 }
 
@@ -1366,16 +1370,17 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x1cSCHEDULE_RUN_STATE_RETRYABLE\x10\x05\x12 \n" +
 	"\x1cSCHEDULE_RUN_STATE_COMPLETED\x10\x06\x12 \n" +
 	"\x1cSCHEDULE_RUN_STATE_CANCELLED\x10\a\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_DISCARDED\x10\b*l\n" +
+	"\x1cSCHEDULE_RUN_STATE_DISCARDED\x10\b*\x84\x01\n" +
 	"\fScheduleKind\x12\x1d\n" +
 	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19SCHEDULE_KIND_IMPLEMENTER\x10\x01\x12\x1e\n" +
-	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x022\x85\x0f\n" +
+	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x02\x12\x16\n" +
+	"\x12SCHEDULE_KIND_TASK\x10\x032\xfa\x0e\n" +
 	"\x0fScheduleService\x12\x97\x02\n" +
 	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xbe\x01\x9a\xb5\x18\xb6\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x9c\x01List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules are left out unless archived is set.:\x01\x03\x90\x02\x01\x12\x89\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"7\x9a\xb5\x180\b\x01\x10\x01\x1a\fget_schedule\"\x19Fetch one schedule by id.:\x01\x03\x90\x02\x01\x12\xf3\x01\n" +
-	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x12list_schedule_runs\"lList a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.:\x01\x03\x90\x02\x01\x12\xaf\x02\n" +
-	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xd3\x01\x9a\xb5\x18\xce\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xb1\x01Create a schedule that fires on a cron expression, launching an implementer into workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.(\x00:\x01\x03\x12\xcd\x01\n" +
+	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x12list_schedule_runs\"lList a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.:\x01\x03\x90\x02\x01\x12\xa4\x02\n" +
+	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xc8\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xa6\x01Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.(\x00:\x01\x03\x12\xcd\x01\n" +
 	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x7f\x9a\xb5\x18x\b\x01\x10\x01\x1a\x0fupdate_schedule\"\\Replace every field of a schedule, so read it first and send back what you are not changing.(\x00:\x01\x03\x90\x02\x02\x12\x9b\x01\n" +
 	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"E\x9a\xb5\x18>\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x1dPause or resume one schedule.(\x00:\x01\x03\x90\x02\x02\x12\xd4\x01\n" +
 	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\x83\x01\x9a\xb5\x18|\b\x01\x10\x01\x1a\x10archive_schedule\"_Archive a schedule so it stops firing, keeping its record. The agents it launched keep running.(\x00:\x01\x03\x90\x02\x02\x12\xb2\x01\n" +

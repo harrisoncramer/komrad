@@ -34,8 +34,8 @@ type Schedule struct {
 type Kind string
 
 const (
-	// KindImplementer launches an implementer into the workflow.
-	KindImplementer Kind = Kind(models.ScheduleKindImplementer)
+	// KindTask starts a task in the workflow.
+	KindTask Kind = Kind(models.ScheduleKindTask)
 	// KindOrchestrator mails the prompt to an orchestrator.
 	KindOrchestrator Kind = Kind(models.ScheduleKindOrchestrator)
 )
@@ -308,7 +308,7 @@ func scheduleFromRow(s models.Schedule) Schedule {
 
 func kindOrDefault(kind Kind) Kind {
 	if kind == "" {
-		return KindImplementer
+		return KindTask
 	}
 
 	return kind
