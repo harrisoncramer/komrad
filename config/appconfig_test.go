@@ -971,6 +971,70 @@ func TestLoadRejectsAnAddressTheApiShouldNotAnswerOn(t *testing.T) {
 	}
 }
 
+// TestLoadTakesAnEngineURL covers an engine reached at an https address rather than through ssh or a
+// forward.
+func TestLoadTakesAnEngineURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		wantErr bool
+		want    string
+	}{
+		{
+			name:    "plain http, which would carry the engine's traffic in the clear",
+			file:    "[connection]\nurl = \"http://komrad.example.com\"\n",
+			wantErr: true,
+			want:    "",
+		},
+		{
+			name:    "no host",
+			file:    "[connection]\nurl = \"https://\"\n",
+			wantErr: true,
+			want:    "",
+		},
+		{
+			name:    "a path after the host",
+			file:    "[connection]\nurl = \"https://komrad.example.com/api\"\n",
+			wantErr: true,
+			want:    "",
+		},
+		{
+			name:    "beside ssh, which is a second way to the same engine",
+			file:    "[connection]\nssh = \"komrad@203.0.113.4\"\nurl = \"https://komrad.example.com\"\n",
+			wantErr: true,
+			want:    "",
+		},
+		{
+			name:    "an https host, kept without a run of trailing slashes",
+			file:    "[connection]\nurl = \"https://komrad.example.com//\"\n",
+			wantErr: false,
+			want:    "https://komrad.example.com",
+		},
+		{
+			name:    "an https host, kept without its trailing slash",
+			file:    "[connection]\nurl = \"https://komrad.example.com/\"\n",
+			wantErr: false,
+			want:    "https://komrad.example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := loadStrict(t, tt.file)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, "connection.url")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Connection.URL)
+		})
+	}
+}
+
 // TestLoadRejectsAPortOutsideTheRange covers the numbers Atoi takes and a listener does not,
 // which is the class the port check exists for.
 func TestLoadRejectsAPortOutsideTheRange(t *testing.T) {

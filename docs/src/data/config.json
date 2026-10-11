@@ -2062,6 +2062,13 @@
           "type": "array",
           "description": "How to forward a port from this machine to the engine, as an argv, when ssh is not how you\nreach it. \"{{local_port}}\" and \"{{remote_port}}\" are replaced with the two ends. It should\nstay in the foreground for as long as the forward is wanted.",
           "default": "[]"
+        },
+        {
+          "key": "url",
+          "path": "connection.url",
+          "type": "string",
+          "description": "The https address the engine is served on, like https://komrad.example.com, when it sits\nbehind a web server rather than at the end of ssh or a forward.",
+          "default": "\"\""
         }
       ],
       "sections": []

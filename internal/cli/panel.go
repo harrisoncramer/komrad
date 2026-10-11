@@ -85,6 +85,8 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 
 			remote := state.engine()
 			addr := state.env.Addr
+			base := formatBase(addr)
+			self := append([]string{state.selfPath()}, configArgs(state.configStack)...)
 
 			var (
 				startupErr      error
@@ -93,6 +95,10 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			)
 
 			switch {
+			case remote.URL != "":
+				addr, base = remote.URL, remote.URL
+				shellCommand = append(slices.Clone(self), "shell")
+				terminalCommand = append(slices.Clone(self), "terminal")
 			case remote.IsRemote():
 				tunnel, err := remote.Dial(cmd.Context(), addr, tunnelWait)
 				if err != nil {
@@ -104,7 +110,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				defer func() { _ = tunnel.Close() }()
 
 				addr = tunnel.Local
-				self := append([]string{state.selfPath()}, configArgs(state.configStack)...)
+				base = formatBase(addr)
 				shellCommand = append(slices.Clone(self), "shell", "--addr", addr)
 				terminalCommand = append(slices.Clone(self), "terminal", "--addr", addr)
 			case state.configErr == nil:
@@ -121,7 +127,6 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				startupFindings = state.diagnose(cmd.Context())
 			}
 
-			base := "http://" + addr
 			httpClient := xhttp.NewClient(0)
 			agentClient := agentv1connect.NewAgentServiceClient(httpClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(httpClient, base)
@@ -183,29 +188,29 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
-				EngineStatus:    panelEngineStatus(cmd.Context(), state, addr, startupErr),
+				EngineStatus:    panelEngineStatus(cmd.Context(), state, base, startupErr),
 			})
 		},
 	}
 }
 
 // panelEngineStatus is the engine this panel is on and how to ask what it runs.
-func panelEngineStatus(ctx context.Context, state *app, addr string, startupErr error) ui.EngineStatus {
+func panelEngineStatus(ctx context.Context, state *app, base string, startupErr error) ui.EngineStatus {
 	var build ui.EngineBuild
 	if startupErr == nil {
-		build, _ = readEngineBuild(ctx, addr)
+		build, _ = readEngineBuild(ctx, base)
 	}
 
 	return ui.EngineStatus{
 		Name:      state.configStack.Engine,
 		Build:     build,
-		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, addr) },
+		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, base) },
 	}
 }
 
-// readEngineBuild asks the server on addr what it runs.
-func readEngineBuild(ctx context.Context, addr string) (ui.EngineBuild, bool) {
-	probe := probeServer(ctx, addr)
+// readEngineBuild asks the server at base what it runs.
+func readEngineBuild(ctx context.Context, base string) (ui.EngineBuild, bool) {
+	probe := probeServer(ctx, base)
 	if !probe.answering {
 		return ui.EngineBuild{}, false
 	}

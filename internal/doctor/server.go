@@ -47,15 +47,20 @@ func newServerCheck() Check {
 		Name:        CheckServer,
 		Description: "the panel reads and changes agents through a local server",
 		Run: func(ctx context.Context, env Env) Result {
-			if err := requireListenable(ctx, env.Addr); err != nil {
-				return fail(err, env.Addr, "set KOMRAD_ADDR to a host and port, such as 127.0.0.1:8787")
+			served := env.EngineURL
+			if served == "" {
+				if err := requireListenable(ctx, env.Addr); err != nil {
+					return fail(err, env.Addr, "set KOMRAD_ADDR to a host and port, such as 127.0.0.1:8787")
+				}
+
+				served = env.Addr
 			}
 
 			status, err := env.ProbeServer(ctx)
 			if err != nil {
 				return fail(
 					fmt.Errorf("%w: %w", errEngineUnreachable, err),
-					env.Addr,
+					served,
 					"check the engine is up and that this engine's ssh settings reach it",
 				)
 			}
@@ -63,35 +68,35 @@ func newServerCheck() Check {
 			switch {
 			case !status.Answering && env.EngineIsRemote:
 				return fail(
-					fmt.Errorf("%w: the engine answers nothing on %s", errServerDown, env.Addr),
-					env.Addr,
+					fmt.Errorf("%w: the engine answers nothing on %s", errServerDown, served),
+					served,
 					"start komrad on the engine, since its server runs whether or not a panel is open",
 				)
 
 			case !status.Answering:
 				return warn(
 					fmt.Errorf("%w at %s, which is normal until the panel is first opened",
-						errServerDown, env.Addr),
+						errServerDown, served),
 					"",
 				)
 
 			case status.Version == "":
 				return fail(
-					fmt.Errorf("%w: %s answers, but not as komrad", errAddressTaken, env.Addr),
-					env.Addr,
+					fmt.Errorf("%w: %s answers, but not as komrad", errAddressTaken, served),
+					served,
 					describeTakenAddressFix(env),
 				)
 
 			case !status.Ready:
 
 				return fail(
-					fmt.Errorf("%w: %s is up but reports it cannot reach its database", errServerNotReady, env.Addr),
-					env.Addr,
+					fmt.Errorf("%w: %s is up but reports it cannot reach its database", errServerNotReady, served),
+					served,
 					"bring the database back up, and the server will pick it up again",
 				)
 			}
 
-			return pass(env.Addr + " serving " + version.Describe(status.Version, status.Commit))
+			return pass(served + " serving " + version.Describe(status.Version, status.Commit))
 		},
 	}
 }

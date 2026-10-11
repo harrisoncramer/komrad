@@ -128,7 +128,7 @@ func callHookRPC(ctx context.Context, state *app, call hookRPC) error {
 	defer cancel()
 
 	payload, err := callRPC(ctx, callRPCParams{
-		Addr:    state.env.Addr,
+		Base:    formatBase(state.env.Addr),
 		Path:    call.path,
 		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 		Request: call.request,

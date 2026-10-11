@@ -82,6 +82,9 @@ type Connection struct {
 	// reach it. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
 	// stay in the foreground for as long as the forward is wanted.
 	Forward []string `mapstructure:"forward"`
+	// The https address the engine is served on, like https://komrad.example.com, when it sits
+	// behind a web server rather than at the end of ssh or a forward.
+	URL string `mapstructure:"url"`
 }
 
 // defaultConnection is the instance a config that names none points at.
@@ -94,6 +97,7 @@ func defaultConnection() Connection {
 }
 
 func (c *Connection) normalize() {
+	c.URL = strings.TrimRight(c.URL, "/")
 	if strings.TrimSpace(c.Addr) == "" {
 		c.Addr = defaultAddr
 	}
@@ -110,6 +114,9 @@ func (c *Connection) normalize() {
 func (c Connection) validate() error {
 	if err := ValidateAddr(c.Addr); err != nil {
 		return fmt.Errorf("connection.addr: %w", err)
+	}
+	if err := c.validateURL(); err != nil {
+		return fmt.Errorf("connection.url: %w", err)
 	}
 
 	return validateDatabaseURL(c.DatabaseURL)
@@ -147,6 +154,34 @@ func ValidateAddr(addr string) error {
 	}
 	if !parsed.IsLoopback() {
 		return fmt.Errorf("%q reaches this machine from the network, and the api has no auth and its writes spawn agents", host)
+	}
+
+	return nil
+}
+
+// validateURL rejects an engine address that is not https, or that names a second way to the
+// engine beside ssh or a forward.
+func (c Connection) validateURL() error {
+	if c.URL == "" {
+		return nil
+	}
+
+	if strings.TrimSpace(c.SSH) != "" || len(c.Forward) > 0 {
+		return errors.New("is set alongside ssh or forward, and an engine is reached one way")
+	}
+
+	parsed, err := url.Parse(c.URL)
+	if err != nil {
+		return fmt.Errorf("%q is not a url: %w", c.URL, err)
+	}
+	if parsed.Scheme != "https" {
+		return fmt.Errorf("%q is not https, and the engine is reached over the network", c.URL)
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("%q names no host", c.URL)
+	}
+	if strings.Trim(parsed.Path, "/") != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("%q has more than a scheme and a host", c.URL)
 	}
 
 	return nil

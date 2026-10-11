@@ -17,6 +17,7 @@ func TestIsRemoteIsWhetherADestinationWasGiven(t *testing.T) {
 	assert.False(t, engine.Remote{}.IsRemote())
 	assert.False(t, engine.Remote{Destination: "  "}.IsRemote())
 	assert.True(t, engine.Remote{Destination: "ubuntu@host"}.IsRemote())
+	assert.True(t, engine.Remote{URL: "https://komrad.example.com"}.IsRemote())
 }
 
 // TestStringNamesTheEngine covers what a log line or an error says about where agents are.
@@ -39,6 +40,13 @@ func TestStringNamesTheEngine(t *testing.T) {
 				Destination: "ubuntu@host",
 			},
 			want: "ubuntu@host",
+		},
+		{
+			name: "an engine named by its url",
+			remote: engine.Remote{
+				URL: "https://komrad.example.com",
+			},
+			want: "https://komrad.example.com",
 		},
 		{
 			name:   "an engine named by its forward",
@@ -85,6 +93,16 @@ func TestDialRefusesALocalEngine(t *testing.T) {
 	t.Parallel()
 
 	tunnel, err := engine.Remote{}.Dial(t.Context(), "127.0.0.1:8787", time.Second)
+
+	require.Error(t, err)
+	assert.Nil(t, tunnel)
+}
+
+// TestDialRefusesAnEngineAtAURL covers an engine reached as it is, which has no forward to open.
+func TestDialRefusesAnEngineAtAURL(t *testing.T) {
+	t.Parallel()
+
+	tunnel, err := engine.Remote{URL: "https://komrad.example.com"}.Dial(t.Context(), "127.0.0.1:8787", time.Second)
 
 	require.Error(t, err)
 	assert.Nil(t, tunnel)

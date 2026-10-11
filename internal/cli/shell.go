@@ -41,6 +41,7 @@ this command's.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
+			var base string
 			if addr == "" {
 				dialed, release, err := state.dialAPI(ctx)
 				if err != nil {
@@ -48,10 +49,12 @@ this command's.`,
 				}
 				defer release()
 
-				addr = dialed
+				base = dialed
+			} else {
+				base = formatBase(addr)
 			}
 
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), "http://"+addr)
+			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), base)
 			code, err := runConsole(ctx, runConsoleParams{
 				Dial: dialShell(client, args[0], state.env.Term),
 			})

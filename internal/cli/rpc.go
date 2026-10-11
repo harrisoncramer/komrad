@@ -80,19 +80,19 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 		ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 		defer cancel()
 
-		addr, release, err := state.dialAPI(ctx)
+		base, release, err := state.dialAPI(ctx)
 		if err != nil {
 			return err
 		}
 
 		defer release()
 
-		if err := requireServer(ctx, addr, state.env.Addr); err != nil {
+		if err := requireServer(ctx, base, state.nameServer()); err != nil {
 			return err
 		}
 
 		payload, err := callRPC(ctx, callRPCParams{
-			Addr:    addr,
+			Base:    base,
 			Path:    exposed.GetPath(),
 			From:    state.caller(),
 			Request: request,
@@ -108,20 +108,23 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 }
 
 // requireServer refuses to call a server that is not there.
-func requireServer(ctx context.Context, addr, named string) error {
-	if !probeServer(ctx, addr).answering {
-		if named != addr {
-			return fmt.Errorf("the engine reached through %s is not serving at %s", addr, named)
-		}
+func requireServer(ctx context.Context, base, named string) error {
+	if probeServer(ctx, base).answering {
+		return nil
+	}
 
+	switch base {
+	case named:
+		return fmt.Errorf("nothing is answering at %s", named)
+	case formatBase(named):
 		return fmt.Errorf("nothing is serving at %s, run komrad start first", named)
 	}
 
-	return nil
+	return fmt.Errorf("the engine reached through %s is not serving at %s", base, named)
 }
 
 type callRPCParams struct {
-	Addr    string
+	Base    string
 	Path    string
 	From    caller.Caller
 	Request map[string]any
@@ -133,7 +136,7 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 		return nil, fmt.Errorf("failed to encode the request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+params.Addr+params.Path, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, params.Base+params.Path, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to build the request: %w", err)
 	}
@@ -143,7 +146,7 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 
 	resp, err := xhttp.NewClient(0).Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to reach the server at %s: %w", params.Addr, err)
+		return nil, fmt.Errorf("failed to reach the server at %s: %w", params.Base, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 

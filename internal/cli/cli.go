@@ -270,5 +270,6 @@ func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 		StateDir:            cfg.Connection.StateDir,
 		SSH:                 cfg.Connection.SSH,
 		Forward:             cfg.Connection.Forward,
+		URL:                 cfg.Connection.URL,
 	})
 }

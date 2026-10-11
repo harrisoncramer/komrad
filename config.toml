@@ -798,3 +798,6 @@ ssh                   = ""
 # reach it. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
 # stay in the foreground for as long as the forward is wanted.
 forward               = []
+# The https address the engine is served on, like https://komrad.example.com, when it sits
+# behind a web server rather than at the end of ssh or a forward.
+url                   = ""

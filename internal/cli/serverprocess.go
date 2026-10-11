@@ -44,7 +44,7 @@ type ensureServerParams struct {
 func ensureServer(ctx context.Context, params ensureServerParams) error {
 	addr, logPath := params.Addr, params.LogPath
 
-	if probeServer(ctx, addr).answering {
+	if probeServer(ctx, formatBase(addr)).answering {
 		return nil
 	}
 
@@ -82,7 +82,7 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 
 	deadline := time.Now().Add(serveWaitFor)
 	for time.Now().Before(deadline) {
-		if probeServer(ctx, addr).ready {
+		if probeServer(ctx, formatBase(addr)).ready {
 			return nil
 		}
 
@@ -108,8 +108,8 @@ type serverProbe struct {
 	revision  string
 }
 
-func probeServer(ctx context.Context, addr string) serverProbe {
-	res, err := healthCheck(ctx, addr)
+func probeServer(ctx context.Context, base string) serverProbe {
+	res, err := healthCheck(ctx, base)
 	if err != nil {
 		return serverProbe{}
 	}
@@ -127,10 +127,10 @@ func probeServer(ctx context.Context, addr string) serverProbe {
 	return probe
 }
 
-func healthCheck(ctx context.Context, addr string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+server.HealthPath, nil)
+func healthCheck(ctx context.Context, base string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+server.HealthPath, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build a health request for %s: %w", addr, err)
+		return nil, fmt.Errorf("failed to build a health request for %s: %w", base, err)
 	}
 
 	client := xhttp.NewClient(healthTimeout)
