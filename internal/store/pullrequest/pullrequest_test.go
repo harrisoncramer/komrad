@@ -398,13 +398,13 @@ func TestListRecipients(t *testing.T) {
 	ctx := t.Context()
 	workflow := h.createWorkflow(t)
 
-	critic := h.createAgent(t, workflow, "critic", komrad, "agent/x")
+	older := h.createAgent(t, workflow, "older", komrad, "agent/x")
 	h.createAgent(t, workflow, "elsewhere", komrad, "agent/y")
 	h.createAgent(t, workflow, "other-repo", "https://github.com/someone/else", "agent/x")
 	archived := h.createAgent(t, workflow, "archived", komrad, "agent/x")
 	_, err := h.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
-	task := h.taskOf(t, critic)
+	task := h.taskOf(t, older)
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
 		TaskID:     &task,
 		Name:       "writer",
@@ -414,6 +414,21 @@ func TestListRecipients(t *testing.T) {
 	}))
 	writer, err := h.agents.GetInWorkflow(ctx, workflow, "writer")
 	require.NoError(t, err)
+	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:     &task,
+		Name:       "top-level-reviewer",
+		Pane:       "%4",
+		State:      agentstore.StateIdle,
+		WorkflowID: workflow,
+		Role:       agentstore.RoleReviewer,
+	}))
+	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
+		TaskID:     &task,
+		Name:       "failed",
+		Pane:       "%5",
+		State:      agentstore.StateFailedToCreate,
+		WorkflowID: workflow,
+	}))
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
 		TaskID:        &task,
 		Name:          "child",
