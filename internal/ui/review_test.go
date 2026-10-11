@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/git"
@@ -2048,6 +2049,32 @@ func TestReviewPin(t *testing.T) {
 		harness.press("space", "R")
 
 		assert.Contains(t, harness.readFrame(), "written by the agent")
+	})
+
+	t.Run("a held review says the diff is frozen and how to see the latest", func(t *testing.T) {
+		taken := time.Date(2026, 10, 9, 15, 4, 0, 0, time.UTC)
+		server := newReviewServer(t)
+		server.rounds = []*agentv1.ReviewRound{{
+			Id:          "round-1",
+			TaskId:      "t1",
+			Ordinal:     1,
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+			CreatedAt:   taken.Format(time.RFC3339),
+		}}
+		server.reviews = []*agentv1.Review{{
+			Id:         "v1",
+			RoundId:    "round-1",
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		}}
+		harness := openReview(t, server)
+
+		assert.Contains(t, joinProse(readStage(harness.readFrame())), "Frozen on round 1 from "+
+			taken.Local().Format("Jan 2 at 3:04pm")+" until you send your review · space R shows the latest")
+
+		harness.press("space", "R")
+
+		assert.NotContains(t, harness.readFrame(), "Frozen on round")
 	})
 
 	t.Run("the reviews failing to read fails the load rather than moving the pin", func(t *testing.T) {

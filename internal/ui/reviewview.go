@@ -25,6 +25,7 @@ const (
 	reviewRemovedTone   = paint.ToneDanger
 	reviewUnsentTone    = paint.TonePrimary
 	reviewSentTone      = paint.ToneWarning
+	reviewFrozenTone    = paint.ToneWarning
 	reviewDeliveredTone = paint.ToneSuccess
 	reviewForgeHeldTone = paint.ToneDanger
 )
