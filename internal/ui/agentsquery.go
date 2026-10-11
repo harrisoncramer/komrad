@@ -59,7 +59,10 @@ func (m *model) agentRowFits(r agentRow) clauseFits {
 			return m.agentFits(r.item, clause)
 		}
 		if r.isTask() {
-			return clause.Key == searchsyntax.KeyTask && containsFold(r.task.Slug, clause.Value)
+			writer, ok := r.writer()
+
+			return clause.Key == searchsyntax.KeyTask && containsFold(r.task.Slug, clause.Value) ||
+				ok && m.agentFits(writer, clause)
 		}
 		if clause.Key == searchsyntax.KeyWorkflow {
 			return containsFold(r.workflow.Name, clause.Value)

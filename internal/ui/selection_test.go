@@ -53,25 +53,27 @@ func TestSelection(t *testing.T) {
 
 	t.Run("the bar stays while a menu has the keys", func(t *testing.T) {
 		harness := openAgents(t, withTasks(buildSelectable())...)
-		harness.press("j", "j", "v")
+		harness.press("j", "v")
 
 		harness.press("space", "a")
 		require.Contains(t, harness.readFrame(), "archive all")
 
-		assert.Contains(t, findRenderedRow(t, harness, "api"), bar)
+		assert.Contains(t, findRenderedRow(t, harness, "task-api"), bar)
 	})
 
 	t.Run("a task's row is under the bar while its writer is", func(t *testing.T) {
-		harness := openAgents(t, buildTaskFamily()...)
+		harness := openAgents(t, buildReviewedTasks()...)
 
-		harness.press("j", "j", "j", "v", "j", "v")
-		require.NotContains(t, findRenderedRow(t, harness, "task-author"), bar, "its reviewers alone")
+		harness.press("j", "j", "v", "j", "v")
+		require.Contains(t, findRenderedRow(t, harness, "second-reviewer"), bar)
+		require.Contains(t, findRenderedRow(t, harness, "reviewer"), bar)
+		require.NotContains(t, findRenderedRow(t, harness, "task-writer"), bar, "its reviewers alone")
 
 		harness.press("k", "k", "v")
-		require.Contains(t, findRenderedRow(t, harness, "task-author"), bar, "its writer too")
+		require.Contains(t, findRenderedRow(t, harness, "task-writer"), bar, "its writer too")
 
 		harness.press("v")
-		assert.NotContains(t, findRenderedRow(t, harness, "task-author"), bar, "its writer dropped again")
+		assert.NotContains(t, findRenderedRow(t, harness, "task-writer"), bar, "its writer dropped again")
 	})
 }
 

@@ -63,7 +63,6 @@ func TestReviewOpen(t *testing.T) {
 		})
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
-		harness.press("k")
 		require.Contains(t, readHoveredRow(harness.readFrame()), "login-fix")
 
 		harness.press("space", "r")
@@ -128,7 +127,7 @@ func TestReviewOpen(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 		harness.hold("git.Diff")
 
-		harness.press("k", "space", "r", "?")
+		harness.press("space", "r", "?")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readStageText(frame), "loading the diff")
@@ -145,7 +144,7 @@ func TestReviewOpen(t *testing.T) {
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
 		harness.hold("git.Diff")
-		harness.press("k", "space", "r")
+		harness.press("space", "r")
 
 		for _, x := range []int{1, reviewWidth - 1} {
 			harness.send(tea.MouseWheelMsg{
@@ -880,7 +879,7 @@ func TestReviewSearch(t *testing.T) {
 		harness.press("enter", "esc", "esc")
 
 		frame := harness.readFrame()
-		assert.Len(t, readListRows(frame), 4)
+		assert.Len(t, readListRows(frame), 3)
 		assert.Contains(t, readHoveredRow(frame), "auth")
 	})
 }
@@ -2540,7 +2539,7 @@ func TestReviewHold(t *testing.T) {
 		})
 		server.serve(harness)
 		idle := newAgent("a0", "able", "w1")
-		harness.watch(buildSnapshot(server.workflow, idle, server.agent))
+		harness.watch(buildSnapshot(server.workflow, idle, server.agent, server.task))
 		require.Contains(t, readHoveredRow(harness.readFrame()), "auth")
 
 		harness.press("space", "r")
@@ -2610,6 +2609,7 @@ func newReviewServerOver(repo *gittest.Repo) *reviewServer {
 			Id:         "a1",
 			Name:       "auth",
 			WorkflowId: "w1",
+			Role:       agentv1.AgentRole_AGENT_ROLE_WRITER,
 			TaskId:     xptr.Ptr("t1"),
 			Cwd:        repo.Root,
 			PaneId:     "%9",
@@ -2662,7 +2662,7 @@ func openReviewAt(t *testing.T, server *reviewServer, params panelHarnessParams)
 	harness := newPanelHarness(t, params)
 	server.serve(harness)
 	harness.watch(server.buildSnapshot())
-	harness.press("k", "space", "r")
+	harness.press("space", "r")
 
 	return harness
 }

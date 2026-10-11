@@ -70,7 +70,7 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, tasks taskIndex, r agent
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame, tasks: tasks})
 	standing, failure := tasks.findForAgent(item.Agent).PullRequest, describeFailure(item)
 	if r.isTask() {
-		standing, failure = r.task.PullRequest, ""
+		standing = r.task.PullRequest
 	}
 
 	var notices []notice

@@ -90,7 +90,7 @@ type emphasisFault struct {
 // emphasis is every escape the list letters a row with.
 var emphasis = []emphasisFault{
 	{capability: "bold", loss: "a workflow row reads as an ordinary agent"},
-	{capability: "sitm", loss: "a child reads as an ordinary agent"},
+	{capability: "sitm", loss: "a step of a check's log reads as the check itself"},
 }
 
 // screenEntry and screenEntryPrefix are the entries tmux refuses to send italics on.
@@ -142,7 +142,7 @@ func newTerminalGlyphCheck() Check {
 func newTerminalEmphasisCheck() Check {
 	return Check{
 		Name:        "terminal emphasis",
-		Description: "bold marks a workflow row and italic marks a child",
+		Description: "bold marks a workflow row and italic marks a step of a check's log",
 		Run: func(ctx context.Context, env Env) Result {
 			painting, err := findPaintingTerm(ctx, env)
 			if err != nil {
@@ -337,8 +337,8 @@ func findTerminal(ctx context.Context, env Env) string {
 	return termName
 }
 
-// reversedChild is what becomes of a child row wherever tmux stands in the way.
-const reversedChild = "a child row is drawn reversed rather than italic"
+// reversedStep is what becomes of a step of a check's log wherever tmux stands in the way.
+const reversedStep = "a step of a check's log is drawn reversed rather than italic"
 
 // describeEmphasisFaults is everything wrong with a row's lettering and what to do about each.
 func describeEmphasisFaults(painting string, missing []emphasisFault, substituted bool) (faults, fixes []string) {
@@ -349,7 +349,7 @@ func describeEmphasisFaults(painting string, missing []emphasisFault, substitute
 	}
 
 	if substituted && !slices.ContainsFunc(missing, isItalic) {
-		faults = append(faults, "tmux sends standout in place of italics, so "+reversedChild)
+		faults = append(faults, "tmux sends standout in place of italics, so "+reversedStep)
 		fixes = append(fixes, "set tmux's default-terminal to tmux-256color rather than a screen entry")
 	}
 
@@ -372,7 +372,7 @@ func findMissingEmphasis(ctx context.Context, env Env, term string) ([]emphasisF
 		}
 
 		if isItalic(wanted) && env.InsideTmux != "" {
-			wanted.loss = reversedChild
+			wanted.loss = reversedStep
 		}
 
 		missing = append(missing, wanted)

@@ -33,17 +33,17 @@ func TestLoaderSpinsWhileChecksRun(t *testing.T) {
 	assert.Equal(t, []string{"◜", "◝", "◞", "◟", "◜"}, rendered)
 }
 
-// TestLoaderSpinsForATaskWithoutItsLead covers a task row wearing its lead's running checks keeping the loader turning once a search leaves the lead out.
-func TestLoaderSpinsForATaskWithoutItsLead(t *testing.T) {
+// TestLoaderSpinsForATaskWithoutItsWriter covers a task row wearing its writer's running checks keeping the loader turning once a search leaves the writer out.
+func TestLoaderSpinsForATaskWithoutItsWriter(t *testing.T) {
 	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING)
-	lead, ok := rows[0].(*agentv1.Agent)
+	writer, ok := rows[0].(*agentv1.Agent)
 	require.True(t, ok)
 	task, ok := rows[3].(*taskv1.Task)
 	require.True(t, ok)
 	task.Id, task.Slug, task.Title = "t1", "fix-login", "Fix login"
-	lead.TaskId = xptr.Ptr("t1")
-	lead.TaskSlug = xptr.Ptr("fix-login")
-	lead.CreatedAt = "2026-09-20T12:05:00Z"
+	writer.TaskId = xptr.Ptr("t1")
+	writer.TaskSlug = xptr.Ptr("fix-login")
+	writer.CreatedAt = "2026-09-20T12:05:00Z"
 	other := newAgentAt("checker", "w1", 0)
 	other.TaskId = xptr.Ptr("t1")
 	other.TaskSlug = xptr.Ptr("fix-login")

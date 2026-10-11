@@ -195,7 +195,7 @@
           "key": "triage_rows",
           "path": "layout.triage_rows",
           "type": "integer",
-          "description": "How many families of agents the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A family is an agent with all of its children, and the zone never draws fewer rows than it has slots. Zero turns the zone off.",
+          "description": "How many tasks the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A task is drawn as its writer with its reviewers under it, and the zone never draws fewer rows than it has slots. Zero turns the zone off.",
           "default": "3"
         }
       ],
@@ -1072,6 +1072,13 @@
               "default": "[\"E\"]"
             },
             {
+              "key": "notes",
+              "path": "keybindings.menu.notes",
+              "type": "array",
+              "description": "Swap the pane beside the list between the hovered task's goal and notes and its writer's pane.\nEscape puts the writer's pane back too. The entry is only on a task.",
+              "default": "[\"n\"]"
+            },
+            {
               "key": "restart",
               "path": "keybindings.menu.restart",
               "type": "array",
@@ -1089,7 +1096,7 @@
               "key": "new_agent",
               "path": "keybindings.menu.new_agent",
               "type": "array",
-              "description": "Start a new task on the hovered workflow. On the hovered task it starts a child of the live\nwriter, or else a writer in the task's checkout, and it is not offered once the worktree was\nremoved. The entry is only on the agents list.",
+              "description": "Start a new task on the hovered workflow. On the hovered task it starts a reviewer of the live\nwriter, or else a writer in the task's checkout, and it is not offered once the worktree was\nremoved. The entry is only on the agents list.",
               "default": "[\"c\"]"
             },
             {

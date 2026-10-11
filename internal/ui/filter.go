@@ -498,24 +498,18 @@ func agentRowName(row agentRow) string {
 }
 
 // agentRowDepth is how far a row of the tree is indented: a header, an agent or a task under it,
-// an agent under the task, or a child under an agent.
+// or a reviewer under its task.
 func agentRowDepth(row agentRow) int {
 	switch {
 	case row.isTask():
 		return 1
 	case row.header:
 		return 0
+	case row.underTask:
+		return 2
 	}
 
-	depth := 1
-	if row.child {
-		depth++
-	}
-	if row.underTask {
-		depth++
-	}
-
-	return depth
+	return 1
 }
 
 type narrowedParams[T any] struct {

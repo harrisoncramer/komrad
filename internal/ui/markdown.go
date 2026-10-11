@@ -108,16 +108,7 @@ func agentFields(params agentFieldsParams) []recordField {
 		fields = append(fields, recordField{label: "directory", value: agent.Cwd})
 	}
 	fields = append(fields, params.checkout...)
-
-	fields = append(fields,
-		recordField{label: "flags", value: label.OrDash(agent.Flags)},
-
-		recordField{label: "agent_id", value: label.OrDash(agent.ID)},
-		recordField{label: "session_id", value: label.OrDash(agent.SessionID)},
-	)
-	if schedule != "" {
-		fields = append(fields, recordField{label: "launched by", value: schedule})
-	}
+	fields = append(fields, sessionFields(agent, schedule)...)
 	if created := label.Friendly(agent.CreatedAt); created != "" {
 		fields = append(fields, recordField{label: "created", value: created})
 	}
@@ -125,6 +116,21 @@ func agentFields(params agentFieldsParams) []recordField {
 		if archived := label.Friendly(*agent.ArchivedAt); archived != "" {
 			fields = append(fields, recordField{label: "archived", value: archived})
 		}
+	}
+
+	return fields
+}
+
+// sessionFields is what the record says of an agent's conversation: how it was launched and the ids
+// it goes by.
+func sessionFields(agent panel.Agent, schedule string) []recordField {
+	fields := []recordField{
+		{label: "flags", value: label.OrDash(agent.Flags)},
+		{label: "agent_id", value: label.OrDash(agent.ID)},
+		{label: "session_id", value: label.OrDash(agent.SessionID)},
+	}
+	if schedule != "" {
+		fields = append(fields, recordField{label: "launched by", value: schedule})
 	}
 
 	return fields

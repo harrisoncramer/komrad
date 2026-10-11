@@ -159,10 +159,7 @@ func openNoticed(t *testing.T, params panelHarnessParams, rows ...proto.Message)
 	harness := newPanelHarness(t, params)
 	answerWorktreeReads(harness)
 	harness.watch(buildSnapshot(append([]proto.Message{newLiveWorkflow("w1", "backend")}, rows...)...))
-	harness.press("j")
-	if slices.ContainsFunc(rows, isTask) {
-		harness.press("k")
-	}
+	harness.press("g", "g", "j")
 
 	return harness
 }
@@ -270,10 +267,4 @@ func newUnreadMail(agentID string) *agentv1.Mail {
 		ToAgentId: agentID,
 		ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
 	}
-}
-
-func isTask(row proto.Message) bool {
-	_, ok := row.(*taskv1.Task)
-
-	return ok
 }

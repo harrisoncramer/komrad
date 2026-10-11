@@ -93,11 +93,11 @@ func TestRemoveRefuses(t *testing.T) {
 			name: "a directory another agent works in",
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
 				dir := fixture.cutUnowned(t)
-				fixture.occupy(t, dir, "child-agent")
+				fixture.occupy(t, dir, "reviewer")
 
 				return dir
 			},
-			wantReason: "child-agent",
+			wantReason: "reviewer",
 		},
 		{
 			name: "a directory an agent works somewhere under",

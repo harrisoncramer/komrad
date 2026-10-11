@@ -247,7 +247,7 @@ func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) erro
 }
 
 // refuseTheCaller turns down an agent asking for the checkout it is itself working in, which a
-// child shares with its parent.
+// reviewer shares with its task's writer.
 func (s *Service) refuseTheCaller(ctx context.Context, task taskstore.Task) error {
 	from := caller.From(ctx).AgentID
 	if from == "" {

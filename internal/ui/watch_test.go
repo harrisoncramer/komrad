@@ -47,7 +47,7 @@ func TestWatch(t *testing.T) {
 			newReviewer("a2", "reviewer", "a1"),
 			newAgent("a3", "other", "w1"),
 		)
-		require.Len(t, readListRows(harness.readFrame()), 5)
+		require.Len(t, readListRows(harness.readFrame()), 4)
 
 		harness.watch(
 			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),

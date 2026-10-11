@@ -29,7 +29,8 @@ func (l listing) taskAgents(task panel.Task) []panel.AgentRow {
 	return xslice.Filter(pool, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
 }
 
-func taskFields(params checkoutFieldsParams) []recordField {
+// taskFields is a task's record, with what the record says of its writer where one is listed.
+func taskFields(params checkoutFieldsParams, writer []recordField) []recordField {
 	task := params.task
 
 	directory := label.OrDash(task.Cwd)
@@ -38,10 +39,16 @@ func taskFields(params checkoutFieldsParams) []recordField {
 	}
 	fields := []recordField{{label: "directory", value: directory}}
 	fields = append(fields, checkoutFields(params)...)
+	fields = append(fields, writer...)
 
 	fields = append(fields, recordField{label: "task_id", value: task.ID})
 	if created := label.Friendly(task.CreatedAt); created != "" {
 		fields = append(fields, recordField{label: "created", value: created})
+	}
+	if task.ArchivedAt != nil {
+		if archived := label.Friendly(*task.ArchivedAt); archived != "" {
+			fields = append(fields, recordField{label: "archived", value: archived})
+		}
 	}
 
 	return fields
@@ -59,6 +66,41 @@ func taskMarkdown(task panel.Task) string {
 	}
 
 	return renderDocument(task.Title, "", goal+"\n\n## Notes\n\n"+notes, "")
+}
+
+// isShowingNotes reports whether the row stands for the task whose notes are shown in place of its
+// writer's pane: the task's own row, or its head in the triage zone.
+func (a *agentsScreen) isShowingNotes(r agentRow) bool {
+	switch {
+	case a.notes == "":
+		return false
+	case r.isTask():
+		return r.task.ID == a.notes
+	}
+
+	return r.triage && !r.header && !r.underTask && r.item.Agent.TaskID == a.notes
+}
+
+// notesEntry swaps the pane beside the list between the task's notes and its writer's pane.
+func (a *agentsScreen) notesEntry(m *model, row agentRow) submenuEntry {
+	if a.notes == row.task.ID {
+		return openEntry("close the notes", m.keys.Menu.Notes, a.closeNotes)
+	}
+
+	return openEntry("notes", m.keys.Menu.Notes, func(m *model) tea.Cmd {
+		a.notes = row.task.ID
+		m.stageSelection()
+
+		return nil
+	})
+}
+
+// closeNotes puts the writer's pane back in place of the task's notes.
+func (a *agentsScreen) closeNotes(m *model) tea.Cmd {
+	a.notes = ""
+	m.stageSelection()
+
+	return nil
 }
 
 // agentsOnTasks is the live agents on any of the tasks, hidden ones included.

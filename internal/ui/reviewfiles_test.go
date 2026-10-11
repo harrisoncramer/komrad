@@ -190,7 +190,7 @@ func TestReviewFiles(t *testing.T) {
 		server.serve(harness)
 		harness.watch(server.buildSnapshot())
 
-		harness.press("k", "space", "r")
+		harness.press("space", "r")
 		assert.Contains(t, readFilesBlock(harness.readFrame()), "▸ greet.go +1 −1", "the diff holds the keys")
 
 		harness.press("esc", "j")

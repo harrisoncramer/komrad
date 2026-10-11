@@ -192,7 +192,7 @@ func hasLiveCheckout(task taskstore.Task) bool {
 }
 
 // findTaskActor picks the agent among agents whose action fired a task's moment, preferring the
-// task's writer and then any agent on it that is not a child.
+// task's writer over its reviewers.
 func findTaskActor(agents []agentstore.Agent, taskID string) *agentstore.Agent {
 	var actor *agentstore.Agent
 	for _, agent := range agents {

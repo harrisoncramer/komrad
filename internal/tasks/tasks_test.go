@@ -295,7 +295,7 @@ func TestUpdateTaskNotes(t *testing.T) {
 			callerID: writer.ID,
 		},
 		{
-			name:     "a child on the task writes them",
+			name:     "a reviewer on the task writes them",
 			callerID: reviewer.ID,
 		},
 		{

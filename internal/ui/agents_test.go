@@ -77,9 +77,9 @@ func TestAgentsRows(t *testing.T) {
 			want: []string{"backend", "└─ auth", "frontend", "└─ ui"},
 		},
 		{
-			name: "a reviewer is rendered under its writer rather than where the listing put it",
-			rows: buildTaskFamily(),
-			want: []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author", "   ├─ author", "   ├─ second-reviewer", "   └─ reviewer"},
+			name: "a reviewer is rendered under its task rather than where the listing put it",
+			rows: buildReviewedTasks(),
+			want: []string{"komrad", "├─ task-fix-gutter", "└─ task-writer", "   ├─ second-reviewer", "   └─ reviewer"},
 		},
 		{
 			name: "a reviewer whose writer is archived stays under its task",
@@ -104,8 +104,8 @@ func TestAgentsRows(t *testing.T) {
 		},
 		{
 			name: "a hidden task takes every agent on it and counts once",
-			rows: hideTaskOf(buildTaskFamily(), "author"),
-			want: []string{"komrad +1", "└─ task-fix-gutter", "   └─ fix-gutter"},
+			rows: hideTaskOf(buildReviewedTasks(), "writer"),
+			want: []string{"komrad +1", "└─ task-fix-gutter"},
 		},
 		{
 			name: "an orchestrator is rendered on its workflow's row rather than as a row of its own",
@@ -189,22 +189,22 @@ func TestAgentsShowHidden(t *testing.T) {
 		harness.press("space", "h", "H")
 
 		frame := harness.readFrame()
-		assert.Equal(t, []string{"backend", "├─ task-a2" + hiddenMark, "│  └─ chore", "└─ task-a1", "   └─ auth", "frontend", "└─ task-a3", "   └─ ui"}, readListRows(frame))
+		assert.Equal(t, []string{"backend", "├─ task-a2" + hiddenMark, "└─ task-a1", "frontend", "└─ task-a3"}, readListRows(frame))
 		assert.Equal(t, "└─ task-a3", readHoveredRow(frame))
 	})
 
 	t.Run("a hidden task comes back with every agent on it", func(t *testing.T) {
-		harness := openAgents(t, hideTaskOf(buildTaskFamily(), "author")...)
+		harness := openAgents(t, hideTaskOf(buildReviewedTasks(), "writer")...)
 
 		harness.press("k", "space", "h", "H")
 
-		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "│  └─ fix-gutter", "└─ task-author" + hiddenMark, "   ├─ author", "   ├─ second-reviewer", "   └─ reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-writer" + hiddenMark, "   ├─ second-reviewer", "   └─ reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
-		harness.press("k", "space", "h", "h")
+		harness.press("space", "h", "h")
 
 		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a1", Hidden: true})
 	})
@@ -212,13 +212,13 @@ func TestAgentsShowHidden(t *testing.T) {
 	t.Run("the hide entry unhides a revealed task", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
-		harness.press("k", "space", "h", "H", "k", "k", "space", "h", "h")
+		harness.press("space", "h", "H", "k", "space", "h", "h")
 
 		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a2", Hidden: false})
 	})
 
 	t.Run("a selection covering a whole task hides it", func(t *testing.T) {
-		harness := openAgents(t, buildTaskFamily()...)
+		harness := openAgents(t, buildReviewedTasks()...)
 
 		harness.press("v", "space", "h", "h")
 
@@ -226,7 +226,7 @@ func TestAgentsShowHidden(t *testing.T) {
 	})
 
 	t.Run("a selection reaching part of a task holds hide gray", func(t *testing.T) {
-		harness := openAgents(t, buildTaskFamily()...)
+		harness := openAgents(t, buildReviewedTasks()...)
 
 		harness.press("v", "j", "j", "j", "v", "space", "h")
 
@@ -240,17 +240,17 @@ func TestAgentsShowHidden(t *testing.T) {
 	}{
 		{
 			name:  "on a listed task the menu offers to hide it and show the rest",
-			press: []string{"k"},
+			press: []string{},
 			want:  []string{"› hide", "show hidden tasks"},
 		},
 		{
 			name:  "on a revealed task the menu offers to unhide it and put the rest away",
-			press: []string{"k", "space", "h", "H", "k", "k"},
+			press: []string{"space", "h", "H", "k"},
 			want:  []string{"› unhide", "put hidden tasks away"},
 		},
 		{
 			name:  "on a workflow header only the toggle is live",
-			press: []string{"k", "k"},
+			press: []string{"k"},
 			want:  []string{"› show hidden tasks"},
 		},
 	}
@@ -277,31 +277,31 @@ func TestAgentsSort(t *testing.T) {
 		want  []string
 	}{
 		{
-			name: "created down is the fallback, the newest family first",
-			want: []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ alpha", "   ├─ charlie", "   └─ bob"},
+			name: "created down is the fallback, the newest task first",
+			want: []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ charlie", "   └─ bob"},
 		},
 		{
-			name:  "created up is the oldest family first",
+			name:  "created up is the oldest task first",
 			press: []string{"f", "k"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ alpha", "│  ├─ bob", "│  └─ charlie", "├─ Zulu", "└─ delta"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "├─ Zulu", "└─ delta"},
 		},
 		{
-			name:  "activity down is the family whose head changed state last first",
+			name:  "activity down is the task whose writer changed state last first",
 			press: []string{"f", "tab", "j"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ alpha", "│  ├─ bob", "│  └─ charlie", "└─ delta"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "└─ delta"},
 		},
 		{
 			name:  "name up sorts a name in capitals as its lowercase",
 			press: []string{"f", "tab", "tab", "k"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ alpha", "│  ├─ bob", "│  └─ charlie", "├─ delta", "└─ Zulu"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "├─ delta", "└─ Zulu"},
 		},
 		{
 			name:  "name down",
 			press: []string{"f", "tab", "tab", "j"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ delta", "└─ task-alpha", "   ├─ alpha", "   ├─ charlie", "   └─ bob"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ delta", "└─ task-alpha", "   ├─ charlie", "   └─ bob"},
 		},
 		{
-			name:  "a flat list drops the headers and walks every workflow's families together",
+			name:  "a flat list drops the headers and walks every workflow's tasks together",
 			press: []string{"f", "shift+tab", "j"},
 			want:  []string{"delta", "Zulu", "alpha", "  └ charlie", "  └ bob", "echo"},
 		},
@@ -319,17 +319,17 @@ func TestAgentsSort(t *testing.T) {
 
 	t.Run("the cursor keeps its row as the tree is reordered", func(t *testing.T) {
 		harness := openAgents(t, buildSortable()...)
-		harness.press("j", "j", "j", "j", "j")
-		require.Equal(t, "   ├─ alpha", readHoveredRow(harness.readFrame()))
+		harness.press("j", "j", "j", "j")
+		require.Equal(t, "└─ task-alpha", readHoveredRow(harness.readFrame()))
 
 		harness.press("f", "tab", "esc")
-		assert.Equal(t, "   ├─ alpha", readHoveredRow(harness.readFrame()), "walking to a tab reorders nothing")
+		assert.Equal(t, "└─ task-alpha", readHoveredRow(harness.readFrame()), "walking to a tab reorders nothing")
 
 		harness.press("f", "tab", "j", "esc")
-		assert.Equal(t, "│  ├─ alpha", readHoveredRow(harness.readFrame()), "activity down")
+		assert.Equal(t, "├─ task-alpha", readHoveredRow(harness.readFrame()), "activity down")
 
 		harness.press("f", "tab", "k", "esc")
-		assert.Equal(t, "│  ├─ alpha", readHoveredRow(harness.readFrame()), "name up")
+		assert.Equal(t, "├─ task-alpha", readHoveredRow(harness.readFrame()), "name up")
 	})
 
 	t.Run("the cursor keeps its agent across the flip to a flat list and back", func(t *testing.T) {
@@ -763,12 +763,12 @@ func TestAgentsRecordFocus(t *testing.T) {
 		rows = append(rows, task)
 		harness := openAgents(t, rows...)
 		harness.press("pick:record", "G")
-		require.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
+		require.Regexp(t, `^task_id\s`, readRecordCursor(harness.readFrame()))
 
 		task.Branch = nil
 		harness.watch(buildSnapshot(rows...))
 
-		assert.Regexp(t, `^created\s`, readRecordCursor(harness.readFrame()))
+		assert.Regexp(t, `^task_id\s`, readRecordCursor(harness.readFrame()))
 	})
 
 	t.Run("the row going from under a focused record renders the next from its top", func(t *testing.T) {
@@ -871,7 +871,7 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 	t.Run("a search typed on the list lights its match in the record", func(t *testing.T) {
 		harness := openAgents(t, buildRecordedTask()...)
 
-		harness.press("k", "/", "a", "u", "t", "h")
+		harness.press("/", "a", "u", "t", "h")
 
 		assert.Contains(t, findRawLine(harness.readRawFrame(), recordBranchLine), paint.Panel.Match().Render("auth"))
 	})
@@ -989,15 +989,14 @@ func TestAgentsRecordHeight(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 3})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(buildRecordedTask()...))
-		harness.press("k")
 		harness.fireTimers()
-		require.Equal(t, "  ↓ 3 more", readRecord(harness.readFrame())[2])
+		require.Equal(t, "  ↓ 7 more", readRecord(harness.readFrame())[2])
 
 		harness.press("pick:record", "G", "pick:list")
 
 		record := readRecord(harness.readFrame())
-		assert.Equal(t, "  ↑ 3 more", record[0])
-		assert.NotContains(t, record, "  ↓ 3 more")
+		assert.Equal(t, "  ↑ 7 more", record[0])
+		assert.NotContains(t, record, "  ↓ 7 more")
 	})
 }
 
@@ -1106,7 +1105,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 			harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
 			harness.watch(buildSnapshot(buildRecordedTask()...))
 
-			harness.press(append([]string{"k", "pick:record"}, widenListPresses...)...)
+			harness.press(append([]string{"pick:record"}, widenListPresses...)...)
 
 			frame := harness.readFrame()
 			for label, value := range tt.want {
@@ -1259,7 +1258,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				}
 				harness.watch(buildSnapshot(recorded...))
 
-				harness.press(append([]string{"k"}, tt.presses...)...)
+				harness.press(tt.presses...)
 				harness.fireTimers()
 
 				assert.Equal(t, tt.want, readRecordTag(harness.readFrame()))
@@ -1269,8 +1268,6 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("the focus key reads the directory again", func(t *testing.T) {
 		harness := openAgents(t, buildRecordedTask()...)
-		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
-		harness.press("k")
 		harness.fireTimers()
 		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(1)...)
 
@@ -1311,7 +1308,6 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecordedTask()...))
-		harness.press("k")
 		harness.fireTimers()
 		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("context deadline exceeded")))
 
@@ -1342,11 +1338,10 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openAgents(t, buildRecordedTask()...)
-				harness.press("k")
 				harness.fireTimers()
 				harness.panel.AgeWorktreeReads(tt.age)
 
-				harness.press("j", "k")
+				harness.press("k", "j")
 				harness.fireTimers()
 
 				harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(tt.want)...)
@@ -1359,7 +1354,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
 		harness.watch(buildSnapshot(buildRecordedTask()...))
 
-		harness.press("k", "pick:record", "pick:list", "j", "k")
+		harness.press("pick:record", "pick:list", "k", "j")
 		harness.fireTimers()
 
 		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(1)...)
@@ -1369,7 +1364,6 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 5})
 		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 		harness.watch(buildSnapshot(buildRecordedTask()...))
-		harness.press("k")
 		harness.fireTimers()
 		share := len(readRecord(harness.readFrame()))
 		require.Negative(t, findRecordLine(harness.readFrame(), "created"), "the last fields are past the share")
@@ -1380,7 +1374,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		assert.Positive(t, findRecordLine(frame, "created"))
 		assert.NotContains(t, strings.Join(readRecord(frame), "\n"), "more", "nothing is left out")
 		assert.Len(t, splitLines(frame), defaultHarnessHeight)
-		assert.Equal(t, []string{"backend", "└─ task-a1", "   └─ auth"}, readListRows(frame), "the list keeps its rows")
+		assert.Equal(t, []string{"backend", "└─ task-a1"}, readListRows(frame), "the list keeps its rows")
 
 		harness.press("pick:list")
 		assert.Len(t, readRecord(harness.readFrame()), share)
@@ -1921,7 +1915,7 @@ func TestAgentsEdit(t *testing.T) {
 		adopter.TaskId = writer.TaskId
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), writer, adopter, task)
 
-		harness.press("k", "space", "e")
+		harness.press("space", "e")
 
 		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 		require.NotEmpty(t, harness.panel.ReadRespawnDirs())
@@ -2276,24 +2270,24 @@ func TestAgentsReviewers(t *testing.T) {
 	}{
 		{
 			name:  "one task with one agent",
-			press: []string{"k", "space", "a", "d"},
+			press: []string{"space", "a", "d"},
 			want:  `Permanently delete task "task-fix-gutter"?`,
 		},
 		{
 			name:  "a task whose writer has reviewers",
 			press: []string{"j", "space", "a", "d"},
-			want:  `Permanently delete task "task-author"?`,
+			want:  `Permanently delete task "task-writer"?`,
 		},
 		{
 			name:  "a selection names its agents and the reviewers going with them",
-			press: []string{"v", "j", "j", "v", "space", "a", "d"},
-			want:  "Permanently delete 2 agents and 2 reviewers?",
+			press: []string{"j", "v", "j", "v", "space", "a", "d"},
+			want:  "Permanently delete 2 agents and 1 reviewer?",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, buildTaskFamily()...)
+			harness := openAgents(t, buildReviewedTasks()...)
 
 			harness.press(tt.press...)
 
@@ -2309,7 +2303,7 @@ func TestAgentsReviewers(t *testing.T) {
 		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), writer, writerTask, reviewer)
 
-		harness.press("j", "j", "space", "a", "d")
+		harness.press("j", "v", "j", "v", "space", "a", "d")
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, `Permanently delete agent "writer" and its reviewer?`)
@@ -2317,7 +2311,7 @@ func TestAgentsReviewers(t *testing.T) {
 	})
 
 	t.Run("a task whose newest agent is a reviewer offers its writer's worktree a rebase", func(t *testing.T) {
-		rows := buildTaskFamily()
+		rows := buildReviewedTasks()
 		rows[0] = &workflowv1.Workflow{
 			Id:       "w1",
 			Name:     "komrad",
@@ -2387,7 +2381,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 		arrived, arrivedTask := newBranchAgent("a2", "web", "agent/other")
 		arrived.CreatedAt = "2026-09-20T12:00:00Z"
 		harness.watch(buildPuts(arrived, arrivedTask))
-		harness.press("k", "k", "k")
+		harness.press("k")
 
 		frame := harness.readFrame()
 		require.Equal(t, "├─ task-a2", readHoveredRow(frame))
@@ -2416,8 +2410,6 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			OpenedAt:          "2026-09-19T12:00:00Z",
 		}))
 
-		harness.press("k")
-
 		frame := harness.readFrame()
 		assert.Equal(t, "#7 Pull more pull request info", readRecordField(frame, "pull request"))
 		assert.Equal(t, "@octocat", readRecordField(frame, "author"))
@@ -2433,82 +2425,67 @@ func TestAgentsSelection(t *testing.T) {
 	}{
 		{
 			name:      "with nothing selected the archive key takes the hovered task",
-			press:     []string{"k"},
+			press:     []string{},
 			wantTasks: []string{"task-auth"},
 		},
 		{
 			name:      "the select key takes in the agent under the cursor",
-			press:     []string{"j", "j", "v"},
-			wantTasks: []string{"task-api"},
-		},
-		{
-			name:      "and drops one already selected",
-			press:     []string{"v", "j", "j", "v", "v"},
-			wantTasks: []string{"task-auth"},
-		},
-		{
-			name:      "a header takes its whole folder less the hidden task with no row",
-			press:     []string{"k", "k", "v"},
-			wantTasks: []string{"task-auth", "task-api", "task-db"},
-		},
-		{
-			name:      "a task header takes the agents on it",
 			press:     []string{"j", "v"},
 			wantTasks: []string{"task-api"},
 		},
 		{
+			name:      "and drops one already selected",
+			press:     []string{"v", "j", "v", "v"},
+			wantTasks: []string{"task-auth"},
+		},
+		{
+			name:      "a header takes its whole folder less the hidden task with no row",
+			press:     []string{"k", "v"},
+			wantTasks: []string{"task-auth", "task-api", "task-db"},
+		},
+		{
 			name:      "a partly selected folder is filled in rather than emptied",
-			press:     []string{"j", "j", "v", "k", "k", "k", "k", "v"},
+			press:     []string{"j", "v", "k", "k", "v"},
 			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
 			name:      "a wholly selected folder drops and leaves what is outside it",
-			press:     []string{"k", "k", "v", "G", "v", "g", "g", "v", "G"},
+			press:     []string{"k", "v", "G", "v", "g", "g", "v", "G"},
 			wantTasks: []string{"task-ui"},
 		},
 		{
 			name:      "the range key from a list at rest takes the agent under the cursor",
-			press:     []string{"j", "j", "j", "j", "V"},
+			press:     []string{"j", "j", "V"},
 			wantTasks: []string{"task-db"},
 		},
 		{
 			name:      "and on a header takes the folder",
-			press:     []string{"k", "k", "V"},
+			press:     []string{"k", "V"},
 			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
 			name:      "a header takes no range once the mode is up",
-			press:     []string{"j", "j", "j", "j", "v", "g", "g", "V", "j", "j", "j"},
+			press:     []string{"j", "j", "v", "g", "g", "V", "j", "j", "j"},
 			wantTasks: []string{"task-db"},
 		},
 		{
 			name:      "a selection above reaches down to the cursor",
-			press:     []string{"v", "j", "j", "j", "j", "V"},
+			press:     []string{"v", "j", "j", "V"},
 			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
 			name:      "a selection below reaches up to it",
-			press:     []string{"j", "j", "j", "j", "v", "k", "k", "k", "k", "V"},
+			press:     []string{"j", "j", "v", "k", "k", "V"},
 			wantTasks: []string{"task-auth", "task-api", "task-db"},
-		},
-		{
-			name:      "a range ending on a task row takes the task",
-			press:     []string{"v", "j", "j", "j", "V"},
-			wantTasks: []string{"task-auth", "task-api", "task-db"},
-		},
-		{
-			name:      "and reaching up to one takes it too",
-			press:     []string{"j", "j", "j", "j", "v", "k", "k", "k", "V"},
-			wantTasks: []string{"task-api", "task-db"},
 		},
 		{
 			name:      "a workflow header inside the range is passed over",
-			press:     []string{"j", "j", "j", "j", "v", "G", "V"},
+			press:     []string{"j", "j", "v", "G", "V"},
 			wantTasks: []string{"task-db", "task-ui"},
 		},
 		{
 			name:      "a cursor as far from a selection either side takes the one above",
-			press:     []string{"v", "j", "j", "j", "j", "v", "k", "k", "V"},
+			press:     []string{"v", "j", "j", "v", "k", "V"},
 			wantTasks: []string{"task-auth", "task-api", "task-db"},
 		},
 		{
@@ -2568,7 +2545,7 @@ func TestAgentsSelection(t *testing.T) {
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
 		harness := openAgents(t, withTasks(buildSelectable())...)
-		harness.press("k", "space", "h", "H", "v", "j", "j", "j", "j", "j", "j", "j", "v", "space", "h", "H")
+		harness.press("space", "h", "H", "v", "j", "j", "j", "v", "space", "h", "H")
 
 		harness.press("space", "a", "enter")
 
@@ -2627,22 +2604,22 @@ func buildCursorable() []proto.Message {
 	}
 }
 
-func buildTaskFamily() []proto.Message {
+func buildReviewedTasks() []proto.Message {
 	fixGutter := newAgentAt("fix-gutter", "w1", 2)
-	author := newAgentAt("author", "w1", 1)
-	reviewer := newReviewer("a3", "reviewer", "author")
-	secondReviewer := newReviewer("a4", "second-reviewer", "author")
+	writer := newAgentAt("writer", "w1", 1)
+	reviewer := newReviewer("a3", "reviewer", "writer")
+	secondReviewer := newReviewer("a4", "second-reviewer", "writer")
 	secondReviewer.CreatedAt = "2026-09-20T12:09:00Z"
-	authorTask := newTaskOf(author)
+	writerTask := newTaskOf(writer)
 
 	return []proto.Message{
 		newLiveWorkflow("w1", "komrad"),
 		fixGutter,
 		newTaskOf(fixGutter),
-		author,
+		writer,
 		reviewer,
 		secondReviewer,
-		authorTask,
+		writerTask,
 	}
 }
 
@@ -2799,7 +2776,7 @@ func openWorktreeRecord(t *testing.T, params panelHarnessParams, recorded ...pro
 	harness := newPanelHarness(t, params)
 	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
 	harness.watch(buildSnapshot(recorded...))
-	harness.press("k", "pick:record")
+	harness.press("pick:record")
 
 	return harness
 }

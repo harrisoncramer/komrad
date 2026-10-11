@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 )
@@ -34,11 +35,16 @@ func taskDetails(m *model, r agentRow) details {
 	if r.task.ArchivedAt == nil {
 		tags = taskDetailsTags(m, *r.task)
 	}
+	var writerFields []recordField
+	if writer, ok := r.writer(); ok {
+		writerFields = append([]recordField{{label: "agent", value: label.OrDash(writer.Agent.Harness)}},
+			sessionFields(writer.Agent, m.listing.scheduleName(writer.Agent))...)
+	}
 
 	return details{
 		id:      r.task.ID,
 		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.tasks, r),
-		fields:  taskFields(m.buildCheckoutParams(*r.task)),
+		fields:  taskFields(m.buildCheckoutParams(*r.task), writerFields),
 		tags:    tags,
 	}
 }
@@ -78,7 +84,9 @@ func (a *agentsScreen) doc(m *model) string {
 	switch {
 	case !ok:
 		return ""
-	case r.isTask():
+	case a.isShowingNotes(r):
+		return taskMarkdown(m.listing.tasks[a.notes])
+	case r.isTask() && !held:
 		return taskMarkdown(*r.task)
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)

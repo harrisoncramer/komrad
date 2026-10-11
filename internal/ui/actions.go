@@ -23,6 +23,7 @@ const (
 	actionAgentOpen
 	actionAgentRename
 	actionTaskRename
+	actionTaskNotesBack
 	actionSearchOpen
 	actionSearchEdit
 	actionSearchBack

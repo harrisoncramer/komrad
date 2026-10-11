@@ -18,12 +18,11 @@
 // Only the name is set in. The agents list draws a tree in grey before each name: a workflow at
 // the gutter, its tasks hung off it, and the agents on each task hung off the task, a Tree saying
 // where each row hangs. A list with no tree indents instead, a workflow at the gutter, an agent
-// one step in, and a child one step further on the corner it hangs off its parent by. Weight
-// carries the same structure over again, bold for a workflow and italic for a child, so neither
-// the tree nor the lettering is the only thing saying where a row sits.
+// one step in, and a reviewer one step further on the corner it hangs off its writer by. Weight
+// carries a workflow over again in bold, so the tree is not the only thing saying where it sits.
 //
-// The task row wears the checkout, the pull request and the comments of the newest agent on it,
-// and says nothing of what any agent is doing. The agents under it are Nested and leave their
+// The task row stands for the task's writer. It wears the task's checkout, pull request and
+// comments, and says what the writer is doing. The reviewers under it are Nested and leave their
 // gutter blank, since the task row already says how their work stands.
 //
 // What an agent is doing is said in its name rather than a bar: bold in the warning colour while
@@ -42,11 +41,11 @@
 // it, and an idle agent with a pane of its own is alive and stays bright. Dim reaches the name
 // alone, so a dormant agent still says in colour where its review and its pull request stand.
 //
-// Only an agent's own row is ever ProcessStopped. A workflow is not a process, its orchestrator
-// is, and a workflow whose orchestrator has died still has live agents under it, so its header
-// stays bright and plain, the same as one whose orchestrator was archived or never
-// existed. The sidebar does not tell those apart; an archived orchestrator has
-// a row in the archive, and a stopped one reads the same as none at all.
+// Only an agent's own row, or a task's standing for its writer, is ever ProcessStopped. A
+// workflow is not a process, its orchestrator is, and a workflow whose orchestrator has died still
+// has live agents under it, so its header stays bright and plain, the same as one whose
+// orchestrator was archived or never existed. The sidebar does not tell those apart; an archived
+// orchestrator has a row in the archive, and a stopped one reads the same as none at all.
 //
 // Hidden is a thing a person did to the row, so it is a mark after the name, in the family the
 // pause and the schedule belong to. A hidden task is bright with the mark, and an archived one is

@@ -56,13 +56,20 @@ func (r reviewScreen) isLoading(m *model) bool {
 
 func (l listing) isRowLoading(r agentRow) bool {
 	if r.isTask() {
-		return isChecksRunning(r.task.PullRequest)
+		writer, ok := r.writer()
+
+		return isChecksRunning(r.task.PullRequest) || ok && isAgentLoading(writer)
 	}
 	if r.header {
 		return r.orchestrator != nil && isThinking(*r.orchestrator)
 	}
 
-	return isChecksRunning(l.tasks.findForAgent(r.item.Agent).PullRequest) || r.item.Agent.State == panel.StateSettingUp || isThinking(r.item)
+	return isChecksRunning(l.tasks.findForAgent(r.item.Agent).PullRequest) || isAgentLoading(r.item)
+}
+
+// isAgentLoading reports whether an agent is setting up or at work, either of which turns the loader.
+func isAgentLoading(item panel.AgentRow) bool {
+	return item.Agent.State == panel.StateSettingUp || isThinking(item)
 }
 
 // isThinking reports whether an agent is at work behind a pane still running, which turns the

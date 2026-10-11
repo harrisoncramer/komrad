@@ -571,6 +571,7 @@ func TestPrepareWeight(t *testing.T) {
 	tests := []struct {
 		name     string
 		kind     RowKind
+		nested   bool
 		want     weight
 		wantRule bool
 	}{
@@ -578,6 +579,13 @@ func TestPrepareWeight(t *testing.T) {
 			name:     "a child is italic and hangs off a corner",
 			kind:     KindChild,
 			want:     weightItalic,
+			wantRule: true,
+		},
+		{
+			name:     "a reviewer set in under its writer is regular and hangs off a corner",
+			kind:     KindAgent,
+			nested:   true,
+			want:     weightRegular,
 			wantRule: true,
 		},
 		{
@@ -602,7 +610,7 @@ func TestPrepareWeight(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			line := prepareOne(t, Row{Kind: tt.kind})
+			line := prepareOne(t, Row{Kind: tt.kind, Nested: tt.nested})
 
 			assert.Equal(t, tt.want, line.Weight)
 			assert.Equal(t, tt.wantRule, line.Rule)

@@ -385,7 +385,7 @@ func buildPlainRow(item panel.AgentRow) agentRow {
 
 func buildPlainReviewerRow(item panel.AgentRow) agentRow {
 	row := buildPlainRow(item)
-	row.child = true
+	row.underTask = true
 
 	return row
 }
