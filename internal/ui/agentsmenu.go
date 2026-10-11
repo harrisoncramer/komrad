@@ -64,9 +64,9 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 	})
 
 	tasks := []panel.Task{task}
-	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, tasks))
+	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, m.listing.agentsOnTasks(tasks), describeTasks(tasks)))
 
-	return withNested(menu, "archive", m.keys.Menu.Archive, tasksArchiveMenu(m, tasks, false))
+	return withNested(menu, "archive", m.keys.Menu.Archive, taskArchiveMenu(m, task))
 }
 
 // newAgentEntries is the entry that starts an agent on a task, and none when no agent can start on it.

@@ -150,24 +150,104 @@ func workflowArchiveMenu(m *model, workflow panel.Workflow) submenu {
 	})
 }
 
-// tasksArchiveMenu archives the hovered task or the chosen ones with their agents, or deletes them
-// for good.
-func tasksArchiveMenu(m *model, tasks []panel.Task, chosen bool) submenu {
-	archive, remove := "archive with its agents", "archive and delete for good"
-	if chosen {
-		archive, remove = "archive all", "archive and delete all for good"
-	}
+// taskArchiveMenu archives the hovered task with its agents, or deletes it for good.
+func taskArchiveMenu(m *model, task panel.Task) submenu {
+	tasks := []panel.Task{task}
 
 	return liveArchiveMenu(
 		submenuEntry{
-			label: archive,
+			label: "archive with its agents",
 			keys:  m.keys.ArchiveMenu.Archive,
 			write: func(m *model) tea.Cmd { return m.archiveTasks(tasks) },
 		},
-		openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+		openEntry("archive and delete for good", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
 			return confirmDeleteTasks(m, tasks)
 		}),
 	)
+}
+
+// chosenArchiveMenu archives the chosen agents, or deletes them for good, taking a task only when
+// every agent on it is chosen.
+func chosenArchiveMenu(m *model, work chosenWork) submenu {
+	return liveArchiveMenu(
+		submenuEntry{
+			label: "archive all",
+			keys:  m.keys.ArchiveMenu.Archive,
+			write: func(m *model) tea.Cmd { return m.archiveChosenAgents(work) },
+		},
+		openEntry("archive and delete all for good", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+			return confirmDeleteChosenAgents(m, work)
+		}),
+	)
+}
+
+// archiveChosenAgents archives each wholly chosen task with its agents and the other chosen agents alone.
+func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
+	pending := m.unstageAhead(work.affected(m.listing))
+	subject := describeAgents(work.chosen)
+
+	return pending.attach(m.writeCmd(
+		"archiving "+subject,
+		"Could not archive "+subject,
+		func(a api) error {
+			for _, task := range work.tasks {
+				if err := pending.noteArchive(a.archiveTask(task.ID)); err != nil {
+					return err
+				}
+			}
+			if len(work.agents) == 0 {
+				return nil
+			}
+
+			return pending.noteArchive(a.archiveAgents(panel.IDs(work.agents)))
+		},
+	))
+}
+
+// deleteChosenAgents deletes each wholly chosen task with its agents and the other chosen agents alone.
+func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
+	pending := m.unstageAhead(work.affected(m.listing))
+	subject := describeAgents(work.chosen)
+
+	return pending.attach(m.writeCmd(
+		"deleting "+subject,
+		"Could not delete "+subject,
+		func(a api) error {
+			if len(work.tasks) > 0 {
+				if err := pending.noteArchive(a.deleteTasks(taskIDs(work.tasks))); err != nil {
+					return err
+				}
+			}
+			if len(work.agents) == 0 {
+				return nil
+			}
+
+			ids := panel.IDs(work.agents)
+			if err := pending.noteArchive(a.archiveAgents(ids)); err != nil {
+				return err
+			}
+
+			return a.deleteAgents(ids)
+		},
+	))
+}
+
+// confirmDeleteChosenAgents asks before the chosen agents are deleted for good.
+func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
+	form, confirmed := deleteChosenForm(work, unnamedChildren(m.listing.liveAgents(), work.chosen), fixedKeys())
+
+	return m.openForm(formState{
+		kind:   formArchiveDelete,
+		form:   form,
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
+			if !*confirmed {
+				return nil
+			}
+
+			return m.deleteChosenAgents(work)
+		}),
+	})
 }
 
 func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {

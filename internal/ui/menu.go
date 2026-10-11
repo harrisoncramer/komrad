@@ -46,14 +46,15 @@ func joinMenus(top, bottom submenu) submenu {
 
 func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if a.list().isSelecting(m) {
-		tasks := chosenTasks(m.listing, chosenAgents(a.selected, a.rows(m)))
-		if len(tasks) == 0 {
+		chosen := chosenAgents(a.selected, a.rows(m))
+		if len(chosen) == 0 {
 			return submenu{}, false
 		}
 
-		menu := withNested(rowMenu(describeTasks(tasks)), "hide", m.keys.Menu.Hide, a.hideMenu(m, tasks))
+		subject := describeAgents(chosen)
+		menu := withNested(rowMenu(subject), "hide", m.keys.Menu.Hide, a.hideMenu(m, chosen, subject))
 
-		return withNested(menu, "archive", m.keys.Menu.Archive, tasksArchiveMenu(m, tasks, true)), true
+		return withNested(menu, "archive", m.keys.Menu.Archive, chosenArchiveMenu(m, splitChosen(m.listing, chosen))), true
 	}
 
 	if !a.isBrowsing(m) {
@@ -77,7 +78,7 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 		}
 		menu.entries = append(menu.entries, workflowEntries(m, workflow)...)
 
-		menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, nil))
+		menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, nil, ""))
 
 		return withNested(menu, "archive", m.keys.Menu.Archive, workflowArchiveMenu(m, workflow)), true
 	}

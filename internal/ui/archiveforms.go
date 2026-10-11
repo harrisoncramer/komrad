@@ -21,6 +21,27 @@ func deleteAgentsForm(agents []panel.Agent, children int, keys config.FixedKeys)
 	return confirmForm(title, warning, "Delete", keys)
 }
 
+// deleteChosenForm asks before chosen agents are deleted, naming any task that goes whole with them.
+func deleteChosenForm(work chosenWork, children int, keys config.FixedKeys) (*huh.Form, *bool) {
+	if len(work.tasks) == 0 {
+		return deleteAgentsForm(work.chosen, children, keys)
+	}
+
+	title := "Permanently delete " + promptSubject(work.chosen, children) + "?"
+
+	transcripts := "Their transcripts go with them"
+	if len(work.chosen) == 1 && children == 0 {
+		transcripts = "Its transcript goes with it"
+	}
+
+	warning := fmt.Sprintf("%s, and so do %d tasks with the documents, reviews and worktrees on them.", transcripts, len(work.tasks))
+	if len(work.tasks) == 1 {
+		warning = fmt.Sprintf("%s, and so does task %q with the documents, reviews and worktree on it.", transcripts, work.tasks[0].Slug)
+	}
+
+	return confirmForm(title, warning, "Delete", keys)
+}
+
 func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
 	title := fmt.Sprintf("Permanently delete workflow %q?", workflow.Name)
 

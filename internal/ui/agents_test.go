@@ -2248,9 +2248,9 @@ func TestAgentsChildren(t *testing.T) {
 			want:  `Permanently delete task "task-author"?`,
 		},
 		{
-			name:  "a selection of tasks names how many go",
+			name:  "a selection names its agents and the children going with them",
 			press: []string{"v", "j", "j", "v", "space", "a", "d"},
-			want:  "Permanently delete 2 tasks?",
+			want:  "Permanently delete 2 agents and 2 children?",
 		},
 	}
 
