@@ -394,3 +394,13 @@ func (m *model) docHelp() keyMap {
 func isAlwaysRead(*model) bool {
 	return true
 }
+
+// wheelDoc moves the window over the document, carrying the cursor along when it leaves the window.
+func (m *model) wheelDoc(delta int) {
+	m.settleTail()
+
+	if rows, height, ok := m.docLayout(); ok {
+		m.reading.Scroll(delta, len(rows), height)
+		m.reading.Settle(len(rows), height)
+	}
+}

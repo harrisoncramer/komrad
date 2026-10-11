@@ -137,7 +137,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return tea.Batch(focus, screen.scrollColumn(m, rows*columnWheelStep))
 	}
 
-	m.scrollDoc(rows * columnWheelStep)
+	m.wheelDoc(rows * columnWheelStep)
 
 	return focus
 }

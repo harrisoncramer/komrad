@@ -51,7 +51,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				before := harness.readFrame()
 				require.Contains(t, before, "context line 0")
 
-				harness.send(ui.NewWheelTurns(defaultHarnessWidth-1, 5, 20))
+				wheelOver(harness, defaultHarnessWidth-1)
 
 				frame := harness.readFrame()
 				assert.NotContains(t, readStage(frame), "context line 0")
