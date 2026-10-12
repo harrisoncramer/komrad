@@ -238,6 +238,23 @@ func TestAWrappedLineIsMeasuredAsRendered(t *testing.T) {
 	assert.Greater(t, view.measureRow(y, window), 1)
 }
 
+// TestAFileIsLexedOnceItsRowsAreRendered covers a file nobody has scrolled to costing nothing to
+// highlight.
+func TestAFileIsLexedOnceItsRowsAreRendered(t *testing.T) {
+	t.Parallel()
+
+	view := NewView(patchWith(
+		diff.FromTexts("greet.go", "package greet", "package greeting"),
+		diff.FromTexts("wave.go", "package wave", "package waving"),
+	), false)
+	require.Equal(t, []*fileSource{nil, nil}, view.sources)
+
+	view.renderRow(view.GetFirstRow(), noCursor, 40, 0)
+
+	assert.NotNil(t, view.sources[0])
+	assert.Nil(t, view.sources[1])
+}
+
 // TestCarryStyleOpensEachLineInTheStyleLeftOpen covers a style cut by a wrap carried onto the
 // next line and closed at the end of the first.
 func TestCarryStyleOpensEachLineInTheStyleLeftOpen(t *testing.T) {

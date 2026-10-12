@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -150,13 +149,10 @@ func reviewChapterLabel(params reviewChapterLabelParams) string {
 	chapter := params.Chapter
 
 	switch {
+	case !chapter.Comparable && len(chapter.Conflicts) > 0:
+		return said + ", has conflicts"
 	case !chapter.Comparable:
-		said += ", not comparable, " + baseMovedSaid(chapter)
-		if len(chapter.Conflicts) > 0 {
-			said += ", conflicts in " + strings.Join(chapter.Conflicts, ", ")
-		}
-
-		return said
+		return said + ", not comparable, " + baseMovedSaid(chapter)
 	case chapter.At == "":
 		said += ", not reviewed yet"
 	default:

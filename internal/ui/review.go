@@ -21,6 +21,8 @@ type reviewScreen struct {
 	exclude   []string
 	round     *agentv1.ReviewRound
 	loading   bool
+	// loads counts the reads of the diff started, and only the newest one lands.
+	loads int
 	// notice is what the last load had to say about the round it settled on.
 	notice string
 
