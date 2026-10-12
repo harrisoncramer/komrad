@@ -1848,6 +1848,20 @@ func TestReviewRounds(t *testing.T) {
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
+	t.Run("a chapter the reader has already stepped past never lands", func(t *testing.T) {
+		harness := openReview(t, newEarlierReviewServer(t))
+		harness.hold(agentv1connect.AgentServiceListReviewsProcedure)
+
+		harness.press("<", "<")
+		harness.release(agentv1connect.AgentServiceListReviewsProcedure)
+		frame := harness.readFrame()
+		assert.Contains(t, readSidebarProse(frame), "chapter 1 of 2")
+		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
+
+		harness.release(agentv1connect.AgentServiceListReviewsProcedure)
+		assert.Contains(t, readSidebarProse(harness.readFrame()), "1 file, +1 -1")
+	})
+
 	t.Run("one load reads the reviews and the rounds once", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 

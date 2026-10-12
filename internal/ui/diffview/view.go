@@ -52,10 +52,12 @@ type Anchor struct {
 }
 
 type View struct {
-	patch   *diff.Patch
-	traced  tracedByID
-	rows    []row
-	sources []fileSource
+	patch  *diff.Patch
+	traced tracedByID
+	rows   []row
+	// sources is each file lexed, nil until a row of it is first rendered.
+	sources   []*fileSource
+	highlight *highlighter
 
 	// patchRows is how many rows the patch produced, the adrift threads being kept past that point
 	// so one arriving does not move every other row.
@@ -106,27 +108,19 @@ func (v *View) SetNarrowed(narrowed bool) {
 	v.narrowed = narrowed
 }
 
-// NewView builds the review view over a patch, highlighting each file for the theme the
-// terminal is on.
+// NewView builds the review view over a patch, highlighting files for the theme the terminal is
+// on as they are rendered.
 func NewView(patch *diff.Patch, isDark bool) *View {
 	v := &View{
-		patch:    patch,
-		sources:  make([]fileSource, len(patch.Files)),
-		pinned:   map[int]*agentv1.ReviewThread{},
-		placed:   map[string]placement{},
-		files:    slices.Clone(patch.Files),
-		viewed:   map[string]bool{},
-		expanded: map[string]bool{},
-		whole:    map[string]*diff.File{},
-	}
-
-	highlight := newHighlighter(isDark)
-	for fileIndex := range patch.Files {
-		file := &patch.Files[fileIndex]
-		v.sources[fileIndex] = fileSource{
-			old: highlight.splitLines(file.Path(), file.OldSource),
-			new: highlight.splitLines(file.Path(), file.NewSource),
-		}
+		patch:     patch,
+		sources:   make([]*fileSource, len(patch.Files)),
+		highlight: newHighlighter(isDark),
+		pinned:    map[int]*agentv1.ReviewThread{},
+		placed:    map[string]placement{},
+		files:     slices.Clone(patch.Files),
+		viewed:    map[string]bool{},
+		expanded:  map[string]bool{},
+		whole:     map[string]*diff.File{},
 	}
 
 	v.build()
@@ -759,12 +753,25 @@ func markerFor(kind diff.LineKind) string {
 // getStyledLine is the lexed source behind a diff line, taken from whichever side of the file
 // the line belongs to.
 func (v *View) getStyledLine(current row, line diff.Line) styledLine {
-	source := v.sources[current.file]
+	source := v.lexFile(current.file)
 	if line.Kind == diff.Deletion {
 		return lineAt(source.old, line.OldNumber)
 	}
 
 	return lineAt(source.new, line.NewNumber)
+}
+
+// lexFile is both sides of a file lexed, lexing them the first time they are asked for.
+func (v *View) lexFile(fileIndex int) *fileSource {
+	if v.sources[fileIndex] == nil {
+		file := &v.patch.Files[fileIndex]
+		v.sources[fileIndex] = &fileSource{
+			old: v.highlight.splitLines(file.Path(), file.OldSource),
+			new: v.highlight.splitLines(file.Path(), file.NewSource),
+		}
+	}
+
+	return v.sources[fileIndex]
 }
 
 // GetEditTarget returns the file the cursor is in and the line to open it on, answering with the
