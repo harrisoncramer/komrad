@@ -1475,8 +1475,8 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 	return nil
 }
 
-// TestScriptTimeouts covers how long a run gets, where the file's own declaration wins and
-// only a launch blocked on the script falls back to a ceiling.
+// TestScriptTimeouts covers how long a run gets, where the file's own declaration wins except
+// over a hook, which never runs past the hooks.timeout setting.
 func TestScriptTimeouts(t *testing.T) {
 	agent := agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}
 
@@ -1540,6 +1540,30 @@ func TestScriptTimeouts(t *testing.T) {
 			},
 			want: 30 * time.Second,
 		},
+		{
+			name:   "a hook that declares nothing runs to the setting",
+			script: "bare",
+			fire: func(s *ScriptService, name string) error {
+				return s.RunHook(t.Context(), agent, name, workflowstore.HookAgentPreLaunch)
+			},
+			want: time.Minute,
+		},
+		{
+			name:   "a hook that declares no limit runs to the setting",
+			script: "unlimited",
+			fire: func(s *ScriptService, name string) error {
+				return s.RunHook(t.Context(), agent, name, workflowstore.HookAgentPreLaunch)
+			},
+			want: time.Minute,
+		},
+		{
+			name:   "a hook that declares more than the setting runs to the setting",
+			script: "long",
+			fire: func(s *ScriptService, name string) error {
+				return s.RunHook(t.Context(), agent, name, workflowstore.HookAgentPreLaunch)
+			},
+			want: time.Minute,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1551,6 +1575,9 @@ func TestScriptTimeouts(t *testing.T) {
 			), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "unlimited"), []byte(
 				"#!/bin/sh\n#KOMRAD timeout=\"none\"\n",
+			), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "long"), []byte(
+				"#!/bin/sh\n#KOMRAD timeout=\"10m\"\n",
 			), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 

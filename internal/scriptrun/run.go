@@ -24,8 +24,14 @@ const provisionTimeout = 10 * time.Minute
 
 const deprovisionTimeout = 2 * time.Minute
 
-// HookTimeout is how long a hook is given when its header declares no timeout.
-const HookTimeout = 10 * time.Minute
+const startHookMoments = 2
+
+const startMargin = time.Minute
+
+// StartTimeout outlasts starting an agent, whose provisioner and hooks run in turn, each hook under hookTimeout.
+func StartTimeout(hookTimeout time.Duration) time.Duration {
+	return provisionTimeout + startHookMoments*hookTimeout + startMargin
+}
 
 const maxProvisionedDir = 4096
 
@@ -77,6 +83,11 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		return s.refuseHook(ctx, record, name, err)
 	}
 
+	limit, err := s.HookTimeout()
+	if err != nil {
+		return s.refuseHook(ctx, record, name, err)
+	}
+
 	dir := agent.Cwd
 	if err := scripts.RequireUsableDir(dir); err != nil {
 		if !gone && !isOutsideWorktree(agent, event) {
@@ -94,7 +105,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		Script:  script,
 		Dir:     dir,
 		Env:     env,
-		Timeout: script.Header.TimeoutOr(HookTimeout),
+		Timeout: script.Header.TimeoutWithin(limit),
 	})
 	writeRunLog(ctx, record.logPath, combinedOutput(result.Stdout, result.Stderr))
 

@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/git"
 	"komrad/internal/logging"
+	"komrad/internal/rpcapi"
 	"komrad/internal/tmux"
 	"komrad/lib/xhttp"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -246,7 +247,7 @@ func setUpWorkflowHere(ctx context.Context, state *app) {
 	}
 
 	base := "http://" + state.env.Addr
-	httpClient := xhttp.NewClient(0)
+	httpClient := xhttp.NewClientOver(rpcapi.NewTransport(), 0)
 	if err := autoSetup(ctx, autoSetupParams{
 		Dir:       dir,
 		Git:       git.NewClient(git.NewClientParams{}),

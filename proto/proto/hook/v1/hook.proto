@@ -15,7 +15,7 @@ message Hook {
   bool executable = 2;
   // The description in the script's header comments.
   string description = 3;
-  // How long komrad waits for the script, from its header. Unset means the default.
+  // How long komrad lets the script run. Its header can shorten the hooks.timeout setting but never lengthen it.
   optional google.protobuf.Duration timeout = 4;
   // The header lines komrad could not read. Each one leaves its setting at the default.
   repeated string header_problems = 5;

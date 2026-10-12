@@ -41,7 +41,8 @@ type Config struct {
 	// number from 0 to 255, which your terminal's theme decides the look of, or a hex code like
 	// "#1e3a5f".
 	Palette Palette `mapstructure:"palette"`
-	// Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
+	// Where komrad finds the scripts a workflow hangs on a moment in its agents' lives, and how long
+	// each may run.
 	Hooks Hooks `mapstructure:"hooks"`
 	// Where a workflow's generated worktree provisioner creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
@@ -75,6 +76,7 @@ func Defaults() *Config {
 		Palette:        defaultPalette(),
 		Forge:          Forge{MaxCheckLogBytes: defaultMaxCheckLogBytes},
 		Mail:           Mail{DeliveryDeadline: defaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
+		Hooks:          Hooks{Timeout: defaultHookTimeout},
 		Log:            Log{Level: defaultLogLevel},
 		Debug: Debug{
 			FrameHistory: DefaultFrameHistory,
@@ -96,6 +98,7 @@ func (c Config) validate() error {
 		c.Usage.validate,
 		c.Keybindings.validate,
 		c.Mail.validate,
+		c.Hooks.validate,
 		c.Git.validate,
 		c.Glyphs.validate,
 		c.Palette.validate,

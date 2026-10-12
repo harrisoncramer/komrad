@@ -7,15 +7,6 @@ import (
 	"strings"
 )
 
-// Hooks is where komrad finds the scripts a workflow hangs on a moment in its agents' lives.
-type Hooks struct {
-	// Directory for hooks: one executable file per hook, named after the hook.
-	// A hook is a script or program komrad runs at a moment a workflow names it against, in the
-	// agent's own directory, with agent info in KOMRAD_AGENT as JSON and the moment in
-	// KOMRAD_TRIGGER. Default is ~/.config/komrad/hooks.
-	Dir string `mapstructure:"dir"`
-}
-
 // Worktrees is where a workflow's generated git worktree provisioner puts what it creates.
 type Worktrees struct {
 	// Directory generated worktrees are created under, one subdirectory per agent.

@@ -26,6 +26,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func hookTimeout() (time.Duration, error) {
+	return time.Minute, nil
+}
+
 func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 	t.Helper()
 
@@ -42,11 +46,12 @@ func newRiverClientWithStores(t *testing.T) (*river.Client[pgx.Tx], *storetest.S
 	require.NoError(t, db.NewRiverMigrator(stores.Pool.GetRawPool()).Migrate(t.Context(), stores.Pool.GetRiverSchema()))
 
 	client, err := NewClient(NewClientParams{
-		Schema:    stores.Pool.GetRiverSchema(),
-		Pool:      stores.Pool.GetRawPool(),
-		Schedules: stores.Schedules,
-		Runs:      stores.Schedules,
-		Running:   stores.Agents,
+		Schema:      stores.Pool.GetRiverSchema(),
+		Pool:        stores.Pool.GetRawPool(),
+		Schedules:   stores.Schedules,
+		Runs:        stores.Schedules,
+		Running:     stores.Agents,
+		HookTimeout: hookTimeout,
 	})
 	require.NoError(t, err)
 
@@ -387,12 +392,13 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	})
 
 	client, err := NewClient(NewClientParams{
-		Schema:    stores.Pool.GetRiverSchema(),
-		Pool:      stores.Pool.GetRawPool(),
-		Schedules: stores.Schedules,
-		Runs:      stores.Schedules,
-		Launcher:  launcher,
-		Running:   stores.Agents,
+		Schema:      stores.Pool.GetRiverSchema(),
+		Pool:        stores.Pool.GetRawPool(),
+		Schedules:   stores.Schedules,
+		Runs:        stores.Schedules,
+		Launcher:    launcher,
+		Running:     stores.Agents,
+		HookTimeout: hookTimeout,
 	})
 	require.NoError(t, err)
 	require.NoError(t, client.Start(t.Context()))
@@ -447,10 +453,11 @@ func TestEventRecordsItsFollowUps(t *testing.T) {
 
 	wake := internaljobs.WakeAgentArgs{AgentID: "reviewer"}
 	client, err := NewClient(NewClientParams{
-		Schema:  stores.Pool.GetRiverSchema(),
-		Pool:    stores.Pool.GetRawPool(),
-		Running: stores.Agents,
-		Router:  followUpRouter{followUps: []river.JobArgs{wake, wake}},
+		Schema:      stores.Pool.GetRiverSchema(),
+		Pool:        stores.Pool.GetRawPool(),
+		Running:     stores.Agents,
+		Router:      followUpRouter{followUps: []river.JobArgs{wake, wake}},
+		HookTimeout: hookTimeout,
 	})
 	require.NoError(t, err)
 	require.NoError(t, client.Start(t.Context()))

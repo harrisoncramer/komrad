@@ -17,6 +17,7 @@ import (
 
 type hookLister interface {
 	ListHooks() ([]agents.Script, error)
+	HookTimeout() (time.Duration, error)
 }
 
 type Handler struct {
@@ -36,23 +37,20 @@ func (s *Handler) ListHooks(_ context.Context, _ *emptypb.Empty) (*hookv1.ListHo
 		return nil, rpcerr.From(err, "failed to list hooks")
 	}
 
+	limit, err := s.hooks.HookTimeout()
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to read the hook timeout")
+	}
+
 	resources := xslice.Map(listed, func(hook agents.Script) *hookv1.Hook {
 		return &hookv1.Hook{
 			Name:           hook.Name,
 			Executable:     hook.Executable,
 			Description:    hook.Header.Description,
-			Timeout:        declaredTimeout(hook.Header.Timeout),
+			Timeout:        durationpb.New(hook.Header.TimeoutWithin(limit)),
 			HeaderProblems: hook.Header.Problems,
 		}
 	})
 
 	return &hookv1.ListHooksResponse{Hooks: resources}, nil
-}
-
-func declaredTimeout(timeout time.Duration) *durationpb.Duration {
-	if timeout <= 0 {
-		return nil
-	}
-
-	return durationpb.New(timeout)
 }

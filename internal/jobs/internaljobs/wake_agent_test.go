@@ -53,7 +53,7 @@ func TestWakeAgentWorker(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resumer := &fakeAgentResumer{err: tt.resumeErr}
 
-			err := NewWakeAgentWorker(resumer).Work(t.Context(), &river.Job[WakeAgentArgs]{Args: WakeAgentArgs{AgentID: "a"}})
+			err := NewWakeAgentWorker(resumer, nil).Work(t.Context(), &river.Job[WakeAgentArgs]{Args: WakeAgentArgs{AgentID: "a"}})
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, []string{"a"}, resumer.resumed)

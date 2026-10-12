@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -935,6 +936,58 @@ func TestLoadRejectsMailTheServerCouldNotSendOn(t *testing.T) {
 
 			require.Error(t, err, "the server reads this per send, so a bad value stops mail rather than startup")
 			assert.ErrorContains(t, err, tt.want)
+		})
+	}
+}
+
+// TestLoadHookTimeout covers how long a hook may run, which the server reads before every hook.
+func TestLoadHookTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		want    time.Duration
+		wantErr bool
+	}{
+		{
+			name: "nothing written",
+			file: "",
+			want: time.Minute,
+		},
+		{
+			name: "a duration somebody chose",
+			file: "[hooks]\ntimeout = \"5m\"\n",
+			want: 5 * time.Minute,
+		},
+		{
+			name:    "a duration in words",
+			file:    "[hooks]\ntimeout = \"an hour\"\n",
+			wantErr: true,
+		},
+		{
+			name:    "no time at all",
+			file:    "[hooks]\ntimeout = \"0s\"\n",
+			wantErr: true,
+		},
+		{
+			name:    "a negative duration",
+			file:    "[hooks]\ntimeout = \"-5s\"\n",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := loadStrict(t, tt.file)
+			if tt.wantErr {
+				assert.ErrorContains(t, err, "hooks.timeout")
+
+				return
+			}
+
+			require.NoError(t, err)
+			timeout, err := cfg.Hooks.GetTimeout()
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, timeout)
 		})
 	}
 }
