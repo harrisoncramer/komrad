@@ -91,7 +91,12 @@ func TestIntegrationLogReadsWhatWasLoggedAboutAgents(t *testing.T) {
 	ids := []string{api.GetId(), migrations.GetId()}
 	first, err := instance.Logs.ReadAgentLogs(ctx, connect.NewRequest(&logv1.ReadAgentLogsRequest{AgentIds: ids}))
 	require.NoError(t, err)
-	assert.Equal(t, []string{"api started the refund column", "migrations wrote the migration"}, messages(first.Msg.GetLines()))
+	assert.Equal(t, []string{
+		"launched an agent with its hooks",
+		"launched an agent with its hooks",
+		"api started the refund column",
+		"migrations wrote the migration",
+	}, messages(first.Msg.GetLines()))
 	assert.False(t, first.Msg.GetReset_())
 
 	logAbout(bystander.GetId(), "bystander again")
