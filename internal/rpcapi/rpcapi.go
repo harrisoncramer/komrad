@@ -70,11 +70,6 @@ var awaitsHooks = map[string]bool{
 	workflowv1connect.WorkflowServiceRestoreWorkflowProcedure: true,
 }
 
-// AwaitsHooks reports whether a call to the procedure waits on a workflow's hooks or provisioner, which the server alone bounds.
-func AwaitsHooks(procedure string) bool {
-	return awaitsHooks[procedure]
-}
-
 type Method struct {
 	Service  protoreflect.ServiceDescriptor
 	Method   protoreflect.MethodDescriptor
@@ -83,7 +78,7 @@ type Method struct {
 
 // GetCallTimeout returns how long a caller waits on the method, or 0 for one the server alone bounds.
 func (m Method) GetCallTimeout(fallback time.Duration) time.Duration {
-	if AwaitsHooks(m.GetPath()) {
+	if awaitsHooks[m.GetPath()] {
 		return 0
 	}
 
