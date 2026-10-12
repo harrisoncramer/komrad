@@ -11,7 +11,7 @@ option go_package = "komrad/proto/gen/task/v1;taskv1";
 
 // Sequence names an operation git has part-way through a task's checkout, waiting on somebody.
 enum Sequence {
-  // Nothing was recorded. No stored checkout answers with this.
+  // Nothing was recorded. No stored checkout has this value.
   SEQUENCE_UNSPECIFIED = 0;
   // Nothing is part-way through.
   SEQUENCE_NONE = 1;

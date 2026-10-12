@@ -50,7 +50,7 @@ For instance, the reconcile loop reads the bottom of each agent's pane and decid
 
 Sometimes it's better for komrad to notice changes more quickly than background loops allow. For instance, when you merge a pull request, you should see that change right away.
 
-Komrad does not patch state to get there. State flows into the database from an external system only through the loop cycle.
+Komrad does not patch state to show a change sooner. State flows into the database from an external system only through the loop cycle.
 
 Instead the server can "wake" a loop, which asks it to run now instead of at its next tick.
 

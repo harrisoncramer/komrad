@@ -7684,7 +7684,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether more lines remain past the cursor. Reading again returns them at once."
+          "description": "Whether more lines remain past the cursor. When true, reading again right away returns them."
         }
       ]
     },

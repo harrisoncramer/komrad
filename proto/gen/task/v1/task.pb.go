@@ -29,7 +29,7 @@ const (
 type Sequence int32
 
 const (
-	// Nothing was recorded. No stored checkout answers with this.
+	// Nothing was recorded. No stored checkout has this value.
 	Sequence_SEQUENCE_UNSPECIFIED Sequence = 0
 	// Nothing is part-way through.
 	Sequence_SEQUENCE_NONE Sequence = 1

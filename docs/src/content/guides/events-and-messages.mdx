@@ -8,7 +8,7 @@ order: 11
 import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
 
-Every message an agent receives is _mail_. Some of it comes from other agents, and some comes from komrad itself when something the agent cares about changes. Both kinds arrive the same way. Komrad sends its own mail through a [transactional outbox](#how-a-change-becomes-mail), so mail always follows a saved change, and an unsaved change never sends mail.
+Every message an agent receives is _mail_. Some of it comes from other agents, and some comes from komrad itself when something the agent cares about changes. Both kinds arrive the same way. Komrad sends its own mail through a [transactional outbox](#how-a-change-becomes-mail), so mail always follows a saved change, and komrad never sends mail for an unsaved one.
 
 ## Messages between agents
 

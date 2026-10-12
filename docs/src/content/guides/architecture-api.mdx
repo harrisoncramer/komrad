@@ -42,7 +42,7 @@ Three generators run. Two are the standard protobuf and Connect ones. The third 
 
 A request passes through a few interceptors before it reaches a handler. A guard refuses any Host header that is not loopback, which stops a web page on your machine from reaching the API. A recovery layer turns a panic into an error. The JSON codec refuses unknown fields instead of dropping them. Validation runs the rules declared in the proto. Then the handler makes one call into a service.
 
-Two headers name the caller's agent and session. From them a handler knows that a writer may archive only the reviewers on its own task.
+Two headers name the caller's agent and session. A handler reads them to check that a writer archives only the reviewers on its own task.
 
 ## CLI and MCP
 

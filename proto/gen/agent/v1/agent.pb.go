@@ -33,7 +33,7 @@ const (
 type AgentState int32
 
 const (
-	// No state was recorded. No stored agent answers with this.
+	// No state was recorded. No stored agent has this state.
 	AgentState_AGENT_STATE_UNSPECIFIED AgentState = 0
 	// The pane is at rest with nothing typed.
 	AgentState_AGENT_STATE_IDLE AgentState = 1
@@ -110,7 +110,7 @@ func (AgentState) EnumDescriptor() ([]byte, []int) {
 type AgentRole int32
 
 const (
-	// No role was recorded. No stored agent answers with this.
+	// No role was recorded. No stored agent has this role.
 	AgentRole_AGENT_ROLE_UNSPECIFIED AgentRole = 0
 	// An agent on a task that reads its change and gives a review.
 	AgentRole_AGENT_ROLE_REVIEWER AgentRole = 1

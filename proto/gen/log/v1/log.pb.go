@@ -437,7 +437,7 @@ type ReadAgentLogsResponse struct {
 	Cursor string `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	// Whether the log started over since the cursor. When true, the lines held before are gone.
 	Reset_ bool `protobuf:"varint,3,opt,name=reset,proto3" json:"reset,omitempty"`
-	// Whether more lines remain past the cursor. Reading again returns them at once.
+	// Whether more lines remain past the cursor. When true, reading again right away returns them.
 	More          bool `protobuf:"varint,4,opt,name=more,proto3" json:"more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

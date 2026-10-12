@@ -9,7 +9,7 @@ import Command from "../../components/Command.astro";
 
 A remote engine is komrad running on a machine that is not your laptop. The server, the database and every agent's terminal live there. The panel stays with you.
 
-Komrad needs little from that machine: a Postgres it can reach, tmux, the agent CLIs, and SSH in. This guide describes the engine we run for komrad's own development. It is on AWS, deployed from GitHub Actions, and wired to GitHub through a GitHub App. The Terraform and Packer in the repository build exactly that. You do not need any of it to run an engine. We chose it.
+Komrad needs little from that machine: a Postgres it can reach, tmux, the agent CLIs, and SSH in. This guide describes the engine we run for komrad's own development. It is on AWS, deployed from GitHub Actions, and wired to GitHub through a GitHub App. The Terraform and Packer in the repository build exactly that. We chose that setup, but you do not need any of it to run an engine.
 
 ## The pieces
 

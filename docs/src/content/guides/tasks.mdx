@@ -35,7 +35,7 @@ Each task stores a short markdown page about where the work stands, covering wha
 
 A task can get a worktree, which isolates its edits and enables pull request and review workflows. This is the typical pattern for development with komrad.
 
-When the workflow creates worktrees, each task gets one of its own, on a branch named `task/the-task-id`, where komrad generates the task id. Every agent on the task works in that checkout, which isolates tasks from each other.
+When the workflow creates worktrees, each task gets one of its own, on a branch named `task/the-task-id`. Komrad generates the task id. Every agent on the task works in that checkout, which isolates tasks from each other.
 
 <Alert variant="danger">
   Agents spawned into tasks without a worktree will not have isolation between edits. Be careful; these types of tasks

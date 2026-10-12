@@ -20,7 +20,7 @@ option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
 // AgentState records what the panel last decided an agent was doing, read from the tail of its pane.
 enum AgentState {
-  // No state was recorded. No stored agent answers with this.
+  // No state was recorded. No stored agent has this state.
   AGENT_STATE_UNSPECIFIED = 0;
   // The pane is at rest with nothing typed.
   AGENT_STATE_IDLE = 1;
@@ -42,7 +42,7 @@ enum AgentState {
 
 // AgentRole names what an agent was launched to do.
 enum AgentRole {
-  // No role was recorded. No stored agent answers with this.
+  // No role was recorded. No stored agent has this role.
   AGENT_ROLE_UNSPECIFIED = 0;
   // An agent on a task that reads its change and gives a review.
   AGENT_ROLE_REVIEWER = 1;
