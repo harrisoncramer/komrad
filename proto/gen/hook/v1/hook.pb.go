@@ -34,7 +34,7 @@ type Hook struct {
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	// How long komrad waits for the script, from its header. Unset means the default.
 	Timeout *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
-	// The part of the header komrad could not read. The rest of the header falls back to defaults.
+	// The header lines komrad could not read. Each one leaves its setting at the default.
 	HeaderProblems []string `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

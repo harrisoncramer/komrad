@@ -7319,7 +7319,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The part of the header komrad could not read. The rest of the header falls back to defaults."
+          "description": "The header lines komrad could not read. Each one leaves its setting at the default."
         }
       ]
     },

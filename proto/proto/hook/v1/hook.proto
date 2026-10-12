@@ -17,7 +17,7 @@ message Hook {
   string description = 3;
   // How long komrad waits for the script, from its header. Unset means the default.
   optional google.protobuf.Duration timeout = 4;
-  // The part of the header komrad could not read. The rest of the header falls back to defaults.
+  // The header lines komrad could not read. Each one leaves its setting at the default.
   repeated string header_problems = 5;
 }
 
