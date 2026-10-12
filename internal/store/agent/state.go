@@ -96,6 +96,7 @@ func (s *AgentStore) SetReportedReason(ctx context.Context, id, reason string) e
 	if err != nil {
 		return fmt.Errorf("failed to set the reported reason for id %q: %w", id, err)
 	}
+
 	if updated == 0 {
 		return store.ErrNotFound.Saying("no agent with id %q", id)
 	}

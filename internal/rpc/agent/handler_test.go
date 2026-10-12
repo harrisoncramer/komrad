@@ -832,16 +832,19 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 	}
 }
 
-// TestRecordReportLogsTheHookCall pins the line every hook call leaves under the agent it came from,
-// and that a report komrad refused leaves none.
+// TestRecordReportLogsTheHookCall pins the line a hook call leaves only once komrad recorded it.
 func TestRecordReportLogsTheHookCall(t *testing.T) {
 	tests := []struct {
-		name       string
-		err        error
-		wantLogged bool
+		name string
+		err  error
 	}{
-		{name: "a report the agent's row took", wantLogged: true},
-		{name: "a report from an agent komrad does not hold", err: store.ErrNotFound},
+		{
+			name: "a report from an agent komrad does not hold",
+			err:  store.ErrNotFound,
+		},
+		{
+			name: "a report the agent's row took",
+		},
 	}
 
 	for _, tt := range tests {
@@ -858,13 +861,15 @@ func TestRecordReportLogsTheHookCall(t *testing.T) {
 				Hook:  "PreToolUse",
 				Tool:  "Bash",
 			}))
-			if !tt.wantLogged {
+			if tt.err != nil {
 				require.Error(t, err)
 				assert.Empty(t, written.String())
 
 				return
 			}
+
 			require.NoError(t, err)
+
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, id, record[logging.TargetAgentID])
 			assert.Equal(t, "PreToolUse", record[logging.HookName])
