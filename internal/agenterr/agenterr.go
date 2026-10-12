@@ -33,9 +33,6 @@ var (
 	// its work.
 	ErrReviewerAlreadyRunning = fail.AlreadyExists("this agent already has a reviewer")
 
-	// ErrNoLiveReviewer says the agent has no reviewer still owed an answer.
-	ErrNoLiveReviewer = fail.Precondition("this agent has no reviewer still reading its work")
-
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched.
 	ErrAlreadyLaunched = fail.AlreadyExists("this idempotency key already launched an agent")
 

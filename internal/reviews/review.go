@@ -466,11 +466,15 @@ func (s *ReviewService) AddReviewMessage(
 		if err != nil {
 			return nil, err
 		}
-		if !answering {
+		if !answering || thread.ReviewAuthorAgentID == nil {
 			return nil, nil
 		}
 
-		event, err := events.NewEvent(answered{AgentID: *params.Author.AgentID})
+		event, err := events.NewEvent(answered{
+			TaskID:     thread.TaskID,
+			WriterID:   *params.Author.AgentID,
+			ReviewerID: *thread.ReviewAuthorAgentID,
+		})
 		if err != nil {
 			return nil, err
 		}

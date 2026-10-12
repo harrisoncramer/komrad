@@ -747,30 +747,31 @@ WHERE
 
 -- name: ListLiveReviewers :many
 SELECT
-    p.id AS agent_id,
-    c.id AS reviewer_id
+    a.id
 FROM
-    agents c
-    JOIN agents p ON p.task_id = c.task_id
-        AND p.role = 'writer'
+    agents a
 WHERE
-    c.role = 'reviewer'
-    AND c.archived_at IS NULL
-    AND c.state <> 'failed_to_create'
-    AND c.state <> 'failed_to_cleanup'
+    a.task_id = sqlc.arg('task_id')::uuid
+    AND a.role = 'reviewer'
+    AND a.archived_at IS NULL
+    AND a.state <> 'failed_to_create'
+    AND a.state <> 'failed_to_cleanup'
     AND (
         SELECT
             v.verdict
         FROM
             reviews v
         WHERE
-            v.task_id = p.task_id
+            v.task_id = a.task_id
             AND v.author_kind = 'agent'
-            AND v.author_agent_id = c.id
+            AND v.author_agent_id = a.id
             AND v.released_at IS NOT NULL
         ORDER BY
             v.released_at DESC
-        LIMIT 1) IS DISTINCT FROM 'approved';
+        LIMIT 1) IS DISTINCT FROM 'approved'
+ORDER BY
+    a.created_at,
+    a.id;
 
 -- name: InsertForgeReview :one
 INSERT INTO reviews(

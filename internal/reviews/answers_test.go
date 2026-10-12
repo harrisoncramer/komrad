@@ -3,8 +3,6 @@ package reviews
 import (
 	"testing"
 
-	agentstore "komrad/internal/store/agent"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +28,7 @@ func TestAddressedReply(t *testing.T) {
 		{
 			name: "the agent under review with no worktree",
 			author: func(fx *reviewFixture) ReviewAuthor {
-				return newAgentAuthor(fx.worker)
+				return newAgentAuthor(fx.writer)
 			},
 			homeless: true,
 			snapshot: secondSnapshot,
@@ -39,7 +37,7 @@ func TestAddressedReply(t *testing.T) {
 		{
 			name: "the agent under review with nothing changed",
 			author: func(fx *reviewFixture) ReviewAuthor {
-				return newAgentAuthor(fx.worker)
+				return newAgentAuthor(fx.writer)
 			},
 			snapshot: firstSnapshot,
 			wantErr:  errReviewNothingAddressed,
@@ -47,7 +45,7 @@ func TestAddressedReply(t *testing.T) {
 		{
 			name: "the agent under review after changing its worktree",
 			author: func(fx *reviewFixture) ReviewAuthor {
-				return newAgentAuthor(fx.worker)
+				return newAgentAuthor(fx.writer)
 			},
 			snapshot:    secondSnapshot,
 			wantOrdinal: 2,
@@ -60,7 +58,7 @@ func TestAddressedReply(t *testing.T) {
 			thread := fx.releaseFirstReview(t)
 			fx.snapshots.SHA = tt.snapshot
 			if tt.homeless {
-				require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), *fx.worker.TaskID, ""))
+				require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), *fx.writer.TaskID, ""))
 			}
 
 			added, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
@@ -80,58 +78,6 @@ func TestAddressedReply(t *testing.T) {
 			round, err := fx.reviews.GetRound(t.Context(), *added.Message.RoundID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
-		})
-	}
-}
-
-// TestANewWriterAnswersTheThreadsItInherits pins that a task handed on moves its threads to the new writer, whose addressed answer settles them.
-func TestANewWriterAnswersTheThreadsItInherits(t *testing.T) {
-	tests := []struct {
-		name    string
-		author  func(fx *reviewFixture, successor *agentstore.Agent) ReviewAuthor
-		wantErr error
-	}{
-		{
-			name: "the writer that handed the task on",
-			author: func(fx *reviewFixture, _ *agentstore.Agent) ReviewAuthor {
-				return newAgentAuthor(fx.worker)
-			},
-			wantErr: ErrReviewNotYours,
-		},
-		{
-			name: "the new writer",
-			author: func(_ *reviewFixture, successor *agentstore.Agent) ReviewAuthor {
-				return newAgentAuthor(successor)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t)
-			thread := fx.releaseFirstReview(t)
-			_, err := fx.stores.Agents.Archive(t.Context(), []string{fx.worker.ID})
-			require.NoError(t, err)
-			successor := fx.seedSuccessor(t)
-			fx.snapshots.SHA = secondSnapshot
-
-			_, err = fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
-				ThreadID:  thread.ID,
-				Body:      "added the nil check",
-				Author:    tt.author(fx, successor),
-				Addressed: true,
-			})
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-
-				return
-			}
-			require.NoError(t, err)
-
-			settled, err := fx.reviews.GetThread(t.Context(), thread.ID)
-			require.NoError(t, err)
-			assert.NotNil(t, settled.ResolvedAt)
-			assert.Equal(t, &successor.ID, settled.ResolvedByAgentID)
 		})
 	}
 }
@@ -164,7 +110,7 @@ func TestPlainReplyHint(t *testing.T) {
 			added, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
 				ThreadID: thread.ID,
 				Body:     "done",
-				Author:   newAgentAuthor(fx.worker),
+				Author:   newAgentAuthor(fx.writer),
 			})
 			require.NoError(t, err)
 
@@ -183,7 +129,7 @@ func TestReplyingToAnAnswerReopensIt(t *testing.T) {
 	_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
 		ThreadID:  thread.ID,
 		Body:      "added the nil check",
-		Author:    newAgentAuthor(fx.worker),
+		Author:    newAgentAuthor(fx.writer),
 		Addressed: true,
 	})
 	require.NoError(t, err)
@@ -196,7 +142,7 @@ func TestReplyingToAnAnswerReopensIt(t *testing.T) {
 	require.NoError(t, err)
 	fx.releaseReview(t, personAuthor, "")
 
-	rung := fx.listMail(t, fx.worker.ID)
+	rung := fx.listMail(t, fx.writer.ID)
 	require.NotEmpty(t, rung)
 	assert.Contains(t, rung[len(rung)-1].Body, "0 comment(s), 1 reply(ies) in earlier threads, 1 of them reopening")
 }

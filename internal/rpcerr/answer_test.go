@@ -66,7 +66,6 @@ func TestWrapCodes(t *testing.T) {
 		{checkouts.ErrRebaseShallow, connect.CodeFailedPrecondition},
 		{checkouts.ErrRebaseHiddenPaths, connect.CodeFailedPrecondition},
 		{agents.ErrHookFailed, connect.CodeFailedPrecondition},
-		{agenterr.ErrNoLiveReviewer, connect.CodeFailedPrecondition},
 		{git.ErrBaseMissing, connect.CodeFailedPrecondition},
 		{git.ErrBaseUnrelated, connect.CodeFailedPrecondition},
 		{reviews.ErrReviewEmpty, connect.CodeFailedPrecondition},

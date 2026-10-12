@@ -12,7 +12,6 @@ import (
 	"komrad/internal/eventprompts"
 	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/mail"
-	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/clock"
@@ -48,7 +47,7 @@ func TestOpenRound(t *testing.T) {
 			fx := newReviewFixture(t)
 			fx.snapshots.SHA = tt.snapshot
 
-			round, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, personAuthor)
+			round, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, personAuthor)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
@@ -63,15 +62,15 @@ func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
-		_, err := fx.stores.Agents.Delete(t.Context(), []string{fx.worker.ID, fx.reviewer.ID})
+		_, err := fx.stores.Agents.Delete(t.Context(), []string{fx.writer.ID, fx.reviewer.ID})
 		require.NoError(t, err)
-		require.NoError(t, fx.stores.Workflows.Delete(t.Context(), fx.worker.WorkflowID))
+		require.NoError(t, fx.stores.Workflows.Delete(t.Context(), fx.writer.WorkflowID))
 	}
 
-	_, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, personAuthor)
+	_, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, personAuthor)
 	require.Error(t, err)
 
-	assert.Equal(t, []string{reviewstore.RoundRef(*fx.worker.TaskID, secondSnapshot)}, fx.snapshots.Released)
+	assert.Equal(t, []string{reviewstore.RoundRef(*fx.writer.TaskID, secondSnapshot)}, fx.snapshots.Released)
 }
 
 // TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce pins that two callers racing on the same
@@ -88,7 +87,7 @@ func TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce(t *testing.T) {
 	errs := make([]error, 2)
 	for i := range ordinals {
 		group.Go(func() {
-			round, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, personAuthor)
+			round, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, personAuthor)
 			errs[i] = err
 			if err == nil {
 				ordinals[i] = round.Ordinal
@@ -131,7 +130,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				fx.snapshots.Files["greet.go"] = buildGreetSource()
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					Task:     *fx.worker.TaskID,
+					Task:     *fx.writer.TaskID,
 					FilePath: "greet.go",
 					NewStart: 12,
 					NewEnd:   13,
@@ -170,7 +169,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			written, err := os.ReadFile(released.Path)
 			require.NoError(t, err)
 
-			for _, said := range append(tt.wantSaid, *fx.worker.TaskID) {
+			for _, said := range append(tt.wantSaid, *fx.writer.TaskID) {
 				assert.Contains(t, string(written), said)
 			}
 			for _, unsaid := range tt.wantNotSaid {
@@ -192,7 +191,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	second := fx.releaseReview(t, personAuthor, "")
 
 	assert.Equal(t, 3, first.Comments)
-	rung := fx.listMail(t, fx.worker.ID)
+	rung := fx.listMail(t, fx.writer.ID)
 	require.Len(t, rung, 2, "one mail per release however many comments it holds")
 	for i, released := range []*ReleaseReviewResult{first, second} {
 		stored, err := fx.reviews.GetReview(t.Context(), released.Review.ID)
@@ -209,48 +208,18 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }
 
-// TestReleaseReviewRingsTheTasksWriter pins that a release mails whoever writes the task now, and nobody when nobody does.
-func TestReleaseReviewRingsTheTasksWriter(t *testing.T) {
-	tests := []struct {
-		name          string
-		successor     bool
-		wantSuccessor bool
-	}{
-		{
-			name: "a task with no writer",
-		},
-		{
-			name:          "a task handed to a new writer",
-			successor:     true,
-			wantSuccessor: true,
-		},
-	}
+// TestReleaseReviewRingsNobodyOnceTheWriterIsArchived pins that a release on a task whose writer is archived leaves no doorbell.
+func TestReleaseReviewRingsNobodyOnceTheWriterIsArchived(t *testing.T) {
+	fx := newReviewFixture(t)
+	_, err := fx.stores.Agents.Archive(t.Context(), []string{fx.writer.ID})
+	require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t)
-			_, err := fx.stores.Agents.Archive(t.Context(), []string{fx.worker.ID})
-			require.NoError(t, err)
-			var successor *agentstore.Agent
-			if tt.successor {
-				successor = fx.seedSuccessor(t)
-			}
+	released := fx.releaseReview(t, personAuthor, "")
 
-			released := fx.releaseReview(t, personAuthor, "")
-
-			assert.Empty(t, fx.listMail(t, fx.worker.ID), "the writer that left is told nothing")
-			stored, err := fx.reviews.GetReview(t.Context(), released.Review.ID)
-			require.NoError(t, err)
-			if !tt.wantSuccessor {
-				assert.Nil(t, stored.DoorbellMailID)
-
-				return
-			}
-			rung := fx.listMail(t, successor.ID)
-			require.Len(t, rung, 1)
-			assert.Equal(t, &rung[0].ID, stored.DoorbellMailID)
-		})
-	}
+	assert.Empty(t, fx.listMail(t, fx.writer.ID))
+	stored, err := fx.reviews.GetReview(t.Context(), released.Review.ID)
+	require.NoError(t, err)
+	assert.Nil(t, stored.DoorbellMailID)
 }
 
 // TestReleaseReviewInterrupts pins that only a person's release stops the agent, and only while it holds its pane.
@@ -289,12 +258,12 @@ func TestReleaseReviewInterrupts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
-			require.NoError(t, fx.stores.Agents.SetAlive(t.Context(), []string{fx.worker.ID}, tt.alive))
+			require.NoError(t, fx.stores.Agents.SetAlive(t.Context(), []string{fx.writer.ID}, tt.alive))
 
 			fx.releaseReview(t, tt.author(fx), tt.verdict)
 
 			if tt.wantInterrupted {
-				assert.Equal(t, []string{fx.worker.ID}, fx.interrupter.interrupted)
+				assert.Equal(t, []string{fx.writer.ID}, fx.interrupter.interrupted)
 			} else {
 				assert.Empty(t, fx.interrupter.interrupted)
 			}
@@ -377,14 +346,14 @@ func TestReleaseReviewApprovalMail(t *testing.T) {
 			fx := newReviewFixture(t)
 
 			_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-				Task:    *fx.worker.TaskID,
+				Task:    *fx.writer.TaskID,
 				Verdict: reviewstore.VerdictApproved,
 				Body:    tt.body,
 				Author:  newAgentAuthor(fx.reviewer),
 			})
 			require.NoError(t, err)
 
-			rung := fx.listMail(t, fx.worker.ID)
+			rung := fx.listMail(t, fx.writer.ID)
 			require.Len(t, rung, 1)
 			assert.Contains(t, rung[0].Body, tt.wantSaid)
 			assert.NotContains(t, rung[0].Body, tt.wantNotSaid)
@@ -399,7 +368,7 @@ func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 	fillMailbox(t, fx)
 
 	_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		Task:    *fx.worker.TaskID,
+		Task:    *fx.writer.TaskID,
 		Verdict: reviewstore.VerdictChangesRequested,
 		Author:  newAgentAuthor(fx.reviewer),
 	})
@@ -409,7 +378,7 @@ func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 	require.Len(t, errs, 1)
 	require.ErrorIs(t, errs[0], mail.ErrMailboxFull)
 
-	listed, err := fx.service.ListReviews(t.Context(), *fx.worker.TaskID, personAuthor)
+	listed, err := fx.service.ListReviews(t.Context(), *fx.writer.TaskID, personAuthor)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.NotNil(t, listed[0].ReleasedAt)
@@ -421,7 +390,7 @@ func TestGetReview(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.Files["greet.go"] = buildGreetSource()
 	opened, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:     *fx.worker.TaskID,
+		Task:     *fx.writer.TaskID,
 		FilePath: "greet.go",
 		NewStart: 12,
 		NewEnd:   13,
@@ -431,7 +400,7 @@ func TestGetReview(t *testing.T) {
 	require.NoError(t, err)
 
 	gone, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:        *fx.worker.TaskID,
+		Task:        *fx.writer.TaskID,
 		FilePath:    "gone.go",
 		QuotedLines: []string{"+\tgreet(nil)"},
 		Body:        "and this file",
@@ -440,7 +409,7 @@ func TestGetReview(t *testing.T) {
 	require.NoError(t, err)
 
 	first, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		Task:   *fx.worker.TaskID,
+		Task:   *fx.writer.TaskID,
 		Body:   "two things before it goes",
 		Author: personAuthor,
 	})
@@ -456,7 +425,7 @@ func TestGetReview(t *testing.T) {
 
 	second := fx.releaseReview(t, personAuthor, "")
 
-	whole, err := fx.service.GetReview(t.Context(), first.Review.ID, newAgentAuthor(fx.worker))
+	whole, err := fx.service.GetReview(t.Context(), first.Review.ID, newAgentAuthor(fx.writer))
 	require.NoError(t, err)
 
 	assert.Equal(t, "two things before it goes", whole.Review.Body)
@@ -475,7 +444,7 @@ func TestGetReview(t *testing.T) {
 		"the answer and the second release belong elsewhere")
 	assert.Nil(t, byFile["greet.go"].Messages[0].SentAt, "and none of the panel's record of when")
 
-	again, err := fx.service.GetReview(t.Context(), second.Review.ID, newAgentAuthor(fx.worker))
+	again, err := fx.service.GetReview(t.Context(), second.Review.ID, newAgentAuthor(fx.writer))
 	require.NoError(t, err)
 	require.Len(t, again.Threads, 1)
 	assert.Equal(t, []string{"not quite, the other branch too"}, readBodies(again.Threads[0].Messages))
@@ -491,7 +460,7 @@ func TestAReviewCarriedAcrossRounds(t *testing.T) {
 
 	commentOn := func(snapshot string) *ReviewThreadWithMessages {
 		written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-			Task:        *fx.worker.TaskID,
+			Task:        *fx.writer.TaskID,
 			SnapshotSHA: snapshot,
 			FilePath:    "greet.go",
 			NewStart:    1,
@@ -510,7 +479,7 @@ func TestAReviewCarriedAcrossRounds(t *testing.T) {
 
 	released := fx.releaseReview(t, personAuthor, "")
 
-	whole, err := fx.service.GetReview(t.Context(), released.Review.ID, newAgentAuthor(fx.worker))
+	whole, err := fx.service.GetReview(t.Context(), released.Review.ID, newAgentAuthor(fx.writer))
 	require.NoError(t, err)
 	assert.Equal(t, secondSnapshot, whole.Round.SnapshotSHA, "the review is of the newest work the person read")
 
@@ -532,14 +501,14 @@ func TestGetReviewOfAnUnreleasedReview(t *testing.T) {
 		{
 			name: "the agent under review",
 			reader: func(fx *reviewFixture) ReviewAuthor {
-				return newAgentAuthor(fx.worker)
+				return newAgentAuthor(fx.writer)
 			},
 			wantErr: ErrReviewNotFound,
 		},
 		{
 			name: "an agent with no business in it",
 			reader: func(fx *reviewFixture) ReviewAuthor {
-				return newAgentAuthor(fx.stranger)
+				return newAgentAuthor(fx.otherWriter)
 			},
 			wantErr: ErrReviewNotFound,
 		},
@@ -585,7 +554,7 @@ func TestListReviews(t *testing.T) {
 		{
 			name: "the agent under review is not told a review is open on it",
 			reader: func(fx *reviewFixture) ReviewAuthor {
-				return newAgentAuthor(fx.worker)
+				return newAgentAuthor(fx.writer)
 			},
 			wantPaths: []bool{false},
 		},
@@ -613,7 +582,7 @@ func TestListReviews(t *testing.T) {
 			fx.releaseFirstReview(t)
 			fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
 
-			listed, err := fx.service.ListReviews(t.Context(), *fx.worker.TaskID, tt.reader(fx))
+			listed, err := fx.service.ListReviews(t.Context(), *fx.writer.TaskID, tt.reader(fx))
 			require.NoError(t, err)
 
 			paths := xslice.Map(listed, func(review reviewstore.Review) bool {
@@ -627,7 +596,7 @@ func TestListReviews(t *testing.T) {
 	}
 }
 
-// fillMailbox sends the worker mail until its mailbox refuses another.
+// fillMailbox sends the writer mail until its mailbox refuses another.
 func fillMailbox(t *testing.T, fx *reviewFixture) {
 	t.Helper()
 
@@ -639,7 +608,7 @@ func fillMailbox(t *testing.T, fx *reviewFixture) {
 	})
 	for {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
-			ToAgentID: fx.worker.ID,
+			ToAgentID: fx.writer.ID,
 			Body:      "waiting",
 			Kind:      mailstore.KindReviewActivity,
 			SubjectID: uuid.NewString(),
@@ -676,8 +645,8 @@ func TestOpenRoundFilesTheRoundUnderAnAgent(t *testing.T) {
 	}{
 		{
 			name:      "an agent calling files it under itself",
-			author:    func(fx *reviewFixture) ReviewAuthor { return newAgentAuthor(fx.worker) },
-			wantAgent: func(fx *reviewFixture) string { return fx.worker.ID },
+			author:    func(fx *reviewFixture) ReviewAuthor { return newAgentAuthor(fx.writer) },
+			wantAgent: func(fx *reviewFixture) string { return fx.writer.ID },
 		},
 		{
 			name:      "the person calling files it under the newest agent on the task",
@@ -691,7 +660,7 @@ func TestOpenRoundFilesTheRoundUnderAnAgent(t *testing.T) {
 			fx := newReviewFixture(t)
 			fx.snapshots.SHA = secondSnapshot
 
-			round, err := fx.service.OpenRound(t.Context(), *fx.worker.TaskID, tt.author(fx))
+			round, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, tt.author(fx))
 			require.NoError(t, err)
 
 			var roundAgent string

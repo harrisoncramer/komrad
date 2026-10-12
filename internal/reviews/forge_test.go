@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// forgeMirrored is what the worker holds after the forge's threads were mirrored onto it.
+// forgeMirrored is what the writer holds after the forge's threads were mirrored onto it.
 type forgeMirrored struct {
 	threads  []reviewstore.Thread
 	messages []reviewstore.Message
@@ -22,7 +22,7 @@ type forgeMirrored struct {
 	released []Released
 }
 
-// TestForgeMirror covers forge threads mirrored onto the worker's round, each comment held from the agent when its author cannot push.
+// TestForgeMirror covers forge threads mirrored onto the writer's round, each comment held from the agent when its author cannot push.
 func TestForgeMirror(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -185,7 +185,7 @@ func TestForgeMirror(t *testing.T) {
 				{newResolvedForgeThread(newForgeComment("c1", "alice", true, "use a guard"))},
 			},
 			meanwhile: func(t *testing.T, fx *reviewFixture) {
-				threads, err := fx.reviews.ListThreads(t.Context(), *fx.worker.TaskID)
+				threads, err := fx.reviews.ListThreads(t.Context(), *fx.writer.TaskID)
 				require.NoError(t, err)
 				require.Len(t, threads, 1)
 				require.NotNil(t, threads[0].ResolvedAt)
@@ -329,7 +329,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
 				_, err := fx.service.AcceptForgeMessage(t.Context(), AcceptForgeMessageParams{
 					MessageID: held[0].ID,
-					Author:    newAgentAuthor(fx.worker),
+					Author:    newAgentAuthor(fx.writer),
 				})
 
 				return err
@@ -421,11 +421,11 @@ func newForgeComment(id, login string, trusted bool, body string) forge.ReviewCo
 	}
 }
 
-// mirrorForge has the forge hold threads on the worker's pull request and mirrors them onto it.
+// mirrorForge has the forge hold threads on the writer's pull request and mirrors them onto it.
 func (fx *reviewFixture) mirrorForge(t *testing.T, threads ...forge.ReviewThread) {
 	t.Helper()
 
-	stored := fx.stores.SeedForgeThreads(t, fx.worker.ID, threads...)
+	stored := fx.stores.SeedForgeThreads(t, fx.writer.ID, threads...)
 	require.NotEmpty(t, stored)
 
 	mirror := NewForgeMirror(NewForgeMirrorParams{
@@ -442,13 +442,13 @@ func (fx *reviewFixture) readForgeMirrored(t *testing.T) forgeMirrored {
 	t.Helper()
 	ctx := t.Context()
 
-	threads, err := fx.reviews.ListThreads(ctx, *fx.worker.TaskID)
+	threads, err := fx.reviews.ListThreads(ctx, *fx.writer.TaskID)
 	require.NoError(t, err)
 
 	messages, err := fx.reviews.ListMessages(ctx, xslice.Map(threads, func(thread reviewstore.Thread) string { return thread.ID }))
 	require.NoError(t, err)
 
-	reviews, err := fx.reviews.ListReviews(ctx, *fx.worker.TaskID)
+	reviews, err := fx.reviews.ListReviews(ctx, *fx.writer.TaskID)
 	require.NoError(t, err)
 
 	var released []Released
@@ -507,7 +507,7 @@ func (fx *reviewFixture) sendForgeReply(t *testing.T, providerID string) {
 	t.Helper()
 	ctx := t.Context()
 
-	threads, err := fx.reviews.ListThreads(ctx, *fx.worker.TaskID)
+	threads, err := fx.reviews.ListThreads(ctx, *fx.writer.TaskID)
 	require.NoError(t, err)
 	require.NotEmpty(t, threads)
 
