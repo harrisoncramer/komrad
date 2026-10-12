@@ -275,6 +275,7 @@ func TestReleaseReviewInterrupts(t *testing.T) {
 func TestReleaseReviewArchivesAnApprovingReviewer(t *testing.T) {
 	tests := []struct {
 		name    string
+		keep    bool
 		author  func(fx *reviewFixture) ReviewAuthor
 		verdict reviewstore.Verdict
 		want    func(fx *reviewFixture) []river.JobArgs
@@ -288,6 +289,14 @@ func TestReleaseReviewArchivesAnApprovingReviewer(t *testing.T) {
 			want: func(fx *reviewFixture) []river.JobArgs {
 				return []river.JobArgs{internaljobs.ArchiveAgentArgs{AgentID: fx.reviewer.ID}}
 			},
+		},
+		{
+			name: "a reviewer approving with archiving on approval turned off",
+			keep: true,
+			author: func(fx *reviewFixture) ReviewAuthor {
+				return newAgentAuthor(fx.reviewer)
+			},
+			verdict: reviewstore.VerdictApproved,
 		},
 		{
 			name: "a reviewer asking for changes",
@@ -306,7 +315,7 @@ func TestReleaseReviewArchivesAnApprovingReviewer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fx := newReviewFixture(t)
+			fx := newReviewFixtureReleasing(t, NewReleasedHandlerParams{ArchiveOnApproval: !tt.keep})
 
 			fx.releaseReview(t, tt.author(fx), tt.verdict)
 

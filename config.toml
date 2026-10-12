@@ -64,7 +64,10 @@ auto_compaction = 250000
 # The conversation size in tokens an agent is held under, summarizing its history a little
 # before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 # own default, and a value the CLI will not take is moved to the nearest one it will.
-auto_compaction = 250000
+auto_compaction     = 250000
+# Whether a reviewer is archived once it releases an approval. Turn it off to keep approved
+# reviewers in the sidebar until you archive them yourself.
+archive_on_approval = true
 
 # What a workflow's orchestrator may use.
 [usage.orchestrator]

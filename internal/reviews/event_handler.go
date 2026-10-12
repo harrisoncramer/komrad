@@ -58,23 +58,25 @@ func (answered) Topic() string {
 	return answeredTopic
 }
 
-// NewReleasedHandler builds the handler the router is given for released reviews.
-func NewReleasedHandler() events.HandlerFor[Released] {
-	return handleReleased
+// NewReleasedHandlerParams is what the handler for released reviews is built from.
+type NewReleasedHandlerParams struct {
+	ArchiveOnApproval bool
 }
 
-// handleReleased tells the task's live writer and stamps the review with the mail that told it,
-// then puts away a reviewer that approved.
-func handleReleased(ctx context.Context, tx store.DBTX, mailer *mail.MailService, released Released) ([]river.JobArgs, error) {
-	if err := tellWriter(ctx, tx, mailer, released); err != nil {
-		return nil, err
-	}
+// NewReleasedHandler builds the handler that tells a task's live writer of a released review, stamping the
+// review with that mail, and archives a reviewer that approved when ArchiveOnApproval is set.
+func NewReleasedHandler(params NewReleasedHandlerParams) events.HandlerFor[Released] {
+	return func(ctx context.Context, tx store.DBTX, mailer *mail.MailService, released Released) ([]river.JobArgs, error) {
+		if err := tellWriter(ctx, tx, mailer, released); err != nil {
+			return nil, err
+		}
 
-	if released.Verdict != reviewstore.VerdictApproved || released.ReviewerID == "" {
-		return nil, nil
-	}
+		if !params.ArchiveOnApproval || released.Verdict != reviewstore.VerdictApproved || released.ReviewerID == "" {
+			return nil, nil
+		}
 
-	return []river.JobArgs{internaljobs.ArchiveAgentArgs{AgentID: released.ReviewerID}}, nil
+		return []river.JobArgs{internaljobs.ArchiveAgentArgs{AgentID: released.ReviewerID}}, nil
+	}
 }
 
 // tellWriter mails the task's live writer about the release, sending nothing when the task has

@@ -125,6 +125,13 @@
               "type": "integer",
               "description": "The conversation size in tokens an agent is held under, summarizing its history a little\nbefore it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's\nown default, and a value the CLI will not take is moved to the nearest one it will.",
               "default": "250000"
+            },
+            {
+              "key": "archive_on_approval",
+              "path": "usage.reviewer.archive_on_approval",
+              "type": "boolean",
+              "description": "Whether a reviewer is archived once it releases an approval. Turn it off to keep approved\nreviewers in the sidebar until you archive them yourself.",
+              "default": "true"
             }
           ],
           "sections": []

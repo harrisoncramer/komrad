@@ -1011,6 +1011,12 @@ func (r *recordingInterrupter) Interrupt(_ context.Context, agentID string) erro
 func newReviewFixture(t *testing.T) *reviewFixture {
 	t.Helper()
 
+	return newReviewFixtureReleasing(t, NewReleasedHandlerParams{ArchiveOnApproval: true})
+}
+
+func newReviewFixtureReleasing(t *testing.T, released NewReleasedHandlerParams) *reviewFixture {
+	t.Helper()
+
 	stores := storetest.Open(t)
 	reviews := reviewstore.NewReviewStore(stores.Pool.GetDB())
 	snapshots := &gittest.Snapshots{
@@ -1018,7 +1024,7 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 		BaseSHA: baseSnapshot,
 		Files:   map[string][]string{},
 	}
-	events := eventstest.NewQueue(t, stores, NewReleasedHandler(), NewAnsweredHandler())
+	events := eventstest.NewQueue(t, stores, NewReleasedHandler(released), NewAnsweredHandler())
 	interrupter := &recordingInterrupter{}
 
 	writer := stores.SeedAgent(t, agentstore.Agent{
