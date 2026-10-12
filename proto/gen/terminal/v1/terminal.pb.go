@@ -247,10 +247,10 @@ func (*ShellRequest_Input) isShellRequest_Message() {}
 
 func (*ShellRequest_Resize) isShellRequest_Message() {}
 
-// Exit is how the program on the terminal ended.
+// Exit reports how the program on the terminal ended.
 type Exit struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The exit status, 128 plus the signal for a program a signal ended.
+	// The exit status, or 128 plus the signal number when a signal ended the program.
 	Code          int32 `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

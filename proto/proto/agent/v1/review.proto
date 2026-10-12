@@ -6,7 +6,7 @@ import "buf/validate/validate.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
-// ReviewAuthorKind is who wrote a review message.
+// ReviewAuthorKind names who wrote a review message.
 enum ReviewAuthorKind {
   // No author was recorded.
   REVIEW_AUTHOR_KIND_UNSPECIFIED = 0;
@@ -18,13 +18,13 @@ enum ReviewAuthorKind {
   REVIEW_AUTHOR_KIND_FORGE = 3;
 }
 
-// ReviewDeliveryState is how far one of the person's comments has got towards the agent reading
-// it. It is no stored field: it is read off the comment's own sent stamp and the newest doorbell
-// raised against it, since the stamp outlives mail the agent deletes or lets expire. Whether the
-// comment has been answered is a different question, read off the messages of the thread.
+// ReviewDeliveryState shows how far one of the person's comments has got towards the agent
+// reading it. Komrad stores no such field. It reads the state off the comment's own sent stamp
+// and the newest doorbell raised against it. The stamp outlives mail that the agent deletes or
+// lets expire. The messages of the thread show whether the comment has been answered.
 enum ReviewDeliveryState {
-  // Delivery says nothing about this message, which is the case for anything the agent wrote,
-  // since nobody is waiting to be told about it.
+  // Delivery says nothing about this message. That holds for anything the agent wrote, because
+  // nobody waits to be told about it.
   REVIEW_DELIVERY_STATE_UNSPECIFIED = 0;
   // Written down and not yet let go of.
   REVIEW_DELIVERY_STATE_UNSENT = 1;
@@ -32,15 +32,15 @@ enum ReviewDeliveryState {
   REVIEW_DELIVERY_STATE_SENT = 2;
   // Released, and the agent has claimed the doorbell.
   REVIEW_DELIVERY_STATE_DELIVERED = 3;
-  // Kept from the agent, because someone on the forge without write access to the repository
-  // wrote it or the thread it sits in, until the person accepts the thread's first comment.
+  // Kept from the agent until the person accepts the thread's first comment, because someone on
+  // the forge without write access to the repository wrote the comment or its thread.
   REVIEW_DELIVERY_STATE_HELD = 4;
 }
 
-// ReviewVerdict is what an author concluded about a round, which is what tells the agent
-// whether it is done rather than leaving it to read that out of the prose.
+// ReviewVerdict records what an author concluded about a round. It tells the agent whether it
+// is done, so the agent need not read that out of the prose.
 enum ReviewVerdict {
-  // Nothing has been concluded, which is what an unreleased review carries.
+  // Nothing has been concluded. An unreleased review carries this.
   REVIEW_VERDICT_UNSPECIFIED = 0;
   // This round is good as it stands.
   REVIEW_VERDICT_APPROVED = 1;
@@ -50,9 +50,9 @@ enum ReviewVerdict {
   REVIEW_VERDICT_COMMENTED = 3;
 }
 
-// ReviewRound is one immutable snapshot of what a task's writer has written, which is what a review is
-// given against. Nothing a comment is pinned to can move underneath the person reading it,
-// because the snapshot is a commit rather than the worktree.
+// ReviewRound is one immutable snapshot of what a task's writer has written. A review is given
+// against it. The snapshot is a commit rather than the worktree, so nothing a comment is pinned
+// to can move underneath the person reading it.
 message ReviewRound {
   // The handle a review or a viewed-file record names this round by.
   string id = 1;
@@ -68,8 +68,8 @@ message ReviewRound {
   string created_at = 6;
 }
 
-// Review is one author's batch of comments against one round, private while it is written and
-// released as a whole, the way a pending review on a forge is.
+// Review is one author's batch of comments against one round. It stays private while the author
+// writes it and releases as a whole, like a pending review on a forge.
 message Review {
   // The handle the threads in this batch name it by.
   string id = 1;
@@ -77,7 +77,7 @@ message Review {
   string task_id = 2;
   // The snapshot the batch was written against.
   string round_id = 3;
-  // Which round that is, counting from one, so a caller need not fetch the round to say.
+  // Which round that is, counting from one.
   int32 round_ordinal = 4;
   // Whether a person, an agent or someone on the forge wrote it.
   ReviewAuthorKind author_kind = 5;
@@ -99,8 +99,8 @@ message Review {
   // they said nothing.
   string body = 13;
   // How many of this review's comments nobody has settled. A released review with none left is
-  // finished, which the verdict does not say, since a verdict is what its author concluded at
-  // the time rather than what has happened since.
+  // finished. The verdict does not say so, because it records what the author concluded at the
+  // time and not what has happened since.
   int32 open_threads = 14;
   // The forge login of whoever wrote a review mirrored from the forge, empty otherwise.
   string external_login = 15;
@@ -150,8 +150,8 @@ message ReviewThread {
   string round_id = 4;
   // Which round that is, counting from one.
   int32 round_ordinal = 5;
-  // The commit the old side of these line numbers was read against, which is the round's own
-  // base unless the diff was narrowed to an earlier round when the thread was written.
+  // The commit the old side of these line numbers was read against. This is the round's own base
+  // unless the diff was narrowed to an earlier round when the thread was written.
   string base_sha = 6;
   // Which file, relative to the checkout.
   string file_path = 7;
@@ -165,9 +165,9 @@ message ReviewThread {
   int32 new_end = 11;
   // The diff lines the thread was written against, each keeping its leading marker.
   repeated string quoted_lines = 12;
-  // When the person reviewing settled this thread, empty while it is still owed an answer.
-  // Whether a thread is settled is a different question from whether the code under it has
-  // moved, and it is this one that decides whether the thread is still asking for something.
+  // When the person reviewing settled this thread. Empty while it is still owed an answer.
+  // Settling is separate from whether the code under the thread has moved, and settling decides
+  // whether the thread still asks for something.
   string resolved_at = 13;
   // Whether the agent has replied since the person reviewing last looked.
   bool unread_by_human = 14;
@@ -192,13 +192,13 @@ message ReviewMessage {
   string thread_id = 2;
   // Whether a person, an agent or someone on the forge wrote it.
   ReviewAuthorKind author_kind = 3;
-  // The agent that wrote it, absent for the person reviewing and cleared if that agent is
-  // deleted. author_kind, not this, is what says who wrote it.
+  // The agent that wrote it. Absent for the person reviewing, and cleared if that agent is
+  // deleted. author_kind says who wrote it, not this field.
   optional string author_agent_id = 4;
   // What the author wrote.
   string body = 5;
-  // Replacement lines the author proposes for the thread's range, empty for an ordinary
-  // comment. An agent applies these rather than reasoning about them.
+  // Replacement lines the author proposes for the thread's range. Empty for an ordinary
+  // comment. An agent applies these instead of reasoning about them.
   repeated string suggestion = 6;
   // When it was written.
   string created_at = 7;
@@ -242,9 +242,9 @@ message ListReviewThreadsRequest {
 }
 
 message ListReviewThreadsResponse {
-  // The threads on that diff and what has been said in each. An agent reading a review is shown
-  // only the comments the person has let go of, and none of the panel's record of when each was
-  // released, so that a review is read once it is a review rather than as it is being written.
+  // The threads on that diff and what has been said in each. An agent reading a review sees only
+  // the comments the person has let go of, and none of the panel's record of when each was
+  // released. The agent reads a review only once it is released, not while the person writes it.
   repeated ReviewThread threads = 1;
 }
 
@@ -271,8 +271,8 @@ message CreateReviewThreadRequest {
   int32 new_start = 7;
   // Where it ends on the new side, inclusive.
   int32 new_end = 8;
-  // The diff lines being written about, each keeping its leading marker, so the anchor still
-  // says something once the code moves.
+  // The diff lines being written about, each keeping its leading marker so the anchor still
+  // makes sense once the code moves.
   repeated string quoted_lines = 9;
   // The first thing said. The ceiling refuses an essay and is not a length to write up to.
   string body = 10 [(buf.validate.field).string = {
@@ -308,8 +308,8 @@ message AddReviewMessageRequest {
 message AddReviewMessageResponse {
   // The message as recorded.
   ReviewMessage message = 1;
-  // A nudge towards addressed, given when a plain reply lands on a thread whose worktree has
-  // moved since it was written. Empty otherwise.
+  // A nudge to set addressed, given when a plain reply lands on a thread whose worktree has
+  // moved since the thread was written. Empty otherwise.
   string hint = 2;
 }
 
@@ -354,8 +354,8 @@ message MarkReviewThreadReadResponse {
 message SetReviewThreadResolvedRequest {
   // Which thread to settle or reopen.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // Whether the thread is settled. Unsetting it reopens the thread, which is what a person
-  // does when the answer was not the end of it.
+  // Whether the thread is settled. Unsetting it reopens the thread, as a person does when the
+  // answer was not the end of it.
   bool resolved = 2;
 }
 
@@ -365,8 +365,8 @@ message SetReviewThreadResolvedResponse {
 }
 
 // OpenReviewRoundRequest freezes what an agent has written now and records it as its next
-// round. A tree that has not moved since the last round is that round again rather than a new
-// one, so opening the diff twice does not walk the ordinal on.
+// round. On a tree that has not moved since the last round it returns that round,
+// so opening the diff twice does not advance the ordinal.
 message OpenReviewRoundRequest {
   // Which task's checkout to freeze, by id or by slug. Leave it unset for your own task.
   optional string task = 1 [(buf.validate.field).cel = {
@@ -448,11 +448,11 @@ message ReleaseReviewRequest {
     message: "pass task by id or by slug, or leave it unset"
     expression: "this.size() > 0"
   }];
-  // What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
-  // agent must set it and a person must leave it unset.
+  // What a reviewing agent concludes. It tells the agent it reviewed whether it is done. An agent
+  // must set it and a person must leave it unset.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
-  // What to say about the work as a whole rather than about any one line, which the agent reads
-  // before the first thread. Optional: a review of pinned comments alone is complete.
+  // What to say about the work as a whole rather than about any one line. The agent reads it
+  // before the first thread. Optional, since a review of pinned comments alone is complete.
   string body = 3 [(buf.validate.field).string.max_len = 1500];
 }
 
@@ -488,8 +488,8 @@ message SetReviewFileViewedRequest {
   }];
   // Which file, relative to the checkout.
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
-  // Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
-  // on its way back.
+  // Whether the file has been read. Unsetting it drops the mark, as the toggle does on its way
+  // back.
   bool viewed = 3;
   // The fingerprint of the file's diff content at the time it was marked.
   string fingerprint = 4;
@@ -536,7 +536,7 @@ message ForgeReply {
   string thread_id = 2;
   // Where it is on its way to the forge.
   ForgeReplyState state = 3;
-  // The words that go to the forge.
+  // The text that goes to the forge.
   string body = 4;
   // When the person wrote it for posting.
   string approved_at = 5;

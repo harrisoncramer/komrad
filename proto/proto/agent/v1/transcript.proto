@@ -9,13 +9,13 @@ import "pagination/v1/pagination.proto";
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
 message SearchTranscriptsRequest {
-  // The words to look for, matched whole and stemmed, with a quoted phrase required in that order and
-  // a leading minus excluding a word, alongside any qualifiers narrowing the search.
+  // The words to look for, matched whole and stemmed. A quoted phrase must match in that order,
+  // a leading minus excludes a word, and qualifiers narrow the search.
   string query = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 500
   }];
-  // Where to carry on from, since one page of matches and one page of near misses advance
+  // Where to carry on from. One cursor advances the page of matches and the page of near misses
   // together.
   optional pagination.v1.Pagination pagination = 2;
   // Which agent's conversation to search, or unset to search the caller's own unless a qualifier
@@ -28,9 +28,9 @@ message SearchHit {
   string agent_id = 1;
   // The turn's text with the match marked, cut to a readable window around it.
   string snippet = 2;
-  // What that agent is called, so a caller need not look it up to draw the hit.
+  // The agent's name.
   string name = 3;
-  // Whether that agent has been archived, since search spans those too.
+  // Whether the agent is archived. Search includes archived agents.
   bool archived = 4;
   // How well the turn matched, or zero when the hits are ordered by time.
   double score = 5;
@@ -49,8 +49,8 @@ message SearchHit {
 message SearchTranscriptsResponse {
   // The turns that say the words, in the order the query asked for.
   repeated SearchHit matches = 1;
-  // The turns that only carry the letters somewhere, such as a word glued into a path, scored on
-  // how cleanly the letters sit rather than against the matches.
+  // The turns that contain the letters only inside other text, such as a word glued into a path.
+  // They are scored by how cleanly the letters sit, not against the matches.
   repeated SearchHit near = 2;
   // Pass this back as the pagination cursor to advance both lists.
   optional string next_page_token = 3;
@@ -59,8 +59,8 @@ message SearchTranscriptsResponse {
 message GetTranscriptRequest {
   // Whose conversation to read.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // How much content to return. A transcript is one run of text rather than a list of records,
-  // so its window is measured in bytes and carries no pagination.Pagination.
+  // How much content to return, in bytes. A transcript is one run of text, not a list of
+  // records, so it carries no pagination.Pagination.
   optional int32 max_bytes = 2 [(buf.validate.field).int32.gte = 0];
   // Where the last window ended, or unset to start at the beginning.
   optional string cursor = 3 [(buf.validate.field).string.max_len = 2048];
@@ -82,8 +82,8 @@ message GetLastTurnsRequest {
     gte: 1
     lte: 20
   }];
-  // The most of each turn's text to return, cut from the head so the end survives, or unset
-  // for the default.
+  // The maximum text to return for each turn. Komrad cuts from the head so the end survives.
+  // Unset means the default.
   optional int32 max_bytes = 3 [(buf.validate.field).int32.gte = 0];
 }
 

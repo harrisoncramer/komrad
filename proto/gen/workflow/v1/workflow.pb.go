@@ -33,8 +33,8 @@ type Workflow struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// What the panel groups its agents under.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Text appended to the system prompt of every agent launched into it, taken as a snapshot at
-	// launch rather than read again.
+	// Text appended to the system prompt of every agent launched into it. Each agent takes a
+	// snapshot at launch and does not read it again.
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
 	// The directory its agents start in, and the checkout new worktrees are cut from.
 	Cwd string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
@@ -48,7 +48,7 @@ type Workflow struct {
 	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// Scripts hung on moments in its agents' lives, one per moment.
 	Hooks []*WorkflowHook `protobuf:"bytes,9,rep,name=hooks,proto3" json:"hooks,omitempty"`
-	// Whether context holds only its opening, which a summary listing returns.
+	// Whether context holds only its opening. A summary listing returns the opening only.
 	ContextTruncated bool `protobuf:"varint,10,opt,name=context_truncated,json=contextTruncated,proto3" json:"context_truncated,omitempty"`
 	// Which CLI its reviewers run, blank for the one its other agents run.
 	ReviewerHarness string `protobuf:"bytes,11,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
@@ -189,7 +189,7 @@ type WorkflowEventPrompt struct {
 	// The text added to the mail carrying that event, blank to add nothing.
 	Prompt string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// Whether the event is kept from opening mail of its own. It still rewrites mail the agent
-	// holds unread, and its prompt is left out.
+	// holds unread, but without its prompt.
 	Muted         bool `protobuf:"varint,3,opt,name=muted,proto3" json:"muted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -349,8 +349,8 @@ type WorktreeConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whether komrad cuts a worktree for each agent, or leaves it in the directory it was given.
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// The branch worktrees are cut from and every agent's work is measured against, filled in
-	// from the clone when left blank on create and never blank once stored.
+	// The branch worktrees are cut from and every agent's work is measured against. Komrad fills
+	// it in from the clone when it is blank on create, so a stored workflow never has it blank.
 	BaseBranch string `protobuf:"bytes,2,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
 	// Files copied into each new worktree, for the untracked ones a build needs.
 	CopyPaths []string `protobuf:"bytes,3,rep,name=copy_paths,json=copyPaths,proto3" json:"copy_paths,omitempty"`
@@ -442,8 +442,8 @@ type ListWorkflowsRequest struct {
 	Pagination *v1.Pagination `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	// True to list the archived workflows and only those.
 	Archived bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
-	// How much of each record to return, since the panel draws every field and a model reading
-	// the same endpoint has a context window to spend.
+	// How much of each record to return. The panel draws every field, while a model reading the
+	// same endpoint has a context window to spend.
 	View          v11.View `protobuf:"varint,3,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -822,7 +822,7 @@ type UpdateWorkflowRequest struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Every field here is written, so send back the ones you are not changing.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Reaches only agents launched afterwards, since existing ones took a snapshot.
+	// Reaches only agents launched afterwards. Existing agents took a snapshot.
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
 	// Where agents launched afterwards start.
 	Cwd string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
@@ -830,8 +830,8 @@ type UpdateWorkflowRequest struct {
 	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
 	// Which CLI agents launched afterwards run.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// Turning worktrees off reaches agents already running, since whether komrad removes a
-	// directory is read when the agent is deleted.
+	// Turning worktrees off reaches agents already running. Komrad reads whether to remove a
+	// directory when it deletes the agent.
 	Worktree *WorktreeConfig `protobuf:"bytes,7,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// The whole hook list, so send back the ones you are keeping.
 	Hooks []*WorkflowHook `protobuf:"bytes,8,rep,name=hooks,proto3" json:"hooks,omitempty"`
@@ -1221,11 +1221,11 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xb5\f\n" +
-	"\x0fWorkflowService\x12\xf9\x01\n" +
-	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa0\x01\x9a\xb5\x18\x98\x01\b\x01\x10\x01\x1a\x0elist_workflows\"}List the workflows, alphabetically, with the opening of each context. Archived workflows are left out unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x8b\x01\n" +
-	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"9\x9a\xb5\x182\b\x01\x10\x01\x1a\fget_workflow\"\x19Fetch one workflow by id.:\x03\x03\x01\x02\x90\x02\x01\x12\xde\x01\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x82\x01\x9a\xb5\x18~\b\x01\x10\x01\x1a\x0fcreate_workflow\"bCreate a workflow to group agents under. docs/src/content/guides/workflows.md explains each field.(\x00:\x01\x02\x12\xa9\x02\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xa5\f\n" +
+	"\x0fWorkflowService\x12\xfb\x01\n" +
+	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa2\x01\x9a\xb5\x18\x9a\x01\b\x01\x10\x01\x1a\x0elist_workflows\"\x7fList the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x8b\x01\n" +
+	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"9\x9a\xb5\x182\b\x01\x10\x01\x1a\fget_workflow\"\x19Fetch one workflow by id.:\x03\x03\x01\x02\x90\x02\x01\x12\xcc\x01\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"q\x9a\xb5\x18m\b\x01\x10\x01\x1a\x0fcreate_workflow\"QCreate a workflow to group agents under. The workflows guide explains each field.(\x00:\x01\x02\x12\xa9\x02\n" +
 	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xda\x01\x9a\xb5\x18\xd2\x01\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xb5\x01Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing. A context edit reaches only agents spawned afterwards.(\x00:\x01\x02\x90\x02\x02\x12\xcd\x01\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"}\x9a\xb5\x18v\b\x01\x10\x01\x1a\x10archive_workflow\"YArchive a workflow and the agents in it. Refused while a schedule still launches into it.(\x00:\x01\x02\x90\x02\x02\x12\xf0\x01\n" +
 	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x10restore_workflow\"lTake a workflow out of the archive with its agents, dormant. Call resume_agent on the ones you want running.(\x00:\x01\x02\x90\x02\x02\x12\xc7\x01\n" +

@@ -24,9 +24,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// PullRequestState is where a stored pull request stands, decided on the server from its stamps,
-// its draft flag, the checks on its head, its mergeability and the forge's review decision,
-// finished first.
+// PullRequestState names where a stored pull request stands. The server decides it from the
+// pull request's stamps, its draft flag, the checks on its head, its mergeability and the
+// forge's review decision, finished first.
 type PullRequestState int32
 
 const (
@@ -124,8 +124,8 @@ func (PullRequestState) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{0}
 }
 
-// Mergeability is where the forge says a pull request stands against its base and its branch
-// rules, as it last computed it.
+// Mergeability is the forge's last computed answer for where a pull request stands against its
+// base and its branch rules.
 type Mergeability int32
 
 const (
@@ -194,7 +194,7 @@ func (Mergeability) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{1}
 }
 
-// ReviewDecision is where a forge says a pull request's reviews stand.
+// ReviewDecision is the forge's statement of where a pull request's reviews stand.
 type ReviewDecision int32
 
 const (
@@ -259,8 +259,7 @@ func (ReviewDecision) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
 }
 
-// Checks is where the checks on a pull request's head commit stand, as the forge last reported
-// them.
+// Checks is the forge's last report on the checks on a pull request's head commit.
 type Checks int32
 
 const (
@@ -333,11 +332,11 @@ const (
 	CheckLogState_CHECK_LOG_STATE_UNSPECIFIED CheckLogState = 0
 	// The check ran in no job, so it has no log to fetch.
 	CheckLogState_CHECK_LOG_STATE_NONE CheckLogState = 1
-	// The log is still to come, because the check has not finished or komrad has not fetched it yet.
+	// The log is still to come. The check has not finished or komrad has not fetched it yet.
 	CheckLogState_CHECK_LOG_STATE_PENDING CheckLogState = 2
 	// komrad fetched the log and keeps it.
 	CheckLogState_CHECK_LOG_STATE_FETCHED CheckLogState = 3
-	// The log ran past the most komrad keeps, so none of it is kept.
+	// The log ran past the most komrad keeps, so komrad keeps none of it.
 	CheckLogState_CHECK_LOG_STATE_TOO_LARGE CheckLogState = 4
 	// The forge never had a log for the check.
 	CheckLogState_CHECK_LOG_STATE_MISSING CheckLogState = 5
@@ -398,7 +397,7 @@ func (CheckLogState) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
 }
 
-// StatusCheckKind is what sort of status check a forge reported.
+// StatusCheckKind names the sort of status check a forge reported.
 type StatusCheckKind int32
 
 const (
@@ -455,7 +454,7 @@ func (StatusCheckKind) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
 }
 
-// StatusCheckState is how far along a status check is.
+// StatusCheckState names how far along a status check is.
 type StatusCheckState int32
 
 const (
@@ -525,7 +524,7 @@ type ListPullRequestsRequest struct {
 	// The repository the pull requests target, as a git remote spells it or as the canonical
 	// address komrad stores.
 	RepositoryUrl string `protobuf:"bytes,1,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
-	// The branch the pull requests were opened from; left empty, every pull request stored for
+	// The branch the pull requests were opened from. When empty, every pull request stored for
 	// the repository is listed.
 	HeadBranch string `protobuf:"bytes,2,opt,name=head_branch,json=headBranch,proto3" json:"head_branch,omitempty"`
 	// Which page to read and how many to a page, twenty when unset and at most a hundred.
@@ -600,7 +599,7 @@ type PullRequest struct {
 	// The canonical address of the repository its branch lives in, empty when the forge no
 	// longer has it.
 	HeadRepositoryUrl string `protobuf:"bytes,6,opt,name=head_repository_url,json=headRepositoryUrl,proto3" json:"head_repository_url,omitempty"`
-	// The number the forge shows a person, which is per repository.
+	// The number the forge shows a person. Numbers are per repository.
 	Number int32 `protobuf:"varint,7,opt,name=number,proto3" json:"number,omitempty"`
 	// The title as the forge has it.
 	Title string `protobuf:"bytes,8,opt,name=title,proto3" json:"title,omitempty"`
@@ -622,7 +621,7 @@ type PullRequest struct {
 	ChangedAt string `protobuf:"bytes,16,opt,name=changed_at,json=changedAt,proto3" json:"changed_at,omitempty"`
 	// When it merged, in RFC 3339, unset while it has not.
 	MergedAt *string `protobuf:"bytes,17,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
-	// When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
+	// When it closed, in RFC 3339. Unset while it is open. A merged pull request carries it too.
 	ClosedAt *string `protobuf:"bytes,18,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
 	// Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
 	MergeReadiness *MergeReadiness `protobuf:"bytes,19,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
@@ -811,22 +810,22 @@ func (x *PullRequest) GetBody() string {
 	return ""
 }
 
-// MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.
+// MergeReadiness shows how close a pull request is to merging, as komrad reports it for its head.
 type MergeReadiness struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Where the forge says the reviews stand.
 	Decision ReviewDecision `protobuf:"varint,1,opt,name=decision,proto3,enum=pullrequest.v1.ReviewDecision" json:"decision,omitempty"`
 	// Where the checks on the head stand, unspecified when the forge last answered for an older head.
 	Checks Checks `protobuf:"varint,2,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
-	// Where the forge says it stands against its base and rules. While the forge is working it
-	// out again, this is the last answer it gave for the same head.
+	// Where the forge says it stands against its base and rules. While the forge recomputes, this
+	// holds the last answer it gave for the same head.
 	Mergeability Mergeability `protobuf:"varint,3,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
 	// True when mergeability is the last answer for this head rather than the latest read.
 	MergeabilityUnconfirmed bool `protobuf:"varint,4,opt,name=mergeability_unconfirmed,json=mergeabilityUnconfirmed,proto3" json:"mergeability_unconfirmed,omitempty"`
 	// Whether the forge says it will merge on its own once its checks and reviews pass.
 	AutoMerge bool `protobuf:"varint,5,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
-	// Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one
-	// with nothing left to wait for, or a repository that does not allow it.
+	// Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, for a pull
+	// request with nothing left to wait for, and for a repository that does not allow it.
 	AutoMergeable bool `protobuf:"varint,6,opt,name=auto_mergeable,json=autoMergeable,proto3" json:"auto_mergeable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -952,8 +951,8 @@ func (x *Repository) GetUrl() string {
 
 type ListPullRequestsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One page of pull requests, the unfinished ones first and each group newest opened first,
-	// so the first is the one an agent's row on the branch stands for.
+	// One page of pull requests, unfinished ones first and each group newest opened first. An
+	// agent's row on the branch shows the first one.
 	PullRequests []*PullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
 	// The token for the page after this one, unset on the last.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
@@ -1693,7 +1692,7 @@ func (x *StatusCheck) GetId() string {
 	return ""
 }
 
-// CheckLog is where komrad stands with a check's log, with the map of its steps and without its text.
+// CheckLog records where komrad stands with a check's log. It holds the map of the log's steps and not its text.
 type CheckLog struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Where fetching the log stands.
@@ -2174,9 +2173,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x1aSTATUS_CHECK_STATE_RUNNING\x10\x02\x12\x1e\n" +
 	"\x1aSTATUS_CHECK_STATE_WAITING\x10\x03\x12 \n" +
 	"\x1cSTATUS_CHECK_STATE_COMPLETED\x10\x04\x12\x1e\n" +
-	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xda\a\n" +
-	"\x12PullRequestService\x12\xc1\x02\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb2\x01List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.:\x02\x03\x02\x90\x02\x01\x12\x9d\x02\n" +
+	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xd9\a\n" +
+	"\x12PullRequestService\x12\xc0\x02\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd8\x01\x9a\xb5\x18\xd0\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb1\x01List the pull requests komrad has stored for a repository, unfinished first. A repository with no live agent on it may be behind. list_forge_pull_requests asks the forge itself.:\x02\x03\x02\x90\x02\x01\x12\x9d\x02\n" +
 	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\xb5\x01\x9a\xb5\x18\xad\x01B\xaa\x01The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns.\x90\x02\x01\x12\xb2\x01\n" +
 	"\fReadCheckLog\x12#.pullrequest.v1.ReadCheckLogRequest\x1a$.pullrequest.v1.ReadCheckLogResponse\"W\x9a\xb5\x18PBNA check's log is read a window at a time for a person on the check log screen.\x90\x02\x01\x12\xaa\x01\n" +
 	"\x0fSearchCheckLogs\x12&.pullrequest.v1.SearchCheckLogsRequest\x1a'.pullrequest.v1.SearchCheckLogsResponse\"F\x9a\xb5\x18?B=Check logs are searched for a person on the check log screen.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"

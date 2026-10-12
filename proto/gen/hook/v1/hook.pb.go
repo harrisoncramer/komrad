@@ -26,15 +26,15 @@ const (
 
 type Hook struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The file name in the hooks directory, which is what a workflow names to fire it.
+	// The file name in the hooks directory. A workflow names it to fire the hook.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Whether the file can be run, which it cannot until the user chmods it.
+	// Whether the file can run. It cannot until the user makes it executable.
 	Executable bool `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
-	// What the script says about itself in its own header comments.
+	// The description in the script's header comments.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// How long komrad waits for it, taken from its header, or unset to wait the default.
+	// How long komrad waits for the script, from its header. Unset means the default.
 	Timeout *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
-	// What komrad could not read in the header, which leaves the rest of it at the defaults.
+	// The header lines komrad could not read. Each one leaves its setting at the default.
 	HeaderProblems []string `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

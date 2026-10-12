@@ -26,10 +26,10 @@ const (
 
 type SearchTranscriptsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The words to look for, matched whole and stemmed, with a quoted phrase required in that order and
-	// a leading minus excluding a word, alongside any qualifiers narrowing the search.
+	// The words to look for, matched whole and stemmed. A quoted phrase must match in that order,
+	// a leading minus excludes a word, and qualifiers narrow the search.
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	// Where to carry on from, since one page of matches and one page of near misses advance
+	// Where to carry on from. One cursor advances the page of matches and the page of near misses
 	// together.
 	Pagination *v1.Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	// Which agent's conversation to search, or unset to search the caller's own unless a qualifier
@@ -96,9 +96,9 @@ type SearchHit struct {
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// The turn's text with the match marked, cut to a readable window around it.
 	Snippet string `protobuf:"bytes,2,opt,name=snippet,proto3" json:"snippet,omitempty"`
-	// What that agent is called, so a caller need not look it up to draw the hit.
+	// The agent's name.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// Whether that agent has been archived, since search spans those too.
+	// Whether the agent is archived. Search includes archived agents.
 	Archived bool `protobuf:"varint,4,opt,name=archived,proto3" json:"archived,omitempty"`
 	// How well the turn matched, or zero when the hits are ordered by time.
 	Score float64 `protobuf:"fixed64,5,opt,name=score,proto3" json:"score,omitempty"`
@@ -220,8 +220,8 @@ type SearchTranscriptsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The turns that say the words, in the order the query asked for.
 	Matches []*SearchHit `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-	// The turns that only carry the letters somewhere, such as a word glued into a path, scored on
-	// how cleanly the letters sit rather than against the matches.
+	// The turns that contain the letters only inside other text, such as a word glued into a path.
+	// They are scored by how cleanly the letters sit, not against the matches.
 	Near []*SearchHit `protobuf:"bytes,2,rep,name=near,proto3" json:"near,omitempty"`
 	// Pass this back as the pagination cursor to advance both lists.
 	NextPageToken *string `protobuf:"bytes,3,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
@@ -284,8 +284,8 @@ type GetTranscriptRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose conversation to read.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// How much content to return. A transcript is one run of text rather than a list of records,
-	// so its window is measured in bytes and carries no pagination.Pagination.
+	// How much content to return, in bytes. A transcript is one run of text, not a list of
+	// records, so it carries no pagination.Pagination.
 	MaxBytes *int32 `protobuf:"varint,2,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
 	// Where the last window ended, or unset to start at the beginning.
 	Cursor        *string `protobuf:"bytes,3,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
@@ -405,8 +405,8 @@ type GetLastTurnsRequest struct {
 	// How many of the newest assistant turns to return, with the prompts between them, or unset
 	// for the last one alone.
 	Turns *int32 `protobuf:"varint,2,opt,name=turns,proto3,oneof" json:"turns,omitempty"`
-	// The most of each turn's text to return, cut from the head so the end survives, or unset
-	// for the default.
+	// The maximum text to return for each turn. Komrad cuts from the head so the end survives.
+	// Unset means the default.
 	MaxBytes      *int32 `protobuf:"varint,3,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

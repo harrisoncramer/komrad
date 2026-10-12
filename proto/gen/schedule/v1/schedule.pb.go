@@ -28,7 +28,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ScheduleRunState is where River holds a firing's job.
+// ScheduleRunState names the state River holds a firing's job in.
 type ScheduleRunState int32
 
 const (
@@ -161,7 +161,7 @@ func (ScheduleKind) EnumDescriptor() ([]byte, []int) {
 // ScheduleRun is one firing of a schedule, as the job that carried it out stands.
 type ScheduleRun struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The job's own id, which orders firings newest first.
+	// The job's own id. Firings sort newest first by it.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Which occurrence of the cron expression this firing stands for.
 	ScheduledFor *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=scheduled_for,json=scheduledFor,proto3" json:"scheduled_for,omitempty"`
@@ -268,7 +268,7 @@ type Schedule struct {
 	Cron string `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
 	// Which clock the expression is read against, blank for the machine's own.
 	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	// Whether it is armed, since a paused schedule keeps its record and stops firing.
+	// Whether it is armed. A paused schedule keeps its record and stops firing.
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Whether the task each launch works on starts hidden from the panel's sidebar.
 	HideAgents bool `protobuf:"varint,6,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
@@ -282,11 +282,11 @@ type Schedule struct {
 	OrchestratorAgentId *string `protobuf:"bytes,10,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof" json:"orchestrator_agent_id,omitempty"`
 	// When the expression next matches, unset while the schedule is paused.
 	NextRunAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
-	// Whether prompt holds only its opening, which a summary listing returns.
+	// Whether prompt holds only its opening. A summary listing returns the opening only.
 	PromptTruncated bool `protobuf:"varint,12,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
 	// The newest firing still on record, unset when it has never fired or the record has aged out.
 	LatestRun *ScheduleRun `protobuf:"bytes,13,opt,name=latest_run,json=latestRun,proto3,oneof" json:"latest_run,omitempty"`
-	// The newest firings on record, newest first, which only the watch fills.
+	// The newest firings on record, newest first. Only the watch fills this.
 	RecentRuns []*ScheduleRun `protobuf:"bytes,14,rep,name=recent_runs,json=recentRuns,proto3" json:"recent_runs,omitempty"`
 	// When it was archived, unset while it is live.
 	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
@@ -433,8 +433,8 @@ type ListSchedulesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Where to carry on from.
 	Pagination *v1.Pagination `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// How much of each record to return, since the panel draws every field and a model reading
-	// the same endpoint has a context window to spend.
+	// How much of each record to return. The panel draws every field, while a model reading the
+	// same endpoint has a context window to spend.
 	View v11.View `protobuf:"varint,2,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
 	// True to list the archived schedules and only those.
 	Archived      bool `protobuf:"varint,3,opt,name=archived,proto3" json:"archived,omitempty"`
@@ -738,7 +738,7 @@ func (x *ListScheduleRunsResponse) GetRuns() []*ScheduleRun {
 
 type CreateScheduleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What to list it as, which also becomes the title of each agent it launches.
+	// What to list it as. It also becomes the title of each agent it launches.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// When to fire, as five whitespace-separated fields.
 	Cron string `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
@@ -864,7 +864,7 @@ type isCreateScheduleRequest_Target interface {
 }
 
 type CreateScheduleRequest_WorkflowId struct {
-	// Start a task in this workflow, whose cwd and flags its writer inherits.
+	// Start a task in this workflow. Its writer inherits the workflow's cwd and flags.
 	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof"`
 }
 
@@ -1370,9 +1370,9 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\fScheduleKind\x12\x1d\n" +
 	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x01\x12\x16\n" +
-	"\x12SCHEDULE_KIND_TASK\x10\x022\xfa\x0e\n" +
-	"\x0fScheduleService\x12\x97\x02\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xbe\x01\x9a\xb5\x18\xb6\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x9c\x01List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules are left out unless archived is set.:\x01\x02\x90\x02\x01\x12\x89\x01\n" +
+	"\x12SCHEDULE_KIND_TASK\x10\x022\xfc\x0e\n" +
+	"\x0fScheduleService\x12\x99\x02\n" +
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xc0\x01\x9a\xb5\x18\xb8\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x9e\x01List the schedules, most recently updated first, with the opening of each prompt and its latest run. The list omits archived schedules unless archived is set.:\x01\x02\x90\x02\x01\x12\x89\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"7\x9a\xb5\x180\b\x01\x10\x01\x1a\fget_schedule\"\x19Fetch one schedule by id.:\x01\x02\x90\x02\x01\x12\xf3\x01\n" +
 	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x12list_schedule_runs\"lList a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.:\x01\x02\x90\x02\x01\x12\xa4\x02\n" +
 	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xc8\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xa6\x01Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.(\x00:\x01\x02\x12\xcd\x01\n" +

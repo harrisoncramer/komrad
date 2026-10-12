@@ -9,7 +9,7 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Komrad supports spawning or messaging agents on a schedule. This is useful for periodic work, such as triage work, or summarizer workflows.
+Komrad can spawn or message agents on a schedule, which suits periodic work such as triage or summaries.
 
 Schedules fire on a cron expression and hand their prompts to an agent. They keep firing after you close the panel, as long as the engine is running.
 
@@ -19,7 +19,7 @@ There are two kinds of schedules: _task schedules_ start a new task each time, a
 
 ## Task schedules
 
-A task schedule starts a new [task](../tasks/) in a workflow each time it fires, with a writer that gets the schedule's prompt as its brief. Everything else about the launch, such as the directory, the flags and the shared context, comes from the workflow at the moment it fires.
+A task schedule starts a new [task](../tasks/) in a workflow each time it fires, with a writer that gets the schedule's prompt as its brief. The workflow supplies everything else about the launch when the schedule fires, such as the directory, the flags and the shared context.
 
 Open the schedules from the switcher at the top of the panel, open the menu with <Key name="menu.open" /> and press <Key name="schedule_menu.new" /> to write one. Leave the kind on task, then give it a name, a cron expression, a prompt, and the `neovim` workflow. The name also names every agent it launches.
 
@@ -67,8 +67,8 @@ If the orchestrator is archived or deleted, the schedule's runs are cancelled. E
 
 ## Missed and paused runs
 
-Komrad never catches up on missed runs. If the server is down when a run was due, that run is skipped. This is on purpose, so agents do not start at odd hours.
+Komrad never catches up on missed runs. If the server is down when a run was due, that run is skipped. This is deliberate, so agents do not start at odd hours.
 
-Runs that cannot succeed are cancelled with a reason, which shows as the schedule's last run. A task schedule whose workflow no longer exists is cancelled, for instance.
+Komrad cancels runs that cannot succeed and records the reason as the schedule's last run. For instance, it cancels a task schedule whose workflow no longer exists.
 
 You can pause a schedule and arm it again later. A paused schedule keeps its settings.

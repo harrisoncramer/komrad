@@ -12,9 +12,9 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Hooks provide a way to run arbitrary code during an event in komrad's system.
+Hooks run your own code when something happens in komrad.
 
-You can use hooks to cover setup that komrad cannot handle out of the box, such as tearing down a docker stack, or configuring a network.
+Hooks cover setup that komrad cannot handle out of the box, such as configuring a network.
 
 <Alert variant="danger">
   Do not use hooks to copy or link dependencies into a worktree. A [workflow](../workflows/#worktrees) already does
@@ -23,13 +23,13 @@ You can use hooks to cover setup that komrad cannot handle out of the box, such 
   every new worktree before the agent starts.
 </Alert>
 
-Hooks can also be used to clean up when a task or agent is deleted. For instance, run a `task.pre-delete` hook to kill any processes the task needed for local development.
+Hooks also clean up when a task or agent is deleted. For instance, a `task.pre-delete` hook can kill any processes the task needed for local development, or tear down a docker stack.
 
 ## Writing a hook
 
 Hooks are executable files in <Setting path="hooks.dir" />, which is `~/.config/komrad/hooks` by default. An agent's hooks run in the agent's directory. A task's hooks run in its worktree, or in the workflow's directory when it has none.
 
-In our example, Neovim keeps a `.git-blame-ignore-revs` file listing the commits that only reformatted code, so `git blame` can skip them. Git only honours the file when told to, and that setting lives in git's config rather than in the tree, so no checkout carries it. A hook can set it for each agent:
+In our example, Neovim keeps a `.git-blame-ignore-revs` file listing the commits that only reformatted code, so `git blame` can skip them. Git honours the file only when told to, and that setting lives in git's config rather than in the tree, so no checkout carries it. A hook can set it for each agent:
 
 ```sh
 mkdir -p ~/.config/komrad/hooks
@@ -41,11 +41,11 @@ EOF
 chmod +x ~/.config/komrad/hooks/ignore-revs
 ```
 
-The `#KOMRAD` line is optional. A hook can declare a description and a timeout this way, in comment lines at the top of the file.
+The `#KOMRAD` line is optional. Comment lines like it at the top of the file declare a hook's description and timeout.
 
 ## Hanging it on a workflow
 
-On the workflow's row, open the menu with <Key name="menu.open" /> and press <Key name="menu.edit_row" />, move down to "hooks" under Settings and press enter, pick `ignore-revs` for "Agent pre-launch hook", and press enter. Every agent spawned from now on runs it once its worktree exists and before its CLI starts.
+On the workflow's row, open the menu with <Key name="menu.open" /> and press <Key name="menu.edit_row" />, move down to "hooks" under Settings and press enter, pick `ignore-revs` for "Agent pre-launch hook", and press enter. Every agent spawned from now on runs it after its worktree exists and before its CLI starts.
 
 <figure>
   <video
@@ -65,7 +65,7 @@ On the workflow's row, open the menu with <Key name="menu.open" /> and press <Ke
 
 ## Agent Lifecycle
 
-Every moment in a writer agent's life has a hook before it and a hook after it. Komrad waits for a `pre-` hook, and one that fails refuses the step. It never waits for a `post-` hook.
+Every moment in a writer agent's life has a hook before it and a hook after it. Komrad waits for a `pre-` hook, and a failing `pre-` hook refuses the step. Komrad never waits for a `post-` hook.
 
 | Moment               | Fires                                                         | If it fails                                                                                          |
 | -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -80,13 +80,13 @@ Every moment in a writer agent's life has a hook before it and a hook after it. 
 | `agent.pre-delete`   | Once the panes are closed, while the worktree is still there. | The delete stops, and the agent is marked as failed to clean up.                                     |
 | `agent.post-delete`  | Once the agent's row is gone, along with its task's worktree. | Komrad's own log says so, since the agent has no run log left.                                       |
 
-Hooks run one at a time, in the order the lifecycle events happen. A call that waits on a `pre-` hook, such as `archive_agents` from MCP or <Command path="rpc" />, is given eleven minutes rather than the usual thirty seconds.
+Hooks run one at a time, in the order the lifecycle events happen. A call that waits on a `pre-` hook, such as `archive_agents` from MCP or <Command path="rpc" />, gets eleven minutes instead of the usual thirty seconds.
 
 Only writer agents run agent hooks. Reviewers and orchestrators do not.
 
 ## Task Lifecycle
 
-A task has moments of its own, which fire for the task as a whole. Hang anything that belongs to the task's worktree here rather than on an agent, since the writer can restart and reviewers come and go while the worktree stays.
+A task has moments of its own, which fire for the task as a whole. Hang anything that belongs to the task's worktree here instead of on an agent, because the writer can restart and reviewers come and go while the worktree stays.
 
 | Moment              | Fires                                                                                        | If it fails                                                                                   |
 | ------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
@@ -94,7 +94,7 @@ A task has moments of its own, which fire for the task as a whole. Hang anything
 | `task.post-archive` | Once the task is archived, along with every agent on it.                                     | The run's log says so, and the task stays archived.                                           |
 | `task.pre-delete`   | When the task is deleted, once no agent is left on it and before its worktree is given back. | The task stays archived with the reason, and its worktree stays where it was.                 |
 
-`task.pre-open` and `task.post-archive` run as the agent that brought them about, but their logs sit on the task's row rather than that agent's. A task's logs list every run on it, its own hooks and those of each agent on it, and an agent's logs list only its own. `task.pre-delete` runs after every agent on the task is gone, so it has no `KOMRAD_AGENT_ID` and only komrad's own log records it. A task's hooks run one at a time, so `task.pre-open` waits for a `task.post-archive` still running from the last time the task closed.
+`task.pre-open` and `task.post-archive` run as the agent that triggered them, but their logs sit on the task's row instead of that agent's. A task's logs list every run on it, its own hooks and those of each agent on it, and an agent's logs list only its own. `task.pre-delete` runs after every agent on the task is gone, so it has no `KOMRAD_AGENT_ID` and only komrad's own log records it. A task's hooks run one at a time, so `task.pre-open` waits for a `task.post-archive` still running from the last time the task closed.
 
 Komrad ships two hooks for its own checkouts: `komrad-checkout-archive` for `task.post-archive`, which gives back a checkout's test instance and drops what it rebuilds, and `komrad-checkout-teardown` for `task.pre-delete`, which also takes down its docker stack.
 
@@ -132,7 +132,7 @@ docker compose -p "$KOMRAD_WORKTREE_NAME" down -v
 
 ## What a hook knows
 
-Komrad tells a hook about its agent and its task through environment variables. A task hook sees the agent that brought it about, except `task.pre-delete`, whose `KOMRAD_AGENT_ID` is empty.
+Komrad tells a hook about its agent and its task through environment variables. A task hook sees the agent that triggered it, except `task.pre-delete`, whose `KOMRAD_AGENT_ID` is empty.
 
 - `KOMRAD_AGENT_ID` names the agent
 - `KOMRAD_AGENT_CWD` is the directory the hook runs in

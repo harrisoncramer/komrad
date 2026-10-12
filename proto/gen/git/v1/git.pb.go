@@ -326,9 +326,9 @@ type CountChangedFilesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Any directory inside the repository, absolute, which must be inside a live agent's directory.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The commit counted from, where no commit counts nothing.
+	// The commit to count from. Empty counts nothing.
 	FromSha string `protobuf:"bytes,2,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
-	// The commit counted to, where no commit counts nothing.
+	// The commit to count to. Empty counts nothing.
 	ToSha string `protobuf:"bytes,3,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
 	// The paths and globs to leave out, relative to the top of the repository.
 	Exclude       []string `protobuf:"bytes,4,rep,name=exclude,proto3" json:"exclude,omitempty"`
@@ -619,7 +619,7 @@ func (x *MapRangesRequest) GetToSha() string {
 	return ""
 }
 
-// LineRange is a span of lines numbered from one, holding its start and not its end, where a
+// LineRange is a span of lines numbered from one. It includes its start and excludes its end. A
 // span whose start and end are equal is the point between two lines.
 type LineRange struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -730,7 +730,7 @@ func (x *RangeMapping) GetNewLines() *LineRange {
 	return nil
 }
 
-// FileMapping is where one file went and which of its regions the later commit rewrote.
+// FileMapping records where one file went and which of its regions the later commit rewrote.
 type FileMapping struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The file's path in the earlier commit, empty when that commit does not hold it.

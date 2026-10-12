@@ -9,13 +9,13 @@ import Command from "../../components/Command.astro";
 import Key from "../../components/Key.astro";
 import Setting from "../../components/Setting.astro";
 
-[Agents](../agents/) on your laptop stop when your laptop sleeps. Komrad can run them on a remote machine instead. The panel stays on your laptop and looks the same. What moves is the engine: the server, the database, and every agent's terminal.
+[Agents](../agents/) on your laptop stop when your laptop sleeps. Komrad can run them on a remote machine instead. The panel stays on your laptop and looks the same. The engine moves: the server, the database, and every agent's terminal.
 
 Komrad's own repository works this way. [Administering the engine](../engine-admin/) covers building that machine. This guide covers using one that exists.
 
 ## Telling your panel about an engine
 
-An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the <Setting path="connection" label="[connection]" /> table: <Setting path="connection.forward" label="forward" /> says how to carry the engine's API back to your laptop, and everything the panel does on the engine goes through that API. For a host your SSH config already knows, a plain <Setting path="connection.ssh" label="ssh" /> destination is enough.
+An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the <Setting path="connection" label="[connection]" /> table. <Setting path="connection.forward" label="forward" /> says how to carry the engine's API back to your laptop, and the panel does everything on the engine through that API. For a host your SSH config already knows, a plain <Setting path="connection.ssh" label="ssh" /> destination is enough.
 
 Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers on the same address with a new key.
 
@@ -24,7 +24,7 @@ Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers
 <Command path="open" /> opens your laptop's panel. <Command path="open" args="--engine remote" /> opens the engine named
 `remote`, and `--engine local` names your laptop.
 
-Every panel shows which engine it is on at the top of the sidebar, with the release its server runs, or its commit when it runs no release. The dot beside it is green while the engine's heartbeat arrives, and red once it stops. The message it flashes beside the engine says why, and <Key name="messages.open" /> opens it whole with what to do.
+Every panel shows which engine it is on at the top of the sidebar, with the release its server runs, or its commit when it runs no release. The dot beside it is green while the engine's heartbeat arrives, and red once it stops. The message it flashes beside the engine says why, and <Key name="messages.open" /> opens the whole message with what to do.
 
 To move to another engine, close the panel and run <Command path="open" args="--engine" /> with that engine's name.
 
@@ -34,7 +34,7 @@ An agent's terminal on the engine is streamed to your panel, and <Command path="
 
 The terminal in an agent's [menu](../navigation/#the-menu) works the same way. It opens a shell on the engine, in the agent's directory there, and streams it to the pane below the stage.
 
-The exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it is attached, so a smaller terminal crops it and a larger one leaves blank space around it.
+One exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it attaches, so a smaller terminal crops it and a larger one leaves blank space around it.
 
 ## Signing the agent CLI in
 
@@ -46,4 +46,4 @@ Each task also works in a fresh worktree, and the CLI asks whether to trust ever
 
 An engine costs money every hour, so it may be switched off when nobody is using it. Switching off keeps the disk, the database and the address. Every agent stops, and you resume the ones you want once it is back.
 
-Using an engine is one thing. [Administering the engine](../engine-admin/) is building one.
+This guide covers using an engine. [Administering the engine](../engine-admin/) covers building one.

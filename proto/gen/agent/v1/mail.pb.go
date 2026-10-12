@@ -27,7 +27,7 @@ const (
 type MailKind int32
 
 const (
-	// No kind was recorded, which the panel draws as a dash.
+	// No kind was recorded. The panel draws a dash.
 	MailKind_MAIL_KIND_UNSPECIFIED MailKind = 0
 	// One agent writing to another, or the person writing to an agent.
 	MailKind_MAIL_KIND_PLAIN MailKind = 1
@@ -104,7 +104,7 @@ func (MailKind) EnumDescriptor() ([]byte, []int) {
 type MailDirection int32
 
 const (
-	// Unspecified is received, since that is the half an agent asks for by default.
+	// Unspecified means received, the half an agent asks for by default.
 	MailDirection_MAIL_DIRECTION_UNSPECIFIED MailDirection = 0
 	// The mail addressed to the agent.
 	MailDirection_MAIL_DIRECTION_RECEIVED MailDirection = 1
@@ -159,7 +159,7 @@ type Mail struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Which agent sent it, unset when komrad sent it itself.
 	FromAgentId *string `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
-	// What to show as the sender, which is komrad's own name for mail it wrote.
+	// The sender's display name. Komrad uses its own name for mail it wrote.
 	FromName string `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
 	// The agent it is waiting for.
 	ToAgentId string `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
@@ -283,7 +283,7 @@ type SendMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Who to send to: an agent's id, or the name of a live agent.
 	To string `protobuf:"bytes,1,opt,name=to,proto3" json:"to,omitempty"`
-	// What to say, which has to carry who is asking and what is wanted.
+	// The message text. It must say who is asking and what they want.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// The mail being answered, so the exchange reads as a thread.
 	ReplyTo       *string `protobuf:"bytes,3,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
@@ -400,16 +400,16 @@ type ForwardLastTurnsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whose newest turns to forward.
 	FromAgentId string `protobuf:"bytes,1,opt,name=from_agent_id,json=fromAgentId,proto3" json:"from_agent_id,omitempty"`
-	// Who to send them to, addressed by id since two workflows may hold agents of one name.
+	// Who to send them to, by id. Two workflows may hold agents of one name.
 	ToAgentId string `protobuf:"bytes,2,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
 	// How many of the source's newest turns to forward, with the prompts between them, or unset
 	// for the last one alone.
 	Turns *int32 `protobuf:"varint,3,opt,name=turns,proto3,oneof" json:"turns,omitempty"`
-	// What to tell the recipient about the forward in the caller's own words, which it reads
-	// before the turns.
+	// A note to the recipient about the forward, in the caller's own words. The recipient reads
+	// it before the turns.
 	Note *string `protobuf:"bytes,4,opt,name=note,proto3,oneof" json:"note,omitempty"`
-	// The most of each turn's text to forward, cut from the head so the end survives, or unset
-	// for the default.
+	// The maximum text to forward for each turn. Komrad cuts from the head so the end survives.
+	// Unset means the default.
 	MaxBytes      *int32 `protobuf:"varint,5,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -779,7 +779,7 @@ func (x *ListMailResponse) GetNextPageToken() string {
 
 type DeleteMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The mail to erase, read or not, which the recipient will then never see.
+	// The mail to erase, read or not. The recipient never sees it.
 	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

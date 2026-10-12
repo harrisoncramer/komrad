@@ -22,7 +22,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ReviewAuthorKind is who wrote a review message.
+// ReviewAuthorKind names who wrote a review message.
 type ReviewAuthorKind int32
 
 const (
@@ -79,15 +79,15 @@ func (ReviewAuthorKind) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{0}
 }
 
-// ReviewDeliveryState is how far one of the person's comments has got towards the agent reading
-// it. It is no stored field: it is read off the comment's own sent stamp and the newest doorbell
-// raised against it, since the stamp outlives mail the agent deletes or lets expire. Whether the
-// comment has been answered is a different question, read off the messages of the thread.
+// ReviewDeliveryState shows how far one of the person's comments has got towards the agent
+// reading it. Komrad stores no such field. It reads the state off the comment's own sent stamp
+// and the newest doorbell raised against it. The stamp outlives mail that the agent deletes or
+// lets expire. The messages of the thread show whether the comment has been answered.
 type ReviewDeliveryState int32
 
 const (
-	// Delivery says nothing about this message, which is the case for anything the agent wrote,
-	// since nobody is waiting to be told about it.
+	// Delivery says nothing about this message. That holds for anything the agent wrote, because
+	// nobody waits to be told about it.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED ReviewDeliveryState = 0
 	// Written down and not yet let go of.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT ReviewDeliveryState = 1
@@ -95,8 +95,8 @@ const (
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT ReviewDeliveryState = 2
 	// Released, and the agent has claimed the doorbell.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED ReviewDeliveryState = 3
-	// Kept from the agent, because someone on the forge without write access to the repository
-	// wrote it or the thread it sits in, until the person accepts the thread's first comment.
+	// Kept from the agent until the person accepts the thread's first comment, because someone on
+	// the forge without write access to the repository wrote the comment or its thread.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD ReviewDeliveryState = 4
 )
 
@@ -145,12 +145,12 @@ func (ReviewDeliveryState) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{1}
 }
 
-// ReviewVerdict is what an author concluded about a round, which is what tells the agent
-// whether it is done rather than leaving it to read that out of the prose.
+// ReviewVerdict records what an author concluded about a round. It tells the agent whether it
+// is done, so the agent need not read that out of the prose.
 type ReviewVerdict int32
 
 const (
-	// Nothing has been concluded, which is what an unreleased review carries.
+	// Nothing has been concluded. An unreleased review carries this.
 	ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED ReviewVerdict = 0
 	// This round is good as it stands.
 	ReviewVerdict_REVIEW_VERDICT_APPROVED ReviewVerdict = 1
@@ -264,9 +264,9 @@ func (ForgeReplyState) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{3}
 }
 
-// ReviewRound is one immutable snapshot of what a task's writer has written, which is what a review is
-// given against. Nothing a comment is pinned to can move underneath the person reading it,
-// because the snapshot is a commit rather than the worktree.
+// ReviewRound is one immutable snapshot of what a task's writer has written. A review is given
+// against it. The snapshot is a commit rather than the worktree, so nothing a comment is pinned
+// to can move underneath the person reading it.
 type ReviewRound struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The handle a review or a viewed-file record names this round by.
@@ -357,8 +357,8 @@ func (x *ReviewRound) GetCreatedAt() string {
 	return ""
 }
 
-// Review is one author's batch of comments against one round, private while it is written and
-// released as a whole, the way a pending review on a forge is.
+// Review is one author's batch of comments against one round. It stays private while the author
+// writes it and releases as a whole, like a pending review on a forge.
 type Review struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The handle the threads in this batch name it by.
@@ -367,7 +367,7 @@ type Review struct {
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The snapshot the batch was written against.
 	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// Which round that is, counting from one, so a caller need not fetch the round to say.
+	// Which round that is, counting from one.
 	RoundOrdinal int32 `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
 	// Whether a person, an agent or someone on the forge wrote it.
 	AuthorKind ReviewAuthorKind `protobuf:"varint,5,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
@@ -389,8 +389,8 @@ type Review struct {
 	// they said nothing.
 	Body string `protobuf:"bytes,13,opt,name=body,proto3" json:"body,omitempty"`
 	// How many of this review's comments nobody has settled. A released review with none left is
-	// finished, which the verdict does not say, since a verdict is what its author concluded at
-	// the time rather than what has happened since.
+	// finished. The verdict does not say so, because it records what the author concluded at the
+	// time and not what has happened since.
 	OpenThreads int32 `protobuf:"varint,14,opt,name=open_threads,json=openThreads,proto3" json:"open_threads,omitempty"`
 	// The forge login of whoever wrote a review mirrored from the forge, empty otherwise.
 	ExternalLogin string `protobuf:"bytes,15,opt,name=external_login,json=externalLogin,proto3" json:"external_login,omitempty"`
@@ -709,8 +709,8 @@ type ReviewThread struct {
 	RoundId string `protobuf:"bytes,4,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	// Which round that is, counting from one.
 	RoundOrdinal int32 `protobuf:"varint,5,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	// The commit the old side of these line numbers was read against, which is the round's own
-	// base unless the diff was narrowed to an earlier round when the thread was written.
+	// The commit the old side of these line numbers was read against. This is the round's own base
+	// unless the diff was narrowed to an earlier round when the thread was written.
 	BaseSha string `protobuf:"bytes,6,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,7,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
@@ -724,9 +724,9 @@ type ReviewThread struct {
 	NewEnd int32 `protobuf:"varint,11,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
 	// The diff lines the thread was written against, each keeping its leading marker.
 	QuotedLines []string `protobuf:"bytes,12,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
-	// When the person reviewing settled this thread, empty while it is still owed an answer.
-	// Whether a thread is settled is a different question from whether the code under it has
-	// moved, and it is this one that decides whether the thread is still asking for something.
+	// When the person reviewing settled this thread. Empty while it is still owed an answer.
+	// Settling is separate from whether the code under the thread has moved, and settling decides
+	// whether the thread still asks for something.
 	ResolvedAt string `protobuf:"bytes,13,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
 	// Whether the agent has replied since the person reviewing last looked.
 	UnreadByHuman bool `protobuf:"varint,14,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
@@ -917,13 +917,13 @@ type ReviewMessage struct {
 	ThreadId string `protobuf:"bytes,2,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
 	// Whether a person, an agent or someone on the forge wrote it.
 	AuthorKind ReviewAuthorKind `protobuf:"varint,3,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
-	// The agent that wrote it, absent for the person reviewing and cleared if that agent is
-	// deleted. author_kind, not this, is what says who wrote it.
+	// The agent that wrote it. Absent for the person reviewing, and cleared if that agent is
+	// deleted. author_kind says who wrote it, not this field.
 	AuthorAgentId *string `protobuf:"bytes,4,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
 	// What the author wrote.
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	// Replacement lines the author proposes for the thread's range, empty for an ordinary
-	// comment. An agent applies these rather than reasoning about them.
+	// Replacement lines the author proposes for the thread's range. Empty for an ordinary
+	// comment. An agent applies these instead of reasoning about them.
 	Suggestion []string `protobuf:"bytes,6,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
 	// When it was written.
 	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -1195,9 +1195,9 @@ func (x *ListReviewThreadsRequest) GetTask() string {
 
 type ListReviewThreadsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The threads on that diff and what has been said in each. An agent reading a review is shown
-	// only the comments the person has let go of, and none of the panel's record of when each was
-	// released, so that a review is read once it is a review rather than as it is being written.
+	// The threads on that diff and what has been said in each. An agent reading a review sees only
+	// the comments the person has let go of, and none of the panel's record of when each was
+	// released. The agent reads a review only once it is released, not while the person writes it.
 	Threads       []*ReviewThread `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1260,8 +1260,8 @@ type CreateReviewThreadRequest struct {
 	NewStart int32 `protobuf:"varint,7,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
 	// Where it ends on the new side, inclusive.
 	NewEnd int32 `protobuf:"varint,8,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
-	// The diff lines being written about, each keeping its leading marker, so the anchor still
-	// says something once the code moves.
+	// The diff lines being written about, each keeping its leading marker so the anchor still
+	// makes sense once the code moves.
 	QuotedLines []string `protobuf:"bytes,9,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
 	// The first thing said. The ceiling refuses an essay and is not a length to write up to.
 	Body string `protobuf:"bytes,10,opt,name=body,proto3" json:"body,omitempty"`
@@ -1502,8 +1502,8 @@ type AddReviewMessageResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The message as recorded.
 	Message *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	// A nudge towards addressed, given when a plain reply lands on a thread whose worktree has
-	// moved since it was written. Empty otherwise.
+	// A nudge to set addressed, given when a plain reply lands on a thread whose worktree has
+	// moved since the thread was written. Empty otherwise.
 	Hint          string `protobuf:"bytes,2,opt,name=hint,proto3" json:"hint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1846,8 +1846,8 @@ type SetReviewThreadResolvedRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which thread to settle or reopen.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Whether the thread is settled. Unsetting it reopens the thread, which is what a person
-	// does when the answer was not the end of it.
+	// Whether the thread is settled. Unsetting it reopens the thread, as a person does when the
+	// answer was not the end of it.
 	Resolved      bool `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1943,8 +1943,8 @@ func (x *SetReviewThreadResolvedResponse) GetThread() *ReviewThread {
 }
 
 // OpenReviewRoundRequest freezes what an agent has written now and records it as its next
-// round. A tree that has not moved since the last round is that round again rather than a new
-// one, so opening the diff twice does not walk the ordinal on.
+// round. On a tree that has not moved since the last round it returns that round,
+// so opening the diff twice does not advance the ordinal.
 type OpenReviewRoundRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which task's checkout to freeze, by id or by slug. Leave it unset for your own task.
@@ -2392,11 +2392,11 @@ type ReleaseReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which task the review was written on, by id or by slug. Leave it unset for your own task.
 	Task *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
-	// What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An
-	// agent must set it and a person must leave it unset.
+	// What a reviewing agent concludes. It tells the agent it reviewed whether it is done. An agent
+	// must set it and a person must leave it unset.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
-	// What to say about the work as a whole rather than about any one line, which the agent reads
-	// before the first thread. Optional: a review of pinned comments alone is complete.
+	// What to say about the work as a whole rather than about any one line. The agent reads it
+	// before the first thread. Optional, since a review of pinned comments alone is complete.
 	Body          string `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2597,8 +2597,8 @@ type SetReviewFileViewedRequest struct {
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	// Which file, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	// Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
-	// on its way back.
+	// Whether the file has been read. Unsetting it drops the mark, as the toggle does on its way
+	// back.
 	Viewed bool `protobuf:"varint,3,opt,name=viewed,proto3" json:"viewed,omitempty"`
 	// The fingerprint of the file's diff content at the time it was marked.
 	Fingerprint   string `protobuf:"bytes,4,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
@@ -2808,7 +2808,7 @@ type ForgeReply struct {
 	ThreadId string `protobuf:"bytes,2,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
 	// Where it is on its way to the forge.
 	State ForgeReplyState `protobuf:"varint,3,opt,name=state,proto3,enum=agent.v1.ForgeReplyState" json:"state,omitempty"`
-	// The words that go to the forge.
+	// The text that goes to the forge.
 	Body string `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
 	// When the person wrote it for posting.
 	ApprovedAt string `protobuf:"bytes,5,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`

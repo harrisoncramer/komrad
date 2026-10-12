@@ -9,7 +9,7 @@ import Alert from "../../components/Alert.astro";
 import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 
-Please file [issues on GitHub](https://github.com/harrisoncramer/komrad/issues/new?template=bug_report.yml) via the form there; issues that don't follow this format will not be addressed.
+Please file [issues on GitHub](https://github.com/harrisoncramer/komrad/issues/new?template=bug_report.yml) through the form there. I will not address issues that skip the form.
 
 <Alert variant="warning">
   Komrad is a very new piece of software and likely will undergo breaking changes. I'll do my best to not break backward
@@ -18,17 +18,17 @@ Please file [issues on GitHub](https://github.com/harrisoncramer/komrad/issues/n
 
 Usability problems count as bugs. A confusing screen, an unclear error, a bad default, or a gap in the docs is worth reporting. Feature requests go in [Discussions](https://github.com/harrisoncramer/komrad/discussions) instead, since komrad is [focused on stability](../philosophy/) for the time being.
 
-Please search the [open issues](https://github.com/harrisoncramer/komrad/issues) first before filing a new ticket.
+Search the [open issues](https://github.com/harrisoncramer/komrad/issues) before filing a new ticket.
 
 ## Checking for common issues
 
-Please run doctor before filing any issues to ensure that your komrad can come up healthy:
+Run doctor before filing an issue to confirm your komrad comes up healthy:
 
 ```sh
 komrad doctor
 ```
 
-This command checks dependencies (like tmux and your database). Please also include the output of the doctor command in your report.
+It checks dependencies like tmux and your database. Include its output in your report.
 
 ## Logs and recordings
 
@@ -36,11 +36,11 @@ When a request fails, the panel shows its trace ID as a <Command path="log" args
 
 Run that command and paste what it prints. If you missed the id, <Command path="log" args="--recent" /> lists the latest ones.
 
-The server also writes a log file, `komrad.log`, in your cache directory. That's `~/Library/Caches/komrad/` on macOS and `~/.cache/komrad/` on Linux. It explains failures to launch, reconcile, or index. Paste only the lines from around the time of the bug, and filter by the agent's id if one was involved.
+The server also writes a log file, `komrad.log`, in your cache directory. That's `~/Library/Caches/komrad/` on macOS and `~/.cache/komrad/` on Linux. It records failures to launch, reconcile, or index. Paste only the lines from around the time of the bug, and filter by the agent's id if one was involved.
 
-Finally, if an agent shows the wrong state, such as thinking when its pane has stopped, the recorded pane frames really help. Please set <Setting path="debug.frames" label="frames = true" /> under <Setting path="debug" label="[debug]" /> in your config, replicate the issue, and attach the frame file. The files are kept by default in `komrad-frames/<agent id>/` in the same cache directory.
+Finally, if an agent shows the wrong state, such as thinking when its pane has stopped, the recorded pane frames help a lot. Set <Setting path="debug.frames" label="frames = true" /> under <Setting path="debug" label="[debug]" /> in your config, replicate the issue, and attach the frame file. By default the files live in `komrad-frames/<agent id>/` in the same cache directory.
 
-For anything visual (UI flicker, regressions, etc) please attach a screenshot or a short screen recording.
+For anything visual, such as UI flicker or regressions, attach a screenshot or a short screen recording.
 
 ## Performance problems
 
@@ -64,7 +64,7 @@ enabled = true
 
 The server serves on <Setting path="debug.pprof.server.address" label="localhost:6060" /> and the panel on <Setting path="debug.pprof.panel.address" label="localhost:6061" />. Both read your configuration only when komrad starts, so run <Command path="stop" /> and restart the panel after changing it.
 
-Turning profiling on doesn't record anything by itself. It only opens a port that answers questions about the running process. For instance, use these commands to dump information about the currently running server after turning on profiling:
+Turning profiling on records nothing by itself. It only opens a port that answers questions about the running process. For instance, these commands dump information about the running server once profiling is on:
 
 ```sh
 curl -o heap.pb.gz 'http://localhost:6060/debug/pprof/heap'

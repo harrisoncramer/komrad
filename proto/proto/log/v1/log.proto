@@ -37,7 +37,7 @@ message TraceSummary {
   string trace_id = 1;
   // When the trace's first line was written, in RFC 3339.
   string started_at = 2;
-  // What the trace was about: the RPC method, or the loop, when a line said.
+  // The RPC method or loop the trace was about, when a line said.
   string what = 3;
   // How many lines the log holds under it.
   int32 lines = 4;
@@ -52,7 +52,7 @@ message ListRecentTracesRequest {
 }
 
 message ListRecentTracesResponse {
-  // The traces the log ends with, oldest first.
+  // The newest traces in the log, oldest first.
   repeated TraceSummary traces = 1;
 }
 
@@ -83,9 +83,9 @@ message ReadAgentLogsResponse {
   repeated string lines = 1;
   // What to pass back to read only the lines written after these.
   string cursor = 2;
-  // Whether the log started over since the cursor, so the lines held before are gone.
+  // Whether the log started over since the cursor. When true, the lines held before are gone.
   bool reset = 3;
-  // Whether more lines remain past the cursor, so reading again at once returns them.
+  // Whether more lines remain past the cursor. When true, reading again right away returns them.
   bool more = 4;
 }
 
@@ -94,9 +94,9 @@ message LogSource {
   string id = 1;
   // What the source is called, such as service or 003 agent.pre-launch setup.
   string name = 2;
-  // The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the server log.
+  // The number of the script run the source holds. The agent's failed_run_log names it when that run failed. Unset for the server log.
   optional int32 run = 3;
-  // The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the server log.
+  // The agent that recorded the script run the source holds. read_agent_logs reads the source for that agent alone. Empty for the server log.
   string agent_id = 4;
   // Whether the script run failed, set only on a task's log sources.
   bool failed = 5;
@@ -118,7 +118,7 @@ message ListTaskLogSourcesRequest {
 }
 
 message ListTaskLogSourcesResponse {
-  // Each script run recorded on the task by any agent on it, its own moments and theirs, newest first.
+  // Each script run recorded on the task by any agent on it, including the task's own hooks, newest first.
   repeated LogSource sources = 1;
 }
 
@@ -130,7 +130,7 @@ service LogService {
       cli: true
       mcp: true
       name: "get_log_lines"
-      description: "Read every log line written under one trace id, in order. A failed call answers its trace id."
+      description: "Read every log line written under one trace id, in order. A failed call returns its trace id."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

@@ -28,7 +28,7 @@ const (
 type Loop int32
 
 const (
-	// No loop was named, which a wake refuses.
+	// No loop was named. A wake refuses it.
 	Loop_LOOP_UNSPECIFIED Loop = 0
 	// Reads each live agent's working directory for its branch, its head and the lines it changed.
 	Loop_LOOP_CWD_SYNC Loop = 1

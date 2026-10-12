@@ -11,18 +11,18 @@ Komrad serves its own API over MCP, the protocol agent CLIs use to call tools, s
 
 Every agent komrad starts is already connected. You can also add the server to your own Claude or Codex session to drive komrad from a conversation.
 
-For now, the server listens only on your own machine is unauthenticated.
+For now, the server listens only on your own machine and is unauthenticated.
 
-For Claude agents, komrad also switches off Claude's built-in subagent tool. An agent asked to spawn help then uses komrad, so the new agent appears in the panel where you can see it.
+For Claude agents, komrad also switches off Claude's built-in subagent tool. An agent asked to spawn help then uses komrad, so the new agent appears in the panel.
 
 ## Read-only vs. write tools
 
-The first kind reads komrad's database with read-only SQL, so an orchestrator can answer its own questions, like how many agents in a workflow are still working. The second kind is the API itself: listing agents, creating them, sending mail, requesting reviews. Anything that changes something goes through the API, with the same rules as the panel. When a model lists agents it gets the same row the panel draws.
+Komrad has two kinds of tool. The first reads komrad's database with read-only SQL, so an orchestrator can answer its own questions, like how many agents in a workflow are still working. The second is the API itself, which lists agents, creates them, sends mail, and requests reviews. Anything that changes something goes through the API, with the same rules as the panel. A model that lists agents gets the same row the panel draws.
 
 The [API reference](../../api/) lists every tool.
 
 ## Identity and scope
 
-Komrad offers each agent only the tools that fit its role. A task's writer gets what it needs to do the work and answer a review, but doesn't get tools relevant to orchestrating other agents. You, with the server in your own session, get everything.
+Komrad offers each agent only the tools that fit its role. A task's writer gets the tools it needs to do the work and answer a review, but none for orchestrating other agents. You get everything when you use the server in your own session.
 
-Every agent carries its own id, and komrad attaches it to every call. That is how a call is credited to the agent that made it and how the server knows which role to serve. Calls from the panel carry no id, because the panel is you.
+Every agent carries its own id, and komrad attaches it to every call. The id credits a call to the agent that made it and tells the server which role to serve. Calls from the panel carry no id, because the panel is you.

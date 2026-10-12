@@ -11,19 +11,19 @@ import Key from "../../components/Key.astro";
 import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
 
-Once a task's writer has made a change, what's left is shipping it. You read the change and ask for fixes, the writer pushes it and opens a pull request, you merge it, and then you clean up. This guide walks through each step.
+Once a task's writer has made a change, you ship it. You read the change and ask for fixes, the writer pushes it and opens a pull request, you merge it, and then you clean up. This guide walks through each step.
 
 <Alert variant="warning">This guide assumes you have started a [task](../tasks/) with a worktree.</Alert>
 
 ## Local reviews
 
-While a change is still taking shape, it's often faster to iterate with the agent directly than to push it to a forge like GitHub or GitLab.
+While a change is still taking shape, iterating with the agent directly is often faster than pushing to a forge like GitHub or GitLab.
 
-Komrad supports this with _local reviews_. You read the task's diff, leave comments on its lines, and edit it yourself, and the writer answers in the same view. This keeps feedback loops quick and saves CI runs on work that isn't ready yet.
+Komrad supports this with _local reviews_. You read the task's diff, leave comments on its lines, and edit it yourself, and the writer answers in the same view. That keeps feedback loops quick and saves CI runs on work that isn't ready yet.
 
 <Alert variant="info">Local reviews are completely optional, you can use komrad without them.</Alert>
 
-Komrad's local review model is similar to how <a href="https://www.gerritcodereview.com/">Gerrit</a> does code review. You step through the change in rounds, which komrad calls chapters, and each chapter holds the code as it stood when it was reviewed.
+Komrad's local review model resembles <a href="https://www.gerritcodereview.com/">Gerrit</a>'s code review. You step through the change in rounds, which komrad calls chapters, and each chapter holds the code as it stood when it was reviewed.
 
 ### Opening a review
 
@@ -55,11 +55,11 @@ A comment stays a draft until you send your review, as on GitHub or GitLab. Whil
 
 ### Editing the code yourself
 
-Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` in your terminal, like vim) beside the diff. Komrad pauses the writer while you edit, since you are both working in the task's checkout. When you close the editor the writer carries on from your change.
+Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` in your terminal, like vim) beside the diff. Komrad pauses the writer while you edit, since you both work in the task's checkout. When you close the editor, the writer carries on from your change.
 
 ### Sending
 
-When you are done reading, press <Key name="review.send" /> to send the review. Komrad asks if you have anything to say about the work as a whole, then sends it to the task's writer. Sending stops the writer mid-turn, so it reads your comments now rather than when it finishes what it is doing.
+When you are done reading, press <Key name="review.send" /> to send the review. Komrad asks if you have anything to say about the work as a whole, then sends it to the task's writer. Sending stops the writer mid-turn, so it reads your comments now instead of when it finishes what it is doing.
 
 <figure>
   <video
@@ -79,13 +79,13 @@ When you are done reading, press <Key name="review.send" /> to send the review. 
 
 Each comment goes out with the lines it was written on and the code around them, so the writer can find the spot even after the file has moved.
 
-The writer answers in your threads, and can settle them. To see exactly what it changed in answer to a comment, press <Key name="review.answer" />. You can settle or reopen any thread yourself.
+The writer answers in your threads and can settle them. To see exactly what it changed in answer to a comment, press <Key name="review.answer" />. You can settle or reopen any thread yourself.
 
 ### Stepping through history
 
 Each review you send closes a chapter, which holds the code you had read when you sent it. Stepping through chapters shows each review, with the comments written on it and the code that changed as a result.
 
-Past chapters take replies but not new comments, since their lines may no longer exist in the change.
+Past chapters take replies but not new comments, because their lines may no longer exist in the change.
 
 <figure>
   <video
@@ -107,7 +107,7 @@ Past chapters take replies but not new comments, since their lines may no longer
 
 The writer can ask for a [reviewer](../agents/#reviewers) when it thinks its work is ready, and you can start one yourself from the task's menu. A task can hold more than one reviewer at once, up to <Setting path="usage.task.max_reviewers" />. A reviewer reviews the same way you do, leaving threads on the task's diff and releasing a review the writer answers.
 
-A reviewer's threads are hidden whenever a review opens, so you see your own first. Open the review's menu and press <Key name="review.agent_threads" /> to show or hide them.
+A review hides a reviewer's threads when it opens, so you see your own first. Open the review's menu and press <Key name="review.agent_threads" /> to show or hide them.
 
 ## Shipping the work
 
@@ -144,13 +144,13 @@ While any agent on a task is live, komrad follows its pull request. It notices w
   </video>
 </figure>
 
-A repository where something is likely to change soon, such as checks still running, a branch that just moved, or a pull request komrad just wrote to, is read every five seconds. Every other repository is read once a minute. When the forge says little of the hour's budget is left, every repository on that host drops to once a minute until the budget comes back.
+Komrad reads a repository every five seconds when something there is likely to change soon, such as checks still running, a branch that just moved, or a pull request komrad just wrote to. It reads every other repository once a minute. When the forge says little of the hour's budget is left, komrad drops every repository on that host to once a minute until the budget comes back.
 
 ### Comments from the forge
 
 Komrad also reads the review comments on each followed pull request or merge request, drafts included, once a minute. Each one is copied into the task's review as a thread of its own, under its author and line, and counted with yours on the task's row. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
 
-Comments from someone who can push to the repository reach the writer on their own. Comments from anyone else are held until you send your review, or until you reply in their thread, so nothing from a stranger reaches the writer without you seeing it first.
+Comments from someone who can push to the repository reach the writer on their own. Komrad holds comments from anyone else until you send your review or reply in their thread, so nothing from a stranger reaches the writer before you see it.
 
 The writer answers forge comments in the review, never on the forge itself, and komrad never writes anything back to the forge.
 
@@ -166,11 +166,11 @@ A merged task can be archived, which stops its agents and keeps everything else,
 
 ### Where the token lives
 
-The database holds only which forge and which account. The token itself sits in a file only your user can read, and never shows up in logs. This is the same arrangement as the GitHub CLI or your SSH keys.
+The database holds only which forge and which account. The token itself sits in a file only your user can read, and never shows up in logs. The GitHub CLI and your SSH keys work the same way.
 
 ### How agents push
 
-Agents never hold a credential of their own, and no token is ever typed into a pane, so none can leak into a transcript. Komrad hands each tool the credential when it runs.
+Agents never hold a credential of their own, and no token is ever typed into a pane, so none can leak into a transcript. Komrad hands each tool the credential when the tool runs.
 
 Komrad puts its own `gh` and `glab` ahead of every agent's PATH. Each one asks komrad for a credential and then runs the real tool. If the agent's environment already sets a token the tool reads, such as `GH_TOKEN` or `GITLAB_TOKEN`, komrad leaves the tool alone.
 

@@ -29,7 +29,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Resource is which table a row is of, one value per member of Row.
+// Resource names the table a row belongs to, one value per member of Row.
 type Resource int32
 
 const (
@@ -207,7 +207,7 @@ type WatchEvent_Snapshot struct {
 }
 
 type WatchEvent_Changes struct {
-	// Every row one pass over the database found moved.
+	// Every row that moved in one pass over the database.
 	Changes *Changes `protobuf:"bytes,2,opt,name=changes,proto3,oneof"`
 }
 
@@ -268,7 +268,7 @@ func (x *Snapshot) GetRows() []*Row {
 	return nil
 }
 
-// Changes is what one pass over the database found moved.
+// Changes holds the rows that moved in one pass over the database.
 type Changes struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The rows as the panel should now hold them.

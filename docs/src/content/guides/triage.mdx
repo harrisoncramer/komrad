@@ -12,7 +12,7 @@ Komrad's triage zone sits at the top of the agents list and holds only the agent
 
 {/* recording: the triage zone filling as agents ask questions and finish */}
 
-The zone holds three rows by default, which you can change with the <Setting path="layout.triage_rows" /> setting. A task shows up in it once, by its most urgent agent, however many of its agents are waiting.
+The zone holds three rows by default, which you can change with the <Setting path="layout.triage_rows" /> setting. A task appears in it once, through its most urgent agent, however many of its agents are waiting.
 
 ## What lands in triage
 
@@ -20,16 +20,16 @@ An agent enters triage for one of three reasons, the most urgent first:
 
 1. It needs you. It stopped to ask a question or ask for permission, for instance.
 2. Something broke. The agent errored, failed to launch or to clean up, a hook script failed, or its task's checkout is stuck partway through a rebase or merge.
-3. It finished. The writer's turn ended, no reviewer is reading its change, and it is not waiting on mail from another agent. It's fully idle, in other words.
+3. It finished. The writer's turn ended, no reviewer is reading its change, and it is not waiting on mail from another agent. In other words, it is fully idle.
 
 ## Working through triage
 
-Press <Key name="agents.triage" /> to jump to the first row in the zone. The rows in the zone are copies, so each agent still sits in its usual place in the tree below. While the cursor is in the zone its order holds still, so nothing moves under you as you read. It settles into its new order once you leave.
+Press <Key name="agents.triage" /> to jump to the first row in the zone. The rows in the zone are copies, so each agent still sits in its usual place in the tree below. While the cursor is in the zone, the order holds still, so nothing moves under you as you read. The zone settles into its new order once you leave.
 
 Answer the agent and it drops out of triage on its own. Opening a finished agent counts as having looked at it, so its task leaves the zone too.
 
-When you can't deal with a task yet, open its [menu](../navigation/#the-menu) with <Key name="menu.open" /> and press <Key name="menu.snooze" />. The task leaves the zone, one waiting for a slot comes in at the bottom, and the cursor moves to the row above. A snooze lasts until what the task waits on changes, so a task you snoozed because its writer finished comes back when the writer asks you something.
+When you cannot deal with a task yet, open its [menu](../navigation/#the-menu) with <Key name="menu.open" /> and press <Key name="menu.snooze" />. The task leaves the zone, one waiting for a slot comes in at the bottom, and the cursor moves to the row above. A snooze lasts until what the task waits on changes, so a task you snoozed because its writer finished comes back when the writer asks you something.
 
-To bring a snoozed task back early, find it in the tree and pick wake from the same menu. Snoozes only last as long as the panel does, so restarting the panel brings every snoozed task back.
+To bring a snoozed task back early, find it in the tree and pick wake from the same menu. Snoozes last only as long as the panel does, so restarting the panel brings every snoozed task back.
 
 {/* recording: jumping to triage, opening an agent, and snoozing one */}

@@ -15,7 +15,7 @@ message ListPullRequestsRequest {
     min_len: 1
     max_len: 2048
   }];
-  // The branch the pull requests were opened from; left empty, every pull request stored for
+  // The branch the pull requests were opened from. When empty, every pull request stored for
   // the repository is listed.
   string head_branch = 2 [(buf.validate.field).string = {max_len: 512}];
   // Which page to read and how many to a page, twenty when unset and at most a hundred.
@@ -36,7 +36,7 @@ message PullRequest {
   // The canonical address of the repository its branch lives in, empty when the forge no
   // longer has it.
   string head_repository_url = 6;
-  // The number the forge shows a person, which is per repository.
+  // The number the forge shows a person. Numbers are per repository.
   int32 number = 7;
   // The title as the forge has it.
   string title = 8;
@@ -58,7 +58,7 @@ message PullRequest {
   string changed_at = 16;
   // When it merged, in RFC 3339, unset while it has not.
   optional string merged_at = 17;
-  // When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
+  // When it closed, in RFC 3339. Unset while it is open. A merged pull request carries it too.
   optional string closed_at = 18;
   // Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
   MergeReadiness merge_readiness = 19;
@@ -68,21 +68,21 @@ message PullRequest {
   string body = 21;
 }
 
-// MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.
+// MergeReadiness shows how close a pull request is to merging, as komrad reports it for its head.
 message MergeReadiness {
   // Where the forge says the reviews stand.
   ReviewDecision decision = 1;
   // Where the checks on the head stand, unspecified when the forge last answered for an older head.
   Checks checks = 2;
-  // Where the forge says it stands against its base and rules. While the forge is working it
-  // out again, this is the last answer it gave for the same head.
+  // Where the forge says it stands against its base and rules. While the forge recomputes, this
+  // holds the last answer it gave for the same head.
   Mergeability mergeability = 3;
   // True when mergeability is the last answer for this head rather than the latest read.
   bool mergeability_unconfirmed = 4;
   // Whether the forge says it will merge on its own once its checks and reviews pass.
   bool auto_merge = 5;
-  // Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one
-  // with nothing left to wait for, or a repository that does not allow it.
+  // Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, for a pull
+  // request with nothing left to wait for, and for a repository that does not allow it.
   bool auto_mergeable = 6;
 }
 
@@ -93,16 +93,16 @@ message Repository {
 }
 
 message ListPullRequestsResponse {
-  // One page of pull requests, the unfinished ones first and each group newest opened first,
-  // so the first is the one an agent's row on the branch stands for.
+  // One page of pull requests, unfinished ones first and each group newest opened first. An
+  // agent's row on the branch shows the first one.
   repeated PullRequest pull_requests = 1;
   // The token for the page after this one, unset on the last.
   optional string next_page_token = 2;
 }
 
-// PullRequestState is where a stored pull request stands, decided on the server from its stamps,
-// its draft flag, the checks on its head, its mergeability and the forge's review decision,
-// finished first.
+// PullRequestState names where a stored pull request stands. The server decides it from the
+// pull request's stamps, its draft flag, the checks on its head, its mergeability and the
+// forge's review decision, finished first.
 enum PullRequestState {
   // No state was decided.
   PULL_REQUEST_STATE_UNSPECIFIED = 0;
@@ -135,8 +135,8 @@ enum PullRequestState {
   PULL_REQUEST_STATE_REREVIEW_REQUESTED = 13;
 }
 
-// Mergeability is where the forge says a pull request stands against its base and its branch
-// rules, as it last computed it.
+// Mergeability is the forge's last computed answer for where a pull request stands against its
+// base and its branch rules.
 enum Mergeability {
   // The mergeability has not been read.
   MERGEABILITY_UNSPECIFIED = 0;
@@ -154,7 +154,7 @@ enum Mergeability {
   MERGEABILITY_CONFLICTING = 6;
 }
 
-// ReviewDecision is where a forge says a pull request's reviews stand.
+// ReviewDecision is the forge's statement of where a pull request's reviews stand.
 enum ReviewDecision {
   // The reviews have not been read.
   REVIEW_DECISION_UNSPECIFIED = 0;
@@ -170,8 +170,7 @@ enum ReviewDecision {
   REVIEW_DECISION_REREVIEW_REQUESTED = 5;
 }
 
-// Checks is where the checks on a pull request's head commit stand, as the forge last reported
-// them.
+// Checks is the forge's last report on the checks on a pull request's head commit.
 enum Checks {
   // The checks have not been read.
   CHECKS_UNSPECIFIED = 0;
@@ -305,7 +304,7 @@ message StatusCheck {
   string id = 15;
 }
 
-// CheckLog is where komrad stands with a check's log, with the map of its steps and without its text.
+// CheckLog records where komrad stands with a check's log. It holds the map of the log's steps and not its text.
 message CheckLog {
   // Where fetching the log stands.
   CheckLogState state = 1;
@@ -341,11 +340,11 @@ enum CheckLogState {
   CHECK_LOG_STATE_UNSPECIFIED = 0;
   // The check ran in no job, so it has no log to fetch.
   CHECK_LOG_STATE_NONE = 1;
-  // The log is still to come, because the check has not finished or komrad has not fetched it yet.
+  // The log is still to come. The check has not finished or komrad has not fetched it yet.
   CHECK_LOG_STATE_PENDING = 2;
   // komrad fetched the log and keeps it.
   CHECK_LOG_STATE_FETCHED = 3;
-  // The log ran past the most komrad keeps, so none of it is kept.
+  // The log ran past the most komrad keeps, so komrad keeps none of it.
   CHECK_LOG_STATE_TOO_LARGE = 4;
   // The forge never had a log for the check.
   CHECK_LOG_STATE_MISSING = 5;
@@ -371,7 +370,7 @@ message StatusCheckStep {
   optional string finished_at = 6;
 }
 
-// StatusCheckKind is what sort of status check a forge reported.
+// StatusCheckKind names the sort of status check a forge reported.
 enum StatusCheckKind {
   // The kind was not read.
   STATUS_CHECK_KIND_UNSPECIFIED = 0;
@@ -383,7 +382,7 @@ enum StatusCheckKind {
   STATUS_CHECK_KIND_PIPELINE = 3;
 }
 
-// StatusCheckState is how far along a status check is.
+// StatusCheckState names how far along a status check is.
 enum StatusCheckState {
   // The state was not read.
   STATUS_CHECK_STATE_UNSPECIFIED = 0;
@@ -407,7 +406,7 @@ service PullRequestService {
       cli: true
       mcp: true
       name: "list_pull_requests"
-      description: "List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself."
+      description: "List the pull requests komrad has stored for a repository, unfinished first. A repository with no live agent on it may be behind. list_forge_pull_requests asks the forge itself."
       roles: [
         ROLE_WRITER,
         ROLE_ORCHESTRATOR

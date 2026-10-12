@@ -4,7 +4,7 @@
       "slug": "agent",
       "title": "Agent",
       "name": "agent.v1.AgentService",
-      "description": "AgentService is the agents themselves: spawning one, addressing it, reading what it wrote, and the review conversation held about its work.",
+      "description": "AgentService manages agents. It spawns them, addresses them, reads what they wrote, and holds the review conversation about their work.",
       "methods": [
         {
           "slug": "list-agents",
@@ -19,7 +19,7 @@
             "orchestrator"
           ],
           "summary": "List the agents komrad tracks, most recently updated first, with the opening of each prompt.",
-          "description": "List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set.",
+          "description": "List the agents komrad tracks, most recently updated first, with the opening of each prompt. The list omits archived agents unless archived is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -57,8 +57,8 @@
             "writer",
             "orchestrator"
           ],
-          "summary": "Launch a new agent with an opening prompt, which is everything it has to go on.",
-          "description": "Launch a new agent with an opening prompt, which is everything it has to go on. Pass task, by id or slug, to put it on that task, as its writer when it has none yet, such as one made with create_task, and otherwise as a reviewer in the writer's checkout. Leave task unset to start a task with this agent as its writer. Pass provision_enabled false to keep a writer in the workflow's directory instead of a new worktree. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.",
+          "summary": "Launch a new agent with an opening prompt, which is all the agent has to go on.",
+          "description": "Launch a new agent with an opening prompt, which is all the agent has to go on. Pass task, by id or slug, to put the agent on that task. It becomes the task's writer when the task has none yet, such as one made with create_task, and otherwise a reviewer in the writer's checkout. Leave task unset to start a task with this agent as its writer. Pass provision_enabled false to keep a writer in the workflow's directory instead of a new worktree. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -94,7 +94,7 @@
             "orchestrator"
           ],
           "summary": "Start an agent on a branch that already exists, such as one a person pushed.",
-          "description": "Start an agent on a branch that already exists, such as one a person pushed. Nothing here creates, resets or deletes the branch, and a branch that already has an agent answers with that agent.",
+          "description": "Start an agent on a branch that already exists, such as one a person pushed. Nothing here creates, resets or deletes the branch, and a branch that already has an agent returns that agent.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -114,7 +114,7 @@
             "orchestrator"
           ],
           "summary": "Write one line to komrad's log, filed under the calling agent unless id names another.",
-          "description": "Write one line to komrad's log, filed under the calling agent unless id names another. This is how a hook script leaves a trace.",
+          "description": "Write one line to komrad's log, filed under the calling agent unless id names another. A hook script uses it to leave a trace.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -134,7 +134,7 @@
             "orchestrator"
           ],
           "summary": "Send mail to another agent by id or name, setting reply_to when answering.",
-          "description": "Send mail to another agent by id or name, setting reply_to when answering. A name held in more than one workflow is refused, and a reviewer may mail only the agents on its task and its workflow's orchestrator.",
+          "description": "Send mail to another agent by id or name, setting reply_to when answering. Komrad refuses a name held in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -154,7 +154,7 @@
             "orchestrator"
           ],
           "summary": "Send an agent's latest turns to another agent as mail without the text passing through your context.",
-          "description": "Send an agent's latest turns to another agent as mail without the text passing through your context. Mail holds at most 10000 characters, so pass fewer turns or a smaller max_bytes when refused.",
+          "description": "Send an agent's latest turns to another agent as mail without the text passing through your context. Mail holds at most 10000 characters. When refused, pass fewer turns or a smaller max_bytes.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -174,7 +174,7 @@
             "orchestrator"
           ],
           "summary": "Take your waiting mail, oldest first.",
-          "description": "Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which is almost never what you want.",
+          "description": "Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which you almost never want.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -231,7 +231,7 @@
             "orchestrator"
           ],
           "summary": "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents.",
-          "description": "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Each goes alone. A task's writer is refused, since it goes only with its task through archive_task.",
+          "description": "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Each goes alone. Komrad refuses a task's writer, which goes only with its task through archive_task.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -249,7 +249,7 @@
             "orchestrator"
           ],
           "summary": "Bring archived agents back, dormant, along with their workflows.",
-          "description": "Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it, and a reviewer is refused until its task is back. Call resume_agent on each one you want running.",
+          "description": "Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it. Komrad refuses a reviewer until its task is back. Call resume_agent on each one you want running.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -305,7 +305,7 @@
             "orchestrator"
           ],
           "summary": "Relaunch an agent's CLI on the same conversation, such as when its pane died.",
-          "description": "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either its workflow's orchestrator.",
+          "description": "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either may resume its workflow's orchestrator.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -323,7 +323,7 @@
             "orchestrator"
           ],
           "summary": "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout.",
-          "description": "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. It keeps its CLI and flags unless others are named, such as another model. Its earlier conversation stays in its transcript, and the task's reviewers carry on.",
+          "description": "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. It keeps its CLI and flags unless others are named, such as another model. The earlier conversation stays in its transcript, and the task's reviewers carry on.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
@@ -359,7 +359,7 @@
             "orchestrator"
           ],
           "summary": "Remove agents for good, with their records and transcripts.",
-          "description": "Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. A task's writer is refused, since it goes only with its task through delete_tasks. Prefer archive_agents, and delete only when asked.",
+          "description": "Remove agents for good, with their records and transcripts. The worktree of their task stays until you delete the task. Komrad refuses a task's writer, which goes only with its task through delete_tasks. Prefer archive_agents, and delete only when asked.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -437,7 +437,7 @@
             "orchestrator"
           ],
           "summary": "Read the newest turns of an agent's conversation, the quickest way to learn what it concluded.",
-          "description": "Read the newest turns of an agent's conversation, the quickest way to learn what it concluded. A long turn is cut from its head to fit max_bytes.",
+          "description": "Read the newest turns of an agent's conversation, the quickest way to learn what it concluded. Komrad cuts a long turn from its head to fit max_bytes.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -456,7 +456,7 @@
             "orchestrator"
           ],
           "summary": "Write a markdown document for a person to read, as a type from list_document_types and following its context.",
-          "description": "Write a markdown document for a person to read, as a type from list_document_types and following its context. Pass id and the version you last saw to rewrite one of yours. failed_precondition means it was written since, perhaps by a person, so read it again and keep their changes.",
+          "description": "Write a markdown document for a person to read, as a type from list_document_types and following its context. Pass id and the version you last saw to rewrite one of yours. failed_precondition means someone wrote it since, perhaps a person, so read it again and keep their changes.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -475,8 +475,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the documents agents have written, without their bodies, every agent's unless agent_id names one, so pass your own id for yours.",
-          "description": "List the documents agents have written, without their bodies, every agent's unless agent_id names one, so pass your own id for yours.",
+          "summary": "List the documents agents have written, without their bodies, every agent's unless agent_id names one.",
+          "description": "List the documents agents have written, without their bodies, every agent's unless agent_id names one. Pass your own id for yours.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -664,7 +664,7 @@
             "orchestrator"
           ],
           "summary": "List the comment threads on a task's diff, your own task's by default.",
-          "description": "List the comment threads on a task's diff, your own task's by default. Line numbers are true of each thread's round, so search for the quoted lines once code has moved.",
+          "description": "List the comment threads on a task's diff, your own task's by default. Line numbers match each thread's round, so search for the quoted lines once code has moved.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -822,7 +822,7 @@
             "reviewer"
           ],
           "summary": "Settle a review thread you wrote, or reopen one.",
-          "description": "Settle a review thread you wrote, or reopen one. Only the thread's author, or the person, may settle it.",
+          "description": "Settle a review thread you wrote, or reopen one. Only the thread's author or the person may settle it.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -931,7 +931,7 @@
       "slug": "workflow",
       "title": "Workflow",
       "name": "workflow.v1.WorkflowService",
-      "description": "WorkflowService is the groups agents are filed under, which decide the directory, flags and shared context each of their agents starts from.",
+      "description": "WorkflowService manages the groups agents are filed under. A group sets the directory, flags and shared context each of its agents starts from.",
       "methods": [
         {
           "slug": "list-workflows",
@@ -946,7 +946,7 @@
             "orchestrator"
           ],
           "summary": "List the workflows, alphabetically, with the opening of each context.",
-          "description": "List the workflows, alphabetically, with the opening of each context. Archived workflows are left out unless archived is set.",
+          "description": "List the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -984,7 +984,7 @@
             "orchestrator"
           ],
           "summary": "Create a workflow to group agents under.",
-          "description": "Create a workflow to group agents under. docs/src/content/guides/workflows.md explains each field.",
+          "description": "Create a workflow to group agents under. The workflows guide explains each field.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1069,7 +1069,7 @@
       "slug": "schedule",
       "title": "Schedule",
       "name": "schedule.v1.ScheduleService",
-      "description": "ScheduleService is the recurring firings, which start a task in a workflow or mail an orchestrator whenever their cron expression next matches.",
+      "description": "ScheduleService runs recurring firings. Each one starts a task in a workflow or mails an orchestrator whenever its cron expression next matches.",
       "methods": [
         {
           "slug": "list-schedules",
@@ -1082,7 +1082,7 @@
             "orchestrator"
           ],
           "summary": "List the schedules, most recently updated first, with the opening of each prompt and its latest run.",
-          "description": "List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules are left out unless archived is set.",
+          "description": "List the schedules, most recently updated first, with the opening of each prompt and its latest run. The list omits archived schedules unless archived is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1239,7 +1239,7 @@
       "slug": "config",
       "title": "Config",
       "name": "config.v1.ConfigService",
-      "description": "ConfigService reads the configuration the panel is running on, with the connection strings redacted.",
+      "description": "ConfigService returns the configuration the panel runs on, with connection strings redacted.",
       "methods": [
         {
           "slug": "get-config",
@@ -1252,7 +1252,7 @@
             "orchestrator"
           ],
           "summary": "Read the panel's configuration as it is in force, with defaults filled in and the server's build version.",
-          "description": "Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file would not parse and defaults are running.",
+          "description": "Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file failed to parse and defaults are running.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1330,7 +1330,7 @@
             "orchestrator"
           ],
           "summary": "Read every log line written under one trace id, in order.",
-          "description": "Read every log line written under one trace id, in order. A failed call answers its trace id.",
+          "description": "Read every log line written under one trace id, in order. A failed call returns its trace id.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1571,7 +1571,7 @@
             "orchestrator"
           ],
           "summary": "List the pull requests komrad has stored for a repository, unfinished first.",
-          "description": "List the pull requests komrad has stored for a repository, unfinished first. A repository no live agent sits on may be behind, and list_forge_pull_requests asks the forge itself.",
+          "description": "List the pull requests komrad has stored for a repository, unfinished first. A repository with no live agent on it may be behind. list_forge_pull_requests asks the forge itself.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1649,7 +1649,7 @@
           "mcp": false,
           "roles": [],
           "summary": "Queue deleting worktree directories in the background, each through the path its agent's state decides.",
-          "description": "Queue deleting worktree directories in the background, each through the path its agent's state decides. A directory whose agent is live is left alone.",
+          "description": "Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad skips any directory whose agent is live.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1715,7 +1715,7 @@
             "orchestrator"
           ],
           "summary": "List a workflow's tasks, newest first.",
-          "description": "List a workflow's tasks, newest first. Archived tasks are left out unless archived is set.",
+          "description": "List a workflow's tasks, newest first. The list omits archived tasks unless archived is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1732,8 +1732,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Rewrite a task's slug, title, goal or notes by id or slug, leaving each field you leave out as it is.",
-          "description": "Rewrite a task's slug, title, goal or notes by id or slug, leaving each field you leave out as it is. A notes write names the notes_updated_at it read. An edit reaches agents only when they read the task again.",
+          "summary": "Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is.",
+          "description": "Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is. A notes write must name the notes_updated_at it read. An edit reaches agents only when they read the task again.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1953,7 +1953,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "A nudge towards addressed, given when a plain reply lands on a thread whose worktree has moved since it was written. Empty otherwise."
+          "description": "A nudge to set addressed, given when a plain reply lands on a thread whose worktree has moved since the thread was written. Empty otherwise."
         }
       ]
     },
@@ -1984,7 +1984,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which workflow to launch into, which is what decides the repository."
+          "description": "Which workflow to launch into. The workflow decides the repository."
         },
         {
           "name": "prompt",
@@ -2071,7 +2071,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True when the branch already had an agent, which is returned in place of a new one."
+          "description": "True when the branch already had an agent. Komrad returns that agent instead of a new one."
         }
       ]
     },
@@ -2087,7 +2087,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle every other call names this agent by, and what mail is addressed to."
+          "description": "The handle every other call names this agent by. Mail is addressed to it."
         },
         {
           "name": "name",
@@ -2097,7 +2097,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the panel lists it as, which is also its tmux window name at launch."
+          "description": "What the panel lists it as. It is also the agent's tmux window name at launch."
         },
         {
           "name": "cwd",
@@ -2137,7 +2137,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The tmux pane its CLI is running in, which is what capture-pane reads."
+          "description": "The tmux pane its CLI runs in. capture-pane reads it."
         },
         {
           "name": "state",
@@ -2157,7 +2157,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The CLI's own conversation id, which is the handle a resume needs."
+          "description": "The CLI's own conversation id. A resume needs it."
         },
         {
           "name": "harness",
@@ -2177,7 +2177,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which workflow it is filed under, whose context it took at launch."
+          "description": "Which workflow it is filed under. The agent took that workflow's context at launch."
         },
         {
           "name": "created_at",
@@ -2217,7 +2217,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether its pane is still there, which a dormant agent's is not."
+          "description": "Whether its pane still exists. A dormant agent's pane does not."
         },
         {
           "name": "idempotency_key",
@@ -2227,7 +2227,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The key a retry of its create carried, which is what answers a repeat with this agent."
+          "description": "The key a retry of its create carried. A repeat with the same key gets this agent back."
         },
         {
           "name": "spawned_by_agent_id",
@@ -2257,7 +2257,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The run log that failure was written to, which is the run the panel opens on."
+          "description": "The run log that failure was written to. The panel opens on that run."
         },
         {
           "name": "documents",
@@ -2267,7 +2267,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many documents it has written, which list_documents returns."
+          "description": "How many documents it has written. list_documents returns them."
         },
         {
           "name": "documents_updated_at",
@@ -2393,7 +2393,7 @@
     },
     "agent.v1.AgentRow": {
       "name": "AgentRow",
-      "description": "AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests on its branch and where its local review stands.",
+      "description": "AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests on its branch, and the state of its local review.",
       "fields": [
         {
           "name": "agent",
@@ -2487,7 +2487,7 @@
     },
     "agent.v1.CommentCounts": {
       "name": "CommentCounts",
-      "description": "CommentCounts is how the comments on an agent's work stand.",
+      "description": "CommentCounts tallies the comments on an agent's work.",
       "fields": [
         {
           "name": "open",
@@ -2597,7 +2597,7 @@
           "rules": [
             "at most 200 characters"
           ],
-          "description": "A key that makes a retry safe. A repeat carrying the same key is answered with the agent already launched rather than spawning another."
+          "description": "A key that makes a retry safe. A repeat with the same key returns the agent already launched and spawns no other."
         },
         {
           "name": "provision_enabled",
@@ -2607,7 +2607,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "False to run in the directory named above rather than a fresh worktree, which is how an agent reads a checkout somebody else has open. Unset to do whatever the workflow does."
+          "description": "False to run in the directory named above instead of a fresh worktree, so an agent can read a checkout somebody else has open. Unset to do whatever the workflow does."
         },
         {
           "name": "task",
@@ -2617,7 +2617,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task to put it on, by id or slug, which must be in workflow_id. It is the task's writer when the task has none yet, and otherwise a reviewer in the writer's checkout, for which provision_enabled is refused. Unset to start a task of its own, made from its title and prompt, with this agent as its writer."
+          "description": "Which task to put it on, by id or slug. The task must be in workflow_id. The agent becomes the task's writer when the task has none yet, and otherwise a reviewer in the writer's checkout, where komrad refuses provision_enabled. Unset to start a task of its own, made from the agent's title and prompt, with this agent as its writer."
         },
         {
           "name": "task_slug",
@@ -2630,7 +2630,7 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The slug of the task komrad makes for it when task is unset, which no other task has ever had. Unset to make one from its name, numbered until it is free."
+          "description": "The slug of the task komrad makes for it when task is unset. It must be one no task has ever had. Unset to make one from the agent's name, numbered until it is free."
         },
         {
           "name": "task_goal",
@@ -2754,7 +2754,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The diff lines being written about, each keeping its leading marker, so the anchor still says something once the code moves."
+          "description": "The diff lines being written about, each keeping its leading marker so the anchor still makes sense once the code moves."
         },
         {
           "name": "body",
@@ -2865,7 +2865,7 @@
           "rules": [
             "required"
           ],
-          "description": "The mail to erase, read or not, which the recipient will then never see."
+          "description": "The mail to erase, read or not. The recipient never sees it."
         }
       ]
     },
@@ -2951,7 +2951,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many times it has been written, which a rewrite passes back to say what it replaces."
+          "description": "How many times it has been written. A rewrite passes it back to say which version it replaces."
         },
         {
           "name": "task_id",
@@ -3053,7 +3053,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many times it has been written, which a rewrite passes back to say what it replaces."
+          "description": "How many times it has been written. A rewrite passes it back to say which version it replaces."
         },
         {
           "name": "updated_at",
@@ -3237,7 +3237,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The words that go to the forge."
+          "description": "The text that goes to the forge."
         },
         {
           "name": "approved_at",
@@ -3327,7 +3327,7 @@
           "rules": [
             "required"
           ],
-          "description": "Who to send them to, addressed by id since two workflows may hold agents of one name."
+          "description": "Who to send them to, by id. Two workflows may hold agents of one name."
         },
         {
           "name": "turns",
@@ -3351,7 +3351,7 @@
           "rules": [
             "at most 10000 characters"
           ],
-          "description": "What to tell the recipient about the forward in the caller's own words, which it reads before the turns."
+          "description": "A note to the recipient about the forward, in the caller's own words. The recipient reads it before the turns."
         },
         {
           "name": "max_bytes",
@@ -3361,7 +3361,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The most of each turn's text to forward, cut from the head so the end survives, or unset for the default."
+          "description": "The maximum text to forward for each turn. Komrad cuts from the head so the end survives. Unset means the default."
         }
       ]
     },
@@ -3659,7 +3659,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The most of each turn's text to return, cut from the head so the end survives, or unset for the default."
+          "description": "The maximum text to return for each turn. Komrad cuts from the head so the end survives. Unset means the default."
         }
       ]
     },
@@ -3757,7 +3757,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How much content to return. A transcript is one run of text rather than a list of records, so its window is measured in bytes and carries no pagination.Pagination."
+          "description": "How much content to return, in bytes. A transcript is one run of text, not a list of records, so it carries no pagination.Pagination."
         },
         {
           "name": "cursor",
@@ -3865,7 +3865,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How much of each record to return. The summary cuts each prompt to its opening, and VIEW_FULL returns every prompt whole, which can be a very large reply."
+          "description": "How much of each record to return. The summary cuts each prompt to its opening. VIEW_FULL returns every prompt whole and can make a very large reply."
         }
       ]
     },
@@ -4175,7 +4175,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The threads on that diff and what has been said in each. An agent reading a review is shown only the comments the person has let go of, and none of the panel's record of when each was released, so that a review is read once it is a review rather than as it is being written."
+          "description": "The threads on that diff and what has been said in each. An agent reading a review sees only the comments the person has let go of, and none of the panel's record of when each was released. The agent reads a review only once it is released, not while the person writes it."
         }
       ]
     },
@@ -4248,7 +4248,7 @@
           "rules": [
             "at most 255 characters"
           ],
-          "description": "The script whose run the line belongs to, which a running script has in KOMRAD_SCRIPT."
+          "description": "The script whose run the line belongs to. A running script finds it in KOMRAD_SCRIPT."
         }
       ]
     },
@@ -4284,7 +4284,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to show as the sender, which is komrad's own name for mail it wrote."
+          "description": "The sender's display name. Komrad uses its own name for mail it wrote."
         },
         {
           "name": "to_agent_id",
@@ -4360,7 +4360,7 @@
     },
     "agent.v1.OpenReviewRoundRequest": {
       "name": "OpenReviewRoundRequest",
-      "description": "OpenReviewRoundRequest freezes what an agent has written now and records it as its next round. A tree that has not moved since the last round is that round again rather than a new one, so opening the diff twice does not walk the ordinal on.",
+      "description": "OpenReviewRoundRequest freezes what an agent has written now and records it as its next round. On a tree that has not moved since the last round it returns that round, so opening the diff twice does not advance the ordinal.",
       "fields": [
         {
           "name": "task",
@@ -4438,7 +4438,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether origin's copy holds commits the branch does not, so the push would overwrite it."
+          "description": "Whether origin's copy holds commits the branch does not. When true, the push overwrites them."
         },
         {
           "name": "uncommitted_files",
@@ -4458,7 +4458,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether origin already holds every commit on the branch, so there is nothing to push."
+          "description": "Whether origin already holds every commit on the branch. When true, nothing is left to push."
         }
       ]
     },
@@ -4530,7 +4530,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of the agent's own commits the base already holds whole, and so would be dropped."
+          "description": "How many of the agent's own commits the base already holds in full. The rebase would drop them."
         },
         {
           "name": "replay_commits",
@@ -4560,7 +4560,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The paths a merge of the base into the branch could not settle. A warning rather than a verdict: a rebase replays commit by commit and can conflict where a merge would not."
+          "description": "The paths a merge of the base into the branch could not settle. This is a warning, not a verdict. A rebase replays commit by commit and can conflict where a merge would not."
         }
       ]
     },
@@ -4576,7 +4576,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the current pull request stands: UNREAD when the repository has not been read, NONE when it has and nothing was opened from the branch, else the state of the current one."
+          "description": "The state of the current pull request. UNREAD means the repository has not been read. NONE means it has and nothing was opened from the branch."
         },
         {
           "name": "number",
@@ -4822,7 +4822,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of the agent's own commits the base already held, and so were dropped."
+          "description": "How many of the agent's own commits the base already held in full. The rebase dropped them."
         },
         {
           "name": "replay_commits",
@@ -4860,7 +4860,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to tell the agent happened while it was held, typed into it as it starts again. Empty lets it go in silence, and it is ignored for an agent whose own turn had already ended."
+          "description": "What to tell the agent happened while it was held. Komrad types it into the agent as it starts again. Empty lets it go in silence. Komrad ignores it for an agent whose own turn had already ended."
         }
       ]
     },
@@ -4902,7 +4902,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What a reviewing agent concludes, which tells the agent it reviewed whether it is done. An agent must set it and a person must leave it unset."
+          "description": "What a reviewing agent concludes. It tells the agent it reviewed whether it is done. An agent must set it and a person must leave it unset."
         },
         {
           "name": "body",
@@ -4914,7 +4914,7 @@
           "rules": [
             "at most 1500 characters"
           ],
-          "description": "What to say about the work as a whole rather than about any one line, which the agent reads before the first thread. Optional: a review of pinned comments alone is complete."
+          "description": "What to say about the work as a whole rather than about any one line. The agent reads it before the first thread. Optional, since a review of pinned comments alone is complete."
         }
       ]
     },
@@ -5003,7 +5003,7 @@
           "rules": [
             "at most 200 characters"
           ],
-          "description": "A key that makes a retry safe. A repeat carrying the same key is answered with the reviewer already spawned rather than refused."
+          "description": "A key that makes a retry safe. A repeat with the same key gets back the reviewer already spawned instead of a refusal."
         },
         {
           "name": "harness",
@@ -5054,7 +5054,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the agent that asked does next: how the review reaches it and how it answers."
+          "description": "The next steps for the agent that asked: how the review reaches it and how it answers."
         }
       ]
     },
@@ -5270,7 +5270,7 @@
     },
     "agent.v1.Review": {
       "name": "Review",
-      "description": "Review is one author's batch of comments against one round, private while it is written and released as a whole, the way a pending review on a forge is.",
+      "description": "Review is one author's batch of comments against one round. It stays private while the author writes it and releases as a whole, like a pending review on a forge.",
       "fields": [
         {
           "name": "id",
@@ -5310,7 +5310,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which round that is, counting from one, so a caller need not fetch the round to say."
+          "description": "Which round that is, counting from one."
         },
         {
           "name": "author_kind",
@@ -5410,7 +5410,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of this review's comments nobody has settled. A released review with none left is finished, which the verdict does not say, since a verdict is what its author concluded at the time rather than what has happened since."
+          "description": "How many of this review's comments nobody has settled. A released review with none left is finished. The verdict does not say so, because it records what the author concluded at the time and not what has happened since."
         },
         {
           "name": "external_login",
@@ -5466,7 +5466,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent that wrote it, absent for the person reviewing and cleared if that agent is deleted. author_kind, not this, is what says who wrote it."
+          "description": "The agent that wrote it. Absent for the person reviewing, and cleared if that agent is deleted. author_kind says who wrote it, not this field."
         },
         {
           "name": "body",
@@ -5486,7 +5486,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Replacement lines the author proposes for the thread's range, empty for an ordinary comment. An agent applies these rather than reasoning about them."
+          "description": "Replacement lines the author proposes for the thread's range. Empty for an ordinary comment. An agent applies these instead of reasoning about them."
         },
         {
           "name": "created_at",
@@ -5582,7 +5582,7 @@
     },
     "agent.v1.ReviewRound": {
       "name": "ReviewRound",
-      "description": "ReviewRound is one immutable snapshot of what a task's writer has written, which is what a review is given against. Nothing a comment is pinned to can move underneath the person reading it, because the snapshot is a commit rather than the worktree.",
+      "description": "ReviewRound is one immutable snapshot of what a task's writer has written. A review is given against it. The snapshot is a commit rather than the worktree, so nothing a comment is pinned to can move underneath the person reading it.",
       "fields": [
         {
           "name": "id",
@@ -5708,7 +5708,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the old side of these line numbers was read against, which is the round's own base unless the diff was narrowed to an earlier round when the thread was written."
+          "description": "The commit the old side of these line numbers was read against. This is the round's own base unless the diff was narrowed to an earlier round when the thread was written."
         },
         {
           "name": "file_path",
@@ -5778,7 +5778,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the person reviewing settled this thread, empty while it is still owed an answer. Whether a thread is settled is a different question from whether the code under it has moved, and it is this one that decides whether the thread is still asking for something."
+          "description": "When the person reviewing settled this thread. Empty while it is still owed an answer. Settling is separate from whether the code under the thread has moved, and settling decides whether the thread still asks for something."
         },
         {
           "name": "unread_by_human",
@@ -5883,7 +5883,7 @@
             "required",
             "at most 500 characters"
           ],
-          "description": "The words to look for in each document as it stands now, matched whole and stemmed, with a quoted phrase required in that order and a leading minus excluding a word."
+          "description": "The words to look for in each document as it stands now, matched whole and stemmed. A quoted phrase must match in that order, and a leading minus excludes a word."
         },
         {
           "name": "agent_id",
@@ -5943,7 +5943,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The documents that hold a word only inside a longer one, the closest first."
+          "description": "The documents that hold a word only inside a longer one, closest first."
         }
       ]
     },
@@ -5979,7 +5979,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What that agent is called, so a caller need not look it up to draw the hit."
+          "description": "The agent's name."
         },
         {
           "name": "archived",
@@ -5989,7 +5989,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether that agent has been archived, since search spans those too."
+          "description": "Whether the agent is archived. Search includes archived agents."
         },
         {
           "name": "score",
@@ -6068,7 +6068,7 @@
             "required",
             "at most 500 characters"
           ],
-          "description": "The words to look for, matched whole and stemmed, with a quoted phrase required in that order and a leading minus excluding a word, alongside any qualifiers narrowing the search."
+          "description": "The words to look for, matched whole and stemmed. A quoted phrase must match in that order, a leading minus excludes a word, and qualifiers narrow the search."
         },
         {
           "name": "pagination",
@@ -6078,7 +6078,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where to carry on from, since one page of matches and one page of near misses advance together."
+          "description": "Where to carry on from. One cursor advances the page of matches and the page of near misses together."
         },
         {
           "name": "agent_id",
@@ -6114,7 +6114,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The turns that only carry the letters somewhere, such as a word glued into a path, scored on how cleanly the letters sit rather than against the matches."
+          "description": "The turns that contain the letters only inside other text, such as a word glued into a path. They are scored by how cleanly the letters sit, not against the matches."
         },
         {
           "name": "next_page_token",
@@ -6155,7 +6155,7 @@
             "required",
             "at most 10000 characters"
           ],
-          "description": "What to say, which has to carry who is asking and what is wanted."
+          "description": "The message text. It must say who is asking and what they want."
         },
         {
           "name": "reply_to",
@@ -6219,7 +6219,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the thread is settled. Unsetting it reopens the thread, which is what a person does when the answer was not the end of it."
+          "description": "Whether the thread is settled. Unsetting it reopens the thread, as a person does when the answer was not the end of it."
         }
       ]
     },
@@ -6430,7 +6430,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The version a rewrite replaces, as the last read or write returned it, and required with id."
+          "description": "The version a rewrite replaces, as the last read or write returned it. Required with id."
         },
         {
           "name": "agent_id",
@@ -6539,7 +6539,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The configuration as it stands, keyed the way the user's own file is, with the connection strings redacted."
+          "description": "The current configuration, keyed like the user's own file, with connection strings redacted."
         },
         {
           "name": "config_error",
@@ -6549,7 +6549,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why the user's file would not parse, in which case the configuration above is the defaults the panel fell back to."
+          "description": "Why the user's file failed to parse. The configuration above then holds the defaults the panel fell back to."
         },
         {
           "name": "version",
@@ -6559,7 +6559,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The build the server answering is running, which is what to quote in a bug report."
+          "description": "The build the server runs. Quote it in a bug report."
         }
       ]
     },
@@ -6845,7 +6845,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether this machine still holds what the connection needs to speak, which for a token is its file and for an App is always so."
+          "description": "Whether this machine still holds what the connection needs. The token method needs its file, and the App method always has what it needs."
         },
         {
           "name": "created_at",
@@ -6957,7 +6957,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number the forge shows a person, which is per repository."
+          "description": "The number the forge shows a person. Numbers are per repository."
         },
         {
           "name": "title",
@@ -7027,7 +7027,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the forge says it stands, as OPEN, CLOSED or MERGED; read merged_at and closed_at for whether it is finished."
+          "description": "The state the forge reports: OPEN, CLOSED or MERGED. Read merged_at and closed_at to tell whether it is finished."
         },
         {
           "name": "created_at",
@@ -7098,7 +7098,7 @@
           "rules": [
             "at most 512 characters"
           ],
-          "description": "The branch the pull requests were opened from, listed whatever their state; left empty, the repository's open pull requests are listed instead."
+          "description": "The branch the pull requests were opened from. The call lists them in any state. When empty, it lists the repository's open pull requests instead."
         },
         {
           "name": "pagination",
@@ -7108,7 +7108,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which page to read and how many to a page, twenty when unset and at most a hundred, which is what the forge will hand over in one call."
+          "description": "Which page to read and how many to a page. Twenty when unset, and at most a hundred, the most the forge hands over in one call."
         }
       ]
     },
@@ -7219,7 +7219,7 @@
           "rules": [
             "at most 64 characters"
           ],
-          "description": "The head commit the person saw, which the forge refuses to queue once the branch has moved past it. Empty queues whatever the head is."
+          "description": "The head commit the person saw. The forge refuses to queue once the branch has moved past it. Empty queues whatever the head is."
         },
         {
           "name": "on",
@@ -7279,7 +7279,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The file name in the hooks directory, which is what a workflow names to fire it."
+          "description": "The file name in the hooks directory. A workflow names it to fire the hook."
         },
         {
           "name": "executable",
@@ -7289,7 +7289,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the file can be run, which it cannot until the user chmods it."
+          "description": "Whether the file can run. It cannot until the user makes it executable."
         },
         {
           "name": "description",
@@ -7299,7 +7299,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the script says about itself in its own header comments."
+          "description": "The description in the script's header comments."
         },
         {
           "name": "timeout",
@@ -7309,7 +7309,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How long komrad waits for it, taken from its header, or unset to wait the default."
+          "description": "How long komrad waits for the script, from its header. Unset means the default."
         },
         {
           "name": "header_problems",
@@ -7319,7 +7319,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What komrad could not read in the header, which leaves the rest of it at the defaults."
+          "description": "The header lines komrad could not read. Each one leaves its setting at the default."
         }
       ]
     },
@@ -7438,7 +7438,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The traces the log ends with, oldest first."
+          "description": "The newest traces in the log, oldest first."
         }
       ]
     },
@@ -7472,7 +7472,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Each script run recorded on the task by any agent on it, its own moments and theirs, newest first."
+          "description": "Each script run recorded on the task by any agent on it, including the task's own hooks, newest first."
         }
       ]
     },
@@ -7554,7 +7554,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the server log."
+          "description": "The number of the script run the source holds. The agent's failed_run_log names it when that run failed. Unset for the server log."
         },
         {
           "name": "agent_id",
@@ -7564,7 +7564,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the server log."
+          "description": "The agent that recorded the script run the source holds. read_agent_logs reads the source for that agent alone. Empty for the server log."
         },
         {
           "name": "failed",
@@ -7674,7 +7674,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the log started over since the cursor, so the lines held before are gone."
+          "description": "Whether the log started over since the cursor. When true, the lines held before are gone."
         },
         {
           "name": "more",
@@ -7684,7 +7684,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether more lines remain past the cursor, so reading again at once returns them."
+          "description": "Whether more lines remain past the cursor. When true, reading again right away returns them."
         }
       ]
     },
@@ -7720,7 +7720,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the trace was about: the RPC method, or the loop, when a line said."
+          "description": "The RPC method or loop the trace was about, when a line said."
         },
         {
           "name": "lines",
@@ -7746,7 +7746,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many rows to return, capped by the server, and left to the server entirely when unset."
+          "description": "The number of rows to return. The server caps it and chooses the number when unset."
         },
         {
           "name": "cursor",
@@ -7789,7 +7789,7 @@
           "rules": [
             "at most 512 characters"
           ],
-          "description": "The branch the pull requests were opened from; left empty, every pull request stored for the repository is listed."
+          "description": "The branch the pull requests were opened from. When empty, every pull request stored for the repository is listed."
         },
         {
           "name": "pagination",
@@ -7815,7 +7815,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One page of pull requests, the unfinished ones first and each group newest opened first, so the first is the one an agent's row on the branch stands for."
+          "description": "One page of pull requests, unfinished ones first and each group newest opened first. An agent's row on the branch shows the first one."
         },
         {
           "name": "next_page_token",
@@ -7831,7 +7831,7 @@
     },
     "pullrequest.v1.MergeReadiness": {
       "name": "MergeReadiness",
-      "description": "MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.",
+      "description": "MergeReadiness shows how close a pull request is to merging, as komrad reports it for its head.",
       "fields": [
         {
           "name": "decision",
@@ -7861,7 +7861,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the forge says it stands against its base and rules. While the forge is working it out again, this is the last answer it gave for the same head."
+          "description": "Where the forge says it stands against its base and rules. While the forge recomputes, this holds the last answer it gave for the same head."
         },
         {
           "name": "mergeability_unconfirmed",
@@ -7891,7 +7891,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the forge would let komrad turn auto-merge on now, which it will not for a draft, one with nothing left to wait for, or a repository that does not allow it."
+          "description": "Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, for a pull request with nothing left to wait for, and for a repository that does not allow it."
         }
       ]
     },
@@ -7967,7 +7967,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number the forge shows a person, which is per repository."
+          "description": "The number the forge shows a person. Numbers are per repository."
         },
         {
           "name": "title",
@@ -8077,7 +8077,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it closed, in RFC 3339, unset while it is open; a merged one carries this too."
+          "description": "When it closed, in RFC 3339. Unset while it is open. A merged pull request carries it too."
         },
         {
           "name": "merge_readiness",
@@ -8144,7 +8144,7 @@
             "required",
             "at most 200 characters"
           ],
-          "description": "What to list it as, which also becomes the title of each agent it launches."
+          "description": "What to list it as. It also becomes the title of each agent it launches."
         },
         {
           "name": "cron",
@@ -8211,7 +8211,7 @@
           "map": false,
           "oneof": "target",
           "rules": [],
-          "description": "Start a task in this workflow, whose cwd and flags its writer inherits."
+          "description": "Start a task in this workflow. Its writer inherits the workflow's cwd and flags."
         },
         {
           "name": "orchestrator_agent_id",
@@ -8361,7 +8361,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How much of each record to return, since the panel draws every field and a model reading the same endpoint has a context window to spend."
+          "description": "How much of each record to return. The panel draws every field, while a model reading the same endpoint has a context window to spend."
         },
         {
           "name": "archived",
@@ -8471,7 +8471,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether it is armed, since a paused schedule keeps its record and stops firing."
+          "description": "Whether it is armed. A paused schedule keeps its record and stops firing."
         },
         {
           "name": "hide_agents",
@@ -8541,7 +8541,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether prompt holds only its opening, which a summary listing returns."
+          "description": "Whether prompt holds only its opening. A summary listing returns the opening only."
         },
         {
           "name": "latest_run",
@@ -8561,7 +8561,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The newest firings on record, newest first, which only the watch fills."
+          "description": "The newest firings on record, newest first. Only the watch fills this."
         },
         {
           "name": "archived_at",
@@ -8587,7 +8587,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The job's own id, which orders firings newest first."
+          "description": "The job's own id. Firings sort newest first by it."
         },
         {
           "name": "scheduled_for",
@@ -8821,7 +8821,7 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The lowercase kebab-case name to call it by, which no other task has ever had."
+          "description": "The lowercase kebab-case name to call it by. It must be one no task has ever had."
         },
         {
           "name": "title",
@@ -9088,7 +9088,7 @@
     },
     "task.v1.Task": {
       "name": "Task",
-      "description": "Task is one outcome a person wants, which the agents linked to it work toward.",
+      "description": "Task is one outcome a person wants. The agents linked to it work toward it.",
       "fields": [
         {
           "name": "id",
@@ -9108,7 +9108,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which workflow it is filed under, which every agent on it shares."
+          "description": "Which workflow it is filed under. Every agent on it shares that workflow."
         },
         {
           "name": "slug",
@@ -9178,7 +9178,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directory of its checkout, which every agent on it works in, unset while it has none."
+          "description": "The directory of its checkout, where every agent on it works. Unset while it has none."
         },
         {
           "name": "branch",
@@ -9238,7 +9238,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The snapshot of the newest review round of its agents while its checkout no longer hashes to it, empty otherwise."
+          "description": "The snapshot of the newest review round of its agents, set while its checkout no longer hashes to it. Empty otherwise."
         },
         {
           "name": "diff_stat",
@@ -9258,7 +9258,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The branch its checkout was put on rather than one komrad made for it, unset when komrad made it."
+          "description": "The branch its checkout was put on, when komrad did not make it. Unset when komrad made it."
         },
         {
           "name": "failure_reason",
@@ -9308,7 +9308,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a person hid the task from the panel, which leaves its agents running."
+          "description": "Whether a person hid the task from the panel. Its agents keep running."
         },
         {
           "name": "documents",
@@ -9318,7 +9318,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many documents agents have written for it, which list_documents returns."
+          "description": "How many documents agents have written for it. list_documents returns them."
         },
         {
           "name": "documents_updated_at",
@@ -9359,7 +9359,7 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The lowercase kebab-case name to call it by from now on, which no other task holds, left as it is when unset."
+          "description": "The lowercase kebab-case name to call it by from now on. No other task may hold it. Left as it is when unset."
         },
         {
           "name": "title",
@@ -9668,7 +9668,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How much of each record to return, since the panel draws every field and a model reading the same endpoint has a context window to spend."
+          "description": "How much of each record to return. The panel draws every field, while a model reading the same endpoint has a context window to spend."
         }
       ]
     },
@@ -9771,7 +9771,7 @@
           "rules": [
             "at most 50000 characters"
           ],
-          "description": "Reaches only agents launched afterwards, since existing ones took a snapshot."
+          "description": "Reaches only agents launched afterwards. Existing agents took a snapshot."
         },
         {
           "name": "cwd",
@@ -9818,7 +9818,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Turning worktrees off reaches agents already running, since whether komrad removes a directory is read when the agent is deleted."
+          "description": "Turning worktrees off reaches agents already running. Komrad reads whether to remove a directory when it deletes the agent."
         },
         {
           "name": "hooks",
@@ -9899,7 +9899,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Text appended to the system prompt of every agent launched into it, taken as a snapshot at launch rather than read again."
+          "description": "Text appended to the system prompt of every agent launched into it. Each agent takes a snapshot at launch and does not read it again."
         },
         {
           "name": "cwd",
@@ -9969,7 +9969,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether context holds only its opening, which a summary listing returns."
+          "description": "Whether context holds only its opening. A summary listing returns the opening only."
         },
         {
           "name": "reviewer_harness",
@@ -10037,7 +10037,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the event is kept from opening mail of its own. It still rewrites mail the agent holds unread, and its prompt is left out."
+          "description": "Whether the event is kept from opening mail of its own. It still rewrites mail the agent holds unread, but without its prompt."
         }
       ]
     },
@@ -10113,7 +10113,7 @@
           "rules": [
             "at most 255 characters"
           ],
-          "description": "The branch worktrees are cut from and every agent's work is measured against, filled in from the clone when left blank on create and never blank once stored."
+          "description": "The branch worktrees are cut from and every agent's work is measured against. Komrad fills it in from the clone when it is blank on create, so a stored workflow never has it blank."
         },
         {
           "name": "copy_paths",
@@ -10235,7 +10235,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The disk it takes, in bytes, counted through for a directory: blocks rather than length, with a file that is hard linked counted once."
+          "description": "The disk it takes, in bytes, counted through for a directory. It counts blocks rather than length, and counts a hard linked file once."
         },
         {
           "name": "dir",
@@ -10273,7 +10273,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether to fetch the base from origin before measuring against it, which is a network round trip; left off, the base is whatever the clone last fetched."
+          "description": "Whether to fetch the base from origin before measuring against it. Fetching costs a network round trip. When off, the base is whatever the clone last fetched."
         }
       ]
     },
@@ -10339,7 +10339,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The ref the branch is measured against, which is the workflow's base branch as the clone holds it, empty when the repository cannot be read or the clone does not hold the base, in which case nothing below is measured."
+          "description": "The ref the branch is measured against, which is the workflow's base branch as the clone holds it. Empty when the repository cannot be read or the clone does not hold the base, and then nothing below is measured."
         },
         {
           "name": "base_error",
@@ -10379,7 +10379,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of the branch's own commits the base already holds whole, which is what a squash merge leaves behind."
+          "description": "The number of the branch's own commits that the base already holds in full. A squash merge leaves these behind."
         },
         {
           "name": "sequence_in_progress",
@@ -10399,7 +10399,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether deleting the agent would keep the branch, which cleanup does for an adopted branch and for one whose commits are on no other ref."
+          "description": "Whether deleting the agent would keep the branch. Cleanup keeps an adopted branch and one whose commits are on no other ref."
         },
         {
           "name": "commits",
@@ -10601,7 +10601,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The repository the worktree was cut from, read off the directory's own .git file, which for a registration git can no longer read is where the repository used to be."
+          "description": "The repository the worktree was cut from, read from the directory's own .git file. When git can no longer read the registration, this is where the repository used to be."
         },
         {
           "name": "branch",
@@ -10621,7 +10621,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the gitdir the .git file names is still there, without which git will not answer for the directory."
+          "description": "Whether the gitdir the .git file names still exists. Git will not answer for the directory without it."
         },
         {
           "name": "occupants",
@@ -10641,7 +10641,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The disk the directory takes, in bytes, as it was last measured in the background or by get_worktree: blocks rather than length, a hard linked file counted once. Unset until it has been measured, and while the last walk failed."
+          "description": "The disk the directory takes, in bytes, as last measured in the background or by get_worktree. It counts blocks rather than length, and counts a hard linked file once. Unset until measured and while the last walk failed."
         },
         {
           "name": "measured_at",
@@ -10671,7 +10671,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the directory was last active, in RFC 3339: the latest state change or archiving of its occupants when it has any, else when git last wrote the directory's .git file, else the directory's own modification time."
+          "description": "When the directory was last active, in RFC 3339. This is the latest state change or archiving of its occupants when it has any, else when git last wrote the directory's .git file, else the directory's own modification time."
         },
         {
           "name": "fate",
@@ -10763,7 +10763,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task's id, which is also the directory's name."
+          "description": "The task's id, which doubles as the directory's name."
         },
         {
           "name": "slug",
@@ -10793,7 +10793,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the branch was somebody's before the task was put on it, which cleanup never deletes."
+          "description": "Whether the branch existed before the task was put on it. Cleanup never deletes such a branch."
         }
       ]
     }
@@ -10801,7 +10801,7 @@
   "enums": {
     "agent.v1.AgentRole": {
       "name": "AgentRole",
-      "description": "AgentRole is what an agent was launched to do.",
+      "description": "AgentRole names what an agent was launched to do.",
       "values": [
         {
           "name": "AGENT_ROLE_REVIEWER",
@@ -10819,7 +10819,7 @@
     },
     "agent.v1.AgentState": {
       "name": "AgentState",
-      "description": "AgentState is what the panel last decided an agent was doing, read off the tail of its pane.",
+      "description": "AgentState records what the panel last decided an agent was doing, read from the tail of its pane.",
       "values": [
         {
           "name": "AGENT_STATE_IDLE",
@@ -10839,7 +10839,7 @@
         },
         {
           "name": "AGENT_STATE_FAILED_TO_CREATE",
-          "description": "The launch failed, which retry_agent is for."
+          "description": "The launch failed. retry_agent handles this state."
         },
         {
           "name": "AGENT_STATE_FAILED_TO_CLEANUP",
@@ -10851,7 +10851,7 @@
         },
         {
           "name": "AGENT_STATE_ERRORED",
-          "description": "The pane is at rest after an API error ended the last turn, and turn_error says which."
+          "description": "The pane is at rest after an API error ended the last turn. turn_error names the error."
         }
       ]
     },
@@ -10931,7 +10931,7 @@
     },
     "agent.v1.ReviewAuthorKind": {
       "name": "ReviewAuthorKind",
-      "description": "ReviewAuthorKind is who wrote a review message.",
+      "description": "ReviewAuthorKind names who wrote a review message.",
       "values": [
         {
           "name": "REVIEW_AUTHOR_KIND_HUMAN",
@@ -10949,7 +10949,7 @@
     },
     "agent.v1.ReviewDeliveryState": {
       "name": "ReviewDeliveryState",
-      "description": "ReviewDeliveryState is how far one of the person's comments has got towards the agent reading it. It is no stored field: it is read off the comment's own sent stamp and the newest doorbell raised against it, since the stamp outlives mail the agent deletes or lets expire. Whether the comment has been answered is a different question, read off the messages of the thread.",
+      "description": "ReviewDeliveryState shows how far one of the person's comments has got towards the agent reading it. Komrad stores no such field. It reads the state off the comment's own sent stamp and the newest doorbell raised against it. The stamp outlives mail that the agent deletes or lets expire. The messages of the thread show whether the comment has been answered.",
       "values": [
         {
           "name": "REVIEW_DELIVERY_STATE_UNSENT",
@@ -10965,13 +10965,13 @@
         },
         {
           "name": "REVIEW_DELIVERY_STATE_HELD",
-          "description": "Kept from the agent, because someone on the forge without write access to the repository wrote it or the thread it sits in, until the person accepts the thread's first comment."
+          "description": "Kept from the agent until the person accepts the thread's first comment, because someone on the forge without write access to the repository wrote the comment or its thread."
         }
       ]
     },
     "agent.v1.ReviewVerdict": {
       "name": "ReviewVerdict",
-      "description": "ReviewVerdict is what an author concluded about a round, which is what tells the agent whether it is done rather than leaving it to read that out of the prose.",
+      "description": "ReviewVerdict records what an author concluded about a round. It tells the agent whether it is done, so the agent need not read that out of the prose.",
       "values": [
         {
           "name": "REVIEW_VERDICT_APPROVED",
@@ -10989,7 +10989,7 @@
     },
     "pullrequest.v1.Checks": {
       "name": "Checks",
-      "description": "Checks is where the checks on a pull request's head commit stand, as the forge last reported them.",
+      "description": "Checks is the forge's last report on the checks on a pull request's head commit.",
       "values": [
         {
           "name": "CHECKS_NONE",
@@ -11015,7 +11015,7 @@
     },
     "pullrequest.v1.Mergeability": {
       "name": "Mergeability",
-      "description": "Mergeability is where the forge says a pull request stands against its base and its branch rules, as it last computed it.",
+      "description": "Mergeability is the forge's last computed answer for where a pull request stands against its base and its branch rules.",
       "values": [
         {
           "name": "MERGEABILITY_UNKNOWN",
@@ -11045,7 +11045,7 @@
     },
     "pullrequest.v1.PullRequestState": {
       "name": "PullRequestState",
-      "description": "PullRequestState is where a stored pull request stands, decided on the server from its stamps, its draft flag, the checks on its head, its mergeability and the forge's review decision, finished first.",
+      "description": "PullRequestState names where a stored pull request stands. The server decides it from the pull request's stamps, its draft flag, the checks on its head, its mergeability and the forge's review decision, finished first.",
       "values": [
         {
           "name": "PULL_REQUEST_STATE_UNREAD",
@@ -11103,7 +11103,7 @@
     },
     "pullrequest.v1.ReviewDecision": {
       "name": "ReviewDecision",
-      "description": "ReviewDecision is where a forge says a pull request's reviews stand.",
+      "description": "ReviewDecision is the forge's statement of where a pull request's reviews stand.",
       "values": [
         {
           "name": "REVIEW_DECISION_NONE",
@@ -11143,7 +11143,7 @@
     },
     "schedule.v1.ScheduleRunState": {
       "name": "ScheduleRunState",
-      "description": "ScheduleRunState is where River holds a firing's job.",
+      "description": "ScheduleRunState names the state River holds a firing's job in.",
       "values": [
         {
           "name": "SCHEDULE_RUN_STATE_AVAILABLE",
@@ -11181,7 +11181,7 @@
     },
     "task.v1.Sequence": {
       "name": "Sequence",
-      "description": "Sequence is what git has part-way through a task's checkout and waiting on somebody.",
+      "description": "Sequence names an operation git has part-way through a task's checkout, waiting on somebody.",
       "values": [
         {
           "name": "SEQUENCE_NONE",
@@ -11211,7 +11211,7 @@
     },
     "view.v1.View": {
       "name": "View",
-      "description": "View is how much of each record a listing returns, so that the panel, which draws every field, and a model reading the same endpoint through a context window ask for different amounts of the same rows.",
+      "description": "View sets how much of each record a listing returns. The panel draws every field, while a model with a context window asks for less of the same rows.",
       "values": [
         {
           "name": "VIEW_SUMMARY",
@@ -11225,23 +11225,23 @@
     },
     "worktree.v1.WorktreeFate": {
       "name": "WorktreeFate",
-      "description": "WorktreeFate is which delete path a directory takes.",
+      "description": "WorktreeFate names the delete path a directory takes.",
       "values": [
         {
           "name": "WORKTREE_FATE_UNOWNED",
-          "description": "No task answers for the directory, which the remover takes."
+          "description": "No task answers for the directory. The remover takes it."
         },
         {
           "name": "WORKTREE_FATE_ARCHIVED",
-          "description": "The directory's task is put away, which the task delete takes."
+          "description": "The directory's task is archived. The task delete takes it."
         },
         {
           "name": "WORKTREE_FATE_LIVE",
-          "description": "The directory's task is open, which nothing takes."
+          "description": "The directory's task is open. Nothing takes it."
         },
         {
           "name": "WORKTREE_FATE_DELETING",
-          "description": "A delete has claimed the directory's task, which that delete takes."
+          "description": "A delete has claimed the directory's task. That delete takes the directory."
         }
       ]
     }

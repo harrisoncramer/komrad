@@ -9,9 +9,9 @@ import "rules/v1/rules.proto";
 
 option go_package = "komrad/proto/gen/task/v1;taskv1";
 
-// Sequence is what git has part-way through a task's checkout and waiting on somebody.
+// Sequence names an operation git has part-way through a task's checkout, waiting on somebody.
 enum Sequence {
-  // Nothing was recorded, which no stored checkout answers with.
+  // Nothing was recorded. No stored checkout has this value.
   SEQUENCE_UNSPECIFIED = 0;
   // Nothing is part-way through.
   SEQUENCE_NONE = 1;
@@ -35,11 +35,11 @@ message DiffStat {
   int32 removed = 2;
 }
 
-// Task is one outcome a person wants, which the agents linked to it work toward.
+// Task is one outcome a person wants. The agents linked to it work toward it.
 message Task {
   // The handle every other call names this task by, alongside its slug.
   string id = 1;
-  // Which workflow it is filed under, which every agent on it shares.
+  // Which workflow it is filed under. Every agent on it shares that workflow.
   string workflow_id = 2;
   // The lowercase kebab-case name it is called by, unique and never reused.
   string slug = 3;
@@ -53,7 +53,7 @@ message Task {
   string updated_at = 7;
   // When it was archived, unset while it is live.
   optional string archived_at = 8;
-  // The directory of its checkout, which every agent on it works in, unset while it has none.
+  // The directory of its checkout, where every agent on it works. Unset while it has none.
   optional string cwd = 9;
   // The git branch its checkout is on, unset while it has none or git cannot read it.
   optional string branch = 10;
@@ -67,14 +67,13 @@ message Task {
   bool worktree_removed = 13;
   // What git has part-way through its checkout, waiting on somebody to settle it.
   Sequence sequence = 14;
-  // The snapshot of the newest review round of its agents while its checkout no longer hashes
-  // to it, empty otherwise.
+  // The snapshot of the newest review round of its agents, set while its checkout no longer
+  // hashes to it. Empty otherwise.
   string moved_since_round = 15;
   // How many lines its checkout adds and removes since it left its base, unset where there is
   // no base to measure against.
   optional DiffStat diff_stat = 16;
-  // The branch its checkout was put on rather than one komrad made for it, unset when komrad
-  // made it.
+  // The branch its checkout was put on, when komrad did not make it. Unset when komrad made it.
   optional string adopted_branch = 17;
   // Why its last delete could not give its checkout back, empty unless one failed.
   string failure_reason = 18;
@@ -85,16 +84,16 @@ message Task {
   optional string notes_updated_at = 20;
   // Whether a script run on it failed and the person has not opened its logs since.
   bool failed_run = 21;
-  // Whether a person hid the task from the panel, which leaves its agents running.
+  // Whether a person hid the task from the panel. Its agents keep running.
   bool hidden = 22;
-  // How many documents agents have written for it, which list_documents returns.
+  // How many documents agents have written for it. list_documents returns them.
   int32 documents = 23;
   // When the newest of its documents was last written, in RFC 3339, unset when it has none.
   optional string documents_updated_at = 24;
 }
 
 message CreateTaskRequest {
-  // The lowercase kebab-case name to call it by, which no other task has ever had.
+  // The lowercase kebab-case name to call it by. It must be one no task has ever had.
   string slug = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 80
@@ -142,8 +141,8 @@ message ListTasksResponse {
 message UpdateTaskRequest {
   // Which task to rewrite, by id or by slug.
   string task = 1 [(buf.validate.field).string.min_len = 1];
-  // The lowercase kebab-case name to call it by from now on, which no other task holds,
-  // left as it is when unset.
+  // The lowercase kebab-case name to call it by from now on. No other task may hold it. Left
+  // as it is when unset.
   optional string slug = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 80
@@ -245,7 +244,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "list_tasks"
-      description: "List a workflow's tasks, newest first. Archived tasks are left out unless archived is set."
+      description: "List a workflow's tasks, newest first. The list omits archived tasks unless archived is set."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -259,7 +258,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "update_task"
-      description: "Rewrite a task's slug, title, goal or notes by id or slug, leaving each field you leave out as it is. A notes write names the notes_updated_at it read. An edit reaches agents only when they read the task again."
+      description: "Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is. A notes write must name the notes_updated_at it read. An edit reaches agents only when they read the task again."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

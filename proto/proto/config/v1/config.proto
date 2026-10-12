@@ -9,18 +9,16 @@ import "google/protobuf/struct.proto";
 option go_package = "komrad/proto/gen/config/v1;configv1";
 
 message GetConfigResponse {
-  // The configuration as it stands, keyed the way the user's own file is, with the connection
-  // strings redacted.
+  // The current configuration, keyed like the user's own file, with connection strings redacted.
   google.protobuf.Struct config = 1;
-  // Why the user's file would not parse, in which case the configuration above is the defaults
-  // the panel fell back to.
+  // Why the user's file failed to parse. The configuration above then holds the defaults the
+  // panel fell back to.
   optional string config_error = 2;
-  // The build the server answering is running, which is what to quote in a bug report.
+  // The build the server runs. Quote it in a bug report.
   string version = 3;
 }
 
-// ConfigService reads the configuration the panel is running on, with the connection strings
-// redacted.
+// ConfigService returns the configuration the panel runs on, with connection strings redacted.
 service ConfigService {
   rpc GetConfig(google.protobuf.Empty) returns (GetConfigResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -28,7 +26,7 @@ service ConfigService {
       cli: true
       mcp: true
       name: "get_config"
-      description: "Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file would not parse and defaults are running."
+      description: "Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file failed to parse and defaults are running."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

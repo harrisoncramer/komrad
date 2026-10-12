@@ -12,15 +12,15 @@ This guide is for whoever runs the remote engine. Using one that exists is cover
 
 ## What gets built
 
-The engine is one machine on AWS with a separate data disk and a managed Postgres. The machine is disposable. Everything that matters lives on the disk or in the database: conversations, worktrees, komrad's config, and the agent CLIs' logins. So the machine can be switched off or rebuilt without losing work.
+The engine is one machine on AWS with a separate data disk and a managed Postgres. The machine is disposable. The disk and the database hold everything that matters, including conversations, worktrees, komrad's config, and the agent CLIs' logins. You can switch the machine off or rebuild it without losing work.
 
-The engine pushes code as a GitHub App rather than as you. The App's key is kept in AWS Secrets Manager and copied into memory at boot, so it never touches the disk.
+The engine pushes code as a GitHub App rather than as you. AWS Secrets Manager holds the App's key, and the engine copies it into memory at boot, so it never touches the disk.
 
 ## Standing one up
 
 Do these in order.
 
-Get an AWS account with a named profile, an S3 bucket for Terraform's state, and an SSH key used for nothing else.
+Get an AWS account with a named profile, an S3 bucket for Terraform's state, and an SSH key you use for nothing else.
 
 Build the machine image with `mise run packer:build`. It prints an image id at the end.
 
@@ -48,6 +48,6 @@ The machine image changes rarely. Building one from the Actions tab records it w
 
 ## Tearing it down
 
-`mise run infra:engine:destroy` removes everything. The database is protected from deletion by default, so turn that off first. A final snapshot is kept.
+`mise run infra:engine:destroy` removes everything. Deletion protection is on for the database by default, so turn that off first. Terraform keeps a final snapshot.
 
-That is everything a user or an operator needs. [How it works](../how-it-works/) starts the guides for anyone curious what is underneath.
+That covers everything a user or an operator needs. [How it works](../how-it-works/) starts the guides for anyone curious about the internals.

@@ -16,8 +16,8 @@ message Workflow {
   string id = 1;
   // What the panel groups its agents under.
   string name = 2;
-  // Text appended to the system prompt of every agent launched into it, taken as a snapshot at
-  // launch rather than read again.
+  // Text appended to the system prompt of every agent launched into it. Each agent takes a
+  // snapshot at launch and does not read it again.
   string context = 3;
   // The directory its agents start in, and the checkout new worktrees are cut from.
   string cwd = 4;
@@ -31,7 +31,7 @@ message Workflow {
   WorktreeConfig worktree = 8;
   // Scripts hung on moments in its agents' lives, one per moment.
   repeated WorkflowHook hooks = 9;
-  // Whether context holds only its opening, which a summary listing returns.
+  // Whether context holds only its opening. A summary listing returns the opening only.
   bool context_truncated = 10;
   // Which CLI its reviewers run, blank for the one its other agents run.
   string reviewer_harness = 11;
@@ -74,7 +74,7 @@ message WorkflowEventPrompt {
   // The text added to the mail carrying that event, blank to add nothing.
   string prompt = 2 [(buf.validate.field).string.max_len = 500];
   // Whether the event is kept from opening mail of its own. It still rewrites mail the agent
-  // holds unread, and its prompt is left out.
+  // holds unread, but without its prompt.
   bool muted = 3;
 }
 
@@ -111,8 +111,8 @@ message WorkflowHook {
 message WorktreeConfig {
   // Whether komrad cuts a worktree for each agent, or leaves it in the directory it was given.
   bool enabled = 1;
-  // The branch worktrees are cut from and every agent's work is measured against, filled in
-  // from the clone when left blank on create and never blank once stored.
+  // The branch worktrees are cut from and every agent's work is measured against. Komrad fills
+  // it in from the clone when it is blank on create, so a stored workflow never has it blank.
   string base_branch = 2 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.shell_safe]: true
@@ -160,8 +160,8 @@ message ListWorkflowsRequest {
   optional pagination.v1.Pagination pagination = 1;
   // True to list the archived workflows and only those.
   bool archived = 2;
-  // How much of each record to return, since the panel draws every field and a model reading
-  // the same endpoint has a context window to spend.
+  // How much of each record to return. The panel draws every field, while a model reading the
+  // same endpoint has a context window to spend.
   view.v1.View view = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
@@ -239,7 +239,7 @@ message UpdateWorkflowRequest {
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // Reaches only agents launched afterwards, since existing ones took a snapshot.
+  // Reaches only agents launched afterwards. Existing agents took a snapshot.
   string context = 3 [(buf.validate.field).string.max_len = 50000];
   // Where agents launched afterwards start.
   string cwd = 4 [(buf.validate.field).string = {
@@ -256,8 +256,8 @@ message UpdateWorkflowRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // Turning worktrees off reaches agents already running, since whether komrad removes a
-  // directory is read when the agent is deleted.
+  // Turning worktrees off reaches agents already running. Komrad reads whether to remove a
+  // directory when it deletes the agent.
   WorktreeConfig worktree = 7;
   // The whole hook list, so send back the ones you are keeping.
   repeated WorkflowHook hooks = 8 [(buf.validate.field).repeated.max_items = 50];
@@ -295,8 +295,8 @@ message DeleteWorkflowRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// WorkflowService is the groups agents are filed under, which decide the directory, flags and
-// shared context each of their agents starts from.
+// WorkflowService manages the groups agents are filed under. A group sets the directory,
+// flags and shared context each of its agents starts from.
 service WorkflowService {
   rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -304,7 +304,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "list_workflows"
-      description: "List the workflows, alphabetically, with the opening of each context. Archived workflows are left out unless archived is set."
+      description: "List the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -331,7 +331,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "create_workflow"
-      description: "Create a workflow to group agents under. docs/src/content/guides/workflows.md explains each field."
+      description: "Create a workflow to group agents under. The workflows guide explains each field."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

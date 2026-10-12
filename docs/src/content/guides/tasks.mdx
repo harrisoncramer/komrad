@@ -9,33 +9,33 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import Setting from "../../components/Setting.astro";
 
-Tasks are concrete items of work you want completed by komrad, such as fixing a bug or building a small feature. Agents in komrad work on tasks, and a task keeps its work through every restart or removal of agents.
+Tasks are concrete items of work you want komrad to complete, such as fixing a bug or building a small feature. Agents in komrad work on tasks, and a task keeps its work through every restart or removal of agents.
 
 <Alert variant="warning">This guide assumes you have created a [workflow](../workflows/).</Alert>
 
-Because agents are ephemeral CLIs, work is tracked in komrad through tasks instead. The task holds things like worktree state, the git branch, the pull request associated with the work, the reviews from you and other agents -- all durable state belongs to the task.
+Agents are ephemeral CLIs, so komrad tracks work through tasks instead. The task holds all durable state: the worktree state, the git branch, the pull request for the work, and the reviews from you and other agents.
 
 ## Starting a task
 
 Hover the workflow, open the menu with <Key name="menu.open" />, and pick new task with <Key name="menu.new_agent" />.
 
-The form asks you for a brief of the task, which is the first thing its writer reads, the harness, and whether the task gets a worktree of its own. Most tasks should, but if you are spawning a task that doesn't need one it'll run in the root directory of the workflow.
+The form asks you for a brief of the task, which is the first thing its writer reads, the harness, and whether the task gets a worktree of its own. Most tasks should have one. A task without one runs in the root directory of the workflow.
 
-Each task is given its own slug automatically, such as `fix-login`, which you can rename. You can also ask the workflow's orchestrator to spawn tasks on your behalf.
+Komrad gives each task its own slug automatically, such as `fix-login`, and you can rename it. You can also ask the workflow's orchestrator to spawn tasks on your behalf.
 
 ## Task state
 
-As mentioned, tasks are stateful. There are a few different pieces to be aware of, outlined below.
+Each task holds a few pieces of state.
 
 ### Task notes
 
-Tasks store a short markdown page about where the work stands: what was decided, what was tried, what is left. Agents on the task keep this information current as they work, so that new agents can pick off where they left off. You can edit the notes yourself, along with the title and goal, with <Key name="menu.edit_row" /> from the task's menu.
+Each task stores a short markdown page about where the work stands, covering what was decided, what was tried, and what is left. Agents on the task keep it current as they work, so new agents can pick up where they left off. You can edit the notes yourself, along with the title and goal, with <Key name="menu.edit_row" /> from the task's menu.
 
 ### Worktrees, PRs and Reviews
 
-Tasks can be created into worktrees, which provide isolation between edits, and enable pull request and review workflows. This is the typical pattern for development with komrad.
+A task can get a worktree, which isolates its edits and enables pull request and review workflows. This is the typical pattern for development with komrad.
 
-When the workflow creates worktrees, each task gets one of its own, on a branch named `task/the-task-id` (the task id is automatically generated). Every agent on the task works in that checkout automatically, which provides isolation between tasks.
+When the workflow creates worktrees, each task gets one of its own, on a branch named `task/the-task-id`. Komrad generates the task id. Every agent on the task works in that checkout, which isolates tasks from each other.
 
 <Alert variant="danger">
   Agents spawned into tasks without a worktree will not have isolation between edits. Be careful; these types of tasks
@@ -44,7 +44,7 @@ When the workflow creates worktrees, each task gets one of its own, on a branch 
 
 Tasks set up to run without worktrees work in the workflow's directory instead.
 
-Komrad automatically syncs pull request information from the task's worktree branch, such as whether the PR is still open, whether its CI checks are successful or not, and whether it's approved or merged. You can manage the task's git state from its git menu, and leave local or remote [reviews](../reviews/#shipping-the-work).
+Komrad syncs pull request information from the task's worktree branch automatically, such as whether the PR is still open, whether its CI checks pass, and whether it is approved or merged. You can manage the task's git state from its git menu, and leave local or remote [reviews](../reviews/#shipping-the-work).
 
 ## Managing task agents
 
@@ -52,7 +52,7 @@ Every task has one agent that writes in its checkout, which komrad calls the tas
 
 [Reviewers](../agents/#reviewers) can join the task too, and show up beneath it in italics. They share the task's checkout and read the change, but they never write to it.
 
-A task never gets a second writer. This is to ensure changes do not collide. If you need more parallelism, break your work into multiple tasks.
+A task never gets a second writer, so changes do not collide. If you need more parallelism, break your work into multiple tasks.
 
 [Hooks](../hooks/#task-lifecycle) can run at three moments during a task's lifecycle: when its writer agent starts, when the task is archived, and before the task is deleted. They run in the task's worktree.
 
@@ -64,12 +64,12 @@ The restarted writer reads the task's notes and the state of the checkout before
 
 ## Archiving, restoring, and deleting tasks
 
-If you are finished with a task and want to clear up space, you can _archive_ it. Archiving a task doesn't delete any state. The task's worktree still stays on disk, and the conversations, notes, reviews and documents stay in the database. Archived tasks move out of the list to the archive, which you reach by pressing <Key name="kinds.focus" /> and switching from live to archived.
+When you finish a task and want to clear up space, you can _archive_ it. Archiving deletes no state. The task's worktree stays on disk, and the conversations, notes, reviews and documents stay in the database. Archived tasks move out of the list to the archive, which you reach by pressing <Key name="kinds.focus" /> and switching from live to archived.
 
 Archiving a task archives its writer and every reviewer on it.
 
-From the archive, restore a task to put it back in the list. Restoring a task brings back its writer only, by design.
+From the archive, restore a task to put it back in the list. Restoring a task brings back only its writer, by design.
 
 Deleting a task is permanent. It removes the task's writer and reviewers and their conversations, its documents and reviews, and its worktree from disk. If removing the worktree fails, the task stays in the archive with the reason for the failure.
 
-Finally, you can also choose to hide a task temporarily. Hide it from its menu with <Key name="menu.hide" />. Hidden tasks leave the list, but their agents keep running.
+You can also hide a task temporarily. Hide it from its menu with <Key name="menu.hide" />. Hidden tasks leave the list, but their agents keep running.

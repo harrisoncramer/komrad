@@ -25,11 +25,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Sequence is what git has part-way through a task's checkout and waiting on somebody.
+// Sequence names an operation git has part-way through a task's checkout, waiting on somebody.
 type Sequence int32
 
 const (
-	// Nothing was recorded, which no stored checkout answers with.
+	// Nothing was recorded. No stored checkout has this value.
 	Sequence_SEQUENCE_UNSPECIFIED Sequence = 0
 	// Nothing is part-way through.
 	Sequence_SEQUENCE_NONE Sequence = 1
@@ -149,12 +149,12 @@ func (x *DiffStat) GetRemoved() int32 {
 	return 0
 }
 
-// Task is one outcome a person wants, which the agents linked to it work toward.
+// Task is one outcome a person wants. The agents linked to it work toward it.
 type Task struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The handle every other call names this task by, alongside its slug.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Which workflow it is filed under, which every agent on it shares.
+	// Which workflow it is filed under. Every agent on it shares that workflow.
 	WorkflowId string `protobuf:"bytes,2,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	// The lowercase kebab-case name it is called by, unique and never reused.
 	Slug string `protobuf:"bytes,3,opt,name=slug,proto3" json:"slug,omitempty"`
@@ -168,7 +168,7 @@ type Task struct {
 	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// When it was archived, unset while it is live.
 	ArchivedAt *string `protobuf:"bytes,8,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
-	// The directory of its checkout, which every agent on it works in, unset while it has none.
+	// The directory of its checkout, where every agent on it works. Unset while it has none.
 	Cwd *string `protobuf:"bytes,9,opt,name=cwd,proto3,oneof" json:"cwd,omitempty"`
 	// The git branch its checkout is on, unset while it has none or git cannot read it.
 	Branch *string `protobuf:"bytes,10,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
@@ -182,14 +182,13 @@ type Task struct {
 	WorktreeRemoved bool `protobuf:"varint,13,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
 	// What git has part-way through its checkout, waiting on somebody to settle it.
 	Sequence Sequence `protobuf:"varint,14,opt,name=sequence,proto3,enum=task.v1.Sequence" json:"sequence,omitempty"`
-	// The snapshot of the newest review round of its agents while its checkout no longer hashes
-	// to it, empty otherwise.
+	// The snapshot of the newest review round of its agents, set while its checkout no longer
+	// hashes to it. Empty otherwise.
 	MovedSinceRound string `protobuf:"bytes,15,opt,name=moved_since_round,json=movedSinceRound,proto3" json:"moved_since_round,omitempty"`
 	// How many lines its checkout adds and removes since it left its base, unset where there is
 	// no base to measure against.
 	DiffStat *DiffStat `protobuf:"bytes,16,opt,name=diff_stat,json=diffStat,proto3,oneof" json:"diff_stat,omitempty"`
-	// The branch its checkout was put on rather than one komrad made for it, unset when komrad
-	// made it.
+	// The branch its checkout was put on, when komrad did not make it. Unset when komrad made it.
 	AdoptedBranch *string `protobuf:"bytes,17,opt,name=adopted_branch,json=adoptedBranch,proto3,oneof" json:"adopted_branch,omitempty"`
 	// Why its last delete could not give its checkout back, empty unless one failed.
 	FailureReason string `protobuf:"bytes,18,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
@@ -200,9 +199,9 @@ type Task struct {
 	NotesUpdatedAt *string `protobuf:"bytes,20,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
 	// Whether a script run on it failed and the person has not opened its logs since.
 	FailedRun bool `protobuf:"varint,21,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
-	// Whether a person hid the task from the panel, which leaves its agents running.
+	// Whether a person hid the task from the panel. Its agents keep running.
 	Hidden bool `protobuf:"varint,22,opt,name=hidden,proto3" json:"hidden,omitempty"`
-	// How many documents agents have written for it, which list_documents returns.
+	// How many documents agents have written for it. list_documents returns them.
 	Documents int32 `protobuf:"varint,23,opt,name=documents,proto3" json:"documents,omitempty"`
 	// When the newest of its documents was last written, in RFC 3339, unset when it has none.
 	DocumentsUpdatedAt *string `protobuf:"bytes,24,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
@@ -410,7 +409,7 @@ func (x *Task) GetDocumentsUpdatedAt() string {
 
 type CreateTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The lowercase kebab-case name to call it by, which no other task has ever had.
+	// The lowercase kebab-case name to call it by. It must be one no task has ever had.
 	Slug string `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
 	// What to show it as in the panel.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
@@ -718,8 +717,8 @@ type UpdateTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which task to rewrite, by id or by slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// The lowercase kebab-case name to call it by from now on, which no other task holds,
-	// left as it is when unset.
+	// The lowercase kebab-case name to call it by from now on. No other task may hold it. Left
+	// as it is when unset.
 	Slug *string `protobuf:"bytes,2,opt,name=slug,proto3,oneof" json:"slug,omitempty"`
 	// What to show it as in the panel, left as it is when unset.
 	Title *string `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
@@ -1259,11 +1258,11 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\vTaskService\x12\xe8\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\xa0\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\vcreate_task\"\x82\x01Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.(\x00:\x01\x02\x12\x9a\x01\n" +
-	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"\\\x9a\xb5\x18U\b\x01\x10\x01\x1a\bget_task\"@Fetch one task by id or slug, with its whole goal and its notes.:\x03\x03\x01\x02\x90\x02\x01\x12\xbc\x01\n" +
-	"\tListTasks\x12\x19.task.v1.ListTasksRequest\x1a\x1a.task.v1.ListTasksResponse\"x\x9a\xb5\x18q\b\x01\x10\x01\x1a\n" +
-	"list_tasks\"ZList a workflow's tasks, newest first. Archived tasks are left out unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xbb\x02\n" +
+	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"\\\x9a\xb5\x18U\b\x01\x10\x01\x1a\bget_task\"@Fetch one task by id or slug, with its whole goal and its notes.:\x03\x03\x01\x02\x90\x02\x01\x12\xbe\x01\n" +
+	"\tListTasks\x12\x19.task.v1.ListTasksRequest\x1a\x1a.task.v1.ListTasksResponse\"z\x9a\xb5\x18s\b\x01\x10\x01\x1a\n" +
+	"list_tasks\"\\List a workflow's tasks, newest first. The list omits archived tasks unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xb9\x02\n" +
 	"\n" +
-	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xf3\x01\x9a\xb5\x18\xeb\x01\b\x01\x10\x01\x1a\vupdate_task\"\xd2\x01Rewrite a task's slug, title, goal or notes by id or slug, leaving each field you leave out as it is. A notes write names the notes_updated_at it read. An edit reaches agents only when they read the task again.(\x00:\x01\x02\x90\x02\x02\x12\xbd\x02\n" +
+	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xf1\x01\x9a\xb5\x18\xe9\x01\b\x01\x10\x01\x1a\vupdate_task\"\xd0\x01Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is. A notes write must name the notes_updated_at it read. An edit reaches agents only when they read the task again.(\x00:\x01\x02\x90\x02\x02\x12\xbd\x02\n" +
 	"\fSetTaskNotes\x12\x1c.task.v1.SetTaskNotesRequest\x1a\x1d.task.v1.SetTaskNotesResponse\"\xef\x01\x9a\xb5\x18\xe7\x01\b\x01\x10\x01\x1a\x0eset_task_notes\"\xc9\x01Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since.(\x00:\x03\x03\x01\x02\x90\x02\x02\x12\xd9\x01\n" +
 	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x94\x01\x9a\xb5\x18\x8c\x01\b\x01\x10\x01\x1a\farchive_task\"sArchive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused.(\x00:\x01\x02\x90\x02\x02\x12\x80\x02\n" +
 	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\fdelete_tasks\"\x99\x01Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked.(\x01:\x01\x02\x90\x02\x02\x12\xdb\x01\n" +
