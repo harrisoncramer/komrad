@@ -12,7 +12,10 @@ import (
 	"charm.land/huh/v2"
 )
 
-var errNoLiveWriter = errors.New("this task has no live writer, so start a new agent on it instead")
+var (
+	errNoWriter           = errors.New("this task has no writer, so start a new agent on it instead")
+	errWriterNeverStarted = errors.New("this task's writer never started, so retry it instead")
+)
 
 type restartValues struct {
 	Note    string
@@ -30,7 +33,7 @@ func restartEntries(m *model, task panel.Task) []submenuEntry {
 	writer, ok := m.listing.findLiveWriter(task.ID)
 	entry := openEntry("restart", m.keys.Menu.Restart, func(m *model) tea.Cmd {
 		if !ok {
-			m.report("Could not restart the writer of task "+task.Slug, errNoLiveWriter)
+			m.report("Could not restart the writer of task "+task.Slug, m.listing.restartRefusal(task))
 
 			return nil
 		}
@@ -40,6 +43,15 @@ func restartEntries(m *model, task panel.Task) []submenuEntry {
 	entry.isOff = !ok
 
 	return []submenuEntry{entry}
+}
+
+// restartRefusal is why a task with no live writer cannot restart one.
+func (l listing) restartRefusal(task panel.Task) error {
+	if _, ok := l.findTaskWriter(task); ok {
+		return errWriterNeverStarted
+	}
+
+	return errNoWriter
 }
 
 // openRestart opens the form that restarts a task's writer on a new conversation.

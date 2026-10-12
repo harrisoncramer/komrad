@@ -335,6 +335,18 @@ func TestTasksRow(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "Could not restart agent")
 	})
 
+	t.Run("a restart of a writer that never started says to retry it", func(t *testing.T) {
+		rows := buildRestart()
+		writer, _ := rows[3].(*agentv1.Agent)
+		writer.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+		harness := openAgents(t, rows...)
+
+		harness.press("space", "o")
+
+		assert.Contains(t, readOpenMessages(harness), "writer never started, so retry it")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceRestartAgentProcedure))
+	})
+
 	t.Run("a restart relaunches the writer with the note", func(t *testing.T) {
 		harness := openAgents(t, buildRestart()...)
 		harness.answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {

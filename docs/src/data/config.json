@@ -1096,7 +1096,7 @@
               "key": "new_agent",
               "path": "keybindings.menu.new_agent",
               "type": "array",
-              "description": "Start a new task on the hovered workflow. On the hovered task it starts a reviewer of the live\nwriter, or else a writer in the task's checkout, and it is not offered once the worktree was\nremoved. The entry is only on the agents list.",
+              "description": "Start a new task on the hovered workflow. On the hovered task it starts a reviewer of its\nwriter, or a writer in the task's checkout when it has none, and it is not offered once the\nworktree was removed. The entry is only on the agents list.",
               "default": "[\"c\"]"
             },
             {
