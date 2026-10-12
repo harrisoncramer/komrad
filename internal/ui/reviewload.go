@@ -26,7 +26,7 @@ func (l listing) isReviewable(agent panel.Agent) bool {
 
 type reviewLoadedMsg struct {
 	agentID string
-	// load is which read of the diff this is, so a read overtaken by a newer one is dropped.
+	// load is the read of the diff this message answers.
 	load    int
 	round   *agentv1.ReviewRound
 	patch   *diff.Patch
@@ -168,10 +168,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 	_, live := m.listing.liveAgent(agentID)
 	held := assemble.ReviewThreads(m.listing.world, agentID)
 
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
-
+	read := func(ctx context.Context) reviewLoadedMsg {
 		record, err := readReviewRecord(ctx, readReviewRecordParams{
 			Agents: agents,
 			TaskID: params.TaskID,
@@ -179,12 +176,12 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			Held:   held,
 		})
 		if err != nil {
-			return reviewLoadedMsg{agentID: agentID, load: params.Load, err: err}
+			return reviewLoadedMsg{err: err}
 		}
 
 		span, err := resolveReviewRange(record.rounds, params.Spec)
 		if err != nil {
-			return reviewLoadedMsg{agentID: agentID, load: params.Load, err: err}
+			return reviewLoadedMsg{err: err}
 		}
 
 		picked, err := pickReviewRound(ctx, pickReviewRoundParams{
@@ -194,7 +191,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			Fresh:  params.Fresh,
 		})
 		if err != nil {
-			return reviewLoadedMsg{agentID: agentID, load: params.Load, err: err}
+			return reviewLoadedMsg{err: err}
 		}
 
 		round, rounds := picked.round, picked.rounds
@@ -207,12 +204,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			Range:   span,
 		})
 		if err != nil {
-			return reviewLoadedMsg{
-				agentID: agentID,
-				load:    params.Load,
-				round:   round,
-				err:     err,
-			}
+			return reviewLoadedMsg{round: round, err: err}
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, params.TaskID)
@@ -235,8 +227,6 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 		})
 
 		return reviewLoadedMsg{
-			agentID:        agentID,
-			load:           params.Load,
 			round:          round,
 			patch:          loaded.patch,
 			threads:        record.threads,
@@ -263,6 +253,16 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			}),
 			err: err,
 		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		msg := read(ctx)
+		msg.agentID, msg.load = agentID, params.Load
+
+		return msg
 	}
 }
 
