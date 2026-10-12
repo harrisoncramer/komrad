@@ -219,8 +219,8 @@ func (p Palette) TmuxSelection() string {
 	return "fg=" + tmuxColor(p.colors.Inverse) + ",bg=" + tmuxColor(p.colors.Mode.Visual)
 }
 
-// ClipStart cuts text to a width from its start, beginning it in an ellipsis.
-func ClipStart(text string, width int) string {
+// clipStart cuts text to a width from its start, beginning it in an ellipsis.
+func clipStart(text string, width int) string {
 	runes := []rune(text)
 	switch {
 	case width <= 0:
@@ -242,12 +242,12 @@ func ClipAround(before, after string, width int) (string, string) {
 	case head+tail <= width:
 		return before, after
 	case tail < width:
-		return ClipStart(before, width-tail), after
+		return clipStart(before, width-tail), after
 	}
 
 	kept := min(head, max(width/2, 1))
 
-	return ClipStart(before, kept), Clip(after, width-kept)
+	return clipStart(before, kept), Clip(after, width-kept)
 }
 
 // RenderTyped is text being typed with its cursor in it: a bar after the text while the cursor is at
