@@ -265,6 +265,11 @@ func (p *Panel) Inside() (int, int) {
 	return p.model.countInsetLeft(), p.model.term.width
 }
 
+// NewSizeRead is the size the frame read back off tmux after moving the panel's own pane.
+func NewSizeRead(width, height int) tea.Msg {
+	return sizeReadMsg{size: tea.WindowSizeMsg{Width: width, Height: height}}
+}
+
 // NewKeyPress is the press bubbletea delivers for a key as a binding spells it.
 func NewKeyPress(key string) tea.KeyPressMsg {
 	return keyMsg(key)

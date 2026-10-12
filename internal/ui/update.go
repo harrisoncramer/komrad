@@ -248,6 +248,10 @@ func (m *model) resizeTo(size tea.WindowSizeMsg) {
 // applySizeRead settles a size the frame read back, leaving a changed one to the resize the
 // terminal itself reports.
 func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
+	if m.frame.IsStaleSize(msg.size.Width, msg.size.Height) {
+		return nil
+	}
+
 	if msg.size.Width == m.term.paneCols && msg.size.Height == m.term.height {
 		m.term.awaitingSince = time.Time{}
 

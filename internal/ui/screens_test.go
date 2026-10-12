@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/engine"
+	"komrad/internal/ui"
 	"komrad/lib/xptr"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -218,6 +219,25 @@ func TestScreensDivider(t *testing.T) {
 		before := harness.readRendered()
 
 		harness.settle(harness.panel.Update(tea.WindowSizeMsg{Width: 100, Height: defaultHarnessHeight}))
+
+		assert.Equal(t, before, harness.readRendered())
+	})
+
+	t.Run("a size read back before tmux moved the pane is not rendered", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openDragged(t)
+		harness.press("k")
+		harness.fireTimers()
+		harness.panel.SetPaneWidth("%0", 200)
+		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+
+		harness.panel.SetPaneWidth("%0", 50)
+		harness.press("j")
+		harness.fireTimersUnsettled()
+		before := harness.readRendered()
+
+		harness.settle(harness.panel.Update(ui.NewSizeRead(200, defaultHarnessHeight)))
 
 		assert.Equal(t, before, harness.readRendered())
 	})
