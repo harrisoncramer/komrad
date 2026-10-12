@@ -48,7 +48,7 @@ Agents don't wait for replies to mail; it's an asynchronous communication mechan
 
 ## Limits and Expiry
 
-Orchestrators and writers can mail each other freely, across tasks and workflows. A [reviewer or other child](../agents/#reviewers) can mail only the writer it belongs to and that writer's other children. Mail unread past <Setting path="mail.delivery_deadline" /> expires.
+Orchestrators and writers can mail each other freely, across tasks and workflows. A [reviewer](../agents/#reviewers) can mail only the agents on its own task and its workflow's orchestrator. Mail unread past <Setting path="mail.delivery_deadline" /> expires.
 
 You can limit how much mail two agents exchange by setting <Setting path="mail.max_exchange" />. It exists to stop two agents looping on each other forever. When the limit stops a message, the sender gets an error and the other agent is told, so it does not wait for a reply that will never come. Your own mail never counts.
 

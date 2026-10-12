@@ -235,13 +235,12 @@ func TestListForgeMirrorTargets(t *testing.T) {
 			},
 		},
 		{
-			name: "a task handed to a second writer is mirrored onto once",
+			name: "a task with a reviewer on it is mirrored onto once",
 			seed: func(t *testing.T, st *fixture, agentID string) {
 				st.openRound(t, agentID, "tree-one")
-				_, err := st.agents.Archive(t.Context(), []string{agentID})
-				require.NoError(t, err)
 				st.seedAgentLike(t, agentstore.Agent{
-					Name:   "next-worker",
+					Name:   "reviewer",
+					Role:   agentstore.RoleReviewer,
 					TaskID: xptr.Ptr(st.taskOf(t, agentID)),
 				})
 			},

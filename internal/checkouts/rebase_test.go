@@ -483,23 +483,6 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			wantCalls: []string{"park", "rebase"},
 			wantMail:  "Your branch is still the same branch",
 		},
-		{
-			name: "a new writer launched onto the task while the old one settled",
-			settling: func(t *testing.T, fixture *rebaseFixture, id string) {
-				old, err := fixture.stores.Agents.GetByID(t.Context(), id)
-				require.NoError(t, err)
-				_, err = fixture.stores.Agents.Archive(t.Context(), []string{id})
-				require.NoError(t, err)
-				fixture.stores.SeedAgent(t, agentstore.Agent{
-					Name:       "successor",
-					Cwd:        old.Cwd,
-					WorkflowID: old.WorkflowID,
-					TaskID:     old.TaskID,
-				})
-			},
-			readings: []harness.Activity{harness.ActivityIdle},
-			wantErr:  errBusy,
-		},
 	}
 
 	for _, tt := range tests {

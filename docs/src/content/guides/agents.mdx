@@ -22,28 +22,29 @@ They are also durable. You can shut down or restart your machine without losing 
 
 Komrad has three kinds of agents.
 
-There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator), which coordinates tasks and their agents.
+There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator). It sits above the workflow's tasks rather than inside any of them, and coordinates the work across them.
 
-An _implementer_ does a task's work. It makes edits, commits, and opens the pull request. Only one live implementer at a time holds a task's checkout, and komrad calls it the task's [writer](../tasks/#managing-task-agents). You can [restart](../tasks/#restarting-the-writer) the writer on a new conversation whenever you want.
+Every task has exactly one _writer_. The writer does the task's work: it makes edits, commits, and opens the pull request. It is the only agent that changes the task's checkout, and it stays with the task for the task's whole life. You can [restart](../tasks/#restarting-the-writer) it on a new conversation whenever you want.
 
-Finally, _reviewer_ agents read the writer's change and comment on it. Only the writer can ask for one. A reviewer is the writer's child: it works in the writer's checkout, makes no changes of its own, and is archived along with the writer.
+Finally, _reviewer_ agents read the writer's change and comment on it. A reviewer belongs to the task, not to the writer. It works in the task's checkout but makes no changes of its own.
 
 ```
-  workflow (and its orchestrator)
+  workflow: neovim
+   |-- orchestrator         <-- coordinates the workflow's tasks
    |
    |-- task: fix-login
-   |      |-- writer        <-- an implementer, owns the checkout
-   |      '-- reviewer      <-- the writer's child, reads its change
+   |      |-- writer        <-- does the work, owns the checkout
+   |      '-- reviewer      <-- reads the writer's change
    |
    '-- task: rfc-truncate
           '-- writer
 ```
 
-The list draws the same tree. Each workflow row holds its tasks, and each task lists every agent on it. The writer's children sit beside it under the task, drawn in the child style, so you can tell them apart from the writer.
+The list draws the same tree. A task and its writer share one row under the workflow, and the task's reviewers sit beneath it.
 
 ## Starting agents
 
-Most of the time you start an agent by [starting a task](../tasks/#starting-a-task), which launches its first implementer. The other way is to ask the orchestrator. Tell it what you want done and it creates the tasks, puts an implementer on each, and writes each one a brief.
+Most of the time you start an agent by [starting a task](../tasks/#starting-a-task), which launches its writer. The other way is to ask the orchestrator. Tell it what you want done and it creates the tasks, puts a writer on each, and writes each one a brief.
 
 <figure>
   <video
@@ -81,23 +82,25 @@ Open an agent by moving the cursor onto it and pressing enter. Its terminal fill
 
 ## Reviewers
 
-The writer asks for a review when it thinks its work is ready, and komrad starts a reviewer as its child. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the writer answers them. While a reviewer is still reading and has not approved, the writer cannot ask for another. Over a task's life it can go through many.
+Usually the writer asks for a review when it thinks its work is ready, and komrad starts a reviewer on the task. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the writer answers them. While a reviewer is still reading, the writer cannot ask for another. Over a task's life it can go through many.
 
-Neither you nor the orchestrator starts reviewers directly. Starting a new agent on a task from its menu with <Key name="menu.new_agent" /> while it has a live writer does not make a reviewer. It makes a plain child of the writer: a helper that runs in the writer's checkout with only the brief you give it, cannot ask for a review, and is archived with the writer. Use it for side work such as answering a question about the change. Keep the writing itself with the writer, since a child that edits the checkout works under the writer's feet.
+You can start a reviewer yourself too. Open a task's menu and pick new agent with <Key name="menu.new_agent" />, then say what you want looked at. The orchestrator can do the same. Either way it is still a reviewer, so it reads the change and talks to the writer, but never edits the checkout.
 
 Set <Setting path="usage.task.max_reviewers" /> to cap how many reviewers one task can hold at a time.
 
 ## Adopting work
 
-Sometimes the work started outside komrad, such as a colleague's pull request or a branch you began on another machine. Hover the workflow, open the menu with <Key name="menu.open" /> and press <Key name="menu.adopt" />. Name the branch and say what to do with it. Komrad starts a task on that branch with an implementer as its writer, in a worktree of its own when the workflow cuts them.
+Sometimes the work started outside komrad, such as a colleague's pull request or a branch you began on another machine. Hover the workflow, open the menu with <Key name="menu.open" /> and press <Key name="menu.adopt" />. Name the branch and say what to do with it. Komrad starts a task on that branch with a writer on it, in a worktree of its own when the workflow cuts them.
 
 The branch has to be in the workflow's repository, either pushed to its origin or already on disk.
 
 ## Archiving and deleting an agent
 
-Archiving an agent stops it and takes it out of the list. Its conversation stays in the database, so you can still search it or restore it later. Archiving a writer archives its children too, reviewers included, and archiving the last live agent on a task archives the task.
+Archiving an agent stops it and takes it out of the list. Its conversation stays in the database, so you can still search it or restore it later.
 
-Deleting an archived agent is permanent and removes its conversation. Its task, with the worktree and reviews, stays until the task itself is [deleted](../tasks/#archiving-restoring-and-deleting-tasks).
+A writer and its task share one life, so you never archive a writer on its own. Archive the [task](../tasks/#archiving-restoring-and-deleting-tasks) instead, which archives the writer and every reviewer on it. Restoring the task brings its writer back.
+
+Reviewers come and go on their own. You can archive one whenever you like, and restore it later once its task is live. Deleting an archived reviewer is permanent and removes its conversation. A writer is deleted only with its task.
 
 ## How komrad knows what an agent is doing
 

@@ -357,7 +357,7 @@ func TestList(t *testing.T) {
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
-	successor := stores.SeedAgent(t, agentstore.Agent{Name: "successor", TaskID: author.TaskID})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", Role: agentstore.RoleReviewer, TaskID: author.TaskID})
 
 	write := func(agentID, name string, typeName string) string {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
@@ -374,7 +374,7 @@ func TestList(t *testing.T) {
 	notes := write(author.ID, "scratch", "notes")
 	elsewhere := write(other.ID, "elsewhere", "RFC")
 	write(leaving.ID, "doomed", "RFC")
-	handover := write(successor.ID, "handover", "notes")
+	findings := write(reviewer.ID, "findings", "notes")
 
 	_, err := stores.Documents.Update(ctx, documentstore.UpdateParams{
 		ID:      rfc,
@@ -410,7 +410,7 @@ func TestList(t *testing.T) {
 		},
 		{
 			name: "every agent's documents, archived agents included",
-			want: []string{rfc, handover, elsewhere, notes},
+			want: []string{rfc, findings, elsewhere, notes},
 		},
 		{
 			name:     "every agent's documents of one type",
@@ -420,13 +420,13 @@ func TestList(t *testing.T) {
 		{
 			name:   "a task's documents, from every agent that worked on it",
 			taskID: author.TaskID,
-			want:   []string{rfc, handover, notes},
+			want:   []string{rfc, findings, notes},
 		},
 		{
 			name:     "a task's documents of one type",
 			taskID:   author.TaskID,
 			typeName: xptr.Ptr("notes"),
-			want:     []string{handover, notes},
+			want:     []string{findings, notes},
 		},
 		{name: "a task with none", taskID: xptr.Ptr(uuid.NewString())},
 		{name: "a task that is not an id", taskID: xptr.Ptr("not-an-id")},
@@ -468,7 +468,7 @@ func TestList(t *testing.T) {
 	require.NoError(t, err)
 
 	paged := append([]string{first[0].ID}, xslice.Map(rest, func(doc documentstore.Document) string { return doc.ID })...)
-	assert.Equal(t, []string{rfc, handover, elsewhere, notes}, paged, "a cursor carries on where its page left off")
+	assert.Equal(t, []string{rfc, findings, elsewhere, notes}, paged, "a cursor carries on where its page left off")
 }
 
 // TestDeletingTheAgentDeletesItsDocuments pins that archiving keeps an agent's documents and deleting it removes them.
