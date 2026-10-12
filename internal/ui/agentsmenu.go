@@ -53,7 +53,7 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
 			restartEntries(m, task),
 			retryEntries(m, writer),
 			a.snoozeEntries(m, writer),
-			a.editEntries(m, m.listing.findCheckoutOwner(task)),
+			a.editEntries(m, writer),
 			[]submenuEntry{
 				nestedEntry("git", m.keys.Menu.Git, gitMenu(m, task)),
 				nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, writer.Agent.ID, task.ID)),

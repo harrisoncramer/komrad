@@ -2310,7 +2310,7 @@ func TestAgentsReviewers(t *testing.T) {
 		assert.Contains(t, frame, "Their transcripts go with them")
 	})
 
-	t.Run("a task whose newest agent is a reviewer offers its writer's worktree a rebase", func(t *testing.T) {
+	t.Run("a task offers its writer's worktree a rebase", func(t *testing.T) {
 		rows := buildReviewedTasks()
 		rows[0] = &workflowv1.Workflow{
 			Id:       "w1",

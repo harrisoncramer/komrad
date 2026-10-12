@@ -97,7 +97,7 @@ func quoteClause(key, value string) string {
 	return key + ":" + value
 }
 
-// namedAgentID is the one agent the filter's agent: qualifier names exactly, or the lead of the
+// namedAgentID is the one agent the filter's agent: qualifier names exactly, or the writer of the
 // task the documents were opened for.
 func (m *model) namedAgentID() (string, bool) {
 	var names []string
@@ -107,7 +107,7 @@ func (m *model) namedAgentID() (string, bool) {
 		}
 	}
 	if len(names) == 0 {
-		return m.openedTaskLead()
+		return m.openedTaskWriter()
 	}
 	if len(names) != 1 {
 		return "", false
@@ -139,9 +139,9 @@ func (m *model) openedForAgent(name string) (string, bool) {
 	return agentID, true
 }
 
-// openedTaskLead is the agent the task's row wore when the documents were opened for it, while
-// the filter still names that task.
-func (m *model) openedTaskLead() (string, bool) {
+// openedTaskWriter is the writer of the task the documents were opened for, while the filter still
+// names that task.
+func (m *model) openedTaskWriter() (string, bool) {
 	for _, clause := range m.filter.qualifiers.clauses {
 		if clause.Key != searchsyntax.KeyTask || clause.Negated {
 			continue

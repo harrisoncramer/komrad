@@ -51,11 +51,11 @@ func jumpMenu(m *model, from screen, to screenTarget) submenu {
 	}
 }
 
-// taskJumpEntry lands on a task's row, off when no agent on it lists the task.
+// taskJumpEntry lands on a task's row, off when its writer is not listed.
 func taskJumpEntry(m *model, task panel.Task) submenuEntry {
-	lead, found := m.listing.findTaskLead(task)
+	writer, found := m.listing.findTaskWriter(task)
 	entry := openEntry("task", m.keys.JumpMenu.Task, func(m *model) tea.Cmd {
-		target := screenTarget{agentID: lead.Agent.ID, taskID: task.ID}
+		target := screenTarget{agentID: writer.Agent.ID, taskID: task.ID}
 		if task.ArchivedAt != nil {
 			return m.enterArchived(target)
 		}

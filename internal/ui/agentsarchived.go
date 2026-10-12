@@ -302,30 +302,26 @@ func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 
 	if row.isTask() {
 		task := *row.task
-		onTask := xslice.Filter(m.listing.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
-		agents := xslice.Map(onTask, func(item panel.AgentRow) panel.Agent { return item.Agent })
-		var lead *panel.Agent
-		if found, ok := findLead(onTask); ok {
-			lead = &found.Agent
-		}
 		if task.ArchivedAt == nil {
+			onTask := xslice.Filter(m.listing.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
+			reviewers := xslice.Map(onTask, func(item panel.AgentRow) panel.Agent { return item.Agent })
+
 			return archived{
-				work:  chosenWork{chosen: agents, loneAgents: agents},
+				work:  chosenWork{chosen: reviewers, loneAgents: reviewers},
 				title: task.Slug,
-				lead:  lead,
 			}, true
 		}
 
-		writers := xslice.Filter(agents, func(agent panel.Agent) bool { return agent.Role == panel.RoleWriter })
-		if len(writers) > 0 {
-			lead = &writers[0]
+		target := archived{
+			work:  chosenWork{wholeTasks: []panel.Task{task}},
+			title: task.Slug,
+		}
+		if writer, ok := m.listing.findTaskWriter(task); ok {
+			target.work.chosen = []panel.Agent{writer.Agent}
+			target.resumed = &writer.Agent
 		}
 
-		return archived{
-			work:  chosenWork{chosen: writers, wholeTasks: []panel.Task{task}},
-			title: task.Slug,
-			lead:  lead,
-		}, true
+		return target, true
 	}
 
 	item, ok := row.paneItem()
@@ -336,9 +332,9 @@ func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 	agent := item.Agent
 
 	return archived{
-		work:  splitChosen(m.listing, []panel.Agent{agent}),
-		lead:  &agent,
-		title: m.listing.agentName(agent),
+		work:    splitChosen(m.listing, []panel.Agent{agent}),
+		resumed: &agent,
+		title:   m.listing.agentName(agent),
 	}, true
 }
 
@@ -358,14 +354,14 @@ func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
 	return withNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archive), true
 }
 
-// restoreAndResumeCmd takes the agents out of the archive and puts the lead's conversation back in a pane.
-func restoreAndResumeCmd(m *model, agents []panel.Agent, lead panel.Agent) tea.Cmd {
-	return m.openingWriteCmd("restoring "+lead.Name, fmt.Sprintf("Could not restore and open agent %q", lead.Name), func(a api) (*agentv1.Agent, error) {
+// restoreAndResumeCmd takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
+func restoreAndResumeCmd(m *model, agents []panel.Agent, resumed panel.Agent) tea.Cmd {
+	return m.openingWriteCmd("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
 		}
 
-		return a.resumeAgent(lead.ID)
+		return a.resumeAgent(resumed.ID)
 	})
 }
 
