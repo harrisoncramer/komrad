@@ -278,7 +278,7 @@ type GetReviewThreadRow struct {
 	EngineID            string
 	ForgeThreadID       *string
 	ForgeResolved       bool
-	TaskID              *string
+	TaskID              string
 	ReviewReleasedAt    *time.Time
 	ReviewAuthorKind    ReviewAuthorKind
 	ReviewAuthorAgentID *string
@@ -756,7 +756,7 @@ type InsertReviewThreadWithMessageRow struct {
 	EngineID            string
 	ForgeThreadID       *string
 	ForgeResolved       bool
-	TaskID              *string
+	TaskID              string
 }
 
 func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertReviewThreadWithMessageParams) (*InsertReviewThreadWithMessageRow, error) {
@@ -1392,7 +1392,7 @@ type ListReviewThreadsRow struct {
 	EngineID            string
 	ForgeThreadID       *string
 	ForgeResolved       bool
-	TaskID              *string
+	TaskID              string
 	ReviewReleasedAt    *time.Time
 	ReviewAuthorAgentID *string
 	RoundOrdinal        int32
@@ -1679,7 +1679,7 @@ type ListWatchedReviewThreadsRow struct {
 	EngineID            string
 	ForgeThreadID       *string
 	ForgeResolved       bool
-	TaskID              *string
+	TaskID              string
 	RoundOrdinal        int32
 	UnreadByHuman       *bool
 }

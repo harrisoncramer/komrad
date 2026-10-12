@@ -951,7 +951,7 @@ type Review struct {
 	// The forge login of whoever wrote a review on the forge, empty when the forge no longer knew them. Null for a review written in komrad.
 	ExternalLogin *string
 	// The task being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join.
-	TaskID *string
+	TaskID string
 }
 
 // A reply komrad posts to the forge on a mirrored thread, from the agent's proposal or the person's own words through to the forge comment it became.
@@ -1036,7 +1036,7 @@ type ReviewRound struct {
 	// When the base branch was first seen holding this round whole, or a later round whole, null until then. A landed round's settled comments are history rather than work still under review.
 	LandedAt *time.Time
 	// The task whose checkout the round froze.
-	TaskID *string
+	TaskID string
 }
 
 // One conversation pinned to a file and a line range in the round its review was given against.
@@ -1080,7 +1080,7 @@ type ReviewThread struct {
 	// Whether the forge said the thread was resolved as of the last sync, so only a change there resolves or reopens it here.
 	ForgeResolved bool
 	// The task being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by task.
-	TaskID *string
+	TaskID string
 }
 
 // One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.
@@ -1095,7 +1095,7 @@ type ReviewViewedFile struct {
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
 	// The task whose diff the file is in.
-	TaskID *string
+	TaskID string
 }
 
 // A recurring firing, holding when to fire and the prompt it starts a task with or mails an orchestrator.

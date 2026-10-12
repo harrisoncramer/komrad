@@ -32,7 +32,7 @@ table "review_rounds" {
     comment = "The agent the round was taken through, kept for older builds while every read goes by task."
   }
   column "task_id" {
-    null    = true
+    null    = false
     type    = uuid
     comment = "The task whose checkout the round froze."
   }
@@ -108,7 +108,7 @@ table "reviews" {
     comment = "The agent its round was taken through, kept for older builds while every read goes by task."
   }
   column "task_id" {
-    null    = true
+    null    = false
     type    = uuid
     comment = "The task being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join."
   }
@@ -259,7 +259,7 @@ table "review_threads" {
     comment = "The agent its round was taken through, kept for older builds while every read goes by task."
   }
   column "task_id" {
-    null    = true
+    null    = false
     type    = uuid
     comment = "The task being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by task."
   }
@@ -747,7 +747,7 @@ table "review_viewed_files" {
     comment = "The agent whose diff the file was last marked read in."
   }
   column "task_id" {
-    null    = true
+    null    = false
     type    = uuid
     comment = "The task whose diff the file is in."
   }
@@ -762,7 +762,7 @@ table "review_viewed_files" {
     comment = "The engine that owns this row, stamped from the login that wrote it."
   }
   primary_key {
-    columns = [column.agent_id, column.file_path]
+    columns = [column.task_id, column.file_path]
   }
   foreign_key "review_viewed_files_engine_id_fkey" {
     columns     = [column.engine_id]
@@ -775,9 +775,5 @@ table "review_viewed_files" {
     ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
-  }
-  index "review_viewed_files_task_file" {
-    columns = [column.task_id, column.file_path]
-    unique  = true
   }
 }

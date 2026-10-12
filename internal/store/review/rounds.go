@@ -8,7 +8,6 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
-	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -403,7 +402,7 @@ func (s *ReviewStore) DeleteReview(ctx context.Context, id string) error {
 func roundFromRow(row models.ReviewRound) Round {
 	return Round{
 		ID:          row.ID,
-		TaskID:      xptr.Deref(row.TaskID),
+		TaskID:      row.TaskID,
 		Ordinal:     row.Ordinal,
 		BaseSHA:     row.BaseSha,
 		SnapshotSHA: row.SnapshotSha,
@@ -415,7 +414,7 @@ func roundFromRow(row models.ReviewRound) Round {
 func reviewFromRow(row models.Review) Review {
 	review := Review{
 		ID:             row.ID,
-		TaskID:         xptr.Deref(row.TaskID),
+		TaskID:         row.TaskID,
 		RoundID:        row.RoundID,
 		AuthorKind:     AuthorKind(row.AuthorKind),
 		AuthorAgentID:  row.AuthorAgentID,
