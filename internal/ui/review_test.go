@@ -44,18 +44,9 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), "no change against the base branch")
 	})
 
-	t.Run("a task's row opens the review through its newest agent", func(t *testing.T) {
+	t.Run("a task's row opens the review of its task", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.task.Slug = "login-fix"
-		server.agent.CreatedAt = "2026-09-20T12:05:00Z"
-		server.onTask = []*agentv1.Agent{{
-			Id:         "a0",
-			Name:       "first-try",
-			WorkflowId: "w1",
-			TaskId:     xptr.Ptr("t1"),
-			State:      agentv1.AgentState_AGENT_STATE_IDLE,
-			CreatedAt:  "2026-09-20T12:00:00Z",
-		}}
 		harness := newPanelHarness(t, panelHarnessParams{
 			width:  reviewWidth,
 			height: reviewHeight,

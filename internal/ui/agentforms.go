@@ -47,13 +47,13 @@ func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) tea
 	}))
 }
 
-// openNewAgentOnTask opens the form that starts an agent on a task: a reviewer when it has a live
+// openNewAgentOnTask opens the form that starts an agent on a task: a reviewer when it has a
 // writer, or else its writer.
 func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) tea.Cmd {
-	if writer, ok := m.listing.findLiveWriter(task.ID); ok {
-		values := reviewerPrefill(writer)
+	if writer, ok := m.listing.findTaskWriter(task); ok {
+		values := reviewerPrefill(writer.Agent)
 
-		return openReviewerForm(m, writer, task, &values)
+		return openReviewerForm(m, writer.Agent, task, &values)
 	}
 
 	values := &agentFormValues{Harness: workflow.Harness}

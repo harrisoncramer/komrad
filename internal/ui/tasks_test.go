@@ -55,7 +55,7 @@ func TestTasksTree(t *testing.T) {
 		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
 	})
 
-	t.Run("a task's menu is its newest agent's pages and another agent on it", func(t *testing.T) {
+	t.Run("a task's menu is its writer's pages and a new agent on it", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
 		harness.press("j", "space")
@@ -70,13 +70,14 @@ func TestTasksTree(t *testing.T) {
 
 	t.Run("a new agent or a restart from a task's menu", func(t *testing.T) {
 		tests := []struct {
-			name     string
-			task     *taskv1.Task
-			writer   agentv1.AgentState
-			deleting bool
-			offered  bool
-			form     string
-			want     *agentv1.CreateAgentRequest
+			name       string
+			task       *taskv1.Task
+			writer     agentv1.AgentState
+			writerless bool
+			deleting   bool
+			offered    bool
+			form       string
+			want       *agentv1.CreateAgentRequest
 		}{
 			{
 				name: "is not offered once the task's worktree was removed",
@@ -132,7 +133,7 @@ func TestTasksTree(t *testing.T) {
 				},
 			},
 			{
-				name: "on a task with a checkout and no live writer starts the writer in it",
+				name: "on a task whose writer failed to start starts a reviewer in its checkout",
 				task: &taskv1.Task{
 					Id:         "t1",
 					WorkflowId: "w1",
@@ -141,7 +142,25 @@ func TestTasksTree(t *testing.T) {
 				},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: true,
-				form:    "Becomes the task's writer",
+				form:    `Reviewer on "fix-login"`,
+				want: &agentv1.CreateAgentRequest{
+					Prompt:     "review it",
+					Harness:    "claude",
+					WorkflowId: "w1",
+					Task:       xptr.Ptr("t1"),
+				},
+			},
+			{
+				name: "on a task with a checkout and no writer starts the writer in it",
+				task: &taskv1.Task{
+					Id:         "t1",
+					WorkflowId: "w1",
+					Slug:       "fix-login",
+					Cwd:        xptr.Ptr("/worktrees/fix-login"),
+				},
+				writerless: true,
+				offered:    true,
+				form:       "Becomes the task's writer",
 				want: &agentv1.CreateAgentRequest{
 					Prompt:     "review it",
 					WorkflowId: "w1",
@@ -155,9 +174,9 @@ func TestTasksTree(t *testing.T) {
 					WorkflowId: "w1",
 					Slug:       "fix-login",
 				},
-				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
-				offered: true,
-				form:    "Becomes the task's first writer",
+				writerless: true,
+				offered:    true,
+				form:       "Becomes the task's first writer",
 				want: &agentv1.CreateAgentRequest{
 					Prompt:     "review it",
 					WorkflowId: "w1",
@@ -171,7 +190,11 @@ func TestTasksTree(t *testing.T) {
 				writer := newTaskAgent("a1", "author", "t1", agentv1.AgentRole_AGENT_ROLE_WRITER, 0)
 				writer.Harness, writer.Flags = "claude", "--model opus"
 				writer.State = tt.writer
-				harness := openAgents(t, newLiveWorkflow("w1", "komrad"), tt.task, writer)
+				onTask := writer
+				if tt.writerless {
+					onTask = newTaskAgent("a2", "reviewer", "t1", agentv1.AgentRole_AGENT_ROLE_REVIEWER, 0)
+				}
+				harness := openAgents(t, newLiveWorkflow("w1", "komrad"), tt.task, onTask)
 				answerAgentCreate(harness, "")
 				if tt.deleting {
 					harness.watch(buildDeleted(watchv1.Resource_RESOURCE_TASK, "t1"))
@@ -310,6 +333,18 @@ func TestTasksRow(t *testing.T) {
 		harness.press("space", "o", "enter")
 
 		assert.Contains(t, harness.readFrame(), "Could not restart agent")
+	})
+
+	t.Run("a restart of a writer that never started says to retry it", func(t *testing.T) {
+		rows := buildRestart()
+		writer, _ := rows[3].(*agentv1.Agent)
+		writer.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+		harness := openAgents(t, rows...)
+
+		harness.press("space", "o")
+
+		assert.Contains(t, readOpenMessages(harness), "writer never started, so retry it")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceRestartAgentProcedure))
 	})
 
 	t.Run("a restart relaunches the writer with the note", func(t *testing.T) {

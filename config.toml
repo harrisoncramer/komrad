@@ -434,9 +434,9 @@ notes         = ["n"]
 restart       = ["o"]
 # Put an agent on a branch that already exists, in the hovered workflow.
 adopt         = ["A"]
-# Start a new task on the hovered workflow. On the hovered task it starts a reviewer of the live
-# writer, or else a writer in the task's checkout, and it is not offered once the worktree was
-# removed. The entry is only on the agents list.
+# Start a new task on the hovered workflow. On the hovered task it starts a reviewer of its
+# writer, or a writer in the task's checkout when it has none, and it is not offered once the
+# worktree was removed. The entry is only on the agents list.
 new_agent     = ["c"]
 # Create a workflow. The entry is only on a workflow in the agents list.
 new_workflow  = ["w"]

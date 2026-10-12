@@ -12,7 +12,10 @@ import (
 	"charm.land/huh/v2"
 )
 
-var errNoLiveWriter = errors.New("this task has no live writer, so start a new agent on it instead")
+var (
+	errNoWriter           = errors.New("this task has no writer, so start a new agent on it instead")
+	errWriterNeverStarted = errors.New("this task's writer never started, so retry it instead")
+)
 
 type restartValues struct {
 	Note    string
@@ -27,19 +30,32 @@ func restartEntries(m *model, task panel.Task) []submenuEntry {
 		return nil
 	}
 
-	writer, ok := m.listing.findLiveWriter(task.ID)
+	writer, refusal := m.listing.findRestartableWriter(task)
 	entry := openEntry("restart", m.keys.Menu.Restart, func(m *model) tea.Cmd {
-		if !ok {
-			m.report("Could not restart the writer of task "+task.Slug, errNoLiveWriter)
+		if refusal != nil {
+			m.report("Could not restart the writer of task "+task.Slug, refusal)
 
 			return nil
 		}
 
-		return openRestart(m, task, writer)
+		return openRestart(m, task, *writer)
 	})
-	entry.isOff = !ok
+	entry.isOff = refusal != nil
 
 	return []submenuEntry{entry}
+}
+
+// findRestartableWriter is the task's writer when it can restart, or why it cannot.
+func (l listing) findRestartableWriter(task panel.Task) (*panel.Agent, error) {
+	writer, ok := l.findTaskWriter(task)
+	if !ok {
+		return nil, errNoWriter
+	}
+	if !isLiveWriter(writer.Agent) {
+		return nil, errWriterNeverStarted
+	}
+
+	return &writer.Agent, nil
 }
 
 // openRestart opens the form that restarts a task's writer on a new conversation.

@@ -294,9 +294,9 @@ type MenuKeys struct {
 	Restart []string `mapstructure:"restart" default:"o"`
 	// Put an agent on a branch that already exists, in the hovered workflow.
 	Adopt []string `mapstructure:"adopt" default:"A"`
-	// Start a new task on the hovered workflow. On the hovered task it starts a reviewer of the live
-	// writer, or else a writer in the task's checkout, and it is not offered once the worktree was
-	// removed. The entry is only on the agents list.
+	// Start a new task on the hovered workflow. On the hovered task it starts a reviewer of its
+	// writer, or a writer in the task's checkout when it has none, and it is not offered once the
+	// worktree was removed. The entry is only on the agents list.
 	NewAgent []string `mapstructure:"new_agent" default:"c"`
 	// Create a workflow. The entry is only on a workflow in the agents list.
 	NewWorkflow []string `mapstructure:"new_workflow" default:"w"`

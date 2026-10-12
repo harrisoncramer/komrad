@@ -1356,7 +1356,7 @@ func TestArchivedTasks(t *testing.T) {
 			},
 		},
 		{
-			name:      "restore and open passes over a task whose lead never started",
+			name:      "restore and open passes over a task whose writer never started",
 			rows:      unstarted,
 			press:     append(onAPIWork, "space", "a", "o", "ctrl+g"),
 			wantFrame: "no conversation to open",

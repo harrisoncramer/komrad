@@ -20,10 +20,10 @@ type archived struct {
 	work     chosenWork
 	workflow *panel.Workflow
 	schedule *panel.Schedule
-	// lead is the agent restore and open resumes, unset on a selection.
-	lead   *panel.Agent
-	title  string
-	chosen bool
+	// resumed is the agent restore and open resumes, unset on a selection.
+	resumed *panel.Agent
+	title   string
+	chosen  bool
 }
 
 // name is what the menu's band is titled with.
@@ -40,15 +40,15 @@ func (t archived) name() string {
 
 // opensAgent is the one agent whose conversation can be put back in a pane, or why there is none.
 func (t archived) opensAgent() (*panel.Agent, error) {
-	if t.lead == nil {
+	if t.resumed == nil {
 		return nil, errOpensOneAgent
 	}
 
-	if !t.lead.State.DoesPaneDecide() {
+	if !t.resumed.State.DoesPaneDecide() {
 		return nil, errNeverStarted
 	}
 
-	return t.lead, nil
+	return t.resumed, nil
 }
 
 // archiveMenu is the archive's actions on a row, opened from its menu.
@@ -78,16 +78,16 @@ func archiveMenu(m *model, target archived) submenu {
 	}
 }
 
-// restoreAndOpen restores the work and puts its lead's conversation back in a pane, or says why it cannot.
+// restoreAndOpen restores the work and puts one agent's conversation back in a pane, or says why it cannot.
 func (m *model) restoreAndOpen(target archived) tea.Cmd {
-	lead, err := target.opensAgent()
+	resumed, err := target.opensAgent()
 	if err != nil {
 		m.report("Could not restore and open "+target.name(), err)
 
 		return nil
 	}
 
-	return restoreAndResumeCmd(m, target.work.chosen, *lead)
+	return restoreAndResumeCmd(m, target.work.chosen, *resumed)
 }
 
 func restoreArchived(m *model, target archived) tea.Cmd {

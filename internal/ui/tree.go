@@ -778,8 +778,8 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 	}
 }
 
-// revealTask puts the cursor on a task's row, or on its lead agent when the list draws no row for it.
-func (a *agentsScreen) revealTask(m *model, taskID, leadID string) {
+// revealTask puts the cursor on a task's row, or on its writer when the list draws no row for it.
+func (a *agentsScreen) revealTask(m *model, taskID, writerID string) {
 	if m.listing.tasks[taskID].Hidden {
 		a.showHidden = true
 	}
@@ -789,7 +789,7 @@ func (a *agentsScreen) revealTask(m *model, taskID, leadID string) {
 		return
 	}
 
-	a.revealAgent(m, leadID)
+	a.revealAgent(m, writerID)
 }
 
 // showHiddenFor shows the hidden tasks when the agent works on one.
