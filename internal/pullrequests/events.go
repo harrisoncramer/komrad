@@ -91,7 +91,7 @@ func turnsPassing(move Move) bool {
 		move.Field == fieldMergeability && move.To == string(forge.MergeabilityClean)
 }
 
-// settlesFailing says whether a move is the run finishing on checks that were failing while others still ran.
-func settlesFailing(move Move) bool {
+// finishesFailing says whether a move is the run finishing on checks that were failing while others still ran.
+func finishesFailing(move Move) bool {
 	return move.Field == fieldChecks && move.From == string(forge.ChecksFailingRunning) && move.To == string(forge.ChecksFailing)
 }
