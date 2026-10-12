@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"komrad/internal/agenterr"
@@ -56,25 +55,6 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		return nil, "", fmt.Errorf("%w: %q works on no task, so it has no change to be read", agenterr.ErrReviewNeedsOwnWork, author.Name)
 	}
 
-	running, err := s.listLiveReviewers(ctx, *author.TaskID)
-	if err != nil {
-		return nil, "", err
-	}
-	if len(running) > 0 {
-		// A key spent on a reviewer that exists is a retry of the call that made it, which is
-		// asking for that reviewer rather than for a second one.
-		retried := slices.IndexFunc(running, func(reviewer agentstore.Agent) bool {
-			return params.IdempotencyKey != "" && reviewer.IdempotencyKey != nil && *reviewer.IdempotencyKey == params.IdempotencyKey
-		})
-		if retried >= 0 {
-			return &running[retried], settlingDoc, nil
-		}
-
-		return nil, "", fmt.Errorf(
-			"%w: %q (%s) is reading it, so answer its threads rather than asking again, and resume it with resume_agent if its pane is gone",
-			agenterr.ErrReviewerAlreadyRunning, running[0].Name, running[0].ID)
-	}
-
 	branch, err := s.tasks.GetAgentBranch(ctx, *author)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to read the task of agent %q: %w", author.Name, err)
@@ -104,26 +84,6 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 func isReviewerOf(agent, author agentstore.Agent) bool {
 	return agent.Role == agentstore.RoleReviewer &&
 		agent.TaskID != nil && author.TaskID != nil && *agent.TaskID == *author.TaskID
-}
-
-// listLiveReviewers is the reviewers a task's writer still has to answer to, oldest first,
-// skipping one that has approved.
-func (s *LaunchService) listLiveReviewers(ctx context.Context, taskID string) ([]agentstore.Agent, error) {
-	ids, err := s.reviews.ListLiveReviewers(ctx, taskID)
-	if err != nil {
-		return nil, err
-	}
-
-	reviewers := make([]agentstore.Agent, 0, len(ids))
-	for _, id := range ids {
-		reviewer, err := s.agents.GetByID(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		reviewers = append(reviewers, *reviewer)
-	}
-
-	return reviewers, nil
 }
 
 func reviewerTitle(title, authorName string) string {

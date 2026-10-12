@@ -363,7 +363,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 	launchService := agents.NewLaunchService(agents.NewLaunchServiceParams{
 		Tmux:               server.Tmux,
 		Agents:             st.agents,
-		Reviews:            st.review,
 		Workflows:          st.workflows,
 		Tx:                 st.pool,
 		Launcher:           harnessLauncher,

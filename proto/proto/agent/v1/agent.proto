@@ -699,7 +699,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "request_review"
-      description: "Spawn a reviewer for your committed work, on your task in your checkout. resource_exhausted means the panel is full, so say so, carry on without the review and leave the change for a person."
+      description: "Spawn a reviewer for your committed work, on your task in your checkout. resource_exhausted means the panel is full or your task holds all the reviewers it may, so say so, carry on without the review and leave the change for a person."
       destructive: false
       roles: [ROLE_WRITER]
     };

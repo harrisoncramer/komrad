@@ -29,10 +29,6 @@ var (
 	// ErrResumeInFlight says another resume of the same agent is already under way.
 	ErrResumeInFlight = fail.Precondition("this agent is already being resumed")
 
-	// ErrReviewerAlreadyRunning says the agent asking already has a reviewer of its own reading
-	// its work.
-	ErrReviewerAlreadyRunning = fail.AlreadyExists("this agent already has a reviewer")
-
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched.
 	ErrAlreadyLaunched = fail.AlreadyExists("this idempotency key already launched an agent")
 

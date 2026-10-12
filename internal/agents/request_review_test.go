@@ -3,12 +3,12 @@ package agents
 import (
 	"testing"
 
+	"komrad/config"
 	"komrad/internal/agenterr"
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
-	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
@@ -156,12 +156,17 @@ func TestRequestReviewRefusals(t *testing.T) {
 	}
 }
 
-// TestRequestReviewKeepsOneReviewer pins that a second ask is refused rather than answered with
-// a second reviewer.
-func TestRequestReviewKeepsOneReviewer(t *testing.T) {
+// TestRequestReviewUnderTheReviewerCeiling pins that a writer may ask for another pass while one
+// is reading, up to the reviewers its task may hold.
+func TestRequestReviewUnderTheReviewerCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
+		addr:      "127.0.0.1:9999",
+		usage:     config.Usage{Task: config.TaskUsage{MaxReviewers: 2}},
+	})
 	ctx := t.Context()
 
 	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -172,22 +177,19 @@ func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	reviewer, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
+	first, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "correctness pass"})
 	require.NoError(t, err)
 
-	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it again"})
-	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning)
-	require.ErrorContains(t, err, reviewer.Name, "so the asker is told which agent is already reading")
+	second, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "refactor pass"})
+	require.NoError(t, err, "a second pass while the first is still reading")
+	assert.NotEqual(t, first.ID, second.ID)
+
+	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "a third pass"})
+	require.ErrorIs(t, err, agenterr.ErrTooManyReviewers)
 
 	reviewers, err := st.Agents.CountLiveReviewers(ctx, *agentByID(t, st, author.ID).TaskID)
 	require.NoError(t, err)
-	assert.Equal(t, 1, reviewers, "and no second reviewer was spawned")
-
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{reviewer.ID}}))
-
-	second, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
-	require.NoError(t, err, "an agent whose reviewer is gone may have another")
-	assert.NotEqual(t, reviewer.ID, second.ID)
+	assert.Equal(t, 2, reviewers)
 }
 
 // TestRequestReviewRetryAnswersWithTheSameReviewer pins that a spent idempotency key is still a
@@ -223,12 +225,13 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 	assert.Equal(t, first.ID, retried.ID)
 	assert.NotEmpty(t, guidance, "a retry is answered with everything the call it repeats answered with")
 
-	_, _, err = manager.launch.RequestReview(authorCtx, RequestReviewParams{
+	second, _, err := manager.launch.RequestReview(authorCtx, RequestReviewParams{
 		AgentID:        author.ID,
 		Prompt:         "read it",
 		IdempotencyKey: "def",
 	})
-	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
+	require.NoError(t, err)
+	assert.NotEqual(t, first.ID, second.ID, "a different key is a second ask rather than a retry")
 }
 
 // TestRequestReviewKeyIsScopedToCaller pins that one key from another caller is a new ask.
@@ -330,55 +333,6 @@ func TestRequestReviewRefusesAKeySpentOnAnotherAgent(t *testing.T) {
 			require.ErrorIs(t, err, errKeySpentElsewhere)
 		})
 	}
-}
-
-// TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one
-// reviewer rather than an agent to one for its whole life.
-func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	manager := newManager(tmux, st, "")
-	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
-	ctx := t.Context()
-
-	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
-		Title:      "author",
-		Dir:        t.TempDir(),
-		Prompt:     "write the change",
-		WorkflowID: seedWorkflow(t, st),
-	})
-	require.NoError(t, err)
-
-	first, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
-	require.NoError(t, err)
-
-	round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
-		TaskID:      *agentByID(t, st, author.ID).TaskID,
-		BaseSHA:     "base-sha",
-		SnapshotSHA: "snapshot-sha",
-	})
-	require.NoError(t, err)
-
-	open, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
-		TaskID:        round.TaskID,
-		RoundID:       round.ID,
-		AuthorKind:    reviewstore.AuthorAgent,
-		AuthorAgentID: &first.ID,
-	})
-	require.NoError(t, err)
-
-	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
-	require.ErrorIs(t, err, agenterr.ErrReviewerAlreadyRunning, "an unreleased review is a reviewer still reading")
-
-	_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
-		ID:      open.ID,
-		Verdict: reviewstore.VerdictApproved,
-	})
-	require.NoError(t, err)
-
-	second, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read the next one"})
-	require.NoError(t, err, "a reviewer that approved has said everything it has to say")
-	assert.NotEqual(t, first.ID, second.ID)
 }
 
 // TestRequestReviewRefusesAReviewer pins that a reviewer spawned onto a task is refused, however

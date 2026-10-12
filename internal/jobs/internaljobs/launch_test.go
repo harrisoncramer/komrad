@@ -16,7 +16,6 @@ import (
 	"komrad/internal/mail"
 	"komrad/internal/schedules"
 	agentstore "komrad/internal/store/agent"
-	reviewstore "komrad/internal/store/review"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -453,7 +452,6 @@ func newAgentService(t *testing.T, params newAgentServiceParams) *agents.LaunchS
 			Agents: params.stores.Agents,
 			Tx:     params.stores.Pool,
 		}),
-		Reviews:   reviewstore.NewReviewStore(params.stores.Pool.GetDB()),
 		Workflows: params.stores.Workflows,
 		Tx:        params.stores.Pool,
 		Launcher: agents.NewLauncher(agents.NewLauncherParams{

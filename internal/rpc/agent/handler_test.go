@@ -159,7 +159,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name: "a second reviewer",
+			name: "a reviewer past the task's ceiling",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RequestReview(ctx, connect.NewRequest(&agentv1.RequestReviewRequest{
 					Prompt:  "read it",
@@ -168,8 +168,8 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 
 				return err
 			},
-			err:      agenterr.ErrReviewerAlreadyRunning,
-			wantCode: connect.CodeAlreadyExists,
+			err:      agenterr.ErrTooManyReviewers,
+			wantCode: connect.CodeResourceExhausted,
 		},
 		{
 			name: "a retry of an agent that did not fail",
