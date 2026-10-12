@@ -89,8 +89,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, ref string, author Review
 	return s.openTaskRound(ctx, *task)
 }
 
-// openTaskRound freezes a task's checkout, handing back the newest
-// round when the tree has not moved since it was taken.
+// openTaskRound freezes a task's checkout, handing back the newest round when the tree has not moved since it was taken.
 func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task) (*reviewstore.Round, error) {
 	if task.Checkout.WorktreeRemoved {
 		return nil, fmt.Errorf("%w: %q", errReviewWorktreeRemoved, task.Slug)
