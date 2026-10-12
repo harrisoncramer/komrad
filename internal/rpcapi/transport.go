@@ -19,14 +19,14 @@ func NewTransport() http.RoundTripper {
 
 // RoundTrip sends the request over the transport its procedure calls for.
 func (t hookAwareTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if awaitsHooks[procedureOf(req.URL.Path)] {
+	if awaitsHooks[trimToProcedure(req.URL.Path)] {
 		return t.awaiting.RoundTrip(req)
 	}
 
 	return t.plain.RoundTrip(req)
 }
 
-func procedureOf(urlPath string) string {
+func trimToProcedure(urlPath string) string {
 	dir, method := path.Split(urlPath)
 
 	return "/" + path.Base(dir) + "/" + method
