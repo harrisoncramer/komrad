@@ -7,7 +7,6 @@ import (
 
 	"komrad/internal/agenterr"
 	"komrad/internal/agents"
-	"komrad/internal/scriptrun"
 	agentstore "komrad/internal/store/agent"
 
 	"github.com/riverqueue/river"
@@ -65,9 +64,9 @@ func NewWakeAgentWorker(resumer AgentResumer) *WakeAgentWorker {
 	return &WakeAgentWorker{resumer: resumer}
 }
 
-// Timeout outlasts the workflow's post-resume hook.
+// Timeout leaves resuming the agent to the limits its provisioner and hooks carry.
 func (w *WakeAgentWorker) Timeout(*river.Job[WakeAgentArgs]) time.Duration {
-	return scriptrun.HookTimeout + 5*time.Minute
+	return noJobTimeout
 }
 
 // Work resumes the agent, leaving one that is gone, held or already being resumed alone.

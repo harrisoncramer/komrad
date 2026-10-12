@@ -13,6 +13,8 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 )
 
+const noJobTimeout time.Duration = -1
+
 // QueueLaunchAgent, QueueDeleteAgent and QueueDeleteWorktrees are the queues, one per kind of job.
 const (
 	QueueLaunchAgent     = "launch_agent"

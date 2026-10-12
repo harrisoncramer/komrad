@@ -24,15 +24,6 @@ const provisionTimeout = 10 * time.Minute
 
 const deprovisionTimeout = 2 * time.Minute
 
-const startHookMoments = 2
-
-const startMargin = time.Minute
-
-// StartTimeout outlasts starting an agent, whose provisioner and hooks run in turn, each hook under hookTimeout.
-func StartTimeout(hookTimeout time.Duration) time.Duration {
-	return provisionTimeout + startHookMoments*hookTimeout + startMargin
-}
-
 const maxProvisionedDir = 4096
 
 const setupDirFileVar = "KOMRAD_SETUP_DIR_FILE"
