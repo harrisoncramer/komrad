@@ -34,24 +34,26 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickKind(key) }), true
 	case zoneTabs:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickTab(key) }), true
+	case zoneFiles:
+		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.review.clickFile(m, path) })), true
 	case zoneDetails:
-		return m.listClicker(stopRecord, m.detailsList()), true
+		return m.stopClicker(stopRecord, m.detailsList()), true
 	case zoneList:
 		if lister, ok := m.active().(activeLister); ok {
-			return m.listClicker(stopList, lister.activeList()), true
+			return m.stopClicker(stopList, lister.activeList()), true
 		}
 	}
 
 	return nil, false
 }
 
-func (m *model) listClicker(to stop, list keyedList) clicker {
+func (m *model) stopClicker(to stop, c clicker) clicker {
 	return clickFunc(func(m *model, key string, nth int) tea.Cmd {
 		if m.isViewsOpen() {
 			m.closeViews()
 		}
 
-		return tea.Batch(m.enterStop(to), list.click(m, key, nth))
+		return tea.Batch(m.enterStop(to), c.click(m, key, nth))
 	})
 }
 

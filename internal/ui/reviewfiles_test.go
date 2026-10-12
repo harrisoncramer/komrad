@@ -291,6 +291,40 @@ func TestReviewFiles(t *testing.T) {
 		assert.NotEqual(t, "greet.go:1", readReviewCursor(frame))
 		assert.Contains(t, readFilesBlock(frame), "› greet.go +1 −1")
 	})
+
+	t.Run("a click on a file hands the tree the keys and opens the file", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			patch string
+			file  string
+			want  string
+		}{
+			{
+				name:  "a file in a short tree",
+				patch: gittest.PatchOfBothFiles,
+				file:  "second.go",
+				want:  "› second.go +3",
+			},
+			{
+				name:  "a file in a windowed tree",
+				patch: newPatchOfFiles(30),
+				file:  "f03.go",
+				want:  "› f03.go +1 −1",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := newReviewServer(t)
+				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = tt.patch
+				harness := openReview(t, server)
+
+				harness.send(clickOnLine(t, harness, "  "+tt.file+" ", tt.file))
+
+				assert.Contains(t, readFilesBlock(harness.readFrame()), tt.want)
+			})
+		}
+	})
 }
 
 func readFilesBlock(frame string) []string {

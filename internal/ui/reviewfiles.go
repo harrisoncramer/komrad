@@ -169,6 +169,16 @@ func (r *reviewScreen) landOnFile(m *model, row diffview.TreeRow) tea.Cmd {
 	return keys.land(m)
 }
 
+func (r *reviewScreen) clickFile(m *model, path string) tea.Cmd {
+	for _, row := range r.readFilesTree().rows {
+		if !row.Folder && row.Path == path {
+			return r.landOnFile(m, row)
+		}
+	}
+
+	return nil
+}
+
 func (r *reviewScreen) openFilesFilter() {
 	filter := &r.filesFilter
 	filter.open()

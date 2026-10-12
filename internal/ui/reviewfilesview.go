@@ -29,6 +29,7 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 	focused := r.isBlockFocused(m)
 	columns := measureStatColumns(m.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
+	keys := make([]string, 0, len(tree.rows))
 	for at, row := range tree.rows {
 		rows = append(rows, renderTreeRow(m, renderTreeRowParams{
 			Row:     row,
@@ -38,6 +39,13 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 			Columns: columns,
 			Filter:  r.filesFilter,
 		}))
+		keys = append(keys, fileKeyOf(row))
+	}
+
+	if mark := m.spanMarker(zoneFiles, keys); mark != nil {
+		for at, row := range rows {
+			rows[at] = mark(at, row)
+		}
 	}
 
 	if len(rows) == 0 {
@@ -211,4 +219,12 @@ func joinRight(stat, badges string) string {
 	}
 
 	return stat + "  " + badges
+}
+
+func fileKeyOf(row diffview.TreeRow) string {
+	if row.Folder {
+		return ""
+	}
+
+	return row.Path
 }
