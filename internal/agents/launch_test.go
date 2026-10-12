@@ -19,7 +19,6 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tasks"
@@ -2179,7 +2178,6 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 		Tmux:               tmux,
 		Agents:             st.Agents,
 		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
-		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),

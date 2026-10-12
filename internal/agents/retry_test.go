@@ -7,7 +7,6 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
-	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
@@ -151,7 +150,6 @@ func TestRetryCreateOntoAnotherHarness(t *testing.T) {
 		Tmux:               tmux,
 		Agents:             st.Agents,
 		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
-		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
@@ -202,7 +200,6 @@ func TestRetryCreateOntoAnotherHarnessDropsWorkflowFlags(t *testing.T) {
 		Tmux:               tmux,
 		Agents:             st.Agents,
 		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
-		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
@@ -253,7 +250,6 @@ func TestRetryCreateOntoAnotherHarnessRemintsTheSession(t *testing.T) {
 		Tmux:               tmux,
 		Agents:             st.Agents,
 		Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
-		Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),
@@ -351,7 +347,6 @@ func TestRetryCreateFromThePanelOntoAnotherHarness(t *testing.T) {
 				Tmux:               tmux,
 				Agents:             st.Agents,
 				Tasks:              tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: st.Tasks}),
-				Reviews:            reviewstore.NewReviewStore(st.Pool.GetDB()),
 				Workflows:          st.Workflows,
 				Tx:                 st.Pool,
 				Launcher:           NewLauncher(NewLauncherParams{Tmux: tmux}),

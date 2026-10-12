@@ -20,7 +20,6 @@ import (
 	"komrad/internal/scripts"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tasks"
@@ -35,7 +34,6 @@ var errTaskMadeAndJoined = fail.InvalidArgument("an agent either joins a task or
 type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             *agentstore.AgentStore
-	Reviews            *reviewstore.ReviewStore
 	Workflows          *workflowstore.WorkflowStore
 	Tx                 txRunner
 	Tasks              *tasks.TaskService
@@ -51,7 +49,6 @@ type NewLaunchServiceParams struct {
 type LaunchService struct {
 	tmux               paneController
 	agents             *agentstore.AgentStore
-	reviews            *reviewstore.ReviewStore
 	workflows          *workflowstore.WorkflowStore
 	tx                 txRunner
 	tasks              *tasks.TaskService
@@ -73,7 +70,6 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 	return &LaunchService{
 		tmux:      params.Tmux,
 		agents:    params.Agents,
-		reviews:   params.Reviews,
 		workflows: params.Workflows,
 		tx:        params.Tx,
 		tasks:     params.Tasks,

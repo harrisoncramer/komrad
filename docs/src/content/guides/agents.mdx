@@ -80,11 +80,11 @@ Open an agent by moving the cursor onto it and pressing enter. Its terminal fill
 
 ## Reviewers
 
-Reviewers are created to review the work performed by writers. Writers will spawn them when their work is ready. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the writer answers them. While a reviewer is still reading, the writer cannot ask for another. Over a task's life it can go through many reviews.
+Reviewers are created to review the work performed by writers. Writers will spawn them when their work is ready. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the writer answers them. The writer can ask for another reviewer while one is still reading. Over a task's life it can go through many reviews.
 
 You can start a reviewer yourself too. Open a task's menu and pick new agent with <Key name="menu.new_agent" />, then say what you want looked at. The orchestrator can also spawn reviewers for tasks.
 
-Set <Setting path="usage.task.max_reviewers" /> to cap how many reviewers one task can hold at a time.
+Set <Setting path="usage.task.max_reviewers" /> to cap how many reviewers one task can hold at a time, however they were started. A request past it is refused until one of them is archived.
 
 ## Adopting work
 
