@@ -124,11 +124,12 @@ type hookInstall struct {
 
 // InstalledHooks is the events komrad answers, keyed by the event Claude fires.
 var InstalledHooks = map[harness.Event]hookInstall{
-	EventStop:              {Subcommand: "stop"},
-	EventStopFailure:       {Subcommand: "stop-failure"},
-	EventPreToolUse:        {Subcommand: "pre-tool-use"},
-	EventPostToolUse:       {Subcommand: "post-tool-use"},
-	EventPermissionRequest: {Subcommand: "permission-request"},
+	EventStop:               {Subcommand: "stop"},
+	EventStopFailure:        {Subcommand: "stop-failure"},
+	EventPreToolUse:         {Subcommand: "pre-tool-use"},
+	EventPostToolUse:        {Subcommand: "post-tool-use"},
+	EventPostToolUseFailure: {Subcommand: "post-tool-use-failure"},
+	EventPermissionRequest:  {Subcommand: "permission-request"},
 	EventSessionStart: {
 		Subcommand:     "compacted",
 		Matcher:        compactMatcher,

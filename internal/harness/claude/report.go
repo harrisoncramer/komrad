@@ -23,6 +23,9 @@ const (
 	// EventPostToolUse is fired once a tool call has returned.
 	EventPostToolUse harness.Event = "PostToolUse"
 
+	// EventPostToolUseFailure is fired in place of PostToolUse when a tool call fails.
+	EventPostToolUseFailure harness.Event = "PostToolUseFailure"
+
 	// EventPermissionRequest is fired when a tool call puts a dialog up for a person to answer.
 	EventPermissionRequest harness.Event = "PermissionRequest"
 
@@ -72,7 +75,7 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 		}
 
 		return harness.Report{Reason: parsed.ToolName}, nil
-	case EventPostToolUse:
+	case EventPostToolUse, EventPostToolUseFailure:
 		return harness.Report{}, nil
 	default:
 		// Refused rather than read as a report of nothing, an empty report clearing the reason on

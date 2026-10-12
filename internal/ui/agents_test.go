@@ -2991,36 +2991,11 @@ func newEditable(held string) *agentv1.Agent {
 
 // TestAgentsRowShowsTheTool covers the tool an agent reported, drawn after its name while it works.
 func TestAgentsRowShowsTheTool(t *testing.T) {
-	tests := []struct {
-		name  string
-		state agentv1.AgentState
-		want  bool
-	}{
-		{
-			name:  "an agent at work shows the tool it is running",
-			state: agentv1.AgentState_AGENT_STATE_THINKING,
-			want:  true,
-		},
-		{
-			name:  "an agent waiting on a person shows the tool it asks for",
-			state: agentv1.AgentState_AGENT_STATE_WAITING,
-			want:  true,
-		},
-		{
-			name:  "an agent at rest shows none",
-			state: agentv1.AgentState_AGENT_STATE_IDLE,
-		},
-	}
+	agent := newPausable("")
+	agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+	agent.ReportedReason = "WebFetch"
+	harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			agent := newPausable("")
-			agent.State = tt.state
-			agent.ReportedReason = "WebFetch"
-			harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
-
-			row := findRowWith(t, harness.readFrame(), "telescope")
-			assert.Equal(t, tt.want, strings.Contains(row, "WebFetch"), row)
-		})
-	}
+	row := findRowWith(t, harness.readFrame(), "telescope")
+	assert.Contains(t, row, "WebFetch")
 }

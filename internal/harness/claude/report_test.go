@@ -75,6 +75,12 @@ func TestReadReport(t *testing.T) {
 			want:    harness.Report{},
 		},
 		{
+			name:    "a tool call failing",
+			event:   EventPostToolUseFailure,
+			payload: `{"tool_name":"Bash","error":"exit status 1"}`,
+			want:    harness.Report{},
+		},
+		{
 			name:    "a tool call waiting on a person to allow it",
 			event:   EventPermissionRequest,
 			payload: `{"tool_name":"Bash","tool_input":{"command":"echo hi"}}`,
@@ -190,6 +196,7 @@ func TestHooks(t *testing.T) {
 	assert.Equal(t, []string{
 		"PermissionRequest",
 		"PostToolUse",
+		"PostToolUseFailure",
 		"PreToolUse",
 		"SessionStart (compact)",
 		"Stop",
