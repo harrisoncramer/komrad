@@ -54,6 +54,8 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickTab(key) }), true
 	case zoneSearch:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSearch(key) }), true
+	case zoneMessages:
+		return clickFunc(func(m *model, _ string, _ int) tea.Cmd { return m.clickMessages() }), true
 	case zoneFiles:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.review.clickFile(m, path) })), true
 	case zoneDetails:
@@ -83,22 +85,4 @@ func (m *model) clickBlock(x, y int) tea.Cmd {
 	}
 
 	return m.focusBlockIn(m.findSidebarBlocks(), x, y)
-}
-
-func (m *model) clickSearch(key string) tea.Cmd {
-	to, err := strconv.Atoi(key)
-	if err != nil {
-		return nil
-	}
-
-	if m.isViewsOpen() {
-		m.closeViews()
-	}
-
-	entered := m.enterStop(stop(to))
-	if m.isTyping() {
-		return entered
-	}
-
-	return tea.Batch(entered, m.route(keyMsg(filterOpenKey)))
 }

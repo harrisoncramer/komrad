@@ -3,6 +3,7 @@ package ui
 import (
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -631,4 +632,22 @@ func (m *model) filterDesc() string {
 
 func (m *model) filterClearDesc() string {
 	return filterClearDescOf(m)
+}
+
+func (m *model) clickSearch(key string) tea.Cmd {
+	to, err := strconv.Atoi(key)
+	if err != nil {
+		return nil
+	}
+
+	if m.isViewsOpen() {
+		m.closeViews()
+	}
+
+	entered := m.enterStop(stop(to))
+	if m.isTyping() {
+		return entered
+	}
+
+	return tea.Batch(entered, m.route(keyMsg(filterOpenKey)))
 }

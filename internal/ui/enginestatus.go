@@ -66,12 +66,12 @@ func (m *model) engineLine(width int) string {
 	}
 
 	if flash, ok := m.renderMessagesFlash(room); ok {
-		return line + "  " + flash
+		return line + "  " + m.markSpan(zoneMessages, "", flash)
 	}
 
 	tally := m.renderMessagesTally()
 	if tally != "" {
-		tally = "  " + tally
+		tally = "  " + m.markSpan(zoneMessages, "", tally)
 	}
 
 	if m.engineBuild.Commit == "" {

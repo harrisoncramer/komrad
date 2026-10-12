@@ -102,6 +102,16 @@ func TestMessagesPane(t *testing.T) {
 		assert.Contains(t, readLegend(frame), "back to list")
 	})
 
+	t.Run("a click on the count opens the messages", func(t *testing.T) {
+		harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
+		harness.press("enter", "enter")
+		settleFlash(harness)
+
+		harness.send(clickOn(t, harness, "✗ 2"))
+
+		assert.Contains(t, joinProse(readStage(harness.readFrame())), "messages 1 of 2")
+	})
+
 	t.Run("the cursor walks from the newest message back", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{})
 		harness.press("enter", "enter", "enter", "ctrl+g")

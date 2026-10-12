@@ -198,6 +198,18 @@ func (m *model) toggleMessagesFocus() {
 	m.restageScreen()
 }
 
+func (m *model) clickMessages() tea.Cmd {
+	if m.isViewsOpen() {
+		m.closeViews()
+	}
+
+	if m.canReadMessages() {
+		m.toggleMessagesFocus()
+	}
+
+	return nil
+}
+
 func (m *model) updateMessages(key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
