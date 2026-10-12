@@ -9,7 +9,7 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import Setting from "../../components/Setting.astro";
 
-Tasks are concrete items of work you want completed by komrad, such as fixing a bug or building a small feature. Agents in komrad work on tasks, and a task keeps its work through every restart of its writer and every reviewer that comes and goes.
+Tasks are concrete items of work you want completed by komrad, such as fixing a bug or building a small feature. Agents in komrad work on tasks, and a task keeps its work through every restart or removal of agents.
 
 <Alert variant="warning">This guide assumes you have created a [workflow](../workflows/).</Alert>
 
@@ -46,10 +46,6 @@ Tasks set up to run without worktrees work in the workflow's directory instead.
 
 Komrad automatically syncs pull request information from the task's worktree branch, such as whether the PR is still open, whether its CI checks are successful or not, and whether it's approved or merged. You can manage the task's git state from its git menu, and leave local or remote [reviews](../reviews/#shipping-the-work).
 
-### Hooks
-
-A task has three moments [hooks](../hooks/#task-lifecycle) can run at: when its writer starts, when it is archived, and before it is deleted. They run in the task's worktree.
-
 ## Managing task agents
 
 Every task has one agent that writes in its checkout, which komrad calls the task's _writer_. The writer starts with the task and stays with it until the task is deleted.
@@ -57,6 +53,8 @@ Every task has one agent that writes in its checkout, which komrad calls the tas
 [Reviewers](../agents/#reviewers) can join the task too, and show up beneath it in italics. They share the task's checkout and read the change, but they never write to it.
 
 A task never gets a second writer. This is to ensure changes do not collide. If you need more parallelism, break your work into multiple tasks.
+
+[Hooks](../hooks/#task-lifecycle) can run at three moments during a task's lifecycle: when its writer agent starts, when the task is archived, and before the task is deleted. They run in the task's worktree.
 
 ### Restarting the writer
 
@@ -66,14 +64,12 @@ The restarted writer reads the task's notes and the state of the checkout before
 
 ## Archiving, restoring, and deleting tasks
 
-A task stays live as long as its writer does. Reviewers can come and go on it without the task changing at all. But there are several other lifecycle events you can use to manage a task.
-
 If you are finished with a task and want to clear up space, you can _archive_ it. Archiving a task doesn't delete any state. The task's worktree still stays on disk, and the conversations, notes, reviews and documents stay in the database. Archived tasks move out of the list to the archive, which you reach by pressing <Key name="kinds.focus" /> and switching from live to archived.
 
 Archiving a task archives its writer and every reviewer on it.
 
-From the archive, restore a task to put it back in the list, or restore it and open its writer to carry on the conversation. Restoring a task brings back its writer alone. Its reviewers stay in the archive.
+From the archive, restore a task to put it back in the list. Restoring a task brings back its writer only, by design.
 
-Deleting a task is permanent. It removes the task's writer and reviewers and their conversations, its documents and reviews, and its worktree from disk. If removing the worktree fails, the task stays in the archive with the reason on it, and nothing is lost.
+Deleting a task is permanent. It removes the task's writer and reviewers and their conversations, its documents and reviews, and its worktree from disk. If removing the worktree fails, the task stays in the archive with the reason for the failure.
 
 Finally, you can also choose to hide a task temporarily. Hide it from its menu with <Key name="menu.hide" />. Hidden tasks leave the list, but their agents keep running.

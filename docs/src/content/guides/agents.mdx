@@ -22,29 +22,27 @@ They are also durable. You can shut down or restart your machine without losing 
 
 Komrad has three kinds of agents.
 
-There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator). It sits above the workflow's tasks rather than inside any of them, and coordinates the work across them.
+There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator). The orchestrator is rendered above the workflow's tasks, and coordinates the work across them.
 
-Every task has exactly one _writer_. The writer does the task's work: it makes edits, commits, and opens the pull request. It is the only agent that changes the task's checkout, and it stays with the task for the task's whole life. You can [restart](../tasks/#restarting-the-writer) it on a new conversation whenever you want.
+Every task has exactly one _writer_. The writer does the task's work: it makes edits, commits, and opens the pull request. It is the only agent that changes the task's checkout, and it stays with the task for the task's whole life. You can [restart](../tasks/#restarting-the-writer) it on a new conversation whenever you want, for instance if you want to switch the model working on the task from Claude to Codex.
 
-Finally, _reviewer_ agents read the writer's change and comment on it. A reviewer belongs to the task, not to the writer. It works in the task's checkout but makes no changes of its own.
+Finally, _reviewer_ agents read the writer's change and comment on it. Reviewers work in the task's checkout but make no changes of their own.
 
 ```
   workflow: neovim
-   |-- orchestrator         <-- coordinates the workflow's tasks
+   |-- orchestrator                <-- coordinates the workflow's tasks
    |
-   |-- task: fix-login
-   |      |-- writer        <-- does the work, owns the checkout
-   |      '-- reviewer      <-- reads the writer's change
+   |-- task: fix-login (writer)    <-- the writer does the work, owns the checkout
+   |      '-- reviewer             <-- reads the writer's change
    |
-   '-- task: rfc-truncate
-          '-- writer
+   '-- task: rfc-truncate (writer)
 ```
 
 The list draws the same tree. A task and its writer share one row under the workflow, and the task's reviewers sit beneath it.
 
 ## Starting agents
 
-Most of the time you start an agent by [starting a task](../tasks/#starting-a-task), which launches its writer. The other way is to ask the orchestrator. Tell it what you want done and it creates the tasks, puts a writer on each, and writes each one a brief.
+Most of the time you start an agent by [starting a task](../tasks/#starting-a-task), which launches its writer. You can also tell the orchestrator in it's chat window what you want done, and it'll create the task for you.
 
 <figure>
   <video
@@ -82,9 +80,9 @@ Open an agent by moving the cursor onto it and pressing enter. Its terminal fill
 
 ## Reviewers
 
-Usually the writer asks for a review when it thinks its work is ready, and komrad starts a reviewer on the task. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the writer answers them. While a reviewer is still reading, the writer cannot ask for another. Over a task's life it can go through many.
+Reviewers are created to review the work performed by writers. Writers will spawn them when their work is ready. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the writer answers them. While a reviewer is still reading, the writer cannot ask for another. Over a task's life it can go through many reviews.
 
-You can start a reviewer yourself too. Open a task's menu and pick new agent with <Key name="menu.new_agent" />, then say what you want looked at. The orchestrator can do the same. Either way it is still a reviewer, so it reads the change and talks to the writer, but never edits the checkout.
+You can start a reviewer yourself too. Open a task's menu and pick new agent with <Key name="menu.new_agent" />, then say what you want looked at. The orchestrator can also spawn reviewers for tasks.
 
 Set <Setting path="usage.task.max_reviewers" /> to cap how many reviewers one task can hold at a time.
 
@@ -104,10 +102,10 @@ Reviewers come and go on their own. You can archive one whenever you like, and r
 
 ## How komrad knows what an agent is doing
 
-Most agent tools learn what an agent is doing from hooks the agent fires. Hooks can be dropped, reordered, or never sent, for example when the CLI crashes. When that happens, those tools show an agent as working when it is idle, or waiting when it is done.
+Most agent tools learn what an agent is doing from hooks the agent fires. Hooks can be dropped, reordered, or never sent, for example when the CLI crashes. There are lots of bug reports on other agent orchestrators outlining this exact problem.
 
-Komrad reads each agent's state from what its terminal actually shows, which komrad calls the pane. The [Claude test panes](https://github.com/harrisoncramer/komrad/tree/main/internal/harness/claude/testdata) show what it reads.
+Komrad takes a different approach. It reads each agent's state directly from what its terminal actually renders, which komrad calls the pane. The [Claude test panes](https://github.com/harrisoncramer/komrad/tree/main/internal/harness/claude/testdata) show what it reads.
 
-This has a cost. If a process dies, komrad still sees it, but a new release of Claude or Codex that draws its screen differently can confuse it. If Claude or Codex ever ship real-time state notifications, komrad will move to them. Until then, reading the pane is the more reliable choice.
+If Claude or Codex ever ship real-time state notifications, komrad will move to them! Until then, reading the pane is the more reliable choice.
 
-If the state shown does not match your CLI, please <a href={link('/guides/bug-reports')}>submit an issue</a> on GitHub.
+If the state shown does not match your CLI, please <a href={link('/guides/bug-reports')}>submit an issue</a> on GitHub with the pane that's missing/wrong.

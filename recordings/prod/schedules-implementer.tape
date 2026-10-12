@@ -1,5 +1,5 @@
-# The video under "Implementer schedules" on the schedules guide: a schedule that launches an
-# agent into the neovim workflow every minute, then the agent it launched. The wait for the
+# The video under "Task schedules" on the schedules guide: a schedule that starts a task in
+# the neovim workflow every minute, then the writer it launched. The wait for the
 # first firing is out of shot. schedules-implementer.before makes the workflow.
 Source recordings/panel.tape
 Tab
