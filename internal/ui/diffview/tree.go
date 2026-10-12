@@ -29,6 +29,16 @@ type ThreadCounts struct {
 	Settled int
 }
 
+// Plus is both counts added together.
+func (c ThreadCounts) Plus(other ThreadCounts) ThreadCounts {
+	return ThreadCounts{
+		Unsent:  c.Unsent + other.Unsent,
+		Unread:  c.Unread + other.Unread,
+		Open:    c.Open + other.Open,
+		Settled: c.Settled + other.Settled,
+	}
+}
+
 // add counts one thread under the first state it is in.
 func (c *ThreadCounts) add(thread *agentv1.ReviewThread) {
 	switch {

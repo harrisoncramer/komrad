@@ -55,4 +55,5 @@ const (
 	actionReviewOpenThread
 	actionReviewBase
 	actionReviewBaseForward
+	actionReviewFolder
 )

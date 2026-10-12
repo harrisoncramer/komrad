@@ -343,6 +343,8 @@ agent_threads    = ["b"]
 resolve          = ["r"]
 # From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.
 send             = ["S"]
+# On the file tree, open the folder the cursor rests on, or close it when it is open.
+toggle_folder    = ["o"]
 # From the menu, fold away the file the cursor is in once you have read it, or open it again. A file
 # the writer writes to afterwards comes back on its own.
 toggle_viewed    = ["v"]
@@ -546,21 +548,25 @@ engine   = ""
 # The review screen: the marks on its threads and files, and how far a comment has got.
 [glyphs.review]
 # A thread holding something you have not read.
-unread    = "●"
+unread        = "●"
 # A thread nobody has resolved, with nothing new in it.
-read      = "○"
+read          = "○"
 # A thread that has been resolved.
-settled   = "✓"
+settled       = "✓"
 # A thread holding a comment nobody has sent yet.
-unsent    = "◇"
+unsent        = "◇"
 # A thread mirrored from the pull request on the forge.
-forge     = "◆"
+forge         = "◆"
 # The row of the file tree beside the diff that the cursor is in.
-current   = "▸"
+current       = "▸"
+# A folder of the file tree beside the diff that shows the files inside it.
+folder_open   = ""
+# A folder of the file tree beside the diff that hides the files inside it.
+folder_closed = ""
 # A comment the agent has been given.
-delivered = "✓"
+delivered     = "✓"
 # A comment held back until you send it.
-held      = "◇"
+held          = "◇"
 
 # The messages the panel shows, one for each kind.
 [glyphs.messages]

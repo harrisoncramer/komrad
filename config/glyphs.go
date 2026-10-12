@@ -110,6 +110,10 @@ type ReviewGlyphs struct {
 	Forge string `mapstructure:"forge"`
 	// The row of the file tree beside the diff that the cursor is in.
 	Current string `mapstructure:"current"`
+	// A folder of the file tree beside the diff that shows the files inside it.
+	FolderOpen string `mapstructure:"folder_open"`
+	// A folder of the file tree beside the diff that hides the files inside it.
+	FolderClosed string `mapstructure:"folder_closed"`
 	// A comment the agent has been given.
 	Delivered string `mapstructure:"delivered"`
 	// A comment held back until you send it.
