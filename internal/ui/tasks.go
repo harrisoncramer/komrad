@@ -154,18 +154,6 @@ func isCheckoutOwner(agent panel.Agent) bool {
 	return agent.Role == panel.RoleWriter && !agent.ProvisionDisabled
 }
 
-// findLiveWriter is the writer working in the task's checkout.
-func (l listing) findLiveWriter(taskID string) (panel.Agent, bool) {
-	at := slices.IndexFunc(l.agents, func(item panel.AgentRow) bool {
-		return item.Agent.TaskID == taskID && isLiveWriter(item.Agent)
-	})
-	if at < 0 {
-		return panel.Agent{}, false
-	}
-
-	return l.agents[at].Agent, true
-}
-
 // isLiveWriter reports whether the agent is a writer still working on its task.
 func isLiveWriter(agent panel.Agent) bool {
 	return agent.ArchivedAt == nil && agent.Role == panel.RoleWriter &&
