@@ -65,6 +65,8 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		}
 	case zoneChange:
 		return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.review.clickChange(m, key) })), true
+	case zoneLog:
+		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.logs.clickLine(key) })), true
 	case zoneFiles:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.review.clickFile(m, path) })), true
 	case zoneDetails:

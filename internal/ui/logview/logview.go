@@ -89,6 +89,11 @@ func (t *Tail) Scroll(lines int) {
 	}
 }
 
+func (t *Tail) MoveTo(line int) {
+	t.cursor = cursor.Clamp(len(t.lines)-1-line, len(t.lines))
+	t.scrolled = false
+}
+
 // Fit moves the cursor and the view so that both fit in height rows of lines wrapped to width.
 func (t *Tail) Fit(width, height int) {
 	newest := len(t.lines) - 1
@@ -112,6 +117,23 @@ func (t *Tail) Rows(width, height int) ([]string, int) {
 	}
 
 	return rows[span.Cut:], span.CursorRow
+}
+
+func (t *Tail) Lines(width, height int) []int {
+	wrap := t.wrapper(width)
+	span, ok := t.span(wrap, height)
+	if !ok {
+		return nil
+	}
+
+	var lines []int
+	for i := span.First; i <= span.Last; i++ {
+		for range wrap(i) {
+			lines = append(lines, i)
+		}
+	}
+
+	return lines[span.Cut:]
 }
 
 // span is the lines that fit in height rows around the cursor, or around the view once it scrolled.

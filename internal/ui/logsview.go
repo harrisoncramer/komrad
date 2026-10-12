@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
@@ -103,6 +104,10 @@ func (l *logsScreen) logRows(m *model, width, height int) []string {
 	}
 
 	rows, cursor := l.viewer.Rows(width-len(blankCursor), height)
+	var lines []int
+	if m.term.markingZones {
+		lines = l.viewer.Lines(width-len(blankCursor), height)
+	}
 	focused := l.isBlockFocused(m)
 	for i, row := range rows {
 		prefix := blankCursor
@@ -110,6 +115,9 @@ func (l *logsScreen) logRows(m *model, width, height int) []string {
 			prefix = renderedCaret()
 		}
 		rows[i] = prefix + row
+		if i < len(lines) {
+			rows[i] = m.markRow(zoneLog, width, strconv.Itoa(lines[i]), rows[i])
+		}
 	}
 
 	return rows

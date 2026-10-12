@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strconv"
 	"time"
 
 	"komrad/internal/ui/cursor"
@@ -517,6 +518,17 @@ func (l *logsScreen) doesScrollColumn(m *model) bool {
 
 func (l *logsScreen) scrollColumn(_ *model, rows int) tea.Cmd {
 	l.viewer.Scroll(rows)
+
+	return nil
+}
+
+func (l *logsScreen) clickLine(key string) tea.Cmd {
+	line, err := strconv.Atoi(key)
+	if err != nil {
+		return nil
+	}
+
+	l.viewer.MoveTo(line)
 
 	return nil
 }
