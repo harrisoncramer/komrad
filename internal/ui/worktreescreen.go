@@ -285,3 +285,7 @@ func (w *worktreesScreen) column() columnSpec {
 func (w *worktreesScreen) dispatches(*model) []dispatching {
 	return []dispatching{w.actions()}
 }
+
+func (w *worktreesScreen) clickRow(m *model, key string, nth int) tea.Cmd {
+	return w.list().click(m, key, nth)
+}

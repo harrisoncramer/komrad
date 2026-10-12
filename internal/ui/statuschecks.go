@@ -498,3 +498,7 @@ func (c statusCheckCommit) tally() string {
 
 	return strings.Join(parts, separated)
 }
+
+func (c *statusChecksScreen) clickRow(m *model, key string, nth int) tea.Cmd {
+	return c.list().click(m, key, nth)
+}

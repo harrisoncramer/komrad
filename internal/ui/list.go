@@ -257,6 +257,24 @@ func (l screenList[T]) jump(m *model, idx int) tea.Cmd {
 	return l.landed(m)
 }
 
+func (l screenList[T]) click(m *model, key string, nth int) tea.Cmd {
+	for i, row := range l.rows(m) {
+		if row.key() != key {
+			continue
+		}
+
+		if nth > 0 {
+			nth--
+
+			continue
+		}
+
+		return l.jump(m, i)
+	}
+
+	return nil
+}
+
 // update hands a key to the list's table.
 func (l screenList[T]) update(m *model, key tea.KeyPressMsg, actions screenActionSpec) tea.Cmd {
 	return actions.dispatchTop(m, key.String())

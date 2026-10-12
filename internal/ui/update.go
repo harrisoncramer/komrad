@@ -78,6 +78,10 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		return m.routeWheel(wheel.x, wheel.y, wheel.rows)
 	}
 
+	if click, ok := msg.(tea.MouseClickMsg); ok {
+		return m.routeClick(click)
+	}
+
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
 		if m.frame.IsStaleSize(size.Width, size.Height) {
 			return nil

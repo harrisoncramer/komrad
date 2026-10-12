@@ -401,3 +401,7 @@ func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
 
 	return next
 }
+
+func (c *statusCheckLogsScreen) clickRow(m *model, key string, nth int) tea.Cmd {
+	return c.list().click(m, key, nth)
+}

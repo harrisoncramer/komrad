@@ -10,6 +10,7 @@ type WindowParams struct {
 	Width int
 	// Lines is how many rows of the pane the list has to itself.
 	Lines int
+	Mark func(index int, row string) string
 }
 
 // Window is the screenful of a list a pane holds, scrolled so the focused row is inside it and
@@ -22,7 +23,14 @@ func Window(params WindowParams) string {
 		Columns: params.List.Columns,
 	}
 
-	return paint.RenderWindow(renderRows(shown, params.Palette, params.Width), window, total, params.Palette.Style(paint.ToneMuted))
+	rows := renderRows(shown, params.Palette, params.Width)
+	if params.Mark != nil {
+		for i := range rows {
+			rows[i] = params.Mark(window.Start+i, rows[i])
+		}
+	}
+
+	return paint.RenderWindow(rows, window, total, params.Palette.Style(paint.ToneMuted))
 }
 
 // focusIndex is the row the keyboard stands on, counted off the list as it is about to be

@@ -64,11 +64,13 @@ func (m *model) screenListView(params screenListParams) string {
 
 	pane := m.paneWidth()
 	lines := m.listLines(header, below)
+	snapshot := params.snapshot(m.listPane(pane))
 	window := view.Window(view.WindowParams{
-		List:    prepareList(m.glyphs, params.snapshot(m.listPane(pane))),
+		List:    prepareList(m.glyphs, snapshot),
 		Palette: paint.Panel,
 		Width:   pane,
 		Lines:   lines,
+		Mark:    m.rowMarker(snapshot.Rows, pane),
 	})
 
 	return headedBlockView(header, window, lines, below)

@@ -557,3 +557,11 @@ func (d *documentsScreen) detailsFit(m *model) bool {
 func (d *documentsScreen) detailsRoom(m *model) int {
 	return m.listRecordRoom(d.listParams(m))
 }
+
+func (d *documentsScreen) clickRow(m *model, key string, nth int) tea.Cmd {
+	if d.kind == documentKindTypes {
+		return d.documentTypeList().click(m, key, nth)
+	}
+
+	return d.list().click(m, key, nth)
+}

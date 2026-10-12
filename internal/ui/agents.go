@@ -435,3 +435,7 @@ func (a *agentsScreen) settleRename(m *model, row string, err error) {
 func (a *agentsScreen) dispatches(*model) []dispatching {
 	return []dispatching{a.actions(), a.archived.actions()}
 }
+
+func (a *agentsScreen) clickRow(m *model, key string, nth int) tea.Cmd {
+	return a.list().click(m, key, nth)
+}

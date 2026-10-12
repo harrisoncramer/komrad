@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"encoding/hex"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 
 	"komrad/internal/panes"
+	"komrad/internal/view"
 
 	"charm.land/lipgloss/v2"
 )
@@ -173,4 +175,66 @@ func clipRect(rect, bounds panes.Rect) (panes.Rect, bool) {
 // isInRect is whether the cell at x, y falls inside rect.
 func isInRect(rect panes.Rect, x, y int) bool {
 	return x >= rect.Left && x < rect.Left+rect.Width && y >= rect.Top && y < rect.Top+rect.Height
+}
+
+var rowMark = regexp.MustCompile("\x1b_kzr:([0-9]+):([0-9]+):([0-9a-f]*)\x1b\\\\")
+
+func (m *model) rowMarker(rows []view.Row, width int) func(int, string) string {
+	if !m.term.markingZones {
+		return nil
+	}
+
+	return func(index int, row string) string {
+		key := rows[index].Key
+		if key == "" {
+			return row
+		}
+
+		nth := 0
+		for _, earlier := range rows[:index] {
+			if earlier.Key == key {
+				nth++
+			}
+		}
+
+		return "\x1b_kzr:" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\" + row
+	}
+}
+
+type rowHit struct {
+	key string
+	nth int
+}
+
+func (m *model) findRowAt(x, y int) (rowHit, bool) {
+	marked := *m
+	marked.term.markingZones = true
+
+	lines := strings.Split(marked.renderInset(marked.insideView()), "\n")
+	if y < 0 || y >= len(lines) {
+		return rowHit{}, false
+	}
+
+	line := lines[y]
+	for _, at := range rowMark.FindAllStringSubmatchIndex(line, -1) {
+		left := lipgloss.Width(line[:at[0]])
+		width, err := strconv.Atoi(line[at[2]:at[3]])
+		if err != nil || x < left || x >= left+width {
+			continue
+		}
+
+		nth, err := strconv.Atoi(line[at[4]:at[5]])
+		if err != nil {
+			continue
+		}
+
+		key, err := hex.DecodeString(line[at[6]:at[7]])
+		if err != nil {
+			continue
+		}
+
+		return rowHit{key: string(key), nth: nth}, true
+	}
+
+	return rowHit{}, false
 }
