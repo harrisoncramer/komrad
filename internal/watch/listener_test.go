@@ -447,9 +447,9 @@ func TestAReviewIsRaisedByItsDoorbellAndRound(t *testing.T) {
 	l := newPooled(t)
 	rows := l.seed(t)
 	round, doorbell, review := uuid.NewString(), uuid.NewString(), uuid.NewString()
-	l.exec(t, `INSERT INTO review_rounds (id, agent_id, ordinal, base_sha, snapshot_sha) VALUES ($1, $2, 1, 'base', 'snapshot')`, round, rows.agent)
+	l.exec(t, `INSERT INTO review_rounds (id, task_id, ordinal, base_sha, snapshot_sha) VALUES ($1, $2, 1, 'base', 'snapshot')`, round, rows.task)
 	l.exec(t, `INSERT INTO mail (id, to_agent_id, body, expires_at) VALUES ($1, $2, 'komrad: review', now() + interval '1 hour')`, doorbell, rows.agent)
-	l.exec(t, `INSERT INTO reviews (id, agent_id, round_id, author_kind, doorbell_mail_id) VALUES ($1, $2, $3, 'human', $4)`, review, rows.agent, round, doorbell)
+	l.exec(t, `INSERT INTO reviews (id, task_id, round_id, author_kind, doorbell_mail_id) VALUES ($1, $2, $3, 'human', $4)`, review, rows.task, round, doorbell)
 	conn := l.listenRaw(t)
 
 	l.exec(t, `UPDATE mail SET body = 'komrad: review, again' WHERE id = $1`, doorbell)

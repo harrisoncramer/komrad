@@ -26,7 +26,7 @@ const replyHint = "Your worktree has changed since this comment was written. " +
 	"exactly what answered it."
 
 // openAnswerRound takes the round an addressed reply from an agent points at, refusing one that changed nothing.
-func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.Thread, agentID string) (*reviewstore.Round, error) {
+func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Round, error) {
 	written, err := s.reviews.GetRound(ctx, thread.RoundID)
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.
 		return nil, err
 	}
 
-	answer, err := s.openTaskRound(ctx, *task, agentID)
+	answer, err := s.openTaskRound(ctx, *task)
 	if errors.Is(err, ErrReviewNoRound) || errors.Is(err, errReviewWorktreeRemoved) {
 		return nil, errReviewNoAnswerRound
 	}

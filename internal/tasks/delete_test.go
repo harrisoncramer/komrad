@@ -23,7 +23,6 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -221,7 +220,6 @@ func TestDeleteIfEmptyReleasesItsRounds(t *testing.T) {
 			require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
 			for _, id := range []string{task.ID, other.ID} {
 				_, err := fx.reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-					AgentID:     uuid.NewString(),
 					TaskID:      id,
 					BaseSHA:     "base",
 					SnapshotSHA: "same-sha",

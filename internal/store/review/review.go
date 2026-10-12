@@ -186,7 +186,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 
 	return &Thread{
 		ID:                  row.ID,
-		TaskID:              xptr.Deref(row.TaskID),
+		TaskID:              row.TaskID,
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
 		BaseSHA:             row.BaseSha,
@@ -221,7 +221,7 @@ func (s *ReviewStore) ListThreads(ctx context.Context, taskID string) ([]Thread,
 	for _, row := range rows {
 		thread := Thread{
 			ID:                  row.ID,
-			TaskID:              xptr.Deref(row.TaskID),
+			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
 			RoundID:             row.RoundID,
 			BaseSHA:             row.BaseSha,
@@ -536,7 +536,6 @@ type ViewedFile struct {
 }
 
 type MarkFileViewedParams struct {
-	AgentID     string
 	TaskID      string
 	FilePath    string
 	Fingerprint string
@@ -546,7 +545,6 @@ type MarkFileViewedParams struct {
 // so the mark can be checked against a later patch.
 func (s *ReviewStore) MarkFileViewed(ctx context.Context, params MarkFileViewedParams) (*ViewedFile, error) {
 	row, err := s.queries.MarkReviewFileViewed(ctx, models.MarkReviewFileViewedParams{
-		AgentID:     params.AgentID,
 		TaskID:      params.TaskID,
 		FilePath:    params.FilePath,
 		Fingerprint: params.Fingerprint,
@@ -597,7 +595,7 @@ func (s *ReviewStore) ListViewedFiles(ctx context.Context, taskID string) ([]Vie
 
 func viewedFileFromRow(row models.ReviewViewedFile) ViewedFile {
 	return ViewedFile{
-		TaskID:      xptr.Deref(row.TaskID),
+		TaskID:      row.TaskID,
 		FilePath:    row.FilePath,
 		Fingerprint: row.Fingerprint,
 		ViewedAt:    row.ViewedAt,
@@ -607,7 +605,7 @@ func viewedFileFromRow(row models.ReviewViewedFile) ViewedFile {
 func threadFromRow(row models.ReviewThread) Thread {
 	return Thread{
 		ID:                  row.ID,
-		TaskID:              xptr.Deref(row.TaskID),
+		TaskID:              row.TaskID,
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
 		BaseSHA:             row.BaseSha,

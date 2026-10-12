@@ -14,7 +14,6 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/clock"
-	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
@@ -443,7 +442,7 @@ func (s *ReviewService) AddReviewMessage(
 
 	var roundID *string
 	if params.Addressed {
-		answer, err := s.openAnswerRound(ctx, *thread, xptr.Deref(params.Author.AgentID))
+		answer, err := s.openAnswerRound(ctx, *thread)
 		if err != nil {
 			return nil, err
 		}
@@ -602,13 +601,7 @@ func (s *ReviewService) SetReviewFileViewed(
 		return nil, s.reviews.UnmarkFileViewed(ctx, task.ID, params.FilePath)
 	}
 
-	agentID, err := s.getRecordingAgentID(ctx, *task, params.Author)
-	if err != nil {
-		return nil, err
-	}
-
 	return s.reviews.MarkFileViewed(ctx, reviewstore.MarkFileViewedParams{
-		AgentID:     agentID,
 		TaskID:      task.ID,
 		FilePath:    params.FilePath,
 		Fingerprint: params.Fingerprint,
