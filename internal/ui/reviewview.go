@@ -540,8 +540,8 @@ func (r reviewScreen) sendView(m *model) string {
 		return ""
 	}
 
-	return dimStyle().Render(m.menuChordLabel(m.keys.Review.Send) + " sends " +
-		label.Counted(r.threads.unsentCount(), "comment") + " to the agent")
+	return m.markSpan(zoneChange, "send", dimStyle().Render(m.menuChordLabel(m.keys.Review.Send)+" sends "+
+		label.Counted(r.threads.unsentCount(), "comment")+" to the agent"))
 }
 
 // statView is how big the change is, with the counts coloured the way the lines themselves are.
@@ -598,12 +598,12 @@ func (r reviewScreen) stepSaid(m *model) string {
 
 	switch {
 	case r.diff.spec.origin != nil:
-		return m.menuChordLabel(m.keys.Review.Jump) + " back"
+		return m.markSpan(zoneChange, "back", m.menuChordLabel(m.keys.Review.Jump)+" back")
 	case !r.diff.spec.isChapter():
-		return back + " for the latest chapter"
+		return m.markSpan(zoneChange, "back", back+" for the latest chapter")
 	case r.diff.spec.chapter == 0:
-		return forward + " for a later chapter"
+		return m.markSpan(zoneChange, "forward", forward+" for a later chapter")
 	default:
-		return back + " back" + separated + forward + " forward"
+		return m.markSpan(zoneChange, "back", back+" back") + separated + m.markSpan(zoneChange, "forward", forward+" forward")
 	}
 }

@@ -29,6 +29,7 @@ const (
 	zoneSearch      zone = "search"
 	zoneMessages    zone = "messages"
 	zoneDoc         zone = "doc"
+	zoneChange      zone = "change"
 )
 
 // zoneMark is the invisible sequence a marked frame carries at each end of a zone.

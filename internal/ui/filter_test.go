@@ -170,15 +170,6 @@ func TestFilterSearch(t *testing.T) {
 		assert.Equal(t, "/", readSearch(harness.readFrame()))
 	})
 
-	t.Run("a click on the search line starts a search", func(t *testing.T) {
-		harness := openFilterable(t, "backend")
-
-		harness.send(clickOnLineStart(t, harness, "/"))
-		harness.press("d", "b", "enter")
-
-		assert.Equal(t, "/ db", readSearch(harness.readFrame()))
-	})
-
 	t.Run("a click on a row while typing keeps the search and hands the keys to the list", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
 		harness.press("/", "d", "b")

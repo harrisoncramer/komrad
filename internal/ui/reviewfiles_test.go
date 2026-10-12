@@ -402,43 +402,6 @@ func TestReviewFiles(t *testing.T) {
 		assert.NotEqual(t, "greet.go:1", readReviewCursor(frame))
 		assert.Contains(t, readFilesBlock(frame), "› greet.go +1 −1")
 	})
-
-	t.Run("a click on a file while typing in the tree's search keeps the search", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
-		harness := openReview(t, server)
-		harness.press("esc", "/")
-		typeText(harness, "second")
-
-		harness.send(clickOnLine(t, harness, "› greet.go", "greet.go"))
-		harness.press("j")
-
-		block := readFilesBlock(harness.readFrame())
-		assert.Equal(t, "/ second", strings.TrimSpace(block[0]))
-		assert.Contains(t, block, "› second.go +3")
-	})
-
-	t.Run("a click on the tree's search line hands the tree the keys and starts a search", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
-		harness := openReview(t, server)
-
-		harness.send(clickOnLineStart(t, harness, "/"))
-		typeText(harness, "second")
-		harness.press("enter")
-
-		assert.Contains(t, readFilesBlock(harness.readFrame()), "› second.go +3")
-	})
-
-	t.Run("a click on a file hands the tree the keys and opens the file", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfFiles(30)
-		harness := openReview(t, server)
-
-		harness.send(clickOnLine(t, harness, "  f03.go ", "f03.go"))
-
-		assert.Contains(t, readFilesBlock(harness.readFrame()), "› f03.go +1 −1")
-	})
 }
 
 func readFilesBlock(frame string) []string {

@@ -71,6 +71,19 @@ func (r *reviewScreen) stepBaseForward(m *model) tea.Cmd {
 	return r.showChapter(m, r.diff.spec.chapter+1)
 }
 
+func (r *reviewScreen) clickChange(m *model, key string) tea.Cmd {
+	switch key {
+	case "back":
+		return r.stepBase(m)
+	case "forward":
+		return r.stepBaseForward(m)
+	case "send":
+		return r.orRefuseWrite(m, r.openRelease)
+	}
+
+	return nil
+}
+
 // showChapter puts one round of the review on screen, or the whole change past the newest
 // round, and reads the diff again once the walk has moved.
 func (r *reviewScreen) showChapter(m *model, at int) tea.Cmd {
