@@ -12,7 +12,11 @@ import (
 type namedTransport string
 
 func (n namedTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Transport": {string(n)}}, Body: http.NoBody}, nil
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Transport": {string(n)}},
+		Body:       http.NoBody,
+	}, nil
 }
 
 // TestTransportRoutesByProcedure covers a call that waits on hooks going over the transport with no header timeout, wherever the server is mounted.
@@ -22,10 +26,26 @@ func TestTransportRoutesByProcedure(t *testing.T) {
 		url  string
 		want string
 	}{
-		{name: "a call that waits on hooks", url: "http://engine/agent.v1.AgentService/CreateAgent", want: "awaiting"},
-		{name: "one under a mount path", url: "https://engine/komrad/task.v1.TaskService/ArchiveTask", want: "awaiting"},
-		{name: "an ordinary call", url: "http://engine/agent.v1.AgentService/ListAgents", want: "plain"},
-		{name: "a method another service shares the name of", url: "http://engine/other.v1.OtherService/CreateAgent", want: "plain"},
+		{
+			name: "a call that waits on hooks",
+			url:  "http://engine/agent.v1.AgentService/CreateAgent",
+			want: "awaiting",
+		},
+		{
+			name: "one under a mount path",
+			url:  "https://engine/komrad/task.v1.TaskService/ArchiveTask",
+			want: "awaiting",
+		},
+		{
+			name: "an ordinary call",
+			url:  "http://engine/agent.v1.AgentService/ListAgents",
+			want: "plain",
+		},
+		{
+			name: "a method another service shares the name of",
+			url:  "http://engine/other.v1.OtherService/CreateAgent",
+			want: "plain",
+		},
 	}
 
 	transport := hookAwareTransport{plain: namedTransport("plain"), awaiting: namedTransport("awaiting")}
