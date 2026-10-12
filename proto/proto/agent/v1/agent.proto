@@ -115,6 +115,8 @@ message Agent {
   optional string task_slug = 30;
   // Whether it was told to keep the directory it was given rather than be provisioned a worktree.
   bool provision_disabled = 31;
+  // The hooks komrad installs in the agent's CLI, named as that CLI names its events.
+  repeated string hooks = 32;
 }
 
 // AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests

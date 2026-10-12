@@ -3,6 +3,7 @@ package claude
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"komrad/internal/harness"
@@ -21,6 +22,9 @@ const (
 
 	// EventPostToolUse is fired once a tool call has returned.
 	EventPostToolUse harness.Event = "PostToolUse"
+
+	// EventPostToolUseFailure is fired in place of PostToolUse when a tool call fails.
+	EventPostToolUseFailure harness.Event = "PostToolUseFailure"
 
 	// EventPermissionRequest is fired when a tool call puts a dialog up for a person to answer.
 	EventPermissionRequest harness.Event = "PermissionRequest"
@@ -71,7 +75,7 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 		}
 
 		return harness.Report{Reason: parsed.ToolName}, nil
-	case EventPostToolUse:
+	case EventPostToolUse, EventPostToolUseFailure:
 		return harness.Report{}, nil
 	default:
 		// Refused rather than read as a report of nothing, an empty report clearing the reason on
@@ -90,4 +94,19 @@ func (p stopFailurePayload) describe() string {
 	}
 
 	return "unknown"
+}
+
+// Hooks is each event komrad answers, with the matcher an event is narrowed by beside it.
+func (h *Harness) Hooks() []string {
+	hooks := make([]string, 0, len(InstalledHooks))
+	for event, install := range InstalledHooks {
+		name := string(event)
+		if install.Matcher != "" {
+			name += " (" + install.Matcher + ")"
+		}
+		hooks = append(hooks, name)
+	}
+	slices.Sort(hooks)
+
+	return hooks
 }

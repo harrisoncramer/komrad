@@ -16,19 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// recordingReconciler records what the row writer tells the reconcile loop.
-type recordingReconciler struct {
-	reasons []string
-}
-
-func (r *recordingReconciler) RecordReportedReason(_, reason string) {
-	r.reasons = append(r.reasons, reason)
-}
-
 // rowWriterFixture is a row writer and the fakes it was built over.
 type rowWriterFixture struct {
 	writer         *RowWriter
-	reconciler     *recordingReconciler
 	cwdSync        *waketest.Counter
 	transcriptSync *waketest.Counter
 }
@@ -121,8 +111,8 @@ func TestRowWriterWrites(t *testing.T) {
 	}
 }
 
-// TestRecordReport pins that a report reaches the reconciler and the row, and that only a turn
-// end stamps the turn and wakes the loops that read what it left behind.
+// TestRecordReport pins that a report reaches the row, and that only a turn end stamps the turn
+// and wakes the loops that read what it left behind.
 func TestRecordReport(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -170,8 +160,6 @@ func TestRecordReport(t *testing.T) {
 			params.AgentID = alpha.ID
 			require.NoError(t, fixture.writer.RecordReport(t.Context(), params))
 
-			assert.Equal(t, []string{tt.wantReason}, fixture.reconciler.reasons)
-
 			row := agentByID(t, st, alpha.ID)
 			assert.Equal(t, tt.wantReason, row.ReportedReason)
 			assert.Equal(t, tt.wantTurnEnded, row.Turn.EndedAt != nil)
@@ -184,14 +172,12 @@ func TestRecordReport(t *testing.T) {
 
 func newRowWriter(st *testStore) rowWriterFixture {
 	fixture := rowWriterFixture{
-		reconciler:     &recordingReconciler{},
 		cwdSync:        &waketest.Counter{},
 		transcriptSync: &waketest.Counter{},
 	}
 	fixture.writer = NewRowWriter(NewRowWriterParams{
 		Agents:         st.Agents,
 		Runs:           st.Runs,
-		Reconciler:     fixture.reconciler,
 		CwdSync:        fixture.cwdSync,
 		TranscriptSync: fixture.transcriptSync,
 	})

@@ -129,6 +129,19 @@ func TestRenderRowShapes(t *testing.T) {
 			},
 		},
 		{
+			name:   "a working row shows its tool after the loader and its marks",
+			golden: "row-tool",
+			row: Row{
+				Kind:        KindAgent,
+				Name:        "iss-582",
+				Process:     ProcessAlive,
+				Status:      StatusThinking,
+				LoaderFrame: "⠋",
+				UnreadMail:  true,
+				Tool:        "Bash",
+			},
+		},
+		{
 			name:   "a child is italic and hangs off a corner",
 			golden: "row-child",
 			row:    Row{Kind: KindChild, Name: "eng-6994-reviewer"},

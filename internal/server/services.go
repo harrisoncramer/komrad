@@ -291,7 +291,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Agents: st.agents,
 			Git:    gitClient,
 		}),
-		watchRows: watch.NewRows(buildWatchLoaders(st)),
+		watchRows: watch.NewRows(buildWatchLoaders(st, params.Harnesses.HooksOf)),
 	}, nil
 }
 
@@ -471,7 +471,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 		rowWriter: agents.NewRowWriter(agents.NewRowWriterParams{
 			Agents:         st.agents,
 			Runs:           st.runs,
-			Reconciler:     reconciler,
 			CwdSync:        params.Wakers.cwdSync,
 			TranscriptSync: params.Wakers.transcriptSync,
 		}),

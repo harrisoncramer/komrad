@@ -33,6 +33,16 @@ func NewRegistry(harnesses ...Harness) (*Registry, error) {
 	return &Registry{harnesses: indexed}, nil
 }
 
+// HooksOf is the hooks the harness answering to id installs, nil for an id none answers to.
+func (r *Registry) HooksOf(id string) []string {
+	found, ok := r.harnesses[id]
+	if !ok {
+		return nil
+	}
+
+	return found.Hooks()
+}
+
 // GetByID returns the harness answering to id, or ErrNotRegistered naming it.
 func (r *Registry) GetByID(id string) (Harness, error) {
 	found, ok := r.harnesses[id]

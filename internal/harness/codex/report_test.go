@@ -70,3 +70,8 @@ func TestReadReport(t *testing.T) {
 		})
 	}
 }
+
+// TestHooks pins the notify program as the one hook Codex is handed.
+func TestHooks(t *testing.T) {
+	assert.Equal(t, []string{"notify"}, NewHarness(NewHarnessParams{Home: t.TempDir()}).Hooks())
+}

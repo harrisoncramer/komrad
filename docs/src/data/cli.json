@@ -586,6 +586,7 @@
       "hook/compacted",
       "hook/permission-request",
       "hook/post-tool-use",
+      "hook/post-tool-use-failure",
       "hook/pre-tool-use",
       "hook/stop",
       "hook/stop-failure",
@@ -655,7 +656,35 @@
     "usage": "komrad hook post-tool-use",
     "aliases": [],
     "short": "Record that an agent's tool call returned",
-    "long": "Record that an agent's tool call returned.\n\nClaude runs this once a tool call has finished, which takes the tool back off\nthe agent's row. A call that fails runs nothing, so the row is left to the state\nit is drawn beside rather than to this.",
+    "long": "Record that an agent's tool call returned.\n\nClaude runs this once a tool call has finished, which takes the tool back off\nthe agent's row.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "hook/post-tool-use-failure",
+    "path": "komrad hook post-tool-use-failure",
+    "parent": "hook",
+    "usage": "komrad hook post-tool-use-failure",
+    "aliases": [],
+    "short": "Record that an agent's tool call failed",
+    "long": "Record that an agent's tool call failed.\n\nClaude runs this in place of its PostToolUse hook when a tool call fails, which\ntakes the tool back off the agent's row.",
     "example": "",
     "flags": [],
     "inherited": [
