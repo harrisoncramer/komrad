@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,6 +86,45 @@ func TestClickRow(t *testing.T) {
 	})
 }
 
+// TestClickView covers a left click on the switcher opening the view under it.
+func TestClickView(t *testing.T) {
+	tests := []struct {
+		name       string
+		press      []string
+		view       string
+		wantScreen string
+	}{
+		{
+			name:       "a click on a view opens it",
+			view:       "documents",
+			wantScreen: documentsScreen,
+		},
+		{
+			name:       "a click on a view closes the switcher it was picked from",
+			press:      []string{"tab"},
+			view:       "worktrees",
+			wantScreen: worktreesScreen,
+		},
+		{
+			name:       "a click on the view that is up keeps it",
+			view:       "agents",
+			wantScreen: agentsScreen,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openCrowded(t, panelHarnessParams{})
+			harness.press(tt.press...)
+
+			harness.send(clickOnView(t, harness, tt.view))
+
+			assert.Equal(t, tt.wantScreen, harness.readScreen())
+			assert.NotContains(t, harness.readFrame(), "tab/S-tab switch")
+		})
+	}
+}
+
 func clickOn(t *testing.T, frame, row string) tea.MouseClickMsg {
 	t.Helper()
 
@@ -96,6 +136,26 @@ func clickOn(t *testing.T, frame, row string) tea.MouseClickMsg {
 	}
 
 	require.Failf(t, "no row in the frame", "%q", row)
+
+	return tea.MouseClickMsg{}
+}
+
+func clickOnView(t *testing.T, harness *panelHarness, view string) tea.MouseClickMsg {
+	t.Helper()
+
+	left, _ := harness.panel.Inside()
+	for y, line := range splitLines(harness.readFrame()) {
+		sidebar, _, _ := strings.Cut(line, "│")
+		if !strings.Contains(sidebar, "agents  schedules") {
+			continue
+		}
+
+		if at := strings.Index(sidebar, view); at >= 0 {
+			return tea.MouseClickMsg{X: left + ansi.StringWidth(sidebar[:at]), Y: y, Button: tea.MouseLeft}
+		}
+	}
+
+	require.Failf(t, "no view on the switcher", "%q", view)
 
 	return tea.MouseClickMsg{}
 }

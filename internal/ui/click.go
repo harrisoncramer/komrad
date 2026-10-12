@@ -12,6 +12,10 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 		return nil
 	}
 
+	if hit.section == sectionViews {
+		return m.clickView(hit.key)
+	}
+
 	to, list, ok := m.clickedList(hit.section)
 	if !ok {
 		return nil

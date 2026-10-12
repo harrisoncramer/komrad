@@ -197,8 +197,22 @@ func (m *model) rowMarker(section sidebarSection, rows []view.Row, width int) fu
 			}
 		}
 
-		return "\x1b_kzr:" + strconv.Itoa(int(section)) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\" + row
+		return rowMarkOf(section, width, nth, key) + row
 	}
+}
+
+func (m *model) spanMarker(section sidebarSection, keys []string) func(int, string) string {
+	if !m.term.markingZones {
+		return nil
+	}
+
+	return func(index int, span string) string {
+		return rowMarkOf(section, lipgloss.Width(span), 0, keys[index]) + span
+	}
+}
+
+func rowMarkOf(section sidebarSection, width, nth int, key string) string {
+	return "\x1b_kzr:" + strconv.Itoa(int(section)) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\"
 }
 
 type rowHit struct {

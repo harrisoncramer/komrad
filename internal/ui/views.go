@@ -107,10 +107,12 @@ func (m *model) switcherLines(trail crumbs) []string {
 }
 
 func (m *model) viewsRow() string {
+	labels := xslice.Map(viewEntries(), func(entry viewEntry) string { return entry.label })
 	row := stops{
-		labels: xslice.Map(viewEntries(), func(entry viewEntry) string { return entry.label }),
+		labels: labels,
 		focus:  noStop,
 		lit:    noStop,
+		mark:   m.spanMarker(sectionViews, labels),
 	}
 	if m.isViewsOpen() {
 		row.focus = m.viewIndex()
@@ -185,6 +187,22 @@ func (m *model) updateViews(key tea.KeyPressMsg) tea.Cmd {
 			return nil
 		},
 	})
+
+	return cmd
+}
+
+func (m *model) clickView(label string) tea.Cmd {
+	entries := viewEntries()
+	at := slices.IndexFunc(entries, func(entry viewEntry) bool { return entry.label == label })
+	if at == noStop {
+		return nil
+	}
+
+	wasOpen := m.isViewsOpen()
+	cmd := m.enterView(entries[at])
+	if wasOpen {
+		m.closeViews()
+	}
 
 	return cmd
 }

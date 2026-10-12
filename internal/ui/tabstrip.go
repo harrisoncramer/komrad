@@ -35,6 +35,7 @@ type stops struct {
 	labels []string
 	focus  int
 	lit    int
+	mark   func(int, string) string
 }
 
 // noStop is a focus or a lit stop that stands on none of the row.

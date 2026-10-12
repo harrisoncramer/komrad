@@ -23,6 +23,9 @@ func (s stops) parts() []string {
 			style = lit
 		}
 		parts[i] = style.Render(s.labels[i])
+		if s.mark != nil {
+			parts[i] = s.mark(i, parts[i])
+		}
 	}
 
 	return parts
