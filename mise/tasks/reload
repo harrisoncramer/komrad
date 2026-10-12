@@ -27,4 +27,4 @@ dir="$(
 (cd "$dir" && go_build_local "$komrad")
 "$komrad" stop
 "$komrad" migrate
-"$komrad" start
+run_clean "$komrad" start
