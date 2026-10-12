@@ -63,7 +63,11 @@ INSERT INTO reviews(
     round_id,
     author_kind,
     author_agent_id)
-VALUES (sqlc.arg('task_id')::uuid, @round_id, @author_kind, sqlc.narg('author_agent_id'))
+VALUES (
+    sqlc.arg('task_id')::uuid,
+    @round_id,
+    @author_kind,
+    sqlc.narg('author_agent_id'))
 RETURNING
     *;
 
@@ -242,22 +246,23 @@ WITH opened AS (
         quoted_lines,
         forge_thread_id,
         last_agent_activity_at)
-    VALUES (sqlc.arg('task_id')::uuid,
-            @review_id,
-            @round_id,
-            @base_sha,
-            @file_path,
-            @old_start,
-            @old_end,
-            @new_start,
-            @new_end,
-            @quoted_lines,
-            sqlc.narg('forge_thread_id')::uuid,
-            CASE WHEN @author_kind::review_author_kind = 'agent' THEN
-                NOW()
-            END)
-    RETURNING
-        *
+    VALUES (
+        sqlc.arg('task_id')::uuid,
+        @review_id,
+        @round_id,
+        @base_sha,
+        @file_path,
+        @old_start,
+        @old_end,
+        @new_start,
+        @new_end,
+        @quoted_lines,
+        sqlc.narg('forge_thread_id')::uuid,
+        CASE WHEN @author_kind::review_author_kind = 'agent' THEN
+            NOW()
+        END)
+RETURNING
+    *
 ),
 said AS (
     INSERT INTO review_messages(
@@ -753,7 +758,12 @@ INSERT INTO reviews(
     author_kind,
     external_login,
     released_at)
-VALUES (sqlc.arg('task_id')::uuid, @round_id, 'forge', @external_login, NOW())
+VALUES (
+    sqlc.arg('task_id')::uuid,
+    @round_id,
+    'forge',
+    @external_login,
+    NOW())
 RETURNING
     *;
 
