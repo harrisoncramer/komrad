@@ -45,11 +45,11 @@ enum AgentRole {
   // No role was recorded, which no stored agent answers with.
   AGENT_ROLE_UNSPECIFIED = 0;
   // An agent on a task that reads its change and gives a review.
-  AGENT_ROLE_REVIEWER = 2;
+  AGENT_ROLE_REVIEWER = 1;
   // The agent drawn on a workflow's own row that hands work out.
-  AGENT_ROLE_ORCHESTRATOR = 3;
+  AGENT_ROLE_ORCHESTRATOR = 2;
   // The one agent on a task that writes its change, for the task's whole life.
-  AGENT_ROLE_WRITER = 4;
+  AGENT_ROLE_WRITER = 3;
 }
 
 message Agent {
@@ -86,35 +86,35 @@ message Agent {
   // Which agent called create, unset for one a person spawned.
   optional string spawned_by_agent_id = 16;
   // Whether a script komrad fired for the agent failed and nobody has looked at it since.
-  bool failed_run = 18;
+  bool failed_run = 17;
   // The run log that failure was written to, which is the run the panel opens on.
-  optional int32 failed_run_log = 19;
+  optional int32 failed_run_log = 18;
   // How many documents it has written, which list_documents returns.
-  int32 documents = 20;
+  int32 documents = 19;
   // When the newest of its documents was last written, in RFC 3339, unset when it has none.
-  optional string documents_updated_at = 21;
+  optional string documents_updated_at = 20;
   // When the state above last moved, in RFC 3339.
-  string state_changed_at = 22;
+  string state_changed_at = 21;
   // What the agent's own CLI last reported it was doing, alongside the state the pane decided.
-  string reported_reason = 23;
+  string reported_reason = 22;
   // Why its create or cleanup last failed, empty when neither has.
-  string failure_reason = 24;
+  string failure_reason = 23;
   // What its CLI printed when an API error ended its last turn, empty when that turn did not fail.
-  string turn_error = 25;
+  string turn_error = 24;
   // What the agent was launched to do.
-  AgentRole role = 26;
+  AgentRole role = 25;
   // Whether prompt holds only its opening, as a summary listing returns it.
-  bool prompt_truncated = 27;
+  bool prompt_truncated = 26;
   // When a person stopped this agent and took its worktree, empty while nobody is holding it.
-  string held_at = 28;
+  string held_at = 27;
   // The agent that took the hold, empty when the panel took it or nobody is holding it.
-  string held_by_agent_id = 29;
+  string held_by_agent_id = 28;
   // The task it works on, unset for an orchestrator or once its task is deleted.
-  optional string task_id = 30;
+  optional string task_id = 29;
   // The slug of that task, unset whenever task_id is.
-  optional string task_slug = 31;
+  optional string task_slug = 30;
   // Whether it was told to keep the directory it was given rather than be provisioned a worktree.
-  bool provision_disabled = 32;
+  bool provision_disabled = 31;
 }
 
 // AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests
@@ -218,16 +218,16 @@ message CreateAgentRequest {
   // when the task has none yet, and otherwise a reviewer in the writer's checkout, for which
   // provision_enabled is refused. Unset to start a task of its own, made from its title and
   // prompt, with this agent as its writer.
-  optional string task = 9 [(buf.validate.field).string.min_len = 1];
+  optional string task = 8 [(buf.validate.field).string.min_len = 1];
   // The slug of the task komrad makes for it when task is unset, which no other task has ever
   // had. Unset to make one from its name, numbered until it is free.
-  optional string task_slug = 10 [(buf.validate.field).string = {
+  optional string task_slug = 9 [(buf.validate.field).string = {
     max_len: 80
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
   }];
   // What the task komrad makes for it is meant to achieve, as markdown. Blank to take the first
   // line of the prompt.
-  string task_goal = 11 [(buf.validate.field).string.max_len = 50000];
+  string task_goal = 10 [(buf.validate.field).string.max_len = 50000];
 }
 
 message CreateAgentResponse {

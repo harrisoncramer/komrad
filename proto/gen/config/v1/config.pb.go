@@ -101,7 +101,7 @@ const file_config_v1_config_proto_rawDesc = "" +
 	"\r_config_error2\xab\x02\n" +
 	"\rConfigService\x12\x99\x02\n" +
 	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xd5\x01\x9a\xb5\x18\xcd\x01\b\x01\x10\x01\x1a\n" +
-	"get_config\"\xb7\x01Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file would not parse and defaults are running.:\x01\x03\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
+	"get_config\"\xb7\x01Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file would not parse and defaults are running.:\x01\x02\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once

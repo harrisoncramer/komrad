@@ -29,26 +29,26 @@ const (
 	// No role, which is offered every tool.
 	Role_ROLE_UNSPECIFIED Role = 0
 	// An agent on a task that reads its change and gives a review.
-	Role_ROLE_REVIEWER Role = 2
+	Role_ROLE_REVIEWER Role = 1
 	// The agent drawn on a workflow's own row that hands work out.
-	Role_ROLE_ORCHESTRATOR Role = 3
+	Role_ROLE_ORCHESTRATOR Role = 2
 	// The one agent on a task that writes its change.
-	Role_ROLE_WRITER Role = 4
+	Role_ROLE_WRITER Role = 3
 )
 
 // Enum value maps for Role.
 var (
 	Role_name = map[int32]string{
 		0: "ROLE_UNSPECIFIED",
-		2: "ROLE_REVIEWER",
-		3: "ROLE_ORCHESTRATOR",
-		4: "ROLE_WRITER",
+		1: "ROLE_REVIEWER",
+		2: "ROLE_ORCHESTRATOR",
+		3: "ROLE_WRITER",
 	}
 	Role_value = map[string]int32{
 		"ROLE_UNSPECIFIED":  0,
-		"ROLE_REVIEWER":     2,
-		"ROLE_ORCHESTRATOR": 3,
-		"ROLE_WRITER":       4,
+		"ROLE_REVIEWER":     1,
+		"ROLE_ORCHESTRATOR": 2,
+		"ROLE_WRITER":       3,
 	}
 )
 
@@ -233,9 +233,9 @@ const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\v_idempotent*W\n" +
 	"\x04Role\x12\x14\n" +
 	"\x10ROLE_UNSPECIFIED\x10\x00\x12\x11\n" +
-	"\rROLE_REVIEWER\x10\x02\x12\x15\n" +
-	"\x11ROLE_ORCHESTRATOR\x10\x03\x12\x0f\n" +
-	"\vROLE_WRITER\x10\x04:U\n" +
+	"\rROLE_REVIEWER\x10\x01\x12\x15\n" +
+	"\x11ROLE_ORCHESTRATOR\x10\x02\x12\x0f\n" +
+	"\vROLE_WRITER\x10\x03:U\n" +
 	"\bsurfaces\x12\x1e.google.protobuf.MethodOptions\x18ӆ\x03 \x01(\v2\x17.annotation.v1.SurfacesR\bsurfacesB-Z+komrad/proto/gen/annotation/v1;annotationv1b\x06proto3"
 
 var (

@@ -112,22 +112,22 @@ const (
 	// No kind was recorded.
 	ScheduleKind_SCHEDULE_KIND_UNSPECIFIED ScheduleKind = 0
 	// Mails the prompt to an orchestrator that is already running.
-	ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR ScheduleKind = 2
+	ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR ScheduleKind = 1
 	// Starts a new task in the workflow, its writer given the prompt.
-	ScheduleKind_SCHEDULE_KIND_TASK ScheduleKind = 3
+	ScheduleKind_SCHEDULE_KIND_TASK ScheduleKind = 2
 )
 
 // Enum value maps for ScheduleKind.
 var (
 	ScheduleKind_name = map[int32]string{
 		0: "SCHEDULE_KIND_UNSPECIFIED",
-		2: "SCHEDULE_KIND_ORCHESTRATOR",
-		3: "SCHEDULE_KIND_TASK",
+		1: "SCHEDULE_KIND_ORCHESTRATOR",
+		2: "SCHEDULE_KIND_TASK",
 	}
 	ScheduleKind_value = map[string]int32{
 		"SCHEDULE_KIND_UNSPECIFIED":  0,
-		"SCHEDULE_KIND_ORCHESTRATOR": 2,
-		"SCHEDULE_KIND_TASK":         3,
+		"SCHEDULE_KIND_ORCHESTRATOR": 1,
+		"SCHEDULE_KIND_TASK":         2,
 	}
 )
 
@@ -1369,18 +1369,18 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x1cSCHEDULE_RUN_STATE_DISCARDED\x10\b*e\n" +
 	"\fScheduleKind\x12\x1d\n" +
 	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x02\x12\x16\n" +
-	"\x12SCHEDULE_KIND_TASK\x10\x032\xfa\x0e\n" +
+	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x01\x12\x16\n" +
+	"\x12SCHEDULE_KIND_TASK\x10\x022\xfa\x0e\n" +
 	"\x0fScheduleService\x12\x97\x02\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xbe\x01\x9a\xb5\x18\xb6\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x9c\x01List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules are left out unless archived is set.:\x01\x03\x90\x02\x01\x12\x89\x01\n" +
-	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"7\x9a\xb5\x180\b\x01\x10\x01\x1a\fget_schedule\"\x19Fetch one schedule by id.:\x01\x03\x90\x02\x01\x12\xf3\x01\n" +
-	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x12list_schedule_runs\"lList a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.:\x01\x03\x90\x02\x01\x12\xa4\x02\n" +
-	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xc8\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xa6\x01Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.(\x00:\x01\x03\x12\xcd\x01\n" +
-	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x7f\x9a\xb5\x18x\b\x01\x10\x01\x1a\x0fupdate_schedule\"\\Replace every field of a schedule, so read it first and send back what you are not changing.(\x00:\x01\x03\x90\x02\x02\x12\x9b\x01\n" +
-	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"E\x9a\xb5\x18>\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x1dPause or resume one schedule.(\x00:\x01\x03\x90\x02\x02\x12\xd4\x01\n" +
-	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\x83\x01\x9a\xb5\x18|\b\x01\x10\x01\x1a\x10archive_schedule\"_Archive a schedule so it stops firing, keeping its record. The agents it launched keep running.(\x00:\x01\x03\x90\x02\x02\x12\xb2\x01\n" +
-	"\x0fRestoreSchedule\x12#.schedule.v1.RestoreScheduleRequest\x1a\x16.google.protobuf.Empty\"b\x9a\xb5\x18[\b\x01\x10\x01\x1a\x10restore_schedule\">Take a schedule out of the archive, paused or armed as it was.(\x00:\x01\x03\x90\x02\x02\x12\xa9\x01\n" +
-	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"[\x9a\xb5\x18T\b\x01\x10\x01\x1a\x0fdelete_schedule\"8Permanently delete an archived schedule and its history.(\x01:\x01\x03\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xbe\x01\x9a\xb5\x18\xb6\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x9c\x01List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules are left out unless archived is set.:\x01\x02\x90\x02\x01\x12\x89\x01\n" +
+	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"7\x9a\xb5\x180\b\x01\x10\x01\x1a\fget_schedule\"\x19Fetch one schedule by id.:\x01\x02\x90\x02\x01\x12\xf3\x01\n" +
+	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x12list_schedule_runs\"lList a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.:\x01\x02\x90\x02\x01\x12\xa4\x02\n" +
+	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xc8\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xa6\x01Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.(\x00:\x01\x02\x12\xcd\x01\n" +
+	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x7f\x9a\xb5\x18x\b\x01\x10\x01\x1a\x0fupdate_schedule\"\\Replace every field of a schedule, so read it first and send back what you are not changing.(\x00:\x01\x02\x90\x02\x02\x12\x9b\x01\n" +
+	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"E\x9a\xb5\x18>\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x1dPause or resume one schedule.(\x00:\x01\x02\x90\x02\x02\x12\xd4\x01\n" +
+	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\x83\x01\x9a\xb5\x18|\b\x01\x10\x01\x1a\x10archive_schedule\"_Archive a schedule so it stops firing, keeping its record. The agents it launched keep running.(\x00:\x01\x02\x90\x02\x02\x12\xb2\x01\n" +
+	"\x0fRestoreSchedule\x12#.schedule.v1.RestoreScheduleRequest\x1a\x16.google.protobuf.Empty\"b\x9a\xb5\x18[\b\x01\x10\x01\x1a\x10restore_schedule\">Take a schedule out of the archive, paused or armed as it was.(\x00:\x01\x02\x90\x02\x02\x12\xa9\x01\n" +
+	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"[\x9a\xb5\x18T\b\x01\x10\x01\x1a\x0fdelete_schedule\"8Permanently delete an archived schedule and its history.(\x01:\x01\x02\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
 
 var (
 	file_schedule_v1_schedule_proto_rawDescOnce sync.Once
