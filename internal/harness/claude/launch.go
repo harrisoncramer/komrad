@@ -114,7 +114,7 @@ func settingsFileName(endpoint, role string) string {
 	name := "komrad-settings"
 	for _, part := range []string{endpoint, role} {
 		if part != "" {
-			name += "-" + fileNamePart(part)
+			name += "-" + sanitizeFileNamePart(part)
 		}
 	}
 
@@ -182,10 +182,10 @@ func (h *Harness) writeMCPConfig(endpoint string) (string, error) {
 }
 
 func mcpConfigFileName(endpoint string) string {
-	return fmt.Sprintf("komrad-mcp-%s.json", fileNamePart(endpoint))
+	return fmt.Sprintf("komrad-mcp-%s.json", sanitizeFileNamePart(endpoint))
 }
 
-func fileNamePart(text string) string {
+func sanitizeFileNamePart(text string) string {
 	return strings.Map(func(char rune) rune {
 		if char == '.' || char == '-' || unicode.IsLetter(char) || unicode.IsDigit(char) {
 			return char
