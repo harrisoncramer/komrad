@@ -144,12 +144,15 @@ func (f *filterState) setQuery(query string) {
 
 func (f *filterState) open(opts ...filterOption) {
 	f.typing = true
-	f.mode = filterModeSearch
+	query := f.query()
+	if query == "" {
+		f.mode = filterModeSearch
+	}
 	f.debounce, f.minLength, f.qualifiers.grammar = 0, 0, nil
 	for _, opt := range opts {
 		opt(f)
 	}
-	f.setQuery("")
+	f.setQuery(query)
 }
 
 func (f filterState) isTooShort() bool {

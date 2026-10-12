@@ -163,6 +163,45 @@ func TestFilterSearch(t *testing.T) {
 		assert.Equal(t, "/", readSearch(harness.readFrame()))
 	})
 
+	t.Run("the search key over a standing search picks it back up", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			press []string
+			want  string
+		}{
+			{
+				name:  "a search keeps its pattern",
+				press: []string{"/", "d", "b", "enter", "/", "x", "enter"},
+				want:  "/ dbx",
+			},
+			{
+				name:  "a filter keeps its pattern and stays a filter",
+				press: []string{"/", "tab", "d", "b", "enter", "/", "enter"},
+				want:  "▽ db",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				harness := openFilterable(t, "backend")
+
+				harness.press(tt.press...)
+
+				assert.Equal(t, tt.want, readSearch(harness.readFrame()))
+			})
+		}
+	})
+
+	t.Run("a click on a standing search picks it back up", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+		harness.press("/", "d", "b", "enter")
+
+		harness.send(clickOnLineStart(t, harness, "/"))
+		harness.press("x", "enter")
+
+		assert.Equal(t, "/ dbx", readSearch(harness.readFrame()))
+	})
+
 	t.Run("a click on the search line starts a search", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
 
