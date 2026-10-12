@@ -118,6 +118,14 @@ func (r reviewScreen) readCurrentFolder() (diffview.TreeRow, bool) {
 	return tree.rows[tree.current], true
 }
 
+// restOnFolder puts the tree's cursor on a folder for as long as the diff cursor stays where it is.
+func (r *reviewScreen) restOnFolder(path string) {
+	r.folderCursor = folderCursor{
+		path:    path,
+		diffRow: r.diff.Cursor(),
+	}
+}
+
 // toggleFolder opens the folder the tree's cursor is on, or closes it when it is open.
 func (r *reviewScreen) toggleFolder() {
 	folder, ok := r.readCurrentFolder()
@@ -125,10 +133,7 @@ func (r *reviewScreen) toggleFolder() {
 		return
 	}
 
-	r.folderCursor = folderCursor{
-		path:    folder.Path,
-		diffRow: r.diff.Cursor(),
-	}
+	r.restOnFolder(folder.Path)
 
 	if r.closedFolders[folder.Path] {
 		delete(r.closedFolders, folder.Path)
@@ -282,10 +287,7 @@ func (r *reviewScreen) landOnRow(m *model, row diffview.TreeRow) tea.Cmd {
 		return r.landOnFile(m, row)
 	}
 
-	r.folderCursor = folderCursor{
-		path:    row.Path,
-		diffRow: r.diff.Cursor(),
-	}
+	r.restOnFolder(row.Path)
 
 	return nil
 }
