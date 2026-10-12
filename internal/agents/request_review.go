@@ -29,7 +29,7 @@ type RequestReviewParams struct {
 	IdempotencyKey string
 }
 
-// RequestReview spawns the reviewer for an agent's own work and hands back how to settle what it
+// RequestReview spawns a reviewer for an agent's own work and hands back how to settle what it
 // raises.
 func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewParams) (*agentstore.Agent, string, error) {
 	author, err := s.agents.GetByID(ctx, params.AgentID)
