@@ -41,7 +41,7 @@ EOF
 chmod +x ~/.config/komrad/hooks/ignore-revs
 ```
 
-The `#KOMRAD` line is optional. Comment lines like it at the top of the file declare a hook's description and timeout.
+The `#KOMRAD` line is optional. Comment lines like it at the top of the file declare a hook's description and timeout. Komrad stops a hook that runs past <Setting path="hooks.timeout" />, 60 seconds by default, and counts it as failed. A header timeout can shorten that limit but never lengthen it. A hook that declares a longer timeout, or `"none"`, runs under the setting.
 
 ## Hanging it on a workflow
 
@@ -80,7 +80,7 @@ Every moment in a writer agent's life has a hook before it and a hook after it. 
 | `agent.pre-delete`   | Once the panes are closed, while the worktree is still there. | The delete stops, and the agent is marked as failed to clean up.                                     |
 | `agent.post-delete`  | Once the agent's row is gone, along with its task's worktree. | Komrad's own log says so, since the agent has no run log left.                                       |
 
-Hooks run one at a time, in the order the lifecycle events happen. A call that waits on a `pre-` hook, such as `archive_agents` from MCP or <Command path="rpc" />, gets eleven minutes instead of the usual thirty seconds.
+Hooks run one at a time, in the order the lifecycle events happen. A call that waits on a hook, such as `archive_agents` from MCP or <Command path="rpc" />, waits as long as its hooks run. <Setting path="hooks.timeout" /> already bounds each one.
 
 Only writer agents run agent hooks. Reviewers and orchestrators do not.
 

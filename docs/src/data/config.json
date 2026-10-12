@@ -1801,7 +1801,7 @@
     },
     {
       "path": "hooks",
-      "description": "Where komrad finds the scripts a workflow hangs on a moment in its agents' lives.",
+      "description": "Where komrad finds the scripts a workflow hangs on a moment in its agents' lives, and how long\neach may run.",
       "settings": [
         {
           "key": "dir",
@@ -1809,6 +1809,13 @@
           "type": "string",
           "description": "Directory for hooks: one executable file per hook, named after the hook.\nA hook is a script or program komrad runs at a moment a workflow names it against, in the\nagent's own directory, with agent info in KOMRAD_AGENT as JSON and the moment in\nKOMRAD_TRIGGER. Default is ~/.config/komrad/hooks.",
           "default": "\"\""
+        },
+        {
+          "key": "timeout",
+          "path": "hooks.timeout",
+          "type": "string",
+          "description": "How long a hook may run before komrad stops it and counts it as failed, as a Go duration\nsuch as \"60s\" or \"5m\". A hook's own #KOMRAD timeout can ask for less, never more, and a\nhook that asks for \"none\" gets this. A duration komrad cannot read, or one that is not\npositive, is refused.",
+          "default": "\"60s\""
         }
       ],
       "sections": []

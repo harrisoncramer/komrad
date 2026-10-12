@@ -15,6 +15,7 @@ import (
 	"time"
 
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 	annotationv1 "komrad/proto/gen/annotation/v1"
 	configv1 "komrad/proto/gen/config/v1"
 	doctorv1 "komrad/proto/gen/doctor/v1"
@@ -24,8 +25,10 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
 	"komrad/internal/fail"
@@ -51,15 +54,21 @@ var files = []protoreflect.FileDescriptor{
 	taskv1.File_task_v1_task_proto,
 }
 
-// HookCallTimeout bounds a call that waits on a workflow's pre hooks.
-const HookCallTimeout = 11 * time.Minute
-
-var awaitsPreHooks = map[protoreflect.FullName]bool{
-	"agent.v1.AgentService.ArchiveAgents":         true,
-	"agent.v1.AgentService.RestoreAgents":         true,
-	"agent.v1.AgentService.ResumeAgent":           true,
-	"workflow.v1.WorkflowService.ArchiveWorkflow": true,
-	"workflow.v1.WorkflowService.RestoreWorkflow": true,
+var awaitsHooks = map[string]bool{
+	agentv1connect.AgentServiceCreateAgentProcedure:           true,
+	agentv1connect.AgentServiceRequestReviewProcedure:         true,
+	agentv1connect.AgentServiceAdoptProcedure:                 true,
+	agentv1connect.AgentServiceStartOrchestratorProcedure:     true,
+	agentv1connect.AgentServiceRetryAgentProcedure:            true,
+	agentv1connect.AgentServiceRestartAgentProcedure:          true,
+	agentv1connect.AgentServiceResumeAgentProcedure:           true,
+	agentv1connect.AgentServiceArchiveAgentsProcedure:         true,
+	agentv1connect.AgentServiceRestoreAgentsProcedure:         true,
+	taskv1connect.TaskServiceArchiveTaskProcedure:             true,
+	taskv1connect.TaskServiceDeleteTasksProcedure:             true,
+	workflowv1connect.WorkflowServiceArchiveWorkflowProcedure: true,
+	workflowv1connect.WorkflowServiceRestoreWorkflowProcedure: true,
+	workflowv1connect.WorkflowServiceDeleteWorkflowProcedure:  true,
 }
 
 type Method struct {
@@ -68,10 +77,10 @@ type Method struct {
 	Surfaces *annotationv1.Surfaces
 }
 
-// GetCallTimeout returns how long a caller waits on the method.
+// GetCallTimeout returns how long a caller waits on the method, or 0 for one the server alone bounds.
 func (m Method) GetCallTimeout(fallback time.Duration) time.Duration {
-	if awaitsPreHooks[m.Method.FullName()] {
-		return HookCallTimeout
+	if awaitsHooks[m.GetPath()] {
+		return 0
 	}
 
 	return fallback

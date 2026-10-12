@@ -69,7 +69,7 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 
 	cmd.Flags().StringVar(&requestJSON, "request-json", "", "the whole request as JSON, which the flags above are laid over")
 	cmd.Flags().BoolVar(&compact, "compact", false, "print the response on one line")
-	cmd.Flags().DurationVar(&timeout, "timeout", exposed.GetCallTimeout(rpcTimeout), "how long to wait for the call")
+	cmd.Flags().DurationVar(&timeout, "timeout", exposed.GetCallTimeout(rpcTimeout), "how long to wait for the call, or 0 to wait as long as the server takes")
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		request, err := fields.request(cmd.Flags(), requestJSON)
@@ -77,8 +77,12 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 			return err
 		}
 
-		ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
-		defer cancel()
+		ctx := cmd.Context()
+		if timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
 
 		base, release, err := state.dialAPI(ctx)
 		if err != nil {
@@ -144,7 +148,7 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 
 	params.From.SetHeader(req.Header)
 
-	resp, err := xhttp.NewClient(0).Do(req)
+	resp, err := xhttp.NewClientOver(rpcapi.NewTransport(), 0).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reach the server at %s: %w", params.Base, err)
 	}

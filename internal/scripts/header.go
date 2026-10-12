@@ -45,6 +45,16 @@ func (h Header) TimeoutOr(fallback time.Duration) time.Duration {
 	}
 }
 
+// TimeoutWithin is the header's declared timeout where it is shorter than limit, and limit
+// otherwise.
+func (h Header) TimeoutWithin(limit time.Duration) time.Duration {
+	if h.Timeout > 0 && h.Timeout < limit {
+		return h.Timeout
+	}
+
+	return limit
+}
+
 func readHeader(path string) Header {
 	file, err := os.Open(path)
 	if err != nil {

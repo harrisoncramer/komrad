@@ -107,6 +107,16 @@ func (s *ScriptService) findShippedHook(name string) (scripts.Script, bool, erro
 	return shipped, true, nil
 }
 
+// HookTimeout is how long a hook may run, from the config.
+func (s *ScriptService) HookTimeout() (time.Duration, error) {
+	cfg, err := s.load()
+	if err != nil {
+		return 0, fmt.Errorf("failed to read the config: %w", err)
+	}
+
+	return cfg.Hooks.GetTimeout()
+}
+
 func (s *ScriptService) hooksDir() (string, error) {
 	cfg, err := s.load()
 	if err != nil {

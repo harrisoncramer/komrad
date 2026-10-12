@@ -80,6 +80,11 @@ func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker 
 	}
 }
 
+// Timeout leaves starting the agent to the limits its provisioner and hooks carry.
+func (w *LaunchAgentWorker) Timeout(*river.Job[LaunchAgentArgs]) time.Duration {
+	return noJobTimeout
+}
+
 // Work fires the schedule, starting its task or mailing its orchestrator, cancelling the
 // job with its reason for every firing that deliberately does nothing so River's record says why.
 func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgentArgs]) error {

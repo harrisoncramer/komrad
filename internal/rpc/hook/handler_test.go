@@ -19,8 +19,9 @@ import (
 )
 
 type fakeHookLister struct {
-	hooks []agents.Script
-	err   error
+	hooks      []agents.Script
+	err        error
+	timeoutErr error
 }
 
 // ListHooks answers hooks unless err refuses the listing.
@@ -30,6 +31,15 @@ func (f fakeHookLister) ListHooks() ([]agents.Script, error) {
 	}
 
 	return f.hooks, nil
+}
+
+// HookTimeout answers a minute unless timeoutErr refuses it.
+func (f fakeHookLister) HookTimeout() (time.Duration, error) {
+	if f.timeoutErr != nil {
+		return 0, f.timeoutErr
+	}
+
+	return time.Minute, nil
 }
 
 // TestListHooks pins the code a failed listing reaches the caller as and how a listing renders.
@@ -43,6 +53,11 @@ func TestListHooks(t *testing.T) {
 		{
 			name:     "a directory that cannot be read",
 			lister:   fakeHookLister{err: errors.New("permission denied")},
+			wantCode: connect.CodeInternal,
+		},
+		{
+			name:     "a config that cannot be read",
+			lister:   fakeHookLister{timeoutErr: errors.New("unreadable hook timeout")},
 			wantCode: connect.CodeInternal,
 		},
 		{
@@ -72,7 +87,33 @@ func TestListHooks(t *testing.T) {
 					HeaderProblems: []string{"line 4: nope is not a directive komrad knows"},
 				},
 				{
-					Name: "unrunnable",
+					Name:    "unrunnable",
+					Timeout: durationpb.New(time.Minute),
+				},
+			}},
+		},
+		{
+			name: "a hook asking for longer than the setting, or no limit",
+			lister: fakeHookLister{hooks: []agents.Script{
+				{
+					Name:   "slow",
+					Path:   "/hooks/slow",
+					Header: agents.ScriptHeader{Timeout: 10 * time.Minute},
+				},
+				{
+					Name:   "endless",
+					Path:   "/hooks/endless",
+					Header: agents.ScriptHeader{Timeout: -1},
+				},
+			}},
+			want: &hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{
+				{
+					Name:    "slow",
+					Timeout: durationpb.New(time.Minute),
+				},
+				{
+					Name:    "endless",
+					Timeout: durationpb.New(time.Minute),
 				},
 			}},
 		},

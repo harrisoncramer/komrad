@@ -24,9 +24,6 @@ const provisionTimeout = 10 * time.Minute
 
 const deprovisionTimeout = 2 * time.Minute
 
-// HookTimeout is how long a hook is given when its header declares no timeout.
-const HookTimeout = 10 * time.Minute
-
 const maxProvisionedDir = 4096
 
 const setupDirFileVar = "KOMRAD_SETUP_DIR_FILE"
@@ -77,6 +74,11 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		return s.refuseHook(ctx, record, name, err)
 	}
 
+	limit, err := s.HookTimeout()
+	if err != nil {
+		return s.refuseHook(ctx, record, name, err)
+	}
+
 	dir := agent.Cwd
 	if err := scripts.RequireUsableDir(dir); err != nil {
 		if !gone && !isOutsideWorktree(agent, event) {
@@ -94,7 +96,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		Script:  script,
 		Dir:     dir,
 		Env:     env,
-		Timeout: script.Header.TimeoutOr(HookTimeout),
+		Timeout: script.Header.TimeoutWithin(limit),
 	})
 	writeRunLog(ctx, record.logPath, combinedOutput(result.Stdout, result.Stderr))
 

@@ -7309,7 +7309,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How long komrad waits for the script, from its header. Unset means the default."
+          "description": "How long komrad lets the script run. Its header can shorten the hooks.timeout setting but never lengthen it."
         },
         {
           "name": "header_problems",

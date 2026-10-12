@@ -37,7 +37,7 @@ type rpcTools struct {
 func registerRPCTools(server *mcpsdk.Server, baseURL string, role annotationv1.Role) error {
 	tools := &rpcTools{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
-		client:  xhttp.NewClientOver(caller.Transport(xhttp.NewTransport()), 0),
+		client:  xhttp.NewClientOver(caller.Transport(rpcapi.NewTransport()), 0),
 	}
 
 	for exposed := range rpcapi.GetMethods() {
@@ -160,8 +160,11 @@ func (r *rpcTools) handler(path string, timeout time.Duration) func(context.Cont
 	url := r.baseURL + path
 
 	return func(ctx context.Context, _ *mcpsdk.CallToolRequest, args map[string]any) (*mcpsdk.CallToolResult, any, error) {
-		ctx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
+		if timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
 
 		if args == nil {
 			args = map[string]any{}

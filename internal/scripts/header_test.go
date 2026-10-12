@@ -179,3 +179,40 @@ func TestIntegrationHeaderTimeoutOr(t *testing.T) {
 		})
 	}
 }
+
+// TestIntegrationHeaderTimeoutWithin pins the timeout a hook runs under, which its header can
+// shorten but never lengthen.
+func TestIntegrationHeaderTimeoutWithin(t *testing.T) {
+	tests := []struct {
+		name   string
+		header Header
+		want   time.Duration
+	}{
+		{
+			name:   "a header that declares nothing runs to the limit",
+			header: Header{},
+			want:   time.Minute,
+		},
+		{
+			name:   "a header that declares no limit runs to the limit",
+			header: Header{Timeout: unlimitedTimeout},
+			want:   time.Minute,
+		},
+		{
+			name:   "a header that declares less is held to it",
+			header: Header{Timeout: 30 * time.Second},
+			want:   30 * time.Second,
+		},
+		{
+			name:   "a header that declares more runs to the limit",
+			header: Header{Timeout: 10 * time.Minute},
+			want:   time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.header.TimeoutWithin(time.Minute))
+		})
+	}
+}

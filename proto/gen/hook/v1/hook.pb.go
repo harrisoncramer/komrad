@@ -32,7 +32,7 @@ type Hook struct {
 	Executable bool `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
 	// The description in the script's header comments.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// How long komrad waits for the script, from its header. Unset means the default.
+	// How long komrad lets the script run. Its header can shorten the hooks.timeout setting but never lengthen it.
 	Timeout *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
 	// The header lines komrad could not read. Each one leaves its setting at the default.
 	HeaderProblems []string `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`

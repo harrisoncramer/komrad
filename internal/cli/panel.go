@@ -14,6 +14,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/harness/pane"
 	"komrad/internal/logging"
+	"komrad/internal/rpcapi"
 	"komrad/internal/ui"
 	"komrad/internal/version"
 	"komrad/lib/xhttp"
@@ -127,7 +128,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				startupFindings = state.diagnose(cmd.Context())
 			}
 
-			httpClient := xhttp.NewClient(0)
+			httpClient := xhttp.NewClientOver(rpcapi.NewTransport(), 0)
 			agentClient := agentv1connect.NewAgentServiceClient(httpClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(httpClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)

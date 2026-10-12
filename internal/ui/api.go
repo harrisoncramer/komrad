@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"komrad/internal/client"
-	"komrad/internal/rpcapi"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -39,8 +38,6 @@ import (
 )
 
 const requestTimeout = 10 * time.Second
-
-const createAgentTimeout = 11 * time.Minute
 
 type api struct {
 	agents       agentv1connect.AgentServiceClient
@@ -94,8 +91,12 @@ func mutate(fn func(context.Context) (any, error)) error {
 	return err
 }
 
+func awaitHooks[T any](fn func(context.Context) (T, error)) (T, error) {
+	return fn(context.Background()) //nolint:fussy // the server stops each hook at hooks.timeout and the transport drops a dead connection
+}
+
 func mutateAwaitingHooks(fn func(context.Context) (any, error)) error {
-	_, err := call(rpcapi.HookCallTimeout, fn)
+	_, err := awaitHooks(fn)
 
 	return err
 }
@@ -135,7 +136,7 @@ type createAgentParams struct {
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
-	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+	return awaitHooks(func(ctx context.Context) (*agentv1.Agent, error) {
 		resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 			Prompt:           params.Prompt,
 			Title:            params.Title,
@@ -163,7 +164,7 @@ type adoptParams struct {
 }
 
 func (a api) adopt(params adoptParams) (*agentv1.AdoptResponse, error) {
-	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.AdoptResponse, error) {
+	return awaitHooks(func(ctx context.Context) (*agentv1.AdoptResponse, error) {
 		resp, err := a.agents.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 			Ref:        params.Ref,
 			Prompt:     params.Prompt,
@@ -284,7 +285,7 @@ func (a api) markTaskRunsRead(taskID string) error {
 
 // startOrchestrator brings a workflow's orchestrator back, starting the one it has never had.
 func (a api) startOrchestrator(workflowID string) (*agentv1.Agent, error) {
-	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+	return awaitHooks(func(ctx context.Context) (*agentv1.Agent, error) {
 		resp, err := a.agents.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{
 			WorkflowId: workflowID,
 		}))
@@ -325,7 +326,7 @@ type retryAgentParams struct {
 }
 
 func (a api) retryAgent(params retryAgentParams) (*agentv1.Agent, error) {
-	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+	return awaitHooks(func(ctx context.Context) (*agentv1.Agent, error) {
 		resp, err := a.agents.RetryAgent(ctx, connect.NewRequest(&agentv1.RetryAgentRequest{
 			Id:      params.ID,
 			Flags:   params.Flags,
@@ -348,7 +349,7 @@ type restartAgentParams struct {
 }
 
 func (a api) restartAgent(params restartAgentParams) (*agentv1.Agent, error) {
-	return call(rpcapi.HookCallTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+	return awaitHooks(func(ctx context.Context) (*agentv1.Agent, error) {
 		resp, err := a.agents.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{
 			Id:      params.ID,
 			Note:    params.Note,
@@ -364,7 +365,7 @@ func (a api) restartAgent(params restartAgentParams) (*agentv1.Agent, error) {
 }
 
 func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
-	return call(rpcapi.HookCallTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+	return awaitHooks(func(ctx context.Context) (*agentv1.Agent, error) {
 		resp, err := a.agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: id}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to resume agent %q: %w", id, err)
@@ -602,7 +603,7 @@ func (a api) restoreWorkflow(id string) error {
 }
 
 func (a api) deleteWorkflow(id string) error {
-	return mutate(func(ctx context.Context) (any, error) {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		return a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
 	})
 }
