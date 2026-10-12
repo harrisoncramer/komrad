@@ -19,6 +19,7 @@ const (
 	sectionList sidebarSection = iota
 	sectionRecord
 	sectionTabs
+	sectionKinds
 	sectionViews
 )
 
@@ -33,8 +34,10 @@ func (m *model) keyholder() sidebarSection {
 
 func (m *model) keyholderBehindViews() sidebarSection {
 	switch {
-	case m.isTabsFocused(), m.isKindsFocused():
+	case m.isTabsFocused():
 		return sectionTabs
+	case m.isKindsFocused():
+		return sectionKinds
 	case m.isDetailsFocused():
 		return sectionRecord
 	}

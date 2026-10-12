@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/ui/paint"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -117,10 +119,46 @@ func TestClickView(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{})
 			harness.press(tt.press...)
 
-			harness.send(clickOnView(t, harness, tt.view))
+			harness.send(clickOnStrip(t, harness, "agents  schedules", tt.view))
 
 			assert.Equal(t, tt.wantScreen, harness.readScreen())
 			assert.NotContains(t, harness.readFrame(), "tab/S-tab switch")
+		})
+	}
+}
+
+// TestClickKind covers a left click on the row of kinds switching the list to the kind under it.
+func TestClickKind(t *testing.T) {
+	lit := paint.Panel.Style(paint.TonePrimary)
+	tests := []struct {
+		name  string
+		press []string
+		kind  string
+	}{
+		{
+			name: "a click on a kind switches the list to it",
+			kind: "archived",
+		},
+		{
+			name:  "a click on a kind hands the keys back from the row of kinds",
+			press: []string{"F"},
+			kind:  "archived",
+		},
+		{
+			name: "a click on the kind listed keeps it",
+			kind: "live",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openCrowded(t, panelHarnessParams{})
+			harness.press(tt.press...)
+
+			harness.send(clickOnStrip(t, harness, "live  archived", tt.kind))
+
+			assert.Contains(t, harness.readRawFrame(), lit.Render(tt.kind))
+			assert.NotContains(t, harness.readFrame(), "back to the list")
 		})
 	}
 }
@@ -140,22 +178,22 @@ func clickOn(t *testing.T, frame, row string) tea.MouseClickMsg {
 	return tea.MouseClickMsg{}
 }
 
-func clickOnView(t *testing.T, harness *panelHarness, view string) tea.MouseClickMsg {
+func clickOnStrip(t *testing.T, harness *panelHarness, strip, label string) tea.MouseClickMsg {
 	t.Helper()
 
 	left, _ := harness.panel.Inside()
 	for y, line := range splitLines(harness.readFrame()) {
 		sidebar, _, _ := strings.Cut(line, "│")
-		if !strings.Contains(sidebar, "agents  schedules") {
+		if !strings.Contains(sidebar, strip) {
 			continue
 		}
 
-		if at := strings.Index(sidebar, view); at >= 0 {
+		if at := strings.Index(sidebar, label); at >= 0 {
 			return tea.MouseClickMsg{X: left + ansi.StringWidth(sidebar[:at]), Y: y, Button: tea.MouseLeft}
 		}
 	}
 
-	require.Failf(t, "no view on the switcher", "%q", view)
+	require.Failf(t, "no label on the strip", "%q", label)
 
 	return tea.MouseClickMsg{}
 }

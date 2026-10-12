@@ -32,6 +32,7 @@ func (m *model) isKindsFocused() bool {
 func (m *model) kindsLine() string {
 	k, _ := m.activeKinds()
 	row := k.kinds(m)
+	row.mark = m.spanMarker(sectionKinds, row.labels)
 	if *k.kindsFocused(m) {
 		row.focus, row.lit = row.lit, noStop
 	}
@@ -59,6 +60,29 @@ func (m *model) focusKinds() {
 	m.blurTabs()
 	*k.kindsFocused(m) = true
 	m.details.focused = false
+}
+
+func (m *model) clickKind(label string) tea.Cmd {
+	k, ok := m.activeKinds()
+	if !ok || !k.kindsSwitch(m) {
+		return nil
+	}
+
+	row := k.kinds(m)
+	at := slices.Index(row.labels, label)
+	if at == noStop {
+		return nil
+	}
+
+	if m.isViewsOpen() {
+		m.closeViews()
+	}
+	cmd := m.enterStop(stopList)
+	if at == row.lit {
+		return cmd
+	}
+
+	return tea.Batch(cmd, k.stepKind(m, at-row.lit))
 }
 
 func (m *model) updateKinds(press tea.KeyPressMsg) tea.Cmd {

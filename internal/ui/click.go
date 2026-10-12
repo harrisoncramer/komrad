@@ -12,33 +12,27 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 		return nil
 	}
 
-	if hit.section == sectionViews {
+	switch hit.section {
+	case sectionViews:
 		return m.clickView(hit.key)
+	case sectionKinds:
+		return m.clickKind(hit.key)
+	case sectionRecord:
+		return m.clickList(stopRecord, m.detailsList(), hit)
+	case sectionList:
+		if lister, ok := m.active().(activeLister); ok {
+			return m.clickList(stopList, lister.activeList(), hit)
+		}
+	case sectionTabs:
 	}
 
-	to, list, ok := m.clickedList(hit.section)
-	if !ok {
-		return nil
-	}
+	return nil
+}
 
+func (m *model) clickList(to stop, list keyedList, hit rowHit) tea.Cmd {
 	if m.isViewsOpen() {
 		m.closeViews()
 	}
 
 	return tea.Batch(m.enterStop(to), list.click(m, hit.key, hit.nth))
-}
-
-func (m *model) clickedList(section sidebarSection) (stop, keyedList, bool) {
-	switch section {
-	case sectionRecord:
-		return stopRecord, m.detailsList(), true
-	case sectionList:
-		if lister, ok := m.active().(activeLister); ok {
-			return stopList, lister.activeList(), true
-		}
-	case sectionTabs, sectionViews:
-		return 0, nil, false
-	}
-
-	return 0, nil, false
 }
