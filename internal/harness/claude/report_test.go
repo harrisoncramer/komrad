@@ -25,36 +25,36 @@ func TestReadReport(t *testing.T) {
 			name:    "a turn ending",
 			event:   EventStop,
 			payload: `{"stop_hook_active":false}`,
-			want:    harness.Report{TurnEnded: true},
+			want:    harness.Report{Event: harness.ReportTurnEnded},
 		},
 		{
 			name:    "a turn komrad's own last answer caused",
 			event:   EventStop,
 			payload: `{"stop_hook_active":true}`,
-			want:    harness.Report{TurnEnded: true},
+			want:    harness.Report{Event: harness.ReportTurnEnded},
 		},
 		{
 			name:  "a turn ending whose payload never arrived",
 			event: EventStop,
-			want:  harness.Report{TurnEnded: true},
+			want:  harness.Report{Event: harness.ReportTurnEnded},
 		},
 		{
 			name:    "a turn an API error ended",
 			event:   EventStopFailure,
 			payload: `{"error":"server_error","last_assistant_message":"API Error: Can't reach the API server"}`,
-			want:    harness.Report{TurnEnded: true, TurnError: "Can't reach the API server"},
+			want:    harness.Report{Event: harness.ReportTurnFailed, TurnError: "Can't reach the API server"},
 		},
 		{
 			name:    "a turn an API error ended without a message",
 			event:   EventStopFailure,
 			payload: `{"error":"rate_limit"}`,
-			want:    harness.Report{TurnEnded: true, TurnError: "rate_limit"},
+			want:    harness.Report{Event: harness.ReportTurnFailed, TurnError: "rate_limit"},
 		},
 		{
 			name:    "a turn an API error ended without saying which",
 			event:   EventStopFailure,
 			payload: `{}`,
-			want:    harness.Report{TurnEnded: true, TurnError: "unknown"},
+			want:    harness.Report{Event: harness.ReportTurnFailed, TurnError: "unknown"},
 		},
 		{
 			name:    "a failed turn komrad could not read",
@@ -66,25 +66,31 @@ func TestReadReport(t *testing.T) {
 			name:    "a tool call starting",
 			event:   EventPreToolUse,
 			payload: `{"tool_name":"Bash","tool_input":{"command":"echo hi"}}`,
-			want:    harness.Report{Reason: "Bash"},
+			want:    harness.Report{Event: harness.ReportToolStarted, Tool: "Bash"},
 		},
 		{
 			name:    "a tool call returning",
 			event:   EventPostToolUse,
 			payload: `{"tool_name":"Bash","tool_response":{"stdout":"hi"}}`,
-			want:    harness.Report{},
+			want:    harness.Report{Event: harness.ReportToolFinished, Tool: "Bash"},
 		},
 		{
 			name:    "a tool call failing",
 			event:   EventPostToolUseFailure,
 			payload: `{"tool_name":"Bash","error":"exit status 1"}`,
-			want:    harness.Report{},
+			want:    harness.Report{Event: harness.ReportToolFinished, Tool: "Bash"},
 		},
 		{
 			name:    "a tool call waiting on a person to allow it",
 			event:   EventPermissionRequest,
 			payload: `{"tool_name":"Bash","tool_input":{"command":"echo hi"}}`,
-			want:    harness.Report{Reason: "Bash"},
+			want:    harness.Report{Event: harness.ReportApprovalWanted, Tool: "Bash"},
+		},
+		{
+			name:    "a conversation that has just compacted",
+			event:   EventSessionStart,
+			payload: `{"source":"compact"}`,
+			want:    harness.Report{Event: harness.ReportCompacted},
 		},
 		{
 			name:    "a tool call komrad could not read",
@@ -128,34 +134,34 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 		{
 			file:  "stop_hook_payload.json",
 			event: EventStop,
-			want:  harness.Report{TurnEnded: true},
+			want:  harness.Report{Event: harness.ReportTurnEnded},
 		},
 		{
 			file:  "pre_tool_use_hook_payload.json",
 			event: EventPreToolUse,
-			want:  harness.Report{Reason: "Bash"},
+			want:  harness.Report{Event: harness.ReportToolStarted, Tool: "Bash"},
 		},
 		{
 			file:  "permission_request_hook_payload.json",
 			event: EventPermissionRequest,
-			want:  harness.Report{Reason: "Bash"},
+			want:  harness.Report{Event: harness.ReportApprovalWanted, Tool: "Bash"},
 		},
 		// Claude 2.1.278 fires PermissionRequest for a question under bypassed permissions too, naming the tool.
 		{
 			file:  "permission_request_hook_payload_for_a_question.json",
 			event: EventPermissionRequest,
-			want:  harness.Report{Reason: "AskUserQuestion"},
+			want:  harness.Report{Event: harness.ReportApprovalWanted, Tool: "AskUserQuestion"},
 		},
 		// Claude 2.1.278 fires PermissionRequest for the plan picker too, naming ExitPlanMode.
 		{
 			file:  "permission_request_hook_payload_for_a_plan.json",
 			event: EventPermissionRequest,
-			want:  harness.Report{Reason: "ExitPlanMode"},
+			want:  harness.Report{Event: harness.ReportApprovalWanted, Tool: "ExitPlanMode"},
 		},
 		{
 			file:  "post_tool_use_hook_payload.json",
 			event: EventPostToolUse,
-			want:  harness.Report{},
+			want:  harness.Report{Event: harness.ReportToolFinished, Tool: "Bash"},
 		},
 	}
 
@@ -176,14 +182,7 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 func TestEveryInstalledHookIsRead(t *testing.T) {
 	hn := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()})
 
-	for event, install := range InstalledHooks {
-		if install.TakesNoReading {
-			_, err := hn.ReadReport(event, []byte(`{}`))
-			require.Error(t, err, "the %s hook records nothing, so no reading may clear the row's reason", event)
-
-			continue
-		}
-
+	for event := range InstalledHooks {
 		_, err := hn.ReadReport(event, []byte(`{}`))
 		assert.NoError(t, err, "the %s hook is installed, so a reading is taken from it", event)
 	}

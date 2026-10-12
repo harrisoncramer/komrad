@@ -52,6 +52,24 @@ enum AgentRole {
   AGENT_ROLE_WRITER = 3;
 }
 
+// What an agent's hook reported, whichever CLI fired it.
+enum ReportEvent {
+  // No event was reported. RecordReport refuses it.
+  REPORT_EVENT_UNSPECIFIED = 0;
+  // A turn ended on its own.
+  REPORT_EVENT_TURN_ENDED = 1;
+  // An API error ended a turn.
+  REPORT_EVENT_TURN_FAILED = 2;
+  // A tool call is about to run.
+  REPORT_EVENT_TOOL_STARTED = 3;
+  // A tool call returned or failed.
+  REPORT_EVENT_TOOL_FINISHED = 4;
+  // A tool call is waiting for a person to allow it.
+  REPORT_EVENT_APPROVAL_WANTED = 5;
+  // The conversation has just been compacted.
+  REPORT_EVENT_COMPACTED = 6;
+}
+
 message Agent {
   // The handle every other call names this agent by. Mail is addressed to it.
   string id = 1;
@@ -477,15 +495,24 @@ message AbortSequenceResponse {
 }
 
 message RecordReportRequest {
-  // What the CLI says it is doing. It annotates the state the pane decided.
-  string reason = 1 [(buf.validate.field).string = {
+  // What the hook reported.
+  ReportEvent event = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // The hook that fired, as the agent's CLI names its event.
+  string hook = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+    [rules.v1.printable]: true
+  }];
+  // The tool the event is about, empty for an event about none.
+  string tool = 3 [(buf.validate.field).string = {
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // Whether the CLI has finished a turn.
-  bool turn_ended = 2;
   // What the CLI printed when an API error ended the turn, empty when the turn ended without one.
-  string turn_error = 3 [(buf.validate.field).string = {
+  string turn_error = 4 [(buf.validate.field).string = {
     max_len: 200
     [rules.v1.printable]: true
   }];

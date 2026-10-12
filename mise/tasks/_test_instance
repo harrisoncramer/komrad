@@ -60,6 +60,27 @@ require_test_instance() {
 	komradslot check --root "$test_instance_root" || exit 1
 }
 
+# run_clean runs a command under MISE_ENV=test in a fresh terminal's environment plus the slot's, so
+# the instance's server and panes inherit nothing of the shell that ran the task.
+run_clean() {
+	if [ "${MISE_ENV:-}" != test ]; then
+		"$@"
+		return
+	fi
+
+	local kept=() name path
+	for name in HOME USER LOGNAME SHELL TERM COLORTERM LANG LC_ALL LC_CTYPE TMPDIR SSH_AUTH_SOCK EDITOR \
+		XDG_CONFIG_HOME XDG_CACHE_HOME XDG_DATA_HOME XDG_STATE_HOME CLAUDE_CONFIG_DIR CODEX_HOME MISE_ENV $(compgen -e KOMRAD_); do
+		if [ -n "${!name+set}" ]; then
+			kept+=("$name=${!name}")
+		fi
+	done
+
+	path="$(tr ':' '\n' <<<"$PATH" | grep -v '/komrad-agent-tools$' | paste -sd: -)"
+
+	env -i "${kept[@]}" PATH="$path" "$@"
+}
+
 # test_bin_dir holds the throwaway instance's build, apart from bin/komrad, which a live panel may run.
 test_bin_dir() {
 	echo "$test_instance_root/bin/test"

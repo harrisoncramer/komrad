@@ -2,6 +2,7 @@ package agents
 
 import (
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,8 @@ import (
 	"komrad/config"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
+	"komrad/internal/logging"
+	"komrad/internal/logtest"
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/tmuxtest"
@@ -712,6 +715,46 @@ func TestLaunchWithoutAKomradBinaryGivesNoStandIn(t *testing.T) {
 
 	require.Len(t, fakeHarness.Launches, 1)
 	assert.Empty(t, fakeHarness.Launches[0].ToolsDir)
+}
+
+// TestLaunchLogsItsHooks pins the line a launch leaves under its agent, naming the hooks it got.
+func TestLaunchLogsItsHooks(t *testing.T) {
+	tests := []struct {
+		name      string
+		binPath   string
+		wantHooks any
+	}{
+		{
+			name:      "a launch pointing its hooks at komrad",
+			binPath:   "/usr/local/bin/komrad",
+			wantHooks: []any{"PreToolUse", "Stop"},
+		},
+		{
+			name: "a launch with no komrad binary to point them at",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			launcher := NewLauncher(NewLauncherParams{
+				Tmux:     tmuxtest.NewFake(),
+				CacheDir: t.TempDir(),
+				BinPath:  tt.binPath,
+			})
+
+			var written strings.Builder
+			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
+
+			require.NoError(t, launcher.launch(ctx, &harnesstest.Fake{Installed: []string{"PreToolUse", "Stop"}}, launchParams{
+				Pane:    "pane",
+				AgentID: "id-1",
+			}))
+
+			record := logtest.Record(t, written.String())
+			assert.Equal(t, "id-1", record[logging.TargetAgentID])
+			assert.Equal(t, tt.wantHooks, record[logging.HookInstalled])
+		})
+	}
 }
 
 // TestReviewerBriefing pins what a reviewer is told.

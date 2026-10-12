@@ -43,13 +43,13 @@ func TestReadReport(t *testing.T) {
 		{
 			name:  "a bare notify with no payload",
 			event: EventNotify,
-			want:  harness.Report{TurnEnded: true},
+			want:  harness.Report{Event: harness.ReportTurnEnded},
 		},
 		{
 			name:    "a completed turn",
 			event:   EventNotify,
 			payload: `{"type":"agent-turn-complete","turn-id":"t1"}`,
-			want:    harness.Report{TurnEnded: true},
+			want:    harness.Report{Event: harness.ReportTurnEnded},
 		},
 	}
 

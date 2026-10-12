@@ -317,10 +317,10 @@ func reportHookEvent(cmd *cobra.Command, state *app, params reportHookEventParam
 		return
 	}
 
-	recordReport(cmd.Context(), state, report)
+	recordReport(cmd.Context(), state, params.event, report)
 }
 
-func recordReport(ctx context.Context, state *app, report harness.Report) {
+func recordReport(ctx context.Context, state *app, hook harness.Event, report harness.Report) {
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()
 
@@ -329,16 +329,25 @@ func recordReport(ctx context.Context, state *app, report harness.Report) {
 		Path: agentv1connect.AgentServiceRecordReportProcedure,
 		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 		Request: map[string]any{
-			"reason":    clampPrintable(report.Reason, reasonLimit),
-			"turnEnded": report.TurnEnded,
-			"turnError": clampPrintable(report.TurnError, reasonLimit),
+			"event":     reportEvents[report.Event].String(),
+			"hook":      string(hook),
+			"tool":      clampPrintable(report.Tool, reportLimit),
+			"turnError": clampPrintable(report.TurnError, reportLimit),
 		},
 	})
 }
 
-// reasonLimit is the longest reason RecordReportRequest takes, which the hook clamps to rather
-// than have a turn end refused over a label.
-const reasonLimit = 200
+var reportEvents = map[harness.ReportEvent]agentv1.ReportEvent{
+	harness.ReportTurnEnded:      agentv1.ReportEvent_REPORT_EVENT_TURN_ENDED,
+	harness.ReportTurnFailed:     agentv1.ReportEvent_REPORT_EVENT_TURN_FAILED,
+	harness.ReportToolStarted:    agentv1.ReportEvent_REPORT_EVENT_TOOL_STARTED,
+	harness.ReportToolFinished:   agentv1.ReportEvent_REPORT_EVENT_TOOL_FINISHED,
+	harness.ReportApprovalWanted: agentv1.ReportEvent_REPORT_EVENT_APPROVAL_WANTED,
+	harness.ReportCompacted:      agentv1.ReportEvent_REPORT_EVENT_COMPACTED,
+}
+
+// reportLimit is the longest tool or turn error RecordReportRequest takes.
+const reportLimit = 200
 
 const logLimit = 2048
 

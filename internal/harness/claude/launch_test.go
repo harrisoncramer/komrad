@@ -103,6 +103,40 @@ func TestBuildCommandFailsWhenThePromptCannotBeWritten(t *testing.T) {
 	}
 }
 
+// TestBuildCommandFailsWhenItsConfigCannotBeWritten covers a launch that would put Claude up
+// without komrad's hooks and settings, or without komrad's tools.
+func TestBuildCommandFailsWhenItsConfigCannotBeWritten(t *testing.T) {
+	tests := []struct {
+		name     string
+		occupied string
+	}{
+		{
+			name:     "the settings carrying the hooks",
+			occupied: settingsFileName("writer"),
+		},
+		{
+			name:     "the MCP config naming komrad's tools",
+			occupied: mcpConfigFileName("127.0.0.1:8787"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configDir := t.TempDir()
+			require.NoError(t, os.Mkdir(filepath.Join(configDir, tt.occupied), 0o755))
+
+			_, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(harness.Launch{
+				SessionID:   "sess-1",
+				MCPEndpoint: "127.0.0.1:8787",
+				HookCommand: "/usr/local/bin/komrad",
+				Role:        "writer",
+				CacheDir:    t.TempDir(),
+			})
+			require.Error(t, err)
+		})
+	}
+}
+
 // TestBuildCommandQuotesFlags confirms the quoting is actually applied on the path that
 // types into the pane, not just available to it.
 func TestBuildCommandQuotesFlags(t *testing.T) {

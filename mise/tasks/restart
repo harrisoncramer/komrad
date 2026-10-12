@@ -28,13 +28,13 @@ case "${KOMRAD_DATABASE_URL:-komrad_engine_default:komrad@}" in
 *"komrad_engine_$engine:komrad@"*) KOMRAD_ENGINE_PASSWORD=komrad "$komrad" engine ensure "$engine" >/dev/null ;;
 esac
 
-if ! "$komrad" start; then
+if ! run_clean "$komrad" start; then
 	echo "warning: the server did not come up, so open the panel to see why" >&2
 	echo "killed $agents panes; the server is not running"
 	exit 1
 fi
 
-if ! "$komrad" open --detach; then
+if ! run_clean "$komrad" open --detach; then
 	echo "warning: the panel session did not come up" >&2
 	exit 1
 fi

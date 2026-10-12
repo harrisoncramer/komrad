@@ -315,7 +315,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a report from nothing that is an agent",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
+				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{Event: agentv1.ReportEvent_REPORT_EVENT_TURN_ENDED, Hook: "Stop"}))
 
 				return err
 			},
@@ -787,8 +787,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: ids[0]})
 				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{
-					Reason:    "Bash",
-					TurnEnded: true,
+					Event:     agentv1.ReportEvent_REPORT_EVENT_TURN_FAILED,
+					Hook:      "StopFailure",
 					TurnError: "Overloaded",
 				}))
 
@@ -796,10 +796,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, agents.RecordReportParams{
-					AgentID:   ids[0],
-					Reason:    "Bash",
-					TurnEnded: true,
-					TurnError: "Overloaded",
+					AgentID: ids[0],
+					Report:  agents.Report{Event: agents.ReportTurnFailed, TurnError: "Overloaded"},
 				}, services.reported)
 			},
 		},
@@ -821,6 +819,28 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			tt.check(t, services, ids)
 		})
 	}
+}
+
+// TestRecordReportLogsTheHookCall pins the line every hook call leaves under the agent it came from.
+func TestRecordReportLogsTheHookCall(t *testing.T) {
+	svc, services := newRecordedService(t)
+	id := services.rows.seed(agentstore.Agent{Name: "alpha"}).ID
+
+	var written strings.Builder
+	ctx := logging.WithLogger(caller.With(t.Context(), caller.Caller{AgentID: id}), logging.New(&written, slog.LevelInfo))
+
+	_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{
+		Event: agentv1.ReportEvent_REPORT_EVENT_TOOL_STARTED,
+		Hook:  "PreToolUse",
+		Tool:  "Bash",
+	}))
+	require.NoError(t, err)
+
+	record := logtest.Record(t, written.String())
+	assert.Equal(t, id, record[logging.TargetAgentID])
+	assert.Equal(t, "PreToolUse", record[logging.HookName])
+	assert.Equal(t, "tool started", record[logging.HookEvent])
+	assert.Equal(t, "Bash", record[logging.HookTool])
 }
 
 // TestAdoptAnswersWithTheAgentAlreadyOnTheBranch covers the service's existing flag reaching the response.

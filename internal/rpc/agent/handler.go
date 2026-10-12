@@ -353,24 +353,40 @@ func (s *Handler) Log(ctx context.Context, req *agentv1.LogRequest) (*emptypb.Em
 	return &emptypb.Empty{}, nil
 }
 
-// RecordReport takes what the calling agent's own CLI read out of one of its hook payloads.
+// RecordReport takes what the calling agent's own CLI read out of one of its hook payloads, and
+// writes the hook call to the agent's log.
 func (s *Handler) RecordReport(ctx context.Context, req *agentv1.RecordReportRequest) (*emptypb.Empty, *fail.Error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
 		return nil, errCallerHasNoAgent
 	}
 
-	err := s.writer.RecordReport(ctx, agents.RecordReportParams{
-		AgentID:   id,
-		Reason:    req.GetReason(),
-		TurnEnded: req.GetTurnEnded(),
+	report := agents.Report{
+		Event:     reportEvents[req.GetEvent()],
+		Tool:      req.GetTool(),
 		TurnError: req.GetTurnError(),
-	})
-	if err != nil {
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "an agent's hook reported",
+		slog.String(logging.TargetAgentID, id),
+		slog.String(logging.HookName, req.GetHook()),
+		slog.String(logging.HookEvent, report.Event.String()),
+		slog.String(logging.HookTool, report.Tool))
+
+	if err := s.writer.RecordReport(ctx, agents.RecordReportParams{AgentID: id, Report: report}); err != nil {
 		return nil, rpcerr.From(err, "failed to record what the agent reported")
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+var reportEvents = map[agentv1.ReportEvent]agents.ReportEvent{
+	agentv1.ReportEvent_REPORT_EVENT_TURN_ENDED:      agents.ReportTurnEnded,
+	agentv1.ReportEvent_REPORT_EVENT_TURN_FAILED:     agents.ReportTurnFailed,
+	agentv1.ReportEvent_REPORT_EVENT_TOOL_STARTED:    agents.ReportToolStarted,
+	agentv1.ReportEvent_REPORT_EVENT_TOOL_FINISHED:   agents.ReportToolFinished,
+	agentv1.ReportEvent_REPORT_EVENT_APPROVAL_WANTED: agents.ReportApprovalWanted,
+	agentv1.ReportEvent_REPORT_EVENT_COMPACTED:       agents.ReportCompacted,
 }
 
 // scopedAgentID is the agent a request is about, being the one it names or the calling agent
