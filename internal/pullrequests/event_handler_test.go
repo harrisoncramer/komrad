@@ -278,14 +278,15 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		before     *forge.MergeReadiness
+		before     forge.MergeReadiness
 		after      forge.MergeReadiness
 		afterHead  string
 		wantLines  []string
 		wantEvents []string
 	}{
 		{
-			name: "an approval",
+			name:   "an approval",
+			before: failingOnA,
 			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionApproved,
 				Listing:  listedStatusChecks(forge.ChecksFailing),
@@ -294,7 +295,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			wantLines: []string{"  review: approved\n", "  checks: failing on aaa\n"},
 		},
 		{
-			name: "the checks failing again on a new head",
+			name:   "the checks failing again on a new head",
+			before: failingOnA,
 			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionPending,
 				Listing:  listedStatusChecks(forge.ChecksFailing),
@@ -303,7 +305,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			wantLines: []string{"  checks: failing on bbb\n"},
 		},
 		{
-			name: "an approval on a new head with no checks yet leaves the checks unknown",
+			name:   "an approval on a new head with no checks yet leaves the checks unknown",
+			before: failingOnA,
 			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionApproved,
 				Listing:  listedStatusChecks(forge.ChecksNone),
@@ -313,11 +316,13 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		},
 		{
 			name:      "the same failure on the same head is not news",
+			before:    failingOnA,
 			after:     failingOnA,
 			afterHead: "aaa",
 		},
 		{
-			name: "another check failing on the same head",
+			name:   "another check failing on the same head",
+			before: failingOnA,
 			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionPending,
 				Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
@@ -333,7 +338,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			wantEvents: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
-			name: "a rerun of the failed check failing again",
+			name:   "a rerun of the failed check failing again",
+			before: failingOnA,
 			after: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionPending,
 				Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
@@ -346,7 +352,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		},
 		{
 			name: "the run finishing with no new failure after the early word was read",
-			before: &forge.MergeReadiness{
+			before: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionPending,
 				Listing:  listedStatusChecks(forge.ChecksFailingRunning),
 			},
@@ -362,7 +368,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			wantEvents: []string{eventprompts.PullRequestChecksFailing},
 		},
 		{
-			name: "the checks passing on a new head the forge blocks is not news",
+			name:   "the checks passing on a new head the forge blocks is not news",
+			before: failingOnA,
 			after: forge.MergeReadiness{
 				Decision:     forge.ReviewDecisionPending,
 				Listing:      listedStatusChecks(forge.ChecksPassing),
@@ -383,11 +390,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			}))
 			f.sync(t)
 
-			before := failingOnA
-			if tt.before != nil {
-				before = *tt.before
-			}
-			f.setMergeReadiness(t, before, "aaa", syncNow.Add(time.Minute))
+			f.setMergeReadiness(t, tt.before, "aaa", syncNow.Add(time.Minute))
 			claimed, err := f.stores.Mail.Claim(t.Context(), agentID, 10)
 			require.NoError(t, err)
 			require.Len(t, claimed, 1)
