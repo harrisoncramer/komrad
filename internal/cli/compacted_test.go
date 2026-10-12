@@ -12,6 +12,7 @@ import (
 	"komrad/config"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
+	"komrad/internal/harness/codex"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -164,7 +165,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 					Addr:    strings.TrimPrefix(server.URL, "http://"),
 					AgentID: tt.row.GetAgent().GetId(),
 				},
-				harnesses: claudeHarnesses(t),
+				harnesses: hookHarnesses(t),
 			}
 
 			var out bytes.Buffer
@@ -175,7 +176,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			require.NoError(t, cmd.Execute())
 
 			assert.Equal(t, tt.wantThreadsTask, threadsTask, "threads are read for the diff the agent works on")
-			assert.Equal(t, "REPORT_EVENT_COMPACTED", reportedEvent, "the compaction is recorded before the record is read")
+			assert.Equal(t, "REPORT_EVENT_COMPACTED", reportedEvent, "the compaction is recorded")
 			assert.Equal(t, "SessionStart", reportedHook)
 
 			var printed hookOutput
@@ -213,7 +214,7 @@ func TestCompactedHookPrintsNothingWithoutARecord(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &app{
 				env:       &config.Environment{Addr: tt.addr, AgentID: tt.agentID},
-				harnesses: claudeHarnesses(t),
+				harnesses: hookHarnesses(t),
 			}
 
 			var out bytes.Buffer
@@ -229,10 +230,14 @@ func TestCompactedHookPrintsNothingWithoutARecord(t *testing.T) {
 	}
 }
 
-func claudeHarnesses(t *testing.T) *harness.Registry {
+// hookHarnesses is the registry a hook subcommand reads its own payload through.
+func hookHarnesses(t *testing.T) *harness.Registry {
 	t.Helper()
 
-	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
+	registry, err := harness.NewRegistry(
+		claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}),
+		codex.NewHarness(codex.NewHarnessParams{Home: t.TempDir()}),
+	)
 	require.NoError(t, err)
 
 	return registry

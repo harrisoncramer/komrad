@@ -16,9 +16,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/caller"
-	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
-	"komrad/internal/harness/codex"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -373,19 +371,6 @@ type fakeMailParams struct {
 	asked   *caller.Caller
 	logged  *[]string
 	reports *[]recordedReport
-}
-
-// hookHarnesses is the registry a hook subcommand reads its own payload through.
-func hookHarnesses(t *testing.T) *harness.Registry {
-	t.Helper()
-
-	registry, err := harness.NewRegistry(
-		claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}),
-		codex.NewHarness(codex.NewHarnessParams{Home: t.TempDir()}),
-	)
-	require.NoError(t, err)
-
-	return registry
 }
 
 func fakeMailServer(t *testing.T, params fakeMailParams) string {

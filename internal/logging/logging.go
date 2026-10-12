@@ -33,7 +33,7 @@ const (
 	HookName               = "komrad.hook.name"
 	HookEvent              = "komrad.hook.event"
 	HookTool               = "komrad.hook.tool"
-	InstalledHooks         = "komrad.hook.installed"
+	HookInstalled          = "komrad.hook.installed"
 	LifecycleAction        = "komrad.lifecycle.action"
 	AgentState             = "komrad.agent.state"
 	AgentAlive             = "komrad.agent.alive"

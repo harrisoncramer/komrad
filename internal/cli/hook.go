@@ -346,8 +346,7 @@ var reportEvents = map[harness.ReportEvent]agentv1.ReportEvent{
 	harness.ReportCompacted:      agentv1.ReportEvent_REPORT_EVENT_COMPACTED,
 }
 
-// reportLimit is the longest tool or turn error RecordReportRequest takes, which the hook clamps
-// to rather than have a turn end refused over a label.
+// reportLimit is the longest tool or turn error RecordReportRequest takes.
 const reportLimit = 200
 
 const logLimit = 2048

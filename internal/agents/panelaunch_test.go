@@ -752,7 +752,7 @@ func TestLaunchLogsItsHooks(t *testing.T) {
 
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, "id-1", record[logging.TargetAgentID])
-			assert.Equal(t, tt.wantHooks, record[logging.InstalledHooks])
+			assert.Equal(t, tt.wantHooks, record[logging.HookInstalled])
 		})
 	}
 }

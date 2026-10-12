@@ -130,7 +130,7 @@ func TestRecordReport(t *testing.T) {
 			wantReason: "Bash",
 		},
 		{
-			name:       "a tool waiting on a person is drawn the same way",
+			name:       "a tool waiting on a person puts its tool there too",
 			report:     harness.Report{Event: harness.ReportApprovalWanted, Tool: "Edit"},
 			wantReason: "Edit",
 		},

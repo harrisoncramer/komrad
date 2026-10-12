@@ -295,7 +295,7 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "launched an agent with its hooks",
 		slog.String(logging.TargetAgentID, params.AgentID),
-		slog.Any(logging.InstalledHooks, l.installedHooks(h)))
+		slog.Any(logging.HookInstalled, l.installedHooks(h)))
 
 	return nil
 }
