@@ -26,8 +26,8 @@ type RowWriter struct {
 	transcriptSync wake.Waker
 }
 
-// NewRowWriter builds the writer over the store, the record of runs and the
-// wakers of the loops that read what a turn left behind.
+// NewRowWriter builds the writer over the store, the record of runs and the wakers of the loops
+// that read what a turn left behind.
 func NewRowWriter(params NewRowWriterParams) *RowWriter {
 	return &RowWriter{
 		agents:         params.Agents,

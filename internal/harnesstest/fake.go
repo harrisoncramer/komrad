@@ -43,8 +43,6 @@ type Fake struct {
 	Session string
 	// Anonymous leaves ID blank.
 	Anonymous bool
-	// InstalledHooks is what Hooks answers.
-	InstalledHooks []string
 }
 
 // ID is Name, or FakeID when the test gave none.
@@ -101,9 +99,9 @@ func (f *Fake) InterruptKeys() []string {
 	return f.InterruptWith
 }
 
-// Hooks is InstalledHooks.
+// Hooks is none, a fake installing nothing.
 func (f *Fake) Hooks() []string {
-	return f.InstalledHooks
+	return nil
 }
 
 // ReadReport reads nothing.

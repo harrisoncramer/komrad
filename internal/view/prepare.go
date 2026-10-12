@@ -246,9 +246,13 @@ func workingCell(row Row) Cell {
 	return Cell{Text: row.LoaderFrame, Tone: paint.ToneMuted}
 }
 
-// toolCell is the tool an agent at work or waiting on a person last reported running, greyed beside the loader.
+// toolCell is the tool an agent at work or waiting on a person last reported running, greyed.
 func toolCell(row Row) Cell {
-	if row.Process != ProcessAlive || row.Tool == "" || (row.Status != StatusThinking && row.Status != StatusWaiting) {
+	if row.Process != ProcessAlive || row.Tool == "" {
+		return Cell{}
+	}
+
+	if row.Status != StatusThinking && row.Status != StatusWaiting {
 		return Cell{}
 	}
 

@@ -111,8 +111,8 @@ func TestRowWriterWrites(t *testing.T) {
 	}
 }
 
-// TestRecordReport pins that a report reaches the row, and that only a turn
-// end stamps the turn and wakes the loops that read what it left behind.
+// TestRecordReport pins that a report reaches the row, and that only a turn end stamps the turn
+// and wakes the loops that read what it left behind.
 func TestRecordReport(t *testing.T) {
 	tests := []struct {
 		name           string
