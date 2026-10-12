@@ -26,6 +26,8 @@ func (l listing) isReviewable(agent panel.Agent) bool {
 
 type reviewLoadedMsg struct {
 	agentID string
+	// load is the read of the diff this message answers.
+	load    int
 	round   *agentv1.ReviewRound
 	patch   *diff.Patch
 	threads []*agentv1.ReviewThread
@@ -80,6 +82,7 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
 
 	*r = reviewScreen{
 		agentID:   agent.ID,
+		loads:     r.loads,
 		taskID:    agent.TaskID,
 		agentName: agent.Name,
 		dir:       agent.Cwd,
@@ -116,7 +119,7 @@ func (r *reviewScreen) abandon(m *model, err error) tea.Cmd {
 func (r *reviewScreen) drop(m *model) tea.Cmd {
 	letGo := r.endHold(m, abandonedSaid)
 
-	*r = reviewScreen{}
+	*r = reviewScreen{loads: r.loads}
 
 	return tea.Batch(m.enter(screenAgents, screenTarget{}), letGo)
 }
@@ -132,12 +135,15 @@ func describeRefusedReview(name string, err error) string {
 }
 
 // loadWholeCmd reads the whole change of the agent on screen.
-func (r reviewScreen) loadWholeCmd(m *model) tea.Cmd {
+func (r *reviewScreen) loadWholeCmd(m *model) tea.Cmd {
+	r.loads++
+
 	return loadReviewCmd(m, loadReviewCmdParams{
 		AgentID: r.agentID,
 		TaskID:  r.taskID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
+		Load:    r.loads,
 	})
 }
 
@@ -150,6 +156,7 @@ type loadReviewCmdParams struct {
 	Exclude []string
 	Spec    diffSpec
 	Fresh   bool
+	Load    int
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
@@ -161,10 +168,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 	_, live := m.listing.liveAgent(agentID)
 	held := assemble.ReviewThreads(m.listing.world, agentID)
 
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
-
+	read := func(ctx context.Context) reviewLoadedMsg {
 		record, err := readReviewRecord(ctx, readReviewRecordParams{
 			Agents: agents,
 			TaskID: params.TaskID,
@@ -172,12 +176,12 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			Held:   held,
 		})
 		if err != nil {
-			return reviewLoadedMsg{agentID: agentID, err: err}
+			return reviewLoadedMsg{err: err}
 		}
 
 		span, err := resolveReviewRange(record.rounds, params.Spec)
 		if err != nil {
-			return reviewLoadedMsg{agentID: agentID, err: err}
+			return reviewLoadedMsg{err: err}
 		}
 
 		picked, err := pickReviewRound(ctx, pickReviewRoundParams{
@@ -187,7 +191,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			Fresh:  params.Fresh,
 		})
 		if err != nil {
-			return reviewLoadedMsg{agentID: agentID, err: err}
+			return reviewLoadedMsg{err: err}
 		}
 
 		round, rounds := picked.round, picked.rounds
@@ -200,11 +204,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			Range:   span,
 		})
 		if err != nil {
-			return reviewLoadedMsg{
-				agentID: agentID,
-				round:   round,
-				err:     err,
-			}
+			return reviewLoadedMsg{round: round, err: err}
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, params.TaskID)
@@ -227,7 +227,6 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 		})
 
 		return reviewLoadedMsg{
-			agentID:        agentID,
 			round:          round,
 			patch:          loaded.patch,
 			threads:        record.threads,
@@ -254,6 +253,16 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			}),
 			err: err,
 		}
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		msg := read(ctx)
+		msg.agentID, msg.load = agentID, params.Load
+
+		return msg
 	}
 }
 
@@ -481,7 +490,7 @@ func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewPa
 }
 
 func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
-	if msg.agentID != r.agentID {
+	if msg.agentID != r.agentID || msg.load != r.loads {
 		return nil
 	}
 
@@ -701,6 +710,7 @@ func (r *reviewScreen) load(m *model, fresh bool) tea.Cmd {
 	}
 
 	r.diff.followedMove = r.findMovedRound(m)
+	r.loads++
 
 	return loadReviewCmd(m, loadReviewCmdParams{
 		AgentID: r.agentID,
@@ -709,6 +719,7 @@ func (r *reviewScreen) load(m *model, fresh bool) tea.Cmd {
 		Exclude: r.exclude,
 		Spec:    r.diff.spec,
 		Fresh:   fresh,
+		Load:    r.loads,
 	})
 }
 
