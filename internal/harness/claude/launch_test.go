@@ -112,7 +112,7 @@ func TestBuildCommandFailsWhenItsConfigCannotBeWritten(t *testing.T) {
 	}{
 		{
 			name:     "the settings carrying the hooks",
-			occupied: settingsFileName("writer"),
+			occupied: settingsFileName("127.0.0.1:8787", "writer"),
 		},
 		{
 			name:     "the MCP config naming komrad's tools",
@@ -343,6 +343,35 @@ func TestBuildCommandKeepsEachInstancesMCPConfig(t *testing.T) {
 		"komrad-mcp-127.0.0.1-8787.json": "http://127.0.0.1:8787/mcp",
 		"komrad-mcp-127.0.0.1-8790.json": "http://127.0.0.1:8790/mcp",
 	}, urls)
+}
+
+// TestBuildCommandKeepsEachInstancesSettings covers two instances sharing one Claude config dir,
+// each launch pointing its hooks at its own instance's binary.
+func TestBuildCommandKeepsEachInstancesSettings(t *testing.T) {
+	configDir := t.TempDir()
+	claude := NewHarness(NewHarnessParams{ConfigDir: configDir})
+
+	hooks := map[string]string{}
+	for _, launch := range []harness.Launch{
+		{MCPEndpoint: "127.0.0.1:8787", HookCommand: "/usr/local/bin/komrad", Role: "writer"},
+		{MCPEndpoint: "127.0.0.1:8790", HookCommand: "/tmp/test/komrad", Role: "writer"},
+		{MCPEndpoint: "127.0.0.1:8787", HookCommand: "/usr/local/bin/komrad", Role: "reviewer"},
+	} {
+		launch.CacheDir = t.TempDir()
+		command, err := claude.BuildCommand(launch)
+		require.NoError(t, err)
+
+		stop := readSettings(t, command).Hooks[string(EventStop)]
+		require.Len(t, stop, 1)
+		require.Len(t, stop[0].Hooks, 1)
+		hooks[filepath.Base(settingsPath(t, command))] = stop[0].Hooks[0].Command
+	}
+
+	assert.Equal(t, map[string]string{
+		"komrad-settings-127.0.0.1-8787-writer.json":   "/usr/local/bin/komrad hook stop",
+		"komrad-settings-127.0.0.1-8790-writer.json":   "/tmp/test/komrad hook stop",
+		"komrad-settings-127.0.0.1-8787-reviewer.json": "/usr/local/bin/komrad hook stop",
+	}, hooks)
 }
 
 var mcpConfigRef = regexp.MustCompile(` --mcp-config '([^']+)'`)
