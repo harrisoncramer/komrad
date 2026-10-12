@@ -888,12 +888,18 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 	}{
 		{
 			name: "the person writing in the thread",
+			opener: func(_ *testing.T, fx *reviewFixture) *agentstore.Agent {
+				return fx.reviewer
+			},
 			author: func(*reviewFixture) ReviewAuthor {
 				return personAuthor
 			},
 		},
 		{
 			name: "the writer answering",
+			opener: func(_ *testing.T, fx *reviewFixture) *agentstore.Agent {
+				return fx.reviewer
+			},
 			author: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.writer)
 			},
@@ -901,6 +907,9 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 		},
 		{
 			name: "the writer answering when the workflow mutes answers",
+			opener: func(_ *testing.T, fx *reviewFixture) *agentstore.Agent {
+				return fx.reviewer
+			},
 			author: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.writer)
 			},
@@ -943,10 +952,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 				cfg.EventPrompts = []workflowstore.EventPrompt{{Event: eventprompts.ReviewAnswered, Muted: true}}
 				require.NoError(t, fx.stores.Workflows.Update(t.Context(), workflow.ID, cfg))
 			}
-			opener := fx.reviewer
-			if tt.opener != nil {
-				opener = tt.opener(t, fx)
-			}
+			opener := tt.opener(t, fx)
 			opening := personAuthor
 			verdict := reviewstore.Verdict("")
 			if opener != nil {
