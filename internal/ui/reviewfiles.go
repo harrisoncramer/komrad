@@ -23,8 +23,8 @@ type filesTree struct {
 	current int
 }
 
-// folderCursor is the folder row the tree's cursor rests on, held for as long as the diff cursor
-// stays on the row it was on when the tree's cursor got there.
+// folderCursor is the folder row the tree's cursor rests on, held while the tree holds the keys and
+// the diff cursor stays on the row it was on when the tree's cursor got there.
 type folderCursor struct {
 	path    string
 	diffRow int
@@ -60,7 +60,7 @@ func (r reviewScreen) readFilesTree() filesTree {
 		tree.rows = append(tree.rows, row)
 	}
 
-	if r.folderCursor.diffRow != r.diff.Cursor() {
+	if r.focus != reviewFocusFiles || r.folderCursor.diffRow != r.diff.Cursor() {
 		return tree
 	}
 
@@ -175,9 +175,11 @@ func (r *reviewScreen) isBlockFocused(m *model) bool {
 
 func (r *reviewScreen) focusBlock(*model) {
 	r.focus = reviewFocusFiles
+	r.folderCursor = folderCursor{}
 }
 
 func (r *reviewScreen) blurBlock() {
+	r.folderCursor = folderCursor{}
 	if r.focus == reviewFocusFiles {
 		r.focus = reviewFocusDiff
 	}
@@ -227,11 +229,15 @@ func (r *reviewScreen) walkFiles(m *model, files int) tea.Cmd {
 	return r.landOnFile(m, tree.rows[landed])
 }
 
-// filesNav is the movement keys walking the tree a row at a time, the diff following onto each
-// file.
+// filesNav is the movement keys walking the tree a row at a time while it holds the keys, the diff
+// following onto each file, and the wheel walking it a file at a time while it does not.
 type filesNav struct{ r *reviewScreen }
 
 func (f filesNav) moveBy(m *model, rows int) tea.Cmd {
+	if f.r.focus != reviewFocusFiles {
+		return f.r.walkFiles(m, rows)
+	}
+
 	tree := f.r.readFilesTree()
 	if len(tree.rows) == 0 {
 		return nil

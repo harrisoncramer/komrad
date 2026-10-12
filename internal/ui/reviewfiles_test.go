@@ -306,6 +306,11 @@ func TestReviewFiles(t *testing.T) {
 				want: []string{"/", "› " + opened + " pkg/", "a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
 			},
 			{
+				name: "the tree lets go of the folder its cursor rested on once it hands the keys back",
+				keys: slices.Concat(leader, []string{"k"}, leader, leader),
+				want: []string{"/", opened + " pkg/", "› a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
+			},
+			{
 				name: "the folder key on a file leaves every folder as it is",
 				keys: slices.Concat(leader, []string{"o"}),
 				want: []string{"/", opened + " pkg/", "› a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
@@ -373,6 +378,16 @@ func TestReviewFiles(t *testing.T) {
 		wheelOverSidebar(harness, "▸ greet.go")
 
 		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.readFrame()))
+	})
+
+	t.Run("the wheel over the tree walks past a folder while the diff holds the keys", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfPaths("a.go", "pkg/b.go")
+		harness := openReview(t, server)
+
+		wheelOverSidebar(harness, "▸ a.go")
+
+		assert.Equal(t, "▸ b.go +1 −1", readCurrentFile(harness.readFrame()))
 	})
 
 	t.Run("the wheel beside the tree walks the diff while the tree holds the keys", func(t *testing.T) {
