@@ -170,6 +170,15 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				},
 			},
 			{
+				id:   actionReviewFolder,
+				keys: fixedOpen,
+				nav: func(*model, string) tea.Cmd {
+					r.toggleFolder()
+
+					return nil
+				},
+			},
+			{
 				id:   actionFilterOpen,
 				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				nav: func(*model, string) tea.Cmd {
@@ -212,6 +221,15 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			navPageRow(),
 			navJumpRow(),
 			diffFileRow(),
+			{
+				of:   []actionID{actionReviewFolder},
+				desc: func(*model) string { return r.folderDesc() },
+				show: func(*model) bool {
+					_, ok := r.findToggledFolder()
+
+					return ok
+				},
+			},
 			{
 				of:   []actionID{actionFilterOpen},
 				desc: func(*model) string { return r.filesFilter.openDesc() },
@@ -359,4 +377,14 @@ func (r *reviewScreen) answerEntry(m *model) submenuEntry {
 
 func (r *reviewScreen) jumpEntry(m *model) submenuEntry {
 	return openEntry(r.diff.jumpDesc(), m.keys.Review.Jump, func(m *model) tea.Cmd { return m.review.toggleJump(m) })
+}
+
+// folderDesc says whether the open key on the tree opens its folder or closes it.
+func (r *reviewScreen) folderDesc() string {
+	folder, _ := r.findToggledFolder()
+	if r.closedFolders[folder.Path] {
+		return "open folder"
+	}
+
+	return "close folder"
 }

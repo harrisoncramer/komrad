@@ -33,6 +33,7 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 		rows = append(rows, renderTreeRow(m, renderTreeRowParams{
 			Row:     row,
 			Current: at == tree.current,
+			Closed:  r.closedFolders[row.Path],
 			Focused: focused,
 			Width:   width,
 			Columns: columns,
@@ -65,6 +66,7 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 type renderTreeRowParams struct {
 	Row     diffview.TreeRow
 	Current bool
+	Closed  bool
 	Focused bool
 	Width   int
 	Columns statColumns
@@ -95,7 +97,13 @@ func renderTreeRow(m *model, params renderTreeRowParams) string {
 		Width: width - lipgloss.Width(lead),
 	}
 
-	if !row.Folder {
+	if row.Folder {
+		folder := glyph.FolderOpen
+		if params.Closed {
+			folder = glyph.FolderClosed
+		}
+		fit.Left = style.Render(m.glyphs.Spell(folder)) + " " + fit.Left
+	} else {
 		fit.Stat = formatStatColumns(row.Stat, params.Columns)
 		fit.Badges = padLeft(formatThreadMark(m.glyphs, row.Counts), params.Columns.Badge)
 	}

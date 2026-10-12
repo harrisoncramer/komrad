@@ -40,6 +40,9 @@ type reviewScreen struct {
 	// filesFilter is the pattern the file tree is searched or narrowed by.
 	filesFilter filterState
 
+	// closedFolders is the folders of the file tree whose files are hidden, by path.
+	closedFolders map[string]bool
+
 	// notices is what the review has raised on the messages stack about the agent.
 	notices reviewNotices
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"komrad/internal/gittest"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -269,6 +270,62 @@ func TestReviewFiles(t *testing.T) {
 		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
 	})
 
+	t.Run("the open key on the tree closes the folder the file is in, and opens it again", func(t *testing.T) {
+		leader := []string{"ctrl+space", "ctrl+space"}
+		opened := glyph.Defaults().Spell(glyph.FolderOpen)
+		closed := glyph.Defaults().Spell(glyph.FolderClosed)
+
+		tests := []struct {
+			name   string
+			keys   []string
+			want   []string
+			cursor string
+		}{
+			{
+				name: "every folder opens with the review",
+				want: []string{"/", opened + " pkg/", "▸ a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
+			},
+			{
+				name: "the open key on a file closes its folder and rests on it",
+				keys: slices.Concat(leader, []string{"enter"}),
+				want: []string{"/", "› " + closed + " pkg/", "top.go +1 −1"},
+			},
+			{
+				name: "the open key on a closed folder opens it",
+				keys: slices.Concat(leader, []string{"enter", "enter"}),
+				want: []string{"/", opened + " pkg/", "› a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
+			},
+			{
+				name:   "moving past a closed folder skips its files",
+				keys:   slices.Concat(leader, []string{"enter", "j"}),
+				want:   []string{"/", closed + " pkg/", "› top.go +1 −1"},
+				cursor: "top.go:1 (removed)",
+			},
+			{
+				name:   "a search landing in a closed folder opens it",
+				keys:   slices.Concat(leader, []string{"enter", "j", "/", "b", "enter"}),
+				want:   []string{"/ b", opened + " pkg/", "a.go +1 −1", "› b.go +1 −1", "top.go +1 −1"},
+				cursor: "pkg/b.go:1 (removed)",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				server := newReviewServer(t)
+				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfPaths("pkg/a.go", "pkg/b.go", "top.go")
+				harness := openReview(t, server)
+
+				harness.press(tt.keys...)
+
+				frame := harness.readFrame()
+				assert.Equal(t, tt.want, readFilesBlock(frame))
+				if tt.cursor != "" {
+					assert.Equal(t, tt.cursor, readReviewCursor(frame))
+				}
+			})
+		}
+	})
+
 	t.Run("the wheel over the tree walks the diff a file at a time and leaves the keys with the diff", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
@@ -323,9 +380,17 @@ func readCurrentFile(frame string) string {
 }
 
 func newPatchOfFiles(count int) string {
-	var patch strings.Builder
+	paths := make([]string, 0, count)
 	for i := range count {
-		path := fmt.Sprintf("f%02d.go", i)
+		paths = append(paths, fmt.Sprintf("f%02d.go", i))
+	}
+
+	return newPatchOfPaths(paths...)
+}
+
+func newPatchOfPaths(paths ...string) string {
+	var patch strings.Builder
+	for _, path := range paths {
 		fmt.Fprintf(&patch, "diff --git a/%[1]s b/%[1]s\n--- a/%[1]s\n+++ b/%[1]s\n@@ -1 +1 @@\n-old\n+new\n", path)
 	}
 

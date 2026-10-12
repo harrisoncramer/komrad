@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"slices"
+	"strings"
 
 	"komrad/internal/ui/diffview"
 
@@ -23,8 +24,39 @@ type filesTree struct {
 	current int
 }
 
-// readFilesTree is the tree the filter leaves with the file the cursor is in found.
+// readFilesTree is the tree the filter leaves with the closed folders' files hidden, and the
+// cursor in the closed folder its file is hidden in.
 func (r reviewScreen) readFilesTree() filesTree {
+	open := r.readOpenFilesTree()
+	path := ""
+	if open.current >= 0 {
+		path = open.rows[open.current].Path
+	}
+
+	tree := filesTree{current: -1}
+	hidden := -1
+	for _, row := range open.rows {
+		if hidden >= 0 && row.Depth > hidden {
+			continue
+		}
+
+		hidden = -1
+		if row.Folder && r.closedFolders[row.Path] {
+			hidden = row.Depth
+		}
+		if row.Path == path || (hidden >= 0 && strings.HasPrefix(path, row.Path+"/")) {
+			tree.current = len(tree.rows)
+		}
+
+		tree.rows = append(tree.rows, row)
+	}
+
+	return tree
+}
+
+// readOpenFilesTree is the tree the filter leaves with every folder open and the file the cursor
+// is in found.
+func (r reviewScreen) readOpenFilesTree() filesTree {
 	tree := filesTree{current: -1}
 	view := r.diff.View()
 	if view == nil {
@@ -46,6 +78,56 @@ func (r reviewScreen) readFilesTree() filesTree {
 	}
 
 	return tree
+}
+
+// openFoldersAbove opens every folder of the tree a file sits in.
+func (r *reviewScreen) openFoldersAbove(path string) {
+	for folder := range r.closedFolders {
+		if strings.HasPrefix(path, folder+"/") {
+			delete(r.closedFolders, folder)
+		}
+	}
+}
+
+// findToggledFolder is the folder the open key acts on from the tree: the closed folder the cursor
+// rests on, or else the folder the current file sits in.
+func (r reviewScreen) findToggledFolder() (diffview.TreeRow, bool) {
+	tree := r.readFilesTree()
+	if tree.current < 0 {
+		return diffview.TreeRow{}, false
+	}
+
+	current := tree.rows[tree.current]
+	if current.Folder {
+		return current, true
+	}
+
+	for _, row := range slices.Backward(tree.rows[:tree.current]) {
+		if row.Folder && row.Depth < current.Depth {
+			return row, true
+		}
+	}
+
+	return diffview.TreeRow{}, false
+}
+
+// toggleFolder opens the folder the open key acts on from the tree, or closes it when it is open.
+func (r *reviewScreen) toggleFolder() {
+	folder, ok := r.findToggledFolder()
+	if !ok {
+		return
+	}
+
+	if r.closedFolders[folder.Path] {
+		delete(r.closedFolders, folder.Path)
+
+		return
+	}
+
+	if r.closedFolders == nil {
+		r.closedFolders = map[string]bool{}
+	}
+	r.closedFolders[folder.Path] = true
 }
 
 // countFilesRows is how many rows the FILES block wants, its search line included.
@@ -93,7 +175,7 @@ func (r *reviewScreen) blurBlock() {
 // direction.
 func (r *reviewScreen) stepFile(m *model, direction int) tea.Cmd {
 	keys := r.diffKeys()
-	if !r.filesFilter.isNarrowing() {
+	if !r.filesFilter.isNarrowing() && len(r.closedFolders) == 0 {
 		if !keys.pane.JumpFile(direction, keys.window(m)) {
 			return nil
 		}
@@ -213,7 +295,7 @@ func (r *reviewScreen) settleFilesFilter(m *model) tea.Cmd {
 // jumpFilesMatch walks to the next file whose name the pattern matches, the way direction says,
 // wrapping at either end and leaving the cursor where it is when that file is the current one.
 func (r *reviewScreen) jumpFilesMatch(m *model, direction int) tea.Cmd {
-	tree := r.readFilesTree()
+	tree := r.readOpenFilesTree()
 	count := len(tree.rows)
 	if r.filesFilter.pattern == nil || count == 0 {
 		return nil
@@ -235,6 +317,7 @@ func (r *reviewScreen) jumpFilesMatch(m *model, direction int) tea.Cmd {
 			continue
 		}
 
+		r.openFoldersAbove(row.Path)
 		if at == tree.current {
 			return nil
 		}

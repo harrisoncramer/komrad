@@ -1451,6 +1451,20 @@
               "default": "\"▸\""
             },
             {
+              "key": "folder_open",
+              "path": "glyphs.review.folder_open",
+              "type": "string",
+              "description": "A folder of the file tree beside the diff that shows the files inside it.",
+              "default": "\"\""
+            },
+            {
+              "key": "folder_closed",
+              "path": "glyphs.review.folder_closed",
+              "type": "string",
+              "description": "A folder of the file tree beside the diff that hides the files inside it.",
+              "default": "\"\""
+            },
+            {
               "key": "delivered",
               "path": "glyphs.review.delivered",
               "type": "string",
