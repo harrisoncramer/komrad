@@ -105,7 +105,9 @@ func renderTreeRow(m *model, params renderTreeRowParams) string {
 		fit.Left = style.Render(m.glyphs.Spell(folder)) + " " + fit.Left
 	} else {
 		fit.Stat = formatStatColumns(row.Stat, params.Columns)
-		fit.Badges = padLeft(formatThreadMark(m.glyphs, row.Counts), params.Columns.Badge)
+	}
+	if badge := formatThreadMark(m.glyphs, row.Counts); badge != "" || !row.Folder {
+		fit.Badges = padLeft(badge, params.Columns.Badge)
 	}
 
 	return lead + fitTreeRow(fit)
@@ -118,10 +120,12 @@ type statColumns struct {
 	Badge   int
 }
 
-// measureStatColumns is the widest count and badge any file row of the tree renders.
+// measureStatColumns is the widest count any file row of the tree renders and the widest badge any
+// row does.
 func measureStatColumns(glyphs glyph.Set, rows []diffview.TreeRow) statColumns {
 	var columns statColumns
 	for _, row := range rows {
+		columns.Badge = max(columns.Badge, lipgloss.Width(formatThreadMark(glyphs, row.Counts)))
 		if row.Folder {
 			continue
 		}
@@ -131,7 +135,6 @@ func measureStatColumns(glyphs glyph.Set, rows []diffview.TreeRow) statColumns {
 		if row.Stat.Removed > 0 {
 			columns.Removed = max(columns.Removed, lipgloss.Width(fmt.Sprintf("−%d", row.Stat.Removed)))
 		}
-		columns.Badge = max(columns.Badge, lipgloss.Width(formatThreadMark(glyphs, row.Counts)))
 	}
 
 	return columns

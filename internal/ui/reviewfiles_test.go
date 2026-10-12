@@ -270,49 +270,88 @@ func TestReviewFiles(t *testing.T) {
 		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
 	})
 
-	t.Run("the open key on the tree closes the folder the file is in, and opens it again", func(t *testing.T) {
+	t.Run("the folder keys on the tree open and close the folder the cursor rests on", func(t *testing.T) {
 		leader := []string{"ctrl+space", "ctrl+space"}
 		opened := glyph.Defaults().Spell(glyph.FolderOpen)
 		closed := glyph.Defaults().Spell(glyph.FolderClosed)
+		thread := newAdriftThread("t1", newHumanMessage("m1", "look at this"))
+		thread.FilePath = "pkg/a.go"
 
 		tests := []struct {
-			name   string
-			keys   []string
-			want   []string
-			cursor string
+			name    string
+			paths   []string
+			threads []*agentv1.ReviewThread
+			keys    []string
+			want    []string
+			cursor  string
 		}{
 			{
 				name: "every folder opens with the review",
 				want: []string{"/", opened + " pkg/", "▸ a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
 			},
 			{
-				name: "the open key on a file closes its folder and rests on it",
-				keys: slices.Concat(leader, []string{"enter"}),
+				name:   "the move key stops on a folder and leaves the diff where it is",
+				keys:   slices.Concat(leader, []string{"k"}),
+				want:   []string{"/", "› " + opened + " pkg/", "a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
+				cursor: "pkg/a.go:1 (removed)",
+			},
+			{
+				name: "the folder key closes the folder the cursor rests on",
+				keys: slices.Concat(leader, []string{"k", "o"}),
 				want: []string{"/", "› " + closed + " pkg/", "top.go +1 −1"},
 			},
 			{
-				name: "the open key on a closed folder opens it",
-				keys: slices.Concat(leader, []string{"enter", "enter"}),
+				name: "the open key opens a closed folder and the cursor stays on it",
+				keys: slices.Concat(leader, []string{"k", "o", "enter"}),
+				want: []string{"/", "› " + opened + " pkg/", "a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
+			},
+			{
+				name: "the folder key on a file leaves every folder as it is",
+				keys: slices.Concat(leader, []string{"o"}),
 				want: []string{"/", opened + " pkg/", "› a.go +1 −1", "b.go +1 −1", "top.go +1 −1"},
 			},
 			{
 				name:   "moving past a closed folder skips its files",
-				keys:   slices.Concat(leader, []string{"enter", "j"}),
+				keys:   slices.Concat(leader, []string{"k", "o", "j"}),
 				want:   []string{"/", closed + " pkg/", "› top.go +1 −1"},
 				cursor: "top.go:1 (removed)",
 			},
 			{
+				name:  "a folder holding only folders closes",
+				paths: []string{"internal/ui/x.go", "internal/glyph/y.go"},
+				keys:  slices.Concat(leader, []string{"k", "k", "o"}),
+				want:  []string{"/", "› " + closed + " internal/"},
+			},
+			{
+				name:    "a closed folder carries the mark of the threads it hides",
+				threads: []*agentv1.ReviewThread{thread},
+				keys:    slices.Concat(leader, []string{"k", "o"}),
+				want:    []string{"/", "› " + closed + " pkg/ ○", "top.go +1 −1"},
+			},
+			{
 				name:   "a search landing in a closed folder opens it",
-				keys:   slices.Concat(leader, []string{"enter", "j", "/", "b", "enter"}),
+				keys:   slices.Concat(leader, []string{"k", "o", "j", "/", "b", "enter"}),
 				want:   []string{"/ b", opened + " pkg/", "a.go +1 −1", "› b.go +1 −1", "top.go +1 −1"},
+				cursor: "pkg/b.go:1 (removed)",
+			},
+			{
+				name:   "a filter whose matches sit in a closed folder opens it",
+				keys:   slices.Concat(leader, []string{"k", "o", "j", "/", "b", "tab", "enter"}),
+				want:   []string{"▽ b", opened + " pkg/", "› b.go +1 −1"},
 				cursor: "pkg/b.go:1 (removed)",
 			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
+				paths := tt.paths
+				if paths == nil {
+					paths = []string{"pkg/a.go", "pkg/b.go", "top.go"}
+				}
+
 				server := newReviewServer(t)
-				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfPaths("pkg/a.go", "pkg/b.go", "top.go")
+				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfPaths(paths...)
+				server.threads = tt.threads
 				harness := openReview(t, server)
 
 				harness.press(tt.keys...)

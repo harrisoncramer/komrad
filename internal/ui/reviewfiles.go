@@ -2,7 +2,6 @@ package ui
 
 import (
 	"cmp"
-	"slices"
 	"strings"
 
 	"komrad/internal/ui/diffview"
@@ -17,15 +16,23 @@ const (
 	filesGutter      = 2
 )
 
-// filesTree is the rows of the file tree the filter leaves, and which of them the diff cursor is
-// in.
+// filesTree is the rows of the file tree the filter leaves, and which of them the tree's cursor is
+// on.
 type filesTree struct {
 	rows    []diffview.TreeRow
 	current int
 }
 
-// readFilesTree is the tree the filter leaves with the closed folders' files hidden, and the
-// cursor in the closed folder its file is hidden in.
+// folderCursor is the folder row the tree's cursor rests on, held for as long as the diff cursor
+// stays on the row it was on when the tree's cursor got there.
+type folderCursor struct {
+	path    string
+	diffRow int
+}
+
+// readFilesTree is the tree the filter leaves with the closed folders' files hidden and their
+// threads counted on the folder, the cursor on the folder it rests on or else on the file the diff
+// is in or the closed folder hiding it.
 func (r reviewScreen) readFilesTree() filesTree {
 	open := r.readOpenFilesTree()
 	path := ""
@@ -34,21 +41,33 @@ func (r reviewScreen) readFilesTree() filesTree {
 	}
 
 	tree := filesTree{current: -1}
-	hidden := -1
+	hiding := -1
 	for _, row := range open.rows {
-		if hidden >= 0 && row.Depth > hidden {
+		if hiding >= 0 && row.Depth > tree.rows[hiding].Depth {
+			tree.rows[hiding].Counts = tree.rows[hiding].Counts.Plus(row.Counts)
+
 			continue
 		}
 
-		hidden = -1
+		hiding = -1
 		if row.Folder && r.closedFolders[row.Path] {
-			hidden = row.Depth
+			hiding = len(tree.rows)
 		}
-		if row.Path == path || (hidden >= 0 && strings.HasPrefix(path, row.Path+"/")) {
+		if row.Path == path || (hiding >= 0 && strings.HasPrefix(path, row.Path+"/")) {
 			tree.current = len(tree.rows)
 		}
 
 		tree.rows = append(tree.rows, row)
+	}
+
+	if r.folderCursor.diffRow != r.diff.Cursor() {
+		return tree
+	}
+
+	for at, row := range tree.rows {
+		if row.Folder && row.Path == r.folderCursor.path {
+			tree.current = at
+		}
 	}
 
 	return tree
@@ -89,33 +108,26 @@ func (r *reviewScreen) openFoldersAbove(path string) {
 	}
 }
 
-// findToggledFolder is the folder the open key acts on from the tree: the closed folder the cursor
-// rests on, or else the folder the current file sits in.
-func (r reviewScreen) findToggledFolder() (diffview.TreeRow, bool) {
+// readCurrentFolder is the folder row the tree's cursor is on.
+func (r reviewScreen) readCurrentFolder() (diffview.TreeRow, bool) {
 	tree := r.readFilesTree()
-	if tree.current < 0 {
+	if tree.current < 0 || !tree.rows[tree.current].Folder {
 		return diffview.TreeRow{}, false
 	}
 
-	current := tree.rows[tree.current]
-	if current.Folder {
-		return current, true
-	}
-
-	for _, row := range slices.Backward(tree.rows[:tree.current]) {
-		if row.Folder && row.Depth < current.Depth {
-			return row, true
-		}
-	}
-
-	return diffview.TreeRow{}, false
+	return tree.rows[tree.current], true
 }
 
-// toggleFolder opens the folder the open key acts on from the tree, or closes it when it is open.
+// toggleFolder opens the folder the tree's cursor is on, or closes it when it is open.
 func (r *reviewScreen) toggleFolder() {
-	folder, ok := r.findToggledFolder()
+	folder, ok := r.readCurrentFolder()
 	if !ok {
 		return
+	}
+
+	r.folderCursor = folderCursor{
+		path:    folder.Path,
+		diffRow: r.diff.Cursor(),
 	}
 
 	if r.closedFolders[folder.Path] {
@@ -215,27 +227,57 @@ func (r *reviewScreen) walkFiles(m *model, files int) tea.Cmd {
 	return r.landOnFile(m, tree.rows[landed])
 }
 
-// filesNav is the movement keys walking the diff a file at a time from the file tree.
+// filesNav is the movement keys walking the tree a row at a time, the diff following onto each
+// file.
 type filesNav struct{ r *reviewScreen }
 
-func (f filesNav) moveBy(m *model, files int) tea.Cmd {
-	if files == 1 || files == -1 {
-		return f.r.stepFile(m, files)
+func (f filesNav) moveBy(m *model, rows int) tea.Cmd {
+	tree := f.r.readFilesTree()
+	if len(tree.rows) == 0 {
+		return nil
 	}
 
-	return f.r.walkFiles(m, files)
+	at := tree.current
+	if at < 0 && rows < 0 {
+		at = len(tree.rows)
+	}
+
+	next := min(max(at+rows, 0), len(tree.rows)-1)
+	if next == tree.current {
+		return nil
+	}
+
+	row := tree.rows[next]
+	if !row.Folder && at >= 0 && at < len(tree.rows) && !tree.rows[at].Folder && (rows == 1 || rows == -1) {
+		return f.r.stepFile(m, rows)
+	}
+
+	return f.r.landOnRow(m, row)
 }
 
 func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
-	rows := slices.Clone(f.r.readFilesTree().rows)
-	if direction > 0 {
-		slices.Reverse(rows)
+	rows := f.r.readFilesTree().rows
+	if len(rows) == 0 {
+		return nil
 	}
 
-	for _, row := range rows {
-		if !row.Folder {
-			return f.r.landOnFile(m, row)
-		}
+	if direction > 0 {
+		return f.r.landOnRow(m, rows[len(rows)-1])
+	}
+
+	return f.r.landOnRow(m, rows[0])
+}
+
+// landOnRow puts the tree's cursor on a row, moving the diff to the top of a file and leaving it
+// where it is for a folder.
+func (r *reviewScreen) landOnRow(m *model, row diffview.TreeRow) tea.Cmd {
+	if !row.Folder {
+		return r.landOnFile(m, row)
+	}
+
+	r.folderCursor = folderCursor{
+		path:    row.Path,
+		diffRow: r.diff.Cursor(),
 	}
 
 	return nil
@@ -243,6 +285,7 @@ func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
 
 // landOnFile moves the diff to the top of a file in the tree.
 func (r *reviewScreen) landOnFile(m *model, row diffview.TreeRow) tea.Cmd {
+	r.folderCursor = folderCursor{}
 	keys := r.diffKeys()
 	if !keys.pane.JumpToFile(row.Row, keys.window(m)) {
 		return nil
@@ -285,11 +328,20 @@ func (r *reviewScreen) settleFilesFilter(m *model) tea.Cmd {
 		return r.jumpFilesMatch(m, 0)
 	}
 
-	if r.readFilesTree().current >= 0 {
+	tree := r.readOpenFilesTree()
+	if tree.current >= 0 {
 		return nil
 	}
 
-	return r.stepFile(m, 1)
+	for _, row := range tree.rows {
+		if !row.Folder {
+			r.openFoldersAbove(row.Path)
+
+			return r.landOnFile(m, row)
+		}
+	}
+
+	return nil
 }
 
 // jumpFilesMatch walks to the next file whose name the pattern matches, the way direction says,
@@ -318,6 +370,7 @@ func (r *reviewScreen) jumpFilesMatch(m *model, direction int) tea.Cmd {
 		}
 
 		r.openFoldersAbove(row.Path)
+		r.folderCursor = folderCursor{}
 		if at == tree.current {
 			return nil
 		}

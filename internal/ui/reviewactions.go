@@ -156,7 +156,7 @@ func (r *reviewScreen) stepThread(m *model, pressed string) tea.Cmd {
 	return r.moveCursor(m, r.diff.View().JumpThread(r.diff.Cursor(), 1))
 }
 
-// filesActions is the keys on the file tree, which walk the diff a file at a time.
+// filesActions is the keys on the file tree, which walk it a row at a time with the diff following.
 func (r *reviewScreen) filesActions() screenActionSpec {
 	standing := func(*model) bool { return r.filesFilter.isStanding() }
 
@@ -170,8 +170,10 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				},
 			},
 			{
-				id:   actionReviewFolder,
-				keys: fixedOpen,
+				id: actionReviewFolder,
+				keys: func(k config.Keybindings) []string {
+					return slices.Concat(fixedOpen(k), k.Review.ToggleFolder)
+				},
 				nav: func(*model, string) tea.Cmd {
 					r.toggleFolder()
 
@@ -217,7 +219,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 		}...),
 		legend: []screenLegendRow{
-			navMoveRow("move between files"),
+			navMoveRow("move"),
 			navPageRow(),
 			navJumpRow(),
 			diffFileRow(),
@@ -225,7 +227,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				of:   []actionID{actionReviewFolder},
 				desc: func(*model) string { return r.folderDesc() },
 				show: func(*model) bool {
-					_, ok := r.findToggledFolder()
+					_, ok := r.readCurrentFolder()
 
 					return ok
 				},
@@ -379,9 +381,9 @@ func (r *reviewScreen) jumpEntry(m *model) submenuEntry {
 	return openEntry(r.diff.jumpDesc(), m.keys.Review.Jump, func(m *model) tea.Cmd { return m.review.toggleJump(m) })
 }
 
-// folderDesc says whether the open key on the tree opens its folder or closes it.
+// folderDesc says whether the folder key on the tree opens the folder or closes it.
 func (r *reviewScreen) folderDesc() string {
-	folder, _ := r.findToggledFolder()
+	folder, _ := r.readCurrentFolder()
 	if r.closedFolders[folder.Path] {
 		return "open folder"
 	}

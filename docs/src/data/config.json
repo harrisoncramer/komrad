@@ -862,6 +862,13 @@
               "default": "[\"S\"]"
             },
             {
+              "key": "toggle_folder",
+              "path": "keybindings.review.toggle_folder",
+              "type": "array",
+              "description": "On the file tree, open the folder the cursor rests on, or close it when it is open.",
+              "default": "[\"o\"]"
+            },
+            {
               "key": "toggle_viewed",
               "path": "keybindings.review.toggle_viewed",
               "type": "array",
