@@ -42,9 +42,9 @@ func (f filterState) line(glyphs glyph.Set) string {
 
 // head is the rows over a block the filter searches: the search, what the last key said, and a
 // blank row.
-func (f filterState) head(count, said string, width int, glyphs glyph.Set) []string {
+func (f filterState) head(m *model, count, said string, width int) []string {
 	indent := strings.Repeat(" ", docMargin())
-	head := []string{fitRow(indent+f.line(glyphs)+count, width)}
+	head := []string{m.markSearch(stopBlock, width, fitRow(indent+f.line(m.glyphs)+count, width))}
 	if said != "" {
 		head = append(head, fitRow(indent+dimStyle().Render(said), width))
 	}

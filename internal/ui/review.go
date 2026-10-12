@@ -65,7 +65,11 @@ func (r reviewScreen) crumbs(*model) crumbs {
 // takesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
 // in the panel belongs here instead.
 func (r reviewScreen) takesEveryKey() bool {
-	return r.isWriting() || r.diff.filter.typing || r.filesFilter.typing
+	return r.isWriting() || r.isSearchTyping()
+}
+
+func (r reviewScreen) isSearchTyping() bool {
+	return r.diff.filter.typing || r.filesFilter.typing
 }
 
 // isWriting reports whether the reader is composing a message or asking what to send.

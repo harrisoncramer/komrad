@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"komrad/internal/errui"
-	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
@@ -149,7 +148,7 @@ func (d *documentsScreen) docRows(m *model, width int) []string {
 	}
 
 	h := d.history
-	head := h.head(item, width, m.glyphs)
+	head := h.head(m, item, width)
 	if h.err != nil || h.versions == nil {
 		return head
 	}
@@ -170,7 +169,7 @@ func (d *documentsScreen) docRows(m *model, width int) []string {
 }
 
 // head is the rows over the change: which write it is and the search.
-func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) []string {
+func (h *documentHistory) head(m *model, item documentItem, width int) []string {
 	notice := "_reading its versions…_"
 	switch {
 	case h.err != nil:
@@ -186,7 +185,7 @@ func (h *documentHistory) head(item documentItem, width int, glyphs glyph.Set) [
 
 	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
 
-	return append(rows, h.filter.head(count, "", width, glyphs)...)
+	return append(rows, h.filter.head(m, count, "", width)...)
 }
 
 // notice names the write stepped to, who made it and how long ago.

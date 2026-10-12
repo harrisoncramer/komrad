@@ -26,6 +26,7 @@ const (
 	zoneKinds       zone = "kinds"
 	zoneTabs        zone = "tabs"
 	zoneFiles       zone = "files"
+	zoneSearch      zone = "search"
 )
 
 // zoneMark is the invisible sequence a marked frame carries at each end of a zone.
@@ -217,6 +218,14 @@ func (m *model) spanMarker(name zone, keys []string) func(int, string) string {
 
 		return keyMarkOf(name, lipgloss.Width(span), 0, keys[index]) + span
 	}
+}
+
+func (m *model) markSearch(to stop, width int, line string) string {
+	if !m.term.markingZones {
+		return line
+	}
+
+	return keyMarkOf(zoneSearch, width, 0, strconv.Itoa(int(to))) + line
 }
 
 func keyMarkOf(name zone, width, nth int, key string) string {

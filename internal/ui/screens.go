@@ -215,6 +215,10 @@ type lineTyper interface {
 	typedLine() (lineInput, bool)
 }
 
+type searchTyper interface {
+	isSearchTyping() bool
+}
+
 // listScroller is a screen whose scroll key does something other than move its list.
 type listScroller interface {
 	scrollList(m *model, rows int) tea.Cmd

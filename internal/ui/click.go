@@ -1,6 +1,10 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"strconv"
+
+	tea "charm.land/bubbletea/v2"
+)
 
 type clicker interface {
 	click(m *model, key string, nth int) tea.Cmd
@@ -17,13 +21,27 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 		return nil
 	}
 
-	if hit, ok := m.findKeyAt(click.X, click.Y); ok {
+	hit, marked := m.findKeyAt(click.X, click.Y)
+	if marked && hit.zone == zoneSearch && hit.key == strconv.Itoa(int(m.atStop())) && m.isSearchTyping() {
+		return nil
+	}
+
+	settled := m.settleSearch()
+	if marked {
 		if c, ok := m.clickerOf(hit.zone); ok {
-			return c.click(m, hit.key, hit.nth)
+			return tea.Batch(settled, c.click(m, hit.key, hit.nth))
 		}
 	}
 
-	return m.clickBlock(click.X, click.Y)
+	return tea.Batch(settled, m.clickBlock(click.X, click.Y))
+}
+
+func (m *model) settleSearch() tea.Cmd {
+	if !m.isSearchTyping() {
+		return nil
+	}
+
+	return m.route(keyMsg("enter"))
 }
 
 func (m *model) clickerOf(name zone) (clicker, bool) {
@@ -34,6 +52,8 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickKind(key) }), true
 	case zoneTabs:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickTab(key) }), true
+	case zoneSearch:
+		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSearch(key) }), true
 	case zoneFiles:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.review.clickFile(m, path) })), true
 	case zoneDetails:
@@ -63,4 +83,22 @@ func (m *model) clickBlock(x, y int) tea.Cmd {
 	}
 
 	return m.focusBlockIn(m.findSidebarBlocks(), x, y)
+}
+
+func (m *model) clickSearch(key string) tea.Cmd {
+	to, err := strconv.Atoi(key)
+	if err != nil {
+		return nil
+	}
+
+	if m.isViewsOpen() {
+		m.closeViews()
+	}
+
+	entered := m.enterStop(stop(to))
+	if m.isTyping() {
+		return entered
+	}
+
+	return tea.Batch(entered, m.route(keyMsg(filterOpenKey)))
 }

@@ -768,6 +768,30 @@ func TestReviewFitsThePane(t *testing.T) {
 
 // TestReviewSearch covers the review's own search over the diff.
 func TestReviewSearch(t *testing.T) {
+	t.Run("a click on the tree while typing keeps the search and hands the tree the keys", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.press("/")
+		typeText(harness, "goodbye")
+
+		harness.send(clickOnLine(t, harness, "▸ greet.go", "greet.go"))
+		harness.press("j")
+
+		frame := harness.readFrame()
+		assert.Contains(t, readStage(frame), "/ goodbye")
+		assert.NotContains(t, readStage(frame), "goodbyej")
+		assert.Contains(t, readFilesBlock(frame), "› greet.go +1 −1")
+	})
+
+	t.Run("a click on the search line hands the diff the keys and starts the search", func(t *testing.T) {
+		harness := openReview(t, newReviewServer(t))
+		harness.press("esc")
+
+		harness.send(clickOnLine(t, harness, "│ /", "/"))
+		typeText(harness, "goodbye")
+
+		assert.Equal(t, "greet.go:4", readReviewCursor(harness.readFrame()))
+	})
+
 	t.Run("the diff follows the pattern as it is typed and enter keeps it", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 

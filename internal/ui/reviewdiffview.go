@@ -42,7 +42,7 @@ func reviewColumn() columnSpec {
 func (r reviewScreen) bandView(m *model) string {
 	return paint.Panel.Title("Review"+separated+r.agentName) + "\n" +
 		r.frozenView(m) +
-		r.diff.filter.view(m.glyphs) + diffMatchCount(&r.diff.Pane, r.diff.filter)
+		m.markSearch(stopList, r.measureBandWidth(m), r.diff.filter.view(m.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
 func (r reviewScreen) frozenView(m *model) string {

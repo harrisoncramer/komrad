@@ -162,6 +162,59 @@ func TestFilterSearch(t *testing.T) {
 
 		assert.Equal(t, "/", readSearch(harness.readFrame()))
 	})
+
+	t.Run("a click on the search line starts a search", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+
+		harness.send(clickOnLineStart(t, harness, "/"))
+		harness.press("d", "b", "enter")
+
+		assert.Equal(t, "/ db", readSearch(harness.readFrame()))
+	})
+
+	t.Run("a click on the search line takes the keys from the record", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+		harness.press("pick:record")
+
+		harness.send(clickOnLineStart(t, harness, "/"))
+		harness.press("d", "b", "enter")
+
+		frame := harness.readFrame()
+		assert.Empty(t, readRecordCursor(frame))
+		assert.Equal(t, "/ db", readSearch(frame))
+	})
+
+	t.Run("a click on a row while typing keeps the search and hands the keys to the list", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+		harness.press("/", "d", "b")
+
+		harness.send(clickOn(t, harness, "frontend"))
+		harness.press("j")
+
+		assert.Equal(t, "/ db", readSearch(harness.readFrame()))
+	})
+
+	t.Run("a click on the record while typing keeps the search and hands the keys to the record", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+		harness.press("/", "d", "b")
+
+		harness.send(clickOn(t, harness, "Info"))
+		harness.press("j")
+
+		frame := harness.readFrame()
+		assert.Equal(t, "/ db", readSearch(frame))
+		assert.NotEmpty(t, readRecordCursor(frame))
+	})
+
+	t.Run("a click on the search line while typing in it types nothing", func(t *testing.T) {
+		harness := openFilterable(t, "backend")
+		harness.press("/", "d")
+
+		harness.send(clickOnLineStart(t, harness, "/"))
+		harness.press("b", "enter")
+
+		assert.Equal(t, "/ db", readSearch(harness.readFrame()))
+	})
 }
 
 // TestFilterNarrow covers the filter, which takes off the list every row its pattern keeps no reason to show.

@@ -465,6 +465,10 @@ func (l *logsScreen) doesRenderFromListing() bool {
 }
 
 func (l *logsScreen) takesEveryKey() bool {
+	return l.isSearchTyping()
+}
+
+func (l *logsScreen) isSearchTyping() bool {
 	return l.logFilter.typing
 }
 

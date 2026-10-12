@@ -300,7 +300,7 @@ func (d *documentsScreen) diffWindow(m *model) diffview.Window {
 
 	return diffview.Window{
 		Width:  split.column,
-		Height: max(split.rows-len(d.history.head(item, split.column, m.glyphs)), 1),
+		Height: max(split.rows-len(d.history.head(m, item, split.column)), 1),
 		Wrap:   m.diffWrap,
 	}
 }

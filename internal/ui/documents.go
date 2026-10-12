@@ -506,7 +506,11 @@ func (d *documentsScreen) doesRenderFromListing() bool {
 }
 
 func (d *documentsScreen) takesEveryKey() bool {
-	return d.isRenaming() || (d.history != nil && d.history.filter.typing)
+	return d.isRenaming() || d.isSearchTyping()
+}
+
+func (d *documentsScreen) isSearchTyping() bool {
+	return d.history != nil && d.history.filter.typing
 }
 
 func (d *documentsScreen) column() columnSpec {

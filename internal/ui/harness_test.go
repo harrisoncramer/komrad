@@ -1120,3 +1120,18 @@ func clickOnLine(t *testing.T, harness *panelHarness, line, text string) tea.Mou
 
 	return tea.MouseClickMsg{}
 }
+
+func clickOnLineStart(t *testing.T, harness *panelHarness, prefix string) tea.MouseClickMsg {
+	t.Helper()
+
+	left, _ := harness.panel.Inside()
+	for y, row := range splitLines(harness.readFrame()) {
+		if strings.HasPrefix(row, prefix) {
+			return tea.MouseClickMsg{X: left + ansi.StringWidth(prefix) + 1, Y: y, Button: tea.MouseLeft}
+		}
+	}
+
+	require.Failf(t, "no line in the frame", "a line starting %q", prefix)
+
+	return tea.MouseClickMsg{}
+}

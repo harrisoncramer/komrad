@@ -646,6 +646,32 @@ func TestLogsLineFilter(t *testing.T) {
 		})
 	}
 
+	t.Run("a click on a source while typing keeps the filter", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+		pressSettling(harness, typed...)
+
+		harness.send(clickOnLine(t, harness, "› server", "server"))
+		pressSettling(harness, "k", settle)
+
+		assert.Contains(t, lastStageRow(harness.readFrame()), "▽ second")
+		assert.NotContains(t, lastStageRow(harness.readFrame()), "secondk")
+	})
+
+	t.Run("a click on the prompt hands the log the keys and starts a filter", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openLogs(t, filteredTailOfTwo())
+
+		harness.send(clickOnLine(t, harness, "▽", "▽"))
+		pressSettling(harness, "s", "e", "c", "o", "n", "d", settle)
+
+		stage := readStageText(harness.readFrame())
+		assert.Contains(t, stage, "second line")
+		assert.NotContains(t, stage, "first line")
+	})
+
 	t.Run("the prompt is rendered on the lowest row of the log", func(t *testing.T) {
 		t.Parallel()
 

@@ -537,11 +537,17 @@ func (m *model) reconcileEditor() tea.Cmd {
 // isTyping reports whether the panel's own bindings are off: the list's filter, the document's
 // search, a text input the screen put up, or a key prefix waiting on the key that completes it.
 func (m *model) isTyping() bool {
+	return m.isSearchTyping() || m.active().takesEveryKey()
+}
+
+func (m *model) isSearchTyping() bool {
 	if m.filter.typing || (m.reading.filter.typing && m.isDocReadable()) {
 		return true
 	}
 
-	return m.active().takesEveryKey()
+	s, ok := m.active().(searchTyper)
+
+	return ok && s.isSearchTyping()
 }
 
 // columnWheelStep is how many rows one turn of the wheel moves the block beside the list.

@@ -63,7 +63,7 @@ func (m *model) docHead(rows []string, width int) []string {
 		count = dimStyle().Render("  " + reader.Count(reader.Matches(r.filter.pattern, rows), r.Line))
 	}
 
-	return r.filter.head(count, r.said, width, m.glyphs)
+	return r.filter.head(m, count, r.said, width)
 }
 
 // docBlock is the document at the width of the block beside the list, under the search over it,
