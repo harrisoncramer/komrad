@@ -38,13 +38,17 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		command += " " + quoted
 	}
 
-	if path, err := h.writeMCPConfig(launch.MCPEndpoint); err == nil {
-		command += fmt.Sprintf(" --mcp-config '%s'", path)
+	mcpConfig, err := h.writeMCPConfig(launch.MCPEndpoint)
+	if err != nil {
+		return "", err
 	}
+	command += fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
 
-	if path, err := h.writeSettings(launch.HookCommand, launch.Role, launch.AutoCompaction); err == nil {
-		command += fmt.Sprintf(" --settings '%s'", path)
+	settings, err := h.writeSettings(launch.HookCommand, launch.Role, launch.AutoCompaction)
+	if err != nil {
+		return "", err
 	}
+	command += fmt.Sprintf(" --settings '%s'", settings)
 
 	switch {
 	case launch.Resume && launch.SessionID != "":
@@ -117,9 +121,8 @@ func settingsFileName(role string) string {
 // hookInstall is how komrad answers one Claude event, kept a struct so an event needing a matcher
 // of its own is a field here.
 type hookInstall struct {
-	Subcommand     string
-	Matcher        string
-	TakesNoReading bool
+	Subcommand string
+	Matcher    string
 }
 
 // InstalledHooks is the events komrad answers, keyed by the event Claude fires.
@@ -131,9 +134,8 @@ var InstalledHooks = map[harness.Event]hookInstall{
 	EventPostToolUseFailure: {Subcommand: "post-tool-use-failure"},
 	EventPermissionRequest:  {Subcommand: "permission-request"},
 	EventSessionStart: {
-		Subcommand:     "compacted",
-		Matcher:        compactMatcher,
-		TakesNoReading: true,
+		Subcommand: "compacted",
+		Matcher:    compactMatcher,
 	},
 }
 

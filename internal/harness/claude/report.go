@@ -57,31 +57,41 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 	// The event says the turn ended on its own, so nothing in the payload decides it, and a
 	// turn komrad's own last answer caused is still a turn ending.
 	case EventStop:
-		return harness.Report{TurnEnded: true}, nil
+		return harness.Report{Event: harness.ReportTurnEnded}, nil
 	case EventStopFailure:
 		var parsed stopFailurePayload
 		if err := json.Unmarshal(payload, &parsed); err != nil {
 			return harness.Report{}, fmt.Errorf("failed to parse the %s payload: %w", event, err)
 		}
 
-		return harness.Report{TurnEnded: true, TurnError: parsed.describe()}, nil
-
-	// A tool call and the dialog it may put up are both the same answer, the name of the tool,
-	// which is what tells a row blocked on an approval from one blocked on a question.
-	case EventPreToolUse, EventPermissionRequest:
-		var parsed toolPayload
-		if err := json.Unmarshal(payload, &parsed); err != nil {
-			return harness.Report{}, fmt.Errorf("failed to parse the %s payload: %w", event, err)
-		}
-
-		return harness.Report{Reason: parsed.ToolName}, nil
+		return harness.Report{Event: harness.ReportTurnFailed, TurnError: parsed.describe()}, nil
+	case EventPreToolUse:
+		return readToolReport(event, harness.ReportToolStarted, payload)
 	case EventPostToolUse, EventPostToolUseFailure:
-		return harness.Report{}, nil
+		return readToolReport(event, harness.ReportToolFinished, payload)
+
+	// The dialog names its tool, which is what tells a row blocked on an approval from one
+	// blocked on a question.
+	case EventPermissionRequest:
+		return readToolReport(event, harness.ReportApprovalWanted, payload)
+
+	// The matcher narrows the event to a conversation that has just compacted, so nothing in the
+	// payload decides it.
+	case EventSessionStart:
+		return harness.Report{Event: harness.ReportCompacted}, nil
 	default:
-		// Refused rather than read as a report of nothing, an empty report clearing the reason on
-		// the row.
+		// Refused rather than read as a report of nothing, which names no event komrad records.
 		return harness.Report{}, fmt.Errorf("no reading is taken from the %q event", event)
 	}
+}
+
+func readToolReport(event harness.Event, reported harness.ReportEvent, payload []byte) (harness.Report, error) {
+	var parsed toolPayload
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		return harness.Report{}, fmt.Errorf("failed to parse the %s payload: %w", event, err)
+	}
+
+	return harness.Report{Event: reported, Tool: parsed.ToolName}, nil
 }
 
 func (p stopFailurePayload) describe() string {

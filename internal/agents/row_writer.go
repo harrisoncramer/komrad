@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/harness"
 	agentstore "komrad/internal/store/agent"
 	runstore "komrad/internal/store/run"
 	"komrad/internal/wake"
@@ -61,30 +62,33 @@ func (w *RowWriter) MarkRunsRead(ctx context.Context, id string) error {
 
 // RecordReportParams is what an agent's own CLI read out of one of its hook payloads.
 type RecordReportParams struct {
-	AgentID   string
-	Reason    string
-	TurnEnded bool
-	TurnError string
+	AgentID string
+	Report  harness.Report
 }
 
-// RecordReport puts the reason beside the state the pane decided, stamps a reported turn end, and
-// wakes the cwd and transcript syncs once a turn ends.
+// RecordReport puts the tool an agent is running or asking to run beside the state the pane
+// decided, stamps a reported turn end, and wakes the cwd and transcript syncs once a turn ends.
 func (w *RowWriter) RecordReport(ctx context.Context, params RecordReportParams) error {
-	if params.TurnEnded {
+	event := params.Report.Event
+	if event == harness.ReportCompacted {
+		return nil
+	}
+
+	if event.EndsTurn() {
 		w.cwdSync.Wake()
 		w.transcriptSync.Wake()
 	}
 
-	if err := w.agents.SetReportedReason(ctx, params.AgentID, params.Reason); err != nil {
+	if err := w.agents.SetReportedReason(ctx, params.AgentID, reportedTool(params.Report)); err != nil {
 		return fmt.Errorf("failed to record what agent %q reported it was doing: %w", params.AgentID, err)
 	}
 
-	if !params.TurnEnded {
+	if !event.EndsTurn() {
 		return nil
 	}
 
-	if params.TurnError != "" {
-		if err := w.agents.SetTurnFailed(ctx, params.AgentID, params.TurnError); err != nil {
+	if event == harness.ReportTurnFailed {
+		if err := w.agents.SetTurnFailed(ctx, params.AgentID, params.Report.TurnError); err != nil {
 			return fmt.Errorf("failed to record the failed turn of agent %q: %w", params.AgentID, err)
 		}
 
@@ -96,4 +100,14 @@ func (w *RowWriter) RecordReport(ctx context.Context, params RecordReportParams)
 	}
 
 	return nil
+}
+
+// reportedTool is the tool the row says the agent is on, which only a tool starting or waiting
+// on a person puts there.
+func reportedTool(report harness.Report) string {
+	if report.Event != harness.ReportToolStarted && report.Event != harness.ReportApprovalWanted {
+		return ""
+	}
+
+	return report.Tool
 }

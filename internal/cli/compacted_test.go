@@ -10,7 +10,9 @@ import (
 	"testing"
 
 	"komrad/config"
+	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
+	"komrad/internal/harness/codex"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -125,6 +127,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var threadsTask string
+			var reportedEvent, reportedHook string
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
@@ -140,6 +143,14 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 					assert.NoError(t, json.Unmarshal(body, &req))
 					threadsTask = req.Task
 					out, err = protojson.Marshal(&agentv1.ListReviewThreadsResponse{Threads: tt.threads})
+				case agentv1connect.AgentServiceRecordReportProcedure:
+					var req struct {
+						Event string `json:"event"`
+						Hook  string `json:"hook"`
+					}
+					assert.NoError(t, json.Unmarshal(body, &req))
+					reportedEvent, reportedHook = req.Event, req.Hook
+					out = []byte(`{}`)
 				default:
 					t.Errorf("unexpected call to %s", r.URL.Path)
 				}
@@ -149,10 +160,13 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			}))
 			t.Cleanup(server.Close)
 
-			state := &app{env: &config.Environment{
-				Addr:    strings.TrimPrefix(server.URL, "http://"),
-				AgentID: tt.row.GetAgent().GetId(),
-			}}
+			state := &app{
+				env: &config.Environment{
+					Addr:    strings.TrimPrefix(server.URL, "http://"),
+					AgentID: tt.row.GetAgent().GetId(),
+				},
+				harnesses: hookHarnesses(t),
+			}
 
 			var out bytes.Buffer
 			cmd := compactedHookCmd(state)
@@ -162,6 +176,8 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			require.NoError(t, cmd.Execute())
 
 			assert.Equal(t, tt.wantThreadsTask, threadsTask, "threads are read for the diff the agent works on")
+			assert.Equal(t, "REPORT_EVENT_COMPACTED", reportedEvent, "the compaction is recorded")
+			assert.Equal(t, "SessionStart", reportedHook)
 
 			var printed hookOutput
 			require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
@@ -196,7 +212,10 @@ func TestCompactedHookPrintsNothingWithoutARecord(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state := &app{env: &config.Environment{Addr: tt.addr, AgentID: tt.agentID}}
+			state := &app{
+				env:       &config.Environment{Addr: tt.addr, AgentID: tt.agentID},
+				harnesses: hookHarnesses(t),
+			}
 
 			var out bytes.Buffer
 			cmd := compactedHookCmd(state)
@@ -209,4 +228,17 @@ func TestCompactedHookPrintsNothingWithoutARecord(t *testing.T) {
 			assert.Empty(t, out.String())
 		})
 	}
+}
+
+// hookHarnesses is the registry a hook subcommand reads its own payload through.
+func hookHarnesses(t *testing.T) *harness.Registry {
+	t.Helper()
+
+	registry, err := harness.NewRegistry(
+		claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}),
+		codex.NewHarness(codex.NewHarnessParams{Home: t.TempDir()}),
+	)
+	require.NoError(t, err)
+
+	return registry
 }

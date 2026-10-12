@@ -5,4 +5,4 @@ source "$MISE_CONFIG_ROOT/mise/tasks/_test_instance"
 require_test_instance
 cd "$MISE_CONFIG_ROOT"
 
-exec "$(komrad_bin)" open
+run_clean "$(komrad_bin)" open

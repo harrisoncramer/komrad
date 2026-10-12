@@ -16,9 +16,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/caller"
-	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
-	"komrad/internal/harness/codex"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -148,7 +146,7 @@ func TestIntegrationStopHookDeliversMail(t *testing.T) {
 			assert.Equal(t, tt.wantSent, asked.AgentID != "", "the mailbox is only read when there is one to read")
 			assert.Equal(t, tt.wantBoundary, len(reports) == 1, "a turn boundary is recorded whenever the turn actually ends")
 			if tt.wantBoundary {
-				assert.Equal(t, recordedReport{agentID: tt.agentID, turnEnded: true}, reports[0],
+				assert.Equal(t, recordedReport{agentID: tt.agentID, event: "REPORT_EVENT_TURN_ENDED", hook: "Stop"}, reports[0],
 					"a turn ending is all Stop reports, and it names nothing the agent is doing")
 			}
 
@@ -197,14 +195,14 @@ func TestIntegrationClampPrintable(t *testing.T) {
 		},
 		{
 			name:   "a reason longer than the field takes",
-			reason: strings.Repeat("é", reasonLimit+10),
-			want:   strings.Repeat("é", reasonLimit),
+			reason: strings.Repeat("é", reportLimit+10),
+			want:   strings.Repeat("é", reportLimit),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clamped := clampPrintable(tt.reason, reasonLimit)
+			clamped := clampPrintable(tt.reason, reportLimit)
 			assert.Equal(t, tt.want, clamped)
 			assert.True(t, utf8.ValidString(clamped), "a cut that split a rune would be refused as well")
 		})
@@ -362,8 +360,9 @@ func TestIntegrationStopHookDeliversMailPastABrokenConfig(t *testing.T) {
 // recordedReport is one call of the endpoint every hook event reports through.
 type recordedReport struct {
 	agentID   string
-	reason    string
-	turnEnded bool
+	event     string
+	hook      string
+	tool      string
 	turnError string
 }
 
@@ -372,19 +371,6 @@ type fakeMailParams struct {
 	asked   *caller.Caller
 	logged  *[]string
 	reports *[]recordedReport
-}
-
-// hookHarnesses is the registry a hook subcommand reads its own payload through.
-func hookHarnesses(t *testing.T) *harness.Registry {
-	t.Helper()
-
-	registry, err := harness.NewRegistry(
-		claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}),
-		codex.NewHarness(codex.NewHarnessParams{Home: t.TempDir()}),
-	)
-	require.NoError(t, err)
-
-	return registry
 }
 
 func fakeMailServer(t *testing.T, params fakeMailParams) string {
@@ -424,15 +410,17 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 
 	mux.HandleFunc(agentv1connect.AgentServiceRecordReportProcedure, func(w http.ResponseWriter, r *http.Request) {
 		var report struct {
-			Reason    string `json:"reason"`
-			TurnEnded bool   `json:"turnEnded"`
+			Event     string `json:"event"`
+			Hook      string `json:"hook"`
+			Tool      string `json:"tool"`
 			TurnError string `json:"turnError"`
 		}
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&report))
 		*params.reports = append(*params.reports, recordedReport{
 			agentID:   caller.FromHeader(r.Header).AgentID,
-			reason:    report.Reason,
-			turnEnded: report.TurnEnded,
+			event:     report.Event,
+			hook:      report.Hook,
+			tool:      report.Tool,
 			turnError: report.TurnError,
 		})
 
@@ -514,7 +502,7 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 			require.NoError(t, cmd.Execute())
 			assert.Equal(t, tt.wantBoundary, len(reports) == 1)
 			if tt.wantBoundary {
-				assert.Equal(t, recordedReport{agentID: tt.agentID, turnEnded: true}, reports[0])
+				assert.Equal(t, recordedReport{agentID: tt.agentID, event: "REPORT_EVENT_TURN_ENDED", hook: "notify"}, reports[0])
 			}
 			assert.Empty(t, out.String(), "notify reads nothing back, so nothing is printed")
 			assert.Equal(t, tt.wantProblem, errs.Len() > 0, errs.String())
@@ -550,7 +538,8 @@ func TestIntegrationStopFailureHookRecordsTheFailure(t *testing.T) {
 	require.Len(t, reports, 1)
 	assert.Equal(t, recordedReport{
 		agentID:   "agent-a",
-		turnEnded: true,
+		event:     "REPORT_EVENT_TURN_FAILED",
+		hook:      "StopFailure",
 		turnError: "Rate limit reached",
 	}, reports[0])
 	assert.Empty(t, out.String(), "Claude ignores what a StopFailure hook prints")

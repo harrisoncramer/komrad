@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/harness"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
@@ -111,38 +112,46 @@ func TestRowWriterWrites(t *testing.T) {
 	}
 }
 
-// TestRecordReport pins that a report reaches the row, and that only a turn end stamps the turn
-// and wakes the loops that read what it left behind.
+// TestRecordReport pins that a report reaches the row, that only a tool starting or waiting puts
+// its tool there, and that only a turn end stamps the turn and wakes the loops that read what it
+// left behind.
 func TestRecordReport(t *testing.T) {
 	tests := []struct {
 		name           string
-		params         RecordReportParams
+		report         harness.Report
 		wantReason     string
 		wantTurnEnded  bool
 		wantTurnFailed bool
 		wantWakes      int
 	}{
 		{
-			name: "a reason alone claims nothing about the turn",
-			params: RecordReportParams{
-				Reason: "Bash",
-			},
+			name:       "a tool starting claims nothing about the turn",
+			report:     harness.Report{Event: harness.ReportToolStarted, Tool: "Bash"},
 			wantReason: "Bash",
 		},
 		{
-			name: "a turn end stamps the turn and leaves no reason",
-			params: RecordReportParams{
-				TurnEnded: true,
-			},
+			name:       "a tool waiting on a person puts its tool there too",
+			report:     harness.Report{Event: harness.ReportApprovalWanted, Tool: "Edit"},
+			wantReason: "Edit",
+		},
+		{
+			name:   "a tool finishing takes the tool off the row",
+			report: harness.Report{Event: harness.ReportToolFinished, Tool: "Read"},
+		},
+		{
+			name:       "a compaction leaves the row as it was",
+			report:     harness.Report{Event: harness.ReportCompacted},
+			wantReason: "Read",
+		},
+		{
+			name:          "a turn end stamps the turn and leaves no tool",
+			report:        harness.Report{Event: harness.ReportTurnEnded},
 			wantTurnEnded: true,
 			wantWakes:     1,
 		},
 		{
-			name: "a failed turn stamps the turn as failed",
-			params: RecordReportParams{
-				TurnEnded: true,
-				TurnError: "Overloaded",
-			},
+			name:           "a failed turn stamps the turn as failed",
+			report:         harness.Report{Event: harness.ReportTurnFailed, TurnError: "Overloaded"},
 			wantTurnEnded:  true,
 			wantTurnFailed: true,
 			wantWakes:      1,
@@ -156,9 +165,7 @@ func TestRecordReport(t *testing.T) {
 			require.NoError(t, st.Agents.SetReportedReason(t.Context(), alpha.ID, "Read"))
 			fixture := newRowWriter(st)
 
-			params := tt.params
-			params.AgentID = alpha.ID
-			require.NoError(t, fixture.writer.RecordReport(t.Context(), params))
+			require.NoError(t, fixture.writer.RecordReport(t.Context(), RecordReportParams{AgentID: alpha.ID, Report: tt.report}))
 
 			row := agentByID(t, st, alpha.ID)
 			assert.Equal(t, tt.wantReason, row.ReportedReason)
