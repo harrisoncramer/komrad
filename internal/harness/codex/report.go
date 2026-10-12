@@ -22,7 +22,7 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 		return harness.Report{}, fmt.Errorf("no reading is taken from the %q event", event)
 	}
 	if len(payload) == 0 {
-		return harness.Report{TurnEnded: true}, nil
+		return harness.Report{Event: harness.ReportTurnEnded}, nil
 	}
 
 	var parsed notifyPayload
@@ -33,7 +33,7 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 		return harness.Report{}, harness.ErrNoReport
 	}
 
-	return harness.Report{TurnEnded: true}, nil
+	return harness.Report{Event: harness.ReportTurnEnded}, nil
 }
 
 // Hooks is the notify program, the one hook komrad hands Codex.

@@ -52,15 +52,19 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 	})
 
 	t.Run("a turn an API error ended stands until the next one ends", func(t *testing.T) {
-		report := func(turnError string) {
-			req := connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true, TurnError: turnError})
+		report := func(sent *agentv1.RecordReportRequest) {
+			req := connect.NewRequest(sent)
 			caller.Caller{AgentID: agent.GetId(), SessionID: agent.GetSessionId()}.SetHeader(req.Header())
 			_, err := instance.Agents.RecordReport(ctx, req)
 			require.NoError(t, err)
 		}
 
 		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
-		report("Overloaded")
+		report(&agentv1.RecordReportRequest{
+			Event:     agentv1.ReportEvent_REPORT_EVENT_TURN_FAILED,
+			Hook:      "StopFailure",
+			TurnError: "Overloaded",
+		})
 		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateErrored)
 
 		failed, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
@@ -68,7 +72,7 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 		assert.Equal(t, "Overloaded", failed.Msg.GetAgent().GetTurnError())
 
 		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
-		report("")
+		report(&agentv1.RecordReportRequest{Event: agentv1.ReportEvent_REPORT_EVENT_TURN_ENDED, Hook: "Stop"})
 		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateIdle)
 
 		recovered, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))

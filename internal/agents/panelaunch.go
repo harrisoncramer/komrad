@@ -293,5 +293,18 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 		return fmt.Errorf("failed to start the agent in its pane: %w", err)
 	}
 
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "launched an agent with its hooks",
+		slog.String(logging.TargetAgentID, params.AgentID),
+		slog.Any(logging.InstalledHooks, l.installedHooks(h)))
+
 	return nil
+}
+
+// installedHooks is the hooks a launch gets, none when komrad has no binary to point them at.
+func (l *Launcher) installedHooks(h harness.Harness) []string {
+	if l.binPath == "" {
+		return nil
+	}
+
+	return h.Hooks()
 }

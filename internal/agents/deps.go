@@ -27,6 +27,17 @@ var (
 type (
 	Script       = scripts.Script
 	ScriptHeader = scripts.Header
+	Report       = harness.Report
+	ReportEvent  = harness.ReportEvent
+)
+
+const (
+	ReportTurnEnded      = harness.ReportTurnEnded
+	ReportTurnFailed     = harness.ReportTurnFailed
+	ReportToolStarted    = harness.ReportToolStarted
+	ReportToolFinished   = harness.ReportToolFinished
+	ReportApprovalWanted = harness.ReportApprovalWanted
+	ReportCompacted      = harness.ReportCompacted
 )
 
 type paneLister interface {

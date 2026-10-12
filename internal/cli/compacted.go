@@ -30,21 +30,29 @@ func compactedHookCmd(state *app) *cobra.Command {
 		Long: `Remind an agent of its own record once its conversation has compacted.
 
 Claude runs this on its SessionStart event when a conversation has just been
-summarized. It reads the agent's record from komrad, its branch, pull request,
-open review threads, waiting mail and the task it was launched with, and prints
-it back as additional context. A panel that cannot be reached prints nothing.`,
+summarized. It records the compaction against the agent, then reads the agent's
+record from komrad, its branch, pull request, open review threads, waiting mail
+and the task it was launched with, and prints it back as additional context. A
+panel that cannot be reached prints nothing.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-		if _, err := io.Copy(io.Discard, cmd.InOrStdin()); err != nil {
+		body, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
 			reportHookProblem(cmd, "komrad read no hook payload", err)
 		}
 		if state.env.AgentID == "" {
 			return nil
 		}
+
+		reportHookEvent(cmd, state, reportHookEventParams{
+			harnessID: claude.HarnessID,
+			event:     claude.EventSessionStart,
+			payload:   body,
+		})
 
 		row, err := readOwnRow(cmd.Context(), state)
 		if err != nil {

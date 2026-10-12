@@ -133,13 +133,53 @@ type Event string
 // Report is what a harness read out of one of its own hook payloads, which annotates the state
 // the pane decided rather than deciding one of its own.
 type Report struct {
-	// Reason is what to say the agent is doing, an empty one clearing whatever was reported
-	// before it.
-	Reason string
+	Event ReportEvent
 
-	// TurnEnded says the payload reported a turn of the agent's ending.
-	TurnEnded bool
+	// Tool is the tool the event is about, empty for an event about none.
+	Tool string
+
+	// TurnError is what ended a failed turn.
 	TurnError string
+}
+
+// ReportEvent is what a hook reported, in komrad's own terms whichever CLI fired it.
+type ReportEvent int
+
+const (
+	reportUnknown ReportEvent = iota
+	ReportTurnEnded
+	ReportTurnFailed
+	ReportToolStarted
+	ReportToolFinished
+	ReportApprovalWanted
+	ReportCompacted
+)
+
+// String names an event for a log line.
+func (e ReportEvent) String() string {
+	switch e {
+	case ReportTurnEnded:
+		return "turn ended"
+	case ReportTurnFailed:
+		return "turn failed"
+	case ReportToolStarted:
+		return "tool started"
+	case ReportToolFinished:
+		return "tool finished"
+	case ReportApprovalWanted:
+		return "approval wanted"
+	case ReportCompacted:
+		return "compacted"
+	case reportUnknown:
+		return "unknown"
+	}
+
+	return "unknown"
+}
+
+// EndsTurn reports whether the event is a turn of the agent's ending, failed or not.
+func (e ReportEvent) EndsTurn() bool {
+	return e == ReportTurnEnded || e == ReportTurnFailed
 }
 
 var ErrNoReport = fail.NotFound("the hook payload carries nothing to record")
