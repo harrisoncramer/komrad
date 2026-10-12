@@ -24,10 +24,11 @@ func TestAgent(t *testing.T) {
 	written := time.Date(2026, time.September, 1, 9, 9, 0, 250_000_000, time.UTC)
 
 	tests := []struct {
-		name   string
-		stored agentstore.Agent
-		beside rowstore.Row
-		want   *agentv1.Agent
+		name    string
+		stored  agentstore.Agent
+		beside  rowstore.Row
+		options AgentOptions
+		want    *agentv1.Agent
 	}{
 		{
 			name: "an agent nothing has written to",
@@ -114,6 +115,24 @@ func TestAgent(t *testing.T) {
 				DocumentsUpdatedAt: xptr.Ptr("2026-09-01T09:09:00.25Z"),
 			},
 		},
+		{
+			name: "an agent whose harness installs hooks",
+			stored: agentstore.Agent{
+				ID:      "a6",
+				Name:    "hooked",
+				Harness: "claude",
+			},
+			options: AgentOptions{HooksOf: func(harness string) []string {
+				return []string{harness + " Stop"}
+			}},
+			want: &agentv1.Agent{
+				Id:      "a6",
+				Name:    "hooked",
+				Harness: "claude",
+				Alive:   xptr.Ptr(false),
+				Hooks:   []string{"claude Stop"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -122,7 +141,7 @@ func TestAgent(t *testing.T) {
 
 			row := tt.beside
 			row.Agent = tt.stored
-			assert.Empty(t, cmp.Diff(tt.want, Agent(row, AgentOptions{}), protocmp.Transform()))
+			assert.Empty(t, cmp.Diff(tt.want, Agent(row, tt.options), protocmp.Transform()))
 		})
 	}
 }
@@ -159,7 +178,7 @@ func TestWatchedAgent(t *testing.T) {
 				ID:         "a1",
 				Prompt:     prompt,
 				ArchivedAt: tt.archivedAt,
-			}))
+			}), nil)
 
 			assert.Equal(t, tt.wantPrompt, rendered.GetPrompt())
 			assert.Equal(t, tt.wantTruncated, rendered.GetPromptTruncated())

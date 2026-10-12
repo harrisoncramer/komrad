@@ -182,6 +182,8 @@ type Harness interface {
 
 	ReadReport(event Event, payload []byte) (Report, error)
 
+	Hooks() []string
+
 	InterruptKeys() []string
 
 	LogPath(sessionID string) string

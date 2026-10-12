@@ -74,6 +74,44 @@ func TestWorkingCell(t *testing.T) {
 	}
 }
 
+// TestToolCell pins the tool an agent reported, shown while it works or waits on a person and nowhere else.
+func TestToolCell(t *testing.T) {
+	tests := []struct {
+		name string
+		row  Row
+		want Cell
+	}{
+		{
+			name: "a thinking agent shows its tool",
+			row:  Row{Process: ProcessAlive, Status: StatusThinking, Tool: "Bash"},
+			want: Cell{Text: "Bash", Tone: paint.ToneMuted},
+		},
+		{
+			name: "an agent waiting on a person shows the tool it asks for",
+			row:  Row{Process: ProcessAlive, Status: StatusWaiting, Tool: "Bash"},
+			want: Cell{Text: "Bash", Tone: paint.ToneMuted},
+		},
+		{
+			name: "an idle agent shows nothing",
+			row:  Row{Process: ProcessAlive, Status: StatusIdle, Tool: "Bash"},
+		},
+		{
+			name: "a stopped agent shows nothing",
+			row:  Row{Process: ProcessStopped, Status: StatusThinking, Tool: "Bash"},
+		},
+		{
+			name: "an agent that reported no tool shows nothing",
+			row:  Row{Process: ProcessAlive, Status: StatusThinking},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, toolCell(tt.row))
+		})
+	}
+}
+
 // TestPrepareNameSaysWhatTheAgentIsDoing pins the lettering each state of the agent behind a row
 // gives its name.
 func TestPrepareNameSaysWhatTheAgentIsDoing(t *testing.T) {
@@ -1110,6 +1148,57 @@ func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
 			assert.Equal(t, tt.wantName, list.Lines[0].Name)
 			assert.Equal(t, tt.wantTally, list.Lines[0].Tally)
 			assert.False(t, list.Lines[0].Schedule.IsBlank(), "the marks are never what gives way")
+		})
+	}
+}
+
+// TestPrepareGivesTheToolUpFirst pins the tool as the first thing a row gives up for its name.
+func TestPrepareGivesTheToolUpFirst(t *testing.T) {
+	busy := Row{
+		Kind:     KindAgent,
+		Name:     "fix-login",
+		Process:  ProcessAlive,
+		Status:   StatusThinking,
+		Tool:     "Bash",
+		Workflow: "neovim",
+	}
+
+	tests := []struct {
+		name         string
+		pane         int
+		wantName     string
+		wantTool     bool
+		wantWorkflow string
+	}{
+		{
+			name:         "a pane too narrow for the name gives the tool up and then the workflow",
+			pane:         16,
+			wantName:     "fix-log…",
+			wantWorkflow: "",
+		},
+		{
+			name:         "a pane with room for the name once the tool is gone keeps the workflow",
+			pane:         24,
+			wantName:     "fix-login",
+			wantWorkflow: "neovim",
+		},
+		{
+			name:         "a wide pane keeps the tool",
+			pane:         29,
+			wantName:     "fix-login",
+			wantTool:     true,
+			wantWorkflow: "neovim",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{Rows: []Row{busy}, Pane: tt.pane})
+			require.Len(t, list.Lines, 1)
+
+			assert.Equal(t, tt.wantName, list.Lines[0].Name)
+			assert.Equal(t, tt.wantTool, !list.Lines[0].Tool.IsBlank())
+			assert.Equal(t, tt.wantWorkflow, list.Lines[0].Workflow)
 		})
 	}
 }

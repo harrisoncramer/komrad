@@ -88,9 +88,17 @@ doing, and reads nothing else: a tool's input can carry a secret.`,
 		long: `Record that an agent's tool call returned.
 
 Claude runs this once a tool call has finished, which takes the tool back off
-the agent's row. A call that fails runs nothing, so the row is left to the state
-it is drawn beside rather than to this.`,
+the agent's row.`,
 		event: claude.EventPostToolUse,
+	}))
+	cmd.AddCommand(payloadHookCmd(state, payloadHook{
+		use:   "post-tool-use-failure",
+		short: "Record that an agent's tool call failed",
+		long: `Record that an agent's tool call failed.
+
+Claude runs this in place of its PostToolUse hook when a tool call fails, which
+takes the tool back off the agent's row.`,
+		event: claude.EventPostToolUseFailure,
 	}))
 	cmd.AddCommand(payloadHookCmd(state, payloadHook{
 		use:   "permission-request",

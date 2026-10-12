@@ -1169,33 +1169,6 @@ func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt, "a lost pane is an interruption, not a turn end")
 }
 
-// TestReconcileReportedReasonMovesNoState pins the whole of what a reported reason may do: it is
-// kept beside the agent and decides nothing, so a frame the pane still reads as work leaves the
-// agent working and the misses a transition needs are still earned one pass at a time.
-func TestReconcileReportedReasonMovesNoState(t *testing.T) {
-	st := newStore(t)
-	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
-
-	tmux := tmuxtest.NewFake()
-	tmux.Owners["%1"] = agent.ID
-	tmux.Captures["%1"] = harnesstest.FrameIdle
-
-	rec := NewReconciler(NewReconcilerParams{
-		Panes:    tmux,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
-		States:   st.Agents,
-	})
-	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
-	rec.RecordReportedReason(agent.ID, "Bash")
-
-	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
-		"a reason says nothing about whether the turn ended")
-	assert.Equal(t, 1, rec.tally.read(agent.ID).misses, "the pass counted as an ordinary miss")
-	assert.Equal(t, "Bash", rec.tally.read(agent.ID).reportedReason)
-}
-
 // TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain pins that the one positive report komrad
 // has that a turn finished cannot be spent reaching the state that says komrad does not know
 // whether it finished, so an unreadable frame still earns its misses.

@@ -980,6 +980,7 @@ func TestGetAgent(t *testing.T) {
 					CreatedAt:  created,
 					WorkflowID: "wf-1",
 					TaskID:     xptr.Ptr("task-1"),
+					Harness:    "claude",
 				},
 				FailedRun:    true,
 				FailedRunLog: xptr.Ptr(int32(4)),
@@ -1044,6 +1045,7 @@ func TestGetAgent(t *testing.T) {
 	require.NotNil(t, agent.Alive, "a dormant agent says so rather than leaving it out")
 	assert.False(t, agent.GetAlive())
 	assert.Equal(t, "2026-09-20T12:00:00Z", agent.GetCreatedAt(), "the creation time is RFC 3339")
+	assert.Equal(t, []string{"claude Stop"}, agent.GetHooks(), "with the hooks its harness installs")
 }
 
 // TestGetAgentResponseMirrorsAgentRow pins that every field AgentRow draws beside an agent is
@@ -1404,8 +1406,9 @@ func restoreAlpha(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) er
 // newRowHandler is the handler over a fake of the rows.
 func newRowHandler(rows *fakeRowReader) agentv1komrad.AgentServiceAdapter {
 	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{
-		Agents: rows,
-		Rows:   rows,
+		Agents:  rows,
+		Rows:    rows,
+		HooksOf: func(harness string) []string { return []string{harness + " Stop"} },
 	})}
 }
 

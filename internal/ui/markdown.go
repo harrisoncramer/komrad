@@ -109,6 +109,10 @@ func agentFields(params agentFieldsParams) []recordField {
 	}
 	fields = append(fields, params.checkout...)
 	fields = append(fields, sessionFields(agent, schedule)...)
+	fields = append(fields, recordField{label: "hooks", value: label.OrDash(strings.Join(agent.Hooks, ", "))})
+	if agent.Tool != "" {
+		fields = append(fields, recordField{label: "tool", value: agent.Tool})
+	}
 	if created := label.Friendly(agent.CreatedAt); created != "" {
 		fields = append(fields, recordField{label: "created", value: created})
 	}

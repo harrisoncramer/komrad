@@ -2388,6 +2388,16 @@
           "oneof": "",
           "rules": [],
           "description": "Whether it was told to keep the directory it was given rather than be provisioned a worktree."
+        },
+        {
+          "name": "hooks",
+          "type": "string",
+          "ref": "",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The hooks komrad installs in the agent's CLI, named as that CLI names its events."
         }
       ]
     },

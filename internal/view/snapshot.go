@@ -147,6 +147,8 @@ type Row struct {
 	// pass.
 	AutoMerge   bool
 	LoaderFrame string
+	// Tool is the tool the agent behind the row last reported running, empty when it reported none.
+	Tool string
 	// ReviewerComments counts the comments reviewer agents left, nil while there are none to show.
 	ReviewerComments *Comments
 	// PersonComments counts the comments the person left, nil while there are none to show.

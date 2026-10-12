@@ -43,7 +43,6 @@ type trackedAgent struct {
 	frameHash         uint64
 	frameHashSeen     bool
 	unrecognizedHolds int
-	reportedReason    string
 }
 
 // newTally builds an empty tally over the wall clock.
@@ -103,12 +102,6 @@ func (t *tally) observeTurnEnd(agent agentstore.Agent) {
 			entry.turnEndSeen = now
 		}
 	})
-}
-
-// recordReportedReason notes what agentID's own CLI reported it was doing, which annotates the
-// state the pane decided and never moves it.
-func (t *tally) recordReportedReason(agentID, reason string) {
-	t.update(agentID, func(entry *trackedAgent) { entry.reportedReason = reason })
 }
 
 func (t *tally) hasFreshTurnEnd(agent agentstore.Agent) bool {

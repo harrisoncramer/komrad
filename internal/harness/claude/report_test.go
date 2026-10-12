@@ -75,6 +75,12 @@ func TestReadReport(t *testing.T) {
 			want:    harness.Report{},
 		},
 		{
+			name:    "a tool call failing",
+			event:   EventPostToolUseFailure,
+			payload: `{"tool_name":"Bash","error":"exit status 1"}`,
+			want:    harness.Report{},
+		},
+		{
 			name:    "a tool call waiting on a person to allow it",
 			event:   EventPermissionRequest,
 			payload: `{"tool_name":"Bash","tool_input":{"command":"echo hi"}}`,
@@ -181,4 +187,19 @@ func TestEveryInstalledHookIsRead(t *testing.T) {
 		_, err := hn.ReadReport(event, []byte(`{}`))
 		assert.NoError(t, err, "the %s hook is installed, so a reading is taken from it", event)
 	}
+}
+
+// TestHooks pins the installed hooks as Claude names its events, with the matcher beside one it narrows.
+func TestHooks(t *testing.T) {
+	hn := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()})
+
+	assert.Equal(t, []string{
+		"PermissionRequest",
+		"PostToolUse",
+		"PostToolUseFailure",
+		"PreToolUse",
+		"SessionStart (compact)",
+		"Stop",
+		"StopFailure",
+	}, hn.Hooks())
 }

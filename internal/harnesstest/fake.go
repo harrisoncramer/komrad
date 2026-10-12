@@ -99,6 +99,11 @@ func (f *Fake) InterruptKeys() []string {
 	return f.InterruptWith
 }
 
+// Hooks is none, a fake installing nothing.
+func (f *Fake) Hooks() []string {
+	return nil
+}
+
 // ReadReport reads nothing.
 func (f *Fake) ReadReport(harness.Event, []byte) (harness.Report, error) {
 	return harness.Report{}, nil
