@@ -281,7 +281,7 @@ service WorktreeService {
       cli: true
       mcp: false
       name: "delete_worktrees"
-      description: "Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad leaves a directory whose agent is live alone."
+      description: "Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad skips any directory whose agent is live."
       reason: "A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome."
       destructive: true
     };

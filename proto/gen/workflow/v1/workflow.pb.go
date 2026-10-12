@@ -189,7 +189,7 @@ type WorkflowEventPrompt struct {
 	// The text added to the mail carrying that event, blank to add nothing.
 	Prompt string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
 	// Whether the event is kept from opening mail of its own. It still rewrites mail the agent
-	// holds unread, and it leaves out its prompt.
+	// holds unread, but without its prompt.
 	Muted         bool `protobuf:"varint,3,opt,name=muted,proto3" json:"muted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1221,9 +1221,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\x9f\f\n" +
-	"\x0fWorkflowService\x12\xf5\x01\n" +
-	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\x9c\x01\x9a\xb5\x18\x94\x01\b\x01\x10\x01\x1a\x0elist_workflows\"yList the workflows, alphabetically, with the opening of each context. Archived workflows stay out unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x8b\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xa5\f\n" +
+	"\x0fWorkflowService\x12\xfb\x01\n" +
+	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa2\x01\x9a\xb5\x18\x9a\x01\b\x01\x10\x01\x1a\x0elist_workflows\"\x7fList the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x8b\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"9\x9a\xb5\x182\b\x01\x10\x01\x1a\fget_workflow\"\x19Fetch one workflow by id.:\x03\x03\x01\x02\x90\x02\x01\x12\xcc\x01\n" +
 	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"q\x9a\xb5\x18m\b\x01\x10\x01\x1a\x0fcreate_workflow\"QCreate a workflow to group agents under. The workflows guide explains each field.(\x00:\x01\x02\x12\xa9\x02\n" +
 	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xda\x01\x9a\xb5\x18\xd2\x01\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xb5\x01Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing. A context edit reaches only agents spawned afterwards.(\x00:\x01\x02\x90\x02\x02\x12\xcd\x01\n" +

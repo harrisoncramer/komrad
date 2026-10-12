@@ -271,8 +271,8 @@ message CreateReviewThreadRequest {
   int32 new_start = 7;
   // Where it ends on the new side, inclusive.
   int32 new_end = 8;
-  // The diff lines being written about, each keeping its leading marker. The anchor still makes
-  // sense once the code moves.
+  // The diff lines being written about, each keeping its leading marker so the anchor still
+  // makes sense once the code moves.
   repeated string quoted_lines = 9;
   // The first thing said. The ceiling refuses an essay and is not a length to write up to.
   string body = 10 [(buf.validate.field).string = {
@@ -365,7 +365,7 @@ message SetReviewThreadResolvedResponse {
 }
 
 // OpenReviewRoundRequest freezes what an agent has written now and records it as its next
-// round. A tree that has not moved since the last round returns that round and not a new one,
+// round. On a tree that has not moved since the last round it returns that round,
 // so opening the diff twice does not advance the ordinal.
 message OpenReviewRoundRequest {
   // Which task's checkout to freeze, by id or by slug. Leave it unset for your own task.

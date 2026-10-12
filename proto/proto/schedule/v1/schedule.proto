@@ -242,7 +242,7 @@ service ScheduleService {
       cli: true
       mcp: true
       name: "list_schedules"
-      description: "List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules stay out unless archived is set."
+      description: "List the schedules, most recently updated first, with the opening of each prompt and its latest run. The list omits archived schedules unless archived is set."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

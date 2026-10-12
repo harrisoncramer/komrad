@@ -35,7 +35,7 @@ The arrows above are enforced by depguard. For instance, the panel may not impor
 
 Komrad enforces structure with many golangci-lint linters. Many are standard. Some are ours, in a plugin under `tools/komradlint`, written when the same review comment came up one too many times.
 
-For instance, a `fail` constructor that names its kind must make every sentinel error, so the declaration decides the RPC code. A handler body must be a single call. A constructor must be `NewT(NewTParams)`. Only `config` may read the environment. One package may use a bare HTTP client. Three named places may expose a forge secret, and no others.
+For instance, every sentinel error comes from a `fail` constructor that names its kind, so the declaration decides the RPC code. A handler body must be a single call. A constructor must be `NewT(NewTParams)`. Only `config` may read the environment. Only one package may use a bare HTTP client. Three named places may expose a forge secret, and no others.
 
 Tests have rules too. A test file must sit beside a source file of the same name. A test may not declare a method that matches a store method, so services are tested against the real store. Unit tests may not run git directly. They take the seam and hand in a fake.
 

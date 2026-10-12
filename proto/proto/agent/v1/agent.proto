@@ -219,8 +219,8 @@ message CreateAgentRequest {
   // checkout, where komrad refuses provision_enabled. Unset to start a task of its own, made
   // from the agent's title and prompt, with this agent as its writer.
   optional string task = 8 [(buf.validate.field).string.min_len = 1];
-  // The slug of the task komrad makes for it when task is unset. No other task may have ever
-  // had it. Unset to make one from the agent's name, numbered until it is free.
+  // The slug of the task komrad makes for it when task is unset. It must be one no task has
+  // ever had. Unset to make one from the agent's name, numbered until it is free.
   optional string task_slug = 9 [(buf.validate.field).string = {
     max_len: 80
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -248,8 +248,8 @@ message RequestReviewRequest {
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // A key that makes a retry safe. A repeat with the same key returns the reviewer already
-  // spawned and does not refuse.
+  // A key that makes a retry safe. A repeat with the same key gets back the reviewer already
+  // spawned instead of a refusal.
   optional string idempotency_key = 4 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
@@ -426,11 +426,11 @@ message PlanPushResponse {
   // How many commits would go up, counted against origin's copy of the branch, or against the
   // base when origin has none.
   int32 commits = 2;
-  // Whether origin's copy holds commits the branch does not. The push would overwrite it.
+  // Whether origin's copy holds commits the branch does not. When true, the push overwrites them.
   bool forced = 3;
   // How many files would stay behind because nothing has committed them.
   int32 uncommitted_files = 4;
-  // Whether origin already holds every commit on the branch. Nothing is left to push.
+  // Whether origin already holds every commit on the branch. When true, nothing is left to push.
   bool in_sync = 5;
 }
 
@@ -661,7 +661,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_agents"
-      description: "List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents stay out unless archived is set."
+      description: "List the agents komrad tracks, most recently updated first, with the opening of each prompt. The list omits archived agents unless archived is set."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,

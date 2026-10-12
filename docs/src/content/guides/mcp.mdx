@@ -17,7 +17,8 @@ For Claude agents, komrad also switches off Claude's built-in subagent tool. An 
 
 ## Read-only vs. write tools
 
-Two kinds of tool exist. The first reads komrad's database with read-only SQL, so an orchestrator can answer its own questions, like how many agents in a workflow are still working. The second is the API itself, which lists agents, creates them, sends mail, and requests reviews. Anything that changes something goes through the API, with the same rules as the panel. A model that lists agents gets the same row the panel draws.
+Komrad has two kinds of tool. The first reads komrad's database with read-only SQL, so an orchestrator can answer its own questions, like how many agents in a workflow are still working. The second is the API itself, which lists agents, creates them, sends mail, and requests reviews. Anything that changes something goes through the API, with the same rules as the panel. A model that lists agents gets the same row the panel draws.
+
 The [API reference](../../api/) lists every tool.
 
 ## Identity and scope

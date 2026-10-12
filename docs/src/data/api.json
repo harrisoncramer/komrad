@@ -19,7 +19,7 @@
             "orchestrator"
           ],
           "summary": "List the agents komrad tracks, most recently updated first, with the opening of each prompt.",
-          "description": "List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents stay out unless archived is set.",
+          "description": "List the agents komrad tracks, most recently updated first, with the opening of each prompt. The list omits archived agents unless archived is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -946,7 +946,7 @@
             "orchestrator"
           ],
           "summary": "List the workflows, alphabetically, with the opening of each context.",
-          "description": "List the workflows, alphabetically, with the opening of each context. Archived workflows stay out unless archived is set.",
+          "description": "List the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1082,7 +1082,7 @@
             "orchestrator"
           ],
           "summary": "List the schedules, most recently updated first, with the opening of each prompt and its latest run.",
-          "description": "List the schedules, most recently updated first, with the opening of each prompt and its latest run. Archived schedules stay out unless archived is set.",
+          "description": "List the schedules, most recently updated first, with the opening of each prompt and its latest run. The list omits archived schedules unless archived is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1649,7 +1649,7 @@
           "mcp": false,
           "roles": [],
           "summary": "Queue deleting worktree directories in the background, each through the path its agent's state decides.",
-          "description": "Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad leaves a directory whose agent is live alone.",
+          "description": "Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad skips any directory whose agent is live.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1715,7 +1715,7 @@
             "orchestrator"
           ],
           "summary": "List a workflow's tasks, newest first.",
-          "description": "List a workflow's tasks, newest first. Archived tasks stay out unless archived is set.",
+          "description": "List a workflow's tasks, newest first. The list omits archived tasks unless archived is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -2630,7 +2630,7 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The slug of the task komrad makes for it when task is unset. No other task may have ever had it. Unset to make one from the agent's name, numbered until it is free."
+          "description": "The slug of the task komrad makes for it when task is unset. It must be one no task has ever had. Unset to make one from the agent's name, numbered until it is free."
         },
         {
           "name": "task_goal",
@@ -2754,7 +2754,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The diff lines being written about, each keeping its leading marker. The anchor still makes sense once the code moves."
+          "description": "The diff lines being written about, each keeping its leading marker so the anchor still makes sense once the code moves."
         },
         {
           "name": "body",
@@ -4360,7 +4360,7 @@
     },
     "agent.v1.OpenReviewRoundRequest": {
       "name": "OpenReviewRoundRequest",
-      "description": "OpenReviewRoundRequest freezes what an agent has written now and records it as its next round. A tree that has not moved since the last round returns that round and not a new one, so opening the diff twice does not advance the ordinal.",
+      "description": "OpenReviewRoundRequest freezes what an agent has written now and records it as its next round. On a tree that has not moved since the last round it returns that round, so opening the diff twice does not advance the ordinal.",
       "fields": [
         {
           "name": "task",
@@ -4438,7 +4438,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether origin's copy holds commits the branch does not. The push would overwrite it."
+          "description": "Whether origin's copy holds commits the branch does not. When true, the push overwrites them."
         },
         {
           "name": "uncommitted_files",
@@ -4458,7 +4458,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether origin already holds every commit on the branch. Nothing is left to push."
+          "description": "Whether origin already holds every commit on the branch. When true, nothing is left to push."
         }
       ]
     },
@@ -5003,7 +5003,7 @@
           "rules": [
             "at most 200 characters"
           ],
-          "description": "A key that makes a retry safe. A repeat with the same key returns the reviewer already spawned and does not refuse."
+          "description": "A key that makes a retry safe. A repeat with the same key gets back the reviewer already spawned instead of a refusal."
         },
         {
           "name": "harness",
@@ -7098,7 +7098,7 @@
           "rules": [
             "at most 512 characters"
           ],
-          "description": "The branch the pull requests were opened from. Pull requests of any state are listed. When empty, the repository's open pull requests are listed instead."
+          "description": "The branch the pull requests were opened from. The call lists them in any state. When empty, it lists the repository's open pull requests instead."
         },
         {
           "name": "pagination",
@@ -7674,7 +7674,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the log started over since the cursor. The lines held before are gone."
+          "description": "Whether the log started over since the cursor. When true, the lines held before are gone."
         },
         {
           "name": "more",
@@ -8821,7 +8821,7 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The lowercase kebab-case name to call it by. No other task has ever had it."
+          "description": "The lowercase kebab-case name to call it by. It must be one no task has ever had."
         },
         {
           "name": "title",
@@ -10037,7 +10037,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the event is kept from opening mail of its own. It still rewrites mail the agent holds unread, and it leaves out its prompt."
+          "description": "Whether the event is kept from opening mail of its own. It still rewrites mail the agent holds unread, but without its prompt."
         }
       ]
     },

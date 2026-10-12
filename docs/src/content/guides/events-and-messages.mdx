@@ -70,7 +70,7 @@ An agent holds at most one unread piece of mail from komrad about any one thing.
 
 Komrad records each change as an _event_ in the same database transaction as the change itself. If you save a document, the save and its event commit together. If the save fails, there is no event. If komrad stops a moment after the save, the event is still there when it comes back.
 
-This pattern is called a _transactional outbox_. The change and the record that announces it save together or not at all, and a separate worker announces the change, retrying until it succeeds. Komrad keeps its events in the same job queue it uses for other background work, and the messages land in the mail table.
+This pattern is called a _transactional outbox_. Komrad saves the change and the record that announces it together or not at all, and a separate worker announces the change, retrying until it succeeds. Komrad keeps its events in the same job queue it uses for other background work, and the messages land in the mail table.
 
 ```
   one transaction

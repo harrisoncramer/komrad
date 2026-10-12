@@ -885,8 +885,8 @@ type CreateAgentRequest struct {
 	// checkout, where komrad refuses provision_enabled. Unset to start a task of its own, made
 	// from the agent's title and prompt, with this agent as its writer.
 	Task *string `protobuf:"bytes,8,opt,name=task,proto3,oneof" json:"task,omitempty"`
-	// The slug of the task komrad makes for it when task is unset. No other task may have ever
-	// had it. Unset to make one from the agent's name, numbered until it is free.
+	// The slug of the task komrad makes for it when task is unset. It must be one no task has
+	// ever had. Unset to make one from the agent's name, numbered until it is free.
 	TaskSlug *string `protobuf:"bytes,9,opt,name=task_slug,json=taskSlug,proto3,oneof" json:"task_slug,omitempty"`
 	// What the task komrad makes for it is meant to achieve, as markdown. Blank to take the first
 	// line of the prompt.
@@ -1048,8 +1048,8 @@ type RequestReviewRequest struct {
 	AgentId *string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	// What to call the reviewer, blank to name it after the agent it is reading.
 	Title string `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
-	// A key that makes a retry safe. A repeat with the same key returns the reviewer already
-	// spawned and does not refuse.
+	// A key that makes a retry safe. A repeat with the same key gets back the reviewer already
+	// spawned instead of a refusal.
 	IdempotencyKey *string `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	// Which CLI the reviewer runs, blank to take the workflow's own.
 	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
@@ -1954,11 +1954,11 @@ type PlanPushResponse struct {
 	// How many commits would go up, counted against origin's copy of the branch, or against the
 	// base when origin has none.
 	Commits int32 `protobuf:"varint,2,opt,name=commits,proto3" json:"commits,omitempty"`
-	// Whether origin's copy holds commits the branch does not. The push would overwrite it.
+	// Whether origin's copy holds commits the branch does not. When true, the push overwrites them.
 	Forced bool `protobuf:"varint,3,opt,name=forced,proto3" json:"forced,omitempty"`
 	// How many files would stay behind because nothing has committed them.
 	UncommittedFiles int32 `protobuf:"varint,4,opt,name=uncommitted_files,json=uncommittedFiles,proto3" json:"uncommitted_files,omitempty"`
-	// Whether origin already holds every commit on the branch. Nothing is left to push.
+	// Whether origin already holds every commit on the branch. When true, nothing is left to push.
 	InSync        bool `protobuf:"varint,5,opt,name=in_sync,json=inSync,proto3" json:"in_sync,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3474,10 +3474,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_ROLE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13AGENT_ROLE_REVIEWER\x10\x01\x12\x1b\n" +
 	"\x17AGENT_ROLE_ORCHESTRATOR\x10\x02\x12\x15\n" +
-	"\x11AGENT_ROLE_WRITER\x10\x032\x94\x82\x01\n" +
-	"\fAgentService\x12\xf8\x01\n" +
+	"\x11AGENT_ROLE_WRITER\x10\x032\x9a\x82\x01\n" +
+	"\fAgentService\x12\xfe\x01\n" +
 	"\n" +
-	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xae\x01\x9a\xb5\x18\xa6\x01\b\x01\x10\x01\x1a\vlist_agents\"\x8d\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents stay out unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xa4\x01\n" +
+	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\vlist_agents\"\x93\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. The list omits archived agents unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xa4\x01\n" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"a\x9a\xb5\x18Z\b\x01\x10\x01\x1a\tget_agent\"DFetch one agent by id, archived ones included, with its full prompt.:\x03\x03\x01\x02\x90\x02\x01\x12\x87\x05\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xba\x04\x9a\xb5\x18\xb5\x04\b\x01\x10\x01\x1a\fcreate_agent\"\x9a\x04Launch a new agent with an opening prompt, which is all the agent has to go on. Pass task, by id or slug, to put the agent on that task. It becomes the task's writer when the task has none yet, such as one made with create_task, and otherwise a reviewer in the writer's checkout. Leave task unset to start a task with this agent as its writer. Pass provision_enabled false to keep a writer in the workflow's directory instead of a new worktree. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full.(\x00:\x02\x03\x02\x12\xcc\x03\n" +
 	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xf9\x02\x9a\xb5\x18\xf4\x02\b\x01\x10\x01\x1a\x0erequest_review\"\xd8\x02Spawn a reviewer for your committed work, on your task in your checkout. resource_exhausted means the panel is full or your task holds all the reviewers it may. When the panel is full, say so, carry on without the review and leave the change for a person. When your task is full, settle the reviewers reading and ask again once one is archived.(\x00:\x01\x03\x12\x8e\x02\n" +

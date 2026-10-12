@@ -54,9 +54,9 @@ message ReadFilesResponse {
 message CountChangedFilesRequest {
   // Any directory inside the repository, absolute, which must be inside a live agent's directory.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
-  // The commit to count from. No commit counts nothing.
+  // The commit to count from. Empty counts nothing.
   string from_sha = 2 [(buf.validate.field).string.pattern = "^(?:[^-].*)?$"];
-  // The commit to count to. No commit counts nothing.
+  // The commit to count to. Empty counts nothing.
   string to_sha = 3 [(buf.validate.field).string.pattern = "^(?:[^-].*)?$"];
   // The paths and globs to leave out, relative to the top of the repository.
   repeated string exclude = 4;

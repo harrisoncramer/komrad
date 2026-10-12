@@ -1377,13 +1377,13 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
 	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
 	"\x12WORKTREE_FATE_LIVE\x10\x03\x12\x1a\n" +
-	"\x16WORKTREE_FATE_DELETING\x10\x042\xe2\n" +
+	"\x16WORKTREE_FATE_DELETING\x10\x042\xdd\n" +
 	"\n" +
 	"\x0fWorktreeService\x12\xf6\x01\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xa8\x01\x9a\xb5\x18\xa0\x01\b\x01\x10\x01\x1a\x0elist_worktrees\"\x86\x01List every worktree directory komrad holds, with its repository, branch, agent and last measured size. It runs no git, so it is cheap.:\x01\x02\x90\x02\x01\x12\x85\x02\n" +
 	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\fget_worktree\"\x92\x01Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base. Set fetch to ask origin first.:\x01\x02\x90\x02\x01\x12\xa8\x02\n" +
-	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\x86\x01Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.(\x01:\x01\x02\x90\x02\x02\x12\xa2\x04\n" +
-	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xd1\x03\x9a\xb5\x18\xc9\x03\b\x01\x1a\x10delete_worktrees\"\x9c\x01Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad leaves a directory whose agent is live alone.(\x01B\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
+	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\x86\x01Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.(\x01:\x01\x02\x90\x02\x02\x12\x9d\x04\n" +
+	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xcc\x03\x9a\xb5\x18\xc4\x03\b\x01\x1a\x10delete_worktrees\"\x97\x01Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad skips any directory whose agent is live.(\x01B\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
 var (
 	file_worktree_v1_worktree_proto_rawDescOnce sync.Once

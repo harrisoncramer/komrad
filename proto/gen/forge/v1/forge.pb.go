@@ -473,8 +473,8 @@ type ListForgePullRequestsRequest struct {
 	// The repository as a git remote spells it, such as git@github.com:owner/repo.git or
 	// https://github.com/owner/repo, whose host picks the forge connection.
 	RemoteUrl string `protobuf:"bytes,1,opt,name=remote_url,json=remoteUrl,proto3" json:"remote_url,omitempty"`
-	// The branch the pull requests were opened from. Pull requests of any state are listed. When
-	// empty, the repository's open pull requests are listed instead.
+	// The branch the pull requests were opened from. The call lists them in any state. When
+	// empty, it lists the repository's open pull requests instead.
 	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
 	// Which page to read and how many to a page. Twenty when unset, and at most a hundred, the
 	// most the forge hands over in one call.

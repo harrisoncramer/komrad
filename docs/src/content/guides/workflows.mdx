@@ -70,7 +70,7 @@ You don't have to go through the orchestrator. You can start a task yourself, wh
 
 ## Shared context
 
-A workflow can carry _shared context_, which every agent it starts reads. Put there what you would otherwise tell each agent by hand, such as how tests run and how commits are written.
+A workflow can carry _shared context_, which every agent it starts reads. Use it for anything you would otherwise tell each agent by hand, such as how tests run and how commits are written.
 
 In the Neovim example, that might be "Run make lint before committing any Lua change."
 
@@ -110,7 +110,7 @@ Hover the workflow, open the menu with <Key name="menu.open" /> and pick edit wi
 
 ## Archiving and restoring
 
-Archiving a workflow puts it in cold storage. Open its menu with <Key name="menu.open" /> and press <Key name="menu.archive" />. Komrad archives its orchestrator, every live agent in it, and its tasks. Nothing is deleted. The workflow moves to the archive, where you can restore it or delete it for good later.
+Archiving a workflow puts it in cold storage. Open its menu with <Key name="menu.open" /> and press <Key name="menu.archive" />. Komrad archives the workflow's orchestrator, its tasks, and every live agent in it. Nothing is deleted. The workflow moves to the archive, where you can restore it or delete it for good later.
 
 ## Next steps
 

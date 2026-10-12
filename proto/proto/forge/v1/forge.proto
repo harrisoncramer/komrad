@@ -81,8 +81,8 @@ message ListForgePullRequestsRequest {
     min_len: 1
     max_len: 2048
   }];
-  // The branch the pull requests were opened from. Pull requests of any state are listed. When
-  // empty, the repository's open pull requests are listed instead.
+  // The branch the pull requests were opened from. The call lists them in any state. When
+  // empty, it lists the repository's open pull requests instead.
   string branch = 2 [(buf.validate.field).string = {max_len: 512}];
   // Which page to read and how many to a page. Twenty when unset, and at most a hundred, the
   // most the forge hands over in one call.

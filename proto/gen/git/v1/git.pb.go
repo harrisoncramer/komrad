@@ -326,9 +326,9 @@ type CountChangedFilesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Any directory inside the repository, absolute, which must be inside a live agent's directory.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The commit to count from. No commit counts nothing.
+	// The commit to count from. Empty counts nothing.
 	FromSha string `protobuf:"bytes,2,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
-	// The commit to count to. No commit counts nothing.
+	// The commit to count to. Empty counts nothing.
 	ToSha string `protobuf:"bytes,3,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
 	// The paths and globs to leave out, relative to the top of the repository.
 	Exclude       []string `protobuf:"bytes,4,rep,name=exclude,proto3" json:"exclude,omitempty"`

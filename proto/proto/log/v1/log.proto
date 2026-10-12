@@ -83,7 +83,7 @@ message ReadAgentLogsResponse {
   repeated string lines = 1;
   // What to pass back to read only the lines written after these.
   string cursor = 2;
-  // Whether the log started over since the cursor. The lines held before are gone.
+  // Whether the log started over since the cursor. When true, the lines held before are gone.
   bool reset = 3;
   // Whether more lines remain past the cursor. Reading again returns them at once.
   bool more = 4;

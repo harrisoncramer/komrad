@@ -1260,8 +1260,8 @@ type CreateReviewThreadRequest struct {
 	NewStart int32 `protobuf:"varint,7,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
 	// Where it ends on the new side, inclusive.
 	NewEnd int32 `protobuf:"varint,8,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
-	// The diff lines being written about, each keeping its leading marker. The anchor still makes
-	// sense once the code moves.
+	// The diff lines being written about, each keeping its leading marker so the anchor still
+	// makes sense once the code moves.
 	QuotedLines []string `protobuf:"bytes,9,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
 	// The first thing said. The ceiling refuses an essay and is not a length to write up to.
 	Body string `protobuf:"bytes,10,opt,name=body,proto3" json:"body,omitempty"`
@@ -1943,7 +1943,7 @@ func (x *SetReviewThreadResolvedResponse) GetThread() *ReviewThread {
 }
 
 // OpenReviewRoundRequest freezes what an agent has written now and records it as its next
-// round. A tree that has not moved since the last round returns that round and not a new one,
+// round. On a tree that has not moved since the last round it returns that round,
 // so opening the diff twice does not advance the ordinal.
 type OpenReviewRoundRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`

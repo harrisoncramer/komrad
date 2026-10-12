@@ -409,7 +409,7 @@ func (x *Task) GetDocumentsUpdatedAt() string {
 
 type CreateTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The lowercase kebab-case name to call it by. No other task has ever had it.
+	// The lowercase kebab-case name to call it by. It must be one no task has ever had.
 	Slug string `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
 	// What to show it as in the panel.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
@@ -1254,13 +1254,13 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\xe8\x10\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xee\x10\n" +
 	"\vTaskService\x12\xe8\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\xa0\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\vcreate_task\"\x82\x01Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.(\x00:\x01\x02\x12\x9a\x01\n" +
-	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"\\\x9a\xb5\x18U\b\x01\x10\x01\x1a\bget_task\"@Fetch one task by id or slug, with its whole goal and its notes.:\x03\x03\x01\x02\x90\x02\x01\x12\xb8\x01\n" +
-	"\tListTasks\x12\x19.task.v1.ListTasksRequest\x1a\x1a.task.v1.ListTasksResponse\"t\x9a\xb5\x18m\b\x01\x10\x01\x1a\n" +
-	"list_tasks\"VList a workflow's tasks, newest first. Archived tasks stay out unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xb9\x02\n" +
+	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"\\\x9a\xb5\x18U\b\x01\x10\x01\x1a\bget_task\"@Fetch one task by id or slug, with its whole goal and its notes.:\x03\x03\x01\x02\x90\x02\x01\x12\xbe\x01\n" +
+	"\tListTasks\x12\x19.task.v1.ListTasksRequest\x1a\x1a.task.v1.ListTasksResponse\"z\x9a\xb5\x18s\b\x01\x10\x01\x1a\n" +
+	"list_tasks\"\\List a workflow's tasks, newest first. The list omits archived tasks unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xb9\x02\n" +
 	"\n" +
 	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xf1\x01\x9a\xb5\x18\xe9\x01\b\x01\x10\x01\x1a\vupdate_task\"\xd0\x01Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is. A notes write must name the notes_updated_at it read. An edit reaches agents only when they read the task again.(\x00:\x01\x02\x90\x02\x02\x12\xbd\x02\n" +
 	"\fSetTaskNotes\x12\x1c.task.v1.SetTaskNotesRequest\x1a\x1d.task.v1.SetTaskNotesResponse\"\xef\x01\x9a\xb5\x18\xe7\x01\b\x01\x10\x01\x1a\x0eset_task_notes\"\xc9\x01Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since.(\x00:\x03\x03\x01\x02\x90\x02\x02\x12\xd9\x01\n" +

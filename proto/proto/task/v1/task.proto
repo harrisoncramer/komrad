@@ -93,7 +93,7 @@ message Task {
 }
 
 message CreateTaskRequest {
-  // The lowercase kebab-case name to call it by. No other task has ever had it.
+  // The lowercase kebab-case name to call it by. It must be one no task has ever had.
   string slug = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 80
@@ -244,7 +244,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "list_tasks"
-      description: "List a workflow's tasks, newest first. Archived tasks stay out unless archived is set."
+      description: "List a workflow's tasks, newest first. The list omits archived tasks unless archived is set."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,

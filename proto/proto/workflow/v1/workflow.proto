@@ -74,7 +74,7 @@ message WorkflowEventPrompt {
   // The text added to the mail carrying that event, blank to add nothing.
   string prompt = 2 [(buf.validate.field).string.max_len = 500];
   // Whether the event is kept from opening mail of its own. It still rewrites mail the agent
-  // holds unread, and it leaves out its prompt.
+  // holds unread, but without its prompt.
   bool muted = 3;
 }
 
@@ -304,7 +304,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "list_workflows"
-      description: "List the workflows, alphabetically, with the opening of each context. Archived workflows stay out unless archived is set."
+      description: "List the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
