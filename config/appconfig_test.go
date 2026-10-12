@@ -235,13 +235,24 @@ func TestLoadUsage(t *testing.T) {
 			want: newUsage(),
 		},
 		{
+			name: "a reviewer kept after it approves",
+			file: "[usage.reviewer]\narchive_on_approval = false\n",
+			want: Usage{
+				MaxAgents:    defaultMaxAgents,
+				Task:         TaskUsage{MaxReviewers: defaultMaxReviewers},
+				Writer:       WriterUsage{AutoCompaction: defaultWriterAutoCompaction},
+				Reviewer:     ReviewerUsage{AutoCompaction: defaultReviewerAutoCompaction},
+				Orchestrator: OrchestratorUsage{AutoCompaction: defaultOrchestratorAutoCompaction},
+			},
+		},
+		{
 			name: "zero hands a role's compaction back to the CLI and one role changed leaves the rest",
 			file: "[usage.reviewer]\nauto_compaction = 120000\n[usage.orchestrator]\nauto_compaction = 0\nmax_tasks = 4\n",
 			want: Usage{
 				MaxAgents:    defaultMaxAgents,
 				Task:         TaskUsage{MaxReviewers: defaultMaxReviewers},
 				Writer:       WriterUsage{AutoCompaction: defaultWriterAutoCompaction},
-				Reviewer:     ReviewerUsage{AutoCompaction: 120000},
+				Reviewer:     ReviewerUsage{AutoCompaction: 120000, ArchiveOnApproval: true},
 				Orchestrator: OrchestratorUsage{MaxTasks: 4},
 			},
 		},

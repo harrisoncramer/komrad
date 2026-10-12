@@ -86,6 +86,8 @@ You can start a reviewer yourself too. Open a task's menu and pick new agent wit
 
 Set <Setting path="usage.task.max_reviewers" /> to cap how many reviewers one task can hold at a time, however they were started. A request past it is refused until one of them is archived.
 
+Komrad archives a reviewer once it approves. Turn off <Setting path="usage.reviewer.archive_on_approval" /> to keep approved reviewers in the list until you archive them yourself.
+
 ## Adopting work
 
 Sometimes the work started outside komrad, such as a colleague's pull request or a branch you began on another machine. Hover the workflow, open the menu with <Key name="menu.open" /> and press <Key name="menu.adopt" />. Name the branch and say what to do with it. Komrad starts a task on that branch with a writer on it, in a worktree of its own when the workflow cuts them.

@@ -52,6 +52,9 @@ type ReviewerUsage struct {
 	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 	// own default, and a value the CLI will not take is moved to the nearest one it will.
 	AutoCompaction int `mapstructure:"auto_compaction"`
+	// Whether a reviewer is archived once it releases an approval. Turn it off to keep approved
+	// reviewers in the sidebar until you archive them yourself.
+	ArchiveOnApproval bool `mapstructure:"archive_on_approval"`
 }
 
 // OrchestratorUsage is what one orchestrator may use.
@@ -71,7 +74,7 @@ func newUsage() Usage {
 		MaxAgents:    defaultMaxAgents,
 		Task:         TaskUsage{MaxReviewers: defaultMaxReviewers},
 		Writer:       WriterUsage{AutoCompaction: defaultWriterAutoCompaction},
-		Reviewer:     ReviewerUsage{AutoCompaction: defaultReviewerAutoCompaction},
+		Reviewer:     ReviewerUsage{AutoCompaction: defaultReviewerAutoCompaction, ArchiveOnApproval: true},
 		Orchestrator: OrchestratorUsage{AutoCompaction: defaultOrchestratorAutoCompaction},
 	}
 }
