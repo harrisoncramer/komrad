@@ -254,7 +254,8 @@ func (f filesNav) moveBy(m *model, rows int) tea.Cmd {
 	}
 
 	row := tree.rows[next]
-	if !row.Folder && at >= 0 && at < len(tree.rows) && !tree.rows[at].Folder && (rows == 1 || rows == -1) {
+	isFileToFile := tree.current >= 0 && !tree.rows[tree.current].Folder && !row.Folder
+	if isFileToFile && (rows == 1 || rows == -1) {
 		return f.r.stepFile(m, rows)
 	}
 
