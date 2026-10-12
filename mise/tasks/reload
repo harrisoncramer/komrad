@@ -12,7 +12,7 @@ fi
 require_test_instance
 cd "$MISE_CONFIG_ROOT"
 
-komrad="$MISE_CONFIG_ROOT/bin/komrad"
+komrad="$(komrad_bin)"
 
 dir="$(
 	{

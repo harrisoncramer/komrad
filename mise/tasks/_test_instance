@@ -60,6 +60,20 @@ require_test_instance() {
 	komradslot check --root "$test_instance_root" || exit 1
 }
 
+# test_bin_dir holds the throwaway instance's build, apart from bin/komrad, which a live panel may run.
+test_bin_dir() {
+	echo "$test_instance_root/bin/test"
+}
+
+# komrad_bin is the binary a task builds and runs, the throwaway instance's under MISE_ENV=test.
+komrad_bin() {
+	if [ "${MISE_ENV:-}" = test ]; then
+		echo "$(test_bin_dir)/komrad"
+	else
+		echo "$test_instance_root/bin/komrad"
+	fi
+}
+
 # test_instance_holds_slot succeeds when some slot names the checkout.
 test_instance_holds_slot() {
 	local root
