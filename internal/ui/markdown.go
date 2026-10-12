@@ -7,13 +7,14 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/view"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 )
 
 type recordField struct {
-	label  string
-	value  string
-	styled string
+	label string
+	value string
+	tail  view.Cell
 }
 
 func renderDocument(title, notice, prose, footer string) string {

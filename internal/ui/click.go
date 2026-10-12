@@ -7,12 +7,12 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 		return nil
 	}
 
-	lister, ok := m.active().(activeLister)
+	hit, ok := m.findRowAt(click.X, click.Y)
 	if !ok {
 		return nil
 	}
 
-	hit, ok := m.findRowAt(click.X, click.Y)
+	to, list, ok := m.clickedList(hit.section)
 	if !ok {
 		return nil
 	}
@@ -21,5 +21,20 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 		m.closeViews()
 	}
 
-	return tea.Batch(m.enterStop(stopList), lister.activeList().click(m, hit.key, hit.nth))
+	return tea.Batch(m.enterStop(to), list.click(m, hit.key, hit.nth))
+}
+
+func (m *model) clickedList(section sidebarSection) (stop, keyedList, bool) {
+	switch section {
+	case sectionRecord:
+		return stopRecord, m.detailsList(), true
+	case sectionList:
+		if lister, ok := m.active().(activeLister); ok {
+			return stopList, lister.activeList(), true
+		}
+	case sectionTabs, sectionViews:
+		return 0, nil, false
+	}
+
+	return 0, nil, false
 }

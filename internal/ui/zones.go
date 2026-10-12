@@ -177,9 +177,9 @@ func isInRect(rect panes.Rect, x, y int) bool {
 	return x >= rect.Left && x < rect.Left+rect.Width && y >= rect.Top && y < rect.Top+rect.Height
 }
 
-var rowMark = regexp.MustCompile("\x1b_kzr:([0-9]+):([0-9]+):([0-9a-f]*)\x1b\\\\")
+var rowMark = regexp.MustCompile("\x1b_kzr:([0-9]+):([0-9]+):([0-9]+):([0-9a-f]*)\x1b\\\\")
 
-func (m *model) rowMarker(rows []view.Row, width int) func(int, string) string {
+func (m *model) rowMarker(section sidebarSection, rows []view.Row, width int) func(int, string) string {
 	if !m.term.markingZones {
 		return nil
 	}
@@ -197,13 +197,14 @@ func (m *model) rowMarker(rows []view.Row, width int) func(int, string) string {
 			}
 		}
 
-		return "\x1b_kzr:" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\" + row
+		return "\x1b_kzr:" + strconv.Itoa(int(section)) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\" + row
 	}
 }
 
 type rowHit struct {
-	key string
-	nth int
+	section sidebarSection
+	key     string
+	nth     int
 }
 
 func (m *model) findRowAt(x, y int) (rowHit, bool) {
@@ -218,22 +219,27 @@ func (m *model) findRowAt(x, y int) (rowHit, bool) {
 	line := lines[y]
 	for _, at := range rowMark.FindAllStringSubmatchIndex(line, -1) {
 		left := lipgloss.Width(line[:at[0]])
-		width, err := strconv.Atoi(line[at[2]:at[3]])
+		width, err := strconv.Atoi(line[at[4]:at[5]])
 		if err != nil || x < left || x >= left+width {
 			continue
 		}
 
-		nth, err := strconv.Atoi(line[at[4]:at[5]])
+		section, err := strconv.Atoi(line[at[2]:at[3]])
 		if err != nil {
 			continue
 		}
 
-		key, err := hex.DecodeString(line[at[6]:at[7]])
+		nth, err := strconv.Atoi(line[at[6]:at[7]])
 		if err != nil {
 			continue
 		}
 
-		return rowHit{key: string(key), nth: nth}, true
+		key, err := hex.DecodeString(line[at[8]:at[9]])
+		if err != nil {
+			continue
+		}
+
+		return rowHit{section: sidebarSection(section), key: string(key), nth: nth}, true
 	}
 
 	return rowHit{}, false

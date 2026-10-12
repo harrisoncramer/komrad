@@ -899,15 +899,15 @@ func TestAgentsRecordEmphasis(t *testing.T) {
 		}
 	})
 
-	t.Run("the hovered label takes the accent only while the record has the keys", func(t *testing.T) {
+	t.Run("the hovered value takes the accent only while the record has the keys", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		label := "agent     "
-		require.Contains(t, findRawLine(harness.readRawFrame(), recordAgentLine), paint.Panel.Style(paint.ToneMuted).Render(label))
+		value := paint.Panel.Style(paint.TonePrimary).Render("—")
+		require.NotContains(t, findRawLine(harness.readRawFrame(), recordAgentLine), value)
 
 		harness.press("pick:record")
 
 		lit := findRawLine(harness.readRawFrame(), recordAgentLine)
-		assert.Contains(t, lit, paint.Panel.Cursor().Render(label))
+		assert.Contains(t, lit, value)
 		assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
 	})
 }

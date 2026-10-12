@@ -63,6 +63,17 @@ func TestClickRow(t *testing.T) {
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "morning-ci")
 	})
 
+	t.Run("a click on a record field hands the record the keys and puts its cursor there", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		fields := slices.DeleteFunc(readRecord(harness.readFrame()), func(line string) bool { return strings.TrimSpace(line) == "" })
+		require.Greater(t, len(fields), 1)
+		label := strings.Fields(fields[len(fields)-1])[0]
+
+		harness.send(tea.MouseClickMsg{X: 2, Y: findRecordLine(harness.readFrame(), label), Button: tea.MouseLeft})
+
+		assert.True(t, strings.HasPrefix(readRecordCursor(harness.readFrame()), label+" "))
+	})
+
 	t.Run("a right click leaves the cursor where it was", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		click := clickOn(t, harness.readFrame(), "backend")

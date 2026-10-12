@@ -520,23 +520,23 @@ func TestWorktreesRecord(t *testing.T) {
 		harness.press(widenListPresses...)
 
 		frame := harness.readFrame()
-		assert.Equal(t, "origin/main  ↑2 ↓12", readRecordField(frame, "base"))
+		assert.Equal(t, "origin/main ↑2 ↓12", readRecordField(frame, "base"))
 		assert.Equal(t, "1 modified, 2 untracked", readRecordField(frame, "changes"))
 		raw := harness.readRawFrame()
 		assert.Contains(t, raw, paint.Panel.Style(paint.ToneSuccess).Render("↑2"))
 		assert.Contains(t, raw, paint.Panel.Style(paint.ToneWarning).Render("↓12"))
 	})
 
-	t.Run("a coloured value is copied as its plain text", func(t *testing.T) {
+	t.Run("a field copies its value without its tail", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openReadWorktree(t)
 		harness.press("pick:record", "/", "m", "a", "i", "n", "enter", "y")
 
-		assert.Equal(t, []string{"origin/main  ↑2 ↓12"}, harness.panel.ReadCopied())
+		assert.Equal(t, []string{"origin/main"}, harness.panel.ReadCopied())
 	})
 
-	t.Run("a search over a coloured value lights its match in the plain text", func(t *testing.T) {
+	t.Run("a search lights its match in the value", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openReadWorktree(t)
@@ -544,7 +544,6 @@ func TestWorktreesRecord(t *testing.T) {
 
 		line := findRawLine(harness.readRawFrame(), regexp.MustCompile(`base\s+origin/main`))
 		assert.Contains(t, line, paint.Panel.Match().Render("main"))
-		assert.NotContains(t, line, paint.Panel.Style(paint.ToneSuccess).Render("↑2"))
 	})
 }
 

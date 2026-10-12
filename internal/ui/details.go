@@ -7,7 +7,6 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/cursor"
-	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -18,7 +17,7 @@ const legendRuleFloor = 2
 
 type detailsState struct {
 	focused bool
-	cursor  int
+	rowCursor
 	row     string
 	flashed int
 }
@@ -90,6 +89,23 @@ func (m *model) detailsCursor(held details) int {
 	return cursor.Clamp(m.details.cursor, len(m.detailsRows(held)))
 }
 
+func (m *model) detailsList() screenList[detailsRow] {
+	return screenList[detailsRow]{
+		cursor: m.detailsRowCursor,
+		rows:   func(m *model) []detailsRow { return m.detailsRows(m.hoveredDetails()) },
+		name:   func(row detailsRow) string { return row.text },
+	}
+}
+
+func (m *model) detailsRowCursor() *rowCursor {
+	if held := m.hoveredDetails(); m.details.row != held.id {
+		m.details.rowCursor = rowCursor{}
+		m.details.row = held.id
+	}
+
+	return &m.details.rowCursor
+}
+
 func (m *model) isDetailsRendered(held details) bool {
 	if len(held.fields) == 0 || m.detailsLines() == 0 {
 		return false
@@ -142,10 +158,7 @@ func (m *model) focusDetails() tea.Cmd {
 	m.details.focused = true
 	m.blurTabs()
 	m.blurKinds()
-	if m.details.row != held.id {
-		m.details.cursor = 0
-	}
-	m.details.row = held.id
+	m.detailsRowCursor()
 
 	return tea.Batch(m.rereadTaskWorktreeCmd(), m.wakeCwdSyncCmd())
 }
@@ -165,30 +178,12 @@ func (m *model) blurDetails() {
 }
 
 func (m *model) updateDetails(key tea.KeyPressMsg) tea.Cmd {
-	k := key.String()
-
-	if isBound(k, fixedKeys().Quit) {
-		return m.hide()
-	}
-
-	return m.detailsActions().dispatch(m, k)
+	return m.detailsActions().dispatch(m, key.String())
 }
 
 func (m *model) detailsActions() screenActionSpec {
-	standing := func(*model) bool { return m.filter.isStanding() }
-
 	return screenActionSpec{
-		table: []screenAction{
-			{
-				id:   actionFilterClear,
-				keys: fixedBack,
-				when: standing,
-				nav: func(*model, string) tea.Cmd {
-					m.clearFilter()
-
-					return nil
-				},
-			},
+		table: append(m.detailsList().actions(), []screenAction{
 			{
 				id:   actionDetails,
 				keys: fixedBack,
@@ -199,62 +194,11 @@ func (m *model) detailsActions() screenActionSpec {
 				},
 			},
 			{
-				id:   actionMove,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				nav: func(_ *model, pressed string) tea.Cmd {
-					m.moveDetailsCursor(pressed)
-
-					return nil
-				},
-			},
-			{
-				id:   actionJump,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				nav: func(_ *model, pressed string) tea.Cmd {
-					m.jumpDetailsCursor(pressed)
-
-					return nil
-				},
-			},
-			{
-				id:   actionNavPage,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				nav: func(_ *model, pressed string) tea.Cmd {
-					m.pageDetailsCursor(pressed)
-
-					return nil
-				},
-			},
-			{
-				id:   actionColumnScroll,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				nav: func(_ *model, pressed string) tea.Cmd {
-					m.moveDetailsCursor(pressed)
-
-					return nil
-				},
-			},
-			{
-				id:   actionFilterOpen,
-				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(*model, string) tea.Cmd {
-					m.beginFilter()
-
-					return nil
-				},
-			},
-			{
-				id:   actionFilterMatch,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
-				when: standing,
-				nav:  func(_ *model, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
-			},
-			{
 				id:   actionDetailsCopy,
 				keys: func(k config.Keybindings) []string { return k.Details.Copy },
 				nav:  func(*model, string) tea.Cmd { return m.copyDetailsField() },
 			},
-		},
+		}...),
 		legend: []screenLegendRow{
 			{
 				of:    []actionID{actionDetailsCopy},
@@ -309,64 +253,6 @@ func (m *model) detailsHelp() keyMap {
 		short: slices.Concat(own.short, m.globalHelp()),
 		full:  slices.Concat(own.full, m.fullGlobalHelp()),
 	}
-}
-
-// hoveredDetailsKey is the field the record's cursor is on, read before the search's pattern
-// changes.
-func (m *model) hoveredDetailsKey() string {
-	held := m.hoveredDetails()
-
-	return rowKeyAt(m.detailsRows(held), m.detailsCursor(held))
-}
-
-// placeDetailsAt puts the record's cursor back on a field, or as near to where it was as the
-// narrowed record allows.
-func (m *model) placeDetailsAt(key string) {
-	held := m.hoveredDetails()
-	rows := m.detailsRows(held)
-	m.details.cursor = cursor.Place(rowIndexOfKey(rows, key), m.detailsCursor(held), len(rows))
-	m.details.row = held.id
-}
-
-// detailsFilterRows is the record's fields as the search drives them.
-func (m *model) detailsFilterRows() []filterRow {
-	return xslice.Map(m.detailsRows(m.hoveredDetails()), func(row detailsRow) filterRow {
-		return filterRow{key: row.id, name: row.text}
-	})
-}
-
-// moveDetailsCursor steps the field cursor.
-func (m *model) moveDetailsCursor(pressed string) {
-	held := m.hoveredDetails()
-	cursor := m.detailsCursor(held)
-	if isBound(pressed, m.keys.Nav.Down) || isBound(pressed, m.keys.Column.ScrollDown) {
-		m.setDetailsCursor(held, cursor+1)
-
-		return
-	}
-
-	m.setDetailsCursor(held, cursor-1)
-}
-
-func (m *model) jumpDetailsCursor(pressed string) {
-	held := m.hoveredDetails()
-	if isBound(pressed, m.keys.Nav.Bottom) {
-		m.setDetailsCursor(held, len(m.detailsRows(held))-1)
-
-		return
-	}
-
-	m.setDetailsCursor(held, 0)
-}
-
-func (m *model) pageDetailsCursor(pressed string) {
-	held := m.hoveredDetails()
-	m.setDetailsCursor(held, m.detailsCursor(held)+m.navPageDelta(pressed))
-}
-
-func (m *model) setDetailsCursor(held details, idx int) {
-	m.details.cursor = cursor.Clamp(idx, len(m.detailsRows(held)))
-	m.details.row = held.id
 }
 
 func (m *model) copyDetailsField() tea.Cmd {

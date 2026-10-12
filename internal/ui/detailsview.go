@@ -9,7 +9,6 @@ import (
 	"komrad/lib/xslice"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // flashFieldStyle marks a row or a field that has just been copied.
@@ -39,16 +38,23 @@ func (m *model) detailsView() string {
 		lines -= len(notices) + 1
 	}
 
-	cursor := m.detailsCursor(held)
-	rows := m.detailFieldRows(m.detailsRows(held), cursor)
-	if len(rows) == 0 && m.filter.doesNarrow(sectionRecord) {
-		rows = []string{dimStyle().Render("  nothing matches")}
+	pane := m.paneWidth()
+	body := dimStyle().Render("  nothing matches")
+	if fields := m.detailsRows(held); len(fields) > 0 || !m.filter.doesNarrow(sectionRecord) {
+		snapshot := m.detailsSnapshot(fields, m.detailsCursor(held), pane)
+		body = view.Window(view.WindowParams{
+			List:    prepareList(m.glyphs, snapshot),
+			Palette: paint.Panel,
+			Width:   pane,
+			Lines:   lines,
+			Mark:    m.rowMarker(sectionRecord, snapshot.Rows, pane),
+		})
 	}
 
 	return m.markZone(zoneDetails, m.detailsRule("Info", held.tags...)+
 		block+
-		paint.PadRows(paint.RenderList(rows, cursor, lines, dimStyle()), lines)+
-		m.detailsRule(""), m.paneWidth())
+		paint.PadRows(body, lines)+
+		m.detailsRule(""), pane)
 }
 
 func (m *model) renderRecord(above ...string) string {
@@ -138,37 +144,28 @@ func (m *model) noticeLines(n notice, most int) []string {
 	return lines
 }
 
-func (m *model) detailFieldRows(fields []detailsRow, cursor int) []string {
+func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snapshot {
 	labels := labelColumn(xslice.Map(fields, func(row detailsRow) recordField { return row.field }))
-	rows := make([]string, 0, len(fields))
+	flashed := rowKeyAt(fields, m.details.flashed-1)
 
-	const gutter = 2
-
-	for i, row := range fields {
-		prefix, labelStyle := "  ", dimStyle()
-		if i == cursor {
-			prefix = m.cursorPrefix(sectionRecord)
-			if m.caretOf(sectionRecord) != view.CaretAbsent {
-				labelStyle = rowCursorStyle()
+	return view.Snapshot{
+		Rows: xslice.Map(fields, func(row detailsRow) view.Row {
+			return view.Row{
+				Key:      row.id,
+				Kind:     view.KindResult,
+				Lead:     padRight(row.field.label, labels),
+				Name:     row.field.value,
+				Matches:  matchesIn(m.filter.pattern, row.field.value),
+				Process:  view.ProcessNone,
+				Tail:     row.field.tail,
+				Selected: m.details.flashed > 0 && row.id == flashed,
 			}
-		}
-
-		label := m.filter.highlight(paint.Panel, padRight(row.field.label, labels), labelStyle)
-		width := max(m.lineWidth()-labels-gutter-1, 1)
-		value := paint.Clip(row.field.value, width)
-		switch {
-		case m.details.flashed == i+1:
-			value = flashFieldStyle(paint.Panel).Render(value)
-		case m.filter.pattern != nil:
-			value = m.filter.highlight(paint.Panel, value, lipgloss.NewStyle())
-		case row.field.styled != "":
-			value = ansi.Truncate(row.field.styled, width, "…")
-		}
-
-		rows = append(rows, prefix+label+" "+value)
+		}),
+		Caret:   m.caretOf(sectionRecord),
+		Focused: rowKeyAt(fields, cursor),
+		Pane:    pane,
+		Columns: view.Columns{},
 	}
-
-	return rows
 }
 
 func (m *model) lineWidth() int {

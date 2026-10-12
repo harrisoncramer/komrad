@@ -289,16 +289,25 @@ func (f filterState) highlight(palette paint.Palette, name string, base lipgloss
 // filteredRows is every row the search can land on in the pane holding the keys, and false on a
 // screen that renders no filter.
 func (m *model) filteredRows() ([]filterRow, bool) {
-	if m.isDetailsFocused() {
-		return m.detailsFilterRows(), true
-	}
-
-	rows, ok := m.active().(activeLister)
+	list, ok := m.filteredList()
 	if !ok {
 		return nil, false
 	}
 
-	return rows.activeList().filterRows(m), true
+	return list.filterRows(m), true
+}
+
+func (m *model) filteredList() (keyedList, bool) {
+	if m.isDetailsFocused() {
+		return m.detailsList(), true
+	}
+
+	lister, ok := m.active().(activeLister)
+	if !ok {
+		return nil, false
+	}
+
+	return lister.activeList(), true
 }
 
 // beginFilter starts a search from nothing, keeping the cursor on the row it was on.
@@ -460,27 +469,17 @@ func (m *model) jumpIntoDetails() tea.Cmd {
 }
 
 func (m *model) hoveredFilterKey() string {
-	if m.isDetailsFocused() {
-		return m.hoveredDetailsKey()
-	}
-
-	rows, ok := m.active().(activeLister)
+	list, ok := m.filteredList()
 	if !ok {
 		return ""
 	}
 
-	return rows.activeList().hovered(m)
+	return list.hovered(m)
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
-	if m.isDetailsFocused() {
-		m.placeDetailsAt(hovered)
-
-		return
-	}
-
-	if rows, ok := m.active().(activeLister); ok {
-		rows.activeList().place(m, hovered)
+	if list, ok := m.filteredList(); ok {
+		list.place(m, hovered)
 	}
 }
 

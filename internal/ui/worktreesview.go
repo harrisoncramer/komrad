@@ -12,8 +12,6 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
-
-	"charm.land/lipgloss/v2"
 )
 
 func (w *worktreesScreen) view(m *model) string {
@@ -138,9 +136,9 @@ func buildBaseField(read worktreeInspection) recordField {
 	}
 	if read.ahead == 0 && read.behind == 0 {
 		return recordField{
-			label:  "base",
-			value:  read.baseRef + "  even",
-			styled: read.baseRef + "  " + dimStyle().Render("even"),
+			label: "base",
+			value: read.baseRef,
+			tail:  view.Cell{Text: "even", Tone: paint.ToneMuted},
 		}
 	}
 
@@ -148,18 +146,22 @@ func buildBaseField(read worktreeInspection) recordField {
 	behind := fmt.Sprintf("%s%d", glyph.Down, read.behind)
 
 	return recordField{
-		label:  "base",
-		value:  read.baseRef + "  " + ahead + " " + behind,
-		styled: read.baseRef + "  " + countStyle(read.ahead, paint.Panel.Style(paint.ToneSuccess)).Render(ahead) + " " + countStyle(read.behind, paint.Panel.Style(paint.ToneWarning)).Render(behind),
+		label: "base",
+		value: read.baseRef,
+		tail: view.Cell{Parts: []view.Cell{
+			{Text: ahead, Tone: countTone(read.ahead, paint.ToneSuccess)},
+			{Text: " "},
+			{Text: behind, Tone: countTone(read.behind, paint.ToneWarning)},
+		}},
 	}
 }
 
-func countStyle(count int, style lipgloss.Style) lipgloss.Style {
+func countTone(count int, tone paint.Tone) paint.Tone {
 	if count == 0 {
-		return dimStyle()
+		return paint.ToneMuted
 	}
 
-	return style
+	return tone
 }
 
 func changesField(read worktreeInspection) string {
