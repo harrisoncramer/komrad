@@ -862,6 +862,13 @@
               "default": "[\"S\"]"
             },
             {
+              "key": "toggle_folder",
+              "path": "keybindings.review.toggle_folder",
+              "type": "array",
+              "description": "On the file tree, open the folder the cursor rests on, or close it when it is open.",
+              "default": "[\"o\"]"
+            },
+            {
               "key": "toggle_viewed",
               "path": "keybindings.review.toggle_viewed",
               "type": "array",
@@ -1449,6 +1456,20 @@
               "type": "string",
               "description": "The row of the file tree beside the diff that the cursor is in.",
               "default": "\"▸\""
+            },
+            {
+              "key": "folder_open",
+              "path": "glyphs.review.folder_open",
+              "type": "string",
+              "description": "A folder of the file tree beside the diff that shows the files inside it.",
+              "default": "\"\""
+            },
+            {
+              "key": "folder_closed",
+              "path": "glyphs.review.folder_closed",
+              "type": "string",
+              "description": "A folder of the file tree beside the diff that hides the files inside it.",
+              "default": "\"\""
             },
             {
               "key": "delivered",

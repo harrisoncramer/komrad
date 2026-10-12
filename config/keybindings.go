@@ -434,6 +434,8 @@ type ReviewKeys struct {
 	Resolve []string `mapstructure:"resolve" default:"r"`
 	// From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.
 	Send []string `mapstructure:"send" default:"S"`
+	// On the file tree, open the folder the cursor rests on, or close it when it is open.
+	ToggleFolder []string `mapstructure:"toggle_folder" default:"o"`
 	// From the menu, fold away the file the cursor is in once you have read it, or open it again. A file
 	// the writer writes to afterwards comes back on its own.
 	ToggleViewed []string `mapstructure:"toggle_viewed" default:"v"`

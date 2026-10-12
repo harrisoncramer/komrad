@@ -156,7 +156,7 @@ func (r *reviewScreen) stepThread(m *model, pressed string) tea.Cmd {
 	return r.moveCursor(m, r.diff.View().JumpThread(r.diff.Cursor(), 1))
 }
 
-// filesActions is the keys on the file tree, which walk the diff a file at a time.
+// filesActions is the keys on the file tree, which walk it a row at a time with the diff following.
 func (r *reviewScreen) filesActions() screenActionSpec {
 	standing := func(*model) bool { return r.filesFilter.isStanding() }
 
@@ -167,6 +167,17 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string { return slices.Concat(k.Diff.NextFile, k.Diff.PrevFile) },
 				nav: func(m *model, pressed string) tea.Cmd {
 					return r.stepFile(m, directionOf(pressed, m.keys.Diff.PrevFile))
+				},
+			},
+			{
+				id: actionReviewFolder,
+				keys: func(k config.Keybindings) []string {
+					return slices.Concat(fixedOpen(k), k.Review.ToggleFolder)
+				},
+				nav: func(*model, string) tea.Cmd {
+					r.toggleFolder()
+
+					return nil
 				},
 			},
 			{
@@ -208,10 +219,19 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 		}...),
 		legend: []screenLegendRow{
-			navMoveRow("move between files"),
+			navMoveRow("move"),
 			navPageRow(),
 			navJumpRow(),
 			diffFileRow(),
+			{
+				of:   []actionID{actionReviewFolder},
+				desc: func(*model) string { return r.folderDesc() },
+				show: func(*model) bool {
+					_, ok := r.readCurrentFolder()
+
+					return ok
+				},
+			},
 			{
 				of:   []actionID{actionFilterOpen},
 				desc: func(*model) string { return r.filesFilter.openDesc() },
@@ -359,4 +379,14 @@ func (r *reviewScreen) answerEntry(m *model) submenuEntry {
 
 func (r *reviewScreen) jumpEntry(m *model) submenuEntry {
 	return openEntry(r.diff.jumpDesc(), m.keys.Review.Jump, func(m *model) tea.Cmd { return m.review.toggleJump(m) })
+}
+
+// folderDesc says whether the folder key on the tree opens the folder or closes it.
+func (r *reviewScreen) folderDesc() string {
+	folder, _ := r.readCurrentFolder()
+	if r.closedFolders[folder.Path] {
+		return "open folder"
+	}
+
+	return "close folder"
 }

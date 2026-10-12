@@ -48,6 +48,8 @@ const (
 	ThreadUnsent
 	ThreadForge
 	FileCurrent
+	FolderOpen
+	FolderClosed
 	Delivered
 	Held
 	MessageError
@@ -100,6 +102,8 @@ var defined = [count]struct {
 	ThreadUnsent:       {"review.unsent", "◇"},
 	ThreadForge:        {"review.forge", "◆"},
 	FileCurrent:        {"review.current", "▸"},
+	FolderOpen:         {"review.folder_open", "\uf4d4"},
+	FolderClosed:       {"review.folder_closed", "\uf4d3"},
 	Delivered:          {"review.delivered", "✓"},
 	Held:               {"review.held", "◇"},
 	MessageError:       {"messages.error", "✗"},
