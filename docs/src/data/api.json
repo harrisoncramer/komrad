@@ -76,7 +76,7 @@
             "writer"
           ],
           "summary": "Spawn a reviewer for your committed work, on your task in your checkout.",
-          "description": "Spawn a reviewer for your committed work, on your task in your checkout. resource_exhausted means either the panel is full, so say so, carry on without the review and leave the change for a person, or your task already holds all the reviewers it may, so settle the ones reading and ask again once one is archived.",
+          "description": "Spawn a reviewer for your committed work, on your task in your checkout. resource_exhausted means the panel is full or your task holds all the reviewers it may. When the panel is full, say so, carry on without the review and leave the change for a person. When your task is full, settle the reviewers reading and ask again once one is archived.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
