@@ -44,7 +44,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	}
 	command += fmt.Sprintf(" --mcp-config '%s'", mcpConfig)
 
-	settings, err := h.writeSettings(launch.MCPEndpoint, launch.HookCommand, launch.Role, launch.AutoCompaction)
+	settings, err := h.writeSettings(launch)
 	if err != nil {
 		return "", err
 	}
@@ -77,7 +77,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	return command, nil
 }
 
-func (h *Harness) writeSettings(endpoint, hookCommand, role string, autoCompaction int) (string, error) {
+func (h *Harness) writeSettings(launch harness.Launch) (string, error) {
 	configDir, err := h.resolveConfigDir()
 	if err != nil {
 		return "", err
@@ -90,11 +90,11 @@ func (h *Harness) writeSettings(endpoint, hookCommand, role string, autoCompacti
 	settings := map[string]any{
 		"permissions": map[string]any{"allow": allowedTools, "deny": deniedAgents},
 	}
-	if hooks := hookSettings(hookCommand); len(hooks) > 0 {
+	if hooks := hookSettings(launch.HookCommand); len(hooks) > 0 {
 		settings["hooks"] = hooks
 	}
-	if autoCompaction > 0 {
-		settings["autoCompactWindow"] = min(max(autoCompaction, minAutoCompactWindow), maxAutoCompactWindow)
+	if launch.AutoCompaction > 0 {
+		settings["autoCompactWindow"] = min(max(launch.AutoCompaction, minAutoCompactWindow), maxAutoCompactWindow)
 	}
 
 	body, err := json.Marshal(settings)
@@ -102,7 +102,7 @@ func (h *Harness) writeSettings(endpoint, hookCommand, role string, autoCompacti
 		return "", fmt.Errorf("failed to encode the settings: %w", err)
 	}
 
-	path := filepath.Join(configDir, settingsFileName(endpoint, role))
+	path := filepath.Join(configDir, settingsFileName(launch.MCPEndpoint, launch.Role))
 	if err := os.WriteFile(path, body, 0o644); err != nil {
 		return "", fmt.Errorf("failed to write the settings: %w", err)
 	}
