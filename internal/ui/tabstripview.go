@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 
 	"komrad/internal/glyph"
@@ -43,7 +44,7 @@ func (s tabStrip) groupLabel(state tabsState) string {
 	return s.grouped
 }
 
-func (s tabStrip) view(state tabsState, width int) string {
+func (s tabStrip) view(state tabsState, width int, mark func(int, string) string) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	chosen := s.indexOf(state)
 
@@ -62,6 +63,7 @@ func (s tabStrip) view(state tabsState, width int) string {
 		labels: labels,
 		focus:  noStop,
 		lit:    noStop,
+		mark:   mark,
 	}
 	if state.focused {
 		row.focus = s.focusIndex(state)
@@ -97,5 +99,16 @@ func (m *model) tabbedHeader(title, tally string) string {
 func (m *model) tabsLine() string {
 	t, _ := m.activeTabs()
 
-	return t.tabs().view(*t.tabsState(), m.paneWidth()) + "\n"
+	strip := t.tabs()
+
+	return strip.view(*t.tabsState(), m.paneWidth(), m.spanMarker(sectionTabs, strip.stopKeys())) + "\n"
+}
+
+func (s tabStrip) stopKeys() []string {
+	keys := make([]string, s.countStops())
+	for i := range keys {
+		keys[i] = strconv.Itoa(i)
+	}
+
+	return keys
 }

@@ -155,10 +155,59 @@ func TestClickKind(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{})
 			harness.press(tt.press...)
 
-			harness.send(clickOnStrip(t, harness, "live  archived", tt.kind))
+			harness.send(clickOnStrip(t, harness, "F   live", tt.kind))
 
 			assert.Contains(t, harness.readRawFrame(), lit.Render(tt.kind))
 			assert.NotContains(t, harness.readFrame(), "back to the list")
+		})
+	}
+}
+
+// TestClickTab covers a left click on the sort strip choosing the column under it.
+func TestClickTab(t *testing.T) {
+	tests := []struct {
+		name   string
+		clicks []string
+		want   []string
+	}{
+		{
+			name:   "a click on a column sorts by it",
+			clicks: []string{"activity"},
+			want:   []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "└─ delta"},
+		},
+		{
+			name:   "a second click on a column flips it",
+			clicks: []string{"name", "name"},
+			want:   []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "├─ delta", "└─ Zulu"},
+		},
+		{
+			name:   "a click on the column sorted by flips it",
+			clicks: []string{"created"},
+			want:   []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "├─ Zulu", "└─ delta"},
+		},
+		{
+			name:   "a click on the grouping flattens the list",
+			clicks: []string{"workflow"},
+			want:   []string{"delta", "Zulu", "alpha", "  └ charlie", "  └ bob", "echo"},
+		},
+		{
+			name:   "a second click on the grouping brings the headings back",
+			clicks: []string{"workflow", "flat"},
+			want:   []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ charlie", "   └─ bob"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openAgents(t, buildSortable()...)
+
+			for _, label := range tt.clicks {
+				harness.send(clickOnStrip(t, harness, "f   ", label))
+			}
+
+			frame := harness.readFrame()
+			assert.Equal(t, tt.want, readListRows(frame))
+			assert.Contains(t, frame, "back to the list", "the strip holds the keys")
 		})
 	}
 }
@@ -184,7 +233,7 @@ func clickOnStrip(t *testing.T, harness *panelHarness, strip, label string) tea.
 	left, _ := harness.panel.Inside()
 	for y, line := range splitLines(harness.readFrame()) {
 		sidebar, _, _ := strings.Cut(line, "│")
-		if !strings.Contains(sidebar, strip) {
+		if !strings.HasPrefix(strings.TrimSpace(sidebar), strip) {
 			continue
 		}
 

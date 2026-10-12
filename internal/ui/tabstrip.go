@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strconv"
 
 	"komrad/internal/glyph"
 
@@ -20,6 +21,14 @@ const (
 	tabDown tabDirection = iota
 	tabUp
 )
+
+func (d tabDirection) flip() tabDirection {
+	if d == tabUp {
+		return tabDown
+	}
+
+	return tabUp
+}
 
 func (d tabDirection) glyph() string {
 	if d == tabUp {
@@ -142,14 +151,17 @@ func (s tabStrip) focusIndex(state tabsState) int {
 	return at
 }
 
-// step moves the focus along the strip, wrapping at both ends, and chooses nothing.
-func (s tabStrip) step(state *tabsState, delta int) {
-	stops := len(s.options)
+func (s tabStrip) countStops() int {
 	if s.grouped != "" {
-		stops++
+		return len(s.options) + 1
 	}
 
-	at := stepStop(s.focusIndex(*state), delta, stops)
+	return len(s.options)
+}
+
+// step moves the focus along the strip, wrapping at both ends, and chooses nothing.
+func (s tabStrip) step(state *tabsState, delta int) {
+	at := stepStop(s.focusIndex(*state), delta, s.countStops())
 	state.onGroup = at == len(s.options)
 	if state.onGroup {
 		state.focus = ""
@@ -259,6 +271,43 @@ func (m *model) updateTabs(key tea.KeyPressMsg) tea.Cmd {
 			return nil
 		},
 	})
+
+	m.placeFilteredCursor(hovered)
+
+	return cmd
+}
+
+func (m *model) clickTab(key string) tea.Cmd {
+	t, ok := m.activeTabs()
+	if !ok {
+		return nil
+	}
+
+	strip, state := t.tabs(), t.tabsState()
+	at, err := strconv.Atoi(key)
+	if err != nil || at < 0 || at >= strip.countStops() {
+		return nil
+	}
+
+	if m.isViewsOpen() {
+		m.closeViews()
+	}
+	cmd := m.enterStop(stopList)
+	m.focusTabs()
+	hovered := m.hoveredFilterKey()
+
+	state.onGroup = at == len(strip.options)
+	if state.onGroup {
+		state.focus = ""
+		state.flat = !state.flat
+	} else {
+		direction := state.direction
+		if at == strip.indexOf(*state) {
+			direction = direction.flip()
+		}
+		state.focus = strip.options[at].id
+		strip.choose(state, direction)
+	}
 
 	m.placeFilteredCursor(hovered)
 

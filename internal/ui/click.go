@@ -24,6 +24,7 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 			return m.clickList(stopList, lister.activeList(), hit)
 		}
 	case sectionTabs:
+		return m.clickTab(hit.key)
 	}
 
 	return nil
