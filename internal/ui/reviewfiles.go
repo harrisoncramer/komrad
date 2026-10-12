@@ -30,9 +30,8 @@ type folderCursor struct {
 	diffRow int
 }
 
-// readFilesTree is the tree the filter leaves with the closed folders' files hidden and their
-// threads counted on the folder, the cursor on the folder it rests on or else on the file the diff
-// is in or the closed folder hiding it.
+// readFilesTree is the tree the filter leaves with each closed folder standing in for the rows
+// under it.
 func (r reviewScreen) readFilesTree() filesTree {
 	open := r.readOpenFilesTree()
 	path := ""
