@@ -3,6 +3,7 @@ package reviews
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"komrad/internal/eventprompts"
 	"komrad/internal/events"
@@ -45,12 +46,14 @@ func (Released) Topic() string {
 	return releasedTopic
 }
 
-// answered is an agent answering in a review of its own work.
+// answered is a task's writer answering a thread a reviewer opened on its work.
 type answered struct {
-	AgentID string `json:"agent_id"`
+	TaskID     string `json:"task_id"`
+	AgentID    string `json:"agent_id"`
+	ReviewerID string `json:"reviewer_id"`
 }
 
-// Topic names the handler that tells the agent's reviewer.
+// Topic names the handler that tells the reviewer.
 func (answered) Topic() string {
 	return answeredTopic
 }
@@ -120,14 +123,15 @@ func NewAnsweredHandler() events.HandlerFor[answered] {
 	return handleAnswered
 }
 
-// handleAnswered tells the author's live reviewer and asks for it to be woken.
+// handleAnswered tells the reviewer whose thread was answered and asks for it to be woken, unless
+// it has approved or gone.
 func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService, answered answered) ([]river.JobArgs, error) {
-	reading, err := reviewstore.NewReviewStore(tx).GetLiveReviewerOf(ctx, answered.AgentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, nil
-	}
+	live, err := reviewstore.NewReviewStore(tx).ListLiveReviewers(ctx, answered.TaskID)
 	if err != nil {
 		return nil, err
+	}
+	if !slices.Contains(live, answered.ReviewerID) {
+		return nil, nil
 	}
 
 	author, err := agentstore.NewAgentStore(tx).GetByID(ctx, answered.AgentID)
@@ -136,7 +140,7 @@ func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 	}
 
 	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
-		ToAgentID: reading.ReviewerID,
+		ToAgentID: answered.ReviewerID,
 		Kind:      mailstore.KindReviewActivity,
 		SubjectID: author.ID,
 		Body:      answerMail(author.Name),
@@ -146,5 +150,5 @@ func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 		return nil, err
 	}
 
-	return []river.JobArgs{internaljobs.WakeAgentArgs{AgentID: reading.ReviewerID}}, nil
+	return []river.JobArgs{internaljobs.WakeAgentArgs{AgentID: answered.ReviewerID}}, nil
 }

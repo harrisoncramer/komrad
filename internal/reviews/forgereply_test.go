@@ -203,7 +203,7 @@ func TestSendingForgeReply(t *testing.T) {
 			send: func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error) {
 				return fx.replies.ReplyOnForge(t.Context(), ReplyOnForgeParams{
 					ThreadID: fx.threadID,
-					Author:   newAgentAuthor(fx.worker),
+					Author:   newAgentAuthor(fx.writer),
 					Body:     "done",
 				})
 			},
@@ -258,7 +258,7 @@ func TestDiscardingForgeReply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.ErrorIs(t, fx.replies.DiscardForgeReply(t.Context(), failed.ID, newAgentAuthor(fx.worker)), ErrReviewHumanOnly)
+	require.ErrorIs(t, fx.replies.DiscardForgeReply(t.Context(), failed.ID, newAgentAuthor(fx.writer)), ErrReviewHumanOnly)
 	require.NoError(t, fx.replies.DiscardForgeReply(t.Context(), failed.ID, personAuthor))
 
 	replies, err := fx.reviews.ListForgeReplies(t.Context(), []string{fx.threadID})

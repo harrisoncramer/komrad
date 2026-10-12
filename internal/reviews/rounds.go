@@ -342,8 +342,8 @@ func (s *ReviewService) openReviewFor(
 	})
 }
 
-// requireNotReviewedAlready holds a reviewing agent to one review per round, so a reviewer and
-// its parent can only go round again once the parent has done more work.
+// requireNotReviewedAlready holds a reviewing agent to one review per round, so a reviewer can only
+// go round again once the writer has done more work.
 func (s *ReviewService) requireNotReviewedAlready(
 	ctx context.Context,
 	params reviewstore.OpenReviewOfParams,

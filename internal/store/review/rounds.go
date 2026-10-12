@@ -539,40 +539,15 @@ func (s *ReviewStore) MarkRoundsLanded(ctx context.Context, taskID string, ordin
 	return landed, nil
 }
 
-// liveReviewer is a reviewer still owed an answer about the work of the agent it is attached to.
-type liveReviewer struct {
-	AgentID    string
-	ReviewerID string
-}
-
-// listLiveReviewers is every unarchived reviewer child whose last released verdict on its
-// parent's work was not an approval.
-func (s *ReviewStore) listLiveReviewers(ctx context.Context) ([]liveReviewer, error) {
-	rows, err := s.queries.ListLiveReviewers(ctx)
+// ListLiveReviewers is the ids of a task's reviewers still owed an answer, oldest first, leaving
+// out one whose last released verdict was an approval.
+func (s *ReviewStore) ListLiveReviewers(ctx context.Context, taskID string) ([]string, error) {
+	ids, err := s.queries.ListLiveReviewers(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the reviewers still reading: %w", err)
+		return nil, fmt.Errorf("failed to list the reviewers still reading task %q: %w", taskID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListLiveReviewersRow) liveReviewer {
-		return liveReviewer{AgentID: row.AgentID, ReviewerID: row.ReviewerID}
-	}), nil
-}
-
-// GetLiveReviewerOf is the reviewer still owed an answer about one agent's work, ErrNotFound when
-// it has none.
-func (s *ReviewStore) GetLiveReviewerOf(ctx context.Context, agentID string) (*liveReviewer, error) {
-	live, err := s.listLiveReviewers(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, reading := range live {
-		if reading.AgentID == agentID {
-			return &reading, nil
-		}
-	}
-
-	return nil, fmt.Errorf("%w: no reviewer is reading %q", store.ErrNotFound, agentID)
+	return ids, nil
 }
 
 // SetDoorbell records the mail that told the agent its review was released.

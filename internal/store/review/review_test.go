@@ -38,9 +38,9 @@ type tallyRelease struct {
 	verdict    Verdict
 }
 
-// liveReviewerSeed is the agent and the reviewer attached to it in a test of live reviewers.
+// liveReviewerSeed is the writer and the reviewer on its task in a test of live reviewers.
 type liveReviewerSeed struct {
-	agentID    string
+	writerID   string
 	reviewerID string
 }
 
@@ -1016,28 +1016,25 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	assert.Equal(t, released.ID, kept.ID, "the review the agent was already given stands")
 }
 
-// TestLiveReviewers pins which reviewers the work is still owed an answer by.
+// TestLiveReviewers pins which reviewers a task's work is still owed an answer by.
 func TestLiveReviewers(t *testing.T) {
 	tests := []struct {
 		name     string
 		leave    func(t *testing.T, st *fixture, seeded liveReviewerSeed)
-		wantErr  error
 		wantLive bool
 	}{
 		{
 			name: "a reviewer that approved",
 			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
-				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.agentID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
-				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.agentID, "tree-two"), seeded.reviewerID), VerdictApproved)
+				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.writerID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
+				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.writerID, "tree-two"), seeded.reviewerID), VerdictApproved)
 			},
-			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a reviewer whose setup failed",
 			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
 				require.NoError(t, st.agents.SetStateByID(t.Context(), seeded.reviewerID, agentstore.StateFailedToCreate))
 			},
-			wantErr: store.ErrNotFound,
 		},
 		{
 			name:     "a reviewer that has released nothing yet",
@@ -1047,7 +1044,7 @@ func TestLiveReviewers(t *testing.T) {
 		{
 			name: "a reviewer that asked for changes",
 			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
-				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.agentID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
+				st.releaseReview(t, st.openReviewBy(t, st.openRound(t, seeded.writerID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
 			},
 			wantLive: true,
 		},
@@ -1057,26 +1054,20 @@ func TestLiveReviewers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := openFixture(t)
 			ctx := t.Context()
-			agentID := st.seedAgent(t, "worker")
+			writerID := st.seedAgent(t, "writer")
 			seeded := liveReviewerSeed{
-				agentID:    agentID,
-				reviewerID: st.seedReviewer(t, agentID),
+				writerID:   writerID,
+				reviewerID: st.seedReviewer(t, writerID),
 			}
 			unread := st.seedAgent(t, "unread")
 
 			tt.leave(t, st, seeded)
 
-			_, err := st.GetLiveReviewerOf(ctx, unread)
-			require.ErrorIs(t, err, store.ErrNotFound, "an agent nobody reviews has no reviewer")
+			other, err := st.ListLiveReviewers(ctx, st.taskOf(t, unread))
+			require.NoError(t, err)
+			assert.Empty(t, other, "a task nobody reviews has no reviewer")
 
-			reading, err := st.GetLiveReviewerOf(ctx, agentID)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-			}
-
-			live, err := st.listLiveReviewers(ctx)
+			live, err := st.ListLiveReviewers(ctx, st.taskOf(t, writerID))
 			require.NoError(t, err)
 
 			if !tt.wantLive {
@@ -1085,14 +1076,26 @@ func TestLiveReviewers(t *testing.T) {
 				return
 			}
 
-			want := liveReviewer{
-				AgentID:    seeded.agentID,
-				ReviewerID: seeded.reviewerID,
-			}
-			assert.Equal(t, []liveReviewer{want}, live)
-			assert.Equal(t, &want, reading)
+			assert.Equal(t, []string{seeded.reviewerID}, live)
 		})
 	}
+}
+
+// TestLiveReviewersAreOldestFirst pins the order a task's live reviewers are listed in.
+func TestLiveReviewersAreOldestFirst(t *testing.T) {
+	st := openFixture(t)
+	writerID := st.seedAgent(t, "writer")
+	first := st.seedReviewer(t, writerID)
+	taskID := st.taskOf(t, writerID)
+	second := st.seedAgentLike(t, agentstore.Agent{
+		Name:   "writer-second-reviewer",
+		Role:   agentstore.RoleReviewer,
+		TaskID: &taskID,
+	})
+
+	live, err := st.ListLiveReviewers(t.Context(), taskID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{first, second}, live)
 }
 
 // TestAReviewCountsWhatIsStillOwedAnAnswer pins the count a released review carries.
