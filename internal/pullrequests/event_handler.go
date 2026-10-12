@@ -26,7 +26,7 @@ func NewEventHandler() events.HandlerFor[Change] {
 }
 
 // handleChange tells the writer of each task on the pull request's branch where it now stands, starting the checks failing
-// event for an agent not yet told of a failed check.
+// event when an agent has not been told of a failed check or a run that was failing finishes.
 func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, change Change) ([]river.JobArgs, error) {
 	pullRequests := pullrequeststore.NewPullRequestStore(tx)
 	pullRequest, err := pullRequests.GetByID(ctx, change.ID)
@@ -53,6 +53,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 	started, holding := eventsOf(change, *pullRequest)
 	failed := failedChecks(*pullRequest)
 	failing := failingEvent(*pullRequest)
+	finished := slices.ContainsFunc(change.Moves, finishesFailing)
 	for _, recipient := range recipients {
 		failures, err := statusChecks.ListCheckFailures(ctx, pullrequeststore.ListCheckFailuresParams{
 			PullRequestID: pullRequest.ID,
@@ -71,7 +72,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 
 		newFailures := untold(failures)
 		recipientStarted := started
-		if failing != "" && (len(newFailures) > 0 || carriesFailing(held)) {
+		if failing != "" && (len(newFailures) > 0 || finished || carriesFailing(held)) {
 			recipientStarted = append(slices.Clone(started), failing)
 		}
 
