@@ -60,10 +60,8 @@ require_test_instance() {
 	komradslot check --root "$test_instance_root" || exit 1
 }
 
-# run_clean runs a command that outlives the task, under MISE_ENV=test, in a fresh terminal's
-# environment plus the slot's, so nothing of the shell that ran the task reaches the instance's
-# server or panes. A pane's shell otherwise reruns mise activate on the state it inherited and puts
-# a live panel's address back, which sends the hooks of the instance's agents to the live server.
+# run_clean runs a command under MISE_ENV=test in a fresh terminal's environment plus the slot's, so
+# the instance's server and panes inherit nothing of the shell that ran the task.
 run_clean() {
 	if [ "${MISE_ENV:-}" != test ]; then
 		"$@"
@@ -72,7 +70,7 @@ run_clean() {
 
 	local kept=() name path
 	for name in HOME USER LOGNAME SHELL TERM COLORTERM LANG LC_ALL LC_CTYPE TMPDIR SSH_AUTH_SOCK EDITOR \
-		XDG_CONFIG_HOME XDG_CACHE_HOME XDG_DATA_HOME XDG_STATE_HOME CLAUDE_CONFIG_DIR CODEX_HOME MISE_ENV $(compgen -e | grep '^KOMRAD_'); do
+		XDG_CONFIG_HOME XDG_CACHE_HOME XDG_DATA_HOME XDG_STATE_HOME CLAUDE_CONFIG_DIR CODEX_HOME MISE_ENV $(compgen -e KOMRAD_)| grep '^KOMRAD_'); do
 		if [ -n "${!name+set}" ]; then
 			kept+=("$name=${!name}")
 		fi
