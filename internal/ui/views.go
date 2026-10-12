@@ -112,7 +112,7 @@ func (m *model) viewsRow() string {
 		labels: labels,
 		focus:  noStop,
 		lit:    noStop,
-		mark:   m.spanMarker(sectionViews, labels),
+		mark:   m.spanMarker(zoneViews, labels),
 	}
 	if m.isViewsOpen() {
 		row.focus = m.viewIndex()

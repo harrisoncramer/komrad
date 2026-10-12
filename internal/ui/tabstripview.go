@@ -101,7 +101,7 @@ func (m *model) tabsLine() string {
 
 	strip := t.tabs()
 
-	return strip.view(*t.tabsState(), m.paneWidth(), m.spanMarker(sectionTabs, strip.stopKeys())) + "\n"
+	return strip.view(*t.tabsState(), m.paneWidth(), m.spanMarker(zoneTabs, strip.stopKeys())) + "\n"
 }
 
 func (s tabStrip) stopKeys() []string {

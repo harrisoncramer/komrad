@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -8,7 +9,6 @@ import (
 	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +19,7 @@ func TestClickRow(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		require.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()))
 
-		harness.send(clickOn(t, harness.readFrame(), "backend"))
+		harness.send(clickOn(t, harness, "backend"))
 
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
 	})
@@ -28,7 +28,7 @@ func TestClickRow(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		harness.press("pick:record")
 
-		harness.send(clickOn(t, harness.readFrame(), "backend"))
+		harness.send(clickOn(t, harness, "backend"))
 
 		frame := harness.readFrame()
 		assert.Empty(t, readRecordCursor(frame))
@@ -40,7 +40,7 @@ func TestClickRow(t *testing.T) {
 		harness.press("shift+tab")
 		require.Contains(t, harness.readFrame(), "tab/S-tab switch")
 
-		harness.send(clickOn(t, harness.readFrame(), "reviewer"))
+		harness.send(clickOn(t, harness, "reviewer"))
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "tab/S-tab switch")
@@ -52,7 +52,7 @@ func TestClickRow(t *testing.T) {
 		harness.press("f")
 		require.Empty(t, readHoveredRow(harness.readFrame()))
 
-		harness.send(clickOn(t, harness.readFrame(), "reviewer"))
+		harness.send(clickOn(t, harness, "reviewer"))
 
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "reviewer")
 	})
@@ -61,7 +61,7 @@ func TestClickRow(t *testing.T) {
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newPausedSchedule("s2", "nightly"))
 		require.Contains(t, readHoveredRow(harness.readFrame()), "nightly")
 
-		harness.send(clickOn(t, harness.readFrame(), "morning-ci"))
+		harness.send(clickOn(t, harness, "morning-ci"))
 
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "morning-ci")
 	})
@@ -72,14 +72,14 @@ func TestClickRow(t *testing.T) {
 		require.Greater(t, len(fields), 1)
 		label := strings.Fields(fields[len(fields)-1])[0]
 
-		harness.send(tea.MouseClickMsg{X: 2, Y: findRecordLine(harness.readFrame(), label), Button: tea.MouseLeft})
+		harness.send(clickOnLine(t, harness, fields[len(fields)-1], label))
 
 		assert.True(t, strings.HasPrefix(readRecordCursor(harness.readFrame()), label+" "))
 	})
 
 	t.Run("a right click leaves the cursor where it was", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		click := clickOn(t, harness.readFrame(), "backend")
+		click := clickOn(t, harness, "backend")
 		click.Button = tea.MouseRight
 
 		harness.send(click)
@@ -119,7 +119,7 @@ func TestClickView(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{})
 			harness.press(tt.press...)
 
-			harness.send(clickOnStrip(t, harness, "agents  schedules", tt.view))
+			harness.send(clickOnLine(t, harness, "agents  schedules", tt.view))
 
 			assert.Equal(t, tt.wantScreen, harness.readScreen())
 			assert.NotContains(t, harness.readFrame(), "tab/S-tab switch")
@@ -155,7 +155,7 @@ func TestClickKind(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{})
 			harness.press(tt.press...)
 
-			harness.send(clickOnStrip(t, harness, "F   live", tt.kind))
+			harness.send(clickOnLine(t, harness, "F   live", tt.kind))
 
 			assert.Contains(t, harness.readRawFrame(), lit.Render(tt.kind))
 			assert.NotContains(t, harness.readFrame(), "back to the list")
@@ -202,7 +202,7 @@ func TestClickTab(t *testing.T) {
 			harness := openAgents(t, buildSortable()...)
 
 			for _, label := range tt.clicks {
-				harness.send(clickOnStrip(t, harness, "f   ", label))
+				harness.send(clickOnLine(t, harness, "f   ", label))
 			}
 
 			frame := harness.readFrame()
@@ -212,37 +212,45 @@ func TestClickTab(t *testing.T) {
 	}
 }
 
-func clickOn(t *testing.T, frame, row string) tea.MouseClickMsg {
-	t.Helper()
-
-	for y, line := range splitLines(frame) {
-		sidebar, _, _ := strings.Cut(line, "│")
-		if slices.Contains(strings.Fields(sidebar), row) {
-			return tea.MouseClickMsg{X: 2, Y: y, Button: tea.MouseLeft}
+// TestClickBlock covers a left click that lands on no row handing the keys to the block under it.
+func TestClickBlock(t *testing.T) {
+	t.Run("a click in the column gives it the keys", func(t *testing.T) {
+		lines := make([]string, 40)
+		for i := range lines {
+			lines[i] = fmt.Sprintf("line number %d", i)
 		}
-	}
+		harness := openArchivedAgents(t,
+			newLiveWorkflow("w1", "backend"),
+			newArchivedAgent("a1", "api-refactor", "w1"),
+			newArchivedAgent("a2", "billing", "w1"),
+		)
+		answerLastScreens(harness, map[string]string{"a1": strings.Join(lines, "\n"), "a2": strings.Join(lines, "\n")})
+		harness.press("j")
+		harness.fireTimers()
 
-	require.Failf(t, "no row in the frame", "%q", row)
+		harness.send(clickOn(t, harness, "line number 3"))
+		harness.press("G")
 
-	return tea.MouseClickMsg{}
-}
+		assert.Contains(t, harness.readFrame(), "line number 39")
+	})
 
-func clickOnStrip(t *testing.T, harness *panelHarness, strip, label string) tea.MouseClickMsg {
-	t.Helper()
+	t.Run("a click on the rule of the record gives it the keys", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		require.Empty(t, readRecordCursor(harness.readFrame()))
 
-	left, _ := harness.panel.Inside()
-	for y, line := range splitLines(harness.readFrame()) {
-		sidebar, _, _ := strings.Cut(line, "│")
-		if !strings.HasPrefix(strings.TrimSpace(sidebar), strip) {
-			continue
-		}
+		harness.send(clickOn(t, harness, "Info"))
 
-		if at := strings.Index(sidebar, label); at >= 0 {
-			return tea.MouseClickMsg{X: left + ansi.StringWidth(sidebar[:at]), Y: y, Button: tea.MouseLeft}
-		}
-	}
+		assert.NotEmpty(t, readRecordCursor(harness.readFrame()))
+	})
 
-	require.Failf(t, "no label on the strip", "%q", label)
+	t.Run("a click behind an open menu does nothing", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		click := clickOn(t, harness, "backend")
+		harness.press("space")
 
-	return tea.MouseClickMsg{}
+		harness.send(click)
+		harness.press("esc")
+
+		assert.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()))
+	})
 }

@@ -32,7 +32,7 @@ func (m *model) isKindsFocused() bool {
 func (m *model) kindsLine() string {
 	k, _ := m.activeKinds()
 	row := k.kinds(m)
-	row.mark = m.spanMarker(sectionKinds, row.labels)
+	row.mark = m.spanMarker(zoneKinds, row.labels)
 	if *k.kindsFocused(m) {
 		row.focus, row.lit = row.lit, noStop
 	}

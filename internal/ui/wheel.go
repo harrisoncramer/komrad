@@ -140,7 +140,11 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 
 // focusBlockAt hands the keys to the block under the mouse, as jumping to it would.
 func (m *model) focusBlockAt(x, y int) tea.Cmd {
-	for _, block := range slices.Backward(m.findWheelBlocks()) {
+	return m.focusBlockIn(m.findWheelBlocks(), x, y)
+}
+
+func (m *model) focusBlockIn(blocks []sidebarBlock, x, y int) tea.Cmd {
+	for _, block := range slices.Backward(blocks) {
 		if !isInRect(block.rect, x, y) {
 			continue
 		}

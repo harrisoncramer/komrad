@@ -1095,3 +1095,28 @@ func readRawListRow(frame, name string) string {
 
 	return ""
 }
+
+func clickOn(t *testing.T, harness *panelHarness, text string) tea.MouseClickMsg {
+	t.Helper()
+
+	return clickOnLine(t, harness, text, text)
+}
+
+func clickOnLine(t *testing.T, harness *panelHarness, line, text string) tea.MouseClickMsg {
+	t.Helper()
+
+	left, _ := harness.panel.Inside()
+	for y, row := range splitLines(harness.readFrame()) {
+		if !strings.Contains(row, line) {
+			continue
+		}
+
+		if at := strings.Index(row, text); at >= 0 {
+			return tea.MouseClickMsg{X: left + ansi.StringWidth(row[:at]), Y: y, Button: tea.MouseLeft}
+		}
+	}
+
+	require.Failf(t, "no text in the frame", "%q on a line holding %q", text, line)
+
+	return tea.MouseClickMsg{}
+}

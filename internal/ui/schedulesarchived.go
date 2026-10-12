@@ -44,16 +44,14 @@ func (w *schedulesScreen) kindsSwitch(*model) bool {
 	return true
 }
 
-// stepKind moves the schedules view to its other kind with the cursor on the first row.
+// stepKind moves the schedules view to its other kind, back on the row it last stood on.
 func (w *schedulesScreen) stepKind(m *model, delta int) tea.Cmd {
 	left := m.leaveScreen()
 	m.filter = filterState{}
 	w.kind = schedulesKind(stepStop(int(w.kind), delta, len(w.kinds(m).labels)))
 	if w.kind == schedulesArchived {
-		w.archived.cursor = 0
 		w.archived.stage(m)
 	} else {
-		w.cursor = 0
 		m.stageTerminal()
 	}
 

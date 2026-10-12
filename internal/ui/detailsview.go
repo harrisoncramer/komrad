@@ -47,7 +47,7 @@ func (m *model) detailsView() string {
 			Palette: paint.Panel,
 			Width:   pane,
 			Lines:   lines,
-			Mark:    m.rowMarker(sectionRecord, snapshot.Rows, pane),
+			Mark:    m.rowMarker(zoneDetails, snapshot.Rows, pane),
 		})
 	}
 

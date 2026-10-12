@@ -22,6 +22,9 @@ const (
 	zoneDetails     zone = "details"
 	zoneBlock       zone = "block"
 	zonePullRequest zone = "pullrequest"
+	zoneViews       zone = "views"
+	zoneKinds       zone = "kinds"
+	zoneTabs        zone = "tabs"
 )
 
 // zoneMark is the invisible sequence a marked frame carries at each end of a zone.
@@ -177,9 +180,9 @@ func isInRect(rect panes.Rect, x, y int) bool {
 	return x >= rect.Left && x < rect.Left+rect.Width && y >= rect.Top && y < rect.Top+rect.Height
 }
 
-var rowMark = regexp.MustCompile("\x1b_kzr:([0-9]+):([0-9]+):([0-9]+):([0-9a-f]*)\x1b\\\\")
+var keyMark = regexp.MustCompile("\x1b_kzr:([a-z]+):([0-9]+):([0-9]+):([0-9a-f]*)\x1b\\\\")
 
-func (m *model) rowMarker(section sidebarSection, rows []view.Row, width int) func(int, string) string {
+func (m *model) rowMarker(name zone, rows []view.Row, width int) func(int, string) string {
 	if !m.term.markingZones {
 		return nil
 	}
@@ -197,49 +200,45 @@ func (m *model) rowMarker(section sidebarSection, rows []view.Row, width int) fu
 			}
 		}
 
-		return rowMarkOf(section, width, nth, key) + row
+		return keyMarkOf(name, width, nth, key) + row
 	}
 }
 
-func (m *model) spanMarker(section sidebarSection, keys []string) func(int, string) string {
+func (m *model) spanMarker(name zone, keys []string) func(int, string) string {
 	if !m.term.markingZones {
 		return nil
 	}
 
 	return func(index int, span string) string {
-		return rowMarkOf(section, lipgloss.Width(span), 0, keys[index]) + span
+		return keyMarkOf(name, lipgloss.Width(span), 0, keys[index]) + span
 	}
 }
 
-func rowMarkOf(section sidebarSection, width, nth int, key string) string {
-	return "\x1b_kzr:" + strconv.Itoa(int(section)) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\"
+func keyMarkOf(name zone, width, nth int, key string) string {
+	return "\x1b_kzr:" + string(name) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\"
 }
 
-type rowHit struct {
-	section sidebarSection
-	key     string
-	nth     int
+type keyHit struct {
+	zone zone
+	key  string
+	nth  int
 }
 
-func (m *model) findRowAt(x, y int) (rowHit, bool) {
+func (m *model) findKeyAt(x, y int) (keyHit, bool) {
 	marked := *m
 	marked.term.markingZones = true
 
 	lines := strings.Split(marked.renderInset(marked.insideView()), "\n")
 	if y < 0 || y >= len(lines) {
-		return rowHit{}, false
+		return keyHit{}, false
 	}
 
 	line := lines[y]
-	for _, at := range rowMark.FindAllStringSubmatchIndex(line, -1) {
+	marks := keyMark.FindAllStringSubmatchIndex(line, -1)
+	for _, at := range slices.Backward(marks) {
 		left := lipgloss.Width(line[:at[0]])
 		width, err := strconv.Atoi(line[at[4]:at[5]])
 		if err != nil || x < left || x >= left+width {
-			continue
-		}
-
-		section, err := strconv.Atoi(line[at[2]:at[3]])
-		if err != nil {
 			continue
 		}
 
@@ -253,8 +252,8 @@ func (m *model) findRowAt(x, y int) (rowHit, bool) {
 			continue
 		}
 
-		return rowHit{section: sidebarSection(section), key: string(key), nth: nth}, true
+		return keyHit{zone: zone(line[at[2]:at[3]]), key: string(key), nth: nth}, true
 	}
 
-	return rowHit{}, false
+	return keyHit{}, false
 }

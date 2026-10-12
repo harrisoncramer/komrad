@@ -66,7 +66,7 @@ func (a *agentsScreen) kindsSwitch(*model) bool {
 	return !a.selected.isActive()
 }
 
-// stepKind moves the agents view to its other kind with the cursor on the first row.
+// stepKind moves the agents view to its other kind, back on the row it last stood on.
 func (a *agentsScreen) stepKind(m *model, delta int) tea.Cmd {
 	left := m.leaveScreen()
 	m.filter = filterState{}
@@ -74,11 +74,9 @@ func (a *agentsScreen) stepKind(m *model, delta int) tea.Cmd {
 	m.reconcileSolo()
 	if a.kind == agentsArchived {
 		a.archived.selected = selection{}
-		a.archived.cursor = 0
 		a.archived.stage(m)
 	} else {
 		a.selected = selection{}
-		a.cursor = 0
 		m.stageSelection()
 	}
 

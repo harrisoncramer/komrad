@@ -103,7 +103,7 @@ type keyedList interface {
 	// rendered.
 	filterRows(m *model) []filterRow
 
-	click(m *model, key string, nth int) tea.Cmd
+	clicker
 }
 
 // filterRow is one row a search can land on: the key that names it and the text it matches by.

@@ -1027,6 +1027,26 @@ func TestArchivedAgentsKinds(t *testing.T) {
 		harness.press("esc")
 		assert.NotEmpty(t, readHoveredRow(harness.readFrame()), "and the list has the keys again")
 	})
+
+	t.Run("each kind comes back on the row it was left on", func(t *testing.T) {
+		harness := openAgents(t,
+			newLiveWorkflow("w1", "backend"),
+			newAgent("a8", "auth-live", "w1"),
+			newAgent("a9", "billing-live", "w1"),
+			newArchivedAgent("a1", "api-refactor", "w1"),
+			newArchivedAgent("a2", "billing", "w1"),
+		)
+		harness.press(append(widenListPresses, "j")...)
+		live := readHoveredRow(harness.readFrame())
+		harness.press("F", "tab", "esc", "j")
+		archived := readHoveredRow(harness.readFrame())
+
+		harness.press("F", "tab", "esc")
+		assert.Equal(t, live, readHoveredRow(harness.readFrame()))
+
+		harness.press("F", "tab", "esc")
+		assert.Equal(t, archived, readHoveredRow(harness.readFrame()))
+	})
 }
 
 // TestArchivedAgentsLastScreen covers the saved screen rendered under an archived agent.
@@ -1219,6 +1239,25 @@ func TestArchivedAgentsReading(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("the saved screen takes the keys while the live list stands on a stopped agent", func(t *testing.T) {
+		stopped := newDormant("sleepy")
+		stopped.Id = "d1"
+		harness := newPanelHarness(t, panelHarnessParams{})
+		answerLastScreens(harness, map[string]string{"a1": screen, "a2": screen})
+		harness.watch(buildSnapshot(
+			newLiveWorkflow("w1", "backend"),
+			stopped,
+			newArchivedAgent("a1", "api-refactor", "w1"),
+			newArchivedAgent("a2", "billing", "w1"),
+		))
+		harness.press("F", "tab", "esc", "j")
+		harness.fireTimers()
+
+		harness.press("pick:block", "G")
+
+		assert.Contains(t, harness.readFrame(), "line number 39")
+	})
 }
 
 func openArchivedAgents(t *testing.T, rows ...proto.Message) *panelHarness {
