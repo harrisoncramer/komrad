@@ -353,9 +353,21 @@ func TestBuildCommandKeepsEachInstancesSettings(t *testing.T) {
 
 	hooks := map[string]string{}
 	for _, launch := range []harness.Launch{
-		{MCPEndpoint: "127.0.0.1:8787", HookCommand: "/usr/local/bin/komrad", Role: "writer"},
-		{MCPEndpoint: "127.0.0.1:8790", HookCommand: "/tmp/test/komrad", Role: "writer"},
-		{MCPEndpoint: "127.0.0.1:8787", HookCommand: "/usr/local/bin/komrad", Role: "reviewer"},
+		{
+			MCPEndpoint: "127.0.0.1:8787",
+			HookCommand: "/usr/local/bin/komrad",
+			Role:        "writer",
+		},
+		{
+			MCPEndpoint: "127.0.0.1:8790",
+			HookCommand: "/tmp/test/komrad",
+			Role:        "writer",
+		},
+		{
+			MCPEndpoint: "127.0.0.1:8787",
+			HookCommand: "/usr/local/bin/komrad",
+			Role:        "reviewer",
+		},
 	} {
 		launch.CacheDir = t.TempDir()
 		command, err := claude.BuildCommand(launch)
