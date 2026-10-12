@@ -322,12 +322,6 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		return nil, true
 	}
 
-	if m.isDetailsScreen() && m.canReadMessages() && key.String() == messagesMockKey {
-		m.pushMockMessage()
-
-		return nil, true
-	}
-
 	if _, ok := m.activeTabs(); ok {
 		if m.isTabsFocused() {
 			return m.updateTabs(key), true

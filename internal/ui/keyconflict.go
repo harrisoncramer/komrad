@@ -305,16 +305,12 @@ func globalArms(s screen, keys config.Keybindings) []dispatchArm {
 	arms = append(arms, dispatchArm{describe: "the menu", keys: keys.Menu.Open})
 
 	if _, ok := zero.screenOf(s).(recordRenderer); ok {
-		arms = append(arms,
-			// Both are read ahead of the screen's own keys.
-			dispatchArm{describe: "the key that pushes a fixture into the messages", keys: []string{messagesMockKey}},
-			// The copy key answers only while the details hold the cursor.
-			dispatchArm{
-				describe: "the details copy",
-				keys:     keys.Details.Copy,
-				guarded:  true,
-			},
-		)
+		// The copy key answers only while the details hold the cursor.
+		arms = append(arms, dispatchArm{
+			describe: "the details copy",
+			keys:     keys.Details.Copy,
+			guarded:  true,
+		})
 	}
 
 	return arms

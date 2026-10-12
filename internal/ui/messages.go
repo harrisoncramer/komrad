@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,9 +16,6 @@ import (
 const messagesIndent = 2
 
 const messagesBodyIndent = messagesIndent + 2
-
-// messagesMockKey pushes a fixture into the stack.
-const messagesMockKey = "M"
 
 // messagesCap is how far back the stack goes.
 const messagesCap = 50
@@ -210,6 +208,17 @@ func (m *model) clickMessages() tea.Cmd {
 	return nil
 }
 
+func (m *model) clickMessage(key string) tea.Cmd {
+	at, err := strconv.Atoi(key)
+	if err != nil {
+		return nil
+	}
+
+	m.messages.cursor = cursor.Clamp(at, len(m.messages.items))
+
+	return nil
+}
+
 func (m *model) updateMessages(key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
@@ -224,10 +233,6 @@ func (m *model) updateMessages(key tea.KeyPressMsg) tea.Cmd {
 		return nil
 	case isBound(k, m.keys.Messages.DismissAll):
 		m.dismissAllMessages()
-
-		return nil
-	case k == messagesMockKey:
-		m.pushMockMessage()
 
 		return nil
 	case isBound(k, m.keys.Details.Copy):
@@ -303,12 +308,6 @@ func (m *model) removeMessage(at int) {
 	m.messages.items = slices.Delete(slices.Clone(m.messages.items), at, at+1)
 }
 
-// pushMockMessage pushes a message from the fixtures.
-func (m *model) pushMockMessage() {
-	m.pushMessage(mockMessages[len(m.messages.items)%len(mockMessages)])
-	m.restageScreen()
-}
-
 func (m *model) messagesHelp() keyMap {
 	copyMessage := binding(m.keys.Details.Copy, "copy")
 	dismiss := binding(m.keys.Messages.Dismiss, "dismiss")
@@ -329,32 +328,4 @@ func (m *model) messagesBinding() key.Binding {
 	}
 
 	return binding(m.keys.Messages.Open, desc)
-}
-
-// mockMessages are the fixtures the region is rendered from while nothing real reports through it,
-// long enough in the reason to show what the rows do with one that does not fit.
-var mockMessages = []message{
-	{
-		kind:    messageError,
-		summary: "Your editor could not be opened on that message",
-		detail:  "fork/exec /Users/harry/.local/state/komrad/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor: no such file or directory",
-		trace:   "b3d0117e",
-	},
-	{
-		kind:    messageError,
-		summary: "Nothing to review in fix-ci",
-		detail:  "the worktree holds no change against the base, so there is nothing to open a round on. commit first, then ask again.",
-		trace:   "7c1f2a94",
-	},
-	{
-		kind:    messageWarning,
-		summary: "Pane died: axle-idempotency",
-		detail:  "the harness exited 1 before the first turn finished, and the pane it was running in is gone. read the run log with l.",
-		trace:   "91be40c2",
-	},
-	{
-		kind:    messageInfo,
-		summary: "Archived 4 agents",
-		detail:  "komrad-bughunt-job, iss-408-reviewer, test-2 and test are hidden from the sidebar. restore them from the archive screen with Z.",
-	},
 }

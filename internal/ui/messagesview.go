@@ -66,7 +66,9 @@ func (m *model) renderMessagesWindow(width, rows int) docWindow {
 			start = len(rendered)
 		}
 
-		rendered = append(rendered, m.renderMessageRows(i, body)...)
+		for _, row := range m.renderMessageRows(i, body) {
+			rendered = append(rendered, m.markRow(zoneMessage, width, strconv.Itoa(i), row))
+		}
 
 		if i == at {
 			end = len(rendered)

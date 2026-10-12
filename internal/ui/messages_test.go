@@ -168,7 +168,10 @@ func TestMessagesPane(t *testing.T) {
 	t.Run("a message landing while the pane is read leaves the reader where they were", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{})
 
-		harness.press("enter", "ctrl+g", "M")
+		harness.press("enter")
+		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.press("enter", "ctrl+g")
+		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
 
 		assert.Equal(t, "2 of 2", readPaneTally(harness.readFrame()))
 	})
@@ -205,16 +208,19 @@ func TestMessagesCopy(t *testing.T) {
 
 	t.Run("the copied message keeps its flash when another lands above it", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{})
+		harness.press("enter")
+		harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("gone for good"))
+		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
 		harness.press("enter", "ctrl+g")
 		settleFlash(harness)
-		plain := readStyledSummary(harness, "Could not resume")
+		plain := readStyledSummary(harness, "no such agent")
 		harness.press("y")
-		flashed := readStyledSummary(harness, "Could not resume")
+		flashed := readStyledSummary(harness, "no such agent")
 		require.NotEqual(t, plain, flashed, "the copy flashes the row")
 
-		harness.press("M")
+		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		assert.Equal(t, flashed, readStyledSummary(harness, "Could not resume"))
+		assert.Equal(t, flashed, readStyledSummary(harness, "no such agent"))
 	})
 }
 
@@ -292,7 +298,7 @@ func TestMessagesGolden(t *testing.T) {
 			name: "the-pane-holding-the-keys",
 			open: func(t *testing.T) *panelHarness {
 				harness := openMessages(t, panelHarnessParams{})
-				harness.press("enter", "ctrl+g", "M", "M", "j")
+				harness.press("enter", "enter", "enter", "ctrl+g", "j")
 				settleFlash(harness)
 
 				return harness

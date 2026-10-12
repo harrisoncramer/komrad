@@ -57,6 +57,8 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSearch(key) }), true
 	case zoneMessages:
 		return clickFunc(func(m *model, _ string, _ int) tea.Cmd { return m.clickMessages() }), true
+	case zoneMessage:
+		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickMessage(key) }), true
 	case zoneDoc:
 		if slices.Contains(m.listStops(), stopBlock) {
 			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickDocLine(key) })), true
