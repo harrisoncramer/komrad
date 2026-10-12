@@ -165,7 +165,7 @@ func (d *documentsScreen) docRows(m *model, width int) []string {
 	window := d.diffWindow(m)
 	window.Width = width
 
-	return append(head, h.pane.Render(window, held)...)
+	return append(head, m.markDiff(&h.pane, window, h.pane.Render(window, held))...)
 }
 
 // head is the rows over the change: which write it is and the search.

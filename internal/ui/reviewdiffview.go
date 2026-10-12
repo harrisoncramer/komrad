@@ -96,7 +96,9 @@ func (r reviewScreen) diffView(m *model, split columnSplit) string {
 		held = diffview.DimCursor
 	}
 
-	return strings.Join(r.diff.Render(r.diffWindow(m), held), "\n")
+	window := r.diffWindow(m)
+
+	return strings.Join(m.markDiff(&r.diff.Pane, window, r.diff.Render(window, held)), "\n")
 }
 
 // reviewColumnStyle is the markdown a notice standing in for the patch is rendered in.

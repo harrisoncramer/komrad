@@ -67,6 +67,17 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 	return lines
 }
 
+func (p *Pane) Rows(window Window) []int {
+	var rows []int
+	for y := p.findWindowStart(window); y < p.view.Len() && len(rows) < window.Height; y++ {
+		for range p.view.measureRow(y, window) {
+			rows = append(rows, y)
+		}
+	}
+
+	return rows[:min(len(rows), max(window.Height, 0))]
+}
+
 // coverWithHeader renders the header of the file the window starts inside over the window's first row.
 func (p *Pane) coverWithHeader(lines []string, start int, window Window) {
 	header, ok := p.view.findFileHeader(start)

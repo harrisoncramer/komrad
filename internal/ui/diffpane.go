@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strconv"
 
 	"komrad/config"
 	"komrad/internal/ui/diffview"
@@ -354,4 +355,25 @@ func diffMatchCount(pane *diffview.Pane, filter filterState) string {
 	}
 
 	return dimStyle().Render("  "+where) + "\n\n"
+}
+
+func (m *model) markDiff(pane *diffview.Pane, window diffview.Window, lines []string) []string {
+	if !m.term.markingZones {
+		return lines
+	}
+
+	for i, row := range pane.Rows(window) {
+		lines[i] = m.markRow(zoneDiff, window.Width, strconv.Itoa(row), lines[i])
+	}
+
+	return lines
+}
+
+func (k diffKeys) click(m *model, key string) tea.Cmd {
+	row, err := strconv.Atoi(key)
+	if err != nil || k.pane.View() == nil {
+		return nil
+	}
+
+	return k.moveTo(m, k.pane.View().Move(row-1, 1))
 }
