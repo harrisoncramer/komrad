@@ -53,7 +53,6 @@ type NewLaunchAgentWorkerParams struct {
 	Orchestrators OrchestratorResolver
 	Mailer        ScheduledMailer
 	Registrations RegistrationSyncer
-	HookTimeout   func() (time.Duration, error)
 }
 
 type LaunchAgentWorker struct {
@@ -65,7 +64,6 @@ type LaunchAgentWorker struct {
 	orchestrators OrchestratorResolver
 	mailer        ScheduledMailer
 	registrations RegistrationSyncer
-	hookTimeout   func() (time.Duration, error)
 }
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads, the service that launches
@@ -79,13 +77,7 @@ func NewLaunchAgentWorker(params NewLaunchAgentWorkerParams) *LaunchAgentWorker 
 		orchestrators: params.Orchestrators,
 		mailer:        params.Mailer,
 		registrations: params.Registrations,
-		hookTimeout:   params.HookTimeout,
 	}
-}
-
-// Timeout outlasts starting the agent a firing launches, its provisioner and hooks included.
-func (w *LaunchAgentWorker) Timeout(*river.Job[LaunchAgentArgs]) time.Duration {
-	return startTimeout(w.hookTimeout)
 }
 
 // Work fires the schedule, starting its task or mailing its orchestrator, cancelling the

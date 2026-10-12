@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/agenterr"
 	"komrad/internal/agents"
+	"komrad/internal/scriptrun"
 	agentstore "komrad/internal/store/agent"
 
 	"github.com/riverqueue/river"
@@ -56,19 +57,17 @@ type AgentResumer interface {
 
 type WakeAgentWorker struct {
 	river.WorkerDefaults[WakeAgentArgs]
-	resumer     AgentResumer
-	hookTimeout func() (time.Duration, error)
+	resumer AgentResumer
 }
 
-// NewWakeAgentWorker builds the worker over the service that resumes agents and the hooks.timeout
-// setting it waits under.
-func NewWakeAgentWorker(resumer AgentResumer, hookTimeout func() (time.Duration, error)) *WakeAgentWorker {
-	return &WakeAgentWorker{resumer: resumer, hookTimeout: hookTimeout}
+// NewWakeAgentWorker builds the worker over the service that resumes agents.
+func NewWakeAgentWorker(resumer AgentResumer) *WakeAgentWorker {
+	return &WakeAgentWorker{resumer: resumer}
 }
 
-// Timeout outlasts resuming the agent, its provisioner and hooks included.
+// Timeout outlasts the workflow's post-resume hook.
 func (w *WakeAgentWorker) Timeout(*river.Job[WakeAgentArgs]) time.Duration {
-	return startTimeout(w.hookTimeout)
+	return scriptrun.HookTimeout + 5*time.Minute
 }
 
 // Work resumes the agent, leaving one that is gone, held or already being resumed alone.

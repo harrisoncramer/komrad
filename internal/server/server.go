@@ -136,7 +136,6 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Agents:        st.agents,
 		Forges:        svc.pullRequests.forge,
 		MaxLogBytes:   svc.getMaxCheckLogBytes,
-		HookTimeout:   svc.script.HookTimeout,
 		Router: events.NewRouter(events.NewRouterParams{
 			Mailer: svc.mail.service,
 			Handlers: []events.Handler{

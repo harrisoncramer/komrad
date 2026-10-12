@@ -60,6 +60,7 @@ func TestGetCallTimeout(t *testing.T) {
 	}{
 		{name: "archive_agents", want: 0},
 		{name: "resume_agent", want: 0},
+		{name: "delete_workflow", want: 0},
 		{name: "list_agents", want: 30 * time.Second},
 	}
 

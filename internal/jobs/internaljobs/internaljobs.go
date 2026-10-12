@@ -8,7 +8,6 @@ import (
 
 	"komrad/internal/agents"
 	"komrad/internal/mail"
-	"komrad/internal/scriptrun"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	schedulestore "komrad/internal/store/schedule"
@@ -57,13 +56,4 @@ type RunningAgentCounter interface {
 type RunRecorder interface {
 	StartRun(ctx context.Context, params schedulestore.StartRunParams) error
 	FinishRun(ctx context.Context, occurrence schedulestore.RunOccurrence, outcome schedulestore.RunOutcome) error
-}
-
-func startTimeout(hookTimeout func() (time.Duration, error)) time.Duration {
-	limit, err := hookTimeout()
-	if err != nil {
-		return 0
-	}
-
-	return scriptrun.StartTimeout(limit)
 }

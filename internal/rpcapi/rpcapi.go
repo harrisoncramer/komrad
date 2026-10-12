@@ -68,6 +68,7 @@ var awaitsHooks = map[string]bool{
 	taskv1connect.TaskServiceDeleteTasksProcedure:             true,
 	workflowv1connect.WorkflowServiceArchiveWorkflowProcedure: true,
 	workflowv1connect.WorkflowServiceRestoreWorkflowProcedure: true,
+	workflowv1connect.WorkflowServiceDeleteWorkflowProcedure:  true,
 }
 
 type Method struct {

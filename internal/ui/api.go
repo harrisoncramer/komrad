@@ -603,7 +603,7 @@ func (a api) restoreWorkflow(id string) error {
 }
 
 func (a api) deleteWorkflow(id string) error {
-	return mutate(func(ctx context.Context) (any, error) {
+	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
 		return a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
 	})
 }

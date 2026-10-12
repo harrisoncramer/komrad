@@ -52,7 +52,6 @@ type NewClientParams struct {
 	Router        internaljobs.EventRouter
 	Forges        internaljobs.ForgeFinder
 	MaxLogBytes   func() (int64, error)
-	HookTimeout   func() (time.Duration, error)
 	Logger        *slog.Logger
 }
 
@@ -68,7 +67,6 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 		Orchestrators: params.Orchestrators,
 		Mailer:        params.Mailer,
 		Registrations: params.Registrations,
-		HookTimeout:   params.HookTimeout,
 	}))
 	river.AddWorker(workers, internaljobs.NewDeleteAgentWorker(params.Deleter))
 	river.AddWorker(workers, internaljobs.NewDeleteWorktreesWorker(internaljobs.NewDeleteWorktreesWorkerParams{
@@ -77,7 +75,7 @@ func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 		Logger:    params.Logger,
 	}))
 	river.AddWorker(workers, internaljobs.NewEventWorker(params.Pool, params.Router))
-	river.AddWorker(workers, internaljobs.NewWakeAgentWorker(params.Resumer, params.HookTimeout))
+	river.AddWorker(workers, internaljobs.NewWakeAgentWorker(params.Resumer))
 	river.AddWorker(workers, internaljobs.NewArchiveAgentWorker(internaljobs.NewArchiveAgentWorkerParams{
 		Archiver: params.Archiver,
 		Agents:   params.Agents,
