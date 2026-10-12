@@ -175,6 +175,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Doctor:        params.Doctor,
 		Watch:         broker,
 		Wakers:        wakers,
+		Harnesses:     params.Harnesses,
 	})
 	if err != nil {
 		return nil, err

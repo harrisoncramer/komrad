@@ -227,8 +227,10 @@ type Agent struct {
 	TaskSlug *string `protobuf:"bytes,30,opt,name=task_slug,json=taskSlug,proto3,oneof" json:"task_slug,omitempty"`
 	// Whether it was told to keep the directory it was given rather than be provisioned a worktree.
 	ProvisionDisabled bool `protobuf:"varint,31,opt,name=provision_disabled,json=provisionDisabled,proto3" json:"provision_disabled,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// The hooks komrad installs in the agent's CLI, named as that CLI names its events.
+	Hooks         []string `protobuf:"bytes,32,rep,name=hooks,proto3" json:"hooks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Agent) Reset() {
@@ -476,6 +478,13 @@ func (x *Agent) GetProvisionDisabled() bool {
 		return x.ProvisionDisabled
 	}
 	return false
+}
+
+func (x *Agent) GetHooks() []string {
+	if x != nil {
+		return x.Hooks
+	}
+	return nil
 }
 
 // AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests
@@ -3189,7 +3198,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12task/v1/task.proto\x1a\x12view/v1/view.proto\"\xcb\t\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x15agent/v1/screen.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x14rules/v1/rules.proto\x1a\x12task/v1/task.proto\x1a\x12view/v1/view.proto\"\xe1\t\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -3229,7 +3238,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10held_by_agent_id\x18\x1c \x01(\tR\rheldByAgentId\x12\x1c\n" +
 	"\atask_id\x18\x1d \x01(\tH\aR\x06taskId\x88\x01\x01\x12 \n" +
 	"\ttask_slug\x18\x1e \x01(\tH\bR\btaskSlug\x88\x01\x01\x12-\n" +
-	"\x12provision_disabled\x18\x1f \x01(\bR\x11provisionDisabledB\x0e\n" +
+	"\x12provision_disabled\x18\x1f \x01(\bR\x11provisionDisabled\x12\x14\n" +
+	"\x05hooks\x18  \x03(\tR\x05hooksB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\b\n" +
 	"\x06_aliveB\x12\n" +

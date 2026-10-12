@@ -39,6 +39,8 @@ func agentFrom(s *agentv1.Agent) panel.Agent {
 		HeldByAgentID:     s.GetHeldByAgentId(),
 		TaskID:            s.GetTaskId(),
 		ProvisionDisabled: s.GetProvisionDisabled(),
+		Tool:              s.GetReportedReason(),
+		Hooks:             s.GetHooks(),
 	}
 }
 

@@ -651,6 +651,23 @@ func TestAgentsRecord(t *testing.T) {
 				"session_id": "abc",
 			},
 		},
+		{
+			name: "an agent shows the hooks komrad installs in its CLI and the tool it is running",
+			rows: buildRecordedWith(func(agent *agentv1.Agent) {
+				agent.Hooks = []string{"PreToolUse", "Stop"}
+				agent.ReportedReason = "Bash"
+			}),
+			want: map[string]string{
+				"hooks": "PreToolUse, Stop",
+				"tool":  "Bash",
+			},
+		},
+		{
+			name:       "an agent running no tool shows none",
+			rows:       buildRecorded(),
+			want:       map[string]string{"hooks": "—"},
+			wantAbsent: []string{"tool"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2896,6 +2913,14 @@ func buildRecorded() []proto.Message {
 	}
 }
 
+// buildRecordedWith is buildRecorded with its agent changed by edit.
+func buildRecordedWith(edit func(agent *agentv1.Agent)) []proto.Message {
+	rows := buildRecorded()
+	edit(rows[1].(*agentv1.Agent))
+
+	return rows
+}
+
 // buildRecordedTask is buildRecorded with its agent on a task whose checkout is /repo.
 func buildRecordedTask() []proto.Message {
 	rows := buildRecorded()
@@ -2962,4 +2987,40 @@ func newEditable(held string) *agentv1.Agent {
 	agent.Cwd = "/work/telescope"
 
 	return agent
+}
+
+// TestAgentsRowShowsTheTool covers the tool an agent reported, drawn after its name while it works.
+func TestAgentsRowShowsTheTool(t *testing.T) {
+	tests := []struct {
+		name  string
+		state agentv1.AgentState
+		want  bool
+	}{
+		{
+			name:  "an agent at work shows the tool it is running",
+			state: agentv1.AgentState_AGENT_STATE_THINKING,
+			want:  true,
+		},
+		{
+			name:  "an agent waiting on a person shows the tool it asks for",
+			state: agentv1.AgentState_AGENT_STATE_WAITING,
+			want:  true,
+		},
+		{
+			name:  "an agent at rest shows none",
+			state: agentv1.AgentState_AGENT_STATE_IDLE,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := newPausable("")
+			agent.State = tt.state
+			agent.ReportedReason = "WebFetch"
+			harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
+
+			row := findRowWith(t, harness.readFrame(), "telescope")
+			assert.Equal(t, tt.want, strings.Contains(row, "WebFetch"), row)
+		})
+	}
 }

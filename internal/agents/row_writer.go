@@ -10,16 +10,10 @@ import (
 	"komrad/internal/wake"
 )
 
-// reportedReasonRecorder is where what an agent's CLI says it is doing reaches the reconcile loop.
-type reportedReasonRecorder interface {
-	RecordReportedReason(agentID, reason string)
-}
-
 // NewRowWriterParams is what a row writer is built over.
 type NewRowWriterParams struct {
 	Agents         *agentstore.AgentStore
 	Runs           *runstore.RunStore
-	Reconciler     reportedReasonRecorder
 	CwdSync        wake.Waker
 	TranscriptSync wake.Waker
 }
@@ -28,18 +22,16 @@ type NewRowWriterParams struct {
 type RowWriter struct {
 	agents         *agentstore.AgentStore
 	runs           *runstore.RunStore
-	reconciler     reportedReasonRecorder
 	cwdSync        wake.Waker
 	transcriptSync wake.Waker
 }
 
-// NewRowWriter builds the writer over the store, the record of runs, the reconciler and the
+// NewRowWriter builds the writer over the store, the record of runs and the
 // wakers of the loops that read what a turn left behind.
 func NewRowWriter(params NewRowWriterParams) *RowWriter {
 	return &RowWriter{
 		agents:         params.Agents,
 		runs:           params.Runs,
-		reconciler:     params.Reconciler,
 		cwdSync:        params.CwdSync,
 		transcriptSync: params.TranscriptSync,
 	}
@@ -78,7 +70,6 @@ type RecordReportParams struct {
 // RecordReport puts the reason beside the state the pane decided, stamps a reported turn end, and
 // wakes the cwd and transcript syncs once a turn ends.
 func (w *RowWriter) RecordReport(ctx context.Context, params RecordReportParams) error {
-	w.reconciler.RecordReportedReason(params.AgentID, params.Reason)
 	if params.TurnEnded {
 		w.cwdSync.Wake()
 		w.transcriptSync.Wake()

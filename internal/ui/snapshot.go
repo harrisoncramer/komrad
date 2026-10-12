@@ -116,6 +116,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 
 		row.Status = snapshotStatus(*r.orchestrator)
 		row.Process = view.ProcessAlive
+		row.Tool = r.orchestrator.Agent.Tool
 		row.LoaderFrame = params.loaderFrame
 
 		return row
@@ -153,6 +154,7 @@ func agentFacts(row view.Row, item panel.AgentRow) view.Row {
 	row.FailedRun = item.FailedRun
 	row.Documents = item.Documents > 0
 	row.Scheduled = item.Agent.ScheduleID != nil
+	row.Tool = item.Agent.Tool
 
 	return row
 }

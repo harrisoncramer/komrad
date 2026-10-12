@@ -35,3 +35,8 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 
 	return harness.Report{TurnEnded: true}, nil
 }
+
+// Hooks is the notify program, the one hook komrad hands Codex.
+func (h *Harness) Hooks() []string {
+	return []string{string(EventNotify)}
+}

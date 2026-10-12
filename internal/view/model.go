@@ -71,6 +71,8 @@ type line struct {
 	Document Cell
 	Mail     Cell
 	Alert    Cell
+	// Tool is the tool the agent is running, rendered greyed after the marks.
+	Tool Cell
 	// Tally is how many rows this one stands in for, rendered as a number.
 	Tally    int
 	Schedule Cell

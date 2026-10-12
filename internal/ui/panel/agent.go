@@ -92,6 +92,10 @@ type Agent struct {
 	TaskID string
 	// ProvisionDisabled is whether it was told to keep the directory it was given rather than be provisioned a worktree.
 	ProvisionDisabled bool
+	// Tool is the tool its CLI last reported running, empty when it reported none.
+	Tool string
+	// Hooks is the hooks komrad installs in its CLI.
+	Hooks []string
 }
 
 // AgentRow is an agent as the listing renders it: the agent, whether its pane is alive, the mail

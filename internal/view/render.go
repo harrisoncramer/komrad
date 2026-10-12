@@ -87,6 +87,10 @@ func (d renderer) trailing(line line) string {
 		}
 	}
 
+	if !line.Tool.IsBlank() {
+		b.WriteString(" " + d.cell(line.Tool))
+	}
+
 	if line.Tally > 0 {
 		b.WriteString(" " + palette.Style(paint.ToneMuted).Render(label.Tally(line.Tally)))
 	}

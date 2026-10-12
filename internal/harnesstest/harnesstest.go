@@ -270,6 +270,11 @@ func flatten(data []byte) []harness.Turn {
 	return turns
 }
 
+// Hooks is none, the test harness running no hooks of its own.
+func (h *Harness) Hooks() []string {
+	return nil
+}
+
 // ReadReport reads nothing, the test harness running no hooks of its own.
 func (h *Harness) ReadReport(harness.Event, []byte) (harness.Report, error) {
 	return harness.Report{}, nil

@@ -64,12 +64,6 @@ func NewReconciler(params NewReconcilerParams) *Reconciler {
 	}
 }
 
-// RecordReportedReason notes what agentID's own CLI reported it was doing, which annotates the
-// state the pane decided and never moves it.
-func (r *Reconciler) RecordReportedReason(agentID, reason string) {
-	r.tally.recordReportedReason(agentID, reason)
-}
-
 // WithFrameRecorder attaches somewhere to keep the frame behind each reading, nothing being
 // written while it is unset.
 func (r *Reconciler) WithFrameRecorder(recorder frameRecorder) *Reconciler {

@@ -68,6 +68,7 @@ func prepareLine(params prepareLineParams) line {
 		Document: DocumentCell(row),
 		Mail:     MailCell(row),
 		Alert:    AlertCell(row),
+		Tool:     toolCell(row),
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
 		Workflow: row.Workflow,
@@ -245,6 +246,15 @@ func workingCell(row Row) Cell {
 	return Cell{Text: row.LoaderFrame, Tone: paint.ToneMuted}
 }
 
+// toolCell is the tool an agent at work or waiting on a person last reported running, greyed beside the loader.
+func toolCell(row Row) Cell {
+	if row.Process != ProcessAlive || row.Tool == "" || (row.Status != StatusThinking && row.Status != StatusWaiting) {
+		return Cell{}
+	}
+
+	return Cell{Text: row.Tool, Tone: paint.ToneMuted}
+}
+
 // HiddenCell is the mark a row renders once a person has taken it out of the sidebar.
 func HiddenCell(row Row) Cell {
 	return markCell(row.Hidden, glyph.Hidden, paint.ToneMuted)
@@ -350,9 +360,13 @@ func branchFor(tree *Tree) string {
 	return b.String()
 }
 
-// fitRow gives a row's width up in order: the workflow, the tally, the comment counts, the name,
+// fitRow gives a row's width up in order: the tool, the workflow, the tally, the comment counts, the name,
 // and last the marks, which only a pane too narrow for the marks alone ever reaches.
 func fitRow(line line, width int) line {
+	if roomForName(line, width) < len([]rune(line.Name)) {
+		line.Tool = Cell{}
+	}
+
 	if roomForName(line, width) < len([]rune(line.Name)) {
 		line.Workflow = ""
 	}

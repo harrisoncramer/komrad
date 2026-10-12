@@ -53,6 +53,10 @@ func trailingColumns(line line) int {
 		}
 	}
 
+	if !line.Tool.IsBlank() {
+		columns += spaceColumns + countCellColumns(line.Tool)
+	}
+
 	if line.Tally > 0 {
 		columns += plainColumns + len(label.Tally(line.Tally))
 	}

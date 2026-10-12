@@ -19,9 +19,9 @@ import (
 )
 
 // buildWatchLoaders pairs each watched resource's lister with its renderer.
-func buildWatchLoaders(st *stores) []watch.Loader {
+func buildWatchLoaders(st *stores, hooksOf func(harness string) []string) []watch.Loader {
 	return []watch.Loader{
-		watch.NewLoader(watchv1.Resource_RESOURCE_AGENT, st.rows, renderWatchedAgent),
+		watch.NewLoader(watchv1.Resource_RESOURCE_AGENT, st.rows, renderWatchedAgent(hooksOf)),
 		watch.NewLoader(watchv1.Resource_RESOURCE_WORKFLOW, st.workflows, renderWatchedWorkflow),
 		watch.NewLoader(watchv1.Resource_RESOURCE_SCHEDULE, st.schedules, renderWatchedSchedule),
 		watch.NewLoader(watchv1.Resource_RESOURCE_MAIL, st.mail, renderWatchedMail),
@@ -35,10 +35,12 @@ func buildWatchLoaders(st *stores) []watch.Loader {
 	}
 }
 
-func renderWatchedAgent(row rowstore.Row) (string, *watchv1.Row) {
-	agent := render.WatchedAgent(row)
+func renderWatchedAgent(hooksOf func(harness string) []string) func(rowstore.Row) (string, *watchv1.Row) {
+	return func(row rowstore.Row) (string, *watchv1.Row) {
+		agent := render.WatchedAgent(row, hooksOf)
 
-	return agent.GetId(), &watchv1.Row{Row: &watchv1.Row_Agent{Agent: agent}}
+		return agent.GetId(), &watchv1.Row{Row: &watchv1.Row_Agent{Agent: agent}}
+	}
 }
 
 func renderWatchedWorkflow(row workflowstore.Workflow) (string, *watchv1.Row) {

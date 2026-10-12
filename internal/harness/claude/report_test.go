@@ -182,3 +182,17 @@ func TestEveryInstalledHookIsRead(t *testing.T) {
 		assert.NoError(t, err, "the %s hook is installed, so a reading is taken from it", event)
 	}
 }
+
+// TestHooks pins the installed hooks as Claude names its events, with the matcher beside one it narrows.
+func TestHooks(t *testing.T) {
+	hn := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()})
+
+	assert.Equal(t, []string{
+		"PermissionRequest",
+		"PostToolUse",
+		"PreToolUse",
+		"SessionStart (compact)",
+		"Stop",
+		"StopFailure",
+	}, hn.Hooks())
+}
