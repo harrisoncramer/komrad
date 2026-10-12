@@ -2617,7 +2617,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task to put it on, by id or slug. The task must be in workflow_id. The agent becomes the task's writer when the task has none yet, and otherwise a reviewer in the writer's checkout, which refuses provision_enabled. Unset to start a task of its own, made from the agent's title and prompt, with this agent as its writer."
+          "description": "Which task to put it on, by id or slug. The task must be in workflow_id. The agent becomes the task's writer when the task has none yet, and otherwise a reviewer in the writer's checkout, where komrad refuses provision_enabled. Unset to start a task of its own, made from the agent's title and prompt, with this agent as its writer."
         },
         {
           "name": "task_slug",
@@ -6845,7 +6845,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether this machine still holds what the connection needs. For a token that is its file, and for an App it is always true."
+          "description": "Whether this machine still holds what the connection needs. The token method needs its file, and the App method always has what it needs."
         },
         {
           "name": "created_at",
@@ -7815,7 +7815,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One page of pull requests, unfinished ones first and each group newest opened first. The first one stands for an agent's row on the branch."
+          "description": "One page of pull requests, unfinished ones first and each group newest opened first. An agent's row on the branch shows the first one."
         },
         {
           "name": "next_page_token",

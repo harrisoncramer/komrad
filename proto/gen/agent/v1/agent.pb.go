@@ -882,8 +882,8 @@ type CreateAgentRequest struct {
 	ProvisionEnabled *bool `protobuf:"varint,7,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
 	// Which task to put it on, by id or slug. The task must be in workflow_id. The agent becomes
 	// the task's writer when the task has none yet, and otherwise a reviewer in the writer's
-	// checkout, which refuses provision_enabled. Unset to start a task of its own, made from the
-	// agent's title and prompt, with this agent as its writer.
+	// checkout, where komrad refuses provision_enabled. Unset to start a task of its own, made
+	// from the agent's title and prompt, with this agent as its writer.
 	Task *string `protobuf:"bytes,8,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	// The slug of the task komrad makes for it when task is unset. No other task may have ever
 	// had it. Unset to make one from the agent's name, numbered until it is free.

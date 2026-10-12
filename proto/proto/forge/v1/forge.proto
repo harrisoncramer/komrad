@@ -24,8 +24,8 @@ message Forge {
   string login = 6;
   // When the forge last confirmed the credential, in RFC 3339, unset once it refused.
   optional string verified_at = 7;
-  // Whether this machine still holds what the connection needs. For a token that is its file,
-  // and for an App it is always true.
+  // Whether this machine still holds what the connection needs. The token method needs its
+  // file, and the App method always has what it needs.
   bool has_credential = 8;
   // When the connection was made, in RFC 3339.
   string created_at = 9;

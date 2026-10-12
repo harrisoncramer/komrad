@@ -216,8 +216,8 @@ message CreateAgentRequest {
   optional bool provision_enabled = 7;
   // Which task to put it on, by id or slug. The task must be in workflow_id. The agent becomes
   // the task's writer when the task has none yet, and otherwise a reviewer in the writer's
-  // checkout, which refuses provision_enabled. Unset to start a task of its own, made from the
-  // agent's title and prompt, with this agent as its writer.
+  // checkout, where komrad refuses provision_enabled. Unset to start a task of its own, made
+  // from the agent's title and prompt, with this agent as its writer.
   optional string task = 8 [(buf.validate.field).string.min_len = 1];
   // The slug of the task komrad makes for it when task is unset. No other task may have ever
   // had it. Unset to make one from the agent's name, numbered until it is free.

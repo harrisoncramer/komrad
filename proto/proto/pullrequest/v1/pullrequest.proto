@@ -93,8 +93,8 @@ message Repository {
 }
 
 message ListPullRequestsResponse {
-  // One page of pull requests, unfinished ones first and each group newest opened first. The
-  // first one stands for an agent's row on the branch.
+  // One page of pull requests, unfinished ones first and each group newest opened first. An
+  // agent's row on the branch shows the first one.
   repeated PullRequest pull_requests = 1;
   // The token for the page after this one, unset on the last.
   optional string next_page_token = 2;

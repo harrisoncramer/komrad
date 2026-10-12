@@ -41,8 +41,8 @@ type Forge struct {
 	Login string `protobuf:"bytes,6,opt,name=login,proto3" json:"login,omitempty"`
 	// When the forge last confirmed the credential, in RFC 3339, unset once it refused.
 	VerifiedAt *string `protobuf:"bytes,7,opt,name=verified_at,json=verifiedAt,proto3,oneof" json:"verified_at,omitempty"`
-	// Whether this machine still holds what the connection needs. For a token that is its file,
-	// and for an App it is always true.
+	// Whether this machine still holds what the connection needs. The token method needs its
+	// file, and the App method always has what it needs.
 	HasCredential bool `protobuf:"varint,8,opt,name=has_credential,json=hasCredential,proto3" json:"has_credential,omitempty"`
 	// When the connection was made, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`

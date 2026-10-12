@@ -951,8 +951,8 @@ func (x *Repository) GetUrl() string {
 
 type ListPullRequestsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One page of pull requests, unfinished ones first and each group newest opened first. The
-	// first one stands for an agent's row on the branch.
+	// One page of pull requests, unfinished ones first and each group newest opened first. An
+	// agent's row on the branch shows the first one.
 	PullRequests []*PullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
 	// The token for the page after this one, unset on the last.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
