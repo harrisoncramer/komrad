@@ -21,57 +21,57 @@ message WorktreeAgent {
 }
 
 message WorktreeTask {
-  // The task's id, which is also the directory's name.
+  // The task's id, which doubles as the directory's name.
   string id = 1;
   // The task's slug.
   string slug = 2;
   // When the task was put away, in RFC 3339, unset while it is open.
   optional string archived_at = 3;
-  // Whether the branch was somebody's before the task was put on it, which cleanup never
-  // deletes.
+  // Whether the branch existed before the task was put on it. Cleanup never deletes such a
+  // branch.
   bool adopted = 4;
 }
 
-// WorktreeFate is which delete path a directory takes.
+// WorktreeFate names the delete path a directory takes.
 enum WorktreeFate {
   // Never sent.
   WORKTREE_FATE_UNSPECIFIED = 0;
-  // No task answers for the directory, which the remover takes.
+  // No task answers for the directory. The remover takes it.
   WORKTREE_FATE_UNOWNED = 1;
-  // The directory's task is put away, which the task delete takes.
+  // The directory's task is archived. The task delete takes it.
   WORKTREE_FATE_ARCHIVED = 2;
-  // The directory's task is open, which nothing takes.
+  // The directory's task is open. Nothing takes it.
   WORKTREE_FATE_LIVE = 3;
-  // A delete has claimed the directory's task, which that delete takes.
+  // A delete has claimed the directory's task. That delete takes the directory.
   WORKTREE_FATE_DELETING = 4;
 }
 
 message Worktree {
   // The directory, absolute.
   string dir = 1;
-  // The repository the worktree was cut from, read off the directory's own .git file, which
-  // for a registration git can no longer read is where the repository used to be.
+  // The repository the worktree was cut from, read from the directory's own .git file. When git
+  // can no longer read the registration, this is where the repository used to be.
   string repo_dir = 2;
   // The branch the directory's HEAD names, empty when it is detached or the registration
   // cannot be read.
   string branch = 3;
-  // Whether the gitdir the .git file names is still there, without which git will not answer
-  // for the directory.
+  // Whether the gitdir the .git file names still exists. Git will not answer for the directory
+  // without it.
   bool readable = 4;
   // The agents working in this directory, live ones first.
   repeated WorktreeAgent occupants = 5;
-  // The disk the directory takes, in bytes, as it was last measured in the background or by
-  // get_worktree: blocks rather than length, a hard linked file counted once. Unset until it has
-  // been measured, and while the last walk failed.
+  // The disk the directory takes, in bytes, as last measured in the background or by
+  // get_worktree. It counts blocks rather than length, and counts a hard linked file once. Unset
+  // until measured and while the last walk failed.
   optional int64 size_bytes = 6;
   // When the size was last measured, or last failed to be, in RFC 3339. Unset until the
   // background loop has reached the directory.
   optional string measured_at = 7;
   // Why the last walk failed, empty when it did not.
   string size_error = 8;
-  // When the directory was last active, in RFC 3339: the latest state change or archiving of
-  // its occupants when it has any, else when git last wrote the directory's .git file, else the
-  // directory's own modification time.
+  // When the directory was last active, in RFC 3339. This is the latest state change or
+  // archiving of its occupants when it has any, else when git last wrote the directory's .git
+  // file, else the directory's own modification time.
   string last_active_at = 9;
   // Which delete path the directory takes.
   WorktreeFate fate = 10;
@@ -135,16 +135,16 @@ message ListWorktreesResponse {
 message GetWorktreeRequest {
   // The directory to read, as list_worktrees spelled it.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
-  // Whether to fetch the base from origin before measuring against it, which is a network
-  // round trip; left off, the base is whatever the clone last fetched.
+  // Whether to fetch the base from origin before measuring against it. Fetching costs a network
+  // round trip. When off, the base is whatever the clone last fetched.
   bool fetch = 2;
 }
 
 message Entry {
   // The path, relative to the directory.
   string path = 1;
-  // The disk it takes, in bytes, counted through for a directory: blocks rather than length,
-  // with a file that is hard linked counted once.
+  // The disk it takes, in bytes, counted through for a directory. It counts blocks rather than
+  // length, and counts a hard linked file once.
   int64 size_bytes = 2;
   // Whether it is a directory.
   bool dir = 3;
@@ -171,8 +171,8 @@ message GetWorktreeResponse {
   // The paths git neither tracks nor ignores.
   repeated string untracked = 5;
   // The ref the branch is measured against, which is the workflow's base branch as the clone
-  // holds it, empty when the repository cannot be read or the clone does not hold the base, in
-  // which case nothing below is measured.
+  // holds it. Empty when the repository cannot be read or the clone does not hold the base, and
+  // then nothing below is measured.
   string base_ref = 6;
   // Why the base could not be named, when base_ref is empty for that reason.
   string base_error = 7;
@@ -180,13 +180,13 @@ message GetWorktreeResponse {
   int32 ahead = 8;
   // How many of the base's commits the branch does not hold.
   int32 behind = 9;
-  // How many of the branch's own commits the base already holds whole, which is what a squash
-  // merge leaves behind.
+  // The number of the branch's own commits that the base already holds in full. A squash merge
+  // leaves these behind.
   int32 landed_commits = 10;
   // Whether a merge, a rebase or a cherry-pick is part-way through.
   bool sequence_in_progress = 11;
-  // Whether deleting the agent would keep the branch, which cleanup does for an adopted branch
-  // and for one whose commits are on no other ref.
+  // Whether deleting the agent would keep the branch. Cleanup keeps an adopted branch and one
+  // whose commits are on no other ref.
   bool keeps_branch = 12;
   // The branch's commits the base does not hold, newest first, at most fifty.
   repeated Commit commits = 13;
@@ -281,7 +281,7 @@ service WorktreeService {
       cli: true
       mcp: false
       name: "delete_worktrees"
-      description: "Queue deleting worktree directories in the background, each through the path its agent's state decides. A directory whose agent is live is left alone."
+      description: "Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad leaves a directory whose agent is live alone."
       reason: "A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome."
       destructive: true
     };

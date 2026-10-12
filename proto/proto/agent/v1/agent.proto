@@ -18,9 +18,9 @@ import "view/v1/view.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
-// AgentState is what the panel last decided an agent was doing, read off the tail of its pane.
+// AgentState records what the panel last decided an agent was doing, read from the tail of its pane.
 enum AgentState {
-  // No state was recorded, which no stored agent answers with.
+  // No state was recorded. No stored agent answers with this.
   AGENT_STATE_UNSPECIFIED = 0;
   // The pane is at rest with nothing typed.
   AGENT_STATE_IDLE = 1;
@@ -30,19 +30,19 @@ enum AgentState {
   AGENT_STATE_WAITING = 3;
   // The agent is being launched and has no pane to read yet.
   AGENT_STATE_SETTING_UP = 4;
-  // The launch failed, which retry_agent is for.
+  // The launch failed. retry_agent handles this state.
   AGENT_STATE_FAILED_TO_CREATE = 5;
   // A delete failed to clean up after the agent, and the reason is on the row.
   AGENT_STATE_FAILED_TO_CLEANUP = 6;
   // The pane could be read but its tail decided nothing.
   AGENT_STATE_UNCERTAIN = 7;
-  // The pane is at rest after an API error ended the last turn, and turn_error says which.
+  // The pane is at rest after an API error ended the last turn. turn_error names the error.
   AGENT_STATE_ERRORED = 8;
 }
 
-// AgentRole is what an agent was launched to do.
+// AgentRole names what an agent was launched to do.
 enum AgentRole {
-  // No role was recorded, which no stored agent answers with.
+  // No role was recorded. No stored agent answers with this.
   AGENT_ROLE_UNSPECIFIED = 0;
   // An agent on a task that reads its change and gives a review.
   AGENT_ROLE_REVIEWER = 1;
@@ -53,9 +53,9 @@ enum AgentRole {
 }
 
 message Agent {
-  // The handle every other call names this agent by, and what mail is addressed to.
+  // The handle every other call names this agent by. Mail is addressed to it.
   string id = 1;
-  // What the panel lists it as, which is also its tmux window name at launch.
+  // What the panel lists it as. It is also the agent's tmux window name at launch.
   string name = 2;
   // The directory it is running in, its own worktree when the workflow provisions one.
   string cwd = 3;
@@ -63,15 +63,15 @@ message Agent {
   string flags = 4;
   // The whole briefing it was launched with.
   string prompt = 5;
-  // The tmux pane its CLI is running in, which is what capture-pane reads.
+  // The tmux pane its CLI runs in. capture-pane reads it.
   string pane_id = 6;
   // What the panel last decided it was doing, read off the tail of its pane.
   AgentState state = 7;
-  // The CLI's own conversation id, which is the handle a resume needs.
+  // The CLI's own conversation id. A resume needs it.
   string session_id = 8;
   // Which CLI it runs, such as claude or codex.
   string harness = 9;
-  // Which workflow it is filed under, whose context it took at launch.
+  // Which workflow it is filed under. The agent took that workflow's context at launch.
   string workflow_id = 10;
   // When it was launched, in RFC 3339.
   string created_at = 11;
@@ -79,17 +79,17 @@ message Agent {
   optional string archived_at = 12;
   // The schedule that launched it, unset for an agent a person or another agent spawned.
   optional string schedule_id = 13;
-  // Whether its pane is still there, which a dormant agent's is not.
+  // Whether its pane still exists. A dormant agent's pane does not.
   optional bool alive = 14;
-  // The key a retry of its create carried, which is what answers a repeat with this agent.
+  // The key a retry of its create carried. A repeat with the same key gets this agent back.
   optional string idempotency_key = 15;
   // Which agent called create, unset for one a person spawned.
   optional string spawned_by_agent_id = 16;
   // Whether a script komrad fired for the agent failed and nobody has looked at it since.
   bool failed_run = 17;
-  // The run log that failure was written to, which is the run the panel opens on.
+  // The run log that failure was written to. The panel opens on that run.
   optional int32 failed_run_log = 18;
-  // How many documents it has written, which list_documents returns.
+  // How many documents it has written. list_documents returns them.
   int32 documents = 19;
   // When the newest of its documents was last written, in RFC 3339, unset when it has none.
   optional string documents_updated_at = 20;
@@ -118,7 +118,7 @@ message Agent {
 }
 
 // AgentRow is an agent with what the panel draws beside it: its waiting mail, the pull requests
-// on its branch and where its local review stands.
+// on its branch, and the state of its local review.
 message AgentRow {
   // The agent itself.
   Agent agent = 1;
@@ -136,7 +136,7 @@ message AgentRow {
   optional CommentCounts person_comments = 7;
 }
 
-// CommentCounts is how the comments on an agent's work stand.
+// CommentCounts tallies the comments on an agent's work.
 message CommentCounts {
   // Comments nobody has resolved yet, on any round.
   int32 open = 1;
@@ -147,8 +147,8 @@ message CommentCounts {
 }
 
 message PullRequestStanding {
-  // Where the current pull request stands: UNREAD when the repository has not been read, NONE
-  // when it has and nothing was opened from the branch, else the state of the current one.
+  // The state of the current pull request. UNREAD means the repository has not been read. NONE
+  // means it has and nothing was opened from the branch.
   pullrequest.v1.PullRequestState state = 1;
   // The number of the current pull request, unset for UNREAD and NONE.
   optional int32 number = 2;
@@ -170,8 +170,8 @@ message ListAgentsRequest {
   optional pagination.v1.Pagination pagination = 1;
   // True to list the archived agents and only those.
   bool archived = 2;
-  // How much of each record to return. The summary cuts each prompt to its opening, and
-  // VIEW_FULL returns every prompt whole, which can be a very large reply.
+  // How much of each record to return. The summary cuts each prompt to its opening. VIEW_FULL
+  // returns every prompt whole and can make a very large reply.
   view.v1.View view = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
@@ -205,22 +205,22 @@ message CreateAgentRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // A key that makes a retry safe. A repeat carrying the same key is answered with the agent
-  // already launched rather than spawning another.
+  // A key that makes a retry safe. A repeat with the same key returns the agent already launched
+  // and spawns no other.
   optional string idempotency_key = 6 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
   }];
-  // False to run in the directory named above rather than a fresh worktree, which is how an
-  // agent reads a checkout somebody else has open. Unset to do whatever the workflow does.
+  // False to run in the directory named above instead of a fresh worktree, so an agent can read
+  // a checkout somebody else has open. Unset to do whatever the workflow does.
   optional bool provision_enabled = 7;
-  // Which task to put it on, by id or slug, which must be in workflow_id. It is the task's writer
-  // when the task has none yet, and otherwise a reviewer in the writer's checkout, for which
-  // provision_enabled is refused. Unset to start a task of its own, made from its title and
-  // prompt, with this agent as its writer.
+  // Which task to put it on, by id or slug. The task must be in workflow_id. The agent becomes
+  // the task's writer when the task has none yet, and otherwise a reviewer in the writer's
+  // checkout, which refuses provision_enabled. Unset to start a task of its own, made from the
+  // agent's title and prompt, with this agent as its writer.
   optional string task = 8 [(buf.validate.field).string.min_len = 1];
-  // The slug of the task komrad makes for it when task is unset, which no other task has ever
-  // had. Unset to make one from its name, numbered until it is free.
+  // The slug of the task komrad makes for it when task is unset. No other task may have ever
+  // had it. Unset to make one from the agent's name, numbered until it is free.
   optional string task_slug = 9 [(buf.validate.field).string = {
     max_len: 80
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -248,8 +248,8 @@ message RequestReviewRequest {
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // A key that makes a retry safe. A repeat carrying the same key is answered with the reviewer
-  // already spawned rather than refused.
+  // A key that makes a retry safe. A repeat with the same key returns the reviewer already
+  // spawned and does not refuse.
   optional string idempotency_key = 4 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
@@ -269,7 +269,7 @@ message RequestReviewRequest {
 message RequestReviewResponse {
   // The reviewer as spawned, on the task of the agent being read.
   Agent reviewer = 1;
-  // What the agent that asked does next: how the review reaches it and how it answers.
+  // The next steps for the agent that asked: how the review reaches it and how it answers.
   string guidance = 2;
 }
 
@@ -280,7 +280,7 @@ message AdoptRequest {
     max_len: 400
     [rules.v1.shell_safe]: true
   }];
-  // Which workflow to launch into, which is what decides the repository.
+  // Which workflow to launch into. The workflow decides the repository.
   string workflow_id = 2 [(buf.validate.field).string.min_len = 1];
   // The opening briefing, blank to launch the CLI with nothing to read.
   string prompt = 3 [(buf.validate.field).string.max_len = 50000];
@@ -310,7 +310,7 @@ message AdoptRequest {
 message AdoptResponse {
   // The agent on the branch, either the one just launched or the one already there.
   Agent agent = 1;
-  // True when the branch already had an agent, which is returned in place of a new one.
+  // True when the branch already had an agent. Komrad returns that agent instead of a new one.
   bool existing = 2;
 }
 
@@ -357,14 +357,15 @@ message PlanRebaseResponse {
   int32 commits = 3;
   // Which branch would move.
   string branch = 4;
-  // How many of the agent's own commits the base already holds whole, and so would be dropped.
+  // How many of the agent's own commits the base already holds in full. The rebase would drop
+  // them.
   int32 landed_commits = 5;
   // How many are left to replay onto the new base.
   int32 replay_commits = 6;
   // How many merge commits a rebase would flatten away.
   int32 merges = 7;
-  // The paths a merge of the base into the branch could not settle. A warning rather than a
-  // verdict: a rebase replays commit by commit and can conflict where a merge would not.
+  // The paths a merge of the base into the branch could not settle. This is a warning, not a
+  // verdict. A rebase replays commit by commit and can conflict where a merge would not.
   repeated string conflict_paths = 8;
 }
 
@@ -403,7 +404,7 @@ message RebaseWorktreeResponse {
   // Whether the branch reached the base without replaying anything, as when all of its work
   // has already landed.
   bool moved = 6;
-  // How many of the agent's own commits the base already held, and so were dropped.
+  // How many of the agent's own commits the base already held in full. The rebase dropped them.
   int32 landed_commits = 7;
   // How many were replayed onto the new base.
   int32 replay_commits = 8;
@@ -425,11 +426,11 @@ message PlanPushResponse {
   // How many commits would go up, counted against origin's copy of the branch, or against the
   // base when origin has none.
   int32 commits = 2;
-  // Whether origin's copy holds commits the branch does not, so the push would overwrite it.
+  // Whether origin's copy holds commits the branch does not. The push would overwrite it.
   bool forced = 3;
   // How many files would stay behind because nothing has committed them.
   int32 uncommitted_files = 4;
-  // Whether origin already holds every commit on the branch, so there is nothing to push.
+  // Whether origin already holds every commit on the branch. Nothing is left to push.
   bool in_sync = 5;
 }
 
@@ -474,7 +475,7 @@ message AbortSequenceResponse {
 }
 
 message RecordReportRequest {
-  // What the CLI says it is doing, which annotates the state the pane decided.
+  // What the CLI says it is doing. It annotates the state the pane decided.
   string reason = 1 [(buf.validate.field).string = {
     max_len: 200
     [rules.v1.printable]: true
@@ -508,7 +509,7 @@ message LogRequest {
       expression: "!this.matches('[[:cntrl:]]')"
     }
   ];
-  // The script whose run the line belongs to, which a running script has in KOMRAD_SCRIPT.
+  // The script whose run the line belongs to. A running script finds it in KOMRAD_SCRIPT.
   optional string script = 3 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.script_name]: true
@@ -610,8 +611,9 @@ message HoldAgentResponse {
 message ReleaseAgentRequest {
   // Which held agent to let go of.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // What to tell the agent happened while it was held, typed into it as it starts again. Empty
-  // lets it go in silence, and it is ignored for an agent whose own turn had already ended.
+  // What to tell the agent happened while it was held. Komrad types it into the agent as it
+  // starts again. Empty lets it go in silence. Komrad ignores it for an agent whose own turn had
+  // already ended.
   string said = 2;
 }
 
@@ -650,8 +652,8 @@ message UpdateAgentRequest {
   ];
 }
 
-// AgentService is the agents themselves: spawning one, addressing it, reading what it wrote,
-// and the review conversation held about its work.
+// AgentService manages agents. It spawns them, addresses them, reads what they wrote, and
+// holds the review conversation about their work.
 service AgentService {
   rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -659,7 +661,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_agents"
-      description: "List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents are left out unless archived is set."
+      description: "List the agents komrad tracks, most recently updated first, with the opening of each prompt. Archived agents stay out unless archived is set."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -686,7 +688,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "create_agent"
-      description: "Launch a new agent with an opening prompt, which is everything it has to go on. Pass task, by id or slug, to put it on that task, as its writer when it has none yet, such as one made with create_task, and otherwise as a reviewer in the writer's checkout. Leave task unset to start a task with this agent as its writer. Pass provision_enabled false to keep a writer in the workflow's directory instead of a new worktree. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full."
+      description: "Launch a new agent with an opening prompt, which is all the agent has to go on. Pass task, by id or slug, to put the agent on that task. It becomes the task's writer when the task has none yet, such as one made with create_task, and otherwise a reviewer in the writer's checkout. Leave task unset to start a task with this agent as its writer. Pass provision_enabled false to keep a writer in the workflow's directory instead of a new worktree. The agent returned carries task_id and task_slug. resource_exhausted means the panel is full."
       destructive: false
       roles: [
         ROLE_WRITER,
@@ -709,7 +711,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "adopt"
-      description: "Start an agent on a branch that already exists, such as one a person pushed. Nothing here creates, resets or deletes the branch, and a branch that already has an agent answers with that agent."
+      description: "Start an agent on a branch that already exists, such as one a person pushed. Nothing here creates, resets or deletes the branch, and a branch that already has an agent returns that agent."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -719,7 +721,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "log"
-      description: "Write one line to komrad's log, filed under the calling agent unless id names another. This is how a hook script leaves a trace."
+      description: "Write one line to komrad's log, filed under the calling agent unless id names another. A hook script uses it to leave a trace."
       destructive: false
       idempotent: false
       roles: [
@@ -734,7 +736,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "send_mail"
-      description: "Send mail to another agent by id or name, setting reply_to when answering. A name held in more than one workflow is refused, and a reviewer may mail only the agents on its task and its workflow's orchestrator."
+      description: "Send mail to another agent by id or name, setting reply_to when answering. Komrad refuses a name held in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator."
       destructive: false
       idempotent: false
       roles: [
@@ -749,7 +751,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "forward_last_turns"
-      description: "Send an agent's latest turns to another agent as mail without the text passing through your context. Mail holds at most 10000 characters, so pass fewer turns or a smaller max_bytes when refused."
+      description: "Send an agent's latest turns to another agent as mail without the text passing through your context. Mail holds at most 10000 characters. When refused, pass fewer turns or a smaller max_bytes."
       destructive: false
       idempotent: false
       roles: [
@@ -764,7 +766,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "read_mail"
-      description: "Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which is almost never what you want."
+      description: "Take your waiting mail, oldest first. Reading claims it, so a second call returns nothing. Passing another agent's id takes that agent's mail away from it, which you almost never want."
       destructive: false
       idempotent: false
       roles: [
@@ -805,7 +807,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "archive_agents"
-      description: "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Each goes alone. A task's writer is refused, since it goes only with its task through archive_task."
+      description: "Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Each goes alone. Komrad refuses a task's writer, which goes only with its task through archive_task."
       destructive: false
       roles: [
         ROLE_WRITER,
@@ -819,7 +821,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "restore_agents"
-      description: "Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it, and a reviewer is refused until its task is back. Call resume_agent on each one you want running."
+      description: "Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it. Komrad refuses a reviewer until its task is back. Call resume_agent on each one you want running."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -850,7 +852,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "resume_agent"
-      description: "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either its workflow's orchestrator."
+      description: "Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either may resume its workflow's orchestrator."
       destructive: false
       roles: [
         ROLE_WRITER,
@@ -864,7 +866,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "restart_agent"
-      description: "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. It keeps its CLI and flags unless others are named, such as another model. Its earlier conversation stays in its transcript, and the task's reviewers carry on."
+      description: "Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. It keeps its CLI and flags unless others are named, such as another model. The earlier conversation stays in its transcript, and the task's reviewers carry on."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -885,7 +887,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "delete_agents"
-      description: "Remove agents for good, with their records and transcripts. The worktree of their task stays until the task is deleted. A task's writer is refused, since it goes only with its task through delete_tasks. Prefer archive_agents, and delete only when asked."
+      description: "Remove agents for good, with their records and transcripts. The worktree of their task stays until you delete the task. Komrad refuses a task's writer, which goes only with its task through delete_tasks. Prefer archive_agents, and delete only when asked."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -935,7 +937,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "get_last_turns"
-      description: "Read the newest turns of an agent's conversation, the quickest way to learn what it concluded. A long turn is cut from its head to fit max_bytes."
+      description: "Read the newest turns of an agent's conversation, the quickest way to learn what it concluded. Komrad cuts a long turn from its head to fit max_bytes."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -956,7 +958,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "write_document"
-      description: "Write a markdown document for a person to read, as a type from list_document_types and following its context. Pass id and the version you last saw to rewrite one of yours. failed_precondition means it was written since, perhaps by a person, so read it again and keep their changes."
+      description: "Write a markdown document for a person to read, as a type from list_document_types and following its context. Pass id and the version you last saw to rewrite one of yours. failed_precondition means someone wrote it since, perhaps a person, so read it again and keep their changes."
       destructive: false
       idempotent: false
       roles: [
@@ -971,7 +973,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_documents"
-      description: "List the documents agents have written, without their bodies, every agent's unless agent_id names one, so pass your own id for yours."
+      description: "List the documents agents have written, without their bodies, every agent's unless agent_id names one. Pass your own id for yours."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -1114,7 +1116,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_review_threads"
-      description: "List the comment threads on a task's diff, your own task's by default. Line numbers are true of each thread's round, so search for the quoted lines once code has moved."
+      description: "List the comment threads on a task's diff, your own task's by default. Line numbers match each thread's round, so search for the quoted lines once code has moved."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -1258,7 +1260,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "resolve_review_thread"
-      description: "Settle a review thread you wrote, or reopen one. Only the thread's author, or the person, may settle it."
+      description: "Settle a review thread you wrote, or reopen one. Only the thread's author or the person may settle it."
       destructive: false
       idempotent: true
       roles: [ROLE_REVIEWER]

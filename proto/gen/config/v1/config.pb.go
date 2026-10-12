@@ -26,13 +26,12 @@ const (
 
 type GetConfigResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The configuration as it stands, keyed the way the user's own file is, with the connection
-	// strings redacted.
+	// The current configuration, keyed like the user's own file, with connection strings redacted.
 	Config *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	// Why the user's file would not parse, in which case the configuration above is the defaults
-	// the panel fell back to.
+	// Why the user's file failed to parse. The configuration above then holds the defaults the
+	// panel fell back to.
 	ConfigError *string `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
-	// The build the server answering is running, which is what to quote in a bug report.
+	// The build the server runs. Quote it in a bug report.
 	Version       string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -101,7 +100,7 @@ const file_config_v1_config_proto_rawDesc = "" +
 	"\r_config_error2\xab\x02\n" +
 	"\rConfigService\x12\x99\x02\n" +
 	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xd5\x01\x9a\xb5\x18\xcd\x01\b\x01\x10\x01\x1a\n" +
-	"get_config\"\xb7\x01Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file would not parse and defaults are running.:\x01\x02\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
+	"get_config\"\xb7\x01Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file failed to parse and defaults are running.:\x01\x02\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once

@@ -47,9 +47,9 @@ message ShellRequest {
   }
 }
 
-// Exit is how the program on the terminal ended.
+// Exit reports how the program on the terminal ended.
 message Exit {
-  // The exit status, 128 plus the signal for a program a signal ended.
+  // The exit status, or 128 plus the signal number when a signal ended the program.
   int32 code = 1;
 }
 

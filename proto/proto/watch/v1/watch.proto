@@ -22,7 +22,7 @@ message WatchEvent {
   oneof event {
     // Every row the watched sets hold, sent once as the stream opens.
     Snapshot snapshot = 1;
-    // Every row one pass over the database found moved.
+    // Every row that moved in one pass over the database.
     Changes changes = 2;
     // Nothing has changed for a while, and the stream is still alive.
     google.protobuf.Empty heartbeat = 3;
@@ -35,7 +35,7 @@ message Snapshot {
   repeated Row rows = 1;
 }
 
-// Changes is what one pass over the database found moved.
+// Changes holds the rows that moved in one pass over the database.
 message Changes {
   // The rows as the panel should now hold them.
   repeated Row puts = 1;
@@ -72,7 +72,7 @@ message Row {
   }
 }
 
-// Resource is which table a row is of, one value per member of Row.
+// Resource names the table a row belongs to, one value per member of Row.
 enum Resource {
   // No resource was set, which the server never sends.
   RESOURCE_UNSPECIFIED = 0;

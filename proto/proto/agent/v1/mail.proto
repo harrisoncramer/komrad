@@ -9,7 +9,7 @@ option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
 // MailKind tells mail an agent sent from mail komrad wrote itself.
 enum MailKind {
-  // No kind was recorded, which the panel draws as a dash.
+  // No kind was recorded. The panel draws a dash.
   MAIL_KIND_UNSPECIFIED = 0;
   // One agent writing to another, or the person writing to an agent.
   MAIL_KIND_PLAIN = 1;
@@ -31,7 +31,7 @@ enum MailKind {
 
 // MailDirection is which half of an agent's correspondence a listing asks for.
 enum MailDirection {
-  // Unspecified is received, since that is the half an agent asks for by default.
+  // Unspecified means received, the half an agent asks for by default.
   MAIL_DIRECTION_UNSPECIFIED = 0;
   // The mail addressed to the agent.
   MAIL_DIRECTION_RECEIVED = 1;
@@ -44,7 +44,7 @@ message Mail {
   string id = 1;
   // Which agent sent it, unset when komrad sent it itself.
   optional string from_agent_id = 2;
-  // What to show as the sender, which is komrad's own name for mail it wrote.
+  // The sender's display name. Komrad uses its own name for mail it wrote.
   string from_name = 3;
   // The agent it is waiting for.
   string to_agent_id = 4;
@@ -65,7 +65,7 @@ message Mail {
 message SendMailRequest {
   // Who to send to: an agent's id, or the name of a live agent.
   string to = 1 [(buf.validate.field).string.min_len = 1];
-  // What to say, which has to carry who is asking and what is wanted.
+  // The message text. It must say who is asking and what they want.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
@@ -84,7 +84,7 @@ message SendMailResponse {
 message ForwardLastTurnsRequest {
   // Whose newest turns to forward.
   string from_agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Who to send them to, addressed by id since two workflows may hold agents of one name.
+  // Who to send them to, by id. Two workflows may hold agents of one name.
   string to_agent_id = 2 [(buf.validate.field).string.min_len = 1];
   // How many of the source's newest turns to forward, with the prompts between them, or unset
   // for the last one alone.
@@ -92,14 +92,14 @@ message ForwardLastTurnsRequest {
     gte: 1
     lte: 20
   }];
-  // What to tell the recipient about the forward in the caller's own words, which it reads
-  // before the turns.
+  // A note to the recipient about the forward, in the caller's own words. The recipient reads
+  // it before the turns.
   optional string note = 4 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
   }];
-  // The most of each turn's text to forward, cut from the head so the end survives, or unset
-  // for the default.
+  // The maximum text to forward for each turn. Komrad cuts from the head so the end survives.
+  // Unset means the default.
   optional int32 max_bytes = 5 [(buf.validate.field).int32.gte = 0];
 }
 
@@ -145,6 +145,6 @@ message ListMailResponse {
 }
 
 message DeleteMailRequest {
-  // The mail to erase, read or not, which the recipient will then never see.
+  // The mail to erase, read or not. The recipient never sees it.
   repeated string ids = 1 [(buf.validate.field).repeated.min_items = 1];
 }

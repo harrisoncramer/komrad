@@ -24,8 +24,8 @@ message Forge {
   string login = 6;
   // When the forge last confirmed the credential, in RFC 3339, unset once it refused.
   optional string verified_at = 7;
-  // Whether this machine still holds what the connection needs to speak, which for a token is
-  // its file and for an App is always so.
+  // Whether this machine still holds what the connection needs. For a token that is its file,
+  // and for an App it is always true.
   bool has_credential = 8;
   // When the connection was made, in RFC 3339.
   string created_at = 9;
@@ -34,14 +34,14 @@ message Forge {
 message ConnectForgeRequest {
   // The host agents' remotes name, such as github.com.
   string host = 1;
-  // Which forge it runs, worked out from the host when empty, and needed for any host that is
-  // not github.com or gitlab.com.
+  // Which forge it runs. Komrad works it out from the host when empty. Required for any host
+  // other than github.com or gitlab.com.
   string kind = 2;
-  // Where the forge answers API calls, for an enterprise host, which has to be https.
+  // Where an enterprise host answers API calls. It must be https.
   string api_url = 3;
   // How the credential comes: token, or github_app for the App in the server's config.
   string method = 4;
-  // The token, for the token method, which travels once and is never returned.
+  // The token for the token method. It travels once and is never returned.
   string token = 5;
 }
 
@@ -81,11 +81,11 @@ message ListForgePullRequestsRequest {
     min_len: 1
     max_len: 2048
   }];
-  // The branch the pull requests were opened from, listed whatever their state; left empty,
-  // the repository's open pull requests are listed instead.
+  // The branch the pull requests were opened from. Pull requests of any state are listed. When
+  // empty, the repository's open pull requests are listed instead.
   string branch = 2 [(buf.validate.field).string = {max_len: 512}];
-  // Which page to read and how many to a page, twenty when unset and at most a hundred, which
-  // is what the forge will hand over in one call.
+  // Which page to read and how many to a page. Twenty when unset, and at most a hundred, the
+  // most the forge hands over in one call.
   optional pagination.v1.Pagination pagination = 3;
 }
 
@@ -102,7 +102,7 @@ message ForgePullRequest {
   // The canonical address of the repository its branch lives in, empty when the forge no
   // longer has it.
   string head_repository_url = 5;
-  // The number the forge shows a person, which is per repository.
+  // The number the forge shows a person. Numbers are per repository.
   int32 number = 6;
   // The title as the forge has it.
   string title = 7;
@@ -116,7 +116,7 @@ message ForgePullRequest {
   string base_sha = 11;
   // Whether the forge marks it a draft.
   bool draft = 12;
-  // Where the forge says it stands, as OPEN, CLOSED or MERGED; read merged_at and closed_at for
+  // The state the forge reports: OPEN, CLOSED or MERGED. Read merged_at and closed_at to tell
   // whether it is finished.
   string state = 13;
   // When it was opened on the forge, in RFC 3339.
@@ -161,8 +161,8 @@ message SetForgePullRequestAutoMergeRequest {
     min_len: 1
     max_len: 2048
   }];
-  // The head commit the person saw, which the forge refuses to queue once the branch has moved
-  // past it. Empty queues whatever the head is.
+  // The head commit the person saw. The forge refuses to queue once the branch has moved past
+  // it. Empty queues whatever the head is.
   string head_sha = 2 [(buf.validate.field).string.max_len = 64];
   // Whether it should merge on its own once its checks and reviews pass, false to stop that.
   bool on = 3;

@@ -7,7 +7,7 @@ order: 15
 
 import Command from "../../components/Command.astro";
 
-You have used every piece: [workflows](../workflows/), [tasks](../tasks/), [agents](../agents/), [reviews](../reviews/), [hooks](../hooks/), [schedules](../schedules/), [events and messages](../events-and-messages/) and [MCP](../mcp/). This guide steps back and shows how they fit together, and why closing things is always safe. The guides after it go deeper.
+You have used every piece: [workflows](../workflows/), [tasks](../tasks/), [agents](../agents/), [reviews](../reviews/), [hooks](../hooks/), [schedules](../schedules/), [events and messages](../events-and-messages/) and [MCP](../mcp/). This guide steps back to show how they fit together and why closing things is always safe. The guides after it go deeper.
 
 ## Two programs
 
@@ -25,28 +25,28 @@ You have used every piece: [workflows](../workflows/), [tasks](../tasks/), [agen
                                        Postgres
 ```
 
-Komrad is a server and a panel. The server runs in the background. It owns the database, answers the API, and watches every agent. Together with its database, tmux and agents, the server makes up an engine. The panel is just a screen. It talks to the server and remembers nothing itself. You can close it whenever you like.
+Komrad is a server and a panel. The server runs in the background. It owns the database, answers the API, and watches every agent. The server, with its database, tmux and agents, makes up an engine. The panel is just a screen. It talks to the server and remembers nothing itself. You can close it whenever you like.
 
 ## Agents live in tmux
 
 Each agent is a real terminal running Claude or Codex. Komrad runs them in a tmux server of its own, so they never get mixed up with your own windows. The panel lives there too. When you open it, your terminal attaches to komrad's session. Closing the panel detaches that terminal and nothing else.
 
-This is also why you can upgrade komrad without losing your agents. The server restarts. The tmux server does not.
+That also lets you upgrade komrad without losing your agents. The server restarts, but the tmux server does not.
 
 ## One API
 
-Everything goes through one API. The panel uses it. A script using <Command path="rpc" /> uses it. An agent calling an MCP tool uses it. So they all get the same rules and the same checks.
+Everything goes through one API. The panel uses it. A script using <Command path="rpc" /> uses it. An agent calling an MCP tool uses it. All of them get the same rules and the same checks.
 
 The CLI commands and MCP tools are not written by hand. Every endpoint is declared once, and the declaration says which surfaces it appears on. The commands, the tools, and the [API reference](../../api/) are all built from that.
 
 ## Everything is a row
 
-Everything komrad knows is a row in Postgres. A workflow, a task, an agent, a piece of mail, a review. Facts from outside, such as whether an agent is idle, are found by background loops and written onto the row. Nothing important lives only in memory.
+Everything komrad knows is a row in Postgres: a workflow, a task, an agent, a piece of mail, a review. Background loops find facts from outside, such as whether an agent is idle, and write them onto the row. Nothing important lives only in memory.
 
 ## How a change reaches your screen
 
 The panel never asks whether something changed. When a row is written, Postgres says so. The server reads the row back and sends it to the panel over a stream. If the stream breaks, the panel reconnects and gets a fresh copy of everything.
 
-For instance, say you archive an agent. The panel sends a request. The server checks it, kills the agent's terminal, and marks the row archived. Postgres announces the change, and the panel redraws. If an agent archives another agent over MCP, it goes through exactly the same path.
+For instance, say you archive an agent. The panel sends a request. The server checks it, kills the agent's terminal, and marks the row archived. Postgres announces the change, and the panel redraws. An agent that archives another agent over MCP takes exactly the same path.
 
-That is the mechanism. [Philosophy](../philosophy/) is the reasoning behind it.
+That is the mechanism. [Philosophy](../philosophy/) gives the reasoning behind it.

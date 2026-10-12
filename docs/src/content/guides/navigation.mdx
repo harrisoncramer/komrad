@@ -9,7 +9,7 @@ import Setting from "../../components/Setting.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Komrad's panel is divided up into a few sections: the sidebar, the info panel, and the main panel. What each one holds depends on the view.
+Komrad's panel has a few sections: the sidebar, the info panel, and the main panel. The view controls what each section shows.
 
 ## The sidebar
 
@@ -17,21 +17,21 @@ The sidebar typically lists the resource you're looking at, such as workflows an
 
 The view switcher at the top of the sidebar moves between these subsections. Press <Key name="views.next" /> or <Key name="views.previous" /> to open the next or previous view.
 
-The details pane underneath shows what is known about the currently active row. For instance, for a task, it shows the task's directory, branch and pull request.
+The details pane underneath shows what komrad knows about the active row. For a task, it shows the task's directory, branch and pull request.
 
-Finally, the help menu at the bottom of every sidebar shows the available hotkeys. Press <Key name="help.toggle" /> to bring up the help.
+Finally, the help menu at the bottom of every sidebar lists the available hotkeys. Press <Key name="help.toggle" /> to bring up the help.
 
 ## The main view
 
 The main view is the wide region beside the sidebar. On the agents view, it shows the agent you have opened.
 
-To move between the sidebar and the main view, press komrad's leader key twice: `ctrl+space`. Komrad also has "jump mode" which lets you jump to any of the different sections on the screen. Press `ctrl+space j` to enter jump mode: a big letter is drawn over each section. Komrad also has visual mode (for selecting text) and edit mode (when you are using vim keybindings). The bottom right of the sidebar names the mode you are in.
+To move between the sidebar and the main view, press komrad's leader key twice: `ctrl+space`. Komrad also has "jump mode" which lets you jump to any of the different sections on the screen. Press `ctrl+space j` to enter jump mode, which draws a big letter over each section. Komrad also has visual mode, for selecting text, and edit mode, for when you use vim keybindings. The bottom right of the sidebar names your current mode.
 
 ## The menu
 
 Most actions live in the menu. Press <Key name="menu.open" /> and it lists what you can do with the row under the cursor, over the screen's own entries. Each entry names its key, and an entry that opens a further menu, such as git or archive, opens it to the right.
 
-The menu's content depends on the row being hovered.
+The row you hover decides what the menu holds.
 
 ## Navigation, Sorting, and Filtering
 
@@ -39,11 +39,11 @@ Komrad's keybindings are heavily inspired by Vim.
 
 The <Key name="nav.down" /> and <Key name="nav.up" /> keys move the cursor a row, <Key name="nav.page_down" /> and <Key name="nav.page_up" /> move it a chunk of rows, and `gg` and <Key name="nav.bottom" /> jump to the first and last row. The mouse wheel scrolls whichever region it is over and hands it the keys, as if you had jumped there.
 
-Press `/` to search. Typing lights up the rows that match, and `enter` puts the cursor on the nearest one. Use the <Key name="filter.next_match" /> and <Key name="filter.prev_match" /> key to then step through the matches. Lower case text ignores case; searching supports regular expressions.
+Press `/` to search. Typing lights up the rows that match, and `enter` puts the cursor on the nearest one. Use the <Key name="filter.next_match" /> and <Key name="filter.prev_match" /> key to then step through the matches. Lower case text ignores case, and searches support regular expressions.
 
 You can also use the search in "filter" mode. While typing, press Tab to turn it into a filter, which takes every row that does not match off the screen instead of stepping through them.
 
-Press <Key name="tabs.focus" /> to reach the sort strip over the list, where you pick the column to sort by. Its last stop groups the rows under their workflows, and flattening them makes the list easier to sort by activity or name.
+Press <Key name="tabs.focus" /> to reach the sort strip over the list, where you pick the column to sort by. Its last stop groups the rows under their workflows. Flattening them makes the list easier to sort by activity or name.
 
 <figure>
   <video

@@ -41,8 +41,8 @@ type Forge struct {
 	Login string `protobuf:"bytes,6,opt,name=login,proto3" json:"login,omitempty"`
 	// When the forge last confirmed the credential, in RFC 3339, unset once it refused.
 	VerifiedAt *string `protobuf:"bytes,7,opt,name=verified_at,json=verifiedAt,proto3,oneof" json:"verified_at,omitempty"`
-	// Whether this machine still holds what the connection needs to speak, which for a token is
-	// its file and for an App is always so.
+	// Whether this machine still holds what the connection needs. For a token that is its file,
+	// and for an App it is always true.
 	HasCredential bool `protobuf:"varint,8,opt,name=has_credential,json=hasCredential,proto3" json:"has_credential,omitempty"`
 	// When the connection was made, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -147,14 +147,14 @@ type ConnectForgeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The host agents' remotes name, such as github.com.
 	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	// Which forge it runs, worked out from the host when empty, and needed for any host that is
-	// not github.com or gitlab.com.
+	// Which forge it runs. Komrad works it out from the host when empty. Required for any host
+	// other than github.com or gitlab.com.
 	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
-	// Where the forge answers API calls, for an enterprise host, which has to be https.
+	// Where an enterprise host answers API calls. It must be https.
 	ApiUrl string `protobuf:"bytes,3,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`
 	// How the credential comes: token, or github_app for the App in the server's config.
 	Method string `protobuf:"bytes,4,opt,name=method,proto3" json:"method,omitempty"`
-	// The token, for the token method, which travels once and is never returned.
+	// The token for the token method. It travels once and is never returned.
 	Token         string `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -473,11 +473,11 @@ type ListForgePullRequestsRequest struct {
 	// The repository as a git remote spells it, such as git@github.com:owner/repo.git or
 	// https://github.com/owner/repo, whose host picks the forge connection.
 	RemoteUrl string `protobuf:"bytes,1,opt,name=remote_url,json=remoteUrl,proto3" json:"remote_url,omitempty"`
-	// The branch the pull requests were opened from, listed whatever their state; left empty,
-	// the repository's open pull requests are listed instead.
+	// The branch the pull requests were opened from. Pull requests of any state are listed. When
+	// empty, the repository's open pull requests are listed instead.
 	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
-	// Which page to read and how many to a page, twenty when unset and at most a hundred, which
-	// is what the forge will hand over in one call.
+	// Which page to read and how many to a page. Twenty when unset, and at most a hundred, the
+	// most the forge hands over in one call.
 	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -548,7 +548,7 @@ type ForgePullRequest struct {
 	// The canonical address of the repository its branch lives in, empty when the forge no
 	// longer has it.
 	HeadRepositoryUrl string `protobuf:"bytes,5,opt,name=head_repository_url,json=headRepositoryUrl,proto3" json:"head_repository_url,omitempty"`
-	// The number the forge shows a person, which is per repository.
+	// The number the forge shows a person. Numbers are per repository.
 	Number int32 `protobuf:"varint,6,opt,name=number,proto3" json:"number,omitempty"`
 	// The title as the forge has it.
 	Title string `protobuf:"bytes,7,opt,name=title,proto3" json:"title,omitempty"`
@@ -562,7 +562,7 @@ type ForgePullRequest struct {
 	BaseSha string `protobuf:"bytes,11,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// Whether the forge marks it a draft.
 	Draft bool `protobuf:"varint,12,opt,name=draft,proto3" json:"draft,omitempty"`
-	// Where the forge says it stands, as OPEN, CLOSED or MERGED; read merged_at and closed_at for
+	// The state the forge reports: OPEN, CLOSED or MERGED. Read merged_at and closed_at to tell
 	// whether it is finished.
 	State string `protobuf:"bytes,13,opt,name=state,proto3" json:"state,omitempty"`
 	// When it was opened on the forge, in RFC 3339.
@@ -874,8 +874,8 @@ type SetForgePullRequestAutoMergeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The pull request's web address, whose host picks the forge connection.
 	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	// The head commit the person saw, which the forge refuses to queue once the branch has moved
-	// past it. Empty queues whatever the head is.
+	// The head commit the person saw. The forge refuses to queue once the branch has moved past
+	// it. Empty queues whatever the head is.
 	HeadSha string `protobuf:"bytes,2,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
 	// Whether it should merge on its own once its checks and reviews pass, false to stop that.
 	On            bool `protobuf:"varint,3,opt,name=on,proto3" json:"on,omitempty"`

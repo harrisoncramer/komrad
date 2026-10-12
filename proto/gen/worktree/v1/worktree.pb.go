@@ -25,19 +25,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// WorktreeFate is which delete path a directory takes.
+// WorktreeFate names the delete path a directory takes.
 type WorktreeFate int32
 
 const (
 	// Never sent.
 	WorktreeFate_WORKTREE_FATE_UNSPECIFIED WorktreeFate = 0
-	// No task answers for the directory, which the remover takes.
+	// No task answers for the directory. The remover takes it.
 	WorktreeFate_WORKTREE_FATE_UNOWNED WorktreeFate = 1
-	// The directory's task is put away, which the task delete takes.
+	// The directory's task is archived. The task delete takes it.
 	WorktreeFate_WORKTREE_FATE_ARCHIVED WorktreeFate = 2
-	// The directory's task is open, which nothing takes.
+	// The directory's task is open. Nothing takes it.
 	WorktreeFate_WORKTREE_FATE_LIVE WorktreeFate = 3
-	// A delete has claimed the directory's task, which that delete takes.
+	// A delete has claimed the directory's task. That delete takes the directory.
 	WorktreeFate_WORKTREE_FATE_DELETING WorktreeFate = 4
 )
 
@@ -160,14 +160,14 @@ func (x *WorktreeAgent) GetArchivedAt() string {
 
 type WorktreeTask struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task's id, which is also the directory's name.
+	// The task's id, which doubles as the directory's name.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The task's slug.
 	Slug string `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
 	// When the task was put away, in RFC 3339, unset while it is open.
 	ArchivedAt *string `protobuf:"bytes,3,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
-	// Whether the branch was somebody's before the task was put on it, which cleanup never
-	// deletes.
+	// Whether the branch existed before the task was put on it. Cleanup never deletes such a
+	// branch.
 	Adopted       bool `protobuf:"varint,4,opt,name=adopted,proto3" json:"adopted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -235,29 +235,29 @@ type Worktree struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The directory, absolute.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The repository the worktree was cut from, read off the directory's own .git file, which
-	// for a registration git can no longer read is where the repository used to be.
+	// The repository the worktree was cut from, read from the directory's own .git file. When git
+	// can no longer read the registration, this is where the repository used to be.
 	RepoDir string `protobuf:"bytes,2,opt,name=repo_dir,json=repoDir,proto3" json:"repo_dir,omitempty"`
 	// The branch the directory's HEAD names, empty when it is detached or the registration
 	// cannot be read.
 	Branch string `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
-	// Whether the gitdir the .git file names is still there, without which git will not answer
-	// for the directory.
+	// Whether the gitdir the .git file names still exists. Git will not answer for the directory
+	// without it.
 	Readable bool `protobuf:"varint,4,opt,name=readable,proto3" json:"readable,omitempty"`
 	// The agents working in this directory, live ones first.
 	Occupants []*WorktreeAgent `protobuf:"bytes,5,rep,name=occupants,proto3" json:"occupants,omitempty"`
-	// The disk the directory takes, in bytes, as it was last measured in the background or by
-	// get_worktree: blocks rather than length, a hard linked file counted once. Unset until it has
-	// been measured, and while the last walk failed.
+	// The disk the directory takes, in bytes, as last measured in the background or by
+	// get_worktree. It counts blocks rather than length, and counts a hard linked file once. Unset
+	// until measured and while the last walk failed.
 	SizeBytes *int64 `protobuf:"varint,6,opt,name=size_bytes,json=sizeBytes,proto3,oneof" json:"size_bytes,omitempty"`
 	// When the size was last measured, or last failed to be, in RFC 3339. Unset until the
 	// background loop has reached the directory.
 	MeasuredAt *string `protobuf:"bytes,7,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
 	// Why the last walk failed, empty when it did not.
 	SizeError string `protobuf:"bytes,8,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
-	// When the directory was last active, in RFC 3339: the latest state change or archiving of
-	// its occupants when it has any, else when git last wrote the directory's .git file, else the
-	// directory's own modification time.
+	// When the directory was last active, in RFC 3339. This is the latest state change or
+	// archiving of its occupants when it has any, else when git last wrote the directory's .git
+	// file, else the directory's own modification time.
 	LastActiveAt string `protobuf:"bytes,9,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
 	// Which delete path the directory takes.
 	Fate WorktreeFate `protobuf:"varint,10,opt,name=fate,proto3,enum=worktree.v1.WorktreeFate" json:"fate,omitempty"`
@@ -663,8 +663,8 @@ type GetWorktreeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The directory to read, as list_worktrees spelled it.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// Whether to fetch the base from origin before measuring against it, which is a network
-	// round trip; left off, the base is whatever the clone last fetched.
+	// Whether to fetch the base from origin before measuring against it. Fetching costs a network
+	// round trip. When off, the base is whatever the clone last fetched.
 	Fetch         bool `protobuf:"varint,2,opt,name=fetch,proto3" json:"fetch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -718,8 +718,8 @@ type Entry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The path, relative to the directory.
 	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	// The disk it takes, in bytes, counted through for a directory: blocks rather than length,
-	// with a file that is hard linked counted once.
+	// The disk it takes, in bytes, counted through for a directory. It counts blocks rather than
+	// length, and counts a hard linked file once.
 	SizeBytes int64 `protobuf:"varint,2,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	// Whether it is a directory.
 	Dir           bool `protobuf:"varint,3,opt,name=dir,proto3" json:"dir,omitempty"`
@@ -854,8 +854,8 @@ type GetWorktreeResponse struct {
 	// The paths git neither tracks nor ignores.
 	Untracked []string `protobuf:"bytes,5,rep,name=untracked,proto3" json:"untracked,omitempty"`
 	// The ref the branch is measured against, which is the workflow's base branch as the clone
-	// holds it, empty when the repository cannot be read or the clone does not hold the base, in
-	// which case nothing below is measured.
+	// holds it. Empty when the repository cannot be read or the clone does not hold the base, and
+	// then nothing below is measured.
 	BaseRef string `protobuf:"bytes,6,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
 	// Why the base could not be named, when base_ref is empty for that reason.
 	BaseError string `protobuf:"bytes,7,opt,name=base_error,json=baseError,proto3" json:"base_error,omitempty"`
@@ -863,13 +863,13 @@ type GetWorktreeResponse struct {
 	Ahead int32 `protobuf:"varint,8,opt,name=ahead,proto3" json:"ahead,omitempty"`
 	// How many of the base's commits the branch does not hold.
 	Behind int32 `protobuf:"varint,9,opt,name=behind,proto3" json:"behind,omitempty"`
-	// How many of the branch's own commits the base already holds whole, which is what a squash
-	// merge leaves behind.
+	// The number of the branch's own commits that the base already holds in full. A squash merge
+	// leaves these behind.
 	LandedCommits int32 `protobuf:"varint,10,opt,name=landed_commits,json=landedCommits,proto3" json:"landed_commits,omitempty"`
 	// Whether a merge, a rebase or a cherry-pick is part-way through.
 	SequenceInProgress bool `protobuf:"varint,11,opt,name=sequence_in_progress,json=sequenceInProgress,proto3" json:"sequence_in_progress,omitempty"`
-	// Whether deleting the agent would keep the branch, which cleanup does for an adopted branch
-	// and for one whose commits are on no other ref.
+	// Whether deleting the agent would keep the branch. Cleanup keeps an adopted branch and one
+	// whose commits are on no other ref.
 	KeepsBranch bool `protobuf:"varint,12,opt,name=keeps_branch,json=keepsBranch,proto3" json:"keeps_branch,omitempty"`
 	// The branch's commits the base does not hold, newest first, at most fifty.
 	Commits []*Commit `protobuf:"bytes,13,rep,name=commits,proto3" json:"commits,omitempty"`
@@ -1377,13 +1377,13 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
 	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
 	"\x12WORKTREE_FATE_LIVE\x10\x03\x12\x1a\n" +
-	"\x16WORKTREE_FATE_DELETING\x10\x042\xdc\n" +
+	"\x16WORKTREE_FATE_DELETING\x10\x042\xe2\n" +
 	"\n" +
 	"\x0fWorktreeService\x12\xf6\x01\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\xa8\x01\x9a\xb5\x18\xa0\x01\b\x01\x10\x01\x1a\x0elist_worktrees\"\x86\x01List every worktree directory komrad holds, with its repository, branch, agent and last measured size. It runs no git, so it is cheap.:\x01\x02\x90\x02\x01\x12\x85\x02\n" +
 	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x10\x01\x1a\fget_worktree\"\x92\x01Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base. Set fetch to ask origin first.:\x01\x02\x90\x02\x01\x12\xa8\x02\n" +
-	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\x86\x01Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.(\x01:\x01\x02\x90\x02\x02\x12\x9c\x04\n" +
-	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xcb\x03\x9a\xb5\x18\xc3\x03\b\x01\x1a\x10delete_worktrees\"\x96\x01Queue deleting worktree directories in the background, each through the path its agent's state decides. A directory whose agent is live is left alone.(\x01B\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
+	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"\x86\x01Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.(\x01:\x01\x02\x90\x02\x02\x12\xa2\x04\n" +
+	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\xd1\x03\x9a\xb5\x18\xc9\x03\b\x01\x1a\x10delete_worktrees\"\x9c\x01Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad leaves a directory whose agent is live alone.(\x01B\x91\x02A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
 var (
 	file_worktree_v1_worktree_proto_rawDescOnce sync.Once

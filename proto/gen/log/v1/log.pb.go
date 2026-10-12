@@ -192,7 +192,7 @@ type TraceSummary struct {
 	TraceId string `protobuf:"bytes,1,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
 	// When the trace's first line was written, in RFC 3339.
 	StartedAt string `protobuf:"bytes,2,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	// What the trace was about: the RPC method, or the loop, when a line said.
+	// The RPC method or loop the trace was about, when a line said.
 	What string `protobuf:"bytes,3,opt,name=what,proto3" json:"what,omitempty"`
 	// How many lines the log holds under it.
 	Lines         int32 `protobuf:"varint,4,opt,name=lines,proto3" json:"lines,omitempty"`
@@ -305,7 +305,7 @@ func (x *ListRecentTracesRequest) GetLimit() int32 {
 
 type ListRecentTracesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The traces the log ends with, oldest first.
+	// The newest traces in the log, oldest first.
 	Traces        []*TraceSummary `protobuf:"bytes,1,rep,name=traces,proto3" json:"traces,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -435,9 +435,9 @@ type ReadAgentLogsResponse struct {
 	Lines []string `protobuf:"bytes,1,rep,name=lines,proto3" json:"lines,omitempty"`
 	// What to pass back to read only the lines written after these.
 	Cursor string `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
-	// Whether the log started over since the cursor, so the lines held before are gone.
+	// Whether the log started over since the cursor. The lines held before are gone.
 	Reset_ bool `protobuf:"varint,3,opt,name=reset,proto3" json:"reset,omitempty"`
-	// Whether more lines remain past the cursor, so reading again at once returns them.
+	// Whether more lines remain past the cursor. Reading again returns them at once.
 	More          bool `protobuf:"varint,4,opt,name=more,proto3" json:"more,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -507,9 +507,9 @@ type LogSource struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// What the source is called, such as service or 003 agent.pre-launch setup.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The number of the script run the source holds, which the agent's failed_run_log names when that run failed. Unset for the server log.
+	// The number of the script run the source holds. The agent's failed_run_log names it when that run failed. Unset for the server log.
 	Run *int32 `protobuf:"varint,3,opt,name=run,proto3,oneof" json:"run,omitempty"`
-	// The agent that recorded the script run the source holds, the one agent read_agent_logs reads it for. Empty for the server log.
+	// The agent that recorded the script run the source holds. read_agent_logs reads the source for that agent alone. Empty for the server log.
 	AgentId string `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// Whether the script run failed, set only on a task's log sources.
 	Failed        bool `protobuf:"varint,5,opt,name=failed,proto3" json:"failed,omitempty"`
@@ -719,7 +719,7 @@ func (x *ListTaskLogSourcesRequest) GetTaskId() string {
 
 type ListTaskLogSourcesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Each script run recorded on the task by any agent on it, its own moments and theirs, newest first.
+	// Each script run recorded on the task by any agent on it, including the task's own hooks, newest first.
 	Sources       []*LogSource `protobuf:"bytes,1,rep,name=sources,proto3" json:"sources,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -819,7 +819,7 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\n" +
 	"\n" +
 	"LogService\x12\xc4\x01\n" +
-	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"|\x9a\xb5\x18u\b\x01\x10\x01\x1a\rget_log_lines\"]Read every log line written under one trace id, in order. A failed call answers its trace id.:\x01\x02\x90\x02\x01\x12\xe0\x01\n" +
+	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"|\x9a\xb5\x18u\b\x01\x10\x01\x1a\rget_log_lines\"]Read every log line written under one trace id, in order. A failed call returns its trace id.:\x01\x02\x90\x02\x01\x12\xe0\x01\n" +
 	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x88\x01\x9a\xb5\x18\x80\x01\b\x01\x10\x01\x1a\x12list_recent_traces\"cList the traces the server log ends with, oldest first, to find the one to read with get_log_lines.:\x01\x02\x90\x02\x01\x12\x9a\x02\n" +
 	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\xcb\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0fread_agent_logs\"\xa8\x01Read what the server logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output.:\x01\x02\x90\x02\x01\x12\xb2\x02\n" +
 	"\x13ListAgentLogSources\x12\".log.v1.ListAgentLogSourcesRequest\x1a#.log.v1.ListAgentLogSourcesResponse\"\xd1\x01\x9a\xb5\x18\xc9\x01\b\x01\x10\x01\x1a\x16list_agent_log_sources\"\xa7\x01List where an agent's logs can be read from, the server log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources.:\x01\x02\x90\x02\x01\x12\xb4\x02\n" +

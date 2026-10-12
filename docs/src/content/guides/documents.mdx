@@ -9,13 +9,13 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Often, you'll want an agent to write down something that you can review outside of the codebase. For instance, you may want an agent to write an RFC first, so that you can review it and fix its approach.
+You will often want an agent to write down something you can review outside the codebase. For instance, you may want an agent to write an RFC first, so that you can review it and fix its approach.
 
-Komrad supports this natively. Komrad's _documents_ are markdown files written by an agent, and they belong to that agent's task too. Each is kept in komrad's database as one of the types you define, and komrad ships with RFC. A type's context tells agents how to write it, and you add or edit types from the documents view, where the [menu](../navigation/#the-menu) over a type defines a new one with <Key name="document_types_menu.new" /> and edits it with <Key name="document_types_menu.edit" />. Komrad versions these documents, so you can step through their history.
+Komrad supports this natively. Its _documents_ are markdown files that an agent writes, and each belongs to that agent's task. Komrad stores each one in its database as one of the types you define, and it ships with RFC. A type's context tells agents how to write it. You add or edit types from the documents view, where the [menu](../navigation/#the-menu) over a type defines a new one with <Key name="document_types_menu.new" /> and edits it with <Key name="document_types_menu.edit" />. Komrad versions these documents, so you can step through their history.
 
 ## Agent-authored documents
 
-Agents write documents with komrad's tools, so you ask for one in the prompt. Once it has written one, open its task's [menu](../navigation/#the-menu) with <Key name="menu.open" />, press <Key name="menu.jump" /> for the jump menu, and pick documents with <Key name="jump_menu.documents" />. The documents view opens on the task's documents.
+Agents write documents with komrad's tools, so you ask for one in the prompt. Once the agent has written one, open its task's [menu](../navigation/#the-menu) with <Key name="menu.open" />, press <Key name="menu.jump" /> for the jump menu, and pick documents with <Key name="jump_menu.documents" />. The documents view opens on the task's documents.
 
 <figure>
   <video
@@ -57,13 +57,13 @@ Open the menu on a document with <Key name="menu.open" /> and pick edit with <Ke
   </video>
 </figure>
 
-Komrad mails the agent to say you changed its document, and the agent can see exactly what you changed.
+Komrad mails the agent when you change its document, and the agent can see exactly what you changed.
 
 You can also start a document yourself from the same menu with <Key name="document_menu.new" />, such as a plan you wrote or notes the agent should keep in mind. The new document goes to the agent the filter names with `agent:`, and to that agent's task. Komrad tells the agent it exists.
 
 ## Stepping through versions
 
-You can step back through a document's versions. Each step shows what that version changed, who wrote it, and when. After a round or two it shows what the agent first proposed, what you changed, and how the agent answered.
+You can step back through a document's versions. Each step shows what that version changed, who wrote it, and when. After a round or two you see the agent's first proposal, your changes, and the agent's answer.
 
 <figure>
   <video

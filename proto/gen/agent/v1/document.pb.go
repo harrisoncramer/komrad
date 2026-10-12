@@ -40,7 +40,7 @@ type Document struct {
 	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When it was last written, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// How many times it has been written, which a rewrite passes back to say what it replaces.
+	// How many times it has been written. A rewrite passes it back to say which version it replaces.
 	Version int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
 	// The task its author worked on when it was first written, absent for an orchestrator's.
 	TaskId        *string `protobuf:"bytes,9,opt,name=task_id,json=taskId,proto3,oneof" json:"task_id,omitempty"`
@@ -156,7 +156,7 @@ type WriteDocumentRequest struct {
 	//	*WriteDocumentRequest_Body
 	//	*WriteDocumentRequest_Path
 	Source isWriteDocumentRequest_Source `protobuf_oneof:"source"`
-	// The version a rewrite replaces, as the last read or write returned it, and required with id.
+	// The version a rewrite replaces, as the last read or write returned it. Required with id.
 	Version *int32 `protobuf:"varint,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	// The agent a person creates a document for. An agent may name only itself.
 	AgentId       *string `protobuf:"bytes,7,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
@@ -724,7 +724,7 @@ type DocumentType struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The markdown an agent reads before writing a document of this type.
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	// How many times it has been written, which a rewrite passes back to say what it replaces.
+	// How many times it has been written. A rewrite passes it back to say which version it replaces.
 	Version int32 `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
 	// When it was last written, in RFC 3339.
 	UpdatedAt     string `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
@@ -1304,8 +1304,8 @@ func (x *DeleteDocumentTypeRequest) GetId() string {
 
 type SearchDocumentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The words to look for in each document as it stands now, matched whole and stemmed, with a
-	// quoted phrase required in that order and a leading minus excluding a word.
+	// The words to look for in each document as it stands now, matched whole and stemmed. A quoted
+	// phrase must match in that order, and a leading minus excludes a word.
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	// Whose documents to search, or unset for every agent's, archived agents included.
 	AgentId *string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
@@ -1451,7 +1451,7 @@ type SearchDocumentsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The documents that hold every word, the best first.
 	Matches []*DocumentHit `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-	// The documents that hold a word only inside a longer one, the closest first.
+	// The documents that hold a word only inside a longer one, closest first.
 	Near          []*DocumentHit `protobuf:"bytes,2,rep,name=near,proto3" json:"near,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

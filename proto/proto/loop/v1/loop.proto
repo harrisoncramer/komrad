@@ -10,7 +10,7 @@ option go_package = "komrad/proto/gen/loop/v1;loopv1";
 
 // Loop names a background loop the server runs that can be woken before its next tick.
 enum Loop {
-  // No loop was named, which a wake refuses.
+  // No loop was named. A wake refuses it.
   LOOP_UNSPECIFIED = 0;
   // Reads each live agent's working directory for its branch, its head and the lines it changed.
   LOOP_CWD_SYNC = 1;

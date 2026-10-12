@@ -11,7 +11,7 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Everything you do in komrad happens inside a _workflow_. A workflow is a bucket of settings: the directory work starts from, the harness its agents run, like Claude or Codex, the flags they launch with, and whether each task gets a worktree of its own.
+Everything you do in komrad happens inside a _workflow_. A workflow is a bucket of settings. It holds the directory work starts from, the harness its agents run, like Claude or Codex, the flags they launch with, and whether each task gets a worktree of its own.
 
 <Alert variant="warning">This guide assumes you have [installed komrad](../install/) already.</Alert>
 
@@ -46,7 +46,7 @@ Run <Command path="open" />, open the menu with <Key name="menu.open" /> and pre
 
 ## The orchestrator
 
-Creating a workflow also starts its _orchestrator_, an agent that belongs to the workflow itself. It is folded into the workflow's row in the list, and pressing enter on the workflow opens it.
+Creating a workflow also starts its _orchestrator_, an agent that belongs to the workflow itself. The list folds it into the workflow's row, and pressing enter on the workflow opens it.
 
 <figure>
   <video
@@ -70,11 +70,11 @@ You don't have to go through the orchestrator. You can start a task yourself, wh
 
 ## Shared context
 
-A workflow can carry _shared context_, which every agent it starts reads. This is where you put what you would otherwise tell each agent by hand: how tests run, how commits are written, and so forth.
+A workflow can carry _shared context_, which every agent it starts reads. Put there what you would otherwise tell each agent by hand, such as how tests run and how commits are written.
 
 In the Neovim example, that might be "Run make lint before committing any Lua change."
 
-The workflow's context comes after your <Setting path="context">global context</Setting>, which every agent reads whatever workflow it is in. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
+The workflow's context comes after your <Setting path="context">global context</Setting>, which every agent reads in any workflow. In the video below the global context says only that Neovim is the best editor, and the agent has read both.
 
 <figure>
   <video
@@ -94,11 +94,11 @@ The workflow's context comes after your <Setting path="context">global context</
 
 ## Worktrees
 
-Komrad has first-class support for [git worktrees](https://git-scm.com/docs/git-worktree). Set the workflow's provisioner to worktree and each new task gets a worktree of its own, cut from the workflow's base branch. Every agent on that task works inside it, isolated from every other task. The worktree is removed when the task is deleted.
+Komrad has first-class support for [git worktrees](https://git-scm.com/docs/git-worktree). Set the workflow's provisioner to worktree and each new task gets a worktree of its own, cut from the workflow's base branch. Every agent on that task works inside it, isolated from every other task. Deleting the task removes the worktree.
 
 Komrad puts worktrees in <Setting path="worktrees.dir" /> unless the workflow names a directory of its own. The worktree section of the workflow's settings also lists files to copy or link into each new worktree, such as a `.env` file git does not track.
 
-When you start a task you can still choose to run it in the workflow's directory instead. That suits work that only reads, such as answering a question about the code.
+When you start a task, you can still run it in the workflow's directory instead. That suits work that only reads, such as answering a question about the code.
 
 <Alert variant="info">
   A task without a worktree works directly in the workflow's directory, alongside every other task that does the same.
@@ -110,7 +110,7 @@ Hover the workflow, open the menu with <Key name="menu.open" /> and pick edit wi
 
 ## Archiving and restoring
 
-Archiving a workflow puts it in cold storage. Open its menu with <Key name="menu.open" /> and press <Key name="menu.archive" />. Its orchestrator and every live agent in it are archived, and with them its tasks. Nothing is deleted. The workflow moves to the archive, where you can restore it, or delete it for good later.
+Archiving a workflow puts it in cold storage. Open its menu with <Key name="menu.open" /> and press <Key name="menu.archive" />. Komrad archives its orchestrator, every live agent in it, and its tasks. Nothing is deleted. The workflow moves to the archive, where you can restore it or delete it for good later.
 
 ## Next steps
 

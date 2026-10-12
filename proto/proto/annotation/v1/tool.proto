@@ -7,8 +7,8 @@ import "google/protobuf/descriptor.proto";
 option go_package = "komrad/proto/gen/annotation/v1;annotationv1";
 
 extend google.protobuf.MethodOptions {
-  // Which of the generated callers reach the method. Every method declares it. The panel is
-  // not one of them: it is written by hand and calls whatever it needs.
+  // Which generated callers reach the method. Every method declares it. The panel is not a
+  // generated caller. It is written by hand and calls whatever it needs.
   Surfaces surfaces = 50003;
 }
 
@@ -25,30 +25,29 @@ enum Role {
 }
 
 message Surfaces {
-  // Whether komrad rpc gets a subcommand for the method, which is what a script runs.
+  // Whether komrad rpc gets a subcommand for the method. Scripts run it.
   bool cli = 1;
-  // Whether the MCP server offers the method as a tool, which is what a model calls. A tool
-  // without a CLI command makes no sense, so mcp implies cli.
+  // Whether the MCP server offers the method as a tool. Models call it. A tool needs a CLI
+  // command, so mcp implies cli.
   bool mcp = 2;
 
-  // What both generated callers call the method, which is what a model types rather than the
-  // method name. Required when either surface is on.
+  // The name both generated callers use for the method. A model types it in place of the method
+  // name. Required when either surface is on.
   string name = 3;
   // Everything a model is told about the call and all the help the CLI prints. Required with
   // name.
   string description = 4;
 
-  // Whether the call can take something away, which decides whether a client asks before making
-  // it. True unless the method only reads.
+  // Whether the call can take something away. A client asks before making a destructive call.
+  // True unless the method only reads.
   optional bool destructive = 5;
-  // Whether calling twice lands where calling once does, overriding what the method's
-  // idempotency_level says.
+  // Whether calling twice has the same effect as calling once. It overrides the method's
+  // idempotency_level.
   optional bool idempotent = 6;
 
   // Which agent roles may call the method and are offered it as a tool, required of every tool.
   repeated Role roles = 7;
 
-  // Why a surface is left off, in a sentence, so the next reader is told rather than left to
-  // work it out. Required when either surface is off.
+  // Why a surface is left off, in a sentence. Required when either surface is off.
   string reason = 8;
 }

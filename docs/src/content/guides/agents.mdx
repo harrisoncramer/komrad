@@ -10,13 +10,13 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { link, media } from "../../site";
 
-Agents perform work in komrad. Each one is a real Claude or Codex session running in a terminal that komrad manages for you. Agents are designed to be stateless in komrad, so that you can easily create or discard them without losing work.
+Agents do the work in komrad. Each one is a real Claude or Codex session running in a terminal that komrad manages for you. Agents hold no state of their own in komrad, so you can create or discard them without losing work.
 
 <Alert variant="warning">
   This guide assumes you know what a [workflow](../workflows/) and a [task](../tasks/) are.
 </Alert>
 
-They are also durable. You can shut down or restart your machine without losing any history or context with an agent, and easily restore or search through their conversations later. Agents can also start and manage other agents.
+Agents are also durable. You can shut down or restart your machine without losing an agent's history or context, and you can restore or search its conversation later. Agents can also start and manage other agents.
 
 ## Three kinds of agent
 
@@ -80,7 +80,7 @@ Open an agent by moving the cursor onto it and pressing enter. Its terminal fill
 
 ## Reviewers
 
-Reviewers are created to review the work performed by writers. Writers will spawn them when their work is ready. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the writer answers them. The writer can ask for another reviewer while one is still reading. Over a task's life it can go through many reviews.
+Reviewers review the writer's work. The writer spawns one when its work is ready. The reviewer reads the change and leaves comments on its lines, the same way you do in a [review](../reviews/), and the writer answers them. The writer can ask for another reviewer while one is still reading. A task can go through many reviews over its life.
 
 You can start a reviewer yourself too. Open a task's menu and pick new agent with <Key name="menu.new_agent" />, then say what you want looked at. The orchestrator can also spawn reviewers for tasks.
 
@@ -96,13 +96,13 @@ The branch has to be in the workflow's repository, either pushed to its origin o
 
 Archiving an agent stops it and takes it out of the list. Its conversation stays in the database, so you can still search it or restore it later.
 
-A writer and its task share one life, so you never archive a writer on its own. Archive the [task](../tasks/#archiving-restoring-and-deleting-tasks) instead, which archives the writer and every reviewer on it. Restoring the task brings its writer back.
+A writer lives and dies with its task, so you never archive a writer on its own. Archive the [task](../tasks/#archiving-restoring-and-deleting-tasks) instead, which archives the writer and every reviewer on it. Restoring the task brings its writer back.
 
 Reviewers come and go on their own. You can archive one whenever you like, and restore it later once its task is live. Deleting an archived reviewer is permanent and removes its conversation. A writer is deleted only with its task.
 
 ## How komrad knows what an agent is doing
 
-Most agent tools learn what an agent is doing from hooks the agent fires. Hooks can be dropped, reordered, or never sent, for example when the CLI crashes. There are lots of bug reports on other agent orchestrators outlining this exact problem.
+Most agent tools rely on hooks the agent fires. Hooks can be dropped, reordered, or never sent, for example when the CLI crashes. Other orchestrators have many bug reports about this.
 
 Komrad takes a different approach. It reads each agent's state directly from what its terminal actually renders, which komrad calls the pane. The [Claude test panes](https://github.com/harrisoncramer/komrad/tree/main/internal/harness/claude/testdata) show what it reads.
 

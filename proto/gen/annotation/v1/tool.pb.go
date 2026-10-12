@@ -81,27 +81,26 @@ func (Role) EnumDescriptor() ([]byte, []int) {
 
 type Surfaces struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether komrad rpc gets a subcommand for the method, which is what a script runs.
+	// Whether komrad rpc gets a subcommand for the method. Scripts run it.
 	Cli bool `protobuf:"varint,1,opt,name=cli,proto3" json:"cli,omitempty"`
-	// Whether the MCP server offers the method as a tool, which is what a model calls. A tool
-	// without a CLI command makes no sense, so mcp implies cli.
+	// Whether the MCP server offers the method as a tool. Models call it. A tool needs a CLI
+	// command, so mcp implies cli.
 	Mcp bool `protobuf:"varint,2,opt,name=mcp,proto3" json:"mcp,omitempty"`
-	// What both generated callers call the method, which is what a model types rather than the
-	// method name. Required when either surface is on.
+	// The name both generated callers use for the method. A model types it in place of the method
+	// name. Required when either surface is on.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// Everything a model is told about the call and all the help the CLI prints. Required with
 	// name.
 	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	// Whether the call can take something away, which decides whether a client asks before making
-	// it. True unless the method only reads.
+	// Whether the call can take something away. A client asks before making a destructive call.
+	// True unless the method only reads.
 	Destructive *bool `protobuf:"varint,5,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
-	// Whether calling twice lands where calling once does, overriding what the method's
-	// idempotency_level says.
+	// Whether calling twice has the same effect as calling once. It overrides the method's
+	// idempotency_level.
 	Idempotent *bool `protobuf:"varint,6,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
 	// Which agent roles may call the method and are offered it as a tool, required of every tool.
 	Roles []Role `protobuf:"varint,7,rep,packed,name=roles,proto3,enum=annotation.v1.Role" json:"roles,omitempty"`
-	// Why a surface is left off, in a sentence, so the next reader is told rather than left to
-	// work it out. Required when either surface is off.
+	// Why a surface is left off, in a sentence. Required when either surface is off.
 	Reason        string `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -206,8 +205,8 @@ var file_annotation_v1_tool_proto_extTypes = []protoimpl.ExtensionInfo{
 
 // Extension fields to descriptorpb.MethodOptions.
 var (
-	// Which of the generated callers reach the method. Every method declares it. The panel is
-	// not one of them: it is written by hand and calls whatever it needs.
+	// Which generated callers reach the method. Every method declares it. The panel is not a
+	// generated caller. It is written by hand and calls whatever it needs.
 	//
 	// optional annotation.v1.Surfaces surfaces = 50003;
 	E_Surfaces = &file_annotation_v1_tool_proto_extTypes[0]
