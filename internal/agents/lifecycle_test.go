@@ -879,7 +879,6 @@ func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewSt
 	require.NoError(t, err)
 
 	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		AgentID:     agent.ID,
 		TaskID:      *agent.TaskID,
 		BaseSHA:     "base",
 		SnapshotSHA: sha,
@@ -1822,7 +1821,6 @@ func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
 	_, other := fx.launch(t, "ui")
 	reviews := reviewstore.NewReviewStore(fx.st.Pool.GetDB())
 	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		AgentID:     writer.ID,
 		TaskID:      task.ID,
 		BaseSHA:     "base",
 		SnapshotSHA: "sha",

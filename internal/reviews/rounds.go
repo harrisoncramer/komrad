@@ -33,9 +33,6 @@ var ErrReviewNoRound = fail.Precondition("no round has been taken of that task y
 // errReviewUnnamedTask is answered when a person calls without naming a task.
 var errReviewUnnamedTask = fail.InvalidArgument("pass task, by id or by slug")
 
-// errReviewNoAgent is answered when a person opens a round on a task no agent was ever on.
-var errReviewNoAgent = fail.Precondition("that task has never had an agent on it")
-
 // errReviewNoTask is answered when an agent on no task calls without naming one.
 var errReviewNoTask = fail.Precondition("you work on no task, so pass task, by id or by slug")
 
@@ -89,35 +86,12 @@ func (s *ReviewService) OpenRound(ctx context.Context, ref string, author Review
 		return nil, err
 	}
 
-	agentID, err := s.getRecordingAgentID(ctx, *task, author)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.openTaskRound(ctx, *task, agentID)
+	return s.openTaskRound(ctx, *task)
 }
 
-// getRecordingAgentID reads the agent a row written on a task is filed under, which is the caller
-// when it is an agent and otherwise the newest agent on the task.
-func (s *ReviewService) getRecordingAgentID(ctx context.Context, task taskstore.Task, author ReviewAuthor) (string, error) {
-	if author.AgentID != nil {
-		return *author.AgentID, nil
-	}
-
-	agents, err := s.agents.ListOnTasks(ctx, []string{task.ID})
-	if err != nil {
-		return "", err
-	}
-	if len(agents) == 0 {
-		return "", fmt.Errorf("%w: %q", errReviewNoAgent, task.Slug)
-	}
-
-	return agents[len(agents)-1].ID, nil
-}
-
-// openTaskRound freezes a task's checkout through one of its agents, handing back the newest
+// openTaskRound freezes a task's checkout, handing back the newest
 // round when the tree has not moved since it was taken.
-func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task, agentID string) (*reviewstore.Round, error) {
+func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task) (*reviewstore.Round, error) {
 	if task.Checkout.WorktreeRemoved {
 		return nil, fmt.Errorf("%w: %q", errReviewWorktreeRemoved, task.Slug)
 	}
@@ -149,7 +123,6 @@ func (s *ReviewService) openTaskRound(ctx context.Context, task taskstore.Task, 
 	}
 
 	round, err := s.reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
-		AgentID:     agentID,
 		TaskID:      task.ID,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,

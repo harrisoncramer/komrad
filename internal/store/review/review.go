@@ -536,7 +536,6 @@ type ViewedFile struct {
 }
 
 type MarkFileViewedParams struct {
-	AgentID     string
 	TaskID      string
 	FilePath    string
 	Fingerprint string
@@ -546,7 +545,6 @@ type MarkFileViewedParams struct {
 // so the mark can be checked against a later patch.
 func (s *ReviewStore) MarkFileViewed(ctx context.Context, params MarkFileViewedParams) (*ViewedFile, error) {
 	row, err := s.queries.MarkReviewFileViewed(ctx, models.MarkReviewFileViewedParams{
-		AgentID:     params.AgentID,
 		TaskID:      params.TaskID,
 		FilePath:    params.FilePath,
 		Fingerprint: params.Fingerprint,

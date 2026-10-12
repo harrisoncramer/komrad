@@ -26,11 +26,6 @@ table "review_rounds" {
     type    = uuid
     default = sql("uuidv7()")
   }
-  column "agent_id" {
-    null    = false
-    type    = uuid
-    comment = "The agent the round was taken through, kept for older builds while every read goes by task."
-  }
   column "task_id" {
     null    = false
     type    = uuid
@@ -84,10 +79,6 @@ table "review_rounds" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
-  index "review_rounds_agent_ordinal" {
-    columns = [column.agent_id, column.ordinal]
-    unique  = true
-  }
   index "review_rounds_task_ordinal" {
     columns = [column.task_id, column.ordinal]
     unique  = true
@@ -101,11 +92,6 @@ table "reviews" {
     null    = false
     type    = uuid
     default = sql("uuidv7()")
-  }
-  column "agent_id" {
-    null    = false
-    type    = uuid
-    comment = "The agent its round was taken through, kept for older builds while every read goes by task."
   }
   column "task_id" {
     null    = false
@@ -209,18 +195,6 @@ table "reviews" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
-  index "reviews_open_human" {
-    columns = [column.agent_id]
-    unique  = true
-    where   = "released_at IS NULL AND author_kind = 'human'"
-    comment = "Holds the person to one unreleased review at a time, the way GitHub holds one pending review per reviewer."
-  }
-  index "reviews_open_agent" {
-    columns = [column.agent_id, column.author_agent_id]
-    unique  = true
-    where   = "released_at IS NULL AND author_kind = 'agent'"
-    comment = "Holds each reviewing agent to one unreleased review at a time. Postgres counts two nulls in this column as different values, and the index relies on that. If nulls collided, deleting a second reviewer agent would fail, because the foreign key clears this column and would land on the null the first delete left behind."
-  }
   index "reviews_open_human_task" {
     columns = [column.task_id]
     unique  = true
@@ -252,11 +226,6 @@ table "review_threads" {
     null    = false
     type    = uuid
     default = sql("uuidv7()")
-  }
-  column "agent_id" {
-    null    = false
-    type    = uuid
-    comment = "The agent its round was taken through, kept for older builds while every read goes by task."
   }
   column "task_id" {
     null    = false
@@ -406,20 +375,11 @@ table "review_threads" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
-  index "review_threads_agent_id" {
-    columns = [column.agent_id, column.file_path, column.new_start, column.old_start]
-  }
   index "review_threads_review_id" {
     columns = [column.review_id, column.id]
   }
   index "review_threads_forge_thread_id" {
     columns = [column.forge_thread_id]
-  }
-  index "review_threads_agent_forge_thread" {
-    columns = [column.agent_id, column.forge_thread_id]
-    unique  = true
-    where   = "forge_thread_id IS NOT NULL"
-    comment = "Holds each agent to one mirror of a forge thread."
   }
   index "review_threads_task_id" {
     columns = [column.task_id, column.file_path, column.new_start, column.old_start]
@@ -740,11 +700,6 @@ table "review_viewed_files" {
     null    = false
     type    = timestamptz
     default = sql("now()")
-  }
-  column "agent_id" {
-    null    = false
-    type    = uuid
-    comment = "The agent whose diff the file was last marked read in."
   }
   column "task_id" {
     null    = false

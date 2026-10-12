@@ -1,12 +1,10 @@
 -- name: InsertReviewRound :one
 INSERT INTO review_rounds(
-    agent_id,
     task_id,
     ordinal,
     base_sha,
     snapshot_sha)
 SELECT
-    @agent_id,
     sqlc.arg('task_id')::uuid,
     COALESCE(MAX(r.ordinal), 0) + 1,
     @base_sha,
@@ -61,18 +59,11 @@ ORDER BY
 
 -- name: InsertReview :one
 INSERT INTO reviews(
-    agent_id,
     task_id,
     round_id,
     author_kind,
     author_agent_id)
-VALUES ((
-        SELECT
-            r.agent_id
-        FROM
-            review_rounds r
-        WHERE
-            r.id = @round_id), sqlc.arg('task_id')::uuid, @round_id, @author_kind, sqlc.narg('author_agent_id'))
+VALUES (sqlc.arg('task_id')::uuid, @round_id, @author_kind, sqlc.narg('author_agent_id'))
 RETURNING
     *;
 
@@ -88,14 +79,7 @@ WHERE
 UPDATE
     reviews v
 SET
-    round_id = @round_id,
-    agent_id =(
-        SELECT
-            r.agent_id
-        FROM
-            review_rounds r
-        WHERE
-            r.id = @round_id)
+    round_id = @round_id
 WHERE
     v.id = @id
     AND v.released_at IS NULL
@@ -246,7 +230,6 @@ WHERE id = @id;
 -- name: InsertReviewThreadWithMessage :one
 WITH opened AS (
     INSERT INTO review_threads(
-        agent_id,
         task_id,
         review_id,
         round_id,
@@ -259,14 +242,7 @@ WITH opened AS (
         quoted_lines,
         forge_thread_id,
         last_agent_activity_at)
-    VALUES ((
-            SELECT
-                r.agent_id
-            FROM
-                review_rounds r
-            WHERE
-                r.id = @round_id),
-            sqlc.arg('task_id')::uuid,
+    VALUES (sqlc.arg('task_id')::uuid,
             @review_id,
             @round_id,
             @base_sha,
@@ -611,12 +587,10 @@ ORDER BY
 
 -- name: MarkReviewFileViewed :one
 INSERT INTO review_viewed_files(
-    agent_id,
     task_id,
     file_path,
     fingerprint)
 VALUES (
-    @agent_id,
     sqlc.arg('task_id')::uuid,
     @file_path,
     @fingerprint)
@@ -624,7 +598,6 @@ ON CONFLICT (
     task_id,
     file_path)
     DO UPDATE SET
-        agent_id = @agent_id,
         fingerprint = @fingerprint,
         viewed_at = NOW()
     RETURNING
@@ -775,19 +748,12 @@ ORDER BY
 
 -- name: InsertForgeReview :one
 INSERT INTO reviews(
-    agent_id,
     task_id,
     round_id,
     author_kind,
     external_login,
     released_at)
-VALUES ((
-        SELECT
-            r.agent_id
-        FROM
-            review_rounds r
-        WHERE
-            r.id = @round_id), sqlc.arg('task_id')::uuid, @round_id, 'forge', @external_login, NOW())
+VALUES (sqlc.arg('task_id')::uuid, @round_id, 'forge', @external_login, NOW())
 RETURNING
     *;
 
