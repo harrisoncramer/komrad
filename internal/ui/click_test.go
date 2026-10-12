@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -188,6 +189,14 @@ func TestClickBlock(t *testing.T) {
 		harness.send(clickOn(t, harness, "Info"))
 
 		assert.NotEmpty(t, readRecordCursor(harness.readFrame()))
+	})
+
+	t.Run("a click on a document line hands the document the keys with its cursor on that line", func(t *testing.T) {
+		harness, _ := openDocuments(t)
+
+		harness.send(clickOn(t, harness, "Keep the cache"))
+
+		assert.Contains(t, findRawLine(harness.readRawFrame(), regexp.MustCompile(`Keep the cache`)), paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection)))
 	})
 
 	t.Run("a click behind an open menu does nothing", func(t *testing.T) {

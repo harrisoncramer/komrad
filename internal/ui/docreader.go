@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"komrad/config"
@@ -81,6 +82,7 @@ func (m *model) docBlock(split columnSplit) []string {
 		if focused && i == r.Line {
 			rendered[i] = paint.Panel.PaintRow(rendered[i], split.column)
 		}
+		rendered[i] = m.markRow(zoneDoc, split.column, strconv.Itoa(i), rendered[i])
 	}
 
 	window := docWindow{
@@ -403,4 +405,15 @@ func (m *model) wheelDoc(delta int) {
 		m.reading.Scroll(delta, len(rows), height)
 		m.reading.Settle(len(rows), height)
 	}
+}
+
+func (m *model) clickDocLine(key string) tea.Cmd {
+	line, err := strconv.Atoi(key)
+	if err != nil {
+		return nil
+	}
+
+	m.moveDocTo(line)
+
+	return nil
 }

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
@@ -56,6 +57,10 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSearch(key) }), true
 	case zoneMessages:
 		return clickFunc(func(m *model, _ string, _ int) tea.Cmd { return m.clickMessages() }), true
+	case zoneDoc:
+		if slices.Contains(m.listStops(), stopBlock) {
+			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickDocLine(key) })), true
+		}
 	case zoneFiles:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.review.clickFile(m, path) })), true
 	case zoneDetails:
