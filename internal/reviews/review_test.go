@@ -1014,7 +1014,7 @@ func newReviewFixture(t *testing.T) *reviewFixture {
 	return newReviewFixtureReleasing(t, NewReleasedHandlerParams{ArchiveOnApproval: true})
 }
 
-func newReviewFixtureReleasing(t *testing.T, released NewReleasedHandlerParams) *reviewFixture {
+func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *reviewFixture {
 	t.Helper()
 
 	stores := storetest.Open(t)
@@ -1024,7 +1024,7 @@ func newReviewFixtureReleasing(t *testing.T, released NewReleasedHandlerParams) 
 		BaseSHA: baseSnapshot,
 		Files:   map[string][]string{},
 	}
-	events := eventstest.NewQueue(t, stores, NewReleasedHandler(released), NewAnsweredHandler())
+	events := eventstest.NewQueue(t, stores, NewReleasedHandler(params), NewAnsweredHandler())
 	interrupter := &recordingInterrupter{}
 
 	writer := stores.SeedAgent(t, agentstore.Agent{
