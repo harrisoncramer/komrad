@@ -118,7 +118,7 @@ Screenshot "$OUT/$NAME.png"
 TAPE
 
 env -u TMUX -u TMUX_PANE \
-	KOMRAD_ENGINES_DIR="$SCRATCH/engines" PATH="$MISE_CONFIG_ROOT/bin:$PATH" \
+	KOMRAD_ENGINES_DIR="$SCRATCH/engines" PATH="$(test_bin_dir):$PATH" \
 	vhs --quiet \
 	--output "$OUT/$NAME.mp4" \
 	--output "$OUT/$NAME.webm" \

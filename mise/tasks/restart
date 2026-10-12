@@ -6,7 +6,7 @@ set -euo pipefail
 require_test_instance
 cd "$MISE_CONFIG_ROOT"
 
-komrad="$MISE_CONFIG_ROOT/bin/komrad"
+komrad="$(komrad_bin)"
 
 socket="${KOMRAD_TMUX_SOCKET:-komrad}"
 addr="${KOMRAD_ADDR:-127.0.0.1:8787}"

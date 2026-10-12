@@ -33,7 +33,7 @@ cd "$MISE_CONFIG_ROOT"
 forget_caller
 
 run_script() {
-	MISE_ENV="test" mise exec -- env PATH="$MISE_CONFIG_ROOT/bin:$PATH" "$1"
+	MISE_ENV="test" mise exec -- env PATH="$(test_bin_dir):$PATH" "$1"
 }
 
 SCRIPTS=(recordings/prod/*.tape)
