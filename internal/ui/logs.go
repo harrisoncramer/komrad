@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/logview"
+	"komrad/internal/view"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
 
@@ -425,10 +426,10 @@ func (l *logsScreen) nameSource(m *model, source *logv1.LogSource) string {
 
 func (l *logsScreen) listParams(m *model) screenListParams {
 	return screenListParams{
-		help:  l.help,
-		empty: l.emptyLine(),
-		rows:  len(l.rows(m)),
-		lines: func(pane listPane) ([]string, int) { return l.lines(m, pane), l.rowCursor.cursor },
+		help:     l.help,
+		empty:    l.emptyLine(),
+		rows:     len(l.rows(m)),
+		snapshot: func(pane listPane) view.Snapshot { return l.snapshot(m, pane) },
 	}
 }
 

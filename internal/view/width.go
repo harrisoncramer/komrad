@@ -61,6 +61,10 @@ func trailingColumns(line line) int {
 		columns += spaceColumns + len([]rune(line.Workflow))
 	}
 
+	if !line.Tail.IsBlank() {
+		columns += spaceColumns + countCellColumns(line.Tail)
+	}
+
 	for _, cell := range line.Comments {
 		columns += countCellColumns(cell) + spaceColumns
 	}

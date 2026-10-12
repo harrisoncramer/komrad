@@ -119,14 +119,15 @@ func TestViews(t *testing.T) {
 		})
 	}
 
-	t.Run("the list's arrow stands down while the switcher is open", func(t *testing.T) {
+	t.Run("the list keeps its arrow while the switcher is open", func(t *testing.T) {
 		harness := openCrowded(t, panelHarnessParams{})
-
-		harness.press(append(widenListPresses, "esc")...)
-		assert.Empty(t, readHoveredRow(harness.readFrame()))
+		harness.press(widenListPresses...)
+		hovered := readHoveredRow(harness.readFrame())
+		require.NotEmpty(t, hovered)
 
 		harness.press("esc")
-		assert.NotEmpty(t, readHoveredRow(harness.readFrame()), "and the list has the keys again")
+		require.Contains(t, harness.readFrame(), "tab/S-tab switch")
+		assert.Equal(t, hovered, readHoveredRow(harness.readFrame()))
 	})
 
 	t.Run("a key the switcher has no use for closes it and reaches the view", func(t *testing.T) {

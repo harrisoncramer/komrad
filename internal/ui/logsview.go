@@ -23,32 +23,35 @@ func (l *logsScreen) emptyLine() string {
 	return "reading…"
 }
 
-// lines is the list as rendered: each source's name behind the cursor, the failed run marked after it.
-func (l *logsScreen) lines(m *model, pane listPane) []string {
+func (l *logsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	rows := l.rows(m)
-	if len(rows) == 0 {
-		return []string{dimStyle().Render("  " + emptyLineOf(m.filter, l.emptyLine()))}
-	}
-
 	caret := pane.caret
 	if l.isBlockFocused(m) {
 		caret = view.CaretRendered
 	}
 
-	return xslice.Map(rows, func(row logSourceRow) string {
-		hovered := row.key() == rowKeyAt(rows, l.rowCursor.cursor)
-		prefix := "  "
-		if hovered {
-			prefix = caretGlyph(caret)
-		}
+	return view.Snapshot{
+		Rows: xslice.Map(rows, func(row logSourceRow) view.Row {
+			name := logSourceRowName(row)
+			var tail view.Cell
+			if row.failed {
+				tail = view.Cell{Glyph: glyph.FailedScript, Tone: paint.ToneDanger}
+			}
 
-		line := prefix + " " + m.filter.highlight(paint.Panel, clipName(logSourceRowName(row)), nameStyle(hovered && caret != view.CaretAbsent, false))
-		if row.failed {
-			line += " " + paint.Panel.Style(paint.ToneDanger).Render(m.glyphs.Spell(glyph.FailedScript))
-		}
-
-		return line
-	})
+			return view.Row{
+				Key:     row.key(),
+				Kind:    view.KindResult,
+				Name:    name,
+				Matches: matchesIn(m.filter.pattern, name),
+				Process: view.ProcessNone,
+				Tail:    tail,
+			}
+		}),
+		Caret:   caret,
+		Focused: rowKeyAt(rows, l.rowCursor.cursor),
+		Pane:    pane.width,
+		Columns: view.Columns{},
+	}
 }
 
 // block is the log rendered at the width and height of the block beside the sidebar, its lines

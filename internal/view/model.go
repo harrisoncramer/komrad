@@ -76,6 +76,7 @@ type line struct {
 	Schedule Cell
 	// Workflow is the workflow's name, rendered greyed after the marks.
 	Workflow string
+	Tail     Cell
 	// Comments are the comment counts, rendered against the right edge of the pane.
 	Comments []Cell
 	Selected bool

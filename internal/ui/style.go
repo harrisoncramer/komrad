@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/view"
 
 	"charm.land/lipgloss/v2"
 )
@@ -19,12 +20,12 @@ func rowCursorStyle() lipgloss.Style {
 	return paint.Panel.Cursor()
 }
 
-func scheduleIcon(glyphs glyph.Set, enabled bool) string {
+func scheduleIcon(enabled bool) view.Cell {
 	if enabled {
-		return glyphs.Spell(glyph.ScheduleEnabled)
+		return view.Cell{Glyph: glyph.ScheduleEnabled, Tone: scheduleTone(enabled)}
 	}
 
-	return glyphs.Spell(glyph.ScheduleDisabled)
+	return view.Cell{Glyph: glyph.ScheduleDisabled, Tone: scheduleTone(enabled)}
 }
 
 func scheduleTone(enabled bool) paint.Tone {

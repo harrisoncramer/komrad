@@ -71,6 +71,7 @@ func prepareLine(params prepareLineParams) line {
 		Tally:    row.HiddenCount,
 		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
 		Workflow: row.Workflow,
+		Tail:     row.Tail,
 		Comments: buildCommentCells(row),
 		Selected: row.Selected,
 		Divider:  row.Kind == KindDivider,

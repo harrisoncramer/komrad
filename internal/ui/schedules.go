@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/panel"
+	"komrad/internal/view"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -250,9 +251,10 @@ func (m *model) archiveSchedule(schedule panel.Schedule) tea.Cmd {
 
 func (w *schedulesScreen) listParams(m *model) screenListParams {
 	return screenListParams{
-		help:  w.help,
-		rows:  len(w.listRows(m)),
-		lines: func(pane listPane) ([]string, int) { return w.lines(m, pane), w.cursor },
+		help:     w.help,
+		empty:    "no schedules yet",
+		rows:     len(w.listRows(m)),
+		snapshot: func(pane listPane) view.Snapshot { return w.snapshot(m, pane) },
 	}
 }
 

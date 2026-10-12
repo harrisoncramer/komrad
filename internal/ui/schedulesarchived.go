@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/panel"
+	"komrad/internal/view"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -179,14 +180,14 @@ func (a *archivedSchedules) stage(m *model) {
 
 func (a *archivedSchedules) listParams(m *model) screenListParams {
 	return screenListParams{
-		help: a.help,
-		rows: len(a.listRows(m)),
-		lines: func(pane listPane) ([]string, int) {
-			return scheduleLines(m, pane, scheduleLinesParams{
+		help:  a.help,
+		rows:  len(a.listRows(m)),
+		empty: "no archived schedules",
+		snapshot: func(pane listPane) view.Snapshot {
+			return scheduleSnapshot(m, pane, scheduleSnapshotParams{
 				rows:   a.listRows(m),
 				cursor: a.cursor,
-				idle:   "no archived schedules",
-			}), a.cursor
+			})
 		},
 	}
 }

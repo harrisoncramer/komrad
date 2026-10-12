@@ -99,6 +99,10 @@ func (d renderer) trailing(line line) string {
 		b.WriteString(" " + palette.Style(paint.ToneMuted).Render(line.Workflow))
 	}
 
+	if !line.Tail.IsBlank() {
+		b.WriteString(" " + d.cell(line.Tail))
+	}
+
 	return b.String()
 }
 

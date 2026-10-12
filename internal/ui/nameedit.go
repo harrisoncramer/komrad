@@ -5,12 +5,10 @@ import (
 	"slices"
 	"strings"
 
-	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
 
 // nameEdit is a row's name being typed over where the row is rendered.
@@ -171,16 +169,4 @@ func renameHelp() keyMap {
 	cancel := binding([]string{"esc"}, "cancel")
 
 	return keyMap{short: []key.Binding{save, cancel}, full: []key.Binding{save, cancel}}
-}
-
-// renderedName is the typed name in a row's lettering, cut to fit around the cursor.
-func renderedName(e *nameEdit, style lipgloss.Style) string {
-	if e.saving || e.landed {
-		return style.Render(paint.ClipStart(e.input.value(), nameWidth))
-	}
-
-	before, after := e.input.split()
-	before, after = paint.ClipAround(before, after, nameWidth)
-
-	return paint.Panel.RenderTyped(before, after, style)
 }

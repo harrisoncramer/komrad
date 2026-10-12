@@ -1159,3 +1159,25 @@ func TestRenderTaskTree(t *testing.T) {
 
 	requireGolden(t, "list-task-tree", render(list, paint.Panel, canonicalPane))
 }
+
+func TestRenderTailSitsAfterTheName(t *testing.T) {
+	tests := []struct {
+		name string
+		pane int
+		want string
+	}{
+		{name: "a pane with room renders the whole name before the tail", pane: 30, want: "  morning-ci 0 9 * * 1-5"},
+		{name: "a narrow pane clips the name and keeps the tail", pane: 16, want: "  m… 0 9 * * 1-5"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			list := Prepare(Snapshot{
+				Rows:    []Row{{Kind: KindResult, Name: "morning-ci", Tail: muted("0 9 * * 1-5")}},
+				Pane:    tt.pane,
+				Columns: Columns{},
+			})
+
+			assert.Equal(t, tt.want, ansiEscapes.ReplaceAllString(render(list, paint.Panel, tt.pane), ""))
+		})
+	}
+}

@@ -52,12 +52,6 @@ func (m *model) listChrome(params screenListParams) (string, string) {
 func (m *model) screenListView(params screenListParams) string {
 	header, below := m.listChrome(params)
 
-	if params.lines != nil {
-		rows, cursor := params.lines(m.listPane(m.paneWidth()))
-
-		return m.headedListView(header, rows, cursor, below)
-	}
-
 	if params.rows == 0 && (params.empty != "" || m.filter.doesNarrow(sectionList)) {
 		return m.headedListView(header, []string{dimStyle().Render(m.emptyListLine(params.empty))}, 0, below)
 	}

@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
+	"komrad/lib/xslice"
 )
 
 func (w *schedulesScreen) details(m *model) details {
@@ -40,45 +42,48 @@ func (w *schedulesScreen) view(m *model) string {
 	return m.columnListView(w.listParams(m))
 }
 
-// lines is the list as rendered: each row's cursor, icon, name and cron, or one line over no rows.
-func (w *schedulesScreen) lines(m *model, pane listPane) []string {
-	return scheduleLines(m, pane, scheduleLinesParams{
+func (w *schedulesScreen) snapshot(m *model, pane listPane) view.Snapshot {
+	return scheduleSnapshot(m, pane, scheduleSnapshotParams{
 		rows:     w.listRows(m),
 		cursor:   w.cursor,
-		idle:     "no schedules yet",
 		renaming: w.renamingField(),
 	})
 }
 
-type scheduleLinesParams struct {
+type scheduleSnapshotParams struct {
 	rows     []scheduleItem
 	cursor   int
-	idle     string
 	renaming *nameEdit
 }
 
-// scheduleLines renders schedule rows with the cursor on one, or the idle line over none.
-func scheduleLines(m *model, pane listPane, params scheduleLinesParams) []string {
-	if len(params.rows) == 0 {
-		return []string{dimStyle().Render("  " + emptyLineOf(m.filter, params.idle))}
+func scheduleSnapshot(m *model, pane listPane, params scheduleSnapshotParams) view.Snapshot {
+	return view.Snapshot{
+		Rows: xslice.Map(params.rows, func(item scheduleItem) view.Row {
+			name := scheduleItemName(item)
+			process := view.ProcessNone
+			if !item.schedule.Enabled {
+				process = view.ProcessStopped
+			}
+
+			return params.renaming.renderedOver(view.Row{
+				Key:     item.key(),
+				Kind:    view.KindResult,
+				Name:    name,
+				Matches: matchesIn(m.filter.pattern, name),
+				Process: process,
+				Cells:   []view.Cell{scheduleIcon(item.schedule.Enabled)},
+				Tail:    view.Cell{Text: item.schedule.Cron, Tone: paint.ToneMuted},
+			})
+		}),
+		Caret:   pane.caret,
+		Focused: rowKeyAt(params.rows, params.cursor),
+		Pane:    pane.width,
+		Columns: scheduleColumns(),
 	}
+}
 
-	rows := make([]string, 0, len(params.rows))
-	for i, item := range params.rows {
-		selected := i == params.cursor
-		prefix := "  "
-		if selected {
-			prefix = caretGlyph(pane.caret)
-		}
-
-		style := nameStyle(selected && pane.caret != view.CaretAbsent, !item.schedule.Enabled)
-		name := m.filter.highlight(paint.Panel, clipName(item.schedule.Name), style)
-		if e := params.renaming; e != nil && e.key == item.key() {
-			name = renderedName(e, style)
-		}
-		icon := paint.Panel.Style(scheduleTone(item.schedule.Enabled)).Render(scheduleIcon(m.glyphs, item.schedule.Enabled))
-		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle().Render(item.schedule.Cron))
+func scheduleColumns() view.Columns {
+	return view.Columns{
+		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
-
-	return rows
 }

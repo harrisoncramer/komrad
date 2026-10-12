@@ -24,9 +24,15 @@ const (
 
 // keyholder is the section whose cursor the arrow keys would move.
 func (m *model) keyholder() sidebarSection {
-	switch {
-	case m.isViewsOpen():
+	if m.isViewsOpen() {
 		return sectionViews
+	}
+
+	return m.keyholderBehindViews()
+}
+
+func (m *model) keyholderBehindViews() sidebarSection {
+	switch {
 	case m.isTabsFocused(), m.isKindsFocused():
 		return sectionTabs
 	case m.isDetailsFocused():
@@ -43,7 +49,7 @@ func (m *model) doKeysMoveCursors() bool {
 
 // caretOf is how a section's arrow stands this frame.
 func (m *model) caretOf(section sidebarSection) view.Caret {
-	if m.keyholder() != section {
+	if m.keyholderBehindViews() != section {
 		return view.CaretAbsent
 	}
 

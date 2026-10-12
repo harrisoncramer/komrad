@@ -481,9 +481,6 @@ type screenListParams struct {
 	// rows is how many rows the list holds.
 	rows     int
 	snapshot func(listPane) view.Snapshot
-	// lines is the list rendered by the screen itself, row by row with its cursor, on a screen that
-	// renders no snapshot.
-	lines func(listPane) ([]string, int)
 }
 
 // listPane is the column a list is rendered in this frame and how its cursor stands.

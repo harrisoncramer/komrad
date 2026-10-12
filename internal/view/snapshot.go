@@ -172,6 +172,7 @@ type Row struct {
 	HiddenCount int
 	// Workflow is the name of the workflow the row is filed under, rendered greyed after its marks.
 	Workflow string
+	Tail     Cell
 	// Faded greys a row the keyboard cannot reach.
 	Faded bool
 	// Nested says the row is an agent under its task's row, which carries the gutter for it.

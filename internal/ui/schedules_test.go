@@ -115,7 +115,7 @@ func TestSchedulesKeys(t *testing.T) {
 			name:         "rename on a long name keeps the cursor in view near its start",
 			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newSchedule("s1", "abcdefghijklmnopqrstuvwxyz0123456789")},
 			press:        []string{"r", "home", "right"},
-			wantRendered: []string{"a[b]cdefghijklmnopqrstuvwxyz012…"},
+			wantRendered: []string{"a[b]cdefghijklmnopqrstuvwxyz…"},
 		},
 		{
 			name:  "rename sends the typed name with the rest of the schedule as it was",
@@ -194,13 +194,13 @@ func TestSchedulesList(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Equal(t, schedulesScreen, harness.readScreen())
-		assert.Equal(t, []string{"◇ nightly  0 1 * * *", "◆ morning-ci  0 9 * * 1-5"}, readScheduleRows(frame))
+		assert.Equal(t, []string{"◇ nightly 0 1 * * *", "◆ morning-ci 0 9 * * 1-5"}, readScheduleRows(frame))
 	})
 
 	t.Run("an archived schedule is left to the archive", func(t *testing.T) {
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newArchivedSchedule("s2", "weekly-gone"))
 
-		assert.Equal(t, []string{"◆ morning-ci  0 9 * * 1-5"}, readScheduleRows(harness.readFrame()))
+		assert.Equal(t, []string{"◆ morning-ci 0 9 * * 1-5"}, readScheduleRows(harness.readFrame()))
 	})
 
 	t.Run("the cursor keeps its schedule as another lands above it", func(t *testing.T) {
@@ -244,13 +244,13 @@ func TestSchedulesFilter(t *testing.T) {
 		{
 			name:       "name: keeps the schedules whose name holds it",
 			query:      "name:CI",
-			wantRows:   []string{"◆ morning-ci  0 9 * * 1-5"},
+			wantRows:   []string{"◆ morning-ci 0 9 * * 1-5"},
 			wantSearch: "▽ name:CI",
 		},
 		{
 			name:       "workflow: keeps the schedules launching into it",
 			query:      "workflow:web",
-			wantRows:   []string{"◇ nightly  0 1 * * *"},
+			wantRows:   []string{"◇ nightly 0 1 * * *"},
 			wantSearch: "▽ workflow:web",
 		},
 		{
@@ -261,25 +261,25 @@ func TestSchedulesFilter(t *testing.T) {
 		{
 			name:       "is:paused keeps the paused schedules",
 			query:      "is:paused",
-			wantRows:   []string{"◇ nightly  0 1 * * *"},
+			wantRows:   []string{"◇ nightly 0 1 * * *"},
 			wantSearch: "▽ is:paused",
 		},
 		{
 			name:       "-is:paused keeps the armed schedules",
 			query:      "-is:paused",
-			wantRows:   []string{"◆ morning-ci  0 9 * * 1-5"},
+			wantRows:   []string{"◆ morning-ci 0 9 * * 1-5"},
 			wantSearch: "▽ -is:paused",
 		},
 		{
 			name:       "an is: other than paused is a problem on the line and takes nothing off",
 			query:      "is:armed",
-			wantRows:   []string{"◇ nightly  0 1 * * *", "◆ morning-ci  0 9 * * 1-5"},
+			wantRows:   []string{"◇ nightly 0 1 * * *", "◆ morning-ci 0 9 * * 1-5"},
 			wantSearch: "▽ is:armed  is:",
 		},
 		{
 			name:       "an unknown qualifier is a problem on the line and takes nothing off",
 			query:      "agent:quiet",
-			wantRows:   []string{"◇ nightly  0 1 * * *", "◆ morning-ci  0 9 * * 1-5"},
+			wantRows:   []string{"◇ nightly 0 1 * * *", "◆ morning-ci 0 9 * * 1-5"},
 			wantSearch: "▽ agent:quiet  agent: is not a qualifier",
 		},
 	}

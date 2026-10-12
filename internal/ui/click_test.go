@@ -35,11 +35,13 @@ func TestClickRow(t *testing.T) {
 	t.Run("a click on a row hands the keys back from the switcher", func(t *testing.T) {
 		harness := openAgents(t, buildWorktrees()...)
 		harness.press("shift+tab")
-		require.Empty(t, readHoveredRow(harness.readFrame()))
+		require.Contains(t, harness.readFrame(), "tab/S-tab switch")
 
 		harness.send(clickOn(t, harness.readFrame(), "reviewer"))
 
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "reviewer")
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "tab/S-tab switch")
+		assert.Contains(t, readHoveredRow(frame), "reviewer")
 	})
 
 	t.Run("a click on a row hands the keys back from the tabs", func(t *testing.T) {
@@ -50,6 +52,15 @@ func TestClickRow(t *testing.T) {
 		harness.send(clickOn(t, harness.readFrame(), "reviewer"))
 
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "reviewer")
+	})
+
+	t.Run("a click on a schedule puts the cursor on it", func(t *testing.T) {
+		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newPausedSchedule("s2", "nightly"))
+		require.Contains(t, readHoveredRow(harness.readFrame()), "nightly")
+
+		harness.send(clickOn(t, harness.readFrame(), "morning-ci"))
+
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "morning-ci")
 	})
 
 	t.Run("a right click leaves the cursor where it was", func(t *testing.T) {
