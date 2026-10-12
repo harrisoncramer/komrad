@@ -59,11 +59,6 @@ func (m *model) caretOf(section sidebarSection) view.Caret {
 	return view.CaretRendered
 }
 
-// cursorPrefix is the arrow a section renders on its hovered row.
-func (m *model) cursorPrefix(section sidebarSection) string {
-	return caretGlyph(m.caretOf(section))
-}
-
 func caretGlyph(caret view.Caret) string {
 	if caret != view.CaretRendered {
 		return blankCursor
