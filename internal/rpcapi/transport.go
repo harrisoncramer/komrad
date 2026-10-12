@@ -12,8 +12,7 @@ type hookAwareTransport struct {
 	awaiting http.RoundTripper
 }
 
-// NewTransport is the transport komrad's clients call the server over, which waits on a call that
-// awaits hooks for as long as the connection lives and on any other for xhttp's usual bounds.
+// NewTransport is the transport komrad's clients call the server over, with no header wait on a call that awaits hooks.
 func NewTransport() http.RoundTripper {
 	return hookAwareTransport{plain: xhttp.NewTransport(), awaiting: xhttp.NewStreamTransport()}
 }
