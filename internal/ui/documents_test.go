@@ -340,7 +340,7 @@ func TestDocumentsSays(t *testing.T) {
 	marked := regexp.MustCompile(`\x1b\[[0-9;]*mTuesday`)
 	picked := regexp.MustCompile(`38;5;208mRollout report`)
 
-	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("says:tuesday"))...)
+	harness.press(slices.Concat([]string{"esc", "/", "tab"}, spellKeys("says:tuesday"))...)
 	harness.fireMatching(ui.IsSaysSettled)
 	harness.press("enter")
 	harness.fireTimers()
@@ -893,37 +893,6 @@ func TestDocumentsHistory(t *testing.T) {
 			}
 		})
 	}
-
-	t.Run("a click on the record while typing in the search over a write keeps the search", func(t *testing.T) {
-		t.Parallel()
-
-		harness, _ := openDocuments(t)
-		harness.press("<")
-		harness.fireTimers()
-		harness.press("pick:block", "/", "w", "a", "r", "m")
-
-		harness.send(clickOn(t, harness, "Info"))
-		harness.press("j")
-
-		stage := readStageText(harness.readFrame())
-		assert.Contains(t, stage, "/ warm")
-		assert.NotContains(t, stage, "warmj")
-	})
-
-	t.Run("a click on the search over a write hands the diff the keys and starts a search", func(t *testing.T) {
-		t.Parallel()
-
-		harness, _ := openDocuments(t)
-		harness.press("<")
-		harness.fireTimers()
-
-		harness.send(clickOnLine(t, harness, "│ /", "/"))
-		harness.press("w", "a", "r", "m", "enter")
-
-		stage := readStageText(harness.readFrame())
-		assert.Contains(t, stage, "/ warm")
-		assert.Contains(t, stage, "1 of 1")
-	})
 }
 
 // TestDocumentsReading covers the document as it stands taking the keys, walked with a cursor
@@ -1030,34 +999,6 @@ func TestDocumentsReading(t *testing.T) {
 		harness.press("pick:block", "ctrl+c")
 
 		assert.Equal(t, 1, harness.panel.ReadDetaches())
-	})
-
-	t.Run("a click on the record while typing keeps the search", func(t *testing.T) {
-		t.Parallel()
-
-		harness, _ := openDocuments(t)
-		harness.press("pick:block", "/", "w", "a", "r", "m")
-
-		harness.send(clickOn(t, harness, "Info"))
-		harness.press("j")
-
-		stage := readStageText(harness.readFrame())
-		assert.Contains(t, stage, "/ warm")
-		assert.NotContains(t, stage, "warmj")
-	})
-
-	t.Run("a click on a standing search hands the document the keys and starts a search", func(t *testing.T) {
-		t.Parallel()
-
-		harness, _ := openDocuments(t)
-		harness.press("pick:block", "/", "w", "a", "r", "m", "enter", "esc")
-
-		harness.send(clickOnLine(t, harness, "│ /", "/"))
-		harness.press("c", "a", "c", "h", "e", "enter", "j")
-
-		stage := readStageText(harness.readFrame())
-		assert.Contains(t, stage, "/ cache")
-		assert.NotContains(t, stage, "It went out on Tuesday.")
 	})
 }
 

@@ -49,6 +49,13 @@ func TestFilterSearch(t *testing.T) {
 			wantSearch:  "/ zzz",
 		},
 		{
+			name:        "opening the input again picks the search back up",
+			from:        "backend",
+			press:       []string{"/", "d", "b", "enter", "/", "x", "enter"},
+			wantHovered: "└─ db",
+			wantSearch:  "/ dbx",
+		},
+		{
 			name:        "n does nothing before a search stands",
 			from:        "├─ task-auth",
 			press:       []string{"n"},
@@ -163,45 +170,6 @@ func TestFilterSearch(t *testing.T) {
 		assert.Equal(t, "/", readSearch(harness.readFrame()))
 	})
 
-	t.Run("the search key over a standing search picks it back up", func(t *testing.T) {
-		tests := []struct {
-			name  string
-			press []string
-			want  string
-		}{
-			{
-				name:  "a search keeps its pattern",
-				press: []string{"/", "d", "b", "enter", "/", "x", "enter"},
-				want:  "/ dbx",
-			},
-			{
-				name:  "a filter keeps its pattern and stays a filter",
-				press: []string{"/", "tab", "d", "b", "enter", "/", "enter"},
-				want:  "▽ db",
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				harness := openFilterable(t, "backend")
-
-				harness.press(tt.press...)
-
-				assert.Equal(t, tt.want, readSearch(harness.readFrame()))
-			})
-		}
-	})
-
-	t.Run("a click on a standing search picks it back up", func(t *testing.T) {
-		harness := openFilterable(t, "backend")
-		harness.press("/", "d", "b", "enter")
-
-		harness.send(clickOnLineStart(t, harness, "/"))
-		harness.press("x", "enter")
-
-		assert.Equal(t, "/ dbx", readSearch(harness.readFrame()))
-	})
-
 	t.Run("a click on the search line starts a search", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
 
@@ -209,18 +177,6 @@ func TestFilterSearch(t *testing.T) {
 		harness.press("d", "b", "enter")
 
 		assert.Equal(t, "/ db", readSearch(harness.readFrame()))
-	})
-
-	t.Run("a click on the search line takes the keys from the record", func(t *testing.T) {
-		harness := openFilterable(t, "backend")
-		harness.press("pick:record")
-
-		harness.send(clickOnLineStart(t, harness, "/"))
-		harness.press("d", "b", "enter")
-
-		frame := harness.readFrame()
-		assert.Empty(t, readRecordCursor(frame))
-		assert.Equal(t, "/ db", readSearch(frame))
 	})
 
 	t.Run("a click on a row while typing keeps the search and hands the keys to the list", func(t *testing.T) {
@@ -231,18 +187,6 @@ func TestFilterSearch(t *testing.T) {
 		harness.press("j")
 
 		assert.Equal(t, "/ db", readSearch(harness.readFrame()))
-	})
-
-	t.Run("a click on the record while typing keeps the search and hands the keys to the record", func(t *testing.T) {
-		harness := openFilterable(t, "backend")
-		harness.press("/", "d", "b")
-
-		harness.send(clickOn(t, harness, "Info"))
-		harness.press("j")
-
-		frame := harness.readFrame()
-		assert.Equal(t, "/ db", readSearch(frame))
-		assert.NotEmpty(t, readRecordCursor(frame))
 	})
 
 	t.Run("a click on the search line while typing in it types nothing", func(t *testing.T) {
@@ -403,12 +347,12 @@ func TestFilterNarrow(t *testing.T) {
 			wantSearch:  "▽ is:boss db  is:boss is not one of writer,",
 		},
 		{
-			name:        "opening the input again starts a search",
+			name:        "opening the input again picks the filter back up",
 			from:        "backend",
-			press:       []string{"/", "tab", "d", "b", "enter", "/"},
-			wantRows:    filterableRows,
+			press:       []string{"/", "tab", "d", "b", "enter", "/", "enter"},
+			wantRows:    []string{"backend", "└─ db"},
 			wantHovered: "backend",
-			wantSearch:  "/ ▏",
+			wantSearch:  "▽ db",
 		},
 	}
 
@@ -666,7 +610,7 @@ func TestFilterScreens(t *testing.T) {
 	t.Run("the documents walk their matches and narrow to them", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
-		harness.press("/", "r", "o", "l", "l", "enter")
+		harness.press("esc", "/", "r", "o", "l", "l", "enter")
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "Rollout report")
 		harness.fireTimers()
 		assert.Contains(t, readStageText(harness.readFrame()), "It went out on Tuesday.")

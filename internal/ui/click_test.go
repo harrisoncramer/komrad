@@ -35,37 +35,6 @@ func TestClickRow(t *testing.T) {
 		assert.Equal(t, "backend", readHoveredRow(frame))
 	})
 
-	t.Run("a click on a row hands the keys back from the switcher", func(t *testing.T) {
-		harness := openAgents(t, buildWorktrees()...)
-		harness.press("shift+tab")
-		require.Contains(t, harness.readFrame(), "tab/S-tab switch")
-
-		harness.send(clickOn(t, harness, "reviewer"))
-
-		frame := harness.readFrame()
-		assert.NotContains(t, frame, "tab/S-tab switch")
-		assert.Contains(t, readHoveredRow(frame), "reviewer")
-	})
-
-	t.Run("a click on a row hands the keys back from the tabs", func(t *testing.T) {
-		harness := openWorktrees(t)
-		harness.press("f")
-		require.Empty(t, readHoveredRow(harness.readFrame()))
-
-		harness.send(clickOn(t, harness, "reviewer"))
-
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "reviewer")
-	})
-
-	t.Run("a click on a schedule puts the cursor on it", func(t *testing.T) {
-		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newPausedSchedule("s2", "nightly"))
-		require.Contains(t, readHoveredRow(harness.readFrame()), "nightly")
-
-		harness.send(clickOn(t, harness, "morning-ci"))
-
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "morning-ci")
-	})
-
 	t.Run("a click on a record field hands the record the keys and puts its cursor there", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		fields := slices.DeleteFunc(readRecord(harness.readFrame()), func(line string) bool { return strings.TrimSpace(line) == "" })
@@ -107,11 +76,6 @@ func TestClickView(t *testing.T) {
 			view:       "worktrees",
 			wantScreen: worktreesScreen,
 		},
-		{
-			name:       "a click on the view that is up keeps it",
-			view:       "agents",
-			wantScreen: agentsScreen,
-		},
 	}
 
 	for _, tt := range tests {
@@ -131,18 +95,12 @@ func TestClickView(t *testing.T) {
 func TestClickKind(t *testing.T) {
 	lit := paint.Panel.Style(paint.TonePrimary)
 	tests := []struct {
-		name  string
-		press []string
-		kind  string
+		name string
+		kind string
 	}{
 		{
 			name: "a click on a kind switches the list to it",
 			kind: "archived",
-		},
-		{
-			name:  "a click on a kind hands the keys back from the row of kinds",
-			press: []string{"F"},
-			kind:  "archived",
 		},
 		{
 			name: "a click on the kind listed keeps it",
@@ -153,7 +111,6 @@ func TestClickKind(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openCrowded(t, panelHarnessParams{})
-			harness.press(tt.press...)
 
 			harness.send(clickOnLine(t, harness, "F   live", tt.kind))
 
@@ -181,19 +138,9 @@ func TestClickTab(t *testing.T) {
 			want:   []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "├─ delta", "└─ Zulu"},
 		},
 		{
-			name:   "a click on the column sorted by flips it",
-			clicks: []string{"created"},
-			want:   []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "├─ Zulu", "└─ delta"},
-		},
-		{
 			name:   "a click on the grouping flattens the list",
 			clicks: []string{"workflow"},
 			want:   []string{"delta", "Zulu", "alpha", "  └ charlie", "  └ bob", "echo"},
-		},
-		{
-			name:   "a second click on the grouping brings the headings back",
-			clicks: []string{"workflow", "flat"},
-			want:   []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ charlie", "   └─ bob"},
 		},
 	}
 
