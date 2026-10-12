@@ -293,12 +293,12 @@ func (m *model) filteredRows() ([]filterRow, bool) {
 		return m.detailsFilterRows(), true
 	}
 
-	rows, ok := m.active().(listFilterer)
+	rows, ok := m.active().(activeLister)
 	if !ok {
 		return nil, false
 	}
 
-	return rows.filterRows(m), true
+	return rows.activeList().filterRows(m), true
 }
 
 // beginFilter starts a search from nothing, keeping the cursor on the row it was on.
@@ -464,12 +464,12 @@ func (m *model) hoveredFilterKey() string {
 		return m.hoveredDetailsKey()
 	}
 
-	rows, ok := m.active().(listFilterer)
+	rows, ok := m.active().(activeLister)
 	if !ok {
 		return ""
 	}
 
-	return rows.hoveredKey(m)
+	return rows.activeList().hovered(m)
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
@@ -479,8 +479,8 @@ func (m *model) placeFilteredCursor(hovered string) {
 		return
 	}
 
-	if rows, ok := m.active().(listFilterer); ok {
-		rows.placeAt(m, hovered)
+	if rows, ok := m.active().(activeLister); ok {
+		rows.activeList().place(m, hovered)
 	}
 }
 

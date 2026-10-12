@@ -219,7 +219,7 @@ func (w *worktreesScreen) countUnder(repo string) int {
 
 var (
 	_ recordRenderer      = (*worktreesScreen)(nil)
-	_ listFilterer        = (*worktreesScreen)(nil)
+	_ activeLister        = (*worktreesScreen)(nil)
 	_ kindSwitcher        = (*worktreesScreen)(nil)
 	_ tabSwitcher         = (*worktreesScreen)(nil)
 	_ rowStager           = (*worktreesScreen)(nil)
@@ -244,20 +244,12 @@ func (w *worktreesScreen) detailsRoom(m *model) int {
 	return m.listRecordRoom(w.listParams(m))
 }
 
-func (w *worktreesScreen) hoveredKey(m *model) string {
-	return w.list().hovered(m)
+func (w *worktreesScreen) activeList() keyedList {
+	return w.list()
 }
 
 func (w *worktreesScreen) hoveredName(m *model) string {
 	return w.list().hoveredName(m)
-}
-
-func (w *worktreesScreen) placeAt(m *model, key string) {
-	w.list().place(m, key)
-}
-
-func (w *worktreesScreen) filterRows(m *model) []filterRow {
-	return w.list().filterRows(m)
 }
 
 func (w *worktreesScreen) tabs() tabStrip {
@@ -284,8 +276,4 @@ func (w *worktreesScreen) column() columnSpec {
 
 func (w *worktreesScreen) dispatches(*model) []dispatching {
 	return []dispatching{w.actions()}
-}
-
-func (w *worktreesScreen) clickRow(m *model, key string, nth int) tea.Cmd {
-	return w.list().click(m, key, nth)
 }

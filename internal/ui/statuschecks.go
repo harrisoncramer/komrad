@@ -270,21 +270,13 @@ func (c *statusChecksScreen) dispatches(*model) []dispatching {
 
 var (
 	_ kindSwitcher    = (*statusChecksScreen)(nil)
-	_ listFilterer    = (*statusChecksScreen)(nil)
+	_ activeLister    = (*statusChecksScreen)(nil)
 	_ crumbRenderer   = (*statusChecksScreen)(nil)
 	_ loadingReporter = (*statusChecksScreen)(nil)
 )
 
-func (c *statusChecksScreen) hoveredKey(m *model) string {
-	return c.list().hovered(m)
-}
-
-func (c *statusChecksScreen) placeAt(m *model, key string) {
-	c.list().place(m, key)
-}
-
-func (c *statusChecksScreen) filterRows(m *model) []filterRow {
-	return c.list().filterRows(m)
+func (c *statusChecksScreen) activeList() keyedList {
+	return c.list()
 }
 
 // statusChecksListedMsg is the status checks on one pull request's newest head come back.
@@ -497,8 +489,4 @@ func (c statusCheckCommit) tally() string {
 	}
 
 	return strings.Join(parts, separated)
-}
-
-func (c *statusChecksScreen) clickRow(m *model, key string, nth int) tea.Cmd {
-	return c.list().click(m, key, nth)
 }

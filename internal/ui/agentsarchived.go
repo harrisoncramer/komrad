@@ -431,7 +431,7 @@ func archivedAgentTabs() tabStrip {
 
 var (
 	_ recordRenderer       = (*archivedAgents)(nil)
-	_ listFilterer         = (*archivedAgents)(nil)
+	_ activeLister         = (*archivedAgents)(nil)
 	_ kindSwitcher         = (*archivedAgents)(nil)
 	_ tabSwitcher          = (*archivedAgents)(nil)
 	_ rowStager            = (*archivedAgents)(nil)
@@ -460,20 +460,12 @@ func (a *archivedAgents) detailsRoom(m *model) int {
 	return m.listRecordRoom(a.listParams(m))
 }
 
-func (a *archivedAgents) hoveredKey(m *model) string {
-	return a.list().hovered(m)
+func (a *archivedAgents) activeList() keyedList {
+	return a.list()
 }
 
 func (a *archivedAgents) hoveredName(m *model) string {
 	return a.list().hoveredName(m)
-}
-
-func (a *archivedAgents) placeAt(m *model, key string) {
-	a.list().place(m, key)
-}
-
-func (a *archivedAgents) filterRows(m *model) []filterRow {
-	return a.list().filterRows(m)
 }
 
 func (a *archivedAgents) tabs() tabStrip {
@@ -539,8 +531,4 @@ func (a *archivedAgents) settleRename(m *model, row string, err error) {
 
 func (a *archivedAgents) dispatches(*model) []dispatching {
 	return []dispatching{a.actions()}
-}
-
-func (a *archivedAgents) clickRow(m *model, key string, nth int) tea.Cmd {
-	return a.list().click(m, key, nth)
 }

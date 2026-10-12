@@ -285,23 +285,15 @@ func (c *statusCheckLogsScreen) dispatches(*model) []dispatching {
 
 var (
 	_ kindSwitcher    = (*statusCheckLogsScreen)(nil)
-	_ listFilterer    = (*statusCheckLogsScreen)(nil)
+	_ activeLister    = (*statusCheckLogsScreen)(nil)
 	_ crumbRenderer   = (*statusCheckLogsScreen)(nil)
 	_ loadingReporter = (*statusCheckLogsScreen)(nil)
 	_ screenLeaver    = (*statusCheckLogsScreen)(nil)
 	_ docNamer        = (*statusCheckLogsScreen)(nil)
 )
 
-func (c *statusCheckLogsScreen) hoveredKey(m *model) string {
-	return c.list().hovered(m)
-}
-
-func (c *statusCheckLogsScreen) placeAt(m *model, key string) {
-	c.list().place(m, key)
-}
-
-func (c *statusCheckLogsScreen) filterRows(m *model) []filterRow {
-	return c.list().filterRows(m)
+func (c *statusCheckLogsScreen) activeList() keyedList {
+	return c.list()
 }
 
 // docName names the one document every row of the list reads, so moving the cursor keeps the reader's place.
@@ -400,8 +392,4 @@ func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
 	c.reanchor(m)
 
 	return next
-}
-
-func (c *statusCheckLogsScreen) clickRow(m *model, key string, nth int) tea.Cmd {
-	return c.list().click(m, key, nth)
 }

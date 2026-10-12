@@ -262,7 +262,7 @@ func (w *schedulesScreen) help(m *model) keyMap {
 
 var (
 	_ recordRenderer    = (*schedulesScreen)(nil)
-	_ listFilterer      = (*schedulesScreen)(nil)
+	_ activeLister      = (*schedulesScreen)(nil)
 	_ hoveredNamer      = (*schedulesScreen)(nil)
 	_ screenMenuBuilder = (*schedulesScreen)(nil)
 	_ itemMenuBuilder   = (*schedulesScreen)(nil)
@@ -287,20 +287,12 @@ func (w *schedulesScreen) detailsRoom(m *model) int {
 	return m.listRecordRoom(w.listParams(m))
 }
 
-func (w *schedulesScreen) hoveredKey(m *model) string {
-	return w.list().hovered(m)
+func (w *schedulesScreen) activeList() keyedList {
+	return w.list()
 }
 
 func (w *schedulesScreen) hoveredName(m *model) string {
 	return w.list().hoveredName(m)
-}
-
-func (w *schedulesScreen) placeAt(m *model, key string) {
-	w.list().place(m, key)
-}
-
-func (w *schedulesScreen) filterRows(m *model) []filterRow {
-	return w.list().filterRows(m)
 }
 
 // column is the hovered schedule's own record rendered beside the list.
@@ -323,7 +315,7 @@ func (w *schedulesScreen) openRename(m *model) tea.Cmd {
 }
 
 func (w *schedulesScreen) reconcileRename(m *model) {
-	reconcileRename(&w.renameSlot, w.listRows(m), w.hoveredKey(m), scheduleItemName)
+	reconcileRename(&w.renameSlot, w.listRows(m), w.list().hovered(m), scheduleItemName)
 }
 
 func (w *schedulesScreen) settleRename(m *model, row string, err error) {

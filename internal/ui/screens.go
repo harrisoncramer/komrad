@@ -86,18 +86,24 @@ type recordRenderer interface {
 	detailsRoom(m *model) int
 }
 
-// listFilterer is a screen whose list the user can narrow by typing a pattern.
-type listFilterer interface {
-	// hoveredKey is the key of the row the cursor is on, read before the pattern changes.
-	hoveredKey(m *model) string
+// activeLister is a screen whose list the user can narrow by typing a pattern.
+type activeLister interface {
+	activeList() keyedList
+}
 
-	// placeAt puts the cursor back on that row, or as near to where it was as the narrowed list
+type keyedList interface {
+	// hovered is the key of the row the cursor is on, read before the pattern changes.
+	hovered(m *model) string
+
+	// place puts the cursor back on that row, or as near to where it was as the narrowed list
 	// allows.
-	placeAt(m *model, key string)
+	place(m *model, key string)
 
 	// filterRows is every row on screen with the text a search reads, in the order they are
 	// rendered.
 	filterRows(m *model) []filterRow
+
+	click(m *model, key string, nth int) tea.Cmd
 }
 
 // filterRow is one row a search can land on: the key that names it and the text it matches by.

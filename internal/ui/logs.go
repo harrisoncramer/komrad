@@ -524,7 +524,7 @@ func (l *logsScreen) move(lines int) tea.Cmd {
 }
 
 var (
-	_ listFilterer  = (*logsScreen)(nil)
+	_ activeLister  = (*logsScreen)(nil)
 	_ columnFocuser = (*logsScreen)(nil)
 	_ crumbRenderer = (*logsScreen)(nil)
 	_ screenLeaver  = (*logsScreen)(nil)
@@ -532,16 +532,8 @@ var (
 	_ kindSwitcher  = (*logsScreen)(nil)
 )
 
-func (l *logsScreen) hoveredKey(m *model) string {
-	return l.list().hovered(m)
-}
-
-func (l *logsScreen) placeAt(m *model, key string) {
-	l.list().place(m, key)
-}
-
-func (l *logsScreen) filterRows(m *model) []filterRow {
-	return l.list().filterRows(m)
+func (l *logsScreen) activeList() keyedList {
+	return l.list()
 }
 
 func (l *logsScreen) typedLine() (lineInput, bool) {

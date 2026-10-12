@@ -484,7 +484,7 @@ func (m *model) applyDocumentRead(msg documentReadMsg) {
 }
 
 var (
-	_ listFilterer     = (*documentsScreen)(nil)
+	_ activeLister     = (*documentsScreen)(nil)
 	_ columnFocuser    = (*documentsScreen)(nil)
 	_ crumbRenderer    = (*documentsScreen)(nil)
 	_ screenLeaver     = (*documentsScreen)(nil)
@@ -520,30 +520,12 @@ func (d *documentsScreen) column() columnSpec {
 	}
 }
 
-func (d *documentsScreen) hoveredKey(m *model) string {
+func (d *documentsScreen) activeList() keyedList {
 	if d.kind == documentKindTypes {
-		return d.documentTypeList().hovered(m)
+		return d.documentTypeList()
 	}
 
-	return d.list().hovered(m)
-}
-
-func (d *documentsScreen) placeAt(m *model, key string) {
-	if d.kind == documentKindTypes {
-		d.documentTypeList().place(m, key)
-
-		return
-	}
-
-	d.list().place(m, key)
-}
-
-func (d *documentsScreen) filterRows(m *model) []filterRow {
-	if d.kind == documentKindTypes {
-		return d.documentTypeList().filterRows(m)
-	}
-
-	return d.list().filterRows(m)
+	return d.list()
 }
 
 func (d *documentsScreen) dispatches(m *model) []dispatching {
@@ -556,12 +538,4 @@ func (d *documentsScreen) detailsFit(m *model) bool {
 
 func (d *documentsScreen) detailsRoom(m *model) int {
 	return m.listRecordRoom(d.listParams(m))
-}
-
-func (d *documentsScreen) clickRow(m *model, key string, nth int) tea.Cmd {
-	if d.kind == documentKindTypes {
-		return d.documentTypeList().click(m, key, nth)
-	}
-
-	return d.list().click(m, key, nth)
 }

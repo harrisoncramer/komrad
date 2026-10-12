@@ -10,7 +10,7 @@ type WindowParams struct {
 	Width int
 	// Lines is how many rows of the pane the list has to itself.
 	Lines int
-	Mark func(index int, row string) string
+	Mark  func(index int, row string) string
 }
 
 // Window is the screenful of a list a pane holds, scrolled so the focused row is inside it and

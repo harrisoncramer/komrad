@@ -327,7 +327,7 @@ func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
 
 var (
 	_ recordRenderer       = (*agentsScreen)(nil)
-	_ listFilterer         = (*agentsScreen)(nil)
+	_ activeLister         = (*agentsScreen)(nil)
 	_ tabSwitcher          = (*agentsScreen)(nil)
 	_ screenLeaver         = (*agentsScreen)(nil)
 	_ rowStager            = (*agentsScreen)(nil)
@@ -359,20 +359,12 @@ func (a *agentsScreen) detailsRoom(m *model) int {
 	return m.listRecordRoom(a.listParams(m))
 }
 
-func (a *agentsScreen) hoveredKey(m *model) string {
-	return a.list().hovered(m)
+func (a *agentsScreen) activeList() keyedList {
+	return a.list()
 }
 
 func (a *agentsScreen) hoveredName(m *model) string {
 	return a.list().hoveredName(m)
-}
-
-func (a *agentsScreen) placeAt(m *model, key string) {
-	a.list().place(m, key)
-}
-
-func (a *agentsScreen) filterRows(m *model) []filterRow {
-	return a.list().filterRows(m)
 }
 
 func (a *agentsScreen) tabs() tabStrip {
@@ -423,7 +415,7 @@ func (a *agentsScreen) openRename(m *model) tea.Cmd {
 }
 
 func (a *agentsScreen) reconcileRename(m *model) {
-	reconcileRename(&a.renameSlot, a.rows(m), a.hoveredKey(m), agentRowName)
+	reconcileRename(&a.renameSlot, a.rows(m), a.list().hovered(m), agentRowName)
 }
 
 func (a *agentsScreen) settleRename(m *model, row string, err error) {
@@ -434,8 +426,4 @@ func (a *agentsScreen) settleRename(m *model, row string, err error) {
 
 func (a *agentsScreen) dispatches(*model) []dispatching {
 	return []dispatching{a.actions(), a.archived.actions()}
-}
-
-func (a *agentsScreen) clickRow(m *model, key string, nth int) tea.Cmd {
-	return a.list().click(m, key, nth)
 }

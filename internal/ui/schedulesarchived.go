@@ -197,7 +197,7 @@ func (a *archivedSchedules) help(m *model) keyMap {
 
 var (
 	_ recordRenderer  = (*archivedSchedules)(nil)
-	_ listFilterer    = (*archivedSchedules)(nil)
+	_ activeLister    = (*archivedSchedules)(nil)
 	_ rowStager       = (*archivedSchedules)(nil)
 	_ hoveredNamer    = (*archivedSchedules)(nil)
 	_ itemMenuBuilder = (*archivedSchedules)(nil)
@@ -220,20 +220,12 @@ func (a *archivedSchedules) detailsRoom(m *model) int {
 	return m.listRecordRoom(a.listParams(m))
 }
 
-func (a *archivedSchedules) hoveredKey(m *model) string {
-	return a.list().hovered(m)
+func (a *archivedSchedules) activeList() keyedList {
+	return a.list()
 }
 
 func (a *archivedSchedules) hoveredName(m *model) string {
 	return a.list().hoveredName(m)
-}
-
-func (a *archivedSchedules) placeAt(m *model, key string) {
-	a.list().place(m, key)
-}
-
-func (a *archivedSchedules) filterRows(m *model) []filterRow {
-	return a.list().filterRows(m)
 }
 
 func (a *archivedSchedules) column() columnSpec {

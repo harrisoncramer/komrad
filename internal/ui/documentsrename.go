@@ -52,7 +52,7 @@ func (d *documentsScreen) openRename(m *model) tea.Cmd {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func (d *documentsScreen) reconcileRename(m *model) {
-	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(m), d.hoveredKey(m), func(r documentRow) string { return r.item.name }) {
+	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(m), d.activeList().hovered(m), func(r documentRow) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }

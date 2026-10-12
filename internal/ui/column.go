@@ -247,8 +247,8 @@ func (m *model) paneWidth() int {
 // changes.
 func (m *model) docShown() string {
 	hovered := m.hoveredDetails().id
-	if f, ok := m.active().(listFilterer); ok {
-		hovered = f.hoveredKey(m)
+	if f, ok := m.active().(activeLister); ok {
+		hovered = f.activeList().hovered(m)
 	}
 	if n, ok := m.active().(docNamer); ok {
 		hovered = n.docName(m)
