@@ -472,7 +472,7 @@ func (s *ReviewService) AddReviewMessage(
 
 		event, err := events.NewEvent(answered{
 			TaskID:     thread.TaskID,
-			AgentID:    *params.Author.AgentID,
+			WriterID:   *params.Author.AgentID,
 			ReviewerID: *thread.ReviewAuthorAgentID,
 		})
 		if err != nil {
