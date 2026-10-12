@@ -224,7 +224,7 @@ func readWriter(ctx context.Context, agents *agentstore.AgentStore, task tasksto
 }
 
 // recheckWriter reads the task's writer again once its checkout is locked, waiting out a launch
-// claiming the task as it does, and refuses a writer that joined since the target was read.
+// claiming the task as it does, and refuses a writer that came back since the target was read.
 func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		if _, err := taskstore.NewTaskStore(db).GetUndeletedForUpdate(ctx, target.task.ID); err != nil {
@@ -238,7 +238,7 @@ func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) erro
 		if err != nil {
 			return err
 		}
-		if target.writer == nil || writer.ID != target.writer.ID {
+		if target.writer == nil {
 			return fmt.Errorf("%w: %q started writing task %q", errBusy, writer.Name, target.task.Slug)
 		}
 

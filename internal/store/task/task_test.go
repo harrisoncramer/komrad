@@ -457,8 +457,8 @@ func TestListWatched(t *testing.T) {
 func TestListWatchedDocuments(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
-	first := stores.SeedAgent(t, agentstore.Agent{Name: "first"})
-	second := stores.SeedAgent(t, agentstore.Agent{Name: "second", TaskID: first.TaskID})
+	writer := stores.SeedAgent(t, agentstore.Agent{Name: "writer"})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", Role: agentstore.RoleReviewer, TaskID: writer.TaskID})
 	elsewhere := stores.SeedAgent(t, agentstore.Agent{Name: "elsewhere"})
 
 	watched := func(id string) taskstore.Task {
@@ -469,7 +469,7 @@ func TestListWatchedDocuments(t *testing.T) {
 		return listed[0]
 	}
 
-	task := watched(*first.TaskID)
+	task := watched(*writer.TaskID)
 	assert.Zero(t, task.Documents)
 	assert.Nil(t, task.DocumentsUpdatedAt, "a task with no documents has no newest write")
 
@@ -484,10 +484,10 @@ func TestListWatchedDocuments(t *testing.T) {
 
 		return created
 	}
-	write(first.ID, "plan")
-	newest := write(second.ID, "notes")
+	write(writer.ID, "plan")
+	newest := write(reviewer.ID, "notes")
 
-	task = watched(*first.TaskID)
+	task = watched(*writer.TaskID)
 	assert.Equal(t, int32(2), task.Documents, "every agent on the task counts toward it")
 	require.NotNil(t, task.DocumentsUpdatedAt)
 	assert.True(t, task.DocumentsUpdatedAt.Equal(newest.UpdatedAt), "the newest write is the one that landed last")

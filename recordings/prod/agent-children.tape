@@ -1,5 +1,5 @@
-# The video under "Children" on the agents guide: ask the orchestrator to split some reading
-# into three agents and watch them appear under the workflow. agent-children.before makes the
+# The video under "Starting agents" on the agents guide: ask the orchestrator to split some reading
+# into three tasks and watch them appear under the workflow. agent-children.before makes the
 # workflow out of shot. The orchestrator and its three agents run real Claude sessions, which
 # the recording leaves working.
 Source recordings/shell.tape

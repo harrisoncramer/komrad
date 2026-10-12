@@ -65,34 +65,34 @@ On the workflow's row, open the menu with <Key name="menu.open" /> and press <Ke
 
 ## Agent Lifecycle
 
-Every moment in an agent's life has a hook before it and a hook after it. Komrad waits for a `pre-` hook, and one that fails refuses the step. It never waits for a `post-` hook.
+Every moment in a writer agent's life has a hook before it and a hook after it. Komrad waits for a `pre-` hook, and one that fails refuses the step. It never waits for a `post-` hook.
 
-| Moment               | Fires                                                                                    | If it fails                                                                                          |
-| -------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `agent.pre-launch`   | Once the agent's directory exists, before its CLI starts.                                | The agent is not started and stays in the list marked as failed, so you can fix the cause and retry. |
-| `agent.post-launch`  | Once the CLI is up.                                                                      | The run's log says so.                                                                               |
-| `agent.pre-resume`   | Before a dormant agent's CLI starts again.                                               | The agent is not resumed and stays dormant.                                                          |
-| `agent.post-resume`  | Once a dormant agent's CLI is back up.                                                   | The run's log says so.                                                                               |
-| `agent.pre-archive`  | While the CLI is still running, before its pane is closed.                               | Nothing in the archive call is archived.                                                             |
-| `agent.post-archive` | Once the pane is closed and the agent is in the archive.                                 | The run's log says so, and the agent stays archived.                                                 |
-| `agent.pre-restore`  | While the agent is still in the archive.                                                 | Nothing in the restore call is restored.                                                             |
-| `agent.post-restore` | Once the agent is back in the list, dormant.                                             | The run's log says so.                                                                               |
-| `agent.pre-delete`   | Once the panes are closed, while the worktree is still there.                            | The delete stops, and the agent is marked as failed to clean up.                                     |
-| `agent.post-delete`  | Once the agent's row is gone, and its task's worktree too when the delete took the task. | Komrad's own log says so, since the agent has no run log left.                                       |
+| Moment               | Fires                                                         | If it fails                                                                                          |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `agent.pre-launch`   | Once the agent's directory exists, before its CLI starts.     | The agent is not started and stays in the list marked as failed, so you can fix the cause and retry. |
+| `agent.post-launch`  | Once the CLI is up.                                           | The run's log says so.                                                                               |
+| `agent.pre-resume`   | Before a dormant agent's CLI starts again.                    | The agent is not resumed and stays dormant.                                                          |
+| `agent.post-resume`  | Once a dormant agent's CLI is back up.                        | The run's log says so.                                                                               |
+| `agent.pre-archive`  | While the CLI is still running, before its pane is closed.    | Nothing in the archive call is archived.                                                             |
+| `agent.post-archive` | Once the pane is closed and the agent is in the archive.      | The run's log says so, and the agent stays archived.                                                 |
+| `agent.pre-restore`  | While the agent is still in the archive.                      | Nothing in the restore call is restored.                                                             |
+| `agent.post-restore` | Once the agent is back in the list, dormant.                  | The run's log says so.                                                                               |
+| `agent.pre-delete`   | Once the panes are closed, while the worktree is still there. | The delete stops, and the agent is marked as failed to clean up.                                     |
+| `agent.post-delete`  | Once the agent's row is gone, along with its task's worktree. | Komrad's own log says so, since the agent has no run log left.                                       |
 
-Anything one agent brought up that should not outlive it, such as a server it started, belongs on `agent.post-archive`. Put it on `agent.pre-delete` as well, written so it is safe to run twice, to cover an agent deleted without being archived.
+Hooks run one at a time, in the order the lifecycle events happen. A call that waits on a `pre-` hook, such as `archive_agents` from MCP or <Command path="rpc" />, is given eleven minutes rather than the usual thirty seconds.
 
-Hooks run one at a time, in the order the lifecycle events happen. A call that waits on a `pre-` hook, such as `archive_agents` from MCP or <Command path="rpc" />, is given eleven minutes rather than the usual thirty seconds. Reviewers and the other children of a task's writer run no agent hooks.
+Only writer agents run agent hooks. Reviewers and orchestrators do not.
 
 ## Task Lifecycle
 
-A task has moments of its own, which fire for the task as a whole rather than for each agent on it. Hang anything that belongs to the task's worktree here rather than on an agent, since a reviewer or a second agent shares that worktree and comes and goes without it.
+A task has moments of its own, which fire for the task as a whole. Hang anything that belongs to the task's worktree here rather than on an agent, since the writer can restart and reviewers come and go while the worktree stays.
 
-| Moment              | Fires                                                                                              | If it fails                                                                                  |
-| ------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `task.pre-open`     | When an agent starts on a task no live agent works on, whether it is created, retried or restored. | The agent is not started, as when its `agent.pre-launch` hook fails, or nothing is restored. |
-| `task.post-archive` | Once the task's last live agent is archived and the task with it.                                  | The run's log says so, and the task stays archived.                                          |
-| `task.pre-delete`   | When the task is deleted, once no agent is left on it and before its worktree is given back.       | The task stays archived with the reason, and its worktree stays where it was.                |
+| Moment              | Fires                                                                                        | If it fails                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `task.pre-open`     | When the task's writer starts, whether the task is created, retried or restored.             | The writer is not started, as when its `agent.pre-launch` hook fails, or nothing is restored. |
+| `task.post-archive` | Once the task is archived, along with every agent on it.                                     | The run's log says so, and the task stays archived.                                           |
+| `task.pre-delete`   | When the task is deleted, once no agent is left on it and before its worktree is given back. | The task stays archived with the reason, and its worktree stays where it was.                 |
 
 `task.pre-open` and `task.post-archive` run as the agent that brought them about, but their logs sit on the task's row rather than that agent's. A task's logs list every run on it, its own hooks and those of each agent on it, and an agent's logs list only its own. `task.pre-delete` runs after every agent on the task is gone, so it has no `KOMRAD_AGENT_ID` and only komrad's own log records it. A task's hooks run one at a time, so `task.pre-open` waits for a `task.post-archive` still running from the last time the task closed.
 
