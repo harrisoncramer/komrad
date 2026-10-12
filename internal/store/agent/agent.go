@@ -117,6 +117,8 @@ type Agent struct {
 
 	// Alive is whether the agent still owns the pane its row names.
 	Alive bool
+
+	// Hooks is the hooks the agent's latest launch installed, empty when that launch failed or never ran.
 	Hooks []string
 }
 

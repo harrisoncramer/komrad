@@ -10,7 +10,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 )
 
-type hooksRecorder interface {
+type hooksSetter interface {
 	SetHooksByID(ctx context.Context, id string, hooks []string) error
 }
 
@@ -18,7 +18,7 @@ type agentStarter struct {
 	tmux     paneController
 	launcher *Launcher
 	scripts  agentScriptRunner
-	agents   hooksRecorder
+	agents   hooksSetter
 }
 
 type startMode interface {
