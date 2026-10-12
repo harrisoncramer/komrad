@@ -47,7 +47,7 @@ func TestDeleteIfEmpty(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 

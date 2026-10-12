@@ -245,7 +245,7 @@ type launchParams struct {
 	Resume       bool
 }
 
-func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchParams) error {
+func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchParams) ([]string, error) {
 	role := params.Role
 	if role == "" {
 		role = agentstore.RoleWriter
@@ -253,7 +253,7 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 
 	if l.trustLaunchDirs[h.ID()] && params.Dir != "" {
 		if err := h.TrustDir(params.Dir); err != nil {
-			return fmt.Errorf("failed to trust the launch directory: %w", err)
+			return nil, fmt.Errorf("failed to trust the launch directory: %w", err)
 		}
 	}
 
@@ -273,12 +273,12 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 		AutoCompaction: l.getAutoCompaction(role),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to build the launch command: %w", err)
+		return nil, fmt.Errorf("failed to build the launch command: %w", err)
 	}
 
 	path, err := harness.WriteTempText(l.cacheDir, "launch-*.sh", command+"\n")
 	if err != nil {
-		return fmt.Errorf("failed to write the launch script: %w", err)
+		return nil, fmt.Errorf("failed to write the launch script: %w", err)
 	}
 
 	shell := l.tmux.GetDefaultShell()
@@ -290,14 +290,15 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 		"; tmux set-option -p -t " + harness.QuoteArg(params.Pane) + " " + tmux.CLIExitedOption + " 1" +
 		"; exec " + harness.QuoteArg(shell) + " -l -i"
 	if err := l.tmux.RespawnPane(params.Pane, params.Dir, shell, "-l", "-i", "-c", script); err != nil {
-		return fmt.Errorf("failed to start the agent in its pane: %w", err)
+		return nil, fmt.Errorf("failed to start the agent in its pane: %w", err)
 	}
 
+	hooks := l.installedHooks(h)
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "launched an agent with its hooks",
 		slog.String(logging.TargetAgentID, params.AgentID),
-		slog.Any(logging.HookInstalled, l.installedHooks(h)))
+		slog.Any(logging.HookInstalled, hooks))
 
-	return nil
+	return hooks, nil
 }
 
 // installedHooks is the hooks a launch gets, none when komrad has no binary to point them at.

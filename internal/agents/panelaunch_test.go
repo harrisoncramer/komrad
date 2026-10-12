@@ -57,7 +57,7 @@ func TestLaunchStartsTheHarnessCommand(t *testing.T) {
 				CacheDir: cache,
 			})
 
-			err := launcher.launch(t.Context(), fakeHarness, launchParams{
+			_, err := launcher.launch(t.Context(), fakeHarness, launchParams{
 				Pane:      "pane",
 				Dir:       "/work",
 				SessionID: "sess",
@@ -110,7 +110,8 @@ func TestLaunchFallsBackToAPOSIXShell(t *testing.T) {
 		CacheDir: t.TempDir(),
 	})
 
-	require.NoError(t, launcher.launch(t.Context(), &harnesstest.Fake{}, launchParams{Pane: "pane"}))
+	_, err := launcher.launch(t.Context(), &harnesstest.Fake{}, launchParams{Pane: "pane"})
+	require.NoError(t, err)
 
 	assert.Equal(t, fallbackShell, tmux.LastRespawn("pane").Argv[0])
 }
@@ -122,14 +123,15 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
 
-	require.NoError(t, launcher.launch(t.Context(), fakeHarness, launchParams{
+	_, err := launcher.launch(t.Context(), fakeHarness, launchParams{
 		Pane:      "pane",
 		Flags:     "--model opus",
 		Prompt:    "do the thing",
 		SessionID: "sess",
 		AgentID:   "id-1",
 		Resume:    true,
-	}))
+	})
+	require.NoError(t, err)
 
 	require.Len(t, fakeHarness.Launches, 1)
 	launch := fakeHarness.Launches[0]
@@ -179,7 +181,8 @@ func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 				},
 			})
 
-			require.NoError(t, launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane", Role: tt.role}))
+			_, err := launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane", Role: tt.role})
+			require.NoError(t, err)
 
 			require.Len(t, fakeHarness.Launches, 1)
 			assert.Equal(t, tt.want, fakeHarness.Launches[0].AutoCompaction)
@@ -233,7 +236,7 @@ func TestLaunchTrustsTheDirForHarnessesThatAskIt(t *testing.T) {
 				TrustLaunchDirs: tt.trust,
 			})
 
-			err := launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane", Dir: tt.dir})
+			_, err := launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane", Dir: tt.dir})
 
 			assert.Equal(t, tt.wantTrusted, fakeHarness.Trusted)
 			if tt.wantErr != "" {
@@ -691,7 +694,8 @@ func TestLaunchGivesTheAgentStandInsForItsForgeTools(t *testing.T) {
 		BinPath:  "/usr/local/bin/komrad",
 	})
 
-	require.NoError(t, launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane"}))
+	_, err := launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane"})
+	require.NoError(t, err)
 
 	require.Len(t, fakeHarness.Launches, 1)
 	tools := fakeHarness.Launches[0].ToolsDir
@@ -711,23 +715,26 @@ func TestLaunchWithoutAKomradBinaryGivesNoStandIn(t *testing.T) {
 	fakeHarness := &harnesstest.Fake{}
 	launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), CacheDir: t.TempDir()})
 
-	require.NoError(t, launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane"}))
+	_, err := launcher.launch(t.Context(), fakeHarness, launchParams{Pane: "pane"})
+	require.NoError(t, err)
 
 	require.Len(t, fakeHarness.Launches, 1)
 	assert.Empty(t, fakeHarness.Launches[0].ToolsDir)
 }
 
-// TestLaunchLogsItsHooks pins the line a launch leaves under its agent, naming the hooks it got.
+// TestLaunchLogsItsHooks pins the hooks a launch answers with and the line it leaves under its agent naming them.
 func TestLaunchLogsItsHooks(t *testing.T) {
 	tests := []struct {
-		name      string
-		binPath   string
-		wantHooks any
+		name          string
+		binPath       string
+		wantInstalled []string
+		wantHooks     any
 	}{
 		{
-			name:      "a launch pointing its hooks at komrad",
-			binPath:   "/usr/local/bin/komrad",
-			wantHooks: []any{"PreToolUse", "Stop"},
+			name:          "a launch pointing its hooks at komrad",
+			binPath:       "/usr/local/bin/komrad",
+			wantInstalled: []string{"PreToolUse", "Stop"},
+			wantHooks:     []any{"PreToolUse", "Stop"},
 		},
 		{
 			name: "a launch with no komrad binary to point them at",
@@ -745,10 +752,12 @@ func TestLaunchLogsItsHooks(t *testing.T) {
 			var written strings.Builder
 			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
 
-			require.NoError(t, launcher.launch(ctx, &harnesstest.Fake{Installed: []string{"PreToolUse", "Stop"}}, launchParams{
+			hooks, err := launcher.launch(ctx, &harnesstest.Fake{Installed: []string{"PreToolUse", "Stop"}}, launchParams{
 				Pane:    "pane",
 				AgentID: "id-1",
-			}))
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantInstalled, hooks)
 
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, "id-1", record[logging.TargetAgentID])

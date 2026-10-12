@@ -3,15 +3,22 @@ package agents
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"komrad/internal/harness"
+	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
 )
+
+type hooksRecorder interface {
+	SetHooksByID(ctx context.Context, id string, hooks []string) error
+}
 
 type agentStarter struct {
 	tmux     paneController
 	launcher *Launcher
 	scripts  agentScriptRunner
+	agents   hooksRecorder
 }
 
 type startMode interface {
@@ -44,6 +51,7 @@ func (s *agentStarter) start(ctx context.Context, agent agentstore.Agent, mode s
 		if pane != "" {
 			s.tmux.KillPane(pane)
 		}
+		s.recordHooks(teardown, agent.ID, nil)
 		mode.rollBack(teardown, agent, startErr)
 	}()
 
@@ -79,11 +87,20 @@ func (s *agentStarter) start(ctx context.Context, agent agentstore.Agent, mode s
 	}
 
 	launch := mode.planLaunch(agent)
-	if err := s.launcher.launch(ctx, launch.harness, launch.params); err != nil {
+	hooks, err := s.launcher.launch(ctx, launch.harness, launch.params)
+	if err != nil {
 		return fmt.Errorf("failed to %s the agent for %q: %w", launch.verb, agent.Name, err)
 	}
 
 	launched = true
+	s.recordHooks(ctx, agent.ID, hooks)
 
 	return mode.finish(ctx, agent)
+}
+
+func (s *agentStarter) recordHooks(ctx context.Context, agentID string, hooks []string) {
+	if err := s.agents.SetHooksByID(ctx, agentID, hooks); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the hooks an agent's launch installed",
+			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+	}
 }

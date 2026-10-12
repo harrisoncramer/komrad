@@ -517,7 +517,7 @@ func TestArchiveWorkflow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
@@ -611,7 +611,7 @@ func TestRestoreWorkflow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
@@ -690,7 +690,7 @@ func TestRestoreWorkflow(t *testing.T) {
 func TestRestoreWorkflowCeiling(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, usage: config.Usage{MaxAgents: 3}})
 	ctx := t.Context()
 
@@ -744,7 +744,7 @@ func workflowNames(listed []workflowstore.Workflow) []string {
 func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	workflows := newWorkflowService(st, tmux)
 	ctx := t.Context()
 
@@ -855,7 +855,7 @@ func TestDeleteWorkflow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 

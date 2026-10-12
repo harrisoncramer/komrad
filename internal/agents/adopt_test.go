@@ -75,7 +75,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 				reported = []git.Worktree{{Dir: repo, Branch: "someones/work"}}
 			}
 
-			manager := newManager(tmux, st, "").withWorktrees(&gittest.Checkout{Registered: reported, Origin: "github.com/someone/repo"})
+			manager := newManager(tmux, st).withWorktrees(&gittest.Checkout{Registered: reported, Origin: "github.com/someone/repo"})
 
 			adoption, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 				Ref:        "someones/work",
@@ -151,7 +151,7 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 
 			repo := fakeCheckout(t)
 			workflow := seedWorktreeWorkflow(t, st, repo)
@@ -200,7 +200,7 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	workflow := seedWorktreeWorkflow(t, st, fakeCheckout(t))
 
@@ -220,7 +220,7 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	repo := fakeCheckout(t)
 	workflow := seedWorktreeWorkflow(t, st, repo)
@@ -251,7 +251,7 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 		Ref:        "someones/work",
@@ -265,7 +265,7 @@ func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 func TestAdoptTwiceAnswersWithTheFirstAgent(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	workflow := seedWorktreeWorkflow(t, st, fakeCheckout(t))
 
@@ -287,7 +287,7 @@ func TestAdoptTwiceAnswersWithTheFirstAgent(t *testing.T) {
 func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	workflow := seedWorktreeWorkflow(t, st, fakeCheckout(t))
 
@@ -319,7 +319,7 @@ func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
 func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	workflow := seedWorktreeWorkflow(t, st, fakeCheckout(t))
 
@@ -357,7 +357,7 @@ func TestAdoptRefusesAPullRequest(t *testing.T) {
 	} {
 		t.Run(ref, func(t *testing.T) {
 			st := newStore(t)
-			manager := newManager(tmuxtest.NewFake(), st, "")
+			manager := newManager(tmuxtest.NewFake(), st)
 
 			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 				Ref:        ref,

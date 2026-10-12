@@ -133,7 +133,7 @@ message Agent {
   optional string task_slug = 30;
   // Whether it was told to keep the directory it was given rather than be provisioned a worktree.
   bool provision_disabled = 31;
-  // The hooks komrad installs in the agent's CLI, named as that CLI names its events.
+  // The hooks the agent's latest launch installed in its CLI, named as that CLI names its events, none when that launch failed or never ran.
   repeated string hooks = 32;
 }
 

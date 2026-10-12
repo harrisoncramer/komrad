@@ -17,8 +17,6 @@ import (
 type AgentOptions struct {
 	// PromptHead draws the opening of the prompt rather than the whole of it when set.
 	PromptHead int
-	// HooksOf names the hooks a harness installs, leaving the agent's hooks empty when nil.
-	HooksOf func(harness string) []string
 }
 
 // Agent draws one agent's row as the wire carries it.
@@ -61,26 +59,17 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		TaskId:             stored.TaskID,
 		TaskSlug:           row.TaskSlug,
 		ProvisionDisabled:  stored.IsProvisionerDisabled(),
-		Hooks:              readHooks(stored.Harness, options.HooksOf),
+		Hooks:              stored.Hooks,
 	}
 }
 
 // WatchedAgent draws an agent as the watch carries it, an archived one with only the opening of its prompt.
-func WatchedAgent(row rowstore.Row, hooksOf func(harness string) []string) *agentv1.Agent {
+func WatchedAgent(row rowstore.Row) *agentv1.Agent {
 	if row.ArchivedAt != nil {
-		return Agent(row, AgentOptions{PromptHead: SummaryHead, HooksOf: hooksOf})
+		return Agent(row, AgentOptions{PromptHead: SummaryHead})
 	}
 
-	return Agent(row, AgentOptions{HooksOf: hooksOf})
-}
-
-// readHooks is the hooks the agent's harness installs, none when nothing says.
-func readHooks(harness string, hooksOf func(string) []string) []string {
-	if hooksOf == nil {
-		return nil
-	}
-
-	return hooksOf(harness)
+	return Agent(row, AgentOptions{})
 }
 
 // reviewVerdictOf is a verdict as the wire carries it.

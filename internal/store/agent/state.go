@@ -143,6 +143,22 @@ func (s *AgentStore) SetInterruptedAtByID(ctx context.Context, id string, at *ti
 	return nil
 }
 
+// SetHooksByID records the hooks an agent's latest launch installed.
+func (s *AgentStore) SetHooksByID(ctx context.Context, id string, hooks []string) error {
+	if !store.IsID(id) {
+		return store.ErrNotFound.Saying("no agent with id %q", id)
+	}
+
+	if hooks == nil {
+		hooks = []string{}
+	}
+	if err := s.queries.SetAgentHooksByID(ctx, models.SetAgentHooksByIDParams{ID: id, Hooks: hooks}); err != nil {
+		return fmt.Errorf("failed to set hooks for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // HoldParams is the agent being held and what holding it interrupted.
 type HoldParams struct {
 	ID string

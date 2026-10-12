@@ -481,6 +481,8 @@ type Agent struct {
 	RequestedByAgentID pgtype.UUID
 	// The task the agent works on, null only for an orchestrator.
 	TaskID pgtype.UUID
+	// The hooks the agent's latest launch installed, empty when that launch failed or never ran.
+	Hooks []string
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

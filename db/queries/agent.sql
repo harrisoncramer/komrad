@@ -1325,3 +1325,11 @@ WHERE
             AND l.role = 'writer'
             AND l.provision_enabled IS DISTINCT FROM FALSE
             AND l.archived_at IS NULL);
+
+-- name: SetAgentHooksByID :exec
+UPDATE
+    agents
+SET
+    hooks = @hooks
+WHERE
+    id = @id;

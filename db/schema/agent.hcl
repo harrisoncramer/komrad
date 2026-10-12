@@ -865,6 +865,12 @@ table "agents" {
     type    = uuid
     comment = "The engine that owns this row, stamped from the login that wrote it."
   }
+  column "hooks" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'")
+    comment = "The hooks the agent's latest launch installed, empty when that launch failed or never ran."
+  }
   primary_key {
     columns = [column.id]
   }
