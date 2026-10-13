@@ -2800,7 +2800,7 @@ func (x *ReviewChapter) GetOnOlderBase() bool {
 	return false
 }
 
-// ReviewTracedPlace places a thread's lines in the diff's head.
+// ReviewTracedPlace is a thread's place in the diff's head as git traced it.
 type ReviewTracedPlace struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The file the lines are in.

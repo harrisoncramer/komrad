@@ -512,7 +512,7 @@ message ReviewChapter {
   bool on_older_base = 11;
 }
 
-// ReviewTracedPlace places a thread's lines in the diff's head.
+// ReviewTracedPlace is a thread's place in the diff's head as git traced it.
 message ReviewTracedPlace {
   // The file the lines are in.
   string file_path = 1;
