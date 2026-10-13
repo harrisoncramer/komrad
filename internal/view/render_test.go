@@ -1173,6 +1173,7 @@ func TestRenderTaskTree(t *testing.T) {
 	requireGolden(t, "list-task-tree", render(list, paint.Panel, canonicalPane))
 }
 
+// TestRenderTailSitsAfterTheName renders a row's tail after its name, clipping the name to keep the tail.
 func TestRenderTailSitsAfterTheName(t *testing.T) {
 	tests := []struct {
 		name string

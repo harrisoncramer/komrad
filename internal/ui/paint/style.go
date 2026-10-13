@@ -219,19 +219,6 @@ func (p Palette) TmuxSelection() string {
 	return "fg=" + tmuxColor(p.colors.Inverse) + ",bg=" + tmuxColor(p.colors.Mode.Visual)
 }
 
-// ClipStart cuts text to a width from its start, beginning it in an ellipsis.
-func ClipStart(text string, width int) string {
-	runes := []rune(text)
-	switch {
-	case width <= 0:
-		return ""
-	case len(runes) <= width:
-		return text
-	}
-
-	return "…" + string(runes[len(runes)-width+1:])
-}
-
 // ClipAround cuts the text either side of a cursor to a width between them, keeping the cursor
 // in view: the start goes while the cursor is near the end, and the end goes otherwise.
 func ClipAround(before, after string, width int) (string, string) {
@@ -242,12 +229,25 @@ func ClipAround(before, after string, width int) (string, string) {
 	case head+tail <= width:
 		return before, after
 	case tail < width:
-		return ClipStart(before, width-tail), after
+		return clipStart(before, width-tail), after
 	}
 
 	kept := min(head, max(width/2, 1))
 
-	return ClipStart(before, kept), Clip(after, width-kept)
+	return clipStart(before, kept), Clip(after, width-kept)
+}
+
+// clipStart cuts text to a width from its start, beginning it in an ellipsis.
+func clipStart(text string, width int) string {
+	runes := []rune(text)
+	switch {
+	case width <= 0:
+		return ""
+	case len(runes) <= width:
+		return text
+	}
+
+	return "…" + string(runes[len(runes)-width+1:])
 }
 
 // RenderTyped is text being typed with its cursor in it: a bar after the text while the cursor is at

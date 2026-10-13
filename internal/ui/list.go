@@ -615,11 +615,6 @@ func rowAt[T any](rows []T, cursor int) (T, bool) {
 	return rows[cursor], true
 }
 
-// navPageDelta is how far a page key moves the cursor, signed by which of the two it is.
-func (m *model) navPageDelta(pressed string) int {
-	return directionOf(pressed, m.keys.Nav.PageUp) * navPageStep
-}
-
 // directly declares an arm that acts straight off its key, and why it is not in the menu.
 func directly(reason string, run func(*model, string) tea.Cmd) *directAction {
 	return &directAction{reason: reason, run: run}

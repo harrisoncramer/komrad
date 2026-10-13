@@ -16,10 +16,6 @@ func dimStyle() lipgloss.Style {
 	return paint.Panel.Style(paint.ToneMuted)
 }
 
-func rowCursorStyle() lipgloss.Style {
-	return paint.Panel.Cursor()
-}
-
 func scheduleIcon(enabled bool) view.Cell {
 	if enabled {
 		return view.Cell{Glyph: glyph.ScheduleEnabled, Tone: scheduleTone(enabled)}
@@ -34,17 +30,6 @@ func scheduleTone(enabled bool) paint.Tone {
 	}
 
 	return paint.ToneMuted
-}
-
-func nameStyle(hovered, inactive bool) lipgloss.Style {
-	switch {
-	case hovered:
-		return rowCursorStyle()
-	case inactive:
-		return dimStyle()
-	default:
-		return lipgloss.NewStyle()
-	}
 }
 
 func clipName(name string) string {
