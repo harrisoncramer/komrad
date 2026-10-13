@@ -29,11 +29,11 @@ func (Rebased) Kind() mailstore.Kind {
 func (m Rebased) Events() []string {
 	switch {
 	case m.Conflicted:
-		return []string{WorktreeRebaseConflicted}
+		return []string{worktreeRebaseConflicted}
 	case m.Moved:
-		return []string{WorktreeLanded}
+		return []string{worktreeLanded}
 	default:
-		return []string{WorktreeRebased}
+		return []string{worktreeRebased}
 	}
 }
 
@@ -42,11 +42,11 @@ func (m Rebased) Body() string {
 	var body string
 	switch {
 	case m.Conflicted:
-		body = m.conflicted()
+		body = m.describeConflict()
 	case m.Moved:
-		body = m.moved()
+		body = m.describeMove()
 	default:
-		body = m.replayed()
+		body = m.describeReplay()
 	}
 
 	return m.interruptedNote() + body + m.carryOnNote()
@@ -79,8 +79,8 @@ func (m Rebased) parkNote() string {
 		". It holds anything you had not committed, and every commit that is no longer on the branch."
 }
 
-// conflicted is a rebase stopped part-way, which is the agent's to settle and nobody else's.
-func (m Rebased) conflicted() string {
+// describeConflict tells of a rebase stopped part-way, which is the agent's to settle and nobody else's.
+func (m Rebased) describeConflict() string {
 	var body strings.Builder
 
 	fmt.Fprintf(&body, "Your worktree was being rebased onto %s (%s). The rebase hit conflicts and stopped part way, so it is still in progress.\n\n",
@@ -98,9 +98,9 @@ func (m Rebased) conflicted() string {
 	return body.String()
 }
 
-// moved is a branch that reached the base without replaying anything, which is what a branch
+// describeMove tells of a branch that reached the base without replaying anything, which is what a branch
 // whose work has entirely landed gets.
-func (m Rebased) moved() string {
+func (m Rebased) describeMove() string {
 	var body strings.Builder
 
 	fmt.Fprintf(&body, "Your branch is now on %s (%s).\n\n", m.BaseRef, xsha.Short(m.BaseSHA))
@@ -114,8 +114,8 @@ func (m Rebased) moved() string {
 	return body.String()
 }
 
-// replayed is the ordinary rebase, which moved the agent's files under it.
-func (m Rebased) replayed() string {
+// describeReplay tells of the ordinary rebase, which moved the agent's files under it.
+func (m Rebased) describeReplay() string {
 	var body strings.Builder
 
 	if m.Replay == 0 {
@@ -151,7 +151,7 @@ func (RebaseFailed) Kind() mailstore.Kind {
 
 // Events is the event a failed rebase starts.
 func (RebaseFailed) Events() []string {
-	return []string{WorktreeRebaseFailed}
+	return []string{worktreeRebaseFailed}
 }
 
 // Body tells the agent its turn was cut for nothing.

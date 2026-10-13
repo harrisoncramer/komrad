@@ -41,7 +41,7 @@ func (m ReviewReleased) Events() []string {
 	case m.Verdict == reviewstore.VerdictChangesRequested:
 		return []string{ReviewChangesRequested}
 	default:
-		return []string{ReviewCommented}
+		return []string{reviewCommented}
 	}
 }
 

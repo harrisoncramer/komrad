@@ -18,14 +18,14 @@ const (
 	PullRequestMerged               = "pull_request.merged"
 	PullRequestClosed               = "pull_request.closed"
 	PullRequestAutoMergeOn          = "pull_request.auto_merge_on"
-	WorktreeRebased                 = "worktree.rebased"
-	WorktreeLanded                  = "worktree.landed"
-	WorktreeRebaseConflicted        = "worktree.rebase_conflicted"
-	WorktreeRebaseFailed            = "worktree.rebase_failed"
+	worktreeRebased                 = "worktree.rebased"
+	worktreeLanded                  = "worktree.landed"
+	worktreeRebaseConflicted        = "worktree.rebase_conflicted"
+	worktreeRebaseFailed            = "worktree.rebase_failed"
 	DocumentWrittenByPerson         = "document.written_by_person"
 	ReviewApproved                  = "review.approved"
 	ReviewChangesRequested          = "review.changes_requested"
-	ReviewCommented                 = "review.commented"
+	reviewCommented                 = "review.commented"
 	ReviewCommentedByPerson         = "review.commented_by_person"
 	reviewForgeCommented            = "review.forge_commented"
 	ReviewAnswered                  = "review.answered"
@@ -83,19 +83,19 @@ func All() []Event {
 			DefaultPrompt: "Anything you push will merge once checks and reviews pass, so push only finished work.",
 		},
 		{
-			Name: WorktreeRebased, Title: "Rebased", Description: "the worktree was rebased and its commits replayed",
+			Name: worktreeRebased, Title: "Rebased", Description: "the worktree was rebased and its commits replayed",
 			DefaultPrompt: "Run the tests to confirm the replayed commits still build, then push with --force-with-lease.",
 		},
 		{
-			Name: WorktreeLanded, Title: "Landed", Description: "the work was already in the base, so the branch moved onto it",
+			Name: worktreeLanded, Title: "Landed", Description: "the work was already in the base, so the branch moved onto it",
 			DefaultPrompt: "Your work is already in the base. Stop working on this branch.",
 		},
 		{
-			Name: WorktreeRebaseConflicted, Title: "Rebase conflicted", Description: "a rebase stopped on conflicts",
+			Name: worktreeRebaseConflicted, Title: "Rebase conflicted", Description: "a rebase stopped on conflicts",
 			DefaultPrompt: "Resolve each conflict keeping the intent of both sides, continue the rebase, run the tests, and push with --force-with-lease. If it's unclear which side of the logic is preferred, stop and ask for help.",
 		},
 		{
-			Name: WorktreeRebaseFailed, Title: "Rebase failed", Description: "a rebase failed before it finished",
+			Name: worktreeRebaseFailed, Title: "Rebase failed", Description: "a rebase failed before it finished",
 			DefaultPrompt: "Fix whatever stopped the rebase before carrying on. Do not retry it blindly. If anything is unclear, stop and ask for help.",
 		},
 		{
@@ -111,7 +111,7 @@ func All() []Event {
 			DefaultPrompt: "Make one change per thread and run the tests before replying addressed.",
 		},
 		{
-			Name: ReviewCommented, Title: "Review commented", Description: "a reviewer released comments with no verdict either way",
+			Name: reviewCommented, Title: "Review commented", Description: "a reviewer released comments with no verdict either way",
 			DefaultPrompt: "Answer each comment. Push back where you disagree rather than changing code just to fit.",
 		},
 		{
