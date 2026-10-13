@@ -45,6 +45,14 @@ func TestGetHistoryPicksTheRound(t *testing.T) {
 			wantRounds:  2,
 		},
 		{
+			name: "an agent's open review pins nothing for the person",
+			arrange: func(t *testing.T, fx *reviewFixture) {
+				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
+			},
+			wantOrdinal: 2,
+			wantRounds:  2,
+		},
+		{
 			name: "a released review holds nothing",
 			arrange: func(t *testing.T, fx *reviewFixture) {
 				fx.releaseFirstReview(t)
