@@ -11,7 +11,7 @@ Komrad never polls the database to find out what changed. The database tells it.
 
 ## The path
 
-<figure class="diagram">
+<figure>
   <img
     src={link("/diagrams/architecture-events.png")}
     alt="A write commits and its trigger calls pg_notify with the table and key. The listener, on one dedicated connection, adds the key to the pending set of keys to re-read. The render pass reads the rows back, diffs them per subscriber, and streams the difference to the panel."

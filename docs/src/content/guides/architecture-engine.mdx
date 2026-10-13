@@ -14,7 +14,7 @@ Komrad needs little from that machine: a Postgres it can reach, tmux, the agent 
 
 ## The pieces
 
-<figure class="diagram">
+<figure>
   <img
     src={link("/diagrams/architecture-engine.png")}
     alt="The panel on your laptop reaches komrad serve on an EC2 instance with a fixed IP over ssh -L. The instance also runs tmux with every agent and holds a data volume, and komrad serve uses RDS Postgres. GitHub Actions runs release.yml, which reaches the instance over SSM."

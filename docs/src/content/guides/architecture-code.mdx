@@ -11,7 +11,7 @@ The Go code is arranged in layers. Tools enforce the arrangement, so nobody has 
 
 ## The layers
 
-<figure class="diagram">
+<figure>
   <img
     src={link("/diagrams/architecture-code.png")}
     alt="The cli starts the server, which passes each request to the rpc and mcp handlers, which call the services. Services reach Postgres through the store and the outside world through the git, tmux, harness and forge adapters. The ui is a client that talks to the server over Connect only."

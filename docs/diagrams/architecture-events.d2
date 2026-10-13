@@ -1,13 +1,15 @@
 ...@_theme
 
-direction: down
+grid-rows: 2
+grid-columns: 3
+grid-gap: 80
 
 commit: write commits
 trigger: "trigger\npg_notify(\"agents <key>\")"
-listener: "listener\none dedicated connection"
-pending: "pending set\nkeys to re-read"
-render: "render pass\nread rows back, diff per subscriber"
+listener: "listener\none dedicated\nconnection"
 panel
+render: "render pass\nread rows back,\ndiff per subscriber"
+pending: "pending set\nkeys to re-read"
 
 commit -> trigger -> listener -> pending -> render
 render -> panel: stream

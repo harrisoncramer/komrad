@@ -4,19 +4,22 @@ direction: down
 
 change: one transaction {
   style.font-size: 18
+  grid-columns: 2
   change: "the change\nchecks on #412 → failing"
   event: "the event\n\"pull request #412 changed\""
 }
 
 handle: one transaction {
   style.font-size: 18
-  find: the handler for pull requests finds the writers on the branch
-  write: writes or rewrites each one's mail
+  grid-columns: 3
+  grid-gap: 60
+  find: "the handler for pull requests\nfinds the writers on the branch"
+  write: "writes or rewrites\neach one's mail"
   done: marks the event done
   find -> write -> done
 }
 
-delivered: delivered the same way as any other mail
+delivered: "delivered the same way\nas any other mail"
 
 change -> handle: a moment later
 handle -> delivered

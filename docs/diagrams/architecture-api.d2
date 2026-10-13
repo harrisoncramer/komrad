@@ -1,28 +1,25 @@
 ...@_theme
 
-direction: down
+direction: right
 
-proto: "<pkg>.proto\nwith surfaces { cli, mcp, name, ... }"
-generate: buf generate
+proto: "<pkg>.proto\nwith surfaces"
 
 generated: generated code {
   style.font-size: 18
+  grid-columns: 1
   types: "types\nprotoc-gen-go"
   routes: "routes, client\nconnect-go"
   strict: "strict handler\nkomrad's plugin"
 }
 
-rpcapi: "internal/rpcapi\nread at startup" 
-
 surfaces: {
   style.font-size: 18
+  grid-columns: 1
   handlers: server handlers
   rpc: komrad rpc commands
   mcp: MCP tools
   docs
 }
 
-proto -> generate: buf lint
-generate -> generated
-generated -> rpcapi
-rpcapi -> surfaces
+proto -> generated: "buf lint,\nbuf generate"
+generated -> surfaces: "read at startup\nby internal/rpcapi"

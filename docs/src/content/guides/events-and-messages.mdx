@@ -72,7 +72,7 @@ Komrad records each change as an _event_ in the same database transaction as the
 
 This pattern is called a _transactional outbox_. Komrad saves the change and the record that announces it together or not at all, and a separate worker announces the change, retrying until it succeeds. Komrad keeps its events in the same job queue it uses for other background work, and the messages land in the mail table.
 
-<figure class="diagram">
+<figure>
   <img
     src={link("/diagrams/events-and-messages.png")}
     alt="One transaction holds the change, checks on #412 failing, and the event saying pull request #412 changed. A moment later a second transaction runs the handler for pull requests, which finds the writers on the branch, writes or rewrites each one's mail, and marks the event done. The mail is then delivered the same way as any other mail."

@@ -1,17 +1,21 @@
 ...@_theme
 
-direction: down
+grid-rows: 4
+grid-columns: 3
+grid-gap: 80
 
+blank1: "" {style.opacity: 0}
+ui: "ui\na client, talks\nover Connect only"
+blank2: "" {style.opacity: 0}
 cli
 server
 handlers: "rpc, mcp\nhandlers"
-services: "services\nagents, mail, reviews, ..."
-store
 postgres: Postgres {shape: cylinder}
-adapters: "adapters\ngit, tmux, harness, forge"
+store
+services: "services\nagents, mail,\nreviews, ..."
+blank3: "" {style.opacity: 0}
 world: the outside world {style.stroke-dash: 3}
-
-ui: "ui\na client, talks over Connect only"
+adapters: "adapters\ngit, tmux,\nharness, forge"
 
 cli -> server -> handlers -> services
 services -> store -> postgres

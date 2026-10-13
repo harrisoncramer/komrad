@@ -1,16 +1,18 @@
 ...@_theme
 
-direction: down
+direction: right
 
 workflow: "workflow: neovim" {
   style.font-size: 18
 
-  orchestrator: "orchestrator\ncoordinates the workflow's tasks"
+  orchestrator: "orchestrator\ncoordinates the\nworkflow's tasks"
 
   fix-login: "task: fix-login" {
     style.font-size: 16
-    writer: "writer\ndoes the work, owns the checkout"
-    reviewer: "reviewer\nreads the writer's change"
+    grid-columns: 2
+    grid-gap: 60
+    writer: "writer\ndoes the work,\nowns the checkout"
+    reviewer: "reviewer\nreads the\nwriter's change"
     writer -> reviewer: change {style.stroke-dash: 3}
   }
 
