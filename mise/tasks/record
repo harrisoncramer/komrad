@@ -86,6 +86,12 @@ rm -f "$OUT/$NAME".{mp4,webm,gif,png}
 
 PANEL_PANE="$(tmux -L "$KOMRAD_TMUX_SOCKET" show-options -gqv @komrad_panel_pane 2>/dev/null || true)"
 if [ -n "$PANEL_PANE" ]; then
+	PANEL_WINDOW="$(tmux -L "$KOMRAD_TMUX_SOCKET" display-message -p -t "$PANEL_PANE" '#{window_id}' 2>/dev/null || true)"
+	if [ -n "$PANEL_WINDOW" ]; then
+		for hook in pane-mode-changed window-pane-changed; do
+			tmux -L "$KOMRAD_TMUX_SOCKET" set-hook -uw -t "$PANEL_WINDOW" "$hook" 2>/dev/null || true
+		done
+	fi
 	tmux -L "$KOMRAD_TMUX_SOCKET" kill-pane -t "$PANEL_PANE" 2>/dev/null || true
 fi
 
