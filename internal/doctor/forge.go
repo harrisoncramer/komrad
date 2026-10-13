@@ -70,7 +70,7 @@ type ForgeStatus struct {
 	Login string
 	// Kind is which forge the host runs, github or gitlab.
 	Kind string
-	// Method is how the credential was obtained, token or github_app.
+	// Method is how komrad obtained the credential, token or github_app.
 	Method string
 	// Problem is what went wrong, empty when the forge accepted the credential.
 	Problem string

@@ -19,8 +19,8 @@ import (
 
 // TestProbeLeavesTheSchemaAlone is the regression that matters about this whole command:
 // store.Open applies migrations on its way in, so the ordinary way of reaching the database
-// would have doctor migrating whatever it was asked to report on, and a diagnostic run
-// against a production database must not be the thing that changes it.
+// would have doctor migrating whatever it should report on, and a diagnostic run
+// against a production database must not change it.
 func TestProbeLeavesTheSchemaAlone(t *testing.T) {
 	url := pgtest.URL(t)
 
@@ -40,7 +40,7 @@ func TestProbeLeavesTheSchemaAlone(t *testing.T) {
 }
 
 // TestProbeCannotWrite covers the other half of the promise: the read-only flag rides on
-// the connection, so a write is refused by Postgres rather than by this package remembering
+// the connection, so Postgres refuses a write rather than this package remembering
 // not to send one.
 func TestProbeCannotWrite(t *testing.T) {
 	pool, err := openReadOnlyPool(t.Context(), pgtest.URL(t))

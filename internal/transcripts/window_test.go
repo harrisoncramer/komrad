@@ -118,7 +118,7 @@ func TestCutWindow(t *testing.T) {
 	}
 }
 
-// TestCutWindowPagesToTheEnd pins that the windows join back into the transcript that was stored.
+// TestCutWindowPagesToTheEnd pins that the windows join back into the transcript the store holds.
 func TestCutWindowPagesToTheEnd(t *testing.T) {
 	whole := strings.Repeat("a", 50) + strings.Repeat("b", 50) + strings.Repeat("c", 50)
 

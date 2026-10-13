@@ -68,8 +68,8 @@ func TestInspectReadsABranchAgainstItsWorkflowsBase(t *testing.T) {
 	assert.Equal(t, sumEntryBytes(inspection.Entries), inspection.Bytes)
 }
 
-// TestInspectAsksWhetherTheBaseHoldsWhatOriginHas covers a branch behind its copy on origin
-// being asked about against the base, and a branch level with it not being asked.
+// TestInspectAsksWhetherTheBaseHoldsWhatOriginHas covers komrad asking about a branch behind its
+// copy on origin against the base, and not asking about a branch level with it.
 func TestInspectAsksWhetherTheBaseHoldsWhatOriginHas(t *testing.T) {
 	tests := []struct {
 		name       string

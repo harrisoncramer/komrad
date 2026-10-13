@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSplitArgs pins how a flag string is broken into argv, quoting and empty input
+// TestSplitArgs pins how a flag string splits into argv, quoting and empty input
 // included.
 func TestSplitArgs(t *testing.T) {
 	tests := []struct {
@@ -86,7 +86,7 @@ func TestQuoteFlagsNeutralisesShellSyntax(t *testing.T) {
 	}
 }
 
-// TestQuoteArg pins how an argument is wrapped for the shell, including one holding a quote
+// TestQuoteArg pins how the shell wraps an argument, including one holding a quote
 // of its own.
 func TestQuoteArg(t *testing.T) {
 	tests := []struct {

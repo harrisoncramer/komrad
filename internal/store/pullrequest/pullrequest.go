@@ -312,7 +312,7 @@ func (s *PullRequestStore) Observe(ctx context.Context) (int64, error) {
 	return written, nil
 }
 
-// ListObservations is every pull request any of the given tasks has been seen with, oldest first.
+// ListObservations returns every pull request any of the given tasks has been seen with, oldest first.
 func (s *PullRequestStore) ListObservations(ctx context.Context, taskIDs []string) ([]Observation, error) {
 	storable := store.KeepIDs(taskIDs)
 	if len(storable) == 0 {

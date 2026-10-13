@@ -160,7 +160,7 @@ func (p moment) toHookRun() scriptrun.HookRun {
 	runAs.WorkflowID = p.task.WorkflowID
 	runAs.TaskID = &p.task.ID
 
-	// An agent that provisions nothing is handed no worktree, which keeps the worktree's
+	// Komrad hands an agent that provisions nothing no worktree, which keeps the worktree's
 	// variables from a script running in the workflow's own directory.
 	if hasLiveCheckout(p.task) {
 		runAs.Cwd = p.task.Checkout.Cwd

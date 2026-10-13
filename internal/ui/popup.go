@@ -47,7 +47,7 @@ func (p popupSlot) contains(x, y int) bool {
 	return x >= p.x && x < p.x+p.width && y >= p.y && y < p.y+p.height
 }
 
-// popupScroll is how far a popup is scrolled back from the end of the body it holds, and whose
+// popupScroll is how far a popup has scrolled back from the end of the body it holds, and whose
 // body that is.
 type popupScroll struct {
 	owner string
@@ -66,13 +66,13 @@ func (p *popupScroll) move(owner, body string, rows, room int) {
 	p.rows = min(max(p.rows-rows, 0), most)
 }
 
-// reset forgets whose body the popup is scrolled over.
+// reset forgets whose body the popup scrolls over.
 func (p *popupScroll) reset() {
 	p.owner = ""
 }
 
-// back is how many rows the popup is scrolled back from the end of an owner's body, none when the
-// scroll is another owner's.
+// back is how many rows the popup has scrolled back from the end of an owner's body, none when
+// the scroll belongs to another owner.
 func (p popupScroll) back(owner string) int {
 	if p.owner != owner {
 		return 0
@@ -82,7 +82,7 @@ func (p popupScroll) back(owner string) int {
 }
 
 // popupStage is the rows a popup stands over: the first it may take, the first and last lines the
-// cursor's row is rendered on and how many there are.
+// cursor's row renders on and how many there are.
 type popupStage struct {
 	top        int
 	cursor     int

@@ -547,7 +547,7 @@ func TestArchivedAgentsRename(t *testing.T) {
 	}
 }
 
-// TestArchivedAgentsDocument covers what is rendered beside the list for the hovered row.
+// TestArchivedAgentsDocument covers what the panel renders beside the list for the hovered row.
 func TestArchivedAgentsDocument(t *testing.T) {
 	stuck := newArchivedAgent("a1", "api-refactor", "w1")
 	stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP

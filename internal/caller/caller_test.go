@@ -109,7 +109,7 @@ func TestTransportLeavesAnUnattributedCallAlone(t *testing.T) {
 }
 
 // TestTransportDoesNotEditTheCallersRequest covers the rule a RoundTripper works under: the
-// request belongs to whoever built it and must not be stamped in place.
+// request belongs to whoever built it, so the transport must not stamp it in place.
 func TestTransportDoesNotEditTheCallersRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer server.Close()

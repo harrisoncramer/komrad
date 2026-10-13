@@ -128,13 +128,13 @@ func TestWithoutPort(t *testing.T) {
 	}
 }
 
-// TestGitLabCredentialReply covers the answer git is given, under the username GitLab's docs
+// TestGitLabCredentialReply covers the answer git receives, under the username GitLab's docs
 // use for a token.
 func TestGitLabCredentialReply(t *testing.T) {
 	assert.Equal(t, "username=oauth2\npassword=glpat-fake\n", gitlabCredentialReply(forge.NewSecret("glpat-fake")))
 }
 
-// TestGlabConfig covers the config glab is handed, naming the API host only where it is not the
+// TestGlabConfig covers the config glab receives, naming the API host only where it is not the
 // connection's own.
 func TestGlabConfig(t *testing.T) {
 	token := forge.NewSecret("glpat-fake")

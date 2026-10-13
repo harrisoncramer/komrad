@@ -19,19 +19,19 @@ import (
 // dialTimeout is how long one attempt to reach the forwarded port may take.
 const dialTimeout = time.Second
 
-// pollInterval is how often the forwarded port is tried while the forward is still setting it up.
+// pollInterval is how often komrad tries the forwarded port while the forward is still setting it up.
 const pollInterval = 100 * time.Millisecond
 
 // redialDelay is how long a tunnel whose forward has exited waits before running it again.
 const redialDelay = time.Second
 
-// borrowedProbeInterval is how often a tunnel somebody else runs is checked to still be answering.
+// borrowedProbeInterval is how often komrad checks that a tunnel somebody else runs still answers.
 const borrowedProbeInterval = 5 * time.Second
 
-// probeRequest is what is written to a port to learn whether the engine's api is behind it.
+// probeRequest is what komrad writes to a port to learn whether the engine's api is behind it.
 const probeRequest = "HEAD / HTTP/1.0\r\n\r\n"
 
-// tunnelPortBase and tunnelPortSpan are the range an engine's forward is placed in, high enough
+// tunnelPortBase and tunnelPortSpan are the range where komrad places an engine's forward, high enough
 // to be out of the way and narrow enough to stay recognisable.
 const (
 	tunnelPortBase = 19000
@@ -118,7 +118,7 @@ func (r Remote) Dial(ctx context.Context, engineAddr string, wait time.Duration)
 
 // start runs the forward and waits for the engine to answer through it.
 func (t *Tunnel) start(ctx context.Context) error {
-	// The forward is deliberately left in the panel's process group, so a panel that is killed
+	// The forward deliberately stays in the panel's process group, so killing the panel
 	// outright takes its forward with it rather than leaving a forward nobody owns.
 	command := exec.CommandContext(ctx, t.argv[0], t.argv[1:]...) //nolint:gosec // the destination is the user's own config
 
@@ -265,7 +265,7 @@ func (f *forward) isExited() bool {
 	}
 }
 
-// kill ends the forward and waits for it to be reaped, treating one already gone as done.
+// kill ends the forward and reaps it, treating one already gone as done.
 func (f *forward) kill() {
 	_ = f.command.Process.Kill() //nolint:errcheck // one already gone is the outcome asked for
 	<-f.exited

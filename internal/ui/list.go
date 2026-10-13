@@ -483,7 +483,7 @@ type screenListParams struct {
 	snapshot func(listPane) view.Snapshot
 }
 
-// listPane is the column a list is rendered in this frame and how its cursor stands.
+// listPane is the column that renders a list this frame and where its cursor stands.
 type listPane struct {
 	width int
 	caret view.Caret

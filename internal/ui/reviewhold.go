@@ -11,15 +11,16 @@ import (
 	"connectrpc.com/connect"
 )
 
-// abandonedSaid is what an agent is told when it was stopped for an editor that never opened.
+// abandonedSaid is what the agent hears when Komrad stopped it for an editor that never opened.
 const abandonedSaid = "I paused you to open your worktree in my editor and have let you go now " +
 	"without opening it."
 
-// editedSaid is what an agent is told when the reader's editor on its worktree closes.
+// editedSaid is what the agent hears when the reader's editor on its worktree closes.
 const editedSaid = "I paused you while I had your worktree open in my editor and have let you go now."
 
 // reviewHold is the hold the reader takes on the agent while their editor is open on its
-// worktree: whether it is stopped, what stopped it, and the files the editor was opened on.
+// worktree, recording whether the agent is stopped, what stopped it, and the files the editor
+// opened.
 type reviewHold struct {
 	// paused says the agent is stopped for the editor, whoever stopped it.
 	paused bool
@@ -155,7 +156,7 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
 	return m.releaseCmd("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid)
 }
 
-// endHold lets the agent go, telling it which files the reader opened while it was stopped.
+// endHold lets the agent go and tells it which files the reader opened while it was stopped.
 func (r *reviewScreen) endHold(m *model, said string) tea.Cmd {
 	agentID := r.agentID
 	ours, touched := r.hold.end()

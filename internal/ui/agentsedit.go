@@ -17,7 +17,7 @@ func (a *agentsScreen) isEditorOpen() bool {
 	return a.editing != nil && a.editing.pane != ""
 }
 
-// releaseEdit closes the open editor and lets its agent go, unless the agent is still being paused.
+// releaseEdit closes the open editor and lets its agent go, unless the agent is still pausing.
 func (a *agentsScreen) releaseEdit(m *model) tea.Cmd {
 	if a.editing == nil || a.editing.pausing {
 		return nil

@@ -97,7 +97,7 @@ func TestOpen(t *testing.T) {
 	}
 }
 
-// TestRelease covers when a view is killed once an attach to it ends.
+// TestRelease covers when komrad kills a view once an attach to it ends.
 func TestRelease(t *testing.T) {
 	stores := storetest.Open(t)
 	agent := stores.SeedAgent(t, agentstore.Agent{Name: "live", Pane: "%9"})

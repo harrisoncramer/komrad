@@ -17,7 +17,7 @@ func (s *Sleeper) Sleep(context.Context, time.Duration) {
 	s.slept.Add(1)
 }
 
-// CountSleeps reports how many sleeps have been asked for.
+// CountSleeps reports how many sleeps callers have asked for.
 func (s *Sleeper) CountSleeps() int32 {
 	return s.slept.Load()
 }

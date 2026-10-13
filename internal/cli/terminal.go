@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	// redialFor is how long a dropped attach is dialled again for before giving up.
+	// redialFor is how long to redial a dropped attach before giving up.
 	redialFor = 2 * time.Minute
 	// firstRedialWait is how long the first redial waits, doubling up to lastRedialWait.
 	firstRedialWait = 250 * time.Millisecond
@@ -35,7 +35,7 @@ var (
 	errNotReady   = errors.New("the engine did not say it was ready")
 )
 
-// unreachableCodes are what a dial fails with when the engine could not be reached.
+// unreachableCodes are the codes a dial fails with when it cannot reach the engine.
 var unreachableCodes = []connect.Code{connect.CodeUnavailable, connect.CodeDeadlineExceeded, connect.CodeAborted}
 
 // droppedCodes are what a carried stream fails with when its connection is lost.
@@ -268,7 +268,7 @@ func runConsole(ctx context.Context, params runConsoleParams) (int, error) {
 
 type runTerminalParams struct {
 	Dial dialFunc
-	// Redial is how long a dropped stream is dialled again for, never when zero.
+	// Redial is how long to redial a dropped stream, and never when zero.
 	Redial  time.Duration
 	In      io.Reader
 	Out     io.Writer

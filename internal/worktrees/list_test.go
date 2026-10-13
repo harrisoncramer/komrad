@@ -185,7 +185,7 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 	}
 }
 
-// TestListWalksEachWorkflowsOwnDirectory covers a workflow's own directory being walked beside the shared one.
+// TestListWalksEachWorkflowsOwnDirectory covers the walk reaching a workflow's own directory beside the shared one.
 func TestListWalksEachWorkflowsOwnDirectory(t *testing.T) {
 	fixture := newFixture(t)
 	own := filepath.Join(t.TempDir(), "own")

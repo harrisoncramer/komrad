@@ -18,7 +18,7 @@ import (
 
 // TestIntegrationRemoteReviewReadsThroughTheEngine covers a panel on another machine reading an
 // agent's change through the engine's api, getting what the engine's own git would give it, and
-// being refused a repository no agent works in.
+// getting a refusal for a repository no agent works in.
 func TestIntegrationRemoteReviewReadsThroughTheEngine(t *testing.T) {
 	isolateGit(t)
 

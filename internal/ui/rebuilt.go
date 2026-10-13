@@ -4,7 +4,7 @@ import (
 	"komrad/internal/errui"
 )
 
-// BinaryWatcher says whether the file this panel was started from has been replaced.
+// BinaryWatcher says whether something replaced the file that started this panel.
 type BinaryWatcher interface {
 	IsReplaced() bool
 }

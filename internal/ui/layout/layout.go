@@ -1,4 +1,4 @@
-// Package layout owns the panes the panel is rendered across, turning the regions it asks for
+// Package layout owns the panes the panel renders across, turning the regions it asks for
 // into splits on komrad's tmux server.
 //
 // The panel is one pane among several rather than a whole screen. The sidebar it renders
@@ -44,7 +44,7 @@ type Target struct {
 
 type Content struct {
 	Key string
-	// Dir is where the pane is rooted.
+	// Dir is the directory that roots the pane.
 	Dir    string
 	Wraps  bool
 	Render func(Target) ([]string, bool)

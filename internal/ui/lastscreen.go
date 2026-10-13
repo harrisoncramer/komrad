@@ -20,7 +20,7 @@ import (
 // errNoSavedScreen is an agent whose pane was never saved.
 var errNoSavedScreen = errors.New("no saved screen")
 
-// lastScreen is the saved screen of the agent the column is rendered for.
+// lastScreen is the saved screen of the agent the column renders for.
 type lastScreen struct {
 	agentID  string
 	answered bool
@@ -226,7 +226,7 @@ func (w *worktreesScreen) screenNotice(*model) string {
 	return "not running"
 }
 
-// columnHeight is the rows the block beside the list is rendered in.
+// columnHeight is the rows that render the block beside the list.
 func (m *model) columnHeight() int {
 	split, ok := m.columnSplit()
 	if !ok {

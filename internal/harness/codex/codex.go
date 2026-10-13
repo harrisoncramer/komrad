@@ -118,7 +118,7 @@ type sessionMeta struct {
 }
 
 // FindSession returns the conversation Codex started for this agent, or empty until the first
-// turn is submitted.
+// turn goes in.
 func (h *Harness) FindSession(agentID string) (string, error) {
 	if agentID == "" {
 		return "", nil

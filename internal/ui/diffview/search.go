@@ -167,7 +167,7 @@ func (v *View) matchesIn(y int) []span {
 
 	shifted := make([]span, 0, len(found))
 	for _, at := range found {
-		// A match on the marker alone has nothing to paint: the marker is rendered in the gutter.
+		// A match on the marker alone has nothing to paint, since the marker renders in the gutter.
 		if shrunk := (span{start: max(at.start-1, 0), end: max(at.end-1, 0)}); shrunk.end > shrunk.start {
 			shifted = append(shifted, shrunk)
 		}

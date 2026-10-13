@@ -43,7 +43,7 @@ func frozenMenus(levels []submenuLevel, room int) []string {
 	return rendered
 }
 
-// frozenSubmenu is a menu as it is rendered once another has opened to its right.
+// frozenSubmenu renders a menu once another has opened to its right.
 func frozenSubmenu(level submenuLevel, nested bool) string {
 	form := submenuForm(level, nested, fixedKeys()).WithShowHelp(false)
 	form.Init()

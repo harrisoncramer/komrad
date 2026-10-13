@@ -116,8 +116,8 @@ func TestSendRefusesAPaneWhoseCLIHasExited(t *testing.T) {
 	}
 }
 
-// TestSendToAnUnknownHarnessPastesAnyway pins that a frame nothing can read is written to
-// rather than held forever.
+// TestSendToAnUnknownHarnessPastesAnyway pins that Send writes to a frame nothing can read
+// rather than holding it forever.
 func TestSendToAnUnknownHarnessPastesAnyway(t *testing.T) {
 	terminal := terminalShowing(harnesstest.FrameWorking)
 	pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{}})
@@ -249,7 +249,7 @@ func TestSendTimesADraftFromWhenItLastMoved(t *testing.T) {
 	assert.Equal(t, []string{"cut", "paste", "yank"}, terminal.Edits[target.Pane])
 }
 
-// TestSendForgetsADraftOnceTheBoxIsEmpty pins that text typed after the box was emptied is timed
+// TestSendForgetsADraftOnceTheBoxIsEmpty pins that text typed after the box empties is timed
 // from when it appeared rather than from the draft before it.
 func TestSendForgetsADraftOnceTheBoxIsEmpty(t *testing.T) {
 	now := time.Date(2026, time.September, 9, 12, 0, 0, 0, time.UTC)

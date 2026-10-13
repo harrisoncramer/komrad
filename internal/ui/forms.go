@@ -53,7 +53,7 @@ type formState struct {
 	// order lists the keys of the fields the cursor can reach, in the order they are rendered.
 	order []string
 
-	// frozen is the form as it was rendered before the key that finished it.
+	// frozen is the form as the panel rendered it before the key that finished it.
 	frozen string
 
 	// keepsOnRefusal says a refused write leaves the form up to be fixed and submitted again.

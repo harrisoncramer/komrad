@@ -10,8 +10,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestStrictJSONUnmarshal pins that a payload naming something the schema does not have is
-// refused rather than read as what is left once the unknown parts are dropped.
+// TestStrictJSONUnmarshal pins that the codec refuses a payload naming something the schema does
+// not have rather than reading what is left once it drops the unknown parts.
 func TestStrictJSONUnmarshal(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -90,7 +90,7 @@ func TestStrictJSONMarshal(t *testing.T) {
 	assert.True(t, proto.Equal(message, &read))
 }
 
-// TestStrictJSONRejectsNonProto pins that a value the codec cannot speak for is refused on both
+// TestStrictJSONRejectsNonProto pins that the codec refuses a value it cannot speak for on both
 // sides.
 func TestStrictJSONRejectsNonProto(t *testing.T) {
 	codec := strictJSON{name: nameJSON}

@@ -12,7 +12,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-// CommentSyncTarget is an open pull request a live agent is linked to.
+// CommentSyncTarget is an open pull request a live agent links to.
 type CommentSyncTarget struct {
 	ID            string
 	RepositoryURL string
@@ -51,7 +51,7 @@ type ForgeComment struct {
 	EditedAt      *time.Time
 }
 
-// ForgeThreadStore holds the forge's copy of the review threads on the pull requests agents are linked to.
+// ForgeThreadStore holds the forge's copy of the review threads on the pull requests that agents link to.
 type ForgeThreadStore struct {
 	queries *models.Queries
 }
@@ -61,7 +61,7 @@ func NewForgeThreadStore(db store.DBTX) *ForgeThreadStore {
 	return &ForgeThreadStore{queries: models.New(db)}
 }
 
-// ListCommentSyncTargets returns every open pull request a live agent is linked to, drafts included.
+// ListCommentSyncTargets returns every open pull request a live agent links to, drafts included.
 func (s *ForgeThreadStore) ListCommentSyncTargets(ctx context.Context) ([]CommentSyncTarget, error) {
 	rows, err := s.queries.ListCommentSyncPullRequests(ctx)
 	if err != nil {

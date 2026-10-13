@@ -63,7 +63,7 @@ func TestDocumentsRename(t *testing.T) {
 	}
 }
 
-// TestDocumentsRenameField covers the name being typed over its row, rendered where the name was.
+// TestDocumentsRenameField covers the user typing the name over its row, where the panel renders the name.
 func TestDocumentsRenameField(t *testing.T) {
 	t.Parallel()
 

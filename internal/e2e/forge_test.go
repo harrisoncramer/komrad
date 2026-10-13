@@ -153,7 +153,7 @@ func buildGitLab(server *httptest.Server) forge.Builder {
 	}
 }
 
-// readOperation is the name a posted GraphQL query was written with.
+// readOperation is the name a posted GraphQL query carries.
 func readOperation(r *http.Request) string {
 	var posted struct {
 		Query string `json:"query"`

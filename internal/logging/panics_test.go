@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLogPanic covers the record a panic is written as.
+// TestLogPanic covers the record that LogPanic writes for a panic.
 func TestLogPanic(t *testing.T) {
 	tests := []struct {
 		name        string

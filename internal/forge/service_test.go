@@ -128,8 +128,8 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	return f
 }
 
-// TestConnect covers the happy path: the token is proved, the row carries the login the forge
-// answered, and the credential is on disk for the next caller.
+// TestConnect covers the happy path, where the token proves itself, the row carries the login the
+// forge answered, and the credential sits on disk for the next caller.
 func TestConnect(t *testing.T) {
 	f := newFixture(t, "harrisoncramer", nil)
 	ctx := t.Context()
@@ -476,7 +476,7 @@ func withApp(t *testing.T, f *fixture, server *httptest.Server) {
 }
 
 // TestConnectWithTheApp covers the engine's path: no token is pasted, the App mints, the
-// installation is checked to reach something, the row records the App's name, and no
+// installation reaches something, the row records the App's name, and no
 // credential file is written.
 func TestConnectWithTheApp(t *testing.T) {
 	f := newFixture(t, "", nil)
@@ -575,9 +575,9 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 	})
 }
 
-// TestCheck covers what the doctor reads per row: a token row is asked who it is, an App row
-// is asked what its installation reaches and answers with the login the row holds, a row whose
-// file is gone says so without a request, and an App reaching nothing is refused.
+// TestCheck covers what the doctor reads per row: a token row answers who it is, an App row answers
+// what its installation reaches and with the login the row holds, a row whose file is gone says so
+// without a request, and an App reaching nothing is refused.
 func TestCheck(t *testing.T) {
 	f := newFixture(t, "harrisoncramer", nil)
 	ctx := t.Context()

@@ -124,7 +124,7 @@ func TestHelpFitsEveryScreen(t *testing.T) {
 	}
 }
 
-// TestHelpKeyDrift covers every key a screen answers being named in that screen's legend.
+// TestHelpKeyDrift covers that the screen's legend names every key the screen answers.
 func TestHelpKeyDrift(t *testing.T) {
 	pressable := readConfiguredKeys(t, config.DefaultKeybindings())
 

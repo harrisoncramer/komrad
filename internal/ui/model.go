@@ -92,7 +92,7 @@ func Run(ctx context.Context, deps Deps) error {
 type postbox struct {
 	program *tea.Program
 	mu      sync.Mutex
-	// pending is the size waiting to be handed over.
+	// pending is the size waiting for handover.
 	pending *tea.WindowSizeMsg
 	wake    chan struct{}
 }
@@ -189,13 +189,13 @@ type harnessFrameReader interface {
 	DoesFrameShowHarness(pane, harnessID string) bool
 }
 
-// PanelSettings is what the panel was configured with, read once at launch.
+// PanelSettings holds the panel's configuration, which the panel reads once at launch.
 type PanelSettings struct {
 	// Addr is the address the server answers at.
 	Addr string
-	// Editor is the command a text field or a reviewed file is opened in.
+	// Editor is the command that opens a text field or a reviewed file.
 	Editor string
-	// Pane is the tmux pane the panel is rendered in.
+	// Pane is the tmux pane the panel renders in.
 	Pane string
 	// DraftDir is where a copy of a document is written for the editor, the system's temporary
 	// directory when empty.
@@ -295,8 +295,8 @@ type model struct {
 	clip  clipboardWriter
 	post  *postbox
 
-	// staging counts the cursor moves waiting to be staged, so the panes are moved for the row the
-	// cursor came to rest on rather than for every row it passed.
+	// staging counts the cursor moves waiting for the panes to move, so the panes follow the row the
+	// cursor came to rest on rather than every row it passed.
 	staging int
 
 	// reading is where the reader stands in the document beside the list.
@@ -345,11 +345,11 @@ type terminalState struct {
 	// keysElsewhere is whether the keyboard sits on a pane beside the panel, which the terminal
 	// itself losing focus is not.
 	keysElsewhere bool
-	// paneMeasure is the column one half of a split is laid out in once the split has been chosen.
+	// paneMeasure is the column that holds one half of a split once the split is chosen.
 	paneMeasure int
 	// isDark is the terminal's background as it last reported it.
 	isDark bool
-	// awaitingSince is when the panel moved its own pane without yet being told the size that
+	// awaitingSince is when the panel moved its own pane without yet learning the size that
 	// leaves it, and zero while it is not waiting.
 	awaitingSince time.Time
 	// windowCols is how wide the window was when the divider was last read.

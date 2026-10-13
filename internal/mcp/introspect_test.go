@@ -53,7 +53,7 @@ func TestListTables(t *testing.T) {
 	}
 }
 
-// TestDescribeTable covers the shape a model is given before it writes a query.
+// TestDescribeTable covers the shape the model receives before it writes a query.
 func TestDescribeTable(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -106,8 +106,8 @@ func TestDescribeTable(t *testing.T) {
 	}
 }
 
-// TestDescribeTableRejectsBadNames pins that a name carrying anything but a table is refused
-// rather than interpolated into the query.
+// TestDescribeTableRejectsBadNames pins that the tool refuses a name carrying anything but a
+// table rather than interpolating it into the query.
 func TestDescribeTableRejectsBadNames(t *testing.T) {
 	tests := []struct {
 		name    string

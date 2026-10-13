@@ -23,9 +23,9 @@ var (
 type ForgeReplyState string
 
 const (
-	// ForgeReplyApproved is a reply waiting to be posted.
+	// ForgeReplyApproved is a reply waiting to post.
 	ForgeReplyApproved ForgeReplyState = ForgeReplyState(models.ForgeReplyStateApproved)
-	// ForgeReplySending is a reply being posted, which may already be on the forge.
+	// ForgeReplySending is a reply in the middle of posting, which may already be on the forge.
 	ForgeReplySending ForgeReplyState = ForgeReplyState(models.ForgeReplyStateSending)
 	// ForgeReplySent is a reply the forge accepted.
 	ForgeReplySent ForgeReplyState = ForgeReplyState(models.ForgeReplyStateSent)
@@ -76,7 +76,7 @@ func (s *ReviewStore) CreateForgeReply(ctx context.Context, threadID, body strin
 	return forgeReplyFromRow(row), nil
 }
 
-// BeginForgeReplySend marks an approved or failed reply as being posted.
+// BeginForgeReplySend marks an approved or failed reply as sending.
 func (s *ReviewStore) BeginForgeReplySend(ctx context.Context, id string) (*ForgeReply, error) {
 	if !store.IsID(id) {
 		return nil, forgeReplyNotFound(id)
@@ -87,7 +87,7 @@ func (s *ReviewStore) BeginForgeReplySend(ctx context.Context, id string) (*Forg
 	return s.finishForgeReplyMove(ctx, id, row, err)
 }
 
-// MarkForgeReplySent records the comment the forge made of a reply being posted.
+// MarkForgeReplySent records the comment the forge made of a reply it received.
 func (s *ReviewStore) MarkForgeReplySent(ctx context.Context, id, forgeCommentProviderID string) (*ForgeReply, error) {
 	if !store.IsID(id) {
 		return nil, forgeReplyNotFound(id)
@@ -101,7 +101,7 @@ func (s *ReviewStore) MarkForgeReplySent(ctx context.Context, id, forgeCommentPr
 	return s.finishForgeReplyMove(ctx, id, row, err)
 }
 
-// MarkForgeReplyFailed records what the forge said when it refused a reply being posted.
+// MarkForgeReplyFailed records what the forge said when it refused a reply.
 func (s *ReviewStore) MarkForgeReplyFailed(ctx context.Context, id, forgeError string) (*ForgeReply, error) {
 	if !store.IsID(id) {
 		return nil, forgeReplyNotFound(id)

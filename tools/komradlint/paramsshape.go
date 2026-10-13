@@ -18,7 +18,7 @@ const (
 	paramsSuffix      = "Params"
 )
 
-// newParamsShape builds the rule that a params struct is named for its function and sits
+// newParamsShape builds the rule that a params struct carries its function's name and sits
 // directly above it.
 func newParamsShape(settings config.ParamsShapeConfig) (*analysis.Analyzer, error) {
 	excluded, err := compile(settings.Exclude)
@@ -56,7 +56,7 @@ func newParamsShape(settings config.ParamsShapeConfig) (*analysis.Analyzer, erro
 	}, nil
 }
 
-// checkConstructors reports every constructor in a file whose params are misnamed or out of place.
+// checkConstructors reports every constructor in a file whose params carry the wrong name or sit out of place.
 func checkConstructors(pass *analysis.Pass, file *ast.File) {
 	for index, decl := range file.Decls {
 		function, ok := decl.(*ast.FuncDecl)

@@ -32,7 +32,7 @@ const (
 	KindInvalidArgument
 	// KindExhausted is a limit the request would take past its ceiling.
 	KindExhausted
-	// KindDenied is the caller not being allowed to ask.
+	// KindDenied is the caller lacking permission to ask.
 	KindDenied
 )
 
@@ -69,7 +69,7 @@ func (s *Error) IsWorded() bool {
 	return s.worded
 }
 
-// Unwrap returns the sentinel this one was worded from, or the failure it was built around.
+// Unwrap returns the sentinel this one takes its wording from, or the failure it wraps.
 func (s *Error) Unwrap() error {
 	return s.wrapped
 }

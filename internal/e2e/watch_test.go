@@ -294,7 +294,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	}
 }
 
-// view is what every reader of the resources is compared on: the agent rows, workflows,
+// view is what the test compares every reader of the resources on: the agent rows, workflows,
 // schedules and tasks by id.
 type view struct {
 	agents    map[string]*agentv1.AgentRow

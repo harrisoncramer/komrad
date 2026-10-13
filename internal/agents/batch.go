@@ -124,8 +124,8 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 			}
 			restoring = relisted
 		}
-		// A partial restore would read as a whole one, so the ceiling and the names live agents
-		// hold are both checked before anything is written.
+		// A partial restore would read as a whole one, so the restore checks the ceiling and the names
+		// live agents hold before it writes anything.
 		if err := claimRoomToRestore(ctx, claimRoomToRestoreParams{
 			agents:   agents,
 			usage:    params.usage,

@@ -13,7 +13,7 @@ import (
 const frameSettingsTTL = 5 * time.Second
 
 // frameSettings reads the recording settings from the config on disk rather than at startup, so
-// a recording can be turned on under a running service.
+// someone can turn a recording on under a running service.
 type frameSettings struct {
 	load func() (*config.Config, error)
 	now  func() time.Time

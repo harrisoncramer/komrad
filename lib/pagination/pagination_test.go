@@ -37,8 +37,8 @@ func token(t *testing.T, raw string) string {
 	return base64.URLEncoding.EncodeToString([]byte(raw))
 }
 
-// TestNewCursor covers the three ways a page token can be wrong, a cursor decoding into a value
-// the query cannot use being refused like one that would not decode.
+// TestNewCursor covers the three ways a page token can be wrong, refusing a cursor that decodes into
+// a value the query cannot use just like one that would not decode.
 func TestNewCursor(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -97,8 +97,7 @@ func TestNewCursorErrorCarriesTheReason(t *testing.T) {
 	assert.ErrorContains(t, err, `cursor id "not-an-id" is not an id`)
 }
 
-// TestNextTokenRoundTrips pins that the token a page ends with is one the next request is served
-// from.
+// TestNextTokenRoundTrips pins that the token a page ends with serves the next request.
 func TestNextTokenRoundTrips(t *testing.T) {
 	limit := int32(2)
 

@@ -40,7 +40,7 @@ type JSONParams struct {
 	URL    string
 	// Header is set on the request as given, ahead of Accept and Content-Type.
 	Header http.Header
-	// Body is encoded as JSON and sent when not nil.
+	// Body goes out as JSON when not nil.
 	Body any
 	// MaxBytes bounds the answer read, DefaultMaxBytes when zero.
 	MaxBytes int64
@@ -124,7 +124,7 @@ const tlsHandshakeTimeout = 10 * time.Second
 // written.
 const responseHeaderTimeout = 30 * time.Second
 
-// idleConnTimeout is how long a kept-alive connection waits for reuse before it is closed.
+// idleConnTimeout is how long a kept-alive connection waits for reuse before the client closes it.
 const idleConnTimeout = 90 * time.Second
 
 // NewTransport is the transport every komrad client sits on, with the handshake and header
@@ -142,10 +142,10 @@ func NewTransport() *http.Transport {
 	}
 }
 
-// streamPingAfter is how long a stream's connection stays silent before it is pinged.
+// streamPingAfter is how long a stream's connection stays silent before the client pings it.
 const streamPingAfter = 15 * time.Second
 
-// streamPingTimeout is how long a ping waits for its answer before the connection is dropped.
+// streamPingTimeout is how long a ping waits for its answer before the client drops the connection.
 const streamPingTimeout = 15 * time.Second
 
 // NewStreamTransport is the transport a long-lived stream sits on, speaking HTTP/2 over TLS to an

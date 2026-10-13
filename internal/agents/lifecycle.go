@@ -612,8 +612,8 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	// and outside the delete's own transaction.
 	s.dropOpenReviews(ctx, ids)
 
-	// The delete is what says which pane each row really held, so a pane written after the
-	// caller read the rows is reached here and nowhere else.
+	// The delete says which pane each row really held, so only it reaches a pane written after
+	// the caller read the rows.
 	var taken []agentstore.AgentPane
 	if err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		deleted, err := agentstore.NewAgentStore(db).Delete(ctx, ids)

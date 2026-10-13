@@ -285,8 +285,8 @@ func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
 	require.NoError(t, rec.Reconcile(t.Context()))
 }
 
-// TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id and that the
-// shell its CLI left behind is closed.
+// TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id and that komrad
+// closes the shell its CLI left behind.
 func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -600,8 +600,8 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	}
 }
 
-// TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing pins that a boundary from
-// before the state last changed is stale and is ignored.
+// TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing pins that the reconciler
+// ignores a boundary from before the state last changed, as stale.
 func TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -853,8 +853,8 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 	}
 }
 
-// TestReconcileCoalescesTheConfirmationStamp pins the stamp not being written every pass,
-// which would be an update per agent every couple of seconds.
+// TestReconcileCoalescesTheConfirmationStamp pins that the reconciler does not write the stamp
+// every pass, which would be an update per agent every couple of seconds.
 func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()

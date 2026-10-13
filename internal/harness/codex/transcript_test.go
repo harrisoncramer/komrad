@@ -29,7 +29,7 @@ const (
 	turnContextRecord      = `{"timestamp":"2026-07-30T12:41:40Z","type":"turn_context","payload":{"cwd":"/repo/worktree"}}`
 )
 
-// TestFlattenRollout pins which of codex's rollout records become turns and which are dropped.
+// TestFlattenRollout pins which of codex's rollout records become turns and which the harness drops.
 func TestFlattenRollout(t *testing.T) {
 	tests := []struct {
 		name string

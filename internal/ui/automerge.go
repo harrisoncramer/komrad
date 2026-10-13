@@ -32,8 +32,8 @@ func autoMergeLabel(task panel.Task) string {
 	return "merge when ready"
 }
 
-// autoMergeRefusal says why auto-merge cannot be changed on the task's pull request, nil when it
-// can, which it always can be while it is on.
+// autoMergeRefusal says why the user cannot change auto-merge on the task's pull request, nil
+// when they can, which they always can while it is on.
 func autoMergeRefusal(task panel.Task) error {
 	if err := openPullRequestRefusal(task); err != nil {
 		return err

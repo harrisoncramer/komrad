@@ -5,8 +5,8 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// reviewDeliveryOrder is the states a comment can stand in, ordered by how much they are owed: what
-// the forge holds back, what never went, what is waiting, what landed.
+// reviewDeliveryOrder lists the states a comment can stand in, ordered by how much they are owed:
+// held by the forge, never sent, waiting, landed.
 var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD,
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
@@ -14,14 +14,14 @@ var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
 }
 
-// reviewDelivery is how one delivery state is rendered: what it is called, the glyph a badge opens
-// with, and the colour both of those carry.
+// reviewDelivery holds how one delivery state renders: its name, the glyph a badge opens with,
+// and the colour both carry.
 type reviewDelivery struct {
 	word string
 	tone paint.Tone
 }
 
-// reviewDeliveryOf is how a state is rendered wherever it appears, so the count at the top of the
+// reviewDeliveryOf returns how a state renders wherever it appears, so the count at the top of the
 // sidebar, the badge under a comment and the gutter's own mark read as one thing.
 func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	switch state {

@@ -16,11 +16,11 @@ import (
 // submenuCancel is the choice of the cancel entry every submenu ends on.
 const submenuCancel = -1
 
-// nestedMark is rendered after an entry that opens a menu of its own.
+// nestedMark follows an entry that opens a menu of its own.
 const nestedMark = " " + glyph.Crumb
 
-// submenu is a short list rendered beside the list it was opened over, each entry picked by its
-// own key as well as by the cursor.
+// submenu is a short list beside the list it opened over, with the cursor and each entry's own key
+// picking an entry.
 type submenu struct {
 	kind    formKind
 	title   string
@@ -168,13 +168,13 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	return state
 }
 
-// pushSubmenu renders a menu to the right of the one it was opened from.
+// pushSubmenu renders a menu to the right of the one that opened it.
 func (m *model) pushSubmenu(parents []submenuLevel, level submenuLevel) tea.Cmd {
 	return m.openForm(submenuState(parents, level))
 }
 
-// openListActions renders the menu on the entry under a list's cursor in place of what the list
-// previews.
+// openListActions renders the menu on the entry under a list's cursor in place of the list's
+// preview.
 func (m *model) openListActions(stack []submenuLevel, list submenuLevel) tea.Cmd {
 	actions := list.menu.actions(*list.choice)
 	actions.inPlace = true
@@ -182,8 +182,8 @@ func (m *model) openListActions(stack []submenuLevel, list submenuLevel) tea.Cmd
 	return m.pushSubmenu(stack, newSubmenuLevel(actions))
 }
 
-// stackForm renders a form to the right of the menus rendered beside it, going back to the menus it
-// was opened from.
+// stackForm renders a form to the right of the menus beside it, going back to the menus that
+// opened it.
 func (m *model) stackForm(rendered, from []submenuLevel, form formState) tea.Cmd {
 	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.title }), form.crumbs...)
 	form.leading = func(width, _ int) []string {
@@ -196,7 +196,7 @@ func (m *model) stackForm(rendered, from []submenuLevel, form formState) tea.Cmd
 	return m.openForm(form)
 }
 
-// backSubmenu closes the menu on top, handing the keys to the one it was opened from.
+// backSubmenu closes the top menu and hands the keys to the menu that opened it.
 func (m *model) backSubmenu(parents []submenuLevel) tea.Cmd {
 	if len(parents) == 0 {
 		return m.closeForm()

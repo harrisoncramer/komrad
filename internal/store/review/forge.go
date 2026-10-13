@@ -43,7 +43,7 @@ type UpdateForgeMessageParams struct {
 	Held bool
 }
 
-// UpdateForgeMessage rewrites a mirrored comment the forge reports was edited.
+// UpdateForgeMessage rewrites a mirrored comment that the forge reports as edited.
 func (s *ReviewStore) UpdateForgeMessage(ctx context.Context, params UpdateForgeMessageParams) error {
 	err := s.queries.UpdateForgeReviewMessage(ctx, models.UpdateForgeReviewMessageParams{
 		ID:            params.ID,
@@ -110,7 +110,7 @@ func (s *ReviewStore) ListForgeMirrored(ctx context.Context, taskID string) ([]F
 	}), nil
 }
 
-// ForgeMirrorTarget is a task on a pull request that forge comments are mirrored onto.
+// ForgeMirrorTarget is a task on a pull request that receives mirrored forge comments.
 type ForgeMirrorTarget struct {
 	TaskID string
 	// Cwd is the task's checkout, where comments are traced to its latest round.

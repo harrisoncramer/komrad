@@ -23,7 +23,7 @@ import (
 // errNoGitLabConnection says komrad holds no GitLab token for a host.
 var errNoGitLabConnection = fail.Precondition("no gitlab forge with a token is connected for this host")
 
-// errTokenSpansLines refuses a token that would break out of the line it is handed over on.
+// errTokenSpansLines refuses a token that would break out of the line that carries it.
 var errTokenSpansLines = fail.Precondition("the gitlab connection's token holds a line break, so komrad will not hand it out")
 
 func gitlabCmd(state *app) *cobra.Command {
@@ -142,7 +142,7 @@ Set it up for each GitLab host with:
 	}
 }
 
-// withoutPort is a host git described, less any port it was reached on.
+// withoutPort returns a host git described, less any port it reached the host on.
 func withoutPort(host string) string {
 	name, _, err := net.SplitHostPort(host)
 	if err != nil {

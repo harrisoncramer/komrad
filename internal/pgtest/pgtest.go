@@ -29,8 +29,8 @@ const (
 	// buildingMarker names a template that is still being built.
 	buildingMarker = "_tplbuilding"
 
-	// nameTimeLayout is spelled out rather than left as a count of seconds so that a pid,
-	// which is what a worktree still on the old build is putting here, cannot be read as a
+	// nameTimeLayout spells the time out rather than leaving a count of seconds, so a pid,
+	// which a worktree still on the old build puts here, cannot be read as a
 	// time and swept out from under a run that is very much alive.
 	nameTimeLayout = "20060102t150405"
 
@@ -39,7 +39,7 @@ const (
 	maxAge         = 2 * time.Hour
 	templateMaxAge = 24 * time.Hour
 
-	// templateLockClass is the advisory lock class the template build is serialised under.
+	// templateLockClass is the advisory lock class that serialises the template build.
 	templateLockClass = 7240116
 
 	// versionLength is how much of a hashed version a template's name carries.
@@ -52,7 +52,7 @@ var sweepOnce sync.Once
 // server has none.
 var lookupTemplate = (*admin).findTemplate
 
-// Schema is a versioned database a test's own is copied from.
+// Schema is a versioned database that a test's own copies from.
 type Schema struct {
 	Version string
 	Apply   func(ctx context.Context, url string) error
@@ -89,13 +89,13 @@ func Migrated(t *testing.T, schema Schema) string {
 	return url
 }
 
-// admin is the connection new databases are created through.
+// admin is the connection that creates new databases.
 type admin struct {
 	conn    *pgx.Conn
 	baseURL string
 }
 
-// connect opens the connection the databases of a test are created over, sweeping what earlier
+// connect opens the connection that creates the databases of a test, sweeping what earlier
 // runs left behind on its way in.
 func connect(t *testing.T) *admin {
 	t.Helper()
@@ -263,7 +263,7 @@ func (a *admin) protect(ctx context.Context, name string) {
 		`UPDATE pg_database SET datistemplate = true, datallowconn = false WHERE datname = $1`, name)
 }
 
-// sweep drops the test databases left behind by runs that were killed before reaching their
+// sweep drops the test databases that killed runs left behind before reaching their
 // cleanup, logging what it cannot drop rather than failing a test over housekeeping.
 func (a *admin) sweep(t *testing.T) {
 	t.Helper()
@@ -339,7 +339,7 @@ func createdAt(name string) (time.Time, bool) {
 	return parsed, true
 }
 
-// newName is a database name carrying the time it was made, ending in suffix when one is given.
+// newName returns a database name carrying the time of its creation, ending in suffix when one is given.
 func newName(suffix string) string {
 	name := fmt.Sprintf("%s%s_%016x", namePrefix, time.Now().UTC().Format(nameTimeLayout), rand.Uint64())
 	if suffix == "" {

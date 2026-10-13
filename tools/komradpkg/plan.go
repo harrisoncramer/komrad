@@ -37,7 +37,7 @@ type plan struct {
 	UntestedDependents int         `json:"untestedDependents"`
 }
 
-// touched is the packages of one module holding a changed file, and the count of packages that import them without being changed themselves.
+// touched holds the packages of one module with a changed file, and the count of packages that import them without changing themselves.
 func touched(pkgs []listed, moduleDir string, changedDirs, testable map[string]bool) ([]pkgRef, int) {
 	refs := []pkgRef{}
 	changed := map[string]bool{}

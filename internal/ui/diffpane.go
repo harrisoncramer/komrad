@@ -26,7 +26,7 @@ const diffFloor = diffview.GutterWidth + 20
 type diffKeys struct {
 	pane   *diffview.Pane
 	filter *filterState
-	// window is the size the pane is rendered at.
+	// window is the size the panel renders the pane at.
 	window func(*model) diffview.Window
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
 	// with nothing to do.

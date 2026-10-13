@@ -25,7 +25,7 @@ type Write struct {
 	Since time.Time
 }
 
-// Params is what a write is rendered with.
+// Params holds what a write renders with.
 type Params struct {
 	Palette paint.Palette
 	Frame   string

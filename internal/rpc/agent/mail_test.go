@@ -357,7 +357,7 @@ func TestSendMailWarnsOfADormantRecipient(t *testing.T) {
 	}
 }
 
-// TestReadMail pins which mailbox a read claims and that reading somebody else's is written to the log.
+// TestReadMail pins which mailbox a read claims and that the handler logs a read of somebody else's.
 func TestReadMail(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -533,7 +533,7 @@ func newLoggedCaller(t *testing.T, agentID string) (context.Context, *strings.Bu
 type assertCrossAgentReadParams struct {
 	Written string
 	Body    string
-	// Target is whose mailbox or conversation was read, empty when no read should be recorded.
+	// Target is whose mailbox or conversation the call read, empty when the handler should record no read.
 	Target string
 }
 

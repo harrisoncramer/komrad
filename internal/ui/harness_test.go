@@ -97,7 +97,7 @@ func TestHarnessHoldsTimers(t *testing.T) {
 	}
 }
 
-// TestHarnessFiresHeldTimers covers a debounced search waiting for its timer to be fired.
+// TestHarnessFiresHeldTimers covers a debounced search waiting for the harness to fire its timer.
 func TestHarnessFiresHeldTimers(t *testing.T) {
 	harness := newPanelHarness(t, panelHarnessParams{})
 	harness.watch(buildSnapshot())

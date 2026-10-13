@@ -43,7 +43,7 @@ type prepareLineParams struct {
 	caret   Caret
 }
 
-// prepareLine resolves one row to the glyphs, tones and weight it is rendered in.
+// prepareLine resolves one row to the glyphs, tones and weight it renders in.
 func prepareLine(params prepareLineParams) line {
 	row, focused := params.row, params.focused
 	caret := focused && params.caret == CaretRendered
@@ -454,7 +454,7 @@ func HeldCell(row Row) Cell {
 	return markCell(row.Held, glyph.Paused, paint.ToneMuted)
 }
 
-// emphasisFor is how brightly a name is rendered: the row under the cursor beating greying, and
+// emphasisFor is how brightly a name renders: the row under the cursor beating greying, and
 // greying beating an agent waiting on a person or broken.
 func emphasisFor(row Row, focused bool) emphasis {
 	switch {

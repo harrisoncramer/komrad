@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// request is what a caller sent once the terminal is open: bytes typed, a new size, or neither.
+// request is what a caller sends once the terminal opens: typed bytes, a new size, or neither.
 type request struct {
 	input  []byte
 	resize *terminalv1.Size

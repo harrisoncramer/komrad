@@ -21,8 +21,8 @@ func contextEnv(file string, text string, readErr error) Env {
 	return env
 }
 
-// TestContextCheck covers the standing text agents are started with, which the launcher reads and
-// drops the error from, so a file komrad cannot read leaves every agent without it.
+// TestContextCheck covers the standing text komrad starts agents with, which the launcher reads and
+// drops the error of, so a file komrad cannot read leaves every agent without it.
 func TestContextCheck(t *testing.T) {
 	tests := []struct {
 		name    string

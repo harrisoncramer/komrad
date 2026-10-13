@@ -19,8 +19,8 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// forgeTraceTimeout is how long tracing one task's new forge threads may take before the rest
-// are placed on their files.
+// forgeTraceTimeout is how long tracing one task's new forge threads may take before komrad
+// places the rest on their files.
 const forgeTraceTimeout = 10 * time.Second
 
 type rangeMapper interface {
@@ -86,8 +86,8 @@ func (m *ForgeMirror) Mirror(ctx context.Context, pullRequestID string) error {
 	return errors.Join(errs...)
 }
 
-// withoutBots drops the comments of the configured bot logins from each thread, so a thread opened
-// by a bot is mirrored from its first comment by anyone else.
+// withoutBots drops the comments of the configured bot logins from each thread, so komrad mirrors
+// a thread a bot opened from its first comment by anyone else.
 func (m *ForgeMirror) withoutBots(threads []pullrequeststore.ForgeThread) ([]pullrequeststore.ForgeThread, error) {
 	if m.botNames == nil {
 		return threads, nil
@@ -353,7 +353,7 @@ func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, param
 			return err
 		}
 
-		// A reply is written with no round so it does not reopen the thread.
+		// Komrad writes a reply with no round so it does not reopen the thread.
 		if _, err := reviews.CreateMessage(ctx, reviewstore.CreateMessageParams{
 			ThreadID:   params.Mirrored.ThreadID,
 			ReviewID:   &review.ID,

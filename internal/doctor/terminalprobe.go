@@ -14,7 +14,7 @@ import (
 )
 
 // cursorReplyTimeout is how long a terminal has to answer a cursor position query before the
-// measurement is given up on, short because a terminal that answers at all answers at once.
+// measurement gives up, short because a terminal that answers at all answers at once.
 const cursorReplyTimeout = 500 * time.Millisecond
 
 // MeasureColumnsOnTTY writes each sample to the controlling terminal and asks where the cursor

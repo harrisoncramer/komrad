@@ -127,8 +127,8 @@ func TestANotificationReachesTheWatchers(t *testing.T) {
 	require.NotNil(t, change.Row.GetAgent())
 }
 
-// TestALostConnectionDropsEveryWatcher pins the answer to a connection going: every
-// subscription is closed, none opens until the listener is back, and the one that opens then
+// TestALostConnectionDropsEveryWatcher pins the answer to a lost connection: the listener closes every
+// subscription, none opens until it is back, and the one that opens then
 // receives what is raised after.
 func TestALostConnectionDropsEveryWatcher(t *testing.T) {
 	stores := newStores()
@@ -206,7 +206,7 @@ func TestALookupFeederReachesItsResources(t *testing.T) {
 	stores := newStores()
 	l := newPooled(t)
 
-	// The seed is written before anything listens, so only the writes below raise anything.
+	// The test writes the seed before anything listens, so only the writes below raise anything.
 	rows := l.seed(t)
 	l.listen(t, stores)
 
@@ -330,7 +330,7 @@ func TestAWriteReachesTheWatchersUnderItsResourceKey(t *testing.T) {
 	stores := newStores()
 	l := newPooled(t)
 
-	// The seed is written before anything listens, so only the writes below raise anything.
+	// The test writes the seed before anything listens, so only the writes below raise anything.
 	agent := l.seedAgent(t)
 	l.listen(t, stores)
 

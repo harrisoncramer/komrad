@@ -10,13 +10,13 @@ import (
 	reviewstore "komrad/internal/store/review"
 )
 
-// errForgeMessageNotHeld is answered when the person accepts a message the agent can already read.
+// errForgeMessageNotHeld answers a person who accepts a message the agent can already read.
 var errForgeMessageNotHeld = fail.Precondition("only a held forge comment needs accepting")
 
-// ErrForgeMessageAccepted is answered when the person accepts a forge comment a second time.
+// ErrForgeMessageAccepted answers a person who accepts a forge comment a second time.
 var ErrForgeMessageAccepted = fail.AlreadyExists("that forge comment is already accepted")
 
-// errForgeRootHeld is answered when the person accepts a held reply in a thread whose held first
+// errForgeRootHeld answers a person who accepts a held reply in a thread whose held first
 // comment is not yet accepted, which the agent could not read the reply alongside.
 var errForgeRootHeld = fail.Precondition("this thread opens with a held forge comment, so accept that first")
 

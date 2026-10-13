@@ -82,8 +82,8 @@ func paths(patch *Patch) []string {
 	return found
 }
 
-// TestIntegrationLoadHonoursExcludes is the point of the setting: a workflow that names its generated
-// tree stops seeing it, and everything else is untouched.
+// TestIntegrationLoadHonoursExcludes covers a workflow that names its generated tree, which stops
+// seeing it while everything else stays.
 func TestIntegrationLoadHonoursExcludes(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -276,7 +276,7 @@ func TestIntegrationTakeIgnoresWhatGitIgnores(t *testing.T) {
 	assert.NotContains(t, changed(patch), ".komrad/reviews/round-1.md")
 }
 
-// TestIntegrationTakeExcludesNothingItself pins where the workflow's excludes are applied.
+// TestIntegrationTakeExcludesNothingItself pins where the workflow's excludes apply.
 func TestIntegrationTakeExcludesNothingItself(t *testing.T) {
 	root := repo(t)
 	write(t, root, "proto/gen/api.pb.go", "package gen\n\nfunc Gen() {}\n")

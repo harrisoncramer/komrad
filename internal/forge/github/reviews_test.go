@@ -138,7 +138,7 @@ func TestRequestRereview(t *testing.T) {
 }
 
 // TestDecision covers a change request read as a re-review requested only once every user who
-// asked for changes has been asked to review again.
+// asked for changes has received a new review request.
 func TestDecision(t *testing.T) {
 	t.Parallel()
 

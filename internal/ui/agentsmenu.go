@@ -77,8 +77,8 @@ func isTaskStartable(m *model, task panel.Task) bool {
 	return !task.WorktreeRemoved && (task.ArchivedAt == nil || task.Cwd != "")
 }
 
-// taskJumpMenu is the jump menu of the agent a task is opened through, its documents entry
-// landing on the task's.
+// taskJumpMenu is the jump menu of the agent that opens a task, with its documents entry landing on the
+// task's.
 func taskJumpMenu(m *model, agentID, taskID string) submenu {
 	menu := jumpMenu(m, screenAgents, screenTarget{agentID: agentID})
 	menu.entries = xslice.Map(menu.entries, func(entry submenuEntry) submenuEntry {

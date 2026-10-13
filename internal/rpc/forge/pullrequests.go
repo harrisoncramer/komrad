@@ -22,7 +22,7 @@ type pageCursor struct {
 	PerPage int    `json:"per_page"`
 }
 
-// Validate refuses a page nobody could have been handed.
+// Validate refuses a page that no earlier call could have returned.
 func (c pageCursor) Validate() error {
 	if c.Cursor == "" {
 		return fmt.Errorf("a page token names no cursor")

@@ -38,7 +38,7 @@ func (s State) IsFailed() bool {
 	return s == StateFailedToCreate || s == StateFailedToCleanup
 }
 
-// Role is what an agent was launched to do.
+// Role is what komrad launched an agent to do.
 type Role string
 
 const (
@@ -113,7 +113,7 @@ type AgentRow struct {
 	DocumentsUpdatedAt *time.Time
 }
 
-// IDs is the id of each agent, in the order they were given.
+// IDs is the id of each agent, in the order the caller gave them.
 func IDs(agents []Agent) []string {
 	return xslice.Map(agents, func(agent Agent) string { return agent.ID })
 }

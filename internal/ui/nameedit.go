@@ -11,17 +11,17 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// nameEdit is a row's name being typed over where the row is rendered.
+// nameEdit is a row's name being typed over the place where the row renders.
 type nameEdit struct {
 	key   string
 	was   string
 	input lineInput
-	// gone says the row was taken out of the list while its name was being typed.
+	// gone says the row left the list while the user typed its name.
 	gone  bool
 	noted bool
 	// saving says the typed name has been sent and the field takes no keys until it lands.
 	saving bool
-	// landed says the typed name was written and is rendered until the listing shows it.
+	// landed says Komrad wrote the typed name and renders it until the listing shows it.
 	landed bool
 }
 

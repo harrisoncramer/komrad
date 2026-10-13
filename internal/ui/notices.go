@@ -123,7 +123,7 @@ func appendCellNotice(notices []notice, glyphs glyph.Set, cell view.Cell, text s
 	})
 }
 
-// describeFailure says how a broken agent came to be broken.
+// describeFailure says how a broken agent broke.
 func describeFailure(item panel.AgentRow) string {
 	state := displayState(item)
 	if state != panel.StateErrored {

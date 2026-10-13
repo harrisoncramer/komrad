@@ -221,7 +221,7 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 	assert.Contains(t, resp.Msg.GetRefused()[0].GetReason(), "delete the agent instead")
 }
 
-// TestDeleteWorktrees covers the directories reaching the queue and nothing being removed on the call.
+// TestDeleteWorktrees covers the directories reaching the queue and the call removing nothing.
 func TestDeleteWorktrees(t *testing.T) {
 	t.Parallel()
 

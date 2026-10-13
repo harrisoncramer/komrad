@@ -66,7 +66,7 @@ type newLoopParams struct {
 	Waker *loopWaker
 }
 
-// newLoop builds a loop that runs on its interval and whenever its waker is woken.
+// newLoop builds a loop that runs on its interval and whenever something wakes its waker.
 func newLoop(params newLoopParams) *loop {
 	waker := params.Waker
 	if waker == nil {

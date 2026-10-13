@@ -24,7 +24,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// TestCompactedHookRemindsTheAgent pins what an agent is handed back once it has compacted.
+// TestCompactedHookRemindsTheAgent pins what the hook hands an agent once it has compacted.
 func TestCompactedHookRemindsTheAgent(t *testing.T) {
 	tests := []struct {
 		name            string

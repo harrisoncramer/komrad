@@ -193,7 +193,7 @@ func (f *filterState) settle(query string) bool {
 	return true
 }
 
-// compile reads the pattern out of what is typed.
+// compile reads the pattern out of what the user typed.
 func (f *filterState) compile() {
 	query := f.query()
 	f.pattern, f.broken, f.compiledQuery = nil, false, query

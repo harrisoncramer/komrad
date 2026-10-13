@@ -12,8 +12,8 @@ const unrecognizedHoldLimit = 5
 
 const reconcileShellGrace = 10 * time.Second
 
-// listingsBeforePaneGone is how many pane listings in a row have to leave a pane out before it
-// is believed gone.
+// listingsBeforePaneGone is how many pane listings in a row have to leave a pane out before
+// komrad believes it gone.
 const listingsBeforePaneGone = 3
 
 // turnEndGrace is how long after a pass first sees a turn end it may hurry an idle frame along.
@@ -50,8 +50,8 @@ func newTally() *tally {
 	return &tally{tracked: map[string]trackedAgent{}, now: time.Now}
 }
 
-// read is what earlier passes have accrued about an agent, the zero value standing for an agent
-// nothing has been recorded about yet.
+// read is what earlier passes accrued about an agent, the zero value standing for an agent
+// with no record yet.
 func (t *tally) read(agentID string) trackedAgent {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -59,8 +59,8 @@ func (t *tally) read(agentID string) trackedAgent {
 	return t.tracked[agentID]
 }
 
-// update hands fn what has been accrued about an agent and keeps whatever it leaves, starting
-// an entry when there is none.
+// update hands fn what earlier passes accrued about an agent and keeps whatever it leaves,
+// starting an entry when there is none.
 func (t *tally) update(agentID string, fn func(*trackedAgent)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -135,7 +135,7 @@ func (t *tally) clearMisses(agentID string) {
 	})
 }
 
-// clearDebounce drops what an agent had accrued towards a transition once one has been decided,
+// clearDebounce drops what an agent had accrued towards a transition once a pass decides one,
 // leaving the frame hash and the turn end.
 func (t *tally) clearDebounce(agentID string) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {

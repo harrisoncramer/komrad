@@ -31,7 +31,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-// TestFormsSubmit covers every form sending what was typed into it and closing once the write lands.
+// TestFormsSubmit covers every form sending what the user typed into it and closing once the write lands.
 func TestFormsSubmit(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -237,7 +237,7 @@ func TestFormsNewAgentWorktree(t *testing.T) {
 	}
 }
 
-// TestFormsRefused covers a refused write leaving the form up, holding what was typed.
+// TestFormsRefused covers a refused write leaving the form up, holding what the user typed.
 func TestFormsRefused(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -1133,7 +1133,7 @@ func TestFormsFieldEditor(t *testing.T) {
 	}
 }
 
-// TestFormsLayout covers a form being rendered in a column beside the list it was opened over.
+// TestFormsLayout covers the panel rendering a form in a column beside the list that opened it.
 func TestFormsLayout(t *testing.T) {
 	t.Parallel()
 

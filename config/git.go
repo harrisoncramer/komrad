@@ -49,10 +49,10 @@ func (g Git) validate() error {
 type Forge struct {
 	// Logins whose review comments are left out of the threads mirrored onto an agent, such as a
 	// CI bot or a code review App. A thread whose every comment is from one of them is not mirrored
-	// at all. Names are matched without regard to case.
+	// at all. Names ignore case.
 	BotNames []string `mapstructure:"bot_names"`
-	// The largest check log komrad keeps, in bytes. A log past it is not kept, and the panel links to it
-	// on the forge instead. A negative size is refused.
+	// The largest check log komrad keeps, in bytes. Komrad drops a log past it, and the panel links to it
+	// on the forge instead. Komrad refuses a negative size.
 	MaxCheckLogBytes int64 `mapstructure:"max_check_log_bytes"`
 }
 
@@ -80,11 +80,11 @@ type GitHubApp struct {
 	// and git is left to whatever credentials the account already has, which on a machine
 	// nobody logs into is none.
 	AppID string `mapstructure:"app_id"`
-	// The installation the token is minted for, which is what scopes it to the repositories the
-	// App was installed on rather than to everything it could reach. GitHub writes it as a
-	// number, and it is in the URL of the installation's own settings page.
+	// The installation the token is for, which scopes it to the repositories the App was
+	// installed on rather than to everything it could reach. GitHub writes it as a number, and
+	// it appears in the URL of the installation's own settings page.
 	InstallationID string `mapstructure:"installation_id"`
-	// The PEM the App was created with. On a deployed engine this is fetched into a tmpfs at
-	// boot rather than written to disk, so the key does not outlive the machine.
+	// The PEM the App was created with. On a deployed engine, komrad fetches this into a tmpfs at
+	// boot rather than writing it to disk, so the key does not outlive the machine.
 	PrivateKeyPath string `mapstructure:"private_key_path"`
 }

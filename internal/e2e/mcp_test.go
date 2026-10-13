@@ -25,7 +25,7 @@ type toolCaller struct {
 	session *mcpsdk.ClientSession
 }
 
-// TestIntegrationMCPTools walks the tools an agent's CLI calls, from the list it is served to what
+// TestIntegrationMCPTools walks the tools an agent's CLI calls, from the list the service offers to what
 // a call does and how a refusal reads.
 func TestIntegrationMCPTools(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{})

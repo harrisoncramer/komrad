@@ -49,7 +49,7 @@ func (h *Handler) GetRoot(ctx context.Context, req *gitv1.GetRootRequest) (*gitv
 	return &gitv1.GetRootResponse{Root: root}, nil
 }
 
-// ReadFiles answers with each named file its commit holds, in the order they were asked for.
+// ReadFiles answers with each named file its commit holds, in the order the caller named them.
 func (h *Handler) ReadFiles(ctx context.Context, req *gitv1.ReadFilesRequest) (*gitv1.ReadFilesResponse, *fail.Error) {
 	revisions := xslice.Map(req.GetRevisions(), func(revision *gitv1.FileRevision) gitrepo.FileRevision {
 		return gitrepo.FileRevision{SHA: revision.GetSha(), Path: revision.GetPath()}

@@ -1,5 +1,5 @@
 // Package config serves the configuration RPC, which reports the settings komrad is running on
-// as they were resolved rather than as they were written.
+// as komrad resolved them rather than as the user wrote them.
 package config
 
 import (

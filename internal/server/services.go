@@ -102,8 +102,8 @@ type terminalServices struct {
 	attaches *attaches.AttachService
 }
 
-// BuiltinScriptsDir is where the scripts komrad ships are installed under a cache directory,
-// which is the only place a script that is not a hook is resolved from.
+// BuiltinScriptsDir is where komrad installs the scripts it ships under a cache directory,
+// which is the only place a script that is not a hook resolves from.
 func BuiltinScriptsDir(cacheDir string) string {
 	return filepath.Join(cacheDir, "komrad-builtin-scripts")
 }

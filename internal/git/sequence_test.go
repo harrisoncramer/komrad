@@ -141,8 +141,8 @@ func stoppedApply(t *testing.T) string {
 	return dir
 }
 
-// restingPicks leaves a two-commit cherry-pick or revert resting after its first pick was settled
-// by hand, when only the sequencer directory says it is unfinished.
+// restingPicks leaves a two-commit cherry-pick or revert resting after the user settled its first pick
+// by hand, when only the sequencer directory says it has not finished.
 func restingPicks(t *testing.T, verb string) string {
 	t.Helper()
 

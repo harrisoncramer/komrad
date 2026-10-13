@@ -156,7 +156,7 @@ func (c *Client) HoldRef(ctx context.Context, dir, ref, sha string) error {
 	return nil
 }
 
-// ReleaseRef drops the ref holding a snapshot, leaving the commit to be collected.
+// ReleaseRef drops the ref holding a snapshot and leaves the commit for collection.
 func (c *Client) ReleaseRef(ctx context.Context, dir, ref string) error {
 	if ref == "" {
 		return nil

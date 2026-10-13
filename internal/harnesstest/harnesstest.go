@@ -219,7 +219,7 @@ func (h *Harness) Show(agentID, line string) error {
 }
 
 // Typed is every line typed at an agent's pane, oldest first, as its own stdin received them
-// rather than what tmux was asked to send.
+// rather than what komrad asked tmux to send.
 func (h *Harness) Typed(agentID string) ([]string, error) {
 	raw, err := os.ReadFile(filepath.Join(h.root, "typed", agentID))
 	if os.IsNotExist(err) {

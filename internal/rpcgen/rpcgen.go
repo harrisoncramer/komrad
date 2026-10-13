@@ -1,8 +1,8 @@
 // Package rpcgen writes the strict handler interface and the adapter for each service, which is
 // what keeps a failure's code decided by its type rather than by whoever wrote the handler.
 //
-// A unary method answers with a message and a failure. A streaming method is handed its stream
-// and answers with a failure alone. A method that streams only from the client is refused.
+// A unary method answers with a message and a failure. A streaming method receives its stream
+// and answers with a failure alone. The generator refuses a method that streams only from the client.
 package rpcgen
 
 import (

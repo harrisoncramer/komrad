@@ -215,7 +215,7 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	assert.Equal(t, taskstore.SequenceNone, fixture.read(t, agent.ID).Sequence)
 }
 
-// TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers a cwd that is gone never being asked for its branch.
+// TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers komrad never asking a gone cwd for its branch.
 func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	fixture := newSyncFixture(t)
 	fixture.seed(t, "a", makeRemovedDir(t))
@@ -226,7 +226,7 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	assert.Empty(t, looked.Dirs)
 }
 
-// TestCwdSyncerSyncClearsWhatAnEarlierPassWrote covers a branch and a removal being cleared once the cwd moves.
+// TestCwdSyncerSyncClearsWhatAnEarlierPassWrote covers komrad clearing a branch and a removal once the cwd moves.
 func TestCwdSyncerSyncClearsWhatAnEarlierPassWrote(t *testing.T) {
 	fixture := newSyncFixture(t)
 	repo := makeCheckout(t)
@@ -270,7 +270,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	}
 }
 
-// TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound covers the newest round being written once the tree no longer hashes to it.
+// TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound covers komrad writing the newest round once the tree no longer hashes to it.
 func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -861,8 +861,8 @@ func TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved(t *testing.T) {
 	assert.Empty(t, fixture.readUnlanded(t, *agent.TaskID))
 }
 
-// TestCwdSyncerSyncFetchesTheBaseOncePerMerge covers the base being fetched when the agent's pull
-// request merges, and not again until another does or the fetch failed.
+// TestCwdSyncerSyncFetchesTheBaseOncePerMerge covers komrad fetching the base when the agent's pull
+// request merges, and not again until another does or the fetch fails.
 func TestCwdSyncerSyncFetchesTheBaseOncePerMerge(t *testing.T) {
 	fixture := newSyncFixture(t)
 	cwd := makeCheckout(t)

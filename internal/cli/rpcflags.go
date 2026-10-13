@@ -19,7 +19,7 @@ type requestFields struct {
 	skipped []string
 	// exclusive groups the flags of one oneof.
 	exclusive [][]string
-	// groups is where each oneof's flags are being collected, by that oneof's place in the request.
+	// groups collects each oneof's flags, by that oneof's place in the request.
 	groups map[string]int
 }
 

@@ -207,8 +207,8 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 	assert.Empty(t, lifecycle.ranHooks(), "so no moment fires against it")
 }
 
-// TestNewWorkflowRefusesAHookOnAMomentKomradDoesNotFire pins the refusal a hook hung on a moment
-// nothing fires is answered with.
+// TestNewWorkflowRefusesAHookOnAMomentKomradDoesNotFire pins the refusal komrad gives a hook hung
+// on a moment nothing fires.
 func TestNewWorkflowRefusesAHookOnAMomentKomradDoesNotFire(t *testing.T) {
 	st := newStore(t)
 	workflows := newWorkflowService(st, tmuxtest.NewFake())
@@ -221,8 +221,8 @@ func TestNewWorkflowRefusesAHookOnAMomentKomradDoesNotFire(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnknownHookEvent)
 }
 
-// TestWorkflowRefusesAHookScriptTheHooksDirectoryDoesNotHold pins a misnamed hook being refused
-// when it is saved.
+// TestWorkflowRefusesAHookScriptTheHooksDirectoryDoesNotHold pins that komrad refuses a misnamed
+// hook when it is saved.
 func TestWorkflowRefusesAHookScriptTheHooksDirectoryDoesNotHold(t *testing.T) {
 	st := newStore(t)
 	workflows := st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake(), hooks: knownHooks{"install-deps"}})

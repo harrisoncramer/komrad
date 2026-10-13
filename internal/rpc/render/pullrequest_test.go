@@ -35,8 +35,8 @@ func TestPullRequestDrawsAuthorAndBody(t *testing.T) {
 	assert.Equal(t, "Why it changed.\n\nMore.", drawn.GetBody())
 }
 
-// TestPullRequestDrawsAutoMerge covers a row the forge has not been asked about drawn as off, and
-// the forge's word drawn as it was stored.
+// TestPullRequestDrawsAutoMerge covers a row the forge has not answered about rendering as off, and
+// the forge's word rendering as stored.
 func TestPullRequestDrawsAutoMerge(t *testing.T) {
 	tests := []struct {
 		name              string

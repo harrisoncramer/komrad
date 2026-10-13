@@ -12,7 +12,7 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// ErrUnknownTopic is an event whose topic no handler is registered for.
+// ErrUnknownTopic is an event whose topic has no registered handler.
 var ErrUnknownTopic = fail.Internal("no handler for the event's topic")
 
 // Handler writes the mail the events of one topic call for and returns any jobs to record with them.

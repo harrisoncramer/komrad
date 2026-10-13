@@ -86,7 +86,7 @@ func reviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	}
 }
 
-// heldStamp is when a person took the agent's worktree, empty while nobody has.
+// heldStamp is when a person took the agent's worktree, empty while nobody holds it.
 func heldStamp(at *time.Time) string {
 	if at == nil {
 		return ""

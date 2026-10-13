@@ -239,7 +239,7 @@ func (s *Handler) SetReviewFileViewed(ctx context.Context, req *agentv1.SetRevie
 	return answered, nil
 }
 
-// ListReviewViewedFiles reads which files of a task's diff have been marked read.
+// ListReviewViewedFiles reads which files of a task's diff the reviewer marked read.
 func (s *Handler) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
 	files, err := s.review.ListReviewViewedFiles(ctx, reviews.ListReviewViewedFilesParams{
 		Task:   req.GetTask(),

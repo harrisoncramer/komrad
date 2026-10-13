@@ -66,8 +66,8 @@ func (s *ScheduleService) GetSchedule(ctx context.Context, id string) (*schedule
 	return found, nil
 }
 
-// NewSchedule records a recurring launch, parsing the cron expression first so a schedule that
-// could never fire is refused.
+// NewSchedule records a recurring launch, parsing the cron expression first so it refuses a
+// schedule that could never fire.
 func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error) {
 	normalized, err := normalize(cfg)
 	if err != nil {
@@ -343,7 +343,7 @@ func normalize(cfg schedulestore.Config) (schedulestore.Config, error) {
 // empty zone as the machine's local one.
 func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	if timezone != "" {
-		// The zone is checked before parsing so an unknown one is reported as such rather than as
+		// The code checks the zone before parsing so it reports an unknown one as such rather than as
 		// a syntax error about the TZ prefix.
 		if _, err := time.LoadLocation(timezone); err != nil {
 			return nil, fmt.Errorf("%w: unknown timezone %q", ErrBadCron, timezone)

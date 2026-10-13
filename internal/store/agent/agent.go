@@ -155,7 +155,7 @@ func (h Hold) IsHeld() bool {
 	return h.At != nil
 }
 
-// ValidateActionable refuses an agent that is archived or that a person is holding.
+// ValidateActionable refuses an agent that is archived or that a person holds.
 func (a Agent) ValidateActionable() error {
 	if a.ArchivedAt != nil {
 		return fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, a.Name)
@@ -234,7 +234,7 @@ func fromRows(rows []*models.Agent) []Agent {
 	})
 }
 
-// IDs is the id of each agent, in the order they were given.
+// IDs returns the id of each agent, in the order given.
 func IDs(agents []Agent) []string {
 	return xslice.Map(agents, func(agent Agent) string { return agent.ID })
 }

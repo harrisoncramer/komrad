@@ -9,7 +9,7 @@ import (
 )
 
 // TestParseRemoteURL covers every spelling of a remote that names one repository, the pieces each
-// is taken apart into, and every shape of remote that names none.
+// splits into, and every shape of remote that names none.
 func TestParseRemoteURL(t *testing.T) {
 	t.Parallel()
 

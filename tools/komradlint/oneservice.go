@@ -15,7 +15,7 @@ const oneServiceDoc = "Checks that an RPC handler's strict half reaches one of i
 	"so combining what several services return is done by a service rather than by the handler."
 
 const (
-	// failPackage is where the error a strict half answers with is declared.
+	// failPackage is where the code declares the error a strict half answers with.
 	failPackage = "komrad/internal/fail"
 	// failType is the name of that error.
 	failType = "Error"

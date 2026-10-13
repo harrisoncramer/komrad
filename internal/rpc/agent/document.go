@@ -192,7 +192,7 @@ func (s *Handler) DeleteDocument(ctx context.Context, req *agentv1.DeleteDocumen
 	return &emptypb.Empty{}, nil
 }
 
-// DeleteDocumentType removes a document type no document is written as.
+// DeleteDocumentType removes a document type that no document uses.
 func (s *Handler) DeleteDocumentType(ctx context.Context, req *agentv1.DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.documentTypes.DeleteDocumentType(ctx, documents.DeleteDocumentTypeParams{
 		ID:        req.GetId(),

@@ -55,7 +55,7 @@ func TestFrameSettingsAreHeldBetweenReads(t *testing.T) {
 	assert.Equal(t, 1, loads)
 }
 
-// TestFrameSettingsReReadOnceTheyAreOld is what lets a recording be turned on under a service
+// TestFrameSettingsReReadOnceTheyAreOld is what lets someone turn a recording on under a service
 // already running.
 func TestFrameSettingsReReadOnceTheyAreOld(t *testing.T) {
 	var loads int

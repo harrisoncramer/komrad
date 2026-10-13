@@ -64,7 +64,7 @@ func TestStringNamesTheEngine(t *testing.T) {
 	}
 }
 
-// TestTunnelArgvForwardsTheEnginesAddress covers the forward ssh is asked for.
+// TestTunnelArgvForwardsTheEnginesAddress covers the forward komrad asks ssh for.
 func TestTunnelArgvForwardsTheEnginesAddress(t *testing.T) {
 	t.Parallel()
 

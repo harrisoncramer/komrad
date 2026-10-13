@@ -248,7 +248,7 @@ func tokenForTheWire(token forge.Secret) string {
 	return token.Expose()
 }
 
-// readToken is the token from a file when one is named, and otherwise from stdin.
+// readToken reads the token from a file when one is named, and otherwise from stdin.
 func readToken(stdin io.Reader, tokenFile string) (forge.Secret, error) {
 	source := stdin
 	if tokenFile != "" {

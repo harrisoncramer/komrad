@@ -20,7 +20,7 @@ const (
 	CodeForgesUnreadable = "forges_unreadable"
 )
 
-// Select is the checks among these with one of the names, in the order they were given.
+// Select returns the checks among these that have one of the names, in the order the names came.
 func Select(checks []Check, names ...string) []Check {
 	selected := make([]Check, 0, len(names))
 	for _, check := range checks {

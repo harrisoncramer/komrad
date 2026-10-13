@@ -16,7 +16,7 @@ import (
 // searched it for.
 type docReader struct {
 	reader.Reader
-	// filter is the pattern being searched for in the document.
+	// filter is the pattern the user searches the document for.
 	filter filterState
 	// origin is the row the cursor was on when the search opened.
 	origin int

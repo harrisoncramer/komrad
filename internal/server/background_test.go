@@ -222,8 +222,8 @@ func TestBackgroundOutlivesTheSignal(t *testing.T) {
 	work.stop(t.Context())
 }
 
-// TestBackgroundStopWaitsForTheLoops covers the loops being waited on rather than left to die with
-// the process.
+// TestBackgroundStopWaitsForTheLoops covers Stop waiting on the loops rather than leaving them to
+// die with the process.
 func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 	var runs atomic.Int64
 	runner := &fakeRunner{}
@@ -317,8 +317,8 @@ func TestAFailedRunIsLoggedOnItsOwnTrace(t *testing.T) {
 	assert.Equal(t, trace, records[1][logging.TraceID], "the outcome is on the trace that produced it")
 }
 
-// TestEveryOutcomeCarriesTheTraceOfTheRunItDescribes covers a repeat and a recovery each
-// being written under the trace of the run it describes.
+// TestEveryOutcomeCarriesTheTraceOfTheRunItDescribes covers the loop writing a repeat and a
+// recovery each under the trace of the run it describes.
 func TestEveryOutcomeCarriesTheTraceOfTheRunItDescribes(t *testing.T) {
 	down := errors.New("failed to list agents")
 

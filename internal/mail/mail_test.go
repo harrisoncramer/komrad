@@ -226,7 +226,7 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 	}
 }
 
-// TestSendMailRefusesAPairAtTheExchangeCap pins that ordinary mail between a pair is refused once they reach the cap.
+// TestSendMailRefusesAPairAtTheExchangeCap pins that komrad refuses ordinary mail between a pair once they reach the cap.
 func TestSendMailRefusesAPairAtTheExchangeCap(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, 2)
@@ -716,7 +716,7 @@ func TestSendFromKomradCutsTheEventPromptsToFit(t *testing.T) {
 	}
 }
 
-// TestClaimMail pins that a claim is refused for an id no agent holds and takes at most one batch otherwise.
+// TestClaimMail pins that komrad refuses a claim for an id no agent holds and takes at most one batch otherwise.
 func TestClaimMail(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)
@@ -749,7 +749,7 @@ func TestClaimMail(t *testing.T) {
 	})
 }
 
-// TestListMail pins that a listing is refused for an unknown agent and otherwise reads the half of the correspondence asked for.
+// TestListMail pins that komrad refuses a listing for an unknown agent and otherwise reads the half of the correspondence asked for.
 func TestListMail(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)

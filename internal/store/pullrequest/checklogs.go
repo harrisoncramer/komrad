@@ -261,7 +261,7 @@ func (s *StatusCheckStore) ListCheckLogHits(ctx context.Context, checkIDs []stri
 	return search, nil
 }
 
-// GetCheckForLogFetch is a check with the steps its log is mapped by, or ErrNotFound.
+// GetCheckForLogFetch returns a check with the steps that map its log, or ErrNotFound.
 func (s *StatusCheckStore) GetCheckForLogFetch(ctx context.Context, checkID string) (*checkForLogFetch, error) {
 	row, err := s.queries.GetCheckForLogFetch(ctx, checkID)
 	if db.IsNoRows(err) {

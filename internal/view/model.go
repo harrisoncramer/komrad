@@ -14,7 +14,7 @@ const (
 	weightItalic
 )
 
-// emphasis is how brightly a row's name is rendered.
+// emphasis is how brightly a row's name renders.
 type emphasis int
 
 const (
@@ -102,7 +102,7 @@ type Column struct {
 	Width int
 }
 
-// Columns is the gutter a list declares, in the order its columns are rendered.
+// Columns is the gutter a list declares, in the order its columns render.
 type Columns []Column
 
 // workColumns is the gutter of the agents list: repo and forge, one glyph each.

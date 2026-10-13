@@ -275,7 +275,7 @@ func (s *AgentStore) ForgetPane(ctx context.Context, params ForgetPaneParams) (b
 		return false, nil
 	}
 
-	// The write is guarded on UpdatedAt rather than on the pane, whose ids come from a counter
+	// The write checks UpdatedAt rather than the pane, whose ids come from a counter
 	// that restarts with the tmux server.
 	forgotten, err := s.queries.ForgetAgentPane(ctx, models.ForgetAgentPaneParams{
 		ID:            params.ID,

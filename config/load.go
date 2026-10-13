@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// errLayerAbsent marks a config layer that is not on disk. It is answered rather than
-// raised for the default path, since not having written a config is the ordinary install.
+// errLayerAbsent marks a config layer that is not on disk. Load answers it rather than
+// raising it for the default path, since not having written a config is the ordinary install.
 var errLayerAbsent = errors.New("config layer is absent")
 
 // Layer is one file in the stack, and whether it was asked for by name. A named layer that
@@ -32,7 +32,7 @@ type Stack struct {
 	Engine string
 }
 
-// ResolveLayers is the files Load would read, weakest first. Given paths, that is exactly
+// ResolveLayers returns the files Load would read, weakest first. Given paths, that is exactly
 // those paths, since naming any replaces the default rather than adding to it: being able
 // to say "this file and nothing else" is what lets a second instance be isolated from the
 // first one's config. Given none, it is the one default path.
@@ -100,7 +100,7 @@ func LoadStack(stack Stack) (*Config, error) {
 	return cfg, err
 }
 
-// Report describes how a configuration was resolved without mixing provenance into Config.
+// Report describes how komrad resolved a configuration, without mixing provenance into Config.
 type Report struct {
 	Layers  []Layer
 	Sources map[string]Source

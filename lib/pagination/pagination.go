@@ -5,8 +5,8 @@
 // its peers, and the handler that lists it holds a Paginator over that pair. The token is an
 // opaque base64 of the JSON-encoded cursor, so callers hand it back verbatim and the shape
 // inside it stays the server's business. A cursor type says through Validate what it will
-// take back, so a token holding something the query cannot use is refused here rather than by
-// the database.
+// take back, so this package refuses a token holding something the query cannot use rather than
+// the database doing so.
 package pagination
 
 import (

@@ -497,7 +497,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 	}
 }
 
-// TestCreateSchedule pins that a created schedule comes back rendered, with its kind and its next run when it is armed.
+// TestCreateSchedule pins that a new schedule comes back rendered, with its kind and its next run when it is armed.
 func TestCreateSchedule(t *testing.T) {
 	tests := []struct {
 		name             string

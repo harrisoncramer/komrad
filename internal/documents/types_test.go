@@ -15,7 +15,7 @@ import (
 	"komrad/lib/xptr"
 )
 
-// TestGetDocumentType pins that an unknown name is refused with the names that exist.
+// TestGetDocumentType pins that komrad refuses an unknown name and lists the names that exist.
 func TestGetDocumentType(t *testing.T) {
 	stores := storetest.Open(t)
 	stores.SeedDocumentTypes(t, "notes")

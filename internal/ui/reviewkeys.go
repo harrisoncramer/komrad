@@ -107,7 +107,7 @@ func (r *reviewScreen) diffKeys() diffKeys {
 	}
 }
 
-// refuseExpand says why the file under the cursor cannot be rendered whole.
+// refuseExpand says why the file under the cursor cannot render whole.
 func (r *reviewScreen) refuseExpand(m *model) string {
 	file, ok := r.diff.View().GetRenderedFileAt(r.diff.Cursor())
 	if !ok || r.diff.View().IsExpanded(file.Path()) || !r.diff.View().IsViewed(file.Path()) {
@@ -117,7 +117,7 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 	return "that file is folded away" + separated + m.menuChordLabel(m.keys.Review.ToggleViewed) + " to open it"
 }
 
-// diffWindow is the window the diff is rendered in, zero-sized without a split.
+// diffWindow is the window that renders the diff, zero-sized without a split.
 func (r *reviewScreen) diffWindow(m *model) diffview.Window {
 	split, ok := m.screenColumnSplit()
 	if !ok {

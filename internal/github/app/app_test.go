@@ -156,7 +156,7 @@ func TestInstallationIDRefusesAPlaceholder(t *testing.T) {
 	assert.Equal(t, "678", value)
 }
 
-// TestCacheRoundTrips covers the token being reused rather than minted per git operation.
+// TestCacheRoundTrips covers reusing the token rather than minting one per git operation.
 func TestCacheRoundTrips(t *testing.T) {
 	cache := Cache{Path: filepath.Join(t.TempDir(), "token.json"), Identity: Identity{
 		ID:             "12345",

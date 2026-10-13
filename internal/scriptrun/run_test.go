@@ -162,7 +162,7 @@ func TestFiredScriptRefusals(t *testing.T) {
 	}
 }
 
-// TestScriptPayload covers what a script is handed, including the socket, without which keys
+// TestScriptPayload covers what a script receives, including the socket, without which keys
 // sent to the pane would go to the user's own tmux server.
 func TestScriptPayload(t *testing.T) {
 	dir := t.TempDir()
@@ -415,7 +415,7 @@ func TestTaskEnvOnlyWhenTheAgentWorksOnOne(t *testing.T) {
 	}
 }
 
-// TestRunScriptNamesAnArchivedWorkflow pins an archived workflow still being named.
+// TestRunScriptNamesAnArchivedWorkflow pins the run still naming an archived workflow.
 func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
@@ -442,8 +442,8 @@ func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 	assert.Equal(t, "backend", payload.Workflow)
 }
 
-// TestRunScriptBoundsALongPrompt pins a long prompt being cut, which the kernel limit on what an
-// exec is handed would otherwise fail the run over.
+// TestRunScriptBoundsALongPrompt pins the run cutting a long prompt, which the kernel limit on what an
+// exec receives would otherwise fail the run over.
 func TestRunScriptBoundsALongPrompt(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
@@ -695,8 +695,8 @@ func TestRunProvisionCarriesTheReason(t *testing.T) {
 	assert.ErrorContains(t, err, "already checked out")
 }
 
-// TestRunDeprovisionRefusesOneThatIsGone pins a renamed script being reported rather than
-// pretended over, leaving the caller to decide the agent is still removable.
+// TestRunDeprovisionRefusesOneThatIsGone pins the run reporting a renamed script rather than
+// pretending over it, leaving the caller to decide the agent is still removable.
 func TestRunDeprovisionRefusesOneThatIsGone(t *testing.T) {
 	err := scriptService(t, t.TempDir(), &recordingRunner{}).
 		RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "was-renamed", nil)
@@ -889,7 +889,7 @@ func TestRunDeprovisionLogsWhatAZeroExitSaid(t *testing.T) {
 	require.NoError(t, doneErr)
 }
 
-// TestRunDeprovisionPersistsStdoutOnAFailure pins stdout being captured too, for a script that
+// TestRunDeprovisionPersistsStdoutOnAFailure pins the run capturing stdout too, for a script that
 // fails through a plain echo and a bare exit.
 func TestRunDeprovisionPersistsStdoutOnAFailure(t *testing.T) {
 	dir := t.TempDir()
@@ -1141,7 +1141,7 @@ func TestRunHookRefusesADirectoryThatIsGone(t *testing.T) {
 }
 
 // TestChmodMakesAHookRunnable pins the one action the listing tells a person to take: a hook
-// listed as unrunnable is refused, and a chmod is enough to make the next run go through
+// listed as unrunnable gets refused, and a chmod is enough to make the next run go through
 // without komrad being restarted.
 func TestChmodMakesAHookRunnable(t *testing.T) {
 	dir := t.TempDir()
@@ -1590,7 +1590,7 @@ func TestScriptTimeouts(t *testing.T) {
 	}
 }
 
-// TestFiredScriptRefusesASecondConcurrentRun covers the same script being asked for twice on
+// TestFiredScriptRefusesASecondConcurrentRun covers a second request for the same script on
 // one agent before the first run has finished.
 func TestFiredScriptRefusesASecondConcurrentRun(t *testing.T) {
 	dir := t.TempDir()
@@ -1626,8 +1626,8 @@ func TestFiredScriptReleasesTheClaimWhenItNeverStarts(t *testing.T) {
 }
 
 // TestConcurrencyGuardIsScopedNarrowly covers what the guard must not catch: the
-// same script against a different agent, a hook, and a provisioner, all of which are
-// serialized by the thing that asked for them and must never be refused by this guard.
+// same script against a different agent, a hook, and a provisioner, all of which whatever asked
+// for them serializes and this guard must never refuse.
 func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 	tests := []struct {
 		name string

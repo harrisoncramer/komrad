@@ -44,7 +44,7 @@ func TestNamedConfigDir(t *testing.T) {
 	}
 }
 
-// TestLogPathFollowsTheConfigDir covers the log being read from under the directory the harness
+// TestLogPathFollowsTheConfigDir covers the harness reading the log from under the directory it
 // is rooted at.
 func TestLogPathFollowsTheConfigDir(t *testing.T) {
 	tests := []struct {

@@ -323,7 +323,7 @@ func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 }
 
-// TestRebaseRefusesAnAgentThatWillNotSettle covers nothing being parked or moved until the pane is seen at rest.
+// TestRebaseRefusesAnAgentThatWillNotSettle covers komrad parking or moving nothing until it sees the pane at rest.
 func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -451,7 +451,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 	}
 }
 
-// TestRebaseRereadsTheRowOnceTheAgentSettles covers the row changing while the agent was being settled.
+// TestRebaseRereadsTheRowOnceTheAgentSettles covers the row changing while komrad settled the agent.
 func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 	tests := []struct {
 		name      string

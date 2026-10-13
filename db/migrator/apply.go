@@ -46,7 +46,7 @@ const migrateLock int64 = 7_240_115
 // unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.
 const unlockTimeout = 5 * time.Second
 
-// errDatabaseInUse is returned rather than migrating a database another komrad is on.
+// errDatabaseInUse refuses to migrate a database another komrad is on.
 var errDatabaseInUse = errors.New("another komrad is using this database")
 
 // apply runs the pending migrations and trigger units under the advisory lock, re-reading the

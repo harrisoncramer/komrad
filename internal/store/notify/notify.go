@@ -19,8 +19,8 @@ func NewNotifyStore(db store.DBTX) *NotifyStore {
 	return &NotifyStore{queries: models.New(db)}
 }
 
-// OpenWatchChannel puts this store's connection on the watch channel, after which it is given
-// notifications rather than used for queries.
+// OpenWatchChannel puts this store's connection on the watch channel, after which it receives
+// notifications rather than serving queries.
 func (s *NotifyStore) OpenWatchChannel(ctx context.Context) error {
 	if err := s.queries.ListenToWatchChannel(ctx); err != nil {
 		return fmt.Errorf("failed to listen on the watch channel: %w", err)

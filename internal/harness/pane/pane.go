@@ -75,7 +75,7 @@ var (
 	_ harness.Observer = (*Pane)(nil)
 )
 
-// Forget drops what was remembered of an agent's input box.
+// Forget drops what the pane remembered of an agent's input box.
 func (p *Pane) Forget(agentID string) {
 	p.drafts.forget(agentID)
 }

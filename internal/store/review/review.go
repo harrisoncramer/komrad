@@ -20,7 +20,7 @@ type AuthorKind string
 const (
 	// AuthorHuman is the person reviewing.
 	AuthorHuman AuthorKind = AuthorKind(models.ReviewAuthorKindHuman)
-	// AuthorAgent is the agent whose diff is being reviewed.
+	// AuthorAgent is the agent whose diff the review covers.
 	AuthorAgent AuthorKind = AuthorKind(models.ReviewAuthorKindAgent)
 	// AuthorForge is someone commenting on the pull request on the forge.
 	AuthorForge AuthorKind = AuthorKind(models.ReviewAuthorKindForge)
@@ -314,7 +314,7 @@ func (s *ReviewStore) MarkThreadRead(ctx context.Context, id string) (*Thread, e
 	return &thread, nil
 }
 
-// SetThreadResolvedParams is the thread being settled or reopened, and who is doing it.
+// SetThreadResolvedParams names the thread to settle or reopen, and who does it.
 type SetThreadResolvedParams struct {
 	ID       string
 	Resolved bool

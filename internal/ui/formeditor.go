@@ -11,7 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// editableText is a form's text field and the string it is rendered from.
+// editableText is a form's text field and the string the panel renders it from.
 type editableText struct {
 	key   string
 	value *string
@@ -73,7 +73,7 @@ func (m *model) openFormFieldEditor() (tea.Cmd, bool) {
 	}), true
 }
 
-// formFieldDraftPath is the file a field is written to for the editor to open.
+// formFieldDraftPath is the file the panel writes a field to for the editor to open.
 func formFieldDraftPath(key string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("komrad-field-%s-%d.md", key, os.Getpid()))
 }

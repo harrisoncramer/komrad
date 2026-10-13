@@ -114,8 +114,8 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		existing, err := s.agents.GetByIdempotencyKey(ctx, key)
 		switch {
 		case err == nil:
-			// The row is written before the window is opened, so a create that failed leaves the
-			// key spent on an agent that never ran and a retry answered with a corpse.
+			// Komrad writes the row before it opens the window, so a create that failed leaves the
+			// key spent on an agent that never ran and a retry that gets a corpse.
 			released, err := s.releaseFailedLaunch(ctx, *existing, key)
 			if err != nil {
 				return nil, err
@@ -375,11 +375,11 @@ type launchFlagsParams struct {
 	workflowFlags   string
 }
 
-// launchFlags is what an agent is launched with, the user's defaults for the CLI it runs ahead
-// of the flags it was given.
+// launchFlags holds what an agent launches with, the user's defaults for the CLI it runs ahead
+// of the flags it received.
 func (s *LaunchService) launchFlags(params launchFlagsParams) string {
-	// A workflow's flags are written for the CLI it names, so an agent running a different one
-	// is launched without them.
+	// A workflow's flags target the CLI it names, so komrad launches an agent running a different
+	// one without them.
 	flags := strings.TrimSpace(params.agentFlags)
 	if flags == "" && params.harnessID == params.workflowHarness {
 		flags = strings.TrimSpace(params.workflowFlags)

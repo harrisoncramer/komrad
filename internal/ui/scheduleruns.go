@@ -13,10 +13,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// runTimeLayout is how a firing's occurrence is written at the head of its row.
+// runTimeLayout writes a firing's occurrence at the head of its row.
 const runTimeLayout = "01-02 15:04"
 
-// runWordWidth is the column the outcome word is padded to, so every row's detail lines up.
+// runWordWidth is the column that pads the outcome word, so every row's detail lines up.
 const runWordWidth = 9
 
 // runOutcome is how one firing is rendered: a coloured word, what goes beside it, and what goes on

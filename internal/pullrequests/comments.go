@@ -25,7 +25,7 @@ type NewCommentSyncerParams struct {
 	Forges  *forge.Service
 	Threads *pullrequeststore.ForgeThreadStore
 	Tx      *store.Pool
-	// Mirror copies a pull request's threads into the reviews of the agents on it once they are stored.
+	// Mirror copies a pull request's threads into the reviews of the agents on it once komrad stores them.
 	Mirror forgeMirror
 	Now    func() time.Time
 }

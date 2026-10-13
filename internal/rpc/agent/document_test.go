@@ -80,7 +80,7 @@ func (f *fakeDocuments) GetDocument(_ context.Context, _ string, version *int32)
 	return &got, nil
 }
 
-// ListDocuments records whose documents were asked for and answers stored without its body.
+// ListDocuments records whose documents the caller asked for and answers the stored one without its body.
 func (f *fakeDocuments) ListDocuments(_ context.Context, params documents.ListDocumentsParams) ([]documentstore.Document, error) {
 	f.listed = append(f.listed, fakeDocumentsList{
 		AgentID: params.AgentID,
@@ -497,7 +497,7 @@ func TestWriteDocument(t *testing.T) {
 	}
 }
 
-// TestListDocuments pins whose documents a listing reads and when that read is recorded.
+// TestListDocuments pins whose documents a listing reads and when the handler records the read.
 func TestListDocuments(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -627,7 +627,7 @@ func TestSearchDocuments(t *testing.T) {
 	}
 }
 
-// TestGetDocument pins that a document comes back whole and that reading another agent's is recorded.
+// TestGetDocument pins that a document comes back whole and that the handler records a read of another agent's.
 func TestGetDocument(t *testing.T) {
 	stored := documentstore.Document{
 		ID:        documentID,
@@ -687,8 +687,8 @@ func TestGetDocument(t *testing.T) {
 	}
 }
 
-// TestListDocumentVersions pins that a document's writes come back as the wire draws them and that
-// listing another agent's is recorded.
+// TestListDocumentVersions pins that a document's writes come back as the wire renders them and that
+// the handler records a listing of another agent's.
 func TestListDocumentVersions(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -836,7 +836,7 @@ func TestDeleteDocumentType(t *testing.T) {
 	assert.Equal(t, []documents.DeleteDocumentTypeParams{{ID: documentTypeID, ByAgentID: alphaID}}, docs.deletedTypes)
 }
 
-// TestListDocumentTypes pins how the types are rendered.
+// TestListDocumentTypes pins how the handler renders the types.
 func TestListDocumentTypes(t *testing.T) {
 	updated := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
 	docs := &fakeDocuments{types: []documenttypestore.Type{
@@ -892,7 +892,7 @@ func TestGetDocumentType(t *testing.T) {
 	}
 }
 
-// TestListDocumentTypeVersions pins how a type's writes are rendered.
+// TestListDocumentTypeVersions pins how the handler renders a type's writes.
 func TestListDocumentTypeVersions(t *testing.T) {
 	svc := newDocumentHandler(&fakeDocuments{typeVersions: []documenttypestore.Version{
 		{

@@ -45,7 +45,7 @@ type scriptedForge struct {
 	pullRequests map[string][]forge.PullRequest
 	// rateLimit is what every read says of the budget.
 	rateLimit forge.RateLimit
-	// refuse is answered instead of any request while set.
+	// refuse answers in place of any request while set.
 	refuse error
 	// requests is every request in order, spelled "read:<path>:<branches>" or
 	// "threads:<number>".
@@ -344,9 +344,9 @@ func (f *syncFixture) changes(t *testing.T) []Change {
 	return changes
 }
 
-// TestSyncReadsEveryLiveBranchOnTheFirstPass covers a repository never read before: every
-// branch a live agent sits on, less the base branch, is read in one request, what the forge
-// answers is written, and the repository is marked read.
+// TestSyncReadsEveryLiveBranchOnTheFirstPass covers a repository never read before: komrad reads
+// every branch a live agent sits on, less the base branch, in one request, writes what the forge
+// answers, and marks the repository read.
 func TestSyncReadsEveryLiveBranchOnTheFirstPass(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
@@ -366,7 +366,7 @@ func TestSyncReadsEveryLiveBranchOnTheFirstPass(t *testing.T) {
 }
 
 // TestSyncMarksARepositoryWithNoBranchesRead covers a repository whose agents all sit on the
-// base branch: nothing is asked of the forge, and the repository is still marked read.
+// base branch: komrad asks the forge nothing, and still marks the repository read.
 func TestSyncMarksARepositoryWithNoBranchesRead(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "main")
@@ -537,8 +537,8 @@ func TestSyncStopsHurryingABlankThatStaysBlank(t *testing.T) {
 	assert.Empty(t, f.forge.requests)
 }
 
-// TestSyncWakeReadsEveryRepository covers a wake: every repository is read on the next pass
-// whether it was due or not, and the loop is asked to run.
+// TestSyncWakeReadsEveryRepository covers a wake: komrad reads every repository on the next pass
+// whether it was due or not, and asks the loop to run.
 func TestSyncWakeReadsEveryRepository(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
@@ -764,7 +764,7 @@ func TestSyncThrottlesTheConnection(t *testing.T) {
 }
 
 // TestSyncStopsWhenTheBudgetHeaderIsSpent covers a read whose headers say the budget is gone:
-// the answer is written, the reset is recorded on the connection, and the host is left alone
+// komrad writes the answer, records the reset on the connection, and leaves the host alone
 // for the rest of the pass and until the reset.
 func TestSyncStopsWhenTheBudgetHeaderIsSpent(t *testing.T) {
 	f := newSyncFixture(t)
@@ -918,8 +918,8 @@ func TestSyncBacksOffARefusedCredential(t *testing.T) {
 	assert.NotContains(t, logged.String(), "rate limiting", "a refused credential is never called a rate limit")
 }
 
-// TestSyncSkipsARepositoryWithNoConnection covers a host nobody connected: nothing is asked and
-// nothing is written.
+// TestSyncSkipsARepositoryWithNoConnection covers a host nobody connected: komrad asks nothing and
+// writes nothing.
 func TestSyncSkipsARepositoryWithNoConnection(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
@@ -933,7 +933,7 @@ func TestSyncSkipsARepositoryWithNoConnection(t *testing.T) {
 }
 
 // TestSyncMatchesARemoteSpelledWithCapitals covers a checkout whose remote spells the
-// repository with capitals: it is read, and its agent is observed beside the pull request.
+// repository with capitals: komrad reads it and observes its agent beside the pull request.
 func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
 	f := newSyncFixture(t)
 	spelled, err := git.ParseRemoteURL("git@github.com:HarrisonCramer/Komrad.git")

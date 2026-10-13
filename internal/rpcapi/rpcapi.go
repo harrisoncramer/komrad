@@ -1,7 +1,7 @@
 // Package rpcapi reads komrad's own proto descriptors at runtime, so the CLI and the MCP server
 // are generated from the same list of methods the handlers implement.
 //
-// It is what makes adding an RPC enough on its own. The method's path, its request fields and
+// It makes adding an RPC enough on its own. The method's path, its request fields and
 // their validation rules, and the annotations saying whether it only reads and whether it is
 // safe to retry all come from the descriptor, so a new endpoint arrives as a CLI subcommand and
 // an MCP tool without either being written by hand.
@@ -86,7 +86,7 @@ func (m Method) GetCallTimeout(fallback time.Duration) time.Duration {
 	return fallback
 }
 
-// GetPath returns where the method is served, which for a unary call is its Connect route.
+// GetPath returns where the service serves the method, which for a unary call is its Connect route.
 func (m Method) GetPath() string {
 	return "/" + string(m.Service.FullName()) + "/" + string(m.Method.Name())
 }
@@ -183,7 +183,7 @@ func IsDestructive(method protoreflect.MethodDescriptor, surfaces *annotationv1.
 // ErrUnknownCaller is a call naming an agent komrad holds no row for.
 var ErrUnknownCaller = fail.Denied("komrad knows no agent by that id")
 
-// RoleOf answers what the agent was launched to do.
+// RoleOf answers what komrad launched the agent to do.
 type RoleOf func(ctx context.Context, agentID string) (annotationv1.Role, error)
 
 // ServesRole reports whether a method is open to a caller holding the role, every method being
@@ -196,7 +196,7 @@ func ServesRole(surfaces *annotationv1.Surfaces, role annotationv1.Role) bool {
 	return slices.Contains(surfaces.GetRoles(), role)
 }
 
-// EnumNames is what an enum's values are spelled with where a caller has to name one, leaving
+// EnumNames returns the spellings of an enum's values where a caller has to name one, leaving
 // out the zero value the field already holds.
 func EnumNames(values protoreflect.EnumDescriptor) []string {
 	names := make([]string, 0, values.Values().Len())

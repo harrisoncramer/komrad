@@ -103,7 +103,7 @@ func TestHarnessStepUnattendedNamesTheFlag(t *testing.T) {
 	assert.ErrorContains(t, err, "--harness")
 }
 
-// TestHarnessStepRepairRefusesAnOverridingLayer covers that a write a later layer overrides is reported rather than passed.
+// TestHarnessStepRepairRefusesAnOverridingLayer covers komrad reporting a write a later layer overrides rather than passing it.
 func TestHarnessStepRepairRefusesAnOverridingLayer(t *testing.T) {
 	dir := t.TempDir()
 	lower, upper := filepath.Join(dir, "lower.toml"), filepath.Join(dir, "upper.toml")

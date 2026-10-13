@@ -1,5 +1,5 @@
-// Package rpcerr is where a handler's failure meets the connect code a caller is answered with,
-// so the generated signature is satisfied in one place rather than in every handler.
+// Package rpcerr is where a handler's failure meets the connect code the caller gets,
+// so one place satisfies the generated signature rather than every handler.
 package rpcerr
 
 import (

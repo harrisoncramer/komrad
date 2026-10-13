@@ -193,8 +193,8 @@ func (r reviewScreen) doesFitBaseLegend(m *model) bool {
 	return r.doesWalk()
 }
 
-// cutChaptersParams is everything the chapters are cut from, kept apart from the calls that read
-// it so the cutting can be tested on its own.
+// cutChaptersParams holds everything that cuts the chapters, staying apart from the calls that
+// read it so a test can run the cutting on its own.
 type cutChaptersParams struct {
 	Rounds   []*agentv1.ReviewRound
 	Reviews  []*agentv1.Review

@@ -47,7 +47,7 @@ func NewForgeStore(db store.DBTX) *ForgeStore {
 	return &ForgeStore{queries: models.New(db)}
 }
 
-// CreateParams is what a connection is created from.
+// CreateParams holds what creates a connection.
 type CreateParams struct {
 	Kind       string
 	Host       string

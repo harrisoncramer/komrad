@@ -207,7 +207,7 @@ func (n *commitNode) oid() string {
 }
 
 // quoteOfHunk is the line a comment was written on, which GitHub's hunk ends with, with its diff
-// marker taken off.
+// marker removed.
 func quoteOfHunk(hunk string, line int) string {
 	if line <= 0 {
 		return ""

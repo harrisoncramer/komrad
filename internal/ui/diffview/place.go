@@ -22,7 +22,7 @@ const outsideNotice = noticeRule + " still in the change, outside what is on scr
 // goneNotice heads the comments whose file has left the change altogether.
 const goneNotice = noticeRule + " these are holding your review, on files that have left the change " + noticeRule
 
-// placement is how a thread reached the row it is rendered on, which separates a thread the diff
+// placement is how a thread reached the row it renders on, which separates a thread the diff
 // still agrees with from one the agent has written out from under.
 type placement uint8
 
@@ -46,7 +46,7 @@ const (
 // placeArm is one way of finding a thread's row.
 type placeArm func(*View, lineIndex, *agentv1.ReviewThread) (int, placement, bool)
 
-// PinThreads works out where each thread is rendered now that the agent has been editing under it,
+// PinThreads works out where each thread renders now that the agent has been editing under it,
 // and never drops one for having moved.
 func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 	v.threads = threads
@@ -56,8 +56,8 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 
 	index := v.indexLines()
 
-	// A thread written against the snapshot on screen is offered its row ahead of one traced
-	// onto the same row.
+	// A thread written against the snapshot on screen gets its row ahead of one traced onto the
+	// same row.
 	var pending, moved []*agentv1.ReviewThread
 
 	for _, thread := range threads {
@@ -177,8 +177,8 @@ func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, p
 	return found[0], pinned, true
 }
 
-// isOnSideOf reports whether a row is rendered on the side of the diff the thread's line was
-// counted on.
+// isOnSideOf reports whether a row renders on the side of the diff the thread's line was counted
+// on.
 func (v *View) isOnSideOf(y int, thread *agentv1.ReviewThread) bool {
 	line, ok := v.getLine(y)
 	if !ok {
@@ -208,8 +208,8 @@ func (v *View) doesShareBase(thread *agentv1.ReviewThread) bool {
 	return thread.GetBaseSha() == v.patch.BaseSHA
 }
 
-// appendAdrift gives every thread with nowhere to stand a row at the foot of the diff, sorted by
-// where it was written so the section holds still while the cursor is in it.
+// appendAdrift gives every thread with nowhere to stand a row at the foot of the diff, sorting them
+// by where each was written so the section holds still while the cursor is in it.
 func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	if len(threads) == 0 {
 		return

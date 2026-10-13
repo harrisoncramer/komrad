@@ -733,7 +733,7 @@ func (r *reviewScreen) back(m *model) tea.Cmd {
 	return r.drop(m)
 }
 
-// backFromDiff hands the keys to the file tree, or leaves the screen where no tree is rendered.
+// backFromDiff hands the keys to the file tree, or leaves the screen where no tree renders.
 func (r *reviewScreen) backFromDiff(m *model) tea.Cmd {
 	if r.hold.isHeld() || !r.isBlockRendered(m) {
 		return r.back(m)

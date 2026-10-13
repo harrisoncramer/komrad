@@ -107,7 +107,7 @@ type actorNode struct {
 }
 
 // decision is GitHub's review decision, read as a re-review requested once every user whose
-// latest verdict asks for changes has been asked to review again.
+// latest verdict asks for changes has received a new review request.
 func (n mergeReadinessNode) decision() forge.ReviewDecision {
 	decision := reviewDecisionOf(n.ReviewDecision)
 	if decision != forge.ReviewDecisionChangesRequested {

@@ -106,7 +106,7 @@ func newKeybindingsCheck() Check {
 	}
 }
 
-// newYourTmuxKeysCheck asserts the tmux the panel is opened inside lets the panel's keys through.
+// newYourTmuxKeysCheck asserts the tmux that holds the panel lets the panel's keys through.
 func newYourTmuxKeysCheck() Check {
 	return Check{
 		Name:        "your tmux keys",

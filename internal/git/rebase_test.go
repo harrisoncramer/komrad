@@ -116,7 +116,7 @@ func TestIntegrationRebaseMovesTheBranchOnto(t *testing.T) {
 	assert.Equal(t, "untracked", string(body), "the untracked file rode through the rebase")
 }
 
-// TestIntegrationRebaseLeavesAConflictStopped pins that a conflicted rebase is reported and left where it is.
+// TestIntegrationRebaseLeavesAConflictStopped pins that a conflicted rebase reports and stays where it is.
 func TestIntegrationRebaseLeavesAConflictStopped(t *testing.T) {
 	t.Parallel()
 
@@ -149,7 +149,7 @@ func TestIntegrationFetchBaseRefusesARepositoryWithNoOrigin(t *testing.T) {
 }
 
 // TestIntegrationFetchBaseRefusesABaseOriginDoesNotHave covers a workflow naming a branch origin no longer
-// has, which is reported as a missing base rather than measured against something else.
+// has, which reports as a missing base rather than measuring against something else.
 func TestIntegrationFetchBaseRefusesABaseOriginDoesNotHave(t *testing.T) {
 	t.Parallel()
 
@@ -177,7 +177,7 @@ func TestIntegrationFetchBaseKeepsTheCloneCopyWhenTheFetchFails(t *testing.T) {
 	require.NotErrorIs(t, err, git.ErrBaseMissing, "the clone still holds origin/main")
 }
 
-// TestIntegrationFetchBaseFetchesTheNamedBase pins the base being fetched by name rather than read from
+// TestIntegrationFetchBaseFetchesTheNamedBase pins that git fetches the base by name rather than reading it from
 // the clone's cache.
 func TestIntegrationFetchBaseFetchesTheNamedBase(t *testing.T) {
 	t.Parallel()
@@ -608,7 +608,7 @@ func TestIntegrationParkLeavesTheCheckoutAlone(t *testing.T) {
 	assert.Equal(t, head, out(t, repo, "rev-parse", "HEAD"), "and the branch has not moved")
 }
 
-// TestIntegrationReleaseRefsUnderKeepsOnlyTheCurrent covers the parks being collected.
+// TestIntegrationReleaseRefsUnderKeepsOnlyTheCurrent covers the collection of the parks.
 func TestIntegrationReleaseRefsUnderKeepsOnlyTheCurrent(t *testing.T) {
 	t.Parallel()
 

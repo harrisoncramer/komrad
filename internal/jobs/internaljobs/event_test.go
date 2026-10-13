@@ -37,7 +37,7 @@ func (r failingRouter) Route(ctx context.Context, tx store.DBTX, _ events.Event)
 	return nil, errors.New("the handler failed after writing")
 }
 
-// TestEventWorkerRollsBackAFailedHandler pins a handler that fails part way leaving no mail behind and its job to be retried.
+// TestEventWorkerRollsBackAFailedHandler pins that a handler failing part way leaves no mail behind and its job retries.
 func TestEventWorkerRollsBackAFailedHandler(t *testing.T) {
 	stores := storetest.Open(t)
 	agent := stores.SeedAgent(t, agentstore.Agent{

@@ -20,7 +20,7 @@ func at(t *testing.T, stamp string) *time.Time {
 	return &parsed
 }
 
-// TestParseCleansLines covers that timestamps and escape codes come off each line and errors are counted.
+// TestParseCleansLines covers that parsing strips timestamps and escape codes from each line and counts errors.
 func TestParseCleansLines(t *testing.T) {
 	t.Parallel()
 

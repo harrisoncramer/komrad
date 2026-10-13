@@ -24,7 +24,7 @@ var (
 	}
 )
 
-// newContextCheck asserts the standing text every agent is started with is there to read.
+// newContextCheck asserts the standing text komrad starts every agent with is there to read.
 func newContextCheck() Check {
 	return Check{
 		Name:        CheckContext,

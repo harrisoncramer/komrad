@@ -30,8 +30,8 @@ func basesEnv(bases []workflowBase, readErr error, held map[string]bool) Env {
 	}
 }
 
-// TestBasesCheckNamesTheWorkflowWhoseCloneLacksItsBase is the point of this check: the row the
-// migration backfilled as main on a repository that never had one is named, and nothing else is.
+// TestBasesCheckNamesTheWorkflowWhoseCloneLacksItsBase is the point of this check: it names the
+// row the migration backfilled as main on a repository that never had one, and nothing else.
 func TestBasesCheckNamesTheWorkflowWhoseCloneLacksItsBase(t *testing.T) {
 	bases := []workflowBase{
 		{

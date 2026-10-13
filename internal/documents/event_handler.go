@@ -28,7 +28,7 @@ func (personWrote) Topic() string {
 	return personWroteTopic
 }
 
-// NewEventHandler builds the handler the router is given for a person's writes.
+// NewEventHandler builds the handler the router calls for a person's writes.
 func NewEventHandler() events.HandlerFor[personWrote] {
 	return handlePersonWrote
 }

@@ -106,8 +106,8 @@ func TestMeasureColumnsStopsWhenTheContextDoes(t *testing.T) {
 	assert.ErrorIs(t, err, errCursorQueryUnanswered)
 }
 
-// TestMeasureColumnsRefusesAnAnswerItCannotRead covers a reply that is shaped like one and is
-// not, which must be reported rather than turned into a width.
+// TestMeasureColumnsRefusesAnAnswerItCannotRead covers a reply that looks like an answer and is
+// not, which the check must report rather than turn into a width.
 func TestMeasureColumnsRefusesAnAnswerItCannotRead(t *testing.T) {
 	terminal := newAnswering("\x1b[7R")
 

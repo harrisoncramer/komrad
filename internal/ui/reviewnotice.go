@@ -20,7 +20,7 @@ func (n *reviewNotices) raise(m *model, held message) {
 	m.pushMessage(held)
 }
 
-// lower takes a notice down once it stops being true, leaving it free to be raised again.
+// lower takes a notice down once it stops being true, so it can rise again.
 func (n *reviewNotices) lower(m *model, key string) {
 	m.dropMessage(key)
 	n.raised = slices.DeleteFunc(n.raised, func(raised string) bool { return raised == key })

@@ -14,7 +14,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 )
 
-// errForgeReplyLost is the error a reply is failed with when komrad stopped while posting it and
+// errForgeReplyLost fails a reply when komrad stopped while posting it and
 // the forge shows no comment it made.
 var errForgeReplyLost = fail.Internal("komrad stopped while posting this reply and the forge shows no comment from it")
 
@@ -93,8 +93,8 @@ func (s *ForgeReplyService) DiscardForgeReply(ctx context.Context, id string, au
 	return s.reviews.DeleteForgeReply(ctx, id)
 }
 
-// ReconcileForgeReplies settles every reply komrad stopped partway through posting: one the forge
-// shows a comment for is sent, and any other is failed for the person to retry.
+// ReconcileForgeReplies settles every reply komrad stopped partway through posting, marking a
+// reply sent when the forge shows a comment for it and any other failed for the person to retry.
 func (s *ForgeReplyService) ReconcileForgeReplies(ctx context.Context) error {
 	replies, err := s.reviews.ListSendingForgeReplies(ctx)
 	if err != nil {

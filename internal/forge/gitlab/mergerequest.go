@@ -19,8 +19,8 @@ import (
 //go:embed mergerequest.gql
 var mergeRequestFragment string
 
-// mergeReadinessFragment is what the decision, checks, mergeability and auto-merge of a merge request
-// are folded from: its approvals, its reviewers' states, the status of the pipeline on its
+// mergeReadinessFragment holds what folds into the decision, checks, mergeability and auto-merge of
+// a merge request: its approvals, its reviewers' states, the status of the pipeline on its
 // head, its detailed merge status, whether it is set to merge on its own and how it could be.
 //
 //go:embed mergereadiness.gql
@@ -58,7 +58,7 @@ func (f *Forge) readMergeRequest(ctx context.Context, address string) (forge.Pul
 	return data.Project.MergeRequest.toPullRequest(false), nil
 }
 
-// projectPath is the full path a project is addressed by.
+// projectPath is the full path that addresses a project.
 func projectPath(path string) (string, error) {
 	if path == "" || !strings.Contains(path, "/") || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
 		return "", fmt.Errorf("%w: %q is not group/project", forge.ErrNotRepository, path)

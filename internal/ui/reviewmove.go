@@ -23,7 +23,7 @@ func (r *reviewScreen) followMove(m *model) tea.Cmd {
 	return r.reload(m)
 }
 
-// isWorktreeMoved reports whether the agent has written since the round on screen was taken.
+// isWorktreeMoved reports whether the agent has written since the round on screen.
 func (r reviewScreen) isWorktreeMoved(m *model) bool {
 	return r.findMovedRound(m) != ""
 }

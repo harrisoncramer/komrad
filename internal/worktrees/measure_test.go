@@ -41,8 +41,9 @@ func TestMeasureTakesTheUnmeasuredFirstThenTheStaleOldestFirst(t *testing.T) {
 	assert.Equal(t, int64(1), fixture.readSize(t, fresh).Bytes, "a fresh measurement is left alone")
 }
 
-// TestMeasureOnlyReadsWhereASettledDirectoryStands covers a stale directory of an archived task
-// being walked only while its last measurement predates the archive, its standing read either way.
+// TestMeasureOnlyReadsWhereASettledDirectoryStands covers komrad walking a stale directory of an
+// archived task only while its last measurement predates the archive, and reading its standing
+// either way.
 func TestMeasureOnlyReadsWhereASettledDirectoryStands(t *testing.T) {
 	fixture := newFixture(t)
 	before, after, unmeasured, live := fixture.cut(t), fixture.cut(t), fixture.cut(t), fixture.cut(t)
@@ -81,8 +82,8 @@ func TestMeasureReadsWhereEachWalkedDirectoryStands(t *testing.T) {
 	assert.Zero(t, fixture.git.Refreshes, "a pass never takes the index lock of a checkout an agent may be using")
 }
 
-// TestMeasureRecordsAFailedWalkAndDoesNotRetryIt covers a walk that fails being recorded with
-// its error and the time, left alone on the next pass, and taken again once it is stale.
+// TestMeasureRecordsAFailedWalkAndDoesNotRetryIt covers komrad recording a failed walk with
+// its error and the time, leaving it alone on the next pass, and walking again once it is stale.
 func TestMeasureRecordsAFailedWalkAndDoesNotRetryIt(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads a directory whatever its mode")
@@ -113,8 +114,8 @@ func TestMeasureRecordsAFailedWalkAndDoesNotRetryIt(t *testing.T) {
 	assert.True(t, fixture.readSize(t, dir).MeasuredAt.Equal(fixture.now), "a failed walk is taken again once it is stale")
 }
 
-// TestMeasureForgetsADirectoryThatHasGone covers a stored row whose directory the listing no
-// longer holds being deleted, unless a worktree directory could not be read at all.
+// TestMeasureForgetsADirectoryThatHasGone covers komrad deleting a stored row whose directory the
+// listing no longer holds, unless a worktree directory could not be read at all.
 func TestMeasureForgetsADirectoryThatHasGone(t *testing.T) {
 	fixture := newFixture(t)
 	kept := fixture.cut(t)
@@ -215,7 +216,7 @@ func TestMeasureLeavesOutWhatADeleteNames(t *testing.T) {
 	assert.Contains(t, stored, kept)
 }
 
-// TestStorableText covers a NUL and a half rune being taken out of an error's text.
+// TestStorableText covers komrad taking a NUL and a half rune out of an error's text.
 func TestStorableText(t *testing.T) {
 	tests := []struct {
 		name string

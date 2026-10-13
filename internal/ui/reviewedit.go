@@ -114,7 +114,7 @@ func (r *reviewScreen) pressEdit(m *model) tea.Cmd {
 	return r.startHold(m)
 }
 
-// isEditRefused is why the edit key would open nothing, read before the agent is stopped for it.
+// isEditRefused returns why the edit key would open nothing, before the panel stops the agent.
 func (r reviewScreen) isEditRefused(m *model) (string, bool) {
 	if _, _, ok := r.diff.View().GetEditTarget(r.diff.Cursor()); !ok {
 		return "that file was deleted, so there is nothing to open", true
@@ -173,8 +173,8 @@ func (r *reviewScreen) editFile(m *model) tea.Cmd {
 
 // isAgentBusy reports whether the agent may be writing in the tree the editor would open.
 func (r reviewScreen) isAgentBusy(m *model) (string, bool) {
-	// The agent is stopped before the editor opens, and an agent that has been seen to stop is not
-	// writing, whatever the state on its row was read as before that.
+	// The panel stops the agent before the editor opens, and an agent seen to stop is not writing,
+	// whatever its row read as before that.
 	if r.hold.paused {
 		return "", false
 	}

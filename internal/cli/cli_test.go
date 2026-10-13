@@ -175,7 +175,7 @@ func TestIntegrationResolveConfigStackRefusesAnEngineItCannotFind(t *testing.T) 
 	require.Error(t, err, "a name made of spaces is a name, not a request for the local engine")
 }
 
-// TestIntegrationConfigArgs covers the flags a child process is given, which have to put it on the same
+// TestIntegrationConfigArgs covers the flags a child process receives, which have to put it on the same
 // files as the process that spawned it.
 func TestIntegrationConfigArgs(t *testing.T) {
 	assert.Empty(t, configArgs(config.Stack{}))

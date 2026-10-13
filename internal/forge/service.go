@@ -28,7 +28,7 @@ var errUnknownKind = fail.InvalidArgument("no forge of that kind")
 // errInsecureAPI says an API address would send the credential without TLS.
 var errInsecureAPI = fail.InvalidArgument("the API address has to be https")
 
-// errNoApp says the App method was asked for on a build with no App configured.
+// errNoApp says the caller chose the App method on a build with no App configured.
 var errNoApp = fail.Precondition("no github app is configured")
 
 // errBadApp says the [github_app] section in config cannot be read as an App.
@@ -40,22 +40,22 @@ var errAppReachesNothing = fail.Precondition("the github app is installed on no 
 // errKindUnknownForHost says a host names no public forge, so the kind has to be given.
 var errKindUnknownForHost = fail.InvalidArgument("the host does not say which forge it runs")
 
-// errNoHost says a connection was asked for with no host.
+// errNoHost says the caller asked for a connection with no host.
 var errNoHost = fail.InvalidArgument("a host is needed")
 
-// errUnknownMethod says a connection was asked for by a method that is not one.
+// errUnknownMethod says the caller asked for a connection by a method that is not one.
 var errUnknownMethod = fail.InvalidArgument("not a way to connect")
 
-// errNoToken says the token method was asked for with no token.
+// errNoToken says the caller chose the token method and gave no token.
 var errNoToken = fail.InvalidArgument("a token is needed")
 
-// errAppNotGitHub says the App method was asked for on a forge that is not GitHub.
+// errAppNotGitHub says the caller chose the App method on a forge that is not GitHub.
 var errAppNotGitHub = fail.InvalidArgument("a github app connects only to github")
 
 // errNoInstallationCheck says the forge has no way to check an installation.
 var errNoInstallationCheck = fail.InvalidArgument("this forge cannot check an installation")
 
-// errRotatingNotGitLab says the rotating token method was asked for on a forge that is not GitLab.
+// errRotatingNotGitLab says the caller chose the rotating token method on a forge that is not GitLab.
 var errRotatingNotGitLab = fail.InvalidArgument("a rotating token connects only to gitlab")
 
 // errNoRotation says the forge has no way to rotate a token.
