@@ -3572,7 +3572,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062\x80\x86\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062߅\x01\n" +
 	"\fAgentService\x12\xfe\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\vlist_agents\"\x93\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. The list omits archived agents unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xa4\x01\n" +
@@ -3633,8 +3633,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x11StartOrchestrator\x12\".agent.v1.StartOrchestratorRequest\x1a#.agent.v1.StartOrchestratorResponse\"{\x9a\xb5\x18t\b\x01\x10\x01\x1a\x12start_orchestrator\"UBring a workflow's orchestrator back, or start one if the workflow has never had one.(\x00:\x01\x02\x90\x02\x02\x12\xe0\x01\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"y\x9a\xb5\x18rBpCatching up on a review thread is a person's own reading, and the handler refuses a caller that is not a person.\x90\x02\x02\x12\x83\x02\n" +
 	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x92\x01\x9a\xb5\x18\x8a\x01\b\x01\x10\x01\x1a\x15resolve_review_thread\"fSettle a review thread you wrote, or reopen one. Only the thread's author or the person may settle it.(\x000\x01:\x01\x01\x90\x02\x02\x12\xac\x02\n" +
-	"\x0fOpenReviewRound\x12 .agent.v1.OpenReviewRoundRequest\x1a!.agent.v1.OpenReviewRoundResponse\"\xd3\x01\x9a\xb5\x18\xce\x01\b\x01\x10\x01\x1a\x11open_review_round\"\xad\x01Freeze a task's checkout as a round to review against, your own task's by default, then diff its base_sha against its snapshot_sha. An unchanged tree returns the last round.(\x000\x01:\x01\x01\x12\xe7\x01\n" +
-	"\x11OpenReviewHistory\x12\".agent.v1.OpenReviewHistoryRequest\x1a#.agent.v1.OpenReviewHistoryResponse\"\x88\x01\x9a\xb5\x18\x83\x01B\x80\x01The history is what the panel's review screen draws, measured from the person's own reviews, so only the panel has a use for it.\x12\x98\x02\n" +
+	"\x0fOpenReviewRound\x12 .agent.v1.OpenReviewRoundRequest\x1a!.agent.v1.OpenReviewRoundResponse\"\xd3\x01\x9a\xb5\x18\xce\x01\b\x01\x10\x01\x1a\x11open_review_round\"\xad\x01Freeze a task's checkout as a round to review against, your own task's by default, then diff its base_sha against its snapshot_sha. An unchanged tree returns the last round.(\x000\x01:\x01\x01\x12\xc6\x01\n" +
+	"\x11OpenReviewHistory\x12\".agent.v1.OpenReviewHistoryRequest\x1a#.agent.v1.OpenReviewHistoryResponse\"h\x9a\xb5\x18dBbOnly the panel's review screen draws the history, which it measures from the person's own reviews.\x12\x98\x02\n" +
 	"\x10ListReviewRounds\x12!.agent.v1.ListReviewRoundsRequest\x1a\".agent.v1.ListReviewRoundsResponse\"\xbc\x01\x9a\xb5\x18\xb4\x01\b\x01\x10\x01\x1a\x12list_review_rounds\"\x94\x01List the rounds taken of a task, your own by default, oldest first. Diff one round's snapshot_sha against the next to see what changed between them.:\x03\x03\x01\x02\x90\x02\x01\x12\xcd\x01\n" +
 	"\vListReviews\x12\x1c.agent.v1.ListReviewsRequest\x1a\x1d.agent.v1.ListReviewsResponse\"\x80\x01\x9a\xb5\x18y\b\x01\x10\x01\x1a\flist_reviews\"`List the reviews released on a task, your own by default, in round order, each with its verdict.:\x03\x03\x01\x02\x90\x02\x01\x12\x80\x02\n" +
 	"\tGetReview\x12\x1a.agent.v1.GetReviewRequest\x1a\x1b.agent.v1.GetReviewResponse\"\xb9\x01\x9a\xb5\x18\xb1\x01\b\x01\x10\x01\x1a\n" +

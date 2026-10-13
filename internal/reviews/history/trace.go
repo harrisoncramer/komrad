@@ -71,8 +71,7 @@ func (t *Tracer) TracePair(ctx context.Context, params TracePairParams) (map[str
 
 		anchor := params.Anchors[result.Index]
 
-		// A file copied to two paths answers twice, and the first answer is kept rather than
-		// pinning one comment to whichever copy came last.
+		// Keep git's first answer for a file copied to two paths, not whichever copy it names last.
 		if _, held := places[anchor.ID]; held {
 			continue
 		}

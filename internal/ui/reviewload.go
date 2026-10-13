@@ -291,7 +291,7 @@ func changedSinceSaid(changed int32) string {
 	return label.Counted(int(changed), "file") + " changed since you last reviewed"
 }
 
-// releasedClock is when the person released a review, in the terms a reader names it by.
+// releasedClock formats when the person released a review the way a reader would say it.
 func releasedClock(released string) string {
 	stamp, err := time.Parse(time.RFC3339, released)
 	if err != nil {

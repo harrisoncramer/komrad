@@ -20,7 +20,7 @@ type Snapshots struct {
 	ReleasedFrom []string
 	// Taking runs while each snapshot is taken, so a test can hold it open or move the world under it.
 	Taking func()
-	// Err is what every snapshot is refused with, nil to take it.
+	// Err, when set, refuses every snapshot.
 	Err error
 }
 

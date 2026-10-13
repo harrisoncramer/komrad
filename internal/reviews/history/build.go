@@ -12,8 +12,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-// traceTimeout is how long every pair together may take, kept apart from the load's own
-// budget so a slow tree cannot answer for some pairs and not others.
+// traceTimeout caps tracing every pair together, on a budget separate from the load's.
 const traceTimeout = 10 * time.Second
 
 var errAnswerGone = fail.NotFound("the rounds this answer stands between are gone")
@@ -112,8 +111,8 @@ type BuildParams struct {
 	Span    Span
 }
 
-// Build reads a review's history as the round on screen sees it: the span asked for, the
-// chapters between the person's reviews, and where each thread's lines now sit.
+// Build measures the span asked for against the round on screen, cuts the chapters between the
+// person's reviews, and traces where each thread's lines now sit.
 func Build(ctx context.Context, params BuildParams) Record {
 	span, err := resolveSpan(ctx, params)
 
@@ -252,8 +251,8 @@ func findRound(rounds []Round, id string) *Round {
 	return nil
 }
 
-// findPreviousReviewedRound is the round the person last released a review against, and nothing
-// when they have not reviewed this agent before or when its base has moved since.
+// findPreviousReviewedRound finds the round the person last released a review against, or nothing
+// when they never reviewed this agent or its base has moved since.
 func findPreviousReviewedRound(reviews []Review, rounds []Round, round Round) (*Round, *time.Time) {
 	last := findLastHumanReview(reviews, round.Ordinal)
 	if last == nil {
@@ -268,8 +267,8 @@ func findPreviousReviewedRound(reviews []Review, rounds []Round, round Round) (*
 	return earlier, last.ReleasedAt
 }
 
-// findLastHumanReview is the newest review the person released against a round earlier than this
-// one.
+// findLastHumanReview finds the newest review the person released against a round before the one
+// on screen.
 func findLastHumanReview(reviews []Review, ordinal int32) *Review {
 	var last *Review
 	for i := range reviews {
@@ -292,8 +291,8 @@ type countChangedSinceParams struct {
 	ToSHA   string
 }
 
-// countChangedSince is how many files changed since the person last released a review, zero when
-// it cannot answer.
+// countChangedSince counts the files changed since the person last released a review, or zero
+// when git cannot say.
 func countChangedSince(ctx context.Context, params countChangedSinceParams) int {
 	if params.Earlier == nil {
 		return 0
@@ -338,8 +337,7 @@ func cutChapters(params cutChaptersParams) []Chapter {
 		}
 	}
 
-	// The work nobody has reviewed yet is a chapter of its own, and it is the one a reader
-	// arrives wanting, so it is only left out when the newest review closed the round on screen.
+	// The unreviewed work ends a chapter of its own unless the newest review closed the round on screen.
 	if _, ok := closed[params.OnScreen.Ordinal]; !ok {
 		milestones = append(milestones, params.OnScreen)
 	}
@@ -375,8 +373,7 @@ type replayChaptersParams struct {
 	Chapters []Chapter
 }
 
-// replayChapters carries the start of every chapter whose base moved onto the base its end
-// stands on.
+// replayChapters carries each chapter's start onto its end's base when the two bases differ.
 func replayChapters(ctx context.Context, params replayChaptersParams) []Chapter {
 	for i := range params.Chapters {
 		chapter := &params.Chapters[i]
@@ -437,7 +434,7 @@ func compareRounds(ctx context.Context, params compareRoundsParams) roundCompari
 		Rewritten: err == nil && !reachable,
 	}
 
-	// A git too old to replay, or a commit gone, leaves the rounds apart.
+	// Replay fails on a git too old to replay or a missing commit, and then the rounds stay uncompared.
 	replayed, err := params.Git.Replay(ctx, git.ReplayParams{
 		Dir:         params.Dir,
 		FromBase:    params.FromBase,
@@ -504,7 +501,7 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]Pla
 	return traced
 }
 
-// placeOnScreen places the threads whose numbers the snapshot on screen counted.
+// placeOnScreen places each thread written against the snapshot on screen at its own lines.
 func placeOnScreen(params traceThreadsParams) map[string]Place {
 	onScreen := map[string]bool{}
 	for _, round := range params.Rounds {
@@ -545,14 +542,12 @@ func groupBySnapshot(params traceThreadsParams) map[string][]Thread {
 	for _, thread := range params.Threads {
 		from := snapshots[thread.RoundID]
 
-		// A thread written against the snapshot on screen already answers to its own coordinates,
-		// and one whose round nobody can name has nothing to be traced from.
+		// A thread on the snapshot on screen keeps its own lines, and a thread with no known round has nothing to trace from.
 		if from == "" || from == params.ToSHA {
 			continue
 		}
 
-		// A round later than the one on screen is not rendered there, so tracing it would run a
-		// backwards diff of the whole tree for an answer nothing reads.
+		// The screen never renders a thread from a later round, and tracing one would diff the whole tree backwards for nothing.
 		if ceiling > 0 && ordinals[thread.RoundID] > ceiling {
 			continue
 		}

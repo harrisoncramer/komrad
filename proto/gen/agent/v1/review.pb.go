@@ -2127,7 +2127,7 @@ func (x *ListReviewRoundsResponse) GetRounds() []*ReviewRound {
 
 type OpenReviewHistoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's review to open, by id or by slug.
+	// The task whose review to open, by id or by slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	// Whether to read the worktree as it stands even where an open review holds an older round.
 	Fresh bool `protobuf:"varint,2,opt,name=fresh,proto3" json:"fresh,omitempty"`
@@ -2231,7 +2231,7 @@ type OpenReviewHistoryRequest_Snapshots struct {
 }
 
 type OpenReviewHistoryRequest_Answer struct {
-	// The change the reply that addressed a comment carried.
+	// The change in the reply that addressed a comment.
 	Answer *ReviewAnswerSpan `protobuf:"bytes,4,opt,name=answer,proto3,oneof"`
 }
 
@@ -2421,11 +2421,11 @@ type OpenReviewHistoryResponse struct {
 	Threads []*ReviewThread `protobuf:"bytes,3,rep,name=threads,proto3" json:"threads,omitempty"`
 	// Whether the round is the one an open review was written against rather than the worktree as it stands.
 	Pinned bool `protobuf:"varint,4,opt,name=pinned,proto3" json:"pinned,omitempty"`
-	// What the server has to say about the round it settled on, empty when nothing.
+	// A note from the server about the round it settled on, empty when it has none.
 	Notice string `protobuf:"bytes,5,opt,name=notice,proto3" json:"notice,omitempty"`
 	// The commits the diff is measured between.
 	Resolved *ReviewResolvedSpan `protobuf:"bytes,6,opt,name=resolved,proto3" json:"resolved,omitempty"`
-	// Why the span asked for could not be measured and the whole change was measured instead, empty when it was.
+	// The reason the server measured the whole change instead of the span asked for, empty when it measured the span.
 	Widened string `protobuf:"bytes,7,opt,name=widened,proto3" json:"widened,omitempty"`
 	// The rounds between the person's reviews, oldest first.
 	Chapters []*ReviewChapter `protobuf:"bytes,8,rep,name=chapters,proto3" json:"chapters,omitempty"`
@@ -2435,7 +2435,7 @@ type OpenReviewHistoryResponse struct {
 	EarlierReleasedAt string `protobuf:"bytes,10,opt,name=earlier_released_at,json=earlierReleasedAt,proto3" json:"earlier_released_at,omitempty"`
 	// How many files changed since the earlier round.
 	ChangedSinceEarlier int32 `protobuf:"varint,11,opt,name=changed_since_earlier,json=changedSinceEarlier,proto3" json:"changed_since_earlier,omitempty"`
-	// Where git says each thread's lines sit in the diff's head, keyed by thread id.
+	// Each thread's place in the diff's head as git traced it, keyed by thread id.
 	Traced        map[string]*ReviewTracedPlace `protobuf:"bytes,12,rep,name=traced,proto3" json:"traced,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2671,9 +2671,9 @@ type ReviewChapter struct {
 	FromSha string `protobuf:"bytes,1,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
 	// The snapshot the chapter ends at.
 	ToSha string `protobuf:"bytes,2,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
-	// When the review closing the chapter was released, in RFC 3339, empty for the chapter nobody has reviewed.
+	// When the person released the review closing the chapter, in RFC 3339, empty for the chapter nobody has reviewed.
 	ReleasedAt string `protobuf:"bytes,3,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
-	// The round the chapter ends at.
+	// The ordinal of the round the chapter ends at.
 	Ordinal int32 `protobuf:"varint,4,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
 	// Whether the two ends can be compared.
 	Comparable bool `protobuf:"varint,5,opt,name=comparable,proto3" json:"comparable,omitempty"`
@@ -2681,13 +2681,13 @@ type ReviewChapter struct {
 	FromBaseSha string `protobuf:"bytes,6,opt,name=from_base_sha,json=fromBaseSha,proto3" json:"from_base_sha,omitempty"`
 	// The commit its end was measured from.
 	ToBaseSha string `protobuf:"bytes,7,opt,name=to_base_sha,json=toBaseSha,proto3" json:"to_base_sha,omitempty"`
-	// Whether the base the chapter starts on is not reachable from the one it ends on.
+	// Whether the base the chapter ends on cannot reach the one it starts on.
 	Rewritten bool `protobuf:"varint,8,opt,name=rewritten,proto3" json:"rewritten,omitempty"`
 	// Whether the start was carried onto the end's base.
 	Replayed bool `protobuf:"varint,9,opt,name=replayed,proto3" json:"replayed,omitempty"`
 	// The paths the base rewrote under the agent, which a replay could not settle.
 	Conflicts []string `protobuf:"bytes,10,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
-	// Whether the chapter ends on a base the round read has since moved past.
+	// Whether the chapter ends on a base older than the base of the round being read.
 	OnOlderBase   bool `protobuf:"varint,11,opt,name=on_older_base,json=onOlderBase,proto3" json:"on_older_base,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2800,7 +2800,7 @@ func (x *ReviewChapter) GetOnOlderBase() bool {
 	return false
 }
 
-// ReviewTracedPlace is where a thread's lines sit in the diff's head.
+// ReviewTracedPlace places a thread's lines in the diff's head.
 type ReviewTracedPlace struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The file the lines are in.

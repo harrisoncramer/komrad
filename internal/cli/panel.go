@@ -244,8 +244,8 @@ func installPanelLogger(logPath, level string) error {
 	return nil
 }
 
-// patchReader is the git the review screen reads a round's patch through, on the engine when the
-// agents and their worktrees are there.
+// patchReader reads a round's patch for the review screen, through the engine when the agents'
+// worktrees live there.
 func patchReader(remote engine.Remote, engineGit gitv1connect.GitServiceClient) diff.Reader {
 	if remote.IsRemote() {
 		return git.NewEngineClient(engineGit)

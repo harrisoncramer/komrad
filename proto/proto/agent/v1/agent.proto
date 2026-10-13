@@ -1317,7 +1317,7 @@ service AgentService {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "The history is what the panel's review screen draws, measured from the person's own reviews, so only the panel has a use for it."
+      reason: "Only the panel's review screen draws the history, which it measures from the person's own reviews."
     };
   }
   rpc ListReviewRounds(ListReviewRoundsRequest) returns (ListReviewRoundsResponse) {

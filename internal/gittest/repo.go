@@ -261,7 +261,7 @@ type StateReplayParams struct {
 	Conflicts   []string
 }
 
-// StateReplay has the snapshot carry from one base onto another as tree, conflicting at those paths.
+// StateReplay makes carrying SnapshotSHA from FromBase onto OntoBase answer Tree and Conflicts.
 func (f *Repo) StateReplay(params StateReplayParams) {
 	if f.Replays == nil {
 		f.Replays = map[string]*git.Replayed{}

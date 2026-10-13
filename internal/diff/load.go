@@ -24,7 +24,7 @@ var ErrAllExcluded = errors.New("every change in the worktree is in a path this 
 // colouring while the patch still shows its hunks.
 const maxFileBytes = 2 << 20
 
-// Reader is the git a patch and its two sides are read through.
+// Reader reads a patch and both its sides out of git.
 type Reader interface {
 	GetRoot(ctx context.Context, dir string) (string, error)
 	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
