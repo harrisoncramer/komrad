@@ -3,9 +3,9 @@
 # first firing is out of shot. schedules-implementer.before makes the workflow.
 Source recordings/panel.tape
 Tab
-Tab
+Space
 Type "c"
-Wait+Screen@10s /launch a new agent/
+Wait+Screen@10s /start a new task/
 Tab
 Type "news-digest"
 Tab
@@ -17,7 +17,6 @@ Tab
 Enter
 Wait+Screen@10s /news-digest/
 Sleep 2s
-Shift+Tab
 Shift+Tab
 Hide
 Wait+Screen@3m /news-digest/

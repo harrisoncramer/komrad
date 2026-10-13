@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 if [ $# -gt 0 ]; then
-	exec bash "$@"
+	args=()
+	for arg in "$@"; do
+		case "$arg" in
+		-l) ;;
+		*) args+=("$arg") ;;
+		esac
+	done
+	exec bash --noprofile --norc "${args[@]}"
 fi
 export PS1='\[\e[34m\]\W\[\e[0m\] $ '
 exec bash --noprofile --norc

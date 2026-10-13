@@ -10,5 +10,4 @@ Sleep 1s
 Type "f"
 Type "j"
 Type "j"
-Type "j"
 Type "y"

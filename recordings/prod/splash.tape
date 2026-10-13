@@ -9,31 +9,28 @@ Hide
 Sleep 20s
 Show
 Sleep 2s
-Type "j"
-Type "j"
-Type "j"
+Type "G"
+Type "k"
+Type "k"
+Type "k"
+Type "k"
 Sleep 1.5s
 Enter
 Sleep 4s
 Ctrl+Space
-Type "j"
-Sleep 1s
-Type "d"
+Ctrl+Space
 Sleep 1.5s
-Type "j"
-Type "j"
+Type "k"
+Type "k"
+Type "k"
 Enter
 Sleep 4s
 Ctrl+Space
-Type "j"
-Sleep 1s
-Type "d"
+Ctrl+Space
 Sleep 1.5s
-Tab
 Type "/"
 Type "lsp"
-Sleep 3s
-Escape
+Enter
 Sleep 1.5s
-Type "k"
-Type "k"
+Type "j"
+Sleep 3s

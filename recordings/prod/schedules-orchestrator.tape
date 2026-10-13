@@ -4,12 +4,13 @@
 # makes the workflow, two agents in it, and starts its orchestrator.
 Source recordings/panel.tape
 Hide
+Type "G"
 Type "k"
 Type "k"
 Wait+Screen@4m /done \d+:\d+ [AP]M/
 Show
 Tab
-Tab
+Space
 Type "c"
 Wait+Screen@10s /mail one already running/
 Down
@@ -26,9 +27,6 @@ Enter
 Wait+Screen@10s /standup/
 Sleep 2s
 Shift+Tab
-Shift+Tab
-Type "k"
-Type "k"
 Hide
 Wait+Screen@3m /unread mail/
 Show
