@@ -49,9 +49,9 @@ meant to be run by hand.`,
 		SilenceErrors: true,
 	}
 
+	cmd.AddCommand(stopHookCmd(state))
 	cmd.AddCommand(turnEndHookCmd(state))
 	cmd.AddCommand(compactedHookCmd(state))
-	cmd.AddCommand(stopHookCmd(state))
 	cmd.AddCommand(payloadHookCmd(state, payloadHook{
 		use:   "pre-tool-use",
 		short: "Record the tool an agent is about to run",
@@ -146,6 +146,41 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 	return cmd
 }
 
+func turnEndHookCmd(state *app) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "turn-end",
+		Short: "Record that an agent's turn ended",
+		Long: `Record that an agent's turn ended.
+
+Codex runs this as its notify program, handing it one JSON argument. Komrad keeps
+the moment against the agent so the panel can say it has finished something
+nobody has read. Anything but a completed turn is ignored.`,
+		Args:          cobra.ArbitraryArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if state.env.AgentID == "" {
+			return nil
+		}
+		var payload []byte
+		if len(args) > 0 {
+			payload = []byte(args[0])
+		}
+
+		reportHookEvent(cmd, state, reportHookEventParams{
+			harnessID: codex.HarnessID,
+			event:     codex.EventNotify,
+			payload:   payload,
+		})
+
+		return nil
+	}
+
+	return cmd
+}
+
 func stopHookCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stop",
@@ -198,41 +233,6 @@ reads its mail without waiting for the next pass.`,
 				AdditionalContext: claimed.GetNudge(),
 			},
 		})
-	}
-
-	return cmd
-}
-
-func turnEndHookCmd(state *app) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "turn-end",
-		Short: "Record that an agent's turn ended",
-		Long: `Record that an agent's turn ended.
-
-Codex runs this as its notify program, handing it one JSON argument. Komrad keeps
-the moment against the agent so the panel can say it has finished something
-nobody has read. Anything but a completed turn is ignored.`,
-		Args:          cobra.ArbitraryArgs,
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if state.env.AgentID == "" {
-			return nil
-		}
-		var payload []byte
-		if len(args) > 0 {
-			payload = []byte(args[0])
-		}
-
-		reportHookEvent(cmd, state, reportHookEventParams{
-			harnessID: codex.HarnessID,
-			event:     codex.EventNotify,
-			payload:   payload,
-		})
-
-		return nil
 	}
 
 	return cmd
