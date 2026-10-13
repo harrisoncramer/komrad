@@ -5,7 +5,7 @@ import (
 	"errors"
 	"slices"
 
-	"komrad/internal/eventmail"
+	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/mail"
@@ -102,8 +102,8 @@ func tellWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, re
 }
 
 // mail is what the writer is told of the release.
-func (r Released) mail() eventmail.ReviewReleased {
-	return eventmail.ReviewReleased{
+func (r Released) mail() eventprompts.ReviewReleased {
+	return eventprompts.ReviewReleased{
 		ReviewID:   r.ReviewID,
 		Ordinal:    r.Ordinal,
 		ByPerson:   r.ByPerson,
@@ -140,7 +140,7 @@ func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 
 	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: answered.ReviewerID,
-		Mail:      eventmail.ReviewAnswered{WriterName: writer.Name},
+		Mail:      eventprompts.ThreadAnswered{WriterName: writer.Name},
 		SubjectID: writer.ID,
 	})
 	if err != nil || sent == nil {

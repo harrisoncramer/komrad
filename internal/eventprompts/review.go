@@ -1,10 +1,9 @@
-package eventmail
+package eventprompts
 
 import (
 	"fmt"
 	"strings"
 
-	"komrad/internal/eventprompts"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 )
@@ -34,15 +33,15 @@ func (ReviewReleased) Kind() mailstore.Kind {
 func (m ReviewReleased) Events() []string {
 	switch {
 	case m.ForgeLogin != "":
-		return []string{eventprompts.ReviewForgeCommented}
+		return []string{reviewForgeCommented}
 	case m.ByPerson:
-		return []string{eventprompts.ReviewCommentedByPerson}
+		return []string{ReviewCommentedByPerson}
 	case m.Verdict == reviewstore.VerdictApproved:
-		return []string{eventprompts.ReviewApproved}
+		return []string{ReviewApproved}
 	case m.Verdict == reviewstore.VerdictChangesRequested:
-		return []string{eventprompts.ReviewChangesRequested}
+		return []string{ReviewChangesRequested}
 	default:
-		return []string{eventprompts.ReviewCommented}
+		return []string{ReviewCommented}
 	}
 }
 
@@ -76,23 +75,23 @@ func (m ReviewReleased) Body() string {
 		m.Ordinal, said, m.ReviewID, m.Path)
 }
 
-// ReviewAnswered tells a reviewer that the writer it reviews answered its review.
-type ReviewAnswered struct {
+// ThreadAnswered tells a reviewer that the writer it reviews answered its review.
+type ThreadAnswered struct {
 	WriterName string
 }
 
 // Kind is the kind review mail is filed under.
-func (ReviewAnswered) Kind() mailstore.Kind {
+func (ThreadAnswered) Kind() mailstore.Kind {
 	return mailstore.KindReviewActivity
 }
 
 // Events is the event an answer starts.
-func (ReviewAnswered) Events() []string {
-	return []string{eventprompts.ReviewAnswered}
+func (ThreadAnswered) Events() []string {
+	return []string{ReviewAnswered}
 }
 
 // Body asks the reviewer to read the answer and release a verdict on it.
-func (m ReviewAnswered) Body() string {
+func (m ThreadAnswered) Body() string {
 	return fmt.Sprintf("komrad: %s answered your review. Read the threads with list_review_threads, "+
 		"open a round over its work as it now stands, and release a verdict on that round.", m.WriterName)
 }

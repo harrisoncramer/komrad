@@ -3,8 +3,6 @@ package workflow
 import (
 	"testing"
 
-	"komrad/internal/eventprompts"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +12,7 @@ func TestEventPromptsComeBackWithEveryReader(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	prompts := eventprompts.Prompts{
+	prompts := []EventPrompt{
 		{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
 		{Event: "review.approved", Prompt: "mark the pull request ready"},
 		{Event: "pull_request.behind", Muted: true},
@@ -50,7 +48,7 @@ func TestUpdateRewritesThePromptList(t *testing.T) {
 
 	created, err := st.Create(ctx, Config{
 		Name: "backend",
-		EventPrompts: eventprompts.Prompts{
+		EventPrompts: []EventPrompt{
 			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
 			{Event: "review.approved", Prompt: "mark the pull request ready"},
 		},
@@ -58,7 +56,7 @@ func TestUpdateRewritesThePromptList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	kept := eventprompts.Prompts{
+	kept := []EventPrompt{
 		{Event: "worktree.rebase_conflicted", Prompt: "settle the conflict"},
 		{Event: "pull_request.checks_failing", Prompt: "read the failing job first"},
 	}
@@ -69,7 +67,4 @@ func TestUpdateRewritesThePromptList(t *testing.T) {
 	got, err := st.Get(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, kept, got.EventPrompts, "the list sent replaces the one stored, in the order sent")
-
-	assert.Equal(t, "settle the conflict", got.EventPrompts.For("worktree.rebase_conflicted"))
-	assert.Empty(t, got.EventPrompts.For("review.approved"), "an event dropped from the list has no prompt")
 }

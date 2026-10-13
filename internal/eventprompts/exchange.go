@@ -1,4 +1,4 @@
-package eventmail
+package eventprompts
 
 import (
 	"fmt"

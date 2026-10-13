@@ -167,19 +167,19 @@ func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook 
 
 // buildCreatedEventPrompts is the prompts a new workflow starts with, each event's default when the
 // caller sent none.
-func buildCreatedEventPrompts(sent *workflowv1.WorkflowEventPrompts) eventprompts.Prompts {
+func buildCreatedEventPrompts(sent *workflowv1.WorkflowEventPrompts) []workflowstore.EventPrompt {
 	if sent == nil {
-		return xslice.Map(eventprompts.All(), func(event eventprompts.Event) eventprompts.Prompt {
-			return eventprompts.Prompt{Event: event.Name, Prompt: event.DefaultPrompt}
+		return xslice.Map(eventprompts.All(), func(event eventprompts.Event) workflowstore.EventPrompt {
+			return workflowstore.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
 		})
 	}
 
 	return buildEventPromptsFromProto(sent.GetPrompts())
 }
 
-func buildEventPromptsFromProto(prompts []*workflowv1.WorkflowEventPrompt) eventprompts.Prompts {
-	return xslice.Map(prompts, func(prompt *workflowv1.WorkflowEventPrompt) eventprompts.Prompt {
-		return eventprompts.Prompt{
+func buildEventPromptsFromProto(prompts []*workflowv1.WorkflowEventPrompt) []workflowstore.EventPrompt {
+	return xslice.Map(prompts, func(prompt *workflowv1.WorkflowEventPrompt) workflowstore.EventPrompt {
+		return workflowstore.EventPrompt{
 			Event:  prompt.GetEvent(),
 			Prompt: prompt.GetPrompt(),
 			Muted:  prompt.GetMuted(),

@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/checkouts"
+	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/mail"
@@ -74,9 +75,9 @@ func TestWrapCodes(t *testing.T) {
 		{pagination.ErrBadCursor, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookScript, connect.CodeInvalidArgument},
-		{workflowstore.ErrUnknownEventPrompt, connect.CodeInvalidArgument},
-		{workflowstore.ErrDuplicateEventPrompt, connect.CodeInvalidArgument},
-		{workflowstore.ErrPromptTooLong, connect.CodeInvalidArgument},
+		{eventprompts.ErrUnknownEventPrompt, connect.CodeInvalidArgument},
+		{eventprompts.ErrDuplicateEventPrompt, connect.CodeInvalidArgument},
+		{eventprompts.ErrPromptTooLong, connect.CodeInvalidArgument},
 		{mail.ErrKindMissing, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
 		{agentdirs.ErrNoDirectory, connect.CodeInvalidArgument},

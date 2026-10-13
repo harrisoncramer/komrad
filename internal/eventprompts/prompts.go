@@ -1,27 +1,56 @@
 package eventprompts
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"komrad/internal/fail"
+	workflowstore "komrad/internal/store/workflow"
 )
 
 const promptsHeading = "Your workflow asks the following. Where it differs from what komrad says above, do what your workflow asks."
 
 const promptsCut = "\n[the rest of your workflow's prompts did not fit]"
 
-// Prompt is what a workflow asks of its agents when komrad sends them one event.
-type Prompt struct {
-	Event  string
-	Prompt string
-	Muted  bool
-}
+var ErrUnknownEventPrompt = fail.InvalidArgument("a prompt must name an event komrad sends")
+
+var ErrDuplicateEventPrompt = fail.InvalidArgument("a workflow holds one prompt per event")
+
+var ErrPromptTooLong = fail.InvalidArgument(fmt.Sprintf("a prompt runs to at most %d characters", MaxPrompt))
 
 // Prompts is every prompt a workflow attaches to an event.
-type Prompts []Prompt
+type Prompts []workflowstore.EventPrompt
 
-// For is the prompt attached to an event, and the empty string when there is none.
-func (p Prompts) For(event string) string {
+// Normalize trims what a caller sent, drops the entries that neither prompt nor mute, and
+// refuses an event komrad does not send or one named twice.
+func Normalize(prompts Prompts) (Prompts, error) {
+	kept := make(Prompts, 0, len(prompts))
+	for _, prompt := range prompts {
+		prompt.Event = strings.TrimSpace(prompt.Event)
+		prompt.Prompt = strings.TrimSpace(prompt.Prompt)
+		if prompt.Prompt == "" && !prompt.Muted {
+			continue
+		}
+		if !isKnown(prompt.Event) {
+			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownEventPrompt, prompt.Event, strings.Join(Names(), ", "))
+		}
+		if slices.ContainsFunc(kept, func(k workflowstore.EventPrompt) bool { return k.Event == prompt.Event }) {
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateEventPrompt, prompt.Event)
+		}
+		if utf8.RuneCountInString(prompt.Prompt) > MaxPrompt {
+			return nil, fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, prompt.Event, utf8.RuneCountInString(prompt.Prompt))
+		}
+
+		kept = append(kept, prompt)
+	}
+
+	return kept, nil
+}
+
+// Get is the prompt attached to an event, and the empty string when there is none.
+func (p Prompts) Get(event string) string {
 	for _, prompt := range p {
 		if prompt.Event == event {
 			return prompt.Prompt
@@ -31,9 +60,9 @@ func (p Prompts) For(event string) string {
 	return ""
 }
 
-// IsMuted says whether an event is kept from opening mail of its own.
-func (p Prompts) IsMuted(event string) bool {
-	return slices.ContainsFunc(p, func(prompt Prompt) bool { return prompt.Event == event && prompt.Muted })
+// isMuted says whether an event is kept from opening mail of its own.
+func (p Prompts) isMuted(event string) bool {
+	return slices.ContainsFunc(p, func(prompt workflowstore.EventPrompt) bool { return prompt.Event == event && prompt.Muted })
 }
 
 // AreAllMuted says whether every one of events is muted, which is never true of no events.
@@ -42,17 +71,17 @@ func (p Prompts) AreAllMuted(events []string) bool {
 		return false
 	}
 
-	return !slices.ContainsFunc(events, func(event string) bool { return !p.IsMuted(event) })
+	return !slices.ContainsFunc(events, func(event string) bool { return !p.isMuted(event) })
 }
 
 // Append adds the prompts of the unmuted events to body, cutting them short to keep the whole within limit characters.
 func (p Prompts) Append(body string, events []string, limit int) string {
 	var lines []string
 	for _, event := range events {
-		if p.IsMuted(event) {
+		if p.isMuted(event) {
 			continue
 		}
-		if prompt := p.For(event); prompt != "" {
+		if prompt := p.Get(event); prompt != "" {
 			lines = append(lines, event+": "+prompt)
 		}
 	}

@@ -1,4 +1,4 @@
-package eventmail
+package eventprompts
 
 import (
 	"cmp"
@@ -12,9 +12,25 @@ import (
 	"komrad/lib/xsha"
 )
 
+// PullRequestFieldName names one field of a pull request the mail lists.
+type PullRequestFieldName string
+
+const (
+	// PullRequestFieldState is whether the pull request is open, merged or closed.
+	PullRequestFieldState PullRequestFieldName = "state"
+	// PullRequestFieldDecision is where the reviews stand.
+	PullRequestFieldDecision = PullRequestFieldName(forge.MergeReadinessFieldDecision)
+	// PullRequestFieldChecks is where the checks on the head stand.
+	PullRequestFieldChecks = PullRequestFieldName(forge.MergeReadinessFieldChecks)
+	// PullRequestFieldMergeability is where the branch stands against its base.
+	PullRequestFieldMergeability = PullRequestFieldName(forge.MergeReadinessFieldMergeability)
+	// PullRequestFieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
+	PullRequestFieldAutoMerge = PullRequestFieldName(forge.MergeReadinessFieldAutoMerge)
+)
+
 // PullRequestField is one field of a pull request the mail lists, and the value it stands at.
 type PullRequestField struct {
-	Name  string
+	Name  PullRequestFieldName
 	Value string
 }
 
@@ -89,15 +105,15 @@ func writeChecks(body *strings.Builder, heading string, failures []pullrequestst
 func describe(field PullRequestField, pullRequest pullrequeststore.PullRequest) string {
 	value := field.Value
 	switch {
-	case field.Name == "state":
+	case field.Name == PullRequestFieldState:
 		return strings.ToLower(value)
-	case field.Name == string(forge.MergeReadinessFieldMergeability) && (value == "conflicting" || value == "behind"):
+	case field.Name == PullRequestFieldMergeability && (value == "conflicting" || value == "behind"):
 		return value + " with " + pullRequest.BaseBranch
-	case field.Name == string(forge.MergeReadinessFieldChecks) && value == string(forge.ChecksFailingRunning) && pullRequest.HeadSHA != "":
+	case field.Name == PullRequestFieldChecks && value == string(forge.ChecksFailingRunning) && pullRequest.HeadSHA != "":
 		return "failing on " + xsha.Short(pullRequest.HeadSHA) + ", others still running"
-	case field.Name == string(forge.MergeReadinessFieldChecks) && value != "" && pullRequest.HeadSHA != "":
+	case field.Name == PullRequestFieldChecks && value != "" && pullRequest.HeadSHA != "":
 		return strings.ReplaceAll(value, "_", " ") + " on " + xsha.Short(pullRequest.HeadSHA)
-	case field.Name == string(forge.MergeReadinessFieldAutoMerge) && value == forge.AutoMergeOn:
+	case field.Name == PullRequestFieldAutoMerge && value == forge.AutoMergeOn:
 		return "on, so whatever is on the branch merges once its checks and reviews pass"
 	case value == "":
 		return "unknown"

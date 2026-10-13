@@ -1,9 +1,8 @@
-package eventmail
+package eventprompts
 
 import (
 	"fmt"
 
-	"komrad/internal/eventprompts"
 	mailstore "komrad/internal/store/mail"
 )
 
@@ -23,7 +22,7 @@ func (DocumentWritten) Kind() mailstore.Kind {
 
 // Events is the event a person's write starts.
 func (DocumentWritten) Events() []string {
-	return []string{eventprompts.DocumentWrittenByPerson}
+	return []string{DocumentWrittenByPerson}
 }
 
 // Body tells the agent which document to read and how to write over it.

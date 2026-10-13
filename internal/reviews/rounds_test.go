@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/eventmail"
 	"komrad/internal/eventprompts"
 	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/mail"
@@ -619,7 +618,7 @@ func fillMailbox(t *testing.T, fx *reviewFixture) {
 	for {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 			ToAgentID: fx.writer.ID,
-			Mail:      eventmail.ReviewAnswered{WriterName: "waiting"},
+			Mail:      eventprompts.ThreadAnswered{WriterName: "waiting"},
 			SubjectID: uuid.NewString(),
 		})
 		if errors.Is(err, mail.ErrMailboxFull) {

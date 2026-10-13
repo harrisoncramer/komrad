@@ -1087,46 +1087,46 @@ func TestListWorkflows(t *testing.T) {
 func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 	tests := []struct {
 		name    string
-		prompts eventprompts.Prompts
-		want    eventprompts.Prompts
+		prompts []workflowstore.EventPrompt
+		want    []workflowstore.EventPrompt
 		wantErr error
 	}{
 		{
 			name: "prompts are trimmed and blank ones dropped",
-			prompts: eventprompts.Prompts{
+			prompts: []workflowstore.EventPrompt{
 				{Event: " review.approved ", Prompt: "  open the pull request \n"},
 				{Event: "pull_request.behind", Prompt: "   "},
 			},
-			want: eventprompts.Prompts{{Event: "review.approved", Prompt: "open the pull request"}},
+			want: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
 		},
 		{
 			name: "a muted event is kept with no prompt",
-			prompts: eventprompts.Prompts{
+			prompts: []workflowstore.EventPrompt{
 				{
 					Event:  "pull_request.behind",
 					Prompt: "   ",
 					Muted:  true,
 				},
 			},
-			want: eventprompts.Prompts{{Event: "pull_request.behind", Muted: true}},
+			want: []workflowstore.EventPrompt{{Event: "pull_request.behind", Muted: true}},
 		},
 		{
 			name:    "an event komrad does not send",
-			prompts: eventprompts.Prompts{{Event: "review.aproved", Prompt: "open the pull request"}},
-			wantErr: workflowstore.ErrUnknownEventPrompt,
+			prompts: []workflowstore.EventPrompt{{Event: "review.aproved", Prompt: "open the pull request"}},
+			wantErr: eventprompts.ErrUnknownEventPrompt,
 		},
 		{
 			name: "an event named twice",
-			prompts: eventprompts.Prompts{
+			prompts: []workflowstore.EventPrompt{
 				{Event: "review.approved", Prompt: "open the pull request"},
 				{Event: "review.approved", Prompt: "mark it ready"},
 			},
-			wantErr: workflowstore.ErrDuplicateEventPrompt,
+			wantErr: eventprompts.ErrDuplicateEventPrompt,
 		},
 		{
 			name:    "a prompt past the limit",
-			prompts: eventprompts.Prompts{{Event: "review.approved", Prompt: strings.Repeat("é", 501)}},
-			wantErr: workflowstore.ErrPromptTooLong,
+			prompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: strings.Repeat("é", 501)}},
+			wantErr: eventprompts.ErrPromptTooLong,
 		},
 	}
 

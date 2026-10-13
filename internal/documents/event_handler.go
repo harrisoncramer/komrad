@@ -5,7 +5,7 @@ import (
 	"errors"
 	"slices"
 
-	"komrad/internal/eventmail"
+	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/mail"
 	"komrad/internal/store"
@@ -55,7 +55,7 @@ func handlePersonWrote(ctx context.Context, tx store.DBTX, mailer *mail.MailServ
 
 	_, err = events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: document.AgentID,
-		Mail: eventmail.DocumentWritten{
+		Mail: eventprompts.DocumentWritten{
 			DocumentID: document.ID,
 			Name:       document.Name,
 			Version:    document.Version,

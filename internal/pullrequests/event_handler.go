@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"komrad/internal/eventmail"
+	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/forge"
 	"komrad/internal/mail"
@@ -81,7 +81,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 
 		sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 			ToAgentID: recipient,
-			Mail: eventmail.PullRequest{
+			Mail: eventprompts.PullRequest{
 				PullRequest: *pullRequest,
 				Fields:      listFields(*pullRequest),
 				Failures:    failures,
@@ -173,10 +173,10 @@ func fieldValues(pullRequest pullrequeststore.PullRequest) map[field]string {
 }
 
 // listFields is each field of the pull request in the order the mail lists them.
-func listFields(pullRequest pullrequeststore.PullRequest) []eventmail.PullRequestField {
+func listFields(pullRequest pullrequeststore.PullRequest) []eventprompts.PullRequestField {
 	now := fieldValues(pullRequest)
 
-	return xslice.Map(fieldOrder, func(field field) eventmail.PullRequestField {
-		return eventmail.PullRequestField{Name: string(field), Value: now[field]}
+	return xslice.Map(fieldOrder, func(field field) eventprompts.PullRequestField {
+		return eventprompts.PullRequestField{Name: field, Value: now[field]}
 	})
 }

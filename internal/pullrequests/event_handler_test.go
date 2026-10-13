@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/eventmail"
 	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/forge"
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
@@ -258,7 +258,7 @@ func TestTheMailNamesEachFailingCheck(t *testing.T) {
 				return failure
 			})
 
-			body := eventmail.PullRequest{
+			body := eventprompts.PullRequest{
 				PullRequest: pullRequest,
 				Fields:      listFields(pullRequest),
 				Failures:    failures,
@@ -495,7 +495,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 func TestAMutedFailureIsToldOnceUnmuted(t *testing.T) {
 	f := newSyncFixture(t)
 	agentID := f.agentOn(t, "a", "agent/x")
-	f.setEventPrompts(t, eventprompts.Prompts{{Event: eventprompts.PullRequestChecksFailing, Muted: true}})
+	f.setEventPrompts(t, []workflowstore.EventPrompt{{Event: eventprompts.PullRequestChecksFailing, Muted: true}})
 	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
 		Listing:      listedStatusChecks(forge.ChecksPending),
@@ -515,7 +515,7 @@ func TestAMutedFailureIsToldOnceUnmuted(t *testing.T) {
 	assert.Contains(t, told[0].Body, "New failures:\n  test: https://github.com/harrisoncramer/komrad/runs/1\n")
 }
 
-func (f *syncFixture) setEventPrompts(t *testing.T, prompts eventprompts.Prompts) {
+func (f *syncFixture) setEventPrompts(t *testing.T, prompts []workflowstore.EventPrompt) {
 	t.Helper()
 
 	workflow, err := f.stores.Workflows.Get(t.Context(), f.workflow)
@@ -537,7 +537,7 @@ func (f *syncFixture) fillMailbox(t *testing.T, agentID string) {
 	for {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 			ToAgentID: agentID,
-			Mail:      eventmail.ReviewAnswered{WriterName: "waiting"},
+			Mail:      eventprompts.ThreadAnswered{WriterName: "waiting"},
 			SubjectID: uuid.NewString(),
 		})
 		if errors.Is(err, mail.ErrMailboxFull) {

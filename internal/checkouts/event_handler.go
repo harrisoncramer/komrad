@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"komrad/internal/eventmail"
+	"komrad/internal/eventprompts"
 	"komrad/internal/events"
 	"komrad/internal/mail"
 	"komrad/internal/store"
@@ -80,7 +80,7 @@ func NewPushedHandler() events.HandlerFor[pushed] {
 func handlePushed(ctx context.Context, tx store.DBTX, mailer *mail.MailService, pushed pushed) ([]river.JobArgs, error) {
 	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{
 		TaskID: pushed.TaskID,
-		Mail:   eventmail.Pushed{Branch: pushed.Branch, SHA: pushed.SHA},
+		Mail:   eventprompts.Pushed{Branch: pushed.Branch, SHA: pushed.SHA},
 	})
 }
 
@@ -112,7 +112,7 @@ func handleAborted(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 // mailWriterParams is a piece of mail for whoever writes a task.
 type mailWriterParams struct {
 	TaskID string
-	Mail   eventmail.Mail
+	Mail   eventprompts.Mail
 }
 
 // mailWriter sends the mail to whoever writes the task as the event is handled, and to nobody
@@ -136,14 +136,14 @@ func mailWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, pa
 }
 
 // mail is what the writer is told of the outcome.
-func (o rebaseOutcome) mail() eventmail.Mail {
+func (o rebaseOutcome) mail() eventprompts.Mail {
 	if o.Result == nil {
-		return eventmail.RebaseFailed{Failure: o.Failure}
+		return eventprompts.RebaseFailed{Failure: o.Failure}
 	}
 
 	result := *o.Result
 
-	return eventmail.Rebased{
+	return eventprompts.Rebased{
 		BaseRef:     result.BaseRef,
 		BaseSHA:     result.BaseSHA,
 		Replay:      result.Replay,
@@ -156,12 +156,12 @@ func (o rebaseOutcome) mail() eventmail.Mail {
 }
 
 // mail is what the writer is told of the abort.
-func (a aborted) mail() eventmail.Mail {
+func (a aborted) mail() eventprompts.Mail {
 	if a.Result == nil {
-		return eventmail.AbortFailed{Failure: a.Failure}
+		return eventprompts.AbortFailed{Failure: a.Failure}
 	}
 
-	return eventmail.Aborted{
+	return eventprompts.Aborted{
 		Command:     a.Result.Command,
 		Branch:      a.Result.Branch,
 		ParkedRef:   a.Result.ParkedRef,

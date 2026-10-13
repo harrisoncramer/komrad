@@ -1,10 +1,9 @@
-package eventmail
+package eventprompts
 
 import (
 	"fmt"
 	"strings"
 
-	"komrad/internal/eventprompts"
 	mailstore "komrad/internal/store/mail"
 	"komrad/lib/xsha"
 )
@@ -30,11 +29,11 @@ func (Rebased) Kind() mailstore.Kind {
 func (m Rebased) Events() []string {
 	switch {
 	case m.Conflicted:
-		return []string{eventprompts.WorktreeRebaseConflicted}
+		return []string{WorktreeRebaseConflicted}
 	case m.Moved:
-		return []string{eventprompts.WorktreeLanded}
+		return []string{WorktreeLanded}
 	default:
-		return []string{eventprompts.WorktreeRebased}
+		return []string{WorktreeRebased}
 	}
 }
 
@@ -152,7 +151,7 @@ func (RebaseFailed) Kind() mailstore.Kind {
 
 // Events is the event a failed rebase starts.
 func (RebaseFailed) Events() []string {
-	return []string{eventprompts.WorktreeRebaseFailed}
+	return []string{WorktreeRebaseFailed}
 }
 
 // Body tells the agent its turn was cut for nothing.

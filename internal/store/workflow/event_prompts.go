@@ -3,50 +3,19 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
-	"unicode/utf8"
 
 	"komrad/db/models"
-	"komrad/internal/eventprompts"
-	"komrad/internal/fail"
 	"komrad/lib/xslice"
 )
 
-var ErrUnknownEventPrompt = fail.InvalidArgument("a prompt must name an event komrad sends")
-
-var ErrDuplicateEventPrompt = fail.InvalidArgument("a workflow holds one prompt per event")
-
-var ErrPromptTooLong = fail.InvalidArgument(fmt.Sprintf("a prompt runs to at most %d characters", eventprompts.MaxPrompt))
-
-// NormalizeEventPrompts trims what a caller sent, drops the entries that neither prompt nor mute, and
-// refuses an event komrad does not send or one named twice.
-func (c *Config) NormalizeEventPrompts() error {
-	kept := make(eventprompts.Prompts, 0, len(c.EventPrompts))
-	for _, prompt := range c.EventPrompts {
-		prompt.Event = strings.TrimSpace(prompt.Event)
-		prompt.Prompt = strings.TrimSpace(prompt.Prompt)
-		if prompt.Prompt == "" && !prompt.Muted {
-			continue
-		}
-		if !eventprompts.IsKnown(prompt.Event) {
-			return fmt.Errorf("%w: %q is not one of %s", ErrUnknownEventPrompt, prompt.Event, strings.Join(eventprompts.Names(), ", "))
-		}
-		if slices.ContainsFunc(kept, func(k eventprompts.Prompt) bool { return k.Event == prompt.Event }) {
-			return fmt.Errorf("%w: %s", ErrDuplicateEventPrompt, prompt.Event)
-		}
-		if utf8.RuneCountInString(prompt.Prompt) > eventprompts.MaxPrompt {
-			return fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, prompt.Event, utf8.RuneCountInString(prompt.Prompt))
-		}
-
-		kept = append(kept, prompt)
-	}
-	c.EventPrompts = kept
-
-	return nil
+// EventPrompt is what a workflow asks of its agents when komrad sends them one event.
+type EventPrompt struct {
+	Event  string
+	Prompt string
+	Muted  bool
 }
 
-func (s *WorkflowStore) setEventPrompts(ctx context.Context, workflowID string, prompts eventprompts.Prompts) error {
+func (s *WorkflowStore) setEventPrompts(ctx context.Context, workflowID string, prompts []EventPrompt) error {
 	if err := s.queries.DeleteWorkflowEventPrompts(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to clear prompts for workflow %q: %w", workflowID, err)
 	}
@@ -66,14 +35,14 @@ func (s *WorkflowStore) setEventPrompts(ctx context.Context, workflowID string, 
 	return nil
 }
 
-func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID string) (eventprompts.Prompts, error) {
+func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID string) ([]EventPrompt, error) {
 	rows, err := s.queries.ListEventPromptsForWorkflow(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the prompts of workflow %q: %w", workflowID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListEventPromptsForWorkflowRow) eventprompts.Prompt {
-		return eventprompts.Prompt{
+	return xslice.Map(rows, func(row *models.ListEventPromptsForWorkflowRow) EventPrompt {
+		return EventPrompt{
 			Event:  row.Event,
 			Prompt: row.Prompt,
 			Muted:  row.Muted,
@@ -81,9 +50,9 @@ func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID string) 
 	}), nil
 }
 
-func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []string) (map[string]eventprompts.Prompts, error) {
+func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []string) (map[string][]EventPrompt, error) {
 	if len(ids) == 0 {
-		return map[string]eventprompts.Prompts{}, nil
+		return map[string][]EventPrompt{}, nil
 	}
 
 	rows, err := s.queries.ListEventPromptsForWorkflows(ctx, ids)
@@ -91,9 +60,9 @@ func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []stri
 		return nil, fmt.Errorf("failed to read the prompts of %d workflows: %w", len(ids), err)
 	}
 
-	prompts := make(map[string]eventprompts.Prompts)
+	prompts := make(map[string][]EventPrompt)
 	for _, row := range rows {
-		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], eventprompts.Prompt{
+		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], EventPrompt{
 			Event:  row.Event,
 			Prompt: row.Prompt,
 			Muted:  row.Muted,

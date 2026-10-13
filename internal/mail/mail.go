@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"komrad/internal/eventmail"
+	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/logging"
 	"komrad/internal/store"
@@ -209,7 +209,7 @@ var ErrNothingUnread = fail.NotFound("the recipient holds no unread mail of this
 
 type SendFromKomradParams struct {
 	ToAgentID string
-	Mail      eventmail.Mail
+	Mail      eventprompts.Mail
 	// SubjectID is the agent, document, pull request or worktree the mail is about.
 	SubjectID string
 	// OnlyRewrite writes nothing when the recipient holds no unread mail of this kind about this subject.
@@ -256,8 +256,9 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, err
 	}
 
+	prompts := eventprompts.Prompts(workflow.EventPrompts)
 	if held == nil {
-		if workflow.EventPrompts.AreAllMuted(params.Mail.Events()) {
+		if prompts.AreAllMuted(params.Mail.Events()) {
 			return nil, ErrNothingUnread
 		}
 		if err := s.requireRoom(ctx, *recipient); err != nil {
@@ -275,7 +276,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	return s.mail.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 		FromName:  KomradSenderName,
 		ToAgentID: recipient.ID,
-		Body:      workflow.EventPrompts.Append(params.Mail.Body(), carried, MaxMailBody),
+		Body:      prompts.Append(params.Mail.Body(), carried, MaxMailBody),
 		Kind:      kind,
 		SubjectID: params.SubjectID,
 		Events:    carried,
@@ -442,7 +443,7 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 
 	if _, err := s.SendFromKomrad(ctx, SendFromKomradParams{
 		ToAgentID: recipient.ID,
-		Mail: eventmail.ExchangeCapped{
+		Mail: eventprompts.ExchangeCapped{
 			SenderName: sender.Name,
 			SenderID:   sender.ID,
 			Exchanged:  exchanged,

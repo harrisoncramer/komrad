@@ -1,5 +1,4 @@
-// Package eventmail writes the mail komrad sends an agent about each event, from the fields of what happened.
-package eventmail
+package eventprompts
 
 import mailstore "komrad/internal/store/mail"
 
