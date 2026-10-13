@@ -268,8 +268,8 @@ func TestAccessBelongsToTheEngineItWasGrantedOn(t *testing.T) {
 	assert.False(t, isGranted(t, second, "first"), "another engine's grant lets nobody in")
 }
 
-// TestOnlyTheOwnerChangesWhoHasAccess pins the engine and reader logins reaching the grants only through the two functions.
-func TestOnlyTheOwnerChangesWhoHasAccess(t *testing.T) {
+// TestTheEngineReachesAccessOnlyThroughItsFunctions pins the engine login refused the table and the reader login refused the table and both functions.
+func TestTheEngineReachesAccessOnlyThroughItsFunctions(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
@@ -286,11 +286,31 @@ func TestOnlyTheOwnerChangesWhoHasAccess(t *testing.T) {
 		pool store.DBTX
 		sql  string
 	}{
-		{"the engine granting", writer.GetDB(), "INSERT INTO engine_access (email) VALUES ('harry@example.com')"},
-		{"the engine reading", writer.GetDB(), "SELECT email FROM engine_access"},
-		{"the reader reading", reader, "SELECT email FROM engine_access"},
-		{"the reader asking", reader, "SELECT engine_access_granted('issuer', 'subject')"},
-		{"the reader claiming", reader, "SELECT claim_engine_access('harry@example.com', 'issuer', 'subject')"},
+		{
+			name: "the engine granting",
+			pool: writer.GetDB(),
+			sql:  "INSERT INTO engine_access (email) VALUES ('harry@example.com')",
+		},
+		{
+			name: "the engine reading",
+			pool: writer.GetDB(),
+			sql:  "SELECT email FROM engine_access",
+		},
+		{
+			name: "the reader reading",
+			pool: reader,
+			sql:  "SELECT email FROM engine_access",
+		},
+		{
+			name: "the reader asking",
+			pool: reader,
+			sql:  "SELECT engine_access_granted('issuer', 'subject')",
+		},
+		{
+			name: "the reader claiming",
+			pool: reader,
+			sql:  "SELECT claim_engine_access('harry@example.com', 'issuer', 'subject')",
+		},
 	}
 
 	for _, tt := range tests {
