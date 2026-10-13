@@ -18,7 +18,7 @@ const enginePasswordVariable = "KOMRAD_ENGINE_PASSWORD"
 func engineCmd(state *app) *cobra.Command {
 	engine := &cobra.Command{
 		Use:    "engine",
-		Short:  "Set up the engines that share a database",
+		Short:  "Set up the engines that share a database, and who may use them",
 		Hidden: true,
 	}
 
@@ -66,6 +66,63 @@ engines had logins belongs to, hands it new logins and keeps its rows.`,
 
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "[connection]\ndatabase_url = %q\n", engineURL); err != nil {
 				return fmt.Errorf("failed to print the engine's database url: %w", err)
+			}
+
+			return nil
+		},
+	})
+
+	engine.AddCommand(&cobra.Command{
+		Use:   "grant NAME EMAIL",
+		Short: "Let a person into an engine by their email",
+		Long: `Let the person with an email into an engine, connecting as owner_database_url.
+
+The first time they sign in with a verified email, the engine records the permanent id their
+identity provider gives that account, and from then on it lets in that account alone. Anyone
+granted access can do everything the panel does, including opening a shell on the engine's
+machine, so grant it only to people you would give that machine. Granting an email again
+changes nothing.`,
+		Args:          cobra.ExactArgs(2),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := store.GrantAccess(cmd.Context(), store.GrantAccessParams{
+				OwnerURL: state.env.OwnerDatabaseURL,
+				Engine:   args[0],
+				Email:    args[1],
+			}); err != nil {
+				return err
+			}
+
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "granted %s access to engine %s\n", args[1], args[0]); err != nil {
+				return fmt.Errorf("failed to print the grant: %w", err)
+			}
+
+			return nil
+		},
+	})
+
+	engine.AddCommand(&cobra.Command{
+		Use:   "revoke NAME EMAIL",
+		Short: "Turn a person away from an engine",
+		Long: `Turn the person with an email away from an engine, connecting as owner_database_url.
+
+This removes the grant and the account their sign-in recorded, so letting them back in takes a
+fresh grant and a fresh sign-in.`,
+		Args:          cobra.ExactArgs(2),
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := store.RevokeAccess(cmd.Context(), store.RevokeAccessParams{
+				OwnerURL: state.env.OwnerDatabaseURL,
+				Engine:   args[0],
+				Email:    args[1],
+			}); err != nil {
+				return err
+			}
+
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "revoked %s's access to engine %s\n", args[1], args[0]); err != nil {
+				return fmt.Errorf("failed to print the revoke: %w", err)
 			}
 
 			return nil

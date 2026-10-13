@@ -31,6 +31,22 @@ func (q *Queries) GetCurrentEngine(ctx context.Context) (*GetCurrentEngineRow, e
 	return &i, err
 }
 
+const getEngineIDByName = `-- name: GetEngineIDByName :one
+SELECT
+    id
+FROM
+    engines
+WHERE
+    name = $1
+`
+
+func (q *Queries) GetEngineIDByName(ctx context.Context, name string) (string, error) {
+	row := q.db.QueryRow(ctx, getEngineIDByName, name)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getReaderIdentity = `-- name: GetReaderIdentity :one
 SELECT
     COALESCE(r.rolsuper, TRUE)::boolean AS superuser,
@@ -60,4 +76,46 @@ func (q *Queries) GetReaderIdentity(ctx context.Context) (*GetReaderIdentityRow,
 		&i.EngineID,
 	)
 	return &i, err
+}
+
+const grantEngineAccess = `-- name: GrantEngineAccess :exec
+INSERT INTO engine_access(
+    engine_id,
+    email)
+VALUES (
+    $1,
+    $2)
+ON CONFLICT (
+    engine_id,
+    email)
+    DO NOTHING
+`
+
+type GrantEngineAccessParams struct {
+	EngineID string
+	Email    string
+}
+
+func (q *Queries) GrantEngineAccess(ctx context.Context, arg GrantEngineAccessParams) error {
+	_, err := q.db.Exec(ctx, grantEngineAccess, arg.EngineID, arg.Email)
+	return err
+}
+
+const revokeEngineAccess = `-- name: RevokeEngineAccess :execrows
+DELETE FROM engine_access
+WHERE engine_id = $1
+    AND email = $2
+`
+
+type RevokeEngineAccessParams struct {
+	EngineID string
+	Email    string
+}
+
+func (q *Queries) RevokeEngineAccess(ctx context.Context, arg RevokeEngineAccessParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeEngineAccess, arg.EngineID, arg.Email)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

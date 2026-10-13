@@ -17,3 +17,28 @@ FROM
     pg_catalog.pg_roles r
 WHERE
     r.rolname = SESSION_USER;
+
+-- name: GetEngineIDByName :one
+SELECT
+    id
+FROM
+    engines
+WHERE
+    name = sqlc.arg(name);
+
+-- name: GrantEngineAccess :exec
+INSERT INTO engine_access(
+    engine_id,
+    email)
+VALUES (
+    sqlc.arg(engine_id),
+    sqlc.arg(email))
+ON CONFLICT (
+    engine_id,
+    email)
+    DO NOTHING;
+
+-- name: RevokeEngineAccess :execrows
+DELETE FROM engine_access
+WHERE engine_id = sqlc.arg(engine_id)
+    AND email = sqlc.arg(email);

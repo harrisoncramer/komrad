@@ -82,7 +82,7 @@ owner_database_url = "postgres://komrad_owner:password123@localhost:5432/komrad"
 database_url = "postgres://komrad_engine_laptop:8f3a1c9e2b7d4e6f@localhost:5432/komrad"
 ```
 
-Only <Command path="migrate" /> and <Command path="engine ensure" /> use the <Setting path="connection.owner_database_url" label="owner_database_url" />. The server itself connects with <Setting path="connection.database_url" label="database_url" />.
+Only <Command path="migrate" />, <Command path="engine ensure" />, <Command path="engine grant" /> and <Command path="engine revoke" /> use the <Setting path="connection.owner_database_url" label="owner_database_url" />. The server itself connects with <Setting path="connection.database_url" label="database_url" />.
 
 ### Open the panel
 
