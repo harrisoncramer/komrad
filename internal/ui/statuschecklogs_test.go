@@ -344,6 +344,7 @@ func newStatusCheckLogStep(number int32, name, conclusion string, firstLine, lin
 		Number:     number,
 		Name:       name,
 		Conclusion: conclusion,
+		Passed:     fixturePassed(pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, conclusion),
 		FirstLine:  firstLine,
 		LineCount:  lineCount,
 	}

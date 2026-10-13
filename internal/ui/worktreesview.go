@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"komrad/internal/errui"
-	"komrad/internal/git"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
+	"komrad/lib/xsha"
 	"komrad/lib/xslice"
 )
 
@@ -304,7 +304,7 @@ func changeLines(read worktreeInspection) []string {
 
 func commitLines(commits []worktreeCommit) []string {
 	lines := xslice.Map(commits, func(commit worktreeCommit) string {
-		return fmt.Sprintf("%s  %-4s %s", git.ShortSHA(commit.sha), label.Age(commit.committedAt), commit.subject)
+		return fmt.Sprintf("%s  %-4s %s", xsha.Short(commit.sha), label.Age(commit.committedAt), commit.subject)
 	})
 
 	return lines

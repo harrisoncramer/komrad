@@ -1456,7 +1456,7 @@ type StatusCheckReading struct {
 	FirstReadAt *string `protobuf:"bytes,2,opt,name=first_read_at,json=firstReadAt,proto3,oneof" json:"first_read_at,omitempty"`
 	// When the forge was last asked about that head, in RFC 3339.
 	ReadAt *string `protobuf:"bytes,3,opt,name=read_at,json=readAt,proto3,oneof" json:"read_at,omitempty"`
-	// The status checks on that head, by kind, source and name.
+	// The newest run of each status check on that head, by source, run event and name.
 	StatusChecks  []*StatusCheck `protobuf:"bytes,4,rep,name=status_checks,json=statusChecks,proto3" json:"status_checks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1552,7 +1552,9 @@ type StatusCheck struct {
 	// The log komrad keeps of the check, and where fetching it stands.
 	Log *CheckLog `protobuf:"bytes,14,opt,name=log,proto3" json:"log,omitempty"`
 	// The identifier komrad keeps the check under, which ReadCheckLog and SearchCheckLogs take.
-	Id            string `protobuf:"bytes,15,opt,name=id,proto3" json:"id,omitempty"`
+	Id string `protobuf:"bytes,15,opt,name=id,proto3" json:"id,omitempty"`
+	// Whether it completed with a conclusion that counts as passing, such as success, neutral or skipped.
+	Passed        bool `protobuf:"varint,16,opt,name=passed,proto3" json:"passed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1692,6 +1694,13 @@ func (x *StatusCheck) GetId() string {
 	return ""
 }
 
+func (x *StatusCheck) GetPassed() bool {
+	if x != nil {
+		return x.Passed
+	}
+	return false
+}
+
 // CheckLog records where komrad stands with a check's log. It holds the map of the log's steps and not its text.
 type CheckLog struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1788,7 +1797,9 @@ type CheckLogStep struct {
 	// How many lines the step wrote.
 	LineCount int32 `protobuf:"varint,5,opt,name=line_count,json=lineCount,proto3" json:"line_count,omitempty"`
 	// How many of the step's lines the forge marked as errors.
-	ErrorCount    int32 `protobuf:"varint,6,opt,name=error_count,json=errorCount,proto3" json:"error_count,omitempty"`
+	ErrorCount int32 `protobuf:"varint,6,opt,name=error_count,json=errorCount,proto3" json:"error_count,omitempty"`
+	// Whether its conclusion counts as passing, such as success, neutral or skipped.
+	Passed        bool `protobuf:"varint,7,opt,name=passed,proto3" json:"passed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1865,6 +1876,13 @@ func (x *CheckLogStep) GetErrorCount() int32 {
 	return 0
 }
 
+func (x *CheckLogStep) GetPassed() bool {
+	if x != nil {
+		return x.Passed
+	}
+	return false
+}
+
 // StatusCheckStep is one step of a check run.
 type StatusCheckStep struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1879,7 +1897,9 @@ type StatusCheckStep struct {
 	// When it started, in RFC 3339, unset when the forge did not say.
 	StartedAt *string `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
 	// When it finished, in RFC 3339, unset while it has not.
-	FinishedAt    *string `protobuf:"bytes,6,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
+	FinishedAt *string `protobuf:"bytes,6,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
+	// Whether it completed with a conclusion that counts as passing, such as success, neutral or skipped.
+	Passed        bool `protobuf:"varint,7,opt,name=passed,proto3" json:"passed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1954,6 +1974,13 @@ func (x *StatusCheckStep) GetFinishedAt() string {
 		return *x.FinishedAt
 	}
 	return ""
+}
+
+func (x *StatusCheckStep) GetPassed() bool {
+	if x != nil {
+		return x.Passed
+	}
+	return false
 }
 
 var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
@@ -2054,7 +2081,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\rstatus_checks\x18\x04 \x03(\v2\x1b.pullrequest.v1.StatusCheckR\fstatusChecksB\x10\n" +
 	"\x0e_first_read_atB\n" +
 	"\n" +
-	"\b_read_at\"\xcc\x04\n" +
+	"\b_read_at\"\xe4\x04\n" +
 	"\vStatusCheck\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x123\n" +
@@ -2076,7 +2103,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\trun_event\x18\f \x01(\tR\brunEvent\x12)\n" +
 	"\x0erun_started_at\x18\r \x01(\tH\x02R\frunStartedAt\x88\x01\x01\x12*\n" +
 	"\x03log\x18\x0e \x01(\v2\x18.pullrequest.v1.CheckLogR\x03log\x12\x0e\n" +
-	"\x02id\x18\x0f \x01(\tR\x02idB\r\n" +
+	"\x02id\x18\x0f \x01(\tR\x02id\x12\x16\n" +
+	"\x06passed\x18\x10 \x01(\bR\x06passedB\r\n" +
 	"\v_started_atB\x0e\n" +
 	"\f_finished_atB\x11\n" +
 	"\x0f_run_started_at\"\xe6\x01\n" +
@@ -2089,7 +2117,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\verror_count\x18\x04 \x01(\x05R\n" +
 	"errorCount\x122\n" +
 	"\x05steps\x18\x05 \x03(\v2\x1c.pullrequest.v1.CheckLogStepR\x05stepsB\r\n" +
-	"\v_fetched_at\"\xb9\x01\n" +
+	"\v_fetched_at\"\xd1\x01\n" +
 	"\fCheckLogStep\x12\x16\n" +
 	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1e\n" +
@@ -2101,7 +2129,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"line_count\x18\x05 \x01(\x05R\tlineCount\x12\x1f\n" +
 	"\verror_count\x18\x06 \x01(\x05R\n" +
-	"errorCount\"\xfe\x01\n" +
+	"errorCount\x12\x16\n" +
+	"\x06passed\x18\a \x01(\bR\x06passed\"\x96\x02\n" +
 	"\x0fStatusCheckStep\x12\x16\n" +
 	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x126\n" +
@@ -2112,7 +2141,8 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"started_at\x18\x05 \x01(\tH\x00R\tstartedAt\x88\x01\x01\x12$\n" +
 	"\vfinished_at\x18\x06 \x01(\tH\x01R\n" +
-	"finishedAt\x88\x01\x01B\r\n" +
+	"finishedAt\x88\x01\x01\x12\x16\n" +
+	"\x06passed\x18\a \x01(\bR\x06passedB\r\n" +
 	"\v_started_atB\x0e\n" +
 	"\f_finished_at*\xf5\x03\n" +
 	"\x10PullRequestState\x12\"\n" +

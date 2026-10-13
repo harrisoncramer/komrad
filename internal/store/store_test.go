@@ -10,6 +10,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -197,4 +198,130 @@ func TestTheReadOnlyPoolTakesOnlyThisEnginesReader(t *testing.T) {
 	reader, err := store.OpenReadOnly(ctx, first.ReaderURL, firstID)
 	require.NoError(t, err)
 	reader.Close()
+}
+
+const issuer = "https://accounts.example.com"
+
+func grantAccess(t *testing.T, ownerURL, engineID, email string) {
+	t.Helper()
+
+	owner, err := pgxpool.New(t.Context(), ownerURL)
+	require.NoError(t, err)
+	defer owner.Close()
+
+	_, err = owner.Exec(t.Context(), "INSERT INTO engine_access (engine_id, email) VALUES ($1, $2)", engineID, email)
+	require.NoError(t, err)
+}
+
+func claimAccess(t *testing.T, pool store.DBTX, email, subject string) bool {
+	t.Helper()
+
+	var claimed bool
+	require.NoError(t, pool.QueryRow(t.Context(), "SELECT claim_engine_access($1, $2, $3)", email, issuer, subject).Scan(&claimed))
+
+	return claimed
+}
+
+func isGranted(t *testing.T, pool store.DBTX, subject string) bool {
+	t.Helper()
+
+	var granted bool
+	require.NoError(t, pool.QueryRow(t.Context(), "SELECT engine_access_granted($1, $2)", issuer, subject).Scan(&granted))
+
+	return granted
+}
+
+// TestTheFirstSignInClaimsAnEmailForGood pins a granted email taking the first account to claim it and no other.
+func TestTheFirstSignInClaimsAnEmailForGood(t *testing.T) {
+	t.Parallel()
+
+	database := dbtest.New(t)
+	engine := openEngine(t, dbtest.NewEngine(t, database))
+	pool := engine.GetDB()
+	grantAccess(t, database.OwnerURL, engine.GetEngine().ID, "harry@example.com")
+	grantAccess(t, database.OwnerURL, engine.GetEngine().ID, "harry@work.example.com")
+
+	assert.False(t, isGranted(t, pool, "first"), "nobody has signed in yet")
+	assert.False(t, claimAccess(t, pool, "sally@example.com", "first"), "an email nobody granted claims nothing")
+
+	require.True(t, claimAccess(t, pool, "Harry@Example.com", "first"), "the email matches whatever its case")
+	assert.True(t, isGranted(t, pool, "first"))
+
+	assert.False(t, claimAccess(t, pool, "harry@example.com", "second"), "a claimed email stays with its first account")
+	assert.False(t, isGranted(t, pool, "second"))
+
+	assert.False(t, claimAccess(t, pool, "harry@work.example.com", "first"), "an account holds one grant on an engine")
+	assert.False(t, claimAccess(t, pool, "harry@work.example.com", ""), "a claim needs an account")
+}
+
+// TestAccessBelongsToTheEngineItWasGrantedOn pins one engine's grants being invisible to every other.
+func TestAccessBelongsToTheEngineItWasGrantedOn(t *testing.T) {
+	t.Parallel()
+
+	database := dbtest.New(t)
+	first := openEngine(t, dbtest.NewEngine(t, database))
+	second := openEngine(t, dbtest.NewEngine(t, database)).GetDB()
+	grantAccess(t, database.OwnerURL, first.GetEngine().ID, "harry@example.com")
+
+	assert.False(t, claimAccess(t, second, "harry@example.com", "first"), "another engine's grant claims nothing")
+	require.True(t, claimAccess(t, first.GetDB(), "harry@example.com", "first"))
+	assert.False(t, isGranted(t, second, "first"), "another engine's grant lets nobody in")
+}
+
+// TestTheEngineReachesAccessOnlyThroughItsFunctions pins the engine login refused the table and the reader login refused the table and both functions.
+func TestTheEngineReachesAccessOnlyThroughItsFunctions(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	database := dbtest.New(t)
+	engine := dbtest.NewEngine(t, database)
+	writer := openEngine(t, engine)
+
+	reader, err := store.OpenReadOnly(ctx, engine.ReaderURL, writer.GetEngine().ID)
+	require.NoError(t, err)
+	t.Cleanup(reader.Close)
+
+	tests := []struct {
+		name string
+		pool store.DBTX
+		sql  string
+	}{
+		{
+			name: "the engine granting",
+			pool: writer.GetDB(),
+			sql:  "INSERT INTO engine_access (email) VALUES ('harry@example.com')",
+		},
+		{
+			name: "the engine reading",
+			pool: writer.GetDB(),
+			sql:  "SELECT email FROM engine_access",
+		},
+		{
+			name: "the reader reading",
+			pool: reader,
+			sql:  "SELECT email FROM engine_access",
+		},
+		{
+			name: "the reader asking",
+			pool: reader,
+			sql:  "SELECT engine_access_granted('issuer', 'subject')",
+		},
+		{
+			name: "the reader claiming",
+			pool: reader,
+			sql:  "SELECT claim_engine_access('harry@example.com', 'issuer', 'subject')",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := tt.pool.Exec(ctx, tt.sql)
+
+			var pgErr *pgconn.PgError
+			require.ErrorAs(t, err, &pgErr)
+			assert.Equal(t, "42501", pgErr.Code, "permission denied")
+		})
+	}
 }

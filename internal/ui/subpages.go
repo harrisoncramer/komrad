@@ -21,7 +21,6 @@ const (
 )
 
 var (
-	errReviewArchived   = errors.New("komrad does not review an archived agent's work")
 	errReviewReviewer   = errors.New("this agent reviews its task's checkout, so open the review from the task's writer")
 	errReviewNoCheckout = errors.New("this agent has no checkout of its own to read")
 	errTerminalHere     = errors.New("open a terminal from the agents list")
@@ -56,10 +55,13 @@ func subpageEntries(m *model, item panel.AgentRow, pages []subpage) []submenuEnt
 	})
 }
 
-// agentSubpages is the subpages an agent has, less an orchestrator's work.
+// agentSubpages is the subpages an agent has, less an orchestrator's work and an archived agent's review.
 func agentSubpages(agent panel.Agent) []subpage {
-	if agent.Role == panel.RoleOrchestrator {
+	switch {
+	case agent.Role == panel.RoleOrchestrator:
 		return []subpage{subpageLogs, subpageTerminal}
+	case agent.ArchivedAt != nil:
+		return []subpage{subpageLogs, subpageChecks, subpageTerminal}
 	}
 
 	return []subpage{subpageReview, subpageLogs, subpageChecks, subpageTerminal}
@@ -92,8 +94,6 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 // reviewRefusal is why an agent's work cannot be reviewed, nil when it can.
 func (l listing) reviewRefusal(agent panel.Agent) error {
 	switch {
-	case agent.ArchivedAt != nil:
-		return errReviewArchived
 	case agent.Role == panel.RoleReviewer:
 		return errReviewReviewer
 	case !l.isReviewable(agent):

@@ -619,6 +619,18 @@ type Engine struct {
 	CreatedAt time.Time
 }
 
+// The people the owner has let into an engine, granted by email and matched by the provider id their first sign-in recorded.
+type EngineAccess struct {
+	EngineID string
+	// The email the owner granted access to, in lower case.
+	Email string
+	// The identity provider that vouched for the person at their first sign-in, null until they sign in.
+	Issuer *string
+	// The person's permanent id at that provider, null until they sign in.
+	Subject   *string
+	CreatedAt time.Time
+}
+
 // The Postgres logins an engine connects as, which is the only way an engine's identity is known.
 type EngineLogin struct {
 	Role     string

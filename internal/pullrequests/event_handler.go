@@ -11,11 +11,11 @@ import (
 
 	"komrad/internal/events"
 	"komrad/internal/forge"
-	"komrad/internal/git"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/xsha"
 
 	"github.com/riverqueue/river"
 )
@@ -224,9 +224,9 @@ func describe(field field, value string, pullRequest pullrequeststore.PullReques
 	case field == fieldMergeability && (value == "conflicting" || value == "behind"):
 		return value + " with " + pullRequest.BaseBranch
 	case field == fieldChecks && value == string(forge.ChecksFailingRunning) && pullRequest.HeadSHA != "":
-		return "failing on " + git.ShortSHA(pullRequest.HeadSHA) + ", others still running"
+		return "failing on " + xsha.Short(pullRequest.HeadSHA) + ", others still running"
 	case field == fieldChecks && value != "" && pullRequest.HeadSHA != "":
-		return strings.ReplaceAll(value, "_", " ") + " on " + git.ShortSHA(pullRequest.HeadSHA)
+		return strings.ReplaceAll(value, "_", " ") + " on " + xsha.Short(pullRequest.HeadSHA)
 	case field == fieldAutoMerge && value == forge.AutoMergeOn:
 		return "on, so whatever is on the branch merges once its checks and reviews pass"
 	case value == "":

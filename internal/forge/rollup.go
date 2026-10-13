@@ -2,7 +2,10 @@ package forge
 
 import (
 	"slices"
+	"strings"
+	"time"
 
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 )
 
@@ -42,7 +45,22 @@ func decidingStatusChecks(checks []StatusCheck) []StatusCheck {
 
 // IsFailing says whether a check finished without passing.
 func (c StatusCheck) IsFailing() bool {
-	return c.State == StatusCheckStateCompleted && !slices.Contains(passingConclusions, c.Conclusion)
+	return c.State == StatusCheckStateCompleted && !IsPassingConclusion(c.Conclusion)
+}
+
+// IsPassing says whether a check completed with a conclusion that counts as passed.
+func (c StatusCheck) IsPassing() bool {
+	return c.State == StatusCheckStateCompleted && IsPassingConclusion(c.Conclusion)
+}
+
+// IsPassing says whether a step completed with a conclusion that counts as passed.
+func (s StatusCheckStep) IsPassing() bool {
+	return s.State == StatusCheckStateCompleted && IsPassingConclusion(s.Conclusion)
+}
+
+// IsPassingConclusion says whether a completed check or step with the conclusion counts as passed.
+func IsPassingConclusion(conclusion string) bool {
+	return slices.Contains(passingConclusions, conclusion)
 }
 
 // IsRunning says whether a check is queued or running.
@@ -71,4 +89,47 @@ func newestStatusChecks(checks []StatusCheck) []StatusCheck {
 			name:   check.Name,
 		}
 	})
+}
+
+type runKey struct {
+	source string
+	event  string
+	name   string
+}
+
+// NewestRuns is the newest run of each check sharing a source, run event and name, in the order listed.
+func NewestRuns(checks []StatusCheck) []StatusCheck {
+	newest := map[runKey]StatusCheck{}
+	for _, check := range checks {
+		if held, ok := newest[check.runKey()]; !ok || compareRuns(held, check) < 0 {
+			newest[check.runKey()] = check
+		}
+	}
+
+	return slices.DeleteFunc(slices.Clone(checks), func(check StatusCheck) bool {
+		return newest[check.runKey()].ProviderID != check.ProviderID
+	})
+}
+
+func (c StatusCheck) runKey() runKey {
+	return runKey{
+		source: c.Source,
+		event:  c.RunEvent,
+		name:   c.Name,
+	}
+}
+
+func compareRuns(a, b StatusCheck) int {
+	if order := compareTimes(a.RunStartedAt, b.RunStartedAt); order != 0 {
+		return order
+	}
+	if order := compareTimes(a.StartedAt, b.StartedAt); order != 0 {
+		return order
+	}
+
+	return strings.Compare(a.ProviderID, b.ProviderID)
+}
+
+func compareTimes(a, b *time.Time) int {
+	return xptr.Deref(a).Compare(xptr.Deref(b))
 }

@@ -18,7 +18,7 @@ const StampEngineTrigger = "stamp_engine"
 var UnscopedTables = []string{"engines", "schema_migrations", "schema_triggers"}
 
 // UnisolatedTables are the tables that carry engine_id yet are read across engines.
-var UnisolatedTables = []string{"engine_logins"}
+var UnisolatedTables = []string{"engine_access", "engine_logins"}
 
 // ReaderlessTables are the engine tables the reader role is not granted.
 var ReaderlessTables = []string{"forge_review_comments", "forge_review_threads"}
