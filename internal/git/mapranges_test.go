@@ -297,21 +297,24 @@ func TestIntegrationMapRangesFindsARenameAcrossTheWholeTree(t *testing.T) {
 	tests := []struct {
 		name  string
 		paths []string
-		want  []string
+		want  []position.FileMapping
 	}{
 		{
 			name: "the whole tree",
-			want: []string{"new.go", "other.go"},
+			want: []position.FileMapping{
+				{OldPath: "old.go", NewPath: "new.go"},
+				{OldPath: "other.go", NewPath: "other.go"},
+			},
 		},
 		{
 			name:  "limited to the old path",
 			paths: []string{"old.go"},
-			want:  []string{"new.go"},
+			want:  []position.FileMapping{{OldPath: "old.go", NewPath: "new.go"}},
 		},
 		{
 			name:  "limited to a path the commit left alone",
 			paths: []string{"untouched.go"},
-			want:  []string{},
+			want:  []position.FileMapping{},
 		},
 	}
 
@@ -325,15 +328,9 @@ func TestIntegrationMapRangesFindsARenameAcrossTheWholeTree(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.want, xslice.Map(mappings, func(mapping position.Mapping) string {
-				return mapping.File.NewPath
-			}))
-
-			for _, mapping := range mappings {
-				if mapping.File.NewPath == "new.go" {
-					assert.Equal(t, "old.go", mapping.File.OldPath, "a rename read as a deletion drops every position on the file")
-				}
-			}
+			assert.Equal(t, tt.want, xslice.Map(mappings, func(mapping position.Mapping) position.FileMapping {
+				return mapping.File
+			}), "a rename read as a deletion drops every position on the file")
 		})
 	}
 }

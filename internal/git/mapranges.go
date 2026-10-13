@@ -20,7 +20,7 @@ type MapRangesParams struct {
 	FromSHA string
 	// ToSHA is the commit they are being moved to.
 	ToSHA string
-	// Paths limits the answer to these files of FromSHA, and every file reads when it is empty.
+	// Paths limits the answer to these files of FromSHA, or every file when empty.
 	Paths []string
 }
 
@@ -61,8 +61,7 @@ func (c *Client) MapRanges(ctx context.Context, params MapRangesParams) ([]posit
 	return mappings, nil
 }
 
-// changedPathspecs is every path the later commit gave the files asked for, old and new names
-// both, read from a diff of names alone so renames are found across the whole tree.
+// changedPathspecs is the old and new name of each file in Paths that the later commit changed.
 func changedPathspecs(ctx context.Context, root string, params MapRangesParams) ([]string, error) {
 	raw, err := runBytes(ctx, root,
 		"-c", "core.quotepath=false",
@@ -94,7 +93,7 @@ func changedPathspecs(ctx context.Context, root string, params MapRangesParams) 
 	return pathspecs, nil
 }
 
-// nameChange is one entry of a diff of names: the path a file had before and the path it has after.
+// nameChange is the path a file had before a commit and the path it has after.
 type nameChange struct {
 	oldPath string
 	newPath string
