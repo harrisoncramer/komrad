@@ -59,6 +59,7 @@ func statusCheckLogStepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
 	return statusCheckIcon(statusCheckItem{
 		state:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		conclusion: step.GetConclusion(),
+		passed:     step.GetPassed(),
 	}, "")
 }
 

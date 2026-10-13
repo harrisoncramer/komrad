@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/git"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/lib/xsha"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -85,7 +85,7 @@ func (m *model) reportPushed(name string, result *agentv1.PushWorktreeResponse, 
 			kind:    messageInfo,
 			summary: name + ": force-pushed " + result.GetBranch(),
 			detail: fmt.Sprintf("%s. Komrad pushed %s over origin's copy and told %s.",
-				git.ShortSHA(sha), label.Count(commits, "commit", "commits"), name),
+				xsha.Short(sha), label.Count(commits, "commit", "commits"), name),
 		})
 
 		return
@@ -94,7 +94,7 @@ func (m *model) reportPushed(name string, result *agentv1.PushWorktreeResponse, 
 	m.pushMessage(message{
 		kind:    messageInfo,
 		summary: name + ": pushed " + result.GetBranch(),
-		detail:  fmt.Sprintf("%s. Komrad pushed %s.", git.ShortSHA(sha), label.Count(commits, "commit", "commits")),
+		detail:  fmt.Sprintf("%s. Komrad pushed %s.", xsha.Short(sha), label.Count(commits, "commit", "commits")),
 	})
 }
 

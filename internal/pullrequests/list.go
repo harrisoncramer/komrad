@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"komrad/internal/forge"
 	"komrad/internal/git"
 	pullrequeststore "komrad/internal/store/pullrequest"
 )
@@ -51,11 +52,16 @@ func (l *Lister) ListPullRequests(ctx context.Context, params ListPullRequestsPa
 	return listed, nil
 }
 
-// ListStatusChecks is the reading of each head a pull request's checks were read on, oldest first.
+// ListStatusChecks is the reading of each head a pull request's checks were read on, oldest first, holding
+// the newest run of each check.
 func (l *Lister) ListStatusChecks(ctx context.Context, pullRequestID string) ([]pullrequeststore.StatusCheckReading, error) {
 	readings, err := l.statusChecks.ListOfPullRequest(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the status checks of pull request %s: %w", pullRequestID, err)
+	}
+
+	for i := range readings {
+		readings[i].StatusChecks = forge.NewestRuns(readings[i].StatusChecks)
 	}
 
 	return readings, nil

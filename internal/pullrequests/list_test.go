@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/forge"
 	"komrad/internal/git"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/storetest"
@@ -97,4 +98,54 @@ func TestListPullRequests(t *testing.T) {
 			}))
 		})
 	}
+}
+
+// TestListStatusChecks pins that each head's reading holds only the newest run of each check.
+func TestListStatusChecks(t *testing.T) {
+	st := storetest.Open(t)
+	statusChecks := pullrequeststore.NewStatusCheckStore(st.Pool.GetDB())
+	lister := NewLister(NewListerParams{PullRequests: st.PullRequests, StatusChecks: statusChecks})
+
+	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+	pullRequest, err := st.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
+		Host:              "github.com",
+		Forge:             "github",
+		ProviderID:        "PR_1",
+		URL:               syncRepository + "/pull/1",
+		RepositoryURL:     syncRepository,
+		HeadRepositoryURL: syncRepository,
+		Number:            1,
+		HeadBranch:        "agent/x",
+		BaseBranch:        "main",
+		State:             "open",
+		OpenedAt:          opened,
+		ChangedAt:         opened,
+	})
+	require.NoError(t, err)
+
+	run := func(id string, runStartedAt time.Time) forge.StatusCheck {
+		return forge.StatusCheck{
+			ProviderID:   id,
+			Kind:         forge.StatusCheckKindRun,
+			Source:       "ci",
+			RunEvent:     "pull_request",
+			Name:         "test",
+			State:        forge.StatusCheckStateCompleted,
+			Conclusion:   "success",
+			RunStartedAt: &runStartedAt,
+		}
+	}
+	require.NoError(t, statusChecks.SetStatusChecks(t.Context(), pullrequeststore.SetStatusChecksParams{
+		PullRequestID: pullRequest.ID,
+		HeadSHA:       "c1",
+		StatusChecks:  []forge.StatusCheck{run("1", opened), run("2", opened.Add(time.Hour))},
+		ReadAt:        opened,
+	}))
+
+	readings, err := lister.ListStatusChecks(t.Context(), pullRequest.ID)
+	require.NoError(t, err)
+	require.Len(t, readings, 1)
+	assert.Equal(t, []string{"2"}, xslice.Map(readings[0].StatusChecks, func(check forge.StatusCheck) string {
+		return check.ProviderID
+	}))
 }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"komrad/internal/git"
 	"komrad/internal/ui/paint/label"
+	"komrad/lib/xsha"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -81,7 +81,7 @@ func (m *model) reportRebased(name string, result *agentv1.RebaseWorktreeRespons
 			kind:    messageError,
 			summary: name + ": the rebase stopped on conflicts",
 			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree, and komrad told %s to settle it.",
-				baseRef, git.ShortSHA(baseSHA), name),
+				baseRef, xsha.Short(baseSHA), name),
 		})
 
 		return
@@ -92,7 +92,7 @@ func (m *model) reportRebased(name string, result *agentv1.RebaseWorktreeRespons
 			kind:    messageInfo,
 			summary: name + ": moved onto " + baseRef,
 			detail: fmt.Sprintf("%s. The base already had its work, so komrad dropped %s instead of replaying them.",
-				git.ShortSHA(baseSHA), label.Count(int(result.GetLandedCommits()), "commit", "commits")),
+				xsha.Short(baseSHA), label.Count(int(result.GetLandedCommits()), "commit", "commits")),
 		})
 
 		return
@@ -102,6 +102,6 @@ func (m *model) reportRebased(name string, result *agentv1.RebaseWorktreeRespons
 		kind:    messageInfo,
 		summary: name + ": rebased onto " + baseRef,
 		detail: fmt.Sprintf("%s. Komrad replayed %s.",
-			git.ShortSHA(baseSHA), label.Count(int(result.GetReplayCommits()), "commit", "commits")),
+			xsha.Short(baseSHA), label.Count(int(result.GetReplayCommits()), "commit", "commits")),
 	})
 }

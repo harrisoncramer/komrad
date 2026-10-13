@@ -233,6 +233,48 @@ func TestListStatusChecks(t *testing.T) {
 			}}},
 		},
 		{
+			name: "a check and step that completed with a passing conclusion answer passed",
+			readings: []pullrequeststore.StatusCheckReading{{
+				HeadSHA:     "c1",
+				FirstReadAt: readAt,
+				ReadAt:      readAt,
+				StatusChecks: []forge.StatusCheck{{
+					ProviderID: "1",
+					Kind:       forge.StatusCheckKindRun,
+					Name:       "docs",
+					State:      forge.StatusCheckStateCompleted,
+					Conclusion: "skipped",
+					Steps: []forge.StatusCheckStep{{
+						Number:     1,
+						Name:       "Build docs",
+						State:      forge.StatusCheckStateCompleted,
+						Conclusion: "success",
+					}},
+				}},
+			}},
+			want: &pullrequestv1.ListStatusChecksResponse{Readings: []*pullrequestv1.StatusCheckReading{{
+				HeadSha:     "c1",
+				FirstReadAt: xptr.Ptr("2026-10-03T12:00:00Z"),
+				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
+				StatusChecks: []*pullrequestv1.StatusCheck{{
+					ProviderId: "1",
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
+					Name:       "docs",
+					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
+					Conclusion: "skipped",
+					Passed:     true,
+					Log:        &pullrequestv1.CheckLog{State: pullrequestv1.CheckLogState_CHECK_LOG_STATE_NONE},
+					Steps: []*pullrequestv1.StatusCheckStep{{
+						Number:     1,
+						Name:       "Build docs",
+						State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
+						Conclusion: "success",
+						Passed:     true,
+					}},
+				}},
+			}}},
+		},
+		{
 			name: "a check komrad stopped reading in flight answers unknown",
 			readings: []pullrequeststore.StatusCheckReading{{
 				HeadSHA:     "c1",
@@ -298,6 +340,12 @@ func TestListStatusChecks(t *testing.T) {
 							FirstLine:  3,
 							LineCount:  37,
 							ErrorCount: 2,
+						}, {
+							Number:     2,
+							Name:       "Post job",
+							Conclusion: "success",
+							FirstLine:  40,
+							LineCount:  1,
 						}},
 					},
 					"check-3": {
@@ -329,6 +377,13 @@ func TestListStatusChecks(t *testing.T) {
 							FirstLine:  3,
 							LineCount:  37,
 							ErrorCount: 2,
+						}, {
+							Number:     2,
+							Name:       "Post job",
+							Conclusion: "success",
+							FirstLine:  40,
+							LineCount:  1,
+							Passed:     true,
 						}},
 					},
 				}, {

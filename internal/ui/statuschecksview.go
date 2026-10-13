@@ -81,9 +81,9 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 		return view.Cell{Glyph: glyph.StatusCheckUnknown, Tone: paint.ToneMuted}
 	case isStatusCheckInFlight(item):
 		return view.Cell{Text: loaderFrame, Tone: paint.ToneWarning}
-	case strings.EqualFold(item.conclusion, "success"):
+	case item.passed && strings.EqualFold(item.conclusion, "success"):
 		return view.Cell{Glyph: glyph.StatusCheckPassing, Tone: paint.ToneSuccess}
-	case slices.Contains(skippedConclusions, strings.ToLower(item.conclusion)):
+	case item.passed:
 		return view.Cell{Glyph: glyph.StatusCheckSkipped, Tone: paint.ToneMuted}
 	}
 
@@ -128,7 +128,7 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 		return append(out, fitRow(indent+dimStyle().Render("no steps reported"), width))
 	}
 
-	focal := slices.IndexFunc(item.steps, func(step statusCheckItem) bool { return !isStatusCheckClean(step) })
+	focal := slices.IndexFunc(item.steps, func(step statusCheckItem) bool { return !step.passed })
 	for i, step := range item.steps {
 		lead := indent + icon(step) + " "
 		duration := dates.Between(step.startedAt, step.finishedAt)

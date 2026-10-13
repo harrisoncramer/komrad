@@ -1,8 +1,10 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
 
+	"komrad/internal/forge"
 	"komrad/internal/glyph"
 	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -359,7 +361,6 @@ func TestStatusChecksNewestHead(t *testing.T) {
 	second := &pullrequestv1.StatusCheckReading{
 		HeadSha: "2222222222222222",
 		StatusChecks: []*pullrequestv1.StatusCheck{
-			inStatusCheckRun(newStatusCheck("3", "test", done, "FAILURE"), "ci", "2026-09-20T12:00:00Z"),
 			inStatusCheckRun(newStatusCheck("4", "vet", done, "FAILURE"), "ci", "2026-09-20T12:00:00Z"),
 			inStatusCheckRun(newStatusCheck("5", "test", done, "SUCCESS"), "ci", "2026-09-20T12:30:00Z"),
 			inStatusCheckRun(newStatusCheck("6", "test", done, "SUCCESS"), "Scanner", "2026-09-20T12:00:00Z"),
@@ -374,7 +375,7 @@ func TestStatusChecksNewestHead(t *testing.T) {
 		want  []string
 	}{
 		{
-			name:  "every status check on the newest commit holds the newest run of each check",
+			name:  "every status check on the newest commit is listed",
 			press: everyStatusCheck,
 			want:  []string{"vet", "test", "test", "ci/legacy"},
 		},
@@ -398,22 +399,6 @@ func TestStatusChecksNewestHead(t *testing.T) {
 			assert.NotContains(t, frame, "111111111111")
 		})
 	}
-
-	t.Run("runs of one workflow started by different events each keep their checks", func(t *testing.T) {
-		t.Parallel()
-
-		push := inStatusCheckRun(newStatusCheck("1", "build", done, "FAILURE"), "ci", "2026-09-20T12:00:00Z")
-		push.RunEvent = "push"
-		pullRequest := inStatusCheckRun(newStatusCheck("2", "build", done, "SUCCESS"), "ci", "2026-09-20T12:01:00Z")
-		pullRequest.RunEvent = "pull_request"
-		harness := openStatusChecks(t, answerStatusCheckReadings(&pullrequestv1.StatusCheckReading{
-			HeadSha:      "c1",
-			StatusChecks: []*pullrequestv1.StatusCheck{push, pullRequest},
-		}))
-		harness.press(everyStatusCheck...)
-
-		assert.Equal(t, []string{"build", "build"}, readListRows(harness.readFrame()))
-	})
 
 	moveHead := func(harness *panelHarness, head string) {
 		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
@@ -506,6 +491,7 @@ func newStatusCheck(id, name string, state pullrequestv1.StatusCheckState, concl
 		Name:       name,
 		State:      state,
 		Conclusion: conclusion,
+		Passed:     fixturePassed(state, conclusion),
 	}
 }
 
@@ -514,9 +500,14 @@ func newStatusCheckStep(name string, state pullrequestv1.StatusCheckState, concl
 		Name:       name,
 		State:      state,
 		Conclusion: conclusion,
+		Passed:     fixturePassed(state, conclusion),
 		StartedAt:  xptr.Ptr(startedAt),
 		FinishedAt: xptr.Ptr(finishedAt),
 	}
+}
+
+func fixturePassed(state pullrequestv1.StatusCheckState, conclusion string) bool {
+	return state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED && forge.IsPassingConclusion(strings.ToLower(conclusion))
 }
 
 func inStatusCheckRun(check *pullrequestv1.StatusCheck, source, startedAt string) *pullrequestv1.StatusCheck {

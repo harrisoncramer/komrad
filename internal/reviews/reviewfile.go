@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"komrad/internal/git"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
+	"komrad/lib/xsha"
 )
 
 // contextLines is how much of the file either side of a comment goes into the review.
@@ -43,7 +43,7 @@ func renderReview(params renderReviewParams) string {
 		params.Task.Slug, params.Task.ID, reviewerName(params.Author))
 	fmt.Fprintf(&out, "This review was written against the snapshot `%s`, taken from `%s`. "+
 		"To see exactly what was reviewed, run `git diff %s %s`.\n",
-		git.ShortSHA(round.SnapshotSHA), git.ShortSHA(round.BaseSHA), round.BaseSHA, round.SnapshotSHA)
+		xsha.Short(round.SnapshotSHA), xsha.Short(round.BaseSHA), round.BaseSHA, round.SnapshotSHA)
 
 	if said := strings.TrimSpace(params.Said); said != "" {
 		fmt.Fprintf(&out, "\n## What the reviewer said\n\n%s\n", said)
@@ -208,7 +208,7 @@ func oldSideSentence(thread reviewstore.Thread, round reviewstore.Round) string 
 
 	return fmt.Sprintf("This thread's line numbers are on the old side, counted in `%s` rather than "+
 		"in the snapshot. To see those lines, run `git diff %s %s`.",
-		git.ShortSHA(base), base, round.SnapshotSHA)
+		xsha.Short(base), base, round.SnapshotSHA)
 }
 
 // reviewerName is who gave the review, spelled for somebody reading the file long afterwards,
