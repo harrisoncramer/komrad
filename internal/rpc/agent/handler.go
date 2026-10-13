@@ -96,7 +96,6 @@ type NewHandlerParams struct {
 	Pusher        worktreePusher
 	Aborter       sequenceAborter
 	Orchestrator  orchestratorStarter
-	HooksOf       func(harness string) []string
 	Clock         func() time.Time
 }
 
@@ -121,7 +120,6 @@ type Handler struct {
 	pusher        worktreePusher
 	aborter       sequenceAborter
 	orchestrator  orchestratorStarter
-	hooksOf       func(harness string) []string
 	now           func() time.Time
 }
 
@@ -154,7 +152,6 @@ func NewHandler(params NewHandlerParams) *Handler {
 		pusher:        params.Pusher,
 		aborter:       params.Aborter,
 		orchestrator:  params.Orchestrator,
-		hooksOf:       params.HooksOf,
 		now:           now,
 	}
 }
@@ -281,14 +278,7 @@ func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
 
-	return s.renderAgent(*row, render.AgentOptions{}), nil
-}
-
-// renderAgent draws one agent with the hooks its harness installs.
-func (s *Handler) renderAgent(row rowstore.Row, options render.AgentOptions) *agentv1.Agent {
-	options.HooksOf = s.hooksOf
-
-	return render.Agent(row, options)
+	return render.Agent(*row, render.AgentOptions{}), nil
 }
 
 // GetAgent returns one agent by id, archived or not, assembled with what is drawn beside it.
@@ -449,7 +439,7 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1.RestoreAgentsR
 	}
 
 	return &agentv1.RestoreAgentsResponse{
-		Agents: xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return s.renderAgent(row, render.AgentOptions{}) }),
+		Agents: xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, render.AgentOptions{}) }),
 	}, nil
 }
 

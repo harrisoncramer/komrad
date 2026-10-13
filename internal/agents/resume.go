@@ -83,6 +83,7 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 			tmux:     params.Tmux,
 			launcher: params.Launcher,
 			scripts:  params.Scripts,
+			agents:   params.Agents,
 		},
 		agents:             params.Agents,
 		launchService:      params.LaunchService,

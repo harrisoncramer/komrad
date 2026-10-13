@@ -22,7 +22,7 @@ func TestRetryCreateRelaunches(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	tmux.RespawnErr = errors.New("bad flags")
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	params := NewAgentParams{
 		Title:      "doomed",
@@ -60,7 +60,7 @@ func TestRetryCreateRelaunches(t *testing.T) {
 func TestRetryCreateRefusesNonFailedAgent(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	params := NewAgentParams{
 		Title:      "healthy",
@@ -81,7 +81,7 @@ func TestRetryCreateKeepsOriginalFlagsWhenNoneGiven(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	tmux.RespawnErr = errors.New("boom")
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	params := NewAgentParams{
 		Title:      "doomed",
@@ -115,7 +115,7 @@ func TestRetryCreateFailsAgainOnBadLaunch(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	tmux.RespawnErr = errors.New("still broken")
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	params := NewAgentParams{
 		Title:      "doomed",
@@ -286,7 +286,7 @@ func TestRetryCreateKeepsTheSessionWhenTheHarnessDoesNot(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	tmux.RespawnErr = errors.New("boom")
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	_, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
 		Title:      "doomed",

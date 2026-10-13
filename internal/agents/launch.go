@@ -77,6 +77,7 @@ func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 			tmux:     params.Tmux,
 			launcher: params.Launcher,
 			scripts:  params.Scripts,
+			agents:   params.Agents,
 		},
 		harnesses:          params.Harnesses,
 		userDefaultHarness: params.UserDefaultHarness,

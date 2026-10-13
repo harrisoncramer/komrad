@@ -132,7 +132,7 @@ func TestArchiveSavesTheScreen(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 
 			agent := seed(t, st, "target", "%1", agentstore.StateIdle)
 			if tt.owned {

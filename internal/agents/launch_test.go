@@ -110,7 +110,13 @@ func TestNewAgent(t *testing.T) {
 			tmux.RespawnErr = tt.respawnErr
 			tmux.SetOwnerErr = tt.setOwnerErr
 			st := newStore(t)
-			manager := newManager(tmux, st, "--default-flag")
+			manager := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{Installed: []string{"PreToolUse", "Stop"}}},
+				addr:      "127.0.0.1:9999",
+				binPath:   "/usr/local/bin/komrad",
+				flags:     "--default-flag",
+			})
 
 			params := NewAgentParams{
 				Title:      tt.title,
@@ -143,6 +149,7 @@ func TestNewAgent(t *testing.T) {
 					require.Len(t, agents, 1, "a launch that had already claimed a slot leaves a row to look at")
 					assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
 					assert.Contains(t, agents[0].FailureReason, tt.wantErr, "and why, for the row that is left")
+					assert.Empty(t, agents[0].Hooks, "and no hooks, since its launch installed none")
 				} else {
 					assert.Empty(t, agents, "a refused launch before any slot was claimed records nothing")
 				}
@@ -167,6 +174,7 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, "--default-flag --extra", stored.Flags, "the configured flags come first")
 			assert.Equal(t, "do the thing", stored.Prompt)
 			assert.Equal(t, agentstore.StateIdle, stored.State)
+			assert.Equal(t, []string{"PreToolUse", "Stop"}, stored.Hooks, "the hooks its launch installed")
 			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
 			assert.NotEmpty(t, tmux.LastRespawn("%My-Agent").Argv, "the agent is launched into the new pane")
 			assert.Equal(t, stored.ID, tmux.Owners["%My-Agent"], "the pane is stamped with the agent it is running")
@@ -224,7 +232,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			dir := t.TempDir()
 			workflowID := seedWorkflow(t, st)
 
@@ -309,7 +317,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 
 			params := NewAgentParams{
 				Title:          "morning-ci",
@@ -524,7 +532,7 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 			}
 
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 
 			created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", Cwd: tt.workflowCwd})
 			require.NoError(t, err)
@@ -1152,7 +1160,7 @@ func TestUniqueAgentName(t *testing.T) {
 				seed(t, st, name, "%2", agentstore.StateIdle)
 			}
 
-			manager := newManager(tmuxtest.NewFake(), st, "")
+			manager := newManager(tmuxtest.NewFake(), st)
 
 			assert.Equal(t, tt.wantName, manager.launch.uniqueAgentName(t.Context(), workflowID, tt.title, tt.prompt))
 		})
@@ -1190,7 +1198,7 @@ func TestNameTaken(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	other := seedWorkflow(t, st)
 	seedInWorkflow(t, st, workflowID, "taken", "%1", agentstore.StateIdle)
-	manager := newManager(tmuxtest.NewFake(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1300,7 +1308,7 @@ func TestConcurrentLaunchesGiveATaskOneWriter(t *testing.T) {
 func TestNewReviewerTakesItsLaunchFromItsTask(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	dir := t.TempDir()
@@ -1443,7 +1451,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 
 			writer := withCwd(seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle), t.TempDir())
 			require.NoError(t, st.Agents.Update(t.Context(), writer))

@@ -47,7 +47,7 @@ func (s *Handler) world(ctx context.Context, rows []rowstore.Row, options render
 		return assemble.World{}, rpcerr.From(err, "failed to list what the agents are drawn beside")
 	}
 
-	agents := xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return s.renderAgent(row, options) })
+	agents := xslice.Map(rows, func(row rowstore.Row) *agentv1.Agent { return render.Agent(row, options) })
 
 	return assemble.World{
 		Agents: xslice.KeyBy(agents, func(a *agentv1.Agent) string { return a.GetId() }),

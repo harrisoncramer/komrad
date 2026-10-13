@@ -291,7 +291,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Agents: st.agents,
 			Git:    gitClient,
 		}),
-		watchRows: watch.NewRows(buildWatchLoaders(st, params.Harnesses.HooksOf)),
+		watchRows: watch.NewRows(buildWatchLoaders(st)),
 	}, nil
 }
 

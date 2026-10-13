@@ -435,7 +435,7 @@ func TestArchiveAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 
 			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
 			reviewer := seedReviewer(t, st, tmux, writer)
@@ -477,7 +477,7 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 		Pane:  "%9",
 	})
 
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
 
@@ -491,7 +491,7 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 func TestArchiveFinishesAfterKillingTheCallersOwnPane(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	agent := seedRunning(t, st, tmux, "self", "%1", agentstore.StateThinking)
 
@@ -561,7 +561,7 @@ func TestDeleteAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			seeded := seedRunning(t, st, tmux, "target", "%1", agentstore.StateThinking)
@@ -614,7 +614,7 @@ func TestDeleteAgentsTakesAReviewerAndNotItsWriter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 
 			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
 			reviewer := seedReviewer(t, st, tmux, writer)
@@ -644,7 +644,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		dormant := seed(t, st, "dormant", shared, agentstore.StateIdle)
 		seedRunning(t, st, tmux, "running", shared, agentstore.StateThinking)
 
-		return newManager(tmux, st, ""), st, tmux, dormant
+		return newManager(tmux, st), st, tmux, dormant
 	}
 
 	t.Run("the dormant agent does not read as running", func(t *testing.T) {
@@ -715,7 +715,7 @@ func TestRestore(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
@@ -893,7 +893,7 @@ func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewSt
 func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	backend, frontend := seedWorkflow(t, st), seedWorkflow(t, st)
@@ -935,7 +935,7 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			auth := seedReviewer(t, st, tmux, seedRunning(t, st, tmux, "auth", "%1", agentstore.StateThinking))
@@ -1029,7 +1029,7 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsTasksReviewers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
@@ -1064,7 +1064,7 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsTasksReviewers(t *testing.T) {
 func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	auth := seedRunning(t, st, tmux, "auth", "%1", agentstore.StateThinking)
@@ -1087,7 +1087,7 @@ func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	workflows := newWorkflowService(st, tmux)
 	ctx := t.Context()
 
@@ -1119,7 +1119,7 @@ func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 // listing does not half-restore a folder.
 func TestRestoreAgentsRefusesTheWholeBatch(t *testing.T) {
 	st := newStore(t)
-	manager := newManager(tmuxtest.NewFake(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st)
 	ctx := t.Context()
 
 	archived := seed(t, st, "auth", "", agentstore.StateIdle)
@@ -1183,7 +1183,7 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			manager := newManager(tmuxtest.NewFake(), st, "")
+			manager := newManager(tmuxtest.NewFake(), st)
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
@@ -1216,7 +1216,7 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 // workflows are not a clash, a name being unique only inside its own.
 func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 	st := newStore(t)
-	manager := newManager(tmuxtest.NewFake(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st)
 	ctx := t.Context()
 
 	backend, frontend := seedWorkflow(t, st), seedWorkflow(t, st)
@@ -1283,7 +1283,7 @@ func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID, na
 // TestArchiveAgentsNamesOnlyTheFirstMissing pins the refusal naming one id.
 func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 	st := newStore(t)
-	manager := newManager(tmuxtest.NewFake(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st)
 
 	ids := make([]string, 0, 20)
 	for range 20 {
@@ -1404,7 +1404,7 @@ func TestATasksWriterMovesWithItsTask(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			writer := seedRunning(t, st, tmux, "writer", "%writer", agentstore.StateIdle)
@@ -1445,7 +1445,7 @@ func TestRestoreOfAReviewerNeedsItsTaskBack(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			writer := seedRunning(t, st, tmux, "writer", "%writer", agentstore.StateIdle)
@@ -1625,7 +1625,7 @@ func TestFailDeleteGivesTheRowBack(t *testing.T) {
 // TestArchiveTaskTakesItsLiveAgents pins that archiving a task archives every live agent on it and nothing on another task.
 func TestArchiveTaskTakesItsLiveAgents(t *testing.T) {
 	st := newStore(t)
-	manager := newManager(tmuxtest.NewFake(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st)
 	ctx := t.Context()
 	workflowID := seedWorkflow(t, st)
 	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
@@ -1647,7 +1647,7 @@ func TestArchiveTaskTakesItsLiveAgents(t *testing.T) {
 func TestArchivingAReviewerLeavesItsTaskLive(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	writer := seed(t, st, "writer", "", agentstore.StateIdle)
 	reviewer := seedReviewer(t, st, tmux, writer)
 
@@ -1659,7 +1659,7 @@ func TestArchivingAReviewerLeavesItsTaskLive(t *testing.T) {
 // TestRestoringAgentsRestoresTheirTasks pins that an agent never comes back under an archived task.
 func TestRestoringAgentsRestoresTheirTasks(t *testing.T) {
 	st := newStore(t)
-	manager := newManager(tmuxtest.NewFake(), st, "")
+	manager := newManager(tmuxtest.NewFake(), st)
 	ctx := t.Context()
 	workflowID := seedWorkflow(t, st)
 	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})

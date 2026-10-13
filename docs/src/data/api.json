@@ -2397,7 +2397,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The hooks komrad installs in the agent's CLI, named as that CLI names its events."
+          "description": "The hooks the agent's latest launch installed in its CLI, named as that CLI names its events, none when that launch failed or never ran."
         }
       ]
     },

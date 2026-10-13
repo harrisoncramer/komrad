@@ -146,6 +146,7 @@ type agentServiceOptions struct {
 	tmux      fakeTmuxController
 	harnesses harnesstest.Registry
 	addr      string
+	binPath   string
 	flags     string
 	lifecycle agentScriptRunner
 	usage     config.Usage
@@ -178,9 +179,10 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	}
 
 	launcher := NewLauncher(NewLauncherParams{
-		Tmux:  options.tmux,
-		Addr:  options.addr,
-		Usage: options.usage,
+		Tmux:    options.tmux,
+		Addr:    options.addr,
+		BinPath: options.binPath,
+		Usage:   options.usage,
 	})
 	snapshots := &gittest.Snapshots{}
 	taskScripts, _ := options.lifecycle.(taskScriptRunner)
@@ -671,8 +673,8 @@ func stateOf(t *testing.T, st *testStore, name string) agentstore.State {
 	return got.State
 }
 
-func newManager(tmux *tmuxtest.Fake, st *testStore, flags string) *testAgents {
-	service, _ := newManagerWithHarness(tmux, st, flags)
+func newManager(tmux *tmuxtest.Fake, st *testStore) *testAgents {
+	service, _ := newManagerWithHarness(tmux, st, "")
 
 	return service
 }

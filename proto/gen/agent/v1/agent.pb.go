@@ -296,7 +296,7 @@ type Agent struct {
 	TaskSlug *string `protobuf:"bytes,30,opt,name=task_slug,json=taskSlug,proto3,oneof" json:"task_slug,omitempty"`
 	// Whether it was told to keep the directory it was given rather than be provisioned a worktree.
 	ProvisionDisabled bool `protobuf:"varint,31,opt,name=provision_disabled,json=provisionDisabled,proto3" json:"provision_disabled,omitempty"`
-	// The hooks komrad installs in the agent's CLI, named as that CLI names its events.
+	// The hooks the agent's latest launch installed in its CLI, named as that CLI names its events, none when that launch failed or never ran.
 	Hooks         []string `protobuf:"bytes,32,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

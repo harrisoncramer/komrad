@@ -67,7 +67,7 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 func TestRequestReviewNamesTheBranch(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -90,7 +90,7 @@ func TestRequestReviewNamesTheBranch(t *testing.T) {
 func TestRequestReviewTitleOverridesTheName(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -133,7 +133,7 @@ func TestRequestReviewRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			author, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -197,7 +197,7 @@ func TestRequestReviewUnderTheReviewerCeiling(t *testing.T) {
 func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -238,7 +238,7 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 func TestRequestReviewKeyIsScopedToCaller(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	ids := map[string]string{}
@@ -309,7 +309,7 @@ func TestRequestReviewRefusesAKeySpentOnAnotherAgent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			ids := map[string]string{"workflow": seedWorkflow(t, st)}
@@ -340,7 +340,7 @@ func TestRequestReviewRefusesAKeySpentOnAnotherAgent(t *testing.T) {
 func TestRequestReviewRefusesAReviewer(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	writer, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -389,7 +389,7 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 func TestRequestReviewRefusesAnOrchestratorBeforeItSpawns(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	author := seedOrchestrator(t, st, tmux)

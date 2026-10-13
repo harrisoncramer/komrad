@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"komrad/internal/doctor"
-	"komrad/internal/harness"
 	"komrad/internal/interceptors"
 	"komrad/internal/jobs"
 	"komrad/internal/logread"
@@ -60,10 +59,9 @@ type newMuxParams struct {
 	LogPath       string
 	RunLogsDir    string
 	// Doctor is this machine as the doctor's checks see it.
-	Doctor    doctor.Settings
-	Watch     *watch.Broker
-	Wakers    *loopWakers
-	Harnesses *harness.Registry
+	Doctor doctor.Settings
+	Watch  *watch.Broker
+	Wakers *loopWakers
 }
 
 func newMux(params newMuxParams) (*http.ServeMux, error) {
@@ -105,7 +103,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		Pusher:        svc.checkouts.service,
 		Aborter:       svc.checkouts.service,
 		Orchestrator:  svc.agents.orchestrator,
-		HooksOf:       params.Harnesses.HooksOf,
 	}), options...)
 	workflowv1komrad.RegisterWorkflowService(mux, rpcworkflow.NewHandler(rpcworkflow.NewHandlerParams{
 		Workflows: svc.agents.workflow,

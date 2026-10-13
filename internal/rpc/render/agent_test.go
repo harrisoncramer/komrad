@@ -116,21 +116,17 @@ func TestAgent(t *testing.T) {
 			},
 		},
 		{
-			name: "an agent whose harness installs hooks",
+			name: "an agent whose launch installed hooks",
 			stored: agentstore.Agent{
-				ID:      "a6",
-				Name:    "hooked",
-				Harness: "claude",
+				ID:    "a6",
+				Name:  "hooked",
+				Hooks: []string{"PreToolUse", "Stop"},
 			},
-			options: AgentOptions{HooksOf: func(harness string) []string {
-				return []string{harness + " Stop"}
-			}},
 			want: &agentv1.Agent{
-				Id:      "a6",
-				Name:    "hooked",
-				Harness: "claude",
-				Alive:   xptr.Ptr(false),
-				Hooks:   []string{"claude Stop"},
+				Id:    "a6",
+				Name:  "hooked",
+				Alive: xptr.Ptr(false),
+				Hooks: []string{"PreToolUse", "Stop"},
 			},
 		},
 	}
@@ -178,7 +174,7 @@ func TestWatchedAgent(t *testing.T) {
 				ID:         "a1",
 				Prompt:     prompt,
 				ArchivedAt: tt.archivedAt,
-			}), nil)
+			}))
 
 			assert.Equal(t, tt.wantPrompt, rendered.GetPrompt())
 			assert.Equal(t, tt.wantTruncated, rendered.GetPromptTruncated())

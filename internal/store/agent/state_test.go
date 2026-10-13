@@ -134,6 +134,10 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 			name:  "the failed turn",
 			write: func(s *AgentStore, id string) error { return s.SetTurnFailed(t.Context(), id, "overloaded") },
 		},
+		{
+			name:  "the hooks",
+			write: func(s *AgentStore, id string) error { return s.SetHooksByID(t.Context(), id, []string{"Stop"}) },
+		},
 	}
 
 	for _, tt := range tests {
@@ -268,6 +272,29 @@ func TestSetReportedReasonRoundTrips(t *testing.T) {
 	cleared, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	assert.Empty(t, cleared.ReportedReason)
+}
+
+// TestSetHooksByIDRoundTrips pins that the hooks a launch installed land on the row and that none
+// clears them.
+func TestSetHooksByIDRoundTrips(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	require.Empty(t, created.Hooks, "a fresh agent has installed nothing")
+
+	require.NoError(t, st.SetHooksByID(ctx, created.ID, []string{"PreToolUse", "Stop"}))
+	installed, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"PreToolUse", "Stop"}, installed.Hooks)
+
+	require.NoError(t, st.SetHooksByID(ctx, created.ID, nil))
+	cleared, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Empty(t, cleared.Hooks)
 }
 
 // TestAFailedTurnStandsUntilAnotherEnds pins that a failure ends the turn it failed and that the

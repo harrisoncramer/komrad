@@ -361,7 +361,7 @@ func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 		}
 	}
 
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	first := make(chan error, 1)
 	go func() {
@@ -390,7 +390,7 @@ func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
 
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 
 	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.NoError(t, err)
@@ -683,7 +683,7 @@ func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 			tmux.SetOwnerErr = tt.setOwnerErr
 			tmux.RespawnErr = tt.respawnErr
 			st := newStore(t)
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 			ctx := t.Context()
 
 			agent := seed(t, st, "auth", "", agentstore.StateThinking)
@@ -705,18 +705,21 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	tmux.RespawnErr = errors.New("tmux refused the command")
 	st := newStore(t)
-	harness := &harnesstest.Fake{}
+	harness := &harnesstest.Fake{Installed: []string{"PreToolUse", "Stop"}}
 	manager := st.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesstest.Registry{Harness: harness},
+		binPath:   "/usr/local/bin/komrad",
 		lifecycle: &fakeLifecycle{},
 	})
 	ctx := t.Context()
 
 	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+	require.NoError(t, st.Agents.SetHooksByID(ctx, agent.ID, []string{"Stop"}))
 
 	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.Error(t, err)
+	assert.Empty(t, agentByID(t, st, agent.ID).Hooks, "a refused relaunch leaves none of the hooks an earlier launch installed")
 
 	tmux.RespawnErr = nil
 
@@ -725,6 +728,7 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, harness.Launches, 2, "the second resume reaches the CLI rather than reporting a pane that is already running")
 	assert.Equal(t, agentstore.StateSettingUp, resumed.State)
+	assert.Equal(t, []string{"PreToolUse", "Stop"}, agentByID(t, st, agent.ID).Hooks, "the hooks the relaunch installed")
 }
 
 // TestResumeCompactsAtItsRolesPoint pins that a relaunch keeps the role's compaction point.
@@ -756,7 +760,7 @@ func TestResumeCompactsAtItsRolesPoint(t *testing.T) {
 func TestResumeRefusesArchived(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManager(tmux, st)
 	ctx := t.Context()
 
 	archived := seed(t, st, "archived", "%0", agentstore.StateIdle)
@@ -894,7 +898,7 @@ func TestResumeAgentHoldsAnAgentToItsTaskAndOrchestrator(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st, "")
+			manager := newManager(tmux, st)
 
 			orchestrator := seedOrchestrator(t, st, tmux)
 			writer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "writer", "%1")
