@@ -523,7 +523,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			wantHook:    true,
 		},
 		{
-			name:        "a resume, since mail arrives whether or not the agent was just started",
+			name:        "a resume, since a resumed agent ends turns too",
 			hookCommand: "/usr/local/bin/komrad",
 			resume:      true,
 			wantHook:    true,

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"komrad/db/testmodels"
-	"komrad/internal/agents"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
 	"komrad/internal/harness/codex"
@@ -80,7 +79,7 @@ func TestDeliver(t *testing.T) {
 			want:   DeliveryDone,
 		},
 		{
-			name:  "an agent mid-turn, which its own stop hook will catch",
+			name:  "an agent mid-turn, waited on until its turn ends",
 			state: agentstore.StateThinking,
 			want:  DeliverySoon,
 		},
@@ -302,7 +301,7 @@ func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		Mail:         st.Mail,
 		NudgeClaimer: nudgeSentFailer{AgentStore: st.Agents},
-		PaneReader:   agents.NewPaneLiveness(terminal),
+		PaneReader:   paneOwners{terminal: terminal},
 		Channel:      channel,
 	})
 	ctx, records := newLoggedContext(t)
@@ -668,7 +667,7 @@ func newDeliveryService(st *storetest.Stores, terminal *tmuxtest.Fake, channel h
 	return NewDeliveryService(NewDeliveryServiceParams{
 		Mail:         st.Mail,
 		NudgeClaimer: st.Agents,
-		PaneReader:   agents.NewPaneLiveness(terminal),
+		PaneReader:   paneOwners{terminal: terminal},
 		Channel:      channel,
 	})
 }
@@ -753,4 +752,12 @@ func newLoggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 
 		return records
 	}
+}
+
+type paneOwners struct {
+	terminal *tmuxtest.Fake
+}
+
+func (p paneOwners) IsAgentRunning(agent agentstore.Agent) bool {
+	return agent.ID != "" && p.terminal.GetPaneOwner(agent.Pane) == agent.ID
 }

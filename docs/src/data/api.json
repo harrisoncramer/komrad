@@ -4870,7 +4870,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to tell the agent happened while it was held. Komrad types it into the agent as it starts again. Empty lets it go in silence. Komrad ignores it for an agent whose own turn had already ended."
+          "description": "What to tell the agent happened while it was held. Komrad mails it to the agent from the caller as it starts again. Empty lets it go in silence. Komrad ignores it for an agent whose own turn had already ended."
         }
       ]
     },

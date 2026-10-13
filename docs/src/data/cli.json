@@ -739,8 +739,8 @@
     "parent": "hook",
     "usage": "komrad hook stop",
     "aliases": [],
-    "short": "Deliver an agent's unread mail as its turn ends",
-    "long": "Deliver an agent's unread mail as its turn ends.\n\nThe agent CLI runs this on its Stop event. It reads the agent's mail and prints it\nback as additional context, which the CLI hands the model as another turn. An\nagent with no mail, or a panel that cannot be reached, prints nothing and lets the\nturn end.",
+    "short": "Record that an agent's turn ended",
+    "long": "Record that an agent's turn ended.\n\nClaude runs this on its Stop event. Komrad keeps the moment against the agent so\nthe panel can say it has finished something nobody has read.",
     "example": "",
     "flags": [],
     "inherited": [

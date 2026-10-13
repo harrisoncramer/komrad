@@ -11,7 +11,6 @@ import (
 	"komrad/internal/komradtest"
 	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
-	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -70,7 +69,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 	})
 
 	t.Run("the recipient reads it once and delivery stands down", func(t *testing.T) {
-		read := instance.EndTurn(migrations.GetId())
+		read := readMail(t, instance, migrations.GetId())
 		require.Len(t, read, 1)
 		assert.Equal(t, sentID, read[0].GetId())
 		assert.Equal(t, "what is the refund column called?", read[0].GetBody())
@@ -99,17 +98,6 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		assert.Equal(t, "refunded_cents", read[0].GetBody())
 		assert.Equal(t, sentID, read[0].GetReplyTo())
 		assert.Equal(t, "migrations", read[0].GetFromName())
-	})
-
-	t.Run("what it was told is searchable afterwards", func(t *testing.T) {
-		instance.SyncTranscripts()
-
-		hits, err := instance.Agents.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-			Query:   "refund column",
-			AgentId: xptr.Ptr(migrations.GetId()),
-		}))
-		require.NoError(t, err)
-		require.NotEmpty(t, hits.Msg.GetMatches())
 	})
 
 	t.Run("mail dies with the agent it was addressed to", func(t *testing.T) {
@@ -152,7 +140,7 @@ func TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine(t *testing.T) {
 	_, err := instance.Agents.SendMail(ctx, req)
 	require.NoError(t, err)
 
-	t.Run("an agent mid-turn is left to its own stop hook", func(t *testing.T) {
+	t.Run("an agent mid-turn is waited on until its turn ends", func(t *testing.T) {
 		instance.Settle(migrations.GetId(), harness.ActivityWorking, agentstore.StateThinking)
 
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
@@ -207,7 +195,7 @@ func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
 
 	assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))
 	assert.Empty(t, instance.Typed(migrations.GetId()))
-	assert.Empty(t, instance.EndTurn(migrations.GetId()), "expired mail is not readable either")
+	assert.Empty(t, readMail(t, instance, migrations.GetId()), "expired mail is not readable either")
 }
 
 func createMailWorkflow(t *testing.T, instance *komradtest.Instance) string {

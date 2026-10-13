@@ -3075,9 +3075,9 @@ type ReleaseAgentRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Which held agent to let go of.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// What to tell the agent happened while it was held. Komrad types it into the agent as it
-	// starts again. Empty lets it go in silence. Komrad ignores it for an agent whose own turn had
-	// already ended.
+	// What to tell the agent happened while it was held. Komrad mails it to the agent from the
+	// caller as it starts again. Empty lets it go in silence. Komrad ignores it for an agent whose
+	// own turn had already ended.
 	Said          string `protobuf:"bytes,2,opt,name=said,proto3" json:"said,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
