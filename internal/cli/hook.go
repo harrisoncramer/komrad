@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"time"
 
@@ -147,7 +148,7 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		body, err := io.ReadAll(cmd.InOrStdin())
 		if err != nil {
-			reportHookProblem(cmd, "komrad read no hook payload, so nothing was recorded", err)
+			reportHookProblem(cmd, state, "komrad read no hook payload, so nothing was recorded", err)
 
 			return nil
 		}
@@ -220,14 +221,14 @@ turn end.`,
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		body, err := io.ReadAll(cmd.InOrStdin())
 		if err != nil {
-			reportHookProblem(cmd, "komrad read no hook payload, so no mail was delivered", err)
+			reportHookProblem(cmd, state, "komrad read no hook payload, so no mail was delivered", err)
 
 			return nil
 		}
 
 		payload, err := readStopHookPayload(body)
 		if err != nil {
-			reportHookProblem(cmd, "komrad read no hook payload, so no mail was delivered", err)
+			reportHookProblem(cmd, state, "komrad read no hook payload, so no mail was delivered", err)
 
 			return nil
 		}
@@ -249,7 +250,7 @@ turn end.`,
 
 		mail, err := readMail(cmd.Context(), state)
 		if err != nil {
-			reportHookProblem(cmd, "komrad could not be reached, so any mail is still waiting to be read", err)
+			reportHookProblem(cmd, state, "komrad could not be reached, so any mail is still waiting to be read", err)
 
 			return nil
 		}
@@ -261,7 +262,7 @@ turn end.`,
 		}
 
 		if err := recordDelivery(cmd.Context(), state, mail.Mail); err != nil {
-			reportHookProblem(cmd, "komrad did not record the delivery", err)
+			reportHookProblem(cmd, state, "komrad did not record the delivery", err)
 		}
 
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(hookOutput{
@@ -275,8 +276,25 @@ turn end.`,
 	return cmd
 }
 
-func reportHookProblem(cmd *cobra.Command, what string, err error) {
-	cmd.PrintErrf("%s: %v\n", what, err)
+// reportHookProblem says on stderr what a hook could not do, and logs it under the agent when komrad can be reached.
+func reportHookProblem(cmd *cobra.Command, state *app, what string, err error) {
+	line := fmt.Sprintf("%s: %v", what, err)
+	cmd.PrintErrln(line)
+
+	if state.env.AgentID == "" || isUnreached(err) {
+		return
+	}
+
+	if err := logToKomrad(cmd.Context(), state, line); err != nil {
+		cmd.PrintErrf("komrad did not log the problem: %v\n", err)
+	}
+}
+
+// isUnreached reports whether a call failed before komrad answered it, as against komrad refusing it.
+func isUnreached(err error) bool {
+	var unreached *url.Error
+
+	return errors.As(err, &unreached)
 }
 
 func readStopHookPayload(body []byte) (*stopHookPayload, error) {
@@ -302,7 +320,7 @@ type reportHookEventParams struct {
 func reportHookEvent(cmd *cobra.Command, state *app, params reportHookEventParams) {
 	hn, err := state.harnesses.GetByID(params.harnessID)
 	if err != nil {
-		reportHookProblem(cmd, "komrad has no harness to read the hook payload with, so nothing was recorded", err)
+		reportHookProblem(cmd, state, "komrad has no harness to read the hook payload with, so nothing was recorded", err)
 
 		return
 	}
@@ -312,13 +330,13 @@ func reportHookEvent(cmd *cobra.Command, state *app, params reportHookEventParam
 		return
 	}
 	if err != nil {
-		reportHookProblem(cmd, "komrad could not read the hook payload, so nothing was recorded", err)
+		reportHookProblem(cmd, state, "komrad could not read the hook payload, so nothing was recorded", err)
 
 		return
 	}
 
 	if err := recordReport(cmd.Context(), state, params.event, report); err != nil {
-		reportHookProblem(cmd, "komrad did not record the hook, so the agent's row may be out of date", err)
+		reportHookProblem(cmd, state, "komrad did not record the hook, so the agent's row may be out of date", err)
 	}
 }
 
@@ -417,10 +435,7 @@ func reportConfigProblem(cmd *cobra.Command, state *app) {
 	}
 
 	const what = "komrad found a problem in its config, so defaults stand in for what it could not use"
-	reportHookProblem(cmd, what, state.configErr)
-	if err := logToKomrad(cmd.Context(), state, fmt.Sprintf("%s: %v", what, state.configErr)); err != nil {
-		reportHookProblem(cmd, "komrad did not record the config problem", err)
-	}
+	reportHookProblem(cmd, state, what, state.configErr)
 }
 
 func recordDelivery(ctx context.Context, state *app, mail []mailItem) error {

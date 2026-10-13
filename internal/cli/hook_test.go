@@ -530,6 +530,7 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 			}
 			assert.Empty(t, out.String(), "notify reads nothing back, so nothing is printed")
 			assert.Equal(t, tt.wantProblem, errs.Len() > 0, errs.String())
+			assert.Equal(t, tt.wantProblem, len(logged) == 1, "a problem komrad can hear is logged under the agent")
 		})
 	}
 }
