@@ -317,14 +317,16 @@ func reportHookEvent(cmd *cobra.Command, state *app, params reportHookEventParam
 		return
 	}
 
-	recordReport(cmd.Context(), state, params.event, report)
+	if err := recordReport(cmd.Context(), state, params.event, report); err != nil {
+		reportHookProblem(cmd, "komrad did not record the hook, so the agent's row may be out of date", err)
+	}
 }
 
-func recordReport(ctx context.Context, state *app, hook harness.Event, report harness.Report) {
+func recordReport(ctx context.Context, state *app, hook harness.Event, report harness.Report) error {
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()
 
-	_, _ = callRPC(ctx, callRPCParams{ //nolint:errcheck // no caller of this has anything to do with a failure here
+	_, err := callRPC(ctx, callRPCParams{
 		Base: formatBase(state.env.Addr),
 		Path: agentv1connect.AgentServiceRecordReportProcedure,
 		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
@@ -335,6 +337,8 @@ func recordReport(ctx context.Context, state *app, hook harness.Event, report ha
 			"turnError": clampPrintable(report.TurnError, reportLimit),
 		},
 	})
+
+	return err
 }
 
 var reportEvents = map[harness.ReportEvent]agentv1.ReportEvent{

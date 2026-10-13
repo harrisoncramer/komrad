@@ -278,26 +278,50 @@ func TestIntegrationMailPostamble(t *testing.T) {
 	}
 }
 
-// TestIntegrationStopHookSurvivesAServerThatIsNotThere pins that the hook exits cleanly when nothing is
-// serving.
-func TestIntegrationStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
-	state := &app{
-		env:       &config.Environment{Addr: "127.0.0.1:1", AgentID: "agent-a"},
-		harnesses: hookHarnesses(t),
+// TestIntegrationHookSurvivesAServerThatIsNotThere pins that each hook exits cleanly when nothing is
+// serving and says on stderr what it could not do.
+func TestIntegrationHookSurvivesAServerThatIsNotThere(t *testing.T) {
+	tests := []struct {
+		name    string
+		hook    string
+		payload string
+		want    []string
+	}{
+		{
+			name:    "the stop hook",
+			hook:    "stop",
+			payload: `{"stop_hook_active":false}`,
+			want:    []string{"komrad did not record the hook", "komrad could not be reached"},
+		},
+		{
+			name:    "a tool call",
+			hook:    "pre-tool-use",
+			payload: `{"tool_name":"Bash"}`,
+			want:    []string{"komrad did not record the hook"},
+		},
 	}
 
-	var out bytes.Buffer
-	cmd := stopHookCmd(state)
-	cmd.SetIn(bytes.NewBufferString(`{"stop_hook_active":false}`))
-	cmd.SetOut(&out)
-	cmd.SetArgs([]string{})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &app{
+				env:       &config.Environment{Addr: "127.0.0.1:1", AgentID: "agent-a"},
+				harnesses: hookHarnesses(t),
+			}
 
-	var errOut bytes.Buffer
-	cmd.SetErr(&errOut)
+			var out, errOut bytes.Buffer
+			cmd := hookCmd(state)
+			cmd.SetIn(bytes.NewBufferString(tt.payload))
+			cmd.SetOut(&out)
+			cmd.SetErr(&errOut)
+			cmd.SetArgs([]string{tt.hook})
 
-	require.NoError(t, cmd.Execute())
-	assert.Empty(t, out.String(), "the turn is never blocked because komrad is down")
-	assert.Contains(t, errOut.String(), "komrad could not be reached")
+			require.NoError(t, cmd.Execute())
+			assert.Empty(t, out.String(), "the agent is never blocked because komrad is down")
+			for _, want := range tt.want {
+				assert.Contains(t, errOut.String(), want)
+			}
+		})
+	}
 }
 
 // TestIntegrationStopHookDeliversMailPastABrokenConfig pins that a config which does not parse still leaves the hook delivering mail and saying why.
