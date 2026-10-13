@@ -1,16 +1,18 @@
-# The video under "Visual selection" on the navigation guide: take one agent into the selection
-# with v, extend it over two more with V, and archive all three from the menu.
+# The video under "Visual selection" on the navigation guide: take two tasks into the selection
+# with v and V, add a third with v, and archive all three from the menu.
 # navigation-selecting.before fills the panel with three workflows and six haiku agents.
 Source recordings/panel.tape
 Wait+Screen@60s /help-tags/
-Type "j"
+Type "G"
 Type "v"
-Type "j"
-Type "j"
+Type "k"
 Type "V"
+Type "k"
+Type "k"
+Type "v"
 Space
-Wait+Screen@10s /archive all/
+Wait+Screen@10s /archive ›/
 Type "a"
-Wait+Screen@10s /Archive 3 agents/
+Wait+Screen@10s /archive all/
 Sleep 1.5s
-Enter
+Type "a"

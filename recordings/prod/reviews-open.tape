@@ -3,7 +3,7 @@
 # that answered it. review-history makes the agent, its commits and the reviews already given.
 Source recordings/panel.tape
 Wait+Screen@30s /text-tru/
-Type "j"
+Type "G"
 Sleep 3s
 Space
 Type "r"
@@ -15,4 +15,5 @@ Type "t"
 Sleep 3s
 Type "t"
 Sleep 3s
+Space
 Type "a"

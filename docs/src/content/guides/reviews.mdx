@@ -49,17 +49,17 @@ The sidebar holds a tree of the files the change touches, and the main view hold
 
 ### Leaving comments
 
-Press <Key name="review.compose" /> on a line to comment on it.
+Open the review's menu with <Key name="menu.open" /> on a line and press <Key name="review.compose" /> to comment on it.
 
 A comment stays a draft until you send your review, as on GitHub or GitLab. While you hold drafts the diff is frozen, so the lines you are commenting on do not move.
 
 ### Editing the code yourself
 
-Sometimes fixing a line is quicker than describing the fix. Press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` in your terminal, like vim) beside the diff. Komrad pauses the writer while you edit, since you both work in the task's checkout. When you close the editor, the writer carries on from your change.
+Sometimes fixing a line is quicker than describing the fix. Open the menu and press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` in your terminal, like vim) beside the diff. Komrad pauses the writer while you edit, since you both work in the task's checkout. When you close the editor, the writer carries on from your change.
 
 ### Sending
 
-When you are done reading, press <Key name="review.send" /> to send the review. Komrad asks if you have anything to say about the work as a whole, then sends it to the task's writer. Sending stops the writer mid-turn, so it reads your comments now instead of when it finishes what it is doing.
+When you are done reading, open the menu and press <Key name="review.send" /> to send the review. Komrad asks if you have anything to say about the work as a whole, then sends it to the task's writer. Sending stops the writer mid-turn, so it reads your comments now instead of when it finishes what it is doing.
 
 <figure>
   <video
@@ -79,7 +79,7 @@ When you are done reading, press <Key name="review.send" /> to send the review. 
 
 Each comment goes out with the lines it was written on and the code around them, so the writer can find the spot even after the file has moved.
 
-The writer answers in your threads and can settle them. To see exactly what it changed in answer to a comment, press <Key name="review.answer" />. You can settle or reopen any thread yourself.
+The writer answers in your threads and can settle them. To see exactly what it changed in answer to a comment, open the thread's menu and press <Key name="review.answer" />. You can settle or reopen any thread yourself.
 
 ### Stepping through history
 
@@ -148,7 +148,7 @@ Komrad reads a repository every five seconds when something there is likely to c
 
 ### Comments from the forge
 
-Komrad also reads the review comments on each followed pull request or merge request, drafts included, once a minute. Each one is copied into the task's review as a thread of its own, under its author and line, and counted with yours on the task's row. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
+Komrad also reads the review comments on each followed pull request or merge request, drafts included, once a minute. Each one is copied into the task's review as a thread of its own, under its author and line, and counted with yours on the task's row. Press <Key name="review.next_thread" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
 
 Comments from someone who can push to the repository reach the writer on their own. Komrad holds comments from anyone else until you send your review or reply in their thread, so nothing from a stranger reaches the writer before you see it.
 

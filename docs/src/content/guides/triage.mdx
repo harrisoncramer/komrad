@@ -7,10 +7,25 @@ order: 7
 
 import Setting from "../../components/Setting.astro";
 import Key from "../../components/Key.astro";
+import { media } from "../../site";
 
 Komrad's triage zone sits at the top of the agents list and holds only the agents waiting on you, so you can work through them instead of scanning the whole tree.
 
-{/* recording: the triage zone filling as agents ask questions and finish */}
+<figure>
+  <video
+    preload="none"
+    loop
+    muted
+    playsinline
+    poster={media("triage-zone.png")}
+    width="1440"
+    height="1200"
+    aria-label="The neovim workflow's tasks entering the triage zone at the top of the agents list as their writers finish and one stops to ask a question, the question ranked first."
+  >
+    <source src={media("triage-zone.webm")} type="video/webm" />
+    <source src={media("triage-zone.mp4")} type="video/mp4" />
+  </video>
+</figure>
 
 The zone holds three rows by default, which you can change with the <Setting path="layout.triage_rows" /> setting. A task appears in it once, through its most urgent agent, however many of its agents are waiting.
 
@@ -32,4 +47,18 @@ When you cannot deal with a task yet, open its [menu](../navigation/#the-menu) w
 
 To bring a snoozed task back early, find it in the tree and pick wake from the same menu. Snoozes last only as long as the panel does, so restarting the panel brings every snoozed task back.
 
-{/* recording: jumping to triage, opening an agent, and snoozing one */}
+<figure>
+  <video
+    preload="none"
+    loop
+    muted
+    playsinline
+    poster={media("triage-snooze.png")}
+    width="1440"
+    height="920"
+    aria-label="Jumping to the triage zone, opening a finished task to read its answer, and snoozing the task that asked a question so the next one takes its place."
+  >
+    <source src={media("triage-snooze.webm")} type="video/webm" />
+    <source src={media("triage-snooze.mp4")} type="video/mp4" />
+  </video>
+</figure>
