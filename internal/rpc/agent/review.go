@@ -6,6 +6,7 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/fail"
 	"komrad/internal/reviews"
+	"komrad/internal/reviews/history"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	reviewstore "komrad/internal/store/review"
@@ -26,6 +27,7 @@ type reviewConversation interface {
 	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
 	OpenRound(ctx context.Context, task string, author reviews.ReviewAuthor) (*reviewstore.Round, error)
 	ListRounds(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Round, error)
+	GetHistory(ctx context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error)
 	ListReviews(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
 	GetReview(ctx context.Context, reviewID string, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
 	ReleaseReview(ctx context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error)
@@ -159,6 +161,43 @@ func (s *Handler) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRo
 	}
 
 	return &agentv1.OpenReviewRoundResponse{Round: render.ReviewRound(*round)}, nil
+}
+
+// OpenReviewHistory opens a task's review as the panel draws it, freezing a round when none holds the worktree.
+func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReviewHistoryRequest) (*agentv1.OpenReviewHistoryResponse, *fail.Error) {
+	history, err := s.review.GetHistory(ctx, reviews.GetHistoryParams{
+		Task:   req.GetTask(),
+		Fresh:  req.GetFresh(),
+		Span:   historySpanOf(req),
+		Author: reviewAuthorFrom(ctx),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to open the review history")
+	}
+
+	return render.ReviewHistory(*history), nil
+}
+
+func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
+	switch {
+	case req.GetSnapshots() != nil:
+		return history.Span{
+			BaseSHA: req.GetSnapshots().GetBaseSha(),
+			HeadSHA: req.GetSnapshots().GetHeadSha(),
+		}
+	case req.GetAnswer() != nil:
+		return history.Span{Answer: &history.AnswerSpan{
+			FromRoundID: req.GetAnswer().GetFromRoundId(),
+			ToRoundID:   req.GetAnswer().GetToRoundId(),
+		}}
+	case req.GetOrigin() != nil:
+		return history.Span{Origin: &history.OriginSpan{
+			RoundID: req.GetOrigin().GetRoundId(),
+			BaseSHA: req.GetOrigin().GetBaseSha(),
+		}}
+	}
+
+	return history.Span{}
 }
 
 // ListReviewRounds reads every round taken of a task.

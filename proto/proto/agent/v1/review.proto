@@ -395,6 +395,135 @@ message ListReviewRoundsResponse {
   repeated ReviewRound rounds = 1;
 }
 
+message OpenReviewHistoryRequest {
+  // Which task's review to open, by id or by slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
+  // Whether to read the worktree as it stands even where an open review holds an older round.
+  bool fresh = 2;
+  // The part of the work to measure, the whole change when unset.
+  oneof span {
+    // A diff between two snapshots, such as one chapter.
+    ReviewSnapshotSpan snapshots = 3;
+    // The change the reply that addressed a comment carried.
+    ReviewAnswerSpan answer = 4;
+    // The diff a comment was written against.
+    ReviewOriginSpan origin = 5;
+  }
+}
+
+// ReviewSnapshotSpan is a diff between two snapshots.
+message ReviewSnapshotSpan {
+  // The commit the diff is measured from, empty for the round's base.
+  string base_sha = 1;
+  // The commit the diff is measured to, empty for the round's snapshot.
+  string head_sha = 2;
+}
+
+// ReviewAnswerSpan is the change between the round a comment was written on and the round that answered it.
+message ReviewAnswerSpan {
+  // The round the comment was written on.
+  string from_round_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The round the answering reply carried.
+  string to_round_id = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// ReviewOriginSpan is the diff a comment was written against.
+message ReviewOriginSpan {
+  // The round the comment was written on.
+  string round_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The commit the comment's old side was read against, empty for the round's base.
+  string base_sha = 2;
+}
+
+message OpenReviewHistoryResponse {
+  // The round the diff is read at.
+  ReviewRound round = 1;
+  // Every round taken of the task, oldest first.
+  repeated ReviewRound rounds = 2;
+  // Every thread on the task with its messages.
+  repeated ReviewThread threads = 3;
+  // Whether the round is the one an open review was written against rather than the worktree as it stands.
+  bool pinned = 4;
+  // What the server has to say about the round it settled on, empty when nothing.
+  string notice = 5;
+  // The commits the diff is measured between.
+  ReviewResolvedSpan resolved = 6;
+  // Why the span asked for could not be measured and the whole change was measured instead, empty when it was.
+  string widened = 7;
+  // The rounds between the person's reviews, oldest first.
+  repeated ReviewChapter chapters = 8;
+  // The round the person last released a review against, empty when there is none or its base has moved since.
+  string earlier_round_id = 9;
+  // When the person last released a review, in RFC 3339, empty when they never have.
+  string earlier_released_at = 10;
+  // How many files changed since the earlier round.
+  int32 changed_since_earlier = 11;
+  // Where git says each thread's lines sit in the diff's head, keyed by thread id.
+  map<string, ReviewTracedPlace> traced = 12;
+}
+
+// ReviewResolvedSpan is the pair of commits a diff is measured between.
+message ReviewResolvedSpan {
+  // The commit the diff is measured from, a replayed tree when the base moved.
+  string base_sha = 1;
+  // The commit the diff is measured to.
+  string head_sha = 2;
+  // Whether the older side was carried onto the newer one's base.
+  bool replayed = 3;
+  // The snapshot an answer is measured from, empty for any other span.
+  string answer_base_sha = 4;
+  // The snapshot an answer is measured to, empty for any other span.
+  string answer_head_sha = 5;
+  // The commit a comment's diff is measured from, empty for any other span.
+  string origin_base_sha = 6;
+  // The snapshot a comment was written on, empty for any other span.
+  string origin_head_sha = 7;
+  // The base of the round a comment was written on, empty for any other span.
+  string origin_round_base_sha = 8;
+}
+
+// ReviewChapter is the work between two of the person's reviews, or between their last one and now.
+message ReviewChapter {
+  // The snapshot the chapter starts after, or the oldest round's base for the first.
+  string from_sha = 1;
+  // The snapshot the chapter ends at.
+  string to_sha = 2;
+  // When the review closing the chapter was released, in RFC 3339, empty for the chapter nobody has reviewed.
+  string released_at = 3;
+  // The round the chapter ends at.
+  int32 ordinal = 4;
+  // Whether the two ends can be compared.
+  bool comparable = 5;
+  // The commit the chapter's start was measured from.
+  string from_base_sha = 6;
+  // The commit its end was measured from.
+  string to_base_sha = 7;
+  // Whether the base the chapter starts on is not reachable from the one it ends on.
+  bool rewritten = 8;
+  // Whether the start was carried onto the end's base.
+  bool replayed = 9;
+  // The paths the base rewrote under the agent, which a replay could not settle.
+  repeated string conflicts = 10;
+  // Whether the chapter ends on a base the round read has since moved past.
+  bool on_older_base = 11;
+}
+
+// ReviewTracedPlace is where a thread's lines sit in the diff's head.
+message ReviewTracedPlace {
+  // The file the lines are in.
+  string file_path = 1;
+  // The first line on the newer side, zero when only the file is known.
+  int32 new_start = 2;
+  // Whether the lines are gone and only the file is known.
+  bool file_only = 3;
+  // Whether the head is the snapshot the lines were counted in.
+  bool exact = 4;
+}
+
 // ReviewThreadInContext is one thread of a released review, with the code it was written
 // about drawn from the round's snapshot.
 message ReviewThreadInContext {

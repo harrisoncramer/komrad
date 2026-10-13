@@ -20,12 +20,17 @@ type Snapshots struct {
 	ReleasedFrom []string
 	// Taking runs while each snapshot is taken, so a test can hold it open or move the world under it.
 	Taking func()
+	// Err is what every snapshot is refused with, nil to take it.
+	Err error
 }
 
-// TakeSnapshot runs Taking and answers SHA and BaseSHA.
+// TakeSnapshot runs Taking and answers Err, or SHA and BaseSHA.
 func (s *Snapshots) TakeSnapshot(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
 	if s.Taking != nil {
 		s.Taking()
+	}
+	if s.Err != nil {
+		return nil, s.Err
 	}
 
 	return &git.Snapshot{

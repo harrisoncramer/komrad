@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"komrad/internal/diff"
 	"komrad/internal/engine"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/ui"
 	"komrad/proto/gen/git/v1/gitv1connect"
 
 	"github.com/stretchr/testify/assert"
@@ -75,14 +75,14 @@ func TestInstallPanelLoggerRefusesABadLevel(t *testing.T) {
 	assert.NoFileExists(t, logPath)
 }
 
-// TestReviewGitRunsOnTheEngineWhenTheAgentsAreThere covers the review screen reading the worktree where it is.
-func TestReviewGitRunsOnTheEngineWhenTheAgentsAreThere(t *testing.T) {
+// TestPatchReaderRunsOnTheEngineWhenTheAgentsAreThere covers the review screen reading the worktree where it is.
+func TestPatchReaderRunsOnTheEngineWhenTheAgentsAreThere(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name   string
 		remote engine.Remote
-		want   ui.ReviewGit
+		want   diff.Reader
 	}{
 		{
 			name:   "a remote engine reads through its api",
@@ -100,7 +100,7 @@ func TestReviewGitRunsOnTheEngineWhenTheAgentsAreThere(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.IsType(t, tt.want, reviewGit(tt.remote, gitv1connect.NewGitServiceClient(http.DefaultClient, "http://engine")))
+			assert.IsType(t, tt.want, patchReader(tt.remote, gitv1connect.NewGitServiceClient(http.DefaultClient, "http://engine")))
 		})
 	}
 }

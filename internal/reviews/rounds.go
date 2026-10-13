@@ -195,7 +195,11 @@ func (s *ReviewService) ListReviews(
 		return nil, err
 	}
 
-	reviews, err := s.reviews.ListReviews(ctx, task.ID)
+	return s.listReviews(ctx, task.ID, author)
+}
+
+func (s *ReviewService) listReviews(ctx context.Context, taskID string, author ReviewAuthor) ([]reviewstore.Review, error) {
+	reviews, err := s.reviews.ListReviews(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}

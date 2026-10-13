@@ -13,6 +13,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/browser"
+	"komrad/internal/diff"
 	"komrad/internal/engine"
 	"komrad/internal/loader"
 	"komrad/internal/panes"
@@ -122,7 +123,7 @@ type NewPanelParams struct {
 	Loops           loopv1connect.LoopServiceClient
 	Tasks           taskv1connect.TaskServiceClient
 	Logs            logv1connect.LogServiceClient
-	Git             ReviewGit
+	Patches         diff.Reader
 	Keys            config.Keybindings
 	DetailsHeight   float64
 	SidebarSide     string
@@ -185,7 +186,7 @@ func NewPanel(params NewPanelParams) *Panel {
 				LeaderTable: "komrad-leader",
 			}),
 			Tmux:            driven,
-			Git:             params.Git,
+			Patches:         params.Patches,
 			Agents:          params.Agents,
 			Workflows:       params.Workflows,
 			Schedules:       params.Schedules,

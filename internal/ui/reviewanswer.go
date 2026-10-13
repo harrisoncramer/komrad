@@ -1,9 +1,7 @@
 package ui
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
 	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -11,29 +9,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// errAnswerGone is a load asked for an answer whose rounds the review no longer lists.
-var errAnswerGone = errors.New("the rounds this answer stands between are gone")
-
 // reviewAnswer is the answer to one comment on screen: the change the reply that addressed it
 // carried.
 type reviewAnswer struct {
 	ThreadID  string
 	FromRound string
 	ToRound   string
-}
-
-// roundsApartError says an answer stands across a rebase no replay could carry across.
-type roundsApartError struct {
-	Conflicts []string
-}
-
-func (e *roundsApartError) Error() string {
-	said := "the answer can't be compared across the rebase"
-	if len(e.Conflicts) > 0 {
-		said += ", conflicts in " + strings.Join(e.Conflicts, ", ")
-	}
-
-	return said
 }
 
 // toggleAnswer puts the answer to the comment under the cursor on screen, or goes back to the
@@ -116,23 +97,6 @@ func findAnswer(thread *agentv1.ReviewThread) int {
 	}
 
 	return -1
-}
-
-func findAnswerBase(rounds []*agentv1.ReviewRound, comment, answer *agentv1.ReviewRound) *agentv1.ReviewRound {
-	base := comment
-	for _, round := range rounds {
-		if round.GetOrdinal() <= base.GetOrdinal() || round.GetOrdinal() >= answer.GetOrdinal() {
-			continue
-		}
-
-		if round.GetSnapshotSha() == answer.GetSnapshotSha() {
-			continue
-		}
-
-		base = round
-	}
-
-	return base
 }
 
 // addressedSaid names the round an addressed reply carried, empty for a round the review no

@@ -17,13 +17,12 @@ import (
 	"komrad/config"
 	"komrad/internal/browser"
 	"komrad/internal/client"
+	"komrad/internal/diff"
 	"komrad/internal/engine"
 	"komrad/internal/errui"
-	"komrad/internal/git"
 	"komrad/internal/glyph"
 	"komrad/internal/loader"
 	"komrad/internal/panes"
-	"komrad/internal/position"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/submitting"
 	"komrad/internal/vim"
@@ -172,17 +171,6 @@ type uiTmux interface {
 	CaptureScreen(pane string) string
 }
 
-// ReviewGit is the git the review screen reads a round through.
-type ReviewGit interface {
-	CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error)
-	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
-	Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error)
-	IsAncestor(ctx context.Context, params git.IsAncestorParams) (bool, error)
-	GetRoot(ctx context.Context, dir string) (string, error)
-	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
-	ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error)
-}
-
 // harnessFrameReader tells a harness that has rendered itself in a pane from one that has only
 // started.
 type harnessFrameReader interface {
@@ -209,7 +197,7 @@ type PanelSettings struct {
 type Deps struct {
 	Session         *Session
 	Tmux            uiTmux
-	Git             ReviewGit
+	Patches         diff.Reader
 	Browser         browser.Opener
 	HarnessFrames   harnessFrameReader
 	Agents          agentv1connect.AgentServiceClient
@@ -242,7 +230,7 @@ type model struct {
 	session         *Session
 	api             api
 	tmux            uiTmux
-	git             ReviewGit
+	patches         diff.Reader
 	browser         browser.Opener
 	harnessFrames   harnessFrameReader
 	binary          BinaryWatcher
@@ -393,7 +381,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		session:         deps.Session,
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
-		git:             deps.Git,
+		patches:         deps.Patches,
 		browser:         deps.Browser,
 		harnessFrames:   deps.HarnessFrames,
 		binary:          deps.Binary,
