@@ -144,7 +144,7 @@ func TestSubpages(t *testing.T) {
 func TestSubpagesInArchive(t *testing.T) {
 	t.Parallel()
 
-	t.Run("review is gray, since archived work is not reviewed", func(t *testing.T) {
+	t.Run("an archived agent has no review", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
@@ -152,8 +152,13 @@ func TestSubpagesInArchive(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "agents › author")
 		assert.Contains(t, frame, "› logs")
-		assert.Regexp(t, readOffEntry("review", "r"), harness.readRawFrame())
+		assert.NotContains(t, readStageText(frame), "review")
 		assert.Regexp(t, readOffEntry("terminal", "t"), harness.readRawFrame())
+
+		harness.press("r")
+
+		assert.Contains(t, harness.readFrame(), "› logs")
+		assert.NotContains(t, readOpenMessages(harness), "Could not open")
 	})
 
 	t.Run("git holds rebase gray, since an archived worktree is not touched", func(t *testing.T) {
