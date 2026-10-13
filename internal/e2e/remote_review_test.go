@@ -98,6 +98,12 @@ func TestIntegrationRemoteReviewReadsThroughTheEngine(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, wantMappings, mappings)
 
+		mapParams.Paths = []string{"README.md"}
+		mappings, err = engine.MapRanges(ctx, mapParams)
+		require.NoError(t, err)
+		require.Len(t, mappings, 1)
+		assert.Equal(t, "README.md", mappings[0].File.NewPath)
+
 		replayParams := git.ReplayParams{
 			Dir:         tree,
 			FromBase:    base,

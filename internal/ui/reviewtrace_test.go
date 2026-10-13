@@ -55,6 +55,7 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 		Dir:     traceDir,
 		FromSHA: firstSHA,
 		ToSHA:   secondSHA,
+		Paths:   []string{tracedFile},
 	}}, repo.MappingsAsked(),
 		"the pair read is the snapshot it was written against and the one on screen")
 }

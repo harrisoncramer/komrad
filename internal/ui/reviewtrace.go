@@ -156,6 +156,9 @@ func traceAnchors(ctx context.Context, params traceAnchorsParams) (map[string]di
 		Dir:     params.Dir,
 		FromSHA: params.FromSHA,
 		ToSHA:   params.ToSHA,
+		Paths: xslice.Map(params.Anchors, func(anchor traceAnchor) string {
+			return anchor.Position.Path
+		}),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to map ranges %s..%s: %w", params.FromSHA, params.ToSHA, err)
