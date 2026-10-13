@@ -154,10 +154,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
-	if err := s.nudgeClaimer.SetNudgeSent(ctx, agent.ID); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge komrad sent an agent, so the next one will read as a first",
-			append(logging.Err(err), slog.String(logging.TargetAgentID, agent.ID))...)
-	}
+	s.recordNudgeSent(ctx, agent.ID)
 
 	return DeliverySoon, nil
 }
@@ -189,10 +186,7 @@ func (s *DeliveryService) ClaimTurnEndNudge(ctx context.Context, agentID string)
 		return "", nil
 	}
 
-	if err := s.nudgeClaimer.SetNudgeSent(ctx, agent.ID); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge komrad sent an agent, so the next one will read as a first",
-			append(logging.Err(err), slog.String(logging.TargetAgentID, agent.ID))...)
-	}
+	s.recordNudgeSent(ctx, agent.ID)
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail as its turn ended",
 		slog.String(logging.TargetAgentID, agent.ID),
@@ -223,6 +217,13 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 	}
 
 	return true, nil
+}
+
+func (s *DeliveryService) recordNudgeSent(ctx context.Context, agentID string) {
+	if err := s.nudgeClaimer.SetNudgeSent(ctx, agentID); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge komrad sent an agent, so the next one will read as a first",
+			append(logging.Err(err), slog.String(logging.TargetAgentID, agentID))...)
+	}
 }
 
 func formatNudge(pending int64) string {
