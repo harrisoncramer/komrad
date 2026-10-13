@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/internal/reviews/history"
 	"komrad/internal/ui"
@@ -2084,7 +2083,7 @@ func TestReviewPin(t *testing.T) {
 // TestReviewReplay covers a round across a moved base carried onto it before it is compared.
 func TestReviewReplay(t *testing.T) {
 	t.Run("a round across a moved base is replayed onto it", func(t *testing.T) {
-		harness := openReview(t, newMovedBaseServer(t, &git.Replayed{Tree: replayedTree}))
+		harness := openReview(t, newMovedBaseServer(t, replayedTree))
 
 		harness.press("<")
 
@@ -2095,10 +2094,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("a round the base rewrote under the agent is refused as conflicted", func(t *testing.T) {
-		harness := openReview(t, newMovedBaseServer(t, &git.Replayed{
-			Tree:      "a-tree-with-markers-in-it",
-			Conflicts: []string{gittest.File, "second.go"},
-		}))
+		harness := openReview(t, newMovedBaseServer(t, "a-tree-with-markers-in-it", gittest.File, "second.go"))
 
 		harness.press("<")
 
@@ -2106,7 +2102,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("a git that cannot replay leaves the refusal standing", func(t *testing.T) {
-		harness := openReview(t, newMovedBaseServer(t, nil))
+		harness := openReview(t, newMovedBaseServer(t, ""))
 
 		harness.press("<")
 
@@ -2116,7 +2112,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("a base the branch no longer descends from is said to be rewritten", func(t *testing.T) {
-		server := newMovedBaseServer(t, &git.Replayed{Tree: replayedTree})
+		server := newMovedBaseServer(t, replayedTree)
 		server.repo.Rewritten = map[string]bool{gittest.NamePair(olderBase, gittest.BaseSHA): true}
 		harness := openReview(t, server)
 
@@ -2126,7 +2122,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("the first round is measured from its own base", func(t *testing.T) {
-		server := newMovedBaseServer(t, &git.Replayed{Tree: replayedTree})
+		server := newMovedBaseServer(t, replayedTree)
 		server.repo.Patches[gittest.NamePair(olderBase, gittest.SnapshotSHA)] = gittest.Patch
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
@@ -2140,7 +2136,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("an old side counted in the replayed tree pins only there", func(t *testing.T) {
-		server := newMovedBaseServer(t, &git.Replayed{Tree: replayedTree})
+		server := newMovedBaseServer(t, replayedTree)
 		server.repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.Patch
 		server.threads = []*agentv1.ReviewThread{{
 			Id:          "t1",
@@ -3012,17 +3008,21 @@ func newEarlierReviewServer(t *testing.T) *reviewServer {
 	return server
 }
 
-func newMovedBaseServer(t *testing.T, replayed *git.Replayed) *reviewServer {
+func newMovedBaseServer(t *testing.T, tree string, conflicts ...string) *reviewServer {
 	t.Helper()
 
 	server := newEarlierReviewServer(t)
 	server.rounds[0].BaseSha = olderBase
 	server.repo.Patches[gittest.NamePair(gittest.SnapshotSHA, gittest.NameSnapshot(secondTree))] = gittest.PatchOfBothFiles
 	server.repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.PatchOfTheSecondFile
-	if replayed != nil {
-		server.repo.Replays = map[string]*git.Replayed{
-			gittest.NameReplay(olderBase, gittest.BaseSHA, gittest.SnapshotSHA): replayed,
-		}
+	if tree != "" {
+		server.repo.StateReplay(gittest.StateReplayParams{
+			FromBase:    olderBase,
+			OntoBase:    gittest.BaseSHA,
+			SnapshotSHA: gittest.SnapshotSHA,
+			Tree:        tree,
+			Conflicts:   conflicts,
+		})
 	}
 
 	return server
