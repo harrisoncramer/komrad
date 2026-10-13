@@ -162,11 +162,48 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	return DeliverySoon, nil
 }
 
+// ClaimTurnEndNudge takes the nudge for an agent whose turn just ended, returning the line to hand
+// it, or empty when nothing waits or the nudge is already out.
+func (s *DeliveryService) ClaimTurnEndNudge(ctx context.Context, agentID string) (string, error) {
+	agent, err := s.nudgeClaimer.GetByID(ctx, agentID)
+	if err != nil {
+		return "", err
+	}
+	if agent.Hold.IsHeld() {
+		return "", nil
+	}
+
+	pending, err := s.mail.CountPending(ctx, agent.ID)
+	if err != nil {
+		return "", err
+	}
+	if pending == 0 {
+		return "", nil
+	}
+
+	claimed, err := s.nudgeClaimer.ClaimNudge(ctx, agent.ID, nudgeRetryAfter)
+	if err != nil {
+		return "", err
+	}
+	if !claimed {
+		return "", nil
+	}
+
+	if err := s.nudgeClaimer.SetNudgeSent(ctx, agent.ID); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge komrad sent an agent, so the next one will read as a first",
+			append(logging.Err(err), slog.String(logging.TargetAgentID, agent.ID))...)
+	}
+
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail as its turn ended",
+		slog.String(logging.TargetAgentID, agent.ID),
+		slog.Int64(logging.UnreadMail, pending))
+
+	return formatNudge(pending), nil
+}
+
 // nudge tells an agent about its mail, reporting whether the line was taken.
 func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64) (bool, error) {
-	line := fmt.Sprintf("komrad: %d piece(s) of unread mail, call read_mail", pending)
-
-	sent, err := s.channel.Send(ctx, buildTarget(agent), line)
+	sent, err := s.channel.Send(ctx, buildTarget(agent), formatNudge(pending))
 	if err != nil {
 		return false, err
 	}
@@ -186,6 +223,10 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 	}
 
 	return true, nil
+}
+
+func formatNudge(pending int64) string {
+	return fmt.Sprintf("komrad: %d piece(s) of unread mail, call read_mail", pending)
 }
 
 // didLastNudgeGoNowhere reports whether the agent was told about mail before and has ended no

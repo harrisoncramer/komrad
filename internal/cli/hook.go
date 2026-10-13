@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -50,15 +51,7 @@ meant to be run by hand.`,
 
 	cmd.AddCommand(turnEndHookCmd(state))
 	cmd.AddCommand(compactedHookCmd(state))
-	cmd.AddCommand(payloadHookCmd(state, payloadHook{
-		use:   "stop",
-		short: "Record that an agent's turn ended",
-		long: `Record that an agent's turn ended.
-
-Claude runs this on its Stop event. Komrad keeps the moment against the agent so
-the panel can say it has finished something nobody has read.`,
-		event: claude.EventStop,
-	}))
+	cmd.AddCommand(stopHookCmd(state))
 	cmd.AddCommand(payloadHookCmd(state, payloadHook{
 		use:   "pre-tool-use",
 		short: "Record the tool an agent is about to run",
@@ -148,6 +141,63 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 		})
 
 		return nil
+	}
+
+	return cmd
+}
+
+func stopHookCmd(state *app) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "stop",
+		Short: "Record that an agent's turn ended and tell it about waiting mail",
+		Long: `Record that an agent's turn ended and tell it about waiting mail.
+
+Claude runs this on its Stop event. Komrad keeps the moment against the agent so
+the panel can say it has finished something nobody has read. When mail is waiting,
+it prints the same one-line notice komrad would type into the pane, so the agent
+reads its mail without waiting for the next pass.`,
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		body, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			reportHookProblem(cmd, state, "komrad read no hook payload, so nothing was recorded", err)
+
+			return nil
+		}
+		if state.env.AgentID == "" {
+			return nil
+		}
+
+		reportHookEvent(cmd, state, reportHookEventParams{
+			harnessID: claude.HarnessID,
+			event:     claude.EventStop,
+			payload:   body,
+		})
+
+		var claimed agentv1.ClaimMailNudgeResponse
+		if err := callHookRPC(cmd.Context(), state, hookRPC{
+			path:    agentv1connect.AgentServiceClaimMailNudgeProcedure,
+			request: map[string]any{},
+			into:    &claimed,
+		}); err != nil {
+			reportHookProblem(cmd, state, "komrad could not be reached, so any mail waits for the next pass", err)
+
+			return nil
+		}
+		if claimed.GetNudge() == "" {
+			return nil
+		}
+
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(hookOutput{
+			HookSpecificOutput: hookContext{
+				HookEventName:     string(claude.EventStop),
+				AdditionalContext: claimed.GetNudge(),
+			},
+		})
 	}
 
 	return cmd

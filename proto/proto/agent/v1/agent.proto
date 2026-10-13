@@ -1128,7 +1128,14 @@ service AgentService {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "Komrad's own hook binary is the only caller, relaying what an agent's CLI said about itself, and an agent that could call it directly could tell the reconciler its turn had ended when it had not."
+      reason: "Only komrad's hook command calls this, passing on what an agent's CLI saw it do, such as start a tool or end its turn. An agent calling it directly could say its turn had ended while it was still working."
+    };
+  }
+  rpc ClaimMailNudge(google.protobuf.Empty) returns (ClaimMailNudgeResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Only komrad's Stop hook calls this, as an agent's turn ends. An agent calling it directly would use up the notice komrad would otherwise type into its pane."
     };
   }
   rpc MarkRunsRead(MarkRunsReadRequest) returns (google.protobuf.Empty) {

@@ -27,7 +27,9 @@ func TestIntegrationStopHookRecordsTheBoundary(t *testing.T) {
 	tests := []struct {
 		name        string
 		agentID     string
+		nudge       string
 		wantReports []recordedReport
+		wantContext string
 	}{
 		{
 			name: "a caller that is not an agent has nothing to stamp",
@@ -36,6 +38,13 @@ func TestIntegrationStopHookRecordsTheBoundary(t *testing.T) {
 			name:        "a turn ending is recorded",
 			agentID:     "agent-a",
 			wantReports: []recordedReport{{agentID: "agent-a", event: "REPORT_EVENT_TURN_ENDED", hook: "Stop"}},
+		},
+		{
+			name:        "a turn ending with mail waiting hands the agent the notice",
+			agentID:     "agent-a",
+			nudge:       "komrad: 2 piece(s) of unread mail, call read_mail",
+			wantReports: []recordedReport{{agentID: "agent-a", event: "REPORT_EVENT_TURN_ENDED", hook: "Stop"}},
+			wantContext: "komrad: 2 piece(s) of unread mail, call read_mail",
 		},
 	}
 
@@ -46,6 +55,7 @@ func TestIntegrationStopHookRecordsTheBoundary(t *testing.T) {
 			addr := fakeHookServer(t, fakeHookServerParams{
 				logged:  &logged,
 				reports: &reports,
+				nudge:   tt.nudge,
 			})
 
 			state := &app{
@@ -61,7 +71,15 @@ func TestIntegrationStopHookRecordsTheBoundary(t *testing.T) {
 
 			require.NoError(t, cmd.Execute())
 			assert.Equal(t, tt.wantReports, reports)
-			assert.Empty(t, out.String(), "nothing is handed back, so the turn ends")
+			if tt.wantContext == "" {
+				assert.Empty(t, out.String(), "nothing is handed back, so the turn ends")
+
+				return
+			}
+
+			var handed hookOutput
+			require.NoError(t, json.Unmarshal(out.Bytes(), &handed))
+			assert.Equal(t, hookContext{HookEventName: "Stop", AdditionalContext: tt.wantContext}, handed.HookSpecificOutput)
 		})
 	}
 }
@@ -172,6 +190,7 @@ type recordedReport struct {
 type fakeHookServerParams struct {
 	logged  *[]string
 	reports *[]recordedReport
+	nudge   string
 }
 
 func fakeHookServer(t *testing.T, params fakeHookServerParams) string {
@@ -199,6 +218,11 @@ func fakeHookServer(t *testing.T, params fakeHookServerParams) string {
 
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{}`))
+	})
+
+	mux.HandleFunc(agentv1connect.AgentServiceClaimMailNudgeProcedure, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		assert.NoError(t, json.NewEncoder(w).Encode(map[string]string{"nudge": params.nudge}))
 	})
 
 	mux.HandleFunc(logPath, func(w http.ResponseWriter, r *http.Request) {

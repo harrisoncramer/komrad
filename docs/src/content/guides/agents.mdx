@@ -106,7 +106,7 @@ Most agent tools learn what an agent is doing from hooks the agent fires. Hooks 
 
 Komrad takes a different approach. It reads each agent's state directly from what its terminal actually renders, which komrad calls the pane. The [Claude test panes](https://github.com/harrisoncramer/komrad/tree/main/internal/harness/claude/testdata) show what it reads.
 
-Komrad still installs hooks in each agent's CLI, but they only add detail on top of the pane. They record that a turn ended or failed and why, and which tool the agent is running or waiting on approval to run. Every hook call lands on the agent's logs screen, and so does any problem a hook hits while komrad can be reached.
+Komrad still installs hooks in each agent's CLI, but they only add detail on top of the pane. They record that a turn ended or failed and why, and which tool the agent is running or waiting on approval to run. Claude's Stop hook also tells the agent in one line when mail is waiting as its turn ends. Every hook call lands on the agent's logs screen, and so does any problem a hook hits while komrad can be reached.
 
 If Claude or Codex ever ship real-time state notifications, komrad will move to them! Until then, reading the pane is the more reliable choice.
 
