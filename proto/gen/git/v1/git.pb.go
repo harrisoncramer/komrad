@@ -563,7 +563,10 @@ type MapRangesRequest struct {
 	// The commit the positions being moved were measured in.
 	FromSha string `protobuf:"bytes,2,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
 	// The commit they are being moved to.
-	ToSha         string `protobuf:"bytes,3,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
+	ToSha string `protobuf:"bytes,3,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
+	// The files of the earlier commit to answer for, relative to the top of the repository, and every
+	// file when empty.
+	Paths         []string `protobuf:"bytes,4,rep,name=paths,proto3" json:"paths,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -617,6 +620,13 @@ func (x *MapRangesRequest) GetToSha() string {
 		return x.ToSha
 	}
 	return ""
+}
+
+func (x *MapRangesRequest) GetPaths() []string {
+	if x != nil {
+		return x.Paths
+	}
+	return nil
 }
 
 // LineRange is a span of lines numbered from one. It includes its start and excludes its end. A
@@ -1106,11 +1116,12 @@ const file_git_v1_git_proto_rawDesc = "" +
 	"\x06to_sha\x18\x03 \x01(\tB\x14\xbaH\x11r\x0f2\r^(?:[^-].*)?$R\x05toSha\x12\x18\n" +
 	"\aexclude\x18\x04 \x03(\tR\aexclude\"$\n" +
 	"\fDiffResponse\x12\x14\n" +
-	"\x05patch\x18\x01 \x01(\fR\x05patch\"\x7f\n" +
+	"\x05patch\x18\x01 \x01(\fR\x05patch\"\x95\x01\n" +
 	"\x10MapRangesRequest\x12\x19\n" +
 	"\x03dir\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x03dir\x12)\n" +
 	"\bfrom_sha\x18\x02 \x01(\tB\x0e\xbaH\vr\t\x10\x012\x05^[^-]R\afromSha\x12%\n" +
-	"\x06to_sha\x18\x03 \x01(\tB\x0e\xbaH\vr\t\x10\x012\x05^[^-]R\x05toSha\"3\n" +
+	"\x06to_sha\x18\x03 \x01(\tB\x0e\xbaH\vr\t\x10\x012\x05^[^-]R\x05toSha\x12\x14\n" +
+	"\x05paths\x18\x04 \x03(\tR\x05paths\"3\n" +
 	"\tLineRange\x12\x14\n" +
 	"\x05start\x18\x01 \x01(\x05R\x05start\x12\x10\n" +
 	"\x03end\x18\x02 \x01(\x05R\x03end\"n\n" +

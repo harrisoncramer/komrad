@@ -280,28 +280,59 @@ func TestIntegrationMapRangesReadsWhatTheCommitDid(t *testing.T) {
 	}
 }
 
-// TestIntegrationMapRangesFindsARenameAcrossTheWholeTree pins why the whole tree is read: git applies a
-// pathspec before it looks for renames, so a diff filtered to a file's old path reports that file
-// deleted and every position on it is lost.
+// TestIntegrationMapRangesFindsARenameAcrossTheWholeTree pins that a rename is found when the
+// answer is limited to the old path: git applies a pathspec before it looks for renames, so a diff
+// filtered to that path alone reports the file deleted and every position on it is lost.
 func TestIntegrationMapRangesFindsARenameAcrossTheWholeTree(t *testing.T) {
 	root := repo(t)
 	write(t, root, "old.go", numbered(9))
+	write(t, root, "other.go", numbered(9))
 	from := commitAll(t, root, "before the rename")
 
 	require.NoError(t, os.Remove(filepath.Join(root, "old.go")))
 	write(t, root, "new.go", strings.Replace(numbered(9), "original 2\n", "rewritten 2\n", 1))
+	write(t, root, "other.go", strings.Replace(numbered(9), "original 5\n", "rewritten 5\n", 1))
 	to := commitAll(t, root, "after the rename")
 
-	mappings, err := client.MapRanges(t.Context(), MapRangesParams{
-		Dir:     root,
-		FromSHA: from,
-		ToSHA:   to,
-	})
-	require.NoError(t, err)
+	tests := []struct {
+		name  string
+		paths []string
+		want  []position.FileMapping
+	}{
+		{
+			name: "the whole tree",
+			want: []position.FileMapping{
+				{OldPath: "old.go", NewPath: "new.go"},
+				{OldPath: "other.go", NewPath: "other.go"},
+			},
+		},
+		{
+			name:  "limited to the old path",
+			paths: []string{"old.go"},
+			want:  []position.FileMapping{{OldPath: "old.go", NewPath: "new.go"}},
+		},
+		{
+			name:  "limited to a path the commit left alone",
+			paths: []string{"untouched.go"},
+			want:  []position.FileMapping{},
+		},
+	}
 
-	require.Len(t, mappings, 1)
-	assert.Equal(t, "old.go", mappings[0].File.OldPath)
-	assert.Equal(t, "new.go", mappings[0].File.NewPath, "a rename read as a deletion drops every position on the file")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mappings, err := client.MapRanges(t.Context(), MapRangesParams{
+				Dir:     root,
+				FromSHA: from,
+				ToSHA:   to,
+				Paths:   tt.paths,
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, xslice.Map(mappings, func(mapping position.Mapping) position.FileMapping {
+				return mapping.File
+			}), "a rename read as a deletion drops every position on the file")
+		})
+	}
 }
 
 // TestIntegrationATracedLineHoldsItsContent proves the hunk convention read here is the one git writes: a

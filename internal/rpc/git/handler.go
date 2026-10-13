@@ -112,6 +112,7 @@ func (h *Handler) MapRanges(ctx context.Context, req *gitv1.MapRangesRequest) (*
 		Dir:     req.GetDir(),
 		FromSHA: req.GetFromSha(),
 		ToSHA:   req.GetToSha(),
+		Paths:   req.GetPaths(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to map the ranges")
