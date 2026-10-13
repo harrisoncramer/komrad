@@ -281,7 +281,7 @@ func reportHookProblem(cmd *cobra.Command, state *app, what string, err error) {
 	line := fmt.Sprintf("%s: %v", what, err)
 	cmd.PrintErrln(line)
 
-	if state.env.AgentID == "" || isUnreached(err) {
+	if state.env.AgentID == "" || isUnreachable(err) {
 		return
 	}
 
@@ -290,11 +290,11 @@ func reportHookProblem(cmd *cobra.Command, state *app, what string, err error) {
 	}
 }
 
-// isUnreached reports whether a call failed before komrad answered it, as against komrad refusing it.
-func isUnreached(err error) bool {
-	var unreached *url.Error
+// isUnreachable reports whether a call failed before komrad answered it.
+func isUnreachable(err error) bool {
+	var urlErr *url.Error
 
-	return errors.As(err, &unreached)
+	return errors.As(err, &urlErr)
 }
 
 func readStopHookPayload(body []byte) (*stopHookPayload, error) {
@@ -434,8 +434,7 @@ func reportConfigProblem(cmd *cobra.Command, state *app) {
 		return
 	}
 
-	const what = "komrad found a problem in its config, so defaults stand in for what it could not use"
-	reportHookProblem(cmd, state, what, state.configErr)
+	reportHookProblem(cmd, state, "komrad found a problem in its config, so defaults stand in for what it could not use", state.configErr)
 }
 
 func recordDelivery(ctx context.Context, state *app, mail []mailItem) error {
