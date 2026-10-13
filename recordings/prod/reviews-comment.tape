@@ -4,7 +4,7 @@
 # its commits, and the agent answering is a real Claude session.
 Source recordings/panel.tape
 Wait+Screen@30s /text-tru/
-Type "j"
+Type "G"
 Space
 Type "r"
 Wait+Screen@10s /Review · text-truncate/

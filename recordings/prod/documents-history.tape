@@ -2,7 +2,7 @@
 # revision, the person's edit and the first draft, each drawn as what that write changed, then
 # forward to the document as it stands. document-history makes the agent and its three writes.
 Source recordings/panel.tape
-Type "j"
+Type "G"
 Space
 Type "J"
 Type "d"

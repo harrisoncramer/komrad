@@ -8,7 +8,7 @@ Enter
 Wait+Screen@30s /agents\s+schedules\s+documents/
 Sleep 1s
 Show
-Type "j"
+Type "G"
 Space
 Type "J"
 Type "d"
