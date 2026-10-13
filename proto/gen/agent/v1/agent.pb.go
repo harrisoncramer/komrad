@@ -3572,7 +3572,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062\x9a\x82\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062\x99\x82\x01\n" +
 	"\fAgentService\x12\xfe\x01\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\vlist_agents\"\x93\x01List the agents komrad tracks, most recently updated first, with the opening of each prompt. The list omits archived agents unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xa4\x01\n" +
@@ -3590,8 +3590,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xed\x01\x9a\xb5\x18\xe5\x01\b\x01\x10\x01\x1a\x0earchive_agents\"\xc8\x01Stop agents and hide them from the panel, keeping their records and transcripts for restore_agents. Each goes alone. Komrad refuses a task's writer, which goes only with its task through archive_task.(\x00:\x02\x03\x02\x90\x02\x02\x12\xc7\x02\n" +
 	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xf4\x01\x9a\xb5\x18\xec\x01\b\x01\x10\x01\x1a\x0erestore_agents\"\xd0\x01Bring archived agents back, dormant, along with their workflows. A task's writer brings its task back with it. Komrad refuses a reviewer until its task is back. Call resume_agent on each one you want running.(\x00:\x01\x02\x90\x02\x02\x12\xfc\x01\n" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xb5\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\n" +
-	"hold_agent\"\x98\x01Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked.(\x00:\x01\x02\x12\xaf\x01\n" +
-	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"`\x9a\xb5\x18\\\b\x01\x10\x01\x1a\rrelease_agent\"BLet a held agent carry on, typing said into it as it starts again.(\x00:\x01\x02\x12\xed\x02\n" +
+	"hold_agent\"\x98\x01Interrupt an agent and hold it still, such as before editing files it works in, until release_agent. You cannot hold yourself. Hold one only when asked.(\x00:\x01\x02\x12\xae\x01\n" +
+	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"_\x9a\xb5\x18[\b\x01\x10\x01\x1a\rrelease_agent\"ALet a held agent carry on, mailing said to it as it starts again.(\x00:\x01\x02\x12\xed\x02\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\xa0\x02\x9a\xb5\x18\x98\x02\b\x01\x10\x01\x1a\fresume_agent\"\xfc\x01Relaunch an agent's CLI on the same conversation, such as when its pane died. An archived agent must be restored first. A reviewer may resume only its task's writer, a writer only its task's reviewers, and either may resume its workflow's orchestrator.(\x00:\x03\x03\x01\x02\x90\x02\x02\x12\xef\x02\n" +
 	"\fRestartAgent\x12\x1d.agent.v1.RestartAgentRequest\x1a\x1e.agent.v1.RestartAgentResponse\"\x9f\x02\x9a\xb5\x18\x9a\x02\b\x01\x10\x01\x1a\rrestart_agent\"\xff\x01Relaunch a task's writer on a new conversation, briefed from the task's notes and its checkout. It keeps its CLI and flags unless others are named, such as another model. The earlier conversation stays in its transcript, and the task's reviewers carry on.(\x01:\x01\x02\x12\xbf\x01\n" +
 	"\n" +

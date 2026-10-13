@@ -870,7 +870,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "release_agent"
-      description: "Let a held agent carry on, typing said into it as it starts again."
+      description: "Let a held agent carry on, mailing said to it as it starts again."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
