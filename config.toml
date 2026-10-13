@@ -24,7 +24,7 @@ vim_mode        = false
 [harness.claude]
 # Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
 flags             = ""
-# Whether to record each agent's directory as trusted in this CLI's own config
+# Records each agent's directory as trusted in this CLI's own config when on,
 # before launching it. The CLI asks whether a directory is trusted the first
 # time it runs there and waits for an answer, which it reads only from that
 # file, so an agent in a fresh worktree otherwise starts blocked and shows
@@ -34,64 +34,64 @@ trust_launch_dirs = false
 [harness.codex]
 # Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
 flags             = ""
-# Whether to record each agent's directory as trusted in this CLI's own config
+# Records each agent's directory as trusted in this CLI's own config when on,
 # before launching it. The CLI asks whether a directory is trusted the first
 # time it runs there and waits for an answer, which it reads only from that
 # file, so an agent in a fresh worktree otherwise starts blocked and shows
 # here as waiting. Turning this on edits that file on your behalf.
 trust_launch_dirs = false
 
-# How much agents may run and how large their conversations may grow.
+# Limits how much agents may run and how large their conversations may grow.
 [usage]
-# How many unarchived agents this engine may run at once, past which a create is refused.
+# The number of unarchived agents this engine may run at once. Past it, komrad refuses a create.
 max_agents = 50
 
-# What one task may hold.
+# The limits on one task.
 [usage.task]
-# How many live reviewers one task may hold at once. Reviewers read their task's checkout,
+# The number of live reviewers one task may hold at once. Reviewers read their task's checkout,
 # so this is deliberately far lower than max_agents.
 max_reviewers = 3
 
-# What a writer, the agent that lands a task's work on its branch, may use.
+# The limits on a writer, the agent that lands a task's work on its branch.
 [usage.writer]
 # The conversation size in tokens an agent is held under, summarizing its history a little
 # before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 # own default, and a value the CLI will not take is moved to the nearest one it will.
 auto_compaction = 250000
 
-# What a reviewer, the agent that reads a task's work, may use.
+# The limits on a reviewer, the agent that reads a task's work.
 [usage.reviewer]
 # The conversation size in tokens an agent is held under, summarizing its history a little
 # before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 # own default, and a value the CLI will not take is moved to the nearest one it will.
 auto_compaction     = 250000
-# Whether a reviewer is archived once it releases an approval. Turn it off to keep approved
+# Archives a reviewer once it releases an approval when on. Turn it off to keep approved
 # reviewers in the sidebar until you archive them yourself.
 archive_on_approval = true
 
-# What a workflow's orchestrator may use.
+# The limits on a workflow's orchestrator.
 [usage.orchestrator]
 # The conversation size in tokens an agent is held under, summarizing its history a little
 # before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 # own default, and a value the CLI will not take is moved to the nearest one it will.
 auto_compaction = 150000
-# How many live tasks one orchestrator may have started at once. 0 sets no limit of its own,
+# The number of live tasks one orchestrator may have started at once. 0 sets no limit of its own,
 # leaving max_agents as the cap.
 max_tasks       = 0
 
-# Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
+# Sets where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
 [layout]
 # Which side of the window the panel's sidebar sits on, "left" or "right".
 sidebar_side   = "left"
-# How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
+# The width, in columns, the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
 sidebar_width  = 47
 # Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
 info_side      = "below"
-# How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
+# The height the info pane opens at, either a share of the stage's height below one or a whole number of rows.
 info_height    = 0.4
-# How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
+# The number of lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 details_height = 9
-# How many tasks the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A task is drawn as its writer with its reviewers under it, and the zone never draws fewer rows than it has slots. Zero turns the zone off.
+# The number of tasks the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A task is drawn as its writer with its reviewers under it, and the zone never draws fewer rows than it has slots. Zero turns the zone off.
 triage_rows    = 3
 
 # Panel keybindings, scoped to the screen each binding acts in.
@@ -122,14 +122,14 @@ restore      = ["r"]
 # Put the agent back in the panel and open it, which relaunches its conversation in a pane
 # and takes you to it. The entry is gray on an agent that never got as far as starting.
 restore_open = ["o"]
-# Delete every unused worktree: every directory whose agent is archived, through the agent
-# delete and its hooks, and every directory no agent answers for. A directory with a live
+# Deletes every unused worktree. That covers every directory whose agent is archived, through
+# the agent delete and its hooks, and every directory no agent answers for. A directory with a live
 # agent in it is never deleted. The entry is only on the worktrees screen, and is gray when
 # no worktree is unused.
 clear        = ["c"]
 
-# The details under whichever list is on screen: the key that hands them the
-# cursor, and the key that copies the field it lands on.
+# The keys for the details under whichever list is on screen. One hands them the
+# cursor, and one copies the field it lands on.
 [keybindings.details]
 # Copy the field the details cursor is on to the system clipboard.
 copy = ["y"]
@@ -389,7 +389,7 @@ toggle = ["v"]
 # The menu on the hovered row, which lists the screens that belong to it and the menus nested
 # under it.
 [keybindings.menu]
-# Open the menu: the hovered row's entries, or the chosen tasks', over the screen's own.
+# Opens the menu, which shows the hovered row's entries, or the chosen tasks', over the screen's own.
 # The key opens nothing on a screen with neither.
 open          = ["space"]
 # Open the review of the task's diff. The entry is gray on a task with no worktree, and in
@@ -470,7 +470,7 @@ previous = ["shift+tab"]
 # Rename the workflow under the cursor.
 rename = ["r"]
 
-# How the panel draws a diff.
+# Sets how the panel draws a diff.
 [diff]
 # Wrap a line wider than the pane onto the lines under it rather than cutting it off. The wrap
 # key turns this off and on while reading.
@@ -545,7 +545,7 @@ filter   = "▽"
 # The dot beside the engine, coloured by whether it answers.
 engine   = ""
 
-# The review screen: the marks on its threads and files, and how far a comment has got.
+# The marks on the review screen's threads and files, and on how far a comment has got.
 [glyphs.review]
 # A thread holding something you have not read.
 unread        = "●"
@@ -615,17 +615,17 @@ success       = "10"
 warning       = "11"
 # Something failed or is gone.
 danger        = "9"
-# What you wrote.
+# The colour of text you wrote.
 user_me       = "12"
-# What an agent wrote.
+# The colour of text an agent wrote.
 user_agent    = "13"
-# What a reviewer agent wrote.
+# The colour of text a reviewer agent wrote.
 user_reviewer = "14"
-# What came from GitHub.
+# The colour of text that came from GitHub.
 user_github   = "3"
 # A merged pull request.
 merged        = "5"
-# What is picked out for you to act on, such as a search match.
+# The colour of text picked out for you to act on, such as a search match.
 highlight     = "208"
 # Text drawn on a filled bar.
 inverse       = "0"
@@ -676,27 +676,27 @@ jump   = "3"
 # Typing into a text field.
 edit   = "9"
 
-# Where komrad finds the scripts a workflow hangs on a moment in its agents' lives, and how long
+# Sets where komrad finds the scripts a workflow hangs on a moment in its agents' lives, and how long
 # each may run.
 [hooks]
-# Directory for hooks: one executable file per hook, named after the hook.
+# The directory for hooks, which holds one executable file per hook, named after the hook.
 # A hook is a script or program komrad runs at a moment a workflow names it against, in the
 # agent's own directory, with agent info in KOMRAD_AGENT as JSON and the moment in
 # KOMRAD_TRIGGER. Default is ~/.config/komrad/hooks.
 dir     = ""
-# How long a hook may run before komrad stops it and counts it as failed, as a Go duration
+# The longest a hook may run before komrad stops it and counts it as failed, as a Go duration
 # such as "60s" or "5m". A hook's own #KOMRAD timeout can ask for less, never more, and a
 # hook that asks for "none" gets this. A duration komrad cannot read, or one that is not
 # positive, is refused.
 timeout = "60s"
 
-# Where a workflow's generated worktree provisioner creates its worktrees.
+# Sets where a workflow's generated worktree provisioner creates its worktrees.
 [worktrees]
 # Directory generated worktrees are created under, one subdirectory per agent.
 # Left empty this is ~/.local/state/komrad/worktrees.
 dir = ""
 
-# How komrad reads the git checkouts its agents work in.
+# Controls how komrad reads the git checkouts its agents work in.
 [git]
 # SSH hosts that stand in for a forge's web host, each written as "ssh_host=web_host", such
 # as "ssh.gitlab.example.com=gitlab.example.com". A remote on the SSH host is then matched to
@@ -704,7 +704,7 @@ dir = ""
 # user. Public aliases such as ssh.github.com and altssh.gitlab.com are already known.
 ssh_hosts = []
 
-# How komrad reads the review threads on the pull requests its agents open.
+# Controls how komrad reads the review threads on the pull requests its agents open.
 [forge]
 # Logins whose review comments are left out of the threads mirrored onto an agent, such as a
 # CI bot or a code review App. A thread whose every comment is from one of them is not mirrored
@@ -734,14 +734,13 @@ private_key_path = ""
 # Left empty this is ~/.config/komrad/context.md, but will not trigger a failure if left blank.
 file = ""
 
-# How mail between agents is delivered.
+# Controls how komrad delivers mail between agents.
 [mail]
-# How long mail stays deliverable, as a Go duration such as "3h" or "45m". Mail past
-# it is neither delivered nor readable, and the row is kept as a record that it never
-# arrived. A duration komrad cannot read, or one that is not positive, is refused.
+# The time mail stays deliverable, as a Go duration such as "3h" or "45m". Komrad neither
+# delivers nor shows mail past it, and keeps the row as a record that it never arrived. A duration komrad cannot read, or one that is not positive, is refused.
 delivery_deadline = "3h"
-# How much mail two agents may write each other before a send between them is
-# refused. It counts the pair in both directions over every thread, so opening a new
+# The amount of mail two agents may write each other before komrad refuses a send between
+# them. It counts the pair in both directions over every thread, so opening a new
 # subject is not a way around it. When a send is refused komrad marks a row for
 # attention and tells the recipient its mail was stopped, so an exchange that is cut
 # off does not leave the other side waiting on a reply that will never arrive. A
@@ -750,15 +749,14 @@ max_exchange      = 40
 
 # The log the server writes, which the panel's log key pages.
 [log]
-# How much is written, one of debug, info, warn, or error.
+# The amount komrad writes, one of debug, info, warn, or error.
 level = "info"
 
 # Puts komrad into debug mode which records additional information used to help diagnose issues.
 [debug]
-# Whether the pane capture behind each reading of an agent is kept under the cache
-# directory.
+# Keeps the pane capture behind each reading of an agent under the cache directory when on.
 frames        = false
-# How many frames are kept for one agent before the oldest is dropped. A number at or
+# The number of frames komrad keeps for one agent before it drops the oldest. A number at or
 # below zero takes the default.
 frame_history = 500
 
@@ -766,19 +764,19 @@ frame_history = 500
 
 # The server, which runs the agents and answers the API.
 [debug.pprof.server]
-# Whether the process serves profiles, read when it starts.
+# Serves profiles from the process when on. Komrad reads it when the process starts.
 enabled = false
 # The host and port the profiles are served on.
 address = "localhost:6060"
 
 # The panel, which draws the screen and talks to the server.
 [debug.pprof.panel]
-# Whether the process serves profiles, read when it starts.
+# Serves profiles from the process when on. Komrad reads it when the process starts.
 enabled = false
 # The host and port the profiles are served on.
 address = "localhost:6061"
 
-# Which komrad this is: the database, the address, the tmux socket, the cache.
+# Which komrad this is, by its database, its address, its tmux socket and its cache.
 [connection]
 # The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as
 # this engine's own login, which is what keeps its rows apart from every other engine's.
@@ -791,20 +789,20 @@ owner_database_url    = ""
 # Left empty this is database_url with the engine's reader login, which is its own login
 # with _reader on the end and the same password.
 readonly_database_url = ""
-# Where the server listens, and where the panel, the CLI and the MCP
-# endpoint all reach it. Change it to run two komrads on one machine. It has to be a
+# The address the server listens on, which the panel, the CLI and the MCP
+# endpoint all reach it at. Change it to run two komrads on one machine. It has to be a
 # loopback host, since the api has no auth and its writes spawn agents.
 addr                  = "127.0.0.1:8787"
 # The tmux socket komrad runs its own server on. Nothing in your normal tmux sees
 # that server, which is why `tmux -L komrad ls` is how you look at it directly.
 tmux_socket           = "komrad"
-# Where komrad keeps what it generates: the server log, the built-in scripts it
-# writes out on every start, and the temp files a harness passes a prompt through.
+# The directory where komrad keeps what it generates, such as the server log, the built-in
+# scripts it writes out on every start, and the temp files a harness passes a prompt through.
 # Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
 # Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.
 cache_dir             = ""
-# Where komrad keeps its own files about agents: generated worktrees, released reviews
-# and forge credentials.
+# The directory where komrad keeps its own files about agents, such as generated worktrees,
+# released reviews and forge credentials.
 # Left empty this is ~/.local/state/komrad.
 # It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 state_dir             = ""
@@ -812,8 +810,8 @@ state_dir             = ""
 # Left empty the engine is local and an agent's terminal is shown by moving its own pane
 # into the panel, which only works while the panel and the agents share a tmux server.
 ssh                   = ""
-# How to forward a port from this machine to the engine, as an argv, when ssh is not how you
-# reach it. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
+# The command, as an argv, that forwards a port from this machine to the engine when you do
+# not reach it through ssh. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
 # stay in the foreground for as long as the forward is wanted.
 forward               = []
 # The https address the engine is served on, like https://komrad.example.com, when it sits

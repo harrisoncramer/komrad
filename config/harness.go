@@ -8,7 +8,7 @@ const DefaultHarness = "claude"
 type Harness struct {
 	// Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
 	Flags string `mapstructure:"flags"`
-	// Whether to record each agent's directory as trusted in this CLI's own config
+	// Records each agent's directory as trusted in this CLI's own config when on,
 	// before launching it. The CLI asks whether a directory is trusted the first
 	// time it runs there and waits for an answer, which it reads only from that
 	// file, so an agent in a fresh worktree otherwise starts blocked and shows

@@ -21,12 +21,11 @@ const DefaultMaxExchange = 40
 // ends, and one that has stopped is nudged, so an agent nobody is running holds mail until
 // it comes back or the deadline passes.
 type Mail struct {
-	// How long mail stays deliverable, as a Go duration such as "3h" or "45m". Mail past
-	// it is neither delivered nor readable, and the row is kept as a record that it never
-	// arrived. A duration komrad cannot read, or one that is not positive, is refused.
+	// The time mail stays deliverable, as a Go duration such as "3h" or "45m". Komrad neither
+	// delivers nor shows mail past it, and keeps the row as a record that it never arrived. A duration komrad cannot read, or one that is not positive, is refused.
 	DeliveryDeadline string `mapstructure:"delivery_deadline"`
-	// How much mail two agents may write each other before a send between them is
-	// refused. It counts the pair in both directions over every thread, so opening a new
+	// The amount of mail two agents may write each other before komrad refuses a send between
+	// them. It counts the pair in both directions over every thread, so opening a new
 	// subject is not a way around it. When a send is refused komrad marks a row for
 	// attention and tells the recipient its mail was stopped, so an exchange that is cut
 	// off does not leave the other side waiting on a reply that will never arrive. A

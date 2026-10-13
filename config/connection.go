@@ -57,20 +57,20 @@ type Connection struct {
 	// Left empty this is database_url with the engine's reader login, which is its own login
 	// with _reader on the end and the same password.
 	ReadOnlyDatabaseURL string `mapstructure:"readonly_database_url"`
-	// Where the server listens, and where the panel, the CLI and the MCP
-	// endpoint all reach it. Change it to run two komrads on one machine. It has to be a
+	// The address the server listens on, which the panel, the CLI and the MCP
+	// endpoint all reach it at. Change it to run two komrads on one machine. It has to be a
 	// loopback host, since the api has no auth and its writes spawn agents.
 	Addr string `mapstructure:"addr"`
 	// The tmux socket komrad runs its own server on. Nothing in your normal tmux sees
 	// that server, which is why `tmux -L komrad ls` is how you look at it directly.
 	TmuxSocket string `mapstructure:"tmux_socket"`
-	// Where komrad keeps what it generates: the server log, the built-in scripts it
-	// writes out on every start, and the temp files a harness passes a prompt through.
+	// The directory where komrad keeps what it generates, such as the server log, the built-in
+	// scripts it writes out on every start, and the temp files a harness passes a prompt through.
 	// Left empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.
 	// Everything under it is komrad's to delete and rewrite, so nothing of yours belongs here.
 	CacheDir string `mapstructure:"cache_dir"`
-	// Where komrad keeps its own files about agents: generated worktrees, released reviews
-	// and forge credentials.
+	// The directory where komrad keeps its own files about agents, such as generated worktrees,
+	// released reviews and forge credentials.
 	// Left empty this is ~/.local/state/komrad.
 	// It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 	StateDir string `mapstructure:"state_dir"`
@@ -78,8 +78,8 @@ type Connection struct {
 	// Left empty the engine is local and an agent's terminal is shown by moving its own pane
 	// into the panel, which only works while the panel and the agents share a tmux server.
 	SSH string `mapstructure:"ssh"`
-	// How to forward a port from this machine to the engine, as an argv, when ssh is not how you
-	// reach it. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
+	// The command, as an argv, that forwards a port from this machine to the engine when you do
+	// not reach it through ssh. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
 	// stay in the foreground for as long as the forward is wanted.
 	Forward []string `mapstructure:"forward"`
 	// The https address the engine is served on, like https://komrad.example.com, when it sits

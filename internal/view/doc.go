@@ -25,9 +25,9 @@
 // comments, and says what the writer is doing. The reviewers under it are Nested and leave their
 // gutter blank, since the task row already says how their work stands.
 //
-// What an agent is doing is said in its name rather than a bar: bold in the warning colour while
-// it waits on a person or is broken, and plain otherwise, with the loader turning greyed after it
-// while it thinks. A workflow's name says the same of its orchestrator.
+// An agent's name says what it is doing instead of a bar does. The name is bold in the warning
+// colour while the agent waits on a person or is broken, and plain otherwise, with the loader
+// turning greyed after it while it thinks. A workflow's name says the same of its orchestrator.
 //
 // One rule covers every cell of the row: blank is nothing to say, anything rendered is applicable,
 // and the shape says which state it is in. The agents list declares three glyph columns, repo,
@@ -87,7 +87,7 @@
 // which the list is scrolled to, is the caller's. A caller measuring those rows measures what
 // lipgloss measures, an Octicon rendering the single column the font gives it.
 //
-// Window is that work already done, for a caller that has only to say how many lines it has
+// Window does that work already, for a caller that only has to say how many lines it has
 // left. It scrolls to the row the snapshot named, and a key naming no row at all leaves the
 // list where a fresh one opens.
 //

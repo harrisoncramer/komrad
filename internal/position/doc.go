@@ -20,7 +20,7 @@
 // rather than moving where it starts, so a comment on a block still covers that block when
 // something is added to the middle of it.
 //
-// What to do with a conflict is the caller's to say, not this package's, so Policy is an
+// The caller decides what to do with a conflict, not this package, so Policy is an
 // argument. A comment wants to survive as something said about the file, so it keeps the file
 // and loses the lines; a fold or a mark wants to disappear rather than mislead.
 //

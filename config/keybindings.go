@@ -18,8 +18,8 @@ type Keybindings struct {
 	Archive ArchiveKeys `mapstructure:"archive"`
 	// The archive menu, nested under the menu on the hovered row of the archive.
 	ArchiveMenu ArchiveMenuKeys `mapstructure:"archive_menu"`
-	// The details under whichever list is on screen: the key that hands them the
-	// cursor, and the key that copies the field it lands on.
+	// The keys for the details under whichever list is on screen. One hands them the
+	// cursor, and one copies the field it lands on.
 	Details DetailsKeys `mapstructure:"details"`
 	// A diff with a cursor in it, shared by the review and a document's history.
 	Diff DiffKeys `mapstructure:"diff"`
@@ -244,7 +244,7 @@ type MergeKeys struct {
 // and every row of the archive. On the agents list the work is acted on from its task, and an
 // agent's own menu holds only what concerns its session.
 type MenuKeys struct {
-	// Open the menu: the hovered row's entries, or the chosen tasks', over the screen's own.
+	// Opens the menu, which shows the hovered row's entries, or the chosen tasks', over the screen's own.
 	// The key opens nothing on a screen with neither.
 	Open []string `mapstructure:"open" default:"space"`
 	// Open the review of the task's diff. The entry is gray on a task with no worktree, and in
@@ -523,8 +523,8 @@ type ArchiveMenuKeys struct {
 	// Put the agent back in the panel and open it, which relaunches its conversation in a pane
 	// and takes you to it. The entry is gray on an agent that never got as far as starting.
 	RestoreOpen []string `mapstructure:"restore_open" default:"o"`
-	// Delete every unused worktree: every directory whose agent is archived, through the agent
-	// delete and its hooks, and every directory no agent answers for. A directory with a live
+	// Deletes every unused worktree. That covers every directory whose agent is archived, through
+	// the agent delete and its hooks, and every directory no agent answers for. A directory with a live
 	// agent in it is never deleted. The entry is only on the worktrees screen, and is gray when
 	// no worktree is unused.
 	Clear []string `mapstructure:"clear" default:"c"`

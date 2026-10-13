@@ -101,7 +101,7 @@ type Finding struct {
 	Code        string `json:"code,omitempty"`
 	Error       string `json:"error,omitempty"`
 	Fix         string `json:"fix,omitempty"`
-	// Where names the machine the finding is about when it is not the one the doctor ran on.
+	// Where holds the machine the finding is about when it is not the one the doctor ran on.
 	Where string `json:"where,omitempty"`
 }
 

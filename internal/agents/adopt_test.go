@@ -58,7 +58,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			st := newStore(t)
 			repo := fakeCheckout(t)
 
-			// What git reports about the repository's checkouts, the main one first.
+			// Git reports the repository's checkouts, the main one first.
 			reported := []git.Worktree{{Dir: repo}}
 
 			var elsewhere string

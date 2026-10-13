@@ -184,8 +184,8 @@ func italicCapable() map[string]string {
 	return map[string]string{"bold": "\x1b[1m", "sitm": "\x1b[3m"}
 }
 
-// TestEmphasisCheckNamesWhatIsLost covers the point of the check, which is that a person told
-// only that sitm is missing has learned nothing about their panel.
+// TestEmphasisCheckNamesWhatIsLost covers the check that tells a person more than that
+// sitm is missing, since that alone teaches them nothing about their panel.
 func TestEmphasisCheckNamesWhatIsLost(t *testing.T) {
 	env := Env{
 		Settings:     Settings{Term: "screen-256color"},

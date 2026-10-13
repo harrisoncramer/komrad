@@ -19,21 +19,21 @@ const defaultOrchestratorAutoCompaction = 150_000
 
 // Usage is how much agents may run and how large their conversations may grow.
 type Usage struct {
-	// How many unarchived agents this engine may run at once, past which a create is refused.
+	// The number of unarchived agents this engine may run at once. Past it, komrad refuses a create.
 	MaxAgents int `mapstructure:"max_agents"`
-	// What one task may hold.
+	// The limits on one task.
 	Task TaskUsage `mapstructure:"task"`
-	// What a writer, the agent that lands a task's work on its branch, may use.
+	// The limits on a writer, the agent that lands a task's work on its branch.
 	Writer WriterUsage `mapstructure:"writer"`
-	// What a reviewer, the agent that reads a task's work, may use.
+	// The limits on a reviewer, the agent that reads a task's work.
 	Reviewer ReviewerUsage `mapstructure:"reviewer"`
-	// What a workflow's orchestrator may use.
+	// The limits on a workflow's orchestrator.
 	Orchestrator OrchestratorUsage `mapstructure:"orchestrator"`
 }
 
 // TaskUsage is what one task may hold.
 type TaskUsage struct {
-	// How many live reviewers one task may hold at once. Reviewers read their task's checkout,
+	// The number of live reviewers one task may hold at once. Reviewers read their task's checkout,
 	// so this is deliberately far lower than max_agents.
 	MaxReviewers int `mapstructure:"max_reviewers"`
 }
@@ -52,7 +52,7 @@ type ReviewerUsage struct {
 	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 	// own default, and a value the CLI will not take is moved to the nearest one it will.
 	AutoCompaction int `mapstructure:"auto_compaction"`
-	// Whether a reviewer is archived once it releases an approval. Turn it off to keep approved
+	// Archives a reviewer once it releases an approval when on. Turn it off to keep approved
 	// reviewers in the sidebar until you archive them yourself.
 	ArchiveOnApproval bool `mapstructure:"archive_on_approval"`
 }
@@ -63,7 +63,7 @@ type OrchestratorUsage struct {
 	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 	// own default, and a value the CLI will not take is moved to the nearest one it will.
 	AutoCompaction int `mapstructure:"auto_compaction"`
-	// How many live tasks one orchestrator may have started at once. 0 sets no limit of its own,
+	// The number of live tasks one orchestrator may have started at once. 0 sets no limit of its own,
 	// leaving max_agents as the cap.
 	MaxTasks int `mapstructure:"max_tasks"`
 }

@@ -21,17 +21,17 @@ type Palette struct {
 	Warning string `mapstructure:"warning"`
 	// Something failed or is gone.
 	Danger string `mapstructure:"danger"`
-	// What you wrote.
+	// The colour of text you wrote.
 	UserMe string `mapstructure:"user_me"`
-	// What an agent wrote.
+	// The colour of text an agent wrote.
 	UserAgent string `mapstructure:"user_agent"`
-	// What a reviewer agent wrote.
+	// The colour of text a reviewer agent wrote.
 	UserReviewer string `mapstructure:"user_reviewer"`
-	// What came from GitHub.
+	// The colour of text that came from GitHub.
 	UserGithub string `mapstructure:"user_github"`
 	// A merged pull request.
 	Merged string `mapstructure:"merged"`
-	// What is picked out for you to act on, such as a search match.
+	// The colour of text picked out for you to act on, such as a search match.
 	Highlight string `mapstructure:"highlight"`
 	// Text drawn on a filled bar.
 	Inverse string `mapstructure:"inverse"`

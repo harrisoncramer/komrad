@@ -20,9 +20,9 @@ type Config struct {
 	// directory yet.
 	AutoSetup bool      `mapstructure:"auto_setup"`
 	Harness   Harnesses `mapstructure:"harness"`
-	// How much agents may run and how large their conversations may grow.
+	// Limits how much agents may run and how large their conversations may grow.
 	Usage Usage `mapstructure:"usage"`
-	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
+	// Sets where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
 	Layout Layout `mapstructure:"layout"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
@@ -30,7 +30,7 @@ type Config struct {
 	// to normal mode, and a second esc closes it. The filter, search and rename lines close on esc,
 	// and ctrl+f puts one in normal mode, after which esc works as it does in a form.
 	VimMode bool `mapstructure:"vim_mode"`
-	// How the panel draws a diff.
+	// Sets how the panel draws a diff.
 	Diff Diff `mapstructure:"diff"`
 	// The icons the panel draws, grouped by where each one is drawn. Every icon is one character
 	// from the approved set, the Nerd Fonts octicons and a few named characters. The chrome the
@@ -41,26 +41,26 @@ type Config struct {
 	// number from 0 to 255, which your terminal's theme decides the look of, or a hex code like
 	// "#1e3a5f".
 	Palette Palette `mapstructure:"palette"`
-	// Where komrad finds the scripts a workflow hangs on a moment in its agents' lives, and how long
+	// Sets where komrad finds the scripts a workflow hangs on a moment in its agents' lives, and how long
 	// each may run.
 	Hooks Hooks `mapstructure:"hooks"`
-	// Where a workflow's generated worktree provisioner creates its worktrees.
+	// Sets where a workflow's generated worktree provisioner creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
-	// How komrad reads the git checkouts its agents work in.
+	// Controls how komrad reads the git checkouts its agents work in.
 	Git Git `mapstructure:"git"`
-	// How komrad reads the review threads on the pull requests its agents open.
+	// Controls how komrad reads the review threads on the pull requests its agents open.
 	Forge Forge `mapstructure:"forge"`
 	// The GitHub App an engine fetches and pushes as.
 	GitHubApp GitHubApp `mapstructure:"github_app"`
 	// The standing text every agent is started with, whatever workflow it is in.
 	Context Context `mapstructure:"context"`
-	// How mail between agents is delivered.
+	// Controls how komrad delivers mail between agents.
 	Mail Mail `mapstructure:"mail"`
 	// The log the server writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
 	// Puts komrad into debug mode which records additional information used to help diagnose issues.
 	Debug Debug `mapstructure:"debug"`
-	// Which komrad this is: the database, the address, the tmux socket, the cache.
+	// Which komrad this is, by its database, its address, its tmux socket and its cache.
 	Connection Connection `mapstructure:"connection"`
 }
 

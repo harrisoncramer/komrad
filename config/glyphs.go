@@ -20,7 +20,7 @@ type Glyphs struct {
 	Marks MarkGlyphs `mapstructure:"marks"`
 	// The titles over the panel's lists, and the prompt and cursor they draw.
 	Lists ListGlyphs `mapstructure:"lists"`
-	// The review screen: the marks on its threads and files, and how far a comment has got.
+	// The marks on the review screen's threads and files, and on how far a comment has got.
 	Review ReviewGlyphs `mapstructure:"review"`
 	// The messages the panel shows, one for each kind.
 	Messages MessageGlyphs `mapstructure:"messages"`

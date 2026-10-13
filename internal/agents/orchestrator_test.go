@@ -235,8 +235,8 @@ func TestStartOrchestratorReplacesOneThatNeverRan(t *testing.T) {
 	first, err := manager.orchestrator.Start(ctx, workflow, "")
 	require.NoError(t, err)
 
-	// What a launch the person refused leaves behind: the row stands and the reconciler takes
-	// the pane away, so nothing on disk holds the conversation it was given an id for.
+	// A launch the person refused leaves the row standing, and the reconciler takes the pane
+	// away, so nothing on disk holds the conversation it was given an id for.
 	forgotten, err := st.Agents.ForgetPane(ctx, agentstore.ForgetPaneParams{
 		ID:        first.ID,
 		Pane:      first.Pane,

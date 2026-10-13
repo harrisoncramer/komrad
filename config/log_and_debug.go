@@ -20,7 +20,7 @@ const defaultPprofPanelAddress = "localhost:6061"
 // Log is how much the server writes about itself. Where it writes is not
 // configurable.
 type Log struct {
-	// How much is written, one of debug, info, warn, or error.
+	// The amount komrad writes, one of debug, info, warn, or error.
 	Level string `mapstructure:"level"`
 }
 
@@ -52,10 +52,9 @@ const DefaultFrameHistory = 500
 
 // Debug is what komrad records about its own reading of an agent.
 type Debug struct {
-	// Whether the pane capture behind each reading of an agent is kept under the cache
-	// directory.
+	// Keeps the pane capture behind each reading of an agent under the cache directory when on.
 	Frames bool `mapstructure:"frames"`
-	// How many frames are kept for one agent before the oldest is dropped. A number at or
+	// The number of frames komrad keeps for one agent before it drops the oldest. A number at or
 	// below zero takes the default.
 	FrameHistory int `mapstructure:"frame_history"`
 	// Go's pprof profiler, served by the server and the panel.
@@ -72,7 +71,7 @@ type Pprof struct {
 
 // Profiler is whether and where one process serves its runtime profiles.
 type Profiler struct {
-	// Whether the process serves profiles, read when it starts.
+	// Serves profiles from the process when on. Komrad reads it when the process starts.
 	Enabled bool `mapstructure:"enabled"`
 	// The host and port the profiles are served on.
 	Address string `mapstructure:"address"`

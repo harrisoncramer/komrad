@@ -368,7 +368,7 @@ func (r *reviewScreen) toggleViewed(m *model) tea.Cmd {
 	path := file.Path()
 	viewed := !r.diff.View().IsViewed(path)
 
-	// Where the cursor is standing is taken before the rows are built again.
+	// The cursor's place is read before the rows are built again.
 	place, located := r.diff.View().GetPlace(r.diff.Cursor())
 	r.diff.View().SetFileViewed(path, viewed)
 	r.diff.Keep(place, located)

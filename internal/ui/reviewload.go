@@ -668,8 +668,8 @@ func (r *reviewScreen) applyThreads(m *model, threads []*agentv1.ReviewThread) {
 
 	rendered := r.diff.threadsOnScreen(threads)
 
-	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
-	// the rows a settled or deleted thread takes away from under it.
+	// The cursor's place is read before the threads are pinned again, which rebuilds the rows
+	// a settled or deleted thread takes away from under it.
 	place, ok := r.diff.View().GetPlace(r.diff.Cursor())
 	r.diff.View().PinThreads(rendered)
 	r.diff.Keep(place, ok)

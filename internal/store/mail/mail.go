@@ -75,8 +75,8 @@ type SendParams struct {
 	Kind           Kind
 	ReplyTo        *string
 	IdempotencyKey *string
-	// How long the mail stays deliverable, counted from the database's clock rather than the
-	// caller's, which every read of expires_at compares it against.
+	// The time the mail stays deliverable, counted from the database's clock rather than the
+	// caller's. Every read of expires_at compares it against that clock.
 	Deadline time.Duration
 }
 

@@ -45,7 +45,7 @@
               "key": "trust_launch_dirs",
               "path": "harness.claude.trust_launch_dirs",
               "type": "boolean",
-              "description": "Whether to record each agent's directory as trusted in this CLI's own config\nbefore launching it. The CLI asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
+              "description": "Records each agent's directory as trusted in this CLI's own config when on,\nbefore launching it. The CLI asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
               "default": "false"
             }
           ],
@@ -66,7 +66,7 @@
               "key": "trust_launch_dirs",
               "path": "harness.codex.trust_launch_dirs",
               "type": "boolean",
-              "description": "Whether to record each agent's directory as trusted in this CLI's own config\nbefore launching it. The CLI asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
+              "description": "Records each agent's directory as trusted in this CLI's own config when on,\nbefore launching it. The CLI asks whether a directory is trusted the first\ntime it runs there and waits for an answer, which it reads only from that\nfile, so an agent in a fresh worktree otherwise starts blocked and shows\nhere as waiting. Turning this on edits that file on your behalf.",
               "default": "false"
             }
           ],
@@ -76,26 +76,26 @@
     },
     {
       "path": "usage",
-      "description": "How much agents may run and how large their conversations may grow.",
+      "description": "Limits how much agents may run and how large their conversations may grow.",
       "settings": [
         {
           "key": "max_agents",
           "path": "usage.max_agents",
           "type": "integer",
-          "description": "How many unarchived agents this engine may run at once, past which a create is refused.",
+          "description": "The number of unarchived agents this engine may run at once. Past it, komrad refuses a create.",
           "default": "50"
         }
       ],
       "sections": [
         {
           "path": "usage.task",
-          "description": "What one task may hold.",
+          "description": "The limits on one task.",
           "settings": [
             {
               "key": "max_reviewers",
               "path": "usage.task.max_reviewers",
               "type": "integer",
-              "description": "How many live reviewers one task may hold at once. Reviewers read their task's checkout,\nso this is deliberately far lower than max_agents.",
+              "description": "The number of live reviewers one task may hold at once. Reviewers read their task's checkout,\nso this is deliberately far lower than max_agents.",
               "default": "3"
             }
           ],
@@ -103,7 +103,7 @@
         },
         {
           "path": "usage.writer",
-          "description": "What a writer, the agent that lands a task's work on its branch, may use.",
+          "description": "The limits on a writer, the agent that lands a task's work on its branch.",
           "settings": [
             {
               "key": "auto_compaction",
@@ -117,7 +117,7 @@
         },
         {
           "path": "usage.reviewer",
-          "description": "What a reviewer, the agent that reads a task's work, may use.",
+          "description": "The limits on a reviewer, the agent that reads a task's work.",
           "settings": [
             {
               "key": "auto_compaction",
@@ -130,7 +130,7 @@
               "key": "archive_on_approval",
               "path": "usage.reviewer.archive_on_approval",
               "type": "boolean",
-              "description": "Whether a reviewer is archived once it releases an approval. Turn it off to keep approved\nreviewers in the sidebar until you archive them yourself.",
+              "description": "Archives a reviewer once it releases an approval when on. Turn it off to keep approved\nreviewers in the sidebar until you archive them yourself.",
               "default": "true"
             }
           ],
@@ -138,7 +138,7 @@
         },
         {
           "path": "usage.orchestrator",
-          "description": "What a workflow's orchestrator may use.",
+          "description": "The limits on a workflow's orchestrator.",
           "settings": [
             {
               "key": "auto_compaction",
@@ -151,7 +151,7 @@
               "key": "max_tasks",
               "path": "usage.orchestrator.max_tasks",
               "type": "integer",
-              "description": "How many live tasks one orchestrator may have started at once. 0 sets no limit of its own,\nleaving max_agents as the cap.",
+              "description": "The number of live tasks one orchestrator may have started at once. 0 sets no limit of its own,\nleaving max_agents as the cap.",
               "default": "0"
             }
           ],
@@ -161,7 +161,7 @@
     },
     {
       "path": "layout",
-      "description": "Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.",
+      "description": "Sets where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.",
       "settings": [
         {
           "key": "sidebar_side",
@@ -174,7 +174,7 @@
           "key": "sidebar_width",
           "path": "layout.sidebar_width",
           "type": "integer",
-          "description": "How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.",
+          "description": "The width, in columns, the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.",
           "default": "47"
         },
         {
@@ -188,21 +188,21 @@
           "key": "info_height",
           "path": "layout.info_height",
           "type": "number",
-          "description": "How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.",
+          "description": "The height the info pane opens at, either a share of the stage's height below one or a whole number of rows.",
           "default": "0.4"
         },
         {
           "key": "details_height",
           "path": "layout.details_height",
           "type": "number",
-          "description": "How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.",
+          "description": "The number of lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.",
           "default": "9"
         },
         {
           "key": "triage_rows",
           "path": "layout.triage_rows",
           "type": "integer",
-          "description": "How many tasks the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A task is drawn as its writer with its reviewers under it, and the zone never draws fewer rows than it has slots. Zero turns the zone off.",
+          "description": "The number of tasks the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A task is drawn as its writer with its reviewers under it, and the zone never draws fewer rows than it has slots. Zero turns the zone off.",
           "default": "3"
         }
       ],
@@ -284,7 +284,7 @@
               "key": "clear",
               "path": "keybindings.archive_menu.clear",
               "type": "array",
-              "description": "Delete every unused worktree: every directory whose agent is archived, through the agent\ndelete and its hooks, and every directory no agent answers for. A directory with a live\nagent in it is never deleted. The entry is only on the worktrees screen, and is gray when\nno worktree is unused.",
+              "description": "Deletes every unused worktree. That covers every directory whose agent is archived, through\nthe agent delete and its hooks, and every directory no agent answers for. A directory with a live\nagent in it is never deleted. The entry is only on the worktrees screen, and is gray when\nno worktree is unused.",
               "default": "[\"c\"]"
             }
           ],
@@ -292,7 +292,7 @@
         },
         {
           "path": "keybindings.details",
-          "description": "The details under whichever list is on screen: the key that hands them the\ncursor, and the key that copies the field it lands on.",
+          "description": "The keys for the details under whichever list is on screen. One hands them the\ncursor, and one copies the field it lands on.",
           "settings": [
             {
               "key": "copy",
@@ -998,7 +998,7 @@
               "key": "open",
               "path": "keybindings.menu.open",
               "type": "array",
-              "description": "Open the menu: the hovered row's entries, or the chosen tasks', over the screen's own.\nThe key opens nothing on a screen with neither.",
+              "description": "Opens the menu, which shows the hovered row's entries, or the chosen tasks', over the screen's own.\nThe key opens nothing on a screen with neither.",
               "default": "[\"space\"]"
             },
             {
@@ -1190,7 +1190,7 @@
     },
     {
       "path": "diff",
-      "description": "How the panel draws a diff.",
+      "description": "Sets how the panel draws a diff.",
       "settings": [
         {
           "key": "wrap",
@@ -1413,7 +1413,7 @@
         },
         {
           "path": "glyphs.review",
-          "description": "The review screen: the marks on its threads and files, and how far a comment has got.",
+          "description": "The marks on the review screen's threads and files, and on how far a comment has got.",
           "settings": [
             {
               "key": "unread",
@@ -1631,28 +1631,28 @@
           "key": "user_me",
           "path": "palette.user_me",
           "type": "string",
-          "description": "What you wrote.",
+          "description": "The colour of text you wrote.",
           "default": "\"12\""
         },
         {
           "key": "user_agent",
           "path": "palette.user_agent",
           "type": "string",
-          "description": "What an agent wrote.",
+          "description": "The colour of text an agent wrote.",
           "default": "\"13\""
         },
         {
           "key": "user_reviewer",
           "path": "palette.user_reviewer",
           "type": "string",
-          "description": "What a reviewer agent wrote.",
+          "description": "The colour of text a reviewer agent wrote.",
           "default": "\"14\""
         },
         {
           "key": "user_github",
           "path": "palette.user_github",
           "type": "string",
-          "description": "What came from GitHub.",
+          "description": "The colour of text that came from GitHub.",
           "default": "\"3\""
         },
         {
@@ -1666,7 +1666,7 @@
           "key": "highlight",
           "path": "palette.highlight",
           "type": "string",
-          "description": "What is picked out for you to act on, such as a search match.",
+          "description": "The colour of text picked out for you to act on, such as a search match.",
           "default": "\"208\""
         },
         {
@@ -1822,20 +1822,20 @@
     },
     {
       "path": "hooks",
-      "description": "Where komrad finds the scripts a workflow hangs on a moment in its agents' lives, and how long\neach may run.",
+      "description": "Sets where komrad finds the scripts a workflow hangs on a moment in its agents' lives, and how long\neach may run.",
       "settings": [
         {
           "key": "dir",
           "path": "hooks.dir",
           "type": "string",
-          "description": "Directory for hooks: one executable file per hook, named after the hook.\nA hook is a script or program komrad runs at a moment a workflow names it against, in the\nagent's own directory, with agent info in KOMRAD_AGENT as JSON and the moment in\nKOMRAD_TRIGGER. Default is ~/.config/komrad/hooks.",
+          "description": "The directory for hooks, which holds one executable file per hook, named after the hook.\nA hook is a script or program komrad runs at a moment a workflow names it against, in the\nagent's own directory, with agent info in KOMRAD_AGENT as JSON and the moment in\nKOMRAD_TRIGGER. Default is ~/.config/komrad/hooks.",
           "default": "\"\""
         },
         {
           "key": "timeout",
           "path": "hooks.timeout",
           "type": "string",
-          "description": "How long a hook may run before komrad stops it and counts it as failed, as a Go duration\nsuch as \"60s\" or \"5m\". A hook's own #KOMRAD timeout can ask for less, never more, and a\nhook that asks for \"none\" gets this. A duration komrad cannot read, or one that is not\npositive, is refused.",
+          "description": "The longest a hook may run before komrad stops it and counts it as failed, as a Go duration\nsuch as \"60s\" or \"5m\". A hook's own #KOMRAD timeout can ask for less, never more, and a\nhook that asks for \"none\" gets this. A duration komrad cannot read, or one that is not\npositive, is refused.",
           "default": "\"60s\""
         }
       ],
@@ -1843,7 +1843,7 @@
     },
     {
       "path": "worktrees",
-      "description": "Where a workflow's generated worktree provisioner creates its worktrees.",
+      "description": "Sets where a workflow's generated worktree provisioner creates its worktrees.",
       "settings": [
         {
           "key": "dir",
@@ -1857,7 +1857,7 @@
     },
     {
       "path": "git",
-      "description": "How komrad reads the git checkouts its agents work in.",
+      "description": "Controls how komrad reads the git checkouts its agents work in.",
       "settings": [
         {
           "key": "ssh_hosts",
@@ -1871,7 +1871,7 @@
     },
     {
       "path": "forge",
-      "description": "How komrad reads the review threads on the pull requests its agents open.",
+      "description": "Controls how komrad reads the review threads on the pull requests its agents open.",
       "settings": [
         {
           "key": "bot_names",
@@ -1934,20 +1934,20 @@
     },
     {
       "path": "mail",
-      "description": "How mail between agents is delivered.",
+      "description": "Controls how komrad delivers mail between agents.",
       "settings": [
         {
           "key": "delivery_deadline",
           "path": "mail.delivery_deadline",
           "type": "string",
-          "description": "How long mail stays deliverable, as a Go duration such as \"3h\" or \"45m\". Mail past\nit is neither delivered nor readable, and the row is kept as a record that it never\narrived. A duration komrad cannot read, or one that is not positive, is refused.",
+          "description": "The time mail stays deliverable, as a Go duration such as \"3h\" or \"45m\". Komrad neither\ndelivers nor shows mail past it, and keeps the row as a record that it never arrived. A duration komrad cannot read, or one that is not positive, is refused.",
           "default": "\"3h\""
         },
         {
           "key": "max_exchange",
           "path": "mail.max_exchange",
           "type": "integer",
-          "description": "How much mail two agents may write each other before a send between them is\nrefused. It counts the pair in both directions over every thread, so opening a new\nsubject is not a way around it. When a send is refused komrad marks a row for\nattention and tells the recipient its mail was stopped, so an exchange that is cut\noff does not leave the other side waiting on a reply that will never arrive. A\nnegative limit is refused.",
+          "description": "The amount of mail two agents may write each other before komrad refuses a send between\nthem. It counts the pair in both directions over every thread, so opening a new\nsubject is not a way around it. When a send is refused komrad marks a row for\nattention and tells the recipient its mail was stopped, so an exchange that is cut\noff does not leave the other side waiting on a reply that will never arrive. A\nnegative limit is refused.",
           "default": "40"
         }
       ],
@@ -1961,7 +1961,7 @@
           "key": "level",
           "path": "log.level",
           "type": "string",
-          "description": "How much is written, one of debug, info, warn, or error.",
+          "description": "The amount komrad writes, one of debug, info, warn, or error.",
           "default": "\"info\""
         }
       ],
@@ -1975,14 +1975,14 @@
           "key": "frames",
           "path": "debug.frames",
           "type": "boolean",
-          "description": "Whether the pane capture behind each reading of an agent is kept under the cache\ndirectory.",
+          "description": "Keeps the pane capture behind each reading of an agent under the cache directory when on.",
           "default": "false"
         },
         {
           "key": "frame_history",
           "path": "debug.frame_history",
           "type": "integer",
-          "description": "How many frames are kept for one agent before the oldest is dropped. A number at or\nbelow zero takes the default.",
+          "description": "The number of frames komrad keeps for one agent before it drops the oldest. A number at or\nbelow zero takes the default.",
           "default": "500"
         }
       ],
@@ -2000,7 +2000,7 @@
                   "key": "enabled",
                   "path": "debug.pprof.server.enabled",
                   "type": "boolean",
-                  "description": "Whether the process serves profiles, read when it starts.",
+                  "description": "Serves profiles from the process when on. Komrad reads it when the process starts.",
                   "default": "false"
                 },
                 {
@@ -2021,7 +2021,7 @@
                   "key": "enabled",
                   "path": "debug.pprof.panel.enabled",
                   "type": "boolean",
-                  "description": "Whether the process serves profiles, read when it starts.",
+                  "description": "Serves profiles from the process when on. Komrad reads it when the process starts.",
                   "default": "false"
                 },
                 {
@@ -2040,7 +2040,7 @@
     },
     {
       "path": "connection",
-      "description": "Which komrad this is: the database, the address, the tmux socket, the cache.",
+      "description": "Which komrad this is, by its database, its address, its tmux socket and its cache.",
       "settings": [
         {
           "key": "database_url",
@@ -2067,7 +2067,7 @@
           "key": "addr",
           "path": "connection.addr",
           "type": "string",
-          "description": "Where the server listens, and where the panel, the CLI and the MCP\nendpoint all reach it. Change it to run two komrads on one machine. It has to be a\nloopback host, since the api has no auth and its writes spawn agents.",
+          "description": "The address the server listens on, which the panel, the CLI and the MCP\nendpoint all reach it at. Change it to run two komrads on one machine. It has to be a\nloopback host, since the api has no auth and its writes spawn agents.",
           "default": "\"127.0.0.1:8787\""
         },
         {
@@ -2081,14 +2081,14 @@
           "key": "cache_dir",
           "path": "connection.cache_dir",
           "type": "string",
-          "description": "Where komrad keeps what it generates: the server log, the built-in scripts it\nwrites out on every start, and the temp files a harness passes a prompt through.\nLeft empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.\nEverything under it is komrad's to delete and rewrite, so nothing of yours belongs here.",
+          "description": "The directory where komrad keeps what it generates, such as the server log, the built-in\nscripts it writes out on every start, and the temp files a harness passes a prompt through.\nLeft empty this is ~/Library/Caches/komrad on a Mac and ~/.cache/komrad on Linux.\nEverything under it is komrad's to delete and rewrite, so nothing of yours belongs here.",
           "default": "\"\""
         },
         {
           "key": "state_dir",
           "path": "connection.state_dir",
           "type": "string",
-          "description": "Where komrad keeps its own files about agents: generated worktrees, released reviews\nand forge credentials.\nLeft empty this is ~/.local/state/komrad.\nIt holds credentials and is komrad's to manage, so nothing of yours belongs here.",
+          "description": "The directory where komrad keeps its own files about agents, such as generated worktrees,\nreleased reviews and forge credentials.\nLeft empty this is ~/.local/state/komrad.\nIt holds credentials and is komrad's to manage, so nothing of yours belongs here.",
           "default": "\"\""
         },
         {
@@ -2102,7 +2102,7 @@
           "key": "forward",
           "path": "connection.forward",
           "type": "array",
-          "description": "How to forward a port from this machine to the engine, as an argv, when ssh is not how you\nreach it. \"{{local_port}}\" and \"{{remote_port}}\" are replaced with the two ends. It should\nstay in the foreground for as long as the forward is wanted.",
+          "description": "The command, as an argv, that forwards a port from this machine to the engine when you do\nnot reach it through ssh. \"{{local_port}}\" and \"{{remote_port}}\" are replaced with the two ends. It should\nstay in the foreground for as long as the forward is wanted.",
           "default": "[]"
         },
         {

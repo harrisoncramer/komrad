@@ -201,7 +201,7 @@ func (p *Pane) ToggleExpanded(window Window) expansion {
 	path := file.Path()
 	expanding := !p.view.IsExpanded(path)
 
-	// Where the cursor is standing is taken before the rows are built again.
+	// The cursor's place is read before the rows are built again.
 	place, located := p.view.GetPlace(p.cursor)
 
 	p.view.setFileExpanded(path, expanding)

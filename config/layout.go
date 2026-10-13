@@ -18,7 +18,7 @@ const (
 	defaultTriageRows    = 3
 )
 
-// Where each region of the panel's layout can sit.
+// The places each region of the panel's layout can sit.
 const (
 	SidebarSideLeft  = "left"
 	SidebarSideRight = "right"
@@ -32,15 +32,15 @@ const (
 type Layout struct {
 	// Which side of the window the panel's sidebar sits on, "left" or "right".
 	SidebarSide string `mapstructure:"sidebar_side"`
-	// How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
+	// The width, in columns, the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
 	SidebarWidth int `mapstructure:"sidebar_width"`
 	// Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
 	InfoSide string `mapstructure:"info_side"`
-	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
+	// The height the info pane opens at, either a share of the stage's height below one or a whole number of rows.
 	InfoHeight float64 `mapstructure:"info_height"`
-	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
+	// The number of lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height. Once the details hold the keys they grow past this to show the whole record, as far as the sidebar allows.
 	DetailsHeight float64 `mapstructure:"details_height"`
-	// How many tasks the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A task is drawn as its writer with its reviewers under it, and the zone never draws fewer rows than it has slots. Zero turns the zone off.
+	// The number of tasks the triage zone at the top of the agents list draws, the agents most in need of you, the most urgent first. A task is drawn as its writer with its reviewers under it, and the zone never draws fewer rows than it has slots. Zero turns the zone off.
 	TriageRows int `mapstructure:"triage_rows"`
 }
 

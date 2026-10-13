@@ -12,7 +12,7 @@ import (
 	"charm.land/glamour/v2/ansi"
 )
 
-// What the review says while there is no patch to render, which the sidebar's head says as well.
+// The words the review shows while there is no patch to render, which the sidebar's head shows as well.
 const (
 	reviewLoadingWord = "loading the diff…"
 	reviewEmptyWord   = "nothing changed in this worktree"

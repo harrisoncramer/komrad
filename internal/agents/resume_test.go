@@ -235,8 +235,8 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		require.Len(t, fakeHarness.Launches, 1)
 		require.Empty(t, fakeHarness.Launches[0].Prompt)
 
-		// What a Codex agent does on the way back in: the fresh conversation it started is
-		// matched to its rollout file, and the panel adopts that id as the agent's own.
+		// On the way back in, a Codex agent's fresh conversation matches its rollout file, and the
+		// panel adopts that id as the agent's own.
 		const learned = "9a1c7f10-2b3d-4e5f-8a9b-0c1d2e3f4a5b"
 		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, learned))
 		require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateIdle))
