@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"komrad/internal/agenterr"
 	"komrad/internal/fail"
-	"komrad/internal/logging"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -118,7 +116,7 @@ type ReleaseParams struct {
 	Said string
 }
 
-// Release lets go of an agent, mailing it what happened only when the hold cut a turn short.
+// Release mails a held agent what happened when the hold cut a turn short, then lets it go.
 func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore.Agent, error) {
 	agent, err := h.get(ctx, params.AgentID)
 	if err != nil {
@@ -129,23 +127,22 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore
 		return nil, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
 	}
 
-	released, err := h.agents.Release(ctx, agent.ID)
-	if err != nil {
-		return nil, err
-	}
-	if !released {
-		return nil, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
-	}
-
 	if agent.Hold.MidTurn && params.Said != "" {
 		if _, err := h.mailSender.SendMail(ctx, mail.SendMailParams{
 			From:      params.ByAgentID,
 			ToAgentID: agent.ID,
 			Body:      params.Said,
 		}); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "released a held agent without telling it what changed",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			return nil, fmt.Errorf("failed to mail %q what changed while it was held: %w", agent.Name, err)
 		}
+	}
+
+	released, err := h.agents.Release(ctx, agent.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !released {
+		return nil, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
 	}
 
 	return h.get(ctx, params.AgentID)

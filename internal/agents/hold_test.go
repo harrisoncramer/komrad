@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"komrad/internal/harnesstest"
 	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock/clocktest"
 
@@ -338,27 +340,35 @@ func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
 	assert.True(t, held.Hold.MidTurn, "so letting go has a turn to carry on with")
 }
 
-// TestReleaseLetsGoWhenTheBoxRefuses covers the box that will not take the words.
-func TestReleaseLetsGoWhenTheBoxRefuses(t *testing.T) {
+// TestReleaseKeepsTheHoldWhenTheMailIsRefused covers a release whose word could not reach the agent.
+func TestReleaseKeepsTheHoldWhenTheMailIsRefused(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
-	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, harnesstest.NewActivityObserver(
-		harness.ActivityWorking,
-		harness.ActivityIdle,
-	))
+	holder := NewHolder(NewHolderParams{
+		Agents:     st.Agents,
+		MailSender: mailRefuser{},
+		Settler: settlerOver(&harnesstest.Channel{}, harnesstest.NewActivityObserver(
+			harness.ActivityWorking,
+			harness.ActivityIdle,
+		)),
+	})
 
 	_, err := holder.Hold(t.Context(), HoldParams{AgentID: agent.ID})
 	require.NoError(t, err)
 
-	channel.RefuseSend = true
+	_, err = holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID, Said: "carry on"})
+	require.ErrorIs(t, err, mail.ErrMailboxFull)
 
-	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID, Said: "carry on"})
+	stored, err := st.Agents.GetByID(t.Context(), agent.ID)
 	require.NoError(t, err)
+	assert.True(t, stored.Hold.IsHeld(), "an agent let go without the word would carry on as if nothing changed")
+}
 
-	assert.Nil(t, released.Hold.At, "a hold nobody can end would strand the agent")
-	assert.Empty(t, channel.Sent)
+type mailRefuser struct{}
+
+func (mailRefuser) SendMail(context.Context, mail.SendMailParams) (*mailstore.Mail, error) {
+	return nil, mail.ErrMailboxFull
 }
 
 // TestReleasingInSilenceLetsGoOfAnInterruptedAgent covers a release asking for nothing to be said.
