@@ -491,7 +491,7 @@ func newStatusCheck(id, name string, state pullrequestv1.StatusCheckState, concl
 		Name:       name,
 		State:      state,
 		Conclusion: conclusion,
-		Passed:     isPassing(state, conclusion),
+		Passed:     fixturePassed(state, conclusion),
 	}
 }
 
@@ -500,13 +500,13 @@ func newStatusCheckStep(name string, state pullrequestv1.StatusCheckState, concl
 		Name:       name,
 		State:      state,
 		Conclusion: conclusion,
-		Passed:     isPassing(state, conclusion),
+		Passed:     fixturePassed(state, conclusion),
 		StartedAt:  xptr.Ptr(startedAt),
 		FinishedAt: xptr.Ptr(finishedAt),
 	}
 }
 
-func isPassing(state pullrequestv1.StatusCheckState, conclusion string) bool {
+func fixturePassed(state pullrequestv1.StatusCheckState, conclusion string) bool {
 	return state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED && forge.IsPassingConclusion(strings.ToLower(conclusion))
 }
 

@@ -45,7 +45,7 @@ func decidingStatusChecks(checks []StatusCheck) []StatusCheck {
 
 // IsFailing says whether a check finished without passing.
 func (c StatusCheck) IsFailing() bool {
-	return c.State == StatusCheckStateCompleted && !c.IsPassing()
+	return c.State == StatusCheckStateCompleted && !IsPassingConclusion(c.Conclusion)
 }
 
 // IsPassing says whether a check completed with a conclusion that counts as passed.
