@@ -138,7 +138,14 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore
 	}
 
 	if agent.Hold.MidTurn && params.Said != "" {
-		h.tell(ctx, *agent, params)
+		if _, err := h.mailSender.SendMail(ctx, mail.SendMailParams{
+			From:      params.ByAgentID,
+			ToAgentID: agent.ID,
+			Body:      params.Said,
+		}); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "released a held agent without telling it what changed",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+		}
 	}
 
 	return h.get(ctx, params.AgentID)
@@ -154,16 +161,4 @@ func (h *Holder) get(ctx context.Context, agentID string) (*agentstore.Agent, er
 	}
 
 	return agent, nil
-}
-
-// tell mails a released agent what changed while it was held, reporting rather than failing over.
-func (h *Holder) tell(ctx context.Context, agent agentstore.Agent, params ReleaseParams) {
-	if _, err := h.mailSender.SendMail(ctx, mail.SendMailParams{
-		From:      params.ByAgentID,
-		ToAgentID: agent.ID,
-		Body:      params.Said,
-	}); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "released a held agent without telling it what changed",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-	}
 }
