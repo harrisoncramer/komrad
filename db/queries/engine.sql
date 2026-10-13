@@ -32,7 +32,8 @@ INSERT INTO engine_access(
     email)
 VALUES (
     sqlc.arg(engine_id),
-    sqlc.arg(email))
+    LOWER(
+        sqlc.arg(email)))
 ON CONFLICT (
     engine_id,
     email)
@@ -41,4 +42,4 @@ ON CONFLICT (
 -- name: RevokeEngineAccess :execrows
 DELETE FROM engine_access
 WHERE engine_id = sqlc.arg(engine_id)
-    AND email = sqlc.arg(email);
+    AND email = LOWER(sqlc.arg(email));

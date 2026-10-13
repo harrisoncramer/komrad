@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/mail"
-	"strings"
 
 	"komrad/db"
 	"komrad/db/models"
@@ -23,12 +22,11 @@ type GrantAccessParams struct {
 
 // GrantAccess lets the person with an email into an engine, connecting as the database's owner.
 func GrantAccess(ctx context.Context, params GrantAccessParams) error {
-	email, err := normalizeEmail(params.Email)
-	if err != nil {
+	if err := requireEmail(params.Email); err != nil {
 		return err
 	}
 
-	pool, err := openCurrentOwner(ctx, params.OwnerURL)
+	pool, err := openMigratedOwner(ctx, params.OwnerURL)
 	if err != nil {
 		return err
 	}
@@ -41,8 +39,8 @@ func GrantAccess(ctx context.Context, params GrantAccessParams) error {
 		return err
 	}
 
-	if err := queries.GrantEngineAccess(ctx, models.GrantEngineAccessParams{EngineID: engineID, Email: email}); err != nil {
-		return fmt.Errorf("failed to grant %s access to engine %s: %w", email, params.Engine, err)
+	if err := queries.GrantEngineAccess(ctx, models.GrantEngineAccessParams{EngineID: engineID, Email: params.Email}); err != nil {
+		return fmt.Errorf("failed to grant %s access to engine %s: %w", params.Email, params.Engine, err)
 	}
 
 	return nil
@@ -57,12 +55,11 @@ type RevokeAccessParams struct {
 
 // RevokeAccess turns the person with an email away from an engine, along with the account their sign-in recorded.
 func RevokeAccess(ctx context.Context, params RevokeAccessParams) error {
-	email, err := normalizeEmail(params.Email)
-	if err != nil {
+	if err := requireEmail(params.Email); err != nil {
 		return err
 	}
 
-	pool, err := openCurrentOwner(ctx, params.OwnerURL)
+	pool, err := openMigratedOwner(ctx, params.OwnerURL)
 	if err != nil {
 		return err
 	}
@@ -75,25 +72,25 @@ func RevokeAccess(ctx context.Context, params RevokeAccessParams) error {
 		return err
 	}
 
-	revoked, err := queries.RevokeEngineAccess(ctx, models.RevokeEngineAccessParams{EngineID: engineID, Email: email})
+	revoked, err := queries.RevokeEngineAccess(ctx, models.RevokeEngineAccessParams{EngineID: engineID, Email: params.Email})
 	if err != nil {
-		return fmt.Errorf("failed to revoke %s's access to engine %s: %w", email, params.Engine, err)
+		return fmt.Errorf("failed to revoke %s's access to engine %s: %w", params.Email, params.Engine, err)
 	}
 
 	if revoked == 0 {
-		return ErrNotFound.Saying("%s has no access to engine %s", email, params.Engine)
+		return ErrNotFound.Saying("%s has no access to engine %s", params.Email, params.Engine)
 	}
 
 	return nil
 }
 
-func normalizeEmail(email string) (string, error) {
+func requireEmail(email string) error {
 	address, err := mail.ParseAddress(email)
 	if err != nil || address.Name != "" || address.Address != email {
-		return "", ErrNotAnEmail.Saying("%q is not an email address", email)
+		return ErrNotAnEmail.Saying("%q is not an email address", email)
 	}
 
-	return strings.ToLower(email), nil
+	return nil
 }
 
 func getEngineID(ctx context.Context, queries *models.Queries, name string) (string, error) {

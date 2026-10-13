@@ -84,7 +84,8 @@ INSERT INTO engine_access(
     email)
 VALUES (
     $1,
-    $2)
+    LOWER(
+        $2))
 ON CONFLICT (
     engine_id,
     email)
@@ -104,7 +105,7 @@ func (q *Queries) GrantEngineAccess(ctx context.Context, arg GrantEngineAccessPa
 const revokeEngineAccess = `-- name: RevokeEngineAccess :execrows
 DELETE FROM engine_access
 WHERE engine_id = $1
-    AND email = $2
+    AND email = LOWER($2)
 `
 
 type RevokeEngineAccessParams struct {
