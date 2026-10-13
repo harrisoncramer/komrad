@@ -303,8 +303,8 @@ func TestUpdateSchedule(t *testing.T) {
 	}
 }
 
-// TestScheduleWorkflowMustExist pins that a schedule pointing at a missing workflow is
-// refused when it is written rather than every time it fires.
+// TestScheduleWorkflowMustExist pins that komrad refuses a schedule pointing at a missing workflow
+// when it is written, not every time it fires.
 func TestScheduleWorkflowMustExist(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -509,7 +509,7 @@ func TestOrchestratorSchedule(t *testing.T) {
 
 const missingWorkflowID = "00000000-0000-0000-0000-0000000000ff"
 
-// TestRestoreSchedule pins which archived schedules come back and which are refused while what
+// TestRestoreSchedule pins which archived schedules come back and which komrad refuses while what
 // they fire at is gone.
 func TestRestoreSchedule(t *testing.T) {
 	tests := []struct {
@@ -600,7 +600,7 @@ func TestRestoreSchedule(t *testing.T) {
 	}
 }
 
-// TestDeleteSchedule pins that only an archived schedule is deleted.
+// TestDeleteSchedule pins that komrad deletes only an archived schedule.
 func TestDeleteSchedule(t *testing.T) {
 	tests := []struct {
 		name    string

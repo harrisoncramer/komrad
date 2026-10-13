@@ -80,7 +80,7 @@ func parse(line string) entry {
 	return record
 }
 
-// clock is the time of day the line was written, or blanks when it carries no readable timestamp.
+// clock is the time of day of the line, or blanks when it carries no readable timestamp.
 func (e entry) clock() string {
 	stamp, err := time.Parse(time.RFC3339Nano, e.text("timestamp"))
 	if err != nil {
@@ -90,7 +90,7 @@ func (e entry) clock() string {
 	return stamp.Format(time.TimeOnly)
 }
 
-// level is the line's severity and the tone it is rendered in.
+// level is the line's severity and the tone it renders in.
 func (e entry) level() (string, paint.Tone) {
 	severity := strings.ToUpper(e.text("severity_text"))
 	switch {

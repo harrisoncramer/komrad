@@ -1432,7 +1432,7 @@ func newRowHandler(rows *fakeRowReader) agentv1komrad.AgentServiceAdapter {
 	})}
 }
 
-// newRecordedService is the handler over fakes of every agent service, recording what each was asked.
+// newRecordedService is the handler over fakes of every agent service, recording what each one received.
 func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recordingAgentServices) {
 	t.Helper()
 

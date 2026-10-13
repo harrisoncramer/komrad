@@ -28,7 +28,7 @@ const liveRegionLines = 30
 
 const waitingRegionLines = 8
 
-// composerSearchLines is how far up the composer marker is looked for, which reaches past the
+// composerSearchLines is how far up the search looks for the composer marker, which reaches past the
 // menus Codex draws under the composer.
 const composerSearchLines = 30
 

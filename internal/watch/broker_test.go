@@ -212,8 +212,8 @@ func TestARenderReadBeforeASnapshotSkipsItsWatcher(t *testing.T) {
 	assert.Empty(t, drain(second), "the stale read predates the second watcher's snapshot")
 }
 
-// TestASlowWatcherIsDropped pins that a watcher that stops reading is closed rather than
-// holding the render loop.
+// TestASlowWatcherIsDropped pins that the broker closes a watcher that stops reading rather than
+// letting it hold the render loop.
 func TestASlowWatcherIsDropped(t *testing.T) {
 	stores := newStores()
 	broker := newTestBroker(t, stores)
@@ -335,8 +335,8 @@ func TestABrokerNeverStartedStillCloses(t *testing.T) {
 	require.ErrorIs(t, err, ErrClosed)
 }
 
-// TestHearReadsTheTableAndTheKey pins the payload a trigger raises being split at its one
-// space, with a table no listing is keyed by and a payload with no key both ignored.
+// TestHearReadsTheTableAndTheKey pins the broker splitting the payload a trigger raises at its one
+// space, and ignoring both a table no listing is keyed by and a payload with no key.
 func TestHearReadsTheTableAndTheKey(t *testing.T) {
 	stores := newStores()
 	broker := newTestBroker(t, stores)

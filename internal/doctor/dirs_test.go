@@ -55,7 +55,7 @@ func presentDir(files, subdirs []string, writable bool) dirState {
 	}
 }
 
-// TestHooksCheck covers the reason this check exists: a hooks directory that has been moved
+// TestHooksCheck covers the reason this check exists: a hooks directory someone moved
 // away lists no hooks rather than saying it is gone, so an empty list and a missing directory
 // look the same everywhere else in komrad.
 func TestHooksCheck(t *testing.T) {
@@ -115,8 +115,8 @@ func TestHooksCheck(t *testing.T) {
 	}
 }
 
-// TestHooksCheckReportsThePathAsTyped covers that a configured path is reported the way it was
-// written.
+// TestHooksCheckReportsThePathAsTyped covers that the check reports a configured path the way
+// the user wrote it.
 func TestHooksCheckReportsThePathAsTyped(t *testing.T) {
 	typed := "~/hooks"
 	resolved := config.ExpandHome(typed)
@@ -196,9 +196,9 @@ func TestWorktreesCheck(t *testing.T) {
 	}
 }
 
-// TestOrphanedWorktreesCheck covers the one thing nothing else in komrad notices: a worktree
-// is removed when the agent holding it is deleted and never otherwise, so a directory whose
-// agent has gone stays on disk with nobody reporting it.
+// TestOrphanedWorktreesCheck covers the one thing nothing else in komrad notices: komrad
+// removes a worktree when it deletes the agent holding it and never otherwise, so a directory
+// whose agent has gone stays on disk with nobody reporting it.
 func TestOrphanedWorktreesCheck(t *testing.T) {
 	const shared = "/home/u/worktrees"
 

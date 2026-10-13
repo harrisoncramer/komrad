@@ -22,8 +22,8 @@ const (
 	agentsArchived
 )
 
-// archivedAgents is the agents view on its archived kind: the cursor in the archived agents and
-// how they are ordered.
+// archivedAgents is the agents view on its archived kind, holding the cursor in the archived agents
+// and how they sort.
 type archivedAgents struct {
 	rowCursor
 	sort  tabsState
@@ -61,7 +61,7 @@ func (a *agentsScreen) kindsFit(m *model) bool {
 	return m.listFitsTabs(a.listParams(m))
 }
 
-// kindsSwitch holds the agents view on its kind while any of its agents are selected.
+// kindsSwitch holds the agents view on its kind while the user selects any of its agents.
 func (a *agentsScreen) kindsSwitch(*model) bool {
 	return !a.selected.isActive()
 }
@@ -128,7 +128,7 @@ func (a *archivedAgents) kindsFit(m *model) bool {
 	return m.listFitsTabs(a.listParams(m))
 }
 
-// kindsSwitch holds the archived agents on their kind while any of them are selected.
+// kindsSwitch holds the archived agents on their kind while the user selects any of them.
 func (a *archivedAgents) kindsSwitch(*model) bool {
 	return !a.selected.isActive()
 }
@@ -376,7 +376,7 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 	)
 }
 
-// confirmDeleteWorkflow asks before an archived workflow is deleted for good.
+// confirmDeleteWorkflow asks before it deletes an archived workflow for good.
 func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 	form, confirmed := deleteWorkflowForm(workflow, m.listing.archivedCount(workflow.ID), fixedKeys())
 
@@ -494,7 +494,8 @@ func (a *archivedAgents) column() columnSpec {
 	}
 }
 
-// renameable is the row under the cursor when it can be renamed: an agent, a task, or a live workflow's folder.
+// renameable is the row under the cursor when the user can rename it, which is an agent, a task, or a
+// live workflow's folder.
 func (a *archivedAgents) renameable(m *model) (agentRow, bool) {
 	if a.selected.isActive() {
 		return agentRow{}, false

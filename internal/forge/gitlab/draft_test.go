@@ -11,7 +11,7 @@ import (
 )
 
 // TestSetDraft covers marking a merge request each way, leaving one alone that already stands
-// that way, and refusing a finished one before GitLab is asked to change it.
+// that way, and refusing a finished one before asking GitLab to change it.
 func TestSetDraft(t *testing.T) {
 	t.Parallel()
 

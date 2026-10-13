@@ -11,7 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// flashFieldStyle marks a row or a field that has just been copied.
+// flashFieldStyle marks a row or a field the user has just copied.
 func flashFieldStyle(palette paint.Palette) lipgloss.Style {
 	return lipgloss.NewStyle().Background(palette.Color(paint.TonePrimary)).Foreground(palette.Color(paint.ToneInverse))
 }
@@ -114,8 +114,8 @@ func (m *model) detailsNotices(held details, budget int) []string {
 	return rendered
 }
 
-// noticeLines is one notice as it is rendered: the glyph the row carries, then the sentence wrapped
-// under it in the column the glyph left, cut off at a number of lines when given one.
+// noticeLines renders one notice, putting the glyph the row carries first, wrapping the sentence
+// under it in the column the glyph left, and cutting off at a number of lines when given one.
 func (m *model) noticeLines(n notice, most int) []string {
 	const indent = "    "
 
@@ -172,7 +172,7 @@ func (m *model) lineWidth() int {
 	return lineWidthOf(m.paneWidth())
 }
 
-// lineWidthOf is the column a line of prose is wrapped into, in a pane of the width given.
+// lineWidthOf is the column a line of prose wraps at, in a pane of the width given.
 func lineWidthOf(pane int) int {
 	if pane <= 0 {
 		return nameWidth

@@ -20,7 +20,7 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// NewEventHandler builds the handler the router is given for pull request changes.
+// NewEventHandler builds the handler the router calls for pull request changes.
 func NewEventHandler() events.HandlerFor[Change] {
 	return handleChange
 }

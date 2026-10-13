@@ -95,7 +95,7 @@ func TestIntegrationASnapshotIsRefusedPartWayThroughAMerge(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestIntegrationReleaseDropsTheRef covers letting a round go, which leaves its commit to be collected.
+// TestIntegrationReleaseDropsTheRef covers letting a round go, which leaves its commit for collection.
 func TestIntegrationReleaseDropsTheRef(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc C() {}\n")

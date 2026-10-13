@@ -8,8 +8,8 @@ import (
 )
 
 // Checkout answers every question about a checkout with what the test put in it, remembering
-// which base it was asked to resolve, which repositories it was asked to prune and how often it
-// was asked to refresh the index.
+// which base callers asked it to resolve, which repositories they asked it to prune and how often
+// they asked it to refresh the index.
 type Checkout struct {
 	Changes      git.Changes
 	State        git.TreeState

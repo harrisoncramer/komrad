@@ -127,8 +127,8 @@ func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 	return value, nil
 }
 
-// enumSchema describes an enum by the names its values are spelled with, which connect's JSON
-// codec takes in place of the number.
+// enumSchema describes an enum by the names of its values, which connect's JSON
+// codec accepts in place of the number.
 func enumSchema(values protoreflect.EnumDescriptor) map[string]any {
 	return map[string]any{"type": "string", "enum": rpcapi.EnumNames(values)}
 }

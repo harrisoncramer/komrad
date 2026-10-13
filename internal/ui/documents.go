@@ -159,7 +159,7 @@ func (d *documentsScreen) kindsFocused(*model) *bool {
 	return &d.kindFocus
 }
 
-// kindsSwitch holds the view on its documents while one is being edited.
+// kindsSwitch holds the view on its documents while the user edits one.
 func (d *documentsScreen) kindsSwitch(*model) bool {
 	return d.editing == nil
 }

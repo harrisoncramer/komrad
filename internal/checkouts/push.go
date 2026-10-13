@@ -234,7 +234,7 @@ func (s *Service) refuseFinished(ctx context.Context, target checkoutTarget, sta
 	return true, nil
 }
 
-// pushedMail is what a writer is told once its branch on origin was overwritten from the panel.
+// pushedMail tells a writer that the panel overwrote its branch on origin.
 func pushedMail(pushed pushed) string {
 	return fmt.Sprintf("Your branch %s was force-pushed to origin from the panel, replacing the copy origin held. "+
 		"Origin's copy now matches your checkout at %s.\n\n"+

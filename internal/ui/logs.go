@@ -31,7 +31,7 @@ type logsScreen struct {
 	agentID string
 	// taskID is the task whose runs the screen lists, empty for an agent's logs.
 	taskID string
-	// openedFrom is the view the screen was opened from.
+	// openedFrom is the view that opened the screen.
 	openedFrom screen
 	sources    []*logv1.LogSource
 	listed     bool

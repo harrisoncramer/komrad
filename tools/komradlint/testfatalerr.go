@@ -53,7 +53,7 @@ func newTestFatalErr(settings config.FatalErrConfig) (*analysis.Analyzer, error)
 	}, nil
 }
 
-// reportTestFatalErrs reports every t.Fatal or t.Error in a file that is handed an error.
+// reportTestFatalErrs reports every t.Fatal or t.Error in a file that receives an error.
 func reportTestFatalErrs(pass *analysis.Pass, file *ast.File) {
 	ast.Inspect(file, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)

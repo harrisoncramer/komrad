@@ -26,14 +26,14 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// answered is what a caller is served when a handler returns this failure.
+// answered is what a caller receives when a handler returns this failure.
 func answered(err error, failure string) error {
 	_, served := rpcerr.Answer[emptypb.Empty](nil, rpcerr.From(err, failure))
 
 	return served
 }
 
-// TestWrapCodes pins the code every sentinel a handler can receive is answered with.
+// TestWrapCodes pins the code that answers every sentinel a handler can receive.
 func TestWrapCodes(t *testing.T) {
 	tests := []struct {
 		sentinel error
@@ -126,7 +126,7 @@ func TestFromNil(t *testing.T) {
 	assert.Nil(t, rpcerr.From(nil, "failed to do the thing"))
 }
 
-// TestWrapCarriesTwoSentinels covers an error holding two sentinels at once, where the order they were wrapped in decides the code.
+// TestWrapCarriesTwoSentinels covers an error holding two sentinels at once, where the order of wrapping decides the code.
 func TestWrapCarriesTwoSentinels(t *testing.T) {
 	err := answered(fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
 		"failed to create agent",

@@ -221,8 +221,8 @@ func TestIntegrationEveryInstalledHookHasASubcommand(t *testing.T) {
 	}
 }
 
-// TestIntegrationMailPostamble pins the wording an agent is handed for each mix of senders, so it knows
-// whether it is the panel operator or another agent talking.
+// TestIntegrationMailPostamble pins the wording an agent receives for each mix of senders, so it knows
+// whether the panel operator or another agent is talking.
 func TestIntegrationMailPostamble(t *testing.T) {
 	tests := []struct {
 		name string

@@ -92,7 +92,7 @@ func gitMenu(m *model, task panel.Task) submenu {
 	}
 }
 
-// worktreeRefusal is why a task's worktree cannot be acted on, nil when it can.
+// worktreeRefusal returns the reason a task's worktree refuses an action, or nil when it allows one.
 func worktreeRefusal(l listing, task panel.Task) error {
 	switch {
 	case task.ArchivedAt != nil:
@@ -104,7 +104,7 @@ func worktreeRefusal(l listing, task panel.Task) error {
 	return nil
 }
 
-// pushRefusal is why a task's branch cannot be pushed, nil when it can.
+// pushRefusal returns the reason a task's branch refuses a push, or nil when it allows one.
 func pushRefusal(l listing, task panel.Task) error {
 	if err := worktreeRefusal(l, task); err != nil {
 		return err
@@ -116,8 +116,8 @@ func pushRefusal(l listing, task panel.Task) error {
 	return nil
 }
 
-// mergeRebaseRefusal is why a task's pull request cannot be merged and its worktree rebased,
-// nil when both can run.
+// mergeRebaseRefusal returns the reason a task refuses a merge or a rebase, or nil when it allows
+// both.
 func mergeRebaseRefusal(l listing, task panel.Task) error {
 	if err := pushRefusal(l, task); err != nil {
 		return err
@@ -126,8 +126,8 @@ func mergeRebaseRefusal(l listing, task panel.Task) error {
 	return openPullRequestRefusal(task)
 }
 
-// abortRefusal is why what a task's worktree has part-way through cannot be aborted, nil when it
-// can.
+// abortRefusal returns the reason a task refuses an abort, or nil when its worktree has an
+// operation to abort.
 func abortRefusal(l listing, task panel.Task) error {
 	if err := worktreeRefusal(l, task); err != nil {
 		return err
@@ -229,7 +229,7 @@ func (l listing) hasOwnWorktree(task panel.Task) bool {
 	return l.workflows[index].Worktree.Enabled
 }
 
-// findGitTask is the task the menu was opened on, as the list holds it now.
+// findGitTask returns the task the menu opened on, as the list holds it now.
 func (m *model) findGitTask(taskID string) (panel.Task, bool) {
 	// The list may have moved under the open menu.
 	task, ok := m.listing.tasks[taskID]

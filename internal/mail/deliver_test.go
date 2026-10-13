@@ -186,7 +186,7 @@ func TestDeliver(t *testing.T) {
 	}
 }
 
-// TestDeliverNudgesAnAgentMidTurnThatNoPassHasConfirmed pins that a thinking row nothing has seen lately is typed at rather than trusted.
+// TestDeliverNudgesAnAgentMidTurnThatNoPassHasConfirmed pins that komrad types at a thinking row nothing has seen lately rather than trusting it.
 func TestDeliverNudgesAnAgentMidTurnThatNoPassHasConfirmed(t *testing.T) {
 	st := storetest.Open(t)
 	terminal := tmuxtest.NewFake()
@@ -317,7 +317,7 @@ func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 	assert.Equal(t, "ERROR", written[1]["severity_text"])
 }
 
-// TestDeliverReportsExpiredMail pins that mail nobody read before its deadline is reported rather than dropped in silence.
+// TestDeliverReportsExpiredMail pins that komrad reports mail nobody read before its deadline rather than dropping it in silence.
 func TestDeliverReportsExpiredMail(t *testing.T) {
 	st := storetest.Open(t)
 	terminal := tmuxtest.NewFake()

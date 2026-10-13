@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestStripDim covers what is left of a captured region once the dim a CLI drew is taken out.
+// TestStripDim covers what remains of a captured region once StripDim removes the dim a CLI drew.
 func TestStripDim(t *testing.T) {
 	tests := []struct {
 		name  string

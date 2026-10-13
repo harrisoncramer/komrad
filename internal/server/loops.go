@@ -15,16 +15,16 @@ const (
 	cwdSyncInterval        = 15 * time.Second
 	// pullRequestSyncInterval is how often the pull request sync asks which repositories are due.
 	pullRequestSyncInterval = 5 * time.Second
-	// commentSyncInterval is how often the forges are asked whether review comments moved.
+	// commentSyncInterval is how often komrad asks the forges whether review comments moved.
 	commentSyncInterval = time.Minute
-	// worktreeSizeInterval is how often a few worktree directories are walked for their size.
+	// worktreeSizeInterval is how often komrad walks a few worktree directories for their size.
 	worktreeSizeInterval = 30 * time.Second
-	// forgeRotationInterval is how often rotating forge tokens are checked for being near expiry.
+	// forgeRotationInterval is how often komrad checks rotating forge tokens for nearing expiry.
 	forgeRotationInterval = time.Hour
 )
 
 // localLoopFloor is the least time between the starts of two runs of a loop that reads only this
-// machine when the second was woken.
+// machine when a wake triggered the second.
 const localLoopFloor = time.Second
 
 // cwdSyncFloor is the least time between the starts of two cwd sync runs when the second was
@@ -32,7 +32,7 @@ const localLoopFloor = time.Second
 const cwdSyncFloor = 5 * time.Second
 
 // pullRequestSyncFloor is the least time between the starts of two pull request sync runs when
-// the second was woken.
+// a wake triggered the second.
 const pullRequestSyncFloor = 5 * time.Second
 
 const (

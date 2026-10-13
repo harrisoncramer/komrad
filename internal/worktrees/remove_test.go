@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRemoveTakesAnUnownedDirectoryAndPrunesIt covers a readable worktree nothing answers
-// for going and its repository being pruned.
+// TestRemoveTakesAnUnownedDirectoryAndPrunesIt covers komrad removing a readable worktree no task
+// owns and pruning its repository.
 func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
 	fixture := newFixture(t)
 	dir := fixture.cutUnowned(t)
@@ -29,8 +29,8 @@ func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
 	assert.Equal(t, []string{fixture.repo}, fixture.git.Pruned)
 }
 
-// TestRemoveTakesAGoneRegistrationWithoutPruning covers a directory git cannot read going
-// without a prune being attempted against a repository that is not there.
+// TestRemoveTakesAGoneRegistrationWithoutPruning covers komrad removing a directory git cannot
+// read without attempting a prune against a repository that is not there.
 func TestRemoveTakesAGoneRegistrationWithoutPruning(t *testing.T) {
 	fixture := newFixture(t)
 	dir := filepath.Join(fixture.shared, "bbbb")

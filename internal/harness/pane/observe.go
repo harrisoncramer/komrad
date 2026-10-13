@@ -32,7 +32,7 @@ func (p *Pane) IsRunning(_ context.Context, target harness.Target) (bool, error)
 
 // DoesFrameShowHarness reports whether a pane holds a frame its harness reads as one of its own.
 func (p *Pane) DoesFrameShowHarness(pane, harnessID string) bool {
-	// A harness komrad cannot look up is taken at its word.
+	// Komrad takes a harness it cannot look up at its word.
 	input, err := p.readFrame(harnessID, p.terminal.CapturePane(pane))
 	if err != nil {
 		return true

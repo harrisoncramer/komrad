@@ -53,7 +53,7 @@ func (d *drafts) claimWarning(agentID string) bool {
 	return true
 }
 
-// forget drops what was remembered of an agent's box.
+// forget drops what the drafts remembered of an agent's box.
 func (d *drafts) forget(agentID string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()

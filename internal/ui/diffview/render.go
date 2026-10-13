@@ -20,7 +20,7 @@ const GutterWidth = 13
 
 const tabWidth = 4
 
-// Cursor is how the row the reader is standing on is rendered, dim while the keys are somewhere
+// Cursor is how the row the reader is standing on renders, dim while the keys are somewhere
 // else.
 type Cursor int
 
@@ -313,7 +313,7 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	return v.glyphs.Spell(glyph.ThreadRead), style
 }
 
-// markStyleFor is the colour a thread is rendered in, which says who opened it.
+// markStyleFor is the colour a thread renders in, which says who opened it.
 func markStyleFor(thread *agentv1.ReviewThread) lipgloss.Style {
 	if thread.GetMirrorsForge() {
 		return paint.Panel.Style(ForgeTone)
@@ -400,8 +400,8 @@ func renderTokens(line styledLine, fallback string, background color.Color, foun
 			style = style.Foreground(lipgloss.Color(current.foreground))
 		}
 
-		// A match is painted on its own background, so a token is cut at the edges of one and
-		// its pieces rendered separately.
+		// A match is painted on its own background, so the token is cut at the edges of a match
+		// and each piece renders separately.
 		for _, piece := range cutBy(current.text, at, found) {
 			pieceStyle := style
 			if piece.matched {

@@ -20,28 +20,28 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// interruptSettleFor is how long the agent is given to act on the interrupt keys before the
+// interruptSettleFor is how long the agent has to act on the interrupt keys before the
 // mail lands behind them.
 const interruptSettleFor = 200 * time.Millisecond
 
-// ErrReviewThreadNotFound is answered when a thread id names nothing.
+// ErrReviewThreadNotFound answers a thread id that names nothing.
 var ErrReviewThreadNotFound = fail.NotFound("review thread not found")
 
-// ErrReviewMessageNotFound is answered when a message id names nothing.
+// ErrReviewMessageNotFound answers a message id that names nothing.
 var ErrReviewMessageNotFound = fail.NotFound("review message not found")
 
-// ErrReviewNotYours is answered when a caller writes to or claims another agent's review, which
+// ErrReviewNotYours answers a caller that writes to or claims another agent's review, which
 // it may still read.
 var ErrReviewNotYours = fail.Denied("that review belongs to another agent")
 
-// ErrReviewHumanOnly is answered when an agent asks for something only the person reviewing
+// ErrReviewHumanOnly answers an agent that asks for something only the person reviewing
 // does, such as opening, deleting, or releasing a review.
 var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
 
-// errReviewThreadNoFile is answered when a comment names no file.
+// errReviewThreadNoFile answers a comment that names no file.
 var errReviewThreadNoFile = fail.InvalidArgument("a comment must be on a file")
 
-// errReviewThreadHeld is answered when a reply is written in a forge thread whose first comment is
+// errReviewThreadHeld answers a reply written in a forge thread whose first comment is
 // still held and not yet accepted, which the agent could not read the reply alongside.
 var errReviewThreadHeld = fail.Precondition("this thread opens with a held forge comment, so accept it before replying")
 

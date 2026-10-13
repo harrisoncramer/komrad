@@ -239,7 +239,7 @@ func TestWatchReopensAfterAClose(t *testing.T) {
 }
 
 // TestWatchGivesUpOnASilentStream covers a stream nothing arrives on, which a dead tunnel is:
-// it is taken for lost and opened again.
+// the client takes it for lost and opens it again.
 func TestWatchGivesUpOnASilentStream(t *testing.T) {
 	t.Parallel()
 

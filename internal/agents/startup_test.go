@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewAgentWatchesTheCLIStartUp pins a CLI that dies on launch being marked failed with what it printed.
+// TestNewAgentWatchesTheCLIStartUp pins komrad marking a CLI that dies on launch failed, with what it printed.
 func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 	type test struct {
 		name       string

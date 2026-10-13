@@ -310,7 +310,7 @@ func TestLaunchAgentWorkerLaunchesOneAgentPerFiring(t *testing.T) {
 }
 
 // TestLaunchAgentWorkerMailsAnOrchestrator pins what an orchestrator schedule's firing sends, and
-// that one whose orchestrator is gone is skipped with the reason on its run.
+// that komrad skips one whose orchestrator is gone, with the reason on its run.
 func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 	tests := []struct {
 		name       string

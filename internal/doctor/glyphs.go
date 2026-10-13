@@ -55,7 +55,7 @@ func configuredGlyphs(env Env) glyph.Set {
 	return set
 }
 
-// newGlyphFontCheck reports whether a Nerd Font is installed to draw the panel's icons.
+// newGlyphFontCheck reports whether a Nerd Font is installed to render the panel's icons.
 func newGlyphFontCheck() Check {
 	return Check{
 		Name:        "glyph font",

@@ -16,7 +16,7 @@ type screenReader interface {
 	GetLastScreen(ctx context.Context, agentID string) (*screenstore.Screen, error)
 }
 
-// GetLastScreen returns the last screen an agent's pane was saved showing.
+// GetLastScreen returns the last screen komrad saved from an agent's pane.
 func (s *Handler) GetLastScreen(ctx context.Context, req *agentv1.GetLastScreenRequest) (*agentv1.GetLastScreenResponse, *fail.Error) {
 	screen, err := s.screens.GetLastScreen(ctx, req.GetAgentId())
 	if err != nil {

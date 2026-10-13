@@ -7,8 +7,8 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// lineIndex is the diff's lines looked at from the three directions a thread can be placed from:
-// the line a traced position names, its line on the old side, and its text.
+// lineIndex looks at the diff's lines from the three directions that can place a thread: the line
+// a traced position names, its line on the old side, and its text.
 type lineIndex struct {
 	byNew       map[newKey]int
 	byOld       map[oldKey]int
@@ -88,7 +88,7 @@ func quoteOf(thread *agentv1.ReviewThread) string {
 	return lines[0]
 }
 
-// doesQuoteMatch reports whether a rendered line reads the way a thread's quote was stored, under
+// doesQuoteMatch reports whether a rendered line reads the way the thread stored its quote, under
 // either spelling.
 func doesQuoteMatch(rendered, stored string) bool {
 	return rendered == stored || strippedQuote(rendered) == stored

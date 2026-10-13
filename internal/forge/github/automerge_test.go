@@ -10,8 +10,8 @@ import (
 )
 
 // TestSetAutoMerge covers queueing a pull request held to the head the person saw, withdrawing
-// it, leaving one alone that already stands that way, and refusing a finished one before GitHub
-// is asked to change it.
+// it, leaving one alone that already stands that way, and refusing a finished one before
+// asking GitHub to change it.
 func TestSetAutoMerge(t *testing.T) {
 	t.Parallel()
 

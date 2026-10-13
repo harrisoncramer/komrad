@@ -157,7 +157,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 	case owner != nil:
 		return &Adoption{Agent: owner, Existing: true}, nil
 	default:
-		// The checkout is somebody else's work, so the provisioner is turned off to stop the
+		// The checkout is somebody else's work, so komrad turns the provisioner off, which stops the
 		// workflow making a second one and, on delete, removing a directory komrad never created.
 		create.Dir = trees.holder
 		create.ProvisionEnabled = xptr.Ptr(false)

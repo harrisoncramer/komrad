@@ -12,7 +12,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 )
 
-// toolRoles maps what an agent was launched to do onto the annotation the tools declare.
+// toolRoles maps what komrad launched an agent to do onto the annotation the tools declare.
 var toolRoles = map[agentstore.Role]annotationv1.Role{
 	agentstore.RoleWriter:       annotationv1.Role_ROLE_WRITER,
 	agentstore.RoleReviewer:     annotationv1.Role_ROLE_REVIEWER,

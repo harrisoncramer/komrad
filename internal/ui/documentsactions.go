@@ -194,7 +194,7 @@ func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) tea.Cmd {
 	return d.actions(m).dispatchTop(m, key.String())
 }
 
-// isDiffRendered reports whether a write's change is rendered as a diff beside the list.
+// isDiffRendered reports whether the panel renders a write's change as a diff beside the list.
 func (d *documentsScreen) isDiffRendered(m *model) bool {
 	if _, ok := m.screenColumnSplit(); !ok {
 		return false

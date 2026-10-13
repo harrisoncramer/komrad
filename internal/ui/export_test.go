@@ -36,7 +36,7 @@ import (
 
 var updateGoldens = flag.Bool("update", false, "rewrite the golden files")
 
-// FormFieldDraftPath is the file a form field is written out to for the editor.
+// FormFieldDraftPath is the file the panel writes a form field out to for the editor.
 var FormFieldDraftPath = formFieldDraftPath
 
 // Panel is the panel's model driven the way the running program drives it.
@@ -256,7 +256,7 @@ func (p *Panel) View() string {
 	return p.model.render()
 }
 
-// SidebarCols is the columns the list is rendered in beside a block at the default sidebar width.
+// SidebarCols is the columns the panel renders the list in beside a block at the default sidebar width.
 const SidebarCols = config.DefaultSidebarWidth - dividerCols
 
 // Inside is the columns left of the frame the panel renders inside its gutter and edge, and how wide
@@ -356,7 +356,7 @@ func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
 	}
 }
 
-// NewMessageEdited is what the editor hands back for the review comment being written once it quits.
+// NewMessageEdited is what the editor hands back for the review comment once it quits.
 func NewMessageEdited(agentID, body string) tea.Msg {
 	return messageEditedMsg{agentID: agentID, body: body}
 }
@@ -433,7 +433,7 @@ func (p *Panel) ReadRespawnPanes() []string {
 	return p.tmux.respawnPanes
 }
 
-// ReadRespawnDirs is the directory each respawn was rooted at, in the order it was asked for.
+// ReadRespawnDirs is the directory each respawn rooted at, in the order the panel asked for them.
 func (p *Panel) ReadRespawnDirs() []string {
 	return p.tmux.respawnDirs
 }

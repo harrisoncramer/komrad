@@ -18,7 +18,7 @@ var hostAliases = map[string]string{
 	"altssh.gitlab.com": "gitlab.com",
 }
 
-// RemoteURL is a git remote taken apart into the pieces a forge repository is named by.
+// RemoteURL is a git remote split into the pieces that name a forge repository.
 type RemoteURL struct {
 	// Raw is the remote exactly as git had it, such as git@github.com:harrisoncramer/komrad.git.
 	Raw string
@@ -33,7 +33,7 @@ type RemoteURL struct {
 	Path string
 }
 
-// IsZero says whether nothing was parsed into the remote.
+// IsZero says whether parsing put nothing into the remote.
 func (r RemoteURL) IsZero() bool {
 	return r == RemoteURL{}
 }

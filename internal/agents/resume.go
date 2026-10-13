@@ -212,8 +212,8 @@ func (s *ResumeService) takeInFlight(id string) (func(), bool) {
 }
 
 func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) error {
-	// Answers written at once each ask for the same reviewer to be woken, and a second caller
-	// getting this far is what would open a second window for one agent.
+	// Answers written at once each ask to wake the same reviewer, and a second caller
+	// getting this far would open a second window for one agent.
 	done, taken := s.takeInFlight(agent.ID)
 	if !taken {
 		return fmt.Errorf("%w: %q is already being resumed", agenterr.ErrResumeInFlight, agent.Name)
@@ -225,8 +225,8 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		return err
 	}
 
-	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
-	// the interrupted turn is stamped here rather than left to the reconciler.
+	// Killing the tmux server takes every pane and the reconciler's view of them at once, so
+	// this code stamps the interrupted turn rather than leaving it to the reconciler.
 	if agent.InterruptedAt == nil && agent.State.IsTurnUnfinished() {
 		at := time.Now()
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
@@ -258,7 +258,7 @@ func (s *ResumeService) relaunch(ctx context.Context, params relaunchParams) err
 		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", agenterr.ErrAgentArchived, agent.Name)
 	}
 
-	// Read before the resume starts overwriting the copy it was handed, which the restore below
+	// Read this before the resume starts overwriting the copy it received, which the restore below
 	// puts back.
 	prior := agent.State
 

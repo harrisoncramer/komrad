@@ -242,7 +242,7 @@ func (h *documentHistory) changeRows(width int) []string {
 	return []string{fitRow(indent+dimStyle().Render("no change to the text"), width)}
 }
 
-// documentTypeFrom is a type's context as it is rendered beside the list.
+// documentTypeFrom is a type's context as the panel renders it beside the list.
 func documentTypeFrom(documentType *agentv1.DocumentType) string {
 	if documentType == nil {
 		return renderDocument("Document types", "_no document types yet_", "", "")

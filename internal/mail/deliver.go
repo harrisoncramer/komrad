@@ -22,7 +22,7 @@ const (
 	DeliveryLater
 )
 
-// nudgeRetryAfter is how long a nudge stands before unread mail is taken as evidence it went
+// nudgeRetryAfter is how long a nudge stands before unread mail counts as evidence it went
 // nowhere.
 const nudgeRetryAfter = time.Minute
 

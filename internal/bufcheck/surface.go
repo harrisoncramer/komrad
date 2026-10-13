@@ -11,9 +11,9 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-// checkSurfaces holds every method to the one way of saying who reaches it: the annotation is
-// present, a tool never lacks a command, a surface that is on has a name and a description, a
-// tool names the roles it is served to, and a surface that is off has a reason.
+// checkSurfaces holds every method to the one way of saying who reaches it: the annotation
+// exists, a tool never lacks a command, a surface that is on has a name and a description, a
+// tool names the roles it serves, and a surface that is off has a reason.
 func checkSurfaces(
 	_ context.Context,
 	responseWriter check.ResponseWriter,

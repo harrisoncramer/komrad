@@ -65,8 +65,8 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 	}, forwardedEnv(t, args))
 }
 
-// TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath covers the panel being told which config
-// file to read: it loads the file itself rather than being handed what this process parsed,
+// TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath covers telling the panel which config
+// file to read: the panel loads the file itself rather than receiving what this process parsed,
 // so a path left off here is a panel reading the default while the caller named another.
 func TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {

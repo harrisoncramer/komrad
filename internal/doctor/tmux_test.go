@@ -255,7 +255,7 @@ func tmuxServers(answers map[string]string) Env {
 	}
 }
 
-// TestTmuxShellCheck covers what the option can say and which server was asked; the shell
+// TestTmuxShellCheck covers what the option can say and which server answered; the shell
 // decides whether an agent launches at all, so a wrong answer here sends someone looking at
 // the wrong thing.
 func TestTmuxShellCheck(t *testing.T) {

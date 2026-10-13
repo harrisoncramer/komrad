@@ -768,8 +768,8 @@ func TestRestore(t *testing.T) {
 	}
 }
 
-// TestRestoreCeiling pins a restore being refused where a create would be, or the archive is
-// a way around the limit.
+// TestRestoreCeiling pins that komrad refuses a restore where it would refuse a create, or the
+// archive is a way around the limit.
 func TestRestoreCeiling(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
@@ -1131,7 +1131,7 @@ func TestRestoreAgentsRefusesTheWholeBatch(t *testing.T) {
 	assert.NotNil(t, agentByID(t, st, archived.ID).ArchivedAt, "the agent stays in the archive")
 }
 
-// TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling pins the whole batch being counted at
+// TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling pins that komrad counts the whole batch at
 // once.
 func TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling(t *testing.T) {
 	st := newStore(t)
@@ -1236,7 +1236,7 @@ func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 	}
 }
 
-// TestRestoreAgentsPassesOverTheLiveOnes pins live agents being skipped.
+// TestRestoreAgentsPassesOverTheLiveOnes pins that a restore skips live agents.
 func TestRestoreAgentsPassesOverTheLiveOnes(t *testing.T) {
 	st := newStore(t)
 	manager := st.agentServiceCapped(tmuxtest.NewFake(), &fakeLifecycle{}, 2)

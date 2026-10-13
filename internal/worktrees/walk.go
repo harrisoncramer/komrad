@@ -82,7 +82,7 @@ func (l *links) calculateShare(total int64) int64 {
 }
 
 // measure is the disk taken by every file under a directory and by each top-level entry,
-// following no symlink and skipping whatever vanishes while it is walked.
+// following no symlink and skipping whatever vanishes while it walks.
 func measure(ctx context.Context, dir string) (*measurement, error) {
 	tops, err := readDir(ctx, dir)
 	if err != nil {

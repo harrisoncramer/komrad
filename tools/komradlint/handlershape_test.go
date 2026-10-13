@@ -19,8 +19,8 @@ func TestHandlerShape(t *testing.T) {
 	analysistest.Run(t, analysistest.TestData(), analyzer, "handlers")
 }
 
-// TestHandlerShapeExcluded covers a package the rule was configured not to hold for, such as the
-// adapter itself, whose own signature is the one it checks for.
+// TestHandlerShapeExcluded covers a package the config exempts from the rule, such as the
+// adapter itself, whose own signature is the one the rule checks for.
 func TestHandlerShapeExcluded(t *testing.T) {
 	analyzer, err := newHandlerShape(config.HandlerShapeConfig{Exclude: []string{"testdata/src/handlersskip/"}})
 	if err != nil {

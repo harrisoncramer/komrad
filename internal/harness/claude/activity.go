@@ -46,7 +46,7 @@ const (
 
 var promptMarkers = []string{chatPrompt, shellPrompt}
 
-// boxSearchLines is how far up the rule opening the input box is looked for.
+// boxSearchLines is how far up the search looks for the rule that opens the input box.
 const boxSearchLines = 30
 
 const waitingRegionLines = 6
@@ -222,7 +222,7 @@ func statusRegion(lines []string, box inputBox, boxed bool) []string {
 }
 
 // doesFrameShowWaiting reads the footer under a question, or the cursor beside its options when
-// the footer has been pushed off the pane.
+// the pane has pushed the footer off.
 func doesFrameShowWaiting(lines []string, boxed bool) bool {
 	if boxed {
 		return false

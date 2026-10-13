@@ -57,7 +57,7 @@ func (r *reviewScreen) forgeThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	return thread, true
 }
 
-// forgeName is what the forge the pull request is open on is called.
+// forgeName is the name of the forge that holds the pull request.
 func (r reviewScreen) forgeName(m *model) string {
 	pullRequest, ok := r.currentPullRequest(m)
 	if !ok {
@@ -67,7 +67,7 @@ func (r reviewScreen) forgeName(m *model) string {
 	return forge.Name(pullRequest.Forge)
 }
 
-// forgeRef names the pull request a reply is posted on.
+// forgeRef names the pull request that receives a reply.
 func (r reviewScreen) forgeRef(m *model) string {
 	pullRequest, ok := r.currentPullRequest(m)
 	if !ok {

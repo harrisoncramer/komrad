@@ -19,8 +19,8 @@ func TestSentinelKind(t *testing.T) {
 	analysistest.Run(t, analysistest.TestData(), analyzer, "domain")
 }
 
-// TestSentinelKindExcluded covers a package the rule was configured not to hold for, whose
-// sentinels are left alone.
+// TestSentinelKindExcluded covers a package the config exempts from the rule, whose
+// sentinels the rule leaves alone.
 func TestSentinelKindExcluded(t *testing.T) {
 	analyzer, err := newSentinelKind(config.SentinelKindConfig{Exclude: []string{"testdata/src/panelside/"}})
 	if err != nil {

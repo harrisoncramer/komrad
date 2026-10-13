@@ -214,8 +214,8 @@ func appendToLog(t *testing.T, path, body string) {
 	require.NoError(t, f.Close())
 }
 
-// TestSyncReportsAnUnknownHarness pins that an agent nothing can index is reported rather than
-// skipped.
+// TestSyncReportsAnUnknownHarness pins that sync reports an agent nothing can index rather than
+// skipping it.
 func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
@@ -371,7 +371,7 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 	assert.Empty(t, found.Matches, "and search no longer answers with the conversation that went")
 }
 
-// TestSyncKeepsEarlierConversations pins that a second conversation is copied alongside the first
+// TestSyncKeepsEarlierConversations pins that sync copies a second conversation alongside the first
 // rather than replacing it.
 func TestSyncKeepsEarlierConversations(t *testing.T) {
 	st := storetest.Open(t)
@@ -505,7 +505,7 @@ func TestArchivedAgentSyncsUntilItsLogDrains(t *testing.T) {
 }
 
 // TestArchivedAgentWithNothingNewFallsOut pins that an agent archived with its log already read
-// leaves the listing rather than being globbed and opened on every pass forever.
+// leaves the listing rather than komrad globbing and opening it on every pass forever.
 func TestArchivedAgentWithNothingNewFallsOut(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()
@@ -556,7 +556,7 @@ func (ar archivingReader) ReadLog(path string, offset int64) (harness.LogRead, e
 	return read, err
 }
 
-// TestArchiveDuringReadKeepsFinalTurns pins that turns written while a pass reads are synced once the agent is archived.
+// TestArchiveDuringReadKeepsFinalTurns pins that sync picks up turns written while a pass reads once the agent archives.
 func TestArchiveDuringReadKeepsFinalTurns(t *testing.T) {
 	st := storetest.Open(t)
 	ctx := t.Context()

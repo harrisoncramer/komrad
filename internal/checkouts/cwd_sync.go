@@ -27,7 +27,7 @@ const cwdLookTimeout = 5 * time.Second
 // baseFetchTimeout bounds the fetch of a base a merge has moved.
 const baseFetchTimeout = 30 * time.Second
 
-// cwdLookWorkers is how many directories are looked at together.
+// cwdLookWorkers is how many directories komrad looks at together.
 const cwdLookWorkers = 8
 
 const standingReadTimeout = 30 * time.Second
@@ -75,7 +75,7 @@ type CwdSyncer struct {
 	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex
 	// walked is the base tip and newest unlanded round each task's landing was last walked at,
-	// so a walk that would find what the last one did is skipped.
+	// so komrad skips a walk that would find what the last one did.
 	walked map[string]string
 	// fetched is the merge each task's base was last fetched for.
 	fetched map[string]time.Time

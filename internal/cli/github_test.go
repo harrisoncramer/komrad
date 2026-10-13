@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRequireGitHubRemote covers which checkouts the token is answered for, an agent working on
-// another forge getting a refusal naming it rather than a gh that fails later.
+// TestRequireGitHubRemote covers which checkouts get the token, with an agent on another forge getting
+// a refusal that names it rather than a gh that fails later.
 func TestRequireGitHubRemote(t *testing.T) {
 	tests := []struct {
 		name     string

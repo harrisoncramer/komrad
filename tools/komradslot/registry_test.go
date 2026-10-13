@@ -95,7 +95,7 @@ func deadPID(t *testing.T) int {
 	return proc.Pid
 }
 
-// TestClaim covers which slot a checkout is handed.
+// TestClaim covers which slot a checkout receives.
 func TestClaim(t *testing.T) {
 	t.Parallel()
 
@@ -313,7 +313,7 @@ func downCalls(n int) []string {
 	}
 }
 
-// TestReap covers which slots are taken down and which are left alone.
+// TestReap covers which slots the reaper takes down and which it leaves alone.
 func TestReap(t *testing.T) {
 	t.Parallel()
 
@@ -429,7 +429,7 @@ func TestReapKeepsGoingPastASlotItCannotDrop(t *testing.T) {
 	}
 }
 
-// TestClaimMarksTheSlotUsed keeps a slot that is claimed from being reaped as idle.
+// TestClaimMarksTheSlotUsed keeps the reaper from treating a claimed slot as idle.
 func TestClaimMarksTheSlotUsed(t *testing.T) {
 	t.Parallel()
 

@@ -28,7 +28,7 @@ func openNewTask(m *model, workflow *panel.Workflow) tea.Cmd {
 	return openTaskForm(m, *workflow, &values)
 }
 
-// taskPrefill is the new-task form as the workflow leaves it, before anything is typed.
+// taskPrefill is the new-task form as the workflow leaves it, before the user types anything.
 func taskPrefill(workflow panel.Workflow) taskFormValues {
 	return taskFormValues{
 		Harness:  workflow.Harness,
@@ -127,7 +127,7 @@ func openAdopt(m *model, workflow *panel.Workflow) tea.Cmd {
 	return openAdoptForm(m, *workflow, &values)
 }
 
-// adoptPrefill is the adopt form as the workflow leaves it, before anything is typed.
+// adoptPrefill is the adopt form as the workflow leaves it, before the user types anything.
 func adoptPrefill(workflow panel.Workflow) adoptFormValues {
 	return adoptFormValues{Harness: workflow.Harness}
 }

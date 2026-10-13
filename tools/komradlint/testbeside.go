@@ -17,7 +17,7 @@ const testBesideDoc = "Checks that a test file sits beside the source file it is
 // testSuffixes are the endings a test file may carry after its source file's name.
 var testSuffixes = []string{"_internal", "_integration", "_fuzz"}
 
-// newTestBeside builds the rule that a test file has the source file it is named for beside it.
+// newTestBeside builds the rule that a test file sits beside the source file it names.
 func newTestBeside(settings config.BesideConfig) (*analysis.Analyzer, error) {
 	excluded, err := compile(settings.Exclude)
 	if err != nil {

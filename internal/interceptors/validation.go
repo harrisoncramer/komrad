@@ -16,7 +16,7 @@ type validationInterceptor struct {
 	validator protovalidate.Validator
 }
 
-// NewValidation builds the interceptor, failing when a compiled-in constraint is malformed.
+// NewValidation builds the interceptor, and fails when a compiled-in constraint is malformed.
 func NewValidation() (connect.Interceptor, error) {
 	validator, err := protovalidate.New()
 	if err != nil {

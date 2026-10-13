@@ -96,7 +96,7 @@ func (w Worktree) Fate() Fate {
 // Listing is every directory under the worktree directories.
 type Listing struct {
 	Worktrees []Worktree
-	// Dirs are the directories that were walked.
+	// Dirs are the directories the walk covered.
 	Dirs []string
 	// UnreadableDirs are those of them that could not be read.
 	UnreadableDirs []string
@@ -419,7 +419,7 @@ func describeTask(summary taskstore.Summary) *Task {
 }
 
 // unclaimed drops the directories a delete has claimed: those whose task is being deleted, and
-// those nothing answers for that an unfinished delete names.
+// those no task owns that an unfinished delete names.
 func unclaimed(listing []Worktree, claimed []string) []Worktree {
 	return xslice.Filter(unnamed(listing, claimed), func(worktree Worktree) bool {
 		return worktree.Fate() != FateDeleting

@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDeleteIfEmpty covers which workflows the check destroys: a workflow it never touched, or
-// one still holding an agent, is left exactly where it was, and only an archived one with
-// nothing left in it is destroyed.
+// TestDeleteIfEmpty covers which workflows the check destroys: it leaves a workflow it never
+// touched, or one still holding an agent, exactly where it was, and destroys only an archived
+// one with nothing left in it.
 func TestDeleteIfEmpty(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -36,8 +36,8 @@ func TestKeyBy(t *testing.T) {
 	}
 }
 
-// TestUniqueBy pins that only the first element under each key survives, in the order they
-// were given.
+// TestUniqueBy pins that only the first element under each key survives, in the order the
+// caller gave them.
 func TestUniqueBy(t *testing.T) {
 	tests := []struct {
 		name string

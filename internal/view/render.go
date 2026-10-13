@@ -179,7 +179,7 @@ func (d renderer) text(cell Cell) string {
 	return d.glyphs.Spell(cell.Glyph)
 }
 
-// nameStyle is the lettering a name is rendered in: its weight from where it sits in the tree, its
+// nameStyle is the lettering a name renders in: its weight from where it sits in the tree, its
 // foreground from what it has to say.
 func nameStyle(palette paint.Palette, weight weight, emphasis emphasis) lipgloss.Style {
 	style := lipgloss.NewStyle()

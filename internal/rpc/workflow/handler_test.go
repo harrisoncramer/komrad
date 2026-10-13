@@ -102,7 +102,7 @@ func (f *fakeWorkflows) DeleteWorkflow(_ context.Context, id string) error {
 	return f.err
 }
 
-// ListWorkflows records which set was asked for and answers as many stored workflows as the limit allows.
+// ListWorkflows records which set the caller asked for and answers as many stored workflows as the limit allows.
 func (f *fakeWorkflows) ListWorkflows(_ context.Context, params agents.ListWorkflowsParams) ([]workflowstore.Workflow, error) {
 	f.listed = append(f.listed, params.Archived)
 	if f.err != nil {

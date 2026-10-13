@@ -36,8 +36,8 @@ func measuring(t *testing.T, glyphColumns int) Env {
 	}
 }
 
-// TestGlyphCheckSkipsWithNoTerminal covers the failure most likely to bite, which is doctor
-// being piped or run by a test and a cursor query hanging on something that answers nothing.
+// TestGlyphCheckSkipsWithNoTerminal covers the failure most likely to bite: someone pipes doctor
+// or a test runs it, and a cursor query hangs on something that answers nothing.
 func TestGlyphCheckSkipsWithNoTerminal(t *testing.T) {
 	result := newTerminalGlyphCheck().Run(t.Context(), Env{})
 
@@ -422,7 +422,7 @@ func TestColorCheckQuotesColorterm(t *testing.T) {
 	assert.Contains(t, newTerminalColorCheck().Run(t.Context(), env).Detail, "truecolor")
 }
 
-// TestTerminalCheck covers that inside tmux the terminal is asked of tmux, since tmux sets
+// TestTerminalCheck covers that inside tmux the check asks tmux for the terminal, since tmux sets
 // TERM_PROGRAM to its own name in every pane it runs.
 func TestTerminalCheck(t *testing.T) {
 	tests := []struct {

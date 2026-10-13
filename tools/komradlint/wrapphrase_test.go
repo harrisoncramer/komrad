@@ -19,7 +19,7 @@ func TestWrapPhrase(t *testing.T) {
 	analysistest.Run(t, analysistest.TestData(), analyzer, "wrap")
 }
 
-// TestWrapPhraseExcluded covers a package the rule was configured not to hold for, whose
+// TestWrapPhraseExcluded covers a package the config exempts from the rule, whose
 // messages open with whatever prefix they like.
 func TestWrapPhraseExcluded(t *testing.T) {
 	analyzer, err := newWrapPhrase(config.WrapPhraseConfig{Exclude: []string{"testdata/src/wrapkeyed/"}})

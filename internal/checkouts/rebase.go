@@ -276,15 +276,15 @@ func (s *Service) tellRebaseCut(ctx context.Context, target checkoutTarget, fail
 	}
 }
 
-// cutMail is what an agent is told when it was stopped for a rebase that did not go through.
+// cutMail tells an agent that komrad stopped it for a rebase that did not go through.
 func cutMail(failure string) string {
 	return fmt.Sprintf("Your turn was interrupted so that your worktree could be rebased onto its base, "+
 		"but the rebase failed before it finished: %s\n\n"+
 		"Check git status before carrying on, then pick up where you were.", failure)
 }
 
-// rebaseMail is what the agent is told, which turns on what became of its branch rather than on
-// what was asked for.
+// rebaseMail tells the agent the outcome, which turns on what became of its branch rather than on
+// what the person asked for.
 func rebaseMail(result RebaseResult) string {
 	var body string
 	switch {

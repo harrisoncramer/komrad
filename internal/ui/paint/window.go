@@ -9,7 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// Unbounded is the room a list is given when the pane it is rendered into has no measured height.
+// Unbounded is the room a list gets when the pane it renders into has no measured height.
 const Unbounded = -1
 
 // window is the rows of a block a pane shows and whether they are marked with the counts either

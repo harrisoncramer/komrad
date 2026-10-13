@@ -69,15 +69,15 @@ type View struct {
 
 	// placed is how each thread reached its row, by thread id.
 	placed map[string]placement
-	// files is the patch's files as they are rendered, an expanded one holding every line of itself
-	// rather than its hunks alone.
+	// files is the patch's files as the view renders them, an expanded one holding every line of
+	// itself rather than its hunks alone.
 	files []diff.File
-	// viewed is the files the person reviewing has read, by path, which are rendered collapsed.
+	// viewed is the files the person reviewing has read, by path, which render collapsed.
 	viewed map[string]bool
 	// expanded is the files the person reviewing has opened out, by path.
 	expanded map[string]bool
-	// whole is each file with every line of it rendered, built the first time it is asked for and
-	// kept.
+	// whole is each file with every line of it rendered, which the view builds the first time it is
+	// asked for and keeps.
 	whole map[string]*diff.File
 	// threads is what was last pinned, kept so collapsing a file can pin them again over the rows
 	// that rebuilding left.
@@ -88,7 +88,7 @@ type View struct {
 	narrowed bool
 	// headless leaves out each file's header.
 	headless bool
-	// glyphs is what the marks on threads and files are rendered in.
+	// glyphs is what renders the marks on threads and files.
 	glyphs glyph.Set
 }
 
@@ -98,7 +98,7 @@ func (v *View) SetHeadless(headless bool) {
 	v.rerender()
 }
 
-// SetGlyphs says what the marks on threads and files are rendered in.
+// SetGlyphs says what renders the marks on threads and files.
 func (v *View) SetGlyphs(glyphs glyph.Set) {
 	v.glyphs = glyphs
 }
@@ -218,13 +218,13 @@ func (v *View) SetFileViewed(path string, viewed bool) {
 	v.SetViewed(v.viewed)
 }
 
-// IsViewed reports whether a file is rendered collapsed.
+// IsViewed reports whether a file renders collapsed.
 func (v *View) IsViewed(path string) bool {
 	return v.viewed[path]
 }
 
-// SetExpanded says which files are rendered whole, for a view built again over a patch the reader
-// had already opened files in.
+// SetExpanded says which files render whole, for a view built again over a patch the reader had
+// already opened files in.
 func (v *View) SetExpanded(paths map[string]bool) {
 	v.expanded = paths
 	if v.expanded == nil {
@@ -251,12 +251,12 @@ func (v *View) setFileExpanded(path string, expanded bool) {
 	v.rerender()
 }
 
-// IsExpanded reports whether a file is rendered whole.
+// IsExpanded reports whether a file renders whole.
 func (v *View) IsExpanded(path string) bool {
 	return v.expanded[path]
 }
 
-// GetExpanded is the files rendered whole, by path, as a copy a view built later can be given.
+// GetExpanded returns the files that render whole, by path, as a copy a later view can take.
 func (v *View) GetExpanded() map[string]bool {
 	return maps.Clone(v.expanded)
 }
@@ -284,8 +284,8 @@ func (v *View) wholeFile(path string) (*diff.File, bool) {
 	return &expanded, true
 }
 
-// rerender builds the files as they are rendered, flattens them into rows, and puts the threads back
-// on the rows they now belong to.
+// rerender builds the files as the view renders them, flattens them into rows, and puts the threads
+// back on the rows they now belong to.
 func (v *View) rerender() {
 	for index := range v.patch.Files {
 		path := v.patch.Files[index].Path()
@@ -327,7 +327,7 @@ func (v *View) CountViewedFiles() (int, int) {
 	return read, len(v.files)
 }
 
-// isCollapsed reports whether a file is rendered as its header alone.
+// isCollapsed reports whether a file renders as its header alone.
 func (v *View) isCollapsed(fileIndex int) bool {
 	if fileIndex < 0 || fileIndex >= len(v.files) {
 		return false
@@ -336,7 +336,7 @@ func (v *View) isCollapsed(fileIndex int) bool {
 	return v.viewed[v.files[fileIndex].Path()]
 }
 
-// Len is how many rows the diff was flattened into.
+// Len is how many rows the view flattened the diff into.
 func (v *View) Len() int {
 	return len(v.rows)
 }
@@ -376,7 +376,7 @@ func (v *View) GetThreadAt(y int) (*agentv1.ReviewThread, bool) {
 	return thread, ok
 }
 
-// HasMoved reports whether a thread is rendered anywhere other than the line it was written
+// HasMoved reports whether a thread renders anywhere other than the line it was written
 // against.
 func (v *View) HasMoved(thread *agentv1.ReviewThread) bool {
 	where, ok := v.placed[thread.GetId()]
@@ -384,7 +384,7 @@ func (v *View) HasMoved(thread *agentv1.ReviewThread) bool {
 	return !ok || where != pinned
 }
 
-// IsGhosted reports whether a thread is rendered on a line whose content has changed under it,
+// IsGhosted reports whether a thread renders on a line whose content has changed under it,
 // which is the one thing about placement the gutter has to say out loud: the line beside the
 // mark is not the line the conversation is about.
 func (v *View) IsGhosted(thread *agentv1.ReviewThread) bool {
@@ -473,7 +473,7 @@ func (v *View) locate(place Place) (int, bool) {
 		return v.fileHeader(place.FilePath)
 	}
 
-	// A file read since the cursor was last in it is rendered as its header alone.
+	// A file read since the cursor was last in it renders as its header alone.
 	if y, ok := v.collapsedHeader(place.FilePath); ok {
 		return y, true
 	}
@@ -513,8 +513,8 @@ func (v *View) collapsedHeader(path string) (int, bool) {
 	return v.fileHeader(path)
 }
 
-// fileHeader is the row a file is named on, which every file has whether it is rendered collapsed
-// or whole.
+// fileHeader is the row that names a file, which every file has whether it renders collapsed or
+// whole.
 func (v *View) fileHeader(path string) (int, bool) {
 	if path == "" {
 		return 0, false
@@ -689,7 +689,7 @@ func (v *View) getKey(y int) (anchorKey, bool) {
 	}, true
 }
 
-// GetRenderedFileAt is the file the cursor is inside as it is rendered, header rows included.
+// GetRenderedFileAt returns the file the cursor is inside as it renders, header rows included.
 func (v *View) GetRenderedFileAt(y int) (diff.File, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.file < 0 {
@@ -818,7 +818,7 @@ func (v *View) nearestNewLine(y int) int {
 	return 1
 }
 
-// GetThreadRow is the row a thread is rendered on, false for one no row carries.
+// GetThreadRow is the row a thread renders on, false for one no row carries.
 func (v *View) GetThreadRow(id string) (int, bool) {
 	for y, thread := range v.pinned {
 		if thread.GetId() == id {

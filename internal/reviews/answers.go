@@ -9,18 +9,18 @@ import (
 	reviewstore "komrad/internal/store/review"
 )
 
-// errReviewAddressedByOwner is answered when anyone but the writer of the task a thread is on replies with addressed.
+// errReviewAddressedByOwner answers a reply with addressed from anyone but the writer of the task the thread is on.
 var errReviewAddressedByOwner = fail.Denied("only the writer of the task a comment is on can reply with addressed")
 
-// errReviewNothingAddressed is answered when an addressed reply comes while the worktree is unchanged since the thread was written.
+// errReviewNothingAddressed answers an addressed reply that comes while the worktree is unchanged since the thread was written.
 var errReviewNothingAddressed = fail.Precondition(
 	"your worktree holds the same tree this comment was written on, so there is no change to show; " +
 		"make the change first, or reply without addressed to push back or ask")
 
-// errReviewNoAnswerRound is answered when an addressed reply comes from an agent with no worktree to take a round of.
+// errReviewNoAnswerRound answers an addressed reply from an agent with no worktree to take a round of.
 var errReviewNoAnswerRound = fail.Precondition("you have no worktree to take a round of, so reply without addressed instead")
 
-// replyHint is what a plain reply is told when the worktree has moved since its thread was written.
+// replyHint is what a plain reply gets back when the worktree has moved since its thread was written.
 const replyHint = "Your worktree has changed since this comment was written. " +
 	"If that change answers it, reply again with addressed set so the reviewer can read " +
 	"exactly what answered it."

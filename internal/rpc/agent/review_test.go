@@ -409,7 +409,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 	}
 }
 
-// TestReleaseReviewPassesTheVerdict pins which verdict each wire value is released as.
+// TestReleaseReviewPassesTheVerdict pins which verdict the handler releases for each wire value.
 func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 	tests := []struct {
 		name        string

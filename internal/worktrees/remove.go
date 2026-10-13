@@ -153,8 +153,8 @@ func refuse(listing *Listing, rows []agentstore.AgentDir, dir string) (Refusal, 
 	return Refusal{}, false
 }
 
-// refuseRegistered is what keeps a readable directory from being taken by what its repository
-// has registered, false when nothing registered sits inside it.
+// refuseRegistered stops komrad taking a readable directory its repository has registered,
+// false when nothing registered sits inside it.
 func (r *Remover) refuseRegistered(ctx context.Context, worktree Worktree) (Refusal, bool) {
 	if !worktree.Readable {
 		return Refusal{}, false

@@ -25,7 +25,7 @@ func isBound(pressed string, keys []string) bool {
 	return true
 }
 
-// pastedLine is pasted text as it goes into a line of one row.
+// pastedLine is pasted text as it lands in a line of one row.
 func pastedLine(paste tea.PasteMsg) string {
 	return strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(paste.Content)
 }

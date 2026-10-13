@@ -18,7 +18,7 @@ const secretPackage = "komrad/internal/forge"
 // secretType is the type whose Expose method the rule watches.
 const secretType = "Secret"
 
-// newSecretExpose builds the rule that Expose is called only where the config allows.
+// newSecretExpose builds the rule that code calls Expose only where the config allows.
 func newSecretExpose(settings config.SecretExposeConfig) *analysis.Analyzer {
 	allowed := make(map[string]struct{}, len(settings.Allow))
 	for _, name := range settings.Allow {

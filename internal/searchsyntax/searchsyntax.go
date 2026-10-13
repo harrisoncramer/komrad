@@ -64,7 +64,7 @@ var Transcripts = Grammar{
 	},
 }
 
-// Agents is the grammar the agents list is filtered by.
+// Agents is the grammar that filters the agents list.
 var Agents = Grammar{
 	Keys: []Key{
 		{Name: KeyAgent},
@@ -84,7 +84,7 @@ var Agents = Grammar{
 	Strict: true,
 }
 
-// Documents is the grammar the documents list is filtered by.
+// Documents is the grammar that filters the documents list.
 var Documents = Grammar{
 	Keys: []Key{
 		{Name: KeyAgent},
@@ -98,7 +98,7 @@ var Documents = Grammar{
 	Strict: true,
 }
 
-// Schedules is the grammar the schedules list is filtered by.
+// Schedules is the grammar that filters the schedules list.
 var Schedules = Grammar{
 	Keys: []Key{
 		{Name: KeyName},

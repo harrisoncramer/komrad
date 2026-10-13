@@ -692,7 +692,7 @@ timeout = "60s"
 
 # Sets where a workflow's generated worktree provisioner creates its worktrees.
 [worktrees]
-# Directory generated worktrees are created under, one subdirectory per agent.
+# Directory that holds generated worktrees, one subdirectory per agent.
 # Left empty this is ~/.local/state/komrad/worktrees.
 dir = ""
 
@@ -708,10 +708,10 @@ ssh_hosts = []
 [forge]
 # Logins whose review comments are left out of the threads mirrored onto an agent, such as a
 # CI bot or a code review App. A thread whose every comment is from one of them is not mirrored
-# at all. Names are matched without regard to case.
+# at all. Names ignore case.
 bot_names           = []
-# The largest check log komrad keeps, in bytes. A log past it is not kept, and the panel links to it
-# on the forge instead. A negative size is refused.
+# The largest check log komrad keeps, in bytes. Komrad drops a log past it, and the panel links to it
+# on the forge instead. Komrad refuses a negative size.
 max_check_log_bytes = 2097152
 
 # The GitHub App an engine fetches and pushes as.
@@ -720,12 +720,12 @@ max_check_log_bytes = 2097152
 # and git is left to whatever credentials the account already has, which on a machine
 # nobody logs into is none.
 app_id           = ""
-# The installation the token is minted for, which is what scopes it to the repositories the
-# App was installed on rather than to everything it could reach. GitHub writes it as a
-# number, and it is in the URL of the installation's own settings page.
+# The installation the token is for, which scopes it to the repositories the App was
+# installed on rather than to everything it could reach. GitHub writes it as a number, and
+# it appears in the URL of the installation's own settings page.
 installation_id  = ""
-# The PEM the App was created with. On a deployed engine this is fetched into a tmpfs at
-# boot rather than written to disk, so the key does not outlive the machine.
+# The PEM the App was created with. On a deployed engine, komrad fetches this into a tmpfs at
+# boot rather than writing it to disk, so the key does not outlive the machine.
 private_key_path = ""
 
 # The standing text every agent is started with, whatever workflow it is in.

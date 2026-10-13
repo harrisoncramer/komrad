@@ -165,7 +165,7 @@ func (m *model) openedForTask(slug string) (string, bool) {
 	return taskID, true
 }
 
-// filterDocuments narrows the list as if the query were typed and applied.
+// filterDocuments narrows the list as if the user typed and applied the query.
 func (m *model) filterDocuments(query string) {
 	m.filter.open(withGrammar(documentsQuery))
 	m.filter.mode = filterModeFilter

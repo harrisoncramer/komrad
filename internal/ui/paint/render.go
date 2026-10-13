@@ -40,7 +40,7 @@ func expandTabs(text string) string {
 	return b.String()
 }
 
-// Render renders markdown in the colours of the region it is rendered in.
+// Render renders markdown in the colours of its region.
 func (p Palette) Render(markdown string, wrap int) string {
 	return renderWith(markdown, wrap, p.Stage())
 }
@@ -76,7 +76,7 @@ func renderWith(markdown string, wrap int, style glamouransi.StyleConfig) string
 }
 
 // markSpans writes the search's own markers around the stretches a hit matched on, before the
-// markdown is rendered and reflows the text under them.
+// markdown render reflows the text under them.
 func markSpans(content string, spans []Span) string {
 	if len(spans) == 0 {
 		return content

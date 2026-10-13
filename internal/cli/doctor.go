@@ -110,7 +110,7 @@ func (a *app) runDoctor(ctx context.Context, onTTY bool) (doctor.Report, error) 
 		return doctor.Report{}, err
 	}
 
-	// The terminal is taken over only for the command a person typed.
+	// The command a person typed takes over the terminal, and no other does.
 	if onTTY {
 		env.MeasureColumns = doctor.MeasureColumnsOnTTY
 	}
@@ -181,8 +181,8 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 
 	env := doctor.NewEnv(settings)
 
-	// A remote engine answers on its own loopback, so the address it was configured with is
-	// reached through a forward rather than dialled here.
+	// A remote engine answers on its own loopback, so komrad reaches the address it was configured
+	// with through a forward rather than dialling it here.
 	env.ProbeServer = func(ctx context.Context) (doctor.ServerStatus, error) {
 		base, release, err := a.dialAPI(ctx)
 		if err != nil {

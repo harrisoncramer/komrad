@@ -511,8 +511,8 @@ func (s *Handler) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest
 	return &agentv1.RetryAgentResponse{Agent: rendered}, nil
 }
 
-// HoldAgent stops an agent so a person may take its worktree, refusing unless it is seen to come
-// to rest and refusing an agent that asks to hold itself.
+// HoldAgent stops an agent so a person may take its worktree, and refuses unless it sees the agent
+// come to rest or when the agent asks to hold itself.
 func (s *Handler) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
 	held, err := s.holder.Hold(ctx, agents.HoldParams{AgentID: req.GetId(), ByAgentID: caller.From(ctx).AgentID})
 	if err != nil {

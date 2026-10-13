@@ -33,8 +33,8 @@ func openTools(t *testing.T) *dbTools {
 	return &dbTools{db: readOnly}
 }
 
-// TestValidateReadOnly pins which statements the read-only endpoint accepts, so a write or a
-// second statement is refused before it reaches the database.
+// TestValidateReadOnly pins which statements the read-only endpoint accepts, so it refuses a
+// write or a second statement before it reaches the database.
 func TestValidateReadOnly(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -271,7 +271,7 @@ func TestQueryRejectsWrite(t *testing.T) {
 	}
 }
 
-// TestQueryCannotReadForgeComments covers a plain read, a join, a CTE and a query_to_xml wrapper all being refused.
+// TestQueryCannotReadForgeComments covers the endpoint refusing a plain read, a join, a CTE and a query_to_xml wrapper.
 func TestQueryCannotReadForgeComments(t *testing.T) {
 	tests := []struct {
 		name string

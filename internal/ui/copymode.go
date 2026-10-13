@@ -108,8 +108,8 @@ func (m *model) renderCopyLayout() panes.CopyStandIn {
 	return standIn
 }
 
-// findCursor is the column a row's cursor is rendered at, found only where it starts the row, which
-// a crumb rendered in the same glyph never does.
+// findCursor is the column the panel renders a row's cursor at, found only where it starts the row,
+// which a crumb in the same glyph never does.
 func findCursor(plain string) (int, bool) {
 	before, _, found := strings.Cut(plain, rowCursorGlyph)
 	if !found || strings.IndexFunc(before, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }) >= 0 {

@@ -182,7 +182,7 @@ func TestNamedHome(t *testing.T) {
 	}
 }
 
-// TestLogPathFollowsTheHome covers the rollout being read from under the directory the harness
+// TestLogPathFollowsTheHome covers the harness reading the rollout from under the directory it
 // is rooted at.
 func TestLogPathFollowsTheHome(t *testing.T) {
 	tests := []struct {

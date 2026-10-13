@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSentinelCarriesItsKind covers the kind a sentinel was declared with travelling with it
+// TestSentinelCarriesItsKind covers the kind a sentinel declares travelling with it
 // through a wrapping.
 func TestSentinelCarriesItsKind(t *testing.T) {
 	sentinel := fail.NotFound("agent not found")
@@ -59,8 +59,8 @@ func TestOfPlainError(t *testing.T) {
 	assert.Nil(t, fail.Of(nil))
 }
 
-// TestOfFindsTheOutermost covers an error wrapping two sentinels, where the one it was
-// wrapped in first is the one a caller is answered with.
+// TestOfFindsTheOutermost covers an error wrapping two sentinels, where the sentinel that
+// wrapped it first decides the answer the caller gets.
 func TestOfFindsTheOutermost(t *testing.T) {
 	outer := fail.Precondition("the provisioner failed")
 	inner := fail.InvalidArgument("unusable working directory")

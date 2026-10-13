@@ -84,7 +84,7 @@ func (e *Enqueuer) listUnfinished(ctx context.Context, kind string) ([]*rivertyp
 	return e.listInStates(ctx, kind, unfinishedStates)
 }
 
-// listWaiting is every job of one kind whose work is owed and not yet taken by a worker.
+// listWaiting is every job of one kind whose work is owed and no worker has taken yet.
 func (e *Enqueuer) listWaiting(ctx context.Context, kind string) ([]*rivertype.JobRow, error) {
 	return e.listInStates(ctx, kind, waitingStates)
 }

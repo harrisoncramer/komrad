@@ -155,7 +155,7 @@ func splitColumns(bindings []key.Binding, columns int) [][]key.Binding {
 	return split
 }
 
-// fitLegend cuts each row of the legend to the column it is rendered in.
+// fitLegend cuts each row of the legend to the column that renders it.
 func fitLegend(rendered string, width int) string {
 	lines := strings.Split(rendered, "\n")
 	for i, line := range lines {

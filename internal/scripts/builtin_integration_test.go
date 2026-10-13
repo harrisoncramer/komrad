@@ -80,7 +80,7 @@ func TestIntegrationBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 }
 
 // TestIntegrationBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo covers a resume, where the agent's
-// cwd is already the worktree and a symlink would otherwise be relinked to point at itself.
+// cwd is already the worktree and the setup would otherwise relink a symlink to point at itself.
 func TestIntegrationBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
@@ -197,8 +197,8 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBran
 }
 
 // TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds covers the worktrees directory
-// being pointed somewhere else after the agent was provisioned, where computing the path
-// afresh would send the resume at a directory the branch is not checked out in.
+// pointing somewhere else after provisioning, where computing the path afresh would send the
+// resume at a directory the branch is not checked out in.
 func TestIntegrationBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
@@ -406,8 +406,8 @@ func TestIntegrationBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree(t *testin
 	assert.True(t, info.IsDir(), "a path naming the worktree itself is refused rather than replacing it")
 }
 
-// TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade pins that a second entry
-// reaching through a link the first one made is refused rather than writing into the repo.
+// TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade pins that the setup refuses a second entry
+// reaching through a link the first one made rather than writing into the repo.
 func TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(repo, "local", "bin"), 0o755))
@@ -435,8 +435,8 @@ func TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade
 	assert.Equal(t, filepath.Join(repo, "local"), link)
 }
 
-// TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink pins that a path resolving
-// through a tracked symlink out of the repo is refused.
+// TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink pins that the setup refuses a
+// path resolving through a tracked symlink out of the repo.
 func TestIntegrationBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink(t *testing.T) {
 	repo := initRepo(t)
 	outside := t.TempDir()
@@ -923,7 +923,7 @@ func TestIntegrationBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *tes
 }
 
 // TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead covers the nested-worktree
-// guard failing, where an unreadable list is not proof that nothing is nested.
+// guard failing, where an unreadable list does not prove that nothing is nested.
 func TestIntegrationBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{

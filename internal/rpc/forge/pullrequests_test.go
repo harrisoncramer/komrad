@@ -128,8 +128,8 @@ func TestListForgePullRequestsPages(t *testing.T) {
 	assert.Nil(t, second.Msg.NextPageToken)
 }
 
-// TestMergeForgePullRequest pins the address a merge is asked for and the code a refusal reaches
-// the caller as.
+// TestMergeForgePullRequest pins the address a merge asks for and the code a refusal reaches
+// the caller with.
 func TestMergeForgePullRequest(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 

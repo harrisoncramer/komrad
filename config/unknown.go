@@ -101,7 +101,7 @@ func findFieldType(structType reflect.Type, segment string) (reflect.Type, bool)
 		return nil, false
 	}
 
-	// A key inside a list is reported with its position, which names the same type every
+	// A key inside a list carries its position when reported, which names the same type every
 	// other entry has.
 	if open := strings.IndexByte(segment, '['); open > 0 {
 		segment = segment[:open]

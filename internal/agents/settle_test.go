@@ -54,7 +54,7 @@ func TestSettleLeavesAPaneItsCLIHasLeft(t *testing.T) {
 	}
 }
 
-// TestSettleRefusesAPaneItCannotRead covers a pane whose CLI is not known to have left being refused.
+// TestSettleRefusesAPaneItCannotRead covers komrad refusing a pane whose CLI is not known to have left.
 func TestSettleRefusesAPaneItCannotRead(t *testing.T) {
 	tests := []struct {
 		name     string

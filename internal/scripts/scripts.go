@@ -50,7 +50,7 @@ func (a Script) GetDir() string {
 	return filepath.Dir(a.Path)
 }
 
-// RequireUsableDir refuses a directory that cannot be worked in.
+// RequireUsableDir refuses a directory that nothing can work in.
 func RequireUsableDir(dir string) error {
 	info, err := os.Stat(dir)
 	if err != nil {
@@ -144,8 +144,8 @@ func (r Runner) Run(ctx context.Context, params RunParams) error {
 		ctx, cancel = context.WithTimeout(ctx, params.Timeout)
 	}
 
-	// The file is executed directly rather than through a shell, so nothing in the environment
-	// is parsed as a command line.
+	// The file runs directly rather than through a shell, so nothing in the environment
+	// parses as a command line.
 	cmd := exec.CommandContext(ctx, params.Script.Path)
 	cmd.Dir = params.Dir
 	cmd.Env = append(os.Environ(), params.Env...)

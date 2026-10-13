@@ -33,7 +33,7 @@ func TestRecoverRPCIsInternal(t *testing.T) {
 		"the stack reaches back to what panicked")
 }
 
-// TestServeAndRecoverAnswers covers a panicking MCP call being answered rather than dropped,
+// TestServeAndRecoverAnswers covers answering a panicking MCP call rather than dropping it,
 // which connect's own recovery never sees on an endpoint served as plain HTTP.
 func TestServeAndRecoverAnswers(t *testing.T) {
 	tests := []struct {
@@ -100,7 +100,7 @@ func TestServeAndRecoverPassesOnAnAbort(t *testing.T) {
 }
 
 // TestLoggingHandlerRecordsAPanickedCall covers a panicking MCP call leaving both the stack
-// and the line saying it ended in a 500, neither of which is written without the recovery.
+// and the line saying it ended in a 500, neither of which the logger writes without the recovery.
 func TestLoggingHandlerRecordsAPanickedCall(t *testing.T) {
 	var out bytes.Buffer
 

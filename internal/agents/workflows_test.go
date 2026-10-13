@@ -79,8 +79,8 @@ func TestNewWorkflow(t *testing.T) {
 	}
 }
 
-// TestUpdateWorkflow pins that every field is written on an update, and which refusals an
-// update can raise.
+// TestUpdateWorkflow pins that an update writes every field, and which refusals it
+// can raise.
 func TestUpdateWorkflow(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -1082,7 +1082,7 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
-// TestWorkflowEventPromptsAreCleanedOrRefused pins that prompts are trimmed and blank ones dropped, and an unknown, repeated or overlong one refused.
+// TestWorkflowEventPromptsAreCleanedOrRefused pins that komrad trims prompts, drops blank ones, and refuses an unknown, repeated or overlong one.
 func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 	tests := []struct {
 		name    string

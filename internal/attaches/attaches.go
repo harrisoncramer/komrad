@@ -20,14 +20,14 @@ import (
 )
 
 const (
-	// detachGrace is how long a view is watched for its last client to leave before it is kept.
+	// detachGrace is how long komrad watches a view for its last client to leave before it keeps the view.
 	detachGrace = time.Second
-	// detachPoll is how often the view is looked at while it is watched.
+	// detachPoll is how often komrad looks at the view while it watches.
 	detachPoll = 50 * time.Millisecond
 )
 
 var (
-	// ErrNotLive refuses an attach to an agent that is archived or being deleted.
+	// ErrNotLive refuses an attach to an agent that is archived or going away.
 	ErrNotLive = fail.Precondition("the agent is not live")
 	// ErrNoPane refuses an attach to an agent that holds no pane of its own.
 	ErrNoPane = fail.Precondition("the agent holds no pane")
@@ -78,8 +78,8 @@ type OpenParams struct {
 	Term    string
 }
 
-// Open attaches a terminal to the pane of a live agent, detaching whatever terminal was attached
-// to it before, killed when ctx ends.
+// Open attaches a terminal to the pane of a live agent, detaching whatever terminal attached to
+// it before, and kills the attach when ctx ends.
 func (s *AttachService) Open(ctx context.Context, params OpenParams) (pty.Terminal, error) {
 	agent, err := s.agents.GetByID(ctx, params.AgentID)
 	if err != nil {
@@ -161,8 +161,8 @@ func (s *AttachService) drop(view string) bool {
 	return true
 }
 
-// isDetached reports whether a view is left with no client attached, waiting a moment for tmux to
-// see a client that was killed go.
+// isDetached reports whether a view has no client attached, waiting a moment for tmux to
+// see a killed client go.
 func (s *AttachService) isDetached(ctx context.Context, view string) bool {
 	deadline := time.Now().Add(detachGrace)
 	for {

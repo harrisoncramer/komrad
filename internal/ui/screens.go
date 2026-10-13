@@ -62,13 +62,13 @@ type screenModel interface {
 	dispatches(m *model) []dispatching
 }
 
-// screenTarget is the row a screen is asked to land on, read by each screen for the fields it
+// screenTarget is the row a screen must land on, each screen reading the fields it
 // understands.
 type screenTarget struct {
 	agentID string
 	// taskID is the task the screen opens on, for a screen that shows a task's work.
 	taskID string
-	// openedFrom is the view the screen was opened from.
+	// openedFrom is the view that opened the screen.
 	openedFrom screen
 	// resume says the screen is being gone back to and keeps what it held.
 	resume bool
@@ -166,7 +166,7 @@ type pullRequestFocuser interface {
 
 // crumbRenderer is a screen opened from another that renders the trail back to it.
 type crumbRenderer interface {
-	// parent is the view the page was opened from.
+	// parent is the view that opened the page.
 	parent() screen
 
 	// crumbs is the trail under the parent, down to the page.

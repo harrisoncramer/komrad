@@ -104,8 +104,8 @@ func freeAddr(t *testing.T) string {
 	return addr
 }
 
-// TestIntegrationEnsureServerReportsWhyItDied covers that a server which exits during startup is reported
-// with the reason it logged.
+// TestIntegrationEnsureServerReportsWhyItDied covers that a server which exits during startup
+// reports the reason it logged.
 func TestIntegrationEnsureServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "failed to reach db: connection refused")
@@ -156,8 +156,8 @@ func TestIntegrationEnsureServerWithoutAReason(t *testing.T) {
 	assert.ErrorContains(t, err, logPath)
 }
 
-// TestIntegrationEnsureServerWithAnUnwritableLog covers a log that cannot be opened, where nothing is
-// spawned and the reader is told which path failed.
+// TestIntegrationEnsureServerWithAnUnwritableLog covers a log that cannot be opened, where nothing
+// spawns and the reader learns which path failed.
 func TestIntegrationEnsureServerWithAnUnwritableLog(t *testing.T) {
 	blocked := filepath.Join(t.TempDir(), "not-a-directory")
 	require.NoError(t, os.WriteFile(blocked, nil, 0o644))
@@ -174,8 +174,8 @@ func TestIntegrationEnsureServerWithAnUnwritableLog(t *testing.T) {
 	assert.ErrorContains(t, err, logPath, "the path that could not be opened is named")
 }
 
-// TestIntegrationEnsureServerCarriesTheConfigPath covers the spawned server being told which config file
-// to read: it loads the file for itself rather than being handed what this process parsed, so
+// TestIntegrationEnsureServerCarriesTheConfigPath covers telling the spawned server which config file
+// to read: it loads the file for itself rather than receiving what this process parsed, so
 // a path left off here serves out of a different file than the one the caller named.
 func TestIntegrationEnsureServerCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {

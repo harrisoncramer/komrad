@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// documentRename is a document's or a type's name being typed over in the list.
+// documentRename is a document's or a type's name as the user types over it in the list.
 type documentRename struct {
 	*nameEdit
 	item documentItem

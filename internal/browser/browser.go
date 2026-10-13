@@ -38,8 +38,8 @@ func NewDesktop() *Desktop {
 
 // OpenURL waits for the opener rather than the browser.
 func (*Desktop) OpenURL(ctx context.Context, target string) error {
-	// An opener given a path or an app's own scheme acts on it, and a URL komrad was handed is
-	// not always one komrad wrote, so only a web address is passed on.
+	// An opener acts on a path or an app's own scheme, and komrad does not always write the URL it
+	// receives, so komrad passes on only a web address.
 	if !isWebURL(target) {
 		return fmt.Errorf("%w: %q", errNotAWebURL, target)
 	}
@@ -47,7 +47,7 @@ func (*Desktop) OpenURL(ctx context.Context, target string) error {
 	ctx, cancel := context.WithTimeout(ctx, openTimeout)
 	defer cancel()
 
-	// xdg-open is asked for first because a Linux `open` is openvt, which would take over a
+	// Komrad asks for xdg-open first because a Linux `open` is openvt, which would take over a
 	// virtual terminal rather than open anything.
 	opener := "open"
 	if found, err := exec.LookPath("xdg-open"); err == nil {

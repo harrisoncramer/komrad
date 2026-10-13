@@ -142,7 +142,7 @@ func runMoments() []string {
 	}
 }
 
-// MaxRunLogs is how many runs an agent keeps, older ones being pruned as new ones are written.
+// MaxRunLogs is how many runs an agent keeps. Komrad prunes older ones as it writes new ones.
 const MaxRunLogs = 50
 
 // RunLogDir is where one agent's run logs live under dir.
@@ -158,8 +158,8 @@ type RunLog struct {
 	Path    string
 }
 
-// RunLogName is the file one run writes to, numbered so the runs can be listed newest first
-// without reading any of them and named so a run says what set it off.
+// RunLogName is the file one run writes to. The number lets a listing sort the runs newest first
+// without reading any of them, and the name says what set the run off.
 func RunLogName(number int, trigger, script string) string {
 	return fmt.Sprintf("%03d-%s-%s.log", number, trigger, script)
 }

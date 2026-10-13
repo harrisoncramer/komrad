@@ -246,7 +246,7 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	assert.Nil(t, stored.ProvisionEnabled, "a worktree of its own is made rather than the directory that is not there")
 }
 
-// TestAdoptRefusesWithoutAWorktreeWorkflow pins that adoption is refused where agents share
+// TestAdoptRefusesWithoutAWorktreeWorkflow pins that komrad refuses adoption where agents share
 // one checkout, which would move a branch under somebody working in it.
 func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	tmux := tmuxtest.NewFake()
@@ -347,7 +347,7 @@ func seedWorktreeWorkflow(t *testing.T, st *testStore, repo string) string {
 }
 
 // TestAdoptRefusesAPullRequest pins the refusal reaching whoever pasted a URL out of habit,
-// which would otherwise be taken as a branch name and fail in the worktree hook.
+// which komrad would otherwise take as a branch name and fail in the worktree hook.
 func TestAdoptRefusesAPullRequest(t *testing.T) {
 	for _, ref := range []string{
 		"https://github.com/acmecorp/admin/pull/1069",

@@ -69,7 +69,7 @@ func TestAbortRefusals(t *testing.T) {
 	}
 }
 
-// TestAbortUndoesTheSequence covers the sequence being parked and undone, and the agent told whose it was.
+// TestAbortUndoesTheSequence covers komrad parking and undoing the sequence, and telling the agent whose it was.
 func TestAbortUndoesTheSequence(t *testing.T) {
 	type testCase struct {
 		name       string
@@ -165,7 +165,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 	}
 }
 
-// TestAbortTellsAnAgentWhoseTurnWasCut covers the agent being stopped first and told so whether or not the abort went through.
+// TestAbortTellsAnAgentWhoseTurnWasCut covers komrad stopping the agent first and telling it so whether or not the abort went through.
 func TestAbortTellsAnAgentWhoseTurnWasCut(t *testing.T) {
 	type testCase struct {
 		name     string

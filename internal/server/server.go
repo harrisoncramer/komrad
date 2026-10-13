@@ -88,7 +88,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	srv.closers = append(srv.closers, func() { _ = st.pool.Close() })
 
 	// Every failure past this point leaves an open handle behind, so the unwind stays armed
-	// until the built server is handed back.
+	// until the function hands back the built server.
 	built := false
 	defer func() {
 		if !built {
@@ -154,7 +154,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
-	// The MCP query tools connect through a least-privilege role, so their pool is opened
+	// The MCP query tools connect through a least-privilege role, so their pool opens
 	// apart from the one everything else writes through.
 	readOnly, err := store.OpenReadOnly(ctx, params.Env.ReadOnlyDatabaseURL, st.pool.GetEngine().ID)
 	if err != nil {
@@ -236,7 +236,7 @@ func (s *Server) Handler() http.Handler {
 	return interceptors.NewLocalGuard(s.logger, s.Mux)
 }
 
-// Close releases the database handles, in the reverse of the order they were opened.
+// Close releases the database handles, in the reverse of the order that opened them.
 func (s *Server) Close() {
 	for i := len(s.closers) - 1; i >= 0; i-- {
 		s.closers[i]()

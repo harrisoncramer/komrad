@@ -21,7 +21,7 @@ const pkgPath = "komrad/config"
 func reflectSchema(dir string) (*jsonschema.Schema, error) {
 	reflector := &jsonschema.Reflector{
 		FieldNameTag: "mapstructure",
-		// The schema is walked, not published, so inline every definition rather
+		// The code walks the schema rather than publishing it, so inline every definition rather
 		// than emitting $refs the renderer would have to follow.
 		DoNotReference: true,
 		ExpandedStruct: true,

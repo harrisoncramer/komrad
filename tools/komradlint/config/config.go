@@ -110,7 +110,7 @@ type FakeStoreConfig struct {
 	Exclude []string `json:"exclude"`
 }
 
-// BesideConfig settles which test files may be named for something other than a source file.
+// BesideConfig settles which test files may carry the name of something other than a source file.
 type BesideConfig struct {
 	// Skip turns the rule off.
 	Skip bool `json:"skip"`
@@ -207,7 +207,7 @@ type WrapPhraseConfig struct {
 	Exclude []string `json:"exclude"`
 }
 
-// BoundKeyConfig settles which keys a press may be matched against outside a table or a menu entry.
+// BoundKeyConfig settles which keys a press may match outside a table or a menu entry.
 type BoundKeyConfig struct {
 	// Skip turns the rule off.
 	Skip bool `json:"skip"`

@@ -108,7 +108,7 @@ func TestIntegrationPasteAndSubmitIsOneInvocation(t *testing.T) {
 	}, args)
 }
 
-// TestIntegrationPasteLeavesNoBufferBehind covers the buffer the paste is loaded through, which a person
+// TestIntegrationPasteLeavesNoBufferBehind covers the buffer that loads the paste, which a person
 // pasting at the pane themselves would otherwise find komrad's text in.
 func TestIntegrationPasteLeavesNoBufferBehind(t *testing.T) {
 	client := testServer(t, "buffers")

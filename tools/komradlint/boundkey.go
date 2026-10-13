@@ -44,7 +44,7 @@ type boundCall struct {
 	strict    bool
 }
 
-// newBoundKey builds the rule that action keys are matched only where the menu or a declared path matches them.
+// newBoundKey builds the rule that only the menu or a declared path matches action keys.
 func newBoundKey(settings config.BoundKeyConfig) (*analysis.Analyzer, error) {
 	excluded, err := compile(settings.Exclude)
 	if err != nil {
@@ -142,7 +142,7 @@ func (b boundKey) reportFunc(pass *analysis.Pass, fn *ast.FuncDecl) {
 	})
 }
 
-// reportArg reports a key slice handed to a matcher when it holds an action key, or when a strict matcher is handed one that cannot be traced.
+// reportArg reports a key slice passed to a matcher when it holds an action key, or when a strict matcher receives one it cannot trace.
 func (t keyTracer) reportArg(call boundCall, arg ast.Expr) {
 	keys, ok := t.trace(arg, 0)
 	if !ok && !call.strict {
@@ -221,7 +221,7 @@ func (t keyTracer) traceCall(call *ast.CallExpr, depth int) ([]string, bool) {
 	return keys, true
 }
 
-// traceField is a selector's path below the root type it was reached from.
+// traceField is a selector's path below the root type it came from.
 func (t keyTracer) traceField(sel *ast.SelectorExpr) (string, bool) {
 	if named := namedOf(t.pass.TypesInfo.TypeOf(sel.X)); named != nil {
 		if prefix, ok := t.rule.roots[typePath(named)]; ok {

@@ -12,7 +12,7 @@ import (
 const blackBoxDoc = "Checks that a test inside a package never drives the types held behind " +
 	"its external test package, so a screen test asserts on what the panel draws and sends."
 
-// newBlackBox builds the rule that the configured types are driven only from the external test package.
+// newBlackBox builds the rule that only the external test package drives the configured types.
 func newBlackBox(settings config.BlackBoxConfig) (*analysis.Analyzer, error) {
 	excluded, err := compile(settings.Exclude)
 	if err != nil {

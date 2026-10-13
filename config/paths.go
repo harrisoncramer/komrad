@@ -9,12 +9,12 @@ import (
 
 // Worktrees is where a workflow's generated git worktree provisioner puts what it creates.
 type Worktrees struct {
-	// Directory generated worktrees are created under, one subdirectory per agent.
+	// Directory that holds generated worktrees, one subdirectory per agent.
 	// Left empty this is ~/.local/state/komrad/worktrees.
 	Dir string `mapstructure:"dir"`
 }
 
-// Context is the standing text every agent is started with, above whatever its workflow
+// Context is the standing text komrad starts every agent with, above whatever its workflow
 // adds. It is where what is true of your machine and how you want to be worked with goes,
 // so it does not have to be pasted into every workflow.
 type Context struct {
@@ -97,7 +97,7 @@ func getDefaultStateDir() (string, error) {
 	return underHome(".local", "state", "komrad")
 }
 
-// GetContextFile is the standing text every agent is started with: the configured file, or
+// GetContextFile is the file of standing text komrad starts every agent with: the configured file, or
 // ~/.config/komrad/context.md when the config names none. The default is filled in here for
 // the reason the hooks directory's is, since one machine's home directory spelled into
 // the generated config would be wrong on every other machine.

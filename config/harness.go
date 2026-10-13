@@ -4,7 +4,7 @@ package config
 // rather than taken from the registry since this is a default a user overrides.
 const DefaultHarness = "claude"
 
-// Harness is how one agent CLI is configured.
+// Harness configures one agent CLI.
 type Harness struct {
 	// Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
 	Flags string `mapstructure:"flags"`

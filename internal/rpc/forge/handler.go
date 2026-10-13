@@ -119,7 +119,7 @@ func (s *Handler) CheckForges(ctx context.Context, _ *emptypb.Empty) (*forgev1.C
 	return &forgev1.CheckForgesResponse{Checks: checks}, nil
 }
 
-// DisconnectForge forgets a forge and the credential it was connected with.
+// DisconnectForge forgets a forge and the credential that connected it.
 func (s *Handler) DisconnectForge(ctx context.Context, req *forgev1.DisconnectForgeRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.forges.Disconnect(ctx, req.GetHost()); err != nil {
 		return nil, rpcerr.From(err, "failed to disconnect the forge")

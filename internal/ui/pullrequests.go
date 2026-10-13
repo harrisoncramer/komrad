@@ -157,7 +157,7 @@ func (m *model) copyPullRequestURL(task panel.Task) tea.Cmd {
 	return m.copyCmd(standing.URL)
 }
 
-// urlOpenedMsg is the browser having been asked to open an address.
+// urlOpenedMsg reports that the panel asked the browser to open an address.
 type urlOpenedMsg struct {
 	target string
 	err    error

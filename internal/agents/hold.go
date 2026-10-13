@@ -64,7 +64,7 @@ type HoldParams struct {
 	ByAgentID string
 }
 
-// Hold stops an agent and records who has it, refusing unless the agent is observed to come to rest.
+// Hold stops an agent and records who has it, refusing unless it observes the agent come to rest.
 func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent, error) {
 	if params.ByAgentID != "" && params.ByAgentID == params.AgentID {
 		return nil, errHoldSelf
@@ -107,7 +107,7 @@ func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent
 // ReleaseParams is the agent being let go and what to tell it happened while it was held.
 type ReleaseParams struct {
 	AgentID string
-	// Said is typed into the agent as it starts again, empty to let it go in silence.
+	// Said is what komrad types into the agent as it starts again, empty to let it go in silence.
 	Said string
 }
 

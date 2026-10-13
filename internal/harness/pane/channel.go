@@ -92,7 +92,7 @@ func (p *Pane) planFor(ctx context.Context, target harness.Target) plan {
 
 	input, err := p.readInput(target)
 	if err != nil {
-		// No frame of an unknown harness can be recognised, so its mail would otherwise never go
+		// Nothing can recognise a frame of an unknown harness, so its mail would otherwise never go
 		// anywhere.
 		return planPaste
 	}

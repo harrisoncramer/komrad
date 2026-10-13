@@ -89,7 +89,7 @@ func TestEnvThenCheck(t *testing.T) {
 	}
 }
 
-// TestCheckRefusesACheckoutWithNoSlot refuses before anything is claimed.
+// TestCheckRefusesACheckoutWithNoSlot covers the check refusing before it claims anything.
 func TestCheckRefusesACheckoutWithNoSlot(t *testing.T) {
 	t.Parallel()
 

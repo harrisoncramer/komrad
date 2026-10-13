@@ -183,7 +183,7 @@ func configFrom(req *schedulev1.CreateScheduleRequest) schedulestore.Config {
 	return withTarget(cfg, req.GetWorkflowId(), req.GetOrchestratorAgentId())
 }
 
-// withTarget sets what a schedule fires at from whichever of the request's targets was given.
+// withTarget sets what a schedule fires at from whichever of the request's targets the caller gave.
 func withTarget(cfg schedulestore.Config, workflowID, orchestratorID string) schedulestore.Config {
 	if orchestratorID != "" {
 		cfg.Kind = schedulestore.KindOrchestrator

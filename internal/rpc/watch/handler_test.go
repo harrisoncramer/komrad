@@ -164,7 +164,7 @@ func TestWatchHeartbeatsWhileNothingChanges(t *testing.T) {
 }
 
 // TestWatchEndsWhenTheSubscriptionCloses pins that a subscription the broker ends closes the
-// stream cleanly, and that the close is logged with what the stream sent.
+// stream cleanly, and that the handler logs the close with what the stream sent.
 func TestWatchEndsWhenTheSubscriptionCloses(t *testing.T) {
 	s := serve(t, newSubscriber(), time.Hour)
 

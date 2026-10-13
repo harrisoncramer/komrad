@@ -30,7 +30,7 @@ func TestMigratedBuildsTheTemplateOnce(t *testing.T) {
 }
 
 // TestMigratedRebuildsForANewVersion covers a branch adding a migration, where a template built
-// from the schema before it must not be handed out.
+// from the schema before it must not go out.
 func TestMigratedRebuildsForANewVersion(t *testing.T) {
 	var builds atomic.Int64
 	schema := markerSchema(t, &builds)
@@ -100,7 +100,7 @@ func TestMigratedReusesATemplateNamedByALongVersion(t *testing.T) {
 }
 
 // TestURLIsUnmigrated pins the other door, which the tests of the migrations and of komrad doctor
-// need to be handed nothing at all.
+// need to receive nothing at all.
 func TestURLIsUnmigrated(t *testing.T) {
 	conn, err := pgx.Connect(t.Context(), URL(t))
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func nameOnce(t *testing.T, name string) {
 	t.Cleanup(func() { lookupTemplate = lookup })
 }
 
-// markerSchema is a schema of its own, holding one table a copy of it can be recognised by.
+// markerSchema is a schema of its own, holding one table that identifies a copy of it.
 func markerSchema(t *testing.T, builds *atomic.Int64) Schema {
 	t.Helper()
 
@@ -223,7 +223,7 @@ func templates(t *testing.T, version string) []string {
 	return names
 }
 
-// hasMarker reports whether the database url names was copied from a marker schema.
+// hasMarker reports whether the database url names is a copy of a marker schema.
 func hasMarker(t *testing.T, url string) bool {
 	t.Helper()
 

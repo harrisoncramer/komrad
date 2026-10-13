@@ -94,7 +94,7 @@ func releasedAtOf(reviews []*agentv1.Review, round *agentv1.ReviewRound) string 
 	return releasedClock(last.GetReleasedAt())
 }
 
-// releasedClock is when a review was released, in the terms a reader names it by.
+// releasedClock is when the person released a review, in the terms a reader names it by.
 func releasedClock(released string) string {
 	stamp, err := time.Parse(time.RFC3339, released)
 	if err != nil {

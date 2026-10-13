@@ -21,7 +21,7 @@ func pulseTick() tea.Cmd {
 	return startTimer(pulseInterval, func(time.Time) tea.Msg { return pulseMsg{} })
 }
 
-// start blinks the given number of times, lit from the frame it is asked for.
+// start blinks the given number of times, lit from the frame it receives.
 func (p *pulse) start(blinks int) {
 	p.left = blinks*2 - 1
 }

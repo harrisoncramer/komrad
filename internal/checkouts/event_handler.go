@@ -35,7 +35,7 @@ type rebaseOutcome struct {
 	Failure string        `json:"failure,omitempty"`
 }
 
-// NewEventHandler builds the handler the router is given for rebases.
+// NewEventHandler builds the handler the router calls for rebases.
 func NewEventHandler() events.HandlerFor[rebased] {
 	return handleRebased
 }
@@ -82,7 +82,7 @@ func (pushed) Topic() string {
 	return pushedTopic
 }
 
-// NewPushedHandler builds the handler the router is given for force-pushes.
+// NewPushedHandler builds the handler the router calls for force-pushes.
 func NewPushedHandler() events.HandlerFor[pushed] {
 	return handlePushed
 }
@@ -111,7 +111,7 @@ func (aborted) Topic() string {
 	return abortedTopic
 }
 
-// NewAbortedHandler builds the handler the router is given for aborts.
+// NewAbortedHandler builds the handler the router calls for aborts.
 func NewAbortedHandler() events.HandlerFor[aborted] {
 	return handleAborted
 }

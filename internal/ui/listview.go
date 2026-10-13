@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// listPane is the column a list is rendered in this frame and how its cursor stands.
+// listPane is the column that renders a list this frame and where its cursor stands.
 func (m *model) listPane(width int) listPane {
 	caret := m.caretOf(sectionList)
 	if m.isDocFocused() {

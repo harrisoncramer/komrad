@@ -17,12 +17,12 @@ const ansiReset = "\x1b[m"
 // resets are the two spellings of a reset a styled line can carry.
 var resets = []string{"\x1b[0m", ansiReset}
 
-// Header is the style a list's title is rendered in.
+// Header is the style that renders a list's title.
 func (p Palette) Header() lipgloss.Style {
 	return p.Style(TonePrimary).Bold(true)
 }
 
-// Cursor is the style the row cursor is rendered in.
+// Cursor is the style that renders the row cursor.
 func (p Palette) Cursor() lipgloss.Style {
 	return p.Style(TonePrimary).Bold(true)
 }
@@ -169,8 +169,7 @@ func Clip(text string, width int) string {
 	return string(runes[:width-1]) + "…"
 }
 
-// WrapRows is prose wrapped into the column it is rendered in, breaking a token longer than the
-// column.
+// WrapRows wraps prose into the column it renders in, breaking a token longer than the column.
 func WrapRows(text string, width int) []string {
 	width = max(width, 1)
 

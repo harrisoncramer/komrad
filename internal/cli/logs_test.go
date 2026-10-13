@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegrationServeLogTail covers how the log is folded into a reason: a dial failure spans several
-// indented lines, and the error it becomes is rendered wrapped, so it is carried as one line
+// TestIntegrationServeLogTail covers how the reason folds in the log: a dial failure spans several
+// indented lines, and the error it becomes renders wrapped, so it reads as one line
 // rather than with the log's own breaks in it.
 func TestIntegrationServeLogTail(t *testing.T) {
 	dialFailure := "failed to reach db: failed to connect:\n\t[::1]:5460: dial error: connection refused\n"

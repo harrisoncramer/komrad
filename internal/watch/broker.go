@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// subscriberBuffer is how many passes a watcher may fall behind before it is dropped.
+// subscriberBuffer is how many passes a watcher may fall behind before the broker drops it.
 const subscriberBuffer = 1024
 
 // defaultPassGap is the least time between the start of one render pass and the start of the next.
@@ -269,8 +269,8 @@ func (b *Broker) Close() {
 	}
 	b.mu.Unlock()
 
-	// The listener closes its own connection, and takes the lock to say so, so it is waited for
-	// with the lock let go.
+	// The listener closes its own connection, and takes the lock to say so, so the broker waits for
+	// it after letting go of the lock.
 	b.stop()
 	<-b.stopped
 

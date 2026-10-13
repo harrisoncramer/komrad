@@ -2,8 +2,8 @@
 //
 // A pane redraws over the frame a wrong state was read from, so without a recording the only
 // account of a misread left is the code. A recording is off unless the config turns it on, and
-// what it writes is the capture exactly as the harness read it, so a frame can be replayed
-// through the classifier that misjudged it.
+// it writes the capture exactly as the harness read it, so a frame can be replayed through the
+// classifier that misjudged it.
 package frames
 
 import (
@@ -28,7 +28,7 @@ type Settings struct {
 	Keep int
 }
 
-// AgentDir is where one agent's frames are kept, and what has to be removed once it is gone.
+// AgentDir is the directory that holds one agent's frames, which komrad removes once the agent is gone.
 func AgentDir(dir, agentID string) string {
 	return filepath.Join(dir, agentID)
 }
@@ -89,8 +89,8 @@ func (r *Recorder) Record(params RecordParams) error {
 	return prune(dir, settings.Keep)
 }
 
-// numberFrame numbers a frame within the millisecond it was written in, keeping two readings
-// that land together off the same name.
+// numberFrame numbers a frame within the millisecond it was written, so two readings that land
+// together do not share a name.
 func (r *Recorder) numberFrame() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -111,8 +111,8 @@ func (r *Recorder) shouldRecord(params RecordParams, hash uint64) bool {
 	return !ok || hash != seen || params.Disputes
 }
 
-// remember notes the frame an agent was last kept from, once it is on disk, so a write that
-// failed is taken again.
+// remember notes the frame an agent was last kept from once the frame is on disk, so komrad takes
+// again a frame whose write failed.
 func (r *Recorder) remember(agentID string, hash uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

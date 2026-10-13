@@ -83,7 +83,7 @@ func (a *archivedAgents) holdsAChoosable(m *model) bool {
 	return ok
 }
 
-// holdsARenameable reports whether the cursor is on a row that can be renamed.
+// holdsARenameable reports whether the cursor sits on a row the user can rename.
 func (a *archivedAgents) holdsARenameable(m *model) bool {
 	_, ok := a.renameable(m)
 

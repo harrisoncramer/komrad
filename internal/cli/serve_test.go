@@ -18,7 +18,7 @@ import (
 )
 
 // TestIntegrationServeLoggerRejectsAnUnknownLevel covers a level the config carries that slog has no
-// answer for: it fails rather than falling back, so a misspelled level is reported instead of
+// answer for: it fails rather than falling back, so a misspelled level surfaces instead of
 // quietly leaving the log at a verbosity nobody chose.
 func TestIntegrationServeLoggerRejectsAnUnknownLevel(t *testing.T) {
 	_, err := serveLogger("verbose")
@@ -46,8 +46,8 @@ func TestIntegrationShutdownSignalFollowsItsParent(t *testing.T) {
 	}
 }
 
-// TestIntegrationShutdownSignalStopsOnASignal covers the wiring itself, that the signals a reload
-// and a Ctrl-C actually send are the ones being listened for.
+// TestIntegrationShutdownSignalStopsOnASignal covers the wiring itself, that the service listens
+// for the signals a reload and a Ctrl-C actually send.
 func TestIntegrationShutdownSignalStopsOnASignal(t *testing.T) {
 	ctx, stop := shutdownSignal(t.Context())
 	defer stop()
@@ -163,8 +163,8 @@ func TestIntegrationCloseWithinSaysWhichHandleHungRatherThanWaiting(t *testing.T
 	assert.Contains(t, logged.String(), "the wedged pool", "the log names the handle that hung")
 }
 
-// TestIntegrationHookBinaryPathIsThisBuild pins that agents are launched with the hooks of the binary
-// serving them.
+// TestIntegrationHookBinaryPathIsThisBuild pins that komrad launches agents with the hooks of the
+// binary serving them.
 func TestIntegrationHookBinaryPathIsThisBuild(t *testing.T) {
 	path := getHookBinaryPath(t.Context())
 	require.NotEmpty(t, path)

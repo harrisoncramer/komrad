@@ -217,7 +217,7 @@ func TestInputSchema(t *testing.T) {
 	}
 }
 
-// TestDecodeFailure covers the text an agent is handed when a call fails.
+// TestDecodeFailure covers the text an agent receives when a call fails.
 func TestDecodeFailure(t *testing.T) {
 	type decodeFailureCase struct {
 		name    string

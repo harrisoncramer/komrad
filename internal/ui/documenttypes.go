@@ -100,7 +100,7 @@ func documentTypeForm(values *documentTypeFormValues, title string, keys config.
 	)
 }
 
-// deleteTypeForm asks before a document type is deleted.
+// deleteTypeForm asks before it deletes a document type.
 func deleteTypeForm(item documentItem) formState {
 	form, confirmed := confirmForm(
 		fmt.Sprintf("Delete document type %q?", item.name),

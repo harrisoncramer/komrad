@@ -117,7 +117,7 @@ func TestIntegrationDiscoverReadsWhatAFileDeclares(t *testing.T) {
 }
 
 // TestIntegrationDiscoverMissingDirectory covers never having written one, where nothing is wrong so
-// nothing is reported.
+// nothing gets reported.
 func TestIntegrationDiscoverMissingDirectory(t *testing.T) {
 	found, err := discover(filepath.Join(t.TempDir(), "never-created"))
 
@@ -433,8 +433,8 @@ func TestIntegrationRunStopsAtItsOwnDeadline(t *testing.T) {
 	}
 }
 
-// TestIntegrationRunAndWaitStopsAtItsOwnDeadline covers an awaited run bounded by the timeout it was given
-// rather than by the context it was handed.
+// TestIntegrationRunAndWaitStopsAtItsOwnDeadline covers an awaited run that stops at the timeout it
+// received rather than at the context's.
 func TestIntegrationRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(

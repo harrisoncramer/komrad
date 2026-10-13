@@ -1,10 +1,10 @@
-// Package view is the agents list rendered in three steps: a snapshot of what the panel found, a
+// Package view renders the agents list in three steps: a snapshot of what the panel found, a
 // pure preparation of that snapshot into resolved glyphs and tones, and a pure rendering of
 // those into a string.
 //
 // Nothing here holds a client, a clock, a terminal or a context. A Snapshot is plain data the
 // panel gathers; Prepare makes every decision about which glyph, which tone and which weight a
-// row wears; Render spells those decisions out with the palette of the region it is rendered in.
+// row wears; Render spells those decisions out with the palette of its region.
 // The split is what lets a change of logic fail a readable assertion and a change of palette
 // move only a golden file.
 //
@@ -36,7 +36,7 @@
 //
 // # Dim means the process is gone
 //
-// A name is rendered dim for exactly one reason: nothing runs behind the row any more, whether the
+// A name renders dim for exactly one reason: nothing runs behind the row any more, whether the
 // agent's process has stopped or the row has been archived. Nothing a person did to a row dims
 // it, and an idle agent with a pane of its own is alive and stays bright. Dim reaches the name
 // alone, so a dormant agent still says in colour where its review and its pull request stand.

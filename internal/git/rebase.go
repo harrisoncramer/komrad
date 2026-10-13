@@ -62,7 +62,7 @@ func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, erro
 		state.HeadSHA = sha
 	}
 
-	// Read before the index is touched, so an unmerged index is reported as the sequence it
+	// Read before anything touches the index, so an unmerged index reports as the sequence it
 	// belongs to rather than as a refresh that would not settle it.
 	sequence, err := readCheckoutSequence(ctx, dir)
 	if err != nil {
@@ -301,7 +301,7 @@ func readMergedTree(ctx context.Context, params readMergedTreeParams) (tree stri
 	}
 	args = append(args, left, right)
 
-	// A conflict is reported by exiting 1 with the paths on stdout.
+	// A conflict exits 1 with the paths on stdout.
 	out, err := runAllowing(ctx, dir, args...)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to test-merge %s into %s in %q: %w", left, right, dir, err)
@@ -332,7 +332,7 @@ func doesShareHistory(ctx context.Context, dir, left, right string) (bool, error
 		return true, nil
 	}
 
-	// No common commit is reported by exiting 1.
+	// No common commit exits 1.
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() == 1 {
 		return false, nil
@@ -348,7 +348,7 @@ func isAncestor(ctx context.Context, params IsAncestorParams) (bool, error) {
 		return true, nil
 	}
 
-	// Unreachable is reported by exiting 1.
+	// Unreachable exits 1.
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() == 1 {
 		return false, nil
@@ -442,7 +442,7 @@ func isTrackedDirty(ctx context.Context, dir string) (bool, error) {
 	return false, fmt.Errorf("failed to read what %q has changed: %w", dir, err)
 }
 
-// refreshIndex updates the index's cached stat data before it is compared against HEAD.
+// refreshIndex updates the index's cached stat data before the comparison against HEAD.
 func refreshIndex(ctx context.Context, dir string) {
 	// The exit code is ignored the way git's own require_clean_work_tree ignores it, being
 	// non-zero for the unmerged entries the sequence check already owns.

@@ -14,7 +14,7 @@ import (
 
 // TestSetAutoMerge covers queueing a merge request held to the head the person saw, cancelling
 // it, leaving one alone that already stands that way, and refusing one GitLab would merge at once
-// or that has finished before GitLab is asked to change it.
+// or that has finished before asking GitLab to change it.
 func TestSetAutoMerge(t *testing.T) {
 	t.Parallel()
 

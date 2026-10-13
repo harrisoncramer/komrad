@@ -14,7 +14,7 @@ import (
 )
 
 // TestIntegrationMovePanesReachesTmuxAsOneInvocation pins the batching against a real server, a change sent
-// a command at a time being painted a command at a time.
+// a command at a time painting a command at a time.
 func TestIntegrationMovePanesReachesTmuxAsOneInvocation(t *testing.T) {
 	client := testServer(t, "moves")
 

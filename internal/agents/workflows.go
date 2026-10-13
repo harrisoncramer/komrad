@@ -245,7 +245,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 		return err
 	}
 	if scheduled > 0 {
-		// Archiving would strand a live schedule or kill it silently, so it has to be turned off
+		// Archiving would strand a live schedule or kill it silently, so this turns it off
 		// first.
 		return fmt.Errorf("%w: %q has %d", ErrWorkflowHasSchedules, existing.Name, scheduled)
 	}

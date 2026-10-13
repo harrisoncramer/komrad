@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFlattenTranscript pins which of claude's log records become turns and which are dropped.
+// TestFlattenTranscript pins which of claude's log records become turns and which the harness drops.
 func TestFlattenTranscript(t *testing.T) {
 	tests := []struct {
 		name string

@@ -100,8 +100,8 @@ func TestHTTPLoggingRecordsAFailure(t *testing.T) {
 	}
 }
 
-// TestHTTPLoggingWithAnUnreadableBody covers a request that is not the envelope this knows,
-// which is logged without the fields it could not work out rather than not at all.
+// TestHTTPLoggingWithAnUnreadableBody covers a request that is not the envelope this knows, which
+// the logger records without the fields it could not work out rather than not at all.
 func TestHTTPLoggingWithAnUnreadableBody(t *testing.T) {
 	written, seen := servedCall(t, "not json at all", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -128,7 +128,7 @@ func TestHTTPLoggingKeepsTheHandlerFlushable(t *testing.T) {
 		"a handler that only wrote a body still logs the status it implies")
 }
 
-// TestHTTPLoggingCarriesATrace covers the id the caller is given back.
+// TestHTTPLoggingCarriesATrace covers the id handed back to the caller.
 func TestHTTPLoggingCarriesATrace(t *testing.T) {
 	var out bytes.Buffer
 

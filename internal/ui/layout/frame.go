@@ -34,8 +34,8 @@ type Frame struct {
 	// owed says the split under the zoom is behind cols.
 	owed bool
 
-	// pending is the pane moves of the change being worked out, sent together by Flush, and
-	// sent one at a time while nothing is collecting them.
+	// pending holds the pane moves of the change being worked out, which Flush sends together and the
+	// frame sends one at a time while nothing is collecting them.
 	pending []panes.Move
 	// batches is how many Begins are still waiting on their Flush.
 	batches int
@@ -89,7 +89,7 @@ func WithEngine(remote engine.Remote) option {
 	return func(f *Frame) { f.remote = remote }
 }
 
-// WithShellCommand says what opens a shell on the engine, before the directory it is rooted in.
+// WithShellCommand says what opens a shell on the engine, before the directory it roots in.
 func WithShellCommand(command []string) option {
 	return func(f *Frame) { f.shellCommand = command }
 }
@@ -115,7 +115,7 @@ func New(tmux Tmux, layout config.Layout, options ...option) *Frame {
 	return frame
 }
 
-// OnResize says where the sidebar's new size is reported once a change has moved it.
+// OnResize says where the frame reports the sidebar's new size once a change has moved it.
 func (f *Frame) OnResize(report func(width, height int)) {
 	f.onSize = report
 }
@@ -133,7 +133,7 @@ func (f *Frame) Attach(sidebar string) {
 }
 
 // Pane is the pane the frame holds for a region, which for the stage is its own pane even while
-// a guest is swapped into it.
+// a guest swaps into it.
 func (f *Frame) Pane(region region) string {
 	switch region {
 	case RegionSidebar:
@@ -273,8 +273,8 @@ func (f *Frame) Close(region region) {
 	}
 }
 
-// Claimed records that another process has taken a region over, so the next content is rendered
-// rather than skipped as already shown.
+// Claimed records that another process has taken a region over, so the frame renders the next
+// content rather than skipping it as already shown.
 func (f *Frame) Claimed(region region) {
 	f.forget(region)
 }
@@ -377,8 +377,8 @@ func (f *Frame) Solo(on bool) {
 		defer f.payOwed()
 	}
 
-	// The pane beside the sidebar is covered or uncovered by this, and whatever painted it has
-	// long since exited, so what stands there is rendered again rather than left as it was.
+	// This covers or uncovers the pane beside the sidebar, and whatever painted it has long
+	// since exited, so the frame renders what stands there again rather than leaving it as it was.
 	f.forget(RegionStage)
 	f.move(panes.Zoom(f.sidebar, on))
 }
@@ -653,8 +653,8 @@ func (f *Frame) showRemoteGuest(guest Guest) {
 	f.remoteGuest = guest.Pane
 }
 
-// ReleaseGuest returns a guest pane to where it came from before it is killed, so the main
-// region is not left minding a pane that is about to go.
+// ReleaseGuest returns a guest pane to where it came from before the frame kills it, so the main
+// region does not mind a pane that is about to go.
 func (f *Frame) ReleaseGuest(pane string) {
 	if pane != "" && pane == f.guest {
 		f.restoreGuest()

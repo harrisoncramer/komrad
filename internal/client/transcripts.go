@@ -10,8 +10,9 @@ import (
 	"connectrpc.com/connect"
 )
 
-// maxTranscriptPages is the most windows one transcript is read in, about 32MB at the server's
-// window, past which it is reported too long rather than shown cut short.
+// maxTranscriptPages is the most windows the client reads for one transcript, about 32MB at the
+// server's window, past which the client reports the transcript too long rather than showing it cut
+// short.
 const maxTranscriptPages = 1024
 
 // TranscriptGetter is the part of the agent service a transcript is read through.
@@ -20,7 +21,7 @@ type TranscriptGetter interface {
 }
 
 // GetFullTranscript returns one agent's transcript, following the page tokens until the content
-// is exhausted, and fails rather than return part of it once the page ceiling is reached.
+// runs out, and fails rather than return part of it once it reaches the page ceiling.
 func GetFullTranscript(ctx context.Context, agents TranscriptGetter, agentID string) (string, error) {
 	var (
 		content strings.Builder

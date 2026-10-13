@@ -2,10 +2,10 @@
 // across the hop between the panel, the CLI, an agent's MCP call and the server.
 //
 // The identity travels in headers so it survives that hop, and on the context so a handler and
-// the store beneath it read it without being handed it. It is what lets a log line say which
-// agent asked, and what lets an agent reading another agent's transcript be recorded as having
-// done so deliberately. A request that names nobody is unattributed rather than wrong, so the
-// panel and curl are logged without the fields rather than with empty ones.
+// the store beneath it read it without receiving it as an argument. It lets a log line say which
+// agent asked, and lets komrad record that an agent read another agent's transcript
+// deliberately. A request that names nobody is unattributed rather than wrong, so the
+// logs show the panel and curl without the fields rather than with empty ones.
 package caller
 
 import (
@@ -115,7 +115,7 @@ func WithTrace(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, traceKey{}, id)
 }
 
-// Trace is the id the request being served is logged under, empty outside one.
+// Trace is the id that tags the log lines of the request being served, empty outside one.
 func Trace(ctx context.Context) string {
 	id, ok := ctx.Value(traceKey{}).(string)
 	if !ok {

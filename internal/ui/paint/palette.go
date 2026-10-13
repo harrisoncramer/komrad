@@ -100,7 +100,7 @@ func (p Palette) Style(tone Tone) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(p.Color(tone))
 }
 
-// FormTheme is the huh theme a form is rendered in.
+// FormTheme is the huh theme a form renders in.
 func (p Palette) FormTheme() huh.Theme {
 	return huh.ThemeFunc(p.formStyles)
 }
@@ -120,7 +120,7 @@ func (p Palette) HelpStyles() help.Styles {
 	}
 }
 
-// Stage is the markdown a block beside a list is rendered in.
+// Stage is the markdown a block beside a list renders in.
 func (p Palette) Stage() ansi.StyleConfig {
 	return *p.stage
 }

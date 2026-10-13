@@ -43,7 +43,7 @@ func TestRunSkipsWhatItCannotCheck(t *testing.T) {
 		"a failure stops only what depended on it, since the point is to report everything in one run")
 }
 
-// TestRunReportsEveryCheck covers that the list is the same length whatever happened, so a
+// TestRunReportsEveryCheck covers that the list keeps the same length whatever happens, so a
 // report can be diffed against another machine's.
 func TestRunReportsEveryCheck(t *testing.T) {
 	report := Run(t.Context(), Env{}, []Check{

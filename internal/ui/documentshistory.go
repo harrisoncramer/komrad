@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// documentDiffPath is the name a document's diff is highlighted as.
+// documentDiffPath is the name the panel highlights a document's diff as.
 const documentDiffPath = "document.md"
 
 // documentHistory is one document's writes stepped through, rendering what the one stood on changed.
@@ -22,7 +22,7 @@ type documentHistory struct {
 	// pane is the change rendered as a diff.
 	pane     diffview.Pane
 	rendered renderedChange
-	// filter is the pattern being searched for in the diff.
+	// filter is the pattern the user searches the diff for.
 	filter filterState
 }
 
@@ -97,7 +97,7 @@ func (h *documentHistory) forgetFailedReads() {
 	}
 }
 
-// isSteppingHovered reports whether the document under the cursor is being stepped through.
+// isSteppingHovered reports whether the user steps through the document under the cursor.
 func (d *documentsScreen) isSteppingHovered(m *model) bool {
 	item, ok := d.hovered(m)
 
@@ -132,7 +132,7 @@ type renderedChange struct {
 	isDark bool
 }
 
-// isRendered reports whether the change is rendered as a diff.
+// isRendered reports whether the panel renders the change as a diff.
 func (h *documentHistory) isRendered(isDark bool) bool {
 	rendered, _, _, ok := h.change(isDark)
 
@@ -290,7 +290,7 @@ func (d *documentsScreen) buildFrame(m *model) {
 	}
 }
 
-// diffWindow is the size the diff is rendered at, under the rows over it.
+// diffWindow is the size the panel renders the diff at, under the rows over it.
 func (d *documentsScreen) diffWindow(m *model) diffview.Window {
 	split, ok := m.screenColumnSplit()
 	item, hovered := d.hovered(m)

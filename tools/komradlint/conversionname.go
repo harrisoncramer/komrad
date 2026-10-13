@@ -20,7 +20,7 @@ const protoPackagePrefix = "komrad/proto/gen/"
 // intoPanelSuffix is the name shape the panel's converters use.
 const intoPanelSuffix = "From"
 
-// newConversionName builds the rule that conversion helpers are named for their direction.
+// newConversionName builds the rule that conversion helpers carry the name of their direction.
 func newConversionName(settings config.ConversionNameConfig) (*analysis.Analyzer, error) {
 	rendering, err := compile(settings.Render)
 	if err != nil {

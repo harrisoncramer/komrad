@@ -142,7 +142,7 @@ func (a *archivedSchedules) buildItemMenu(m *model) (submenu, bool) {
 	return withNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
 }
 
-// confirmDeleteSchedule asks before an archived schedule is deleted for good.
+// confirmDeleteSchedule asks before it deletes an archived schedule for good.
 func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 	form, confirmed := deleteScheduleForm(schedule.Name, fixedKeys())
 

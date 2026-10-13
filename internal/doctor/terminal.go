@@ -13,7 +13,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-// paletteColors is the number of colours the panel's palette is mixed for.
+// paletteColors is the number of colours the panel's palette mixes.
 const paletteColors = 256
 
 var (

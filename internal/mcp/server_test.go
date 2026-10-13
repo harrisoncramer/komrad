@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHandlerCallerRole pins the tool server a caller is handed by the role komrad reads for it.
+// TestHandlerCallerRole pins the tool server a caller receives for the role komrad reads.
 func TestHandlerCallerRole(t *testing.T) {
 	tests := []struct {
 		name       string

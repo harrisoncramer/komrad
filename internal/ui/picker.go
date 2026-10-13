@@ -14,7 +14,7 @@ var pickLetters = []string{"d", "f", "j", "k", "l", "s", "a"}
 
 // pickerState is the window as the pane picker froze it.
 type pickerState struct {
-	// freezing is whether a snapshot is being taken.
+	// freezing is whether the picker is taking a snapshot.
 	freezing bool
 	// frozen is the window rendered as it stood, empty while nothing is frozen.
 	frozen string

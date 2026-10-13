@@ -288,7 +288,7 @@ func TestHoldingAWaitingAgentWaitsForThePromptToGo(t *testing.T) {
 	assert.Equal(t, 3, observer.Reads, "and the hold waits for a frame that is not the prompt")
 }
 
-// TestHoldRefusesAPromptThatNeverClears covers the interrupt that is swallowed at a prompt, where
+// TestHoldRefusesAPromptThatNeverClears covers an interrupt the prompt swallows, where
 // the agent is still holding a write that a person answering the prompt would land.
 func TestHoldRefusesAPromptThatNeverClears(t *testing.T) {
 	st := newStore(t)
@@ -303,8 +303,8 @@ func TestHoldRefusesAPromptThatNeverClears(t *testing.T) {
 	assert.Nil(t, after.Hold.At, "the prompt is still there, so nobody has the tree")
 }
 
-// TestHoldReadsThePaneRatherThanTheRow pins both halves being decided now: a row that says idle
-// while the pane is working must not hand over a tree.
+// TestHoldReadsThePaneRatherThanTheRow pins that komrad decides both halves now: a row that says
+// idle while the pane is working must not hand over a tree.
 func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)

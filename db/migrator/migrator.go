@@ -5,7 +5,7 @@
 // It does this by acquiring an advisory lock (so that two migrations cannot run migrations at
 // the same time) and running them each, in sequential order, against the database.
 //
-// The triggers are embedded alongside them as one versioned file per table, which a pass
+// The triggers ride alongside them as one versioned file per table, which a pass
 // reapplies whenever the file's version moves past the one the database recorded.
 package migrator
 
@@ -23,7 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// errSchemaBehind is returned when the database is missing migrations or triggers this build carries.
+// errSchemaBehind reports a database that lacks migrations or triggers this build carries.
 var errSchemaBehind = errors.New("the database is missing migrations this build carries; run komrad migrate as the database owner")
 
 // Migrator brings a database's schema up to date with the migrations and trigger units it reads.

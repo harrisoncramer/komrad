@@ -187,7 +187,7 @@ func renderCompactedRecord(row *agentv1.GetAgentResponse, threads []*agentv1.Rev
 	return strings.Join(lines, "\n")
 }
 
-// describeThread is one open thread as a line of the reminder, naming where it is pinned.
+// describeThread renders one open thread as a line of the reminder, naming where the thread sits.
 func describeThread(thread *agentv1.ReviewThread) string {
 	return fmt.Sprintf("- %s on %s lines %d-%d", thread.GetId(), thread.GetFilePath(), thread.GetNewStart(), thread.GetNewEnd())
 }

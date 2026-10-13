@@ -63,7 +63,7 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]dif
 	return traced
 }
 
-// traceOnScreen places the threads whose numbers were counted in the snapshot on screen.
+// traceOnScreen places the threads whose numbers the snapshot on screen counted.
 func traceOnScreen(params traceThreadsParams) map[string]diffview.Traced {
 	onScreen := map[string]bool{}
 
@@ -192,7 +192,7 @@ func traceAnchors(ctx context.Context, params traceAnchorsParams) (map[string]di
 	return traced, nil
 }
 
-// tracedExactly is a place whose numbers were counted in the snapshot on screen.
+// tracedExactly is a place whose numbers the snapshot on screen counted.
 func tracedExactly(filePath string, newStart int32) diffview.Traced {
 	return diffview.Traced{
 		FilePath: filePath,

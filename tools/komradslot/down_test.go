@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestDown covers when a slot is given back and when its claim is kept.
+// TestDown covers when a slot goes back and when its claim stays.
 func TestDown(t *testing.T) {
 	t.Parallel()
 

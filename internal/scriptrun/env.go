@@ -245,8 +245,8 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, task taskst
 
 	cfg := workflow.Worktree
 
-	// The configured directory is shared by every workflow, so a repository that expects its
-	// worktrees in a particular place is served by the workflow naming that place itself.
+	// Every workflow shares the configured directory, so a repository that expects its
+	// worktrees in a particular place needs a workflow that names that place itself.
 	worktreesDir := config.ExpandHome(cfg.Dir)
 	if worktreesDir == "" {
 		worktreesDir, err = loaded.GetWorktreesDir()
