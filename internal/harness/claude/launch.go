@@ -32,7 +32,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	if h.configDir != "" {
 		command += configDirEnv + "=" + harness.QuoteArg(h.configDir) + " "
 	}
-	command += h.Binary()
+	command += harness.RunBinary(h.Binary())
 
 	if quoted := harness.QuoteFlags(launch.Flags); quoted != "" {
 		command += " " + quoted

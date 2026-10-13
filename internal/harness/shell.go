@@ -67,6 +67,11 @@ func QuoteArg(arg string) string {
 	return "'" + strings.ReplaceAll(arg, "'", `'\''`) + "'"
 }
 
+// RunBinary is the command word that runs binary from the pane's PATH, past any alias or function of that name.
+func RunBinary(binary string) string {
+	return "command " + binary
+}
+
 // QuoteFlags renders a configured flag string as shell-safe arguments, ready to
 // append to a command line.
 func QuoteFlags(flags string) string {
