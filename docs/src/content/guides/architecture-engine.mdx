@@ -6,6 +6,7 @@ order: 18
 ---
 
 import Command from "../../components/Command.astro";
+import { link } from "../../site";
 
 A remote engine is komrad running on a machine that is not your laptop. The server, the database and every agent's terminal live there. The panel stays with you.
 
@@ -13,20 +14,12 @@ Komrad needs little from that machine: a Postgres it can reach, tmux, the agent 
 
 ## The pieces
 
-```
-  LAPTOP                         AWS
-  +----------------+             +-----------------------------+
-  |  panel         |  ssh -L     |  EC2, fixed IP              |
-  |                |------------>|   komrad serve             |
-  |  local tmux    |             |   tmux, every agent         |
-  |                |             |   data volume               |
-  +----------------+             +--------------+--------------+
-                                                v
-  GITHUB ACTIONS                 +-----------------------------+
-  +----------------+   ssm       |  RDS Postgres               |
-  |  release.yml   |------------>|                             |
-  +----------------+             +-----------------------------+
-```
+<figure class="diagram">
+  <img
+    src={link("/diagrams/architecture-engine.png")}
+    alt="The panel on your laptop reaches komrad serve on an EC2 instance with a fixed IP over ssh -L. The instance also runs tmux with every agent and holds a data volume, and komrad serve uses RDS Postgres. GitHub Actions runs release.yml, which reaches the instance over SSM."
+  />
+</figure>
 
 One EC2 instance runs the server and every agent. It has a fixed address, and SSH is open only to the addresses we list. The database is RDS, and only the instance can reach it. Its password lives in Secrets Manager, never on disk.
 

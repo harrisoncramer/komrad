@@ -1,0 +1,13 @@
+...@_theme
+
+direction: down
+
+commit: write commits
+trigger: "trigger\npg_notify(\"agents <key>\")"
+listener: "listener\none dedicated connection"
+pending: "pending set\nkeys to re-read"
+render: "render pass\nread rows back, diff per subscriber"
+panel
+
+commit -> trigger -> listener -> pending -> render
+render -> panel: stream

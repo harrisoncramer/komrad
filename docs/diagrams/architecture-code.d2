@@ -1,0 +1,19 @@
+...@_theme
+
+direction: down
+
+cli
+server
+handlers: "rpc, mcp\nhandlers"
+services: "services\nagents, mail, reviews, ..."
+store
+postgres: Postgres {shape: cylinder}
+adapters: "adapters\ngit, tmux, harness, forge"
+world: the outside world {style.stroke-dash: 3}
+
+ui: "ui\na client, talks over Connect only"
+
+cli -> server -> handlers -> services
+services -> store -> postgres
+services -> adapters -> world
+ui -> server: Connect {style.stroke-dash: 3}

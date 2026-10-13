@@ -31,6 +31,13 @@ instance makes from a script of keypresses under `recordings/`:
 
 The record-komrad skill under `.claude/skills` says how to write the script and attach the gif.
 
+A diagram in the docs is a D2 file under `docs/diagrams`, never ASCII art. Each one imports
+`_theme.d2` for the site's colours, and renders to `docs/public/diagrams/<name>.png`:
+
+    mise run docs:diagram [name...]
+
+Commit the source and the PNG together.
+
 ## Migrations
 
 An older build runs against the newest schema, whether it is the panel you are running inside or

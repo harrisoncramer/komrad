@@ -1,0 +1,24 @@
+...@_theme
+
+direction: down
+
+workflow: "workflow: neovim" {
+  style.font-size: 18
+
+  orchestrator: "orchestrator\ncoordinates the workflow's tasks"
+
+  fix-login: "task: fix-login" {
+    style.font-size: 16
+    writer: "writer\ndoes the work, owns the checkout"
+    reviewer: "reviewer\nreads the writer's change"
+    writer -> reviewer: change {style.stroke-dash: 3}
+  }
+
+  rfc-truncate: "task: rfc-truncate" {
+    style.font-size: 16
+    writer
+  }
+
+  orchestrator -> fix-login {style.stroke-dash: 3}
+  orchestrator -> rfc-truncate {style.stroke-dash: 3}
+}

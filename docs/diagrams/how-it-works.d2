@@ -1,0 +1,26 @@
+...@_theme
+
+direction: down
+
+terminal: your terminal {
+  style.font-size: 18
+  attach
+}
+
+tmux: komrad's tmux server {
+  style.font-size: 18
+  panel
+  agent1: agent
+  agent2: agent
+  more: "..." {style.stroke-dash: 3}
+}
+
+serve: komrad serve
+postgres: Postgres {shape: cylinder}
+
+terminal.attach -> tmux
+tmux.panel -> serve
+tmux.agent1 -> serve
+tmux.agent2 -> serve
+tmux.more -> serve {style.stroke-dash: 3}
+serve -> postgres

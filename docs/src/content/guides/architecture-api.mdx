@@ -6,27 +6,18 @@ order: 20
 ---
 
 import Command from "../../components/Command.astro";
+import { link } from "../../site";
 
 Every endpoint in komrad is declared once, as an RPC in a protobuf file. Everything else is derived from it.
 
 ## The pipeline
 
-```
-  <pkg>.proto  with  surfaces { cli, mcp, name, ... }
-       |
-       |  buf lint
-       v
-  buf generate
-       |--> types            (protoc-gen-go)
-       |--> routes, client   (connect-go)
-       |--> strict handler   (komrad's plugin)
-       v
-  read at startup by internal/rpcapi
-       |--> server handlers
-       |--> komrad rpc commands
-       |--> MCP tools
-       |--> docs
-```
+<figure class="diagram">
+  <img
+    src={link("/diagrams/architecture-api.png")}
+    alt="A proto file with its surfaces annotation passes buf lint, then buf generate writes types with protoc-gen-go, routes and a client with connect-go, and a strict handler with komrad's plugin. internal/rpcapi reads them at startup to build the server handlers, the komrad rpc commands, the MCP tools and the docs."
+  />
+</figure>
 
 Each RPC carries one annotation, `surfaces`. It says whether the RPC gets a CLI command, whether it becomes an MCP tool, what it is called, and which agent roles may use it. An RPC that leaves a surface off must say why. For instance, `RecordReport` is not an MCP tool, because only komrad's own hook binary may call it.
 

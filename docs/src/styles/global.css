@@ -527,6 +527,13 @@
   border-radius: 12px;
 }
 
+.doc-content figure.diagram img {
+  width: auto;
+  max-width: 100%;
+  max-height: 36rem;
+  margin-inline: auto;
+}
+
 .doc-content figure.placeholder {
   display: flex;
   aspect-ratio: 16 / 9;

@@ -28,15 +28,12 @@ Every task has exactly one _writer_. The writer does the task's work: it makes e
 
 Finally, _reviewer_ agents read the writer's change and comment on it. Reviewers work in the task's checkout but make no changes of their own.
 
-```
-  workflow: neovim
-   |-- orchestrator                <-- coordinates the workflow's tasks
-   |
-   |-- task: fix-login (writer)    <-- the writer does the work, owns the checkout
-   |      '-- reviewer             <-- reads the writer's change
-   |
-   '-- task: rfc-truncate (writer)
-```
+<figure class="diagram">
+  <img
+    src={link("/diagrams/agents.png")}
+    alt="The neovim workflow holds an orchestrator that coordinates two tasks. The fix-login task has a writer, which does the work and owns the checkout, and a reviewer that reads the writer's change. The rfc-truncate task has only a writer."
+  />
+</figure>
 
 ## Starting agents
 

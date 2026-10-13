@@ -6,24 +6,18 @@ order: 15
 ---
 
 import Command from "../../components/Command.astro";
+import { link } from "../../site";
 
 You have used every piece: [workflows](../workflows/), [tasks](../tasks/), [agents](../agents/), [reviews](../reviews/), [hooks](../hooks/), [schedules](../schedules/), [events and messages](../events-and-messages/) and [MCP](../mcp/). This guide steps back to show how they fit together and why closing things is always safe. The guides after it go deeper.
 
 ## Two programs
 
-```
-  your terminal             komrad's tmux server
-  +-------------+          +-------------------------------+
-  |  attach ----+--------->|  panel   agent   agent   ...  |
-  +-------------+          +-----+-------+-------+---------+
-                                 |       |       |
-                                 v       v       v
-                           +-------------------------------+
-                           |  komrad serve                |
-                           +---------------+---------------+
-                                           v
-                                       Postgres
-```
+<figure class="diagram">
+  <img
+    src={link("/diagrams/how-it-works.png")}
+    alt="Your terminal attaches to komrad's tmux server, which holds the panel and every agent. The panel and each agent talk to komrad serve, which owns Postgres."
+  />
+</figure>
 
 Komrad is a server and a panel. The server runs in the background. It owns the database, answers the API, and watches every agent. The server, with its database, tmux and agents, makes up an engine. The panel is just a screen. It talks to the server and remembers nothing itself. You can close it whenever you like.
 
