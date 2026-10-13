@@ -12,7 +12,7 @@ import (
 	"komrad/lib/xslice"
 )
 
-// traceTimeout caps tracing every pair together, on a budget separate from the load's.
+// traceTimeout caps tracing every thread of one history together.
 const traceTimeout = 10 * time.Second
 
 var errAnswerGone = fail.NotFound("the rounds this answer stands between are gone")
@@ -122,13 +122,12 @@ func Build(ctx context.Context, params BuildParams) Record {
 		record.Span = wholeSpan(params.Round)
 	}
 
-	earlier, earlierAt := findPreviousReviewedRound(params.Reviews, params.Rounds, params.Round)
-	record.Earlier, record.EarlierReleasedAt = earlier, earlierAt
+	record.Earlier, record.EarlierReleasedAt = findPreviousReviewedRound(params.Reviews, params.Rounds, params.Round)
 	record.ChangedSinceEarlier = countChangedSince(ctx, countChangedSinceParams{
 		Git:     params.Git,
 		Dir:     params.Dir,
 		Exclude: params.Exclude,
-		Earlier: earlier,
+		Earlier: record.Earlier,
 		ToSHA:   params.Round.SnapshotSHA,
 	})
 

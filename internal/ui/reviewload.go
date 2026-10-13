@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"time"
 
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
@@ -194,7 +193,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			threads:        opened.GetThreads(),
 			viewed:         viewed,
 			earlier:        findRound(opened.GetRounds(), opened.GetEarlierRoundId()),
-			earlierAt:      releasedClock(opened.GetEarlierReleasedAt()),
+			earlierAt:      reviewTimeOf(opened.GetEarlierReleasedAt()),
 			pinned:         opened.GetPinned(),
 			chapters:       xslice.Map(opened.GetChapters(), reviewChapterOf),
 			rounds:         opened.GetRounds(),
@@ -255,7 +254,7 @@ func reviewChapterOf(chapter *agentv1.ReviewChapter) reviewChapter {
 	return reviewChapter{
 		FromSHA:     chapter.GetFromSha(),
 		ToSHA:       chapter.GetToSha(),
-		At:          releasedClock(chapter.GetReleasedAt()),
+		At:          reviewTimeOf(chapter.GetReleasedAt()),
 		Ordinal:     chapter.GetOrdinal(),
 		Comparable:  chapter.GetComparable(),
 		FromBase:    chapter.GetFromBaseSha(),
@@ -289,16 +288,6 @@ func changedSinceSaid(changed int32) string {
 	}
 
 	return label.Counted(int(changed), "file") + " changed since you last reviewed"
-}
-
-// releasedClock formats when the person released a review the way a reader would say it.
-func releasedClock(released string) string {
-	stamp, err := time.Parse(time.RFC3339, released)
-	if err != nil {
-		return ""
-	}
-
-	return stamp.Local().Format("3:04PM")
 }
 
 type roundPatch struct {

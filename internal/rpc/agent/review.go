@@ -165,7 +165,7 @@ func (s *Handler) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRo
 
 // OpenReviewHistory opens a task's review as the panel draws it, freezing a round when none holds the worktree.
 func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReviewHistoryRequest) (*agentv1.OpenReviewHistoryResponse, *fail.Error) {
-	history, err := s.review.GetHistory(ctx, reviews.GetHistoryParams{
+	opened, err := s.review.GetHistory(ctx, reviews.GetHistoryParams{
 		Task:   req.GetTask(),
 		Fresh:  req.GetFresh(),
 		Span:   historySpanOf(req),
@@ -175,7 +175,7 @@ func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReview
 		return nil, rpcerr.From(err, "failed to open the review history")
 	}
 
-	return render.ReviewHistory(*history), nil
+	return render.ReviewHistory(*opened), nil
 }
 
 func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {

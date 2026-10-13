@@ -66,26 +66,26 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		return nil, err
 	}
 
-	answer := &ReviewHistory{
+	opened := &ReviewHistory{
 		Round:   picked.Round,
 		Rounds:  picked.Rounds,
 		Threads: threads,
 		Pinned:  picked.Pinned,
 		Notice:  picked.Notice,
 	}
-	answer.Record = history.Build(ctx, history.BuildParams{
+	opened.Record = history.Build(ctx, history.BuildParams{
 		Git:     s.git,
 		Tracer:  s.tracer,
 		Dir:     task.Checkout.Cwd,
 		Exclude: s.readDiffExclude(ctx, task.WorkflowID),
-		Round:   historyRoundOf(answer.Round),
-		Rounds:  xslice.Map(answer.Rounds, historyRoundOf),
+		Round:   historyRoundOf(opened.Round),
+		Rounds:  xslice.Map(opened.Rounds, historyRoundOf),
 		Reviews: xslice.Map(reviews, historyReviewOf),
 		Threads: xslice.Map(threads, historyThreadOf),
 		Span:    params.Span,
 	})
 
-	return answer, nil
+	return opened, nil
 }
 
 type pickedRound struct {
