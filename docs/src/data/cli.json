@@ -126,7 +126,7 @@
     "parent": "",
     "usage": "komrad engine",
     "aliases": [],
-    "short": "Set up the engines that share a database",
+    "short": "Set up the engines that share a database, and who may use them",
     "long": "",
     "example": "",
     "flags": [],
