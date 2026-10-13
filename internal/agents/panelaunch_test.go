@@ -722,19 +722,19 @@ func TestLaunchWithoutAKomradBinaryGivesNoStandIn(t *testing.T) {
 	assert.Empty(t, fakeHarness.Launches[0].ToolsDir)
 }
 
-// TestLaunchLogsItsHooks pins the hooks a launch answers with and the line it leaves under its agent naming them.
-func TestLaunchLogsItsHooks(t *testing.T) {
+// TestLaunchAnswersWithItsHooks pins the hooks a launch answers with and the line it leaves under its agent naming them.
+func TestLaunchAnswersWithItsHooks(t *testing.T) {
 	tests := []struct {
 		name          string
 		binPath       string
 		wantInstalled []string
-		wantHooks     any
+		wantLogged    any
 	}{
 		{
 			name:          "a launch pointing its hooks at komrad",
 			binPath:       "/usr/local/bin/komrad",
 			wantInstalled: []string{"PreToolUse", "Stop"},
-			wantHooks:     []any{"PreToolUse", "Stop"},
+			wantLogged:    []any{"PreToolUse", "Stop"},
 		},
 		{
 			name: "a launch with no komrad binary to point them at",
@@ -761,7 +761,7 @@ func TestLaunchLogsItsHooks(t *testing.T) {
 
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, "id-1", record[logging.TargetAgentID])
-			assert.Equal(t, tt.wantHooks, record[logging.HookInstalled])
+			assert.Equal(t, tt.wantLogged, record[logging.HookInstalled])
 		})
 	}
 }
