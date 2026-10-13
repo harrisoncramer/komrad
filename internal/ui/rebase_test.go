@@ -21,7 +21,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 			plan: rebasePlan{
 				baseRef: "origin/main",
 			},
-			want:     []string{"no commits of its own", "moved to origin/main"},
+			want:     []string{"no commits of its own", "moves it to origin/main"},
 			wantNone: []string{"replayed"},
 		},
 		{
@@ -30,7 +30,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 				baseRef: "origin/main",
 				landed:  3,
 			},
-			want: []string{"already holds every commit", "3 commits will leave the branch"},
+			want: []string{"already holds every commit", "drops 3 commits from it"},
 		},
 		{
 			name: "an ordinary rebase says what it replays",
@@ -38,8 +38,8 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 				baseRef: "origin/main",
 				replay:  2,
 			},
-			want:     []string{"2 commits of its own will be replayed onto origin/main"},
-			wantNone: []string{"leave the branch"},
+			want:     []string{"replays the branch's 2 commits onto origin/main"},
+			wantNone: []string{"drops"},
 		},
 		{
 			name: "a partly landed branch says both halves",
@@ -48,7 +48,7 @@ func TestRefreshDescriptionSaysWhatWillHappen(t *testing.T) {
 				landed:  2,
 				replay:  1,
 			},
-			want: []string{"1 commit of its own will be replayed", "Another 2 the base already holds"},
+			want: []string{"replays the branch's 1 commit", "It drops 2 more that the base already holds"},
 		},
 	}
 
@@ -100,9 +100,9 @@ func TestRefreshDescriptionAlwaysSaysWhatItDoesToTheFiles(t *testing.T) {
 			t.Parallel()
 
 			description := rebaseDescription(tt.plan)
-			assert.Contains(t, description, "files will change under it")
-			assert.Contains(t, description, "nothing untracked is removed")
-			assert.Contains(t, description, "copy of the worktree is kept")
+			assert.Contains(t, description, "files change")
+			assert.Contains(t, description, "komrad keeps every untracked file")
+			assert.Contains(t, description, "saves a copy of the worktree")
 		})
 	}
 }

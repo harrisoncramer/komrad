@@ -181,13 +181,13 @@ func TestWorktreesDelete(t *testing.T) {
 			name:         "a directory nothing answers for is offered the delete on its own",
 			row:          "broken",
 			press:        []string{"space", "a", "d"},
-			wantRendered: "Delete the worktree of broken? The directory nothing answers for is removed on its own",
+			wantRendered: "Delete the worktree of broken? Komrad deletes the directory, which no agent uses",
 		},
 		{
 			name:         "a selection of two directories nothing answers for counts them",
 			row:          "task/orphan",
 			press:        []string{"v", "j", "v", "space", "a", "d"},
-			wantRendered: "Delete 2 worktrees? 2 directories nothing answers for are removed on their own",
+			wantRendered: "Delete 2 worktrees? Komrad deletes 2 directories that no agent uses",
 		},
 		{
 			name:         "deleting unused worktrees gathers only the directories no task answers for",

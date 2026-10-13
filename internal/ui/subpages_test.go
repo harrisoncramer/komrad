@@ -166,7 +166,7 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		harness.press("r")
 
-		assert.Contains(t, readOpenMessages(harness), "an archived task's worktree is not touched")
+		assert.Contains(t, readOpenMessages(harness), "komrad leaves an archived task's worktree alone")
 	})
 
 	t.Run("an archived agent on a live task has no git, since the checkout is not its own", func(t *testing.T) {

@@ -84,7 +84,7 @@ func (m *model) reportPushed(name string, result *agentv1.PushWorktreeResponse, 
 		m.pushMessage(message{
 			kind:    messageInfo,
 			summary: name + ": force-pushed " + result.GetBranch(),
-			detail: fmt.Sprintf("%s. %s went up over origin's copy, and %s has been told.",
+			detail: fmt.Sprintf("%s. Komrad pushed %s over origin's copy and told %s.",
 				git.ShortSHA(sha), label.Count(commits, "commit", "commits"), name),
 		})
 
@@ -94,7 +94,7 @@ func (m *model) reportPushed(name string, result *agentv1.PushWorktreeResponse, 
 	m.pushMessage(message{
 		kind:    messageInfo,
 		summary: name + ": pushed " + result.GetBranch(),
-		detail:  fmt.Sprintf("%s. %s went up.", git.ShortSHA(sha), label.Count(commits, "commit", "commits")),
+		detail:  fmt.Sprintf("%s. Komrad pushed %s.", git.ShortSHA(sha), label.Count(commits, "commit", "commits")),
 	})
 }
 
@@ -111,20 +111,20 @@ func pushForm(plan pushPlan) gitConfirmForm {
 
 // pushDescription says what the push will send, then what it overwrites, then what stays behind.
 func pushDescription(plan pushPlan) string {
-	lines := []string{fmt.Sprintf("%s will go up to origin as %s.", label.Count(plan.commits, "commit", "commits"), plan.branch)}
+	lines := []string{fmt.Sprintf("Komrad pushes %s to origin as %s.", label.Count(plan.commits, "commit", "commits"), plan.branch)}
 
 	if plan.forced {
-		lines = append(lines, "Origin's copy holds commits this branch no longer does, as a rebase leaves it, so it will be "+
-			"overwritten. The push is refused if origin has moved since komrad last read it.")
+		lines = append(lines, "Origin's copy holds commits this branch dropped, as a rebase does, so komrad overwrites it. "+
+			"Komrad refuses the push if origin moved since komrad last read it.")
 	}
 
 	if plan.pullRequest.MergeReadiness.AutoMerge {
-		lines = append(lines, "Auto-merge is on for its "+plan.pullRequest.Noun()+", so what goes up merges by itself once its checks and "+
+		lines = append(lines, "Auto-merge is on for its "+plan.pullRequest.Noun()+", so the forge merges the push once its checks and "+
 			"reviews pass.")
 	}
 
 	if plan.uncommitted > 0 {
-		lines = append(lines, fmt.Sprintf("%s nothing has committed will stay behind.",
+		lines = append(lines, fmt.Sprintf("Komrad leaves %s of uncommitted changes behind.",
 			label.Count(plan.uncommitted, "file", "files")))
 	}
 

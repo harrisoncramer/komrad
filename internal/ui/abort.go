@@ -40,9 +40,9 @@ func (m *model) reportAborted(name string, sequence panel.Sequence, result *agen
 		where = branch
 	}
 
-	lines := []string{where + " is back where it stood before.", "A copy of the worktree from before the abort is kept at " + result.GetParkedRef() + "."}
+	lines := []string{where + " is back where it was before.", "Komrad saved a copy of the worktree from before the abort at " + result.GetParkedRef() + "."}
 	if result.GetInterrupted() {
-		lines = append(lines, "Its turn was cut first.")
+		lines = append(lines, "Komrad interrupted its turn first.")
 	}
 
 	m.pushMessage(message{
@@ -56,9 +56,9 @@ func abortForm(name string, sequence panel.Sequence) gitConfirmForm {
 	return func(keys config.FixedKeys) (*huh.Form, *bool) {
 		return confirmForm(
 			fmt.Sprintf("Abort the %s in the worktree of %s?", sequence, name),
-			fmt.Sprintf("The branch goes back to where it stood before the %s began, and its files with it. "+
-				"A copy of the worktree as it stands now, conflicts and all, is kept first. "+
-				"The agent working in it is stopped first if it is working, and is told either way.", sequence),
+			fmt.Sprintf("Komrad puts the branch and its files back where they were before the %s began. "+
+				"It first saves a copy of the worktree as it is now, conflicts and all. "+
+				"If the agent is working, komrad stops it first, and it tells the agent either way.", sequence),
 			"Abort "+string(sequence),
 			keys,
 		)

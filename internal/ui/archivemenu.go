@@ -12,7 +12,7 @@ import (
 
 var (
 	errNeverStarted  = errors.New("this agent never got as far as starting, so there is no conversation to open")
-	errOpensOneAgent = errors.New("restore and open puts one agent's conversation back in a pane, so it needs a single agent")
+	errOpensOneAgent = errors.New("restore and open works on one agent at a time")
 )
 
 // archived is what the archive menu acts on: chosen or hovered work, a workflow, or a schedule.

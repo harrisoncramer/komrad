@@ -2324,7 +2324,7 @@ func TestAgentsReviewers(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, `Permanently delete agent "writer" and its reviewer?`)
-		assert.Contains(t, frame, "Their transcripts go with them")
+		assert.Contains(t, frame, "Komrad deletes their transcripts too")
 	})
 
 	t.Run("a task offers its writer's worktree a rebase", func(t *testing.T) {

@@ -84,7 +84,7 @@ func (d *documentsScreen) closeEdit(m *model) tea.Cmd {
 
 	body := string(content)
 	if strings.TrimSpace(body) == "" {
-		m.reportBrief(summary, "an empty document is not saved, so your copy is left at "+edit.path)
+		m.reportBrief(summary, "komrad does not save an empty document, so your copy stays at "+edit.path)
 
 		return nil
 	}

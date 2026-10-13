@@ -14,7 +14,7 @@ const fallbackShell = "sh"
 
 var (
 	errNoAgentDir    = errors.New("the agent has no directory")
-	errNoTaskDir     = errors.New("the task has no checkout and its workflow no directory")
+	errNoTaskDir     = errors.New("the task has no checkout, and its workflow has no directory")
 	errNoEngineShell = errors.New("the engine is not reachable")
 )
 

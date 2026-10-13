@@ -23,14 +23,14 @@ const (
 )
 
 var (
-	errArchivedWorktree     = errors.New("an archived task's worktree is not touched")
+	errArchivedWorktree     = errors.New("komrad leaves an archived task's worktree alone")
 	errNoWorktree           = errors.New("this task has no worktree of its own for komrad to act on")
 	errPushInProgress       = errors.New("the worktree is part-way through a rebase, merge or pick, so finish or abort that first")
 	errAbortNothing         = errors.New("nothing is part-way through in this worktree, so there is nothing to abort")
 	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
 	errTaskGone             = errors.New("the task the menu was opened on has left the list")
-	errNoPullRequest        = errors.New("komrad has read the repository and nothing has been opened from this branch")
-	errMovedPastPullRequest = errors.New("the branch has moved on since its last pull request finished and nothing has been opened from it since")
+	errNoPullRequest        = errors.New("nobody has opened a pull request from this branch")
+	errMovedPastPullRequest = errors.New("the branch moved on after its last pull request finished, and nobody has opened a new one")
 	errPullRequestsUnread   = errors.New("komrad has not read this task's repository yet, or its checkout is not on a forge")
 )
 

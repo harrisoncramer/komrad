@@ -11,7 +11,7 @@ import (
 
 const autoMergeTimeout = 30 * time.Second
 
-var errNoAutoMerge = errors.New("the forge will not queue it now: merge it if nothing is left to wait for, or check the repository allows auto-merge")
+var errNoAutoMerge = errors.New("the forge refused to queue it, so merge it now if nothing is left to wait for, or check that the repository allows auto-merge")
 
 // autoMergedMsg is an auto-merge change come back.
 type autoMergedMsg struct {

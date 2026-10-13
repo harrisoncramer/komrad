@@ -211,9 +211,9 @@ func scheduleDocRows(item scheduleItem, width int) []string {
 	return append(rows, paint.DocStyledRows(prose+"\n", width, columnStyle())...)
 }
 
-const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"
+const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nKomrad keeps the agents you archive here until you delete them.\n"
 
-const emptyScheduleArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nSchedules archived from the panel are kept here until you delete them.\n"
+const emptyScheduleArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
 
 func archiveMarkdown(agent panel.Agent) string {
 	return renderDocument(agent.Name, "_archived — kept until deleted_", "",

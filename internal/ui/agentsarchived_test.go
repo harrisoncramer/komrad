@@ -89,7 +89,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			},
 			press:      []string{"j", "v", "j", "v", "space", "a", "o", "ctrl+g"},
 			wantScreen: agentsScreen,
-			wantFrame:  "one agent's conversation back in a pane",
+			wantFrame:  "restore and open works on one agent at a time",
 		},
 		{
 			name:       "back opens the view switcher",
@@ -153,7 +153,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "api-refactor", "w1")},
 			press:      []string{"space", "a", "d"},
 			wantScreen: agentsScreen,
-			wantFrame:  "The one agent still archived inside it goes with it",
+			wantFrame:  "Komrad also deletes the one archived agent in it",
 		},
 	}
 
@@ -1413,7 +1413,7 @@ func TestArchivedTasks(t *testing.T) {
 			name:      "the delete prompt on a task says the task goes",
 			rows:      buildArchivedTasks(),
 			press:     append(onAPIWork, "space", "a", "d"),
-			wantFrame: `Task "api-work" goes too`,
+			wantFrame: `It also deletes task "api-work"`,
 		},
 		{
 			name:  "restore on a live task's header restores only its archived agents",

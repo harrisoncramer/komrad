@@ -304,10 +304,10 @@ func editTaskForm(keys config.FixedKeys, values *taskEditValues, slug string) (*
 		huh.NewInput().Key("title").Title(fmt.Sprintf("Task %q", slug)).Description("its title").
 			CharLimit(maxTaskTitle).Validate(checkTaskTitle).Value(&values.Title),
 		textField("goal").Title("Goal").
-			Description(fmt.Sprintf("what is done when this task is; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
+			Description(fmt.Sprintf("the outcome that finishes this task; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
 			Validate(checkTaskGoal).Value(&values.Goal),
 		textField("notes").Title("Notes").
-			Description(fmt.Sprintf("what has been found and decided; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
+			Description(fmt.Sprintf("findings and decisions so far; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
 			Value(&values.Notes),
 	)
 }

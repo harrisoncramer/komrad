@@ -28,7 +28,7 @@ func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
 		kindField(values, params.orchestrators),
 		huh.NewInput().Key("name").Title("Name").Description(scheduleNameDescription(values.Kind)).Value(&values.Name),
 		huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
-		huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("blank = this machine's zone").Value(&values.Timezone),
+		huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("leave blank to use this machine's zone").Value(&values.Timezone),
 		textField("prompt").Title("Prompt").Description(schedulePromptDescription(values.Kind)).Value(&values.Prompt),
 	}
 
@@ -43,7 +43,7 @@ func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
 	)
 	if values.Kind != schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
 		fields = append(fields,
-			huh.NewConfirm().Key("hide_agents").Title("Hide its tasks?").Description("each run still runs, its task just starts hidden").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
+			huh.NewConfirm().Key("hide_agents").Title("Hide its tasks?").Description("every run still runs, but its task starts hidden").Affirmative("Hidden").Negative("Listed").Value(&values.HideAgents).WithButtonAlignment(lipgloss.Left),
 		)
 	}
 
@@ -74,10 +74,10 @@ func scheduleNameDescription(kind schedulev1.ScheduleKind) string {
 
 func schedulePromptDescription(kind schedulev1.ScheduleKind) string {
 	if kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
-		return "the mail the orchestrator is sent"
+		return "the mail komrad sends the orchestrator"
 	}
 
-	return "what each launched agent is asked to do"
+	return "what komrad asks each launched agent to do"
 }
 
 func workflowField(values *panel.ScheduleConfig, workflows []panel.Workflow) huh.Field {

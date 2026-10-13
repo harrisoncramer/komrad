@@ -259,12 +259,12 @@ func taskAgentForm(keys config.FixedKeys, values *agentFormValues, task, where s
 func describeNewWriter(workflow panel.Workflow, task panel.Task) string {
 	switch {
 	case task.Cwd != "":
-		return fmt.Sprintf("Becomes the task's writer, carrying on in its worktree at %s.", task.Cwd)
+		return fmt.Sprintf("The agent becomes the task's writer and carries on in its worktree at %s.", task.Cwd)
 	case workflow.Worktree.Enabled:
-		return "Becomes the task's first writer, in a worktree of its own."
+		return "The agent becomes the task's first writer and gets a worktree of its own."
 	}
 
-	return "Becomes the task's first writer, in the workflow's directory."
+	return "The agent becomes the task's first writer and runs in the workflow's directory."
 }
 
 // reviewerAgentForm asks for the work and little else.
@@ -276,7 +276,7 @@ func reviewerAgentForm(keys config.FixedKeys, values *agentFormValues, writer pa
 		huh.NewInput().Key("harness").Title("Agent").Placeholder(label.OrDash(writer.Harness)).Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		huh.NewNote().Description(fmt.Sprintf(
-			"Runs in %s, the writer's checkout. No worktree, nothing provisioned, archived with its task.", writer.Cwd)),
+			"The reviewer runs in %s, the writer's checkout. Komrad provisions no worktree for it and archives it with its task.", writer.Cwd)),
 	}
 
 	return formOf(keys, fields...)
@@ -288,9 +288,9 @@ func adoptAgentForm(keys config.FixedKeys, values *adoptFormValues) (*huh.Form, 
 		huh.NewInput().Key("ref").Title("Adopt").
 			Description("a branch already pushed or on disk").Value(&values.Ref),
 		textField("prompt").Title("Prompt").
-			Description(fmt.Sprintf("what to do with it; blank asks it to report in and wait. %s opens $EDITOR; %s submits",
+			Description(fmt.Sprintf("what to do with it; leave blank to have it report in and wait. %s opens $EDITOR; %s submits",
 				keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
-		huh.NewInput().Key("title").Title("Title").Description("blank names it after the branch").Value(&values.Title),
+		huh.NewInput().Key("title").Title("Title").Description("leave blank to name it after the branch").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
@@ -354,20 +354,20 @@ func rebaseDescription(plan rebasePlan) string {
 	// A dirty worktree never reaches here.
 	switch {
 	case plan.replay == 0 && plan.landed == 0:
-		lines = append(lines, fmt.Sprintf("This branch has no commits of its own. It will be moved to %s.", plan.baseRef))
+		lines = append(lines, fmt.Sprintf("This branch has no commits of its own. Komrad moves it to %s.", plan.baseRef))
 	case plan.replay == 0:
-		lines = append(lines, fmt.Sprintf("The base already holds every commit on this branch. It will be moved to %s, "+
-			"and %s will leave the branch.", plan.baseRef, label.Count(plan.landed, "commit", "commits")))
+		lines = append(lines, fmt.Sprintf("The base already holds every commit on this branch. Komrad moves the branch to %s "+
+			"and drops %s from it.", plan.baseRef, label.Count(plan.landed, "commit", "commits")))
 	default:
-		lines = append(lines, fmt.Sprintf("%s of its own will be replayed onto %s.",
+		lines = append(lines, fmt.Sprintf("Komrad replays the branch's %s onto %s.",
 			label.Count(plan.replay, "commit", "commits"), plan.baseRef))
 		if plan.landed > 0 {
-			lines = append(lines, fmt.Sprintf("Another %d the base already holds will leave the branch.", plan.landed))
+			lines = append(lines, fmt.Sprintf("It drops %d more that the base already holds.", plan.landed))
 		}
 	}
 
-	lines = append(lines, "Its files will change under it, and nothing untracked is removed. A copy of the "+
-		"worktree is kept first, so this can be read back.")
+	lines = append(lines, "The worktree's files change, but komrad keeps every untracked file. Komrad saves a copy of "+
+		"the worktree first, so you can get it back.")
 
 	if warning := rebaseWarning(plan); warning != "" {
 		lines = append(lines, warning)

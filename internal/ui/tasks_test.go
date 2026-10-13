@@ -160,7 +160,7 @@ func TestTasksTree(t *testing.T) {
 				},
 				writerless: true,
 				offered:    true,
-				form:       "Becomes the task's writer",
+				form:       "The agent becomes the task's writer",
 				want: &agentv1.CreateAgentRequest{
 					Prompt:     "review it",
 					WorkflowId: "w1",
@@ -176,7 +176,7 @@ func TestTasksTree(t *testing.T) {
 				},
 				writerless: true,
 				offered:    true,
-				form:       "Becomes the task's first writer",
+				form:       "The agent becomes the task's first writer",
 				want: &agentv1.CreateAgentRequest{
 					Prompt:     "review it",
 					WorkflowId: "w1",

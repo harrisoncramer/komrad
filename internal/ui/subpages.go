@@ -21,10 +21,10 @@ const (
 )
 
 var (
-	errReviewArchived   = errors.New("an archived agent's work is not reviewed")
-	errReviewReviewer   = errors.New("this agent reviews its task's checkout, so the work there is its writer's")
+	errReviewArchived   = errors.New("komrad does not review an archived agent's work")
+	errReviewReviewer   = errors.New("this agent reviews its task's checkout, so open the review from the task's writer")
 	errReviewNoCheckout = errors.New("this agent has no checkout of its own to read")
-	errTerminalHere     = errors.New("a terminal opens from the agents list")
+	errTerminalHere     = errors.New("open a terminal from the agents list")
 )
 
 // agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.

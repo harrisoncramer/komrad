@@ -104,7 +104,7 @@ func documentTypeForm(values *documentTypeFormValues, title string, keys config.
 func deleteTypeForm(item documentItem) formState {
 	form, confirmed := confirmForm(
 		fmt.Sprintf("Delete document type %q?", item.name),
-		"Agents can no longer write documents of this type. A type documents are still written as is not deleted.",
+		"Agents can no longer write documents of this type. Komrad refuses the delete while any document still uses it.",
 		"Delete",
 		fixedKeys(),
 	)

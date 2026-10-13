@@ -238,7 +238,7 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion) tea.Cmd {
 	return announced(deleting, message{
 		kind:    messageInfo,
 		summary: "Deleting " + subject,
-		detail:  "A background job is taking the directories. The rows are out of the list now, and one it refuses comes back, with the reason in the log.",
+		detail:  "A background job deletes the directories. Komrad drops their rows from the list now. If the job refuses one, its row comes back and the log says why.",
 	})
 }
 

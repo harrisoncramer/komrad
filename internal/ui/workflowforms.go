@@ -107,7 +107,7 @@ var hookMoments = []hookMoment{
 		event:       config.HookAgentPostLaunch,
 		key:         "post_launch_hook",
 		title:       "Agent post-launch hook",
-		description: "runs once the agent has been launched into its pane",
+		description: "runs once the agent's pane opens",
 	},
 	{
 		event:       config.HookAgentPreResume,
@@ -131,7 +131,7 @@ var hookMoments = []hookMoment{
 		event:       config.HookAgentPostArchive,
 		key:         "post_archive_hook",
 		title:       "Agent post-archive hook",
-		description: "runs in the agent's directory once its pane is gone and its row is archived",
+		description: "runs in the agent's directory after komrad closes its pane and archives it",
 	},
 	{
 		event:       config.HookAgentPreRestore,
@@ -149,7 +149,7 @@ var hookMoments = []hookMoment{
 		event:       config.HookAgentPreDelete,
 		key:         "pre_delete_hook",
 		title:       "Agent pre-delete hook",
-		description: "runs in the agent's directory as it is deleted, before the worktree is given back",
+		description: "runs in the agent's directory as komrad deletes it, before komrad releases the worktree",
 	},
 	{
 		event:       config.HookAgentPostDelete,
@@ -167,13 +167,13 @@ var hookMoments = []hookMoment{
 		event:       config.HookTaskPostArchive,
 		key:         "task_post_archive_hook",
 		title:       "Task post-archive hook",
-		description: "runs once a task's last live agent is archived and the task with it",
+		description: "runs after komrad archives a task's last live agent, and the task with it",
 	},
 	{
 		event:       config.HookTaskPreDelete,
 		key:         "task_pre_delete_hook",
 		title:       "Task pre-delete hook",
-		description: "runs as a task is deleted, before its worktree is given back, and a failure keeps the task",
+		description: "runs as komrad deletes a task, before it releases the worktree, and a failure keeps the task",
 	},
 }
 
@@ -343,7 +343,7 @@ func workflowTopFields(nameTitle string, values *workflowFormValues) []huh.Field
 			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keyLabel(fixedKeys().Editor))).
 			Lines(2).Value(&values.Context),
 		huh.NewInput().Key("dir").Title("Default Directory").
-			Description("where agents start, and the checkout worktrees are cut from").
+			Description("agents start here, and worktrees come from this checkout").
 			Value(&values.Cwd),
 		huh.NewSelect[string]().Key(provisionerKey).Title("Provisioner").
 			Options(provisionerOptions()...).Value(&values.Provisioner),
@@ -414,16 +414,16 @@ func worktreeDetailFields(values *workflowFormValues, editing bool) []huh.Field 
 	return []huh.Field{
 		baseBranchField(values, editing),
 		huh.NewInput().Key("worktree_dir").Title("Worktree parent directory").
-			Description("where this workflow's worktrees are made, for a repo that expects them somewhere of its own").
+			Description("komrad makes this workflow's worktrees here, for a repo that wants them in a place of its own").
 			Placeholder("the configured worktrees directory").Value(&values.WorktreeDir),
 		textField("worktree_copy_paths").Title("Worktree copy paths").
-			Description("one repo-relative path per line, copied fresh into every worktree, such as .env").
+			Description("one repo-relative path per line that komrad copies into every worktree, such as .env").
 			Lines(2).Value(&values.WorktreeCopyPaths),
 		textField("worktree_symlink_paths").Title("Worktree symlink paths").
-			Description("one repo-relative path per line, symlinked back instead of duplicated, such as node_modules").
+			Description("one repo-relative path per line that komrad symlinks into every worktree instead of copying, such as node_modules").
 			Lines(2).Value(&values.WorktreeSymlinkPaths),
 		textField("worktree_diff_exclude").Title("Diff excludes").
-			Description("one path or glob per line, left out of the diff the review screen renders, such as proto/gen or *.pb.go").
+			Description("one path or glob per line that the review screen leaves out of the diff, such as proto/gen or *.pb.go").
 			Lines(2).Value(&values.WorktreeDiffExclude),
 	}
 }
@@ -434,10 +434,10 @@ func baseBranchField(values *workflowFormValues, editing bool) huh.Field {
 	field := huh.NewInput().Key("worktree_base_branch").Title("Worktree base branch").
 		Value(&values.WorktreeBaseBranch)
 	if !editing {
-		return field.Description("left blank, it is read from the clone: origin/HEAD, else the branch the checkout is on")
+		return field.Description("leave blank and komrad reads it from the clone, using origin/HEAD or else the checkout's branch")
 	}
 
-	return field.Description("the branch every agent's work is measured against").
+	return field.Description("komrad measures every agent's work against this branch").
 		Validate(func(name string) error {
 			if strings.TrimSpace(name) == "" {
 				return errors.New("a workflow's base branch cannot be blank")
@@ -481,7 +481,7 @@ func eventMuteKey(event string) string {
 // eventPromptFields are what the workflow asks of its agents on each event, under a heading of their own.
 func eventPromptFields(values *workflowFormValues, keys config.FixedKeys) []huh.Field {
 	heading := huh.NewNote().Title("Event prompts").
-		Description(fmt.Sprintf("added to the mail komrad sends an agent on each event, and followed over what komrad says; %s opens $EDITOR", keyLabel(keys.Editor)))
+		Description(fmt.Sprintf("komrad adds this to the mail it sends an agent on each event, and the agent follows it over komrad's own words; %s opens $EDITOR", keyLabel(keys.Editor)))
 
 	fields := []huh.Field{heading}
 	for _, event := range eventprompts.All() {
@@ -490,7 +490,7 @@ func eventPromptFields(values *workflowFormValues, keys config.FixedKeys) []huh.
 				Description("when "+event.Description).
 				CharLimit(eventprompts.MaxPrompt).Lines(2).Value(values.eventPromptFor(event.Name)),
 			huh.NewSelect[bool]().Key(eventMuteKey(event.Name)).Title(event.Title+" mail").
-				Description("muted, it never opens mail of its own, only rewrites mail the agent still holds").
+				Description("when muted, komrad sends no mail of its own and only rewrites mail the agent still holds").
 				Options(huh.NewOption("Tell the agent", false), huh.NewOption("Muted", true)).
 				Value(values.eventMuteFor(event.Name)),
 		)

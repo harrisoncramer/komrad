@@ -868,7 +868,7 @@ func TestFormsWorkflowSubforms(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Default Agent")
-		assert.Contains(t, frame, "where agents start, and the checkout worktrees are cut", "the top form keeps its width")
+		assert.Contains(t, frame, "agents start here, and worktrees come from this checkout", "the top form keeps its width")
 		assert.Contains(t, frame, "› agents ›", "with the subform that is open marked")
 	})
 
@@ -1042,7 +1042,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
 		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"tab"})...)
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "only rewrites mail")
+		assert.Contains(t, frame, "komrad sends no mail of its own")
 
 		harness.press("down", "enter")
 

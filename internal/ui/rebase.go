@@ -80,7 +80,7 @@ func (m *model) reportRebased(name string, result *agentv1.RebaseWorktreeRespons
 		m.pushMessage(message{
 			kind:    messageError,
 			summary: name + ": the rebase stopped on conflicts",
-			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree. %s has been told to settle it.",
+			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree, and komrad told %s to settle it.",
 				baseRef, git.ShortSHA(baseSHA), name),
 		})
 
@@ -91,7 +91,7 @@ func (m *model) reportRebased(name string, result *agentv1.RebaseWorktreeRespons
 		m.pushMessage(message{
 			kind:    messageInfo,
 			summary: name + ": moved onto " + baseRef,
-			detail: fmt.Sprintf("%s. The base already had its work, so %s were dropped instead of replayed.",
+			detail: fmt.Sprintf("%s. The base already had its work, so komrad dropped %s instead of replaying them.",
 				git.ShortSHA(baseSHA), label.Count(int(result.GetLandedCommits()), "commit", "commits")),
 		})
 
@@ -101,7 +101,7 @@ func (m *model) reportRebased(name string, result *agentv1.RebaseWorktreeRespons
 	m.pushMessage(message{
 		kind:    messageInfo,
 		summary: name + ": rebased onto " + baseRef,
-		detail: fmt.Sprintf("%s. %s replayed.",
+		detail: fmt.Sprintf("%s. Komrad replayed %s.",
 			git.ShortSHA(baseSHA), label.Count(int(result.GetReplayCommits()), "commit", "commits")),
 	})
 }
