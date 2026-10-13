@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"komrad/internal/git"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/dates"
+	"komrad/lib/xsha"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
@@ -482,7 +482,7 @@ func compareStatusCheckItems(a, b statusCheckItem) int {
 func (c statusCheckCommit) tally() string {
 	var parts []string
 	if c.headSHA != "" {
-		parts = append(parts, git.ShortSHA(c.headSHA))
+		parts = append(parts, xsha.Short(c.headSHA))
 	}
 	if age := label.Age(c.firstReadAt); age != "" {
 		parts = append(parts, age+" ago")

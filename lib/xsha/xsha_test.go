@@ -1,4 +1,4 @@
-package git
+package xsha
 
 import (
 	"testing"
@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestShortSHA covers a full hash being cut and a short one left alone.
-func TestShortSHA(t *testing.T) {
+// TestShort covers a full hash being cut and a short one left alone.
+func TestShort(t *testing.T) {
 	tests := []struct {
 		sha  string
 		want string
@@ -19,7 +19,7 @@ func TestShortSHA(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
-			assert.Equal(t, tt.want, ShortSHA(tt.sha))
+			assert.Equal(t, tt.want, Short(tt.sha))
 		})
 	}
 }
