@@ -41,8 +41,8 @@ func isGranted(t *testing.T, pool store.DBTX, subject string) bool {
 	return granted
 }
 
-// TestTheOwnerRefusesAGrantItCannotPlace pins grant turning away an engine or an email it cannot find.
-func TestTheOwnerRefusesAGrantItCannotPlace(t *testing.T) {
+// TestGrantingAccessRefusesAMissingEngineOrAMalformedEmail pins grant refusing an engine nobody ensured and anything but a bare email address.
+func TestGrantingAccessRefusesAMissingEngineOrAMalformedEmail(t *testing.T) {
 	t.Parallel()
 
 	database := dbtest.New(t)
@@ -95,7 +95,7 @@ func TestTheOwnerRefusesAGrantItCannotPlace(t *testing.T) {
 	}
 }
 
-// TestRevokingAccessTurnsTheAccountAway pins revoke removing the grant and the account its sign-in recorded.
+// TestRevokingAccessTurnsTheAccountAway pins revoke refusing an email with no grant and removing the grant and the account its sign-in recorded.
 func TestRevokingAccessTurnsTheAccountAway(t *testing.T) {
 	t.Parallel()
 
