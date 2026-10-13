@@ -2,6 +2,9 @@ package forge
 
 import (
 	"testing"
+	"time"
+
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -243,6 +246,82 @@ func TestFailedStatusChecks(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tt.want, FailedStatusChecks(tt.checks))
+		})
+	}
+}
+
+// TestNewestRuns covers which run of each check stays listed, keyed by source, run event and name.
+func TestNewestRuns(t *testing.T) {
+	t.Parallel()
+
+	at := func(hour int) *time.Time {
+		return xptr.Ptr(time.Date(2026, 9, 20, hour, 0, 0, 0, time.UTC))
+	}
+	run := func(id, source, event, name string, runStartedAt *time.Time) StatusCheck {
+		return StatusCheck{
+			ProviderID:   id,
+			Source:       source,
+			RunEvent:     event,
+			Name:         name,
+			RunStartedAt: runStartedAt,
+		}
+	}
+	older := run("1", "ci", "pull_request", "test", at(11))
+	newer := run("2", "ci", "pull_request", "test", at(12))
+	vet := run("3", "ci", "pull_request", "vet", at(11))
+	otherSource := run("4", "scanner", "pull_request", "test", at(11))
+	push := run("5", "ci", "push", "test", at(11))
+	status := StatusCheck{ProviderID: "6", Name: "ci/legacy"}
+	sameRunEarlier := run("7", "ci", "pull_request", "lint", at(11))
+	sameRunEarlier.StartedAt = at(11)
+	sameRunLater := run("8", "ci", "pull_request", "lint", at(11))
+	sameRunLater.StartedAt = at(12)
+
+	tests := []struct {
+		name   string
+		checks []StatusCheck
+		want   []StatusCheck
+	}{
+		{
+			name: "no checks is none",
+		},
+		{
+			name:   "a rerun hides the run before it",
+			checks: []StatusCheck{older, vet, newer},
+			want:   []StatusCheck{vet, newer},
+		},
+		{
+			name:   "the newest run stays when it is listed first",
+			checks: []StatusCheck{newer, older},
+			want:   []StatusCheck{newer},
+		},
+		{
+			name:   "a check of the same name from another source counts on its own",
+			checks: []StatusCheck{older, otherSource},
+			want:   []StatusCheck{older, otherSource},
+		},
+		{
+			name:   "runs of one workflow started by different events each keep their checks",
+			checks: []StatusCheck{push, older},
+			want:   []StatusCheck{push, older},
+		},
+		{
+			name:   "a check that ran in no run stays",
+			checks: []StatusCheck{status, older},
+			want:   []StatusCheck{status, older},
+		},
+		{
+			name:   "within one run the check that started later stays",
+			checks: []StatusCheck{sameRunLater, sameRunEarlier},
+			want:   []StatusCheck{sameRunLater},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, NewestRuns(tt.checks))
 		})
 	}
 }

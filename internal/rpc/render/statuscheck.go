@@ -44,6 +44,7 @@ func statusCheck(reading pullrequeststore.StatusCheckReading, stored forge.Statu
 		RunEvent:     stored.RunEvent,
 		RunStartedAt: dates.StampPtr(stored.RunStartedAt),
 		Log:          checkLog(reading.GetLogOf(stored)),
+		Passed:       stored.IsPassing(),
 	}
 }
 
@@ -69,6 +70,7 @@ func checkLogStep(step checklog.StepRange) *pullrequestv1.CheckLogStep {
 		FirstLine:  int32(step.FirstLine),
 		LineCount:  int32(step.LineCount),
 		ErrorCount: int32(step.ErrorCount),
+		Passed:     forge.IsPassingConclusion(step.Conclusion),
 	}
 }
 
@@ -128,6 +130,7 @@ func statusCheckStep(stored forge.StatusCheckStep) *pullrequestv1.StatusCheckSte
 		Conclusion: stored.Conclusion,
 		StartedAt:  dates.StampPtr(stored.StartedAt),
 		FinishedAt: dates.StampPtr(stored.FinishedAt),
+		Passed:     stored.IsPassing(),
 	}
 }
 

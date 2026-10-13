@@ -266,7 +266,7 @@ message StatusCheckReading {
   optional string first_read_at = 2;
   // When the forge was last asked about that head, in RFC 3339.
   optional string read_at = 3;
-  // The status checks on that head, by kind, source and name.
+  // The newest run of each status check on that head, by source, run event and name.
   repeated StatusCheck status_checks = 4;
 }
 
@@ -302,6 +302,8 @@ message StatusCheck {
   CheckLog log = 14;
   // The identifier komrad keeps the check under, which ReadCheckLog and SearchCheckLogs take.
   string id = 15;
+  // Whether it completed with a conclusion that counts as passing, such as success, neutral or skipped.
+  bool passed = 16;
 }
 
 // CheckLog records where komrad stands with a check's log. It holds the map of the log's steps and not its text.
@@ -332,6 +334,8 @@ message CheckLogStep {
   int32 line_count = 5;
   // How many of the step's lines the forge marked as errors.
   int32 error_count = 6;
+  // Whether its conclusion counts as passing, such as success, neutral or skipped.
+  bool passed = 7;
 }
 
 // CheckLogState is where fetching a check's log stands.
@@ -368,6 +372,8 @@ message StatusCheckStep {
   optional string started_at = 5;
   // When it finished, in RFC 3339, unset while it has not.
   optional string finished_at = 6;
+  // Whether it completed with a conclusion that counts as passing, such as success, neutral or skipped.
+  bool passed = 7;
 }
 
 // StatusCheckKind names the sort of status check a forge reported.

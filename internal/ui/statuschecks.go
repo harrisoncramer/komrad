@@ -22,18 +22,11 @@ type statusCheckItem struct {
 	name       string
 	state      pullrequestv1.StatusCheckState
 	conclusion string
+	passed     bool
 	startedAt  time.Time
 	finishedAt time.Time
 	steps      []statusCheckItem
-	run        statusCheckRun
 	log        *pullrequestv1.CheckLog
-}
-
-// statusCheckRun is the run a check ran in, by one workflow or app.
-type statusCheckRun struct {
-	source    string
-	event     string
-	startedAt time.Time
 }
 
 // statusCheckCommit is the checks read on the pull request's newest head.
@@ -41,13 +34,6 @@ type statusCheckCommit struct {
 	headSHA     string
 	firstReadAt time.Time
 	items       []statusCheckItem
-}
-
-// statusCheckKey is one check across its reruns.
-type statusCheckKey struct {
-	source string
-	event  string
-	name   string
 }
 
 // statusChecksScreen lists the status checks on the newest head of the pull request opened from one agent's branch.
@@ -143,11 +129,11 @@ var statusCheckScopeLabels = []string{"all", "not passing", "active", "failing"}
 func (s statusCheckScope) holds(item statusCheckItem) bool {
 	switch s {
 	case statusCheckScopeNotPassing:
-		return !isStatusCheckClean(item)
+		return !item.passed
 	case statusCheckScopeActive:
 		return isStatusCheckInFlight(item)
 	case statusCheckScopeFailing:
-		return isStatusCheckFinished(item) && !isStatusCheckClean(item)
+		return isStatusCheckFinished(item) && !item.passed
 	case statusCheckScopeAll:
 	}
 
@@ -377,9 +363,6 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 	return tea.Batch(reads, m.readStatusChecksCmd())
 }
 
-// skippedConclusions are the conclusions a finished check ends with when it neither passed nor failed.
-var skippedConclusions = []string{"neutral", "skipped"}
-
 func isStatusCheckFinished(item statusCheckItem) bool {
 	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
 }
@@ -403,29 +386,21 @@ func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 		name:       check.GetName(),
 		state:      check.GetState(),
 		conclusion: check.GetConclusion(),
+		passed:     check.GetPassed(),
 		startedAt:  dates.Parse(check.GetStartedAt()),
 		finishedAt: dates.Parse(check.GetFinishedAt()),
-		run: statusCheckRun{
-			source:    check.GetSource(),
-			event:     check.GetRunEvent(),
-			startedAt: dates.Parse(check.GetRunStartedAt()),
-		},
-		log: check.GetLog(),
+		log:        check.GetLog(),
 		steps: xslice.Map(check.GetSteps(), func(step *pullrequestv1.StatusCheckStep) statusCheckItem {
 			return statusCheckItem{
 				name:       step.GetName(),
 				state:      step.GetState(),
 				conclusion: step.GetConclusion(),
+				passed:     step.GetPassed(),
 				startedAt:  dates.Parse(step.GetStartedAt()),
 				finishedAt: dates.Parse(step.GetFinishedAt()),
 			}
 		}),
 	}
-}
-
-func isStatusCheckClean(item statusCheckItem) bool {
-	return isStatusCheckFinished(item) &&
-		(strings.EqualFold(item.conclusion, "success") || slices.Contains(skippedConclusions, strings.ToLower(item.conclusion)))
 }
 
 // headStatusCheckCommit is the reading of the given head, and false when that head has not been read yet.
@@ -440,42 +415,13 @@ func headStatusCheckCommit(readings []*pullrequestv1.StatusCheckReading, head st
 	return newStatusCheckCommit(readings[i]), true
 }
 
-// newStatusCheckCommit is one head's reading, holding only the newest run of each check.
+// newStatusCheckCommit is one head's reading.
 func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheckCommit {
-	items := xslice.Map(reading.GetStatusChecks(), newStatusCheckItem)
-	newest := map[statusCheckKey]statusCheckItem{}
-	for _, item := range items {
-		if held, ok := newest[item.key()]; !ok || compareStatusCheckItems(held, item) < 0 {
-			newest[item.key()] = item
-		}
-	}
-
 	return statusCheckCommit{
 		headSHA:     reading.GetHeadSha(),
 		firstReadAt: dates.Parse(reading.GetFirstReadAt()),
-		items: xslice.Filter(items, func(item statusCheckItem) bool {
-			return newest[item.key()].providerID == item.providerID
-		}),
+		items:       xslice.Map(reading.GetStatusChecks(), newStatusCheckItem),
 	}
-}
-
-func (i statusCheckItem) key() statusCheckKey {
-	return statusCheckKey{
-		source: i.run.source,
-		event:  i.run.event,
-		name:   i.name,
-	}
-}
-
-func compareStatusCheckItems(a, b statusCheckItem) int {
-	if order := a.run.startedAt.Compare(b.run.startedAt); order != 0 {
-		return order
-	}
-	if order := a.startedAt.Compare(b.startedAt); order != 0 {
-		return order
-	}
-
-	return strings.Compare(a.providerID, b.providerID)
 }
 
 // tally is the commit's short hash and how long ago its checks were first read, empty when no commit was read.

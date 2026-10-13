@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"komrad/internal/forge"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
@@ -344,6 +345,7 @@ func newStatusCheckLogStep(number int32, name, conclusion string, firstLine, lin
 		Number:     number,
 		Name:       name,
 		Conclusion: conclusion,
+		Passed:     forge.IsPassingConclusion(conclusion),
 		FirstLine:  firstLine,
 		LineCount:  lineCount,
 	}
