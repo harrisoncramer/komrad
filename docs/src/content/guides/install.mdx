@@ -11,11 +11,11 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { media } from "../../site";
 
-Komrad is one binary. It runs the panel, and it runs the server.
+Komrad is one binary. The same binary runs the panel and the server.
 
 The panel runs on your machine. It renders the view of komrad's state in your terminal, and wraps around existing CLI tools like Claude or Codex.
 
-The server runs your agents and records their activity in Postgres, so you can search chat history, spawn several agents at once, or have them communicate. A server, with its database, its tmux and its agents, makes up an _engine_. An engine can run on your machine or on a remote box, and one panel can connect to different engines.
+The server runs your agents and records their activity in Postgres, so you can search chat history, spawn several agents at once, or have them communicate. The server, along with its database and agents, makes up an _engine_. Komrad's engines can run on your machine or on a remote box and one panel can connect to different engines.
 
 ## Install the binary
 
@@ -34,6 +34,14 @@ Run <Command path="setup" /> once the binary is on your PATH. It walks through t
 
 ## Manual installation
 
+If you'd rather step through the installation yourself, follow the steps below in order.
+
+<Alert title="Having trouble?" variant="warning">
+  Run <Command path="doctor" /> to check for configuration or installation issues.
+</Alert>
+
+You can also use the automatic installation and reconfigure anything it auto-installs for you.
+
 ### Create your database
 
 Komrad requires Postgres. For local development, running Postgres via Docker is the recommended approach.
@@ -50,7 +58,7 @@ docker run --name komrad \
 
 Postgres takes a few seconds to start. Wait until `docker exec komrad pg_isready -h localhost` reports that it is accepting connections before moving on.
 
-The database needs one admin-like user. The komrad engine uses this user to run migrations automatically on start and each time you update your binary.
+The database needs one admin-like user. The komrad engine uses this user to run migrations automatically on start and each time you update your binary. Provide your database connection string to the <Command path="migrate" /> command, and create your first engine. The engine is named `laptop` here.
 
 ```sh
 export KOMRAD_OWNER_DATABASE_URL=postgres://komrad_owner:password123@localhost:5432/komrad
@@ -58,17 +66,7 @@ komrad migrate
 komrad engine ensure laptop
 ```
 
-The <Command path="migrate" /> command is the only command that changes the schema.
-
-<Alert title="Having trouble?" variant="warning">
-  Run <Command path="doctor" /> to check for configuration or installation issues.
-</Alert>
-
-Provide your database connection string to the <Command path="migrate" /> command, and create your first engine. The engine is named `laptop` here.
-
-A komrad engine is one running komrad on one machine. Several engines can share one database, so multiple developers can share a Postgres database, or one developer can spread their workload across machines.
-
-Komrad migrates the database safely after you first set it up.
+Several engines can share one database, so multiple developers can share a Postgres database, or one developer can spread their workload across machines.
 
 ### Write the config
 
@@ -99,17 +97,9 @@ Run <Command path="open" /> to open the panel. The first open starts the server 
   />
 </figure>
 
-## Komrad + Tmux
-
-The panel takes over the terminal you open it in, and a tmux pane works like any other. <Command path="attach" /> shows the same panel in a second terminal. Closing the panel with `ctrl+c` only detaches it, so the server and your agents keep running.
-
-If your own tmux prefix is `ctrl+space`, give your tmux a different one, since the panel keeps its own keys behind it.
-
 ## Connecting a forge
 
-Komrad can push or pull data from your forge, such as GitHub or GitLab, only after you connect it.
-
-Connect a forge once with the <Command path="forge connect" /> command.
+Komrad can push or pull data from your forge, such as GitHub or GitLab, only after you connect it. Connect a forge once with the <Command path="forge connect" /> command.
 
 ### GitHub
 
@@ -136,7 +126,7 @@ komrad forge connect gitlab.com --token-file ~/.config/gitlab-token
 komrad forge connect gitlab.example.com --kind gitlab --token-file ~/.config/gitlab-token
 ```
 
-GitLab has no App to make short-lived tokens from. On a machine other people can reach, such as the remote engine, connect with `--method rotating-token` so the token komrad holds does not live forever. Komrad swaps the token for a new one as soon as you connect, so the one you pasted stops working at once.
+GitLab has no App to make short-lived tokens from. On a machine other people can reach, such as a remote engine, connect with `--method rotating-token` so the token komrad holds does not live forever. Komrad swaps the token for a new one as soon as you connect, so the one you pasted stops working at once.
 
 Use <Command path="forge disconnect" /> to revoke the current token with GitLab before you forget it.
 
@@ -165,4 +155,8 @@ komrad migrate
 
 A running server keeps its old build until you stop it. Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the server.
 
-The panel is open and empty. The first thing it needs is a [workflow](../workflows/).
+## Komrad + Tmux
+
+Komrad's panel is just a terminal appliation, that can be run inside tmux without a problem.
+
+One thing to note: If your own tmux prefix is `ctrl+space`, give your tmux a different one, since the panel keeps its own keys behind it.

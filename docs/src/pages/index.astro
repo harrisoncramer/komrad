@@ -1,4 +1,5 @@
 ---
+import Alert from "../components/Alert.astro";
 import { Code } from "astro:components";
 import Layout from "../layouts/Layout.astro";
 import { codeTheme } from "../code-theme.mjs";
@@ -32,16 +33,16 @@ const STRUCTURED_DATA = [
 ];
 ---
 
+
 <Layout title={HOME_TITLE} description={SITE_DESCRIPTION} structuredData={STRUCTURED_DATA}>
   <article class="home">
     <h1>komrad</h1>
 
     <p>
-      Komrad is an open-source, terminal-based agent orchestrator. It wraps around agent CLIs like Claude and Codex.
+      Komrad is a terminal-based agent orchestrator.
     </p>
     <p>
-      With komrad, you can search through old agent transcripts, restore old sessions, schedule agents, and orchestrate
-      agentic workflows via the komrad MCP.
+      With komrad, you can create tasks for agents to execute independently, then review, merge and ship their work, without leaving your terminal. You can also use komrad to schedule agents at specific intervals, orchestrate them (or have them self-orchestrate) via MCP, conduct reviews, and much more.
     </p>
     <p>Komrad runs on your machine by default, but can be deployed to a remote instance that you control.</p>
     <img
@@ -55,13 +56,6 @@ const STRUCTURED_DATA = [
     <p>
       Komrad caters to terminal enthusiasts, and will probably not work for everyone. Please read the{" "}
       <a href=`${link("/guides/philosophy")}`>philosophy</a> behind it before getting started.
-    </p>
-    <p>
-      Everything in these guides has been hand-written. If you notice an issue, please file{" "}
-      <a href="https://github.com/harrisoncramer/komrad/issues/new?template=docs_report.yml">a docs report</a> on
-      Github. If you have any issues with Komrad itself, please file{" "}
-      <a href={link("/guides/bug-reports")}>a bug report</a>. Reports that don't adhere to komrad's templates will be
-      automatically closed.
     </p>
     <h2>Install</h2>
     <Code code={INSTALL} lang="sh" theme={codeTheme} />

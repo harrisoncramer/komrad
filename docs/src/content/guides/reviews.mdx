@@ -11,9 +11,13 @@ import Key from "../../components/Key.astro";
 import Setting from "../../components/Setting.astro";
 import { media } from "../../site";
 
-Once a task's writer has made a change, you ship it. You read the change and ask for fixes, the writer pushes it and opens a pull request, you merge it, and then you clean up. This guide walks through each step.
+One of the hardest parts of working with agentic development tools is keeping a handle on the massive amount of code they can produce.
 
-<Alert variant="warning">This guide assumes you have started a [task](../tasks/) with a worktree.</Alert>
+Komrad aims to make reviewing easy though it's review panel.
+
+With it, you can changes and reply to the agent implementing a feature. You can also see the specific edit the agents made in response to a comments, step back through the history of the changes, and even see and reply to comments from a colleague on your changes.
+
+The review pane is one of komrad's most powerful features.
 
 ## Local reviews
 
@@ -146,9 +150,9 @@ While any agent on a task is live, komrad follows its pull request. It notices w
 
 Komrad reads a repository every five seconds when something there is likely to change soon, such as checks still running, a branch that just moved, or a pull request komrad just wrote to. It reads every other repository once a minute. When the forge says little of the hour's budget is left, komrad drops every repository on that host to once a minute until the budget comes back.
 
-### Comments from the forge
+### Syncing comments from Github or Gitlab
 
-Komrad also reads the review comments on each followed pull request or merge request, drafts included, once a minute. Each one is copied into the task's review as a thread of its own, under its author and line, and counted with yours on the task's row. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
+Komrad reads comments on each pull request, drafts included, once a minute. Each one is copied into the task's review as a thread of its own. Press <Key name="review.jump" /> to move to the next thread and read it out. A reply or an edit on the forge lands in the same thread, and resolving one there resolves it here.
 
 Comments from someone who can push to the repository reach the writer on their own. Komrad holds comments from anyone else until you send your review or reply in their thread, so nothing from a stranger reaches the writer before you see it.
 
@@ -168,11 +172,7 @@ A merged task can be archived, which stops its agents and keeps everything else,
 
 The database holds only which forge and which account. The token itself sits in a file only your user can read, and never shows up in logs. The GitHub CLI and your SSH keys work the same way.
 
-### How agents push
-
 Agents never hold a credential of their own, and no token is ever typed into a pane, so none can leak into a transcript. Komrad hands each tool the credential when the tool runs.
-
-Komrad puts its own `gh` and `glab` ahead of every agent's PATH. Each one asks komrad for a credential and then runs the real tool. If the agent's environment already sets a token the tool reads, such as `GH_TOKEN` or `GITLAB_TOKEN`, komrad leaves the tool alone.
 
 For GitHub, `gh` gets a token from the App when <Setting path="github_app" label="[github_app]" /> is set. Otherwise it uses the login `gh` already has on the machine. Git reaches GitHub through <Command path="github credential" />, which the engine sets up for you. On your laptop, git uses whatever credential you already have.
 

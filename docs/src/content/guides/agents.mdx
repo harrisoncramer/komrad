@@ -10,7 +10,7 @@ import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import { link, media } from "../../site";
 
-Agents do the work in komrad. Each one is a real Claude or Codex session running in a terminal that komrad manages for you. Agents hold no state of their own in komrad, so you can create or discard them without losing work.
+Agents do the work in komrad. Each one is a real Claude or Codex session running in a terminal that komrad manages for you. Agents hold no state of their own, so you can create or discard them without losing work.
 
 <Alert variant="warning">
   This guide assumes you know what a [workflow](../workflows/) and a [task](../tasks/) are.
@@ -98,18 +98,16 @@ The branch has to be in the workflow's repository, either pushed to its origin o
 
 Archiving an agent stops it and takes it out of the list. Its conversation stays in the database, so you can still search it or restore it later.
 
-A writer lives and dies with its task, so you never archive a writer on its own. Archive the [task](../tasks/#archiving-restoring-and-deleting-tasks) instead, which archives the writer and every reviewer on it. Restoring the task brings its writer back.
+Archive the [task](../tasks/#archiving-restoring-and-deleting-tasks) to archive it's writer agent and all reviewers.
 
-Reviewers come and go on their own. You can archive one whenever you like, and restore it later once its task is live. Deleting an archived reviewer is permanent and removes its conversation. A writer is deleted only with its task.
+Reviewers come and go on their own. You can archive one whenever you like, and restore it later once its task is live. Deleting an archived reviewer is permanent and removes its conversation.
 
-## How komrad knows what an agent is doing
+## Agent state
 
-Most agent tools learn what an agent is doing from hooks the agent fires. Hooks can be dropped, reordered, or never sent, for example when the CLI crashes. Other orchestrators have many bug reports about this.
+Most agent tools learn what an agent is doing from hooks the agent fires. But hooks can be dropped, reordered, or never sent, for example when the CLI crashes. Other orchestrators have many bug reports about this.
 
 Komrad takes a different approach. It reads each agent's state directly from what its terminal actually renders, which komrad calls the pane. The [Claude test panes](https://github.com/harrisoncramer/komrad/tree/main/internal/harness/claude/testdata) show what it reads.
 
-Komrad still installs hooks in each agent's CLI, but they only add detail on top of the pane. They record that a turn ended or failed and why, and which tool the agent is running or waiting on approval to run. Claude's Stop hook also hands the agent its unread mail as a turn ends. Every hook call lands on the agent's logs screen, and so does any problem a hook hits while komrad can be reached.
-
-If Claude or Codex ever ship real-time state notifications, komrad will move to them! Until then, reading the pane is the more reliable choice.
+Komrad still installs hooks in each agent's CLI, but they only add detail on top of the pane. They record that a turn ended or failed and why, and which tool the agent is running or waiting on approval to run. If Claude or Codex ever ship real-time state notifications, komrad will move to them! Until then, reading the pane is the more reliable choice.
 
 If the state shown does not match your CLI, please <a href={link('/guides/bug-reports')}>submit an issue</a> on GitHub with the pane that's missing/wrong.
