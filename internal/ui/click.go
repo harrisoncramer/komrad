@@ -82,6 +82,7 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		if lister, ok := m.active().(activeLister); ok {
 			return m.stopClicker(stopList, lister.activeList()), true
 		}
+	case zoneColumn, zoneBlock, zonePullRequest:
 	}
 
 	return nil, false

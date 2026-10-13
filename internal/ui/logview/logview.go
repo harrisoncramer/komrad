@@ -89,6 +89,7 @@ func (t *Tail) Scroll(lines int) {
 	}
 }
 
+// MoveTo puts the cursor on a line counted from the oldest, leaving the view to follow it.
 func (t *Tail) MoveTo(line int) {
 	t.cursor = cursor.Clamp(len(t.lines)-1-line, len(t.lines))
 	t.scrolled = false
@@ -119,6 +120,7 @@ func (t *Tail) Rows(width, height int) ([]string, int) {
 	return rows[span.Cut:], span.CursorRow
 }
 
+// Lines is the line each of the rows Rows gives is wrapped from.
 func (t *Tail) Lines(width, height int) []int {
 	wrap := t.wrapper(width)
 	span, ok := t.span(wrap, height)

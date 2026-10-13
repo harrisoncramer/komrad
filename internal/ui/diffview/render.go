@@ -67,6 +67,7 @@ func (p *Pane) Render(window Window, held Cursor) []string {
 	return lines
 }
 
+// Rows is the row of the diff each line of the window shows.
 func (p *Pane) Rows(window Window) []int {
 	var rows []int
 	for y := p.findWindowStart(window); y < p.view.Len() && len(rows) < window.Height; y++ {
