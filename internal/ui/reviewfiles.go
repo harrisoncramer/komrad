@@ -304,9 +304,17 @@ func (r *reviewScreen) landOnFile(m *model, row diffview.TreeRow) tea.Cmd {
 
 func (r *reviewScreen) clickFile(m *model, path string) tea.Cmd {
 	for _, row := range r.readFilesTree().rows {
-		if !row.Folder && row.Path == path {
+		if row.Path != path {
+			continue
+		}
+		if !row.Folder {
 			return r.landOnFile(m, row)
 		}
+
+		r.restOnFolder(row.Path)
+		r.toggleFolder()
+
+		return nil
 	}
 
 	return nil

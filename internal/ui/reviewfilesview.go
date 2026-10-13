@@ -40,7 +40,7 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 			Columns: columns,
 			Filter:  r.filesFilter,
 		}))
-		keys = append(keys, fileKeyOf(row))
+		keys = append(keys, row.Path)
 	}
 
 	if mark := m.spanMarker(zoneFiles, keys); mark != nil {
@@ -230,12 +230,4 @@ func joinRight(stat, badges string) string {
 	}
 
 	return stat + "  " + badges
-}
-
-func fileKeyOf(row diffview.TreeRow) string {
-	if row.Folder {
-		return ""
-	}
-
-	return row.Path
 }
