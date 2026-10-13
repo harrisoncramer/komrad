@@ -162,6 +162,15 @@ func (m *model) screenView() string {
 // heldFormView is the form with the submitting notice under it, a row the form gives up rather
 // than one taken off the top of the panel.
 func (m *model) heldFormView() string {
+	view := m.joinedFormView()
+	if m.term.markingZones {
+		return view
+	}
+
+	return keyMark.ReplaceAllString(view, "")
+}
+
+func (m *model) joinedFormView() string {
 	view := m.form.form.View()
 	if m.form.form.State == huh.StateCompleted {
 		view = m.form.frozen

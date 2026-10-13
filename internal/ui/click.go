@@ -17,12 +17,24 @@ func (f clickFunc) click(m *model, key string, nth int) tea.Cmd {
 	return f(m, key, nth)
 }
 
+var formZones = []zone{zoneMenu, zoneParentMenu}
+
 func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
-	if click.Button != tea.MouseLeft || m.form.isActive() || m.writes.held.active {
+	if click.Button != tea.MouseLeft || m.writes.held.active {
 		return nil
 	}
 
 	hit, marked := m.findKeyAt(click.X, click.Y)
+	if m.form.isActive() && (!marked || !slices.Contains(formZones, hit.zone)) {
+		if !m.form.isMenu {
+			return nil
+		}
+		if marked && m.isHoveredHit(hit) {
+			return m.closeForm()
+		}
+
+		return tea.Batch(m.closeForm(), m.routeClick(click))
+	}
 	if marked && hit.zone == zoneSearch && hit.key == strconv.Itoa(int(m.atStop())) && m.isSearchTyping() {
 		return nil
 	}
@@ -74,13 +86,17 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		if m.screen == screenDocuments {
 			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.documents.diffKeys().click(m, key) })), true
 		}
+	case zoneMenu:
+		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSubmenu(key, false) }), true
+	case zoneParentMenu:
+		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSubmenu(key, true) }), true
 	case zoneFiles:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.review.clickFile(m, path) })), true
 	case zoneDetails:
 		return m.stopClicker(stopRecord, m.detailsList()), true
 	case zoneList:
 		if lister, ok := m.active().(activeLister); ok {
-			return m.stopClicker(stopList, lister.activeList()), true
+			return m.listClicker(lister.activeList()), true
 		}
 	}
 

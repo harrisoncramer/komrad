@@ -7,36 +7,22 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// documentTypeMenu is the actions on the document type under the list's cursor, nil for none.
+// documentTypeMenu is the actions on the document type under the list's cursor.
 func documentTypeMenu(m *model, t *agentv1.DocumentType) submenu {
-	edit := submenuEntry{
-		label: "edit",
-		keys:  m.keys.DocumentTypesMenu.Edit,
-		isOff: true,
-	}
-	remove := submenuEntry{
-		label: "delete",
-		keys:  m.keys.DocumentTypesMenu.Delete,
-		isOff: true,
-	}
-	title := "document types"
-	if t != nil {
-		title = t.GetName()
-		edit.isOff, edit.form = false, func() formState { return editTypeForm(t) }
-		remove.isOff, remove.form = false, func() formState { return deleteTypeForm(documentTypeItem(t)) }
-	}
-
 	return submenu{
 		kind:  formMenu,
-		title: title,
+		title: t.GetName(),
 		entries: []submenuEntry{
-			edit,
 			{
-				label: "new type",
-				keys:  m.keys.DocumentTypesMenu.New,
-				form:  newTypeForm,
+				label: "edit",
+				keys:  m.keys.DocumentTypesMenu.Edit,
+				form:  func() formState { return editTypeForm(t) },
 			},
-			remove,
+			{
+				label: "delete",
+				keys:  m.keys.DocumentTypesMenu.Delete,
+				form:  func() formState { return deleteTypeForm(documentTypeItem(t)) },
+			},
 		},
 	}
 }
@@ -49,67 +35,104 @@ type documentEntry struct {
 
 func (d *documentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if d.kind == documentKindTypes {
-		return documentTypeMenu(m, d.hoveredDocumentType(m)), true
+		t := d.hoveredDocumentType(m)
+
+		return documentTypeMenu(m, t), t != nil
 	}
 	if d.isDiffFocused(m) {
 		return submenu{}, false
 	}
 
-	return documentMenu(m, d), true
+	return documentMenu(m, d)
 }
 
-// documentMenu is the actions on the hovered document, and on the documents it is listed among.
-func documentMenu(m *model, d *documentsScreen) submenu {
-	item, hovered := d.hovered(m)
+// buildScreenMenu builds the documents screen's own band, for writing a new document or type.
+func (d *documentsScreen) buildScreenMenu(m *model) (submenu, bool) {
+	if d.kind == documentKindTypes {
+		return submenu{
+			kind:  formMenu,
+			title: "document types",
+			entries: []submenuEntry{
+				{
+					label: "new type",
+					keys:  m.keys.DocumentTypesMenu.New,
+					form:  newTypeForm,
+				},
+			},
+		}, true
+	}
+	if d.isDiffFocused(m) {
+		return submenu{}, false
+	}
+
 	_, named := m.namedAgentID()
+
+	return submenu{
+		kind:  formMenu,
+		title: "documents",
+		entries: documentEntries([]documentEntry{
+			{
+				entry: submenuEntry{
+					label: "new document",
+					keys:  m.keys.DocumentMenu.New,
+					isOff: d.editing != nil || !named,
+				},
+				run: (*documentsScreen).pressNew,
+			},
+		}),
+	}, true
+}
+
+// documentMenu is the actions on the hovered document, or on the editor open over the list,
+// false for neither.
+func documentMenu(m *model, d *documentsScreen) (submenu, bool) {
+	item, hovered := d.hovered(m)
+	if !hovered && d.editing == nil {
+		return submenu{}, false
+	}
+
 	title := "documents"
 	if hovered {
 		title = item.name
 	}
 
-	entries := []documentEntry{
-		{
-			entry: submenuEntry{
-				label: d.editLabel(),
-				keys:  m.keys.DocumentMenu.Edit,
-				isOff: !hovered && d.editing == nil,
-			},
-			run: (*documentsScreen).pressEdit,
-		},
-		{
-			entry: submenuEntry{
-				label: "rename",
-				keys:  m.keys.DocumentMenu.Rename,
-				isOff: !hovered || d.editing != nil,
-			},
-			run: (*documentsScreen).openRename,
-		},
-		{
-			entry: submenuEntry{
-				label: "new document",
-				keys:  m.keys.DocumentMenu.New,
-				isOff: d.editing != nil || !named,
-			},
-			run: (*documentsScreen).pressNew,
-		},
-	}
-
 	menu := submenu{
 		kind:  formMenu,
 		title: title,
-		entries: xslice.Map(entries, func(e documentEntry) submenuEntry {
-			entry, run := e.entry, e.run
-			entry.open = func(m *model) tea.Cmd {
-				m.leaveForm()
-				return run(&m.documents, m)
-			}
-
-			return entry
+		entries: documentEntries([]documentEntry{
+			{
+				entry: submenuEntry{
+					label: d.editLabel(),
+					keys:  m.keys.DocumentMenu.Edit,
+				},
+				run: (*documentsScreen).pressEdit,
+			},
+			{
+				entry: submenuEntry{
+					label: "rename",
+					keys:  m.keys.DocumentMenu.Rename,
+					isOff: !hovered || d.editing != nil,
+				},
+				run: (*documentsScreen).openRename,
+			},
 		}),
 	}
 	if !hovered {
-		return menu
+		return menu, true
 	}
 
-	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenDocuments, screenTarget{agentID: item.agentID, taskID: item.taskID}))
+	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenDocuments, screenTarget{agentID: item.agentID, taskID: item.taskID})), true
+}
+
+// documentEntries are the entries that leave the menu and run on the documents screen.
+func documentEntries(entries []documentEntry) []submenuEntry {
+	return xslice.Map(entries, func(e documentEntry) submenuEntry {
+		entry, run := e.entry, e.run
+		entry.open = func(m *model) tea.Cmd {
+			m.leaveForm()
+			return run(&m.documents, m)
+		}
+
+		return entry
+	})
 }

@@ -55,7 +55,7 @@ func TestTasksTree(t *testing.T) {
 		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
 	})
 
-	t.Run("a task's menu is its writer's pages and a new agent on it", func(t *testing.T) {
+	t.Run("a task's menu is its writer's pages and a new agent on it, over the list's new workflow", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
 		harness.press("j", "space")
@@ -65,7 +65,7 @@ func TestTasksTree(t *testing.T) {
 		assert.Contains(t, frame, "logs")
 		assert.Contains(t, frame, "new agent")
 		assert.NotContains(t, frame, "new task")
-		assert.NotContains(t, frame, "new workflow")
+		assert.Contains(t, frame, "new workflow")
 	})
 
 	t.Run("a new agent or a restart from a task's menu", func(t *testing.T) {

@@ -311,16 +311,16 @@ type workflowFormParams struct {
 	Submit  func(*model) tea.Cmd
 }
 
-func workflowForm(params workflowFormParams) sectionedForm {
+func workflowForm(params workflowFormParams) formOfSubforms {
 	values := params.Values
 	if values.Provisioner == "" {
 		values.Provisioner = provisionerWorktree
 	}
 
 	renderedProvisioner := values.Provisioner
-	choice := workflowSectionAgents
+	choice := workflowSubformAgents
 
-	return sectionedForm{
+	return formOfSubforms{
 		kind:  formWorkflow,
 		title: "Settings",
 		top: func(*model) []huh.Field {
@@ -330,7 +330,7 @@ func workflowForm(params workflowFormParams) sectionedForm {
 		},
 		topEditable: []editableText{{key: "context", value: &values.Context}},
 		reshaped:    func() bool { return values.Provisioner != renderedProvisioner },
-		sections:    workflowSections(values, params.Editing),
+		subforms:    workflowSubforms(values, params.Editing),
 		submit:      params.Submit,
 		choice:      &choice,
 	}
@@ -351,23 +351,23 @@ func workflowTopFields(nameTitle string, values *workflowFormValues) []huh.Field
 }
 
 const (
-	workflowSectionAgents       = "agents"
-	workflowSectionWorktree     = "worktree"
-	workflowSectionHooks        = "hooks"
-	workflowSectionEventPrompts = "event_prompts"
+	workflowSubformAgents       = "agents"
+	workflowSubformWorktree     = "worktree"
+	workflowSubformHooks        = "hooks"
+	workflowSubformEventPrompts = "event_prompts"
 )
 
-func workflowSections(values *workflowFormValues, editing bool) []formSection {
-	return []formSection{
+func workflowSubforms(values *workflowFormValues, editing bool) []subform {
+	return []subform{
 		{
-			key:   workflowSectionAgents,
+			key:   workflowSubformAgents,
 			title: "agents",
 			fields: func(*model) []huh.Field {
 				return workflowAgentFields(values)
 			},
 		},
 		{
-			key:   workflowSectionWorktree,
+			key:   workflowSubformWorktree,
 			title: "worktree",
 			isOff: func() bool { return values.Provisioner != provisionerWorktree },
 			fields: func(*model) []huh.Field {
@@ -380,14 +380,14 @@ func workflowSections(values *workflowFormValues, editing bool) []formSection {
 			},
 		},
 		{
-			key:   workflowSectionHooks,
+			key:   workflowSubformHooks,
 			title: "hooks",
 			fields: func(m *model) []huh.Field {
 				return hookFields(values, m.getAvailableHooks())
 			},
 		},
 		{
-			key:   workflowSectionEventPrompts,
+			key:   workflowSubformEventPrompts,
 			title: "event prompts",
 			fields: func(*model) []huh.Field {
 				return eventPromptFields(values, fixedKeys())

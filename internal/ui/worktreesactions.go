@@ -259,27 +259,18 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	var entries []submenuEntry
-	if !row.header {
-		if entry, ok := worktreeDeleteEntry(m, row.item); ok {
-			entries = append(entries, entry)
-		}
+	if row.header {
+		return submenu{}, false
 	}
 
-	clearable := w.clearDeletion(m)
-	clearAll := openEntry("clear what can go", m.keys.ArchiveMenu.Clear, func(m *model) tea.Cmd {
-		return confirmDeleteWorktrees(m, clearable)
-	})
-	clearAll.isOff = clearable.isEmpty()
-
-	menu := withNested(rowMenu(row.name()), "archive", m.keys.Menu.Archive, liveArchiveMenu(append(entries, clearAll)...))
-	if row.header {
-		return menu, true
+	menu := rowMenu(row.name())
+	if entry, ok := worktreeDeleteEntry(m, row.item); ok {
+		menu = withNested(menu, "archive", m.keys.Menu.Archive, liveArchiveMenu(entry))
 	}
 
 	occupant, ok := row.item.firstOccupant()
 	if !ok {
-		return menu, true
+		return menu, len(menu.entries) > 0
 	}
 
 	to := screenTarget{agentID: occupant.id}
@@ -288,6 +279,21 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 	}
 
 	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenWorktrees, to)), true
+}
+
+// buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
+func (w *worktreesScreen) buildScreenMenu(m *model) (submenu, bool) {
+	clearable := w.clearDeletion(m)
+	clearAll := openEntry("delete unused worktrees", m.keys.ArchiveMenu.Clear, func(m *model) tea.Cmd {
+		return confirmDeleteWorktrees(m, clearable)
+	})
+	clearAll.isOff = clearable.isEmpty()
+
+	return submenu{
+		kind:    formMenu,
+		title:   "worktrees",
+		entries: []submenuEntry{clearAll},
+	}, true
 }
 
 // worktreeDeleteEntry is the entry that sends a directory the way its fate decides, false when

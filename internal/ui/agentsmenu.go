@@ -9,23 +9,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// buildScreenMenu builds the agents list's own band, for starting a task or a workflow, which a
-// task's row and an agent's leave out.
+// buildScreenMenu builds the agents list's own band, for starting a workflow, under every row.
 func (a *agentsScreen) buildScreenMenu(m *model) (submenu, bool) {
-	if row, ok := a.hoveredRow(m); ok && (row.isTask() || !row.header) {
-		return submenu{}, false
-	}
-
-	in := a.enclosingWorkflow(m)
-	if workflow, ok := a.hoveredWorkflow(m); ok {
-		in = &workflow
-	}
-
 	return submenu{
 		kind:  formMenu,
 		title: "agents",
 		entries: []submenuEntry{
-			openEntry("new task", m.keys.Menu.NewAgent, func(m *model) tea.Cmd { return openNewTask(m, in) }),
 			openEntry("new workflow", m.keys.Menu.NewWorkflow, newWorkflowForm),
 		},
 	}, true
@@ -233,6 +222,7 @@ func (a *agentsScreen) editEntries(m *model, item panel.AgentRow) []submenuEntry
 // workflowEntries are the entries on the hovered workflow.
 func workflowEntries(m *model, workflow panel.Workflow) []submenuEntry {
 	return []submenuEntry{
+		openEntry("new task", m.keys.Menu.NewAgent, func(m *model) tea.Cmd { return openNewTask(m, &workflow) }),
 		openEntry("edit workflow", m.keys.Menu.EditRow, func(m *model) tea.Cmd {
 			return editWorkflowForm(m, workflow)
 		}),

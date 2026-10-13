@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"komrad/internal/glyph"
@@ -34,7 +35,7 @@ func frozenMenus(levels []submenuLevel, room int) []string {
 			break
 		}
 
-		rendered = append(rendered, view)
+		rendered = append(rendered, markParentMenu(view, i))
 	}
 
 	slices.Reverse(rendered)
@@ -83,8 +84,14 @@ func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	width := labelCols + submenuKeyGap + keyCols
 
-	if entry.isDivider {
+	if entry.isDivider && entry.label == "" {
 		return muted.Render(strings.Repeat(glyph.Rule, width))
+	}
+
+	if entry.isDivider {
+		head := strings.Repeat(glyph.Rule, 2) + " " + entry.label + " "
+
+		return muted.Render(head + strings.Repeat(glyph.Rule, max(width-ansi.StringWidth(head), 2)))
 	}
 
 	text := entryText(entry)
@@ -96,4 +103,14 @@ func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
 	}
 
 	return text + pad + muted.Render(key)
+}
+
+func markEntry(label string, at int) string {
+	return keyMarkOf(zoneMenu, lipgloss.Width(label), 0, strconv.Itoa(at)) + label
+}
+
+func markParentMenu(view string, at int) string {
+	mark := keyMarkOf(zoneParentMenu, lipgloss.Width(view), 0, strconv.Itoa(at))
+
+	return strings.Join(xslice.Map(strings.Split(view, "\n"), func(line string) string { return mark + line }), "\n")
 }

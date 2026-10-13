@@ -190,9 +190,9 @@ func TestWorktreesDelete(t *testing.T) {
 			wantRendered: "Delete 2 worktrees? 2 directories nothing answers for are removed on their own",
 		},
 		{
-			name:         "clear gathers only the directories no task answers for",
+			name:         "deleting unused worktrees gathers only the directories no task answers for",
 			row:          "treeview",
-			press:        []string{"space", "a", "c"},
+			press:        []string{"space", "c"},
 			wantRendered: "Delete 2 worktrees?",
 		},
 	}
@@ -215,7 +215,7 @@ func TestWorktreesDelete(t *testing.T) {
 		})
 	}
 
-	t.Run("clear is gray and asks nothing when only live directories are listed", func(t *testing.T) {
+	t.Run("deleting unused worktrees is gray and asks nothing when only live directories are listed", func(t *testing.T) {
 		t.Parallel()
 
 		live := newAgent("live", "treeview", "w1")
@@ -234,8 +234,8 @@ func TestWorktreesDelete(t *testing.T) {
 		)
 		moveToWorktree(t, harness, "treeview")
 
-		harness.press("space", "a")
-		assert.Regexp(t, readOffEntry("clear what can go", "c"), harness.readRawFrame())
+		harness.press("space")
+		assert.Regexp(t, readOffEntry("delete unused worktrees", "c"), harness.readRawFrame())
 
 		harness.press("c", "y")
 
@@ -308,9 +308,9 @@ func TestWorktreesMenu(t *testing.T) {
 			key:   "d",
 		},
 		{
-			name:  "a repository header offers only the clear",
+			name:  "a repository header offers only deleting unused worktrees",
 			row:   "/home/h/komrad",
-			label: "clear what can go",
+			label: "delete unused worktrees",
 			key:   "c",
 		},
 	}
@@ -330,7 +330,7 @@ func TestWorktreesMenu(t *testing.T) {
 	}
 }
 
-// TestWorktreesDeleteAnswer covers answering the prompt the clear entry opens.
+// TestWorktreesDeleteAnswer covers answering the prompt deleting unused worktrees opens.
 func TestWorktreesDeleteAnswer(t *testing.T) {
 	t.Parallel()
 
@@ -373,7 +373,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 			}
 			harness.press(widenListPresses...)
 
-			harness.press("space", "a", "c", tt.answer)
+			harness.press("space", "c", tt.answer)
 			if len(tt.gone) > 0 {
 				harness.watch(buildDeletedWorktrees(tt.gone...))
 			}

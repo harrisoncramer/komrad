@@ -95,6 +95,14 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
+	if err := validateSubmenuKeys("worktrees menu", []submenuKeys{
+		{name: "archive", keys: keys.Menu.Archive},
+		{name: "jump", keys: keys.Menu.Jump},
+		{name: "clear", keys: keys.ArchiveMenu.Clear},
+	}); err != nil {
+		return err
+	}
+
 	if err := validateSubmenuKeys("schedule menu", []submenuKeys{
 		{name: "toggle", keys: keys.ScheduleMenu.Toggle},
 		{name: "edit", keys: keys.ScheduleMenu.Edit},
@@ -176,6 +184,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "jump", keys: keys.Menu.Jump},
 		{name: "hide", keys: keys.Menu.Hide},
 		{name: "archive", keys: keys.Menu.Archive},
+		{name: "new_workflow", keys: keys.Menu.NewWorkflow},
 	})
 }
 

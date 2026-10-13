@@ -627,3 +627,28 @@ func directly(reason string, run func(*model, string) tea.Cmd) *directAction {
 
 // notInMenu is the reason on an action arm that has not moved into the menu yet.
 const notInMenu = "not yet moved into the menu"
+
+func (m *model) listClicker(l keyedList) clicker {
+	if !m.isListFocused() || m.isViewsOpen() {
+		return m.stopClicker(stopList, l)
+	}
+
+	return clickFunc(func(m *model, key string, nth int) tea.Cmd {
+		if key != l.hovered(m) {
+			return l.click(m, key, nth)
+		}
+
+		menu, ok := m.buildMenu()
+		if !ok {
+			return nil
+		}
+
+		return openSubmenu(m, menu)
+	})
+}
+
+func (m *model) isHoveredHit(hit keyHit) bool {
+	lister, ok := m.active().(activeLister)
+
+	return ok && hit.zone == zoneList && hit.key == lister.activeList().hovered(m)
+}

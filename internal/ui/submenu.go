@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strconv"
 
 	"komrad/config"
 	"komrad/internal/glyph"
@@ -236,7 +237,7 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 
 		options := make([]huh.Option[int], 0, len(menu.entries))
 		for i, entry := range menu.entries {
-			options = append(options, huh.NewOption(entry.label, i))
+			options = append(options, huh.NewOption(markEntry(entry.label, i), i))
 		}
 
 		return options
@@ -244,9 +245,18 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 
 	labelCols, keyCols := submenuColumns(menu.entries)
 
-	options := make([]huh.Option[int], 0, len(menu.entries)+1)
+	options := make([]huh.Option[int], 0, len(menu.entries)+2)
 	for i, entry := range menu.entries {
-		options = append(options, huh.NewOption(submenuLabel(entry, labelCols, keyCols), i))
+		label := submenuLabel(entry, labelCols, keyCols)
+		if !entry.isOff {
+			label = markEntry(label, i)
+		}
+
+		options = append(options, huh.NewOption(label, i))
+	}
+
+	if len(menu.entries) > 0 {
+		options = append(options, huh.NewOption(submenuLabel(dividerEntry, labelCols, keyCols), len(menu.entries)))
 	}
 
 	last := "cancel"
@@ -254,7 +264,7 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 		last = "back"
 	}
 
-	return append(options, huh.NewOption(last, submenuCancel))
+	return append(options, huh.NewOption(markEntry(last, submenuCancel), submenuCancel))
 }
 
 // submenuKeyGap is the columns between an entry's label and its key.
@@ -271,6 +281,10 @@ func submenuKeyMap(keys config.FixedKeys) *huh.KeyMap {
 // updateSubmenu answers an entry by its own key, goes back a menu on the back key, and hands huh
 // every other message.
 func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenuLevel) tea.Cmd {
+	if click, ok := msg.(submenuClickMsg); ok {
+		return m.answerSubmenuClick(click, parents, level)
+	}
+
 	press, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return m.updateForm(msg)
@@ -303,5 +317,33 @@ func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenu
 func (l submenuLevel) isOnDivider() bool {
 	choice := *l.choice
 
-	return choice >= 0 && choice < len(l.menu.entries) && l.menu.entries[choice].isDivider
+	return choice == len(l.menu.entries) || choice >= 0 && choice < len(l.menu.entries) && l.menu.entries[choice].isDivider
+}
+
+type submenuClickMsg struct {
+	parent bool
+	at     int
+}
+
+func (m *model) clickSubmenu(key string, parent bool) tea.Cmd {
+	at, err := strconv.Atoi(key)
+	if err != nil || !m.form.isActive() {
+		return nil
+	}
+
+	return m.form.update(m, submenuClickMsg{parent: parent, at: at})
+}
+
+func (m *model) answerSubmenuClick(click submenuClickMsg, parents []submenuLevel, level submenuLevel) tea.Cmd {
+	if !click.parent {
+		*level.choice = click.at
+
+		return m.answerForm()
+	}
+
+	if click.at >= len(parents) {
+		return nil
+	}
+
+	return m.pushSubmenu(parents[:click.at], parents[click.at])
 }

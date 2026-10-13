@@ -76,7 +76,7 @@ func TestDocumentTypesList(t *testing.T) {
 		})
 	}
 
-	t.Run("with no types the list says so and the actions only define one", func(t *testing.T) {
+	t.Run("with no types the list says so and the menu only defines one", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t)
@@ -86,9 +86,10 @@ func TestDocumentTypesList(t *testing.T) {
 		harness.press("space")
 
 		raw := harness.readRawFrame()
-		assert.Regexp(t, readOffEntry("edit", "e"), raw)
-		assert.Regexp(t, readOffEntry("delete", "d"), raw)
+		assert.NotContains(t, raw, "edit")
+		assert.NotContains(t, raw, "delete")
 		assert.NotRegexp(t, readOffEntry("new type", "c"), raw)
+		assert.Contains(t, raw, "new type")
 	})
 }
 

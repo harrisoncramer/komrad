@@ -478,15 +478,6 @@ func hoveredHeader(row agentRow, ok bool) (panel.Workflow, bool) {
 	return row.workflow, true
 }
 
-func (a *agentsScreen) enclosingWorkflow(m *model) *panel.Workflow {
-	row, ok := a.hoveredRow(m)
-	if !ok {
-		return nil
-	}
-
-	return &row.workflow
-}
-
 func firstAgentRowIndex(rows []agentRow) int {
 	for i, r := range rows {
 		if r.isAgentRow() {

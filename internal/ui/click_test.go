@@ -23,6 +23,14 @@ func TestClickRow(t *testing.T) {
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
 	})
 
+	t.Run("a click on the row under the cursor opens the menu", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+
+		harness.send(clickOnLine(t, harness, "└─ auth", "auth"))
+
+		assert.Contains(t, harness.readFrame(), "edit files")
+	})
+
 	t.Run("a right click leaves the cursor where it was", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		click := clickOn(t, harness, "backend")
@@ -83,14 +91,37 @@ func TestClickBlock(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "line number 39")
 	})
 
-	t.Run("a click behind an open menu does nothing", func(t *testing.T) {
+	t.Run("a click behind an open menu closes it and lands", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 		click := clickOn(t, harness, "backend")
 		harness.press("space")
 
 		harness.send(click)
-		harness.press("esc")
 
-		assert.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()))
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "edit files")
+		assert.Equal(t, "backend", readHoveredRow(frame))
 	})
+
+	t.Run("a click on the row under the cursor behind an open menu closes it", func(t *testing.T) {
+		harness := openAgents(t, buildRecorded()...)
+		click := clickOnLine(t, harness, "└─ auth", "auth")
+		harness.press("space")
+
+		harness.send(click)
+
+		frame := harness.readFrame()
+		assert.NotContains(t, frame, "edit files")
+		assert.Equal(t, "└─ auth", readHoveredRow(frame))
+	})
+}
+
+// TestClickMenu covers a left click on an open menu picking the entry under it.
+func TestClickMenu(t *testing.T) {
+	harness := openAgents(t, buildRecorded()...)
+	harness.press("space")
+
+	harness.send(clickOn(t, harness, "cancel"))
+
+	assert.NotContains(t, harness.readFrame(), "edit files")
 }

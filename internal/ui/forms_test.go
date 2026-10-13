@@ -105,7 +105,7 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name: "the new-workflow form with worktrees sends each path list without its blank lines",
-			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(1),
+			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(1),
 				spellKeys("develop"), []string{"tab", "tab"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
 				[]string{"tab"}, spellKeys("node_modules"), []string{"enter"}),
 			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
@@ -848,7 +848,7 @@ func TestFormsWorkflowProvisioner(t *testing.T) {
 	assert.Less(t, strings.Index(frame, "None: agents keep"), strings.Index(frame, "Worktree: a git worktree per agent"), "and the options keep their order")
 
 	harness.press(slices.Concat([]string{"tab", "down", "enter", "tab", "tab"}, spellKeys(".env"), []string{"esc", "shift+tab", "up", "tab", "enter"})...)
-	assert.NotContains(t, harness.readFrame(), "Worktree base branch", "none provisions nothing, so its worktree section does not open")
+	assert.NotContains(t, harness.readFrame(), "Worktree base branch", "none provisions nothing, so its worktree subform does not open")
 
 	harness.press("shift+tab", "down", "enter")
 
@@ -859,17 +859,17 @@ func TestFormsWorkflowProvisioner(t *testing.T) {
 	assert.Equal(t, []string{".env"}, create.GetWorktree().GetCopyPaths(), "switching back hands back what was typed before")
 }
 
-// TestFormsWorkflowSections covers drilling into a section of the workflow form and coming back.
-func TestFormsWorkflowSections(t *testing.T) {
-	t.Run("a section opens beside the top form rendered whole", func(t *testing.T) {
+// TestFormsWorkflowSubforms covers drilling into a subform of the workflow form and coming back.
+func TestFormsWorkflowSubforms(t *testing.T) {
+	t.Run("a subform opens beside the top form rendered whole", func(t *testing.T) {
 		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0))...)
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(0))...)
 
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "Default Agent")
 		assert.Contains(t, frame, "where agents start, and the checkout worktrees are cut", "the top form keeps its width")
-		assert.Contains(t, frame, "› agents ›", "with the section that is open marked")
+		assert.Contains(t, frame, "› agents ›", "with the subform that is open marked")
 	})
 
 	t.Run("a long value folds at the form's widest", func(t *testing.T) {
@@ -878,21 +878,21 @@ func TestFormsWorkflowSections(t *testing.T) {
 		workflow.Context = longContext
 		harness := openWideForms(t, workflow, newFormAuthor())
 
-		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(1)...)...)
+		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(1)...)...)
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "Worktree base branch", "the section still opens beside the top form")
+		assert.Contains(t, frame, "Worktree base branch", "the subform still opens beside the top form")
 		assert.NotContains(t, frame, longContext, "the context folds rather than running on one line")
 	})
 
-	t.Run("back keeps what the section was given and lands on the list of sections", func(t *testing.T) {
+	t.Run("back keeps what the subform was given and lands on the list of subforms", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(0), spellKeys("codex"), []string{"esc"})...)
-		assert.NotContains(t, harness.readFrame(), "Default Agent", "the section closed")
+		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(0), spellKeys("codex"), []string{"esc"})...)
+		assert.NotContains(t, harness.readFrame(), "Default Agent", "the subform closed")
 
 		harness.press("enter")
-		assert.Contains(t, harness.readFrame(), "Default Agent", "enter opens the section the cursor came back to")
+		assert.Contains(t, harness.readFrame(), "Default Agent", "enter opens the subform the cursor came back to")
 
 		harness.press("enter")
 
@@ -942,7 +942,7 @@ func TestFormsWorkflowHooks(t *testing.T) {
 			return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{{Name: "unrunnable"}}}), nil
 		})
 
-		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(2)...)...)
+		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(2)...)...)
 
 		assert.Contains(t, harness.readFrame(), "unrunnable")
 	})
@@ -1012,7 +1012,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	t.Run("a prompt typed under its event is sent with it", func(t *testing.T) {
 		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(3)...)...)
+		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "when some checks on the head failed while others still run")
 
@@ -1039,7 +1039,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	t.Run("muting an event under its prompt sends it muted", func(t *testing.T) {
 		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(3)...)...)
+		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
 		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"tab"})...)
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "only rewrites mail")
@@ -1108,7 +1108,7 @@ func TestFormsFieldEditor(t *testing.T) {
 		},
 		{
 			name:  "a list field of a workflow that makes worktrees",
-			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSectionKeys(1), []string{"tab", "tab"}),
+			press: slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(1), []string{"tab", "tab"}),
 			field: "worktree_copy_paths",
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
@@ -1389,14 +1389,14 @@ func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...s
 		})}), nil
 	})
 
-	harness.press(append([]string{"space", "E"}, openWorkflowSectionKeys(2)...)...)
+	harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(2)...)...)
 
 	return harness
 }
 
 const workflowTopFieldCount = 4
 
-func openWorkflowSectionKeys(index int) []string {
+func openWorkflowSubformKeys(index int) []string {
 	return slices.Concat(slices.Repeat([]string{"tab"}, workflowTopFieldCount), slices.Repeat([]string{"down"}, index), []string{"enter"})
 }
 

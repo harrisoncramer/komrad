@@ -523,10 +523,10 @@ type ArchiveMenuKeys struct {
 	// Put the agent back in the panel and open it, which relaunches its conversation in a pane
 	// and takes you to it. The entry is gray on an agent that never got as far as starting.
 	RestoreOpen []string `mapstructure:"restore_open" default:"o"`
-	// Delete every worktree that can go: every directory whose agent is archived, through the
-	// agent delete and its hooks, and every directory no agent answers for. A directory with a
-	// live agent in it is never deleted. The entry is only on the worktrees screen, and is gray
-	// when nothing there can go.
+	// Delete every unused worktree: every directory whose agent is archived, through the agent
+	// delete and its hooks, and every directory no agent answers for. A directory with a live
+	// agent in it is never deleted. The entry is only on the worktrees screen, and is gray when
+	// no worktree is unused.
 	Clear []string `mapstructure:"clear" default:"c"`
 }
 
