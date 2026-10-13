@@ -3,6 +3,8 @@
 # directory, which the slot names in its config, so the picker offers nothing else.
 # hook-setup.before makes the workflow out of shot, and hook-setup.after removes the hook. The
 # agent answering runs a real Claude session.
+# It records wider than the rest, since the hooks picker opens as a third column beside the form.
+Set Width 1920
 Source recordings/shell.tape
 Hide
 Type `HOOKS="$(dirname "$KOMRAD_CONFIG")/hooks"; clear`
