@@ -11,6 +11,7 @@ Type "komrad open"
 Enter
 Wait+Screen@30s /Welcome, komrad!/
 Sleep 1s
+Space
 Type "w"
 Type "neovim"
 Enter

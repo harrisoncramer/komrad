@@ -11,16 +11,18 @@ Wait+Screen@10s /Review · text-truncate/
 Type "/"
 Type "leaves a short"
 Enter
+Space
 Type "c"
 Type "Check the marker too: a string exactly width long should come back untouched."
 Enter
 Sleep 2s
-Type "s"
+Space
+Type "S"
 Wait+Screen@10s /about the work as/
 Type "Close. One more edge case."
 Enter
 Wait+Screen@10s /review sent/
 Sleep 2s
 Hide
-Wait+Screen@5m /text-truncate \d+:\d+[AP]M/
+Wait+Screen@5m /writer \d+:\d+[AP]M/
 Show

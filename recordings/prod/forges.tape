@@ -2,9 +2,8 @@
 # checks running, approved, failing and merged, and the details saying where each one stands.
 # forges.before makes the agents and writes their pull requests out of shot.
 Source recordings/panel.tape
-Type "gg"
-Type "j"
-Type "j"
-Type "j"
-Type "j"
-Type "j"
+Type "G"
+Type "k"
+Type "k"
+Type "k"
+Sleep 3s

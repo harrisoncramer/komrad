@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# The tasks from triage-tasks, waited on until all but the long one have finished or asked.
+set -euo pipefail
+
+"$(dirname "$0")/triage-tasks"
+
+settled() {
+	komrad rpc list-agents --compact | jq -e '[.agents[].agent | select(.name != "lsp-tests" and .role == "AGENT_ROLE_WRITER" and .state != "AGENT_STATE_IDLE" and .state != "AGENT_STATE_WAITING")] | length == 0' >/dev/null
+}
+
+for _ in $(seq 180); do
+	settled && exit 0
+	sleep 1
+done
+echo "the triage tasks never settled" >&2
+exit 1

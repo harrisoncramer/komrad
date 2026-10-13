@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# The neovim workflow with five tasks on haiku: three that finish after a short wait, one that stops
+# to ask the person a question, and one that keeps working, so the triage zone has rows of each
+# kind in the order it ranks them.
+set -euo pipefail
+
+"$(dirname "$0")/fresh-neovim"
+
+workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --compact | jq -r '.workflow.id')"
+
+task() {
+	komrad rpc create-agent --workflow-id "$workflow" --title "$1" --task-slug "$1" --prompt "$2" --flags "--model haiku" >/dev/null
+}
+
+task find-checkhealth "Run sleep 10 in the shell, then say in one sentence where :checkhealth is implemented."
+task lua-style "Run sleep 20 in the shell, then use your AskUserQuestion tool to ask me whether new Lua code in runtime/lua should be indented with tabs or spaces. Do nothing else until I answer."
+task news-summary "Run sleep 30 in the shell, then summarize the newest entry in runtime/doc/news.txt in one sentence."
+task help-tags "Run sleep 40 in the shell, then say in one sentence how Neovim's help tags are generated."
+task lsp-tests "Run sleep 110 in the shell five times, one after another, then list the tests that cover vim.lsp.buf."

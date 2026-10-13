@@ -34,7 +34,7 @@ hold() {
 }
 
 workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --flags "--model haiku" --compact | jq -r '.workflow.id')"
-agent="$(komrad rpc create-agent --workflow-id "$workflow" --title text-truncate \
+agent="$(komrad rpc create-agent --workflow-id "$workflow" --title text-truncate --task-slug text-truncate \
 	--prompt "Reply with the single word ready, then wait." \
 	--compact | jq -r '.agent.id')"
 wait_turn "$agent"

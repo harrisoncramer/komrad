@@ -28,7 +28,8 @@ Type "komrad open"
 Enter
 Wait+Screen@30s /no shared context set/
 Sleep 1s
-Type "e"
+Space
+Type "E"
 Tab 4
 Down 2
 Enter
@@ -36,11 +37,8 @@ Wait+Screen@30s /ignore-revs/
 Down
 Enter
 Sleep 2s
+Space
 Type "c"
 Type "Does git blame here skip the commits in .git-blame-ignore-revs? Answer in one line."
-Tab
-Type "check-blame"
-Enter
-Sleep 2s
 Enter
 Wait+Screen@4m /done \d+:\d+ [AP]M/

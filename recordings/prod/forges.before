@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Four agents on the neovim workflow, each with a pull request in a different place: open with
+# Four tasks on the neovim workflow, each with a pull request in a different place: open with
 # checks running, approved, failing, and merged. No forge is connected to the throwaway instance,
 # so the pull requests are written straight into its database the way a sync would leave them.
 set -euo pipefail
@@ -11,14 +11,14 @@ database="${KOMRAD_DATABASE_URL%&pool_max_conns=*}"
 
 branch_of() {
 	for _ in $(seq 60); do
-		branch="$(komrad rpc get-agent --id "$1" --compact | jq -r '.agent.branch // empty')"
+		branch="$(komrad rpc get-task --task "$1" --compact | jq -r '.task.branch // empty')"
 		if [ -n "$branch" ]; then
 			echo "$branch"
 			return
 		fi
 		sleep 1
 	done
-	echo "agent $1 never reported a branch" >&2
+	echo "task $1 never reported a branch" >&2
 	exit 1
 }
 
@@ -27,27 +27,43 @@ workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --work
 number=41200
 
 pull_request() {
-	local name="$1" columns="$2" values="$3" agent branch
-	agent="$(komrad rpc create-agent --workflow-id "$workflow" --title "$name" \
+	local name="$1" state="$2" check_state="$3" conclusion="$4" decision="$5" mergeability="$6" task branch
+	task="$(komrad rpc create-agent --workflow-id "$workflow" --title "$name" --task-slug "$name" \
 		--prompt "Reply with the single word ready, then wait." \
-		--compact | jq -r '.agent.id')"
-	branch="$(branch_of "$agent")"
+		--compact | jq -r '.agent.task_id')"
+	branch="$(branch_of "$task")"
 	number=$((number + 1))
 	psql "$database" -q -v ON_ERROR_STOP=1 \
-		-v agent="$agent" -v branch="$branch" -v number="$number" -v title="$name" <<SQL
+		-v task="$task" -v branch="$branch" -v number="$number" -v title="$name" -v state="$state" \
+		-v check_state="$check_state" -v conclusion="$conclusion" -v decision="$decision" \
+		-v mergeability="$mergeability" <<'SQL'
 WITH opened AS (
 	INSERT INTO pull_requests (host, forge, provider_id, url, repository_url, head_repository_url, number, title,
-		head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, $columns)
+		head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at,
+		latest_head_sha, latest_decision, known_decision, latest_mergeability, known_mergeability, known_mergeability_sha)
 	VALUES ('github.com', 'github', :'number', 'https://github.com/neovim/neovim/pull/' || :'number',
 		'https://github.com/neovim/neovim', 'https://github.com/neovim/neovim', :number, :'title',
-		:'branch', 'head', 'master', 'base', false, $values)
+		:'branch', 'head', 'master', 'base', false, :'state', now(), now(),
+		CASE WHEN :'state' = 'MERGED' THEN now() END,
+		'head', NULLIF(:'decision', ''), NULLIF(:'decision', ''),
+		NULLIF(:'mergeability', ''), NULLIF(:'mergeability', ''), CASE WHEN :'mergeability' <> '' THEN 'head' END)
+	RETURNING id
+), linked AS (
+	INSERT INTO task_pull_requests (task_id, pull_request_id) SELECT :'task', id FROM opened
+), reading AS (
+	INSERT INTO pull_request_check_readings (pull_request_id, head_sha, blank, first_read_at, read_at)
+	SELECT id, 'head', false, now(), now() FROM opened
 	RETURNING id
 )
-INSERT INTO agent_pull_requests (agent_id, pull_request_id) SELECT :'agent', id FROM opened;
+INSERT INTO pull_request_checks (reading_id, provider_id, kind, source, name, state, conclusion, started_at,
+	finished_at, required)
+SELECT reading.id, 'test-' || :'number', 'check_run', 'GitHub Actions', 'test', :'check_state', :'conclusion',
+	now(), CASE WHEN :'check_state' = 'completed' THEN now() END, false
+FROM reading;
 SQL
 }
 
-pull_request lsp-docs "checks" "'OPEN', now(), now(), 'pending'"
-pull_request checkhealth-fix "checks, review_decision, mergeability" "'OPEN', now(), now(), 'passing', 'approved', 'clean'"
-pull_request text-truncate "checks" "'OPEN', now(), now(), 'failing'"
-pull_request statusline "checks, merged_at" "'MERGED', now(), now(), 'passing', now()"
+pull_request lsp-docs OPEN running "" "" ""
+pull_request checkhealth-fix OPEN completed success approved clean
+pull_request text-truncate OPEN completed failure "" ""
+pull_request statusline MERGED completed success approved ""

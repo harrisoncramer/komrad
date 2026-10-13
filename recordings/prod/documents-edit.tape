@@ -5,13 +5,13 @@ Source recordings/shell.tape
 Hide
 Type "export EDITOR='nvim --clean'; komrad open"
 Enter
-Wait+Screen@30s /agents\s+query\s+schedules/
+Wait+Screen@30s /agents\s+schedules\s+documents/
 Sleep 1s
 Show
 Type "j"
 Space
+Type "J"
 Type "d"
-Type "v"
 Wait+Screen@10s /RFC: vim\.text/
 Sleep 2s
 Space

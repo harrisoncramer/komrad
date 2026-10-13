@@ -15,4 +15,5 @@ Type "t"
 Sleep 3s
 Type "t"
 Sleep 3s
+Space
 Type "a"
