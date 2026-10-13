@@ -113,8 +113,9 @@ func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
 // through say so rather than reporting a write they never made.
 func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 	tests := []struct {
-		name  string
-		write func(*AgentStore, string) error
+		name           string
+		write          func(*AgentStore, string) error
+		refusesMissing bool
 	}{
 		{
 			name: "the cut-off turn",
@@ -127,8 +128,9 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 			write: func(s *AgentStore, id string) error { return s.SetSessionID(t.Context(), id, "session") },
 		},
 		{
-			name:  "the reported reason",
-			write: func(s *AgentStore, id string) error { return s.SetReportedReason(t.Context(), id, "Bash") },
+			name:           "the reported reason",
+			write:          func(s *AgentStore, id string) error { return s.SetReportedReason(t.Context(), id, "Bash") },
+			refusesMissing: true,
 		},
 		{
 			name:  "the failed turn",
@@ -145,8 +147,14 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 			st := open(t)
 
 			require.ErrorIs(t, tt.write(st.AgentStore, "not-a-uuid"), store.ErrNotFound)
-			require.NoError(t, tt.write(st.AgentStore, "00000000-0000-0000-0000-0000000000ff"),
-				"an id no agent holds is not the same question")
+			missing := tt.write(st.AgentStore, "00000000-0000-0000-0000-0000000000ff")
+			if tt.refusesMissing {
+				require.ErrorIs(t, missing, store.ErrNotFound)
+
+				return
+			}
+
+			require.NoError(t, missing, "an id no agent holds is not the same question")
 		})
 	}
 }

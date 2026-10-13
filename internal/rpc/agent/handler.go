@@ -357,15 +357,15 @@ func (s *Handler) RecordReport(ctx context.Context, req *agentv1.RecordReportReq
 		TurnError: req.GetTurnError(),
 	}
 
+	if err := s.writer.RecordReport(ctx, agents.RecordReportParams{AgentID: id, Report: report}); err != nil {
+		return nil, rpcerr.From(err, "failed to record what the agent reported")
+	}
+
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "an agent's hook reported",
 		slog.String(logging.TargetAgentID, id),
 		slog.String(logging.HookName, req.GetHook()),
 		slog.String(logging.HookEvent, report.Event.String()),
 		slog.String(logging.HookTool, report.Tool))
-
-	if err := s.writer.RecordReport(ctx, agents.RecordReportParams{AgentID: id, Report: report}); err != nil {
-		return nil, rpcerr.From(err, "failed to record what the agent reported")
-	}
 
 	return &emptypb.Empty{}, nil
 }

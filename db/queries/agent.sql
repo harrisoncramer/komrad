@@ -718,7 +718,7 @@ SET
 WHERE
     id = @id;
 
--- name: SetAgentReportedReasonByID :exec
+-- name: SetAgentReportedReasonByID :execrows
 UPDATE
     agents
 SET

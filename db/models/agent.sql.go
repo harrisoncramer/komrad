@@ -3260,7 +3260,7 @@ func (q *Queries) SetAgentNudgeSentByID(ctx context.Context, id string) error {
 	return err
 }
 
-const setAgentReportedReasonByID = `-- name: SetAgentReportedReasonByID :exec
+const setAgentReportedReasonByID = `-- name: SetAgentReportedReasonByID :execrows
 UPDATE
     agents
 SET
@@ -3274,9 +3274,12 @@ type SetAgentReportedReasonByIDParams struct {
 	ID             string
 }
 
-func (q *Queries) SetAgentReportedReasonByID(ctx context.Context, arg SetAgentReportedReasonByIDParams) error {
-	_, err := q.db.Exec(ctx, setAgentReportedReasonByID, arg.ReportedReason, arg.ID)
-	return err
+func (q *Queries) SetAgentReportedReasonByID(ctx context.Context, arg SetAgentReportedReasonByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setAgentReportedReasonByID, arg.ReportedReason, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setAgentSessionID = `-- name: SetAgentSessionID :exec

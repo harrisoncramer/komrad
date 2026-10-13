@@ -322,6 +322,17 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
+			name: "a report from an agent komrad does not hold",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+				ctx = caller.With(ctx, caller.Caller{AgentID: missingID})
+				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{Event: agentv1.ReportEvent_REPORT_EVENT_TURN_ENDED, Hook: "Stop"}))
+
+				return err
+			},
+			err:      store.ErrNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
 			name: "a page token holding an id no row can have",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{
@@ -821,26 +832,51 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 	}
 }
 
-// TestRecordReportLogsTheHookCall pins the line every hook call leaves under the agent it came from.
+// TestRecordReportLogsTheHookCall pins the line a hook call leaves only once komrad recorded it.
 func TestRecordReportLogsTheHookCall(t *testing.T) {
-	svc, services := newRecordedService(t)
-	id := services.rows.seed(agentstore.Agent{Name: "alpha"}).ID
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "a report from an agent komrad does not hold",
+			err:  store.ErrNotFound,
+		},
+		{
+			name: "a report the agent's row took",
+		},
+	}
 
-	var written strings.Builder
-	ctx := logging.WithLogger(caller.With(t.Context(), caller.Caller{AgentID: id}), logging.New(&written, slog.LevelInfo))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, services := newRecordedService(t)
+			services.err = tt.err
+			id := services.rows.seed(agentstore.Agent{Name: "alpha"}).ID
 
-	_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{
-		Event: agentv1.ReportEvent_REPORT_EVENT_TOOL_STARTED,
-		Hook:  "PreToolUse",
-		Tool:  "Bash",
-	}))
-	require.NoError(t, err)
+			var written strings.Builder
+			ctx := logging.WithLogger(caller.With(t.Context(), caller.Caller{AgentID: id}), logging.New(&written, slog.LevelInfo))
 
-	record := logtest.Record(t, written.String())
-	assert.Equal(t, id, record[logging.TargetAgentID])
-	assert.Equal(t, "PreToolUse", record[logging.HookName])
-	assert.Equal(t, "tool started", record[logging.HookEvent])
-	assert.Equal(t, "Bash", record[logging.HookTool])
+			_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{
+				Event: agentv1.ReportEvent_REPORT_EVENT_TOOL_STARTED,
+				Hook:  "PreToolUse",
+				Tool:  "Bash",
+			}))
+			if tt.err != nil {
+				require.Error(t, err)
+				assert.Empty(t, written.String())
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			record := logtest.Record(t, written.String())
+			assert.Equal(t, id, record[logging.TargetAgentID])
+			assert.Equal(t, "PreToolUse", record[logging.HookName])
+			assert.Equal(t, "tool started", record[logging.HookEvent])
+			assert.Equal(t, "Bash", record[logging.HookTool])
+		})
+	}
 }
 
 // TestAdoptAnswersWithTheAgentAlreadyOnTheBranch covers the service's existing flag reaching the response.
