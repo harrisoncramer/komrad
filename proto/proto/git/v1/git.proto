@@ -96,6 +96,9 @@ message MapRangesRequest {
     min_len: 1
     pattern: "^[^-]"
   }];
+  // The files of the earlier commit to answer for, relative to the top of the repository, and every
+  // file when empty.
+  repeated string paths = 4;
 }
 
 // LineRange is a span of lines numbered from one. It includes its start and excludes its end. A

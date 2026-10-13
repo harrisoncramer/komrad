@@ -95,6 +95,7 @@ func (c *EngineClient) MapRanges(ctx context.Context, params MapRangesParams) ([
 		Dir:     params.Dir,
 		FromSha: params.FromSHA,
 		ToSha:   params.ToSHA,
+		Paths:   params.Paths,
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to map %s onto %s on the engine: %w", params.FromSHA, params.ToSHA, err)

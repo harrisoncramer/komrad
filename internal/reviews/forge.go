@@ -509,6 +509,9 @@ func (m *ForgeMirror) place(ctx context.Context, target reviewstore.ForgeMirrorT
 			Dir:     target.Cwd,
 			FromSHA: from,
 			ToSHA:   target.SnapshotSHA,
+			Paths: xslice.Map(group, func(thread pullrequeststore.ForgeThread) string {
+				return thread.Path
+			}),
 		})
 		if err != nil {
 			continue
