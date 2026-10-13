@@ -4,8 +4,10 @@ set -euo pipefail
 
 "$(dirname "$0")/triage-tasks"
 
+database="${KOMRAD_DATABASE_URL%&pool_max_conns=*}"
+
 settled() {
-	komrad rpc list-agents --compact | jq -e '[.agents[].agent | select(.name != "lsp-tests" and .role == "AGENT_ROLE_WRITER" and .state != "AGENT_STATE_IDLE" and .state != "AGENT_STATE_WAITING")] | length == 0' >/dev/null
+	[ "$(psql "$database" -Atc "SELECT count(*) FROM agents WHERE role = 'writer' AND name <> 'lsp-tests' AND turn_ended_at IS NULL AND state <> 'waiting'")" = 0 ]
 }
 
 for _ in $(seq 180); do
