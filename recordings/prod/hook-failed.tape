@@ -15,5 +15,5 @@ Enter
 Wait+Screen@30s /a hook failed/
 Sleep 1s
 Escape
-Type "j"
+Type "G"
 Wait+Screen@10s /setup failed/

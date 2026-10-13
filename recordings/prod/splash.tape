@@ -9,6 +9,9 @@ Hide
 Sleep 20s
 Show
 Sleep 2s
+Type "G"
+Type "k"
+Type "k"
 Type "k"
 Type "k"
 Sleep 1.5s
