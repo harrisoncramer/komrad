@@ -7,7 +7,6 @@ import (
 	"unicode/utf8"
 
 	"komrad/config"
-	"komrad/internal/agents"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	workflowstore "komrad/internal/store/workflow"
@@ -1131,7 +1130,7 @@ func TestIsDormant(t *testing.T) {
 			if tt.running {
 				terminal.Owners[agent.Pane] = agent.ID
 			}
-			svc := NewMailService(NewMailServiceParams{Panes: agents.NewPaneLiveness(terminal)})
+			svc := NewMailService(NewMailServiceParams{Panes: paneOwners{terminal: terminal}})
 
 			assert.Equal(t, tt.wantDormant, svc.IsDormant(agent))
 		})

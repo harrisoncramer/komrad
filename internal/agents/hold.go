@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"komrad/internal/agenterr"
 	"komrad/internal/fail"
-	"komrad/internal/harness"
-	"komrad/internal/logging"
+	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
 	"komrad/lib/xptr"
 )
 
@@ -25,24 +24,28 @@ var errAlreadyHeld = fail.AlreadyExists("this agent is already held")
 // errHoldSelf is an agent holding itself, which would stop it with nobody who knows to let it go.
 var errHoldSelf = fail.InvalidArgument("an agent cannot hold itself")
 
+type mailSender interface {
+	SendMail(ctx context.Context, params mail.SendMailParams) (*mailstore.Mail, error)
+}
+
 // NewHolderParams is what a holder is built over.
 type NewHolderParams struct {
-	Agents  *agentstore.AgentStore
-	Channel harness.Channel
-	Settler *Settler
-	Clock   func() time.Time
+	Agents     *agentstore.AgentStore
+	MailSender mailSender
+	Settler    *Settler
+	Clock      func() time.Time
 }
 
 // Holder stops an agent on a person's behalf and lets it go again.
 type Holder struct {
-	agents  *agentstore.AgentStore
-	channel harness.Channel
-	settler *Settler
-	now     func() time.Time
+	agents     *agentstore.AgentStore
+	mailSender mailSender
+	settler    *Settler
+	now        func() time.Time
 }
 
-// NewHolder builds the holder over the store, the channel that reaches an agent and the settler
-// that stops it.
+// NewHolder builds the holder over the store, the mail that reaches an agent and the settler that
+// stops it.
 func NewHolder(params NewHolderParams) *Holder {
 	now := params.Clock
 	if now == nil {
@@ -50,10 +53,10 @@ func NewHolder(params NewHolderParams) *Holder {
 	}
 
 	return &Holder{
-		agents:  params.Agents,
-		channel: params.Channel,
-		settler: params.Settler,
-		now:     now,
+		agents:     params.Agents,
+		mailSender: params.MailSender,
+		settler:    params.Settler,
+		now:        now,
 	}
 }
 
@@ -107,11 +110,13 @@ func (h *Holder) Hold(ctx context.Context, params HoldParams) (*agentstore.Agent
 // ReleaseParams is the agent being let go and what to tell it happened while it was held.
 type ReleaseParams struct {
 	AgentID string
-	// Said is what komrad types into the agent as it starts again, empty to let it go in silence.
+	// ByAgentID is the agent letting it go, empty for the panel.
+	ByAgentID string
+	// Said is mailed to the agent as it starts again, empty to let it go in silence.
 	Said string
 }
 
-// Release lets go of an agent, typing what happened into it only when the hold cut a turn short.
+// Release mails a held agent what happened when the hold cut a turn short, then lets it go.
 func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore.Agent, error) {
 	agent, err := h.get(ctx, params.AgentID)
 	if err != nil {
@@ -122,11 +127,13 @@ func (h *Holder) Release(ctx context.Context, params ReleaseParams) (*agentstore
 		return nil, ErrNotHeld.Saying("nobody is holding %q", agent.Name)
 	}
 
-	if agent.Hold.MidTurn && params.Said != "" && agent.Pane != "" {
-		said, err := h.channel.Send(ctx, buildTarget(*agent), params.Said)
-		if err != nil || !said {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "released a held agent without telling it what changed",
-				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	if agent.Hold.MidTurn && params.Said != "" {
+		if _, err := h.mailSender.SendMail(ctx, mail.SendMailParams{
+			From:      params.ByAgentID,
+			ToAgentID: agent.ID,
+			Body:      params.Said,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to mail %q what changed while it was held: %w", agent.Name, err)
 		}
 	}
 

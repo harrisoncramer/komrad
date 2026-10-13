@@ -132,6 +132,9 @@ const (
 	// AgentServiceRecordReportProcedure is the fully-qualified name of the AgentService's RecordReport
 	// RPC.
 	AgentServiceRecordReportProcedure = "/agent.v1.AgentService/RecordReport"
+	// AgentServiceClaimMailNudgeProcedure is the fully-qualified name of the AgentService's
+	// ClaimMailNudge RPC.
+	AgentServiceClaimMailNudgeProcedure = "/agent.v1.AgentService/ClaimMailNudge"
 	// AgentServiceMarkRunsReadProcedure is the fully-qualified name of the AgentService's MarkRunsRead
 	// RPC.
 	AgentServiceMarkRunsReadProcedure = "/agent.v1.AgentService/MarkRunsRead"
@@ -241,6 +244,7 @@ type AgentServiceClient interface {
 	DeleteDocument(context.Context, *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
+	ClaimMailNudge(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ClaimMailNudgeResponse], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
@@ -517,6 +521,12 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		claimMailNudge: connect.NewClient[emptypb.Empty, v1.ClaimMailNudgeResponse](
+			httpClient,
+			baseURL+AgentServiceClaimMailNudgeProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ClaimMailNudge")),
+			connect.WithClientOptions(opts...),
+		),
 		markRunsRead: connect.NewClient[v1.MarkRunsReadRequest, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceMarkRunsReadProcedure,
@@ -713,6 +723,7 @@ type agentServiceClient struct {
 	deleteDocument           *connect.Client[v1.DeleteDocumentRequest, emptypb.Empty]
 	deleteDocumentType       *connect.Client[v1.DeleteDocumentTypeRequest, emptypb.Empty]
 	recordReport             *connect.Client[v1.RecordReportRequest, emptypb.Empty]
+	claimMailNudge           *connect.Client[emptypb.Empty, v1.ClaimMailNudgeResponse]
 	markRunsRead             *connect.Client[v1.MarkRunsReadRequest, emptypb.Empty]
 	listReviewThreads        *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
 	createReviewThread       *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
@@ -919,6 +930,11 @@ func (c *agentServiceClient) RecordReport(ctx context.Context, req *connect.Requ
 	return c.recordReport.CallUnary(ctx, req)
 }
 
+// ClaimMailNudge calls agent.v1.AgentService.ClaimMailNudge.
+func (c *agentServiceClient) ClaimMailNudge(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ClaimMailNudgeResponse], error) {
+	return c.claimMailNudge.CallUnary(ctx, req)
+}
+
 // MarkRunsRead calls agent.v1.AgentService.MarkRunsRead.
 func (c *agentServiceClient) MarkRunsRead(ctx context.Context, req *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.markRunsRead.CallUnary(ctx, req)
@@ -1077,6 +1093,7 @@ type AgentServiceHandler interface {
 	DeleteDocument(context.Context, *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteDocumentType(context.Context, *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error)
 	RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error)
+	ClaimMailNudge(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ClaimMailNudgeResponse], error)
 	MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error)
 	ListReviewThreads(context.Context, *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error)
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
@@ -1349,6 +1366,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceClaimMailNudgeHandler := connect.NewUnaryHandler(
+		AgentServiceClaimMailNudgeProcedure,
+		svc.ClaimMailNudge,
+		connect.WithSchema(agentServiceMethods.ByName("ClaimMailNudge")),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceMarkRunsReadHandler := connect.NewUnaryHandler(
 		AgentServiceMarkRunsReadProcedure,
 		svc.MarkRunsRead,
@@ -1578,6 +1601,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceDeleteDocumentTypeHandler.ServeHTTP(w, r)
 		case AgentServiceRecordReportProcedure:
 			agentServiceRecordReportHandler.ServeHTTP(w, r)
+		case AgentServiceClaimMailNudgeProcedure:
+			agentServiceClaimMailNudgeHandler.ServeHTTP(w, r)
 		case AgentServiceMarkRunsReadProcedure:
 			agentServiceMarkRunsReadHandler.ServeHTTP(w, r)
 		case AgentServiceListReviewThreadsProcedure:
@@ -1777,6 +1802,10 @@ func (UnimplementedAgentServiceHandler) DeleteDocumentType(context.Context, *con
 
 func (UnimplementedAgentServiceHandler) RecordReport(context.Context, *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RecordReport is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ClaimMailNudge(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ClaimMailNudgeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ClaimMailNudge is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) MarkRunsRead(context.Context, *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {

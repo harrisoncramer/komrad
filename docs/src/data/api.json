@@ -284,8 +284,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Let a held agent carry on, typing said into it as it starts again.",
-          "description": "Let a held agent carry on, typing said into it as it starts again.",
+          "summary": "Let a held agent carry on, mailing said to it as it starts again.",
+          "description": "Let a held agent carry on, mailing said to it as it starts again.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -4870,7 +4870,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to tell the agent happened while it was held. Komrad types it into the agent as it starts again. Empty lets it go in silence. Komrad ignores it for an agent whose own turn had already ended."
+          "description": "What to tell the agent happened while it was held. Komrad mails it to the agent from the caller as it starts again. Empty lets it go in silence. Komrad ignores it for an agent whose own turn had already ended."
         }
       ]
     },

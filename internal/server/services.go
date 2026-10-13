@@ -51,7 +51,6 @@ type services struct {
 }
 
 type agentServices struct {
-	liveness     *agents.PaneLiveness
 	screens      *agents.ScreenKeeper
 	launch       *agents.LaunchService
 	resume       *agents.ResumeService
@@ -158,7 +157,16 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Transcripts: st.transcripts,
 		Harnesses:   params.Harnesses,
 	})
+	liveness := agents.NewPaneLiveness(params.Tmux)
+	mailService := mail.NewMailService(mail.NewMailServiceParams{
+		Mail:      st.mail,
+		Agents:    st.agents,
+		Workflows: st.workflows,
+		Config:    mailConfig(loadConfig),
+		Panes:     liveness,
+	})
 	agentGroup := buildAgents(buildAgentsParams{
+		Mail:        mailService,
 		Tasks:       taskService,
 		Server:      params,
 		Stores:      st,
@@ -188,14 +196,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		LoadConfig: loadConfig,
 	})
 
-	mailService := mail.NewMailService(mail.NewMailServiceParams{
-		Mail:      st.mail,
-		Agents:    st.agents,
-		Workflows: st.workflows,
-		Config:    mailConfig(loadConfig),
-		Panes:     agentGroup.liveness,
-	})
-
 	return &services{
 		loadConfig: loadConfig,
 		queue:      queue,
@@ -206,7 +206,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
 				Mail:         st.mail,
 				NudgeClaimer: st.agents,
-				PaneReader:   agentGroup.liveness,
+				PaneReader:   liveness,
 				Channel:      paneChannel,
 			}),
 		},
@@ -334,6 +334,7 @@ func buildScripts(params buildScriptsParams) (*scriptrun.ScriptService, error) {
 type buildAgentsParams struct {
 	Server      NewServerParams
 	Stores      *stores
+	Mail        *mail.MailService
 	Wakers      *loopWakers
 	Git         *git.Client
 	Queue       *jobs.Enqueuer
@@ -419,7 +420,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 	}).WithFrameRecorder(frames.NewRecorder(server.Env.FramesDir(), newFrameSettings(params.LoadConfig).get)).WithScreenKeeper(screenKeeper)
 
 	return agentServices{
-		liveness:  agents.NewPaneLiveness(server.Tmux),
 		screens:   screenKeeper,
 		launch:    launchService,
 		resume:    resumeService,
@@ -452,9 +452,9 @@ func buildAgents(params buildAgentsParams) agentServices {
 			StateDir:    server.Env.StateDir,
 		}),
 		holder: agents.NewHolder(agents.NewHolderParams{
-			Agents:  st.agents,
-			Channel: params.Panes,
-			Settler: params.Settler,
+			Agents:     st.agents,
+			MailSender: params.Mail,
+			Settler:    params.Settler,
 		}),
 		reconciler: reconciler,
 		rowReader: agents.NewRowReader(agents.NewRowReaderParams{

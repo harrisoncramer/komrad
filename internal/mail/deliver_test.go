@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"komrad/db/testmodels"
-	"komrad/internal/agents"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
 	"komrad/internal/harness/codex"
@@ -80,7 +79,7 @@ func TestDeliver(t *testing.T) {
 			want:   DeliveryDone,
 		},
 		{
-			name:  "an agent mid-turn, which its own stop hook will catch",
+			name:  "an agent mid-turn, waited on until its turn ends",
 			state: agentstore.StateThinking,
 			want:  DeliverySoon,
 		},
@@ -291,6 +290,70 @@ func TestDeliverDoesNotWarnAfterAPassThatTypedNothing(t *testing.T) {
 	assert.Equal(t, "INFO", written[0]["severity_text"], "the agent has been told once, so nothing went nowhere")
 }
 
+// TestClaimTurnEndNudge pins when an agent whose turn just ended is handed the nudge.
+func TestClaimTurnEndNudge(t *testing.T) {
+	tests := []struct {
+		name     string
+		noMail   bool
+		arrange  func(t *testing.T, st *storetest.Stores, id string)
+		want     string
+		wantSent bool
+	}{
+		{
+			name: "an agent a person is holding",
+			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+				_, err := st.Agents.Hold(t.Context(), agentstore.HoldParams{
+					ID: id,
+					At: time.Now(),
+				})
+				require.NoError(t, err)
+			},
+		},
+		{
+			name:   "an empty mailbox",
+			noMail: true,
+		},
+		{
+			name: "an agent the delivery loop told recently enough",
+			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+				claimed, err := st.Agents.ClaimNudge(t.Context(), id, nudgeRetryAfter)
+				require.NoError(t, err)
+				require.True(t, claimed)
+			},
+		},
+		{
+			name:     "an agent with mail waiting",
+			want:     nudgeLine,
+			wantSent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := storetest.Open(t)
+			terminal := tmuxtest.NewFake()
+			agent := seedListeningAgent(t, st, terminal)
+			if !tt.noMail {
+				sendTo(t, st, agent.ID)
+			}
+			if tt.arrange != nil {
+				tt.arrange(t, st, agent.ID)
+			}
+
+			channel := &harnesstest.Channel{}
+			nudge, err := newDeliveryService(st, terminal, channel).ClaimTurnEndNudge(t.Context(), agent.ID)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, nudge)
+			assert.Empty(t, channel.Sent, "the hook hands the line over, so nothing is typed into the pane")
+
+			stored, err := st.Agents.GetByID(t.Context(), agent.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSent, stored.NudgeSentAt != nil)
+		})
+	}
+}
+
 // TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails pins that a nudge already typed is not reported as a failed delivery.
 func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 	st := storetest.Open(t)
@@ -302,7 +365,7 @@ func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		Mail:         st.Mail,
 		NudgeClaimer: nudgeSentFailer{AgentStore: st.Agents},
-		PaneReader:   agents.NewPaneLiveness(terminal),
+		PaneReader:   paneOwners{terminal: terminal},
 		Channel:      channel,
 	})
 	ctx, records := newLoggedContext(t)
@@ -668,7 +731,7 @@ func newDeliveryService(st *storetest.Stores, terminal *tmuxtest.Fake, channel h
 	return NewDeliveryService(NewDeliveryServiceParams{
 		Mail:         st.Mail,
 		NudgeClaimer: st.Agents,
-		PaneReader:   agents.NewPaneLiveness(terminal),
+		PaneReader:   paneOwners{terminal: terminal},
 		Channel:      channel,
 	})
 }
@@ -753,4 +816,12 @@ func newLoggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 
 		return records
 	}
+}
+
+type paneOwners struct {
+	terminal *tmuxtest.Fake
+}
+
+func (p paneOwners) IsAgentRunning(agent agentstore.Agent) bool {
+	return agent.ID != "" && p.terminal.GetPaneOwner(agent.Pane) == agent.ID
 }

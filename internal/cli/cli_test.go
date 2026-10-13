@@ -64,7 +64,7 @@ func TestIntegrationIsConfigFatal(t *testing.T) {
 			want:    false,
 		},
 		{
-			name:    "the stop hook, which delivers mail",
+			name:    "the stop hook, which records the turn ending",
 			command: "hook stop",
 			want:    false,
 		},

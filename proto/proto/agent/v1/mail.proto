@@ -118,6 +118,11 @@ message ForwardLastTurnsResponse {
   optional string warning = 6;
 }
 
+message ClaimMailNudgeResponse {
+  // The line telling the agent about its unread mail, empty when it has none or was told recently.
+  string nudge = 1;
+}
+
 message ReadMailRequest {
   // Whose mailbox to empty, or unset for the caller's own.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];

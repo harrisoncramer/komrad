@@ -43,6 +43,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const missingID = "00000000-0000-0000-0000-000000000000"
@@ -832,6 +833,64 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 	}
 }
 
+// TestClaimMailNudge pins what the Stop hook is handed for the agent calling it.
+func TestClaimMailNudge(t *testing.T) {
+	const nudge = "komrad: 1 piece(s) of unread mail, call read_mail"
+
+	tests := []struct {
+		name        string
+		asAgent     bool
+		nudgeErr    error
+		want        string
+		wantCode    connect.Code
+		wantClaimed bool
+	}{
+		{
+			name:     "a caller that is not an agent",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:        "an agent komrad does not hold",
+			asAgent:     true,
+			nudgeErr:    store.ErrNotFound,
+			wantCode:    connect.CodeNotFound,
+			wantClaimed: true,
+		},
+		{
+			name:        "an agent with mail waiting",
+			asAgent:     true,
+			want:        nudge,
+			wantClaimed: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, services := newRecordedService(t)
+			services.nudge = nudge
+			services.nudgeErr = tt.nudgeErr
+			id := services.rows.seed(agentstore.Agent{Name: "alpha"}).ID
+
+			ctx := t.Context()
+			if tt.asAgent {
+				ctx = caller.With(ctx, caller.Caller{AgentID: id})
+			}
+
+			claimed, err := svc.ClaimMailNudge(ctx, connect.NewRequest(&emptypb.Empty{}))
+			assert.Equal(t, tt.wantClaimed, slices.Equal(services.nudgeClaimed, []string{id}))
+			if tt.wantCode != 0 {
+				require.Error(t, err)
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, claimed.Msg.GetNudge())
+		})
+	}
+}
+
 // TestRecordReportLogsTheHookCall pins the line a hook call leaves only once komrad recorded it.
 func TestRecordReportLogsTheHookCall(t *testing.T) {
 	tests := []struct {
@@ -1240,6 +1299,9 @@ type recordingAgentServices struct {
 	retried       agents.RetryCreateParams
 	released      agents.ReleaseParams
 	reported      agents.RecordReportParams
+	nudge         string
+	nudgeErr      error
+	nudgeClaimed  []string
 	resumed       []agents.ResumeAgentParams
 	restarted     []agents.RestartAgentParams
 	held          []agents.HoldParams
@@ -1442,6 +1504,12 @@ func (f *recordingAgentServices) RecordReport(_ context.Context, params agents.R
 	return f.err
 }
 
+func (f *recordingAgentServices) ClaimTurnEndNudge(_ context.Context, agentID string) (string, error) {
+	f.nudgeClaimed = append(f.nudgeClaimed, agentID)
+
+	return f.nudge, f.nudgeErr
+}
+
 func adoptMain(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 	_, err := svc.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 		Ref:        "main",
@@ -1475,6 +1543,7 @@ func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recor
 		Agents:       services.rows,
 		Rows:         services.rows,
 		Writer:       services,
+		Nudges:       services,
 		Transcripts:  &fakeTranscriptReader{},
 		Mail:         &fakeMailer{},
 		Creator:      services,
