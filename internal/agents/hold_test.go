@@ -1,14 +1,18 @@
 package agents
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
+	"komrad/config"
 	"komrad/internal/agenterr"
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
+	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock/clocktest"
 
@@ -20,8 +24,13 @@ import (
 // for an agent to settle costs no real time.
 func newHolder(st *testStore, channel *harnesstest.Channel, observer harness.Observer) *Holder {
 	return NewHolder(NewHolderParams{
-		Agents:  st.Agents,
-		Channel: channel,
+		Agents: st.Agents,
+		MailSender: mail.NewMailService(mail.NewMailServiceParams{
+			Mail:      st.Mail,
+			Agents:    st.Agents,
+			Workflows: st.Workflows,
+			Config:    config.Mail{},
+		}),
 		Settler: settlerOver(channel, observer),
 	})
 }
@@ -193,12 +202,18 @@ func TestReleasingATurnThatWasCutSaysWhatChanged(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Nil(t, released.Hold.At, "nobody is holding it now")
-	assert.Equal(t, []string{"I changed review.go while you were held"}, channel.Sent)
+	assert.Empty(t, channel.Sent, "nothing is typed into its pane")
+
+	waiting, err := st.Mail.Claim(t.Context(), agent.ID, 10)
+	require.NoError(t, err)
+	require.Len(t, waiting, 1)
+	assert.Equal(t, "I changed review.go while you were held", waiting[0].Body)
+	assert.Nil(t, waiting[0].FromAgentID, "the panel let it go")
 }
 
-// TestReleasingAnAgentThatHadFinishedTypesNothing covers the agent whose own turn ended before the
-// hold, which typing at would put back to work nobody asked for.
-func TestReleasingAnAgentThatHadFinishedTypesNothing(t *testing.T) {
+// TestReleasingAnAgentThatHadFinishedMailsNothing covers the agent whose own turn ended before the
+// hold, which mail would put back to work nobody asked for.
+func TestReleasingAnAgentThatHadFinishedMailsNothing(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
 
@@ -215,7 +230,10 @@ func TestReleasingAnAgentThatHadFinishedTypesNothing(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Nil(t, released.Hold.At)
-	assert.Empty(t, channel.Sent, "there was no cut turn to carry on with")
+
+	pending, err := st.Mail.CountPending(t.Context(), agent.ID)
+	require.NoError(t, err)
+	assert.Zero(t, pending, "there was no cut turn to carry on with")
 }
 
 // TestHoldingAnAgentTwiceIsRefused pins the second person, or the second keypress, finding it
@@ -322,27 +340,35 @@ func TestHoldReadsThePaneRatherThanTheRow(t *testing.T) {
 	assert.True(t, held.Hold.MidTurn, "so letting go has a turn to carry on with")
 }
 
-// TestReleaseLetsGoWhenTheBoxRefuses covers the box that will not take the words.
-func TestReleaseLetsGoWhenTheBoxRefuses(t *testing.T) {
+// TestReleaseKeepsTheHoldWhenTheMailIsRefused covers a release whose word could not reach the agent.
+func TestReleaseKeepsTheHoldWhenTheMailIsRefused(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "telescope", "%1", agentstore.StateThinking)
 
-	channel := &harnesstest.Channel{}
-	holder := newHolder(st, channel, harnesstest.NewActivityObserver(
-		harness.ActivityWorking,
-		harness.ActivityIdle,
-	))
+	holder := NewHolder(NewHolderParams{
+		Agents:     st.Agents,
+		MailSender: mailRefuser{},
+		Settler: settlerOver(&harnesstest.Channel{}, harnesstest.NewActivityObserver(
+			harness.ActivityWorking,
+			harness.ActivityIdle,
+		)),
+	})
 
 	_, err := holder.Hold(t.Context(), HoldParams{AgentID: agent.ID})
 	require.NoError(t, err)
 
-	channel.RefuseSend = true
+	_, err = holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID, Said: "carry on"})
+	require.ErrorIs(t, err, mail.ErrMailboxFull)
 
-	released, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID, Said: "carry on"})
+	stored, err := st.Agents.GetByID(t.Context(), agent.ID)
 	require.NoError(t, err)
+	assert.True(t, stored.Hold.IsHeld(), "an agent let go without the word would carry on as if nothing changed")
+}
 
-	assert.Nil(t, released.Hold.At, "a hold nobody can end would strand the agent")
-	assert.Empty(t, channel.Sent)
+type mailRefuser struct{}
+
+func (mailRefuser) SendMail(context.Context, mail.SendMailParams) (*mailstore.Mail, error) {
+	return nil, mail.ErrMailboxFull
 }
 
 // TestReleasingInSilenceLetsGoOfAnInterruptedAgent covers a release asking for nothing to be said.

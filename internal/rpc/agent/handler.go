@@ -71,6 +71,10 @@ type rowWriter interface {
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
 }
 
+type turnEndNudgeClaimer interface {
+	ClaimTurnEndNudge(ctx context.Context, agentID string) (string, error)
+}
+
 type agentDeleter interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 }
@@ -82,6 +86,7 @@ type NewHandlerParams struct {
 	Transcripts   transcriptReader
 	Screens       screenReader
 	Mail          mailer
+	Nudges        turnEndNudgeClaimer
 	Creator       agentCreator
 	Adopter       agentAdopter
 	Lifecycle     agentLifecycle
@@ -106,6 +111,7 @@ type Handler struct {
 	transcripts   transcriptReader
 	screens       screenReader
 	mail          mailer
+	nudges        turnEndNudgeClaimer
 	creator       agentCreator
 	adopter       agentAdopter
 	lifecycle     agentLifecycle
@@ -138,6 +144,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 		transcripts:   params.Transcripts,
 		screens:       params.Screens,
 		mail:          params.Mail,
+		nudges:        params.Nudges,
 		creator:       params.Creator,
 		adopter:       params.Adopter,
 		lifecycle:     params.Lifecycle,
@@ -370,6 +377,22 @@ func (s *Handler) RecordReport(ctx context.Context, req *agentv1.RecordReportReq
 	return &emptypb.Empty{}, nil
 }
 
+// ClaimMailNudge hands the calling agent the line telling it about its unread mail as its turn ends,
+// empty when there is none to tell it about.
+func (s *Handler) ClaimMailNudge(ctx context.Context, _ *emptypb.Empty) (*agentv1.ClaimMailNudgeResponse, *fail.Error) {
+	id := caller.From(ctx).AgentID
+	if id == "" {
+		return nil, errCallerHasNoAgent
+	}
+
+	nudge, err := s.nudges.ClaimTurnEndNudge(ctx, id)
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to claim the mail nudge")
+	}
+
+	return &agentv1.ClaimMailNudgeResponse{Nudge: nudge}, nil
+}
+
 var reportEvents = map[agentv1.ReportEvent]agents.ReportEvent{
 	agentv1.ReportEvent_REPORT_EVENT_TURN_ENDED:      agents.ReportTurnEnded,
 	agentv1.ReportEvent_REPORT_EVENT_TURN_FAILED:     agents.ReportTurnFailed,
@@ -520,8 +543,9 @@ func (s *Handler) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) 
 // ReleaseAgent lets go of a held agent, telling it what changed while it was held.
 func (s *Handler) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAgentRequest) (*agentv1.ReleaseAgentResponse, *fail.Error) {
 	released, err := s.holder.Release(ctx, agents.ReleaseParams{
-		AgentID: req.GetId(),
-		Said:    req.GetSaid(),
+		AgentID:   req.GetId(),
+		ByAgentID: caller.From(ctx).AgentID,
+		Said:      req.GetSaid(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to release agent")

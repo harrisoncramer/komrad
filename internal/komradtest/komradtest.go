@@ -28,7 +28,6 @@ import (
 
 	"komrad/config"
 	"komrad/internal/agents"
-	"komrad/internal/caller"
 	"komrad/internal/doctor"
 	"komrad/internal/forge"
 	"komrad/internal/harness"
@@ -43,7 +42,6 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock"
 	"komrad/lib/xhttp"
-	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/config/v1/configv1connect"
 	"komrad/proto/gen/doctor/v1/doctorv1connect"
@@ -418,28 +416,6 @@ func (i *Instance) Deliver(agentID string) mail.Delivery {
 	require.NoError(i.t, err)
 
 	return delivery
-}
-
-// EndTurn stands in for the stop hook an agent CLI runs as its turn ends, taking whatever
-// mail is waiting as that agent.
-func (i *Instance) EndTurn(agentID string) []*agentv1.Mail {
-	i.t.Helper()
-
-	stored, err := i.Stores.Agents.GetByID(i.t.Context(), agentID)
-	require.NoError(i.t, err)
-	require.NotNil(i.t, stored)
-
-	req := connect.NewRequest(&agentv1.ReadMailRequest{})
-	caller.Caller{AgentID: agentID, SessionID: stored.SessionID}.SetHeader(req.Header())
-
-	read, err := i.Agents.ReadMail(i.t.Context(), req)
-	require.NoError(i.t, err)
-
-	for _, item := range read.Msg.GetMail() {
-		require.NoError(i.t, i.Harness.Say(stored.SessionID, "user", item.GetBody()))
-	}
-
-	return read.Msg.GetMail()
 }
 
 // Typed is every line komrad has typed into an agent's pane, read back from the agent

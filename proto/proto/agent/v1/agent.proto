@@ -640,9 +640,9 @@ message HoldAgentResponse {
 message ReleaseAgentRequest {
   // Which held agent to let go of.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // What to tell the agent happened while it was held. Komrad types it into the agent as it
-  // starts again. Empty lets it go in silence. Komrad ignores it for an agent whose own turn had
-  // already ended.
+  // What to tell the agent happened while it was held. Komrad mails it to the agent from the
+  // caller as it starts again. Empty lets it go in silence. Komrad ignores it for an agent whose
+  // own turn had already ended.
   string said = 2;
 }
 
@@ -870,7 +870,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "release_agent"
-      description: "Let a held agent carry on, typing said into it as it starts again."
+      description: "Let a held agent carry on, mailing said to it as it starts again."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -1128,7 +1128,14 @@ service AgentService {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "Komrad's own hook binary is the only caller, relaying what an agent's CLI said about itself, and an agent that could call it directly could tell the reconciler its turn had ended when it had not."
+      reason: "Only komrad's hook command calls this, passing on what an agent's CLI saw it do, such as start a tool or end its turn. An agent calling it directly could say its turn had ended while it was still working."
+    };
+  }
+  rpc ClaimMailNudge(google.protobuf.Empty) returns (ClaimMailNudgeResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Only komrad's Stop hook calls this, as an agent's turn ends. An agent calling it directly would use up the notice komrad would otherwise type into its pane."
     };
   }
   rpc MarkRunsRead(MarkRunsReadRequest) returns (google.protobuf.Empty) {

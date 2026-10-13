@@ -103,7 +103,7 @@ func TestIntegrationReviews(t *testing.T) {
 		require.Len(t, typed, 1)
 		assert.Contains(t, typed[0], "read_mail")
 
-		doorbell := instance.EndTurn(worker.GetId())
+		doorbell := readMail(t, instance, worker.GetId())
 		require.Len(t, doorbell, 1)
 		assert.Equal(t, agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY, doorbell[0].GetKind())
 		assert.Contains(t, doorbell[0].GetBody(), "get_review with review id "+reviewID)
