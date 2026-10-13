@@ -49,6 +49,7 @@ var declared = []triggeredTable{
 	{Name: "document_types", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "document_versions"},
 	{Name: "documents", Triggers: []rowTrigger{setUpdatedAt}},
+	{Name: "engine_access"},
 	{Name: "engine_logins"},
 	{Name: "engines"},
 	{Name: "forge_connections"},
