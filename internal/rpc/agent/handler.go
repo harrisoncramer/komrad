@@ -520,8 +520,9 @@ func (s *Handler) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) 
 // ReleaseAgent lets go of a held agent, telling it what changed while it was held.
 func (s *Handler) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAgentRequest) (*agentv1.ReleaseAgentResponse, *fail.Error) {
 	released, err := s.holder.Release(ctx, agents.ReleaseParams{
-		AgentID: req.GetId(),
-		Said:    req.GetSaid(),
+		AgentID:   req.GetId(),
+		ByAgentID: caller.From(ctx).AgentID,
+		Said:      req.GetSaid(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to release agent")
