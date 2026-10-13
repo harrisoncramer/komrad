@@ -26,7 +26,7 @@ func TestBuildCommand(t *testing.T) {
 			name:   "a resume reopens the prior conversation by id",
 			launch: harness.Launch{SessionID: "019fb3e7-2cb6", Resume: true},
 			wantContain: []string{
-				"codex resume",
+				"command codex resume",
 				"'019fb3e7-2cb6'",
 			},
 			wantAbsent: []string{"$(cat "},
@@ -39,7 +39,7 @@ func TestBuildCommand(t *testing.T) {
 				Resume:    true,
 			},
 			wantContain: []string{
-				"codex resume",
+				"command codex resume",
 				"'019fb3e7-2cb6' -- \"$(cat ",
 				"; rm ",
 			},
@@ -67,7 +67,7 @@ func TestBuildCommand(t *testing.T) {
 		{
 			name:        "the agent's own id leads the line, so it reaches codex's environment",
 			launch:      harness.Launch{AgentID: "id-1", Prompt: "go"},
-			wantContain: []string{"KOMRAD_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-id-1' codex"},
+			wantContain: []string{"KOMRAD_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-id-1' command codex"},
 		},
 		{
 			name: "and it survives a resume",
@@ -77,7 +77,7 @@ func TestBuildCommand(t *testing.T) {
 				Resume:    true,
 			},
 			wantContain: []string{
-				"KOMRAD_AGENT_ID='id-1' KOMRAD_SESSION_ID='sess' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-id-1' codex resume",
+				"KOMRAD_AGENT_ID='id-1' KOMRAD_SESSION_ID='sess' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-id-1' command codex resume",
 			},
 		},
 		{
