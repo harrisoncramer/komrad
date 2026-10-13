@@ -320,6 +320,7 @@ func TestIntegrationHookSurvivesAServerThatIsNotThere(t *testing.T) {
 			for _, want := range tt.want {
 				assert.Contains(t, errOut.String(), want)
 			}
+			assert.NotContains(t, errOut.String(), "komrad did not log the problem", "a komrad that cannot be reached is not asked to log")
 		})
 	}
 }
@@ -530,6 +531,7 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 			}
 			assert.Empty(t, out.String(), "notify reads nothing back, so nothing is printed")
 			assert.Equal(t, tt.wantProblem, errs.Len() > 0, errs.String())
+			assert.Equal(t, tt.wantProblem, len(logged) == 1, "a problem komrad can hear is logged under the agent")
 		})
 	}
 }

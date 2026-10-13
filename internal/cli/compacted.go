@@ -42,7 +42,7 @@ panel that cannot be reached prints nothing.`,
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
 		body, err := io.ReadAll(cmd.InOrStdin())
 		if err != nil {
-			reportHookProblem(cmd, "komrad read no hook payload", err)
+			reportHookProblem(cmd, state, "komrad read no hook payload", err)
 		}
 		if state.env.AgentID == "" {
 			return nil
@@ -56,14 +56,14 @@ panel that cannot be reached prints nothing.`,
 
 		row, err := readOwnRow(cmd.Context(), state)
 		if err != nil {
-			reportHookProblem(cmd, "komrad could not be reached, so the agent was not reminded of its record", err)
+			reportHookProblem(cmd, state, "komrad could not be reached, so the agent was not reminded of its record", err)
 
 			return nil
 		}
 
 		threads, err := readOpenThreads(cmd.Context(), state, threadTask(row.GetAgent()))
 		if err != nil {
-			reportHookProblem(cmd, "komrad could not read the review threads, so they are left out", err)
+			reportHookProblem(cmd, state, "komrad could not read the review threads, so they are left out", err)
 		}
 
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(hookOutput{
