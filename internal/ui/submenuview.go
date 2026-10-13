@@ -84,14 +84,8 @@ func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	width := labelCols + submenuKeyGap + keyCols
 
-	if entry.isDivider && entry.label == "" {
-		return muted.Render(strings.Repeat(glyph.Rule, width))
-	}
-
 	if entry.isDivider {
-		head := strings.Repeat(glyph.Rule, 2) + " " + entry.label + " "
-
-		return muted.Render(head + strings.Repeat(glyph.Rule, max(width-ansi.StringWidth(head), 2)))
+		return muted.Render(strings.Repeat(glyph.Rule, width))
 	}
 
 	text := entryText(entry)

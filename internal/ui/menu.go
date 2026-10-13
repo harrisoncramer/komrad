@@ -35,16 +35,12 @@ func (m *model) buildMenu() (submenu, bool) {
 	}
 }
 
-// joinMenus renders one band over another with a rule naming the bottom band between them, under
-// the top band's title.
+// joinMenus renders one band over another with a rule between them, under the top band's title.
 func joinMenus(top, bottom submenu) submenu {
-	divider := dividerEntry
-	divider.label = bottom.title
-
 	return submenu{
 		kind:    top.kind,
 		title:   top.title,
-		entries: slices.Concat(top.entries, []submenuEntry{divider}, bottom.entries),
+		entries: slices.Concat(top.entries, []submenuEntry{dividerEntry}, bottom.entries),
 	}
 }
 

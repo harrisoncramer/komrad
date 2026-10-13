@@ -245,7 +245,7 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 
 	labelCols, keyCols := submenuColumns(menu.entries)
 
-	options := make([]huh.Option[int], 0, len(menu.entries)+2)
+	options := make([]huh.Option[int], 0, len(menu.entries)+1)
 	for i, entry := range menu.entries {
 		label := submenuLabel(entry, labelCols, keyCols)
 		if !entry.isOff {
@@ -253,10 +253,6 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 		}
 
 		options = append(options, huh.NewOption(label, i))
-	}
-
-	if len(menu.entries) > 0 {
-		options = append(options, huh.NewOption(submenuLabel(dividerEntry, labelCols, keyCols), len(menu.entries)))
 	}
 
 	last := "cancel"
@@ -317,7 +313,7 @@ func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenu
 func (l submenuLevel) isOnDivider() bool {
 	choice := *l.choice
 
-	return choice == len(l.menu.entries) || choice >= 0 && choice < len(l.menu.entries) && l.menu.entries[choice].isDivider
+	return choice >= 0 && choice < len(l.menu.entries) && l.menu.entries[choice].isDivider
 }
 
 type submenuClickMsg struct {
