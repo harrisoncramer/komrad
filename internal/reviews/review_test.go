@@ -13,7 +13,6 @@ import (
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
-	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/lib/xslice"
@@ -934,7 +933,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 				workflow, err := fx.stores.Workflows.Get(t.Context(), fx.writer.WorkflowID)
 				require.NoError(t, err)
 				cfg := workflow.Config()
-				cfg.EventPrompts = []workflowstore.EventPrompt{{Event: eventprompts.ReviewAnswered, Muted: true}}
+				cfg.EventPrompts = eventprompts.Prompts{{Event: eventprompts.ReviewAnswered, Muted: true}}
 				require.NoError(t, fx.stores.Workflows.Update(t.Context(), workflow.ID, cfg))
 			}
 			opener := tt.opener(t, fx)

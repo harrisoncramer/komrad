@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"komrad/internal/fail"
 	"komrad/internal/git"
@@ -166,46 +165,4 @@ func (s *Service) recordAborted(ctx context.Context, task taskstore.Task) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's sequence was aborted",
 			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 	}
-}
-
-// abortedMail is what a writer is told once the panel aborted what its worktree had part-way
-// through, which turns on whether komrad or the agent started it.
-func abortedMail(aborted aborted) string {
-	if aborted.Result == nil {
-		return fmt.Sprintf("Your turn was interrupted so that what was part-way through your worktree could be aborted, "+
-			"but the abort failed: %s\n\n"+
-			"Check git status before carrying on, then pick up where you were.", aborted.Failure)
-	}
-
-	result := *aborted.Result
-	var body strings.Builder
-
-	if result.Interrupted {
-		fmt.Fprintf(&body, "Your turn was interrupted so that the %s in your worktree could be aborted.\n\n", result.Command)
-	}
-
-	if result.Ours {
-		fmt.Fprintf(&body, "The rebase of your worktree that stopped on conflicts was aborted from the panel. "+
-			"The person chose not to carry it forward. %s is back where it stood before the rebase began, with all your commits.\n\n"+
-			"Do not start the rebase again.", standing(result))
-	} else {
-		fmt.Fprintf(&body, "The %s you had part-way through your worktree was aborted from the panel. "+
-			"%s is back where it stood before it began.\n\n"+
-			"Do not start it again without asking.", result.Command, standing(result))
-	}
-
-	body.WriteString(" Read your files again rather than trusting what you remember, then carry on from here.")
-	body.WriteString("\n\nA copy of the worktree as it stood before the abort, conflicts and any resolution you had made included, is kept at " +
-		result.ParkedRef + ".")
-
-	return body.String()
-}
-
-// standing names what was put back.
-func standing(result AbortResult) string {
-	if result.Branch == "" {
-		return "Your checkout"
-	}
-
-	return "Your branch " + result.Branch
 }

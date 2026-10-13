@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
+	"komrad/internal/eventmail"
 	"komrad/internal/fail"
 	"komrad/internal/logging"
 	"komrad/internal/store"
@@ -26,8 +26,6 @@ const maxPendingMail = 100
 const MaxMailBody = 10000
 
 const maxClaimedMail = 20
-
-const exchangeCappedBody = "komrad: %s (%s) wrote to you and the send was refused, because the two of you have now exchanged %d pieces of mail, which is the limit. Nothing further will get through between you, in either direction. Whatever you were waiting on from them is not coming, so do not keep waiting: say where you got to, and tell the person what is unfinished. A row has been marked for attention in the panel so the person knows to look."
 
 var ErrRecipientNotFound = fail.NotFound("no agent answers to that address")
 
@@ -211,14 +209,11 @@ var ErrNothingUnread = fail.NotFound("the recipient holds no unread mail of this
 
 type SendFromKomradParams struct {
 	ToAgentID string
-	Body      string
-	Kind      mailstore.Kind
+	Mail      eventmail.Mail
 	// SubjectID is the agent, document, pull request or worktree the mail is about.
 	SubjectID string
 	// OnlyRewrite writes nothing when the recipient holds no unread mail of this kind about this subject.
 	OnlyRewrite bool
-	// Events are the events this mail starts, whose workflow prompts it carries.
-	Events []string
 	// Holding are the events true of the subject now, which keeps those an earlier unread mail started.
 	Holding []string
 }
@@ -226,7 +221,11 @@ type SendFromKomradParams struct {
 // SendFromKomrad writes mail as komrad itself, rewriting the unread mail of the same kind about the
 // same subject when the recipient still holds it.
 func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradParams) (*mailstore.Mail, error) {
-	if params.Kind == "" || params.Kind == mailstore.KindPlain {
+	if params.Mail == nil {
+		return nil, fmt.Errorf("%w: mail from komrad needs something to say", ErrKindMissing)
+	}
+	kind := params.Mail.Kind()
+	if kind == "" || kind == mailstore.KindPlain {
 		return nil, fmt.Errorf("%w: mail from komrad needs a kind of its own to be told apart by", ErrKindMissing)
 	}
 	if params.SubjectID == "" {
@@ -244,7 +243,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, params.ToAgentID)
 	}
 
-	held, err := s.mail.GetUnreadAbout(ctx, recipient.ID, params.Kind, params.SubjectID)
+	held, err := s.mail.GetUnreadAbout(ctx, recipient.ID, kind, params.SubjectID)
 	if errors.Is(err, store.ErrNotFound) && params.OnlyRewrite {
 		return nil, ErrNothingUnread
 	}
@@ -258,7 +257,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	}
 
 	if held == nil {
-		if isEveryEventMuted(workflow, params.Events) {
+		if workflow.EventPrompts.AreAllMuted(params.Mail.Events()) {
 			return nil, ErrNothingUnread
 		}
 		if err := s.requireRoom(ctx, *recipient); err != nil {
@@ -272,13 +271,12 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	}
 
 	carried := carryEvents(held, params)
-	prompts := listEventPrompts(workflow, carried)
 
 	return s.mail.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 		FromName:  KomradSenderName,
 		ToAgentID: recipient.ID,
-		Body:      appendEventPrompts(params.Body, prompts),
-		Kind:      params.Kind,
+		Body:      workflow.EventPrompts.Append(params.Mail.Body(), carried, MaxMailBody),
+		Kind:      kind,
 		SubjectID: params.SubjectID,
 		Events:    carried,
 		Deadline:  deadline,
@@ -442,11 +440,13 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 		slog.Int64(logging.ExchangedMail, exchanged),
 	}
 
-	body := fmt.Sprintf(exchangeCappedBody, sender.Name, sender.ID, exchanged)
 	if _, err := s.SendFromKomrad(ctx, SendFromKomradParams{
 		ToAgentID: recipient.ID,
-		Body:      body,
-		Kind:      mailstore.KindExchangeCapped,
+		Mail: eventmail.ExchangeCapped{
+			SenderName: sender.Name,
+			SenderID:   sender.ID,
+			Exchanged:  exchanged,
+		},
 		SubjectID: sender.ID,
 	}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to tell an agent its mail was refused by the cap",
@@ -542,21 +542,12 @@ func (s *MailService) findSender(ctx context.Context, from string) (*agentstore.
 	return sender, nil
 }
 
-const promptsHeading = "Your workflow asks the following. Where it differs from what komrad says above, do what your workflow asks."
-
-const promptsCut = "\n[the rest of your workflow's prompts did not fit]"
-
-type eventPrompt struct {
-	event  string
-	prompt string
-}
-
 func carryEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
 	var carried []string
 	if held != nil {
 		carried = slices.DeleteFunc(slices.Clone(held.Events), func(event string) bool { return !slices.Contains(params.Holding, event) })
 	}
-	for _, event := range params.Events {
+	for _, event := range params.Mail.Events() {
 		if !slices.Contains(carried, event) {
 			carried = append(carried, event)
 		}
@@ -572,47 +563,4 @@ func (s *MailService) getWorkflow(ctx context.Context, workflowID string) (*work
 	}
 
 	return workflow, err
-}
-
-func isEveryEventMuted(workflow *workflowstore.Workflow, events []string) bool {
-	if len(events) == 0 {
-		return false
-	}
-
-	return !slices.ContainsFunc(events, func(event string) bool { return !workflow.IsMuted(event) })
-}
-
-func listEventPrompts(workflow *workflowstore.Workflow, events []string) []eventPrompt {
-	var prompts []eventPrompt
-	for _, event := range events {
-		if workflow.IsMuted(event) {
-			continue
-		}
-		if prompt := workflow.GetEventPrompt(event); prompt != "" {
-			prompts = append(prompts, eventPrompt{event: event, prompt: prompt})
-		}
-	}
-
-	return prompts
-}
-
-func appendEventPrompts(body string, prompts []eventPrompt) string {
-	if len(prompts) == 0 {
-		return body
-	}
-
-	lines := xslice.Map(prompts, func(p eventPrompt) string { return p.event + ": " + p.prompt })
-	section := "\n\n" + promptsHeading + "\n\n" + strings.Join(lines, "\n\n")
-
-	room := MaxMailBody - utf8.RuneCountInString(body)
-	if utf8.RuneCountInString(section) <= room {
-		return body + section
-	}
-
-	kept := room - utf8.RuneCountInString(promptsCut)
-	if kept <= 0 {
-		return body
-	}
-
-	return body + string([]rune(section)[:kept]) + promptsCut
 }

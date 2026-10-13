@@ -288,7 +288,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 				Script: "warm-cache",
 			},
 		},
-		EventPrompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
+		EventPrompts: eventprompts.Prompts{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
 	}
 	worktree := &workflowv1.WorktreeConfig{
 		Enabled:      true,
@@ -419,7 +419,7 @@ func TestCreatingAWorkflowWithoutPromptsGivesTheDefaults(t *testing.T) {
 
 			require.Len(t, recorded.created, 1)
 			assert.Len(t, recorded.created[0].EventPrompts, tt.wantCount)
-			assert.Equal(t, tt.wantApproved, workflowstore.Workflow{EventPrompts: recorded.created[0].EventPrompts}.GetEventPrompt(eventprompts.ReviewApproved))
+			assert.Equal(t, tt.wantApproved, recorded.created[0].EventPrompts.For(eventprompts.ReviewApproved))
 		})
 	}
 }

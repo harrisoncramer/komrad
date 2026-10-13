@@ -6,12 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"komrad/internal/eventprompts"
+	"komrad/internal/eventmail"
 	"komrad/internal/events"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	mailstore "komrad/internal/store/mail"
 	taskstore "komrad/internal/store/task"
 
 	"github.com/riverqueue/river"
@@ -55,17 +54,7 @@ func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 		return nil, fmt.Errorf("failed to read the last rebase of task %q: %w", rebased.TaskID, err)
 	}
 
-	body := cutMail(outcome.Failure)
-	if outcome.Result != nil {
-		body = rebaseMail(*outcome.Result)
-	}
-
-	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{
-		TaskID: rebased.TaskID,
-		Kind:   mailstore.KindWorktreeRebased,
-		Body:   body,
-		Events: []string{outcome.event()},
-	})
+	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: rebased.TaskID, Mail: outcome.mail()})
 }
 
 const pushedTopic = "worktree_pushed"
@@ -91,8 +80,7 @@ func NewPushedHandler() events.HandlerFor[pushed] {
 func handlePushed(ctx context.Context, tx store.DBTX, mailer *mail.MailService, pushed pushed) ([]river.JobArgs, error) {
 	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{
 		TaskID: pushed.TaskID,
-		Kind:   mailstore.KindWorktreePushed,
-		Body:   pushedMail(pushed),
+		Mail:   eventmail.Pushed{Branch: pushed.Branch, SHA: pushed.SHA},
 	})
 }
 
@@ -118,19 +106,13 @@ func NewAbortedHandler() events.HandlerFor[aborted] {
 
 // handleAborted tells the task's writer what became of the sequence it had part-way through.
 func handleAborted(ctx context.Context, tx store.DBTX, mailer *mail.MailService, aborted aborted) ([]river.JobArgs, error) {
-	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{
-		TaskID: aborted.TaskID,
-		Kind:   mailstore.KindWorktreeAborted,
-		Body:   abortedMail(aborted),
-	})
+	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: aborted.TaskID, Mail: aborted.mail()})
 }
 
 // mailWriterParams is a piece of mail for whoever writes a task.
 type mailWriterParams struct {
 	TaskID string
-	Kind   mailstore.Kind
-	Body   string
-	Events []string
+	Mail   eventmail.Mail
 }
 
 // mailWriter sends the mail to whoever writes the task as the event is handled, and to nobody
@@ -146,25 +128,44 @@ func mailWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, pa
 
 	_, err = events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: writer.ID,
-		Kind:      params.Kind,
+		Mail:      params.Mail,
 		SubjectID: writer.ID,
-		Body:      params.Body,
-		Events:    params.Events,
 	})
 
 	return err
 }
 
-// event is the event the outcome starts.
-func (o rebaseOutcome) event() string {
-	switch {
-	case o.Result == nil:
-		return eventprompts.WorktreeRebaseFailed
-	case o.Result.Conflicted:
-		return eventprompts.WorktreeRebaseConflicted
-	case o.Result.Moved:
-		return eventprompts.WorktreeLanded
-	default:
-		return eventprompts.WorktreeRebased
+// mail is what the writer is told of the outcome.
+func (o rebaseOutcome) mail() eventmail.Mail {
+	if o.Result == nil {
+		return eventmail.RebaseFailed{Failure: o.Failure}
+	}
+
+	result := *o.Result
+
+	return eventmail.Rebased{
+		BaseRef:     result.BaseRef,
+		BaseSHA:     result.BaseSHA,
+		Replay:      result.Replay,
+		Landed:      result.Landed,
+		Conflicted:  result.Conflicted,
+		Moved:       result.Moved,
+		Interrupted: result.Interrupted,
+		ParkedRef:   result.ParkedRef,
+	}
+}
+
+// mail is what the writer is told of the abort.
+func (a aborted) mail() eventmail.Mail {
+	if a.Result == nil {
+		return eventmail.AbortFailed{Failure: a.Failure}
+	}
+
+	return eventmail.Aborted{
+		Command:     a.Result.Command,
+		Branch:      a.Result.Branch,
+		ParkedRef:   a.Result.ParkedRef,
+		Ours:        a.Result.Ours,
+		Interrupted: a.Result.Interrupted,
 	}
 }

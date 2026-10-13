@@ -568,7 +568,7 @@ func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			body := rebaseMail(tt.result)
+			body := rebaseOutcome{Result: &tt.result}.mail().Body()
 
 			assert.Contains(t, body, tt.wantSaid)
 			if tt.wantNotSaid != "" {

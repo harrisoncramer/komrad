@@ -13,7 +13,6 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	taskstore "komrad/internal/store/task"
-	"komrad/lib/xsha"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -275,118 +274,6 @@ func (s *Service) tellRebaseCut(ctx context.Context, target checkoutTarget, fail
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a writer's turn was cut for nothing",
 			append([]slog.Attr{slog.String(logging.TaskID, target.task.ID)}, logging.Err(err)...)...)
 	}
-}
-
-// cutMail tells an agent that komrad stopped it for a rebase that did not go through.
-func cutMail(failure string) string {
-	return fmt.Sprintf("Your turn was interrupted so that your worktree could be rebased onto its base, "+
-		"but the rebase failed before it finished: %s\n\n"+
-		"Check git status before carrying on, then pick up where you were.", failure)
-}
-
-// rebaseMail tells the agent the outcome, which turns on what became of its branch rather than on
-// what the person asked for.
-func rebaseMail(result RebaseResult) string {
-	var body string
-	switch {
-	case result.Conflicted:
-		body = conflictedMail(result)
-	case result.Moved:
-		body = movedMail(result)
-	default:
-		body = replayedMail(result)
-	}
-
-	return interruptedNote(result) + body + carryOnNote(result)
-}
-
-// interruptedNote says the agent's turn was cut for the rebase.
-func interruptedNote(result RebaseResult) string {
-	if !result.Interrupted {
-		return ""
-	}
-
-	return "Your turn was interrupted so that your worktree could be rebased onto its base.\n\n"
-}
-
-// carryOnNote tells an agent whose turn was cut to pick it back up.
-func carryOnNote(result RebaseResult) string {
-	if !result.Interrupted || result.Conflicted {
-		return ""
-	}
-
-	return "\n\nRead your files again, then pick up where you were."
-}
-
-// parkNote says where the checkout as it stood beforehand is kept, which is the only way back
-// to a commit the replay dropped or a file that was never committed.
-func parkNote(result RebaseResult) string {
-	if result.ParkedRef == "" {
-		return ""
-	}
-
-	return "\n\nA copy of the worktree from before this ran is kept at " + result.ParkedRef +
-		". It holds anything you had not committed, and every commit that is no longer on the branch."
-}
-
-// conflictedMail is a rebase stopped part-way, which is the agent's to settle and nobody else's.
-func conflictedMail(result RebaseResult) string {
-	var body strings.Builder
-
-	fmt.Fprintf(&body, "Your worktree was being rebased onto %s (%s). The rebase hit conflicts and stopped part way, so it is still in progress.\n\n",
-		result.BaseRef, xsha.Short(result.BaseSHA))
-	body.WriteString("All your commits are still there. Your branch has not moved. " +
-		"Do not resolve the conflicts and do not abort the rebase on your own. " +
-		"Say what state you are in and wait to be told what to do. " +
-		"The person who pressed the key decides whether this work is worth carrying forward.")
-
-	body.WriteString("\n\nSay also whether you have a pull request open on this branch. " +
-		"Finishing the rebase rewrites the commits it was opened from. " +
-		"That invalidates an open pull request. It means nothing for one that has already merged.")
-	body.WriteString(parkNote(result))
-
-	return body.String()
-}
-
-// movedMail is a branch that reached the base without replaying anything, which is what a
-// branch whose work has entirely landed gets.
-func movedMail(result RebaseResult) string {
-	var body strings.Builder
-
-	fmt.Fprintf(&body, "Your branch is now on %s (%s).\n\n", result.BaseRef, xsha.Short(result.BaseSHA))
-	body.WriteString("Your work had already been merged into the base. " +
-		"There was nothing left to replay, so your branch was moved straight onto it.\n\n")
-	body.WriteString("Nothing was lost. Your own commits are no longer on the branch and the base's history " +
-		"has taken their place. Start your next piece of work from here.")
-	body.WriteString("\n\nAny pull request opened from this branch no longer tracks anything it carries.")
-	body.WriteString(parkNote(result))
-
-	return body.String()
-}
-
-// replayedMail is the ordinary rebase, which moved the agent's files under it.
-func replayedMail(result RebaseResult) string {
-	var body strings.Builder
-
-	if result.Replay == 0 {
-		fmt.Fprintf(&body, "Your worktree is up to date with %s (%s). You had no commits of your own to replay.\n\n",
-			result.BaseRef, xsha.Short(result.BaseSHA))
-	} else {
-		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s), replaying %d of your own commits.\n\n",
-			result.BaseRef, xsha.Short(result.BaseSHA), result.Replay)
-	}
-	body.WriteString("Your files may have changed under you. Read them again rather than trusting what you remember. ")
-	if result.Landed > 0 {
-		fmt.Fprintf(&body, "%d of your commits are no longer on the branch. "+
-			"The base already held those changes, so replaying them would have collided with themselves. ", result.Landed)
-	}
-	body.WriteString("Your branch is still the same branch.")
-
-	body.WriteString("\n\nThe rebase rewrote the commits any pull request on this branch was opened from, " +
-		"so do not assume one you opened earlier still tracks your work.")
-	body.WriteString(parkNote(result))
-
-	return body.String()
 }
 
 // refuseTreeState is what the checkout itself has to say before a rebase may start.

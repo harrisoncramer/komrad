@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/db/models"
+	"komrad/internal/eventprompts"
 	"komrad/internal/store"
 )
 
@@ -20,7 +21,7 @@ type Workflow struct {
 	ReviewerFlags   string
 	Worktree        WorktreeConfig
 	Hooks           []Hook
-	EventPrompts    []EventPrompt
+	EventPrompts    eventprompts.Prompts
 	ArchivedAt      *time.Time
 	DeletingAt      *time.Time
 	UpdatedAt       time.Time
@@ -36,7 +37,7 @@ type Config struct {
 	ReviewerFlags   string
 	Worktree        WorktreeConfig
 	Hooks           []Hook
-	EventPrompts    []EventPrompt
+	EventPrompts    eventprompts.Prompts
 }
 
 // Config is what an update writes, being every field of a workflow but its id.
@@ -103,7 +104,7 @@ type workflowFromRowParams struct {
 	Config       models.WorkflowConfig
 	Provisioner  models.WorkflowProvisionerConfig
 	Hooks        []Hook
-	EventPrompts []EventPrompt
+	EventPrompts eventprompts.Prompts
 }
 
 func workflowFromRow(params workflowFromRowParams) Workflow {

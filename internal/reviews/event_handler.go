@@ -5,13 +5,12 @@ import (
 	"errors"
 	"slices"
 
-	"komrad/internal/eventprompts"
+	"komrad/internal/eventmail"
 	"komrad/internal/events"
 	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
-	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 
 	"github.com/riverqueue/river"
@@ -92,10 +91,8 @@ func tellWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, re
 
 	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: writer.ID,
-		Body:      releaseMail(released),
-		Kind:      mailstore.KindReviewActivity,
+		Mail:      released.mail(),
 		SubjectID: released.ReviewID,
-		Events:    []string{released.event()},
 	})
 	if err != nil || sent == nil {
 		return err
@@ -104,19 +101,19 @@ func tellWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, re
 	return reviewstore.NewReviewStore(tx).SetDoorbell(ctx, released.ReviewID, sent.ID)
 }
 
-// event is the event the release starts.
-func (r Released) event() string {
-	switch {
-	case r.ForgeLogin != "":
-		return eventprompts.ReviewForgeCommented
-	case r.ByPerson:
-		return eventprompts.ReviewCommentedByPerson
-	case r.Verdict == reviewstore.VerdictApproved:
-		return eventprompts.ReviewApproved
-	case r.Verdict == reviewstore.VerdictChangesRequested:
-		return eventprompts.ReviewChangesRequested
-	default:
-		return eventprompts.ReviewCommented
+// mail is what the writer is told of the release.
+func (r Released) mail() eventmail.ReviewReleased {
+	return eventmail.ReviewReleased{
+		ReviewID:   r.ReviewID,
+		Ordinal:    r.Ordinal,
+		ByPerson:   r.ByPerson,
+		Verdict:    r.Verdict,
+		Comments:   r.Comments,
+		Replies:    r.Replies,
+		Reopens:    r.Reopens,
+		Path:       r.Path,
+		HasBody:    r.HasBody,
+		ForgeLogin: r.ForgeLogin,
 	}
 }
 
@@ -143,10 +140,8 @@ func handleAnswered(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 
 	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: answered.ReviewerID,
-		Kind:      mailstore.KindReviewActivity,
+		Mail:      eventmail.ReviewAnswered{WriterName: writer.Name},
 		SubjectID: writer.ID,
-		Body:      answerMail(writer.Name),
-		Events:    []string{eventprompts.ReviewAnswered},
 	})
 	if err != nil || sent == nil {
 		return nil, err

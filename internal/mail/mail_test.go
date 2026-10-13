@@ -1,12 +1,11 @@
 package mail
 
 import (
-	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/eventprompts"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	workflowstore "komrad/internal/store/workflow"
@@ -458,15 +457,14 @@ func TestSendFromKomradRefusesIncompleteMail(t *testing.T) {
 		{
 			name: "a plain kind",
 			params: SendFromKomradParams{
-				Body:      "hello",
-				Kind:      mailstore.KindPlain,
+				Mail:      fakeMail{kind: mailstore.KindPlain, body: "hello"},
 				SubjectID: uuid.NewString(),
 			},
 			wantErr: ErrKindMissing,
 		},
 		{
 			name:    "no subject",
-			params:  SendFromKomradParams{Body: "hello", Kind: mailstore.KindDocumentEdited},
+			params:  SendFromKomradParams{Mail: fakeMail{kind: mailstore.KindDocumentEdited, body: "hello"}},
 			wantErr: errSubjectMissing,
 		},
 	}
@@ -496,8 +494,7 @@ func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 		t.Helper()
 		sent, err := svc.SendFromKomrad(ctx, SendFromKomradParams{
 			ToAgentID: recipient.ID,
-			Body:      body,
-			Kind:      mailstore.KindDocumentEdited,
+			Mail:      fakeMail{kind: mailstore.KindDocumentEdited, body: body},
 			SubjectID: document,
 		})
 		require.NoError(t, err)
@@ -526,7 +523,15 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 		conflicting = "pull_request.conflicting"
 	)
 
-	heading := "\n\n" + promptsHeading + "\n\n"
+	prompts := eventprompts.Prompts{
+		{Event: failing, Prompt: "fix the checks"},
+		{Event: behind, Prompt: "rebase onto main"},
+		{
+			Event:  conflicting,
+			Prompt: "settle the conflict",
+			Muted:  true,
+		},
+	}
 
 	type send struct {
 		events  []string
@@ -535,21 +540,20 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		archived bool
-		sends    []send
-		wantBody string
-		wantNone bool
+		name       string
+		archived   bool
+		sends      []send
+		wantEvents []string
+		wantNone   bool
 	}{
 		{
-			name:     "an event with a prompt carries it after the body",
-			sends:    []send{{events: []string{failing}}},
-			wantBody: "changed" + heading + failing + ": fix the checks",
+			name:       "an event with a prompt carries it after the body",
+			sends:      []send{{events: []string{failing}}},
+			wantEvents: []string{failing},
 		},
 		{
-			name:     "an event the workflow attaches nothing to carries no section",
-			sends:    []send{{events: []string{approved}}},
-			wantBody: "changed",
+			name:  "an event the workflow attaches nothing to carries no section",
+			sends: []send{{events: []string{approved}}},
 		},
 		{
 			name: "a rewrite keeps the prompts of events started earlier that still hold",
@@ -557,7 +561,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				{events: []string{failing}},
 				{events: []string{behind}, holding: []string{failing, behind}},
 			},
-			wantBody: "changed" + heading + failing + ": fix the checks\n\n" + behind + ": rebase onto main",
+			wantEvents: []string{failing, behind},
 		},
 		{
 			name: "a rewrite drops the prompt of an event that no longer holds",
@@ -565,7 +569,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				{events: []string{failing, behind}},
 				{holding: []string{behind}},
 			},
-			wantBody: "changed" + heading + behind + ": rebase onto main",
+			wantEvents: []string{behind},
 		},
 		{
 			name: "an event still holding after the mail was read is not started again",
@@ -573,7 +577,6 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				{events: []string{failing}},
 				{read: true, holding: []string{failing}},
 			},
-			wantBody: "changed",
 		},
 		{
 			name:     "a muted event opens no mail",
@@ -586,18 +589,17 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				{events: []string{failing}},
 				{events: []string{conflicting}, holding: []string{failing, conflicting}},
 			},
-			wantBody: "changed" + heading + failing + ": fix the checks",
+			wantEvents: []string{failing},
 		},
 		{
-			name:     "a muted event alongside one that is not opens mail without the muted prompt",
-			sends:    []send{{events: []string{failing, conflicting}}},
-			wantBody: "changed" + heading + failing + ": fix the checks",
+			name:       "a muted event alongside one that is not opens mail without the muted prompt",
+			sends:      []send{{events: []string{failing, conflicting}}},
+			wantEvents: []string{failing},
 		},
 		{
 			name:     "an archived workflow's prompts are not carried",
 			archived: true,
 			sends:    []send{{events: []string{failing}}},
-			wantBody: "changed",
 		},
 	}
 
@@ -607,16 +609,8 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 			svc := newMailService(st, config.DefaultMaxExchange)
 			ctx := t.Context()
 			workflow := st.SeedWorkflow(t, workflowstore.Config{
-				Name: "backend",
-				EventPrompts: []workflowstore.EventPrompt{
-					{Event: failing, Prompt: "fix the checks"},
-					{Event: behind, Prompt: "rebase onto main"},
-					{
-						Event:  conflicting,
-						Prompt: "settle the conflict",
-						Muted:  true,
-					},
-				},
+				Name:         "backend",
+				EventPrompts: prompts,
 			})
 			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
 			if tt.archived {
@@ -634,10 +628,8 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				var err error
 				sent, err = svc.SendFromKomrad(ctx, SendFromKomradParams{
 					ToAgentID: recipient.ID,
-					Body:      "changed",
-					Kind:      mailstore.KindPullRequestChanged,
+					Mail:      fakeMail{kind: mailstore.KindPullRequestChanged, body: "changed", events: s.events},
 					SubjectID: subject,
-					Events:    s.events,
 					Holding:   s.holding,
 				})
 				if tt.wantNone {
@@ -649,68 +641,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			assert.Equal(t, tt.wantBody, sent.Body)
-		})
-	}
-}
-
-// TestSendFromKomradCutsTheEventPromptsToFit pins that prompts too long for the mail are cut rather than refused.
-func TestSendFromKomradCutsTheEventPromptsToFit(t *testing.T) {
-	tests := []struct {
-		name    string
-		body    string
-		prompt  string
-		wantCut bool
-	}{
-		{
-			name:    "prompts past the room left are cut",
-			body:    strings.Repeat("x", MaxMailBody-500),
-			prompt:  strings.Repeat("a", 500),
-			wantCut: true,
-		},
-		{
-			name:   "prompts are measured in characters rather than bytes",
-			body:   strings.Repeat("x", MaxMailBody-1500),
-			prompt: strings.Repeat("検", 500),
-		},
-		{
-			name:    "and cut in characters",
-			body:    strings.Repeat("é", MaxMailBody-500),
-			prompt:  strings.Repeat("検", 500),
-			wantCut: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			svc := newMailService(st, config.DefaultMaxExchange)
-			workflow := st.SeedWorkflow(t, workflowstore.Config{
-				Name: "backend",
-				EventPrompts: []workflowstore.EventPrompt{
-					{Event: "pull_request.checks_failing", Prompt: tt.prompt},
-					{Event: "pull_request.behind", Prompt: tt.prompt},
-				},
-			})
-			recipient := st.SeedAgent(t, agentstore.Agent{Name: "author", WorkflowID: workflow.ID})
-
-			sent, err := svc.SendFromKomrad(t.Context(), SendFromKomradParams{
-				ToAgentID: recipient.ID,
-				Body:      tt.body,
-				Kind:      mailstore.KindPullRequestChanged,
-				SubjectID: uuid.NewString(),
-				Events:    []string{"pull_request.checks_failing", "pull_request.behind"},
-			})
-			require.NoError(t, err)
-
-			assert.True(t, strings.HasPrefix(sent.Body, tt.body+"\n\n"+promptsHeading), "the body komrad wrote is kept whole")
-			if !tt.wantCut {
-				assert.True(t, strings.HasSuffix(sent.Body, tt.prompt), "every prompt fits")
-
-				return
-			}
-			assert.Equal(t, MaxMailBody, utf8.RuneCountInString(sent.Body))
-			assert.True(t, strings.HasSuffix(sent.Body, promptsCut), "and the cut is marked")
+			assert.Equal(t, prompts.Append("changed", tt.wantEvents, MaxMailBody), sent.Body)
 		})
 	}
 }
@@ -1135,4 +1066,22 @@ func TestIsDormant(t *testing.T) {
 			assert.Equal(t, tt.wantDormant, svc.IsDormant(agent))
 		})
 	}
+}
+
+type fakeMail struct {
+	kind   mailstore.Kind
+	body   string
+	events []string
+}
+
+func (m fakeMail) Kind() mailstore.Kind {
+	return m.kind
+}
+
+func (m fakeMail) Events() []string {
+	return m.events
+}
+
+func (m fakeMail) Body() string {
+	return m.body
 }
