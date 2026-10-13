@@ -320,6 +320,7 @@ func TestIntegrationHookSurvivesAServerThatIsNotThere(t *testing.T) {
 			for _, want := range tt.want {
 				assert.Contains(t, errOut.String(), want)
 			}
+			assert.NotContains(t, errOut.String(), "komrad did not log the problem", "a komrad that cannot be reached is not asked to log")
 		})
 	}
 }
