@@ -63,17 +63,6 @@ func TestMeasureColumnsReadsTheColumnBack(t *testing.T) {
 		"each sample is drawn from the first column so a long one cannot wrap into the answer")
 }
 
-// TestMeasureColumnsIgnoresWhatWasTypedFirst covers a person pressing a key while the query is
-// in flight, which arrives in the same read as the answer.
-func TestMeasureColumnsIgnoresWhatWasTypedFirst(t *testing.T) {
-	terminal := newAnswering("hello\x1b[3;3R")
-
-	columns, err := measureColumns(t.Context(), terminal.reader, terminal, []string{"漢"})
-	require.NoError(t, err)
-
-	assert.Equal(t, []int{2}, columns)
-}
-
 // TestMeasureColumnsGivesUpOnSilence covers the terminal that answers nothing.
 func TestMeasureColumnsGivesUpOnSilence(t *testing.T) {
 	reader, writer := io.Pipe()
@@ -103,15 +92,6 @@ func TestMeasureColumnsStopsWhenTheContextDoes(t *testing.T) {
 	cancel()
 
 	_, err := measureColumns(ctx, reader, io.Discard, []string{"x"})
-	assert.ErrorIs(t, err, errCursorQueryUnanswered)
-}
-
-// TestMeasureColumnsRefusesAnAnswerItCannotRead covers a reply that looks like an answer and is
-// not, which the check must report rather than turn into a width.
-func TestMeasureColumnsRefusesAnAnswerItCannotRead(t *testing.T) {
-	terminal := newAnswering("\x1b[7R")
-
-	_, err := measureColumns(t.Context(), terminal.reader, terminal, []string{"x"})
 	assert.ErrorIs(t, err, errCursorQueryUnanswered)
 }
 

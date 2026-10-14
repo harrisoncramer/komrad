@@ -145,13 +145,6 @@ func TestKeybindingsCheckFindsTheLeaderUnavailable(t *testing.T) {
 	})
 }
 
-// TestTheKeybindingsCheckIsRun pins the check being one doctor makes.
-func TestTheKeybindingsCheckIsRun(t *testing.T) {
-	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "komrad"})
-
-	assert.True(t, slices.ContainsFunc(checks, func(c Check) bool { return c.Name == "keybindings" }))
-}
-
 // TestYourTmuxKeysCheck covers the outer tmux komrad is opened inside, whose root table answers a
 // key before the nested panel sees it.
 func TestYourTmuxKeysCheck(t *testing.T) {

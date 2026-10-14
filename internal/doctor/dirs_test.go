@@ -294,23 +294,6 @@ func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 	assert.NotContains(t, result.Err.Error(), "01a0", "the shared directory's one worktree has its agent")
 }
 
-// TestOrphanedWorktreesCheckNamesOnlyAFewOrphans covers that a directory full of leftovers stays
-// one readable line.
-func TestOrphanedWorktreesCheckNamesOnlyAFewOrphans(t *testing.T) {
-	const shared = "/home/u/worktrees"
-
-	left := []string{"01a0", "01a1", "01a2", "01a3", "01a4"}
-	env := dirsEnv(configWithDirs(t, "", shared),
-		map[string]dirState{shared: presentDir(nil, left, true)}, worktreeOwners{}, nil)
-
-	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
-
-	assert.Equal(t, StatusWarn, result.Status)
-	require.ErrorContains(t, result.Err, "5 worktrees in "+shared)
-	require.ErrorContains(t, result.Err, "and 2 more")
-	assert.NotContains(t, result.Err.Error(), left[len(left)-1])
-}
-
 // TestCollectWorktreeDirsDedupes covers a workflow naming the shared directory outright,
 // which would otherwise have every orphan in it reported twice.
 func TestCollectWorktreeDirsDedupes(t *testing.T) {

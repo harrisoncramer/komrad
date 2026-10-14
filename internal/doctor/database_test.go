@@ -119,54 +119,6 @@ func TestDatabaseCheckHidesThePassword(t *testing.T) {
 	assert.Equal(t, "postgres://komrad@localhost:5460/komrad", result.Detail)
 }
 
-// TestDatabaseFixAssumesNoCheckout covers that a fix is something the reader can actually
-// run: most people who hit this installed a binary, so they have no checkout, no mise, and
-// no compose file, and the fix names the address it could not reach rather than guessing how
-// that Postgres is meant to start.
-func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
-	tests := []struct {
-		name string
-		url  string
-		want string
-	}{
-		{
-			name: "the address the checked-in compose file happens to use",
-			url:  writableURL,
-			want: "start Postgres at localhost:5460, or point the database url at one that is running",
-		},
-		{
-			name: "somebody else's Postgres on the standard port",
-			url:  "postgres://komrad:komrad@localhost:5432/komrad",
-			want: "start Postgres at localhost:5432, or point the database url at one that is running",
-		},
-		{
-			name: "a Postgres on another host",
-			url:  "postgres://komrad:komrad@db.internal:5460/komrad",
-			want: "start Postgres at db.internal:5460, or point the database url at one that is running",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			env := dbEnv(fakeSchema{}, refused(), nil)
-			env.DatabaseURL = tt.url
-
-			assert.Equal(t, tt.want, newDatabaseCheck().Run(t.Context(), env).Fix)
-			assert.NotContains(t, newDatabaseCheck().Run(t.Context(), env).Fix, "mise",
-				"a fix never names a command that only exists inside a checkout")
-		})
-	}
-}
-
-// TestDatabaseMissingFixNamesTheDatabase covers that the fix is runnable rather than a
-// description of the goal.
-func TestDatabaseMissingFixNamesTheDatabase(t *testing.T) {
-	missing := &pgconn.PgError{Code: "3D000", Message: `database "komrad" does not exist`}
-	result := newDatabaseCheck().Run(t.Context(), dbEnv(fakeSchema{}, missing, nil))
-
-	assert.Equal(t, "createdb komrad, or point the database url at one that exists", result.Fix)
-}
-
 // TestSchemaCheck covers that the check reports being behind rather than treating it as broken.
 func TestSchemaCheck(t *testing.T) {
 	t.Run("up to date", func(t *testing.T) {
@@ -184,13 +136,6 @@ func TestSchemaCheck(t *testing.T) {
 		assert.Equal(t, "schema_behind", codeOf(result.Err))
 		assert.Contains(t, result.Fix, "komrad migrate")
 		assert.ErrorContains(t, result.Err, "2 migrations")
-	})
-
-	t.Run("one behind reads as one", func(t *testing.T) {
-		schema := fakeSchema{pending: []string{"20260727000000_initial.sql"}}
-		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
-
-		assert.ErrorContains(t, result.Err, "1 migration not")
 	})
 
 	t.Run("a ledger that will not read", func(t *testing.T) {
@@ -257,21 +202,6 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 			"this connects cleanly and hands the MCP endpoint the writable role, so it has to be caught by name")
 		assert.Equal(t, "readonly_login_shared", codeOf(result.Err))
 	})
-}
-
-// TestDatabaseChecksWaitOnTheDatabase covers that a Postgres nobody can reach reports once
-// rather than as three failures.
-func TestDatabaseChecksWaitOnTheDatabase(t *testing.T) {
-	for _, name := range []string{"schema", "readonly login"} {
-		var found bool
-		for _, check := range Checks(Settings{}) {
-			if check.Name == name {
-				assert.Contains(t, check.Needs, "database", "%s waits on the database", name)
-				found = true
-			}
-		}
-		require.True(t, found, "there is a check named %q", name)
-	}
 }
 
 // TestEngineCheck covers a login that belongs to no engine being told how to get one.

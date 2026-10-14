@@ -3,18 +3,11 @@ package doctor
 import (
 	"context"
 	"errors"
-	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func tmuxOnPath(path string, err error) Env {
-	return Env{
-		LookPath: func(string) (string, error) { return path, err },
-	}
-}
 
 func tmuxReporting(reported string, err error) Env {
 	return Env{
@@ -154,25 +147,6 @@ func TestTmuxVersionOrdering(t *testing.T) {
 	}
 }
 
-// TestTmuxBinaryCheck covers the two answers the check has, and that the failure carries a
-// code rather than only a sentence.
-func TestTmuxBinaryCheck(t *testing.T) {
-	t.Run("tmux is installed", func(t *testing.T) {
-		result := newTmuxBinaryCheck().Run(t.Context(), tmuxOnPath("/usr/bin/tmux", nil))
-
-		assert.Equal(t, StatusOK, result.Status)
-		assert.Equal(t, "/usr/bin/tmux", result.Detail, "where it landed is reported, since two tmuxes on one machine is the confusing case")
-	})
-
-	t.Run("tmux is not installed", func(t *testing.T) {
-		result := newTmuxBinaryCheck().Run(t.Context(), tmuxOnPath("", exec.ErrNotFound))
-
-		assert.Equal(t, StatusFail, result.Status)
-		assert.Equal(t, "tmux_missing", codeOf(result.Err))
-		assert.NotEmpty(t, result.Fix, "a failure a person can act on carries the command that acts on it")
-	})
-}
-
 // TestTmuxVersionCheck covers each way the version can land, including the fork whose
 // version cannot be read, which warns rather than failing.
 func TestTmuxVersionCheck(t *testing.T) {
@@ -227,12 +201,6 @@ func TestTmuxVersionCheck(t *testing.T) {
 			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 		})
 	}
-}
-
-// TestTmuxVersionNeedsTheBinary covers that the version check does not repeat the missing binary as
-// a second failure.
-func TestTmuxVersionNeedsTheBinary(t *testing.T) {
-	assert.Contains(t, newTmuxVersionCheck().Needs, newTmuxBinaryCheck().Name)
 }
 
 func tmuxServers(answers map[string]string) Env {

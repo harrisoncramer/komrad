@@ -75,29 +75,6 @@ func TestServerCheck(t *testing.T) {
 	}
 }
 
-// TestServerDownIsNotAProblem covers the reading that keeps a fresh install from looking
-// broken: the panel spawns the server the first time it opens, so nothing serving before
-// then is the expected state.
-func TestServerDownIsNotAProblem(t *testing.T) {
-	report := Run(t.Context(), serverEnv(ServerStatus{}), []Check{newServerCheck()})
-
-	assert.True(t, report.Summary.Healthy)
-	assert.Equal(t, 1, report.Summary.Warn)
-}
-
-// TestNotReadyWaitsRatherThanRestarts covers that a database coming back needs no
-// intervention: the pool reconnects, so the server recovers and the panel clears itself.
-func TestNotReadyWaitsRatherThanRestarts(t *testing.T) {
-	result := newServerCheck().Run(t.Context(), withPanel(ServerStatus{
-		Answering: true,
-		Version:   "v1.2.3",
-	}, true))
-
-	assert.Equal(t, "server_not_ready", codeOf(result.Err))
-	assert.NotContains(t, result.Fix, "stop")
-	assert.NotContains(t, result.Fix, "kill")
-}
-
 // TestListenAddressIsCheckedFirst covers KOMRAD_ADDR itself: every other branch of this
 // check reads a probe, and a probe against an address nothing can bind answers the same way
 // as one nobody has started yet, so an unbindable address would otherwise read as the

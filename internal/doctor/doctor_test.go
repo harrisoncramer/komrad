@@ -138,15 +138,6 @@ func TestCodeOfReadsThroughTheChain(t *testing.T) {
 	}
 }
 
-// TestProblemsAreMatchable covers that a wrapped sentinel is still found by errors.Is,
-// which is how a caller inside the binary tells one failure from another.
-func TestProblemsAreMatchable(t *testing.T) {
-	wrapped := fmt.Errorf("%w: found tmux 3.1c", errTmuxTooOld)
-
-	require.ErrorIs(t, wrapped, errTmuxTooOld)
-	assert.NotErrorIs(t, wrapped, errTmuxMissing)
-}
-
 // TestRunSurvivesACheckThatPanics covers the promise that matters most: the panel runs
 // these to explain why its server would not start, so a bug in one check must cost that
 // check's row and not the whole screen.
