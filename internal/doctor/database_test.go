@@ -67,6 +67,14 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 			wantFix:    "start Postgres at localhost:5460, or point the database url at one that is running",
 		},
 		{
+			name:       "nothing listening on another host",
+			url:        "postgres://komrad:komrad@db.internal:5460/komrad",
+			connectErr: refused(),
+			want:       StatusFail,
+			wantCode:   "database_unreachable",
+			wantFix:    "start Postgres at db.internal:5460, or point the database url at one that is running",
+		},
+		{
 			name:       "a password the server rejected",
 			url:        writableURL,
 			connectErr: &pgconn.PgError{Code: "28P01", Message: `password authentication failed for user "komrad"`},
@@ -202,6 +210,21 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 			"this connects cleanly and hands the MCP endpoint the writable role, so it has to be caught by name")
 		assert.Equal(t, "readonly_login_shared", codeOf(result.Err))
 	})
+}
+
+// TestDatabaseChecksWaitOnTheDatabase covers that a Postgres nobody can reach reports once
+// rather than as three failures.
+func TestDatabaseChecksWaitOnTheDatabase(t *testing.T) {
+	for _, name := range []string{"schema", "readonly login"} {
+		var found bool
+		for _, check := range Checks(Settings{}) {
+			if check.Name == name {
+				assert.Contains(t, check.Needs, "database", "%s waits on the database", name)
+				found = true
+			}
+		}
+		require.True(t, found, "there is a check named %q", name)
+	}
 }
 
 // TestEngineCheck covers a login that belongs to no engine being told how to get one.
