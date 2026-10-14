@@ -113,7 +113,7 @@ sudo komrad-access grant someone@example.com
 sudo komrad-access revoke someone@example.com
 ```
 
-A person also needs to reach the engine over the tailnet. Add them to the policy's group, or share the engine with them from Tailscale's admin console if they're outside your tailnet.
+A person also needs to reach the engine over the tailnet. Check that your policy lets them reach it on 443, or share the engine with them from Tailscale's admin console if they're outside your tailnet.
 
 [Access](../engine-access/#access-grants) describes what a grant allows.
 

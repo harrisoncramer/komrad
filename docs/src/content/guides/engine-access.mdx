@@ -85,31 +85,31 @@ The engine's address is its tailnet name, such as `https://komrad.tail1234.ts.ne
 
 ### The tailnet policy
 
-The engine joins as `tag:komrad-engine`. The policy lets the engine's people reach it on 443 and lets the engine reach nothing:
+The engine joins your tailnet as one device tagged `tag:komrad-engine`, and the rest of your policy stays as it is. Tailscale issues an auth key for a tag only once the policy names an owner for it, so add the tag to `tagOwners` before you create the engine's key:
 
 ```json
-{
-  "groups": {
-    "group:komrad": ["you@example.com"]
-  },
-  "tagOwners": {
-    "tag:komrad-engine": ["autogroup:admin"]
-  },
-  "grants": [
-    {
-      "src": ["group:komrad"],
-      "dst": ["tag:komrad-engine"],
-      "ip": ["tcp:443"]
-    }
-  ]
+"tagOwners": {
+  "tag:komrad-engine": ["autogroup:admin"]
 }
 ```
 
-Tailscale's default policy has a grant that lets every device reach every other one, tagged devices included. Grants add up, so that grant would still let agents reach every laptop. Replace it with grants that name your own devices and never list `tag:komrad-engine` as a source. Make both changes before the engine joins.
+People reach the engine on 443. Tailscale's default policy lets every member reach every device, so a tailnet still on it needs nothing more. A tailnet with its own rules needs a grant naming whoever should reach the engine:
+
+```json
+"grants": [
+  {
+    "src": ["autogroup:member"],
+    "dst": ["tag:komrad-engine"],
+    "ip": ["tcp:443"]
+  }
+]
+```
+
+The engine doesn't count on the policy to keep agents in. Its firewall does that whatever the policy allows. To have the policy say the same, keep `tag:komrad-engine` out of every grant's sources.
 
 ### The host firewall
 
-The machine's firewall backs up the policy. On the Tailscale interface it accepts new connections to 443 only, so agents' dev servers and containers stay off the tailnet. It also stops every account but root from opening connections into the tailnet. The engine takes no DNS settings, routes, exit nodes or SSH from Tailscale.
+The machine's firewall holds the engine in on its own. On the Tailscale interface it accepts new connections to 443 only, so agents' dev servers and containers stay off the tailnet. It also stops every account but root from opening connections into the tailnet. The engine takes no DNS settings, routes, exit nodes or SSH from Tailscale.
 
 ### People outside the tailnet
 

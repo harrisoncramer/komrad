@@ -15,7 +15,7 @@ This guide builds [komrad's engine](../komrads-engine/) from an empty AWS accoun
 - An AWS account with a named profile, and an S3 bucket for Terraform's state.
 - The Session Manager plugin for the AWS CLI, which you need to get a shell on the machine.
 - A Tailscale tailnet with MagicDNS and HTTPS certificates turned on in its DNS settings, and Tailscale running on your laptop.
-- The engine's rules in the tailnet's access policy, as [Access](../engine-access/#the-tailnet-policy) shows. Add them before the engine joins.
+- The engine's tag in the tailnet's access policy, as [Access](../engine-access/#the-tailnet-policy) shows.
 - An auth key for the engine from Tailscale's admin console. Make it single-use and pre-approved, and tag it `tag:komrad-engine`. Store it in Secrets Manager as `komrad/tailscale-auth-key`. The engine uses it only on first join.
 - Komrad registered with your identity provider as a desktop app. [Access](../engine-access/#registering-komrad-with-the-provider) covers the registration.
 - A GitHub App for the engine, with its private key stored in Secrets Manager as `komrad/github-app`. [Forge credentials](../forge-credentials/#github) covers the App. The machine reads the key at boot, so store it before the first one.
@@ -88,7 +88,7 @@ Exit the komrad account's shell and grant yourself access:
 sudo komrad-access grant you@example.com
 ```
 
-Add yourself to the group your tailnet policy lets in. Then, on your laptop, create `~/.config/komrad/engines/remote.toml` with the `engine_url` the apply printed:
+Check that your tailnet policy lets you reach the engine on 443. Then, on your laptop, create `~/.config/komrad/engines/remote.toml` with the `engine_url` the apply printed:
 
 ```toml
 [connection]
