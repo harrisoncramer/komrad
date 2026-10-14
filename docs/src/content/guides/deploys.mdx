@@ -34,6 +34,6 @@ To deploy a branch or tag without AWS credentials on your laptop, dispatch `engi
 
 Rebuild the image when a tool or a boot step changes, or when its system packages need updates. Dispatching `image.yml` builds an image and records its id in Systems Manager's parameter store, and leaves the running instance alone.
 
-Applying an image replaces the instance, and that stops every running agent. `mise run remote:reimage` reads the recorded image id, lists the agents that will stop and asks before it goes on. It then writes the image id into your `terraform.tfvars` and applies. The data volume moves to the new instance and the database stays as it was, so you can resume the agents afterwards. The new instance also gets a new certificate, and Let's Encrypt issues at most five a week for the same name.
+Applying an image replaces the instance, and that stops every running agent. `mise run remote:reimage` reads the recorded image id, lists the agents that will stop and asks before it goes on. It then writes the image id into your `terraform.tfvars` and applies. The data volume moves to the new instance and the database stays as it was, so you can resume the agents afterwards. The new instance also gets a new certificate, and Let's Encrypt issues at most five a week for the same name, so a sixth reimage in a week leaves the engine without one until the week rolls over.
 
 The image carries whichever komrad binary was current when it was built. If the engine should run something newer, deploy again after the reimage.

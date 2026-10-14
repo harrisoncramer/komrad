@@ -104,8 +104,6 @@ mise run remote:reimage
 
 The task lists the agents that will stop and asks you to confirm. With no argument it uses the image `image.yml` recorded last. To use an image you built yourself with `mise run packer:build`, pass its id. [Deploys](../deploys/#image-updates) describes what the reimage changes.
 
-Each new machine asks Let's Encrypt for a new certificate. Let's Encrypt issues at most five a week for the same name, so a sixth reimage in a week leaves the engine without one until the week rolls over.
-
 ## Granting and revoking access
 
 In a shell on the machine:
