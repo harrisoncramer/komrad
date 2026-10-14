@@ -31,6 +31,10 @@ second line is not the first, restart the server.`,
 			defer release()
 
 			probe := probeServer(cmd.Context(), state.signTransport(xhttp.NewTransport()), base)
+			if probe.refusal != nil {
+				return probe.refusal
+			}
+
 			if !probe.answering {
 				cmd.Printf("nothing is serving at %s\n", state.nameServer())
 

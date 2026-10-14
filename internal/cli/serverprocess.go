@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"komrad/internal/fail"
 	"komrad/internal/logging"
 	"komrad/internal/server"
 	"komrad/lib/clock"
@@ -106,12 +107,18 @@ type serverProbe struct {
 	version   string
 	commit    string
 	revision  string
+	refusal   error
 }
 
 func probeServer(ctx context.Context, transport http.RoundTripper, base string) serverProbe {
 	res, err := healthCheck(ctx, transport, base)
 	if err != nil {
-		return serverProbe{}
+		probe := serverProbe{}
+		if failure := fail.Of(err); failure != nil {
+			probe.refusal = failure
+		}
+
+		return probe
 	}
 	defer func() { _ = res.Body.Close() }()
 

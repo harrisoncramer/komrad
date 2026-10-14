@@ -125,8 +125,13 @@ type requireServerParams struct {
 // requireServer refuses to call a server that is not there.
 func requireServer(ctx context.Context, params requireServerParams) error {
 	base, named := params.Base, params.Named
-	if probeServer(ctx, params.Transport, base).answering {
+	probe := probeServer(ctx, params.Transport, base)
+	if probe.answering {
 		return nil
+	}
+
+	if probe.refusal != nil {
+		return probe.refusal
 	}
 
 	switch base {

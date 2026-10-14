@@ -192,6 +192,9 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 		defer release()
 
 		found := probeServer(ctx, a.signTransport(xhttp.NewTransport()), base)
+		if found.refusal != nil {
+			return doctor.ServerStatus{}, found.refusal
+		}
 
 		return doctor.ServerStatus{
 			Answering: found.answering,

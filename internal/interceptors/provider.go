@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -77,7 +76,7 @@ func (p *ProviderVerifier) VerifyToken(ctx context.Context, raw string) (*signed
 
 	return &signedIn{
 		Caller: caller.Caller{
-			Email:   strings.ToLower(claims.Email),
+			Email:   claims.Email,
 			Issuer:  token.Issuer,
 			Subject: token.Subject,
 		},

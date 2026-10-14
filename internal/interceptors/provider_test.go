@@ -174,7 +174,7 @@ func TestProviderVerifier(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, "harry@example.com", signedIn.Caller.Email)
+			assert.Equal(t, "Harry@Example.com", signedIn.Caller.Email, "the database folds the case, the same way it folded the grant")
 			assert.Equal(t, provider.url, signedIn.Caller.Issuer)
 			assert.Equal(t, "sub-1", signedIn.Caller.Subject)
 			assert.Equal(t, tt.wantVerified, signedIn.EmailVerified)
