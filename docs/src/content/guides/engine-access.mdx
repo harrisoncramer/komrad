@@ -109,7 +109,7 @@ The engine doesn't count on the policy to keep agents in. Its firewall does that
 
 ### The host firewall
 
-The machine's firewall holds the engine in on its own. On the Tailscale interface it accepts new connections to 443 only, so agents' dev servers and containers stay off the tailnet. It also stops every account but root from opening connections into the tailnet. The engine takes no DNS settings, routes, exit nodes or SSH from Tailscale.
+On the Tailscale interface the machine's firewall accepts new connections to 443 only, so agents' dev servers and containers stay off the tailnet. It also stops every account but root from opening connections into the tailnet. The engine takes no DNS settings, routes, exit nodes or SSH from Tailscale.
 
 ### People outside the tailnet
 
