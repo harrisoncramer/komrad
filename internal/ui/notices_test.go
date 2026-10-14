@@ -161,10 +161,6 @@ func findRule(frame string) int {
 	})
 }
 
-func readRecordProse(frame string) string {
-	return joinProse(readRecord(frame))
-}
-
 func readNoticeBlock(harness *panelHarness) []string {
 	styled := splitLines(harness.readRawFrame())
 

@@ -2853,29 +2853,6 @@ func readReleaseSaid(t *testing.T, harness *panelHarness) string {
 	return released.GetSaid()
 }
 
-// wideLine is a line of code long enough to reach past the room beside it.
-const wideLine = `return "a farewell long enough to crowd the popup"`
-
-func newWideLineRepo(t *testing.T) *gittest.Repo {
-	t.Helper()
-
-	repo := gittest.NewRepo(t.TempDir())
-	repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = strings.Replace(gittest.Patch, `return "goodbye"`, wideLine, 1)
-	repo.Sources[gittest.NameSource(gittest.SnapshotSHA, gittest.File)] = strings.Replace(gittest.HeadSource, `return "goodbye"`, wideLine, 1)
-
-	return repo
-}
-
-func newThreadOnWideLine() *agentv1.ReviewThread {
-	return &agentv1.ReviewThread{
-		Id:          "t1",
-		FilePath:    gittest.File,
-		NewStart:    4,
-		QuotedLines: []string{"+\t" + wideLine},
-		Messages:    []*agentv1.ReviewMessage{newHumanMessage("m1", "tighten this")},
-	}
-}
-
 const (
 	midSequenceNotice = "a rebase or merge is part way through, so this is the work as it stood before it"
 	historyTimeout    = time.Minute

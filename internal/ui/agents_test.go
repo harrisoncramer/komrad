@@ -2399,12 +2399,6 @@ const (
 	repositoryURL = "https://github.com/harrisoncramer/komrad"
 )
 
-var (
-	recordAgentLine  = regexp.MustCompile(`agent\s+—`)
-	recordBranchLine = regexp.MustCompile(`branch\s+agent/auth`)
-	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
-)
-
 func openAgents(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
