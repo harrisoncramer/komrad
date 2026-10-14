@@ -30,7 +30,7 @@ const redialDelay = time.Second
 const probeInterval = 5 * time.Second
 
 // silentProbesBeforeRedial is how many probes in a row may go unanswered before komrad ends its own
-// forward and runs it again, so one slow round trip does not drop every stream through it.
+// forward and runs it again.
 const silentProbesBeforeRedial = 3
 
 // probeRequest is what komrad writes to a port to learn whether the engine's api is behind it.
