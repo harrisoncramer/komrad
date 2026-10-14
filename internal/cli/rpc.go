@@ -91,15 +91,20 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 
 		defer release()
 
-		if err := requireServer(ctx, base, state.nameServer()); err != nil {
+		if err := requireServer(ctx, requireServerParams{
+			Transport: state.signTransport(xhttp.NewTransport()),
+			Base:      base,
+			Named:     state.nameServer(),
+		}); err != nil {
 			return err
 		}
 
 		payload, err := callRPC(ctx, callRPCParams{
-			Base:    base,
-			Path:    exposed.GetPath(),
-			From:    state.caller(),
-			Request: request,
+			Transport: state.signTransport(rpcapi.NewTransport()),
+			Base:      base,
+			Path:      exposed.GetPath(),
+			From:      state.caller(),
+			Request:   request,
 		})
 		if err != nil {
 			return err
@@ -111,9 +116,16 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	return cmd
 }
 
+type requireServerParams struct {
+	Transport http.RoundTripper
+	Base      string
+	Named     string
+}
+
 // requireServer refuses to call a server that is not there.
-func requireServer(ctx context.Context, base, named string) error {
-	if probeServer(ctx, base).answering {
+func requireServer(ctx context.Context, params requireServerParams) error {
+	base, named := params.Base, params.Named
+	if probeServer(ctx, params.Transport, base).answering {
 		return nil
 	}
 
@@ -128,10 +140,11 @@ func requireServer(ctx context.Context, base, named string) error {
 }
 
 type callRPCParams struct {
-	Base    string
-	Path    string
-	From    caller.Caller
-	Request map[string]any
+	Transport http.RoundTripper
+	Base      string
+	Path      string
+	From      caller.Caller
+	Request   map[string]any
 }
 
 func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
@@ -148,7 +161,7 @@ func callRPC(ctx context.Context, params callRPCParams) ([]byte, error) {
 
 	params.From.SetHeader(req.Header)
 
-	resp, err := xhttp.NewClientOver(rpcapi.NewTransport(), 0).Do(req)
+	resp, err := xhttp.NewClientOver(params.Transport, 0).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reach the server at %s: %w", params.Base, err)
 	}

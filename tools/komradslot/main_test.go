@@ -73,9 +73,18 @@ func TestEnvThenCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := "# the slot adds [worktrees]\n[log]\nlevel = \"debug\"\n\n[worktrees]\ndir = \"" + filepath.Join(reg.slotDir(1), "worktrees") + "\"\n\n[context]\nfile = \"" + filepath.Join(reg.slotDir(1), "context.md") + "\"\n\n[hooks]\ndir = \"" + filepath.Join(reg.slotDir(1), "hooks") + "\"\n"
+	want := "# the slot adds [worktrees]\n[log]\nlevel = \"debug\"\n\n[worktrees]\ndir = \"" + filepath.Join(reg.slotDir(1), "worktrees") + "\"\n\n[context]\nfile = \"" + filepath.Join(reg.slotDir(1), "context.md") + "\"\n\n[hooks]\ndir = \"" + filepath.Join(reg.slotDir(1), "hooks") + "\"\n\n[sign_in]\nissuer = \"http://127.0.0.1:5556/dex\"\nclient_id = \"komrad\"\naddr = \"127.0.0.1:8901\"\n"
 	if string(config) != want {
 		t.Errorf("slot config = %q, want %q", config, want)
+	}
+
+	engine, err := os.ReadFile(filepath.Join(env["KOMRAD_ENGINES_DIR"], "slot_1.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if want := "[connection]\nurl = \"http://127.0.0.1:8901\"\n"; string(engine) != want {
+		t.Errorf("slot engine = %q, want %q", engine, want)
 	}
 
 	if _, err := runSlot(t, reg, env, "check", "--root", root); err != nil {
@@ -112,6 +121,7 @@ func TestEnvRefusesATestConfigNamingASlotTable(t *testing.T) {
 		{table: "[worktrees]", config: "[worktrees]\ndir = \"/elsewhere\"\n"},
 		{table: "[context]", config: "[context]\nfile = \"/elsewhere/context.md\"\n"},
 		{table: "[hooks]", config: "[hooks]\ndir = \"/elsewhere/hooks\"\n"},
+		{table: "[sign_in]", config: "[sign_in]\nissuer = \"https://elsewhere\"\n"},
 	} {
 		t.Run(tc.table, func(t *testing.T) {
 			t.Parallel()

@@ -5,10 +5,8 @@ import (
 	"strconv"
 
 	"komrad/internal/client"
-	"komrad/lib/xhttp"
 	"komrad/lib/xslice"
 	forgev1 "komrad/proto/gen/forge/v1"
-	"komrad/proto/gen/forge/v1/forgev1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -56,7 +54,7 @@ without access to a private repository shows up.`,
 					branch = args[1]
 				}
 
-				pullRequests, err := client.ListAllForgePullRequests(ctx, forgev1connect.NewForgeServiceClient(xhttp.NewClient(apiCallTimeout), base), args[0], branch)
+				pullRequests, err := client.ListAllForgePullRequests(ctx, state.forgeClient(base), args[0], branch)
 				if err != nil {
 					return err
 				}

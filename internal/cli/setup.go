@@ -124,7 +124,7 @@ func (a *app) setupSteps(harnessFlag string) ([]setup.Step, error) {
 
 func (a *app) connectForge(ctx context.Context, host string, token forge.Secret) error {
 	return a.withAPI(ctx, func(ctx context.Context, base string) error {
-		_, err := forgeClient(base).ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{
+		_, err := a.forgeClient(base).ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{
 			Host:   host,
 			Method: forge.MethodToken,
 			Token:  tokenForTheWire(token),

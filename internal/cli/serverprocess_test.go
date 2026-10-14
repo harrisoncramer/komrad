@@ -16,6 +16,7 @@ import (
 	"komrad/config"
 	"komrad/internal/server"
 	"komrad/internal/version"
+	"komrad/lib/xhttp"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -326,7 +327,7 @@ func TestIntegrationProbeServer(t *testing.T) {
 				addr = fakeServer(t, fakeServerParams{status: tt.status, body: tt.body})
 			}
 
-			assert.Equal(t, tt.want, probeServer(t.Context(), formatBase(addr)))
+			assert.Equal(t, tt.want, probeServer(t.Context(), xhttp.NewTransport(), formatBase(addr)))
 		})
 	}
 }

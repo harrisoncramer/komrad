@@ -42,6 +42,7 @@ type stores struct {
 	worktrees        *worktreestore.WorktreeStore
 	screens          *screenstore.ScreenStore
 	tasks            *taskstore.TaskStore
+	access           *store.AccessStore
 }
 
 func openStores(ctx context.Context, databaseURL string) (*stores, error) {
@@ -73,5 +74,6 @@ func openStores(ctx context.Context, databaseURL string) (*stores, error) {
 		worktrees:        worktreestore.NewWorktreeStore(db),
 		screens:          screenstore.NewScreenStore(db),
 		tasks:            taskstore.NewTaskStore(db),
+		access:           store.NewAccessStore(db),
 	}, nil
 }

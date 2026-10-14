@@ -104,3 +104,47 @@ func getEngineID(ctx context.Context, queries *models.Queries, name string) (str
 
 	return engineID, nil
 }
+
+// AccessStore answers, as the engine, whether a signed-in caller has access to it.
+type AccessStore struct {
+	queries *models.Queries
+}
+
+// NewAccessStore builds an access store over db, which is either the pool or a transaction.
+func NewAccessStore(db DBTX) *AccessStore {
+	return &AccessStore{queries: models.New(db)}
+}
+
+// ClaimAccessParams names the verified email a caller signed in with, and who the provider says they are.
+type ClaimAccessParams struct {
+	Email   string
+	Issuer  string
+	Subject string
+}
+
+// ClaimAccess records who the provider says holds an email granted access, on the first sign-in with it.
+func (s *AccessStore) ClaimAccess(ctx context.Context, params ClaimAccessParams) (bool, error) {
+	claimed, err := s.queries.ClaimEngineAccess(ctx, models.ClaimEngineAccessParams{
+		Email:   params.Email,
+		Issuer:  params.Issuer,
+		Subject: params.Subject,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to claim access for %s: %w", params.Email, err)
+	}
+
+	return claimed, nil
+}
+
+// IsAccessGranted reports whether the caller a provider vouches for has access to this engine.
+func (s *AccessStore) IsAccessGranted(ctx context.Context, issuer, subject string) (bool, error) {
+	granted, err := s.queries.IsEngineAccessGranted(ctx, models.IsEngineAccessGrantedParams{
+		Issuer:  issuer,
+		Subject: subject,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to read whether %s at %s has access: %w", subject, issuer, err)
+	}
+
+	return granted, nil
+}

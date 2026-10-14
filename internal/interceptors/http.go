@@ -30,7 +30,7 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 
 		method, tool := mcpCall(r)
 
-		from := caller.FromHeader(r.Header)
+		from := caller.FromRequest(r.Context(), r.Header)
 
 		attrs := []slog.Attr{
 			slog.String(logging.TraceID, trace),

@@ -153,6 +153,7 @@ type ShellRequest struct {
 	//	*ShellRequest_Open
 	//	*ShellRequest_Input
 	//	*ShellRequest_Resize
+	//	*ShellRequest_Token
 	Message       isShellRequest_Message `protobuf_oneof:"message"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -222,6 +223,15 @@ func (x *ShellRequest) GetResize() *Size {
 	return nil
 }
 
+func (x *ShellRequest) GetToken() string {
+	if x != nil {
+		if x, ok := x.Message.(*ShellRequest_Token); ok {
+			return x.Token
+		}
+	}
+	return ""
+}
+
 type isShellRequest_Message interface {
 	isShellRequest_Message()
 }
@@ -241,11 +251,18 @@ type ShellRequest_Resize struct {
 	Resize *Size `protobuf:"bytes,3,opt,name=resize,proto3,oneof"`
 }
 
+type ShellRequest_Token struct {
+	// A fresh ID token from a signed-in caller, so the stream outlives the one it opened with.
+	Token string `protobuf:"bytes,4,opt,name=token,proto3,oneof"`
+}
+
 func (*ShellRequest_Open) isShellRequest_Message() {}
 
 func (*ShellRequest_Input) isShellRequest_Message() {}
 
 func (*ShellRequest_Resize) isShellRequest_Message() {}
+
+func (*ShellRequest_Token) isShellRequest_Message() {}
 
 // Exit reports how the program on the terminal ended.
 type Exit struct {
@@ -471,6 +488,7 @@ type AttachRequest struct {
 	//	*AttachRequest_Open
 	//	*AttachRequest_Input
 	//	*AttachRequest_Resize
+	//	*AttachRequest_Token
 	Message       isAttachRequest_Message `protobuf_oneof:"message"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -540,6 +558,15 @@ func (x *AttachRequest) GetResize() *Size {
 	return nil
 }
 
+func (x *AttachRequest) GetToken() string {
+	if x != nil {
+		if x, ok := x.Message.(*AttachRequest_Token); ok {
+			return x.Token
+		}
+	}
+	return ""
+}
+
 type isAttachRequest_Message interface {
 	isAttachRequest_Message()
 }
@@ -559,11 +586,18 @@ type AttachRequest_Resize struct {
 	Resize *Size `protobuf:"bytes,3,opt,name=resize,proto3,oneof"`
 }
 
+type AttachRequest_Token struct {
+	// A fresh ID token from a signed-in caller, so the stream outlives the one it opened with.
+	Token string `protobuf:"bytes,4,opt,name=token,proto3,oneof"`
+}
+
 func (*AttachRequest_Open) isAttachRequest_Message() {}
 
 func (*AttachRequest_Input) isAttachRequest_Message() {}
 
 func (*AttachRequest_Resize) isAttachRequest_Message() {}
+
+func (*AttachRequest_Token) isAttachRequest_Message() {}
 
 // AttachResponse is one message from the engine: ready, output, or the exit.
 type AttachResponse struct {
@@ -680,11 +714,12 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"\tOpenShell\x12\x19\n" +
 	"\x03dir\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x03dir\x12-\n" +
 	"\x04size\x18\x02 \x01(\v2\x11.terminal.v1.SizeB\x06\xbaH\x03\xc8\x01\x01R\x04size\x12\x12\n" +
-	"\x04term\x18\x03 \x01(\tR\x04term\"\x93\x01\n" +
+	"\x04term\x18\x03 \x01(\tR\x04term\"\xab\x01\n" +
 	"\fShellRequest\x12,\n" +
 	"\x04open\x18\x01 \x01(\v2\x16.terminal.v1.OpenShellH\x00R\x04open\x12\x16\n" +
 	"\x05input\x18\x02 \x01(\fH\x00R\x05input\x12+\n" +
-	"\x06resize\x18\x03 \x01(\v2\x11.terminal.v1.SizeH\x00R\x06resizeB\x10\n" +
+	"\x06resize\x18\x03 \x01(\v2\x11.terminal.v1.SizeH\x00R\x06resize\x12\x16\n" +
+	"\x05token\x18\x04 \x01(\tH\x00R\x05tokenB\x10\n" +
 	"\amessage\x12\x05\xbaH\x02\b\x01\"\x1a\n" +
 	"\x04Exit\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\"\x8d\x01\n" +
@@ -697,11 +732,12 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"OpenAttach\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12-\n" +
 	"\x04size\x18\x02 \x01(\v2\x11.terminal.v1.SizeB\x06\xbaH\x03\xc8\x01\x01R\x04size\x12\x12\n" +
-	"\x04term\x18\x03 \x01(\tR\x04term\"\x95\x01\n" +
+	"\x04term\x18\x03 \x01(\tR\x04term\"\xad\x01\n" +
 	"\rAttachRequest\x12-\n" +
 	"\x04open\x18\x01 \x01(\v2\x17.terminal.v1.OpenAttachH\x00R\x04open\x12\x16\n" +
 	"\x05input\x18\x02 \x01(\fH\x00R\x05input\x12+\n" +
-	"\x06resize\x18\x03 \x01(\v2\x11.terminal.v1.SizeH\x00R\x06resizeB\x10\n" +
+	"\x06resize\x18\x03 \x01(\v2\x11.terminal.v1.SizeH\x00R\x06resize\x12\x16\n" +
+	"\x05token\x18\x04 \x01(\tH\x00R\x05tokenB\x10\n" +
 	"\amessage\x12\x05\xbaH\x02\b\x01\"\x8e\x01\n" +
 	"\x0eAttachResponse\x12.\n" +
 	"\x05ready\x18\x01 \x01(\v2\x16.google.protobuf.EmptyH\x00R\x05ready\x12\x18\n" +
@@ -767,6 +803,7 @@ func file_terminal_v1_terminal_proto_init() {
 		(*ShellRequest_Open)(nil),
 		(*ShellRequest_Input)(nil),
 		(*ShellRequest_Resize)(nil),
+		(*ShellRequest_Token)(nil),
 	}
 	file_terminal_v1_terminal_proto_msgTypes[4].OneofWrappers = []any{
 		(*ShellResponse_Ready)(nil),
@@ -777,6 +814,7 @@ func file_terminal_v1_terminal_proto_init() {
 		(*AttachRequest_Open)(nil),
 		(*AttachRequest_Input)(nil),
 		(*AttachRequest_Resize)(nil),
+		(*AttachRequest_Token)(nil),
 	}
 	file_terminal_v1_terminal_proto_msgTypes[7].OneofWrappers = []any{
 		(*AttachResponse_Ready)(nil),

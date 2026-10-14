@@ -169,6 +169,7 @@ func serve(ctx context.Context, params serveParams) error {
 		DefaultFlags:   state.defaultFlags,
 		TrustDirs:      state.trustDirs,
 		Usage:          state.usage,
+		SignIn:         state.signIn,
 		ContextPath:    state.contextPath,
 		HookCommand:    getHookBinaryPath(ctx),
 		Doctor:         doctorSettings,
@@ -183,6 +184,18 @@ func serve(ctx context.Context, params serveParams) error {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}
 
+	public := server.PublicHandler()
+
+	var publicListener net.Listener
+	if public != nil {
+		publicListener, err = (&net.ListenConfig{}).Listen(ctx, "tcp", state.signIn.Addr)
+		if err != nil {
+			_ = listener.Close() //nolint:errcheck // the failed listen is what the caller hears about
+
+			return fmt.Errorf("failed to listen for signed-in requests on %s: %w", state.signIn.Addr, err)
+		}
+	}
+
 	if err := server.Start(ctx); err != nil {
 		return err
 	}
@@ -190,21 +203,28 @@ func serve(ctx context.Context, params serveParams) error {
 	logger.LogAttrs(ctx, slog.LevelInfo, "the server is listening",
 		slog.String(logging.ServerAddress, listener.Addr().String()))
 
-	httpServer := &http.Server{
-		Handler:           server.Handler(),
-		ReadHeaderTimeout: 5 * time.Second,
-		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
-		Protocols:         xhttp.NewServerProtocols(),
+	served := make(chan error, 2)
+	httpServer := startHTTPServer(ctx, startHTTPServerParams{
+		Logger:   logger,
+		Handler:  server.Handler(),
+		Listener: listener,
+		Served:   served,
+	})
+
+	var publicServer *http.Server
+	if public != nil {
+		logger.LogAttrs(ctx, slog.LevelInfo, "the server is listening for signed-in requests",
+			slog.String(logging.ServerAddress, publicListener.Addr().String()))
+
+		publicServer = startHTTPServer(ctx, startHTTPServerParams{
+			Logger:   logger,
+			Handler:  public,
+			Listener: publicListener,
+			Served:   served,
+		})
 	}
 
 	pprofServer := startPprof(ctx, logger, state.debug.Pprof.Server)
-
-	served := make(chan error, 1)
-	go func() {
-		defer logging.LogAndRepanic(ctx)
-
-		served <- httpServer.Serve(listener)
-	}()
 
 	var failure error
 	select {
@@ -221,6 +241,12 @@ func serve(ctx context.Context, params serveParams) error {
 	server.Watch.Close()
 	if err := httpServer.Shutdown(drain); err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "the server would not shut down cleanly", logging.Err(err)...)
+	}
+
+	if publicServer != nil {
+		if err := publicServer.Shutdown(drain); err != nil {
+			logger.LogAttrs(ctx, slog.LevelError, "the signed-in listener would not shut down cleanly", logging.Err(err)...)
+		}
 	}
 
 	if pprofServer != nil {
@@ -248,4 +274,28 @@ func closeWithin(logger *slog.Logger, what string, fn func()) {
 		logger.LogAttrs(context.Background(), slog.LevelWarn, "a database handle did not close in time",
 			slog.String(logging.Handle, what))
 	}
+}
+
+type startHTTPServerParams struct {
+	Logger   *slog.Logger
+	Handler  http.Handler
+	Listener net.Listener
+	Served   chan<- error
+}
+
+func startHTTPServer(ctx context.Context, params startHTTPServerParams) *http.Server {
+	httpServer := &http.Server{
+		Handler:           params.Handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ErrorLog:          slog.NewLogLogger(params.Logger.Handler(), slog.LevelError),
+		Protocols:         xhttp.NewServerProtocols(),
+	}
+
+	go func() {
+		defer logging.LogAndRepanic(ctx)
+
+		params.Served <- httpServer.Serve(params.Listener)
+	}()
+
+	return httpServer
 }

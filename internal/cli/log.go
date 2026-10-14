@@ -47,11 +47,15 @@ is where to start when you know what you did but not what it was called.`,
 			}
 			defer release()
 
-			if err := requireServer(ctx, base, state.nameServer()); err != nil {
+			if err := requireServer(ctx, requireServerParams{
+				Transport: state.signTransport(xhttp.NewTransport()),
+				Base:      base,
+				Named:     state.nameServer(),
+			}); err != nil {
 				return err
 			}
 
-			client := logv1connect.NewLogServiceClient(xhttp.NewClient(logTimeout), base)
+			client := logv1connect.NewLogServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewTransport()), logTimeout), base)
 			if recent || len(args) == 0 {
 				return listRecentTraces(ctx, cmd.OutOrStdout(), client)
 			}

@@ -44,7 +44,7 @@ type ensureServerParams struct {
 func ensureServer(ctx context.Context, params ensureServerParams) error {
 	addr, logPath := params.Addr, params.LogPath
 
-	if probeServer(ctx, formatBase(addr)).answering {
+	if probeServer(ctx, xhttp.NewTransport(), formatBase(addr)).answering {
 		return nil
 	}
 
@@ -82,7 +82,7 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 
 	deadline := time.Now().Add(serveWaitFor)
 	for time.Now().Before(deadline) {
-		if probeServer(ctx, formatBase(addr)).ready {
+		if probeServer(ctx, xhttp.NewTransport(), formatBase(addr)).ready {
 			return nil
 		}
 
@@ -108,8 +108,8 @@ type serverProbe struct {
 	revision  string
 }
 
-func probeServer(ctx context.Context, base string) serverProbe {
-	res, err := healthCheck(ctx, base)
+func probeServer(ctx context.Context, transport http.RoundTripper, base string) serverProbe {
+	res, err := healthCheck(ctx, transport, base)
 	if err != nil {
 		return serverProbe{}
 	}
@@ -127,13 +127,13 @@ func probeServer(ctx context.Context, base string) serverProbe {
 	return probe
 }
 
-func healthCheck(ctx context.Context, base string) (*http.Response, error) {
+func healthCheck(ctx context.Context, transport http.RoundTripper, base string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+server.HealthPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build a health request for %s: %w", base, err)
 	}
 
-	client := xhttp.NewClient(healthTimeout)
+	client := xhttp.NewClientOver(transport, healthTimeout)
 
 	return client.Do(req)
 }

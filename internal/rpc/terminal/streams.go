@@ -10,10 +10,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// request is what a caller sends once the terminal opens: typed bytes, a new size, or neither.
+// request is what a caller sends once the terminal opens: typed bytes, a new size, a fresh token,
+// or none of them.
 type request struct {
 	input  []byte
 	resize *terminalv1.Size
+	token  string
 }
 
 // callerReadWriter reads what a caller sends and writes back to it, in one service's messages.
@@ -35,7 +37,11 @@ func (s shellStream) receive() (request, error) {
 		return request{}, fmt.Errorf("failed to read the caller's message: %w", err)
 	}
 
-	return request{input: message.GetInput(), resize: message.GetResize()}, nil
+	return request{
+		input:  message.GetInput(),
+		resize: message.GetResize(),
+		token:  message.GetToken(),
+	}, nil
 }
 
 func (s shellStream) sendReady() error {
@@ -81,7 +87,11 @@ func (s attachStream) receive() (request, error) {
 		return request{}, fmt.Errorf("failed to read the caller's message: %w", err)
 	}
 
-	return request{input: message.GetInput(), resize: message.GetResize()}, nil
+	return request{
+		input:  message.GetInput(),
+		resize: message.GetResize(),
+		token:  message.GetToken(),
+	}, nil
 }
 
 func (s attachStream) sendReady() error {

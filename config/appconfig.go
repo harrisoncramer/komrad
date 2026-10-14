@@ -60,6 +60,9 @@ type Config struct {
 	Log Log `mapstructure:"log"`
 	// Puts komrad into debug mode which records additional information used to help diagnose issues.
 	Debug Debug `mapstructure:"debug"`
+	// The identity provider people sign in to this engine with, and the listener their requests
+	// reach it on.
+	SignIn SignIn `mapstructure:"sign_in"`
 	// Which komrad this is, by its database, its address, its tmux socket and its cache.
 	Connection Connection `mapstructure:"connection"`
 }
@@ -87,6 +90,7 @@ func Defaults() *Config {
 		},
 		Diff:       Diff{Wrap: true},
 		Connection: defaultConnection(),
+		SignIn:     SignIn{Addr: defaultSignInAddr},
 	}
 }
 
@@ -103,6 +107,7 @@ func (c Config) validate() error {
 		c.Glyphs.validate,
 		c.Palette.validate,
 		c.Connection.validate,
+		c.SignIn.validate,
 		c.Layout.validate,
 	}
 	for _, validate := range sections {
@@ -133,6 +138,7 @@ func (c *Config) normalize() {
 	c.Usage.normalize()
 	c.Layout.normalize()
 	c.Connection.normalize()
+	c.SignIn.normalize()
 	c.Log.normalize()
 	c.Debug.normalize()
 }

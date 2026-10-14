@@ -24,6 +24,9 @@ const (
 type Caller struct {
 	AgentID   string
 	SessionID string
+	Email     string
+	Issuer    string
+	Subject   string
 }
 
 // isKnown reports whether the request named an agent at all.
@@ -46,6 +49,16 @@ func expanded(value string) string {
 	}
 
 	return value
+}
+
+// FromRequest reads the identity a request arrived with, keeping who the public listener found
+// signed in on ctx.
+func FromRequest(ctx context.Context, header http.Header) Caller {
+	from := FromHeader(header)
+	signedIn := From(ctx)
+	from.Email, from.Issuer, from.Subject = signedIn.Email, signedIn.Issuer, signedIn.Subject
+
+	return from
 }
 
 // SetHeader writes the identity onto a request going out, and nothing for a caller that is not
@@ -123,4 +136,25 @@ func Trace(ctx context.Context) string {
 	}
 
 	return id
+}
+
+type renewalKey struct{}
+
+// renewal takes a fresh ID token for the caller a request signed in as.
+type renewal func(ctx context.Context, token string) error
+
+// WithRenewal carries how a signed-in request takes a fresh token on a context.
+func WithRenewal(ctx context.Context, renew renewal) context.Context {
+	return context.WithValue(ctx, renewalKey{}, renew)
+}
+
+// Renew hands a fresh ID token to the request being served, and does nothing for a request that
+// did not sign in.
+func Renew(ctx context.Context, token string) error {
+	renew, ok := ctx.Value(renewalKey{}).(renewal)
+	if !ok {
+		return nil
+	}
+
+	return renew(ctx, token)
 }

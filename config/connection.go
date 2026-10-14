@@ -83,7 +83,8 @@ type Connection struct {
 	// stay in the foreground for as long as the forward is wanted.
 	Forward []string `mapstructure:"forward"`
 	// The https address the engine is served on, like https://komrad.example.com, when it sits
-	// behind a web server rather than at the end of ssh or a forward.
+	// behind a web server rather than at the end of ssh or a forward. It may be plain http when
+	// its host is this machine.
 	URL string `mapstructure:"url"`
 }
 
@@ -144,23 +145,30 @@ func ValidateAddr(addr string) error {
 		return fmt.Errorf("%q names no host, which answers on every interface, and the api has no auth", addr)
 	}
 
-	if slices.Contains(loopbackHosts, host) {
+	if isLoopbackHost(host) {
 		return nil
 	}
 
-	parsed := net.ParseIP(host)
-	if parsed == nil {
+	if net.ParseIP(host) == nil {
 		return fmt.Errorf("%q is not an address this machine can answer on", host)
 	}
-	if !parsed.IsLoopback() {
-		return fmt.Errorf("%q reaches this machine from the network, and the api has no auth and its writes spawn agents", host)
-	}
 
-	return nil
+	return fmt.Errorf("%q reaches this machine from the network, and the api has no auth and its writes spawn agents", host)
 }
 
-// validateURL rejects an engine address that is not https, or that names a second way to the
-// engine beside ssh or a forward.
+// isLoopbackHost reports whether a host reaches only this machine.
+func isLoopbackHost(host string) bool {
+	if slices.Contains(loopbackHosts, host) {
+		return true
+	}
+
+	parsed := net.ParseIP(host)
+
+	return parsed != nil && parsed.IsLoopback()
+}
+
+// validateURL rejects an engine address that is neither https nor on this machine, or that names
+// a second way to the engine beside ssh or a forward.
 func (c Connection) validateURL() error {
 	if c.URL == "" {
 		return nil
@@ -170,15 +178,13 @@ func (c Connection) validateURL() error {
 		return errors.New("is set alongside ssh or forward, and an engine is reached one way")
 	}
 
+	if err := requireSecureURL(c.URL); err != nil {
+		return err
+	}
+
 	parsed, err := url.Parse(c.URL)
 	if err != nil {
 		return fmt.Errorf("%q is not a url: %w", c.URL, err)
-	}
-	if parsed.Scheme != "https" {
-		return fmt.Errorf("%q is not https, and the engine is reached over the network", c.URL)
-	}
-	if parsed.Host == "" {
-		return fmt.Errorf("%q names no host", c.URL)
 	}
 	if strings.Trim(parsed.Path, "/") != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return fmt.Errorf("%q has more than a scheme and a host", c.URL)

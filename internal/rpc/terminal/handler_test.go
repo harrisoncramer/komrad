@@ -2,6 +2,7 @@ package terminal_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"komrad/internal/attaches"
+	"komrad/internal/caller"
 	"komrad/internal/interceptors"
 	"komrad/internal/pty"
 	"komrad/internal/rpc/terminal"
@@ -117,6 +119,12 @@ func serveAttaches(t *testing.T, attacher *fakeAttacher) terminalv1connect.Termi
 func serveBoth(t *testing.T, opener *fakeOpener, attacher *fakeAttacher) terminalv1connect.TerminalServiceClient {
 	t.Helper()
 
+	return startServer(t, newMux(t, opener, attacher))
+}
+
+func newMux(t *testing.T, opener *fakeOpener, attacher *fakeAttacher) http.Handler {
+	t.Helper()
+
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)
 
@@ -130,7 +138,13 @@ func serveBoth(t *testing.T, opener *fakeOpener, attacher *fakeAttacher) termina
 		connect.WithInterceptors(validation),
 	))
 
-	server := httptest.NewUnstartedServer(mux)
+	return mux
+}
+
+func startServer(t *testing.T, handler http.Handler) terminalv1connect.TerminalServiceClient {
+	t.Helper()
+
+	server := httptest.NewUnstartedServer(handler)
 	server.Config.Protocols = new(http.Protocols)
 	server.Config.Protocols.SetHTTP1(true)
 	server.Config.Protocols.SetUnencryptedHTTP2(true)
@@ -373,4 +387,56 @@ func TestAttachCarriesATerminal(t *testing.T) {
 		_, err := stream.Receive()
 		assert.ErrorIs(t, err, io.EOF)
 	})
+}
+
+// TestShellRenewsTheCallersSignIn covers a shell held open past the token it opened with.
+func TestShellRenewsTheCallersSignIn(t *testing.T) {
+	type renewCase struct {
+		name      string
+		renewErr  error
+		wantEnded bool
+	}
+
+	tests := []renewCase{
+		{
+			name:      "a token the sign-in refuses",
+			renewErr:  errors.New("another sign-in"),
+			wantEnded: true,
+		},
+		{
+			name: "a fresh token for the same caller",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := newFakeTerminal()
+			renewed := make(chan string, 1)
+			mux := newMux(t, &fakeOpener{terminal: fake, opened: make(chan shells.OpenParams, 1)}, &fakeAttacher{})
+			client := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := caller.WithRenewal(r.Context(), func(_ context.Context, token string) error {
+					renewed <- token
+
+					return tt.renewErr
+				})
+				mux.ServeHTTP(w, r.WithContext(ctx))
+			}))
+
+			stream := client.Shell(t.Context())
+			require.NoError(t, stream.Send(openRequest("/work/tree")))
+			assert.NotNil(t, receive(t, stream).GetReady())
+
+			require.NoError(t, stream.Send(&terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Token{Token: "fresh"}}))
+			assert.Equal(t, "fresh", <-renewed)
+
+			select {
+			case <-fake.closed:
+				assert.True(t, tt.wantEnded, "the shell was hung up on a renewed sign-in")
+			case <-time.After(200 * time.Millisecond):
+				assert.False(t, tt.wantEnded, "the shell outlived a refused sign-in")
+			}
+
+			fake.exit <- 0
+		})
+	}
 }

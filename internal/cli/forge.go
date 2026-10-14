@@ -109,7 +109,7 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 			}
 
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
-				resp, err := forgeClient(base).ConnectForge(ctx, connect.NewRequest(req))
+				resp, err := state.forgeClient(base).ConnectForge(ctx, connect.NewRequest(req))
 				if err != nil {
 					return err
 				}
@@ -138,7 +138,7 @@ func forgeListCmd(state *app) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
-				resp, err := forgeClient(base).ListForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+				resp, err := state.forgeClient(base).ListForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 				if err != nil {
 					return err
 				}
@@ -161,7 +161,7 @@ until it is connected again.`,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
-				resp, err := forgeClient(base).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+				resp, err := state.forgeClient(base).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 				if err != nil {
 					return err
 				}
@@ -190,7 +190,7 @@ func forgeDisconnectCmd(state *app) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
-				if _, err := forgeClient(base).DisconnectForge(ctx, connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: args[0]})); err != nil {
+				if _, err := state.forgeClient(base).DisconnectForge(ctx, connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: args[0]})); err != nil {
 					return err
 				}
 
@@ -202,8 +202,8 @@ func forgeDisconnectCmd(state *app) *cobra.Command {
 	}
 }
 
-func forgeClient(base string) forgev1connect.ForgeServiceClient {
-	return forgev1connect.NewForgeServiceClient(xhttp.NewClient(apiCallTimeout), base)
+func (a *app) forgeClient(base string) forgev1connect.ForgeServiceClient {
+	return forgev1connect.NewForgeServiceClient(xhttp.NewClientOver(a.signTransport(xhttp.NewTransport()), apiCallTimeout), base)
 }
 
 // printForges writes the table forge list and forge check share, with the problem a check

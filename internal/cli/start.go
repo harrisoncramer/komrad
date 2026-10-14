@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"komrad/lib/xhttp"
+
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +25,7 @@ bringing the server up without a panel.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			addr := state.env.Addr
 
-			if probeServer(cmd.Context(), formatBase(addr)).answering {
+			if probeServer(cmd.Context(), xhttp.NewTransport(), formatBase(addr)).answering {
 				cmd.Printf("the server at %s is already running\n", addr)
 
 				return nil

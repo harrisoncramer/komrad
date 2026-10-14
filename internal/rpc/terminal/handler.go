@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"komrad/internal/attaches"
+	"komrad/internal/caller"
 	"komrad/internal/fail"
 	"komrad/internal/pty"
 	"komrad/internal/rpcerr"
@@ -92,7 +93,11 @@ func (h *Handler) Shell(ctx context.Context, stream *connect.BidiStream[terminal
 		return rpcerr.From(err, "failed to open the shell")
 	}
 
-	return h.carry(cancel, shellStream{stream: stream}, terminal)
+	return h.carry(ctx, carryParams{
+		Cancel:   cancel,
+		Stream:   shellStream{stream: stream},
+		Terminal: terminal,
+	})
 }
 
 // Attach attaches to an agent's terminal from the stream's first message, carries input and
@@ -120,12 +125,23 @@ func (h *Handler) Attach(ctx context.Context, stream *connect.BidiStream[termina
 		return rpcerr.From(err, "failed to attach to the agent")
 	}
 
-	return h.carry(cancel, attachStream{stream: stream}, terminal)
+	return h.carry(ctx, carryParams{
+		Cancel:   cancel,
+		Stream:   attachStream{stream: stream},
+		Terminal: terminal,
+	})
+}
+
+type carryParams struct {
+	Cancel   context.CancelFunc
+	Stream   callerReadWriter
+	Terminal pty.Terminal
 }
 
 // carry says the terminal is ready, carries the caller's input to it and its output back, and
 // ends with its exit status.
-func (h *Handler) carry(cancel context.CancelFunc, stream callerReadWriter, terminal pty.Terminal) *fail.Error {
+func (h *Handler) carry(ctx context.Context, params carryParams) *fail.Error {
+	cancel, stream, terminal := params.Cancel, params.Stream, params.Terminal
 	defer terminal.Close()
 
 	if err := stream.sendReady(); err != nil {
@@ -141,7 +157,7 @@ func (h *Handler) carry(cancel context.CancelFunc, stream callerReadWriter, term
 		sendOutput(stream, terminal)
 	}()
 	go func() {
-		if err := receiveInput(stream, terminal); err != nil {
+		if err := receiveInput(ctx, stream, terminal); err != nil {
 			cancel()
 			_ = terminal.Close()
 		}
@@ -187,7 +203,7 @@ func sendOutput(stream callerReadWriter, terminal pty.Terminal) {
 
 // receiveInput carries the caller's input to the terminal, ending the terminal's input the way
 // the stream says when the caller closes its side.
-func receiveInput(stream callerReadWriter, terminal pty.Terminal) error {
+func receiveInput(ctx context.Context, stream callerReadWriter, terminal pty.Terminal) error {
 	for {
 		request, err := stream.receive()
 		if errors.Is(err, io.EOF) {
@@ -207,6 +223,12 @@ func receiveInput(stream callerReadWriter, terminal pty.Terminal) error {
 		if request.resize != nil {
 			if err := terminal.Resize(toSize(request.resize)); err != nil {
 				return fmt.Errorf("failed to resize the terminal: %w", err)
+			}
+		}
+
+		if request.token != "" {
+			if err := caller.Renew(ctx, request.token); err != nil {
+				return fmt.Errorf("failed to renew the caller's sign-in: %w", err)
 			}
 		}
 	}

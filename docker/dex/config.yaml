@@ -1,0 +1,31 @@
+# The identity provider a throwaway instance signs in with. It keeps nothing between runs, and
+# lets in one person, harry@example.com, with the password "password".
+issuer: http://127.0.0.1:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  skipApprovalScreen: true
+
+# Short enough that a session of testing sees the panel renew its token.
+expiry:
+  idTokens: 10m
+
+staticClients:
+  - id: komrad
+    name: komrad
+    public: true
+    redirectURIs:
+      - http://127.0.0.1:8085
+
+enablePasswordDB: true
+
+staticPasswords:
+  - email: harry@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: harry
+    userID: 08a8684b-db88-4b73-90a9-3cd1661f5466

@@ -239,6 +239,8 @@ func (c *lostConn) sendInput([]byte) error {
 
 func (c *lostConn) sendResize(*terminalv1.Size) error { return nil }
 
+func (c *lostConn) sendToken(string) error { return nil }
+
 func (c *lostConn) closeInput() error { return nil }
 
 func (c *lostConn) receive() (received, error) {
@@ -262,6 +264,8 @@ func (c *heardConn) sendInput(input []byte) error {
 }
 
 func (c *heardConn) sendResize(*terminalv1.Size) error { return nil }
+
+func (c *heardConn) sendToken(string) error { return nil }
 
 func (c *heardConn) closeInput() error {
 	close(c.sent)

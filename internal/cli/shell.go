@@ -54,9 +54,10 @@ this command's.`,
 				base = formatBase(addr)
 			}
 
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), base)
+			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), base)
 			code, err := runConsole(ctx, runConsoleParams{
-				Dial: dialShell(client, args[0], state.env.Term),
+				Dial:  dialShell(client, args[0], state.env.Term),
+				Token: state.getTokenSource(),
 			})
 			if err != nil {
 				return err
@@ -107,6 +108,9 @@ func dialShell(client terminalv1connect.TerminalServiceClient, dir, term string)
 			},
 			resize: func(size *terminalv1.Size) *terminalv1.ShellRequest {
 				return &terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Resize{Resize: size}}
+			},
+			token: func(token string) *terminalv1.ShellRequest {
+				return &terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Token{Token: token}}
 			},
 			read: func(response *terminalv1.ShellResponse) received {
 				return received{

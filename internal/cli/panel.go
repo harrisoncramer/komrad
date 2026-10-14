@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"slices"
 	"time"
@@ -129,7 +130,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				startupFindings = state.diagnose(cmd.Context())
 			}
 
-			httpClient := xhttp.NewClientOver(rpcapi.NewTransport(), 0)
+			httpClient := xhttp.NewClientOver(state.signTransport(rpcapi.NewTransport()), 0)
 			agentClient := agentv1connect.NewAgentServiceClient(httpClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(httpClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)
@@ -198,21 +199,23 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 
 // panelEngineStatus is the engine this panel is on and how to ask what it runs.
 func panelEngineStatus(ctx context.Context, state *app, base string, startupErr error) ui.EngineStatus {
+	transport := state.signTransport(xhttp.NewTransport())
+
 	var build ui.EngineBuild
 	if startupErr == nil {
-		build, _ = readEngineBuild(ctx, base)
+		build, _ = readEngineBuild(ctx, transport, base)
 	}
 
 	return ui.EngineStatus{
 		Name:      state.configStack.Engine,
 		Build:     build,
-		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, base) },
+		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, transport, base) },
 	}
 }
 
 // readEngineBuild asks the server at base what it runs.
-func readEngineBuild(ctx context.Context, base string) (ui.EngineBuild, bool) {
-	probe := probeServer(ctx, base)
+func readEngineBuild(ctx context.Context, transport http.RoundTripper, base string) (ui.EngineBuild, bool) {
+	probe := probeServer(ctx, transport, base)
 	if !probe.answering {
 		return ui.EngineBuild{}, false
 	}
