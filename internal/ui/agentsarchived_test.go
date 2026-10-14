@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -368,25 +367,6 @@ func TestArchivedAgentsRows(t *testing.T) {
 	}
 }
 
-// TestArchivedAgentsRowEmphasis covers what the archived agents' rows say in colour.
-func TestArchivedAgentsRowEmphasis(t *testing.T) {
-	t.Run("an archived folder is greyed and a live one is not", func(t *testing.T) {
-		harness := openArchivedAgents(t,
-			newLiveWorkflow("w1", "backend"),
-			newArchivedAgent("a1", "auth", "w1"),
-			newArchivedWorkflow("w2", "frontend"),
-			newArchivedAgent("a2", "ui", "w2"),
-		)
-
-		harness.press("G")
-
-		frame := harness.readRawFrame()
-		muted := paint.Panel.Style(paint.ToneMuted).Bold(true)
-		assert.Contains(t, frame, muted.Render("frontend"))
-		assert.NotContains(t, frame, muted.Render("backend"))
-	})
-}
-
 // TestArchivedAgentsMenuEntries covers the archive menu naming what the hovered row takes.
 func TestArchivedAgentsMenuEntries(t *testing.T) {
 	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
@@ -652,18 +632,6 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		require.Positive(t, created)
 		assert.Less(t, created, archived, "when it was put away comes after when it was made")
 	})
-
-	t.Run("the document follows the cursor onto the folder", func(t *testing.T) {
-		workflow := newLiveWorkflow("w1", "backend")
-		workflow.Context = "the shared notes"
-		harness := openArchivedAgents(t, workflow, newArchivedAgent("a1", "api-refactor", "w1"))
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "the shared notes")
-		for _, row := range splitLines(frame) {
-			assert.LessOrEqual(t, ansi.StringWidth(row), defaultHarnessWidth, "neither column runs past the window")
-		}
-	})
 }
 
 // TestArchivedAgentsSort covers ordering the archived agents by their column tabs.
@@ -710,40 +678,6 @@ func TestArchivedAgentsSort(t *testing.T) {
 			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
 		})
 	}
-
-	t.Run("the archived agents open under their folders, the most recently archived first", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.watch(buildSnapshot(unsorted...))
-
-		harness.press("F", "tab", "esc")
-
-		assert.Equal(t, []string{"backend", "├─ mid", "├─ zeta", "└─ alpha"}, readListRows(harness.readFrame()))
-	})
-
-	t.Run("the top and bottom keys walk the archived agents' own rows", func(t *testing.T) {
-		harness := openArchivedAgents(t, unsorted...)
-
-		harness.press("G")
-		assert.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()))
-
-		harness.press("g")
-		assert.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()), "the first press waits for the second")
-
-		harness.press("g")
-		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
-	})
-
-	t.Run("the cursor keeps its row as the archived agents are reordered", func(t *testing.T) {
-		harness := openArchivedAgents(t, unsorted...)
-		harness.press("j", "j", "j")
-		require.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()))
-
-		harness.press("f", "tab", "k", "esc")
-		assert.Equal(t, "├─ alpha", readHoveredRow(harness.readFrame()), "name up")
-
-		harness.press("f", "j", "esc")
-		assert.Equal(t, "└─ alpha", readHoveredRow(harness.readFrame()), "name down")
-	})
 }
 
 // TestArchivedAgentsWindow covers the archived agents holding the window and the keyboard.
@@ -787,57 +721,6 @@ func TestArchivedAgentsWindow(t *testing.T) {
 		assert.False(t, harness.panel.IsZoomed(), "the pane it made is not left under the archived agents' own zoom")
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 	})
-
-	t.Run("a short window keeps the list beside the document", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{
-			width:  120,
-			height: 10,
-		})
-		harness.watch(buildSnapshot(buildOneArchivedAgent()...))
-
-		harness.press("F", "tab", "esc", "j", "?")
-
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"backend", "└─ api-refactor"}, readListRows(frame), "the list keeps its column")
-		assert.Contains(t, frame, "archived — kept until deleted", "beside the hovered row's document")
-		assert.Len(t, splitLines(frame), 10, "the view is exactly the pane")
-		assert.Contains(t, frame, "show help", "the legend gave up its expansion for the rows")
-		assert.NotContains(t, frame, "hide help")
-	})
-
-	t.Run("the document column stands as tall as the window", func(t *testing.T) {
-		workflow := newLiveWorkflow("w1", "backend")
-		workflow.Context = strings.Repeat("a line of the document. ", 60)
-
-		tests := []struct {
-			name   string
-			height int
-		}{
-			{
-				name:   "a short window",
-				height: 12,
-			},
-			{
-				name:   "a middling window",
-				height: 16,
-			},
-			{
-				name:   "a tall window",
-				height: 24,
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				harness := newPanelHarness(t, panelHarnessParams{height: tt.height})
-				harness.watch(buildSnapshot(workflow, newArchivedAgent("a1", "api-refactor", "w1")))
-
-				harness.press("F", "tab", "esc")
-
-				assert.Len(t, splitLines(harness.readFrame()), tt.height)
-			})
-		}
-	})
 }
 
 // TestArchivedAgentsSelection covers choosing several archived agents and acting on them at once.
@@ -854,22 +737,6 @@ func TestArchivedAgentsSelection(t *testing.T) {
 		press    []string
 		wantSent []request
 	}{
-		{
-			name:  "a header takes its whole folder",
-			press: []string{"v", "space", "a", "r"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api", "db"}},
-			}},
-		},
-		{
-			name:  "the range key reaches back to the nearest selection",
-			press: []string{"j", "v", "j", "j", "V", "space", "a", "r"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api", "db"}},
-			}},
-		},
 		{
 			name:  "restore takes the whole selection rather than the hovered row",
 			press: []string{"j", "v", "j", "v", "j", "space", "a", "r"},

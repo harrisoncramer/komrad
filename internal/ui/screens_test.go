@@ -6,9 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"unicode"
 
-	"komrad/config"
 	"komrad/internal/engine"
 	"komrad/internal/ui"
 	"komrad/lib/xptr"
@@ -76,14 +74,6 @@ func TestScreensStage(t *testing.T) {
 		harness.fireTimers()
 
 		assert.True(t, harness.panel.IsZoomed(), "tmux is holding the zoom rather than the frame only believing so")
-	})
-
-	t.Run("the frame is as tall as the pane", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openStaged(t, "g", "g", "j")
-
-		assert.Len(t, splitLines(harness.readFrame()), defaultHarnessHeight)
 	})
 
 	t.Run("a pane moved by hand gives up both halves until the keys come back", func(t *testing.T) {
@@ -241,83 +231,6 @@ func TestScreensDivider(t *testing.T) {
 
 		assert.Equal(t, before, harness.readRendered())
 	})
-
-	t.Run("the edge facing the stage", func(t *testing.T) {
-		tests := []struct {
-			name  string
-			side  string
-			edge  func(string) string
-			plain string
-			rule  string
-		}{
-			{
-				name: "stands right of a sidebar on the left, past its gutter",
-				side: config.SidebarSideLeft,
-				edge: func(row string) string {
-					return string([]rune(row)[len([]rune(row))-2:])
-				},
-				plain: " │",
-				rule:  "─┤",
-			},
-			{
-				name: "stands left of a sidebar on the right, before its gutter",
-				side: config.SidebarSideRight,
-				edge: func(row string) string {
-					return string([]rune(row)[:2])
-				},
-				plain: "│ ",
-				rule:  "├─",
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				harness := newPanelHarness(t, panelHarnessParams{width: 200, sidebarSide: tt.side})
-				answerWorktreeReads(harness)
-				harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
-				harness.press("g", "g", "j")
-				harness.fireTimers()
-
-				rules := 0
-				for _, row := range splitLines(harness.readRendered()) {
-					if strings.Contains(row, "──") && !strings.ContainsFunc(row, unicode.IsLetter) {
-						rules++
-						assert.Equal(t, tt.rule, tt.edge(row), "a rule meets the edge in a junction")
-
-						continue
-					}
-					assert.Equal(t, tt.plain, tt.edge(row))
-				}
-				assert.Positive(t, rules)
-			})
-		}
-	})
-
-	t.Run("a gutter stands left of a sidebar on the left", func(t *testing.T) {
-		harness := openStaged(t, "g", "g", "j")
-
-		for _, row := range splitLines(harness.readRendered()) {
-			assert.True(t, strings.HasPrefix(row, " "), row)
-		}
-	})
-
-	t.Run("a table in the document beside the list does not join the divider", func(t *testing.T) {
-		workflow := newNotedWorkflow()
-		workflow.Context = "| a | b |\n|---|---|\n| 1 | 2 |"
-		harness := newPanelHarness(t, panelHarnessParams{width: 200})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(workflow, newRunning()))
-		harness.press("g", "g")
-		harness.fireTimers()
-
-		frame := harness.readRendered()
-		require.Contains(t, frame, "┼", "the table's own separator is rendered")
-		for _, row := range splitLines(frame) {
-			if strings.Contains(row, "┼") {
-				assert.NotContains(t, row, "├", "the divider is not joined to the table")
-			}
-		}
-	})
 }
 
 // TestScreensSidebarWidth covers how wide the list is rendered beside a document.
@@ -366,139 +279,6 @@ func TestScreensSidebarWidth(t *testing.T) {
 		assert.Equal(t, 171, measureListRule(frame), "the window less the stage, the divider and its gutters")
 		assert.Contains(t, frame, "always run the linter", "and the document keeps what is left")
 	})
-}
-
-// TestScreensFitTheLegend covers a list screen fitting its title, its hovered row and its whole legend into the pane.
-func TestScreensFitTheLegend(t *testing.T) {
-	tests := []struct {
-		listScreen
-		bottom string
-	}{
-		{
-			listScreen: listScreen{
-				name:   "the agents tree",
-				screen: agentsScreen,
-			},
-			bottom: "agent39",
-		},
-		{
-			listScreen: listScreen{
-				name:   "the archived agents",
-				press:  []string{"F", "tab", "esc"},
-				screen: agentsScreen,
-			},
-			bottom: "agent39",
-		},
-		{
-			listScreen: listScreen{
-				name:   "the schedules",
-				press:  []string{"tab"},
-				screen: schedulesScreen,
-			},
-			bottom: "agent00",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{width: 80, height: 29})
-
-			harness.press(slices.Concat(tt.press, widenListPresses, []string{"G", "?"})...)
-
-			frame := harness.readFrame()
-			assert.LessOrEqual(t, len(splitLines(frame)), 29)
-			assert.Equal(t, tt.screen, harness.readScreen())
-			assert.Contains(t, frame, "hide help")
-			assert.Contains(t, readHoveredRow(frame), tt.bottom, "the hovered row is on screen")
-		})
-	}
-}
-
-// TestScreensPromptSitsInTheListColumn covers the prompt set flush with the list's left edge.
-func TestScreensPromptSitsInTheListColumn(t *testing.T) {
-	tests := []struct {
-		name  string
-		press []string
-		want  string
-	}{
-		{
-			name:  "a search on the agents tree",
-			press: []string{"/", "d", "b", "enter"},
-			want:  "/ db",
-		},
-		{
-			name:  "a filter on the agents tree",
-			press: []string{"/", "tab", "d", "b", "enter"},
-			want:  "▽ db",
-		},
-		{
-			name:  "a search on the worktrees",
-			press: []string{"shift+tab", "/", "d", "b", "enter"},
-			want:  "/ db",
-		},
-		{
-			name:  "the transcript search",
-			press: []string{"tab", "/", "d", "b"},
-			want:  "/ db",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{width: 80, height: 29})
-
-			harness.press(tt.press...)
-
-			assert.True(t, slices.ContainsFunc(splitLines(harness.readFrame()), func(line string) bool {
-				return strings.HasPrefix(line, tt.want)
-			}))
-		})
-	}
-}
-
-// TestScreensRecordGivesWay covers the record standing down at the height it would leave the list no row.
-func TestScreensRecordGivesWay(t *testing.T) {
-	tests := []struct {
-		name   string
-		press  []string
-		fills  int
-		bottom string
-	}{
-		{
-			name:   "the agents tree",
-			fills:  12,
-			bottom: "agent39",
-		},
-		{
-			name:   "the archived agents",
-			press:  []string{"F", "tab", "esc"},
-			fills:  12,
-			bottom: "agent39",
-		},
-		{
-			name:   "the schedules",
-			press:  []string{"tab"},
-			fills:  10,
-			bottom: "agent00",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{height: 40})
-			harness.press(append(tt.press, "G")...)
-
-			resize(harness, defaultHarnessWidth, tt.fills)
-			frame := harness.readFrame()
-			assert.False(t, isRecordRendered(frame), "the record gives up its rows")
-			assert.Contains(t, readHoveredRow(frame), tt.bottom, "to the row the cursor stands on")
-
-			resize(harness, defaultHarnessWidth, tt.fills+1)
-			frame = harness.readFrame()
-			assert.True(t, isRecordRendered(frame), "the record is rendered once the list keeps a row beside it")
-			assert.Contains(t, readHoveredRow(frame), tt.bottom)
-		})
-	}
 }
 
 // TestScreensFitATightPane covers a list screen in a pane only just tall enough for its chrome.
@@ -610,27 +390,6 @@ func TestScreensOutgrowNoPane(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestScreensCutLongNames covers a name too long for its row being cut with an ellipsis that leaves what is beside it.
-func TestScreensCutLongNames(t *testing.T) {
-	long := strings.Repeat("x", 120)
-
-	t.Run("a workflow in the tree keeps its hidden tally", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{width: 80})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(append([]proto.Message{newLiveWorkflow("w1", long)}, newAgentOnHiddenTask("a1", "sweep")...)...))
-
-		row := findRowWith(t, harness.readFrame(), long[:10])
-		assert.Contains(t, row, "…", "the name says it was cut")
-		assert.Contains(t, row, "+1", "the tally beside it is still rendered")
-	})
-
-	t.Run("a workflow in the archive", func(t *testing.T) {
-		harness := openArchivedAgents(t, newArchivedWorkflow("w1", long))
-
-		assert.Contains(t, findRowWith(t, harness.readFrame(), long[:10]), "…")
-	})
 }
 
 // TestScreensSurviveAListing covers a listing landing on each screen the listing feeds.

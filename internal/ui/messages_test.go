@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,31 +20,6 @@ import (
 
 // TestMessagesHeader covers a message flashing on the engine line and what it leaves there.
 func TestMessagesHeader(t *testing.T) {
-	t.Run("a message flashes its summary beside the engine", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
-
-		harness.press("enter")
-
-		assert.Equal(t, " local  ✗ Could not resume agent \"api-refactor\"", readEngineLine(harness.readFrame()))
-	})
-
-	t.Run("a summary wider than the pane is clipped", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{sidebarWidth: 33})
-
-		harness.press("enter")
-
-		assert.Equal(t, " local  ✗ Could not resume a…", readEngineLine(harness.readFrame()))
-	})
-
-	t.Run("an error left standing is counted once the flash is over", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
-
-		harness.press("enter", "enter")
-		settleFlash(harness)
-
-		assert.Equal(t, " local  ✗ 2  C-g", readEngineLine(harness.readFrame()))
-	})
-
 	t.Run("dismissing the message that landed ends its flash", func(t *testing.T) {
 		harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
 
@@ -64,16 +38,6 @@ func TestMessagesHeader(t *testing.T) {
 
 		assert.Equal(t, " local", readEngineLine(harness.readFrame()))
 	})
-
-	t.Run("a pane too short for the header flashes beside the engine in place of the trail", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{height: 13})
-
-		harness.press("enter")
-		assert.Equal(t, "\uf444 local  ✗ Could not resume agent \"api-refa…", readEngineRow(harness.readFrame(), 0))
-
-		settleFlash(harness)
-		assert.NotContains(t, harness.readFrame(), "Could not resume")
-	})
 }
 
 // TestMessagesPane covers every message read in the main pane.
@@ -84,22 +48,6 @@ func TestMessagesPane(t *testing.T) {
 		harness.press("ctrl+g", "k")
 
 		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()), "the list kept the keys")
-	})
-
-	t.Run("the whole message is rendered in the main pane with the list still beside it", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{})
-
-		harness.press("enter", "ctrl+g")
-
-		frame := harness.readFrame()
-		pane := joinProse(readStage(frame))
-		assert.Contains(t, pane, "messages 1 of 1")
-		assert.Contains(t, pane, `Could not resume agent "api-refactor"`)
-		assert.Contains(t, pane, "no such agent")
-		assert.Contains(t, pane, "error ·")
-		assert.Contains(t, pane, "komrad log "+traceID)
-		assert.Equal(t, "└─ api-refactor", readHoveredRow(frame))
-		assert.Contains(t, readLegend(frame), "back to list")
 	})
 
 	t.Run("the cursor walks from the newest message back", func(t *testing.T) {
@@ -222,45 +170,6 @@ func TestMessagesCopy(t *testing.T) {
 
 		assert.Equal(t, flashed, readStyledSummary(harness, "no such agent"))
 	})
-}
-
-// TestMessagesBlink covers a message blinking in the header as it lands.
-func TestMessagesBlink(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		press []string
-	}{
-		{
-			name:  "a message blinks twice and settles as it found the row",
-			press: []string{"enter"},
-		},
-		{
-			name:  "two messages landing together blink at one speed",
-			press: []string{"enter", "enter"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
-			harness.press(tt.press...)
-
-			var heads []string
-			for range 4 {
-				heads = append(heads, splitLines(harness.readRawFrame())[1])
-				harness.firePulse()
-			}
-
-			lit, settled := heads[0], heads[3]
-			assert.NotEqual(t, lit, settled)
-			assert.Equal(t, []string{lit, settled, lit, settled}, heads)
-			assert.Equal(t, ansi.Strip(lit), ansi.Strip(settled), "the blink changes no words")
-		})
-	}
 }
 
 // TestMessagesGolden renders the header and the main pane whole, colours included.

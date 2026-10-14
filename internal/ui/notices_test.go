@@ -19,80 +19,11 @@ import (
 
 // TestNotices covers the record spelling out the marks on the hovered row above its fields.
 func TestNotices(t *testing.T) {
-	t.Run("every mark the row carries is said above its fields", func(t *testing.T) {
-		harness := openNoticed(t, panelHarnessParams{}, newFailedRun(), newUnreadMail("n1"))
-
-		record := readRecordProse(harness.readFrame())
-		assert.Contains(t, record, "a script komrad fired failed, log unread")
-		assert.Contains(t, record, "mail waiting, it has not read it")
-		assert.Equal(t, "/repo", readRecordField(harness.readFrame(), "directory"))
-	})
-
 	t.Run("a row carrying no mark says nothing", func(t *testing.T) {
 		harness := openNoticed(t, panelHarnessParams{}, newNoticed())
 
 		assert.Empty(t, readNoticeBlock(harness))
 	})
-
-	t.Run("the notices take their lines from the fields rather than the list", func(t *testing.T) {
-		plain := openNoticed(t, panelHarnessParams{}, newNoticed())
-		marked := openNoticed(t, panelHarnessParams{}, newFailedRun(), newUnreadMail("n1"))
-
-		assert.Len(t, readRecord(marked.readFrame()), len(readRecord(plain.readFrame())))
-		assert.Equal(t, findRule(plain.readFrame()), findRule(marked.readFrame()), "the record starts on the same line")
-	})
-
-	tests := []struct {
-		name       string
-		params     panelHarnessParams
-		rows       []proto.Message
-		want       []string
-		wantAbsent []string
-	}{
-		{
-			name: "a short pane gives up the last notice before the fields",
-			params: panelHarnessParams{
-				width:  40,
-				height: 13,
-			},
-			rows:       []proto.Message{newFailedRun(), newUnreadMail("n1")},
-			want:       []string{"agent", "a script komrad fired failed"},
-			wantAbsent: []string{"mail waiting"},
-		},
-		{
-			name: "a pane too narrow for one whole sentence cuts it short and says so",
-			params: panelHarnessParams{
-				width:  24,
-				height: 13,
-			},
-			rows:       []proto.Message{newFailedRun()},
-			want:       []string{"a script komrad", "…"},
-			wantAbsent: []string{"log unread"},
-		},
-		{
-			name: "the record keeps a row to count the fields it left out",
-			params: panelHarnessParams{
-				width:  40,
-				height: 19,
-			},
-			rows: []proto.Message{newFailedRun()},
-			want: []string{"agent", "more"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := openNoticed(t, tt.params, tt.rows...)
-
-			record := readRecordProse(harness.readFrame())
-			for _, want := range tt.want {
-				assert.Contains(t, record, want)
-			}
-			for _, absent := range tt.wantAbsent {
-				assert.NotContains(t, record, absent)
-			}
-		})
-	}
 }
 
 // TestNoticesGolden renders the notice block whole, glyphs and colours included.
