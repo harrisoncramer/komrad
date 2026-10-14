@@ -2127,24 +2127,10 @@
           "default": "\"\""
         },
         {
-          "key": "ssh",
-          "path": "connection.ssh",
-          "type": "string",
-          "description": "The ssh destination the engine runs on, like user@host, when it is not this machine.\nLeft empty the engine is local and an agent's terminal is shown by moving its own pane\ninto the panel, which only works while the panel and the agents share a tmux server.",
-          "default": "\"\""
-        },
-        {
-          "key": "forward",
-          "path": "connection.forward",
-          "type": "array",
-          "description": "The command, as an argv, that forwards a port from this machine to the engine when you do\nnot reach it through ssh. \"{{local_port}}\" and \"{{remote_port}}\" are replaced with the two ends. It should\nstay in the foreground for as long as the forward is wanted.",
-          "default": "[]"
-        },
-        {
           "key": "url",
           "path": "connection.url",
           "type": "string",
-          "description": "The https address the engine is served on, like https://komrad.example.com, when it sits\nbehind a web server rather than at the end of ssh or a forward. It may be plain http when\nits host is this machine.",
+          "description": "The https address the engine is served on, like https://komrad.example.com, when it is not\nthis machine. Left empty the engine is local and an agent's terminal is shown by moving its\nown pane into the panel. It may be plain http when its host is this machine.",
           "default": "\"\""
         }
       ],

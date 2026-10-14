@@ -822,15 +822,7 @@ cache_dir             = ""
 # Left empty this is ~/.local/state/komrad.
 # It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 state_dir             = ""
-# The ssh destination the engine runs on, like user@host, when it is not this machine.
-# Left empty the engine is local and an agent's terminal is shown by moving its own pane
-# into the panel, which only works while the panel and the agents share a tmux server.
-ssh                   = ""
-# The command, as an argv, that forwards a port from this machine to the engine when you do
-# not reach it through ssh. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
-# stay in the foreground for as long as the forward is wanted.
-forward               = []
-# The https address the engine is served on, like https://komrad.example.com, when it sits
-# behind a web server rather than at the end of ssh or a forward. It may be plain http when
-# its host is this machine.
+# The https address the engine is served on, like https://komrad.example.com, when it is not
+# this machine. Left empty the engine is local and an agent's terminal is shown by moving its
+# own pane into the panel. It may be plain http when its host is this machine.
 url                   = ""

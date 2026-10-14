@@ -145,12 +145,7 @@ func isServerOK(report doctor.Report) bool {
 // askEngineDoctor is the checks the engine's server made on its own machine, read back into
 // the doctor's own findings.
 func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
-	base, release, err := a.dialAPI(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	defer release()
+	base := a.apiBase()
 
 	client := doctorv1connect.NewDoctorServiceClient(xhttp.NewClientOver(a.signTransport(xhttp.NewTransport()), apiCallTimeout), base)
 	resp, err := client.RunDoctor(ctx, connect.NewRequest(&emptypb.Empty{}))
@@ -181,15 +176,8 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 
 	env := doctor.NewEnv(settings)
 
-	// A remote engine answers on its own loopback, so komrad reaches the address it was configured
-	// with through a forward rather than dialling it here.
 	env.ProbeServer = func(ctx context.Context) (doctor.ServerStatus, error) {
-		base, release, err := a.dialAPI(ctx)
-		if err != nil {
-			return doctor.ServerStatus{}, err
-		}
-
-		defer release()
+		base := a.apiBase()
 
 		found := probeServer(ctx, a.signTransport(xhttp.NewTransport()), base)
 		if found.refusal != nil {
@@ -205,12 +193,7 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 	}
 
 	env.CheckForges = func(ctx context.Context) ([]doctor.ForgeStatus, error) {
-		base, release, err := a.dialAPI(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		defer release()
+		base := a.apiBase()
 
 		resp, err := a.forgeClient(base).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 		if err != nil {

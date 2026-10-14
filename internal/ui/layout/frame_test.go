@@ -897,7 +897,7 @@ func TestFocusPaneIsEmptyOnceTheStageShowsSomethingElse(t *testing.T) {
 	assert.Empty(t, frame.FocusPane())
 }
 
-// TestRemoteGuestIsAttachedAgainOnceItsViewerDies covers the ssh in the stage dropping while the
+// TestRemoteGuestIsAttachedAgainOnceItsViewerDies covers the viewer in the stage dropping while the
 // cursor stays on the same agent, which takes the stage pane with it.
 func TestRemoteGuestIsAttachedAgainOnceItsViewerDies(t *testing.T) {
 	tmux := &recordingTmux{
@@ -935,9 +935,9 @@ func TestRemoteGuestAttachesOverTheAPI(t *testing.T) {
 	}{
 		{
 			name:    "the stage runs komrad terminal on the agent",
-			command: []string{"komrad", "terminal", "--addr", "127.0.0.1:19001"},
+			command: []string{"komrad", "terminal"},
 			guest:   Guest{Agent: "agent-7", Pane: "%7"},
-			want:    []string{"komrad terminal --addr 127.0.0.1:19001 -- agent-7"},
+			want:    []string{"komrad terminal -- agent-7"},
 		},
 		{
 			name:  "an engine the panel cannot reach leaves the stage alone",
@@ -945,7 +945,7 @@ func TestRemoteGuestAttachesOverTheAPI(t *testing.T) {
 		},
 		{
 			name:    "a guest with no agent leaves the stage alone",
-			command: []string{"komrad", "terminal", "--addr", "127.0.0.1:19001"},
+			command: []string{"komrad", "terminal"},
 			guest:   Guest{Pane: "%7"},
 		},
 	}
@@ -1156,12 +1156,12 @@ func (t *recordingTmux) KillPane(pane string) {
 
 // remoteEngine is an engine somewhere this tmux server cannot reach.
 func remoteEngine() engine.Remote {
-	return engine.Remote{Destination: "komrad@host"}
+	return engine.Remote{URL: "https://komrad.example.com"}
 }
 
 // newRemoteFrame is a frame over an engine somewhere else, reached with komrad terminal.
 func newRemoteFrame(tmux *recordingTmux) *Frame {
 	return New(tmux, config.DefaultLayout(),
 		WithEngine(remoteEngine()),
-		WithTerminalCommand([]string{"komrad", "terminal", "--addr", "127.0.0.1:19001"}))
+		WithTerminalCommand([]string{"komrad", "terminal"}))
 }

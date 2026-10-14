@@ -30,7 +30,7 @@ Secrets Manager also holds the GitHub App's private key. The instance's IAM role
 
 The security group opens ports 443 and 80, and Caddy answers on both. Caddy serves the engine on 443. On 80 it answers Let's Encrypt's certificate check and redirects every other request to HTTPS. [Access](../engine-access/) covers how the engine checks each request that arrives on 443.
 
-Operators get a shell through AWS Systems Manager. The SSM agent on the instance keeps an outbound connection to Systems Manager, so the instance needs no SSH port. Deploys and restarts go through Systems Manager as well.
+Operators get a shell through AWS Systems Manager. The SSM agent on the instance keeps an outbound connection to Systems Manager, so the instance opens no port for operators. Deploys and restarts go through Systems Manager as well.
 
 ## GitHub Actions
 

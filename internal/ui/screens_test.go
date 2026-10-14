@@ -124,7 +124,7 @@ func TestScreensStage(t *testing.T) {
 	t.Run("a remote engine's agent windows are left alone", func(t *testing.T) {
 		t.Parallel()
 
-		harness := newPanelHarness(t, panelHarnessParams{width: 200, engine: engine.Remote{Forward: []string{"ssh", "engine"}}})
+		harness := newPanelHarness(t, panelHarnessParams{width: 200, engine: engine.Remote{URL: "https://komrad.example.com"}})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
 		harness.press("j")
@@ -140,15 +140,15 @@ func TestScreensStage(t *testing.T) {
 
 		harness := newPanelHarness(t, panelHarnessParams{
 			width:           200,
-			engine:          engine.Remote{Destination: "ubuntu@engine"},
-			terminalCommand: []string{"komrad", "terminal", "--addr", "127.0.0.1:19001"},
+			engine:          engine.Remote{URL: "https://komrad.example.com"},
+			terminalCommand: []string{"komrad", "terminal"},
 		})
 		answerWorktreeReads(harness)
 		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
 		harness.press("j")
 		harness.fireTimers()
 
-		assert.Contains(t, harness.panel.ReadRespawns(), "komrad terminal --addr 127.0.0.1:19001 -- a1")
+		assert.Contains(t, harness.panel.ReadRespawns(), "komrad terminal -- a1")
 	})
 }
 

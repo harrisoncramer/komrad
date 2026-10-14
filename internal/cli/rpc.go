@@ -84,12 +84,7 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 			defer cancel()
 		}
 
-		base, release, err := state.dialAPI(ctx)
-		if err != nil {
-			return err
-		}
-
-		defer release()
+		base := state.apiBase()
 
 		if err := requireServer(ctx, requireServerParams{
 			Transport: state.signTransport(xhttp.NewTransport()),

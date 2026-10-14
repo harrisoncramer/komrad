@@ -61,7 +61,7 @@ func newServerCheck() Check {
 				return fail(
 					fmt.Errorf("%w: %w", errEngineUnreachable, err),
 					served,
-					"check the engine is up and that this engine's ssh settings reach it",
+					"check the engine is up and that this engine's url reaches it",
 				)
 			}
 

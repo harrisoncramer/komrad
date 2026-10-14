@@ -1,45 +1,32 @@
 package cli
 
 import (
-	"net"
-	"net/http"
-	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"komrad/config"
 	"komrad/internal/caller"
-	"komrad/internal/engine"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// TestDialAPIReachesARemoteEngineThroughItsForward covers which address a command talks to.
-func TestDialAPIReachesARemoteEngineThroughItsForward(t *testing.T) {
+// TestAPIBaseIsWhereTheEngineIsServed covers which address a command talks to.
+func TestAPIBaseIsWhereTheEngineIsServed(t *testing.T) {
 	t.Parallel()
-
-	const engineAddr = "127.0.0.1:8787"
 
 	tests := []struct {
 		name string
-		ssh  string
 		url  string
+		want string
 	}{
 		{
 			name: "the engine is this machine, so the configured address is dialled",
-			ssh:  "",
 			url:  "",
+			want: "http://127.0.0.1:8787",
 		},
 		{
-			name: "the engine is elsewhere, so the forward is dialled instead",
-			ssh:  "komrad@203.0.113.4",
-			url:  "",
-		},
-		{
-			name: "the engine is served at a url, so the url is dialled with no forward",
-			ssh:  "",
+			name: "the engine is served at a url, so the url is dialled",
 			url:  "https://komrad.example.com",
+			want: "https://komrad.example.com",
 		},
 	}
 
@@ -48,46 +35,13 @@ func TestDialAPIReachesARemoteEngineThroughItsForward(t *testing.T) {
 			t.Parallel()
 
 			state := &app{env: &config.Environment{
-				Addr: engineAddr,
-				SSH:  tt.ssh,
+				Addr: "127.0.0.1:8787",
 				URL:  tt.url,
 			}}
 
-			want := formatBase(engineAddr)
-			switch {
-			case tt.url != "":
-				want = tt.url
-			case tt.ssh != "":
-				// A forward already carrying the engine is reused rather than replaced, so a
-				// listener on the port it always lands on stands in for ssh.
-				want = formatBase(listenOnTunnelPort(t, state.engine(), engineAddr))
-			}
-
-			base, release, err := state.dialAPI(t.Context())
-			require.NoError(t, err)
-
-			t.Cleanup(release)
-
-			assert.Equal(t, want, base)
+			assert.Equal(t, tt.want, state.apiBase())
 		})
 	}
-}
-
-// listenOnTunnelPort answers on the port an engine's forward always lands on and returns it.
-func listenOnTunnelPort(t *testing.T, remote engine.Remote, engineAddr string) string {
-	t.Helper()
-
-	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(remote.TunnelPort(engineAddr)))
-
-	listener, err := net.Listen("tcp", addr)
-	require.NoError(t, err, "the port this engine's forward lands on is already taken")
-
-	server := httptest.NewUnstartedServer(http.NotFoundHandler())
-	server.Listener = listener
-	server.Start()
-	t.Cleanup(server.Close)
-
-	return addr
 }
 
 // TestCallerIsDroppedForAnotherEngine covers an agent's own id travelling to its own panel and
@@ -101,7 +55,7 @@ func TestCallerIsDroppedForAnotherEngine(t *testing.T) {
 	remote := &app{env: &config.Environment{
 		AgentID:   "a1",
 		SessionID: "s1",
-		SSH:       "user@engine",
+		URL:       "https://komrad.example.com",
 	}}
 	assert.Equal(t, caller.Caller{}, remote.caller())
 }

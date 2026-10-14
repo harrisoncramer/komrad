@@ -86,7 +86,7 @@ func TestPatchReaderRunsOnTheEngineWhenTheAgentsAreThere(t *testing.T) {
 	}{
 		{
 			name:   "a remote engine reads through its api",
-			remote: engine.Remote{Destination: "komrad@host"},
+			remote: engine.Remote{URL: "https://komrad.example.com"},
 			want:   &git.EngineClient{},
 		},
 		{

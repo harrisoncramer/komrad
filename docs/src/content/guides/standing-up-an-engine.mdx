@@ -13,7 +13,7 @@ This guide builds [komrad's engine](../komrads-engine/) from an empty AWS accoun
 ## Prerequisites
 
 - An AWS account with a named profile, and an S3 bucket for Terraform's state.
-- The Session Manager plugin for the AWS CLI. The machine runs no SSH server, and you need the plugin to get a shell.
+- The Session Manager plugin for the AWS CLI, which you need to get a shell on the machine.
 - A domain for the engine, for example `komrad.example.com`, at a DNS host you control.
 - Komrad registered with your identity provider as a desktop app. [Access](../engine-access/#registering-komrad-with-the-provider) covers the registration.
 - A GitHub App for the engine, with its private key stored in Secrets Manager as `komrad/github-app`. [Forge credentials](../forge-credentials/#github) covers the App. The machine reads the key at boot, so store it before the first one.

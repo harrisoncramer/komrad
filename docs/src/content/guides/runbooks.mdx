@@ -11,7 +11,7 @@ Run these from a komrad checkout, with AWS credentials from the komrad profile o
 
 ## Getting a shell
 
-The machine runs no SSH server. You get a shell through AWS Systems Manager, which needs the Session Manager plugin for the AWS CLI. Look up the instance's id in Terraform, then open a session:
+You get a shell on the machine through AWS Systems Manager, which needs the Session Manager plugin for the AWS CLI. Look up the instance's id in Terraform, then open a session:
 
 ```sh
 mise run infra:engine:run output instance_id

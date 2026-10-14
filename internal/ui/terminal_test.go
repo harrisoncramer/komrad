@@ -158,7 +158,7 @@ func TestTerminal(t *testing.T) {
 	})
 
 	t.Run("a remote engine with no way to reach it opens no shell", func(t *testing.T) {
-		harness := openTerminal(t, panelHarnessParams{engine: engine.Remote{Destination: "ubuntu@engine"}}, newStagedShellAgent("/var/lib/komrad/worktrees/01a0c466"))
+		harness := openTerminal(t, panelHarnessParams{engine: engine.Remote{URL: "https://komrad.example.com"}}, newStagedShellAgent("/var/lib/komrad/worktrees/01a0c466"))
 
 		harness.press("space", "t")
 
@@ -168,8 +168,8 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("a remote engine's shell is opened over the engine's api", func(t *testing.T) {
 		remote := panelHarnessParams{
-			engine:       engine.Remote{Destination: "ubuntu@engine"},
-			shellCommand: []string{"komrad", "shell", "--addr", "127.0.0.1:19001"},
+			engine:       engine.Remote{URL: "https://komrad.example.com"},
+			shellCommand: []string{"komrad", "shell"},
 		}
 		harness := openTerminal(t, remote, newStagedShellAgent("/var/lib/komrad/worktrees/01a0c466"))
 
@@ -179,15 +179,15 @@ func TestTerminal(t *testing.T) {
 		require.NotEmpty(t, harness.panel.ReadRespawns())
 		last := len(harness.panel.ReadRespawns()) - 1
 		assert.Equal(t, infoPane, harness.panel.ReadRespawnPanes()[last])
-		assert.Equal(t, "komrad shell --addr 127.0.0.1:19001 -- /var/lib/komrad/worktrees/01a0c466", harness.panel.ReadRespawns()[last])
+		assert.Equal(t, "komrad shell -- /var/lib/komrad/worktrees/01a0c466", harness.panel.ReadRespawns()[last])
 		assert.Empty(t, harness.panel.ReadRespawnDirs()[last], "the pane is not rooted at a directory this machine lacks")
 		assert.Equal(t, []string{infoPane}, harness.panel.ReadSelectedPanes())
 	})
 
 	t.Run("a task and workflow with no directory have it gray and open no shell", func(t *testing.T) {
 		remote := panelHarnessParams{
-			engine:       engine.Remote{Destination: "ubuntu@engine"},
-			shellCommand: []string{"komrad", "shell", "--addr", "127.0.0.1:19001"},
+			engine:       engine.Remote{URL: "https://komrad.example.com"},
+			shellCommand: []string{"komrad", "shell"},
 		}
 		harness := openTerminal(t, remote, newStagedShellAgent(""))
 

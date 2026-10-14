@@ -1238,20 +1238,12 @@
     "slug": "shell",
     "path": "komrad shell",
     "parent": "",
-    "usage": "komrad shell DIR [flags]",
+    "usage": "komrad shell DIR",
     "aliases": [],
     "short": "Open a shell on the engine in a directory an agent works in",
     "long": "Open a shell on the engine in a directory an agent works in.\n\nThe shell runs on the engine and is carried to this terminal over the engine's\napi, so it works the same whether the engine is this machine or another one. The\ndirectory has to be inside a live agent's directory. The shell's exit status is\nthis command's.",
     "example": "",
-    "flags": [
-      {
-        "name": "addr",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "address of the engine's api, reached as it is rather than through a forward of its own"
-      }
-    ],
+    "flags": [],
     "inherited": [
       {
         "name": "config",
@@ -1330,20 +1322,12 @@
     "slug": "terminal",
     "path": "komrad terminal",
     "parent": "",
-    "usage": "komrad terminal AGENT [flags]",
+    "usage": "komrad terminal AGENT",
     "aliases": [],
     "short": "Attach to an agent's terminal on the engine",
     "long": "Attach to an agent's terminal on the engine.\n\nThe terminal is carried to this one over the engine's api, so it works the same\nwhether the engine is this machine or another one. AGENT is the agent's id, and\nthe agent has to be live and hold a pane. Attaching detaches any other terminal\nattached to the same agent. A dropped connection is dialled again, and since\ntmux keeps the session nothing is lost. Opened before this machine signs in to\nan engine at its url, it says so and attaches once komrad login runs.",
     "example": "",
-    "flags": [
-      {
-        "name": "addr",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "address of the engine's api, reached as it is rather than through a forward of its own"
-      }
-    ],
+    "flags": [],
     "inherited": [
       {
         "name": "config",

@@ -24,8 +24,6 @@ func (e *ExitError) Error() string {
 }
 
 func shellCmd(state *app) *cobra.Command {
-	var addr string
-
 	cmd := &cobra.Command{
 		Use:   "shell DIR",
 		Short: "Open a shell on the engine in a directory an agent works in",
@@ -41,20 +39,7 @@ this command's.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			var base string
-			if addr == "" {
-				dialed, release, err := state.dialAPI(ctx)
-				if err != nil {
-					return err
-				}
-				defer release()
-
-				base = dialed
-			} else {
-				base = formatBase(addr)
-			}
-
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), base)
+			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), state.apiBase())
 			code, err := runConsole(ctx, runConsoleParams{
 				Dial:  dialShell(client, args[0], state.env.Term),
 				Token: state.getTokenSource(),
@@ -70,8 +55,6 @@ this command's.`,
 			return nil
 		},
 	}
-
-	cmd.Flags().StringVar(&addr, "addr", "", "address of the engine's api, reached as it is rather than through a forward of its own")
 
 	return cmd
 }
