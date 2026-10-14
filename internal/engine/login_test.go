@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -279,11 +280,12 @@ func TestTokenRefresher(t *testing.T) {
 	keyring.MockInit()
 
 	type tokenRefresherCase struct {
-		name          string
-		signIn        *signIn
-		wantErr       error
-		wantRefreshes int
-		wantRenewed   bool
+		name           string
+		signIn         *signIn
+		isProviderDown bool
+		wantErr        error
+		wantRefreshes  int
+		wantRenewed    bool
 	}
 
 	tests := []tokenRefresherCase{
@@ -298,6 +300,16 @@ func TestTokenRefresher(t *testing.T) {
 				Expiry:  time.Now().Add(time.Minute),
 			},
 			wantErr: errSignInLapsed,
+		},
+		{
+			name: "a provider that cannot be reached",
+			signIn: &signIn{
+				IDToken:      "old",
+				RefreshToken: "refresh-1",
+				Expiry:       time.Now().Add(time.Minute),
+			},
+			isProviderDown: true,
+			wantErr:        errProviderUnreachable,
 		},
 		{
 			name: "a sign-in near its end",
@@ -327,6 +339,9 @@ func TestTokenRefresher(t *testing.T) {
 
 			if tt.signIn != nil {
 				tt.signIn.Provider = SignInProvider{Issuer: provider.url, ClientID: "komrad"}
+				if tt.isProviderDown {
+					tt.signIn.Provider.Issuer = "http://" + deadAddr(t)
+				}
 				require.NoError(t, keeper.SaveSignIn(engineURL, *tt.signIn))
 			}
 
@@ -406,4 +421,13 @@ func TestBearerTransportSignsEachRequest(t *testing.T) {
 
 	assert.Equal(t, "Bearer token", authorization)
 	assert.Empty(t, req.Header.Get("Authorization"))
+}
+
+func deadAddr(t *testing.T) string {
+	t.Helper()
+
+	closed := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	closed.Close()
+
+	return strings.TrimPrefix(closed.URL, "http://")
 }

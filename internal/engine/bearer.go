@@ -22,9 +22,10 @@ const refreshAhead = 5 * time.Minute
 const providerTimeout = 30 * time.Second
 
 var (
-	errSignInLapsed    = fail.Precondition("the sign-in ran out and the provider gave no way to renew it, so run komrad login")
-	errNoIDToken       = fail.Internal("the provider answered without an ID token")
-	errIDTokenMismatch = fail.InvalidArgument("the ID token the provider gave answers some other sign-in")
+	errSignInLapsed        = fail.Precondition("the sign-in ran out and the provider gave no way to renew it, so run komrad login")
+	errNoIDToken           = fail.Internal("the provider answered without an ID token")
+	errIDTokenMismatch     = fail.InvalidArgument("the ID token the provider gave answers some other sign-in")
+	errProviderUnreachable = fail.Precondition("failed to reach the identity provider")
 )
 
 // NewTokenRefresher hands out a live ID token for the engine at url, renewing the sign-in keeper
@@ -80,14 +81,14 @@ func (r *TokenRefresher) GetToken(ctx context.Context) (string, error) {
 // renew trades the sign-in's refresh token for a new ID token from the same provider.
 func (r *TokenRefresher) renew(ctx context.Context, kept signIn) (*signIn, error) {
 	if kept.RefreshToken == "" {
-		return nil, fmt.Errorf("%w --engine for %s", errSignInLapsed, r.url)
+		return nil, errSignInLapsed.Saying("the sign-in to %s ran out and the provider gave no way to renew it, so run komrad login", r.url)
 	}
 
 	ctx = oidc.ClientContext(ctx, r.client)
 
 	provider, err := oidc.NewProvider(ctx, kept.Provider.Issuer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to reach the identity provider at %s: %w", kept.Provider.Issuer, err)
+		return nil, fmt.Errorf("%w at %s: %w", errProviderUnreachable, kept.Provider.Issuer, err)
 	}
 
 	config := oauth2.Config{
@@ -98,7 +99,7 @@ func (r *TokenRefresher) renew(ctx context.Context, kept signIn) (*signIn, error
 
 	token, err := config.TokenSource(ctx, &oauth2.Token{RefreshToken: kept.RefreshToken}).Token()
 	if err != nil {
-		return nil, fmt.Errorf("%w --engine for %s: %w", errSignInLapsed, r.url, err)
+		return nil, fmt.Errorf("%w: %w", errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url), err)
 	}
 
 	idToken, err := verifyIDToken(ctx, verifyIDTokenParams{
