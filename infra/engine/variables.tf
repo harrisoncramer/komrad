@@ -154,6 +154,16 @@ variable "tailscale_tailnet" {
   }
 }
 
+variable "tailscale_auth_key" {
+  type      = string
+  sensitive = true
+
+  validation {
+    condition     = startswith(var.tailscale_auth_key, "tskey-auth-")
+    error_message = "The auth key is the tskey-auth- value from the admin console's keys page."
+  }
+}
+
 variable "tailscale_direct_connections" {
   type    = bool
   default = true

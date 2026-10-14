@@ -4,7 +4,7 @@ This stack is the remote engine komrad's own development runs on: one EC2 instan
 
 Copy `terraform.tfvars.example` and `backend.hcl.example`, drop the `.example`, and fill them in. Then run `mise run infra:engine:init` and `mise run infra:engine:apply`.
 
-The engine lives on a Tailscale tailnet and opens no TCP ports to the internet. Set `tailscale_hostname` to the engine's name on the tailnet and `tailscale_tailnet` to the tailnet's DNS name. Before the first apply, store a single-use, pre-approved auth key tagged `tag:komrad-engine` in Secrets Manager as `komrad/tailscale-auth-key`. The `engine_url` output is the engine's address.
+The engine lives on a Tailscale tailnet and opens no TCP ports to the internet. Set `tailscale_hostname` to the engine's name on the tailnet and `tailscale_tailnet` to the tailnet's DNS name. Set `tailscale_auth_key` to a single-use, pre-approved auth key tagged `tag:komrad-engine`, which Terraform stores in Secrets Manager for the machine. The `engine_url` output is the engine's address.
 
 Set `sign_in_issuer`, `sign_in_client_id` and, on Google, `sign_in_client_secret` from the app you registered at your identity provider.
 

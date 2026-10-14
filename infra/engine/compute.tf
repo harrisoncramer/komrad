@@ -34,6 +34,17 @@ resource "aws_iam_role_policy" "tailscale_state" {
   })
 }
 
+resource "aws_secretsmanager_secret" "tailscale_auth_key" {
+  name                    = "${var.secret_prefix}/tailscale-auth-key"
+  recovery_window_in_days = 0
+  tags                    = merge(local.tags, { Name = "${var.name}-tailscale-auth-key" })
+}
+
+resource "aws_secretsmanager_secret_version" "tailscale_auth_key" {
+  secret_id     = aws_secretsmanager_secret.tailscale_auth_key.id
+  secret_string = var.tailscale_auth_key
+}
+
 resource "aws_iam_instance_profile" "komrad" {
   name = "${var.name}-instance"
   role = aws_iam_role.komrad.name
@@ -59,7 +70,7 @@ resource "aws_instance" "komrad" {
     tailscale_state_arn       = local.tailscale_state_arn
     tailscale_hostname        = var.tailscale_hostname
     tailscale_name            = local.tailscale_name
-    tailscale_auth_key_secret = "${var.secret_prefix}/tailscale-auth-key"
+    tailscale_auth_key_secret = aws_secretsmanager_secret_version.tailscale_auth_key.secret_id
   })
 
   # User data now carries the database's address and secret, which move if RDS is ever replaced

@@ -8,6 +8,7 @@ availability_zone               = "us-east-1a"
 
 tailscale_hostname    = "komrad"
 tailscale_tailnet     = "tail1234.ts.net"
+tailscale_auth_key    = "tskey-auth-..."
 sign_in_issuer        = "https://accounts.google.com"
 sign_in_client_id     = "0000000000-abc.apps.googleusercontent.com"
 sign_in_client_secret = "GOCSPX-..."
