@@ -1,0 +1,24 @@
+...@_theme
+
+direction: right
+
+browser: Browser {class: leaf}
+redirects: Other domains {class: leaf}
+dns: Cloudflare DNS {class: leaf}
+
+aws: AWS {
+  class: group
+  cloudfront: CloudFront {class: leaf}
+  function: Request function {class: leaf}
+  bucket: Private bucket {class: store}
+
+  cloudfront -> function
+  function -> bucket
+}
+
+actions: GitHub Actions {class: leaf}
+
+browser -> dns
+redirects -> dns: 301 {class: dashed}
+dns -> aws.cloudfront
+actions -> aws.bucket: upload

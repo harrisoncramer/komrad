@@ -1,0 +1,105 @@
+---
+title: Runbooks
+description: The day-to-day jobs on our engine, each as the commands to run.
+group: operations
+order: 28
+---
+
+import Command from "../../components/Command.astro";
+
+Every job here runs from a komrad checkout, with AWS credentials from the komrad profile or already in your environment. The tasks read the instance, its address and its region from Terraform's state, so none of them needs an id typed in.
+
+## Checking on it
+
+Start with the units. A healthy engine lists nothing here:
+
+```sh
+mise run remote:connect -- 'systemctl list-units --state=failed --no-legend'
+```
+
+Then the server itself:
+
+```sh
+mise run remote:connect -- systemctl status komrad
+mise run remote:connect -- journalctl -u komrad -n 200 --no-pager
+mise run remote:connect -- tail -n 200 /var/lib/komrad/cache/komrad.log
+```
+
+The journal holds what systemd saw, such as a crash at start. The log holds what komrad wrote while it ran. To see the agents, list the windows on komrad's tmux server:
+
+```sh
+mise run remote:connect -- tmux -L komrad list-windows -a
+```
+
+## Restarting
+
+`mise run remote:restart` restarts the server and leaves every agent running. It goes through Systems Manager, since the SSH account can't restart a service. On a stopped engine it starts the machine instead.
+
+`mise run remote:restart --hard` also kills the tmux server and makes a new manager session. Every agent stops, so use it only when the session itself is broken, or after a change to how it is made.
+
+## Deploying or rolling back
+
+A release deploys on its own. To put your checkout's build on the engine, run `mise run remote:deploy`. [Releases and deploys](../deploys/#a-deploy) covers what it does and what happens with uncommitted changes.
+
+To roll back, deploy an older ref. Without AWS credentials at hand, dispatch the `engine` workflow from the Actions tab on the tag or branch you want. From a checkout, check out that ref and run `mise run remote:deploy`.
+
+## Stopping and starting
+
+```sh
+mise run remote:stop
+mise run remote:start
+```
+
+Stopping asks first, since every agent on the machine stops with it. The data volume, the database and the address all survive. Starting waits until the machine passes its checks, by which time the server has long been up. Resume the agents you want from the panel.
+
+The `engine stop` and `engine start` workflows do this on a schedule, at 10pm and 7am New York time, an hour earlier in winter. Both can be dispatched by hand too.
+
+## Moving to a new image
+
+Dispatch the `image` workflow, which builds an image and records its id. Then, when nobody minds the agents stopping:
+
+```sh
+mise run remote:reimage
+```
+
+It names the agents that will stop and asks first. With no argument it uses the image the workflow last recorded. An image you built yourself with `mise run packer:build` goes in as an argument. [Releases and deploys](../deploys/#a-new-image) covers what changes.
+
+## Getting a root shell
+
+The SSH account can't become root, so root goes through Systems Manager. You need the Session Manager plugin for the AWS CLI. Read the instance's id from Terraform, then open a session on it:
+
+```sh
+mise run infra:engine:run output instance_id
+aws ssm start-session --target i-0123456789abcdef0
+```
+
+The session opens as a user with sudo.
+
+## Granting and revoking access
+
+In a root shell:
+
+```sh
+sudo komrad-access grant someone@example.com
+sudo komrad-access revoke someone@example.com
+```
+
+[Access](../engine-access/#who-may-use-an-engine) covers what a grant allows.
+
+## Rotating the GitHub App key
+
+Generate a new private key in the App's settings and put it in the `komrad/github-app` secret, as JSON under `private_key`. Then, in a root shell:
+
+```sh
+sudo systemctl restart komrad-github-key
+```
+
+Check that <Command path="github token" /> still prints a token as the komrad account, then delete the old key from the App. A reboot picks up the new key as well.
+
+## Tearing it down
+
+```sh
+mise run infra:engine:destroy
+```
+
+The database refuses to go while deletion protection is on. Set `database_deletion_protection = false` in your `terraform.tfvars` and apply first. RDS keeps a final snapshot, named by `database_final_snapshot`, and the data volume keeps one too. Snapshot names can't repeat, so a second teardown needs a new one.

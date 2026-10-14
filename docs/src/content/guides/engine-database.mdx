@@ -1,0 +1,51 @@
+---
+title: The database
+description: The Postgres an engine writes, the three logins komrad uses on it, and how they reach the machine.
+group: operations
+order: 24
+---
+
+import Command from "../../components/Command.astro";
+import Setting from "../../components/Setting.astro";
+import { link } from "../../site";
+
+Postgres holds every record an engine keeps. Komrad connects to it as three different logins, each allowed only what its job needs. Several engines can share one database, and Postgres keeps each one's rows apart.
+
+## Three logins
+
+<figure>
+  <img
+    src={link("/diagrams/engine-database.png")}
+    alt="Migrate, ensure and grant connect as the owner login, which owns the schema. The server connects as the engine login, and the MCP query tools as the reader login. Both reach only one engine's rows."
+  />
+</figure>
+
+The owner login owns the schema. Only <Command path="migrate" /> and the engine commands use it, and the server never does. Komrad reads it from <Setting path="connection.owner_database_url" label="owner_database_url" />.
+
+The engine login is what the server connects as. <Command path="engine ensure" /> creates it as `komrad_engine_<name>`, along with the engine's identity in the database. Every row the server writes belongs to that engine, and Postgres hides every other engine's rows from it. Komrad reads it from <Setting path="connection.database_url" label="database_url" />.
+
+The reader login is the engine login with `_reader` on the end and the same password. It can only read, and only that engine's rows. The MCP query tools connect as it, so an agent's query can't change anything.
+
+Running <Command path="engine ensure" /> again resets both of the engine's passwords and keeps its rows.
+
+## On our engine
+
+RDS runs Postgres 18 on a `db.t4g.micro`, in private subnets that only the instance can reach. Storage starts at 20 GiB and grows on its own up to 100 GiB. Every connection uses TLS and checks the server's certificate against Amazon's CA bundle, which the image carries.
+
+RDS creates the owner login, called komrad, and keeps its password in Secrets Manager. The password never sits on the machine's disk. Each time the machine needs the owner, it reads the secret afresh.
+
+The credentials unit runs at boot, on every deploy, and every hour. Each time it:
+
+1. Reads the owner's password from Secrets Manager.
+2. Runs <Command path="migrate" /> as the owner.
+3. Runs <Command path="engine ensure" /> as the owner, with the engine's password.
+4. Writes the engine's connection string to `/etc/komrad/database.env`, readable only by root.
+5. Restarts the server, if the connection string changed and the server is already running.
+
+The engine's password is generated once and kept in `/etc/komrad/engine-password`, readable only by root. Systemd hands the connection string to the server when it starts it.
+
+The hourly run is how a rotated owner password reaches the machine. A deploy runs the same unit, which is how a new migration lands before the new server starts.
+
+## Backups
+
+RDS keeps automated backups for seven days. Deletion protection is on, so Terraform can't destroy the database until you turn it off. Destroying it leaves a final snapshot named `komrad-development-final`. A second teardown needs a new name for it, since snapshot names can't repeat.

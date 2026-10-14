@@ -1,0 +1,87 @@
+---
+title: The machine
+description: What the engine's image holds, what runs at boot, and what lives on the data volume.
+group: operations
+order: 23
+---
+
+import Command from "../../components/Command.astro";
+import { link } from "../../site";
+
+Our engine is one Linux machine built from an image. The machine itself is disposable. Everything that matters lives on a separate data volume or in the database, so a new image replaces the machine and loses nothing but what was running.
+
+## The image
+
+Packer builds the image from Ubuntu 24.04 for arm64, using the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). A short script runs for each layer, in order:
+
+| Script         | Installs                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| `00-base`      | System packages, tmux, git, the Postgres client, the AWS CLI, the komrad account, and every unit below |
+| `10-docker`    | Docker, set up to run without root                                                                     |
+| `20-toolchain` | mise under `/opt/mise`, with Go and Node                                                               |
+| `30-harnesses` | Claude Code, Codex and `gh`                                                                            |
+| `40-komrad`    | The komrad binary                                                                                      |
+| `50-caddy`     | Caddy, installed but switched off                                                                      |
+| `99-clean`     | Clears package caches and the machine's identity, so each instance boots fresh                         |
+
+The binary baked into the image is only a starting point. Every deploy replaces it, so the image rarely needs rebuilding. [Releases and deploys](../deploys/#a-new-image) covers when it does.
+
+## The komrad account
+
+The server and every agent run as the komrad account. It cannot become root. It has no sudo, and its Docker runs rootless under its own user, so an agent can build and run containers without holding the machine.
+
+Agents also can't reach the instance's AWS role. A firewall rule rejects traffic to the metadata service from any account but root, and the metadata service refuses a token request that has crossed more than one network hop, such as one from a container.
+
+Root work goes through Systems Manager instead, which is how deploys, restarts and access grants reach the machine. [Access](../engine-access/) covers it.
+
+## The data volume
+
+The volume mounts at `/var/lib/komrad` and holds everything the machine must not lose:
+
+| Path                   | Holds                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| `home/`                | The komrad account's home, with komrad's config, the agent CLIs' logins and the SSH keys allowed in |
+| `worktrees/`           | Every agent's worktree, and the clones they come from                                               |
+| `cache/`               | Komrad's cache directory, including the server log at `cache/komrad.log`                            |
+| `go-build/`, `go-mod/` | Go's build and module caches                                                                        |
+| `caddy/`               | Caddy's certificates, when the engine has a domain                                                  |
+
+The image ships a default config that puts worktrees on the volume. The first boot copies it into the home, and later boots leave it alone, so edits made on the machine survive.
+
+## Boot
+
+<figure>
+  <img
+    src={link("/diagrams/engine-boot.png")}
+    alt="User data starts the data volume, which leads to the credentials, rootless Docker, and optionally Caddy. An hourly timer reruns the credentials. The credentials, Docker, the firewall and the GitHub key all come before the server, which comes before the manager session."
+  />
+</figure>
+
+Terraform passes the machine a short user data script. The image can't know which volume and which database this instance was given, so the script writes them into `/etc/komrad` and starts the units in order. It carries only names, never a secret, since anything on the machine can read user data. The script also writes the SSH key allowed in, and Caddy's config when the engine has a domain.
+
+Each unit does one thing:
+
+| Unit                          | Does                                                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `komrad-data-volume`          | Finds the volume by its serial, formats it only if it is empty, and mounts it                                                                 |
+| `komrad-database-credentials` | Migrates the database, makes the engine's login, and writes the server's connection string                                                    |
+| `komrad-github-key`           | Copies the GitHub App's key from Secrets Manager into memory                                                                                  |
+| `komrad-docker`               | Runs Docker as the komrad account                                                                                                             |
+| `nftables`                    | Keeps every account but root off the metadata service                                                                                         |
+| `komrad.service`              | Runs <Command path="serve" />                                                                                                                 |
+| `komrad-manager-session`      | Runs <Command path="open" args="--headless" /> once the server answers, so the tmux session agents live in exists before the first one starts |
+| `caddy`                       | Holds a certificate for the engine's domain, when it has one                                                                                  |
+
+An hourly timer reruns the credentials unit, which picks up a new owner password after RDS rotates it. [The database](../engine-database/) covers what that unit does. [Forge credentials](../forge-credentials/) covers the key.
+
+Every unit that touches the volume refuses to start until the volume is mounted, so a missing volume stops the server instead of letting it write to the root disk.
+
+## Why agents survive a restart
+
+The server forks the tmux server that holds every agent, so tmux lands in the service's control group. Systemd normally kills the whole group when a service stops. The server's unit tells systemd to kill only the server process, so a restart or a deploy leaves tmux and every agent running. The new server finds them where the old one left them.
+
+Stopping the machine or replacing it still stops every agent. Their conversations and worktrees are on the volume, so you resume them once the engine is back.
+
+## Sizes
+
+The instance is a `t4g.xlarge` with unlimited CPU credits. The root disk and the data volume are 100 GiB each, both encrypted. Each is a Terraform variable, and growing the data volume needs no rebuild.

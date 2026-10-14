@@ -1,0 +1,60 @@
+---
+title: Releases and deploys
+description: How a merge becomes a release, how a release reaches the engine, and when the machine is rebuilt.
+group: operations
+order: 27
+---
+
+import { link } from "../../site";
+
+Merging and shipping are separate acts. A merge to main publishes a rolling build that promises nothing. A version tag publishes a release, and only a release reaches the engine on its own.
+
+<figure>
+  <img
+    src={link("/diagrams/deploys.png")}
+    alt="A merge to main publishes the tip release and the latest docs. A version tag runs the checks, then publishes, then deploys the docs version and the engine. The engine deploy reaches the engine host through SSM, which installs the binary, migrates, and restarts the server."
+  />
+</figure>
+
+## A merge
+
+Once CI passes on main, `main-release.yml` publishes the binaries as a prerelease tagged `tip`. Every merge replaces it, so its download address never changes. If the merge touched the docs, `docs-deploy.yml` publishes them as `latest`.
+
+Nothing else happens. The engine keeps running whatever release it had.
+
+## A release
+
+`mise run release:cut v0.4.0` tags the current commit and pushes the tag. The tag has to come from a person, since a tag CI pushes starts no other workflow. Komrad keeps no backward compatibility, so releases stay on `v0.x` and a minor bump is the ordinary one.
+
+The tag starts `release.yml`, which:
+
+1. Runs the full checks against the tagged commit.
+2. Builds the binaries and publishes a GitHub release with a changelog.
+3. Publishes the docs under the version's own path, beside `latest`.
+4. Deploys the release to the engine.
+
+A tag push runs once. If a release fails partway, rerun it on the same tag with `gh workflow run release.yml --ref v0.4.0` rather than moving the tag.
+
+## A deploy
+
+`mise run remote:deploy` puts the checkout's build on the engine. The release workflow runs the same task, through `engine.yml`.
+
+The task builds komrad for Linux on arm64 and uploads it, with the database credentials script, to the Terraform state bucket. It then sends the instance a command through Systems Manager. The command downloads both from short-lived links, installs them, stops the server, runs the credentials script, and starts the server again. The credentials script migrates the database, so a new migration lands before the new server starts. [The database](../engine-database/#on-our-engine) covers that script.
+
+Agents keep running through a deploy, since stopping the server leaves tmux alone. [The machine](../engine-machine/#why-agents-survive-a-restart) explains why.
+
+A deploy while the engine is stopped skips, since Systems Manager can't reach a stopped instance. The next deploy after it starts carries the same commit and more.
+
+A panel refuses an engine built from a different commit. A clean deploy stamps the binary with the commit, so a panel from the same commit just works. A deploy from a tree with uncommitted changes has no commit to name, so it stamps a `-dirty` version and also builds `dist/komrad-panel` at that version for you to run.
+
+## Deploying any ref
+
+Dispatching `engine.yml` from the Actions tab deploys whatever ref you pick. It runs the full checks first, unlike the release path, where the commit has already passed them. It needs no AWS credentials on your laptop, so it still works when the laptop is what's broken. [Runbooks](../runbooks/#deploying-or-rolling-back) uses it for rollbacks.
+
+## A new image
+
+The image changes rarely, for a new tool, a new unit, or a security update. Dispatching `image.yml` builds one and records its id in the SSM parameter `/komrad-development/engine/ami-id`. It doesn't apply it.
+
+Applying an image replaces the instance, and every running agent stops. `mise run remote:reimage` reads the recorded id, names the agents that will stop, and asks before it does anything. Then it sets `ami_id` in your `terraform.tfvars`, applies, and drops the old host key. The data volume moves to the new instance and the database is untouched, so the agents can be resumed afterwards.
+
+The image's binary is whatever was current when it was built. Deploy afterwards if the engine should run something newer.

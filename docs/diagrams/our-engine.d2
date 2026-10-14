@@ -1,0 +1,47 @@
+...@_theme
+
+direction: right
+
+laptop: Laptop {
+  class: group
+  panel: Panel {class: leaf}
+}
+
+actions: GitHub Actions {
+  class: group
+  grid-columns: 1
+  grid-gap: 20
+  release: Release {class: leaf}
+  schedule: Stop and start {class: leaf}
+}
+
+aws: AWS {
+  class: group
+
+  vpc: VPC {
+    class: group
+
+    ec2: "EC2, Elastic IP" {
+      class: group
+      serve: Server {class: leaf}
+      agents: Agents {class: leaf}
+      volume: Data volume {class: store}
+    }
+
+    rds: RDS Postgres {class: store}
+
+    ec2.serve -> rds
+  }
+
+  secrets: Secrets Manager {class: store}
+  state: State bucket {class: store}
+  ssm: Systems Manager {class: leaf}
+
+  vpc.ec2 -> secrets: boot {class: dashed}
+  ssm -> vpc.ec2
+}
+
+laptop.panel -> aws.vpc.ec2.serve: ssh
+actions.release -> aws.state
+actions.release -> aws.ssm
+actions.schedule -> aws.vpc.ec2 {class: dashed}

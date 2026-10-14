@@ -1,7 +1,7 @@
 ---
-title: Running komrad remotely
+title: Remote engines
 description: Keep the panel on your laptop and run the agents on a machine that never sleeps.
-group: operations
+group: start
 order: 13
 ---
 
@@ -11,11 +11,11 @@ import Setting from "../../components/Setting.astro";
 
 [Agents](../agents/) on your laptop stop when your laptop sleeps. Komrad can run them on a remote machine instead. The panel stays on your laptop and looks the same. The engine moves: the server, the database, and every agent's terminal.
 
-Komrad's own repository works this way. [Administering the engine](../engine-admin/) covers building that machine. This guide covers using one that exists.
+Komrad's own repository works this way.
 
 ## Telling your panel about an engine
 
-An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the <Setting path="connection" label="[connection]" /> table. <Setting path="connection.forward" label="forward" /> says how to carry the engine's API back to your laptop, and the panel does everything on the engine through that API. For a host your SSH config already knows, a plain <Setting path="connection.ssh" label="ssh" /> destination is enough.
+An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the <Setting path="connection" label="[connection]" /> table. <Setting path="connection.forward" label="forward" /> says how to carry the engine's API back to your laptop, and the panel does everything on the engine through that API. For a host your SSH config already knows, a plain <Setting path="connection.ssh" label="ssh" /> destination is enough. An engine served over HTTPS names its <Setting path="connection.url" label="url" /> instead, and an engine file names only one of the three.
 
 Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers on the same address with a new key.
 
@@ -46,4 +46,4 @@ Each task also works in a fresh worktree, and the CLI asks whether to trust ever
 
 An engine costs money every hour, so it may be switched off when nobody is using it. Switching off keeps the disk, the database and the address. Every agent stops, and you resume the ones you want once it is back.
 
-This guide covers using an engine. [Administering the engine](../engine-admin/) covers building one.
+This guide covers using an engine. [Running komrad](../running-komrad/) covers building one.

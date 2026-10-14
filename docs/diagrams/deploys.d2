@@ -1,0 +1,30 @@
+...@_theme
+
+direction: right
+
+merge: Merge to main {class: leaf}
+tag: Version tag {class: leaf}
+
+tip: Tip release {class: leaf}
+latest: Docs latest {class: leaf}
+
+check: Checks {class: leaf}
+publish: Publish {class: leaf}
+docs: Docs version {class: leaf}
+deploy: Engine deploy {class: leaf}
+
+engine: Engine host {
+  class: group
+  install: Install binary {class: leaf}
+  migrate: Migrate {class: leaf}
+  restart: Restart server {class: leaf}
+
+  install -> migrate -> restart
+}
+
+merge -> tip
+merge -> latest
+tag -> check -> publish
+publish -> docs
+publish -> deploy
+deploy -> engine.install: SSM

@@ -1,0 +1,38 @@
+...@_theme
+
+direction: right
+
+laptop: Your laptop {
+  class: group
+  panel: Panel {class: leaf}
+}
+
+host: Engine host {
+  class: group
+
+  front: HTTPS front {class: leaf}
+  serve: Server {class: leaf}
+
+  tmux: Tmux {
+    class: group
+    grid-columns: 1
+    grid-gap: 20
+    agent1: Agent {class: leaf}
+    agent2: Agent {class: leaf}
+    more: {class: more}
+  }
+
+  disk: Disk {class: store}
+
+  front -> serve {class: dashed}
+  serve -> tmux
+  tmux -> disk
+}
+
+postgres: Postgres {class: store}
+forge: Forge {class: leaf}
+
+laptop.panel -> host.serve: SSH forward
+laptop.panel -> host.front: HTTPS {class: dashed}
+host.serve -> postgres
+host.tmux -> forge: git

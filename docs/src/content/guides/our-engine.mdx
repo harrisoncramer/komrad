@@ -1,0 +1,49 @@
+---
+title: Our engine
+description: The engine komrad's own repository runs on, built on AWS with Terraform and Packer.
+group: operations
+order: 21
+---
+
+import { link } from "../../site";
+
+Komrad's own development runs on one remote engine on AWS. This guide shows how its pieces map onto [the ones every engine needs](../running-komrad/). The Terraform in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine) and the Packer template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer) build exactly this. You can copy it, but you don't need AWS to run an engine.
+
+## The resources
+
+<figure>
+  <img
+    src={link("/diagrams/our-engine.png")}
+    alt="Inside AWS, a VPC holds an EC2 instance with an Elastic IP, running the server and agents with a data volume, and an RDS Postgres the server uses. The instance reads Secrets Manager at boot. The panel on a laptop reaches the server over ssh. GitHub Actions releases through the state bucket and Systems Manager, and stops and starts the instance on a schedule."
+  />
+</figure>
+
+One EC2 instance runs the server and every agent. It is an arm64 Graviton machine, a `t4g.xlarge` by default, booted from an image Packer builds. An Elastic IP gives it an address that outlives the instance.
+
+A separate encrypted EBS volume holds the komrad account's home, the worktrees and the build caches. It follows the instance when the instance is replaced.
+
+RDS Postgres sits in private subnets, and only the instance's security group can reach it. RDS manages the owner password and keeps it in Secrets Manager. Backups are kept for seven days.
+
+Secrets Manager also holds the GitHub App's private key under `komrad/github-app`. The instance's role can read only that prefix and the database's own secret.
+
+The security group lets SSH in only from the addresses listed in `ssh_allowed_cidrs`, and refuses the whole internet. Port 80 opens only when the engine has a domain, so Caddy can get a certificate.
+
+## How CI reaches it
+
+GitHub Actions never holds an AWS key. Each run asks GitHub for a signed token, and AWS trades it for credentials on the `komrad-development-ci` role. The role trusts only this repository's branches and its version tags, so a fork's pull request cannot use it.
+
+That role can read Terraform's state, stage a binary in the state bucket, send the instance a command through Systems Manager, stop and start the instance, and build an image. It cannot log in.
+
+## Terraform state
+
+Both Terraform stacks, the engine and [the docs site](../docs-site/), keep their state in one S3 bucket under different keys. Nobody runs `terraform` directly. Each stack has a mise task group, such as `mise run infra:engine:plan`, that points Terraform at the right directory and backend.
+
+The backend and the variables name an account's own bucket, addresses and keys, so neither file is in the repository. Each has an example beside it to copy.
+
+## Cost
+
+The instance is most of the bill, and it bills by the hour. A GitHub Actions schedule stops it at 10pm and starts it at 7am, New York time, an hour earlier in winter. The volume, the database and the Elastic IP still bill while it is stopped. [Runbooks](../runbooks/#stopping-and-starting) covers stopping it by hand.
+
+## The other guides
+
+[Standing up an engine](../standing-up-an-engine/) builds all of this from nothing. [The machine](../engine-machine/), [the database](../engine-database/), [access](../engine-access/) and [forge credentials](../forge-credentials/) each cover one part. [Releases and deploys](../deploys/) covers how a build reaches the instance, and [runbooks](../runbooks/) covers day-to-day work.

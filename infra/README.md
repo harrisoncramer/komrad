@@ -1,37 +1,14 @@
 # Infrastructure
 
-Two Terraform stacks live here.
+Two Terraform stacks live here. `engine/` is the machine komrad's own development runs on. `docs/` is the website at komrad.dev.
 
-The `engine/` directory is the machine komrad runs on when it is not running on a laptop.
+They share an AWS account, one state bucket and one GitHub trust, so apply the engine stack first, with `github_repository` set. Each stack keeps its state under its own key in that bucket.
 
-The `docs/` stack is specific to this repo, and holds website at komrad.dev.
+Nothing here is run with `terraform` directly. Each stack has a mise task group, such as `mise run infra:engine:plan`, that points Terraform at the right directory and backend.
 
-They share an AWS account, one state bucket, and one GitHub trust. That means the engine stack has to be applied first, with `github_repository` set.
+The operations guides describe both stacks:
 
-Both stacks keep their state in the same bucket under different keys.
-
-```
-                      GitHub Actions
-                    (OIDC, no stored keys)
-                     /                \
-          engine role                 docs role
-               |                          |
-               v                          v
-   +--------------------+     +---------------------------+
-   |  engine/           |     |  docs/                    |
-   |                    |     |                           |
-   |  EC2 + data volume |     |  S3 bucket (private)      |
-   |  RDS Postgres      |     |  CloudFront + certificate |
-   |  VPC, SSH, SSM     |     |  Cloudflare DNS           |
-   +--------------------+     +---------------------------+
-               \                          /
-                \                        /
-              one S3 bucket holding both states
-              engine/terraform.tfstate, docs/terraform.tfstate
-```
-
-## Running Terraform
-
-Nothing here is run with `terraform` directly. Instead, each has a mise task group that points Terraform at the right directory.
-
-The engine is set up end to end in `docs/src/content/guides/engine-admin.md` for folks who want to replicate this setup.
+- [Running komrad](https://komrad.dev/latest/guides/running-komrad/) names what any engine needs.
+- [Our engine](https://komrad.dev/latest/guides/our-engine/) maps those pieces onto this stack.
+- [Standing up an engine](https://komrad.dev/latest/guides/standing-up-an-engine/) builds it from nothing.
+- [The docs site](https://komrad.dev/latest/guides/docs-site/) covers `docs/`.

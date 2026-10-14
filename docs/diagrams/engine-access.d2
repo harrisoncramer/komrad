@@ -1,0 +1,27 @@
+...@_theme
+
+direction: right
+
+panel: Panel {class: leaf}
+operator: Operator {class: leaf}
+ci: GitHub Actions {class: leaf}
+
+host: Engine host {
+  class: group
+
+  caddy: Caddy {class: leaf}
+  sshd: SSH {class: leaf}
+  agent: SSM agent {class: leaf}
+  serve: Server {class: leaf}
+  shell: Shell {class: leaf}
+
+  caddy -> serve {class: dashed}
+  sshd -> serve: forward
+  sshd -> shell
+  agent -> shell: root
+}
+
+panel -> host.caddy {class: dashed}
+panel -> host.sshd
+operator -> host.sshd
+ci -> host.agent

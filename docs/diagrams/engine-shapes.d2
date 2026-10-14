@@ -1,0 +1,39 @@
+...@_theme
+
+direction: down
+
+local: On your laptop {
+  class: group
+  direction: right
+
+  panel: Panel {class: leaf}
+  serve: Server {class: leaf}
+  agents: Agents {class: leaf}
+  postgres: Postgres {class: store}
+
+  panel -> serve
+  serve -> agents
+  serve -> postgres
+}
+
+remote: On a remote engine {
+  class: group
+  direction: right
+
+  laptop: Laptop {
+    class: group
+    panel: Panel {class: leaf}
+  }
+
+  host: Engine host {
+    class: group
+    serve: Server {class: leaf}
+    agents: Agents {class: leaf}
+    serve -> agents
+  }
+
+  postgres: Postgres {class: store}
+
+  laptop.panel -> host.serve: forward
+  host.serve -> postgres
+}

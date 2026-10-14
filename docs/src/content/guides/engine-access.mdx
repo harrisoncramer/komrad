@@ -1,0 +1,68 @@
+---
+title: Access
+description: How people, the panel and CI reach an engine, and who may.
+group: operations
+order: 25
+---
+
+import Command from "../../components/Command.astro";
+import Setting from "../../components/Setting.astro";
+import { link } from "../../site";
+
+The server's API has no authentication of its own, and its writes start agents. It listens on loopback, at `127.0.0.1:8787`, and refuses any other address. Everything that reaches it goes through something that has already decided who you are.
+
+<figure>
+  <img
+    src={link("/diagrams/engine-access.png")}
+    alt="The panel reaches the engine host over SSH, which forwards to the server, or later through Caddy. An operator reaches a shell over SSH. GitHub Actions reaches a root shell through the SSM agent."
+  />
+</figure>
+
+## The panel
+
+A panel finds an engine through a file in `~/.config/komrad/engines/`, named after the engine. The file's <Setting path="connection" label="[connection]" /> table names exactly one way in:
+
+- <Setting path="connection.ssh" label="ssh" /> is an SSH destination, and the panel forwards the API over it.
+- <Setting path="connection.forward" label="forward" /> is a command that forwards a port some other way.
+- <Setting path="connection.url" label="url" /> is an HTTPS address for an engine behind a web server.
+
+The panel does everything through that one connection, including agents' terminals, shells in a worktree, and the review screen's git. Terminals stream over HTTP/2, so a forward has to carry it. An SSH forward does. The panel also refuses an engine built from a different commit than itself.
+
+[Remote engines](../remote/) covers the file from the panel's side.
+
+## SSH
+
+People reach our engine over SSH as the komrad account. The security group lets port 22 in only from the addresses in `ssh_allowed_cidrs`, and the account accepts only the key Terraform put in its `authorized_keys`.
+
+`mise run remote:connect` opens a shell with that key, from `~/.ssh/komrad_engine` unless `KOMRAD_ENGINE_KEY` names another. With a command after `--`, it runs that instead. It keeps the engine's host keys in `~/.ssh/known_hosts_komrad_engine`. A rebuilt engine answers on the same address with a new host key, and the task drops the old one when it sees that.
+
+An SSH shell is the komrad account, so it can do anything an agent can and nothing more. It can't become root.
+
+## Systems Manager
+
+Root work goes through AWS Systems Manager, which needs no open port and no key on the machine. Deploys, restarts and access grants all send a command this way. GitHub Actions uses it too, since a runner has no fixed address to put on the SSH list.
+
+Anyone with AWS credentials allowed to send commands to the instance has root on it. Treat those credentials as the machine's real keys.
+
+## HTTPS
+
+An engine can sit behind a web server instead, so people reach it in a browser or a panel without SSH. The engine then has to know who each person is, which is what access grants are for.
+
+Our engine isn't served this way yet. The image carries Caddy, and setting `domain_name` turns it on with a certificate, but it answers every request with 404 for now. Port 443 stays closed, and port 80 opens only so Caddy can prove it holds the domain.
+
+## Who may use an engine
+
+<Command path="engine grant" /> lets a person into an engine by their email, and <Command path="engine revoke" /> turns
+them away. The first time a granted person signs in with a verified email, the engine records the permanent id their
+identity provider gives that account. From then on it lets in that account alone.
+
+Anyone granted access can do everything the panel does, including opening a shell on the engine's machine. Grant it only to people you would give the machine.
+
+Both commands connect as the database owner, so on our engine they run as root. The image wraps them as `komrad-access`:
+
+```sh
+sudo komrad-access grant someone@example.com
+sudo komrad-access revoke someone@example.com
+```
+
+Run them in a root shell from Systems Manager. [Runbooks](../runbooks/#granting-and-revoking-access) has the command.
