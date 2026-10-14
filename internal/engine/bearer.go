@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -22,10 +23,9 @@ const refreshAhead = 5 * time.Minute
 const providerTimeout = 30 * time.Second
 
 var (
-	errSignInLapsed        = ErrSignInNeeded.Saying("the sign-in ran out and the provider gave no way to renew it, so run komrad login")
-	errNoIDToken           = fail.Internal("the provider answered without an ID token")
-	errIDTokenMismatch     = fail.InvalidArgument("the ID token the provider gave answers some other sign-in")
-	errProviderUnreachable = fail.Precondition("failed to reach the identity provider")
+	errSignInLapsed    = ErrSignInNeeded.Saying("the sign-in ran out and the provider gave no way to renew it, so run komrad login")
+	errNoIDToken       = fail.Internal("the provider answered without an ID token")
+	errIDTokenMismatch = fail.InvalidArgument("the ID token the provider gave answers some other sign-in")
 )
 
 // NewTokenRefresher hands out a live ID token for the engine at url, renewing the sign-in keeper
@@ -96,7 +96,7 @@ func (r *TokenRefresher) renew(ctx context.Context, kept signIn) (*signIn, error
 
 	provider, err := oidc.NewProvider(ctx, kept.Provider.Issuer)
 	if err != nil {
-		return nil, errProviderUnreachable.Saying("failed to reach the identity provider at %s: %v", kept.Provider.Issuer, err)
+		return nil, ErrProviderUnreachable.Saying("failed to reach the identity provider at %s: %v", kept.Provider.Issuer, err)
 	}
 
 	config := oauth2.Config{
@@ -107,7 +107,7 @@ func (r *TokenRefresher) renew(ctx context.Context, kept signIn) (*signIn, error
 
 	token, err := config.TokenSource(ctx, &oauth2.Token{RefreshToken: kept.RefreshToken}).Token()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url), err)
+		return nil, r.explainRenewal(kept.Provider.Issuer, err)
 	}
 
 	idToken, err := verifyIDToken(ctx, verifyIDTokenParams{
@@ -126,6 +126,19 @@ func (r *TokenRefresher) renew(ctx context.Context, kept signIn) (*signIn, error
 	}
 
 	return &kept, nil
+}
+
+func (r *TokenRefresher) explainRenewal(issuer string, err error) error {
+	var refused *oauth2.RetrieveError
+	if !errors.As(err, &refused) || refused.Response == nil || refused.Response.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf("%w: %w", ErrProviderUnreachable.Saying("failed to reach the identity provider at %s to renew the sign-in to %s", issuer, r.url), err)
+	}
+
+	if refused.ErrorCode == "invalid_grant" {
+		return fmt.Errorf("%w: %w", errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url), err)
+	}
+
+	return fmt.Errorf("failed to renew the sign-in to %s, which the provider at %s refused: %w", r.url, issuer, err)
 }
 
 type verifiedIDToken struct {

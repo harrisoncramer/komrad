@@ -42,6 +42,7 @@ type Provider struct {
 	mu            sync.Mutex
 	key           *rsa.PrivateKey
 	down          bool
+	isTokenDown   bool
 	refusal       string
 	isStateWrong  bool
 	isRefreshDead bool
@@ -80,6 +81,15 @@ func (p *Provider) SetDown(down bool) {
 	defer p.mu.Unlock()
 
 	p.down = down
+}
+
+// SetTokenDown makes only the token endpoint answer with an error, as one behind a failing
+// backend does while discovery still answers.
+func (p *Provider) SetTokenDown(down bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.isTokenDown = down
 }
 
 // RefuseSignIn sends the browser back with the error a provider gives when the person declines.
@@ -191,6 +201,17 @@ func (p *Provider) isDown(w http.ResponseWriter) bool {
 	return p.down
 }
 
+func (p *Provider) isTokenEndpointDown(w http.ResponseWriter) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.isTokenDown {
+		http.Error(w, "down", http.StatusServiceUnavailable)
+	}
+
+	return p.isTokenDown
+}
+
 func (p *Provider) discover(w http.ResponseWriter, _ *http.Request) {
 	if p.isDown(w) {
 		return
@@ -249,19 +270,19 @@ func (p *Provider) authorize(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Provider) issue(w http.ResponseWriter, r *http.Request) {
-	if p.isDown(w) {
+	if p.isDown(w) || p.isTokenEndpointDown(w) {
 		return
 	}
 
 	if !assert.NoError(p.t, r.ParseForm()) {
-		http.Error(w, `{"error":"invalid_request"}`, http.StatusBadRequest)
+		p.refuse(w, "invalid_request")
 
 		return
 	}
 
 	nonce, ok := p.trade(r.Form)
 	if !ok {
-		http.Error(w, `{"error":"invalid_grant"}`, http.StatusBadRequest)
+		p.refuse(w, "invalid_grant")
 
 		return
 	}
@@ -302,6 +323,12 @@ func (p *Provider) trade(form url.Values) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+func (p *Provider) refuse(w http.ResponseWriter, code string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+	assert.NoError(p.t, json.NewEncoder(w).Encode(map[string]string{"error": code}))
 }
 
 func generateKey(t *testing.T) *rsa.PrivateKey {

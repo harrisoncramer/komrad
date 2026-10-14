@@ -22,8 +22,9 @@ const keyringService = "komrad"
 const SignInPath = "/sign-in"
 
 var (
-	ErrSignInNeeded = fail.Precondition("sign in to the engine with komrad login")
-	ErrAccessDenied = fail.Denied("nobody has granted this account access to the engine, so ask its owner")
+	ErrSignInNeeded        = fail.Precondition("sign in to the engine with komrad login")
+	ErrAccessDenied        = fail.Denied("nobody has granted this account access to the engine, so ask its owner")
+	ErrProviderUnreachable = fail.Precondition("failed to reach the identity provider")
 )
 
 var errNotSignedIn = ErrSignInNeeded.Saying("this machine has not signed in to the engine, so run komrad login")

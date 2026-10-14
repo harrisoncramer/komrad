@@ -99,7 +99,7 @@ type panelSignIn struct {
 func (s *panelSignIn) CheckAccess(ctx context.Context) error {
 	res, err := healthCheck(ctx, s.transport, s.url)
 	if err != nil {
-		if errors.Is(err, engine.ErrSignInNeeded) {
+		if errors.Is(err, engine.ErrSignInNeeded) || errors.Is(err, engine.ErrProviderUnreachable) {
 			return err
 		}
 

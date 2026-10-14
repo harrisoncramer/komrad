@@ -176,7 +176,7 @@ func (m *model) startWatch() {
 }
 
 func (m *model) applyAccessRechecked(err error) {
-	if !errors.Is(err, engine.ErrSignInNeeded) && !errors.Is(err, engine.ErrAccessDenied) {
+	if !errors.Is(err, engine.ErrSignInNeeded) && !errors.Is(err, engine.ErrAccessDenied) && !errors.Is(err, engine.ErrProviderUnreachable) {
 		return
 	}
 

@@ -116,6 +116,7 @@ func TestTokenRefresher(t *testing.T) {
 		name           string
 		signIn         *signIn
 		isProviderDown bool
+		arrange        func(provider *oidctest.Provider)
 		wantErr        error
 		wantRefreshes  int
 		wantRenewed    bool
@@ -142,7 +143,27 @@ func TestTokenRefresher(t *testing.T) {
 				Expiry:       time.Now().Add(time.Minute),
 			},
 			isProviderDown: true,
-			wantErr:        errProviderUnreachable,
+			wantErr:        ErrProviderUnreachable,
+		},
+		{
+			name: "a refresh token the provider turned down",
+			signIn: &signIn{
+				IDToken:      "old",
+				RefreshToken: "refresh-1",
+				Expiry:       time.Now().Add(time.Minute),
+			},
+			arrange: func(provider *oidctest.Provider) { provider.RefuseRefresh() },
+			wantErr: errSignInLapsed,
+		},
+		{
+			name: "a token endpoint that cannot be reached",
+			signIn: &signIn{
+				IDToken:      "old",
+				RefreshToken: "refresh-1",
+				Expiry:       time.Now().Add(time.Minute),
+			},
+			arrange: func(provider *oidctest.Provider) { provider.SetTokenDown(true) },
+			wantErr: ErrProviderUnreachable,
 		},
 		{
 			name: "a sign-in near its end",
@@ -169,6 +190,9 @@ func TestTokenRefresher(t *testing.T) {
 			provider := oidctest.Start(t)
 			keeper := NewSignInKeeper(t.TempDir())
 			engineURL := "https://engine-" + t.Name() + ".example"
+			if tt.arrange != nil {
+				tt.arrange(provider)
+			}
 
 			if tt.signIn != nil {
 				tt.signIn.Provider = SignInProvider{Issuer: provider.URL, ClientID: oidctest.ClientID}

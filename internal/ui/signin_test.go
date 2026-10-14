@@ -213,6 +213,12 @@ func TestSignInLost(t *testing.T) {
 			wantGated:   true,
 		},
 		{
+			name:        "a provider that cannot be reached to renew the sign-in",
+			access:      fmt.Errorf("renew: %w", engine.ErrProviderUnreachable),
+			wantContain: "The panel could not check your sign-in",
+			wantGated:   true,
+		},
+		{
 			name:        "an engine that stopped answering",
 			access:      errors.New("failed to reach the engine"),
 			wantContain: "backend",

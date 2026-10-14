@@ -30,7 +30,6 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 		disturb   func(provider *oidctest.Provider)
 		wantLogin string
 		wantErr   error
-		wantFail  bool
 	}
 
 	tests := []panelSignInCase{
@@ -68,7 +67,15 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 			isLogin:   true,
 			arrange:   func(provider *oidctest.Provider) { provider.SetTokenLifetime(time.Minute) },
 			disturb:   func(provider *oidctest.Provider) { provider.SetDown(true) },
-			wantFail:  true,
+			wantErr:   engine.ErrProviderUnreachable,
+		},
+		{
+			name:      "a token endpoint that cannot be reached to renew the sign-in",
+			isGranted: true,
+			isLogin:   true,
+			arrange:   func(provider *oidctest.Provider) { provider.SetTokenLifetime(time.Minute) },
+			disturb:   func(provider *oidctest.Provider) { provider.SetTokenDown(true) },
+			wantErr:   engine.ErrProviderUnreachable,
 		},
 		{
 			name:    "a person nobody granted access",
@@ -122,16 +129,13 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 			}
 
 			err := signIn.CheckAccess(t.Context())
-			switch {
-			case tt.wantErr != nil:
+			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
-			case tt.wantFail:
-				require.Error(t, err)
-				require.NotErrorIs(t, err, engine.ErrSignInNeeded, "a provider that is down is tried again rather than signed in to again")
-				require.NotErrorIs(t, err, engine.ErrAccessDenied)
-			default:
-				require.NoError(t, err)
+
+				return
 			}
+
+			require.NoError(t, err)
 		})
 	}
 }
