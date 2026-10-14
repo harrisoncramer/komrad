@@ -74,3 +74,40 @@ engine_state() {
 	aws ec2 describe-instances --region "$region" --instance-ids "$instance" \
 		--query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || true
 }
+
+run_on_engine() {
+	local instance=$1 region=$2 command=$3 command_id status
+
+	command_id="$(aws ssm send-command \
+		--region "$region" \
+		--instance-ids "$instance" \
+		--document-name AWS-RunShellScript \
+		--parameters "$(jq -n --arg command "$command" '{commands: [$command]}')" \
+		--query Command.CommandId \
+		--output text)"
+
+	for _ in {1..60}; do
+		status="$(aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
+			--instance-id "$instance" --query Status --output text 2>/dev/null || echo Pending)"
+
+		case "$status" in
+		Success)
+			aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
+				--instance-id "$instance" --query StandardOutputContent --output text
+			return 0
+			;;
+		Failed | Cancelled | TimedOut)
+			aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
+				--instance-id "$instance" --query StandardOutputContent --output text
+			aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
+				--instance-id "$instance" --query StandardErrorContent --output text >&2
+			return 1
+			;;
+		esac
+
+		sleep 2
+	done
+
+	echo "the command was still running on $instance after two minutes, so it is left to finish on its own" >&2
+	return 1
+}

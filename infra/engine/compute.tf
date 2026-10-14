@@ -34,13 +34,15 @@ resource "aws_instance" "komrad" {
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.komrad.name
   user_data = templatefile("${path.module}/komrad-data-volume.sh.tftpl", {
-    data_volume_id      = aws_ebs_volume.komrad_data.id
-    database_secret_arn = aws_db_instance.komrad.master_user_secret[0].secret_arn
-    database_host       = aws_db_instance.komrad.address
-    database_name       = aws_db_instance.komrad.db_name
-    aws_region          = var.aws_region
-    ssh_public_key      = var.ssh_public_key
-    domain_name         = var.domain_name
+    data_volume_id        = aws_ebs_volume.komrad_data.id
+    database_secret_arn   = aws_db_instance.komrad.master_user_secret[0].secret_arn
+    database_host         = aws_db_instance.komrad.address
+    database_name         = aws_db_instance.komrad.db_name
+    aws_region            = var.aws_region
+    domain_name           = var.domain_name
+    sign_in_issuer        = var.sign_in_issuer
+    sign_in_client_id     = var.sign_in_client_id
+    sign_in_client_secret = var.sign_in_client_secret
   })
 
   # User data now carries the database's address and secret, which move if RDS is ever replaced

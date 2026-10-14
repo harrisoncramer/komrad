@@ -121,18 +121,5 @@ PY
 
 terraform -chdir=infra/engine apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
 
-# The address outlives the instance, so what answers on it now has a host key nothing has seen
-# before. Anything still holding the old one refuses to connect until it is dropped, and a shared
-# ssh connection to an instance that no longer exists does the same.
-HOST="$(terraform_output instance_public_ip)"
-
-if [ -n "$HOST" ]; then
-	rm -f "/tmp/cm-komrad-komrad@$HOST:22"
-	ssh-keygen -R "$HOST" >/dev/null 2>&1 || true
-	ssh-keygen -R "$HOST" -f "${KOMRAD_ENGINE_KNOWN_HOSTS:-$HOME/.ssh/known_hosts_komrad_engine}" >/dev/null 2>&1 || true
-
-	gum log --level info "dropped the old host key for $HOST"
-fi
-
 gum log --level info "the engine is on $AMI, rebuilt from the image"
 echo "  mise run remote:connect -- 'systemctl list-units --state=failed --no-legend | wc -l'"
