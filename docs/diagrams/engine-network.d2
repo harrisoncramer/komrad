@@ -1,0 +1,46 @@
+...@_theme
+
+direction: down
+
+internet: Internet {class: leaf}
+
+laptop: Laptop {
+  class: group
+  panel: Panel {class: leaf}
+  tailscale: Tailscale {class: leaf}
+
+  panel -> tailscale: HTTPS and token
+}
+
+control: Tailscale control {class: leaf}
+idp: Identity provider {class: leaf}
+
+aws: AWS {
+  class: group
+
+  params: Parameter Store {class: store}
+
+  ec2: EC2 instance {
+    class: group
+
+    tailscaled: Tailscale {class: leaf}
+    firewall: Host firewall {class: leaf}
+    caddy: Caddy {class: leaf}
+    serve: Server {class: leaf}
+    agents: Agents {class: leaf}
+
+    tailscaled -> firewall: tailscale0
+    firewall -> caddy: 443 only
+    caddy -> serve: loopback
+    agents -> serve: MCP
+    agents -> firewall: no tailnet {class: dashed}
+  }
+
+  ec2.tailscaled -> params: node key
+}
+
+laptop.panel -> idp: sign in
+laptop.tailscale -> aws.ec2.tailscaled: WireGuard
+laptop.tailscale -> control
+aws.ec2.tailscaled -> control: certificate
+internet -> aws.ec2: closed {class: dashed}

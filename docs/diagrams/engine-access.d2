@@ -5,7 +5,10 @@ direction: down
 laptop: Laptop {
   class: group
   panel: Panel {class: leaf}
+  tailscale: Tailscale {class: leaf}
   cli: AWS CLI {class: leaf}
+
+  panel -> tailscale: HTTPS and token
 }
 
 idp: Identity provider {class: leaf}
@@ -13,6 +16,7 @@ idp: Identity provider {class: leaf}
 host: Engine host {
   class: group
 
+  tailscaled: Tailscale {class: leaf}
   caddy: Caddy {class: leaf}
   ssm: SSM agent {class: leaf}
   agents: Agents {class: leaf}
@@ -28,6 +32,7 @@ host: Engine host {
     loopback -> api
   }
 
+  tailscaled -> caddy: 443
   caddy -> serve.public: loopback
   ssm -> shell
   shell -> serve.loopback: CLI
@@ -37,6 +42,6 @@ host: Engine host {
 grants: Grants {class: store}
 
 laptop.panel -> idp: sign in
-laptop.panel -> host.caddy: HTTPS and token
+laptop.tailscale -> host.tailscaled: tailnet
 laptop.cli -> host.ssm: session
 host.serve.public -> grants

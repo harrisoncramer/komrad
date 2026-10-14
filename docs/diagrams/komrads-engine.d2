@@ -16,9 +16,11 @@ aws: AWS {
   ssm: Systems Manager {class: leaf}
   bucket: State bucket {class: store}
   secrets: Secrets Manager {class: store}
+  params: Parameter Store {class: store}
 
   ec2: EC2 instance {
     class: group
+    tailscaled: Tailscale {class: leaf}
     caddy: Caddy {class: leaf}
     agent: SSM agent {class: leaf}
     serve: Server {class: leaf}
@@ -26,6 +28,7 @@ aws: AWS {
     agents: Agents {class: leaf}
     volume: Data volume {class: store}
 
+    tailscaled -> caddy: 443
     caddy -> serve: loopback
     agent -> serve: restart
     agents -> serve: MCP
@@ -39,9 +42,10 @@ aws: AWS {
   ec2.creds -> secrets: owner password
   ec2.creds -> rds: migrate
   ec2.serve -> rds
+  ec2.tailscaled -> params: node key
 }
 
-laptop.panel -> aws.ec2.caddy: HTTPS
+laptop.panel -> aws.ec2.tailscaled: tailnet
 laptop.cli -> aws.ssm: session
 actions -> aws.ssm: deploy
 actions -> aws.bucket: upload

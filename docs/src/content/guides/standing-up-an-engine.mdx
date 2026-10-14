@@ -14,7 +14,9 @@ This guide builds [komrad's engine](../komrads-engine/) from an empty AWS accoun
 
 - An AWS account with a named profile, and an S3 bucket for Terraform's state.
 - The Session Manager plugin for the AWS CLI, which you need to get a shell on the machine.
-- A domain for the engine, for example `komrad.example.com`, at a DNS host you control.
+- A Tailscale tailnet with MagicDNS and HTTPS certificates turned on in its DNS settings, and Tailscale running on your laptop.
+- The engine's rules in the tailnet's access policy, as [Access](../engine-access/#the-tailnet-policy) shows. Add them before the engine joins.
+- An auth key for the engine from Tailscale's admin console. Make it single-use and pre-approved, and tag it `tag:komrad-engine`. Store it in Secrets Manager as `komrad/tailscale-auth-key`. The engine uses it only the first time it joins, so the default 90-day expiry is fine.
 - Komrad registered with your identity provider as a desktop app. [Access](../engine-access/#registering-komrad-with-the-provider) covers the registration.
 - A GitHub App for the engine, with its private key stored in Secrets Manager as `komrad/github-app`. [Forge credentials](../forge-credentials/#github) covers the App. The machine reads the key at boot, so store it before the first one.
 
@@ -28,18 +30,16 @@ The build prints the image's id when it finishes, and Terraform needs that id in
 
 ## Applying the infrastructure
 
-Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id, the engine's `domain_name`, and the `sign_in_*` values from your provider. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
+Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id, and the `sign_in_*` values from your provider. Set `tailscale_hostname` to the engine's name on the tailnet, such as `komrad`, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. Tailscale's admin console shows the tailnet's name under DNS. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
 
 ```sh
 mise run infra:engine:init
 mise run infra:engine:apply
 ```
 
-The apply prints the instance's address as `instance_public_ip`, its id as `instance_id`, and the CI role as `ci_role_arn`.
+The apply prints the engine's address as `engine_url`, its instance id as `instance_id`, and the CI role as `ci_role_arn`.
 
-At your DNS host, add an A record for the domain that points at `instance_public_ip`. Terraform leaves the record to you, so you can keep DNS wherever it already lives. Caddy requests its certificate once the record resolves.
-
-On first boot, the machine mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. Open a session and check that no unit failed. On a healthy machine the second command prints nothing:
+On first boot, the machine joins the tailnet, mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. Caddy asks Tailscale for the certificate once the machine is on the tailnet. The engine shows up in Tailscale's admin console as `komrad`, tagged `tag:komrad-engine`. Once it does, you can delete the auth key from the console and from Secrets Manager. Open a session and check that no unit failed. On a healthy machine the second command prints nothing:
 
 ```sh
 aws ssm start-session --target i-0123456789abcdef0
@@ -82,11 +82,11 @@ Exit the komrad account's shell and grant yourself access:
 sudo komrad-access grant you@example.com
 ```
 
-On your laptop, create `~/.config/komrad/engines/remote.toml`:
+Add yourself to the group your tailnet policy lets in. Then, on your laptop, create `~/.config/komrad/engines/remote.toml` with the `engine_url` the apply printed:
 
 ```toml
 [connection]
-url = "https://komrad.example.com"
+url = "https://komrad.tail1234.ts.net"
 ```
 
 Sign in and open the panel:
