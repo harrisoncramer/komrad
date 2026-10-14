@@ -51,11 +51,3 @@ This pattern is always enforced. For instance, when the UI makes a POST call to 
 This approach is designed to fit into BubbleTea's ELM architecture, and make parallelization of editors easier. Because state only ever flows through the system in one direction, diagnosing and fixing rendering issues is straightforward.
 
 It also keeps the application lightweight. Komrad uses far less memory, in fact, than the coding CLIs it is orchestrating, making it a great, performant alternative to other agent frameworks.
-
-## How a change reaches your screen
-
-The panel never asks whether something changed. When a row is written, Postgres says so. The server reads the row back and sends it to the panel over a stream. If the stream breaks, the panel reconnects and gets a fresh copy of everything.
-
-For instance, say you archive an agent. The panel sends a request. The server checks it, kills the agent's terminal, and marks the row archived. Postgres announces the change, and the panel redraws. An agent that archives another agent over MCP takes exactly the same path.
-
-That is the mechanism. [Philosophy](../philosophy/) gives the reasoning behind it.
