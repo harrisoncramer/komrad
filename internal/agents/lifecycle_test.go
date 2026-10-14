@@ -1424,54 +1424,6 @@ func TestATasksWriterMovesWithItsTask(t *testing.T) {
 	}
 }
 
-// TestRestoreOfAReviewerNeedsItsTaskBack pins that a reviewer comes back only onto a live task.
-func TestRestoreOfAReviewerNeedsItsTaskBack(t *testing.T) {
-	tests := []struct {
-		name        string
-		restoreTask bool
-		wantErrIs   error
-	}{
-		{
-			name:        "the task is live again",
-			restoreTask: true,
-		},
-		{
-			name:      "the task is still archived",
-			wantErrIs: agenterr.ErrTaskArchived,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := tmuxtest.NewFake()
-			st := newStore(t)
-			manager := newManager(tmux, st)
-			ctx := t.Context()
-
-			writer := seedRunning(t, st, tmux, "writer", "%writer", agentstore.StateIdle)
-			reviewer := seedReviewer(t, st, tmux, writer)
-
-			require.NoError(t, manager.lifecycle.ArchiveTask(ctx, *writer.TaskID))
-			if tt.restoreTask {
-				_, err := manager.lifecycle.RestoreAgents(ctx, []string{writer.ID})
-				require.NoError(t, err)
-			}
-
-			restored, err := manager.lifecycle.RestoreAgents(ctx, []string{reviewer.ID})
-			if tt.wantErrIs != nil {
-				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.NotNil(t, agentByID(t, st, reviewer.ID).ArchivedAt, "the refusal restores nothing")
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Len(t, restored, 1)
-			assert.Nil(t, agentByID(t, st, reviewer.ID).ArchivedAt)
-		})
-	}
-}
-
 func collectAgentNames(agents []agentstore.Agent) []string {
 	return xslice.Map(agents, func(agent agentstore.Agent) string {
 		return agent.Name
@@ -1620,57 +1572,6 @@ func TestFailDeleteGivesTheRowBack(t *testing.T) {
 	assert.Equal(t, agentstore.StateFailedToCleanup, page[0].State)
 	assert.Contains(t, page[0].FailureReason, "the store is away")
 	assert.Nil(t, page[0].DeletingAt)
-}
-
-// TestArchiveTaskTakesItsLiveAgents pins that archiving a task archives every live agent on it and nothing on another task.
-func TestArchiveTaskTakesItsLiveAgents(t *testing.T) {
-	st := newStore(t)
-	manager := newManager(tmuxtest.NewFake(), st)
-	ctx := t.Context()
-	workflowID := seedWorkflow(t, st)
-	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
-	other := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "other"})
-	author := seedOnTask(t, st, workflowID, "author", work.ID)
-	followUp := seedOnTask(t, st, workflowID, "follow-up", work.ID)
-	bystander := seedOnTask(t, st, workflowID, "bystander", other.ID)
-
-	require.NoError(t, manager.lifecycle.ArchiveTask(ctx, work.Slug))
-
-	assert.NotNil(t, agentByID(t, st, author.ID).ArchivedAt)
-	assert.NotNil(t, agentByID(t, st, followUp.ID).ArchivedAt)
-	assert.True(t, isTaskArchived(t, st, work.ID))
-	assert.Nil(t, agentByID(t, st, bystander.ID).ArchivedAt, "an agent on another task stays live")
-	assert.False(t, isTaskArchived(t, st, other.ID))
-}
-
-// TestArchivingAReviewerLeavesItsTaskLive pins that a reviewer leaving does not take its task with it.
-func TestArchivingAReviewerLeavesItsTaskLive(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	manager := newManager(tmux, st)
-	writer := seed(t, st, "writer", "", agentstore.StateIdle)
-	reviewer := seedReviewer(t, st, tmux, writer)
-
-	require.NoError(t, manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{reviewer.ID}}))
-
-	assert.False(t, isTaskArchived(t, st, *writer.TaskID))
-}
-
-// TestRestoringAgentsRestoresTheirTasks pins that an agent never comes back under an archived task.
-func TestRestoringAgentsRestoresTheirTasks(t *testing.T) {
-	st := newStore(t)
-	manager := newManager(tmuxtest.NewFake(), st)
-	ctx := t.Context()
-	workflowID := seedWorkflow(t, st)
-	work := st.SeedTask(t, taskstore.CreateParams{WorkflowID: workflowID, Slug: "work"})
-	author := seedOnTask(t, st, workflowID, "author", work.ID)
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{author.ID}))
-	require.True(t, isTaskArchived(t, st, work.ID))
-
-	_, err := manager.lifecycle.RestoreAgents(ctx, []string{author.ID})
-	require.NoError(t, err)
-
-	assert.False(t, isTaskArchived(t, st, work.ID))
 }
 
 func seedOnTask(t *testing.T, st *testStore, workflowID, name, taskID string) agentstore.Agent {

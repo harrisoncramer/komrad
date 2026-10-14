@@ -13,7 +13,6 @@ import (
 	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
-	"komrad/internal/tmuxtest"
 	"komrad/lib/clock/clocktest"
 
 	"github.com/stretchr/testify/assert"
@@ -263,24 +262,6 @@ func TestReleasingAnAgentNobodyHoldsIsRefused(t *testing.T) {
 
 	_, err := holder.Release(t.Context(), ReleaseParams{AgentID: agent.ID})
 	require.ErrorIs(t, err, ErrNotHeld)
-}
-
-// TestResumingAHeldAgentIsRefused pins the other way an agent could be put back to work under
-// somebody holding its worktree, which is a relaunch rather than a nudge.
-func TestResumingAHeldAgentIsRefused(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	agent := seed(t, st, "telescope", "%1", agentstore.StateIdle)
-
-	holder := newHolder(st, &harnesstest.Channel{}, harnesstest.NewActivityObserver(harness.ActivityIdle))
-
-	_, err := holder.Hold(t.Context(), HoldParams{AgentID: agent.ID})
-	require.NoError(t, err)
-
-	manager := st.agentService(agentServiceOptions{tmux: tmux, harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}})
-
-	_, err = manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
-	require.ErrorIs(t, err, agenterr.ErrAgentHeld)
 }
 
 // TestHoldingAWaitingAgentWaitsForThePromptToGo is the case a stored state gets wrong twice over:

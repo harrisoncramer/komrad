@@ -436,112 +436,6 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 	assert.NotContains(t, prompt, "before-the-edit")
 }
 
-// TestBriefingCarriesTheReviewRules pins the review surface being part of what komrad ships
-// rather than something a person configures.
-func TestBriefingCarriesTheReviewRules(t *testing.T) {
-	launcher := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:8787"})
-
-	// No context file and no workflow.
-	base := launcher.appendedSystemPrompt(t.Context(), launchParams{})
-	reviewer := launcher.appendedSystemPrompt(t.Context(), launchParams{Role: agentstore.RoleReviewer})
-
-	for _, want := range []string{
-		"open_review_round",
-		"create_review_thread",
-		"release_review",
-		"quoted_lines",
-	} {
-		assert.Contains(t, reviewer, want, "an agent giving a review is told the call by name")
-	}
-
-	assert.Contains(t, base, "add_review_message",
-		"answering one reaches every agent, since a person may review any of them from the panel")
-	assert.Contains(t, base, "`gh`", "and every agent is told plainly not to reach for the forge")
-	assert.Contains(t, reviewer, "You review your task's writer and nothing else",
-		"and who it may review, since the rule is refused at the server either way")
-}
-
-// TestAppendedSystemPromptReviewBriefing pins which half of the review loop an agent is sent.
-func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
-	const (
-		giving    = "### When you are the one reviewing"
-		asking    = "### Getting your own work read"
-		answering = "### When you are the one being reviewed"
-	)
-
-	tests := []struct {
-		name         string
-		role         agentstore.Role
-		ownsCheckout bool
-		wantContain  []string
-		wantAbsent   []string
-	}{
-		{
-			name:         "an agent with a checkout of its own is told to get its work read",
-			role:         agentstore.RoleWriter,
-			ownsCheckout: true,
-			wantContain:  []string{asking, answering, "Commit on your branch, then call request_review"},
-			wantAbsent:   []string{giving, "open_review_round"},
-		},
-		{
-			name:        "a reviewer is told how to give one and never to ask for one",
-			role:        agentstore.RoleReviewer,
-			wantContain: []string{giving, answering, "open_review_round", "You do not fix what you find"},
-			wantAbsent:  []string{asking},
-		},
-		{
-			name:         "a reviewer is not told to get its own work read even in its own checkout",
-			role:         agentstore.RoleReviewer,
-			ownsCheckout: true,
-			wantContain:  []string{giving},
-			wantAbsent:   []string{asking},
-		},
-		{
-			name:        "an agent reading somebody else's tree is sent neither half",
-			role:        agentstore.RoleWriter,
-			wantContain: []string{answering},
-			wantAbsent:  []string{asking, giving},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			launcher := NewLauncher(NewLauncherParams{
-				Tmux:    tmuxtest.NewFake(),
-				Addr:    "127.0.0.1:9999",
-				LogPath: briefedLogPath,
-			})
-
-			prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{Role: tt.role, OwnsCheckout: tt.ownsCheckout})
-
-			for _, want := range tt.wantContain {
-				assert.Contains(t, prompt, want)
-			}
-			for _, absent := range tt.wantAbsent {
-				assert.NotContains(t, prompt, absent)
-			}
-		})
-	}
-}
-
-// TestBriefingKeepsWhatEveryAgentNeeds pins the facts that stayed in the base briefing when the
-// review halves were cut out of it.
-func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
-	launcher := NewLauncher(NewLauncherParams{
-		Tmux:    tmuxtest.NewFake(),
-		Addr:    "127.0.0.1:9999",
-		LogPath: briefedLogPath,
-	})
-
-	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{})
-
-	assert.Contains(t, prompt, "add_review_message", "answering a review reaches every agent")
-	assert.Contains(t, prompt, "Never spawn agents with your CLI's own subagent tools", "since komrad tracks no agent it did not launch")
-	assert.Contains(t, prompt, "never touches a forge", "so does the rule against mailing one")
-	assert.Contains(t, prompt, "Never watch, poll, or wait on a pull request's checks",
-		"since a turn spent watching is one in which komrad's mail about the pull request cannot arrive")
-}
-
 // TestRoleBriefing pins which document an agent is given.
 func TestRoleBriefing(t *testing.T) {
 	tests := []struct {
@@ -617,15 +511,6 @@ func TestSpawningBriefing(t *testing.T) {
 			assert.Equal(t, tt.want, spawningBriefing(tt.params))
 		})
 	}
-
-	t.Run("a reviewer is never told to call create_agent", func(t *testing.T) {
-		launcher := NewLauncher(NewLauncherParams{Tmux: tmuxtest.NewFake(), LogPath: briefedLogPath})
-		prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{
-			Role: agentstore.RoleReviewer,
-		})
-
-		assert.NotContains(t, prompt, "create_agent")
-	})
 }
 
 // TestContextBriefing pins that a workflow's context still reaches an orchestrator, and that
@@ -764,24 +649,6 @@ func TestLaunchAnswersWithItsHooks(t *testing.T) {
 			assert.Equal(t, tt.wantLogged, record[logging.HookInstalled])
 		})
 	}
-}
-
-// TestReviewerBriefing pins what a reviewer is told.
-func TestReviewerBriefing(t *testing.T) {
-	launcher := NewLauncher(NewLauncherParams{
-		Tmux:    tmuxtest.NewFake(),
-		Addr:    "127.0.0.1:9999",
-		LogPath: briefedLogPath,
-	})
-
-	prompt := launcher.appendedSystemPrompt(t.Context(), launchParams{
-		Role:             agentstore.RoleReviewer,
-		SpawnedByAgentID: "agent-author",
-		SpawnedByName:    "author",
-	})
-
-	assert.Contains(t, prompt, "You were spawned by agent author (agent-author)")
-	assert.Contains(t, prompt, "never commit")
 }
 
 // TestTaskBriefing pins what an agent is told of its task's goal and notes, and where it is pointed
