@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
+set -euo pipefail
+#MISE description="Ready a tailnet for the engine and store its auth key."
+
+SECRET=komrad/tailscale-auth-key
+TAG=tag:komrad-engine
+API=https://api.tailscale.com/api/v2/tailnet/-
+
+usage() {
+	echo "Usage: mise run infra:engine:tailnet [--secret NAME]"
+	echo
+	echo "Turns on MagicDNS and HTTPS certificates in your tailnet, checks that its policy"
+	echo "names an owner for $TAG, and stores a single-use auth key for the engine in"
+	echo "Secrets Manager. It never edits the policy, so the rest of your tailnet stays as"
+	echo "it is."
+	echo
+	echo "Asks for a Tailscale API access token unless TS_API_KEY is set. The key is stored"
+	echo "as $SECRET unless --secret names another, and expires after a day."
+	echo
+	echo "Uses the komrad AWS profile, unless the environment already carries credentials."
+}
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--secret)
+		SECRET="${2:?--secret needs a name}"
+		shift 2
+		;;
+	*)
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+use_komrad_aws_profile
+
+if [ -z "${TS_API_KEY:-}" ]; then
+	TS_API_KEY="$(gum input --password --placeholder "Tailscale API access token")"
+fi
+
+key_file="$(mktemp)"
+auth_file="$(mktemp)"
+trap 'rm -f "$key_file" "$auth_file"' EXIT
+
+printf 'Authorization: Bearer %s\n' "$TS_API_KEY" >"$auth_file"
+
+tailscale_api() {
+	local method=$1 path=$2
+	shift 2
+
+	curl -fsS -X "$method" -H @"$auth_file" -H "Accept: application/json" "$@" "$API$path"
+}
+
+if [ "$(tailscale_api GET /dns/preferences | jq -r .magicDNS)" != true ]; then
+	gum log --level info "turning on MagicDNS"
+	tailscale_api POST /dns/preferences -H "Content-Type: application/json" -d '{"magicDNS":true}' >/dev/null
+fi
+
+if [ "$(tailscale_api GET /settings | jq -r .httpsEnabled)" != true ]; then
+	gum log --level info "turning on HTTPS certificates"
+	tailscale_api PATCH /settings -H "Content-Type: application/json" -d '{"httpsEnabled":true}' >/dev/null
+fi
+
+if ! tailscale_api GET /acl | jq -e --arg tag "$TAG" '.tagOwners[$tag] // empty | length > 0' >/dev/null; then
+	echo "your tailnet policy names no owner for $TAG, so Tailscale won't issue a key for it." >&2
+	echo >&2
+	echo "Add this to tagOwners in the policy, then run this again:" >&2
+	echo >&2
+	echo "  \"$TAG\": [\"autogroup:admin\"]" >&2
+	exit 1
+fi
+
+tailscale_api POST /keys -H "Content-Type: application/json" -d "$(jq -n --arg tag "$TAG" '{
+	capabilities: {devices: {create: {reusable: false, ephemeral: false, preauthorized: true, tags: [$tag]}}},
+	expirySeconds: 86400,
+	description: "komrad-engine"
+}')" | jq -r .key >"$key_file"
+
+if aws secretsmanager describe-secret --secret-id "$SECRET" >/dev/null 2>&1; then
+	aws secretsmanager put-secret-value --secret-id "$SECRET" --secret-string "file://$key_file" >/dev/null
+else
+	aws secretsmanager create-secret --name "$SECRET" --secret-string "file://$key_file" >/dev/null
+fi
+
+gum log --level info "stored a single-use auth key for $TAG in $SECRET"
+
+tailnet="$(tailscale_api GET /devices | jq -r '[.devices[] | select(.isExternal | not)][0].name // empty' | cut -d. -f2-)"
+
+if [ -n "$tailnet" ]; then
+	gum log --level info "set tailscale_tailnet = \"$tailnet\" in terraform.tfvars"
+fi
