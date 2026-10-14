@@ -39,7 +39,13 @@ mise run infra:engine:apply
 
 The apply prints the engine's address as `engine_url`, its instance id as `instance_id`, and the CI role as `ci_role_arn`.
 
-On first boot, the machine joins the tailnet, mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. Once the engine shows up in Tailscale's admin console, delete the auth key from the console and from Secrets Manager. Open a session and check that no unit failed. On a healthy machine the second command prints nothing:
+On first boot, the machine joins the tailnet, mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. Once the engine shows up in Tailscale's admin console, revoke the auth key there and delete the secret without a recovery window, so the name is free when you need a new key:
+
+```sh
+aws secretsmanager delete-secret --secret-id komrad/tailscale-auth-key --force-delete-without-recovery
+```
+
+Open a session and check that no unit failed. On a healthy machine the second command prints nothing:
 
 ```sh
 aws ssm start-session --target i-0123456789abcdef0
