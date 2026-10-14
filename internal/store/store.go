@@ -133,22 +133,33 @@ func Migrate(ctx context.Context, url string) error {
 
 // EnsureEngine creates an engine or brings its logins up to date, connecting as the database's owner.
 func EnsureEngine(ctx context.Context, url string, params db.EnsureEngineParams) error {
-	pool, err := openOwner(ctx, url)
+	pool, err := openMigratedOwner(ctx, url)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
+	return db.NewEngineProvisioner(pool).EnsureEngine(ctx, params)
+}
+
+func openMigratedOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {
+	pool, err := openOwner(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+
 	schema, err := migrator.NewMigrator(pool)
 	if err != nil {
-		return err
+		pool.Close()
+		return nil, err
 	}
 
 	if err := schema.CheckSchema(ctx); err != nil {
-		return err
+		pool.Close()
+		return nil, err
 	}
 
-	return db.NewEngineProvisioner(pool).EnsureEngine(ctx, params)
+	return pool, nil
 }
 
 func openOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {

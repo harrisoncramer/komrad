@@ -2053,7 +2053,7 @@
           "key": "owner_database_url",
           "path": "connection.owner_database_url",
           "type": "string",
-          "description": "The login that owns the schema, used only by `komrad migrate` and `komrad engine ensure`.\nLeft empty this is database_url, or the local owner while database_url is the default.",
+          "description": "The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.\nLeft empty this is database_url, or the local owner while database_url is the default.",
           "default": "\"\""
         },
         {

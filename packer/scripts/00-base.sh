@@ -23,6 +23,8 @@ install -m 0755 /tmp/files/komrad-data-volume /usr/local/sbin/komrad-data-volume
 install -m 0755 /tmp/files/komrad-database-credentials /usr/local/sbin/komrad-database-credentials
 install -m 0755 /tmp/files/komrad-github-key /usr/local/sbin/komrad-github-key
 install -m 0755 /tmp/files/komrad-manager-session /usr/local/sbin/komrad-manager-session
+install -m 0700 /tmp/files/komrad-owner-database-url /usr/local/sbin/komrad-owner-database-url
+install -m 0700 /tmp/files/komrad-access /usr/local/sbin/komrad-access
 install -m 0644 /tmp/files/komrad-data-volume.service /etc/systemd/system/komrad-data-volume.service
 install -m 0644 /tmp/files/komrad-database-credentials.service /etc/systemd/system/komrad-database-credentials.service
 install -m 0644 /tmp/files/komrad-database-credentials.timer /etc/systemd/system/komrad-database-credentials.timer
