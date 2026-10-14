@@ -39,19 +39,3 @@ Answer the agent and it drops out of triage on its own. Opening a finished agent
 When you cannot deal with a task yet, open its [menu](../navigation/#the-menu) with <Key name="menu.open" /> and press <Key name="menu.snooze" />. The task leaves the zone, one waiting for a slot comes in at the bottom, and the cursor moves to the row above. A snooze lasts until what the task waits on changes, so a task you snoozed because its writer finished comes back when the writer asks you something.
 
 To bring a snoozed task back early, find it in the tree and pick wake from the same menu. Snoozes last only as long as the panel does, so restarting the panel brings every snoozed task back.
-
-<figure>
-  <video
-    preload="none"
-    loop
-    muted
-    playsinline
-    poster={media("triage-snooze.png")}
-    width="1440"
-    height="920"
-    aria-label="Jumping to the triage zone, opening a finished task to read its answer, and snoozing the task that asked a question so the next one takes its place."
-  >
-    <source src={media("triage-snooze.webm")} type="video/webm" />
-    <source src={media("triage-snooze.mp4")} type="video/mp4" />
-  </video>
-</figure>
