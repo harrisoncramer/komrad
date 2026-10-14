@@ -17,7 +17,7 @@ Environment=PATH=/usr/bin:/usr/sbin:/bin:/sbin
 Environment=XDG_RUNTIME_DIR=/run/komrad-docker
 Environment=XDG_DATA_HOME=/var/lib/komrad-docker
 Environment=XDG_CONFIG_HOME=/var/lib/komrad-docker/config
-ExecStart=/usr/bin/dockerd-rootless.sh
+ExecStart=/usr/bin/dockerd-rootless.sh --exec-opt native.cgroupdriver=cgroupfs
 ExecReload=/bin/kill -s HUP $MAINPID
 Delegate=yes
 KillMode=mixed
