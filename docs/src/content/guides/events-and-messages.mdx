@@ -6,7 +6,7 @@ order: 11
 ---
 
 import Setting from "../../components/Setting.astro";
-import { media } from "../../site";
+import { link, media } from "../../site";
 
 Every message an agent receives is _mail_. Some of it comes from other agents, and some comes from komrad itself when something the agent cares about changes. Both kinds arrive the same way. Komrad sends its own mail through a [transactional outbox](#how-a-change-becomes-mail), so mail always follows a saved change, and komrad never sends mail for an unsaved one.
 
@@ -72,20 +72,12 @@ Komrad records each change as an _event_ in the same database transaction as the
 
 This pattern is called a _transactional outbox_. Komrad saves the change and the record that announces it together or not at all, and a separate worker announces the change, retrying until it succeeds. Komrad keeps its events in the same job queue it uses for other background work, and the messages land in the mail table.
 
-```
-  one transaction
-  ├── the change: checks on #412 → failing
-  └── the event:  "pull request #412 changed"
-          |
-          v  a moment later
-  one transaction
-  ├── the handler for pull requests finds the writers on the branch
-  ├── writes or rewrites each one's mail
-  └── marks the event done
-          |
-          v
-  delivered the same way as any other mail
-```
+<figure>
+  <img
+    src={link("/diagrams/events-and-messages.png")}
+    alt="One transaction holds the change, checks on #412 failing, and the event saying pull request #412 changed. A moment later a second transaction runs the handler for pull requests, which finds the writers on the branch, writes or rewrites each one's mail, and marks the event done. The mail is then delivered the same way as any other mail."
+  />
+</figure>
 
 Background workers pick up and run each event.
 

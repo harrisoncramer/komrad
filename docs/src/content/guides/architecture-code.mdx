@@ -5,25 +5,18 @@ group: architecture
 order: 21
 ---
 
+import { link } from "../../site";
+
 The Go code is arranged in layers. Tools enforce the arrangement, so nobody has to remember it.
 
 ## The layers
 
-```
-  cli
-   |
-  server
-   |
-  rpc, mcp        handlers
-   |
-  services        agents, mail, reviews, ...
-   |                          |
-  store                  adapters: git, tmux, harness, forge
-   |                          |
-  Postgres               the outside world
-
-  ui               a client, talks over Connect only
-```
+<figure>
+  <img
+    src={link("/diagrams/architecture-code.png")}
+    alt="The cli starts the server, which passes each request to the rpc and mcp handlers, which call the services. Services reach Postgres through the store and the outside world through the git, tmux, harness and forge adapters. The ui is a client that talks to the server over Connect only."
+  />
+</figure>
 
 Handlers turn a request into one call on a service. Services hold the rules. Stores read and write their own tables. Anything komrad does not own, like tmux or git, sits behind an adapter. The harness adapter is the only place that knows how Claude and Codex differ. The panel is a client and has no database connection.
 

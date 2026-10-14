@@ -1,0 +1,35 @@
+...@_theme
+
+grid-rows: 4
+grid-columns: 3
+grid-gap: 80
+
+blank1: "" {style.opacity: 0}
+ui: UI {
+  class: box
+  note: "A client, talks\nover Connect only" {class: note}
+}
+blank2: "" {style.opacity: 0}
+cli: CLI
+server: Server
+handlers: Handlers {
+  class: box
+  note: "rpc, mcp" {class: note}
+}
+postgres: Postgres {shape: cylinder}
+store: Store
+services: Services {
+  class: box
+  note: "agents, mail,\nreviews, ..." {class: note}
+}
+blank3: "" {style.opacity: 0}
+world: The outside world {style.stroke-dash: 3}
+adapters: Adapters {
+  class: box
+  note: "git, tmux,\nharness, forge" {class: note}
+}
+
+cli -> server -> handlers -> services
+services -> store -> postgres
+services -> adapters -> world
+ui -> server: Connect {style.stroke-dash: 3}

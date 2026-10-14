@@ -1,0 +1,38 @@
+...@_theme
+
+direction: right
+
+laptop: Laptop {
+  style.font-size: 18
+  panel: Panel
+  tmux: Local tmux
+}
+
+actions: GitHub Actions {
+  style.font-size: 18
+  release: Release {
+    class: box
+    note: release.yml {class: note}
+  }
+}
+
+aws: AWS {
+  style.font-size: 18
+  ec2: "EC2, fixed IP" {
+    style.font-size: 16
+    serve: Server {
+      class: box
+      note: komrad serve {class: note}
+    }
+    agents: Agents {
+      class: box
+      note: "tmux, every agent" {class: note}
+    }
+    volume: Data volume {shape: cylinder}
+  }
+  rds: RDS Postgres {shape: cylinder}
+  ec2.serve -> rds
+}
+
+laptop.panel -> aws.ec2.serve: ssh -L
+actions.release -> aws.ec2: ssm

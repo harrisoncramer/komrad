@@ -5,28 +5,18 @@ group: architecture
 order: 19
 ---
 
+import { link } from "../../site";
+
 Komrad never polls the database to find out what changed. The database tells it.
 
 ## The path
 
-```
-  write commits
-       |
-       v
-  trigger: pg_notify("agents <key>")
-       |
-       v
-  listener, one dedicated connection
-       |
-       v
-  pending set: keys to re-read
-       |
-       v
-  render pass: read rows back, diff per subscriber
-       |
-       v
-  stream -> panel
-```
+<figure>
+  <img
+    src={link("/diagrams/architecture-events.png")}
+    alt="A write commits and its trigger calls pg_notify with the table and key. The listener, on one dedicated connection, adds the key to the pending set of keys to re-read. The render pass reads the rows back, diffs them per subscriber, and streams the difference to the panel."
+  />
+</figure>
 
 Every table the panel draws has a trigger. When a row is inserted, updated or deleted, the trigger calls `pg_notify` with the table name and the row's key. It sends no data. It only says which row to look at. The trigger rides on the transaction, so it fires only when the write commits.
 
