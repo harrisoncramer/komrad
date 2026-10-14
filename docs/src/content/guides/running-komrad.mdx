@@ -36,6 +36,8 @@ Every request to a remote engine has to say who sent it. Komrad keeps no passwor
 
 The komrad server listens only on loopback, and the proxy in front of it is the only thing exposed to the network. Komrad's engine uses Caddy because it gets and renews its own certificate, but any proxy that speaks HTTP/2 will work.
 
+An engine can also sit on a private network instead of the internet. Komrad's engine sits on a Tailscale tailnet, and Tailscale issues Caddy's certificate. Other private networks, Headscale included, need your own domain with a DNS challenge or a certificate authority every laptop trusts. Agents run unreviewed code, so stop the engine from opening connections into the network.
+
 Operators need a shell on the host for upgrades and debugging. Give them one that doesn't need an open port on the internet. On AWS, komrad's engine uses Systems Manager sessions for this.
 
 ## Forge credentials
@@ -49,7 +51,7 @@ Before you stand up an engine, have each of these ready or know where it will co
 - A Linux host that stays on.
 - A volume for the worktrees and logins that will outlive the host.
 - A Postgres database the host can reach.
-- A domain name for the engine and a proxy to terminate HTTPS.
+- A name and certificate for the engine, from a domain or a private network, and a proxy to terminate HTTPS.
 - An OpenID Connect provider with komrad registered on it.
 - Forge credentials that belong to the engine.
 - A way for operators to get a shell without opening a port to the internet.

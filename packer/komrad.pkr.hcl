@@ -112,6 +112,7 @@ build {
       "scripts/30-harnesses.sh",
       "scripts/40-komrad.sh",
       "scripts/50-caddy.sh",
+      "scripts/55-tailscale.sh",
       "scripts/99-clean.sh",
     ]
   }

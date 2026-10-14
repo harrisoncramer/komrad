@@ -11,34 +11,36 @@ Komrad's engine runs on one disposable Linux machine. Everything that has to out
 
 ## The image
 
-Packer builds the image from the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). It starts from Ubuntu and installs Caddy, komrad and the tools the agents use, including git, tmux, Docker, Go, Node and the agent CLIs. Each layer is a short shell script, so adding a tool means adding a script.
+Packer builds the image from the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). It starts from Ubuntu and installs Tailscale, Caddy, komrad and the tools the agents use, including git, tmux, Docker, Go, Node and the agent CLIs. Each layer is a short shell script, so adding a tool means adding a script.
 
 The image carries a komrad binary so the server can start on first boot, before any deploy has run. Each deploy replaces that binary, which means the image only needs rebuilding when a tool or a boot step changes. [Deploys](../deploys/#image-updates) covers image updates.
 
 ## The komrad account
 
-The server and every agent run as an account named komrad, which can't become root. Agents run whatever commands they decide to run, and the account keeps those commands away from the system and from the instance's AWS credentials. Those credentials come from the instance metadata service, and a firewall rule lets only root reach it. Docker runs rootless under the komrad account, so agents can still build and run containers.
+The server and every agent run as an account named komrad, which can't become root. Agents run whatever commands they decide to run, and the account keeps those commands away from the system and from the instance's AWS credentials. Those credentials come from the instance metadata service, and a firewall rule lets only root reach it. Another rule stops it from opening connections into the tailnet. Docker runs rootless under the komrad account, so agents can still build and run containers.
 
 Deploys, restarts and access grants need root, and they reach the machine through AWS Systems Manager. [Access](../engine-access/#operator-and-ci-access) covers that path.
 
 ## The data volume
 
-The data volume holds the komrad account's home directory, which has komrad's config and the agent CLIs' logins. Every agent's worktree is on it too, along with komrad's cache and log and Caddy's certificates. When Terraform replaces the machine, the volume moves to the new one.
+The data volume holds the komrad account's home directory, which has komrad's config and the agent CLIs' logins. Every agent's worktree is on it too, along with komrad's cache and log and Caddy's state. Tailscale's identity stays off it, out of the agents' reach. When Terraform replaces the machine, the volume moves to the new one.
 
 ## Boot
 
 <figure>
   <img
     src={link("/diagrams/engine-boot.png")}
-    alt="User data writes the machine's settings and Caddy's config. The data volume mounts. The credentials unit reads the owner password from Secrets Manager and migrates RDS. The GitHub key unit copies the App key from Secrets Manager into memory. The server starts once both are done, then the manager session. Caddy starts once the volume is mounted. An hourly timer reruns the credentials unit."
+    alt="User data starts the tailnet unit, which starts Tailscale. Tailscale loads its node key from Parameter Store. On the machine's first join, the tailnet unit reads the auth key from Secrets Manager. The data volume mounts. Caddy starts once the volume is mounted and the tailnet unit has run. The credentials unit reads the owner password from Secrets Manager and migrates RDS. The GitHub key unit copies the App key from Secrets Manager into memory. The server starts once both are done, then the manager session. An hourly timer reruns the credentials unit."
   />
 </figure>
 
-Terraform hands the machine a short user data script. The script records which volume, database and domain belong to the machine. It writes the identity provider into the server's config and points Caddy at the public listener. Any process on the machine can read user data, so the script carries nothing that has to stay secret. The provider's client secret is in it, but the engine hands that to every laptop that signs in anyway.
+Terraform hands the machine a short user data script. The script records which volume and database belong to the machine. It writes the identity provider into the server's config and points Caddy at the public listener. Any process on the machine can read user data, so the script carries nothing that has to stay secret. The provider's client secret is in it, but the engine hands that to every laptop that signs in anyway.
+
+The script also writes the tailnet name into Caddy's config, starts Caddy and joins the tailnet. Tailscale keeps its identity in Parameter Store, so a replacement machine comes back as the same device. The tailnet unit fetches a key from Secrets Manager only on the first join.
 
 Systemd starts everything else in order. The data volume mounts first, and every unit that uses it waits for the mount. If the volume is missing, the server never starts, which keeps it from writing to the root disk by mistake.
 
-Once the volume is up, the credentials unit reads the database owner's password from Secrets Manager, runs the migrations and writes the server's connection string. Alongside it, the GitHub key unit copies the App's private key from Secrets Manager into memory. The server starts after both have finished, and komrad then creates the tmux session the agents run in. Caddy waits only for the volume, since its certificates are stored there.
+Once the volume is up, the credentials unit reads the database owner's password from Secrets Manager, runs the migrations and writes the server's connection string. Alongside it, the GitHub key unit copies the App's private key from Secrets Manager into memory. The server starts after both have finished, and komrad then creates the tmux session the agents run in. Caddy waits for Tailscale, which hands it the certificate, and for the volume, where it keeps its state.
 
 An hourly timer reruns the credentials unit, so the machine picks up the owner's new password after RDS rotates it.
 

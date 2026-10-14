@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+backend_state() {
+	tailscale status --json 2>/dev/null | jq -r '.BackendState // empty' || true
+}
+
+wait_for_state() {
+	local current="" want
+
+	for _ in $(seq 120); do
+		current="$(backend_state)"
+
+		for want in "$@"; do
+			if [ "$current" = "$want" ]; then
+				echo "$current"
+				return 0
+			fi
+		done
+
+		sleep 1
+	done
+
+	echo "tailscale stayed in ${current:-no state} instead of reaching $*" >&2
+	return 1
+}
+
+state="$(wait_for_state Running NeedsLogin)"
+
+if [ "$state" = NeedsLogin ]; then
+	key_file="$(mktemp -p /run tailscale-auth-key.XXXXXX)"
+	trap 'rm -f "$key_file"' EXIT
+
+	aws secretsmanager get-secret-value --secret-id "$KOMRAD_TAILSCALE_SECRET_ID" --query SecretString --output text >"$key_file"
+
+	tailscale up \
+		--auth-key="file:$key_file" \
+		--hostname="$KOMRAD_TAILSCALE_HOSTNAME" \
+		--advertise-tags=tag:komrad-engine \
+		--netfilter-mode=off \
+		--accept-dns=false \
+		--accept-routes=false \
+		--ssh=false \
+		--timeout=120s
+
+	wait_for_state Running >/dev/null
+fi
+
+name="$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')"
+
+if [ "$name" != "$KOMRAD_TAILSCALE_NAME" ]; then
+	echo "this machine is $name on the tailnet, not $KOMRAD_TAILSCALE_NAME, so remove the device holding that name from the admin console" >&2
+	exit 1
+fi

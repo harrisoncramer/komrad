@@ -9,12 +9,12 @@ import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 import { link } from "../../site";
 
-A remote engine lets in only people it can identify and whom its owner has granted access. People prove who they are by signing in with an identity provider, and the engine looks up a grant for each of them. Operators reach the machine itself through AWS Systems Manager, so the machine needs no open port for shells.
+A remote engine lets in only people it can identify and whom its owner has granted access. People prove who they are by signing in with an identity provider, and the engine looks up a grant for each of them. Komrad's engine sits on a Tailscale network, so a laptop has to be on that network to reach it. Operators reach the machine itself through AWS Systems Manager, so the machine needs no open port for shells.
 
 <figure>
   <img
     src={link("/diagrams/engine-access.png")}
-    alt="The panel signs in with the identity provider, then sends HTTPS requests with its token to Caddy. Caddy forwards them to the public listener, which checks the token and the person's grant in Postgres before passing the request to the API. Agents call the loopback listener over MCP. An operator's session goes through the SSM agent to a shell, and the CLI in that shell calls the loopback listener."
+    alt="The panel signs in with the identity provider, then sends HTTPS requests with its token through Tailscale on the laptop. They cross the tailnet to Tailscale on the engine host, which hands them to Caddy on 443. Caddy forwards them to the public listener, which checks the token and the person's grant in Postgres before passing the request to the API. Agents call the loopback listener over MCP. An operator's session goes through the SSM agent to a shell, and the CLI in that shell calls the loopback listener."
   />
 </figure>
 
@@ -72,7 +72,48 @@ The loopback listener serves the agents' MCP tools and the CLI in a shell on the
 
 ## Network
 
-Port 443 is open to the internet, and the token check protects it. An owner whose people work from fixed office or VPN addresses can limit 443 to those with `https_allowed_cidrs`. Port 80 stays open for Let's Encrypt's certificate check, and Caddy redirects every other request on it to HTTPS. Every other port is closed.
+Komrad's engine opens no TCP ports to the internet. People reach it over a tailnet, a private network Tailscale builds between devices its owner lets in. A person needs a device on the tailnet and a grant on the engine.
+
+<figure>
+  <img
+    src={link("/diagrams/engine-network.png")}
+    alt="The panel sends HTTPS with its token to Tailscale on the laptop, which carries it over WireGuard to Tailscale on the EC2 instance. The host firewall lets only port 443 through to Caddy, and Caddy passes the request over loopback to the server. Agents reach the server over MCP and can't open connections into the tailnet. The internet can't reach the instance. Tailscale on the instance keeps its node key in Parameter Store and gets its certificate from Tailscale's control service. The panel signs in with the identity provider directly."
+  />
+</figure>
+
+The engine's address is its tailnet name, such as `https://komrad.tail1234.ts.net`. The name resolves only through Tailscale's DNS, so the laptop needs Tailscale running with DNS on. Caddy gets the certificate for that name from Tailscale. The name appears in public certificate logs, but nothing on the internet can reach it.
+
+### The tailnet policy
+
+The engine joins your tailnet as one device tagged `tag:komrad-engine`, and the rest of your policy stays as it is. Tailscale issues an auth key for a tag only once the policy names an owner for it, so add the tag to `tagOwners` before you create the engine's key:
+
+```json
+"tagOwners": {
+  "tag:komrad-engine": ["autogroup:admin"]
+}
+```
+
+People reach the engine on 443. Tailscale's default policy lets every member reach every device, so a tailnet still on it needs nothing more. A tailnet with its own rules needs a grant naming whoever should reach the engine:
+
+```json
+"grants": [
+  {
+    "src": ["autogroup:member"],
+    "dst": ["tag:komrad-engine"],
+    "ip": ["tcp:443"]
+  }
+]
+```
+
+The engine doesn't count on the policy to keep agents in. Its firewall does that whatever the policy allows. To have the policy say the same, keep `tag:komrad-engine` out of every grant's sources.
+
+### The host firewall
+
+On the Tailscale interface the machine's firewall accepts new connections to 443 only, so agents' dev servers and containers stay off the tailnet. It also stops every account but root from opening connections into the tailnet. The engine takes no DNS settings, routes, exit nodes or SSH from Tailscale.
+
+### People outside the tailnet
+
+Someone outside the owner's tailnet needs the engine shared with them from Tailscale's admin console, plus a grant. Remove both when they leave.
 
 ## Operator and CI access
 

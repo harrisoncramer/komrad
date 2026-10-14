@@ -14,21 +14,23 @@ Komrad's own development runs on a single remote engine in AWS. The Terraform in
 <figure>
   <img
     src={link("/diagrams/komrads-engine.png")}
-    alt="The panel sends HTTPS requests to Caddy on an EC2 instance, and Caddy forwards them to the server over loopback. Agents on the instance call the server over MCP and write to the data volume. The server uses RDS Postgres. The credentials unit reads the owner password from Secrets Manager and migrates RDS. The AWS CLI and GitHub Actions reach the instance's SSM agent through Systems Manager, and the SSM agent downloads new binaries from the state bucket that GitHub Actions uploads to."
+    alt="The panel reaches Tailscale on an EC2 instance over the tailnet. Tailscale hands requests to Caddy on 443, and Caddy forwards them to the server over loopback. Tailscale keeps its node key in Parameter Store. Agents on the instance call the server over MCP and write to the data volume. The server uses RDS Postgres. The credentials unit reads the owner password from Secrets Manager and migrates RDS. The AWS CLI and GitHub Actions reach the instance's SSM agent through Systems Manager, and the SSM agent downloads new binaries from the state bucket that GitHub Actions uploads to."
   />
 </figure>
 
-One EC2 instance runs Caddy, the komrad server and every agent. It boots from a Packer image that comes with the agents' tools already installed, so a new instance can take work as soon as it boots. [The machine](../engine-machine/) covers the image and what happens at boot.
+One EC2 instance runs Tailscale, Caddy, the komrad server and every agent. It boots from a Packer image that comes with the agents' tools already installed, so a new instance can take work as soon as it boots. [The machine](../engine-machine/) covers the image and what happens at boot.
 
-The worktrees, the agent CLIs' logins and komrad's config live on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one. An Elastic IP keeps the instance's address the same across replacements, so the engine's DNS record never has to change.
+The worktrees, the agent CLIs' logins and komrad's config live on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one. An Elastic IP keeps the instance's public address the same across replacements. It gives agents a fixed outbound address a forge can allowlist, and lets Tailscale connect laptops directly.
 
 Postgres runs on RDS, in private subnets that only the instance can reach. RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups. [The database](../engine-database/) explains how the instance gets its credentials.
 
-Secrets Manager also holds the GitHub App's private key. The instance's IAM role can read that secret and the database's, and no others.
+Secrets Manager also holds the GitHub App's private key and the key the instance uses to join the tailnet. The instance's IAM role can read those secrets and the database's, and no others.
+
+Parameter Store holds the instance's Tailscale identity, so a replacement joins the tailnet as the same machine. Only the instance's role can read or write it.
 
 ## Network access
 
-The security group opens ports 443 and 80, and Caddy answers on both. Caddy serves the engine on 443. On 80 it answers Let's Encrypt's certificate check and redirects every other request to HTTPS. [Access](../engine-access/) covers how the engine checks each request that arrives on 443.
+The security group opens no TCP ports to the internet. It allows Tailscale's UDP port 41641, so laptops connect directly instead of through Tailscale's relays. Setting `tailscale_direct_connections = false` closes it. [Access](../engine-access/#network) covers the tailnet, its policy and the firewall on the instance.
 
 Operators get a shell through AWS Systems Manager. The SSM agent on the instance keeps an outbound connection to Systems Manager, so the instance opens no port for operators. Deploys and restarts go through Systems Manager as well.
 

@@ -34,10 +34,12 @@ When the engine's heartbeat stops, the dot beside its name in the panel turns re
 systemctl list-units --state=failed --no-legend
 ```
 
-Then look at the server and Caddy. The journal shows what systemd saw, like a crash at startup or a certificate request that failed. Komrad's log shows what the server wrote while it ran.
+Then look at Tailscale, the server and Caddy. `tailscale status` shows whether the machine is on the tailnet. The journal shows what systemd saw, like a crash at startup or a certificate request that failed. Komrad's log shows what the server wrote while it ran.
 
 ```sh
-systemctl status komrad caddy
+sudo tailscale status
+systemctl status tailscaled komrad caddy
+journalctl -u tailscaled -n 200 --no-pager
 journalctl -u komrad -n 200 --no-pager
 journalctl -u caddy -n 200 --no-pager
 tail -n 200 /var/lib/komrad/cache/komrad.log
@@ -58,6 +60,16 @@ komrad login --engine remote
 ```
 
 If the engine still turns them away, they don't have a grant. Check that the email they signed in with is the one you granted, and that their provider has verified it.
+
+If their panel says the engine is unreachable, check that Tailscale runs on their laptop with DNS on and that the tailnet policy lets them in.
+
+## Rejoining the tailnet
+
+A replaced machine keeps its tailnet identity through Parameter Store. If someone removes the engine from Tailscale's admin console, it drops off the tailnet and needs a new key. Set `tailscale_auth_key` to a new single-use, pre-approved key tagged `tag:komrad-engine` and run `mise run infra:engine:apply`. Then join again in a shell on the machine:
+
+```sh
+sudo systemctl restart komrad-tailscale
+```
 
 ## Restarting
 
@@ -101,6 +113,8 @@ sudo komrad-access grant someone@example.com
 sudo komrad-access revoke someone@example.com
 ```
 
+A person also needs to reach the engine over the tailnet. Check that your policy lets them reach it on 443, or share the engine with them from Tailscale's admin console if they're outside your tailnet.
+
 [Access](../engine-access/#access-grants) describes what a grant allows.
 
 ## Rotating the GitHub App key
@@ -120,3 +134,9 @@ mise run infra:engine:destroy
 ```
 
 Terraform can't destroy the database while deletion protection is on, so set `database_deletion_protection = false` in `terraform.tfvars` and apply before you destroy. RDS takes a final snapshot of the database, and the data volume gets one too. Snapshot names have to be unique, so a second teardown needs a new snapshot name.
+
+Then remove the engine from Tailscale's admin console and delete its tailnet identity. Terraform doesn't own the parameter, and its path is `/<name>/tailscale/state` for the stack's `name`:
+
+```sh
+aws ssm delete-parameter --name /komrad-development/tailscale/state
+```
