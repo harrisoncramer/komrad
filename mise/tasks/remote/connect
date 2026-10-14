@@ -37,7 +37,7 @@ REGION="$(engine_region)"
 
 if [ "$#" -gt 0 ]; then
 	ENCODED="$(printf '%s' "$*" | base64 | tr -d '\n')"
-	run_on_engine "$INSTANCE" "$REGION" "sudo -iu komrad bash -c \"\$(echo $ENCODED | base64 -d)\""
+	run_on_engine "$INSTANCE" "$REGION" "echo $ENCODED | base64 -d | sudo -iu komrad bash"
 	exit
 fi
 

@@ -17,7 +17,7 @@ mkdir -p /etc/komrad
 echo "KOMRAD_DATA_VOLUME_ID=${data_volume_id}" >/etc/komrad/data-volume.env
 
 # Only the name of the secret travels here, never its value. User data is readable by anything
-# on the instance that can reach the metadata service, so it carries identifiers and nothing else.
+# on the instance that can reach the metadata service, so it carries nothing that has to stay secret.
 cat >/etc/komrad/database-source.env <<ENV
 KOMRAD_DATABASE_SECRET_ARN=${database_secret_arn}
 KOMRAD_DATABASE_HOST=${database_host}
