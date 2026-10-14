@@ -52,8 +52,6 @@ KOMRAD_TAILSCALE_SECRET_ID=${tailscale_auth_key_secret}
 AWS_REGION=${aws_region}
 ENV
 
-systemctl start komrad-tailscale.service
-
 install -d -m 700 /var/lib/komrad/caddy
 chown -R caddy:caddy /var/lib/komrad/caddy
 cat >/etc/caddy/Caddyfile <<CADDYFILE
@@ -67,3 +65,5 @@ ${tailscale_name} {
 }
 CADDYFILE
 systemctl enable --now caddy.service
+
+systemctl start komrad-tailscale.service
