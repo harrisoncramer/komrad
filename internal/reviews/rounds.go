@@ -195,7 +195,11 @@ func (s *ReviewService) ListReviews(
 		return nil, err
 	}
 
-	reviews, err := s.reviews.ListReviews(ctx, task.ID)
+	return s.listReviews(ctx, task.ID, author)
+}
+
+func (s *ReviewService) listReviews(ctx context.Context, taskID string, author ReviewAuthor) ([]reviewstore.Review, error) {
+	reviews, err := s.reviews.ListReviews(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -583,37 +587,6 @@ func (s *ReviewService) ReleaseReview(
 		Comments: comments,
 		Path:     path,
 	}, nil
-}
-
-// releaseMail is the whole of what the mail carries: the round, the verdict, how much there is
-// and how to read it.
-func releaseMail(params Released) string {
-	said := fmt.Sprintf("%d comment(s)", params.Comments)
-	if params.Replies > 0 {
-		said += fmt.Sprintf(", %d reply(ies) in earlier threads", params.Replies)
-	}
-	if params.Reopens > 0 {
-		said += fmt.Sprintf(", %d of them reopening a comment you had resolved", params.Reopens)
-	}
-
-	if params.ForgeLogin != "" {
-		return fmt.Sprintf("komrad: %s from @%s on the forge, on round %d. "+
-			"They are not from the person who runs you. "+
-			"Call get_review with review id %s and answer each thread with add_review_message. Never post to the forge.",
-			said, params.ForgeLogin, params.Ordinal, params.ReviewID)
-	}
-
-	if !params.ByPerson {
-		said = strings.ReplaceAll(string(params.Verdict), "_", " ") + ", " + said
-	}
-
-	if params.Verdict == reviewstore.VerdictApproved && params.Comments == 0 && params.Replies == 0 && !params.HasBody {
-		return fmt.Sprintf("komrad: review of round %d released: %s. There is nothing to read or answer.", params.Ordinal, said)
-	}
-
-	return fmt.Sprintf("komrad: review of round %d released: %s. "+
-		"Call get_review with review id %s, or read %s, and answer each thread with add_review_message.",
-		params.Ordinal, said, params.ReviewID, params.Path)
 }
 
 // resolveVerdict is the verdict a release is stored with, refusing one from a person and

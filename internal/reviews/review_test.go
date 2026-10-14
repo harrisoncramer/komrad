@@ -9,6 +9,7 @@ import (
 	"komrad/internal/events/eventstest"
 	"komrad/internal/gittest"
 	"komrad/internal/jobs/internaljobs"
+	"komrad/internal/reviews/history"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
@@ -200,6 +201,18 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an unrelated agent listing the reviews",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ListReviews(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.otherWriter))
+
+				return err
+			},
+			wantErr: ErrReviewNotEntitled,
+		},
+		{
+			name: "an unrelated agent opening the history",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				_, err := fx.service.GetHistory(t.Context(), GetHistoryParams{
+					Task:   *fx.writer.TaskID,
+					Author: newAgentAuthor(fx.otherWriter),
+				})
 
 				return err
 			},
@@ -1054,6 +1067,8 @@ func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *r
 		Events:      events,
 		Interrupter: interrupter,
 		StateDir:    t.TempDir(),
+		Git:         gittest.NoRepo{},
+		Tracer:      history.NewTracer(gittest.NoRepo{}),
 	})
 
 	_, err := service.OpenRound(t.Context(), *writer.TaskID, personAuthor)

@@ -67,7 +67,4 @@ func TestUpdateRewritesThePromptList(t *testing.T) {
 	got, err := st.Get(ctx, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, kept, got.EventPrompts, "the list sent replaces the one stored, in the order sent")
-
-	assert.Equal(t, "settle the conflict", got.GetEventPrompt("worktree.rebase_conflicted"))
-	assert.Empty(t, got.GetEventPrompt("review.approved"), "an event dropped from the list has no prompt")
 }

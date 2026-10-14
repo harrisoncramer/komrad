@@ -144,6 +144,8 @@ linters:
           deny:
             - pkg: komrad/internal/tmux$
               desc: the panel takes what it needs of tmux as a dependency, so the option names stay in the adapter
+            - pkg: komrad/internal/git$
+              desc: the panel takes what it reads of git as a dependency or over the API, never running git itself
             - pkg: komrad/internal/harness
               desc: which CLI an agent runs is the service's business, and reaches the panel as data
             - pkg: komrad/internal/scripts

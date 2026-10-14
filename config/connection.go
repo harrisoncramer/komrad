@@ -50,7 +50,7 @@ type Connection struct {
 	// this engine's own login, which is what keeps its rows apart from every other engine's.
 	// `komrad engine ensure` creates the login and prints this url.
 	DatabaseURL string `mapstructure:"database_url"`
-	// The login that owns the schema, used only by `komrad migrate` and `komrad engine ensure`.
+	// The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.
 	// Left empty this is database_url, or the local owner while database_url is the default.
 	OwnerDatabaseURL string `mapstructure:"owner_database_url"`
 	// The least-privilege login the MCP query tools connect as.

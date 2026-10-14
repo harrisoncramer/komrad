@@ -517,67 +517,6 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 	}
 }
 
-// TestRebaseMailSaysWhatHappenedToTheBranch covers what the rebase mail tells the agent.
-func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
-	const park = "refs/komrad/prerefresh/a1/1"
-
-	tests := []struct {
-		name        string
-		result      RebaseResult
-		wantSaid    string
-		wantNotSaid string
-	}{
-		{
-			name:     "a rebase stopped on conflicts",
-			result:   RebaseResult{Conflicted: true, ParkedRef: park},
-			wantSaid: park,
-		},
-		{
-			name:        "an agent with no work of its own",
-			result:      RebaseResult{ParkedRef: park},
-			wantSaid:    "You had no commits of your own to replay",
-			wantNotSaid: "of your commits are no longer on the branch",
-		},
-		{
-			name: "a branch that reached the base without replaying anything",
-			result: RebaseResult{
-				RebasePlan: RebasePlan{Landed: 2},
-				Moved:      true,
-				ParkedRef:  park,
-			},
-			wantSaid: park,
-		},
-		{
-			name:        "a replay that dropped commits the base already held, with no park to name",
-			result:      RebaseResult{RebasePlan: RebasePlan{Landed: 2, Replay: 1}},
-			wantSaid:    "2 of your commits are no longer on the branch",
-			wantNotSaid: "A copy of the worktree",
-		},
-		{
-			name:     "a replay that cut the agent's turn",
-			result:   RebaseResult{Interrupted: true},
-			wantSaid: "pick up where you were",
-		},
-		{
-			name:        "a conflict that cut the agent's turn, which waits rather than carrying on",
-			result:      RebaseResult{Conflicted: true, Interrupted: true},
-			wantSaid:    "Your turn was interrupted",
-			wantNotSaid: "pick up where you were",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			body := rebaseMail(tt.result)
-
-			assert.Contains(t, body, tt.wantSaid)
-			if tt.wantNotSaid != "" {
-				assert.NotContains(t, body, tt.wantNotSaid)
-			}
-		})
-	}
-}
-
 // TestRebaseRefusesATaskInTheCallersCheckout covers a caller asking to rebase the checkout it works in.
 func TestRebaseRefusesATaskInTheCallersCheckout(t *testing.T) {
 	target := t.TempDir()

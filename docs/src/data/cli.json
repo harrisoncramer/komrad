@@ -126,7 +126,7 @@
     "parent": "",
     "usage": "komrad engine",
     "aliases": [],
-    "short": "Set up the engines that share a database",
+    "short": "Set up the engines that share a database, and who may use them",
     "long": "",
     "example": "",
     "flags": [],
@@ -147,7 +147,9 @@
       }
     ],
     "children": [
-      "engine/ensure"
+      "engine/ensure",
+      "engine/grant",
+      "engine/revoke"
     ]
   },
   {
@@ -158,6 +160,62 @@
     "aliases": [],
     "short": "Create an engine's identity and logins, or reset their password",
     "long": "Create an engine's identity and logins, or reset their password.\n\nAn engine is one komrad server and what it owns. Everything it writes belongs to it, and\nPostgres keeps every other engine's rows out of its reach, because it connects as a login\nof its own that the database maps to its identity. This creates that identity if no engine\nhas the name yet, a login for it and a read-only login for its MCP query tools, and the\nschema its job queue lives in, connecting as owner_database_url.\n\nBoth logins take the password in KOMRAD_ENGINE_PASSWORD, or a fresh one when that is unset,\nand running it again resets them to it. It prints the database_url the engine connects with.\nNaming an engine that already exists, such as the default one every row written before\nengines had logins belongs to, hands it new logins and keeps its rows.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "engine/grant",
+    "path": "komrad engine grant",
+    "parent": "engine",
+    "usage": "komrad engine grant NAME EMAIL",
+    "aliases": [],
+    "short": "Let a person into an engine by their email",
+    "long": "Let the person with an email into an engine, connecting as owner_database_url.\n\nThe first time they sign in with a verified email, the engine records the permanent id their\nidentity provider gives that account, and from then on it lets in that account alone. Anyone\ngranted access can do everything the panel does, including opening a shell on the engine's\nmachine, so grant it only to people you would give that machine. Granting an email again\nchanges nothing.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "engine/revoke",
+    "path": "komrad engine revoke",
+    "parent": "engine",
+    "usage": "komrad engine revoke NAME EMAIL",
+    "aliases": [],
+    "short": "Turn a person away from an engine",
+    "long": "Turn the person with an email away from an engine, connecting as owner_database_url.\n\nThis removes the grant and the account their sign-in recorded, so letting them back in takes a\nfresh grant and a fresh sign-in.",
     "example": "",
     "flags": [],
     "inherited": [

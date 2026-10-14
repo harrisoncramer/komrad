@@ -17,6 +17,7 @@ import (
 	"komrad/config"
 	"komrad/internal/browser"
 	"komrad/internal/client"
+	"komrad/internal/diff"
 	"komrad/internal/engine"
 	"komrad/internal/gittest"
 	"komrad/internal/loader"
@@ -259,11 +260,11 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 		keys = *params.keys
 	}
 
-	var reviewGit ui.ReviewGit
+	var patches diff.Reader
 	if params.git != nil {
 		require.Nil(t, params.git.Before, "a repo is held by one harness")
 		params.git.Before = gate.wait
-		reviewGit = params.git
+		patches = params.git
 	}
 
 	width, height := params.width, params.height
@@ -289,7 +290,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Loops:           remote.loops,
 			Tasks:           remote.tasks,
 			Logs:            remote.logs,
-			Git:             reviewGit,
+			Patches:         patches,
 			Keys:            keys,
 			DetailsHeight:   params.detailsHeight,
 			SidebarSide:     params.sidebarSide,

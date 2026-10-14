@@ -24,8 +24,8 @@ var ErrAllExcluded = errors.New("every change in the worktree is in a path this 
 // colouring while the patch still shows its hunks.
 const maxFileBytes = 2 << 20
 
-// patchReader is the git a patch and its two sides are read through.
-type patchReader interface {
+// Reader reads a patch and both its sides out of git.
+type Reader interface {
 	GetRoot(ctx context.Context, dir string) (string, error)
 	Diff(ctx context.Context, params git.DiffParams) ([]byte, error)
 	ReadFiles(ctx context.Context, dir string, revisions []git.FileRevision) (map[git.FileRevision][]byte, error)
@@ -45,7 +45,7 @@ type LoadParams struct {
 
 // Load reads everything one round holds, measured against the point its branch left the base,
 // with both sides coming out of commits so the patch is the same bytes however long afterwards.
-func Load(ctx context.Context, repo patchReader, params LoadParams) (*Patch, error) {
+func Load(ctx context.Context, repo Reader, params LoadParams) (*Patch, error) {
 	root, err := repo.GetRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func Load(ctx context.Context, repo patchReader, params LoadParams) (*Patch, err
 
 // explainEmptyDiff says why a round drew nothing, telling a worktree that never moved from one
 // whose every change is hidden.
-func explainEmptyDiff(ctx context.Context, repo patchReader, root string, params LoadParams) error {
+func explainEmptyDiff(ctx context.Context, repo Reader, root string, params LoadParams) error {
 	if len(params.Exclude) == 0 {
 		return ErrNoChanges
 	}
@@ -108,7 +108,7 @@ func explainEmptyDiff(ctx context.Context, repo patchReader, root string, params
 // parseFilesParams says which patch to read and which two commits to read each side of it out of.
 type parseFilesParams struct {
 	// Git is what each side of a file is read through.
-	Git patchReader
+	Git Reader
 	// Root is the repository the two commits live in.
 	Root string
 	// BaseSHA is the commit the round was measured against, holding the old side of every file.

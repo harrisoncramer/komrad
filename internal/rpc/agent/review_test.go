@@ -8,8 +8,10 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/mail"
 	"komrad/internal/reviews"
+	"komrad/internal/reviews/history"
 	"komrad/internal/store"
 	reviewstore "komrad/internal/store/review"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
@@ -35,6 +37,8 @@ type fakeReviewer struct {
 	viewed   *reviewstore.ViewedFile
 	listed   []reviews.ListReviewThreadsParams
 	released []reviews.ReleaseReviewParams
+	record   history.Record
+	opened   []reviews.GetHistoryParams
 }
 
 // TestReviewRefusalsMapToCodes pins the code each refusal of the review service reaches the caller as.
@@ -409,6 +413,105 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 	}
 }
 
+// TestOpenReviewHistoryPassesTheSpan pins the span a request names reaching the service.
+func TestOpenReviewHistoryPassesTheSpan(t *testing.T) {
+	tests := []struct {
+		name     string
+		request  *agentv1.OpenReviewHistoryRequest
+		wantSpan history.Span
+	}{
+		{
+			name:    "no span is the whole change",
+			request: &agentv1.OpenReviewHistoryRequest{Task: betaTask},
+		},
+		{
+			name: "two snapshots",
+			request: &agentv1.OpenReviewHistoryRequest{
+				Task: betaTask,
+				Span: &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{BaseSha: "a", HeadSha: "b"}},
+			},
+			wantSpan: history.Span{BaseSHA: "a", HeadSHA: "b"},
+		},
+		{
+			name: "an answer",
+			request: &agentv1.OpenReviewHistoryRequest{
+				Task: betaTask,
+				Span: &agentv1.OpenReviewHistoryRequest_Answer{Answer: &agentv1.ReviewAnswerSpan{FromRoundId: "r1", ToRoundId: "r2"}},
+			},
+			wantSpan: history.Span{Answer: &history.AnswerSpan{FromRoundID: "r1", ToRoundID: "r2"}},
+		},
+		{
+			name: "a comment's origin",
+			request: &agentv1.OpenReviewHistoryRequest{
+				Task: betaTask,
+				Span: &agentv1.OpenReviewHistoryRequest_Origin{Origin: &agentv1.ReviewOriginSpan{RoundId: "r1", BaseSha: "a"}},
+			},
+			wantSpan: history.Span{Origin: &history.OriginSpan{RoundID: "r1", BaseSHA: "a"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reviewer := &fakeReviewer{}
+			svc := newReviewHandler(reviewer)
+
+			_, err := svc.OpenReviewHistory(t.Context(), connect.NewRequest(tt.request))
+			require.NoError(t, err)
+			assert.Equal(t, []reviews.GetHistoryParams{{
+				Task:   betaTask,
+				Span:   tt.wantSpan,
+				Author: reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+			}}, reviewer.opened)
+		})
+	}
+}
+
+// TestOpenReviewHistoryRendersTheHistory pins the history the service built reaching the wire.
+func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
+	released := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
+	reviewer := &fakeReviewer{
+		round: reviewstore.Round{ID: "round-2", Ordinal: 2},
+		record: history.Record{
+			Span:    history.ResolvedSpan{BaseSHA: "base", HeadSHA: "head", Replayed: true},
+			Widened: "the round this comment was written on is gone",
+			Chapters: []history.Chapter{{
+				FromSHA:    "from",
+				ToSHA:      "to",
+				ReleasedAt: &released,
+				Ordinal:    1,
+				Comparable: true,
+			}},
+			Earlier:             &history.Round{ID: "round-1"},
+			EarlierReleasedAt:   &released,
+			ChangedSinceEarlier: 3,
+			Traced:              map[string]history.Place{"thread-1": {FilePath: "greet.go", NewStart: 8}},
+		},
+	}
+	svc := newReviewHandler(reviewer)
+
+	got, err := svc.OpenReviewHistory(t.Context(), connect.NewRequest(&agentv1.OpenReviewHistoryRequest{Task: betaTask}))
+	require.NoError(t, err)
+
+	want := &agentv1.OpenReviewHistoryResponse{
+		Round:    &agentv1.ReviewRound{Id: "round-2", Ordinal: 2, CreatedAt: dates.Stamp(time.Time{})},
+		Rounds:   []*agentv1.ReviewRound{{Id: "round-2", Ordinal: 2, CreatedAt: dates.Stamp(time.Time{})}},
+		Resolved: &agentv1.ReviewResolvedSpan{BaseSha: "base", HeadSha: "head", Replayed: true},
+		Widened:  "the round this comment was written on is gone",
+		Chapters: []*agentv1.ReviewChapter{{
+			FromSha:    "from",
+			ToSha:      "to",
+			ReleasedAt: dates.Stamp(released),
+			Ordinal:    1,
+			Comparable: true,
+		}},
+		EarlierRoundId:      "round-1",
+		EarlierReleasedAt:   dates.Stamp(released),
+		ChangedSinceEarlier: 3,
+		Traced:              map[string]*agentv1.ReviewTracedPlace{"thread-1": {FilePath: "greet.go", NewStart: 8}},
+	}
+	assert.Empty(t, cmp.Diff(want, got.Msg, protocmp.Transform()))
+}
+
 // TestReleaseReviewPassesTheVerdict pins which verdict the handler releases for each wire value.
 func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 	tests := []struct {
@@ -662,6 +765,16 @@ func (f *fakeReviewer) ListRounds(context.Context, string, reviews.ReviewAuthor)
 	}
 
 	return []reviewstore.Round{f.round}, nil
+}
+
+// GetHistory records the opening and answers the round and history it holds.
+func (f *fakeReviewer) GetHistory(_ context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error) {
+	f.opened = append(f.opened, params)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return &reviews.ReviewHistory{Record: f.record, Round: f.round, Rounds: []reviewstore.Round{f.round}}, nil
 }
 
 // ListReviews answers the review it holds.

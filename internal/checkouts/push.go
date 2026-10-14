@@ -9,7 +9,6 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
-	"komrad/lib/xsha"
 )
 
 var (
@@ -233,14 +232,6 @@ func (s *Service) refuseFinished(ctx context.Context, target checkoutTarget, sta
 	}
 
 	return true, nil
-}
-
-// pushedMail tells a writer that the panel overwrote its branch on origin.
-func pushedMail(pushed pushed) string {
-	return fmt.Sprintf("Your branch %s was force-pushed to origin from the panel, replacing the copy origin held. "+
-		"Origin's copy now matches your checkout at %s.\n\n"+
-		"Carry on from here and push as you normally would. Do not pull or reset to the copy origin held before.",
-		pushed.Branch, xsha.Short(pushed.SHA))
 }
 
 // heat keeps the pull request sync reading the host the task's checkout pushes to often for a

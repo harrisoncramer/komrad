@@ -782,7 +782,7 @@ address = "localhost:6061"
 # this engine's own login, which is what keeps its rows apart from every other engine's.
 # `komrad engine ensure` creates the login and prints this url.
 database_url          = "postgres://komrad_engine_default:komrad@localhost:5460/komrad?sslmode=disable"
-# The login that owns the schema, used only by `komrad migrate` and `komrad engine ensure`.
+# The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.
 # Left empty this is database_url, or the local owner while database_url is the default.
 owner_database_url    = ""
 # The least-privilege login the MCP query tools connect as.

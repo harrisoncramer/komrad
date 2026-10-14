@@ -2,7 +2,9 @@ package render
 
 import (
 	"komrad/internal/reviews"
+	"komrad/internal/reviews/history"
 	"komrad/lib/dates"
+	"komrad/lib/xslice"
 
 	reviewstore "komrad/internal/store/review"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -102,4 +104,71 @@ func reviewAuthorKindOf(kind reviewstore.AuthorKind) agentv1.ReviewAuthorKind {
 	}
 
 	return agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
+}
+
+// ReviewHistory draws a review as the panel opens it.
+func ReviewHistory(opened reviews.ReviewHistory) *agentv1.OpenReviewHistoryResponse {
+	answered := &agentv1.OpenReviewHistoryResponse{
+		Round:  ReviewRound(opened.Round),
+		Rounds: xslice.Map(opened.Rounds, ReviewRound),
+		Threads: xslice.Map(opened.Threads, func(thread reviews.ReviewThreadWithMessages) *agentv1.ReviewThread {
+			return ReviewThread(thread.Thread, thread.Messages)
+		}),
+		Pinned:              opened.Pinned,
+		Notice:              opened.Notice,
+		Resolved:            reviewResolvedSpan(opened.Span),
+		Widened:             opened.Widened,
+		Chapters:            xslice.Map(opened.Chapters, reviewChapter),
+		ChangedSinceEarlier: int32(opened.ChangedSinceEarlier),
+		Traced:              map[string]*agentv1.ReviewTracedPlace{},
+	}
+	if earlier := opened.Earlier; earlier != nil {
+		answered.EarlierRoundId = earlier.ID
+	}
+	if at := opened.EarlierReleasedAt; at != nil {
+		answered.EarlierReleasedAt = dates.Stamp(*at)
+	}
+	for id, place := range opened.Traced {
+		answered.Traced[id] = &agentv1.ReviewTracedPlace{
+			FilePath: place.FilePath,
+			NewStart: place.NewStart,
+			FileOnly: place.FileOnly,
+			Exact:    place.Exact,
+		}
+	}
+
+	return answered
+}
+
+func reviewResolvedSpan(span history.ResolvedSpan) *agentv1.ReviewResolvedSpan {
+	return &agentv1.ReviewResolvedSpan{
+		BaseSha:            span.BaseSHA,
+		HeadSha:            span.HeadSHA,
+		Replayed:           span.Replayed,
+		AnswerBaseSha:      span.AnswerBaseSHA,
+		AnswerHeadSha:      span.AnswerHeadSHA,
+		OriginBaseSha:      span.OriginBaseSHA,
+		OriginHeadSha:      span.OriginHeadSHA,
+		OriginRoundBaseSha: span.OriginRoundBaseSHA,
+	}
+}
+
+func reviewChapter(chapter history.Chapter) *agentv1.ReviewChapter {
+	answered := &agentv1.ReviewChapter{
+		FromSha:     chapter.FromSHA,
+		ToSha:       chapter.ToSHA,
+		Ordinal:     chapter.Ordinal,
+		Comparable:  chapter.Comparable,
+		FromBaseSha: chapter.FromBase,
+		ToBaseSha:   chapter.ToBase,
+		Rewritten:   chapter.Rewritten,
+		Replayed:    chapter.Replayed,
+		Conflicts:   chapter.Conflicts,
+		OnOlderBase: chapter.OnOlderBase,
+	}
+	if at := chapter.ReleasedAt; at != nil {
+		answered.ReleasedAt = dates.Stamp(*at)
+	}
+
+	return answered
 }

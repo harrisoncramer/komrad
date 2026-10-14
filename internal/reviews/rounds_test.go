@@ -618,8 +618,7 @@ func fillMailbox(t *testing.T, fx *reviewFixture) {
 	for {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 			ToAgentID: fx.writer.ID,
-			Body:      "waiting",
-			Kind:      mailstore.KindReviewActivity,
+			Mail:      eventprompts.ThreadAnswered{WriterName: "waiting"},
 			SubjectID: uuid.NewString(),
 		})
 		if errors.Is(err, mail.ErrMailboxFull) {

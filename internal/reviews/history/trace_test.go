@@ -1,4 +1,4 @@
-package ui
+package history
 
 import (
 	"testing"
@@ -6,7 +6,6 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/internal/position"
-	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,28 +16,28 @@ import (
 func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
 
-	rounds := []*agentv1.ReviewRound{
+	rounds := []Round{
 		{
-			Id:          "r1",
+			ID:          "r1",
 			Ordinal:     1,
-			SnapshotSha: firstSHA,
+			SnapshotSHA: firstSHA,
 		},
 		{
-			Id:          "r2",
+			ID:          "r2",
 			Ordinal:     2,
-			SnapshotSha: secondSHA,
+			SnapshotSHA: secondSHA,
 		},
 	}
-	threads := []*agentv1.ReviewThread{{
-		Id:       "t1",
-		RoundId:  "r1",
+	threads := []Thread{{
+		ID:       "t1",
+		RoundID:  "r1",
 		FilePath: tracedFile,
 		NewStart: 4,
 		NewEnd:   4,
 	}}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:     repo,
+		Tracer:  NewTracer(repo),
 		Dir:     traceDir,
 		ToSHA:   secondSHA,
 		Threads: threads,
@@ -66,20 +65,20 @@ func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
 	repo := &gittest.Repo{}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:   repo,
-		Dir:   traceDir,
-		ToSHA: secondSHA,
-		Threads: []*agentv1.ReviewThread{{
-			Id:       "t1",
-			RoundId:  "r2",
+		Tracer: NewTracer(repo),
+		Dir:    traceDir,
+		ToSHA:  secondSHA,
+		Threads: []Thread{{
+			ID:       "t1",
+			RoundID:  "r2",
 			FilePath: tracedFile,
 			NewStart: 8,
 			NewEnd:   8,
 		}},
-		Rounds: []*agentv1.ReviewRound{{
-			Id:          "r2",
+		Rounds: []Round{{
+			ID:          "r2",
 			Ordinal:     2,
-			SnapshotSha: secondSHA,
+			SnapshotSHA: secondSHA,
 		}},
 	})
 
@@ -97,20 +96,20 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, thirdSHA): rewroteTheLine}}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:   repo,
-		Dir:   traceDir,
-		ToSHA: thirdSHA,
-		Threads: []*agentv1.ReviewThread{{
-			Id:       "t1",
-			RoundId:  "r1",
+		Tracer: NewTracer(repo),
+		Dir:    traceDir,
+		ToSHA:  thirdSHA,
+		Threads: []Thread{{
+			ID:       "t1",
+			RoundID:  "r1",
 			FilePath: tracedFile,
 			NewStart: 4,
 			NewEnd:   4,
 		}},
-		Rounds: []*agentv1.ReviewRound{{
-			Id:          "r1",
+		Rounds: []Round{{
+			ID:          "r1",
 			Ordinal:     1,
-			SnapshotSha: firstSHA,
+			SnapshotSHA: firstSHA,
 		}},
 	})
 
@@ -127,22 +126,22 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 func TestTraceThreadsSkipsRoundsTheScreenWillNotRender(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(secondSHA, firstSHA): insertedAHelper}}
 
-	rounds := []*agentv1.ReviewRound{
+	rounds := []Round{
 		{
-			Id:          "r1",
+			ID:          "r1",
 			Ordinal:     1,
-			SnapshotSha: firstSHA,
+			SnapshotSHA: firstSHA,
 		},
 		{
-			Id:          "r2",
+			ID:          "r2",
 			Ordinal:     2,
-			SnapshotSha: secondSHA,
+			SnapshotSHA: secondSHA,
 		},
 	}
-	threads := []*agentv1.ReviewThread{
+	threads := []Thread{
 		{
-			Id:       "later",
-			RoundId:  "r2",
+			ID:       "later",
+			RoundID:  "r2",
 			FilePath: tracedFile,
 			NewStart: 8,
 			NewEnd:   8,
@@ -151,7 +150,7 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotRender(t *testing.T) {
 
 	// The reader has stepped back to the first round.
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:     repo,
+		Tracer:  NewTracer(repo),
 		Dir:     traceDir,
 		ToSHA:   firstSHA,
 		Threads: threads,
@@ -168,41 +167,41 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotRender(t *testing.T) {
 func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
 
-	rounds := []*agentv1.ReviewRound{
+	rounds := []Round{
 		{
-			Id:          "r1",
+			ID:          "r1",
 			Ordinal:     1,
-			SnapshotSha: firstSHA,
+			SnapshotSHA: firstSHA,
 		},
 		{
-			Id:          "gone",
+			ID:          "gone",
 			Ordinal:     2,
-			SnapshotSha: unreadableSHA,
+			SnapshotSHA: unreadableSHA,
 		},
 		{
-			Id:          "r3",
+			ID:          "r3",
 			Ordinal:     3,
-			SnapshotSha: secondSHA,
+			SnapshotSHA: secondSHA,
 		},
 	}
-	threads := []*agentv1.ReviewThread{
+	threads := []Thread{
 		{
-			Id:       "readable",
-			RoundId:  "r1",
+			ID:       "readable",
+			RoundID:  "r1",
 			FilePath: tracedFile,
 			NewStart: 4,
 			NewEnd:   4,
 		},
 		{
-			Id:       "unreadable",
-			RoundId:  "gone",
+			ID:       "unreadable",
+			RoundID:  "gone",
 			FilePath: tracedFile,
 			NewStart: 4,
 			NewEnd:   4,
 		},
 		{
-			Id:       "onscreen",
-			RoundId:  "r3",
+			ID:       "onscreen",
+			RoundID:  "r3",
 			FilePath: tracedFile,
 			NewStart: 8,
 			NewEnd:   8,
@@ -210,7 +209,7 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:     repo,
+		Tracer:  NewTracer(repo),
 		Dir:     traceDir,
 		ToSHA:   secondSHA,
 		Threads: threads,
@@ -232,31 +231,31 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 	repo := &gittest.Repo{}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Git:   repo,
-		Dir:   traceDir,
-		ToSHA: secondSHA,
-		Threads: []*agentv1.ReviewThread{{
-			Id:       "t1",
-			RoundId:  "r1",
+		Tracer: NewTracer(repo),
+		Dir:    traceDir,
+		ToSHA:  secondSHA,
+		Threads: []Thread{{
+			ID:       "t1",
+			RoundID:  "r1",
 			FilePath: tracedFile,
 			NewStart: 8,
 			NewEnd:   8,
 		}},
-		Rounds: []*agentv1.ReviewRound{
+		Rounds: []Round{
 			{
-				Id:          "r1",
+				ID:          "r1",
 				Ordinal:     1,
-				SnapshotSha: secondSHA,
+				SnapshotSHA: secondSHA,
 			},
 			{
-				Id:          "r2",
+				ID:          "r2",
 				Ordinal:     2,
-				SnapshotSha: firstSHA,
+				SnapshotSHA: firstSHA,
 			},
 			{
-				Id:          "r3",
+				ID:          "r3",
 				Ordinal:     3,
-				SnapshotSha: secondSHA,
+				SnapshotSHA: secondSHA,
 			},
 		},
 	})

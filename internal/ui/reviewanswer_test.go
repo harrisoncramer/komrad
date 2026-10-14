@@ -4,7 +4,6 @@ import (
 	"slices"
 	"testing"
 
-	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -122,7 +121,7 @@ func TestReviewAnswer(t *testing.T) {
 	})
 
 	t.Run("an answer across a rebase is replayed onto the answer's base", func(t *testing.T) {
-		server := newMovedBaseServer(t, &git.Replayed{Tree: replayedTree})
+		server := newMovedBaseServer(t, replayedTree)
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReview(t, server)
 
@@ -134,10 +133,7 @@ func TestReviewAnswer(t *testing.T) {
 	})
 
 	t.Run("an answer the rebase conflicts with is refused and names the paths", func(t *testing.T) {
-		server := newMovedBaseServer(t, &git.Replayed{
-			Tree:      "a-tree-with-markers-in-it",
-			Conflicts: []string{gittest.File, "second.go"},
-		})
+		server := newMovedBaseServer(t, "a-tree-with-markers-in-it", gittest.File, "second.go")
 		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
 		harness := openReview(t, server)
 

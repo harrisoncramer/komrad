@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -191,101 +190,6 @@ func (r reviewScreen) doesFitBaseLegend(m *model) bool {
 	}
 
 	return r.doesWalk()
-}
-
-// cutChaptersParams holds everything that cuts the chapters, staying apart from the calls that
-// read it so a test can run the cutting on its own.
-type cutChaptersParams struct {
-	Rounds   []*agentv1.ReviewRound
-	Reviews  []*agentv1.Review
-	OnScreen *agentv1.ReviewRound
-}
-
-// cutChapters cuts the rounds at every round the person released a review against, and ends the
-// last chapter at the round on screen.
-func cutChapters(params cutChaptersParams) []reviewChapter {
-	closed := map[int32]string{}
-	for _, review := range params.Reviews {
-		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
-			continue
-		}
-		if released := review.GetReleasedAt(); released != "" {
-			closed[review.GetRoundOrdinal()] = releasedClock(released)
-		}
-	}
-
-	milestones := make([]*agentv1.ReviewRound, 0, len(closed)+1)
-	for _, candidate := range params.Rounds {
-		if candidate.GetOrdinal() > params.OnScreen.GetOrdinal() {
-			continue
-		}
-		if _, ok := closed[candidate.GetOrdinal()]; ok {
-			milestones = append(milestones, candidate)
-		}
-	}
-
-	// The work nobody has reviewed yet is a chapter of its own, and it is the one a reader
-	// arrives wanting, so it is only left out when the newest review closed the round on screen.
-	if _, ok := closed[params.OnScreen.GetOrdinal()]; !ok {
-		milestones = append(milestones, params.OnScreen)
-	}
-
-	if len(milestones) < 2 {
-		return nil
-	}
-
-	chapters := make([]reviewChapter, 0, len(milestones))
-	from := milestones[0].GetBaseSha()
-	fromBase := from
-	for _, milestone := range milestones {
-		chapters = append(chapters, reviewChapter{
-			FromSHA:     from,
-			ToSHA:       milestone.GetSnapshotSha(),
-			At:          closed[milestone.GetOrdinal()],
-			Ordinal:     milestone.GetOrdinal(),
-			Comparable:  fromBase == milestone.GetBaseSha(),
-			FromBase:    fromBase,
-			ToBase:      milestone.GetBaseSha(),
-			OnOlderBase: milestone.GetBaseSha() != params.OnScreen.GetBaseSha(),
-		})
-
-		from, fromBase = milestone.GetSnapshotSha(), milestone.GetBaseSha()
-	}
-
-	return chapters
-}
-
-// replayChaptersParams is the chapters as cut and where to read the repository.
-type replayChaptersParams struct {
-	Git      ReviewGit
-	Dir      string
-	Chapters []reviewChapter
-}
-
-// replayChapters carries the start of every chapter whose base moved onto the base its end
-// stands on.
-func replayChapters(ctx context.Context, params replayChaptersParams) []reviewChapter {
-	for i := range params.Chapters {
-		chapter := &params.Chapters[i]
-		if chapter.Comparable {
-			continue
-		}
-
-		compared := compareRounds(ctx, compareRoundsParams{
-			Git:      params.Git,
-			Dir:      params.Dir,
-			FromSHA:  chapter.FromSHA,
-			FromBase: chapter.FromBase,
-			ToBase:   chapter.ToBase,
-		})
-		chapter.FromSHA = compared.FromSHA
-		chapter.Comparable = compared.Comparable
-		chapter.Rewritten = compared.Rewritten
-		chapter.Replayed = compared.Replayed
-		chapter.Conflicts = compared.Conflicts
-	}
-
-	return params.Chapters
 }
 
 // threadsByChapterParams is the whole conversation and which round of it is on screen.

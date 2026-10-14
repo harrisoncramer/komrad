@@ -11,25 +11,7 @@ import (
 
 // TestThreadsByChapter covers a chapter keeping the threads opened by its round, with every reply.
 func TestThreadsByChapter(t *testing.T) {
-	rounds := buildChapterRounds()
-	reviews := []*agentv1.Review{
-		{
-			AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-			RoundOrdinal: 1,
-			ReleasedAt:   "2026-09-08T13:30:00-04:00",
-		},
-		{
-			AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-			RoundOrdinal: 2,
-			ReleasedAt:   "2026-09-08T14:30:00-04:00",
-		},
-	}
-	chapters := cutChapters(cutChaptersParams{
-		Rounds:   rounds,
-		Reviews:  reviews,
-		OnScreen: rounds[2],
-	})
-	require.Len(t, chapters, 3)
+	chapters := []reviewChapter{{Ordinal: 1}, {Ordinal: 2}, {Ordinal: 3}}
 
 	thread := &agentv1.ReviewThread{
 		Id:           "t1",

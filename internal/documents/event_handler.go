@@ -3,7 +3,6 @@ package documents
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 
 	"komrad/internal/eventprompts"
@@ -54,33 +53,16 @@ func handlePersonWrote(ctx context.Context, tx store.DBTX, mailer *mail.MailServ
 		return nil, err
 	}
 
-	body := buildEditMail(*document)
-	if !told && !slices.ContainsFunc(versions, func(version documentstore.Version) bool { return !version.ByPerson }) {
-		body = buildCreateMail(*document)
-	}
-
 	_, err = events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: document.AgentID,
-		Kind:      mailstore.KindDocumentEdited,
+		Mail: eventprompts.DocumentWritten{
+			DocumentID: document.ID,
+			Name:       document.Name,
+			Version:    document.Version,
+			Created:    !told && !slices.ContainsFunc(versions, func(version documentstore.Version) bool { return !version.ByPerson }),
+		},
 		SubjectID: document.ID,
-		Body:      body,
-		Events:    []string{eventprompts.DocumentWrittenByPerson},
 	})
 
 	return nil, err
-}
-
-func buildCreateMail(created documentstore.Document) string {
-	return fmt.Sprintf("komrad: a person wrote a new document for you in the panel, %q (%s). "+
-		"Read it with get_document. A further save before you read this rewrites this mail rather than sending another, and "+
-		"write_document is refused as failed_precondition unless you rewrite from the newest version list_document_versions lists.",
-		created.Name, created.ID)
-}
-
-func buildEditMail(edited documentstore.Document) string {
-	return fmt.Sprintf("komrad: a person edited your document %q (%s) in the panel, writing version %d. "+
-		"A further save before you read this rewrites this mail rather than sending another. "+
-		"list_document_versions lists every write and marks a person's, get_document reads any version, "+
-		"and write_document is refused as failed_precondition unless you rewrite from the newest version.",
-		edited.Name, edited.ID, edited.Version)
 }
