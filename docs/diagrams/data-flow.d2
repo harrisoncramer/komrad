@@ -23,12 +23,12 @@ serve: komrad serve {
   blank1: "" {style.opacity: 0}
   blank2: "" {style.opacity: 0}
   loops: "sync loops"
-  handler: "handler\nchecks input"
-  service: "service\nrules"
+  handler: API handler
+  service: business logic
   store
-  render: "render\nread, diff"
-  pending: "pending\nkeys"
-  listener: "listener\nLISTEN"
+  render: reconciler
+  pending: changed IDs
+  listener: listener
 }
 
 postgres: Postgres {
@@ -45,7 +45,6 @@ panel.update -> panel.model
 panel.model -> panel.view
 
 panel.cmd -> serve.handler: Connect RPC
-serve.handler -> panel.update: "ok or error" {style.stroke-dash: 3}
 serve.handler -> serve.service -> serve.store
 serve.loops -> serve.store
 serve.store -> postgres.tables: commit

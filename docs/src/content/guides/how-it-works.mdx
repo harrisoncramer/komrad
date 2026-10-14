@@ -38,7 +38,7 @@ Those changes are periodically _pushed_ to the client via a database triggers, a
 <figure>
   <img
     src={link("/diagrams/data-flow.png")}
-    alt="A key press reaches the panel's Update, which returns a Cmd that calls the API over Connect RPC. The handler checks the input, the service applies its rules, and the store commits the rows to Postgres, as the sync loops do too. The handler's reply says only ok or error. On commit a trigger calls pg_notify with the table and key, the watch listener adds the key to the pending keys, and the render pass reads the rows back, diffs them and sends them over the Watch stream to Update, which changes the Model that View draws."
+    alt="A key press reaches the panel's Update, which returns a Cmd that calls the API over Connect RPC. The API handler passes it to the business logic, and the store commits the rows to Postgres, as the sync loops do too. On commit a trigger calls pg_notify with the table and key. The listener collects the changed IDs, and the reconciler streams the new rows over the Watch stream to Update, which changes the Model that View draws."
   />
 </figure>
 
