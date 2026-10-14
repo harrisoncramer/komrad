@@ -32,10 +32,8 @@ const silentForwardArg = "stand-in-silent-forward"
 
 // TestMain runs the stand-in forward when asked to, and the tests otherwise.
 func TestMain(m *testing.M) {
-	if len(os.Args) > 2 && (os.Args[1] == forwardArg || os.Args[1] == silentForwardArg) {
-		if len(os.Args) > 3 {
-			recordSpawn(os.Args[3])
-		}
+	if len(os.Args) > 3 && (os.Args[1] == forwardArg || os.Args[1] == silentForwardArg) {
+		recordSpawn(os.Args[3])
 
 		listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", os.Args[2]))
 		if err != nil {
@@ -67,20 +65,21 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// droppingEngine is an engine whose forward is the stand-in above, on a port of its own so the
-// tests never meet each other on it.
-func droppingEngine(t *testing.T) (engine.Remote, string) {
+// droppingEngine is an engine whose forward is the given stand-in, on a port of its own so the
+// tests never meet each other on it, and records each run of the stand-in in the file it returns.
+func droppingEngine(t *testing.T, standIn string) (engine.Remote, string, string) {
 	t.Helper()
 
+	spawns := filepath.Join(t.TempDir(), "spawns")
 	remote := engine.Remote{
 		Destination: "komrad@" + t.Name(),
-		Forward:     []string{os.Args[0], forwardArg, engine.LocalPortPlaceholder},
+		Forward:     []string{os.Args[0], standIn, engine.LocalPortPlaceholder, spawns},
 	}
 
 	engineAddr := "127.0.0.1:8787"
 	local := net.JoinHostPort("127.0.0.1", strconv.Itoa(remote.TunnelPort(engineAddr)))
 
-	return remote, local
+	return remote, local, spawns
 }
 
 func isReachable(address string) bool {
@@ -117,12 +116,7 @@ func TestDialRunsTheForwardAgainWhenItDrops(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			spawns := filepath.Join(t.TempDir(), "spawns")
-			remote := engine.Remote{
-				Destination: "komrad@" + t.Name(),
-				Forward:     []string{os.Args[0], tt.standIn, engine.LocalPortPlaceholder, spawns},
-			}
-			local := net.JoinHostPort("127.0.0.1", strconv.Itoa(remote.TunnelPort("127.0.0.1:8787")))
+			remote, local, spawns := droppingEngine(t, tt.standIn)
 
 			ctx, cancel := context.WithCancel(t.Context())
 			t.Cleanup(cancel)
@@ -150,7 +144,7 @@ func TestDialRunsTheForwardAgainWhenItDrops(t *testing.T) {
 func TestDialStopsRedialingWhenThePanelGoes(t *testing.T) {
 	t.Parallel()
 
-	remote, local := droppingEngine(t)
+	remote, local, _ := droppingEngine(t, forwardArg)
 
 	ctx, cancel := context.WithCancel(t.Context())
 
@@ -217,7 +211,7 @@ func TestDialBorrowsOnlyAForwardThatAnswers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			remote, local := droppingEngine(t)
+			remote, local, _ := droppingEngine(t, forwardArg)
 
 			listener, err := net.Listen("tcp", local)
 			require.NoError(t, err)
@@ -247,7 +241,7 @@ func TestDialBorrowsOnlyAForwardThatAnswers(t *testing.T) {
 func TestDialTakesOverABorrowedForwardThatStopsAnswering(t *testing.T) {
 	t.Parallel()
 
-	remote, local := droppingEngine(t)
+	remote, local, _ := droppingEngine(t, forwardArg)
 
 	listener, err := net.Listen("tcp", local)
 	require.NoError(t, err)
