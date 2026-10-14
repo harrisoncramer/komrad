@@ -29,7 +29,7 @@ Everything goes through one API. The panel uses it. A script using <Command path
 
 The commands, the tools, and the [API reference](../../api/) are all built from this single API definition.
 
-## The State (Postgres)
+## Managing State
 
 All of komrad's state is kept in Postgres: a workflow, a task, an agent, a piece of mail, a review, and so forth. For external state, it uses a system of reconcilation, where "loops" find state from outside, such as pull request information or the idle state of a CLI, and sync that into Postgres.
 
