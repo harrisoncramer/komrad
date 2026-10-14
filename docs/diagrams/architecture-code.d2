@@ -2,34 +2,31 @@
 
 grid-rows: 4
 grid-columns: 3
-grid-gap: 80
+horizontal-gap: 200
+vertical-gap: 60
 
-blank1: "" {style.opacity: 0}
-ui: UI {
-  class: box
-  note: "A client, talks\nover Connect only" {class: note}
-}
-blank2: "" {style.opacity: 0}
-cli: CLI
-server: Server
-handlers: Handlers {
-  class: box
-  note: "rpc, mcp" {class: note}
-}
-postgres: Postgres {shape: cylinder}
-store: Store
-services: Services {
-  class: box
-  note: "agents, mail,\nreviews, ..." {class: note}
-}
-blank3: "" {style.opacity: 0}
-world: The outside world {style.stroke-dash: 3}
-adapters: Adapters {
-  class: box
-  note: "git, tmux,\nharness, forge" {class: note}
-}
+blank1: {class: blank}
+
+ui: UI {class: leaf}
+
+blank2: {class: blank}
+
+cli: CLI {class: leaf}
+server: Server {class: leaf}
+
+handlers: Handlers {class: leaf}
+
+postgres: Postgres {class: store}
+store: Store {class: leaf}
+
+services: Services {class: leaf}
+
+blank3: {class: blank}
+world: The outside world {class: leaf; style.stroke-dash: 3}
+
+adapters: Adapters {class: leaf}
 
 cli -> server -> handlers -> services
 services -> store -> postgres
 services -> adapters -> world
-ui -> server: Connect {style.stroke-dash: 3}
+ui -> server: Connect {class: dashed}

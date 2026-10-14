@@ -3,32 +3,23 @@
 direction: right
 
 workflow: "Workflow: neovim" {
-  style.font-size: 18
+  class: group
 
-  orchestrator: Orchestrator {
-    class: box
-    note: "Coordinates the\nworkflow's tasks" {class: note}
-  }
+  orchestrator: Orchestrator {class: leaf}
 
   fix-login: "Task: fix-login" {
-    style.font-size: 16
+    class: group
     grid-columns: 2
-    grid-gap: 40
-    writer: Writer {
-      class: box
-      note: "Does the work,\nowns the checkout" {class: note}
-    }
-    reviewer: Reviewer {
-      class: box
-      note: "Reads the\nwriter's change" {class: note}
-    }
+    horizontal-gap: 100
+    writer: Writer {class: leaf}
+    reviewer: Reviewer {class: leaf}
   }
 
   rfc-truncate: "Task: rfc-truncate" {
-    style.font-size: 16
-    writer: Writer
+    class: group
+    writer: Writer {class: leaf}
   }
 
-  orchestrator -> fix-login {style.stroke-dash: 3}
-  orchestrator -> rfc-truncate {style.stroke-dash: 3}
+  orchestrator -> fix-login {class: dashed}
+  orchestrator -> rfc-truncate {class: dashed}
 }

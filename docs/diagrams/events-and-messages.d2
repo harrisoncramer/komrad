@@ -3,41 +3,24 @@
 direction: down
 
 change: One transaction {
-  style.font-size: 18
+  class: group
   grid-columns: 2
-  change: The change {
-    class: box
-    note: "checks on #412 → failing" {class: note}
-  }
-  event: The event {
-    class: box
-    note: "\"pull request #412 changed\"" {class: note}
-  }
+  horizontal-gap: 150
+  change: The change {class: leaf}
+  event: The event {class: leaf}
 }
 
 handle: One transaction {
-  style.font-size: 18
+  class: group
   grid-columns: 3
-  grid-gap: 60
-  find: Handler {
-    class: box
-    note: "Finds the writers\non the branch" {class: note}
-  }
-  write: Mail {
-    class: box
-    note: "Writes or rewrites\neach one's mail" {class: note}
-  }
-  done: Done {
-    class: box
-    note: "Marks the event done" {class: note}
-  }
+  horizontal-gap: 150
+  find: Handler {class: leaf}
+  write: Mail {class: leaf}
+  done: Done {class: leaf}
   find -> write -> done
 }
 
-delivered: Delivered {
-  class: box
-  note: "The same way as\nany other mail" {class: note}
-}
+delivered: Delivered {class: leaf}
 
 change -> handle: a moment later
 handle -> delivered

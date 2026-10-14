@@ -3,27 +3,24 @@
 direction: right
 
 terminal: Your terminal {
-  style.font-size: 18
-  attach: Attach
+  class: group
+  attach: Attach {class: leaf}
 }
 
 tmux: "Komrad's tmux server" {
-  style.font-size: 18
-  panel: Panel
-  agent1: Agent
-  agent2: Agent
-  more: "..." {style.stroke-dash: 3}
+  class: group
+  grid-columns: 1
+  grid-gap: 20
+  panel: Panel {class: leaf}
+  agent1: Agent {class: leaf}
+  agent2: Agent {class: leaf}
+  more: {class: more}
 }
 
-serve: Server {
-  class: box
-  note: "komrad serve" {class: note}
-}
-postgres: Postgres {shape: cylinder}
+serve: Server {class: leaf}
+
+postgres: Postgres {class: store}
 
 terminal.attach -> tmux
-tmux.panel -> serve
-tmux.agent1 -> serve
-tmux.agent2 -> serve
-tmux.more -> serve {style.stroke-dash: 3}
+tmux -> serve
 serve -> postgres

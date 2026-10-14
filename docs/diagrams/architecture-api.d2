@@ -2,38 +2,25 @@
 
 direction: right
 
-proto: Proto file {
-  class: box
-  note: "<pkg>.proto\nwith surfaces" {class: note}
-}
+proto: Proto file {class: leaf}
 
 generated: Generated code {
-  style.font-size: 18
-  direction: down
-  types: Types {
-    class: box
-    note: protoc-gen-go {class: note}
-  }
-  routes: "Routes, client" {
-    class: box
-    note: connect-go {class: note}
-  }
-  strict: Strict handler {
-    class: box
-    note: "komrad's plugin" {class: note}
-  }
+  class: group
+  grid-columns: 1
+  grid-gap: 30
+  types: Types {class: leaf}
+  routes: "Routes, client" {class: leaf}
+  strict: Strict handler {class: leaf}
 }
 
 surfaces: Surfaces {
-  style.font-size: 18
-  direction: down
-  handlers: Server handlers
-  rpc: RPC commands {
-    class: box
-    note: komrad rpc {class: note}
-  }
-  mcp: MCP tools
-  docs: Docs
+  class: group
+  grid-columns: 1
+  grid-gap: 30
+  handlers: Server handlers {class: leaf}
+  rpc: RPC commands {class: leaf}
+  mcp: MCP tools {class: leaf}
+  docs: Docs {class: leaf}
 }
 
 proto -> generated: "buf lint,\nbuf generate"

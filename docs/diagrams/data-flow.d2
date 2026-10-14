@@ -3,43 +3,43 @@
 grid-columns: 3
 grid-gap: 100
 
-panel: "Panel" {
-  style.font-size: 18
-  grid-rows: 2
+panel: Panel {
+  class: group
+  grid-rows: 3
   grid-columns: 2
-  horizontal-gap: 50
-  vertical-gap: 70
-  view: View
-  cmd: Cmd
-  model: Model
-  update: Update
+  grid-gap: 30
+  blank1: {class: blank}
+  cmd: Cmd {class: leaf}
+  view: View {class: leaf}
+  blank2: {class: blank}
+  model: Model {class: leaf}
+  update: Update {class: leaf}
 }
 
 serve: Server {
-  style.font-size: 18
-  grid-rows: 3
-  grid-columns: 3
-  grid-gap: 40
-  blank1: "" {style.opacity: 0}
-  blank2: "" {style.opacity: 0}
-  loops: Sync loops
-  handler: API handler
-  service: Business logic
-  store: Store
-  render: Reconciler
-  pending: Changed IDs
-  listener: Listener
+  class: group
+  grid-rows: 4
+  grid-columns: 2
+  grid-gap: 30
+  handler: API handler {class: leaf}
+  service: Business logic {class: leaf}
+  loops: Sync loops {class: leaf}
+  store: Store {class: leaf}
+  render: Reconciler {class: leaf}
+  blank1: {class: blank}
+  pending: Changed IDs {class: leaf}
+  listener: Listener {class: leaf}
 }
 
 postgres: Postgres {
-  style.font-size: 18
+  class: group
+  grid-rows: 4
   grid-columns: 1
-  grid-gap: 60
-  tables: Rows {shape: cylinder}
-  trigger: Trigger {
-    class: box
-    note: pg_notify {class: note}
-  }
+  grid-gap: 30
+  blank1: {class: blank}
+  tables: Rows {class: store}
+  blank2: {class: blank}
+  trigger: Trigger {class: leaf}
 }
 
 panel.view -> panel.update: key press
