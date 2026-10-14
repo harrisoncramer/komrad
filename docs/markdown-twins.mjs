@@ -34,6 +34,11 @@ function converter(page, twins) {
     },
   });
 
+  turndown.addRule("image", {
+    filter: "img",
+    replacement: (_, node) => `![${node.getAttribute("alt") ?? ""}](${new URL(node.getAttribute("src"), page).href})`,
+  });
+
   turndown.addRule("trait", {
     filter: (node) => node.getAttribute("class")?.split(" ").includes("trait"),
     replacement: (content) => `${content.trim()} · `,

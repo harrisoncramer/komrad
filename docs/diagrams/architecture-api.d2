@@ -1,0 +1,40 @@
+...@_theme
+
+direction: right
+
+proto: Proto file {
+  class: box
+  note: "<pkg>.proto\nwith surfaces" {class: note}
+}
+
+generated: Generated code {
+  style.font-size: 18
+  direction: down
+  types: Types {
+    class: box
+    note: protoc-gen-go {class: note}
+  }
+  routes: "Routes, client" {
+    class: box
+    note: connect-go {class: note}
+  }
+  strict: Strict handler {
+    class: box
+    note: "komrad's plugin" {class: note}
+  }
+}
+
+surfaces: Surfaces {
+  style.font-size: 18
+  direction: down
+  handlers: Server handlers
+  rpc: RPC commands {
+    class: box
+    note: komrad rpc {class: note}
+  }
+  mcp: MCP tools
+  docs: Docs
+}
+
+proto -> generated: "buf lint,\nbuf generate"
+generated -> surfaces: "read at startup\nby internal/rpcapi"

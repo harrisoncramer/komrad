@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Render the docs site's D2 diagrams to PNGs."
+
+usage() {
+	echo "Usage: mise run docs:diagram [name...]"
+	echo
+	echo "Renders every diagram under docs/diagrams, or only the ones named, to"
+	echo "docs/public/diagrams/<name>.png. A file whose name starts with an underscore"
+	echo "is shared by the others and is not rendered on its own. Commit the PNGs it"
+	echo "writes beside the source."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT/docs"
+
+SOURCES=()
+for source in diagrams/*.d2; do
+	case "$(basename "$source")" in
+	_*) ;;
+	*) SOURCES+=("$source") ;;
+	esac
+done
+
+if [ $# -gt 0 ]; then
+	SOURCES=()
+	for name in "$@"; do
+		if [ ! -f "diagrams/$name.d2" ]; then
+			echo "no diagram named $name under docs/diagrams" >&2
+			exit 1
+		fi
+
+		SOURCES+=("diagrams/$name.d2")
+	done
+fi
+
+mkdir -p public/diagrams
+
+for source in "${SOURCES[@]}"; do
+	name="$(basename "$source" .d2)"
+	d2 --elk-padding "[top=20,left=20,bottom=20,right=20]" "$source" "public/diagrams/$name.png"
+	gum log --level info "rendered $name"
+done
