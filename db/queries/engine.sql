@@ -43,3 +43,11 @@ ON CONFLICT (
 DELETE FROM engine_access
 WHERE engine_id = sqlc.arg(engine_id)
     AND email = LOWER(sqlc.arg(email));
+
+-- name: ClaimEngineAccess :one
+SELECT
+    claim_engine_access(sqlc.arg(email), sqlc.arg(issuer), sqlc.arg(subject))::boolean AS claimed;
+
+-- name: IsEngineAccessGranted :one
+SELECT
+    engine_access_granted(sqlc.arg(issuer), sqlc.arg(subject))::boolean AS granted;

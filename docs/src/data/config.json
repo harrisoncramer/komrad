@@ -2039,6 +2039,41 @@
       ]
     },
     {
+      "path": "sign_in",
+      "description": "The identity provider people sign in to this engine with, and the listener their requests\nreach it on.",
+      "settings": [
+        {
+          "key": "issuer",
+          "path": "sign_in.issuer",
+          "type": "string",
+          "description": "The provider's issuer, like https://accounts.google.com, which every ID token it signs\nnames. Left empty, along with client_id, the engine takes no signed-in requests.",
+          "default": "\"\""
+        },
+        {
+          "key": "client_id",
+          "path": "sign_in.client_id",
+          "type": "string",
+          "description": "The id the owner registered komrad under at the provider, which every ID token for komrad\nnames as its audience.",
+          "default": "\"\""
+        },
+        {
+          "key": "client_secret",
+          "path": "sign_in.client_secret",
+          "type": "string",
+          "description": "The secret some providers, such as Google, hand a desktop app beside its id. Every copy of\nkomrad carries it, so it protects nothing, and `komrad login` reads it from the engine.",
+          "default": "\"\""
+        },
+        {
+          "key": "addr",
+          "path": "sign_in.addr",
+          "type": "string",
+          "description": "The address the public listener serves signed-in requests on. It has to be a loopback\nhost, since a web server on the same machine carries the network's requests to it.",
+          "default": "\"127.0.0.1:8788\""
+        }
+      ],
+      "sections": []
+    },
+    {
       "path": "connection",
       "description": "Which komrad this is, by its database, its address, its tmux socket and its cache.",
       "settings": [
@@ -2109,7 +2144,7 @@
           "key": "url",
           "path": "connection.url",
           "type": "string",
-          "description": "The https address the engine is served on, like https://komrad.example.com, when it sits\nbehind a web server rather than at the end of ssh or a forward.",
+          "description": "The https address the engine is served on, like https://komrad.example.com, when it sits\nbehind a web server rather than at the end of ssh or a forward. It may be plain http when\nits host is this machine.",
           "default": "\"\""
         }
       ],

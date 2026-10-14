@@ -53,10 +53,12 @@ type NewServerParams struct {
 	FallbackResumeRoot string
 	Doctor             doctor.Settings
 	ForgeBuilders      map[string]forge.Builder
+	SignIn             config.SignIn
 }
 
 type Server struct {
 	Mux           *http.ServeMux
+	public        http.Handler
 	Jobs          *river.Client[pgx.Tx]
 	Pool          *store.Pool
 	Delivery      *mail.DeliveryService
@@ -180,6 +182,15 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		return nil, err
 	}
 
+	if params.SignIn.IsConfigured() {
+		srv.public = newPublicHandler(newPublicHandlerParams{
+			Logger: params.Logger,
+			SignIn: params.SignIn,
+			Access: st.access,
+			Mux:    srv.Mux,
+		})
+	}
+
 	if err := svc.agents.delete.Resume(ctx); err != nil {
 		return nil, err
 	}
@@ -233,6 +244,12 @@ func (c mailConfig) GetMaxExchange() (int, error) {
 // Handler is the mux behind the guard that refuses anything not from this machine.
 func (s *Server) Handler() http.Handler {
 	return interceptors.NewLocalGuard(s.logger, s.Mux)
+}
+
+// PublicHandler is the mux behind the guard that lets in only a caller signed in with access, or
+// nil when the engine names no provider to sign in with.
+func (s *Server) PublicHandler() http.Handler {
+	return s.public
 }
 
 // Close releases the database handles, in the reverse of the order that opened them.

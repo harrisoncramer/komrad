@@ -79,6 +79,11 @@ func Unavailable(err error) error {
 	return connect.NewError(connect.CodeUnavailable, err)
 }
 
+// Unauthenticated is a connect error for a caller who has not shown who they are.
+func Unauthenticated(err error) error {
+	return connect.NewError(connect.CodeUnauthenticated, err)
+}
+
 // codeOf says which connect code answers a kind of failure.
 func codeOf(kind fail.Kind) connect.Code {
 	for _, pair := range codes {

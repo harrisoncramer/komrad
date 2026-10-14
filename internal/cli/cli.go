@@ -131,6 +131,7 @@ the server, or call an endpoint from a script.`,
 			app.defaultHarness = cfg.DefaultHarness
 			app.autoSetup = cfg.AutoSetup
 			app.usage = cfg.Usage
+			app.signIn = cfg.SignIn
 
 			app.tmux = tmux.NewClient(env.TmuxSocket)
 
@@ -185,6 +186,8 @@ the server, or call an endpoint from a script.`,
 		versionCmd(app),
 		migrateCmd(app),
 		engineCmd(app),
+		loginCmd(app),
+		tokenCmd(app),
 		rpcCmd(app),
 		hookCmd(app),
 		logCmd(app),

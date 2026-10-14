@@ -1069,6 +1069,12 @@ func TestLoadTakesAnEngineURL(t *testing.T) {
 			want:    "",
 		},
 		{
+			name:    "plain http to this machine, which never reaches the network",
+			file:    "[connection]\nurl = \"http://127.0.0.1:8901\"\n",
+			wantErr: false,
+			want:    "http://127.0.0.1:8901",
+		},
+		{
 			name:    "an https host, kept without a run of trailing slashes",
 			file:    "[connection]\nurl = \"https://komrad.example.com//\"\n",
 			wantErr: false,

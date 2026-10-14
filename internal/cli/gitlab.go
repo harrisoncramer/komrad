@@ -156,7 +156,7 @@ func withoutPort(host string) string {
 func gitlabToken(ctx context.Context, state *app, host string) (*forgev1.Forge, forge.Secret, error) {
 	var connection *forgev1.Forge
 	err := state.withAPI(ctx, func(ctx context.Context, base string) error {
-		resp, err := forgeClient(base).ListForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+		resp, err := state.forgeClient(base).ListForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 		if err != nil {
 			return err
 		}

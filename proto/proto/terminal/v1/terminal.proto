@@ -44,6 +44,8 @@ message ShellRequest {
     bytes input = 2;
     // The terminal's new size.
     Size resize = 3;
+    // A fresh ID token from a signed-in caller, so the stream outlives the one it opened with.
+    string token = 4;
   }
 }
 
@@ -88,6 +90,8 @@ message AttachRequest {
     bytes input = 2;
     // The terminal's new size.
     Size resize = 3;
+    // A fresh ID token from a signed-in caller, so the stream outlives the one it opened with.
+    string token = 4;
   }
 }
 

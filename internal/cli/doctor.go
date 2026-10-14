@@ -152,7 +152,7 @@ func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
 
 	defer release()
 
-	client := doctorv1connect.NewDoctorServiceClient(xhttp.NewClient(apiCallTimeout), base)
+	client := doctorv1connect.NewDoctorServiceClient(xhttp.NewClientOver(a.signTransport(xhttp.NewTransport()), apiCallTimeout), base)
 	resp, err := client.RunDoctor(ctx, connect.NewRequest(&emptypb.Empty{}))
 	if err != nil {
 		return nil, err
@@ -191,7 +191,10 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 
 		defer release()
 
-		found := probeServer(ctx, base)
+		found := probeServer(ctx, a.signTransport(xhttp.NewTransport()), base)
+		if found.refusal != nil {
+			return doctor.ServerStatus{}, found.refusal
+		}
 
 		return doctor.ServerStatus{
 			Answering: found.answering,
@@ -209,7 +212,7 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 
 		defer release()
 
-		resp, err := forgeClient(base).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
+		resp, err := a.forgeClient(base).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 		if err != nil {
 			return nil, err
 		}

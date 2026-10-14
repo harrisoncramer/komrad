@@ -480,6 +480,7 @@ linters:
               - komrad/internal/ui.model.updateForm
               - komrad/internal/ui.model.updateWorkflowForm
               - komrad/internal/ui.model.updateMessages
+              - komrad/internal/ui.model.updateSignIn
               - komrad/internal/ui.nameEdit.take
               - komrad/internal/ui.nameEdit.takeGone
               - komrad/internal/ui.reviewScreen.updateComposer

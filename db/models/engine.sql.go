@@ -9,6 +9,24 @@ import (
 	"context"
 )
 
+const claimEngineAccess = `-- name: ClaimEngineAccess :one
+SELECT
+    claim_engine_access($1, $2, $3)::boolean AS claimed
+`
+
+type ClaimEngineAccessParams struct {
+	Email   string
+	Issuer  string
+	Subject string
+}
+
+func (q *Queries) ClaimEngineAccess(ctx context.Context, arg ClaimEngineAccessParams) (bool, error) {
+	row := q.db.QueryRow(ctx, claimEngineAccess, arg.Email, arg.Issuer, arg.Subject)
+	var claimed bool
+	err := row.Scan(&claimed)
+	return claimed, err
+}
+
 const getCurrentEngine = `-- name: GetCurrentEngine :one
 SELECT
     id,
@@ -100,6 +118,23 @@ type GrantEngineAccessParams struct {
 func (q *Queries) GrantEngineAccess(ctx context.Context, arg GrantEngineAccessParams) error {
 	_, err := q.db.Exec(ctx, grantEngineAccess, arg.EngineID, arg.Email)
 	return err
+}
+
+const isEngineAccessGranted = `-- name: IsEngineAccessGranted :one
+SELECT
+    engine_access_granted($1, $2)::boolean AS granted
+`
+
+type IsEngineAccessGrantedParams struct {
+	Issuer  string
+	Subject string
+}
+
+func (q *Queries) IsEngineAccessGranted(ctx context.Context, arg IsEngineAccessGrantedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isEngineAccessGranted, arg.Issuer, arg.Subject)
+	var granted bool
+	err := row.Scan(&granted)
+	return granted, err
 }
 
 const revokeEngineAccess = `-- name: RevokeEngineAccess :execrows

@@ -62,7 +62,11 @@ func Run(ctx context.Context, deps Deps) error {
 	// it runs can reach it.
 	post := newPostbox()
 
+	watching, stop := context.WithCancel(ctx)
+	defer stop()
+
 	m := newModel(deps, true, post)
+	m.access.watch = func() context.CancelFunc { return startWatch(watching, deps.Watch, post) }
 	wheel := newWheelFilter(time.Now, func(msg tea.Msg) {
 		time.AfterFunc(wheelFrame, func() { post.send(msg) })
 	})
@@ -72,11 +76,8 @@ func Run(ctx context.Context, deps Deps) error {
 	defer post.close()
 	defer deps.Session.ReleaseLeader()
 
-	if deps.Watch != nil && m.fatal() == nil {
-		watching, stop := context.WithCancel(ctx)
-		defer stop()
-
-		go watchRows(watching, deps.Watch, post)
+	if m.fatal() == nil && !m.isGated() {
+		m.startWatch()
 	}
 
 	if _, err := program.Run(); err != nil {
@@ -133,6 +134,10 @@ func (p *postbox) resize(width, height int) {
 
 // send hands the program a message from off its own loop.
 func (p *postbox) send(msg tea.Msg) {
+	if p == nil || p.program == nil {
+		return
+	}
+
 	p.program.Send(msg)
 }
 
@@ -224,9 +229,11 @@ type Deps struct {
 	StartupErr      error
 	StartupFindings []errui.Finding
 	EngineStatus    EngineStatus
+	SignIn          SignIn
 }
 
 type model struct {
+	access          accessState
 	session         *Session
 	api             api
 	tmux            uiTmux
@@ -409,9 +416,19 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		return m
 	}
 
-	m.frame.OnResize(post.resize)
-	m.frame.Attach(deps.Settings.Pane)
-	m.shell = deps.Tmux.GetDefaultShell()
+	if deps.SignIn != nil {
+		m.access = accessState{signIn: deps.SignIn, deps: deps, stage: accessChecking}
+
+		return m
+	}
+
+	m.attachFrame()
 
 	return m
+}
+
+func (m *model) attachFrame() {
+	m.frame.OnResize(m.post.resize)
+	m.frame.Attach(m.settings.Pane)
+	m.shell = m.tmux.GetDefaultShell()
 }

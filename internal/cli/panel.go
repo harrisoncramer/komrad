@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"slices"
 	"time"
@@ -94,6 +95,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				startupErr      error
 				shellCommand    []string
 				terminalCommand []string
+				signIn          ui.SignIn
 			)
 
 			switch {
@@ -101,6 +103,14 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				addr, base = remote.URL, remote.URL
 				shellCommand = append(slices.Clone(self), "shell")
 				terminalCommand = append(slices.Clone(self), "terminal")
+				signIn = &panelSignIn{
+					url:       remote.URL,
+					transport: state.signTransport(xhttp.NewTransport()),
+					refresher: state.getTokenRefresher(),
+					keeper:    engine.NewSignInKeeper(state.env.StateDir),
+					opener:    browser.NewDesktop(),
+					listen:    engine.CallbackAddr,
+				}
 			case remote.IsRemote():
 				tunnel, err := remote.Dial(cmd.Context(), addr, tunnelWait)
 				if err != nil {
@@ -129,7 +139,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				startupFindings = state.diagnose(cmd.Context())
 			}
 
-			httpClient := xhttp.NewClientOver(rpcapi.NewTransport(), 0)
+			httpClient := xhttp.NewClientOver(state.signTransport(rpcapi.NewTransport()), 0)
 			agentClient := agentv1connect.NewAgentServiceClient(httpClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(httpClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(httpClient, base)
@@ -191,6 +201,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
 				EngineStatus:    panelEngineStatus(cmd.Context(), state, base, startupErr),
+				SignIn:          signIn,
 			})
 		},
 	}
@@ -198,21 +209,23 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 
 // panelEngineStatus is the engine this panel is on and how to ask what it runs.
 func panelEngineStatus(ctx context.Context, state *app, base string, startupErr error) ui.EngineStatus {
+	transport := state.signTransport(xhttp.NewTransport())
+
 	var build ui.EngineBuild
 	if startupErr == nil {
-		build, _ = readEngineBuild(ctx, base)
+		build, _ = readEngineBuild(ctx, transport, base)
 	}
 
 	return ui.EngineStatus{
 		Name:      state.configStack.Engine,
 		Build:     build,
-		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, base) },
+		ReadBuild: func(ctx context.Context) (ui.EngineBuild, bool) { return readEngineBuild(ctx, transport, base) },
 	}
 }
 
 // readEngineBuild asks the server at base what it runs.
-func readEngineBuild(ctx context.Context, base string) (ui.EngineBuild, bool) {
-	probe := probeServer(ctx, base)
+func readEngineBuild(ctx context.Context, transport http.RoundTripper, base string) (ui.EngineBuild, bool) {
+	probe := probeServer(ctx, transport, base)
 	if !probe.answering {
 		return ui.EngineBuild{}, false
 	}

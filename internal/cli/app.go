@@ -25,6 +25,7 @@ type app struct {
 	defaultFlags   map[string]string
 	trustDirs      map[string]bool
 	usage          config.Usage
+	signIn         config.SignIn
 	logLevel       string
 	layout         config.Layout
 	githubApp      config.GitHubApp
@@ -36,6 +37,7 @@ type app struct {
 	tmux           *tmux.Client
 	self           string
 	debug          config.Debug
+	refresher      *engine.TokenRefresher
 }
 
 // selfPath is the binary a panel window runs, this one unless a test names another.

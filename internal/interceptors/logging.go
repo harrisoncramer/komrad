@@ -98,7 +98,7 @@ func (l *loggingInterceptor) open(ctx context.Context, spec connect.Spec, peer c
 		slog.String(logging.ClientAddress, peer.Addr),
 	}
 
-	from := caller.FromHeader(header)
+	from := caller.FromRequest(ctx, header)
 	attrs = append(attrs, callerAttrs(from)...)
 
 	logger := l.logger.With(logging.Attrs(attrs)...)
@@ -122,14 +122,22 @@ func (c *countingConn) Send(msg any) error {
 	return nil
 }
 
-// callerAttrs name the agent a call came from, and nothing at all for the panel or a person.
+// callerAttrs name the agent or the signed-in person a call came from, and nothing at all for
+// the panel.
 func callerAttrs(from caller.Caller) []slog.Attr {
-	attrs := make([]slog.Attr, 0, 2)
+	attrs := make([]slog.Attr, 0, 5)
 	if from.AgentID != "" {
 		attrs = append(attrs, slog.String(logging.AgentID, from.AgentID))
 	}
 	if from.SessionID != "" {
 		attrs = append(attrs, slog.String(logging.SessionID, from.SessionID))
+	}
+	if from.Subject != "" {
+		attrs = append(attrs,
+			slog.String(logging.UserEmail, from.Email),
+			slog.String(logging.UserID, from.Subject),
+			slog.String(logging.UserIssuer, from.Issuer),
+		)
 	}
 
 	return attrs

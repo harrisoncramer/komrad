@@ -26,8 +26,12 @@ func grantAccess(t *testing.T, ownerURL, engine, email string) {
 func claimAccess(t *testing.T, pool store.DBTX, email, subject string) bool {
 	t.Helper()
 
-	var claimed bool
-	require.NoError(t, pool.QueryRow(t.Context(), "SELECT claim_engine_access($1, $2, $3)", email, issuer, subject).Scan(&claimed))
+	claimed, err := store.NewAccessStore(pool).ClaimAccess(t.Context(), store.ClaimAccessParams{
+		Email:   email,
+		Issuer:  issuer,
+		Subject: subject,
+	})
+	require.NoError(t, err)
 
 	return claimed
 }
@@ -35,8 +39,8 @@ func claimAccess(t *testing.T, pool store.DBTX, email, subject string) bool {
 func isGranted(t *testing.T, pool store.DBTX, subject string) bool {
 	t.Helper()
 
-	var granted bool
-	require.NoError(t, pool.QueryRow(t.Context(), "SELECT engine_access_granted($1, $2)", issuer, subject).Scan(&granted))
+	granted, err := store.NewAccessStore(pool).IsAccessGranted(t.Context(), issuer, subject)
+	require.NoError(t, err)
 
 	return granted
 }

@@ -776,6 +776,22 @@ enabled = false
 # The host and port the profiles are served on.
 address = "localhost:6061"
 
+# The identity provider people sign in to this engine with, and the listener their requests
+# reach it on.
+[sign_in]
+# The provider's issuer, like https://accounts.google.com, which every ID token it signs
+# names. Left empty, along with client_id, the engine takes no signed-in requests.
+issuer        = ""
+# The id the owner registered komrad under at the provider, which every ID token for komrad
+# names as its audience.
+client_id     = ""
+# The secret some providers, such as Google, hand a desktop app beside its id. Every copy of
+# komrad carries it, so it protects nothing, and `komrad login` reads it from the engine.
+client_secret = ""
+# The address the public listener serves signed-in requests on. It has to be a loopback
+# host, since a web server on the same machine carries the network's requests to it.
+addr          = "127.0.0.1:8788"
+
 # Which komrad this is, by its database, its address, its tmux socket and its cache.
 [connection]
 # The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as
@@ -815,5 +831,6 @@ ssh                   = ""
 # stay in the foreground for as long as the forward is wanted.
 forward               = []
 # The https address the engine is served on, like https://komrad.example.com, when it sits
-# behind a web server rather than at the end of ssh or a forward.
+# behind a web server rather than at the end of ssh or a forward. It may be plain http when
+# its host is this machine.
 url                   = ""

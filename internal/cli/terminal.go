@@ -25,6 +25,8 @@ import (
 const (
 	// redialFor is how long to redial a dropped attach before giving up.
 	redialFor = 2 * time.Minute
+	// tokenCheckInterval is how often an open terminal asks for a fresh token to send the engine.
+	tokenCheckInterval = time.Minute
 	// firstRedialWait is how long the first redial waits, doubling up to lastRedialWait.
 	firstRedialWait = 250 * time.Millisecond
 	lastRedialWait  = 5 * time.Second
@@ -52,6 +54,7 @@ type received struct {
 type terminalConn interface {
 	sendInput(input []byte) error
 	sendResize(size *terminalv1.Size) error
+	sendToken(token string) error
 	closeInput() error
 	receive() (received, error)
 	close()
@@ -65,6 +68,7 @@ type streamConn[Req, Res any] struct {
 	stream  *connect.BidiStreamForClient[Req, Res]
 	input   func(input []byte) *Req
 	resize  func(size *terminalv1.Size) *Req
+	token   func(token string) *Req
 	read    func(response *Res) received
 	sending sync.Mutex
 }
@@ -101,10 +105,11 @@ tmux keeps the session nothing is lost.`,
 				base = formatBase(addr)
 			}
 
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), base)
+			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), base)
 			code, err := runConsole(ctx, runConsoleParams{
 				Dial:   dialAttach(client, args[0], state.env.Term),
 				Redial: redialFor,
+				Token:  state.getTokenSource(),
 			})
 			if err != nil {
 				return err
@@ -132,6 +137,9 @@ func dialAttach(client terminalv1connect.TerminalServiceClient, agentID, term st
 			},
 			resize: func(size *terminalv1.Size) *terminalv1.AttachRequest {
 				return &terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Resize{Resize: size}}
+			},
+			token: func(token string) *terminalv1.AttachRequest {
+				return &terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Token{Token: token}}
 			},
 			read: func(response *terminalv1.AttachResponse) received {
 				return received{
@@ -198,6 +206,10 @@ func (c *streamConn[Req, Res]) sendResize(size *terminalv1.Size) error {
 	return c.send(c.resize(size))
 }
 
+func (c *streamConn[Req, Res]) sendToken(token string) error {
+	return c.send(c.token(token))
+}
+
 func (c *streamConn[Req, Res]) closeInput() error {
 	c.sending.Lock()
 	defer c.sending.Unlock()
@@ -229,6 +241,8 @@ func (c *streamConn[Req, Res]) close() {
 type runConsoleParams struct {
 	Dial   dialFunc
 	Redial time.Duration
+	// Token is a fresh token for the engine, or nil when the engine takes none.
+	Token func(ctx context.Context) (string, error)
 }
 
 // runConsole runs a terminal on this process's own terminal, raw while it runs and resized with it.
@@ -243,6 +257,7 @@ func runConsole(ctx context.Context, params runConsoleParams) (int, error) {
 	return runTerminal(ctx, runTerminalParams{
 		Dial:    params.Dial,
 		Redial:  params.Redial,
+		Token:   params.Token,
 		In:      os.Stdin,
 		Out:     os.Stdout,
 		Resized: resized,
@@ -269,8 +284,10 @@ func runConsole(ctx context.Context, params runConsoleParams) (int, error) {
 type runTerminalParams struct {
 	Dial dialFunc
 	// Redial is how long to redial a dropped stream, and never when zero.
-	Redial  time.Duration
-	In      io.Reader
+	Redial time.Duration
+	In     io.Reader
+	// Token is a fresh token for the engine, or nil when the engine takes none.
+	Token   func(ctx context.Context) (string, error)
 	Out     io.Writer
 	Size    func() *terminalv1.Size
 	Resized <-chan os.Signal
@@ -364,8 +381,8 @@ func carry(ctx context.Context, params carryParams) (int, error) {
 	}
 }
 
-// forward sends what is typed and each resize to one stream, closing its input when the typing
-// ends.
+// forward sends what is typed, each resize and each fresh token to one stream, closing its input
+// when the typing ends.
 func forward(ctx context.Context, params carryParams) {
 	if len(*params.Unsent) > 0 {
 		if err := params.Conn.sendInput(*params.Unsent); err != nil {
@@ -375,11 +392,31 @@ func forward(ctx context.Context, params carryParams) {
 		*params.Unsent = nil
 	}
 
+	var renew <-chan time.Time
+	if params.Terminal.Token != nil {
+		ticker := time.NewTicker(tokenCheckInterval)
+		defer ticker.Stop()
+
+		renew = ticker.C
+	}
+
+	sent := ""
 	inputs := params.Inputs
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-renew:
+			token, err := params.Terminal.Token(ctx)
+			if err != nil || token == sent {
+				continue
+			}
+
+			if err := params.Conn.sendToken(token); err != nil {
+				return
+			}
+
+			sent = token
 		case <-params.Terminal.Resized:
 			if err := params.Conn.sendResize(params.Terminal.Size()); err != nil {
 				return

@@ -30,6 +30,8 @@ import (
 )
 
 type Stores struct {
+	OwnerURL         string
+	Engine           string
 	URL              string
 	ReadOnlyURL      string
 	Pool             *store.Pool
@@ -47,6 +49,7 @@ type Stores struct {
 	PullRequestSyncs *pullrequeststore.PullRequestSyncStore
 	ForgeThreads     *pullrequeststore.ForgeThreadStore
 	Tasks            *taskstore.TaskStore
+	Access           *store.AccessStore
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -54,13 +57,16 @@ type Stores struct {
 func Open(t *testing.T) *Stores {
 	t.Helper()
 
-	engine := dbtest.NewEngine(t, dbtest.New(t))
+	database := dbtest.New(t)
+	engine := dbtest.NewEngine(t, database)
 
 	pool, err := store.Open(t.Context(), engine.URL)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
 
 	return &Stores{
+		OwnerURL:         database.OwnerURL,
+		Engine:           engine.Name,
 		URL:              engine.URL,
 		ReadOnlyURL:      engine.ReaderURL,
 		Pool:             pool,
@@ -78,7 +84,19 @@ func Open(t *testing.T) *Stores {
 		ForgeThreads:     pullrequeststore.NewForgeThreadStore(pool.GetDB()),
 		PullRequestSyncs: pullrequeststore.NewPullRequestSyncStore(pool.GetDB()),
 		Tasks:            taskstore.NewTaskStore(pool.GetDB()),
+		Access:           store.NewAccessStore(pool.GetDB()),
 	}
+}
+
+// SeedAccess grants email access to the engine the stores are over, as the owner does.
+func (s *Stores) SeedAccess(t *testing.T, email string) {
+	t.Helper()
+
+	require.NoError(t, store.GrantAccess(t.Context(), store.GrantAccessParams{
+		OwnerURL: s.OwnerURL,
+		Engine:   s.Engine,
+		Email:    email,
+	}))
 }
 
 // SeedAgent records an agent and returns it as stored, filing one with no workflow set under

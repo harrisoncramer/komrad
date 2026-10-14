@@ -1,0 +1,64 @@
+---
+title: Signing in to an engine
+description: How a person reaches an engine at a web address and proves who they are.
+group: architecture
+order: 18.5
+---
+
+import Command from "../../components/Command.astro";
+import Setting from "../../components/Setting.astro";
+import { link } from "../../site";
+
+An engine can sit at a web address instead of at the end of SSH. Anyone on the network can reach that address, so the engine has to know who sent each request. Komrad uses OpenID Connect for this. You sign in with an identity provider you already have an account at, such as Google, and the engine checks every request against that sign-in.
+
+The engine never sees your password. It trusts one provider, and it lets in only the people its owner granted access.
+
+## The pieces
+
+<figure>
+  <img
+    src={link("/diagrams/signing-in.png")}
+    alt="The panel on your laptop opens the browser, the browser signs in at the identity provider and hands the panel a code, and the panel trades the code with the provider for tokens and keeps them in the keychain. The panel reaches the engine's web server over https, the web server passes requests to the server over loopback, and the server reads the provider's keys and checks access in Postgres."
+  />
+</figure>
+
+A web server on the engine's machine, such as Caddy, holds the certificate and answers https. It passes every request to komrad's public listener, which listens only on loopback. The api's own address stays on loopback too, so nothing from the network reaches it without going through the public listener.
+
+The public listener answers one route to anyone. `/sign-in` says which provider the engine trusts and komrad's id there. Every other route needs a token. The MCP endpoint and the stop route are missing from the public listener, so only something on the engine's machine can reach them.
+
+## Logging in
+
+You run <Command path="login" /> on your laptop. It asks the engine's `/sign-in` route which provider to use, then opens that provider's sign-in page in your browser. When you finish, the provider sends your browser back to `127.0.0.1:8085`, where the command is waiting. The command trades what it gets there for an ID token and a refresh token, and checks that the answer belongs to the sign-in it started.
+
+The command keeps both tokens in your keychain. A machine with no keychain keeps them in a private file under komrad's state directory.
+
+The panel signs you in the same way. On an engine at a web address, it asks the engine whether you are signed in with access before it shows anything. If you have no sign-in, or the provider will no longer renew yours, the panel shows only a screen asking you to sign in, and enter opens the provider's page in your browser. When you finish, the panel asks the engine again, and loads your agents only once the engine says yes. If you are signed in but nobody granted you access, the panel says to ask the engine's owner. If the engine or the provider does not answer, the panel says that instead, and enter tries again.
+
+## Sending a request
+
+The panel and every command put the ID token on each request. An ID token lasts about an hour at most providers. When the token has less than five minutes left, komrad trades the refresh token for a new one before it sends the request. If the provider refuses, the command tells you to run <Command path="login" /> again. If the provider does not answer, the command says so, and the same sign-in works once the provider is back.
+
+<Command path="token" /> prints a current ID token, so a script can call the engine's api with it.
+
+## Checking a request
+
+The engine checks the token's signature against the keys the provider publishes. It also checks that the token came from the provider it trusts, that it was issued for komrad, and that it has not run out. A token that fails any of these gets a 401.
+
+Next the engine looks you up. The owner grants access by email with <Command path="engine grant" />. The first time you sign in with that email, and the provider says the email is verified, the engine records your account's permanent id at the provider. From then on it matches you by that id. If the email on some other account changes to yours later, that account still gets nothing. A person with a good token and no grant gets a 403.
+
+The engine remembers a grant for one minute, so it does not ask the database on every request.
+
+Each request the engine logs carries your email, your id at the provider and the provider's address.
+
+## Requests that stay open
+
+A terminal or the panel's stream of events can stay open for hours, longer than one token lasts. While a request is open, the engine checks your grant again every minute, and it ends the request when your token runs out. The panel reopens its stream with a fresh token. When the stream ends because your grant was revoked, your sign-in can no longer be renewed, or the provider does not answer to renew it, the panel clears everything it showed and goes back to its sign-in screen. If only the engine stopped answering, the panel keeps what it showed and reconnects. An open terminal sends a fresh token down the stream before the old one runs out, so the terminal stays open.
+
+<Command path="engine revoke" /> removes the grant and the account the engine recorded. Every open request from that
+person ends within a minute.
+
+## Setting an engine up
+
+The owner registers komrad at the provider as a desktop app, with `http://127.0.0.1:8085` as the address to send the browser back to. The provider gives back a client id. Some providers, like Google, also give a client secret. The <Setting path="sign_in" label="[sign_in]" /> table in the engine's config takes the provider's issuer, the client id and the secret. Google calls it a secret, but the engine hands it to every laptop that logs in, so it protects nothing.
+
+On your laptop, the engine's file sets <Setting path="connection.url" label="url" /> to the engine's https address in place of SSH.

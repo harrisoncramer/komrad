@@ -13,11 +13,15 @@ import (
 
 	"komrad/config"
 	"komrad/internal/caller"
+	"komrad/internal/engine"
+	"komrad/internal/rpcapi"
 	"komrad/internal/server"
 	"komrad/internal/version"
+	"komrad/lib/xhttp"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zalando/go-keyring"
 )
 
 // TestIntegrationRefusalReadsWhatTheServerSaid pins how a call that was refused reaches the person who
@@ -129,10 +133,11 @@ func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 	t.Cleanup(service.Close)
 
 	payload, err := callRPC(t.Context(), callRPCParams{
-		Base:    service.URL,
-		Path:    "/agent.v1.AgentService/GetAgent",
-		From:    caller.Caller{AgentID: "agent-one", SessionID: "session-one"},
-		Request: map[string]any{"id": "a1"},
+		Transport: rpcapi.NewTransport(),
+		Base:      service.URL,
+		Path:      "/agent.v1.AgentService/GetAgent",
+		From:      caller.Caller{AgentID: "agent-one", SessionID: "session-one"},
+		Request:   map[string]any{"id": "a1"},
 	})
 	require.NoError(t, err)
 
@@ -154,13 +159,18 @@ func TestIntegrationCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
 	t.Cleanup(refusing.Close)
 
 	_, err := callRPC(t.Context(), callRPCParams{
-		Base: refusing.URL,
-		Path: "/agent.v1.AgentService/GetAgent",
+		Transport: rpcapi.NewTransport(),
+		Base:      refusing.URL,
+		Path:      "/agent.v1.AgentService/GetAgent",
 	})
 	require.Error(t, err)
 	require.EqualError(t, err, "not_found: no agent holds that id")
 
-	_, err = callRPC(t.Context(), callRPCParams{Base: formatBase(deadAddr(t)), Path: "/agent.v1.AgentService/GetAgent"})
+	_, err = callRPC(t.Context(), callRPCParams{
+		Transport: rpcapi.NewTransport(),
+		Base:      formatBase(deadAddr(t)),
+		Path:      "/agent.v1.AgentService/GetAgent",
+	})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to reach the server", "the address is named rather than the socket error alone")
 }
@@ -175,23 +185,49 @@ func TestIntegrationRequireServerSaysHowToStartOne(t *testing.T) {
 	t.Cleanup(answering.Close)
 
 	addr := strings.TrimPrefix(answering.URL, "http://")
-	require.NoError(t, requireServer(t.Context(), answering.URL, addr))
+	require.NoError(t, requireServer(t.Context(), requireServerParams{
+		Transport: xhttp.NewTransport(),
+		Base:      answering.URL,
+		Named:     addr,
+	}))
 	assert.Equal(t, server.HealthPath, healthPath, "the probe asks the health route rather than the call's own")
 
 	dead := deadAddr(t)
 
-	err := requireServer(t.Context(), formatBase(dead), dead)
+	err := requireServer(t.Context(), requireServerParams{
+		Transport: xhttp.NewTransport(),
+		Base:      formatBase(dead),
+		Named:     dead,
+	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "komrad start", "the refusal says what to do about it")
 
-	err = requireServer(t.Context(), formatBase(dead), "127.0.0.1:8787")
+	err = requireServer(t.Context(), requireServerParams{
+		Transport: xhttp.NewTransport(),
+		Base:      formatBase(dead),
+		Named:     "127.0.0.1:8787",
+	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
 
-	err = requireServer(t.Context(), "https://"+dead, "https://"+dead)
+	err = requireServer(t.Context(), requireServerParams{
+		Transport: xhttp.NewTransport(),
+		Base:      "https://" + dead,
+		Named:     "https://" + dead,
+	})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "https://"+dead, "an engine at a url is named by its url")
 	assert.NotContains(t, err.Error(), "komrad start", "an engine at a url is not one this machine starts")
+
+	keyring.MockInit()
+	unsigned := engine.NewBearerTransport(engine.NewTokenRefresher(engine.NewSignInKeeper(t.TempDir()), answering.URL), xhttp.NewTransport())
+	err = requireServer(t.Context(), requireServerParams{
+		Transport: unsigned,
+		Base:      answering.URL,
+		Named:     answering.URL,
+	})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "komrad login", "an engine this machine never signed in to says how to sign in")
 }
 
 // deadAddr is an address nothing is listening on, taken by opening a server and closing it so
