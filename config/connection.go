@@ -74,17 +74,9 @@ type Connection struct {
 	// Left empty this is ~/.local/state/komrad.
 	// It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 	StateDir string `mapstructure:"state_dir"`
-	// The ssh destination the engine runs on, like user@host, when it is not this machine.
-	// Left empty the engine is local and an agent's terminal is shown by moving its own pane
-	// into the panel, which only works while the panel and the agents share a tmux server.
-	SSH string `mapstructure:"ssh"`
-	// The command, as an argv, that forwards a port from this machine to the engine when you do
-	// not reach it through ssh. "{{local_port}}" and "{{remote_port}}" are replaced with the two ends. It should
-	// stay in the foreground for as long as the forward is wanted.
-	Forward []string `mapstructure:"forward"`
-	// The https address the engine is served on, like https://komrad.example.com, when it sits
-	// behind a web server rather than at the end of ssh or a forward. It may be plain http when
-	// its host is this machine.
+	// The https address the engine is served on, like https://komrad.example.com. Left empty the
+	// engine is local and an agent's terminal is shown by moving its own pane into the panel. It
+	// may be plain http when its host is this machine.
 	URL string `mapstructure:"url"`
 }
 
@@ -167,15 +159,10 @@ func isLoopbackHost(host string) bool {
 	return parsed != nil && parsed.IsLoopback()
 }
 
-// validateURL rejects an engine address that is neither https nor on this machine, or that names
-// a second way to the engine beside ssh or a forward.
+// validateURL rejects an engine address that is neither https nor on this machine.
 func (c Connection) validateURL() error {
 	if c.URL == "" {
 		return nil
-	}
-
-	if strings.TrimSpace(c.SSH) != "" || len(c.Forward) > 0 {
-		return errors.New("is set alongside ssh or forward, and an engine is reached one way")
 	}
 
 	if err := requireSecureURL(c.URL); err != nil {

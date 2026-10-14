@@ -77,9 +77,7 @@ type streamConn[Req, Res any] struct {
 }
 
 func terminalCmd(state *app) *cobra.Command {
-	var addr string
-
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "terminal AGENT",
 		Short: "Attach to an agent's terminal on the engine",
 		Long: `Attach to an agent's terminal on the engine.
@@ -96,20 +94,7 @@ an engine at its url, it says so and attaches once komrad login runs.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			var base string
-			if addr == "" {
-				dialed, release, err := state.dialAPI(ctx)
-				if err != nil {
-					return err
-				}
-				defer release()
-
-				base = dialed
-			} else {
-				base = formatBase(addr)
-			}
-
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), base)
+			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), state.getAPIBase())
 			code, err := runConsole(ctx, runConsoleParams{
 				Dial:   dialAttach(client, args[0], state.env.Term),
 				Redial: redialFor,
@@ -126,10 +111,6 @@ an engine at its url, it says so and attaches once komrad login runs.`,
 			return nil
 		},
 	}
-
-	cmd.Flags().StringVar(&addr, "addr", "", "address of the engine's api, reached as it is rather than through a forward of its own")
-
-	return cmd
 }
 
 func dialAttach(client terminalv1connect.TerminalServiceClient, agentID, term string) dialFunc {

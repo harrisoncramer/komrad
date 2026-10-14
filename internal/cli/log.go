@@ -41,11 +41,7 @@ is where to start when you know what you did but not what it was called.`,
 			ctx, cancel := context.WithTimeout(cmd.Context(), logTimeout)
 			defer cancel()
 
-			base, release, err := state.dialAPI(ctx)
-			if err != nil {
-				return err
-			}
-			defer release()
+			base := state.getAPIBase()
 
 			if err := requireServer(ctx, requireServerParams{
 				Transport: state.signTransport(xhttp.NewTransport()),

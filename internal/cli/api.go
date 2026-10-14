@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -11,25 +10,13 @@ import (
 	"komrad/lib/xhttp"
 )
 
-// dialAPI returns the base url this machine reaches the engine's api on, and a release for the
-// forward it opened.
-func (a *app) dialAPI(ctx context.Context) (string, func(), error) {
-	release := func() {}
-
-	remote := a.engine()
-	switch {
-	case !remote.IsRemote():
-		return formatBase(a.env.Addr), release, nil
-	case remote.URL != "":
-		return remote.URL, release, nil
+// getAPIBase is the base url this machine reaches the engine's api on.
+func (a *app) getAPIBase() string {
+	if a.env.URL != "" {
+		return a.env.URL
 	}
 
-	tunnel, err := remote.Dial(ctx, a.env.Addr, tunnelWait)
-	if err != nil {
-		return "", release, fmt.Errorf("failed to forward a port to the engine serving %s: %w", a.env.Addr, err)
-	}
-
-	return formatBase(tunnel.Local), func() { _ = tunnel.Close() }, nil
+	return formatBase(a.env.Addr)
 }
 
 func formatBase(addr string) string {
@@ -57,17 +44,13 @@ func (a *app) caller() caller.Caller {
 	return caller.Caller{AgentID: a.env.AgentID, SessionID: a.env.SessionID}
 }
 
-// withAPI reaches the server this komrad is pointed at, on this machine, through a forward to
-// the engine, or at the engine's url, and hands the base url to run for the length of one command.
+// withAPI reaches the server this komrad is pointed at, on this machine or at the engine's url,
+// and hands the base url to run for the length of one command.
 func (a *app) withAPI(ctx context.Context, run func(ctx context.Context, base string) error) error {
 	ctx, cancel := context.WithTimeout(ctx, apiCallTimeout)
 	defer cancel()
 
-	base, release, err := a.dialAPI(ctx)
-	if err != nil {
-		return err
-	}
-	defer release()
+	base := a.getAPIBase()
 
 	if err := requireServer(ctx, requireServerParams{
 		Transport: a.signTransport(xhttp.NewTransport()),

@@ -62,8 +62,6 @@ func (a *app) engine() engine.Remote {
 
 func remoteOf(env *config.Environment) engine.Remote {
 	return engine.Remote{
-		Destination: env.SSH,
-		Forward:     env.Forward,
-		URL:         env.URL,
+		URL: env.URL,
 	}
 }

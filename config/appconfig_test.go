@@ -1035,8 +1035,7 @@ func TestLoadRejectsAnAddressTheApiShouldNotAnswerOn(t *testing.T) {
 	}
 }
 
-// TestLoadTakesAnEngineURL covers an engine reached at an https address rather than through ssh or a
-// forward.
+// TestLoadTakesAnEngineURL covers an engine reached at an https address.
 func TestLoadTakesAnEngineURL(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1059,12 +1058,6 @@ func TestLoadTakesAnEngineURL(t *testing.T) {
 		{
 			name:    "a path after the host",
 			file:    "[connection]\nurl = \"https://komrad.example.com/api\"\n",
-			wantErr: true,
-			want:    "",
-		},
-		{
-			name:    "beside ssh, which is a second way to the same engine",
-			file:    "[connection]\nssh = \"komrad@203.0.113.4\"\nurl = \"https://komrad.example.com\"\n",
 			wantErr: true,
 			want:    "",
 		},

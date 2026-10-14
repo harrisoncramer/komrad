@@ -148,11 +148,11 @@ func TestServerCheckOnARemoteEngine(t *testing.T) {
 		wantFix    string
 	}{
 		{
-			name:       "the forward never came up, so nothing was learned about the engine",
-			probeErr:   errors.New("ssh: connect to host 203.0.113.4 port 22: Connection refused"),
+			name:       "the engine never answered, so nothing was learned about it",
+			probeErr:   errors.New("dial tcp 203.0.113.4:443: connect: connection refused"),
 			wantStatus: StatusFail,
 			wantCode:   "engine_unreachable",
-			wantFix:    "check the engine is up and that this engine's ssh settings reach it",
+			wantFix:    "check the engine is up and that this engine's url reaches it",
 		},
 		{
 			name:       "the engine is reachable but serving nothing",

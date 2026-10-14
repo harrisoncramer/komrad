@@ -25,8 +25,6 @@ type Environment struct {
 	// StateDir is where komrad keeps its own files about agents, such as worktrees, released
 	// reviews and forge credentials.
 	StateDir  string
-	SSH       string
-	Forward   []string
 	URL       string
 	Tmux      string
 	TmuxPane  string

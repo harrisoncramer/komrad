@@ -2,8 +2,8 @@
 //
 // An agent's terminal belongs to the tmux server the engine runs on. When that is this machine
 // the panel shows it by moving the pane itself into the stage with swap-pane, which the rest of
-// the layout code assumes. When the engine is somewhere else the panel reaches its api through a
-// forwarded port, and the stage streams the agent's terminal over that api.
+// the layout code assumes. When the engine is somewhere else the panel reaches its api at the
+// engine's url, and the stage streams the agent's terminal over that api.
 package engine
 
 import (
@@ -12,44 +12,18 @@ import (
 
 // Remote is an engine on another machine, the zero value meaning the engine is this machine.
 type Remote struct {
-	// Destination of the remote.
-	Destination string
-	// Forward carries a port from this machine to the engine, with LocalPortPlaceholder and
-	// RemotePortPlaceholder standing for the two ends.
-	Forward []string
-	// URL is the https address the engine is served on, reached as it is with no forward.
+	// URL is the https address the engine is served on.
 	URL string
 }
 
 // IsRemote reports whether the engine is somewhere this panel's tmux cannot reach.
 func (r Remote) IsRemote() bool {
-	return strings.TrimSpace(r.Destination) != "" || len(r.Forward) > 0 || r.URL != ""
+	return r.URL != ""
 }
-
-// Placeholders a forward's argv may carry, replaced with the two ends of the forward.
-const (
-	LocalPortPlaceholder  = "{{local_port}}"
-	remotePortPlaceholder = "{{remote_port}}"
-)
 
 // ViewSession is the name of the session a stage pane attaches to for one agent's pane.
 func ViewSession(pane string) string {
 	return "view-" + strings.TrimPrefix(pane, "%")
-}
-
-// fill replaces the placeholders in a forward's argv, leaving anything else as written.
-func fill(argv []string, values map[string]string) []string {
-	filled := make([]string, 0, len(argv))
-
-	for _, word := range argv {
-		for placeholder, value := range values {
-			word = strings.ReplaceAll(word, placeholder, value)
-		}
-
-		filled = append(filled, word)
-	}
-
-	return filled
 }
 
 // String names the engine for a log line or an error.
@@ -58,13 +32,5 @@ func (r Remote) String() string {
 		return "local"
 	}
 
-	if r.URL != "" {
-		return r.URL
-	}
-
-	if r.Destination == "" {
-		return strings.Join(r.Forward, " ")
-	}
-
-	return r.Destination
+	return r.URL
 }

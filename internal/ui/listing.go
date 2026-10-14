@@ -58,7 +58,7 @@ func (m *model) reportUnreachable(err error) {
 // unreachableHint is what the user can do about a server that has stopped answering.
 func (m *model) unreachableHint() string {
 	if m.frame.IsRemote() {
-		return "The tunnel to the engine is dialled again until it answers"
+		return "The panel keeps trying the engine until it answers"
 	}
 
 	return "Start it with: komrad serve"

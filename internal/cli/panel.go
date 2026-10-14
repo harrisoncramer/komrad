@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"time"
 
 	"komrad/internal/browser"
 	"komrad/internal/diff"
@@ -35,9 +34,6 @@ import (
 
 	"github.com/spf13/cobra"
 )
-
-// tunnelWait is how long the panel waits for an ssh forward to start carrying the engine.
-const tunnelWait = 15 * time.Second
 
 func panelCmd(state *app) *cobra.Command {
 	return &cobra.Command{
@@ -112,20 +108,6 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 					opener:    browser.NewDesktop(),
 					listen:    engine.CallbackAddr,
 				}
-			case remote.IsRemote():
-				tunnel, err := remote.Dial(cmd.Context(), addr, tunnelWait)
-				if err != nil {
-					startupErr = err
-
-					break
-				}
-
-				defer func() { _ = tunnel.Close() }()
-
-				addr = tunnel.Local
-				base = formatBase(addr)
-				shellCommand = append(slices.Clone(self), "shell", "--addr", addr)
-				terminalCommand = append(slices.Clone(self), "terminal", "--addr", addr)
 			case state.configErr == nil:
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
 					Addr:       addr,

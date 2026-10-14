@@ -320,9 +320,9 @@ func TestListingUnreachable(t *testing.T) {
 			want: "Start it with: komrad serve",
 		},
 		{
-			name:   "the hint for a remote engine says the tunnel is dialled again",
-			remote: engine.Remote{Destination: "komrad@host"},
-			want:   "The tunnel to the engine is dialled again until it answers",
+			name:   "the hint for a remote engine says the panel keeps trying it",
+			remote: engine.Remote{URL: "https://komrad.example.com"},
+			want:   "The panel keeps trying the engine until it answers",
 		},
 	}
 
