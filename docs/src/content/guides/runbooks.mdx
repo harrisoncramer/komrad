@@ -24,6 +24,8 @@ The session runs as a user with sudo. Switch to the komrad account to work as ko
 sudo -u komrad -i
 ```
 
+`mise run remote:connect` opens the session and switches to the komrad account in one step.
+
 ## Checking engine health
 
 When the engine's heartbeat stops, the dot beside its name in the panel turns red. Open a shell and list the failed units. On a healthy engine the command prints nothing:

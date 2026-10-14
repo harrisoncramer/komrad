@@ -6,6 +6,7 @@ order: 25
 ---
 
 import Command from "../../components/Command.astro";
+import Setting from "../../components/Setting.astro";
 import { link } from "../../site";
 
 A remote engine lets in only people it can identify and whom its owner has granted access. People prove who they are by signing in with an identity provider, and the engine looks up a grant for each of them. Operators reach the machine itself through AWS Systems Manager, so the machine needs no open port for shells.
@@ -25,9 +26,17 @@ Each person signs in once per engine, from their laptop:
 komrad login --engine remote
 ```
 
-Komrad asks the engine which identity provider it trusts and opens a browser at that provider. The person signs in there, along with any MFA the provider requires. The provider then sends the browser back to komrad on `127.0.0.1:8085` with a one-time code, and komrad trades the code for an ID token and a refresh token. Only the provider ever sees the person's password.
+Komrad asks the engine's `/sign-in` page which identity provider it trusts and opens a browser at that provider. The person signs in there, along with any MFA the provider requires. The provider then sends the browser back to komrad on `127.0.0.1:8085` with a one-time code, and komrad trades the code for an ID token and a refresh token. Komrad checks that the answer belongs to the sign-in it started. Only the provider ever sees the person's password.
 
-The panel sends the ID token with every request. The token lasts about an hour, and before it expires the panel uses the refresh token to get a new one without opening the browser, even in the middle of a terminal session. Komrad keeps both tokens in the system keychain. When the refresh token stops working, the panel asks the person to sign in again.
+The panel can sign a person in too. On an engine at a URL, the panel asks the engine whether the person has access before it shows anything. Without a sign-in it shows only a sign-in screen, and enter opens the provider's page in the browser. If nobody granted the person access, the panel says to ask the engine's owner. If the engine or the provider doesn't answer, the panel says so, and enter tries again.
+
+Komrad keeps both tokens in the system keychain. A machine with no keychain keeps them in a private file under komrad's state directory. <Command path="logout" /> removes them from both places. A panel that is already open keeps its current token until the token expires.
+
+## Tokens
+
+The panel and every command send the ID token with every request. The token lasts about an hour at most providers. When it has less than five minutes left, komrad uses the refresh token to get a new one without opening the browser. If the provider refuses, komrad asks the person to sign in again. If the provider doesn't answer, komrad says so, and the same sign-in works once the provider is back. <Command path="token" /> prints a current ID token, so a script can call the engine's API with it.
+
+A terminal or the panel's stream of events can stay open for hours. While a request is open, the engine checks the grant again every minute, and it ends the request when the token expires. An open terminal sends a fresh token down the stream before the old one expires, so the terminal stays open. The panel reopens its stream with a fresh token. When the stream ends because the grant was revoked, the sign-in can't be renewed, or the provider doesn't answer, the panel clears everything it showed and goes back to its sign-in screen. If only the engine stopped answering, the panel keeps what it showed and reconnects.
 
 ## Request checks
 
@@ -49,9 +58,9 @@ Both commands connect as the database owner, which on komrad's engine means runn
 
 ## Registering komrad with the provider
 
-The engine's owner registers komrad with their identity provider once, as a desktop app with `http://127.0.0.1:8085` as its redirect address. The provider issues a client id, and the engine's config names the provider and that id.
+The engine's owner registers komrad with their identity provider once, as a desktop app with `http://127.0.0.1:8085` as its redirect address. The provider issues a client id. On komrad's engine, `sign_in_issuer` and `sign_in_client_id` in `terraform.tfvars` name the provider and that id, and Terraform writes them into the engine's config when it builds the machine. Changing either one replaces the machine, the same as a new image does. An engine you run yourself takes them in the <Setting path="sign_in" label="[sign_in]" /> table of its config.
 
-Google also issues a client secret. The secret can't stay secret, since every copy of komrad carries it, but Google requires one, so it goes in the config as well. Publish the app on Google, or make it internal to your Workspace. If you leave it in testing mode, Google makes everyone sign in again every week.
+Google also issues a client secret. The secret can't stay secret, since the engine hands it to every laptop that signs in, but Google requires one, so it goes in `sign_in_client_secret` as well. Publish the app on Google, or make it internal to your Workspace. If you leave it in testing mode, Google makes everyone sign in again every week.
 
 ## Server listeners
 
@@ -63,7 +72,7 @@ The loopback listener serves the agents' MCP tools and the CLI in a shell on the
 
 ## Network
 
-Port 443 is open to the internet, and the token check protects it. An owner whose people work from fixed office or VPN addresses can limit 443 to those. Port 80 stays open for Let's Encrypt's certificate check, and Caddy redirects every other request on it to HTTPS. Every other port is closed.
+Port 443 is open to the internet, and the token check protects it. An owner whose people work from fixed office or VPN addresses can limit 443 to those with `https_allowed_cidrs`. Port 80 stays open for Let's Encrypt's certificate check, and Caddy redirects every other request on it to HTTPS. Every other port is closed.
 
 ## Operator and CI access
 
