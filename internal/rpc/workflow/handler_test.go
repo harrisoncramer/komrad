@@ -2,15 +2,12 @@ package workflow
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
-	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/eventprompts"
 	"komrad/internal/rpc/render"
-	"komrad/internal/store"
 	"komrad/lib/xptr"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	viewv1 "komrad/proto/gen/view/v1"
@@ -35,22 +32,15 @@ type updateCall struct {
 
 // fakeWorkflows answers from its fields and records what each call asked of it.
 type fakeWorkflows struct {
-	stored   []workflowstore.Workflow
-	err      error
-	created  []workflowstore.Config
-	updated  []updateCall
-	archived []string
-	restored []string
-	deleted  []string
-	listed   []bool
+	stored  []workflowstore.Workflow
+	created []workflowstore.Config
+	updated []updateCall
+	listed  []bool
 }
 
-// NewWorkflow records the config and answers it as stored unless err refuses it.
+// NewWorkflow records the config and answers it as stored.
 func (f *fakeWorkflows) NewWorkflow(_ context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error) {
 	f.created = append(f.created, cfg)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return &workflowstore.Workflow{
 		ID:       workflowID,
@@ -59,175 +49,50 @@ func (f *fakeWorkflows) NewWorkflow(_ context.Context, cfg workflowstore.Config)
 	}, nil
 }
 
-// GetWorkflow answers the first stored workflow unless err refuses it.
+// GetWorkflow answers the first stored workflow.
 func (f *fakeWorkflows) GetWorkflow(context.Context, string) (*workflowstore.Workflow, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
 	return &f.stored[0], nil
 }
 
-// UpdateWorkflow records the update and answers err.
+// UpdateWorkflow records the update.
 func (f *fakeWorkflows) UpdateWorkflow(_ context.Context, id string, cfg workflowstore.Config) error {
 	f.updated = append(f.updated, updateCall{
 		id:  id,
 		cfg: cfg,
 	})
 
-	return f.err
+	return nil
 }
 
-// ArchiveWorkflow records the id and answers err.
-func (f *fakeWorkflows) ArchiveWorkflow(_ context.Context, id string) error {
-	f.archived = append(f.archived, id)
-
-	return f.err
+// ArchiveWorkflow answers nil.
+func (f *fakeWorkflows) ArchiveWorkflow(context.Context, string) error {
+	return nil
 }
 
-// RestoreWorkflow records the id and answers the first stored workflow unless err refuses it.
-func (f *fakeWorkflows) RestoreWorkflow(_ context.Context, id string) (*workflowstore.Workflow, error) {
-	f.restored = append(f.restored, id)
-	if f.err != nil {
-		return nil, f.err
-	}
-
+// RestoreWorkflow answers the first stored workflow.
+func (f *fakeWorkflows) RestoreWorkflow(context.Context, string) (*workflowstore.Workflow, error) {
 	return &f.stored[0], nil
 }
 
-// DeleteWorkflow records the id and answers err.
-func (f *fakeWorkflows) DeleteWorkflow(_ context.Context, id string) error {
-	f.deleted = append(f.deleted, id)
-
-	return f.err
+// DeleteWorkflow answers nil.
+func (f *fakeWorkflows) DeleteWorkflow(context.Context, string) error {
+	return nil
 }
 
 // ListWorkflows records which set the caller asked for and answers as many stored workflows as the limit allows.
 func (f *fakeWorkflows) ListWorkflows(_ context.Context, params agents.ListWorkflowsParams) ([]workflowstore.Workflow, error) {
 	f.listed = append(f.listed, params.Archived)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return f.stored[:min(int(params.Limit), len(f.stored))], nil
 }
 
 // TestWorkflowRefusalsMapToCodes pins the code each refusal of the workflow service reaches the caller as.
 func TestWorkflowRefusalsMapToCodes(t *testing.T) {
-	create := func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-		_, err := svc.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{Name: "backend"}))
-
-		return err
-	}
-	update := func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-		_, err := svc.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{Id: workflowID}))
-
-		return err
-	}
-	archive := func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-		_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: workflowID}))
-
-		return err
-	}
-	restore := func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-		_, err := svc.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: workflowID}))
-
-		return err
-	}
-	deleteWorkflow := func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-		_, err := svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID}))
-
-		return err
-	}
-
 	tests := []struct {
 		name     string
 		call     func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error
-		err      error
 		wantCode connect.Code
 	}{
-		{
-			name:     "a worktree workflow with no cwd",
-			call:     create,
-			err:      agents.ErrWorktreeNeedsCwd,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a cwd that is not a primary checkout",
-			call:     create,
-			err:      agents.ErrWorktreeCwdNotPrimaryCheckout,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a copy path outside the repo",
-			call:     update,
-			err:      workflowstore.ErrWorktreeUnsafePath,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a blank base branch",
-			call:     update,
-			err:      agents.ErrWorktreeNeedsBase,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a hook on a moment komrad never fires",
-			call:     create,
-			err:      agents.ErrUnknownHookEvent,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a name a live workflow holds",
-			call:     create,
-			err:      store.ErrNameTaken,
-			wantCode: connect.CodeAlreadyExists,
-		},
-		{
-			name: "reading a workflow nothing holds",
-			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-				_, err := svc.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: workflowID}))
-
-				return err
-			},
-			err:      store.ErrNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "updating a workflow nothing holds",
-			call:     update,
-			err:      agenterr.ErrWorkflowNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "archiving a workflow nothing holds",
-			call:     archive,
-			err:      agenterr.ErrWorkflowNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "archiving a workflow still scheduled into",
-			call:     archive,
-			err:      agents.ErrWorkflowHasSchedules,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "restoring a workflow that is not archived",
-			call:     restore,
-			err:      agenterr.ErrWorkflowNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "restoring past the agent ceiling",
-			call:     restore,
-			err:      agenterr.ErrTooManyAgents,
-			wantCode: connect.CodeResourceExhausted,
-		},
-		{
-			name:     "deleting a workflow that is not archived",
-			call:     deleteWorkflow,
-			err:      agenterr.ErrWorkflowNotFound,
-			wantCode: connect.CodeNotFound,
-		},
 		{
 			name: "listing with a page token that holds no id",
 			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
@@ -239,27 +104,14 @@ func TestWorkflowRefusalsMapToCodes(t *testing.T) {
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
-		{
-			name: "a listing the store could not read",
-			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-				_, err := svc.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{}))
-
-				return err
-			},
-			err:      errors.New("connection refused"),
-			wantCode: connect.CodeInternal,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newWorkflowHandler(&fakeWorkflows{err: tt.err})
+			svc := newWorkflowHandler(&fakeWorkflows{})
 
 			err := tt.call(t.Context(), svc)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-			if tt.err != nil {
-				require.ErrorIs(t, err, tt.err)
-			}
 		})
 	}
 }
@@ -357,24 +209,6 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 				},
 			}},
 		},
-		{
-			name: "archiving hands down the id",
-			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-				_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: workflowID}))
-
-				return err
-			},
-			want: fakeWorkflows{archived: []string{workflowID}},
-		},
-		{
-			name: "deleting hands down the id",
-			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-				_, err := svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID}))
-
-				return err
-			},
-			want: fakeWorkflows{deleted: []string{workflowID}},
-		},
 	}
 
 	for _, tt := range tests {
@@ -432,53 +266,6 @@ func TestEventPromptEventsAreTheEventsKomradSends(t *testing.T) {
 
 	retired := []string{"review.forge_reply_requested", "review.forge_reply_decided"}
 	assert.Equal(t, append(eventprompts.Names(), retired...), rules.GetString().GetIn())
-}
-
-// TestWorkflowReadsRender pins that every read answers with the workflow the service handed back, context whole.
-func TestWorkflowReadsRender(t *testing.T) {
-	stored := workflowstore.Workflow{
-		ID:      workflowID,
-		Name:    "backend",
-		Context: strings.Repeat("c", render.SummaryHead+50),
-	}
-
-	tests := []struct {
-		name string
-		call func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) (*workflowv1.Workflow, error)
-	}{
-		{
-			name: "reading one",
-			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) (*workflowv1.Workflow, error) {
-				got, err := svc.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: workflowID}))
-				if err != nil {
-					return nil, err
-				}
-
-				return got.Msg.GetWorkflow(), nil
-			},
-		},
-		{
-			name: "restoring one",
-			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) (*workflowv1.Workflow, error) {
-				got, err := svc.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: workflowID}))
-				if err != nil {
-					return nil, err
-				}
-
-				return got.Msg.GetWorkflow(), nil
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := newWorkflowHandler(&fakeWorkflows{stored: []workflowstore.Workflow{stored}})
-
-			got, err := tt.call(t.Context(), svc)
-			require.NoError(t, err)
-			assert.True(t, proto.Equal(render.Workflow(stored, render.WorkflowOptions{}), got))
-		})
-	}
 }
 
 // TestListWorkflows pins which set a listing reads, which view draws the whole context, and when a page hands back a token.

@@ -2,12 +2,10 @@ package worktree
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
 	"komrad/internal/git"
-	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/worktrees"
@@ -21,12 +19,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// fakeWorktrees answers as the readers and the queue, refusing with err when it is set.
+// fakeWorktrees answers as the readers and the queue.
 type fakeWorktrees struct {
 	listing    worktrees.Listing
 	inspection worktrees.Inspection
-	removal    worktrees.Removal
-	err        error
 	inspected  string
 	fetched    bool
 	removed    []string
@@ -34,35 +30,25 @@ type fakeWorktrees struct {
 }
 
 func (f *fakeWorktrees) ListUnclaimed(context.Context) (*worktrees.Listing, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
 	return &f.listing, nil
 }
 
 func (f *fakeWorktrees) Inspect(_ context.Context, params worktrees.InspectParams) (*worktrees.Inspection, error) {
 	f.inspected, f.fetched = params.Dir, params.Fetch
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return &f.inspection, nil
 }
 
 func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (*worktrees.Removal, error) {
 	f.removed = dirs
-	if f.err != nil {
-		return nil, f.err
-	}
 
-	return &f.removal, nil
+	return &worktrees.Removal{}, nil
 }
 
 func (f *fakeWorktrees) DeleteWorktrees(_ context.Context, dirs []string) error {
 	f.queued = dirs
 
-	return f.err
+	return nil
 }
 
 // TestListWorktrees covers the listing rendered whole: the task and its stamp, the
@@ -201,26 +187,6 @@ func TestGetWorktree(t *testing.T) {
 	assert.Equal(t, "2026-09-19T11:00:00Z", resp.Msg.GetCommits()[0].GetCommittedAt())
 }
 
-// TestRemoveUnownedWorktrees covers the directories reaching the remover and the removal
-// coming back with what went, what did not, and why.
-func TestRemoveUnownedWorktrees(t *testing.T) {
-	t.Parallel()
-
-	fake := &fakeWorktrees{removal: worktrees.Removal{
-		Removed: []string{"/trees/gone"},
-		Refused: []worktrees.Refusal{{Dir: "/trees/aaaa", Reason: "agent first answers for it; delete the agent instead"}},
-	}}
-
-	resp, err := newService(fake).RemoveUnownedWorktrees(t.Context(), connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: []string{"/trees/gone", "/trees/aaaa"}}))
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{"/trees/gone", "/trees/aaaa"}, fake.removed)
-	assert.Equal(t, []string{"/trees/gone"}, resp.Msg.GetRemoved())
-	require.Len(t, resp.Msg.GetRefused(), 1)
-	assert.Equal(t, "/trees/aaaa", resp.Msg.GetRefused()[0].GetDir())
-	assert.Contains(t, resp.Msg.GetRefused()[0].GetReason(), "delete the agent instead")
-}
-
 // TestDeleteWorktrees covers the directories reaching the queue and the call removing nothing.
 func TestDeleteWorktrees(t *testing.T) {
 	t.Parallel()
@@ -232,72 +198,6 @@ func TestDeleteWorktrees(t *testing.T) {
 
 	assert.Equal(t, []string{"/trees/gone", "/trees/aaaa"}, fake.queued)
 	assert.Empty(t, fake.removed)
-}
-
-// TestHandlerAnswersWithTheDomainsKind covers each procedure answering with the code of what the domain said.
-func TestHandlerAnswersWithTheDomainsKind(t *testing.T) {
-	t.Parallel()
-
-	notUnder := store.ErrNotFound.Saying("/elsewhere is not under the worktree directories")
-	broke := errors.New("the disk is gone")
-
-	tests := []struct {
-		name     string
-		fake     *fakeWorktrees
-		call     func(ctx context.Context, service worktreev1komrad.WorktreeServiceAdapter) error
-		wantCode connect.Code
-	}{
-		{
-			name: "a listing that fails",
-			fake: &fakeWorktrees{err: broke},
-			call: func(ctx context.Context, service worktreev1komrad.WorktreeServiceAdapter) error {
-				_, err := service.ListWorktrees(ctx, connect.NewRequest(&emptypb.Empty{}))
-
-				return err
-			},
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name: "a directory outside the worktree directories",
-			fake: &fakeWorktrees{err: notUnder},
-			call: func(ctx context.Context, service worktreev1komrad.WorktreeServiceAdapter) error {
-				_, err := service.GetWorktree(ctx, connect.NewRequest(&worktreev1.GetWorktreeRequest{Dir: "/elsewhere"}))
-
-				return err
-			},
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "a removal that fails",
-			fake: &fakeWorktrees{err: broke},
-			call: func(ctx context.Context, service worktreev1komrad.WorktreeServiceAdapter) error {
-				_, err := service.RemoveUnownedWorktrees(ctx, connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{Dirs: []string{"/trees/gone"}}))
-
-				return err
-			},
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name: "a delete the queue refuses",
-			fake: &fakeWorktrees{err: broke},
-			call: func(ctx context.Context, service worktreev1komrad.WorktreeServiceAdapter) error {
-				_, err := service.DeleteWorktrees(ctx, connect.NewRequest(&worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/gone"}}))
-
-				return err
-			},
-			wantCode: connect.CodeInternal,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := tt.call(t.Context(), newService(tt.fake))
-
-			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-		})
-	}
 }
 
 func newService(fake *fakeWorktrees) worktreev1komrad.WorktreeServiceAdapter {

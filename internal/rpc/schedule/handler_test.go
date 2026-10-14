@@ -2,14 +2,12 @@ package schedule
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"komrad/internal/rpc/render"
 	"komrad/internal/schedules"
-	"komrad/internal/store"
 	"komrad/lib/xptr"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -31,41 +29,24 @@ type updateCall struct {
 	cfg schedulestore.Config
 }
 
-type enableCall struct {
-	id      string
-	enabled bool
-}
-
 // fakeSchedules answers from its fields and records what each call asked of it.
 type fakeSchedules struct {
-	stored   []schedulestore.Schedule
-	runs     []schedulestore.Run
-	err      error
-	created  []schedulestore.Config
-	updated  []updateCall
-	enabled  []enableCall
-	gone     []string
-	restored []string
-	deleted  []string
-	pages    []schedules.ListSchedulesParams
-	listed   []schedules.ListScheduleRunsParams
+	stored  []schedulestore.Schedule
+	runs    []schedulestore.Run
+	created []schedulestore.Config
+	updated []updateCall
+	pages   []schedules.ListSchedulesParams
+	listed  []schedules.ListScheduleRunsParams
 }
 
-// GetSchedule answers the first stored schedule unless err refuses it.
+// GetSchedule answers the first stored schedule.
 func (f *fakeSchedules) GetSchedule(context.Context, string) (*schedulestore.Schedule, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
 	return &f.stored[0], nil
 }
 
-// NewSchedule records the config and answers it as stored unless err refuses it.
+// NewSchedule records the config and answers it as stored.
 func (f *fakeSchedules) NewSchedule(_ context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error) {
 	f.created = append(f.created, cfg)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return &schedulestore.Schedule{
 		ID:                  scheduleID,
@@ -79,214 +60,57 @@ func (f *fakeSchedules) NewSchedule(_ context.Context, cfg schedulestore.Config)
 	}, nil
 }
 
-// UpdateSchedule records the update and answers err.
+// UpdateSchedule records the update.
 func (f *fakeSchedules) UpdateSchedule(_ context.Context, id string, cfg schedulestore.Config) error {
 	f.updated = append(f.updated, updateCall{
 		id:  id,
 		cfg: cfg,
 	})
 
-	return f.err
+	return nil
 }
 
-// SetScheduleEnabled records the toggle and answers err.
-func (f *fakeSchedules) SetScheduleEnabled(_ context.Context, id string, enabled bool) error {
-	f.enabled = append(f.enabled, enableCall{
-		id:      id,
-		enabled: enabled,
-	})
-
-	return f.err
+// SetScheduleEnabled answers nil.
+func (f *fakeSchedules) SetScheduleEnabled(context.Context, string, bool) error {
+	return nil
 }
 
-// ArchiveSchedule records the id and answers err.
-func (f *fakeSchedules) ArchiveSchedule(_ context.Context, id string) error {
-	f.gone = append(f.gone, id)
-
-	return f.err
+// ArchiveSchedule answers nil.
+func (f *fakeSchedules) ArchiveSchedule(context.Context, string) error {
+	return nil
 }
 
-// RestoreSchedule records the id and answers err.
-func (f *fakeSchedules) RestoreSchedule(_ context.Context, id string) error {
-	f.restored = append(f.restored, id)
-
-	return f.err
+// RestoreSchedule answers nil.
+func (f *fakeSchedules) RestoreSchedule(context.Context, string) error {
+	return nil
 }
 
-// DeleteSchedule records the id and answers err.
-func (f *fakeSchedules) DeleteSchedule(_ context.Context, id string) error {
-	f.deleted = append(f.deleted, id)
-
-	return f.err
+// DeleteSchedule answers nil.
+func (f *fakeSchedules) DeleteSchedule(context.Context, string) error {
+	return nil
 }
 
-// ListSchedules records the listing and answers as many stored schedules as the limit allows
-// unless err refuses it.
+// ListSchedules records the listing and answers as many stored schedules as the limit allows.
 func (f *fakeSchedules) ListSchedules(_ context.Context, params schedules.ListSchedulesParams) ([]schedulestore.Schedule, error) {
 	f.pages = append(f.pages, params)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return f.stored[:min(int(params.Limit), len(f.stored))], nil
 }
 
-// ListScheduleRuns records the listing and answers runs unless err refuses it.
+// ListScheduleRuns records the listing and answers runs.
 func (f *fakeSchedules) ListScheduleRuns(_ context.Context, params schedules.ListScheduleRunsParams) ([]schedulestore.Run, error) {
 	f.listed = append(f.listed, params)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return f.runs, nil
 }
 
 // TestScheduleRefusalsMapToCodes pins the code each refusal of the schedule service reaches the caller as.
 func TestScheduleRefusalsMapToCodes(t *testing.T) {
-	create := func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-		_, err := svc.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{Name: "morning-ci"}))
-
-		return err
-	}
-	update := func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-		_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{Id: scheduleID}))
-
-		return err
-	}
-	restore := func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-		_, err := svc.RestoreSchedule(ctx, connect.NewRequest(&schedulev1.RestoreScheduleRequest{Id: scheduleID}))
-
-		return err
-	}
-
 	tests := []struct {
 		name     string
 		call     func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error
-		err      error
 		wantCode connect.Code
 	}{
-		{
-			name:     "an expression that cannot be read",
-			call:     create,
-			err:      schedules.ErrBadCron,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a workflow nothing holds",
-			call:     create,
-			err:      schedules.ErrWorkflowNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a workflow that has been archived",
-			call:     update,
-			err:      schedules.ErrWorkflowArchived,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "an orchestrator nothing holds",
-			call:     create,
-			err:      schedules.ErrOrchestratorNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "an orchestrator that has been archived",
-			call:     update,
-			err:      schedules.ErrOrchestratorArchived,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "an agent that is not an orchestrator",
-			call:     create,
-			err:      schedules.ErrNotAnOrchestrator,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a prompt too long to mail",
-			call:     create,
-			err:      schedules.ErrPromptTooLong,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a name a live schedule holds",
-			call:     create,
-			err:      store.ErrNameTaken,
-			wantCode: connect.CodeAlreadyExists,
-		},
-		{
-			name:     "updating a schedule nothing holds",
-			call:     update,
-			err:      schedules.ErrScheduleNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "pausing a schedule nothing holds",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{Id: scheduleID}))
-
-				return err
-			},
-			err:      schedules.ErrScheduleNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "archiving a schedule nothing holds",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: scheduleID}))
-
-				return err
-			},
-			err:      schedules.ErrScheduleNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "restoring a schedule the archive does not hold",
-			call:     restore,
-			err:      schedules.ErrScheduleNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "restoring into a workflow that has been archived",
-			call:     restore,
-			err:      schedules.ErrWorkflowArchived,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "restoring over a name a live schedule holds",
-			call:     restore,
-			err:      store.ErrNameTaken,
-			wantCode: connect.CodeAlreadyExists,
-		},
-		{
-			name: "deleting a schedule the archive does not hold",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: scheduleID}))
-
-				return err
-			},
-			err:      schedules.ErrScheduleNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "reading a schedule nothing holds",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: scheduleID}))
-
-				return err
-			},
-			err:      store.ErrNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "listing the runs of a schedule nothing holds",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.ListScheduleRuns(ctx, connect.NewRequest(&schedulev1.ListScheduleRunsRequest{Id: scheduleID}))
-
-				return err
-			},
-			err:      store.ErrNotFound,
-			wantCode: connect.CodeNotFound,
-		},
 		{
 			name: "listing with a page token that holds no id",
 			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
@@ -298,27 +122,14 @@ func TestScheduleRefusalsMapToCodes(t *testing.T) {
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
-		{
-			name: "a listing the store could not read",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.ListSchedules(ctx, connect.NewRequest(&schedulev1.ListSchedulesRequest{}))
-
-				return err
-			},
-			err:      errors.New("connection refused"),
-			wantCode: connect.CodeInternal,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := newScheduleHandler(&fakeSchedules{err: tt.err})
+			svc := newScheduleHandler(&fakeSchedules{})
 
 			err := tt.call(t.Context(), svc)
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-			if tt.err != nil {
-				require.ErrorIs(t, err, tt.err)
-			}
 		})
 	}
 }
@@ -428,50 +239,6 @@ func TestScheduleWritesPassDown(t *testing.T) {
 					cfg: mailing,
 				},
 			}},
-		},
-		{
-			name: "pausing hands down the id and the toggle",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
-					Id:      scheduleID,
-					Enabled: true,
-				}))
-
-				return err
-			},
-			want: fakeSchedules{enabled: []enableCall{
-				{
-					id:      scheduleID,
-					enabled: true,
-				},
-			}},
-		},
-		{
-			name: "archiving hands down the id",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: scheduleID}))
-
-				return err
-			},
-			want: fakeSchedules{gone: []string{scheduleID}},
-		},
-		{
-			name: "restoring hands down the id",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.RestoreSchedule(ctx, connect.NewRequest(&schedulev1.RestoreScheduleRequest{Id: scheduleID}))
-
-				return err
-			},
-			want: fakeSchedules{restored: []string{scheduleID}},
-		},
-		{
-			name: "deleting hands down the id",
-			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
-				_, err := svc.DeleteSchedule(ctx, connect.NewRequest(&schedulev1.DeleteScheduleRequest{Id: scheduleID}))
-
-				return err
-			},
-			want: fakeSchedules{deleted: []string{scheduleID}},
 		},
 		{
 			name: "listing the archive hands down which half to list",

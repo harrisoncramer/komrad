@@ -8,17 +8,28 @@ import (
 	"komrad/internal/agentdirs"
 	"komrad/internal/agenterr"
 	"komrad/internal/agents"
+	"komrad/internal/attaches"
 	"komrad/internal/checkouts"
+	"komrad/internal/documents"
 	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
+	"komrad/internal/forge"
 	"komrad/internal/git"
+	"komrad/internal/logread"
 	"komrad/internal/mail"
 	"komrad/internal/reviews"
 	"komrad/internal/rpcerr"
 	"komrad/internal/schedules"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
+	documentstore "komrad/internal/store/document"
+	documenttypestore "komrad/internal/store/documenttype"
+	forgestore "komrad/internal/store/forge"
+	pullrequeststore "komrad/internal/store/pullrequest"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
+	"komrad/internal/watch"
 	"komrad/lib/pagination"
 
 	"connectrpc.com/connect"
@@ -49,8 +60,16 @@ func TestWrapCodes(t *testing.T) {
 		{mail.ErrRecipientNotFound, connect.CodeNotFound},
 		{reviews.ErrReviewThreadNotFound, connect.CodeNotFound},
 		{reviews.ErrReviewMessageNotFound, connect.CodeNotFound},
+		{reviews.ErrReviewNotFound, connect.CodeNotFound},
+		{mail.ErrAgentNotFound, connect.CodeNotFound},
+		{schedules.ErrWorkflowNotFound, connect.CodeNotFound},
+		{schedules.ErrOrchestratorNotFound, connect.CodeNotFound},
+		{logread.ErrNoSuchTrace, connect.CodeNotFound},
+		{logread.ErrNoSuchRun, connect.CodeNotFound},
 		{store.ErrNameTaken, connect.CodeAlreadyExists},
 		{agenterr.ErrAlreadyLaunched, connect.CodeAlreadyExists},
+		{forgestore.ErrHostTaken, connect.CodeAlreadyExists},
+		{reviews.ErrForgeMessageAccepted, connect.CodeAlreadyExists},
 		{agenterr.ErrAgentArchived, connect.CodeFailedPrecondition},
 		{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
 		{agents.ErrScriptNotExecutable, connect.CodeFailedPrecondition},
@@ -71,6 +90,29 @@ func TestWrapCodes(t *testing.T) {
 		{git.ErrBaseUnrelated, connect.CodeFailedPrecondition},
 		{reviews.ErrReviewEmpty, connect.CodeFailedPrecondition},
 		{reviews.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
+		{reviews.ErrReviewNotCurrent, connect.CodeFailedPrecondition},
+		{agenterr.ErrUnsettled, connect.CodeFailedPrecondition},
+		{agents.ErrAgentNotFailed, connect.CodeFailedPrecondition},
+		{agents.ErrNotHeld, connect.CodeFailedPrecondition},
+		{mail.ErrAgentArchived, connect.CodeFailedPrecondition},
+		{checkouts.ErrNoWorktree, connect.CodeFailedPrecondition},
+		{checkouts.ErrRebaseDirty, connect.CodeFailedPrecondition},
+		{checkouts.ErrAbortNothing, connect.CodeFailedPrecondition},
+		{git.ErrPushRejected, connect.CodeFailedPrecondition},
+		{attaches.ErrNotLive, connect.CodeFailedPrecondition},
+		{attaches.ErrNoPane, connect.CodeFailedPrecondition},
+		{documentstore.ErrChanged, connect.CodeFailedPrecondition},
+		{documenttypestore.ErrChanged, connect.CodeFailedPrecondition},
+		{documenttypestore.ErrInUse, connect.CodeFailedPrecondition},
+		{forge.ErrNotMergeable, connect.CodeFailedPrecondition},
+		{forge.ErrNotDraftable, connect.CodeFailedPrecondition},
+		{forge.ErrNoRereview, connect.CodeFailedPrecondition},
+		{forge.ErrNoAutoMerge, connect.CodeFailedPrecondition},
+		{schedules.ErrWorkflowArchived, connect.CodeFailedPrecondition},
+		{schedules.ErrOrchestratorArchived, connect.CodeFailedPrecondition},
+		{tasks.ErrTaskNotLive, connect.CodeFailedPrecondition},
+		{taskstore.ErrNotesChanged, connect.CodeFailedPrecondition},
+		{watch.ErrClosed, connect.CodeFailedPrecondition},
 		{schedules.ErrBadCron, connect.CodeInvalidArgument},
 		{pagination.ErrBadCursor, connect.CodeInvalidArgument},
 		{agents.ErrUnknownHookEvent, connect.CodeInvalidArgument},
@@ -93,6 +135,20 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 		{workflowstore.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsBase, connect.CodeInvalidArgument},
+		{schedules.ErrNotAnOrchestrator, connect.CodeInvalidArgument},
+		{schedules.ErrPromptTooLong, connect.CodeInvalidArgument},
+		{taskstore.ErrBadSlug, connect.CodeInvalidArgument},
+		{reviews.ErrReviewVerdictFromPerson, connect.CodeInvalidArgument},
+		{documents.ErrAgentWritingForAnother, connect.CodeInvalidArgument},
+		{documents.ErrNoAuthor, connect.CodeInvalidArgument},
+		{documents.ErrNoTypeVersion, connect.CodeInvalidArgument},
+		{documents.ErrNoVersion, connect.CodeInvalidArgument},
+		{documents.ErrTooLarge, connect.CodeInvalidArgument},
+		{documents.ErrUnreadablePath, connect.CodeInvalidArgument},
+		{documentstore.ErrUnknownType, connect.CodeInvalidArgument},
+		{forge.ErrNotPullRequest, connect.CodeInvalidArgument},
+		{git.ErrNotForgeRemote, connect.CodeInvalidArgument},
+		{pullrequeststore.ErrInvalidPattern, connect.CodeInvalidArgument},
 		{agenterr.ErrTooManyAgents, connect.CodeResourceExhausted},
 		{mail.ErrMailboxFull, connect.CodeResourceExhausted},
 		{mail.ErrExchangeCapped, connect.CodeResourceExhausted},
@@ -105,6 +161,9 @@ func TestWrapCodes(t *testing.T) {
 		{mail.ErrOutsideTask, connect.CodePermissionDenied},
 		{agenterr.ErrOutsideWorkflow, connect.CodePermissionDenied},
 		{agentdirs.ErrOutsideAgents, connect.CodePermissionDenied},
+		{tasks.ErrNotesNotYours, connect.CodePermissionDenied},
+		{documents.ErrDeleteByAgent, connect.CodePermissionDenied},
+		{documents.ErrDocumentTypeByAgent, connect.CodePermissionDenied},
 	}
 
 	for _, tt := range tests {
