@@ -39,17 +39,6 @@ resource "aws_security_group" "komrad" {
   vpc_id      = aws_vpc.komrad.id
 
   dynamic "ingress" {
-    for_each = length(var.ssh_allowed_cidrs) > 0 ? [1] : []
-
-    content {
-      cidr_blocks = var.ssh_allowed_cidrs
-      from_port   = 22
-      protocol    = "tcp"
-      to_port     = 22
-    }
-  }
-
-  dynamic "ingress" {
     for_each = var.domain_name != "" ? [1] : []
 
     content {
@@ -57,6 +46,17 @@ resource "aws_security_group" "komrad" {
       from_port   = 80
       protocol    = "tcp"
       to_port     = 80
+    }
+  }
+
+  dynamic "ingress" {
+    for_each = var.domain_name != "" ? [1] : []
+
+    content {
+      cidr_blocks = var.https_allowed_cidrs
+      from_port   = 443
+      protocol    = "tcp"
+      to_port     = 443
     }
   }
 

@@ -17,7 +17,7 @@ mkdir -p /etc/komrad
 echo "KOMRAD_DATA_VOLUME_ID=${data_volume_id}" >/etc/komrad/data-volume.env
 
 # Only the name of the secret travels here, never its value. User data is readable by anything
-# on the instance that can reach the metadata service, so it carries identifiers and nothing else.
+# on the instance that can reach the metadata service, so it carries nothing that has to stay secret.
 cat >/etc/komrad/database-source.env <<ENV
 KOMRAD_DATABASE_SECRET_ARN=${database_secret_arn}
 KOMRAD_DATABASE_HOST=${database_host}
@@ -30,13 +30,16 @@ ENV
 # to systemd's own ordering.
 systemctl start komrad-data-volume.service
 
-# The home this writes into lives on the data volume, so it has to follow the mount above.
-if [ -n "${ssh_public_key}" ]; then
-	install -d -m 700 -o komrad -g komrad /var/lib/komrad/home/.ssh
-	printf '%s\n' "${ssh_public_key}" >/var/lib/komrad/home/.ssh/authorized_keys
-	chmod 600 /var/lib/komrad/home/.ssh/authorized_keys
-	chown komrad:komrad /var/lib/komrad/home/.ssh/authorized_keys
-fi
+%{ if sign_in_issuer != "" ~}
+cat >/etc/komrad/sign-in.toml <<'TOML'
+[sign_in]
+issuer = ${jsonencode(sign_in_issuer)}
+client_id = ${jsonencode(sign_in_client_id)}
+client_secret = ${jsonencode(sign_in_client_secret)}
+TOML
+%{ else ~}
+: >/etc/komrad/sign-in.toml
+%{ endif ~}
 
 if [ -n "${domain_name}" ]; then
 	install -d -m 700 /var/lib/komrad/caddy
@@ -48,7 +51,7 @@ if [ -n "${domain_name}" ]; then
 }
 
 ${domain_name} {
-	respond 404
+	reverse_proxy h2c://127.0.0.1:8788
 }
 CADDYFILE
 	systemctl enable --now caddy.service

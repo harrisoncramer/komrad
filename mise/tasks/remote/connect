@@ -7,11 +7,12 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run remote:connect [-- command...]"
 	echo
-	echo "Opens a shell on the engine as the komrad account over ssh. With a command after --"
-	echo "it runs that instead and returns, which is what a script wants."
+	echo "Opens a shell on the engine as the komrad account through Systems Manager. With a"
+	echo "command after -- it runs that instead and prints what it printed, which is what a"
+	echo "script wants."
 	echo
-	echo "The address comes from Terraform, the key from KOMRAD_ENGINE_KEY, and the connection"
-	echo "is shared, so a second call costs a fraction of the first."
+	echo "The instance comes from Terraform, or from KOMRAD_ENGINE_INSTANCE. The shell needs"
+	echo "the Session Manager plugin for the AWS CLI."
 	echo
 	echo "  mise run remote:connect"
 	echo "  mise run remote:connect -- systemctl status komrad"
@@ -31,60 +32,17 @@ cd "$MISE_CONFIG_ROOT"
 
 use_komrad_aws_profile
 
-HOST="${KOMRAD_ENGINE_HOST:-}"
-
-if [ -z "$HOST" ]; then
-	HOST="$(terraform_output instance_public_ip)"
-fi
-
-if [ -z "$HOST" ]; then
-	echo "could not read the engine's address from Terraform." >&2
-	echo >&2
-	echo "Run 'mise run infra:engine:apply' to build one, or set KOMRAD_ENGINE_HOST." >&2
-	exit 1
-fi
-
-KEY="${KOMRAD_ENGINE_KEY:-$HOME/.ssh/komrad_engine}"
-
-if [ ! -f "$KEY" ]; then
-	echo "no key at $KEY, so the engine will refuse the connection." >&2
-	echo >&2
-	echo "That key is the one whose public half Terraform put in the instance's authorized_keys," >&2
-	echo "as ssh_public_key in terraform.tfvars. Set KOMRAD_ENGINE_KEY if yours lives elsewhere." >&2
-	exit 1
-fi
-
-USER_NAME="${KOMRAD_ENGINE_USER:-komrad}"
-
-# The address outlives the instance, so a rebuild answers on it with a new host key. The known
-# hosts are kept in a file of this engine's own, which is what makes dropping the old key safe.
-KNOWN_HOSTS="${KOMRAD_ENGINE_KNOWN_HOSTS:-$HOME/.ssh/known_hosts_komrad_engine}"
-touch "$KNOWN_HOSTS"
-chmod 600 "$KNOWN_HOSTS"
-
-RECORDED="$(ssh-keygen -F "$HOST" -f "$KNOWN_HOSTS" 2>/dev/null | grep -c . || true)"
-LIVE="$(ssh-keyscan -T 5 -t ed25519 "$HOST" 2>/dev/null | grep -v "^#" | head -1)"
-
-if [ "$RECORDED" != "0" ] && [ -n "$LIVE" ] && ! grep -qxF "$LIVE" "$KNOWN_HOSTS"; then
-	echo "the engine at $HOST answers with a new host key, which is what a rebuilt instance does." >&2
-	echo "dropping the old one from $KNOWN_HOSTS and going on." >&2
-	ssh-keygen -R "$HOST" -f "$KNOWN_HOSTS" >/dev/null 2>&1 || true
-fi
-
-# The same control path the panel's own transport uses, so a shell opened here and a stage pane
-# attaching share one connection rather than building two.
-SSH_ARGS=(
-	-o ControlMaster=auto
-	-o ControlPersist=10m
-	-o "ControlPath=/tmp/cm-komrad-%r@%h:%p"
-	-o StrictHostKeyChecking=accept-new
-	-o "UserKnownHostsFile=$KNOWN_HOSTS"
-	-o ConnectTimeout=10
-	-i "$KEY"
-)
+INSTANCE="$(require_instance "")"
+REGION="$(engine_region)"
 
 if [ "$#" -gt 0 ]; then
-	exec ssh "${SSH_ARGS[@]}" "${USER_NAME}@${HOST}" "$@"
+	ENCODED="$(printf '%s' "$*" | base64 | tr -d '\n')"
+	run_on_engine "$INSTANCE" "$REGION" "echo $ENCODED | base64 -d | sudo -iu komrad bash"
+	exit
 fi
 
-exec ssh -t "${SSH_ARGS[@]}" "${USER_NAME}@${HOST}"
+exec aws ssm start-session \
+	--region "$REGION" \
+	--target "$INSTANCE" \
+	--document-name AWS-StartInteractiveCommand \
+	--parameters command="sudo -iu komrad"

@@ -135,21 +135,6 @@ variable "database_final_snapshot" {
   default = "komrad-development-final"
 }
 
-variable "ssh_public_key" {
-  type    = string
-  default = ""
-}
-
-variable "ssh_allowed_cidrs" {
-  type    = list(string)
-  default = []
-
-  validation {
-    condition     = !contains(var.ssh_allowed_cidrs, "0.0.0.0/0")
-    error_message = "Reaching the engine is gated by the source address, so the whole internet is refused here."
-  }
-}
-
 variable "domain_name" {
   type    = string
   default = ""
@@ -158,6 +143,47 @@ variable "domain_name" {
     condition     = var.domain_name == "" || can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", var.domain_name))
     error_message = "A domain name is a lowercase hostname like komrad.example.com, since it is written into the web server's config."
   }
+}
+
+variable "https_allowed_cidrs" {
+  type    = list(string)
+  default = ["0.0.0.0/0"]
+
+  validation {
+    condition     = length(var.https_allowed_cidrs) > 0
+    error_message = "People reach the engine on 443, so at least one address range has to be let in."
+  }
+}
+
+variable "sign_in_issuer" {
+  type    = string
+  default = ""
+
+  validation {
+    condition     = var.sign_in_issuer == "" || startswith(var.sign_in_issuer, "https://")
+    error_message = "The issuer is the provider's https address, like https://accounts.google.com."
+  }
+
+  validation {
+    condition     = (var.sign_in_issuer == "") == (var.sign_in_client_id == "")
+    error_message = "sign_in_issuer and sign_in_client_id are set together."
+  }
+
+  validation {
+    condition     = var.sign_in_issuer == "" || var.domain_name != ""
+    error_message = "People sign in to the engine at its domain, so sign_in_issuer needs domain_name."
+  }
+}
+
+variable "sign_in_client_id" {
+  type    = string
+  default = ""
+}
+
+variable "sign_in_client_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
 }
 
 variable "github_repository" {

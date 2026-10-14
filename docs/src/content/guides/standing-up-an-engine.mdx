@@ -28,7 +28,7 @@ The build prints the image's id when it finishes, and Terraform needs that id in
 
 ## Applying the infrastructure
 
-Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id and the engine's `domain_name`. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
+Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id, the engine's `domain_name`, and the `sign_in_*` values from your provider. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
 
 ```sh
 mise run infra:engine:init
@@ -67,7 +67,6 @@ sudo -u komrad -i
 
 Edit `~/.config/komrad/config.toml`:
 
-- Name your identity provider and komrad's client id. On Google, add the client secret too.
 - Add the <Setting path="github_app" label="[github_app]" /> table with the App's id, its installation id, and `/run/komrad/github.pem` as the key's path.
 - Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each agent CLI, so new agents don't stop to ask whether to trust their worktree.
 

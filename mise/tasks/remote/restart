@@ -69,39 +69,23 @@ esac
 
 if [ "$HARD" = true ]; then
 	gum log --level info "restarting the engine and its tmux server on $INSTANCE, which stops every agent"
-	COMMANDS='["systemctl restart komrad.service","sleep 3","sudo -u komrad tmux -L komrad kill-server 2>/dev/null || true","systemctl restart komrad-manager-session.service","sleep 4","systemctl is-active komrad.service komrad-manager-session.service","sudo -u komrad tmux -L komrad list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"]'
+	COMMANDS=(
+		"systemctl restart komrad.service"
+		"sleep 3"
+		"sudo -u komrad tmux -L komrad kill-server 2>/dev/null || true"
+		"systemctl restart komrad-manager-session.service"
+		"sleep 4"
+		"systemctl is-active komrad.service komrad-manager-session.service"
+		"sudo -u komrad tmux -L komrad list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"
+	)
 else
 	gum log --level info "restarting the engine on $INSTANCE, leaving its agents running"
-	COMMANDS='["systemctl restart komrad.service","sleep 4","systemctl is-active komrad.service","sudo -u komrad tmux -L komrad list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"]'
+	COMMANDS=(
+		"systemctl restart komrad.service"
+		"sleep 4"
+		"systemctl is-active komrad.service"
+		"sudo -u komrad tmux -L komrad list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"
+	)
 fi
 
-COMMAND_ID="$(aws ssm send-command \
-	--region "$REGION" \
-	--instance-ids "$INSTANCE" \
-	--document-name AWS-RunShellScript \
-	--parameters "commands=$COMMANDS" \
-	--query 'Command.CommandId' --output text)"
-
-for _ in $(seq 1 60); do
-	STATUS="$(aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
-		--instance-id "$INSTANCE" --query 'Status' --output text 2>/dev/null || echo Pending)"
-
-	case "$STATUS" in
-	Success)
-		aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
-			--instance-id "$INSTANCE" --query 'StandardOutputContent' --output text
-		exit 0
-		;;
-	Failed | Cancelled | TimedOut)
-		echo "the restart did not finish: $STATUS" >&2
-		aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
-			--instance-id "$INSTANCE" --query 'StandardErrorContent' --output text >&2
-		exit 1
-		;;
-	esac
-
-	sleep 2
-done
-
-echo "the restart was still running after two minutes, so it is left to finish on its own" >&2
-exit 1
+run_on_engine "$INSTANCE" "$REGION" "${COMMANDS[@]}"

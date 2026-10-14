@@ -6,6 +6,8 @@ Copy `terraform.tfvars.example` and `backend.hcl.example`, drop the `.example`, 
 
 Set `domain_name` to the engine's domain, and add an A record for it at your DNS host, pointing at the `instance_public_ip` output. Terraform leaves the record to you, so the engine doesn't depend on any one DNS provider.
 
+Set `sign_in_issuer`, `sign_in_client_id` and, on Google, `sign_in_client_secret` from the app you registered at your identity provider. People reach the engine on 443, which `https_allowed_cidrs` can limit to your own address ranges.
+
 GitHub Actions assumes the `<name>-ci` role with a token GitHub signs for each run. The role trusts only this repository's branches and its `v` tags. It can read the state, send the instance a command through Systems Manager, start and stop it, and build an image. It can't log in.
 
 [Komrad's engine](https://komrad.dev/latest/guides/komrads-engine/) and the guides after it cover the machine, the database, access, deploys and the day-to-day runbooks.

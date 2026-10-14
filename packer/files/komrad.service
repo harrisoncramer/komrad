@@ -5,6 +5,7 @@ Wants=network-online.target komrad-manager-session.service komrad-docker.service
 Requires=nftables.service komrad-data-volume.service
 RequiresMountsFor=/var/lib/komrad
 ConditionPathExists=/etc/komrad/database.env
+ConditionPathExists=/etc/komrad/sign-in.toml
 ConditionPathIsMountPoint=/var/lib/komrad
 
 [Service]
@@ -14,6 +15,7 @@ Group=komrad
 Environment=PATH=/opt/mise/data/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EnvironmentFile=-/etc/komrad/komrad.env
 EnvironmentFile=/etc/komrad/database.env
+Environment=KOMRAD_CONFIG=/var/lib/komrad/home/.config/komrad/config.toml:/etc/komrad/sign-in.toml
 ExecStart=/usr/local/bin/komrad serve
 # The tmux server holding every agent is spawned by komrad and so lands in this service's
 # cgroup, which systemd kills wholesale by default. Killing only komrad leaves the agents

@@ -62,6 +62,36 @@ sign-in ran out.`,
 	}
 }
 
+func logoutCmd(state *app) *cobra.Command {
+	return &cobra.Command{
+		Use:   "logout",
+		Short: "Sign out of an engine reached at its url",
+		Long: `Sign out of an engine reached at its url, dropping the sign-in this machine keeps for it.
+
+The sign-in leaves the keychain and the private file under the state directory, so the next
+command asks you to run komrad login. A panel already open keeps the token it holds until that
+token runs out.`,
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if state.env.URL == "" {
+				return errNoEngineURL
+			}
+
+			if err := engine.NewSignInKeeper(state.env.StateDir).DeleteSignIn(state.env.URL); err != nil {
+				return err
+			}
+
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Signed out of %s\n", state.env.URL); err != nil {
+				return fmt.Errorf("failed to print the sign-out: %w", err)
+			}
+
+			return nil
+		},
+	}
+}
+
 func tokenCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "token",
