@@ -152,119 +152,41 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 	}
 }
 
-// TestTheMailNamesEachFailingCheck pins the noun and number of the forge the pull request is on,
-// and the failing checks that decide its head, each with its link, split by whether they are news to the agent.
-func TestTheMailNamesEachFailingCheck(t *testing.T) {
+// TestTheMailNamesOnlyTheRequiredChecksFailingOnTheHead pins which checks the pull request mail lists as failing.
+func TestTheMailNamesOnlyTheRequiredChecksFailingOnTheHead(t *testing.T) {
 	optionalFailed := listedStatusCheck("3", "docs", forge.StatusCheckStateCompleted, "failure")
 	optionalFailed.Required = false
-	unlinked := listedStatusCheck("4", "deploy", forge.StatusCheckStateCompleted, "timed_out")
-	unlinked.URL = ""
-	heldSince := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
-	before := heldSince.Add(-time.Minute)
 
 	tests := []struct {
 		name             string
-		forge            string
 		checks           forge.Checks
 		headStatusChecks []forge.StatusCheck
-		notedAt          map[string]time.Time
-		heldSince        *time.Time
-		wantLines        []string
-		wantNotLines     []string
+		want             []string
 	}{
 		{
-			name:             "github",
-			forge:            forge.KindGitHub,
-			checks:           forge.ChecksPassing,
-			headStatusChecks: listedStatusChecks(forge.ChecksPassing).StatusChecks,
-			wantLines:        []string{"komrad: pull request #7 ("},
-			wantNotLines:     []string{"New failures:", "Still failing:"},
-		},
-		{
-			name:      "gitlab",
-			forge:     forge.KindGitLab,
-			checks:    forge.ChecksPending,
-			wantLines: []string{"komrad: merge request !7 ("},
-		},
-		{
-			name:             "a failing required check the agent was not told of is new with its link",
-			forge:            forge.KindGitHub,
+			name:             "a required failure beside an optional failure and a running check",
 			checks:           forge.ChecksFailingRunning,
 			headStatusChecks: append(listedStatusChecks(forge.ChecksFailingRunning).StatusChecks, optionalFailed),
-			wantLines:        []string{"New failures:\n  test: https://github.com/harrisoncramer/komrad/runs/1\nReview comments"},
-			wantNotLines:     []string{"docs", "lint:", "Still failing:"},
-		},
-		{
-			name:             "a failing check without a link says so",
-			forge:            forge.KindGitHub,
-			checks:           forge.ChecksFailing,
-			headStatusChecks: []forge.StatusCheck{unlinked},
-			wantLines:        []string{"New failures:\n  deploy: no link\n"},
-		},
-		{
-			name:             "a failure the agent was told of before the held mail is still failing",
-			forge:            forge.KindGitHub,
-			checks:           forge.ChecksFailing,
-			headStatusChecks: []forge.StatusCheck{listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure"), unlinked},
-			notedAt:          map[string]time.Time{"test": before},
-			heldSince:        &heldSince,
-			wantLines:        []string{"New failures:\n  deploy: no link\nStill failing:\n  test: https://github.com/harrisoncramer/komrad/runs/1\nReview comments"},
-		},
-		{
-			name:             "a failure the held mail told of is new",
-			forge:            forge.KindGitHub,
-			checks:           forge.ChecksFailing,
-			headStatusChecks: listedStatusChecks(forge.ChecksFailing).StatusChecks,
-			notedAt:          map[string]time.Time{"test": heldSince},
-			heldSince:        &heldSince,
-			wantLines:        []string{"New failures:\n  test: "},
-			wantNotLines:     []string{"Still failing:"},
-		},
-		{
-			name:             "a failure the agent was told of with no mail held is still failing",
-			forge:            forge.KindGitHub,
-			checks:           forge.ChecksFailing,
-			headStatusChecks: listedStatusChecks(forge.ChecksFailing).StatusChecks,
-			notedAt:          map[string]time.Time{"test": before},
-			wantLines:        []string{"Still failing:\n  test: "},
-			wantNotLines:     []string{"New failures:"},
+			want:             []string{"test"},
 		},
 		{
 			name:             "no check is named while the checks are unknown",
-			forge:            forge.KindGitHub,
 			headStatusChecks: listedStatusChecks(forge.ChecksFailing).StatusChecks,
-			wantNotLines:     []string{"New failures:", "Still failing:"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := pullrequeststore.PullRequest{
-				Forge:      tt.forge,
-				Number:     7,
-				HeadBranch: "agent/x",
-				HeadSHA:    scriptedHeadSHA,
+				HeadSHA: scriptedHeadSHA,
 				MergeReadiness: forge.RememberedMergeReadiness{
 					Checks: forge.RememberedAnswer[forge.Checks]{Value: tt.checks, HeadSHA: scriptedHeadSHA},
 				},
 				HeadStatusChecks: tt.headStatusChecks,
 			}
-			failures := xslice.Map(failedChecks(pullRequest), func(check forge.StatusCheck) pullrequeststore.CheckFailure {
-				failure := pullrequeststore.CheckFailure{Check: check}
-				if notedAt, ok := tt.notedAt[check.Name]; ok {
-					failure.NotedAt = &notedAt
-				}
 
-				return failure
-			})
-
-			body := render(pullRequest, failures, tt.heldSince)
-			for _, line := range tt.wantLines {
-				assert.Contains(t, body, line)
-			}
-			for _, line := range tt.wantNotLines {
-				assert.NotContains(t, body, line)
-			}
+			got := xslice.Map(failedChecks(pullRequest), func(check forge.StatusCheck) string { return check.Name })
+			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
 }
@@ -532,8 +454,7 @@ func (f *syncFixture) fillMailbox(t *testing.T, agentID string) {
 	for {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 			ToAgentID: agentID,
-			Body:      "waiting",
-			Kind:      mailstore.KindReviewActivity,
+			Mail:      eventprompts.ThreadAnswered{WriterName: "waiting"},
 			SubjectID: uuid.NewString(),
 		})
 		if errors.Is(err, mail.ErrMailboxFull) {

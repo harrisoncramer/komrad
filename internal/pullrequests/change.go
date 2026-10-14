@@ -1,23 +1,18 @@
 package pullrequests
 
-import "komrad/internal/forge"
+import "komrad/internal/eventprompts"
 
 const changeTopic = "pull_request_changed"
 
 // field is one part of a pull request whose change is reported.
-type field string
+type field = eventprompts.PullRequestFieldName
 
 const (
-	// fieldState is whether the pull request is open, merged or closed.
-	fieldState field = "state"
-	// fieldDecision is where the reviews stand.
-	fieldDecision = field(forge.MergeReadinessFieldDecision)
-	// fieldChecks is where the checks on the head stand.
-	fieldChecks = field(forge.MergeReadinessFieldChecks)
-	// fieldMergeability is where the branch stands against its base.
-	fieldMergeability = field(forge.MergeReadinessFieldMergeability)
-	// fieldAutoMerge is whether the forge will merge it on its own once its checks and reviews pass.
-	fieldAutoMerge = field(forge.MergeReadinessFieldAutoMerge)
+	fieldState        = eventprompts.PullRequestFieldState
+	fieldDecision     = eventprompts.PullRequestFieldDecision
+	fieldChecks       = eventprompts.PullRequestFieldChecks
+	fieldMergeability = eventprompts.PullRequestFieldMergeability
+	fieldAutoMerge    = eventprompts.PullRequestFieldAutoMerge
 )
 
 var fieldOrder = []field{fieldState, fieldDecision, fieldChecks, fieldMergeability, fieldAutoMerge}

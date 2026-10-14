@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"komrad/internal/agenterr"
+	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/scripts"
@@ -176,9 +177,11 @@ func (w *WorkflowService) normalizeConfig(cfg *workflowstore.Config) error {
 	}
 	cfg.Hooks = hooks
 
-	if err := cfg.NormalizeEventPrompts(); err != nil {
+	prompts, err := eventprompts.Normalize(cfg.EventPrompts)
+	if err != nil {
 		return err
 	}
+	cfg.EventPrompts = prompts
 
 	if cfg.Worktree.Enabled {
 		return requireWorktreeRepo(*cfg)

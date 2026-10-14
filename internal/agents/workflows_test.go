@@ -10,6 +10,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/agenterr"
+	"komrad/internal/eventprompts"
 	"komrad/internal/harnesstest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -1112,7 +1113,7 @@ func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 		{
 			name:    "an event komrad does not send",
 			prompts: []workflowstore.EventPrompt{{Event: "review.aproved", Prompt: "open the pull request"}},
-			wantErr: workflowstore.ErrUnknownEventPrompt,
+			wantErr: eventprompts.ErrUnknownEventPrompt,
 		},
 		{
 			name: "an event named twice",
@@ -1120,12 +1121,12 @@ func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 				{Event: "review.approved", Prompt: "open the pull request"},
 				{Event: "review.approved", Prompt: "mark it ready"},
 			},
-			wantErr: workflowstore.ErrDuplicateEventPrompt,
+			wantErr: eventprompts.ErrDuplicateEventPrompt,
 		},
 		{
 			name:    "a prompt past the limit",
 			prompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: strings.Repeat("é", 501)}},
-			wantErr: workflowstore.ErrPromptTooLong,
+			wantErr: eventprompts.ErrPromptTooLong,
 		},
 	}
 

@@ -419,7 +419,7 @@ func TestCreatingAWorkflowWithoutPromptsGivesTheDefaults(t *testing.T) {
 
 			require.Len(t, recorded.created, 1)
 			assert.Len(t, recorded.created[0].EventPrompts, tt.wantCount)
-			assert.Equal(t, tt.wantApproved, workflowstore.Workflow{EventPrompts: recorded.created[0].EventPrompts}.GetEventPrompt(eventprompts.ReviewApproved))
+			assert.Equal(t, tt.wantApproved, eventprompts.Prompts(recorded.created[0].EventPrompts).Get(eventprompts.ReviewApproved))
 		})
 	}
 }

@@ -492,12 +492,6 @@ func (s *ReviewService) AddReviewMessage(
 	return result, nil
 }
 
-// answerMail is the mail telling a reviewer its review was answered.
-func answerMail(authorName string) string {
-	return fmt.Sprintf("komrad: %s answered your review. Read the threads with list_review_threads, "+
-		"open a round over its work as it now stands, and release a verdict on that round.", authorName)
-}
-
 // EditReviewMessageParams is the message to rewrite and what it should say instead.
 type EditReviewMessageParams struct {
 	ID         string
