@@ -182,7 +182,11 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			Resolved: resolved,
 		})
 		if err != nil {
-			return reviewLoadedMsg{round: opened.GetRound(), widened: opened.GetWidened(), err: err}
+			return reviewLoadedMsg{
+				round:   opened.GetRound(),
+				widened: opened.GetWidened(),
+				err:     err,
+			}
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, params.TaskID)

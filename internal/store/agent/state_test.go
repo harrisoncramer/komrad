@@ -587,7 +587,11 @@ func TestSetSessionID(t *testing.T) {
 			f := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, f.Create(ctx, Agent{Name: "agent", State: StateIdle, SessionID: tt.held}))
+			require.NoError(t, f.Create(ctx, Agent{
+				Name:      "agent",
+				State:     StateIdle,
+				SessionID: tt.held,
+			}))
 			created, err := f.Get(ctx, "agent")
 			require.NoError(t, err)
 			if tt.earlier != "" {

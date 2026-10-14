@@ -61,7 +61,11 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "orchestrator", Role: RoleOrchestrator, State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:  "orchestrator",
+		Role:  RoleOrchestrator,
+		State: StateIdle,
+	}))
 	orchestrator, err := f.Get(ctx, "orchestrator")
 	require.NoError(t, err)
 	require.NotNil(t, orchestrator)

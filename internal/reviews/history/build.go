@@ -515,7 +515,11 @@ func placeOnScreen(params traceThreadsParams) map[string]Place {
 			continue
 		}
 
-		placed[thread.ID] = Place{FilePath: thread.FilePath, NewStart: thread.NewStart, Exact: true}
+		placed[thread.ID] = Place{
+			FilePath: thread.FilePath,
+			NewStart: thread.NewStart,
+			Exact:    true,
+		}
 	}
 
 	return placed

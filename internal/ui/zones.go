@@ -286,7 +286,11 @@ func (m *model) findKeyAt(x, y int) (keyHit, bool) {
 			continue
 		}
 
-		return keyHit{zone: zone(line[at[2]:at[3]]), key: string(key), nth: nth}, true
+		return keyHit{
+			zone: zone(line[at[2]:at[3]]),
+			key:  string(key),
+			nth:  nth,
+		}, true
 	}
 
 	return keyHit{}, false

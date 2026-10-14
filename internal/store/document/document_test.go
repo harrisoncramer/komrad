@@ -357,7 +357,11 @@ func TestList(t *testing.T) {
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
-	reviewer := stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", Role: agentstore.RoleReviewer, TaskID: author.TaskID})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{
+		Name:   "reviewer",
+		Role:   agentstore.RoleReviewer,
+		TaskID: author.TaskID,
+	})
 
 	write := func(agentID, name string, typeName string) string {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{

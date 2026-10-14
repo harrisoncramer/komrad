@@ -587,7 +587,12 @@ func TestSnapshotKinds(t *testing.T) {
 				workflow: checkoutWorkflow(),
 				task:     &panel.Task{ID: "t1", Slug: "fix-it"},
 				item: panel.AgentRow{
-					Agent: panel.Agent{ID: "a1", Name: "writer", Role: panel.RoleWriter, State: panel.StateThinking},
+					Agent: panel.Agent{
+						ID:    "a1",
+						Name:  "writer",
+						Role:  panel.RoleWriter,
+						State: panel.StateThinking,
+					},
 					Alive: true,
 				},
 			},
@@ -617,8 +622,12 @@ func TestSnapshotKinds(t *testing.T) {
 		{
 			name: "a reviewer on a task is set in under it",
 			row: agentRow{
-				workflow:  checkoutWorkflow(),
-				item:      panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "reviewer", Role: panel.RoleReviewer}},
+				workflow: checkoutWorkflow(),
+				item: panel.AgentRow{Agent: panel.Agent{
+					ID:   "a1",
+					Name: "reviewer",
+					Role: panel.RoleReviewer,
+				}},
 				underTask: true,
 			},
 			want: view.Row{

@@ -480,7 +480,11 @@ func (m *ForgeMirror) place(ctx context.Context, target reviewstore.ForgeMirrorT
 		}
 
 		if thread.CommitSHA == target.SnapshotSHA {
-			places[thread.ID] = history.Place{FilePath: thread.Path, NewStart: int32(thread.Line), Exact: true}
+			places[thread.ID] = history.Place{
+				FilePath: thread.Path,
+				NewStart: int32(thread.Line),
+				Exact:    true,
+			}
 
 			continue
 		}

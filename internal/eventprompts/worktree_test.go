@@ -64,8 +64,12 @@ func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 			wantNotSaid: "of your commits are no longer on the branch",
 		},
 		{
-			name:     "a branch that reached the base without replaying anything",
-			mail:     Rebased{Landed: 2, Moved: true, ParkedRef: park},
+			name: "a branch that reached the base without replaying anything",
+			mail: Rebased{
+				Landed:    2,
+				Moved:     true,
+				ParkedRef: park,
+			},
 			wantSaid: park,
 		},
 		{

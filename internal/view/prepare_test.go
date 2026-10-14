@@ -83,21 +83,37 @@ func TestToolCell(t *testing.T) {
 	}{
 		{
 			name: "a thinking agent shows its tool",
-			row:  Row{Process: ProcessAlive, Status: StatusThinking, Tool: "Bash"},
+			row: Row{
+				Process: ProcessAlive,
+				Status:  StatusThinking,
+				Tool:    "Bash",
+			},
 			want: Cell{Text: "Bash", Tone: paint.ToneMuted},
 		},
 		{
 			name: "an agent waiting on a person shows the tool it asks for",
-			row:  Row{Process: ProcessAlive, Status: StatusWaiting, Tool: "Bash"},
+			row: Row{
+				Process: ProcessAlive,
+				Status:  StatusWaiting,
+				Tool:    "Bash",
+			},
 			want: Cell{Text: "Bash", Tone: paint.ToneMuted},
 		},
 		{
 			name: "an idle agent shows nothing",
-			row:  Row{Process: ProcessAlive, Status: StatusIdle, Tool: "Bash"},
+			row: Row{
+				Process: ProcessAlive,
+				Status:  StatusIdle,
+				Tool:    "Bash",
+			},
 		},
 		{
 			name: "a stopped agent shows nothing",
-			row:  Row{Process: ProcessStopped, Status: StatusThinking, Tool: "Bash"},
+			row: Row{
+				Process: ProcessStopped,
+				Status:  StatusThinking,
+				Tool:    "Bash",
+			},
 		},
 		{
 			name: "an agent that reported no tool shows nothing",

@@ -192,7 +192,11 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.
 			continue
 		}
 
-		rule, ok := findTriageRule(triageSubject{item: item, task: tasks.findForAgent(item.Agent), hasThinkingReviewer: thinkingWriters[id]})
+		rule, ok := findTriageRule(triageSubject{
+			item:                item,
+			task:                tasks.findForAgent(item.Agent),
+			hasThinkingReviewer: thinkingWriters[id],
+		})
 		if !ok {
 			if wasQueued && z.isHeld(item, writers) {
 				entries[id] = was
