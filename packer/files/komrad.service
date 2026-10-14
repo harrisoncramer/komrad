@@ -1,8 +1,8 @@
 [Unit]
 Description=komrad
-After=network-online.target komrad-data-volume.service komrad-database-credentials.service
-Wants=network-online.target komrad-manager-session.service
-Requires=komrad-data-volume.service
+After=network-online.target nftables.service komrad-data-volume.service komrad-database-credentials.service komrad-docker.service
+Wants=network-online.target komrad-manager-session.service komrad-docker.service
+Requires=nftables.service komrad-data-volume.service
 RequiresMountsFor=/var/lib/komrad
 ConditionPathExists=/etc/komrad/database.env
 ConditionPathIsMountPoint=/var/lib/komrad
