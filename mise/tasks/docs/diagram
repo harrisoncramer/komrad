@@ -47,6 +47,6 @@ mkdir -p public/diagrams
 
 for source in "${SOURCES[@]}"; do
 	name="$(basename "$source" .d2)"
-	d2 "$source" "public/diagrams/$name.png"
+	d2 --elk-padding "[top=20,left=20,bottom=20,right=20]" "$source" "public/diagrams/$name.png"
 	gum log --level info "rendered $name"
 done

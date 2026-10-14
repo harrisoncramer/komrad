@@ -3,7 +3,7 @@
 grid-columns: 3
 grid-gap: 100
 
-panel: the panel, Bubble Tea {
+panel: "Panel" {
   style.font-size: 18
   grid-rows: 2
   grid-columns: 2
@@ -15,28 +15,31 @@ panel: the panel, Bubble Tea {
   update: Update
 }
 
-serve: komrad serve {
+serve: Server {
   style.font-size: 18
   grid-rows: 3
   grid-columns: 3
   grid-gap: 40
   blank1: "" {style.opacity: 0}
   blank2: "" {style.opacity: 0}
-  loops: "sync loops"
+  loops: Sync loops
   handler: API handler
-  service: business logic
-  store
-  render: reconciler
-  pending: changed IDs
-  listener: listener
+  service: Business logic
+  store: Store
+  render: Reconciler
+  pending: Changed IDs
+  listener: Listener
 }
 
 postgres: Postgres {
   style.font-size: 18
   grid-columns: 1
   grid-gap: 60
-  tables: rows {shape: cylinder}
-  trigger: "trigger\npg_notify"
+  tables: Rows {shape: cylinder}
+  trigger: Trigger {
+    class: box
+    note: pg_notify {class: note}
+  }
 }
 
 panel.view -> panel.update: key press

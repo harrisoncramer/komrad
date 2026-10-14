@@ -32,7 +32,9 @@ instance makes from a script of keypresses under `recordings/`:
 The record-komrad skill under `.claude/skills` says how to write the script and attach the gif.
 
 A diagram in the docs is a D2 file under `docs/diagrams`, never ASCII art. Each one imports
-`_theme.d2` for the site's colours, and renders to `docs/public/diagrams/<name>.png`:
+`_theme.d2` for the site's colours. A box names its part in a capitalised title, and a box with
+a second line takes `class: box` and holds that line in a child with `class: note`. Each renders
+to `docs/public/diagrams/<name>.png`:
 
     mise run docs:diagram [name...]
 

@@ -5,17 +5,29 @@ grid-columns: 3
 grid-gap: 80
 
 blank1: "" {style.opacity: 0}
-ui: "ui\na client, talks\nover Connect only"
+ui: UI {
+  class: box
+  note: "A client, talks\nover Connect only" {class: note}
+}
 blank2: "" {style.opacity: 0}
-cli
-server
-handlers: "rpc, mcp\nhandlers"
+cli: CLI
+server: Server
+handlers: Handlers {
+  class: box
+  note: "rpc, mcp" {class: note}
+}
 postgres: Postgres {shape: cylinder}
-store
-services: "services\nagents, mail,\nreviews, ..."
+store: Store
+services: Services {
+  class: box
+  note: "agents, mail,\nreviews, ..." {class: note}
+}
 blank3: "" {style.opacity: 0}
-world: the outside world {style.stroke-dash: 3}
-adapters: "adapters\ngit, tmux,\nharness, forge"
+world: The outside world {style.stroke-dash: 3}
+adapters: Adapters {
+  class: box
+  note: "git, tmux,\nharness, forge" {class: note}
+}
 
 cli -> server -> handlers -> services
 services -> store -> postgres

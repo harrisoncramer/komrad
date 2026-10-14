@@ -2,24 +2,33 @@
 
 direction: right
 
-laptop: LAPTOP {
+laptop: Laptop {
   style.font-size: 18
-  panel
-  tmux: local tmux
+  panel: Panel
+  tmux: Local tmux
 }
 
-actions: GITHUB ACTIONS {
+actions: GitHub Actions {
   style.font-size: 18
-  release: release.yml
+  release: Release {
+    class: box
+    note: release.yml {class: note}
+  }
 }
 
 aws: AWS {
   style.font-size: 18
-  ec2: EC2, fixed IP {
+  ec2: "EC2, fixed IP" {
     style.font-size: 16
-    serve: komrad serve
-    agents: "tmux, every agent"
-    volume: data volume {shape: cylinder}
+    serve: Server {
+      class: box
+      note: komrad serve {class: note}
+    }
+    agents: Agents {
+      class: box
+      note: "tmux, every agent" {class: note}
+    }
+    volume: Data volume {shape: cylinder}
   }
   rds: RDS Postgres {shape: cylinder}
   ec2.serve -> rds

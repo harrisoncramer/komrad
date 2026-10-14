@@ -4,12 +4,24 @@ grid-rows: 2
 grid-columns: 3
 grid-gap: 80
 
-commit: write commits
-trigger: "trigger\npg_notify(\"agents <key>\")"
-listener: "listener\none dedicated\nconnection"
-panel
-render: "render pass\nread rows back,\ndiff per subscriber"
-pending: "pending set\nkeys to re-read"
+commit: Write commits
+trigger: Trigger {
+  class: box
+  note: "pg_notify(\"agents <key>\")" {class: note}
+}
+listener: Listener {
+  class: box
+  note: "One dedicated\nconnection" {class: note}
+}
+panel: Panel
+render: Render pass {
+  class: box
+  note: "Reads rows back,\ndiffs per subscriber" {class: note}
+}
+pending: Pending set {
+  class: box
+  note: "Keys to re-read" {class: note}
+}
 
 commit -> trigger -> listener -> pending -> render
 render -> panel: stream

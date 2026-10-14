@@ -2,23 +2,31 @@
 
 direction: right
 
-workflow: "workflow: neovim" {
+workflow: "Workflow: neovim" {
   style.font-size: 18
 
-  orchestrator: "orchestrator\ncoordinates the\nworkflow's tasks"
-
-  fix-login: "task: fix-login" {
-    style.font-size: 16
-    grid-columns: 2
-    grid-gap: 60
-    writer: "writer\ndoes the work,\nowns the checkout"
-    reviewer: "reviewer\nreads the\nwriter's change"
-    writer -> reviewer: change {style.stroke-dash: 3}
+  orchestrator: Orchestrator {
+    class: box
+    note: "Coordinates the\nworkflow's tasks" {class: note}
   }
 
-  rfc-truncate: "task: rfc-truncate" {
+  fix-login: "Task: fix-login" {
     style.font-size: 16
-    writer
+    grid-columns: 2
+    grid-gap: 40
+    writer: Writer {
+      class: box
+      note: "Does the work,\nowns the checkout" {class: note}
+    }
+    reviewer: Reviewer {
+      class: box
+      note: "Reads the\nwriter's change" {class: note}
+    }
+  }
+
+  rfc-truncate: "Task: rfc-truncate" {
+    style.font-size: 16
+    writer: Writer
   }
 
   orchestrator -> fix-login {style.stroke-dash: 3}

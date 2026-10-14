@@ -2,20 +2,23 @@
 
 direction: right
 
-terminal: your terminal {
+terminal: Your terminal {
   style.font-size: 18
-  attach
+  attach: Attach
 }
 
-tmux: komrad's tmux server {
+tmux: "Komrad's tmux server" {
   style.font-size: 18
-  panel
-  agent1: agent
-  agent2: agent
+  panel: Panel
+  agent1: Agent
+  agent2: Agent
   more: "..." {style.stroke-dash: 3}
 }
 
-serve: komrad serve
+serve: Server {
+  class: box
+  note: "komrad serve" {class: note}
+}
 postgres: Postgres {shape: cylinder}
 
 terminal.attach -> tmux
