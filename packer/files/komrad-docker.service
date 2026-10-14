@@ -1,0 +1,29 @@
+[Unit]
+Description=Docker for the komrad user, without root
+After=network-online.target
+Wants=network-online.target
+Before=komrad.service
+
+[Service]
+Type=notify
+NotifyAccess=all
+User=komrad
+Group=komrad
+RuntimeDirectory=komrad-docker
+StateDirectory=komrad-docker
+Environment=PATH=/usr/bin:/usr/sbin:/bin:/sbin
+Environment=XDG_RUNTIME_DIR=/run/komrad-docker
+Environment=XDG_DATA_HOME=/var/lib/komrad-docker
+Environment=XDG_CONFIG_HOME=/var/lib/komrad-docker/config
+ExecStart=/usr/bin/dockerd-rootless.sh
+ExecReload=/bin/kill -s HUP $MAINPID
+Delegate=yes
+KillMode=mixed
+Restart=always
+RestartSec=2
+LimitNOFILE=infinity
+LimitNPROC=infinity
+TasksMax=infinity
+
+[Install]
+WantedBy=multi-user.target

@@ -12,6 +12,7 @@ apt-get install -y \
 	git \
 	gnupg \
 	jq \
+	nftables \
 	postgresql-client \
 	ripgrep \
 	tmux \
@@ -31,6 +32,7 @@ install -m 0644 /tmp/files/komrad-database-credentials.timer /etc/systemd/system
 install -m 0644 /tmp/files/komrad-github-key.service /etc/systemd/system/komrad-github-key.service
 install -m 0644 /tmp/files/komrad-manager-session.service /etc/systemd/system/komrad-manager-session.service
 install -m 0644 /tmp/files/komrad.service /etc/systemd/system/komrad.service
+install -m 0644 /tmp/files/nftables.conf /etc/nftables.conf
 mkdir -p /etc/komrad /usr/share/komrad
 
 install -m 0644 /tmp/files/komrad.env /etc/komrad/komrad.env
@@ -58,6 +60,7 @@ git config --system credential.https://gitlab.com.username oauth2
 sed 's/^/export /' /tmp/files/komrad.env >/etc/profile.d/komrad-env.sh
 chmod 0644 /etc/profile.d/komrad-env.sh
 
+systemctl enable nftables.service
 systemctl enable komrad-data-volume.service
 systemctl enable komrad-database-credentials.service
 systemctl enable komrad-database-credentials.timer

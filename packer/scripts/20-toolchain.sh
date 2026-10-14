@@ -10,8 +10,10 @@ ln -sf /opt/mise/mise /usr/local/bin/mise
 # activate only sets PATH from the prompt hook, so a shell that never prompts, such as the one
 # a script or a hook runs in, finds no tool through it; the shims are what reach those.
 cat >/etc/profile.d/mise.sh <<'PROFILE'
-export PATH="/opt/mise/data/shims:$PATH"
-eval "$(/usr/local/bin/mise activate bash)"
+if [ "$(id -u)" -ne 0 ]; then
+	export PATH="/opt/mise/data/shims:$PATH"
+	eval "$(/usr/local/bin/mise activate bash)"
+fi
 PROFILE
 
 sudo -u komrad env HOME=/opt/mise/home MISE_DATA_DIR=/opt/mise/data MISE_CONFIG_DIR=/opt/mise/config \
