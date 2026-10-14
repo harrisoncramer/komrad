@@ -4,7 +4,7 @@ This stack is the remote engine komrad's own development runs on: one EC2 instan
 
 Copy `terraform.tfvars.example` and `backend.hcl.example`, drop the `.example`, and fill them in. Then run `mise run infra:engine:init` and `mise run infra:engine:apply`.
 
-To serve the engine on a domain, set `domain_name` and add an A record for it at your DNS host, pointing at the `instance_public_ip` output. Terraform leaves the record to you, so the engine doesn't depend on any one DNS provider.
+Set `domain_name` to the engine's domain, and add an A record for it at your DNS host, pointing at the `instance_public_ip` output. Terraform leaves the record to you, so the engine doesn't depend on any one DNS provider.
 
 GitHub Actions assumes the `<name>-ci` role with a token GitHub signs for each run. The role trusts only this repository's branches and its `v` tags. It can read the state, send the instance a command through Systems Manager, start and stop it, and build an image. It can't log in.
 

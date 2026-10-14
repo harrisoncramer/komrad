@@ -14,11 +14,11 @@ Komrad's own development runs on one remote engine on AWS. This guide shows how 
 <figure>
   <img
     src={link("/diagrams/our-engine.png")}
-    alt="Inside AWS, a VPC holds an EC2 instance with an Elastic IP, running the server and agents with a data volume, and an RDS Postgres the server uses. The instance reads Secrets Manager at boot. The panel on a laptop reaches the server over ssh. GitHub Actions releases through the state bucket and Systems Manager, and stops and starts the instance on a schedule."
+    alt="Inside AWS, a VPC holds an EC2 instance with an Elastic IP, running the server and agents with a data volume, and an RDS Postgres the server uses. The instance reads Secrets Manager at boot. The panel on a laptop reaches the server over HTTPS through Caddy on the instance. GitHub Actions releases through the state bucket and Systems Manager, and stops and starts the instance on a schedule."
   />
 </figure>
 
-One EC2 instance runs the server and every agent. It is an arm64 Graviton machine, a `t4g.xlarge` by default, booted from an image Packer builds. An Elastic IP gives it an address that outlives the instance.
+One EC2 instance runs the server and every agent. It is an arm64 Graviton machine, a `t4g.xlarge` by default, booted from an image Packer builds. An Elastic IP gives it an address that outlives the instance. The engine's domain points at that address, so it survives a rebuild too.
 
 A separate encrypted EBS volume holds the komrad account's home, the worktrees and the build caches. It follows the instance when the instance is replaced.
 
@@ -26,7 +26,7 @@ RDS Postgres sits in private subnets, and only the instance's security group can
 
 Secrets Manager also holds the GitHub App's private key under `komrad/github-app`. The instance's role can read only that prefix and the database's own secret.
 
-The security group lets SSH in only from the addresses listed in `ssh_allowed_cidrs`, and refuses the whole internet. Port 80 opens only when the engine has a domain, so Caddy can get a certificate.
+The security group opens ports 443 and 80 and nothing else. Caddy answers on both, with a certificate for the engine's domain from Let's Encrypt. There is no SSH. Operators reach the machine through Systems Manager, as GitHub Actions does.
 
 ## How CI reaches it
 

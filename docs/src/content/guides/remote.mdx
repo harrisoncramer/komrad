@@ -15,9 +15,22 @@ Komrad's own repository works this way.
 
 ## Telling your panel about an engine
 
-An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. It sets the <Setting path="connection" label="[connection]" /> table. <Setting path="connection.forward" label="forward" /> says how to carry the engine's API back to your laptop, and the panel does everything on the engine through that API. For a host your SSH config already knows, a plain <Setting path="connection.ssh" label="ssh" /> destination is enough. An engine served over HTTPS names its <Setting path="connection.url" label="url" /> instead, and an engine file names only one of the three.
+An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. Its <Setting path="connection" label="[connection]" /> table names the engine's <Setting path="connection.url" label="url" />, the HTTPS address it answers on, and the panel does everything on the engine through the API there:
 
-Keep the engine's SSH host keys in a file of their own. A rebuilt engine answers on the same address with a new key.
+```toml
+[connection]
+url = "https://komrad.example.com"
+```
+
+## Signing in
+
+The engine lets in only people its owner granted access. Sign in once per engine, with the email the owner granted:
+
+```sh
+komrad login --engine remote
+```
+
+A browser opens at the engine's identity provider. Once you sign in there, the panel keeps you signed in, and asks again only after a long time away or once your access ends. [Access](../engine-access/) covers what the engine checks.
 
 ## Choosing where to open the panel
 

@@ -7,35 +7,63 @@ order: 28
 
 import Command from "../../components/Command.astro";
 
-Every job here runs from a komrad checkout, with AWS credentials from the komrad profile or already in your environment. The tasks read the instance, its address and its region from Terraform's state, so none of them needs an id typed in.
+Every job here runs from a komrad checkout, with AWS credentials from the komrad profile or already in your environment. The mise tasks read the instance and its region from Terraform's state, so none of them needs an id typed in.
+
+## Getting a shell
+
+The machine has no SSH, so every shell goes through Systems Manager. You need the Session Manager plugin for the AWS CLI. Read the instance's id from Terraform, then open a session on it:
+
+```sh
+mise run infra:engine:run output instance_id
+aws ssm start-session --target i-0123456789abcdef0
+```
+
+The session opens as a user with sudo. For the account komrad and its agents run as, which owns the config, the worktrees and the CLIs' logins:
+
+```sh
+sudo -u komrad -i
+```
 
 ## Checking on it
 
-Start with the units. A healthy engine lists nothing here:
+The panel's sidebar shows a green dot while the engine's heartbeat arrives. When it turns red, open a shell and start with the units. A healthy engine lists nothing here:
 
 ```sh
-mise run remote:connect -- 'systemctl list-units --state=failed --no-legend'
+systemctl list-units --state=failed --no-legend
 ```
 
-Then the server itself:
+Then the server and Caddy:
 
 ```sh
-mise run remote:connect -- systemctl status komrad
-mise run remote:connect -- journalctl -u komrad -n 200 --no-pager
-mise run remote:connect -- tail -n 200 /var/lib/komrad/cache/komrad.log
+systemctl status komrad caddy
+journalctl -u komrad -n 200 --no-pager
+journalctl -u caddy -n 200 --no-pager
+tail -n 200 /var/lib/komrad/cache/komrad.log
 ```
 
-The journal holds what systemd saw, such as a crash at start. The log holds what komrad wrote while it ran. To see the agents, list the windows on komrad's tmux server:
+The journal holds what systemd saw, such as a crash at start or a certificate Caddy couldn't get. The log holds what komrad wrote while it ran. To see the agents, list the windows on komrad's tmux server as the komrad account:
 
 ```sh
-mise run remote:connect -- tmux -L komrad list-windows -a
+tmux -L komrad list-windows -a
 ```
+
+## When someone can't get in
+
+A person whose token the engine refuses sees a message saying to sign in again. Have them run:
+
+```sh
+komrad login --engine remote
+```
+
+If they still can't get in, the engine turned them away for having no grant. Check the email they signed in with matches the one you granted, and that their provider marks it verified. Revoking and granting again clears the account an earlier sign-in recorded.
 
 ## Restarting
 
-`mise run remote:restart` restarts the server and leaves every agent running. It goes through Systems Manager, since the SSH account can't restart a service. On a stopped engine it starts the machine instead.
+`mise run remote:restart` restarts the server and leaves every agent running. It sends the restart through Systems Manager. On a stopped engine it starts the machine instead.
 
 `mise run remote:restart --hard` also kills the tmux server and makes a new manager session. Every agent stops, so use it only when the session itself is broken, or after a change to how it is made.
+
+People stay signed in through a restart. Their panels reconnect once the server answers.
 
 ## Deploying or rolling back
 
@@ -64,20 +92,9 @@ mise run remote:reimage
 
 It names the agents that will stop and asks first. With no argument it uses the image the workflow last recorded. An image you built yourself with `mise run packer:build` goes in as an argument. [Releases and deploys](../deploys/#a-new-image) covers what changes.
 
-## Getting a root shell
-
-The SSH account can't become root, so root goes through Systems Manager. You need the Session Manager plugin for the AWS CLI. Read the instance's id from Terraform, then open a session on it:
-
-```sh
-mise run infra:engine:run output instance_id
-aws ssm start-session --target i-0123456789abcdef0
-```
-
-The session opens as a user with sudo.
-
 ## Granting and revoking access
 
-In a root shell:
+In a shell on the machine:
 
 ```sh
 sudo komrad-access grant someone@example.com
@@ -88,7 +105,7 @@ sudo komrad-access revoke someone@example.com
 
 ## Rotating the GitHub App key
 
-Generate a new private key in the App's settings and put it in the `komrad/github-app` secret, as JSON under `private_key`. Then, in a root shell:
+Generate a new private key in the App's settings and put it in the `komrad/github-app` secret, as JSON under `private_key`. Then, in a shell on the machine:
 
 ```sh
 sudo systemctl restart komrad-github-key

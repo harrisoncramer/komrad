@@ -16,15 +16,19 @@ This guide is for whoever runs komrad, rather than whoever uses it. It names eve
 <figure>
   <img
     src={link("/diagrams/running-komrad.png")}
-    alt="The panel on your laptop reaches the server on the engine host over an SSH forward, or over HTTPS through a front. The server runs agents in tmux, which keep their work on a disk. The server uses Postgres, and the agents reach the forge with git."
+    alt="The panel on your laptop signs in with an identity provider and reaches the engine host over HTTPS. An HTTPS front passes requests to the server, which runs agents in tmux. The agents keep their work on a disk and reach the forge with git. The server uses Postgres."
   />
 </figure>
 
-An engine is a server, the agents it runs, and the database it writes. The panel is a separate process, and it can run on another machine.
+An engine is a server, the agents it runs, and the database it writes. The panel is a separate process, and it usually runs on your laptop.
 
-The server is <Command path="serve" />. It is the same komrad binary as the panel. It listens on a loopback address only, because its API has no authentication of its own and its writes can start agents.
+The server is <Command path="serve" />. It is the same komrad binary as the panel. It listens on two loopback addresses. The first is for the agents and the CLI on the same machine. The second is for people, and it checks every request for a sign-in and an access grant. Neither is reachable from the network on its own.
 
-Postgres holds every record: workflows, tasks, agents, mail, reviews, transcripts. We run Postgres 18, and komrad uses three logins on it. [The database](../engine-database/) covers them.
+An HTTPS front sits in front of the second listener. It holds the engine's certificate, ends TLS, and passes each request through over loopback. We use Caddy, which gets and renews its own certificate. Any reverse proxy that carries HTTP/2 works.
+
+An identity provider decides who people are. Google, Okta, Microsoft Entra and Keycloak all work, since each speaks OpenID Connect. People sign in there, with whatever MFA it asks for, and the panel sends the token it hands back with every request. Komrad never sees a password.
+
+Postgres holds every record: workflows, tasks, agents, mail, reviews, transcripts, and who may use each engine. We run Postgres 18, and komrad uses three logins on it. [The database](../engine-database/) covers them.
 
 Tmux runs the agents. Komrad starts a tmux server of its own, on its own socket, and every agent is a window in it. The server can restart without touching tmux, which is how agents survive a deploy.
 
@@ -34,20 +38,18 @@ A disk holds the worktrees agents edit, the CLIs' logins, komrad's config, its c
 
 Forge credentials let agents push and komrad read pull requests. A personal token is fine on a laptop. A shared machine should use something that expires, as [forge credentials](../forge-credentials/) explains.
 
-An HTTPS front is optional. Without one, people reach the server over an SSH forward. [Access](../engine-access/) covers both.
-
 ## Two shapes
 
 <figure>
   <img
     src={link("/diagrams/engine-shapes.png")}
-    alt="On your laptop, the panel, the server, the agents and Postgres all sit on one machine. On a remote engine, the panel stays on the laptop and reaches the server on the engine host through a forward, and the server uses Postgres."
+    alt="On your laptop, the panel, the server, the agents and Postgres all sit on one machine. On a remote engine, the panel reaches the server on the engine host over HTTPS, and the server uses Postgres."
   />
 </figure>
 
-On a laptop everything sits on one machine. [Installing komrad](../install/) covers it, and there is nothing to deploy beyond Postgres.
+On a laptop everything sits on one machine. [Installing komrad](../install/) covers it, and there is nothing to deploy beyond Postgres. Nobody else reaches it, so it needs no front and no sign-in.
 
-A remote engine moves the server, the agents and the disk to a machine that stays on. The panel stays on your laptop and reaches the server through a forward. Postgres can sit on the same machine, but a managed database survives the machine being replaced. [Remote engines](../remote/) covers using one.
+A remote engine moves the server, the agents and the disk to a machine that stays on. The panel stays on your laptop and reaches the engine at an HTTPS address. Postgres can sit on the same machine, but a managed database survives the machine being replaced. [Remote engines](../remote/) covers using one.
 
 Several engines can share one database. Each connects as its own login, and Postgres keeps each engine's rows out of the others' reach.
 
@@ -63,7 +65,7 @@ A remote engine is safe to restart, stop and rebuild, as long as the disk and th
 | Disk      | Worktrees, logins, config | Kept           | Kept            | Kept            |
 | Root disk | The installed tools       | Kept           | Kept            | Replaced        |
 
-An agent that stops keeps its conversation and its worktree, so you resume it once the engine is back.
+An agent that stops keeps its conversation and its worktree, so you resume it once the engine is back. People stay signed in through all of it, since each person's sign-in lives on their own laptop.
 
 ## What to set up
 
@@ -73,7 +75,9 @@ To run an engine somewhere other than a laptop, you need:
 - A tmux session made at boot with <Command path="open" args="--headless" />, since nobody opens a panel on a machine with no screen.
 - A Postgres it can reach, migrated with <Command path="migrate" />, and an engine login made with <Command path="engine ensure" />.
 - A volume for the account's home and the worktrees.
-- A way in for people, either SSH or an HTTPS front, and nothing else listening.
+- A domain name, and an HTTPS front on ports 80 and 443 with nothing else listening.
+- An identity provider with komrad registered on it, and a grant for each person allowed in.
+- A way for whoever runs the machine to get a root shell that isn't open to the internet.
 - Forge credentials for agents to push with.
 
 Set <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI, so a new agent in a fresh worktree doesn't stop to ask whether to trust it.

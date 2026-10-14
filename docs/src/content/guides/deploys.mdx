@@ -55,6 +55,6 @@ Dispatching `engine.yml` from the Actions tab deploys whatever ref you pick. It 
 
 The image changes rarely, for a new tool, a new unit, or a security update. Dispatching `image.yml` builds one and records its id in the SSM parameter `/komrad-development/engine/ami-id`. It doesn't apply it.
 
-Applying an image replaces the instance, and every running agent stops. `mise run remote:reimage` reads the recorded id, names the agents that will stop, and asks before it does anything. Then it sets `ami_id` in your `terraform.tfvars`, applies, and drops the old host key. The data volume moves to the new instance and the database is untouched, so the agents can be resumed afterwards.
+Applying an image replaces the instance, and every running agent stops. `mise run remote:reimage` reads the recorded id, names the agents that will stop, and asks before it does anything. Then it sets `ami_id` in your `terraform.tfvars`, then applies. The data volume moves to the new instance and the database is untouched, so the agents can be resumed afterwards.
 
 The image's binary is whatever was current when it was built. Deploy afterwards if the engine should run something newer.

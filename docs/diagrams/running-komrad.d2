@@ -7,6 +7,8 @@ laptop: Your laptop {
   panel: Panel {class: leaf}
 }
 
+idp: Identity provider {class: leaf}
+
 host: Engine host {
   class: group
 
@@ -24,7 +26,7 @@ host: Engine host {
 
   disk: Disk {class: store}
 
-  front -> serve {class: dashed}
+  front -> serve
   serve -> tmux
   tmux -> disk
 }
@@ -32,7 +34,7 @@ host: Engine host {
 postgres: Postgres {class: store}
 forge: Forge {class: leaf}
 
-laptop.panel -> host.serve: SSH forward
-laptop.panel -> host.front: HTTPS {class: dashed}
+laptop.panel -> idp: sign in
+laptop.panel -> host.front: HTTPS
 host.serve -> postgres
 host.tmux -> forge: git

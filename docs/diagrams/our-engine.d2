@@ -23,9 +23,12 @@ aws: AWS {
 
     ec2: "EC2, Elastic IP" {
       class: group
+      caddy: Caddy {class: leaf}
       serve: Server {class: leaf}
       agents: Agents {class: leaf}
       volume: Data volume {class: store}
+
+      caddy -> serve
     }
 
     rds: RDS Postgres {class: store}
@@ -41,7 +44,7 @@ aws: AWS {
   ssm -> vpc.ec2
 }
 
-laptop.panel -> aws.vpc.ec2.serve: ssh
+laptop.panel -> aws.vpc.ec2.caddy: HTTPS
 actions.release -> aws.state
 actions.release -> aws.ssm
 actions.schedule -> aws.vpc.ec2 {class: dashed}

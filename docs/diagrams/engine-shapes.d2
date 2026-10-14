@@ -1,10 +1,9 @@
 ...@_theme
 
-direction: down
+direction: right
 
 local: On your laptop {
   class: group
-  direction: right
 
   panel: Panel {class: leaf}
   serve: Server {class: leaf}
@@ -18,12 +17,8 @@ local: On your laptop {
 
 remote: On a remote engine {
   class: group
-  direction: right
 
-  laptop: Laptop {
-    class: group
-    panel: Panel {class: leaf}
-  }
+  panel: Panel {class: leaf}
 
   host: Engine host {
     class: group
@@ -34,6 +29,8 @@ remote: On a remote engine {
 
   postgres: Postgres {class: store}
 
-  laptop.panel -> host.serve: forward
+  panel -> host.serve: HTTPS
   host.serve -> postgres
 }
+
+local -> remote {style.opacity: 0}

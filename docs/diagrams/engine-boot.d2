@@ -16,7 +16,7 @@ session: Manager session {class: leaf}
 userdata -> volume
 volume -> credentials
 volume -> docker
-volume -> caddy {class: dashed}
+volume -> caddy
 timer -> credentials {class: dashed}
 credentials -> serve
 docker -> serve
