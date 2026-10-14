@@ -89,6 +89,9 @@ The engine joins as `tag:komrad-engine`. The policy lets the engine's people rea
 
 ```json
 {
+  "groups": {
+    "group:komrad": ["you@example.com"]
+  },
   "tagOwners": {
     "tag:komrad-engine": ["autogroup:admin"]
   },
@@ -102,7 +105,7 @@ The engine joins as `tag:komrad-engine`. The policy lets the engine's people rea
 }
 ```
 
-Tailscale's default policy lets every device reach every other one, which would let agents reach every laptop. Add these rules before the engine joins.
+Tailscale's default policy has a grant that lets every device reach every other one, tagged devices included. Grants add up, so that grant would still let agents reach every laptop. Replace it with grants that name your own devices and never list `tag:komrad-engine` as a source. Make both changes before the engine joins.
 
 ### The host firewall
 
