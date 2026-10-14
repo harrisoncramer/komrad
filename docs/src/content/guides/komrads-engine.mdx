@@ -20,7 +20,7 @@ Komrad's own development runs on a single remote engine in AWS. The Terraform in
 
 One EC2 instance runs Tailscale, Caddy, the komrad server and every agent. It boots from a Packer image that comes with the agents' tools already installed, so a new instance can take work as soon as it boots. [The machine](../engine-machine/) covers the image and what happens at boot.
 
-The worktrees, the agent CLIs' logins and komrad's config live on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one. An Elastic IP keeps the instance's public address the same across replacements. Nothing connects in on it. It gives agents a fixed outbound address a forge can allowlist, and lets Tailscale connect laptops directly.
+The worktrees, the agent CLIs' logins and komrad's config live on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one. An Elastic IP keeps the instance's public address the same across replacements. It gives agents a fixed outbound address a forge can allowlist, and lets Tailscale connect laptops directly.
 
 Postgres runs on RDS, in private subnets that only the instance can reach. RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups. [The database](../engine-database/) explains how the instance gets its credentials.
 
