@@ -1,49 +1,11 @@
 # Engine
 
-This directory holds the infrastructure behind one remote komrad engine.
+This stack is the remote engine komrad's own development runs on: one EC2 instance with a data volume that outlives it, and RDS Postgres in private subnets. You can copy it to run your own, but an engine doesn't need AWS.
 
-This engine is used to help maintain komrad itself. However, you can refer to it as an example of how you could deploy your own remote instance.
+Copy `terraform.tfvars.example` and `backend.hcl.example`, drop the `.example`, and fill them in. Then run `mise run infra:engine:init` and `mise run infra:engine:apply`.
 
-```
-                     External Internet
-                              |
-                              v
-   +---------------------- VPC ----------------------------+
-   |                                                        |
-   |   public subnet                                        |
-   |   +------------------------------+                     |
-   |   |  EC2 instance  (fixed IP)    |                     |
-   |   |  komrad serve               |                     |
-   |   |  /var/lib/komrad  <---------+---- EBS data volume |
-   |   +--------------+---------------+       (encrypted,   |
-   |                  |                        follows the  |
-   |                  | 5432, only from         instance)   |
-   |                  | the instance                        |
-   |                  v                                     |
-   |   private subnets                                      |
-   |   +------------------------------+                     |
-   |   |  RDS Postgres                |                     |
-   |   |  password in Secrets Manager |                     |
-   |   +------------------------------+                     |
-   +--------------------------------------------------------+
-```
+Set `domain_name` to the engine's domain, and add an A record for it at your DNS host, pointing at the `instance_public_ip` output. Terraform leaves the record to you, so the engine doesn't depend on any one DNS provider.
 
-## Deployments
+GitHub Actions assumes the `<name>-ci` role with a token GitHub signs for each run. The role trusts only this repository's branches and its `v` tags. It can read the state, send the instance a command through Systems Manager, start and stop it, and build an image. It can't log in.
 
-First, copy the `terraform.tfvars.example` file and the `backend.hcl.example` file, fill them in, and run `mise run infra:engine:init` command.
-
-This initializes the terraform provider.
-
-Next, run the `mise run infra:engine:apply` command, to deploy the infrastructure.
-
-To serve the engine on a domain, set `domain_name` and add an A record for it at your DNS host, pointing at the `instance_public_ip` output. Terraform leaves the record to you, so the engine does not depend on any one DNS provider.
-
-For more information on deploying and managing the engine, read: `docs/src/content/guides/engine-admin.md`.
-
-## This Engine's Relationship to CI/CD
-
-Komrad's GitHub Actions assume the `<name>-ci` role, in this case `komrad-development-ci` by default, using a token GitHub signs for each run.
-
-The role trusts only this repository's branches and its `v` tags, so a fork cannot use it.
-
-This can be used to read Terraform state to find the instance, send it an SSM command, start and stop it, and build an image with Packer. It cannot log in.
+[Komrad's engine](https://komrad.dev/latest/guides/komrads-engine/) and the guides after it cover the machine, the database, access, deploys and the day-to-day runbooks.

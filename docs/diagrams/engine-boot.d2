@@ -1,0 +1,32 @@
+...@_theme
+
+direction: down
+
+secrets: Secrets Manager {class: store}
+
+host: Engine host {
+  class: group
+
+  userdata: User data {class: leaf}
+  volume: Data volume {class: leaf}
+  timer: Hourly timer {class: leaf}
+  creds: Credentials unit {class: leaf}
+  key: GitHub key unit {class: leaf}
+  caddy: Caddy {class: leaf}
+  serve: Server {class: leaf}
+  session: Manager session {class: leaf}
+
+  userdata -> volume
+  volume -> creds
+  volume -> caddy
+  timer -> creds {class: dashed}
+  creds -> serve
+  key -> serve
+  serve -> session
+}
+
+rds: RDS Postgres {class: store}
+
+host.creds -> secrets: owner password
+host.key -> secrets: App key
+host.creds -> rds: migrate

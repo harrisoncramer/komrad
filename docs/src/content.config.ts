@@ -7,7 +7,7 @@ const guides = defineCollection({
   schema: z.object({
     title: z.string(),
     description: z.string().optional(),
-    group: z.enum(["start", "operations", "architecture"]),
+    group: z.enum(["start", "remote-engines", "architecture"]),
     order: z.number().optional(),
   }),
 });

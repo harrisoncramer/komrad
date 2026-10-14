@@ -1,0 +1,51 @@
+---
+title: Komrad's engine
+description: The AWS engine komrad's own development runs on.
+group: remote-engines
+order: 21
+---
+
+import { link } from "../../site";
+
+Komrad's own development runs on a single remote engine in AWS. The Terraform in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine) and the Packer template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer) build it. An engine can run anywhere, and this guide describes one way to provide [the parts every engine needs](../running-komrad/).
+
+## AWS resources
+
+<figure>
+  <img
+    src={link("/diagrams/komrads-engine.png")}
+    alt="The panel sends HTTPS requests to Caddy on an EC2 instance, and Caddy forwards them to the server over loopback. Agents on the instance call the server over MCP and write to the data volume. The server uses RDS Postgres. The credentials unit reads the owner password from Secrets Manager and migrates RDS. The AWS CLI and GitHub Actions reach the instance's SSM agent through Systems Manager, and the SSM agent downloads new binaries from the state bucket that GitHub Actions uploads to."
+  />
+</figure>
+
+One EC2 instance runs Caddy, the komrad server and every agent. It boots from a Packer image that comes with the agents' tools already installed, so a new instance can take work as soon as it boots. [The machine](../engine-machine/) covers the image and what happens at boot.
+
+The worktrees, the agent CLIs' logins and komrad's config live on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one. An Elastic IP keeps the instance's address the same across replacements, so the engine's DNS record never has to change.
+
+Postgres runs on RDS, in private subnets that only the instance can reach. RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups. [The database](../engine-database/) explains how the instance gets its credentials.
+
+Secrets Manager also holds the GitHub App's private key. The instance's IAM role can read that secret and the database's, and no others.
+
+## Network access
+
+The security group opens ports 443 and 80, and Caddy answers on both. Caddy serves the engine on 443. On 80 it answers Let's Encrypt's certificate check and redirects every other request to HTTPS. [Access](../engine-access/) covers how the engine checks each request that arrives on 443.
+
+Operators get a shell through AWS Systems Manager. The SSM agent on the instance keeps an outbound connection to Systems Manager, so the instance needs no SSH port. Deploys and restarts go through Systems Manager as well.
+
+## GitHub Actions
+
+GitHub Actions deploys each release to the engine and builds new images.
+
+The workflows hold no AWS keys. For each run, GitHub issues a token, and AWS trades that token for short-lived credentials on a CI role. The role trusts only this repository's branches and version tags, so a workflow running for a pull request from a fork can't assume it.
+
+The CI role can read Terraform's state, upload a binary to the state bucket, send commands to the instance through Systems Manager, and build images. It can't open an interactive session on the instance.
+
+## Cost
+
+Most of the bill is the instance, which AWS charges for by the hour while it runs. The volume, the database and the Elastic IP keep billing while the instance is stopped. [Runbooks](../runbooks/#stopping-and-starting) covers stopping and starting it.
+
+## Terraform state
+
+The engine stack keeps its Terraform state in an S3 bucket. Mise tasks like `mise run infra:engine:plan` run Terraform with the right directory and backend.
+
+The backend and variables files hold an account's bucket, addresses and keys, so they stay out of the repository. Each one has an example file next to it to copy from.

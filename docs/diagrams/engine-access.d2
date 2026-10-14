@@ -1,0 +1,42 @@
+...@_theme
+
+direction: down
+
+laptop: Laptop {
+  class: group
+  panel: Panel {class: leaf}
+  cli: AWS CLI {class: leaf}
+}
+
+idp: Identity provider {class: leaf}
+
+host: Engine host {
+  class: group
+
+  caddy: Caddy {class: leaf}
+  ssm: SSM agent {class: leaf}
+  agents: Agents {class: leaf}
+  shell: Shell {class: leaf}
+
+  serve: Server {
+    class: group
+    public: Public listener {class: leaf}
+    loopback: Loopback listener {class: leaf}
+    api: API {class: leaf}
+
+    public -> api
+    loopback -> api
+  }
+
+  caddy -> serve.public: loopback
+  ssm -> shell
+  shell -> serve.loopback: CLI
+  agents -> serve.loopback: MCP
+}
+
+grants: Grants {class: store}
+
+laptop.panel -> idp: sign in
+laptop.panel -> host.caddy: HTTPS and token
+laptop.cli -> host.ssm: session
+host.serve.public -> grants

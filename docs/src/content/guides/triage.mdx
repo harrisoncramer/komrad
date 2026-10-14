@@ -12,19 +12,12 @@ import { media } from "../../site";
 Komrad's triage zone sits at the top of the agents list and holds only the agents waiting on you, so you can work through them instead of scanning the whole tree.
 
 <figure>
-  <video
-    preload="none"
-    loop
-    muted
-    playsinline
-    poster={media("triage-zone.png")}
+  <img
+    src={media("triage-zone.png")}
+    alt="The triage zone at the top of the agents list holding three of the neovim workflow's tasks, the one that stopped to ask a question ranked first, with one more waiting for a slot."
     width="1440"
     height="1200"
-    aria-label="The neovim workflow's tasks entering the triage zone at the top of the agents list as their writers finish and one stops to ask a question, the question ranked first."
-  >
-    <source src={media("triage-zone.webm")} type="video/webm" />
-    <source src={media("triage-zone.mp4")} type="video/mp4" />
-  </video>
+  />
 </figure>
 
 The zone holds three rows by default, which you can change with the <Setting path="layout.triage_rows" /> setting. A task appears in it once, through its most urgent agent, however many of its agents are waiting.
@@ -35,7 +28,7 @@ An agent enters triage for one of three reasons, the most urgent first:
 
 1. It needs you. It stopped to ask a question or ask for permission, for instance.
 2. Something broke. The agent errored, failed to launch or to clean up, a hook script failed, or its task's checkout is stuck partway through a rebase or merge.
-3. It finished. The writer's turn ended, no reviewer is reading its change, and it is not waiting on mail from another agent. In other words, it is fully idle.
+3. It finished. The writer's turn ended, no reviewer is reading its change, and it is not waiting on mail from another agent.
 
 ## Working through triage
 
@@ -46,19 +39,3 @@ Answer the agent and it drops out of triage on its own. Opening a finished agent
 When you cannot deal with a task yet, open its [menu](../navigation/#the-menu) with <Key name="menu.open" /> and press <Key name="menu.snooze" />. The task leaves the zone, one waiting for a slot comes in at the bottom, and the cursor moves to the row above. A snooze lasts until what the task waits on changes, so a task you snoozed because its writer finished comes back when the writer asks you something.
 
 To bring a snoozed task back early, find it in the tree and pick wake from the same menu. Snoozes last only as long as the panel does, so restarting the panel brings every snoozed task back.
-
-<figure>
-  <video
-    preload="none"
-    loop
-    muted
-    playsinline
-    poster={media("triage-snooze.png")}
-    width="1440"
-    height="920"
-    aria-label="Jumping to the triage zone, opening a finished task to read its answer, and snoozing the task that asked a question so the next one takes its place."
-  >
-    <source src={media("triage-snooze.webm")} type="video/webm" />
-    <source src={media("triage-snooze.mp4")} type="video/mp4" />
-  </video>
-</figure>

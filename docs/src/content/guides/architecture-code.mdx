@@ -2,12 +2,12 @@
 title: The shape of the code
 description: The layers, what may import what, the linters that hold the line, and where tests live.
 group: architecture
-order: 21
+order: 34
 ---
 
 import { link } from "../../site";
 
-The Go code is arranged in layers. Tools enforce the arrangement, so nobody has to remember it.
+Komrad's Go code is arranged in layers, and linters enforce the arrangement so nobody has to remember it.
 
 ## The layers
 
@@ -18,34 +18,34 @@ The Go code is arranged in layers. Tools enforce the arrangement, so nobody has 
   />
 </figure>
 
-Handlers turn a request into one call on a service. Services hold the rules. Stores read and write their own tables. Anything komrad does not own, like tmux or git, sits behind an adapter. The harness adapter is the only place that knows how Claude and Codex differ. The panel is a client and has no database connection.
+Handlers turn a request into one call on a service. Services hold the rules, and stores read and write their own tables. Anything komrad doesn't own, like tmux or git, sits behind an adapter. The harness adapter is the only code that knows how Claude and Codex differ. The panel is a client and has no database connection.
 
 ## Imports
 
-The arrows above are enforced by depguard. For instance, the panel may not import tmux or the store. A service may not import the generated protos, so wire shapes cannot leak into the rules. A store may not import a service. The generated query package may be imported only by stores. Cross a line and the linter fails.
+Depguard enforces the arrows in the diagram. The panel can't import tmux or the store, for example. A service can't import the generated protos, which keeps wire shapes out of the rules. A store can't import a service, and only stores can import the generated query package. Code that crosses one of these lines fails lint.
 
 ## Linters
 
-Komrad enforces structure with many golangci-lint linters. Many are standard. Some are ours, in a plugin under `tools/komradlint`, written when the same review comment came up one too many times.
+Most of komrad's golangci-lint linters are standard. The rest live in a plugin under `tools/komradlint`, and each one was written after the same review comment came up one too many times.
 
-For instance, every sentinel error comes from a `fail` constructor that names its kind, so the declaration decides the RPC code. A handler body must be a single call. A constructor must be `NewT(NewTParams)`. Only `config` may read the environment. Only one package may use a bare HTTP client. Three named places may expose a forge secret, and no others.
+Every sentinel error comes from a `fail` constructor that names its kind, so the declaration decides the RPC code. A handler body has to be a single call, and a constructor has to look like `NewT(NewTParams)`. Only `config` may read the environment, only one package may use a bare HTTP client, and only three named places may expose a forge secret.
 
-Tests have rules too. A test file must sit beside a source file of the same name. A test may not declare a method that matches a store method, so services are tested against the real store. Unit tests may not run git directly. They take the seam and hand in a fake.
+Tests have rules too. A test file has to sit beside a source file of the same name. A test can't declare a method that matches a store method, which pushes service tests onto the real store. Unit tests can't run git directly. They take the seam and hand in a fake.
 
 ## Tests
 
-Each behaviour is tested at the lowest layer that can see it, and only there.
+Komrad tests each behaviour at the lowest layer that can see it, and only there.
 
-```
-  store      real Postgres         queries, ordering
-  service    real store, fakes     the rules
-  adapter    a fake service        validation, error codes
-  scenario   real everything       a feature end to end
-  panel      frame and requests    keys, screens, forms
-```
+| Layer    | Runs against               | Owns                       |
+| -------- | -------------------------- | -------------------------- |
+| Store    | real Postgres              | queries and ordering       |
+| Service  | the real store, with fakes | the rules                  |
+| Adapter  | a fake service             | validation and error codes |
+| Scenario | everything real            | a feature from end to end  |
+| Panel    | the frame and the requests | keys, screens and forms    |
 
-There is one shared fake per outside seam: a fake tmux, a fake harness, fake git. A regression is a new case in the table that owns the behaviour, not a new test function.
+Each outside seam has one shared fake, so there's one fake tmux, one fake harness and one fake git. A regression becomes a new case in the table that owns the behaviour, never a new test function.
 
 ## The check
 
-`mise run check` runs everything: formatting, the linters, every test, and the generated-file drift check. It reports every failure at the end instead of stopping at the first. CI runs the same tasks. There are no git hooks.
+`mise run check` runs the formatters, the linters, every test and the generated-file drift check. It keeps going after a failure and reports every failure at the end. CI runs the same tasks, and komrad uses no git hooks.

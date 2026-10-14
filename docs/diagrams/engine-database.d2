@@ -1,0 +1,21 @@
+...@_theme
+
+direction: down
+
+admin: "Migrate, ensure, grant" {class: leaf}
+serve: Server {class: leaf}
+mcp: MCP query tools {class: leaf}
+
+owner: Owner login {class: leaf}
+engine: Engine login {class: leaf}
+reader: Reader login {class: leaf}
+
+postgres: Postgres {
+  class: group
+  schema: Schema {class: store}
+  rows: "One engine's rows" {class: store}
+}
+
+admin -> owner -> postgres.schema
+serve -> engine -> postgres.rows
+mcp -> reader -> postgres.rows {class: dashed}

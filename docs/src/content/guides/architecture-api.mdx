@@ -2,13 +2,13 @@
 title: From proto to every surface
 description: One RPC declaration becomes a handler, a CLI command, an MCP tool and a reference page.
 group: architecture
-order: 20
+order: 33
 ---
 
 import Command from "../../components/Command.astro";
 import { link } from "../../site";
 
-Every endpoint in komrad is declared once, as an RPC in a protobuf file. Everything else is derived from it.
+Every endpoint in komrad starts as one RPC in a protobuf file. Komrad generates the handler's interface from that declaration, and builds the CLI command, the MCP tool and the reference page from it too.
 
 ## The pipeline
 
@@ -19,26 +19,26 @@ Every endpoint in komrad is declared once, as an RPC in a protobuf file. Everyth
   />
 </figure>
 
-Each RPC carries one annotation, `surfaces`. It says whether the RPC gets a CLI command, whether it becomes an MCP tool, what it is called, and which agent roles may use it. An RPC that leaves a surface off must say why. For instance, `RecordReport` is not an MCP tool, because only komrad's own hook binary may call it.
+Each RPC carries a `surfaces` annotation. It says whether the RPC gets a CLI command and an MCP tool, what each one is called, and which agent roles may use it. An RPC that leaves a surface off has to give a reason. `RecordReport`, for example, isn't an MCP tool, because only komrad's own hook binary may call it.
 
 ## Lint
 
-Buf lint runs with a plugin we wrote. It checks shape, not style. A method named `List` must declare no side effects. A method named `Archive` must be idempotent. An id field must refuse empty. Every method must have a complete `surfaces` annotation, which keeps the promise in [How it works](../how-it-works/). Nobody can add a method to one surface and forget the other, because the file will not lint.
+Buf lint runs with a plugin of komrad's own, which checks what each method and field declares. A method named `List` must declare no side effects, a method named `Archive` must be idempotent, and an id field must refuse an empty value. The plugin also requires a complete `surfaces` annotation on every method, so a method can't reach the CLI and miss MCP without the file failing lint.
 
 ## Generation
 
-Three generators run. Two are the standard protobuf and Connect ones. The third is ours. It writes a strict interface whose methods return a typed failure instead of an `error`, and an adapter that turns the failure into a Connect code. A handler implements the strict interface, so its body is one call. One place maps failures to codes.
+Buf generate runs three generators: the standard protobuf one, the Connect one, and komrad's own. Komrad's generator writes a strict interface whose methods return a typed failure in place of an `error`, and an adapter that turns that failure into a Connect code. Handlers implement the strict interface, so each handler body is a single call and the mapping from failures to codes lives in one place.
 
 ## The server
 
-A request passes through a few interceptors before it reaches a handler. A guard refuses any Host header that is not loopback, which stops a web page on your machine from reaching the API. A recovery layer turns a panic into an error. The JSON codec refuses unknown fields instead of dropping them. Validation runs the rules declared in the proto. Then the handler makes one call into a service.
+A request passes through a few interceptors on its way to a handler. A guard refuses any Host header that isn't loopback, which stops a web page in your browser from reaching the API. A recovery layer turns a panic into an error. The JSON codec refuses unknown fields where the default codec would quietly drop them. Validation then runs the rules declared in the proto, and the handler makes its one call into a service.
 
-Two headers name the caller's agent and session. A handler reads them to check that a writer archives only the reviewers on its own task.
+Two headers carry the caller's agent and session. Handlers read them for checks like making sure a writer archives only the reviewers on its own task.
 
 ## CLI and MCP
 
-No CLI or MCP code is generated. At startup, the server walks the compiled proto descriptors and builds one <Command path="rpc" /> subcommand per method, with a flag per field. It builds one MCP server per agent role, holding only the tools that role may use. A tool call is a JSON post to the same route the panel uses, so it arrives at the handler looking exactly like a keypress.
+At startup, komrad walks the compiled proto descriptors and builds the CLI and the MCP tools from them, with no generated code. It makes one <Command path="rpc" /> subcommand per method, with a flag per field, and one MCP server per agent role that holds only the tools that role may use. A tool call is a JSON post to the same route the panel uses, so the handler sees the same request either way.
 
 ## Docs and drift
 
-`cmd/gen-docs` walks the same descriptors and writes the JSON that the [API reference](../../api/) renders. The generated files are committed. CI regenerates everything and fails if anything changed. A proto edit without a regenerate fails the build, so the docs never lag the code.
+`cmd/gen-docs` walks the same descriptors and writes the JSON that the [API reference](../../api/) renders. The generated files are committed. CI regenerates everything and fails if anything changed, so a proto edit that skips regeneration fails the build and the docs stay in step with the code.

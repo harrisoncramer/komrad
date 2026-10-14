@@ -111,7 +111,7 @@ gh auth token | komrad forge connect github.com
 
 Any personal access token works the same way, as long as it can read the pull requests of your repositories. For GitHub Enterprise, add `--kind github` and, if needed, `--api-url`.
 
-To connect a GitHub App, set it up in <Setting path="github_app" label="[github_app]" /> and connect it with `--method github-app`. Komrad makes a token from the App, which expires after an hour, and makes a new one whenever it needs to. [Administering the engine](../engine-admin/) covers registering the App.
+To connect a GitHub App, set it up in <Setting path="github_app" label="[github_app]" /> and connect it with `--method github-app`. Komrad makes a token from the App, which expires after an hour, and makes a new one whenever it needs to. [Forge credentials](../forge-credentials/) covers registering the App.
 
 ```sh
 komrad forge connect github.com --method github-app --engine remote
@@ -155,8 +155,8 @@ komrad migrate
 
 A running server keeps its old build until you stop it. Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the server.
 
-## Komrad + Tmux
+## Running the panel inside tmux
 
-Komrad's panel is just a terminal appliation, that can be run inside tmux without a problem.
+The panel is a terminal application, so it runs inside tmux without a problem.
 
-One thing to note: If your own tmux prefix is `ctrl+space`, give your tmux a different one, since the panel keeps its own keys behind it.
+If your own tmux prefix is `ctrl+space`, give your tmux a different one, because the panel keeps its own keys behind it.

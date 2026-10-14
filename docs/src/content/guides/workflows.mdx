@@ -105,7 +105,7 @@ Komrad has first-class support for [git worktrees](https://git-scm.com/docs/git-
 
 Komrad puts worktrees in <Setting path="worktrees.dir" /> unless the workflow names a directory of its own. The worktree section of the workflow's settings also lists files to copy or link into each new worktree, such as a `.env` file git does not track.
 
-When you start a task, you _can_ run it in the workflow's base directory instead, rather than a worktree.
+When you start a task, you _can_ run it in the workflow's base directory instead of a worktree.
 
 <Alert variant="danger">
   Tasks without a worktree should usually not be asked to write code; they'll alter shared files.

@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Bug reporting guide
-    url: https://komrad.dev/latest/guides/bug-reports/
+    url: https://komrad.dev/latest/guides/bugs/
     about: What to check first and what to include in a report.
   - name: Feature ideas
     url: https://github.com/harrisoncramer/komrad/discussions/categories/ideas
