@@ -8,7 +8,7 @@ name: engine
 # laptop is the broken thing. The checks run on that path and not on the release path, where the
 # commit has already passed them twice.
 #
-# CI reaches the engine through Systems Manager, since the engine takes no ssh.
+# CI reaches the engine through Systems Manager.
 on:
   workflow_dispatch:
     inputs:
