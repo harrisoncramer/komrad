@@ -36,7 +36,7 @@ Every request to a remote engine has to say who sent it. Komrad keeps no passwor
 
 The komrad server listens only on loopback, and the proxy in front of it is the only thing exposed to the network. Komrad's engine uses Caddy because it gets and renews its own certificate, but any proxy that speaks HTTP/2 will work.
 
-You can also keep the engine off the internet and put it on a private network. Komrad's engine sits on a Tailscale tailnet, where Tailscale hands Caddy a certificate for the engine's tailnet name. Komrad works the same on any private network, as long as laptops trust the engine's certificate. Other networks, Headscale among them, can't issue that certificate, so you'd need a domain of your own with a DNS challenge, or a certificate authority that every laptop trusts. A machine on a private network can reach the other devices on it, and agents run code nobody has reviewed. Keep the engine from opening connections into that network.
+An engine can also sit on a private network instead of the internet. Komrad's engine sits on a Tailscale tailnet, and Tailscale issues Caddy's certificate. Other private networks, Headscale included, need your own domain with a DNS challenge or a certificate authority every laptop trusts. Agents run unreviewed code, so stop the engine from opening connections into the network.
 
 Operators need a shell on the host for upgrades and debugging. Give them one that doesn't need an open port on the internet. On AWS, komrad's engine uses Systems Manager sessions for this.
 

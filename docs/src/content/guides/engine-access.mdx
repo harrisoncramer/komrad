@@ -9,7 +9,7 @@ import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 import { link } from "../../site";
 
-A remote engine lets in only people it can identify and whom its owner has granted access. People prove who they are by signing in with an identity provider, and the engine looks up a grant for each of them. Komrad's engine also sits on a private Tailscale network, so a person's laptop has to be on that network before it can reach the engine at all. Operators reach the machine itself through AWS Systems Manager, so the machine needs no open port for shells.
+A remote engine lets in only people it can identify and whom its owner has granted access. People prove who they are by signing in with an identity provider, and the engine looks up a grant for each of them. Komrad's engine sits on a Tailscale network, so a laptop has to be on that network to reach it. Operators reach the machine itself through AWS Systems Manager, so the machine needs no open port for shells.
 
 <figure>
   <img
@@ -72,7 +72,7 @@ The loopback listener serves the agents' MCP tools and the CLI in a shell on the
 
 ## Network
 
-Komrad's engine has no open ports on the internet. People reach it over a tailnet, which is a private network that Tailscale builds between the devices its owner lets in. Every request still carries a token, and the engine still checks it, so a person needs both a device on the tailnet and a grant on the engine.
+Komrad's engine opens no ports to the internet. People reach it over a tailnet, a private network Tailscale builds between devices its owner lets in. A person needs a device on the tailnet and a grant on the engine.
 
 <figure>
   <img
@@ -81,13 +81,11 @@ Komrad's engine has no open ports on the internet. People reach it over a tailne
   />
 </figure>
 
-The engine's address is its name on the tailnet, such as `https://komrad.tail1234.ts.net`. That name only resolves through Tailscale's DNS, so Tailscale has to be running on the laptop with its DNS turned on. If a laptop's Tailscale is off, or its DNS is off to get along with a work VPN, the panel says the engine is unreachable. Turning Tailscale's DNS back on fixes it. If that clashes with the work VPN, a hosts entry for the engine's tailnet address works too.
-
-Caddy gets the engine's certificate from Tailscale, which issues Let's Encrypt certificates for tailnet names. Certificate transparency logs are public, so the engine's name and the tailnet's name show up there. They say the engine exists, but nothing on the internet can reach it.
+The engine's address is its tailnet name, such as `https://komrad.tail1234.ts.net`. The name resolves only through Tailscale's DNS, so the laptop needs Tailscale running with DNS on. Caddy gets the certificate for that name from Tailscale. The name appears in public certificate logs, but nothing on the internet can reach it.
 
 ### The tailnet policy
 
-The tailnet's access policy decides which devices can reach the engine. The engine joins as a tagged machine, `tag:komrad-engine`, which belongs to the tailnet rather than to any one person. The policy lets the people who use the engine reach it on port 443 and gives the engine no way to reach anything else:
+The engine joins as `tag:komrad-engine`. The policy lets the engine's people reach it on 443 and lets the engine reach nothing:
 
 ```json
 {
@@ -104,17 +102,15 @@ The tailnet's access policy decides which devices can reach the engine. The engi
 }
 ```
 
-Tailscale's default policy lets every device reach every other one. Agents on the engine run code nobody has reviewed, so leaving the default in place would let them reach every laptop on the tailnet. It would also let every laptop reach any port the agents open. Add the engine's rules before it joins.
+Tailscale's default policy lets every device reach every other one, which would let agents reach every laptop. Add these rules before the engine joins.
 
 ### The host firewall
 
-The machine's own firewall backs up the policy in case it's ever wrong. On the Tailscale interface it lets in new connections to port 443 and nothing else, so agents' dev servers and Docker ports stay off the tailnet. It also stops every account but root from opening connections into the tailnet, which covers the agents and their containers.
-
-The engine doesn't take Tailscale's DNS settings, routes, exit nodes or SSH. Agents resolve names the way they did before the engine joined, and they see none of the tailnet's devices.
+The machine's firewall backs up the policy. On the Tailscale interface it accepts new connections to 443 only, so agents' dev servers and containers stay off the tailnet. It also stops every account but root from opening connections into the tailnet. The engine takes no DNS settings, routes, exit nodes or SSH from Tailscale.
 
 ### People outside the tailnet
 
-A grant alone no longer lets someone in. A person from another company, or anyone else outside the owner's tailnet, needs the engine shared into their own tailnet from Tailscale's admin console. They still need a grant on the engine as well. Revoking either one shuts them out, so keep the two in step when someone leaves.
+Someone outside the owner's tailnet needs the engine shared with them from Tailscale's admin console, plus a grant. Remove both when they leave.
 
 ## Operator and CI access
 

@@ -34,7 +34,7 @@ When the engine's heartbeat stops, the dot beside its name in the panel turns re
 systemctl list-units --state=failed --no-legend
 ```
 
-Then look at Tailscale, the server and Caddy. `tailscale status` shows whether the machine is on the tailnet, and the journal shows what systemd saw, like a crash at startup or a certificate request that failed. Komrad's log shows what the server wrote while it ran.
+Then look at Tailscale, the server and Caddy. `tailscale status` shows whether the machine is on the tailnet. The journal shows what systemd saw, like a crash at startup or a certificate request that failed. Komrad's log shows what the server wrote while it ran.
 
 ```sh
 sudo tailscale status
@@ -61,17 +61,17 @@ komrad login --engine remote
 
 If the engine still turns them away, they don't have a grant. Check that the email they signed in with is the one you granted, and that their provider has verified it.
 
-If their panel says the engine is unreachable while yours works, their laptop isn't reaching the tailnet. Check that Tailscale is running on it, that its DNS setting is on, and that the tailnet policy lets their device reach the engine.
+If their panel says the engine is unreachable, check that Tailscale runs on their laptop with DNS on and that the tailnet policy lets them in.
 
 ## Rejoining the tailnet
 
-A replaced machine comes back as the same tailnet device, because its identity lives in Parameter Store. If that identity is ever lost, or you remove the engine from Tailscale's admin console, the machine has to join again with a new key. Remove the old device from the admin console first, so the new one can take its name. Make a single-use, pre-approved key tagged `tag:komrad-engine`, store it in the `komrad/tailscale-auth-key` secret, and replace the machine:
+A replaced machine keeps its tailnet identity through Parameter Store. If that identity is lost, the machine needs a new key. Remove the old device from Tailscale's admin console so the new one can take its name. Store a single-use, pre-approved key tagged `tag:komrad-engine` in `komrad/tailscale-auth-key`, and replace the machine:
 
 ```sh
 mise run remote:reimage
 ```
 
-The new machine joins with the key and takes the old name, so engine files on laptops keep working. Let's Encrypt issues at most five certificates a week for the same name, so avoid replacing the machine over and over in one week.
+Let's Encrypt issues at most five certificates a week per name, so avoid repeated replacements in one week.
 
 ## Restarting
 
@@ -115,7 +115,7 @@ sudo komrad-access grant someone@example.com
 sudo komrad-access revoke someone@example.com
 ```
 
-A grant only helps someone whose device can reach the engine. For a person on your tailnet, add them to the group the tailnet policy lets in. For someone outside it, share the engine's device with them from Tailscale's admin console. When someone leaves, revoke the grant and remove their tailnet access.
+A person also needs to reach the engine over the tailnet. Add them to the policy's group, or share the engine with them from Tailscale's admin console if they're outside your tailnet.
 
 [Access](../engine-access/#access-grants) describes what a grant allows.
 
@@ -137,7 +137,7 @@ mise run infra:engine:destroy
 
 Terraform can't destroy the database while deletion protection is on, so set `database_deletion_protection = false` in `terraform.tfvars` and apply before you destroy. RDS takes a final snapshot of the database, and the data volume gets one too. Snapshot names have to be unique, so a second teardown needs a new snapshot name.
 
-Terraform doesn't own the engine's tailnet identity. Remove the engine from Tailscale's admin console, then delete its identity from Parameter Store:
+Then remove the engine from Tailscale's admin console and delete its tailnet identity:
 
 ```sh
 aws ssm delete-parameter --name /komrad/tailscale/state

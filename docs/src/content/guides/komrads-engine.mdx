@@ -20,17 +20,17 @@ Komrad's own development runs on a single remote engine in AWS. The Terraform in
 
 One EC2 instance runs Tailscale, Caddy, the komrad server and every agent. It boots from a Packer image that comes with the agents' tools already installed, so a new instance can take work as soon as it boots. [The machine](../engine-machine/) covers the image and what happens at boot.
 
-The worktrees, the agent CLIs' logins and komrad's config live on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one. An Elastic IP keeps the instance's public address the same across replacements. Nothing connects to that address. It gives the agents a fixed outbound address that a forge can allowlist, and it helps Tailscale connect laptops to the instance directly.
+The worktrees, the agent CLIs' logins and komrad's config live on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one. An Elastic IP keeps the instance's public address the same across replacements. Nothing connects in on it. It gives agents a fixed outbound address a forge can allowlist, and lets Tailscale connect laptops directly.
 
 Postgres runs on RDS, in private subnets that only the instance can reach. RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups. [The database](../engine-database/) explains how the instance gets its credentials.
 
 Secrets Manager also holds the GitHub App's private key and the key the instance uses to join the tailnet. The instance's IAM role can read those secrets and the database's, and no others.
 
-Parameter Store holds the instance's Tailscale identity. Keeping it off the instance means a replacement joins the tailnet as the same machine, under the same name. Only the instance's role can read or write it. The CI role can't, and neither can the agents, since only root on the instance can reach AWS.
+Parameter Store holds the instance's Tailscale identity, so a replacement joins the tailnet as the same machine. Only the instance's role can read or write it.
 
 ## Network access
 
-The security group opens no ports to the internet. People reach the engine over the tailnet, whose traffic travels inside Tailscale's own encrypted connection, so the security group never sees it. The security group can allow Tailscale's UDP port 41641, which lets laptops connect to the instance directly instead of through Tailscale's relays. [Access](../engine-access/#network) covers the tailnet, its policy and the firewall on the instance.
+The security group opens no ports to the internet. It can allow Tailscale's UDP port 41641, so laptops connect directly instead of through Tailscale's relays. [Access](../engine-access/#network) covers the tailnet, its policy and the firewall on the instance.
 
 Operators get a shell through AWS Systems Manager. The SSM agent on the instance keeps an outbound connection to Systems Manager, so the instance opens no port for operators. Deploys and restarts go through Systems Manager as well.
 

@@ -17,13 +17,13 @@ The image carries a komrad binary so the server can start on first boot, before 
 
 ## The komrad account
 
-The server and every agent run as an account named komrad, which can't become root. Agents run whatever commands they decide to run, and the account keeps those commands away from the system and from the instance's AWS credentials. Those credentials come from the instance metadata service, and a firewall rule lets only root reach it. Another rule stops the account from opening connections into the tailnet, so an agent can't reach anyone's laptop. The account also can't ask Tailscale which devices are on the tailnet. Docker runs rootless under the komrad account, so agents can still build and run containers.
+The server and every agent run as an account named komrad, which can't become root. Agents run whatever commands they decide to run, and the account keeps those commands away from the system and from the instance's AWS credentials. Those credentials come from the instance metadata service, and a firewall rule lets only root reach it. Another rule stops it from opening connections into the tailnet. Docker runs rootless under the komrad account, so agents can still build and run containers.
 
 Deploys, restarts and access grants need root, and they reach the machine through AWS Systems Manager. [Access](../engine-access/#operator-and-ci-access) covers that path.
 
 ## The data volume
 
-The data volume holds the komrad account's home directory, which has komrad's config and the agent CLIs' logins. Every agent's worktree is on it too, along with komrad's cache and log and Caddy's state. Tailscale's identity stays off the volume, because the agents can write to it and its snapshots would carry the identity with them. When Terraform replaces the machine, the volume moves to the new one.
+The data volume holds the komrad account's home directory, which has komrad's config and the agent CLIs' logins. Every agent's worktree is on it too, along with komrad's cache and log and Caddy's state. Tailscale's identity stays off it, out of the agents' reach. When Terraform replaces the machine, the volume moves to the new one.
 
 ## Boot
 
@@ -34,9 +34,9 @@ The data volume holds the komrad account's home directory, which has komrad's co
   />
 </figure>
 
-Terraform hands the machine a short user data script. The script records which volume and database belong to the machine. It writes the identity provider into the server's config and points Caddy at the public listener.
+Terraform hands the machine a short user data script. The script records which volume and database belong to the machine. It writes the identity provider into the server's config and points Caddy at the public listener. Any process on the machine can read user data, so the script carries nothing that has to stay secret. The provider's client secret is in it, but the engine hands that to every laptop that signs in anyway.
 
-The script also brings the machine onto the tailnet. Tailscale keeps its identity in Parameter Store, so a new machine usually finds the old one's identity there and comes back as the same device, with the same name and address. The script waits for Tailscale to say whether it's signed in. Only when it isn't, on the very first boot or after someone deleted the identity, does the auth key unit fetch the key from Secrets Manager and join the tailnet with it. Once Tailscale is up, the script writes the machine's tailnet name into Caddy's config and starts Caddy. Any process on the machine can read user data, so the script carries nothing that has to stay secret. The provider's client secret is in it, but the engine hands that to every laptop that signs in anyway.
+The script also joins the tailnet. Tailscale keeps its identity in Parameter Store, so a replacement machine comes back as the same device. Only on first boot does the auth key unit fetch a key from Secrets Manager to join. The script then writes the tailnet name into Caddy's config and starts Caddy.
 
 Systemd starts everything else in order. The data volume mounts first, and every unit that uses it waits for the mount. If the volume is missing, the server never starts, which keeps it from writing to the root disk by mistake.
 
