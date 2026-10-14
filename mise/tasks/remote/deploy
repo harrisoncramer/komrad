@@ -98,11 +98,26 @@ OWNER_URL="$(aws s3 presign "s3://$BUCKET/$OWNER_KEY" --expires-in 900 --region 
 
 # The instance fetches the binary itself, so nothing large travels through the command and the
 # instance needs no permission on the bucket.
+COMMANDS=(
+	"set -e"
+	"curl -fsSL -o /tmp/komrad-new '$URL'"
+	"install -m 0755 /tmp/komrad-new /usr/local/bin/komrad"
+	"rm -f /tmp/komrad-new"
+	"curl -fsSL -o /tmp/komrad-database-credentials '$CREDENTIALS_URL'"
+	"install -m 0755 /tmp/komrad-database-credentials /usr/local/sbin/komrad-database-credentials"
+	"rm -f /tmp/komrad-database-credentials"
+	"curl -fsSL -o /tmp/komrad-owner-database-url '$OWNER_URL'"
+	"install -m 0700 /tmp/komrad-owner-database-url /usr/local/sbin/komrad-owner-database-url"
+	"rm -f /tmp/komrad-owner-database-url"
+	"/usr/local/sbin/komrad-database-credentials"
+	"systemctl restart komrad.service"
+)
+
 COMMAND_ID="$(aws ssm send-command \
 	--region "$REGION" \
 	--instance-ids "$INSTANCE" \
 	--document-name AWS-RunShellScript \
-	--parameters "commands=[\"set -e\",\"curl -fsSL -o /tmp/komrad-new '$URL'\",\"install -m 0755 /tmp/komrad-new /usr/local/bin/komrad\",\"rm -f /tmp/komrad-new\",\"curl -fsSL -o /tmp/komrad-database-credentials '$CREDENTIALS_URL'\",\"install -m 0755 /tmp/komrad-database-credentials /usr/local/sbin/komrad-database-credentials\",\"rm -f /tmp/komrad-database-credentials\",\"curl -fsSL -o /tmp/komrad-owner-database-url '$OWNER_URL'\",\"install -m 0700 /tmp/komrad-owner-database-url /usr/local/sbin/komrad-owner-database-url\",\"rm -f /tmp/komrad-owner-database-url\",\"/usr/local/sbin/komrad-database-credentials\",\"systemctl restart komrad.service\"]" \
+	--parameters "$(jq -n '{commands: $ARGS.positional}' --args "${COMMANDS[@]}")" \
 	--query Command.CommandId \
 	--output text)"
 
