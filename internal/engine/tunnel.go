@@ -29,6 +29,10 @@ const redialDelay = time.Second
 // carries it or one somebody else runs.
 const probeInterval = 5 * time.Second
 
+// silentProbesBeforeRedial is how many probes in a row may go unanswered before komrad ends its own
+// forward and runs it again, so one slow round trip does not drop every stream through it.
+const silentProbesBeforeRedial = 3
+
 // probeRequest is what komrad writes to a port to learn whether the engine's api is behind it.
 const probeRequest = "HEAD / HTTP/1.0\r\n\r\n"
 
@@ -232,8 +236,10 @@ func (t *Tunnel) keep(ctx context.Context) {
 }
 
 // watch blocks until the forward exits or the context ends, ending the forward first when the engine
-// stops answering through it.
+// stops answering through it for silentProbesBeforeRedial probes in a row.
 func (t *Tunnel) watch(ctx context.Context, running *forward) {
+	silent := 0
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -243,7 +249,14 @@ func (t *Tunnel) watch(ctx context.Context, running *forward) {
 		case <-time.After(probeInterval):
 		}
 
-		if !isAnswering(ctx, t.Local) {
+		if isAnswering(ctx, t.Local) {
+			silent = 0
+
+			continue
+		}
+
+		silent++
+		if silent >= silentProbesBeforeRedial {
 			running.kill()
 
 			return

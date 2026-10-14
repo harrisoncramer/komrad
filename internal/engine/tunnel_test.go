@@ -127,7 +127,7 @@ func TestDialRunsTheForwardAgainWhenItDrops(t *testing.T) {
 
 			assert.Equal(t, local, tunnel.Local)
 
-			assert.Eventually(t, func() bool { return countLines(spawns) >= 2 }, 15*time.Second, 100*time.Millisecond,
+			assert.Eventually(t, func() bool { return countLines(spawns) >= 2 }, 30*time.Second, 100*time.Millisecond,
 				"the forward Dial waited on stopped carrying the engine, so a second one is up")
 
 			require.NoError(t, tunnel.Close())
