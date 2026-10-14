@@ -14,9 +14,7 @@ This guide builds [komrad's engine](../komrads-engine/) from an empty AWS accoun
 
 - An AWS account with a named profile, and an S3 bucket for Terraform's state.
 - The Session Manager plugin for the AWS CLI, which you need to get a shell on the machine.
-- A Tailscale tailnet with MagicDNS and HTTPS certificates turned on in its DNS settings, and Tailscale running on your laptop.
-- The engine's tag in the tailnet's access policy, as [Access](../engine-access/#the-tailnet-policy) shows.
-- An auth key for the engine from Tailscale's admin console. Make it single-use and pre-approved, and tag it `tag:komrad-engine`. The engine uses it only to join the first time, so a key that expires in a day is enough.
+- A Tailscale tailnet you administer, with Tailscale running on your laptop.
 - Komrad registered with your identity provider as a desktop app. [Access](../engine-access/#registering-komrad-with-the-provider) covers the registration.
 - A GitHub App for the engine, with its private key stored in Secrets Manager as `komrad/github-app`. [Forge credentials](../forge-credentials/#github) covers the App. The machine reads the key at boot, so store it before the first one.
 
@@ -28,9 +26,17 @@ mise run packer:build
 
 The build prints the image's id when it finishes, and Terraform needs that id in the next step. [The machine](../engine-machine/) describes what the image contains.
 
+## Preparing the tailnet
+
+The engine joins your tailnet as one tagged device, and the rest of the tailnet stays as it is. In Tailscale's admin console:
+
+1. Under DNS, turn on MagicDNS and HTTPS certificates. The tailnet's DNS name, such as `tail1234.ts.net`, is at the top of the page.
+2. In the access policy, add `tag:komrad-engine` to `tagOwners`, as [Access](../engine-access/#the-tailnet-policy) shows.
+3. Under Settings, then Keys, generate an auth key. Make it single-use and pre-approved, and tag it `tag:komrad-engine`. The engine uses it only to join the first time, so a key that expires in a day is enough.
+
 ## Applying the infrastructure
 
-Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id, and the `sign_in_*` values from your provider. Set `tailscale_hostname` to the engine's name on the tailnet, which defaults to komrad, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. Set `tailscale_auth_key` to the auth key, which Terraform stores in Secrets Manager for the machine. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
+Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id, and the `sign_in_*` values from your provider. Set `tailscale_hostname` to the engine's name on the tailnet, which defaults to komrad, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. Set `tailscale_auth_key` to the auth key from the last step, which Terraform stores in Secrets Manager for the machine. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
 
 ```sh
 mise run infra:engine:init
