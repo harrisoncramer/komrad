@@ -1,14 +1,14 @@
 ---
 title: Access
 description: How people sign in to an engine, how the engine checks each request, and how operators reach the machine.
-group: operations
+group: remote-engines
 order: 25
 ---
 
 import Command from "../../components/Command.astro";
 import { link } from "../../site";
 
-A remote engine accepts requests from people it can identify and that its owner has let in. People sign in with an identity provider, and the engine checks a grant for each of them. Operators reach the machine through a separate path that never touches the internet.
+A remote engine lets in only people it can identify and whom its owner has granted access. People prove who they are by signing in with an identity provider, and the engine looks up a grant for each of them. Operators reach the machine itself through AWS Systems Manager, so the machine needs no open port for shells.
 
 <figure>
   <img
@@ -25,50 +25,48 @@ Each person signs in once per engine, from their laptop:
 komrad login --engine remote
 ```
 
-Komrad asks the engine which identity provider it trusts and opens a browser there. The person signs in at the provider, including any MFA it requires. The provider sends the browser back to komrad on `127.0.0.1:8085` with a one-time code, and komrad exchanges the code for two tokens.
+Komrad asks the engine which identity provider it trusts and opens a browser at that provider. The person signs in there, along with any MFA the provider requires. The provider then sends the browser back to komrad on `127.0.0.1:8085` with a one-time code, and komrad trades the code for an ID token and a refresh token. Only the provider ever sees the person's password.
 
-The ID token lasts about an hour, and the panel sends it with every request. The refresh token gets a new ID token without opening the browser. Komrad keeps both in the system keychain. The panel refreshes the ID token before it expires, including during an open terminal session. When the refresh token stops working, the panel tells the person to sign in again.
-
-Komrad never sees the person's password.
+The panel sends the ID token with every request. The token lasts about an hour, and before it expires the panel uses the refresh token to get a new one without opening the browser, even in the middle of a terminal session. Komrad keeps both tokens in the system keychain. When the refresh token stops working, the panel asks the person to sign in again.
 
 ## Request checks
 
-The public listener checks every request it receives. A token must be signed by the provider the engine trusts, must have been issued for komrad, and must not have expired. A request that fails any of these checks gets a 401.
+The public listener checks every request. The token has to carry a valid signature from the provider the engine trusts, it has to have been issued for komrad, and it can't have expired. A request that fails any of those checks gets a 401.
 
-The listener then checks that the person holds a grant on this engine. A request without one gets a 403. A request that passes carries the person's identity into the handler and the log.
+Next the listener looks for that person's grant on this engine, and answers 403 if there isn't one. Once a request passes, the person's identity goes with it into the handler and into the log.
 
 ## Access grants
 
-<Command path="engine grant" /> gives a person access by their email address, and <Command path="engine revoke" />
-removes it. The first time a granted person signs in with a verified email, the engine records the permanent id their
-provider uses for that account, and matches on that id from then on.
+<Command path="engine grant" /> gives a person access by email address, and <Command path="engine revoke" /> takes it
+away. An email address can move to a different account, so the first time a granted person signs in with a verified
+email, the engine records the permanent id their provider uses for that account and matches on that id afterwards.
 
-Access is all or nothing. A granted person can do everything the panel does, including opening a shell on the machine as the account agents run as. Grant access only to people you would give a login on the machine.
+A grant gives full access. A granted person can do everything the panel does, including open a shell on the machine as the account the agents run as, so grant access only to someone you would trust with a login on the machine.
 
-The engine caches each grant for one minute. A revoke takes effect within a minute, including on open terminal sessions. If the engine can't reach the database to check a grant, it refuses the request.
+The engine caches each grant for a minute, so a revoke takes effect within a minute, open terminal sessions included. If the engine can't reach the database to check a grant, it refuses the request.
 
-Both commands connect as the database owner, so on our engine they run as root. [Runbooks](../runbooks/#granting-and-revoking-access) shows the commands.
+Both commands connect as the database owner, which on komrad's engine means running them as root. [Runbooks](../runbooks/#granting-and-revoking-access) has the commands.
 
 ## Registering komrad with the provider
 
-The engine's owner registers komrad with their identity provider once, as a desktop app, with `http://127.0.0.1:8085` as the redirect address. The provider issues a client id. The engine's config names the provider and that client id.
+The engine's owner registers komrad with their identity provider once, as a desktop app with `http://127.0.0.1:8085` as its redirect address. The provider issues a client id, and the engine's config names the provider and that id.
 
-Google also issues a client secret. Every copy of komrad carries it, so it protects nothing, but Google requires it, so it goes in the config too. On Google, publish the app or make it internal to your Workspace. An app left in testing mode makes everyone sign in again every week.
+Google also issues a client secret. The secret can't stay secret, since every copy of komrad carries it, but Google requires one, so it goes in the config as well. Publish the app on Google, or make it internal to your Workspace. If you leave it in testing mode, Google makes everyone sign in again every week.
 
 ## Server listeners
 
-The server listens on two loopback addresses. Neither is reachable from the network directly.
+The server listens on two loopback addresses, which only Caddy and processes on the machine can reach.
 
-The public listener receives people's requests from Caddy and checks each one as described above. It serves the API and one public page that tells a panel which identity provider to use. It doesn't serve komrad's MCP endpoint, and it ignores the headers that identify an agent, so a person can't act as an agent.
+The public listener takes people's requests from Caddy and runs the checks above on each one. It serves the API, plus one public page that tells a panel which identity provider to use. Komrad's MCP endpoint isn't on it, and it ignores the headers that identify an agent, so a person can't pose as one.
 
-The loopback listener serves the agents, their MCP tools, and the CLI in a shell on the machine. It doesn't check identity, because only processes on the machine can reach it.
+The loopback listener serves the agents' MCP tools and the CLI in a shell on the machine. It skips the identity checks, because only processes on the machine can reach it.
 
 ## Network
 
-Port 443 is open to the internet, and the token is what protects it. An owner with fixed office or VPN addresses can restrict 443 to those addresses. Port 80 is open for Let's Encrypt's certificate check, and Caddy redirects every other request on it to HTTPS. No other port is open.
+Port 443 is open to the internet, and the token check protects it. An owner whose people work from fixed office or VPN addresses can limit 443 to those. Port 80 stays open for Let's Encrypt's certificate check, and Caddy redirects every other request on it to HTTPS. Every other port is closed.
 
 ## Operator and CI access
 
-Operators reach the machine through AWS Systems Manager. It needs no open port and no keys on the machine. A session opens a shell as a user with sudo, and `sudo -u komrad -i` switches to the account agents run as. Deploys and restarts send commands through Systems Manager too, from a laptop or from GitHub Actions.
+Operators reach the machine through AWS Systems Manager, which needs no open port and no keys on the machine. A session opens a shell as a user with sudo, and `sudo -u komrad -i` switches to the account the agents run as. Deploys and restarts also go through Systems Manager, whether they start on a laptop or in GitHub Actions.
 
-Anyone whose AWS credentials can open a session or send a command to the instance has root on it. Protect those credentials accordingly.
+Anyone whose AWS credentials let them open a session or send a command to the instance has root on it. Guard those credentials the way you would guard root.

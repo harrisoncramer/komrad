@@ -1,7 +1,7 @@
 ---
 title: Running komrad
 description: The parts of a komrad engine, and what each part needs when the engine runs on its own machine.
-group: operations
+group: remote-engines
 order: 20
 ---
 
@@ -9,7 +9,7 @@ import { link } from "../../site";
 
 Komrad splits into a panel and an engine. The panel is the terminal UI you work in. The engine is the komrad server and everything it manages: the agents running in tmux, their worktrees on disk, and the Postgres database that holds every record. When you install komrad on a laptop, both halves run there and only you can reach them. [Installing komrad](../install/) covers that setup.
 
-A remote engine runs on a machine that stays on. Agents keep working after you close your laptop, and other people can point their own panels at the same engine. This guide describes the parts a remote engine needs without assuming a cloud provider. [Our engine](../our-engine/) describes how we run ours on AWS.
+A remote engine runs on a machine that stays on. Agents keep working after you close your laptop, and other people can point their own panels at the same engine. This guide describes the parts a remote engine needs without assuming a cloud provider. [Komrad's engine](../komrads-engine/) describes how komrad runs its own on AWS.
 
 ## Parts of a remote engine
 
@@ -34,9 +34,9 @@ However, restarting komrad is even easier than that. Since the agents belong to 
 
 Every request to a remote engine has to say who sent it. Komrad keeps no passwords. People sign in through an OpenID Connect provider, Google or Okta for example, and the engine checks the token from that sign-in against the access grants its owner has given out. A grant gives full access. Anyone who holds one can do anything on the engine, including open a shell on the host as the account the agents run as. [Access](../engine-access/) covers sign-in and grants in detail.
 
-The komrad server listens only on loopback, and the proxy in front of it is the only thing exposed to the network. We use Caddy because it gets and renews its own certificate, but any proxy that speaks HTTP/2 will work.
+The komrad server listens only on loopback, and the proxy in front of it is the only thing exposed to the network. Komrad's engine uses Caddy because it gets and renews its own certificate, but any proxy that speaks HTTP/2 will work.
 
-Operators need a shell on the host for upgrades and debugging. Give them one that doesn't need an open port on the internet. On AWS we use Systems Manager sessions for this.
+Operators need a shell on the host for upgrades and debugging. Give them one that doesn't need an open port on the internet. On AWS, komrad's engine uses Systems Manager sessions for this.
 
 ## Forge credentials
 

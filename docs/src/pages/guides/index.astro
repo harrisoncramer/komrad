@@ -1,14 +1,18 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import Sidebar from "../../components/Sidebar.astro";
 import { GUIDE_GROUPS, getGuides } from "../../guides";
 import { link } from "../../site";
+import { guideSidebar } from "../../sidebar";
 
 const guides = await getGuides();
+const sidebar = await guideSidebar("", []);
 
 const numbered = guides.map((guide, index) => ({ guide, number: String(index + 1).padStart(2, "0") }));
 ---
 
-<Layout title="Guides" description="Hand-written guides to installing, using and running komrad.">
+<Layout title="Guides" description="Hand-written guides to installing, using and running komrad." sidebar>
+  <Sidebar slot="sidebar" label="Guides" groups={sidebar} />
   <header class="intro">
     <h1>Guides</h1>
     <p>These guides explain how to install and run komrad, on your own machine or on a remote instance.</p>

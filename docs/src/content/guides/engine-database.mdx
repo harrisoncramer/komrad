@@ -1,14 +1,14 @@
 ---
 title: The database
-description: The Postgres an engine uses, the logins komrad connects with, and how our engine gets its credentials.
-group: operations
+description: The Postgres an engine uses, the logins komrad connects with, and how komrad's engine gets its credentials.
+group: remote-engines
 order: 24
 ---
 
 import Command from "../../components/Command.astro";
 import { link } from "../../site";
 
-Postgres holds every record an engine keeps: workflows, tasks, agents, mail, reviews, transcripts, and who may use the engine. Komrad connects to it with three logins, and each login can do only what its job requires.
+Postgres holds every record an engine keeps, including the list of people who may use it. Komrad connects with three different logins, and each one can do only what its job needs.
 
 ## Database logins
 
@@ -19,18 +19,18 @@ Postgres holds every record an engine keeps: workflows, tasks, agents, mail, rev
   />
 </figure>
 
-The owner login owns the schema. <Command path="migrate" />, <Command path="engine ensure" /> and the grant commands use it. The server never does.
+The owner login owns the schema. <Command path="migrate" />, <Command path="engine ensure" /> and the grant commands connect as the owner, and the server never does.
 
-The engine login is the one the server runs as. <Command path="engine ensure" /> creates it for each engine. Postgres row-level security limits it to that engine's rows, so several engines can share one database without seeing each other's data.
+The server runs as the engine login, which <Command path="engine ensure" /> creates for each engine. Postgres row-level security limits that login to its own engine's rows, so several engines can share one database without seeing each other's data.
 
-The reader login sees the same rows as the engine login, but it can't write. Agents' database queries through komrad's MCP tools run as the reader, so they can't change any data.
+The reader login sees the same rows as the engine login and can't write any of them. When an agent queries the database through komrad's MCP tools, the query runs as the reader.
 
-## Credentials on our engine
+## Credentials on komrad's engine
 
-RDS creates the owner login and keeps its password in Secrets Manager. The machine never stores that password on disk. It reads the secret each time it needs the owner.
+RDS creates the owner login and stores its password in Secrets Manager. The machine reads the secret each time it needs the owner, and it never writes the password to disk.
 
-The credentials unit runs at boot, on every deploy, and every hour. Each run migrates the database, makes sure the engine login exists, and writes the server's connection string to a file only root can read. Running on every deploy applies new migrations before the new server starts. Running hourly picks up the owner's new password after RDS rotates it.
+The credentials unit runs at boot, during every deploy and once an hour. Each run migrates the database, makes sure the engine login exists, and writes the server's connection string to a file only root can read. Because the unit runs during deploys, new migrations land before the new server starts. The hourly run picks up the owner's new password after RDS rotates it.
 
 ## Backups
 
-RDS keeps automatic backups for seven days. Deletion protection is on, so Terraform can't destroy the database until you turn it off. [Runbooks](../runbooks/#tearing-it-down) covers that.
+RDS keeps automatic backups for seven days. Deletion protection is on, and Terraform refuses to destroy the database until you turn it off, as [runbooks](../runbooks/#tearing-it-down) shows.

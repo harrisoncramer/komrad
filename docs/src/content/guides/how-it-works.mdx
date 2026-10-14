@@ -8,11 +8,9 @@ order: 30
 import Command from "../../components/Command.astro";
 import { link } from "../../site";
 
-This guide gives a general overview of how komrad's different pieces fit together.
+Komrad has two programs, a server and a panel. The server runs in the background. It owns the database and the API, and it watches every agent. The panel is the terminal UI you work in, and it keeps no state of its own. The server, together with its database, its tmux server and the agents running there, makes up an engine.
 
-## The Different Services
-
-Komrad is a server and a panel. The server runs in the background. It owns the database, answers the API, and watches every agent. The server, with its database, tmux and agents, makes up an engine.
+## The server and the panel
 
 <figure>
   <img
@@ -21,19 +19,15 @@ Komrad is a server and a panel. The server runs in the background. It owns the d
   />
 </figure>
 
-The panel is just the UI.
+Each agent is a real terminal running Claude or Codex. Komrad runs the agents in a tmux server of its own, so they never mix with your own tmux windows. Opening the panel attaches your terminal to komrad's session, and closing the panel detaches that terminal without stopping anything else.
 
-Each agent is a real terminal running Claude or Codex. Komrad runs them in a tmux server of its own, so they never get mixed up with your own windows. When you open the panel, your terminal attaches to komrad's session. Closing the panel detaches that terminal and nothing else.
+The panel, a script calling <Command path="rpc" />, and an agent calling an MCP tool all go through the same API, so they all get the same rules and the same checks. Komrad builds its CLI commands, its MCP tools and the [API reference](../../api/) from that one API definition. [From proto to every surface](../architecture-api/) covers how.
 
-Everything goes through one API. The panel uses it. A script using <Command path="rpc" /> uses it. An agent calling an MCP tool uses it. All of them get the same rules and the same checks.
+## State
 
-The commands, the tools, and the [API reference](../../api/) are all built from this single API definition.
+Komrad keeps all of its state in Postgres, including every workflow, task, agent, piece of mail and review. State that lives somewhere else, like a pull request's status or whether an agent's CLI is idle, reaches Postgres through sync loops. Each loop checks an outside system on a timer and writes what it finds to the database.
 
-## Managing State
-
-All of komrad's state is kept in Postgres: a workflow, a task, an agent, a piece of mail, a review, and so forth. For external state, it uses a system of reconcilation, where "loops" find state from outside, such as pull request information or the idle state of a CLI, and sync that into Postgres.
-
-Those changes are periodically _pushed_ to the client via a database triggers, a `LISTEN/NOTIFY` pattern, and a streaming ConnectRPC endpoint.
+The server pushes each change to the panel once it commits. A database trigger announces the write through `LISTEN/NOTIFY`, and the server streams the new rows to the panel over a ConnectRPC stream.
 
 <figure>
   <img
@@ -42,12 +36,8 @@ Those changes are periodically _pushed_ to the client via a database triggers, a
   />
 </figure>
 
-When the database detects a write on any table, it fires an event with the record's ID to a simple listener service.
+When a write commits, its trigger sends the table and the row's ID to a listener in the server. A reconciler reads those rows back, works out what each client hasn't seen yet, including rows that were deleted, and streams the difference to the panel.
 
-In the server, those events arrive in a reconciler that is responsible for determining active state (including tombstones) for the application, and which then streams that information back to the client.
+The panel never updates its own state from an API response. When it makes a call that changes something, it waits for the change to come back through the stream after the database commits it, and redraws from there.
 
-This pattern is always enforced. For instance, when the UI makes a POST call to the backend, it doesn't manually update it's own state with the response. Rather, the reconciler pattern streams the new state back through the UI's rendering pattern once the database has committed the changes.
-
-This approach is designed to fit into BubbleTea's ELM architecture, and make parallelization of editors easier. Because state only ever flows through the system in one direction, diagnosing and fixing rendering issues is straightforward.
-
-It also keeps the application lightweight. Komrad uses far less memory, in fact, than the coding CLIs it is orchestrating, making it a great, performant alternative to other agent frameworks.
+State reaches the screen by that one path, which fits Bubble Tea's Elm architecture and keeps several panels on one engine in step. It also makes rendering bugs easier to track down. The server stays small as a result, and it uses far less memory than the coding CLIs it runs.

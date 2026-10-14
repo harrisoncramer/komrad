@@ -8,4 +8,4 @@ Set `domain_name` to the engine's domain, and add an A record for it at your DNS
 
 GitHub Actions assumes the `<name>-ci` role with a token GitHub signs for each run. The role trusts only this repository's branches and its `v` tags. It can read the state, send the instance a command through Systems Manager, start and stop it, and build an image. It can't log in.
 
-[Our engine](https://komrad.dev/latest/guides/our-engine/) and the guides after it cover the machine, the database, access, deploys and the day-to-day runbooks.
+[Komrad's engine](https://komrad.dev/latest/guides/komrads-engine/) and the guides after it cover the machine, the database, access, deploys and the day-to-day runbooks.

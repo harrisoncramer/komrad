@@ -24,7 +24,7 @@ Komrad has three kinds of agents.
 
 There is always one _orchestrator_ agent per [workflow](../workflows/#the-orchestrator). The orchestrator is rendered above the workflow's tasks, and coordinates the work across them.
 
-Every task has exactly one _writer_. The writer does the task's work: it makes edits, commits, and opens the pull request. It is the only agent that changes the task's checkout, and it stays with the task for the task's whole life. You can [restart](../tasks/#restarting-the-writer) it on a new conversation whenever you want, for instance if you want to switch the model working on the task from Claude to Codex.
+Every task has exactly one _writer_. The writer does the task's work: it makes edits, commits, and opens the pull request. It is the only agent that changes the task's checkout, and it stays with the task for the task's whole life. You can [restart](../tasks/#managing-task-agents) it on a new conversation whenever you want, for instance if you want to switch the model working on the task from Claude to Codex.
 
 Finally, _reviewer_ agents read the writer's change and comment on it. Reviewers work in the task's checkout but make no changes of their own.
 

@@ -7,5 +7,3 @@ Every published version of the docs lives under its own prefix in the bucket, `l
 Apply the engine stack first, since this one uses its GitHub trust. Copy `backend.hcl.example` to `backend.hcl`, run `mise run infra:docs:init`, then `mise run infra:docs:apply`. Applying needs a Cloudflare API token in `CLOUDFLARE_API_TOKEN` that can read the four zones and edit their DNS and redirect rules.
 
 `mise run docs:deploy <version>` builds and publishes one version.
-
-[The docs site](https://komrad.dev/latest/guides/docs-site/) covers the rest.

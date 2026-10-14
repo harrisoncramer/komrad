@@ -4,16 +4,11 @@ direction: down
 
 tag: Version tag {class: leaf}
 
-
-release: release.yml {
+actions: GitHub Actions {
   class: group
   checks: Checks {class: leaf}
-  publish: GitHub release {class: leaf}
-  docs: Versioned docs {class: leaf}
   deploy: Engine deploy {class: leaf}
 
-  checks -> publish
-  checks -> docs
   checks -> deploy
 }
 
@@ -26,7 +21,7 @@ host: Engine host {
   agent -> serve: stop, migrate, start
 }
 
-tag -> release.checks
-release.deploy -> bucket: binary
-release.deploy -> host.agent: SSM command
+tag -> actions.checks
+actions.deploy -> bucket: binary
+actions.deploy -> host.agent: SSM command
 host.agent -> bucket: download

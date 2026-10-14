@@ -1,22 +1,22 @@
 ---
 title: Standing up an engine
-description: Build our AWS engine from an empty account, in order.
-group: operations
+description: Build komrad's AWS engine from an empty account, in order.
+group: remote-engines
 order: 22
 ---
 
 import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 
-This guide builds [our engine](../our-engine/) from an empty AWS account. Run each step from a komrad checkout. The mise tasks use the AWS profile named komrad unless your environment already has credentials.
+This guide builds [komrad's engine](../komrads-engine/) from an empty AWS account, with each step in the order the later ones depend on. Run every command from a komrad checkout. The mise tasks use the AWS profile named komrad unless your environment already has credentials.
 
 ## Prerequisites
 
 - An AWS account with a named profile, and an S3 bucket for Terraform's state.
-- The Session Manager plugin for the AWS CLI. The machine has no SSH, so this is how you get a shell.
-- A domain for the engine at a DNS host you control, such as `komrad.example.com`.
+- The Session Manager plugin for the AWS CLI. The machine runs no SSH server, and you need the plugin to get a shell.
+- A domain for the engine, for example `komrad.example.com`, at a DNS host you control.
 - Komrad registered with your identity provider as a desktop app. [Access](../engine-access/#registering-komrad-with-the-provider) covers the registration.
-- A GitHub App for the engine, with its private key stored in Secrets Manager as `komrad/github-app`. [Forge credentials](../forge-credentials/#github) covers the App. Store the key before the first boot, so the machine finds it.
+- A GitHub App for the engine, with its private key stored in Secrets Manager as `komrad/github-app`. [Forge credentials](../forge-credentials/#github) covers the App. The machine reads the key at boot, so store it before the first one.
 
 ## Building the image
 
@@ -24,11 +24,11 @@ This guide builds [our engine](../our-engine/) from an empty AWS account. Run ea
 mise run packer:build
 ```
 
-The build prints the image's id when it finishes. [The machine](../engine-machine/) describes what the image contains.
+The build prints the image's id when it finishes, and Terraform needs that id in the next step. [The machine](../engine-machine/) describes what the image contains.
 
 ## Applying the infrastructure
 
-Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, region, the image id and the engine's `domain_name`. The `github_*` values and `state_bucket` let GitHub Actions deploy. Then run:
+Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id and the engine's `domain_name`. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
 
 ```sh
 mise run infra:engine:init
@@ -37,9 +37,9 @@ mise run infra:engine:apply
 
 The apply prints the instance's address as `instance_public_ip`, its id as `instance_id`, and the CI role as `ci_role_arn`.
 
-Add an A record for the domain at your DNS host, pointing at `instance_public_ip`. Terraform doesn't manage the record, so the engine works with any DNS host. Caddy requests its certificate once the record resolves.
+At your DNS host, add an A record for the domain that points at `instance_public_ip`. Terraform leaves the record to you, so you can keep DNS wherever it already lives. Caddy requests its certificate once the record resolves.
 
-On first boot, the machine mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. Open a session and check that no unit failed:
+On first boot, the machine mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. Open a session and check that no unit failed. On a healthy machine the second command prints nothing:
 
 ```sh
 aws ssm start-session --target i-0123456789abcdef0
@@ -48,18 +48,18 @@ systemctl list-units --state=failed --no-legend
 
 ## Configuring GitHub Actions
 
-Set these variables on the repository so the release and schedule workflows can reach the engine:
+The release and image workflows reach the engine through these repository variables:
 
 - `AWS_CI_ROLE`, from the `ci_role_arn` output
 - `AWS_REGION`
 - `TF_STATE_BUCKET`
 - `TF_STATE_KEY`, matching the key in your backend file
 
-If you changed the stack's `name`, set `ENGINE_NAME` to match. Workflows skip their engine steps until `AWS_CI_ROLE` is set.
+If you changed the stack's `name`, set `ENGINE_NAME` to match. The workflows skip their engine steps until `AWS_CI_ROLE` is set.
 
 ## Configuring the engine
 
-In a session on the machine, switch to the komrad account:
+In a session on the machine, switch to the komrad account, which owns komrad's config:
 
 ```sh
 sudo -u komrad -i
@@ -67,13 +67,13 @@ sudo -u komrad -i
 
 Edit `~/.config/komrad/config.toml`:
 
-- Name your identity provider and komrad's client id. For Google, add the client secret too.
+- Name your identity provider and komrad's client id. On Google, add the client secret too.
 - Add the <Setting path="github_app" label="[github_app]" /> table with the App's id, its installation id, and `/run/komrad/github.pem` as the key's path.
 - Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each agent CLI, so new agents don't stop to ask whether to trust their worktree.
 
-Check that <Command path="github token" /> prints a token, then restart the server to load the config, as [runbooks](../runbooks/#restarting) shows.
+Check that <Command path="github token" /> prints a token. Then restart the server so it loads the new config, as [runbooks](../runbooks/#restarting) shows.
 
-As the komrad account, start each agent CLI once and sign it in, then clone the repositories agents will work in. The logins and clones live on the data volume and survive a rebuild.
+Still as the komrad account, start each agent CLI once and sign it in, and clone the repositories the agents will work in. The logins and the clones live on the data volume, so they survive when the instance is replaced.
 
 ## Granting your own access
 
@@ -99,6 +99,6 @@ komrad open --engine remote
 
 ## Connecting the forge
 
-From your laptop, run <Command path="forge connect" args="github.com --method github-app --engine remote" />. The server mints its tokens from the App's key, so there is no token to paste. To connect GitLab as well, see [forge credentials](../forge-credentials/#gitlab).
+From your laptop, run <Command path="forge connect" args="github.com --method github-app --engine remote" />. The server mints its own tokens from the App's key, so you have nothing to paste. To connect GitLab too, follow [forge credentials](../forge-credentials/#gitlab).
 
-[Runbooks](../runbooks/) covers running the engine from here, through [tearing it down](../runbooks/#tearing-it-down).
+[Runbooks](../runbooks/) covers running the engine from here on, up to [tearing it down](../runbooks/#tearing-it-down).

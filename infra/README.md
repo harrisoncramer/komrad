@@ -6,9 +6,8 @@ They share an AWS account, one state bucket and one GitHub trust, so apply the e
 
 Nothing here is run with `terraform` directly. Each stack has a mise task group, such as `mise run infra:engine:plan`, that points Terraform at the right directory and backend.
 
-The operations guides describe both stacks:
+The remote engine guides describe the engine stack:
 
 - [Running komrad](https://komrad.dev/latest/guides/running-komrad/) names what any engine needs.
-- [Our engine](https://komrad.dev/latest/guides/our-engine/) maps those pieces onto this stack.
+- [Komrad's engine](https://komrad.dev/latest/guides/komrads-engine/) maps those pieces onto this stack.
 - [Standing up an engine](https://komrad.dev/latest/guides/standing-up-an-engine/) builds it from nothing.
-- [The docs site](https://komrad.dev/latest/guides/docs-site/) covers `docs/`.

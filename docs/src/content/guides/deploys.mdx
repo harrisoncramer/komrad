@@ -1,49 +1,39 @@
 ---
-title: Releases and deploys
-description: How a merge becomes a release, how a release reaches the engine, and when the machine is replaced.
-group: operations
+title: Deploys
+description: How a new komrad build reaches the engine, and when the machine is replaced.
+group: remote-engines
 order: 27
 ---
 
 import { link } from "../../site";
 
-A merge to main publishes a rolling build and doesn't touch the engine. A version tag publishes a release, and a release deploys to the engine automatically.
+Every release deploys itself to the engine. Pushing a version tag starts `release.yml`, which runs the full checks against the tagged commit and then deploys it through `engine.yml`.
 
 <figure>
   <img
     src={link("/diagrams/deploys.png")}
-    alt="A version tag runs release.yml. Its checks run first, then it publishes a GitHub release and that version's docs, and runs the engine deploy. The engine deploy uploads the binary to the state bucket and sends an SSM command to the SSM agent on the engine host. The SSM agent downloads the binary, then stops the server, migrates the database and starts the server."
+    alt="A version tag starts GitHub Actions, which runs the checks and then the engine deploy. The engine deploy uploads the binary to the state bucket and sends an SSM command to the SSM agent on the engine host. The SSM agent downloads the binary, then stops the server, migrates the database and starts the server."
   />
 </figure>
 
-## Merges to main
+## Deploying a build
 
-When CI passes on main, `main-release.yml` publishes the binaries as a prerelease tagged `tip`. Each merge replaces it, so its download address stays the same. If the merge changed the docs, `docs-deploy.yml` publishes them as `latest`. The engine keeps running its current release.
+`mise run remote:deploy` deploys your checkout's build to the engine, and `engine.yml` runs the same task in GitHub Actions.
 
-## Releases
+The task builds komrad for the engine, uploads the binary to the Terraform state bucket and sends the instance a command through Systems Manager. On the instance, the command downloads the binary, stops the server, runs the credentials unit and starts the server again. The credentials unit runs the migrations, so they're in place before the new server starts. [The database](../engine-database/#credentials-on-komrads-engine) covers the credentials unit.
 
-`mise run release:cut` tags the current commit with a version, such as `v0.4.0`, and pushes the tag. A person has to run it, because a tag pushed by CI doesn't start other workflows. Komrad doesn't keep backward compatibility, so releases stay on `v0.x` and each release bumps the minor version.
+Agents keep running through a deploy, because stopping the server leaves tmux alone. [The machine](../engine-machine/#agents-during-server-restarts) explains how.
 
-The tag starts `release.yml`. It runs the full checks against the tagged commit, publishes a GitHub release with a changelog, publishes the docs for that version, and deploys the release to the engine. A tag push starts the workflow only once. If the workflow fails, rerun it on the same tag with `gh workflow run release.yml --ref v0.4.0` instead of moving the tag.
+If the engine is stopped when a deploy runs, the deploy skips, since Systems Manager can't reach a stopped instance. The engine picks up those changes from the next deploy after it starts.
 
-## Deploys
+A panel connects only to an engine built from the same commit, and each deploy stamps the binary with its commit. If your checkout has uncommitted changes, the deploy stamps a `-dirty` version and also builds a panel to match at `dist/komrad-panel`.
 
-`mise run remote:deploy` deploys the checkout's build to the engine. The release workflow runs the same task through `engine.yml`.
-
-The task builds komrad for the engine and uploads it to the Terraform state bucket. It then sends the instance a command through Systems Manager. The command downloads the binary, stops the server, runs the credentials unit, and starts the server. The credentials unit migrates the database, so new migrations apply before the new server starts. [The database](../engine-database/#credentials-on-our-engine) covers the credentials unit.
-
-Agents keep running through a deploy, because stopping the server doesn't stop tmux. [The machine](../engine-machine/#agents-during-server-restarts) explains why.
-
-A deploy skips when the engine is stopped, because Systems Manager can't reach a stopped instance. The next deploy after the engine starts includes the same changes.
-
-A panel connects only to an engine built from the same commit. A deploy stamps the binary with its commit. A deploy from a checkout with uncommitted changes stamps a `-dirty` version instead, and also builds a matching panel at `dist/komrad-panel`.
-
-To deploy any branch or tag, dispatch `engine.yml` from the Actions tab and choose the ref. It runs the full checks first and needs no AWS credentials on your laptop. [Runbooks](../runbooks/#deploying-or-rolling-back) uses it for rollbacks.
+To deploy a branch or tag without AWS credentials on your laptop, dispatch `engine.yml` from the Actions tab and pick the ref. It runs the full checks before it deploys. [Runbooks](../runbooks/#deploying-or-rolling-back) uses it for rollbacks.
 
 ## Image updates
 
-The image changes when a tool, a boot step or a system package needs updating. Dispatching `image.yml` builds an image and records its id in Systems Manager's parameter store. It doesn't apply the image.
+Rebuild the image when a tool or a boot step changes, or when its system packages need updates. Dispatching `image.yml` builds an image and records its id in Systems Manager's parameter store, and leaves the running instance alone.
 
-Applying an image replaces the instance, which stops every running agent. `mise run remote:reimage` reads the recorded image id, lists the agents that will stop, and asks before continuing. It then sets the image in your `terraform.tfvars` and applies. The data volume moves to the new instance and the database doesn't change, so the agents can be resumed.
+Applying an image replaces the instance, and that stops every running agent. `mise run remote:reimage` reads the recorded image id, lists the agents that will stop and asks before it goes on. It then writes the image id into your `terraform.tfvars` and applies. The data volume moves to the new instance and the database stays as it was, so you can resume the agents afterwards.
 
-The image's komrad binary is the version that was current when the image was built. Deploy after reimaging if the engine should run a newer one.
+The image carries whichever komrad binary was current when it was built. If the engine should run something newer, deploy again after the reimage.
