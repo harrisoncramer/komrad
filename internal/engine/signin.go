@@ -96,6 +96,22 @@ func (k *SignInKeeper) SaveSignIn(url string, kept signIn) error {
 	return k.writeFile(url, encoded)
 }
 
+// DeleteSignIn drops the sign-in this machine holds for the engine at url, from the keychain and
+// from the file, and succeeds when it held none.
+func (k *SignInKeeper) DeleteSignIn(url string) error {
+	if _, err := keyring.Get(keyringService, url); err == nil {
+		if err := keyring.Delete(keyringService, url); err != nil {
+			return fmt.Errorf("failed to drop the sign-in for %s from the keychain: %w", url, err)
+		}
+	}
+
+	if err := os.Remove(k.getPath(url)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to drop the sign-in for %s: %w", url, err)
+	}
+
+	return nil
+}
+
 func (k *SignInKeeper) readFile(url string) (string, error) {
 	encoded, err := os.ReadFile(k.getPath(url))
 	if err != nil {

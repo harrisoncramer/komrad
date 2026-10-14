@@ -251,6 +251,53 @@ func TestSignInKeeperFallsBackToAFile(t *testing.T) {
 	assert.ErrorIs(t, err, errNotSignedIn)
 }
 
+// TestSignInKeeperDeletesASignIn covers `komrad logout` wherever the sign-in was kept.
+func TestSignInKeeperDeletesASignIn(t *testing.T) {
+	t.Cleanup(keyring.MockInit)
+
+	type deleteSignInCase struct {
+		name        string
+		hasKeychain bool
+		isSignedIn  bool
+	}
+
+	tests := []deleteSignInCase{
+		{
+			name:        "a machine that never signed in",
+			hasKeychain: true,
+		},
+		{
+			name:        "a sign-in kept in the keychain",
+			hasKeychain: true,
+			isSignedIn:  true,
+		},
+		{
+			name:       "a sign-in kept in a file",
+			isSignedIn: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.hasKeychain {
+				keyring.MockInit()
+			} else {
+				keyring.MockInitWithError(keyring.ErrUnsupportedPlatform)
+			}
+
+			keeper := NewSignInKeeper(t.TempDir())
+			if tt.isSignedIn {
+				require.NoError(t, keeper.SaveSignIn("https://engine.example", signIn{IDToken: "token"}))
+			}
+
+			require.NoError(t, keeper.DeleteSignIn("https://engine.example"))
+
+			_, err := keeper.GetSignIn("https://engine.example")
+			assert.ErrorIs(t, err, errNotSignedIn)
+		})
+	}
+}
+
 // TestBearerTransportSignsEachRequest covers the token reaching the engine without touching the
 // caller's own request, which a retry would send again.
 func TestBearerTransportSignsEachRequest(t *testing.T) {
