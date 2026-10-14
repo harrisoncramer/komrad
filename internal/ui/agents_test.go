@@ -2597,15 +2597,11 @@ func openAgentRecord(t *testing.T) *panelHarness {
 	return harness
 }
 
-func openWorktreeRecord(t *testing.T, params panelHarnessParams, recorded ...proto.Message) *panelHarness {
+func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
-	if len(recorded) == 0 {
-		recorded = buildRecordedTask()
-	}
 	harness := newPanelHarness(t, params)
 	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-	harness.watch(buildSnapshot(recorded...))
 	harness.press("pick:record")
 
 	return harness
