@@ -2,6 +2,7 @@ package engine_test
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -25,9 +26,17 @@ import (
 // drops.
 const forwardArg = "stand-in-forward"
 
+// silentForwardArg stands in for an ssh whose far side has gone: it answers one connection and
+// then keeps running while every later one hangs.
+const silentForwardArg = "stand-in-silent-forward"
+
 // TestMain runs the stand-in forward when asked to, and the tests otherwise.
 func TestMain(m *testing.M) {
-	if len(os.Args) > 2 && os.Args[1] == forwardArg {
+	if len(os.Args) > 2 && (os.Args[1] == forwardArg || os.Args[1] == silentForwardArg) {
+		if len(os.Args) > 3 {
+			recordSpawn(os.Args[3])
+		}
+
 		listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", os.Args[2]))
 		if err != nil {
 			os.Exit(1)
@@ -40,6 +49,17 @@ func TestMain(m *testing.M) {
 
 		_, _ = connection.Write([]byte("HTTP/1.0 404 Not Found\r\n\r\n"))
 		_ = connection.Close()
+
+		if os.Args[1] == silentForwardArg {
+			for {
+				connection, err := listener.Accept()
+				if err != nil {
+					os.Exit(1)
+				}
+
+				go func() { _, _ = io.Copy(io.Discard, connection) }()
+			}
+		}
 
 		os.Exit(0)
 	}
@@ -74,29 +94,55 @@ func isReachable(address string) bool {
 	return true
 }
 
-// TestDialRunsTheForwardAgainWhenItDrops covers an ssh that exits under the panel.
+// TestDialRunsTheForwardAgainWhenItDrops covers an ssh that exits under the panel, and one that
+// keeps running after the engine behind it has gone.
 func TestDialRunsTheForwardAgainWhenItDrops(t *testing.T) {
 	t.Parallel()
 
-	remote, local := droppingEngine(t)
+	tests := []struct {
+		name    string
+		standIn string
+	}{
+		{
+			name:    "a forward that stops answering",
+			standIn: silentForwardArg,
+		},
+		{
+			name:    "a forward that exits",
+			standIn: forwardArg,
+		},
+	}
 
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	tunnel, err := remote.Dial(ctx, "127.0.0.1:8787", 5*time.Second)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = tunnel.Close() })
+			spawns := filepath.Join(t.TempDir(), "spawns")
+			remote := engine.Remote{
+				Destination: "komrad@" + t.Name(),
+				Forward:     []string{os.Args[0], tt.standIn, engine.LocalPortPlaceholder, spawns},
+			}
+			local := net.JoinHostPort("127.0.0.1", strconv.Itoa(remote.TunnelPort("127.0.0.1:8787")))
 
-	assert.Equal(t, local, tunnel.Local)
+			ctx, cancel := context.WithCancel(t.Context())
+			t.Cleanup(cancel)
 
-	assert.Eventually(t, func() bool { return isReachable(local) }, 5*time.Second, 50*time.Millisecond,
-		"the forward Dial waited on took its one connection and went, so a second one is up")
+			tunnel, err := remote.Dial(ctx, "127.0.0.1:8787", 5*time.Second)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = tunnel.Close() })
 
-	require.NoError(t, tunnel.Close())
+			assert.Equal(t, local, tunnel.Local)
 
-	assert.Eventually(t, func() bool { return !isReachable(local) }, 5*time.Second, 50*time.Millisecond)
-	assert.Never(t, func() bool { return isReachable(local) }, 1500*time.Millisecond, 100*time.Millisecond,
-		"a closed tunnel runs nothing again")
+			assert.Eventually(t, func() bool { return countLines(spawns) >= 2 }, 15*time.Second, 100*time.Millisecond,
+				"the forward Dial waited on stopped carrying the engine, so a second one is up")
+
+			require.NoError(t, tunnel.Close())
+
+			assert.Eventually(t, func() bool { return !isReachable(local) }, 5*time.Second, 50*time.Millisecond)
+			assert.Never(t, func() bool { return isReachable(local) }, 1500*time.Millisecond, 100*time.Millisecond,
+				"a closed tunnel runs nothing again")
+		})
+	}
 }
 
 // TestDialStopsRedialingWhenThePanelGoes covers the context the panel dialled with ending the
@@ -268,6 +314,16 @@ func TestDialGoesBackToBorrowingWhenATakeoverCannotBind(t *testing.T) {
 
 	assert.Equal(t, settled, countLines(spawns), "the port answers again, so nothing more is run")
 	assert.LessOrEqual(t, settled, 3, "a forward that cannot bind is not run every second")
+}
+
+func recordSpawn(path string) {
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	_, _ = file.WriteString("x\n")
+	_ = file.Close()
 }
 
 func countLines(path string) int {
