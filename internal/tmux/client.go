@@ -518,7 +518,7 @@ func (c *Client) SetPanelURL(url string) {
 	c.SetGlobal(panelURLOption, url)
 }
 
-// GetPanelURL reads that url back, empty when the panel reaches no engine at a url.
+// GetPanelURL reads the url of the engine the panel reaches, empty when it reaches none at a url.
 func (c *Client) GetPanelURL() string {
 	return c.showGlobal(panelURLOption)
 }

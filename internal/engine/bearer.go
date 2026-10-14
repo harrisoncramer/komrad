@@ -40,12 +40,12 @@ func NewTokenRefresher(keeper *SignInKeeper, url string) *TokenRefresher {
 
 // TokenRefresher hands out a live ID token for one engine.
 type TokenRefresher struct {
-	keeper  *SignInKeeper
-	url     string
-	client  *http.Client
-	mu      sync.Mutex
-	signIn  *signIn
-	refused string
+	keeper              *SignInKeeper
+	url                 string
+	client              *http.Client
+	mu                  sync.Mutex
+	signIn              *signIn
+	refusedRefreshToken string
 }
 
 // GetToken is an ID token for the engine that lasts at least refreshAhead longer, renewing the
@@ -64,13 +64,13 @@ func (r *TokenRefresher) GetToken(ctx context.Context) (string, error) {
 	}
 
 	if !isFresh(kept) {
-		if kept.RefreshToken != "" && kept.RefreshToken == r.refused {
-			return "", errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url)
+		if kept.RefreshToken != "" && kept.RefreshToken == r.refusedRefreshToken {
+			return "", r.explainRefusal()
 		}
 
 		renewed, err := r.renew(ctx, *kept)
 		if errors.Is(err, errSignInLapsed) {
-			r.refused = kept.RefreshToken
+			r.refusedRefreshToken = kept.RefreshToken
 		}
 
 		if err != nil {
@@ -145,7 +145,11 @@ func (r *TokenRefresher) explainRenewal(issuer string, err error) error {
 		return fmt.Errorf("%w: %w", ErrProviderUnreachable.Saying("failed to reach the identity provider at %s to renew the sign-in to %s", issuer, r.url), err)
 	}
 
-	return fmt.Errorf("%w: %w", errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url), err)
+	return fmt.Errorf("%w: %w", r.explainRefusal(), err)
+}
+
+func (r *TokenRefresher) explainRefusal() *fail.Error {
+	return errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url)
 }
 
 type verifiedIDToken struct {

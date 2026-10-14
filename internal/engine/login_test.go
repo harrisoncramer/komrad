@@ -108,7 +108,7 @@ func TestLogin(t *testing.T) {
 	}
 }
 
-// TestTokenRefresher covers the token each command sends, renewed only when it is near its end.
+// TestTokenRefresher covers the token each command sends, renewed only when it is near its end and never again with a refresh token the provider turned down.
 func TestTokenRefresher(t *testing.T) {
 	keyring.MockInit()
 

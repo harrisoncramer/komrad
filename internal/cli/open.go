@@ -135,7 +135,7 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 		buildPanelWindowArgs(state, state.selfPath(), detached))
 }
 
-// restartPanel starts a running panel over in its own window, so it reads the sign-in again.
+// restartPanel starts the panel for this engine over in its own window.
 func restartPanel(ctx context.Context, state *app) error {
 	if !isPanelRunning(ctx, state) {
 		return nil

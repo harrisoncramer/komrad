@@ -271,6 +271,7 @@ func TestIntegrationRestartPanel(t *testing.T) {
 		hasPanel  bool
 		panelURL  string
 		wantPanes string
+		wantSelf  bool
 	}
 
 	tests := []restartPanelCase{
@@ -288,6 +289,7 @@ func TestIntegrationRestartPanel(t *testing.T) {
 			hasPanel:  true,
 			panelURL:  "https://engine.example",
 			wantPanes: "1",
+			wantSelf:  true,
 		},
 	}
 
@@ -315,9 +317,7 @@ func TestIntegrationRestartPanel(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantPanes, hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{window_panes}"))
-			if tt.wantPanes == "1" {
-				assert.Contains(t, hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_start_command}"), state.self)
-			}
+			assert.Equal(t, tt.wantSelf, strings.Contains(hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_start_command}"), state.self))
 		})
 	}
 }
