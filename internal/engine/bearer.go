@@ -88,7 +88,7 @@ func (r *TokenRefresher) renew(ctx context.Context, kept signIn) (*signIn, error
 
 	provider, err := oidc.NewProvider(ctx, kept.Provider.Issuer)
 	if err != nil {
-		return nil, fmt.Errorf("%w at %s: %w", errProviderUnreachable, kept.Provider.Issuer, err)
+		return nil, errProviderUnreachable.Saying("failed to reach the identity provider at %s: %v", kept.Provider.Issuer, err)
 	}
 
 	config := oauth2.Config{
