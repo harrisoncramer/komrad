@@ -84,7 +84,7 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 			defer cancel()
 		}
 
-		base := state.apiBase()
+		base := state.getAPIBase()
 
 		if err := requireServer(ctx, requireServerParams{
 			Transport: state.signTransport(xhttp.NewTransport()),

@@ -23,7 +23,7 @@ second line is not the first, restart the server.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cmd.Printf("this binary: %s\n", version.Describe(version.Version(), version.Commit()))
 
-			base := state.apiBase()
+			base := state.getAPIBase()
 
 			probe := probeServer(cmd.Context(), state.signTransport(xhttp.NewTransport()), base)
 			if probe.refusal != nil {

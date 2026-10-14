@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestAPIBaseIsWhereTheEngineIsServed covers which address a command talks to.
-func TestAPIBaseIsWhereTheEngineIsServed(t *testing.T) {
+// TestGetAPIBaseIsWhereTheEngineIsServed covers which address a command talks to.
+func TestGetAPIBaseIsWhereTheEngineIsServed(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -39,7 +39,7 @@ func TestAPIBaseIsWhereTheEngineIsServed(t *testing.T) {
 				URL:  tt.url,
 			}}
 
-			assert.Equal(t, tt.want, state.apiBase())
+			assert.Equal(t, tt.want, state.getAPIBase())
 		})
 	}
 }

@@ -94,7 +94,7 @@ an engine at its url, it says so and attaches once komrad login runs.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), state.apiBase())
+			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), state.getAPIBase())
 			code, err := runConsole(ctx, runConsoleParams{
 				Dial:   dialAttach(client, args[0], state.env.Term),
 				Redial: redialFor,

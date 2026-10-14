@@ -39,7 +39,7 @@ this command's.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), state.apiBase())
+			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(state.signTransport(xhttp.NewStreamTransport()), 0), state.getAPIBase())
 			code, err := runConsole(ctx, runConsoleParams{
 				Dial:  dialShell(client, args[0], state.env.Term),
 				Token: state.getTokenSource(),

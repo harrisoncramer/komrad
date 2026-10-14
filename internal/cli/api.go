@@ -10,8 +10,8 @@ import (
 	"komrad/lib/xhttp"
 )
 
-// apiBase is the base url this machine reaches the engine's api on.
-func (a *app) apiBase() string {
+// getAPIBase is the base url this machine reaches the engine's api on.
+func (a *app) getAPIBase() string {
 	if a.env.URL != "" {
 		return a.env.URL
 	}
@@ -50,7 +50,7 @@ func (a *app) withAPI(ctx context.Context, run func(ctx context.Context, base st
 	ctx, cancel := context.WithTimeout(ctx, apiCallTimeout)
 	defer cancel()
 
-	base := a.apiBase()
+	base := a.getAPIBase()
 
 	if err := requireServer(ctx, requireServerParams{
 		Transport: a.signTransport(xhttp.NewTransport()),

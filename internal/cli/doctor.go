@@ -145,7 +145,7 @@ func isServerOK(report doctor.Report) bool {
 // askEngineDoctor is the checks the engine's server made on its own machine, read back into
 // the doctor's own findings.
 func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
-	base := a.apiBase()
+	base := a.getAPIBase()
 
 	client := doctorv1connect.NewDoctorServiceClient(xhttp.NewClientOver(a.signTransport(xhttp.NewTransport()), apiCallTimeout), base)
 	resp, err := client.RunDoctor(ctx, connect.NewRequest(&emptypb.Empty{}))
@@ -177,7 +177,7 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 	env := doctor.NewEnv(settings)
 
 	env.ProbeServer = func(ctx context.Context) (doctor.ServerStatus, error) {
-		base := a.apiBase()
+		base := a.getAPIBase()
 
 		found := probeServer(ctx, a.signTransport(xhttp.NewTransport()), base)
 		if found.refusal != nil {
@@ -193,7 +193,7 @@ func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {
 	}
 
 	env.CheckForges = func(ctx context.Context) ([]doctor.ForgeStatus, error) {
-		base := a.apiBase()
+		base := a.getAPIBase()
 
 		resp, err := a.forgeClient(base).CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
 		if err != nil {
