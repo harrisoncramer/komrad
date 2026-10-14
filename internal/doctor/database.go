@@ -20,51 +20,51 @@ const (
 )
 
 var (
-	errDatabaseURLInvalid = &ProblemError{
+	errDatabaseURLInvalid = &problemError{
 		Code:    "database_url_invalid",
 		Message: "the database url is not a connection string Postgres accepts",
 	}
-	errDatabaseUnreachable = &ProblemError{
+	errDatabaseUnreachable = &problemError{
 		Code:    "database_unreachable",
 		Message: "nothing answered",
 	}
-	errDatabaseAuthFailed = &ProblemError{
+	errDatabaseAuthFailed = &problemError{
 		Code:    "database_auth_failed",
 		Message: "the database refused the user or password in the database url",
 	}
-	errDatabaseMissing = &ProblemError{
+	errDatabaseMissing = &problemError{
 		Code:    "database_missing",
 		Message: "the Postgres server is running but has no database of that name",
 	}
-	errSchemaBehind = &ProblemError{
+	errSchemaBehind = &problemError{
 		Code:    "schema_behind",
 		Message: "the database is missing migrations this build ships",
 	}
-	errSchemaUnreadable = &ProblemError{
+	errSchemaUnreadable = &problemError{
 		Code:    "schema_unreadable",
 		Message: "the applied migrations could not be read",
 	}
-	errNotAnEngine = &ProblemError{
+	errNotAnEngine = &problemError{
 		Code:    "not_an_engine",
 		Message: "the database url's login belongs to no engine",
 	}
-	errEngineUnreadable = &ProblemError{
+	errEngineUnreadable = &problemError{
 		Code:    "engine_unreadable",
 		Message: "which engine the database url's login belongs to could not be read",
 	}
-	errReadOnlyLoginShared = &ProblemError{
+	errReadOnlyLoginShared = &problemError{
 		Code:    "readonly_login_shared",
 		Message: "KOMRAD_READONLY_DATABASE_URL names the same login as DATABASE_URL",
 	}
-	errReadOnlyLoginUnset = &ProblemError{
+	errReadOnlyLoginUnset = &problemError{
 		Code:    "readonly_login_unset",
 		Message: "there is no read-only login, and the database url is not one it can be derived from",
 	}
-	errReadOnlyLoginElsewhere = &ProblemError{
+	errReadOnlyLoginElsewhere = &problemError{
 		Code:    "readonly_login_elsewhere",
 		Message: "the MCP query tools read a different database than the panel writes to",
 	}
-	errReadOnlyLoginUnusable = &ProblemError{
+	errReadOnlyLoginUnusable = &problemError{
 		Code:    "readonly_login_unusable",
 		Message: "the least-privilege login the MCP tools connect as does not work",
 	}

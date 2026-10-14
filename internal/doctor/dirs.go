@@ -14,43 +14,43 @@ import (
 const maxNamedOrphans = 3
 
 var (
-	errHomeUnknown = &ProblemError{
+	errHomeUnknown = &problemError{
 		Code:    "home_unknown",
 		Message: "the home directory the default hooks and worktrees paths hang off could not be read",
 	}
-	errHooksDirAbsent = &ProblemError{
+	errHooksDirAbsent = &problemError{
 		Code:    "hooks_dir_absent",
 		Message: "there is no hooks directory, and a workflow that names a hook finds none rather than an error",
 	}
-	errHooksDirUnreadable = &ProblemError{
+	errHooksDirUnreadable = &problemError{
 		Code:    "hooks_dir_unreadable",
 		Message: "the hooks directory could not be read",
 	}
-	errHooksDirNotADirectory = &ProblemError{
+	errHooksDirNotADirectory = &problemError{
 		Code:    "hooks_dir_not_a_directory",
 		Message: "the hooks directory is not a directory",
 	}
-	errWorktreesDirAbsent = &ProblemError{
+	errWorktreesDirAbsent = &problemError{
 		Code:    "worktrees_dir_absent",
 		Message: "the shared worktrees directory is not there",
 	}
-	errWorktreesDirUnreadable = &ProblemError{
+	errWorktreesDirUnreadable = &problemError{
 		Code:    "worktrees_dir_unreadable",
 		Message: "a worktrees directory could not be read",
 	}
-	errWorktreesDirNotADirectory = &ProblemError{
+	errWorktreesDirNotADirectory = &problemError{
 		Code:    "worktrees_dir_not_a_directory",
 		Message: "the worktrees directory is not a directory",
 	}
-	errWorktreesDirUnwritable = &ProblemError{
+	errWorktreesDirUnwritable = &problemError{
 		Code:    "worktrees_dir_unwritable",
 		Message: "the worktrees directory cannot be written to, so an agent that needs a worktree has nowhere to be put",
 	}
-	errWorktreesUnowned = &ProblemError{
+	errWorktreesUnowned = &problemError{
 		Code:    "worktrees_unowned",
 		Message: "there are worktree directories no agent or task answers for",
 	}
-	errWorktreeOwnersUnreadable = &ProblemError{
+	errWorktreeOwnersUnreadable = &problemError{
 		Code:    "worktree_owners_unreadable",
 		Message: "the agents and tasks that own the worktrees could not be read",
 	}

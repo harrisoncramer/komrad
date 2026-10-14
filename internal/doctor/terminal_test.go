@@ -345,7 +345,7 @@ func TestColorCheck(t *testing.T) {
 		name    string
 		colors  string
 		status  Status
-		problem *ProblemError
+		problem *problemError
 	}{
 		{
 			name:    "too shallow",

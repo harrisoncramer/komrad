@@ -21,7 +21,7 @@ func stub(name string, result Result, needs ...string) Check {
 
 // TestRunSkipsWhatItCannotCheck covers the reason Needs exists.
 func TestRunSkipsWhatItCannotCheck(t *testing.T) {
-	problem := &ProblemError{Code: "gone", Message: "it is not there"}
+	problem := &problemError{Code: "gone", Message: "it is not there"}
 
 	report := Run(t.Context(), Env{}, []Check{
 		stub("base", fail(problem, "", "install it")),
@@ -48,8 +48,8 @@ func TestRunSkipsWhatItCannotCheck(t *testing.T) {
 func TestRunReportsEveryCheck(t *testing.T) {
 	report := Run(t.Context(), Env{}, []Check{
 		stub("one", pass("fine")),
-		stub("two", fail(&ProblemError{Code: "bad", Message: "broken"}, "", "fix it")),
-		stub("three", warn(&ProblemError{Code: "odd", Message: "unclear"}, "something")),
+		stub("two", fail(&problemError{Code: "bad", Message: "broken"}, "", "fix it")),
+		stub("three", warn(&problemError{Code: "odd", Message: "unclear"}, "something")),
 	})
 
 	require.Len(t, report.Findings, 3)
@@ -97,7 +97,7 @@ func TestSummaryHealth(t *testing.T) {
 // TestCodeOfReadsThroughTheChain covers that a check may wrap its sentinel to add what it
 // saw without the code a script keys on being lost.
 func TestCodeOfReadsThroughTheChain(t *testing.T) {
-	sentinel := &ProblemError{Code: "tmux_too_old", Message: "too old"}
+	sentinel := &problemError{Code: "tmux_too_old", Message: "too old"}
 
 	tests := []struct {
 		name string

@@ -10,15 +10,15 @@ import (
 )
 
 var (
-	errConfigUnreadable = &ProblemError{
+	errConfigUnreadable = &problemError{
 		Code:    "config_unreadable",
 		Message: "the config file could not be read",
 	}
-	errHarnessUnknown = &ProblemError{
+	errHarnessUnknown = &problemError{
 		Code:    "harness_unknown",
 		Message: "default_harness names an agent CLI this build does not have",
 	}
-	errHarnessMissing = &ProblemError{
+	errHarnessMissing = &problemError{
 		Code:    "harness_missing",
 		Message: "the agent CLI is not on PATH",
 	}

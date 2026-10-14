@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	errWorkflowBasesUnreadable = &ProblemError{
+	errWorkflowBasesUnreadable = &problemError{
 		Code:    "workflow_bases_unreadable",
 		Message: "the base branch of each workflow could not be read",
 	}
-	errWorkflowBaseMissing = &ProblemError{
+	errWorkflowBaseMissing = &problemError{
 		Code:    "workflow_base_missing",
 		Message: "a workflow names a base branch its clone does not hold",
 	}
