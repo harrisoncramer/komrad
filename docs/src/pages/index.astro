@@ -1,5 +1,4 @@
 ---
-import Alert from "../components/Alert.astro";
 import { Code } from "astro:components";
 import Layout from "../layouts/Layout.astro";
 import { codeTheme } from "../code-theme.mjs";
@@ -33,16 +32,15 @@ const STRUCTURED_DATA = [
 ];
 ---
 
-
 <Layout title={HOME_TITLE} description={SITE_DESCRIPTION} structuredData={STRUCTURED_DATA}>
   <article class="home">
     <h1>komrad</h1>
 
+    <p>Komrad is a terminal-based agent orchestrator.</p>
     <p>
-      Komrad is a terminal-based agent orchestrator.
-    </p>
-    <p>
-      With komrad, you can create tasks for agents to execute independently, then review, merge and ship their work, without leaving your terminal. You can also use komrad to schedule agents at specific intervals, orchestrate them (or have them self-orchestrate) via MCP, conduct reviews, and much more.
+      With komrad, you can create tasks for agents to execute independently, then review, merge and ship their work,
+      without leaving your terminal. You can also use komrad to schedule agents at specific intervals, orchestrate them
+      (or have them self-orchestrate) via MCP, conduct reviews, and much more.
     </p>
     <p>Komrad runs on your machine by default, but can be deployed to a remote instance that you control.</p>
     <img

@@ -27,20 +27,33 @@ vars: {
 }
 
 classes: {
-  box: {
-    width: 190
-    style: {
-      bold: true
-      font-size: 16
-      fill: "#0c1322"
-    }
+  leaf: {
+    width: 178
+    height: 60
+    style: {bold: true; font-size: 16; fill: "#0c1322"}
   }
-  note: {
-    shape: text
-    style: {
-      bold: false
-      font-size: 13
-      font-color: "#7a879e"
-    }
+  more: {
+    label: "..."
+    width: 178
+    height: 40
+    style: {stroke-dash: 3; bold: true; font-size: 16; fill: "#0c1322"}
+  }
+  store: {
+    shape: cylinder
+    width: 178
+    height: 90
+    style: {bold: true; font-size: 16}
+  }
+  blank: {
+    label: ""
+    width: 178
+    height: 60
+    style.opacity: 0
+  }
+  group: {
+    style: {bold: false; font-size: 16; font-color: "#c9d4e5"}
+  }
+  dashed: {
+    style.stroke-dash: 3
   }
 }

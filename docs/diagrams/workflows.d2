@@ -1,0 +1,16 @@
+...@_theme
+
+direction: right
+
+workflow: "Workflow: neovim" {
+  class: group
+
+  orchestrator: Orchestrator {class: leaf}
+  fix-login: "Task: fix-login" {class: leaf}
+  rfc-truncate: "Task: rfc-truncate" {class: leaf}
+  more: {class: more}
+
+  orchestrator -> rfc-truncate {class: dashed}
+  orchestrator -> more {class: dashed}
+  orchestrator -> fix-login {class: dashed}
+}

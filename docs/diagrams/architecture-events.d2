@@ -2,26 +2,20 @@
 
 grid-rows: 2
 grid-columns: 3
-grid-gap: 80
+horizontal-gap: 180
+vertical-gap: 80
 
-commit: Write commits
-trigger: Trigger {
-  class: box
-  note: "pg_notify(\"agents <key>\")" {class: note}
-}
-listener: Listener {
-  class: box
-  note: "One dedicated\nconnection" {class: note}
-}
-panel: Panel
-render: Render pass {
-  class: box
-  note: "Reads rows back,\ndiffs per subscriber" {class: note}
-}
-pending: Pending set {
-  class: box
-  note: "Keys to re-read" {class: note}
-}
+commit: Write commits {class: leaf}
+
+trigger: Trigger {class: leaf}
+
+listener: Listener {class: leaf}
+
+panel: Panel {class: leaf}
+
+render: Render pass {class: leaf}
+
+pending: Pending set {class: leaf}
 
 commit -> trigger -> listener -> pending -> render
 render -> panel: stream

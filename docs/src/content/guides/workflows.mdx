@@ -9,7 +9,7 @@ import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
-import { media } from "../../site";
+import { link, media } from "../../site";
 
 Everything you do in komrad happens inside a _workflow_. A workflow is a bucket of settings. It holds the directory work starts from, the harness its agents run, like Claude or Codex, the flags they launch with, and whether each task gets a worktree of its own.
 
@@ -65,6 +65,13 @@ Creating a workflow also starts its _orchestrator_, an agent that belongs to the
 </figure>
 
 The orchestrator writes no code of its own. You tell it what you want done, and it creates [tasks](../tasks/) for the work and puts agents on them. It passes messages between those agents and gathers what they find. Think of it as a lead who splits the work up and keeps track of it.
+
+<figure>
+  <img
+    src={link("/diagrams/workflows.png")}
+    alt="The neovim workflow holds an orchestrator that hands work to its tasks, fix-login, rfc-truncate and more."
+  />
+</figure>
 
 You don't have to go through the orchestrator. You can start a task yourself, which the [next guide](../tasks/) shows.
 
