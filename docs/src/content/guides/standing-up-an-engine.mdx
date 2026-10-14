@@ -30,7 +30,7 @@ The build prints the image's id when it finishes, and Terraform needs that id in
 
 ## Applying the infrastructure
 
-Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id, and the `sign_in_*` values from your provider. Set `tailscale_hostname` to the engine's name on the tailnet, such as `komrad`, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
+Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id, and the `sign_in_*` values from your provider. Set `tailscale_hostname` to the engine's name on the tailnet, which defaults to komrad, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
 
 ```sh
 mise run infra:engine:init
