@@ -176,7 +176,7 @@ func verifyIDToken(ctx context.Context, params verifyIDTokenParams) (*verifiedID
 
 	return &verifiedIDToken{
 		raw:     raw,
-		expiry:  verified.Expiry,
+		expiry:  verified.Expiry.UTC(),
 		email:   claims.Email,
 		subject: verified.Subject,
 	}, nil
