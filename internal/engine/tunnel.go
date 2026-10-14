@@ -25,8 +25,13 @@ const pollInterval = 100 * time.Millisecond
 // redialDelay is how long a tunnel whose forward has exited waits before running it again.
 const redialDelay = time.Second
 
-// borrowedProbeInterval is how often komrad checks that a tunnel somebody else runs still answers.
-const borrowedProbeInterval = 5 * time.Second
+// probeInterval is how often komrad checks that a tunnel still answers, whether its own forward
+// carries it or one somebody else runs.
+const probeInterval = 5 * time.Second
+
+// silentProbesBeforeRedial is how many probes in a row may go unanswered before komrad ends its own
+// forward and runs it again.
+const silentProbesBeforeRedial = 3
 
 // probeRequest is what komrad writes to a port to learn whether the engine's api is behind it.
 const probeRequest = "HEAD / HTTP/1.0\r\n\r\n"
@@ -177,8 +182,8 @@ func (t *Tunnel) waitForAnswer(ctx context.Context, running *forward) error {
 	}
 }
 
-// keep runs the forward again each time it exits, and falls back to watching the port when the
-// port turns out to be somebody else's.
+// keep runs the forward again each time it exits or stops answering, and falls back to watching the
+// port when the port turns out to be somebody else's.
 func (t *Tunnel) keep(ctx context.Context) {
 	for {
 		t.mu.Lock()
@@ -190,7 +195,7 @@ func (t *Tunnel) keep(ctx context.Context) {
 		}
 
 		if running == nil {
-			clock.Sleep(ctx, borrowedProbeInterval)
+			clock.Sleep(ctx, probeInterval)
 			if ctx.Err() != nil {
 				return
 			}
@@ -199,10 +204,9 @@ func (t *Tunnel) keep(ctx context.Context) {
 				continue
 			}
 		} else {
-			select {
-			case <-ctx.Done():
+			t.watch(ctx, running)
+			if ctx.Err() != nil {
 				return
-			case <-running.exited:
 			}
 
 			if isAnswering(ctx, t.Local) {
@@ -227,6 +231,35 @@ func (t *Tunnel) keep(ctx context.Context) {
 			t.mu.Lock()
 			t.forward = nil
 			t.mu.Unlock()
+		}
+	}
+}
+
+// watch blocks until the forward exits or the context ends, ending the forward first when the engine
+// stops answering through it for silentProbesBeforeRedial probes in a row.
+func (t *Tunnel) watch(ctx context.Context, running *forward) {
+	silent := 0
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-running.exited:
+			return
+		case <-time.After(probeInterval):
+		}
+
+		if isAnswering(ctx, t.Local) {
+			silent = 0
+
+			continue
+		}
+
+		silent++
+		if silent >= silentProbesBeforeRedial {
+			running.kill()
+
+			return
 		}
 	}
 }

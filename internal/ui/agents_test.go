@@ -2602,6 +2602,7 @@ func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
 
 	harness := newPanelHarness(t, params)
 	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+	harness.watch(buildSnapshot(buildRecordedTask()...))
 	harness.press("pick:record")
 
 	return harness
