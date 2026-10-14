@@ -77,7 +77,7 @@ type streamConn[Req, Res any] struct {
 }
 
 func terminalCmd(state *app) *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "terminal AGENT",
 		Short: "Attach to an agent's terminal on the engine",
 		Long: `Attach to an agent's terminal on the engine.
@@ -111,8 +111,6 @@ an engine at its url, it says so and attaches once komrad login runs.`,
 			return nil
 		},
 	}
-
-	return cmd
 }
 
 func dialAttach(client terminalv1connect.TerminalServiceClient, agentID, term string) dialFunc {

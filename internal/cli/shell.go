@@ -24,7 +24,7 @@ func (e *ExitError) Error() string {
 }
 
 func shellCmd(state *app) *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "shell DIR",
 		Short: "Open a shell on the engine in a directory an agent works in",
 		Long: `Open a shell on the engine in a directory an agent works in.
@@ -55,8 +55,6 @@ this command's.`,
 			return nil
 		},
 	}
-
-	return cmd
 }
 
 type runShellParams struct {
