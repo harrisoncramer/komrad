@@ -1333,7 +1333,7 @@
     "usage": "komrad terminal AGENT [flags]",
     "aliases": [],
     "short": "Attach to an agent's terminal on the engine",
-    "long": "Attach to an agent's terminal on the engine.\n\nThe terminal is carried to this one over the engine's api, so it works the same\nwhether the engine is this machine or another one. AGENT is the agent's id, and\nthe agent has to be live and hold a pane. Attaching detaches any other terminal\nattached to the same agent. A dropped connection is dialled again, and since\ntmux keeps the session nothing is lost.",
+    "long": "Attach to an agent's terminal on the engine.\n\nThe terminal is carried to this one over the engine's api, so it works the same\nwhether the engine is this machine or another one. AGENT is the agent's id, and\nthe agent has to be live and hold a pane. Attaching detaches any other terminal\nattached to the same agent. A dropped connection is dialled again, and since\ntmux keeps the session nothing is lost. Opened before this machine signs in to\nan engine at its url, it says so and attaches once komrad login runs.",
     "example": "",
     "flags": [
       {

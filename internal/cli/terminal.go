@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"komrad/internal/engine"
 	"komrad/lib/clock"
 	"komrad/lib/xhttp"
 	terminalv1 "komrad/proto/gen/terminal/v1"
@@ -30,6 +31,8 @@ const (
 	// firstRedialWait is how long the first redial waits, doubling up to lastRedialWait.
 	firstRedialWait = 250 * time.Millisecond
 	lastRedialWait  = 5 * time.Second
+	// signInCheckInterval is how often a terminal waiting on a sign-in looks for one.
+	signInCheckInterval = time.Second
 )
 
 var (
@@ -85,7 +88,8 @@ The terminal is carried to this one over the engine's api, so it works the same
 whether the engine is this machine or another one. AGENT is the agent's id, and
 the agent has to be live and hold a pane. Attaching detaches any other terminal
 attached to the same agent. A dropped connection is dialled again, and since
-tmux keeps the session nothing is lost.`,
+tmux keeps the session nothing is lost. Opened before this machine signs in to
+an engine at its url, it says so and attaches once komrad login runs.`,
 		Args:          cobra.ExactArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -299,6 +303,10 @@ func runTerminal(ctx context.Context, params runTerminalParams) (int, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	if err := awaitSignIn(ctx, params); err != nil {
+		return 0, err
+	}
+
 	conn, err := params.Dial(ctx, params.Size())
 	if err != nil {
 		return 0, fmt.Errorf("failed to open the terminal: %w", err)
@@ -508,4 +516,33 @@ func readConsoleSize(fd int) *terminalv1.Size {
 	}
 
 	return &terminalv1.Size{Rows: uint32(rows), Cols: uint32(cols)} //nolint:gosec // both are positive
+}
+
+// awaitSignIn holds a terminal opened before this machine signed in to the engine, saying so once,
+// and lets it dial once a sign-in appears.
+func awaitSignIn(ctx context.Context, params runTerminalParams) error {
+	if params.Token == nil {
+		return nil
+	}
+
+	isAsked := false
+	for {
+		_, err := params.Token(ctx)
+		if !errors.Is(err, engine.ErrSignInNeeded) {
+			return nil
+		}
+
+		if !isAsked {
+			if _, err := fmt.Fprintf(params.Out, "%v\nThe terminal opens once you sign in.\n", err); err != nil {
+				return fmt.Errorf("failed to say the terminal waits on a sign-in: %w", err)
+			}
+
+			isAsked = true
+		}
+
+		clock.Sleep(ctx, signInCheckInterval)
+		if ctx.Err() != nil {
+			return fmt.Errorf("failed to wait for a sign-in: %w", ctx.Err())
+		}
+	}
 }
