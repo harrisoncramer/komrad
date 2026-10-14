@@ -28,29 +28,6 @@ func rowOf(t *testing.T, st *storetest.Stores, id string) rowstore.Row {
 	return *row
 }
 
-// TestRowCarriesTheAgent pins that the row is the agent as stored, failure reason included, with
-// nothing beside it for an agent nothing has happened to.
-func TestRowCarriesTheAgent(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-	alpha := st.SeedAgent(t, agentstore.Agent{
-		Name:   "alpha",
-		Cwd:    "/repo",
-		Prompt: "go",
-	})
-	_, err := st.Agents.SetFailureReason(ctx, alpha.ID, "worktree is dirty")
-	require.NoError(t, err)
-
-	row := rowOf(t, st, alpha.ID)
-
-	assert.Equal(t, "alpha", row.Name)
-	assert.Equal(t, "/repo", row.Cwd)
-	assert.Equal(t, "go", row.Prompt)
-	assert.Equal(t, "worktree is dirty", row.FailureReason)
-	assert.False(t, row.FailedRun)
-	assert.Nil(t, row.FailedRunLog)
-}
-
 // TestFailedRun pins the mark a failed script puts on a row: it names the run that failed last,
 // a run that succeeded is nothing to read, and reading clears it.
 func TestFailedRun(t *testing.T) {

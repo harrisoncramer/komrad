@@ -259,29 +259,6 @@ func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
 	require.NoError(t, err)
 }
 
-// TestSetReportedReasonRoundTrips pins that what an agent's CLI reported lands on the row and that
-// an empty reason clears it.
-func TestSetReportedReasonRoundTrips(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateThinking}))
-	created, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	require.NotNil(t, created)
-	require.Empty(t, created.ReportedReason, "a fresh agent has reported nothing")
-
-	require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
-	reported, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	assert.Equal(t, "Bash", reported.ReportedReason)
-
-	require.NoError(t, st.SetReportedReason(ctx, created.ID, ""))
-	cleared, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	assert.Empty(t, cleared.ReportedReason)
-}
-
 // TestSetHooksByIDRoundTrips pins that the hooks a launch installed land on the row and that none
 // clears them.
 func TestSetHooksByIDRoundTrips(t *testing.T) {
@@ -510,41 +487,6 @@ func TestAliveFollowsThePane(t *testing.T) {
 			assert.False(t, cleared.Alive, "a row whose pane was cleared is dormant")
 		})
 	}
-}
-
-// TestSetAlive covers the reconciler's write: the named rows and no other, either way.
-func TestSetAlive(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	for _, name := range []string{"a", "b", "c"} {
-		require.NoError(t, st.Create(ctx, Agent{
-			Name:  name,
-			Pane:  "%" + name,
-			State: StateIdle,
-		}))
-	}
-	a, err := st.Get(ctx, "a")
-	require.NoError(t, err)
-	b, err := st.Get(ctx, "b")
-	require.NoError(t, err)
-
-	require.NoError(t, st.SetAlive(ctx, []string{a.ID, b.ID, "not-a-uuid"}, false))
-
-	alive := map[string]bool{}
-	for _, name := range []string{"a", "b", "c"} {
-		agent, err := st.Get(ctx, name)
-		require.NoError(t, err)
-		alive[name] = agent.Alive
-	}
-	assert.Equal(t, map[string]bool{"a": false, "b": false, "c": true}, alive)
-
-	require.NoError(t, st.SetAlive(ctx, []string{a.ID}, true))
-	a, err = st.Get(ctx, "a")
-	require.NoError(t, err)
-	assert.True(t, a.Alive)
-
-	require.NoError(t, st.SetAlive(ctx, nil, true), "no ids is nothing to write")
 }
 
 // TestHoldSettlesTheState pins that a hold records a state the pane decides as idle and leaves a

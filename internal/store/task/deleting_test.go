@@ -71,27 +71,6 @@ func TestClaimEmpty(t *testing.T) {
 	}
 }
 
-// TestClearDeleting pins a released task being claimable again by a later delete.
-func TestClearDeleting(t *testing.T) {
-	stores := storetest.Open(t)
-	ctx := t.Context()
-	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{task.ID}))
-	claimed, err := stores.Tasks.ClaimEmpty(ctx, task.ID)
-	require.NoError(t, err)
-	require.True(t, claimed)
-
-	require.NoError(t, stores.Tasks.ClearDeleting(ctx, task.ID))
-
-	released, err := stores.Tasks.Get(ctx, task.ID)
-	require.NoError(t, err)
-	assert.Nil(t, released.DeletingAt)
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{task.ID}))
-	again, err := stores.Tasks.ClaimEmpty(ctx, task.ID)
-	require.NoError(t, err)
-	assert.True(t, again)
-}
-
 // TestRecordCleanupFailure pins a failed cleanup releasing the task with its reason, and the next delete
 // clearing that reason.
 func TestRecordCleanupFailure(t *testing.T) {

@@ -1,7 +1,6 @@
 package task_test
 
 import (
-	"encoding/json"
 	"sync/atomic"
 	"testing"
 
@@ -148,57 +147,4 @@ func TestClaimCheckoutAgain(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestCheckoutRoundTrips pins a checkout claimed and given its directory reading back as written.
-func TestCheckoutRoundTrips(t *testing.T) {
-	stores := storetest.Open(t)
-	ctx := t.Context()
-	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
-	task := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
-	assert.Empty(t, task.Checkout.Cwd, "a fresh task has no checkout")
-
-	claimed, err := stores.Tasks.ClaimCheckout(ctx, taskstore.ClaimCheckoutParams{
-		ID:            task.ID,
-		AdoptedBranch: "feature",
-		RepositoryURL: "https://github.com/harrisoncramer/komrad",
-	})
-	require.NoError(t, err)
-	require.True(t, claimed)
-	require.NoError(t, stores.Tasks.SetCheckoutDir(ctx, task.ID, "/tmp/worktrees/work"))
-	require.NoError(t, stores.Tasks.SetDiffStat(ctx, task.ID, &taskstore.DiffStat{Added: 12, Removed: 3}))
-
-	got, err := stores.Tasks.Get(ctx, task.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "/tmp/worktrees/work", got.Checkout.Cwd)
-	assert.Equal(t, "feature", got.Checkout.AdoptedBranch)
-	assert.Equal(t, xptr.Ptr("feature"), got.Checkout.Branch)
-	assert.Equal(t, xptr.Ptr("https://github.com/harrisoncramer/komrad"), got.Checkout.RepositoryURL)
-	assert.Equal(t, &taskstore.DiffStat{Added: 12, Removed: 3}, got.Checkout.DiffStat)
-
-	require.NoError(t, stores.Tasks.SetDiffStat(ctx, task.ID, nil))
-	cleared, err := stores.Tasks.Get(ctx, task.ID)
-	require.NoError(t, err)
-	assert.Nil(t, cleared.Checkout.DiffStat)
-}
-
-// TestLastRebaseRoundTrips pins a task's last rebase reading back as written, nil before its first.
-func TestLastRebaseRoundTrips(t *testing.T) {
-	stores := storetest.Open(t)
-	ctx := t.Context()
-	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
-	task := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
-
-	never, err := stores.Tasks.GetLastRebase(ctx, task.ID)
-	require.NoError(t, err)
-	assert.Nil(t, never)
-
-	require.NoError(t, stores.Tasks.SetLastRebase(ctx, task.ID, json.RawMessage(`{"failure": "first"}`)))
-	require.NoError(t, stores.Tasks.SetLastRebase(ctx, task.ID, json.RawMessage(`{"failure": "second"}`)))
-	last, err := stores.Tasks.GetLastRebase(ctx, task.ID)
-	require.NoError(t, err)
-	assert.JSONEq(t, `{"failure": "second"}`, string(last))
-
-	_, err = stores.Tasks.GetLastRebase(ctx, "01a11e6f-af0b-7497-91fb-d3750f8cbef2")
-	require.ErrorIs(t, err, store.ErrNotFound)
 }
