@@ -134,11 +134,7 @@ func (r *TokenRefresher) explainRenewal(issuer string, err error) error {
 		return fmt.Errorf("%w: %w", ErrProviderUnreachable.Saying("failed to reach the identity provider at %s to renew the sign-in to %s", issuer, r.url), err)
 	}
 
-	if refused.ErrorCode == "invalid_grant" {
-		return fmt.Errorf("%w: %w", errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url), err)
-	}
-
-	return fmt.Errorf("failed to renew the sign-in to %s, which the provider at %s refused: %w", r.url, issuer, err)
+	return fmt.Errorf("%w: %w", errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url), err)
 }
 
 type verifiedIDToken struct {
