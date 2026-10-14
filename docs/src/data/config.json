@@ -2130,7 +2130,7 @@
           "key": "url",
           "path": "connection.url",
           "type": "string",
-          "description": "The https address the engine is served on, like https://komrad.example.com, when it is not\nthis machine. Left empty the engine is local and an agent's terminal is shown by moving its\nown pane into the panel. It may be plain http when its host is this machine.",
+          "description": "The https address the engine is served on, like https://komrad.example.com. Left empty the\nengine is local and an agent's terminal is shown by moving its own pane into the panel. It\nmay be plain http when its host is this machine.",
           "default": "\"\""
         }
       ],
