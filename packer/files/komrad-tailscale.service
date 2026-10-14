@@ -2,7 +2,6 @@
 Description=Join the tailnet
 Requires=tailscaled.service
 After=tailscaled.service
-Before=caddy.service
 ConditionPathExists=/etc/komrad/tailscale.env
 
 [Service]
