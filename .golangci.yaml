@@ -78,7 +78,6 @@ linters:
         - (*komrad/internal/store.Pool).Close
         - (*os.File).Close
         - (io.Closer).Close
-        - (*komrad/internal/engine.Tunnel).Close
         # Fails only with no HOME, and every caller treats the empty string as the fallback
         # it would have chosen anyway.
         - os.UserHomeDir
