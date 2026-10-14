@@ -6,7 +6,7 @@ backend_state() {
 }
 
 wait_for_state() {
-	local current=""
+	local current="" want
 
 	for _ in $(seq 120); do
 		current="$(backend_state)"
@@ -28,21 +28,21 @@ wait_for_state() {
 state="$(wait_for_state Running NeedsLogin)"
 
 if [ "$state" = NeedsLogin ]; then
-	key="$(mktemp -p /run tailscale-auth-key.XXXXXX)"
-	errors="$(mktemp)"
-	trap 'rm -f "$key" "$errors"' EXIT
+	key_file="$(mktemp -p /run tailscale-auth-key.XXXXXX)"
+	error_file="$(mktemp)"
+	trap 'rm -f "$key_file" "$error_file"' EXIT
 
-	if ! aws secretsmanager get-secret-value --secret-id "$KOMRAD_TAILSCALE_SECRET_ID" --query SecretString --output text >"$key" 2>"$errors"; then
-		if grep -q ResourceNotFoundException "$errors"; then
+	if ! aws secretsmanager get-secret-value --secret-id "$KOMRAD_TAILSCALE_SECRET_ID" --query SecretString --output text >"$key_file" 2>"$error_file"; then
+		if grep -q ResourceNotFoundException "$error_file"; then
 			echo "this machine is not on the tailnet and there is no secret called $KOMRAD_TAILSCALE_SECRET_ID to join with" >&2
 		else
-			cat "$errors" >&2
+			cat "$error_file" >&2
 		fi
 		exit 1
 	fi
 
 	tailscale up \
-		--auth-key="file:$key" \
+		--auth-key="file:$key_file" \
 		--hostname="$KOMRAD_TAILSCALE_HOSTNAME" \
 		--advertise-tags=tag:komrad-engine \
 		--netfilter-mode=off \
