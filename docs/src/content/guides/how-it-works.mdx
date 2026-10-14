@@ -8,9 +8,11 @@ order: 15
 import Command from "../../components/Command.astro";
 import { link } from "../../site";
 
-You have used every piece: [workflows](../workflows/), [tasks](../tasks/), [agents](../agents/), [reviews](../reviews/), [hooks](../hooks/), [schedules](../schedules/), [events and messages](../events-and-messages/) and [MCP](../mcp/). This guide steps back to show how they fit together and why closing things is always safe. The guides after it go deeper.
+This guide gives a general overview of how komrad's different pieces fit together.
 
-## Two programs
+## The Different Services
+
+Komrad is a server and a panel. The server runs in the background. It owns the database, answers the API, and watches every agent. The server, with its database, tmux and agents, makes up an engine.
 
 <figure>
   <img
@@ -19,23 +21,32 @@ You have used every piece: [workflows](../workflows/), [tasks](../tasks/), [agen
   />
 </figure>
 
-Komrad is a server and a panel. The server runs in the background. It owns the database, answers the API, and watches every agent. The server, with its database, tmux and agents, makes up an engine. The panel is just a screen. It talks to the server and remembers nothing itself. You can close it whenever you like.
 
-## Agents live in tmux
+The panel is just the UI.
 
-Each agent is a real terminal running Claude or Codex. Komrad runs them in a tmux server of its own, so they never get mixed up with your own windows. The panel lives there too. When you open it, your terminal attaches to komrad's session. Closing the panel detaches that terminal and nothing else.
-
-That also lets you upgrade komrad without losing your agents. The server restarts, but the tmux server does not.
-
-## One API
+Each agent is a real terminal running Claude or Codex. Komrad runs them in a tmux server of its own, so they never get mixed up with your own windows. When you open the panel, your terminal attaches to komrad's session. Closing the panel detaches that terminal and nothing else.
 
 Everything goes through one API. The panel uses it. A script using <Command path="rpc" /> uses it. An agent calling an MCP tool uses it. All of them get the same rules and the same checks.
 
-The CLI commands and MCP tools are not written by hand. Every endpoint is declared once, and the declaration says which surfaces it appears on. The commands, the tools, and the [API reference](../../api/) are all built from that.
+The commands, the tools, and the [API reference](../../api/) are all built from this single API definition.
 
-## Everything is a row
+## The State (Postgres)
 
-Everything komrad knows is a row in Postgres: a workflow, a task, an agent, a piece of mail, a review. Background loops find facts from outside, such as whether an agent is idle, and write them onto the row. Nothing important lives only in memory.
+All of komrad's state is kept in Postgres: a workflow, a task, an agent, a piece of mail, a review, and so forth. For external state, it uses a system of reconcilation, where "loops" find state from outside, such as pull request information or the idle state of a CLI, and sync that into Postgres.
+
+Those changes are periodically _pushed_ to the client via a database triggers, a `LISTEN/NOTIFY` pattern, and a streaming ConnectRPC endpoint.
+
+Diagram Here
+
+When the database detects a write on any table, it fires an event with the record's ID to a simple listener service.
+
+In the server, those events arrive in a reconciler that is responsible for determining active state (including tombstones) for the application, and which then streams that information back to the client.
+
+This pattern is always enforced. For instance, when the UI makes a POST call to the backend, it doesn't manually update it's own state with the response. Rather, the reconciler pattern streams the new state back through the UI's rendering pattern once the database has committed the changes.
+
+This approach is designed to fit into BubbleTea's ELM architecture, and make parallelization of editors easier. Because state only ever flows through the system in one direction, diagnosing and fixing rendering issues is straightforward.
+
+It also keeps the application lightweight. Komrad uses far less memory, in fact, than the coding CLIs it is orchestrating, making it a great, performant alternative to other agent frameworks.
 
 ## How a change reaches your screen
 
