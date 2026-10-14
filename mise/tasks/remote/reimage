@@ -10,8 +10,9 @@ usage() {
 	echo "Moves the engine to a machine image and applies it, which replaces the instance."
 	echo "Every agent on the box stops and does not come back."
 	echo
-	echo "With no argument it uses the image CI last built. CI records one whenever something"
-	echo "under packer/ reaches main, and never applies it, because applying is this."
+	echo "With no argument it uses the image the image workflow last recorded. Nothing runs that"
+	echo "workflow on its own: dispatch it with 'gh workflow run image.yml'. It never applies the"
+	echo "image, because applying is this."
 	echo
 	echo "  mise run remote:reimage"
 	echo "  mise run remote:reimage ami-0123456789abcdef0"
@@ -57,7 +58,8 @@ if [ -z "$AMI" ]; then
 		--query Parameter.Value --output text 2>/dev/null)"; then
 		echo "nothing is recorded at $PARAMETER, so there is no image to move to." >&2
 		echo >&2
-		echo "CI writes that when something under packer/ reaches main. Build one with" >&2
+		echo "The image workflow writes that, and only runs when dispatched with" >&2
+		echo "'gh workflow run image.yml'. Or build one with" >&2
 		echo "'mise run packer:build' and pass the id, or name an image yourself." >&2
 		exit 1
 	fi
