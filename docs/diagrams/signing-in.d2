@@ -1,0 +1,39 @@
+...@_theme
+
+grid-columns: 3
+horizontal-gap: 80
+
+laptop: Laptop {
+  class: group
+  direction: down
+  browser: Browser {class: leaf}
+  panel: Panel {class: leaf}
+  keychain: Keychain {class: store}
+}
+
+middle: "" {
+  grid-rows: 3
+  vertical-gap: 80
+  style: {stroke: transparent; fill: transparent}
+  above: {class: blank}
+  provider: Identity provider {class: leaf}
+  below: {class: blank}
+}
+
+machine: Engine {
+  class: group
+  direction: down
+  web: Web server {class: leaf}
+  serve: Server {class: leaf}
+  db: Postgres {class: store}
+}
+
+laptop.panel -> laptop.browser: opens
+laptop.browser -> middle.provider: signs in
+laptop.browser -> laptop.panel: code
+laptop.panel -> middle.provider: tokens
+laptop.panel -> laptop.keychain
+laptop.panel -> machine.web: https
+machine.web -> machine.serve: loopback
+machine.serve -> middle.provider: keys
+machine.serve -> machine.db: access
