@@ -1313,6 +1313,13 @@ service AgentService {
       roles: [ROLE_REVIEWER]
     };
   }
+  rpc OpenReviewHistory(OpenReviewHistoryRequest) returns (OpenReviewHistoryResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "Only the panel's review screen draws the history, which it measures from the person's own reviews."
+    };
+  }
   rpc ListReviewRounds(ListReviewRoundsRequest) returns (ListReviewRoundsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {

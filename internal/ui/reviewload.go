@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"komrad/internal/assemble"
 	"komrad/internal/diff"
-	"komrad/internal/git"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -53,7 +52,8 @@ type reviewLoadedMsg struct {
 	originHead     string
 	originFellBack bool
 	// notice is what the load has to say about the round it settled on.
-	notice string
+	notice  string
+	widened string
 	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
 	// repository that could not answer.
 	traced map[string]diffview.Traced
@@ -163,95 +163,51 @@ type loadReviewCmdParams struct {
 // has not moved giving back the round already taken of it.
 func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 	agents := m.api.reads().agents
-	agentID, dir, exclude := params.AgentID, params.Dir, params.Exclude
-	repo := m.git
-	_, live := m.listing.liveAgent(agentID)
-	held := assemble.ReviewThreads(m.listing.world, agentID)
+	agentID := params.AgentID
+	patches := m.patches
 
 	read := func(ctx context.Context) reviewLoadedMsg {
-		record, err := readReviewRecord(ctx, readReviewRecordParams{
-			Agents: agents,
-			TaskID: params.TaskID,
-			Live:   live,
-			Held:   held,
-		})
+		resp, err := agents.OpenReviewHistory(ctx, connect.NewRequest(historyRequestOf(params)))
 		if err != nil {
 			return reviewLoadedMsg{err: err}
 		}
 
-		span, err := resolveReviewRange(record.rounds, params.Spec)
-		if err != nil {
-			return reviewLoadedMsg{err: err}
-		}
-
-		picked, err := pickReviewRound(ctx, pickReviewRoundParams{
-			Agents: agents,
-			TaskID: params.TaskID,
-			Record: record,
-			Fresh:  params.Fresh,
-		})
-		if err != nil {
-			return reviewLoadedMsg{err: err}
-		}
-
-		round, rounds := picked.round, picked.rounds
+		opened := resp.Msg
+		resolved := opened.GetResolved()
 
 		loaded, err := loadRoundPatch(ctx, loadRoundPatchParams{
-			Git:     repo,
-			Dir:     dir,
-			Exclude: exclude,
-			Round:   round,
-			Range:   span,
+			Patches:  patches,
+			Dir:      params.Dir,
+			Exclude:  params.Exclude,
+			Resolved: resolved,
 		})
 		if err != nil {
-			return reviewLoadedMsg{round: round, err: err}
+			return reviewLoadedMsg{round: opened.GetRound(), widened: opened.GetWidened(), err: err}
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, params.TaskID)
-		earlier := findPreviousReviewedRound(record.reviews, rounds, round)
-		chapters := replayChapters(ctx, replayChaptersParams{
-			Git: repo,
-			Dir: dir,
-			Chapters: cutChapters(cutChaptersParams{
-				Rounds:   rounds,
-				Reviews:  record.reviews,
-				OnScreen: round,
-			}),
-		})
-		traced := traceThreads(ctx, traceThreadsParams{
-			Git:     repo,
-			Dir:     dir,
-			ToSHA:   loaded.head,
-			Threads: record.threads,
-			Rounds:  rounds,
-		})
 
 		return reviewLoadedMsg{
-			round:          round,
+			round:          opened.GetRound(),
 			patch:          loaded.patch,
-			threads:        record.threads,
+			threads:        opened.GetThreads(),
 			viewed:         viewed,
-			earlier:        earlier,
-			earlierAt:      releasedAtOf(record.reviews, round),
-			pinned:         picked.pinned,
-			chapters:       chapters,
-			rounds:         rounds,
-			replayed:       loaded.replayed,
-			traced:         traced,
-			answerBase:     span.answerBase,
-			answerHead:     span.answerHead,
+			earlier:        findRound(opened.GetRounds(), opened.GetEarlierRoundId()),
+			earlierAt:      reviewTimeOf(opened.GetEarlierReleasedAt()),
+			pinned:         opened.GetPinned(),
+			chapters:       xslice.Map(opened.GetChapters(), reviewChapterOf),
+			rounds:         opened.GetRounds(),
+			replayed:       resolved.GetReplayed(),
+			traced:         tracedOf(opened.GetTraced()),
+			answerBase:     resolved.GetAnswerBaseSha(),
+			answerHead:     resolved.GetAnswerHeadSha(),
 			originBase:     loaded.origin.base,
 			originHead:     loaded.origin.head,
 			originFellBack: loaded.origin.fellBack,
-			notice:         picked.notice,
-			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
-				Git:         repo,
-				Dir:         dir,
-				Exclude:     exclude,
-				Earlier:     earlier,
-				SnapshotSHA: round.GetSnapshotSha(),
-			}),
-			err: err,
+			notice:         opened.GetNotice(),
+			widened:        opened.GetWidened(),
+			since:          changedSinceSaid(opened.GetChangedSinceEarlier()),
+			err:            err,
 		}
 	}
 
@@ -266,227 +222,111 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 	}
 }
 
-type reviewRecord struct {
-	threads   []*agentv1.ReviewThread
-	reviews   []*agentv1.Review
-	rounds    []*agentv1.ReviewRound
-	openBatch string
-}
-
-// readReviewRecordParams says whose review record to read, and which threads the world already holds.
-type readReviewRecordParams struct {
-	Agents agentReads
-	TaskID string
-	// Live says the agent's threads are the world's.
-	Live bool
-	Held []*agentv1.ReviewThread
-}
-
-func readReviewRecord(ctx context.Context, params readReviewRecordParams) (*reviewRecord, error) {
-	threads := params.Held
-	if !params.Live {
-		listed, err := listReviewThreads(ctx, params.Agents, params.TaskID)
-		if err != nil {
-			return nil, err
-		}
-
-		threads = listed
+func historyRequestOf(params loadReviewCmdParams) *agentv1.OpenReviewHistoryRequest {
+	req := &agentv1.OpenReviewHistoryRequest{
+		Task:  params.TaskID,
+		Fresh: params.Fresh,
 	}
 
-	reviews, err := listReviews(ctx, params.Agents, params.TaskID)
-	if err != nil {
-		return nil, err
-	}
-
-	// The rounds are a better answer where they can be had rather than one the screen depends
-	// on, so only the pin, which cannot be placed without them, gives up when they cannot.
-	rounds, roundsErr := listReviewRounds(ctx, params.Agents, params.TaskID)
-
-	openBatch := openBatchRoundID(reviews)
-	if openBatch != "" && roundsErr != nil {
-		return nil, roundsErr
-	}
-
-	return &reviewRecord{
-		threads:   threads,
-		reviews:   reviews,
-		rounds:    rounds,
-		openBatch: openBatch,
-	}, nil
-}
-
-type reviewRange struct {
-	base       string
-	head       string
-	fromBase   string
-	toBase     string
-	answerBase string
-	answerHead string
-	origin     originDiff
-}
-
-func resolveReviewRange(rounds []*agentv1.ReviewRound, spec diffSpec) (*reviewRange, error) {
-	span := &reviewRange{base: spec.base, head: spec.head}
-	if answer := spec.answer; answer != nil {
-		from, to := findRound(rounds, answer.FromRound), findRound(rounds, answer.ToRound)
-		if from == nil || to == nil {
-			return nil, errAnswerGone
-		}
-
-		from = findAnswerBase(rounds, from, to)
-
-		span.answerBase, span.answerHead = from.GetSnapshotSha(), to.GetSnapshotSha()
-		span.base, span.head = span.answerBase, span.answerHead
-		span.fromBase, span.toBase = from.GetBaseSha(), to.GetBaseSha()
-	}
-
-	if spec.origin != nil {
-		found, ok := findOriginDiff(rounds, spec.origin)
-		if !ok {
-			return nil, errCommentRoundGone
-		}
-
-		span.origin = found
-		span.base, span.head = found.base, found.head
-	}
-
-	return span, nil
-}
-
-type pickedRound struct {
-	round  *agentv1.ReviewRound
-	rounds []*agentv1.ReviewRound
-	pinned bool
-	notice string
-}
-
-type pickReviewRoundParams struct {
-	Agents agentReads
-	TaskID string
-	Record *reviewRecord
-	Fresh  bool
-}
-
-func pickReviewRound(ctx context.Context, params pickReviewRoundParams) (*pickedRound, error) {
-	picked := &pickedRound{rounds: params.Record.rounds}
-	if !params.Fresh {
-		picked.round, picked.pinned = findPendingRound(picked.rounds, params.Record.openBatch)
-	}
-
-	if picked.round != nil {
-		return picked, nil
-	}
-
-	opened, err := params.Agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-		Task: &params.TaskID,
-	}))
+	spec := params.Spec
 	switch {
-	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(picked.rounds) > 0:
-		picked.round = picked.rounds[len(picked.rounds)-1]
-		picked.notice = "a rebase or merge is part way through, so this is the work as it stood before it"
-	case err != nil:
-		return nil, err
-	default:
-		picked.round = opened.Msg.GetRound()
-		picked.rounds = withRound(picked.rounds, picked.round)
+	case spec.answer != nil:
+		req.Span = &agentv1.OpenReviewHistoryRequest_Answer{Answer: &agentv1.ReviewAnswerSpan{
+			FromRoundId: spec.answer.FromRound,
+			ToRoundId:   spec.answer.ToRound,
+		}}
+	case spec.origin != nil:
+		req.Span = &agentv1.OpenReviewHistoryRequest_Origin{Origin: &agentv1.ReviewOriginSpan{
+			RoundId: spec.origin.RoundID,
+			BaseSha: spec.origin.BaseSHA,
+		}}
+	case spec.isNarrowed():
+		req.Span = &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{
+			BaseSha: spec.base,
+			HeadSha: spec.head,
+		}}
 	}
 
-	return picked, nil
+	return req
+}
+
+func reviewChapterOf(chapter *agentv1.ReviewChapter) reviewChapter {
+	return reviewChapter{
+		FromSHA:     chapter.GetFromSha(),
+		ToSHA:       chapter.GetToSha(),
+		At:          reviewTimeOf(chapter.GetReleasedAt()),
+		Ordinal:     chapter.GetOrdinal(),
+		Comparable:  chapter.GetComparable(),
+		FromBase:    chapter.GetFromBaseSha(),
+		ToBase:      chapter.GetToBaseSha(),
+		Rewritten:   chapter.GetRewritten(),
+		Replayed:    chapter.GetReplayed(),
+		Conflicts:   chapter.GetConflicts(),
+		OnOlderBase: chapter.GetOnOlderBase(),
+	}
+}
+
+func tracedOf(places map[string]*agentv1.ReviewTracedPlace) map[string]diffview.Traced {
+	traced := make(map[string]diffview.Traced, len(places))
+	for id, place := range places {
+		traced[id] = diffview.Traced{
+			FilePath: place.GetFilePath(),
+			NewStart: place.GetNewStart(),
+			FileOnly: place.GetFileOnly(),
+			Exact:    place.GetExact(),
+		}
+	}
+
+	return traced
+}
+
+// changedSinceSaid says how much of this round is new since the person last released a review,
+// saying nothing at all when none of it is.
+func changedSinceSaid(changed int32) string {
+	if changed <= 0 {
+		return ""
+	}
+
+	return label.Counted(int(changed), "file") + " changed since you last reviewed"
 }
 
 type roundPatch struct {
-	patch    *diff.Patch
-	head     string
-	replayed bool
-	origin   originDiff
+	patch  *diff.Patch
+	origin originDiff
 }
 
 type loadRoundPatchParams struct {
-	Git     ReviewGit
-	Dir     string
-	Exclude []string
-	Round   *agentv1.ReviewRound
-	Range   *reviewRange
+	Patches  diff.Reader
+	Dir      string
+	Exclude  []string
+	Resolved *agentv1.ReviewResolvedSpan
 }
 
 func loadRoundPatch(ctx context.Context, params loadRoundPatchParams) (*roundPatch, error) {
-	base := params.Round.GetBaseSha()
-	if params.Range.base != "" {
-		base = params.Range.base
-	}
-
-	head := params.Round.GetSnapshotSha()
-	if params.Range.head != "" {
-		head = params.Range.head
-	}
-
-	compared := compareRounds(ctx, compareRoundsParams{
-		Git:      params.Git,
-		Dir:      params.Dir,
-		FromSHA:  base,
-		FromBase: params.Range.fromBase,
-		ToBase:   params.Range.toBase,
-	})
-	if !compared.Comparable {
-		return nil, &roundsApartError{Conflicts: compared.Conflicts}
-	}
-
+	resolved := params.Resolved
 	loading := diff.LoadParams{
 		Dir:         params.Dir,
-		BaseSHA:     compared.FromSHA,
-		SnapshotSHA: head,
+		BaseSHA:     resolved.GetBaseSha(),
+		SnapshotSHA: resolved.GetHeadSha(),
 		Exclude:     params.Exclude,
 	}
 
-	origin := params.Range.origin
-	patch, err := diff.Load(ctx, params.Git, loading)
+	origin := originDiff{
+		base:      resolved.GetOriginBaseSha(),
+		head:      resolved.GetOriginHeadSha(),
+		roundBase: resolved.GetOriginRoundBaseSha(),
+	}
+	patch, err := diff.Load(ctx, params.Patches, loading)
 	if err != nil && origin.canFallBack() && isUnreadableBase(ctx, err) {
 		origin.base, origin.fellBack = origin.roundBase, true
 		loading.BaseSHA = origin.base
-		patch, err = diff.Load(ctx, params.Git, loading)
+		patch, err = diff.Load(ctx, params.Patches, loading)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return &roundPatch{
-		patch:    patch,
-		head:     head,
-		replayed: compared.Replayed,
-		origin:   origin,
-	}, nil
-}
-
-// changedSinceLastReviewParams says which round to measure against and what to leave out of the
-// count.
-type changedSinceLastReviewParams struct {
-	Git     ReviewGit
-	Dir     string
-	Exclude []string
-	// Earlier is the round the person last reviewed, nil when there is none.
-	Earlier *agentv1.ReviewRound
-	// SnapshotSHA is the round on screen.
-	SnapshotSHA string
-}
-
-// changedSinceLastReview says how much of this round is new since the person last released a
-// review, saying nothing at all when it cannot answer.
-func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewParams) string {
-	if params.Earlier == nil {
-		return ""
-	}
-
-	changed, err := params.Git.CountChangedFiles(ctx, git.CountChangedFilesParams{
-		Dir:     params.Dir,
-		FromSHA: params.Earlier.GetSnapshotSha(),
-		ToSHA:   params.SnapshotSHA,
-		Exclude: params.Exclude,
-	})
-	if err != nil || changed == 0 {
-		return ""
-	}
-
-	return label.Counted(changed, "file") + " changed since you last reviewed"
+	return &roundPatch{patch: patch, origin: origin}, nil
 }
 
 func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
@@ -494,12 +334,9 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
-	var apart *roundsApartError
-	if errors.As(msg.err, &apart) || errors.Is(msg.err, errAnswerGone) || errors.Is(msg.err, errCommentRoundGone) {
+	if msg.widened != "" {
 		r.diff.widen()
-		m.note(messageWarning, msg.err.Error())
-
-		return r.loadWholeCmd(m)
+		m.note(messageWarning, msg.widened)
 	}
 
 	isEmpty := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
@@ -752,15 +589,4 @@ func (l listing) worktreeFor(agent panel.Agent) panel.WorktreeConfig {
 	}
 
 	return panel.WorktreeConfig{}
-}
-
-// withRound adds a round just opened to the list read before it was.
-func withRound(rounds []*agentv1.ReviewRound, opened *agentv1.ReviewRound) []*agentv1.ReviewRound {
-	for _, held := range rounds {
-		if held.GetId() == opened.GetId() {
-			return rounds
-		}
-	}
-
-	return append(rounds, opened)
 }

@@ -252,11 +252,31 @@ func (f *Repo) Wrote(params WroteParams) {
 	}
 }
 
+// StateReplayParams names the replay a test states and what it answers.
+type StateReplayParams struct {
+	FromBase    string
+	OntoBase    string
+	SnapshotSHA string
+	Tree        string
+	Conflicts   []string
+}
+
+// StateReplay makes carrying SnapshotSHA from FromBase onto OntoBase answer Tree and Conflicts.
+func (f *Repo) StateReplay(params StateReplayParams) {
+	if f.Replays == nil {
+		f.Replays = map[string]*git.Replayed{}
+	}
+	f.Replays[nameReplay(params.FromBase, params.OntoBase, params.SnapshotSHA)] = &git.Replayed{
+		Tree:      params.Tree,
+		Conflicts: params.Conflicts,
+	}
+}
+
 // Replay answers the replay the test stated for these three commits.
 func (f *Repo) Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error) {
 	f.before(ctx, "git.Replay")
 
-	replayed, stated := f.Replays[NameReplay(params.FromBase, params.OntoBase, params.SnapshotSHA)]
+	replayed, stated := f.Replays[nameReplay(params.FromBase, params.OntoBase, params.SnapshotSHA)]
 	if !stated {
 		return nil, fmt.Errorf("%w: this test stated no replay of %s from %s onto %s",
 			ErrNoGit, params.SnapshotSHA, params.FromBase, params.OntoBase)
@@ -381,9 +401,9 @@ func (f *Repo) before(ctx context.Context, name string) {
 	}
 }
 
-// NameReplay names one replay: the base a snapshot was measured from, the base it is carried
+// nameReplay names one replay: the base a snapshot was measured from, the base it is carried
 // onto, and the snapshot.
-func NameReplay(fromBase, ontoBase, snapshot string) string {
+func nameReplay(fromBase, ontoBase, snapshot string) string {
 	return fromBase + ">" + ontoBase + ":" + snapshot
 }
 

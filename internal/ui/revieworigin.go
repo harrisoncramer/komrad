@@ -138,24 +138,6 @@ type originDiff struct {
 	fellBack  bool
 }
 
-func findOriginDiff(rounds []*agentv1.ReviewRound, origin *reviewOrigin) (originDiff, bool) {
-	round := findRound(rounds, origin.RoundID)
-	if round == nil {
-		return originDiff{}, false
-	}
-
-	found := originDiff{
-		base:      origin.BaseSHA,
-		head:      round.GetSnapshotSha(),
-		roundBase: round.GetBaseSha(),
-	}
-	if found.base == "" {
-		found.base = found.roundBase
-	}
-
-	return found, true
-}
-
 func (o originDiff) canFallBack() bool {
 	return o.head != "" && !o.fellBack && o.base != o.roundBase
 }

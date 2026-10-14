@@ -20,6 +20,7 @@ import (
 	"komrad/internal/mail"
 	"komrad/internal/pullrequests"
 	"komrad/internal/reviews"
+	"komrad/internal/reviews/history"
 	"komrad/internal/schedules"
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
@@ -181,10 +182,12 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Transcripts: transcriptSync,
 		LoadConfig:  loadConfig,
 	})
+	tracer := history.NewTracer(gitClient)
 	pullRequestGroup := buildPullRequests(buildPullRequestsParams{
 		Server:     params,
 		Stores:     st,
 		Git:        gitClient,
+		Tracer:     tracer,
 		Queue:      queue,
 		Wakers:     wakers,
 		LoadConfig: loadConfig,
@@ -213,6 +216,8 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		review: reviews.NewReviewService(reviews.NewReviewServiceParams{
 			Reviews:    st.review,
 			Snapshots:  gitClient,
+			Git:        gitClient,
+			Tracer:     tracer,
 			Workflows:  st.workflows,
 			Agents:     st.agents,
 			Tasks:      st.tasks,
@@ -483,6 +488,7 @@ type buildPullRequestsParams struct {
 	Stores     *stores
 	Queue      *jobs.Enqueuer
 	Git        *git.Client
+	Tracer     *history.Tracer
 	Wakers     *loopWakers
 	LoadConfig func() (*config.Config, error)
 }
@@ -531,7 +537,7 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 			Mirror: reviews.NewForgeMirror(reviews.NewForgeMirrorParams{
 				Reviews:      st.review,
 				ForgeThreads: st.forgeThreads,
-				Git:          params.Git,
+				Tracer:       params.Tracer,
 				Events:       params.Queue,
 				BotNames: func() ([]string, error) {
 					cfg, err := params.LoadConfig()

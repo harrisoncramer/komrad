@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
 	"komrad/internal/events"
-	"komrad/internal/git"
 	"komrad/internal/position"
+	"komrad/internal/reviews/history"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xptr"
@@ -23,15 +24,11 @@ import (
 // places the rest on their files.
 const forgeTraceTimeout = 10 * time.Second
 
-type rangeMapper interface {
-	MapRanges(ctx context.Context, params git.MapRangesParams) ([]position.Mapping, error)
-}
-
 // NewForgeMirrorParams is what a forge mirror is built over.
 type NewForgeMirrorParams struct {
 	Reviews      *reviewstore.ReviewStore
 	ForgeThreads *pullrequeststore.ForgeThreadStore
-	Git          rangeMapper
+	Tracer       *history.Tracer
 	Events       eventRecorder
 	// BotNames is the logins whose comments are left out of the mirror, read on each pass.
 	BotNames func() ([]string, error)
@@ -41,7 +38,7 @@ type NewForgeMirrorParams struct {
 type ForgeMirror struct {
 	reviews      *reviewstore.ReviewStore
 	forgeThreads *pullrequeststore.ForgeThreadStore
-	git          rangeMapper
+	tracer       *history.Tracer
 	events       eventRecorder
 	botNames     func() ([]string, error)
 }
@@ -51,7 +48,7 @@ func NewForgeMirror(params NewForgeMirrorParams) *ForgeMirror {
 	return &ForgeMirror{
 		reviews:      params.Reviews,
 		forgeThreads: params.ForgeThreads,
-		git:          params.Git,
+		tracer:       params.Tracer,
 		events:       params.Events,
 		botNames:     params.BotNames,
 	}
@@ -284,7 +281,7 @@ func isWorthMirroring(thread pullrequeststore.ForgeThread) bool {
 type createForgeThreadParams struct {
 	Target    reviewstore.ForgeMirrorTarget
 	Thread    pullrequeststore.ForgeThread
-	Place     forgePlace
+	Place     history.Place
 	ReviewFor func(pullrequeststore.ForgeComment) (*reviewstore.Review, error)
 }
 
@@ -469,32 +466,32 @@ func tallyForge(reviewID string, threads []reviewstore.Thread, messages []review
 	return tally
 }
 
-// forgePlace is where a new forge thread is pinned in the task's latest round.
-type forgePlace struct {
-	FilePath string
-	NewStart int32
-}
-
 // place traces each new forge thread from the commit the forge counted it in to the task's
 // latest snapshot, keeping its file when the line is gone or the commit cannot be read.
-func (m *ForgeMirror) place(ctx context.Context, target reviewstore.ForgeMirrorTarget, threads []pullrequeststore.ForgeThread) map[string]forgePlace {
-	places := map[string]forgePlace{}
-	byFrom := map[string][]pullrequeststore.ForgeThread{}
+func (m *ForgeMirror) place(ctx context.Context, target reviewstore.ForgeMirrorTarget, threads []pullrequeststore.ForgeThread) map[string]history.Place {
+	places := map[string]history.Place{}
+	byFrom := map[string][]history.Anchor{}
 
 	for _, thread := range threads {
-		places[thread.ID] = forgePlace{FilePath: thread.Path}
+		places[thread.ID] = history.Place{FilePath: thread.Path, FileOnly: true}
 
 		if thread.Line <= 0 || thread.OldSide || thread.CommitSHA == "" {
 			continue
 		}
 
 		if thread.CommitSHA == target.SnapshotSHA {
-			places[thread.ID] = forgePlace{FilePath: thread.Path, NewStart: int32(thread.Line)}
+			places[thread.ID] = history.Place{FilePath: thread.Path, NewStart: int32(thread.Line), Exact: true}
 
 			continue
 		}
 
-		byFrom[thread.CommitSHA] = append(byFrom[thread.CommitSHA], thread)
+		byFrom[thread.CommitSHA] = append(byFrom[thread.CommitSHA], history.Anchor{
+			ID: thread.ID,
+			Position: position.Position{
+				Path:  thread.Path,
+				Lines: position.Range{Start: thread.Line, End: thread.Line + 1},
+			},
+		})
 	}
 
 	if len(byFrom) == 0 {
@@ -504,56 +501,21 @@ func (m *ForgeMirror) place(ctx context.Context, target reviewstore.ForgeMirrorT
 	ctx, cancel := context.WithTimeout(ctx, forgeTraceTimeout)
 	defer cancel()
 
-	for from, group := range byFrom {
-		mappings, err := m.git.MapRanges(ctx, git.MapRangesParams{
+	for from, anchors := range byFrom {
+		traced, err := m.tracer.TracePair(ctx, history.TracePairParams{
 			Dir:     target.Cwd,
 			FromSHA: from,
 			ToSHA:   target.SnapshotSHA,
-			Paths: xslice.Map(group, func(thread pullrequeststore.ForgeThread) string {
-				return thread.Path
-			}),
+			Anchors: anchors,
 		})
 		if err != nil {
 			continue
 		}
 
-		results := position.Transform(position.TransformParams{
-			Positions: xslice.Map(group, func(thread pullrequeststore.ForgeThread) position.Position {
-				return position.Position{
-					Path:  thread.Path,
-					Lines: position.Range{Start: thread.Line, End: thread.Line + 1},
-				}
-			}),
-			Mappings: mappings,
-			Policy:   position.FileOnConflict,
-		})
-
-		traced := map[int]bool{}
-		for _, result := range results {
-			// A file copied to two paths answers twice, and the first answer is kept.
-			if result.Index < 0 || result.Index >= len(group) || traced[result.Index] {
-				continue
-			}
-			traced[result.Index] = true
-
-			places[group[result.Index].ID] = placeOf(group[result.Index], result)
-		}
+		maps.Copy(places, traced)
 	}
 
 	return places
-}
-
-func placeOf(thread pullrequeststore.ForgeThread, result position.Result) forgePlace {
-	path := result.Position.Path
-	if path == "" {
-		path = thread.Path
-	}
-
-	if result.Outcome != position.Placed || result.Position.IsFileLevel() {
-		return forgePlace{FilePath: path}
-	}
-
-	return forgePlace{FilePath: path, NewStart: int32(result.Position.Lines.Start)}
 }
 
 // isSameEdit reports whether two edit times name the same edit, to the second the forge keeps.

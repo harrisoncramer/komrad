@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/gittest"
+	"komrad/internal/reviews/history"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xslice"
 
@@ -431,7 +432,7 @@ func (fx *reviewFixture) mirrorForge(t *testing.T, threads ...forge.ReviewThread
 	mirror := NewForgeMirror(NewForgeMirrorParams{
 		Reviews:      fx.reviews,
 		ForgeThreads: fx.stores.ForgeThreads,
-		Git:          gittest.NoRepo{},
+		Tracer:       history.NewTracer(gittest.NoRepo{}),
 		Events:       fx.events,
 		BotNames:     func() ([]string, error) { return []string{"Review-Bot"}, nil },
 	})

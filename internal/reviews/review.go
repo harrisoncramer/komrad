@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/events"
 	"komrad/internal/fail"
+	"komrad/internal/reviews/history"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
@@ -86,6 +87,8 @@ type NewReviewServiceParams struct {
 	TaskFinder  taskFinder
 	Events      eventRecorder
 	Interrupter agentInterrupter
+	Git         history.Git
+	Tracer      *history.Tracer
 	// StateDir is where komrad keeps its own files.
 	StateDir string
 }
@@ -101,6 +104,8 @@ type ReviewService struct {
 	taskFinder  taskFinder
 	events      eventRecorder
 	interrupter agentInterrupter
+	git         history.Git
+	tracer      *history.Tracer
 	stateDir    string
 	roundLocks  *taskLocks
 }
@@ -116,6 +121,8 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 		taskFinder:  params.TaskFinder,
 		events:      params.Events,
 		interrupter: params.Interrupter,
+		git:         params.Git,
+		tracer:      params.Tracer,
 		stateDir:    params.StateDir,
 		roundLocks:  newTaskLocks(),
 	}

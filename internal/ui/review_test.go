@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -10,10 +11,12 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/git"
 	"komrad/internal/gittest"
+	"komrad/internal/reviews/history"
 	"komrad/internal/ui"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	taskv1 "komrad/proto/gen/task/v1"
@@ -59,7 +62,7 @@ func TestReviewOpen(t *testing.T) {
 		harness.press("space", "r")
 
 		assert.True(t, harness.panel.IsZoomed())
-		harness.assertSentTo(agentv1connect.AgentServiceOpenReviewRoundProcedure, &agentv1.OpenReviewRoundRequest{Task: xptr.Ptr("t1")})
+		harness.assertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: "t1"})
 	})
 
 	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
@@ -69,7 +72,7 @@ func TestReviewOpen(t *testing.T) {
 		harness := openReview(t, server)
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
 	})
 
 	t.Run("an agent part way through a rebase opens on its newest round", func(t *testing.T) {
@@ -1228,13 +1231,13 @@ func TestReviewWatch(t *testing.T) {
 		require.Contains(t, findLine(readStage(harness.readFrame()), "package greet"), "○")
 
 		harness.press("space", "R")
-		require.Len(t, harness.readSent(agentv1connect.AgentServiceListReviewThreadsProcedure), 1)
+		require.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 		require.Contains(t, findLine(readStage(harness.readFrame()), "package greet"), "○")
 
 		harness.press("space", "r")
 
 		assert.Contains(t, findLine(readStage(harness.readFrame()), "package greet"), "✓")
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListReviewThreadsProcedure), 2)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListReviewThreadsProcedure), 1)
 	})
 }
 
@@ -1328,7 +1331,7 @@ func TestReviewReload(t *testing.T) {
 
 		harness.press("space", "R")
 
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), 2)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 		assert.True(t, harness.panel.IsZoomed())
 	})
 
@@ -1385,10 +1388,10 @@ func TestReviewReload(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, frame, "written by the agent")
 		assert.NotContains(t, readEngineLine(frame), "the worktree has moved")
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), 2)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 
 		harness.watch(server.buildSnapshot())
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), 2)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 	})
 
 	t.Run("a move from a round other than the one on screen is not followed", func(t *testing.T) {
@@ -1398,7 +1401,7 @@ func TestReviewReload(t *testing.T) {
 		server.task.MovedSinceRound = "snapshot-of-another-round"
 		harness.watch(server.buildSnapshot())
 
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), 1)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 1)
 	})
 
 	t.Run("a move waits while a search is typed and is read once it is put away", func(t *testing.T) {
@@ -1850,23 +1853,22 @@ func TestReviewRounds(t *testing.T) {
 
 	t.Run("a chapter the reader has already stepped past never lands", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
-		harness.hold(agentv1connect.AgentServiceListReviewsProcedure)
+		harness.hold(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 
 		harness.press("<", "<")
-		harness.release(agentv1connect.AgentServiceListReviewsProcedure)
+		harness.release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 		frame := harness.readFrame()
 		assert.Contains(t, readSidebarProse(frame), "chapter 1 of 2")
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 
-		harness.release(agentv1connect.AgentServiceListReviewsProcedure)
+		harness.release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 		assert.Contains(t, readSidebarProse(harness.readFrame()), "1 file, +1 -1")
 	})
 
-	t.Run("one load reads the reviews and the rounds once", func(t *testing.T) {
+	t.Run("one load opens the history once", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListReviewsProcedure), 1)
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListReviewRoundsProcedure), 1)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 1)
 	})
 
 	t.Run("the line saying what changed survives a keypress and a notice", func(t *testing.T) {
@@ -1977,32 +1979,18 @@ func TestReviewRounds(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		harness := openReview(t, server)
 		harness.press("<")
-		harness.hold(agentv1connect.AgentServiceListReviewRoundsProcedure)
+		harness.hold(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 		harness.press("space", "R")
-		server.roundsErr = errors.New("the server went away")
+		server.historyErr = errors.New("the server went away")
 
 		harness.press("space", "c")
 		typeText(harness, "hello")
 		require.Contains(t, harness.readFrame(), "  Comment")
-		harness.release(agentv1connect.AgentServiceListReviewRoundsProcedure)
+		harness.release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 
 		assert.NotContains(t, harness.readFrame(), "  Comment")
 		harness.press("enter")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
-	})
-
-	t.Run("a round listing that fails takes the reader back to the whole change", func(t *testing.T) {
-		server := newEarlierReviewServer(t)
-		harness := openReview(t, server)
-		harness.press("<")
-		require.Contains(t, readSidebarProse(harness.readFrame()), "chapter 2 of 2")
-
-		server.roundsErr = errors.New("the server went away")
-		harness.press("space", "R")
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "all changes")
-		assert.Contains(t, frame, "2 files, +4 -1")
 	})
 
 	t.Run("a chapter splits the replies written after the next round from the ones before", func(t *testing.T) {
@@ -2081,38 +2069,21 @@ func TestReviewPin(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "Frozen on round")
 	})
 
-	t.Run("the reviews failing to read fails the load rather than moving the pin", func(t *testing.T) {
+	t.Run("the history failing to read fails the load rather than moving the pin", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.reviewsErr = errors.New("the server went away")
+		server.historyErr = errors.New("the server went away")
 
 		harness := openReview(t, server)
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readOpenMessages(harness), "the server went away")
 	})
-
-	t.Run("the rounds failing to read fails the load only while a batch is open", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.roundsErr = errors.New("the server went away")
-		server.reviews = []*agentv1.Review{{
-			Id:         "v1",
-			RoundId:    "round-1",
-			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		}}
-		harness := openReview(t, server)
-		assert.Equal(t, agentsScreen, harness.readScreen())
-
-		server.reviews = nil
-		harness.press("space", "r")
-		assert.True(t, harness.panel.IsZoomed())
-		assert.Contains(t, harness.readFrame(), "package greet")
-	})
 }
 
 // TestReviewReplay covers a round across a moved base carried onto it before it is compared.
 func TestReviewReplay(t *testing.T) {
 	t.Run("a round across a moved base is replayed onto it", func(t *testing.T) {
-		harness := openReview(t, newMovedBaseServer(t, &git.Replayed{Tree: replayedTree}))
+		harness := openReview(t, newMovedBaseServer(t, replayedTree))
 
 		harness.press("<")
 
@@ -2123,10 +2094,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("a round the base rewrote under the agent is refused as conflicted", func(t *testing.T) {
-		harness := openReview(t, newMovedBaseServer(t, &git.Replayed{
-			Tree:      "a-tree-with-markers-in-it",
-			Conflicts: []string{gittest.File, "second.go"},
-		}))
+		harness := openReview(t, newMovedBaseServer(t, "a-tree-with-markers-in-it", gittest.File, "second.go"))
 
 		harness.press("<")
 
@@ -2134,7 +2102,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("a git that cannot replay leaves the refusal standing", func(t *testing.T) {
-		harness := openReview(t, newMovedBaseServer(t, nil))
+		harness := openReview(t, newMovedBaseServer(t, ""))
 
 		harness.press("<")
 
@@ -2144,7 +2112,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("a base the branch no longer descends from is said to be rewritten", func(t *testing.T) {
-		server := newMovedBaseServer(t, &git.Replayed{Tree: replayedTree})
+		server := newMovedBaseServer(t, replayedTree)
 		server.repo.Rewritten = map[string]bool{gittest.NamePair(olderBase, gittest.BaseSHA): true}
 		harness := openReview(t, server)
 
@@ -2154,7 +2122,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("the first round is measured from its own base", func(t *testing.T) {
-		server := newMovedBaseServer(t, &git.Replayed{Tree: replayedTree})
+		server := newMovedBaseServer(t, replayedTree)
 		server.repo.Patches[gittest.NamePair(olderBase, gittest.SnapshotSHA)] = gittest.Patch
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
@@ -2168,7 +2136,7 @@ func TestReviewReplay(t *testing.T) {
 	})
 
 	t.Run("an old side counted in the replayed tree pins only there", func(t *testing.T) {
-		server := newMovedBaseServer(t, &git.Replayed{Tree: replayedTree})
+		server := newMovedBaseServer(t, replayedTree)
 		server.repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.Patch
 		server.threads = []*agentv1.ReviewThread{{
 			Id:          "t1",
@@ -2396,7 +2364,7 @@ func TestReviewHold(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		harness.press("space", "e")
 		require.Contains(t, harness.readFrame(), "editing greet.go")
-		loads := len(harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure))
+		loads := len(harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
 
 		editor := harness.panel.ReadRespawnPanes()
 		require.NotEmpty(t, editor)
@@ -2405,7 +2373,7 @@ func TestReviewHold(t *testing.T) {
 
 		assert.NotContains(t, harness.readFrame(), "editing ·")
 		assert.Contains(t, readReleaseSaid(t, harness), "while I had your worktree open")
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), loads+1)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), loads+1)
 	})
 
 	t.Run("the cursor resting while the editor is open leaves the editor on the stage", func(t *testing.T) {
@@ -2531,7 +2499,7 @@ func TestReviewHold(t *testing.T) {
 		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
 		harness.watch(server.buildSnapshot())
 		assert.Contains(t, harness.readFrame(), "written by the agent")
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewRoundProcedure), 2)
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 	})
 
 	t.Run("the gate reads the agent under review rather than the first row", func(t *testing.T) {
@@ -2590,8 +2558,7 @@ type reviewServer struct {
 	rounds     []*agentv1.ReviewRound
 	reviews    []*agentv1.Review
 	forge      []proto.Message
-	reviewsErr error
-	roundsErr  error
+	historyErr error
 	openErr    error
 	holdErr    error
 }
@@ -2708,9 +2675,7 @@ func (s *reviewServer) serve(harness *panelHarness) {
 	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: s.repo.Root}}), nil
 	})
-	harness.answer(agentv1connect.AgentServiceOpenReviewRoundProcedure, s.openRound)
-	harness.answer(agentv1connect.AgentServiceListReviewRoundsProcedure, s.listRounds)
-	harness.answer(agentv1connect.AgentServiceListReviewsProcedure, s.listReviews)
+	harness.answer(agentv1connect.AgentServiceOpenReviewHistoryProcedure, s.openHistory)
 	harness.answer(agentv1connect.AgentServiceListReviewThreadsProcedure, s.listThreads)
 	harness.answer(agentv1connect.AgentServiceListReviewViewedFilesProcedure, s.listViewed)
 	harness.answer(agentv1connect.AgentServiceSetReviewFileViewedProcedure, s.markViewed)
@@ -2721,7 +2686,7 @@ func (s *reviewServer) serve(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceHoldAgentProcedure, s.hold)
 }
 
-func (s *reviewServer) openRound(connect.AnyRequest) (connect.AnyResponse, error) {
+func (s *reviewServer) openRound() (*agentv1.ReviewRound, error) {
 	if s.openErr != nil {
 		return nil, s.openErr
 	}
@@ -2737,23 +2702,7 @@ func (s *reviewServer) openRound(connect.AnyRequest) (connect.AnyResponse, error
 		})
 	}
 
-	return connect.NewResponse(&agentv1.OpenReviewRoundResponse{Round: s.rounds[len(s.rounds)-1]}), nil
-}
-
-func (s *reviewServer) listRounds(connect.AnyRequest) (connect.AnyResponse, error) {
-	if s.roundsErr != nil {
-		return nil, s.roundsErr
-	}
-
-	return connect.NewResponse(&agentv1.ListReviewRoundsResponse{Rounds: s.rounds}), nil
-}
-
-func (s *reviewServer) listReviews(connect.AnyRequest) (connect.AnyResponse, error) {
-	if s.reviewsErr != nil {
-		return nil, s.reviewsErr
-	}
-
-	return connect.NewResponse(&agentv1.ListReviewsResponse{Reviews: s.reviews}), nil
+	return s.rounds[len(s.rounds)-1], nil
 }
 
 func (s *reviewServer) listThreads(connect.AnyRequest) (connect.AnyResponse, error) {
@@ -3059,17 +3008,21 @@ func newEarlierReviewServer(t *testing.T) *reviewServer {
 	return server
 }
 
-func newMovedBaseServer(t *testing.T, replayed *git.Replayed) *reviewServer {
+func newMovedBaseServer(t *testing.T, tree string, conflicts ...string) *reviewServer {
 	t.Helper()
 
 	server := newEarlierReviewServer(t)
 	server.rounds[0].BaseSha = olderBase
 	server.repo.Patches[gittest.NamePair(gittest.SnapshotSHA, gittest.NameSnapshot(secondTree))] = gittest.PatchOfBothFiles
 	server.repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.PatchOfTheSecondFile
-	if replayed != nil {
-		server.repo.Replays = map[string]*git.Replayed{
-			gittest.NameReplay(olderBase, gittest.BaseSHA, gittest.SnapshotSHA): replayed,
-		}
+	if tree != "" {
+		server.repo.StateReplay(gittest.StateReplayParams{
+			FromBase:    olderBase,
+			OntoBase:    gittest.BaseSHA,
+			SnapshotSHA: gittest.SnapshotSHA,
+			Tree:        tree,
+			Conflicts:   conflicts,
+		})
 	}
 
 	return server
@@ -3207,4 +3160,174 @@ func TestReviewChangeFolds(t *testing.T) {
 			assert.Contains(t, sidebar, "#7 fix the greeting")
 		})
 	}
+}
+
+const (
+	midSequenceNotice = "a rebase or merge is part way through, so this is the work as it stood before it"
+	historyTimeout    = time.Minute
+)
+
+func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse, error) {
+	asked, _ := req.Any().(*agentv1.OpenReviewHistoryRequest)
+	if s.historyErr != nil {
+		return nil, s.historyErr
+	}
+
+	answer, err := s.pickRound(asked.GetFresh())
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), historyTimeout)
+	defer cancel()
+
+	built := history.Build(ctx, history.BuildParams{
+		Git:     s.repo,
+		Tracer:  history.NewTracer(s.repo),
+		Dir:     s.repo.Root,
+		Exclude: s.workflow.GetWorktree().GetDiffExclude(),
+		Round:   historyRoundOf(answer.GetRound()),
+		Rounds:  xslice.Map(s.rounds, historyRoundOf),
+		Reviews: xslice.Map(s.reviews, historyReviewOf),
+		Threads: xslice.Map(s.threads, historyThreadOf),
+		Span:    historySpanOf(asked),
+	})
+
+	answer.Rounds = s.rounds
+	answer.Threads = s.threads
+	answer.Resolved = &agentv1.ReviewResolvedSpan{
+		BaseSha:            built.Span.BaseSHA,
+		HeadSha:            built.Span.HeadSHA,
+		Replayed:           built.Span.Replayed,
+		AnswerBaseSha:      built.Span.AnswerBaseSHA,
+		AnswerHeadSha:      built.Span.AnswerHeadSHA,
+		OriginBaseSha:      built.Span.OriginBaseSHA,
+		OriginHeadSha:      built.Span.OriginHeadSHA,
+		OriginRoundBaseSha: built.Span.OriginRoundBaseSHA,
+	}
+	answer.Widened = built.Widened
+	answer.Chapters = xslice.Map(built.Chapters, reviewChapterOf)
+	answer.ChangedSinceEarlier = int32(built.ChangedSinceEarlier)
+	answer.Traced = map[string]*agentv1.ReviewTracedPlace{}
+	if built.Earlier != nil {
+		answer.EarlierRoundId = built.Earlier.ID
+	}
+	if built.EarlierReleasedAt != nil {
+		answer.EarlierReleasedAt = dates.Stamp(*built.EarlierReleasedAt)
+	}
+	for id, place := range built.Traced {
+		answer.Traced[id] = &agentv1.ReviewTracedPlace{
+			FilePath: place.FilePath,
+			NewStart: place.NewStart,
+			FileOnly: place.FileOnly,
+			Exact:    place.Exact,
+		}
+	}
+
+	return connect.NewResponse(answer), nil
+}
+
+func (s *reviewServer) pickRound(fresh bool) (*agentv1.OpenReviewHistoryResponse, error) {
+	if !fresh {
+		if round := s.findOpenBatchRound(); round != nil {
+			return &agentv1.OpenReviewHistoryResponse{Round: round, Pinned: true}, nil
+		}
+	}
+
+	round, err := s.openRound()
+	switch {
+	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(s.rounds) > 0:
+		return &agentv1.OpenReviewHistoryResponse{Round: s.rounds[len(s.rounds)-1], Notice: midSequenceNotice}, nil
+	case err != nil:
+		return nil, err
+	}
+
+	return &agentv1.OpenReviewHistoryResponse{Round: round}, nil
+}
+
+func (s *reviewServer) findOpenBatchRound() *agentv1.ReviewRound {
+	for _, review := range s.reviews {
+		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN || review.GetReleasedAt() != "" {
+			continue
+		}
+
+		for _, round := range s.rounds {
+			if round.GetId() == review.GetRoundId() {
+				return round
+			}
+		}
+	}
+
+	return nil
+}
+
+func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
+	switch {
+	case req.GetSnapshots() != nil:
+		return history.Span{BaseSHA: req.GetSnapshots().GetBaseSha(), HeadSHA: req.GetSnapshots().GetHeadSha()}
+	case req.GetAnswer() != nil:
+		return history.Span{Answer: &history.AnswerSpan{
+			FromRoundID: req.GetAnswer().GetFromRoundId(),
+			ToRoundID:   req.GetAnswer().GetToRoundId(),
+		}}
+	case req.GetOrigin() != nil:
+		return history.Span{Origin: &history.OriginSpan{
+			RoundID: req.GetOrigin().GetRoundId(),
+			BaseSHA: req.GetOrigin().GetBaseSha(),
+		}}
+	}
+
+	return history.Span{}
+}
+
+func historyRoundOf(round *agentv1.ReviewRound) history.Round {
+	return history.Round{
+		ID:          round.GetId(),
+		Ordinal:     round.GetOrdinal(),
+		BaseSHA:     round.GetBaseSha(),
+		SnapshotSHA: round.GetSnapshotSha(),
+	}
+}
+
+func historyReviewOf(review *agentv1.Review) history.Review {
+	answer := history.Review{
+		RoundID:      review.GetRoundId(),
+		RoundOrdinal: review.GetRoundOrdinal(),
+		Human:        review.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+	}
+	if released, err := time.Parse(time.RFC3339, review.GetReleasedAt()); err == nil {
+		answer.ReleasedAt = &released
+	}
+
+	return answer
+}
+
+func historyThreadOf(thread *agentv1.ReviewThread) history.Thread {
+	return history.Thread{
+		ID:       thread.GetId(),
+		RoundID:  thread.GetRoundId(),
+		FilePath: thread.GetFilePath(),
+		NewStart: thread.GetNewStart(),
+		NewEnd:   thread.GetNewEnd(),
+	}
+}
+
+func reviewChapterOf(chapter history.Chapter) *agentv1.ReviewChapter {
+	answer := &agentv1.ReviewChapter{
+		FromSha:     chapter.FromSHA,
+		ToSha:       chapter.ToSHA,
+		Ordinal:     chapter.Ordinal,
+		Comparable:  chapter.Comparable,
+		FromBaseSha: chapter.FromBase,
+		ToBaseSha:   chapter.ToBase,
+		Rewritten:   chapter.Rewritten,
+		Replayed:    chapter.Replayed,
+		Conflicts:   chapter.Conflicts,
+		OnOlderBase: chapter.OnOlderBase,
+	}
+	if chapter.ReleasedAt != nil {
+		answer.ReleasedAt = dates.Stamp(*chapter.ReleasedAt)
+	}
+
+	return answer
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"komrad/internal/browser"
+	"komrad/internal/diff"
 	"komrad/internal/engine"
 	"komrad/internal/errui"
 	"komrad/internal/git"
@@ -157,7 +158,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			return ui.Run(cmd.Context(), ui.Deps{
 				Session:         state.session,
 				Tmux:            state.tmux,
-				Git:             reviewGit(remote, gitv1connect.NewGitServiceClient(httpClient, base)),
+				Patches:         patchReader(remote, gitv1connect.NewGitServiceClient(httpClient, base)),
 				Browser:         browser.NewDesktop(),
 				HarnessFrames:   pane.NewPane(pane.NewPaneParams{Terminal: state.tmux, Harnesses: state.harnesses}),
 				Agents:          agentClient,
@@ -243,9 +244,9 @@ func installPanelLogger(logPath, level string) error {
 	return nil
 }
 
-// reviewGit is the git the review screen reads a round through, on the engine when the agents
-// and their worktrees are there.
-func reviewGit(remote engine.Remote, engineGit gitv1connect.GitServiceClient) ui.ReviewGit {
+// patchReader reads a round's patch for the review screen, through the engine when the agents'
+// worktrees live there.
+func patchReader(remote engine.Remote, engineGit gitv1connect.GitServiceClient) diff.Reader {
 	if remote.IsRemote() {
 		return git.NewEngineClient(engineGit)
 	}
