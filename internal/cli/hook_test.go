@@ -35,15 +35,23 @@ func TestIntegrationStopHookRecordsTheBoundary(t *testing.T) {
 			name: "a caller that is not an agent has nothing to stamp",
 		},
 		{
-			name:        "a turn ending is recorded",
-			agentID:     "agent-a",
-			wantReports: []recordedReport{{agentID: "agent-a", event: "REPORT_EVENT_TURN_ENDED", hook: "Stop"}},
+			name:    "a turn ending is recorded",
+			agentID: "agent-a",
+			wantReports: []recordedReport{{
+				agentID: "agent-a",
+				event:   "REPORT_EVENT_TURN_ENDED",
+				hook:    "Stop",
+			}},
 		},
 		{
-			name:        "a turn ending with mail waiting hands the agent the notice",
-			agentID:     "agent-a",
-			nudge:       "komrad: 2 piece(s) of unread mail, call read_mail",
-			wantReports: []recordedReport{{agentID: "agent-a", event: "REPORT_EVENT_TURN_ENDED", hook: "Stop"}},
+			name:    "a turn ending with mail waiting hands the agent the notice",
+			agentID: "agent-a",
+			nudge:   "komrad: 2 piece(s) of unread mail, call read_mail",
+			wantReports: []recordedReport{{
+				agentID: "agent-a",
+				event:   "REPORT_EVENT_TURN_ENDED",
+				hook:    "Stop",
+			}},
 			wantContext: "komrad: 2 piece(s) of unread mail, call read_mail",
 		},
 	}
@@ -297,7 +305,11 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 			require.NoError(t, cmd.Execute())
 			assert.Equal(t, tt.wantBoundary, len(reports) == 1)
 			if tt.wantBoundary {
-				assert.Equal(t, recordedReport{agentID: tt.agentID, event: "REPORT_EVENT_TURN_ENDED", hook: "notify"}, reports[0])
+				assert.Equal(t, recordedReport{
+					agentID: tt.agentID,
+					event:   "REPORT_EVENT_TURN_ENDED",
+					hook:    "notify",
+				}, reports[0])
 			}
 			assert.Empty(t, out.String(), "notify reads nothing back, so nothing is printed")
 			assert.Equal(t, tt.wantProblem, errs.Len() > 0, errs.String())

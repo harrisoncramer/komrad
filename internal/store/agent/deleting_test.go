@@ -218,14 +218,26 @@ func TestClaimRoots(t *testing.T) {
 			want:   []string{},
 		},
 		{
-			name:   "a reviewer claimed with its task's writer goes with it",
-			claims: []Claim{{ID: "w", TaskID: &task, Role: RoleWriter}, {ID: "r", TaskID: &task, Role: RoleReviewer}},
-			want:   []string{"w"},
+			name: "a reviewer claimed with its task's writer goes with it",
+			claims: []Claim{{
+				ID:     "w",
+				TaskID: &task,
+				Role:   RoleWriter,
+			}, {
+				ID:     "r",
+				TaskID: &task,
+				Role:   RoleReviewer,
+			}},
+			want: []string{"w"},
 		},
 		{
-			name:   "a reviewer claimed without its task's writer is a root",
-			claims: []Claim{{ID: "r", TaskID: &task, Role: RoleReviewer}},
-			want:   []string{"r"},
+			name: "a reviewer claimed without its task's writer is a root",
+			claims: []Claim{{
+				ID:     "r",
+				TaskID: &task,
+				Role:   RoleReviewer,
+			}},
+			want: []string{"r"},
 		},
 	}
 

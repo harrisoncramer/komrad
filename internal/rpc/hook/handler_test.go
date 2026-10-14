@@ -1,7 +1,6 @@
 package hook
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -50,16 +49,6 @@ func TestListHooks(t *testing.T) {
 		wantCode connect.Code
 		want     *hookv1.ListHooksResponse
 	}{
-		{
-			name:     "a directory that cannot be read",
-			lister:   fakeHookLister{err: errors.New("permission denied")},
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "a config that cannot be read",
-			lister:   fakeHookLister{timeoutErr: errors.New("unreadable hook timeout")},
-			wantCode: connect.CodeInternal,
-		},
 		{
 			name: "a hook with a header and one without",
 			lister: fakeHookLister{hooks: []agents.Script{

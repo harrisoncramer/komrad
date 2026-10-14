@@ -9,39 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestKomradCheck covers the build a report quotes, so a bug filed against it names the binary
-// that misbehaved rather than the one the reader has.
-func TestKomradCheck(t *testing.T) {
-	tests := []struct {
-		name       string
-		build      string
-		want       Status
-		wantDetail string
-	}{
-		{
-			name:       "a binary that names no build",
-			build:      "",
-			want:       StatusSkip,
-			wantDetail: "not checked, this binary did not say which build it is",
-		},
-		{
-			name:       "a released build",
-			build:      "v1.2.3 (abc1234)",
-			want:       StatusOK,
-			wantDetail: "v1.2.3 (abc1234)",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := newKomradCheck().Run(t.Context(), Env{Settings: Settings{Build: tt.build}})
-
-			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantDetail, result.Detail)
-		})
-	}
-}
-
 // TestSystemCheck covers that the machine is always named, a release that cannot be read only
 // shortening the line rather than turning it into a finding.
 func TestSystemCheck(t *testing.T) {

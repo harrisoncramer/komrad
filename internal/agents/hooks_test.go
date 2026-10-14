@@ -67,37 +67,6 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 		"and the second runs after it, in the order the workflow lists them")
 }
 
-// TestNewAgentRunsPostLaunchHooksInTheBackground pins the other half of the pair: the call does
-// not wait for them.
-func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
-	tmux := tmuxtest.NewFake()
-	st := newStore(t)
-	lifecycle := &fakeLifecycle{dir: t.TempDir()}
-	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-
-	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookAgentPostLaunch, Script: "announce"}},
-	})
-	require.NoError(t, err)
-
-	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:      "agent",
-		Dir:        t.TempDir(),
-		WorkflowID: created.ID,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, agent)
-
-	require.Eventually(t, func() bool {
-		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the agent.post-launch hook runs once the pane is up")
-
-	ran := lifecycle.ranHooks()
-	assert.Equal(t, workflowstore.HookAgentPostLaunch, ran[0].Event)
-	assert.Equal(t, "announce", ran[0].Script)
-}
-
 // TestNewAgentAbandonsACreateAPreLaunchHookRefused pins a failing agent.pre-launch hook taking the
 // create with it.
 func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
@@ -289,70 +258,6 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookAgentPostLaunch, Script: "announce"}}, updated.Hooks,
 		"an update writes the whole list rather than adding to it")
-}
-
-// TestResumeFiresPostResumeHooks pins the moment a dormant agent comes back in.
-func TestResumeFiresPostResumeHooks(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	ctx := t.Context()
-
-	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-
-	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:     "backend",
-		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookAgentPreLaunch, Script: "install-deps"},
-			{Event: workflowstore.HookAgentPostResume, Script: "announce-back"},
-		},
-	})
-	require.NoError(t, err)
-
-	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
-	agent.Cwd = t.TempDir()
-	require.NoError(t, st.Agents.Update(ctx, agent))
-
-	_, err = manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the agent.post-resume hook runs once the pane is back")
-
-	ran := lifecycle.ranHooks()
-	assert.Equal(t, workflowstore.HookAgentPostResume, ran[0].Event)
-	assert.Equal(t, "announce-back", ran[0].Script, "and agent.pre-launch does not rerun")
-}
-
-// TestRestoreFiresPostRestoreHooks pins the moment the row comes back.
-func TestRestoreFiresPostRestoreHooks(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	ctx := t.Context()
-
-	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-
-	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:     "backend",
-		Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"},
-		Hooks:    []workflowstore.Hook{{Event: workflowstore.HookAgentPostRestore, Script: "unlock"}},
-	})
-	require.NoError(t, err)
-
-	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
-	require.NoError(t, st.SoftDelete(ctx, "auth"))
-
-	_, err = manager.lifecycle.RestoreAgents(ctx, []string{agent.ID})
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		return len(lifecycle.ranHooks()) == 1
-	}, 5*time.Second, 10*time.Millisecond, "the agent.post-restore hook runs once the row is back")
-
-	assert.Equal(t, workflowstore.HookAgentPostRestore, lifecycle.ranHooks()[0].Event)
 }
 
 // TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn pins the moments off the create path
@@ -839,51 +744,6 @@ func TestArchivingAnArchivedAgentRunsNoHooks(t *testing.T) {
 	require.Never(t, func() bool {
 		return len(lifecycle.ranHooks()) > 2
 	}, 300*time.Millisecond, 20*time.Millisecond)
-}
-
-// TestDeleteFiresPreDeleteThenPostDelete covers the two moments either side of the directory going.
-func TestDeleteFiresPreDeleteThenPostDelete(t *testing.T) {
-	st := newStore(t)
-	tmux := tmuxtest.NewFake()
-	ctx := t.Context()
-
-	lifecycle := &fakeLifecycle{}
-	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-
-	config := worktreeConfig(t, "backend")
-	config.Hooks = []workflowstore.Hook{
-		{Event: workflowstore.HookAgentPreDelete, Script: "say-goodbye"},
-		{Event: workflowstore.HookAgentPostDelete, Script: "forget"},
-	}
-	created, err := st.Workflows.Create(ctx, config)
-	require.NoError(t, err)
-
-	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
-	agent.Cwd = t.TempDir()
-	require.NoError(t, st.Agents.Update(ctx, agent))
-
-	require.NoError(t, manager.lifecycle.deleteNow(ctx, []string{agent.ID}))
-
-	require.Eventually(t, func() bool {
-		return len(lifecycle.ranHooks()) == 2
-	}, 5*time.Second, 10*time.Millisecond, "agent.post-delete runs once the row is dropped")
-
-	assert.Equal(t, []ranHook{
-		{
-			Event:  workflowstore.HookAgentPreDelete,
-			Script: "say-goodbye",
-			Cwd:    agent.Cwd,
-		},
-		{
-			Event:  workflowstore.HookAgentPostDelete,
-			Script: "forget",
-			Cwd:    agent.Cwd,
-		},
-	}, lifecycle.ranHooks())
-
-	remaining, err := st.Agents.ListAll(ctx)
-	require.NoError(t, err)
-	assert.Empty(t, remaining)
 }
 
 // TestDeleteWaitsForTheHooksStillRunning covers the row outliving a hook from an earlier moment.

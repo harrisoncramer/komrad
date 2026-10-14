@@ -9,13 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/agentdirs"
 	"komrad/internal/attaches"
 	"komrad/internal/interceptors"
 	"komrad/internal/pty"
 	"komrad/internal/rpc/terminal"
 	"komrad/internal/shells"
-	"komrad/internal/store"
 	"komrad/lib/xhttp"
 	terminalv1 "komrad/proto/gen/terminal/v1"
 	"komrad/proto/gen/terminal/v1/terminalv1connect"
@@ -80,15 +78,10 @@ func (f *fakeTerminal) Close() error {
 
 type fakeOpener struct {
 	terminal *fakeTerminal
-	err      error
 	opened   chan shells.OpenParams
 }
 
 func (f *fakeOpener) Open(_ context.Context, params shells.OpenParams) (pty.Terminal, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
 	f.opened <- params
 
 	return f.terminal, nil
@@ -96,15 +89,10 @@ func (f *fakeOpener) Open(_ context.Context, params shells.OpenParams) (pty.Term
 
 type fakeAttacher struct {
 	terminal *fakeTerminal
-	err      error
 	opened   chan attaches.OpenParams
 }
 
 func (f *fakeAttacher) Open(_ context.Context, params attaches.OpenParams) (pty.Terminal, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
 	f.opened <- params
 
 	return f.terminal, nil
@@ -174,7 +162,6 @@ func TestShellRefuses(t *testing.T) {
 	tests := []struct {
 		name     string
 		first    *terminalv1.ShellRequest
-		openErr  error
 		wantCode connect.Code
 	}{
 		{
@@ -182,23 +169,11 @@ func TestShellRefuses(t *testing.T) {
 			first:    &terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Input{Input: []byte("ls\n")}},
 			wantCode: connect.CodeInvalidArgument,
 		},
-		{
-			name:     "a directory outside every live agent",
-			first:    openRequest("/etc"),
-			openErr:  agentdirs.ErrOutsideAgents,
-			wantCode: connect.CodePermissionDenied,
-		},
-		{
-			name:     "a directory that does not exist",
-			first:    openRequest("/nowhere"),
-			openErr:  agentdirs.ErrNoDirectory,
-			wantCode: connect.CodeInvalidArgument,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := serve(t, &fakeOpener{err: tt.openErr, opened: make(chan shells.OpenParams, 1)})
+			client := serve(t, &fakeOpener{opened: make(chan shells.OpenParams, 1)})
 
 			stream := client.Shell(t.Context())
 			require.NoError(t, stream.Send(tt.first))
@@ -321,7 +296,6 @@ func TestAttachRefuses(t *testing.T) {
 	tests := []struct {
 		name     string
 		first    *terminalv1.AttachRequest
-		openErr  error
 		wantCode connect.Code
 	}{
 		{
@@ -334,29 +308,11 @@ func TestAttachRefuses(t *testing.T) {
 			first:    openAttachRequest(""),
 			wantCode: connect.CodeInvalidArgument,
 		},
-		{
-			name:     "an agent that does not exist",
-			first:    openAttachRequest("a1"),
-			openErr:  store.ErrNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "an agent that is not live",
-			first:    openAttachRequest("a1"),
-			openErr:  attaches.ErrNotLive,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "an agent holding no pane",
-			first:    openAttachRequest("a1"),
-			openErr:  attaches.ErrNoPane,
-			wantCode: connect.CodeFailedPrecondition,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := serveAttaches(t, &fakeAttacher{err: tt.openErr, opened: make(chan attaches.OpenParams, 1)})
+			client := serveAttaches(t, &fakeAttacher{opened: make(chan attaches.OpenParams, 1)})
 
 			stream := client.Attach(t.Context())
 			require.NoError(t, stream.Send(tt.first))

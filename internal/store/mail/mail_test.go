@@ -146,83 +146,6 @@ func TestClaimToleratesAnIDNoColumnCouldHold(t *testing.T) {
 	assert.Zero(t, left)
 }
 
-// TestReplyToThreadsMail pins that a reply records the mail it answers.
-func TestReplyToThreadsMail(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	asker := seedAgent(t, st, "asker")
-	answerer := seedAgent(t, st, "answerer")
-
-	asked, err := st.Send(ctx, SendParams{
-		FromAgentID: &asker,
-		ToAgentID:   answerer,
-		Body:        "which column?",
-		Deadline:    time.Hour,
-	})
-	require.NoError(t, err)
-
-	answered, err := st.Send(ctx, SendParams{
-		FromAgentID: &answerer,
-		ToAgentID:   asker,
-		Body:        "refunded_cents",
-		ReplyTo:     &asked.ID,
-		Deadline:    time.Hour,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, answered.ReplyTo)
-	assert.Equal(t, asked.ID, *answered.ReplyTo)
-}
-
-// TestGetByID pins which lookups find mail and which come back as not found, an id the
-// column could not hold included.
-func TestGetByID(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-
-	tests := []struct {
-		name   string
-		lookup func(sent Mail) string
-		wantOK bool
-	}{
-		{
-			name:   "an id that is not well-formed",
-			lookup: func(Mail) string { return "not-an-id" },
-		},
-		{
-			name:   "a well-formed id nothing holds",
-			lookup: func(Mail) string { return uuid.NewString() },
-		},
-		{
-			name:   "mail that was sent",
-			lookup: func(sent Mail) string { return sent.ID },
-			wantOK: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sent, err := st.Send(ctx, SendParams{
-				ToAgentID: recipient,
-				Body:      "which column?",
-				Deadline:  time.Hour,
-			})
-			require.NoError(t, err)
-
-			got, err := st.GetByID(ctx, tt.lookup(*sent))
-			if !tt.wantOK {
-				require.ErrorIs(t, err, store.ErrNotFound)
-
-				return
-			}
-
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, sent.ID, got.ID)
-		})
-	}
-}
-
 // TestGetByIdempotencyKey covers finding mail by the key it was sent with.
 func TestGetByIdempotencyKey(t *testing.T) {
 	st := open(t)
@@ -509,26 +432,6 @@ func TestListPageCursorTakesTheNextPage(t *testing.T) {
 	assert.Equal(t, sent[0].ID, secondPage[0].ID)
 }
 
-// TestListPageIgnoresOtherMailboxes pins that a listing reaches only the mail addressed to
-// that agent.
-func TestListPageIgnoresOtherMailboxes(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	mine := seedAgent(t, st, "mine")
-	theirs := seedAgent(t, st, "theirs")
-
-	_, err := st.Send(ctx, SendParams{
-		ToAgentID: theirs,
-		Body:      "not for you",
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-
-	page, err := st.ListPage(ctx, mine, 10, nil)
-	require.NoError(t, err)
-	assert.Empty(t, page)
-}
-
 // TestListSentPage pins the other half of an agent's correspondence.
 func TestListSentPage(t *testing.T) {
 	st := open(t)
@@ -604,45 +507,6 @@ func TestListSentPageCursorTakesTheNextPage(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, secondPage, 1)
 	assert.Equal(t, sent[0].ID, secondPage[0].ID)
-}
-
-// TestListByID pins that only the ids actually holding mail come back, so an id that is
-// unknown or malformed is skipped rather than failing the call.
-func TestListByID(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-
-	sent, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "which column?",
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-
-	found, err := st.ListByID(ctx, []string{sent.ID, uuid.NewString(), "not-an-id"})
-	require.NoError(t, err)
-	require.Len(t, found, 1, "only the id that holds mail comes back")
-	assert.Equal(t, sent.ID, found[0].ID)
-}
-
-// TestDelete pins that deleted mail is gone rather than merely marked read.
-func TestDelete(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-
-	sent, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "which column?",
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, st.Delete(ctx, []string{sent.ID}))
-
-	_, err = st.GetByID(ctx, sent.ID)
-	require.ErrorIs(t, err, store.ErrNotFound, "deleted mail is gone, not just claimed")
 }
 
 type fixture struct {

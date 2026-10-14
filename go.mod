@@ -115,3 +115,5 @@ replace charm.land/bubbletea/v2 => github.com/harrisoncramer/bubbletea/v2 v2.0.1
 replace github.com/charmbracelet/ultraviolet => github.com/harrisoncramer/ultraviolet v0.0.0-20260925193859-12eccc7ea4b8
 
 replace charm.land/huh/v2 => github.com/harrisoncramer/huh/v2 v2.0.4-0.20260930233202-faefb45d4c24
+
+ignore ./docs/node_modules

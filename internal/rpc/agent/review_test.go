@@ -472,7 +472,11 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 	reviewer := &fakeReviewer{
 		round: reviewstore.Round{ID: "round-2", Ordinal: 2},
 		record: history.Record{
-			Span:    history.ResolvedSpan{BaseSHA: "base", HeadSHA: "head", Replayed: true},
+			Span: history.ResolvedSpan{
+				BaseSHA:  "base",
+				HeadSHA:  "head",
+				Replayed: true,
+			},
 			Widened: "the round this comment was written on is gone",
 			Chapters: []history.Chapter{{
 				FromSHA:    "from",
@@ -493,10 +497,22 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 	require.NoError(t, err)
 
 	want := &agentv1.OpenReviewHistoryResponse{
-		Round:    &agentv1.ReviewRound{Id: "round-2", Ordinal: 2, CreatedAt: dates.Stamp(time.Time{})},
-		Rounds:   []*agentv1.ReviewRound{{Id: "round-2", Ordinal: 2, CreatedAt: dates.Stamp(time.Time{})}},
-		Resolved: &agentv1.ReviewResolvedSpan{BaseSha: "base", HeadSha: "head", Replayed: true},
-		Widened:  "the round this comment was written on is gone",
+		Round: &agentv1.ReviewRound{
+			Id:        "round-2",
+			Ordinal:   2,
+			CreatedAt: dates.Stamp(time.Time{}),
+		},
+		Rounds: []*agentv1.ReviewRound{{
+			Id:        "round-2",
+			Ordinal:   2,
+			CreatedAt: dates.Stamp(time.Time{}),
+		}},
+		Resolved: &agentv1.ReviewResolvedSpan{
+			BaseSha:  "base",
+			HeadSha:  "head",
+			Replayed: true,
+		},
+		Widened: "the round this comment was written on is gone",
 		Chapters: []*agentv1.ReviewChapter{{
 			FromSha:    "from",
 			ToSha:      "to",
@@ -774,7 +790,11 @@ func (f *fakeReviewer) GetHistory(_ context.Context, params reviews.GetHistoryPa
 		return nil, f.err
 	}
 
-	return &reviews.ReviewHistory{Record: f.record, Round: f.round, Rounds: []reviewstore.Round{f.round}}, nil
+	return &reviews.ReviewHistory{
+		Record: f.record,
+		Round:  f.round,
+		Rounds: []reviewstore.Round{f.round},
+	}, nil
 }
 
 // ListReviews answers the review it holds.

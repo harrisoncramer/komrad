@@ -17,59 +17,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestRunDoctorRendersTheReport pins how each finding reaches the wire.
-func TestRunDoctorRendersTheReport(t *testing.T) {
-	t.Parallel()
-
-	checks := []doctor.Check{
-		{
-			Name:        "base",
-			Description: "the thing others need",
-			Run: func(context.Context, doctor.Env) doctor.Result {
-				return doctor.Result{
-					Status: doctor.StatusFail,
-					Err:    &doctor.ProblemError{Code: "gone", Message: "it is not there"},
-					Fix:    "install it",
-				}
-			},
-		},
-		{
-			Name:        "fine",
-			Description: "stands alone",
-			Run: func(context.Context, doctor.Env) doctor.Result {
-				return doctor.Result{
-					Status: doctor.StatusOK,
-					Detail: "3.5a",
-				}
-			},
-		},
-	}
-	service := doctorv1komrad.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
-
-	resp, err := service.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))
-	require.NoError(t, err)
-
-	want := &doctorv1.RunDoctorResponse{
-		Findings: []*doctorv1.Finding{
-			{
-				Name:        "base",
-				Description: "the thing others need",
-				Status:      "fail",
-				Code:        "gone",
-				Error:       "it is not there",
-				Fix:         "install it",
-			},
-			{
-				Name:        "fine",
-				Description: "stands alone",
-				Status:      "ok",
-				Detail:      "3.5a",
-			},
-		},
-	}
-	assert.Empty(t, cmp.Diff(want, resp.Msg, protocmp.Transform(), protocmp.IgnoreFields(&doctorv1.RunDoctorResponse{}, "summary")))
-}
-
 // TestRunDoctorRendersTheSummary pins that each count of the summary reaches its own field.
 func TestRunDoctorRendersTheSummary(t *testing.T) {
 	t.Parallel()

@@ -11,7 +11,11 @@ import (
 // TestIsOpening covers which agents starting on a task take it from no live agent to one.
 func TestIsOpening(t *testing.T) {
 	taskID := "task"
-	starting := agentstore.Agent{ID: "starting", TaskID: &taskID, Role: agentstore.RoleWriter}
+	starting := agentstore.Agent{
+		ID:     "starting",
+		TaskID: &taskID,
+		Role:   agentstore.RoleWriter,
+	}
 
 	tests := []struct {
 		name  string

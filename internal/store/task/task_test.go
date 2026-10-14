@@ -458,7 +458,11 @@ func TestListWatchedDocuments(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
 	writer := stores.SeedAgent(t, agentstore.Agent{Name: "writer"})
-	reviewer := stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", Role: agentstore.RoleReviewer, TaskID: writer.TaskID})
+	reviewer := stores.SeedAgent(t, agentstore.Agent{
+		Name:   "reviewer",
+		Role:   agentstore.RoleReviewer,
+		TaskID: writer.TaskID,
+	})
 	elsewhere := stores.SeedAgent(t, agentstore.Agent{Name: "elsewhere"})
 
 	watched := func(id string) taskstore.Task {

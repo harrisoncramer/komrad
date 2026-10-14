@@ -10,15 +10,15 @@ import (
 )
 
 var (
-	errContextFileAbsent = &ProblemError{
+	errContextFileAbsent = &problemError{
 		Code:    "context_file_absent",
 		Message: "context.file names a file that is not there, so no agent is started with it",
 	}
-	errContextFileNotAFile = &ProblemError{
+	errContextFileNotAFile = &problemError{
 		Code:    "context_file_not_a_file",
 		Message: "context.file names something that is not a file",
 	}
-	errContextFileUnreadable = &ProblemError{
+	errContextFileUnreadable = &problemError{
 		Code:    "context_file_unreadable",
 		Message: "context.file could not be read",
 	}

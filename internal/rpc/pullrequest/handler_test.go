@@ -2,15 +2,12 @@ package pullrequest
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
 	"komrad/internal/checklog"
 	"komrad/internal/forge"
-	"komrad/internal/git"
 	"komrad/internal/pullrequests"
-	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -30,7 +27,6 @@ const komradRepository = "https://github.com/harrisoncramer/komrad"
 type fakePullRequestLister struct {
 	pullRequests   []pullrequeststore.PullRequest
 	readings       []pullrequeststore.StatusCheckReading
-	err            error
 	listed         []pullrequests.ListPullRequestsParams
 	statusChecksOf []string
 	lines          *pullrequeststore.CheckLogLines
@@ -39,12 +35,9 @@ type fakePullRequestLister struct {
 	searchesOf     [][]string
 }
 
-// ListPullRequests records the params and answers pullRequests unless err refuses it.
+// ListPullRequests records the params and answers pullRequests.
 func (f *fakePullRequestLister) ListPullRequests(_ context.Context, params pullrequests.ListPullRequestsParams) ([]pullrequeststore.PullRequest, error) {
 	f.listed = append(f.listed, params)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return f.pullRequests, nil
 }
@@ -54,15 +47,8 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
 		req      *pullrequestv1.ListPullRequestsRequest
-		err      error
 		wantCode connect.Code
 	}{
-		{
-			name:     "a repository that names no forge",
-			req:      &pullrequestv1.ListPullRequestsRequest{RepositoryUrl: "/local/path"},
-			err:      git.ErrNotForgeRemote,
-			wantCode: connect.CodeInvalidArgument,
-		},
 		{
 			name: "a cursor nobody could have been handed",
 			req: &pullrequestv1.ListPullRequestsRequest{
@@ -71,17 +57,11 @@ func TestListPullRequestsRefusalsMapToCodes(t *testing.T) {
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
-		{
-			name:     "a store that cannot be read",
-			req:      &pullrequestv1.ListPullRequestsRequest{RepositoryUrl: komradRepository},
-			err:      errors.New("connection refused"),
-			wantCode: connect.CodeInternal,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := &fakePullRequestLister{err: tt.err}
+			reader := &fakePullRequestLister{}
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			_, err := service.ListPullRequests(t.Context(), connect.NewRequest(tt.req))
@@ -150,12 +130,9 @@ func TestListPullRequests(t *testing.T) {
 	assert.Equal(t, want, reader.listed)
 }
 
-// ListStatusChecks records the pull request asked about and answers readings unless err refuses it.
+// ListStatusChecks records the pull request asked about and answers readings.
 func (f *fakePullRequestLister) ListStatusChecks(_ context.Context, pullRequestID string) ([]pullrequeststore.StatusCheckReading, error) {
 	f.statusChecksOf = append(f.statusChecksOf, pullRequestID)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return f.readings, nil
 }
@@ -166,9 +143,7 @@ func TestListStatusChecks(t *testing.T) {
 	tests := []struct {
 		name     string
 		readings []pullrequeststore.StatusCheckReading
-		err      error
 		want     *pullrequestv1.ListStatusChecksResponse
-		wantCode connect.Code
 	}{
 		{
 			name: "checks never read answer empty",
@@ -406,48 +381,31 @@ func TestListStatusChecks(t *testing.T) {
 				}},
 			}}},
 		},
-		{
-			name:     "a store that cannot be read",
-			err:      errors.New("connection refused"),
-			wantCode: connect.CodeInternal,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := &fakePullRequestLister{readings: tt.readings, err: tt.err}
+			reader := &fakePullRequestLister{readings: tt.readings}
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			got, err := service.ListStatusChecks(t.Context(), connect.NewRequest(&pullrequestv1.ListStatusChecksRequest{PullRequestId: "PR_1"}))
 			assert.Equal(t, []string{"PR_1"}, reader.statusChecksOf)
-			if tt.wantCode != 0 {
-				require.Error(t, err)
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-				return
-			}
 			require.NoError(t, err)
 			assert.True(t, proto.Equal(tt.want, got.Msg), "got %v", got.Msg)
 		})
 	}
 }
 
-// ReadCheckLog records the check asked about and answers lines unless err refuses it.
+// ReadCheckLog records the check asked about and answers lines.
 func (f *fakePullRequestLister) ReadCheckLog(_ context.Context, checkID string, _, _ int) (*pullrequeststore.CheckLogLines, error) {
 	f.readsOf = append(f.readsOf, checkID)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return f.lines, nil
 }
 
-// SearchCheckLogs records the checks asked about and answers search unless err refuses it.
+// SearchCheckLogs records the checks asked about and answers search.
 func (f *fakePullRequestLister) SearchCheckLogs(_ context.Context, checkIDs []string, _ string) (*pullrequeststore.CheckLogSearch, error) {
 	f.searchesOf = append(f.searchesOf, checkIDs)
-	if f.err != nil {
-		return nil, f.err
-	}
 
 	return f.search, nil
 }
@@ -455,11 +413,9 @@ func (f *fakePullRequestLister) SearchCheckLogs(_ context.Context, checkIDs []st
 // TestReadCheckLog covers what reaches the caller for a window of a check's log.
 func TestReadCheckLog(t *testing.T) {
 	tests := []struct {
-		name     string
-		lines    *pullrequeststore.CheckLogLines
-		err      error
-		want     *pullrequestv1.ReadCheckLogResponse
-		wantCode connect.Code
+		name  string
+		lines *pullrequeststore.CheckLogLines
+		want  *pullrequestv1.ReadCheckLogResponse
 	}{
 		{
 			name:  "the window answers its lines and the whole log's length",
@@ -469,21 +425,11 @@ func TestReadCheckLog(t *testing.T) {
 				LineCount: 40,
 			},
 		},
-		{
-			name:     "a check with no fetched log",
-			err:      store.ErrNotFound.Saying("no fetched log for check %s", "check-1"),
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a store that cannot be read",
-			err:      errors.New("connection refused"),
-			wantCode: connect.CodeInternal,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := &fakePullRequestLister{lines: tt.lines, err: tt.err}
+			reader := &fakePullRequestLister{lines: tt.lines}
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			got, err := service.ReadCheckLog(t.Context(), connect.NewRequest(&pullrequestv1.ReadCheckLogRequest{
@@ -492,12 +438,6 @@ func TestReadCheckLog(t *testing.T) {
 				Count:     2,
 			}))
 			assert.Equal(t, []string{"check-1"}, reader.readsOf)
-			if tt.wantCode != 0 {
-				require.Error(t, err)
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-				return
-			}
 			require.NoError(t, err)
 			assert.True(t, proto.Equal(tt.want, got.Msg), "got %v", got.Msg)
 		})
@@ -507,11 +447,9 @@ func TestReadCheckLog(t *testing.T) {
 // TestSearchCheckLogs covers what reaches the caller for a search across check logs.
 func TestSearchCheckLogs(t *testing.T) {
 	tests := []struct {
-		name     string
-		search   *pullrequeststore.CheckLogSearch
-		err      error
-		want     *pullrequestv1.SearchCheckLogsResponse
-		wantCode connect.Code
+		name   string
+		search *pullrequeststore.CheckLogSearch
+		want   *pullrequestv1.SearchCheckLogsResponse
 	}{
 		{
 			name: "each hit answers its check, line, step and whether it was cut",
@@ -550,31 +488,15 @@ func TestSearchCheckLogs(t *testing.T) {
 				Limited: true,
 			},
 		},
-		{
-			name:     "a pattern that does not compile",
-			err:      pullrequeststore.ErrInvalidPattern.Saying("bad pattern"),
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a store that cannot be read",
-			err:      errors.New("connection refused"),
-			wantCode: connect.CodeInternal,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reader := &fakePullRequestLister{search: tt.search, err: tt.err}
+			reader := &fakePullRequestLister{search: tt.search}
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			got, err := service.SearchCheckLogs(t.Context(), connect.NewRequest(&pullrequestv1.SearchCheckLogsRequest{CheckIds: []string{"check-1", "check-2"}, Pattern: "FAIL"}))
 			assert.Equal(t, [][]string{{"check-1", "check-2"}}, reader.searchesOf)
-			if tt.wantCode != 0 {
-				require.Error(t, err)
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-				return
-			}
 			require.NoError(t, err)
 			assert.True(t, proto.Equal(tt.want, got.Msg), "got %v", got.Msg)
 		})

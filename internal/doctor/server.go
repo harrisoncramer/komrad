@@ -12,23 +12,23 @@ import (
 const maxPort = 65535
 
 var (
-	errServerNotReady = &ProblemError{
+	errServerNotReady = &problemError{
 		Code:    "server_not_ready",
 		Message: "the server is listening but cannot answer",
 	}
-	errAddressTaken = &ProblemError{
+	errAddressTaken = &problemError{
 		Code:    "address_taken",
 		Message: "something that is not komrad is holding the listen address",
 	}
-	errServerDown = &ProblemError{
+	errServerDown = &problemError{
 		Code:    "server_down",
 		Message: "nothing is serving",
 	}
-	errAddressUnusable = &ProblemError{
+	errAddressUnusable = &problemError{
 		Code:    "address_unusable",
 		Message: "KOMRAD_ADDR is not an address the server can listen on",
 	}
-	errEngineUnreachable = &ProblemError{
+	errEngineUnreachable = &problemError{
 		Code:    "engine_unreachable",
 		Message: "the engine could not be reached from this machine",
 	}

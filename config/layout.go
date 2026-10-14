@@ -10,7 +10,7 @@ import (
 // The layout the panel lays itself out at when the config names none. The info pane opens
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
-	defaultSidebarSide   = SidebarSideLeft
+	defaultSidebarSide   = sidebarSideLeft
 	DefaultSidebarWidth  = 47
 	defaultInfoSide      = infoSideBelow
 	DefaultInfoHeight    = 0.4
@@ -20,7 +20,7 @@ const (
 
 // The places each region of the panel's layout can sit.
 const (
-	SidebarSideLeft  = "left"
+	sidebarSideLeft  = "left"
 	SidebarSideRight = "right"
 	infoSideBelow    = "below"
 	InfoSideAbove    = "above"
@@ -89,7 +89,7 @@ func (l Layout) validate() error {
 	if err := validatePaneSize("layout.details_height", l.DetailsHeight); err != nil {
 		return err
 	}
-	if err := validateSide("layout.sidebar_side", l.SidebarSide, SidebarSideLeft, SidebarSideRight); err != nil {
+	if err := validateSide("layout.sidebar_side", l.SidebarSide, sidebarSideLeft, SidebarSideRight); err != nil {
 		return err
 	}
 

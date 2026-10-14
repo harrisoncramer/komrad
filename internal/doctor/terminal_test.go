@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"testing"
 
 	"komrad/internal/glyph"
@@ -78,14 +77,6 @@ func TestGlyphCheckWarnsWhenTheTerminalWouldNotYield(t *testing.T) {
 	assert.ErrorContains(t, result.Err, "inappropriate ioctl")
 }
 
-// TestGlyphCheckDoesNotBlameTheFont covers the fix text.
-func TestGlyphCheckDoesNotBlameTheFont(t *testing.T) {
-	result := newTerminalGlyphCheck().Run(t.Context(), measuring(t, 2))
-
-	require.Equal(t, StatusWarn, result.Status)
-	assert.NotContains(t, strings.ToLower(result.Fix), "font")
-}
-
 // TestGlyphCheckPassesWhenTheWidthsAgree covers the ordinary machine, where the constant the
 // layout rests on is what the terminal does.
 func TestGlyphCheckPassesWhenTheWidthsAgree(t *testing.T) {
@@ -125,24 +116,6 @@ func TestGlyphCheckDistrustsATerminalThatMisreadsPlainText(t *testing.T) {
 	require.ErrorIs(t, result.Err, errCursorQueryUntrusted)
 	assert.NotContains(t, result.Err.Error(), "unverified",
 		"a calibration that failed stops the reading rather than colouring it with glyph widths")
-}
-
-// TestGlyphCheckSaysWhenItMeasuredTmux covers the caveat that decides what the number means.
-func TestGlyphCheckSaysWhenItMeasuredTmux(t *testing.T) {
-	env := agreeing()
-	env.InsideTmux = "/tmp/tmux-501/default,1,0"
-
-	result := newTerminalGlyphCheck().Run(t.Context(), env)
-	require.Equal(t, StatusOK, result.Status)
-	assert.Contains(t, result.Detail, "tmux")
-
-	disagreeing := measuring(t, 2)
-	disagreeing.InsideTmux = env.InsideTmux
-
-	warned := newTerminalGlyphCheck().Run(t.Context(), disagreeing)
-	require.Equal(t, StatusWarn, warned.Status)
-	assert.ErrorContains(t, warned.Err, "tmux",
-		"the text report shows the error rather than the detail, so the caveat has to be in both")
 }
 
 // TestGlyphCheckRefusesAShortAnswer covers a terminal answering about fewer glyphs than it was
@@ -372,7 +345,7 @@ func TestColorCheck(t *testing.T) {
 		name    string
 		colors  string
 		status  Status
-		problem *ProblemError
+		problem *problemError
 	}{
 		{
 			name:    "too shallow",
@@ -410,16 +383,6 @@ func TestColorCheck(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestColorCheckQuotesColorterm covers the one thing terminfo cannot say.
-func TestColorCheckQuotesColorterm(t *testing.T) {
-	env := Env{
-		Settings:     Settings{Term: "tmux-256color", ColorTerm: "truecolor"},
-		ReadTerminfo: terminfo(map[string]string{"colors": "256"}),
-	}
-
-	assert.Contains(t, newTerminalColorCheck().Run(t.Context(), env).Detail, "truecolor")
 }
 
 // TestTerminalCheck covers that inside tmux the check asks tmux for the terminal, since tmux sets

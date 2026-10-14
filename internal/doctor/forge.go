@@ -11,33 +11,33 @@ import (
 // connectFirstFix is how a person connects a forge, whichever they use.
 const connectFirstFix = "komrad setup, or komrad forge connect <host>"
 
-var errForgesUnreadable = &ProblemError{
+var errForgesUnreadable = &problemError{
 	Code:    CodeForgesUnreadable,
 	Message: "the server could not check its forges",
 }
 
-var errForgeRefused = &ProblemError{
+var errForgeRefused = &problemError{
 	Code:    "forge_refused",
 	Message: "a connected forge no longer accepts its credential",
 }
 
-var errForgeNoCredential = &ProblemError{
+var errForgeNoCredential = &problemError{
 	Code:    "forge_no_credential",
 	Message: "a connected forge has no credential on this machine",
 }
 
-var errNoForges = &ProblemError{
+var errNoForges = &problemError{
 	Code:    CodeNoForges,
 	Message: "no forge is connected, so pull requests cannot be read",
 }
 
-var errForgeUnreachable = &ProblemError{
+var errForgeUnreachable = &problemError{
 	Code:    "forge_unreachable",
 	Message: "a connected forge could not be reached",
 }
 
 // classifyForgeProblem says which kind of trouble the server said a connection is in.
-func classifyForgeProblem(kind string) *ProblemError {
+func classifyForgeProblem(kind string) *problemError {
 	switch kind {
 	case "no_credential":
 		return errForgeNoCredential
@@ -56,7 +56,7 @@ var forgeProblemRank = map[string]int{
 }
 
 // worseForgeProblem is whichever of two problems a person has to act on first.
-func worseForgeProblem(current, candidate *ProblemError) *ProblemError {
+func worseForgeProblem(current, candidate *problemError) *problemError {
 	if current == nil || forgeProblemRank[candidate.Code] > forgeProblemRank[current.Code] {
 		return candidate
 	}
@@ -99,7 +99,7 @@ func newForgesCheck() Check {
 			}
 
 			var lines, failed, fixes []string
-			var worst *ProblemError
+			var worst *problemError
 			for _, status := range statuses {
 				if status.Problem == "" {
 					lines = append(lines, status.Host+" as "+status.Login)

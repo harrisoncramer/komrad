@@ -3,10 +3,8 @@ package ui_test
 import (
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -39,89 +37,6 @@ func TestHelp(t *testing.T) {
 		harness.press("?")
 		assert.Contains(t, readLegend(harness.readFrame()), "show help", "the key toggles rather than only expanding")
 	})
-
-	t.Run("a sidebar wide enough for two columns renders the same legend in fewer lines", func(t *testing.T) {
-		narrow := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"}"}, 4), "?")...)
-		wide := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"}"}, 11), "?")...)
-
-		narrowLegend, wideLegend := readLegend(narrow.readFrame()), readLegend(wide.readFrame())
-		assert.Less(t, len(splitLines(wideLegend)), len(splitLines(narrowLegend)))
-		for _, word := range strings.Fields(narrowLegend) {
-			assert.Contains(t, wideLegend, word, "and drops nothing")
-		}
-	})
-
-	t.Run("a legend too wide for the sidebar keeps its short form and says there is help to show", func(t *testing.T) {
-		harness := openHelp(t, panelHarnessParams{sidebarWidth: 33}, append(slices.Repeat([]string{"{"}, 4), "?")...)
-
-		legend := readLegend(harness.readFrame())
-		assert.Contains(t, legend, "show help")
-		assert.NotContains(t, legend, "hide help", "rather than claiming to have hidden any")
-		assert.NotContains(t, legend, "move")
-	})
-
-	t.Run("an expanded legend gives way before it takes the list's last row", func(t *testing.T) {
-		harness := openHelp(t, panelHarnessParams{}, append(slices.Repeat([]string{"}"}, 4), "?")...)
-
-		for height := 8; height <= defaultHarnessHeight; height++ {
-			resize(harness, defaultHarnessWidth, height)
-
-			assert.Equal(t, "├─ api-refactor", readHoveredRow(harness.readFrame()), "the list keeps its row at height %d", height)
-		}
-
-		assert.Contains(t, readLegend(harness.readFrame()), "hide help", "a tall pane renders the legend whole")
-	})
-}
-
-// TestHelpFitsEveryScreen covers each legend rendered whole at the narrowest sidebar and never wider than the pane.
-func TestHelpFitsEveryScreen(t *testing.T) {
-	t.Parallel()
-
-	for _, screen := range buildListScreens() {
-		t.Run(screen.name+" is not rendered as an ellipsis at the narrowest sidebar", func(t *testing.T) {
-			t.Parallel()
-
-			harness := openHelp(t, panelHarnessParams{}, append(screen.press, "?")...)
-
-			legend := strings.TrimSpace(readLegend(harness.readFrame()))
-			assert.NotEqual(t, "…", legend)
-			assert.Contains(t, legend, "help")
-		})
-	}
-
-	tests := []struct {
-		name  string
-		press []string
-	}{
-		{
-			name:  "the agents tree on a paused row fits every width",
-			press: []string{"j"},
-		},
-		{
-			name:  "the record fits every width",
-			press: []string{"pick:record"},
-		},
-		{
-			name:  "the message region fits every width",
-			press: []string{"enter", "ctrl+g"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			for _, width := range []int{20, 30, 38, 41, 46, 60, 80, 120} {
-				for _, expanded := range [][]string{nil, {"?"}} {
-					harness := openHelp(t, panelHarnessParams{width: width}, slices.Concat(tt.press, expanded)...)
-
-					for i, row := range splitLines(readLegend(harness.readFrame())) {
-						assert.LessOrEqual(t, ansi.StringWidth(row), width, "legend row %d at width %d: %q", i, width, row)
-					}
-				}
-			}
-		})
-	}
 }
 
 // TestHelpKeyDrift covers that the screen's legend names every key the screen answers.

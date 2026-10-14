@@ -11,19 +11,19 @@ import (
 )
 
 var (
-	errKeyHeldByTmux = &ProblemError{
+	errKeyHeldByTmux = &problemError{
 		Code:    "key_held_by_tmux",
 		Message: "tmux answers a key the panel is bound to, so the panel never sees the press",
 	}
-	errKeyOnTwoActions = &ProblemError{
+	errKeyOnTwoActions = &problemError{
 		Code:    "key_on_two_actions",
 		Message: "one key is bound to two actions a screen answers, so the panel would refuse to draw",
 	}
-	errLeaderKeyUnavailable = &ProblemError{
+	errLeaderKeyUnavailable = &problemError{
 		Code:    "leader_key_unavailable",
 		Message: "the leader, which opens the panel's pane picker and visual mode, cannot be bound",
 	}
-	errKeyHeldByYourTmux = &ProblemError{
+	errKeyHeldByYourTmux = &problemError{
 		Code:    "key_held_by_your_tmux",
 		Message: "your own tmux uses keys the panel needs, so they never reach a panel opened inside it",
 	}

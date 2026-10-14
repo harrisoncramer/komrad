@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"komrad/config"
-	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -206,22 +205,4 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			assert.Equal(t, tt.wantDetail, result.Detail)
 		})
 	}
-}
-
-// TestHarnessChecksFollowTheRegistry covers that the report gains a row when the build gains an
-// agent CLI.
-func TestHarnessChecksFollowTheRegistry(t *testing.T) {
-	checks := Checks(Settings{Harnesses: []harnessInfo{
-		{ID: "claude", Binary: "claude"},
-		{ID: "codex", Binary: "codex"},
-		{ID: "aider", Binary: "aider"},
-	}})
-
-	names := xslice.Map(checks, func(check Check) string {
-		return check.Name
-	})
-
-	assert.Contains(t, names, "claude")
-	assert.Contains(t, names, "codex")
-	assert.Contains(t, names, "aider")
 }

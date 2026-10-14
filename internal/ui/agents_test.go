@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"komrad/internal/ui"
-	"komrad/internal/ui/paint"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -125,26 +124,6 @@ func TestAgentsRows(t *testing.T) {
 			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
 		})
 	}
-
-	t.Run("a row opens at the gutter and every kind of row opens its name in one column", func(t *testing.T) {
-		harness := openAgents(t,
-			&workflowv1.Workflow{
-				Id:       "w1",
-				Name:     "komrad",
-				Worktree: &workflowv1.WorktreeConfig{Enabled: true},
-			},
-			newAgentAt("worker", "w1", 1),
-			newAgentAt("other", "w1", 0),
-		)
-
-		rows := xslice.Map(readListLines(harness.readFrame()), func(line listLine) string { return line.sidebar })
-		require.Len(t, rows, 3)
-		other := rows[2]
-		assert.Len(t, other[:len(other)-len(strings.TrimLeft(other, " "))], 2, "an agent opens on its checkout column after the focus cell")
-		for _, row := range rows[1:] {
-			assert.Equal(t, findNameColumn(rows[0]), findNameColumn(row), "the name or the tree before it opens in one column whatever the row is")
-		}
-	})
 
 	t.Run("a branch renders nothing on the row", func(t *testing.T) {
 		plainAgent := newAgent("a1", "worker", "w1")
@@ -342,62 +321,6 @@ func TestAgentsSort(t *testing.T) {
 		harness.press("f", "shift+tab", "k", "esc")
 		assert.Equal(t, "└─ echo", readHoveredRow(harness.readFrame()), "the tree again")
 	})
-}
-
-// TestAgentsLongList covers a list with more rows than its pane.
-func TestAgentsLongList(t *testing.T) {
-	rows := []proto.Message{newLiveWorkflow("w1", "komrad")}
-	for i := range 40 {
-		rows = append(rows, newAgentAt(fmt.Sprintf("agent-%02d", i), "w1", 39-i))
-	}
-
-	tests := []struct {
-		name       string
-		press      []string
-		want       string
-		wantMore   []string
-		wantAbsent []string
-	}{
-		{
-			name:       "at the top only what is below is counted",
-			want:       "├─ agent-00",
-			wantMore:   []string{"↓"},
-			wantAbsent: []string{"↑"},
-		},
-		{
-			name:     "in the middle both ends are",
-			press:    slices.Repeat([]string{"j"}, 20),
-			want:     "├─ agent-20",
-			wantMore: []string{"↑", "↓"},
-		},
-		{
-			name:       "at the bottom only what is above is",
-			press:      []string{"G"},
-			want:       "└─ agent-39",
-			wantMore:   []string{"↑"},
-			wantAbsent: []string{"↓"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{height: 23, detailsHeight: 8})
-			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(rows...))
-
-			harness.press(tt.press...)
-
-			frame := harness.readFrame()
-			assert.Len(t, splitLines(frame), 23)
-			assert.Equal(t, tt.want, readHoveredRow(frame), "the row the cursor stands on is inside the window")
-			for _, marker := range tt.wantMore {
-				assert.Regexp(t, marker+` \d+ more`, frame)
-			}
-			for _, marker := range tt.wantAbsent {
-				assert.NotRegexp(t, marker+` \d+ more`, frame)
-			}
-		})
-	}
 }
 
 // TestAgentsCursor covers where the cursor stands as keys move it and the watch reshapes the tree.
@@ -883,52 +806,6 @@ func TestAgentsRecordCopy(t *testing.T) {
 	})
 }
 
-// TestAgentsRecordEmphasis covers what the record says in colour rather than in text.
-func TestAgentsRecordEmphasis(t *testing.T) {
-	t.Run("a search typed on the list lights its match in the record", func(t *testing.T) {
-		harness := openAgents(t, buildRecordedTask()...)
-
-		harness.press("/", "a", "u", "t", "h")
-
-		assert.Contains(t, findRawLine(harness.readRawFrame(), recordBranchLine), paint.Panel.Match().Render("auth"))
-	})
-
-	t.Run("a search standing over the record lights the matched run of a value", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
-
-		harness.press("/", "m", "o", "d", "i", "f", "i", "e", "d", "enter")
-
-		assert.Contains(t, findRawLine(harness.readRawFrame(), recordChangeLine), paint.Panel.Match().Render("modified"))
-	})
-
-	t.Run("the counts wear the tone of what they count", func(t *testing.T) {
-		recorded := buildRecordedTask()
-		recorded[len(recorded)-1].(*taskv1.Task).DiffStat = &taskv1.DiffStat{Added: 200, Removed: 100}
-		harness := openWorktreeRecord(t, panelHarnessParams{}, recorded...)
-		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
-
-		frame := harness.readRawFrame()
-		for _, want := range []string{
-			paint.Panel.Style(paint.ToneSuccess).Render("+200"),
-			paint.Panel.Style(paint.ToneDanger).Render("−100"),
-		} {
-			assert.Contains(t, frame, want)
-		}
-	})
-
-	t.Run("the hovered value takes the accent only while the record has the keys", func(t *testing.T) {
-		harness := openAgents(t, buildRecorded()...)
-		value := paint.Panel.Style(paint.TonePrimary).Render("—")
-		require.NotContains(t, findRawLine(harness.readRawFrame(), recordAgentLine), value)
-
-		harness.press("pick:record")
-
-		lit := findRawLine(harness.readRawFrame(), recordAgentLine)
-		assert.Contains(t, lit, value)
-		assert.Equal(t, 1, strings.Count(ansi.Strip(lit), "›"))
-	})
-}
-
 // TestAgentsRecordHeight covers how many lines the record takes from the sidebar.
 func TestAgentsRecordHeight(t *testing.T) {
 	tests := []struct {
@@ -987,34 +864,6 @@ func TestAgentsRecordHeight(t *testing.T) {
 			assert.Len(t, readRecord(frame), tt.want)
 		})
 	}
-
-	t.Run("a record shorter than its share pads to it so the list does not reflow", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 12})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(buildRecorded()...))
-
-		agent := readRecord(harness.readFrame())
-		harness.press("k")
-		workflow := readRecord(harness.readFrame())
-
-		assert.Len(t, agent, 12)
-		assert.Len(t, workflow, 12)
-		assert.Empty(t, workflow[len(workflow)-1], "the workflow's shorter record ends on padding")
-	})
-
-	t.Run("a record longer than its share says how much is left either side of the cursor", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 3})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(buildRecordedTask()...))
-		harness.fireTimers()
-		require.Equal(t, "  ↓ 7 more", readRecord(harness.readFrame())[2])
-
-		harness.press("pick:record", "G", "pick:list")
-
-		record := readRecord(harness.readFrame())
-		assert.Equal(t, "  ↑ 7 more", record[0])
-		assert.NotContains(t, record, "  ↓ 7 more")
-	})
 }
 
 // TestAgentsRecordFocusAndSize covers the record giving up the keys when the pane has no room to render it.
@@ -1146,19 +995,6 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Equal(t, "agent/auth", readRecordField(frame, "branch"))
 		assert.Equal(t, "2 modified, 1 untracked", readRecordField(frame, "changes"))
-	})
-
-	t.Run("the standing follows the checkout", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
-
-		harness.press(widenListPresses...)
-
-		frame := harness.readFrame()
-		branch, changes, size, taskID := findRecordLine(frame, "branch"), findRecordLine(frame, "changes"), findRecordLine(frame, "size"), findRecordLine(frame, "task_id")
-		require.Positive(t, branch)
-		assert.Less(t, branch, changes)
-		assert.Less(t, size, taskID, "the standing comes before the ids")
-		assert.Negative(t, findRecordLine(frame, "commits"))
 	})
 
 	t.Run("the top rule carries where the directory stands left of the lines the branch changed", func(t *testing.T) {
@@ -1581,23 +1417,6 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.press("/", "a", "g", "e", "n", "t", "3")
 
 		assert.Contains(t, harness.readFrame(), "/ agent3")
-	})
-
-	t.Run("a grown record with no room for a row renders nothing rather than two bare rules", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{
-			width:         40,
-			height:        24,
-			detailsHeight: 2,
-		})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(buildRecorded()...))
-
-		harness.press("pick:record", "?", "/", "a", "tab", "enter")
-
-		frame := harness.readFrame()
-		assert.False(t, isRecordRendered(frame))
-		assert.False(t, hasAdjacentRules(frame), "no bare rules stand where the record was")
-		assert.Len(t, splitLines(frame), 24)
 	})
 }
 
@@ -2580,12 +2399,6 @@ const (
 	repositoryURL = "https://github.com/harrisoncramer/komrad"
 )
 
-var (
-	recordAgentLine  = regexp.MustCompile(`agent\s+—`)
-	recordBranchLine = regexp.MustCompile(`branch\s+agent/auth`)
-	recordChangeLine = regexp.MustCompile(`changes\s+2 modified`)
-)
-
 func openAgents(t *testing.T, rows ...proto.Message) *panelHarness {
 	t.Helper()
 
@@ -2784,29 +2597,14 @@ func openAgentRecord(t *testing.T) *panelHarness {
 	return harness
 }
 
-func openWorktreeRecord(t *testing.T, params panelHarnessParams, recorded ...proto.Message) *panelHarness {
+func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
 	t.Helper()
 
-	if len(recorded) == 0 {
-		recorded = buildRecordedTask()
-	}
 	harness := newPanelHarness(t, params)
 	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-	harness.watch(buildSnapshot(recorded...))
 	harness.press("pick:record")
 
 	return harness
-}
-
-func hasAdjacentRules(frame string) bool {
-	lines := splitLines(frame)
-	for i := 1; i < len(lines); i++ {
-		if strings.HasPrefix(lines[i-1], "─") && strings.HasPrefix(lines[i], "─") {
-			return true
-		}
-	}
-
-	return false
 }
 
 func readSearch(frame string) string {

@@ -16,7 +16,7 @@ import (
 	"fmt"
 )
 
-var errCheckPanicked = &ProblemError{
+var errCheckPanicked = &problemError{
 	Code:    "check_panicked",
 	Message: "this check could not be made because it failed on its own",
 }
@@ -30,20 +30,20 @@ const (
 	StatusSkip Status = "skip"
 )
 
-type ProblemError struct {
+type problemError struct {
 	Code    string
 	Message string
 }
 
 // Error returns the message the check wrote.
-func (p *ProblemError) Error() string {
+func (p *problemError) Error() string {
 	return p.Message
 }
 
 // codeOf returns the stable code of the problem err carries, or empty when it carries none,
 // looking through the chain because a check wraps its sentinel to add detail.
 func codeOf(err error) string {
-	var problem *ProblemError
+	var problem *problemError
 	if errors.As(err, &problem) {
 		return problem.Code
 	}
@@ -108,7 +108,7 @@ type Finding struct {
 // whereEngine is what a finding the engine's server made carries in Where.
 const whereEngine = "engine"
 
-var errEngineUnanswered = &ProblemError{
+var errEngineUnanswered = &problemError{
 	Code:    "engine_unanswered",
 	Message: "the engine did not answer with its checks",
 }

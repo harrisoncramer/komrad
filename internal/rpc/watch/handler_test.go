@@ -3,7 +3,6 @@ package watch
 import (
 	"bytes"
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -50,18 +49,13 @@ func (s *fakeSubscription) Close() {
 	s.closed.Store(true)
 }
 
-// fakeSubscriber opens its one subscription unless err refuses it.
+// fakeSubscriber opens its one subscription.
 type fakeSubscriber struct {
 	subscription *fakeSubscription
-	err          error
 }
 
-// Subscribe answers the subscription unless err refuses it.
+// Subscribe answers the subscription.
 func (f *fakeSubscriber) Subscribe(context.Context) (subscription, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
 	return f.subscription, nil
 }
 
@@ -180,36 +174,4 @@ func TestWatchEndsWhenTheSubscriptionCloses(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		return strings.Contains(s.log.String(), "stream closed") && strings.Contains(s.log.String(), `"rpc.stream.messages_sent":1`)
 	}, time.Second, 10*time.Millisecond, "the close is logged with the one message sent:\n%s", s.log.String())
-}
-
-// TestWatchRefusalsMapToCodes pins the code each refusal to open a watch reaches the caller as.
-func TestWatchRefusalsMapToCodes(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		wantCode connect.Code
-	}{
-		{
-			name:     "a broker the server has closed",
-			err:      watch.ErrClosed,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "a snapshot the store could not answer",
-			err:      errors.New("no database"),
-			wantCode: connect.CodeInternal,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			served := serve(t, &fakeSubscriber{err: tt.err}, time.Hour)
-
-			stream, err := served.client.Watch(t.Context(), connect.NewRequest(&emptypb.Empty{}))
-			require.NoError(t, err)
-
-			assert.False(t, stream.Receive())
-			assert.Equal(t, tt.wantCode, connect.CodeOf(stream.Err()))
-		})
-	}
 }

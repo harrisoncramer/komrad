@@ -228,7 +228,11 @@ func TestAgentDeleteQueuesWhatItClaims(t *testing.T) {
 	agentDelete := NewAgentDelete(NewEnqueuer(client, stores.Pool.GetRawPool()))
 
 	writer := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
-	stores.SeedAgent(t, agentstore.Agent{Name: "reviewer", Role: agentstore.RoleReviewer, TaskID: writer.TaskID})
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:   "reviewer",
+		Role:   agentstore.RoleReviewer,
+		TaskID: writer.TaskID,
+	})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 
 	err := agentDelete.DeleteAgents(ctx, []string{other.ID, newID(t)})

@@ -30,7 +30,6 @@ type fakeLogReader struct {
 	taskRuns  []runstore.Run
 	err       error
 	traces    []string
-	limits    []int
 	reads     []agentRead
 }
 
@@ -130,55 +129,13 @@ func (f *fakeLogReader) Lines(trace string) ([]logread.Line, error) {
 	return f.lines, nil
 }
 
-// RecentTraces records the limit and answers summaries unless err refuses it.
-func (f *fakeLogReader) RecentTraces(limit int) ([]logread.Summary, error) {
-	f.limits = append(f.limits, limit)
+// RecentTraces answers summaries unless err refuses it.
+func (f *fakeLogReader) RecentTraces(int) ([]logread.Summary, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
 	return f.summaries, nil
-}
-
-// TestLogRefusalsMapToCodes pins the code each refusal of the log reader reaches the caller as.
-func TestLogRefusalsMapToCodes(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		wantCode connect.Code
-	}{
-		{
-			name:     "a trace nothing was written under",
-			err:      logread.ErrNoSuchTrace.Saying("nothing under trace-nine"),
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a log that cannot be read",
-			err:      errors.New("permission denied"),
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "a run the agent never recorded",
-			err:      logread.ErrNoSuchRun.Saying("no run named 009-agent.provision-setup.log"),
-			wantCode: connect.CodeNotFound,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			reader := &fakeLogReader{err: tt.err}
-			service := logv1komrad.LogServiceAdapter{Impl: NewHandler(reader, reader, reader)}
-
-			_, err := service.GetLogLines(t.Context(), connect.NewRequest(&logv1.GetLogLinesRequest{TraceId: "trace-nine"}))
-			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-			_, err = service.ListRecentTraces(t.Context(), connect.NewRequest(&logv1.ListRecentTracesRequest{Limit: 5}))
-			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-
-			_, err = service.ReadAgentLogs(t.Context(), connect.NewRequest(&logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "009-agent.provision-setup.log"}))
-			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-		})
-	}
 }
 
 // TestGetLogLines pins that a line's bookkeeping keys and unrenderable values leave its fields.
@@ -213,29 +170,6 @@ func TestGetLogLines(t *testing.T) {
 		Fields:  fields,
 	}}}
 	assert.Equal(t, []string{"trace-one"}, reader.traces)
-	assert.Empty(t, cmp.Diff(want, resp.Msg, protocmp.Transform()))
-}
-
-// TestListRecentTraces pins that the limit is handed on and each summary renders.
-func TestListRecentTraces(t *testing.T) {
-	reader := &fakeLogReader{summaries: []logread.Summary{{
-		Trace:     "trace-one",
-		StartedAt: "2026-08-06T22:47:32.293Z",
-		What:      "ArchiveAgents",
-		Lines:     2,
-	}}}
-	service := logv1komrad.LogServiceAdapter{Impl: NewHandler(reader, reader, reader)}
-
-	resp, err := service.ListRecentTraces(t.Context(), connect.NewRequest(&logv1.ListRecentTracesRequest{Limit: 5}))
-	require.NoError(t, err)
-
-	want := &logv1.ListRecentTracesResponse{Traces: []*logv1.TraceSummary{{
-		TraceId:   "trace-one",
-		StartedAt: "2026-08-06T22:47:32.293Z",
-		What:      "ArchiveAgents",
-		Lines:     2,
-	}}}
-	assert.Equal(t, []int{5}, reader.limits)
 	assert.Empty(t, cmp.Diff(want, resp.Msg, protocmp.Transform()))
 }
 

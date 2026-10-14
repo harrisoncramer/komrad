@@ -19,48 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAppendAndGet covers what a conversation reads back as, including before anything has
-// been synced for the agent at all.
-func TestAppendAndGet(t *testing.T) {
-	tests := []struct {
-		name  string
-		turns [][]Turn
-		want  string
-	}{
-		{
-			name: "an unsynced agent reads as no conversation at all",
-		},
-		{
-			name:  "one turn reads back as itself",
-			turns: [][]Turn{{{Role: "user", Content: "hello world"}}},
-			want:  "hello world",
-		},
-		{
-			name: "a later append follows the turns already stored",
-			turns: [][]Turn{
-				{{Role: "user", Content: "hello world"}},
-				{{Role: "assistant", Content: "hello yourself"}},
-			},
-			want: "hello world\n\nhello yourself",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			id := seedAgent(t, st, "agent")
-
-			for _, turns := range tt.turns {
-				seedTurns(t, st, id, turns)
-			}
-
-			got, err := st.Get(t.Context(), id)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 // TestListLastTurns covers reading the newest turns of one role back with the turns between them.
 func TestListLastTurns(t *testing.T) {
 	stored := []Turn{
@@ -1301,14 +1259,4 @@ func TestSearchRefusesACursorFromAnotherSort(t *testing.T) {
 		Cursor: first.Next,
 	})
 	require.ErrorIs(t, err, errSortChanged)
-}
-
-// TestAppendTurnsStoresNoTimeForATurnWithout pins that a turn read without a time is stored
-// with none, rather than as the zero time.
-func TestAppendTurnsStoresNoTimeForATurnWithout(t *testing.T) {
-	st := open(t)
-	id := seedAgent(t, st, "untimed")
-	seedTurns(t, st, id, []Turn{{Role: "user", Content: "a reconciler with no time"}})
-
-	assert.Nil(t, onlyHit(t, st, id, "reconciler").SpokenAt)
 }

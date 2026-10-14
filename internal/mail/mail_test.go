@@ -628,7 +628,11 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				var err error
 				sent, err = svc.SendFromKomrad(ctx, SendFromKomradParams{
 					ToAgentID: recipient.ID,
-					Mail:      fakeMail{kind: mailstore.KindPullRequestChanged, body: "changed", events: s.events},
+					Mail: fakeMail{
+						kind:   mailstore.KindPullRequestChanged,
+						body:   "changed",
+						events: s.events,
+					},
 					SubjectID: subject,
 					Holding:   s.holding,
 				})

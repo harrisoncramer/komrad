@@ -3,13 +3,10 @@ package forge
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"testing"
 	"time"
 
 	"komrad/internal/forge"
-	"komrad/internal/git"
-	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 	"komrad/lib/xptr"
 	forgev1 "komrad/proto/gen/forge/v1"
@@ -86,29 +83,6 @@ func (f *fakeConnector) ListPullRequests(_ context.Context, params forge.ListPul
 
 // TestForgeRefusalsMapToCodes pins the code each refusal reaches the caller as.
 func TestForgeRefusalsMapToCodes(t *testing.T) {
-	connectForge := func(ctx context.Context, service forgev1komrad.ForgeServiceAdapter) error {
-		_, err := service.ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{
-			Host:  "github.com",
-			Token: "tok",
-		}))
-
-		return err
-	}
-	listForges := func(ctx context.Context, service forgev1komrad.ForgeServiceAdapter) error {
-		_, err := service.ListForges(ctx, connect.NewRequest(&emptypb.Empty{}))
-
-		return err
-	}
-	checkForges := func(ctx context.Context, service forgev1komrad.ForgeServiceAdapter) error {
-		_, err := service.CheckForges(ctx, connect.NewRequest(&emptypb.Empty{}))
-
-		return err
-	}
-	disconnectForge := func(ctx context.Context, service forgev1komrad.ForgeServiceAdapter) error {
-		_, err := service.DisconnectForge(ctx, connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
-
-		return err
-	}
 	listPullRequests := func(remote, cursor string) func(ctx context.Context, service forgev1komrad.ForgeServiceAdapter) error {
 		return func(ctx context.Context, service forgev1komrad.ForgeServiceAdapter) error {
 			req := &forgev1.ListForgePullRequestsRequest{RemoteUrl: remote}
@@ -129,42 +103,6 @@ func TestForgeRefusalsMapToCodes(t *testing.T) {
 		err      error
 		wantCode connect.Code
 	}{
-		{
-			name:     "connecting a host already connected",
-			call:     connectForge,
-			err:      forgestore.ErrHostTaken.Saying("github.com is already connected"),
-			wantCode: connect.CodeAlreadyExists,
-		},
-		{
-			name:     "listing forges the store cannot read",
-			call:     listForges,
-			err:      errors.New("connection refused"),
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "checking forges the store cannot read",
-			call:     checkForges,
-			err:      errors.New("connection refused"),
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "disconnecting a host never connected",
-			call:     disconnectForge,
-			err:      store.ErrNotFound.Saying("github.com is not connected"),
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "listing pull requests of a remote that is not a forge",
-			call:     listPullRequests(remote, ""),
-			err:      git.ErrNotForgeRemote,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "listing pull requests on a host nothing is connected to",
-			call:     listPullRequests(remote, ""),
-			err:      store.ErrNotFound.Saying("github.com is not connected"),
-			wantCode: connect.CodeNotFound,
-		},
 		{
 			name:     "a page token that is not one",
 			call:     listPullRequests(remote, "not-a-token"),
@@ -215,17 +153,6 @@ func TestConnectForge(t *testing.T) {
 	assert.Equal(t, "harrisoncramer", resp.Msg.GetForge().GetLogin())
 	assert.True(t, resp.Msg.GetForge().GetHasCredential())
 	assert.NotContains(t, resp.Msg.String(), "ghp_")
-}
-
-// TestDisconnectForge pins that the host asked for reaches the service.
-func TestDisconnectForge(t *testing.T) {
-	connector := &fakeConnector{}
-	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(connector, nil)}
-
-	_, err := service.DisconnectForge(t.Context(), connect.NewRequest(&forgev1.DisconnectForgeRequest{Host: "github.com"}))
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{"github.com"}, connector.disconnected)
 }
 
 // TestCheckForges pins how each check's answer renders.

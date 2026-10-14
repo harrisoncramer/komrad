@@ -19,15 +19,15 @@ import (
 const recommendedFont = "JetBrainsMono Nerd Font"
 
 var (
-	errFontsUnlisted = &ProblemError{
+	errFontsUnlisted = &problemError{
 		Code:    "fonts_unlisted",
 		Message: "the fonts installed on this machine could not be listed",
 	}
-	errNerdFontMissing = &ProblemError{
+	errNerdFontMissing = &problemError{
 		Code:    "nerd_font_missing",
 		Message: "no Nerd Font is installed, so the panel's icons are drawn as empty boxes",
 	}
-	errGlyphCollision = &ProblemError{
+	errGlyphCollision = &problemError{
 		Code:    "glyph_collision",
 		Message: "two glyphs drawn in the same sidebar row are the same character, so a row cannot say which it means",
 	}

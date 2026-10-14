@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +26,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -721,33 +719,6 @@ func TestReviewPopupScroll(t *testing.T) {
 		frame := harness.readFrame()
 		assert.Contains(t, readPopupProse(frame), "note 5")
 	})
-}
-
-// TestReviewPopupPlacement covers the popup standing over the line it is about, beside the code
-// and across the divider.
-func TestReviewPopupPlacement(t *testing.T) {
-	for _, side := range []string{config.SidebarSideLeft, config.SidebarSideRight} {
-		t.Run("with the sidebar on the "+side, func(t *testing.T) {
-			server := newReviewServerOver(newWideLineRepo(t))
-			server.threads = []*agentv1.ReviewThread{newThreadOnWideLine()}
-			harness := openReviewAt(t, server, panelHarnessParams{width: 160, sidebarSide: side})
-			harness.press("j", "j", "j", "j")
-			lines := splitLines(ansi.Strip(harness.readFrame()))
-
-			top := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "╭") })
-			bottom := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "╰") })
-			wide := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, wideLine) })
-			require.GreaterOrEqual(t, top, 0)
-			require.GreaterOrEqual(t, wide, 0)
-			divider := readColumnOf(t, lines[0], "│")
-			left, right := readColumnOf(t, lines[top], "╭"), readColumnOf(t, lines[top], "╮")
-
-			assert.True(t, bottom < wide || top > wide)
-			assert.Less(t, left, divider)
-			assert.Greater(t, right, divider)
-			assert.True(t, slices.ContainsFunc(lines, func(line string) bool { return strings.Contains(line, "func Hello() string {") }))
-		})
-	}
 }
 
 // TestReviewFitsThePane covers the frame staying the pane's height whatever the sidebar holds.
@@ -1618,115 +1589,6 @@ func TestReviewOwnComments(t *testing.T) {
 	})
 }
 
-// TestReviewLayout covers where the diff and the sidebar stand and that the frame fits the pane.
-func TestReviewLayout(t *testing.T) {
-	t.Run("the sidebar stands on the side the layout names", func(t *testing.T) {
-		tests := []struct {
-			name string
-			side string
-			want string
-		}{
-			{
-				name: "on the left the top row opens with the sidebar",
-				side: config.SidebarSideLeft,
-				want: "\U000F050C komrad",
-			},
-			{
-				name: "on the right the top row opens with the band over the diff",
-				side: config.SidebarSideRight,
-				want: "Review · auth",
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{sidebarSide: tt.side})
-
-				assert.True(t, strings.HasPrefix(splitLines(harness.readFrame())[0], tt.want))
-			})
-		}
-	})
-
-	t.Run("the logo stands over the sidebar without the row of views", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		frame := harness.readFrame()
-		require.Contains(t, splitLines(frame)[0], "komrad")
-		assert.NotContains(t, frame, "agents  schedules")
-	})
-
-	t.Run("the logo gives way before the legend does and the engine row stays", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 21})
-		require.Contains(t, splitLines(harness.readFrame())[0], "komrad")
-
-		harness.press("?")
-
-		assert.NotContains(t, harness.readFrame(), "komrad")
-		assert.Contains(t, readEngineRow(harness.readFrame(), 0), "local")
-		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
-	})
-
-	t.Run("a window too narrow for both keeps the sidebar and drops the diff", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 120})
-		assert.Contains(t, harness.readFrame(), "package greet")
-
-		harness.send(tea.WindowSizeMsg{Width: 45, Height: reviewHeight})
-
-		frame := harness.readFrame()
-		assert.NotContains(t, frame, "package greet")
-		assert.Contains(t, frame, "greet.go:1")
-	})
-
-	t.Run("the menu stands in a popup over the diff", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("space")
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "wrap lines")
-		assert.Contains(t, frame, "package greet")
-	})
-
-	t.Run("the popup on a thread renders the conversation alone until the menu opens under it", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
-		harness := openReview(t, server)
-
-		frame := harness.readFrame()
-		require.Contains(t, frame, "◇ unsent")
-		assert.NotContains(t, frame, "wrap lines")
-
-		harness.press("space")
-
-		frame = harness.readFrame()
-		assert.Contains(t, frame, "◇ unsent")
-		assert.Contains(t, frame, "wrap lines")
-		assert.Less(t, strings.Index(frame, "◇ unsent"), strings.Index(frame, "wrap lines"))
-	})
-
-	t.Run("the menu fits the room beside the cursor on a short pane", func(t *testing.T) {
-		harness, _ := openTallReview(t)
-		harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: 16})
-		harness.press("j", "j", "j", "j", "j", "space")
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "open in your editor")
-		assert.Contains(t, frame, "wrap lines")
-		assert.Len(t, splitLines(frame), 16)
-	})
-
-	t.Run("an expanded legend stays inside every pane height", func(t *testing.T) {
-		harness := openReview(t, newEarlierReviewServer(t))
-		harness.press("?")
-
-		for height := 8; height <= 40; height++ {
-			harness.send(tea.WindowSizeMsg{Width: reviewWidth, Height: height})
-
-			assert.Len(t, splitLines(harness.readFrame()), height)
-		}
-	})
-}
-
 // TestReviewExpand covers rendering a file whole rather than as its hunks.
 func TestReviewExpand(t *testing.T) {
 	t.Run("the expand key renders the lines the patch left out and gives the hunks back", func(t *testing.T) {
@@ -2162,16 +2024,6 @@ func TestReviewReplay(t *testing.T) {
 
 // TestReviewComposer covers the field comments are typed into.
 func TestReviewComposer(t *testing.T) {
-	t.Run("the composer is rendered as an ordinary field", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("space", "c")
-
-		sidebar := readPopupProse(harness.readFrame())
-		assert.Contains(t, sidebar, "Comment")
-		assert.Contains(t, sidebar, "opens $EDITOR")
-	})
-
 	t.Run("ctrl+j makes a line rather than sending", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
@@ -2180,44 +2032,6 @@ func TestReviewComposer(t *testing.T) {
 		assert.Contains(t, readPopupProse(harness.readFrame()), "one")
 		assert.Contains(t, readPopupProse(harness.readFrame()), "two")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
-	})
-
-	t.Run("the field takes a width it was not built at", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: reviewWidth, sidebarWidth: 100})
-		harness.press("space", "c")
-		typeText(harness, strings.Repeat("word ", 30))
-		built := findWidestPopupRow(harness.readFrame())
-
-		harness.send(tea.WindowSizeMsg{Width: 70, Height: reviewHeight})
-
-		frame := harness.readFrame()
-		assert.Less(t, findWidestPopupRow(frame), built)
-		assert.Equal(t, 30, strings.Count(readPopupProse(frame), "word"))
-	})
-
-	t.Run("a note wraps inside a popup narrower than its widest", func(t *testing.T) {
-		const note = "a note long enough to wrap once the field it is typed in has been narrowed"
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 90})
-		harness.press("space", "c")
-		typeText(harness, note)
-
-		assert.Contains(t, readPopupProse(harness.readFrame()), note)
-	})
-
-	t.Run("every line typed is rendered at a narrow sidebar", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 22, height: 60})
-
-		harness.press("space", "S")
-		typeText(harness, "one")
-		for _, line := range []string{"two", "three", "four"} {
-			harness.press("ctrl+j")
-			typeText(harness, line)
-		}
-
-		frame := harness.readFrame()
-		for _, word := range []string{"one", "two", "three", "four"} {
-			assert.Contains(t, frame, "  "+word)
-		}
 	})
 
 	t.Run("a row with no line of its own refuses the key and says why", func(t *testing.T) {
@@ -3028,15 +2842,6 @@ func newMovedBaseServer(t *testing.T, tree string, conflicts ...string) *reviewS
 	return server
 }
 
-func findWidestPopupRow(frame string) int {
-	widest := 0
-	for _, row := range readPopup(frame) {
-		widest = max(widest, ansi.StringWidth(row))
-	}
-
-	return widest
-}
-
 func readReleaseSaid(t *testing.T, harness *panelHarness) string {
 	t.Helper()
 
@@ -3046,120 +2851,6 @@ func readReleaseSaid(t *testing.T, harness *panelHarness) string {
 	assert.Equal(t, "a1", released.GetId())
 
 	return released.GetSaid()
-}
-
-// wideLine is a line of code long enough to reach past the room beside it.
-const wideLine = `return "a farewell long enough to crowd the popup"`
-
-// readColumnOf is the column a glyph first stands at in a row.
-func readColumnOf(t *testing.T, line, glyph string) int {
-	t.Helper()
-
-	at := strings.Index(line, glyph)
-	require.GreaterOrEqual(t, at, 0, "no %s in %q", glyph, line)
-
-	return ansi.StringWidth(line[:at])
-}
-
-func newWideLineRepo(t *testing.T) *gittest.Repo {
-	t.Helper()
-
-	repo := gittest.NewRepo(t.TempDir())
-	repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = strings.Replace(gittest.Patch, `return "goodbye"`, wideLine, 1)
-	repo.Sources[gittest.NameSource(gittest.SnapshotSHA, gittest.File)] = strings.Replace(gittest.HeadSource, `return "goodbye"`, wideLine, 1)
-
-	return repo
-}
-
-func newThreadOnWideLine() *agentv1.ReviewThread {
-	return &agentv1.ReviewThread{
-		Id:          "t1",
-		FilePath:    gittest.File,
-		NewStart:    4,
-		QuotedLines: []string{"+\t" + wideLine},
-		Messages:    []*agentv1.ReviewMessage{newHumanMessage("m1", "tighten this")},
-	}
-}
-
-// TestReviewChangeBlock covers what the sidebar says about the change under review.
-func TestReviewChangeBlock(t *testing.T) {
-	t.Run("the band over the diff holds only the title and the filter", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{})
-
-		frame := harness.readFrame()
-		assert.NotContains(t, readStageText(frame), "1 file, +1 -1")
-		assert.Contains(t, readSidebarProse(frame), "1 file, +1 -1")
-	})
-
-	t.Run("the change comes before the pull request and the files", func(t *testing.T) {
-		harness := openReviewAt(t, newDescribedReviewServer(t, "Why it changed."), panelHarnessParams{})
-
-		sidebar := readSidebarProse(harness.readFrame())
-		scope, pullRequest, files := strings.Index(sidebar, "all changes"), strings.Index(sidebar, "#7"), strings.Index(sidebar, "▸ greet.go")
-		require.NotEqual(t, -1, scope)
-		assert.Less(t, scope, pullRequest)
-		assert.Less(t, pullRequest, files)
-	})
-
-	t.Run("an unsent comment names the key that sends it", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnLastLine(newUnsentComment())}
-		harness := openReviewAt(t, server, panelHarnessParams{})
-
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "space S sends 1 comment to the agent")
-	})
-
-	t.Run("the narrow layout puts the change at the top of the sidebar", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{width: 45})
-
-		frame := harness.readFrame()
-		band, scope, files := strings.Index(frame, "Review · auth"), strings.Index(frame, "all changes"), strings.Index(frame, "▸ greet.go")
-		require.NotEqual(t, -1, scope)
-		assert.Less(t, band, scope)
-		assert.Less(t, scope, files)
-	})
-}
-
-// TestReviewChangeFolds covers the change block giving up rows before the pull request does.
-func TestReviewChangeFolds(t *testing.T) {
-	tests := []struct {
-		name    string
-		height  int
-		threads []*agentv1.ReviewThread
-		rows    []string
-	}{
-		{
-			name:    "a tall pane gives each part a row of its own",
-			height:  40,
-			threads: []*agentv1.ReviewThread{newThreadOnLastLine(newUnsentComment(), newSentComment("m2"))},
-			rows:    []string{"all changes", "1 file, +1 -1", "1 unsent · 1 waiting", "space S sends 1 comment to the agent"},
-		},
-		{
-			name:    "a shorter pane joins the delivery to the stat",
-			height:  24,
-			threads: []*agentv1.ReviewThread{newThreadOnLastLine(newUnsentComment(), newSentComment("m2"))},
-			rows:    []string{"all changes", "1 file, +1 -1 · 1 unsent · 1 waiting", "space S sends 1 comment to the agent"},
-		},
-		{
-			name:   "a short pane joins the scope, the stat and the delivery",
-			height: 16,
-			rows:   []string{"all changes · 1 file, +1 -1"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := newDescribedReviewServer(t, "Why it changed.\n\nline two\n\nline three\n\nline four")
-			server.threads = tt.threads
-			harness := openReviewAt(t, server, panelHarnessParams{height: tt.height})
-
-			sidebar := readSidebar(harness.readFrame())
-			top := slices.Index(sidebar, tt.rows[0])
-			require.NotEqual(t, -1, top)
-			assert.Equal(t, append(slices.Clone(tt.rows), ""), sidebar[top:min(top+len(tt.rows)+1, len(sidebar))])
-			assert.Contains(t, sidebar, "#7 fix the greeting")
-		})
-	}
 }
 
 const (

@@ -77,9 +77,13 @@ func TestTheMailNamesEachFailingCheck(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := PullRequest{
-				PullRequest: pullrequeststore.PullRequest{Forge: tt.forge, Number: 7, HeadBranch: "agent/x"},
-				Failures:    tt.failures,
-				HeldSince:   tt.heldSince,
+				PullRequest: pullrequeststore.PullRequest{
+					Forge:      tt.forge,
+					Number:     7,
+					HeadBranch: "agent/x",
+				},
+				Failures:  tt.failures,
+				HeldSince: tt.heldSince,
 			}.Body()
 
 			for _, line := range tt.wantLines {

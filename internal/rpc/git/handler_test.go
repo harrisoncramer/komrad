@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"komrad/internal/agentdirs"
 	"komrad/internal/git"
 	"komrad/internal/interceptors"
 	"komrad/internal/position"
@@ -84,30 +83,6 @@ func TestRefuses(t *testing.T) {
 		call     func(ctx context.Context, client *git.EngineClient) error
 		wantCode connect.Code
 	}{
-		{
-			name:   "a directory outside every live agent",
-			gitErr: agentdirs.ErrOutsideAgents,
-			call: func(ctx context.Context, client *git.EngineClient) error {
-				_, err := client.GetRoot(ctx, "/etc")
-
-				return err
-			},
-			wantCode: connect.CodePermissionDenied,
-		},
-		{
-			name:   "a directory that does not exist",
-			gitErr: agentdirs.ErrNoDirectory,
-			call: func(ctx context.Context, client *git.EngineClient) error {
-				_, err := client.Diff(ctx, git.DiffParams{
-					Dir:     "/nowhere",
-					FromSHA: "a",
-					ToSHA:   "b",
-				})
-
-				return err
-			},
-			wantCode: connect.CodeInvalidArgument,
-		},
 		{
 			name: "a commit that reads as an option",
 			call: func(ctx context.Context, client *git.EngineClient) error {

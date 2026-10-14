@@ -115,7 +115,11 @@ func ClaimRoots(claims []Claim) []Claim {
 }
 
 func newClaim(id string, taskID *string, role Role, deletingAt *time.Time) Claim {
-	claim := Claim{ID: id, TaskID: taskID, Role: role}
+	claim := Claim{
+		ID:     id,
+		TaskID: taskID,
+		Role:   role,
+	}
 	if deletingAt != nil {
 		claim.DeletingAt = *deletingAt
 	}

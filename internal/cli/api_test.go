@@ -47,7 +47,11 @@ func TestDialAPIReachesARemoteEngineThroughItsForward(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			state := &app{env: &config.Environment{Addr: engineAddr, SSH: tt.ssh, URL: tt.url}}
+			state := &app{env: &config.Environment{
+				Addr: engineAddr,
+				SSH:  tt.ssh,
+				URL:  tt.url,
+			}}
 
 			want := formatBase(engineAddr)
 			switch {

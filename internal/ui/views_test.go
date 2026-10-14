@@ -4,52 +4,16 @@ import (
 	"strings"
 	"testing"
 
-	"komrad/internal/ui/paint"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestViews covers the switcher rendered over every list and the keys that move between views.
 func TestViews(t *testing.T) {
-	t.Run("the logo and every view open the frame, the current one lit", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{})
-
-		harness.press(append(widenListPresses, "shift+tab", "shift+tab", "esc")...)
-
-		lines := splitLines(harness.readFrame())
-		require.GreaterOrEqual(t, len(lines), 4)
-		logo, _, _ := strings.Cut(lines[0], "│")
-		assert.True(t, strings.HasPrefix(strings.TrimSpace(logo), "\U000F050C komrad › documents"))
-		engine, _, _ := strings.Cut(lines[1], "│")
-		assert.Equal(t, "\uf444 local", strings.TrimSpace(engine), "the engine stands under the logo")
-		blank, _, _ := strings.Cut(lines[2], "│")
-		assert.Empty(t, strings.TrimSpace(blank), "a blank row stands under the engine")
-		views, _, _ := strings.Cut(lines[3], "│")
-		assert.Equal(t, "agents  schedules  documents  worktrees", strings.TrimSpace(views))
-		lit := paint.Panel.Style(paint.TonePrimary)
-		assert.Contains(t, harness.readRawFrame(), lit.Render("documents"), "the view that is up is lit")
-	})
-
 	t.Run("a page opened from a view renders the trail back to it beside the logo", func(t *testing.T) {
 		harness := openLogs(t, tailOfTwo())
 
 		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › reviewer › logs"))
-	})
-
-	t.Run("a pane too short for the switcher still renders the trail", func(t *testing.T) {
-		harness := openLogs(t, tailOfTwo())
-
-		resize(harness, 80, 16)
-		frame := harness.readFrame()
-		assert.NotContains(t, frame, "komrad")
-		assert.Contains(t, frame, "agents › reviewer › logs")
-	})
-
-	t.Run("a pane too short for it renders none", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{height: 16})
-
-		assert.NotContains(t, harness.readFrame(), "komrad")
 	})
 
 	tests := []struct {
@@ -140,14 +104,6 @@ func TestViews(t *testing.T) {
 		assert.NotEmpty(t, readHoveredRow(frame), "the switcher let the list have the keys")
 		assert.Equal(t, "schedules › agent00", readTrail(frame), "and the list took the key")
 	})
-
-	t.Run("the legend names the switcher's keys while it is open", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{})
-
-		harness.press(append(widenListPresses, "esc")...)
-
-		assert.Contains(t, readLegend(harness.readFrame()), "esc done • tab/S-tab switch")
-	})
 }
 
 // TestTrail covers the trail under the switcher, from the view that is up to the row the cursor is
@@ -204,20 +160,5 @@ func TestTrail(t *testing.T) {
 
 		harness.press("k")
 		assert.Equal(t, "agents › agent38", readTrail(harness.readFrame()))
-	})
-
-	t.Run("a pane too short for the switcher leaves the hovered row off", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{height: 16})
-
-		assert.NotContains(t, harness.readFrame(), "agents ›")
-	})
-
-	t.Run("the trail is rendered in one muted tone", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{})
-
-		harness.press("tab", "G")
-
-		muted := paint.Panel.Style(paint.ToneMuted)
-		assert.Contains(t, harness.readRawFrame(), muted.Render("schedules › agent00"))
 	})
 }

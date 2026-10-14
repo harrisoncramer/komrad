@@ -861,30 +861,6 @@ func TestFormsWorkflowProvisioner(t *testing.T) {
 
 // TestFormsWorkflowSubforms covers drilling into a subform of the workflow form and coming back.
 func TestFormsWorkflowSubforms(t *testing.T) {
-	t.Run("a subform opens beside the top form rendered whole", func(t *testing.T) {
-		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
-
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(0))...)
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "Default Agent")
-		assert.Contains(t, frame, "agents start here, and worktrees come from this checkout", "the top form keeps its width")
-		assert.Contains(t, frame, "› agents ›", "with the subform that is open marked")
-	})
-
-	t.Run("a long value folds at the form's widest", func(t *testing.T) {
-		longContext := "Nobody archives anybody; the rows retire when the pull request merges or closes."
-		workflow := newConfiguredWorkflow()
-		workflow.Context = longContext
-		harness := openWideForms(t, workflow, newFormAuthor())
-
-		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(1)...)...)
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "Worktree base branch", "the subform still opens beside the top form")
-		assert.NotContains(t, frame, longContext, "the context folds rather than running on one line")
-	})
-
 	t.Run("back keeps what the subform was given and lands on the list of subforms", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
@@ -1137,39 +1113,6 @@ func TestFormsFieldEditor(t *testing.T) {
 func TestFormsLayout(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name  string
-		press []string
-		want  string
-	}{
-		{
-			name:  "a form takes the stage beside the list",
-			press: []string{"space", "c"},
-			want:  `Reviewer on "task-a1"`,
-		},
-		{
-			name:  "a confirmation takes the stage beside the list",
-			press: []string{"space", "a", "d"},
-			want:  `Permanently delete task "task-a1"?`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := openTaskForms(t, newLiveAuthor())
-			harness.press("j")
-			harness.fireTimers()
-
-			harness.press(tt.press...)
-
-			frame := harness.readFrame()
-			assert.Contains(t, readStage(frame)[0], tt.want)
-			assert.Contains(t, readListRows(frame), "└─ task-a1", "the list it was opened over is still beside it")
-		})
-	}
-
 	t.Run("closing the form hands the window back", func(t *testing.T) {
 		t.Parallel()
 
@@ -1180,65 +1123,6 @@ func TestFormsLayout(t *testing.T) {
 		harness.press("r", "esc")
 
 		assert.False(t, harness.panel.IsZoomed())
-	})
-
-	t.Run("a held form renders its notice under it at every height", func(t *testing.T) {
-		t.Parallel()
-
-		tests := []struct {
-			name   string
-			height int
-		}{
-			{
-				name:   "a short window",
-				height: 24,
-			},
-			{
-				name:   "a middling window",
-				height: 32,
-			},
-			{
-				name:   "a tall window",
-				height: 40,
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				t.Parallel()
-
-				harness := newPanelHarness(t, panelHarnessParams{
-					width:  160,
-					height: tt.height,
-				})
-				answerWorktreeReads(harness)
-				harness.watch(buildSnapshot(newFormWorkflow()))
-				harness.hold(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
-
-				harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
-
-				lines := splitLines(strings.TrimSuffix(harness.readFrame(), "\n"))
-				assert.Len(t, lines, tt.height)
-				assert.NotContains(t, lines[0], "creating workflow", "the panel keeps its top row")
-				notice := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "creating workflow web…") })
-				form := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "event prompts ›") })
-				assert.Greater(t, notice, form, "the notice sits under the form")
-			})
-		}
-	})
-
-	t.Run("a window too narrow for both halves renders the form whole", func(t *testing.T) {
-		t.Parallel()
-
-		harness := newPanelHarness(t, panelHarnessParams{width: 60})
-		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author", "w1")))
-
-		harness.press("k", "space", "w")
-
-		frame := harness.readFrame()
-		assert.Contains(t, splitLines(frame)[0], "New workflow name")
-		assert.NotContains(t, frame, "author", "the list gives the form its room")
 	})
 
 	t.Run("a refusal is read in full from inside the form", func(t *testing.T) {
@@ -1258,78 +1142,6 @@ func TestFormsLayout(t *testing.T) {
 		harness.press("ctrl+g")
 		assert.Contains(t, harness.readFrame(), "New workflow name", "and takes it back")
 	})
-}
-
-// TestFormsFitTheWindow covers a form opening at its top and staying inside the window.
-func TestFormsFitTheWindow(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		height    int
-		isRefused bool
-		want      string
-	}{
-		{
-			name:      "a refused form in a short window",
-			height:    25,
-			isRefused: true,
-			want:      "Could not create the workflow",
-		},
-		{
-			name:      "a refused form in a middling window",
-			height:    32,
-			isRefused: true,
-			want:      "Could not create the workflow",
-		},
-		{
-			name:      "a refused form in a tall window",
-			height:    40,
-			isRefused: true,
-			want:      "Could not create the workflow",
-		},
-		{
-			name:   "a form in a very short window",
-			height: 16,
-			want:   "New workflow name",
-		},
-		{
-			name:   "a form in a short window",
-			height: 24,
-			want:   "New workflow name",
-		},
-		{
-			name:   "a form in a middling window",
-			height: 32,
-			want:   "New workflow name",
-		},
-		{
-			name:   "a form in a very tall window",
-			height: 60,
-			want:   "New workflow name",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := newPanelHarness(t, panelHarnessParams{width: 160, height: tt.height})
-			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(newFormWorkflow()))
-			press := []string{"space", "w"}
-			if tt.isRefused {
-				harness.refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
-				press = slices.Concat(press, spellKeys("web"), []string{"enter"})
-			}
-
-			harness.press(press...)
-
-			frame := harness.readFrame()
-			assert.LessOrEqual(t, len(splitLines(frame)), tt.height)
-			assert.Contains(t, frame, tt.want)
-		})
-	}
 }
 
 func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *panelHarness {

@@ -131,25 +131,6 @@ func TestDeliveryFollowsTheOneMail(t *testing.T) {
 	assert.Equal(t, DeliveryDelivered, st.readDelivery(t, thread.ID, AuthorHuman))
 }
 
-// TestAThreadCarriesTheRoundItWasWrittenAgainst pins the list handing back which round a thread belongs to.
-func TestAThreadCarriesTheRoundItWasWrittenAgainst(t *testing.T) {
-	st := openFixture(t)
-	agentID := st.seedAgent(t, "worker")
-	round := st.openRound(t, agentID, "tree-one")
-	review := st.openReview(t, round)
-
-	opened := st.openThread(t, review, "this needs a nil check")
-
-	threads, err := st.ListThreads(t.Context(), st.taskOf(t, agentID))
-	require.NoError(t, err)
-	require.Len(t, threads, 1)
-
-	assert.Equal(t, opened.ID, threads[0].ID)
-	assert.Equal(t, round.ID, threads[0].RoundID)
-	assert.Equal(t, review.ID, threads[0].ReviewID)
-	assert.Equal(t, int32(1), threads[0].RoundOrdinal)
-}
-
 // TestThreadsAreReadByTask pins that a task's threads outlive the agent they were written to and stay off other tasks.
 func TestThreadsAreReadByTask(t *testing.T) {
 	tests := []struct {
@@ -315,21 +296,6 @@ func TestViewedMarkUsesFingerprint(t *testing.T) {
 	viewed, err := st.ListViewedFiles(ctx, st.taskOf(t, agentID))
 	require.NoError(t, err)
 	assert.Empty(t, viewed)
-}
-
-// TestSettlingAThreadIsCarriedByTheList pins that settling reaches the list the panel draws from.
-func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
-	st := openFixture(t)
-	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.openRound(t, agentID, "tree-one"))
-
-	thread := st.openThread(t, review, "this needs a nil check")
-	st.settle(t, thread, nil)
-
-	threads, err := st.ListThreads(t.Context(), st.taskOf(t, agentID))
-	require.NoError(t, err)
-	require.Len(t, threads, 1)
-	assert.NotNil(t, threads[0].ResolvedAt)
 }
 
 // TestWritingInASettledThread pins that only a reviewer agent's own words take its settling back

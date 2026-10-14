@@ -17,51 +17,51 @@ import (
 const paletteColors = 256
 
 var (
-	errNoTerminal = &ProblemError{
+	errNoTerminal = &problemError{
 		Code:    "no_terminal",
 		Message: "this is not running on a terminal, so nothing could be asked of one",
 	}
-	errTerminalWouldNotYield = &ProblemError{
+	errTerminalWouldNotYield = &problemError{
 		Code:    "terminal_would_not_yield",
 		Message: "the terminal would not be put into raw mode, so its answer could not be read back",
 	}
-	errCursorQueryUnanswered = &ProblemError{
+	errCursorQueryUnanswered = &problemError{
 		Code:    "cursor_query_unanswered",
 		Message: "the terminal did not answer a cursor position query, so no width was measured",
 	}
-	errCursorQueryUntrusted = &ProblemError{
+	errCursorQueryUntrusted = &problemError{
 		Code:    "cursor_query_untrusted",
 		Message: "the terminal misreported the width of a character whose width is not in doubt",
 	}
-	errGlyphWidthUnexpected = &ProblemError{
+	errGlyphWidthUnexpected = &problemError{
 		Code:    "glyph_width_unexpected",
 		Message: "the terminal advances the cursor a different number of columns for a glyph than the list's layout counts on",
 	}
-	errTermUnset = &ProblemError{
+	errTermUnset = &problemError{
 		Code:    "term_unset",
 		Message: "TERM names no terminal, so terminfo has nothing to answer about",
 	}
-	errPaintingTermUnknown = &ProblemError{
+	errPaintingTermUnknown = &problemError{
 		Code:    "painting_term_unknown",
 		Message: "tmux would not name the terminal it paints to",
 	}
-	errTerminfoUnreadable = &ProblemError{
+	errTerminfoUnreadable = &problemError{
 		Code:    "terminfo_unreadable",
 		Message: "terminfo could not be read, so what this terminal can draw is unknown",
 	}
-	errEmphasisMissing = &ProblemError{
+	errEmphasisMissing = &problemError{
 		Code:    "emphasis_missing",
 		Message: "terminfo names no escape for the lettering that says what a row is",
 	}
-	errItalicSubstituted = &ProblemError{
+	errItalicSubstituted = &problemError{
 		Code:    "italic_substituted",
 		Message: "tmux will not send italics on and draws them reversed instead",
 	}
-	errDefaultTerminalUnknown = &ProblemError{
+	errDefaultTerminalUnknown = &problemError{
 		Code:    "default_terminal_unknown",
 		Message: "tmux would not say which entry it advertises, so whether it sends italics is unknown",
 	}
-	errColorTooShallow = &ProblemError{
+	errColorTooShallow = &problemError{
 		Code:    "color_too_shallow",
 		Message: "terminfo reports fewer colours than the palette is written for",
 	}

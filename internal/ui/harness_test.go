@@ -1113,7 +1113,11 @@ func clickOnLine(t *testing.T, harness *panelHarness, line, text string) tea.Mou
 		}
 
 		if at := strings.Index(row, text); at >= 0 {
-			return tea.MouseClickMsg{X: left + ansi.StringWidth(row[:at]), Y: y, Button: tea.MouseLeft}
+			return tea.MouseClickMsg{
+				X:      left + ansi.StringWidth(row[:at]),
+				Y:      y,
+				Button: tea.MouseLeft,
+			}
 		}
 	}
 
@@ -1128,7 +1132,11 @@ func clickOnLineStart(t *testing.T, harness *panelHarness, prefix string) tea.Mo
 	left, _ := harness.panel.Inside()
 	for y, row := range splitLines(harness.readFrame()) {
 		if strings.HasPrefix(row, prefix) {
-			return tea.MouseClickMsg{X: left + ansi.StringWidth(prefix) + 1, Y: y, Button: tea.MouseLeft}
+			return tea.MouseClickMsg{
+				X:      left + ansi.StringWidth(prefix) + 1,
+				Y:      y,
+				Button: tea.MouseLeft,
+			}
 		}
 	}
 

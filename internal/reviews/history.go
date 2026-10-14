@@ -109,7 +109,11 @@ func (s *ReviewService) pickRound(ctx context.Context, params pickRoundParams) (
 	rounds := params.Rounds
 	if !params.Fresh {
 		if round := findOpenBatchRound(rounds, params.Reviews, params.Author); round != nil {
-			return &pickedRound{Round: *round, Rounds: rounds, Pinned: true}, nil
+			return &pickedRound{
+				Round:  *round,
+				Rounds: rounds,
+				Pinned: true,
+			}, nil
 		}
 	}
 
@@ -117,7 +121,11 @@ func (s *ReviewService) pickRound(ctx context.Context, params pickRoundParams) (
 	var failed *fail.Error
 	switch {
 	case errors.As(err, &failed) && failed.Kind() == fail.KindPrecondition && len(rounds) > 0:
-		return &pickedRound{Round: rounds[len(rounds)-1], Rounds: rounds, Notice: midSequenceNotice}, nil
+		return &pickedRound{
+			Round:  rounds[len(rounds)-1],
+			Rounds: rounds,
+			Notice: midSequenceNotice,
+		}, nil
 	case err != nil:
 		return nil, err
 	}

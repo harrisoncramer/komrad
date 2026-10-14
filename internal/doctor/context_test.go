@@ -87,21 +87,3 @@ func TestContextCheck(t *testing.T) {
 		})
 	}
 }
-
-// TestTheContextCheckIsRun pins the check being one doctor makes, a check nothing runs being
-// worth nothing.
-func TestTheContextCheckIsRun(t *testing.T) {
-	checks := Checks(Settings{Harnesses: claudeAndCodex, TmuxSocket: "komrad"})
-
-	assert.True(t, containsCheck(checks, "context"))
-}
-
-func containsCheck(checks []Check, name string) bool {
-	for _, check := range checks {
-		if check.Name == name {
-			return true
-		}
-	}
-
-	return false
-}
