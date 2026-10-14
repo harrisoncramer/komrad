@@ -1,0 +1,55 @@
+...@_theme
+
+grid-columns: 3
+grid-gap: 100
+
+panel: the panel, Bubble Tea {
+  style.font-size: 18
+  grid-rows: 2
+  grid-columns: 2
+  horizontal-gap: 50
+  vertical-gap: 70
+  view: View
+  cmd: Cmd
+  model: Model
+  update: Update
+}
+
+serve: komrad serve {
+  style.font-size: 18
+  grid-rows: 3
+  grid-columns: 3
+  grid-gap: 40
+  blank1: "" {style.opacity: 0}
+  blank2: "" {style.opacity: 0}
+  loops: "sync loops"
+  handler: "handler\nchecks input"
+  service: "service\nrules"
+  store
+  render: "render\nread, diff"
+  pending: "pending\nkeys"
+  listener: "listener\nLISTEN"
+}
+
+postgres: Postgres {
+  style.font-size: 18
+  grid-columns: 1
+  grid-gap: 60
+  tables: rows {shape: cylinder}
+  trigger: "trigger\npg_notify"
+}
+
+panel.view -> panel.update: key press
+panel.update -> panel.cmd
+panel.update -> panel.model
+panel.model -> panel.view
+
+panel.cmd -> serve.handler: Connect RPC
+serve.handler -> panel.update: "ok or error" {style.stroke-dash: 3}
+serve.handler -> serve.service -> serve.store
+serve.loops -> serve.store
+serve.store -> postgres.tables: commit
+postgres.tables -> postgres.trigger
+postgres.trigger -> serve.listener: "table, key"
+serve.listener -> serve.pending -> serve.render
+serve.render -> panel.update: Watch stream

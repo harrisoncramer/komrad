@@ -21,7 +21,6 @@ Komrad is a server and a panel. The server runs in the background. It owns the d
   />
 </figure>
 
-
 The panel is just the UI.
 
 Each agent is a real terminal running Claude or Codex. Komrad runs them in a tmux server of its own, so they never get mixed up with your own windows. When you open the panel, your terminal attaches to komrad's session. Closing the panel detaches that terminal and nothing else.
@@ -36,7 +35,12 @@ All of komrad's state is kept in Postgres: a workflow, a task, an agent, a piece
 
 Those changes are periodically _pushed_ to the client via a database triggers, a `LISTEN/NOTIFY` pattern, and a streaming ConnectRPC endpoint.
 
-Diagram Here
+<figure>
+  <img
+    src={link("/diagrams/data-flow.png")}
+    alt="A key press reaches the panel's Update, which returns a Cmd that calls the API over Connect RPC. The handler checks the input, the service applies its rules, and the store commits the rows to Postgres, as the sync loops do too. The handler's reply says only ok or error. On commit a trigger calls pg_notify with the table and key, the watch listener adds the key to the pending keys, and the render pass reads the rows back, diffs them and sends them over the Watch stream to Update, which changes the Model that View draws."
+  />
+</figure>
 
 When the database detects a write on any table, it fires an event with the record's ID to a simple listener service.
 
