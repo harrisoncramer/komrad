@@ -40,11 +40,12 @@ func NewTokenRefresher(keeper *SignInKeeper, url string) *TokenRefresher {
 
 // TokenRefresher hands out a live ID token for one engine.
 type TokenRefresher struct {
-	keeper *SignInKeeper
-	url    string
-	client *http.Client
-	mu     sync.Mutex
-	signIn *signIn
+	keeper  *SignInKeeper
+	url     string
+	client  *http.Client
+	mu      sync.Mutex
+	signIn  *signIn
+	refused string
 }
 
 // GetToken is an ID token for the engine that lasts at least refreshAhead longer, renewing the
@@ -63,10 +64,20 @@ func (r *TokenRefresher) GetToken(ctx context.Context) (string, error) {
 	}
 
 	if !isFresh(kept) {
-		kept, err = r.renew(ctx, *kept)
+		if kept.RefreshToken != "" && kept.RefreshToken == r.refused {
+			return "", errSignInLapsed.Saying("the provider would not renew the sign-in to %s, so run komrad login", r.url)
+		}
+
+		renewed, err := r.renew(ctx, *kept)
+		if errors.Is(err, errSignInLapsed) {
+			r.refused = kept.RefreshToken
+		}
+
 		if err != nil {
 			return "", err
 		}
+
+		kept = renewed
 
 		if err := r.keeper.SaveSignIn(r.url, *kept); err != nil {
 			return "", err

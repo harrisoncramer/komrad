@@ -207,6 +207,11 @@ func TestTokenRefresher(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
+				asked := provider.CountRefreshes()
+				_, err = refresher.GetToken(t.Context())
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Equal(t, asked, provider.CountRefreshes())
+
 				return
 			}
 

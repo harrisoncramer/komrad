@@ -525,24 +525,23 @@ func awaitSignIn(ctx context.Context, params runTerminalParams) error {
 		return nil
 	}
 
-	isAsked := false
-	for {
-		_, err := params.Token(ctx)
-		if !errors.Is(err, engine.ErrSignInNeeded) {
-			return nil
-		}
+	_, err := params.Token(ctx)
+	if !errors.Is(err, engine.ErrSignInNeeded) {
+		return nil
+	}
 
-		if !isAsked {
-			if _, err := fmt.Fprintf(params.Out, "%v\nThe terminal opens once you sign in.\n", err); err != nil {
-				return fmt.Errorf("failed to say the terminal waits on a sign-in: %w", err)
-			}
+	if _, err := fmt.Fprintf(params.Out, "%v\nThe terminal opens once you sign in.\n", err); err != nil {
+		return fmt.Errorf("failed to say the terminal waits on a sign-in: %w", err)
+	}
 
-			isAsked = true
-		}
-
+	for errors.Is(err, engine.ErrSignInNeeded) {
 		clock.Sleep(ctx, signInCheckInterval)
 		if ctx.Err() != nil {
 			return fmt.Errorf("failed to wait for a sign-in: %w", ctx.Err())
 		}
+
+		_, err = params.Token(ctx)
 	}
+
+	return nil
 }
