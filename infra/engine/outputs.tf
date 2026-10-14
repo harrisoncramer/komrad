@@ -29,3 +29,11 @@ output "state_bucket" {
 output "ami_parameter" {
   value = "/${var.name}/engine/ami-id"
 }
+
+output "engine_url" {
+  value = "https://${local.tailscale_name}"
+}
+
+output "tailscale_state_parameter" {
+  value = local.tailscale_state_parameter
+}

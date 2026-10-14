@@ -140,5 +140,5 @@ Terraform can't destroy the database while deletion protection is on, so set `da
 Then remove the engine from Tailscale's admin console and delete its tailnet identity:
 
 ```sh
-aws ssm delete-parameter --name /komrad/tailscale/state
+aws ssm delete-parameter --name "$(mise run infra:engine:run output -raw tailscale_state_parameter)"
 ```

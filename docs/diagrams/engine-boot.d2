@@ -10,7 +10,7 @@ host: Engine host {
 
   userdata: User data {class: leaf}
   tailscaled: Tailscale {class: leaf}
-  authkey: Auth key unit {class: leaf}
+  tailnet: Tailnet unit {class: leaf}
   volume: Data volume {class: leaf}
   timer: Hourly timer {class: leaf}
   creds: Credentials unit {class: leaf}
@@ -19,10 +19,10 @@ host: Engine host {
   serve: Server {class: leaf}
   session: Manager session {class: leaf}
 
-  userdata -> tailscaled
+  userdata -> tailnet
   userdata -> volume
-  authkey -> tailscaled: first join {class: dashed}
-  tailscaled -> caddy
+  tailnet -> tailscaled
+  tailnet -> caddy
   volume -> creds
   volume -> caddy
   timer -> creds {class: dashed}
@@ -34,7 +34,7 @@ host: Engine host {
 rds: RDS Postgres {class: store}
 
 host.tailscaled -> params: node key
-host.authkey -> secrets: auth key
+host.tailnet -> secrets: first join {class: dashed}
 host.creds -> secrets: owner password
 host.key -> secrets: App key
 host.creds -> rds: migrate

@@ -20,6 +20,20 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy" "tailscale_state" {
+  name = "${var.name}-tailscale-state"
+  role = aws_iam_role.komrad.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["ssm:GetParameter", "ssm:PutParameter"]
+      Resource = local.tailscale_state_arn
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "komrad" {
   name = "${var.name}-instance"
   role = aws_iam_role.komrad.name
@@ -34,15 +48,18 @@ resource "aws_instance" "komrad" {
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.komrad.name
   user_data = templatefile("${path.module}/komrad-data-volume.sh.tftpl", {
-    data_volume_id        = aws_ebs_volume.komrad_data.id
-    database_secret_arn   = aws_db_instance.komrad.master_user_secret[0].secret_arn
-    database_host         = aws_db_instance.komrad.address
-    database_name         = aws_db_instance.komrad.db_name
-    aws_region            = var.aws_region
-    domain_name           = var.domain_name
-    sign_in_issuer        = var.sign_in_issuer
-    sign_in_client_id     = var.sign_in_client_id
-    sign_in_client_secret = var.sign_in_client_secret
+    data_volume_id            = aws_ebs_volume.komrad_data.id
+    database_secret_arn       = aws_db_instance.komrad.master_user_secret[0].secret_arn
+    database_host             = aws_db_instance.komrad.address
+    database_name             = aws_db_instance.komrad.db_name
+    aws_region                = var.aws_region
+    sign_in_issuer            = var.sign_in_issuer
+    sign_in_client_id         = var.sign_in_client_id
+    sign_in_client_secret     = var.sign_in_client_secret
+    tailscale_state_arn       = local.tailscale_state_arn
+    tailscale_hostname        = var.tailscale_hostname
+    tailscale_name            = local.tailscale_name
+    tailscale_auth_key_secret = "${var.secret_prefix}/tailscale-auth-key"
   })
 
   # User data now carries the database's address and secret, which move if RDS is ever replaced

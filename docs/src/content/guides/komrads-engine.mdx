@@ -30,7 +30,7 @@ Parameter Store holds the instance's Tailscale identity, so a replacement joins 
 
 ## Network access
 
-The security group opens no ports to the internet. It can allow Tailscale's UDP port 41641, so laptops connect directly instead of through Tailscale's relays. [Access](../engine-access/#network) covers the tailnet, its policy and the firewall on the instance.
+The security group opens no TCP ports to the internet. It allows Tailscale's UDP port 41641, so laptops connect directly instead of through Tailscale's relays. Setting `tailscale_direct_connections = false` closes it. [Access](../engine-access/#network) covers the tailnet, its policy and the firewall on the instance.
 
 Operators get a shell through AWS Systems Manager. The SSM agent on the instance keeps an outbound connection to Systems Manager, so the instance opens no port for operators. Deploys and restarts go through Systems Manager as well.
 

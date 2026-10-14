@@ -30,13 +30,13 @@ The data volume holds the komrad account's home directory, which has komrad's co
 <figure>
   <img
     src={link("/diagrams/engine-boot.png")}
-    alt="User data starts Tailscale, which loads its node key from Parameter Store. On the machine's first join, the auth key unit reads the auth key from Secrets Manager. Caddy starts once Tailscale is up and the data volume is mounted. The data volume mounts. The credentials unit reads the owner password from Secrets Manager and migrates RDS. The GitHub key unit copies the App key from Secrets Manager into memory. The server starts once both are done, then the manager session. An hourly timer reruns the credentials unit."
+    alt="User data starts the tailnet unit, which starts Tailscale. Tailscale loads its node key from Parameter Store. On the machine's first join, the tailnet unit reads the auth key from Secrets Manager. Caddy starts once the machine is on the tailnet and the data volume is mounted. The data volume mounts. The credentials unit reads the owner password from Secrets Manager and migrates RDS. The GitHub key unit copies the App key from Secrets Manager into memory. The server starts once both are done, then the manager session. An hourly timer reruns the credentials unit."
   />
 </figure>
 
 Terraform hands the machine a short user data script. The script records which volume and database belong to the machine. It writes the identity provider into the server's config and points Caddy at the public listener. Any process on the machine can read user data, so the script carries nothing that has to stay secret. The provider's client secret is in it, but the engine hands that to every laptop that signs in anyway.
 
-The script also joins the tailnet. Tailscale keeps its identity in Parameter Store, so a replacement machine comes back as the same device. Only on first boot does the auth key unit fetch a key from Secrets Manager to join. The script then writes the tailnet name into Caddy's config and starts Caddy.
+The script also joins the tailnet. Tailscale keeps its identity in Parameter Store, so a replacement machine comes back as the same device. Only on first boot does the tailnet unit fetch a key from Secrets Manager to join. The script then writes the tailnet name into Caddy's config and starts Caddy.
 
 Systemd starts everything else in order. The data volume mounts first, and every unit that uses it waits for the mount. If the volume is missing, the server never starts, which keeps it from writing to the root disk by mistake.
 

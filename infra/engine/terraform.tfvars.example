@@ -6,7 +6,8 @@ aws_shared_credentials_file     = "/absolute/path/to/aws/credentials"
 ami_id                          = "ami-0123456789abcdef0"  # arm64 (Graviton) image, must match instance_type
 availability_zone               = "us-east-1a"
 
-domain_name           = "komrad.example.com"
+tailscale_hostname    = "komrad"
+tailscale_tailnet     = "tail1234.ts.net"
 sign_in_issuer        = "https://accounts.google.com"
 sign_in_client_id     = "0000000000-abc.apps.googleusercontent.com"
 sign_in_client_secret = "GOCSPX-..."

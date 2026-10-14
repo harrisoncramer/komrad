@@ -1,0 +1,15 @@
+[Unit]
+Description=Join the tailnet
+Requires=tailscaled.service
+After=tailscaled.service
+Before=caddy.service
+ConditionPathExists=/etc/komrad/tailscale.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/komrad/tailscale.env
+ExecStart=/usr/local/sbin/komrad-tailscale
+
+[Install]
+WantedBy=multi-user.target

@@ -41,21 +41,29 @@ TOML
 : >/etc/komrad/sign-in.toml
 %{ endif ~}
 
-if [ -n "${domain_name}" ]; then
-	install -d -m 700 /var/lib/komrad/caddy
-	chown -R caddy:caddy /var/lib/komrad/caddy
-	cat >/etc/caddy/Caddyfile <<CADDYFILE
+systemctl start komrad-database-credentials.service
+systemctl start komrad.service
+
+cat >/etc/komrad/tailscale.env <<ENV
+KOMRAD_TAILSCALE_STATE=${tailscale_state_arn}
+KOMRAD_TAILSCALE_HOSTNAME=${tailscale_hostname}
+KOMRAD_TAILSCALE_NAME=${tailscale_name}
+KOMRAD_TAILSCALE_SECRET_ID=${tailscale_auth_key_secret}
+AWS_REGION=${aws_region}
+ENV
+
+systemctl start komrad-tailscale.service
+
+install -d -m 700 /var/lib/komrad/caddy
+chown -R caddy:caddy /var/lib/komrad/caddy
+cat >/etc/caddy/Caddyfile <<CADDYFILE
 {
 	storage file_system /var/lib/komrad/caddy
 	grace_period 10s
 }
 
-${domain_name} {
+${tailscale_name} {
 	reverse_proxy h2c://127.0.0.1:8788
 }
 CADDYFILE
-	systemctl enable --now caddy.service
-fi
-
-systemctl start komrad-database-credentials.service
-systemctl start komrad.service
+systemctl enable --now caddy.service

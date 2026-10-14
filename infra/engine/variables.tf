@@ -135,24 +135,28 @@ variable "database_final_snapshot" {
   default = "komrad-development-final"
 }
 
-variable "domain_name" {
+variable "tailscale_hostname" {
   type    = string
-  default = ""
+  default = "komrad"
 
   validation {
-    condition     = var.domain_name == "" || can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$", var.domain_name))
-    error_message = "A domain name is a lowercase hostname like komrad.example.com, since it is written into the web server's config."
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.tailscale_hostname))
+    error_message = "The engine's name on the tailnet is one lowercase label, like komrad."
   }
 }
 
-variable "https_allowed_cidrs" {
-  type    = list(string)
-  default = ["0.0.0.0/0"]
+variable "tailscale_tailnet" {
+  type = string
 
   validation {
-    condition     = length(var.https_allowed_cidrs) > 0
-    error_message = "People reach the engine on 443, so at least one address range has to be let in."
+    condition     = can(regex("^[a-z0-9-]+\\.ts\\.net$", var.tailscale_tailnet))
+    error_message = "The tailnet is its DNS name from the admin console, like tail1234.ts.net."
   }
+}
+
+variable "tailscale_direct_connections" {
+  type    = bool
+  default = true
 }
 
 variable "sign_in_issuer" {
@@ -167,11 +171,6 @@ variable "sign_in_issuer" {
   validation {
     condition     = (var.sign_in_issuer == "") == (var.sign_in_client_id == "")
     error_message = "sign_in_issuer and sign_in_client_id are set together."
-  }
-
-  validation {
-    condition     = var.sign_in_issuer == "" || var.domain_name != ""
-    error_message = "People sign in to the engine at its domain, so sign_in_issuer needs domain_name."
   }
 }
 

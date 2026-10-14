@@ -66,4 +66,4 @@ aws ec2 wait instance-running --region "$REGION" --instance-ids "$INSTANCE"
 # so an instance that passes them is one the panel can reach.
 aws ec2 wait instance-status-ok --region "$REGION" --instance-ids "$INSTANCE"
 
-gum log --level info "the engine is up on $(terraform_output instance_public_ip)"
+gum log --level info "the engine is up at $(terraform_output engine_url)"
