@@ -13,7 +13,3 @@ while IFS= read -r test_env_line; do
 done <<<"$test_env_lines"
 
 unset test_env_lines test_env_line
-
-# The instance's own build answers to komrad, ahead of whichever one this machine runs.
-PATH="$(test_bin_dir):$PATH"
-export PATH

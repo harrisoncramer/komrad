@@ -164,11 +164,7 @@ func printEnv(ctx context.Context, reg registry, root string, out io.Writer) err
 		return err
 	}
 
-	if err := writeConfig(root, reg.slotDir(n), n); err != nil {
-		return err
-	}
-
-	if err := writeEngine(reg.slotDir(n), n); err != nil {
+	if err := writeConfig(root, reg.slotDir(n)); err != nil {
 		return err
 	}
 

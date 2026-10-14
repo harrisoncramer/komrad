@@ -47,9 +47,9 @@ func TestLoadSignIn(t *testing.T) {
 		},
 		{
 			name: "an issuer over plain http on this machine",
-			file: "[sign_in]\nissuer = \"http://127.0.0.1:5556/dex\"\nclient_id = \"komrad\"\n",
+			file: "[sign_in]\nissuer = \"http://127.0.0.1:9000\"\nclient_id = \"komrad\"\n",
 			want: SignIn{
-				Issuer:   "http://127.0.0.1:5556/dex",
+				Issuer:   "http://127.0.0.1:9000",
 				ClientID: "komrad",
 				Addr:     defaultSignInAddr,
 			},
