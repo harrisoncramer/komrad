@@ -1,0 +1,27 @@
+...@_theme
+
+direction: down
+
+tag: Version tag {class: leaf}
+
+actions: GitHub Actions {
+  class: group
+  checks: Checks {class: leaf}
+  deploy: Engine deploy {class: leaf}
+
+  checks -> deploy
+}
+
+bucket: State bucket {class: store}
+
+host: Engine host {
+  class: group
+  agent: SSM agent {class: leaf}
+  serve: Server {class: leaf}
+  agent -> serve: stop, migrate, start
+}
+
+tag -> actions.checks
+actions.deploy -> bucket: binary
+actions.deploy -> host.agent: SSM command
+host.agent -> bucket: download

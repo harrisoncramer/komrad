@@ -2,7 +2,7 @@ import { getCollection } from "astro:content";
 
 export const GUIDE_GROUPS = [
   { id: "start", title: "Getting started" },
-  { id: "operations", title: "Operations" },
+  { id: "remote-engines", title: "Remote engines" },
   { id: "architecture", title: "Architecture" },
 ] as const;
 

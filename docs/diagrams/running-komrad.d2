@@ -1,0 +1,37 @@
+...@_theme
+
+direction: down
+
+laptop: Laptop {
+  class: group
+  panel: Panel {class: leaf}
+}
+
+idp: Identity provider {class: leaf}
+
+host: Engine host {
+  class: group
+
+  proxy: HTTPS proxy {class: leaf}
+  serve: Server {class: leaf}
+
+  tmux: Tmux {
+    class: group
+    agents: Agents {class: leaf}
+  }
+
+  volume: Worktrees {class: store}
+
+  proxy -> serve: loopback
+  tmux.agents -> serve: MCP
+  tmux.agents -> volume
+}
+
+postgres: Postgres {class: store}
+forge: Forge {class: leaf}
+
+laptop.panel -> idp: sign in
+laptop.panel -> host.proxy: HTTPS
+host.serve -> postgres
+host.serve -> forge: pull requests
+host.tmux.agents -> forge: git push

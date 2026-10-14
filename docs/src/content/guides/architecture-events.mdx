@@ -2,12 +2,12 @@
 title: Events and the watch
 description: How a committed row becomes a redraw, and how the loops keep the database honest.
 group: architecture
-order: 19
+order: 32
 ---
 
 import { link } from "../../site";
 
-Komrad never polls the database to find out what changed. The database tells it.
+The database tells komrad when a row changes, so the server never has to poll it.
 
 ## The path
 
@@ -18,36 +18,30 @@ Komrad never polls the database to find out what changed. The database tells it.
   />
 </figure>
 
-Every table the panel draws has a trigger. When a row is inserted, updated or deleted, the trigger calls `pg_notify` with the table name and the row's key. It sends no data. It only says which row to look at. The trigger rides on the transaction, so it fires only when the write commits.
+Every table the panel draws has a trigger. When a row is inserted, updated or deleted, the trigger calls `pg_notify` with the table name and the row's key and nothing else, which tells the server which row to look at. The trigger runs inside the transaction, so the notification goes out only if the write commits.
 
-The server keeps one connection open just to listen. When a notification arrives, it adds the key to a pending set and pokes the render loop. The poke is a channel with room for one message. If the loop is busy, the poke is dropped, but the key stays in the set. A hundred writes to the same row become one re-read.
+The server keeps one connection open just to listen. Each notification adds its key to a pending set and pokes the render loop. The poke goes through a channel with room for one message, so a poke that arrives while the loop is busy gets dropped, and its key waits in the set. A hundred writes to the same row turn into one re-read.
 
-The render loop reads the pending rows back using the same queries the List RPCs use. Each subscriber remembers what it was last sent and only gets what differs. A row that no longer exists becomes a tombstone.
+The render loop reads the pending rows back with the same queries the List RPCs use. Each subscriber remembers what it was last sent and gets only what differs. A row that no longer exists goes out as a tombstone.
 
 ## Why this is safe
 
-A notification is a hint, not a record. Nothing is stored and nothing is replayed. If the listener's connection drops, every subscriber is dropped too, and each one reconnects and takes a fresh snapshot. If a subscriber is too slow to keep up, it is dropped for the same reason. Losing a notification costs one reread. It never leaves the screen wrong.
+A notification only hints that something changed. Komrad doesn't store notifications or replay them. If the listener's connection drops, the server drops every subscriber too, and each one reconnects and takes a fresh snapshot. A subscriber that falls too far behind is dropped the same way. A lost notification costs one re-read, and the screen still ends up right.
 
-The panel and MCP see the same rows. One package draws them, joining each task to its pull request and reviews and each agent to its mail. The panel runs it on its streamed copy, and `ListAgents` runs it on the fly.
+The panel and the MCP tools see the same rows, because one package builds them. It joins each task to its pull request and reviews, and each agent to its mail. The panel runs it over its streamed copy, and `ListAgents` runs it on each call.
 
 ## Sync loops
 
-The outside world does not send notifications. tmux does not say when an agent goes idle. GitHub does not say when a pull request merges. So the server runs loops that go and look on a timer and write what they find onto a row. From there, the trigger and the stream do the rest.
+tmux doesn't announce when an agent goes idle, and GitHub doesn't announce when a pull request merges. The server runs loops that check on a timer and write what they find onto a row, and from there the trigger and the stream take over.
 
-For instance, the reconcile loop reads the bottom of each agent's pane and decides whether the agent is working, waiting, or idle. It reads the screen instead of trusting hooks, because a hook can be missed and a screen cannot lie. Other loops deliver mail, sync pull requests, and measure worktrees.
+The reconcile loop, for example, reads the bottom of each agent's pane and decides whether the agent is working, waiting or idle. It reads the screen because a hook can be missed, and the screen always shows where the agent really is. Other loops deliver mail, sync pull requests and measure worktrees.
 
 ### Waking a loop
 
-Sometimes it's better for komrad to notice changes more quickly than background loops allow. For instance, when you merge a pull request, you should see that change right away.
+Some changes should show up faster than a loop's timer allows. When you merge a pull request, you expect to see it right away. Komrad still won't patch state directly to get there, because outside state only ever reaches the database through a loop. The server wakes the loop instead, which makes it run now in place of its next tick.
 
-Komrad does not patch state to show a change sooner. State flows into the database from an external system only through the loop cycle.
-
-Instead the server can "wake" a loop, which asks it to run now instead of at its next tick.
-
-The wake only says "look again". It never carries what changed, so all writes still flow through the same loop path.
-
-For instance, a rebase wakes the loop that reads each checkout's branch and head. A merge makes the pull request sync read its host often for a while. An agent ending its turn wakes both the checkout loop and the transcript sync.
+A wake carries no data. It only tells the loop to look again, so every write still goes through the loop. A rebase wakes the loop that reads each checkout's branch and head. A merge makes the pull request sync check its host more often for a while. An agent ending its turn wakes both the checkout loop and the transcript sync.
 
 ## River
 
-Work that must happen later, or exactly once, goes through River, a job queue that lives in the same Postgres. Launching an agent for a schedule is a River job. So is deleting an agent. The delete claims the row as it queues the job, so pressing a key twice cannot queue the work twice. Each kind of job runs on a queue of its own, so a slow teardown never holds up a scheduled launch.
+Work that has to happen later, or exactly once, goes through River, a job queue that lives in the same Postgres. Launching an agent for a schedule is a River job, and so is deleting an agent. The delete claims the row in the same step that queues the job, so pressing the key twice can't queue the work twice. Each kind of job has a queue of its own, so a slow teardown never holds up a scheduled launch.

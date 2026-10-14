@@ -29,7 +29,7 @@ Hooks also clean up when a task or agent is deleted. For instance, a `task.pre-d
 
 Hooks are executable files in <Setting path="hooks.dir" />, which is `~/.config/komrad/hooks` by default. An agent's hooks run in the agent's directory. A task's hooks run in its worktree, or in the workflow's directory when it has none.
 
-In our example, Neovim keeps a `.git-blame-ignore-revs` file listing the commits that only reformatted code, so `git blame` can skip them. Git honours the file only when told to, and that setting lives in git's config rather than in the tree, so no checkout carries it. A hook can set it for each agent:
+For example, the Neovim repository keeps a `.git-blame-ignore-revs` file listing the commits that only reformatted code, so `git blame` can skip them. Git honours the file only when told to, and that setting lives in git's config rather than in the tree, so no checkout carries it. A hook can set it for each agent:
 
 ```sh
 mkdir -p ~/.config/komrad/hooks
