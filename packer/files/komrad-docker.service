@@ -1,8 +1,10 @@
 [Unit]
-Description=Docker for the komrad user, without root
-After=network-online.target
+Description=Docker for agents, without root
+After=network-online.target komrad-data-volume.service
 Wants=network-online.target
 Before=komrad.service
+RequiresMountsFor=/var/lib/komrad
+ConditionPathIsMountPoint=/var/lib/komrad
 
 [Service]
 Type=notify
