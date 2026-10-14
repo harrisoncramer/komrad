@@ -2,15 +2,21 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"komrad/internal/browser"
 	"komrad/internal/engine"
 
 	"github.com/spf13/cobra"
 )
+
+const maxReason = 1024
 
 var errNoEngineURL = errors.New("this engine is not reached at a url, so there is nothing to sign in to; name one with --engine")
 
@@ -100,6 +106,11 @@ func (s *panelSignIn) CheckAccess(ctx context.Context) error {
 	res, err := healthCheck(ctx, s.transport, s.url)
 	if err != nil {
 		if errors.Is(err, engine.ErrSignInNeeded) || errors.Is(err, engine.ErrProviderUnreachable) {
+			var failed *url.Error
+			if errors.As(err, &failed) {
+				return failed.Err
+			}
+
 			return err
 		}
 
@@ -107,15 +118,19 @@ func (s *panelSignIn) CheckAccess(ctx context.Context) error {
 	}
 	defer func() { _ = res.Body.Close() }()
 
-	switch res.StatusCode {
-	case http.StatusOK:
+	if res.StatusCode == http.StatusOK {
 		return nil
+	}
+
+	reason := readReason(res.Body)
+
+	switch res.StatusCode {
 	case http.StatusUnauthorized:
-		return engine.ErrSignInNeeded.Saying("the engine at %s did not take this sign-in, so sign in again", s.url)
+		return engine.ErrSignInNeeded.Saying("the engine at %s did not take this sign-in: %s", s.url, reason)
 	case http.StatusForbidden:
-		return engine.ErrAccessDenied.Saying("nobody has granted this account access to the engine at %s, so ask its owner", s.url)
+		return engine.ErrAccessDenied.Saying("the engine at %s turned this account away, so ask its owner: %s", s.url, reason)
 	default:
-		return fmt.Errorf("failed to check access to the engine at %s, which answered %s", s.url, res.Status)
+		return fmt.Errorf("failed to check access to the engine at %s, which answered %s: %s", s.url, res.Status, reason)
 	}
 }
 
@@ -133,4 +148,20 @@ func (s *panelSignIn) Login(ctx context.Context, prompt func(authURL string)) er
 	})
 
 	return err
+}
+
+func readReason(body io.Reader) string {
+	raw, err := io.ReadAll(io.LimitReader(body, maxReason))
+	if err != nil {
+		return err.Error()
+	}
+
+	var refusal struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(raw, &refusal) == nil && refusal.Message != "" {
+		return refusal.Message
+	}
+
+	return strings.TrimSpace(string(raw))
 }

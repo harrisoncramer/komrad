@@ -133,7 +133,7 @@ func (m *model) applyAccessChecked(err error) tea.Cmd {
 	case err == nil:
 		return m.grantAccess()
 	case errors.Is(err, engine.ErrSignInNeeded):
-		m.access.stage = accessSignInNeeded
+		m.access.stage, m.access.err = accessSignInNeeded, err
 	case errors.Is(err, engine.ErrAccessDenied):
 		m.access.stage, m.access.err = accessDenied, err
 	default:

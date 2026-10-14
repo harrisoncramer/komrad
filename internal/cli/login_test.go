@@ -23,20 +23,22 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 	keyring.MockInit()
 
 	type panelSignInCase struct {
-		name      string
-		isGranted bool
-		isLogin   bool
-		arrange   func(provider *oidctest.Provider)
-		disturb   func(provider *oidctest.Provider)
-		wantLogin string
-		wantErr   error
+		name       string
+		isGranted  bool
+		isLogin    bool
+		arrange    func(provider *oidctest.Provider)
+		disturb    func(provider *oidctest.Provider)
+		wantLogin  string
+		wantErr    error
+		wantReason string
 	}
 
 	tests := []panelSignInCase{
 		{
-			name:      "a machine that never signed in",
-			isGranted: true,
-			wantErr:   engine.ErrSignInNeeded,
+			name:       "a machine that never signed in",
+			isGranted:  true,
+			wantErr:    engine.ErrSignInNeeded,
+			wantReason: "has not signed in",
 		},
 		{
 			name:      "a browser back from some other sign-in",
@@ -47,11 +49,12 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 			wantErr:   engine.ErrSignInNeeded,
 		},
 		{
-			name:      "a token the engine cannot verify",
-			isGranted: true,
-			isLogin:   true,
-			disturb:   func(provider *oidctest.Provider) { provider.RotateKey() },
-			wantErr:   engine.ErrSignInNeeded,
+			name:       "a token the engine cannot verify",
+			isGranted:  true,
+			isLogin:    true,
+			disturb:    func(provider *oidctest.Provider) { provider.RotateKey() },
+			wantErr:    engine.ErrSignInNeeded,
+			wantReason: "not one the identity provider signed for komrad",
 		},
 		{
 			name:      "a sign-in the provider would not renew",
@@ -78,9 +81,10 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 			wantErr:   engine.ErrProviderUnreachable,
 		},
 		{
-			name:    "a person nobody granted access",
-			isLogin: true,
-			wantErr: engine.ErrAccessDenied,
+			name:       "a person nobody granted access",
+			isLogin:    true,
+			wantErr:    engine.ErrAccessDenied,
+			wantReason: "nobody has granted this account access",
 		},
 		{
 			name:      "a person signed in with access",
@@ -131,6 +135,8 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 			err := signIn.CheckAccess(t.Context())
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantReason, "the panel shows why the engine turned the person away")
+				assert.NotContains(t, err.Error(), "/healthz", "the reason reads as the panel's, not the request's")
 
 				return
 			}

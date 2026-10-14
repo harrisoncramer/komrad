@@ -81,6 +81,11 @@ func TestSignInStartup(t *testing.T) {
 			wantContain: []string{"Sign in to the engine", "Press enter to sign in"},
 		},
 		{
+			name:        "a sign-in the engine did not take",
+			access:      engine.ErrSignInNeeded.Saying("the engine did not take this sign-in: the email is not verified"),
+			wantContain: []string{"Sign in to the engine", "the email is not verified", "Press enter to sign in"},
+		},
+		{
 			name:        "a person nobody granted access",
 			access:      engine.ErrAccessDenied,
 			wantContain: []string{"You do not have access to this engine", "Ask the engine's owner"},

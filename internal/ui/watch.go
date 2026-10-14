@@ -19,7 +19,7 @@ type watchLostMsg struct {
 	err error
 }
 
-// watchRows holds the watch open for the life of ctx, posting each batch it delivers.
+// startWatch opens the watch on a goroutine of its own and hands back what stops it.
 func startWatch(ctx context.Context, watches watchv1connect.WatchServiceClient, post *postbox) context.CancelFunc {
 	if watches == nil {
 		return func() {}
@@ -31,6 +31,7 @@ func startWatch(ctx context.Context, watches watchv1connect.WatchServiceClient, 
 	return stop
 }
 
+// watchRows holds the watch open for the life of ctx, posting each batch it delivers.
 func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, post *postbox) {
 	client.Watch(ctx, client.WatchParams{
 		Open:    client.OpenWatch(watches),
