@@ -1,33 +1,25 @@
 ...@_theme
 
-direction: right
+direction: down
 
 panel: Panel {class: leaf}
 idp: Identity provider {class: leaf}
 operator: Operator {class: leaf}
-ci: GitHub Actions {class: leaf}
 
 host: Engine host {
   class: group
-
   caddy: Caddy {class: leaf}
   public: Public listener {class: leaf}
-  api: API {class: leaf}
+  ssm: SSM agent {class: leaf}
   loopback: Loopback listener {class: leaf}
-  agent: SSM agent {class: leaf}
-  shell: Shell {class: leaf}
 
   caddy -> public
-  public -> api: checked
-  loopback -> api
-  agent -> shell
-  shell -> loopback {class: dashed}
+  ssm -> loopback: shell {class: dashed}
 }
 
 grants: Grants {class: store}
 
 panel -> idp: sign in
-panel -> host.caddy: HTTPS and token
+panel -> host.caddy: HTTPS
 host.public -> grants
-operator -> host.agent
-ci -> host.agent
+operator -> host.ssm

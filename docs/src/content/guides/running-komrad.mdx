@@ -1,85 +1,59 @@
 ---
 title: Running komrad
-description: Every piece you need to deploy to run komrad, on a laptop or on a machine of its own.
+description: What it takes to run komrad somewhere other than your laptop, and the choices you'll make along the way.
 group: operations
 order: 20
 ---
 
-import Command from "../../components/Command.astro";
-import Setting from "../../components/Setting.astro";
 import { link } from "../../site";
 
-This guide is for whoever runs komrad, rather than whoever uses it. It names every piece an engine needs and what each one holds. Nothing here depends on a cloud provider. [Our engine](../our-engine/) and the guides after it describe the one we run on AWS, as one way to put these pieces together.
+On your laptop, komrad is one program and a Postgres database. You install it, run it, and that's the whole deployment. The catch is that your agents live on your laptop too, so they stop when you close the lid, and nobody else can see them.
 
-## The pieces
+This guide is for when you want that to change. Maybe you want agents that keep working overnight, or a team that shares one set of agents. Either way, you're moving the agents onto a machine that stays on and keeping the panel on your laptop. Nothing here assumes a particular cloud. [Our engine](../our-engine/) shows how we did it on AWS, if you'd like a worked example.
 
-<figure>
-  <img
-    src={link("/diagrams/running-komrad.png")}
-    alt="The panel on your laptop signs in with an identity provider and reaches the engine host over HTTPS. An HTTPS front passes requests to the server, which runs agents in tmux. The agents keep their work on a disk and reach the forge with git. The server uses Postgres."
-  />
-</figure>
-
-An engine is a server, the agents it runs, and the database it writes. The panel is a separate process, and it usually runs on your laptop.
-
-The server is <Command path="serve" />. It is the same komrad binary as the panel. It listens on two loopback addresses. The first is for the agents and the CLI on the same machine. The second is for people, and it checks every request for a sign-in and an access grant. Neither is reachable from the network on its own.
-
-An HTTPS front sits in front of the second listener. It holds the engine's certificate, ends TLS, and passes each request through over loopback. We use Caddy, which gets and renews its own certificate. Any reverse proxy that carries HTTP/2 works.
-
-An identity provider decides who people are. Google, Okta, Microsoft Entra and Keycloak all work, since each speaks OpenID Connect. People sign in there, with whatever MFA it asks for, and the panel sends the token it hands back with every request. Komrad never sees a password.
-
-Postgres holds every record: workflows, tasks, agents, mail, reviews, transcripts, and who may use each engine. We run Postgres 18, and komrad uses three logins on it. [The database](../engine-database/) covers them.
-
-Tmux runs the agents. Komrad starts a tmux server of its own, on its own socket, and every agent is a window in it. The server can restart without touching tmux, which is how agents survive a deploy.
-
-The agent CLIs are Claude Code and Codex. Each has to be installed and signed in on the engine host, by the account komrad runs as.
-
-A disk holds the worktrees agents edit, the CLIs' logins, komrad's config, its cache and its log. On a laptop that is your home directory. On a machine of its own it should be a volume that outlives the machine.
-
-Forge credentials let agents push and komrad read pull requests. A personal token is fine on a laptop. A shared machine should use something that expires, as [forge credentials](../forge-credentials/) explains.
-
-## Two shapes
+## What moves
 
 <figure>
   <img
     src={link("/diagrams/engine-shapes.png")}
-    alt="On your laptop, the panel, the server, the agents and Postgres all sit on one machine. On a remote engine, the panel reaches the server on the engine host over HTTPS, and the server uses Postgres."
+    alt="On your laptop, the panel talks to a server that runs the agents and uses Postgres. With a remote engine the pieces are the same, but the panel reaches the server over HTTPS."
   />
 </figure>
 
-On a laptop everything sits on one machine. [Installing komrad](../install/) covers it, and there is nothing to deploy beyond Postgres. Nobody else reaches it, so it needs no front and no sign-in.
+Komrad calls the side that does the work an engine. That's the server, the agents it runs, and the worktrees they edit. With a remote engine all of that moves to another machine, and the panel on your laptop talks to it over the network. The panel looks and behaves the same either way. [Remote engines](../remote/) covers it from the user's side.
 
-A remote engine moves the server, the agents and the disk to a machine that stays on. The panel stays on your laptop and reaches the engine at an HTTPS address. Postgres can sit on the same machine, but a managed database survives the machine being replaced. [Remote engines](../remote/) covers using one.
+The machine doesn't need to be anything special. Any Linux box that can run tmux, git and your agent CLIs will do. You'll want to be careful about where its state lives, though. The worktrees and the CLIs' logins sit on disk, and everything komrad knows sits in Postgres. If you keep both somewhere that outlives the machine, say a separate volume and a database the machine connects to, you can throw the machine away and build a new one whenever you like. Agents that stopped along the way pick up right where they left off once you resume them.
 
-Several engines can share one database. Each connects as its own login, and Postgres keeps each engine's rows out of the others' reach.
+Restarting the server is even cheaper. Komrad keeps its agents in a tmux server of its own, and the komrad server can restart without touching it, so a deploy leaves every agent running.
 
-## What survives what
+## Letting people in
 
-A remote engine is safe to restart, stop and rebuild, as long as the disk and the database live apart from the machine.
+<figure>
+  <img
+    src={link("/diagrams/running-komrad.png")}
+    alt="The panel signs in with an identity provider and reaches the engine host over HTTPS. On the host, an HTTPS proxy sits in front of the server and the agents. The host uses Postgres, and the agents push to the forge."
+  />
+</figure>
 
-| Piece     | Holds                     | Server restart | Machine stop    | Machine rebuild |
-| --------- | ------------------------- | -------------- | --------------- | --------------- |
-| Server    | Nothing of its own        | Restarts       | Stops           | Replaced        |
-| Agents    | Running CLIs              | Keep running   | Stop, resumable | Stop, resumable |
-| Postgres  | Every record              | Kept           | Kept            | Kept            |
-| Disk      | Worktrees, logins, config | Kept           | Kept            | Kept            |
-| Root disk | The installed tools       | Kept           | Kept            | Replaced        |
+On your laptop nobody else can reach komrad, so it never asks who you are. A remote engine has to. Rather than keep passwords of its own, the engine trusts an identity provider you already use, such as Google or Okta. Each person signs in there from their laptop, and the engine checks that its owner actually let them in.
 
-An agent that stops keeps its conversation and its worktree, so you resume it once the engine is back. People stay signed in through all of it, since each person's sign-in lives on their own laptop.
+Take that last part seriously. Anyone you let in can do everything the panel can, and the panel can open a shell on the machine as the account the agents run as. So hand out access the way you'd hand out a login to the machine itself. [Access](../engine-access/) goes into sign-in and grants in more detail.
 
-## What to set up
+The server never faces the network directly. You put an HTTPS proxy in front of it to hold the certificate, and the proxy passes requests to the server locally. We use Caddy, because it fetches and renews its own certificate, but any proxy that speaks HTTP/2 is fine.
 
-To run an engine somewhere other than a laptop, you need:
+## Pushing code
 
-- A Linux machine with tmux, git, the agent CLIs, and the komrad binary, running <Command path="serve" /> as a service under an account that cannot become root.
-- A tmux session made at boot with <Command path="open" args="--headless" />, since nobody opens a panel on a machine with no screen.
-- A Postgres it can reach, migrated with <Command path="migrate" />, and an engine login made with <Command path="engine ensure" />.
-- A volume for the account's home and the worktrees.
-- A domain name, and an HTTPS front on ports 80 and 443 with nothing else listening.
-- An identity provider with komrad registered on it, and a grant for each person allowed in.
-- A way for whoever runs the machine to get a root shell that isn't open to the internet.
-- Forge credentials for agents to push with.
+Agents push branches and komrad reads pull requests, so the engine needs credentials for your forge. On a laptop, your own token works fine. On a shared machine it's a bad idea, because every agent would push as you and the token would sit on a disk for as long as it's valid. It's better to give the engine an identity of its own, with tokens that expire on their own. [Forge credentials](../forge-credentials/) shows how we do that for GitHub and GitLab.
 
-Set <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI, so a new agent in a fresh worktree doesn't stop to ask whether to trust it.
+## What you'll need
 
-[Standing up an engine](../standing-up-an-engine/) walks through all of this for our AWS setup.
+If you're setting one up, here's the short version:
+
+- A Linux machine that stays on, with tmux, git, the agent CLIs and komrad installed, and a volume for the worktrees that outlives it.
+- A Postgres database the machine can reach.
+- A domain name, and an HTTPS proxy in front of the server.
+- An identity provider with komrad registered on it.
+- Forge credentials that belong to the engine rather than to a person.
+- Some way for you to get a shell on the machine that isn't open to the internet.
+
+[Standing up an engine](../standing-up-an-engine/) walks through all of it on AWS, in order.

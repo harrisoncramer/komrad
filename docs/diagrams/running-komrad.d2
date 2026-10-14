@@ -1,40 +1,23 @@
 ...@_theme
 
-direction: right
+direction: down
 
-laptop: Your laptop {
-  class: group
-  panel: Panel {class: leaf}
-}
-
+panel: Panel {class: leaf}
 idp: Identity provider {class: leaf}
 
 host: Engine host {
   class: group
-
-  front: HTTPS front {class: leaf}
+  grid-columns: 3
+  grid-gap: 40
+  front: HTTPS proxy {class: leaf}
   serve: Server {class: leaf}
-
-  tmux: Tmux {
-    class: group
-    grid-columns: 1
-    grid-gap: 20
-    agent1: Agent {class: leaf}
-    agent2: Agent {class: leaf}
-    more: {class: more}
-  }
-
-  disk: Disk {class: store}
-
-  front -> serve
-  serve -> tmux
-  tmux -> disk
+  agents: Agents {class: leaf}
 }
 
 postgres: Postgres {class: store}
 forge: Forge {class: leaf}
 
-laptop.panel -> idp: sign in
-laptop.panel -> host.front: HTTPS
-host.serve -> postgres
-host.tmux -> forge: git
+panel -> idp: sign in
+panel -> host: HTTPS
+host -> postgres
+host -> forge: git

@@ -1,60 +1,47 @@
 ---
 title: Releases and deploys
-description: How a merge becomes a release, how a release reaches the engine, and when the machine is rebuilt.
+description: How a merge becomes a release, how a release reaches the engine, and when we rebuild the machine.
 group: operations
 order: 27
 ---
 
 import { link } from "../../site";
 
-Merging and shipping are separate acts. A merge to main publishes a rolling build that promises nothing. A version tag publishes a release, and only a release reaches the engine on its own.
+Merging and shipping are two different things here. Merging to main builds a fresh copy of komrad that anyone can try, but it doesn't promise anything and it doesn't touch the engine. Shipping happens when someone tags a release, and that's the only thing that reaches the engine on its own.
 
 <figure>
   <img
     src={link("/diagrams/deploys.png")}
-    alt="A merge to main publishes the tip release and the latest docs. A version tag runs the checks, then publishes, then deploys the docs version and the engine. The engine deploy reaches the engine host through SSM, which installs the binary, migrates, and restarts the server."
+    alt="A merge to main produces the tip build. A version tag produces a release, which publishes that version of the docs and deploys to the engine."
   />
 </figure>
 
 ## A merge
 
-Once CI passes on main, `main-release.yml` publishes the binaries as a prerelease tagged `tip`. Every merge replaces it, so its download address never changes. If the merge touched the docs, `docs-deploy.yml` publishes them as `latest`.
-
-Nothing else happens. The engine keeps running whatever release it had.
+Once CI passes on main, GitHub publishes the new binaries as a prerelease called `tip`. Every merge replaces it, so the download link never changes, and if the merge touched the docs, the site's `latest` version updates too. The engine keeps running whatever release it already had.
 
 ## A release
 
-`mise run release:cut v0.4.0` tags the current commit and pushes the tag. The tag has to come from a person, since a tag CI pushes starts no other workflow. Komrad keeps no backward compatibility, so releases stay on `v0.x` and a minor bump is the ordinary one.
+To cut a release, run `mise run release:cut` with the new version, such as `v0.4.0`. It tags the current commit and pushes the tag. A person has to do this, since a tag pushed by CI doesn't set off any other workflows. Komrad doesn't promise backward compatibility yet, so releases stay on `v0.x`, and a minor bump is the normal one.
 
-The tag starts `release.yml`, which:
-
-1. Runs the full checks against the tagged commit.
-2. Builds the binaries and publishes a GitHub release with a changelog.
-3. Publishes the docs under the version's own path, beside `latest`.
-4. Deploys the release to the engine.
-
-A tag push runs once. If a release fails partway, rerun it on the same tag with `gh workflow run release.yml --ref v0.4.0` rather than moving the tag.
+The tag kicks off the release workflow. It runs the full checks against the tagged commit, publishes the binaries with a changelog, publishes the docs for that version, and deploys the release to the engine. If it fails partway through, run the workflow again on the same tag rather than moving the tag.
 
 ## A deploy
 
-`mise run remote:deploy` puts the checkout's build on the engine. The release workflow runs the same task, through `engine.yml`.
+`mise run remote:deploy` puts whatever your checkout builds onto the engine, and the release workflow runs the same task. It builds komrad for the engine, uploads it to S3, and asks the machine through Systems Manager to install it. The machine then stops the server, migrates the database, and starts the new server. Migrating in between means a new migration always lands before the code that needs it.
 
-The task builds komrad for Linux on arm64 and uploads it, with the database credentials script, to the Terraform state bucket. It then sends the instance a command through Systems Manager. The command downloads both from short-lived links, installs them, stops the server, runs the credentials script, and starts the server again. The credentials script migrates the database, so a new migration lands before the new server starts. [The database](../engine-database/#on-our-engine) covers that script.
+Agents keep running the whole time, because stopping the server leaves tmux alone. [The machine](../engine-machine/#why-agents-survive-a-restart) explains how.
 
-Agents keep running through a deploy, since stopping the server leaves tmux alone. [The machine](../engine-machine/#why-agents-survive-a-restart) explains why.
+If the engine is switched off when a deploy runs, the deploy skips. Systems Manager can't reach a stopped machine, and the next deploy carries the same changes anyway.
 
-A deploy while the engine is stopped skips, since Systems Manager can't reach a stopped instance. The next deploy after it starts carries the same commit and more.
+A panel only talks to an engine built from the same commit, so a deploy stamps the binary with the commit it came from. If your checkout has uncommitted changes, there's no commit to stamp, so the deploy marks the build as dirty and also builds a matching panel at `dist/komrad-panel` for you to use with it.
 
-A panel refuses an engine built from a different commit. A clean deploy stamps the binary with the commit, so a panel from the same commit just works. A deploy from a tree with uncommitted changes has no commit to name, so it stamps a `-dirty` version and also builds `dist/komrad-panel` at that version for you to run.
-
-## Deploying any ref
-
-Dispatching `engine.yml` from the Actions tab deploys whatever ref you pick. It runs the full checks first, unlike the release path, where the commit has already passed them. It needs no AWS credentials on your laptop, so it still works when the laptop is what's broken. [Runbooks](../runbooks/#deploying-or-rolling-back) uses it for rollbacks.
+To deploy any branch or tag without AWS credentials on your laptop, run the engine workflow from the Actions tab and pick the ref you want. That's handy when your laptop is the thing that's broken, and it's how [runbooks](../runbooks/#deploying-or-rolling-back) rolls back.
 
 ## A new image
 
-The image changes rarely, for a new tool, a new unit, or a security update. Dispatching `image.yml` builds one and records its id in the SSM parameter `/komrad-development/engine/ami-id`. It doesn't apply it.
+The machine's image changes rarely, when we need a new tool, a change to how the machine boots, or a security update. Running the image workflow builds one and records its id, but it doesn't put it to use.
 
-Applying an image replaces the instance, and every running agent stops. `mise run remote:reimage` reads the recorded id, names the agents that will stop, and asks before it does anything. Then it sets `ami_id` in your `terraform.tfvars`, then applies. The data volume moves to the new instance and the database is untouched, so the agents can be resumed afterwards.
+Putting a new image to use means replacing the machine, and every running agent stops when that happens. `mise run remote:reimage` takes care of it. It tells you which agents will stop and asks before it does anything, then points Terraform at the new image and applies. The data volume moves to the new machine and the database isn't touched, so you can resume the agents afterwards.
 
-The image's binary is whatever was current when it was built. Deploy afterwards if the engine should run something newer.
+The new image carries whatever komrad was current when it was built, so deploy afterwards if the engine should run something newer.

@@ -2,24 +2,13 @@
 
 direction: right
 
-userdata: User data {class: leaf}
 volume: Data volume {class: leaf}
-credentials: Credentials {class: leaf}
-docker: Rootless Docker {class: leaf}
-caddy: Caddy {class: leaf}
-firewall: Firewall {class: leaf}
+credentials: Database login {class: leaf}
 key: GitHub key {class: leaf}
-timer: Hourly timer {class: leaf}
+caddy: Caddy {class: leaf}
 serve: Server {class: leaf}
-session: Manager session {class: leaf}
+session: Agent session {class: leaf}
 
-userdata -> volume
-volume -> credentials
-volume -> docker
+volume -> credentials -> serve -> session
 volume -> caddy
-timer -> credentials {class: dashed}
-credentials -> serve
-docker -> serve
-firewall -> serve
 key -> serve
-serve -> session

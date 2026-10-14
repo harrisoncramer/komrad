@@ -1,24 +1,24 @@
 ---
 title: Runbooks
-description: The day-to-day jobs on our engine, each as the commands to run.
+description: The day-to-day jobs on our engine, and the commands for each.
 group: operations
 order: 28
 ---
 
 import Command from "../../components/Command.astro";
 
-Every job here runs from a komrad checkout, with AWS credentials from the komrad profile or already in your environment. The mise tasks read the instance and its region from Terraform's state, so none of them needs an id typed in.
+These are the jobs that come up while running our engine, from checking on it to tearing it down. Run them from a komrad checkout, with AWS credentials from the komrad profile or already in your environment. The mise tasks look up the instance and its region from Terraform, so you never have to type an id into them.
 
 ## Getting a shell
 
-The machine has no SSH, so every shell goes through Systems Manager. You need the Session Manager plugin for the AWS CLI. Read the instance's id from Terraform, then open a session on it:
+The machine has no SSH, so shells go through AWS Systems Manager. Install the Session Manager plugin for the AWS CLI, look up the instance's id, and open a session:
 
 ```sh
 mise run infra:engine:run output instance_id
 aws ssm start-session --target i-0123456789abcdef0
 ```
 
-The session opens as a user with sudo. For the account komrad and its agents run as, which owns the config, the worktrees and the CLIs' logins:
+You land as a user with sudo. Most of the time you'll want the account komrad and its agents run as, since it owns the config, the worktrees and the CLIs' logins:
 
 ```sh
 sudo -u komrad -i
@@ -26,13 +26,13 @@ sudo -u komrad -i
 
 ## Checking on it
 
-The panel's sidebar shows a green dot while the engine's heartbeat arrives. When it turns red, open a shell and start with the units. A healthy engine lists nothing here:
+The dot next to the engine's name in the panel turns red when the engine stops answering. When that happens, open a shell and see whether anything failed to start. A healthy engine lists nothing here:
 
 ```sh
 systemctl list-units --state=failed --no-legend
 ```
 
-Then the server and Caddy:
+From there, the server's and Caddy's logs usually tell you what went wrong. Systemd's journal catches things like a crash at startup or a certificate Caddy couldn't get, and komrad's own log has whatever the server said while it was running:
 
 ```sh
 systemctl status komrad caddy
@@ -41,7 +41,7 @@ journalctl -u caddy -n 200 --no-pager
 tail -n 200 /var/lib/komrad/cache/komrad.log
 ```
 
-The journal holds what systemd saw, such as a crash at start or a certificate Caddy couldn't get. The log holds what komrad wrote while it ran. To see the agents, list the windows on komrad's tmux server as the komrad account:
+To see the agents themselves, list the windows on komrad's tmux server as the komrad account:
 
 ```sh
 tmux -L komrad list-windows -a
@@ -49,27 +49,27 @@ tmux -L komrad list-windows -a
 
 ## When someone can't get in
 
-A person whose token the engine refuses sees a message saying to sign in again. Have them run:
+If the engine turns down someone's token, their panel tells them to sign in again, and that's usually all it takes:
 
 ```sh
 komrad login --engine remote
 ```
 
-If they still can't get in, the engine turned them away for having no grant. Check the email they signed in with matches the one you granted, and that their provider marks it verified. Revoking and granting again clears the account an earlier sign-in recorded.
+If they still can't get in, they probably don't have a grant. Check that the email they signed in with matches the one you granted, and that their provider has verified it.
 
 ## Restarting
 
-`mise run remote:restart` restarts the server and leaves every agent running. It sends the restart through Systems Manager. On a stopped engine it starts the machine instead.
+`mise run remote:restart` restarts the server and leaves every agent running. If the engine happens to be off, it starts the machine instead.
 
-`mise run remote:restart --hard` also kills the tmux server and makes a new manager session. Every agent stops, so use it only when the session itself is broken, or after a change to how it is made.
+`mise run remote:restart --hard` goes further and throws away the tmux session too, which stops every agent. Save it for when the session itself is broken.
 
-People stay signed in through a restart. Their panels reconnect once the server answers.
+Either way, people stay signed in, and their panels reconnect once the server is back.
 
 ## Deploying or rolling back
 
-A release deploys on its own. To put your checkout's build on the engine, run `mise run remote:deploy`. [Releases and deploys](../deploys/#a-deploy) covers what it does and what happens with uncommitted changes.
+Releases deploy on their own. To put your own checkout's build on the engine, run `mise run remote:deploy`. [Releases and deploys](../deploys/#a-deploy) explains what it does, including what happens if you have uncommitted changes.
 
-To roll back, deploy an older ref. Without AWS credentials at hand, dispatch the `engine` workflow from the Actions tab on the tag or branch you want. From a checkout, check out that ref and run `mise run remote:deploy`.
+Rolling back is just deploying an older ref. From a checkout, check out the ref and run `mise run remote:deploy`. Without AWS credentials handy, run the engine workflow from the Actions tab on the tag or branch you want.
 
 ## Stopping and starting
 
@@ -78,40 +78,40 @@ mise run remote:stop
 mise run remote:start
 ```
 
-Stopping asks first, since every agent on the machine stops with it. The data volume, the database and the address all survive. Starting waits until the machine passes its checks, by which time the server has long been up. Resume the agents you want from the panel.
+Stopping asks first, since every agent on the machine stops with it. The data volume, the database and the engine's address all survive. Starting waits until the machine is healthy, and once it's back you can resume whichever agents you want from the panel.
 
-The `engine stop` and `engine start` workflows do this on a schedule, at 10pm and 7am New York time, an hour earlier in winter. Both can be dispatched by hand too.
+A schedule already does this every night and morning, so you'll mostly reach for these outside working hours.
 
 ## Moving to a new image
 
-Dispatch the `image` workflow, which builds an image and records its id. Then, when nobody minds the agents stopping:
+Run the image workflow from the Actions tab to build an image. Then, at a time when nobody minds their agents stopping:
 
 ```sh
 mise run remote:reimage
 ```
 
-It names the agents that will stop and asks first. With no argument it uses the image the workflow last recorded. An image you built yourself with `mise run packer:build` goes in as an argument. [Releases and deploys](../deploys/#a-new-image) covers what changes.
+It lists the agents that will stop and asks before going ahead. On its own it uses the image the workflow last built. If you built one yourself with `mise run packer:build`, pass its id instead. [Releases and deploys](../deploys/#a-new-image) covers what changes.
 
 ## Granting and revoking access
 
-In a shell on the machine:
+From a shell on the machine:
 
 ```sh
 sudo komrad-access grant someone@example.com
 sudo komrad-access revoke someone@example.com
 ```
 
-[Access](../engine-access/#who-may-use-an-engine) covers what a grant allows.
+[Access](../engine-access/#who-may-use-an-engine) explains what a grant lets someone do.
 
 ## Rotating the GitHub App key
 
-Generate a new private key in the App's settings and put it in the `komrad/github-app` secret, as JSON under `private_key`. Then, in a shell on the machine:
+Generate a new private key in the App's settings and put it in the `komrad/github-app` secret, under `private_key`. The machine only reads the key at boot, so tell it to read it again from a shell on the machine:
 
 ```sh
 sudo systemctl restart komrad-github-key
 ```
 
-Check that <Command path="github token" /> still prints a token as the komrad account, then delete the old key from the App. A reboot picks up the new key as well.
+Check that <Command path="github token" /> still prints a token as the komrad account, then delete the old key from the App.
 
 ## Tearing it down
 
@@ -119,4 +119,4 @@ Check that <Command path="github token" /> still prints a token as the komrad ac
 mise run infra:engine:destroy
 ```
 
-The database refuses to go while deletion protection is on. Set `database_deletion_protection = false` in your `terraform.tfvars` and apply first. RDS keeps a final snapshot, named by `database_final_snapshot`, and the data volume keeps one too. Snapshot names can't repeat, so a second teardown needs a new one.
+The database won't go while deletion protection is on, which is deliberate. Set `database_deletion_protection = false` in your `terraform.tfvars` and apply before you destroy. RDS keeps a final snapshot of the database, and the data volume keeps one too. Snapshot names can't be reused, so a second teardown needs a new one.
