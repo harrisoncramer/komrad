@@ -251,7 +251,7 @@ func TestSignInKeeperFallsBackToAFile(t *testing.T) {
 	assert.ErrorIs(t, err, errNotSignedIn)
 }
 
-// TestSignInKeeperDeletesASignIn covers `komrad logout` wherever the sign-in was kept.
+// TestSignInKeeperDeletesASignIn covers dropping a sign-in from the keychain or the file, and dropping one that was never kept.
 func TestSignInKeeperDeletesASignIn(t *testing.T) {
 	t.Cleanup(keyring.MockInit)
 

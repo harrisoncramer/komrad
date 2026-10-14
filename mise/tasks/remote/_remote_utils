@@ -76,13 +76,14 @@ engine_state() {
 }
 
 run_on_engine() {
-	local instance=$1 region=$2 command=$3 command_id status
+	local instance=$1 region=$2 command_id status
+	shift 2
 
 	command_id="$(aws ssm send-command \
 		--region "$region" \
 		--instance-ids "$instance" \
 		--document-name AWS-RunShellScript \
-		--parameters "$(jq -n --arg command "$command" '{commands: [$command]}')" \
+		--parameters "$(jq -n '{commands: $ARGS.positional}' --args "$@")" \
 		--query Command.CommandId \
 		--output text)"
 
@@ -97,6 +98,7 @@ run_on_engine() {
 			return 0
 			;;
 		Failed | Cancelled | TimedOut)
+			echo "the command did not finish on $instance: $status" >&2
 			aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
 				--instance-id "$instance" --query StandardOutputContent --output text
 			aws ssm get-command-invocation --region "$region" --command-id "$command_id" \
