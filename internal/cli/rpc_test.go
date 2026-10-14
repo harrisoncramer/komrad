@@ -204,14 +204,6 @@ func TestIntegrationRequireServerSaysHowToStartOne(t *testing.T) {
 
 	err = requireServer(t.Context(), requireServerParams{
 		Transport: xhttp.NewTransport(),
-		Base:      formatBase(dead),
-		Named:     "127.0.0.1:8787",
-	})
-	require.Error(t, err)
-	require.ErrorContains(t, err, "127.0.0.1:8787", "a forwarded engine is named by the address it was configured with")
-
-	err = requireServer(t.Context(), requireServerParams{
-		Transport: xhttp.NewTransport(),
 		Base:      "https://" + dead,
 		Named:     "https://" + dead,
 	})

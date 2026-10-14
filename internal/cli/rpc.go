@@ -129,14 +129,11 @@ func requireServer(ctx context.Context, params requireServerParams) error {
 		return probe.refusal
 	}
 
-	switch base {
-	case named:
+	if base == named {
 		return fmt.Errorf("nothing is answering at %s", named)
-	case formatBase(named):
-		return fmt.Errorf("nothing is serving at %s, run komrad start first", named)
 	}
 
-	return fmt.Errorf("the engine reached through %s is not serving at %s", base, named)
+	return fmt.Errorf("nothing is serving at %s, run komrad start first", named)
 }
 
 type callRPCParams struct {
