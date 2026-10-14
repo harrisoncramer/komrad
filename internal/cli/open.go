@@ -135,6 +135,22 @@ func ensureManagerSession(ctx context.Context, state *app, detached, headless bo
 		buildPanelWindowArgs(state, state.selfPath(), detached))
 }
 
+// restartPanel starts the panel for this engine over in its own window.
+func restartPanel(ctx context.Context, state *app) error {
+	if !isPanelRunning(ctx, state) {
+		return nil
+	}
+
+	if state.tmux.GetPanelURL() != state.env.URL {
+		return nil
+	}
+
+	args := append([]string{"respawn-window", "-k", "-t", state.tmux.GetPanelPane()},
+		panelCommandArgs(state, state.selfPath())...)
+
+	return runTmux(ctx, state, "restart the panel", args)
+}
+
 // silenceManagerPrefix leaves the engine's own server answering to no prefix.
 func silenceManagerPrefix(state *app) {
 	state.tmux.SetGlobal("prefix", "None")

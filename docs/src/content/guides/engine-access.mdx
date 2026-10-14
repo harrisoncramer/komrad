@@ -30,7 +30,7 @@ Komrad asks the engine's `/sign-in` page which identity provider it trusts and o
 
 The panel can sign a person in too. On an engine at a URL, the panel asks the engine whether the person has access before it shows anything. Without a sign-in it shows only a sign-in screen, and enter opens the provider's page in the browser. If nobody granted the person access, the panel says to ask the engine's owner. If the engine or the provider doesn't answer, the panel says so, and enter tries again.
 
-Komrad keeps both tokens in the system keychain. A machine with no keychain keeps them in a private file under komrad's state directory. <Command path="logout" /> removes them from both places. A panel that is already open keeps its current token until the token expires.
+Komrad keeps both tokens in the system keychain. A machine with no keychain keeps them in a private file under komrad's state directory. <Command path="logout" /> removes them from both places. If a panel for that engine is open on the same machine, logout closes any agent terminal it was showing and restarts it at the sign-in screen. A terminal you started yourself keeps its stream until the token it holds runs out, at most an hour later. A terminal opened while the machine has no sign-in says so and attaches once you run <Command path="login" />.
 
 ## Tokens
 

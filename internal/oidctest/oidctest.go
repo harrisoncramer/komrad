@@ -134,7 +134,7 @@ func (p *Provider) RotateKey() {
 	p.key = key
 }
 
-// CountRefreshes is how many refresh tokens the provider has traded.
+// CountRefreshes is how many refresh tokens the provider has been asked to trade, refused ones included.
 func (p *Provider) CountRefreshes() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -313,13 +313,9 @@ func (p *Provider) trade(form url.Values) (string, bool) {
 
 		return p.nonce, base64.RawURLEncoding.EncodeToString(sum[:]) == p.challenge
 	case "refresh_token":
-		if p.isRefreshDead || form.Get("refresh_token") == "" {
-			return "", false
-		}
-
 		p.refreshes++
 
-		return "", true
+		return "", !p.isRefreshDead && form.Get("refresh_token") != ""
 	default:
 		return "", false
 	}

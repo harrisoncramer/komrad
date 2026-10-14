@@ -108,7 +108,7 @@ func TestLogin(t *testing.T) {
 	}
 }
 
-// TestTokenRefresher covers the token each command sends, renewed only when it is near its end.
+// TestTokenRefresher covers the token each command sends, renewed only when it is near its end and never again with a refresh token the provider turned down.
 func TestTokenRefresher(t *testing.T) {
 	keyring.MockInit()
 
@@ -206,6 +206,11 @@ func TestTokenRefresher(t *testing.T) {
 			token, err := refresher.GetToken(t.Context())
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
+
+				asked := provider.CountRefreshes()
+				_, err = refresher.GetToken(t.Context())
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Equal(t, asked, provider.CountRefreshes())
 
 				return
 			}

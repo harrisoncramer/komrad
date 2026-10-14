@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/engine"
 	"komrad/lib/xhttp"
 	terminalv1 "komrad/proto/gen/terminal/v1"
 	"komrad/proto/gen/terminal/v1/terminalv1connect"
@@ -90,14 +91,15 @@ func (f *fakeAttachService) readOpened() []*terminalv1.OpenAttach {
 // TestRunTerminal covers an attach from the client side, dialled again when it drops.
 func TestRunTerminal(t *testing.T) {
 	tests := []struct {
-		name       string
-		steps      []attachStep
-		conns      []terminalConn
-		typed      string
-		wantOut    string
-		wantCode   connect.Code
-		wantOpened int
-		wantHeard  string
+		name           string
+		steps          []attachStep
+		conns          []terminalConn
+		signInsMissing int
+		typed          string
+		wantOut        string
+		wantCode       connect.Code
+		wantOpened     int
+		wantHeard      string
 	}{
 		{
 			name:      "input a lost stream took is sent on the stream dialled after it",
@@ -144,6 +146,13 @@ func TestRunTerminal(t *testing.T) {
 			wantOpened: 2,
 		},
 		{
+			name:           "an attach opened before a sign-in waits for one",
+			steps:          []attachStep{{output: "agent", exit: true}},
+			signInsMissing: 2,
+			wantOut:        "sign in to the engine with komrad login\nThe terminal opens once you sign in.\nagent",
+			wantOpened:     1,
+		},
+		{
 			name:       "an attach carries the agent's terminal until it exits",
 			steps:      []attachStep{{output: "agent", exit: true}},
 			wantOut:    "agent",
@@ -187,8 +196,23 @@ func TestRunTerminal(t *testing.T) {
 				}
 			}
 
+			var token func(context.Context) (string, error)
+			if tt.signInsMissing > 0 {
+				missing := tt.signInsMissing
+				token = func(context.Context) (string, error) {
+					if missing > 0 {
+						missing--
+
+						return "", engine.ErrSignInNeeded
+					}
+
+					return "token", nil
+				}
+			}
+
 			_, err := runTerminal(ctx, runTerminalParams{
 				Dial:   dial,
+				Token:  token,
 				Redial: time.Minute,
 				In:     typed,
 				Out:    &out,

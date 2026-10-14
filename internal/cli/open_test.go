@@ -262,3 +262,62 @@ func TestIntegrationHostPathOutsideTmux(t *testing.T) {
 
 	assert.Equal(t, want, hostPath(""))
 }
+
+// TestIntegrationRestartPanel covers a sign-out starting the panel over in its own window, without
+// the terminal it showed beside it.
+func TestIntegrationRestartPanel(t *testing.T) {
+	type restartPanelCase struct {
+		name      string
+		hasPanel  bool
+		panelURL  string
+		wantPanes string
+		wantSelf  bool
+	}
+
+	tests := []restartPanelCase{
+		{
+			name: "a machine with no panel open",
+		},
+		{
+			name:      "a panel reaching another engine",
+			hasPanel:  true,
+			panelURL:  "https://another.example",
+			wantPanes: "2",
+		},
+		{
+			name:      "a panel on this engine showing an agent's terminal",
+			hasPanel:  true,
+			panelURL:  "https://engine.example",
+			wantPanes: "1",
+			wantSelf:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			socket := throwawaySocket(t)
+			state := panelState(t, socket)
+			state.self = sleepingPanel(t)
+			state.env.URL = "https://engine.example"
+
+			if tt.hasPanel {
+				panelSession(t, socket)
+				panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
+				state.tmux.RecordPanelPane(panelPane)
+				state.tmux.SetPanelURL(tt.panelURL)
+				hostQuery(t, socket, "split-window", "-d", "-t", panelPane, "sleep 60")
+			}
+
+			require.NoError(t, restartPanel(t.Context(), state))
+
+			if !tt.hasPanel {
+				assert.False(t, isManagerSessionRunning(t.Context(), state))
+
+				return
+			}
+
+			assert.Equal(t, tt.wantPanes, hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{window_panes}"))
+			assert.Equal(t, tt.wantSelf, strings.Contains(hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_start_command}"), state.self))
+		})
+	}
+}
