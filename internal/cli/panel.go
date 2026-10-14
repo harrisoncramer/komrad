@@ -75,6 +75,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			// Recorded before anything slow: while no pane is on record the session looks like one
 			// whose panel has gone, and a second open would start a second panel in it.
 			state.tmux.RecordPanelPane(state.env.TmuxPane)
+			state.tmux.SetPanelURL(state.env.URL)
 
 			if err := state.tmux.TakePanelKeys(state.keys.GetBoundKeys()); err != nil {
 				logging.From(cmd.Context()).LogAttrs(cmd.Context(), slog.LevelWarn,

@@ -36,6 +36,8 @@ const CLIExitedOption = "@komrad_cli_exited"
 
 const panelPaneOption = "@komrad_panel_pane"
 
+const panelURLOption = "@komrad_panel_url"
+
 const queryTimeout = 5 * time.Second
 
 const killDelay = 100 * time.Millisecond
@@ -509,6 +511,16 @@ func (c *Client) RecordPanelPane(pane string) {
 // GetPanelPane reads that pane back, empty when no panel has recorded one.
 func (c *Client) GetPanelPane() string {
 	return c.showGlobal(panelPaneOption)
+}
+
+// SetPanelURL records the url of the engine the panel reaches, and clears it for a panel that reaches none.
+func (c *Client) SetPanelURL(url string) {
+	c.SetGlobal(panelURLOption, url)
+}
+
+// GetPanelURL reads that url back, empty when the panel reaches no engine at a url.
+func (c *Client) GetPanelURL() string {
+	return c.showGlobal(panelURLOption)
 }
 
 // RecordHostSocket stores the socket path of the user's server, so the panel and everything

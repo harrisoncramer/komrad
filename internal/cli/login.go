@@ -69,8 +69,8 @@ func logoutCmd(state *app) *cobra.Command {
 		Long: `Sign out of an engine reached at its url, dropping the sign-in this machine keeps for it.
 
 The sign-in leaves the keychain and the private file under the state directory, so the next
-command asks you to run komrad login. A panel already open keeps the token it holds until that
-token runs out.`,
+command asks you to run komrad login. A panel open on this machine for the engine starts over at
+its sign-in screen.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -80,6 +80,10 @@ token runs out.`,
 			}
 
 			if err := engine.NewSignInKeeper(state.env.StateDir).DeleteSignIn(state.env.URL); err != nil {
+				return err
+			}
+
+			if err := restartPanel(cmd.Context(), state); err != nil {
 				return err
 			}
 

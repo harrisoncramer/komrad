@@ -949,7 +949,7 @@
     "usage": "komrad logout",
     "aliases": [],
     "short": "Sign out of an engine reached at its url",
-    "long": "Sign out of an engine reached at its url, dropping the sign-in this machine keeps for it.\n\nThe sign-in leaves the keychain and the private file under the state directory, so the next\ncommand asks you to run komrad login. A panel already open keeps the token it holds until that\ntoken runs out.",
+    "long": "Sign out of an engine reached at its url, dropping the sign-in this machine keeps for it.\n\nThe sign-in leaves the keychain and the private file under the state directory, so the next\ncommand asks you to run komrad login. A panel open on this machine for the engine starts over at\nits sign-in screen.",
     "example": "",
     "flags": [],
     "inherited": [
