@@ -8,12 +8,20 @@ order: 3
 import Alert from "../../components/Alert.astro";
 import Key from "../../components/Key.astro";
 import Setting from "../../components/Setting.astro";
+import { link } from "../../site";
 
 Tasks are concrete items of work you want komrad to complete, such as fixing a bug or building a small feature. Agents in komrad work on tasks, and a task keeps its work through every restart or removal of agents.
 
 <Alert variant="warning">This guide assumes you have created a [workflow](../workflows/).</Alert>
 
 Agents are ephemeral CLIs, so komrad tracks work through tasks instead. The task holds all durable state: the worktree state, the git branch, the pull request for the work, and the reviews from you and other agents.
+
+<figure>
+  <img
+    src={link("/diagrams/tasks.png")}
+    alt="The fix-login task holds a writer that edits its worktree and a reviewer that reads it. The worktree's branch becomes the task's pull request."
+  />
+</figure>
 
 ## Starting a task
 

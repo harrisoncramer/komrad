@@ -1,0 +1,16 @@
+...@_theme
+
+direction: right
+
+task: "Task: fix-login" {
+  class: group
+
+  writer: Writer {class: leaf}
+  reviewer: Reviewer {class: leaf}
+  worktree: Worktree {class: store}
+  pr: Pull request {class: leaf}
+
+  reviewer -> worktree: reads {class: dashed}
+  writer -> worktree: edits
+  worktree -> pr: branch
+}
