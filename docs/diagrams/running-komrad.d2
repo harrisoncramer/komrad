@@ -2,22 +2,36 @@
 
 direction: down
 
-panel: Panel {class: leaf}
+laptop: Laptop {
+  class: group
+  panel: Panel {class: leaf}
+}
+
 idp: Identity provider {class: leaf}
 
 host: Engine host {
   class: group
-  grid-columns: 3
-  grid-gap: 40
-  front: HTTPS proxy {class: leaf}
+
+  proxy: HTTPS proxy {class: leaf}
   serve: Server {class: leaf}
-  agents: Agents {class: leaf}
+
+  tmux: Tmux {
+    class: group
+    agents: Agents {class: leaf}
+  }
+
+  volume: Worktrees {class: store}
+
+  proxy -> serve: loopback
+  tmux.agents -> serve: MCP
+  tmux.agents -> volume
 }
 
 postgres: Postgres {class: store}
 forge: Forge {class: leaf}
 
-panel -> idp: sign in
-panel -> host: HTTPS
-host -> postgres
-host -> forge: git
+laptop.panel -> idp: sign in
+laptop.panel -> host.proxy: HTTPS
+host.serve -> postgres
+host.serve -> forge: pull requests
+host.tmux.agents -> forge: git push

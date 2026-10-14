@@ -1,16 +1,32 @@
 ...@_theme
 
-direction: right
-
-merge: Merge to main {class: leaf}
-tip: Tip build {class: leaf}
+direction: down
 
 tag: Version tag {class: leaf}
-release: Release {class: leaf}
-docs: Docs version {class: leaf}
-engine: Engine {class: leaf}
 
-merge -> tip
-tag -> release
-release -> docs
-release -> engine: SSM
+
+release: release.yml {
+  class: group
+  checks: Checks {class: leaf}
+  publish: GitHub release {class: leaf}
+  docs: Versioned docs {class: leaf}
+  deploy: Engine deploy {class: leaf}
+
+  checks -> publish
+  checks -> docs
+  checks -> deploy
+}
+
+bucket: State bucket {class: store}
+
+host: Engine host {
+  class: group
+  agent: SSM agent {class: leaf}
+  serve: Server {class: leaf}
+  agent -> serve: stop, migrate, start
+}
+
+tag -> release.checks
+release.deploy -> bucket: binary
+release.deploy -> host.agent: SSM command
+host.agent -> bucket: download

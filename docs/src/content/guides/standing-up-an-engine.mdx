@@ -1,6 +1,6 @@
 ---
 title: Standing up an engine
-description: Build our AWS engine from an empty account, step by step.
+description: Build our AWS engine from an empty account, in order.
 group: operations
 order: 22
 ---
@@ -8,91 +8,97 @@ order: 22
 import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 
-This guide builds [our engine](../our-engine/) from an empty AWS account. It runs top to bottom, and nearly every step is a mise task you run from a komrad checkout. The tasks use the AWS profile named komrad, unless your environment already has credentials in it.
+This guide builds [our engine](../our-engine/) from an empty AWS account. Run each step from a komrad checkout. The mise tasks use the AWS profile named komrad unless your environment already has credentials.
 
-## Before you start
+## Prerequisites
 
-A few things need to exist before you build anything.
+- An AWS account with a named profile, and an S3 bucket for Terraform's state.
+- The Session Manager plugin for the AWS CLI. The machine has no SSH, so this is how you get a shell.
+- A domain for the engine at a DNS host you control, such as `komrad.example.com`.
+- Komrad registered with your identity provider as a desktop app. [Access](../engine-access/#registering-komrad-with-the-provider) covers the registration.
+- A GitHub App for the engine, with its private key stored in Secrets Manager as `komrad/github-app`. [Forge credentials](../forge-credentials/#github) covers the App. Store the key before the first boot, so the machine finds it.
 
-On the AWS side, you'll want an account with a named profile, an S3 bucket for Terraform's state, and the Session Manager plugin for the AWS CLI. The machine has no SSH, so the plugin is how you'll get a shell on it.
-
-You'll also need a domain for the engine at a DNS host you control, such as `komrad.example.com`, and komrad registered with your identity provider as a desktop app. [Access](../engine-access/#registering-komrad-with-the-provider) explains the registration. Hold on to the client id it gives you.
-
-Last, the engine needs a GitHub App to push as. [Forge credentials](../forge-credentials/) covers registering it. Put its private key in Secrets Manager before the machine first boots, so the machine finds it waiting.
-
-## Build the image
+## Building the image
 
 ```sh
 mise run packer:build
 ```
 
-This builds the machine's image with every tool the engine needs, and prints its id when it's done. [The machine](../engine-machine/) covers what goes in it.
+The build prints the image's id when it finishes. [The machine](../engine-machine/) describes what the image contains.
 
-## Apply the infrastructure
+## Applying the infrastructure
 
-Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), drop the `.example`, and fill them in. Among other things they name your account, the image you just built, and the engine's domain. Then:
+Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, region, the image id and the engine's `domain_name`. The `github_*` values and `state_bucket` let GitHub Actions deploy. Then run:
 
 ```sh
 mise run infra:engine:init
 mise run infra:engine:apply
 ```
 
-When the apply finishes, it prints the engine's address. Add an A record for your domain pointing at it. We leave DNS to you on purpose, so the engine doesn't depend on any particular DNS provider. Once the record resolves, Caddy fetches a certificate on its own.
+The apply prints the instance's address as `instance_public_ip`, its id as `instance_id`, and the CI role as `ci_role_arn`.
 
-The machine sets itself up on first boot. To check it went well, open a session and look for anything that failed:
+Add an A record for the domain at your DNS host, pointing at `instance_public_ip`. Terraform doesn't manage the record, so the engine works with any DNS host. Caddy requests its certificate once the record resolves.
+
+On first boot, the machine mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. Open a session and check that no unit failed:
 
 ```sh
 aws ssm start-session --target i-0123456789abcdef0
 systemctl list-units --state=failed --no-legend
 ```
 
-## Wire up GitHub Actions
+## Configuring GitHub Actions
 
-Releases and the nightly schedule reach the engine from GitHub Actions, so the repository needs to know where it is. Set these repository variables:
+Set these variables on the repository so the release and schedule workflows can reach the engine:
 
-- `AWS_CI_ROLE`, from the apply's `ci_role_arn` output
+- `AWS_CI_ROLE`, from the `ci_role_arn` output
 - `AWS_REGION`
 - `TF_STATE_BUCKET`
 - `TF_STATE_KEY`, matching the key in your backend file
 
-If you renamed the stack, set `ENGINE_NAME` to match, too. Until `AWS_CI_ROLE` is set, the workflows just skip their engine steps.
+If you changed the stack's `name`, set `ENGINE_NAME` to match. Workflows skip their engine steps until `AWS_CI_ROLE` is set.
 
-## Configure the engine
+## Configuring the engine
 
-In your session on the machine, switch to the account komrad runs as:
+In a session on the machine, switch to the komrad account:
 
 ```sh
 sudo -u komrad -i
 ```
 
-Open `~/.config/komrad/config.toml` and tell it about your identity provider and komrad's client id there. Add the <Setting path="github_app" label="[github_app]" /> table with your App's details, and turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each agent CLI, so new agents don't stop to ask whether they trust their worktree. <Command path="github token" /> should print a token once the App is set up. Then restart the server so it picks up the changes, as [runbooks](../runbooks/#restarting) shows.
+Edit `~/.config/komrad/config.toml`:
 
-While you're still the komrad account, start each agent CLI once and sign it in, and clone the repositories you want agents to work in. All of it lives on the data volume, so you won't have to do it again after a rebuild.
+- Name your identity provider and komrad's client id. For Google, add the client secret too.
+- Add the <Setting path="github_app" label="[github_app]" /> table with the App's id, its installation id, and `/run/komrad/github.pem` as the key's path.
+- Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each agent CLI, so new agents don't stop to ask whether to trust their worktree.
 
-## Let yourself in
+Check that <Command path="github token" /> prints a token, then restart the server to load the config, as [runbooks](../runbooks/#restarting) shows.
 
-Back in the session's own shell, grant yourself access:
+As the komrad account, start each agent CLI once and sign it in, then clone the repositories agents will work in. The logins and clones live on the data volume and survive a rebuild.
+
+## Granting your own access
+
+Exit the komrad account's shell and grant yourself access:
 
 ```sh
 sudo komrad-access grant you@example.com
 ```
 
-On your laptop, tell komrad where the engine is with a file at `~/.config/komrad/engines/remote.toml`:
+On your laptop, create `~/.config/komrad/engines/remote.toml`:
 
 ```toml
 [connection]
 url = "https://komrad.example.com"
 ```
 
-Then sign in and open the panel:
+Sign in and open the panel:
 
 ```sh
 komrad login --engine remote
 komrad open --engine remote
 ```
 
-## Connect the forge
+## Connecting the forge
 
-Last of all, from your laptop, point the engine's GitHub connection at the App with <Command path="forge connect" args="github.com --method github-app --engine remote" />. The server mints its own tokens from the App's key, so there's nothing to paste. If agents also work on GitLab, [forge credentials](../forge-credentials/#gitlab) covers connecting it.
+From your laptop, run <Command path="forge connect" args="github.com --method github-app --engine remote" />. The server mints its tokens from the App's key, so there is no token to paste. To connect GitLab as well, see [forge credentials](../forge-credentials/#gitlab).
 
-That's it. [Runbooks](../runbooks/) covers looking after the engine from here, all the way to [tearing it down](../runbooks/#tearing-it-down).
+[Runbooks](../runbooks/) covers running the engine from here, through [tearing it down](../runbooks/#tearing-it-down).

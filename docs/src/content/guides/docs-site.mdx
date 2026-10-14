@@ -1,33 +1,37 @@
 ---
 title: The docs site
-description: How this site gets built, hosted and published at komrad.dev.
+description: How komrad.dev is built, hosted and published.
 group: operations
 order: 29
 ---
 
 import { link } from "../../site";
 
-This site has nothing to do with running an engine, and an engine never needs it. It's here because we run it too, and someone will eventually need to know how.
+The docs site is separate from the engine, and an engine doesn't need it. Astro builds the site as static files, a private S3 bucket holds them, and CloudFront serves them at komrad.dev.
 
 <figure>
   <img
     src={link("/diagrams/docs-site.png")}
-    alt="A browser looks up komrad.dev through Cloudflare and reaches CloudFront, which serves the site from a private bucket. GitHub Actions uploads to the bucket."
+    alt="A browser resolves komrad.dev through Cloudflare DNS and requests the page from CloudFront. A CloudFront function rewrites the path, and CloudFront reads the file from the private bucket. Requests to other domains get a redirect from Cloudflare. GitHub Actions uploads to the bucket and clears CloudFront's cache."
   />
 </figure>
 
-## How it's served
+## Hosting
 
-The site is static. Astro builds it, a private S3 bucket holds the files, and CloudFront serves them at komrad.dev. Cloudflare handles DNS for all of our domains, and the other ones, like komrad.ai, simply redirect to komrad.dev without ever reaching AWS.
+Each build lives under its own prefix in the bucket. `latest/` follows main, and each release adds a prefix named after its tag, such as `v0.4.0/`. A `versions.json` file at the bucket root lists the versions for the site's version picker.
 
-Every version of the docs lives side by side in the bucket. `latest` follows main, and each release adds a copy of its own, named after its tag. A small function on CloudFront sends a bare visit to `latest`, sends other hostnames to komrad.dev, and fills in `index.html` for directory paths, since a private bucket won't do that for you.
+A CloudFront function handles each request before CloudFront reads the bucket. It redirects any hostname other than komrad.dev to komrad.dev, sends `/` to `/latest/`, and adds `index.html` to directory paths, because a private bucket doesn't serve index pages.
+
+Cloudflare hosts DNS for every domain. The certificate comes from AWS Certificate Manager, and Terraform validates it with records in Cloudflare. komrad.ai, komrade.app and komrade.dev redirect to komrad.dev through Cloudflare's redirect rules and never reach AWS.
 
 ## Publishing
 
-Any push to main that touches the docs publishes `latest`, and each release publishes its own version. You can also publish by hand with `mise run docs:deploy latest`, or name a version instead.
+`docs-deploy.yml` publishes `latest` on any push to main that changes the docs, their tasks or their infrastructure. The release workflow calls it to publish each version. The workflow assumes a role that can write to the bucket and clear CloudFront's cache, and can't reach the engine.
 
-The panel recordings the guides play live outside any one version, so every version of the docs shows the newest take. `mise run docs:recordings` records them against a throwaway instance, and `mise run infra:docs:recordings upload` publishes them.
+To publish by hand, run `mise run docs:deploy latest`, or pass a version instead of `latest`.
+
+The panel recordings in the guides live under `media/` in the bucket, outside any version, so every version shows the newest recording. `mise run docs:recordings` records them against a throwaway instance, and `mise run infra:docs:recordings upload` publishes them.
 
 ## Infrastructure
 
-The Terraform lives in [`infra/docs`](https://github.com/harrisoncramer/komrad/tree/main/infra/docs) and shares its state bucket with the engine's. It also reuses the GitHub trust the engine's stack sets up, so apply that one first. Then run `mise run infra:docs:init` and `mise run infra:docs:apply`, with a Cloudflare API token in `CLOUDFLARE_API_TOKEN` that can edit DNS and redirect rules on each domain.
+The Terraform lives in [`infra/docs`](https://github.com/harrisoncramer/komrad/tree/main/infra/docs). It keeps its state in the engine's state bucket and reuses the GitHub trust the engine stack creates, so apply the engine stack first. Then run `mise run infra:docs:init` and `mise run infra:docs:apply`, with `CLOUDFLARE_API_TOKEN` set to a token that can edit DNS and redirect rules on each domain.

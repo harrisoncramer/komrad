@@ -2,29 +2,46 @@
 
 direction: down
 
-panel: Panel {class: leaf}
+laptop: Laptop {
+  class: group
+  panel: Panel {class: leaf}
+  cli: AWS CLI {class: leaf}
+}
+
 actions: GitHub Actions {class: leaf}
 
 aws: AWS {
   class: group
 
   ssm: Systems Manager {class: leaf}
+  bucket: State bucket {class: store}
+  secrets: Secrets Manager {class: store}
 
   ec2: EC2 instance {
     class: group
-    grid-columns: 2
-    grid-gap: 40
     caddy: Caddy {class: leaf}
+    agent: SSM agent {class: leaf}
     serve: Server {class: leaf}
+    creds: Credentials unit {class: leaf}
+    agents: Agents {class: leaf}
+    volume: Data volume {class: store}
+
+    caddy -> serve: loopback
+    agent -> serve: restart
+    agents -> serve: MCP
+    agents -> volume
   }
 
-  volume: Data volume {class: store}
   rds: RDS Postgres {class: store}
 
-  ssm -> ec2
-  ec2 -> rds
-  ec2 -> volume
+  ssm -> ec2.agent
+  ec2.agent -> bucket: binary
+  ec2.creds -> secrets: owner password
+  ec2.creds -> rds: migrate
+  ec2.serve -> rds
 }
 
-panel -> aws.ec2: HTTPS
-actions -> aws.ssm
+laptop.panel -> aws.ec2.caddy: HTTPS
+laptop.cli -> aws.ssm: session
+actions -> aws.ssm: deploy
+actions -> aws.bucket: upload

@@ -1,38 +1,38 @@
 ---
 title: Runbooks
-description: The day-to-day jobs on our engine, and the commands for each.
+description: Commands for the routine jobs on our engine.
 group: operations
 order: 28
 ---
 
 import Command from "../../components/Command.astro";
 
-These are the jobs that come up while running our engine, from checking on it to tearing it down. Run them from a komrad checkout, with AWS credentials from the komrad profile or already in your environment. The mise tasks look up the instance and its region from Terraform, so you never have to type an id into them.
+Run these from a komrad checkout, with AWS credentials from the komrad profile or in your environment. The mise tasks read the instance and its region from Terraform's state.
 
 ## Getting a shell
 
-The machine has no SSH, so shells go through AWS Systems Manager. Install the Session Manager plugin for the AWS CLI, look up the instance's id, and open a session:
+The machine has no SSH. Shells go through AWS Systems Manager, which needs the Session Manager plugin for the AWS CLI. Read the instance's id from Terraform, then open a session:
 
 ```sh
 mise run infra:engine:run output instance_id
 aws ssm start-session --target i-0123456789abcdef0
 ```
 
-You land as a user with sudo. Most of the time you'll want the account komrad and its agents run as, since it owns the config, the worktrees and the CLIs' logins:
+The session runs as a user with sudo. To act as the account komrad and its agents run as, which owns the config, the worktrees and the CLIs' logins:
 
 ```sh
 sudo -u komrad -i
 ```
 
-## Checking on it
+## Checking engine health
 
-The dot next to the engine's name in the panel turns red when the engine stops answering. When that happens, open a shell and see whether anything failed to start. A healthy engine lists nothing here:
+The dot beside the engine's name in the panel turns red when the engine's heartbeat stops. Open a shell and list the units that failed. A healthy engine lists none:
 
 ```sh
 systemctl list-units --state=failed --no-legend
 ```
 
-From there, the server's and Caddy's logs usually tell you what went wrong. Systemd's journal catches things like a crash at startup or a certificate Caddy couldn't get, and komrad's own log has whatever the server said while it was running:
+Then check the server and Caddy. The journal shows what systemd saw, such as a crash at startup or a failed certificate request. Komrad's log shows what the server wrote while it ran.
 
 ```sh
 systemctl status komrad caddy
@@ -41,35 +41,35 @@ journalctl -u caddy -n 200 --no-pager
 tail -n 200 /var/lib/komrad/cache/komrad.log
 ```
 
-To see the agents themselves, list the windows on komrad's tmux server as the komrad account:
+To list the agents, list the windows on komrad's tmux server as the komrad account:
 
 ```sh
 tmux -L komrad list-windows -a
 ```
 
-## When someone can't get in
+## Sign-in failures
 
-If the engine turns down someone's token, their panel tells them to sign in again, and that's usually all it takes:
+When the engine rejects a person's token, their panel tells them to sign in again:
 
 ```sh
 komrad login --engine remote
 ```
 
-If they still can't get in, they probably don't have a grant. Check that the email they signed in with matches the one you granted, and that their provider has verified it.
+If the engine still rejects them, they have no grant. Check that the email they signed in with matches the granted email, and that their provider has verified it.
 
 ## Restarting
 
-`mise run remote:restart` restarts the server and leaves every agent running. If the engine happens to be off, it starts the machine instead.
+`mise run remote:restart` restarts the server and leaves every agent running. If the engine is stopped, it starts the machine instead.
 
-`mise run remote:restart --hard` goes further and throws away the tmux session too, which stops every agent. Save it for when the session itself is broken.
+`mise run remote:restart --hard` also kills the tmux server and creates a new manager session, which stops every agent. Use it only when the tmux session is broken.
 
-Either way, people stay signed in, and their panels reconnect once the server is back.
+People stay signed in through a restart, and their panels reconnect when the server is back.
 
 ## Deploying or rolling back
 
-Releases deploy on their own. To put your own checkout's build on the engine, run `mise run remote:deploy`. [Releases and deploys](../deploys/#a-deploy) explains what it does, including what happens if you have uncommitted changes.
+Releases deploy automatically. To deploy your checkout's build, run `mise run remote:deploy`. [Releases and deploys](../deploys/#deploys) describes what it does, including the case of uncommitted changes.
 
-Rolling back is just deploying an older ref. From a checkout, check out the ref and run `mise run remote:deploy`. Without AWS credentials handy, run the engine workflow from the Actions tab on the tag or branch you want.
+To roll back, deploy an older ref. From a checkout, check out the ref and run `mise run remote:deploy`. Without AWS credentials, dispatch `engine.yml` from the Actions tab on the tag or branch you want.
 
 ## Stopping and starting
 
@@ -78,34 +78,34 @@ mise run remote:stop
 mise run remote:start
 ```
 
-Stopping asks first, since every agent on the machine stops with it. The data volume, the database and the engine's address all survive. Starting waits until the machine is healthy, and once it's back you can resume whichever agents you want from the panel.
+Stopping asks for confirmation, because every agent on the machine stops. The data volume, the database and the address survive. Starting waits until the machine passes its health checks. Resume the agents you need from the panel.
 
-A schedule already does this every night and morning, so you'll mostly reach for these outside working hours.
+The `engine stop` and `engine start` workflows run these on a schedule, at 10pm and 7am New York time. You can also dispatch them by hand.
 
 ## Moving to a new image
 
-Run the image workflow from the Actions tab to build an image. Then, at a time when nobody minds their agents stopping:
+Dispatch `image.yml` from the Actions tab to build an image. Then, when the agents can stop:
 
 ```sh
 mise run remote:reimage
 ```
 
-It lists the agents that will stop and asks before going ahead. On its own it uses the image the workflow last built. If you built one yourself with `mise run packer:build`, pass its id instead. [Releases and deploys](../deploys/#a-new-image) covers what changes.
+It lists the agents that will stop and asks for confirmation. Without an argument it uses the image `image.yml` last recorded. To use an image you built with `mise run packer:build`, pass its id. [Releases and deploys](../deploys/#image-updates) describes what changes.
 
 ## Granting and revoking access
 
-From a shell on the machine:
+In a shell on the machine:
 
 ```sh
 sudo komrad-access grant someone@example.com
 sudo komrad-access revoke someone@example.com
 ```
 
-[Access](../engine-access/#who-may-use-an-engine) explains what a grant lets someone do.
+[Access](../engine-access/#access-grants) describes what a grant allows.
 
 ## Rotating the GitHub App key
 
-Generate a new private key in the App's settings and put it in the `komrad/github-app` secret, under `private_key`. The machine only reads the key at boot, so tell it to read it again from a shell on the machine:
+Generate a new private key in the App's settings and store it in the `komrad/github-app` secret, under `private_key`. Then, in a shell on the machine:
 
 ```sh
 sudo systemctl restart komrad-github-key
@@ -119,4 +119,4 @@ Check that <Command path="github token" /> still prints a token as the komrad ac
 mise run infra:engine:destroy
 ```
 
-The database won't go while deletion protection is on, which is deliberate. Set `database_deletion_protection = false` in your `terraform.tfvars` and apply before you destroy. RDS keeps a final snapshot of the database, and the data volume keeps one too. Snapshot names can't be reused, so a second teardown needs a new one.
+Terraform can't destroy the database while deletion protection is on. Set `database_deletion_protection = false` in `terraform.tfvars` and apply before you destroy. RDS keeps a final snapshot of the database, and the data volume keeps one too. Snapshot names can't repeat, so a second teardown needs a new snapshot name.

@@ -1,47 +1,49 @@
 ---
 title: The machine
-description: What goes into the engine's image, what happens when it boots, and why agents survive a restart.
+description: The engine's image, the komrad account, the data volume, and what happens at boot.
 group: operations
 order: 23
 ---
 
 import { link } from "../../site";
 
-Our engine is one Linux machine, and we try hard not to care about it. Anything worth keeping lives on a separate volume or in the database, so if the machine breaks, or we want a newer one, we build another and carry on. The only things lost along the way are whatever happened to be running at the time.
+Our engine runs on one Linux machine. Anything that must survive lives on a separate data volume or in the database, so we can replace the machine at any time. Replacing it stops the agents that were running, and they can be resumed afterwards.
 
 ## The image
 
-We build the machine's image with Packer, from the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). It starts from a stock Ubuntu image and layers on everything an agent might reach for: git, tmux, Docker, Go, Node, the agent CLIs, Caddy and komrad itself. Each layer is a short script, so adding a tool usually means adding a few lines to one of them.
+Packer builds the image from the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). It starts from Ubuntu and installs git, tmux, Docker, Go, Node, the agent CLIs, Caddy and komrad. Each layer is a short shell script.
 
-The image does include a komrad binary, but only so the machine has something to run on its first boot. Every deploy replaces it, so we rarely need to rebuild the image for a new version of komrad. [Releases and deploys](../deploys/#a-new-image) covers when we do.
+The image includes a komrad binary so the machine can start the server on first boot. Every deploy replaces that binary, so the image only needs rebuilding when a tool or a boot step changes. [Releases and deploys](../deploys/#image-updates) covers that.
 
-## Who runs what
+## The komrad account
 
-The server and every agent run as a single account named komrad, and that account can't become root. That matters more than it sounds. Agents run whatever commands they decide to, so we'd rather they couldn't take over the machine, or reach the AWS credentials the machine itself uses. Docker runs without root for the same reason, which lets agents build and run containers without holding the keys to everything else.
+The server and every agent run as an account named komrad, which can't become root. Agents run whatever commands they choose, so this account can't change the system or read the instance's AWS credentials. A firewall rule blocks every account except root from the instance metadata service, which serves those credentials. Docker runs rootless under the komrad account, so agents can build and run containers without root.
 
-Root work, like deploys, restarts and granting people access, comes in through AWS Systems Manager instead. Nobody logs in over SSH. [Access](../engine-access/) covers how that works.
+Root work, such as deploys, restarts and access grants, comes in through AWS Systems Manager. Nobody logs in over SSH. [Access](../engine-access/) covers it.
 
 ## The data volume
 
-Everything the machine can't afford to lose lives on its data volume: the komrad account's home, with its config and the agent CLIs' logins, every agent's worktree, komrad's cache and log, and Caddy's certificates. When we replace the machine, the volume detaches from the old one and attaches to the new one, and the agents find their work right where they left it.
+The data volume holds the komrad account's home directory, with komrad's config and the agent CLIs' logins. It also holds every agent's worktree, komrad's cache and log, and Caddy's certificates. When we replace the machine, the volume moves to the new one with all of this on it.
 
 ## Boot
 
 <figure>
   <img
     src={link("/diagrams/engine-boot.png")}
-    alt="At boot, the data volume mounts first. The database login and the GitHub key come next, and the server starts once they're ready, followed by the session the agents live in. Caddy starts once the volume is mounted."
+    alt="User data writes the machine's settings and Caddy's config. The data volume mounts. The credentials unit reads the owner password from Secrets Manager and migrates RDS. The GitHub key unit copies the App key from Secrets Manager into memory. The server starts once both are done, then the manager session. Caddy starts once the volume is mounted. An hourly timer reruns the credentials unit."
   />
 </figure>
 
-When the machine boots, it mounts the data volume first. Nearly everything else waits on that, so a missing volume stops the server outright rather than letting it quietly write to the wrong disk.
+Terraform passes the machine a short user data script. The script records which volume, database and domain belong to this machine, and writes Caddy's config. It holds no secrets, because any process on the machine can read user data.
 
-Next the machine gets its credentials. It reads the database owner's password from AWS, migrates the database, and makes sure the engine has its own login, which [the database](../engine-database/) explains. It also fetches the GitHub App's key into memory, so the key never lands on a disk. Once both are ready, the server starts, and then komrad sets up the tmux session the agents live in.
+Systemd then starts the units in order. The data volume mounts first. Every unit that uses the volume waits for it, so a missing volume stops the server instead of letting it write to the root disk.
 
-Caddy starts alongside all this, once it can find its certificates on the volume. Terraform tells the machine which volume, which database and which domain are its own, and never hands it a secret, since anything on the machine can read what Terraform passes in.
+Next, the credentials unit reads the database owner's password from Secrets Manager, migrates the database, and writes the server's connection string. The GitHub key unit copies the App's private key from Secrets Manager into memory. The server starts after both finish. Then komrad creates the tmux session the agents run in. Caddy starts once the volume is mounted, since its certificates live there.
 
-## Why agents survive a restart
+An hourly timer reruns the credentials unit. That picks up the owner's new password after RDS rotates it.
 
-The server starts the tmux server that holds the agents, and normally that would make tmux part of the server's service, so stopping one would stop the other. We tell systemd to stop only the server process instead. A restart or a deploy leaves tmux, and every agent in it, running, and the new server picks them up where the old one left off.
+## Agents during server restarts
 
-Stopping or replacing the machine is different, and every agent stops with it. Their conversations and worktrees are still on the volume, though, so you can resume them once the engine is back.
+The server starts the tmux server that holds the agents. By default, systemd would stop tmux along with the server, since tmux runs inside the server's service. The server's unit tells systemd to stop only the server process. A restart or a deploy leaves tmux and every agent running, and the new server picks them up.
+
+Stopping or replacing the machine stops every agent. Their conversations and worktrees stay on the volume, so they can be resumed once the engine is back.

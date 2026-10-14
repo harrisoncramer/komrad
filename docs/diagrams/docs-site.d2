@@ -1,12 +1,28 @@
 ...@_theme
 
-direction: right
+direction: down
 
 browser: Browser {class: leaf}
-dns: Cloudflare {class: leaf}
-cloudfront: CloudFront {class: leaf}
-bucket: Bucket {class: store}
 actions: GitHub Actions {class: leaf}
 
-browser -> dns -> cloudfront -> bucket
-actions -> bucket: upload
+cloudflare: Cloudflare {
+  class: group
+  dns: DNS {class: leaf}
+  redirects: Redirect rules {class: leaf}
+}
+
+aws: AWS {
+  class: group
+  cloudfront: CloudFront {class: leaf}
+  function: Request function {class: leaf}
+  bucket: Private bucket {class: store}
+
+  cloudfront -> function
+  cloudfront -> bucket
+}
+
+browser -> cloudflare.dns: komrad.dev
+browser -> cloudflare.redirects: other domains
+browser -> aws.cloudfront
+actions -> aws.bucket: upload
+actions -> aws.cloudfront: clear cache
