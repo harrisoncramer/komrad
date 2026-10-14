@@ -21,7 +21,12 @@ const keyringService = "komrad"
 // SignInPath is where `komrad login` reads which provider an engine trusts, before it has a token.
 const SignInPath = "/sign-in"
 
-var errNotSignedIn = fail.Precondition("this machine has not signed in to the engine, so run komrad login")
+var (
+	ErrSignInNeeded = fail.Precondition("sign in to the engine with komrad login")
+	ErrAccessDenied = fail.Denied("nobody has granted this account access to the engine, so ask its owner")
+)
+
+var errNotSignedIn = ErrSignInNeeded.Saying("this machine has not signed in to the engine, so run komrad login")
 
 // SignInProvider is the provider an engine trusts, and komrad's id and secret there.
 type SignInProvider struct {

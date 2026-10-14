@@ -20,6 +20,17 @@ type watchLostMsg struct {
 }
 
 // watchRows holds the watch open for the life of ctx, posting each batch it delivers.
+func startWatch(ctx context.Context, watches watchv1connect.WatchServiceClient, post *postbox) context.CancelFunc {
+	if watches == nil {
+		return func() {}
+	}
+
+	watching, stop := context.WithCancel(ctx)
+	go watchRows(watching, watches, post)
+
+	return stop
+}
+
 func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, post *postbox) {
 	client.Watch(ctx, client.WatchParams{
 		Open:    client.OpenWatch(watches),
@@ -69,12 +80,18 @@ func (m *model) takeWatch(batch client.WatchBatch) tea.Cmd {
 
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise, and
 // says nothing of a close the server chose, which the reopen follows.
-func (m *model) applyWatchLost(msg watchLostMsg) {
+func (m *model) applyWatchLost(msg watchLostMsg) tea.Cmd {
 	if msg.err == nil {
-		return
+		return nil
 	}
 
 	m.reportUnreachable(msg.err)
+
+	if m.access.signIn == nil {
+		return nil
+	}
+
+	return m.checkAccessCmd()
 }
 
 func (m *model) isHoldingWatch() bool {

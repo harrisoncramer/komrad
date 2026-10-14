@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"komrad/internal/browser"
 	"komrad/internal/engine"
@@ -82,4 +84,53 @@ as a bearer token.`,
 			return nil
 		},
 	}
+}
+
+type panelSignIn struct {
+	url       string
+	transport http.RoundTripper
+	refresher *engine.TokenRefresher
+	keeper    *engine.SignInKeeper
+	opener    browser.Opener
+	listen    string
+}
+
+// CheckAccess asks the engine whether the token this machine holds names someone granted access.
+func (s *panelSignIn) CheckAccess(ctx context.Context) error {
+	res, err := healthCheck(ctx, s.transport, s.url)
+	if err != nil {
+		if errors.Is(err, engine.ErrSignInNeeded) {
+			return err
+		}
+
+		return fmt.Errorf("failed to reach the engine at %s: %w", s.url, err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	switch res.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusUnauthorized:
+		return engine.ErrSignInNeeded.Saying("the engine at %s did not take this sign-in, so sign in again", s.url)
+	case http.StatusForbidden:
+		return engine.ErrAccessDenied.Saying("nobody has granted this account access to the engine at %s, so ask its owner", s.url)
+	default:
+		return fmt.Errorf("failed to check access to the engine at %s, which answered %s", s.url, res.Status)
+	}
+}
+
+// Login signs the person in through the engine's provider in their browser, and drops the
+// sign-in the panel held so its next request carries the new one.
+func (s *panelSignIn) Login(ctx context.Context, prompt func(authURL string)) error {
+	defer s.refresher.Forget()
+
+	_, err := engine.Login(ctx, engine.LoginParams{
+		URL:    s.url,
+		Keeper: s.keeper,
+		Opener: s.opener,
+		Listen: s.listen,
+		Prompt: prompt,
+	})
+
+	return err
 }

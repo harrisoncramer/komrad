@@ -93,6 +93,7 @@ type Instance struct {
 	// WorktreesDir is the directory the instance makes its agents' worktrees in.
 	WorktreesDir string
 	URL          string
+	PublicURL    string
 	server       *server.Server
 	working      bool
 }
@@ -108,6 +109,7 @@ type Params struct {
 	KeepLog bool
 	// ForgeBuilders replaces the forges the instance speaks to.
 	ForgeBuilders map[string]forge.Builder
+	SignIn        config.SignIn
 }
 
 // Start builds the server and returns it running, torn down when the test ends.
@@ -189,6 +191,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Usage:              config.Usage{MaxAgents: p.MaxAgents, Reviewer: config.ReviewerUsage{ArchiveOnApproval: true}},
 		FallbackResumeRoot: filepath.Join(root, "restored"),
 		ForgeBuilders:      p.ForgeBuilders,
+		SignIn:             p.SignIn,
 		Doctor: doctor.Settings{
 			TmuxSocket:          env.TmuxSocket,
 			ConfigStack:         config.Stack{Paths: []string{configPath}},
@@ -208,6 +211,13 @@ func Start(t *testing.T, p Params) *Instance {
 	}
 	httpServer.Start()
 	t.Cleanup(httpServer.Close)
+
+	var publicURL string
+	if public := built.PublicHandler(); public != nil {
+		publicServer := httptest.NewServer(public)
+		t.Cleanup(publicServer.Close)
+		publicURL = publicServer.URL
+	}
 
 	client, url := httpServer.Client(), httpServer.URL
 
@@ -235,6 +245,7 @@ func Start(t *testing.T, p Params) *Instance {
 		BuiltinDir:   server.BuiltinScriptsDir(cacheDir),
 		WorktreesDir: worktreesDir,
 		URL:          url,
+		PublicURL:    publicURL,
 		server:       built,
 	}
 }

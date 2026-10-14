@@ -35,6 +35,10 @@ func (m *model) insideView() string {
 		return errui.RenderStartupError(m.term.width, m.startupErr, m.startupFindings)
 	}
 
+	if m.isGated() {
+		return m.signInView()
+	}
+
 	return m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
 }
 

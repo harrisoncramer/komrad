@@ -209,6 +209,7 @@ type panelHarnessParams struct {
 	remote          *panelRemote
 	engineStatus    ui.EngineStatus
 	loader          loader.Style
+	signIn          ui.SignIn
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -311,6 +312,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Tmux:            params.tmux,
 			EngineStatus:    params.engineStatus,
 			Loader:          params.loader,
+			SignIn:          params.signIn,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)

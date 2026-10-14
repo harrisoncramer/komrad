@@ -33,6 +33,10 @@ func (m *model) Init() tea.Cmd {
 		return nil
 	}
 
+	if m.isGated() {
+		return m.checkAccessCmd()
+	}
+
 	m.holdLeader()
 
 	return tea.Batch(tick(), tea.RequestBackgroundColor)
@@ -106,6 +110,10 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		}
 
 		return nil
+	}
+
+	if m.isGated() {
+		return m.routeSignIn(msg)
 	}
 
 	if frozen, ok := msg.(pickerFrozenMsg); ok {
@@ -471,7 +479,9 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case client.WatchBatch:
 		return m.applyWatch(msg), true
 	case watchLostMsg:
-		m.applyWatchLost(msg)
+		return m.applyWatchLost(msg), true
+	case accessCheckedMsg:
+		m.applyAccessRechecked(msg.err)
 
 		return nil, true
 	case writeResult:

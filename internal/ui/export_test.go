@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -42,10 +43,11 @@ var FormFieldDraftPath = formFieldDraftPath
 
 // Panel is the panel's model driven the way the running program drives it.
 type Panel struct {
-	model model
-	post  *postbox
-	tmux  *recordingTmux
-	clip  *recordingClipboard
+	model    model
+	post     *postbox
+	tmux     *recordingTmux
+	clip     *recordingClipboard
+	watching bool
 }
 
 type unsplittableTmux struct {
@@ -144,6 +146,7 @@ type NewPanelParams struct {
 	Tmux            PanelTmux
 	EngineStatus    EngineStatus
 	Loader          loader.Style
+	SignIn          SignIn
 }
 
 // NewPanel builds the panel the way komrad panel does, over a recording tmux.
@@ -210,12 +213,21 @@ func NewPanel(params NewPanelParams) *Panel {
 			Browser:         params.Browser,
 			EngineStatus:    params.EngineStatus,
 			Loader:          params.Loader,
+			SignIn:          params.SignIn,
 		}, true, post),
 		post: post,
 		tmux: tmux,
 		clip: &recordingClipboard{},
 	}
 	panel.model.clip = panel.clip
+	panel.model.access.watch = func() context.CancelFunc {
+		panel.watching = true
+
+		return func() { panel.watching = false }
+	}
+	if panel.model.fatal() == nil && !panel.model.isGated() {
+		panel.model.startWatch()
+	}
 
 	return panel
 }
@@ -977,4 +989,9 @@ func (t *recordingTmux) GetShownPanes(sidebar string) []panes.Rect {
 
 func (t *recordingTmux) CaptureScreen(pane string) string {
 	return t.screens[pane]
+}
+
+// IsWatching reports whether the panel holds the watch stream open.
+func (p *Panel) IsWatching() bool {
+	return p.watching
 }

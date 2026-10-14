@@ -22,7 +22,7 @@ const refreshAhead = 5 * time.Minute
 const providerTimeout = 30 * time.Second
 
 var (
-	errSignInLapsed        = fail.Precondition("the sign-in ran out and the provider gave no way to renew it, so run komrad login")
+	errSignInLapsed        = ErrSignInNeeded.Saying("the sign-in ran out and the provider gave no way to renew it, so run komrad login")
 	errNoIDToken           = fail.Internal("the provider answered without an ID token")
 	errIDTokenMismatch     = fail.InvalidArgument("the ID token the provider gave answers some other sign-in")
 	errProviderUnreachable = fail.Precondition("failed to reach the identity provider")
@@ -76,6 +76,14 @@ func (r *TokenRefresher) GetToken(ctx context.Context) (string, error) {
 	r.signIn = kept
 
 	return kept.IDToken, nil
+}
+
+// Forget drops the sign-in held in memory, so the next token is read from the keeper again.
+func (r *TokenRefresher) Forget() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.signIn = nil
 }
 
 // renew trades the sign-in's refresh token for a new ID token from the same provider.

@@ -32,6 +32,8 @@ You run <Command path="login" /> on your laptop. It asks the engine's `/sign-in`
 
 The command keeps both tokens in your keychain. A machine with no keychain keeps them in a private file under komrad's state directory.
 
+The panel signs you in the same way. On an engine at a web address, it asks the engine whether you are signed in with access before it shows anything. If you have no sign-in, or the provider will no longer renew yours, the panel shows only a screen asking you to sign in, and enter opens the provider's page in your browser. When you finish, the panel asks the engine again, and loads your agents only once the engine says yes. If you are signed in but nobody granted you access, the panel says to ask the engine's owner. If the engine or the provider does not answer, the panel says that instead, and enter tries again.
+
 ## Sending a request
 
 The panel and every command put the ID token on each request. An ID token lasts about an hour at most providers. When the token has less than five minutes left, komrad trades the refresh token for a new one before it sends the request. If the provider refuses, the command tells you to run <Command path="login" /> again.
@@ -50,7 +52,7 @@ Each request the engine logs carries your email, your id at the provider and the
 
 ## Requests that stay open
 
-A terminal or the panel's stream of events can stay open for hours, longer than one token lasts. While a request is open, the engine checks your grant again every minute, and it ends the request when your token runs out. The panel reopens its stream with a fresh token. An open terminal sends a fresh token down the stream before the old one runs out, so the terminal stays open.
+A terminal or the panel's stream of events can stay open for hours, longer than one token lasts. While a request is open, the engine checks your grant again every minute, and it ends the request when your token runs out. The panel reopens its stream with a fresh token. When the stream ends because your grant was revoked or your sign-in can no longer be renewed, the panel clears everything it showed and goes back to its sign-in screen. An open terminal sends a fresh token down the stream before the old one runs out, so the terminal stays open.
 
 <Command path="engine revoke" /> removes the grant and the account the engine recorded. Every open request from that
 person ends within a minute.
@@ -60,5 +62,3 @@ person ends within a minute.
 The owner registers komrad at the provider as a desktop app, with `http://127.0.0.1:8085` as the address to send the browser back to. The provider gives back a client id. Some providers, like Google, also give a client secret. The <Setting path="sign_in" label="[sign_in]" /> table in the engine's config takes the provider's issuer, the client id and the secret. Google calls it a secret, but the engine hands it to every laptop that logs in, so it protects nothing.
 
 On your laptop, the engine's file sets <Setting path="connection.url" label="url" /> to the engine's https address in place of SSH.
-
-A throwaway instance runs Dex, a small provider with one test account, so the whole flow works on one machine.

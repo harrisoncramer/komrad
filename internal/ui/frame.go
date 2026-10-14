@@ -46,7 +46,7 @@ func (m *model) dropRenderedView() {
 
 // render is the active screen inside its gutters, kept until the next update drops it.
 func (m *model) render() string {
-	if m.configErr != nil || m.startupErr != nil {
+	if m.configErr != nil || m.startupErr != nil || m.isGated() {
 		return m.renderInset(m.insideView())
 	}
 

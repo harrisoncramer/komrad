@@ -95,6 +95,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				startupErr      error
 				shellCommand    []string
 				terminalCommand []string
+				signIn          ui.SignIn
 			)
 
 			switch {
@@ -102,6 +103,14 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				addr, base = remote.URL, remote.URL
 				shellCommand = append(slices.Clone(self), "shell")
 				terminalCommand = append(slices.Clone(self), "terminal")
+				signIn = &panelSignIn{
+					url:       remote.URL,
+					transport: state.signTransport(xhttp.NewTransport()),
+					refresher: state.getTokenRefresher(),
+					keeper:    engine.NewSignInKeeper(state.env.StateDir),
+					opener:    browser.NewDesktop(),
+					listen:    engine.CallbackAddr,
+				}
 			case remote.IsRemote():
 				tunnel, err := remote.Dial(cmd.Context(), addr, tunnelWait)
 				if err != nil {
@@ -192,6 +201,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
 				EngineStatus:    panelEngineStatus(cmd.Context(), state, base, startupErr),
+				SignIn:          signIn,
 			})
 		},
 	}
