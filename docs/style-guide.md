@@ -72,7 +72,7 @@ pull request: A request to merge a branch on a forge. It includes GitLab merge r
 
 ### Reviews
 
-round: A snapshot of the writer's worktree, stored as a commit, that a review is written against. A round never changes. Not "chapter" in the reference.
+round: A snapshot of the writer's worktree, saved as a commit, that a review is written against. A round never changes. Not "chapter" in the reference.
 
 review: One author's comments on one round, sent to the agent together.
 
@@ -124,7 +124,7 @@ schedule: A cron expression that starts a task or mails an orchestrator each tim
 
 document: Markdown an agent writes for the person to read.
 
-transcript: An agent's whole conversation, as komrad stored it.
+transcript: An agent's whole conversation, as komrad keeps it.
 
 ### Values
 
