@@ -402,7 +402,7 @@ enum StatusCheckState {
   STATUS_CHECK_STATE_WAITING = 3;
   // Finished, with the conclusion saying how.
   STATUS_CHECK_STATE_COMPLETED = 4;
-  // Still running on a commit that is no longer the head when komrad stopped reading it.
+  // Still running when komrad stopped reading the commit, which is no longer the head.
   STATUS_CHECK_STATE_UNKNOWN = 5;
 }
 
