@@ -2875,7 +2875,7 @@
           "rules": [
             "required"
           ],
-          "description": "The mail to erase, read or not. The recipient never sees it."
+          "description": "The mail to delete, by id, read or not. The recipient never sees unread mail once deleted."
         }
       ]
     },
@@ -3325,7 +3325,7 @@
           "rules": [
             "required"
           ],
-          "description": "Whose newest turns to forward."
+          "description": "The agent whose newest turns to forward, by id."
         },
         {
           "name": "to_agent_id",
@@ -3337,7 +3337,7 @@
           "rules": [
             "required"
           ],
-          "description": "Who to send them to, by id. Two workflows may hold agents of one name."
+          "description": "The agent to forward them to, by id."
         },
         {
           "name": "turns",
@@ -3349,7 +3349,7 @@
           "rules": [
             "between 1 and 20"
           ],
-          "description": "How many of the source's newest turns to forward, with the prompts between them, or unset for the last one alone."
+          "description": "How many of the newest agent turns to forward, with the prompts between them. Unset forwards the last turn only."
         },
         {
           "name": "note",
@@ -3361,7 +3361,7 @@
           "rules": [
             "at most 10000 characters"
           ],
-          "description": "A note to the recipient about the forward, in the caller's own words. The recipient reads it before the turns."
+          "description": "A note to the recipient, which comes before the turns."
         },
         {
           "name": "max_bytes",
@@ -3371,7 +3371,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The maximum text to forward for each turn. Komrad cuts from the head so the end survives. Unset means the default."
+          "description": "The most bytes to forward for each turn. A longer turn loses its start, so its end stays. Unset uses the default."
         }
       ]
     },
@@ -3387,7 +3387,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id of the mail as recorded, which an answer can reply to."
+          "description": "The id of the mail sent. Pass it as `reply_to` to answer."
         },
         {
           "name": "to_agent_id",
@@ -3397,7 +3397,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent it is waiting for."
+          "description": "The id of the agent the mail is for."
         },
         {
           "name": "created_at",
@@ -3407,7 +3407,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was sent, in RFC 3339."
+          "description": "When the mail was sent, in RFC 3339."
         },
         {
           "name": "turns",
@@ -3417,7 +3417,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of the source's turns went, prompts included."
+          "description": "How many turns the mail carries, prompts included."
         },
         {
           "name": "characters",
@@ -3427,7 +3427,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many characters the whole body came to."
+          "description": "How many characters the mail's text runs to."
         },
         {
           "name": "warning",
@@ -3437,7 +3437,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why the recipient will not read this soon, set when nothing runs behind it."
+          "description": "Why the recipient will not read the mail soon. Unset when the recipient is running."
         }
       ]
     },
@@ -3647,7 +3647,7 @@
           "rules": [
             "required"
           ],
-          "description": "Whose conversation to read."
+          "description": "The agent whose transcript to read, by id."
         },
         {
           "name": "turns",
@@ -3659,7 +3659,7 @@
           "rules": [
             "between 1 and 20"
           ],
-          "description": "How many of the newest assistant turns to return, with the prompts between them, or unset for the last one alone."
+          "description": "How many of the newest agent turns to return, with the prompts between them. Unset returns the last turn only."
         },
         {
           "name": "max_bytes",
@@ -3669,7 +3669,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The maximum text to return for each turn. Komrad cuts from the head so the end survives. Unset means the default."
+          "description": "The most bytes to return for each turn. A longer turn loses its start, so its end stays. Unset uses the default."
         }
       ]
     },
@@ -3685,7 +3685,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The newest assistant turns and the prompts between them, oldest first."
+          "description": "The newest agent turns and the prompts between them, oldest first."
         }
       ]
     },
@@ -3757,7 +3757,7 @@
           "rules": [
             "required"
           ],
-          "description": "Whose conversation to read."
+          "description": "The agent whose transcript to read, by id."
         },
         {
           "name": "max_bytes",
@@ -3767,7 +3767,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How much content to return, in bytes. A transcript is one run of text, not a list of records, so it carries no pagination.Pagination."
+          "description": "How many bytes of the transcript to return."
         },
         {
           "name": "cursor",
@@ -3779,7 +3779,7 @@
           "rules": [
             "at most 2048 characters"
           ],
-          "description": "Where the last window ended, or unset to start at the beginning."
+          "description": "The `next_page_token` from the previous response. Unset to start at the beginning."
         }
       ]
     },
@@ -3795,7 +3795,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One window of the conversation as plain text."
+          "description": "One window of the transcript, as plain text."
         },
         {
           "name": "next_page_token",
@@ -3805,7 +3805,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this back as the cursor for the next window, absent once there is no more to read."
+          "description": "The cursor for the next window. Unset at the end of the transcript."
         }
       ]
     },
@@ -4075,7 +4075,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose mail to list, or unset for the caller's own."
+          "description": "The agent whose mail to list, by id. Unset lists the caller's own."
         },
         {
           "name": "pagination",
@@ -4085,7 +4085,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where to carry on from."
+          "description": "The page to read."
         },
         {
           "name": "direction",
@@ -4095,7 +4095,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which half of the correspondence to return."
+          "description": "Whether to list the mail the agent received or sent."
         }
       ]
     },
@@ -4111,7 +4111,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One page of mail, most recent first, none of it claimed by listing it."
+          "description": "One page of mail, newest first. Listing mail does not mark it read."
         },
         {
           "name": "next_page_token",
@@ -4121,7 +4121,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this back as the pagination cursor for the next page."
+          "description": "The cursor for the next page. Unset on the last page."
         }
       ]
     },
@@ -4264,7 +4264,7 @@
     },
     "agent.v1.Mail": {
       "name": "Mail",
-      "description": "",
+      "description": "Mail is one message in an agent's mailbox.",
       "fields": [
         {
           "name": "id",
@@ -4274,7 +4274,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Set this as reply_to on an answer so the two read as a thread."
+          "description": "The mail's id. Pass it as `reply_to` to answer."
         },
         {
           "name": "from_agent_id",
@@ -4284,7 +4284,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which agent sent it, unset when komrad sent it itself."
+          "description": "The id of the agent that sent the mail. Unset when komrad sent it."
         },
         {
           "name": "from_name",
@@ -4294,7 +4294,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The sender's display name. Komrad uses its own name for mail it wrote."
+          "description": "The sender's name. Mail komrad sent carries komrad's name."
         },
         {
           "name": "to_agent_id",
@@ -4304,7 +4304,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent it is waiting for."
+          "description": "The id of the agent the mail is for."
         },
         {
           "name": "body",
@@ -4314,7 +4314,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the sender wrote."
+          "description": "The mail's text."
         },
         {
           "name": "reply_to",
@@ -4324,7 +4324,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The mail this one answers, unset when it opens a subject."
+          "description": "The id of the mail this one answers. Unset when the mail starts a thread."
         },
         {
           "name": "created_at",
@@ -4334,7 +4334,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was sent, in RFC 3339."
+          "description": "When the mail was sent, in RFC 3339."
         },
         {
           "name": "claimed_at",
@@ -4344,7 +4344,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the recipient took it, unset while it is still waiting."
+          "description": "When the recipient read the mail, in RFC 3339. Unset while it is unread."
         },
         {
           "name": "expires_at",
@@ -4354,7 +4354,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it stops being offered, whether or not it was ever taken."
+          "description": "When the mail expires, in RFC 3339, read or not."
         },
         {
           "name": "kind",
@@ -4364,7 +4364,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether an agent wrote it or komrad raised it."
+          "description": "Who wrote the mail and why."
         }
       ]
     },
@@ -4724,7 +4724,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose mailbox to empty, or unset for the caller's own."
+          "description": "The agent whose unread mail to read, by id. Unset reads the caller's own."
         }
       ]
     },
@@ -4740,7 +4740,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Everything that was waiting, oldest first, now marked read."
+          "description": "All the unread mail, oldest first, now marked read."
         }
       ]
     },
@@ -5959,7 +5959,7 @@
     },
     "agent.v1.SearchHit": {
       "name": "SearchHit",
-      "description": "",
+      "description": "SearchHit is one turn of a transcript that matched a search.",
       "fields": [
         {
           "name": "agent_id",
@@ -5969,7 +5969,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent whose conversation this turn belongs to."
+          "description": "The id of the agent whose transcript holds the turn."
         },
         {
           "name": "snippet",
@@ -5979,7 +5979,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The turn's text with the match marked, cut to a readable window around it."
+          "description": "The turn's text around the match, with the match marked."
         },
         {
           "name": "name",
@@ -6009,7 +6009,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How well the turn matched, or zero when the hits are ordered by time."
+          "description": "How well the turn matched. Zero when the hits are ordered by time."
         },
         {
           "name": "seq",
@@ -6019,7 +6019,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the turn sits in the conversation, counting from the first."
+          "description": "The turn's position in the transcript, counting from one."
         },
         {
           "name": "role",
@@ -6029,7 +6029,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Who was speaking, the agent or whoever prompted it."
+          "description": "Who wrote the turn: the agent, or whoever prompted it."
         },
         {
           "name": "content_offset",
@@ -6039,7 +6039,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the turn begins in the whole transcript, for fetching the text around it."
+          "description": "The byte offset of the turn in the whole transcript, for reading the text around it."
         },
         {
           "name": "content_length",
@@ -6049,7 +6049,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many bytes the turn runs to from that offset."
+          "description": "How many bytes the turn runs to from `content_offset`."
         },
         {
           "name": "spoken_at",
@@ -6059,7 +6059,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the turn was written, unset for a turn whose log was gone before its time was read."
+          "description": "When the turn was written. Unset when the CLI's log was gone before komrad read the time."
         }
       ]
     },
@@ -6078,7 +6078,7 @@
             "required",
             "at most 500 characters"
           ],
-          "description": "The words to look for, matched whole and stemmed. A quoted phrase must match in that order, a leading minus excludes a word, and qualifiers narrow the search."
+          "description": "The words to search for, matched whole and stemmed. A quoted phrase matches in order, a leading minus excludes a word, and qualifiers narrow the search."
         },
         {
           "name": "pagination",
@@ -6088,7 +6088,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where to carry on from. One cursor advances the page of matches and the page of near misses together."
+          "description": "The page to read. One cursor pages through `matches` and `near` together."
         },
         {
           "name": "agent_id",
@@ -6098,7 +6098,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which agent's conversation to search, or unset to search the caller's own unless a qualifier names which agents to search."
+          "description": "The agent whose transcript to search, by id. Unset searches the caller's own, unless a qualifier names other agents."
         }
       ]
     },
@@ -6114,7 +6114,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The turns that say the words, in the order the query asked for."
+          "description": "The turns that contain the words, in the order the query asked for."
         },
         {
           "name": "near",
@@ -6124,7 +6124,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The turns that contain the letters only inside other text, such as a word glued into a path. They are scored by how cleanly the letters sit, not against the matches."
+          "description": "The turns that contain the letters only inside other text, such as a word inside a path. They are ranked by how closely the letters match."
         },
         {
           "name": "next_page_token",
@@ -6134,7 +6134,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this back as the pagination cursor to advance both lists."
+          "description": "The cursor for the next page of both lists. Unset on the last page."
         }
       ]
     },
@@ -6152,7 +6152,7 @@
           "rules": [
             "required"
           ],
-          "description": "Who to send to: an agent's id, or the name of a live agent."
+          "description": "The agent to send to, by id or by the name of a live agent."
         },
         {
           "name": "body",
@@ -6165,7 +6165,7 @@
             "required",
             "at most 10000 characters"
           ],
-          "description": "The message text. It must say who is asking and what they want."
+          "description": "The mail's text. It must say who is asking and what they want."
         },
         {
           "name": "reply_to",
@@ -6175,7 +6175,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The mail being answered, so the exchange reads as a thread."
+          "description": "The id of the mail this one answers, so the two read as a thread."
         }
       ]
     },
@@ -6191,7 +6191,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The mail as recorded, whose id an answer can reply to."
+          "description": "The mail as sent."
         },
         {
           "name": "warning",
@@ -6201,7 +6201,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why the recipient will not read this soon, set when nothing runs behind it."
+          "description": "Why the recipient will not read the mail soon. Unset when the recipient is running."
         }
       ]
     },
@@ -6297,7 +6297,7 @@
     },
     "agent.v1.Turn": {
       "name": "Turn",
-      "description": "",
+      "description": "Turn is one turn of an agent's transcript.",
       "fields": [
         {
           "name": "role",
@@ -6307,7 +6307,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Who was speaking, the agent or whoever prompted it."
+          "description": "Who wrote the turn: the agent, or whoever prompted it."
         },
         {
           "name": "seq",
@@ -6317,7 +6317,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the turn sits in the conversation, counting from the first."
+          "description": "The turn's position in the transcript, counting from one."
         },
         {
           "name": "content",
@@ -6327,7 +6327,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The turn's text, or the end of it when the head was cut to fit max_bytes."
+          "description": "The turn's text. When `truncated` is set, only the end of it."
         },
         {
           "name": "truncated",
@@ -6337,7 +6337,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the head of the text was cut away."
+          "description": "Whether the start of the text was cut to fit `max_bytes`."
         }
       ]
     },
@@ -10889,11 +10889,11 @@
     },
     "agent.v1.MailDirection": {
       "name": "MailDirection",
-      "description": "MailDirection is which half of an agent's correspondence a listing asks for.",
+      "description": "MailDirection is whether a listing returns the mail an agent received or sent.",
       "values": [
         {
           "name": "MAIL_DIRECTION_RECEIVED",
-          "description": "The mail addressed to the agent."
+          "description": "The mail sent to the agent."
         },
         {
           "name": "MAIL_DIRECTION_SENT",
@@ -10903,39 +10903,39 @@
     },
     "agent.v1.MailKind": {
       "name": "MailKind",
-      "description": "MailKind tells mail an agent sent from mail komrad wrote itself.",
+      "description": "MailKind is who wrote a piece of mail and why.",
       "values": [
         {
           "name": "MAIL_KIND_PLAIN",
-          "description": "One agent writing to another, or the person writing to an agent."
+          "description": "Mail from an agent or the person."
         },
         {
           "name": "MAIL_KIND_REVIEW_ACTIVITY",
-          "description": "Komrad saying a review has moved, naming the file the comments were written to."
+          "description": "From komrad: a review changed. Names the file the review was written to."
         },
         {
           "name": "MAIL_KIND_EXCHANGE_CAPPED",
-          "description": "Komrad telling an agent that it and one other have spent their mail limit."
+          "description": "From komrad: the agent and one other agent have used up their mail limit with each other."
         },
         {
           "name": "MAIL_KIND_DOCUMENT_EDITED",
-          "description": "Komrad telling an agent that a person wrote or edited one of its documents in the panel."
+          "description": "From komrad: the person wrote or edited one of the agent's documents."
         },
         {
           "name": "MAIL_KIND_PULL_REQUEST_CHANGED",
-          "description": "Komrad telling an agent that a pull request on its branch changed at the forge."
+          "description": "From komrad: a pull request on the agent's branch changed on the forge."
         },
         {
           "name": "MAIL_KIND_WORKTREE_REBASED",
-          "description": "Komrad telling an agent that it rebased the agent's worktree, or tried to."
+          "description": "From komrad: komrad rebased the agent's worktree, or tried to."
         },
         {
           "name": "MAIL_KIND_WORKTREE_PUSHED",
-          "description": "Komrad telling an agent that its branch was force-pushed to origin from the panel."
+          "description": "From komrad: the agent's branch was force-pushed to origin."
         },
         {
           "name": "MAIL_KIND_WORKTREE_ABORTED",
-          "description": "Komrad telling an agent that the rebase, merge or pick part-way through its worktree was aborted."
+          "description": "From komrad: the sequence stopped in the agent's worktree was aborted."
         }
       ]
     },

@@ -7,149 +7,149 @@ import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
-// MailKind tells mail an agent sent from mail komrad wrote itself.
+// MailKind is who wrote a piece of mail and why.
 enum MailKind {
-  // No kind was recorded. The panel draws a dash.
+  // No kind was recorded.
   MAIL_KIND_UNSPECIFIED = 0;
-  // One agent writing to another, or the person writing to an agent.
+  // Mail from an agent or the person.
   MAIL_KIND_PLAIN = 1;
-  // Komrad saying a review has moved, naming the file the comments were written to.
+  // From komrad: a review changed. Names the file the review was written to.
   MAIL_KIND_REVIEW_ACTIVITY = 2;
-  // Komrad telling an agent that it and one other have spent their mail limit.
+  // From komrad: the agent and one other agent have used up their mail limit with each other.
   MAIL_KIND_EXCHANGE_CAPPED = 3;
-  // Komrad telling an agent that a person wrote or edited one of its documents in the panel.
+  // From komrad: the person wrote or edited one of the agent's documents.
   MAIL_KIND_DOCUMENT_EDITED = 4;
-  // Komrad telling an agent that a pull request on its branch changed at the forge.
+  // From komrad: a pull request on the agent's branch changed on the forge.
   MAIL_KIND_PULL_REQUEST_CHANGED = 5;
-  // Komrad telling an agent that it rebased the agent's worktree, or tried to.
+  // From komrad: komrad rebased the agent's worktree, or tried to.
   MAIL_KIND_WORKTREE_REBASED = 6;
-  // Komrad telling an agent that its branch was force-pushed to origin from the panel.
+  // From komrad: the agent's branch was force-pushed to origin.
   MAIL_KIND_WORKTREE_PUSHED = 7;
-  // Komrad telling an agent that the rebase, merge or pick part-way through its worktree was aborted.
+  // From komrad: the sequence stopped in the agent's worktree was aborted.
   MAIL_KIND_WORKTREE_ABORTED = 8;
 }
 
-// MailDirection is which half of an agent's correspondence a listing asks for.
+// MailDirection is whether a listing returns the mail an agent received or sent.
 enum MailDirection {
-  // Unspecified means received, the half an agent asks for by default.
+  // No direction was chosen. Treated as `MAIL_DIRECTION_RECEIVED`.
   MAIL_DIRECTION_UNSPECIFIED = 0;
-  // The mail addressed to the agent.
+  // The mail sent to the agent.
   MAIL_DIRECTION_RECEIVED = 1;
   // The mail the agent sent.
   MAIL_DIRECTION_SENT = 2;
 }
 
+// Mail is one message in an agent's mailbox.
 message Mail {
-  // Set this as reply_to on an answer so the two read as a thread.
+  // The mail's id. Pass it as `reply_to` to answer.
   string id = 1;
-  // Which agent sent it, unset when komrad sent it itself.
+  // The id of the agent that sent the mail. Unset when komrad sent it.
   optional string from_agent_id = 2;
-  // The sender's display name. Komrad uses its own name for mail it wrote.
+  // The sender's name. Mail komrad sent carries komrad's name.
   string from_name = 3;
-  // The agent it is waiting for.
+  // The id of the agent the mail is for.
   string to_agent_id = 4;
-  // What the sender wrote.
+  // The mail's text.
   string body = 5;
-  // The mail this one answers, unset when it opens a subject.
+  // The id of the mail this one answers. Unset when the mail starts a thread.
   optional string reply_to = 6;
-  // When it was sent, in RFC 3339.
+  // When the mail was sent, in RFC 3339.
   string created_at = 7;
-  // When the recipient took it, unset while it is still waiting.
+  // When the recipient read the mail, in RFC 3339. Unset while it is unread.
   optional string claimed_at = 8;
-  // When it stops being offered, whether or not it was ever taken.
+  // When the mail expires, in RFC 3339, read or not.
   string expires_at = 9;
-  // Whether an agent wrote it or komrad raised it.
+  // Who wrote the mail and why.
   MailKind kind = 10;
 }
 
 message SendMailRequest {
-  // Who to send to: an agent's id, or the name of a live agent.
+  // The agent to send to, by id or by the name of a live agent.
   string to = 1 [(buf.validate.field).string.min_len = 1];
-  // The message text. It must say who is asking and what they want.
+  // The mail's text. It must say who is asking and what they want.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
   }];
-  // The mail being answered, so the exchange reads as a thread.
+  // The id of the mail this one answers, so the two read as a thread.
   optional string reply_to = 3 [(buf.validate.field).string.min_len = 1];
 }
 
 message SendMailResponse {
-  // The mail as recorded, whose id an answer can reply to.
+  // The mail as sent.
   Mail mail = 1;
-  // Why the recipient will not read this soon, set when nothing runs behind it.
+  // Why the recipient will not read the mail soon. Unset when the recipient is running.
   optional string warning = 2;
 }
 
 message ForwardLastTurnsRequest {
-  // Whose newest turns to forward.
+  // The agent whose newest turns to forward, by id.
   string from_agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Who to send them to, by id. Two workflows may hold agents of one name.
+  // The agent to forward them to, by id.
   string to_agent_id = 2 [(buf.validate.field).string.min_len = 1];
-  // How many of the source's newest turns to forward, with the prompts between them, or unset
-  // for the last one alone.
+  // How many of the newest agent turns to forward, with the prompts between them. Unset forwards
+  // the last turn only.
   optional int32 turns = 3 [(buf.validate.field).int32 = {
     gte: 1
     lte: 20
   }];
-  // A note to the recipient about the forward, in the caller's own words. The recipient reads
-  // it before the turns.
+  // A note to the recipient, which comes before the turns.
   optional string note = 4 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
   }];
-  // The maximum text to forward for each turn. Komrad cuts from the head so the end survives.
-  // Unset means the default.
+  // The most bytes to forward for each turn. A longer turn loses its start, so its end stays.
+  // Unset uses the default.
   optional int32 max_bytes = 5 [(buf.validate.field).int32.gte = 0];
 }
 
 message ForwardLastTurnsResponse {
-  // The id of the mail as recorded, which an answer can reply to.
+  // The id of the mail sent. Pass it as `reply_to` to answer.
   string mail_id = 1;
-  // The agent it is waiting for.
+  // The id of the agent the mail is for.
   string to_agent_id = 2;
-  // When it was sent, in RFC 3339.
+  // When the mail was sent, in RFC 3339.
   string created_at = 3;
-  // How many of the source's turns went, prompts included.
+  // How many turns the mail carries, prompts included.
   int32 turns = 4;
-  // How many characters the whole body came to.
+  // How many characters the mail's text runs to.
   int32 characters = 5;
-  // Why the recipient will not read this soon, set when nothing runs behind it.
+  // Why the recipient will not read the mail soon. Unset when the recipient is running.
   optional string warning = 6;
 }
 
 message ClaimMailNudgeResponse {
-  // The line telling the agent about its unread mail, empty when it has none or was told recently.
+  // The line telling the agent it has unread mail. Empty when it has none or was told recently.
   string nudge = 1;
 }
 
 message ReadMailRequest {
-  // Whose mailbox to empty, or unset for the caller's own.
+  // The agent whose unread mail to read, by id. Unset reads the caller's own.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ReadMailResponse {
-  // Everything that was waiting, oldest first, now marked read.
+  // All the unread mail, oldest first, now marked read.
   repeated Mail mail = 1;
 }
 
 message ListMailRequest {
-  // Whose mail to list, or unset for the caller's own.
+  // The agent whose mail to list, by id. Unset lists the caller's own.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
-  // Where to carry on from.
+  // The page to read.
   optional pagination.v1.Pagination pagination = 2;
-  // Which half of the correspondence to return.
+  // Whether to list the mail the agent received or sent.
   MailDirection direction = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListMailResponse {
-  // One page of mail, most recent first, none of it claimed by listing it.
+  // One page of mail, newest first. Listing mail does not mark it read.
   repeated Mail mail = 1;
-  // Pass this back as the pagination cursor for the next page.
+  // The cursor for the next page. Unset on the last page.
   optional string next_page_token = 2;
 }
 
 message DeleteMailRequest {
-  // The mail to erase, read or not. The recipient never sees it.
+  // The mail to delete, by id, read or not. The recipient never sees unread mail once deleted.
   repeated string ids = 1 [(buf.validate.field).repeated.min_items = 1];
 }
