@@ -146,7 +146,7 @@ service LogService {
       mcp: true
       name: "list_recent_traces"
       description: "List the newest traces in the server log, oldest first."
-      mcp_guidance: "Use it to find a trace id to read with get_log_lines."
+      mcp_guidance: "Read a trace's lines with get_log_lines."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
