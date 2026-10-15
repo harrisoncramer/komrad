@@ -21,7 +21,7 @@ Komrad has two programs, a server and a panel. The server runs in the background
 
 Each agent is a real terminal running Claude or Codex. Komrad runs the agents in a tmux server of its own, so they never mix with your own tmux windows. Opening the panel attaches your terminal to komrad's session, and closing the panel detaches that terminal without stopping anything else.
 
-The panel, a script calling <Command path="rpc" />, and an agent calling an MCP tool all go through the same API, so they all get the same rules and the same checks. Komrad builds its CLI commands, its MCP tools and the [API reference](../../api/) from that one API definition. [From proto to every surface](../architecture-api/) covers how.
+The panel, a script calling <Command path="rpc" />, and an agent calling an MCP tool all go through the same API, so they all get the same rules and the same checks. Komrad builds its CLI commands, its MCP tools and the [API reference](../../api/) from that one API definition.
 
 ## State
 

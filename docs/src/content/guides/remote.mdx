@@ -13,7 +13,7 @@ import Setting from "../../components/Setting.astro";
 
 Komrad's own repository works this way.
 
-## Telling your panel about an engine
+## Connecting
 
 An engine is a small config file on your laptop in `~/.config/komrad/engines/`, named after the engine. Its <Setting path="connection" label="[connection]" /> table names the engine's <Setting path="connection.url" label="url" />, the HTTPS address it answers on, and the panel does everything on the engine through the API there:
 
@@ -32,9 +32,9 @@ The engine lets in only people its owner granted access. Sign in once per engine
 komrad login --engine remote
 ```
 
-A browser opens at the engine's identity provider. You can also open the panel and press enter at its sign-in screen. The panel stays signed in after that. It asks again after a long time away, or after your access ends. [Access](../engine-access/) covers how the sign-in works and what the engine checks.
+A browser opens at the engine's identity provider. You can also open the panel and press enter at its sign-in screen. The panel stays signed in after that. It asks again after a long time away, or after your access ends. [Komrad's engine](../komrads-engine/#access) covers how the sign-in works and what the engine checks.
 
-## Choosing where to open the panel
+## Switching engines
 
 <Command path="open" /> opens your laptop's panel. <Command path="open" args="--engine remote" /> opens the engine named
 `remote`, and `--engine local` names your laptop.
@@ -51,14 +51,14 @@ The terminal in an agent's [menu](../navigation/#the-menu) works the same way. I
 
 One exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it attaches, so a smaller terminal crops it and a larger one leaves blank space around it.
 
-## Signing the agent CLI in
+## Agent CLI logins
 
 Agents on the engine run a CLI that has to be logged in. Do that once on the engine: start the CLI and log in. The login lives on the engine's data disk.
 
 Each task also works in a fresh worktree, and the CLI asks whether to trust every directory it has not seen. Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI the engine runs, so komrad answers that question before the agent starts. Without it, every new agent sits waiting at that question.
 
-## When the engine is off
+## Stopped engines
 
 An engine costs money every hour, so it may be switched off when nobody is using it. Switching off keeps the disk, the database and the address. Every agent stops, and you resume the ones you want once it is back.
 
-This guide covers using an engine. [Running komrad](../running-komrad/) covers building one.
+This guide covers using an engine. [Running komrad remotely](../running-komrad-remotely/) covers building one.

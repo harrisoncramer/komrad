@@ -7,7 +7,7 @@ order: 34
 
 import { link } from "../../site";
 
-Komrad's Go code is arranged in layers, and linters enforce the arrangement so nobody has to remember it.
+Komrad's Go code is arranged in layers. Because much of the code is authored by AI agents, who tend to (*coughs loudly*) not always write the cleanest code, Komrad has a series of strict linters that enforce this structure. Depguard enforces the arrows in the diagram.
 
 ## The layers
 
@@ -18,23 +18,19 @@ Komrad's Go code is arranged in layers, and linters enforce the arrangement so n
   />
 </figure>
 
-Handlers turn a request into one call on a service. Services hold the rules, and stores read and write their own tables. Anything komrad doesn't own, like tmux or git, sits behind an adapter. The harness adapter is the only code that knows how Claude and Codex differ. The panel is a client and has no database connection.
-
-## Imports
-
-Depguard enforces the arrows in the diagram. The panel can't import tmux or the store, for example. A service can't import the generated protos, which keeps wire shapes out of the rules. A store can't import a service, and only stores can import the generated query package. Code that crosses one of these lines fails lint.
-
 ## Linters
 
-Most of komrad's golangci-lint linters are standard. The rest live in a plugin under `tools/komradlint`, and each one was written after the same review comment came up one too many times.
+Most of this structure is enforced via linters. The panel can't import tmux or the store, for example, and services can import generated protos. Code that crosses one of these lines fails lint.
 
-Every sentinel error comes from a `fail` constructor that names its kind, so the declaration decides the RPC code. A handler body has to be a single call, and a constructor has to look like `NewT(NewTParams)`. Only `config` may read the environment, only one package may use a bare HTTP client, and only three named places may expose a forge secret.
+Any custom linters live in a plugin under `tools/komradlint`, which enforces structure further.
 
-Tests have rules too. A test file has to sit beside a source file of the same name. A test can't declare a method that matches a store method, which pushes service tests onto the real store. Unit tests can't run git directly. They take the seam and hand in a fake.
+For instance, every sentinel error comes from a `fail` constructor that names its kind, so the declaration also decides the RPC code, and handlers have to be a single call, to keep business logic in services.
 
 ## Tests
 
-Komrad tests each behaviour at the lowest layer that can see it, and only there.
+Tests have rules too. Unit tests can't run git directly, for instance; they have to respect the fake git used for tests.
+
+Komrad tests each behaviour at the lowest layer that can see it.
 
 | Layer    | Runs against               | Owns                       |
 | -------- | -------------------------- | -------------------------- |
@@ -43,9 +39,3 @@ Komrad tests each behaviour at the lowest layer that can see it, and only there.
 | Adapter  | a fake service             | validation and error codes |
 | Scenario | everything real            | a feature from end to end  |
 | Panel    | the frame and the requests | keys, screens and forms    |
-
-Each outside seam has one shared fake, so there's one fake tmux, one fake harness and one fake git. A regression becomes a new case in the table that owns the behaviour, never a new test function.
-
-## The check
-
-`mise run check` runs the formatters, the linters, every test and the generated-file drift check. It keeps going after a failure and reports every failure at the end. CI runs the same tasks, and komrad uses no git hooks.

@@ -8,6 +8,7 @@ laptop: Laptop {
   cli: AWS CLI {class: leaf}
 }
 
+idp: Identity provider {class: leaf}
 actions: GitHub Actions {class: leaf}
 
 aws: AWS {
@@ -20,19 +21,32 @@ aws: AWS {
 
   ec2: EC2 instance {
     class: group
+
     tailscaled: Tailscale {class: leaf}
+    firewall: Host firewall {class: leaf}
     caddy: Caddy {class: leaf}
     agent: SSM agent {class: leaf}
-    serve: Server {class: leaf}
     creds: Credentials unit {class: leaf}
+    key: GitHub key unit {class: leaf}
+
+    serve: Server {
+      class: group
+      public: Public listener {class: leaf}
+      loopback: Loopback listener {class: leaf}
+    }
+
     agents: Agents {class: leaf}
+    helper: Credential helper {class: leaf}
     volume: Data volume {class: store}
 
-    tailscaled -> caddy: 443
-    caddy -> serve: loopback
-    agent -> serve: restart
-    agents -> serve: MCP
+    tailscaled -> firewall
+    firewall -> caddy: 443 only
+    caddy -> serve.public: loopback
+    agents -> serve.loopback: MCP
     agents -> volume
+    agents -> helper: token
+    key -> helper: App key
+    agent -> serve: restart
   }
 
   rds: RDS Postgres {class: store}
@@ -41,11 +55,17 @@ aws: AWS {
   ec2.agent -> bucket: binary
   ec2.creds -> secrets: owner password
   ec2.creds -> rds: migrate
-  ec2.serve -> rds
+  ec2.key -> secrets: App key
+  ec2.serve -> rds: grants and records
   ec2.tailscaled -> params: node key
 }
 
+github: GitHub {class: leaf}
+
+laptop.panel -> idp: sign in
 laptop.panel -> aws.ec2.tailscaled: tailnet
 laptop.cli -> aws.ssm: session
 actions -> aws.ssm: deploy
 actions -> aws.bucket: upload
+aws.ec2.agents -> github: push
+aws.ec2.serve -> github: pull requests

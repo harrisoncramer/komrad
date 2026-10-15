@@ -1,0 +1,60 @@
+---
+title: Running komrad remotely
+description: The parts of a komrad engine, and what each part needs when the engine runs on its own machine.
+group: remote-engines
+order: 20
+---
+
+import Alert from "../../components/Alert.astro";
+import { link } from "../../site";
+
+When you install komrad on a laptop, the panel and the engine both run on it, and only you can reach them.
+
+A remote engine runs on a machine that stays on, such as an EC2 instance. Agents keep working after you close your laptop, and other people can point their own panels at the same engine.
+
+Komrad's own development runs on a remote engine, which triages issues and fixes bugs on GitHub automatically.
+
+This guide describes the parts a remote engine needs without assuming a cloud provider. [Komrad's engine](../komrads-engine/) describes how komrad runs its own on AWS. Read the <a href={link("/guides/how-it-works")}>How it works</a> guide first if you haven't. It covers the panel, the server and the API between them.
+
+## Architecture
+
+<figure>
+  <img
+    src={link("/diagrams/running-komrad.png")}
+    alt="The panel on a laptop signs in with an identity provider and sends HTTPS requests to an HTTPS proxy on the engine host. The proxy forwards them to the server over loopback. Agents in tmux call the server over MCP, write to their worktrees, and push to the forge. The server writes to Postgres and reads pull requests from the forge."
+  />
+</figure>
+
+Before the panel talks to an engine, it gets a token from your identity provider. It sends each request with that token over HTTPS to a proxy on the engine host. The proxy holds the TLS certificate and passes the request to the komrad server on a loopback port, and the server checks the token before it handles the request.
+
+The rest of the architecture is the same as running komrad locally.
+
+## Access
+
+Every request to a remote engine has to say who sent it. Komrad keeps no passwords.
+
+In this model, users sign in through an OpenID Connect provider, Google or Okta for example, and the engine checks the token from that sign-in against the access grants its owner has given out. [Komrad's engine](../komrads-engine/#access-grants) covers these grants in more detail.
+
+The komrad server listens only on loopback, and a proxy in front of it should be the only thing exposed to the network. Komrad's engine uses Caddy, which gets and renews its own certificate. Any proxy that speaks HTTP/2 works.
+
+<Alert variant="info">Operators need a shell on the host for upgrades and debugging. On AWS, komrad's engine uses Systems Manager for shells, so the host opens no port for SSH.</Alert>
+
+The remote engine can also sit on a private network instead of the internet. Komrad's engine sits on Tailscale, and Tailscale issues Caddy's certificate. Other private networks, Headscale included, need your own domain with a DNS challenge or a certificate authority every laptop trusts.
+
+## Forge credentials
+
+Agents push branches and the server reads pull requests, so the engine needs credentials for each forge it works with. On a laptop your personal token is fine. On a shared engine, a personal token makes every agent act as you, and it sits on the engine's disk until it expires. Komrad's engine gets credentials of its own that expire within a day. [Komrad's engine](../komrads-engine/#forge-credentials) explains how to set up this system for GitHub and GitLab.
+
+## Checklist
+
+Before you stand up an engine, have each of these ready or know where it will come from:
+
+- A Linux host that stays on.
+- A volume for the worktrees and logins that will outlive the host.
+- A Postgres database the host can reach.
+- A name and certificate for the engine, from a domain or a private network, and a proxy to terminate HTTPS.
+- An OpenID Connect provider with komrad registered on it.
+- Forge credentials that belong to the engine.
+- A way for operators to get a shell without opening a port to the internet.
+
+[Standing up an engine](../standing-up-an-engine/) builds all of this on AWS the way komrad's own engine does.
