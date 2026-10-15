@@ -34,7 +34,7 @@ message SearchHit {
   bool archived = 4;
   // How well the turn matched. Zero when the hits are ordered by time.
   double score = 5;
-  // The turn's position in the transcript, counting from one.
+  // The turn's position in the transcript, counting from zero.
   int32 seq = 6;
   // Who wrote the turn: the agent, or whoever prompted it.
   string role = 7;
@@ -90,7 +90,7 @@ message GetLastTurnsRequest {
 message Turn {
   // Who wrote the turn: the agent, or whoever prompted it.
   string role = 1;
-  // The turn's position in the transcript, counting from one.
+  // The turn's position in the transcript, counting from zero.
   int32 seq = 2;
   // The turn's text. When `truncated` is set, only the end of it.
   string content = 3;
