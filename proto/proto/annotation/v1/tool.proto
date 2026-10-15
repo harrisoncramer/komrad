@@ -7,8 +7,8 @@ import "google/protobuf/descriptor.proto";
 option go_package = "komrad/proto/gen/annotation/v1;annotationv1";
 
 extend google.protobuf.MethodOptions {
-  // Which generated clients reach the method. Every method declares it. The panel is written by
-  // hand and calls whatever it needs.
+  // Which generated clients reach the method. Every method declares it. Hand-written clients
+  // call any method.
   Surfaces surfaces = 50003;
 }
 

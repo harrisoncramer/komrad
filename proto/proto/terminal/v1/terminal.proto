@@ -10,123 +10,123 @@ option go_package = "komrad/proto/gen/terminal/v1;terminalv1";
 
 // Size is a terminal's size in character cells.
 message Size {
-  // The number of rows.
+  // How many rows of cells.
   uint32 rows = 1 [(buf.validate.field).uint32 = {
     gt: 0
     lte: 65535
   }];
-  // The number of columns.
+  // How many columns of cells.
   uint32 cols = 2 [(buf.validate.field).uint32 = {
     gt: 0
     lte: 65535
   }];
 }
 
-// OpenShell names the directory a shell starts in and the terminal it draws on.
+// OpenShell opens a shell stream.
 message OpenShell {
-  // The directory, absolute, which must be inside a live agent's directory.
+  // The absolute directory the shell starts in, inside a live agent's checkout.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
-  // The size the terminal starts at.
+  // The terminal's starting size.
   Size size = 2 [(buf.validate.field).required = true];
-  // The terminal type the shell is told it draws on, xterm-256color when empty.
+  // The terminal type the shell is given. Empty for `xterm-256color`.
   string term = 3;
 }
 
-// ShellRequest is one message from the client: the opening, what was typed, or a resize.
+// ShellRequest is one message from the client on a shell stream.
 message ShellRequest {
-  // What the client sent.
+  // The message.
   oneof message {
     option (buf.validate.oneof).required = true;
 
-    // The first message of every stream, and only the first.
+    // The opening, sent first and only once.
     OpenShell open = 1;
     // Bytes typed into the terminal.
     bytes input = 2;
     // The terminal's new size.
     Size resize = 3;
-    // A fresh ID token from a signed-in caller, so the stream outlives the one it opened with.
+    // A new ID token for the caller, which keeps the stream open past the first token's expiry.
     string token = 4;
   }
 }
 
-// Exit reports how the program on the terminal ended.
+// Exit is how the program on a terminal ended.
 message Exit {
   // The exit status, or 128 plus the signal number when a signal ended the program.
   int32 code = 1;
 }
 
-// ShellResponse is one message from the engine: ready, output, or the exit.
+// ShellResponse is one message from komrad on a shell stream.
 message ShellResponse {
-  // What the engine sent.
+  // The message.
   oneof message {
-    // The shell has started, sent once before any output.
+    // Sent once when the shell starts, before any output.
     google.protobuf.Empty ready = 1;
-    // Bytes the terminal drew.
+    // Bytes the terminal printed.
     bytes output = 2;
-    // The shell has ended, the last message of the stream.
+    // Sent when the shell ends, as the last message.
     Exit exit = 3;
   }
 }
 
-// OpenAttach names the agent whose terminal is shown and the terminal it is drawn on.
+// OpenAttach opens an attach stream.
 message OpenAttach {
-  // The agent, which must be live and hold a pane.
+  // The agent to attach to, by id. The agent must be live with a pane.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // The size the terminal starts at.
+  // The terminal's starting size.
   Size size = 2 [(buf.validate.field).required = true];
-  // The terminal type tmux is told it draws on, xterm-256color when empty.
+  // The terminal type tmux is given. Empty for `xterm-256color`.
   string term = 3;
 }
 
-// AttachRequest is one message from the client: the opening, what was typed, or a resize.
+// AttachRequest is one message from the client on an attach stream.
 message AttachRequest {
-  // What the client sent.
+  // The message.
   oneof message {
     option (buf.validate.oneof).required = true;
 
-    // The first message of every stream, and only the first.
+    // The opening, sent first and only once.
     OpenAttach open = 1;
     // Bytes typed into the terminal.
     bytes input = 2;
     // The terminal's new size.
     Size resize = 3;
-    // A fresh ID token from a signed-in caller, so the stream outlives the one it opened with.
+    // A new ID token for the caller, which keeps the stream open past the first token's expiry.
     string token = 4;
   }
 }
 
-// AttachResponse is one message from the engine: ready, output, or the exit.
+// AttachResponse is one message from komrad on an attach stream.
 message AttachResponse {
-  // What the engine sent.
+  // The message.
   oneof message {
-    // The attach has started, sent once before any output.
+    // Sent once when the attach starts, before any output.
     google.protobuf.Empty ready = 1;
-    // Bytes the terminal drew.
+    // Bytes the terminal printed.
     bytes output = 2;
-    // The attach has ended, the last message of the stream.
+    // Sent when the attach ends, as the last message.
     Exit exit = 3;
   }
 }
 
-// TerminalService serves terminals on the engine to a client somewhere else.
+// TerminalService serves terminals on komrad's machine to a remote client.
 service TerminalService {
-  // Shell runs a shell in a directory on the engine, carrying what is typed in and what it draws
-  // out until it exits or the client hangs up.
+  // Shell runs a shell on komrad's machine and streams its input and output until the shell
+  // exits or the client disconnects.
   rpc Shell(stream ShellRequest) returns (stream ShellResponse) {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "a terminal a person types into, which komrad shell opens"
+      reason: "A terminal the person types into, which `komrad shell` opens."
     };
   }
 
-  // Attach shows an agent's terminal, carrying what is typed in and what it draws out until the
-  // attach ends or the client hangs up.
+  // Attach streams the input and output of an agent's pane until the attach ends or the client
+  // disconnects.
   rpc Attach(stream AttachRequest) returns (stream AttachResponse) {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "a terminal a person types into, which komrad terminal opens"
+      reason: "A terminal the person types into, which `komrad terminal` opens."
     };
   }
 }

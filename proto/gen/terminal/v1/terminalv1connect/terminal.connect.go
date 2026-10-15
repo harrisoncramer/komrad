@@ -41,11 +41,11 @@ const (
 
 // TerminalServiceClient is a client for the terminal.v1.TerminalService service.
 type TerminalServiceClient interface {
-	// Shell runs a shell in a directory on the engine, carrying what is typed in and what it draws
-	// out until it exits or the client hangs up.
+	// Shell runs a shell on komrad's machine and streams its input and output until the shell
+	// exits or the client disconnects.
 	Shell(context.Context) *connect.BidiStreamForClient[v1.ShellRequest, v1.ShellResponse]
-	// Attach shows an agent's terminal, carrying what is typed in and what it draws out until the
-	// attach ends or the client hangs up.
+	// Attach streams the input and output of an agent's pane until the attach ends or the client
+	// disconnects.
 	Attach(context.Context) *connect.BidiStreamForClient[v1.AttachRequest, v1.AttachResponse]
 }
 
@@ -93,11 +93,11 @@ func (c *terminalServiceClient) Attach(ctx context.Context) *connect.BidiStreamF
 
 // TerminalServiceHandler is an implementation of the terminal.v1.TerminalService service.
 type TerminalServiceHandler interface {
-	// Shell runs a shell in a directory on the engine, carrying what is typed in and what it draws
-	// out until it exits or the client hangs up.
+	// Shell runs a shell on komrad's machine and streams its input and output until the shell
+	// exits or the client disconnects.
 	Shell(context.Context, *connect.BidiStream[v1.ShellRequest, v1.ShellResponse]) error
-	// Attach shows an agent's terminal, carrying what is typed in and what it draws out until the
-	// attach ends or the client hangs up.
+	// Attach streams the input and output of an agent's pane until the attach ends or the client
+	// disconnects.
 	Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error
 }
 

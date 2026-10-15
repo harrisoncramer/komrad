@@ -40,7 +40,7 @@ const (
 
 // LoopServiceClient is a client for the loop.v1.LoopService service.
 type LoopServiceClient interface {
-	// WakeLoop asks a loop to run before its next tick, no sooner than its floor allows.
+	// WakeLoop runs a loop before its next tick, but no sooner than its minimum interval allows.
 	WakeLoop(context.Context, *connect.Request[v1.WakeLoopRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -77,7 +77,7 @@ func (c *loopServiceClient) WakeLoop(ctx context.Context, req *connect.Request[v
 
 // LoopServiceHandler is an implementation of the loop.v1.LoopService service.
 type LoopServiceHandler interface {
-	// WakeLoop asks a loop to run before its next tick, no sooner than its floor allows.
+	// WakeLoop runs a loop before its next tick, but no sooner than its minimum interval allows.
 	WakeLoop(context.Context, *connect.Request[v1.WakeLoopRequest]) (*connect.Response[emptypb.Empty], error)
 }
 

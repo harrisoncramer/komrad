@@ -215,8 +215,8 @@ var file_annotation_v1_tool_proto_extTypes = []protoimpl.ExtensionInfo{
 
 // Extension fields to descriptorpb.MethodOptions.
 var (
-	// Which generated clients reach the method. Every method declares it. The panel is written by
-	// hand and calls whatever it needs.
+	// Which generated clients reach the method. Every method declares it. Hand-written clients
+	// call any method.
 	//
 	// optional annotation.v1.Surfaces surfaces = 50003;
 	E_Surfaces = &file_annotation_v1_tool_proto_extTypes[0]

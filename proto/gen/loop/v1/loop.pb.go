@@ -24,17 +24,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Loop names a background loop the server runs that can be woken before its next tick.
+// Loop is a background loop komrad runs on a timer, which a caller can wake early.
 type Loop int32
 
 const (
-	// No loop was named. A wake refuses it.
+	// No loop was named. `WakeLoop` refuses this value.
 	Loop_LOOP_UNSPECIFIED Loop = 0
-	// Reads each live agent's working directory for its branch, its head and the lines it changed.
+	// Reads each live agent's checkout for its branch, head commit and changed lines.
 	Loop_LOOP_CWD_SYNC Loop = 1
-	// Reads each agent's conversation log for new turns.
+	// Reads each agent's transcript for new turns.
 	Loop_LOOP_TRANSCRIPT_SYNC Loop = 2
-	// Reads the pull requests opened from agents' branches.
+	// Reads the pull requests from agents' branches.
 	Loop_LOOP_PULL_REQUEST_SYNC Loop = 3
 )
 
@@ -138,9 +138,9 @@ const file_loop_v1_loop_proto_rawDesc = "" +
 	"\x10LOOP_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rLOOP_CWD_SYNC\x10\x01\x12\x18\n" +
 	"\x14LOOP_TRANSCRIPT_SYNC\x10\x02\x12\x1a\n" +
-	"\x16LOOP_PULL_REQUEST_SYNC\x10\x032\x92\x01\n" +
-	"\vLoopService\x12\x82\x01\n" +
-	"\bWakeLoop\x12\x18.loop.v1.WakeLoopRequest\x1a\x16.google.protobuf.Empty\"D\x9a\xb5\x18=B;the panel wakes a loop when a person looks at what it reads\x90\x02\x02B!Z\x1fkomrad/proto/gen/loop/v1;loopv1b\x06proto3"
+	"\x16LOOP_PULL_REQUEST_SYNC\x10\x032\x9a\x01\n" +
+	"\vLoopService\x12\x8a\x01\n" +
+	"\bWakeLoop\x12\x18.loop.v1.WakeLoopRequest\x1a\x16.google.protobuf.Empty\"L\x9a\xb5\x18EBCA client wakes a loop when the person looks at what the loop reads.\x90\x02\x02B!Z\x1fkomrad/proto/gen/loop/v1;loopv1b\x06proto3"
 
 var (
 	file_loop_v1_loop_proto_rawDescOnce sync.Once
