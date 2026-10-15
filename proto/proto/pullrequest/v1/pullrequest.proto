@@ -82,8 +82,8 @@ message MergeReadiness {
   bool mergeability_unconfirmed = 4;
   // Whether auto-merge is on, so the forge merges once the checks and reviews pass.
   bool auto_merge = 5;
-  // Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, a pull
-  // request with nothing left to wait for, and a repository that does not allow auto-merge.
+  // Whether the forge would let komrad turn auto-merge on now. The forge refuses for a draft, a
+  // pull request with nothing left to wait for, and a repository that does not allow auto-merge.
   bool auto_mergeable = 6;
 }
 
