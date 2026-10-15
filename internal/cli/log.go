@@ -93,8 +93,8 @@ func listRecentTraces(ctx context.Context, out io.Writer, client logv1connect.Lo
 
 	var written strings.Builder
 	for _, trace := range traces {
-		written.WriteString(fmt.Sprintf("%s  %-36s  %-28s  %d line(s)\n",
-			shortTime(trace.GetStartedAt()), trace.GetTraceId(), trace.GetWhat(), trace.GetLines()))
+		fmt.Fprintf(&written, "%s  %-36s  %-28s  %d line(s)\n",
+			shortTime(trace.GetStartedAt()), trace.GetTraceId(), trace.GetWhat(), trace.GetLines())
 	}
 
 	return writeOut(out, written.String())
@@ -113,7 +113,7 @@ func renderLogLine(line *logv1.LogLine) string {
 
 	out.WriteString(shortTime(line.GetTime()))
 	out.WriteString("  ")
-	out.WriteString(fmt.Sprintf("%-5s", strings.ToLower(line.GetLevel())))
+	fmt.Fprintf(&out, "%-5s", strings.ToLower(line.GetLevel()))
 	out.WriteString("  ")
 	out.WriteString(line.GetMessage())
 
@@ -125,7 +125,7 @@ func renderLogLine(line *logv1.LogLine) string {
 	slices.Sort(keys)
 
 	for _, key := range keys {
-		out.WriteString(fmt.Sprintf("  %s=%v", key, fields[key]))
+		fmt.Fprintf(&out, "  %s=%v", key, fields[key])
 	}
 
 	return out.String()

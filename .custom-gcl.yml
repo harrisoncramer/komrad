@@ -1,7 +1,7 @@
-version: v2.7.0
+version: v2.14.0
 destination: local
 plugins:
   - module: 'github.com/harrisoncramer/fussy'
-    version: v0.7.0
+    version: v0.7.1
   - module: 'komradlint'
     path: ./tools/komradlint

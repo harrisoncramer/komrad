@@ -278,7 +278,7 @@ func (s *Service) queueEvent(ctx context.Context, taskID string, payload events.
 	}
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to queue an event for a task",
-			append([]slog.Attr{slog.String(logging.TaskID, taskID), slog.String("topic", payload.Topic())}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, taskID), slog.String(logging.EventTopic, payload.Topic())}, logging.Err(err)...)...)
 	}
 }
 
