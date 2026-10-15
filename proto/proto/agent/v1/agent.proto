@@ -766,6 +766,7 @@ service AgentService {
       mcp: true
       name: "send_mail"
       description: "Send mail to another agent by id or name, setting `reply_to` when answering. Komrad refuses a name used in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator."
+      mcp_guidance: "Say who is asking and what they want."
       destructive: false
       idempotent: false
       roles: [

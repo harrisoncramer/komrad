@@ -66,7 +66,7 @@ message Mail {
 message SendMailRequest {
   // The agent to send to, by id or by the name of a live agent.
   string to = 1 [(buf.validate.field).string.min_len = 1];
-  // The mail's text. It must say who is asking and what they want.
+  // The mail's text.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
