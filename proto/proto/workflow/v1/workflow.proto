@@ -252,7 +252,7 @@ message UpdateWorkflowRequest {
     pattern: "^[a-z0-9-]*$"
   }];
   // Whether the workflow's tasks get worktrees, and how komrad creates them. Turning worktrees off
-  // applies to existing tasks too.
+  // applies to existing tasks too, so deleting one leaves its worktree on disk.
   WorktreeConfig worktree = 7;
   // The workflow's hooks, in full.
   repeated WorkflowHook hooks = 8 [(buf.validate.field).repeated.max_items = 50];
