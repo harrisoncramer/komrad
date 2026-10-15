@@ -1,6 +1,50 @@
 # Style guide
 
-This guide covers the comments in `proto/proto`, which `mise run gen:docs` compiles into the API reference. Write each one for a reader who has the reference page open and has never seen the source.
+This guide covers everything written in komrad that a person or an agent reads: proto comments, docs pages, pull request descriptions, commit messages, RFCs, task notes, mail and review replies. The glossary and the general rules apply to all of it. The proto rules apply to the comments in `proto/proto`, which `mise run gen:docs` compiles into the API reference.
+
+## General rules
+
+Write short, plain sentences. Give each sentence one idea, and keep it under about 25 words.
+
+Use the active voice and the present tense. Write "is" and "has" rather than "serves as" or "features".
+
+Name the thing. A sentence that opens with "it" or "this" makes the reader look back for what it means.
+
+Say what is true and stop. Leave out why a thing matters, what it reflects, and what it makes possible, unless the reader needs that to act.
+
+Avoid the patterns that mark generated text. These include trailing "-ing" clauses that add significance ("ensuring that agents stay in sync"), negative parallels ("not just X, but Y"), lists padded to three, and vague attributions ("some callers find"). Do not use em dashes, bold, emoji or title case.
+
+Put names from code in backticks, such as `notes_updated_at` or `get_task`.
+
+## Proto comments
+
+Write each comment for a reader who has the reference page open and has never seen the source. A comment says what the thing is or does from the caller's side. How komrad does it belongs in Go.
+
+### Services, messages and enums
+
+Start with the name, then say what it is in one sentence: "Task is one piece of work that agents do." Add a second sentence only for something every reader needs.
+
+### Fields
+
+Open with the shape that fits the type. A value is a noun phrase, such as "The task's goal, in markdown." A bool opens with "Whether", a count with "How many", and a timestamp with "When" and ends "in RFC 3339". A request field naming a record says which record and how: "The task to archive, by id or slug."
+
+Then say what an empty or unset value means, if it means anything. Two sentences at most. Behaviour the call performs belongs in the method description, not on its fields.
+
+Name the owner rather than saying "its". Write "The branch of the task's checkout", not "The branch its checkout is on". The reference shows fields in a table, so never point at another field by position.
+
+Do not restate validation. The reference prints each field's rules beside its comment.
+
+Every field needs a comment, even an obvious one. Use the plain form for those. An `id` on a record is "The task's id." A `created_at` is "When the task was created, in RFC 3339." An `updated_at` is "When the task last changed, in RFC 3339." An `archived_at` is "When the task was archived, in RFC 3339. Unset while the task is live."
+
+### Enum values
+
+Say what the state means in one phrase, such as "A rebase stopped on a commit it could not replay." The reference leaves out the zero value, so its comment is for the source only.
+
+### Methods
+
+The `description` in `annotation.v1.surfaces` is the method's reference text, its CLI help, and its MCP tool description. Its first sentence is the summary, so start with an imperative verb and say what the call does: "Archive a task, keeping its record." Then add the effects a caller cannot see from the fields.
+
+Advice to a model, such as when not to call the method or what to do on an error, goes in `mcp_guidance`. Only the MCP tool shows it.
 
 ## Glossary
 
