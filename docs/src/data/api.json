@@ -2627,7 +2627,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task to put the agent on, by id or slug. Unset to create a task with the agent as its writer."
+          "description": "The task to put the agent on, by id or slug, in `workflow_id`. Unset to create a task with the agent as its writer. An agent that joins as a reviewer cannot set `provision_enabled` to true."
         },
         {
           "name": "task_slug",
@@ -4586,7 +4586,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The state of the current pull request. `UNREAD` means komrad has not read the repository yet, and `NONE` means no pull request is open from the branch."
+          "description": "The state of the current pull request. `UNREAD` means komrad has not read the repository yet, and `NONE` means the branch has no pull request, or the checkout has moved past a finished one."
         },
         {
           "name": "number",
@@ -5119,7 +5119,7 @@
           "rules": [
             "at most 500 characters"
           ],
-          "description": "The flags for the writer's CLI. Empty to keep the writer's flags, or to use the workflow's flags when `harness` changes."
+          "description": "The flags for the writer's CLI. Empty to keep the writer's flags, or, when `harness` changes, to use the workflow's flags if the workflow runs that harness and the CLI's default flags if not."
         }
       ]
     },
@@ -6019,7 +6019,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The turn's position in the transcript, counting from one."
+          "description": "The turn's position in the transcript, counting from zero."
         },
         {
           "name": "role",
@@ -6317,7 +6317,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The turn's position in the transcript, counting from one."
+          "description": "The turn's position in the transcript, counting from zero."
         },
         {
           "name": "content",

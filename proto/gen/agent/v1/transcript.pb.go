@@ -102,7 +102,7 @@ type SearchHit struct {
 	Archived bool `protobuf:"varint,4,opt,name=archived,proto3" json:"archived,omitempty"`
 	// How well the turn matched. Zero when the hits are ordered by time.
 	Score float64 `protobuf:"fixed64,5,opt,name=score,proto3" json:"score,omitempty"`
-	// The turn's position in the transcript, counting from one.
+	// The turn's position in the transcript, counting from zero.
 	Seq int32 `protobuf:"varint,6,opt,name=seq,proto3" json:"seq,omitempty"`
 	// Who wrote the turn: the agent, or whoever prompted it.
 	Role string `protobuf:"bytes,7,opt,name=role,proto3" json:"role,omitempty"`
@@ -467,7 +467,7 @@ type Turn struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Who wrote the turn: the agent, or whoever prompted it.
 	Role string `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
-	// The turn's position in the transcript, counting from one.
+	// The turn's position in the transcript, counting from zero.
 	Seq int32 `protobuf:"varint,2,opt,name=seq,proto3" json:"seq,omitempty"`
 	// The turn's text. When `truncated` is set, only the end of it.
 	Content string `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`

@@ -728,7 +728,7 @@ func (x *CommentCounts) GetUnread() int32 {
 type PullRequestStanding struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The state of the current pull request. `UNREAD` means komrad has not read the repository yet,
-	// and `NONE` means no pull request is open from the branch.
+	// and `NONE` means the branch has no pull request, or the checkout has moved past a finished one.
 	State v1.PullRequestState `protobuf:"varint,1,opt,name=state,proto3,enum=pullrequest.v1.PullRequestState" json:"state,omitempty"`
 	// The current pull request's number. Unset for `UNREAD` and `NONE`.
 	Number *int32 `protobuf:"varint,2,opt,name=number,proto3,oneof" json:"number,omitempty"`
@@ -962,8 +962,8 @@ type CreateAgentRequest struct {
 	// Whether the agent gets a worktree of its own. False keeps the agent in the workflow's
 	// directory. Unset to follow the workflow.
 	ProvisionEnabled *bool `protobuf:"varint,7,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
-	// The task to put the agent on, by id or slug. Unset to create a task with the agent as its
-	// writer.
+	// The task to put the agent on, by id or slug, in `workflow_id`. Unset to create a task with the
+	// agent as its writer. An agent that joins as a reviewer cannot set `provision_enabled` to true.
 	Task *string `protobuf:"bytes,8,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	// The slug of the task komrad creates when `task` is unset. Unset to derive one from the
 	// agent's name.
@@ -2871,8 +2871,8 @@ type RestartAgentRequest struct {
 	Note string `protobuf:"bytes,2,opt,name=note,proto3" json:"note,omitempty"`
 	// The harness to move the writer to. Empty to keep the writer's harness.
 	Harness string `protobuf:"bytes,3,opt,name=harness,proto3" json:"harness,omitempty"`
-	// The flags for the writer's CLI. Empty to keep the writer's flags, or to use the workflow's
-	// flags when `harness` changes.
+	// The flags for the writer's CLI. Empty to keep the writer's flags, or, when `harness` changes,
+	// to use the workflow's flags if the workflow runs that harness and the CLI's default flags if not.
 	Flags         string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
