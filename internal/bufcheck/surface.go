@@ -57,7 +57,7 @@ func checkSurfaces(
 		responseWriter.AddAnnotation(
 			check.WithDescriptor(method),
 			check.WithMessagef(
-				"%q is on a surface with no description. That string is the whole of what a model is told about the call and all the help the CLI prints, so without it the method reaches its callers as a name and nothing else.",
+				"%q is on a surface with no description. That string is all the help the CLI prints, the method's text in the docs, and the start of its MCP tool description, so without it the method reaches its callers as a name and nothing else.",
 				method.Name(),
 			),
 		)
