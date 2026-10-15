@@ -238,8 +238,8 @@ message CreateAgentRequest {
   // Whether the agent gets a worktree of its own. False keeps the agent in the workflow's
   // directory. Unset to follow the workflow.
   optional bool provision_enabled = 7;
-  // The task to put the agent on, by id or slug. Unset to create a task with the agent as its
-  // writer.
+  // The task to put the agent on, by id or slug, in `workflow_id`. Unset to create a task with the
+  // agent as its writer. An agent that joins as a reviewer cannot set `provision_enabled` to true.
   optional string task = 8 [(buf.validate.field).string.min_len = 1];
   // The slug of the task komrad creates when `task` is unset. Unset to derive one from the
   // agent's name.
