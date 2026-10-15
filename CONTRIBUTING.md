@@ -6,7 +6,7 @@ Komrad's tools come from [mise](https://mise.jdx.dev). Install it, then from the
 
 ```sh
 mise install
-mise run build
+mise run go:build
 ```
 
 The binary lands in `bin/komrad`.
