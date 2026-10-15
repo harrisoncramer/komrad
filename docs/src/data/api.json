@@ -2640,7 +2640,7 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The slug of the task komrad creates when `task` is unset. Unset to derive one from the agent's name."
+          "description": "The slug of the task komrad creates when `task` is unset. No task may have used it before. Unset to derive one from the agent's name."
         },
         {
           "name": "task_goal",
@@ -9828,7 +9828,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the workflow's tasks get worktrees, and how komrad creates them. Turning worktrees off applies to existing tasks too."
+          "description": "Whether the workflow's tasks get worktrees, and how komrad creates them. Turning worktrees off applies to existing tasks too, so deleting one leaves its worktree on disk."
         },
         {
           "name": "hooks",

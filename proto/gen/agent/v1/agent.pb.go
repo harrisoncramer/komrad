@@ -965,8 +965,8 @@ type CreateAgentRequest struct {
 	// The task to put the agent on, by id or slug, in `workflow_id`. Unset to create a task with the
 	// agent as its writer. An agent that joins as a reviewer cannot set `provision_enabled` to true.
 	Task *string `protobuf:"bytes,8,opt,name=task,proto3,oneof" json:"task,omitempty"`
-	// The slug of the task komrad creates when `task` is unset. Unset to derive one from the
-	// agent's name.
+	// The slug of the task komrad creates when `task` is unset. No task may have used it before.
+	// Unset to derive one from the agent's name.
 	TaskSlug *string `protobuf:"bytes,9,opt,name=task_slug,json=taskSlug,proto3,oneof" json:"task_slug,omitempty"`
 	// The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the
 	// first line of the prompt.

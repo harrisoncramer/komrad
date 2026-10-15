@@ -837,7 +837,7 @@ type UpdateWorkflowRequest struct {
 	// The harness agents launched from now on run.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
 	// Whether the workflow's tasks get worktrees, and how komrad creates them. Turning worktrees off
-	// applies to existing tasks too.
+	// applies to existing tasks too, so deleting one leaves its worktree on disk.
 	Worktree *WorktreeConfig `protobuf:"bytes,7,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// The workflow's hooks, in full.
 	Hooks []*WorkflowHook `protobuf:"bytes,8,rep,name=hooks,proto3" json:"hooks,omitempty"`
