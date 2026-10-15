@@ -3,7 +3,7 @@ name: engine
 # Puts a build on the remote engine. Two ways in, and they want different things.
 #
 # A release calls this workflow once it has published, which is the ordinary path and the reason
-# merging and shipping are no longer the same act. A dispatch on main or a release tag deploys it,
+# merging and shipping are no longer the same act. A dispatch deploys main or a release tag,
 # which is the escape hatch: it needs no AWS credentials on your own machine, so it works when the
 # laptop is the broken thing. The checks run on that path and not on the release path, where the
 # commit has already passed them twice.
