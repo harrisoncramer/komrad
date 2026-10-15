@@ -116,7 +116,7 @@ event: Something komrad tells an agent about through mail, such as `pull_request
 
 hook: A script the person writes that komrad runs at a moment in a task's or agent's life.
 
-CLI hook: A hook the CLI itself fires, which komrad reads to learn what an agent is doing. Always say "CLI hook" for these, never "hook" alone.
+CLI hook: A hook the CLI itself runs, which komrad reads to learn what an agent is doing. Always say "CLI hook" for these, never "hook" alone.
 
 run: One execution of a hook, with its log, or one time a schedule's cron expression matched, with its state. Say which kind when the field does not. Not "firing".
 
