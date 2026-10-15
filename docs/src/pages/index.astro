@@ -5,7 +5,8 @@ import { codeTheme } from "../code-theme.mjs";
 import { HOME_TITLE, REPO_URL, SITE_DESCRIPTION, SITE_TITLE, SPLASH } from "../consts";
 import { canonical, link, media } from "../site";
 
-const INSTALL = `gh release download tip --repo harrisoncramer/komrad --pattern komrad-darwin-arm64 --output ~/.local/bin/komrad
+const INSTALL = `mkdir -p ~/.local/bin
+curl -fsSL -o ~/.local/bin/komrad ${REPO_URL}/releases/latest/download/komrad-darwin-arm64
 chmod +x ~/.local/bin/komrad`;
 
 const NEXT = [

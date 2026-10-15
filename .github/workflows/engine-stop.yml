@@ -29,14 +29,12 @@ jobs:
     if: vars.AWS_CI_ROLE != ''
     runs-on: namespace-profile-harrisoncramer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.AWS_CI_ROLE }}
           aws-region: ${{ vars.AWS_REGION }}

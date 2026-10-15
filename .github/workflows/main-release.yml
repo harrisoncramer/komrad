@@ -11,6 +11,9 @@ name: main-release
 # It waits on the suite the merge already started rather than starting a second one. A workflow
 # cannot read another's result any other way, and calling ci.yml here instead ran every job twice
 # against the same commit.
+#
+# The branches filter matches a name and nothing else, so a fork's pull request from its own main
+# triggers this too. Only a push to this repository's main publishes.
 on:
   workflow_run:
     workflows: [ci]
@@ -23,27 +26,29 @@ permissions:
 # Two merges landing close together would otherwise publish against the same tag and the same
 # asset names, and could interleave into a tag at one commit with binaries from another. The
 # newer merge wins instead, since the older build's output was going to be overwritten anyway.
+# The group names where the run came from, so a fork's run cannot cancel a real publish.
 concurrency:
-  group: main-release
+  group: main-release-${{ github.event.workflow_run.event }}-${{ github.event.workflow_run.head_repository.full_name }}
   cancel-in-progress: true
 
 jobs:
   publish:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: namespace-profile-harrisoncramer
 
     steps:
       # A workflow_run checks out the default branch by default, not the commit that was tested.
       # The history comes with it because the tag is pushed from here.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       # All four targets, macOS included, build here with CGO off. The Go linker ad-hoc
       # signs the darwin/arm64 binary, which is what Apple Silicon refuses to run without,
@@ -84,6 +89,7 @@ jobs:
             echo "it makes no version promise and changes without notice."
             echo
             echo '```sh'
+            echo "mkdir -p ~/.local/bin"
             echo "curl -fsSL -o ~/.local/bin/komrad \\"
             echo "  https://github.com/$GITHUB_REPOSITORY/releases/download/tip/komrad-darwin-arm64"
             echo "chmod +x ~/.local/bin/komrad"

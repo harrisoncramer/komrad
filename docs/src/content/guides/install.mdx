@@ -20,13 +20,35 @@ The server runs your agents and records their activity in Postgres, so you can s
 ## Install the binary
 
 ```sh
-gh release download tip --repo harrisoncramer/komrad --pattern komrad-darwin-arm64 --output ~/.local/bin/komrad
+mkdir -p ~/.local/bin
+curl -fsSL -o ~/.local/bin/komrad https://github.com/harrisoncramer/komrad/releases/latest/download/komrad-darwin-arm64
 chmod +x ~/.local/bin/komrad
 ```
 
-Swap `darwin-arm64` for your platform.
+Swap `darwin-arm64` for your platform: `darwin-amd64`, `linux-amd64` or `linux-arm64`.
 
-The `tip` binary is rebuilt from main on every merge and is unstable. Stable releases have a version number and a changelog. Every release carries a `checksums.txt` file.
+This installs the newest stable release. Each release has a version number and a changelog on the [releases page](https://github.com/harrisoncramer/komrad/releases).
+
+### Check the download
+
+Every release carries a `checksums.txt` file. Compare the binary against it.
+
+```sh
+expected="$(curl -fsSL https://github.com/harrisoncramer/komrad/releases/latest/download/checksums.txt |
+  awk '$2 == "komrad-darwin-arm64" {print $1}')"
+echo "$expected  $HOME/.local/bin/komrad" | shasum -a 256 --check
+```
+
+The checksums come from the same place as the binary, so they catch a corrupted download, not a compromised release.
+
+### Install tip instead
+
+The `tip` release is rebuilt from main on every merge. It has the newest changes and makes no version promise.
+
+```sh
+curl -fsSL -o ~/.local/bin/komrad https://github.com/harrisoncramer/komrad/releases/download/tip/komrad-darwin-arm64
+chmod +x ~/.local/bin/komrad
+```
 
 ## Automatic installation
 
