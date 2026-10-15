@@ -60,7 +60,7 @@ base branch: The branch worktrees are created from and changes are measured agai
 
 origin: The git remote a worktree pushes to.
 
-landed: Held in full by the base branch. Use it for commits and rounds.
+landed: Contained in full in the base branch. Use it for commits and rounds.
 
 sequence: A git operation stopped part way, such as a rebase or merge with conflicts.
 
@@ -132,7 +132,7 @@ empty: A string or list with nothing in it. Use it for fields without presence.
 
 unset: An optional field or message field the caller did not set. Not "absent", "blank", or "missing".
 
-RFC 3339: The format of every timestamp held in a string. Say it on each such field, as "in RFC 3339". A google.protobuf.Timestamp field needs no format note.
+RFC 3339: The format of every timestamp in a string field. Say it on each such field, as "in RFC 3339". A google.protobuf.Timestamp field needs no format note.
 
 ## Words not to use
 
