@@ -76,7 +76,7 @@ message MergeReadiness {
   // The state of the checks on the head commit. Unspecified when the forge last reported on an
   // older head.
   Checks checks = 2;
-  // The forge's mergeability. While the forge recomputes it, the last value for the same head.
+  // The forge's mergeability, or the last value for the same head while the forge recomputes it.
   Mergeability mergeability = 3;
   // Whether `mergeability` is the last value for this head, not yet confirmed by a new read.
   bool mergeability_unconfirmed = 4;
