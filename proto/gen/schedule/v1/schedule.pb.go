@@ -28,27 +28,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ScheduleRunState names the state River holds a firing's job in.
+// ScheduleRunState is the state of one schedule run.
 type ScheduleRunState int32
 
 const (
-	// No state was recorded.
+	// No state was recorded. No run has this value.
 	ScheduleRunState_SCHEDULE_RUN_STATE_UNSPECIFIED ScheduleRunState = 0
-	// Waiting for a worker to pick it up.
+	// Waiting to start.
 	ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE ScheduleRunState = 1
-	// Held back from running until something releases it.
+	// Held back until something releases the run.
 	ScheduleRunState_SCHEDULE_RUN_STATE_PENDING ScheduleRunState = 2
-	// Queued to become available at a later time.
+	// Waiting for a later time to start.
 	ScheduleRunState_SCHEDULE_RUN_STATE_SCHEDULED ScheduleRunState = 3
-	// Being worked right now.
+	// Running now.
 	ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING ScheduleRunState = 4
 	// Failed an attempt and waiting to try again.
 	ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE ScheduleRunState = 5
-	// Launched its agent or delivered its mail.
+	// Launched the run's agent or sent the run's mail.
 	ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED ScheduleRunState = 6
-	// Skipped on purpose, with the reason in its message.
+	// Skipped, with the reason in the run's message.
 	ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED ScheduleRunState = 7
-	// Ran out of attempts, with the last error in its message.
+	// Out of attempts, with the last error in the run's message.
 	ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED ScheduleRunState = 8
 )
 
@@ -105,15 +105,15 @@ func (ScheduleRunState) EnumDescriptor() ([]byte, []int) {
 	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{0}
 }
 
-// ScheduleKind is what a schedule does each time it fires.
+// ScheduleKind is what a schedule does each time its cron expression matches.
 type ScheduleKind int32
 
 const (
-	// No kind was recorded.
+	// No kind was recorded. No schedule has this value.
 	ScheduleKind_SCHEDULE_KIND_UNSPECIFIED ScheduleKind = 0
-	// Mails the prompt to an orchestrator that is already running.
+	// Mails the prompt to a running orchestrator.
 	ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR ScheduleKind = 1
-	// Starts a new task in the workflow, its writer given the prompt.
+	// Creates a task in the workflow and launches its writer with the prompt.
 	ScheduleKind_SCHEDULE_KIND_TASK ScheduleKind = 2
 )
 
@@ -158,22 +158,23 @@ func (ScheduleKind) EnumDescriptor() ([]byte, []int) {
 	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{1}
 }
 
-// ScheduleRun is one firing of a schedule, as the job that carried it out stands.
+// ScheduleRun is one time a schedule's cron expression matched, with its state.
 type ScheduleRun struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The job's own id. Firings sort newest first by it.
+	// The run's id. A higher id is a newer run.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Which occurrence of the cron expression this firing stands for.
+	// The time the cron expression matched for this run.
 	ScheduledFor *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=scheduled_for,json=scheduledFor,proto3" json:"scheduled_for,omitempty"`
-	// Where the firing stands.
+	// The run's state.
 	State ScheduleRunState `protobuf:"varint,3,opt,name=state,proto3,enum=schedule.v1.ScheduleRunState" json:"state,omitempty"`
-	// Which try this is, starting at one once it has been worked.
+	// The run's current attempt, counting from one once the run has started.
 	Attempt int32 `protobuf:"varint,4,opt,name=attempt,proto3" json:"attempt,omitempty"`
-	// How many tries it is given before it is discarded.
+	// How many attempts the run has before it is discarded.
 	MaxAttempts int32 `protobuf:"varint,5,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`
-	// When it finished, unset while it is still waiting or working.
+	// When the run finished. Unset while the run is waiting or running.
 	FinalizedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=finalized_at,json=finalizedAt,proto3,oneof" json:"finalized_at,omitempty"`
-	// Why it was skipped or what its last failed attempt said, blank once it has fired.
+	// Why the run was skipped, or the error from its last failed attempt. Empty when the run
+	// completed.
 	Message       string `protobuf:"bytes,7,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -258,37 +259,41 @@ func (x *ScheduleRun) GetMessage() string {
 	return ""
 }
 
+// Schedule is a cron expression that creates a task or mails an orchestrator each time it
+// matches.
 type Schedule struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle every other call names this schedule by.
+	// The schedule's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// What the panel lists it as.
+	// The schedule's name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Five fields saying when it fires, in the timezone below.
+	// The schedule's cron expression, in five fields.
 	Cron string `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
-	// Which clock the expression is read against, blank for the machine's own.
+	// The timezone the cron expression is read in. Empty uses the machine's timezone.
 	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	// Whether it is armed. A paused schedule keeps its record and stops firing.
+	// Whether the schedule is enabled. A disabled schedule keeps its record and never runs.
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Whether the task each launch works on starts hidden from the panel's sidebar.
+	// Whether the tasks the schedule creates start hidden.
 	HideAgents bool `protobuf:"varint,6,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	// The opening prompt every agent it launches is given, or the mail its orchestrator is sent.
+	// The prompt each launched writer starts with, or the mail sent to the orchestrator.
 	Prompt string `protobuf:"bytes,7,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// Which workflow it is filed under, which for an orchestrator schedule is its orchestrator's.
+	// The id of the workflow the schedule belongs to. For an orchestrator schedule, the
+	// orchestrator's workflow.
 	WorkflowId string `protobuf:"bytes,8,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	// Whether it starts a task or mails an orchestrator.
+	// Whether the schedule creates a task or mails an orchestrator.
 	Kind ScheduleKind `protobuf:"varint,9,opt,name=kind,proto3,enum=schedule.v1.ScheduleKind" json:"kind,omitempty"`
-	// The orchestrator it mails, set only on an orchestrator schedule.
+	// The id of the orchestrator the schedule mails. Set only on an orchestrator schedule.
 	OrchestratorAgentId *string `protobuf:"bytes,10,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof" json:"orchestrator_agent_id,omitempty"`
-	// When the expression next matches, unset while the schedule is paused.
+	// When the cron expression next matches. Unset while the schedule is disabled.
 	NextRunAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
-	// Whether prompt holds only its opening. A summary listing returns the opening only.
+	// Whether `prompt` was cut to its opening, as in a summary listing.
 	PromptTruncated bool `protobuf:"varint,12,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
-	// The newest firing still on record, unset when it has never fired or the record has aged out.
+	// The schedule's newest run. Unset when the schedule has never run or the run's record has
+	// expired.
 	LatestRun *ScheduleRun `protobuf:"bytes,13,opt,name=latest_run,json=latestRun,proto3,oneof" json:"latest_run,omitempty"`
-	// The newest firings on record, newest first. Only the watch fills this.
+	// The schedule's newest runs, newest first. Set only in `Watch` events.
 	RecentRuns []*ScheduleRun `protobuf:"bytes,14,rep,name=recent_runs,json=recentRuns,proto3" json:"recent_runs,omitempty"`
-	// When it was archived, unset while it is live.
+	// When the schedule was archived. Unset while the schedule is live.
 	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -431,12 +436,11 @@ func (x *Schedule) GetArchivedAt() *timestamppb.Timestamp {
 
 type ListSchedulesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Where to carry on from.
+	// The page to read.
 	Pagination *v1.Pagination `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// How much of each record to return. The panel draws every field, while a model reading the
-	// same endpoint has a context window to spend.
+	// How much of each schedule to return.
 	View v11.View `protobuf:"varint,2,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
-	// True to list the archived schedules and only those.
+	// Whether to list only archived schedules instead of live ones.
 	Archived      bool `protobuf:"varint,3,opt,name=archived,proto3" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -497,7 +501,7 @@ type ListSchedulesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// One page of schedules, most recently updated first.
 	Schedules []*Schedule `protobuf:"bytes,1,rep,name=schedules,proto3" json:"schedules,omitempty"`
-	// Pass this back as the pagination cursor for the next page.
+	// The cursor for the next page. Unset on the last page.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -549,7 +553,7 @@ func (x *ListSchedulesResponse) GetNextPageToken() string {
 
 type GetScheduleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which schedule to read.
+	// The schedule to get, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -594,7 +598,7 @@ func (x *GetScheduleRequest) GetId() string {
 
 type GetScheduleResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The schedule, with its prompt whole rather than cut to its opening.
+	// The schedule, with its prompt in full.
 	Schedule      *Schedule `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -639,9 +643,9 @@ func (x *GetScheduleResponse) GetSchedule() *Schedule {
 
 type ListScheduleRunsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which schedule's firings to read.
+	// The schedule whose runs to list, by id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// How many of the newest firings to return, twenty when unset.
+	// How many of the newest runs to return. Zero returns twenty.
 	Limit         int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -693,7 +697,7 @@ func (x *ListScheduleRunsRequest) GetLimit() int32 {
 
 type ListScheduleRunsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The firings on record, newest first.
+	// The schedule's runs on record, newest first.
 	Runs          []*ScheduleRun `protobuf:"bytes,1,rep,name=runs,proto3" json:"runs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -738,20 +742,19 @@ func (x *ListScheduleRunsResponse) GetRuns() []*ScheduleRun {
 
 type CreateScheduleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What to list it as. It also becomes the title of each agent it launches.
+	// The schedule's name, which is also the title of each task the schedule creates.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// When to fire, as five whitespace-separated fields.
+	// The schedule's cron expression, in five fields separated by spaces.
 	Cron string `protobuf:"bytes,2,opt,name=cron,proto3" json:"cron,omitempty"`
-	// Which clock to read that against, blank for the machine's own.
+	// The timezone to read the cron expression in. Empty uses the machine's timezone.
 	Timezone string `protobuf:"bytes,3,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	// False to write the schedule down without arming it.
+	// Whether the schedule starts enabled.
 	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// True to start the task each launch works on hidden from the panel's sidebar, ignored by an
-	// orchestrator schedule.
+	// Whether the tasks the schedule creates start hidden. An orchestrator schedule ignores it.
 	HideAgents bool `protobuf:"varint,5,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	// The opening prompt each launch is given, or the mail an orchestrator is sent.
+	// The prompt each launched writer starts with, or the mail sent to the orchestrator.
 	Prompt string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// What each firing does.
+	// What each run does.
 	//
 	// Types that are valid to be assigned to Target:
 	//
@@ -864,12 +867,13 @@ type isCreateScheduleRequest_Target interface {
 }
 
 type CreateScheduleRequest_WorkflowId struct {
-	// Start a task in this workflow. Its writer inherits the workflow's cwd and flags.
+	// The workflow to create a task in, by id. The writer takes the workflow's directory and
+	// flags.
 	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof"`
 }
 
 type CreateScheduleRequest_OrchestratorAgentId struct {
-	// Mail the prompt to this orchestrator.
+	// The orchestrator to mail the prompt to, by id.
 	OrchestratorAgentId string `protobuf:"bytes,8,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof"`
 }
 
@@ -879,7 +883,7 @@ func (*CreateScheduleRequest_OrchestratorAgentId) isCreateScheduleRequest_Target
 
 type CreateScheduleResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The schedule as recorded, which has fired nothing yet.
+	// The schedule as created.
 	Schedule      *Schedule `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -924,26 +928,26 @@ func (x *CreateScheduleResponse) GetSchedule() *Schedule {
 
 type UpdateScheduleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which schedule to rewrite.
+	// The schedule to update, by id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Every field here is written, so send back the ones you are not changing.
+	// The schedule's name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// When it fires from now on.
+	// The schedule's cron expression.
 	Cron string `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
-	// Which clock that is read against.
+	// The timezone to read the cron expression in. Empty uses the machine's timezone.
 	Timezone string `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	// Whether it stays armed.
+	// Whether the schedule is enabled.
 	Enabled bool `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// The prompt later firings use, leaving agents already launched alone.
+	// The prompt for later runs. Agents already launched keep theirs.
 	Prompt string `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// What later firings do.
+	// What later runs do.
 	//
 	// Types that are valid to be assigned to Target:
 	//
 	//	*UpdateScheduleRequest_WorkflowId
 	//	*UpdateScheduleRequest_OrchestratorAgentId
 	Target isUpdateScheduleRequest_Target `protobuf_oneof:"target"`
-	// Whether the tasks of later launches start hidden, leaving existing tasks alone.
+	// Whether tasks from later runs start hidden. Existing tasks keep theirs.
 	HideAgents    bool `protobuf:"varint,9,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1058,12 +1062,12 @@ type isUpdateScheduleRequest_Target interface {
 }
 
 type UpdateScheduleRequest_WorkflowId struct {
-	// Start a task in this workflow.
+	// The workflow to create a task in, by id.
 	WorkflowId string `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3,oneof"`
 }
 
 type UpdateScheduleRequest_OrchestratorAgentId struct {
-	// Mail the prompt to this orchestrator.
+	// The orchestrator to mail the prompt to, by id.
 	OrchestratorAgentId string `protobuf:"bytes,8,opt,name=orchestrator_agent_id,json=orchestratorAgentId,proto3,oneof"`
 }
 
@@ -1073,9 +1077,9 @@ func (*UpdateScheduleRequest_OrchestratorAgentId) isUpdateScheduleRequest_Target
 
 type SetScheduleEnabledRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which schedule to arm or pause.
+	// The schedule to enable or disable, by id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// False to stop it firing while keeping its record and its history.
+	// Whether the schedule is enabled. False keeps the schedule's record and runs.
 	Enabled       bool `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1127,7 +1131,7 @@ func (x *SetScheduleEnabledRequest) GetEnabled() bool {
 
 type ArchiveScheduleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which schedule to hide, leaving the agents it already launched running.
+	// The schedule to archive, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1172,7 +1176,7 @@ func (x *ArchiveScheduleRequest) GetId() string {
 
 type RestoreScheduleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which archived schedule to bring back.
+	// The archived schedule to restore, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1217,7 +1221,7 @@ func (x *RestoreScheduleRequest) GetId() string {
 
 type DeleteScheduleRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which archived schedule to remove for good.
+	// The archived schedule to delete, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1370,17 +1374,17 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\fScheduleKind\x12\x1d\n" +
 	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x01\x12\x16\n" +
-	"\x12SCHEDULE_KIND_TASK\x10\x022\xfc\x0e\n" +
-	"\x0fScheduleService\x12\x99\x02\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xc0\x01\x9a\xb5\x18\xb8\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x9e\x01List the schedules, most recently updated first, with the opening of each prompt and its latest run. The list omits archived schedules unless archived is set.:\x01\x02\x90\x02\x01\x12\x89\x01\n" +
-	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"7\x9a\xb5\x180\b\x01\x10\x01\x1a\fget_schedule\"\x19Fetch one schedule by id.:\x01\x02\x90\x02\x01\x12\xf3\x01\n" +
-	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x12list_schedule_runs\"lList a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.:\x01\x02\x90\x02\x01\x12\xa4\x02\n" +
-	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xc8\x01\x9a\xb5\x18\xc3\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\xa6\x01Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.(\x00:\x01\x02\x12\xcd\x01\n" +
-	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\x7f\x9a\xb5\x18x\b\x01\x10\x01\x1a\x0fupdate_schedule\"\\Replace every field of a schedule, so read it first and send back what you are not changing.(\x00:\x01\x02\x90\x02\x02\x12\x9b\x01\n" +
-	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"E\x9a\xb5\x18>\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x1dPause or resume one schedule.(\x00:\x01\x02\x90\x02\x02\x12\xd4\x01\n" +
-	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\x83\x01\x9a\xb5\x18|\b\x01\x10\x01\x1a\x10archive_schedule\"_Archive a schedule so it stops firing, keeping its record. The agents it launched keep running.(\x00:\x01\x02\x90\x02\x02\x12\xb2\x01\n" +
-	"\x0fRestoreSchedule\x12#.schedule.v1.RestoreScheduleRequest\x1a\x16.google.protobuf.Empty\"b\x9a\xb5\x18[\b\x01\x10\x01\x1a\x10restore_schedule\">Take a schedule out of the archive, paused or armed as it was.(\x00:\x01\x02\x90\x02\x02\x12\xa9\x01\n" +
-	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"[\x9a\xb5\x18T\b\x01\x10\x01\x1a\x0fdelete_schedule\"8Permanently delete an archived schedule and its history.(\x01:\x01\x02\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
+	"\x12SCHEDULE_KIND_TASK\x10\x022\x90\x0f\n" +
+	"\x0fScheduleService\x12\xfb\x01\n" +
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xa2\x01\x9a\xb5\x18\x9a\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x80\x01List schedules, most recently updated first, each with its latest run. Archived schedules are left out unless `archived` is set.:\x01\x02\x90\x02\x01\x12\xa0\x01\n" +
+	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"N\x9a\xb5\x18G\b\x01\x10\x01\x1a\fget_schedule\"0Get one schedule by id, with its prompt in full.:\x01\x02\x90\x02\x01\x12\xe8\x01\n" +
+	"\x10ListScheduleRuns\x12$.schedule.v1.ListScheduleRunsRequest\x1a%.schedule.v1.ListScheduleRunsResponse\"\x86\x01\x9a\xb5\x18\x7f\b\x01\x10\x01\x1a\x12list_schedule_runs\"bList a schedule's newest runs, newest first, each with its state and why it was skipped or failed.:\x01\x02\x90\x02\x01\x12\x8c\x02\n" +
+	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xb0\x01\x9a\xb5\x18\xab\x01\b\x01\x10\x01\x1a\x0fcreate_schedule\"\x8e\x01Create a schedule that, each time its cron expression matches, creates a task in `workflow_id` or mails the prompt to `orchestrator_agent_id`.(\x00:\x01\x02\x12\x83\x02\n" +
+	"\x0eUpdateSchedule\x12\".schedule.v1.UpdateScheduleRequest\x1a\x16.google.protobuf.Empty\"\xb4\x01\x9a\xb5\x18\xac\x01\b\x01\x10\x01\x1a\x0fupdate_schedule\"GReplace every field of a schedule. Fields left empty are written empty.(\x00:\x01\x02JGRead the schedule first and send back every field you are not changing.\x90\x02\x02\x12\x9b\x01\n" +
+	"\x12SetScheduleEnabled\x12&.schedule.v1.SetScheduleEnabledRequest\x1a\x16.google.protobuf.Empty\"E\x9a\xb5\x18>\b\x01\x10\x01\x1a\x14set_schedule_enabled\"\x1dEnable or disable a schedule.(\x00:\x01\x02\x90\x02\x02\x12\xe2\x01\n" +
+	"\x0fArchiveSchedule\x12#.schedule.v1.ArchiveScheduleRequest\x1a\x16.google.protobuf.Empty\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x10archive_schedule\"lArchive a schedule, keeping its record. The schedule stops running, and the agents it launched keep running.(\x00:\x01\x02\x90\x02\x02\x12\xb0\x01\n" +
+	"\x0fRestoreSchedule\x12#.schedule.v1.RestoreScheduleRequest\x1a\x16.google.protobuf.Empty\"`\x9a\xb5\x18Y\b\x01\x10\x01\x1a\x10restore_schedule\"<Restore an archived schedule, enabled or disabled as it was.(\x00:\x01\x02\x90\x02\x02\x12\xa5\x01\n" +
+	"\x0eDeleteSchedule\x12\".schedule.v1.DeleteScheduleRequest\x1a\x16.google.protobuf.Empty\"W\x9a\xb5\x18P\b\x01\x10\x01\x1a\x0fdelete_schedule\"4Delete an archived schedule for good, with its runs.(\x01:\x01\x02\x90\x02\x02B)Z'komrad/proto/gen/schedule/v1;schedulev1b\x06proto3"
 
 var (
 	file_schedule_v1_schedule_proto_rawDescOnce sync.Once

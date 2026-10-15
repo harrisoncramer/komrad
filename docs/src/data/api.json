@@ -1069,7 +1069,7 @@
       "slug": "schedule",
       "title": "Schedule",
       "name": "schedule.v1.ScheduleService",
-      "description": "ScheduleService runs recurring firings. Each one starts a task in a workflow or mails an orchestrator whenever its cron expression next matches.",
+      "description": "ScheduleService creates and manages schedules.",
       "methods": [
         {
           "slug": "list-schedules",
@@ -1081,8 +1081,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List the schedules, most recently updated first, with the opening of each prompt and its latest run.",
-          "description": "List the schedules, most recently updated first, with the opening of each prompt and its latest run. The list omits archived schedules unless archived is set.",
+          "summary": "List schedules, most recently updated first, each with its latest run.",
+          "description": "List schedules, most recently updated first, each with its latest run. Archived schedules are left out unless `archived` is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1099,8 +1099,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Fetch one schedule by id.",
-          "description": "Fetch one schedule by id.",
+          "summary": "Get one schedule by id, with its prompt in full.",
+          "description": "Get one schedule by id, with its prompt in full.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1117,8 +1117,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.",
-          "description": "List a schedule's most recent firings, newest first, with each one's state and why it was skipped or failed.",
+          "summary": "List a schedule's newest runs, newest first, each with its state and why it was skipped or failed.",
+          "description": "List a schedule's newest runs, newest first, each with its state and why it was skipped or failed.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1135,8 +1135,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId.",
-          "description": "Create a schedule that fires on a cron expression, starting a task in workflowId or mailing the prompt to orchestratorAgentId. Set enabled false to create it unarmed.",
+          "summary": "Create a schedule that, each time its cron expression matches, creates a task in `workflow_id` or mails the prompt to `orchestrator_agent_id`.",
+          "description": "Create a schedule that, each time its cron expression matches, creates a task in `workflow_id` or mails the prompt to `orchestrator_agent_id`.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1153,8 +1153,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Replace every field of a schedule, so read it first and send back what you are not changing.",
-          "description": "Replace every field of a schedule, so read it first and send back what you are not changing.",
+          "summary": "Replace every field of a schedule.",
+          "description": "Replace every field of a schedule. Fields left empty are written empty.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1171,8 +1171,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Pause or resume one schedule.",
-          "description": "Pause or resume one schedule.",
+          "summary": "Enable or disable a schedule.",
+          "description": "Enable or disable a schedule.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1189,8 +1189,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Archive a schedule so it stops firing, keeping its record.",
-          "description": "Archive a schedule so it stops firing, keeping its record. The agents it launched keep running.",
+          "summary": "Archive a schedule, keeping its record.",
+          "description": "Archive a schedule, keeping its record. The schedule stops running, and the agents it launched keep running.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1207,8 +1207,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Take a schedule out of the archive, paused or armed as it was.",
-          "description": "Take a schedule out of the archive, paused or armed as it was.",
+          "summary": "Restore an archived schedule, enabled or disabled as it was.",
+          "description": "Restore an archived schedule, enabled or disabled as it was.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1225,8 +1225,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Permanently delete an archived schedule and its history.",
-          "description": "Permanently delete an archived schedule and its history.",
+          "summary": "Delete an archived schedule for good, with its runs.",
+          "description": "Delete an archived schedule for good, with its runs.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -8135,7 +8135,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which schedule to hide, leaving the agents it already launched running."
+          "description": "The schedule to archive, by id."
         }
       ]
     },
@@ -8154,7 +8154,7 @@
             "required",
             "at most 200 characters"
           ],
-          "description": "What to list it as. It also becomes the title of each agent it launches."
+          "description": "The schedule's name, which is also the title of each task the schedule creates."
         },
         {
           "name": "cron",
@@ -8166,7 +8166,7 @@
           "rules": [
             "required"
           ],
-          "description": "When to fire, as five whitespace-separated fields."
+          "description": "The schedule's cron expression, in five fields separated by spaces."
         },
         {
           "name": "timezone",
@@ -8178,7 +8178,7 @@
           "rules": [
             "at most 100 characters"
           ],
-          "description": "Which clock to read that against, blank for the machine's own."
+          "description": "The timezone to read the cron expression in. Empty uses the machine's timezone."
         },
         {
           "name": "enabled",
@@ -8188,7 +8188,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "False to write the schedule down without arming it."
+          "description": "Whether the schedule starts enabled."
         },
         {
           "name": "hide_agents",
@@ -8198,7 +8198,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True to start the task each launch works on hidden from the panel's sidebar, ignored by an orchestrator schedule."
+          "description": "Whether the tasks the schedule creates start hidden. An orchestrator schedule ignores it."
         },
         {
           "name": "prompt",
@@ -8211,7 +8211,7 @@
             "required",
             "at most 50000 characters"
           ],
-          "description": "The opening prompt each launch is given, or the mail an orchestrator is sent."
+          "description": "The prompt each launched writer starts with, or the mail sent to the orchestrator."
         },
         {
           "name": "workflow_id",
@@ -8221,7 +8221,7 @@
           "map": false,
           "oneof": "target",
           "rules": [],
-          "description": "Start a task in this workflow. Its writer inherits the workflow's cwd and flags."
+          "description": "The workflow to create a task in, by id. The writer takes the workflow's directory and flags."
         },
         {
           "name": "orchestrator_agent_id",
@@ -8231,7 +8231,7 @@
           "map": false,
           "oneof": "target",
           "rules": [],
-          "description": "Mail the prompt to this orchestrator."
+          "description": "The orchestrator to mail the prompt to, by id."
         }
       ]
     },
@@ -8247,7 +8247,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The schedule as recorded, which has fired nothing yet."
+          "description": "The schedule as created."
         }
       ]
     },
@@ -8265,7 +8265,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which archived schedule to remove for good."
+          "description": "The archived schedule to delete, by id."
         }
       ]
     },
@@ -8283,7 +8283,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which schedule to read."
+          "description": "The schedule to get, by id."
         }
       ]
     },
@@ -8299,7 +8299,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The schedule, with its prompt whole rather than cut to its opening."
+          "description": "The schedule, with its prompt in full."
         }
       ]
     },
@@ -8317,7 +8317,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which schedule's firings to read."
+          "description": "The schedule whose runs to list, by id."
         },
         {
           "name": "limit",
@@ -8329,7 +8329,7 @@
           "rules": [
             "between 0 and 200"
           ],
-          "description": "How many of the newest firings to return, twenty when unset."
+          "description": "How many of the newest runs to return. Zero returns twenty."
         }
       ]
     },
@@ -8345,7 +8345,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The firings on record, newest first."
+          "description": "The schedule's runs on record, newest first."
         }
       ]
     },
@@ -8361,7 +8361,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where to carry on from."
+          "description": "The page to read."
         },
         {
           "name": "view",
@@ -8371,7 +8371,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How much of each record to return. The panel draws every field, while a model reading the same endpoint has a context window to spend."
+          "description": "How much of each schedule to return."
         },
         {
           "name": "archived",
@@ -8381,7 +8381,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True to list the archived schedules and only those."
+          "description": "Whether to list only archived schedules instead of live ones."
         }
       ]
     },
@@ -8407,7 +8407,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this back as the pagination cursor for the next page."
+          "description": "The cursor for the next page. Unset on the last page."
         }
       ]
     },
@@ -8425,13 +8425,13 @@
           "rules": [
             "required"
           ],
-          "description": "Which archived schedule to bring back."
+          "description": "The archived schedule to restore, by id."
         }
       ]
     },
     "schedule.v1.Schedule": {
       "name": "Schedule",
-      "description": "",
+      "description": "Schedule is a cron expression that creates a task or mails an orchestrator each time it matches.",
       "fields": [
         {
           "name": "id",
@@ -8441,7 +8441,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle every other call names this schedule by."
+          "description": "The schedule's id."
         },
         {
           "name": "name",
@@ -8451,7 +8451,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the panel lists it as."
+          "description": "The schedule's name."
         },
         {
           "name": "cron",
@@ -8461,7 +8461,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Five fields saying when it fires, in the timezone below."
+          "description": "The schedule's cron expression, in five fields."
         },
         {
           "name": "timezone",
@@ -8471,7 +8471,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which clock the expression is read against, blank for the machine's own."
+          "description": "The timezone the cron expression is read in. Empty uses the machine's timezone."
         },
         {
           "name": "enabled",
@@ -8481,7 +8481,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether it is armed. A paused schedule keeps its record and stops firing."
+          "description": "Whether the schedule is enabled. A disabled schedule keeps its record and never runs."
         },
         {
           "name": "hide_agents",
@@ -8491,7 +8491,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the task each launch works on starts hidden from the panel's sidebar."
+          "description": "Whether the tasks the schedule creates start hidden."
         },
         {
           "name": "prompt",
@@ -8501,7 +8501,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The opening prompt every agent it launches is given, or the mail its orchestrator is sent."
+          "description": "The prompt each launched writer starts with, or the mail sent to the orchestrator."
         },
         {
           "name": "workflow_id",
@@ -8511,7 +8511,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which workflow it is filed under, which for an orchestrator schedule is its orchestrator's."
+          "description": "The id of the workflow the schedule belongs to. For an orchestrator schedule, the orchestrator's workflow."
         },
         {
           "name": "kind",
@@ -8521,7 +8521,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether it starts a task or mails an orchestrator."
+          "description": "Whether the schedule creates a task or mails an orchestrator."
         },
         {
           "name": "orchestrator_agent_id",
@@ -8531,7 +8531,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The orchestrator it mails, set only on an orchestrator schedule."
+          "description": "The id of the orchestrator the schedule mails. Set only on an orchestrator schedule."
         },
         {
           "name": "next_run_at",
@@ -8541,7 +8541,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the expression next matches, unset while the schedule is paused."
+          "description": "When the cron expression next matches. Unset while the schedule is disabled."
         },
         {
           "name": "prompt_truncated",
@@ -8551,7 +8551,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether prompt holds only its opening. A summary listing returns the opening only."
+          "description": "Whether `prompt` was cut to its opening, as in a summary listing."
         },
         {
           "name": "latest_run",
@@ -8561,7 +8561,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The newest firing still on record, unset when it has never fired or the record has aged out."
+          "description": "The schedule's newest run. Unset when the schedule has never run or the run's record has expired."
         },
         {
           "name": "recent_runs",
@@ -8571,7 +8571,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The newest firings on record, newest first. Only the watch fills this."
+          "description": "The schedule's newest runs, newest first. Set only in `Watch` events."
         },
         {
           "name": "archived_at",
@@ -8581,13 +8581,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was archived, unset while it is live."
+          "description": "When the schedule was archived. Unset while the schedule is live."
         }
       ]
     },
     "schedule.v1.ScheduleRun": {
       "name": "ScheduleRun",
-      "description": "ScheduleRun is one firing of a schedule, as the job that carried it out stands.",
+      "description": "ScheduleRun is one time a schedule's cron expression matched, with its state.",
       "fields": [
         {
           "name": "id",
@@ -8597,7 +8597,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The job's own id. Firings sort newest first by it."
+          "description": "The run's id. A higher id is a newer run."
         },
         {
           "name": "scheduled_for",
@@ -8607,7 +8607,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which occurrence of the cron expression this firing stands for."
+          "description": "The time the cron expression matched for this run."
         },
         {
           "name": "state",
@@ -8617,7 +8617,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the firing stands."
+          "description": "The run's state."
         },
         {
           "name": "attempt",
@@ -8627,7 +8627,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which try this is, starting at one once it has been worked."
+          "description": "The run's current attempt, counting from one once the run has started."
         },
         {
           "name": "max_attempts",
@@ -8637,7 +8637,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many tries it is given before it is discarded."
+          "description": "How many attempts the run has before it is discarded."
         },
         {
           "name": "finalized_at",
@@ -8647,7 +8647,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it finished, unset while it is still waiting or working."
+          "description": "When the run finished. Unset while the run is waiting or running."
         },
         {
           "name": "message",
@@ -8657,7 +8657,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why it was skipped or what its last failed attempt said, blank once it has fired."
+          "description": "Why the run was skipped, or the error from its last failed attempt. Empty when the run completed."
         }
       ]
     },
@@ -8675,7 +8675,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which schedule to arm or pause."
+          "description": "The schedule to enable or disable, by id."
         },
         {
           "name": "enabled",
@@ -8685,7 +8685,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "False to stop it firing while keeping its record and its history."
+          "description": "Whether the schedule is enabled. False keeps the schedule's record and runs."
         }
       ]
     },
@@ -8703,7 +8703,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which schedule to rewrite."
+          "description": "The schedule to update, by id."
         },
         {
           "name": "name",
@@ -8716,7 +8716,7 @@
             "required",
             "at most 200 characters"
           ],
-          "description": "Every field here is written, so send back the ones you are not changing."
+          "description": "The schedule's name."
         },
         {
           "name": "cron",
@@ -8728,7 +8728,7 @@
           "rules": [
             "required"
           ],
-          "description": "When it fires from now on."
+          "description": "The schedule's cron expression."
         },
         {
           "name": "timezone",
@@ -8740,7 +8740,7 @@
           "rules": [
             "at most 100 characters"
           ],
-          "description": "Which clock that is read against."
+          "description": "The timezone to read the cron expression in. Empty uses the machine's timezone."
         },
         {
           "name": "enabled",
@@ -8750,7 +8750,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether it stays armed."
+          "description": "Whether the schedule is enabled."
         },
         {
           "name": "prompt",
@@ -8763,7 +8763,7 @@
             "required",
             "at most 50000 characters"
           ],
-          "description": "The prompt later firings use, leaving agents already launched alone."
+          "description": "The prompt for later runs. Agents already launched keep theirs."
         },
         {
           "name": "workflow_id",
@@ -8773,7 +8773,7 @@
           "map": false,
           "oneof": "target",
           "rules": [],
-          "description": "Start a task in this workflow."
+          "description": "The workflow to create a task in, by id."
         },
         {
           "name": "orchestrator_agent_id",
@@ -8783,7 +8783,7 @@
           "map": false,
           "oneof": "target",
           "rules": [],
-          "description": "Mail the prompt to this orchestrator."
+          "description": "The orchestrator to mail the prompt to, by id."
         },
         {
           "name": "hide_agents",
@@ -8793,7 +8793,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the tasks of later launches start hidden, leaving existing tasks alone."
+          "description": "Whether tasks from later runs start hidden. Existing tasks keep theirs."
         }
       ]
     },
@@ -11139,37 +11139,37 @@
     },
     "schedule.v1.ScheduleKind": {
       "name": "ScheduleKind",
-      "description": "ScheduleKind is what a schedule does each time it fires.",
+      "description": "ScheduleKind is what a schedule does each time its cron expression matches.",
       "values": [
         {
           "name": "SCHEDULE_KIND_ORCHESTRATOR",
-          "description": "Mails the prompt to an orchestrator that is already running."
+          "description": "Mails the prompt to a running orchestrator."
         },
         {
           "name": "SCHEDULE_KIND_TASK",
-          "description": "Starts a new task in the workflow, its writer given the prompt."
+          "description": "Creates a task in the workflow and launches its writer with the prompt."
         }
       ]
     },
     "schedule.v1.ScheduleRunState": {
       "name": "ScheduleRunState",
-      "description": "ScheduleRunState names the state River holds a firing's job in.",
+      "description": "ScheduleRunState is the state of one schedule run.",
       "values": [
         {
           "name": "SCHEDULE_RUN_STATE_AVAILABLE",
-          "description": "Waiting for a worker to pick it up."
+          "description": "Waiting to start."
         },
         {
           "name": "SCHEDULE_RUN_STATE_PENDING",
-          "description": "Held back from running until something releases it."
+          "description": "Held back until something releases the run."
         },
         {
           "name": "SCHEDULE_RUN_STATE_SCHEDULED",
-          "description": "Queued to become available at a later time."
+          "description": "Waiting for a later time to start."
         },
         {
           "name": "SCHEDULE_RUN_STATE_RUNNING",
-          "description": "Being worked right now."
+          "description": "Running now."
         },
         {
           "name": "SCHEDULE_RUN_STATE_RETRYABLE",
@@ -11177,15 +11177,15 @@
         },
         {
           "name": "SCHEDULE_RUN_STATE_COMPLETED",
-          "description": "Launched its agent or delivered its mail."
+          "description": "Launched the run's agent or sent the run's mail."
         },
         {
           "name": "SCHEDULE_RUN_STATE_CANCELLED",
-          "description": "Skipped on purpose, with the reason in its message."
+          "description": "Skipped, with the reason in the run's message."
         },
         {
           "name": "SCHEDULE_RUN_STATE_DISCARDED",
-          "description": "Ran out of attempts, with the last error in its message."
+          "description": "Out of attempts, with the last error in the run's message."
         }
       ]
     },
