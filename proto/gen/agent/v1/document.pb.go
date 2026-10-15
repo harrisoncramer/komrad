@@ -24,25 +24,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Document is markdown an agent writes for the person to read.
 type Document struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Pass this back to write_document to rewrite the document.
+	// The document's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The agent that wrote it.
+	// The id of the agent that owns the document.
 	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// The title a person reads, unique among one agent's documents.
+	// The document's title. No two of one agent's documents share one.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// The name of the document type it was written as.
+	// The name of the document's type.
 	Type string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
-	// The markdown text, empty in a listing.
+	// The document's text, in markdown. Empty in a listing.
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	// When it was first written, in RFC 3339.
+	// When the document was created, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When it was last written, in RFC 3339.
+	// When the document was last written, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// How many times it has been written. A rewrite passes it back to say which version it replaces.
+	// How many times the document has been written.
 	Version int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
-	// The task its author worked on when it was first written, absent for an orchestrator's.
+	// The id of the task the agent was on when the document was created. Unset for an
+	// orchestrator's documents.
 	TaskId        *string `protobuf:"bytes,9,opt,name=task_id,json=taskId,proto3,oneof" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -143,22 +145,22 @@ func (x *Document) GetTaskId() string {
 
 type WriteDocumentRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The document to rewrite, or unset to create one.
+	// The document to rewrite, by id. Unset creates a document.
 	Id *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
-	// The title a person reads.
+	// The document's title.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The name of the document type to write it as, one list_document_types returns.
+	// The name of the document's type, one `list_document_types` returns.
 	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
-	// Where the markdown comes from.
+	// The source of the document's text.
 	//
 	// Types that are valid to be assigned to Source:
 	//
 	//	*WriteDocumentRequest_Body
 	//	*WriteDocumentRequest_Path
 	Source isWriteDocumentRequest_Source `protobuf_oneof:"source"`
-	// The version a rewrite replaces, as the last read or write returned it. Required with id.
+	// The document's `version` when last read. Required on a rewrite.
 	Version *int32 `protobuf:"varint,6,opt,name=version,proto3,oneof" json:"version,omitempty"`
-	// The agent a person creates a document for. An agent may name only itself.
+	// The agent to write the document for, by id. An agent may name only itself.
 	AgentId       *string `protobuf:"bytes,7,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -259,13 +261,13 @@ type isWriteDocumentRequest_Source interface {
 }
 
 type WriteDocumentRequest_Body struct {
-	// The markdown text itself.
+	// The document's text, in markdown.
 	Body string `protobuf:"bytes,4,opt,name=body,proto3,oneof"`
 }
 
 type WriteDocumentRequest_Path struct {
-	// A markdown file on the machine komrad runs on, relative to the writing agent's working
-	// directory unless absolute.
+	// A markdown file on the machine komrad runs on. A relative path starts at the writing
+	// agent's checkout.
 	Path string `protobuf:"bytes,5,opt,name=path,proto3,oneof"`
 }
 
@@ -275,7 +277,7 @@ func (*WriteDocumentRequest_Path) isWriteDocumentRequest_Source() {}
 
 type WriteDocumentResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The document as stored, without its body.
+	// The document as written, without its text.
 	Document      *Document `protobuf:"bytes,1,opt,name=document,proto3" json:"document,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -320,13 +322,14 @@ func (x *WriteDocumentResponse) GetDocument() *Document {
 
 type ListDocumentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose documents to list, or unset for every agent's, archived agents included.
+	// The agent whose documents to list, by id. Unset lists every agent's, archived agents
+	// included.
 	AgentId *string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
-	// Only documents of this type, or unset for every type.
+	// The type of documents to list, by name. Unset lists every type.
 	Type *string `protobuf:"bytes,2,opt,name=type,proto3,oneof" json:"type,omitempty"`
-	// Where to carry on from.
+	// The page to read.
 	Pagination *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// Only documents written for this task, named by id or slug, or unset for every task's.
+	// The task whose documents to list, by id or slug. Unset lists every task's.
 	Task          *string `protobuf:"bytes,4,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -392,9 +395,9 @@ func (x *ListDocumentsRequest) GetTask() string {
 
 type ListDocumentsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The documents, the most recently written first, without their bodies.
+	// One page of documents, most recently written first, without their text.
 	Documents []*Document `protobuf:"bytes,1,rep,name=documents,proto3" json:"documents,omitempty"`
-	// Pass this back as the pagination cursor for the next page.
+	// The cursor for the next page. Unset on the last page.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -446,9 +449,9 @@ func (x *ListDocumentsResponse) GetNextPageToken() string {
 
 type GetDocumentRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The document to read.
+	// The document to read, by id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// An earlier write to read as it was, or unset for the document as it stands.
+	// The version to read. Unset reads the newest.
 	Version       *int32 `protobuf:"varint,2,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -500,7 +503,7 @@ func (x *GetDocumentRequest) GetVersion() int32 {
 
 type GetDocumentResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The document whole.
+	// The document, with its text.
 	Document      *Document `protobuf:"bytes,1,opt,name=document,proto3" json:"document,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -543,18 +546,18 @@ func (x *GetDocumentResponse) GetDocument() *Document {
 	return nil
 }
 
-// DocumentVersion is one write of a document, without its body.
+// DocumentVersion is one write of a document, without its text.
 type DocumentVersion struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Pass this to get_document to read the document as this write left it.
+	// The version's number, to pass to `get_document`.
 	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	// The title it had.
+	// The document's title at this version.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// The name of the document type it was written as.
+	// The name of the document's type at this version.
 	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
-	// Whether a person wrote it in the panel rather than the agent that owns the document.
+	// Whether the person wrote this version, rather than the agent that owns the document.
 	ByPerson bool `protobuf:"varint,4,opt,name=by_person,json=byPerson,proto3" json:"by_person,omitempty"`
-	// When it was written, in RFC 3339.
+	// When this version was written, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -627,7 +630,7 @@ func (x *DocumentVersion) GetCreatedAt() string {
 
 type ListDocumentVersionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The document whose writes to list.
+	// The document whose versions to list, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -672,7 +675,7 @@ func (x *ListDocumentVersionsRequest) GetId() string {
 
 type ListDocumentVersionsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every write of the document, the newest first.
+	// Every version of the document, newest first.
 	Versions      []*DocumentVersion `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -715,18 +718,18 @@ func (x *ListDocumentVersionsResponse) GetVersions() []*DocumentVersion {
 	return nil
 }
 
-// DocumentType is one sort of document and the context an agent follows when writing one.
+// DocumentType is one kind of document, with the context an agent reads before writing one.
 type DocumentType struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Pass this back to write_document_type or delete_document_type.
+	// The document type's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// What documents name as their type.
+	// The document type's name, which each document of the type carries as `type`.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The markdown an agent reads before writing a document of this type.
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	// How many times it has been written. A rewrite passes it back to say which version it replaces.
+	// How many times the document type has been written.
 	Version int32 `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
-	// When it was last written, in RFC 3339.
+	// When the document type was last written, in RFC 3339.
 	UpdatedAt     string `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -799,7 +802,7 @@ func (x *DocumentType) GetUpdatedAt() string {
 
 type ListDocumentTypesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every document type, by name, each with its context.
+	// Every document type, by name, with its context.
 	DocumentTypes []*DocumentType `protobuf:"bytes,1,rep,name=document_types,json=documentTypes,proto3" json:"document_types,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -844,9 +847,9 @@ func (x *ListDocumentTypesResponse) GetDocumentTypes() []*DocumentType {
 
 type GetDocumentTypeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The name of the type to read.
+	// The document type to read, by name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// An earlier write to read as it was, or unset for the type as it stands.
+	// The version to read. Unset reads the newest.
 	Version       *int32 `protobuf:"varint,2,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -898,7 +901,7 @@ func (x *GetDocumentTypeRequest) GetVersion() int32 {
 
 type GetDocumentTypeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The type with its context.
+	// The document type, with its context.
 	DocumentType  *DocumentType `protobuf:"bytes,1,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -944,11 +947,11 @@ func (x *GetDocumentTypeResponse) GetDocumentType() *DocumentType {
 // DocumentTypeVersion is one write of a document type, without its context.
 type DocumentTypeVersion struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Pass this to get_document_type to read the type as this write left it.
+	// The version's number, to pass to `get_document_type`.
 	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	// The name it had.
+	// The document type's name at this version.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// When it was written, in RFC 3339.
+	// When this version was written, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1007,7 +1010,7 @@ func (x *DocumentTypeVersion) GetCreatedAt() string {
 
 type ListDocumentTypeVersionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The type whose writes to list.
+	// The document type whose versions to list, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1052,7 +1055,7 @@ func (x *ListDocumentTypeVersionsRequest) GetId() string {
 
 type ListDocumentTypeVersionsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every write of the type, the newest first.
+	// Every version of the document type, newest first.
 	Versions      []*DocumentTypeVersion `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1097,13 +1100,13 @@ func (x *ListDocumentTypeVersionsResponse) GetVersions() []*DocumentTypeVersion 
 
 type WriteDocumentTypeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The type to rewrite, or unset to create one.
+	// The document type to rewrite, by id. Unset creates a document type.
 	Id *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
-	// What documents name as their type. Renaming a type carries its documents with it.
+	// The document type's name. Renaming a type renames it on its documents too.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The markdown an agent reads before writing a document of this type.
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	// The version a rewrite replaces, as the last read or write returned it, and required with id.
+	// The document type's `version` when last read. Required on a rewrite.
 	Version       *int32 `protobuf:"varint,4,opt,name=version,proto3,oneof" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1169,7 +1172,7 @@ func (x *WriteDocumentTypeRequest) GetVersion() int32 {
 
 type WriteDocumentTypeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The type as stored.
+	// The document type as written.
 	DocumentType  *DocumentType `protobuf:"bytes,1,opt,name=document_type,json=documentType,proto3" json:"document_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1214,7 +1217,7 @@ func (x *WriteDocumentTypeResponse) GetDocumentType() *DocumentType {
 
 type DeleteDocumentRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The document to delete.
+	// The document to delete, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1259,7 +1262,7 @@ func (x *DeleteDocumentRequest) GetId() string {
 
 type DeleteDocumentTypeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The type to delete.
+	// The document type to delete, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1304,14 +1307,15 @@ func (x *DeleteDocumentTypeRequest) GetId() string {
 
 type SearchDocumentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The words to look for in each document as it stands now, matched whole and stemmed. A quoted
-	// phrase must match in that order, and a leading minus excludes a word.
+	// The words to search for in each document's newest version, matched whole and stemmed. A
+	// quoted phrase matches in order, and a leading minus excludes a word.
 	Query string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	// Whose documents to search, or unset for every agent's, archived agents included.
+	// The agent whose documents to search, by id. Unset searches every agent's, archived agents
+	// included.
 	AgentId *string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
-	// Only documents of this type, or unset for every type.
+	// The type of documents to search, by name. Unset searches every type.
 	Type *string `protobuf:"bytes,3,opt,name=type,proto3,oneof" json:"type,omitempty"`
-	// How many documents to return across both sections, fifty when unset.
+	// How many documents to return across `matches` and `near`. Zero returns up to fifty.
 	Limit         int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1375,15 +1379,16 @@ func (x *SearchDocumentsRequest) GetLimit() int32 {
 	return 0
 }
 
+// DocumentHit is one document that matched a search.
 type DocumentHit struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The document that matched, to pass to get_document.
+	// The document's id.
 	DocumentId string `protobuf:"bytes,1,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
-	// The agent that wrote it.
+	// The id of the agent that owns the document.
 	AgentId string `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// The title a person reads.
+	// The document's title.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// The passage that matched with the words marked, cut to a readable window around them.
+	// The text around the match, with the matched words marked.
 	Snippet       string `protobuf:"bytes,4,opt,name=snippet,proto3" json:"snippet,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1449,9 +1454,9 @@ func (x *DocumentHit) GetSnippet() string {
 
 type SearchDocumentsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The documents that hold every word, the best first.
+	// The documents that contain every word, best match first.
 	Matches []*DocumentHit `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
-	// The documents that hold a word only inside a longer one, closest first.
+	// The documents that contain a word only inside a longer word, closest first.
 	Near          []*DocumentHit `protobuf:"bytes,2,rep,name=near,proto3" json:"near,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

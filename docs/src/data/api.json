@@ -1317,7 +1317,7 @@
       "slug": "log",
       "title": "Log",
       "name": "log.v1.LogService",
-      "description": "LogService reads the server's own log back, by the trace id its lines carry.",
+      "description": "LogService reads the server's log by trace and by agent.",
       "methods": [
         {
           "slug": "get-log-lines",
@@ -1347,8 +1347,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List the traces the server log ends with, oldest first, to find the one to read with get_log_lines.",
-          "description": "List the traces the server log ends with, oldest first, to find the one to read with get_log_lines.",
+          "summary": "List the newest traces in the server log, oldest first.",
+          "description": "List the newest traces in the server log, oldest first.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1365,8 +1365,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Read what the server logged about one or more agents, passing the cursor back for only what is new.",
-          "description": "Read what the server logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output.",
+          "summary": "Read the log lines about one or more agents, from the server log or one hook run's output.",
+          "description": "Read the log lines about one or more agents, from the server log or one hook run's output. Pass the returned `cursor` back to read only new lines.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1383,8 +1383,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List where an agent's logs can be read from, the server log and each script run of its own moments it recorded.",
-          "description": "List where an agent's logs can be read from, the server log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources.",
+          "summary": "List the logs an agent's lines can be read from: the server log and each run of the agent's own hooks.",
+          "description": "List the logs an agent's lines can be read from: the server log and each run of the agent's own hooks. `list_task_log_sources` lists the runs of the task's hooks.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1401,8 +1401,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List the script runs recorded on a task, its own moments and those of every agent on it, newest first.",
-          "description": "List the script runs recorded on a task, its own moments and those of every agent on it, newest first. Pass a source with its agent_id to read_agent_logs to read its output.",
+          "summary": "List the hook runs recorded on a task, for the task and every agent on it, newest first.",
+          "description": "List the hook runs recorded on a task, for the task and every agent on it, newest first. Pass a source's id and `agent_id` to `read_agent_logs` to read its output.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -2839,7 +2839,7 @@
           "rules": [
             "required"
           ],
-          "description": "The document to delete."
+          "description": "The document to delete, by id."
         }
       ]
     },
@@ -2857,7 +2857,7 @@
           "rules": [
             "required"
           ],
-          "description": "The type to delete."
+          "description": "The document type to delete, by id."
         }
       ]
     },
@@ -2881,7 +2881,7 @@
     },
     "agent.v1.Document": {
       "name": "Document",
-      "description": "",
+      "description": "Document is markdown an agent writes for the person to read.",
       "fields": [
         {
           "name": "id",
@@ -2891,7 +2891,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this back to write_document to rewrite the document."
+          "description": "The document's id."
         },
         {
           "name": "agent_id",
@@ -2901,7 +2901,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent that wrote it."
+          "description": "The id of the agent that owns the document."
         },
         {
           "name": "name",
@@ -2911,7 +2911,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The title a person reads, unique among one agent's documents."
+          "description": "The document's title. No two of one agent's documents share one."
         },
         {
           "name": "type",
@@ -2921,7 +2921,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The name of the document type it was written as."
+          "description": "The name of the document's type."
         },
         {
           "name": "body",
@@ -2931,7 +2931,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The markdown text, empty in a listing."
+          "description": "The document's text, in markdown. Empty in a listing."
         },
         {
           "name": "created_at",
@@ -2941,7 +2941,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was first written, in RFC 3339."
+          "description": "When the document was created, in RFC 3339."
         },
         {
           "name": "updated_at",
@@ -2951,7 +2951,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was last written, in RFC 3339."
+          "description": "When the document was last written, in RFC 3339."
         },
         {
           "name": "version",
@@ -2961,7 +2961,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many times it has been written. A rewrite passes it back to say which version it replaces."
+          "description": "How many times the document has been written."
         },
         {
           "name": "task_id",
@@ -2971,13 +2971,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task its author worked on when it was first written, absent for an orchestrator's."
+          "description": "The id of the task the agent was on when the document was created. Unset for an orchestrator's documents."
         }
       ]
     },
     "agent.v1.DocumentHit": {
       "name": "DocumentHit",
-      "description": "",
+      "description": "DocumentHit is one document that matched a search.",
       "fields": [
         {
           "name": "document_id",
@@ -2987,7 +2987,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The document that matched, to pass to get_document."
+          "description": "The document's id."
         },
         {
           "name": "agent_id",
@@ -2997,7 +2997,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent that wrote it."
+          "description": "The id of the agent that owns the document."
         },
         {
           "name": "name",
@@ -3007,7 +3007,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The title a person reads."
+          "description": "The document's title."
         },
         {
           "name": "snippet",
@@ -3017,13 +3017,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The passage that matched with the words marked, cut to a readable window around them."
+          "description": "The text around the match, with the matched words marked."
         }
       ]
     },
     "agent.v1.DocumentType": {
       "name": "DocumentType",
-      "description": "DocumentType is one sort of document and the context an agent follows when writing one.",
+      "description": "DocumentType is one kind of document, with the context an agent reads before writing one.",
       "fields": [
         {
           "name": "id",
@@ -3033,7 +3033,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this back to write_document_type or delete_document_type."
+          "description": "The document type's id."
         },
         {
           "name": "name",
@@ -3043,7 +3043,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What documents name as their type."
+          "description": "The document type's name, which each document of the type carries as `type`."
         },
         {
           "name": "context",
@@ -3063,7 +3063,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many times it has been written. A rewrite passes it back to say which version it replaces."
+          "description": "How many times the document type has been written."
         },
         {
           "name": "updated_at",
@@ -3073,7 +3073,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was last written, in RFC 3339."
+          "description": "When the document type was last written, in RFC 3339."
         }
       ]
     },
@@ -3089,7 +3089,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this to get_document_type to read the type as this write left it."
+          "description": "The version's number, to pass to `get_document_type`."
         },
         {
           "name": "name",
@@ -3099,7 +3099,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The name it had."
+          "description": "The document type's name at this version."
         },
         {
           "name": "created_at",
@@ -3109,13 +3109,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was written, in RFC 3339."
+          "description": "When this version was written, in RFC 3339."
         }
       ]
     },
     "agent.v1.DocumentVersion": {
       "name": "DocumentVersion",
-      "description": "DocumentVersion is one write of a document, without its body.",
+      "description": "DocumentVersion is one write of a document, without its text.",
       "fields": [
         {
           "name": "version",
@@ -3125,7 +3125,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this to get_document to read the document as this write left it."
+          "description": "The version's number, to pass to `get_document`."
         },
         {
           "name": "name",
@@ -3135,7 +3135,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The title it had."
+          "description": "The document's title at this version."
         },
         {
           "name": "type",
@@ -3145,7 +3145,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The name of the document type it was written as."
+          "description": "The name of the document's type at this version."
         },
         {
           "name": "by_person",
@@ -3155,7 +3155,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a person wrote it in the panel rather than the agent that owns the document."
+          "description": "Whether the person wrote this version, rather than the agent that owns the document."
         },
         {
           "name": "created_at",
@@ -3165,7 +3165,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was written, in RFC 3339."
+          "description": "When this version was written, in RFC 3339."
         }
       ]
     },
@@ -3559,7 +3559,7 @@
           "rules": [
             "required"
           ],
-          "description": "The document to read."
+          "description": "The document to read, by id."
         },
         {
           "name": "version",
@@ -3569,7 +3569,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "An earlier write to read as it was, or unset for the document as it stands."
+          "description": "The version to read. Unset reads the newest."
         }
       ]
     },
@@ -3585,7 +3585,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The document whole."
+          "description": "The document, with its text."
         }
       ]
     },
@@ -3603,7 +3603,7 @@
           "rules": [
             "required"
           ],
-          "description": "The name of the type to read."
+          "description": "The document type to read, by name."
         },
         {
           "name": "version",
@@ -3613,7 +3613,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "An earlier write to read as it was, or unset for the type as it stands."
+          "description": "The version to read. Unset reads the newest."
         }
       ]
     },
@@ -3629,7 +3629,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The type with its context."
+          "description": "The document type, with its context."
         }
       ]
     },
@@ -3919,7 +3919,7 @@
           "rules": [
             "required"
           ],
-          "description": "The type whose writes to list."
+          "description": "The document type whose versions to list, by id."
         }
       ]
     },
@@ -3935,7 +3935,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every write of the type, the newest first."
+          "description": "Every version of the document type, newest first."
         }
       ]
     },
@@ -3951,7 +3951,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every document type, by name, each with its context."
+          "description": "Every document type, by name, with its context."
         }
       ]
     },
@@ -3969,7 +3969,7 @@
           "rules": [
             "required"
           ],
-          "description": "The document whose writes to list."
+          "description": "The document whose versions to list, by id."
         }
       ]
     },
@@ -3985,7 +3985,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every write of the document, the newest first."
+          "description": "Every version of the document, newest first."
         }
       ]
     },
@@ -4001,7 +4001,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose documents to list, or unset for every agent's, archived agents included."
+          "description": "The agent whose documents to list, by id. Unset lists every agent's, archived agents included."
         },
         {
           "name": "type",
@@ -4013,7 +4013,7 @@
           "rules": [
             "at most 100 characters"
           ],
-          "description": "Only documents of this type, or unset for every type."
+          "description": "The type of documents to list, by name. Unset lists every type."
         },
         {
           "name": "pagination",
@@ -4023,7 +4023,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where to carry on from."
+          "description": "The page to read."
         },
         {
           "name": "task",
@@ -4033,7 +4033,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Only documents written for this task, named by id or slug, or unset for every task's."
+          "description": "The task whose documents to list, by id or slug. Unset lists every task's."
         }
       ]
     },
@@ -4049,7 +4049,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The documents, the most recently written first, without their bodies."
+          "description": "One page of documents, most recently written first, without their text."
         },
         {
           "name": "next_page_token",
@@ -4059,7 +4059,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this back as the pagination cursor for the next page."
+          "description": "The cursor for the next page. Unset on the last page."
         }
       ]
     },
@@ -5893,7 +5893,7 @@
             "required",
             "at most 500 characters"
           ],
-          "description": "The words to look for in each document as it stands now, matched whole and stemmed. A quoted phrase must match in that order, and a leading minus excludes a word."
+          "description": "The words to search for in each document's newest version, matched whole and stemmed. A quoted phrase matches in order, and a leading minus excludes a word."
         },
         {
           "name": "agent_id",
@@ -5903,7 +5903,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whose documents to search, or unset for every agent's, archived agents included."
+          "description": "The agent whose documents to search, by id. Unset searches every agent's, archived agents included."
         },
         {
           "name": "type",
@@ -5915,7 +5915,7 @@
           "rules": [
             "at most 100 characters"
           ],
-          "description": "Only documents of this type, or unset for every type."
+          "description": "The type of documents to search, by name. Unset searches every type."
         },
         {
           "name": "limit",
@@ -5927,7 +5927,7 @@
           "rules": [
             "between 0 and 200"
           ],
-          "description": "How many documents to return across both sections, fifty when unset."
+          "description": "How many documents to return across `matches` and `near`. Zero returns up to fifty."
         }
       ]
     },
@@ -5943,7 +5943,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The documents that hold every word, the best first."
+          "description": "The documents that contain every word, best match first."
         },
         {
           "name": "near",
@@ -5953,7 +5953,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The documents that hold a word only inside a longer one, closest first."
+          "description": "The documents that contain a word only inside a longer word, closest first."
         }
       ]
     },
@@ -6384,7 +6384,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The document to rewrite, or unset to create one."
+          "description": "The document to rewrite, by id. Unset creates a document."
         },
         {
           "name": "name",
@@ -6397,7 +6397,7 @@
             "required",
             "at most 200 characters"
           ],
-          "description": "The title a person reads."
+          "description": "The document's title."
         },
         {
           "name": "type",
@@ -6410,7 +6410,7 @@
             "required",
             "at most 100 characters"
           ],
-          "description": "The name of the document type to write it as, one list_document_types returns."
+          "description": "The name of the document's type, one `list_document_types` returns."
         },
         {
           "name": "body",
@@ -6420,7 +6420,7 @@
           "map": false,
           "oneof": "source",
           "rules": [],
-          "description": "The markdown text itself."
+          "description": "The document's text, in markdown."
         },
         {
           "name": "path",
@@ -6430,7 +6430,7 @@
           "map": false,
           "oneof": "source",
           "rules": [],
-          "description": "A markdown file on the machine komrad runs on, relative to the writing agent's working directory unless absolute."
+          "description": "A markdown file on the machine komrad runs on. A relative path starts at the writing agent's checkout."
         },
         {
           "name": "version",
@@ -6440,7 +6440,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The version a rewrite replaces, as the last read or write returned it. Required with id."
+          "description": "The document's `version` when last read. Required on a rewrite."
         },
         {
           "name": "agent_id",
@@ -6450,7 +6450,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent a person creates a document for. An agent may name only itself."
+          "description": "The agent to write the document for, by id. An agent may name only itself."
         }
       ]
     },
@@ -6466,7 +6466,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The document as stored, without its body."
+          "description": "The document as written, without its text."
         }
       ]
     },
@@ -6482,7 +6482,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The type to rewrite, or unset to create one."
+          "description": "The document type to rewrite, by id. Unset creates a document type."
         },
         {
           "name": "name",
@@ -6495,7 +6495,7 @@
             "required",
             "at most 100 characters"
           ],
-          "description": "What documents name as their type. Renaming a type carries its documents with it."
+          "description": "The document type's name. Renaming a type renames it on its documents too."
         },
         {
           "name": "context",
@@ -6517,7 +6517,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The version a rewrite replaces, as the last read or write returned it, and required with id."
+          "description": "The document type's `version` when last read. Required on a rewrite."
         }
       ]
     },
@@ -6533,7 +6533,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The type as stored."
+          "description": "The document type as written."
         }
       ]
     },
@@ -7364,7 +7364,7 @@
             "required",
             "at most 128 characters"
           ],
-          "description": "The trace id a failed call answered with, or one list_recent_traces listed."
+          "description": "The trace id to read, from a failed call or from `list_recent_traces`."
         }
       ]
     },
@@ -7380,7 +7380,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every line written under the trace id, in the order the log holds them."
+          "description": "Every line written under the trace id, in the order they were written."
         }
       ]
     },
@@ -7398,7 +7398,7 @@
           "rules": [
             "required"
           ],
-          "description": "The agent whose log sources to list."
+          "description": "The agent whose log sources to list, by id."
         }
       ]
     },
@@ -7414,7 +7414,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The server log first, then each script run the agent recorded, newest first."
+          "description": "The server log first, then each hook run the agent recorded, newest first."
         }
       ]
     },
@@ -7432,7 +7432,7 @@
           "rules": [
             "between 0 and 200"
           ],
-          "description": "How many of the newest traces to list, twenty when unset."
+          "description": "How many of the newest traces to list. Zero lists twenty."
         }
       ]
     },
@@ -7482,13 +7482,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Each script run recorded on the task by any agent on it, including the task's own hooks, newest first."
+          "description": "Each hook run recorded on the task, by the task or any agent on it, newest first."
         }
       ]
     },
     "log.v1.LogLine": {
       "name": "LogLine",
-      "description": "",
+      "description": "LogLine is one line of the server's log.",
       "fields": [
         {
           "name": "time",
@@ -7508,7 +7508,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The severity as the log spells it, such as INFO or ERROR."
+          "description": "The line's severity, such as `INFO` or `ERROR`."
         },
         {
           "name": "message",
@@ -7518,7 +7518,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the line says."
+          "description": "The line's message."
         },
         {
           "name": "fields",
@@ -7528,13 +7528,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Everything else the line carried, keyed as the log keys it."
+          "description": "The line's other fields, under the keys the log gives them."
         }
       ]
     },
     "log.v1.LogSource": {
       "name": "LogSource",
-      "description": "",
+      "description": "LogSource is one log an agent's lines can be read from: the server log, or one hook run.",
       "fields": [
         {
           "name": "id",
@@ -7544,7 +7544,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to pass as the source of read_agent_logs."
+          "description": "The source's id, to pass as `source` to `read_agent_logs`."
         },
         {
           "name": "name",
@@ -7554,7 +7554,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the source is called, such as service or 003 agent.pre-launch setup."
+          "description": "The source's name, such as `service` or `003 agent.pre-launch setup`."
         },
         {
           "name": "run",
@@ -7564,7 +7564,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number of the script run the source holds. The agent's failed_run_log names it when that run failed. Unset for the server log."
+          "description": "The number of the hook run. Unset for the server log."
         },
         {
           "name": "agent_id",
@@ -7574,7 +7574,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent that recorded the script run the source holds. read_agent_logs reads the source for that agent alone. Empty for the server log."
+          "description": "The id of the agent that recorded the hook run. Empty for the server log."
         },
         {
           "name": "failed",
@@ -7584,7 +7584,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the script run failed, set only on a task's log sources."
+          "description": "Whether the hook run failed. Set only on a task's log sources."
         }
       ]
     },
@@ -7602,7 +7602,7 @@
           "rules": [
             "required"
           ],
-          "description": "The agents whose lines to read."
+          "description": "The agents whose log lines to read, by id."
         },
         {
           "name": "cursor",
@@ -7612,7 +7612,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the last call left off. Leave it empty to read the newest lines."
+          "description": "The `cursor` from the previous response. Empty reads the newest lines."
         },
         {
           "name": "limit",
@@ -7624,7 +7624,7 @@
           "rules": [
             "between 0 and 1000"
           ],
-          "description": "The most lines to answer. 200 when unset."
+          "description": "The most lines to return. Zero returns up to 200."
         },
         {
           "name": "source",
@@ -7636,7 +7636,7 @@
           "rules": [
             "at most 256 characters"
           ],
-          "description": "Which of the agent's log sources to read, as list_agent_log_sources names them. The server log when unset. A script run's source reads exactly one agent."
+          "description": "The log source to read, by the id `list_agent_log_sources` returns. Empty reads the server log. A hook run's source takes exactly one agent."
         },
         {
           "name": "pattern",
@@ -7648,7 +7648,7 @@
           "rules": [
             "at most 256 characters"
           ],
-          "description": "A regular expression in Go syntax that a line must match to be answered. Every line when unset. The newest lines are searched within the last 64 MB of the source."
+          "description": "A Go regular expression each line must match. Empty matches every line. Only the last 64 MB of the source is searched."
         }
       ]
     },
@@ -7664,7 +7664,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The lines about any of the agents, oldest first, exactly as the log holds them."
+          "description": "The lines about any of the agents, oldest first, as the log wrote them."
         },
         {
           "name": "cursor",
@@ -7674,7 +7674,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to pass back to read only the lines written after these."
+          "description": "The cursor to pass back to read only lines written after these."
         },
         {
           "name": "reset",
@@ -7684,7 +7684,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the log started over since the cursor. When true, the lines held before are gone."
+          "description": "Whether the log started over since the cursor. The lines before the reset are gone."
         },
         {
           "name": "more",
@@ -7694,13 +7694,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether more lines remain past the cursor. When true, reading again right away returns them."
+          "description": "Whether more lines remain past the cursor, which another call returns at once."
         }
       ]
     },
     "log.v1.TraceSummary": {
       "name": "TraceSummary",
-      "description": "",
+      "description": "TraceSummary is one trace in the server's log.",
       "fields": [
         {
           "name": "trace_id",
@@ -7710,7 +7710,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id every line of the trace carries."
+          "description": "The trace's id."
         },
         {
           "name": "started_at",
@@ -7730,7 +7730,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The RPC method or loop the trace was about, when a line said."
+          "description": "The RPC method or loop the trace belongs to. Empty when no line names one."
         },
         {
           "name": "lines",
@@ -7740,7 +7740,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many lines the log holds under it."
+          "description": "How many lines the log has under the trace."
         }
       ]
     },

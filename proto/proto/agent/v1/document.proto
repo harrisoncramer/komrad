@@ -8,176 +8,179 @@ import "rules/v1/rules.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
+// Document is markdown an agent writes for the person to read.
 message Document {
-  // Pass this back to write_document to rewrite the document.
+  // The document's id.
   string id = 1;
-  // The agent that wrote it.
+  // The id of the agent that owns the document.
   string agent_id = 2;
-  // The title a person reads, unique among one agent's documents.
+  // The document's title. No two of one agent's documents share one.
   string name = 3;
-  // The name of the document type it was written as.
+  // The name of the document's type.
   string type = 4;
-  // The markdown text, empty in a listing.
+  // The document's text, in markdown. Empty in a listing.
   string body = 5;
-  // When it was first written, in RFC 3339.
+  // When the document was created, in RFC 3339.
   string created_at = 6;
-  // When it was last written, in RFC 3339.
+  // When the document was last written, in RFC 3339.
   string updated_at = 7;
-  // How many times it has been written. A rewrite passes it back to say which version it replaces.
+  // How many times the document has been written.
   int32 version = 8;
-  // The task its author worked on when it was first written, absent for an orchestrator's.
+  // The id of the task the agent was on when the document was created. Unset for an
+  // orchestrator's documents.
   optional string task_id = 9;
 }
 
 message WriteDocumentRequest {
-  // The document to rewrite, or unset to create one.
+  // The document to rewrite, by id. Unset creates a document.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
-  // The title a person reads.
+  // The document's title.
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // The name of the document type to write it as, one list_document_types returns.
+  // The name of the document's type, one `list_document_types` returns.
   string type = 3 [(buf.validate.field).string = {
     min_len: 1
     max_len: 100
   }];
-  // Where the markdown comes from.
+  // The source of the document's text.
   oneof source {
     option (buf.validate.oneof).required = true;
-    // The markdown text itself.
+    // The document's text, in markdown.
     string body = 4 [(buf.validate.field).string = {
       min_len: 1
       max_bytes: 1048576
     }];
-    // A markdown file on the machine komrad runs on, relative to the writing agent's working
-    // directory unless absolute.
+    // A markdown file on the machine komrad runs on. A relative path starts at the writing
+    // agent's checkout.
     string path = 5 [(buf.validate.field).string.min_len = 1];
   }
-  // The version a rewrite replaces, as the last read or write returned it. Required with id.
+  // The document's `version` when last read. Required on a rewrite.
   optional int32 version = 6 [(buf.validate.field).int32.gt = 0];
-  // The agent a person creates a document for. An agent may name only itself.
+  // The agent to write the document for, by id. An agent may name only itself.
   optional string agent_id = 7 [(buf.validate.field).string.min_len = 1];
 }
 
 message WriteDocumentResponse {
-  // The document as stored, without its body.
+  // The document as written, without its text.
   Document document = 1;
 }
 
 message ListDocumentsRequest {
-  // Whose documents to list, or unset for every agent's, archived agents included.
+  // The agent whose documents to list, by id. Unset lists every agent's, archived agents
+  // included.
   optional string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Only documents of this type, or unset for every type.
+  // The type of documents to list, by name. Unset lists every type.
   optional string type = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 100
   }];
-  // Where to carry on from.
+  // The page to read.
   optional pagination.v1.Pagination pagination = 3;
-  // Only documents written for this task, named by id or slug, or unset for every task's.
+  // The task whose documents to list, by id or slug. Unset lists every task's.
   optional string task = 4 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListDocumentsResponse {
-  // The documents, the most recently written first, without their bodies.
+  // One page of documents, most recently written first, without their text.
   repeated Document documents = 1;
-  // Pass this back as the pagination cursor for the next page.
+  // The cursor for the next page. Unset on the last page.
   optional string next_page_token = 2;
 }
 
 message GetDocumentRequest {
-  // The document to read.
+  // The document to read, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // An earlier write to read as it was, or unset for the document as it stands.
+  // The version to read. Unset reads the newest.
   optional int32 version = 2 [(buf.validate.field).int32.gt = 0];
 }
 
 message GetDocumentResponse {
-  // The document whole.
+  // The document, with its text.
   Document document = 1;
 }
 
-// DocumentVersion is one write of a document, without its body.
+// DocumentVersion is one write of a document, without its text.
 message DocumentVersion {
-  // Pass this to get_document to read the document as this write left it.
+  // The version's number, to pass to `get_document`.
   int32 version = 1;
-  // The title it had.
+  // The document's title at this version.
   string name = 2;
-  // The name of the document type it was written as.
+  // The name of the document's type at this version.
   string type = 3;
-  // Whether a person wrote it in the panel rather than the agent that owns the document.
+  // Whether the person wrote this version, rather than the agent that owns the document.
   bool by_person = 4;
-  // When it was written, in RFC 3339.
+  // When this version was written, in RFC 3339.
   string created_at = 5;
 }
 
 message ListDocumentVersionsRequest {
-  // The document whose writes to list.
+  // The document whose versions to list, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListDocumentVersionsResponse {
-  // Every write of the document, the newest first.
+  // Every version of the document, newest first.
   repeated DocumentVersion versions = 1;
 }
 
-// DocumentType is one sort of document and the context an agent follows when writing one.
+// DocumentType is one kind of document, with the context an agent reads before writing one.
 message DocumentType {
-  // Pass this back to write_document_type or delete_document_type.
+  // The document type's id.
   string id = 1;
-  // What documents name as their type.
+  // The document type's name, which each document of the type carries as `type`.
   string name = 2;
   // The markdown an agent reads before writing a document of this type.
   string context = 3;
-  // How many times it has been written. A rewrite passes it back to say which version it replaces.
+  // How many times the document type has been written.
   int32 version = 4;
-  // When it was last written, in RFC 3339.
+  // When the document type was last written, in RFC 3339.
   string updated_at = 5;
 }
 
 message ListDocumentTypesResponse {
-  // Every document type, by name, each with its context.
+  // Every document type, by name, with its context.
   repeated DocumentType document_types = 1;
 }
 
 message GetDocumentTypeRequest {
-  // The name of the type to read.
+  // The document type to read, by name.
   string name = 1 [(buf.validate.field).string.min_len = 1];
-  // An earlier write to read as it was, or unset for the type as it stands.
+  // The version to read. Unset reads the newest.
   optional int32 version = 2 [(buf.validate.field).int32.gt = 0];
 }
 
 message GetDocumentTypeResponse {
-  // The type with its context.
+  // The document type, with its context.
   DocumentType document_type = 1;
 }
 
 // DocumentTypeVersion is one write of a document type, without its context.
 message DocumentTypeVersion {
-  // Pass this to get_document_type to read the type as this write left it.
+  // The version's number, to pass to `get_document_type`.
   int32 version = 1;
-  // The name it had.
+  // The document type's name at this version.
   string name = 2;
-  // When it was written, in RFC 3339.
+  // When this version was written, in RFC 3339.
   string created_at = 3;
 }
 
 message ListDocumentTypeVersionsRequest {
-  // The type whose writes to list.
+  // The document type whose versions to list, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListDocumentTypeVersionsResponse {
-  // Every write of the type, the newest first.
+  // Every version of the document type, newest first.
   repeated DocumentTypeVersion versions = 1;
 }
 
 message WriteDocumentTypeRequest {
-  // The type to rewrite, or unset to create one.
+  // The document type to rewrite, by id. Unset creates a document type.
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
-  // What documents name as their type. Renaming a type carries its documents with it.
+  // The document type's name. Renaming a type renames it on its documents too.
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 100
@@ -188,60 +191,62 @@ message WriteDocumentTypeRequest {
     min_len: 1
     max_bytes: 1048576
   }];
-  // The version a rewrite replaces, as the last read or write returned it, and required with id.
+  // The document type's `version` when last read. Required on a rewrite.
   optional int32 version = 4 [(buf.validate.field).int32.gt = 0];
 }
 
 message WriteDocumentTypeResponse {
-  // The type as stored.
+  // The document type as written.
   DocumentType document_type = 1;
 }
 
 message DeleteDocumentRequest {
-  // The document to delete.
+  // The document to delete, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message DeleteDocumentTypeRequest {
-  // The type to delete.
+  // The document type to delete, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message SearchDocumentsRequest {
-  // The words to look for in each document as it stands now, matched whole and stemmed. A quoted
-  // phrase must match in that order, and a leading minus excludes a word.
+  // The words to search for in each document's newest version, matched whole and stemmed. A
+  // quoted phrase matches in order, and a leading minus excludes a word.
   string query = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 500
   }];
-  // Whose documents to search, or unset for every agent's, archived agents included.
+  // The agent whose documents to search, by id. Unset searches every agent's, archived agents
+  // included.
   optional string agent_id = 2 [(buf.validate.field).string.min_len = 1];
-  // Only documents of this type, or unset for every type.
+  // The type of documents to search, by name. Unset searches every type.
   optional string type = 3 [(buf.validate.field).string = {
     min_len: 1
     max_len: 100
   }];
-  // How many documents to return across both sections, fifty when unset.
+  // How many documents to return across `matches` and `near`. Zero returns up to fifty.
   int32 limit = 4 [(buf.validate.field).int32 = {
     gte: 0
     lte: 200
   }];
 }
 
+// DocumentHit is one document that matched a search.
 message DocumentHit {
-  // The document that matched, to pass to get_document.
+  // The document's id.
   string document_id = 1;
-  // The agent that wrote it.
+  // The id of the agent that owns the document.
   string agent_id = 2;
-  // The title a person reads.
+  // The document's title.
   string name = 3;
-  // The passage that matched with the words marked, cut to a readable window around them.
+  // The text around the match, with the matched words marked.
   string snippet = 4;
 }
 
 message SearchDocumentsResponse {
-  // The documents that hold every word, the best first.
+  // The documents that contain every word, best match first.
   repeated DocumentHit matches = 1;
-  // The documents that hold a word only inside a longer one, closest first.
+  // The documents that contain a word only inside a longer word, closest first.
   repeated DocumentHit near = 2;
 }
