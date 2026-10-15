@@ -145,6 +145,7 @@ func TestToolHints(t *testing.T) {
 	}
 }
 
+// TestToolDescription confirms a tool's guidance follows its description.
 func TestToolDescription(t *testing.T) {
 	tests := []struct {
 		name     string
