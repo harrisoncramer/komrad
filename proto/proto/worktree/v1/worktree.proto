@@ -52,8 +52,8 @@ enum WorktreeFate {
 message Worktree {
   // The worktree's absolute path.
   string dir = 1;
-  // The repository the worktree was created from, read from the worktree's `.git` file. When git
-  // cannot read that file, where the repository used to be.
+  // The repository the worktree was created from, read from the worktree's `.git` file, or where
+  // the repository used to be when git cannot read that file.
   string repo_dir = 2;
   // The branch checked out in the worktree. Empty when HEAD is detached or git cannot read the
   // worktree.
