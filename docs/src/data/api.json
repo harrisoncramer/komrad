@@ -1662,7 +1662,7 @@
       "slug": "task",
       "title": "Task",
       "name": "task.v1.TaskService",
-      "description": "TaskService reads and writes the tasks agents work toward.",
+      "description": "TaskService creates, reads and changes tasks.",
       "methods": [
         {
           "slug": "create-task",
@@ -1674,8 +1674,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Create a task, the outcome one or more agents work toward.",
-          "description": "Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.",
+          "summary": "Create a task in a workflow.",
+          "description": "Create a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1694,8 +1694,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "Fetch one task by id or slug, with its whole goal and its notes.",
-          "description": "Fetch one task by id or slug, with its whole goal and its notes.",
+          "summary": "Get one task by id or slug, with its goal and notes in full.",
+          "description": "Get one task by id or slug, with its goal and notes in full.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1715,7 +1715,7 @@
             "orchestrator"
           ],
           "summary": "List a workflow's tasks, newest first.",
-          "description": "List a workflow's tasks, newest first. The list omits archived tasks unless archived is set.",
+          "description": "List a workflow's tasks, newest first. Archived tasks are left out unless `archived` is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1732,8 +1732,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is.",
-          "description": "Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is. A notes write must name the notes_updated_at it read. An edit reaches agents only when they read the task again.",
+          "summary": "Change a task's slug, title, goal or notes, by id or slug.",
+          "description": "Change a task's slug, title, goal or notes, by id or slug. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1752,8 +1752,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "Replace a task's notes, the markdown every agent joining it is briefed with.",
-          "description": "Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since.",
+          "summary": "Replace a task's notes, which every agent that joins the task starts from.",
+          "description": "Replace a task's notes, which every agent that joins the task starts from. The write fails with `failed_precondition` when the notes changed since `notes_updated_at`.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1770,8 +1770,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Archive a task by id or slug, keeping its record.",
-          "description": "Archive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused.",
+          "summary": "Archive a task by id or slug, with the live agents on it.",
+          "description": "Archive a task by id or slug, with the live agents on it. The task keeps its record, and its slug is never reused.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1788,8 +1788,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree.",
-          "description": "Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked.",
+          "summary": "Delete tasks for good, by id or slug, with every agent on them and their documents, reviews and worktree.",
+          "description": "Delete tasks for good, by id or slug, with every agent on them and their documents, reviews and worktree.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1806,8 +1806,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Hide a task from the panel by id or slug, or show it again.",
-          "description": "Hide a task from the panel by id or slug, or show it again. Its agents keep running. Hide one only when asked.",
+          "summary": "Hide a task by id or slug, or show it again.",
+          "description": "Hide a task by id or slug, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -8811,7 +8811,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which task to archive, by id or by slug."
+          "description": "The task to archive, by id or slug."
         }
       ]
     },
@@ -8831,7 +8831,7 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The lowercase kebab-case name to call it by. It must be one no task has ever had."
+          "description": "The task's slug. No task may have used it before."
         },
         {
           "name": "title",
@@ -8844,7 +8844,7 @@
             "required",
             "at most 200 characters"
           ],
-          "description": "What to show it as in the panel."
+          "description": "The task's title."
         },
         {
           "name": "goal",
@@ -8856,7 +8856,7 @@
           "rules": [
             "at most 50000 characters"
           ],
-          "description": "What it is meant to achieve, as markdown."
+          "description": "What the task is meant to achieve, in markdown."
         },
         {
           "name": "workflow_id",
@@ -8868,7 +8868,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which workflow to file it under. Every agent on it must be in the same one."
+          "description": "The workflow to create the task in, by id."
         }
       ]
     },
@@ -8902,13 +8902,13 @@
           "rules": [
             "required"
           ],
-          "description": "The tasks to remove for good, by id or by slug, with every agent on them."
+          "description": "The tasks to delete, by id or slug."
         }
       ]
     },
     "task.v1.DiffStat": {
       "name": "DiffStat",
-      "description": "DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.",
+      "description": "DiffStat counts the lines a checkout adds and removes, committed or not.",
       "fields": [
         {
           "name": "added",
@@ -8918,7 +8918,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The lines it adds."
+          "description": "How many lines the checkout adds."
         },
         {
           "name": "removed",
@@ -8928,7 +8928,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The lines it removes."
+          "description": "How many lines the checkout removes."
         }
       ]
     },
@@ -8946,7 +8946,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which task to read, by id or by slug."
+          "description": "The task to get, by id or slug."
         }
       ]
     },
@@ -8962,7 +8962,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task, with its goal whole."
+          "description": "The task, with the goal in full."
         }
       ]
     },
@@ -8980,7 +8980,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which workflow's tasks to list."
+          "description": "The workflow whose tasks to list, by id."
         },
         {
           "name": "archived",
@@ -8990,7 +8990,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True to list the archived tasks and only those."
+          "description": "Whether to list only archived tasks instead of live ones."
         }
       ]
     },
@@ -9024,7 +9024,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which task to hide or unhide, by id or by slug."
+          "description": "The task to hide or show, by id or slug."
         },
         {
           "name": "hidden",
@@ -9034,7 +9034,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True to hide the task, false to show it again."
+          "description": "Whether to hide the task. False shows the task again."
         }
       ]
     },
@@ -9052,7 +9052,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which task to write the notes of, by id or by slug."
+          "description": "The task whose notes to write, by id or slug."
         },
         {
           "name": "notes",
@@ -9064,7 +9064,7 @@
           "rules": [
             "at most 100000 characters"
           ],
-          "description": "The notes in full as markdown, replacing what the task has."
+          "description": "The task's new notes in full, in markdown."
         },
         {
           "name": "notes_updated_at",
@@ -9076,7 +9076,7 @@
           "rules": [
             "matching ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
           ],
-          "description": "The notes_updated_at get_task returned with the notes, unset when they had never been written. The write is refused once they have been written since."
+          "description": "The `notes_updated_at` that `get_task` returned with the notes. Unset when the notes were never written."
         }
       ]
     },
@@ -9092,13 +9092,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task with its notes as written."
+          "description": "The task, with the new notes."
         }
       ]
     },
     "task.v1.Task": {
       "name": "Task",
-      "description": "Task is one outcome a person wants. The agents linked to it work toward it.",
+      "description": "Task is one piece of work that agents do.",
       "fields": [
         {
           "name": "id",
@@ -9108,7 +9108,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle every other call names this task by, alongside its slug."
+          "description": "The task's id."
         },
         {
           "name": "workflow_id",
@@ -9118,7 +9118,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which workflow it is filed under. Every agent on it shares that workflow."
+          "description": "The id of the workflow the task belongs to."
         },
         {
           "name": "slug",
@@ -9128,7 +9128,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The lowercase kebab-case name it is called by, unique and never reused."
+          "description": "The task's slug, such as `fix-login`. No two tasks ever share one."
         },
         {
           "name": "title",
@@ -9138,7 +9138,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the panel shows it as."
+          "description": "The task's title."
         },
         {
           "name": "goal",
@@ -9148,7 +9148,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What it is meant to achieve, as markdown."
+          "description": "What the task is meant to achieve, in markdown."
         },
         {
           "name": "created_at",
@@ -9158,7 +9158,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was made, in RFC 3339."
+          "description": "When the task was created, in RFC 3339."
         },
         {
           "name": "updated_at",
@@ -9168,7 +9168,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was last changed, in RFC 3339."
+          "description": "When the task last changed, in RFC 3339."
         },
         {
           "name": "archived_at",
@@ -9178,7 +9178,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was archived, unset while it is live."
+          "description": "When the task was archived, in RFC 3339. Unset while the task is live."
         },
         {
           "name": "cwd",
@@ -9188,7 +9188,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directory of its checkout, where every agent on it works. Unset while it has none."
+          "description": "The directory of the task's checkout. Unset while the task has no checkout."
         },
         {
           "name": "branch",
@@ -9198,7 +9198,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The git branch its checkout is on, unset while it has none or git cannot read it."
+          "description": "The git branch of the task's checkout. Unset when the task has no checkout or git cannot read the branch."
         },
         {
           "name": "repository_url",
@@ -9208,7 +9208,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The canonical web address of the repository its checkout pushes to, such as https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin is not a forge."
+          "description": "The canonical web address of the repository the task's checkout pushes to, such as `https://github.com/harrisoncramer/komrad`. Unset when the checkout is gone or origin is not on a forge."
         },
         {
           "name": "head_sha",
@@ -9218,7 +9218,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit its checkout has checked out, unset when the checkout is gone or git cannot read it."
+          "description": "The commit checked out in the task's checkout. Unset when the checkout is gone or git cannot read it."
         },
         {
           "name": "worktree_removed",
@@ -9228,7 +9228,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether its checkout has been taken away."
+          "description": "Whether the task's worktree has been removed."
         },
         {
           "name": "sequence",
@@ -9238,7 +9238,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What git has part-way through its checkout, waiting on somebody to settle it."
+          "description": "The git operation stopped part way in the task's checkout."
         },
         {
           "name": "moved_since_round",
@@ -9248,7 +9248,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The snapshot of the newest review round of its agents, set while its checkout no longer hashes to it. Empty otherwise."
+          "description": "The snapshot commit of the task's newest round, set while the checkout has changed since that round. Empty otherwise."
         },
         {
           "name": "diff_stat",
@@ -9258,7 +9258,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many lines its checkout adds and removes since it left its base, unset where there is no base to measure against."
+          "description": "How many lines the task's checkout adds and removes since it left the base branch. Unset when there is no base branch to measure against."
         },
         {
           "name": "adopted_branch",
@@ -9268,7 +9268,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The branch its checkout was put on, when komrad did not make it. Unset when komrad made it."
+          "description": "The existing branch the task was put on. Unset when komrad created the branch."
         },
         {
           "name": "failure_reason",
@@ -9278,7 +9278,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why its last delete could not give its checkout back, empty unless one failed."
+          "description": "Why the task's last delete failed to remove its checkout. Empty unless a delete failed."
         },
         {
           "name": "notes",
@@ -9288,7 +9288,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the agents on it and the person have written down about it, as markdown."
+          "description": "The task's notes, in markdown, written by its agents and the person."
         },
         {
           "name": "notes_updated_at",
@@ -9298,7 +9298,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When its notes were last written, in RFC 3339 to the nanosecond, unset until they first are. A write of the notes names the value it read."
+          "description": "When the task's notes were last written, in RFC 3339 with nanoseconds. Unset until the notes are first written."
         },
         {
           "name": "failed_run",
@@ -9308,7 +9308,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a script run on it failed and the person has not opened its logs since."
+          "description": "Whether a hook run on the task failed and the person has not opened its log since."
         },
         {
           "name": "hidden",
@@ -9318,7 +9318,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a person hid the task from the panel. Its agents keep running."
+          "description": "Whether the task is hidden. A hidden task stays live, and clients leave it out of their lists."
         },
         {
           "name": "documents",
@@ -9328,7 +9328,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many documents agents have written for it. list_documents returns them."
+          "description": "How many documents agents have written for the task. `list_documents` returns them."
         },
         {
           "name": "documents_updated_at",
@@ -9338,7 +9338,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the newest of its documents was last written, in RFC 3339, unset when it has none."
+          "description": "When the newest of the task's documents was last written, in RFC 3339. Unset when the task has none."
         }
       ]
     },
@@ -9356,7 +9356,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which task to rewrite, by id or by slug."
+          "description": "The task to update, by id or slug."
         },
         {
           "name": "slug",
@@ -9369,7 +9369,7 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The lowercase kebab-case name to call it by from now on. No other task may hold it. Left as it is when unset."
+          "description": "The new slug. No other task may have used it. Unchanged when unset."
         },
         {
           "name": "title",
@@ -9381,7 +9381,7 @@
           "rules": [
             "at most 200 characters"
           ],
-          "description": "What to show it as in the panel, left as it is when unset."
+          "description": "The new title. Unchanged when unset."
         },
         {
           "name": "goal",
@@ -9393,7 +9393,7 @@
           "rules": [
             "at most 50000 characters"
           ],
-          "description": "What it is meant to achieve, as markdown, left as it is when unset."
+          "description": "The new goal, in markdown. Unchanged when unset."
         },
         {
           "name": "notes",
@@ -9405,7 +9405,7 @@
           "rules": [
             "at most 100000 characters"
           ],
-          "description": "What to write down about it as markdown, replacing the notes it has, left as they are when unset."
+          "description": "The new notes in full, in markdown. Unchanged when unset."
         },
         {
           "name": "notes_updated_at",
@@ -9417,7 +9417,7 @@
           "rules": [
             "matching ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
           ],
-          "description": "The notes_updated_at the notes were read with, unset when they had never been written. A notes write is refused once they have been written since."
+          "description": "The `notes_updated_at` the notes were read with. Unset when the notes were never written."
         }
       ]
     },
@@ -9433,7 +9433,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task as rewritten."
+          "description": "The task as updated."
         }
       ]
     },
@@ -11191,11 +11191,11 @@
     },
     "task.v1.Sequence": {
       "name": "Sequence",
-      "description": "Sequence names an operation git has part-way through a task's checkout, waiting on somebody.",
+      "description": "Sequence is a git operation stopped part way in a task's checkout.",
       "values": [
         {
           "name": "SEQUENCE_NONE",
-          "description": "Nothing is part-way through."
+          "description": "No git operation is stopped part way."
         },
         {
           "name": "SEQUENCE_REBASE",
@@ -11203,7 +11203,7 @@
         },
         {
           "name": "SEQUENCE_AM",
-          "description": "An am stopped on a patch it could not apply."
+          "description": "A `git am` stopped on a patch it could not apply."
         },
         {
           "name": "SEQUENCE_MERGE",
@@ -11211,11 +11211,11 @@
         },
         {
           "name": "SEQUENCE_CHERRY_PICK",
-          "description": "A cherry-pick stopped on conflicts or resting between its picks."
+          "description": "A cherry-pick stopped on conflicts or paused between commits."
         },
         {
           "name": "SEQUENCE_REVERT",
-          "description": "A revert stopped on conflicts or resting between its picks."
+          "description": "A revert stopped on conflicts or paused between commits."
         }
       ]
     },

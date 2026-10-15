@@ -20,6 +20,8 @@ Put names from code in backticks, such as `notes_updated_at` or `get_task`.
 
 Write each comment for a reader who has the reference page open and has never seen the source. A comment says what the thing is or does from the caller's side. How komrad does it belongs in Go.
 
+The API serves any client. Describe what a field holds or a call does, never how the panel or another client shows it.
+
 ### Services, messages and enums
 
 Start with the name, then say what it is in one sentence: "Task is one piece of work that agents do." Add a second sentence only for something every reader needs.
@@ -60,11 +62,13 @@ CLI: The coding agent program an agent runs, such as Claude Code or Codex.
 
 harness: The short name that picks a CLI, such as `claude` or `codex`. Use it for the field and the value. Use CLI for the program itself.
 
-caller: Whoever makes the request, a person through the panel or CLI, or an agent through MCP.
+caller: Whoever makes the request, a person through any client, or an agent through MCP.
+
+client: Any program that calls the API, such as the panel, the CLI, an MCP server or a script.
 
 komrad: The system as a whole, and the subject of any sentence about what the server does. Not "the server" unless the process itself matters, as in its log or its config.
 
-panel: The terminal interface the person uses. Use it only for what is drawn or pressed. Not "the sidebar" unless the sidebar itself is meant.
+panel: komrad's terminal interface, one client among others. Use it only in writing about the interface itself. Proto comments never mention it.
 
 ### Roles
 
@@ -148,7 +152,7 @@ held: Interrupted and kept still by a caller, such as before editing files in it
 
 archived: Stopped and taken out of the list, with its records kept. Restore brings it back, dormant. Not "hidden from the panel" or "put away".
 
-hidden: Left out of the panel's sidebar while still live. Use it only for tasks, and never for archived.
+hidden: Live, but left out of a client's lists. Use it only for tasks, and never for archived.
 
 deleted: Removed for good, with its transcript.
 

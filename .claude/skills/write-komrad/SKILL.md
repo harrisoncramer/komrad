@@ -15,7 +15,7 @@ Look up each concept you mention in the glossary and use its term. Do not rotate
 
 Write short, plain sentences, one idea each. Name the thing instead of opening with "it". Say what is true and stop. Put names from code in backticks.
 
-For a proto comment, write for a reader on the API reference page who has never seen the source. Say what the field, message or call is from the caller's side. Leave out how komrad does it. Do not restate validation rules. Advice to a model goes in `mcp_guidance`, not `description`.
+For a proto comment, write for a reader on the API reference page who has never seen the source. Say what the field, message or call is from the caller's side. Leave out how komrad does it. The API serves any client, so never describe a field or call by how the panel shows it. Do not restate validation rules. Advice to a model goes in `mcp_guidance`, not `description`.
 
 ## Before you finish
 
