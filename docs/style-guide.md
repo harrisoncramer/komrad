@@ -136,8 +136,6 @@ RFC 3339: The format of every timestamp in a string field. Say it on each such f
 
 ## Words not to use
 
-These words either name something internal, point at a place that does not exist on the page, or read like generated text.
-
 Internal: capture-pane, doorbell, remover, row, stamp, store.
 
 Position: above, below, earlier, the field before.
@@ -146,4 +144,4 @@ Vague: it (when the field is the first thing the reader sees), handle, thing, st
 
 Inflated: crucial, pivotal, robust, seamless, comprehensive, leverage, delve, ensure, enhance, showcase, underscore, additionally, notably, essentially.
 
-Copula avoidance: serves as, acts as, functions as, stands as. Write "is".
+Instead of is: serves as, acts as, functions as, stands as. Write "is".
