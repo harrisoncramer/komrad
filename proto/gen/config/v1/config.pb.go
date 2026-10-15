@@ -26,12 +26,13 @@ const (
 
 type GetConfigResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The current configuration, keyed like the user's own file, with connection strings redacted.
+	// The configuration in force, keyed as in the config file, with defaults filled in and
+	// connection strings redacted.
 	Config *structpb.Struct `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	// Why the user's file failed to parse. The configuration above then holds the defaults the
-	// panel fell back to.
+	// Why the person's config file failed to parse. Unset when it parsed. When set, `config` holds
+	// the defaults.
 	ConfigError *string `protobuf:"bytes,2,opt,name=config_error,json=configError,proto3,oneof" json:"config_error,omitempty"`
-	// The build the server runs. Quote it in a bug report.
+	// The build version of the server.
 	Version       string `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -97,10 +98,10 @@ const file_config_v1_config_proto_rawDesc = "" +
 	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\x12&\n" +
 	"\fconfig_error\x18\x02 \x01(\tH\x00R\vconfigError\x88\x01\x01\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversionB\x0f\n" +
-	"\r_config_error2\xab\x02\n" +
-	"\rConfigService\x12\x99\x02\n" +
-	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xd5\x01\x9a\xb5\x18\xcd\x01\b\x01\x10\x01\x1a\n" +
-	"get_config\"\xb7\x01Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file failed to parse and defaults are running.:\x01\x02\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
+	"\r_config_error2\xbf\x02\n" +
+	"\rConfigService\x12\xad\x02\n" +
+	"\tGetConfig\x12\x16.google.protobuf.Empty\x1a\x1c.config.v1.GetConfigResponse\"\xe9\x01\x9a\xb5\x18\xe1\x01\b\x01\x10\x01\x1a\n" +
+	"get_config\"\xcb\x01Get the configuration in force, with defaults filled in, connection strings redacted, and the server's build version. A `config_error` means the config file failed to parse and the defaults are in force.:\x01\x02\x90\x02\x01B%Z#komrad/proto/gen/config/v1;configv1b\x06proto3"
 
 var (
 	file_config_v1_config_proto_rawDescOnce sync.Once

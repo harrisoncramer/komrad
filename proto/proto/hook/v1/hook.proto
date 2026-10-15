@@ -8,25 +8,27 @@ import "google/protobuf/empty.proto";
 
 option go_package = "komrad/proto/gen/hook/v1;hookv1";
 
+// Hook is a script in the hooks directory.
 message Hook {
-  // The file name in the hooks directory. A workflow names it to fire the hook.
+  // The hook's file name in the hooks directory. A workflow names the hook by it.
   string name = 1;
-  // Whether the file can run. It cannot until the user makes it executable.
+  // Whether the file is executable. The hook cannot run until it is.
   bool executable = 2;
-  // The description in the script's header comments.
+  // The description from the hook's header comments.
   string description = 3;
-  // How long komrad lets the script run. Its header can shorten the hooks.timeout setting but never lengthen it.
+  // How long the hook may run. The header can shorten the `hooks.timeout` setting but not
+  // lengthen it.
   optional google.protobuf.Duration timeout = 4;
-  // The header lines komrad could not read. Each one leaves its setting at the default.
+  // The header lines that could not be read. Each one leaves its setting at the default.
   repeated string header_problems = 5;
 }
 
 message ListHooksResponse {
-  // Every file in the hooks directory, runnable or not.
+  // Every file in the hooks directory, executable or not.
   repeated Hook hooks = 1;
 }
 
-// HookService lists the scripts the user has written for komrad to fire.
+// HookService lists the hooks the person has written.
 service HookService {
   rpc ListHooks(google.protobuf.Empty) returns (ListHooksResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -34,7 +36,7 @@ service HookService {
       cli: true
       mcp: true
       name: "list_hooks"
-      description: "List the hook scripts in the user's hooks directory, by the name create_workflow and update_workflow take."
+      description: "List the hooks in the person's hooks directory, by the names `create_workflow` and `update_workflow` take."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

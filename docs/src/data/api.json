@@ -1239,7 +1239,7 @@
       "slug": "config",
       "title": "Config",
       "name": "config.v1.ConfigService",
-      "description": "ConfigService returns the configuration the panel runs on, with connection strings redacted.",
+      "description": "ConfigService reads the configuration the server runs with.",
       "methods": [
         {
           "slug": "get-config",
@@ -1251,8 +1251,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Read the panel's configuration as it is in force, with defaults filled in and the server's build version.",
-          "description": "Read the panel's configuration as it is in force, with defaults filled in and the server's build version. A configError means the user's file failed to parse and defaults are running.",
+          "summary": "Get the configuration in force, with defaults filled in, connection strings redacted, and the server's build version.",
+          "description": "Get the configuration in force, with defaults filled in, connection strings redacted, and the server's build version. A `config_error` means the config file failed to parse and the defaults are in force.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1265,7 +1265,7 @@
       "slug": "doctor",
       "title": "Doctor",
       "name": "doctor.v1.DoctorService",
-      "description": "DoctorService makes the checks the doctor makes, on the machine the server runs on.",
+      "description": "DoctorService checks the machine the server runs on.",
       "methods": [
         {
           "slug": "run-doctor",
@@ -1277,8 +1277,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Check whether the machine the server runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.",
-          "description": "Check whether the machine the server runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.",
+          "summary": "Check whether the machine the server runs on can run agents.",
+          "description": "Check whether the machine the server runs on can run agents. The checks cover tmux, the config, the CLIs, hooks, worktree directories and the database.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1291,7 +1291,7 @@
       "slug": "hook",
       "title": "Hook",
       "name": "hook.v1.HookService",
-      "description": "HookService lists the scripts the user has written for komrad to fire.",
+      "description": "HookService lists the hooks the person has written.",
       "methods": [
         {
           "slug": "list-hooks",
@@ -1303,8 +1303,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List the hook scripts in the user's hooks directory, by the name create_workflow and update_workflow take.",
-          "description": "List the hook scripts in the user's hooks directory, by the name create_workflow and update_workflow take.",
+          "summary": "List the hooks in the person's hooks directory, by the names `create_workflow` and `update_workflow` take.",
+          "description": "List the hooks in the person's hooks directory, by the names `create_workflow` and `update_workflow` take.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -6549,7 +6549,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The current configuration, keyed like the user's own file, with connection strings redacted."
+          "description": "The configuration in force, keyed as in the config file, with defaults filled in and connection strings redacted."
         },
         {
           "name": "config_error",
@@ -6559,7 +6559,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why the user's file failed to parse. The configuration above then holds the defaults the panel fell back to."
+          "description": "Why the person's config file failed to parse. Unset when it parsed. When set, `config` holds the defaults."
         },
         {
           "name": "version",
@@ -6569,13 +6569,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The build the server runs. Quote it in a bug report."
+          "description": "The build version of the server."
         }
       ]
     },
     "doctor.v1.Finding": {
       "name": "Finding",
-      "description": "",
+      "description": "Finding is the result of one doctor check.",
       "fields": [
         {
           "name": "name",
@@ -6585,7 +6585,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which check this is, such as database or tmux shell."
+          "description": "The check's name, such as `database` or `tmux shell`."
         },
         {
           "name": "description",
@@ -6595,7 +6595,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the check is for, in a sentence."
+          "description": "What the check is for, in one sentence."
         },
         {
           "name": "status",
@@ -6605,7 +6605,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How it came out: ok, warn, fail or skip."
+          "description": "How the check came out: `ok`, `warn`, `fail` or `skip`."
         },
         {
           "name": "detail",
@@ -6615,7 +6615,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What was found, such as the version read or the path checked, when there is something to say."
+          "description": "What the check found, such as a version or a path. Empty when there is nothing to report."
         },
         {
           "name": "code",
@@ -6625,7 +6625,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "A stable code for what went wrong, such as db_unreachable, empty when nothing did."
+          "description": "A stable code for the problem, such as `db_unreachable`. Empty when nothing went wrong."
         },
         {
           "name": "error",
@@ -6635,7 +6635,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What went wrong, as the check worded it, empty when nothing did."
+          "description": "The problem, as the check worded it. Empty when nothing went wrong."
         },
         {
           "name": "fix",
@@ -6645,7 +6645,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What to do about it, empty when there is nothing to do."
+          "description": "What to do about the problem. Empty when there is nothing to do."
         }
       ]
     },
@@ -6661,7 +6661,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every check the server made, in the order it made them."
+          "description": "Every check, in the order it ran."
         },
         {
           "name": "summary",
@@ -6671,13 +6671,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The findings counted up."
+          "description": "The findings counted by status."
         }
       ]
     },
     "doctor.v1.Summary": {
       "name": "Summary",
-      "description": "",
+      "description": "Summary counts the findings of a doctor run by status.",
       "fields": [
         {
           "name": "ok",
@@ -6697,7 +6697,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many passed with something worth a look."
+          "description": "How many checks passed with a warning."
         },
         {
           "name": "fail",
@@ -6707,7 +6707,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many failed."
+          "description": "How many checks failed."
         },
         {
           "name": "skip",
@@ -6717,7 +6717,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many were not made because one they need did not pass."
+          "description": "How many checks were skipped because a check they need did not pass."
         },
         {
           "name": "total",
@@ -6727,7 +6727,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many checks there were."
+          "description": "How many checks there are in all."
         },
         {
           "name": "healthy",
@@ -6737,7 +6737,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether nothing failed."
+          "description": "Whether no check failed."
         }
       ]
     },
@@ -7279,7 +7279,7 @@
     },
     "hook.v1.Hook": {
       "name": "Hook",
-      "description": "",
+      "description": "Hook is a script in the hooks directory.",
       "fields": [
         {
           "name": "name",
@@ -7289,7 +7289,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The file name in the hooks directory. A workflow names it to fire the hook."
+          "description": "The hook's file name in the hooks directory. A workflow names the hook by it."
         },
         {
           "name": "executable",
@@ -7299,7 +7299,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the file can run. It cannot until the user makes it executable."
+          "description": "Whether the file is executable. The hook cannot run until it is."
         },
         {
           "name": "description",
@@ -7309,7 +7309,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The description in the script's header comments."
+          "description": "The description from the hook's header comments."
         },
         {
           "name": "timeout",
@@ -7319,7 +7319,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How long komrad lets the script run. Its header can shorten the hooks.timeout setting but never lengthen it."
+          "description": "How long the hook may run. The header can shorten the `hooks.timeout` setting but not lengthen it."
         },
         {
           "name": "header_problems",
@@ -7329,7 +7329,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The header lines komrad could not read. Each one leaves its setting at the default."
+          "description": "The header lines that could not be read. Each one leaves its setting at the default."
         }
       ]
     },
@@ -7345,7 +7345,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every file in the hooks directory, runnable or not."
+          "description": "Every file in the hooks directory, executable or not."
         }
       ]
     },
@@ -7746,7 +7746,7 @@
     },
     "pagination.v1.Pagination": {
       "name": "Pagination",
-      "description": "",
+      "description": "Pagination selects one page of a listing.",
       "fields": [
         {
           "name": "limit",
@@ -7756,7 +7756,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number of rows to return. The server caps it and chooses the number when unset."
+          "description": "How many records to return. The server caps the value, and picks one when unset."
         },
         {
           "name": "cursor",
@@ -7768,7 +7768,7 @@
           "rules": [
             "at most 2048 characters"
           ],
-          "description": "The next_page_token a previous reply carried, or unset to start from the beginning."
+          "description": "The `next_page_token` from the previous response. Unset to start from the first page."
         }
       ]
     },
@@ -11221,15 +11221,15 @@
     },
     "view.v1.View": {
       "name": "View",
-      "description": "View sets how much of each record a listing returns. The panel draws every field, while a model with a context window asks for less of the same rows.",
+      "description": "View is how much of each record a listing returns.",
       "values": [
         {
           "name": "VIEW_SUMMARY",
-          "description": "Long text is cut to its opening, and the record says which fields were cut."
+          "description": "Long text is cut to its opening, and each record says which fields were cut."
         },
         {
           "name": "VIEW_FULL",
-          "description": "Every field whole, however long."
+          "description": "Every field in full, however long."
         }
       ]
     },
