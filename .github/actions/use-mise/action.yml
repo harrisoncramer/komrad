@@ -9,7 +9,7 @@ runs:
   using: composite
   steps:
     # Only the Namespace runners have the volume. A fork's pull request runs on a GitHub-hosted
-    # runner instead, so it can never write into the cache the release builds read.
+    # runner instead, so by default it stays out of the cache the release builds read.
     - name: Mount the cache volume
       if: runner.environment == 'self-hosted'
       uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1.7.0
