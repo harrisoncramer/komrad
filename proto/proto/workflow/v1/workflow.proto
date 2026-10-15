@@ -11,39 +11,42 @@ import "view/v1/view.proto";
 
 option go_package = "komrad/proto/gen/workflow/v1;workflowv1";
 
+// Workflow is a group of tasks that share a directory, flags, harness and context.
 message Workflow {
-  // The handle every other call names this workflow by.
+  // The workflow's id.
   string id = 1;
-  // What the panel groups its agents under.
+  // The workflow's name.
   string name = 2;
-  // Text appended to the system prompt of every agent launched into it. Each agent takes a
-  // snapshot at launch and does not read it again.
+  // The workflow's context, added to the system prompt of every agent the workflow launches. Each
+  // agent keeps the context it was launched with.
   string context = 3;
-  // The directory its agents start in, and the checkout new worktrees are cut from.
+  // The directory the workflow's agents start in, and the repository worktrees are created from.
   string cwd = 4;
-  // Command-line flags prefilled for each new agent.
+  // The flags each new agent in the workflow starts with.
   string flags = 5;
-  // Which CLI its agents run, blank for komrad's default.
+  // The harness the workflow's agents run. Empty uses komrad's default.
   string harness = 6;
-  // When it was hidden from the panel, unset while it is live.
+  // When the workflow was archived, in RFC 3339. Unset while the workflow is live.
   optional string archived_at = 7;
-  // Whether its agents each get a worktree of their own, and how those are built.
+  // Whether the workflow's tasks get worktrees, and how komrad creates them.
   WorktreeConfig worktree = 8;
-  // Scripts hung on moments in its agents' lives, one per moment.
+  // The workflow's hooks, at most one for each moment.
   repeated WorkflowHook hooks = 9;
-  // Whether context holds only its opening. A summary listing returns the opening only.
+  // Whether `context` was cut to its opening, as in a summary listing.
   bool context_truncated = 10;
-  // Which CLI its reviewers run, blank for the one its other agents run.
+  // The harness the workflow's reviewers run. Empty uses `harness`.
   string reviewer_harness = 11;
-  // Command-line flags for each new reviewer, blank for the other agents' flags when the CLI is
-  // the same.
+  // The flags each new reviewer starts with. Empty uses `flags` when the reviewer runs the same
+  // harness.
   string reviewer_flags = 12;
-  // What its agents are asked to do when komrad mails them an event, one per event.
+  // The prompts komrad adds to the mail it sends the workflow's agents about events, one for each
+  // event.
   repeated WorkflowEventPrompt event_prompts = 13;
 }
 
+// WorkflowEventPrompt is what a workflow's agents are told to do when komrad mails them an event.
 message WorkflowEventPrompt {
-  // Which event it answers, such as pull_request.checks_failing or review.approved.
+  // The event, such as `pull_request.checks_failing` or `review.approved`.
   string event = 1 [(buf.validate.field).string = {
     in: [
       "pull_request.checks_failing_running",
@@ -71,36 +74,28 @@ message WorkflowEventPrompt {
       "review.forge_reply_decided"
     ]
   }];
-  // The text added to the mail carrying that event, blank to add nothing.
+  // The text added to the mail about the event. Empty adds nothing.
   string prompt = 2 [(buf.validate.field).string.max_len = 500];
-  // Whether the event is kept from opening mail of its own. It still rewrites mail the agent
-  // holds unread, but without its prompt.
+  // Whether the event is muted. A muted event sends no mail of its own, and updates the agent's
+  // unread mail without its prompt.
   bool muted = 3;
 }
 
-// Explainer: why CreateWorkflowRequest takes its prompts wrapped in a message.
-//
-// A repeated field in proto3 has no presence, so an empty list and a field the caller left out
-// look the same on the wire. Creating a workflow needs to tell them apart. A caller that says
-// nothing about prompts, such as an agent over MCP or komrad's own autosetup, should get komrad's
-// default prompt for each event. The panel's new-workflow form shows those defaults and lets a
-// person clear them, so it has to be able to save a workflow with none. A message field does
-// carry presence, so wrapping the list gives an unset field and an empty one different meanings.
-// UpdateWorkflowRequest replaces the whole list every time and has no default to fall back on,
-// so it keeps a plain repeated field.
-
+// WorkflowEventPrompts is a list of event prompts, which tells an unset list from an empty one.
 message WorkflowEventPrompts {
-  // One per event.
+  // The event prompts, one for each event.
   repeated WorkflowEventPrompt prompts = 1 [(buf.validate.field).repeated.max_items = 50];
 }
 
+// WorkflowHook is a hook that runs at one moment in the life of a workflow's task or agent.
 message WorkflowHook {
-  // Which moment fires it, such as agent.pre-launch or agent.post-archive in an agent's life or task.pre-open in its task's.
+  // The moment the hook runs at, such as `agent.pre-launch`, `agent.post-archive` or
+  // `task.pre-open`.
   string event = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 40
   }];
-  // The file in the hooks directory to run, blank to fire nothing at that moment.
+  // The hook's script, by file name in the hooks directory.
   string script = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 255
@@ -108,16 +103,16 @@ message WorkflowHook {
   }];
 }
 
+// WorktreeConfig is whether a workflow's tasks get worktrees, and how komrad creates them.
 message WorktreeConfig {
-  // Whether komrad cuts a worktree for each agent, or leaves it in the directory it was given.
+  // Whether each task gets a worktree. False runs agents in the workflow's directory.
   bool enabled = 1;
-  // The branch worktrees are cut from and every agent's work is measured against. Komrad fills
-  // it in from the clone when it is blank on create, so a stored workflow never has it blank.
+  // The workflow's base branch. Empty on create reads the branch from the repository.
   string base_branch = 2 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.shell_safe]: true
   }];
-  // Files copied into each new worktree, for the untracked ones a build needs.
+  // The untracked files to copy into each new worktree, such as ones a build needs.
   repeated string copy_paths = 3 [(buf.validate.field).repeated = {
     max_items: 50
     items: {
@@ -127,7 +122,7 @@ message WorktreeConfig {
       }
     }
   }];
-  // Files linked into each new worktree rather than copied, for the large shared ones.
+  // The files to link into each new worktree instead of copying, such as large shared ones.
   repeated string symlink_paths = 4 [(buf.validate.field).repeated = {
     max_items: 50
     items: {
@@ -137,7 +132,7 @@ message WorktreeConfig {
       }
     }
   }];
-  // Paths or globs the panel leaves out of the diff it draws, such as generated output.
+  // The paths or globs left out of a task's diff and line counts, such as generated output.
   repeated string diff_exclude = 5 [(buf.validate.field).repeated = {
     max_items: 50
     items: {
@@ -148,7 +143,7 @@ message WorktreeConfig {
       }
     }
   }];
-  // Where new worktrees are made, blank for the parent every workflow shares.
+  // The directory new worktrees are created in. Empty uses the directory all workflows share.
   string dir = 6 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
@@ -156,147 +151,146 @@ message WorktreeConfig {
 }
 
 message ListWorkflowsRequest {
-  // Where to carry on from.
+  // The page to read.
   optional pagination.v1.Pagination pagination = 1;
-  // True to list the archived workflows and only those.
+  // Whether to list only archived workflows instead of live ones.
   bool archived = 2;
-  // How much of each record to return. The panel draws every field, while a model reading the
-  // same endpoint has a context window to spend.
+  // How much of each workflow to return.
   view.v1.View view = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListWorkflowsResponse {
-  // One page of workflows, in alphabetical order.
+  // One page of workflows, by name.
   repeated Workflow workflows = 1;
-  // Pass this back as the pagination cursor for the next page.
+  // The cursor for the next page. Unset on the last page.
   optional string next_page_token = 2;
 }
 
 message GetWorkflowRequest {
-  // Which workflow to read.
+  // The workflow to get, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetWorkflowResponse {
-  // The workflow, with its context whole rather than cut to its opening.
+  // The workflow, with its context in full.
   Workflow workflow = 1;
 }
 
 message CreateWorkflowRequest {
-  // What to group its agents under in the panel.
+  // The workflow's name.
   string name = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // Text to append to the system prompt of every agent launched into it.
+  // The workflow's context, added to the system prompt of every agent the workflow launches.
   string context = 2 [(buf.validate.field).string.max_len = 50000];
-  // The directory its agents start in, and the checkout worktrees are cut from.
+  // The directory the workflow's agents start in, and the repository worktrees are created from.
   string cwd = 3 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
-  // Flags to prefill for each new agent.
+  // The flags each new agent in the workflow starts with.
   string flags = 4 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
-  // Which CLI its agents run, blank for komrad's default.
+  // The harness the workflow's agents run. Empty uses komrad's default.
   string harness = 5 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // Whether its agents each get a worktree, and how those are built.
+  // Whether the workflow's tasks get worktrees, and how komrad creates them.
   WorktreeConfig worktree = 6;
-  // Scripts to hang on moments in its agents' lives.
+  // The workflow's hooks.
   repeated WorkflowHook hooks = 7 [(buf.validate.field).repeated.max_items = 50];
-  // Which CLI its reviewers run, blank for the one its other agents run.
+  // The harness the workflow's reviewers run. Empty uses `harness`.
   string reviewer_harness = 8 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // Flags for each new reviewer, blank for the other agents' flags when the CLI is the same.
+  // The flags each new reviewer starts with. Empty uses `flags` when the reviewer runs the same
+  // harness.
   string reviewer_flags = 9 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
-  // What its agents are asked to do when komrad mails them an event. Left unset, the workflow
-  // starts with komrad's default prompt for each event, and set with no prompts it starts with none.
+  // The workflow's event prompts. Unset uses komrad's default prompt for each event, and an empty
+  // list sets none.
   WorkflowEventPrompts event_prompts = 10;
 }
 
 message CreateWorkflowResponse {
-  // The workflow as recorded, holding no agents yet.
+  // The workflow as created.
   Workflow workflow = 1;
 }
 
 message UpdateWorkflowRequest {
-  // Which workflow to rewrite.
+  // The workflow to update, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // Every field here is written, so send back the ones you are not changing.
+  // The workflow's name.
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // Reaches only agents launched afterwards. Existing agents took a snapshot.
+  // The workflow's context. Agents already launched keep theirs.
   string context = 3 [(buf.validate.field).string.max_len = 50000];
-  // Where agents launched afterwards start.
+  // The directory agents launched from now on start in.
   string cwd = 4 [(buf.validate.field).string = {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
-  // Flags prefilled for agents launched afterwards.
+  // The flags agents launched from now on start with.
   string flags = 5 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
-  // Which CLI agents launched afterwards run.
+  // The harness agents launched from now on run.
   string harness = 6 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // Turning worktrees off reaches agents already running. Komrad reads whether to remove a
-  // directory when it deletes the agent.
+  // Whether the workflow's tasks get worktrees, and how komrad creates them. Turning worktrees off
+  // applies to existing tasks too.
   WorktreeConfig worktree = 7;
-  // The whole hook list, so send back the ones you are keeping.
+  // The workflow's hooks, in full.
   repeated WorkflowHook hooks = 8 [(buf.validate.field).repeated.max_items = 50];
-  // Which CLI reviewers spawned afterwards run.
+  // The harness reviewers created from now on run.
   string reviewer_harness = 9 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // Flags for reviewers spawned afterwards.
+  // The flags reviewers created from now on start with.
   string reviewer_flags = 10 [(buf.validate.field).string = {
     max_len: 500
     [rules.v1.shell_safe]: true
   }];
-  // The whole prompt list, so send back the ones you are keeping.
+  // The workflow's event prompts, in full.
   repeated WorkflowEventPrompt event_prompts = 11 [(buf.validate.field).repeated.max_items = 50];
 }
 
 message ArchiveWorkflowRequest {
-  // Which workflow to hide, archiving the agents inside it.
+  // The workflow to archive, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message RestoreWorkflowRequest {
-  // Which archived workflow to bring back, along with the agents archived inside it.
+  // The archived workflow to restore, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message RestoreWorkflowResponse {
-  // The workflow as restored, its agents dormant until each is resumed.
+  // The workflow as restored.
   Workflow workflow = 1;
 }
 
 message DeleteWorkflowRequest {
-  // Which archived workflow to remove for good, with whatever is still inside it.
+  // The archived workflow to delete, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// WorkflowService manages the groups agents are filed under. A group sets the directory,
-// flags and shared context each of its agents starts from.
+// WorkflowService creates and manages workflows.
 service WorkflowService {
   rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -304,7 +298,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "list_workflows"
-      description: "List the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set."
+      description: "List workflows by name. Archived workflows are left out unless `archived` is set."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -318,7 +312,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "get_workflow"
-      description: "Fetch one workflow by id."
+      description: "Get one workflow by id, with its context in full."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -331,7 +325,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "create_workflow"
-      description: "Create a workflow to group agents under. The workflows guide explains each field."
+      description: "Create a workflow."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -342,7 +336,8 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "update_workflow"
-      description: "Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing. A context edit reaches only agents spawned afterwards."
+      description: "Replace every field of a workflow, `hooks` and `event_prompts` included. Agents already launched keep the context they started with."
+      mcp_guidance: "Read the workflow first and send back every field you are not changing."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -353,7 +348,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "archive_workflow"
-      description: "Archive a workflow and the agents in it. Refused while a schedule still launches into it."
+      description: "Archive a workflow with its agents. Fails while a schedule still launches agents into the workflow."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -364,7 +359,8 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "restore_workflow"
-      description: "Take a workflow out of the archive with its agents, dormant. Call resume_agent on the ones you want running."
+      description: "Restore an archived workflow with its agents, which stay dormant until resumed."
+      mcp_guidance: "Call resume_agent on the agents that should run."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -375,7 +371,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "delete_workflow"
-      description: "Permanently delete an archived workflow with its archived agents, tasks and schedules."
+      description: "Delete an archived workflow for good, with its archived agents, tasks and schedules."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };

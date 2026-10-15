@@ -27,35 +27,37 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Workflow is a group of tasks that share a directory, flags, harness and context.
 type Workflow struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle every other call names this workflow by.
+	// The workflow's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// What the panel groups its agents under.
+	// The workflow's name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Text appended to the system prompt of every agent launched into it. Each agent takes a
-	// snapshot at launch and does not read it again.
+	// The workflow's context, added to the system prompt of every agent the workflow launches. Each
+	// agent keeps the context it was launched with.
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	// The directory its agents start in, and the checkout new worktrees are cut from.
+	// The directory the workflow's agents start in, and the repository worktrees are created from.
 	Cwd string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	// Command-line flags prefilled for each new agent.
+	// The flags each new agent in the workflow starts with.
 	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI its agents run, blank for komrad's default.
+	// The harness the workflow's agents run. Empty uses komrad's default.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// When it was hidden from the panel, unset while it is live.
+	// When the workflow was archived, in RFC 3339. Unset while the workflow is live.
 	ArchivedAt *string `protobuf:"bytes,7,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
-	// Whether its agents each get a worktree of their own, and how those are built.
+	// Whether the workflow's tasks get worktrees, and how komrad creates them.
 	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	// Scripts hung on moments in its agents' lives, one per moment.
+	// The workflow's hooks, at most one for each moment.
 	Hooks []*WorkflowHook `protobuf:"bytes,9,rep,name=hooks,proto3" json:"hooks,omitempty"`
-	// Whether context holds only its opening. A summary listing returns the opening only.
+	// Whether `context` was cut to its opening, as in a summary listing.
 	ContextTruncated bool `protobuf:"varint,10,opt,name=context_truncated,json=contextTruncated,proto3" json:"context_truncated,omitempty"`
-	// Which CLI its reviewers run, blank for the one its other agents run.
+	// The harness the workflow's reviewers run. Empty uses `harness`.
 	ReviewerHarness string `protobuf:"bytes,11,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
-	// Command-line flags for each new reviewer, blank for the other agents' flags when the CLI is
-	// the same.
+	// The flags each new reviewer starts with. Empty uses `flags` when the reviewer runs the same
+	// harness.
 	ReviewerFlags string `protobuf:"bytes,12,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
-	// What its agents are asked to do when komrad mails them an event, one per event.
+	// The prompts komrad adds to the mail it sends the workflow's agents about events, one for each
+	// event.
 	EventPrompts  []*WorkflowEventPrompt `protobuf:"bytes,13,rep,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -182,14 +184,15 @@ func (x *Workflow) GetEventPrompts() []*WorkflowEventPrompt {
 	return nil
 }
 
+// WorkflowEventPrompt is what a workflow's agents are told to do when komrad mails them an event.
 type WorkflowEventPrompt struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which event it answers, such as pull_request.checks_failing or review.approved.
+	// The event, such as `pull_request.checks_failing` or `review.approved`.
 	Event string `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
-	// The text added to the mail carrying that event, blank to add nothing.
+	// The text added to the mail about the event. Empty adds nothing.
 	Prompt string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// Whether the event is kept from opening mail of its own. It still rewrites mail the agent
-	// holds unread, but without its prompt.
+	// Whether the event is muted. A muted event sends no mail of its own, and updates the agent's
+	// unread mail without its prompt.
 	Muted         bool `protobuf:"varint,3,opt,name=muted,proto3" json:"muted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -246,9 +249,10 @@ func (x *WorkflowEventPrompt) GetMuted() bool {
 	return false
 }
 
+// WorkflowEventPrompts is a list of event prompts, which tells an unset list from an empty one.
 type WorkflowEventPrompts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One per event.
+	// The event prompts, one for each event.
 	Prompts       []*WorkflowEventPrompt `protobuf:"bytes,1,rep,name=prompts,proto3" json:"prompts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -291,11 +295,13 @@ func (x *WorkflowEventPrompts) GetPrompts() []*WorkflowEventPrompt {
 	return nil
 }
 
+// WorkflowHook is a hook that runs at one moment in the life of a workflow's task or agent.
 type WorkflowHook struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which moment fires it, such as agent.pre-launch or agent.post-archive in an agent's life or task.pre-open in its task's.
+	// The moment the hook runs at, such as `agent.pre-launch`, `agent.post-archive` or
+	// `task.pre-open`.
 	Event string `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
-	// The file in the hooks directory to run, blank to fire nothing at that moment.
+	// The hook's script, by file name in the hooks directory.
 	Script        string `protobuf:"bytes,2,opt,name=script,proto3" json:"script,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -345,20 +351,20 @@ func (x *WorkflowHook) GetScript() string {
 	return ""
 }
 
+// WorktreeConfig is whether a workflow's tasks get worktrees, and how komrad creates them.
 type WorktreeConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether komrad cuts a worktree for each agent, or leaves it in the directory it was given.
+	// Whether each task gets a worktree. False runs agents in the workflow's directory.
 	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// The branch worktrees are cut from and every agent's work is measured against. Komrad fills
-	// it in from the clone when it is blank on create, so a stored workflow never has it blank.
+	// The workflow's base branch. Empty on create reads the branch from the repository.
 	BaseBranch string `protobuf:"bytes,2,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
-	// Files copied into each new worktree, for the untracked ones a build needs.
+	// The untracked files to copy into each new worktree, such as ones a build needs.
 	CopyPaths []string `protobuf:"bytes,3,rep,name=copy_paths,json=copyPaths,proto3" json:"copy_paths,omitempty"`
-	// Files linked into each new worktree rather than copied, for the large shared ones.
+	// The files to link into each new worktree instead of copying, such as large shared ones.
 	SymlinkPaths []string `protobuf:"bytes,4,rep,name=symlink_paths,json=symlinkPaths,proto3" json:"symlink_paths,omitempty"`
-	// Paths or globs the panel leaves out of the diff it draws, such as generated output.
+	// The paths or globs left out of a task's diff and line counts, such as generated output.
 	DiffExclude []string `protobuf:"bytes,5,rep,name=diff_exclude,json=diffExclude,proto3" json:"diff_exclude,omitempty"`
-	// Where new worktrees are made, blank for the parent every workflow shares.
+	// The directory new worktrees are created in. Empty uses the directory all workflows share.
 	Dir           string `protobuf:"bytes,6,opt,name=dir,proto3" json:"dir,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -438,12 +444,11 @@ func (x *WorktreeConfig) GetDir() string {
 
 type ListWorkflowsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Where to carry on from.
+	// The page to read.
 	Pagination *v1.Pagination `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// True to list the archived workflows and only those.
+	// Whether to list only archived workflows instead of live ones.
 	Archived bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
-	// How much of each record to return. The panel draws every field, while a model reading the
-	// same endpoint has a context window to spend.
+	// How much of each workflow to return.
 	View          v11.View `protobuf:"varint,3,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -502,9 +507,9 @@ func (x *ListWorkflowsRequest) GetView() v11.View {
 
 type ListWorkflowsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One page of workflows, in alphabetical order.
+	// One page of workflows, by name.
 	Workflows []*Workflow `protobuf:"bytes,1,rep,name=workflows,proto3" json:"workflows,omitempty"`
-	// Pass this back as the pagination cursor for the next page.
+	// The cursor for the next page. Unset on the last page.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -556,7 +561,7 @@ func (x *ListWorkflowsResponse) GetNextPageToken() string {
 
 type GetWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which workflow to read.
+	// The workflow to get, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -601,7 +606,7 @@ func (x *GetWorkflowRequest) GetId() string {
 
 type GetWorkflowResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The workflow, with its context whole rather than cut to its opening.
+	// The workflow, with its context in full.
 	Workflow      *Workflow `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -646,26 +651,27 @@ func (x *GetWorkflowResponse) GetWorkflow() *Workflow {
 
 type CreateWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What to group its agents under in the panel.
+	// The workflow's name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Text to append to the system prompt of every agent launched into it.
+	// The workflow's context, added to the system prompt of every agent the workflow launches.
 	Context string `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
-	// The directory its agents start in, and the checkout worktrees are cut from.
+	// The directory the workflow's agents start in, and the repository worktrees are created from.
 	Cwd string `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	// Flags to prefill for each new agent.
+	// The flags each new agent in the workflow starts with.
 	Flags string `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI its agents run, blank for komrad's default.
+	// The harness the workflow's agents run. Empty uses komrad's default.
 	Harness string `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
-	// Whether its agents each get a worktree, and how those are built.
+	// Whether the workflow's tasks get worktrees, and how komrad creates them.
 	Worktree *WorktreeConfig `protobuf:"bytes,6,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	// Scripts to hang on moments in its agents' lives.
+	// The workflow's hooks.
 	Hooks []*WorkflowHook `protobuf:"bytes,7,rep,name=hooks,proto3" json:"hooks,omitempty"`
-	// Which CLI its reviewers run, blank for the one its other agents run.
+	// The harness the workflow's reviewers run. Empty uses `harness`.
 	ReviewerHarness string `protobuf:"bytes,8,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
-	// Flags for each new reviewer, blank for the other agents' flags when the CLI is the same.
+	// The flags each new reviewer starts with. Empty uses `flags` when the reviewer runs the same
+	// harness.
 	ReviewerFlags string `protobuf:"bytes,9,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
-	// What its agents are asked to do when komrad mails them an event. Left unset, the workflow
-	// starts with komrad's default prompt for each event, and set with no prompts it starts with none.
+	// The workflow's event prompts. Unset uses komrad's default prompt for each event, and an empty
+	// list sets none.
 	EventPrompts  *WorkflowEventPrompts `protobuf:"bytes,10,opt,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -773,7 +779,7 @@ func (x *CreateWorkflowRequest) GetEventPrompts() *WorkflowEventPrompts {
 
 type CreateWorkflowResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The workflow as recorded, holding no agents yet.
+	// The workflow as created.
 	Workflow      *Workflow `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -818,28 +824,28 @@ func (x *CreateWorkflowResponse) GetWorkflow() *Workflow {
 
 type UpdateWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which workflow to rewrite.
+	// The workflow to update, by id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Every field here is written, so send back the ones you are not changing.
+	// The workflow's name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Reaches only agents launched afterwards. Existing agents took a snapshot.
+	// The workflow's context. Agents already launched keep theirs.
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
-	// Where agents launched afterwards start.
+	// The directory agents launched from now on start in.
 	Cwd string `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
-	// Flags prefilled for agents launched afterwards.
+	// The flags agents launched from now on start with.
 	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
-	// Which CLI agents launched afterwards run.
+	// The harness agents launched from now on run.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// Turning worktrees off reaches agents already running. Komrad reads whether to remove a
-	// directory when it deletes the agent.
+	// Whether the workflow's tasks get worktrees, and how komrad creates them. Turning worktrees off
+	// applies to existing tasks too.
 	Worktree *WorktreeConfig `protobuf:"bytes,7,opt,name=worktree,proto3" json:"worktree,omitempty"`
-	// The whole hook list, so send back the ones you are keeping.
+	// The workflow's hooks, in full.
 	Hooks []*WorkflowHook `protobuf:"bytes,8,rep,name=hooks,proto3" json:"hooks,omitempty"`
-	// Which CLI reviewers spawned afterwards run.
+	// The harness reviewers created from now on run.
 	ReviewerHarness string `protobuf:"bytes,9,opt,name=reviewer_harness,json=reviewerHarness,proto3" json:"reviewer_harness,omitempty"`
-	// Flags for reviewers spawned afterwards.
+	// The flags reviewers created from now on start with.
 	ReviewerFlags string `protobuf:"bytes,10,opt,name=reviewer_flags,json=reviewerFlags,proto3" json:"reviewer_flags,omitempty"`
-	// The whole prompt list, so send back the ones you are keeping.
+	// The workflow's event prompts, in full.
 	EventPrompts  []*WorkflowEventPrompt `protobuf:"bytes,11,rep,name=event_prompts,json=eventPrompts,proto3" json:"event_prompts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -954,7 +960,7 @@ func (x *UpdateWorkflowRequest) GetEventPrompts() []*WorkflowEventPrompt {
 
 type ArchiveWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which workflow to hide, archiving the agents inside it.
+	// The workflow to archive, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -999,7 +1005,7 @@ func (x *ArchiveWorkflowRequest) GetId() string {
 
 type RestoreWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which archived workflow to bring back, along with the agents archived inside it.
+	// The archived workflow to restore, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1044,7 +1050,7 @@ func (x *RestoreWorkflowRequest) GetId() string {
 
 type RestoreWorkflowResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The workflow as restored, its agents dormant until each is resumed.
+	// The workflow as restored.
 	Workflow      *Workflow `protobuf:"bytes,1,opt,name=workflow,proto3" json:"workflow,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1089,7 +1095,7 @@ func (x *RestoreWorkflowResponse) GetWorkflow() *Workflow {
 
 type DeleteWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which archived workflow to remove for good, with whatever is still inside it.
+	// The archived workflow to delete, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1221,15 +1227,15 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xa5\f\n" +
-	"\x0fWorkflowService\x12\xfb\x01\n" +
-	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa2\x01\x9a\xb5\x18\x9a\x01\b\x01\x10\x01\x1a\x0elist_workflows\"\x7fList the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x8b\x01\n" +
-	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"9\x9a\xb5\x182\b\x01\x10\x01\x1a\fget_workflow\"\x19Fetch one workflow by id.:\x03\x03\x01\x02\x90\x02\x01\x12\xcc\x01\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"q\x9a\xb5\x18m\b\x01\x10\x01\x1a\x0fcreate_workflow\"QCreate a workflow to group agents under. The workflows guide explains each field.(\x00:\x01\x02\x12\xa9\x02\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xda\x01\x9a\xb5\x18\xd2\x01\b\x01\x10\x01\x1a\x0fupdate_workflow\"\xb5\x01Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing. A context edit reaches only agents spawned afterwards.(\x00:\x01\x02\x90\x02\x02\x12\xcd\x01\n" +
-	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"}\x9a\xb5\x18v\b\x01\x10\x01\x1a\x10archive_workflow\"YArchive a workflow and the agents in it. Refused while a schedule still launches into it.(\x00:\x01\x02\x90\x02\x02\x12\xf0\x01\n" +
-	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\x91\x01\x9a\xb5\x18\x89\x01\b\x01\x10\x01\x1a\x10restore_workflow\"lTake a workflow out of the archive with its agents, dormant. Call resume_agent on the ones you want running.(\x00:\x01\x02\x90\x02\x02\x12\xc7\x01\n" +
-	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"y\x9a\xb5\x18r\b\x01\x10\x01\x1a\x0fdelete_workflow\"VPermanently delete an archived workflow with its archived agents, tasks and schedules.(\x01:\x01\x02\x90\x02\x02B)Z'komrad/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\x85\f\n" +
+	"\x0fWorkflowService\x12\xcb\x01\n" +
+	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"s\x9a\xb5\x18l\b\x01\x10\x01\x1a\x0elist_workflows\"QList workflows by name. Archived workflows are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xa3\x01\n" +
+	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"Q\x9a\xb5\x18J\b\x01\x10\x01\x1a\fget_workflow\"1Get one workflow by id, with its context in full.:\x03\x03\x01\x02\x90\x02\x01\x12\x8d\x01\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"2\x9a\xb5\x18.\b\x01\x10\x01\x1a\x0fcreate_workflow\"\x12Create a workflow.(\x00:\x01\x02\x12\xc1\x02\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xf2\x01\x9a\xb5\x18\xea\x01\b\x01\x10\x01\x1a\x0fupdate_workflow\"\x84\x01Replace every field of a workflow, `hooks` and `event_prompts` included. Agents already launched keep the context they started with.(\x00:\x01\x02JGRead the workflow first and send back every field you are not changing.\x90\x02\x02\x12\xd9\x01\n" +
+	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\x88\x01\x9a\xb5\x18\x80\x01\b\x01\x10\x01\x1a\x10archive_workflow\"cArchive a workflow with its agents. Fails while a schedule still launches agents into the workflow.(\x00:\x01\x02\x90\x02\x02\x12\x85\x02\n" +
+	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xa6\x01\x9a\xb5\x18\x9e\x01\b\x01\x10\x01\x1a\x10restore_workflow\"ORestore an archived workflow with its agents, which stay dormant until resumed.(\x00:\x01\x02J0Call resume_agent on the agents that should run.\x90\x02\x02\x12\xc5\x01\n" +
+	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"w\x9a\xb5\x18p\b\x01\x10\x01\x1a\x0fdelete_workflow\"TDelete an archived workflow for good, with its archived agents, tasks and schedules.(\x01:\x01\x02\x90\x02\x02B)Z'komrad/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

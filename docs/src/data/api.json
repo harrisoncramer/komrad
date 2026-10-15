@@ -931,7 +931,7 @@
       "slug": "workflow",
       "title": "Workflow",
       "name": "workflow.v1.WorkflowService",
-      "description": "WorkflowService manages the groups agents are filed under. A group sets the directory, flags and shared context each of its agents starts from.",
+      "description": "WorkflowService creates and manages workflows.",
       "methods": [
         {
           "slug": "list-workflows",
@@ -945,8 +945,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the workflows, alphabetically, with the opening of each context.",
-          "description": "List the workflows, alphabetically, with the opening of each context. The list omits archived workflows unless archived is set.",
+          "summary": "List workflows by name.",
+          "description": "List workflows by name. Archived workflows are left out unless `archived` is set.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -965,8 +965,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "Fetch one workflow by id.",
-          "description": "Fetch one workflow by id.",
+          "summary": "Get one workflow by id, with its context in full.",
+          "description": "Get one workflow by id, with its context in full.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -983,8 +983,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Create a workflow to group agents under.",
-          "description": "Create a workflow to group agents under. The workflows guide explains each field.",
+          "summary": "Create a workflow.",
+          "description": "Create a workflow.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1001,8 +1001,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing.",
-          "description": "Replace every field of a workflow, hooks and event_prompts included, so read it first and send back what you are not changing. A context edit reaches only agents spawned afterwards.",
+          "summary": "Replace every field of a workflow, `hooks` and `event_prompts` included.",
+          "description": "Replace every field of a workflow, `hooks` and `event_prompts` included. Agents already launched keep the context they started with.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1019,8 +1019,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Archive a workflow and the agents in it.",
-          "description": "Archive a workflow and the agents in it. Refused while a schedule still launches into it.",
+          "summary": "Archive a workflow with its agents.",
+          "description": "Archive a workflow with its agents. Fails while a schedule still launches agents into the workflow.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1037,8 +1037,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Take a workflow out of the archive with its agents, dormant.",
-          "description": "Take a workflow out of the archive with its agents, dormant. Call resume_agent on the ones you want running.",
+          "summary": "Restore an archived workflow with its agents, which stay dormant until resumed.",
+          "description": "Restore an archived workflow with its agents, which stay dormant until resumed.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1055,8 +1055,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Permanently delete an archived workflow with its archived agents, tasks and schedules.",
-          "description": "Permanently delete an archived workflow with its archived agents, tasks and schedules.",
+          "summary": "Delete an archived workflow for good, with its archived agents, tasks and schedules.",
+          "description": "Delete an archived workflow for good, with its archived agents, tasks and schedules.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -9451,7 +9451,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which workflow to hide, archiving the agents inside it."
+          "description": "The workflow to archive, by id."
         }
       ]
     },
@@ -9470,7 +9470,7 @@
             "required",
             "at most 200 characters"
           ],
-          "description": "What to group its agents under in the panel."
+          "description": "The workflow's name."
         },
         {
           "name": "context",
@@ -9482,7 +9482,7 @@
           "rules": [
             "at most 50000 characters"
           ],
-          "description": "Text to append to the system prompt of every agent launched into it."
+          "description": "The workflow's context, added to the system prompt of every agent the workflow launches."
         },
         {
           "name": "cwd",
@@ -9494,7 +9494,7 @@
           "rules": [
             "at most 4096 characters"
           ],
-          "description": "The directory its agents start in, and the checkout worktrees are cut from."
+          "description": "The directory the workflow's agents start in, and the repository worktrees are created from."
         },
         {
           "name": "flags",
@@ -9506,7 +9506,7 @@
           "rules": [
             "at most 500 characters"
           ],
-          "description": "Flags to prefill for each new agent."
+          "description": "The flags each new agent in the workflow starts with."
         },
         {
           "name": "harness",
@@ -9519,7 +9519,7 @@
             "at most 40 characters",
             "matching ^[a-z0-9-]*$"
           ],
-          "description": "Which CLI its agents run, blank for komrad's default."
+          "description": "The harness the workflow's agents run. Empty uses komrad's default."
         },
         {
           "name": "worktree",
@@ -9529,7 +9529,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether its agents each get a worktree, and how those are built."
+          "description": "Whether the workflow's tasks get worktrees, and how komrad creates them."
         },
         {
           "name": "hooks",
@@ -9539,7 +9539,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Scripts to hang on moments in its agents' lives."
+          "description": "The workflow's hooks."
         },
         {
           "name": "reviewer_harness",
@@ -9552,7 +9552,7 @@
             "at most 40 characters",
             "matching ^[a-z0-9-]*$"
           ],
-          "description": "Which CLI its reviewers run, blank for the one its other agents run."
+          "description": "The harness the workflow's reviewers run. Empty uses `harness`."
         },
         {
           "name": "reviewer_flags",
@@ -9564,7 +9564,7 @@
           "rules": [
             "at most 500 characters"
           ],
-          "description": "Flags for each new reviewer, blank for the other agents' flags when the CLI is the same."
+          "description": "The flags each new reviewer starts with. Empty uses `flags` when the reviewer runs the same harness."
         },
         {
           "name": "event_prompts",
@@ -9574,7 +9574,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What its agents are asked to do when komrad mails them an event. Left unset, the workflow starts with komrad's default prompt for each event, and set with no prompts it starts with none."
+          "description": "The workflow's event prompts. Unset uses komrad's default prompt for each event, and an empty list sets none."
         }
       ]
     },
@@ -9590,7 +9590,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The workflow as recorded, holding no agents yet."
+          "description": "The workflow as created."
         }
       ]
     },
@@ -9608,7 +9608,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which archived workflow to remove for good, with whatever is still inside it."
+          "description": "The archived workflow to delete, by id."
         }
       ]
     },
@@ -9626,7 +9626,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which workflow to read."
+          "description": "The workflow to get, by id."
         }
       ]
     },
@@ -9642,7 +9642,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The workflow, with its context whole rather than cut to its opening."
+          "description": "The workflow, with its context in full."
         }
       ]
     },
@@ -9658,7 +9658,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where to carry on from."
+          "description": "The page to read."
         },
         {
           "name": "archived",
@@ -9668,7 +9668,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True to list the archived workflows and only those."
+          "description": "Whether to list only archived workflows instead of live ones."
         },
         {
           "name": "view",
@@ -9678,7 +9678,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How much of each record to return. The panel draws every field, while a model reading the same endpoint has a context window to spend."
+          "description": "How much of each workflow to return."
         }
       ]
     },
@@ -9694,7 +9694,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One page of workflows, in alphabetical order."
+          "description": "One page of workflows, by name."
         },
         {
           "name": "next_page_token",
@@ -9704,7 +9704,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Pass this back as the pagination cursor for the next page."
+          "description": "The cursor for the next page. Unset on the last page."
         }
       ]
     },
@@ -9722,7 +9722,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which archived workflow to bring back, along with the agents archived inside it."
+          "description": "The archived workflow to restore, by id."
         }
       ]
     },
@@ -9738,7 +9738,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The workflow as restored, its agents dormant until each is resumed."
+          "description": "The workflow as restored."
         }
       ]
     },
@@ -9756,7 +9756,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which workflow to rewrite."
+          "description": "The workflow to update, by id."
         },
         {
           "name": "name",
@@ -9769,7 +9769,7 @@
             "required",
             "at most 200 characters"
           ],
-          "description": "Every field here is written, so send back the ones you are not changing."
+          "description": "The workflow's name."
         },
         {
           "name": "context",
@@ -9781,7 +9781,7 @@
           "rules": [
             "at most 50000 characters"
           ],
-          "description": "Reaches only agents launched afterwards. Existing agents took a snapshot."
+          "description": "The workflow's context. Agents already launched keep theirs."
         },
         {
           "name": "cwd",
@@ -9793,7 +9793,7 @@
           "rules": [
             "at most 4096 characters"
           ],
-          "description": "Where agents launched afterwards start."
+          "description": "The directory agents launched from now on start in."
         },
         {
           "name": "flags",
@@ -9805,7 +9805,7 @@
           "rules": [
             "at most 500 characters"
           ],
-          "description": "Flags prefilled for agents launched afterwards."
+          "description": "The flags agents launched from now on start with."
         },
         {
           "name": "harness",
@@ -9818,7 +9818,7 @@
             "at most 40 characters",
             "matching ^[a-z0-9-]*$"
           ],
-          "description": "Which CLI agents launched afterwards run."
+          "description": "The harness agents launched from now on run."
         },
         {
           "name": "worktree",
@@ -9828,7 +9828,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Turning worktrees off reaches agents already running. Komrad reads whether to remove a directory when it deletes the agent."
+          "description": "Whether the workflow's tasks get worktrees, and how komrad creates them. Turning worktrees off applies to existing tasks too."
         },
         {
           "name": "hooks",
@@ -9838,7 +9838,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The whole hook list, so send back the ones you are keeping."
+          "description": "The workflow's hooks, in full."
         },
         {
           "name": "reviewer_harness",
@@ -9851,7 +9851,7 @@
             "at most 40 characters",
             "matching ^[a-z0-9-]*$"
           ],
-          "description": "Which CLI reviewers spawned afterwards run."
+          "description": "The harness reviewers created from now on run."
         },
         {
           "name": "reviewer_flags",
@@ -9863,7 +9863,7 @@
           "rules": [
             "at most 500 characters"
           ],
-          "description": "Flags for reviewers spawned afterwards."
+          "description": "The flags reviewers created from now on start with."
         },
         {
           "name": "event_prompts",
@@ -9873,13 +9873,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The whole prompt list, so send back the ones you are keeping."
+          "description": "The workflow's event prompts, in full."
         }
       ]
     },
     "workflow.v1.Workflow": {
       "name": "Workflow",
-      "description": "",
+      "description": "Workflow is a group of tasks that share a directory, flags, harness and context.",
       "fields": [
         {
           "name": "id",
@@ -9889,7 +9889,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle every other call names this workflow by."
+          "description": "The workflow's id."
         },
         {
           "name": "name",
@@ -9899,7 +9899,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the panel groups its agents under."
+          "description": "The workflow's name."
         },
         {
           "name": "context",
@@ -9909,7 +9909,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Text appended to the system prompt of every agent launched into it. Each agent takes a snapshot at launch and does not read it again."
+          "description": "The workflow's context, added to the system prompt of every agent the workflow launches. Each agent keeps the context it was launched with."
         },
         {
           "name": "cwd",
@@ -9919,7 +9919,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directory its agents start in, and the checkout new worktrees are cut from."
+          "description": "The directory the workflow's agents start in, and the repository worktrees are created from."
         },
         {
           "name": "flags",
@@ -9929,7 +9929,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Command-line flags prefilled for each new agent."
+          "description": "The flags each new agent in the workflow starts with."
         },
         {
           "name": "harness",
@@ -9939,7 +9939,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which CLI its agents run, blank for komrad's default."
+          "description": "The harness the workflow's agents run. Empty uses komrad's default."
         },
         {
           "name": "archived_at",
@@ -9949,7 +9949,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was hidden from the panel, unset while it is live."
+          "description": "When the workflow was archived, in RFC 3339. Unset while the workflow is live."
         },
         {
           "name": "worktree",
@@ -9959,7 +9959,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether its agents each get a worktree of their own, and how those are built."
+          "description": "Whether the workflow's tasks get worktrees, and how komrad creates them."
         },
         {
           "name": "hooks",
@@ -9969,7 +9969,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Scripts hung on moments in its agents' lives, one per moment."
+          "description": "The workflow's hooks, at most one for each moment."
         },
         {
           "name": "context_truncated",
@@ -9979,7 +9979,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether context holds only its opening. A summary listing returns the opening only."
+          "description": "Whether `context` was cut to its opening, as in a summary listing."
         },
         {
           "name": "reviewer_harness",
@@ -9989,7 +9989,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which CLI its reviewers run, blank for the one its other agents run."
+          "description": "The harness the workflow's reviewers run. Empty uses `harness`."
         },
         {
           "name": "reviewer_flags",
@@ -9999,7 +9999,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Command-line flags for each new reviewer, blank for the other agents' flags when the CLI is the same."
+          "description": "The flags each new reviewer starts with. Empty uses `flags` when the reviewer runs the same harness."
         },
         {
           "name": "event_prompts",
@@ -10009,13 +10009,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What its agents are asked to do when komrad mails them an event, one per event."
+          "description": "The prompts komrad adds to the mail it sends the workflow's agents about events, one for each event."
         }
       ]
     },
     "workflow.v1.WorkflowEventPrompt": {
       "name": "WorkflowEventPrompt",
-      "description": "",
+      "description": "WorkflowEventPrompt is what a workflow's agents are told to do when komrad mails them an event.",
       "fields": [
         {
           "name": "event",
@@ -10025,7 +10025,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which event it answers, such as pull_request.checks_failing or review.approved."
+          "description": "The event, such as `pull_request.checks_failing` or `review.approved`."
         },
         {
           "name": "prompt",
@@ -10037,7 +10037,7 @@
           "rules": [
             "at most 500 characters"
           ],
-          "description": "The text added to the mail carrying that event, blank to add nothing."
+          "description": "The text added to the mail about the event. Empty adds nothing."
         },
         {
           "name": "muted",
@@ -10047,13 +10047,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the event is kept from opening mail of its own. It still rewrites mail the agent holds unread, but without its prompt."
+          "description": "Whether the event is muted. A muted event sends no mail of its own, and updates the agent's unread mail without its prompt."
         }
       ]
     },
     "workflow.v1.WorkflowEventPrompts": {
       "name": "WorkflowEventPrompts",
-      "description": "",
+      "description": "WorkflowEventPrompts is a list of event prompts, which tells an unset list from an empty one.",
       "fields": [
         {
           "name": "prompts",
@@ -10063,13 +10063,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One per event."
+          "description": "The event prompts, one for each event."
         }
       ]
     },
     "workflow.v1.WorkflowHook": {
       "name": "WorkflowHook",
-      "description": "",
+      "description": "WorkflowHook is a hook that runs at one moment in the life of a workflow's task or agent.",
       "fields": [
         {
           "name": "event",
@@ -10082,7 +10082,7 @@
             "required",
             "at most 40 characters"
           ],
-          "description": "Which moment fires it, such as agent.pre-launch or agent.post-archive in an agent's life or task.pre-open in its task's."
+          "description": "The moment the hook runs at, such as `agent.pre-launch`, `agent.post-archive` or `task.pre-open`."
         },
         {
           "name": "script",
@@ -10095,13 +10095,13 @@
             "required",
             "at most 255 characters"
           ],
-          "description": "The file in the hooks directory to run, blank to fire nothing at that moment."
+          "description": "The hook's script, by file name in the hooks directory."
         }
       ]
     },
     "workflow.v1.WorktreeConfig": {
       "name": "WorktreeConfig",
-      "description": "",
+      "description": "WorktreeConfig is whether a workflow's tasks get worktrees, and how komrad creates them.",
       "fields": [
         {
           "name": "enabled",
@@ -10111,7 +10111,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether komrad cuts a worktree for each agent, or leaves it in the directory it was given."
+          "description": "Whether each task gets a worktree. False runs agents in the workflow's directory."
         },
         {
           "name": "base_branch",
@@ -10123,7 +10123,7 @@
           "rules": [
             "at most 255 characters"
           ],
-          "description": "The branch worktrees are cut from and every agent's work is measured against. Komrad fills it in from the clone when it is blank on create, so a stored workflow never has it blank."
+          "description": "The workflow's base branch. Empty on create reads the branch from the repository."
         },
         {
           "name": "copy_paths",
@@ -10133,7 +10133,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Files copied into each new worktree, for the untracked ones a build needs."
+          "description": "The untracked files to copy into each new worktree, such as ones a build needs."
         },
         {
           "name": "symlink_paths",
@@ -10143,7 +10143,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Files linked into each new worktree rather than copied, for the large shared ones."
+          "description": "The files to link into each new worktree instead of copying, such as large shared ones."
         },
         {
           "name": "diff_exclude",
@@ -10153,7 +10153,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Paths or globs the panel leaves out of the diff it draws, such as generated output."
+          "description": "The paths or globs left out of a task's diff and line counts, such as generated output."
         },
         {
           "name": "dir",
@@ -10165,7 +10165,7 @@
           "rules": [
             "at most 4096 characters"
           ],
-          "description": "Where new worktrees are made, blank for the parent every workflow shares."
+          "description": "The directory new worktrees are created in. Empty uses the directory all workflows share."
         }
       ]
     },
