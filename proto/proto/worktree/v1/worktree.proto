@@ -285,7 +285,7 @@ service WorktreeService {
       mcp: false
       name: "delete_worktrees"
       description: "Queue worktrees for deletion in the background, each as its fate says. Komrad skips any worktree with a live agent."
-      reason: "The call returns no outcome, and `delete_agents` and `remove_unowned_worktrees` already delete worktrees and say what happened."
+      reason: "The call returns no outcome, and `delete_tasks` and `remove_unowned_worktrees` already delete worktrees and report the result."
       destructive: true
     };
   }
