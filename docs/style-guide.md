@@ -132,7 +132,7 @@ empty: A string or list with nothing in it. Use it for fields without presence.
 
 unset: An optional field or message field the caller did not set. Not "absent", "blank", or "missing".
 
-RFC 3339: The format of every timestamp string. Say it on every timestamp field, as "in RFC 3339".
+RFC 3339: The format of every timestamp held in a string. Say it on each such field, as "in RFC 3339". A google.protobuf.Timestamp field needs no format note.
 
 ## Words not to use
 
