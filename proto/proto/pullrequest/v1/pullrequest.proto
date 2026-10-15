@@ -9,158 +9,156 @@ import "pagination/v1/pagination.proto";
 option go_package = "komrad/proto/gen/pullrequest/v1;pullrequestv1";
 
 message ListPullRequestsRequest {
-  // The repository the pull requests target, as a git remote spells it or as the canonical
-  // address komrad stores.
+  // The repository the pull requests merge into, as a git remote or a web address.
   string repository_url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
   }];
-  // The branch the pull requests were opened from. When empty, every pull request stored for
-  // the repository is listed.
+  // The branch the pull requests merge from. Empty lists every pull request komrad has recorded
+  // for the repository.
   string head_branch = 2 [(buf.validate.field).string = {max_len: 512}];
-  // Which page to read and how many to a page, twenty when unset and at most a hundred.
+  // The page to read. The page size defaults to twenty and is at most a hundred.
   optional pagination.v1.Pagination pagination = 3;
 }
 
+// PullRequest is a pull request as komrad last read it from the forge.
 message PullRequest {
-  // The handle komrad keys the row by.
+  // The pull request's id.
   string id = 1;
-  // Which forge it lives on, such as github.
+  // The forge the pull request is on, such as `github`.
   string forge = 2;
-  // The forge's own stable identifier, such as GitHub's node_id.
+  // The forge's own stable id for the pull request, such as GitHub's `node_id`.
   string provider_id = 3;
-  // The web address a person opens.
+  // The pull request's web address.
   string url = 4;
-  // The canonical address of the repository it targets.
+  // The web address of the repository the pull request merges into.
   string repository_url = 5;
-  // The canonical address of the repository its branch lives in, empty when the forge no
-  // longer has it.
+  // The web address of the repository the pull request's branch is in. Empty when the forge no
+  // longer has that repository.
   string head_repository_url = 6;
-  // The number the forge shows a person. Numbers are per repository.
+  // The pull request's number, unique within its repository.
   int32 number = 7;
-  // The title as the forge has it.
+  // The pull request's title.
   string title = 8;
-  // The branch the pull request was opened from.
+  // The branch the pull request merges from.
   string head_branch = 9;
-  // The commit at the tip of that branch when last read.
+  // The commit at the tip of the pull request's branch.
   string head_sha = 10;
-  // The branch it targets.
+  // The branch the pull request merges into.
   string base_branch = 11;
-  // The commit the target branch was at when last read.
+  // The commit at the tip of the branch the pull request merges into.
   string base_sha = 12;
-  // Whether the forge marks it a draft.
+  // Whether the pull request is a draft.
   bool draft = 13;
-  // Where it stands, decided from the stored row.
+  // The pull request's state.
   PullRequestState state = 14;
-  // When it was opened on the forge, in RFC 3339.
+  // When the pull request was opened, in RFC 3339.
   string opened_at = 15;
-  // When the forge last saw it change, in RFC 3339.
+  // When the pull request last changed on the forge, in RFC 3339.
   string changed_at = 16;
-  // When it merged, in RFC 3339, unset while it has not.
+  // When the pull request merged, in RFC 3339. Unset until the pull request merges.
   optional string merged_at = 17;
-  // When it closed, in RFC 3339. Unset while it is open. A merged pull request carries it too.
+  // When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is
+  // open.
   optional string closed_at = 18;
-  // Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
+  // How close the forge is to merging the pull request.
   MergeReadiness merge_readiness = 19;
-  // The login of whoever opened it, empty when the forge no longer has that account.
+  // The login of the pull request's author. Empty when the forge no longer has the account.
   string author = 20;
-  // The description as the forge has it, empty when none was written.
+  // The pull request's description. Empty when it has none.
   string body = 21;
 }
 
-// MergeReadiness shows how close a pull request is to merging, as komrad reports it for its head.
+// MergeReadiness is how close a pull request's head commit is to merging.
 message MergeReadiness {
-  // Where the forge says the reviews stand.
+  // The forge's review decision.
   ReviewDecision decision = 1;
-  // Where the checks on the head stand, unspecified when the forge last answered for an older head.
+  // The state of the checks on the head commit. Unspecified when the forge last reported on an
+  // older head.
   Checks checks = 2;
-  // Where the forge says it stands against its base and rules. While the forge recomputes, this
-  // holds the last answer it gave for the same head.
+  // The forge's mergeability. While the forge recomputes it, the last value for the same head.
   Mergeability mergeability = 3;
-  // True when mergeability is the last answer for this head rather than the latest read.
+  // Whether `mergeability` is the last value for this head, not yet confirmed by a new read.
   bool mergeability_unconfirmed = 4;
-  // Whether the forge says it will merge on its own once its checks and reviews pass.
+  // Whether auto-merge is on, so the forge merges once the checks and reviews pass.
   bool auto_merge = 5;
-  // Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, for a pull
-  // request with nothing left to wait for, and for a repository that does not allow it.
+  // Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, a pull
+  // request with nothing left to wait for, and a repository that does not allow auto-merge.
   bool auto_mergeable = 6;
 }
 
-// Repository is one repository the pull request sync reads.
+// Repository is one repository komrad reads pull requests from.
 message Repository {
-  // The canonical address of the repository.
+  // The repository's web address.
   string url = 1;
 }
 
 message ListPullRequestsResponse {
-  // One page of pull requests, unfinished ones first and each group newest opened first. An
-  // agent's row on the branch shows the first one.
+  // One page of pull requests, open ones first, each group newest first.
   repeated PullRequest pull_requests = 1;
-  // The token for the page after this one, unset on the last.
+  // The cursor for the next page. Unset on the last page.
   optional string next_page_token = 2;
 }
 
-// PullRequestState names where a stored pull request stands. The server decides it from the
-// pull request's stamps, its draft flag, the checks on its head, its mergeability and the
-// forge's review decision, finished first.
+// PullRequestState is the state of a pull request, worked out from the forge's report. A finished
+// state wins over an open one.
 enum PullRequestState {
-  // No state was decided.
+  // No state was recorded. No pull request has this value.
   PULL_REQUEST_STATE_UNSPECIFIED = 0;
-  // The repository has not been read yet, so nothing is known.
+  // Komrad has not read the repository yet.
   PULL_REQUEST_STATE_UNREAD = 1;
-  // The repository has been read and nothing was opened from the branch.
+  // Komrad read the repository and found no pull request from the branch.
   PULL_REQUEST_STATE_NONE = 2;
-  // Open with no review decision that settles it.
+  // Open, with no review decision that decides it.
   PULL_REQUEST_STATE_OPEN = 3;
-  // Open and the forge would merge it now: its rules on reviews and checks are met and the
-  // branch is level with its base.
+  // Open, and the forge would merge it now.
   PULL_REQUEST_STATE_APPROVED = 4;
-  // Open with a reviewer asking for changes.
+  // Open, with a reviewer asking for changes.
   PULL_REQUEST_STATE_CHANGES_REQUESTED = 5;
-  // Still a draft, whatever its reviews say.
+  // A draft, whatever its reviews say.
   PULL_REQUEST_STATE_DRAFT = 6;
   // Merged.
   PULL_REQUEST_STATE_MERGED = 7;
   // Closed without merging.
   PULL_REQUEST_STATE_CLOSED = 8;
-  // Open with a failing check on its head, whatever its reviews say.
+  // Open, with a failing check on the head commit, whatever its reviews say.
   PULL_REQUEST_STATE_FAILING = 9;
-  // Approved on the forge but not yet mergeable: its branch is behind or a branch rule is unmet.
+  // Approved, but behind its base branch or blocked by a branch rule.
   PULL_REQUEST_STATE_APPROVED_WAITING = 10;
-  // Open and no longer merging cleanly into its base, whatever its reviews say.
+  // Open, and in conflict with its base branch, whatever its reviews say.
   PULL_REQUEST_STATE_CONFLICTING = 11;
-  // Open with checks still running on its head and no change request.
+  // Open, with checks running on the head commit and no reviewer asking for changes.
   PULL_REQUEST_STATE_CHECKS_RUNNING = 12;
-  // Open with every reviewer who asked for changes asked to review again.
+  // Open, and every reviewer who asked for changes has been asked to review again.
   PULL_REQUEST_STATE_REREVIEW_REQUESTED = 13;
 }
 
-// Mergeability is the forge's last computed answer for where a pull request stands against its
-// base and its branch rules.
+// Mergeability is whether the forge would merge a pull request, given its base branch and branch
+// rules.
 enum Mergeability {
-  // The mergeability has not been read.
+  // No value was recorded.
   MERGEABILITY_UNSPECIFIED = 0;
-  // The forge has not computed it yet.
+  // The forge has not worked it out yet.
   MERGEABILITY_UNKNOWN = 1;
-  // The forge would merge it now.
+  // The forge would merge the pull request now.
   MERGEABILITY_CLEAN = 2;
-  // Its checks are not all passing.
+  // Some checks are not passing.
   MERGEABILITY_UNSTABLE = 3;
-  // A branch rule is unmet, such as a required review.
+  // A branch rule is not met, such as a required review.
   MERGEABILITY_BLOCKED = 4;
-  // The base has moved past the branch.
+  // The base branch has commits the pull request's branch does not.
   MERGEABILITY_BEHIND = 5;
-  // The branch no longer merges cleanly into its base.
+  // The branch is in conflict with its base branch.
   MERGEABILITY_CONFLICTING = 6;
 }
 
-// ReviewDecision is the forge's statement of where a pull request's reviews stand.
+// ReviewDecision is the forge's decision on a pull request's reviews.
 enum ReviewDecision {
-  // The reviews have not been read.
+  // No value was recorded.
   REVIEW_DECISION_UNSPECIFIED = 0;
-  // The forge has said nothing about the reviews.
+  // The forge reports no decision.
   REVIEW_DECISION_NONE = 1;
-  // A review the forge requires that nobody has given.
+  // A required review has not been given.
   REVIEW_DECISION_PENDING = 2;
   // The forge counts the pull request as approved.
   REVIEW_DECISION_APPROVED = 3;
@@ -170,34 +168,35 @@ enum ReviewDecision {
   REVIEW_DECISION_REREVIEW_REQUESTED = 5;
 }
 
-// Checks is the forge's last report on the checks on a pull request's head commit.
+// Checks is the overall state of the checks on a pull request's head commit.
 enum Checks {
-  // The checks have not been read.
+  // No value was recorded.
   CHECKS_UNSPECIFIED = 0;
-  // The forge reports no checks on the head.
+  // The head commit has no checks.
   CHECKS_NONE = 1;
-  // A run is still in flight.
+  // Checks are still running.
   CHECKS_PENDING = 2;
   // Every check passed.
   CHECKS_PASSING = 3;
-  // At least one check failed and the run has finished.
+  // At least one check failed, and every check has finished.
   CHECKS_FAILING = 4;
-  // At least one check failed while others are still running.
+  // At least one check failed, and others are still running.
   CHECKS_FAILING_RUNNING = 5;
 }
 
 message ListStatusChecksRequest {
-  // The pull request whose status checks to list, by the handle komrad keys it by.
+  // The pull request whose status checks to list, by id.
   string pull_request_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListStatusChecksResponse {
-  // Each head commit the status checks were read on, oldest first, empty when they have never been read.
+  // The status checks on each head commit komrad read them on, oldest first. Empty when they were
+  // never read.
   repeated StatusCheckReading readings = 1;
 }
 
 message ReadCheckLogRequest {
-  // The check whose log to read, as StatusCheck.id names it.
+  // The check whose log to read, by `StatusCheck.id`.
   string check_id = 1 [(buf.validate.field).string.min_len = 1];
   // The first line to read, counting from one.
   int32 first_line = 2 [(buf.validate.field).int32.gte = 1];
@@ -209,20 +208,20 @@ message ReadCheckLogRequest {
 }
 
 message ReadCheckLogResponse {
-  // The lines read, in order, fewer than asked for when the log ends first.
+  // The lines read, in order. Fewer than `count` when the log ends first.
   repeated CheckLogLine lines = 1;
-  // How many lines the whole log holds.
+  // How many lines the whole log has.
   int32 line_count = 2;
 }
 
 // CheckLogLine is one line of a check's log.
 message CheckLogLine {
-  // The line, without its timestamp, color codes or newline.
+  // The line's text, without its timestamp, color codes or newline.
   string text = 1;
 }
 
 message SearchCheckLogsRequest {
-  // The checks whose logs to search, as StatusCheck.id names them.
+  // The checks whose logs to search, by `StatusCheck.id`.
   repeated string check_ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
     max_items: 100
@@ -230,7 +229,7 @@ message SearchCheckLogsRequest {
       string: {min_len: 1}
     }
   }];
-  // The RE2 regular expression each line is matched against.
+  // An RE2 regular expression each line must match.
   string pattern = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 512
@@ -238,95 +237,98 @@ message SearchCheckLogsRequest {
 }
 
 message SearchCheckLogsResponse {
-  // The lines the pattern matched, in check and line order.
+  // The matching lines, by check and then by line.
   repeated CheckLogHit hits = 1;
-  // Whether the search stopped at the most hits it answers with, so more lines match.
+  // Whether the search stopped at its limit, with more lines left to match.
   bool limited = 2;
 }
 
-// CheckLogHit is one line of a check's log a search matched.
+// CheckLogHit is one line of a check's log that matched a search.
 message CheckLogHit {
-  // The check whose log holds the line.
+  // The id of the check whose log has the line.
   string check_id = 1;
-  // The line, counting from one.
+  // The line's number, counting from one.
   int32 line = 2;
-  // The step the line sits in, and 0 for a line in no step.
+  // The number of the step the line is in. Zero when the line is in no step.
   int32 step_number = 3;
-  // The line, cut when it runs long.
+  // The line's text, cut when the line is long.
   string text = 4;
-  // Whether the line ran past the most characters a hit carries, and was cut there.
+  // Whether `text` was cut.
   bool cut = 5;
 }
 
-// StatusCheckReading is the status checks read on one head commit of a pull request.
+// StatusCheckReading is the status checks komrad read on one head commit of a pull request.
 message StatusCheckReading {
   // The head commit the status checks were read on.
   string head_sha = 1;
-  // When komrad first read the checks on that head, in RFC 3339.
+  // When komrad first read the checks on the commit, in RFC 3339.
   optional string first_read_at = 2;
-  // When the forge was last asked about that head, in RFC 3339.
+  // When komrad last asked the forge about the commit, in RFC 3339.
   optional string read_at = 3;
-  // The newest run of each status check on that head, by source, run event and name.
+  // The newest run of each status check on the commit, by source, run event and name.
   repeated StatusCheck status_checks = 4;
 }
 
-// StatusCheck is one status check the forge listed on a pull request's head commit.
+// StatusCheck is one status check the forge reported on a pull request's head commit.
 message StatusCheck {
-  // The forge's own stable identifier for the check.
+  // The forge's own stable id for the check.
   string provider_id = 1;
-  // What sort of check the forge reported.
+  // The check's kind.
   StatusCheckKind kind = 2;
-  // The app or workflow that ran it.
+  // The app or CI workflow that ran the check.
   string source = 3;
-  // The name the forge shows for it.
+  // The check's name.
   string name = 4;
-  // How far along it is.
+  // The check's state.
   StatusCheckState state = 5;
-  // How it ended, as the forge words it, empty while it has not.
+  // The check's conclusion, in the forge's words. Empty until the check completes.
   string conclusion = 6;
-  // When it started, in RFC 3339, unset when the forge did not say.
+  // When the check started, in RFC 3339. Unset when the forge does not say.
   optional string started_at = 7;
-  // When it finished, in RFC 3339, unset while it has not.
+  // When the check finished, in RFC 3339. Unset until the check finishes.
   optional string finished_at = 8;
-  // Whether the pull request needs it to pass before it merges.
+  // Whether the pull request needs the check to pass before it merges.
   bool required = 9;
-  // The web address a person opens to read it.
+  // The check's web address.
   string url = 10;
-  // The steps of a check run, in the order it runs them, empty for a check that lists none.
+  // The check run's steps, in order. Empty when the check lists none.
   repeated StatusCheckStep steps = 11;
-  // What started the run, such as pull_request or push, empty when no workflow ran it.
+  // The event that started the check's CI workflow, such as `pull_request` or `push`. Empty when
+  // no CI workflow ran the check.
   string run_event = 12;
-  // When the run was created, in RFC 3339, unset when the check ran in none.
+  // When the check's CI workflow run was created, in RFC 3339. Unset when no CI workflow ran the
+  // check.
   optional string run_started_at = 13;
-  // The log komrad keeps of the check, and where fetching it stands.
+  // The check's log, as komrad keeps it.
   CheckLog log = 14;
-  // The identifier komrad keeps the check under, which ReadCheckLog and SearchCheckLogs take.
+  // The check's id, which `ReadCheckLog` and `SearchCheckLogs` take.
   string id = 15;
-  // Whether it completed with a conclusion that counts as passing, such as success, neutral or skipped.
+  // Whether the check completed with a passing conclusion, such as success, neutral or skipped.
   bool passed = 16;
 }
 
-// CheckLog records where komrad stands with a check's log. It holds the map of the log's steps and not its text.
+// CheckLog is komrad's record of a check's log: the fetch state and where each step's lines are.
 message CheckLog {
-  // Where fetching the log stands.
+  // The state of fetching the log.
   CheckLogState state = 1;
-  // When komrad last asked the forge for the log, in RFC 3339, unset while it has not.
+  // When komrad last asked the forge for the log, in RFC 3339. Unset until komrad asks.
   optional string fetched_at = 2;
-  // How many lines a fetched log holds.
+  // How many lines the fetched log has.
   int32 line_count = 3;
-  // How many lines of a fetched log the forge marked as errors.
+  // How many lines of the fetched log the forge marked as errors.
   int32 error_count = 4;
-  // Where each step sits in a fetched log, in the order the steps ran, empty when none could be placed.
+  // Where each step's lines are in the fetched log, in the order the steps ran. Empty when no step
+  // could be placed.
   repeated CheckLogStep steps = 5;
 }
 
-// CheckLogStep is where one step of a check run sits in the check's log.
+// CheckLogStep is where one step of a check run is in the check's log.
 message CheckLogStep {
-  // Where the step falls in the run, counting from one.
+  // The step's position in the run, counting from one.
   int32 number = 1;
-  // The name the forge shows for it.
+  // The step's name.
   string name = 2;
-  // How it ended, as the forge words it, empty while it has not.
+  // The step's conclusion, in the forge's words. Empty until the step completes.
   string conclusion = 3;
   // The line the step starts on, counting from one.
   int32 first_line = 4;
@@ -334,77 +336,77 @@ message CheckLogStep {
   int32 line_count = 5;
   // How many of the step's lines the forge marked as errors.
   int32 error_count = 6;
-  // Whether its conclusion counts as passing, such as success, neutral or skipped.
+  // Whether the step's conclusion is a passing one, such as success, neutral or skipped.
   bool passed = 7;
 }
 
-// CheckLogState is where fetching a check's log stands.
+// CheckLogState is the state of fetching a check's log.
 enum CheckLogState {
-  // The state was not read.
+  // No state was recorded.
   CHECK_LOG_STATE_UNSPECIFIED = 0;
-  // The check ran in no job, so it has no log to fetch.
+  // The check has no log to fetch.
   CHECK_LOG_STATE_NONE = 1;
-  // The log is still to come. The check has not finished or komrad has not fetched it yet.
+  // The check has not finished, or komrad has not fetched its log yet.
   CHECK_LOG_STATE_PENDING = 2;
-  // komrad fetched the log and keeps it.
+  // Komrad fetched and keeps the log.
   CHECK_LOG_STATE_FETCHED = 3;
-  // The log ran past the most komrad keeps, so komrad keeps none of it.
+  // The log is larger than komrad keeps, so komrad keeps none of it.
   CHECK_LOG_STATE_TOO_LARGE = 4;
   // The forge never had a log for the check.
   CHECK_LOG_STATE_MISSING = 5;
-  // The forge no longer keeps the log.
+  // The forge no longer has the log.
   CHECK_LOG_STATE_EXPIRED = 6;
-  // komrad gave up asking the forge for the log.
+  // Komrad stopped trying to fetch the log.
   CHECK_LOG_STATE_FAILED = 7;
 }
 
 // StatusCheckStep is one step of a check run.
 message StatusCheckStep {
-  // Where the step falls in the run, counting from one.
+  // The step's position in the run, counting from one.
   int32 number = 1;
-  // The name the forge shows for it.
+  // The step's name.
   string name = 2;
-  // How far along it is.
+  // The step's state.
   StatusCheckState state = 3;
-  // How it ended, as the forge words it, empty while it has not.
+  // The step's conclusion, in the forge's words. Empty until the step completes.
   string conclusion = 4;
-  // When it started, in RFC 3339, unset when the forge did not say.
+  // When the step started, in RFC 3339. Unset when the forge does not say.
   optional string started_at = 5;
-  // When it finished, in RFC 3339, unset while it has not.
+  // When the step finished, in RFC 3339. Unset until the step finishes.
   optional string finished_at = 6;
-  // Whether it completed with a conclusion that counts as passing, such as success, neutral or skipped.
+  // Whether the step completed with a passing conclusion, such as success, neutral or skipped.
   bool passed = 7;
 }
 
-// StatusCheckKind names the sort of status check a forge reported.
+// StatusCheckKind is the kind of status check a forge reported.
 enum StatusCheckKind {
-  // The kind was not read.
+  // No kind was recorded.
   STATUS_CHECK_KIND_UNSPECIFIED = 0;
-  // A run an app reported against the commit.
+  // A check run an app reported on the commit.
   STATUS_CHECK_KIND_CHECK_RUN = 1;
-  // A status a service set on the commit.
+  // A commit status a service set on the commit.
   STATUS_CHECK_KIND_STATUS = 2;
   // A pipeline the forge ran for the commit.
   STATUS_CHECK_KIND_PIPELINE = 3;
 }
 
-// StatusCheckState names how far along a status check is.
+// StatusCheckState is how far along a status check or step is.
 enum StatusCheckState {
-  // The state was not read.
+  // No state was recorded.
   STATUS_CHECK_STATE_UNSPECIFIED = 0;
-  // Waiting for a runner to pick it up.
+  // Waiting for a runner.
   STATUS_CHECK_STATE_QUEUED = 1;
   // Running now.
   STATUS_CHECK_STATE_RUNNING = 2;
-  // Held until something else lets it go on, such as an approval.
+  // Waiting on something else, such as an approval.
   STATUS_CHECK_STATE_WAITING = 3;
-  // Done, with its conclusion saying how it ended.
+  // Finished, with the conclusion saying how.
   STATUS_CHECK_STATE_COMPLETED = 4;
-  // On a commit that is no longer the head, still in flight when komrad stopped reading it.
+  // Still running on a commit that is no longer the head when komrad stopped reading it.
   STATUS_CHECK_STATE_UNKNOWN = 5;
 }
 
-// PullRequestService reads the pull requests komrad has stored from its forges.
+// PullRequestService reads the pull requests and status checks komrad has recorded from forges.
 service PullRequestService {
   rpc ListPullRequests(ListPullRequestsRequest) returns (ListPullRequestsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -412,7 +414,7 @@ service PullRequestService {
       cli: true
       mcp: true
       name: "list_pull_requests"
-      description: "List the pull requests komrad has stored for a repository, unfinished first. A repository with no live agent on it may be behind. list_forge_pull_requests asks the forge itself."
+      description: "List the pull requests komrad has recorded for a repository, open ones first. A repository with no live agent may be out of date. `list_forge_pull_requests` reads the forge directly."
       roles: [
         ROLE_WRITER,
         ROLE_ORCHESTRATOR
@@ -424,7 +426,7 @@ service PullRequestService {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns."
+      reason: "Only the person reads each status check, and an agent reads the checks' state from `merge_readiness` on `list_pull_requests`."
     };
   }
   rpc ReadCheckLog(ReadCheckLogRequest) returns (ReadCheckLogResponse) {
@@ -432,7 +434,7 @@ service PullRequestService {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "A check's log is read a window at a time for a person on the check log screen."
+      reason: "Only the person reads check logs."
     };
   }
   rpc SearchCheckLogs(SearchCheckLogsRequest) returns (SearchCheckLogsResponse) {
@@ -440,7 +442,7 @@ service PullRequestService {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "Check logs are searched for a person on the check log screen."
+      reason: "Only the person searches check logs."
     };
   }
 }

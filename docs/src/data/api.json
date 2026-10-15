@@ -1557,7 +1557,7 @@
       "slug": "pull-request",
       "title": "Pull Request",
       "name": "pullrequest.v1.PullRequestService",
-      "description": "PullRequestService reads the pull requests komrad has stored from its forges.",
+      "description": "PullRequestService reads the pull requests and status checks komrad has recorded from forges.",
       "methods": [
         {
           "slug": "list-pull-requests",
@@ -1570,8 +1570,8 @@
             "writer",
             "orchestrator"
           ],
-          "summary": "List the pull requests komrad has stored for a repository, unfinished first.",
-          "description": "List the pull requests komrad has stored for a repository, unfinished first. A repository with no live agent on it may be behind. list_forge_pull_requests asks the forge itself.",
+          "summary": "List the pull requests komrad has recorded for a repository, open ones first.",
+          "description": "List the pull requests komrad has recorded for a repository, open ones first. A repository with no live agent may be out of date. `list_forge_pull_requests` reads the forge directly.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -7787,7 +7787,7 @@
             "required",
             "at most 2048 characters"
           ],
-          "description": "The repository the pull requests target, as a git remote spells it or as the canonical address komrad stores."
+          "description": "The repository the pull requests merge into, as a git remote or a web address."
         },
         {
           "name": "head_branch",
@@ -7799,7 +7799,7 @@
           "rules": [
             "at most 512 characters"
           ],
-          "description": "The branch the pull requests were opened from. When empty, every pull request stored for the repository is listed."
+          "description": "The branch the pull requests merge from. Empty lists every pull request komrad has recorded for the repository."
         },
         {
           "name": "pagination",
@@ -7809,7 +7809,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which page to read and how many to a page, twenty when unset and at most a hundred."
+          "description": "The page to read. The page size defaults to twenty and is at most a hundred."
         }
       ]
     },
@@ -7825,7 +7825,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One page of pull requests, unfinished ones first and each group newest opened first. An agent's row on the branch shows the first one."
+          "description": "One page of pull requests, open ones first, each group newest first."
         },
         {
           "name": "next_page_token",
@@ -7835,13 +7835,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The token for the page after this one, unset on the last."
+          "description": "The cursor for the next page. Unset on the last page."
         }
       ]
     },
     "pullrequest.v1.MergeReadiness": {
       "name": "MergeReadiness",
-      "description": "MergeReadiness shows how close a pull request is to merging, as komrad reports it for its head.",
+      "description": "MergeReadiness is how close a pull request's head commit is to merging.",
       "fields": [
         {
           "name": "decision",
@@ -7851,7 +7851,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the forge says the reviews stand."
+          "description": "The forge's review decision."
         },
         {
           "name": "checks",
@@ -7861,7 +7861,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the checks on the head stand, unspecified when the forge last answered for an older head."
+          "description": "The state of the checks on the head commit. Unspecified when the forge last reported on an older head."
         },
         {
           "name": "mergeability",
@@ -7871,7 +7871,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the forge says it stands against its base and rules. While the forge recomputes, this holds the last answer it gave for the same head."
+          "description": "The forge's mergeability. While the forge recomputes it, the last value for the same head."
         },
         {
           "name": "mergeability_unconfirmed",
@@ -7881,7 +7881,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "True when mergeability is the last answer for this head rather than the latest read."
+          "description": "Whether `mergeability` is the last value for this head, not yet confirmed by a new read."
         },
         {
           "name": "auto_merge",
@@ -7891,7 +7891,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the forge says it will merge on its own once its checks and reviews pass."
+          "description": "Whether auto-merge is on, so the forge merges once the checks and reviews pass."
         },
         {
           "name": "auto_mergeable",
@@ -7901,13 +7901,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, for a pull request with nothing left to wait for, and for a repository that does not allow it."
+          "description": "Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, a pull request with nothing left to wait for, and a repository that does not allow auto-merge."
         }
       ]
     },
     "pullrequest.v1.PullRequest": {
       "name": "PullRequest",
-      "description": "",
+      "description": "PullRequest is a pull request as komrad last read it from the forge.",
       "fields": [
         {
           "name": "id",
@@ -7917,7 +7917,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle komrad keys the row by."
+          "description": "The pull request's id."
         },
         {
           "name": "forge",
@@ -7927,7 +7927,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which forge it lives on, such as github."
+          "description": "The forge the pull request is on, such as `github`."
         },
         {
           "name": "provider_id",
@@ -7937,7 +7937,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The forge's own stable identifier, such as GitHub's node_id."
+          "description": "The forge's own stable id for the pull request, such as GitHub's `node_id`."
         },
         {
           "name": "url",
@@ -7947,7 +7947,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The web address a person opens."
+          "description": "The pull request's web address."
         },
         {
           "name": "repository_url",
@@ -7957,7 +7957,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The canonical address of the repository it targets."
+          "description": "The web address of the repository the pull request merges into."
         },
         {
           "name": "head_repository_url",
@@ -7967,7 +7967,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The canonical address of the repository its branch lives in, empty when the forge no longer has it."
+          "description": "The web address of the repository the pull request's branch is in. Empty when the forge no longer has that repository."
         },
         {
           "name": "number",
@@ -7977,7 +7977,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number the forge shows a person. Numbers are per repository."
+          "description": "The pull request's number, unique within its repository."
         },
         {
           "name": "title",
@@ -7987,7 +7987,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The title as the forge has it."
+          "description": "The pull request's title."
         },
         {
           "name": "head_branch",
@@ -7997,7 +7997,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The branch the pull request was opened from."
+          "description": "The branch the pull request merges from."
         },
         {
           "name": "head_sha",
@@ -8007,7 +8007,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit at the tip of that branch when last read."
+          "description": "The commit at the tip of the pull request's branch."
         },
         {
           "name": "base_branch",
@@ -8017,7 +8017,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The branch it targets."
+          "description": "The branch the pull request merges into."
         },
         {
           "name": "base_sha",
@@ -8027,7 +8027,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the target branch was at when last read."
+          "description": "The commit at the tip of the branch the pull request merges into."
         },
         {
           "name": "draft",
@@ -8037,7 +8037,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the forge marks it a draft."
+          "description": "Whether the pull request is a draft."
         },
         {
           "name": "state",
@@ -8047,7 +8047,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where it stands, decided from the stored row."
+          "description": "The pull request's state."
         },
         {
           "name": "opened_at",
@@ -8057,7 +8057,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was opened on the forge, in RFC 3339."
+          "description": "When the pull request was opened, in RFC 3339."
         },
         {
           "name": "changed_at",
@@ -8067,7 +8067,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the forge last saw it change, in RFC 3339."
+          "description": "When the pull request last changed on the forge, in RFC 3339."
         },
         {
           "name": "merged_at",
@@ -8077,7 +8077,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it merged, in RFC 3339, unset while it has not."
+          "description": "When the pull request merged, in RFC 3339. Unset until the pull request merges."
         },
         {
           "name": "closed_at",
@@ -8087,7 +8087,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it closed, in RFC 3339. Unset while it is open. A merged pull request carries it too."
+          "description": "When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is open."
         },
         {
           "name": "merge_readiness",
@@ -8097,7 +8097,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the forge would merge it: its reviews, checks, mergeability and auto-merge."
+          "description": "How close the forge is to merging the pull request."
         },
         {
           "name": "author",
@@ -8107,7 +8107,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The login of whoever opened it, empty when the forge no longer has that account."
+          "description": "The login of the pull request's author. Empty when the forge no longer has the account."
         },
         {
           "name": "body",
@@ -8117,7 +8117,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The description as the forge has it, empty when none was written."
+          "description": "The pull request's description. Empty when it has none."
         }
       ]
     },
@@ -10999,15 +10999,15 @@
     },
     "pullrequest.v1.Checks": {
       "name": "Checks",
-      "description": "Checks is the forge's last report on the checks on a pull request's head commit.",
+      "description": "Checks is the overall state of the checks on a pull request's head commit.",
       "values": [
         {
           "name": "CHECKS_NONE",
-          "description": "The forge reports no checks on the head."
+          "description": "The head commit has no checks."
         },
         {
           "name": "CHECKS_PENDING",
-          "description": "A run is still in flight."
+          "description": "Checks are still running."
         },
         {
           "name": "CHECKS_PASSING",
@@ -11015,71 +11015,71 @@
         },
         {
           "name": "CHECKS_FAILING",
-          "description": "At least one check failed and the run has finished."
+          "description": "At least one check failed, and every check has finished."
         },
         {
           "name": "CHECKS_FAILING_RUNNING",
-          "description": "At least one check failed while others are still running."
+          "description": "At least one check failed, and others are still running."
         }
       ]
     },
     "pullrequest.v1.Mergeability": {
       "name": "Mergeability",
-      "description": "Mergeability is the forge's last computed answer for where a pull request stands against its base and its branch rules.",
+      "description": "Mergeability is whether the forge would merge a pull request, given its base branch and branch rules.",
       "values": [
         {
           "name": "MERGEABILITY_UNKNOWN",
-          "description": "The forge has not computed it yet."
+          "description": "The forge has not worked it out yet."
         },
         {
           "name": "MERGEABILITY_CLEAN",
-          "description": "The forge would merge it now."
+          "description": "The forge would merge the pull request now."
         },
         {
           "name": "MERGEABILITY_UNSTABLE",
-          "description": "Its checks are not all passing."
+          "description": "Some checks are not passing."
         },
         {
           "name": "MERGEABILITY_BLOCKED",
-          "description": "A branch rule is unmet, such as a required review."
+          "description": "A branch rule is not met, such as a required review."
         },
         {
           "name": "MERGEABILITY_BEHIND",
-          "description": "The base has moved past the branch."
+          "description": "The base branch has commits the pull request's branch does not."
         },
         {
           "name": "MERGEABILITY_CONFLICTING",
-          "description": "The branch no longer merges cleanly into its base."
+          "description": "The branch is in conflict with its base branch."
         }
       ]
     },
     "pullrequest.v1.PullRequestState": {
       "name": "PullRequestState",
-      "description": "PullRequestState names where a stored pull request stands. The server decides it from the pull request's stamps, its draft flag, the checks on its head, its mergeability and the forge's review decision, finished first.",
+      "description": "PullRequestState is the state of a pull request, worked out from the forge's report. A finished state wins over an open one.",
       "values": [
         {
           "name": "PULL_REQUEST_STATE_UNREAD",
-          "description": "The repository has not been read yet, so nothing is known."
+          "description": "Komrad has not read the repository yet."
         },
         {
           "name": "PULL_REQUEST_STATE_NONE",
-          "description": "The repository has been read and nothing was opened from the branch."
+          "description": "Komrad read the repository and found no pull request from the branch."
         },
         {
           "name": "PULL_REQUEST_STATE_OPEN",
-          "description": "Open with no review decision that settles it."
+          "description": "Open, with no review decision that decides it."
         },
         {
           "name": "PULL_REQUEST_STATE_APPROVED",
-          "description": "Open and the forge would merge it now: its rules on reviews and checks are met and the branch is level with its base."
+          "description": "Open, and the forge would merge it now."
         },
         {
           "name": "PULL_REQUEST_STATE_CHANGES_REQUESTED",
-          "description": "Open with a reviewer asking for changes."
+          "description": "Open, with a reviewer asking for changes."
         },
         {
           "name": "PULL_REQUEST_STATE_DRAFT",
-          "description": "Still a draft, whatever its reviews say."
+          "description": "A draft, whatever its reviews say."
         },
         {
           "name": "PULL_REQUEST_STATE_MERGED",
@@ -11091,37 +11091,37 @@
         },
         {
           "name": "PULL_REQUEST_STATE_FAILING",
-          "description": "Open with a failing check on its head, whatever its reviews say."
+          "description": "Open, with a failing check on the head commit, whatever its reviews say."
         },
         {
           "name": "PULL_REQUEST_STATE_APPROVED_WAITING",
-          "description": "Approved on the forge but not yet mergeable: its branch is behind or a branch rule is unmet."
+          "description": "Approved, but behind its base branch or blocked by a branch rule."
         },
         {
           "name": "PULL_REQUEST_STATE_CONFLICTING",
-          "description": "Open and no longer merging cleanly into its base, whatever its reviews say."
+          "description": "Open, and in conflict with its base branch, whatever its reviews say."
         },
         {
           "name": "PULL_REQUEST_STATE_CHECKS_RUNNING",
-          "description": "Open with checks still running on its head and no change request."
+          "description": "Open, with checks running on the head commit and no reviewer asking for changes."
         },
         {
           "name": "PULL_REQUEST_STATE_REREVIEW_REQUESTED",
-          "description": "Open with every reviewer who asked for changes asked to review again."
+          "description": "Open, and every reviewer who asked for changes has been asked to review again."
         }
       ]
     },
     "pullrequest.v1.ReviewDecision": {
       "name": "ReviewDecision",
-      "description": "ReviewDecision is the forge's statement of where a pull request's reviews stand.",
+      "description": "ReviewDecision is the forge's decision on a pull request's reviews.",
       "values": [
         {
           "name": "REVIEW_DECISION_NONE",
-          "description": "The forge has said nothing about the reviews."
+          "description": "The forge reports no decision."
         },
         {
           "name": "REVIEW_DECISION_PENDING",
-          "description": "A review the forge requires that nobody has given."
+          "description": "A required review has not been given."
         },
         {
           "name": "REVIEW_DECISION_APPROVED",

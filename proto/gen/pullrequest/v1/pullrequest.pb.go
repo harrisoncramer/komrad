@@ -24,40 +24,38 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// PullRequestState names where a stored pull request stands. The server decides it from the
-// pull request's stamps, its draft flag, the checks on its head, its mergeability and the
-// forge's review decision, finished first.
+// PullRequestState is the state of a pull request, worked out from the forge's report. A finished
+// state wins over an open one.
 type PullRequestState int32
 
 const (
-	// No state was decided.
+	// No state was recorded. No pull request has this value.
 	PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED PullRequestState = 0
-	// The repository has not been read yet, so nothing is known.
+	// Komrad has not read the repository yet.
 	PullRequestState_PULL_REQUEST_STATE_UNREAD PullRequestState = 1
-	// The repository has been read and nothing was opened from the branch.
+	// Komrad read the repository and found no pull request from the branch.
 	PullRequestState_PULL_REQUEST_STATE_NONE PullRequestState = 2
-	// Open with no review decision that settles it.
+	// Open, with no review decision that decides it.
 	PullRequestState_PULL_REQUEST_STATE_OPEN PullRequestState = 3
-	// Open and the forge would merge it now: its rules on reviews and checks are met and the
-	// branch is level with its base.
+	// Open, and the forge would merge it now.
 	PullRequestState_PULL_REQUEST_STATE_APPROVED PullRequestState = 4
-	// Open with a reviewer asking for changes.
+	// Open, with a reviewer asking for changes.
 	PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED PullRequestState = 5
-	// Still a draft, whatever its reviews say.
+	// A draft, whatever its reviews say.
 	PullRequestState_PULL_REQUEST_STATE_DRAFT PullRequestState = 6
 	// Merged.
 	PullRequestState_PULL_REQUEST_STATE_MERGED PullRequestState = 7
 	// Closed without merging.
 	PullRequestState_PULL_REQUEST_STATE_CLOSED PullRequestState = 8
-	// Open with a failing check on its head, whatever its reviews say.
+	// Open, with a failing check on the head commit, whatever its reviews say.
 	PullRequestState_PULL_REQUEST_STATE_FAILING PullRequestState = 9
-	// Approved on the forge but not yet mergeable: its branch is behind or a branch rule is unmet.
+	// Approved, but behind its base branch or blocked by a branch rule.
 	PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING PullRequestState = 10
-	// Open and no longer merging cleanly into its base, whatever its reviews say.
+	// Open, and in conflict with its base branch, whatever its reviews say.
 	PullRequestState_PULL_REQUEST_STATE_CONFLICTING PullRequestState = 11
-	// Open with checks still running on its head and no change request.
+	// Open, with checks running on the head commit and no reviewer asking for changes.
 	PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING PullRequestState = 12
-	// Open with every reviewer who asked for changes asked to review again.
+	// Open, and every reviewer who asked for changes has been asked to review again.
 	PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED PullRequestState = 13
 )
 
@@ -124,24 +122,24 @@ func (PullRequestState) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{0}
 }
 
-// Mergeability is the forge's last computed answer for where a pull request stands against its
-// base and its branch rules.
+// Mergeability is whether the forge would merge a pull request, given its base branch and branch
+// rules.
 type Mergeability int32
 
 const (
-	// The mergeability has not been read.
+	// No value was recorded.
 	Mergeability_MERGEABILITY_UNSPECIFIED Mergeability = 0
-	// The forge has not computed it yet.
+	// The forge has not worked it out yet.
 	Mergeability_MERGEABILITY_UNKNOWN Mergeability = 1
-	// The forge would merge it now.
+	// The forge would merge the pull request now.
 	Mergeability_MERGEABILITY_CLEAN Mergeability = 2
-	// Its checks are not all passing.
+	// Some checks are not passing.
 	Mergeability_MERGEABILITY_UNSTABLE Mergeability = 3
-	// A branch rule is unmet, such as a required review.
+	// A branch rule is not met, such as a required review.
 	Mergeability_MERGEABILITY_BLOCKED Mergeability = 4
-	// The base has moved past the branch.
+	// The base branch has commits the pull request's branch does not.
 	Mergeability_MERGEABILITY_BEHIND Mergeability = 5
-	// The branch no longer merges cleanly into its base.
+	// The branch is in conflict with its base branch.
 	Mergeability_MERGEABILITY_CONFLICTING Mergeability = 6
 )
 
@@ -194,15 +192,15 @@ func (Mergeability) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{1}
 }
 
-// ReviewDecision is the forge's statement of where a pull request's reviews stand.
+// ReviewDecision is the forge's decision on a pull request's reviews.
 type ReviewDecision int32
 
 const (
-	// The reviews have not been read.
+	// No value was recorded.
 	ReviewDecision_REVIEW_DECISION_UNSPECIFIED ReviewDecision = 0
-	// The forge has said nothing about the reviews.
+	// The forge reports no decision.
 	ReviewDecision_REVIEW_DECISION_NONE ReviewDecision = 1
-	// A review the forge requires that nobody has given.
+	// A required review has not been given.
 	ReviewDecision_REVIEW_DECISION_PENDING ReviewDecision = 2
 	// The forge counts the pull request as approved.
 	ReviewDecision_REVIEW_DECISION_APPROVED ReviewDecision = 3
@@ -259,21 +257,21 @@ func (ReviewDecision) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
 }
 
-// Checks is the forge's last report on the checks on a pull request's head commit.
+// Checks is the overall state of the checks on a pull request's head commit.
 type Checks int32
 
 const (
-	// The checks have not been read.
+	// No value was recorded.
 	Checks_CHECKS_UNSPECIFIED Checks = 0
-	// The forge reports no checks on the head.
+	// The head commit has no checks.
 	Checks_CHECKS_NONE Checks = 1
-	// A run is still in flight.
+	// Checks are still running.
 	Checks_CHECKS_PENDING Checks = 2
 	// Every check passed.
 	Checks_CHECKS_PASSING Checks = 3
-	// At least one check failed and the run has finished.
+	// At least one check failed, and every check has finished.
 	Checks_CHECKS_FAILING Checks = 4
-	// At least one check failed while others are still running.
+	// At least one check failed, and others are still running.
 	Checks_CHECKS_FAILING_RUNNING Checks = 5
 )
 
@@ -324,25 +322,25 @@ func (Checks) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
 }
 
-// CheckLogState is where fetching a check's log stands.
+// CheckLogState is the state of fetching a check's log.
 type CheckLogState int32
 
 const (
-	// The state was not read.
+	// No state was recorded.
 	CheckLogState_CHECK_LOG_STATE_UNSPECIFIED CheckLogState = 0
-	// The check ran in no job, so it has no log to fetch.
+	// The check has no log to fetch.
 	CheckLogState_CHECK_LOG_STATE_NONE CheckLogState = 1
-	// The log is still to come. The check has not finished or komrad has not fetched it yet.
+	// The check has not finished, or komrad has not fetched its log yet.
 	CheckLogState_CHECK_LOG_STATE_PENDING CheckLogState = 2
-	// komrad fetched the log and keeps it.
+	// Komrad fetched and keeps the log.
 	CheckLogState_CHECK_LOG_STATE_FETCHED CheckLogState = 3
-	// The log ran past the most komrad keeps, so komrad keeps none of it.
+	// The log is larger than komrad keeps, so komrad keeps none of it.
 	CheckLogState_CHECK_LOG_STATE_TOO_LARGE CheckLogState = 4
 	// The forge never had a log for the check.
 	CheckLogState_CHECK_LOG_STATE_MISSING CheckLogState = 5
-	// The forge no longer keeps the log.
+	// The forge no longer has the log.
 	CheckLogState_CHECK_LOG_STATE_EXPIRED CheckLogState = 6
-	// komrad gave up asking the forge for the log.
+	// Komrad stopped trying to fetch the log.
 	CheckLogState_CHECK_LOG_STATE_FAILED CheckLogState = 7
 )
 
@@ -397,15 +395,15 @@ func (CheckLogState) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
 }
 
-// StatusCheckKind names the sort of status check a forge reported.
+// StatusCheckKind is the kind of status check a forge reported.
 type StatusCheckKind int32
 
 const (
-	// The kind was not read.
+	// No kind was recorded.
 	StatusCheckKind_STATUS_CHECK_KIND_UNSPECIFIED StatusCheckKind = 0
-	// A run an app reported against the commit.
+	// A check run an app reported on the commit.
 	StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN StatusCheckKind = 1
-	// A status a service set on the commit.
+	// A commit status a service set on the commit.
 	StatusCheckKind_STATUS_CHECK_KIND_STATUS StatusCheckKind = 2
 	// A pipeline the forge ran for the commit.
 	StatusCheckKind_STATUS_CHECK_KIND_PIPELINE StatusCheckKind = 3
@@ -454,21 +452,21 @@ func (StatusCheckKind) EnumDescriptor() ([]byte, []int) {
 	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
 }
 
-// StatusCheckState names how far along a status check is.
+// StatusCheckState is how far along a status check or step is.
 type StatusCheckState int32
 
 const (
-	// The state was not read.
+	// No state was recorded.
 	StatusCheckState_STATUS_CHECK_STATE_UNSPECIFIED StatusCheckState = 0
-	// Waiting for a runner to pick it up.
+	// Waiting for a runner.
 	StatusCheckState_STATUS_CHECK_STATE_QUEUED StatusCheckState = 1
 	// Running now.
 	StatusCheckState_STATUS_CHECK_STATE_RUNNING StatusCheckState = 2
-	// Held until something else lets it go on, such as an approval.
+	// Waiting on something else, such as an approval.
 	StatusCheckState_STATUS_CHECK_STATE_WAITING StatusCheckState = 3
-	// Done, with its conclusion saying how it ended.
+	// Finished, with the conclusion saying how.
 	StatusCheckState_STATUS_CHECK_STATE_COMPLETED StatusCheckState = 4
-	// On a commit that is no longer the head, still in flight when komrad stopped reading it.
+	// Still running on a commit that is no longer the head when komrad stopped reading it.
 	StatusCheckState_STATUS_CHECK_STATE_UNKNOWN StatusCheckState = 5
 )
 
@@ -521,13 +519,12 @@ func (StatusCheckState) EnumDescriptor() ([]byte, []int) {
 
 type ListPullRequestsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The repository the pull requests target, as a git remote spells it or as the canonical
-	// address komrad stores.
+	// The repository the pull requests merge into, as a git remote or a web address.
 	RepositoryUrl string `protobuf:"bytes,1,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
-	// The branch the pull requests were opened from. When empty, every pull request stored for
-	// the repository is listed.
+	// The branch the pull requests merge from. Empty lists every pull request komrad has recorded
+	// for the repository.
 	HeadBranch string `protobuf:"bytes,2,opt,name=head_branch,json=headBranch,proto3" json:"head_branch,omitempty"`
-	// Which page to read and how many to a page, twenty when unset and at most a hundred.
+	// The page to read. The page size defaults to twenty and is at most a hundred.
 	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -584,50 +581,52 @@ func (x *ListPullRequestsRequest) GetPagination() *v1.Pagination {
 	return nil
 }
 
+// PullRequest is a pull request as komrad last read it from the forge.
 type PullRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle komrad keys the row by.
+	// The pull request's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Which forge it lives on, such as github.
+	// The forge the pull request is on, such as `github`.
 	Forge string `protobuf:"bytes,2,opt,name=forge,proto3" json:"forge,omitempty"`
-	// The forge's own stable identifier, such as GitHub's node_id.
+	// The forge's own stable id for the pull request, such as GitHub's `node_id`.
 	ProviderId string `protobuf:"bytes,3,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
-	// The web address a person opens.
+	// The pull request's web address.
 	Url string `protobuf:"bytes,4,opt,name=url,proto3" json:"url,omitempty"`
-	// The canonical address of the repository it targets.
+	// The web address of the repository the pull request merges into.
 	RepositoryUrl string `protobuf:"bytes,5,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
-	// The canonical address of the repository its branch lives in, empty when the forge no
-	// longer has it.
+	// The web address of the repository the pull request's branch is in. Empty when the forge no
+	// longer has that repository.
 	HeadRepositoryUrl string `protobuf:"bytes,6,opt,name=head_repository_url,json=headRepositoryUrl,proto3" json:"head_repository_url,omitempty"`
-	// The number the forge shows a person. Numbers are per repository.
+	// The pull request's number, unique within its repository.
 	Number int32 `protobuf:"varint,7,opt,name=number,proto3" json:"number,omitempty"`
-	// The title as the forge has it.
+	// The pull request's title.
 	Title string `protobuf:"bytes,8,opt,name=title,proto3" json:"title,omitempty"`
-	// The branch the pull request was opened from.
+	// The branch the pull request merges from.
 	HeadBranch string `protobuf:"bytes,9,opt,name=head_branch,json=headBranch,proto3" json:"head_branch,omitempty"`
-	// The commit at the tip of that branch when last read.
+	// The commit at the tip of the pull request's branch.
 	HeadSha string `protobuf:"bytes,10,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
-	// The branch it targets.
+	// The branch the pull request merges into.
 	BaseBranch string `protobuf:"bytes,11,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
-	// The commit the target branch was at when last read.
+	// The commit at the tip of the branch the pull request merges into.
 	BaseSha string `protobuf:"bytes,12,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// Whether the forge marks it a draft.
+	// Whether the pull request is a draft.
 	Draft bool `protobuf:"varint,13,opt,name=draft,proto3" json:"draft,omitempty"`
-	// Where it stands, decided from the stored row.
+	// The pull request's state.
 	State PullRequestState `protobuf:"varint,14,opt,name=state,proto3,enum=pullrequest.v1.PullRequestState" json:"state,omitempty"`
-	// When it was opened on the forge, in RFC 3339.
+	// When the pull request was opened, in RFC 3339.
 	OpenedAt string `protobuf:"bytes,15,opt,name=opened_at,json=openedAt,proto3" json:"opened_at,omitempty"`
-	// When the forge last saw it change, in RFC 3339.
+	// When the pull request last changed on the forge, in RFC 3339.
 	ChangedAt string `protobuf:"bytes,16,opt,name=changed_at,json=changedAt,proto3" json:"changed_at,omitempty"`
-	// When it merged, in RFC 3339, unset while it has not.
+	// When the pull request merged, in RFC 3339. Unset until the pull request merges.
 	MergedAt *string `protobuf:"bytes,17,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
-	// When it closed, in RFC 3339. Unset while it is open. A merged pull request carries it too.
+	// When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is
+	// open.
 	ClosedAt *string `protobuf:"bytes,18,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
-	// Whether the forge would merge it: its reviews, checks, mergeability and auto-merge.
+	// How close the forge is to merging the pull request.
 	MergeReadiness *MergeReadiness `protobuf:"bytes,19,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
-	// The login of whoever opened it, empty when the forge no longer has that account.
+	// The login of the pull request's author. Empty when the forge no longer has the account.
 	Author string `protobuf:"bytes,20,opt,name=author,proto3" json:"author,omitempty"`
-	// The description as the forge has it, empty when none was written.
+	// The pull request's description. Empty when it has none.
 	Body          string `protobuf:"bytes,21,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -810,22 +809,22 @@ func (x *PullRequest) GetBody() string {
 	return ""
 }
 
-// MergeReadiness shows how close a pull request is to merging, as komrad reports it for its head.
+// MergeReadiness is how close a pull request's head commit is to merging.
 type MergeReadiness struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Where the forge says the reviews stand.
+	// The forge's review decision.
 	Decision ReviewDecision `protobuf:"varint,1,opt,name=decision,proto3,enum=pullrequest.v1.ReviewDecision" json:"decision,omitempty"`
-	// Where the checks on the head stand, unspecified when the forge last answered for an older head.
+	// The state of the checks on the head commit. Unspecified when the forge last reported on an
+	// older head.
 	Checks Checks `protobuf:"varint,2,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
-	// Where the forge says it stands against its base and rules. While the forge recomputes, this
-	// holds the last answer it gave for the same head.
+	// The forge's mergeability. While the forge recomputes it, the last value for the same head.
 	Mergeability Mergeability `protobuf:"varint,3,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
-	// True when mergeability is the last answer for this head rather than the latest read.
+	// Whether `mergeability` is the last value for this head, not yet confirmed by a new read.
 	MergeabilityUnconfirmed bool `protobuf:"varint,4,opt,name=mergeability_unconfirmed,json=mergeabilityUnconfirmed,proto3" json:"mergeability_unconfirmed,omitempty"`
-	// Whether the forge says it will merge on its own once its checks and reviews pass.
+	// Whether auto-merge is on, so the forge merges once the checks and reviews pass.
 	AutoMerge bool `protobuf:"varint,5,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
-	// Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, for a pull
-	// request with nothing left to wait for, and for a repository that does not allow it.
+	// Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, a pull
+	// request with nothing left to wait for, and a repository that does not allow auto-merge.
 	AutoMergeable bool `protobuf:"varint,6,opt,name=auto_mergeable,json=autoMergeable,proto3" json:"auto_mergeable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -903,10 +902,10 @@ func (x *MergeReadiness) GetAutoMergeable() bool {
 	return false
 }
 
-// Repository is one repository the pull request sync reads.
+// Repository is one repository komrad reads pull requests from.
 type Repository struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The canonical address of the repository.
+	// The repository's web address.
 	Url           string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -951,10 +950,9 @@ func (x *Repository) GetUrl() string {
 
 type ListPullRequestsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One page of pull requests, unfinished ones first and each group newest opened first. An
-	// agent's row on the branch shows the first one.
+	// One page of pull requests, open ones first, each group newest first.
 	PullRequests []*PullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
-	// The token for the page after this one, unset on the last.
+	// The cursor for the next page. Unset on the last page.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1006,7 +1004,7 @@ func (x *ListPullRequestsResponse) GetNextPageToken() string {
 
 type ListStatusChecksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The pull request whose status checks to list, by the handle komrad keys it by.
+	// The pull request whose status checks to list, by id.
 	PullRequestId string `protobuf:"bytes,1,opt,name=pull_request_id,json=pullRequestId,proto3" json:"pull_request_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1051,7 +1049,8 @@ func (x *ListStatusChecksRequest) GetPullRequestId() string {
 
 type ListStatusChecksResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Each head commit the status checks were read on, oldest first, empty when they have never been read.
+	// The status checks on each head commit komrad read them on, oldest first. Empty when they were
+	// never read.
 	Readings      []*StatusCheckReading `protobuf:"bytes,1,rep,name=readings,proto3" json:"readings,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1096,7 +1095,7 @@ func (x *ListStatusChecksResponse) GetReadings() []*StatusCheckReading {
 
 type ReadCheckLogRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The check whose log to read, as StatusCheck.id names it.
+	// The check whose log to read, by `StatusCheck.id`.
 	CheckId string `protobuf:"bytes,1,opt,name=check_id,json=checkId,proto3" json:"check_id,omitempty"`
 	// The first line to read, counting from one.
 	FirstLine int32 `protobuf:"varint,2,opt,name=first_line,json=firstLine,proto3" json:"first_line,omitempty"`
@@ -1159,9 +1158,9 @@ func (x *ReadCheckLogRequest) GetCount() int32 {
 
 type ReadCheckLogResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The lines read, in order, fewer than asked for when the log ends first.
+	// The lines read, in order. Fewer than `count` when the log ends first.
 	Lines []*CheckLogLine `protobuf:"bytes,1,rep,name=lines,proto3" json:"lines,omitempty"`
-	// How many lines the whole log holds.
+	// How many lines the whole log has.
 	LineCount     int32 `protobuf:"varint,2,opt,name=line_count,json=lineCount,proto3" json:"line_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1214,7 +1213,7 @@ func (x *ReadCheckLogResponse) GetLineCount() int32 {
 // CheckLogLine is one line of a check's log.
 type CheckLogLine struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The line, without its timestamp, color codes or newline.
+	// The line's text, without its timestamp, color codes or newline.
 	Text          string `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1259,9 +1258,9 @@ func (x *CheckLogLine) GetText() string {
 
 type SearchCheckLogsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The checks whose logs to search, as StatusCheck.id names them.
+	// The checks whose logs to search, by `StatusCheck.id`.
 	CheckIds []string `protobuf:"bytes,1,rep,name=check_ids,json=checkIds,proto3" json:"check_ids,omitempty"`
-	// The RE2 regular expression each line is matched against.
+	// An RE2 regular expression each line must match.
 	Pattern       string `protobuf:"bytes,2,opt,name=pattern,proto3" json:"pattern,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1313,9 +1312,9 @@ func (x *SearchCheckLogsRequest) GetPattern() string {
 
 type SearchCheckLogsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The lines the pattern matched, in check and line order.
+	// The matching lines, by check and then by line.
 	Hits []*CheckLogHit `protobuf:"bytes,1,rep,name=hits,proto3" json:"hits,omitempty"`
-	// Whether the search stopped at the most hits it answers with, so more lines match.
+	// Whether the search stopped at its limit, with more lines left to match.
 	Limited       bool `protobuf:"varint,2,opt,name=limited,proto3" json:"limited,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1365,18 +1364,18 @@ func (x *SearchCheckLogsResponse) GetLimited() bool {
 	return false
 }
 
-// CheckLogHit is one line of a check's log a search matched.
+// CheckLogHit is one line of a check's log that matched a search.
 type CheckLogHit struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The check whose log holds the line.
+	// The id of the check whose log has the line.
 	CheckId string `protobuf:"bytes,1,opt,name=check_id,json=checkId,proto3" json:"check_id,omitempty"`
-	// The line, counting from one.
+	// The line's number, counting from one.
 	Line int32 `protobuf:"varint,2,opt,name=line,proto3" json:"line,omitempty"`
-	// The step the line sits in, and 0 for a line in no step.
+	// The number of the step the line is in. Zero when the line is in no step.
 	StepNumber int32 `protobuf:"varint,3,opt,name=step_number,json=stepNumber,proto3" json:"step_number,omitempty"`
-	// The line, cut when it runs long.
+	// The line's text, cut when the line is long.
 	Text string `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
-	// Whether the line ran past the most characters a hit carries, and was cut there.
+	// Whether `text` was cut.
 	Cut           bool `protobuf:"varint,5,opt,name=cut,proto3" json:"cut,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1447,16 +1446,16 @@ func (x *CheckLogHit) GetCut() bool {
 	return false
 }
 
-// StatusCheckReading is the status checks read on one head commit of a pull request.
+// StatusCheckReading is the status checks komrad read on one head commit of a pull request.
 type StatusCheckReading struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The head commit the status checks were read on.
 	HeadSha string `protobuf:"bytes,1,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
-	// When komrad first read the checks on that head, in RFC 3339.
+	// When komrad first read the checks on the commit, in RFC 3339.
 	FirstReadAt *string `protobuf:"bytes,2,opt,name=first_read_at,json=firstReadAt,proto3,oneof" json:"first_read_at,omitempty"`
-	// When the forge was last asked about that head, in RFC 3339.
+	// When komrad last asked the forge about the commit, in RFC 3339.
 	ReadAt *string `protobuf:"bytes,3,opt,name=read_at,json=readAt,proto3,oneof" json:"read_at,omitempty"`
-	// The newest run of each status check on that head, by source, run event and name.
+	// The newest run of each status check on the commit, by source, run event and name.
 	StatusChecks  []*StatusCheck `protobuf:"bytes,4,rep,name=status_checks,json=statusChecks,proto3" json:"status_checks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1520,40 +1519,42 @@ func (x *StatusCheckReading) GetStatusChecks() []*StatusCheck {
 	return nil
 }
 
-// StatusCheck is one status check the forge listed on a pull request's head commit.
+// StatusCheck is one status check the forge reported on a pull request's head commit.
 type StatusCheck struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The forge's own stable identifier for the check.
+	// The forge's own stable id for the check.
 	ProviderId string `protobuf:"bytes,1,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
-	// What sort of check the forge reported.
+	// The check's kind.
 	Kind StatusCheckKind `protobuf:"varint,2,opt,name=kind,proto3,enum=pullrequest.v1.StatusCheckKind" json:"kind,omitempty"`
-	// The app or workflow that ran it.
+	// The app or CI workflow that ran the check.
 	Source string `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
-	// The name the forge shows for it.
+	// The check's name.
 	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	// How far along it is.
+	// The check's state.
 	State StatusCheckState `protobuf:"varint,5,opt,name=state,proto3,enum=pullrequest.v1.StatusCheckState" json:"state,omitempty"`
-	// How it ended, as the forge words it, empty while it has not.
+	// The check's conclusion, in the forge's words. Empty until the check completes.
 	Conclusion string `protobuf:"bytes,6,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
-	// When it started, in RFC 3339, unset when the forge did not say.
+	// When the check started, in RFC 3339. Unset when the forge does not say.
 	StartedAt *string `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
-	// When it finished, in RFC 3339, unset while it has not.
+	// When the check finished, in RFC 3339. Unset until the check finishes.
 	FinishedAt *string `protobuf:"bytes,8,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
-	// Whether the pull request needs it to pass before it merges.
+	// Whether the pull request needs the check to pass before it merges.
 	Required bool `protobuf:"varint,9,opt,name=required,proto3" json:"required,omitempty"`
-	// The web address a person opens to read it.
+	// The check's web address.
 	Url string `protobuf:"bytes,10,opt,name=url,proto3" json:"url,omitempty"`
-	// The steps of a check run, in the order it runs them, empty for a check that lists none.
+	// The check run's steps, in order. Empty when the check lists none.
 	Steps []*StatusCheckStep `protobuf:"bytes,11,rep,name=steps,proto3" json:"steps,omitempty"`
-	// What started the run, such as pull_request or push, empty when no workflow ran it.
+	// The event that started the check's CI workflow, such as `pull_request` or `push`. Empty when
+	// no CI workflow ran the check.
 	RunEvent string `protobuf:"bytes,12,opt,name=run_event,json=runEvent,proto3" json:"run_event,omitempty"`
-	// When the run was created, in RFC 3339, unset when the check ran in none.
+	// When the check's CI workflow run was created, in RFC 3339. Unset when no CI workflow ran the
+	// check.
 	RunStartedAt *string `protobuf:"bytes,13,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
-	// The log komrad keeps of the check, and where fetching it stands.
+	// The check's log, as komrad keeps it.
 	Log *CheckLog `protobuf:"bytes,14,opt,name=log,proto3" json:"log,omitempty"`
-	// The identifier komrad keeps the check under, which ReadCheckLog and SearchCheckLogs take.
+	// The check's id, which `ReadCheckLog` and `SearchCheckLogs` take.
 	Id string `protobuf:"bytes,15,opt,name=id,proto3" json:"id,omitempty"`
-	// Whether it completed with a conclusion that counts as passing, such as success, neutral or skipped.
+	// Whether the check completed with a passing conclusion, such as success, neutral or skipped.
 	Passed        bool `protobuf:"varint,16,opt,name=passed,proto3" json:"passed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1701,18 +1702,19 @@ func (x *StatusCheck) GetPassed() bool {
 	return false
 }
 
-// CheckLog records where komrad stands with a check's log. It holds the map of the log's steps and not its text.
+// CheckLog is komrad's record of a check's log: the fetch state and where each step's lines are.
 type CheckLog struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Where fetching the log stands.
+	// The state of fetching the log.
 	State CheckLogState `protobuf:"varint,1,opt,name=state,proto3,enum=pullrequest.v1.CheckLogState" json:"state,omitempty"`
-	// When komrad last asked the forge for the log, in RFC 3339, unset while it has not.
+	// When komrad last asked the forge for the log, in RFC 3339. Unset until komrad asks.
 	FetchedAt *string `protobuf:"bytes,2,opt,name=fetched_at,json=fetchedAt,proto3,oneof" json:"fetched_at,omitempty"`
-	// How many lines a fetched log holds.
+	// How many lines the fetched log has.
 	LineCount int32 `protobuf:"varint,3,opt,name=line_count,json=lineCount,proto3" json:"line_count,omitempty"`
-	// How many lines of a fetched log the forge marked as errors.
+	// How many lines of the fetched log the forge marked as errors.
 	ErrorCount int32 `protobuf:"varint,4,opt,name=error_count,json=errorCount,proto3" json:"error_count,omitempty"`
-	// Where each step sits in a fetched log, in the order the steps ran, empty when none could be placed.
+	// Where each step's lines are in the fetched log, in the order the steps ran. Empty when no step
+	// could be placed.
 	Steps         []*CheckLogStep `protobuf:"bytes,5,rep,name=steps,proto3" json:"steps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1783,14 +1785,14 @@ func (x *CheckLog) GetSteps() []*CheckLogStep {
 	return nil
 }
 
-// CheckLogStep is where one step of a check run sits in the check's log.
+// CheckLogStep is where one step of a check run is in the check's log.
 type CheckLogStep struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Where the step falls in the run, counting from one.
+	// The step's position in the run, counting from one.
 	Number int32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
-	// The name the forge shows for it.
+	// The step's name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// How it ended, as the forge words it, empty while it has not.
+	// The step's conclusion, in the forge's words. Empty until the step completes.
 	Conclusion string `protobuf:"bytes,3,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
 	// The line the step starts on, counting from one.
 	FirstLine int32 `protobuf:"varint,4,opt,name=first_line,json=firstLine,proto3" json:"first_line,omitempty"`
@@ -1798,7 +1800,7 @@ type CheckLogStep struct {
 	LineCount int32 `protobuf:"varint,5,opt,name=line_count,json=lineCount,proto3" json:"line_count,omitempty"`
 	// How many of the step's lines the forge marked as errors.
 	ErrorCount int32 `protobuf:"varint,6,opt,name=error_count,json=errorCount,proto3" json:"error_count,omitempty"`
-	// Whether its conclusion counts as passing, such as success, neutral or skipped.
+	// Whether the step's conclusion is a passing one, such as success, neutral or skipped.
 	Passed        bool `protobuf:"varint,7,opt,name=passed,proto3" json:"passed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1886,19 +1888,19 @@ func (x *CheckLogStep) GetPassed() bool {
 // StatusCheckStep is one step of a check run.
 type StatusCheckStep struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Where the step falls in the run, counting from one.
+	// The step's position in the run, counting from one.
 	Number int32 `protobuf:"varint,1,opt,name=number,proto3" json:"number,omitempty"`
-	// The name the forge shows for it.
+	// The step's name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// How far along it is.
+	// The step's state.
 	State StatusCheckState `protobuf:"varint,3,opt,name=state,proto3,enum=pullrequest.v1.StatusCheckState" json:"state,omitempty"`
-	// How it ended, as the forge words it, empty while it has not.
+	// The step's conclusion, in the forge's words. Empty until the step completes.
 	Conclusion string `protobuf:"bytes,4,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
-	// When it started, in RFC 3339, unset when the forge did not say.
+	// When the step started, in RFC 3339. Unset when the forge does not say.
 	StartedAt *string `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
-	// When it finished, in RFC 3339, unset while it has not.
+	// When the step finished, in RFC 3339. Unset until the step finishes.
 	FinishedAt *string `protobuf:"bytes,6,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
-	// Whether it completed with a conclusion that counts as passing, such as success, neutral or skipped.
+	// Whether the step completed with a passing conclusion, such as success, neutral or skipped.
 	Passed        bool `protobuf:"varint,7,opt,name=passed,proto3" json:"passed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2203,12 +2205,12 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x1aSTATUS_CHECK_STATE_RUNNING\x10\x02\x12\x1e\n" +
 	"\x1aSTATUS_CHECK_STATE_WAITING\x10\x03\x12 \n" +
 	"\x1cSTATUS_CHECK_STATE_COMPLETED\x10\x04\x12\x1e\n" +
-	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xd9\a\n" +
-	"\x12PullRequestService\x12\xc0\x02\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xd8\x01\x9a\xb5\x18\xd0\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb1\x01List the pull requests komrad has stored for a repository, unfinished first. A repository with no live agent on it may be behind. list_forge_pull_requests asks the forge itself.:\x02\x03\x02\x90\x02\x01\x12\x9d\x02\n" +
-	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\xb5\x01\x9a\xb5\x18\xad\x01B\xaa\x01The status check list is drawn for a person on the status checks screen, and an agent reads where its checks stand through the merge readiness list_pull_requests returns.\x90\x02\x01\x12\xb2\x01\n" +
-	"\fReadCheckLog\x12#.pullrequest.v1.ReadCheckLogRequest\x1a$.pullrequest.v1.ReadCheckLogResponse\"W\x9a\xb5\x18PBNA check's log is read a window at a time for a person on the check log screen.\x90\x02\x01\x12\xaa\x01\n" +
-	"\x0fSearchCheckLogs\x12&.pullrequest.v1.SearchCheckLogsRequest\x1a'.pullrequest.v1.SearchCheckLogsResponse\"F\x9a\xb5\x18?B=Check logs are searched for a person on the check log screen.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
+	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xe9\x06\n" +
+	"\x12PullRequestService\x12\xc5\x02\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xdd\x01\x9a\xb5\x18\xd5\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb6\x01List the pull requests komrad has recorded for a repository, open ones first. A repository with no live agent may be out of date. `list_forge_pull_requests` reads the forge directly.:\x02\x03\x02\x90\x02\x01\x12\xee\x01\n" +
+	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\x86\x01\x9a\xb5\x18\x7fB}Only the person reads each status check, and an agent reads the checks' state from `merge_readiness` on `list_pull_requests`.\x90\x02\x01\x12\x85\x01\n" +
+	"\fReadCheckLog\x12#.pullrequest.v1.ReadCheckLogRequest\x1a$.pullrequest.v1.ReadCheckLogResponse\"*\x9a\xb5\x18#B!Only the person reads check logs.\x90\x02\x01\x12\x91\x01\n" +
+	"\x0fSearchCheckLogs\x12&.pullrequest.v1.SearchCheckLogsRequest\x1a'.pullrequest.v1.SearchCheckLogsResponse\"-\x9a\xb5\x18&B$Only the person searches check logs.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"
 
 var (
 	file_pullrequest_v1_pullrequest_proto_rawDescOnce sync.Once
