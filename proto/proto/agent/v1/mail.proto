@@ -13,7 +13,7 @@ enum MailKind {
   MAIL_KIND_UNSPECIFIED = 0;
   // Mail from an agent or the person.
   MAIL_KIND_PLAIN = 1;
-  // From komrad: a review changed. Names the file the review was written to.
+  // From komrad: a review changed. The mail names the file the review was written to.
   MAIL_KIND_REVIEW_ACTIVITY = 2;
   // From komrad: the agent and one other agent have used up their mail limit with each other.
   MAIL_KIND_EXCHANGE_CAPPED = 3;
