@@ -828,7 +828,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "delete_mail"
-      description: "Delete mail for good by id, read or not. One unknown id deletes nothing."
+      description: "Delete mail for good by id, read or not. Any unknown id fails the call, and nothing is deleted."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
