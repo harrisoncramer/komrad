@@ -74,6 +74,8 @@ const (
 	Repeats                = "repeats"
 	WatchTable             = "komrad.watch.table"
 	WatchResource          = "komrad.watch.resource"
+	ViewSession            = "komrad.tmux.view_session"
+	EventTopic             = "komrad.event.topic"
 	Handle                 = "handle"
 	ServerAddress          = "server.address"
 	ErrorType              = "error.type"
@@ -133,7 +135,7 @@ func otelFields(groups []string, attr slog.Attr) slog.Attr {
 			return attr
 		}
 
-		return slog.Attr{Key: "", Value: slog.GroupValue(
+		return slog.Attr{Key: "", Value: slog.GroupValue( //nolint:sloglint // an empty key inlines the group into the record
 			slog.String(SeverityKey, level.String()),
 			slog.Int(severityNum, severityNumbers[level]),
 		)}

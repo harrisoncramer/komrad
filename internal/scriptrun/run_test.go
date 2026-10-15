@@ -476,7 +476,7 @@ func TestRunScriptBoundsALongPrompt(t *testing.T) {
 
 	assert.True(t, payload.PromptTruncated, "a script showing the prompt can say it is a head of one")
 	assert.LessOrEqual(t, len(payload.Prompt), maxScriptPrompt)
-	assert.True(t, strings.HasPrefix(payload.Prompt, "prompt prompt "), "what is kept is the start of it")
+	assert.True(t, strings.HasPrefix(payload.Prompt, strings.Repeat("prompt ", 2)), "what is kept is the start of it")
 	assert.Less(t, len(encoded), 128*1024, "the payload stays well inside what an exec carries")
 }
 

@@ -93,14 +93,15 @@ func (f *wheelFilter) release() tea.Msg {
 
 // wheelTurn is the row one turn of the wheel moves, zero for a turn that is not up or down.
 func wheelTurn(wheel tea.MouseWheelMsg) int {
-	switch wheel.Button {
-	case tea.MouseWheelUp:
+	if wheel.Button == tea.MouseWheelUp {
 		return -1
-	case tea.MouseWheelDown:
-		return 1
-	default:
-		return 0
 	}
+
+	if wheel.Button == tea.MouseWheelDown {
+		return 1
+	}
+
+	return 0
 }
 
 // routeWheel hands the keys to whatever the mouse is over and scrolls it.

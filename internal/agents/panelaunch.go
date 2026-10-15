@@ -191,7 +191,7 @@ func (l *Launcher) globalContext(ctx context.Context) string {
 	text, err := os.ReadFile(l.contextPath)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the standing context could not be read, so this agent starts without it",
-			append(logging.Err(err), slog.String("path", l.contextPath))...)
+			append(logging.Err(err), slog.String(logging.FilePath, l.contextPath))...)
 
 		return ""
 	}

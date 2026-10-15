@@ -142,7 +142,7 @@ func (s *AttachService) release(ctx context.Context, view string) {
 
 	if err := s.tmux.KillSession(view); err != nil {
 		ctx = context.WithoutCancel(ctx)
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a view outlived its last attach", append(logging.Err(err), slog.String("view", view))...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a view outlived its last attach", append(logging.Err(err), slog.String(logging.ViewSession, view))...)
 	}
 }
 

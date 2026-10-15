@@ -1,6 +1,6 @@
 module komradslot
 
-go 1.25.1
+go 1.27.2
 
 require github.com/spf13/cobra v1.10.2
 
