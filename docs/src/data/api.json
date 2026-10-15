@@ -6165,7 +6165,7 @@
             "required",
             "at most 10000 characters"
           ],
-          "description": "The mail's text. It must say who is asking and what they want."
+          "description": "The mail's text."
         },
         {
           "name": "reply_to",
@@ -7756,7 +7756,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many records to return. The server caps the value, and picks one when unset."
+          "description": "How many records to return. Komrad caps the value, and picks one when unset."
         },
         {
           "name": "cursor",
@@ -10911,7 +10911,7 @@
         },
         {
           "name": "MAIL_KIND_REVIEW_ACTIVITY",
-          "description": "From komrad: a review changed. Names the file the review was written to."
+          "description": "From komrad: a review changed. The mail names the file the review was written to."
         },
         {
           "name": "MAIL_KIND_EXCHANGE_CAPPED",

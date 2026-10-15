@@ -31,7 +31,7 @@ const (
 	MailKind_MAIL_KIND_UNSPECIFIED MailKind = 0
 	// Mail from an agent or the person.
 	MailKind_MAIL_KIND_PLAIN MailKind = 1
-	// From komrad: a review changed. Names the file the review was written to.
+	// From komrad: a review changed. The mail names the file the review was written to.
 	MailKind_MAIL_KIND_REVIEW_ACTIVITY MailKind = 2
 	// From komrad: the agent and one other agent have used up their mail limit with each other.
 	MailKind_MAIL_KIND_EXCHANGE_CAPPED MailKind = 3
@@ -284,7 +284,7 @@ type SendMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The agent to send to, by id or by the name of a live agent.
 	To string `protobuf:"bytes,1,opt,name=to,proto3" json:"to,omitempty"`
-	// The mail's text. It must say who is asking and what they want.
+	// The mail's text.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// The id of the mail this one answers, so the two read as a thread.
 	ReplyTo       *string `protobuf:"bytes,3,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`

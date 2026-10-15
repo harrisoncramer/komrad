@@ -820,12 +820,12 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x19ListTaskLogSourcesRequest\x12 \n" +
 	"\atask_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06taskId\"I\n" +
 	"\x1aListTaskLogSourcesResponse\x12+\n" +
-	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources2\xa5\n" +
+	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources2\x97\n" +
 	"\n" +
 	"\n" +
 	"LogService\x12\xc4\x01\n" +
-	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"|\x9a\xb5\x18u\b\x01\x10\x01\x1a\rget_log_lines\"]Read every log line written under one trace id, in order. A failed call returns its trace id.:\x01\x02\x90\x02\x01\x12\xeb\x01\n" +
-	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\x12list_recent_traces\"7List the newest traces in the server log, oldest first.:\x01\x02J5Use it to find a trace id to read with get_log_lines.\x90\x02\x01\x12\x84\x02\n" +
+	"\vGetLogLines\x12\x1a.log.v1.GetLogLinesRequest\x1a\x1b.log.v1.GetLogLinesResponse\"|\x9a\xb5\x18u\b\x01\x10\x01\x1a\rget_log_lines\"]Read every log line written under one trace id, in order. A failed call returns its trace id.:\x01\x02\x90\x02\x01\x12\xdd\x01\n" +
+	"\x10ListRecentTraces\x12\x1f.log.v1.ListRecentTracesRequest\x1a .log.v1.ListRecentTracesResponse\"\x85\x01\x9a\xb5\x18~\b\x01\x10\x01\x1a\x12list_recent_traces\"7List the newest traces in the server log, oldest first.:\x01\x02J(Read a trace's lines with get_log_lines.\x90\x02\x01\x12\x84\x02\n" +
 	"\rReadAgentLogs\x12\x1c.log.v1.ReadAgentLogsRequest\x1a\x1d.log.v1.ReadAgentLogsResponse\"\xb5\x01\x9a\xb5\x18\xad\x01\b\x01\x10\x01\x1a\x0fread_agent_logs\"\x92\x01Read the log lines about one or more agents, from the server log or one hook run's output. Pass the returned `cursor` back to read only new lines.:\x01\x02\x90\x02\x01\x12\xad\x02\n" +
 	"\x13ListAgentLogSources\x12\".log.v1.ListAgentLogSourcesRequest\x1a#.log.v1.ListAgentLogSourcesResponse\"\xcc\x01\x9a\xb5\x18\xc4\x01\b\x01\x10\x01\x1a\x16list_agent_log_sources\"\xa2\x01List the logs an agent's lines can be read from: the server log and each run of the agent's own hooks. `list_task_log_sources` lists the runs of the task's hooks.:\x01\x02\x90\x02\x01\x12\xaa\x02\n" +
 	"\x12ListTaskLogSources\x12!.log.v1.ListTaskLogSourcesRequest\x1a\".log.v1.ListTaskLogSourcesResponse\"\xcc\x01\x9a\xb5\x18\xc4\x01\b\x01\x10\x01\x1a\x15list_task_log_sources\"\xa3\x01List the hook runs recorded on a task, for the task and every agent on it, newest first. Pass a source's id and `agent_id` to `read_agent_logs` to read its output.:\x01\x02\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/log/v1;logv1b\x06proto3"

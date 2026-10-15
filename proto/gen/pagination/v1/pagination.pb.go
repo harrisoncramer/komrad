@@ -25,7 +25,7 @@ const (
 // Pagination selects one page of a listing.
 type Pagination struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// How many records to return. The server caps the value, and picks one when unset.
+	// How many records to return. Komrad caps the value, and picks one when unset.
 	Limit *int32 `protobuf:"varint,1,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// The `next_page_token` from the previous response. Unset to start from the first page.
 	Cursor        *string `protobuf:"bytes,2,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
