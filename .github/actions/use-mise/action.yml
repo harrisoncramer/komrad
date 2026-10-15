@@ -5,16 +5,14 @@ description: >-
   last job to finish cleanly becomes its next version, so a path only some jobs mounted
   would be dropped by whichever job finished after them.
 
-inputs:
-  gh-access-token:
-    description: GitHub access token for private repository access. Configures git to authenticate against private Go modules.
-    required: true
-
 runs:
   using: composite
   steps:
+    # Only the Namespace runners have the volume. A fork's pull request runs on a GitHub-hosted
+    # runner instead, so by default it stays out of the cache the release builds read.
     - name: Mount the cache volume
-      uses: namespacelabs/nscloud-cache-action@v1
+      if: runner.environment == 'self-hosted'
+      uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1.7.0
       with:
         cache: apt,go,mise
         path: |
@@ -24,12 +22,6 @@ runs:
           /home/runner/.npm
           ${{ github.workspace }}/local
 
-    - name: Configure Private GitHub Repositories
-      shell: bash
-      run: git config --global url.https://"$GH_ACCESS_TOKEN"@github.com/.insteadOf https://github.com/
-      env:
-        GH_ACCESS_TOKEN: ${{ inputs.gh-access-token }}
-
     - name: Set CI-only mise overrides
       shell: bash
       # These tools are local only and do not need to be installed in CI
@@ -38,7 +30,7 @@ runs:
         echo "MISE_DISABLE_TOOLS=cargo:worktrunk,rust,kubectl,mc,aqua:junegunn/fzf,go:github.com/go-delve/delve/cmd/dlv,air,aqua:securego/gosec,aqua:aws/session-manager-plugin,conda:ffmpeg,conda:ttyd,aqua:charmbracelet/vhs" >> "$GITHUB_ENV"
 
     - name: Install mise tools
-      uses: jdx/mise-action@v4
+      uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
       env:
         GOWORK: "off"
       with:

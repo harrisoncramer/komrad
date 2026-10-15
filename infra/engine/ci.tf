@@ -15,10 +15,9 @@ locals {
 
   github_identified = var.github_owner_id != "" && var.github_repository_id != ""
 
-  # A release runs for a tag rather than a branch, so both refs are named. Without the tag arm the
-  # deploy a release triggers cannot assume this role at all. Only v tags cut releases, so only
-  # those are trusted.
-  github_refs = ["refs/heads/*", "refs/tags/v*"]
+  # main runs the schedules and dispatches, and a v tag runs a release and its deploy, so only those
+  # refs are trusted. Any other branch, a fork's included, cannot assume this role.
+  github_refs = ["refs/heads/main", "refs/tags/v*"]
 
   github_subjects = flatten([
     for ref in local.github_refs : [

@@ -37,7 +37,10 @@ In this model, users sign in through an OpenID Connect provider, Google or Okta 
 
 The komrad server listens only on loopback, and a proxy in front of it should be the only thing exposed to the network. Komrad's engine uses Caddy, which gets and renews its own certificate. Any proxy that speaks HTTP/2 works.
 
-<Alert variant="info">Operators need a shell on the host for upgrades and debugging. On AWS, komrad's engine uses Systems Manager for shells, so the host opens no port for SSH.</Alert>
+<Alert variant="info">
+  Operators need a shell on the host for upgrades and debugging. On AWS, komrad's engine uses Systems Manager for
+  shells, so the host opens no port for SSH.
+</Alert>
 
 The remote engine can also sit on a private network instead of the internet. Komrad's engine sits on Tailscale, and Tailscale issues Caddy's certificate. Other private networks, Headscale included, need your own domain with a DNS challenge or a certificate authority every laptop trusts.
 

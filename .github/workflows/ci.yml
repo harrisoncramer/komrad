@@ -19,9 +19,12 @@ jobs:
   # One job running every check in turn. Namespace bills each job at least a minute and bills the
   # cache volume for as long as a job holds it, so one runner costs far less than one per check. A
   # draft pull request runs nothing; marking it ready runs the suite.
+  #
+  # A fork's pull request runs on a GitHub-hosted runner instead, away from the Namespace minutes
+  # and from the cache volume the release builds read.
   required:
     if: github.event_name != 'pull_request' || (github.event.action != 'closed' && !github.event.pull_request.draft)
-    runs-on: namespace-profile-harrisoncramer
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'namespace-profile-harrisoncramer' || 'ubuntu-latest' }}
 
     # The store tests run against a real Postgres rather than a fake, and
     # internal/pgtest creates a database per test off the server KOMRAD_DATABASE_URL
@@ -46,13 +49,13 @@ jobs:
       ALL: ${{ github.event_name != 'pull_request' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # What the branch touched, which is what every step below gates on. Only a pull request
       # is filtered; a push to main runs every step.
       - id: changes
         if: github.event_name == 'pull_request'
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         with:
           filters: |
             go:
@@ -113,8 +116,6 @@ jobs:
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       # The shell komrad runs: the mise tasks and the builtin scripts an agent's hooks call.
       - name: Check the shell
@@ -192,13 +193,13 @@ jobs:
 
   migrations:
     if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.draft
-    runs-on: namespace-profile-harrisoncramer
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'namespace-profile-harrisoncramer' || 'ubuntu-latest' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         with:
           filters: |
             migrations:
@@ -209,8 +210,6 @@ jobs:
       - name: Use Mise
         if: steps.changes.outputs.migrations == 'true'
         uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       - name: Check the migrations against the base branch
         if: steps.changes.outputs.migrations == 'true'
@@ -228,13 +227,13 @@ jobs:
 
   protobufs:
     if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.draft
-    runs-on: namespace-profile-harrisoncramer
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'namespace-profile-harrisoncramer' || 'ubuntu-latest' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         with:
           filters: |
             proto:
@@ -244,8 +243,6 @@ jobs:
       - name: Use Mise
         if: steps.changes.outputs.proto == 'true'
         uses: ./.github/actions/use-mise
-        with:
-          gh-access-token: ${{ env.GH_ACCESS_TOKEN }}
 
       - name: Check the protobufs against the base branch
         if: steps.changes.outputs.proto == 'true'
