@@ -52,13 +52,21 @@ func registerRPCTools(server *mcpsdk.Server, baseURL string, role annotationv1.R
 
 		mcpsdk.AddTool(server, &mcpsdk.Tool{
 			Name:        exposed.Surfaces.GetName(),
-			Description: exposed.Surfaces.GetDescription(),
+			Description: toolDescription(exposed.Surfaces),
 			InputSchema: schema,
 			Annotations: toolHints(exposed.Method, exposed.Surfaces),
 		}, tools.handler(exposed.GetPath(), exposed.GetCallTimeout(callTimeout)))
 	}
 
 	return nil
+}
+
+func toolDescription(surfaces *annotationv1.Surfaces) string {
+	if surfaces.GetMcpGuidance() == "" {
+		return surfaces.GetDescription()
+	}
+
+	return surfaces.GetDescription() + "\n\n" + surfaces.GetMcpGuidance()
 }
 
 func toolHints(method protoreflect.MethodDescriptor, surfaces *annotationv1.Surfaces) *mcpsdk.ToolAnnotations {

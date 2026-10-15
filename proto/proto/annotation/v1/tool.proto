@@ -50,4 +50,8 @@ message Surfaces {
 
   // Why a surface is left off, in a sentence. Required when either surface is off.
   string reason = 8;
+
+  // Advice for a model calling the method, such as when not to call it or what to do on an
+  // error. Only the MCP tool description carries it.
+  string mcp_guidance = 9;
 }

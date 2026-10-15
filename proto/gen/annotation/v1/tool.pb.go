@@ -101,7 +101,10 @@ type Surfaces struct {
 	// Which agent roles may call the method and are offered it as a tool, required of every tool.
 	Roles []Role `protobuf:"varint,7,rep,packed,name=roles,proto3,enum=annotation.v1.Role" json:"roles,omitempty"`
 	// Why a surface is left off, in a sentence. Required when either surface is off.
-	Reason        string `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
+	Reason string `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
+	// Advice for a model calling the method, such as when not to call it or what to do on an
+	// error. Only the MCP tool description carries it.
+	McpGuidance   string `protobuf:"bytes,9,opt,name=mcp_guidance,json=mcpGuidance,proto3" json:"mcp_guidance,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -192,6 +195,13 @@ func (x *Surfaces) GetReason() string {
 	return ""
 }
 
+func (x *Surfaces) GetMcpGuidance() string {
+	if x != nil {
+		return x.McpGuidance
+	}
+	return ""
+}
+
 var file_annotation_v1_tool_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -216,7 +226,7 @@ var File_annotation_v1_tool_proto protoreflect.FileDescriptor
 
 const file_annotation_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"\x18annotation/v1/tool.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\x92\x02\n" +
+	"\x18annotation/v1/tool.proto\x12\rannotation.v1\x1a google/protobuf/descriptor.proto\"\xb5\x02\n" +
 	"\bSurfaces\x12\x10\n" +
 	"\x03cli\x18\x01 \x01(\bR\x03cli\x12\x10\n" +
 	"\x03mcp\x18\x02 \x01(\bR\x03mcp\x12\x12\n" +
@@ -227,7 +237,8 @@ const file_annotation_v1_tool_proto_rawDesc = "" +
 	"idempotent\x18\x06 \x01(\bH\x01R\n" +
 	"idempotent\x88\x01\x01\x12)\n" +
 	"\x05roles\x18\a \x03(\x0e2\x13.annotation.v1.RoleR\x05roles\x12\x16\n" +
-	"\x06reason\x18\b \x01(\tR\x06reasonB\x0e\n" +
+	"\x06reason\x18\b \x01(\tR\x06reason\x12!\n" +
+	"\fmcp_guidance\x18\t \x01(\tR\vmcpGuidanceB\x0e\n" +
 	"\f_destructiveB\r\n" +
 	"\v_idempotent*W\n" +
 	"\x04Role\x12\x14\n" +
