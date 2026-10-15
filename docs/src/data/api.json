@@ -1894,7 +1894,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which conversation to say it in."
+          "description": "The thread to reply in, by id."
         },
         {
           "name": "body",
@@ -1907,7 +1907,7 @@
             "required",
             "at most 1000 characters"
           ],
-          "description": "What to say. The ceiling refuses an essay and is not a length to write up to."
+          "description": "The reply's text."
         },
         {
           "name": "suggestion",
@@ -1917,7 +1917,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Replacement lines proposed for the thread's range, empty for an ordinary message."
+          "description": "The lines proposed in place of the thread's range. Empty for a plain reply."
         },
         {
           "name": "addressed",
@@ -1927,7 +1927,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Says the change the thread asks for is made. Komrad takes a round of the worktree as it stands and pins it to the reply. A thread the person started is resolved by it, and one a reviewer agent started stays open for that reviewer to resolve. Refused when the worktree holds the same tree the thread was written on."
+          "description": "Whether the reply says the change the thread asks for is made. Komrad then saves a round of the worktree and pins it to the reply."
         }
       ]
     },
@@ -1943,7 +1943,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The message as recorded."
+          "description": "The comment as written."
         },
         {
           "name": "hint",
@@ -1953,7 +1953,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "A nudge to set addressed, given when a plain reply lands on a thread whose worktree has moved since the thread was written. Empty otherwise."
+          "description": "A reminder to set `addressed`, given when a plain reply goes on a thread whose worktree has changed since the thread was created. Empty otherwise."
         }
       ]
     },
@@ -2684,7 +2684,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task's diff to pin the comment to, by id or by slug. Leave it unset for your own task."
+          "description": "The task whose diff to comment on, by id or slug. Unset uses the caller's own task."
         },
         {
           "name": "file_path",
@@ -2694,7 +2694,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which file, relative to the checkout."
+          "description": "The file's path, relative to the checkout."
         },
         {
           "name": "base_sha",
@@ -2704,7 +2704,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the old side of these line numbers was read against, empty for the round's own base."
+          "description": "The commit the old side of the line numbers is read against. Empty uses the round's base."
         },
         {
           "name": "snapshot_sha",
@@ -2714,7 +2714,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the new side of these line numbers was read against, empty for a caller that read the round's own snapshot."
+          "description": "The commit the new side of the line numbers is read against. Empty uses the round's snapshot."
         },
         {
           "name": "old_start",
@@ -2724,7 +2724,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the range begins on the old side of the diff, counting from one."
+          "description": "The first line of the range on the old side of the diff, counting from one."
         },
         {
           "name": "old_end",
@@ -2734,7 +2734,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where it ends on the old side, inclusive."
+          "description": "The last line of the range on the old side of the diff."
         },
         {
           "name": "new_start",
@@ -2744,7 +2744,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the range begins on the new side."
+          "description": "The first line of the range on the new side of the diff, counting from one."
         },
         {
           "name": "new_end",
@@ -2754,7 +2754,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where it ends on the new side, inclusive."
+          "description": "The last line of the range on the new side of the diff."
         },
         {
           "name": "quoted_lines",
@@ -2764,7 +2764,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The diff lines being written about, each keeping its leading marker so the anchor still makes sense once the code moves."
+          "description": "The diff lines the comment is about, each with its leading marker."
         },
         {
           "name": "body",
@@ -2777,7 +2777,7 @@
             "required",
             "at most 1000 characters"
           ],
-          "description": "The first thing said. The ceiling refuses an essay and is not a length to write up to."
+          "description": "The thread's first comment."
         },
         {
           "name": "suggestion",
@@ -2787,7 +2787,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Replacement lines proposed for the range, empty for an ordinary comment."
+          "description": "The lines proposed in place of the range. Empty for a plain comment."
         }
       ]
     },
@@ -2803,7 +2803,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The thread as opened, private until the batch is released."
+          "description": "The thread as created, private until its review is released."
         }
       ]
     },
@@ -3171,7 +3171,7 @@
     },
     "agent.v1.ForgeOrigin": {
       "name": "ForgeOrigin",
-      "description": "ForgeOrigin is the forge comment a message was mirrored from.",
+      "description": "ForgeOrigin is the forge comment a review comment was copied from.",
       "fields": [
         {
           "name": "login",
@@ -3181,7 +3181,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The forge login of whoever wrote it, empty when the forge no longer knew them."
+          "description": "The forge login of the comment's author. Empty when the forge no longer has the account."
         },
         {
           "name": "comment_id",
@@ -3191,7 +3191,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The forge comment it was copied from, which is gone once the forge deletes that comment."
+          "description": "The forge comment's id. The forge may have deleted the comment since."
         },
         {
           "name": "edited_at",
@@ -3201,13 +3201,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the forge comment had last been edited, in RFC 3339, unset while it never had been."
+          "description": "When the forge comment was last edited, in RFC 3339. Unset when it was never edited."
         }
       ]
     },
     "agent.v1.ForgeReply": {
       "name": "ForgeReply",
-      "description": "ForgeReply is a reply komrad posts as the person on a thread mirrored from the forge.",
+      "description": "ForgeReply is a reply komrad posts for the person on a thread copied from the forge.",
       "fields": [
         {
           "name": "id",
@@ -3217,7 +3217,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle a retry or a discard names this reply by."
+          "description": "The reply's id."
         },
         {
           "name": "thread_id",
@@ -3227,7 +3227,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The review thread it answers, which mirrors a thread on the forge."
+          "description": "The id of the review thread the reply answers."
         },
         {
           "name": "state",
@@ -3237,7 +3237,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where it is on its way to the forge."
+          "description": "How far the reply has got toward the forge."
         },
         {
           "name": "body",
@@ -3247,7 +3247,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The text that goes to the forge."
+          "description": "The reply's text."
         },
         {
           "name": "approved_at",
@@ -3257,7 +3257,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the person wrote it for posting."
+          "description": "When the person approved the reply for posting, in RFC 3339."
         },
         {
           "name": "sending_started_at",
@@ -3267,7 +3267,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When komrad last began posting it, empty until then."
+          "description": "When komrad last started posting the reply, in RFC 3339. Empty until then."
         },
         {
           "name": "sent_at",
@@ -3277,7 +3277,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the forge accepted it, empty until then."
+          "description": "When the forge accepted the reply, in RFC 3339. Empty until then."
         },
         {
           "name": "forge_comment_id",
@@ -3287,7 +3287,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The mirrored message it came back as from the forge, absent until a sync copies it."
+          "description": "The id of the comment komrad copied back from the forge for the reply. Unset until komrad copies it."
         },
         {
           "name": "error",
@@ -3297,7 +3297,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the forge said when it last refused it, absent unless it failed."
+          "description": "What the forge said when it last refused the reply. Unset unless posting failed."
         },
         {
           "name": "created_at",
@@ -3307,7 +3307,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was written."
+          "description": "When the reply was written, in RFC 3339."
         }
       ]
     },
@@ -3703,13 +3703,13 @@
           "rules": [
             "required"
           ],
-          "description": "Which review to read, which the mail announcing a release names."
+          "description": "The review to read, by id."
         }
       ]
     },
     "agent.v1.GetReviewResponse": {
       "name": "GetReviewResponse",
-      "description": "GetReviewResponse is one released review whole, in reading order: the verdict and what the reviewer said about the work, then each thread with its anchor, the code around it, and the messages that went out with this release.",
+      "description": "GetReviewResponse is one released review in reading order: the verdict and body, then each thread with its code and comments.",
       "fields": [
         {
           "name": "review",
@@ -3719,7 +3719,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The review, carrying its verdict and body."
+          "description": "The review, with its verdict and body."
         },
         {
           "name": "round",
@@ -3729,7 +3729,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The round the review was given against."
+          "description": "The round the review is written against."
         },
         {
           "name": "threads",
@@ -3739,7 +3739,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The threads this review wrote in, ordered by file and line."
+          "description": "The review's threads, by file and line."
         }
       ]
     },
@@ -4137,7 +4137,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task's rounds to read, by id or by slug. Leave it unset for your own task."
+          "description": "The task whose rounds to list, by id or slug. Unset uses the caller's own task."
         }
       ]
     },
@@ -4153,7 +4153,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every round taken of that agent, oldest first."
+          "description": "Every round of the task, oldest first."
         }
       ]
     },
@@ -4169,7 +4169,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task's diff to read the threads of, by id or by slug. Leave it unset for your own task."
+          "description": "The task whose threads to list, by id or slug. Unset uses the caller's own task."
         }
       ]
     },
@@ -4185,7 +4185,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The threads on that diff and what has been said in each. An agent reading a review sees only the comments the person has let go of, and none of the panel's record of when each was released. The agent reads a review only once it is released, not while the person writes it."
+          "description": "The threads on the task's diff, with their comments. An agent sees only released comments."
         }
       ]
     },
@@ -4201,7 +4201,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task's reviews to read, by id or by slug. Leave it unset for your own task."
+          "description": "The task whose reviews to list, by id or slug. Unset uses the caller's own task."
         }
       ]
     },
@@ -4217,7 +4217,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every review given on that agent, in the order their rounds were taken."
+          "description": "Every review on the task, in round order."
         }
       ]
     },
@@ -4370,7 +4370,7 @@
     },
     "agent.v1.OpenReviewRoundRequest": {
       "name": "OpenReviewRoundRequest",
-      "description": "OpenReviewRoundRequest freezes what an agent has written now and records it as its next round. On a tree that has not moved since the last round it returns that round, so opening the diff twice does not advance the ordinal.",
+      "description": "OpenReviewRoundRequest saves a task's worktree as its next round. When the worktree has not changed since the newest round, the call returns that round.",
       "fields": [
         {
           "name": "task",
@@ -4380,7 +4380,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task's checkout to freeze, by id or by slug. Leave it unset for your own task."
+          "description": "The task whose worktree to save, by id or slug. Unset uses the caller's own task."
         }
       ]
     },
@@ -4396,7 +4396,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The round to review against, which is the last one again if nothing has moved."
+          "description": "The round to review. The newest existing round when the worktree has not changed."
         }
       ]
     },
@@ -4892,7 +4892,7 @@
     },
     "agent.v1.ReleaseReviewRequest": {
       "name": "ReleaseReviewRequest",
-      "description": "ReleaseReviewRequest lets go of the author's open batch. Komrad sends the agent one piece of ordinary mail naming the review, which it reads whole with get_review. A person's review stops the agent mid-turn first, so it reads the comments now.",
+      "description": "ReleaseReviewRequest releases the caller's open review on a task.",
       "fields": [
         {
           "name": "task",
@@ -4902,7 +4902,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which task the review was written on, by id or by slug. Leave it unset for your own task."
+          "description": "The task the review is on, by id or slug. Unset uses the caller's own task."
         },
         {
           "name": "verdict",
@@ -4912,7 +4912,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What a reviewing agent concludes. It tells the agent it reviewed whether it is done. An agent must set it and a person must leave it unset."
+          "description": "The review's verdict. An agent must set it, and the person must leave it unset."
         },
         {
           "name": "body",
@@ -4924,7 +4924,7 @@
           "rules": [
             "at most 1500 characters"
           ],
-          "description": "What to say about the work as a whole rather than about any one line. The agent reads it before the first thread. Optional, since a review of pinned comments alone is complete."
+          "description": "What the author says about the work as a whole. The agent reads it before the threads."
         }
       ]
     },
@@ -4940,7 +4940,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The review as released, carrying its verdict."
+          "description": "The review as released, with its verdict."
         },
         {
           "name": "comments",
@@ -4950,7 +4950,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many comments the released batch carried."
+          "description": "How many comments the review released."
         },
         {
           "name": "path",
@@ -4960,7 +4960,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The absolute path the review was written to."
+          "description": "The absolute path of the file the review was written to."
         }
       ]
     },
@@ -5280,7 +5280,7 @@
     },
     "agent.v1.Review": {
       "name": "Review",
-      "description": "Review is one author's batch of comments against one round. It stays private while the author writes it and releases as a whole, like a pending review on a forge.",
+      "description": "Review is one author's comments on one round, released to the agent together. The review is private until the author releases it.",
       "fields": [
         {
           "name": "id",
@@ -5290,7 +5290,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle the threads in this batch name it by."
+          "description": "The review's id."
         },
         {
           "name": "task_id",
@@ -5300,7 +5300,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task whose work is being read."
+          "description": "The id of the task the review is on."
         },
         {
           "name": "round_id",
@@ -5310,7 +5310,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The snapshot the batch was written against."
+          "description": "The id of the round the review is written against."
         },
         {
           "name": "round_ordinal",
@@ -5320,7 +5320,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which round that is, counting from one."
+          "description": "The number of the round the review is written against."
         },
         {
           "name": "author_kind",
@@ -5330,7 +5330,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a person, an agent or someone on the forge wrote it."
+          "description": "Who wrote the review."
         },
         {
           "name": "author_agent_id",
@@ -5340,7 +5340,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent giving the review, absent when the person reviewing is."
+          "description": "The id of the agent that wrote the review. Unset when the person wrote it."
         },
         {
           "name": "verdict",
@@ -5350,7 +5350,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the author concluded, unspecified while the review is still open."
+          "description": "The review's verdict. Unspecified until the review is released."
         },
         {
           "name": "released_at",
@@ -5360,7 +5360,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the review was let go of, empty while nothing in it has reached the agent."
+          "description": "When the review was released, in RFC 3339. Empty until then."
         },
         {
           "name": "path",
@@ -5370,7 +5370,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The absolute path the released review was written to."
+          "description": "The absolute path of the file the released review was written to."
         },
         {
           "name": "delivered_at",
@@ -5380,7 +5380,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the agent claimed the mail that told it the review was waiting."
+          "description": "When the agent read the mail about the review, in RFC 3339. Empty until then."
         },
         {
           "name": "created_at",
@@ -5390,7 +5390,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the batch was opened, which is the first comment written into it."
+          "description": "When the review was created with its first comment, in RFC 3339."
         },
         {
           "name": "updated_at",
@@ -5400,7 +5400,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When anything in it last moved."
+          "description": "When the review last changed, in RFC 3339."
         },
         {
           "name": "body",
@@ -5410,7 +5410,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the author said about the work as a whole rather than about any one line, empty when they said nothing."
+          "description": "What the author said about the work as a whole. Empty when the author said nothing."
         },
         {
           "name": "open_threads",
@@ -5420,7 +5420,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of this review's comments nobody has settled. A released review with none left is finished. The verdict does not say so, because it records what the author concluded at the time and not what has happened since."
+          "description": "How many of the review's threads are not resolved. A released review with none is finished, whatever its verdict."
         },
         {
           "name": "external_login",
@@ -5430,13 +5430,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The forge login of whoever wrote a review mirrored from the forge, empty otherwise."
+          "description": "The forge login of the author of a review copied from the forge. Empty otherwise."
         }
       ]
     },
     "agent.v1.ReviewMessage": {
       "name": "ReviewMessage",
-      "description": "ReviewMessage is one thing said in a review thread.",
+      "description": "ReviewMessage is one comment in a review thread.",
       "fields": [
         {
           "name": "id",
@@ -5446,7 +5446,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle an edit of this message names it by."
+          "description": "The comment's id."
         },
         {
           "name": "thread_id",
@@ -5456,7 +5456,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which conversation it belongs to."
+          "description": "The id of the comment's thread."
         },
         {
           "name": "author_kind",
@@ -5466,7 +5466,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a person, an agent or someone on the forge wrote it."
+          "description": "Who wrote the comment."
         },
         {
           "name": "author_agent_id",
@@ -5476,7 +5476,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent that wrote it. Absent for the person reviewing, and cleared if that agent is deleted. author_kind says who wrote it, not this field."
+          "description": "The id of the agent that wrote the comment. Unset when the person or a forge user wrote it, or when the agent was deleted."
         },
         {
           "name": "body",
@@ -5486,7 +5486,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the author wrote."
+          "description": "The comment's text."
         },
         {
           "name": "suggestion",
@@ -5496,7 +5496,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Replacement lines the author proposes for the thread's range. Empty for an ordinary comment. An agent applies these instead of reasoning about them."
+          "description": "The lines the author proposes in place of the thread's range. Empty for a plain comment."
         },
         {
           "name": "created_at",
@@ -5506,7 +5506,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was written."
+          "description": "When the comment was written, in RFC 3339."
         },
         {
           "name": "updated_at",
@@ -5516,7 +5516,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was last edited."
+          "description": "When the comment was last edited, in RFC 3339."
         },
         {
           "name": "delivery",
@@ -5526,7 +5526,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How far this comment has got towards the agent reading it."
+          "description": "How far the comment has got toward the agent."
         },
         {
           "name": "sent_at",
@@ -5536,7 +5536,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the person reviewing released this comment, empty while it is only written down."
+          "description": "When the person released the comment, in RFC 3339. Empty until then."
         },
         {
           "name": "delivered_at",
@@ -5546,7 +5546,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the agent claimed the doorbell raised for this comment, empty until it has."
+          "description": "When the agent read the mail about the comment, in RFC 3339. Empty until then."
         },
         {
           "name": "review_id",
@@ -5556,7 +5556,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The review this message went out with, absent for an answer written by the agent under review, which belongs to no batch."
+          "description": "The id of the review the comment was released with. Unset for a reply from the writer, which belongs to no review."
         },
         {
           "name": "round_id",
@@ -5566,7 +5566,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The round an addressed reply was taken of. Absent on every other message."
+          "description": "The id of the round saved with an addressed reply. Unset on every other comment."
         },
         {
           "name": "forge",
@@ -5576,7 +5576,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The forge comment this message was mirrored from, absent for anything written in komrad."
+          "description": "The forge comment this comment was copied from. Unset for a comment written in komrad."
         },
         {
           "name": "accepted_from",
@@ -5586,13 +5586,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The held forge message the person accepted this message as a copy of, absent on everything else."
+          "description": "The id of the held forge comment the person accepted this comment as a copy of. Unset otherwise."
         }
       ]
     },
     "agent.v1.ReviewRound": {
       "name": "ReviewRound",
-      "description": "ReviewRound is one immutable snapshot of what a task's writer has written. A review is given against it. The snapshot is a commit rather than the worktree, so nothing a comment is pinned to can move underneath the person reading it.",
+      "description": "ReviewRound is a snapshot of a task's worktree, saved as a commit, that a review is written against. A round never changes.",
       "fields": [
         {
           "name": "id",
@@ -5602,7 +5602,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle a review or a viewed-file record names this round by."
+          "description": "The round's id."
         },
         {
           "name": "task_id",
@@ -5612,7 +5612,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task whose checkout the snapshot was taken of."
+          "description": "The id of the task the round was taken of."
         },
         {
           "name": "ordinal",
@@ -5622,7 +5622,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which round this is for its task, counting from one."
+          "description": "The round's number within its task, counting from one."
         },
         {
           "name": "base_sha",
@@ -5632,7 +5632,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the agent's branch left its base at when the round was taken."
+          "description": "The commit on the base branch that the task's branch started from when the round was taken."
         },
         {
           "name": "snapshot_sha",
@@ -5642,7 +5642,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the whole worktree was written out as, tracked and untracked alike."
+          "description": "The commit holding the whole worktree, tracked and untracked files alike."
         },
         {
           "name": "created_at",
@@ -5652,13 +5652,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the snapshot was taken, in RFC 3339."
+          "description": "When the round was taken, in RFC 3339."
         }
       ]
     },
     "agent.v1.ReviewThread": {
       "name": "ReviewThread",
-      "description": "ReviewThread is one conversation pinned to a place in a round of a task's diff.",
+      "description": "ReviewThread is a conversation pinned to a range of lines in a round.",
       "fields": [
         {
           "name": "id",
@@ -5668,7 +5668,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The handle a reply or a resolve names this thread by."
+          "description": "The thread's id."
         },
         {
           "name": "task_id",
@@ -5678,7 +5678,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task whose diff the thread is pinned to."
+          "description": "The id of the task whose diff the thread is on."
         },
         {
           "name": "review_id",
@@ -5688,7 +5688,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The batch this thread was opened as part of."
+          "description": "The id of the review the thread was created in."
         },
         {
           "name": "round_id",
@@ -5698,7 +5698,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The round the thread is anchored to, which never moves."
+          "description": "The id of the round the thread is pinned to."
         },
         {
           "name": "round_ordinal",
@@ -5708,7 +5708,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which round that is, counting from one."
+          "description": "The number of the round the thread is pinned to."
         },
         {
           "name": "base_sha",
@@ -5718,7 +5718,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the old side of these line numbers was read against. This is the round's own base unless the diff was narrowed to an earlier round when the thread was written."
+          "description": "The commit the old side of the line numbers is read against. This is the round's base unless the diff was narrowed to an earlier round."
         },
         {
           "name": "file_path",
@@ -5728,7 +5728,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which file, relative to the checkout."
+          "description": "The file's path, relative to the checkout."
         },
         {
           "name": "old_start",
@@ -5738,7 +5738,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the range begins on the old side of the diff, counting from one."
+          "description": "The first line of the range on the old side of the diff, counting from one."
         },
         {
           "name": "old_end",
@@ -5748,7 +5748,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where it ends on the old side, inclusive."
+          "description": "The last line of the range on the old side of the diff."
         },
         {
           "name": "new_start",
@@ -5758,7 +5758,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where the range begins on the new side."
+          "description": "The first line of the range on the new side of the diff, counting from one."
         },
         {
           "name": "new_end",
@@ -5768,7 +5768,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where it ends on the new side, inclusive."
+          "description": "The last line of the range on the new side of the diff."
         },
         {
           "name": "quoted_lines",
@@ -5778,7 +5778,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The diff lines the thread was written against, each keeping its leading marker."
+          "description": "The diff lines the thread is about, each with its leading marker."
         },
         {
           "name": "resolved_at",
@@ -5788,7 +5788,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the person reviewing settled this thread. Empty while it is still owed an answer. Settling is separate from whether the code under the thread has moved, and settling decides whether the thread still asks for something."
+          "description": "When the thread was resolved, in RFC 3339. Empty while the thread is open."
         },
         {
           "name": "unread_by_human",
@@ -5798,7 +5798,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the agent has replied since the person reviewing last looked."
+          "description": "Whether an agent has replied since the person last read the thread."
         },
         {
           "name": "messages",
@@ -5808,7 +5808,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Everything said in the thread, oldest first."
+          "description": "The thread's comments, oldest first."
         },
         {
           "name": "created_at",
@@ -5818,7 +5818,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the thread was opened."
+          "description": "When the thread was created, in RFC 3339."
         },
         {
           "name": "updated_at",
@@ -5828,7 +5828,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When anything in it last moved."
+          "description": "When the thread last changed, in RFC 3339."
         },
         {
           "name": "mirrors_forge",
@@ -5838,7 +5838,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the thread mirrors one on the pull request, where a reply is public."
+          "description": "Whether the thread is copied from a pull request, where replies are public."
         },
         {
           "name": "forge_replies",
@@ -5848,13 +5848,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What komrad has drafted, posted or failed to post on the forge thread, oldest first. Only the person reviewing is shown these."
+          "description": "The replies komrad has drafted, posted or failed to post to the forge thread, oldest first. Only the person sees these."
         }
       ]
     },
     "agent.v1.ReviewThreadInContext": {
       "name": "ReviewThreadInContext",
-      "description": "ReviewThreadInContext is one thread of a released review, with the code it was written about drawn from the round's snapshot.",
+      "description": "ReviewThreadInContext is one thread of a released review, with the code around it from the round's snapshot.",
       "fields": [
         {
           "name": "thread",
@@ -5864,7 +5864,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The thread as list_review_threads renders it, holding only the messages that went out with this review."
+          "description": "The thread, with only the comments released with this review."
         },
         {
           "name": "context",
@@ -5874,7 +5874,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The snapshot's lines around the thread's range, each prefixed with its line number and \"\u003e\u003e\" on the lines the thread is about. Empty when the snapshot cannot be read, in which case the thread's quoted_lines are what there is."
+          "description": "The snapshot's lines around the thread's range, each prefixed with its line number, and `\u003e\u003e` on the lines the thread is about. Empty when the snapshot cannot be read."
         }
       ]
     },
@@ -6219,7 +6219,7 @@
           "rules": [
             "required"
           ],
-          "description": "Which thread to settle or reopen."
+          "description": "The thread to resolve or reopen, by id."
         },
         {
           "name": "resolved",
@@ -6229,7 +6229,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the thread is settled. Unsetting it reopens the thread, as a person does when the answer was not the end of it."
+          "description": "Whether the thread is resolved. False reopens the thread."
         }
       ]
     },
@@ -6245,7 +6245,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The thread as it now stands."
+          "description": "The thread as updated."
         }
       ]
     },
@@ -10867,7 +10867,7 @@
     },
     "agent.v1.ForgeReplyState": {
       "name": "ForgeReplyState",
-      "description": "ForgeReplyState is where a reply komrad posts to the forge is on its way there.",
+      "description": "ForgeReplyState is how far a reply komrad posts to the forge has got.",
       "values": [
         {
           "name": "FORGE_REPLY_STATE_APPROVED",
@@ -10875,7 +10875,7 @@
         },
         {
           "name": "FORGE_REPLY_STATE_SENDING",
-          "description": "Being posted, and possibly already on the forge."
+          "description": "Being posted. The forge may already have it."
         },
         {
           "name": "FORGE_REPLY_STATE_SENT",
@@ -10883,7 +10883,7 @@
         },
         {
           "name": "FORGE_REPLY_STATE_FAILED",
-          "description": "Refused by the forge on its latest attempt, waiting for the person to retry or discard it."
+          "description": "Refused by the forge on the latest attempt, waiting for the person to retry or discard it."
         }
       ]
     },
@@ -10941,59 +10941,59 @@
     },
     "agent.v1.ReviewAuthorKind": {
       "name": "ReviewAuthorKind",
-      "description": "ReviewAuthorKind names who wrote a review message.",
+      "description": "ReviewAuthorKind is who wrote a review or comment.",
       "values": [
         {
           "name": "REVIEW_AUTHOR_KIND_HUMAN",
-          "description": "The person running komrad."
+          "description": "The person."
         },
         {
           "name": "REVIEW_AUTHOR_KIND_AGENT",
-          "description": "The agent whose work is being read, or the reviewer reading it."
+          "description": "An agent, either the writer or a reviewer."
         },
         {
           "name": "REVIEW_AUTHOR_KIND_FORGE",
-          "description": "Someone on the forge, whose comment komrad mirrored from the pull request."
+          "description": "A forge user, whose comment komrad copied from the pull request."
         }
       ]
     },
     "agent.v1.ReviewDeliveryState": {
       "name": "ReviewDeliveryState",
-      "description": "ReviewDeliveryState shows how far one of the person's comments has got towards the agent reading it. Komrad stores no such field. It reads the state off the comment's own sent stamp and the newest doorbell raised against it. The stamp outlives mail that the agent deletes or lets expire. The messages of the thread show whether the comment has been answered.",
+      "description": "ReviewDeliveryState is how far one of the person's comments has got toward the agent.",
       "values": [
         {
           "name": "REVIEW_DELIVERY_STATE_UNSENT",
-          "description": "Written down and not yet let go of."
+          "description": "Written but not released."
         },
         {
           "name": "REVIEW_DELIVERY_STATE_SENT",
-          "description": "Released, with a doorbell still waiting to be claimed."
+          "description": "Released, and the agent has not read the mail about it."
         },
         {
           "name": "REVIEW_DELIVERY_STATE_DELIVERED",
-          "description": "Released, and the agent has claimed the doorbell."
+          "description": "Released, and the agent has read the mail about it."
         },
         {
           "name": "REVIEW_DELIVERY_STATE_HELD",
-          "description": "Kept from the agent until the person accepts the thread's first comment, because someone on the forge without write access to the repository wrote the comment or its thread."
+          "description": "Kept from the agent until the person accepts the thread's first comment, because a forge user without write access wrote the comment or its thread."
         }
       ]
     },
     "agent.v1.ReviewVerdict": {
       "name": "ReviewVerdict",
-      "description": "ReviewVerdict records what an author concluded about a round. It tells the agent whether it is done, so the agent need not read that out of the prose.",
+      "description": "ReviewVerdict is what a review concludes about a round.",
       "values": [
         {
           "name": "REVIEW_VERDICT_APPROVED",
-          "description": "This round is good as it stands."
+          "description": "The round is good as it stands."
         },
         {
           "name": "REVIEW_VERDICT_CHANGES_REQUESTED",
-          "description": "The agent should keep working."
+          "description": "The writer has more to do."
         },
         {
           "name": "REVIEW_VERDICT_COMMENTED",
-          "description": "Notes without a conclusion either way."
+          "description": "Comments with no conclusion either way."
         }
       ]
     },
