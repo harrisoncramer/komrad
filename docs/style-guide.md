@@ -100,7 +100,7 @@ restart: Launch the writer on a new conversation.
 
 retry: Launch an agent again after its create failed.
 
-held: Stopped by a person who has taken over its worktree. Release lets it go on.
+held: Interrupted and kept still by a caller, such as before editing files in its checkout. Release lets it go on.
 
 archived: Stopped and taken out of the list, with its records kept. Restore brings it back, dormant. Not "hidden from the panel" or "put away".
 
