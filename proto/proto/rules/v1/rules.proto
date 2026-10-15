@@ -21,7 +21,7 @@ extend buf.validate.StringRules {
     expression: "!rule || this.startsWith('/') || this.startsWith('~')"
   }];
 
-  // The same, for a path a caller may leave empty to take the default.
+  // Like `absolute_path`, but allows an empty string to take the default.
   bool absolute_path_or_blank = 50102 [(buf.validate.predefined).cel = {
     id: "string.absolute_path_or_blank"
     message: "must be blank, absolute, or start with ~"
@@ -35,21 +35,21 @@ extend buf.validate.StringRules {
     expression: "!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
-  // The same, for a hook a caller may leave empty to fire nothing.
+  // Like `script_name`, but allows an empty string to run no hook.
   bool script_name_or_blank = 50105 [(buf.validate.predefined).cel = {
     id: "string.script_name_or_blank"
     message: "must be blank or a file name, with no slash, no leading dot, and no control characters"
     expression: "!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
-  // Requires five fields, which is the shape the scheduler parses.
+  // Requires five fields, the shape the scheduler parses.
   bool cron_expression = 50103 [(buf.validate.predefined).cel = {
     id: "string.cron_expression"
     message: "must be five whitespace-separated fields, such as '0 9 * * 1-5'"
     expression: "!rule || this.split(' ').filter(f, f != '').size() == 5"
   }];
 
-  // Refuses control characters, for text the panel draws on one line.
+  // Refuses control characters, for text a client shows on one line.
   bool printable = 50107 [(buf.validate.predefined).cel = {
     id: "string.printable"
     message: "must not contain control characters"

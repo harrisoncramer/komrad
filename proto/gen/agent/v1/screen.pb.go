@@ -25,7 +25,7 @@ const (
 
 type GetLastScreenRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose screen to read.
+	// The agent whose screen to read, by id.
 	AgentId       string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -70,7 +70,7 @@ func (x *GetLastScreenRequest) GetAgentId() string {
 
 type GetLastScreenResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The pane's visible grid as tmux drew it, colour escapes included.
+	// The pane's visible text as tmux drew it, with colour escapes.
 	Frame string `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
 	// How many columns the pane was when the screen was taken.
 	Width int32 `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"`

@@ -98,7 +98,7 @@ var (
 	//
 	// optional bool absolute_path = 50101;
 	E_AbsolutePath = &file_rules_v1_rules_proto_extTypes[1]
-	// The same, for a path a caller may leave empty to take the default.
+	// Like `absolute_path`, but allows an empty string to take the default.
 	//
 	// optional bool absolute_path_or_blank = 50102;
 	E_AbsolutePathOrBlank = &file_rules_v1_rules_proto_extTypes[2]
@@ -106,15 +106,15 @@ var (
 	//
 	// optional bool script_name = 50104;
 	E_ScriptName = &file_rules_v1_rules_proto_extTypes[3]
-	// The same, for a hook a caller may leave empty to fire nothing.
+	// Like `script_name`, but allows an empty string to run no hook.
 	//
 	// optional bool script_name_or_blank = 50105;
 	E_ScriptNameOrBlank = &file_rules_v1_rules_proto_extTypes[4]
-	// Requires five fields, which is the shape the scheduler parses.
+	// Requires five fields, the shape the scheduler parses.
 	//
 	// optional bool cron_expression = 50103;
 	E_CronExpression = &file_rules_v1_rules_proto_extTypes[5]
-	// Refuses control characters, for text the panel draws on one line.
+	// Refuses control characters, for text a client shows on one line.
 	//
 	// optional bool printable = 50107;
 	E_Printable = &file_rules_v1_rules_proto_extTypes[6]

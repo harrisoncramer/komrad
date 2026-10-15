@@ -8,12 +8,12 @@ import "google/protobuf/timestamp.proto";
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
 message GetLastScreenRequest {
-  // Whose screen to read.
+  // The agent whose screen to read, by id.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetLastScreenResponse {
-  // The pane's visible grid as tmux drew it, colour escapes included.
+  // The pane's visible text as tmux drew it, with colour escapes.
   string frame = 1;
   // How many columns the pane was when the screen was taken.
   int32 width = 2;

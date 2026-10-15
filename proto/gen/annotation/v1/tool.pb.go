@@ -26,13 +26,13 @@ const (
 type Role int32
 
 const (
-	// No role, which is offered every tool.
+	// No role. An agent without a role is offered every tool.
 	Role_ROLE_UNSPECIFIED Role = 0
-	// An agent on a task that reads its change and gives a review.
+	// An agent on a task that reads the writer's change and gives a review.
 	Role_ROLE_REVIEWER Role = 1
-	// The agent drawn on a workflow's own row that hands work out.
+	// The one agent per workflow that hands work out across its tasks.
 	Role_ROLE_ORCHESTRATOR Role = 2
-	// The one agent on a task that writes its change.
+	// The one agent on a task that changes its checkout.
 	Role_ROLE_WRITER Role = 3
 )
 
@@ -79,28 +79,28 @@ func (Role) EnumDescriptor() ([]byte, []int) {
 	return file_annotation_v1_tool_proto_rawDescGZIP(), []int{0}
 }
 
+// Surfaces says which generated clients reach a method, and how they describe it.
 type Surfaces struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether komrad rpc gets a subcommand for the method. Scripts run it.
+	// Whether `komrad rpc` has a subcommand for the method.
 	Cli bool `protobuf:"varint,1,opt,name=cli,proto3" json:"cli,omitempty"`
-	// Whether the MCP server offers the method as a tool. Models call it. A tool needs a CLI
-	// command, so mcp implies cli.
+	// Whether the MCP server offers the method as a tool. A tool needs a CLI command, so `mcp`
+	// implies `cli`.
 	Mcp bool `protobuf:"varint,2,opt,name=mcp,proto3" json:"mcp,omitempty"`
-	// The name both generated callers use for the method. A model types it in place of the method
-	// name. Required when either surface is on.
+	// The name the CLI command and the MCP tool share. Required when either surface is on.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// Everything a model is told about the call and all the help the CLI prints. Required with
-	// name.
+	// The method's reference text, CLI help and MCP tool description. Required when either surface
+	// is on.
 	Description string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	// Whether the call can take something away. A client asks before making a destructive call.
-	// True unless the method only reads.
+	// Whether the call can remove something. A client asks before a destructive call. Defaults to
+	// true unless the method only reads.
 	Destructive *bool `protobuf:"varint,5,opt,name=destructive,proto3,oneof" json:"destructive,omitempty"`
-	// Whether calling twice has the same effect as calling once. It overrides the method's
-	// idempotency_level.
+	// Whether calling twice has the same effect as calling once. Overrides the method's
+	// `idempotency_level`.
 	Idempotent *bool `protobuf:"varint,6,opt,name=idempotent,proto3,oneof" json:"idempotent,omitempty"`
-	// Which agent roles may call the method and are offered it as a tool, required of every tool.
+	// The agent roles that may call the method and are offered it as a tool. Required on every tool.
 	Roles []Role `protobuf:"varint,7,rep,packed,name=roles,proto3,enum=annotation.v1.Role" json:"roles,omitempty"`
-	// Why a surface is left off, in a sentence. Required when either surface is off.
+	// Why a surface is off, in one sentence. Required when either surface is off.
 	Reason string `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
 	// Advice for a model calling the method, such as when not to call it or what to do on an
 	// error. Only the MCP tool description carries it.
@@ -215,8 +215,8 @@ var file_annotation_v1_tool_proto_extTypes = []protoimpl.ExtensionInfo{
 
 // Extension fields to descriptorpb.MethodOptions.
 var (
-	// Which generated callers reach the method. Every method declares it. The panel is not a
-	// generated caller. It is written by hand and calls whatever it needs.
+	// Which generated clients reach the method. Every method declares it. The panel is written by
+	// hand and calls whatever it needs.
 	//
 	// optional annotation.v1.Surfaces surfaces = 50003;
 	E_Surfaces = &file_annotation_v1_tool_proto_extTypes[0]

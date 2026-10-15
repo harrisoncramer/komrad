@@ -7,48 +7,48 @@ import "google/protobuf/descriptor.proto";
 option go_package = "komrad/proto/gen/annotation/v1;annotationv1";
 
 extend google.protobuf.MethodOptions {
-  // Which generated callers reach the method. Every method declares it. The panel is not a
-  // generated caller. It is written by hand and calls whatever it needs.
+  // Which generated clients reach the method. Every method declares it. The panel is written by
+  // hand and calls whatever it needs.
   Surfaces surfaces = 50003;
 }
 
 // Role is what an agent was launched to do.
 enum Role {
-  // No role, which is offered every tool.
+  // No role. An agent without a role is offered every tool.
   ROLE_UNSPECIFIED = 0;
-  // An agent on a task that reads its change and gives a review.
+  // An agent on a task that reads the writer's change and gives a review.
   ROLE_REVIEWER = 1;
-  // The agent drawn on a workflow's own row that hands work out.
+  // The one agent per workflow that hands work out across its tasks.
   ROLE_ORCHESTRATOR = 2;
-  // The one agent on a task that writes its change.
+  // The one agent on a task that changes its checkout.
   ROLE_WRITER = 3;
 }
 
+// Surfaces says which generated clients reach a method, and how they describe it.
 message Surfaces {
-  // Whether komrad rpc gets a subcommand for the method. Scripts run it.
+  // Whether `komrad rpc` has a subcommand for the method.
   bool cli = 1;
-  // Whether the MCP server offers the method as a tool. Models call it. A tool needs a CLI
-  // command, so mcp implies cli.
+  // Whether the MCP server offers the method as a tool. A tool needs a CLI command, so `mcp`
+  // implies `cli`.
   bool mcp = 2;
 
-  // The name both generated callers use for the method. A model types it in place of the method
-  // name. Required when either surface is on.
+  // The name the CLI command and the MCP tool share. Required when either surface is on.
   string name = 3;
-  // Everything a model is told about the call and all the help the CLI prints. Required with
-  // name.
+  // The method's reference text, CLI help and MCP tool description. Required when either surface
+  // is on.
   string description = 4;
 
-  // Whether the call can take something away. A client asks before making a destructive call.
-  // True unless the method only reads.
+  // Whether the call can remove something. A client asks before a destructive call. Defaults to
+  // true unless the method only reads.
   optional bool destructive = 5;
-  // Whether calling twice has the same effect as calling once. It overrides the method's
-  // idempotency_level.
+  // Whether calling twice has the same effect as calling once. Overrides the method's
+  // `idempotency_level`.
   optional bool idempotent = 6;
 
-  // Which agent roles may call the method and are offered it as a tool, required of every tool.
+  // The agent roles that may call the method and are offered it as a tool. Required on every tool.
   repeated Role roles = 7;
 
-  // Why a surface is left off, in a sentence. Required when either surface is off.
+  // Why a surface is off, in one sentence. Required when either surface is off.
   string reason = 8;
 
   // Advice for a model calling the method, such as when not to call it or what to do on an
