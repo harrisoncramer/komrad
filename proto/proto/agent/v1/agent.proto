@@ -172,7 +172,7 @@ message CommentCounts {
 // PullRequestStanding is the current pull request from an agent's branch.
 message PullRequestStanding {
   // The state of the current pull request. `UNREAD` means komrad has not read the repository yet,
-  // and `NONE` means no pull request is open from the branch.
+  // and `NONE` means the branch has no pull request, or the checkout has moved past a finished one.
   pullrequest.v1.PullRequestState state = 1;
   // The current pull request's number. Unset for `UNREAD` and `NONE`.
   optional int32 number = 2;
