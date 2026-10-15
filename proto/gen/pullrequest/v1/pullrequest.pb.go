@@ -466,7 +466,7 @@ const (
 	StatusCheckState_STATUS_CHECK_STATE_WAITING StatusCheckState = 3
 	// Finished, with the conclusion saying how.
 	StatusCheckState_STATUS_CHECK_STATE_COMPLETED StatusCheckState = 4
-	// Still running on a commit that is no longer the head when komrad stopped reading it.
+	// Still running when komrad stopped reading the commit, which is no longer the head.
 	StatusCheckState_STATUS_CHECK_STATE_UNKNOWN StatusCheckState = 5
 )
 
@@ -817,14 +817,14 @@ type MergeReadiness struct {
 	// The state of the checks on the head commit. Unspecified when the forge last reported on an
 	// older head.
 	Checks Checks `protobuf:"varint,2,opt,name=checks,proto3,enum=pullrequest.v1.Checks" json:"checks,omitempty"`
-	// The forge's mergeability. While the forge recomputes it, the last value for the same head.
+	// The forge's mergeability, or the last value for the same head while the forge recomputes it.
 	Mergeability Mergeability `protobuf:"varint,3,opt,name=mergeability,proto3,enum=pullrequest.v1.Mergeability" json:"mergeability,omitempty"`
 	// Whether `mergeability` is the last value for this head, not yet confirmed by a new read.
 	MergeabilityUnconfirmed bool `protobuf:"varint,4,opt,name=mergeability_unconfirmed,json=mergeabilityUnconfirmed,proto3" json:"mergeability_unconfirmed,omitempty"`
 	// Whether auto-merge is on, so the forge merges once the checks and reviews pass.
 	AutoMerge bool `protobuf:"varint,5,opt,name=auto_merge,json=autoMerge,proto3" json:"auto_merge,omitempty"`
-	// Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, a pull
-	// request with nothing left to wait for, and a repository that does not allow auto-merge.
+	// Whether the forge would let komrad turn auto-merge on now. The forge refuses for a draft, a
+	// pull request with nothing left to wait for, and a repository that does not allow auto-merge.
 	AutoMergeable bool `protobuf:"varint,6,opt,name=auto_mergeable,json=autoMergeable,proto3" json:"auto_mergeable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

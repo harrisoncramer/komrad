@@ -3570,7 +3570,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062\xa8\x85\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062\xbf\x85\x01\n" +
 	"\fAgentService\x12\x82\x02\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb8\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\vlist_agents\"\x97\x01List the agents komrad tracks, most recently updated first, each with the opening of its prompt. Archived agents are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x9e\x01\n" +
@@ -3582,9 +3582,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\x9a\x02\x9a\xb5\x18\x95\x02\b\x01\x10\x01\x1a\tsend_mail\"\xd3\x01Send mail to another agent by id or name, setting `reply_to` when answering. Komrad refuses a name used in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator.(\x000\x00:\x03\x03\x01\x02J%Say who is asking and what they want.\x12\xc5\x02\n" +
 	"\x10ForwardLastTurns\x12!.agent.v1.ForwardLastTurnsRequest\x1a\".agent.v1.ForwardLastTurnsResponse\"\xe9\x01\x9a\xb5\x18\xe4\x01\b\x01\x10\x01\x1a\x12forward_last_turns\"\x88\x01Send an agent's latest turns to another agent as mail, without the text passing through the caller. Mail holds at most 10000 characters.(\x000\x00:\x03\x03\x01\x02J6When refused, pass fewer turns or a smaller max_bytes.\x12\xad\x02\n" +
 	"\bReadMail\x12\x19.agent.v1.ReadMailRequest\x1a\x1a.agent.v1.ReadMailResponse\"\xe9\x01\x9a\xb5\x18\xe4\x01\b\x01\x10\x01\x1a\tread_mail\"\x9d\x01Read the caller's waiting mail, oldest first. Reading claims the mail, so a second call returns nothing. Passing another agent's id claims that agent's mail.(\x000\x00:\x03\x03\x01\x02J*Read another agent's mail only when asked.\x12\xca\x01\n" +
-	"\bListMail\x12\x19.agent.v1.ListMailRequest\x1a\x1a.agent.v1.ListMailResponse\"\x86\x01\x9a\xb5\x18\x7f\b\x01\x10\x01\x1a\tlist_mail\"iList an agent's mail without claiming it, most recent first. Set `direction` to list what the agent sent.:\x03\x03\x01\x02\x90\x02\x01\x12\xaa\x01\n" +
+	"\bListMail\x12\x19.agent.v1.ListMailRequest\x1a\x1a.agent.v1.ListMailResponse\"\x86\x01\x9a\xb5\x18\x7f\b\x01\x10\x01\x1a\tlist_mail\"iList an agent's mail without claiming it, most recent first. Set `direction` to list what the agent sent.:\x03\x03\x01\x02\x90\x02\x01\x12\xc1\x01\n" +
 	"\n" +
-	"DeleteMail\x12\x1b.agent.v1.DeleteMailRequest\x1a\x16.google.protobuf.Empty\"g\x9a\xb5\x18`\b\x01\x10\x01\x1a\vdelete_mail\"HDelete mail for good by id, read or not. One unknown id deletes nothing.(\x01:\x01\x02\x90\x02\x02\x12\xa5\x02\n" +
+	"DeleteMail\x12\x1b.agent.v1.DeleteMailRequest\x1a\x16.google.protobuf.Empty\"~\x9a\xb5\x18w\b\x01\x10\x01\x1a\vdelete_mail\"_Delete mail for good by id, read or not. Any unknown id fails the call, and nothing is deleted.(\x01:\x01\x02\x90\x02\x02\x12\xa5\x02\n" +
 	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xdb\x01\x9a\xb5\x18\xd3\x01\b\x01\x10\x01\x1a\x0earchive_agents\"\xb6\x01Archive agents, stopping each and keeping its record and transcript for `restore_agents`. Komrad refuses a task's writer, which is archived only with its task through `archive_task`.(\x00:\x02\x03\x02\x90\x02\x02\x12\xc1\x02\n" +
 	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xee\x01\x9a\xb5\x18\xe6\x01\b\x01\x10\x01\x1a\x0erestore_agents\"\x98\x01Restore archived agents, dormant, with their workflows. A task's writer restores its task with it. Komrad refuses a reviewer until its task is restored.(\x00:\x01\x02J0Call resume_agent on each agent that should run.\x90\x02\x02\x12\x8a\x02\n" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xc3\x01\x9a\xb5\x18\xbe\x01\b\x01\x10\x01\x1a\n" +

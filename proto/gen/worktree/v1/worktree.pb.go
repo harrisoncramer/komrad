@@ -238,8 +238,8 @@ type Worktree struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The worktree's absolute path.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The repository the worktree was created from, read from the worktree's `.git` file. When git
-	// cannot read that file, where the repository used to be.
+	// The repository the worktree was created from, read from the worktree's `.git` file, or where
+	// the repository used to be when git cannot read that file.
 	RepoDir string `protobuf:"bytes,2,opt,name=repo_dir,json=repoDir,proto3" json:"repo_dir,omitempty"`
 	// The branch checked out in the worktree. Empty when HEAD is detached or git cannot read the
 	// worktree.

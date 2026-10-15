@@ -212,7 +212,7 @@
             "orchestrator"
           ],
           "summary": "Delete mail for good by id, read or not.",
-          "description": "Delete mail for good by id, read or not. One unknown id deletes nothing.",
+          "description": "Delete mail for good by id, read or not. Any unknown id fails the call, and nothing is deleted.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -7871,7 +7871,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The forge's mergeability. While the forge recomputes it, the last value for the same head."
+          "description": "The forge's mergeability, or the last value for the same head while the forge recomputes it."
         },
         {
           "name": "mergeability_unconfirmed",
@@ -7901,7 +7901,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the forge would let komrad turn auto-merge on now. It refuses for a draft, a pull request with nothing left to wait for, and a repository that does not allow auto-merge."
+          "description": "Whether the forge would let komrad turn auto-merge on now. The forge refuses for a draft, a pull request with nothing left to wait for, and a repository that does not allow auto-merge."
         }
       ]
     },
@@ -10611,7 +10611,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The repository the worktree was created from, read from the worktree's `.git` file. When git cannot read that file, where the repository used to be."
+          "description": "The repository the worktree was created from, read from the worktree's `.git` file, or where the repository used to be when git cannot read that file."
         },
         {
           "name": "branch",
