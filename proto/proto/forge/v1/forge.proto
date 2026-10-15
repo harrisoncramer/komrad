@@ -9,44 +9,45 @@ import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/forge/v1;forgev1";
 
+// Forge is komrad's connection to one forge host and the credential komrad uses there.
 message Forge {
-  // The connection's own id.
+  // The connection's id.
   string id = 1;
-  // Which forge the host runs, github or gitlab.
+  // The kind of forge the host runs, `github` or `gitlab`.
   string kind = 2;
-  // The host agents' remotes name, such as github.com.
+  // The host that git remotes name, such as `github.com`.
   string host = 3;
-  // Where an enterprise host answers API calls, empty for the public forge.
+  // The address of an enterprise host's API. Empty for the public forge.
   string api_url = 4;
-  // How the credential was obtained, token or github_app.
+  // How the credential was given, `token` or `github_app`.
   string method = 5;
-  // Who the forge said the credential belongs to, a user login or an App's name.
+  // The account the forge says the credential belongs to, a user login or an App's name.
   string login = 6;
-  // When the forge last confirmed the credential, in RFC 3339, unset once it refused.
+  // When the forge last accepted the credential, in RFC 3339. Unset once the forge refuses it.
   optional string verified_at = 7;
-  // Whether this machine still holds what the connection needs. The token method needs its
-  // file, and the App method always has what it needs.
+  // Whether this machine still has the credential. A `token` connection needs its token file,
+  // and a `github_app` connection always has its credential.
   bool has_credential = 8;
-  // When the connection was made, in RFC 3339.
+  // When the connection was created, in RFC 3339.
   string created_at = 9;
 }
 
 message ConnectForgeRequest {
-  // The host agents' remotes name, such as github.com.
+  // The host that git remotes name, such as `github.com`.
   string host = 1;
-  // Which forge it runs. Komrad works it out from the host when empty. Required for any host
-  // other than github.com or gitlab.com.
+  // The kind of forge the host runs. Empty works it out from `github.com` or `gitlab.com`, and
+  // any other host needs it.
   string kind = 2;
-  // Where an enterprise host answers API calls. It must be https.
+  // The address of an enterprise host's API, over https.
   string api_url = 3;
-  // How the credential comes: token, or github_app for the App in the server's config.
+  // How the credential is given: `token`, or `github_app` for the App in the server's config.
   string method = 4;
-  // The token for the token method. It travels once and is never returned.
+  // The token for the `token` method. No call ever returns it.
   string token = 5;
 }
 
 message ConnectForgeResponse {
-  // The connection.
+  // The connection as created.
   Forge forge = 1;
 }
 
@@ -56,81 +57,81 @@ message ListForgesResponse {
 }
 
 message DisconnectForgeRequest {
-  // The host to forget.
+  // The host to disconnect.
   string host = 1;
 }
 
 message CheckForgesResponse {
-  // One entry per connection, in the order list_forges gives them.
+  // One check for each connection, in the order `list_forges` returns them.
   repeated ForgeCheck checks = 1;
 }
 
+// ForgeCheck is what one forge said about komrad's credential.
 message ForgeCheck {
-  // The connection.
+  // The connection checked.
   Forge forge = 1;
-  // What the forge answered, empty when it accepted the credential.
+  // What the forge said was wrong. Empty when the forge accepted the credential.
   string problem = 2;
-  // Which kind of trouble it is when problem is set: refused, no_credential or unreachable.
+  // The kind of problem, `refused`, `no_credential` or `unreachable`. Empty when there is none.
   string problem_kind = 3;
 }
 
 message ListForgePullRequestsRequest {
-  // The repository as a git remote spells it, such as git@github.com:owner/repo.git or
-  // https://github.com/owner/repo, whose host picks the forge connection.
+  // The repository's git remote, such as `git@github.com:owner/repo.git` or
+  // `https://github.com/owner/repo`. The remote's host picks the forge connection.
   string remote_url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
   }];
-  // The branch the pull requests were opened from. The call lists them in any state. When
-  // empty, it lists the repository's open pull requests instead.
+  // The branch whose pull requests to list, in any state. Empty lists the repository's open pull
+  // requests.
   string branch = 2 [(buf.validate.field).string = {max_len: 512}];
-  // Which page to read and how many to a page. Twenty when unset, and at most a hundred, the
-  // most the forge hands over in one call.
+  // The page to read. The page size defaults to twenty and is at most a hundred.
   optional pagination.v1.Pagination pagination = 3;
 }
 
-// ForgePullRequest is a pull request as the forge describes it, read live and stored nowhere.
+// ForgePullRequest is a pull request as the forge describes it, read live and not kept.
 message ForgePullRequest {
-  // Which forge it lives on, such as github.
+  // The forge the pull request is on, such as `github`.
   string forge = 1;
-  // The forge's own stable identifier, such as GitHub's node_id.
+  // The forge's own stable id for the pull request, such as GitHub's `node_id`.
   string provider_id = 2;
-  // The web address a person opens.
+  // The pull request's web address.
   string url = 3;
-  // The canonical address of the repository it targets.
+  // The web address of the repository the pull request merges into.
   string repository_url = 4;
-  // The canonical address of the repository its branch lives in, empty when the forge no
-  // longer has it.
+  // The web address of the repository the pull request's branch is in. Empty when the forge no
+  // longer has that repository.
   string head_repository_url = 5;
-  // The number the forge shows a person. Numbers are per repository.
+  // The pull request's number, unique within its repository.
   int32 number = 6;
-  // The title as the forge has it.
+  // The pull request's title.
   string title = 7;
-  // The branch the pull request was opened from.
+  // The branch the pull request merges from.
   string head_branch = 8;
-  // The commit at the tip of that branch when last read.
+  // The commit at the tip of the pull request's branch.
   string head_sha = 9;
-  // The branch it targets.
+  // The branch the pull request merges into.
   string base_branch = 10;
-  // The commit the target branch was at when last read.
+  // The commit at the tip of the branch the pull request merges into.
   string base_sha = 11;
-  // Whether the forge marks it a draft.
+  // Whether the pull request is a draft.
   bool draft = 12;
-  // The state the forge reports: OPEN, CLOSED or MERGED. Read merged_at and closed_at to tell
-  // whether it is finished.
+  // The state the forge reports, `OPEN`, `CLOSED` or `MERGED`.
   string state = 13;
-  // When it was opened on the forge, in RFC 3339.
+  // When the pull request was opened, in RFC 3339.
   string created_at = 14;
-  // When the forge last saw it change, in RFC 3339.
+  // When the pull request last changed on the forge, in RFC 3339.
   string updated_at = 15;
-  // When it merged, in RFC 3339, unset while it has not.
+  // When the pull request merged, in RFC 3339. Unset until the pull request merges.
   optional string merged_at = 16;
-  // When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
+  // When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is
+  // open.
   optional string closed_at = 17;
 }
 
 message MergeForgePullRequestRequest {
-  // The pull request's web address, whose host picks the forge connection.
+  // The pull request to merge, by web address. The address's host picks the forge connection.
   string url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
@@ -138,17 +139,18 @@ message MergeForgePullRequestRequest {
 }
 
 message SetForgePullRequestDraftRequest {
-  // The pull request's web address, whose host picks the forge connection.
+  // The pull request to change, by web address. The address's host picks the forge connection.
   string url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
   }];
-  // Whether it should be a draft, false to mark it ready for review.
+  // Whether the pull request is a draft. False marks the pull request ready for review.
   bool draft = 2;
 }
 
 message RequestForgePullRequestRereviewRequest {
-  // The pull request's web address, whose host picks the forge connection.
+  // The pull request to ask for reviews on, by web address. The address's host picks the forge
+  // connection.
   string url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
@@ -156,32 +158,32 @@ message RequestForgePullRequestRereviewRequest {
 }
 
 message SetForgePullRequestAutoMergeRequest {
-  // The pull request's web address, whose host picks the forge connection.
+  // The pull request to change, by web address. The address's host picks the forge connection.
   string url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
   }];
-  // The head commit the person saw. The forge refuses to queue once the branch has moved past
-  // it. Empty queues whatever the head is.
+  // The head commit the caller expects. The forge refuses to turn auto-merge on once the branch
+  // has moved past it. Empty accepts any head.
   string head_sha = 2 [(buf.validate.field).string.max_len = 64];
-  // Whether it should merge on its own once its checks and reviews pass, false to stop that.
+  // Whether the pull request merges by itself once its checks and reviews pass.
   bool on = 3;
 }
 
 message ListForgePullRequestsResponse {
-  // One page of pull requests, as the forge orders them.
+  // One page of pull requests, in the forge's order.
   repeated ForgePullRequest pull_requests = 1;
-  // The token for the page after this one, unset on the last.
+  // The cursor for the next page. Unset on the last page.
   optional string next_page_token = 2;
 }
 
-// ForgeService connects komrad to the services pull requests live on, and reads them live.
+// ForgeService connects komrad to forges and reads and changes pull requests on them.
 service ForgeService {
   rpc ConnectForge(ConnectForgeRequest) returns (ConnectForgeResponse) {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "komrad forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding."
+      reason: "`komrad forge connect` reads the token from stdin or a file, and a generated command would expose it as an argument."
     };
   }
   rpc ListForges(google.protobuf.Empty) returns (ListForgesResponse) {
@@ -190,7 +192,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "list_forges"
-      description: "List the forges komrad is connected to and who it acts as on each. Tokens are never returned."
+      description: "List the forges komrad is connected to and the account komrad uses on each. Tokens are never returned."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -199,7 +201,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "check_forges"
-      description: "Check that every connected forge's credential still works, recording the answer on each connection."
+      description: "Check that each connected forge still accepts its credential, and record the result on the connection."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -210,7 +212,7 @@ service ForgeService {
       cli: true
       mcp: true
       name: "list_forge_pull_requests"
-      description: "List a repository's pull requests by asking its forge, either every one from a named branch or the open ones. list_pull_requests reads what komrad has stored instead."
+      description: "List a repository's pull requests from its forge: every one from a branch, or the open ones. `list_pull_requests` lists the ones komrad has recorded instead."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -219,8 +221,8 @@ service ForgeService {
       cli: true
       mcp: false
       name: "merge_forge_pull_request"
-      description: "Merge a pull request through its forge, the way the repository merges by default."
-      reason: "Landing work on the base is for a person to decide."
+      description: "Merge a pull request on its forge, with the repository's default merge method."
+      reason: "Only the person decides what lands on the base branch."
     };
   }
   rpc SetForgePullRequestDraft(SetForgePullRequestDraftRequest) returns (google.protobuf.Empty) {
@@ -229,8 +231,8 @@ service ForgeService {
       cli: true
       mcp: false
       name: "set_forge_pull_request_draft"
-      description: "Mark a pull request a draft or ready for review through its forge."
-      reason: "Saying a pull request is ready for review is for a person to decide."
+      description: "Mark a pull request as a draft or as ready for review on its forge."
+      reason: "Only the person decides when a pull request is ready for review."
     };
   }
   rpc SetForgePullRequestAutoMerge(SetForgePullRequestAutoMergeRequest) returns (google.protobuf.Empty) {
@@ -239,8 +241,8 @@ service ForgeService {
       cli: true
       mcp: false
       name: "set_forge_pull_request_auto_merge"
-      description: "Turn a pull request's auto-merge on or off through its forge."
-      reason: "Letting work land on the base without a person there is for a person to decide."
+      description: "Turn a pull request's auto-merge on or off on its forge."
+      reason: "Only the person decides whether work lands on the base branch unattended."
     };
   }
   rpc RequestForgePullRequestRereview(RequestForgePullRequestRereviewRequest) returns (google.protobuf.Empty) {
@@ -249,7 +251,7 @@ service ForgeService {
       mcp: false
       name: "request_forge_pull_request_rereview"
       description: "Ask every reviewer who requested changes on a pull request to review it again."
-      reason: "Telling a colleague the work is ready for them again is for a person to decide."
+      reason: "Only the person decides when to ask colleagues for another review."
     };
   }
   rpc DisconnectForge(DisconnectForgeRequest) returns (google.protobuf.Empty) {
@@ -257,8 +259,8 @@ service ForgeService {
       cli: true
       mcp: false
       name: "disconnect_forge"
-      description: "Forget a forge and its credential."
-      reason: "A person gave the credential and is the one to take it away."
+      description: "Disconnect a forge and forget its credential."
+      reason: "Only the person, who gave the credential, takes it away."
     };
   }
 }

@@ -1415,7 +1415,7 @@
       "slug": "forge",
       "title": "Forge",
       "name": "forge.v1.ForgeService",
-      "description": "ForgeService connects komrad to the services pull requests live on, and reads them live.",
+      "description": "ForgeService connects komrad to forges and reads and changes pull requests on them.",
       "methods": [
         {
           "slug": "list-forges",
@@ -1427,8 +1427,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List the forges komrad is connected to and who it acts as on each.",
-          "description": "List the forges komrad is connected to and who it acts as on each. Tokens are never returned.",
+          "summary": "List the forges komrad is connected to and the account komrad uses on each.",
+          "description": "List the forges komrad is connected to and the account komrad uses on each. Tokens are never returned.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1445,8 +1445,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Check that every connected forge's credential still works, recording the answer on each connection.",
-          "description": "Check that every connected forge's credential still works, recording the answer on each connection.",
+          "summary": "Check that each connected forge still accepts its credential, and record the result on the connection.",
+          "description": "Check that each connected forge still accepts its credential, and record the result on the connection.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1463,8 +1463,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List a repository's pull requests by asking its forge, either every one from a named branch or the open ones.",
-          "description": "List a repository's pull requests by asking its forge, either every one from a named branch or the open ones. list_pull_requests reads what komrad has stored instead.",
+          "summary": "List a repository's pull requests from its forge: every one from a branch, or the open ones.",
+          "description": "List a repository's pull requests from its forge: every one from a branch, or the open ones. `list_pull_requests` lists the ones komrad has recorded instead.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1479,8 +1479,8 @@
           "tool": "merge_forge_pull_request",
           "mcp": false,
           "roles": [],
-          "summary": "Merge a pull request through its forge, the way the repository merges by default.",
-          "description": "Merge a pull request through its forge, the way the repository merges by default.",
+          "summary": "Merge a pull request on its forge, with the repository's default merge method.",
+          "description": "Merge a pull request on its forge, with the repository's default merge method.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
@@ -1495,8 +1495,8 @@
           "tool": "set_forge_pull_request_draft",
           "mcp": false,
           "roles": [],
-          "summary": "Mark a pull request a draft or ready for review through its forge.",
-          "description": "Mark a pull request a draft or ready for review through its forge.",
+          "summary": "Mark a pull request as a draft or as ready for review on its forge.",
+          "description": "Mark a pull request as a draft or as ready for review on its forge.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1511,8 +1511,8 @@
           "tool": "set_forge_pull_request_auto_merge",
           "mcp": false,
           "roles": [],
-          "summary": "Turn a pull request's auto-merge on or off through its forge.",
-          "description": "Turn a pull request's auto-merge on or off through its forge.",
+          "summary": "Turn a pull request's auto-merge on or off on its forge.",
+          "description": "Turn a pull request's auto-merge on or off on its forge.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1543,8 +1543,8 @@
           "tool": "disconnect_forge",
           "mcp": false,
           "roles": [],
-          "summary": "Forget a forge and its credential.",
-          "description": "Forget a forge and its credential.",
+          "summary": "Disconnect a forge and forget its credential.",
+          "description": "Disconnect a forge and forget its credential.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
@@ -1584,7 +1584,7 @@
       "slug": "worktree",
       "title": "Worktree",
       "name": "worktree.v1.WorktreeService",
-      "description": "WorktreeService reads and clears the directories komrad cut for its agents.",
+      "description": "WorktreeService reads and removes the worktrees komrad created.",
       "methods": [
         {
           "slug": "list-worktrees",
@@ -1596,8 +1596,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "List every worktree directory komrad holds, with its repository, branch, agent and last measured size.",
-          "description": "List every worktree directory komrad holds, with its repository, branch, agent and last measured size. It runs no git, so it is cheap.",
+          "summary": "List every worktree with its repository, branch, agents and last measured size.",
+          "description": "List every worktree with its repository, branch, agents and last measured size. The call runs no git, so it is fast.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1614,8 +1614,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base.",
-          "description": "Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base. Set fetch to ask origin first.",
+          "summary": "Read one worktree: its size and largest entries, its uncommitted changes, and how it compares with the base branch.",
+          "description": "Read one worktree: its size and largest entries, its uncommitted changes, and how it compares with the base branch. Set `fetch` to fetch from origin first.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1632,8 +1632,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned.",
-          "description": "Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched.",
+          "summary": "Remove worktrees that no agent or task owns, such as those `list_worktrees` marks unowned.",
+          "description": "Remove worktrees that no agent or task owns, such as those `list_worktrees` marks unowned. Branches are never deleted.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1648,8 +1648,8 @@
           "tool": "delete_worktrees",
           "mcp": false,
           "roles": [],
-          "summary": "Queue deleting worktree directories in the background, each through the path its agent's state decides.",
-          "description": "Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad skips any directory whose agent is live.",
+          "summary": "Queue worktrees for deletion in the background, each as its fate says.",
+          "description": "Queue worktrees for deletion in the background, each as its fate says. Komrad skips any worktree with a live agent.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -6753,7 +6753,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One entry per connection, in the order list_forges gives them."
+          "description": "One check for each connection, in the order `list_forges` returns them."
         }
       ]
     },
@@ -6769,13 +6769,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The host to forget."
+          "description": "The host to disconnect."
         }
       ]
     },
     "forge.v1.Forge": {
       "name": "Forge",
-      "description": "",
+      "description": "Forge is komrad's connection to one forge host and the credential komrad uses there.",
       "fields": [
         {
           "name": "id",
@@ -6785,7 +6785,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The connection's own id."
+          "description": "The connection's id."
         },
         {
           "name": "kind",
@@ -6795,7 +6795,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which forge the host runs, github or gitlab."
+          "description": "The kind of forge the host runs, `github` or `gitlab`."
         },
         {
           "name": "host",
@@ -6805,7 +6805,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The host agents' remotes name, such as github.com."
+          "description": "The host that git remotes name, such as `github.com`."
         },
         {
           "name": "api_url",
@@ -6815,7 +6815,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Where an enterprise host answers API calls, empty for the public forge."
+          "description": "The address of an enterprise host's API. Empty for the public forge."
         },
         {
           "name": "method",
@@ -6825,7 +6825,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How the credential was obtained, token or github_app."
+          "description": "How the credential was given, `token` or `github_app`."
         },
         {
           "name": "login",
@@ -6835,7 +6835,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Who the forge said the credential belongs to, a user login or an App's name."
+          "description": "The account the forge says the credential belongs to, a user login or an App's name."
         },
         {
           "name": "verified_at",
@@ -6845,7 +6845,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the forge last confirmed the credential, in RFC 3339, unset once it refused."
+          "description": "When the forge last accepted the credential, in RFC 3339. Unset once the forge refuses it."
         },
         {
           "name": "has_credential",
@@ -6855,7 +6855,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether this machine still holds what the connection needs. The token method needs its file, and the App method always has what it needs."
+          "description": "Whether this machine still has the credential. A `token` connection needs its token file, and a `github_app` connection always has its credential."
         },
         {
           "name": "created_at",
@@ -6865,13 +6865,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the connection was made, in RFC 3339."
+          "description": "When the connection was created, in RFC 3339."
         }
       ]
     },
     "forge.v1.ForgeCheck": {
       "name": "ForgeCheck",
-      "description": "",
+      "description": "ForgeCheck is what one forge said about komrad's credential.",
       "fields": [
         {
           "name": "forge",
@@ -6881,7 +6881,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The connection."
+          "description": "The connection checked."
         },
         {
           "name": "problem",
@@ -6891,7 +6891,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the forge answered, empty when it accepted the credential."
+          "description": "What the forge said was wrong. Empty when the forge accepted the credential."
         },
         {
           "name": "problem_kind",
@@ -6901,13 +6901,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which kind of trouble it is when problem is set: refused, no_credential or unreachable."
+          "description": "The kind of problem, `refused`, `no_credential` or `unreachable`. Empty when there is none."
         }
       ]
     },
     "forge.v1.ForgePullRequest": {
       "name": "ForgePullRequest",
-      "description": "ForgePullRequest is a pull request as the forge describes it, read live and stored nowhere.",
+      "description": "ForgePullRequest is a pull request as the forge describes it, read live and not kept.",
       "fields": [
         {
           "name": "forge",
@@ -6917,7 +6917,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which forge it lives on, such as github."
+          "description": "The forge the pull request is on, such as `github`."
         },
         {
           "name": "provider_id",
@@ -6927,7 +6927,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The forge's own stable identifier, such as GitHub's node_id."
+          "description": "The forge's own stable id for the pull request, such as GitHub's `node_id`."
         },
         {
           "name": "url",
@@ -6937,7 +6937,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The web address a person opens."
+          "description": "The pull request's web address."
         },
         {
           "name": "repository_url",
@@ -6947,7 +6947,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The canonical address of the repository it targets."
+          "description": "The web address of the repository the pull request merges into."
         },
         {
           "name": "head_repository_url",
@@ -6957,7 +6957,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The canonical address of the repository its branch lives in, empty when the forge no longer has it."
+          "description": "The web address of the repository the pull request's branch is in. Empty when the forge no longer has that repository."
         },
         {
           "name": "number",
@@ -6967,7 +6967,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number the forge shows a person. Numbers are per repository."
+          "description": "The pull request's number, unique within its repository."
         },
         {
           "name": "title",
@@ -6977,7 +6977,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The title as the forge has it."
+          "description": "The pull request's title."
         },
         {
           "name": "head_branch",
@@ -6987,7 +6987,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The branch the pull request was opened from."
+          "description": "The branch the pull request merges from."
         },
         {
           "name": "head_sha",
@@ -6997,7 +6997,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit at the tip of that branch when last read."
+          "description": "The commit at the tip of the pull request's branch."
         },
         {
           "name": "base_branch",
@@ -7007,7 +7007,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The branch it targets."
+          "description": "The branch the pull request merges into."
         },
         {
           "name": "base_sha",
@@ -7017,7 +7017,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the target branch was at when last read."
+          "description": "The commit at the tip of the branch the pull request merges into."
         },
         {
           "name": "draft",
@@ -7027,7 +7027,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the forge marks it a draft."
+          "description": "Whether the pull request is a draft."
         },
         {
           "name": "state",
@@ -7037,7 +7037,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The state the forge reports: OPEN, CLOSED or MERGED. Read merged_at and closed_at to tell whether it is finished."
+          "description": "The state the forge reports, `OPEN`, `CLOSED` or `MERGED`."
         },
         {
           "name": "created_at",
@@ -7047,7 +7047,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was opened on the forge, in RFC 3339."
+          "description": "When the pull request was opened, in RFC 3339."
         },
         {
           "name": "updated_at",
@@ -7057,7 +7057,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the forge last saw it change, in RFC 3339."
+          "description": "When the pull request last changed on the forge, in RFC 3339."
         },
         {
           "name": "merged_at",
@@ -7067,7 +7067,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it merged, in RFC 3339, unset while it has not."
+          "description": "When the pull request merged, in RFC 3339. Unset until the pull request merges."
         },
         {
           "name": "closed_at",
@@ -7077,7 +7077,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it closed, in RFC 3339, unset while it is open; a merged one carries this too."
+          "description": "When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is open."
         }
       ]
     },
@@ -7096,7 +7096,7 @@
             "required",
             "at most 2048 characters"
           ],
-          "description": "The repository as a git remote spells it, such as git@github.com:owner/repo.git or https://github.com/owner/repo, whose host picks the forge connection."
+          "description": "The repository's git remote, such as `git@github.com:owner/repo.git` or `https://github.com/owner/repo`. The remote's host picks the forge connection."
         },
         {
           "name": "branch",
@@ -7108,7 +7108,7 @@
           "rules": [
             "at most 512 characters"
           ],
-          "description": "The branch the pull requests were opened from. The call lists them in any state. When empty, it lists the repository's open pull requests instead."
+          "description": "The branch whose pull requests to list, in any state. Empty lists the repository's open pull requests."
         },
         {
           "name": "pagination",
@@ -7118,7 +7118,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which page to read and how many to a page. Twenty when unset, and at most a hundred, the most the forge hands over in one call."
+          "description": "The page to read. The page size defaults to twenty and is at most a hundred."
         }
       ]
     },
@@ -7134,7 +7134,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "One page of pull requests, as the forge orders them."
+          "description": "One page of pull requests, in the forge's order."
         },
         {
           "name": "next_page_token",
@@ -7144,7 +7144,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The token for the page after this one, unset on the last."
+          "description": "The cursor for the next page. Unset on the last page."
         }
       ]
     },
@@ -7179,7 +7179,7 @@
             "required",
             "at most 2048 characters"
           ],
-          "description": "The pull request's web address, whose host picks the forge connection."
+          "description": "The pull request to merge, by web address. The address's host picks the forge connection."
         }
       ]
     },
@@ -7198,7 +7198,7 @@
             "required",
             "at most 2048 characters"
           ],
-          "description": "The pull request's web address, whose host picks the forge connection."
+          "description": "The pull request to ask for reviews on, by web address. The address's host picks the forge connection."
         }
       ]
     },
@@ -7217,7 +7217,7 @@
             "required",
             "at most 2048 characters"
           ],
-          "description": "The pull request's web address, whose host picks the forge connection."
+          "description": "The pull request to change, by web address. The address's host picks the forge connection."
         },
         {
           "name": "head_sha",
@@ -7229,7 +7229,7 @@
           "rules": [
             "at most 64 characters"
           ],
-          "description": "The head commit the person saw. The forge refuses to queue once the branch has moved past it. Empty queues whatever the head is."
+          "description": "The head commit the caller expects. The forge refuses to turn auto-merge on once the branch has moved past it. Empty accepts any head."
         },
         {
           "name": "on",
@@ -7239,7 +7239,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether it should merge on its own once its checks and reviews pass, false to stop that."
+          "description": "Whether the pull request merges by itself once its checks and reviews pass."
         }
       ]
     },
@@ -7258,7 +7258,7 @@
             "required",
             "at most 2048 characters"
           ],
-          "description": "The pull request's web address, whose host picks the forge connection."
+          "description": "The pull request to change, by web address. The address's host picks the forge connection."
         },
         {
           "name": "draft",
@@ -7268,7 +7268,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether it should be a draft, false to mark it ready for review."
+          "description": "Whether the pull request is a draft. False marks the pull request ready for review."
         }
       ]
     },
@@ -10171,7 +10171,7 @@
     },
     "worktree.v1.Commit": {
       "name": "Commit",
-      "description": "",
+      "description": "Commit is one git commit.",
       "fields": [
         {
           "name": "sha",
@@ -10191,7 +10191,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The first line of its message."
+          "description": "The first line of the commit's message."
         },
         {
           "name": "committed_at",
@@ -10201,7 +10201,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When it was committed, in RFC 3339."
+          "description": "When the commit was made, in RFC 3339."
         }
       ]
     },
@@ -10219,13 +10219,13 @@
           "rules": [
             "required"
           ],
-          "description": "The directories to delete, each as list_worktrees spelled it."
+          "description": "The worktrees to delete, by the paths `list_worktrees` returns."
         }
       ]
     },
     "worktree.v1.Entry": {
       "name": "Entry",
-      "description": "",
+      "description": "Entry is one file or directory at the top of a worktree.",
       "fields": [
         {
           "name": "path",
@@ -10235,7 +10235,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The path, relative to the directory."
+          "description": "The entry's path, relative to the worktree."
         },
         {
           "name": "size_bytes",
@@ -10245,7 +10245,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The disk it takes, in bytes, counted through for a directory. It counts blocks rather than length, and counts a hard linked file once."
+          "description": "The disk space the entry takes, in bytes, counting blocks and each hard-linked file once."
         },
         {
           "name": "dir",
@@ -10255,7 +10255,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether it is a directory."
+          "description": "Whether the entry is a directory."
         }
       ]
     },
@@ -10273,7 +10273,7 @@
           "rules": [
             "required"
           ],
-          "description": "The directory to read, as list_worktrees spelled it."
+          "description": "The worktree to read, by the path `list_worktrees` returns."
         },
         {
           "name": "fetch",
@@ -10283,7 +10283,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether to fetch the base from origin before measuring against it. Fetching costs a network round trip. When off, the base is whatever the clone last fetched."
+          "description": "Whether to fetch the base branch from origin before comparing. False compares with the base branch as last fetched."
         }
       ]
     },
@@ -10299,7 +10299,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directory as list_worktrees reports it."
+          "description": "The worktree, as `list_worktrees` returns it."
         },
         {
           "name": "size_bytes",
@@ -10309,7 +10309,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The disk the directory takes, in bytes, walked for this call."
+          "description": "The disk space the worktree takes, in bytes, measured for this call."
         },
         {
           "name": "entries",
@@ -10319,7 +10319,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The top-level entries with the disk each takes, biggest first, from the same walk."
+          "description": "The top-level entries in the worktree, largest first."
         },
         {
           "name": "modified",
@@ -10329,7 +10329,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The paths git tracks that differ from HEAD."
+          "description": "The tracked paths that differ from HEAD."
         },
         {
           "name": "untracked",
@@ -10349,7 +10349,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The ref the branch is measured against, which is the workflow's base branch as the clone holds it. Empty when the repository cannot be read or the clone does not hold the base, and then nothing below is measured."
+          "description": "The ref of the base branch the worktree is compared with. Empty when the repository cannot be read or does not have the base branch, and then no comparison is made."
         },
         {
           "name": "base_error",
@@ -10359,7 +10359,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why the base could not be named, when base_ref is empty for that reason."
+          "description": "Why the base branch could not be found. Empty when `base_ref` is set."
         },
         {
           "name": "ahead",
@@ -10369,7 +10369,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of the branch's commits the base does not hold."
+          "description": "How many of the branch's commits the base branch does not have."
         },
         {
           "name": "behind",
@@ -10379,7 +10379,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of the base's commits the branch does not hold."
+          "description": "How many of the base branch's commits the branch does not have."
         },
         {
           "name": "landed_commits",
@@ -10389,7 +10389,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number of the branch's own commits that the base already holds in full. A squash merge leaves these behind."
+          "description": "How many of the branch's commits have landed, such as after a squash merge."
         },
         {
           "name": "sequence_in_progress",
@@ -10399,7 +10399,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether a merge, a rebase or a cherry-pick is part-way through."
+          "description": "Whether a sequence is stopped in the worktree."
         },
         {
           "name": "keeps_branch",
@@ -10409,7 +10409,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether deleting the agent would keep the branch. Cleanup keeps an adopted branch and one whose commits are on no other ref."
+          "description": "Whether deleting the task keeps the branch. A branch is kept when it was adopted or has commits on no other ref."
         },
         {
           "name": "commits",
@@ -10419,7 +10419,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The branch's commits the base does not hold, newest first, at most fifty."
+          "description": "The branch's commits the base branch does not have, newest first, at most fifty."
         },
         {
           "name": "added_lines",
@@ -10429,7 +10429,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The lines the working tree adds since the branch left the base, leaving out the workflow's diff exclusions, and unset where there is no base or one the branch shares no history with."
+          "description": "How many lines the worktree adds since it left the base branch, without the workflow's diff exclusions. Unset when there is no base branch or it shares no history with the branch."
         },
         {
           "name": "removed_lines",
@@ -10439,7 +10439,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The lines the working tree removes since the branch left the base, unset with added_lines."
+          "description": "How many lines the worktree removes since it left the base branch. Unset when `added_lines` is unset."
         },
         {
           "name": "pushed",
@@ -10449,7 +10449,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether origin holds a copy of the branch, false for a detached HEAD."
+          "description": "Whether origin has the branch. False when HEAD is detached."
         },
         {
           "name": "unpushed",
@@ -10459,7 +10459,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of the branch's commits origin's copy does not hold."
+          "description": "How many of the branch's commits origin's copy does not have."
         },
         {
           "name": "unpulled",
@@ -10469,7 +10469,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many of origin's copy's commits the branch does not hold."
+          "description": "How many of the commits on origin's copy the branch does not have."
         },
         {
           "name": "unpulled_landed",
@@ -10479,7 +10479,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the base already holds every commit counted in unpulled."
+          "description": "Whether every commit counted in `unpulled` has landed."
         }
       ]
     },
@@ -10495,7 +10495,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every directory under the worktree directories, in no particular order."
+          "description": "Every worktree in the worktree directories, in no set order."
         },
         {
           "name": "dirs",
@@ -10505,7 +10505,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directories that were walked: the configured one and each workflow's own."
+          "description": "The worktree directories read: the configured one and each workflow's own."
         },
         {
           "name": "unreadable_dirs",
@@ -10515,13 +10515,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which of those could not be read, so a listing that is short says why."
+          "description": "The worktree directories that could not be read."
         }
       ]
     },
     "worktree.v1.Refusal": {
       "name": "Refusal",
-      "description": "",
+      "description": "Refusal is a worktree komrad would not remove, and why.",
       "fields": [
         {
           "name": "dir",
@@ -10531,7 +10531,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directory that was left alone."
+          "description": "The worktree's path."
         },
         {
           "name": "reason",
@@ -10541,7 +10541,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why, in a sentence."
+          "description": "Why the worktree was kept, in one sentence."
         }
       ]
     },
@@ -10559,7 +10559,7 @@
           "rules": [
             "required"
           ],
-          "description": "The directories to remove, each as list_worktrees spelled it."
+          "description": "The worktrees to remove, by the paths `list_worktrees` returns."
         }
       ]
     },
@@ -10575,7 +10575,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directories that went."
+          "description": "The worktrees removed."
         },
         {
           "name": "refused",
@@ -10585,13 +10585,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directories that did not, each with the reason."
+          "description": "The worktrees kept, each with the reason."
         }
       ]
     },
     "worktree.v1.Worktree": {
       "name": "Worktree",
-      "description": "",
+      "description": "Worktree is one worktree directory on disk.",
       "fields": [
         {
           "name": "dir",
@@ -10601,7 +10601,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directory, absolute."
+          "description": "The worktree's absolute path."
         },
         {
           "name": "repo_dir",
@@ -10611,7 +10611,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The repository the worktree was cut from, read from the directory's own .git file. When git can no longer read the registration, this is where the repository used to be."
+          "description": "The repository the worktree was created from, read from the worktree's `.git` file. When git cannot read that file, where the repository used to be."
         },
         {
           "name": "branch",
@@ -10621,7 +10621,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The branch the directory's HEAD names, empty when it is detached or the registration cannot be read."
+          "description": "The branch checked out in the worktree. Empty when HEAD is detached or git cannot read the worktree."
         },
         {
           "name": "readable",
@@ -10631,7 +10631,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the gitdir the .git file names still exists. Git will not answer for the directory without it."
+          "description": "Whether the gitdir that the worktree's `.git` file names still exists. Git cannot read the worktree without it."
         },
         {
           "name": "occupants",
@@ -10641,7 +10641,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agents working in this directory, live ones first."
+          "description": "The agents working in the worktree, live ones first."
         },
         {
           "name": "size_bytes",
@@ -10651,7 +10651,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The disk the directory takes, in bytes, as last measured in the background or by get_worktree. It counts blocks rather than length, and counts a hard linked file once. Unset until measured and while the last walk failed."
+          "description": "The disk space the worktree takes, in bytes, counting blocks and each hard-linked file once. Unset until measured and while the last measurement failed."
         },
         {
           "name": "measured_at",
@@ -10661,7 +10661,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the size was last measured, or last failed to be, in RFC 3339. Unset until the background loop has reached the directory."
+          "description": "When the worktree's size was last measured or last failed to be, in RFC 3339. Unset until first measured."
         },
         {
           "name": "size_error",
@@ -10671,7 +10671,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why the last walk failed, empty when it did not."
+          "description": "Why the last measurement failed. Empty when it succeeded."
         },
         {
           "name": "last_active_at",
@@ -10681,7 +10681,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the directory was last active, in RFC 3339. This is the latest state change or archiving of its occupants when it has any, else when git last wrote the directory's .git file, else the directory's own modification time."
+          "description": "When the worktree was last active, in RFC 3339. This is the newest change to its agents, else when git last wrote its `.git` file, else its modification time."
         },
         {
           "name": "fate",
@@ -10691,7 +10691,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Which delete path the directory takes."
+          "description": "What removes the worktree."
         },
         {
           "name": "share_bytes",
@@ -10701,7 +10701,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The directory's share of size_bytes, each hard linked file's blocks split evenly across its links. Unset with size_bytes."
+          "description": "The worktree's share of `size_bytes`, with each hard-linked file split evenly across its links. Unset when `size_bytes` is unset."
         },
         {
           "name": "task",
@@ -10711,13 +10711,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task whose checkout the directory is, unset when none answers for it."
+          "description": "The task the worktree belongs to. Unset when no task owns it."
         }
       ]
     },
     "worktree.v1.WorktreeAgent": {
       "name": "WorktreeAgent",
-      "description": "",
+      "description": "WorktreeAgent is an agent working in a worktree.",
       "fields": [
         {
           "name": "id",
@@ -10737,7 +10737,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "What the panel lists it as."
+          "description": "The agent's name."
         },
         {
           "name": "state",
@@ -10747,7 +10747,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The agent's state, as the agents listing carries it."
+          "description": "The agent's state."
         },
         {
           "name": "archived_at",
@@ -10757,13 +10757,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the agent was put away, in RFC 3339, unset while it is live."
+          "description": "When the agent was archived, in RFC 3339. Unset while the agent is live."
         }
       ]
     },
     "worktree.v1.WorktreeTask": {
       "name": "WorktreeTask",
-      "description": "",
+      "description": "WorktreeTask is the task a worktree belongs to.",
       "fields": [
         {
           "name": "id",
@@ -10773,7 +10773,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task's id, which doubles as the directory's name."
+          "description": "The task's id, which is also the worktree directory's name."
         },
         {
           "name": "slug",
@@ -10793,7 +10793,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the task was put away, in RFC 3339, unset while it is open."
+          "description": "When the task was archived, in RFC 3339. Unset while the task is live."
         },
         {
           "name": "adopted",
@@ -10803,7 +10803,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the branch existed before the task was put on it. Cleanup never deletes such a branch."
+          "description": "Whether the branch existed before the task was put on it. Deleting the task never deletes such a branch."
         }
       ]
     }
@@ -11235,23 +11235,23 @@
     },
     "worktree.v1.WorktreeFate": {
       "name": "WorktreeFate",
-      "description": "WorktreeFate names the delete path a directory takes.",
+      "description": "WorktreeFate is what removes a worktree directory.",
       "values": [
         {
           "name": "WORKTREE_FATE_UNOWNED",
-          "description": "No task answers for the directory. The remover takes it."
+          "description": "No task owns the directory. `remove_unowned_worktrees` removes it."
         },
         {
           "name": "WORKTREE_FATE_ARCHIVED",
-          "description": "The directory's task is archived. The task delete takes it."
+          "description": "The directory's task is archived. Deleting the task removes it."
         },
         {
           "name": "WORKTREE_FATE_LIVE",
-          "description": "The directory's task is open. Nothing takes it."
+          "description": "The directory's task is live. Nothing removes it."
         },
         {
           "name": "WORKTREE_FATE_DELETING",
-          "description": "A delete has claimed the directory's task. That delete takes the directory."
+          "description": "The directory's task is being deleted, which removes the directory."
         }
       ]
     }

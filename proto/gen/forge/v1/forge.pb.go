@@ -25,26 +25,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Forge is komrad's connection to one forge host and the credential komrad uses there.
 type Forge struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The connection's own id.
+	// The connection's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Which forge the host runs, github or gitlab.
+	// The kind of forge the host runs, `github` or `gitlab`.
 	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
-	// The host agents' remotes name, such as github.com.
+	// The host that git remotes name, such as `github.com`.
 	Host string `protobuf:"bytes,3,opt,name=host,proto3" json:"host,omitempty"`
-	// Where an enterprise host answers API calls, empty for the public forge.
+	// The address of an enterprise host's API. Empty for the public forge.
 	ApiUrl string `protobuf:"bytes,4,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`
-	// How the credential was obtained, token or github_app.
+	// How the credential was given, `token` or `github_app`.
 	Method string `protobuf:"bytes,5,opt,name=method,proto3" json:"method,omitempty"`
-	// Who the forge said the credential belongs to, a user login or an App's name.
+	// The account the forge says the credential belongs to, a user login or an App's name.
 	Login string `protobuf:"bytes,6,opt,name=login,proto3" json:"login,omitempty"`
-	// When the forge last confirmed the credential, in RFC 3339, unset once it refused.
+	// When the forge last accepted the credential, in RFC 3339. Unset once the forge refuses it.
 	VerifiedAt *string `protobuf:"bytes,7,opt,name=verified_at,json=verifiedAt,proto3,oneof" json:"verified_at,omitempty"`
-	// Whether this machine still holds what the connection needs. The token method needs its
-	// file, and the App method always has what it needs.
+	// Whether this machine still has the credential. A `token` connection needs its token file,
+	// and a `github_app` connection always has its credential.
 	HasCredential bool `protobuf:"varint,8,opt,name=has_credential,json=hasCredential,proto3" json:"has_credential,omitempty"`
-	// When the connection was made, in RFC 3339.
+	// When the connection was created, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -145,16 +146,16 @@ func (x *Forge) GetCreatedAt() string {
 
 type ConnectForgeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The host agents' remotes name, such as github.com.
+	// The host that git remotes name, such as `github.com`.
 	Host string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	// Which forge it runs. Komrad works it out from the host when empty. Required for any host
-	// other than github.com or gitlab.com.
+	// The kind of forge the host runs. Empty works it out from `github.com` or `gitlab.com`, and
+	// any other host needs it.
 	Kind string `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
-	// Where an enterprise host answers API calls. It must be https.
+	// The address of an enterprise host's API, over https.
 	ApiUrl string `protobuf:"bytes,3,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`
-	// How the credential comes: token, or github_app for the App in the server's config.
+	// How the credential is given: `token`, or `github_app` for the App in the server's config.
 	Method string `protobuf:"bytes,4,opt,name=method,proto3" json:"method,omitempty"`
-	// The token for the token method. It travels once and is never returned.
+	// The token for the `token` method. No call ever returns it.
 	Token         string `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -227,7 +228,7 @@ func (x *ConnectForgeRequest) GetToken() string {
 
 type ConnectForgeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The connection.
+	// The connection as created.
 	Forge         *Forge `protobuf:"bytes,1,opt,name=forge,proto3" json:"forge,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -317,7 +318,7 @@ func (x *ListForgesResponse) GetForges() []*Forge {
 
 type DisconnectForgeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The host to forget.
+	// The host to disconnect.
 	Host          string `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -362,7 +363,7 @@ func (x *DisconnectForgeRequest) GetHost() string {
 
 type CheckForgesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One entry per connection, in the order list_forges gives them.
+	// One check for each connection, in the order `list_forges` returns them.
 	Checks        []*ForgeCheck `protobuf:"bytes,1,rep,name=checks,proto3" json:"checks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -405,13 +406,14 @@ func (x *CheckForgesResponse) GetChecks() []*ForgeCheck {
 	return nil
 }
 
+// ForgeCheck is what one forge said about komrad's credential.
 type ForgeCheck struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The connection.
+	// The connection checked.
 	Forge *Forge `protobuf:"bytes,1,opt,name=forge,proto3" json:"forge,omitempty"`
-	// What the forge answered, empty when it accepted the credential.
+	// What the forge said was wrong. Empty when the forge accepted the credential.
 	Problem string `protobuf:"bytes,2,opt,name=problem,proto3" json:"problem,omitempty"`
-	// Which kind of trouble it is when problem is set: refused, no_credential or unreachable.
+	// The kind of problem, `refused`, `no_credential` or `unreachable`. Empty when there is none.
 	ProblemKind   string `protobuf:"bytes,3,opt,name=problem_kind,json=problemKind,proto3" json:"problem_kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -470,14 +472,13 @@ func (x *ForgeCheck) GetProblemKind() string {
 
 type ListForgePullRequestsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The repository as a git remote spells it, such as git@github.com:owner/repo.git or
-	// https://github.com/owner/repo, whose host picks the forge connection.
+	// The repository's git remote, such as `git@github.com:owner/repo.git` or
+	// `https://github.com/owner/repo`. The remote's host picks the forge connection.
 	RemoteUrl string `protobuf:"bytes,1,opt,name=remote_url,json=remoteUrl,proto3" json:"remote_url,omitempty"`
-	// The branch the pull requests were opened from. The call lists them in any state. When
-	// empty, it lists the repository's open pull requests instead.
+	// The branch whose pull requests to list, in any state. Empty lists the repository's open pull
+	// requests.
 	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
-	// Which page to read and how many to a page. Twenty when unset, and at most a hundred, the
-	// most the forge hands over in one call.
+	// The page to read. The page size defaults to twenty and is at most a hundred.
 	Pagination    *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -534,44 +535,44 @@ func (x *ListForgePullRequestsRequest) GetPagination() *v1.Pagination {
 	return nil
 }
 
-// ForgePullRequest is a pull request as the forge describes it, read live and stored nowhere.
+// ForgePullRequest is a pull request as the forge describes it, read live and not kept.
 type ForgePullRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which forge it lives on, such as github.
+	// The forge the pull request is on, such as `github`.
 	Forge string `protobuf:"bytes,1,opt,name=forge,proto3" json:"forge,omitempty"`
-	// The forge's own stable identifier, such as GitHub's node_id.
+	// The forge's own stable id for the pull request, such as GitHub's `node_id`.
 	ProviderId string `protobuf:"bytes,2,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
-	// The web address a person opens.
+	// The pull request's web address.
 	Url string `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
-	// The canonical address of the repository it targets.
+	// The web address of the repository the pull request merges into.
 	RepositoryUrl string `protobuf:"bytes,4,opt,name=repository_url,json=repositoryUrl,proto3" json:"repository_url,omitempty"`
-	// The canonical address of the repository its branch lives in, empty when the forge no
-	// longer has it.
+	// The web address of the repository the pull request's branch is in. Empty when the forge no
+	// longer has that repository.
 	HeadRepositoryUrl string `protobuf:"bytes,5,opt,name=head_repository_url,json=headRepositoryUrl,proto3" json:"head_repository_url,omitempty"`
-	// The number the forge shows a person. Numbers are per repository.
+	// The pull request's number, unique within its repository.
 	Number int32 `protobuf:"varint,6,opt,name=number,proto3" json:"number,omitempty"`
-	// The title as the forge has it.
+	// The pull request's title.
 	Title string `protobuf:"bytes,7,opt,name=title,proto3" json:"title,omitempty"`
-	// The branch the pull request was opened from.
+	// The branch the pull request merges from.
 	HeadBranch string `protobuf:"bytes,8,opt,name=head_branch,json=headBranch,proto3" json:"head_branch,omitempty"`
-	// The commit at the tip of that branch when last read.
+	// The commit at the tip of the pull request's branch.
 	HeadSha string `protobuf:"bytes,9,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
-	// The branch it targets.
+	// The branch the pull request merges into.
 	BaseBranch string `protobuf:"bytes,10,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
-	// The commit the target branch was at when last read.
+	// The commit at the tip of the branch the pull request merges into.
 	BaseSha string `protobuf:"bytes,11,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// Whether the forge marks it a draft.
+	// Whether the pull request is a draft.
 	Draft bool `protobuf:"varint,12,opt,name=draft,proto3" json:"draft,omitempty"`
-	// The state the forge reports: OPEN, CLOSED or MERGED. Read merged_at and closed_at to tell
-	// whether it is finished.
+	// The state the forge reports, `OPEN`, `CLOSED` or `MERGED`.
 	State string `protobuf:"bytes,13,opt,name=state,proto3" json:"state,omitempty"`
-	// When it was opened on the forge, in RFC 3339.
+	// When the pull request was opened, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the forge last saw it change, in RFC 3339.
+	// When the pull request last changed on the forge, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// When it merged, in RFC 3339, unset while it has not.
+	// When the pull request merged, in RFC 3339. Unset until the pull request merges.
 	MergedAt *string `protobuf:"bytes,16,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
-	// When it closed, in RFC 3339, unset while it is open; a merged one carries this too.
+	// When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is
+	// open.
 	ClosedAt      *string `protobuf:"bytes,17,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -728,7 +729,7 @@ func (x *ForgePullRequest) GetClosedAt() string {
 
 type MergeForgePullRequestRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The pull request's web address, whose host picks the forge connection.
+	// The pull request to merge, by web address. The address's host picks the forge connection.
 	Url           string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -773,9 +774,9 @@ func (x *MergeForgePullRequestRequest) GetUrl() string {
 
 type SetForgePullRequestDraftRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The pull request's web address, whose host picks the forge connection.
+	// The pull request to change, by web address. The address's host picks the forge connection.
 	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	// Whether it should be a draft, false to mark it ready for review.
+	// Whether the pull request is a draft. False marks the pull request ready for review.
 	Draft         bool `protobuf:"varint,2,opt,name=draft,proto3" json:"draft,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -827,7 +828,8 @@ func (x *SetForgePullRequestDraftRequest) GetDraft() bool {
 
 type RequestForgePullRequestRereviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The pull request's web address, whose host picks the forge connection.
+	// The pull request to ask for reviews on, by web address. The address's host picks the forge
+	// connection.
 	Url           string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -872,12 +874,12 @@ func (x *RequestForgePullRequestRereviewRequest) GetUrl() string {
 
 type SetForgePullRequestAutoMergeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The pull request's web address, whose host picks the forge connection.
+	// The pull request to change, by web address. The address's host picks the forge connection.
 	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	// The head commit the person saw. The forge refuses to queue once the branch has moved past
-	// it. Empty queues whatever the head is.
+	// The head commit the caller expects. The forge refuses to turn auto-merge on once the branch
+	// has moved past it. Empty accepts any head.
 	HeadSha string `protobuf:"bytes,2,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
-	// Whether it should merge on its own once its checks and reviews pass, false to stop that.
+	// Whether the pull request merges by itself once its checks and reviews pass.
 	On            bool `protobuf:"varint,3,opt,name=on,proto3" json:"on,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -936,9 +938,9 @@ func (x *SetForgePullRequestAutoMergeRequest) GetOn() bool {
 
 type ListForgePullRequestsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One page of pull requests, as the forge orders them.
+	// One page of pull requests, in the forge's order.
 	PullRequests []*ForgePullRequest `protobuf:"bytes,1,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
-	// The token for the page after this one, unset on the last.
+	// The cursor for the next page. Unset on the last page.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1080,18 +1082,18 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\x1dListForgePullRequestsResponse\x12?\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1a.forge.v1.ForgePullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token2\xfe\x12\n" +
-	"\fForgeService\x12\xd7\x02\n" +
-	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"\x87\x02\x9a\xb5\x18\x82\x02B\xff\x01komrad forge connect is the one caller, reading the token from stdin or a file. A generated command would take it as an argument, which every process on the machine can read, and a model handed one would be holding a credential it has no business holding.\x12\xbe\x01\n" +
+	"\x10_next_page_token2\xe1\x11\n" +
+	"\fForgeService\x12\xc9\x01\n" +
+	"\fConnectForge\x12\x1d.forge.v1.ConnectForgeRequest\x1a\x1e.forge.v1.ConnectForgeResponse\"z\x9a\xb5\x18vBt`komrad forge connect` reads the token from stdin or a file, and a generated command would expose it as an argument.\x12\xc8\x01\n" +
 	"\n" +
-	"ListForges\x12\x16.google.protobuf.Empty\x1a\x1c.forge.v1.ListForgesResponse\"z\x9a\xb5\x18s\b\x01\x10\x01\x1a\vlist_forges\"]List the forges komrad is connected to and who it acts as on each. Tokens are never returned.:\x01\x02\x90\x02\x01\x12\xc7\x01\n" +
-	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\x80\x01\x9a\xb5\x18|\b\x01\x10\x01\x1a\fcheck_forges\"cCheck that every connected forge's credential still works, recording the answer on each connection.(\x00:\x01\x02\x12\xbd\x02\n" +
-	"\x15ListForgePullRequests\x12&.forge.v1.ListForgePullRequestsRequest\x1a'.forge.v1.ListForgePullRequestsResponse\"\xd2\x01\x9a\xb5\x18\xca\x01\b\x01\x10\x01\x1a\x18list_forge_pull_requests\"\xa6\x01List a repository's pull requests by asking its forge, either every one from a named branch or the open ones. list_pull_requests reads what komrad has stored instead.:\x01\x02\x90\x02\x01\x12\x83\x02\n" +
-	"\x15MergeForgePullRequest\x12&.forge.v1.MergeForgePullRequestRequest\x1a\x16.google.protobuf.Empty\"\xa9\x01\x9a\xb5\x18\xa4\x01\b\x01\x1a\x18merge_forge_pull_request\"QMerge a pull request through its forge, the way the repository merges by default.B3Landing work on the base is for a person to decide.\x12\x92\x02\n" +
-	"\x18SetForgePullRequestDraft\x12).forge.v1.SetForgePullRequestDraftRequest\x1a\x16.google.protobuf.Empty\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x1a\x1cset_forge_pull_request_draft\"BMark a pull request a draft or ready for review through its forge.BDSaying a pull request is ready for review is for a person to decide.\x90\x02\x02\x12\xa5\x02\n" +
-	"\x1cSetForgePullRequestAutoMerge\x12-.forge.v1.SetForgePullRequestAutoMergeRequest\x1a\x16.google.protobuf.Empty\"\xbd\x01\x9a\xb5\x18\xb5\x01\b\x01\x1a!set_forge_pull_request_auto_merge\"=Turn a pull request's auto-merge on or off through its forge.BOLetting work land on the base without a person there is for a person to decide.\x90\x02\x02\x12\xbb\x02\n" +
-	"\x1fRequestForgePullRequestRereview\x120.forge.v1.RequestForgePullRequestRereviewRequest\x1a\x16.google.protobuf.Empty\"\xcd\x01\x9a\xb5\x18\xc8\x01\b\x01\x1a#request_forge_pull_request_rereview\"NAsk every reviewer who requested changes on a pull request to review it again.BOTelling a colleague the work is ready for them again is for a person to decide.\x12\xc7\x01\n" +
-	"\x0fDisconnectForge\x12 .forge.v1.DisconnectForgeRequest\x1a\x16.google.protobuf.Empty\"z\x9a\xb5\x18v\b\x01\x1a\x10disconnect_forge\"\"Forget a forge and its credential.B<A person gave the credential and is the one to take it away.B#Z!komrad/proto/gen/forge/v1;forgev1b\x06proto3"
+	"ListForges\x12\x16.google.protobuf.Empty\x1a\x1c.forge.v1.ListForgesResponse\"\x83\x01\x9a\xb5\x18|\b\x01\x10\x01\x1a\vlist_forges\"fList the forges komrad is connected to and the account komrad uses on each. Tokens are never returned.:\x01\x02\x90\x02\x01\x12\xca\x01\n" +
+	"\vCheckForges\x12\x16.google.protobuf.Empty\x1a\x1d.forge.v1.CheckForgesResponse\"\x83\x01\x9a\xb5\x18\x7f\b\x01\x10\x01\x1a\fcheck_forges\"fCheck that each connected forge still accepts its credential, and record the result on the connection.(\x00:\x01\x02\x12\xb4\x02\n" +
+	"\x15ListForgePullRequests\x12&.forge.v1.ListForgePullRequestsRequest\x1a'.forge.v1.ListForgePullRequestsResponse\"\xc9\x01\x9a\xb5\x18\xc1\x01\b\x01\x10\x01\x1a\x18list_forge_pull_requests\"\x9d\x01List a repository's pull requests from its forge: every one from a branch, or the open ones. `list_pull_requests` lists the ones komrad has recorded instead.:\x01\x02\x90\x02\x01\x12\x83\x02\n" +
+	"\x15MergeForgePullRequest\x12&.forge.v1.MergeForgePullRequestRequest\x1a\x16.google.protobuf.Empty\"\xa9\x01\x9a\xb5\x18\xa4\x01\b\x01\x1a\x18merge_forge_pull_request\"NMerge a pull request on its forge, with the repository's default merge method.B6Only the person decides what lands on the base branch.\x12\x8f\x02\n" +
+	"\x18SetForgePullRequestDraft\x12).forge.v1.SetForgePullRequestDraftRequest\x1a\x16.google.protobuf.Empty\"\xaf\x01\x9a\xb5\x18\xa7\x01\b\x01\x1a\x1cset_forge_pull_request_draft\"CMark a pull request as a draft or as ready for review on its forge.B@Only the person decides when a pull request is ready for review.\x90\x02\x02\x12\x9a\x02\n" +
+	"\x1cSetForgePullRequestAutoMerge\x12-.forge.v1.SetForgePullRequestAutoMergeRequest\x1a\x16.google.protobuf.Empty\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x1a!set_forge_pull_request_auto_merge\"8Turn a pull request's auto-merge on or off on its forge.BIOnly the person decides whether work lands on the base branch unattended.\x90\x02\x02\x12\xae\x02\n" +
+	"\x1fRequestForgePullRequestRereview\x120.forge.v1.RequestForgePullRequestRereviewRequest\x1a\x16.google.protobuf.Empty\"\xc0\x01\x9a\xb5\x18\xbb\x01\b\x01\x1a#request_forge_pull_request_rereview\"NAsk every reviewer who requested changes on a pull request to review it again.BBOnly the person decides when to ask colleagues for another review.\x12\xcf\x01\n" +
+	"\x0fDisconnectForge\x12 .forge.v1.DisconnectForgeRequest\x1a\x16.google.protobuf.Empty\"\x81\x01\x9a\xb5\x18}\b\x01\x1a\x10disconnect_forge\"-Disconnect a forge and forget its credential.B8Only the person, who gave the credential, takes it away.B#Z!komrad/proto/gen/forge/v1;forgev1b\x06proto3"
 
 var (
 	file_forge_v1_forge_proto_rawDescOnce sync.Once
