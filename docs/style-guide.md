@@ -118,7 +118,7 @@ hook: A script the person writes that komrad runs at a moment in a task's or age
 
 CLI hook: A hook the CLI itself fires, which komrad reads to learn what an agent is doing. Always say "CLI hook" for these, never "hook" alone.
 
-run: One execution of a hook, with its log, or one firing of a schedule, with its job's state. Say which kind when the field does not. Not "firing".
+run: One execution of a hook, with its log, or one time a schedule's cron expression matched, with its state. Say which kind when the field does not. Not "firing".
 
 schedule: A cron expression that starts a task or mails an orchestrator each time it matches.
 
