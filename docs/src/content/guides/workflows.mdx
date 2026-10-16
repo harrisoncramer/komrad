@@ -105,7 +105,7 @@ Komrad has first-class support for [git worktrees](https://git-scm.com/docs/git-
 
 Komrad puts worktrees in <Setting path="worktrees.dir" /> unless the workflow names a directory of its own. The worktree section of the workflow's settings also lists files to copy or link into each new worktree, such as a `.env` file git does not track.
 
-A workflow can also name a setup command. Komrad runs it in the worktree before an agent starts or resumes there. Point it at whatever prepares the repository, such as `mise trust && mise install`, `npm ci` or a script the repository keeps. Each worktree is a new path to mise, so it refuses the worktree's config until it is trusted. When the command fails, the agent does not start.
+A workflow can also name a setup command. Komrad runs it in the worktree before an agent starts or resumes there. Point it at whatever prepares the repository, such as `mise trust && mise install`, `npm ci` or a script the repository keeps. mise refuses the config in a directory it has not trusted, and each worktree is a new directory, so the example trusts it first. When the command fails, the agent does not start.
 
 When you start a task, you _can_ run it in the workflow's base directory instead of a worktree.
 
