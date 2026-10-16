@@ -275,19 +275,47 @@ func TestWorktreesDelete(t *testing.T) {
 func TestWorktreesDeleteStanding(t *testing.T) {
 	t.Parallel()
 
+	archived := &worktreev1.Worktree{
+		Dir:      "/trees/archived",
+		Branch:   "task/archived",
+		Readable: true,
+	}
+	orphan := &worktreev1.Worktree{
+		Dir:      "/trees/orphan",
+		Branch:   "task/orphan",
+		Readable: true,
+	}
 	dirty := &worktreev1.GetWorktreeResponse{
-		Worktree:  &worktreev1.Worktree{Dir: "/trees/archived", Branch: "task/archived", Readable: true},
+		Worktree:  archived,
 		Modified:  []string{"a.go"},
 		Untracked: []string{"b.txt", "c.txt"},
 		BaseRef:   "origin/main",
 		Pushed:    true,
 		Unpushed:  2,
 	}
+	clean := &worktreev1.GetWorktreeResponse{
+		Worktree: archived,
+		BaseRef:  "origin/main",
+		Pushed:   true,
+	}
+	baseless := &worktreev1.GetWorktreeResponse{
+		Worktree:  orphan,
+		Untracked: []string{"notes.md"},
+		BaseError: "the workflow names no base branch",
+	}
 	crowded := &worktreev1.GetWorktreeResponse{
-		Worktree: &worktreev1.Worktree{Dir: "/trees/orphan", Branch: "task/orphan", Readable: true},
+		Worktree: orphan,
 		Modified: buildFileNames(12),
 		BaseRef:  "origin/main",
 		Ahead:    3,
+	}
+	detached := &worktreev1.GetWorktreeResponse{
+		Worktree: &worktreev1.Worktree{
+			Dir:      "/trees/orphan",
+			Readable: true,
+		},
+		BaseRef: "origin/main",
+		Ahead:   2,
 	}
 
 	tests := []struct {
@@ -309,14 +337,14 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			name:         "a clean worktree is said to be clean",
 			row:          "reviewer",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/trees/archived", Branch: "task/archived", Readable: true}, BaseRef: "origin/main", Pushed: true}),
+			answer:       answerWith(clean),
 			wantRendered: []string{"The worktree has nothing uncommitted or unpushed."},
 		},
 		{
 			name:         "a branch never pushed with no base counts its files and not its commits",
 			row:          "task/orphan",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/trees/orphan", Branch: "task/orphan", Readable: true}, Untracked: []string{"notes.md"}, BaseError: "the workflow names no base branch"}),
+			answer:       answerWith(baseless),
 			wantRendered: []string{"The worktree has 1 uncommitted file. Without a base, Komrad cannot count the unpushed commits of the worktree.", "notes.md"},
 		},
 		{
@@ -346,7 +374,7 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			name:         "a detached head counts its commits since the base",
 			row:          "task/orphan",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/trees/orphan", Readable: true}, BaseRef: "origin/main", Ahead: 2}),
+			answer:       answerWith(detached),
 			wantRendered: []string{"The worktree has 2 unpushed commits."},
 		},
 		{
