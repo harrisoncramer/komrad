@@ -54,7 +54,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	var merged struct{}
 	answer, err = f.client.Query(ctx, mergeMutation, map[string]any{
 		"id":     data.Repository.PullRequest.ID,
-		"method": data.Repository.methodFor(data.Repository.PullRequest.BaseRef),
+		"method": data.Repository.chooseMethod(data.Repository.PullRequest.BaseRef),
 	}, &merged)
 	if err != nil {
 		return err

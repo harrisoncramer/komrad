@@ -37,30 +37,14 @@ type ruleParameters struct {
 	AllowedMergeMethods []string `json:"allowedMergeMethods"`
 }
 
-// methodFor is the credential's default merge method when the base branch allows it, and
-// otherwise the first method the repository and the branch's rules allow.
-func (s mergeSettings) methodFor(base *baseRef) string {
+// chooseMethod returns the credential's default merge method when the repository and base
+// branch allow it, and otherwise the first method they allow.
+func (s mergeSettings) chooseMethod(base *baseRef) string {
 	allowed := map[string]bool{
-		"MERGE":  s.MergeCommitAllowed,
-		"SQUASH": s.SquashMergeAllowed,
-		"REBASE": s.RebaseMergeAllowed,
+		"MERGE":  s.MergeCommitAllowed && base.isMethodAllowed("MERGE"),
+		"SQUASH": s.SquashMergeAllowed && base.isMethodAllowed("SQUASH"),
+		"REBASE": s.RebaseMergeAllowed && base.isMethodAllowed("REBASE"),
 	}
-	if base != nil {
-		if base.BranchProtectionRule != nil && base.BranchProtectionRule.RequiresLinearHistory {
-			allowed["MERGE"] = false
-		}
-		for _, rule := range base.Rules.Nodes {
-			switch {
-			case rule.Type == "REQUIRED_LINEAR_HISTORY":
-				allowed["MERGE"] = false
-			case rule.Type == "PULL_REQUEST" && rule.Parameters != nil && len(rule.Parameters.AllowedMergeMethods) > 0:
-				for method := range allowed {
-					allowed[method] = allowed[method] && slices.Contains(rule.Parameters.AllowedMergeMethods, method)
-				}
-			}
-		}
-	}
-
 	if allowed[s.ViewerDefaultMergeMethod] {
 		return s.ViewerDefaultMergeMethod
 	}
@@ -71,4 +55,23 @@ func (s mergeSettings) methodFor(base *baseRef) string {
 	}
 
 	return s.ViewerDefaultMergeMethod
+}
+
+func (b *baseRef) isMethodAllowed(method string) bool {
+	if b == nil {
+		return true
+	}
+	if method == "MERGE" && b.BranchProtectionRule != nil && b.BranchProtectionRule.RequiresLinearHistory {
+		return false
+	}
+	for _, rule := range b.Rules.Nodes {
+		if method == "MERGE" && rule.Type == "REQUIRED_LINEAR_HISTORY" {
+			return false
+		}
+		if rule.Type == "PULL_REQUEST" && rule.Parameters != nil && len(rule.Parameters.AllowedMergeMethods) > 0 && !slices.Contains(rule.Parameters.AllowedMergeMethods, method) {
+			return false
+		}
+	}
+
+	return true
 }

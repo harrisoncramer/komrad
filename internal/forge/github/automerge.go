@@ -83,7 +83,7 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, owner, name string, num
 	}
 
 	target := data.Repository.PullRequest
-	target.method = data.Repository.methodFor(target.BaseRef)
+	target.method = data.Repository.chooseMethod(target.BaseRef)
 
 	return target, nil
 }
