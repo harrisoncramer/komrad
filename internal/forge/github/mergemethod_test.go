@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestMethodFor covers picking a merge method the repository and its base branch's rules allow.
-func TestMethodFor(t *testing.T) {
+// TestChooseMethod covers picking a merge method the repository and its base branch's rules allow.
+func TestChooseMethod(t *testing.T) {
 	t.Parallel()
 
 	everything := mergeSettings{
@@ -85,7 +85,7 @@ func TestMethodFor(t *testing.T) {
 		{
 			name: "rules on a method the repository refuses do not bring it back",
 			settings: mergeSettings{
-				ViewerDefaultMergeMethod: "SQUASH",
+				ViewerDefaultMergeMethod: "REBASE",
 				SquashMergeAllowed:       true,
 			},
 			base: branch(pullRequestRule("MERGE", "SQUASH")),
@@ -106,7 +106,7 @@ func TestMethodFor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tt.want, tt.settings.methodFor(tt.base))
+			assert.Equal(t, tt.want, tt.settings.chooseMethod(tt.base))
 		})
 	}
 }
