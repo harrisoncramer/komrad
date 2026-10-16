@@ -91,16 +91,10 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (*Removal, error) {
 			continue
 		}
 
-		if worktree.Locked {
-			if err := r.git.UnlockWorktree(ctx, worktree.RepoDir, dir); err != nil {
-				removal.Refused = append(removal.Refused, Refusal{
-					Dir:    dir,
-					Reason: fmt.Sprintf("could not unlock it: %v", err),
-					Failed: true,
-				})
+		if refusal, refused := r.refuseLocked(ctx, worktree); refused {
+			removal.Refused = append(removal.Refused, refusal)
 
-				continue
-			}
+			continue
 		}
 
 		if err := os.RemoveAll(dir); err != nil {
@@ -185,6 +179,23 @@ func (r *Remover) refuseRegistered(ctx context.Context, worktree Worktree) (Refu
 		return Refusal{
 			Dir:    worktree.Dir,
 			Reason: fmt.Sprintf("it holds the worktree %s; remove that first", registered[nested].Dir),
+		}, true
+	}
+
+	return Refusal{}, false
+}
+
+// refuseLocked lifts the lock on a directory's registration, refusing the directory when git cannot.
+func (r *Remover) refuseLocked(ctx context.Context, worktree Worktree) (Refusal, bool) {
+	if !worktree.Locked {
+		return Refusal{}, false
+	}
+
+	if err := r.git.UnlockWorktree(ctx, worktree.RepoDir, worktree.Dir); err != nil {
+		return Refusal{
+			Dir:    worktree.Dir,
+			Reason: fmt.Sprintf("could not unlock it: %v", err),
+			Failed: true,
 		}, true
 	}
 

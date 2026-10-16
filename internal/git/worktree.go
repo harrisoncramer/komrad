@@ -22,6 +22,15 @@ func (c *Client) ListWorktrees(ctx context.Context, repo string) ([]Worktree, er
 	return parseWorktrees(out), nil
 }
 
+// UnlockWorktree lifts the lock on a checkout's registration.
+func (c *Client) UnlockWorktree(ctx context.Context, repo, dir string) error {
+	if _, err := Run(ctx, repo, "worktree", "unlock", dir); err != nil {
+		return fmt.Errorf("failed to unlock the worktree %q: %w", dir, err)
+	}
+
+	return nil
+}
+
 // parseWorktrees reads the porcelain listing, where each checkout is a block opened by its
 // directory.
 func parseWorktrees(out string) []Worktree {
@@ -36,13 +45,4 @@ func parseWorktrees(out string) []Worktree {
 	}
 
 	return listed
-}
-
-// UnlockWorktree lifts the lock on a checkout's registration, so a prune or remove can take it.
-func (c *Client) UnlockWorktree(ctx context.Context, repo, dir string) error {
-	if _, err := Run(ctx, repo, "worktree", "unlock", dir); err != nil {
-		return fmt.Errorf("failed to unlock the worktree %q: %w", dir, err)
-	}
-
-	return nil
 }

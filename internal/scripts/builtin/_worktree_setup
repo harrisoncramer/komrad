@@ -221,7 +221,7 @@ fresh_worktree() {
 if [ -d "$tree" ]; then
 	echo "worktree already exists at $tree" >&2
 
-	# One found unlocked is locked now, and git refuses to lock one twice.
+	# Git refuses to lock a worktree twice, so the error from one already locked is dropped.
 	git -C "$tree" worktree lock --reason "$lock_reason" "$tree" 2>/dev/null || true
 else
 	origin=
