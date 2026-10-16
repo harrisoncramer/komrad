@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"komrad/internal/browser"
 	"komrad/internal/engine"
+	"komrad/internal/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -30,7 +32,11 @@ This asks the engine which provider that is, opens the provider's sign-in page i
 and waits on 127.0.0.1:8085 for the provider to send the browser back. The sign-in is kept in the
 keychain, or in a private file under the state directory where there is no keychain, and every
 command after this one sends it and renews it on its own. Run it again when a command says the
-sign-in ran out.`,
+sign-in ran out.
+
+Login also writes an SSH host for the engine under ~/.ssh/komrad, which carries SSH over the same
+sign-in. The panel's edit keys open the engine's files through that host, and so can any editor
+that reaches other machines over SSH once ~/.ssh/config includes it.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -55,6 +61,16 @@ sign-in ran out.`,
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Signed in to %s as %s (%s at %s)\n",
 				state.env.URL, signIn.Email, signIn.Subject, signIn.Provider.Issuer); err != nil {
 				return fmt.Errorf("failed to print the sign-in: %w", err)
+			}
+
+			if err := state.setUpSSH(cmd.Context()); err != nil {
+				cmd.PrintErrf("Editors cannot reach the engine's files: %v\n", err)
+
+				return nil
+			}
+
+			if !isSSHIncluded() {
+				cmd.PrintErrf("For editors besides the panel's to reach the engine, add this line to the top of ~/.ssh/config:\n\n  %s\n\n", sshIncludeLine)
 			}
 
 			return nil
@@ -133,6 +149,7 @@ type panelSignIn struct {
 	keeper    *engine.SignInKeeper
 	opener    browser.Opener
 	listen    string
+	setUpSSH  func(ctx context.Context) error
 }
 
 // CheckAccess asks the engine whether the token this machine holds names someone granted access.
@@ -173,15 +190,21 @@ func (s *panelSignIn) CheckAccess(ctx context.Context) error {
 func (s *panelSignIn) Login(ctx context.Context, prompt func(authURL string)) error {
 	defer s.refresher.Forget()
 
-	_, err := engine.Login(ctx, engine.LoginParams{
+	if _, err := engine.Login(ctx, engine.LoginParams{
 		URL:    s.url,
 		Keeper: s.keeper,
 		Opener: s.opener,
 		Listen: s.listen,
 		Prompt: prompt,
-	})
+	}); err != nil {
+		return err
+	}
 
-	return err
+	if err := s.setUpSSH(ctx); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "editors cannot reach the engine's files", logging.Err(err)...)
+	}
+
+	return nil
 }
 
 func readReason(body io.Reader) string {

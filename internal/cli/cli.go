@@ -193,6 +193,7 @@ the server, or call an endpoint from a script.`,
 		hookCmd(app),
 		logCmd(app),
 		shellCmd(app),
+		sshProxyCmd(app),
 		terminalCmd(app),
 		visualCmd(app),
 	)

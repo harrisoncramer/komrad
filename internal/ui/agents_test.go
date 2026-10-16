@@ -1699,6 +1699,27 @@ func TestAgentsEdit(t *testing.T) {
 		assert.Equal(t, "/work/telescope", harness.panel.ReadRespawnDirs()[0])
 	})
 
+	t.Run("on an engine elsewhere the edit key opens the worktree there, through its ssh host", func(t *testing.T) {
+		harness := openAgentsWith(t, panelHarnessParams{settings: remoteEditSettings(t, "nvim")}, newLiveWorkflow("w1", "backend"), newEditable(""))
+
+		harness.press("space", "e")
+
+		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
+		require.NotEmpty(t, harness.panel.ReadRespawns())
+		assert.Contains(t, harness.panel.ReadRespawns()[0], "-t 'komrad-remote'")
+		assert.Empty(t, harness.panel.ReadRespawnDirs()[0], "the pane is not rooted at a directory this machine lacks")
+	})
+
+	t.Run("on an engine elsewhere an editor that cannot reach it leaves the agent running", func(t *testing.T) {
+		harness := openAgentsWith(t, panelHarnessParams{settings: remoteEditSettings(t, "subl")}, newLiveWorkflow("w1", "backend"), newEditable(""))
+
+		harness.press("space", "e")
+
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Contains(t, harness.readFrame(), "could not edit telescope")
+	})
+
 	t.Run("closing the editor lets the agent go", func(t *testing.T) {
 		tests := []struct {
 			name  string

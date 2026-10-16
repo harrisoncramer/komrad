@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -116,6 +117,7 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 				keeper:    keeper,
 				opener:    oidctest.Browser{},
 				listen:    "127.0.0.1:0",
+				setUpSSH:  func(context.Context) error { return nil },
 			}
 
 			if tt.isLogin {

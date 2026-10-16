@@ -7,6 +7,7 @@ package terminalv1komrad
 import (
 	connect "connectrpc.com/connect"
 	context "context"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fail "komrad/internal/fail"
 	rpcerr "komrad/internal/rpcerr"
 	v1 "komrad/proto/gen/terminal/v1"
@@ -19,6 +20,8 @@ import (
 type TerminalServiceImpl interface {
 	Shell(context.Context, *connect.BidiStream[v1.ShellRequest, v1.ShellResponse]) *fail.Error
 	Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) *fail.Error
+	SSH(context.Context, *connect.BidiStream[v1.SSHRequest, v1.SSHResponse]) *fail.Error
+	GetSSHHostKey(context.Context, *emptypb.Empty) (*v1.GetSSHHostKeyResponse, *fail.Error)
 }
 
 // TerminalServiceAdapter carries what the implementation returned across to the signature
@@ -35,6 +38,16 @@ func (a TerminalServiceAdapter) Shell(ctx context.Context, stream *connect.BidiS
 // Attach serves the stream as connect opens it.
 func (a TerminalServiceAdapter) Attach(ctx context.Context, stream *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error {
 	return rpcerr.AnswerStream(a.Impl.Attach(ctx, stream))
+}
+
+// SSH serves the stream as connect opens it.
+func (a TerminalServiceAdapter) SSH(ctx context.Context, stream *connect.BidiStream[v1.SSHRequest, v1.SSHResponse]) error {
+	return rpcerr.AnswerStream(a.Impl.SSH(ctx, stream))
+}
+
+// GetSSHHostKey answers the request as connect serves it.
+func (a TerminalServiceAdapter) GetSSHHostKey(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.GetSSHHostKeyResponse], error) {
+	return rpcerr.Answer(a.Impl.GetSSHHostKey(ctx, req.Msg))
 }
 
 // RegisterTerminalService mounts the implementation on the mux behind its adapter.

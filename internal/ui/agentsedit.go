@@ -55,6 +55,12 @@ func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) tea.Cmd {
 		return nil
 	}
 
+	if reason, refused := m.isRemoteEditRefused(); refused {
+		m.reportBrief("could not edit "+agent.Name, reason)
+
+		return nil
+	}
+
 	a.editing = &agentEdit{agent: agent}
 	if !item.Alive {
 		return a.openEditor(m)
@@ -89,7 +95,7 @@ func (a *agentsScreen) isPausing(agentID string) bool {
 }
 
 func (a *agentsScreen) openEditor(m *model) tea.Cmd {
-	pane := m.stageEditor(dirEditorContent(m.settings.Editor, a.editing.agent.Cwd))
+	pane := m.stageEditor(m.agentDirEditorContent(a.editing.agent.Cwd))
 	if pane != "" {
 		a.editing.pane = pane
 

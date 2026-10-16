@@ -8,6 +8,7 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	v1 "komrad/proto/gen/terminal/v1"
 	http "net/http"
 	strings "strings"
@@ -37,6 +38,11 @@ const (
 	TerminalServiceShellProcedure = "/terminal.v1.TerminalService/Shell"
 	// TerminalServiceAttachProcedure is the fully-qualified name of the TerminalService's Attach RPC.
 	TerminalServiceAttachProcedure = "/terminal.v1.TerminalService/Attach"
+	// TerminalServiceSSHProcedure is the fully-qualified name of the TerminalService's SSH RPC.
+	TerminalServiceSSHProcedure = "/terminal.v1.TerminalService/SSH"
+	// TerminalServiceGetSSHHostKeyProcedure is the fully-qualified name of the TerminalService's
+	// GetSSHHostKey RPC.
+	TerminalServiceGetSSHHostKeyProcedure = "/terminal.v1.TerminalService/GetSSHHostKey"
 )
 
 // TerminalServiceClient is a client for the terminal.v1.TerminalService service.
@@ -47,6 +53,13 @@ type TerminalServiceClient interface {
 	// Attach streams the input and output of an agent's pane until the attach ends or the client
 	// disconnects.
 	Attach(context.Context) *connect.BidiStreamForClient[v1.AttachRequest, v1.AttachResponse]
+	// SSH carries one SSH connection to a server on komrad's machine, until either side closes it.
+	// The server runs commands and shells as the account the agents run as, and forwards to ports and
+	// sockets there. It takes no password or key, since the stream is already signed in.
+	SSH(context.Context) *connect.BidiStreamForClient[v1.SSHRequest, v1.SSHResponse]
+	// GetSSHHostKey returns the public key of the SSH server that `SSH` reaches, so a client can trust
+	// it before connecting.
+	GetSSHHostKey(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.GetSSHHostKeyResponse], error)
 }
 
 // NewTerminalServiceClient constructs a client for the terminal.v1.TerminalService service. By
@@ -72,13 +85,28 @@ func NewTerminalServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(terminalServiceMethods.ByName("Attach")),
 			connect.WithClientOptions(opts...),
 		),
+		sSH: connect.NewClient[v1.SSHRequest, v1.SSHResponse](
+			httpClient,
+			baseURL+TerminalServiceSSHProcedure,
+			connect.WithSchema(terminalServiceMethods.ByName("SSH")),
+			connect.WithClientOptions(opts...),
+		),
+		getSSHHostKey: connect.NewClient[emptypb.Empty, v1.GetSSHHostKeyResponse](
+			httpClient,
+			baseURL+TerminalServiceGetSSHHostKeyProcedure,
+			connect.WithSchema(terminalServiceMethods.ByName("GetSSHHostKey")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // terminalServiceClient implements TerminalServiceClient.
 type terminalServiceClient struct {
-	shell  *connect.Client[v1.ShellRequest, v1.ShellResponse]
-	attach *connect.Client[v1.AttachRequest, v1.AttachResponse]
+	shell         *connect.Client[v1.ShellRequest, v1.ShellResponse]
+	attach        *connect.Client[v1.AttachRequest, v1.AttachResponse]
+	sSH           *connect.Client[v1.SSHRequest, v1.SSHResponse]
+	getSSHHostKey *connect.Client[emptypb.Empty, v1.GetSSHHostKeyResponse]
 }
 
 // Shell calls terminal.v1.TerminalService.Shell.
@@ -91,6 +119,16 @@ func (c *terminalServiceClient) Attach(ctx context.Context) *connect.BidiStreamF
 	return c.attach.CallBidiStream(ctx)
 }
 
+// SSH calls terminal.v1.TerminalService.SSH.
+func (c *terminalServiceClient) SSH(ctx context.Context) *connect.BidiStreamForClient[v1.SSHRequest, v1.SSHResponse] {
+	return c.sSH.CallBidiStream(ctx)
+}
+
+// GetSSHHostKey calls terminal.v1.TerminalService.GetSSHHostKey.
+func (c *terminalServiceClient) GetSSHHostKey(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.GetSSHHostKeyResponse], error) {
+	return c.getSSHHostKey.CallUnary(ctx, req)
+}
+
 // TerminalServiceHandler is an implementation of the terminal.v1.TerminalService service.
 type TerminalServiceHandler interface {
 	// Shell runs a shell on komrad's machine and streams its input and output until the shell
@@ -99,6 +137,13 @@ type TerminalServiceHandler interface {
 	// Attach streams the input and output of an agent's pane until the attach ends or the client
 	// disconnects.
 	Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error
+	// SSH carries one SSH connection to a server on komrad's machine, until either side closes it.
+	// The server runs commands and shells as the account the agents run as, and forwards to ports and
+	// sockets there. It takes no password or key, since the stream is already signed in.
+	SSH(context.Context, *connect.BidiStream[v1.SSHRequest, v1.SSHResponse]) error
+	// GetSSHHostKey returns the public key of the SSH server that `SSH` reaches, so a client can trust
+	// it before connecting.
+	GetSSHHostKey(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.GetSSHHostKeyResponse], error)
 }
 
 // NewTerminalServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -120,12 +165,29 @@ func NewTerminalServiceHandler(svc TerminalServiceHandler, opts ...connect.Handl
 		connect.WithSchema(terminalServiceMethods.ByName("Attach")),
 		connect.WithHandlerOptions(opts...),
 	)
+	terminalServiceSSHHandler := connect.NewBidiStreamHandler(
+		TerminalServiceSSHProcedure,
+		svc.SSH,
+		connect.WithSchema(terminalServiceMethods.ByName("SSH")),
+		connect.WithHandlerOptions(opts...),
+	)
+	terminalServiceGetSSHHostKeyHandler := connect.NewUnaryHandler(
+		TerminalServiceGetSSHHostKeyProcedure,
+		svc.GetSSHHostKey,
+		connect.WithSchema(terminalServiceMethods.ByName("GetSSHHostKey")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/terminal.v1.TerminalService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TerminalServiceShellProcedure:
 			terminalServiceShellHandler.ServeHTTP(w, r)
 		case TerminalServiceAttachProcedure:
 			terminalServiceAttachHandler.ServeHTTP(w, r)
+		case TerminalServiceSSHProcedure:
+			terminalServiceSSHHandler.ServeHTTP(w, r)
+		case TerminalServiceGetSSHHostKeyProcedure:
+			terminalServiceGetSSHHostKeyHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -141,4 +203,12 @@ func (UnimplementedTerminalServiceHandler) Shell(context.Context, *connect.BidiS
 
 func (UnimplementedTerminalServiceHandler) Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("terminal.v1.TerminalService.Attach is not implemented"))
+}
+
+func (UnimplementedTerminalServiceHandler) SSH(context.Context, *connect.BidiStream[v1.SSHRequest, v1.SSHResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("terminal.v1.TerminalService.SSH is not implemented"))
+}
+
+func (UnimplementedTerminalServiceHandler) GetSSHHostKey(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.GetSSHHostKeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("terminal.v1.TerminalService.GetSSHHostKey is not implemented"))
 }

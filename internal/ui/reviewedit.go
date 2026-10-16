@@ -36,15 +36,14 @@ func editorCommand(editor string) string {
 func editorLineArgs(command, path string, line int) []string {
 	at := shellQuote(fmt.Sprintf("%s:%d", path, line))
 
-	switch editorName(command) {
-	case "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf":
+	switch name := editorName(command); {
+	case isVSCodeEditor(name):
 		return []string{"--wait", "--goto", at}
-	case "subl", "sublime_text", "zed":
+	case name == "subl", name == "sublime_text", name == "zed":
 		return []string{"--wait", at}
-	case "hx", "helix":
+	case name == "hx", name == "helix":
 		return []string{at}
-	case "goland", "idea", "pycharm", "webstorm", "phpstorm", "rubymine", "clion", "rider",
-		"rustrover", "datagrip":
+	case isJetBrainsEditor(name):
 		return []string{"--wait", "--line", fmt.Sprint(line), shellQuote(path)}
 	}
 
@@ -59,6 +58,27 @@ func editorName(command string) string {
 	}
 
 	return filepath.Base(fields[0])
+}
+
+// isVSCodeEditor reports whether the editor is VS Code or one built from it.
+func isVSCodeEditor(name string) bool {
+	switch name {
+	case "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf":
+		return true
+	}
+
+	return false
+}
+
+// isJetBrainsEditor reports whether the editor is one of the JetBrains IDEs.
+func isJetBrainsEditor(name string) bool {
+	switch name {
+	case "goland", "idea", "pycharm", "webstorm", "phpstorm", "rubymine", "clion", "rider", "rustrover",
+		"datagrip":
+		return true
+	}
+
+	return false
 }
 
 // editorContent opens a file in the user's editor, on one line of it.
@@ -124,6 +144,10 @@ func (r reviewScreen) isEditRefused(m *model) (string, bool) {
 		return reason, true
 	}
 
+	if reason, refused := m.isRemoteEditRefused(); refused {
+		return reason, true
+	}
+
 	return "", false
 }
 
@@ -154,7 +178,7 @@ func (r *reviewScreen) editFile(m *model) tea.Cmd {
 		return r.endHold(m, abandonedSaid)
 	}
 
-	pane := m.stageEditor(editorContent(m.settings.Editor, r.root, path, line))
+	pane := m.stageEditor(m.fileEditorContent(r.root, path, line))
 	if pane == "" {
 		m.note(messageWarning, "there is no room beside the sidebar for an editor")
 

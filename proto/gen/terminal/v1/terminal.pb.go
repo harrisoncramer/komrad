@@ -703,6 +703,186 @@ func (*AttachResponse_Output) isAttachResponse_Message() {}
 
 func (*AttachResponse_Exit) isAttachResponse_Message() {}
 
+// SSHRequest is one message from the client on an SSH stream. A message with nothing set keeps the
+// stream open while the connection is quiet.
+type SSHRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The message.
+	//
+	// Types that are valid to be assigned to Message:
+	//
+	//	*SSHRequest_Data
+	//	*SSHRequest_Token
+	Message       isSSHRequest_Message `protobuf_oneof:"message"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SSHRequest) Reset() {
+	*x = SSHRequest{}
+	mi := &file_terminal_v1_terminal_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SSHRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SSHRequest) ProtoMessage() {}
+
+func (x *SSHRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_terminal_v1_terminal_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SSHRequest.ProtoReflect.Descriptor instead.
+func (*SSHRequest) Descriptor() ([]byte, []int) {
+	return file_terminal_v1_terminal_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *SSHRequest) GetMessage() isSSHRequest_Message {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+func (x *SSHRequest) GetData() []byte {
+	if x != nil {
+		if x, ok := x.Message.(*SSHRequest_Data); ok {
+			return x.Data
+		}
+	}
+	return nil
+}
+
+func (x *SSHRequest) GetToken() string {
+	if x != nil {
+		if x, ok := x.Message.(*SSHRequest_Token); ok {
+			return x.Token
+		}
+	}
+	return ""
+}
+
+type isSSHRequest_Message interface {
+	isSSHRequest_Message()
+}
+
+type SSHRequest_Data struct {
+	// Bytes the SSH client sent.
+	Data []byte `protobuf:"bytes,1,opt,name=data,proto3,oneof"`
+}
+
+type SSHRequest_Token struct {
+	// A new ID token for the caller, which keeps the stream open past the first token's expiry.
+	Token string `protobuf:"bytes,2,opt,name=token,proto3,oneof"`
+}
+
+func (*SSHRequest_Data) isSSHRequest_Message() {}
+
+func (*SSHRequest_Token) isSSHRequest_Message() {}
+
+// SSHResponse is one message from komrad on an SSH stream.
+type SSHResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Bytes the SSH server sent.
+	Data          []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SSHResponse) Reset() {
+	*x = SSHResponse{}
+	mi := &file_terminal_v1_terminal_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SSHResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SSHResponse) ProtoMessage() {}
+
+func (x *SSHResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_terminal_v1_terminal_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SSHResponse.ProtoReflect.Descriptor instead.
+func (*SSHResponse) Descriptor() ([]byte, []int) {
+	return file_terminal_v1_terminal_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SSHResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type GetSSHHostKeyResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The public half of the key the SSH server proves itself with, as one `known_hosts` key: its
+	// type, a space, and the key in base64.
+	PublicKey     string `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSSHHostKeyResponse) Reset() {
+	*x = GetSSHHostKeyResponse{}
+	mi := &file_terminal_v1_terminal_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSSHHostKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSSHHostKeyResponse) ProtoMessage() {}
+
+func (x *GetSSHHostKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_terminal_v1_terminal_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSSHHostKeyResponse.ProtoReflect.Descriptor instead.
+func (*GetSSHHostKeyResponse) Descriptor() ([]byte, []int) {
+	return file_terminal_v1_terminal_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetSSHHostKeyResponse) GetPublicKey() string {
+	if x != nil {
+		return x.PublicKey
+	}
+	return ""
+}
+
 var File_terminal_v1_terminal_proto protoreflect.FileDescriptor
 
 const file_terminal_v1_terminal_proto_rawDesc = "" +
@@ -743,10 +923,22 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"\x05ready\x18\x01 \x01(\v2\x16.google.protobuf.EmptyH\x00R\x05ready\x12\x18\n" +
 	"\x06output\x18\x02 \x01(\fH\x00R\x06output\x12'\n" +
 	"\x04exit\x18\x03 \x01(\v2\x11.terminal.v1.ExitH\x00R\x04exitB\t\n" +
-	"\amessage2\xab\x02\n" +
+	"\amessage\"E\n" +
+	"\n" +
+	"SSHRequest\x12\x14\n" +
+	"\x04data\x18\x01 \x01(\fH\x00R\x04data\x12\x16\n" +
+	"\x05token\x18\x02 \x01(\tH\x00R\x05tokenB\t\n" +
+	"\amessage\"!\n" +
+	"\vSSHResponse\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"6\n" +
+	"\x15GetSSHHostKeyResponse\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x01 \x01(\tR\tpublicKey2\xbb\x04\n" +
 	"\x0fTerminalService\x12\x87\x01\n" +
 	"\x05Shell\x12\x19.terminal.v1.ShellRequest\x1a\x1a.terminal.v1.ShellResponse\"C\x9a\xb5\x18?B=A terminal the person types into, which `komrad shell` opens.(\x010\x01\x12\x8d\x01\n" +
-	"\x06Attach\x12\x1a.terminal.v1.AttachRequest\x1a\x1b.terminal.v1.AttachResponse\"F\x9a\xb5\x18BB@A terminal the person types into, which `komrad terminal` opens.(\x010\x01B)Z'komrad/proto/gen/terminal/v1;terminalv1b\x06proto3"
+	"\x06Attach\x12\x1a.terminal.v1.AttachRequest\x1a\x1b.terminal.v1.AttachResponse\"F\x9a\xb5\x18BB@A terminal the person types into, which `komrad terminal` opens.(\x010\x01\x12\x82\x01\n" +
+	"\x03SSH\x12\x17.terminal.v1.SSHRequest\x1a\x18.terminal.v1.SSHResponse\"D\x9a\xb5\x18@B>An SSH connection, which `komrad ssh-proxy` carries for `ssh`.(\x010\x01\x12\x88\x01\n" +
+	"\rGetSSHHostKey\x12\x16.google.protobuf.Empty\x1a\".terminal.v1.GetSSHHostKeyResponse\";\x9a\xb5\x184B2A key `komrad login` writes to a known hosts file.\x90\x02\x01B)Z'komrad/proto/gen/terminal/v1;terminalv1b\x06proto3"
 
 var (
 	file_terminal_v1_terminal_proto_rawDescOnce sync.Once
@@ -760,35 +952,42 @@ func file_terminal_v1_terminal_proto_rawDescGZIP() []byte {
 	return file_terminal_v1_terminal_proto_rawDescData
 }
 
-var file_terminal_v1_terminal_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_terminal_v1_terminal_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_terminal_v1_terminal_proto_goTypes = []any{
-	(*Size)(nil),           // 0: terminal.v1.Size
-	(*OpenShell)(nil),      // 1: terminal.v1.OpenShell
-	(*ShellRequest)(nil),   // 2: terminal.v1.ShellRequest
-	(*Exit)(nil),           // 3: terminal.v1.Exit
-	(*ShellResponse)(nil),  // 4: terminal.v1.ShellResponse
-	(*OpenAttach)(nil),     // 5: terminal.v1.OpenAttach
-	(*AttachRequest)(nil),  // 6: terminal.v1.AttachRequest
-	(*AttachResponse)(nil), // 7: terminal.v1.AttachResponse
-	(*emptypb.Empty)(nil),  // 8: google.protobuf.Empty
+	(*Size)(nil),                  // 0: terminal.v1.Size
+	(*OpenShell)(nil),             // 1: terminal.v1.OpenShell
+	(*ShellRequest)(nil),          // 2: terminal.v1.ShellRequest
+	(*Exit)(nil),                  // 3: terminal.v1.Exit
+	(*ShellResponse)(nil),         // 4: terminal.v1.ShellResponse
+	(*OpenAttach)(nil),            // 5: terminal.v1.OpenAttach
+	(*AttachRequest)(nil),         // 6: terminal.v1.AttachRequest
+	(*AttachResponse)(nil),        // 7: terminal.v1.AttachResponse
+	(*SSHRequest)(nil),            // 8: terminal.v1.SSHRequest
+	(*SSHResponse)(nil),           // 9: terminal.v1.SSHResponse
+	(*GetSSHHostKeyResponse)(nil), // 10: terminal.v1.GetSSHHostKeyResponse
+	(*emptypb.Empty)(nil),         // 11: google.protobuf.Empty
 }
 var file_terminal_v1_terminal_proto_depIdxs = []int32{
 	0,  // 0: terminal.v1.OpenShell.size:type_name -> terminal.v1.Size
 	1,  // 1: terminal.v1.ShellRequest.open:type_name -> terminal.v1.OpenShell
 	0,  // 2: terminal.v1.ShellRequest.resize:type_name -> terminal.v1.Size
-	8,  // 3: terminal.v1.ShellResponse.ready:type_name -> google.protobuf.Empty
+	11, // 3: terminal.v1.ShellResponse.ready:type_name -> google.protobuf.Empty
 	3,  // 4: terminal.v1.ShellResponse.exit:type_name -> terminal.v1.Exit
 	0,  // 5: terminal.v1.OpenAttach.size:type_name -> terminal.v1.Size
 	5,  // 6: terminal.v1.AttachRequest.open:type_name -> terminal.v1.OpenAttach
 	0,  // 7: terminal.v1.AttachRequest.resize:type_name -> terminal.v1.Size
-	8,  // 8: terminal.v1.AttachResponse.ready:type_name -> google.protobuf.Empty
+	11, // 8: terminal.v1.AttachResponse.ready:type_name -> google.protobuf.Empty
 	3,  // 9: terminal.v1.AttachResponse.exit:type_name -> terminal.v1.Exit
 	2,  // 10: terminal.v1.TerminalService.Shell:input_type -> terminal.v1.ShellRequest
 	6,  // 11: terminal.v1.TerminalService.Attach:input_type -> terminal.v1.AttachRequest
-	4,  // 12: terminal.v1.TerminalService.Shell:output_type -> terminal.v1.ShellResponse
-	7,  // 13: terminal.v1.TerminalService.Attach:output_type -> terminal.v1.AttachResponse
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
+	8,  // 12: terminal.v1.TerminalService.SSH:input_type -> terminal.v1.SSHRequest
+	11, // 13: terminal.v1.TerminalService.GetSSHHostKey:input_type -> google.protobuf.Empty
+	4,  // 14: terminal.v1.TerminalService.Shell:output_type -> terminal.v1.ShellResponse
+	7,  // 15: terminal.v1.TerminalService.Attach:output_type -> terminal.v1.AttachResponse
+	9,  // 16: terminal.v1.TerminalService.SSH:output_type -> terminal.v1.SSHResponse
+	10, // 17: terminal.v1.TerminalService.GetSSHHostKey:output_type -> terminal.v1.GetSSHHostKeyResponse
+	14, // [14:18] is the sub-list for method output_type
+	10, // [10:14] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
 	10, // [10:10] is the sub-list for extension extendee
 	0,  // [0:10] is the sub-list for field type_name
@@ -821,13 +1020,17 @@ func file_terminal_v1_terminal_proto_init() {
 		(*AttachResponse_Output)(nil),
 		(*AttachResponse_Exit)(nil),
 	}
+	file_terminal_v1_terminal_proto_msgTypes[8].OneofWrappers = []any{
+		(*SSHRequest_Data)(nil),
+		(*SSHRequest_Token)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_terminal_v1_terminal_proto_rawDesc), len(file_terminal_v1_terminal_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

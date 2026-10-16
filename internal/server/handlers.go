@@ -134,6 +134,7 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 	terminalv1komrad.RegisterTerminalService(mux, rpcterminal.NewHandler(rpcterminal.NewHandlerParams{
 		Shells:   svc.terminal.shells,
 		Attaches: svc.terminal.attaches,
+		SSH:      svc.terminal.ssh,
 	}), options...)
 	gitv1komrad.RegisterGitService(mux, rpcgit.NewHandler(rpcgit.NewHandlerParams{Git: svc.agentGit}), options...)
 	logv1komrad.RegisterLogService(mux, rpclog.NewHandler(logread.New(params.LogPath), logread.NewRuns(params.RunLogsDir), svc.tasks), options...)

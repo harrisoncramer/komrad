@@ -25,6 +25,7 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/shells"
+	"komrad/internal/sshserver"
 	"komrad/internal/tasks"
 	"komrad/internal/transcripts"
 	"komrad/internal/watch"
@@ -100,6 +101,7 @@ type worktreeServices struct {
 type terminalServices struct {
 	shells   *shells.ShellService
 	attaches *attaches.AttachService
+	ssh      *sshserver.Server
 }
 
 // BuiltinScriptsDir is where komrad installs the scripts it ships under a cache directory,
@@ -135,6 +137,15 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		return nil, err
 	}
 	queue := jobs.NewEnqueuer(inserter, st.pool.GetRawPool())
+
+	sshServer, err := sshserver.NewServer(sshserver.NewServerParams{
+		Logger:   params.Logger,
+		StateDir: params.Env.StateDir,
+		Shell:    params.Env.Shell,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})
 	settler := agents.NewSettler(agents.NewSettlerParams{
@@ -291,6 +302,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 				Tmux:    params.Tmux,
 				Session: agents.ManagerSession,
 			}),
+			ssh: sshServer,
 		},
 		agentGit: agentgit.NewGitService(agentgit.NewGitServiceParams{
 			Agents: st.agents,
