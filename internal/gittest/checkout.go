@@ -32,6 +32,8 @@ type Checkout struct {
 	Fetched      string
 	Fetches      int
 	Pruned       []string
+	Unlocked     []string
+	UnlockErr    error
 	Registered   []git.Worktree
 	ListErr      error
 	Origin       string
@@ -135,6 +137,13 @@ func (g *Checkout) ListWorktrees(context.Context, string) ([]git.Worktree, error
 // ReadRepositoryURL answers Origin.
 func (g *Checkout) ReadRepositoryURL(context.Context, string) string {
 	return g.Origin
+}
+
+// UnlockWorktree records the directory and answers UnlockErr.
+func (g *Checkout) UnlockWorktree(_ context.Context, _, dir string) error {
+	g.Unlocked = append(g.Unlocked, dir)
+
+	return g.UnlockErr
 }
 
 // PruneWorktrees records the repository.

@@ -26,6 +26,22 @@ func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
 	assert.Equal(t, []string{dir}, removal.Removed)
 	assert.Empty(t, removal.Refused)
 	assert.NoDirExists(t, dir)
+	assert.Empty(t, fixture.git.Unlocked, "a directory with no lock has none to lift")
+	assert.Equal(t, []string{fixture.repo}, fixture.git.Pruned)
+}
+
+// TestRemoveUnlocksALockedDirectoryBeforeTakingIt covers komrad lifting its own lock so the prune
+// can drop the registration.
+func TestRemoveUnlocksALockedDirectoryBeforeTakingIt(t *testing.T) {
+	fixture := newFixture(t)
+	dir := fixture.cutUnowned(t)
+	fixture.lock(t, dir)
+
+	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{dir}, removal.Removed)
+	assert.Equal(t, []string{dir}, fixture.git.Unlocked)
 	assert.Equal(t, []string{fixture.repo}, fixture.git.Pruned)
 }
 
@@ -132,6 +148,18 @@ func TestRemoveRefuses(t *testing.T) {
 				return fixture.cutUnowned(t)
 			},
 			wantReason: "could not list the worktrees",
+			wantFailed: true,
+		},
+		{
+			name: "a directory whose lock could not be lifted",
+			lay: func(t *testing.T, fixture *worktreeFixture) string {
+				fixture.git.UnlockErr = errors.New("git is not on the path")
+				dir := fixture.cutUnowned(t)
+				fixture.lock(t, dir)
+
+				return dir
+			},
+			wantReason: "could not unlock it",
 			wantFailed: true,
 		},
 		{

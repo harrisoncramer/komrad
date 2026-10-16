@@ -5,6 +5,10 @@ set -eu
 repo="$KOMRAD_WORKTREE_REPO"
 tree="$KOMRAD_WORKTREES_DIR/$KOMRAD_WORKTREE_NAME"
 
+# A lock keeps a git worktree prune run in the person's own checkout from dropping the
+# registration while the directory is out of reach.
+lock_reason="komrad task $KOMRAD_WORKTREE_NAME"
+
 # The directory worktrees are made in can be pointed somewhere else while an agent is already
 # provisioned, and the tree it holds is where its branch is checked out, so a resume goes back
 # to that rather than to wherever worktrees live now. Holding a directory is not the claim: the
@@ -115,12 +119,18 @@ fetch_base() {
 # A directory removed without telling git leaves a registration behind that still claims the
 # branch. Pruning only once something is blocking this add keeps the blast radius small, since
 # a prune drops the registration of every worktree whose directory it cannot see, including one
-# on a volume that is merely unmounted right now.
+# on a volume that is merely unmounted right now. A prune passes over a locked registration, so
+# the ones this task's own trees left behind are unlocked first.
 add_worktree() {
-	if ! git -C "$repo" worktree add "$@" >&2; then
+	if ! git -C "$repo" worktree add --lock --reason "$lock_reason" "$@" >&2; then
 		echo "worktree setup: pruning stale worktree registrations and trying once more" >&2
+		for stale in "$tree" "$KOMRAD_AGENT_CWD"; do
+			if [ "$(basename "$stale")" = "$KOMRAD_WORKTREE_NAME" ] && [ ! -e "$stale" ]; then
+				git -C "$repo" worktree unlock "$stale" 2>/dev/null || true
+			fi
+		done
 		git -C "$repo" worktree prune 2>/dev/null || true
-		git -C "$repo" worktree add "$@" >&2
+		git -C "$repo" worktree add --lock --reason "$lock_reason" "$@" >&2
 	fi
 }
 
@@ -210,6 +220,9 @@ fresh_worktree() {
 
 if [ -d "$tree" ]; then
 	echo "worktree already exists at $tree" >&2
+
+	# One found unlocked is locked now, and git refuses to lock one twice.
+	git -C "$tree" worktree lock --reason "$lock_reason" "$tree" 2>/dev/null || true
 else
 	origin=
 	if git -C "$repo" remote get-url origin >/dev/null 2>&1; then

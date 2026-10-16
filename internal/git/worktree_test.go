@@ -3,10 +3,29 @@
 package git
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// TestIntegrationUnlockWorktreeLetsPruneDropAGoneRegistration covers a locked registration
+// surviving a prune until its lock is lifted.
+func TestIntegrationUnlockWorktreeLetsPruneDropAGoneRegistration(t *testing.T) {
+	root := repo(t)
+	tree := filepath.Join(t.TempDir(), "tree")
+	run(t, root, "worktree", "add", "-q", "--lock", "-b", "feature", tree)
+
+	require.NoError(t, client.UnlockWorktree(t.Context(), root, tree))
+	require.NoError(t, os.RemoveAll(tree))
+	require.NoError(t, client.PruneWorktrees(t.Context(), root))
+
+	listed, err := client.ListWorktrees(t.Context(), root)
+	require.NoError(t, err)
+	assert.Len(t, listed, 1)
+}
 
 // TestIntegrationParseWorktreesReadsTheListing pins the porcelain listing being read as blocks.
 func TestIntegrationParseWorktreesReadsTheListing(t *testing.T) {

@@ -30,6 +30,7 @@ type Removal struct {
 
 type registrar interface {
 	ListWorktrees(ctx context.Context, repo string) ([]git.Worktree, error)
+	UnlockWorktree(ctx context.Context, repo, dir string) error
 	PruneWorktrees(ctx context.Context, repo string) error
 }
 
@@ -88,6 +89,18 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (*Removal, error) {
 			removal.Refused = append(removal.Refused, refusal)
 
 			continue
+		}
+
+		if worktree.Locked {
+			if err := r.git.UnlockWorktree(ctx, worktree.RepoDir, dir); err != nil {
+				removal.Refused = append(removal.Refused, Refusal{
+					Dir:    dir,
+					Reason: fmt.Sprintf("could not unlock it: %v", err),
+					Failed: true,
+				})
+
+				continue
+			}
 		}
 
 		if err := os.RemoveAll(dir); err != nil {
