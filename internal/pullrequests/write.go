@@ -28,15 +28,24 @@ func NewWriter(params NewWriterParams) *Writer {
 	}
 }
 
-// MergePullRequest merges the pull request at the address and heats its host in the pull
-// request sync.
-func (w *Writer) MergePullRequest(ctx context.Context, address string) error {
-	host, f, err := w.forgeFor(ctx, address)
+// PlanPullRequestMerge is the ways the pull request at the address could merge.
+func (w *Writer) PlanPullRequestMerge(ctx context.Context, address string) (*forge.MergePlan, error) {
+	_, f, err := w.forgeFor(ctx, address)
+	if err != nil {
+		return nil, err
+	}
+
+	return f.PlanMerge(ctx, address)
+}
+
+// MergePullRequest merges the pull request and heats its host in the pull request sync.
+func (w *Writer) MergePullRequest(ctx context.Context, params forge.MergeParams) error {
+	host, f, err := w.forgeFor(ctx, params.URL)
 	if err != nil {
 		return err
 	}
 
-	if err := f.Merge(ctx, address); err != nil {
+	if err := f.Merge(ctx, params); err != nil {
 		return err
 	}
 

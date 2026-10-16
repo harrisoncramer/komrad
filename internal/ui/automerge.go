@@ -51,27 +51,20 @@ func autoMergeRefusal(task panel.Task) error {
 	return nil
 }
 
-// toggleAutoMerge asks the forge to merge the task's pull request once its checks and reviews
-// pass, or to stop waiting to, or says why it cannot.
-func (m *model) toggleAutoMerge(task panel.Task) tea.Cmd {
-	if err := autoMergeRefusal(task); err != nil {
-		m.report("Could not change auto-merge on the "+task.PullRequest.Noun()+" of "+task.Slug, err)
-
-		return nil
-	}
-
+// setAutoMerge asks the forge to merge the task's pull request once its checks and reviews pass,
+// or to stop waiting to.
+func (m *model) setAutoMerge(task panel.Task, params mergeParams, on bool) tea.Cmd {
 	clients := m.api
-	standing := task.PullRequest
 	autoMerged := autoMergedMsg{
 		name:  task.Slug,
-		ref:   standing.Ref(),
-		title: standing.Title,
-		on:    !standing.MergeReadiness.AutoMerge,
+		ref:   task.PullRequest.Ref(),
+		title: task.PullRequest.Title,
+		on:    on,
 	}
 	autoMerged.write = m.beginWrite(autoMergingLabel(autoMerged))
 
 	return func() tea.Msg {
-		autoMerged.err = clients.setPullRequestAutoMerge(standing.URL, standing.HeadSHA, autoMerged.on)
+		autoMerged.err = clients.setPullRequestAutoMerge(params, on)
 
 		return autoMerged
 	}

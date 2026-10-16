@@ -28,7 +28,8 @@ type connector interface {
 
 // pullRequestWriter changes a pull request through the connection for its host.
 type pullRequestWriter interface {
-	MergePullRequest(ctx context.Context, address string) error
+	PlanPullRequestMerge(ctx context.Context, address string) (*forge.MergePlan, error)
+	MergePullRequest(ctx context.Context, params forge.MergeParams) error
 	SetPullRequestDraft(ctx context.Context, address string, draft bool) error
 	SetPullRequestAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error
 	RequestPullRequestRereview(ctx context.Context, address string) error

@@ -18,7 +18,7 @@ import (
 type writingForge struct {
 	forge.Forge
 	err        error
-	merged     []string
+	merged     []forge.MergeParams
 	drafted    []drafted
 	autoMerged []forge.SetAutoMergeParams
 	rereviewed []string
@@ -29,8 +29,8 @@ type drafted struct {
 	draft   bool
 }
 
-func (f *writingForge) Merge(_ context.Context, address string) error {
-	f.merged = append(f.merged, address)
+func (f *writingForge) Merge(_ context.Context, params forge.MergeParams) error {
+	f.merged = append(f.merged, params)
 
 	return f.err
 }
@@ -92,7 +92,7 @@ func TestMergePullRequest(t *testing.T) {
 		address    string
 		mergeErr   error
 		wantErr    error
-		wantMerged []string
+		wantMerged []forge.MergeParams
 		wantHeated []string
 	}{
 		{
@@ -110,12 +110,12 @@ func TestMergePullRequest(t *testing.T) {
 			address:    address,
 			mergeErr:   forge.ErrNotMergeable,
 			wantErr:    forge.ErrNotMergeable,
-			wantMerged: []string{address},
+			wantMerged: []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
 		},
 		{
 			name:       "a pull request the forge merges",
 			address:    address,
-			wantMerged: []string{address},
+			wantMerged: []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
 			wantHeated: []string{"github.com"},
 		},
 	}
@@ -126,7 +126,7 @@ func TestMergePullRequest(t *testing.T) {
 			sync := &waketest.Counter{}
 			writer := newTestWriter(t, writing, sync)
 
-			err := writer.MergePullRequest(t.Context(), tt.address)
+			err := writer.MergePullRequest(t.Context(), forge.MergeParams{URL: tt.address, Method: forge.MergeMethodSquash})
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)

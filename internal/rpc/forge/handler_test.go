@@ -81,6 +81,33 @@ func (f *fakeConnector) ListPullRequests(_ context.Context, params forge.ListPul
 	return &f.page, nil
 }
 
+// fakeWriter answers plan and records each merge and auto-merge change asked of it.
+type fakeWriter struct {
+	plan       forge.MergePlan
+	merged     []forge.MergeParams
+	autoMerged []forge.SetAutoMergeParams
+}
+
+func (f *fakeWriter) PlanPullRequestMerge(context.Context, string) (*forge.MergePlan, error) {
+	return &f.plan, nil
+}
+
+func (f *fakeWriter) MergePullRequest(_ context.Context, params forge.MergeParams) error {
+	f.merged = append(f.merged, params)
+
+	return nil
+}
+
+func (f *fakeWriter) SetPullRequestDraft(context.Context, string, bool) error { return nil }
+
+func (f *fakeWriter) SetPullRequestAutoMerge(_ context.Context, params forge.SetAutoMergeParams) error {
+	f.autoMerged = append(f.autoMerged, params)
+
+	return nil
+}
+
+func (f *fakeWriter) RequestPullRequestRereview(context.Context, string) error { return nil }
+
 // TestForgeRefusalsMapToCodes pins the code each refusal reaches the caller as.
 func TestForgeRefusalsMapToCodes(t *testing.T) {
 	listPullRequests := func(remote, cursor string) func(ctx context.Context, service forgev1komrad.ForgeServiceAdapter) error {

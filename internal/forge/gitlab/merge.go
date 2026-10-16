@@ -13,9 +13,14 @@ import (
 	"komrad/lib/xhttp"
 )
 
-// Merge accepts the merge request the way the project is set to merge.
-func (f *Forge) Merge(ctx context.Context, address string) error {
-	path, number, err := parseMergeRequestURL(address)
+// Merge accepts the merge request, squashed or not as asked, or the way the project is set to
+// merge when nothing was.
+func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
+	path, number, err := parseMergeRequestURL(params.URL)
+	if err != nil {
+		return err
+	}
+	body, err := f.mergeBody(ctx, path, number, params)
 	if err != nil {
 		return err
 	}
@@ -24,6 +29,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	answer, err := f.client.Send(ctx, xhttp.JSONParams{
 		Method: http.MethodPut,
 		URL:    endpoint + "/merge",
+		Body:   body,
 	}, nil)
 	if errors.Is(err, forge.ErrThrottled) {
 		return err
@@ -33,7 +39,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	case http.StatusNotFound:
 		return noMergeRequest(number, path)
 	case http.StatusForbidden:
-		return forge.ErrUnauthorized.Saying("gitlab will not let the credential merge %s: %v", address, err)
+		return forge.ErrUnauthorized.Saying("gitlab will not let the credential merge %s: %v", params.URL, err)
 	case http.StatusMethodNotAllowed, http.StatusNotAcceptable, http.StatusConflict, http.StatusUnprocessableEntity:
 		return forge.ErrNotMergeable.Saying("gitlab will not merge !%d: %s", number, f.mergeRefusal(ctx, endpoint, graphql.MessageOf(answer.Body)))
 	}
@@ -109,4 +115,77 @@ func (n mergeRequestNode) mergeability() forge.Mergeability {
 	}
 
 	return forge.MergeabilityBlocked
+}
+
+// joinMessage is a commit message as one text, its headline apart from its body by a blank line.
+func joinMessage(message forge.CommitMessage) string {
+	if message.Body == "" {
+		return message.Headline
+	}
+
+	return message.Headline + "\n\n" + message.Body
+}
+
+// mergeBody is the REST fields that say how a merge request merges, empty to leave it to the
+// project.
+func (f *Forge) mergeBody(ctx context.Context, path string, number int, params forge.MergeParams) (map[string]any, error) {
+	body := map[string]any{}
+	switch params.Method {
+	case "":
+	case forge.MergeMethodSquash:
+		body["squash"] = true
+	case forge.MergeMethodMerge, forge.MergeMethodFastForward:
+		body["squash"] = false
+	case forge.MergeMethodRebase:
+		return nil, forge.ErrNoMergeMethod.Saying("gitlab cannot merge by %s", params.Method)
+	}
+
+	message, err := f.commitMessage(ctx, path, number, params)
+	if err != nil {
+		return nil, err
+	}
+	if message != "" {
+		field := "merge_commit_message"
+		if params.Method == forge.MergeMethodSquash {
+			field = "squash_commit_message"
+		}
+		body[field] = message
+	}
+	if params.HeadSHA != "" {
+		body["sha"] = params.HeadSHA
+	}
+
+	return body, nil
+}
+
+// commitMessage is the merge's commit message as one text, any part left unset read from the
+// one GitLab would write, and empty when both are unset.
+func (f *Forge) commitMessage(ctx context.Context, path string, number int, params forge.MergeParams) (string, error) {
+	if params.Headline == nil && params.Body == nil {
+		return "", nil
+	}
+
+	var message forge.CommitMessage
+	if params.Headline == nil || params.Body == nil {
+		target, err := f.readPlanTarget(ctx, path, number)
+		if err != nil {
+			return "", err
+		}
+
+		written := target.DefaultMergeCommitMessage
+		if params.Method == forge.MergeMethodSquash {
+			written = target.DefaultSquashCommitMessage
+		}
+		if split := splitMessage(written); split != nil {
+			message = *split
+		}
+	}
+	if params.Headline != nil {
+		message.Headline = *params.Headline
+	}
+	if params.Body != nil {
+		message.Body = *params.Body
+	}
+
+	return joinMessage(message), nil
 }

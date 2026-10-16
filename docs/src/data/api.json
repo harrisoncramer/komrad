@@ -1472,6 +1472,22 @@
           "response": "forge.v1.ListForgePullRequestsResponse"
         },
         {
+          "slug": "plan-forge-pull-request-merge",
+          "name": "PlanForgePullRequestMerge",
+          "path": "/forge.v1.ForgeService/PlanForgePullRequestMerge",
+          "command": "komrad rpc plan-forge-pull-request-merge",
+          "tool": "plan_forge_pull_request_merge",
+          "mcp": false,
+          "roles": [],
+          "summary": "Read the merge methods a pull request's forge offers, whether its base branch allows each, and the commit message the forge would write for each.",
+          "description": "Read the merge methods a pull request's forge offers, whether its base branch allows each, and the commit message the forge would write for each.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "forge.v1.PlanForgePullRequestMergeRequest",
+          "response": "forge.v1.PlanForgePullRequestMergeResponse"
+        },
+        {
           "slug": "merge-forge-pull-request",
           "name": "MergeForgePullRequest",
           "path": "/forge.v1.ForgeService/MergeForgePullRequest",
@@ -1479,8 +1495,8 @@
           "tool": "merge_forge_pull_request",
           "mcp": false,
           "roles": [],
-          "summary": "Merge a pull request on its forge, with the repository's default merge method.",
-          "description": "Merge a pull request on its forge, with the repository's default merge method.",
+          "summary": "Merge a pull request on its forge, by the method and with the message asked for.",
+          "description": "Merge a pull request on its forge, by the method and with the message asked for. Without a method, the forge merges by one the base branch allows, and without a message it writes its own.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
@@ -6757,6 +6773,32 @@
         }
       ]
     },
+    "forge.v1.CommitMessage": {
+      "name": "CommitMessage",
+      "description": "CommitMessage is the text of the commit a merge writes.",
+      "fields": [
+        {
+          "name": "headline",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit's first line."
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The rest of the commit's message. Empty writes a headline alone."
+        }
+      ]
+    },
     "forge.v1.DisconnectForgeRequest": {
       "name": "DisconnectForgeRequest",
       "description": "",
@@ -7180,6 +7222,143 @@
             "at most 2048 characters"
           ],
           "description": "The pull request to merge, by web address. The address's host picks the forge connection."
+        },
+        {
+          "name": "method",
+          "type": "MergeMethod",
+          "ref": "forge.v1.MergeMethod",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How the pull request merges. Unspecified merges by a method the base branch allows."
+        },
+        {
+          "name": "headline",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 1024 characters"
+          ],
+          "description": "The first line of the commit the merge writes. Unset leaves it to the forge."
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 65536 characters"
+          ],
+          "description": "The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a headline alone."
+        },
+        {
+          "name": "head_sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 64 characters"
+          ],
+          "description": "The head commit the caller expects. The forge refuses to merge once the branch has moved past it. Empty accepts any head."
+        }
+      ]
+    },
+    "forge.v1.MergeOption": {
+      "name": "MergeOption",
+      "description": "MergeOption is one way a pull request could merge.",
+      "fields": [
+        {
+          "name": "method",
+          "type": "MergeMethod",
+          "ref": "forge.v1.MergeMethod",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The merge method."
+        },
+        {
+          "name": "allowed",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the repository and the pull request's base branch allow the method."
+        },
+        {
+          "name": "message",
+          "type": "CommitMessage",
+          "ref": "forge.v1.CommitMessage",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The message the forge writes for the method by itself. Unset for a method that writes no commit of its own."
+        }
+      ]
+    },
+    "forge.v1.PlanForgePullRequestMergeRequest": {
+      "name": "PlanForgePullRequestMergeRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required",
+            "at most 2048 characters"
+          ],
+          "description": "The pull request to plan, by web address. The address's host picks the forge connection."
+        }
+      ]
+    },
+    "forge.v1.PlanForgePullRequestMergeResponse": {
+      "name": "PlanForgePullRequestMergeResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "options",
+          "type": "MergeOption",
+          "ref": "forge.v1.MergeOption",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Every merge method the forge offers for the pull request, in the forge's order."
+        },
+        {
+          "name": "default_method",
+          "type": "MergeMethod",
+          "ref": "forge.v1.MergeMethod",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The method the pull request merges by when a merge names none."
+        },
+        {
+          "name": "head_sha",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The pull request's head commit when the plan was read."
         }
       ]
     },
@@ -7240,6 +7419,40 @@
           "oneof": "",
           "rules": [],
           "description": "Whether the pull request merges by itself once its checks and reviews pass."
+        },
+        {
+          "name": "method",
+          "type": "MergeMethod",
+          "ref": "forge.v1.MergeMethod",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How the pull request merges once it may. Unspecified merges by a method the base branch allows."
+        },
+        {
+          "name": "headline",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 1024 characters"
+          ],
+          "description": "The first line of the commit the merge writes. Unset leaves it to the forge."
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 65536 characters"
+          ],
+          "description": "The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a headline alone."
         }
       ]
     },
@@ -10994,6 +11207,28 @@
         {
           "name": "REVIEW_VERDICT_COMMENTED",
           "description": "Comments with no conclusion either way."
+        }
+      ]
+    },
+    "forge.v1.MergeMethod": {
+      "name": "MergeMethod",
+      "description": "MergeMethod is how a pull request's commits land on its base branch.",
+      "values": [
+        {
+          "name": "MERGE_METHOD_MERGE",
+          "description": "The commits land under a merge commit."
+        },
+        {
+          "name": "MERGE_METHOD_SQUASH",
+          "description": "The commits land as one new commit."
+        },
+        {
+          "name": "MERGE_METHOD_REBASE",
+          "description": "The commits are replayed onto the base branch one by one."
+        },
+        {
+          "name": "MERGE_METHOD_FAST_FORWARD",
+          "description": "The base branch moves to the head commit, with no commit of its own."
         }
       ]
     },

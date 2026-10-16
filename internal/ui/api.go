@@ -220,24 +220,54 @@ func (a api) deleteTasks(ids []string) error {
 	})
 }
 
-// mergePullRequest asks the forge to merge the pull request at the address.
-func (a api) mergePullRequest(address string) error {
+// planPullRequestMerge asks the forge how the pull request at the address could merge.
+func (a api) planPullRequestMerge(address string) (*forgev1.PlanForgePullRequestMergeResponse, error) {
+	return call(mergeTimeout, func(ctx context.Context) (*forgev1.PlanForgePullRequestMergeResponse, error) {
+		resp, err := a.forges.PlanForgePullRequestMerge(ctx, connect.NewRequest(&forgev1.PlanForgePullRequestMergeRequest{Url: address}))
+		if err != nil {
+			return nil, err
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+// mergeParams is a pull request to merge and how, refused by the forge once its head has moved
+// past headSHA.
+type mergeParams struct {
+	url      string
+	method   forgev1.MergeMethod
+	headline *string
+	body     *string
+	headSHA  string
+}
+
+// mergePullRequest asks the forge to merge the pull request.
+func (a api) mergePullRequest(params mergeParams) error {
 	_, err := call(mergeTimeout, func(ctx context.Context) (any, error) {
-		return a.forges.MergeForgePullRequest(ctx, connect.NewRequest(&forgev1.MergeForgePullRequestRequest{Url: address}))
+		return a.forges.MergeForgePullRequest(ctx, connect.NewRequest(&forgev1.MergeForgePullRequestRequest{
+			Url:      params.url,
+			Method:   params.method,
+			Headline: params.headline,
+			Body:     params.body,
+			HeadSha:  params.headSHA,
+		}))
 	})
 
 	return err
 }
 
-// setPullRequestAutoMerge asks the forge to merge the pull request at the address on its own once
-// its checks and reviews pass, or to stop waiting to, refusing when its head has moved past
-// headSHA.
-func (a api) setPullRequestAutoMerge(address, headSHA string, on bool) error {
+// setPullRequestAutoMerge asks the forge to merge the pull request on its own once its checks and
+// reviews pass, or to stop waiting to.
+func (a api) setPullRequestAutoMerge(params mergeParams, on bool) error {
 	_, err := call(autoMergeTimeout, func(ctx context.Context) (any, error) {
 		return a.forges.SetForgePullRequestAutoMerge(ctx, connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
-			Url:     address,
-			HeadSha: headSHA,
-			On:      on,
+			Url:      params.url,
+			HeadSha:  params.headSHA,
+			On:       on,
+			Method:   params.method,
+			Headline: params.headline,
+			Body:     params.body,
 		}))
 	})
 

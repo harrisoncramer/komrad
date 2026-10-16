@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/forge"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,10 +20,31 @@ func TestSetAutoMerge(t *testing.T) {
 	target := func(state, request string) answer {
 		return answer{body: data(`{
 	"repository": {
-		"viewerDefaultMergeMethod": "SQUASH",
+		"viewerDefaultMergeMethod": "MERGE",
+		"mergeCommitAllowed": true,
+		"squashMergeAllowed": true,
+		"rebaseMergeAllowed": true,
 		"pullRequest": {
 			"id": "PR_742",
 			"state": "` + state + `",
+			"baseRef": {
+				"branchProtectionRule": {
+					"requiresLinearHistory": true
+				},
+				"rules": {
+					"nodes": [
+						{
+							"type": "PULL_REQUEST",
+							"parameters": {
+								"allowedMergeMethods": [
+									"MERGE",
+									"REBASE"
+								]
+							}
+						}
+					]
+				}
+			},
 			"autoMergeRequest": ` + request + `
 		}
 	}
@@ -86,7 +108,7 @@ func TestSetAutoMerge(t *testing.T) {
 			wantVariables: map[string]any{"owner": "harrisoncramer", "name": "komrad", "number": float64(742)},
 		},
 		{
-			name: "an open pull request is queued with the default method at the head the person saw",
+			name: "an open pull request is queued with the method its base branch allows at the head the person saw",
 			params: forge.SetAutoMergeParams{
 				URL:     address,
 				HeadSHA: "abc123",
@@ -101,7 +123,26 @@ func TestSetAutoMerge(t *testing.T) {
 }`)},
 			},
 			wantOperation: "EnableAutoMerge",
-			wantVariables: map[string]any{"id": "PR_742", "method": "SQUASH", "head": "abc123"},
+			wantVariables: map[string]any{"id": "PR_742", "method": "REBASE", "headline": nil, "body": nil, "head": "abc123"},
+		},
+		{
+			name: "an open pull request is queued by the method and message asked for",
+			params: forge.SetAutoMergeParams{
+				URL:      address,
+				On:       true,
+				Method:   forge.MergeMethodMerge,
+				Headline: xptr.Ptr("Land the fix"),
+			},
+			answers: map[string]answer{
+				"AutoMergeTarget": target("OPEN", "null"),
+				"EnableAutoMerge": {body: data(`{
+	"enablePullRequestAutoMerge": {
+		"clientMutationId": null
+	}
+}`)},
+			},
+			wantOperation: "EnableAutoMerge",
+			wantVariables: map[string]any{"id": "PR_742", "method": "MERGE", "headline": "Land the fix", "body": nil, "head": nil},
 		},
 		{
 			name:   "a queued pull request is withdrawn",

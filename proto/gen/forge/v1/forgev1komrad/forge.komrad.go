@@ -22,6 +22,7 @@ type ForgeServiceImpl interface {
 	ListForges(context.Context, *emptypb.Empty) (*v1.ListForgesResponse, *fail.Error)
 	CheckForges(context.Context, *emptypb.Empty) (*v1.CheckForgesResponse, *fail.Error)
 	ListForgePullRequests(context.Context, *v1.ListForgePullRequestsRequest) (*v1.ListForgePullRequestsResponse, *fail.Error)
+	PlanForgePullRequestMerge(context.Context, *v1.PlanForgePullRequestMergeRequest) (*v1.PlanForgePullRequestMergeResponse, *fail.Error)
 	MergeForgePullRequest(context.Context, *v1.MergeForgePullRequestRequest) (*emptypb.Empty, *fail.Error)
 	SetForgePullRequestDraft(context.Context, *v1.SetForgePullRequestDraftRequest) (*emptypb.Empty, *fail.Error)
 	SetForgePullRequestAutoMerge(context.Context, *v1.SetForgePullRequestAutoMergeRequest) (*emptypb.Empty, *fail.Error)
@@ -53,6 +54,11 @@ func (a ForgeServiceAdapter) CheckForges(ctx context.Context, req *connect.Reque
 // ListForgePullRequests answers the request as connect serves it.
 func (a ForgeServiceAdapter) ListForgePullRequests(ctx context.Context, req *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error) {
 	return rpcerr.Answer(a.Impl.ListForgePullRequests(ctx, req.Msg))
+}
+
+// PlanForgePullRequestMerge answers the request as connect serves it.
+func (a ForgeServiceAdapter) PlanForgePullRequestMerge(ctx context.Context, req *connect.Request[v1.PlanForgePullRequestMergeRequest]) (*connect.Response[v1.PlanForgePullRequestMergeResponse], error) {
+	return rpcerr.Answer(a.Impl.PlanForgePullRequestMerge(ctx, req.Msg))
 }
 
 // MergeForgePullRequest answers the request as connect serves it.

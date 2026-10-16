@@ -500,6 +500,8 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applyDrafted(msg), true
 	case rereviewedMsg:
 		return m.applyRereviewed(msg), true
+	case mergePlannedMsg:
+		return m.applyMergePlanned(msg), true
 	case autoMergedMsg:
 		return m.applyAutoMerged(msg), true
 	case formFieldEditedMsg:

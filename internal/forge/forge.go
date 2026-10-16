@@ -26,6 +26,9 @@ var ErrUnauthorized = fail.Denied("the forge refused the credential")
 // ErrNotMergeable says the forge refused to merge a pull request.
 var ErrNotMergeable = fail.Precondition("the forge will not merge the pull request")
 
+// ErrNoMergeMethod says the forge has no merge method by the name asked for.
+var ErrNoMergeMethod = fail.InvalidArgument("the forge has no such merge method")
+
 // ErrNotDraftable says the forge refused to change whether a pull request is a draft.
 var ErrNotDraftable = fail.Precondition("the forge will not change whether the pull request is a draft")
 
@@ -328,8 +331,11 @@ type Forge interface {
 	ReadBranches(ctx context.Context, repo git.RemoteURL, branches []string) (*Reading, error)
 	// ReviewThreads is the review threads on one pull request with the comments they hold.
 	ReviewThreads(ctx context.Context, repo git.RemoteURL, number int) (*Threads, error)
-	// Merge lands the pull request at the web address on its base.
-	Merge(ctx context.Context, url string) error
+	// PlanMerge is the ways the pull request at the web address could merge, each with the
+	// message the forge would write for it.
+	PlanMerge(ctx context.Context, url string) (*MergePlan, error)
+	// Merge lands the pull request on its base.
+	Merge(ctx context.Context, params MergeParams) error
 	// SetDraft marks the pull request at the web address a draft, or ready for review.
 	SetDraft(ctx context.Context, url string, draft bool) error
 	// SetAutoMerge asks the forge to merge the pull request once its checks and reviews pass, or
@@ -358,6 +364,12 @@ type SetAutoMergeParams struct {
 	// moved past it, empty to queue whatever the head is.
 	HeadSHA string
 	On      bool
+	// Method is how to merge once allowed, empty for the default method PlanMerge names.
+	Method MergeMethod
+	// Headline is the first line of the commit, nil to leave it to the forge.
+	Headline *string
+	// Body is the rest of the commit, nil to leave it to the forge.
+	Body *string
 }
 
 // ListParams says which pull requests to list and where in them to start.

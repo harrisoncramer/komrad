@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	_ "embed"
+	"maps"
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
@@ -17,7 +18,7 @@ var enableAutoMergeMutation string
 //go:embed disableautomerge.gql
 var disableAutoMergeMutation string
 
-// SetAutoMerge asks GitHub to merge the pull request with the credential's default method once
+// SetAutoMerge asks GitHub to merge the pull request with a method its base branch allows once
 // it may, holding it to the head the person saw, or withdraws that request, asking nothing of
 // GitHub when it already stands that way.
 func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
@@ -45,8 +46,14 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	mutation := disableAutoMergeMutation
 	variables := map[string]any{"id": target.ID}
 	if params.On {
+		method, err := target.settings.methodFor(target.BaseRef, params.Method)
+		if err != nil {
+			return err
+		}
+
 		mutation = enableAutoMergeMutation
-		variables["method"] = target.method
+		maps.Copy(variables, messageVariables(params.Headline, params.Body))
+		variables["method"] = method
 		variables["head"] = xptr.NonEmpty(params.HeadSHA)
 	}
 
@@ -63,8 +70,8 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 func (f *Forge) readAutoMergeTarget(ctx context.Context, owner, name string, number int) (*autoMergeTarget, error) {
 	var data struct {
 		Repository *struct {
-			ViewerDefaultMergeMethod string           `json:"viewerDefaultMergeMethod"`
-			PullRequest              *autoMergeTarget `json:"pullRequest"`
+			mergeSettings
+			PullRequest *autoMergeTarget `json:"pullRequest"`
 		} `json:"repository"`
 	}
 	answer, err := f.client.Query(ctx, autoMergeTargetQuery, map[string]any{
@@ -83,18 +90,19 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, owner, name string, num
 	}
 
 	target := data.Repository.PullRequest
-	target.method = data.Repository.ViewerDefaultMergeMethod
+	target.settings = data.Repository.mergeSettings
 
 	return target, nil
 }
 
-// autoMergeTarget is a pull request whose auto-merge is about to change, with the method the
-// credential merges with by default.
+// autoMergeTarget is a pull request whose auto-merge is about to change, with the merge methods
+// its repository allows.
 type autoMergeTarget struct {
 	ID               string    `json:"id"`
 	State            string    `json:"state"`
+	BaseRef          *baseRef  `json:"baseRef"`
 	AutoMergeRequest *struct{} `json:"autoMergeRequest"`
-	method           string
+	settings         mergeSettings
 }
 
 // autoMerge is whether the pull request carries an auto-merge request and whether the
