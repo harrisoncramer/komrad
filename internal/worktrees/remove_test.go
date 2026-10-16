@@ -21,8 +21,14 @@ func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
 		name   string
 		locked bool
 	}{
-		{name: "an unlocked directory"},
-		{name: "a locked directory", locked: true},
+		{
+			name:   "an unlocked directory",
+			locked: false,
+		},
+		{
+			name:   "a locked directory",
+			locked: true,
+		},
 	}
 
 	for _, tt := range tests {
