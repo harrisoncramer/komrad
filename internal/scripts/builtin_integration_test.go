@@ -4,6 +4,7 @@ package scripts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -40,6 +41,7 @@ func TestIntegrationBuiltinWorktreeSetup(t *testing.T) {
 	assert.Equal(t, filepath.Join(worktreesDir, "task-a"), tree)
 	assertIsDir(t, tree)
 	assertBranch(t, tree, "task/task-a")
+	assert.Equal(t, "komrad task task-a", readLockReason(t, tree), "the registration is locked for its task")
 
 	envContent, err := os.ReadFile(filepath.Join(tree, ".env"))
 	require.NoError(t, err)
@@ -77,6 +79,30 @@ func TestIntegrationBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	listed, err := exec.Command("git", "-C", repo, "worktree", "list").Output()
 	require.NoError(t, err)
 	assert.Equal(t, 1, strings.Count(string(listed), tree), "only one worktree exists after the resume")
+	assert.Equal(t, "komrad task task-b", readLockReason(t, tree), "the worktree stays locked across the resume")
+}
+
+// TestIntegrationBuiltinWorktreeSetupOnResumeLocksAnUnlockedTree covers a worktree whose lock is
+// gone getting it back the next time its agent opens.
+func TestIntegrationBuiltinWorktreeSetupOnResumeLocksAnUnlockedTree(t *testing.T) {
+	repo := initRepo(t)
+	env := worktreeEnv{
+		taskID:       "task-unlocked",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	}
+
+	first, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", first.Stderr)
+	tree := strings.TrimSpace(string(first.Stdout))
+	runGit(t, repo, "worktree", "unlock", tree)
+
+	env.trigger = "agent.resume"
+	env.agentCwd = tree
+	second, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", second.Stderr)
+
+	assert.Equal(t, "komrad task task-unlocked", readLockReason(t, tree))
 }
 
 // TestIntegrationBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo covers a resume, where the agent's
@@ -183,7 +209,7 @@ func TestIntegrationBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBran
 	require.NoError(t, err, "stderr: %s", first.Stderr)
 	tree := strings.TrimSpace(string(first.Stdout))
 
-	runGit(t, repo, "worktree", "remove", "--force", tree)
+	runGit(t, repo, "worktree", "remove", "--force", "--force", tree)
 	env.trigger = "agent.resume"
 	env.agentCwd = tree
 
@@ -709,6 +735,47 @@ func TestIntegrationBuiltinWorktreeCleanup(t *testing.T) {
 	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "task/task-f").Output()
 	require.NoError(t, err)
 	assert.Empty(t, strings.TrimSpace(string(branches)), "the branch is gone")
+}
+
+// TestIntegrationBuiltinWorktreeCleanupRemovesATreeWhoseLockIsGone covers a person having unlocked
+// the worktree before komrad gives it back.
+func TestIntegrationBuiltinWorktreeCleanupRemovesATreeWhoseLockIsGone(t *testing.T) {
+	repo := initRepo(t)
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		taskID:       "task-lock-gone",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+	runGit(t, repo, "worktree", "unlock", tree)
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-lock-gone", repo: repo, agentCwd: tree})
+	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
+
+	assert.NoDirExists(t, tree)
+	assert.Empty(t, readBranchList(t, repo, "task/task-lock-gone"))
+}
+
+// TestIntegrationBuiltinWorktreeCleanupDropsTheRegistrationOfATreeRemovedByHand covers the locked
+// registration a deleted directory leaves, which no prune takes away.
+func TestIntegrationBuiltinWorktreeCleanupDropsTheRegistrationOfATreeRemovedByHand(t *testing.T) {
+	repo := initRepo(t)
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		taskID:       "task-by-hand",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+	require.NoError(t, os.RemoveAll(tree))
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-by-hand", repo: repo, agentCwd: tree})
+	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
+
+	listed, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
+	require.NoError(t, err)
+	assert.NotContains(t, string(listed), "task-by-hand", "the registration is gone")
 }
 
 // TestIntegrationBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone covers what docs/scripts.md requires
@@ -1322,6 +1389,21 @@ func readBranchList(t *testing.T, repo, name string) string {
 	require.NoError(t, err)
 
 	return strings.TrimSpace(string(out))
+}
+
+func readLockReason(t *testing.T, tree string) string {
+	t.Helper()
+
+	gitDir, err := exec.Command("git", "-C", tree, "rev-parse", "--absolute-git-dir").Output()
+	require.NoError(t, err)
+
+	reason, err := os.ReadFile(filepath.Join(strings.TrimSpace(string(gitDir)), "locked"))
+	if errors.Is(err, os.ErrNotExist) {
+		return ""
+	}
+	require.NoError(t, err)
+
+	return strings.TrimSpace(string(reason))
 }
 
 func assertBranch(t *testing.T, tree, want string) {

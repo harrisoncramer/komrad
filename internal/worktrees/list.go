@@ -51,6 +51,8 @@ type Worktree struct {
 	Branch string
 	// Readable says the gitdir the .git file names is still there.
 	Readable bool
+	// Locked says git holds a lock on the directory's registration.
+	Locked bool
 	// Task is the task whose checkout the directory is, nil when none answers.
 	Task *Task
 	// Occupants are the agents working in the directory, live ones first.
@@ -329,6 +331,7 @@ func read(dir string) Worktree {
 		return worktree
 	}
 	worktree.Readable = true
+	worktree.Locked = isLocked(gitdir)
 
 	worktree.Branch = readBranch(gitdir)
 
@@ -354,6 +357,13 @@ func readGitdir(dir string) string {
 // repoOf is the repository a gitdir belongs to, which git keeps as <repo>/.git/worktrees/<name>.
 func repoOf(gitdir string) string {
 	return filepath.Dir(filepath.Dir(filepath.Dir(gitdir)))
+}
+
+// isLocked reports whether git has locked the registration a gitdir holds.
+func isLocked(gitdir string) bool {
+	_, err := os.Stat(filepath.Join(gitdir, "locked"))
+
+	return err == nil
 }
 
 // readBranch is the branch a gitdir's HEAD names, empty for a detached head.

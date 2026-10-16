@@ -6,6 +6,15 @@ tree="$KOMRAD_AGENT_CWD"
 branch="$KOMRAD_WORKTREE_BRANCH"
 adopted="${KOMRAD_WORKTREE_ADOPT_BRANCH:-}"
 
+# A directory removed by hand leaves its registration locked, which no prune drops.
+if [ ! -e "$tree" ]; then
+	if [ "$(basename "$tree")" = "$KOMRAD_WORKTREE_NAME" ] && [ -n "${KOMRAD_WORKTREE_REPO:-}" ]; then
+		git -C "$KOMRAD_WORKTREE_REPO" worktree unlock "$tree" 2>/dev/null || true
+		git -C "$KOMRAD_WORKTREE_REPO" worktree remove --force "$tree" 2>/dev/null || true
+	fi
+	exit 0
+fi
+
 if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
 	exit 0
 fi
@@ -61,6 +70,7 @@ if [ -n "$dirty" ]; then
 	printf '%s\n' "$dirty" >&2
 fi
 
+git -C "$repo" worktree unlock "$tree" 2>/dev/null || true
 if ! git -C "$repo" worktree remove --force "$tree" >&2; then
 	echo "worktree cleanup: could not remove $tree, so the branch $branch is being left with it" >&2
 	exit 1

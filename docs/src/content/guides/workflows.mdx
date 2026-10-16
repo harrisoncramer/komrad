@@ -101,7 +101,7 @@ The workflow's context comes after your <Setting path="context">global context</
 
 ## Worktrees
 
-Komrad has first-class support for [git worktrees](https://git-scm.com/docs/git-worktree). Set the workflow's provisioner to worktree and each new task gets a worktree of its own, cut from the workflow's base branch. Every agent on that task works inside it, isolated from every other task. Deleting the task removes the worktree.
+Komrad has first-class support for [git worktrees](https://git-scm.com/docs/git-worktree). Set the workflow's provisioner to worktree and each new task gets a worktree of its own, cut from the workflow's base branch. Every agent on that task works inside it, isolated from every other task. Komrad locks each worktree, so a `git worktree prune` in your own checkout keeps its registration. Deleting the task unlocks and removes the worktree.
 
 Komrad puts worktrees in <Setting path="worktrees.dir" /> unless the workflow names a directory of its own. The worktree section of the workflow's settings also lists files to copy or link into each new worktree, such as a `.env` file git does not track.
 

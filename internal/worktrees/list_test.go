@@ -601,6 +601,13 @@ func (f *worktreeFixture) cutAs(t *testing.T, name, branch string) string {
 	return dir
 }
 
+// lock writes the lock git keeps in a worktree's gitdir.
+func (f *worktreeFixture) lock(t *testing.T, dir string) {
+	t.Helper()
+
+	write(t, filepath.Join(f.repo, ".git", "worktrees", filepath.Base(dir)), "locked", "komrad task "+filepath.Base(dir))
+}
+
 func (f *worktreeFixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 

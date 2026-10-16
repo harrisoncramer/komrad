@@ -15,18 +15,42 @@ import (
 )
 
 // TestRemoveTakesAnUnownedDirectoryAndPrunesIt covers komrad removing a readable worktree no task
-// owns and pruning its repository.
+// owns, lifting its lock when it has one, and pruning its repository.
 func TestRemoveTakesAnUnownedDirectoryAndPrunesIt(t *testing.T) {
-	fixture := newFixture(t)
-	dir := fixture.cutUnowned(t)
+	tests := []struct {
+		name   string
+		locked bool
+	}{
+		{
+			name:   "an unlocked directory",
+			locked: false,
+		},
+		{
+			name:   "a locked directory",
+			locked: true,
+		},
+	}
 
-	removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newFixture(t)
+			dir := fixture.cutUnowned(t)
+			var wantUnlocked []string
+			if tt.locked {
+				fixture.lock(t, dir)
+				wantUnlocked = []string{dir}
+			}
 
-	assert.Equal(t, []string{dir}, removal.Removed)
-	assert.Empty(t, removal.Refused)
-	assert.NoDirExists(t, dir)
-	assert.Equal(t, []string{fixture.repo}, fixture.git.Pruned)
+			removal, err := fixture.newRemover().Remove(t.Context(), []string{dir})
+			require.NoError(t, err)
+
+			assert.Equal(t, []string{dir}, removal.Removed)
+			assert.Empty(t, removal.Refused)
+			assert.NoDirExists(t, dir)
+			assert.Equal(t, wantUnlocked, fixture.git.Unlocked)
+			assert.Equal(t, []string{fixture.repo}, fixture.git.Pruned)
+		})
+	}
 }
 
 // TestRemoveTakesAGoneRegistrationWithoutPruning covers komrad removing a directory git cannot
@@ -132,6 +156,18 @@ func TestRemoveRefuses(t *testing.T) {
 				return fixture.cutUnowned(t)
 			},
 			wantReason: "could not list the worktrees",
+			wantFailed: true,
+		},
+		{
+			name: "a directory whose lock could not be lifted",
+			lay: func(t *testing.T, fixture *worktreeFixture) string {
+				fixture.git.UnlockErr = errors.New("git is not on the path")
+				dir := fixture.cutUnowned(t)
+				fixture.lock(t, dir)
+
+				return dir
+			},
+			wantReason: "could not unlock it",
 			wantFailed: true,
 		},
 		{

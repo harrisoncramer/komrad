@@ -30,6 +30,7 @@ type Removal struct {
 
 type registrar interface {
 	ListWorktrees(ctx context.Context, repo string) ([]git.Worktree, error)
+	UnlockWorktree(ctx context.Context, repo, dir string) error
 	PruneWorktrees(ctx context.Context, repo string) error
 }
 
@@ -85,6 +86,12 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (*Removal, error) {
 		worktree := listing.Worktrees[at]
 
 		if refusal, refused := r.refuseRegistered(ctx, worktree); refused {
+			removal.Refused = append(removal.Refused, refusal)
+
+			continue
+		}
+
+		if refusal, refused := r.refuseLocked(ctx, worktree); refused {
 			removal.Refused = append(removal.Refused, refusal)
 
 			continue
@@ -172,6 +179,23 @@ func (r *Remover) refuseRegistered(ctx context.Context, worktree Worktree) (Refu
 		return Refusal{
 			Dir:    worktree.Dir,
 			Reason: fmt.Sprintf("it holds the worktree %s; remove that first", registered[nested].Dir),
+		}, true
+	}
+
+	return Refusal{}, false
+}
+
+// refuseLocked lifts the lock on a directory's registration, refusing the directory when git cannot.
+func (r *Remover) refuseLocked(ctx context.Context, worktree Worktree) (Refusal, bool) {
+	if !worktree.Locked {
+		return Refusal{}, false
+	}
+
+	if err := r.git.UnlockWorktree(ctx, worktree.RepoDir, worktree.Dir); err != nil {
+		return Refusal{
+			Dir:    worktree.Dir,
+			Reason: fmt.Sprintf("could not unlock it: %v", err),
+			Failed: true,
 		}, true
 	}
 
