@@ -252,7 +252,6 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				"KOMRAD_WORKTREE_SYMLINK_PATHS",
 				"KOMRAD_WORKTREE_NAME",
 				"KOMRAD_WORKTREE_BRANCH",
-				"KOMRAD_WORKTREE_MISE_INSTALL",
 			},
 		},
 		{
@@ -273,7 +272,6 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				"KOMRAD_WORKTREE_ADOPT_BRANCH",
 				"KOMRAD_WORKTREE_NAME",
 				"KOMRAD_WORKTREE_BRANCH",
-				"KOMRAD_WORKTREE_MISE_INSTALL",
 			},
 		},
 	}
@@ -325,7 +323,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			}
 
 			if len(tt.wantKeys) == 0 {
-				for _, key := range []string{"KOMRAD_WORKTREE_REPO", "KOMRAD_WORKTREES_DIR", "KOMRAD_WORKTREE_BASE_BRANCH", "KOMRAD_WORKTREE_COPY_PATHS", "KOMRAD_WORKTREE_SYMLINK_PATHS", "KOMRAD_WORKTREE_NAME", "KOMRAD_WORKTREE_BRANCH", "KOMRAD_WORKTREE_MISE_INSTALL"} {
+				for _, key := range []string{"KOMRAD_WORKTREE_REPO", "KOMRAD_WORKTREES_DIR", "KOMRAD_WORKTREE_BASE_BRANCH", "KOMRAD_WORKTREE_COPY_PATHS", "KOMRAD_WORKTREE_SYMLINK_PATHS", "KOMRAD_WORKTREE_NAME", "KOMRAD_WORKTREE_BRANCH"} {
 					_, ok := values[key]
 					assert.False(t, ok, "%s is not set for a workflow with worktree support off", key)
 				}
@@ -347,7 +345,6 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 
 			assert.Equal(t, *seeded.TaskID, values["KOMRAD_WORKTREE_NAME"])
 			assert.Equal(t, "task/"+*seeded.TaskID, values["KOMRAD_WORKTREE_BRANCH"])
-			assert.Equal(t, "false", values["KOMRAD_WORKTREE_MISE_INSTALL"])
 		})
 	}
 }

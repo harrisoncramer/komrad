@@ -252,8 +252,8 @@ else
 	apply_paths "$KOMRAD_WORKTREE_SYMLINK_PATHS" symlink || true
 fi
 
-if [ "$KOMRAD_WORKTREE_MISE_INSTALL" = true ]; then
-	(cd "$tree" && mise install) >&2
+if command -v mise >/dev/null 2>&1; then
+	(cd "$tree" && MISE_TRUSTED_CONFIG_PATHS="$tree" mise install) >&2
 fi
 
 printf '%s' "$tree" >"$KOMRAD_SETUP_DIR_FILE"

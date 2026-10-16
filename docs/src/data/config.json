@@ -1851,13 +1851,6 @@
           "type": "string",
           "description": "Directory that holds generated worktrees, one subdirectory per agent.\nLeft empty this is ~/.local/state/komrad/worktrees.",
           "default": "\"\""
-        },
-        {
-          "key": "mise_install",
-          "path": "worktrees.mise_install",
-          "type": "boolean",
-          "description": "Whether komrad runs `mise install` in each worktree it sets up or resumes, so the tools the\nrepository pins are there before the agent starts. mise refuses a config it does not trust,\nso the worktrees directory has to be in mise's trusted_config_paths.",
-          "default": "false"
         }
       ],
       "sections": []

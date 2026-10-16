@@ -1,3 +1,2 @@
 [worktrees]
 dir = "/var/lib/komrad/worktrees"
-mise_install = true
