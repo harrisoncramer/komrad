@@ -131,6 +131,22 @@ func TestRunTerminalKeepsAQuietStreamOpen(t *testing.T) {
 	typed, typing := io.Pipe()
 	t.Cleanup(func() { _ = typing.Close() })
 
+	released := make(chan struct{})
+	asked := 0
+	token := func(ctx context.Context) (string, error) {
+		asked++
+		if asked == 1 {
+			return "fresh", nil
+		}
+
+		select {
+		case <-released:
+			return "fresh", nil
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
+
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
@@ -138,7 +154,7 @@ func TestRunTerminalKeepsAQuietStreamOpen(t *testing.T) {
 	go func() {
 		_, err := runTerminal(ctx, runTerminalParams{
 			Dial:      dialAttach(client, "agent-1", "xterm-256color"),
-			Token:     func(context.Context) (string, error) { return "fresh", nil },
+			Token:     token,
 			Keepalive: 10 * time.Millisecond,
 			In:        typed,
 			Out:       io.Discard,
@@ -166,13 +182,29 @@ func TestRunTerminalKeepsAQuietStreamOpen(t *testing.T) {
 		}
 	}
 
-	t.Run("a fresh token goes up once", func(t *testing.T) {
-		assert.Equal(t, "fresh", hear(t).GetToken())
-	})
-
-	t.Run("a quiet stream keeps sending empty messages", func(t *testing.T) {
+	t.Run("a quiet stream sends empty messages while the token is slow to come", func(t *testing.T) {
 		for range 3 {
 			assert.Nil(t, hear(t).GetMessage())
+		}
+	})
+
+	t.Run("a fresh token goes up once it comes", func(t *testing.T) {
+		close(released)
+
+		for range 100 {
+			if token := hear(t).GetToken(); token != "" {
+				assert.Equal(t, "fresh", token)
+
+				return
+			}
+		}
+
+		t.Fatal("the fresh token never went up")
+	})
+
+	t.Run("a token already sent is not sent again", func(t *testing.T) {
+		for range 10 {
+			assert.Empty(t, hear(t).GetToken())
 		}
 	})
 

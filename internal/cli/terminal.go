@@ -381,6 +381,9 @@ func carry(ctx context.Context, params carryParams) (int, error) {
 // forward sends what is typed, each resize, and each keepalive or fresh token to one stream, closing
 // its input when the typing ends.
 func forward(ctx context.Context, params carryParams) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	if len(*params.Unsent) > 0 {
 		if err := params.Conn.sendInput(*params.Unsent); err != nil {
 			return
@@ -397,27 +400,24 @@ func forward(ctx context.Context, params carryParams) {
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 
-	sent := ""
+	tokens := make(chan string)
+	if params.Terminal.Token != nil {
+		go watchToken(ctx, params.Terminal.Token, every, tokens)
+	}
+
 	inputs := params.Inputs
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			token := freshToken(ctx, params.Terminal.Token, sent)
-			if token == "" {
-				if err := params.Conn.sendKeepalive(); err != nil {
-					return
-				}
-
-				continue
+			if err := params.Conn.sendKeepalive(); err != nil {
+				return
 			}
-
+		case token := <-tokens:
 			if err := params.Conn.sendToken(token); err != nil {
 				return
 			}
-
-			sent = token
 		case <-params.Terminal.Resized:
 			if err := params.Conn.sendResize(params.Terminal.Size()); err != nil {
 				return
@@ -439,18 +439,31 @@ func forward(ctx context.Context, params carryParams) {
 	}
 }
 
-// freshToken returns a token from source the stream has not been sent, or empty when there is none.
-func freshToken(ctx context.Context, source func(ctx context.Context) (string, error), sent string) string {
-	if source == nil {
-		return ""
-	}
+// watchToken hands on each token from source that differs from the last, asking for one every interval.
+func watchToken(ctx context.Context, source func(ctx context.Context) (string, error), every time.Duration, tokens chan<- string) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
 
-	token, err := source(ctx)
-	if err != nil || token == sent {
-		return ""
-	}
+	sent := ""
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 
-	return token
+		token, err := source(ctx)
+		if err != nil || token == sent {
+			continue
+		}
+
+		select {
+		case tokens <- token:
+			sent = token
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // readInput hands on what is read from in, closing inputs when in ends.
