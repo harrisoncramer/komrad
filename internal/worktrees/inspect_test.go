@@ -155,12 +155,14 @@ func TestInspectLeavesADetachedHeadWithNoRemote(t *testing.T) {
 func TestInspectReportsADirectoryWithNoTaskAsHavingNoBase(t *testing.T) {
 	fixture := newFixture(t)
 	dir := fixture.cutUnowned(t)
+	fixture.git.Changes = git.Changes{Modified: []string{"a.go"}, Untracked: []string{"scratch.txt"}}
 
 	inspection, err := fixture.newInspector().Inspect(t.Context(), InspectParams{Dir: dir})
 	require.NoError(t, err)
 
 	require.ErrorIs(t, inspection.BaseErr, git.ErrBaseMissing)
 	assert.Empty(t, inspection.BaseRef)
+	assert.Equal(t, git.Changes{Modified: []string{"a.go"}, Untracked: []string{"scratch.txt"}}, inspection.Changes)
 }
 
 // TestInspectFetchesWhenAsked covers the fetch flag going to git's fetch rather than its

@@ -247,17 +247,19 @@ func (r worktreeInspection) isRead() bool {
 	return r.answered && (r.err == nil || r.item.dir != "")
 }
 
-// unpushedCommits is how many of the branch's commits no remote holds, counting from the base for
-// a branch never pushed.
-func (r worktreeInspection) unpushedCommits() int {
+// unpushedCommits is how many of the branch's commits no remote holds, and false for a branch
+// never pushed whose base git cannot name.
+func (r worktreeInspection) unpushedCommits() (int, bool) {
 	switch {
 	case r.item.branch == "":
-		return 0
+		return 0, true
+	case !r.pushed && r.baseRef == "":
+		return 0, false
 	case !r.pushed:
-		return r.ahead
+		return r.ahead, true
 	}
 
-	return r.unpushed
+	return r.unpushed, true
 }
 
 // isSettled reports whether the answer is one that will never change.

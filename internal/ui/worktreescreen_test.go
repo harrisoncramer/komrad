@@ -313,12 +313,12 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			wantRendered: []string{"The worktree has nothing uncommitted or unpushed."},
 		},
 		{
-			name:         "a worktree whose base git cannot name is not called clean",
-			row:          "reviewer",
+			name:         "a branch never pushed with no base counts its files and not its commits",
+			row:          "task/orphan",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/trees/archived", Branch: "task/archived", Readable: true}, BaseError: "no origin/HEAD"}),
-			wantRendered: []string{"Komrad could not read the worktree (no origin/HEAD), so it cannot say what is uncommitted or unpushed there."},
-			wantAbsent:   []string{"nothing uncommitted"},
+			answer:       answerWith(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/trees/orphan", Branch: "task/orphan", Readable: true}, Untracked: []string{"notes.md"}, BaseError: "the workflow names no base branch"}),
+			wantRendered: []string{"The worktree has 1 uncommitted file. Its branch was never pushed, and with no base Komrad cannot count its commits.", "notes.md"},
+			wantAbsent:   []string{"unpushed commit"},
 		},
 		{
 			name:         "a branch never pushed counts its commits since the base and the files past ten are counted",

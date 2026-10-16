@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -75,7 +74,7 @@ func (m *model) rerenderWorktreeConfirm() tea.Cmd {
 // worktreeLoss is what is uncommitted and unpushed in the worktrees, as git last answered for each.
 func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) string {
 	var files, refusals []string
-	var commits, read, reading int
+	var commits, uncounted, read, reading int
 	for _, dir := range dirs {
 		inspection, asked := inspections[dir]
 		switch {
@@ -86,12 +85,14 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 			refusals = append(refusals, errui.GetReason(inspection.err))
 		case !inspection.item.readable:
 			refusals = append(refusals, "git cannot read it")
-		case inspection.baseRef == "":
-			refusals = append(refusals, cmp.Or(inspection.baseError, "git cannot name its base"))
 		default:
 			read++
 			files = slices.Concat(files, inspection.modified, inspection.untracked)
-			commits += inspection.unpushedCommits()
+			if unpushed, ok := inspection.unpushedCommits(); ok {
+				commits += unpushed
+			} else {
+				uncounted++
+			}
 		}
 	}
 
@@ -110,7 +111,14 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 		if single {
 			has = "The worktree has"
 		}
-		fmt.Fprintf(&b, " %s %s.", has, lossCounts(len(files), commits))
+		fmt.Fprintf(&b, " %s %s.", has, lossCounts(len(files), commits, uncounted == 0))
+	}
+	if uncounted > 0 {
+		never := "Its branch was never pushed, and with no base Komrad cannot count its commits."
+		if !single {
+			never = label.Count(uncounted, "branch was", "branches were") + " never pushed, and with no base Komrad cannot count their commits."
+		}
+		b.WriteString(" " + never)
 	}
 	if reading > 0 {
 		fmt.Fprintf(&b, " Komrad is still reading %s, so it cannot yet say what is uncommitted or unpushed there.", which(reading))
@@ -129,21 +137,24 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 	return b.String()
 }
 
-// lossCounts is how many uncommitted files and unpushed commits there are.
-func lossCounts(files, commits int) string {
-	uncommitted := label.Count(files, "uncommitted file", "uncommitted files")
-	unpushed := label.Count(commits, "unpushed commit", "unpushed commits")
-
-	switch {
-	case files == 0 && commits == 0:
-		return "nothing uncommitted or unpushed"
-	case commits == 0:
-		return uncommitted
-	case files == 0:
-		return unpushed
+// lossCounts is how many uncommitted files and unpushed commits there are, as far as they were counted.
+func lossCounts(files, commits int, counted bool) string {
+	var parts []string
+	if files > 0 {
+		parts = append(parts, label.Count(files, "uncommitted file", "uncommitted files"))
+	}
+	if commits > 0 {
+		parts = append(parts, label.Count(commits, "unpushed commit", "unpushed commits"))
 	}
 
-	return uncommitted + " and " + unpushed
+	switch {
+	case len(parts) > 0:
+		return strings.Join(parts, " and ")
+	case counted:
+		return "nothing uncommitted or unpushed"
+	}
+
+	return "nothing uncommitted"
 }
 
 // writeLostFiles lists the uncommitted files one to a line, counting those past lostFilesShown.
