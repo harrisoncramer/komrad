@@ -12,12 +12,12 @@ apt-get install -y \
 	git \
 	gnupg \
 	jq \
-	neovim \
 	nftables \
 	postgresql-client \
 	ripgrep \
 	tmux \
-	unzip
+	unzip \
+	vim
 
 useradd --no-create-home --home-dir /var/lib/komrad/home --shell /bin/bash komrad
 

@@ -236,6 +236,7 @@ func worktreeConfigFrom(w *workflowv1.WorktreeConfig) panel.WorktreeConfig {
 		Enabled:      w.GetEnabled(),
 		BaseBranch:   w.GetBaseBranch(),
 		Dir:          w.GetDir(),
+		SetupCommand: w.GetSetupCommand(),
 		CopyPaths:    w.GetCopyPaths(),
 		SymlinkPaths: w.GetSymlinkPaths(),
 		DiffExclude:  w.GetDiffExclude(),

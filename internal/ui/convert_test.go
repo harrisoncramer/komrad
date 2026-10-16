@@ -69,6 +69,7 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		Worktree: &workflowv1.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",
+			SetupCommand: "mise install",
 			CopyPaths:    []string{".env"},
 			SymlinkPaths: []string{"node_modules"},
 			DiffExclude:  []string{"proto/gen"},
@@ -98,6 +99,7 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		Worktree: panel.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",
+			SetupCommand: "mise install",
 			CopyPaths:    []string{".env"},
 			SymlinkPaths: []string{"node_modules"},
 			DiffExclude:  []string{"proto/gen"},

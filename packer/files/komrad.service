@@ -12,7 +12,7 @@ ConditionPathIsMountPoint=/var/lib/komrad
 Type=simple
 User=komrad
 Group=komrad
-Environment=PATH=/opt/mise/data/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Environment=PATH=/var/lib/komrad/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EnvironmentFile=-/etc/komrad/komrad.env
 EnvironmentFile=/etc/komrad/database.env
 Environment=KOMRAD_CONFIG=/var/lib/komrad/home/.config/komrad/config.toml:/etc/komrad/sign-in.toml

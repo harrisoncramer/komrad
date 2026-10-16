@@ -210,6 +210,7 @@ fresh_worktree() {
 	# the agent against nothing but its own branch, and the add writes no branch config, which
 	# is the shared lock every concurrent create would otherwise fail on.
 	add_worktree --no-track -B "$branch" "$tree" "$point"
+	cut=yes
 
 	# The branch the add just made holds the commit now, so a ref that named the branch point
 	# for one command is not left behind in the human's repo.
@@ -217,6 +218,9 @@ fresh_worktree() {
 		git -C "$repo" update-ref -d "$staged" 2>/dev/null || true
 	fi
 }
+
+made=
+cut=
 
 if [ -d "$tree" ]; then
 	echo "worktree already exists at $tree" >&2
@@ -234,6 +238,7 @@ else
 	else
 		fresh_worktree
 	fi
+	made=yes
 
 	# With no upstream, a plain push has nothing to push to until this is set. --local in a
 	# linked worktree writes the shared config, so this also decides what a plain push does in
@@ -250,6 +255,21 @@ else
 	# is already present nests it a level deeper every time.
 	apply_paths "$KOMRAD_WORKTREE_COPY_PATHS" copy || true
 	apply_paths "$KOMRAD_WORKTREE_SYMLINK_PATHS" symlink || true
+fi
+
+if [ -n "$KOMRAD_WORKTREE_SETUP_COMMAND" ]; then
+	echo "running the workflow's setup command in $tree" >&2
+	if ! (cd "$tree" && sh -c "$KOMRAD_WORKTREE_SETUP_COMMAND") >&2; then
+		echo "worktree setup: the workflow's setup command failed" >&2
+		if [ -n "$made" ]; then
+			git -C "$repo" worktree unlock "$tree" 2>/dev/null || true
+			git -C "$repo" worktree remove --force "$tree" >&2 || true
+			if [ -n "$cut" ]; then
+				git -C "$repo" branch -D "$branch" >/dev/null 2>&1 || true
+			fi
+		fi
+		exit 1
+	fi
 fi
 
 printf '%s' "$tree" >"$KOMRAD_SETUP_DIR_FILE"

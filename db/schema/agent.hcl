@@ -128,6 +128,12 @@ table "workflow_provisioner_configs" {
     type    = text
     default = ""
   }
+  column "worktree_setup_command" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The shell command run in each worktree before an agent starts or resumes there, blank for none."
+  }
   column "engine_id" {
     null    = false
     type    = uuid

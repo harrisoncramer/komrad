@@ -15,6 +15,7 @@ func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeC
 		Enabled:      w.Enabled,
 		BaseBranch:   w.BaseBranch,
 		Dir:          w.Dir,
+		SetupCommand: w.SetupCommand,
 		CopyPaths:    w.CopyPaths,
 		SymlinkPaths: w.SymlinkPaths,
 		DiffExclude:  w.DiffExclude,

@@ -1273,6 +1273,8 @@ type WorkflowProvisionerConfig struct {
 	WorktreeDir          string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID pgtype.UUID
+	// The shell command run in each worktree before an agent starts or resumes there, blank for none.
+	WorktreeSetupCommand string
 }
 
 // One directory under the worktree directories as the filesystem holds it, written by the size loop. Keyed by the directory rather than an agent, since a directory outlives its row and one nobody answers for is what the worktrees screen is for. An unowned directory an unfinished delete names has no row, and the watch leaves out one whose agent is being deleted.

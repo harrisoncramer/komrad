@@ -1,4 +1,4 @@
-h1:nVrG8WuC4VthsOdaCN3XoATbaMKptaa+y1zOPDoEu2w=
+h1:3jYuXqbZxqlQVI2nTh6tKEKDNLcuOSuNYZxm3g5ONtE=
 20261002173502_baseline.sql h1:9d8cMqM4pjaXPZ1GoiSuGxOMMRegbNB1TYG3Gw8tqYw=
 20261003155931_transcript_synced_at_default.sql h1:Jtvi8tLVWC4qxstK0x7tymn0Vno5hrw7mDHBXA3Lji4=
 20261003175808_scope_agent_idempotency_key_to_requester.sql h1:j9KesdPVx/XPRlNWbCdWkXKFKb6f6ox/88fwoSGIp8Q=
@@ -33,3 +33,4 @@ h1:nVrG8WuC4VthsOdaCN3XoATbaMKptaa+y1zOPDoEu2w=
 20261012135752_review_rows_by_task.sql h1:GkEjUvZ9kAa6gK6DwPq1INHeVAHKx3Iil/rPLuR7rJ8=
 20261012225232_agent_hooks.sql h1:gVqwwjD1sKAie9t95FB468C0//geQ2YTrBrQys8W4qI=
 20261013232952_engine_access.sql h1:QhR/PGihTyHg3VC0YMwX+xtmb1HL29IHJJGQo1jQV+w=
+20261016220315_worktree_setup_command.sql h1:DYNJpNI0VGZJkB6+7IiuQgCM5onbCEU5lR6qlWqV2pQ=

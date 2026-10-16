@@ -365,7 +365,10 @@ type WorktreeConfig struct {
 	// The paths or globs left out of a task's diff and line counts, such as generated output.
 	DiffExclude []string `protobuf:"bytes,5,rep,name=diff_exclude,json=diffExclude,proto3" json:"diff_exclude,omitempty"`
 	// The directory new worktrees are created in. Empty uses the directory all workflows share.
-	Dir           string `protobuf:"bytes,6,opt,name=dir,proto3" json:"dir,omitempty"`
+	Dir string `protobuf:"bytes,6,opt,name=dir,proto3" json:"dir,omitempty"`
+	// The shell command run in each worktree before an agent starts or resumes there, such as
+	// one that installs the repository's tools. Empty runs nothing.
+	SetupCommand  string `protobuf:"bytes,7,opt,name=setup_command,json=setupCommand,proto3" json:"setup_command,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -438,6 +441,13 @@ func (x *WorktreeConfig) GetDiffExclude() []string {
 func (x *WorktreeConfig) GetDir() string {
 	if x != nil {
 		return x.Dir
+	}
+	return ""
+}
+
+func (x *WorktreeConfig) GetSetupCommand() string {
+	if x != nil {
+		return x.SetupCommand
 	}
 	return ""
 }
@@ -1168,7 +1178,7 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\aprompts\x18\x01 \x03(\v2 .workflow.v1.WorkflowEventPromptB\b\xbaH\x05\x92\x01\x02\x102R\aprompts\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +
 	"\x05event\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18(R\x05event\x12&\n" +
-	"\x06script\x18\x02 \x01(\tB\x0e\xbaH\vr\tȻ\x18\x01\x10\x01\x18\xff\x01R\x06script\"\xa1\x02\n" +
+	"\x06script\x18\x02 \x01(\tB\x0e\xbaH\vr\tȻ\x18\x01\x10\x01\x18\xff\x01R\x06script\"\xd4\x02\n" +
 	"\x0eWorktreeConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12-\n" +
 	"\vbase_branch\x18\x02 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xff\x01R\n" +
@@ -1177,7 +1187,8 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"copy_paths\x18\x03 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\tcopyPaths\x128\n" +
 	"\rsymlink_paths\x18\x04 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\fsymlinkPaths\x128\n" +
 	"\fdiff_exclude\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\x102\"\vr\tл\x18\x01\x10\x01\x18\xff\x01R\vdiffExclude\x12\x1e\n" +
-	"\x03dir\x18\x06 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03dir\"\xae\x01\n" +
+	"\x03dir\x18\x06 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03dir\x121\n" +
+	"\rsetup_command\x18\a \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xe8\aR\fsetupCommand\"\xae\x01\n" +
 	"\x14ListWorkflowsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +

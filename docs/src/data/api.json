@@ -10379,6 +10379,18 @@
             "at most 4096 characters"
           ],
           "description": "The directory new worktrees are created in. Empty uses the directory all workflows share."
+        },
+        {
+          "name": "setup_command",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 1000 characters"
+          ],
+          "description": "The shell command run in each worktree before an agent starts or resumes there, such as one that installs the repository's tools. Empty runs nothing."
         }
       ]
     },

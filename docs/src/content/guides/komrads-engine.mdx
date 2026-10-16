@@ -38,7 +38,7 @@ Komrad's engine runs on one disposable Linux machine. Everything that has to out
 
 ### The image
 
-Packer builds the image from the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). It starts from Ubuntu and installs Tailscale, Caddy, komrad and the tools the agents use, including git, tmux, Docker, Go, Node and the agent CLIs. Each layer is a short shell script, so adding a tool means adding a script.
+Packer builds the image from the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). It starts from Ubuntu and installs Tailscale, Caddy, komrad and the tools the agents use, including git, tmux, Docker, mise and the agent CLIs. Projects bring their own languages, such as Go and Node, through mise. Each layer is a short shell script, so adding a tool means adding a script.
 
 The image carries a komrad binary so the server can start on first boot, before any deploy has run. Each deploy replaces that binary, which means the image only needs rebuilding when a tool or a boot step changes.
 
@@ -50,7 +50,7 @@ Deploys, restarts and access grants need root, and they reach the machine throug
 
 ### The data volume
 
-The data volume holds the komrad account's home directory, which has komrad's config and the agent CLIs' logins. Every agent's worktree is on it too, along with komrad's cache and log and Caddy's state. Tailscale's identity stays off it, out of the agents' reach. When Terraform replaces the machine, the volume moves to the new one.
+The data volume holds the komrad account's home directory, which has komrad's config and the agent CLIs' logins. Every agent's worktree is on it too, along with komrad's cache and log, the tools mise installs and Caddy's state. Tailscale's identity stays off it, out of the agents' reach. When Terraform replaces the machine, the volume moves to the new one.
 
 ### Boot
 

@@ -1116,6 +1116,7 @@ type worktreeEnv struct {
 	adoptBranch  string
 	copyPaths    []string
 	symlinkPaths []string
+	setupCommand string
 	pathPrefix   string
 	// noWorktree leaves out the worktree's variables, as for a task that has none.
 	noWorktree bool
@@ -1145,6 +1146,7 @@ func (e worktreeEnv) toEnv() []string {
 			"KOMRAD_WORKTREE_ADOPT_BRANCH="+e.adoptBranch,
 			"KOMRAD_WORKTREE_COPY_PATHS="+strings.Join(e.copyPaths, "\n"),
 			"KOMRAD_WORKTREE_SYMLINK_PATHS="+strings.Join(e.symlinkPaths, "\n"),
+			"KOMRAD_WORKTREE_SETUP_COMMAND="+e.setupCommand,
 			"KOMRAD_WORKTREE_NAME="+e.taskID,
 			"KOMRAD_WORKTREE_BRANCH=task/"+e.taskID,
 		)
@@ -1678,6 +1680,105 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 			for _, p := range kept {
 				assert.FileExists(t, filepath.Join(tree, p))
 			}
+		})
+	}
+}
+
+// TestIntegrationBuiltinWorktreeSetupCommand covers running the workflow's setup command in a
+// worktree before its agent starts.
+func TestIntegrationBuiltinWorktreeSetupCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		command  string
+		resume   bool
+		wantErr  bool
+		wantRan  bool
+		wantTree bool
+	}{
+		{
+			name:    "a failed setup command removes the new worktree and its branch",
+			command: `pwd -P > "$RAN"; exit 3`,
+			wantErr: true,
+			wantRan: true,
+		},
+		{
+			name:     "a failed setup command keeps a resumed worktree",
+			command:  `pwd -P > "$RAN"; exit 3`,
+			resume:   true,
+			wantErr:  true,
+			wantRan:  true,
+			wantTree: true,
+		},
+		{
+			name:     "a workflow with no setup command runs nothing",
+			wantTree: true,
+		},
+		{
+			name:     "a new worktree runs the setup command inside it",
+			command:  `pwd -P > "$RAN"`,
+			wantRan:  true,
+			wantTree: true,
+		},
+		{
+			name:     "a resumed worktree runs the setup command again",
+			command:  `pwd -P > "$RAN"`,
+			resume:   true,
+			wantRan:  true,
+			wantTree: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ran := filepath.Join(t.TempDir(), "ran")
+			t.Setenv("RAN", ran)
+
+			repo := initRepo(t)
+			env := worktreeEnv{
+				taskID:       "task-setup",
+				repo:         repo,
+				worktreesDir: t.TempDir(),
+			}
+			tree := filepath.Join(env.worktreesDir, env.taskID)
+
+			if tt.resume {
+				first, err := runBuiltin(t, "_worktree_setup", env)
+				require.NoError(t, err, "stderr: %s", first.Stderr)
+
+				env.trigger = "agent.resume"
+				env.agentCwd = tree
+			}
+
+			env.setupCommand = tt.command
+			result, err := runBuiltin(t, "_worktree_setup", env)
+			if tt.wantErr {
+				require.ErrorIs(t, err, ErrFailed)
+			} else {
+				require.NoError(t, err, "stderr: %s", result.Stderr)
+			}
+
+			listed, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
+			require.NoError(t, err)
+			if tt.wantTree {
+				assert.DirExists(t, tree)
+				assert.Contains(t, string(listed), tree)
+			} else {
+				assert.NoDirExists(t, tree)
+				assert.NotContains(t, string(listed), tree)
+			}
+			assert.Equal(t, tt.wantTree, hasRef(t, repo, "refs/heads/task/"+env.taskID))
+
+			said, err := os.ReadFile(ran)
+			if !tt.wantRan {
+				require.ErrorIs(t, err, os.ErrNotExist)
+
+				return
+			}
+			require.NoError(t, err)
+
+			dir, err := filepath.EvalSymlinks(env.worktreesDir)
+			require.NoError(t, err)
+			assert.Equal(t, filepath.Join(dir, env.taskID), strings.TrimSpace(string(said)))
 		})
 	}
 }

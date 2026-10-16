@@ -63,7 +63,7 @@ fi
 mountpoint -q /var/lib/komrad || mount /var/lib/komrad
 
 # These are the directories that have to exist before komrad or a build can use them.
-mkdir -p /var/lib/komrad/go-build /var/lib/komrad/go-mod /var/lib/komrad/worktrees /var/lib/komrad/cache
+mkdir -p /var/lib/komrad/go-build /var/lib/komrad/go-mod /var/lib/komrad/worktrees /var/lib/komrad/cache /var/lib/komrad/mise
 mkdir -p /var/lib/komrad/home/.config/komrad
 
 # The komrad user's home is on this volume so the GitHub and harness logins survive a new
@@ -77,6 +77,6 @@ fi
 # recursive pass over the whole volume would walk a Go build cache of tens of gigabytes on every
 # boot, before komrad is allowed to start.
 chown komrad:komrad /var/lib/komrad
-for directory in go-build go-mod worktrees cache home home/.config home/.config/komrad; do
+for directory in go-build go-mod worktrees cache mise home home/.config home/.config/komrad; do
 	chown komrad:komrad "/var/lib/komrad/$directory"
 done

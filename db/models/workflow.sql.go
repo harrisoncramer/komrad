@@ -95,7 +95,7 @@ const getWorkflow = `-- name: GetWorkflow :one
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.engine_id,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.engine_id, wc.reviewer_harness, wc.reviewer_flags,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.engine_id
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.engine_id, pc.worktree_setup_command
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -151,6 +151,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, arg GetWorkflowParams) (*GetW
 		&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
 		&i.WorkflowProvisionerConfig.WorktreeDir,
 		&i.WorkflowProvisionerConfig.EngineID,
+		&i.WorkflowProvisionerConfig.WorktreeSetupCommand,
 	)
 	return &i, err
 }
@@ -317,6 +318,7 @@ INSERT INTO workflow_provisioner_configs(
     worktree_enabled,
     worktree_base_branch,
     worktree_dir,
+    worktree_setup_command,
     worktree_copy_paths,
     worktree_symlink_paths,
     worktree_diff_exclude)
@@ -326,15 +328,17 @@ VALUES (
     $3,
     $4,
     $5,
-    $6)
+    $6,
+    $7)
 RETURNING
-    id, worktree_enabled, worktree_base_branch, worktree_copy_paths, worktree_symlink_paths, created_at, updated_at, worktree_diff_exclude, worktree_dir, engine_id
+    id, worktree_enabled, worktree_base_branch, worktree_copy_paths, worktree_symlink_paths, created_at, updated_at, worktree_diff_exclude, worktree_dir, engine_id, worktree_setup_command
 `
 
 type InsertWorkflowProvisionerConfigParams struct {
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeDir          string
+	WorktreeSetupCommand string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -345,6 +349,7 @@ func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg Inser
 		arg.WorktreeEnabled,
 		arg.WorktreeBaseBranch,
 		arg.WorktreeDir,
+		arg.WorktreeSetupCommand,
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
 		arg.WorktreeDiffExclude,
@@ -361,6 +366,7 @@ func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg Inser
 		&i.WorktreeDiffExclude,
 		&i.WorktreeDir,
 		&i.EngineID,
+		&i.WorktreeSetupCommand,
 	)
 	return &i, err
 }
@@ -534,7 +540,7 @@ const listWatchedWorkflows = `-- name: ListWatchedWorkflows :many
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at, w.deleting_at, w.engine_id,
     wc.id, wc.harness, wc.cwd, wc.flags, wc.created_at, wc.updated_at, wc.engine_id, wc.reviewer_harness, wc.reviewer_flags,
-    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.engine_id
+    pc.id, pc.worktree_enabled, pc.worktree_base_branch, pc.worktree_copy_paths, pc.worktree_symlink_paths, pc.created_at, pc.updated_at, pc.worktree_diff_exclude, pc.worktree_dir, pc.engine_id, pc.worktree_setup_command
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -594,6 +600,7 @@ func (q *Queries) ListWatchedWorkflows(ctx context.Context, keys []string) ([]*L
 			&i.WorkflowProvisionerConfig.WorktreeDiffExclude,
 			&i.WorkflowProvisionerConfig.WorktreeDir,
 			&i.WorkflowProvisionerConfig.EngineID,
+			&i.WorkflowProvisionerConfig.WorktreeSetupCommand,
 		); err != nil {
 			return nil, err
 		}
@@ -771,9 +778,10 @@ SET
     worktree_enabled = $1,
     worktree_base_branch = $2,
     worktree_dir = $3,
-    worktree_copy_paths = $4,
-    worktree_symlink_paths = $5,
-    worktree_diff_exclude = $6
+    worktree_setup_command = $4,
+    worktree_copy_paths = $5,
+    worktree_symlink_paths = $6,
+    worktree_diff_exclude = $7
 WHERE
     id =(
         SELECT
@@ -781,13 +789,14 @@ WHERE
         FROM
             workflows
         WHERE
-            workflows.id = $7)
+            workflows.id = $8)
 `
 
 type SetWorkflowProvisionerParams struct {
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeDir          string
+	WorktreeSetupCommand string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -799,6 +808,7 @@ func (q *Queries) SetWorkflowProvisioner(ctx context.Context, arg SetWorkflowPro
 		arg.WorktreeEnabled,
 		arg.WorktreeBaseBranch,
 		arg.WorktreeDir,
+		arg.WorktreeSetupCommand,
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
 		arg.WorktreeDiffExclude,

@@ -148,6 +148,12 @@ message WorktreeConfig {
     max_len: 4096
     [rules.v1.absolute_path_or_blank]: true
   }];
+  // The shell command run in each worktree before an agent starts or resumes there, such as
+  // one that installs the repository's tools. Empty runs nothing.
+  string setup_command = 7 [(buf.validate.field).string = {
+    max_len: 1000
+    [rules.v1.printable]: true
+  }];
 }
 
 message ListWorkflowsRequest {

@@ -20,6 +20,7 @@ func (c *Config) Normalize() {
 	c.ReviewerFlags = strings.TrimSpace(c.ReviewerFlags)
 	c.Worktree.BaseBranch = strings.TrimSpace(c.Worktree.BaseBranch)
 	c.Worktree.Dir = strings.TrimSpace(c.Worktree.Dir)
+	c.Worktree.SetupCommand = strings.TrimSpace(c.Worktree.SetupCommand)
 	c.Worktree.CopyPaths = cleanPaths(c.Worktree.CopyPaths)
 	c.Worktree.SymlinkPaths = cleanPaths(c.Worktree.SymlinkPaths)
 	c.Worktree.DiffExclude = cleanPaths(c.Worktree.DiffExclude)
