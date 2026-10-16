@@ -163,6 +163,11 @@ func (d worktreeDeletion) isEmpty() bool {
 	return d.count() == 0
 }
 
+// dirs is the directories the remover takes.
+func (d worktreeDeletion) dirs() []string {
+	return xslice.Map(d.unowned, func(item worktreeItem) string { return item.dir })
+}
+
 // chosen is how many chosen directories the deletion holds, task checkouts included.
 func (d worktreeDeletion) chosen() int {
 	return d.count() + len(d.tasks)
@@ -183,19 +188,8 @@ func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
 // confirmDeleteMixed asks once before task checkouts go with their tasks and the other directories
 // through the remover.
 func confirmDeleteMixed(m *model, deletion worktreeDeletion) tea.Cmd {
-	form, confirmed := deleteMixedForm(deletion, len(m.listing.agentsOnTasks(deletion.tasks)), fixedKeys())
-
-	return m.openForm(formState{
-		kind:   formWorktreesDelete,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			if !*confirmed {
-				return nil
-			}
-
-			return tea.Batch(m.deleteTasks(deletion.tasks), deleteWorktreesCmd(m, deletion))
-		}),
+	return deleteMixedConfirm(deletion, len(m.listing.agentsOnTasks(deletion.tasks))).open(m, func(m *model) tea.Cmd {
+		return tea.Batch(m.deleteTasks(deletion.tasks), deleteWorktreesCmd(m, deletion))
 	})
 }
 
@@ -205,25 +199,14 @@ func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
 		return nil
 	}
 
-	form, confirmed := deleteWorktreesForm(deletion, fixedKeys())
-
-	return m.openForm(formState{
-		kind:   formWorktreesDelete,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			if !*confirmed {
-				return nil
-			}
-
-			return deleteWorktreesCmd(m, deletion)
-		}),
+	return deleteWorktreesConfirm(deletion).open(m, func(m *model) tea.Cmd {
+		return deleteWorktreesCmd(m, deletion)
 	})
 }
 
 // deleteWorktreesCmd queues the deletion as one background job.
 func deleteWorktreesCmd(m *model, deletion worktreeDeletion) tea.Cmd {
-	dirs := xslice.Map(deletion.unowned, func(item worktreeItem) string { return item.dir })
+	dirs := deletion.dirs()
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
 	deleting := m.awaitingWriteCmd(

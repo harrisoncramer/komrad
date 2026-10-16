@@ -10,26 +10,25 @@ import (
 	"charm.land/huh/v2"
 )
 
-func deleteAgentsForm(agents []panel.Agent, reviewers int, keys config.FixedKeys) (*huh.Form, *bool) {
-	title := "Permanently delete " + promptSubject(agents, reviewers) + "?"
-
-	return confirmForm(title, transcriptWarning(agents, reviewers), "Delete", keys)
-}
-
-// deleteChosenForm asks before chosen agents are deleted, naming any task that goes whole with them.
-func deleteChosenForm(work chosenWork, reviewers int, keys config.FixedKeys) (*huh.Form, *bool) {
-	if len(work.wholeTasks) == 0 {
-		return deleteAgentsForm(work.chosen, reviewers, keys)
+// deleteChosenConfirm asks before chosen agents are deleted, naming any task that goes whole with them.
+func deleteChosenConfirm(work chosenWork, reviewers int) worktreeConfirm {
+	confirm := worktreeConfirm{
+		kind:      formArchiveDelete,
+		title:     "Permanently delete " + promptSubject(work.chosen, reviewers) + "?",
+		warning:   transcriptWarning(work.chosen, reviewers),
+		dirs:      taskDirs(work.wholeTasks),
+		confirmed: true,
 	}
 
-	title := "Permanently delete " + promptSubject(work.chosen, reviewers) + "?"
-
-	tasksGoing := fmt.Sprintf("It also deletes %d tasks and their documents, reviews and worktrees.", len(work.wholeTasks))
-	if len(work.wholeTasks) == 1 {
-		tasksGoing = fmt.Sprintf("It also deletes task %q and its documents, reviews and worktree.", work.wholeTasks[0].Slug)
+	switch len(work.wholeTasks) {
+	case 0:
+	case 1:
+		confirm.warning += fmt.Sprintf(" It also deletes task %q and its documents, reviews and worktree.", work.wholeTasks[0].Slug)
+	default:
+		confirm.warning += fmt.Sprintf(" It also deletes %d tasks and their documents, reviews and worktrees.", len(work.wholeTasks))
 	}
 
-	return confirmForm(title, transcriptWarning(work.chosen, reviewers)+" "+tasksGoing, "Delete", keys)
+	return confirm
 }
 
 // transcriptWarning says the transcripts of the agents being deleted go with them.
@@ -64,9 +63,8 @@ func deleteScheduleForm(name string, keys config.FixedKeys) (*huh.Form, *bool) {
 	)
 }
 
-func deleteTasksForm(tasks []panel.Task, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
-	title := "Permanently delete " + describeTasks(tasks) + "?"
-
+// deleteTasksConfirm asks before the tasks are deleted for good.
+func deleteTasksConfirm(tasks []panel.Task, agentCount int) worktreeConfirm {
 	warning := "Komrad deletes their agents, documents, reviews and worktrees too."
 	if len(tasks) == 1 {
 		warning = "Komrad deletes its agents, documents, reviews and worktree too."
@@ -75,5 +73,11 @@ func deleteTasksForm(tasks []panel.Task, agentCount int, keys config.FixedKeys) 
 		warning = fmt.Sprintf("%s It archives %s first.", warning, label.Count(agentCount, "live agent", "live agents"))
 	}
 
-	return confirmForm(title, warning, "Delete", keys)
+	return worktreeConfirm{
+		kind:      formArchiveDelete,
+		title:     "Permanently delete " + describeTasks(tasks) + "?",
+		warning:   warning,
+		dirs:      taskDirs(tasks),
+		confirmed: true,
+	}
 }

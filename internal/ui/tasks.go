@@ -172,6 +172,11 @@ func taskIDs(tasks []panel.Task) []string {
 	return xslice.Map(tasks, func(task panel.Task) string { return task.ID })
 }
 
+// taskDirs is the directories of the tasks that have one.
+func taskDirs(tasks []panel.Task) []string {
+	return xslice.Map(xslice.Filter(tasks, func(task panel.Task) bool { return task.Cwd != "" }), func(task panel.Task) string { return task.Cwd })
+}
+
 // archiveTasks archives the tasks along with the live agents on them.
 func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
 	pending := m.unstageAhead(m.listing.agentsOnTasks(tasks))
@@ -206,19 +211,8 @@ func (m *model) deleteTasks(tasks []panel.Task) tea.Cmd {
 
 // confirmDeleteTasks asks before the tasks are deleted for good.
 func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
-	form, confirmed := deleteTasksForm(tasks, len(m.listing.agentsOnTasks(tasks)), fixedKeys())
-
-	return m.openForm(formState{
-		kind:   formArchiveDelete,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			if !*confirmed {
-				return nil
-			}
-
-			return m.deleteTasks(tasks)
-		}),
+	return deleteTasksConfirm(tasks, len(m.listing.agentsOnTasks(tasks))).open(m, func(m *model) tea.Cmd {
+		return m.deleteTasks(tasks)
 	})
 }
 

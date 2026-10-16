@@ -2,45 +2,177 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
-	"komrad/config"
+	"komrad/internal/errui"
 	"komrad/internal/ui/paint/label"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
-// deleteWorktreesForm asks before the remover takes the directories no task answers for.
-func deleteWorktreesForm(deletion worktreeDeletion, keys config.FixedKeys) (*huh.Form, *bool) {
-	count := deletion.count()
-	subject := label.Count(count, "worktree", "worktrees")
-	if count == 1 {
-		subject = "the worktree of " + worktreeRow{item: deletion.unowned[0]}.name()
-	}
-	title := fmt.Sprintf("Delete %s?", subject)
+// lostFilesShown is how many uncommitted files a delete confirm names before it counts the rest.
+const lostFilesShown = 10
 
-	var lines []string
-	switch {
-	case count == 1:
-		lines = append(lines, "Komrad deletes the directory, which no agent uses, and leaves its branch alone.")
-	case count > 1:
-		lines = append(lines, fmt.Sprintf("Komrad deletes %d directories that no agent uses and leaves every branch alone.", count))
-	}
-	lines = append(lines, "You lose any uncommitted changes there.")
-
-	return confirmFormStartingOn(confirmFormStartingOnParams{
-		confirmed:   false,
-		title:       title,
-		description: strings.Join(lines, " "),
-		affirmative: "Delete",
-		keys:        keys,
-	})
+// worktreeConfirm is a delete confirm that says what the worktrees the delete takes still hold.
+type worktreeConfirm struct {
+	kind    formKind
+	title   string
+	warning string
+	dirs    []string
+	// confirmed is the answer the confirm starts on.
+	confirmed bool
 }
 
-// deleteMixedForm asks before task checkouts and other directories are deleted together.
-func deleteMixedForm(deletion worktreeDeletion, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
-	title := fmt.Sprintf("Permanently delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees"))
+// open reads each worktree afresh and puts the confirm on screen, running write once it is answered yes.
+func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
+	confirmed := c.confirmed
 
+	var cmds []tea.Cmd
+	for _, dir := range c.dirs {
+		if !m.inspections[dir].isSettled() {
+			cmds = append(cmds, m.readWorktreeCmd(dir))
+		}
+	}
+
+	opened := m.openForm(formState{
+		kind:   c.kind,
+		update: (*model).updateForm,
+		submit: holdSubmit(func(m *model) tea.Cmd {
+			if !confirmed {
+				return nil
+			}
+
+			return write(m)
+		}),
+		rebuild: func(m *model) (*huh.Form, []string) {
+			form := confirmFormStartingOn(confirmFormStartingOnParams{
+				answer:      &confirmed,
+				title:       c.title,
+				description: c.warning + worktreeLoss(m.inspections, c.dirs),
+				affirmative: "Delete",
+				keys:        fixedKeys(),
+			})
+
+			return form, []string{"confirm"}
+		},
+	})
+
+	return tea.Batch(append(cmds, opened)...)
+}
+
+// rerenderWorktreeConfirm renders a delete confirm again once git answers for a worktree.
+func (m *model) rerenderWorktreeConfirm() tea.Cmd {
+	if m.form.kind != formArchiveDelete && m.form.kind != formWorktreesDelete {
+		return nil
+	}
+
+	return m.rerenderOpenForm()
+}
+
+// worktreeLoss is what is uncommitted and unpushed in the worktrees, as git last answered for each.
+func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) string {
+	var files, refusals []string
+	var commits, read, reading int
+	for _, dir := range dirs {
+		inspection, asked := inspections[dir]
+		switch {
+		case !asked || !inspection.answered:
+			reading++
+		case inspection.isSettled():
+		case inspection.err != nil:
+			refusals = append(refusals, errui.GetReason(inspection.err))
+		case !inspection.item.readable:
+			refusals = append(refusals, "git cannot read it")
+		default:
+			read++
+			files = slices.Concat(files, inspection.modified, inspection.untracked)
+			commits += inspection.unpushedCommits()
+		}
+	}
+
+	single := len(dirs) == 1
+	which := func(n int) string {
+		if single {
+			return "the worktree"
+		}
+
+		return label.Count(n, "worktree", "worktrees")
+	}
+
+	var b strings.Builder
+	if read > 0 {
+		has := "The worktrees have"
+		if single {
+			has = "The worktree has"
+		}
+		fmt.Fprintf(&b, " %s %s.", has, lossCounts(len(files), commits))
+	}
+	if reading > 0 {
+		fmt.Fprintf(&b, " Komrad is still reading %s, so it cannot yet say what is uncommitted or unpushed there.", which(reading))
+	}
+	if len(refusals) > 0 {
+		why := ""
+		if single {
+			why = " (" + refusals[0] + ")"
+		}
+		fmt.Fprintf(&b, " Komrad could not read %s%s, so it cannot say what is uncommitted or unpushed there.", which(len(refusals)), why)
+	}
+	if single {
+		writeLostFiles(&b, files)
+	}
+
+	return b.String()
+}
+
+// lossCounts is how many uncommitted files and unpushed commits there are.
+func lossCounts(files, commits int) string {
+	uncommitted := label.Count(files, "uncommitted file", "uncommitted files")
+	unpushed := label.Count(commits, "unpushed commit", "unpushed commits")
+
+	switch {
+	case files == 0 && commits == 0:
+		return "nothing uncommitted or unpushed"
+	case commits == 0:
+		return uncommitted
+	case files == 0:
+		return unpushed
+	}
+
+	return uncommitted + " and " + unpushed
+}
+
+// writeLostFiles lists the uncommitted files one to a line, counting those past lostFilesShown.
+func writeLostFiles(b *strings.Builder, files []string) {
+	for _, file := range files[:min(len(files), lostFilesShown)] {
+		b.WriteString("\n  " + file)
+	}
+	if hidden := len(files) - lostFilesShown; hidden > 0 {
+		fmt.Fprintf(b, "\n  and %d more", hidden)
+	}
+}
+
+// deleteWorktreesConfirm asks before the remover takes the directories no task answers for.
+func deleteWorktreesConfirm(deletion worktreeDeletion) worktreeConfirm {
+	count := deletion.count()
+	subject := label.Count(count, "worktree", "worktrees")
+	warning := fmt.Sprintf("Komrad deletes %d directories that no agent uses and leaves every branch alone.", count)
+	if count == 1 {
+		subject = "the worktree of " + worktreeRow{item: deletion.unowned[0]}.name()
+		warning = "Komrad deletes the directory, which no agent uses, and leaves its branch alone."
+	}
+
+	return worktreeConfirm{
+		kind:    formWorktreesDelete,
+		title:   fmt.Sprintf("Delete %s?", subject),
+		warning: warning,
+		dirs:    deletion.dirs(),
+	}
+}
+
+// deleteMixedConfirm asks before task checkouts and other directories are deleted together.
+func deleteMixedConfirm(deletion worktreeDeletion, agentCount int) worktreeConfirm {
 	lines := []string{
 		"Komrad deletes each task's worktree for good, along with the task's agents, documents and reviews.",
 		"It deletes the directories no agent uses and leaves every branch alone.",
@@ -48,13 +180,11 @@ func deleteMixedForm(deletion worktreeDeletion, agentCount int, keys config.Fixe
 	if agentCount > 0 {
 		lines = append(lines, "It archives "+label.Count(agentCount, "live agent", "live agents")+" first.")
 	}
-	lines = append(lines, "You lose any uncommitted changes there.")
 
-	return confirmFormStartingOn(confirmFormStartingOnParams{
-		confirmed:   false,
-		title:       title,
-		description: strings.Join(lines, " "),
-		affirmative: "Delete",
-		keys:        keys,
-	})
+	return worktreeConfirm{
+		kind:    formWorktreesDelete,
+		title:   fmt.Sprintf("Permanently delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees")),
+		warning: strings.Join(lines, " "),
+		dirs:    slices.Concat(deletion.dirs(), taskDirs(deletion.tasks)),
+	}
 }
