@@ -155,9 +155,8 @@ service TerminalService {
   }
 
   // SSH carries one SSH connection to a server on komrad's machine, until either side closes it.
-  // The server runs commands, shells and file transfers as the account the agents run as, and
-  // forwards to ports and sockets there. It takes no password or key, since the stream is already
-  // signed in.
+  // The server runs commands and shells as the account the agents run as, and forwards to ports and
+  // sockets there. It takes no password or key, since the stream is already signed in.
   rpc SSH(stream SSHRequest) returns (stream SSHResponse) {
     option (annotation.v1.surfaces) = {
       cli: false
