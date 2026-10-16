@@ -32,12 +32,11 @@ message OpenShell {
   string term = 3;
 }
 
-// ShellRequest is one message from the client on a shell stream.
+// ShellRequest is one message from the client on a shell stream. A message with nothing set keeps
+// the stream open while the terminal is quiet.
 message ShellRequest {
   // The message.
   oneof message {
-    option (buf.validate.oneof).required = true;
-
     // The opening, sent first and only once.
     OpenShell open = 1;
     // Bytes typed into the terminal.
@@ -78,12 +77,11 @@ message OpenAttach {
   string term = 3;
 }
 
-// AttachRequest is one message from the client on an attach stream.
+// AttachRequest is one message from the client on an attach stream. A message with nothing set
+// keeps the stream open while the terminal is quiet.
 message AttachRequest {
   // The message.
   oneof message {
-    option (buf.validate.oneof).required = true;
-
     // The opening, sent first and only once.
     OpenAttach open = 1;
     // Bytes typed into the terminal.

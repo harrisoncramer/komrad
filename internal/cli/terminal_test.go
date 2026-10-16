@@ -28,6 +28,7 @@ type attachStep struct {
 	exit       bool
 	reset      bool
 	disconnect bool
+	listen     bool
 }
 
 type fakeAttachService struct {
@@ -35,6 +36,7 @@ type fakeAttachService struct {
 	mu               sync.Mutex
 	steps            []attachStep
 	opened           []*terminalv1.OpenAttach
+	heard            chan *terminalv1.AttachRequest
 	closeConnections func()
 }
 
@@ -74,6 +76,21 @@ func (f *fakeAttachService) Attach(_ context.Context, stream *connect.BidiStream
 		return nil
 	}
 
+	if step.listen {
+		for {
+			request, err := stream.Receive()
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+
+			if err != nil {
+				return err
+			}
+
+			f.heard <- request
+		}
+	}
+
 	if !step.exit {
 		return nil
 	}
@@ -86,6 +103,106 @@ func (f *fakeAttachService) readOpened() []*terminalv1.OpenAttach {
 	defer f.mu.Unlock()
 
 	return f.opened
+}
+
+func serveAttach(t *testing.T, service *fakeAttachService) terminalv1connect.TerminalServiceClient {
+	t.Helper()
+
+	mux := http.NewServeMux()
+	mux.Handle(terminalv1connect.NewTerminalServiceHandler(service))
+	server := httptest.NewUnstartedServer(mux)
+	server.Config.Protocols = xhttp.NewServerProtocols()
+	server.Start()
+	service.closeConnections = server.CloseClientConnections
+	t.Cleanup(server.Close)
+
+	return terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), server.URL)
+}
+
+// TestRunTerminalKeepsAQuietStreamOpen covers an attach nobody types into, behind a proxy that
+// cuts a request that sends nothing.
+func TestRunTerminalKeepsAQuietStreamOpen(t *testing.T) {
+	service := &fakeAttachService{
+		steps: []attachStep{{listen: true}},
+		heard: make(chan *terminalv1.AttachRequest, 64),
+	}
+	client := serveAttach(t, service)
+
+	typed, typing := io.Pipe()
+	t.Cleanup(func() { _ = typing.Close() })
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	ran := make(chan error, 1)
+	go func() {
+		_, err := runTerminal(ctx, runTerminalParams{
+			Dial:      dialAttach(client, "agent-1", "xterm-256color"),
+			Token:     func(context.Context) (string, error) { return "fresh", nil },
+			Keepalive: 10 * time.Millisecond,
+			In:        typed,
+			Out:       io.Discard,
+			Size: func() *terminalv1.Size {
+				return &terminalv1.Size{Rows: 24, Cols: 80}
+			},
+			Resized: make(chan os.Signal),
+			Ready: func() (func(), error) {
+				return func() {}, nil
+			},
+		})
+		ran <- err
+	}()
+
+	hear := func(t *testing.T) *terminalv1.AttachRequest {
+		t.Helper()
+
+		select {
+		case request := <-service.heard:
+			return request
+		case <-time.After(5 * time.Second):
+			t.Fatal("the quiet stream sent nothing")
+
+			return nil
+		}
+	}
+
+	t.Run("a fresh token goes up once", func(t *testing.T) {
+		assert.Equal(t, "fresh", hear(t).GetToken())
+	})
+
+	t.Run("a quiet stream keeps sending empty messages", func(t *testing.T) {
+		for range 3 {
+			assert.Nil(t, hear(t).GetMessage())
+		}
+	})
+
+	t.Run("cancelling stops the keepalive and ends the terminal", func(t *testing.T) {
+		cancel()
+
+		settled := time.After(50 * time.Millisecond)
+	drain:
+		for {
+			select {
+			case <-service.heard:
+			case <-settled:
+				break drain
+			}
+		}
+
+		select {
+		case request := <-service.heard:
+			t.Fatalf("a cancelled terminal still sent %v", request)
+		case <-time.After(100 * time.Millisecond):
+		}
+
+		service.closeConnections()
+
+		select {
+		case <-ran:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the terminal outlived its context")
+		}
+	})
 }
 
 // TestRunTerminal covers an attach from the client side, dialled again when it drops.
@@ -163,14 +280,7 @@ func TestRunTerminal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			service := &fakeAttachService{steps: tt.steps}
-			mux := http.NewServeMux()
-			mux.Handle(terminalv1connect.NewTerminalServiceHandler(service))
-			server := httptest.NewUnstartedServer(mux)
-			server.Config.Protocols = xhttp.NewServerProtocols()
-			server.Start()
-			service.closeConnections = server.CloseClientConnections
-			t.Cleanup(server.Close)
-			client := terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(xhttp.NewStreamTransport(), 0), server.URL)
+			client := serveAttach(t, service)
 
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
@@ -265,6 +375,8 @@ func (c *lostConn) sendResize(*terminalv1.Size) error { return nil }
 
 func (c *lostConn) sendToken(string) error { return nil }
 
+func (c *lostConn) sendKeepalive() error { return nil }
+
 func (c *lostConn) closeInput() error { return nil }
 
 func (c *lostConn) receive() (received, error) {
@@ -290,6 +402,8 @@ func (c *heardConn) sendInput(input []byte) error {
 func (c *heardConn) sendResize(*terminalv1.Size) error { return nil }
 
 func (c *heardConn) sendToken(string) error { return nil }
+
+func (c *heardConn) sendKeepalive() error { return nil }
 
 func (c *heardConn) closeInput() error {
 	close(c.sent)
