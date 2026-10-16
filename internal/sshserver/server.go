@@ -42,6 +42,7 @@ type Server struct {
 	logger    *slog.Logger
 	server    *gliderssh.Server
 	publicKey string
+	shell     string
 }
 
 // NewServer builds the server, reading its host key from the state directory or making one there.
@@ -54,11 +55,11 @@ func NewServer(params NewServerParams) (*Server, error) {
 	s := &Server{
 		logger:    params.Logger,
 		publicKey: strings.TrimSpace(string(gossh.MarshalAuthorizedKey(signer.PublicKey()))),
+		shell:     params.Shell,
 	}
 
-	sessions := &sessionRunner{shell: params.Shell, logger: params.Logger}
 	s.server = &gliderssh.Server{
-		Handler: sessions.run,
+		Handler: s.runSession,
 		LocalPortForwardingCallback: func(gliderssh.Context, string, uint32) bool {
 			return true
 		},
@@ -139,21 +140,17 @@ func makeHostKey(path string) (gossh.Signer, error) {
 	return signer, nil
 }
 
-type sessionRunner struct {
-	shell  string
-	logger *slog.Logger
-}
-
-// run runs the session's command, or a login shell when it names none, and exits with its status.
-func (r *sessionRunner) run(session gliderssh.Session) {
-	argv := []string{r.shell, "-l"}
+// runSession runs the session's command, or a login shell when it names none, and exits with its
+// status.
+func (s *Server) runSession(session gliderssh.Session) {
+	argv := []string{s.shell, "-l"}
 	if command := session.RawCommand(); command != "" {
-		argv = []string{r.shell, "-c", command}
+		argv = []string{s.shell, "-c", command}
 	}
 
-	code, err := r.start(session, argv)
+	code, err := start(session, argv)
 	if err != nil {
-		r.logger.LogAttrs(session.Context(), slog.LevelWarn, "failed to run an SSH session", logging.Err(err)...)
+		s.logger.LogAttrs(session.Context(), slog.LevelWarn, "failed to run an SSH session", logging.Err(err)...)
 		_, _ = fmt.Fprintln(session.Stderr(), err) //nolint:errcheck // a client that hung up has no use for the reason
 		code = 1
 	}
@@ -161,7 +158,7 @@ func (r *sessionRunner) run(session gliderssh.Session) {
 	_ = session.Exit(code) //nolint:errcheck // a client that hung up has no use for the status
 }
 
-func (r *sessionRunner) start(session gliderssh.Session, argv []string) (int, error) {
+func start(session gliderssh.Session, argv []string) (int, error) {
 	dir, err := os.UserHomeDir()
 	if err != nil {
 		return 0, fmt.Errorf("failed to find the home directory: %w", err)
