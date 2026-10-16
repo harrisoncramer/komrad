@@ -192,6 +192,9 @@ type PanelSettings struct {
 	SSHHost string
 	// SSHConfig is the ssh config file that describes SSHHost.
 	SSHConfig string
+	// IsSSHIncluded is whether ~/.ssh/config reads SSHConfig, which editors that open their own window
+	// need to find SSHHost.
+	IsSSHIncluded bool
 	// Pane is the tmux pane the panel renders in.
 	Pane string
 	// DraftDir is where a copy of a document is written for the editor, the system's temporary

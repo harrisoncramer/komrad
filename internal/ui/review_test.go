@@ -2240,6 +2240,17 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "goland cannot open files")
 	})
 
+	t.Run("on an engine elsewhere an editor with a window of its own needs the ssh hosts included", func(t *testing.T) {
+		settings := remoteEditSettings(t, "code")
+		settings.IsSSHIncluded = false
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: settings})
+
+		harness.press("space", "e")
+
+		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Contains(t, harness.readFrame(), "code cannot find the engine")
+	})
+
 	t.Run("on an engine elsewhere with no ssh host written the editor opens nothing", func(t *testing.T) {
 		settings := remoteEditSettings(t, "nvim")
 		settings.SSHConfig = filepath.Join(t.TempDir(), "missing.conf")
@@ -3063,5 +3074,5 @@ func remoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
 	config := filepath.Join(t.TempDir(), "komrad-remote.conf")
 	require.NoError(t, os.WriteFile(config, []byte("Host komrad-remote\n"), 0o600))
 
-	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: config}
+	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: config, IsSSHIncluded: true}
 }
