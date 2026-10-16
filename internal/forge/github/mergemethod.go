@@ -16,7 +16,7 @@ type mergeSettings struct {
 // baseRef is a pull request's base branch with the protection and rules GitHub enforces on it.
 type baseRef struct {
 	BranchProtectionRule *branchProtection `json:"branchProtectionRule"`
-	Rules struct {
+	Rules                struct {
 		Nodes []branchRule `json:"nodes"`
 	} `json:"rules"`
 }
