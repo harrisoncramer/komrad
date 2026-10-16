@@ -93,7 +93,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				shellCommand    []string
 				terminalCommand []string
 				signIn          ui.SignIn
-				ssh             sshHost
+				ssh             *sshHost
 			)
 
 			switch {
@@ -150,6 +150,19 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 			}
 			state.session.TuneCopyMode(executable)
 
+			settings := ui.PanelSettings{
+				Addr:     addr,
+				Editor:   state.env.Editor,
+				Pane:     state.env.TmuxPane,
+				VimMode:  state.vimMode,
+				DiffWrap: state.diffWrap,
+			}
+			if ssh != nil {
+				settings.SSHHost = ssh.Name
+				settings.SSHConfig = ssh.Config
+				settings.IsSSHIncluded = isSSHIncluded()
+			}
+
 			var binary ui.BinaryWatcher
 			if watch := watchExecutable(); watch != nil {
 				binary = watch
@@ -180,16 +193,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				ShellCommand:    shellCommand,
 				TerminalCommand: terminalCommand,
 				Binary:          binary,
-				Settings: ui.PanelSettings{
-					Addr:          addr,
-					Editor:        state.env.Editor,
-					SSHHost:       ssh.Name,
-					SSHConfig:     ssh.Config,
-					IsSSHIncluded: isSSHIncluded(),
-					Pane:          state.env.TmuxPane,
-					VimMode:       state.vimMode,
-					DiffWrap:      state.diffWrap,
-				},
+				Settings:        settings,
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,

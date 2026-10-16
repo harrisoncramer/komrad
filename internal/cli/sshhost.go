@@ -27,10 +27,10 @@ type sshHost struct {
 	KnownHosts string
 }
 
-func sshHostOf(stack config.Stack) (sshHost, error) {
+func sshHostOf(stack config.Stack) (*sshHost, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return sshHost{}, fmt.Errorf("failed to find the home directory: %w", err)
+		return nil, fmt.Errorf("failed to find the home directory: %w", err)
 	}
 
 	name := "komrad"
@@ -40,7 +40,7 @@ func sshHostOf(stack config.Stack) (sshHost, error) {
 
 	dir := filepath.Join(home, ".ssh", "komrad")
 
-	return sshHost{
+	return &sshHost{
 		Name:       name,
 		Config:     filepath.Join(dir, name+".conf"),
 		KnownHosts: filepath.Join(dir, name+".known_hosts"),
@@ -113,7 +113,7 @@ func (a *app) setUpSSH(ctx context.Context) error {
 
 	return writeSSHHost(ctx, writeSSHHostParams{
 		Client: terminalv1connect.NewTerminalServiceClient(xhttp.NewClientOver(a.signTransport(xhttp.NewTransport()), 0), a.getAPIBase()),
-		Host:   host,
+		Host:   *host,
 		Proxy:  append([]string{a.selfPath()}, configArgs(a.configStack)...),
 	})
 }
