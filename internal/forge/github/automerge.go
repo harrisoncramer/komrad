@@ -45,8 +45,15 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	mutation := disableAutoMergeMutation
 	variables := map[string]any{"id": target.ID}
 	if params.On {
+		method, err := target.settings.methodFor(target.BaseRef, params.Method)
+		if err != nil {
+			return err
+		}
+
 		mutation = enableAutoMergeMutation
-		variables["method"] = target.method
+		variables = messageVariables(params.Message)
+		variables["id"] = target.ID
+		variables["method"] = method
 		variables["head"] = xptr.NonEmpty(params.HeadSHA)
 	}
 
@@ -83,19 +90,19 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, owner, name string, num
 	}
 
 	target := data.Repository.PullRequest
-	target.method = data.Repository.chooseMethod(target.BaseRef)
+	target.settings = data.Repository.mergeSettings
 
 	return target, nil
 }
 
-// autoMergeTarget is a pull request whose auto-merge is about to change, with the method it
-// merges with.
+// autoMergeTarget is a pull request whose auto-merge is about to change, with the merge methods
+// its repository allows.
 type autoMergeTarget struct {
 	ID               string    `json:"id"`
 	State            string    `json:"state"`
 	BaseRef          *baseRef  `json:"baseRef"`
 	AutoMergeRequest *struct{} `json:"autoMergeRequest"`
-	method           string
+	settings         mergeSettings
 }
 
 // autoMerge is whether the pull request carries an auto-merge request and whether the

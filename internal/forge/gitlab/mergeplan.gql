@@ -1,0 +1,12 @@
+query MergePlan($path: ID!, $iid: String!) {
+  project(fullPath: $path) {
+    mergeRequest(iid: $iid) {
+      state
+      diffHeadSha
+      squashReadOnly
+      squashOnMerge
+      defaultMergeCommitMessage
+      defaultSquashCommitMessage
+    }
+  }
+}

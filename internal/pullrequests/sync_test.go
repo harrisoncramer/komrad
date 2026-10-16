@@ -84,7 +84,11 @@ func (f *scriptedForge) ReadBranches(_ context.Context, repo git.RemoteURL, bran
 	return reading, nil
 }
 
-func (f *scriptedForge) Merge(context.Context, string) error { return nil }
+func (f *scriptedForge) PlanMerge(context.Context, string) (*forge.MergePlan, error) {
+	return &forge.MergePlan{}, nil
+}
+
+func (f *scriptedForge) Merge(context.Context, forge.MergeParams) error { return nil }
 
 func (f *scriptedForge) SetDraft(context.Context, string, bool) error { return nil }
 

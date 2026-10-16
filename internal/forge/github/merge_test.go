@@ -45,21 +45,45 @@ func TestMerge(t *testing.T) {
 	}
 }`)}
 
+	merged := answer{body: data(`{
+	"mergePullRequest": {
+		"clientMutationId": null
+	}
+}`)}
+
 	tests := []struct {
-		name    string
-		answers map[string]answer
-		wantErr error
+		name          string
+		params        forge.MergeParams
+		answers       map[string]answer
+		wantErr       error
+		wantVariables map[string]any
 	}{
 		{
 			name: "the pull request merges with the method its base branch allows",
 			answers: map[string]answer{
 				"MergeTarget": target,
-				"Merge": {body: data(`{
-	"mergePullRequest": {
-		"clientMutationId": null
-	}
-}`)},
+				"Merge":       merged,
 			},
+			wantVariables: map[string]any{"id": "PR_742", "method": "SQUASH", "headline": nil, "body": nil, "head": nil},
+		},
+		{
+			name: "the pull request merges by the method and message asked for at the head the person saw",
+			params: forge.MergeParams{
+				Method:  forge.MergeMethodRebase,
+				Message: &forge.CommitMessage{Headline: "Land the fix", Body: "Merges stop failing."},
+				HeadSHA: "abc123",
+			},
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge":       merged,
+			},
+			wantVariables: map[string]any{"id": "PR_742", "method": "REBASE", "headline": "Land the fix", "body": "Merges stop failing.", "head": "abc123"},
+		},
+		{
+			name:    "a method github does not have is refused before github is asked to merge",
+			params:  forge.MergeParams{Method: forge.MergeMethodFastForward},
+			answers: map[string]answer{"MergeTarget": target},
+			wantErr: forge.ErrNoMergeMethod,
 		},
 		{
 			name: "a pull request github will not merge",
@@ -149,14 +173,16 @@ func TestMerge(t *testing.T) {
 
 			f, _, fake := serve(t, tt.answers)
 
-			err := f.Merge(t.Context(), address)
+			params := tt.params
+			params.URL = address
+			err := f.Merge(t.Context(), params)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, map[string]any{"id": "PR_742", "method": "SQUASH"}, fake.last(t).Variables)
+			assert.Equal(t, tt.wantVariables, fake.last(t).Variables)
 		})
 	}
 }
@@ -182,7 +208,7 @@ func TestMergeRefusesWhatIsNotAPullRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := f.Merge(t.Context(), tt.address)
+			err := f.Merge(t.Context(), forge.MergeParams{URL: tt.address})
 			require.ErrorIs(t, err, forge.ErrNotPullRequest)
 			assert.Empty(t, fake.calls)
 		})

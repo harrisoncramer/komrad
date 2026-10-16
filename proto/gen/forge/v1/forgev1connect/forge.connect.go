@@ -45,6 +45,9 @@ const (
 	// ForgeServiceListForgePullRequestsProcedure is the fully-qualified name of the ForgeService's
 	// ListForgePullRequests RPC.
 	ForgeServiceListForgePullRequestsProcedure = "/forge.v1.ForgeService/ListForgePullRequests"
+	// ForgeServicePlanForgePullRequestMergeProcedure is the fully-qualified name of the ForgeService's
+	// PlanForgePullRequestMerge RPC.
+	ForgeServicePlanForgePullRequestMergeProcedure = "/forge.v1.ForgeService/PlanForgePullRequestMerge"
 	// ForgeServiceMergeForgePullRequestProcedure is the fully-qualified name of the ForgeService's
 	// MergeForgePullRequest RPC.
 	ForgeServiceMergeForgePullRequestProcedure = "/forge.v1.ForgeService/MergeForgePullRequest"
@@ -68,6 +71,7 @@ type ForgeServiceClient interface {
 	ListForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListForgesResponse], error)
 	CheckForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.CheckForgesResponse], error)
 	ListForgePullRequests(context.Context, *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error)
+	PlanForgePullRequestMerge(context.Context, *connect.Request[v1.PlanForgePullRequestMergeRequest]) (*connect.Response[v1.PlanForgePullRequestMergeResponse], error)
 	MergeForgePullRequest(context.Context, *connect.Request[v1.MergeForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestDraft(context.Context, *connect.Request[v1.SetForgePullRequestDraftRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestAutoMerge(context.Context, *connect.Request[v1.SetForgePullRequestAutoMergeRequest]) (*connect.Response[emptypb.Empty], error)
@@ -112,6 +116,13 @@ func NewForgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		planForgePullRequestMerge: connect.NewClient[v1.PlanForgePullRequestMergeRequest, v1.PlanForgePullRequestMergeResponse](
+			httpClient,
+			baseURL+ForgeServicePlanForgePullRequestMergeProcedure,
+			connect.WithSchema(forgeServiceMethods.ByName("PlanForgePullRequestMerge")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		mergeForgePullRequest: connect.NewClient[v1.MergeForgePullRequestRequest, emptypb.Empty](
 			httpClient,
 			baseURL+ForgeServiceMergeForgePullRequestProcedure,
@@ -153,6 +164,7 @@ type forgeServiceClient struct {
 	listForges                      *connect.Client[emptypb.Empty, v1.ListForgesResponse]
 	checkForges                     *connect.Client[emptypb.Empty, v1.CheckForgesResponse]
 	listForgePullRequests           *connect.Client[v1.ListForgePullRequestsRequest, v1.ListForgePullRequestsResponse]
+	planForgePullRequestMerge       *connect.Client[v1.PlanForgePullRequestMergeRequest, v1.PlanForgePullRequestMergeResponse]
 	mergeForgePullRequest           *connect.Client[v1.MergeForgePullRequestRequest, emptypb.Empty]
 	setForgePullRequestDraft        *connect.Client[v1.SetForgePullRequestDraftRequest, emptypb.Empty]
 	setForgePullRequestAutoMerge    *connect.Client[v1.SetForgePullRequestAutoMergeRequest, emptypb.Empty]
@@ -178,6 +190,11 @@ func (c *forgeServiceClient) CheckForges(ctx context.Context, req *connect.Reque
 // ListForgePullRequests calls forge.v1.ForgeService.ListForgePullRequests.
 func (c *forgeServiceClient) ListForgePullRequests(ctx context.Context, req *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error) {
 	return c.listForgePullRequests.CallUnary(ctx, req)
+}
+
+// PlanForgePullRequestMerge calls forge.v1.ForgeService.PlanForgePullRequestMerge.
+func (c *forgeServiceClient) PlanForgePullRequestMerge(ctx context.Context, req *connect.Request[v1.PlanForgePullRequestMergeRequest]) (*connect.Response[v1.PlanForgePullRequestMergeResponse], error) {
+	return c.planForgePullRequestMerge.CallUnary(ctx, req)
 }
 
 // MergeForgePullRequest calls forge.v1.ForgeService.MergeForgePullRequest.
@@ -211,6 +228,7 @@ type ForgeServiceHandler interface {
 	ListForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListForgesResponse], error)
 	CheckForges(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.CheckForgesResponse], error)
 	ListForgePullRequests(context.Context, *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error)
+	PlanForgePullRequestMerge(context.Context, *connect.Request[v1.PlanForgePullRequestMergeRequest]) (*connect.Response[v1.PlanForgePullRequestMergeResponse], error)
 	MergeForgePullRequest(context.Context, *connect.Request[v1.MergeForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestDraft(context.Context, *connect.Request[v1.SetForgePullRequestDraftRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestAutoMerge(context.Context, *connect.Request[v1.SetForgePullRequestAutoMergeRequest]) (*connect.Response[emptypb.Empty], error)
@@ -248,6 +266,13 @@ func NewForgeServiceHandler(svc ForgeServiceHandler, opts ...connect.HandlerOpti
 		ForgeServiceListForgePullRequestsProcedure,
 		svc.ListForgePullRequests,
 		connect.WithSchema(forgeServiceMethods.ByName("ListForgePullRequests")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	forgeServicePlanForgePullRequestMergeHandler := connect.NewUnaryHandler(
+		ForgeServicePlanForgePullRequestMergeProcedure,
+		svc.PlanForgePullRequestMerge,
+		connect.WithSchema(forgeServiceMethods.ByName("PlanForgePullRequestMerge")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -293,6 +318,8 @@ func NewForgeServiceHandler(svc ForgeServiceHandler, opts ...connect.HandlerOpti
 			forgeServiceCheckForgesHandler.ServeHTTP(w, r)
 		case ForgeServiceListForgePullRequestsProcedure:
 			forgeServiceListForgePullRequestsHandler.ServeHTTP(w, r)
+		case ForgeServicePlanForgePullRequestMergeProcedure:
+			forgeServicePlanForgePullRequestMergeHandler.ServeHTTP(w, r)
 		case ForgeServiceMergeForgePullRequestProcedure:
 			forgeServiceMergeForgePullRequestHandler.ServeHTTP(w, r)
 		case ForgeServiceSetForgePullRequestDraftProcedure:
@@ -326,6 +353,10 @@ func (UnimplementedForgeServiceHandler) CheckForges(context.Context, *connect.Re
 
 func (UnimplementedForgeServiceHandler) ListForgePullRequests(context.Context, *connect.Request[v1.ListForgePullRequestsRequest]) (*connect.Response[v1.ListForgePullRequestsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.ListForgePullRequests is not implemented"))
+}
+
+func (UnimplementedForgeServiceHandler) PlanForgePullRequestMerge(context.Context, *connect.Request[v1.PlanForgePullRequestMergeRequest]) (*connect.Response[v1.PlanForgePullRequestMergeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.PlanForgePullRequestMerge is not implemented"))
 }
 
 func (UnimplementedForgeServiceHandler) MergeForgePullRequest(context.Context, *connect.Request[v1.MergeForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error) {

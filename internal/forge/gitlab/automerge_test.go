@@ -141,6 +141,27 @@ func TestSetAutoMerge(t *testing.T) {
 			wantBody:   map[string]any{"auto_merge": true, "merge_when_pipeline_succeeds": true, "sha": "abc123"},
 		},
 		{
+			name: "an open merge request is queued to squash with the message asked for",
+			params: forge.SetAutoMergeParams{
+				URL:     address,
+				On:      true,
+				Method:  forge.MergeMethodSquash,
+				Message: &forge.CommitMessage{Headline: "Land the fix", Body: "Merges stop failing."},
+			},
+			answers: map[string]answer{
+				"AutoMergeTarget": target("opened", false, waiting),
+				path + "/merge":   {body: `{"iid":7,"state":"opened","merge_when_pipeline_succeeds":true}`},
+			},
+			wantMethod: http.MethodPut,
+			wantPath:   path + "/merge",
+			wantBody: map[string]any{
+				"auto_merge":                   true,
+				"merge_when_pipeline_succeeds": true,
+				"squash":                       true,
+				"squash_commit_message":        "Land the fix\n\nMerges stop failing.",
+			},
+		},
+		{
 			name:   "a queued merge request is cancelled",
 			params: forge.SetAutoMergeParams{URL: address},
 			answers: map[string]answer{

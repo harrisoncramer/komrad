@@ -122,7 +122,26 @@ func TestSetAutoMerge(t *testing.T) {
 }`)},
 			},
 			wantOperation: "EnableAutoMerge",
-			wantVariables: map[string]any{"id": "PR_742", "method": "REBASE", "head": "abc123"},
+			wantVariables: map[string]any{"id": "PR_742", "method": "REBASE", "headline": nil, "body": nil, "head": "abc123"},
+		},
+		{
+			name: "an open pull request is queued by the method and message asked for",
+			params: forge.SetAutoMergeParams{
+				URL:     address,
+				On:      true,
+				Method:  forge.MergeMethodMerge,
+				Message: &forge.CommitMessage{Headline: "Land the fix"},
+			},
+			answers: map[string]answer{
+				"AutoMergeTarget": target("OPEN", "null"),
+				"EnableAutoMerge": {body: data(`{
+	"enablePullRequestAutoMerge": {
+		"clientMutationId": null
+	}
+}`)},
+			},
+			wantOperation: "EnableAutoMerge",
+			wantVariables: map[string]any{"id": "PR_742", "method": "MERGE", "headline": "Land the fix", "body": "", "head": nil},
 		},
 		{
 			name:   "a queued pull request is withdrawn",

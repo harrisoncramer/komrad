@@ -13,9 +13,14 @@ import (
 	"komrad/lib/xhttp"
 )
 
-// Merge accepts the merge request the way the project is set to merge.
-func (f *Forge) Merge(ctx context.Context, address string) error {
-	path, number, err := parseMergeRequestURL(address)
+// Merge accepts the merge request, squashed or not as asked, or the way the project is set to
+// merge when nothing was.
+func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
+	path, number, err := parseMergeRequestURL(params.URL)
+	if err != nil {
+		return err
+	}
+	body, err := mergeBody(params.Method, params.Message, params.HeadSHA)
 	if err != nil {
 		return err
 	}
@@ -24,6 +29,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	answer, err := f.client.Send(ctx, xhttp.JSONParams{
 		Method: http.MethodPut,
 		URL:    endpoint + "/merge",
+		Body:   body,
 	}, nil)
 	if errors.Is(err, forge.ErrThrottled) {
 		return err
@@ -33,7 +39,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	case http.StatusNotFound:
 		return noMergeRequest(number, path)
 	case http.StatusForbidden:
-		return forge.ErrUnauthorized.Saying("gitlab will not let the credential merge %s: %v", address, err)
+		return forge.ErrUnauthorized.Saying("gitlab will not let the credential merge %s: %v", params.URL, err)
 	case http.StatusMethodNotAllowed, http.StatusNotAcceptable, http.StatusConflict, http.StatusUnprocessableEntity:
 		return forge.ErrNotMergeable.Saying("gitlab will not merge !%d: %s", number, f.mergeRefusal(ctx, endpoint, graphql.MessageOf(answer.Body)))
 	}

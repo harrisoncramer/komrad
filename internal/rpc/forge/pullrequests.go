@@ -70,9 +70,35 @@ func (s *Handler) ListForgePullRequests(ctx context.Context, req *forgev1.ListFo
 	return response, nil
 }
 
+// PlanForgePullRequestMerge reads the ways a pull request could merge through the connection for
+// its host.
+func (s *Handler) PlanForgePullRequestMerge(ctx context.Context, req *forgev1.PlanForgePullRequestMergeRequest) (*forgev1.PlanForgePullRequestMergeResponse, *fail.Error) {
+	plan, err := s.writer.PlanPullRequestMerge(ctx, req.GetUrl())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to plan the merge")
+	}
+
+	return &forgev1.PlanForgePullRequestMergeResponse{
+		Options: xslice.Map(plan.Options, renderMergeOption),
+		Pick:    renderMergeMethod(plan.Pick),
+		HeadSha: plan.HeadSHA,
+	}, nil
+}
+
 // MergeForgePullRequest merges a pull request through the connection for its host.
 func (s *Handler) MergeForgePullRequest(ctx context.Context, req *forgev1.MergeForgePullRequestRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.writer.MergePullRequest(ctx, req.GetUrl()); err != nil {
+	method, message, err := readMergeChoice(req.GetMethod(), req.GetMessage())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to merge the pull request")
+	}
+
+	err = s.writer.MergePullRequest(ctx, forge.MergeParams{
+		URL:     req.GetUrl(),
+		Method:  method,
+		Message: message,
+		HeadSHA: req.GetHeadSha(),
+	})
+	if err != nil {
 		return nil, rpcerr.From(err, "failed to merge the pull request")
 	}
 
@@ -92,10 +118,17 @@ func (s *Handler) SetForgePullRequestDraft(ctx context.Context, req *forgev1.Set
 // SetForgePullRequestAutoMerge asks the forge to merge a pull request once its checks and reviews
 // pass, or stops it, through the connection for its host.
 func (s *Handler) SetForgePullRequestAutoMerge(ctx context.Context, req *forgev1.SetForgePullRequestAutoMergeRequest) (*emptypb.Empty, *fail.Error) {
-	err := s.writer.SetPullRequestAutoMerge(ctx, forge.SetAutoMergeParams{
+	method, message, err := readMergeChoice(req.GetMethod(), req.GetMessage())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to change auto-merge on the pull request")
+	}
+
+	err = s.writer.SetPullRequestAutoMerge(ctx, forge.SetAutoMergeParams{
 		URL:     req.GetUrl(),
 		HeadSHA: req.GetHeadSha(),
 		On:      req.GetOn(),
+		Method:  method,
+		Message: message,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to change auto-merge on the pull request")

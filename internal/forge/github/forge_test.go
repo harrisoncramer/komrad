@@ -375,7 +375,7 @@ func TestNotFound(t *testing.T) {
 	]
 }`,
 			call: func(f *Forge) error {
-				return f.Merge(t.Context(), "https://github.com/harrisoncramer/no-such-repository-xyz/pull/1")
+				return f.Merge(t.Context(), forge.MergeParams{URL: "https://github.com/harrisoncramer/no-such-repository-xyz/pull/1"})
 			},
 		},
 		{
@@ -404,7 +404,7 @@ func TestNotFound(t *testing.T) {
 	]
 }`,
 			call: func(f *Forge) error {
-				return f.Merge(t.Context(), "https://github.com/harrisoncramer/komrad-forge-fixture/pull/999")
+				return f.Merge(t.Context(), forge.MergeParams{URL: "https://github.com/harrisoncramer/komrad-forge-fixture/pull/999"})
 			},
 		},
 		{
@@ -448,7 +448,7 @@ func TestNotFound(t *testing.T) {
 	}
 
 	misrouted, _, _ := serve(t, nil)
-	err := misrouted.Merge(t.Context(), "https://github.com/harrisoncramer/komrad/pull/1")
+	err := misrouted.Merge(t.Context(), forge.MergeParams{URL: "https://github.com/harrisoncramer/komrad/pull/1"})
 	require.Error(t, err)
 	require.NotErrorIs(t, err, forge.ErrNotFound)
 	assert.ErrorContains(t, err, "/graphql")

@@ -91,13 +91,12 @@ func (f *Forge) sendAutoMerge(ctx context.Context, params sendAutoMergeParams) e
 		URL:    endpoint + "/cancel_merge_when_pipeline_succeeds",
 	}
 	if params.change.On {
-		body := map[string]any{
-			"auto_merge":                   true,
-			"merge_when_pipeline_succeeds": true,
+		body, err := mergeBody(params.change.Method, params.change.Message, params.change.HeadSHA)
+		if err != nil {
+			return err
 		}
-		if params.change.HeadSHA != "" {
-			body["sha"] = params.change.HeadSHA
-		}
+		body["auto_merge"] = true
+		body["merge_when_pipeline_succeeds"] = true
 		request = xhttp.JSONParams{
 			Method: http.MethodPut,
 			URL:    endpoint + "/merge",

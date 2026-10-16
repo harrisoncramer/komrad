@@ -68,7 +68,9 @@ func (f *fakeForge) List(_ context.Context, params ListParams) (*Page, error) {
 
 func (f *fakeForge) Get(context.Context, string) (PullRequest, error) { return PullRequest{}, nil }
 
-func (f *fakeForge) Merge(context.Context, string) error { return nil }
+func (f *fakeForge) PlanMerge(context.Context, string) (*MergePlan, error) { return &MergePlan{}, nil }
+
+func (f *fakeForge) Merge(context.Context, MergeParams) error { return nil }
 
 func (f *fakeForge) SetDraft(context.Context, string, bool) error { return nil }
 

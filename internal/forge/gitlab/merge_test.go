@@ -22,15 +22,39 @@ func TestMerge(t *testing.T) {
 
 	refused := answer{status: http.StatusMethodNotAllowed, body: `{"message":"405 Method Not Allowed"}`}
 
+	accepted := answer{body: `{"iid":7,"state":"merged"}`}
+
 	tests := []struct {
 		name        string
+		params      forge.MergeParams
 		answers     map[string]answer
 		wantErr     error
 		wantMessage string
+		wantBody    map[string]any
 	}{
 		{
-			name:    "the merge request is accepted",
-			answers: map[string]answer{path + "/merge": {body: `{"iid":7,"state":"merged"}`}},
+			name:     "the merge request is accepted the way the project merges",
+			answers:  map[string]answer{path + "/merge": accepted},
+			wantBody: map[string]any{},
+		},
+		{
+			name: "the merge request is squashed with the message asked for at the head the person saw",
+			params: forge.MergeParams{
+				Method:  forge.MergeMethodSquash,
+				Message: &forge.CommitMessage{Headline: "Land the fix", Body: "Merges stop failing."},
+				HeadSHA: "abc123",
+			},
+			answers:  map[string]answer{path + "/merge": accepted},
+			wantBody: map[string]any{"squash": true, "squash_commit_message": "Land the fix\n\nMerges stop failing.", "sha": "abc123"},
+		},
+		{
+			name: "the merge request is merged unsquashed with a headline alone",
+			params: forge.MergeParams{
+				Method:  forge.MergeMethodMerge,
+				Message: &forge.CommitMessage{Headline: "Land the fix"},
+			},
+			answers:  map[string]answer{path + "/merge": accepted},
+			wantBody: map[string]any{"squash": false, "merge_commit_message": "Land the fix"},
 		},
 		{
 			name: "a merge request that has already merged",
@@ -118,7 +142,9 @@ func TestMerge(t *testing.T) {
 
 			f, _, fake := serve(t, tt.answers)
 
-			err := f.Merge(t.Context(), address)
+			params := tt.params
+			params.URL = address
+			err := f.Merge(t.Context(), params)
 			assert.Equal(t, http.MethodPut, fake.calls[0].Method)
 			assert.Equal(t, path+"/merge", fake.calls[0].Path)
 			if tt.wantErr != nil {
@@ -128,6 +154,7 @@ func TestMerge(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			assert.Equal(t, tt.wantBody, fake.calls[0].Body)
 		})
 	}
 }

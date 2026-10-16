@@ -1,9 +1,20 @@
 package github
 
-import "slices"
+import (
+	"slices"
+
+	"komrad/internal/forge"
+)
 
 // mergeMethodOrder is the order GitHub offers merge methods in.
 var mergeMethodOrder = []string{"MERGE", "SQUASH", "REBASE"}
+
+// mergeMethodOf is each of GitHub's merge methods in komrad's words.
+var mergeMethodOf = map[string]forge.MergeMethod{
+	"MERGE":  forge.MergeMethodMerge,
+	"SQUASH": forge.MergeMethodSquash,
+	"REBASE": forge.MergeMethodRebase,
+}
 
 // mergeSettings is the merge methods a repository allows and the one the credential defaults to.
 type mergeSettings struct {
@@ -37,14 +48,19 @@ type ruleParameters struct {
 	AllowedMergeMethods []string `json:"allowedMergeMethods"`
 }
 
-// chooseMethod returns the credential's default merge method when the repository and base
-// branch allow it, and otherwise the first method they allow.
-func (s mergeSettings) chooseMethod(base *baseRef) string {
-	allowed := map[string]bool{
+// allowedMethods is whether the repository and base branch allow each of GitHub's merge methods.
+func (s mergeSettings) allowedMethods(base *baseRef) map[string]bool {
+	return map[string]bool{
 		"MERGE":  s.MergeCommitAllowed && base.isMethodAllowed("MERGE"),
 		"SQUASH": s.SquashMergeAllowed && base.isMethodAllowed("SQUASH"),
 		"REBASE": s.RebaseMergeAllowed && base.isMethodAllowed("REBASE"),
 	}
+}
+
+// chooseMethod returns the credential's default merge method when the repository and base
+// branch allow it, and otherwise the first method they allow.
+func (s mergeSettings) chooseMethod(base *baseRef) string {
+	allowed := s.allowedMethods(base)
 	if allowed[s.ViewerDefaultMergeMethod] {
 		return s.ViewerDefaultMergeMethod
 	}
@@ -55,6 +71,20 @@ func (s mergeSettings) chooseMethod(base *baseRef) string {
 	}
 
 	return s.ViewerDefaultMergeMethod
+}
+
+// methodFor is GitHub's name for the method asked for, or komrad's pick when none was.
+func (s mergeSettings) methodFor(base *baseRef, asked forge.MergeMethod) (string, error) {
+	if asked == "" {
+		return s.chooseMethod(base), nil
+	}
+	for _, method := range mergeMethodOrder {
+		if mergeMethodOf[method] == asked {
+			return method, nil
+		}
+	}
+
+	return "", forge.ErrNoMergeMethod.Saying("github cannot merge by %s", asked)
 }
 
 func (b *baseRef) isMethodAllowed(method string) bool {

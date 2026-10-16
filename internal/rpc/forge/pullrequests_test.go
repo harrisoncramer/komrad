@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"context"
 	"testing"
 
 	"komrad/internal/forge"
@@ -41,4 +42,138 @@ func TestListForgePullRequestsPages(t *testing.T) {
 	assert.Equal(t, "end-of-page", connector.listed[1].Cursor)
 	assert.Equal(t, 50, connector.listed[1].PerPage)
 	assert.Nil(t, second.Msg.NextPageToken)
+}
+
+// fakeWriter answers plan and records each merge and auto-merge change asked of it.
+type fakeWriter struct {
+	plan       forge.MergePlan
+	merged     []forge.MergeParams
+	autoMerged []forge.SetAutoMergeParams
+}
+
+func (f *fakeWriter) PlanPullRequestMerge(context.Context, string) (*forge.MergePlan, error) {
+	return &f.plan, nil
+}
+
+func (f *fakeWriter) MergePullRequest(_ context.Context, params forge.MergeParams) error {
+	f.merged = append(f.merged, params)
+
+	return nil
+}
+
+func (f *fakeWriter) SetPullRequestDraft(context.Context, string, bool) error { return nil }
+
+func (f *fakeWriter) SetPullRequestAutoMerge(_ context.Context, params forge.SetAutoMergeParams) error {
+	f.autoMerged = append(f.autoMerged, params)
+
+	return nil
+}
+
+func (f *fakeWriter) RequestPullRequestRereview(context.Context, string) error { return nil }
+
+// TestPlanForgePullRequestMerge pins each option, the pick and the head reaching the caller.
+func TestPlanForgePullRequestMerge(t *testing.T) {
+	writer := &fakeWriter{plan: forge.MergePlan{
+		Options: []forge.MergeOption{
+			{Method: forge.MergeMethodMerge, Message: &forge.CommitMessage{Headline: "Merge pull request #1", Body: "Land the fix"}},
+			{Method: forge.MergeMethodRebase, Allowed: true},
+		},
+		Pick:    forge.MergeMethodRebase,
+		HeadSHA: "abc123",
+	}}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+
+	planned, err := service.PlanForgePullRequestMerge(t.Context(), connect.NewRequest(&forgev1.PlanForgePullRequestMergeRequest{
+		Url: "https://github.com/harrisoncramer/komrad/pull/1",
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, forgev1.MergeMethod_MERGE_METHOD_REBASE, planned.Msg.GetPick())
+	assert.Equal(t, "abc123", planned.Msg.GetHeadSha())
+	require.Len(t, planned.Msg.GetOptions(), 2)
+	assert.Equal(t, forgev1.MergeMethod_MERGE_METHOD_MERGE, planned.Msg.GetOptions()[0].GetMethod())
+	assert.False(t, planned.Msg.GetOptions()[0].GetAllowed())
+	assert.Equal(t, "Merge pull request #1", planned.Msg.GetOptions()[0].GetMessage().GetHeadline())
+	assert.Equal(t, "Land the fix", planned.Msg.GetOptions()[0].GetMessage().GetBody())
+	assert.True(t, planned.Msg.GetOptions()[1].GetAllowed())
+	assert.Nil(t, planned.Msg.GetOptions()[1].Message)
+}
+
+// TestMergeForgePullRequest pins the method, message and head reaching the writer, and a message
+// without a method refused.
+func TestMergeForgePullRequest(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+
+	tests := []struct {
+		name       string
+		req        *forgev1.MergeForgePullRequestRequest
+		wantCode   connect.Code
+		wantMerged []forge.MergeParams
+	}{
+		{
+			name:       "no method or message leaves both to the forge",
+			req:        &forgev1.MergeForgePullRequestRequest{Url: address},
+			wantMerged: []forge.MergeParams{{URL: address}},
+		},
+		{
+			name: "a method and message reach the forge with the head",
+			req: &forgev1.MergeForgePullRequestRequest{
+				Url:     address,
+				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+				Message: &forgev1.CommitMessage{Headline: "Land the fix", Body: "Merges stop failing."},
+				HeadSha: "abc123",
+			},
+			wantMerged: []forge.MergeParams{{
+				URL:     address,
+				Method:  forge.MergeMethodSquash,
+				Message: &forge.CommitMessage{Headline: "Land the fix", Body: "Merges stop failing."},
+				HeadSHA: "abc123",
+			}},
+		},
+		{
+			name: "a message without a method",
+			req: &forgev1.MergeForgePullRequestRequest{
+				Url:     address,
+				Message: &forgev1.CommitMessage{Headline: "Land the fix"},
+			},
+			wantCode: connect.CodeInvalidArgument,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := &fakeWriter{}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+
+			_, err := service.MergeForgePullRequest(t.Context(), connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantMerged, writer.merged)
+		})
+	}
+}
+
+// TestSetForgePullRequestAutoMergeCarriesTheMerge pins the method and message reaching the writer.
+func TestSetForgePullRequestAutoMergeCarriesTheMerge(t *testing.T) {
+	const address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1"
+	writer := &fakeWriter{}
+	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+
+	_, err := service.SetForgePullRequestAutoMerge(t.Context(), connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
+		Url:     address,
+		On:      true,
+		Method:  forgev1.MergeMethod_MERGE_METHOD_FAST_FORWARD,
+		Message: &forgev1.CommitMessage{Headline: "Land the fix"},
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []forge.SetAutoMergeParams{{
+		URL:     address,
+		On:      true,
+		Method:  forge.MergeMethodFastForward,
+		Message: &forge.CommitMessage{Headline: "Land the fix"},
+	}}, writer.autoMerged)
 }

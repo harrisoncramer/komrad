@@ -1,0 +1,47 @@
+query MergePlan($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    viewerDefaultMergeMethod
+    mergeCommitAllowed
+    squashMergeAllowed
+    rebaseMergeAllowed
+    mergeCommitTitle
+    mergeCommitMessage
+    squashMergeCommitTitle
+    squashMergeCommitMessage
+    pullRequest(number: $number) {
+      number
+      state
+      title
+      body
+      headRefName
+      headRefOid
+      headRepositoryOwner {
+        login
+      }
+      commits(first: 100) {
+        totalCount
+        nodes {
+          commit {
+            messageHeadline
+            messageBody
+          }
+        }
+      }
+      baseRef {
+        branchProtectionRule {
+          requiresLinearHistory
+        }
+        rules(first: 100) {
+          nodes {
+            type
+            parameters {
+              ... on PullRequestParameters {
+                allowedMergeMethods
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -130,12 +130,72 @@ message ForgePullRequest {
   optional string closed_at = 17;
 }
 
+// MergeMethod is how a pull request's commits land on its base branch.
+enum MergeMethod {
+  // No method was chosen.
+  MERGE_METHOD_UNSPECIFIED = 0;
+  // The commits land under a merge commit.
+  MERGE_METHOD_MERGE = 1;
+  // The commits land as one new commit.
+  MERGE_METHOD_SQUASH = 2;
+  // The commits are replayed onto the base branch one by one.
+  MERGE_METHOD_REBASE = 3;
+  // The base branch moves to the head commit, with no commit of its own.
+  MERGE_METHOD_FAST_FORWARD = 4;
+}
+
+// CommitMessage is the text of the commit a merge writes.
+message CommitMessage {
+  // The commit's first line.
+  string headline = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The rest of the commit's message. Empty writes a headline alone.
+  string body = 2 [(buf.validate.field).string.max_len = 65536];
+}
+
+// MergeOption is one way a pull request could merge.
+message MergeOption {
+  // The merge method.
+  MergeMethod method = 1;
+  // Whether the repository and the pull request's base branch allow the method.
+  bool allowed = 2;
+  // The message the forge writes for the method by itself. Unset for a method that writes no
+  // commit of its own.
+  optional CommitMessage message = 3;
+}
+
+message PlanForgePullRequestMergeRequest {
+  // The pull request to plan, by web address. The address's host picks the forge connection.
+  string url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+}
+
+message PlanForgePullRequestMergeResponse {
+  // Every merge method the forge offers for the pull request, in the forge's order.
+  repeated MergeOption options = 1;
+  // The method the pull request merges by when a merge names none.
+  MergeMethod pick = 2;
+  // The pull request's head commit when the plan was read.
+  string head_sha = 3;
+}
+
 message MergeForgePullRequestRequest {
   // The pull request to merge, by web address. The address's host picks the forge connection.
   string url = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 2048
   }];
+  // How the pull request merges. Unspecified merges by a method the base branch allows.
+  MergeMethod method = 2 [(buf.validate.field).enum.defined_only = true];
+  // The text of the commit the merge writes. Unset leaves the message to the forge.
+  optional CommitMessage message = 3;
+  // The head commit the caller expects. The forge refuses to merge once the branch has moved
+  // past it. Empty accepts any head.
+  string head_sha = 4 [(buf.validate.field).string.max_len = 64];
 }
 
 message SetForgePullRequestDraftRequest {
@@ -168,6 +228,10 @@ message SetForgePullRequestAutoMergeRequest {
   string head_sha = 2 [(buf.validate.field).string.max_len = 64];
   // Whether the pull request merges by itself once its checks and reviews pass.
   bool on = 3;
+  // How the pull request merges once it may. Unspecified merges by a method the base branch allows.
+  MergeMethod method = 4 [(buf.validate.field).enum.defined_only = true];
+  // The text of the commit the merge writes. Unset leaves the message to the forge.
+  optional CommitMessage message = 5;
 }
 
 message ListForgePullRequestsResponse {
@@ -216,12 +280,22 @@ service ForgeService {
       roles: [ROLE_ORCHESTRATOR]
     };
   }
+  rpc PlanForgePullRequestMerge(PlanForgePullRequestMergeRequest) returns (PlanForgePullRequestMergeResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "plan_forge_pull_request_merge"
+      description: "Read the merge methods a pull request's forge offers, whether its base branch allows each, and the commit message the forge would write for each."
+      reason: "Only the person merges, so only the person needs the plan."
+    };
+  }
   rpc MergeForgePullRequest(MergeForgePullRequestRequest) returns (google.protobuf.Empty) {
     option (annotation.v1.surfaces) = {
       cli: true
       mcp: false
       name: "merge_forge_pull_request"
-      description: "Merge a pull request on its forge, with a merge method its base branch allows."
+      description: "Merge a pull request on its forge, by the method and with the message asked for. Without a method, the forge merges by one the base branch allows, and without a message it writes its own."
       reason: "Only the person decides what lands on the base branch."
     };
   }
