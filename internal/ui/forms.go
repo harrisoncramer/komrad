@@ -314,17 +314,20 @@ func multiFieldKeyMap(keys config.FixedKeys) *huh.KeyMap {
 }
 
 func confirmForm(title, description, affirmative string, keys config.FixedKeys) (*huh.Form, *bool) {
+	confirmed := true
+
 	return confirmFormStartingOn(confirmFormStartingOnParams{
-		confirmed:   true,
+		answer:      &confirmed,
 		title:       title,
 		description: description,
 		affirmative: affirmative,
 		keys:        keys,
-	})
+	}), &confirmed
 }
 
 type confirmFormStartingOnParams struct {
-	confirmed   bool
+	// answer is where the form writes, holding the answer it starts on.
+	answer      *bool
 	title       string
 	description string
 	affirmative string
@@ -332,8 +335,8 @@ type confirmFormStartingOnParams struct {
 }
 
 // confirmFormStartingOn builds a confirmation sitting on one of its two answers.
-func confirmFormStartingOn(params confirmFormStartingOnParams) (*huh.Form, *bool) {
-	form := huh.NewForm(
+func confirmFormStartingOn(params confirmFormStartingOnParams) *huh.Form {
+	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
 				Key("confirm").
@@ -342,11 +345,9 @@ func confirmFormStartingOn(params confirmFormStartingOnParams) (*huh.Form, *bool
 				Affirmative(params.affirmative).
 				Negative("Cancel").
 				WithButtonAlignment(lipgloss.Left).
-				Value(&params.confirmed),
+				Value(params.answer),
 		),
 	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(params.keys)).WithTheme(paint.Panel.FormTheme())
-
-	return form, &params.confirmed
 }
 
 // holdForm keeps the form up while the write it was submitted for is in flight, so a refusal

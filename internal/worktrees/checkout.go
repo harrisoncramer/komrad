@@ -137,20 +137,21 @@ type readAgainstParams struct {
 
 // readAgainst reads where the directory stands against a base already read.
 func (r *CheckoutReader) readAgainst(ctx context.Context, checkout *Checkout, params readAgainstParams) error {
+	readTree := r.readTree
+	if params.Peek {
+		readTree = r.peekTree
+	}
+
 	if errors.Is(params.BaseErr, git.ErrBaseMissing) {
 		checkout.BaseErr = params.BaseErr
 
-		return nil
+		return readTree(ctx, params.Dir, checkout)
 	}
 	if params.BaseErr != nil {
 		return params.BaseErr
 	}
 	checkout.BaseRef = params.Base.Ref
 
-	readTree := r.readTree
-	if params.Peek {
-		readTree = r.peekTree
-	}
 	if err := readTree(ctx, params.Dir, checkout); err != nil {
 		return err
 	}

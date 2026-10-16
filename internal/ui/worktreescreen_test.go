@@ -271,6 +271,166 @@ func TestWorktreesDelete(t *testing.T) {
 	})
 }
 
+// TestWorktreesDeleteStanding covers what a delete confirm says the worktrees it takes still hold.
+func TestWorktreesDeleteStanding(t *testing.T) {
+	t.Parallel()
+
+	archived := &worktreev1.Worktree{
+		Dir:      "/trees/archived",
+		Branch:   "task/archived",
+		Readable: true,
+	}
+	orphan := &worktreev1.Worktree{
+		Dir:      "/trees/orphan",
+		Branch:   "task/orphan",
+		Readable: true,
+	}
+	dirty := &worktreev1.GetWorktreeResponse{
+		Worktree:  archived,
+		Modified:  []string{"a.go"},
+		Untracked: []string{"b.txt", "c.txt"},
+		BaseRef:   "origin/main",
+		Pushed:    true,
+		Unpushed:  2,
+	}
+	clean := &worktreev1.GetWorktreeResponse{
+		Worktree: archived,
+		BaseRef:  "origin/main",
+		Pushed:   true,
+	}
+	baseless := &worktreev1.GetWorktreeResponse{
+		Worktree:  orphan,
+		Untracked: []string{"notes.md"},
+		BaseError: "the workflow names no base branch",
+	}
+	crowded := &worktreev1.GetWorktreeResponse{
+		Worktree: orphan,
+		Modified: buildFileNames(12),
+		BaseRef:  "origin/main",
+		Ahead:    3,
+	}
+	detached := &worktreev1.GetWorktreeResponse{
+		Worktree: &worktreev1.Worktree{
+			Dir:      "/trees/orphan",
+			Readable: true,
+		},
+		BaseRef: "origin/main",
+		Ahead:   2,
+	}
+
+	tests := []struct {
+		name         string
+		row          string
+		press        []string
+		answer       answerFunc
+		wantRendered []string
+		wantAbsent   []string
+	}{
+		{
+			name:         "a task's delete counts what is uncommitted and unpushed and names the files",
+			row:          "reviewer",
+			press:        []string{"space", "a", "d"},
+			answer:       answerWith(dirty),
+			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits.", "a.go b.txt c.txt"},
+		},
+		{
+			name:         "a clean worktree is said to be clean",
+			row:          "reviewer",
+			press:        []string{"space", "a", "d"},
+			answer:       answerWith(clean),
+			wantRendered: []string{"The worktree has nothing uncommitted or unpushed."},
+		},
+		{
+			name:         "a branch never pushed with no base counts its files and not its commits",
+			row:          "task/orphan",
+			press:        []string{"space", "a", "d"},
+			answer:       answerWith(baseless),
+			wantRendered: []string{"The worktree has 1 uncommitted file. Without a base, Komrad cannot count the unpushed commits of the worktree.", "notes.md"},
+		},
+		{
+			name:         "a branch never pushed counts its commits since the base and the files past ten are counted",
+			row:          "task/orphan",
+			press:        []string{"space", "a", "d"},
+			answer:       answerWith(crowded),
+			wantRendered: []string{"The worktree has 12 uncommitted files and 3 unpushed commits.", "f9.go and 2 more"},
+			wantAbsent:   []string{"You lose any uncommitted changes"},
+		},
+		{
+			name:         "a worktree git refuses says why it cannot be counted",
+			row:          "reviewer",
+			press:        []string{"space", "a", "d"},
+			answer:       refuseWith(connect.CodeInternal, "git exploded"),
+			wantRendered: []string{"Komrad could not read the worktree (git exploded), so it cannot say what is uncommitted or unpushed there."},
+		},
+		{
+			name:         "several worktrees are counted together without naming files",
+			row:          "task/orphan",
+			press:        []string{"v", "k", "v", "space", "a", "d"},
+			answer:       answerWith(dirty),
+			wantRendered: []string{"The worktrees have 6 uncommitted files and 4 unpushed commits."},
+			wantAbsent:   []string{"a.go"},
+		},
+		{
+			name:         "a detached head counts its commits since the base",
+			row:          "task/orphan",
+			press:        []string{"space", "a", "d"},
+			answer:       answerWith(detached),
+			wantRendered: []string{"The worktree has 2 unpushed commits."},
+		},
+		{
+			name:         "several worktrees of which one is refused count only those read and name their files",
+			row:          "task/orphan",
+			press:        []string{"v", "k", "v", "space", "a", "d"},
+			answer:       answerForDir("/trees/orphan", answerWith(dirty), refuseWith(connect.CodeInternal, "git exploded")),
+			wantRendered: []string{"The 1 worktree Komrad read has 3 uncommitted files and 2 unpushed commits. Komrad could not read 1 worktree, so it cannot say what is uncommitted or unpushed there.", "a.go b.txt c.txt"},
+		},
+		{
+			name:         "several worktrees of which one is gone are spoken of as one",
+			row:          "task/orphan",
+			press:        []string{"v", "k", "v", "space", "a", "d"},
+			answer:       answerForDir("/trees/orphan", answerWith(dirty), refuseWith(connect.CodeNotFound, "gone")),
+			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits.", "a.go b.txt c.txt"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGroupedWorktrees(t)
+			harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
+			moveToWorktree(t, harness, tt.row)
+
+			harness.press(tt.press...)
+
+			prose := readFormProse(harness.readFrame())
+			for _, want := range tt.wantRendered {
+				assert.Contains(t, prose, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, prose, absent)
+			}
+		})
+	}
+
+	t.Run("a confirm opens while git is still reading and counts once it answers", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGroupedWorktrees(t)
+		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(dirty))
+		harness.hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+		moveToWorktree(t, harness, "reviewer")
+
+		harness.press("space", "a", "d")
+
+		assert.Contains(t, readFormProse(harness.readFrame()), "Komrad is still reading the worktree, so it cannot yet say what is uncommitted or unpushed there.")
+
+		harness.release(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+
+		assert.Contains(t, readFormProse(harness.readFrame()), "The worktree has 3 uncommitted files and 2 unpushed commits.")
+	})
+}
+
 // TestWorktreesMenu covers the entry the archive menu offers for each kind of row.
 func TestWorktreesMenu(t *testing.T) {
 	t.Parallel()
@@ -1319,5 +1479,24 @@ func buildTaskWorktrees() []proto.Message {
 			Branch:   "agent/zz",
 			Readable: true,
 		},
+	}
+}
+
+func buildFileNames(count int) []string {
+	names := make([]string, count)
+	for i := range names {
+		names[i] = fmt.Sprintf("f%d.go", i)
+	}
+
+	return names
+}
+
+func answerForDir(dir string, answer, rest answerFunc) answerFunc {
+	return func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		if read, _ := req.Any().(*worktreev1.GetWorktreeRequest); read.GetDir() == dir {
+			return answer(req)
+		}
+
+		return rest(req)
 	}
 }
