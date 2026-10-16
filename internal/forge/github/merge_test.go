@@ -9,17 +9,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMerge covers merging with the repository's default method and GitHub's refusals.
+// TestMerge covers merging with a method the base branch allows and GitHub's refusals.
 func TestMerge(t *testing.T) {
 	t.Parallel()
 
 	const address = "https://github.com/harrisoncramer/komrad/pull/742"
 	target := answer{body: data(`{
 	"repository": {
-		"viewerDefaultMergeMethod": "SQUASH",
+		"viewerDefaultMergeMethod": "MERGE",
+		"mergeCommitAllowed": true,
+		"squashMergeAllowed": true,
+		"rebaseMergeAllowed": false,
 		"pullRequest": {
 			"id": "PR_742",
-			"state": "OPEN"
+			"state": "OPEN",
+			"baseRef": {
+				"rules": {
+					"nodes": [
+						{
+							"type": "PULL_REQUEST",
+							"parameters": {
+								"allowedMergeMethods": [
+									"SQUASH"
+								]
+							}
+						},
+						{
+							"type": "DELETION",
+							"parameters": null
+						}
+					]
+				}
+			}
 		}
 	}
 }`)}
@@ -30,7 +51,7 @@ func TestMerge(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "the pull request merges with the method the repository defaults to",
+			name: "the pull request merges with the method its base branch allows",
 			answers: map[string]answer{
 				"MergeTarget": target,
 				"Merge": {body: data(`{

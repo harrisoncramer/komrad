@@ -1,9 +1,24 @@
 query MergeTarget($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     viewerDefaultMergeMethod
+    mergeCommitAllowed
+    squashMergeAllowed
+    rebaseMergeAllowed
     pullRequest(number: $number) {
       id
       state
+      baseRef {
+        rules(first: 100) {
+          nodes {
+            type
+            parameters {
+              ... on PullRequestParameters {
+                allowedMergeMethods
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

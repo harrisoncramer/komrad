@@ -13,7 +13,7 @@ var mergeTargetQuery string
 //go:embed merge.gql
 var mergeMutation string
 
-// Merge lands the pull request with the method GitHub offers the credential by default.
+// Merge lands the pull request with a method the repository and its base branch allow.
 func (f *Forge) Merge(ctx context.Context, address string) error {
 	owner, name, number, err := parsePullURL(address)
 	if err != nil {
@@ -22,10 +22,11 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 
 	var data struct {
 		Repository *struct {
-			ViewerDefaultMergeMethod string `json:"viewerDefaultMergeMethod"`
-			PullRequest              *struct {
-				ID    string `json:"id"`
-				State string `json:"state"`
+			mergeSettings
+			PullRequest *struct {
+				ID      string   `json:"id"`
+				State   string   `json:"state"`
+				BaseRef *baseRef `json:"baseRef"`
 			} `json:"pullRequest"`
 		} `json:"repository"`
 	}
@@ -53,7 +54,7 @@ func (f *Forge) Merge(ctx context.Context, address string) error {
 	var merged struct{}
 	answer, err = f.client.Query(ctx, mergeMutation, map[string]any{
 		"id":     data.Repository.PullRequest.ID,
-		"method": data.Repository.ViewerDefaultMergeMethod,
+		"method": data.Repository.methodFor(data.Repository.PullRequest.BaseRef),
 	}, &merged)
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ var enableAutoMergeMutation string
 //go:embed disableautomerge.gql
 var disableAutoMergeMutation string
 
-// SetAutoMerge asks GitHub to merge the pull request with the credential's default method once
+// SetAutoMerge asks GitHub to merge the pull request with a method its base branch allows once
 // it may, holding it to the head the person saw, or withdraws that request, asking nothing of
 // GitHub when it already stands that way.
 func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
@@ -63,8 +63,8 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 func (f *Forge) readAutoMergeTarget(ctx context.Context, owner, name string, number int) (*autoMergeTarget, error) {
 	var data struct {
 		Repository *struct {
-			ViewerDefaultMergeMethod string           `json:"viewerDefaultMergeMethod"`
-			PullRequest              *autoMergeTarget `json:"pullRequest"`
+			mergeSettings
+			PullRequest *autoMergeTarget `json:"pullRequest"`
 		} `json:"repository"`
 	}
 	answer, err := f.client.Query(ctx, autoMergeTargetQuery, map[string]any{
@@ -83,16 +83,17 @@ func (f *Forge) readAutoMergeTarget(ctx context.Context, owner, name string, num
 	}
 
 	target := data.Repository.PullRequest
-	target.method = data.Repository.ViewerDefaultMergeMethod
+	target.method = data.Repository.methodFor(target.BaseRef)
 
 	return target, nil
 }
 
-// autoMergeTarget is a pull request whose auto-merge is about to change, with the method the
-// credential merges with by default.
+// autoMergeTarget is a pull request whose auto-merge is about to change, with the method it
+// merges with.
 type autoMergeTarget struct {
 	ID               string    `json:"id"`
 	State            string    `json:"state"`
+	BaseRef          *baseRef  `json:"baseRef"`
 	AutoMergeRequest *struct{} `json:"autoMergeRequest"`
 	method           string
 }
