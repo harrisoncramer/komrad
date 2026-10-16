@@ -148,7 +148,7 @@ func (s *Server) runSession(session gliderssh.Session) {
 		argv = []string{s.shell, "-c", command}
 	}
 
-	code, err := start(session, argv)
+	code, err := runCommand(session, argv)
 	if err != nil {
 		s.logger.LogAttrs(session.Context(), slog.LevelWarn, "failed to run an SSH session", logging.Err(err)...)
 		_, _ = fmt.Fprintln(session.Stderr(), err) //nolint:errcheck // a client that hung up has no use for the reason
@@ -158,26 +158,27 @@ func (s *Server) runSession(session gliderssh.Session) {
 	_ = session.Exit(code) //nolint:errcheck // a client that hung up has no use for the status
 }
 
-func start(session gliderssh.Session, argv []string) (int, error) {
+func runCommand(session gliderssh.Session, argv []string) (int, error) {
 	dir, err := os.UserHomeDir()
 	if err != nil {
 		return 0, fmt.Errorf("failed to find the home directory: %w", err)
 	}
 
-	env := append(os.Environ(), session.Environ()...)
+	params := pty.StartParams{
+		Argv: argv,
+		Dir:  dir,
+		Env:  append(os.Environ(), session.Environ()...),
+	}
 
 	request, resized, isTerminal := session.Pty()
 	if isTerminal {
-		return runOnTerminal(session, pty.StartParams{
-			Argv: argv,
-			Dir:  dir,
-			Env:  env,
-			Size: toSize(request.Window),
-			Term: request.Term,
-		}, resized)
+		params.Size = toSize(request.Window)
+		params.Term = request.Term
+
+		return runOnTerminal(session, params, resized)
 	}
 
-	return runPiped(session, argv, dir, env)
+	return runPiped(session, params)
 }
 
 func runOnTerminal(session gliderssh.Session, params pty.StartParams, resized <-chan gliderssh.Window) (int, error) {
@@ -201,10 +202,10 @@ func runOnTerminal(session gliderssh.Session, params pty.StartParams, resized <-
 	return terminal.Wait()
 }
 
-func runPiped(session gliderssh.Session, argv []string, dir string, env []string) (int, error) {
-	command := exec.CommandContext(session.Context(), argv[0], argv[1:]...) //nolint:gosec // the caller is signed in and runs as the agents do
-	command.Dir = dir
-	command.Env = env
+func runPiped(session gliderssh.Session, params pty.StartParams) (int, error) {
+	command := exec.CommandContext(session.Context(), params.Argv[0], params.Argv[1:]...) //nolint:gosec // the caller is signed in and runs as the agents do
+	command.Dir = params.Dir
+	command.Env = params.Env
 	command.Stdout = session
 	command.Stderr = session.Stderr()
 
@@ -231,7 +232,7 @@ func runPiped(session gliderssh.Session, argv []string, dir string, env []string
 	}
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to run %s: %w", argv[0], err)
+		return 0, fmt.Errorf("failed to run %s: %w", params.Argv[0], err)
 	}
 
 	return 0, nil

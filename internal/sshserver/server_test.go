@@ -159,8 +159,16 @@ func TestForwarding(t *testing.T) {
 		network string
 		address string
 	}{
-		{name: "a port", network: "tcp", address: "127.0.0.1:0"},
-		{name: "a unix socket", network: "unix", address: filepath.Join(socketDir, "s")},
+		{
+			name:    "a port",
+			network: "tcp",
+			address: "127.0.0.1:0",
+		},
+		{
+			name:    "a unix socket",
+			network: "unix",
+			address: filepath.Join(socketDir, "s"),
+		},
 	}
 
 	for _, tt := range tests {
