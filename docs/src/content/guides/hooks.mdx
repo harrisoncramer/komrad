@@ -98,7 +98,7 @@ A task has moments of its own, which fire for the task as a whole. Hang anything
 
 Komrad ships two hooks for its own checkouts: `komrad-checkout-archive` for `task.post-archive`, which gives back a checkout's test instance and drops what it rebuilds, and `komrad-checkout-teardown` for `task.pre-delete`, which also takes down its docker stack.
 
-Komrad also ships `komrad-mise-install` for `task.pre-open`. It runs `mise install` in the task's checkout, so the tools the repository pins in its mise config are there before the writer starts. A checkout with no mise config installs nothing. mise refuses a config it does not trust, so a machine that runs the hook trusts its worktrees directory, for example with `trusted_config_paths` in its mise settings.
+Komrad also ships `komrad-mise-install` for `task.pre-open`. It runs `mise install` in the task's checkout, so the tools the repository pins in its mise config are there before the writer starts. A checkout with no mise config installs nothing. mise refuses a config it does not trust, so a machine that runs the hook has to trust its worktrees directory, for example with `trusted_config_paths` in its mise settings.
 
 ## Examples
 

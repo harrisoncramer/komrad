@@ -1690,8 +1690,12 @@ func TestIntegrationBuiltinKomradMiseInstall(t *testing.T) {
 		exit    int
 		wantErr bool
 	}{
+		{
+			name:    "a failed install fails the hook",
+			exit:    1,
+			wantErr: true,
+		},
 		{name: "the checkout's tools are installed in the checkout"},
-		{name: "a failed install fails the hook", exit: 1, wantErr: true},
 	}
 
 	for _, tt := range tests {
