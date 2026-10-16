@@ -426,7 +426,7 @@ func worktreeDetailFields(values *workflowFormValues, editing bool) []huh.Field 
 			Description("one repo-relative path per line that komrad symlinks into every worktree instead of copying, such as node_modules").
 			Lines(2).Value(&values.WorktreeSymlinkPaths),
 		huh.NewInput().Key("worktree_setup_command").Title("Worktree setup command").
-			Description("a shell command komrad runs in the worktree before an agent starts or resumes there, such as mise install").
+			Description("a shell command komrad runs in the worktree before an agent starts or resumes there, such as mise trust && mise install").
 			Value(&values.WorktreeSetupCommand),
 		textField("worktree_diff_exclude").Title("Diff excludes").
 			Description("one path or glob per line that the review screen leaves out of the diff, such as proto/gen or *.pb.go").
