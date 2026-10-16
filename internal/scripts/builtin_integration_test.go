@@ -1759,16 +1759,14 @@ func TestIntegrationBuiltinWorktreeSetupCommand(t *testing.T) {
 
 			listed, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
 			require.NoError(t, err)
-			branch := exec.Command("git", "-C", repo, "rev-parse", "--verify", "--quiet", "refs/heads/task/"+env.taskID).Run()
 			if tt.wantTree {
 				assert.DirExists(t, tree)
 				assert.Contains(t, string(listed), tree)
-				assert.NoError(t, branch)
 			} else {
 				assert.NoDirExists(t, tree)
 				assert.NotContains(t, string(listed), tree)
-				assert.Error(t, branch)
 			}
+			assert.Equal(t, tt.wantTree, hasRef(t, repo, "refs/heads/task/"+env.taskID))
 
 			said, err := os.ReadFile(ran)
 			if !tt.wantRan {
