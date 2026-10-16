@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -85,6 +86,8 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 			refusals = append(refusals, errui.GetReason(inspection.err))
 		case !inspection.item.readable:
 			refusals = append(refusals, "git cannot read it")
+		case inspection.baseRef == "":
+			refusals = append(refusals, cmp.Or(inspection.baseError, "git cannot name its base"))
 		default:
 			read++
 			files = slices.Concat(files, inspection.modified, inspection.untracked)
