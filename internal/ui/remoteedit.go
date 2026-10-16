@@ -44,10 +44,10 @@ func remoteEditorShell(settings PanelSettings, path string, line int) string {
 	command := editorCommand(settings.Editor)
 	at := strings.Join(editorLineArgs(command, path, line), " ")
 
-	switch editorName(command) {
-	case "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf":
+	switch name := editorName(command); {
+	case isVSCodeEditor(name):
 		return "exec " + command + " --remote " + shellQuote("ssh-remote+"+settings.SSHHost) + " " + at
-	case "zed":
+	case name == "zed":
 		return "exec " + command + " --wait " + shellQuote("ssh://"+settings.SSHHost+path)
 	}
 
@@ -58,10 +58,10 @@ func remoteEditorShell(settings PanelSettings, path string, line int) string {
 func remoteDirEditorShell(settings PanelSettings, dir string) string {
 	command := editorCommand(settings.Editor)
 
-	switch editorName(command) {
-	case "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf":
+	switch name := editorName(command); {
+	case isVSCodeEditor(name):
 		return "exec " + command + " --remote " + shellQuote("ssh-remote+"+settings.SSHHost) + " " + shellQuote(dir)
-	case "zed":
+	case name == "zed":
 		return "exec " + command + " " + shellQuote("ssh://"+settings.SSHHost+dir)
 	}
 
@@ -91,9 +91,7 @@ func (m *model) isRemoteEditRefused() (string, bool) {
 	}
 
 	name := editorName(editorCommand(m.settings.Editor))
-	switch name {
-	case "subl", "sublime_text", "goland", "idea", "pycharm", "webstorm", "phpstorm", "rubymine",
-		"clion", "rider", "rustrover", "datagrip":
+	if name == "subl" || name == "sublime_text" || isJetBrainsEditor(name) {
 		return name + " cannot open files on another machine" + separated +
 			"set EDITOR to one that can, such as nvim or code", true
 	}
@@ -102,12 +100,9 @@ func (m *model) isRemoteEditRefused() (string, bool) {
 		return "this machine has no ssh host for the engine" + separated + "run komrad login to write one", true
 	}
 
-	switch name {
-	case "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf", "zed":
-		if !m.settings.IsSSHIncluded {
-			return name + " cannot find the engine's ssh host" + separated +
-				"add Include ~/.ssh/komrad/*.conf to the top of ~/.ssh/config, then reopen the panel", true
-		}
+	if (isVSCodeEditor(name) || name == "zed") && !m.settings.IsSSHIncluded {
+		return name + " cannot find the engine's ssh host" + separated +
+			"add Include ~/.ssh/komrad/*.conf to the top of ~/.ssh/config, then reopen the panel", true
 	}
 
 	return "", false
