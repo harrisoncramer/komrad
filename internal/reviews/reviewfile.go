@@ -84,19 +84,9 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 	}
 
 	if len(params.Thread.Context) > 0 {
-		out.WriteString("```\n")
-		for _, line := range params.Thread.Context {
-			out.WriteString(line)
-			out.WriteString("\n")
-		}
-		out.WriteString("```\n\n")
+		writeFenced(out, "", params.Thread.Context)
 	} else if len(thread.QuotedLines) > 0 {
-		out.WriteString("```diff\n")
-		for _, line := range thread.QuotedLines {
-			out.WriteString(line)
-			out.WriteString("\n")
-		}
-		out.WriteString("```\n\n")
+		writeFenced(out, "diff", thread.QuotedLines)
 	}
 
 	for _, message := range params.Thread.Messages {
@@ -111,14 +101,29 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 
 		if len(message.Suggestion) > 0 {
 			out.WriteString(suggestionLead(params.ByHuman))
-			out.WriteString("\n\n```\n")
-			for _, line := range message.Suggestion {
-				out.WriteString(line)
-				out.WriteString("\n")
-			}
-			out.WriteString("```\n\n")
+			out.WriteString("\n\n")
+			writeFenced(out, "", message.Suggestion)
 		}
 	}
+}
+
+// writeFenced writes lines as a code block whose fence outruns every backtick run inside it.
+func writeFenced(out *strings.Builder, info string, lines []string) {
+	longest := 0
+	for _, line := range lines {
+		for _, run := range strings.FieldsFunc(line, func(char rune) bool { return char != '`' }) {
+			longest = max(longest, len(run))
+		}
+	}
+
+	fence := strings.Repeat("`", max(longest+1, 3))
+
+	out.WriteString(fence + info + "\n")
+	for _, line := range lines {
+		out.WriteString(line)
+		out.WriteString("\n")
+	}
+	out.WriteString(fence + "\n\n")
 }
 
 func writeExternal(out *strings.Builder, message reviewstore.Message) {

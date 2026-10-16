@@ -141,3 +141,80 @@ func TestRenderReviewQuotesForgeComments(t *testing.T) {
 		})
 	}
 }
+
+// TestRenderReviewFencesEachSnippet pins every fence opening longer than any backtick run inside it.
+func TestRenderReviewFencesEachSnippet(t *testing.T) {
+	tests := []struct {
+		name   string
+		thread ReviewThreadInContext
+		want   string
+	}{
+		{
+			name: "plain code takes three backticks",
+			thread: ReviewThreadInContext{
+				Thread: reviewstore.Thread{
+					FilePath: "greet.go",
+					NewStart: 1,
+					NewEnd:   1,
+				},
+				Context: []string{">> 1  return `hi`"},
+			},
+			want: "```\n>> 1  return `hi`\n```\n\n",
+		},
+		{
+			name: "markdown holding a fenced block takes four",
+			thread: ReviewThreadInContext{
+				Thread: reviewstore.Thread{
+					FilePath: "README.md",
+					NewStart: 2,
+					NewEnd:   2,
+				},
+				Context: []string{"   1  ```sh", ">> 2  go test", "   3  ```"},
+			},
+			want: "````\n   1  ```sh\n>> 2  go test\n   3  ```\n````\n\n",
+		},
+		{
+			name: "quoted lines holding a run of four take five",
+			thread: ReviewThreadInContext{
+				Thread: reviewstore.Thread{
+					FilePath:    "fence.go",
+					OldStart:    3,
+					OldEnd:      3,
+					QuotedLines: []string{"-const fence = \"````\""},
+				},
+			},
+			want: "`````diff\n-const fence = \"````\"\n`````\n\n",
+		},
+		{
+			name: "a suggestion holding a fenced block takes four",
+			thread: ReviewThreadInContext{
+				Thread: reviewstore.Thread{
+					FilePath: "README.md",
+					NewStart: 1,
+					NewEnd:   1,
+				},
+				Messages: []reviewstore.Message{{
+					Body:       "show the command",
+					Suggestion: []string{"```sh", "go test", "```"},
+				}},
+			},
+			want: "````\n```sh\ngo test\n```\n````\n\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := renderReview(renderReviewParams{
+				Task: taskstore.Task{ID: "01a0d224-0000-7000-8000-000000000001", Slug: "worker"},
+				Round: reviewstore.Round{
+					Ordinal:     1,
+					BaseSHA:     "base-sha",
+					SnapshotSHA: "snapshot-sha",
+				},
+				Threads: []ReviewThreadInContext{tt.thread},
+			})
+
+			assert.Contains(t, body, "\n"+tt.want)
+		})
+	}
+}
