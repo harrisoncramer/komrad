@@ -77,6 +77,12 @@ func TestMethodFor(t *testing.T) {
 			want:     "SQUASH",
 		},
 		{
+			name:     "linear history in branch protection refuses merge commits",
+			settings: everything,
+			base:     &baseRef{BranchProtectionRule: &branchProtection{RequiresLinearHistory: true}},
+			want:     "SQUASH",
+		},
+		{
 			name: "rules on a method the repository refuses do not bring it back",
 			settings: mergeSettings{
 				ViewerDefaultMergeMethod: "SQUASH",

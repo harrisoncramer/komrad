@@ -13,11 +13,17 @@ type mergeSettings struct {
 	RebaseMergeAllowed       bool   `json:"rebaseMergeAllowed"`
 }
 
-// baseRef is a pull request's base branch with the rules GitHub enforces on it.
+// baseRef is a pull request's base branch with the protection and rules GitHub enforces on it.
 type baseRef struct {
+	BranchProtectionRule *branchProtection `json:"branchProtectionRule"`
 	Rules struct {
 		Nodes []branchRule `json:"nodes"`
 	} `json:"rules"`
+}
+
+// branchProtection is the classic protection on a branch.
+type branchProtection struct {
+	RequiresLinearHistory bool `json:"requiresLinearHistory"`
 }
 
 // branchRule is one rule GitHub enforces on a branch.
@@ -40,6 +46,9 @@ func (s mergeSettings) methodFor(base *baseRef) string {
 		"REBASE": s.RebaseMergeAllowed,
 	}
 	if base != nil {
+		if base.BranchProtectionRule != nil && base.BranchProtectionRule.RequiresLinearHistory {
+			allowed["MERGE"] = false
+		}
 		for _, rule := range base.Rules.Nodes {
 			switch {
 			case rule.Type == "REQUIRED_LINEAR_HISTORY":

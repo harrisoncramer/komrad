@@ -8,6 +8,9 @@ query MergeTarget($owner: String!, $name: String!, $number: Int!) {
       id
       state
       baseRef {
+        branchProtectionRule {
+          requiresLinearHistory
+        }
         rules(first: 100) {
           nodes {
             type
