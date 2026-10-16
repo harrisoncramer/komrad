@@ -3,6 +3,7 @@ package ui_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 
@@ -255,7 +256,11 @@ func TestGitMenuRefusals(t *testing.T) {
 func TestGitMenuMerges(t *testing.T) {
 	t.Parallel()
 
-	merge := &forgev1.MergeForgePullRequestRequest{Url: pullRequestURL}
+	merge := &forgev1.MergeForgePullRequestRequest{
+		Url:     pullRequestURL,
+		Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+		HeadSha: "planned",
+	}
 
 	tests := []struct {
 		name        string
@@ -268,20 +273,20 @@ func TestGitMenuMerges(t *testing.T) {
 	}{
 		{
 			name:        "merge leaves the task where it is",
-			press:       []string{"m"},
+			press:       []string{"m", "enter"},
 			wantMerges:  []proto.Message{merge},
 			wantMessage: "task-a1: merged #740",
 		},
 		{
 			name:        "merge names a merge request the way GitLab does",
 			forge:       "gitlab",
-			press:       []string{"m"},
+			press:       []string{"m", "enter"},
 			wantMerges:  []proto.Message{merge},
 			wantMessage: "task-a1: merged !740",
 		},
 		{
 			name:        "merge and archive archives the task once the forge has merged",
-			press:       []string{"a"},
+			press:       []string{"a", "enter"},
 			wantMerges:  []proto.Message{merge},
 			wantArchive: []proto.Message{&taskv1.ArchiveTaskRequest{Task: "task-a1"}},
 			wantMessage: "task-a1: merged #740",
@@ -292,7 +297,7 @@ func TestGitMenuMerges(t *testing.T) {
 		},
 		{
 			name:        "a merge the forge refuses archives nothing",
-			press:       []string{"a"},
+			press:       []string{"a", "enter"},
 			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("github refused to merge it: Pull Request is not mergeable")),
 			wantMerges:  []proto.Message{merge},
 			wantMessage: "Pull Request is not mergeable",
@@ -306,6 +311,7 @@ func TestGitMenuMerges(t *testing.T) {
 			pullRequest := newOpenPullRequest()
 			pullRequest.Forge = tt.forge
 			harness := openGitMenu(t, append(buildGitAgent(), pullRequest)...)
+			harness.answerMergePlan(newMergePlan())
 			if tt.refuse != nil {
 				harness.refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
 			}
@@ -352,6 +358,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 			t.Parallel()
 
 			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+			harness.answerMergePlan(newMergePlan())
 			if tt.refuse != nil {
 				harness.refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
 			}
@@ -363,9 +370,13 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 				}), nil
 			})
 
-			harness.press("m", "r")
+			harness.press("m", "r", "enter")
 
-			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, &forgev1.MergeForgePullRequestRequest{Url: pullRequestURL})
+			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, &forgev1.MergeForgePullRequestRequest{
+				Url:     pullRequestURL,
+				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+				HeadSha: "planned",
+			})
 			harness.assertSentTo(agentv1connect.AgentServiceRebaseWorktreeProcedure, tt.wantRebases...)
 			harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
 			assert.NotContains(t, harness.readFrame(), "merge then rebase")
@@ -378,44 +389,50 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 }
 
 // TestGitMenuMergesWhenReady covers the merge menu entry naming which way it goes, asking the
-// forge to merge on its own at the head the panel holds, and stopping it again.
+// forge to merge on its own the way the form says, and stopping it again at once.
 func TestGitMenuMergesWhenReady(t *testing.T) {
 	t.Parallel()
+
+	queue := &forgev1.SetForgePullRequestAutoMergeRequest{
+		Url:     pullRequestURL,
+		HeadSha: "planned",
+		On:      true,
+		Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+	}
 
 	tests := []struct {
 		name        string
 		pullRequest *pullrequestv1.PullRequest
+		press       []string
 		refuse      error
 		wantLabel   string
+		wantPlans   []proto.Message
 		wantSent    proto.Message
 		wantMessage string
 	}{
 		{
 			name:        "a queue the forge refuses says why",
 			pullRequest: newQueueablePullRequest(),
+			press:       []string{"u", "enter"},
 			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("github will not change auto-merge on #740: Head sha didn't match expected")),
 			wantLabel:   "merge when ready",
-			wantSent: &forgev1.SetForgePullRequestAutoMergeRequest{
-				Url:     pullRequestURL,
-				HeadSha: "new",
-				On:      true,
-			},
+			wantPlans:   []proto.Message{&forgev1.PlanForgePullRequestMergeRequest{Url: pullRequestURL}},
+			wantSent:    queue,
 			wantMessage: "Head sha didn't match expected",
 		},
 		{
-			name:        "a pull request the forge would queue is queued at the head the panel holds",
+			name:        "a pull request the forge would queue is queued at the head the plan read",
 			pullRequest: newQueueablePullRequest(),
+			press:       []string{"u", "enter"},
 			wantLabel:   "merge when ready",
-			wantSent: &forgev1.SetForgePullRequestAutoMergeRequest{
-				Url:     pullRequestURL,
-				HeadSha: "new",
-				On:      true,
-			},
+			wantPlans:   []proto.Message{&forgev1.PlanForgePullRequestMergeRequest{Url: pullRequestURL}},
+			wantSent:    queue,
 			wantMessage: "task-a1: #740 merges when ready",
 		},
 		{
-			name:        "a queued pull request stops waiting",
+			name:        "a queued pull request stops waiting without asking how it would merge",
 			pullRequest: newAutoMergedPullRequest(),
+			press:       []string{"u"},
 			wantLabel:   "cancel auto-merge",
 			wantSent:    &forgev1.SetForgePullRequestAutoMergeRequest{Url: pullRequestURL, HeadSha: "new"},
 			wantMessage: "task-a1: #740 no longer merges on its own",
@@ -427,19 +444,111 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			t.Parallel()
 
 			harness := openGitMenu(t, append(buildGitAgent(), tt.pullRequest)...)
+			harness.answerMergePlan(newMergePlan())
 			if tt.refuse != nil {
 				harness.refuse(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.refuse)
 			}
 			harness.press("m")
 			require.Contains(t, harness.readFrame(), tt.wantLabel)
 
-			harness.press("u")
+			harness.press(tt.press...)
 
+			harness.assertSentTo(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, tt.wantPlans...)
 			harness.assertSentTo(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.wantSent)
 			assert.NotContains(t, harness.readFrame(), tt.wantLabel)
 			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 		})
 	}
+}
+
+// TestGitMenuMergeForm covers the form a merge goes through, opening on the method the forge
+// picked with its message and refusing what the base branch does not allow.
+func TestGitMenuMergeForm(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the form opens on the method the forge picked with its message", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+		harness.answerMergePlan(newMergePlan())
+
+		harness.press("m", "m")
+
+		frame := harness.readFrame()
+		assert.Contains(t, frame, "Merge #740")
+		assert.Contains(t, frame, "merge commit  not allowed")
+		assert.Contains(t, frame, "Add the merge form (#740)")
+		assert.Contains(t, frame, "Pick a method before merging.")
+		harness.assertSentTo(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, &forgev1.PlanForgePullRequestMergeRequest{Url: pullRequestURL})
+		harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure)
+	})
+
+	tests := []struct {
+		name        string
+		press       []string
+		wantMerges  []proto.Message
+		wantRefusal string
+	}{
+		{
+			name:  "a method that writes no commit sends no message",
+			press: []string{"down", "enter"},
+			wantMerges: []proto.Message{&forgev1.MergeForgePullRequestRequest{
+				Url:     pullRequestURL,
+				Method:  forgev1.MergeMethod_MERGE_METHOD_REBASE,
+				HeadSha: "planned",
+			}},
+		},
+		{
+			name:  "an edited headline goes with the merge",
+			press: slices.Concat([]string{"tab"}, spellKeys(" now"), []string{"enter"}),
+			wantMerges: []proto.Message{&forgev1.MergeForgePullRequestRequest{
+				Url:     pullRequestURL,
+				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+				Message: &forgev1.CommitMessage{Headline: "Add the merge form (#740) now", Body: "Pick a method before merging."},
+				HeadSha: "planned",
+			}},
+		},
+		{
+			name:        "a method the base branch refuses is not sent",
+			press:       []string{"up", "enter"},
+			wantRefusal: "the base branch does not allow a merge commit",
+		},
+		{
+			name:        "a cleared headline is not sent",
+			press:       []string{"tab", "ctrl+u", "enter"},
+			wantRefusal: "a commit needs a headline",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+			harness.answerMergePlan(newMergePlan())
+			harness.press("m", "m")
+
+			harness.press(tt.press...)
+
+			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
+			if tt.wantRefusal != "" {
+				assert.Contains(t, harness.readFrame(), tt.wantRefusal)
+			}
+		})
+	}
+
+	t.Run("a forge that cannot say how it would merge says why", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+		harness.refuse(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, connect.NewError(connect.CodeUnavailable, errors.New("github is down")))
+
+		harness.press("m", "m")
+
+		assert.NotContains(t, harness.readFrame(), "Merge #740")
+		assert.Contains(t, readOpenMessages(harness), "github is down")
+		harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure)
+	})
 }
 
 // TestGitMenuPushes covers the push entry asking first with what the push would do, then sending
@@ -996,4 +1105,27 @@ func onGitLab(pullRequest *pullrequestv1.PullRequest) *pullrequestv1.PullRequest
 	pullRequest.Forge = "gitlab"
 
 	return pullRequest
+}
+
+func newMergePlan() *forgev1.PlanForgePullRequestMergeResponse {
+	return &forgev1.PlanForgePullRequestMergeResponse{
+		Options: []*forgev1.MergeOption{
+			{Method: forgev1.MergeMethod_MERGE_METHOD_MERGE},
+			{
+				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+				Allowed: true,
+				Message: &forgev1.CommitMessage{Headline: "Add the merge form (#740)", Body: "Pick a method before merging."},
+			},
+			{Method: forgev1.MergeMethod_MERGE_METHOD_REBASE, Allowed: true},
+		},
+		Pick:    forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+		HeadSha: "planned",
+	}
+}
+
+// answerMergePlan has the forge say the pull request could merge the way the plan says.
+func (h *panelHarness) answerMergePlan(plan *forgev1.PlanForgePullRequestMergeResponse) {
+	h.answer(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(plan), nil
+	})
 }
