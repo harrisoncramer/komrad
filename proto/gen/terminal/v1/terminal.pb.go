@@ -143,7 +143,8 @@ func (x *OpenShell) GetTerm() string {
 	return ""
 }
 
-// ShellRequest is one message from the client on a shell stream.
+// ShellRequest is one message from the client on a shell stream. A message with nothing set keeps
+// the stream open while the terminal is quiet.
 type ShellRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The message.
@@ -478,7 +479,8 @@ func (x *OpenAttach) GetTerm() string {
 	return ""
 }
 
-// AttachRequest is one message from the client on an attach stream.
+// AttachRequest is one message from the client on an attach stream. A message with nothing set
+// keeps the stream open while the terminal is quiet.
 type AttachRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The message.
@@ -894,13 +896,13 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"\tOpenShell\x12\x19\n" +
 	"\x03dir\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x03dir\x12-\n" +
 	"\x04size\x18\x02 \x01(\v2\x11.terminal.v1.SizeB\x06\xbaH\x03\xc8\x01\x01R\x04size\x12\x12\n" +
-	"\x04term\x18\x03 \x01(\tR\x04term\"\xab\x01\n" +
+	"\x04term\x18\x03 \x01(\tR\x04term\"\xa4\x01\n" +
 	"\fShellRequest\x12,\n" +
 	"\x04open\x18\x01 \x01(\v2\x16.terminal.v1.OpenShellH\x00R\x04open\x12\x16\n" +
 	"\x05input\x18\x02 \x01(\fH\x00R\x05input\x12+\n" +
 	"\x06resize\x18\x03 \x01(\v2\x11.terminal.v1.SizeH\x00R\x06resize\x12\x16\n" +
-	"\x05token\x18\x04 \x01(\tH\x00R\x05tokenB\x10\n" +
-	"\amessage\x12\x05\xbaH\x02\b\x01\"\x1a\n" +
+	"\x05token\x18\x04 \x01(\tH\x00R\x05tokenB\t\n" +
+	"\amessage\"\x1a\n" +
 	"\x04Exit\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\"\x8d\x01\n" +
 	"\rShellResponse\x12.\n" +
@@ -912,13 +914,13 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"OpenAttach\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12-\n" +
 	"\x04size\x18\x02 \x01(\v2\x11.terminal.v1.SizeB\x06\xbaH\x03\xc8\x01\x01R\x04size\x12\x12\n" +
-	"\x04term\x18\x03 \x01(\tR\x04term\"\xad\x01\n" +
+	"\x04term\x18\x03 \x01(\tR\x04term\"\xa6\x01\n" +
 	"\rAttachRequest\x12-\n" +
 	"\x04open\x18\x01 \x01(\v2\x17.terminal.v1.OpenAttachH\x00R\x04open\x12\x16\n" +
 	"\x05input\x18\x02 \x01(\fH\x00R\x05input\x12+\n" +
 	"\x06resize\x18\x03 \x01(\v2\x11.terminal.v1.SizeH\x00R\x06resize\x12\x16\n" +
-	"\x05token\x18\x04 \x01(\tH\x00R\x05tokenB\x10\n" +
-	"\amessage\x12\x05\xbaH\x02\b\x01\"\x8e\x01\n" +
+	"\x05token\x18\x04 \x01(\tH\x00R\x05tokenB\t\n" +
+	"\amessage\"\x8e\x01\n" +
 	"\x0eAttachResponse\x12.\n" +
 	"\x05ready\x18\x01 \x01(\v2\x16.google.protobuf.EmptyH\x00R\x05ready\x12\x18\n" +
 	"\x06output\x18\x02 \x01(\fH\x00R\x06output\x12'\n" +

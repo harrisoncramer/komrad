@@ -183,6 +183,11 @@ func TestShellRefuses(t *testing.T) {
 			first:    &terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Input{Input: []byte("ls\n")}},
 			wantCode: connect.CodeInvalidArgument,
 		},
+		{
+			name:     "a stream that opens with an empty message",
+			first:    &terminalv1.ShellRequest{},
+			wantCode: connect.CodeInvalidArgument,
+		},
 	}
 
 	for _, tt := range tests {
@@ -225,6 +230,12 @@ func TestShellCarriesATerminal(t *testing.T) {
 	t.Run("a resize reaches the shell", func(t *testing.T) {
 		require.NoError(t, stream.Send(&terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Resize{Resize: &terminalv1.Size{Rows: 30, Cols: 100}}}))
 		assert.Equal(t, pty.Size{Rows: 30, Cols: 100}, <-fake.resized)
+	})
+
+	t.Run("an empty message types nothing and keeps the shell", func(t *testing.T) {
+		require.NoError(t, stream.Send(&terminalv1.ShellRequest{}))
+		require.NoError(t, stream.Send(&terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Input{Input: []byte("pwd\n")}}))
+		assert.Equal(t, []byte("pwd\n"), <-fake.typed)
 	})
 
 	t.Run("what the shell draws comes back", func(t *testing.T) {
@@ -318,6 +329,11 @@ func TestAttachRefuses(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
+			name:     "a stream that opens with an empty message",
+			first:    &terminalv1.AttachRequest{},
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
 			name:     "an opening that names no agent",
 			first:    openAttachRequest(""),
 			wantCode: connect.CodeInvalidArgument,
@@ -364,6 +380,12 @@ func TestAttachCarriesATerminal(t *testing.T) {
 	t.Run("a resize reaches the terminal", func(t *testing.T) {
 		require.NoError(t, stream.Send(&terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Resize{Resize: &terminalv1.Size{Rows: 30, Cols: 100}}}))
 		assert.Equal(t, pty.Size{Rows: 30, Cols: 100}, <-fake.resized)
+	})
+
+	t.Run("an empty message types nothing and keeps the attach", func(t *testing.T) {
+		require.NoError(t, stream.Send(&terminalv1.AttachRequest{}))
+		require.NoError(t, stream.Send(&terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Input{Input: []byte("pwd\n")}}))
+		assert.Equal(t, []byte("pwd\n"), <-fake.typed)
 	})
 
 	t.Run("a caller closing its side types nothing and still hears the terminal", func(t *testing.T) {

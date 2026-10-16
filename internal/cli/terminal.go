@@ -26,8 +26,9 @@ import (
 const (
 	// redialFor is how long to redial a dropped attach before giving up.
 	redialFor = 2 * time.Minute
-	// tokenCheckInterval is how often an open terminal asks for a fresh token to send the engine.
-	tokenCheckInterval = time.Minute
+	// keepaliveInterval is how often an open terminal sends the engine a message, well inside the minute a
+	// proxy in front of the engine lets a request go silent.
+	keepaliveInterval = 20 * time.Second
 	// firstRedialWait is how long the first redial waits, doubling up to lastRedialWait.
 	firstRedialWait = 250 * time.Millisecond
 	lastRedialWait  = 5 * time.Second
@@ -58,6 +59,7 @@ type terminalConn interface {
 	sendInput(input []byte) error
 	sendResize(size *terminalv1.Size) error
 	sendToken(token string) error
+	sendKeepalive() error
 	closeInput() error
 	receive() (received, error)
 	close()
@@ -195,6 +197,10 @@ func (c *streamConn[Req, Res]) sendToken(token string) error {
 	return c.send(c.token(token))
 }
 
+func (c *streamConn[Req, Res]) sendKeepalive() error {
+	return c.send(new(Req))
+}
+
 func (c *streamConn[Req, Res]) closeInput() error {
 	c.sending.Lock()
 	defer c.sending.Unlock()
@@ -277,6 +283,8 @@ type runTerminalParams struct {
 	Size    func() *terminalv1.Size
 	Resized <-chan os.Signal
 	Ready   func() (func(), error)
+	// KeepaliveInterval is how often the stream sends the engine a message, or keepaliveInterval when zero.
+	KeepaliveInterval time.Duration
 }
 
 // runTerminal opens a terminal and carries In to it and its output to Out until it exits.
@@ -370,9 +378,12 @@ func carry(ctx context.Context, params carryParams) (int, error) {
 	}
 }
 
-// forward sends what is typed, each resize and each fresh token to one stream, closing its input
-// when the typing ends.
+// forward sends what is typed, each resize, and each keepalive or fresh token to one stream, closing
+// its input when the typing ends.
 func forward(ctx context.Context, params carryParams) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	if len(*params.Unsent) > 0 {
 		if err := params.Conn.sendInput(*params.Unsent); err != nil {
 			return
@@ -381,31 +392,32 @@ func forward(ctx context.Context, params carryParams) {
 		*params.Unsent = nil
 	}
 
-	var renew <-chan time.Time
-	if params.Terminal.Token != nil {
-		ticker := time.NewTicker(tokenCheckInterval)
-		defer ticker.Stop()
-
-		renew = ticker.C
+	interval := params.Terminal.KeepaliveInterval
+	if interval == 0 {
+		interval = keepaliveInterval
 	}
 
-	sent := ""
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	tokens := make(chan string)
+	if params.Terminal.Token != nil {
+		go watchToken(ctx, params.Terminal.Token, interval, tokens)
+	}
+
 	inputs := params.Inputs
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-renew:
-			token, err := params.Terminal.Token(ctx)
-			if err != nil || token == sent {
-				continue
+		case <-ticker.C:
+			if err := params.Conn.sendKeepalive(); err != nil {
+				return
 			}
-
+		case token := <-tokens:
 			if err := params.Conn.sendToken(token); err != nil {
 				return
 			}
-
-			sent = token
 		case <-params.Terminal.Resized:
 			if err := params.Conn.sendResize(params.Terminal.Size()); err != nil {
 				return
@@ -423,6 +435,33 @@ func forward(ctx context.Context, params carryParams) {
 
 				return
 			}
+		}
+	}
+}
+
+// watchToken hands on each token from source that differs from the last, asking for one every interval.
+func watchToken(ctx context.Context, source func(ctx context.Context) (string, error), interval time.Duration, tokens chan<- string) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	sent := ""
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		token, err := source(ctx)
+		if err != nil || token == sent {
+			continue
+		}
+
+		select {
+		case tokens <- token:
+			sent = token
+		case <-ctx.Done():
+			return
 		}
 	}
 }
