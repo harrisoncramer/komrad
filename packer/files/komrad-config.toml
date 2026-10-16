@@ -1,2 +1,5 @@
 [worktrees]
 dir = "/var/lib/komrad/worktrees"
+
+[hooks]
+timeout = "10m"

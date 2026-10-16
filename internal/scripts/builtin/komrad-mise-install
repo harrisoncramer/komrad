@@ -1,0 +1,6 @@
+#!/bin/sh
+#KOMRAD description="Install the tools a task's checkout pins in its mise config, such as go and node, before its writer starts."
+set -eu
+
+cd "$KOMRAD_AGENT_CWD"
+exec mise install

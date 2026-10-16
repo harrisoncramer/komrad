@@ -12,10 +12,10 @@ ConditionPathIsMountPoint=/var/lib/komrad
 Type=simple
 User=komrad
 Group=komrad
-Environment=PATH=/opt/mise/data/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Environment=PATH=/var/lib/komrad/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 EnvironmentFile=-/etc/komrad/komrad.env
 EnvironmentFile=/etc/komrad/database.env
-Environment=KOMRAD_CONFIG=/var/lib/komrad/home/.config/komrad/config.toml:/etc/komrad/sign-in.toml
+Environment=KOMRAD_CONFIG=/usr/share/komrad/config.toml:/var/lib/komrad/home/.config/komrad/config.toml:/etc/komrad/sign-in.toml
 ExecStart=/usr/local/bin/komrad serve
 # The tmux server holding every agent is spawned by komrad and so lands in this service's
 # cgroup, which systemd kills wholesale by default. Killing only komrad leaves the agents

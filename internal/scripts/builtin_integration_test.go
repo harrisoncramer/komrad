@@ -1681,3 +1681,43 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 		})
 	}
 }
+
+// TestIntegrationBuiltinKomradMiseInstall covers installing what a task's checkout pins before its
+// writer starts.
+func TestIntegrationBuiltinKomradMiseInstall(t *testing.T) {
+	tests := []struct {
+		name    string
+		exit    int
+		wantErr bool
+	}{
+		{name: "the checkout's tools are installed in the checkout"},
+		{name: "a failed install fails the hook", exit: 1, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tree := t.TempDir()
+			ran := filepath.Join(t.TempDir(), "mise")
+
+			bin := t.TempDir()
+			mise := fmt.Sprintf("#!/bin/sh\nprintf '%%s %%s' \"$PWD\" \"$*\" > %q\nexit %d\n", ran, tt.exit)
+			require.NoError(t, os.WriteFile(filepath.Join(bin, "mise"), []byte(mise), 0o755))
+
+			result, err := runBuiltin(t, "komrad-mise-install", worktreeEnv{
+				taskID:     "task-a",
+				agentCwd:   tree,
+				trigger:    "task.pre-open",
+				pathPrefix: bin,
+			})
+			if tt.wantErr {
+				require.ErrorIs(t, err, ErrFailed)
+			} else {
+				require.NoError(t, err, "stderr: %s", result.Stderr)
+			}
+
+			said, err := os.ReadFile(ran)
+			require.NoError(t, err)
+			assert.Equal(t, tree+" install", string(said))
+		})
+	}
+}

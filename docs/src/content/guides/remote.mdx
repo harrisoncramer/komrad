@@ -71,6 +71,10 @@ Agents on the engine run a CLI that has to be logged in. Do that once on the eng
 
 Each task also works in a fresh worktree, and the CLI asks whether to trust every directory it has not seen. Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI the engine runs, so komrad answers that question before the agent starts. Without it, every new agent sits waiting at that question.
 
+## Project tools
+
+The engine carries no languages of its own. A project pins the ones it needs, such as Go and Node, in its mise config. Pick `komrad-mise-install` as the workflow's `task.pre-open` hook, and each task installs them in its checkout before the writer starts. The first task in a repository can take a few minutes, since every tool downloads. Later tasks reuse what is there.
+
 ## Stopped engines
 
 An engine costs money every hour, so it may be switched off when nobody is using it. Switching off keeps the disk, the database and the address. Every agent stops, and you resume the ones you want once it is back.
