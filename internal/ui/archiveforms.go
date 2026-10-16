@@ -13,11 +13,11 @@ import (
 // deleteChosenConfirm asks before chosen agents are deleted, naming any task that goes whole with them.
 func deleteChosenConfirm(work chosenWork, reviewers int) worktreeConfirm {
 	confirm := worktreeConfirm{
-		kind:      formArchiveDelete,
-		title:     "Permanently delete " + promptSubject(work.chosen, reviewers) + "?",
-		warning:   transcriptWarning(work.chosen, reviewers),
-		dirs:      taskDirs(work.wholeTasks),
-		confirmed: true,
+		kind:            formArchiveDelete,
+		title:           "Permanently delete " + promptSubject(work.chosen, reviewers) + "?",
+		warning:         transcriptWarning(work.chosen, reviewers),
+		dirs:            taskDirs(work.wholeTasks),
+		startsConfirmed: true,
 	}
 
 	switch {
@@ -73,10 +73,10 @@ func deleteTasksConfirm(tasks []panel.Task, agentCount int) worktreeConfirm {
 	}
 
 	return worktreeConfirm{
-		kind:      formArchiveDelete,
-		title:     "Permanently delete " + describeTasks(tasks) + "?",
-		warning:   warning,
-		dirs:      taskDirs(tasks),
-		confirmed: true,
+		kind:            formArchiveDelete,
+		title:           "Permanently delete " + describeTasks(tasks) + "?",
+		warning:         warning,
+		dirs:            taskDirs(tasks),
+		startsConfirmed: true,
 	}
 }

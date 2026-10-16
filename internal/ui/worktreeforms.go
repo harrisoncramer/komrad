@@ -17,17 +17,16 @@ const lostFilesShown = 10
 
 // worktreeConfirm is a delete confirm that says what the worktrees the delete takes still hold.
 type worktreeConfirm struct {
-	kind    formKind
-	title   string
-	warning string
-	dirs    []string
-	// confirmed is the answer the confirm starts on.
-	confirmed bool
+	kind            formKind
+	title           string
+	warning         string
+	dirs            []string
+	startsConfirmed bool
 }
 
 // open reads each worktree afresh and puts the confirm on screen, running write once it is answered yes.
 func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
-	confirmed := c.confirmed
+	confirmed := c.startsConfirmed
 
 	var cmds []tea.Cmd
 	for _, dir := range c.dirs {
