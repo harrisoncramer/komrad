@@ -147,12 +147,9 @@ enum MergeMethod {
 // CommitMessage is the text of the commit a merge writes.
 message CommitMessage {
   // The commit's first line.
-  string headline = 1 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 1024
-  }];
+  string headline = 1;
   // The rest of the commit's message. Empty writes a headline alone.
-  string body = 2 [(buf.validate.field).string.max_len = 65536];
+  string body = 2;
 }
 
 // MergeOption is one way a pull request could merge.
@@ -178,7 +175,7 @@ message PlanForgePullRequestMergeResponse {
   // Every merge method the forge offers for the pull request, in the forge's order.
   repeated MergeOption options = 1;
   // The method the pull request merges by when a merge names none.
-  MergeMethod pick = 2;
+  MergeMethod default_method = 2;
   // The pull request's head commit when the plan was read.
   string head_sha = 3;
 }
@@ -191,11 +188,17 @@ message MergeForgePullRequestRequest {
   }];
   // How the pull request merges. Unspecified merges by a method the base branch allows.
   MergeMethod method = 2 [(buf.validate.field).enum.defined_only = true];
-  // The text of the commit the merge writes. Unset leaves the message to the forge.
-  optional CommitMessage message = 3;
+  // The first line of the commit the merge writes. Unset leaves it to the forge.
+  optional string headline = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a
+  // headline alone.
+  optional string body = 4 [(buf.validate.field).string.max_len = 65536];
   // The head commit the caller expects. The forge refuses to merge once the branch has moved
   // past it. Empty accepts any head.
-  string head_sha = 4 [(buf.validate.field).string.max_len = 64];
+  string head_sha = 5 [(buf.validate.field).string.max_len = 64];
 }
 
 message SetForgePullRequestDraftRequest {
@@ -230,8 +233,14 @@ message SetForgePullRequestAutoMergeRequest {
   bool on = 3;
   // How the pull request merges once it may. Unspecified merges by a method the base branch allows.
   MergeMethod method = 4 [(buf.validate.field).enum.defined_only = true];
-  // The text of the commit the merge writes. Unset leaves the message to the forge.
-  optional CommitMessage message = 5;
+  // The first line of the commit the merge writes. Unset leaves it to the forge.
+  optional string headline = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a
+  // headline alone.
+  optional string body = 6 [(buf.validate.field).string.max_len = 65536];
 }
 
 message ListForgePullRequestsResponse {

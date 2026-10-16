@@ -259,7 +259,7 @@ func TestGitMenuMerges(t *testing.T) {
 	merge := &forgev1.MergeForgePullRequestRequest{
 		Url:     pullRequestURL,
 		Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
-		HeadSha: "planned",
+		HeadSha: "new",
 	}
 
 	tests := []struct {
@@ -310,6 +310,7 @@ func TestGitMenuMerges(t *testing.T) {
 
 			pullRequest := newOpenPullRequest()
 			pullRequest.Forge = tt.forge
+			pullRequest.HeadSha = "new"
 			harness := openGitMenu(t, append(buildGitAgent(), pullRequest)...)
 			harness.answerMergePlan(newMergePlan())
 			if tt.refuse != nil {
@@ -395,7 +396,7 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 
 	queue := &forgev1.SetForgePullRequestAutoMergeRequest{
 		Url:     pullRequestURL,
-		HeadSha: "planned",
+		HeadSha: "new",
 		On:      true,
 		Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 	}
@@ -461,12 +462,12 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 	}
 }
 
-// TestGitMenuMergeForm covers the form a merge goes through, opening on the method the forge
-// picked with its message and refusing what the base branch does not allow.
+// TestGitMenuMergeForm covers the form a merge goes through, opening on the forge's default
+// method with its message and sending only what the person changed.
 func TestGitMenuMergeForm(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the form opens on the method the forge picked with its message", func(t *testing.T) {
+	t.Run("the form opens on the forge's default method with its message", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
@@ -499,19 +500,33 @@ func TestGitMenuMergeForm(t *testing.T) {
 			}},
 		},
 		{
-			name:  "an edited headline goes with the merge",
+			name:  "an edited headline goes with the merge without the body",
 			press: slices.Concat([]string{"tab"}, spellKeys(" now"), []string{"enter"}),
 			wantMerges: []proto.Message{&forgev1.MergeForgePullRequestRequest{
+				Url:      pullRequestURL,
+				Method:   forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+				Headline: xptr.Ptr("Add the merge form (#740) now"),
+				HeadSha:  "planned",
+			}},
+		},
+		{
+			name:  "a method the base branch refuses is still sent for the forge to answer",
+			press: []string{"up", "enter"},
+			wantMerges: []proto.Message{&forgev1.MergeForgePullRequestRequest{
 				Url:     pullRequestURL,
-				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
-				Message: &forgev1.CommitMessage{Headline: "Add the merge form (#740) now", Body: "Pick a method before merging."},
+				Method:  forgev1.MergeMethod_MERGE_METHOD_MERGE,
 				HeadSha: "planned",
 			}},
 		},
 		{
-			name:        "a method the base branch refuses is not sent",
-			press:       []string{"up", "enter"},
-			wantRefusal: "the base branch does not allow a merge commit",
+			name:  "an edited body goes with the merge without the headline",
+			press: slices.Concat([]string{"tab", "tab"}, spellKeys(" Twice."), []string{"enter"}),
+			wantMerges: []proto.Message{&forgev1.MergeForgePullRequestRequest{
+				Url:     pullRequestURL,
+				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+				Body:    xptr.Ptr("Pick a method before merging. Twice."),
+				HeadSha: "planned",
+			}},
 		},
 		{
 			name:        "a cleared headline is not sent",
@@ -1118,8 +1133,8 @@ func newMergePlan() *forgev1.PlanForgePullRequestMergeResponse {
 			},
 			{Method: forgev1.MergeMethod_MERGE_METHOD_REBASE, Allowed: true},
 		},
-		Pick:    forgev1.MergeMethod_MERGE_METHOD_SQUASH,
-		HeadSha: "planned",
+		DefaultMethod: forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+		HeadSha:       "planned",
 	}
 }
 

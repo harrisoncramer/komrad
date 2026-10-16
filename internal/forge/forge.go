@@ -364,10 +364,12 @@ type SetAutoMergeParams struct {
 	// moved past it, empty to queue whatever the head is.
 	HeadSHA string
 	On      bool
-	// Method is how to merge once allowed, empty for the pick PlanMerge names.
+	// Method is how to merge once allowed, empty for the default method PlanMerge names.
 	Method MergeMethod
-	// Message is the commit's text, nil to leave it to the forge.
-	Message *CommitMessage
+	// Headline is the first line of the commit, nil to leave it to the forge.
+	Headline *string
+	// Body is the rest of the commit, nil to leave it to the forge.
+	Body *string
 }
 
 // ListParams says which pull requests to list and where in them to start.

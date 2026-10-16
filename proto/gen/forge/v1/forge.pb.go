@@ -958,7 +958,7 @@ type PlanForgePullRequestMergeResponse struct {
 	// Every merge method the forge offers for the pull request, in the forge's order.
 	Options []*MergeOption `protobuf:"bytes,1,rep,name=options,proto3" json:"options,omitempty"`
 	// The method the pull request merges by when a merge names none.
-	Pick MergeMethod `protobuf:"varint,2,opt,name=pick,proto3,enum=forge.v1.MergeMethod" json:"pick,omitempty"`
+	DefaultMethod MergeMethod `protobuf:"varint,2,opt,name=default_method,json=defaultMethod,proto3,enum=forge.v1.MergeMethod" json:"default_method,omitempty"`
 	// The pull request's head commit when the plan was read.
 	HeadSha       string `protobuf:"bytes,3,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1002,9 +1002,9 @@ func (x *PlanForgePullRequestMergeResponse) GetOptions() []*MergeOption {
 	return nil
 }
 
-func (x *PlanForgePullRequestMergeResponse) GetPick() MergeMethod {
+func (x *PlanForgePullRequestMergeResponse) GetDefaultMethod() MergeMethod {
 	if x != nil {
-		return x.Pick
+		return x.DefaultMethod
 	}
 	return MergeMethod_MERGE_METHOD_UNSPECIFIED
 }
@@ -1022,11 +1022,14 @@ type MergeForgePullRequestRequest struct {
 	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
 	// How the pull request merges. Unspecified merges by a method the base branch allows.
 	Method MergeMethod `protobuf:"varint,2,opt,name=method,proto3,enum=forge.v1.MergeMethod" json:"method,omitempty"`
-	// The text of the commit the merge writes. Unset leaves the message to the forge.
-	Message *CommitMessage `protobuf:"bytes,3,opt,name=message,proto3,oneof" json:"message,omitempty"`
+	// The first line of the commit the merge writes. Unset leaves it to the forge.
+	Headline *string `protobuf:"bytes,3,opt,name=headline,proto3,oneof" json:"headline,omitempty"`
+	// The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a
+	// headline alone.
+	Body *string `protobuf:"bytes,4,opt,name=body,proto3,oneof" json:"body,omitempty"`
 	// The head commit the caller expects. The forge refuses to merge once the branch has moved
 	// past it. Empty accepts any head.
-	HeadSha       string `protobuf:"bytes,4,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
+	HeadSha       string `protobuf:"bytes,5,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1075,11 +1078,18 @@ func (x *MergeForgePullRequestRequest) GetMethod() MergeMethod {
 	return MergeMethod_MERGE_METHOD_UNSPECIFIED
 }
 
-func (x *MergeForgePullRequestRequest) GetMessage() *CommitMessage {
-	if x != nil {
-		return x.Message
+func (x *MergeForgePullRequestRequest) GetHeadline() string {
+	if x != nil && x.Headline != nil {
+		return *x.Headline
 	}
-	return nil
+	return ""
+}
+
+func (x *MergeForgePullRequestRequest) GetBody() string {
+	if x != nil && x.Body != nil {
+		return *x.Body
+	}
+	return ""
 }
 
 func (x *MergeForgePullRequestRequest) GetHeadSha() string {
@@ -1200,8 +1210,11 @@ type SetForgePullRequestAutoMergeRequest struct {
 	On bool `protobuf:"varint,3,opt,name=on,proto3" json:"on,omitempty"`
 	// How the pull request merges once it may. Unspecified merges by a method the base branch allows.
 	Method MergeMethod `protobuf:"varint,4,opt,name=method,proto3,enum=forge.v1.MergeMethod" json:"method,omitempty"`
-	// The text of the commit the merge writes. Unset leaves the message to the forge.
-	Message       *CommitMessage `protobuf:"bytes,5,opt,name=message,proto3,oneof" json:"message,omitempty"`
+	// The first line of the commit the merge writes. Unset leaves it to the forge.
+	Headline *string `protobuf:"bytes,5,opt,name=headline,proto3,oneof" json:"headline,omitempty"`
+	// The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a
+	// headline alone.
+	Body          *string `protobuf:"bytes,6,opt,name=body,proto3,oneof" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1264,11 +1277,18 @@ func (x *SetForgePullRequestAutoMergeRequest) GetMethod() MergeMethod {
 	return MergeMethod_MERGE_METHOD_UNSPECIFIED
 }
 
-func (x *SetForgePullRequestAutoMergeRequest) GetMessage() *CommitMessage {
-	if x != nil {
-		return x.Message
+func (x *SetForgePullRequestAutoMergeRequest) GetHeadline() string {
+	if x != nil && x.Headline != nil {
+		return *x.Headline
 	}
-	return nil
+	return ""
+}
+
+func (x *SetForgePullRequestAutoMergeRequest) GetBody() string {
+	if x != nil && x.Body != nil {
+		return *x.Body
+	}
+	return ""
 }
 
 type ListForgePullRequestsResponse struct {
@@ -1398,11 +1418,10 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
-	"_closed_at\"V\n" +
-	"\rCommitMessage\x12&\n" +
-	"\bheadline\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\bheadline\x12\x1d\n" +
-	"\x04body\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18\x80\x80\x04R\x04body\"\x9a\x01\n" +
+	"_closed_at\"?\n" +
+	"\rCommitMessage\x12\x1a\n" +
+	"\bheadline\x18\x01 \x01(\tR\bheadline\x12\x12\n" +
+	"\x04body\x18\x02 \x01(\tR\x04body\"\x9a\x01\n" +
 	"\vMergeOption\x12-\n" +
 	"\x06method\x18\x01 \x01(\x0e2\x15.forge.v1.MergeMethodR\x06method\x12\x18\n" +
 	"\aallowed\x18\x02 \x01(\bR\aallowed\x126\n" +
@@ -1411,35 +1430,39 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\b_message\"@\n" +
 	" PlanForgePullRequestMergeRequest\x12\x1c\n" +
 	"\x03url\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\"\x9a\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\"\xad\x01\n" +
 	"!PlanForgePullRequestMergeResponse\x12/\n" +
-	"\aoptions\x18\x01 \x03(\v2\x15.forge.v1.MergeOptionR\aoptions\x12)\n" +
-	"\x04pick\x18\x02 \x01(\x0e2\x15.forge.v1.MergeMethodR\x04pick\x12\x19\n" +
-	"\bhead_sha\x18\x03 \x01(\tR\aheadSha\"\xdd\x01\n" +
+	"\aoptions\x18\x01 \x03(\v2\x15.forge.v1.MergeOptionR\aoptions\x12<\n" +
+	"\x0edefault_method\x18\x02 \x01(\x0e2\x15.forge.v1.MergeMethodR\rdefaultMethod\x12\x19\n" +
+	"\bhead_sha\x18\x03 \x01(\tR\aheadSha\"\x80\x02\n" +
 	"\x1cMergeForgePullRequestRequest\x12\x1c\n" +
 	"\x03url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\x127\n" +
-	"\x06method\x18\x02 \x01(\x0e2\x15.forge.v1.MergeMethodB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06method\x126\n" +
-	"\amessage\x18\x03 \x01(\v2\x17.forge.v1.CommitMessageH\x00R\amessage\x88\x01\x01\x12\"\n" +
-	"\bhead_sha\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x18@R\aheadShaB\n" +
-	"\n" +
-	"\b_message\"U\n" +
+	"\x06method\x18\x02 \x01(\x0e2\x15.forge.v1.MergeMethodB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06method\x12+\n" +
+	"\bheadline\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bH\x00R\bheadline\x88\x01\x01\x12\"\n" +
+	"\x04body\x18\x04 \x01(\tB\t\xbaH\x06r\x04\x18\x80\x80\x04H\x01R\x04body\x88\x01\x01\x12\"\n" +
+	"\bhead_sha\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x18@R\aheadShaB\v\n" +
+	"\t_headlineB\a\n" +
+	"\x05_body\"U\n" +
 	"\x1fSetForgePullRequestDraftRequest\x12\x1c\n" +
 	"\x03url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\x12\x14\n" +
 	"\x05draft\x18\x02 \x01(\bR\x05draft\"F\n" +
 	"&RequestForgePullRequestRereviewRequest\x12\x1c\n" +
 	"\x03url\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\"\xf4\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\"\x97\x02\n" +
 	"#SetForgePullRequestAutoMergeRequest\x12\x1c\n" +
 	"\x03url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\x03url\x12\"\n" +
 	"\bhead_sha\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x18@R\aheadSha\x12\x0e\n" +
 	"\x02on\x18\x03 \x01(\bR\x02on\x127\n" +
-	"\x06method\x18\x04 \x01(\x0e2\x15.forge.v1.MergeMethodB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06method\x126\n" +
-	"\amessage\x18\x05 \x01(\v2\x17.forge.v1.CommitMessageH\x00R\amessage\x88\x01\x01B\n" +
-	"\n" +
-	"\b_message\"\xa1\x01\n" +
+	"\x06method\x18\x04 \x01(\x0e2\x15.forge.v1.MergeMethodB\b\xbaH\x05\x82\x01\x02\x10\x01R\x06method\x12+\n" +
+	"\bheadline\x18\x05 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bH\x00R\bheadline\x88\x01\x01\x12\"\n" +
+	"\x04body\x18\x06 \x01(\tB\t\xbaH\x06r\x04\x18\x80\x80\x04H\x01R\x04body\x88\x01\x01B\v\n" +
+	"\t_headlineB\a\n" +
+	"\x05_body\"\xa1\x01\n" +
 	"\x1dListForgePullRequestsResponse\x12?\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1a.forge.v1.ForgePullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
@@ -1509,37 +1532,35 @@ var file_forge_v1_forge_proto_depIdxs = []int32{
 	0,  // 5: forge.v1.MergeOption.method:type_name -> forge.v1.MergeMethod
 	10, // 6: forge.v1.MergeOption.message:type_name -> forge.v1.CommitMessage
 	11, // 7: forge.v1.PlanForgePullRequestMergeResponse.options:type_name -> forge.v1.MergeOption
-	0,  // 8: forge.v1.PlanForgePullRequestMergeResponse.pick:type_name -> forge.v1.MergeMethod
+	0,  // 8: forge.v1.PlanForgePullRequestMergeResponse.default_method:type_name -> forge.v1.MergeMethod
 	0,  // 9: forge.v1.MergeForgePullRequestRequest.method:type_name -> forge.v1.MergeMethod
-	10, // 10: forge.v1.MergeForgePullRequestRequest.message:type_name -> forge.v1.CommitMessage
-	0,  // 11: forge.v1.SetForgePullRequestAutoMergeRequest.method:type_name -> forge.v1.MergeMethod
-	10, // 12: forge.v1.SetForgePullRequestAutoMergeRequest.message:type_name -> forge.v1.CommitMessage
-	9,  // 13: forge.v1.ListForgePullRequestsResponse.pull_requests:type_name -> forge.v1.ForgePullRequest
-	2,  // 14: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
-	20, // 15: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
-	20, // 16: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
-	8,  // 17: forge.v1.ForgeService.ListForgePullRequests:input_type -> forge.v1.ListForgePullRequestsRequest
-	12, // 18: forge.v1.ForgeService.PlanForgePullRequestMerge:input_type -> forge.v1.PlanForgePullRequestMergeRequest
-	14, // 19: forge.v1.ForgeService.MergeForgePullRequest:input_type -> forge.v1.MergeForgePullRequestRequest
-	15, // 20: forge.v1.ForgeService.SetForgePullRequestDraft:input_type -> forge.v1.SetForgePullRequestDraftRequest
-	17, // 21: forge.v1.ForgeService.SetForgePullRequestAutoMerge:input_type -> forge.v1.SetForgePullRequestAutoMergeRequest
-	16, // 22: forge.v1.ForgeService.RequestForgePullRequestRereview:input_type -> forge.v1.RequestForgePullRequestRereviewRequest
-	5,  // 23: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
-	3,  // 24: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
-	4,  // 25: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
-	6,  // 26: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
-	18, // 27: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
-	13, // 28: forge.v1.ForgeService.PlanForgePullRequestMerge:output_type -> forge.v1.PlanForgePullRequestMergeResponse
-	20, // 29: forge.v1.ForgeService.MergeForgePullRequest:output_type -> google.protobuf.Empty
-	20, // 30: forge.v1.ForgeService.SetForgePullRequestDraft:output_type -> google.protobuf.Empty
-	20, // 31: forge.v1.ForgeService.SetForgePullRequestAutoMerge:output_type -> google.protobuf.Empty
-	20, // 32: forge.v1.ForgeService.RequestForgePullRequestRereview:output_type -> google.protobuf.Empty
-	20, // 33: forge.v1.ForgeService.DisconnectForge:output_type -> google.protobuf.Empty
-	24, // [24:34] is the sub-list for method output_type
-	14, // [14:24] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	0,  // 10: forge.v1.SetForgePullRequestAutoMergeRequest.method:type_name -> forge.v1.MergeMethod
+	9,  // 11: forge.v1.ListForgePullRequestsResponse.pull_requests:type_name -> forge.v1.ForgePullRequest
+	2,  // 12: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
+	20, // 13: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
+	20, // 14: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
+	8,  // 15: forge.v1.ForgeService.ListForgePullRequests:input_type -> forge.v1.ListForgePullRequestsRequest
+	12, // 16: forge.v1.ForgeService.PlanForgePullRequestMerge:input_type -> forge.v1.PlanForgePullRequestMergeRequest
+	14, // 17: forge.v1.ForgeService.MergeForgePullRequest:input_type -> forge.v1.MergeForgePullRequestRequest
+	15, // 18: forge.v1.ForgeService.SetForgePullRequestDraft:input_type -> forge.v1.SetForgePullRequestDraftRequest
+	17, // 19: forge.v1.ForgeService.SetForgePullRequestAutoMerge:input_type -> forge.v1.SetForgePullRequestAutoMergeRequest
+	16, // 20: forge.v1.ForgeService.RequestForgePullRequestRereview:input_type -> forge.v1.RequestForgePullRequestRereviewRequest
+	5,  // 21: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
+	3,  // 22: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
+	4,  // 23: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
+	6,  // 24: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
+	18, // 25: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
+	13, // 26: forge.v1.ForgeService.PlanForgePullRequestMerge:output_type -> forge.v1.PlanForgePullRequestMergeResponse
+	20, // 27: forge.v1.ForgeService.MergeForgePullRequest:output_type -> google.protobuf.Empty
+	20, // 28: forge.v1.ForgeService.SetForgePullRequestDraft:output_type -> google.protobuf.Empty
+	20, // 29: forge.v1.ForgeService.SetForgePullRequestAutoMerge:output_type -> google.protobuf.Empty
+	20, // 30: forge.v1.ForgeService.RequestForgePullRequestRereview:output_type -> google.protobuf.Empty
+	20, // 31: forge.v1.ForgeService.DisconnectForge:output_type -> google.protobuf.Empty
+	22, // [22:32] is the sub-list for method output_type
+	12, // [12:22] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_forge_v1_forge_proto_init() }

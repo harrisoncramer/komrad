@@ -32,21 +32,18 @@ func renderMergeOption(option forge.MergeOption) *forgev1.MergeOption {
 	return rendered
 }
 
-// readMergeChoice is the method and message a merge asked for, refusing a message without the
-// method it is written for.
-func readMergeChoice(asked forgev1.MergeMethod, message *forgev1.CommitMessage) (forge.MergeMethod, *forge.CommitMessage, error) {
+// readMergeMethod is the method a merge asked for, refusing a commit message without the method
+// it is written for.
+func readMergeMethod(asked forgev1.MergeMethod, headline, body *string) (forge.MergeMethod, error) {
 	var method forge.MergeMethod
 	for candidate, rendered := range mergeMethods {
 		if rendered == asked {
 			method = candidate
 		}
 	}
-	if message == nil {
-		return method, nil, nil
-	}
-	if method == "" {
-		return "", nil, forge.ErrNoMergeMethod.Saying("a commit message needs the merge method it is written for")
+	if method == "" && (headline != nil || body != nil) {
+		return "", forge.ErrNoMergeMethod.Saying("a commit message needs the merge method it is written for")
 	}
 
-	return method, &forge.CommitMessage{Headline: message.GetHeadline(), Body: message.GetBody()}, nil
+	return method, nil
 }

@@ -73,7 +73,7 @@ func (s mergeSettings) chooseMethod(base *baseRef) string {
 	return s.ViewerDefaultMergeMethod
 }
 
-// methodFor is GitHub's name for the method asked for, or komrad's pick when none was.
+// methodFor is GitHub's name for the method asked for, or the default method when none was.
 func (s mergeSettings) methodFor(base *baseRef, asked forge.MergeMethod) (string, error) {
 	if asked == "" {
 		return s.chooseMethod(base), nil

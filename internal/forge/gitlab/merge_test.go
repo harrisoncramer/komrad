@@ -3,9 +3,11 @@ package gitlab
 import (
 	"cmp"
 	"net/http"
+	"slices"
 	"testing"
 
 	"komrad/internal/forge"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +26,18 @@ func TestMerge(t *testing.T) {
 
 	accepted := answer{body: `{"iid":7,"state":"merged"}`}
 
+	planned := answer{body: `{
+	"data": {
+		"project": {
+			"mergeRequest": {
+				"state": "opened",
+				"defaultMergeCommitMessage": "Merge branch 'fix-merge' into 'main'\n\nSee merge request harrisoncramer/komrad!7",
+				"defaultSquashCommitMessage": "Fix the merge"
+			}
+		}
+	}
+}`}
+
 	tests := []struct {
 		name        string
 		params      forge.MergeParams
@@ -40,21 +54,44 @@ func TestMerge(t *testing.T) {
 		{
 			name: "the merge request is squashed with the message asked for at the head the person saw",
 			params: forge.MergeParams{
-				Method:  forge.MergeMethodSquash,
-				Message: &forge.CommitMessage{Headline: "Land the fix", Body: "Merges stop failing."},
-				HeadSHA: "abc123",
+				Method:   forge.MergeMethodSquash,
+				Headline: xptr.Ptr("Land the fix"),
+				Body:     xptr.Ptr("Merges stop failing."),
+				HeadSHA:  "abc123",
 			},
 			answers:  map[string]answer{path + "/merge": accepted},
 			wantBody: map[string]any{"squash": true, "squash_commit_message": "Land the fix\n\nMerges stop failing.", "sha": "abc123"},
 		},
 		{
-			name: "the merge request is merged unsquashed with a headline alone",
+			name: "the merge request is merged unsquashed with an empty body",
 			params: forge.MergeParams{
-				Method:  forge.MergeMethodMerge,
-				Message: &forge.CommitMessage{Headline: "Land the fix"},
+				Method:   forge.MergeMethodMerge,
+				Headline: xptr.Ptr("Land the fix"),
+				Body:     xptr.Ptr(""),
 			},
 			answers:  map[string]answer{path + "/merge": accepted},
 			wantBody: map[string]any{"squash": false, "merge_commit_message": "Land the fix"},
+		},
+		{
+			name: "a headline alone keeps the body gitlab would write",
+			params: forge.MergeParams{
+				Method:   forge.MergeMethodMerge,
+				Headline: xptr.Ptr("Land the fix"),
+			},
+			answers: map[string]answer{"MergePlan": planned, path + "/merge": accepted},
+			wantBody: map[string]any{
+				"squash":               false,
+				"merge_commit_message": "Land the fix\n\nSee merge request harrisoncramer/komrad!7",
+			},
+		},
+		{
+			name: "a body alone keeps the headline gitlab would write",
+			params: forge.MergeParams{
+				Method: forge.MergeMethodSquash,
+				Body:   xptr.Ptr("Merges stop failing."),
+			},
+			answers:  map[string]answer{"MergePlan": planned, path + "/merge": accepted},
+			wantBody: map[string]any{"squash": true, "squash_commit_message": "Fix the merge\n\nMerges stop failing."},
 		},
 		{
 			name: "a merge request that has already merged",
@@ -145,8 +182,10 @@ func TestMerge(t *testing.T) {
 			params := tt.params
 			params.URL = address
 			err := f.Merge(t.Context(), params)
-			assert.Equal(t, http.MethodPut, fake.calls[0].Method)
-			assert.Equal(t, path+"/merge", fake.calls[0].Path)
+			put := slices.IndexFunc(fake.calls, func(seen call) bool { return seen.Method == http.MethodPut })
+			require.NotEqual(t, -1, put)
+			sent := fake.calls[put]
+			assert.Equal(t, path+"/merge", sent.Path)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				assert.ErrorContains(t, err, tt.wantMessage)
@@ -154,7 +193,7 @@ func TestMerge(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantBody, fake.calls[0].Body)
+			assert.Equal(t, tt.wantBody, sent.Body)
 		})
 	}
 }

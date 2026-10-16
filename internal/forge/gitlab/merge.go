@@ -20,7 +20,7 @@ func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 	if err != nil {
 		return err
 	}
-	body, err := mergeBody(params.Method, params.Message, params.HeadSHA)
+	body, err := f.mergeBody(ctx, path, number, params)
 	if err != nil {
 		return err
 	}

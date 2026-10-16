@@ -6784,10 +6784,7 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required",
-            "at most 1024 characters"
-          ],
+          "rules": [],
           "description": "The commit's first line."
         },
         {
@@ -6797,9 +6794,7 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "at most 65536 characters"
-          ],
+          "rules": [],
           "description": "The rest of the commit's message. Empty writes a headline alone."
         }
       ]
@@ -7239,14 +7234,28 @@
           "description": "How the pull request merges. Unspecified merges by a method the base branch allows."
         },
         {
-          "name": "message",
-          "type": "CommitMessage",
-          "ref": "forge.v1.CommitMessage",
+          "name": "headline",
+          "type": "string",
+          "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
-          "description": "The text of the commit the merge writes. Unset leaves the message to the forge."
+          "rules": [
+            "at most 1024 characters"
+          ],
+          "description": "The first line of the commit the merge writes. Unset leaves it to the forge."
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 65536 characters"
+          ],
+          "description": "The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a headline alone."
         },
         {
           "name": "head_sha",
@@ -7332,7 +7341,7 @@
           "description": "Every merge method the forge offers for the pull request, in the forge's order."
         },
         {
-          "name": "pick",
+          "name": "default_method",
           "type": "MergeMethod",
           "ref": "forge.v1.MergeMethod",
           "repeated": false,
@@ -7422,14 +7431,28 @@
           "description": "How the pull request merges once it may. Unspecified merges by a method the base branch allows."
         },
         {
-          "name": "message",
-          "type": "CommitMessage",
-          "ref": "forge.v1.CommitMessage",
+          "name": "headline",
+          "type": "string",
+          "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
-          "description": "The text of the commit the merge writes. Unset leaves the message to the forge."
+          "rules": [
+            "at most 1024 characters"
+          ],
+          "description": "The first line of the commit the merge writes. Unset leaves it to the forge."
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "at most 65536 characters"
+          ],
+          "description": "The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a headline alone."
         }
       ]
     },

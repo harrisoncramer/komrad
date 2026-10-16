@@ -32,18 +32,20 @@ type MergeOption struct {
 // MergePlan is the ways a pull request could merge and the head they were read at.
 type MergePlan struct {
 	Options []MergeOption
-	// Pick is the method the forge merges with when asked for none.
-	Pick    MergeMethod
-	HeadSHA string
+	// DefaultMethod is the method the forge merges with when asked for none.
+	DefaultMethod MergeMethod
+	HeadSHA       string
 }
 
 // MergeParams is the pull request to merge and how.
 type MergeParams struct {
 	URL string
-	// Method is how to merge, empty for the plan's pick.
+	// Method is how to merge, empty for the plan's default method.
 	Method MergeMethod
-	// Message is the commit's text, nil to leave it to the forge.
-	Message *CommitMessage
+	// Headline is the first line of the commit, nil to leave it to the forge.
+	Headline *string
+	// Body is the rest of the commit, nil to leave it to the forge.
+	Body *string
 	// HeadSHA is the commit the person saw, which the forge refuses to merge once the branch
 	// has moved past it, empty to merge whatever the head is.
 	HeadSHA string

@@ -51,7 +51,7 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 		}
 
 		mutation = enableAutoMergeMutation
-		variables = messageVariables(params.Message)
+		variables = messageVariables(params.Headline, params.Body)
 		variables["id"] = target.ID
 		variables["method"] = method
 		variables["head"] = xptr.NonEmpty(params.HeadSHA)

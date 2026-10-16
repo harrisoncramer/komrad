@@ -35,23 +35,11 @@ func (f *Forge) PlanMerge(ctx context.Context, address string) (*forge.MergePlan
 		return nil, err
 	}
 
-	var data struct {
-		Project *struct {
-			MergeRequest *planTarget `json:"mergeRequest"`
-		} `json:"project"`
-	}
-	answer, err := f.client.Query(ctx, mergePlanQuery, map[string]any{"path": path, "iid": strconv.Itoa(number)}, &data)
+	target, err := f.readPlanTarget(ctx, path, number)
 	if err != nil {
 		return nil, err
 	}
-	if err := failureOf(answer); err != nil {
-		return nil, err
-	}
-	if data.Project == nil || data.Project.MergeRequest == nil {
-		return nil, noMergeRequest(number, path)
-	}
 
-	target := data.Project.MergeRequest
 	switch target.State {
 	case "merged":
 		return nil, forge.ErrNotMergeable.Saying("gitlab will not merge !%d: it has already merged", number)
@@ -80,14 +68,35 @@ func (f *Forge) PlanMerge(ctx context.Context, address string) (*forge.MergePlan
 				Message: splitMessage(target.DefaultSquashCommitMessage),
 			},
 		},
-		Pick:    own,
-		HeadSHA: target.DiffHeadSha,
+		DefaultMethod: own,
+		HeadSHA:       target.DiffHeadSha,
 	}
 	if target.SquashOnMerge {
-		plan.Pick = forge.MergeMethodSquash
+		plan.DefaultMethod = forge.MergeMethodSquash
 	}
 
 	return plan, nil
+}
+
+// readPlanTarget reads the merge request with the messages GitLab would write for it.
+func (f *Forge) readPlanTarget(ctx context.Context, path string, number int) (*planTarget, error) {
+	var data struct {
+		Project *struct {
+			MergeRequest *planTarget `json:"mergeRequest"`
+		} `json:"project"`
+	}
+	answer, err := f.client.Query(ctx, mergePlanQuery, map[string]any{"path": path, "iid": strconv.Itoa(number)}, &data)
+	if err != nil {
+		return nil, err
+	}
+	if err := failureOf(answer); err != nil {
+		return nil, err
+	}
+	if data.Project == nil || data.Project.MergeRequest == nil {
+		return nil, noMergeRequest(number, path)
+	}
+
+	return data.Project.MergeRequest, nil
 }
 
 // projectMergeMethod is how the project merges when it does not squash, read over REST since
@@ -142,27 +151,64 @@ func joinMessage(message forge.CommitMessage) string {
 
 // mergeBody is the REST fields that say how a merge request merges, empty to leave it to the
 // project.
-func mergeBody(method forge.MergeMethod, message *forge.CommitMessage, headSHA string) (map[string]any, error) {
+func (f *Forge) mergeBody(ctx context.Context, path string, number int, params forge.MergeParams) (map[string]any, error) {
 	body := map[string]any{}
-	switch method {
+	switch params.Method {
 	case "":
 	case forge.MergeMethodSquash:
 		body["squash"] = true
 	case forge.MergeMethodMerge, forge.MergeMethodFastForward:
 		body["squash"] = false
 	case forge.MergeMethodRebase:
-		return nil, forge.ErrNoMergeMethod.Saying("gitlab cannot merge by %s", method)
+		return nil, forge.ErrNoMergeMethod.Saying("gitlab cannot merge by %s", params.Method)
 	}
-	if message != nil {
+
+	message, err := f.commitMessage(ctx, path, number, params)
+	if err != nil {
+		return nil, err
+	}
+	if message != "" {
 		field := "merge_commit_message"
-		if method == forge.MergeMethodSquash {
+		if params.Method == forge.MergeMethodSquash {
 			field = "squash_commit_message"
 		}
-		body[field] = joinMessage(*message)
+		body[field] = message
 	}
-	if headSHA != "" {
-		body["sha"] = headSHA
+	if params.HeadSHA != "" {
+		body["sha"] = params.HeadSHA
 	}
 
 	return body, nil
+}
+
+// commitMessage is the merge's commit message as one text, any part left unset read from the
+// one GitLab would write, and empty when both are unset.
+func (f *Forge) commitMessage(ctx context.Context, path string, number int, params forge.MergeParams) (string, error) {
+	if params.Headline == nil && params.Body == nil {
+		return "", nil
+	}
+
+	var message forge.CommitMessage
+	if params.Headline == nil || params.Body == nil {
+		target, err := f.readPlanTarget(ctx, path, number)
+		if err != nil {
+			return "", err
+		}
+
+		own := target.DefaultMergeCommitMessage
+		if params.Method == forge.MergeMethodSquash {
+			own = target.DefaultSquashCommitMessage
+		}
+		if split := splitMessage(own); split != nil {
+			message = *split
+		}
+	}
+	if params.Headline != nil {
+		message.Headline = *params.Headline
+	}
+	if params.Body != nil {
+		message.Body = *params.Body
+	}
+
+	return joinMessage(message), nil
 }

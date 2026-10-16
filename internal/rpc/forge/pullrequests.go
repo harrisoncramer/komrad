@@ -79,24 +79,25 @@ func (s *Handler) PlanForgePullRequestMerge(ctx context.Context, req *forgev1.Pl
 	}
 
 	return &forgev1.PlanForgePullRequestMergeResponse{
-		Options: xslice.Map(plan.Options, renderMergeOption),
-		Pick:    renderMergeMethod(plan.Pick),
-		HeadSha: plan.HeadSHA,
+		Options:       xslice.Map(plan.Options, renderMergeOption),
+		DefaultMethod: renderMergeMethod(plan.DefaultMethod),
+		HeadSha:       plan.HeadSHA,
 	}, nil
 }
 
 // MergeForgePullRequest merges a pull request through the connection for its host.
 func (s *Handler) MergeForgePullRequest(ctx context.Context, req *forgev1.MergeForgePullRequestRequest) (*emptypb.Empty, *fail.Error) {
-	method, message, err := readMergeChoice(req.GetMethod(), req.GetMessage())
+	method, err := readMergeMethod(req.GetMethod(), req.Headline, req.Body)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to merge the pull request")
 	}
 
 	err = s.writer.MergePullRequest(ctx, forge.MergeParams{
-		URL:     req.GetUrl(),
-		Method:  method,
-		Message: message,
-		HeadSHA: req.GetHeadSha(),
+		URL:      req.GetUrl(),
+		Method:   method,
+		Headline: req.Headline,
+		Body:     req.Body,
+		HeadSHA:  req.GetHeadSha(),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to merge the pull request")
@@ -118,17 +119,18 @@ func (s *Handler) SetForgePullRequestDraft(ctx context.Context, req *forgev1.Set
 // SetForgePullRequestAutoMerge asks the forge to merge a pull request once its checks and reviews
 // pass, or stops it, through the connection for its host.
 func (s *Handler) SetForgePullRequestAutoMerge(ctx context.Context, req *forgev1.SetForgePullRequestAutoMergeRequest) (*emptypb.Empty, *fail.Error) {
-	method, message, err := readMergeChoice(req.GetMethod(), req.GetMessage())
+	method, err := readMergeMethod(req.GetMethod(), req.Headline, req.Body)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to change auto-merge on the pull request")
 	}
 
 	err = s.writer.SetPullRequestAutoMerge(ctx, forge.SetAutoMergeParams{
-		URL:     req.GetUrl(),
-		HeadSHA: req.GetHeadSha(),
-		On:      req.GetOn(),
-		Method:  method,
-		Message: message,
+		URL:      req.GetUrl(),
+		HeadSHA:  req.GetHeadSha(),
+		On:       req.GetOn(),
+		Method:   method,
+		Headline: req.Headline,
+		Body:     req.Body,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to change auto-merge on the pull request")

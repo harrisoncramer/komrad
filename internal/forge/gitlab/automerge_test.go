@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"komrad/internal/forge"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -143,10 +144,11 @@ func TestSetAutoMerge(t *testing.T) {
 		{
 			name: "an open merge request is queued to squash with the message asked for",
 			params: forge.SetAutoMergeParams{
-				URL:     address,
-				On:      true,
-				Method:  forge.MergeMethodSquash,
-				Message: &forge.CommitMessage{Headline: "Land the fix", Body: "Merges stop failing."},
+				URL:      address,
+				On:       true,
+				Method:   forge.MergeMethodSquash,
+				Headline: xptr.Ptr("Land the fix"),
+				Body:     xptr.Ptr("Merges stop failing."),
 			},
 			answers: map[string]answer{
 				"AutoMergeTarget": target("opened", false, waiting),

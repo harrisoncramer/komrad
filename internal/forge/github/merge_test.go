@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/forge"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,15 +70,28 @@ func TestMerge(t *testing.T) {
 		{
 			name: "the pull request merges by the method and message asked for at the head the person saw",
 			params: forge.MergeParams{
-				Method:  forge.MergeMethodRebase,
-				Message: &forge.CommitMessage{Headline: "Land the fix", Body: "Merges stop failing."},
-				HeadSHA: "abc123",
+				Method:   forge.MergeMethodRebase,
+				Headline: xptr.Ptr("Land the fix"),
+				Body:     xptr.Ptr("Merges stop failing."),
+				HeadSHA:  "abc123",
 			},
 			answers: map[string]answer{
 				"MergeTarget": target,
 				"Merge":       merged,
 			},
 			wantVariables: map[string]any{"id": "PR_742", "method": "REBASE", "headline": "Land the fix", "body": "Merges stop failing.", "head": "abc123"},
+		},
+		{
+			name: "a headline alone leaves the body to github",
+			params: forge.MergeParams{
+				Method:   forge.MergeMethodSquash,
+				Headline: xptr.Ptr("Land the fix"),
+			},
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge":       merged,
+			},
+			wantVariables: map[string]any{"id": "PR_742", "method": "SQUASH", "headline": "Land the fix", "body": nil, "head": nil},
 		},
 		{
 			name:    "a method github does not have is refused before github is asked to merge",

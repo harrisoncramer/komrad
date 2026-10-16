@@ -1,8 +1,8 @@
 package ui
 
 import (
+	"cmp"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -161,7 +161,7 @@ func (m *model) applyMergePlanned(msg mergePlannedMsg) tea.Cmd {
 
 // openMergeForm opens the form that picks how the pull request merges and with what message.
 func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1.PlanForgePullRequestMergeResponse) tea.Cmd {
-	values := &mergeValues{Method: plan.GetPick()}
+	values := &mergeValues{Method: plan.GetDefaultMethod()}
 	renderedMethod := values.Method
 	var filled *forgev1.CommitMessage
 
@@ -181,7 +181,7 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 		Reshaped: func() bool { return values.Method != renderedMethod },
 		Editable: []editableText{{key: "body", value: &values.Body}},
 		Submit: func(m *model) tea.Cmd {
-			params, err := values.mergeParams(task.PullRequest.URL, plan)
+			params, err := values.mergeParams(task.PullRequest, plan)
 			if err != nil {
 				m.form.refusal = err.Error()
 
@@ -206,28 +206,28 @@ func (v *mergeValues) fill(option *forgev1.MergeOption, filled *forgev1.CommitMe
 	return message
 }
 
-// mergeParams is the merge the form asks for, carrying a message only when the person changed
-// the forge's own.
-func (v mergeValues) mergeParams(url string, plan *forgev1.PlanForgePullRequestMergeResponse) (mergeParams, error) {
-	option := mergeOptionOf(plan, v.Method)
-	if !option.GetAllowed() {
-		return mergeParams{}, fmt.Errorf("the base branch does not allow a %s", mergeMethodLabel(v.Method))
-	}
-
+// mergeParams is the merge the form asks for at the head the panel showed, carrying each part of
+// the message only when the person changed the forge's own.
+func (v mergeValues) mergeParams(pullRequest panel.PullRequestStanding, plan *forgev1.PlanForgePullRequestMergeResponse) (mergeParams, error) {
 	params := mergeParams{
-		url:     url,
+		url:     pullRequest.URL,
 		method:  v.Method,
-		headSHA: plan.GetHeadSha(),
+		headSHA: cmp.Or(pullRequest.HeadSHA, plan.GetHeadSha()),
 	}
-	message := option.GetMessage()
-	if message == nil || (v.Headline == message.GetHeadline() && v.Body == message.GetBody()) {
+	message := mergeOptionOf(plan, v.Method).GetMessage()
+	if message == nil {
 		return params, nil
 	}
-	if strings.TrimSpace(v.Headline) == "" {
-		return mergeParams{}, errNoHeadline
-	}
+	if v.Headline != message.GetHeadline() {
+		if strings.TrimSpace(v.Headline) == "" {
+			return mergeParams{}, errNoHeadline
+		}
 
-	params.message = &forgev1.CommitMessage{Headline: v.Headline, Body: v.Body}
+		params.headline = &v.Headline
+	}
+	if v.Body != message.GetBody() {
+		params.body = &v.Body
+	}
 
 	return params, nil
 }

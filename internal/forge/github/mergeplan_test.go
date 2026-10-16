@@ -91,8 +91,8 @@ func TestPlanMerge(t *testing.T) {
 					},
 					{Method: forge.MergeMethodRebase},
 				},
-				Pick:    forge.MergeMethodSquash,
-				HeadSHA: "abc123",
+				DefaultMethod: forge.MergeMethodSquash,
+				HeadSHA:       "abc123",
 			},
 		},
 		{

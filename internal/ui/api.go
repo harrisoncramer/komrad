@@ -235,20 +235,22 @@ func (a api) planPullRequestMerge(address string) (*forgev1.PlanForgePullRequest
 // mergeParams is a pull request to merge and how, refused by the forge once its head has moved
 // past headSHA.
 type mergeParams struct {
-	url     string
-	method  forgev1.MergeMethod
-	message *forgev1.CommitMessage
-	headSHA string
+	url      string
+	method   forgev1.MergeMethod
+	headline *string
+	body     *string
+	headSHA  string
 }
 
 // mergePullRequest asks the forge to merge the pull request.
 func (a api) mergePullRequest(params mergeParams) error {
 	_, err := call(mergeTimeout, func(ctx context.Context) (any, error) {
 		return a.forges.MergeForgePullRequest(ctx, connect.NewRequest(&forgev1.MergeForgePullRequestRequest{
-			Url:     params.url,
-			Method:  params.method,
-			Message: params.message,
-			HeadSha: params.headSHA,
+			Url:      params.url,
+			Method:   params.method,
+			Headline: params.headline,
+			Body:     params.body,
+			HeadSha:  params.headSHA,
 		}))
 	})
 
@@ -260,11 +262,12 @@ func (a api) mergePullRequest(params mergeParams) error {
 func (a api) setPullRequestAutoMerge(params mergeParams, on bool) error {
 	_, err := call(autoMergeTimeout, func(ctx context.Context) (any, error) {
 		return a.forges.SetForgePullRequestAutoMerge(ctx, connect.NewRequest(&forgev1.SetForgePullRequestAutoMergeRequest{
-			Url:     params.url,
-			HeadSha: params.headSHA,
-			On:      on,
-			Method:  params.method,
-			Message: params.message,
+			Url:      params.url,
+			HeadSha:  params.headSHA,
+			On:       on,
+			Method:   params.method,
+			Headline: params.headline,
+			Body:     params.body,
 		}))
 	})
 

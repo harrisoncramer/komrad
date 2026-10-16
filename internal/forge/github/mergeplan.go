@@ -95,8 +95,8 @@ func (f *Forge) PlanMerge(ctx context.Context, address string) (*forge.MergePlan
 				Message: data.Repository.messageFor(method, target),
 			}
 		}),
-		Pick:    mergeMethodOf[data.Repository.chooseMethod(target.BaseRef)],
-		HeadSHA: target.HeadRefOid,
+		DefaultMethod: mergeMethodOf[data.Repository.chooseMethod(target.BaseRef)],
+		HeadSHA:       target.HeadRefOid,
 	}, nil
 }
 

@@ -60,8 +60,8 @@ func TestPlanMerge(t *testing.T) {
 					{Method: forge.MergeMethodMerge, Allowed: true, Message: mergeMessage},
 					{Method: forge.MergeMethodSquash, Allowed: true, Message: squashMessage},
 				},
-				Pick:    forge.MergeMethodMerge,
-				HeadSHA: "abc123",
+				DefaultMethod: forge.MergeMethodMerge,
+				HeadSHA:       "abc123",
 			},
 		},
 		{
@@ -75,8 +75,8 @@ func TestPlanMerge(t *testing.T) {
 					{Method: forge.MergeMethodMerge, Message: mergeMessage},
 					{Method: forge.MergeMethodSquash, Allowed: true, Message: squashMessage},
 				},
-				Pick:    forge.MergeMethodSquash,
-				HeadSHA: "abc123",
+				DefaultMethod: forge.MergeMethodSquash,
+				HeadSHA:       "abc123",
 			},
 		},
 		{
@@ -90,8 +90,8 @@ func TestPlanMerge(t *testing.T) {
 					{Method: forge.MergeMethodFastForward, Allowed: true},
 					{Method: forge.MergeMethodSquash, Message: squashMessage},
 				},
-				Pick:    forge.MergeMethodFastForward,
-				HeadSHA: "abc123",
+				DefaultMethod: forge.MergeMethodFastForward,
+				HeadSHA:       "abc123",
 			},
 		},
 		{

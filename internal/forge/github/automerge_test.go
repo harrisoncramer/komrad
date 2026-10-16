@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/forge"
+	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -127,10 +128,10 @@ func TestSetAutoMerge(t *testing.T) {
 		{
 			name: "an open pull request is queued by the method and message asked for",
 			params: forge.SetAutoMergeParams{
-				URL:     address,
-				On:      true,
-				Method:  forge.MergeMethodMerge,
-				Message: &forge.CommitMessage{Headline: "Land the fix"},
+				URL:      address,
+				On:       true,
+				Method:   forge.MergeMethodMerge,
+				Headline: xptr.Ptr("Land the fix"),
 			},
 			answers: map[string]answer{
 				"AutoMergeTarget": target("OPEN", "null"),
@@ -141,7 +142,7 @@ func TestSetAutoMerge(t *testing.T) {
 }`)},
 			},
 			wantOperation: "EnableAutoMerge",
-			wantVariables: map[string]any{"id": "PR_742", "method": "MERGE", "headline": "Land the fix", "body": "", "head": nil},
+			wantVariables: map[string]any{"id": "PR_742", "method": "MERGE", "headline": "Land the fix", "body": nil, "head": nil},
 		},
 		{
 			name:   "a queued pull request is withdrawn",

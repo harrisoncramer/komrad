@@ -58,7 +58,7 @@ func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 		return err
 	}
 
-	variables := messageVariables(params.Message)
+	variables := messageVariables(params.Headline, params.Body)
 	variables["id"] = data.Repository.PullRequest.ID
 	variables["method"] = method
 	variables["head"] = xptr.NonEmpty(params.HeadSHA)
@@ -90,12 +90,16 @@ func mergeabilityOf(status string) forge.Mergeability {
 	return forge.MergeabilityUnknown
 }
 
-// messageVariables is the commit message as a merge mutation's variables, null to leave the
-// message to GitHub.
-func messageVariables(message *forge.CommitMessage) map[string]any {
-	if message == nil {
-		return map[string]any{"headline": nil, "body": nil}
+// messageVariables is the commit message as a merge mutation's variables, each null to leave
+// that part to GitHub.
+func messageVariables(headline, body *string) map[string]any {
+	variables := map[string]any{"headline": nil, "body": nil}
+	if headline != nil {
+		variables["headline"] = *headline
+	}
+	if body != nil {
+		variables["body"] = *body
 	}
 
-	return map[string]any{"headline": message.Headline, "body": message.Body}
+	return variables
 }

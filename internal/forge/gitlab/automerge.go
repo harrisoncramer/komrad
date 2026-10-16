@@ -91,7 +91,13 @@ func (f *Forge) sendAutoMerge(ctx context.Context, params sendAutoMergeParams) e
 		URL:    endpoint + "/cancel_merge_when_pipeline_succeeds",
 	}
 	if params.change.On {
-		body, err := mergeBody(params.change.Method, params.change.Message, params.change.HeadSHA)
+		body, err := f.mergeBody(ctx, params.path, params.number, forge.MergeParams{
+			URL:      params.change.URL,
+			Method:   params.change.Method,
+			Headline: params.change.Headline,
+			Body:     params.change.Body,
+			HeadSHA:  params.change.HeadSHA,
+		})
 		if err != nil {
 			return err
 		}
