@@ -1,0 +1,8 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+/opt/codex/codex-resources/bwrap flags=(unconfined) {
+  userns,
+
+  include if exists <local/opt.codex.codex-resources.bwrap>
+}
