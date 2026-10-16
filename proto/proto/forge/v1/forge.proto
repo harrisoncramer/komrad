@@ -221,7 +221,7 @@ service ForgeService {
       cli: true
       mcp: false
       name: "merge_forge_pull_request"
-      description: "Merge a pull request on its forge, with the repository's default merge method."
+      description: "Merge a pull request on its forge, with a merge method its base branch allows."
       reason: "Only the person decides what lands on the base branch."
     };
   }
