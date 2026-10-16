@@ -12,7 +12,6 @@ apt-get install -y \
 	git \
 	gnupg \
 	jq \
-	neovim \
 	nftables \
 	postgresql-client \
 	ripgrep \
