@@ -111,16 +111,8 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 func writeFenced(out *strings.Builder, info string, lines []string) {
 	longest := 0
 	for _, line := range lines {
-		run := 0
-		for _, r := range line {
-			if r != '`' {
-				run = 0
-
-				continue
-			}
-
-			run++
-			longest = max(longest, run)
+		for _, run := range strings.FieldsFunc(line, func(char rune) bool { return char != '`' }) {
+			longest = max(longest, len(run))
 		}
 	}
 

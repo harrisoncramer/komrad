@@ -152,7 +152,11 @@ func TestRenderReviewFencesEachSnippet(t *testing.T) {
 		{
 			name: "plain code takes three backticks",
 			thread: ReviewThreadInContext{
-				Thread:  reviewstore.Thread{FilePath: "greet.go", NewStart: 1, NewEnd: 1},
+				Thread: reviewstore.Thread{
+					FilePath: "greet.go",
+					NewStart: 1,
+					NewEnd:   1,
+				},
 				Context: []string{">> 1  return `hi`"},
 			},
 			want: "```\n>> 1  return `hi`\n```\n\n",
@@ -160,7 +164,11 @@ func TestRenderReviewFencesEachSnippet(t *testing.T) {
 		{
 			name: "markdown holding a fenced block takes four",
 			thread: ReviewThreadInContext{
-				Thread:  reviewstore.Thread{FilePath: "README.md", NewStart: 2, NewEnd: 2},
+				Thread: reviewstore.Thread{
+					FilePath: "README.md",
+					NewStart: 2,
+					NewEnd:   2,
+				},
 				Context: []string{"   1  ```sh", ">> 2  go test", "   3  ```"},
 			},
 			want: "````\n   1  ```sh\n>> 2  go test\n   3  ```\n````\n\n",
@@ -180,7 +188,11 @@ func TestRenderReviewFencesEachSnippet(t *testing.T) {
 		{
 			name: "a suggestion holding a fenced block takes four",
 			thread: ReviewThreadInContext{
-				Thread: reviewstore.Thread{FilePath: "README.md", NewStart: 1, NewEnd: 1},
+				Thread: reviewstore.Thread{
+					FilePath: "README.md",
+					NewStart: 1,
+					NewEnd:   1,
+				},
 				Messages: []reviewstore.Message{{
 					Body:       "show the command",
 					Suggestion: []string{"```sh", "go test", "```"},
