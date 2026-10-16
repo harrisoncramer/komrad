@@ -19,7 +19,7 @@ func (m *model) fileEditorContent(dir, path string, line int) layout.Content {
 
 	return layout.Content{
 		Key:    fmt.Sprintf("edit:%s:%d", path, line),
-		Render: renderShell(remoteEditorShell(m.settings, path, line)),
+		Render: renderShell(remoteEditorShell(m.settings, filepath.Join(dir, path), line)),
 	}
 }
 

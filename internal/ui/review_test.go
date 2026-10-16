@@ -2219,13 +2219,15 @@ func TestReviewHold(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere the editor runs there, through its ssh host", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: remoteEditSettings(t, "/opt/homebrew/bin/nvim")})
+		server := newReviewServer(t)
+		harness := openReviewAt(t, server, panelHarnessParams{settings: remoteEditSettings(t, "/opt/homebrew/bin/nvim")})
 
 		harness.press("space", "e")
 
 		require.NotEmpty(t, harness.panel.ReadRespawns())
 		assert.Contains(t, harness.panel.ReadRespawns()[0], "-t 'komrad-remote'")
 		assert.Contains(t, harness.panel.ReadRespawns()[0], "exec nvim +")
+		assert.Contains(t, harness.panel.ReadRespawns()[0], filepath.Join(server.repo.Root, "greet.go"))
 	})
 
 	t.Run("on an engine elsewhere an editor that cannot reach it opens nothing", func(t *testing.T) {
