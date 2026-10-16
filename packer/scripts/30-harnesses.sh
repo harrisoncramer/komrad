@@ -16,7 +16,7 @@ curl -fsSL -o /tmp/codex.tar.gz \
 	"https://github.com/openai/codex/releases/download/rust-v$codex_version/codex-package-aarch64-unknown-linux-musl.tar.gz"
 echo "$codex_sha256  /tmp/codex.tar.gz" | sha256sum -c -
 install -d /opt/codex
-tar -xzf /tmp/codex.tar.gz -C /opt/codex
+tar --no-same-owner -xzf /tmp/codex.tar.gz -C /opt/codex
 ln -sf /opt/codex/bin/codex /usr/local/bin/codex
 install -m 0644 /tmp/files/opt.codex.codex-resources.bwrap /etc/apparmor.d/opt.codex.codex-resources.bwrap
 rm -f /tmp/codex.tar.gz
