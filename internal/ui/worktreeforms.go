@@ -12,8 +12,8 @@ import (
 	"charm.land/huh/v2"
 )
 
-// lostFilesShown is how many uncommitted files a delete confirm names before it counts the rest.
-const lostFilesShown = 10
+// uncommittedFilesShown is how many uncommitted files a delete confirm names before it counts the rest.
+const uncommittedFilesShown = 10
 
 // worktreeConfirm is a delete confirm that says what the worktrees the delete takes still hold.
 type worktreeConfirm struct {
@@ -49,7 +49,7 @@ func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
 			form := confirmFormStartingOn(confirmFormStartingOnParams{
 				answer:      &confirmed,
 				title:       c.title,
-				description: c.warning + worktreeLoss(m.inspections, c.dirs),
+				description: c.warning + describeStanding(m.inspections, c.dirs),
 				affirmative: "Delete",
 				keys:        fixedKeys(),
 			})
@@ -70,8 +70,8 @@ func (m *model) rerenderWorktreeConfirm() tea.Cmd {
 	return m.rerenderOpenForm()
 }
 
-// worktreeLoss is what is uncommitted and unpushed in the worktrees, as git last answered for each.
-func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) string {
+// describeStanding says what is uncommitted and unpushed in the worktrees, as git last answered for each.
+func describeStanding(inspections map[string]worktreeInspection, dirs []string) string {
 	var files, refusals []string
 	var commits, uncounted, read, reading, settled int
 	for _, dir := range dirs {
@@ -106,7 +106,7 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 	}
 
 	var b strings.Builder
-	counts := lossCounts(len(files), commits, uncounted == 0)
+	counts := describeUncommitted(len(files), commits, uncounted == 0)
 	switch {
 	case read == 0:
 	case worktrees == 1:
@@ -130,14 +130,14 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 		fmt.Fprintf(&b, " Komrad could not read %s%s, so it cannot say what is uncommitted or unpushed there.", which(len(refusals)), why)
 	}
 	if read == 1 {
-		writeLostFiles(&b, files)
+		writeUncommittedFiles(&b, files)
 	}
 
 	return b.String()
 }
 
-// lossCounts is how many uncommitted files and unpushed commits there are, as far as they were counted.
-func lossCounts(files, commits int, counted bool) string {
+// describeUncommitted says how many uncommitted files and unpushed commits there are, as far as they were counted.
+func describeUncommitted(files, commits int, counted bool) string {
 	var parts []string
 	if files > 0 {
 		parts = append(parts, label.Count(files, "uncommitted file", "uncommitted files"))
@@ -156,12 +156,12 @@ func lossCounts(files, commits int, counted bool) string {
 	return "nothing uncommitted"
 }
 
-// writeLostFiles lists the uncommitted files one to a line, counting those past lostFilesShown.
-func writeLostFiles(b *strings.Builder, files []string) {
-	for _, file := range files[:min(len(files), lostFilesShown)] {
+// writeUncommittedFiles lists the uncommitted files one to a line, counting those past uncommittedFilesShown.
+func writeUncommittedFiles(b *strings.Builder, files []string) {
+	for _, file := range files[:min(len(files), uncommittedFilesShown)] {
 		b.WriteString("\n  " + file)
 	}
-	if hidden := len(files) - lostFilesShown; hidden > 0 {
+	if hidden := len(files) - uncommittedFilesShown; hidden > 0 {
 		fmt.Fprintf(b, "\n  and %d more", hidden)
 	}
 }
