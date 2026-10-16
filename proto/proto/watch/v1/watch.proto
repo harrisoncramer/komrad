@@ -16,46 +16,46 @@ import "worktree/v1/worktree.proto";
 
 option go_package = "komrad/proto/gen/watch/v1;watchv1";
 
-// WatchEvent is the snapshot a stream opens with, the changes one pass found, or a heartbeat.
+// WatchEvent is one message on a watch stream: the snapshot, a batch of changes, or a heartbeat.
 message WatchEvent {
-  // What moved.
+  // The event.
   oneof event {
-    // Every row the watched sets hold, sent once as the stream opens.
+    // Every watched record, sent once as the stream opens.
     Snapshot snapshot = 1;
-    // Every row that moved in one pass over the database.
+    // The records that changed since the last event.
     Changes changes = 2;
-    // Nothing has changed for a while, and the stream is still alive.
+    // A sign the stream is alive while nothing has changed for a while.
     google.protobuf.Empty heartbeat = 3;
   }
 }
 
-// Snapshot is every watched set.
+// Snapshot is every watched record.
 message Snapshot {
-  // Every row in the snapshot.
+  // The records.
   repeated Row rows = 1;
 }
 
-// Changes holds the rows that moved in one pass over the database.
+// Changes is the records that changed since the last event.
 message Changes {
-  // The rows as the panel should now hold them.
+  // The records created or changed, in full.
   repeated Row puts = 1;
-  // The rows their watched sets no longer hold, whether the panel held them or not.
+  // The records no longer watched. A client may never have held some of them.
   repeated Deleted deleted = 2;
 }
 
-// Row is one row of a resource table, rendered the way its list RPC renders it.
+// Row is one watched record, in the shape its list call returns.
 message Row {
-  // Which resource the row is.
+  // The record.
   oneof row {
-    // An agent as ListAgents renders it.
+    // An agent, as `list_agents` returns it.
     agent.v1.Agent agent = 1;
-    // A workflow as ListWorkflows renders it.
+    // A workflow, as `list_workflows` returns it.
     workflow.v1.Workflow workflow = 2;
-    // A schedule as ListSchedules renders it.
+    // A schedule, as `list_schedules` returns it.
     schedule.v1.Schedule schedule = 3;
-    // A piece of mail as ListMail renders it.
+    // A piece of mail, as `list_mail` returns it.
     agent.v1.Mail mail = 4;
-    // A pull request as ListPullRequests renders it.
+    // A pull request, as `list_pull_requests` returns it.
     pullrequest.v1.PullRequest pull_request = 5;
     // A repository and whether its pull requests have been read.
     pullrequest.v1.Repository repository = 6;
@@ -63,62 +63,61 @@ message Row {
     agent.v1.WatchedReview review = 7;
     // A review thread with its messages.
     agent.v1.ReviewThread review_thread = 8;
-    // A worktree as the filesystem holds it.
+    // A worktree, as it is on disk.
     worktree.v1.WatchedWorktree worktree = 9;
     // A document type with its context.
     agent.v1.DocumentType document_type = 10;
-    // A task as ListTasks renders it.
+    // A task, as `list_tasks` returns it.
     task.v1.Task task = 11;
   }
 }
 
-// Resource names the table a row belongs to, one value per member of Row.
+// Resource is the kind of a watched record, one value per member of `Row`.
 enum Resource {
-  // No resource was set, which the server never sends.
+  // No kind was set. Komrad never sends this value.
   RESOURCE_UNSPECIFIED = 0;
-  // A row of agents.
+  // An agent.
   RESOURCE_AGENT = 1;
-  // A row of workflows.
+  // A workflow.
   RESOURCE_WORKFLOW = 2;
-  // A row of schedules.
+  // A schedule.
   RESOURCE_SCHEDULE = 3;
-  // A row of mail.
+  // A piece of mail.
   RESOURCE_MAIL = 4;
-  // A row of pull_requests.
+  // A pull request.
   RESOURCE_PULL_REQUEST = 5;
-  // A row of pull_request_syncs.
+  // A repository and whether its pull requests have been read.
   RESOURCE_REPOSITORY = 6;
-  // A row of reviews.
+  // A review.
   RESOURCE_REVIEW = 7;
-  // A row of review_threads.
+  // A thread.
   RESOURCE_REVIEW_THREAD = 8;
-  // A row of worktrees.
+  // A worktree.
   RESOURCE_WORKTREE = 9;
-  // A row of document_types.
+  // A document type.
   RESOURCE_DOCUMENT_TYPE = 10;
-  // A row of tasks.
+  // A task.
   RESOURCE_TASK = 11;
 }
 
-// Deleted names a row its watched set no longer holds, whether it was removed or claimed for a
-// delete.
+// Deleted names a record that is no longer watched, because it was deleted or is being deleted.
 message Deleted {
-  // Which resource the row was of.
+  // The kind of the record.
   Resource resource = 1;
-  // The key of the row.
+  // The record's key.
   string key = 2;
 }
 
-// WatchService streams every change to the rows the panel draws.
+// WatchService streams every change to the records komrad watches.
 service WatchService {
-  // Watch sends a snapshot of every row the watched sets hold, then one event per change for
-  // as long as the stream is open, with a heartbeat when nothing has changed for a while.
+  // Watch sends a snapshot of every watched record, then the changes for as long as the stream
+  // is open, with a heartbeat while nothing changes.
   rpc Watch(google.protobuf.Empty) returns (stream WatchEvent) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "a stream the panel holds open; a model or a script lists instead"
+      reason: "A stream held open by a long-running client, where an agent or a script calls the list methods instead."
     };
   }
 }

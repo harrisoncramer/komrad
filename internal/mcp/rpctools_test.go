@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	agentv1 "komrad/proto/gen/agent/v1"
+	annotationv1 "komrad/proto/gen/annotation/v1"
 	configv1 "komrad/proto/gen/config/v1"
 	hookv1 "komrad/proto/gen/hook/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -140,6 +141,32 @@ func TestToolHints(t *testing.T) {
 			}
 			require.NotNil(t, hints.DestructiveHint)
 			assert.Equal(t, *tt.wantDestructive, *hints.DestructiveHint)
+		})
+	}
+}
+
+// TestToolDescription confirms a tool's guidance follows its description.
+func TestToolDescription(t *testing.T) {
+	tests := []struct {
+		name     string
+		surfaces *annotationv1.Surfaces
+		want     string
+	}{
+		{
+			name:     "description alone",
+			surfaces: &annotationv1.Surfaces{Description: "Archive a task."},
+			want:     "Archive a task.",
+		},
+		{
+			name:     "guidance after description",
+			surfaces: &annotationv1.Surfaces{Description: "Archive a task.", McpGuidance: "Archive one only when asked."},
+			want:     "Archive a task.\n\nArchive one only when asked.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, toolDescription(tt.surfaces))
 		})
 	}
 }

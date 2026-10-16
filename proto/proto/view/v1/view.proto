@@ -4,13 +4,12 @@ package view.v1;
 
 option go_package = "komrad/proto/gen/view/v1;viewv1";
 
-// View sets how much of each record a listing returns. The panel draws every field, while a
-// model with a context window asks for less of the same rows.
+// View is how much of each record a listing returns.
 enum View {
-  // Unspecified means summary, so a caller that never chose never gets a megabyte.
+  // No view was chosen. Treated as `VIEW_SUMMARY`.
   VIEW_UNSPECIFIED = 0;
-  // Long text is cut to its opening, and the record says which fields were cut.
+  // Long text is cut to its opening, and each record says which fields were cut.
   VIEW_SUMMARY = 1;
-  // Every field whole, however long.
+  // Every field in full, however long.
   VIEW_FULL = 2;
 }

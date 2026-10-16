@@ -21,16 +21,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// View sets how much of each record a listing returns. The panel draws every field, while a
-// model with a context window asks for less of the same rows.
+// View is how much of each record a listing returns.
 type View int32
 
 const (
-	// Unspecified means summary, so a caller that never chose never gets a megabyte.
+	// No view was chosen. Treated as `VIEW_SUMMARY`.
 	View_VIEW_UNSPECIFIED View = 0
-	// Long text is cut to its opening, and the record says which fields were cut.
+	// Long text is cut to its opening, and each record says which fields were cut.
 	View_VIEW_SUMMARY View = 1
-	// Every field whole, however long.
+	// Every field in full, however long.
 	View_VIEW_FULL View = 2
 )
 

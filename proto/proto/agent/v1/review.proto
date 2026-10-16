@@ -6,234 +6,223 @@ import "buf/validate/validate.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
-// ReviewAuthorKind names who wrote a review message.
+// ReviewAuthorKind is who wrote a review or comment.
 enum ReviewAuthorKind {
   // No author was recorded.
   REVIEW_AUTHOR_KIND_UNSPECIFIED = 0;
-  // The person running komrad.
+  // The person.
   REVIEW_AUTHOR_KIND_HUMAN = 1;
-  // The agent whose work is being read, or the reviewer reading it.
+  // An agent, either the writer or a reviewer.
   REVIEW_AUTHOR_KIND_AGENT = 2;
-  // Someone on the forge, whose comment komrad mirrored from the pull request.
+  // A forge user, whose comment komrad copied from the pull request.
   REVIEW_AUTHOR_KIND_FORGE = 3;
 }
 
-// ReviewDeliveryState shows how far one of the person's comments has got towards the agent
-// reading it. Komrad stores no such field. It reads the state off the comment's own sent stamp
-// and the newest doorbell raised against it. The stamp outlives mail that the agent deletes or
-// lets expire. The messages of the thread show whether the comment has been answered.
+// ReviewDeliveryState is how far one of the person's comments has got toward the agent.
 enum ReviewDeliveryState {
-  // Delivery says nothing about this message. That holds for anything the agent wrote, because
-  // nobody waits to be told about it.
+  // Not a comment by the person, such as one an agent wrote.
   REVIEW_DELIVERY_STATE_UNSPECIFIED = 0;
-  // Written down and not yet let go of.
+  // Written but not released.
   REVIEW_DELIVERY_STATE_UNSENT = 1;
-  // Released, with a doorbell still waiting to be claimed.
+  // Released, and the agent has not read the mail about it.
   REVIEW_DELIVERY_STATE_SENT = 2;
-  // Released, and the agent has claimed the doorbell.
+  // Released, and the agent has read the mail about it.
   REVIEW_DELIVERY_STATE_DELIVERED = 3;
-  // Kept from the agent until the person accepts the thread's first comment, because someone on
-  // the forge without write access to the repository wrote the comment or its thread.
+  // Kept from the agent until the person accepts the thread's first comment, because a forge user
+  // without write access wrote the comment or its thread.
   REVIEW_DELIVERY_STATE_HELD = 4;
 }
 
-// ReviewVerdict records what an author concluded about a round. It tells the agent whether it
-// is done, so the agent need not read that out of the prose.
+// ReviewVerdict is what a review concludes about a round.
 enum ReviewVerdict {
-  // Nothing has been concluded. An unreleased review carries this.
+  // No verdict. An unreleased review has this value.
   REVIEW_VERDICT_UNSPECIFIED = 0;
-  // This round is good as it stands.
+  // The round is good as it stands.
   REVIEW_VERDICT_APPROVED = 1;
-  // The agent should keep working.
+  // The writer has more to do.
   REVIEW_VERDICT_CHANGES_REQUESTED = 2;
-  // Notes without a conclusion either way.
+  // Comments with no conclusion either way.
   REVIEW_VERDICT_COMMENTED = 3;
 }
 
-// ReviewRound is one immutable snapshot of what a task's writer has written. A review is given
-// against it. The snapshot is a commit rather than the worktree, so nothing a comment is pinned
-// to can move underneath the person reading it.
+// ReviewRound is a snapshot of a task's worktree, saved as a commit, that a review is written
+// against. A round never changes.
 message ReviewRound {
-  // The handle a review or a viewed-file record names this round by.
+  // The round's id.
   string id = 1;
-  // The task whose checkout the snapshot was taken of.
+  // The id of the task the round was taken of.
   string task_id = 2;
-  // Which round this is for its task, counting from one.
+  // The round's number within its task, counting from one.
   int32 ordinal = 3;
-  // The commit the agent's branch left its base at when the round was taken.
+  // The commit on the base branch that the task's branch started from when the round was taken.
   string base_sha = 4;
-  // The commit the whole worktree was written out as, tracked and untracked alike.
+  // The commit holding the whole worktree, tracked and untracked files alike.
   string snapshot_sha = 5;
-  // When the snapshot was taken, in RFC 3339.
+  // When the round was taken, in RFC 3339.
   string created_at = 6;
 }
 
-// Review is one author's batch of comments against one round. It stays private while the author
-// writes it and releases as a whole, like a pending review on a forge.
+// Review is one author's comments on one round, released to the agent together. The review is
+// private until the author releases it.
 message Review {
-  // The handle the threads in this batch name it by.
+  // The review's id.
   string id = 1;
-  // The task whose work is being read.
+  // The id of the task the review is on.
   string task_id = 2;
-  // The snapshot the batch was written against.
+  // The id of the round the review is written against.
   string round_id = 3;
-  // Which round that is, counting from one.
+  // The number of the round the review is written against.
   int32 round_ordinal = 4;
-  // Whether a person, an agent or someone on the forge wrote it.
+  // Who wrote the review.
   ReviewAuthorKind author_kind = 5;
-  // The agent giving the review, absent when the person reviewing is.
+  // The id of the agent that wrote the review. Unset when the person wrote it.
   optional string author_agent_id = 6;
-  // What the author concluded, unspecified while the review is still open.
+  // The review's verdict. Unspecified until the review is released.
   ReviewVerdict verdict = 7;
-  // When the review was let go of, empty while nothing in it has reached the agent.
+  // When the review was released, in RFC 3339. Empty until then.
   string released_at = 8;
-  // The absolute path the released review was written to.
+  // The absolute path of the file the released review was written to.
   string path = 9;
-  // When the agent claimed the mail that told it the review was waiting.
+  // When the agent read the mail about the review, in RFC 3339. Empty until then.
   string delivered_at = 10;
-  // When the batch was opened, which is the first comment written into it.
+  // When the review was created with its first comment, in RFC 3339.
   string created_at = 11;
-  // When anything in it last moved.
+  // When the review last changed, in RFC 3339.
   string updated_at = 12;
-  // What the author said about the work as a whole rather than about any one line, empty when
-  // they said nothing.
+  // What the author said about the work as a whole. Empty when the author said nothing.
   string body = 13;
-  // How many of this review's comments nobody has settled. A released review with none left is
-  // finished. The verdict does not say so, because it records what the author concluded at the
-  // time and not what has happened since.
+  // How many of the review's threads are not resolved. A released review with none is finished,
+  // whatever its verdict.
   int32 open_threads = 14;
-  // The forge login of whoever wrote a review mirrored from the forge, empty otherwise.
+  // The forge login of the author of a review copied from the forge. Empty otherwise.
   string external_login = 15;
 }
 
-// WatchedReview is a review as the watch carries it, without its body.
+// WatchedReview is a review as `Watch` events carry it, without its body.
 message WatchedReview {
-  // The handle the threads in this batch name it by.
+  // The review's id.
   string id = 1;
-  // The task whose work is being read.
+  // The id of the task the review is on.
   string task_id = 2;
-  // The snapshot the batch was written against.
+  // The id of the round the review is written against.
   string round_id = 3;
-  // Which round that is, counting from one.
+  // The number of the round the review is written against.
   int32 round_ordinal = 4;
-  // The commit that round froze the task's checkout as.
+  // The snapshot commit of the review's round.
   string round_snapshot_sha = 5;
-  // Whether a person, an agent or someone on the forge wrote it.
+  // Who wrote the review.
   ReviewAuthorKind author_kind = 6;
-  // The agent giving the review, absent when the person reviewing is.
+  // The id of the agent that wrote the review. Unset when the person wrote it.
   optional string author_agent_id = 7;
-  // What the author concluded, unspecified while the review is still open.
+  // The review's verdict. Unspecified until the review is released.
   ReviewVerdict verdict = 8;
-  // When the review was let go of, empty while it is still open.
+  // When the review was released, in RFC 3339. Empty until then.
   string released_at = 9;
-  // When the agent claimed the mail that told it the review was waiting.
+  // When the agent read the mail about the review, in RFC 3339. Empty until then.
   string delivered_at = 10;
-  // When the batch was opened.
+  // When the review was created, in RFC 3339.
   string created_at = 11;
-  // When anything in it last moved.
+  // When the review last changed, in RFC 3339.
   string updated_at = 12;
-  // When the base branch was first seen holding the round whole, empty until then.
+  // When the review's round was first seen landed, in RFC 3339. Empty until then.
   string round_landed_at = 13;
-  // The forge login of whoever wrote a review mirrored from the forge, empty otherwise.
+  // The forge login of the author of a review copied from the forge. Empty otherwise.
   string external_login = 14;
 }
 
-// ReviewThread is one conversation pinned to a place in a round of a task's diff.
+// ReviewThread is a conversation pinned to a range of lines in a round.
 message ReviewThread {
-  // The handle a reply or a resolve names this thread by.
+  // The thread's id.
   string id = 1;
-  // The task whose diff the thread is pinned to.
+  // The id of the task whose diff the thread is on.
   string task_id = 2;
-  // The batch this thread was opened as part of.
+  // The id of the review the thread was created in.
   string review_id = 3;
-  // The round the thread is anchored to, which never moves.
+  // The id of the round the thread is pinned to.
   string round_id = 4;
-  // Which round that is, counting from one.
+  // The number of the round the thread is pinned to.
   int32 round_ordinal = 5;
-  // The commit the old side of these line numbers was read against. This is the round's own base
-  // unless the diff was narrowed to an earlier round when the thread was written.
+  // The commit the old side of the line numbers is read against. This is the round's base unless
+  // the diff was narrowed to an earlier round.
   string base_sha = 6;
-  // Which file, relative to the checkout.
+  // The file's path, relative to the checkout.
   string file_path = 7;
-  // Where the range begins on the old side of the diff, counting from one.
+  // The first line of the range on the old side of the diff, counting from one.
   int32 old_start = 8;
-  // Where it ends on the old side, inclusive.
+  // The last line of the range on the old side of the diff.
   int32 old_end = 9;
-  // Where the range begins on the new side.
+  // The first line of the range on the new side of the diff, counting from one.
   int32 new_start = 10;
-  // Where it ends on the new side, inclusive.
+  // The last line of the range on the new side of the diff.
   int32 new_end = 11;
-  // The diff lines the thread was written against, each keeping its leading marker.
+  // The diff lines the thread is about, each with its leading marker.
   repeated string quoted_lines = 12;
-  // When the person reviewing settled this thread. Empty while it is still owed an answer.
-  // Settling is separate from whether the code under the thread has moved, and settling decides
-  // whether the thread still asks for something.
+  // When the thread was resolved, in RFC 3339. Empty while the thread is open.
   string resolved_at = 13;
-  // Whether the agent has replied since the person reviewing last looked.
+  // Whether an agent has replied since the person last read the thread.
   bool unread_by_human = 14;
-  // Everything said in the thread, oldest first.
+  // The thread's comments, oldest first.
   repeated ReviewMessage messages = 15;
-  // When the thread was opened.
+  // When the thread was created, in RFC 3339.
   string created_at = 16;
-  // When anything in it last moved.
+  // When the thread last changed, in RFC 3339.
   string updated_at = 17;
-  // Whether the thread mirrors one on the pull request, where a reply is public.
+  // Whether the thread is copied from a pull request, where replies are public.
   bool mirrors_forge = 18;
-  // What komrad has drafted, posted or failed to post on the forge thread, oldest first. Only
-  // the person reviewing is shown these.
+  // The replies komrad has drafted, posted or failed to post to the forge thread, oldest first.
+  // Only the person sees these.
   repeated ForgeReply forge_replies = 19;
 }
 
-// ReviewMessage is one thing said in a review thread.
+// ReviewMessage is one comment in a review thread.
 message ReviewMessage {
-  // The handle an edit of this message names it by.
+  // The comment's id.
   string id = 1;
-  // Which conversation it belongs to.
+  // The id of the comment's thread.
   string thread_id = 2;
-  // Whether a person, an agent or someone on the forge wrote it.
+  // Who wrote the comment.
   ReviewAuthorKind author_kind = 3;
-  // The agent that wrote it. Absent for the person reviewing, and cleared if that agent is
-  // deleted. author_kind says who wrote it, not this field.
+  // The id of the agent that wrote the comment. Unset when the person or a forge user wrote it,
+  // or when the agent was deleted.
   optional string author_agent_id = 4;
-  // What the author wrote.
+  // The comment's text.
   string body = 5;
-  // Replacement lines the author proposes for the thread's range. Empty for an ordinary
-  // comment. An agent applies these instead of reasoning about them.
+  // The lines the author proposes in place of the thread's range. Empty for a plain comment.
   repeated string suggestion = 6;
-  // When it was written.
+  // When the comment was written, in RFC 3339.
   string created_at = 7;
-  // When it was last edited.
+  // When the comment was last edited, in RFC 3339.
   string updated_at = 8;
-  // How far this comment has got towards the agent reading it.
+  // How far the comment has got toward the agent.
   ReviewDeliveryState delivery = 9;
-  // When the person reviewing released this comment, empty while it is only written down.
+  // When the person released the comment, in RFC 3339. Empty until then.
   string sent_at = 10;
-  // When the agent claimed the doorbell raised for this comment, empty until it has.
+  // When the agent read the mail about the comment, in RFC 3339. Empty until then.
   string delivered_at = 11;
-  // The review this message went out with, absent for an answer written by the agent under
-  // review, which belongs to no batch.
+  // The id of the review the comment was released with. Unset for a reply from the writer, which
+  // belongs to no review.
   optional string review_id = 12;
-  // The round an addressed reply was taken of. Absent on every other message.
+  // The id of the round saved with an addressed reply. Unset on every other comment.
   optional string round_id = 13;
-  // The forge comment this message was mirrored from, absent for anything written in komrad.
+  // The forge comment this comment was copied from. Unset for a comment written in komrad.
   optional ForgeOrigin forge = 14;
-  // The held forge message the person accepted this message as a copy of, absent on everything
-  // else.
+  // The id of the held forge comment the person accepted this comment as a copy of. Unset
+  // otherwise.
   optional string accepted_from = 15;
 }
 
-// ForgeOrigin is the forge comment a message was mirrored from.
+// ForgeOrigin is the forge comment a review comment was copied from.
 message ForgeOrigin {
-  // The forge login of whoever wrote it, empty when the forge no longer knew them.
+  // The forge login of the comment's author. Empty when the forge no longer has the account.
   string login = 1;
-  // The forge comment it was copied from, which is gone once the forge deletes that comment.
+  // The forge comment's id. The forge may have deleted the comment since.
   string comment_id = 2;
-  // When the forge comment had last been edited, in RFC 3339, unset while it never had been.
+  // When the forge comment was last edited, in RFC 3339. Unset when it was never edited.
   optional string edited_at = 3;
 }
 
 message ListReviewThreadsRequest {
-  // Which task's diff to read the threads of, by id or by slug. Leave it unset for your own task.
+  // The task whose threads to list, by id or slug. Unset uses the caller's own task.
   optional string task = 1 [(buf.validate.field).cel = {
     id: "task.named"
     message: "pass task by id or by slug, or leave it unset"
@@ -242,133 +231,123 @@ message ListReviewThreadsRequest {
 }
 
 message ListReviewThreadsResponse {
-  // The threads on that diff and what has been said in each. An agent reading a review sees only
-  // the comments the person has let go of, and none of the panel's record of when each was
-  // released. The agent reads a review only once it is released, not while the person writes it.
+  // The threads on the task's diff, with their comments. An agent sees only released comments.
   repeated ReviewThread threads = 1;
 }
 
 message CreateReviewThreadRequest {
-  // Which task's diff to pin the comment to, by id or by slug. Leave it unset for your own task.
+  // The task whose diff to comment on, by id or slug. Unset uses the caller's own task.
   optional string task = 1 [(buf.validate.field).cel = {
     id: "task.named"
     message: "pass task by id or by slug, or leave it unset"
     expression: "this.size() > 0"
   }];
-  // Which file, relative to the checkout.
+  // The file's path, relative to the checkout.
   string file_path = 2;
-  // The commit the old side of these line numbers was read against, empty for the round's own
-  // base.
+  // The commit the old side of the line numbers is read against. Empty uses the round's base.
   string base_sha = 3;
-  // The commit the new side of these line numbers was read against, empty for a caller that read
-  // the round's own snapshot.
+  // The commit the new side of the line numbers is read against. Empty uses the round's snapshot.
   string snapshot_sha = 4;
-  // Where the range begins on the old side of the diff, counting from one.
+  // The first line of the range on the old side of the diff, counting from one.
   int32 old_start = 5;
-  // Where it ends on the old side, inclusive.
+  // The last line of the range on the old side of the diff.
   int32 old_end = 6;
-  // Where the range begins on the new side.
+  // The first line of the range on the new side of the diff, counting from one.
   int32 new_start = 7;
-  // Where it ends on the new side, inclusive.
+  // The last line of the range on the new side of the diff.
   int32 new_end = 8;
-  // The diff lines being written about, each keeping its leading marker so the anchor still
-  // makes sense once the code moves.
+  // The diff lines the comment is about, each with its leading marker.
   repeated string quoted_lines = 9;
-  // The first thing said. The ceiling refuses an essay and is not a length to write up to.
+  // The thread's first comment.
   string body = 10 [(buf.validate.field).string = {
     min_len: 1
     max_len: 1000
   }];
-  // Replacement lines proposed for the range, empty for an ordinary comment.
+  // The lines proposed in place of the range. Empty for a plain comment.
   repeated string suggestion = 11;
 }
 
 message CreateReviewThreadResponse {
-  // The thread as opened, private until the batch is released.
+  // The thread as created, private until its review is released.
   ReviewThread thread = 1;
 }
 
 message AddReviewMessageRequest {
-  // Which conversation to say it in.
+  // The thread to reply in, by id.
   string thread_id = 1 [(buf.validate.field).string.min_len = 1];
-  // What to say. The ceiling refuses an essay and is not a length to write up to.
+  // The reply's text.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 1000
   }];
-  // Replacement lines proposed for the thread's range, empty for an ordinary message.
+  // The lines proposed in place of the thread's range. Empty for a plain reply.
   repeated string suggestion = 3;
-  // Says the change the thread asks for is made. Komrad takes a round of the worktree as it
-  // stands and pins it to the reply. A thread the person started is resolved by it, and one a
-  // reviewer agent started stays open for that reviewer to resolve. Refused when the worktree
-  // holds the same tree the thread was written on.
+  // Whether the reply says the change the thread asks for is made. Komrad then saves a round of
+  // the worktree and pins it to the reply.
   bool addressed = 4;
 }
 
 message AddReviewMessageResponse {
-  // The message as recorded.
+  // The comment as written.
   ReviewMessage message = 1;
-  // A nudge to set addressed, given when a plain reply lands on a thread whose worktree has
-  // moved since the thread was written. Empty otherwise.
+  // A reminder to set `addressed`, given when a plain reply goes on a thread whose worktree has
+  // changed since the thread was created. Empty otherwise.
   string hint = 2;
 }
 
 message AcceptForgeMessageRequest {
-  // The held forge message to accept.
+  // The held forge comment to accept, by id.
   string message_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message AcceptForgeMessageResponse {
-  // The copy written into the person's open review, which releases the thread once that review
-  // is sent.
+  // The copy written into the person's open review. Releasing that review releases the thread.
   ReviewMessage message = 1;
 }
 
 message EditReviewMessageRequest {
-  // Which message to rewrite.
+  // The comment to edit, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // What it should say instead, under the same ceiling the message was written to.
+  // The comment's new text.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 1000
   }];
-  // Replacement lines proposed for the thread's range, empty for an ordinary message.
+  // The new lines proposed in place of the thread's range. Empty for a plain comment.
   repeated string suggestion = 3;
 }
 
 message EditReviewMessageResponse {
-  // The message as it now reads.
+  // The comment as edited.
   ReviewMessage message = 1;
 }
 
 message MarkReviewThreadReadRequest {
-  // Which thread the caller has caught up on.
+  // The thread the caller has read, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message MarkReviewThreadReadResponse {
-  // The thread as it now stands, no longer unread by the caller.
+  // The thread as updated, no longer unread by the caller.
   ReviewThread thread = 1;
 }
 
 message SetReviewThreadResolvedRequest {
-  // Which thread to settle or reopen.
+  // The thread to resolve or reopen, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // Whether the thread is settled. Unsetting it reopens the thread, as a person does when the
-  // answer was not the end of it.
+  // Whether the thread is resolved. False reopens the thread.
   bool resolved = 2;
 }
 
 message SetReviewThreadResolvedResponse {
-  // The thread as it now stands.
+  // The thread as updated.
   ReviewThread thread = 1;
 }
 
-// OpenReviewRoundRequest freezes what an agent has written now and records it as its next
-// round. On a tree that has not moved since the last round it returns that round,
-// so opening the diff twice does not advance the ordinal.
+// OpenReviewRoundRequest saves a task's worktree as its next round. When the worktree has not
+// changed since the newest round, the call returns that round.
 message OpenReviewRoundRequest {
-  // Which task's checkout to freeze, by id or by slug. Leave it unset for your own task.
+  // The task whose worktree to save, by id or slug. Unset uses the caller's own task.
   optional string task = 1 [(buf.validate.field).cel = {
     id: "task.named"
     message: "pass task by id or by slug, or leave it unset"
@@ -377,12 +356,12 @@ message OpenReviewRoundRequest {
 }
 
 message OpenReviewRoundResponse {
-  // The round to review against, which is the last one again if nothing has moved.
+  // The round to review. The newest existing round when the worktree has not changed.
   ReviewRound round = 1;
 }
 
 message ListReviewRoundsRequest {
-  // Which task's rounds to read, by id or by slug. Leave it unset for your own task.
+  // The task whose rounds to list, by id or slug. Unset uses the caller's own task.
   optional string task = 1 [(buf.validate.field).cel = {
     id: "task.named"
     message: "pass task by id or by slug, or leave it unset"
@@ -391,24 +370,25 @@ message ListReviewRoundsRequest {
 }
 
 message ListReviewRoundsResponse {
-  // Every round taken of that agent, oldest first.
+  // Every round of the task, oldest first.
   repeated ReviewRound rounds = 1;
 }
 
 message OpenReviewHistoryRequest {
-  // The task whose review to open, by id or by slug.
+  // The task whose review history to open, by id or slug.
   string task = 1 [(buf.validate.field).cel = {
     id: "task.required"
     message: "pass task, by id or by slug"
     expression: "this.size() > 0"
   }];
-  // Whether to read the worktree as it stands even where an open review holds an older round.
+  // Whether to read the worktree as it is now, even when an open review is written against an
+  // older round.
   bool fresh = 2;
-  // The part of the work to measure, the whole change when unset.
+  // The part of the work to diff. Unset diffs the whole change.
   oneof span {
-    // A diff between two snapshots, such as one chapter.
+    // A diff between two snapshots.
     ReviewSnapshotSpan snapshots = 3;
-    // The change in the reply that addressed a comment.
+    // The change made by the reply that addressed a comment.
     ReviewAnswerSpan answer = 4;
     // The diff a comment was written against.
     ReviewOriginSpan origin = 5;
@@ -417,106 +397,111 @@ message OpenReviewHistoryRequest {
 
 // ReviewSnapshotSpan is a diff between two snapshots.
 message ReviewSnapshotSpan {
-  // The commit the diff is measured from, empty for the round's base.
+  // The commit to diff from. Empty uses the round's base.
   string base_sha = 1;
-  // The commit the diff is measured to, empty for the round's snapshot.
+  // The commit to diff to. Empty uses the round's snapshot.
   string head_sha = 2;
 }
 
-// ReviewAnswerSpan is the change between the round a comment was written on and the round that answered it.
+// ReviewAnswerSpan is the change between the round a comment was written on and the round of the
+// reply that addressed it.
 message ReviewAnswerSpan {
-  // The round the comment was written on.
+  // The id of the round the comment was written on.
   string from_round_id = 1 [(buf.validate.field).string.min_len = 1];
-  // The round the answering reply carried.
+  // The id of the round saved with the addressed reply.
   string to_round_id = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 // ReviewOriginSpan is the diff a comment was written against.
 message ReviewOriginSpan {
-  // The round the comment was written on.
+  // The id of the round the comment was written on.
   string round_id = 1 [(buf.validate.field).string.min_len = 1];
-  // The commit the comment's old side was read against, empty for the round's base.
+  // The commit the comment's old side was read against. Empty uses the round's base.
   string base_sha = 2;
 }
 
 message OpenReviewHistoryResponse {
   // The round the diff is read at.
   ReviewRound round = 1;
-  // Every round taken of the task, oldest first.
+  // Every round of the task, oldest first.
   repeated ReviewRound rounds = 2;
-  // Every thread on the task with its messages.
+  // Every thread on the task, with its comments.
   repeated ReviewThread threads = 3;
-  // Whether the round is the one an open review was written against rather than the worktree as it stands.
+  // Whether `round` is the round an open review is written against, rather than the worktree as
+  // it is now.
   bool pinned = 4;
-  // A note from the server about the round it settled on, empty when it has none.
+  // A note about the round komrad chose. Empty when there is none.
   string notice = 5;
-  // The commits the diff is measured between.
+  // The commits the diff is between.
   ReviewResolvedSpan resolved = 6;
-  // The reason the server measured the whole change instead of the span asked for, empty when it measured the span.
+  // Why komrad diffed the whole change instead of the requested span. Empty when komrad diffed
+  // the span.
   string widened = 7;
-  // The rounds between the person's reviews, oldest first.
+  // The work between the person's reviews, oldest first.
   repeated ReviewChapter chapters = 8;
-  // The round the person last released a review against, empty when there is none or its base has moved since.
+  // The id of the round the person last released a review against. Empty when there is none or
+  // the round's base has changed since.
   string earlier_round_id = 9;
-  // When the person last released a review, in RFC 3339, empty when they never have.
+  // When the person last released a review, in RFC 3339. Empty when the person never has.
   string earlier_released_at = 10;
-  // How many files changed since the earlier round.
+  // How many files changed since `earlier_round_id`.
   int32 changed_since_earlier = 11;
-  // Each thread's place in the diff's head as git traced it, keyed by thread id.
+  // Where git traced each thread's lines in the diff's head, by thread id.
   map<string, ReviewTracedPlace> traced = 12;
 }
 
-// ReviewResolvedSpan is the pair of commits a diff is measured between.
+// ReviewResolvedSpan is the pair of commits a diff is between.
 message ReviewResolvedSpan {
-  // The commit the diff is measured from, a replayed tree when the base moved.
+  // The commit the diff is from. A replayed tree when the base branch moved.
   string base_sha = 1;
-  // The commit the diff is measured to.
+  // The commit the diff is to.
   string head_sha = 2;
-  // Whether the older side was carried onto the newer one's base.
+  // Whether the older side was replayed onto the newer side's base.
   bool replayed = 3;
-  // The snapshot an answer is measured from, empty for any other span.
+  // The snapshot an answer's diff is from. Empty for other spans.
   string answer_base_sha = 4;
-  // The snapshot an answer is measured to, empty for any other span.
+  // The snapshot an answer's diff is to. Empty for other spans.
   string answer_head_sha = 5;
-  // The commit a comment's diff is measured from, empty for any other span.
+  // The commit a comment's diff is from. Empty for other spans.
   string origin_base_sha = 6;
-  // The snapshot a comment was written on, empty for any other span.
+  // The snapshot a comment was written on. Empty for other spans.
   string origin_head_sha = 7;
-  // The base of the round a comment was written on, empty for any other span.
+  // The base of the round a comment was written on. Empty for other spans.
   string origin_round_base_sha = 8;
 }
 
-// ReviewChapter is the work between two of the person's reviews, or between their last one and now.
+// ReviewChapter is the work between two of the person's reviews, or between the last one and now.
 message ReviewChapter {
-  // The snapshot the chapter starts after, or the oldest round's base for the first.
+  // The snapshot the work starts after. For the first, the oldest round's base.
   string from_sha = 1;
-  // The snapshot the chapter ends at.
+  // The snapshot the work ends at.
   string to_sha = 2;
-  // When the person released the review closing the chapter, in RFC 3339, empty for the chapter nobody has reviewed.
+  // When the person released the review that ends the work, in RFC 3339. Empty for work not yet
+  // reviewed.
   string released_at = 3;
-  // The ordinal of the round the chapter ends at.
+  // The number of the round the work ends at.
   int32 ordinal = 4;
   // Whether the two ends can be compared.
   bool comparable = 5;
-  // The commit the chapter's start was measured from.
+  // The base commit the start was measured from.
   string from_base_sha = 6;
-  // The commit its end was measured from.
+  // The base commit the end was measured from.
   string to_base_sha = 7;
-  // Whether the base the chapter ends on cannot reach the one it starts on.
+  // Whether the base at the end cannot reach the base at the start.
   bool rewritten = 8;
-  // Whether the start was carried onto the end's base.
+  // Whether the start was replayed onto the end's base.
   bool replayed = 9;
-  // The paths the base rewrote under the agent, which a replay could not settle.
+  // The paths the base branch changed under the writer that the replay could not resolve.
   repeated string conflicts = 10;
-  // Whether the chapter ends on a base older than the base of the round being read.
+  // Whether the work ends on a base older than the base of the round being read.
   bool on_older_base = 11;
 }
 
-// ReviewTracedPlace is a thread's place in the diff's head as git traced it.
+// ReviewTracedPlace is where git traced a thread's lines in the diff's head.
 message ReviewTracedPlace {
   // The file the lines are in.
   string file_path = 1;
-  // The first line on the newer side, zero when only the file is known.
+  // The first line on the new side. Zero when only the file is known.
   int32 new_start = 2;
   // Whether the lines are gone and only the file is known.
   bool file_only = 3;
@@ -524,37 +509,34 @@ message ReviewTracedPlace {
   bool exact = 4;
 }
 
-// ReviewThreadInContext is one thread of a released review, with the code it was written
-// about drawn from the round's snapshot.
+// ReviewThreadInContext is one thread of a released review, with the code around it from the
+// round's snapshot.
 message ReviewThreadInContext {
-  // The thread as list_review_threads renders it, holding only the messages that went out
-  // with this review.
+  // The thread, with only the comments released with this review.
   ReviewThread thread = 1;
-  // The snapshot's lines around the thread's range, each prefixed with its line number and
-  // ">>" on the lines the thread is about. Empty when the snapshot cannot be read, in which
-  // case the thread's quoted_lines are what there is.
+  // The snapshot's lines around the thread's range, each prefixed with its line number, and `>>`
+  // on the lines the thread is about. Empty when the snapshot cannot be read.
   repeated string context = 2;
 }
 
 message GetReviewRequest {
-  // Which review to read, which the mail announcing a release names.
+  // The review to read, by id.
   string review_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// GetReviewResponse is one released review whole, in reading order: the verdict and what
-// the reviewer said about the work, then each thread with its anchor, the code around it,
-// and the messages that went out with this release.
+// GetReviewResponse is one released review in reading order: the verdict and body, then each
+// thread with its code and comments.
 message GetReviewResponse {
-  // The review, carrying its verdict and body.
+  // The review, with its verdict and body.
   Review review = 1;
-  // The round the review was given against.
+  // The round the review is written against.
   ReviewRound round = 2;
-  // The threads this review wrote in, ordered by file and line.
+  // The review's threads, by file and line.
   repeated ReviewThreadInContext threads = 3;
 }
 
 message ListReviewsRequest {
-  // Which task's reviews to read, by id or by slug. Leave it unset for your own task.
+  // The task whose reviews to list, by id or slug. Unset uses the caller's own task.
   optional string task = 1 [(buf.validate.field).cel = {
     id: "task.named"
     message: "pass task by id or by slug, or leave it unset"
@@ -563,74 +545,68 @@ message ListReviewsRequest {
 }
 
 message ListReviewsResponse {
-  // Every review given on that agent, in the order their rounds were taken.
+  // Every review on the task, in round order.
   repeated Review reviews = 1;
 }
 
-// ReleaseReviewRequest lets go of the author's open batch. Komrad sends the agent one piece of
-// ordinary mail naming the review, which it reads whole with get_review. A person's review stops
-// the agent mid-turn first, so it reads the comments now.
+// ReleaseReviewRequest releases the caller's open review on a task.
 message ReleaseReviewRequest {
-  // Which task the review was written on, by id or by slug. Leave it unset for your own task.
+  // The task the review is on, by id or slug. Unset uses the caller's own task.
   optional string task = 1 [(buf.validate.field).cel = {
     id: "task.named"
     message: "pass task by id or by slug, or leave it unset"
     expression: "this.size() > 0"
   }];
-  // What a reviewing agent concludes. It tells the agent it reviewed whether it is done. An agent
-  // must set it and a person must leave it unset.
+  // The review's verdict. An agent must set it, and the person must leave it unset.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
-  // What to say about the work as a whole rather than about any one line. The agent reads it
-  // before the first thread. Optional, since a review of pinned comments alone is complete.
+  // What the author says about the work as a whole. The agent reads it before the threads.
   string body = 3 [(buf.validate.field).string.max_len = 1500];
 }
 
 message ReleaseReviewResponse {
-  // The review as released, carrying its verdict.
+  // The review as released, with its verdict.
   Review review = 1;
-  // How many comments the released batch carried.
+  // How many comments the review released.
   int32 comments = 2;
-  // The absolute path the review was written to.
+  // The absolute path of the file the review was written to.
   string path = 3;
 }
 
-// ReviewViewedFile is one file of a task's diff the person reviewing has marked as read,
-// together with the fingerprint the diff had when they read it.
+// ReviewViewedFile is a file in a task's diff that the person marked as read.
 message ReviewViewedFile {
-  // Which task the file belongs to.
+  // The id of the task whose diff has the file.
   string task_id = 1;
-  // Which file, relative to the checkout.
+  // The file's path, relative to the checkout.
   string file_path = 2;
-  // When it was marked, in RFC 3339.
+  // When the file was marked, in RFC 3339.
   string viewed_at = 3;
-  // A hash of the file's diff content as it stood when marked. The panel recomputes this on
-  // every load and shows the file as unread once the two disagree.
+  // A hash of the file's diff when marked. A client shows the file as unread once the diff no
+  // longer matches it.
   string fingerprint = 4;
 }
 
 message SetReviewFileViewedRequest {
-  // Which task's diff the file is in, by id or by slug.
+  // The task whose diff has the file, by id or slug.
   string task = 1 [(buf.validate.field).cel = {
     id: "task.required"
     message: "pass task, by id or by slug"
     expression: "this.size() > 0"
   }];
-  // Which file, relative to the checkout.
+  // The file's path, relative to the checkout.
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
-  // Whether the file has been read. Unsetting it drops the mark, as the toggle does on its way
-  // back.
+  // Whether the file is marked as read. False removes the mark.
   bool viewed = 3;
-  // The fingerprint of the file's diff content at the time it was marked.
+  // A hash of the file's diff when marked.
   string fingerprint = 4;
 }
 
 message SetReviewFileViewedResponse {
-  // The mark as it now stands, absent when the file was unmarked.
+  // The mark as it now stands. Unset when the mark was removed.
   ReviewViewedFile viewed = 1;
 }
 
 message ListReviewViewedFilesRequest {
-  // Which task's marks to read, by id or by slug.
+  // The task whose marks to list, by id or slug.
   string task = 1 [(buf.validate.field).cel = {
     id: "task.required"
     message: "pass task, by id or by slug"
@@ -639,71 +615,72 @@ message ListReviewViewedFilesRequest {
 }
 
 message ListReviewViewedFilesResponse {
-  // Every file marked read for that agent.
+  // Every file marked as read in the task's diff.
   repeated ReviewViewedFile viewed = 1;
 }
 
-// ForgeReplyState is where a reply komrad posts to the forge is on its way there.
+// ForgeReplyState is how far a reply komrad posts to the forge has got.
 enum ForgeReplyState {
   // No state was recorded.
   FORGE_REPLY_STATE_UNSPECIFIED = 0;
   // Approved and waiting to be posted.
   FORGE_REPLY_STATE_APPROVED = 1;
-  // Being posted, and possibly already on the forge.
+  // Being posted. The forge may already have it.
   FORGE_REPLY_STATE_SENDING = 2;
   // Accepted by the forge.
   FORGE_REPLY_STATE_SENT = 3;
-  // Refused by the forge on its latest attempt, waiting for the person to retry or discard it.
+  // Refused by the forge on the latest attempt, waiting for the person to retry or discard it.
   FORGE_REPLY_STATE_FAILED = 4;
 }
 
-// ForgeReply is a reply komrad posts as the person on a thread mirrored from the forge.
+// ForgeReply is a reply komrad posts for the person on a thread copied from the forge.
 message ForgeReply {
-  // The handle a retry or a discard names this reply by.
+  // The reply's id.
   string id = 1;
-  // The review thread it answers, which mirrors a thread on the forge.
+  // The id of the review thread the reply answers.
   string thread_id = 2;
-  // Where it is on its way to the forge.
+  // How far the reply has got toward the forge.
   ForgeReplyState state = 3;
-  // The text that goes to the forge.
+  // The reply's text.
   string body = 4;
-  // When the person wrote it for posting.
+  // When the person approved the reply for posting, in RFC 3339.
   string approved_at = 5;
-  // When komrad last began posting it, empty until then.
+  // When komrad last started posting the reply, in RFC 3339. Empty until then.
   string sending_started_at = 6;
-  // When the forge accepted it, empty until then.
+  // When the forge accepted the reply, in RFC 3339. Empty until then.
   string sent_at = 7;
-  // The mirrored message it came back as from the forge, absent until a sync copies it.
+  // The id of the comment komrad copied back from the forge for the reply. Unset until komrad
+  // copies it.
   optional string forge_comment_id = 8;
-  // What the forge said when it last refused it, absent unless it failed.
+  // What the forge said when it last refused the reply. Unset unless posting failed.
   optional string error = 9;
-  // When it was written.
+  // When the reply was written, in RFC 3339.
   string created_at = 10;
 }
 
 message ReplyOnForgeRequest {
-  // The mirrored thread to reply on.
+  // The copied thread to reply on, by id.
   string thread_id = 1 [(buf.validate.field).string.min_len = 1];
-  // What to say on the forge.
+  // The reply's text.
   string body = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 message ReplyOnForgeResponse {
-  // The reply as it stands after komrad tried to post it.
+  // The reply after komrad tried to post it.
   ForgeReply reply = 1;
 }
 
 message RetryForgeReplyRequest {
-  // The failed reply to post again.
+  // The failed reply to post again, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message RetryForgeReplyResponse {
-  // The reply as it stands after komrad tried to post it.
+  // The reply after komrad tried to post it.
   ForgeReply reply = 1;
 }
 
 message DiscardForgeReplyRequest {
-  // The failed reply to drop.
+  // The failed reply to discard, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }

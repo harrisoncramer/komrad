@@ -42,6 +42,11 @@ and the prose around the diagram says the rest. Each renders to
 
 Commit the source and the PNG together.
 
+## Writing
+
+Load the write-komrad skill under `.claude/skills` before writing anything a person or an agent
+reads, from a proto comment to a pull request description. It follows `docs/style-guide.md`.
+
 ## Migrations
 
 An older build runs against the newest schema, whether it is the panel you are running inside or

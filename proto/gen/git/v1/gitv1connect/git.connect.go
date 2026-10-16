@@ -52,20 +52,20 @@ const (
 
 // GitServiceClient is a client for the git.v1.GitService service.
 type GitServiceClient interface {
-	// GetRoot answers with the top of the working tree a directory belongs to.
+	// GetRoot returns the top directory of the working tree that holds a directory.
 	GetRoot(context.Context, *connect.Request[v1.GetRootRequest]) (*connect.Response[v1.GetRootResponse], error)
-	// ReadFiles answers with each named file as its commit holds it, read in one command.
+	// ReadFiles returns the content of each named file at its commit.
 	ReadFiles(context.Context, *connect.Request[v1.ReadFilesRequest]) (*connect.Response[v1.ReadFilesResponse], error)
-	// CountChangedFiles answers with how many files differ between two commits.
+	// CountChangedFiles returns how many files differ between two commits.
 	CountChangedFiles(context.Context, *connect.Request[v1.CountChangedFilesRequest]) (*connect.Response[v1.CountChangedFilesResponse], error)
-	// Diff answers with the patch between two commits.
+	// Diff returns the patch between two commits.
 	Diff(context.Context, *connect.Request[v1.DiffRequest]) (*connect.Response[v1.DiffResponse], error)
-	// MapRanges answers with what the later of two commits did to each file.
+	// MapRanges returns where each file moved between two commits and which lines changed.
 	MapRanges(context.Context, *connect.Request[v1.MapRangesRequest]) (*connect.Response[v1.MapRangesResponse], error)
-	// Replay carries a snapshot's own change onto another base in memory, answering with the tree
-	// that results and the paths that would not settle.
+	// Replay applies a snapshot's change onto another base commit in memory, and returns the
+	// resulting tree and the paths that conflicted.
 	Replay(context.Context, *connect.Request[v1.ReplayRequest]) (*connect.Response[v1.ReplayResponse], error)
-	// IsAncestor answers whether one commit is reachable from another.
+	// IsAncestor returns whether one commit is reachable from another.
 	IsAncestor(context.Context, *connect.Request[v1.IsAncestorRequest]) (*connect.Response[v1.IsAncestorResponse], error)
 }
 
@@ -180,20 +180,20 @@ func (c *gitServiceClient) IsAncestor(ctx context.Context, req *connect.Request[
 
 // GitServiceHandler is an implementation of the git.v1.GitService service.
 type GitServiceHandler interface {
-	// GetRoot answers with the top of the working tree a directory belongs to.
+	// GetRoot returns the top directory of the working tree that holds a directory.
 	GetRoot(context.Context, *connect.Request[v1.GetRootRequest]) (*connect.Response[v1.GetRootResponse], error)
-	// ReadFiles answers with each named file as its commit holds it, read in one command.
+	// ReadFiles returns the content of each named file at its commit.
 	ReadFiles(context.Context, *connect.Request[v1.ReadFilesRequest]) (*connect.Response[v1.ReadFilesResponse], error)
-	// CountChangedFiles answers with how many files differ between two commits.
+	// CountChangedFiles returns how many files differ between two commits.
 	CountChangedFiles(context.Context, *connect.Request[v1.CountChangedFilesRequest]) (*connect.Response[v1.CountChangedFilesResponse], error)
-	// Diff answers with the patch between two commits.
+	// Diff returns the patch between two commits.
 	Diff(context.Context, *connect.Request[v1.DiffRequest]) (*connect.Response[v1.DiffResponse], error)
-	// MapRanges answers with what the later of two commits did to each file.
+	// MapRanges returns where each file moved between two commits and which lines changed.
 	MapRanges(context.Context, *connect.Request[v1.MapRangesRequest]) (*connect.Response[v1.MapRangesResponse], error)
-	// Replay carries a snapshot's own change onto another base in memory, answering with the tree
-	// that results and the paths that would not settle.
+	// Replay applies a snapshot's change onto another base commit in memory, and returns the
+	// resulting tree and the paths that conflicted.
 	Replay(context.Context, *connect.Request[v1.ReplayRequest]) (*connect.Response[v1.ReplayResponse], error)
-	// IsAncestor answers whether one commit is reachable from another.
+	// IsAncestor returns whether one commit is reachable from another.
 	IsAncestor(context.Context, *connect.Request[v1.IsAncestorRequest]) (*connect.Response[v1.IsAncestorResponse], error)
 }
 

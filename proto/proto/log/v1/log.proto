@@ -8,19 +8,20 @@ import "google/protobuf/struct.proto";
 
 option go_package = "komrad/proto/gen/log/v1;logv1";
 
+// LogLine is one line of the server's log.
 message LogLine {
   // When the line was written, in RFC 3339.
   string time = 1;
-  // The severity as the log spells it, such as INFO or ERROR.
+  // The line's severity, such as `INFO` or `ERROR`.
   string level = 2;
-  // What the line says.
+  // The line's message.
   string message = 3;
-  // Everything else the line carried, keyed as the log keys it.
+  // The line's other fields, under the keys the log gives them.
   google.protobuf.Struct fields = 4;
 }
 
 message GetLogLinesRequest {
-  // The trace id a failed call answered with, or one list_recent_traces listed.
+  // The trace id to read, from a failed call or from `list_recent_traces`.
   string trace_id = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 128
@@ -28,23 +29,24 @@ message GetLogLinesRequest {
 }
 
 message GetLogLinesResponse {
-  // Every line written under the trace id, in the order the log holds them.
+  // Every line written under the trace id, in the order they were written.
   repeated LogLine lines = 1;
 }
 
+// TraceSummary is one trace in the server's log.
 message TraceSummary {
-  // The id every line of the trace carries.
+  // The trace's id.
   string trace_id = 1;
   // When the trace's first line was written, in RFC 3339.
   string started_at = 2;
-  // The RPC method or loop the trace was about, when a line said.
+  // The RPC method or loop the trace belongs to. Empty when no line names one.
   string what = 3;
-  // How many lines the log holds under it.
+  // How many lines the log has under the trace.
   int32 lines = 4;
 }
 
 message ListRecentTracesRequest {
-  // How many of the newest traces to list, twenty when unset.
+  // How many of the newest traces to list. Zero lists twenty.
   int32 limit = 1 [(buf.validate.field).int32 = {
     gte: 0
     lte: 200
@@ -57,7 +59,7 @@ message ListRecentTracesResponse {
 }
 
 message ReadAgentLogsRequest {
-  // The agents whose lines to read.
+  // The agents whose log lines to read, by id.
   repeated string agent_ids = 1 [(buf.validate.field).repeated = {
     min_items: 1
     max_items: 100
@@ -65,50 +67,53 @@ message ReadAgentLogsRequest {
       string: {min_len: 1}
     }
   }];
-  // Where the last call left off. Leave it empty to read the newest lines.
+  // The `cursor` from the previous response. Empty reads the newest lines.
   string cursor = 2;
-  // The most lines to answer. 200 when unset.
+  // The most lines to return. Zero returns up to 200.
   int32 limit = 3 [(buf.validate.field).int32 = {
     gte: 0
     lte: 1000
   }];
-  // Which of the agent's log sources to read, as list_agent_log_sources names them. The server log when unset. A script run's source reads exactly one agent.
+  // The log source to read, by the id `list_agent_log_sources` returns. Empty reads the server
+  // log. A hook run's source takes exactly one agent.
   string source = 4 [(buf.validate.field).string.max_len = 256];
-  // A regular expression in Go syntax that a line must match to be answered. Every line when unset. The newest lines are searched within the last 64 MB of the source.
+  // A Go regular expression each line must match. Empty matches every line. Only the last 64 MB
+  // of the source is searched.
   string pattern = 5 [(buf.validate.field).string.max_len = 256];
 }
 
 message ReadAgentLogsResponse {
-  // The lines about any of the agents, oldest first, exactly as the log holds them.
+  // The lines about any of the agents, oldest first, as the log wrote them.
   repeated string lines = 1;
-  // What to pass back to read only the lines written after these.
+  // The cursor to pass back to read only lines written after these.
   string cursor = 2;
-  // Whether the log started over since the cursor. When true, the lines held before are gone.
+  // Whether the log started over since the cursor. The lines before the reset are gone.
   bool reset = 3;
-  // Whether more lines remain past the cursor. When true, reading again right away returns them.
+  // Whether more lines remain past the cursor, which another call returns at once.
   bool more = 4;
 }
 
+// LogSource is one log an agent's lines can be read from: the server log, or one hook run.
 message LogSource {
-  // What to pass as the source of read_agent_logs.
+  // The source's id, to pass as `source` to `read_agent_logs`.
   string id = 1;
-  // What the source is called, such as service or 003 agent.pre-launch setup.
+  // The source's name, such as `service` or `003 agent.pre-launch setup`.
   string name = 2;
-  // The number of the script run the source holds. The agent's failed_run_log names it when that run failed. Unset for the server log.
+  // The number of the hook run. Unset for the server log.
   optional int32 run = 3;
-  // The agent that recorded the script run the source holds. read_agent_logs reads the source for that agent alone. Empty for the server log.
+  // The id of the agent that recorded the hook run. Empty for the server log.
   string agent_id = 4;
-  // Whether the script run failed, set only on a task's log sources.
+  // Whether the hook run failed. Set only on a task's log sources.
   bool failed = 5;
 }
 
 message ListAgentLogSourcesRequest {
-  // The agent whose log sources to list.
+  // The agent whose log sources to list, by id.
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListAgentLogSourcesResponse {
-  // The server log first, then each script run the agent recorded, newest first.
+  // The server log first, then each hook run the agent recorded, newest first.
   repeated LogSource sources = 1;
 }
 
@@ -118,11 +123,11 @@ message ListTaskLogSourcesRequest {
 }
 
 message ListTaskLogSourcesResponse {
-  // Each script run recorded on the task by any agent on it, including the task's own hooks, newest first.
+  // Each hook run recorded on the task, by the task or any agent on it, newest first.
   repeated LogSource sources = 1;
 }
 
-// LogService reads the server's own log back, by the trace id its lines carry.
+// LogService reads the server's log by trace and by agent.
 service LogService {
   rpc GetLogLines(GetLogLinesRequest) returns (GetLogLinesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -140,7 +145,8 @@ service LogService {
       cli: true
       mcp: true
       name: "list_recent_traces"
-      description: "List the traces the server log ends with, oldest first, to find the one to read with get_log_lines."
+      description: "List the newest traces in the server log, oldest first."
+      mcp_guidance: "Read a trace's lines with get_log_lines."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -150,7 +156,7 @@ service LogService {
       cli: true
       mcp: true
       name: "read_agent_logs"
-      description: "Read what the server logged about one or more agents, passing the cursor back for only what is new. Pass a source from list_agent_log_sources to read a script's output."
+      description: "Read the log lines about one or more agents, from the server log or one hook run's output. Pass the returned `cursor` back to read only new lines."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -160,7 +166,7 @@ service LogService {
       cli: true
       mcp: true
       name: "list_agent_log_sources"
-      description: "List where an agent's logs can be read from, the server log and each script run of its own moments it recorded. Its task's moments are listed by list_task_log_sources."
+      description: "List the logs an agent's lines can be read from: the server log and each run of the agent's own hooks. `list_task_log_sources` lists the runs of the task's hooks."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -170,7 +176,7 @@ service LogService {
       cli: true
       mcp: true
       name: "list_task_log_sources"
-      description: "List the script runs recorded on a task, its own moments and those of every agent on it, newest first. Pass a source with its agent_id to read_agent_logs to read its output."
+      description: "List the hook runs recorded on a task, for the task and every agent on it, newest first. Pass a source's id and `agent_id` to `read_agent_logs` to read its output."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

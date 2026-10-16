@@ -23,21 +23,22 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Finding is the result of one doctor check.
 type Finding struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which check this is, such as database or tmux shell.
+	// The check's name, such as `database` or `tmux shell`.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// What the check is for, in a sentence.
+	// What the check is for, in one sentence.
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	// How it came out: ok, warn, fail or skip.
+	// How the check came out: `ok`, `warn`, `fail` or `skip`.
 	Status string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
-	// What was found, such as the version read or the path checked, when there is something to say.
+	// What the check found, such as a version or a path. Empty when there is nothing to report.
 	Detail string `protobuf:"bytes,4,opt,name=detail,proto3" json:"detail,omitempty"`
-	// A stable code for what went wrong, such as db_unreachable, empty when nothing did.
+	// A stable code for the problem, such as `db_unreachable`. Empty when nothing went wrong.
 	Code string `protobuf:"bytes,5,opt,name=code,proto3" json:"code,omitempty"`
-	// What went wrong, as the check worded it, empty when nothing did.
+	// The problem, as the check worded it. Empty when nothing went wrong.
 	Error string `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
-	// What to do about it, empty when there is nothing to do.
+	// What to do about the problem. Empty when there is nothing to do.
 	Fix           string `protobuf:"bytes,7,opt,name=fix,proto3" json:"fix,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -122,19 +123,20 @@ func (x *Finding) GetFix() string {
 	return ""
 }
 
+// Summary counts the findings of a doctor run by status.
 type Summary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// How many checks passed.
 	Ok int32 `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
-	// How many passed with something worth a look.
+	// How many checks passed with a warning.
 	Warn int32 `protobuf:"varint,2,opt,name=warn,proto3" json:"warn,omitempty"`
-	// How many failed.
+	// How many checks failed.
 	Fail int32 `protobuf:"varint,3,opt,name=fail,proto3" json:"fail,omitempty"`
-	// How many were not made because one they need did not pass.
+	// How many checks were skipped because a check they need did not pass.
 	Skip int32 `protobuf:"varint,4,opt,name=skip,proto3" json:"skip,omitempty"`
-	// How many checks there were.
+	// How many checks there are in all.
 	Total int32 `protobuf:"varint,5,opt,name=total,proto3" json:"total,omitempty"`
-	// Whether nothing failed.
+	// Whether no check failed.
 	Healthy       bool `protobuf:"varint,6,opt,name=healthy,proto3" json:"healthy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -214,9 +216,9 @@ func (x *Summary) GetHealthy() bool {
 
 type RunDoctorResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every check the server made, in the order it made them.
+	// Every check, in the order it ran.
 	Findings []*Finding `protobuf:"bytes,1,rep,name=findings,proto3" json:"findings,omitempty"`
-	// The findings counted up.
+	// The findings counted by status.
 	Summary       *Summary `protobuf:"bytes,2,opt,name=summary,proto3" json:"summary,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -288,10 +290,10 @@ const file_doctor_v1_doctor_proto_rawDesc = "" +
 	"\ahealthy\x18\x06 \x01(\bR\ahealthy\"q\n" +
 	"\x11RunDoctorResponse\x12.\n" +
 	"\bfindings\x18\x01 \x03(\v2\x12.doctor.v1.FindingR\bfindings\x12,\n" +
-	"\asummary\x18\x02 \x01(\v2\x12.doctor.v1.SummaryR\asummary2\x84\x02\n" +
-	"\rDoctorService\x12\xf2\x01\n" +
-	"\tRunDoctor\x12\x16.google.protobuf.Empty\x1a\x1c.doctor.v1.RunDoctorResponse\"\xae\x01\x9a\xb5\x18\xa6\x01\b\x01\x10\x01\x1a\n" +
-	"run_doctor\"\x90\x01Check whether the machine the server runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database.:\x01\x02\x90\x02\x01B%Z#komrad/proto/gen/doctor/v1;doctorv1b\x06proto3"
+	"\asummary\x18\x02 \x01(\v2\x12.doctor.v1.SummaryR\asummary2\x8b\x02\n" +
+	"\rDoctorService\x12\xf9\x01\n" +
+	"\tRunDoctor\x12\x16.google.protobuf.Empty\x1a\x1c.doctor.v1.RunDoctorResponse\"\xb5\x01\x9a\xb5\x18\xad\x01\b\x01\x10\x01\x1a\n" +
+	"run_doctor\"\x97\x01Check whether the machine the server runs on can run agents. The checks cover tmux, the config, the CLIs, hooks, worktree directories and the database.:\x01\x02\x90\x02\x01B%Z#komrad/proto/gen/doctor/v1;doctorv1b\x06proto3"
 
 var (
 	file_doctor_v1_doctor_proto_rawDescOnce sync.Once

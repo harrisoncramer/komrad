@@ -22,17 +22,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ReviewAuthorKind names who wrote a review message.
+// ReviewAuthorKind is who wrote a review or comment.
 type ReviewAuthorKind int32
 
 const (
 	// No author was recorded.
 	ReviewAuthorKind_REVIEW_AUTHOR_KIND_UNSPECIFIED ReviewAuthorKind = 0
-	// The person running komrad.
+	// The person.
 	ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN ReviewAuthorKind = 1
-	// The agent whose work is being read, or the reviewer reading it.
+	// An agent, either the writer or a reviewer.
 	ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT ReviewAuthorKind = 2
-	// Someone on the forge, whose comment komrad mirrored from the pull request.
+	// A forge user, whose comment komrad copied from the pull request.
 	ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE ReviewAuthorKind = 3
 )
 
@@ -79,24 +79,20 @@ func (ReviewAuthorKind) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{0}
 }
 
-// ReviewDeliveryState shows how far one of the person's comments has got towards the agent
-// reading it. Komrad stores no such field. It reads the state off the comment's own sent stamp
-// and the newest doorbell raised against it. The stamp outlives mail that the agent deletes or
-// lets expire. The messages of the thread show whether the comment has been answered.
+// ReviewDeliveryState is how far one of the person's comments has got toward the agent.
 type ReviewDeliveryState int32
 
 const (
-	// Delivery says nothing about this message. That holds for anything the agent wrote, because
-	// nobody waits to be told about it.
+	// Not a comment by the person, such as one an agent wrote.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED ReviewDeliveryState = 0
-	// Written down and not yet let go of.
+	// Written but not released.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT ReviewDeliveryState = 1
-	// Released, with a doorbell still waiting to be claimed.
+	// Released, and the agent has not read the mail about it.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT ReviewDeliveryState = 2
-	// Released, and the agent has claimed the doorbell.
+	// Released, and the agent has read the mail about it.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED ReviewDeliveryState = 3
-	// Kept from the agent until the person accepts the thread's first comment, because someone on
-	// the forge without write access to the repository wrote the comment or its thread.
+	// Kept from the agent until the person accepts the thread's first comment, because a forge user
+	// without write access wrote the comment or its thread.
 	ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD ReviewDeliveryState = 4
 )
 
@@ -145,18 +141,17 @@ func (ReviewDeliveryState) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{1}
 }
 
-// ReviewVerdict records what an author concluded about a round. It tells the agent whether it
-// is done, so the agent need not read that out of the prose.
+// ReviewVerdict is what a review concludes about a round.
 type ReviewVerdict int32
 
 const (
-	// Nothing has been concluded. An unreleased review carries this.
+	// No verdict. An unreleased review has this value.
 	ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED ReviewVerdict = 0
-	// This round is good as it stands.
+	// The round is good as it stands.
 	ReviewVerdict_REVIEW_VERDICT_APPROVED ReviewVerdict = 1
-	// The agent should keep working.
+	// The writer has more to do.
 	ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED ReviewVerdict = 2
-	// Notes without a conclusion either way.
+	// Comments with no conclusion either way.
 	ReviewVerdict_REVIEW_VERDICT_COMMENTED ReviewVerdict = 3
 )
 
@@ -203,7 +198,7 @@ func (ReviewVerdict) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{2}
 }
 
-// ForgeReplyState is where a reply komrad posts to the forge is on its way there.
+// ForgeReplyState is how far a reply komrad posts to the forge has got.
 type ForgeReplyState int32
 
 const (
@@ -211,11 +206,11 @@ const (
 	ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED ForgeReplyState = 0
 	// Approved and waiting to be posted.
 	ForgeReplyState_FORGE_REPLY_STATE_APPROVED ForgeReplyState = 1
-	// Being posted, and possibly already on the forge.
+	// Being posted. The forge may already have it.
 	ForgeReplyState_FORGE_REPLY_STATE_SENDING ForgeReplyState = 2
 	// Accepted by the forge.
 	ForgeReplyState_FORGE_REPLY_STATE_SENT ForgeReplyState = 3
-	// Refused by the forge on its latest attempt, waiting for the person to retry or discard it.
+	// Refused by the forge on the latest attempt, waiting for the person to retry or discard it.
 	ForgeReplyState_FORGE_REPLY_STATE_FAILED ForgeReplyState = 4
 )
 
@@ -264,22 +259,21 @@ func (ForgeReplyState) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{3}
 }
 
-// ReviewRound is one immutable snapshot of what a task's writer has written. A review is given
-// against it. The snapshot is a commit rather than the worktree, so nothing a comment is pinned
-// to can move underneath the person reading it.
+// ReviewRound is a snapshot of a task's worktree, saved as a commit, that a review is written
+// against. A round never changes.
 type ReviewRound struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle a review or a viewed-file record names this round by.
+	// The round's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The task whose checkout the snapshot was taken of.
+	// The id of the task the round was taken of.
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// Which round this is for its task, counting from one.
+	// The round's number within its task, counting from one.
 	Ordinal int32 `protobuf:"varint,3,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
-	// The commit the agent's branch left its base at when the round was taken.
+	// The commit on the base branch that the task's branch started from when the round was taken.
 	BaseSha string `protobuf:"bytes,4,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// The commit the whole worktree was written out as, tracked and untracked alike.
+	// The commit holding the whole worktree, tracked and untracked files alike.
 	SnapshotSha string `protobuf:"bytes,5,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
-	// When the snapshot was taken, in RFC 3339.
+	// When the round was taken, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -357,42 +351,40 @@ func (x *ReviewRound) GetCreatedAt() string {
 	return ""
 }
 
-// Review is one author's batch of comments against one round. It stays private while the author
-// writes it and releases as a whole, like a pending review on a forge.
+// Review is one author's comments on one round, released to the agent together. The review is
+// private until the author releases it.
 type Review struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle the threads in this batch name it by.
+	// The review's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The task whose work is being read.
+	// The id of the task the review is on.
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// The snapshot the batch was written against.
+	// The id of the round the review is written against.
 	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// Which round that is, counting from one.
+	// The number of the round the review is written against.
 	RoundOrdinal int32 `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	// Whether a person, an agent or someone on the forge wrote it.
+	// Who wrote the review.
 	AuthorKind ReviewAuthorKind `protobuf:"varint,5,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
-	// The agent giving the review, absent when the person reviewing is.
+	// The id of the agent that wrote the review. Unset when the person wrote it.
 	AuthorAgentId *string `protobuf:"bytes,6,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
-	// What the author concluded, unspecified while the review is still open.
+	// The review's verdict. Unspecified until the review is released.
 	Verdict ReviewVerdict `protobuf:"varint,7,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
-	// When the review was let go of, empty while nothing in it has reached the agent.
+	// When the review was released, in RFC 3339. Empty until then.
 	ReleasedAt string `protobuf:"bytes,8,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
-	// The absolute path the released review was written to.
+	// The absolute path of the file the released review was written to.
 	Path string `protobuf:"bytes,9,opt,name=path,proto3" json:"path,omitempty"`
-	// When the agent claimed the mail that told it the review was waiting.
+	// When the agent read the mail about the review, in RFC 3339. Empty until then.
 	DeliveredAt string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
-	// When the batch was opened, which is the first comment written into it.
+	// When the review was created with its first comment, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When anything in it last moved.
+	// When the review last changed, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// What the author said about the work as a whole rather than about any one line, empty when
-	// they said nothing.
+	// What the author said about the work as a whole. Empty when the author said nothing.
 	Body string `protobuf:"bytes,13,opt,name=body,proto3" json:"body,omitempty"`
-	// How many of this review's comments nobody has settled. A released review with none left is
-	// finished. The verdict does not say so, because it records what the author concluded at the
-	// time and not what has happened since.
+	// How many of the review's threads are not resolved. A released review with none is finished,
+	// whatever its verdict.
 	OpenThreads int32 `protobuf:"varint,14,opt,name=open_threads,json=openThreads,proto3" json:"open_threads,omitempty"`
-	// The forge login of whoever wrote a review mirrored from the forge, empty otherwise.
+	// The forge login of the author of a review copied from the forge. Empty otherwise.
 	ExternalLogin string `protobuf:"bytes,15,opt,name=external_login,json=externalLogin,proto3" json:"external_login,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -533,36 +525,36 @@ func (x *Review) GetExternalLogin() string {
 	return ""
 }
 
-// WatchedReview is a review as the watch carries it, without its body.
+// WatchedReview is a review as `Watch` events carry it, without its body.
 type WatchedReview struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle the threads in this batch name it by.
+	// The review's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The task whose work is being read.
+	// The id of the task the review is on.
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// The snapshot the batch was written against.
+	// The id of the round the review is written against.
 	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// Which round that is, counting from one.
+	// The number of the round the review is written against.
 	RoundOrdinal int32 `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	// The commit that round froze the task's checkout as.
+	// The snapshot commit of the review's round.
 	RoundSnapshotSha string `protobuf:"bytes,5,opt,name=round_snapshot_sha,json=roundSnapshotSha,proto3" json:"round_snapshot_sha,omitempty"`
-	// Whether a person, an agent or someone on the forge wrote it.
+	// Who wrote the review.
 	AuthorKind ReviewAuthorKind `protobuf:"varint,6,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
-	// The agent giving the review, absent when the person reviewing is.
+	// The id of the agent that wrote the review. Unset when the person wrote it.
 	AuthorAgentId *string `protobuf:"bytes,7,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
-	// What the author concluded, unspecified while the review is still open.
+	// The review's verdict. Unspecified until the review is released.
 	Verdict ReviewVerdict `protobuf:"varint,8,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
-	// When the review was let go of, empty while it is still open.
+	// When the review was released, in RFC 3339. Empty until then.
 	ReleasedAt string `protobuf:"bytes,9,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
-	// When the agent claimed the mail that told it the review was waiting.
+	// When the agent read the mail about the review, in RFC 3339. Empty until then.
 	DeliveredAt string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
-	// When the batch was opened.
+	// When the review was created, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When anything in it last moved.
+	// When the review last changed, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// When the base branch was first seen holding the round whole, empty until then.
+	// When the review's round was first seen landed, in RFC 3339. Empty until then.
 	RoundLandedAt string `protobuf:"bytes,13,opt,name=round_landed_at,json=roundLandedAt,proto3" json:"round_landed_at,omitempty"`
-	// The forge login of whoever wrote a review mirrored from the forge, empty otherwise.
+	// The forge login of the author of a review copied from the forge. Empty otherwise.
 	ExternalLogin string `protobuf:"bytes,14,opt,name=external_login,json=externalLogin,proto3" json:"external_login,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -696,50 +688,48 @@ func (x *WatchedReview) GetExternalLogin() string {
 	return ""
 }
 
-// ReviewThread is one conversation pinned to a place in a round of a task's diff.
+// ReviewThread is a conversation pinned to a range of lines in a round.
 type ReviewThread struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle a reply or a resolve names this thread by.
+	// The thread's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The task whose diff the thread is pinned to.
+	// The id of the task whose diff the thread is on.
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// The batch this thread was opened as part of.
+	// The id of the review the thread was created in.
 	ReviewId string `protobuf:"bytes,3,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
-	// The round the thread is anchored to, which never moves.
+	// The id of the round the thread is pinned to.
 	RoundId string `protobuf:"bytes,4,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// Which round that is, counting from one.
+	// The number of the round the thread is pinned to.
 	RoundOrdinal int32 `protobuf:"varint,5,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	// The commit the old side of these line numbers was read against. This is the round's own base
-	// unless the diff was narrowed to an earlier round when the thread was written.
+	// The commit the old side of the line numbers is read against. This is the round's base unless
+	// the diff was narrowed to an earlier round.
 	BaseSha string `protobuf:"bytes,6,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// Which file, relative to the checkout.
+	// The file's path, relative to the checkout.
 	FilePath string `protobuf:"bytes,7,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	// Where the range begins on the old side of the diff, counting from one.
+	// The first line of the range on the old side of the diff, counting from one.
 	OldStart int32 `protobuf:"varint,8,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
-	// Where it ends on the old side, inclusive.
+	// The last line of the range on the old side of the diff.
 	OldEnd int32 `protobuf:"varint,9,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
-	// Where the range begins on the new side.
+	// The first line of the range on the new side of the diff, counting from one.
 	NewStart int32 `protobuf:"varint,10,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
-	// Where it ends on the new side, inclusive.
+	// The last line of the range on the new side of the diff.
 	NewEnd int32 `protobuf:"varint,11,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
-	// The diff lines the thread was written against, each keeping its leading marker.
+	// The diff lines the thread is about, each with its leading marker.
 	QuotedLines []string `protobuf:"bytes,12,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
-	// When the person reviewing settled this thread. Empty while it is still owed an answer.
-	// Settling is separate from whether the code under the thread has moved, and settling decides
-	// whether the thread still asks for something.
+	// When the thread was resolved, in RFC 3339. Empty while the thread is open.
 	ResolvedAt string `protobuf:"bytes,13,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
-	// Whether the agent has replied since the person reviewing last looked.
+	// Whether an agent has replied since the person last read the thread.
 	UnreadByHuman bool `protobuf:"varint,14,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
-	// Everything said in the thread, oldest first.
+	// The thread's comments, oldest first.
 	Messages []*ReviewMessage `protobuf:"bytes,15,rep,name=messages,proto3" json:"messages,omitempty"`
-	// When the thread was opened.
+	// When the thread was created, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When anything in it last moved.
+	// When the thread last changed, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// Whether the thread mirrors one on the pull request, where a reply is public.
+	// Whether the thread is copied from a pull request, where replies are public.
 	MirrorsForge bool `protobuf:"varint,18,opt,name=mirrors_forge,json=mirrorsForge,proto3" json:"mirrors_forge,omitempty"`
-	// What komrad has drafted, posted or failed to post on the forge thread, oldest first. Only
-	// the person reviewing is shown these.
+	// The replies komrad has drafted, posted or failed to post to the forge thread, oldest first.
+	// Only the person sees these.
 	ForgeReplies  []*ForgeReply `protobuf:"bytes,19,rep,name=forge_replies,json=forgeReplies,proto3" json:"forge_replies,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -908,42 +898,41 @@ func (x *ReviewThread) GetForgeReplies() []*ForgeReply {
 	return nil
 }
 
-// ReviewMessage is one thing said in a review thread.
+// ReviewMessage is one comment in a review thread.
 type ReviewMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle an edit of this message names it by.
+	// The comment's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Which conversation it belongs to.
+	// The id of the comment's thread.
 	ThreadId string `protobuf:"bytes,2,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	// Whether a person, an agent or someone on the forge wrote it.
+	// Who wrote the comment.
 	AuthorKind ReviewAuthorKind `protobuf:"varint,3,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
-	// The agent that wrote it. Absent for the person reviewing, and cleared if that agent is
-	// deleted. author_kind says who wrote it, not this field.
+	// The id of the agent that wrote the comment. Unset when the person or a forge user wrote it,
+	// or when the agent was deleted.
 	AuthorAgentId *string `protobuf:"bytes,4,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
-	// What the author wrote.
+	// The comment's text.
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	// Replacement lines the author proposes for the thread's range. Empty for an ordinary
-	// comment. An agent applies these instead of reasoning about them.
+	// The lines the author proposes in place of the thread's range. Empty for a plain comment.
 	Suggestion []string `protobuf:"bytes,6,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
-	// When it was written.
+	// When the comment was written, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When it was last edited.
+	// When the comment was last edited, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// How far this comment has got towards the agent reading it.
+	// How far the comment has got toward the agent.
 	Delivery ReviewDeliveryState `protobuf:"varint,9,opt,name=delivery,proto3,enum=agent.v1.ReviewDeliveryState" json:"delivery,omitempty"`
-	// When the person reviewing released this comment, empty while it is only written down.
+	// When the person released the comment, in RFC 3339. Empty until then.
 	SentAt string `protobuf:"bytes,10,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
-	// When the agent claimed the doorbell raised for this comment, empty until it has.
+	// When the agent read the mail about the comment, in RFC 3339. Empty until then.
 	DeliveredAt string `protobuf:"bytes,11,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
-	// The review this message went out with, absent for an answer written by the agent under
-	// review, which belongs to no batch.
+	// The id of the review the comment was released with. Unset for a reply from the writer, which
+	// belongs to no review.
 	ReviewId *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
-	// The round an addressed reply was taken of. Absent on every other message.
+	// The id of the round saved with an addressed reply. Unset on every other comment.
 	RoundId *string `protobuf:"bytes,13,opt,name=round_id,json=roundId,proto3,oneof" json:"round_id,omitempty"`
-	// The forge comment this message was mirrored from, absent for anything written in komrad.
+	// The forge comment this comment was copied from. Unset for a comment written in komrad.
 	Forge *ForgeOrigin `protobuf:"bytes,14,opt,name=forge,proto3,oneof" json:"forge,omitempty"`
-	// The held forge message the person accepted this message as a copy of, absent on everything
-	// else.
+	// The id of the held forge comment the person accepted this comment as a copy of. Unset
+	// otherwise.
 	AcceptedFrom  *string `protobuf:"bytes,15,opt,name=accepted_from,json=acceptedFrom,proto3,oneof" json:"accepted_from,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1084,14 +1073,14 @@ func (x *ReviewMessage) GetAcceptedFrom() string {
 	return ""
 }
 
-// ForgeOrigin is the forge comment a message was mirrored from.
+// ForgeOrigin is the forge comment a review comment was copied from.
 type ForgeOrigin struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The forge login of whoever wrote it, empty when the forge no longer knew them.
+	// The forge login of the comment's author. Empty when the forge no longer has the account.
 	Login string `protobuf:"bytes,1,opt,name=login,proto3" json:"login,omitempty"`
-	// The forge comment it was copied from, which is gone once the forge deletes that comment.
+	// The forge comment's id. The forge may have deleted the comment since.
 	CommentId string `protobuf:"bytes,2,opt,name=comment_id,json=commentId,proto3" json:"comment_id,omitempty"`
-	// When the forge comment had last been edited, in RFC 3339, unset while it never had been.
+	// When the forge comment was last edited, in RFC 3339. Unset when it was never edited.
 	EditedAt      *string `protobuf:"bytes,3,opt,name=edited_at,json=editedAt,proto3,oneof" json:"edited_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1150,7 +1139,7 @@ func (x *ForgeOrigin) GetEditedAt() string {
 
 type ListReviewThreadsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's diff to read the threads of, by id or by slug. Leave it unset for your own task.
+	// The task whose threads to list, by id or slug. Unset uses the caller's own task.
 	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1195,9 +1184,7 @@ func (x *ListReviewThreadsRequest) GetTask() string {
 
 type ListReviewThreadsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The threads on that diff and what has been said in each. An agent reading a review sees only
-	// the comments the person has let go of, and none of the panel's record of when each was
-	// released. The agent reads a review only once it is released, not while the person writes it.
+	// The threads on the task's diff, with their comments. An agent sees only released comments.
 	Threads       []*ReviewThread `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1242,30 +1229,27 @@ func (x *ListReviewThreadsResponse) GetThreads() []*ReviewThread {
 
 type CreateReviewThreadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's diff to pin the comment to, by id or by slug. Leave it unset for your own task.
+	// The task whose diff to comment on, by id or slug. Unset uses the caller's own task.
 	Task *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
-	// Which file, relative to the checkout.
+	// The file's path, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	// The commit the old side of these line numbers was read against, empty for the round's own
-	// base.
+	// The commit the old side of the line numbers is read against. Empty uses the round's base.
 	BaseSha string `protobuf:"bytes,3,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// The commit the new side of these line numbers was read against, empty for a caller that read
-	// the round's own snapshot.
+	// The commit the new side of the line numbers is read against. Empty uses the round's snapshot.
 	SnapshotSha string `protobuf:"bytes,4,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
-	// Where the range begins on the old side of the diff, counting from one.
+	// The first line of the range on the old side of the diff, counting from one.
 	OldStart int32 `protobuf:"varint,5,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
-	// Where it ends on the old side, inclusive.
+	// The last line of the range on the old side of the diff.
 	OldEnd int32 `protobuf:"varint,6,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
-	// Where the range begins on the new side.
+	// The first line of the range on the new side of the diff, counting from one.
 	NewStart int32 `protobuf:"varint,7,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
-	// Where it ends on the new side, inclusive.
+	// The last line of the range on the new side of the diff.
 	NewEnd int32 `protobuf:"varint,8,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
-	// The diff lines being written about, each keeping its leading marker so the anchor still
-	// makes sense once the code moves.
+	// The diff lines the comment is about, each with its leading marker.
 	QuotedLines []string `protobuf:"bytes,9,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
-	// The first thing said. The ceiling refuses an essay and is not a length to write up to.
+	// The thread's first comment.
 	Body string `protobuf:"bytes,10,opt,name=body,proto3" json:"body,omitempty"`
-	// Replacement lines proposed for the range, empty for an ordinary comment.
+	// The lines proposed in place of the range. Empty for a plain comment.
 	Suggestion    []string `protobuf:"bytes,11,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1380,7 +1364,7 @@ func (x *CreateReviewThreadRequest) GetSuggestion() []string {
 
 type CreateReviewThreadResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The thread as opened, private until the batch is released.
+	// The thread as created, private until its review is released.
 	Thread        *ReviewThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1425,16 +1409,14 @@ func (x *CreateReviewThreadResponse) GetThread() *ReviewThread {
 
 type AddReviewMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which conversation to say it in.
+	// The thread to reply in, by id.
 	ThreadId string `protobuf:"bytes,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	// What to say. The ceiling refuses an essay and is not a length to write up to.
+	// The reply's text.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	// Replacement lines proposed for the thread's range, empty for an ordinary message.
+	// The lines proposed in place of the thread's range. Empty for a plain reply.
 	Suggestion []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
-	// Says the change the thread asks for is made. Komrad takes a round of the worktree as it
-	// stands and pins it to the reply. A thread the person started is resolved by it, and one a
-	// reviewer agent started stays open for that reviewer to resolve. Refused when the worktree
-	// holds the same tree the thread was written on.
+	// Whether the reply says the change the thread asks for is made. Komrad then saves a round of
+	// the worktree and pins it to the reply.
 	Addressed     bool `protobuf:"varint,4,opt,name=addressed,proto3" json:"addressed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1500,10 +1482,10 @@ func (x *AddReviewMessageRequest) GetAddressed() bool {
 
 type AddReviewMessageResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The message as recorded.
+	// The comment as written.
 	Message *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	// A nudge to set addressed, given when a plain reply lands on a thread whose worktree has
-	// moved since the thread was written. Empty otherwise.
+	// A reminder to set `addressed`, given when a plain reply goes on a thread whose worktree has
+	// changed since the thread was created. Empty otherwise.
 	Hint          string `protobuf:"bytes,2,opt,name=hint,proto3" json:"hint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1555,7 +1537,7 @@ func (x *AddReviewMessageResponse) GetHint() string {
 
 type AcceptForgeMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The held forge message to accept.
+	// The held forge comment to accept, by id.
 	MessageId     string `protobuf:"bytes,1,opt,name=message_id,json=messageId,proto3" json:"message_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1600,8 +1582,7 @@ func (x *AcceptForgeMessageRequest) GetMessageId() string {
 
 type AcceptForgeMessageResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The copy written into the person's open review, which releases the thread once that review
-	// is sent.
+	// The copy written into the person's open review. Releasing that review releases the thread.
 	Message       *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1646,11 +1627,11 @@ func (x *AcceptForgeMessageResponse) GetMessage() *ReviewMessage {
 
 type EditReviewMessageRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which message to rewrite.
+	// The comment to edit, by id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// What it should say instead, under the same ceiling the message was written to.
+	// The comment's new text.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	// Replacement lines proposed for the thread's range, empty for an ordinary message.
+	// The new lines proposed in place of the thread's range. Empty for a plain comment.
 	Suggestion    []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1709,7 +1690,7 @@ func (x *EditReviewMessageRequest) GetSuggestion() []string {
 
 type EditReviewMessageResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The message as it now reads.
+	// The comment as edited.
 	Message       *ReviewMessage `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1754,7 +1735,7 @@ func (x *EditReviewMessageResponse) GetMessage() *ReviewMessage {
 
 type MarkReviewThreadReadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which thread the caller has caught up on.
+	// The thread the caller has read, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1799,7 +1780,7 @@ func (x *MarkReviewThreadReadRequest) GetId() string {
 
 type MarkReviewThreadReadResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The thread as it now stands, no longer unread by the caller.
+	// The thread as updated, no longer unread by the caller.
 	Thread        *ReviewThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1844,10 +1825,9 @@ func (x *MarkReviewThreadReadResponse) GetThread() *ReviewThread {
 
 type SetReviewThreadResolvedRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which thread to settle or reopen.
+	// The thread to resolve or reopen, by id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Whether the thread is settled. Unsetting it reopens the thread, as a person does when the
-	// answer was not the end of it.
+	// Whether the thread is resolved. False reopens the thread.
 	Resolved      bool `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1899,7 +1879,7 @@ func (x *SetReviewThreadResolvedRequest) GetResolved() bool {
 
 type SetReviewThreadResolvedResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The thread as it now stands.
+	// The thread as updated.
 	Thread        *ReviewThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1942,12 +1922,11 @@ func (x *SetReviewThreadResolvedResponse) GetThread() *ReviewThread {
 	return nil
 }
 
-// OpenReviewRoundRequest freezes what an agent has written now and records it as its next
-// round. On a tree that has not moved since the last round it returns that round,
-// so opening the diff twice does not advance the ordinal.
+// OpenReviewRoundRequest saves a task's worktree as its next round. When the worktree has not
+// changed since the newest round, the call returns that round.
 type OpenReviewRoundRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's checkout to freeze, by id or by slug. Leave it unset for your own task.
+	// The task whose worktree to save, by id or slug. Unset uses the caller's own task.
 	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1992,7 +1971,7 @@ func (x *OpenReviewRoundRequest) GetTask() string {
 
 type OpenReviewRoundResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The round to review against, which is the last one again if nothing has moved.
+	// The round to review. The newest existing round when the worktree has not changed.
 	Round         *ReviewRound `protobuf:"bytes,1,opt,name=round,proto3" json:"round,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2037,7 +2016,7 @@ func (x *OpenReviewRoundResponse) GetRound() *ReviewRound {
 
 type ListReviewRoundsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's rounds to read, by id or by slug. Leave it unset for your own task.
+	// The task whose rounds to list, by id or slug. Unset uses the caller's own task.
 	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2082,7 +2061,7 @@ func (x *ListReviewRoundsRequest) GetTask() string {
 
 type ListReviewRoundsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every round taken of that agent, oldest first.
+	// Every round of the task, oldest first.
 	Rounds        []*ReviewRound `protobuf:"bytes,1,rep,name=rounds,proto3" json:"rounds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2127,11 +2106,12 @@ func (x *ListReviewRoundsResponse) GetRounds() []*ReviewRound {
 
 type OpenReviewHistoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose review to open, by id or by slug.
+	// The task whose review history to open, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// Whether to read the worktree as it stands even where an open review holds an older round.
+	// Whether to read the worktree as it is now, even when an open review is written against an
+	// older round.
 	Fresh bool `protobuf:"varint,2,opt,name=fresh,proto3" json:"fresh,omitempty"`
-	// The part of the work to measure, the whole change when unset.
+	// The part of the work to diff. Unset diffs the whole change.
 	//
 	// Types that are valid to be assigned to Span:
 	//
@@ -2226,12 +2206,12 @@ type isOpenReviewHistoryRequest_Span interface {
 }
 
 type OpenReviewHistoryRequest_Snapshots struct {
-	// A diff between two snapshots, such as one chapter.
+	// A diff between two snapshots.
 	Snapshots *ReviewSnapshotSpan `protobuf:"bytes,3,opt,name=snapshots,proto3,oneof"`
 }
 
 type OpenReviewHistoryRequest_Answer struct {
-	// The change in the reply that addressed a comment.
+	// The change made by the reply that addressed a comment.
 	Answer *ReviewAnswerSpan `protobuf:"bytes,4,opt,name=answer,proto3,oneof"`
 }
 
@@ -2249,9 +2229,9 @@ func (*OpenReviewHistoryRequest_Origin) isOpenReviewHistoryRequest_Span() {}
 // ReviewSnapshotSpan is a diff between two snapshots.
 type ReviewSnapshotSpan struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The commit the diff is measured from, empty for the round's base.
+	// The commit to diff from. Empty uses the round's base.
 	BaseSha string `protobuf:"bytes,1,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// The commit the diff is measured to, empty for the round's snapshot.
+	// The commit to diff to. Empty uses the round's snapshot.
 	HeadSha       string `protobuf:"bytes,2,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2301,12 +2281,13 @@ func (x *ReviewSnapshotSpan) GetHeadSha() string {
 	return ""
 }
 
-// ReviewAnswerSpan is the change between the round a comment was written on and the round that answered it.
+// ReviewAnswerSpan is the change between the round a comment was written on and the round of the
+// reply that addressed it.
 type ReviewAnswerSpan struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The round the comment was written on.
+	// The id of the round the comment was written on.
 	FromRoundId string `protobuf:"bytes,1,opt,name=from_round_id,json=fromRoundId,proto3" json:"from_round_id,omitempty"`
-	// The round the answering reply carried.
+	// The id of the round saved with the addressed reply.
 	ToRoundId     string `protobuf:"bytes,2,opt,name=to_round_id,json=toRoundId,proto3" json:"to_round_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2359,9 +2340,9 @@ func (x *ReviewAnswerSpan) GetToRoundId() string {
 // ReviewOriginSpan is the diff a comment was written against.
 type ReviewOriginSpan struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The round the comment was written on.
+	// The id of the round the comment was written on.
 	RoundId string `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// The commit the comment's old side was read against, empty for the round's base.
+	// The commit the comment's old side was read against. Empty uses the round's base.
 	BaseSha       string `protobuf:"bytes,2,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2415,27 +2396,30 @@ type OpenReviewHistoryResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The round the diff is read at.
 	Round *ReviewRound `protobuf:"bytes,1,opt,name=round,proto3" json:"round,omitempty"`
-	// Every round taken of the task, oldest first.
+	// Every round of the task, oldest first.
 	Rounds []*ReviewRound `protobuf:"bytes,2,rep,name=rounds,proto3" json:"rounds,omitempty"`
-	// Every thread on the task with its messages.
+	// Every thread on the task, with its comments.
 	Threads []*ReviewThread `protobuf:"bytes,3,rep,name=threads,proto3" json:"threads,omitempty"`
-	// Whether the round is the one an open review was written against rather than the worktree as it stands.
+	// Whether `round` is the round an open review is written against, rather than the worktree as
+	// it is now.
 	Pinned bool `protobuf:"varint,4,opt,name=pinned,proto3" json:"pinned,omitempty"`
-	// A note from the server about the round it settled on, empty when it has none.
+	// A note about the round komrad chose. Empty when there is none.
 	Notice string `protobuf:"bytes,5,opt,name=notice,proto3" json:"notice,omitempty"`
-	// The commits the diff is measured between.
+	// The commits the diff is between.
 	Resolved *ReviewResolvedSpan `protobuf:"bytes,6,opt,name=resolved,proto3" json:"resolved,omitempty"`
-	// The reason the server measured the whole change instead of the span asked for, empty when it measured the span.
+	// Why komrad diffed the whole change instead of the requested span. Empty when komrad diffed
+	// the span.
 	Widened string `protobuf:"bytes,7,opt,name=widened,proto3" json:"widened,omitempty"`
-	// The rounds between the person's reviews, oldest first.
+	// The work between the person's reviews, oldest first.
 	Chapters []*ReviewChapter `protobuf:"bytes,8,rep,name=chapters,proto3" json:"chapters,omitempty"`
-	// The round the person last released a review against, empty when there is none or its base has moved since.
+	// The id of the round the person last released a review against. Empty when there is none or
+	// the round's base has changed since.
 	EarlierRoundId string `protobuf:"bytes,9,opt,name=earlier_round_id,json=earlierRoundId,proto3" json:"earlier_round_id,omitempty"`
-	// When the person last released a review, in RFC 3339, empty when they never have.
+	// When the person last released a review, in RFC 3339. Empty when the person never has.
 	EarlierReleasedAt string `protobuf:"bytes,10,opt,name=earlier_released_at,json=earlierReleasedAt,proto3" json:"earlier_released_at,omitempty"`
-	// How many files changed since the earlier round.
+	// How many files changed since `earlier_round_id`.
 	ChangedSinceEarlier int32 `protobuf:"varint,11,opt,name=changed_since_earlier,json=changedSinceEarlier,proto3" json:"changed_since_earlier,omitempty"`
-	// Each thread's place in the diff's head as git traced it, keyed by thread id.
+	// Where git traced each thread's lines in the diff's head, by thread id.
 	Traced        map[string]*ReviewTracedPlace `protobuf:"bytes,12,rep,name=traced,proto3" json:"traced,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2555,24 +2539,24 @@ func (x *OpenReviewHistoryResponse) GetTraced() map[string]*ReviewTracedPlace {
 	return nil
 }
 
-// ReviewResolvedSpan is the pair of commits a diff is measured between.
+// ReviewResolvedSpan is the pair of commits a diff is between.
 type ReviewResolvedSpan struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The commit the diff is measured from, a replayed tree when the base moved.
+	// The commit the diff is from. A replayed tree when the base branch moved.
 	BaseSha string `protobuf:"bytes,1,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// The commit the diff is measured to.
+	// The commit the diff is to.
 	HeadSha string `protobuf:"bytes,2,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
-	// Whether the older side was carried onto the newer one's base.
+	// Whether the older side was replayed onto the newer side's base.
 	Replayed bool `protobuf:"varint,3,opt,name=replayed,proto3" json:"replayed,omitempty"`
-	// The snapshot an answer is measured from, empty for any other span.
+	// The snapshot an answer's diff is from. Empty for other spans.
 	AnswerBaseSha string `protobuf:"bytes,4,opt,name=answer_base_sha,json=answerBaseSha,proto3" json:"answer_base_sha,omitempty"`
-	// The snapshot an answer is measured to, empty for any other span.
+	// The snapshot an answer's diff is to. Empty for other spans.
 	AnswerHeadSha string `protobuf:"bytes,5,opt,name=answer_head_sha,json=answerHeadSha,proto3" json:"answer_head_sha,omitempty"`
-	// The commit a comment's diff is measured from, empty for any other span.
+	// The commit a comment's diff is from. Empty for other spans.
 	OriginBaseSha string `protobuf:"bytes,6,opt,name=origin_base_sha,json=originBaseSha,proto3" json:"origin_base_sha,omitempty"`
-	// The snapshot a comment was written on, empty for any other span.
+	// The snapshot a comment was written on. Empty for other spans.
 	OriginHeadSha string `protobuf:"bytes,7,opt,name=origin_head_sha,json=originHeadSha,proto3" json:"origin_head_sha,omitempty"`
-	// The base of the round a comment was written on, empty for any other span.
+	// The base of the round a comment was written on. Empty for other spans.
 	OriginRoundBaseSha string `protobuf:"bytes,8,opt,name=origin_round_base_sha,json=originRoundBaseSha,proto3" json:"origin_round_base_sha,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -2664,30 +2648,31 @@ func (x *ReviewResolvedSpan) GetOriginRoundBaseSha() string {
 	return ""
 }
 
-// ReviewChapter is the work between two of the person's reviews, or between their last one and now.
+// ReviewChapter is the work between two of the person's reviews, or between the last one and now.
 type ReviewChapter struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The snapshot the chapter starts after, or the oldest round's base for the first.
+	// The snapshot the work starts after. For the first, the oldest round's base.
 	FromSha string `protobuf:"bytes,1,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
-	// The snapshot the chapter ends at.
+	// The snapshot the work ends at.
 	ToSha string `protobuf:"bytes,2,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
-	// When the person released the review closing the chapter, in RFC 3339, empty for the chapter nobody has reviewed.
+	// When the person released the review that ends the work, in RFC 3339. Empty for work not yet
+	// reviewed.
 	ReleasedAt string `protobuf:"bytes,3,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
-	// The ordinal of the round the chapter ends at.
+	// The number of the round the work ends at.
 	Ordinal int32 `protobuf:"varint,4,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
 	// Whether the two ends can be compared.
 	Comparable bool `protobuf:"varint,5,opt,name=comparable,proto3" json:"comparable,omitempty"`
-	// The commit the chapter's start was measured from.
+	// The base commit the start was measured from.
 	FromBaseSha string `protobuf:"bytes,6,opt,name=from_base_sha,json=fromBaseSha,proto3" json:"from_base_sha,omitempty"`
-	// The commit its end was measured from.
+	// The base commit the end was measured from.
 	ToBaseSha string `protobuf:"bytes,7,opt,name=to_base_sha,json=toBaseSha,proto3" json:"to_base_sha,omitempty"`
-	// Whether the base the chapter ends on cannot reach the one it starts on.
+	// Whether the base at the end cannot reach the base at the start.
 	Rewritten bool `protobuf:"varint,8,opt,name=rewritten,proto3" json:"rewritten,omitempty"`
-	// Whether the start was carried onto the end's base.
+	// Whether the start was replayed onto the end's base.
 	Replayed bool `protobuf:"varint,9,opt,name=replayed,proto3" json:"replayed,omitempty"`
-	// The paths the base rewrote under the agent, which a replay could not settle.
+	// The paths the base branch changed under the writer that the replay could not resolve.
 	Conflicts []string `protobuf:"bytes,10,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
-	// Whether the chapter ends on a base older than the base of the round being read.
+	// Whether the work ends on a base older than the base of the round being read.
 	OnOlderBase   bool `protobuf:"varint,11,opt,name=on_older_base,json=onOlderBase,proto3" json:"on_older_base,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2800,12 +2785,12 @@ func (x *ReviewChapter) GetOnOlderBase() bool {
 	return false
 }
 
-// ReviewTracedPlace is a thread's place in the diff's head as git traced it.
+// ReviewTracedPlace is where git traced a thread's lines in the diff's head.
 type ReviewTracedPlace struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The file the lines are in.
 	FilePath string `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	// The first line on the newer side, zero when only the file is known.
+	// The first line on the new side. Zero when only the file is known.
 	NewStart int32 `protobuf:"varint,2,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
 	// Whether the lines are gone and only the file is known.
 	FileOnly bool `protobuf:"varint,3,opt,name=file_only,json=fileOnly,proto3" json:"file_only,omitempty"`
@@ -2873,16 +2858,14 @@ func (x *ReviewTracedPlace) GetExact() bool {
 	return false
 }
 
-// ReviewThreadInContext is one thread of a released review, with the code it was written
-// about drawn from the round's snapshot.
+// ReviewThreadInContext is one thread of a released review, with the code around it from the
+// round's snapshot.
 type ReviewThreadInContext struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The thread as list_review_threads renders it, holding only the messages that went out
-	// with this review.
+	// The thread, with only the comments released with this review.
 	Thread *ReviewThread `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
-	// The snapshot's lines around the thread's range, each prefixed with its line number and
-	// ">>" on the lines the thread is about. Empty when the snapshot cannot be read, in which
-	// case the thread's quoted_lines are what there is.
+	// The snapshot's lines around the thread's range, each prefixed with its line number, and `>>`
+	// on the lines the thread is about. Empty when the snapshot cannot be read.
 	Context       []string `protobuf:"bytes,2,rep,name=context,proto3" json:"context,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2934,7 +2917,7 @@ func (x *ReviewThreadInContext) GetContext() []string {
 
 type GetReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which review to read, which the mail announcing a release names.
+	// The review to read, by id.
 	ReviewId      string `protobuf:"bytes,1,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2977,16 +2960,15 @@ func (x *GetReviewRequest) GetReviewId() string {
 	return ""
 }
 
-// GetReviewResponse is one released review whole, in reading order: the verdict and what
-// the reviewer said about the work, then each thread with its anchor, the code around it,
-// and the messages that went out with this release.
+// GetReviewResponse is one released review in reading order: the verdict and body, then each
+// thread with its code and comments.
 type GetReviewResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The review, carrying its verdict and body.
+	// The review, with its verdict and body.
 	Review *Review `protobuf:"bytes,1,opt,name=review,proto3" json:"review,omitempty"`
-	// The round the review was given against.
+	// The round the review is written against.
 	Round *ReviewRound `protobuf:"bytes,2,opt,name=round,proto3" json:"round,omitempty"`
-	// The threads this review wrote in, ordered by file and line.
+	// The review's threads, by file and line.
 	Threads       []*ReviewThreadInContext `protobuf:"bytes,3,rep,name=threads,proto3" json:"threads,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3045,7 +3027,7 @@ func (x *GetReviewResponse) GetThreads() []*ReviewThreadInContext {
 
 type ListReviewsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's reviews to read, by id or by slug. Leave it unset for your own task.
+	// The task whose reviews to list, by id or slug. Unset uses the caller's own task.
 	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3090,7 +3072,7 @@ func (x *ListReviewsRequest) GetTask() string {
 
 type ListReviewsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every review given on that agent, in the order their rounds were taken.
+	// Every review on the task, in round order.
 	Reviews       []*Review `protobuf:"bytes,1,rep,name=reviews,proto3" json:"reviews,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3133,18 +3115,14 @@ func (x *ListReviewsResponse) GetReviews() []*Review {
 	return nil
 }
 
-// ReleaseReviewRequest lets go of the author's open batch. Komrad sends the agent one piece of
-// ordinary mail naming the review, which it reads whole with get_review. A person's review stops
-// the agent mid-turn first, so it reads the comments now.
+// ReleaseReviewRequest releases the caller's open review on a task.
 type ReleaseReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task the review was written on, by id or by slug. Leave it unset for your own task.
+	// The task the review is on, by id or slug. Unset uses the caller's own task.
 	Task *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
-	// What a reviewing agent concludes. It tells the agent it reviewed whether it is done. An agent
-	// must set it and a person must leave it unset.
+	// The review's verdict. An agent must set it, and the person must leave it unset.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
-	// What to say about the work as a whole rather than about any one line. The agent reads it
-	// before the first thread. Optional, since a review of pinned comments alone is complete.
+	// What the author says about the work as a whole. The agent reads it before the threads.
 	Body          string `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3203,11 +3181,11 @@ func (x *ReleaseReviewRequest) GetBody() string {
 
 type ReleaseReviewResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The review as released, carrying its verdict.
+	// The review as released, with its verdict.
 	Review *Review `protobuf:"bytes,1,opt,name=review,proto3" json:"review,omitempty"`
-	// How many comments the released batch carried.
+	// How many comments the review released.
 	Comments int32 `protobuf:"varint,2,opt,name=comments,proto3" json:"comments,omitempty"`
-	// The absolute path the review was written to.
+	// The absolute path of the file the review was written to.
 	Path          string `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3264,18 +3242,17 @@ func (x *ReleaseReviewResponse) GetPath() string {
 	return ""
 }
 
-// ReviewViewedFile is one file of a task's diff the person reviewing has marked as read,
-// together with the fingerprint the diff had when they read it.
+// ReviewViewedFile is a file in a task's diff that the person marked as read.
 type ReviewViewedFile struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task the file belongs to.
+	// The id of the task whose diff has the file.
 	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// Which file, relative to the checkout.
+	// The file's path, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	// When it was marked, in RFC 3339.
+	// When the file was marked, in RFC 3339.
 	ViewedAt string `protobuf:"bytes,3,opt,name=viewed_at,json=viewedAt,proto3" json:"viewed_at,omitempty"`
-	// A hash of the file's diff content as it stood when marked. The panel recomputes this on
-	// every load and shows the file as unread once the two disagree.
+	// A hash of the file's diff when marked. A client shows the file as unread once the diff no
+	// longer matches it.
 	Fingerprint   string `protobuf:"bytes,4,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3341,14 +3318,13 @@ func (x *ReviewViewedFile) GetFingerprint() string {
 
 type SetReviewFileViewedRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's diff the file is in, by id or by slug.
+	// The task whose diff has the file, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// Which file, relative to the checkout.
+	// The file's path, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	// Whether the file has been read. Unsetting it drops the mark, as the toggle does on its way
-	// back.
+	// Whether the file is marked as read. False removes the mark.
 	Viewed bool `protobuf:"varint,3,opt,name=viewed,proto3" json:"viewed,omitempty"`
-	// The fingerprint of the file's diff content at the time it was marked.
+	// A hash of the file's diff when marked.
 	Fingerprint   string `protobuf:"bytes,4,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3414,7 +3390,7 @@ func (x *SetReviewFileViewedRequest) GetFingerprint() string {
 
 type SetReviewFileViewedResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The mark as it now stands, absent when the file was unmarked.
+	// The mark as it now stands. Unset when the mark was removed.
 	Viewed        *ReviewViewedFile `protobuf:"bytes,1,opt,name=viewed,proto3" json:"viewed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3459,7 +3435,7 @@ func (x *SetReviewFileViewedResponse) GetViewed() *ReviewViewedFile {
 
 type ListReviewViewedFilesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's marks to read, by id or by slug.
+	// The task whose marks to list, by id or slug.
 	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3504,7 +3480,7 @@ func (x *ListReviewViewedFilesRequest) GetTask() string {
 
 type ListReviewViewedFilesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every file marked read for that agent.
+	// Every file marked as read in the task's diff.
 	Viewed        []*ReviewViewedFile `protobuf:"bytes,1,rep,name=viewed,proto3" json:"viewed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3547,28 +3523,29 @@ func (x *ListReviewViewedFilesResponse) GetViewed() []*ReviewViewedFile {
 	return nil
 }
 
-// ForgeReply is a reply komrad posts as the person on a thread mirrored from the forge.
+// ForgeReply is a reply komrad posts for the person on a thread copied from the forge.
 type ForgeReply struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle a retry or a discard names this reply by.
+	// The reply's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The review thread it answers, which mirrors a thread on the forge.
+	// The id of the review thread the reply answers.
 	ThreadId string `protobuf:"bytes,2,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	// Where it is on its way to the forge.
+	// How far the reply has got toward the forge.
 	State ForgeReplyState `protobuf:"varint,3,opt,name=state,proto3,enum=agent.v1.ForgeReplyState" json:"state,omitempty"`
-	// The text that goes to the forge.
+	// The reply's text.
 	Body string `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
-	// When the person wrote it for posting.
+	// When the person approved the reply for posting, in RFC 3339.
 	ApprovedAt string `protobuf:"bytes,5,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`
-	// When komrad last began posting it, empty until then.
+	// When komrad last started posting the reply, in RFC 3339. Empty until then.
 	SendingStartedAt string `protobuf:"bytes,6,opt,name=sending_started_at,json=sendingStartedAt,proto3" json:"sending_started_at,omitempty"`
-	// When the forge accepted it, empty until then.
+	// When the forge accepted the reply, in RFC 3339. Empty until then.
 	SentAt string `protobuf:"bytes,7,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
-	// The mirrored message it came back as from the forge, absent until a sync copies it.
+	// The id of the comment komrad copied back from the forge for the reply. Unset until komrad
+	// copies it.
 	ForgeCommentId *string `protobuf:"bytes,8,opt,name=forge_comment_id,json=forgeCommentId,proto3,oneof" json:"forge_comment_id,omitempty"`
-	// What the forge said when it last refused it, absent unless it failed.
+	// What the forge said when it last refused the reply. Unset unless posting failed.
 	Error *string `protobuf:"bytes,9,opt,name=error,proto3,oneof" json:"error,omitempty"`
-	// When it was written.
+	// When the reply was written, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3676,9 +3653,9 @@ func (x *ForgeReply) GetCreatedAt() string {
 
 type ReplyOnForgeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The mirrored thread to reply on.
+	// The copied thread to reply on, by id.
 	ThreadId string `protobuf:"bytes,1,opt,name=thread_id,json=threadId,proto3" json:"thread_id,omitempty"`
-	// What to say on the forge.
+	// The reply's text.
 	Body          string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3730,7 +3707,7 @@ func (x *ReplyOnForgeRequest) GetBody() string {
 
 type ReplyOnForgeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The reply as it stands after komrad tried to post it.
+	// The reply after komrad tried to post it.
 	Reply         *ForgeReply `protobuf:"bytes,1,opt,name=reply,proto3" json:"reply,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3775,7 +3752,7 @@ func (x *ReplyOnForgeResponse) GetReply() *ForgeReply {
 
 type RetryForgeReplyRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The failed reply to post again.
+	// The failed reply to post again, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3820,7 +3797,7 @@ func (x *RetryForgeReplyRequest) GetId() string {
 
 type RetryForgeReplyResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The reply as it stands after komrad tried to post it.
+	// The reply after komrad tried to post it.
 	Reply         *ForgeReply `protobuf:"bytes,1,opt,name=reply,proto3" json:"reply,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3865,7 +3842,7 @@ func (x *RetryForgeReplyResponse) GetReply() *ForgeReply {
 
 type DiscardForgeReplyRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The failed reply to drop.
+	// The failed reply to discard, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

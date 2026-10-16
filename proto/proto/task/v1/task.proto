@@ -9,105 +9,109 @@ import "rules/v1/rules.proto";
 
 option go_package = "komrad/proto/gen/task/v1;taskv1";
 
-// Sequence names an operation git has part-way through a task's checkout, waiting on somebody.
+// Sequence is a git operation stopped part way in a task's checkout.
 enum Sequence {
-  // Nothing was recorded. No stored checkout has this value.
+  // No value was recorded. No task has this value.
   SEQUENCE_UNSPECIFIED = 0;
-  // Nothing is part-way through.
+  // No git operation is stopped part way.
   SEQUENCE_NONE = 1;
   // A rebase stopped on a commit it could not replay.
   SEQUENCE_REBASE = 2;
-  // An am stopped on a patch it could not apply.
+  // A `git am` stopped on a patch it could not apply.
   SEQUENCE_AM = 3;
   // A merge stopped on conflicts.
   SEQUENCE_MERGE = 4;
-  // A cherry-pick stopped on conflicts or resting between its picks.
+  // A cherry-pick stopped on conflicts or paused between commits.
   SEQUENCE_CHERRY_PICK = 5;
-  // A revert stopped on conflicts or resting between its picks.
+  // A revert stopped on conflicts or paused between commits.
   SEQUENCE_REVERT = 6;
 }
 
-// DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.
+// DiffStat counts the lines a checkout adds and removes, committed or not.
 message DiffStat {
-  // The lines it adds.
+  // How many lines the checkout adds.
   int32 added = 1;
-  // The lines it removes.
+  // How many lines the checkout removes.
   int32 removed = 2;
 }
 
-// Task is one outcome a person wants. The agents linked to it work toward it.
+// Task is one piece of work that agents do.
 message Task {
-  // The handle every other call names this task by, alongside its slug.
+  // The task's id.
   string id = 1;
-  // Which workflow it is filed under. Every agent on it shares that workflow.
+  // The id of the workflow the task belongs to.
   string workflow_id = 2;
-  // The lowercase kebab-case name it is called by, unique and never reused.
+  // The task's slug, such as `fix-login`. No two tasks ever share one.
   string slug = 3;
-  // What the panel shows it as.
+  // The task's title.
   string title = 4;
-  // What it is meant to achieve, as markdown.
+  // What the task is meant to achieve, in markdown.
   string goal = 5;
-  // When it was made, in RFC 3339.
+  // When the task was created, in RFC 3339.
   string created_at = 6;
-  // When it was last changed, in RFC 3339.
+  // When the task last changed, in RFC 3339.
   string updated_at = 7;
-  // When it was archived, unset while it is live.
+  // When the task was archived, in RFC 3339. Unset while the task is live.
   optional string archived_at = 8;
-  // The directory of its checkout, where every agent on it works. Unset while it has none.
+  // The directory of the task's checkout. Unset while the task has no checkout.
   optional string cwd = 9;
-  // The git branch its checkout is on, unset while it has none or git cannot read it.
+  // The git branch of the task's checkout. Unset when the task has no checkout or git cannot
+  // read the branch.
   optional string branch = 10;
-  // The canonical web address of the repository its checkout pushes to, such as
-  // https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin
-  // is not a forge.
+  // The canonical web address of the repository the task's checkout pushes to, such as
+  // `https://github.com/harrisoncramer/komrad`. Unset when the checkout is gone or origin is not
+  // on a forge.
   optional string repository_url = 11;
-  // The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
+  // The commit checked out in the task's checkout. Unset when the checkout is gone or git cannot
+  // read it.
   optional string head_sha = 12;
-  // Whether its checkout has been taken away.
+  // Whether the task's worktree has been removed.
   bool worktree_removed = 13;
-  // What git has part-way through its checkout, waiting on somebody to settle it.
+  // The git operation stopped part way in the task's checkout.
   Sequence sequence = 14;
-  // The snapshot of the newest review round of its agents, set while its checkout no longer
-  // hashes to it. Empty otherwise.
+  // The snapshot commit of the task's newest round, set while the checkout has changed since that
+  // round. Empty otherwise.
   string moved_since_round = 15;
-  // How many lines its checkout adds and removes since it left its base, unset where there is
-  // no base to measure against.
+  // How many lines the task's checkout adds and removes since it left the base branch. Unset when
+  // there is no base branch to measure against.
   optional DiffStat diff_stat = 16;
-  // The branch its checkout was put on, when komrad did not make it. Unset when komrad made it.
+  // The existing branch the task was put on. Unset when komrad created the branch.
   optional string adopted_branch = 17;
-  // Why its last delete could not give its checkout back, empty unless one failed.
+  // Why the task's last delete failed to remove its checkout. Empty unless a delete failed.
   string failure_reason = 18;
-  // What the agents on it and the person have written down about it, as markdown.
+  // The task's notes, in markdown, written by its agents and the person.
   string notes = 19;
-  // When its notes were last written, in RFC 3339 to the nanosecond, unset until they first are.
-  // A write of the notes names the value it read.
+  // When the task's notes were last written, in RFC 3339 with nanoseconds. Unset until the notes
+  // are first written.
   optional string notes_updated_at = 20;
-  // Whether a script run on it failed and the person has not opened its logs since.
+  // Whether a hook run on the task failed and the person has not opened its log since.
   bool failed_run = 21;
-  // Whether a person hid the task from the panel. Its agents keep running.
+  // Whether the task is hidden. A hidden task stays live, and clients leave it out of their
+  // lists.
   bool hidden = 22;
-  // How many documents agents have written for it. list_documents returns them.
+  // How many documents agents have written for the task. `list_documents` returns them.
   int32 documents = 23;
-  // When the newest of its documents was last written, in RFC 3339, unset when it has none.
+  // When the newest of the task's documents was last written, in RFC 3339. Unset when the task
+  // has none.
   optional string documents_updated_at = 24;
 }
 
 message CreateTaskRequest {
-  // The lowercase kebab-case name to call it by. It must be one no task has ever had.
+  // The task's slug. No task may have used it before.
   string slug = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 80
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
   }];
-  // What to show it as in the panel.
+  // The task's title.
   string title = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // What it is meant to achieve, as markdown.
+  // What the task is meant to achieve, in markdown.
   string goal = 3 [(buf.validate.field).string.max_len = 50000];
-  // Which workflow to file it under. Every agent on it must be in the same one.
+  // The workflow to create the task in, by id.
   string workflow_id = 4 [(buf.validate.field).string.min_len = 1];
 }
 
@@ -117,19 +121,19 @@ message CreateTaskResponse {
 }
 
 message GetTaskRequest {
-  // Which task to read, by id or by slug.
+  // The task to get, by id or slug.
   string task = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetTaskResponse {
-  // The task, with its goal whole.
+  // The task, with the goal in full.
   Task task = 1;
 }
 
 message ListTasksRequest {
-  // Which workflow's tasks to list.
+  // The workflow whose tasks to list, by id.
   string workflow_id = 1 [(buf.validate.field).string.min_len = 1];
-  // True to list the archived tasks and only those.
+  // Whether to list only archived tasks instead of live ones.
   bool archived = 2;
 }
 
@@ -139,70 +143,67 @@ message ListTasksResponse {
 }
 
 message UpdateTaskRequest {
-  // Which task to rewrite, by id or by slug.
+  // The task to update, by id or slug.
   string task = 1 [(buf.validate.field).string.min_len = 1];
-  // The lowercase kebab-case name to call it by from now on. No other task may hold it. Left
-  // as it is when unset.
+  // The new slug. No other task may have used it. Unchanged when unset.
   optional string slug = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 80
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
   }];
-  // What to show it as in the panel, left as it is when unset.
+  // The new title. Unchanged when unset.
   optional string title = 3 [(buf.validate.field).string = {
     min_len: 1
     max_len: 200
     [rules.v1.printable]: true
   }];
-  // What it is meant to achieve, as markdown, left as it is when unset.
+  // The new goal, in markdown. Unchanged when unset.
   optional string goal = 4 [(buf.validate.field).string.max_len = 50000];
-  // What to write down about it as markdown, replacing the notes it has, left as they are when
-  // unset.
+  // The new notes in full, in markdown. Unchanged when unset.
   optional string notes = 5 [(buf.validate.field).string.max_len = 100000];
-  // The notes_updated_at the notes were read with, unset when they had never been written. A
-  // notes write is refused once they have been written since.
+  // The `notes_updated_at` the notes were read with. Unset when the notes were never written.
   optional string notes_updated_at = 6 [(buf.validate.field).string.pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"];
 }
 
 message UpdateTaskResponse {
-  // The task as rewritten.
+  // The task as updated.
   Task task = 1;
 }
 
 message SetTaskNotesRequest {
-  // Which task to write the notes of, by id or by slug.
+  // The task whose notes to write, by id or slug.
   string task = 1 [(buf.validate.field).string.min_len = 1];
-  // The notes in full as markdown, replacing what the task has.
+  // The task's new notes in full, in markdown.
   string notes = 2 [(buf.validate.field).string.max_len = 100000];
-  // The notes_updated_at get_task returned with the notes, unset when they had never been
-  // written. The write is refused once they have been written since.
+  // The `notes_updated_at` that `get_task` returned with the notes. Unset when the notes were
+  // never written.
   optional string notes_updated_at = 3 [(buf.validate.field).string.pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"];
 }
 
 message SetTaskNotesResponse {
-  // The task with its notes as written.
+  // The task, with the new notes.
   Task task = 1;
 }
 
 message ArchiveTaskRequest {
-  // Which task to archive, by id or by slug.
+  // The task to archive, by id or slug.
   string task = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message SetTaskHiddenRequest {
-  // Which task to hide or unhide, by id or by slug.
+  // The task to hide or show, by id or slug.
   string task = 1 [(buf.validate.field).string.min_len = 1];
-  // True to hide the task, false to show it again.
+  // Whether to hide the task. False shows the task again.
   bool hidden = 2;
 }
 
 message MarkTaskRunsReadRequest {
-  // Which task's failed script runs the person has looked at, by id.
+  // The task whose failed hook runs the person has seen, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message DeleteTasksRequest {
-  // The tasks to remove for good, by id or by slug, with every agent on them.
+  // The tasks to delete, by id or slug.
   repeated string tasks = 1 [(buf.validate.field).repeated = {
     min_items: 1
     unique: true
@@ -212,14 +213,14 @@ message DeleteTasksRequest {
   }];
 }
 
-// TaskService reads and writes the tasks agents work toward.
+// TaskService creates, reads and changes tasks.
 service TaskService {
   rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse) {
     option (annotation.v1.surfaces) = {
       cli: true
       mcp: true
       name: "create_task"
-      description: "Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it."
+      description: "Create a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -230,7 +231,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "get_task"
-      description: "Fetch one task by id or slug, with its whole goal and its notes."
+      description: "Get one task by id or slug, with its goal and notes in full."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -244,7 +245,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "list_tasks"
-      description: "List a workflow's tasks, newest first. The list omits archived tasks unless archived is set."
+      description: "List a workflow's tasks, newest first. Archived tasks are left out unless `archived` is set."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -258,7 +259,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "update_task"
-      description: "Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is. A notes write must name the notes_updated_at it read. An edit reaches agents only when they read the task again."
+      description: "Change a task's slug, title, goal or notes, by id or slug. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -269,7 +270,8 @@ service TaskService {
       cli: true
       mcp: true
       name: "set_task_notes"
-      description: "Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since."
+      description: "Replace a task's notes, which every agent that joins the task starts from. The write fails with `failed_precondition` when the notes changed since `notes_updated_at`."
+      mcp_guidance: "On failed_precondition, read the task again and keep what was written since."
       destructive: false
       roles: [
         ROLE_WRITER,
@@ -284,7 +286,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "archive_task"
-      description: "Archive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused."
+      description: "Archive a task by id or slug, with the live agents on it. The task keeps its record, and its slug is never reused."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -295,7 +297,8 @@ service TaskService {
       cli: true
       mcp: true
       name: "delete_tasks"
-      description: "Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked."
+      description: "Delete tasks for good, by id or slug, with every agent on them and their documents, reviews and worktree."
+      mcp_guidance: "Prefer archive_task, and delete only when asked."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -306,7 +309,8 @@ service TaskService {
       cli: true
       mcp: true
       name: "set_task_hidden"
-      description: "Hide a task from the panel by id or slug, or show it again. Its agents keep running. Hide one only when asked."
+      description: "Hide a task by id or slug, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists."
+      mcp_guidance: "Hide a task only when asked."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -316,7 +320,7 @@ service TaskService {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "Whether a person has looked at a task's failed script runs is that person's own reading, which no agent can claim on their behalf."
+      reason: "Only the person can say they have seen a task's failed hook runs."
     };
   }
 }

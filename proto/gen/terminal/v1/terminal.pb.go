@@ -27,9 +27,9 @@ const (
 // Size is a terminal's size in character cells.
 type Size struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The number of rows.
+	// How many rows of cells.
 	Rows uint32 `protobuf:"varint,1,opt,name=rows,proto3" json:"rows,omitempty"`
-	// The number of columns.
+	// How many columns of cells.
 	Cols          uint32 `protobuf:"varint,2,opt,name=cols,proto3" json:"cols,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -79,14 +79,14 @@ func (x *Size) GetCols() uint32 {
 	return 0
 }
 
-// OpenShell names the directory a shell starts in and the terminal it draws on.
+// OpenShell opens a shell stream.
 type OpenShell struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The directory, absolute, which must be inside a live agent's directory.
+	// The absolute directory the shell starts in, inside a live agent's checkout.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The size the terminal starts at.
+	// The terminal's starting size.
 	Size *Size `protobuf:"bytes,2,opt,name=size,proto3" json:"size,omitempty"`
-	// The terminal type the shell is told it draws on, xterm-256color when empty.
+	// The terminal type the shell is given. Empty for `xterm-256color`.
 	Term          string `protobuf:"bytes,3,opt,name=term,proto3" json:"term,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -143,10 +143,10 @@ func (x *OpenShell) GetTerm() string {
 	return ""
 }
 
-// ShellRequest is one message from the client: the opening, what was typed, or a resize.
+// ShellRequest is one message from the client on a shell stream.
 type ShellRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What the client sent.
+	// The message.
 	//
 	// Types that are valid to be assigned to Message:
 	//
@@ -237,7 +237,7 @@ type isShellRequest_Message interface {
 }
 
 type ShellRequest_Open struct {
-	// The first message of every stream, and only the first.
+	// The opening, sent first and only once.
 	Open *OpenShell `protobuf:"bytes,1,opt,name=open,proto3,oneof"`
 }
 
@@ -252,7 +252,7 @@ type ShellRequest_Resize struct {
 }
 
 type ShellRequest_Token struct {
-	// A fresh ID token from a signed-in caller, so the stream outlives the one it opened with.
+	// A new ID token for the caller, which keeps the stream open past the first token's expiry.
 	Token string `protobuf:"bytes,4,opt,name=token,proto3,oneof"`
 }
 
@@ -264,7 +264,7 @@ func (*ShellRequest_Resize) isShellRequest_Message() {}
 
 func (*ShellRequest_Token) isShellRequest_Message() {}
 
-// Exit reports how the program on the terminal ended.
+// Exit is how the program on a terminal ended.
 type Exit struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The exit status, or 128 plus the signal number when a signal ended the program.
@@ -310,10 +310,10 @@ func (x *Exit) GetCode() int32 {
 	return 0
 }
 
-// ShellResponse is one message from the engine: ready, output, or the exit.
+// ShellResponse is one message from komrad on a shell stream.
 type ShellResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What the engine sent.
+	// The message.
 	//
 	// Types that are valid to be assigned to Message:
 	//
@@ -394,17 +394,17 @@ type isShellResponse_Message interface {
 }
 
 type ShellResponse_Ready struct {
-	// The shell has started, sent once before any output.
+	// Sent once when the shell starts, before any output.
 	Ready *emptypb.Empty `protobuf:"bytes,1,opt,name=ready,proto3,oneof"`
 }
 
 type ShellResponse_Output struct {
-	// Bytes the terminal drew.
+	// Bytes the terminal printed.
 	Output []byte `protobuf:"bytes,2,opt,name=output,proto3,oneof"`
 }
 
 type ShellResponse_Exit struct {
-	// The shell has ended, the last message of the stream.
+	// Sent when the shell ends, as the last message.
 	Exit *Exit `protobuf:"bytes,3,opt,name=exit,proto3,oneof"`
 }
 
@@ -414,14 +414,14 @@ func (*ShellResponse_Output) isShellResponse_Message() {}
 
 func (*ShellResponse_Exit) isShellResponse_Message() {}
 
-// OpenAttach names the agent whose terminal is shown and the terminal it is drawn on.
+// OpenAttach opens an attach stream.
 type OpenAttach struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The agent, which must be live and hold a pane.
+	// The agent to attach to, by id. The agent must be live with a pane.
 	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// The size the terminal starts at.
+	// The terminal's starting size.
 	Size *Size `protobuf:"bytes,2,opt,name=size,proto3" json:"size,omitempty"`
-	// The terminal type tmux is told it draws on, xterm-256color when empty.
+	// The terminal type tmux is given. Empty for `xterm-256color`.
 	Term          string `protobuf:"bytes,3,opt,name=term,proto3" json:"term,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -478,10 +478,10 @@ func (x *OpenAttach) GetTerm() string {
 	return ""
 }
 
-// AttachRequest is one message from the client: the opening, what was typed, or a resize.
+// AttachRequest is one message from the client on an attach stream.
 type AttachRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What the client sent.
+	// The message.
 	//
 	// Types that are valid to be assigned to Message:
 	//
@@ -572,7 +572,7 @@ type isAttachRequest_Message interface {
 }
 
 type AttachRequest_Open struct {
-	// The first message of every stream, and only the first.
+	// The opening, sent first and only once.
 	Open *OpenAttach `protobuf:"bytes,1,opt,name=open,proto3,oneof"`
 }
 
@@ -587,7 +587,7 @@ type AttachRequest_Resize struct {
 }
 
 type AttachRequest_Token struct {
-	// A fresh ID token from a signed-in caller, so the stream outlives the one it opened with.
+	// A new ID token for the caller, which keeps the stream open past the first token's expiry.
 	Token string `protobuf:"bytes,4,opt,name=token,proto3,oneof"`
 }
 
@@ -599,10 +599,10 @@ func (*AttachRequest_Resize) isAttachRequest_Message() {}
 
 func (*AttachRequest_Token) isAttachRequest_Message() {}
 
-// AttachResponse is one message from the engine: ready, output, or the exit.
+// AttachResponse is one message from komrad on an attach stream.
 type AttachResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What the engine sent.
+	// The message.
 	//
 	// Types that are valid to be assigned to Message:
 	//
@@ -683,17 +683,17 @@ type isAttachResponse_Message interface {
 }
 
 type AttachResponse_Ready struct {
-	// The attach has started, sent once before any output.
+	// Sent once when the attach starts, before any output.
 	Ready *emptypb.Empty `protobuf:"bytes,1,opt,name=ready,proto3,oneof"`
 }
 
 type AttachResponse_Output struct {
-	// Bytes the terminal drew.
+	// Bytes the terminal printed.
 	Output []byte `protobuf:"bytes,2,opt,name=output,proto3,oneof"`
 }
 
 type AttachResponse_Exit struct {
-	// The attach has ended, the last message of the stream.
+	// Sent when the attach ends, as the last message.
 	Exit *Exit `protobuf:"bytes,3,opt,name=exit,proto3,oneof"`
 }
 
@@ -743,10 +743,10 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"\x05ready\x18\x01 \x01(\v2\x16.google.protobuf.EmptyH\x00R\x05ready\x12\x18\n" +
 	"\x06output\x18\x02 \x01(\fH\x00R\x06output\x12'\n" +
 	"\x04exit\x18\x03 \x01(\v2\x11.terminal.v1.ExitH\x00R\x04exitB\t\n" +
-	"\amessage2\xa1\x02\n" +
-	"\x0fTerminalService\x12\x82\x01\n" +
-	"\x05Shell\x12\x19.terminal.v1.ShellRequest\x1a\x1a.terminal.v1.ShellResponse\">\x9a\xb5\x18:B8a terminal a person types into, which komrad shell opens(\x010\x01\x12\x88\x01\n" +
-	"\x06Attach\x12\x1a.terminal.v1.AttachRequest\x1a\x1b.terminal.v1.AttachResponse\"A\x9a\xb5\x18=B;a terminal a person types into, which komrad terminal opens(\x010\x01B)Z'komrad/proto/gen/terminal/v1;terminalv1b\x06proto3"
+	"\amessage2\xab\x02\n" +
+	"\x0fTerminalService\x12\x87\x01\n" +
+	"\x05Shell\x12\x19.terminal.v1.ShellRequest\x1a\x1a.terminal.v1.ShellResponse\"C\x9a\xb5\x18?B=A terminal the person types into, which `komrad shell` opens.(\x010\x01\x12\x8d\x01\n" +
+	"\x06Attach\x12\x1a.terminal.v1.AttachRequest\x1a\x1b.terminal.v1.AttachResponse\"F\x9a\xb5\x18BB@A terminal the person types into, which `komrad terminal` opens.(\x010\x01B)Z'komrad/proto/gen/terminal/v1;terminalv1b\x06proto3"
 
 var (
 	file_terminal_v1_terminal_proto_rawDescOnce sync.Once

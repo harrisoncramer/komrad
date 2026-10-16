@@ -25,23 +25,23 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Sequence names an operation git has part-way through a task's checkout, waiting on somebody.
+// Sequence is a git operation stopped part way in a task's checkout.
 type Sequence int32
 
 const (
-	// Nothing was recorded. No stored checkout has this value.
+	// No value was recorded. No task has this value.
 	Sequence_SEQUENCE_UNSPECIFIED Sequence = 0
-	// Nothing is part-way through.
+	// No git operation is stopped part way.
 	Sequence_SEQUENCE_NONE Sequence = 1
 	// A rebase stopped on a commit it could not replay.
 	Sequence_SEQUENCE_REBASE Sequence = 2
-	// An am stopped on a patch it could not apply.
+	// A `git am` stopped on a patch it could not apply.
 	Sequence_SEQUENCE_AM Sequence = 3
 	// A merge stopped on conflicts.
 	Sequence_SEQUENCE_MERGE Sequence = 4
-	// A cherry-pick stopped on conflicts or resting between its picks.
+	// A cherry-pick stopped on conflicts or paused between commits.
 	Sequence_SEQUENCE_CHERRY_PICK Sequence = 5
-	// A revert stopped on conflicts or resting between its picks.
+	// A revert stopped on conflicts or paused between commits.
 	Sequence_SEQUENCE_REVERT Sequence = 6
 )
 
@@ -94,12 +94,12 @@ func (Sequence) EnumDescriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{0}
 }
 
-// DiffStat is how many lines a checkout adds and removes, committed and uncommitted alike.
+// DiffStat counts the lines a checkout adds and removes, committed or not.
 type DiffStat struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The lines it adds.
+	// How many lines the checkout adds.
 	Added int32 `protobuf:"varint,1,opt,name=added,proto3" json:"added,omitempty"`
-	// The lines it removes.
+	// How many lines the checkout removes.
 	Removed       int32 `protobuf:"varint,2,opt,name=removed,proto3" json:"removed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -149,61 +149,65 @@ func (x *DiffStat) GetRemoved() int32 {
 	return 0
 }
 
-// Task is one outcome a person wants. The agents linked to it work toward it.
+// Task is one piece of work that agents do.
 type Task struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The handle every other call names this task by, alongside its slug.
+	// The task's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Which workflow it is filed under. Every agent on it shares that workflow.
+	// The id of the workflow the task belongs to.
 	WorkflowId string `protobuf:"bytes,2,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	// The lowercase kebab-case name it is called by, unique and never reused.
+	// The task's slug, such as `fix-login`. No two tasks ever share one.
 	Slug string `protobuf:"bytes,3,opt,name=slug,proto3" json:"slug,omitempty"`
-	// What the panel shows it as.
+	// The task's title.
 	Title string `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
-	// What it is meant to achieve, as markdown.
+	// What the task is meant to achieve, in markdown.
 	Goal string `protobuf:"bytes,5,opt,name=goal,proto3" json:"goal,omitempty"`
-	// When it was made, in RFC 3339.
+	// When the task was created, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When it was last changed, in RFC 3339.
+	// When the task last changed, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// When it was archived, unset while it is live.
+	// When the task was archived, in RFC 3339. Unset while the task is live.
 	ArchivedAt *string `protobuf:"bytes,8,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
-	// The directory of its checkout, where every agent on it works. Unset while it has none.
+	// The directory of the task's checkout. Unset while the task has no checkout.
 	Cwd *string `protobuf:"bytes,9,opt,name=cwd,proto3,oneof" json:"cwd,omitempty"`
-	// The git branch its checkout is on, unset while it has none or git cannot read it.
+	// The git branch of the task's checkout. Unset when the task has no checkout or git cannot
+	// read the branch.
 	Branch *string `protobuf:"bytes,10,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
-	// The canonical web address of the repository its checkout pushes to, such as
-	// https://github.com/harrisoncramer/komrad, unset when the checkout is gone or its origin
-	// is not a forge.
+	// The canonical web address of the repository the task's checkout pushes to, such as
+	// `https://github.com/harrisoncramer/komrad`. Unset when the checkout is gone or origin is not
+	// on a forge.
 	RepositoryUrl *string `protobuf:"bytes,11,opt,name=repository_url,json=repositoryUrl,proto3,oneof" json:"repository_url,omitempty"`
-	// The commit its checkout has checked out, unset when the checkout is gone or git cannot read it.
+	// The commit checked out in the task's checkout. Unset when the checkout is gone or git cannot
+	// read it.
 	HeadSha *string `protobuf:"bytes,12,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
-	// Whether its checkout has been taken away.
+	// Whether the task's worktree has been removed.
 	WorktreeRemoved bool `protobuf:"varint,13,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
-	// What git has part-way through its checkout, waiting on somebody to settle it.
+	// The git operation stopped part way in the task's checkout.
 	Sequence Sequence `protobuf:"varint,14,opt,name=sequence,proto3,enum=task.v1.Sequence" json:"sequence,omitempty"`
-	// The snapshot of the newest review round of its agents, set while its checkout no longer
-	// hashes to it. Empty otherwise.
+	// The snapshot commit of the task's newest round, set while the checkout has changed since that
+	// round. Empty otherwise.
 	MovedSinceRound string `protobuf:"bytes,15,opt,name=moved_since_round,json=movedSinceRound,proto3" json:"moved_since_round,omitempty"`
-	// How many lines its checkout adds and removes since it left its base, unset where there is
-	// no base to measure against.
+	// How many lines the task's checkout adds and removes since it left the base branch. Unset when
+	// there is no base branch to measure against.
 	DiffStat *DiffStat `protobuf:"bytes,16,opt,name=diff_stat,json=diffStat,proto3,oneof" json:"diff_stat,omitempty"`
-	// The branch its checkout was put on, when komrad did not make it. Unset when komrad made it.
+	// The existing branch the task was put on. Unset when komrad created the branch.
 	AdoptedBranch *string `protobuf:"bytes,17,opt,name=adopted_branch,json=adoptedBranch,proto3,oneof" json:"adopted_branch,omitempty"`
-	// Why its last delete could not give its checkout back, empty unless one failed.
+	// Why the task's last delete failed to remove its checkout. Empty unless a delete failed.
 	FailureReason string `protobuf:"bytes,18,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
-	// What the agents on it and the person have written down about it, as markdown.
+	// The task's notes, in markdown, written by its agents and the person.
 	Notes string `protobuf:"bytes,19,opt,name=notes,proto3" json:"notes,omitempty"`
-	// When its notes were last written, in RFC 3339 to the nanosecond, unset until they first are.
-	// A write of the notes names the value it read.
+	// When the task's notes were last written, in RFC 3339 with nanoseconds. Unset until the notes
+	// are first written.
 	NotesUpdatedAt *string `protobuf:"bytes,20,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
-	// Whether a script run on it failed and the person has not opened its logs since.
+	// Whether a hook run on the task failed and the person has not opened its log since.
 	FailedRun bool `protobuf:"varint,21,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
-	// Whether a person hid the task from the panel. Its agents keep running.
+	// Whether the task is hidden. A hidden task stays live, and clients leave it out of their
+	// lists.
 	Hidden bool `protobuf:"varint,22,opt,name=hidden,proto3" json:"hidden,omitempty"`
-	// How many documents agents have written for it. list_documents returns them.
+	// How many documents agents have written for the task. `list_documents` returns them.
 	Documents int32 `protobuf:"varint,23,opt,name=documents,proto3" json:"documents,omitempty"`
-	// When the newest of its documents was last written, in RFC 3339, unset when it has none.
+	// When the newest of the task's documents was last written, in RFC 3339. Unset when the task
+	// has none.
 	DocumentsUpdatedAt *string `protobuf:"bytes,24,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -409,13 +413,13 @@ func (x *Task) GetDocumentsUpdatedAt() string {
 
 type CreateTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The lowercase kebab-case name to call it by. It must be one no task has ever had.
+	// The task's slug. No task may have used it before.
 	Slug string `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
-	// What to show it as in the panel.
+	// The task's title.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	// What it is meant to achieve, as markdown.
+	// What the task is meant to achieve, in markdown.
 	Goal string `protobuf:"bytes,3,opt,name=goal,proto3" json:"goal,omitempty"`
-	// Which workflow to file it under. Every agent on it must be in the same one.
+	// The workflow to create the task in, by id.
 	WorkflowId    string `protobuf:"bytes,4,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -526,7 +530,7 @@ func (x *CreateTaskResponse) GetTask() *Task {
 
 type GetTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task to read, by id or by slug.
+	// The task to get, by id or slug.
 	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -571,7 +575,7 @@ func (x *GetTaskRequest) GetTask() string {
 
 type GetTaskResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task, with its goal whole.
+	// The task, with the goal in full.
 	Task          *Task `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -616,9 +620,9 @@ func (x *GetTaskResponse) GetTask() *Task {
 
 type ListTasksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which workflow's tasks to list.
+	// The workflow whose tasks to list, by id.
 	WorkflowId string `protobuf:"bytes,1,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	// True to list the archived tasks and only those.
+	// Whether to list only archived tasks instead of live ones.
 	Archived      bool `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -715,20 +719,17 @@ func (x *ListTasksResponse) GetTasks() []*Task {
 
 type UpdateTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task to rewrite, by id or by slug.
+	// The task to update, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// The lowercase kebab-case name to call it by from now on. No other task may hold it. Left
-	// as it is when unset.
+	// The new slug. No other task may have used it. Unchanged when unset.
 	Slug *string `protobuf:"bytes,2,opt,name=slug,proto3,oneof" json:"slug,omitempty"`
-	// What to show it as in the panel, left as it is when unset.
+	// The new title. Unchanged when unset.
 	Title *string `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	// What it is meant to achieve, as markdown, left as it is when unset.
+	// The new goal, in markdown. Unchanged when unset.
 	Goal *string `protobuf:"bytes,4,opt,name=goal,proto3,oneof" json:"goal,omitempty"`
-	// What to write down about it as markdown, replacing the notes it has, left as they are when
-	// unset.
+	// The new notes in full, in markdown. Unchanged when unset.
 	Notes *string `protobuf:"bytes,5,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
-	// The notes_updated_at the notes were read with, unset when they had never been written. A
-	// notes write is refused once they have been written since.
+	// The `notes_updated_at` the notes were read with. Unset when the notes were never written.
 	NotesUpdatedAt *string `protobuf:"bytes,6,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -808,7 +809,7 @@ func (x *UpdateTaskRequest) GetNotesUpdatedAt() string {
 
 type UpdateTaskResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task as rewritten.
+	// The task as updated.
 	Task          *Task `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -853,12 +854,12 @@ func (x *UpdateTaskResponse) GetTask() *Task {
 
 type SetTaskNotesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task to write the notes of, by id or by slug.
+	// The task whose notes to write, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// The notes in full as markdown, replacing what the task has.
+	// The task's new notes in full, in markdown.
 	Notes string `protobuf:"bytes,2,opt,name=notes,proto3" json:"notes,omitempty"`
-	// The notes_updated_at get_task returned with the notes, unset when they had never been
-	// written. The write is refused once they have been written since.
+	// The `notes_updated_at` that `get_task` returned with the notes. Unset when the notes were
+	// never written.
 	NotesUpdatedAt *string `protobuf:"bytes,3,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -917,7 +918,7 @@ func (x *SetTaskNotesRequest) GetNotesUpdatedAt() string {
 
 type SetTaskNotesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task with its notes as written.
+	// The task, with the new notes.
 	Task          *Task `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -962,7 +963,7 @@ func (x *SetTaskNotesResponse) GetTask() *Task {
 
 type ArchiveTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task to archive, by id or by slug.
+	// The task to archive, by id or slug.
 	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1007,9 +1008,9 @@ func (x *ArchiveTaskRequest) GetTask() string {
 
 type SetTaskHiddenRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task to hide or unhide, by id or by slug.
+	// The task to hide or show, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// True to hide the task, false to show it again.
+	// Whether to hide the task. False shows the task again.
 	Hidden        bool `protobuf:"varint,2,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1061,7 +1062,7 @@ func (x *SetTaskHiddenRequest) GetHidden() bool {
 
 type MarkTaskRunsReadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which task's failed script runs the person has looked at, by id.
+	// The task whose failed hook runs the person has seen, by id.
 	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1106,7 +1107,7 @@ func (x *MarkTaskRunsReadRequest) GetId() string {
 
 type DeleteTasksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The tasks to remove for good, by id or by slug, with every agent on them.
+	// The tasks to delete, by id or slug.
 	Tasks         []string `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1254,20 +1255,20 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\xee\x10\n" +
-	"\vTaskService\x12\xe8\x01\n" +
+	"\x0fSEQUENCE_REVERT\x10\x062\xba\x11\n" +
+	"\vTaskService\x12\xcf\x01\n" +
 	"\n" +
-	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\xa0\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\vcreate_task\"\x82\x01Create a task, the outcome one or more agents work toward. Pass its slug or id to create_agent as task to launch an agent onto it.(\x00:\x01\x02\x12\x9a\x01\n" +
-	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"\\\x9a\xb5\x18U\b\x01\x10\x01\x1a\bget_task\"@Fetch one task by id or slug, with its whole goal and its notes.:\x03\x03\x01\x02\x90\x02\x01\x12\xbe\x01\n" +
+	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\x87\x01\x9a\xb5\x18\x82\x01\b\x01\x10\x01\x1a\vcreate_task\"jCreate a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`.(\x00:\x01\x02\x12\x96\x01\n" +
+	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"X\x9a\xb5\x18Q\b\x01\x10\x01\x1a\bget_task\"<Get one task by id or slug, with its goal and notes in full.:\x03\x03\x01\x02\x90\x02\x01\x12\xbe\x01\n" +
 	"\tListTasks\x12\x19.task.v1.ListTasksRequest\x1a\x1a.task.v1.ListTasksResponse\"z\x9a\xb5\x18s\b\x01\x10\x01\x1a\n" +
-	"list_tasks\"\\List a workflow's tasks, newest first. The list omits archived tasks unless archived is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xb9\x02\n" +
+	"list_tasks\"\\List a workflow's tasks, newest first. Archived tasks are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x83\x03\n" +
 	"\n" +
-	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xf1\x01\x9a\xb5\x18\xe9\x01\b\x01\x10\x01\x1a\vupdate_task\"\xd0\x01Rewrite a task's slug, title, goal or notes by id or slug, leaving any field you omit as it is. A notes write must name the notes_updated_at it read. An edit reaches agents only when they read the task again.(\x00:\x01\x02\x90\x02\x02\x12\xbd\x02\n" +
-	"\fSetTaskNotes\x12\x1c.task.v1.SetTaskNotesRequest\x1a\x1d.task.v1.SetTaskNotesResponse\"\xef\x01\x9a\xb5\x18\xe7\x01\b\x01\x10\x01\x1a\x0eset_task_notes\"\xc9\x01Replace a task's notes, the markdown every agent joining it is briefed with. Pass the notes_updated_at get_task returned, and on failed_precondition read the task again and keep what was written since.(\x00:\x03\x03\x01\x02\x90\x02\x02\x12\xd9\x01\n" +
-	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x94\x01\x9a\xb5\x18\x8c\x01\b\x01\x10\x01\x1a\farchive_task\"sArchive a task by id or slug, keeping its record. Archives the live agents on it too, and its slug is never reused.(\x00:\x01\x02\x90\x02\x02\x12\x80\x02\n" +
-	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\fdelete_tasks\"\x99\x01Permanently delete tasks by id or slug, with every agent on them, their documents, reviews and worktree. Prefer archive_task, and delete only when asked.(\x01:\x01\x02\x90\x02\x02\x12\xdb\x01\n" +
-	"\rSetTaskHidden\x12\x1d.task.v1.SetTaskHiddenRequest\x1a\x16.google.protobuf.Empty\"\x92\x01\x9a\xb5\x18\x8a\x01\b\x01\x10\x01\x1a\x0fset_task_hidden\"nHide a task from the panel by id or slug, or show it again. Its agents keep running. Hide one only when asked.(\x00:\x01\x02\x90\x02\x02\x12\xdc\x01\n" +
-	"\x10MarkTaskRunsRead\x12 .task.v1.MarkTaskRunsReadRequest\x1a\x16.google.protobuf.Empty\"\x8d\x01\x9a\xb5\x18\x85\x01B\x82\x01Whether a person has looked at a task's failed script runs is that person's own reading, which no agent can claim on their behalf.\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
+	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xbb\x02\x9a\xb5\x18\xb3\x02\b\x01\x10\x01\x1a\vupdate_task\"\x9a\x02Change a task's slug, title, goal or notes, by id or slug. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task.(\x00:\x01\x02\x90\x02\x02\x12\xe8\x02\n" +
+	"\fSetTaskNotes\x12\x1c.task.v1.SetTaskNotesRequest\x1a\x1d.task.v1.SetTaskNotesResponse\"\x9a\x02\x9a\xb5\x18\x92\x02\b\x01\x10\x01\x1a\x0eset_task_notes\"\xa6\x01Replace a task's notes, which every agent that joins the task starts from. The write fails with `failed_precondition` when the notes changed since `notes_updated_at`.(\x00:\x03\x03\x01\x02JLOn failed_precondition, read the task again and keep what was written since.\x90\x02\x02\x12\xd8\x01\n" +
+	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\farchive_task\"rArchive a task by id or slug, with the live agents on it. The task keeps its record, and its slug is never reused.(\x00:\x01\x02\x90\x02\x02\x12\x81\x02\n" +
+	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\xbc\x01\x9a\xb5\x18\xb4\x01\b\x01\x10\x01\x1a\fdelete_tasks\"iDelete tasks for good, by id or slug, with every agent on them and their documents, reviews and worktree.(\x01:\x01\x02J0Prefer archive_task, and delete only when asked.\x90\x02\x02\x12\x93\x02\n" +
+	"\rSetTaskHidden\x12\x1d.task.v1.SetTaskHiddenRequest\x1a\x16.google.protobuf.Empty\"\xca\x01\x9a\xb5\x18\xc2\x01\b\x01\x10\x01\x1a\x0fset_task_hidden\"\x87\x01Hide a task by id or slug, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists.(\x00:\x01\x02J\x1cHide a task only when asked.\x90\x02\x02\x12\x98\x01\n" +
+	"\x10MarkTaskRunsRead\x12 .task.v1.MarkTaskRunsReadRequest\x1a\x16.google.protobuf.Empty\"J\x9a\xb5\x18CBAOnly the person can say they have seen a task's failed hook runs.\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
 
 var (
 	file_task_v1_task_proto_rawDescOnce sync.Once

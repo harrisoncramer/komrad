@@ -9,204 +9,206 @@ import "google/protobuf/empty.proto";
 
 option go_package = "komrad/proto/gen/worktree/v1;worktreev1";
 
+// WorktreeAgent is an agent working in a worktree.
 message WorktreeAgent {
   // The agent's id.
   string id = 1;
-  // What the panel lists it as.
+  // The agent's name.
   string name = 2;
-  // The agent's state, as the agents listing carries it.
+  // The agent's state.
   agent.v1.AgentState state = 3;
-  // When the agent was put away, in RFC 3339, unset while it is live.
+  // When the agent was archived, in RFC 3339. Unset while the agent is live.
   optional string archived_at = 4;
 }
 
+// WorktreeTask is the task a worktree belongs to.
 message WorktreeTask {
-  // The task's id, which doubles as the directory's name.
+  // The task's id, which is also the worktree directory's name.
   string id = 1;
   // The task's slug.
   string slug = 2;
-  // When the task was put away, in RFC 3339, unset while it is open.
+  // When the task was archived, in RFC 3339. Unset while the task is live.
   optional string archived_at = 3;
-  // Whether the branch existed before the task was put on it. Cleanup never deletes such a
-  // branch.
+  // Whether the branch existed before the task was put on it. Deleting the task never deletes
+  // such a branch.
   bool adopted = 4;
 }
 
-// WorktreeFate names the delete path a directory takes.
+// WorktreeFate is what removes a worktree directory.
 enum WorktreeFate {
-  // Never sent.
+  // No value was recorded. No worktree has this value.
   WORKTREE_FATE_UNSPECIFIED = 0;
-  // No task answers for the directory. The remover takes it.
+  // No task owns the directory. `remove_unowned_worktrees` removes it.
   WORKTREE_FATE_UNOWNED = 1;
-  // The directory's task is archived. The task delete takes it.
+  // The directory's task is archived. Deleting the task removes it.
   WORKTREE_FATE_ARCHIVED = 2;
-  // The directory's task is open. Nothing takes it.
+  // The directory's task is live. Nothing removes it.
   WORKTREE_FATE_LIVE = 3;
-  // A delete has claimed the directory's task. That delete takes the directory.
+  // The directory's task is being deleted, which removes the directory.
   WORKTREE_FATE_DELETING = 4;
 }
 
+// Worktree is one worktree directory on disk.
 message Worktree {
-  // The directory, absolute.
+  // The worktree's absolute path.
   string dir = 1;
-  // The repository the worktree was cut from, read from the directory's own .git file. When git
-  // can no longer read the registration, this is where the repository used to be.
+  // The repository the worktree was created from, read from the worktree's `.git` file, or where
+  // the repository used to be when git cannot read that file.
   string repo_dir = 2;
-  // The branch the directory's HEAD names, empty when it is detached or the registration
-  // cannot be read.
+  // The branch checked out in the worktree. Empty when HEAD is detached or git cannot read the
+  // worktree.
   string branch = 3;
-  // Whether the gitdir the .git file names still exists. Git will not answer for the directory
-  // without it.
+  // Whether the gitdir that the worktree's `.git` file names still exists. Git cannot read the
+  // worktree without it.
   bool readable = 4;
-  // The agents working in this directory, live ones first.
+  // The agents working in the worktree, live ones first.
   repeated WorktreeAgent occupants = 5;
-  // The disk the directory takes, in bytes, as last measured in the background or by
-  // get_worktree. It counts blocks rather than length, and counts a hard linked file once. Unset
-  // until measured and while the last walk failed.
+  // The disk space the worktree takes, in bytes, counting blocks and each hard-linked file once.
+  // Unset until measured and while the last measurement failed.
   optional int64 size_bytes = 6;
-  // When the size was last measured, or last failed to be, in RFC 3339. Unset until the
-  // background loop has reached the directory.
+  // When the worktree's size was last measured or last failed to be, in RFC 3339. Unset until
+  // first measured.
   optional string measured_at = 7;
-  // Why the last walk failed, empty when it did not.
+  // Why the last measurement failed. Empty when it succeeded.
   string size_error = 8;
-  // When the directory was last active, in RFC 3339. This is the latest state change or
-  // archiving of its occupants when it has any, else when git last wrote the directory's .git
-  // file, else the directory's own modification time.
+  // When the worktree was last active, in RFC 3339. This is the newest change to its agents, else
+  // when git last wrote its `.git` file, else its modification time.
   string last_active_at = 9;
-  // Which delete path the directory takes.
+  // What removes the worktree.
   WorktreeFate fate = 10;
-  // The directory's share of size_bytes, each hard linked file's blocks split evenly across its
-  // links. Unset with size_bytes.
+  // The worktree's share of `size_bytes`, with each hard-linked file split evenly across its
+  // links. Unset when `size_bytes` is unset.
   optional int64 share_bytes = 11;
-  // The task whose checkout the directory is, unset when none answers for it.
+  // The task the worktree belongs to. Unset when no task owns it.
   WorktreeTask task = 12;
 }
 
-// WatchedWorktree is a worktree as the filesystem holds it.
+// WatchedWorktree is a worktree as the filesystem shows it.
 message WatchedWorktree {
-  // The directory, absolute.
+  // The worktree's absolute path.
   string dir = 1;
-  // The repository the worktree was cut from.
+  // The repository the worktree was created from.
   string repo_dir = 2;
-  // The branch the directory's HEAD names, empty when it is detached or unreadable.
+  // The branch checked out in the worktree. Empty when HEAD is detached or git cannot read the
+  // worktree.
   string branch = 3;
-  // Whether the gitdir the .git file names is still there.
+  // Whether the gitdir that the worktree's `.git` file names still exists.
   bool readable = 4;
-  // The disk the directory takes, in bytes, unset until it has been measured and while the last
-  // walk failed.
+  // The disk space the worktree takes, in bytes. Unset until measured and while the last
+  // measurement failed.
   optional int64 size_bytes = 5;
-  // When the size was last measured, or last failed to be, in RFC 3339.
+  // When the worktree's size was last measured or last failed to be, in RFC 3339.
   optional string measured_at = 6;
-  // When git last wrote the directory's .git file, else the directory's own modification time,
-  // in RFC 3339, empty when neither could be read.
+  // When git last wrote the worktree's `.git` file, else the worktree's modification time, in RFC
+  // 3339. Empty when neither can be read.
   string modified_at = 7;
-  // Why the last walk failed, empty when it did not.
+  // Why the last measurement failed. Empty when it succeeded.
   string size_error = 8;
-  // The directory's share of size_bytes, each hard linked file's blocks split evenly across its
-  // links. Unset with size_bytes.
+  // The worktree's share of `size_bytes`, with each hard-linked file split evenly across its
+  // links. Unset when `size_bytes` is unset.
   optional int64 share_bytes = 9;
-  // Where the directory stood against its base when git was last asked, unset until then.
+  // How the worktree compared with the base branch when git last read it. Unset until then.
   WorktreeStanding standing = 10;
 }
 
-// WorktreeStanding is where a worktree stood against its base when git was last asked.
+// WorktreeStanding is how a worktree compared with the base branch when git last read it.
 message WorktreeStanding {
-  // When git was asked, in RFC 3339.
+  // When git read the worktree, in RFC 3339.
   string read_at = 1;
-  // Whether the directory held modified or untracked files.
+  // Whether the worktree had modified or untracked files.
   bool dirty = 2;
-  // Whether a merge, a rebase or a cherry-pick was part-way through.
+  // Whether a sequence was stopped in the worktree.
   bool sequencing = 3;
-  // How many of the branch's own commits the base did not yet hold.
+  // How many of the branch's commits had not landed.
   int32 unlanded = 4;
-  // Why git could not say, empty when it could.
+  // Why git could not read the worktree. Empty when it could.
   string error = 5;
 }
 
 message ListWorktreesResponse {
-  // Every directory under the worktree directories, in no particular order.
+  // Every worktree in the worktree directories, in no set order.
   repeated Worktree worktrees = 1;
-  // The directories that were walked: the configured one and each workflow's own.
+  // The worktree directories read: the configured one and each workflow's own.
   repeated string dirs = 2;
-  // Which of those could not be read, so a listing that is short says why.
+  // The worktree directories that could not be read.
   repeated string unreadable_dirs = 3;
 }
 
 message GetWorktreeRequest {
-  // The directory to read, as list_worktrees spelled it.
+  // The worktree to read, by the path `list_worktrees` returns.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
-  // Whether to fetch the base from origin before measuring against it. Fetching costs a network
-  // round trip. When off, the base is whatever the clone last fetched.
+  // Whether to fetch the base branch from origin before comparing. False compares with the base
+  // branch as last fetched.
   bool fetch = 2;
 }
 
+// Entry is one file or directory at the top of a worktree.
 message Entry {
-  // The path, relative to the directory.
+  // The entry's path, relative to the worktree.
   string path = 1;
-  // The disk it takes, in bytes, counted through for a directory. It counts blocks rather than
-  // length, and counts a hard linked file once.
+  // The disk space the entry takes, in bytes, counting blocks and each hard-linked file once.
   int64 size_bytes = 2;
-  // Whether it is a directory.
+  // Whether the entry is a directory.
   bool dir = 3;
 }
 
+// Commit is one git commit.
 message Commit {
   // The commit's hash.
   string sha = 1;
-  // The first line of its message.
+  // The first line of the commit's message.
   string subject = 2;
-  // When it was committed, in RFC 3339.
+  // When the commit was made, in RFC 3339.
   string committed_at = 3;
 }
 
 message GetWorktreeResponse {
-  // The directory as list_worktrees reports it.
+  // The worktree, as `list_worktrees` returns it.
   Worktree worktree = 1;
-  // The disk the directory takes, in bytes, walked for this call.
+  // The disk space the worktree takes, in bytes, measured for this call.
   int64 size_bytes = 2;
-  // The top-level entries with the disk each takes, biggest first, from the same walk.
+  // The top-level entries in the worktree, largest first.
   repeated Entry entries = 3;
-  // The paths git tracks that differ from HEAD.
+  // The tracked paths that differ from HEAD.
   repeated string modified = 4;
   // The paths git neither tracks nor ignores.
   repeated string untracked = 5;
-  // The ref the branch is measured against, which is the workflow's base branch as the clone
-  // holds it. Empty when the repository cannot be read or the clone does not hold the base, and
-  // then nothing below is measured.
+  // The ref of the base branch the worktree is compared with. Empty when the repository cannot be
+  // read or does not have the base branch, and then no comparison is made.
   string base_ref = 6;
-  // Why the base could not be named, when base_ref is empty for that reason.
+  // Why the base branch could not be found. Empty when `base_ref` is set.
   string base_error = 7;
-  // How many of the branch's commits the base does not hold.
+  // How many of the branch's commits the base branch does not have.
   int32 ahead = 8;
-  // How many of the base's commits the branch does not hold.
+  // How many of the base branch's commits the branch does not have.
   int32 behind = 9;
-  // The number of the branch's own commits that the base already holds in full. A squash merge
-  // leaves these behind.
+  // How many of the branch's commits have landed, such as after a squash merge.
   int32 landed_commits = 10;
-  // Whether a merge, a rebase or a cherry-pick is part-way through.
+  // Whether a sequence is stopped in the worktree.
   bool sequence_in_progress = 11;
-  // Whether deleting the agent would keep the branch. Cleanup keeps an adopted branch and one
-  // whose commits are on no other ref.
+  // Whether deleting the task keeps the branch. A branch is kept when it was adopted or has
+  // commits on no other ref.
   bool keeps_branch = 12;
-  // The branch's commits the base does not hold, newest first, at most fifty.
+  // The branch's commits the base branch does not have, newest first, at most fifty.
   repeated Commit commits = 13;
-  // The lines the working tree adds since the branch left the base, leaving out the workflow's
-  // diff exclusions, and unset where there is no base or one the branch shares no history with.
+  // How many lines the worktree adds since it left the base branch, without the workflow's diff
+  // exclusions. Unset when there is no base branch or it shares no history with the branch.
   optional int32 added_lines = 14;
-  // The lines the working tree removes since the branch left the base, unset with added_lines.
+  // How many lines the worktree removes since it left the base branch. Unset when `added_lines`
+  // is unset.
   optional int32 removed_lines = 15;
-  // Whether origin holds a copy of the branch, false for a detached HEAD.
+  // Whether origin has the branch. False when HEAD is detached.
   bool pushed = 16;
-  // How many of the branch's commits origin's copy does not hold.
+  // How many of the branch's commits origin's copy does not have.
   int32 unpushed = 17;
-  // How many of origin's copy's commits the branch does not hold.
+  // How many of the commits on origin's copy the branch does not have.
   int32 unpulled = 18;
-  // Whether the base already holds every commit counted in unpulled.
+  // Whether every commit counted in `unpulled` has landed.
   bool unpulled_landed = 19;
 }
 
 message RemoveUnownedWorktreesRequest {
-  // The directories to remove, each as list_worktrees spelled it.
+  // The worktrees to remove, by the paths `list_worktrees` returns.
   repeated string dirs = 1 [(buf.validate.field).repeated = {
     min_items: 1
     max_items: 100
@@ -217,22 +219,23 @@ message RemoveUnownedWorktreesRequest {
   }];
 }
 
+// Refusal is a worktree komrad would not remove, and why.
 message Refusal {
-  // The directory that was left alone.
+  // The worktree's path.
   string dir = 1;
-  // Why, in a sentence.
+  // Why the worktree was kept, in one sentence.
   string reason = 2;
 }
 
 message RemoveUnownedWorktreesResponse {
-  // The directories that went.
+  // The worktrees removed.
   repeated string removed = 1;
-  // The directories that did not, each with the reason.
+  // The worktrees kept, each with the reason.
   repeated Refusal refused = 2;
 }
 
 message DeleteWorktreesRequest {
-  // The directories to delete, each as list_worktrees spelled it.
+  // The worktrees to delete, by the paths `list_worktrees` returns.
   repeated string dirs = 1 [(buf.validate.field).repeated = {
     min_items: 1
     unique: true
@@ -242,7 +245,7 @@ message DeleteWorktreesRequest {
   }];
 }
 
-// WorktreeService reads and clears the directories komrad cut for its agents.
+// WorktreeService reads and removes the worktrees komrad created.
 service WorktreeService {
   rpc ListWorktrees(google.protobuf.Empty) returns (ListWorktreesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -250,7 +253,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "list_worktrees"
-      description: "List every worktree directory komrad holds, with its repository, branch, agent and last measured size. It runs no git, so it is cheap."
+      description: "List every worktree with its repository, branch, agents and last measured size. The call runs no git, so it is fast."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -260,7 +263,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "get_worktree"
-      description: "Read one worktree directory: its size and biggest entries, what is uncommitted, and how it stands against its base. Set fetch to ask origin first."
+      description: "Read one worktree: its size and largest entries, its uncommitted changes, and how it compares with the base branch. Set `fetch` to fetch from origin first."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -270,7 +273,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "remove_unowned_worktrees"
-      description: "Remove worktree directories no agent or task answers for, such as those list_worktrees reports as unowned. Branches are never touched."
+      description: "Remove worktrees that no agent or task owns, such as those `list_worktrees` marks unowned. Branches are never deleted."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -281,8 +284,8 @@ service WorktreeService {
       cli: true
       mcp: false
       name: "delete_worktrees"
-      description: "Queue deleting worktree directories in the background, each through the path its agent's state decides. Komrad skips any directory whose agent is live."
-      reason: "A model already has delete_agents and remove_unowned_worktrees, which answer with what went and what was refused. This one answers nothing, being the panel's queued form of the two, so offering it as well would only give a model a way to delete without reading the outcome."
+      description: "Queue worktrees for deletion in the background, each as its fate says. Komrad skips any worktree with a live agent."
+      reason: "The call returns no outcome, and `delete_tasks` and `remove_unowned_worktrees` already delete worktrees and report the result."
       destructive: true
     };
   }

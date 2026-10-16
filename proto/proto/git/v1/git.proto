@@ -8,23 +8,23 @@ import "buf/validate/validate.proto";
 option go_package = "komrad/proto/gen/git/v1;gitv1";
 
 message GetRootRequest {
-  // Any directory inside the repository, absolute, which must be inside a live agent's directory.
+  // An absolute directory in the repository, inside a live agent's checkout.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message GetRootResponse {
-  // The top of the working tree the directory belongs to.
+  // The top directory of the working tree that holds `dir`.
   string root = 1;
 }
 
-// FileRevision names one file as one commit holds it.
+// FileRevision is one file at one commit.
 message FileRevision {
-  // The commit.
+  // The commit to read the file at.
   string sha = 1 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^\\n]*$"
   }];
-  // The file's path from the top of the repository.
+  // The file's path, relative to the top of the repository.
   string path = 2 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^\\n]*$"
@@ -32,31 +32,31 @@ message FileRevision {
 }
 
 message ReadFilesRequest {
-  // Any directory inside the repository, absolute, which must be inside a live agent's directory.
+  // An absolute directory in the repository, inside a live agent's checkout.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
   // The files to read.
   repeated FileRevision revisions = 2;
 }
 
-// File is one file as its commit holds it.
+// File is the content of one file at one commit.
 message File {
-  // Which file and commit this is, as the request named it.
+  // The file and commit, as the request named them.
   FileRevision revision = 1;
   // The file's content.
   bytes content = 2;
 }
 
 message ReadFilesResponse {
-  // The files read, leaving out any the named commit does not hold as a file.
+  // The files read. A path that is not a file at its commit is left out.
   repeated File files = 1;
 }
 
 message CountChangedFilesRequest {
-  // Any directory inside the repository, absolute, which must be inside a live agent's directory.
+  // An absolute directory in the repository, inside a live agent's checkout.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
-  // The commit to count from. Empty counts nothing.
+  // The commit to count from. Empty to count nothing.
   string from_sha = 2 [(buf.validate.field).string.pattern = "^(?:[^-].*)?$"];
-  // The commit to count to. Empty counts nothing.
+  // The commit to count to. Empty to count nothing.
   string to_sha = 3 [(buf.validate.field).string.pattern = "^(?:[^-].*)?$"];
   // The paths and globs to leave out, relative to the top of the repository.
   repeated string exclude = 4;
@@ -68,63 +68,61 @@ message CountChangedFilesResponse {
 }
 
 message DiffRequest {
-  // The repository, absolute, which must be inside a live agent's directory.
+  // An absolute directory in the repository, inside a live agent's checkout.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
-  // The commit the patch is measured from.
+  // The commit the patch starts from.
   string from_sha = 2 [(buf.validate.field).string.pattern = "^(?:[^-].*)?$"];
-  // The commit the patch is measured to.
+  // The commit the patch ends at.
   string to_sha = 3 [(buf.validate.field).string.pattern = "^(?:[^-].*)?$"];
   // The paths and globs to leave out, relative to the top of the repository.
   repeated string exclude = 4;
 }
 
 message DiffResponse {
-  // The patch, with the a/ and b/ prefixes a parser of it expects.
+  // The patch, with the `a/` and `b/` path prefixes.
   bytes patch = 1;
 }
 
 message MapRangesRequest {
-  // Any directory inside the repository, absolute, which must be inside a live agent's directory.
+  // An absolute directory in the repository, inside a live agent's checkout.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
-  // The commit the positions being moved were measured in.
+  // The commit the line positions come from.
   string from_sha = 2 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^-]"
   }];
-  // The commit they are being moved to.
+  // The commit to map the line positions to.
   string to_sha = 3 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^-]"
   }];
-  // The files of the earlier commit to answer for, relative to the top of the repository, and every
-  // file when empty.
+  // The files in `from_sha` to map, relative to the top of the repository. Empty for every file.
   repeated string paths = 4;
 }
 
-// LineRange is a span of lines numbered from one. It includes its start and excludes its end. A
-// span whose start and end are equal is the point between two lines.
+// LineRange is a span of lines, numbered from one, that includes its start and excludes its end.
 message LineRange {
-  // The first line of the span.
+  // The first line of the span. Equal to `end` for the point between two lines.
   int32 start = 1;
   // The line after the last line of the span.
   int32 end = 2;
 }
 
-// RangeMapping pairs a region of the old file with the lines standing in its place.
+// RangeMapping pairs lines in the old file with the lines that replace them in the new file.
 message RangeMapping {
-  // The region of the file in the earlier commit.
+  // The lines in the earlier commit.
   LineRange old_lines = 1;
-  // The lines standing in its place in the later commit.
+  // The lines that replace them in the later commit.
   LineRange new_lines = 2;
 }
 
-// FileMapping records where one file went and which of its regions the later commit rewrote.
+// FileMapping is where one file moved and which of its lines the later commit changed.
 message FileMapping {
-  // The file's path in the earlier commit, empty when that commit does not hold it.
+  // The file's path in the earlier commit. Empty when the file is not in that commit.
   string old_path = 1;
-  // The file's path in the later commit, empty when that commit does not hold it.
+  // The file's path in the later commit. Empty when the file is not in that commit.
   string new_path = 2;
-  // The regions the later commit rewrote, empty for a file whose content the patch does not draw.
+  // The lines the later commit changed. Empty for a file the patch shows no content for.
   repeated RangeMapping ranges = 3;
 }
 
@@ -134,19 +132,19 @@ message MapRangesResponse {
 }
 
 message ReplayRequest {
-  // Any directory inside the repository, absolute, which must be inside a live agent's directory.
+  // An absolute directory in the repository, inside a live agent's checkout.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
-  // The commit the snapshot was measured from.
+  // The base commit the snapshot was taken against.
   string from_base = 2 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^-]"
   }];
-  // The commit the snapshot is carried onto.
+  // The base commit to replay the snapshot onto.
   string onto_base = 3 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^-]"
   }];
-  // The commit carried.
+  // The snapshot commit to replay.
   string snapshot_sha = 4 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^-]"
@@ -154,21 +152,21 @@ message ReplayRequest {
 }
 
 message ReplayResponse {
-  // The tree the replay wrote, held by no ref.
+  // The tree the replay wrote. No ref points at it.
   string tree = 1;
-  // The paths both sides rewrote, empty when the replay settled.
+  // The paths that conflicted. Empty when the replay applied cleanly.
   repeated string conflicts = 2;
 }
 
 message IsAncestorRequest {
-  // Any directory inside the repository, absolute, which must be inside a live agent's directory.
+  // An absolute directory in the repository, inside a live agent's checkout.
   string dir = 1 [(buf.validate.field).string.min_len = 1];
   // The commit that may be an ancestor.
   string maybe_ancestor = 2 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^-]"
   }];
-  // The commit it may be reachable from.
+  // The commit `maybe_ancestor` may be reachable from.
   string of = 3 [(buf.validate.field).string = {
     min_len: 1
     pattern: "^[^-]"
@@ -176,81 +174,80 @@ message IsAncestorRequest {
 }
 
 message IsAncestorResponse {
-  // Whether maybe_ancestor is reachable from of.
+  // Whether `maybe_ancestor` is reachable from `of`.
   bool is_ancestor = 1;
 }
 
-// GitService runs git on the engine in the directories its agents work in, for a panel
-// somewhere else reading a review.
+// GitService runs git in agents' checkouts for a client on another machine.
 service GitService {
-  // GetRoot answers with the top of the working tree a directory belongs to.
+  // GetRoot returns the top directory of the working tree that holds a directory.
   rpc GetRoot(GetRootRequest) returns (GetRootResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "the review screen's git on a remote engine, which the panel calls"
+      reason: "A client reading a review on another machine calls this, and an agent runs git itself."
     };
   }
 
-  // ReadFiles answers with each named file as its commit holds it, read in one command.
+  // ReadFiles returns the content of each named file at its commit.
   rpc ReadFiles(ReadFilesRequest) returns (ReadFilesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "the review screen's git on a remote engine, which the panel calls"
+      reason: "A client reading a review on another machine calls this, and an agent runs git itself."
     };
   }
 
-  // CountChangedFiles answers with how many files differ between two commits.
+  // CountChangedFiles returns how many files differ between two commits.
   rpc CountChangedFiles(CountChangedFilesRequest) returns (CountChangedFilesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "the review screen's git on a remote engine, which the panel calls"
+      reason: "A client reading a review on another machine calls this, and an agent runs git itself."
     };
   }
 
-  // Diff answers with the patch between two commits.
+  // Diff returns the patch between two commits.
   rpc Diff(DiffRequest) returns (DiffResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "the review screen's git on a remote engine, which the panel calls"
+      reason: "A client reading a review on another machine calls this, and an agent runs git itself."
     };
   }
 
-  // MapRanges answers with what the later of two commits did to each file.
+  // MapRanges returns where each file moved between two commits and which lines changed.
   rpc MapRanges(MapRangesRequest) returns (MapRangesResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "the review screen's git on a remote engine, which the panel calls"
+      reason: "A client reading a review on another machine calls this, and an agent runs git itself."
     };
   }
 
-  // Replay carries a snapshot's own change onto another base in memory, answering with the tree
-  // that results and the paths that would not settle.
+  // Replay applies a snapshot's change onto another base commit in memory, and returns the
+  // resulting tree and the paths that conflicted.
   rpc Replay(ReplayRequest) returns (ReplayResponse) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "the review screen's git on a remote engine, which the panel calls"
+      reason: "A client reading a review on another machine calls this, and an agent runs git itself."
     };
   }
 
-  // IsAncestor answers whether one commit is reachable from another.
+  // IsAncestor returns whether one commit is reachable from another.
   rpc IsAncestor(IsAncestorRequest) returns (IsAncestorResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "the review screen's git on a remote engine, which the panel calls"
+      reason: "A client reading a review on another machine calls this, and an agent runs git itself."
     };
   }
 }

@@ -23,27 +23,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// MailKind tells mail an agent sent from mail komrad wrote itself.
+// MailKind is who wrote a piece of mail and why.
 type MailKind int32
 
 const (
-	// No kind was recorded. The panel draws a dash.
+	// No kind was recorded.
 	MailKind_MAIL_KIND_UNSPECIFIED MailKind = 0
-	// One agent writing to another, or the person writing to an agent.
+	// Mail from an agent or the person.
 	MailKind_MAIL_KIND_PLAIN MailKind = 1
-	// Komrad saying a review has moved, naming the file the comments were written to.
+	// From komrad: a review changed. The mail names the file the review was written to.
 	MailKind_MAIL_KIND_REVIEW_ACTIVITY MailKind = 2
-	// Komrad telling an agent that it and one other have spent their mail limit.
+	// From komrad: the agent and one other agent have used up their mail limit with each other.
 	MailKind_MAIL_KIND_EXCHANGE_CAPPED MailKind = 3
-	// Komrad telling an agent that a person wrote or edited one of its documents in the panel.
+	// From komrad: the person wrote or edited one of the agent's documents.
 	MailKind_MAIL_KIND_DOCUMENT_EDITED MailKind = 4
-	// Komrad telling an agent that a pull request on its branch changed at the forge.
+	// From komrad: a pull request on the agent's branch changed on the forge.
 	MailKind_MAIL_KIND_PULL_REQUEST_CHANGED MailKind = 5
-	// Komrad telling an agent that it rebased the agent's worktree, or tried to.
+	// From komrad: komrad rebased the agent's worktree, or tried to.
 	MailKind_MAIL_KIND_WORKTREE_REBASED MailKind = 6
-	// Komrad telling an agent that its branch was force-pushed to origin from the panel.
+	// From komrad: the agent's branch was force-pushed to origin.
 	MailKind_MAIL_KIND_WORKTREE_PUSHED MailKind = 7
-	// Komrad telling an agent that the rebase, merge or pick part-way through its worktree was aborted.
+	// From komrad: the sequence stopped in the agent's worktree was aborted.
 	MailKind_MAIL_KIND_WORKTREE_ABORTED MailKind = 8
 )
 
@@ -100,13 +100,13 @@ func (MailKind) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_mail_proto_rawDescGZIP(), []int{0}
 }
 
-// MailDirection is which half of an agent's correspondence a listing asks for.
+// MailDirection is whether a listing returns the mail an agent received or sent.
 type MailDirection int32
 
 const (
-	// Unspecified means received, the half an agent asks for by default.
+	// No direction was chosen. Treated as `MAIL_DIRECTION_RECEIVED`.
 	MailDirection_MAIL_DIRECTION_UNSPECIFIED MailDirection = 0
-	// The mail addressed to the agent.
+	// The mail sent to the agent.
 	MailDirection_MAIL_DIRECTION_RECEIVED MailDirection = 1
 	// The mail the agent sent.
 	MailDirection_MAIL_DIRECTION_SENT MailDirection = 2
@@ -153,27 +153,28 @@ func (MailDirection) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_mail_proto_rawDescGZIP(), []int{1}
 }
 
+// Mail is one message in an agent's mailbox.
 type Mail struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Set this as reply_to on an answer so the two read as a thread.
+	// The mail's id. Pass it as `reply_to` to answer.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Which agent sent it, unset when komrad sent it itself.
+	// The id of the agent that sent the mail. Unset when komrad sent it.
 	FromAgentId *string `protobuf:"bytes,2,opt,name=from_agent_id,json=fromAgentId,proto3,oneof" json:"from_agent_id,omitempty"`
-	// The sender's display name. Komrad uses its own name for mail it wrote.
+	// The sender's name. Mail komrad sent carries komrad's name.
 	FromName string `protobuf:"bytes,3,opt,name=from_name,json=fromName,proto3" json:"from_name,omitempty"`
-	// The agent it is waiting for.
+	// The id of the agent the mail is for.
 	ToAgentId string `protobuf:"bytes,4,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
-	// What the sender wrote.
+	// The mail's text.
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	// The mail this one answers, unset when it opens a subject.
+	// The id of the mail this one answers. Unset when the mail starts a thread.
 	ReplyTo *string `protobuf:"bytes,6,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
-	// When it was sent, in RFC 3339.
+	// When the mail was sent, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the recipient took it, unset while it is still waiting.
+	// When the recipient read the mail, in RFC 3339. Unset while it is unread.
 	ClaimedAt *string `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
-	// When it stops being offered, whether or not it was ever taken.
+	// When the mail expires, in RFC 3339, read or not.
 	ExpiresAt string `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
-	// Whether an agent wrote it or komrad raised it.
+	// Who wrote the mail and why.
 	Kind          MailKind `protobuf:"varint,10,opt,name=kind,proto3,enum=agent.v1.MailKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -281,11 +282,11 @@ func (x *Mail) GetKind() MailKind {
 
 type SendMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Who to send to: an agent's id, or the name of a live agent.
+	// The agent to send to, by id or by the name of a live agent.
 	To string `protobuf:"bytes,1,opt,name=to,proto3" json:"to,omitempty"`
-	// The message text. It must say who is asking and what they want.
+	// The mail's text.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	// The mail being answered, so the exchange reads as a thread.
+	// The id of the mail this one answers, so the two read as a thread.
 	ReplyTo       *string `protobuf:"bytes,3,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -344,9 +345,9 @@ func (x *SendMailRequest) GetReplyTo() string {
 
 type SendMailResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The mail as recorded, whose id an answer can reply to.
+	// The mail as sent.
 	Mail *Mail `protobuf:"bytes,1,opt,name=mail,proto3" json:"mail,omitempty"`
-	// Why the recipient will not read this soon, set when nothing runs behind it.
+	// Why the recipient will not read the mail soon. Unset when the recipient is running.
 	Warning       *string `protobuf:"bytes,2,opt,name=warning,proto3,oneof" json:"warning,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -398,18 +399,17 @@ func (x *SendMailResponse) GetWarning() string {
 
 type ForwardLastTurnsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose newest turns to forward.
+	// The agent whose newest turns to forward, by id.
 	FromAgentId string `protobuf:"bytes,1,opt,name=from_agent_id,json=fromAgentId,proto3" json:"from_agent_id,omitempty"`
-	// Who to send them to, by id. Two workflows may hold agents of one name.
+	// The agent to forward them to, by id.
 	ToAgentId string `protobuf:"bytes,2,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
-	// How many of the source's newest turns to forward, with the prompts between them, or unset
-	// for the last one alone.
+	// How many of the newest agent turns to forward, with the prompts between them. Unset forwards
+	// the last turn only.
 	Turns *int32 `protobuf:"varint,3,opt,name=turns,proto3,oneof" json:"turns,omitempty"`
-	// A note to the recipient about the forward, in the caller's own words. The recipient reads
-	// it before the turns.
+	// A note to the recipient, which comes before the turns.
 	Note *string `protobuf:"bytes,4,opt,name=note,proto3,oneof" json:"note,omitempty"`
-	// The maximum text to forward for each turn. Komrad cuts from the head so the end survives.
-	// Unset means the default.
+	// The most bytes to forward for each turn. A longer turn loses its start, so its end stays.
+	// Unset uses the default.
 	MaxBytes      *int32 `protobuf:"varint,5,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -482,17 +482,17 @@ func (x *ForwardLastTurnsRequest) GetMaxBytes() int32 {
 
 type ForwardLastTurnsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The id of the mail as recorded, which an answer can reply to.
+	// The id of the mail sent. Pass it as `reply_to` to answer.
 	MailId string `protobuf:"bytes,1,opt,name=mail_id,json=mailId,proto3" json:"mail_id,omitempty"`
-	// The agent it is waiting for.
+	// The id of the agent the mail is for.
 	ToAgentId string `protobuf:"bytes,2,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
-	// When it was sent, in RFC 3339.
+	// When the mail was sent, in RFC 3339.
 	CreatedAt string `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// How many of the source's turns went, prompts included.
+	// How many turns the mail carries, prompts included.
 	Turns int32 `protobuf:"varint,4,opt,name=turns,proto3" json:"turns,omitempty"`
-	// How many characters the whole body came to.
+	// How many characters the mail's text runs to.
 	Characters int32 `protobuf:"varint,5,opt,name=characters,proto3" json:"characters,omitempty"`
-	// Why the recipient will not read this soon, set when nothing runs behind it.
+	// Why the recipient will not read the mail soon. Unset when the recipient is running.
 	Warning       *string `protobuf:"bytes,6,opt,name=warning,proto3,oneof" json:"warning,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -572,7 +572,7 @@ func (x *ForwardLastTurnsResponse) GetWarning() string {
 
 type ClaimMailNudgeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The line telling the agent about its unread mail, empty when it has none or was told recently.
+	// The line telling the agent it has unread mail. Empty when it has none or was told recently.
 	Nudge         string `protobuf:"bytes,1,opt,name=nudge,proto3" json:"nudge,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -617,7 +617,7 @@ func (x *ClaimMailNudgeResponse) GetNudge() string {
 
 type ReadMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose mailbox to empty, or unset for the caller's own.
+	// The agent whose unread mail to read, by id. Unset reads the caller's own.
 	Id            *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -662,7 +662,7 @@ func (x *ReadMailRequest) GetId() string {
 
 type ReadMailResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Everything that was waiting, oldest first, now marked read.
+	// All the unread mail, oldest first, now marked read.
 	Mail          []*Mail `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -707,11 +707,11 @@ func (x *ReadMailResponse) GetMail() []*Mail {
 
 type ListMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whose mail to list, or unset for the caller's own.
+	// The agent whose mail to list, by id. Unset lists the caller's own.
 	Id *string `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
-	// Where to carry on from.
+	// The page to read.
 	Pagination *v1.Pagination `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// Which half of the correspondence to return.
+	// Whether to list the mail the agent received or sent.
 	Direction     MailDirection `protobuf:"varint,3,opt,name=direction,proto3,enum=agent.v1.MailDirection" json:"direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -770,9 +770,9 @@ func (x *ListMailRequest) GetDirection() MailDirection {
 
 type ListMailResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One page of mail, most recent first, none of it claimed by listing it.
+	// One page of mail, newest first. Listing mail does not mark it read.
 	Mail []*Mail `protobuf:"bytes,1,rep,name=mail,proto3" json:"mail,omitempty"`
-	// Pass this back as the pagination cursor for the next page.
+	// The cursor for the next page. Unset on the last page.
 	NextPageToken *string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -824,7 +824,7 @@ func (x *ListMailResponse) GetNextPageToken() string {
 
 type DeleteMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The mail to erase, read or not. The recipient never sees it.
+	// The mail to delete, by id, read or not. The recipient never sees unread mail once deleted.
 	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

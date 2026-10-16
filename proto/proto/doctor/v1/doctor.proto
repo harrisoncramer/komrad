@@ -7,46 +7,48 @@ import "google/protobuf/empty.proto";
 
 option go_package = "komrad/proto/gen/doctor/v1;doctorv1";
 
+// Finding is the result of one doctor check.
 message Finding {
-  // Which check this is, such as database or tmux shell.
+  // The check's name, such as `database` or `tmux shell`.
   string name = 1;
-  // What the check is for, in a sentence.
+  // What the check is for, in one sentence.
   string description = 2;
-  // How it came out: ok, warn, fail or skip.
+  // How the check came out: `ok`, `warn`, `fail` or `skip`.
   string status = 3;
-  // What was found, such as the version read or the path checked, when there is something to say.
+  // What the check found, such as a version or a path. Empty when there is nothing to report.
   string detail = 4;
-  // A stable code for what went wrong, such as db_unreachable, empty when nothing did.
+  // A stable code for the problem, such as `db_unreachable`. Empty when nothing went wrong.
   string code = 5;
-  // What went wrong, as the check worded it, empty when nothing did.
+  // The problem, as the check worded it. Empty when nothing went wrong.
   string error = 6;
-  // What to do about it, empty when there is nothing to do.
+  // What to do about the problem. Empty when there is nothing to do.
   string fix = 7;
 }
 
+// Summary counts the findings of a doctor run by status.
 message Summary {
   // How many checks passed.
   int32 ok = 1;
-  // How many passed with something worth a look.
+  // How many checks passed with a warning.
   int32 warn = 2;
-  // How many failed.
+  // How many checks failed.
   int32 fail = 3;
-  // How many were not made because one they need did not pass.
+  // How many checks were skipped because a check they need did not pass.
   int32 skip = 4;
-  // How many checks there were.
+  // How many checks there are in all.
   int32 total = 5;
-  // Whether nothing failed.
+  // Whether no check failed.
   bool healthy = 6;
 }
 
 message RunDoctorResponse {
-  // Every check the server made, in the order it made them.
+  // Every check, in the order it ran.
   repeated Finding findings = 1;
-  // The findings counted up.
+  // The findings counted by status.
   Summary summary = 2;
 }
 
-// DoctorService makes the checks the doctor makes, on the machine the server runs on.
+// DoctorService checks the machine the server runs on.
 service DoctorService {
   rpc RunDoctor(google.protobuf.Empty) returns (RunDoctorResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -54,7 +56,7 @@ service DoctorService {
       cli: true
       mcp: true
       name: "run_doctor"
-      description: "Check whether the machine the server runs on is fit to run agents: tmux, config, harness binaries, hooks, worktree directories and the database."
+      description: "Check whether the machine the server runs on can run agents. The checks cover tmux, the config, the CLIs, hooks, worktree directories and the database."
       roles: [ROLE_ORCHESTRATOR]
     };
   }

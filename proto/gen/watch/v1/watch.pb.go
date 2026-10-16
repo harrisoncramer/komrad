@@ -29,33 +29,33 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Resource names the table a row belongs to, one value per member of Row.
+// Resource is the kind of a watched record, one value per member of `Row`.
 type Resource int32
 
 const (
-	// No resource was set, which the server never sends.
+	// No kind was set. Komrad never sends this value.
 	Resource_RESOURCE_UNSPECIFIED Resource = 0
-	// A row of agents.
+	// An agent.
 	Resource_RESOURCE_AGENT Resource = 1
-	// A row of workflows.
+	// A workflow.
 	Resource_RESOURCE_WORKFLOW Resource = 2
-	// A row of schedules.
+	// A schedule.
 	Resource_RESOURCE_SCHEDULE Resource = 3
-	// A row of mail.
+	// A piece of mail.
 	Resource_RESOURCE_MAIL Resource = 4
-	// A row of pull_requests.
+	// A pull request.
 	Resource_RESOURCE_PULL_REQUEST Resource = 5
-	// A row of pull_request_syncs.
+	// A repository and whether its pull requests have been read.
 	Resource_RESOURCE_REPOSITORY Resource = 6
-	// A row of reviews.
+	// A review.
 	Resource_RESOURCE_REVIEW Resource = 7
-	// A row of review_threads.
+	// A thread.
 	Resource_RESOURCE_REVIEW_THREAD Resource = 8
-	// A row of worktrees.
+	// A worktree.
 	Resource_RESOURCE_WORKTREE Resource = 9
-	// A row of document_types.
+	// A document type.
 	Resource_RESOURCE_DOCUMENT_TYPE Resource = 10
-	// A row of tasks.
+	// A task.
 	Resource_RESOURCE_TASK Resource = 11
 )
 
@@ -118,10 +118,10 @@ func (Resource) EnumDescriptor() ([]byte, []int) {
 	return file_watch_v1_watch_proto_rawDescGZIP(), []int{0}
 }
 
-// WatchEvent is the snapshot a stream opens with, the changes one pass found, or a heartbeat.
+// WatchEvent is one message on a watch stream: the snapshot, a batch of changes, or a heartbeat.
 type WatchEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// What moved.
+	// The event.
 	//
 	// Types that are valid to be assigned to Event:
 	//
@@ -202,17 +202,17 @@ type isWatchEvent_Event interface {
 }
 
 type WatchEvent_Snapshot struct {
-	// Every row the watched sets hold, sent once as the stream opens.
+	// Every watched record, sent once as the stream opens.
 	Snapshot *Snapshot `protobuf:"bytes,1,opt,name=snapshot,proto3,oneof"`
 }
 
 type WatchEvent_Changes struct {
-	// Every row that moved in one pass over the database.
+	// The records that changed since the last event.
 	Changes *Changes `protobuf:"bytes,2,opt,name=changes,proto3,oneof"`
 }
 
 type WatchEvent_Heartbeat struct {
-	// Nothing has changed for a while, and the stream is still alive.
+	// A sign the stream is alive while nothing has changed for a while.
 	Heartbeat *emptypb.Empty `protobuf:"bytes,3,opt,name=heartbeat,proto3,oneof"`
 }
 
@@ -222,10 +222,10 @@ func (*WatchEvent_Changes) isWatchEvent_Event() {}
 
 func (*WatchEvent_Heartbeat) isWatchEvent_Event() {}
 
-// Snapshot is every watched set.
+// Snapshot is every watched record.
 type Snapshot struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every row in the snapshot.
+	// The records.
 	Rows          []*Row `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -268,12 +268,12 @@ func (x *Snapshot) GetRows() []*Row {
 	return nil
 }
 
-// Changes holds the rows that moved in one pass over the database.
+// Changes is the records that changed since the last event.
 type Changes struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The rows as the panel should now hold them.
+	// The records created or changed, in full.
 	Puts []*Row `protobuf:"bytes,1,rep,name=puts,proto3" json:"puts,omitempty"`
-	// The rows their watched sets no longer hold, whether the panel held them or not.
+	// The records no longer watched. A client may never have held some of them.
 	Deleted       []*Deleted `protobuf:"bytes,2,rep,name=deleted,proto3" json:"deleted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -323,10 +323,10 @@ func (x *Changes) GetDeleted() []*Deleted {
 	return nil
 }
 
-// Row is one row of a resource table, rendered the way its list RPC renders it.
+// Row is one watched record, in the shape its list call returns.
 type Row struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which resource the row is.
+	// The record.
 	//
 	// Types that are valid to be assigned to Row:
 	//
@@ -487,27 +487,27 @@ type isRow_Row interface {
 }
 
 type Row_Agent struct {
-	// An agent as ListAgents renders it.
+	// An agent, as `list_agents` returns it.
 	Agent *v1.Agent `protobuf:"bytes,1,opt,name=agent,proto3,oneof"`
 }
 
 type Row_Workflow struct {
-	// A workflow as ListWorkflows renders it.
+	// A workflow, as `list_workflows` returns it.
 	Workflow *v11.Workflow `protobuf:"bytes,2,opt,name=workflow,proto3,oneof"`
 }
 
 type Row_Schedule struct {
-	// A schedule as ListSchedules renders it.
+	// A schedule, as `list_schedules` returns it.
 	Schedule *v12.Schedule `protobuf:"bytes,3,opt,name=schedule,proto3,oneof"`
 }
 
 type Row_Mail struct {
-	// A piece of mail as ListMail renders it.
+	// A piece of mail, as `list_mail` returns it.
 	Mail *v1.Mail `protobuf:"bytes,4,opt,name=mail,proto3,oneof"`
 }
 
 type Row_PullRequest struct {
-	// A pull request as ListPullRequests renders it.
+	// A pull request, as `list_pull_requests` returns it.
 	PullRequest *v13.PullRequest `protobuf:"bytes,5,opt,name=pull_request,json=pullRequest,proto3,oneof"`
 }
 
@@ -527,7 +527,7 @@ type Row_ReviewThread struct {
 }
 
 type Row_Worktree struct {
-	// A worktree as the filesystem holds it.
+	// A worktree, as it is on disk.
 	Worktree *v14.WatchedWorktree `protobuf:"bytes,9,opt,name=worktree,proto3,oneof"`
 }
 
@@ -537,7 +537,7 @@ type Row_DocumentType struct {
 }
 
 type Row_Task struct {
-	// A task as ListTasks renders it.
+	// A task, as `list_tasks` returns it.
 	Task *v15.Task `protobuf:"bytes,11,opt,name=task,proto3,oneof"`
 }
 
@@ -563,13 +563,12 @@ func (*Row_DocumentType) isRow_Row() {}
 
 func (*Row_Task) isRow_Row() {}
 
-// Deleted names a row its watched set no longer holds, whether it was removed or claimed for a
-// delete.
+// Deleted names a record that is no longer watched, because it was deleted or is being deleted.
 type Deleted struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which resource the row was of.
+	// The kind of the record.
 	Resource Resource `protobuf:"varint,1,opt,name=resource,proto3,enum=watch.v1.Resource" json:"resource,omitempty"`
-	// The key of the row.
+	// The record's key.
 	Key           string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -667,9 +666,9 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x11RESOURCE_WORKTREE\x10\t\x12\x1a\n" +
 	"\x16RESOURCE_DOCUMENT_TYPE\x10\n" +
 	"\x12\x11\n" +
-	"\rRESOURCE_TASK\x10\v2\x93\x01\n" +
-	"\fWatchService\x12\x82\x01\n" +
-	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"I\x9a\xb5\x18BB@a stream the panel holds open; a model or a script lists instead\x90\x02\x010\x01B#Z!komrad/proto/gen/watch/v1;watchv1b\x06proto3"
+	"\rRESOURCE_TASK\x10\v2\xba\x01\n" +
+	"\fWatchService\x12\xa9\x01\n" +
+	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"p\x9a\xb5\x18iBgA stream held open by a long-running client, where an agent or a script calls the list methods instead.\x90\x02\x010\x01B#Z!komrad/proto/gen/watch/v1;watchv1b\x06proto3"
 
 var (
 	file_watch_v1_watch_proto_rawDescOnce sync.Once

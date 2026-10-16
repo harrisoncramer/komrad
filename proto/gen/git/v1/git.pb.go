@@ -25,7 +25,7 @@ const (
 
 type GetRootRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Any directory inside the repository, absolute, which must be inside a live agent's directory.
+	// An absolute directory in the repository, inside a live agent's checkout.
 	Dir           string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -70,7 +70,7 @@ func (x *GetRootRequest) GetDir() string {
 
 type GetRootResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The top of the working tree the directory belongs to.
+	// The top directory of the working tree that holds `dir`.
 	Root          string `protobuf:"bytes,1,opt,name=root,proto3" json:"root,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -113,12 +113,12 @@ func (x *GetRootResponse) GetRoot() string {
 	return ""
 }
 
-// FileRevision names one file as one commit holds it.
+// FileRevision is one file at one commit.
 type FileRevision struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The commit.
+	// The commit to read the file at.
 	Sha string `protobuf:"bytes,1,opt,name=sha,proto3" json:"sha,omitempty"`
-	// The file's path from the top of the repository.
+	// The file's path, relative to the top of the repository.
 	Path          string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -170,7 +170,7 @@ func (x *FileRevision) GetPath() string {
 
 type ReadFilesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Any directory inside the repository, absolute, which must be inside a live agent's directory.
+	// An absolute directory in the repository, inside a live agent's checkout.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
 	// The files to read.
 	Revisions     []*FileRevision `protobuf:"bytes,2,rep,name=revisions,proto3" json:"revisions,omitempty"`
@@ -222,10 +222,10 @@ func (x *ReadFilesRequest) GetRevisions() []*FileRevision {
 	return nil
 }
 
-// File is one file as its commit holds it.
+// File is the content of one file at one commit.
 type File struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Which file and commit this is, as the request named it.
+	// The file and commit, as the request named them.
 	Revision *FileRevision `protobuf:"bytes,1,opt,name=revision,proto3" json:"revision,omitempty"`
 	// The file's content.
 	Content       []byte `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
@@ -279,7 +279,7 @@ func (x *File) GetContent() []byte {
 
 type ReadFilesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The files read, leaving out any the named commit does not hold as a file.
+	// The files read. A path that is not a file at its commit is left out.
 	Files         []*File `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -324,11 +324,11 @@ func (x *ReadFilesResponse) GetFiles() []*File {
 
 type CountChangedFilesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Any directory inside the repository, absolute, which must be inside a live agent's directory.
+	// An absolute directory in the repository, inside a live agent's checkout.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The commit to count from. Empty counts nothing.
+	// The commit to count from. Empty to count nothing.
 	FromSha string `protobuf:"bytes,2,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
-	// The commit to count to. Empty counts nothing.
+	// The commit to count to. Empty to count nothing.
 	ToSha string `protobuf:"bytes,3,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
 	// The paths and globs to leave out, relative to the top of the repository.
 	Exclude       []string `protobuf:"bytes,4,rep,name=exclude,proto3" json:"exclude,omitempty"`
@@ -441,11 +441,11 @@ func (x *CountChangedFilesResponse) GetCount() int32 {
 
 type DiffRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The repository, absolute, which must be inside a live agent's directory.
+	// An absolute directory in the repository, inside a live agent's checkout.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The commit the patch is measured from.
+	// The commit the patch starts from.
 	FromSha string `protobuf:"bytes,2,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
-	// The commit the patch is measured to.
+	// The commit the patch ends at.
 	ToSha string `protobuf:"bytes,3,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
 	// The paths and globs to leave out, relative to the top of the repository.
 	Exclude       []string `protobuf:"bytes,4,rep,name=exclude,proto3" json:"exclude,omitempty"`
@@ -513,7 +513,7 @@ func (x *DiffRequest) GetExclude() []string {
 
 type DiffResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The patch, with the a/ and b/ prefixes a parser of it expects.
+	// The patch, with the `a/` and `b/` path prefixes.
 	Patch         []byte `protobuf:"bytes,1,opt,name=patch,proto3" json:"patch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -558,14 +558,13 @@ func (x *DiffResponse) GetPatch() []byte {
 
 type MapRangesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Any directory inside the repository, absolute, which must be inside a live agent's directory.
+	// An absolute directory in the repository, inside a live agent's checkout.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The commit the positions being moved were measured in.
+	// The commit the line positions come from.
 	FromSha string `protobuf:"bytes,2,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
-	// The commit they are being moved to.
+	// The commit to map the line positions to.
 	ToSha string `protobuf:"bytes,3,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
-	// The files of the earlier commit to answer for, relative to the top of the repository, and every
-	// file when empty.
+	// The files in `from_sha` to map, relative to the top of the repository. Empty for every file.
 	Paths         []string `protobuf:"bytes,4,rep,name=paths,proto3" json:"paths,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -629,11 +628,10 @@ func (x *MapRangesRequest) GetPaths() []string {
 	return nil
 }
 
-// LineRange is a span of lines numbered from one. It includes its start and excludes its end. A
-// span whose start and end are equal is the point between two lines.
+// LineRange is a span of lines, numbered from one, that includes its start and excludes its end.
 type LineRange struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The first line of the span.
+	// The first line of the span. Equal to `end` for the point between two lines.
 	Start int32 `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
 	// The line after the last line of the span.
 	End           int32 `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
@@ -685,12 +683,12 @@ func (x *LineRange) GetEnd() int32 {
 	return 0
 }
 
-// RangeMapping pairs a region of the old file with the lines standing in its place.
+// RangeMapping pairs lines in the old file with the lines that replace them in the new file.
 type RangeMapping struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The region of the file in the earlier commit.
+	// The lines in the earlier commit.
 	OldLines *LineRange `protobuf:"bytes,1,opt,name=old_lines,json=oldLines,proto3" json:"old_lines,omitempty"`
-	// The lines standing in its place in the later commit.
+	// The lines that replace them in the later commit.
 	NewLines      *LineRange `protobuf:"bytes,2,opt,name=new_lines,json=newLines,proto3" json:"new_lines,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -740,14 +738,14 @@ func (x *RangeMapping) GetNewLines() *LineRange {
 	return nil
 }
 
-// FileMapping records where one file went and which of its regions the later commit rewrote.
+// FileMapping is where one file moved and which of its lines the later commit changed.
 type FileMapping struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The file's path in the earlier commit, empty when that commit does not hold it.
+	// The file's path in the earlier commit. Empty when the file is not in that commit.
 	OldPath string `protobuf:"bytes,1,opt,name=old_path,json=oldPath,proto3" json:"old_path,omitempty"`
-	// The file's path in the later commit, empty when that commit does not hold it.
+	// The file's path in the later commit. Empty when the file is not in that commit.
 	NewPath string `protobuf:"bytes,2,opt,name=new_path,json=newPath,proto3" json:"new_path,omitempty"`
-	// The regions the later commit rewrote, empty for a file whose content the patch does not draw.
+	// The lines the later commit changed. Empty for a file the patch shows no content for.
 	Ranges        []*RangeMapping `protobuf:"bytes,3,rep,name=ranges,proto3" json:"ranges,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -851,13 +849,13 @@ func (x *MapRangesResponse) GetFiles() []*FileMapping {
 
 type ReplayRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Any directory inside the repository, absolute, which must be inside a live agent's directory.
+	// An absolute directory in the repository, inside a live agent's checkout.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
-	// The commit the snapshot was measured from.
+	// The base commit the snapshot was taken against.
 	FromBase string `protobuf:"bytes,2,opt,name=from_base,json=fromBase,proto3" json:"from_base,omitempty"`
-	// The commit the snapshot is carried onto.
+	// The base commit to replay the snapshot onto.
 	OntoBase string `protobuf:"bytes,3,opt,name=onto_base,json=ontoBase,proto3" json:"onto_base,omitempty"`
-	// The commit carried.
+	// The snapshot commit to replay.
 	SnapshotSha   string `protobuf:"bytes,4,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -923,9 +921,9 @@ func (x *ReplayRequest) GetSnapshotSha() string {
 
 type ReplayResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The tree the replay wrote, held by no ref.
+	// The tree the replay wrote. No ref points at it.
 	Tree string `protobuf:"bytes,1,opt,name=tree,proto3" json:"tree,omitempty"`
-	// The paths both sides rewrote, empty when the replay settled.
+	// The paths that conflicted. Empty when the replay applied cleanly.
 	Conflicts     []string `protobuf:"bytes,2,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -977,11 +975,11 @@ func (x *ReplayResponse) GetConflicts() []string {
 
 type IsAncestorRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Any directory inside the repository, absolute, which must be inside a live agent's directory.
+	// An absolute directory in the repository, inside a live agent's checkout.
 	Dir string `protobuf:"bytes,1,opt,name=dir,proto3" json:"dir,omitempty"`
 	// The commit that may be an ancestor.
 	MaybeAncestor string `protobuf:"bytes,2,opt,name=maybe_ancestor,json=maybeAncestor,proto3" json:"maybe_ancestor,omitempty"`
-	// The commit it may be reachable from.
+	// The commit `maybe_ancestor` may be reachable from.
 	Of            string `protobuf:"bytes,3,opt,name=of,proto3" json:"of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1040,7 +1038,7 @@ func (x *IsAncestorRequest) GetOf() string {
 
 type IsAncestorResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether maybe_ancestor is reachable from of.
+	// Whether `maybe_ancestor` is reachable from `of`.
 	IsAncestor    bool `protobuf:"varint,1,opt,name=is_ancestor,json=isAncestor,proto3" json:"is_ancestor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1148,17 +1146,17 @@ const file_git_v1_git_proto_rawDesc = "" +
 	"\x02of\x18\x03 \x01(\tB\x0e\xbaH\vr\t\x10\x012\x05^[^-]R\x02of\"5\n" +
 	"\x12IsAncestorResponse\x12\x1f\n" +
 	"\vis_ancestor\x18\x01 \x01(\bR\n" +
-	"isAncestor2\xf1\a\n" +
+	"isAncestor2\x85\t\n" +
 	"\n" +
-	"GitService\x12\x86\x01\n" +
-	"\aGetRoot\x12\x16.git.v1.GetRootRequest\x1a\x17.git.v1.GetRootResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x8c\x01\n" +
-	"\tReadFiles\x12\x18.git.v1.ReadFilesRequest\x1a\x19.git.v1.ReadFilesResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\xa4\x01\n" +
-	"\x11CountChangedFiles\x12 .git.v1.CountChangedFilesRequest\x1a!.git.v1.CountChangedFilesResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12}\n" +
-	"\x04Diff\x12\x13.git.v1.DiffRequest\x1a\x14.git.v1.DiffResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x8c\x01\n" +
-	"\tMapRanges\x12\x18.git.v1.MapRangesRequest\x1a\x19.git.v1.MapRangesResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01\x12\x83\x01\n" +
-	"\x06Replay\x12\x15.git.v1.ReplayRequest\x1a\x16.git.v1.ReplayResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x02\x12\x8f\x01\n" +
+	"GitService\x12\x9b\x01\n" +
+	"\aGetRoot\x12\x16.git.v1.GetRootRequest\x1a\x17.git.v1.GetRootResponse\"_\x9a\xb5\x18XBVA client reading a review on another machine calls this, and an agent runs git itself.\x90\x02\x01\x12\xa1\x01\n" +
+	"\tReadFiles\x12\x18.git.v1.ReadFilesRequest\x1a\x19.git.v1.ReadFilesResponse\"_\x9a\xb5\x18XBVA client reading a review on another machine calls this, and an agent runs git itself.\x90\x02\x01\x12\xb9\x01\n" +
+	"\x11CountChangedFiles\x12 .git.v1.CountChangedFilesRequest\x1a!.git.v1.CountChangedFilesResponse\"_\x9a\xb5\x18XBVA client reading a review on another machine calls this, and an agent runs git itself.\x90\x02\x01\x12\x92\x01\n" +
+	"\x04Diff\x12\x13.git.v1.DiffRequest\x1a\x14.git.v1.DiffResponse\"_\x9a\xb5\x18XBVA client reading a review on another machine calls this, and an agent runs git itself.\x90\x02\x01\x12\xa1\x01\n" +
+	"\tMapRanges\x12\x18.git.v1.MapRangesRequest\x1a\x19.git.v1.MapRangesResponse\"_\x9a\xb5\x18XBVA client reading a review on another machine calls this, and an agent runs git itself.\x90\x02\x01\x12\x98\x01\n" +
+	"\x06Replay\x12\x15.git.v1.ReplayRequest\x1a\x16.git.v1.ReplayResponse\"_\x9a\xb5\x18XBVA client reading a review on another machine calls this, and an agent runs git itself.\x90\x02\x02\x12\xa4\x01\n" +
 	"\n" +
-	"IsAncestor\x12\x19.git.v1.IsAncestorRequest\x1a\x1a.git.v1.IsAncestorResponse\"J\x9a\xb5\x18CBAthe review screen's git on a remote engine, which the panel calls\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/git/v1;gitv1b\x06proto3"
+	"IsAncestor\x12\x19.git.v1.IsAncestorRequest\x1a\x1a.git.v1.IsAncestorResponse\"_\x9a\xb5\x18XBVA client reading a review on another machine calls this, and an agent runs git itself.\x90\x02\x01B\x1fZ\x1dkomrad/proto/gen/git/v1;gitv1b\x06proto3"
 
 var (
 	file_git_v1_git_proto_rawDescOnce sync.Once

@@ -8,15 +8,15 @@ import "google/protobuf/empty.proto";
 
 option go_package = "komrad/proto/gen/loop/v1;loopv1";
 
-// Loop names a background loop the server runs that can be woken before its next tick.
+// Loop is a background loop komrad runs on a timer, which a caller can wake early.
 enum Loop {
-  // No loop was named. A wake refuses it.
+  // No loop was named. `WakeLoop` refuses this value.
   LOOP_UNSPECIFIED = 0;
-  // Reads each live agent's working directory for its branch, its head and the lines it changed.
+  // Reads each live agent's checkout for its branch, head commit and changed lines.
   LOOP_CWD_SYNC = 1;
-  // Reads each agent's conversation log for new turns.
+  // Reads each agent's transcript for new turns.
   LOOP_TRANSCRIPT_SYNC = 2;
-  // Reads the pull requests opened from agents' branches.
+  // Reads the pull requests from agents' branches.
   LOOP_PULL_REQUEST_SYNC = 3;
 }
 
@@ -28,15 +28,15 @@ message WakeLoopRequest {
   }];
 }
 
-// LoopService wakes the server's background loops.
+// LoopService wakes komrad's background loops.
 service LoopService {
-  // WakeLoop asks a loop to run before its next tick, no sooner than its floor allows.
+  // WakeLoop runs a loop before its next tick, but no sooner than its minimum interval allows.
   rpc WakeLoop(WakeLoopRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "the panel wakes a loop when a person looks at what it reads"
+      reason: "A client wakes a loop when the person looks at what the loop reads."
     };
   }
 }

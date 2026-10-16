@@ -24,17 +24,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Hook is a script in the hooks directory.
 type Hook struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The file name in the hooks directory. A workflow names it to fire the hook.
+	// The hook's file name in the hooks directory. A workflow names the hook by it.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Whether the file can run. It cannot until the user makes it executable.
+	// Whether the file is executable. The hook cannot run until it is.
 	Executable bool `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
-	// The description in the script's header comments.
+	// The description from the hook's header comments.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// How long komrad lets the script run. Its header can shorten the hooks.timeout setting but never lengthen it.
+	// How long the hook may run. The header can shorten the `hooks.timeout` setting but not
+	// lengthen it.
 	Timeout *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3,oneof" json:"timeout,omitempty"`
-	// The header lines komrad could not read. Each one leaves its setting at the default.
+	// The header lines that could not be read. Each one leaves its setting at the default.
 	HeaderProblems []string `protobuf:"bytes,5,rep,name=header_problems,json=headerProblems,proto3" json:"header_problems,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -107,7 +109,7 @@ func (x *Hook) GetHeaderProblems() []string {
 
 type ListHooksResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every file in the hooks directory, runnable or not.
+	// Every file in the hooks directory, executable or not.
 	Hooks         []*Hook `protobuf:"bytes,1,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -169,7 +171,7 @@ const file_hook_v1_hook_proto_rawDesc = "" +
 	"\x05hooks\x18\x01 \x03(\v2\r.hook.v1.HookR\x05hooks2\xd8\x01\n" +
 	"\vHookService\x12\xc8\x01\n" +
 	"\tListHooks\x12\x16.google.protobuf.Empty\x1a\x1a.hook.v1.ListHooksResponse\"\x86\x01\x9a\xb5\x18\x7f\b\x01\x10\x01\x1a\n" +
-	"list_hooks\"jList the hook scripts in the user's hooks directory, by the name create_workflow and update_workflow take.:\x01\x02\x90\x02\x01B!Z\x1fkomrad/proto/gen/hook/v1;hookv1b\x06proto3"
+	"list_hooks\"jList the hooks in the person's hooks directory, by the names `create_workflow` and `update_workflow` take.:\x01\x02\x90\x02\x01B!Z\x1fkomrad/proto/gen/hook/v1;hookv1b\x06proto3"
 
 var (
 	file_hook_v1_hook_proto_rawDescOnce sync.Once
