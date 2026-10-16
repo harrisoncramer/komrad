@@ -51,6 +51,20 @@ The terminal in an agent's [menu](../navigation/#the-menu) works the same way. I
 
 One exception is a window someone fixed at a size on the engine itself, for example by opening a panel there, which runs tmux's `resize-window` and sets the window's `window-size` to `manual`. That window keeps its size wherever it attaches, so a smaller terminal crops it and a larger one leaves blank space around it.
 
+## Editing files on the engine
+
+Every agent's files live on the engine, so your editor opens them there. <Command path="login" /> writes an SSH host for the engine in `~/.ssh/komrad/`, named `komrad-` and the engine's name, such as `komrad-remote`. SSH to that host travels through the engine's API on your sign-in, so the engine needs no SSH port.
+
+The edit keys use that host. <Key name="menu.edit" /> on an agent and <Key name="review.edit_file" /> in a review open the file with your `$EDITOR`. A terminal editor such as `nvim` runs on the engine, in the pane beside the stage, so the engine needs that editor installed. VS Code, Cursor and Zed open a window on your laptop that edits the engine's files over the same host. Sublime Text and JetBrains editors cannot open files on another machine, so the edit keys refuse them.
+
+To reach the engine from any other program, such as `ssh`, `scp` or your editor's remote window, add this line to the top of `~/.ssh/config`:
+
+```
+Include ~/.ssh/komrad/*.conf
+```
+
+Then `ssh komrad-remote` opens a shell on the engine. <Command path="login" /> prints the line when your `~/.ssh/config` lacks it.
+
 ## Agent CLI logins
 
 Agents on the engine run a CLI that has to be logged in. Do that once on the engine: start the CLI and log in. The login lives on the engine's data disk.

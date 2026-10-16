@@ -93,6 +93,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				shellCommand    []string
 				terminalCommand []string
 				signIn          ui.SignIn
+				ssh             sshHost
 			)
 
 			switch {
@@ -100,6 +101,11 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				addr, base = remote.URL, remote.URL
 				shellCommand = append(slices.Clone(self), "shell")
 				terminalCommand = append(slices.Clone(self), "terminal")
+				host, err := sshHostOf(state.configStack)
+				if err != nil {
+					return err
+				}
+				ssh = host
 				signIn = &panelSignIn{
 					url:       remote.URL,
 					transport: state.signTransport(xhttp.NewTransport()),
@@ -107,6 +113,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 					keeper:    engine.NewSignInKeeper(state.env.StateDir),
 					opener:    browser.NewDesktop(),
 					listen:    engine.CallbackAddr,
+					setUpSSH:  state.setUpSSH,
 				}
 			case state.configErr == nil:
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
@@ -174,11 +181,13 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				TerminalCommand: terminalCommand,
 				Binary:          binary,
 				Settings: ui.PanelSettings{
-					Addr:     addr,
-					Editor:   state.env.Editor,
-					Pane:     state.env.TmuxPane,
-					VimMode:  state.vimMode,
-					DiffWrap: state.diffWrap,
+					Addr:      addr,
+					Editor:    state.env.Editor,
+					SSHHost:   ssh.Name,
+					SSHConfig: ssh.Config,
+					Pane:      state.env.TmuxPane,
+					VimMode:   state.vimMode,
+					DiffWrap:  state.diffWrap,
 				},
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,

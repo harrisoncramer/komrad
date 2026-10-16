@@ -108,6 +108,30 @@ message AttachResponse {
   }
 }
 
+// SSHRequest is one message from the client on an SSH stream. A message with nothing set keeps the
+// stream open while the connection is quiet.
+message SSHRequest {
+  // The message.
+  oneof message {
+    // Bytes the SSH client sent.
+    bytes data = 1;
+    // A new ID token for the caller, which keeps the stream open past the first token's expiry.
+    string token = 2;
+  }
+}
+
+// SSHResponse is one message from komrad on an SSH stream.
+message SSHResponse {
+  // Bytes the SSH server sent.
+  bytes data = 1;
+}
+
+message GetSSHHostKeyResponse {
+  // The public half of the key the SSH server proves itself with, as one `known_hosts` key: its
+  // type, a space, and the key in base64.
+  string public_key = 1;
+}
+
 // TerminalService serves terminals on komrad's machine to a remote client.
 service TerminalService {
   // Shell runs a shell on komrad's machine and streams its input and output until the shell
@@ -127,6 +151,29 @@ service TerminalService {
       cli: false
       mcp: false
       reason: "A terminal the person types into, which `komrad terminal` opens."
+    };
+  }
+
+  // SSH carries one SSH connection to a server on komrad's machine, until either side closes it.
+  // The server runs commands, shells and file transfers as the account the agents run as, and
+  // forwards to ports and sockets there. It takes no password or key, since the stream is already
+  // signed in.
+  rpc SSH(stream SSHRequest) returns (stream SSHResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "An SSH connection, which `komrad ssh-proxy` carries for `ssh`."
+    };
+  }
+
+  // GetSSHHostKey returns the public key of the SSH server that `SSH` reaches, so a client can trust
+  // it before connecting.
+  rpc GetSSHHostKey(google.protobuf.Empty) returns (GetSSHHostKeyResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: false
+      mcp: false
+      reason: "A key `komrad login` writes to a known hosts file."
     };
   }
 }

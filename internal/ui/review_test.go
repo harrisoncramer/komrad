@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -2217,6 +2218,37 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, harness.panel.ReadRespawns()[0], "'greet.go'")
 	})
 
+	t.Run("on an engine elsewhere the editor runs there, through its ssh host", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: remoteEditSettings(t, "/opt/homebrew/bin/nvim")})
+
+		harness.press("space", "e")
+
+		require.NotEmpty(t, harness.panel.ReadRespawns())
+		assert.Contains(t, harness.panel.ReadRespawns()[0], "-t 'komrad-remote'")
+		assert.Contains(t, harness.panel.ReadRespawns()[0], "exec nvim +")
+	})
+
+	t.Run("on an engine elsewhere an editor that cannot reach it opens nothing", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: remoteEditSettings(t, "goland")})
+
+		harness.press("space", "e")
+
+		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Contains(t, harness.readFrame(), "goland cannot open files")
+	})
+
+	t.Run("on an engine elsewhere with no ssh host written the editor opens nothing", func(t *testing.T) {
+		settings := remoteEditSettings(t, "nvim")
+		settings.SSHConfig = filepath.Join(t.TempDir(), "missing.conf")
+		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: settings})
+
+		harness.press("space", "e")
+
+		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Contains(t, harness.readFrame(), "this machine has no ssh host")
+	})
+
 	t.Run("the back key closes the editor before it leaves the screen", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
@@ -3021,4 +3053,13 @@ func reviewChapterOf(chapter history.Chapter) *agentv1.ReviewChapter {
 	}
 
 	return answer
+}
+
+func remoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
+	t.Helper()
+
+	config := filepath.Join(t.TempDir(), "komrad-remote.conf")
+	require.NoError(t, os.WriteFile(config, []byte("Host komrad-remote\n"), 0o600))
+
+	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: config}
 }

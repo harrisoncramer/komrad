@@ -124,6 +124,10 @@ func (r reviewScreen) isEditRefused(m *model) (string, bool) {
 		return reason, true
 	}
 
+	if reason, refused := m.isRemoteEditRefused(); refused {
+		return reason, true
+	}
+
 	return "", false
 }
 
@@ -154,7 +158,7 @@ func (r *reviewScreen) editFile(m *model) tea.Cmd {
 		return r.endHold(m, abandonedSaid)
 	}
 
-	pane := m.stageEditor(editorContent(m.settings.Editor, r.root, path, line))
+	pane := m.stageEditor(m.fileEditorContent(r.root, path, line))
 	if pane == "" {
 		m.note(messageWarning, "there is no room beside the sidebar for an editor")
 

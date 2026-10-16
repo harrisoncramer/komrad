@@ -188,6 +188,10 @@ type PanelSettings struct {
 	Addr string
 	// Editor is the command that opens a text field or a reviewed file.
 	Editor string
+	// SSHHost is the ssh host that reaches the engine's files, empty when the engine is this machine.
+	SSHHost string
+	// SSHConfig is the ssh config file that describes SSHHost.
+	SSHConfig string
 	// Pane is the tmux pane the panel renders in.
 	Pane string
 	// DraftDir is where a copy of a document is written for the editor, the system's temporary

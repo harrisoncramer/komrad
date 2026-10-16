@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type fakeTerminal struct {
@@ -119,22 +121,20 @@ func serveAttaches(t *testing.T, attacher *fakeAttacher) terminalv1connect.Termi
 func serveBoth(t *testing.T, opener *fakeOpener, attacher *fakeAttacher) terminalv1connect.TerminalServiceClient {
 	t.Helper()
 
-	return startServer(t, newMux(t, opener, attacher))
+	return startServer(t, newMux(t, terminal.NewHandlerParams{Shells: opener, Attaches: attacher}))
 }
 
-func newMux(t *testing.T, opener *fakeOpener, attacher *fakeAttacher) http.Handler {
+func newMux(t *testing.T, params terminal.NewHandlerParams) http.Handler {
 	t.Helper()
 
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)
 
+	params.DrainAfterExit = 50 * time.Millisecond
+
 	mux := http.NewServeMux()
 	mux.Handle(terminalv1connect.NewTerminalServiceHandler(
-		terminalv1komrad.TerminalServiceAdapter{Impl: terminal.NewHandler(terminal.NewHandlerParams{
-			Shells:         opener,
-			Attaches:       attacher,
-			DrainAfterExit: 50 * time.Millisecond,
-		})},
+		terminalv1komrad.TerminalServiceAdapter{Impl: terminal.NewHandler(params)},
 		connect.WithInterceptors(validation),
 	))
 
@@ -412,7 +412,7 @@ func TestShellRenewsTheCallersSignIn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := newFakeTerminal()
 			renewed := make(chan string, 1)
-			mux := newMux(t, &fakeOpener{terminal: fake, opened: make(chan shells.OpenParams, 1)}, &fakeAttacher{})
+			mux := newMux(t, terminal.NewHandlerParams{Shells: &fakeOpener{terminal: fake, opened: make(chan shells.OpenParams, 1)}, Attaches: &fakeAttacher{}})
 			client := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				ctx := caller.WithRenewal(r.Context(), func(_ context.Context, token string) error {
 					renewed <- token
@@ -439,4 +439,105 @@ func TestShellRenewsTheCallersSignIn(t *testing.T) {
 			fake.exit <- 0
 		})
 	}
+}
+
+type fakeSSH struct {
+	served chan struct{}
+}
+
+// Serve echoes the connection back until the caller closes it.
+func (f *fakeSSH) Serve(_ context.Context, conn net.Conn) {
+	defer close(f.served)
+
+	_, _ = io.Copy(conn, conn)
+	_ = conn.Close()
+}
+
+func (f *fakeSSH) PublicKey() string {
+	return "ssh-ed25519 AAAAkey"
+}
+
+func serveSSH(t *testing.T, renew func(token string) error) (terminalv1connect.TerminalServiceClient, *fakeSSH) {
+	t.Helper()
+
+	fake := &fakeSSH{served: make(chan struct{})}
+	mux := newMux(t, terminal.NewHandlerParams{SSH: fake})
+
+	return startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := caller.WithRenewal(r.Context(), func(_ context.Context, token string) error {
+			return renew(token)
+		})
+		mux.ServeHTTP(w, r.WithContext(ctx))
+	})), fake
+}
+
+func sshData(data string) *terminalv1.SSHRequest {
+	return &terminalv1.SSHRequest{Message: &terminalv1.SSHRequest_Data{Data: []byte(data)}}
+}
+
+// TestSSHCarriesAConnection covers one SSH connection from the first bytes to the caller leaving.
+func TestSSHCarriesAConnection(t *testing.T) {
+	renewed := make(chan string, 1)
+	client, fake := serveSSH(t, func(token string) error {
+		renewed <- token
+
+		return nil
+	})
+
+	stream := client.SSH(t.Context())
+
+	t.Run("bytes reach the server and its answer comes back", func(t *testing.T) {
+		require.NoError(t, stream.Send(sshData("SSH-2.0-client\r\n")))
+
+		response, err := stream.Receive()
+		require.NoError(t, err)
+		assert.Equal(t, []byte("SSH-2.0-client\r\n"), response.GetData())
+	})
+
+	t.Run("an empty message carries nothing", func(t *testing.T) {
+		require.NoError(t, stream.Send(&terminalv1.SSHRequest{}))
+		require.NoError(t, stream.Send(sshData("after")))
+
+		response, err := stream.Receive()
+		require.NoError(t, err)
+		assert.Equal(t, []byte("after"), response.GetData())
+	})
+
+	t.Run("a token renews the caller's sign-in", func(t *testing.T) {
+		require.NoError(t, stream.Send(&terminalv1.SSHRequest{Message: &terminalv1.SSHRequest_Token{Token: "fresh"}}))
+		assert.Equal(t, "fresh", <-renewed)
+	})
+
+	t.Run("the caller closing its side ends the connection", func(t *testing.T) {
+		require.NoError(t, stream.CloseRequest())
+		<-fake.served
+
+		_, err := stream.Receive()
+		assert.ErrorIs(t, err, io.EOF)
+	})
+}
+
+// TestSSHEndsOnARefusedSignIn covers a token the sign-in will not take.
+func TestSSHEndsOnARefusedSignIn(t *testing.T) {
+	client, fake := serveSSH(t, func(string) error {
+		return errors.New("another sign-in")
+	})
+
+	stream := client.SSH(t.Context())
+	require.NoError(t, stream.Send(&terminalv1.SSHRequest{Message: &terminalv1.SSHRequest_Token{Token: "someone else"}}))
+
+	select {
+	case <-fake.served:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the connection outlived a refused sign-in")
+	}
+}
+
+// TestGetSSHHostKey covers the key a client trusts before it connects.
+func TestGetSSHHostKey(t *testing.T) {
+	client, _ := serveSSH(t, func(string) error { return nil })
+
+	res, err := client.GetSSHHostKey(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+	assert.Equal(t, "ssh-ed25519 AAAAkey", res.Msg.GetPublicKey())
 }

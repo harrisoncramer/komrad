@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"time"
 
 	"komrad/internal/attaches"
@@ -18,6 +19,7 @@ import (
 	terminalv1 "komrad/proto/gen/terminal/v1"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -40,10 +42,16 @@ type attachOpener interface {
 	Open(ctx context.Context, params attaches.OpenParams) (pty.Terminal, error)
 }
 
+type sshServer interface {
+	Serve(ctx context.Context, conn net.Conn)
+	PublicKey() string
+}
+
 // NewHandlerParams is what the handler is built over.
 type NewHandlerParams struct {
 	Shells         shellOpener
 	Attaches       attachOpener
+	SSH            sshServer
 	DrainAfterExit time.Duration
 }
 
@@ -51,6 +59,7 @@ type NewHandlerParams struct {
 type Handler struct {
 	shells         shellOpener
 	attaches       attachOpener
+	ssh            sshServer
 	drainAfterExit time.Duration
 }
 
@@ -64,6 +73,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 	return &Handler{
 		shells:         params.Shells,
 		attaches:       params.Attaches,
+		ssh:            params.SSH,
 		drainAfterExit: drain,
 	}
 }
@@ -130,6 +140,19 @@ func (h *Handler) Attach(ctx context.Context, stream *connect.BidiStream[termina
 		Stream:   attachStream{stream: stream},
 		Terminal: terminal,
 	})
+}
+
+// SSH carries one SSH connection between the stream and the engine's SSH server until either side
+// closes it.
+func (h *Handler) SSH(ctx context.Context, stream *connect.BidiStream[terminalv1.SSHRequest, terminalv1.SSHResponse]) *fail.Error {
+	h.ssh.Serve(ctx, newSSHConn(ctx, stream))
+
+	return nil
+}
+
+// GetSSHHostKey returns the public key the SSH server proves itself with.
+func (h *Handler) GetSSHHostKey(context.Context, *emptypb.Empty) (*terminalv1.GetSSHHostKeyResponse, *fail.Error) {
+	return &terminalv1.GetSSHHostKeyResponse{PublicKey: h.ssh.PublicKey()}, nil
 }
 
 type carryParams struct {
