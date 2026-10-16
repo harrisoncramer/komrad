@@ -75,9 +75,9 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 	var files, refusals []string
 	var commits, uncounted, read, reading, settled int
 	for _, dir := range dirs {
-		inspection, asked := inspections[dir]
+		inspection := inspections[dir]
 		switch {
-		case !asked || !inspection.answered || inspection.pending:
+		case !inspection.answered || inspection.pending:
 			reading++
 		case inspection.isSettled():
 			settled++
