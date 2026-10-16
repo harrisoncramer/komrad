@@ -68,6 +68,9 @@ func workflowConfigFields(w panel.Workflow) []recordField {
 	if len(w.Worktree.SymlinkPaths) > 0 {
 		fields = append(fields, recordField{label: "symlink", value: strings.Join(w.Worktree.SymlinkPaths, ", ")})
 	}
+	if w.Worktree.SetupCommand != "" {
+		fields = append(fields, recordField{label: "setup", value: w.Worktree.SetupCommand})
+	}
 
 	return fields
 }

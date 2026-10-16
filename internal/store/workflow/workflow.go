@@ -76,6 +76,7 @@ type WorktreeConfig struct {
 	Enabled      bool
 	BaseBranch   string
 	Dir          string
+	SetupCommand string
 	CopyPaths    []string
 	SymlinkPaths []string
 	DiffExclude  []string
@@ -122,6 +123,7 @@ func workflowFromRow(params workflowFromRowParams) Workflow {
 			Enabled:      prov.WorktreeEnabled,
 			BaseBranch:   prov.WorktreeBaseBranch,
 			Dir:          prov.WorktreeDir,
+			SetupCommand: prov.WorktreeSetupCommand,
 			CopyPaths:    prov.WorktreeCopyPaths,
 			SymlinkPaths: prov.WorktreeSymlinkPaths,
 			DiffExclude:  prov.WorktreeDiffExclude,

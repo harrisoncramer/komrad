@@ -261,6 +261,7 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, task taskst
 		"KOMRAD_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
 		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
 		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
+		"KOMRAD_WORKTREE_SETUP_COMMAND=" + cfg.SetupCommand,
 		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + task.Checkout.AdoptedBranch,
 		"KOMRAD_WORKTREE_NAME=" + task.ID,
 		"KOMRAD_WORKTREE_BRANCH=task/" + task.ID,

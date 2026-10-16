@@ -67,6 +67,7 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 			BaseBranch:   "main",
 			CopyPaths:    []string{".env", ".envrc"},
 			SymlinkPaths: []string{"node_modules"},
+			SetupCommand: "mise install",
 		},
 	}
 
@@ -80,6 +81,7 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 		{label: "base branch", value: "main"},
 		{label: "copy", value: ".env, .envrc"},
 		{label: "symlink", value: "node_modules"},
+		{label: "setup", value: "mise install"},
 		{label: "reviewer agent", value: "—"},
 		{label: "reviewer flags", value: "—"},
 		{label: "workflow_id", value: "w1"},
@@ -87,6 +89,7 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 
 	workflow.Worktree.CopyPaths = nil
 	workflow.Worktree.SymlinkPaths = nil
+	workflow.Worktree.SetupCommand = ""
 	workflow.Worktree.BaseBranch = ""
 
 	fields := workflowFields(workflow, 3)

@@ -73,7 +73,7 @@ Each task also works in a fresh worktree, and the CLI asks whether to trust ever
 
 ## Project tools
 
-The engine carries no languages of its own. A repository pins the ones it needs, such as Go and Node, in a `mise.toml` or `.tool-versions`. Komrad runs `mise install` in each worktree before the agent starts. The first task to ask for a version waits while it downloads, which can take a minute or two. Later tasks reuse the same copy. A repository with neither file gets no languages.
+The engine carries mise and no languages of its own. A repository pins the ones it needs, such as Go and Node, in a `mise.toml` or `.tool-versions`, and its workflow names `mise install` as its [setup command](../workflows/#worktrees). The first task to ask for a version waits while it downloads, which can take a minute or two. Later tasks reuse the same copy. A repository with neither file gets no languages.
 
 ## Stopped engines
 

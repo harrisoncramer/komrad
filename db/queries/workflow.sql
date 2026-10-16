@@ -71,6 +71,7 @@ INSERT INTO workflow_provisioner_configs(
     worktree_enabled,
     worktree_base_branch,
     worktree_dir,
+    worktree_setup_command,
     worktree_copy_paths,
     worktree_symlink_paths,
     worktree_diff_exclude)
@@ -78,6 +79,7 @@ VALUES (
     @worktree_enabled,
     @worktree_base_branch,
     @worktree_dir,
+    @worktree_setup_command,
     @worktree_copy_paths,
     @worktree_symlink_paths,
     @worktree_diff_exclude)
@@ -121,6 +123,7 @@ SET
     worktree_enabled = @worktree_enabled,
     worktree_base_branch = @worktree_base_branch,
     worktree_dir = @worktree_dir,
+    worktree_setup_command = @worktree_setup_command,
     worktree_copy_paths = @worktree_copy_paths,
     worktree_symlink_paths = @worktree_symlink_paths,
     worktree_diff_exclude = @worktree_diff_exclude

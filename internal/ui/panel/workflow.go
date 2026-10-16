@@ -74,6 +74,7 @@ type WorktreeConfig struct {
 	Enabled      bool
 	BaseBranch   string
 	Dir          string
+	SetupCommand string
 	CopyPaths    []string
 	SymlinkPaths []string
 	DiffExclude  []string

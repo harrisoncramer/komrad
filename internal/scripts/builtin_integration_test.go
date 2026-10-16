@@ -750,11 +750,7 @@ func TestIntegrationBuiltinWorktreeCleanupRemovesATreeWhoseLockIsGone(t *testing
 	tree := strings.TrimSpace(string(setup.Stdout))
 	runGit(t, repo, "worktree", "unlock", tree)
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
-		taskID:   "task-lock-gone",
-		repo:     repo,
-		agentCwd: tree,
-	})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-lock-gone", repo: repo, agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree)
@@ -774,11 +770,7 @@ func TestIntegrationBuiltinWorktreeCleanupDropsTheRegistrationOfATreeRemovedByHa
 	tree := strings.TrimSpace(string(setup.Stdout))
 	require.NoError(t, os.RemoveAll(tree))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
-		taskID:   "task-by-hand",
-		repo:     repo,
-		agentCwd: tree,
-	})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-by-hand", repo: repo, agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	listed, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
@@ -1124,6 +1116,7 @@ type worktreeEnv struct {
 	adoptBranch  string
 	copyPaths    []string
 	symlinkPaths []string
+	setupCommand string
 	pathPrefix   string
 	// noWorktree leaves out the worktree's variables, as for a task that has none.
 	noWorktree bool
@@ -1153,6 +1146,7 @@ func (e worktreeEnv) toEnv() []string {
 			"KOMRAD_WORKTREE_ADOPT_BRANCH="+e.adoptBranch,
 			"KOMRAD_WORKTREE_COPY_PATHS="+strings.Join(e.copyPaths, "\n"),
 			"KOMRAD_WORKTREE_SYMLINK_PATHS="+strings.Join(e.symlinkPaths, "\n"),
+			"KOMRAD_WORKTREE_SETUP_COMMAND="+e.setupCommand,
 			"KOMRAD_WORKTREE_NAME="+e.taskID,
 			"KOMRAD_WORKTREE_BRANCH=task/"+e.taskID,
 		)
@@ -1690,54 +1684,48 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 	}
 }
 
-// TestIntegrationBuiltinWorktreeSetupMiseInstall covers installing what a worktree pins before its
-// agent starts.
-func TestIntegrationBuiltinWorktreeSetupMiseInstall(t *testing.T) {
+// TestIntegrationBuiltinWorktreeSetupCommand covers running the workflow's setup command in a
+// worktree before its agent starts.
+func TestIntegrationBuiltinWorktreeSetupCommand(t *testing.T) {
 	tests := []struct {
 		name    string
-		noMise  bool
+		command string
 		resume  bool
-		exit    int
 		wantErr bool
 		wantRan bool
 	}{
 		{
-			name:    "a failed install fails the setup",
-			exit:    1,
-			wantErr: true,
+			name: "a workflow with no setup command runs nothing",
+		},
+		{
+			name:    "a new worktree runs the setup command inside it",
+			command: `pwd -P > "$RAN"`,
 			wantRan: true,
 		},
 		{
-			name:   "setup skips the install where mise is missing",
-			noMise: true,
-		},
-		{
-			name:    "a new worktree gets its tools installed",
-			wantRan: true,
-		},
-		{
-			name:    "a resumed worktree gets its tools installed",
+			name:    "a resumed worktree runs the setup command again",
+			command: `pwd -P > "$RAN"`,
 			resume:  true,
+			wantRan: true,
+		},
+		{
+			name:    "a failed setup command fails the setup",
+			command: `pwd -P > "$RAN"; exit 3`,
+			wantErr: true,
 			wantRan: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ran := filepath.Join(t.TempDir(), "mise")
-			bin := t.TempDir()
-			if tt.noMise {
-				t.Setenv("PATH", pathWithout(t, "mise"))
-			} else {
-				mise := fmt.Sprintf("#!/bin/sh\nprintf '%%s %%s %%s' \"$PWD\" \"$MISE_TRUSTED_CONFIG_PATHS\" \"$*\" > %q\nexit %d\n", ran, tt.exit)
-				require.NoError(t, os.WriteFile(filepath.Join(bin, "mise"), []byte(mise), 0o755))
-			}
+			ran := filepath.Join(t.TempDir(), "ran")
+			t.Setenv("RAN", ran)
 
 			env := worktreeEnv{
-				taskID:       "task-mise",
+				taskID:       "task-setup",
 				repo:         initRepo(t),
 				worktreesDir: t.TempDir(),
-				pathPrefix:   bin,
+				setupCommand: tt.command,
 			}
 			tree := filepath.Join(env.worktreesDir, env.taskID)
 
@@ -1764,33 +1752,10 @@ func TestIntegrationBuiltinWorktreeSetupMiseInstall(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tree+" "+tree+" install", string(said))
+
+			want, err := filepath.EvalSymlinks(tree)
+			require.NoError(t, err)
+			assert.Equal(t, want, strings.TrimSpace(string(said)))
 		})
 	}
-}
-
-func pathWithout(t *testing.T, name string) string {
-	t.Helper()
-
-	bin := t.TempDir()
-	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-
-		for _, entry := range entries {
-			if entry.Name() == name {
-				continue
-			}
-
-			link := filepath.Join(bin, entry.Name())
-			if _, err := os.Lstat(link); err == nil {
-				continue
-			}
-			require.NoError(t, os.Symlink(filepath.Join(dir, entry.Name()), link))
-		}
-	}
-
-	return bin
 }

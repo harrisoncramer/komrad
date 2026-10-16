@@ -541,6 +541,7 @@ func worktreeConfigToProto(w panel.WorktreeConfig) *workflowv1.WorktreeConfig {
 		Enabled:      w.Enabled,
 		BaseBranch:   w.BaseBranch,
 		Dir:          w.Dir,
+		SetupCommand: w.SetupCommand,
 		CopyPaths:    w.CopyPaths,
 		SymlinkPaths: w.SymlinkPaths,
 		DiffExclude:  w.DiffExclude,

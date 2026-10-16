@@ -252,8 +252,12 @@ else
 	apply_paths "$KOMRAD_WORKTREE_SYMLINK_PATHS" symlink || true
 fi
 
-if command -v mise >/dev/null 2>&1; then
-	(cd "$tree" && MISE_TRUSTED_CONFIG_PATHS="$tree" mise install) >&2
+if [ -n "$KOMRAD_WORKTREE_SETUP_COMMAND" ]; then
+	echo "running the workflow's setup command in $tree" >&2
+	if ! (cd "$tree" && sh -c "$KOMRAD_WORKTREE_SETUP_COMMAND") >&2; then
+		echo "worktree setup: the workflow's setup command failed" >&2
+		exit 1
+	fi
 fi
 
 printf '%s' "$tree" >"$KOMRAD_SETUP_DIR_FILE"
