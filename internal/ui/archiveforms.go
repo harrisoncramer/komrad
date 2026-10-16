@@ -20,11 +20,10 @@ func deleteChosenConfirm(work chosenWork, reviewers int) worktreeConfirm {
 		confirmed: true,
 	}
 
-	switch len(work.wholeTasks) {
-	case 0:
-	case 1:
+	switch {
+	case len(work.wholeTasks) == 1:
 		confirm.warning += fmt.Sprintf(" It also deletes task %q and its documents, reviews and worktree.", work.wholeTasks[0].Slug)
-	default:
+	case len(work.wholeTasks) > 1:
 		confirm.warning += fmt.Sprintf(" It also deletes %d tasks and their documents, reviews and worktrees.", len(work.wholeTasks))
 	}
 
