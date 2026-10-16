@@ -1695,6 +1695,12 @@ func TestIntegrationBuiltinWorktreeSetupCommand(t *testing.T) {
 		wantRan bool
 	}{
 		{
+			name:    "a failed setup command fails the setup",
+			command: `pwd -P > "$RAN"; exit 3`,
+			wantErr: true,
+			wantRan: true,
+		},
+		{
 			name: "a workflow with no setup command runs nothing",
 		},
 		{
@@ -1706,12 +1712,6 @@ func TestIntegrationBuiltinWorktreeSetupCommand(t *testing.T) {
 			name:    "a resumed worktree runs the setup command again",
 			command: `pwd -P > "$RAN"`,
 			resume:  true,
-			wantRan: true,
-		},
-		{
-			name:    "a failed setup command fails the setup",
-			command: `pwd -P > "$RAN"; exit 3`,
-			wantErr: true,
 			wantRan: true,
 		},
 	}
