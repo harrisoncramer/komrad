@@ -153,11 +153,11 @@ func TestRunTerminalKeepsAQuietStreamOpen(t *testing.T) {
 	ran := make(chan error, 1)
 	go func() {
 		_, err := runTerminal(ctx, runTerminalParams{
-			Dial:      dialAttach(client, "agent-1", "xterm-256color"),
-			Token:     token,
-			Keepalive: 10 * time.Millisecond,
-			In:        typed,
-			Out:       io.Discard,
+			Dial:              dialAttach(client, "agent-1", "xterm-256color"),
+			Token:             token,
+			KeepaliveInterval: 10 * time.Millisecond,
+			In:                typed,
+			Out:               io.Discard,
 			Size: func() *terminalv1.Size {
 				return &terminalv1.Size{Rows: 24, Cols: 80}
 			},

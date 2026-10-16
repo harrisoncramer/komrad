@@ -235,7 +235,7 @@ func TestShellCarriesATerminal(t *testing.T) {
 	t.Run("an empty message types nothing and keeps the shell", func(t *testing.T) {
 		require.NoError(t, stream.Send(&terminalv1.ShellRequest{}))
 		require.NoError(t, stream.Send(&terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Input{Input: []byte("pwd\n")}}))
-		assert.Equal(t, []byte("pwd\n"), awaitTyped(t, fake))
+		assert.Equal(t, []byte("pwd\n"), <-fake.typed)
 	})
 
 	t.Run("what the shell draws comes back", func(t *testing.T) {
@@ -297,19 +297,6 @@ func TestShellWhenTheCallerStops(t *testing.T) {
 
 		fake.exit <- 129
 	})
-}
-
-func awaitTyped(t *testing.T, fake *fakeTerminal) []byte {
-	t.Helper()
-
-	select {
-	case typed := <-fake.typed:
-		return typed
-	case <-time.After(5 * time.Second):
-		t.Fatal("nothing was typed into the terminal")
-
-		return nil
-	}
 }
 
 func openAttachRequest(agentID string) *terminalv1.AttachRequest {
@@ -398,7 +385,7 @@ func TestAttachCarriesATerminal(t *testing.T) {
 	t.Run("an empty message types nothing and keeps the attach", func(t *testing.T) {
 		require.NoError(t, stream.Send(&terminalv1.AttachRequest{}))
 		require.NoError(t, stream.Send(&terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Input{Input: []byte("pwd\n")}}))
-		assert.Equal(t, []byte("pwd\n"), awaitTyped(t, fake))
+		assert.Equal(t, []byte("pwd\n"), <-fake.typed)
 	})
 
 	t.Run("a caller closing its side types nothing and still hears the terminal", func(t *testing.T) {

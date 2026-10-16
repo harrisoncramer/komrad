@@ -26,9 +26,9 @@ import (
 const (
 	// redialFor is how long to redial a dropped attach before giving up.
 	redialFor = 2 * time.Minute
-	// keepalive is how often an open terminal sends the engine a message, well inside the minute a
+	// keepaliveInterval is how often an open terminal sends the engine a message, well inside the minute a
 	// proxy in front of the engine lets a request go silent.
-	keepalive = 20 * time.Second
+	keepaliveInterval = 20 * time.Second
 	// firstRedialWait is how long the first redial waits, doubling up to lastRedialWait.
 	firstRedialWait = 250 * time.Millisecond
 	lastRedialWait  = 5 * time.Second
@@ -283,8 +283,8 @@ type runTerminalParams struct {
 	Size    func() *terminalv1.Size
 	Resized <-chan os.Signal
 	Ready   func() (func(), error)
-	// Keepalive is how often the stream sends the engine a message, or keepalive when zero.
-	Keepalive time.Duration
+	// KeepaliveInterval is how often the stream sends the engine a message, or keepaliveInterval when zero.
+	KeepaliveInterval time.Duration
 }
 
 // runTerminal opens a terminal and carries In to it and its output to Out until it exits.
@@ -392,17 +392,17 @@ func forward(ctx context.Context, params carryParams) {
 		*params.Unsent = nil
 	}
 
-	every := params.Terminal.Keepalive
-	if every == 0 {
-		every = keepalive
+	interval := params.Terminal.KeepaliveInterval
+	if interval == 0 {
+		interval = keepaliveInterval
 	}
 
-	ticker := time.NewTicker(every)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	tokens := make(chan string)
 	if params.Terminal.Token != nil {
-		go watchToken(ctx, params.Terminal.Token, every, tokens)
+		go watchToken(ctx, params.Terminal.Token, interval, tokens)
 	}
 
 	inputs := params.Inputs
@@ -440,8 +440,8 @@ func forward(ctx context.Context, params carryParams) {
 }
 
 // watchToken hands on each token from source that differs from the last, asking for one every interval.
-func watchToken(ctx context.Context, source func(ctx context.Context) (string, error), every time.Duration, tokens chan<- string) {
-	ticker := time.NewTicker(every)
+func watchToken(ctx context.Context, source func(ctx context.Context) (string, error), interval time.Duration, tokens chan<- string) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	sent := ""
