@@ -317,8 +317,7 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			row:          "task/orphan",
 			press:        []string{"space", "a", "d"},
 			answer:       answerWith(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/trees/orphan", Branch: "task/orphan", Readable: true}, Untracked: []string{"notes.md"}, BaseError: "the workflow names no base branch"}),
-			wantRendered: []string{"The worktree has 1 uncommitted file. Its branch was never pushed, and with no base Komrad cannot count its commits.", "notes.md"},
-			wantAbsent:   []string{"unpushed commit"},
+			wantRendered: []string{"The worktree has 1 uncommitted file. Without a base, Komrad cannot count the unpushed commits of the worktree.", "notes.md"},
 		},
 		{
 			name:         "a branch never pushed counts its commits since the base and the files past ten are counted",
@@ -342,6 +341,27 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			answer:       answerWith(dirty),
 			wantRendered: []string{"The worktrees have 6 uncommitted files and 4 unpushed commits."},
 			wantAbsent:   []string{"a.go"},
+		},
+		{
+			name:         "a detached head counts its commits since the base",
+			row:          "task/orphan",
+			press:        []string{"space", "a", "d"},
+			answer:       answerWith(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: "/trees/orphan", Readable: true}, BaseRef: "origin/main", Ahead: 2}),
+			wantRendered: []string{"The worktree has 2 unpushed commits."},
+		},
+		{
+			name:         "several worktrees of which one is refused count only those read and name their files",
+			row:          "task/orphan",
+			press:        []string{"v", "k", "v", "space", "a", "d"},
+			answer:       answerForDir("/trees/orphan", answerWith(dirty), refuseWith(connect.CodeInternal, "git exploded")),
+			wantRendered: []string{"The 1 worktree Komrad read has 3 uncommitted files and 2 unpushed commits. Komrad could not read 1 worktree, so it cannot say what is uncommitted or unpushed there.", "a.go b.txt c.txt"},
+		},
+		{
+			name:         "several worktrees of which one is gone are spoken of as one",
+			row:          "task/orphan",
+			press:        []string{"v", "k", "v", "space", "a", "d"},
+			answer:       answerForDir("/trees/orphan", answerWith(dirty), refuseWith(connect.CodeNotFound, "gone")),
+			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits.", "a.go b.txt c.txt"},
 		},
 	}
 
@@ -1441,4 +1461,14 @@ func buildFileNames(count int) []string {
 	}
 
 	return names
+}
+
+func answerForDir(dir string, answer, rest answerFunc) answerFunc {
+	return func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		if read, _ := req.Any().(*worktreev1.GetWorktreeRequest); read.GetDir() == dir {
+			return answer(req)
+		}
+
+		return rest(req)
+	}
 }

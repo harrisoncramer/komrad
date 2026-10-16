@@ -74,13 +74,14 @@ func (m *model) rerenderWorktreeConfirm() tea.Cmd {
 // worktreeLoss is what is uncommitted and unpushed in the worktrees, as git last answered for each.
 func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) string {
 	var files, refusals []string
-	var commits, uncounted, read, reading int
+	var commits, uncounted, read, reading, settled int
 	for _, dir := range dirs {
 		inspection, asked := inspections[dir]
 		switch {
-		case !asked || !inspection.answered:
+		case !asked || !inspection.answered || inspection.pending:
 			reading++
 		case inspection.isSettled():
+			settled++
 		case inspection.err != nil:
 			refusals = append(refusals, errui.GetReason(inspection.err))
 		case !inspection.item.readable:
@@ -96,9 +97,9 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 		}
 	}
 
-	single := len(dirs) == 1
+	worktrees := len(dirs) - settled
 	which := func(n int) string {
-		if single {
+		if worktrees == 1 {
 			return "the worktree"
 		}
 
@@ -106,31 +107,30 @@ func worktreeLoss(inspections map[string]worktreeInspection, dirs []string) stri
 	}
 
 	var b strings.Builder
-	if read > 0 {
-		has := "The worktrees have"
-		if single {
-			has = "The worktree has"
-		}
-		fmt.Fprintf(&b, " %s %s.", has, lossCounts(len(files), commits, uncounted == 0))
+	counts := lossCounts(len(files), commits, uncounted == 0)
+	switch {
+	case read == 0:
+	case worktrees == 1:
+		fmt.Fprintf(&b, " The worktree has %s.", counts)
+	case read == worktrees:
+		fmt.Fprintf(&b, " The worktrees have %s.", counts)
+	default:
+		fmt.Fprintf(&b, " The %s %s.", label.Count(read, "worktree Komrad read has", "worktrees Komrad read have"), counts)
 	}
 	if uncounted > 0 {
-		never := "Its branch was never pushed, and with no base Komrad cannot count its commits."
-		if !single {
-			never = label.Count(uncounted, "branch was", "branches were") + " never pushed, and with no base Komrad cannot count their commits."
-		}
-		b.WriteString(" " + never)
+		fmt.Fprintf(&b, " Without a base, Komrad cannot count the unpushed commits of %s.", which(uncounted))
 	}
 	if reading > 0 {
 		fmt.Fprintf(&b, " Komrad is still reading %s, so it cannot yet say what is uncommitted or unpushed there.", which(reading))
 	}
 	if len(refusals) > 0 {
 		why := ""
-		if single {
+		if worktrees == 1 {
 			why = " (" + refusals[0] + ")"
 		}
 		fmt.Fprintf(&b, " Komrad could not read %s%s, so it cannot say what is uncommitted or unpushed there.", which(len(refusals)), why)
 	}
-	if single {
+	if read == 1 {
 		writeLostFiles(&b, files)
 	}
 
