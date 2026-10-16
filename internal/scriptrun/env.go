@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -264,5 +265,6 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, task taskst
 		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + task.Checkout.AdoptedBranch,
 		"KOMRAD_WORKTREE_NAME=" + task.ID,
 		"KOMRAD_WORKTREE_BRANCH=task/" + task.ID,
+		"KOMRAD_WORKTREE_MISE_INSTALL=" + strconv.FormatBool(loaded.Worktrees.MiseInstall),
 	}, nil
 }

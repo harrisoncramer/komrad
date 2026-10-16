@@ -12,6 +12,10 @@ type Worktrees struct {
 	// Directory that holds generated worktrees, one subdirectory per agent.
 	// Left empty this is ~/.local/state/komrad/worktrees.
 	Dir string `mapstructure:"dir"`
+	// Whether komrad runs `mise install` in each worktree it sets up or resumes, so the tools the
+	// repository pins are there before the agent starts. mise refuses a config it does not trust,
+	// so the worktrees directory has to be in mise's trusted_config_paths.
+	MiseInstall bool `mapstructure:"mise_install"`
 }
 
 // Context is the standing text komrad starts every agent with, above whatever its workflow

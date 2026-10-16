@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -750,7 +751,11 @@ func TestIntegrationBuiltinWorktreeCleanupRemovesATreeWhoseLockIsGone(t *testing
 	tree := strings.TrimSpace(string(setup.Stdout))
 	runGit(t, repo, "worktree", "unlock", tree)
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-lock-gone", repo: repo, agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
+		taskID:   "task-lock-gone",
+		repo:     repo,
+		agentCwd: tree,
+	})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree)
@@ -770,7 +775,11 @@ func TestIntegrationBuiltinWorktreeCleanupDropsTheRegistrationOfATreeRemovedByHa
 	tree := strings.TrimSpace(string(setup.Stdout))
 	require.NoError(t, os.RemoveAll(tree))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-by-hand", repo: repo, agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
+		taskID:   "task-by-hand",
+		repo:     repo,
+		agentCwd: tree,
+	})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	listed, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
@@ -1117,6 +1126,7 @@ type worktreeEnv struct {
 	copyPaths    []string
 	symlinkPaths []string
 	pathPrefix   string
+	miseInstall  bool
 	// noWorktree leaves out the worktree's variables, as for a task that has none.
 	noWorktree bool
 }
@@ -1147,6 +1157,7 @@ func (e worktreeEnv) toEnv() []string {
 			"KOMRAD_WORKTREE_SYMLINK_PATHS="+strings.Join(e.symlinkPaths, "\n"),
 			"KOMRAD_WORKTREE_NAME="+e.taskID,
 			"KOMRAD_WORKTREE_BRANCH=task/"+e.taskID,
+			"KOMRAD_WORKTREE_MISE_INSTALL="+strconv.FormatBool(e.miseInstall),
 		)
 	}
 
@@ -1682,37 +1693,63 @@ func TestIntegrationBuiltinKomradCheckoutArchive(t *testing.T) {
 	}
 }
 
-// TestIntegrationBuiltinKomradMiseInstall covers installing what a task's checkout pins before its
-// writer starts.
-func TestIntegrationBuiltinKomradMiseInstall(t *testing.T) {
+// TestIntegrationBuiltinWorktreeSetupMiseInstall covers installing what a worktree pins before its
+// agent starts.
+func TestIntegrationBuiltinWorktreeSetupMiseInstall(t *testing.T) {
 	tests := []struct {
-		name    string
-		exit    int
-		wantErr bool
+		name        string
+		miseInstall bool
+		resume      bool
+		exit        int
+		wantErr     bool
+		wantRan     bool
 	}{
 		{
-			name:    "a failed install fails the hook",
-			exit:    1,
-			wantErr: true,
+			name:        "a failed install fails the setup",
+			miseInstall: true,
+			exit:        1,
+			wantErr:     true,
+			wantRan:     true,
 		},
-		{name: "the checkout's tools are installed in the checkout"},
+		{name: "setup leaves mise alone when the install is off"},
+		{
+			name:        "a new worktree gets its tools installed",
+			miseInstall: true,
+			wantRan:     true,
+		},
+		{
+			name:        "a resumed worktree gets its tools installed",
+			miseInstall: true,
+			resume:      true,
+			wantRan:     true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tree := t.TempDir()
 			ran := filepath.Join(t.TempDir(), "mise")
-
 			bin := t.TempDir()
 			mise := fmt.Sprintf("#!/bin/sh\nprintf '%%s %%s' \"$PWD\" \"$*\" > %q\nexit %d\n", ran, tt.exit)
 			require.NoError(t, os.WriteFile(filepath.Join(bin, "mise"), []byte(mise), 0o755))
 
-			result, err := runBuiltin(t, "komrad-mise-install", worktreeEnv{
-				taskID:     "task-a",
-				agentCwd:   tree,
-				trigger:    "task.pre-open",
-				pathPrefix: bin,
-			})
+			env := worktreeEnv{
+				taskID:       "task-mise",
+				repo:         initRepo(t),
+				worktreesDir: t.TempDir(),
+				pathPrefix:   bin,
+			}
+			tree := filepath.Join(env.worktreesDir, env.taskID)
+
+			if tt.resume {
+				first, err := runBuiltin(t, "_worktree_setup", env)
+				require.NoError(t, err, "stderr: %s", first.Stderr)
+
+				env.trigger = "agent.resume"
+				env.agentCwd = tree
+			}
+
+			env.miseInstall = tt.miseInstall
+			result, err := runBuiltin(t, "_worktree_setup", env)
 			if tt.wantErr {
 				require.ErrorIs(t, err, ErrFailed)
 			} else {
@@ -1720,6 +1757,11 @@ func TestIntegrationBuiltinKomradMiseInstall(t *testing.T) {
 			}
 
 			said, err := os.ReadFile(ran)
+			if !tt.wantRan {
+				require.ErrorIs(t, err, os.ErrNotExist)
+
+				return
+			}
 			require.NoError(t, err)
 			assert.Equal(t, tree+" install", string(said))
 		})

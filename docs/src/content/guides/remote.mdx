@@ -73,7 +73,7 @@ Each task also works in a fresh worktree, and the CLI asks whether to trust ever
 
 ## Project tools
 
-The engine carries no languages of its own. A project pins the ones it needs, such as Go and Node, in its mise config. Pick `komrad-mise-install` as the workflow's `task.pre-open` hook, and each task installs them in its checkout before the writer starts. The first task in a repository can take a few minutes, since every tool downloads. Later tasks reuse what is there.
+The engine carries no languages of its own. A repository pins the ones it needs, such as Go and Node, in a file mise reads, such as `mise.toml`, `.tool-versions` or `.nvmrc`. With <Setting path="worktrees.mise_install" label="mise_install" /> on, as it is on the engine, komrad installs them in each worktree before the agent starts. The first task to ask for a version waits while it downloads, which can take a minute or two. Later tasks reuse the same copy. A repository with none of those files gets no languages.
 
 ## Stopped engines
 
