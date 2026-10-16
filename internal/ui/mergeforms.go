@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
+	"strings"
 
 	"komrad/config"
 	"komrad/internal/ui/paint"
@@ -12,10 +14,56 @@ import (
 	"charm.land/huh/v2"
 )
 
+// mergeFormValues is the merge form's answers.
+type mergeFormValues struct {
+	Method   forgev1.MergeMethod
+	Headline string
+	Body     string
+}
+
+// fill writes the option's message into the form unless the person edited the last one filled, and
+// returns the message the form now holds as filled.
+func (v *mergeFormValues) fill(option *forgev1.MergeOption, filled *forgev1.CommitMessage) *forgev1.CommitMessage {
+	if v.Headline != filled.GetHeadline() || v.Body != filled.GetBody() {
+		return filled
+	}
+
+	message := option.GetMessage()
+	v.Headline, v.Body = message.GetHeadline(), message.GetBody()
+
+	return message
+}
+
+// buildMergeParams is the merge the form asks for at the head the panel showed, carrying each part
+// of the message only when the person changed the forge's own.
+func (v mergeFormValues) buildMergeParams(pullRequest panel.PullRequestStanding, plan *forgev1.PlanForgePullRequestMergeResponse) (*mergeParams, error) {
+	params := &mergeParams{
+		url:     pullRequest.URL,
+		method:  v.Method,
+		headSHA: cmp.Or(pullRequest.HeadSHA, plan.GetHeadSha()),
+	}
+	message := mergeOptionOf(plan, v.Method).GetMessage()
+	if message == nil {
+		return params, nil
+	}
+	if v.Headline != message.GetHeadline() {
+		if strings.TrimSpace(v.Headline) == "" {
+			return nil, errNoHeadline
+		}
+
+		params.headline = &v.Headline
+	}
+	if v.Body != message.GetBody() {
+		params.body = &v.Body
+	}
+
+	return params, nil
+}
+
 type mergeFormParams struct {
 	keys   config.FixedKeys
 	title  string
-	values *mergeValues
+	values *mergeFormValues
 	plan   *forgev1.PlanForgePullRequestMergeResponse
 }
 

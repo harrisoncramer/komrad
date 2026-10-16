@@ -1,9 +1,7 @@
 package ui
 
 import (
-	"cmp"
 	"errors"
-	"strings"
 	"time"
 
 	"komrad/internal/ui/panel"
@@ -37,13 +35,6 @@ type mergePlannedMsg struct {
 	plan   *forgev1.PlanForgePullRequestMergeResponse
 	err    error
 	write  int
-}
-
-// mergeValues is the merge form's answers.
-type mergeValues struct {
-	Method   forgev1.MergeMethod
-	Headline string
-	Body     string
 }
 
 // mergeMenu is the ways to merge a task's pull request, opened from the git menu.
@@ -161,7 +152,7 @@ func (m *model) applyMergePlanned(msg mergePlannedMsg) tea.Cmd {
 
 // openMergeForm opens the form that picks how the pull request merges and with what message.
 func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1.PlanForgePullRequestMergeResponse) tea.Cmd {
-	values := &mergeValues{Method: plan.GetDefaultMethod()}
+	values := &mergeFormValues{Method: plan.GetDefaultMethod()}
 	renderedMethod := values.Method
 	var filled *forgev1.CommitMessage
 
@@ -181,55 +172,16 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 		Reshaped: func() bool { return values.Method != renderedMethod },
 		Editable: []editableText{{key: "body", value: &values.Body}},
 		Submit: func(m *model) tea.Cmd {
-			params, err := values.mergeParams(task.PullRequest, plan)
+			params, err := values.buildMergeParams(task.PullRequest, plan)
 			if err != nil {
 				m.form.refusal = err.Error()
 
 				return formResized()
 			}
 
-			return holdSubmit(func(m *model) tea.Cmd { return m.sendMerge(task, choice, params) })(m)
+			return holdSubmit(func(m *model) tea.Cmd { return m.sendMerge(task, choice, *params) })(m)
 		},
 	}))
-}
-
-// fill writes the option's message into the form unless the person has changed what was filled
-// before, and answers what the form now holds as filled.
-func (v *mergeValues) fill(option *forgev1.MergeOption, filled *forgev1.CommitMessage) *forgev1.CommitMessage {
-	if v.Headline != filled.GetHeadline() || v.Body != filled.GetBody() {
-		return filled
-	}
-
-	message := option.GetMessage()
-	v.Headline, v.Body = message.GetHeadline(), message.GetBody()
-
-	return message
-}
-
-// mergeParams is the merge the form asks for at the head the panel showed, carrying each part of
-// the message only when the person changed the forge's own.
-func (v mergeValues) mergeParams(pullRequest panel.PullRequestStanding, plan *forgev1.PlanForgePullRequestMergeResponse) (mergeParams, error) {
-	params := mergeParams{
-		url:     pullRequest.URL,
-		method:  v.Method,
-		headSHA: cmp.Or(pullRequest.HeadSHA, plan.GetHeadSha()),
-	}
-	message := mergeOptionOf(plan, v.Method).GetMessage()
-	if message == nil {
-		return params, nil
-	}
-	if v.Headline != message.GetHeadline() {
-		if strings.TrimSpace(v.Headline) == "" {
-			return mergeParams{}, errNoHeadline
-		}
-
-		params.headline = &v.Headline
-	}
-	if v.Body != message.GetBody() {
-		params.body = &v.Body
-	}
-
-	return params, nil
 }
 
 // mergeOptionOf is the plan's option for the method, nil when the forge offers no such method.

@@ -1,7 +1,6 @@
 package forge
 
 import (
-	"context"
 	"testing"
 
 	"komrad/internal/forge"
@@ -43,33 +42,6 @@ func TestListForgePullRequestsPages(t *testing.T) {
 	assert.Equal(t, 50, connector.listed[1].PerPage)
 	assert.Nil(t, second.Msg.NextPageToken)
 }
-
-// fakeWriter answers plan and records each merge and auto-merge change asked of it.
-type fakeWriter struct {
-	plan       forge.MergePlan
-	merged     []forge.MergeParams
-	autoMerged []forge.SetAutoMergeParams
-}
-
-func (f *fakeWriter) PlanPullRequestMerge(context.Context, string) (*forge.MergePlan, error) {
-	return &f.plan, nil
-}
-
-func (f *fakeWriter) MergePullRequest(_ context.Context, params forge.MergeParams) error {
-	f.merged = append(f.merged, params)
-
-	return nil
-}
-
-func (f *fakeWriter) SetPullRequestDraft(context.Context, string, bool) error { return nil }
-
-func (f *fakeWriter) SetPullRequestAutoMerge(_ context.Context, params forge.SetAutoMergeParams) error {
-	f.autoMerged = append(f.autoMerged, params)
-
-	return nil
-}
-
-func (f *fakeWriter) RequestPullRequestRereview(context.Context, string) error { return nil }
 
 // TestPlanForgePullRequestMerge pins each option, the default method and the head reaching the
 // caller.
@@ -159,8 +131,8 @@ func TestMergeForgePullRequest(t *testing.T) {
 	}
 }
 
-// TestSetForgePullRequestAutoMergeCarriesTheMerge pins the method and message reaching the writer.
-func TestSetForgePullRequestAutoMergeCarriesTheMerge(t *testing.T) {
+// TestSetForgePullRequestAutoMerge pins the method and message reaching the writer.
+func TestSetForgePullRequestAutoMerge(t *testing.T) {
 	const address = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/1"
 	writer := &fakeWriter{}
 	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}

@@ -46,11 +46,8 @@ func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 	if data.Repository == nil || data.Repository.PullRequest == nil {
 		return noPullRequest(number, owner, name)
 	}
-	switch data.Repository.PullRequest.State {
-	case "MERGED":
-		return forge.ErrNotMergeable.Saying("github will not merge #%d: it has already merged", number)
-	case "CLOSED":
-		return forge.ErrNotMergeable.Saying("github will not merge #%d: it was closed without merging", number)
+	if err := finishedRefusal(data.Repository.PullRequest.State, number); err != nil {
+		return err
 	}
 
 	method, err := data.Repository.methodFor(data.Repository.PullRequest.BaseRef, params.Method)
@@ -70,6 +67,18 @@ func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 	}
 
 	return mutationRefusal{sentinel: forge.ErrNotMergeable, verb: "merge"}.explain(answer, params.URL, number)
+}
+
+// finishedRefusal is why GitHub will not merge a pull request that has finished, nil for an open one.
+func finishedRefusal(state string, number int) error {
+	switch state {
+	case "MERGED":
+		return forge.ErrNotMergeable.Saying("github will not merge #%d: it has already merged", number)
+	case "CLOSED":
+		return forge.ErrNotMergeable.Saying("github will not merge #%d: it was closed without merging", number)
+	}
+
+	return nil
 }
 
 // mergeabilityOf is GitHub's mergeStateStatus in komrad's words.

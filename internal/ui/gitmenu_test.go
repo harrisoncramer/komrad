@@ -422,7 +422,7 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			wantMessage: "Head sha didn't match expected",
 		},
 		{
-			name:        "a pull request the forge would queue is queued at the head the plan read",
+			name:        "a pull request the forge would queue is queued at the head the panel holds",
 			pullRequest: newQueueablePullRequest(),
 			press:       []string{"u", "enter"},
 			wantLabel:   "merge when ready",

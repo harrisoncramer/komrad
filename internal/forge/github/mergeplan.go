@@ -78,11 +78,8 @@ func (f *Forge) PlanMerge(ctx context.Context, address string) (*forge.MergePlan
 	}
 
 	target := data.Repository.PullRequest
-	switch target.State {
-	case "MERGED":
-		return nil, forge.ErrNotMergeable.Saying("github will not merge #%d: it has already merged", number)
-	case "CLOSED":
-		return nil, forge.ErrNotMergeable.Saying("github will not merge #%d: it was closed without merging", number)
+	if err := finishedRefusal(target.State, number); err != nil {
+		return nil, err
 	}
 
 	allowed := data.Repository.allowedMethods(target.BaseRef)

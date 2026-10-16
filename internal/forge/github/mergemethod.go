@@ -78,8 +78,8 @@ func (s mergeSettings) methodFor(base *baseRef, asked forge.MergeMethod) (string
 	if asked == "" {
 		return s.chooseMethod(base), nil
 	}
-	for _, method := range mergeMethodOrder {
-		if mergeMethodOf[method] == asked {
+	for method, named := range mergeMethodOf {
+		if named == asked {
 			return method, nil
 		}
 	}

@@ -47,28 +47,28 @@ func (f *Forge) PlanMerge(ctx context.Context, address string) (*forge.MergePlan
 		return nil, forge.ErrNotMergeable.Saying("gitlab will not merge !%d: it was closed without merging", number)
 	}
 
-	own, err := f.projectMergeMethod(ctx, path)
+	projectMethod, err := f.projectMergeMethod(ctx, path)
 	if err != nil {
 		return nil, err
 	}
-	ownOption := forge.MergeOption{
-		Method:  own,
+	projectOption := forge.MergeOption{
+		Method:  projectMethod,
 		Allowed: !target.SquashReadOnly || !target.SquashOnMerge,
 	}
-	if own == forge.MergeMethodMerge {
-		ownOption.Message = splitMessage(target.DefaultMergeCommitMessage)
+	if projectMethod == forge.MergeMethodMerge {
+		projectOption.Message = splitMessage(target.DefaultMergeCommitMessage)
 	}
 
 	plan := &forge.MergePlan{
 		Options: []forge.MergeOption{
-			ownOption,
+			projectOption,
 			{
 				Method:  forge.MergeMethodSquash,
 				Allowed: !target.SquashReadOnly || target.SquashOnMerge,
 				Message: splitMessage(target.DefaultSquashCommitMessage),
 			},
 		},
-		DefaultMethod: own,
+		DefaultMethod: projectMethod,
 		HeadSHA:       target.DiffHeadSha,
 	}
 	if target.SquashOnMerge {
@@ -138,77 +138,4 @@ func splitMessage(message string) *forge.CommitMessage {
 	headline, body, _ := strings.Cut(message, "\n")
 
 	return &forge.CommitMessage{Headline: headline, Body: strings.TrimLeft(body, "\n")}
-}
-
-// joinMessage is a commit message as one text, its headline apart from its body by a blank line.
-func joinMessage(message forge.CommitMessage) string {
-	if message.Body == "" {
-		return message.Headline
-	}
-
-	return message.Headline + "\n\n" + message.Body
-}
-
-// mergeBody is the REST fields that say how a merge request merges, empty to leave it to the
-// project.
-func (f *Forge) mergeBody(ctx context.Context, path string, number int, params forge.MergeParams) (map[string]any, error) {
-	body := map[string]any{}
-	switch params.Method {
-	case "":
-	case forge.MergeMethodSquash:
-		body["squash"] = true
-	case forge.MergeMethodMerge, forge.MergeMethodFastForward:
-		body["squash"] = false
-	case forge.MergeMethodRebase:
-		return nil, forge.ErrNoMergeMethod.Saying("gitlab cannot merge by %s", params.Method)
-	}
-
-	message, err := f.commitMessage(ctx, path, number, params)
-	if err != nil {
-		return nil, err
-	}
-	if message != "" {
-		field := "merge_commit_message"
-		if params.Method == forge.MergeMethodSquash {
-			field = "squash_commit_message"
-		}
-		body[field] = message
-	}
-	if params.HeadSHA != "" {
-		body["sha"] = params.HeadSHA
-	}
-
-	return body, nil
-}
-
-// commitMessage is the merge's commit message as one text, any part left unset read from the
-// one GitLab would write, and empty when both are unset.
-func (f *Forge) commitMessage(ctx context.Context, path string, number int, params forge.MergeParams) (string, error) {
-	if params.Headline == nil && params.Body == nil {
-		return "", nil
-	}
-
-	var message forge.CommitMessage
-	if params.Headline == nil || params.Body == nil {
-		target, err := f.readPlanTarget(ctx, path, number)
-		if err != nil {
-			return "", err
-		}
-
-		own := target.DefaultMergeCommitMessage
-		if params.Method == forge.MergeMethodSquash {
-			own = target.DefaultSquashCommitMessage
-		}
-		if split := splitMessage(own); split != nil {
-			message = *split
-		}
-	}
-	if params.Headline != nil {
-		message.Headline = *params.Headline
-	}
-	if params.Body != nil {
-		message.Body = *params.Body
-	}
-
-	return joinMessage(message), nil
 }

@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	_ "embed"
+	"maps"
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
@@ -51,8 +52,7 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 		}
 
 		mutation = enableAutoMergeMutation
-		variables = messageVariables(params.Headline, params.Body)
-		variables["id"] = target.ID
+		maps.Copy(variables, messageVariables(params.Headline, params.Body))
 		variables["method"] = method
 		variables["head"] = xptr.NonEmpty(params.HeadSHA)
 	}
