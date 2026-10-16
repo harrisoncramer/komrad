@@ -14,7 +14,6 @@ import (
 
 	"komrad/internal/sshserver"
 
-	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gossh "golang.org/x/crypto/ssh"
@@ -145,26 +144,6 @@ func TestSessions(t *testing.T) {
 			assert.Contains(t, output.String(), tt.wantOutput)
 		})
 	}
-}
-
-// TestFiles covers moving a file over sftp, the way scp and editors do.
-func TestFiles(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	client, err := sftp.NewClient(connect(t, newServer(t, t.TempDir())))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = client.Close() })
-
-	file, err := client.Create("notes.txt")
-	require.NoError(t, err)
-	_, err = file.Write([]byte("edited"))
-	require.NoError(t, err)
-	require.NoError(t, file.Close())
-
-	written, err := os.ReadFile(filepath.Join(home, "notes.txt"))
-	require.NoError(t, err)
-	assert.Equal(t, "edited", string(written))
 }
 
 // TestForwarding covers a client reaching a port and a socket on the engine.

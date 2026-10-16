@@ -22,7 +22,6 @@ import (
 	"komrad/internal/pty"
 
 	gliderssh "github.com/gliderlabs/ssh"
-	"github.com/pkg/sftp"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -67,9 +66,6 @@ func NewServer(params NewServerParams) (*Server, error) {
 			"session":                        gliderssh.DefaultSessionHandler,
 			"direct-tcpip":                   gliderssh.DirectTCPIPHandler,
 			"direct-streamlocal@openssh.com": forwardToSocket,
-		},
-		SubsystemHandlers: map[string]gliderssh.SubsystemHandler{
-			"sftp": sessions.serveFiles,
 		},
 	}
 	s.server.AddHostKey(signer)
@@ -242,28 +238,6 @@ func runPiped(session gliderssh.Session, argv []string, dir string, env []string
 	}
 
 	return 0, nil
-}
-
-// serveFiles serves the sftp subsystem that scp and editors move files with.
-func (r *sessionRunner) serveFiles(session gliderssh.Session) {
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		r.logger.LogAttrs(session.Context(), slog.LevelWarn, "failed to find the home directory", logging.Err(err)...)
-
-		return
-	}
-
-	server, err := sftp.NewServer(session, sftp.WithServerWorkingDirectory(dir))
-	if err != nil {
-		r.logger.LogAttrs(session.Context(), slog.LevelWarn, "failed to start sftp", logging.Err(err)...)
-
-		return
-	}
-	defer func() { _ = server.Close() }() //nolint:errcheck // the session is over
-
-	if err := server.Serve(); err != nil && !errors.Is(err, io.EOF) {
-		r.logger.LogAttrs(session.Context(), slog.LevelWarn, "sftp ended", logging.Err(err)...)
-	}
 }
 
 // socketChannel is the opening of a direct-streamlocal@openssh.com channel.
