@@ -190,6 +190,7 @@ func initdb(ctx context.Context, dir, data, password string) error {
 		"--pwfile", passwordFile,
 		"-A", "scram-sha-256",
 		"--encoding", "UTF8",
+		"--no-locale",
 		"--locale-provider", "builtin",
 		"--builtin-locale", "C.UTF-8",
 	); err != nil {
