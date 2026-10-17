@@ -25,7 +25,7 @@ Komrad runs its agents in tmux, so install tmux 3.3 or newer first. Then run the
 curl -fsSL https://github.com/harrisoncramer/komrad/releases/latest/download/install.sh | sh
 ```
 
-The script downloads the newest stable release for your platform into `~/.local/bin`, checks it against the release's checksums, and runs <Command path="setup" />. Setup asks for whatever the machine is missing, such as where to keep the database, then prints a report from <Command path="doctor" />.
+The script downloads the newest stable release for your platform into `~/.local/bin`, checks it against the release's checksums, and runs <Command path="setup" />. Setup asks for whatever the machine is missing, such as where to keep the database, then prints a report from <Command path="doctor" />. If setup stops part way, fix what it names and run <Command path="setup" /> again.
 
 Run <Command path="open" /> to open the panel.
 

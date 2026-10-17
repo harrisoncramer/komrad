@@ -70,7 +70,8 @@ main() {
 	esac
 
 	if [ "$upgrade" = true ]; then
-		echo "finish the upgrade with: komrad stop && komrad migrate"
+		echo "komrad was already installed. If it was set up, finish the upgrade with: komrad stop && komrad migrate"
+		echo "If setup never finished, run: komrad setup"
 		return
 	fi
 
