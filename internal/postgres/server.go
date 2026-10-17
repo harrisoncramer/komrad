@@ -46,7 +46,7 @@ func Init(ctx context.Context, dir, password string) error {
 	defer unlock()
 
 	data := dataDir(dir)
-	if _, err := os.Stat(data); err == nil {
+	if HasCluster(dir) {
 		return fmt.Errorf("%w in %s", ErrClusterExists, data)
 	}
 
