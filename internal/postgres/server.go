@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"komrad/internal/fail"
 
@@ -90,6 +92,10 @@ func Up(ctx context.Context, dir string) error {
 
 	if !HasCluster(dir) {
 		return fmt.Errorf("%w in %s, so move your config file aside and run komrad setup", errNoCluster, dir)
+	}
+
+	if err := removeStaleLockFiles(dir); err != nil {
+		return err
 	}
 
 	if err := start(ctx, dir); err != nil {
@@ -204,6 +210,35 @@ func initdb(ctx context.Context, dir, data, password string) error {
 
 	if err := os.Rename(staging, data); err != nil { //nolint:forbidigo // a directory, which xfile.WriteAtomic does not move
 		return fmt.Errorf("failed to move the new cluster into %s: %w", data, err)
+	}
+
+	return nil
+}
+
+// removeStaleLockFiles deletes the lock files a Postgres in dir wrote before the machine last booted.
+func removeStaleLockFiles(dir string) error {
+	up, err := uptime()
+	if err != nil {
+		return err
+	}
+	boot := time.Now().Add(-up)
+
+	for _, path := range []string{filepath.Join(dataDir(dir), "postmaster.pid"), socketPath(dir) + ".lock"} {
+		info, err := os.Stat(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", path, err)
+		}
+
+		if info.ModTime().After(boot) {
+			continue
+		}
+
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("failed to remove the stale %s: %w", path, err)
+		}
 	}
 
 	return nil

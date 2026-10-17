@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -122,7 +123,8 @@ func TestIntegrationUpKeepsOnePostgres(t *testing.T) {
 	assert.True(t, IsRunning(t.Context(), dir))
 }
 
-// TestIntegrationUpRecoversFromACrash covers rows surviving a Postgres killed without warning.
+// TestIntegrationUpRecoversFromACrash covers rows surviving a Postgres killed without warning, and
+// lock files from before a reboot whose PID a live process now holds.
 func TestIntegrationUpRecoversFromACrash(t *testing.T) {
 	dir := initCluster(t)
 
@@ -137,6 +139,19 @@ func TestIntegrationUpRecoversFromACrash(t *testing.T) {
 
 	require.NoError(t, syscall.Kill(-postmasterPID(t, dir), syscall.SIGKILL))
 	require.Eventually(t, func() bool { return !IsRunning(t.Context(), dir) }, testWait, testTick)
+
+	live := exec.CommandContext(t.Context(), "sleep", "60")
+	require.NoError(t, live.Start())
+	t.Cleanup(func() { _ = live.Process.Kill() })
+
+	for _, path := range []string{filepath.Join(dataDir(dir), "postmaster.pid"), socketPath(dir) + ".lock"} {
+		contents, err := os.ReadFile(path)
+		require.NoError(t, err)
+
+		_, rest, _ := strings.Cut(string(contents), "\n")
+		require.NoError(t, os.WriteFile(path, []byte(strconv.Itoa(live.Process.Pid)+"\n"+rest), 0o600))
+		require.NoError(t, os.Chtimes(path, time.Unix(0, 0), time.Unix(0, 0)))
+	}
 
 	require.NoError(t, Up(t.Context(), dir))
 
