@@ -79,8 +79,10 @@ func TestIntegrationBundleHoldsWhatKomradRuns(t *testing.T) {
 }
 
 // TestIntegrationInitStartsAPostgresOnlyTheSocketReaches covers a new cluster answering the owner
-// over its socket and nobody over the network or without a password.
+// over its socket and nobody over the network or without a password, whatever port the environment
+// names.
 func TestIntegrationInitStartsAPostgresOnlyTheSocketReaches(t *testing.T) {
+	t.Setenv("PGPORT", "1")
 	dir := initCluster(t)
 	conn := connect(t, OwnerURL(dir, testPassword))
 

@@ -118,7 +118,7 @@ func ownerURL(dir, password, name string) string {
 		Scheme:   "postgres",
 		User:     url.UserPassword(ownerLogin, password),
 		Path:     "/" + name,
-		RawQuery: url.Values{"host": {dir}}.Encode(),
+		RawQuery: url.Values{"host": {dir}, "port": {port}}.Encode(),
 	}).String()
 }
 
