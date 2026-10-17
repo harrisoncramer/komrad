@@ -35,6 +35,10 @@ does it ask a question and change something, then asks the doctor again. Nothing
 which steps ran, so running it again after stopping part way finds the finished steps
 already done. It ends on the doctor's full report.
 
+Setup writes the config file only when there is none, from a starter template filled with
+your answers. It never changes a config file that already exists: a step that would stops and
+names the setting to change there.
+
 With --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an
 answer takes it from a flag, and names the flag when none was given.
 
@@ -124,12 +128,12 @@ func (a *app) setupSteps(flags setupFlags) ([]setup.Step, error) {
 	if err != nil {
 		return nil, err
 	}
-	path := layers[len(layers)-1].Path
+	file := &setup.ConfigFile{Path: layers[len(layers)-1].Path}
 
 	return []setup.Step{
-		&setup.ConfigStep{Path: path},
+		&setup.ConfigStep{File: file},
 		&setup.DatabaseStep{
-			Path:           path,
+			File:           file,
 			Stack:          a.configStack,
 			Bundled:        postgres.Bundled(),
 			RunFlag:        flags.runPostgres,
@@ -139,13 +143,13 @@ func (a *app) setupSteps(flags setupFlags) ([]setup.Step, error) {
 		},
 		&setup.TmuxStep{},
 		&setup.HarnessStep{
-			Path:      path,
+			File:      file,
 			Stack:     a.configStack,
 			Harnesses: a.harnesses.IDs(),
 			Flag:      flags.harness,
 		},
 		&setup.ContextStep{Stack: a.configStack},
-		&setup.AutoSetupStep{Path: path, Stack: a.configStack},
+		&setup.AutoSetupStep{File: file, Stack: a.configStack},
 		&setup.ForgeStep{
 			Connect: a.connectForge,
 		},
@@ -185,8 +189,7 @@ func (a *app) reloadConnection() error {
 	return nil
 }
 
-// createPostgres sets up the Postgres komrad runs and returns its owner's url, reusing the one a
-// setup cut short already wrote.
+// createPostgres sets up the Postgres komrad runs and returns its owner's url.
 func (a *app) createPostgres(ctx context.Context) (string, error) {
 	password, err := generatePassword()
 	if err != nil {
@@ -195,12 +198,10 @@ func (a *app) createPostgres(ctx context.Context) (string, error) {
 
 	dir := postgres.Dir(a.env.StateDir)
 	err = postgres.Init(ctx, dir, password)
-	switch {
-	case errors.Is(err, postgres.ErrClusterExists) && a.env.RunPostgres:
-		return a.env.OwnerDatabaseURL, nil
-	case errors.Is(err, postgres.ErrClusterExists):
-		return "", fmt.Errorf("%w, and no config names its owner, so set run_postgres and owner_database_url or remove it", err)
-	case err != nil:
+	if errors.Is(err, postgres.ErrClusterExists) {
+		return "", fmt.Errorf("%w, and no config names its owner, so remove %s and run setup again", err, dir)
+	}
+	if err != nil {
 		return "", err
 	}
 

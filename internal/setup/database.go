@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"komrad/config"
@@ -22,7 +21,7 @@ const (
 // DatabaseStep gives this machine an engine, in a Postgres komrad runs or one the person already
 // runs, while database_url is left at its default.
 type DatabaseStep struct {
-	Path           string
+	File           *ConfigFile
 	Stack          config.Stack
 	Bundled        bool
 	RunFlag        bool
@@ -51,6 +50,10 @@ func (s *DatabaseStep) observe(ctx context.Context, check checker) observation {
 	}
 
 	if loaded.IsDefault("database_url") {
+		if !s.File.writable() {
+			return observation{Verdict: verdictStop, Detail: "no database is set up; " + s.File.refusal("database_url under [connection]")}
+		}
+
 		return observation{Verdict: verdictAsk, Detail: "no database is set up"}
 	}
 	if failed := firstFailing(report); failed != nil {
@@ -120,36 +123,34 @@ func (s *DatabaseStep) answerUnattended() error {
 
 func (s *DatabaseStep) repair(ctx context.Context) error {
 	ownerURL := strings.TrimSpace(s.pasted)
-	var keys []tableKey
-	if s.choice == choiceRunPostgres {
+	runPostgres := s.choice == choiceRunPostgres
+	if runPostgres {
 		created, err := s.CreatePostgres(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to set up Postgres: %w", err)
 		}
 		ownerURL = created
-		keys = append(keys, tableKey{Key: "run_postgres", Literal: "true"})
-	}
-
-	keys = append(keys, tableKey{Key: "owner_database_url", Literal: strconv.Quote(ownerURL)})
-	if err := setTableKeys(s.Path, "connection", keys); err != nil {
-		return err
 	}
 
 	databaseURL, err := s.JoinEngine(ctx, ownerURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to join the database: %w", err)
 	}
 
-	if err := setTableKeys(s.Path, "connection", []tableKey{{Key: "database_url", Literal: strconv.Quote(databaseURL)}}); err != nil {
+	if err := s.File.write(func(a *answers) {
+		a.RunPostgres = runPostgres
+		a.OwnerDatabaseURL = ownerURL
+		a.DatabaseURL = databaseURL
+	}); err != nil {
 		return err
 	}
 
 	cfg, err := config.LoadStack(s.Stack)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read the config back: %w", err)
 	}
 	if cfg.Connection.DatabaseURL != databaseURL {
-		return fmt.Errorf("wrote database_url to %s, but a later config layer or KOMRAD_DATABASE_URL sets it", shortenHome(s.Path))
+		return fmt.Errorf("wrote database_url to %s, but a later config layer or KOMRAD_DATABASE_URL sets it", shortenHome(s.File.Path))
 	}
 
 	return nil

@@ -22,6 +22,16 @@ func clearConnectionEnv(t *testing.T) {
 	}
 }
 
+// homeConfig points the home directory at a temp dir and returns the config file komrad reads there when no --config is given.
+func homeConfig(t *testing.T) string {
+	t.Helper()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	return filepath.Join(home, ".config", "komrad", "config.toml")
+}
+
 func failed(name string) doctor.Finding {
 	return doctor.Finding{
 		Name:   name,
@@ -53,6 +63,12 @@ func TestDatabaseStep(t *testing.T) {
 				failed(doctor.CheckSchema),
 			},
 			verdict: verdictAsk,
+		},
+		{
+			name:     "a config file the person has that names no database stops",
+			config:   "# mine\n",
+			findings: []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckDatabase)},
+			verdict:  verdictStop,
 		},
 		{
 			name:     "a url the person set that nothing answers is theirs to fix",
@@ -101,9 +117,12 @@ func TestDatabaseStep(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
-			require.NoError(t, os.WriteFile(path, []byte(tt.config), 0o600))
-			step := &DatabaseStep{Path: path, Stack: config.Stack{Paths: []string{path}}}
+			path := homeConfig(t)
+			if tt.config != "" {
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+				require.NoError(t, os.WriteFile(path, []byte(tt.config), 0o600))
+			}
+			step := &DatabaseStep{File: &ConfigFile{Path: path}, Stack: config.Stack{}}
 
 			observation := step.observe(t.Context(), fakeChecker(tt.findings...))
 
@@ -124,7 +143,7 @@ func TestDatabaseStepUnattendedNamesTheFlags(t *testing.T) {
 	assert.ErrorContains(t, err, "--owner-database-url")
 }
 
-// TestDatabaseStepRepair covers the settings each answer writes, and the owner kept when joining fails.
+// TestDatabaseStepRepair covers the config each answer writes, and nothing written when joining fails.
 func TestDatabaseStepRepair(t *testing.T) {
 	clearConnectionEnv(t)
 
@@ -151,20 +170,19 @@ func TestDatabaseStepRepair(t *testing.T) {
 			after:  "[connection]\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
 		},
 		{
-			name:    "the owner is kept when joining fails",
+			name:    "nothing is written when joining fails",
 			run:     true,
 			joinErr: errors.New("migrate refused"),
-			after:   "[connection]\nrun_postgres = true\nowner_database_url = \"" + ownerURL + "\"\n",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
+			path := homeConfig(t)
 			var joined string
 			step := &DatabaseStep{
-				Path:           path,
-				Stack:          config.Stack{Paths: []string{path}},
+				File:           &ConfigFile{Path: path},
+				Stack:          config.Stack{},
 				RunFlag:        tt.run,
 				OwnerURLFlag:   tt.pasted,
 				CreatePostgres: func(context.Context) (string, error) { return ownerURL, nil },
@@ -184,6 +202,11 @@ func TestDatabaseStepRepair(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, ownerURL, joined)
+			if tt.after == "" {
+				assert.NoFileExists(t, path)
+
+				return
+			}
 			written, err := os.ReadFile(path)
 			require.NoError(t, err)
 			assert.Equal(t, tt.after, string(written))

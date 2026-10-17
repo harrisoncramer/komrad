@@ -69,7 +69,7 @@ You can also use the automatic installation and reconfigure anything it auto-ins
 
 Komrad keeps everything in Postgres. On a laptop, komrad can run Postgres for you. Every release binary carries its own Postgres, so on a Mac there is nothing else to install. On Linux, that Postgres needs glibc 2.34 or newer and the libxml2, OpenSSL 3 and Kerberos libraries, which most desktop installs already have. On Debian or Ubuntu, `sudo apt install libxml2 libssl3 libgssapi-krb5-2` adds them.
 
-You can use the <Command path="setup" /> command to tell Komrad where your Postgres instance runs. If you tell it to, komrad will create the database under your <Setting path="connection.state_dir" label="state_dir" />, start it, create an engine named `laptop`, and write the <Setting path="connection" label="[connection]" /> block for you.
+You can use the <Command path="setup" /> command to tell Komrad where your Postgres instance runs. If you tell it to, komrad will create the database under your <Setting path="connection.state_dir" label="state_dir" />, start it, create an engine named `laptop`, and write the <Setting path="connection" label="[connection]" /> block for you. Setup only writes a config file when you have none, and never changes one you already have.
 
 Pass `--run-postgres` to do this automatically.
 
@@ -107,7 +107,7 @@ Several engines can share one database, so multiple developers can share a Postg
 
 ### Write the config
 
-Komrad's configuration is stored in a TOML file. Setup writes the database settings for you. This section is for a Postgres you set up by hand.
+Komrad's configuration is stored in a TOML file. Setup writes this file for you when there is none. This section is for a Postgres you set up by hand, or a config file you already have.
 
 The <Command path="engine ensure" /> command prints an initial <Setting path="connection" label="[connection]" /> block with a login for the engine. Run it, put the engine block in `~/.config/komrad/config.toml`, and add the owner URL from the previous step beside it.
 

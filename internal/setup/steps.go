@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"strings"
 
@@ -19,7 +18,7 @@ import (
 // ConfigStep reports which file setup writes answers into, and stops on a config that will not
 // parse.
 type ConfigStep struct {
-	Path string
+	File *ConfigFile
 }
 
 func (s *ConfigStep) name() string {
@@ -32,11 +31,11 @@ func (s *ConfigStep) observe(ctx context.Context, check checker) observation {
 		return stopOn(failed)
 	}
 
-	if _, err := os.Stat(s.Path); errors.Is(err, fs.ErrNotExist) {
-		return observation{Verdict: verdictDone, Detail: shortenHome(s.Path) + " will be created"}
+	if s.File.writable() {
+		return observation{Verdict: verdictDone, Detail: shortenHome(s.File.Path) + " will be created"}
 	}
 
-	return observation{Verdict: verdictDone, Detail: shortenHome(s.Path)}
+	return observation{Verdict: verdictDone, Detail: shortenHome(s.File.Path)}
 }
 
 func (s *ConfigStep) question() *huh.Form {
@@ -83,7 +82,7 @@ func (s *TmuxStep) repair(context.Context) error {
 
 // HarnessStep makes the default harness one whose CLI is on PATH.
 type HarnessStep struct {
-	Path      string
+	File      *ConfigFile
 	Stack     config.Stack
 	Harnesses []string
 	Flag      string
@@ -117,6 +116,10 @@ func (s *HarnessStep) observe(ctx context.Context, check checker) observation {
 	}
 
 	if len(s.installed) > 0 {
+		if !s.File.writable() {
+			return observation{Verdict: verdictStop, Detail: "the default harness is not on PATH; " + s.File.refusal("default_harness to one of "+strings.Join(s.installed, ", "))}
+		}
+
 		return observation{Verdict: verdictAsk, Detail: "the default harness is not on PATH"}
 	}
 	if missing != nil {
@@ -148,7 +151,7 @@ func (s *HarnessStep) answerUnattended() error {
 }
 
 func (s *HarnessStep) repair(context.Context) error {
-	if err := setTopLevelKey(s.Path, "default_harness", s.chosen); err != nil {
+	if err := s.File.write(func(a *answers) { a.DefaultHarness = s.chosen }); err != nil {
 		return err
 	}
 
@@ -157,7 +160,7 @@ func (s *HarnessStep) repair(context.Context) error {
 		return err
 	}
 	if cfg.DefaultHarness != s.chosen {
-		return fmt.Errorf("wrote default_harness to %s, but a later config layer sets it to %s", shortenHome(s.Path), cfg.DefaultHarness)
+		return fmt.Errorf("wrote default_harness to %s, but a later config layer sets it to %s", shortenHome(s.File.Path), cfg.DefaultHarness)
 	}
 
 	return nil
@@ -232,7 +235,7 @@ func (s *ContextStep) repair(context.Context) error {
 
 // AutoSetupStep offers to have `komrad open` set up a workflow for the checkout it is run in.
 type AutoSetupStep struct {
-	Path   string
+	File   *ConfigFile
 	Stack  config.Stack
 	chosen bool
 }
@@ -253,6 +256,9 @@ func (s *AutoSetupStep) observe(ctx context.Context, check checker) observation 
 	}
 	if cfg.AutoSetup {
 		return observation{Verdict: verdictDone, Detail: "set up wherever komrad is opened"}
+	}
+	if !s.File.writable() {
+		return observation{Verdict: verdictSkip, Detail: "set up by hand; " + s.File.refusal("auto_setup = true")}
 	}
 
 	return observation{Verdict: verdictAsk, Detail: "set up by hand"}
@@ -276,7 +282,7 @@ func (s *AutoSetupStep) repair(context.Context) error {
 		return errSkipped
 	}
 
-	if err := setTopLevelBool(s.Path, "auto_setup", true); err != nil {
+	if err := s.File.write(func(a *answers) { a.AutoSetup = true }); err != nil {
 		return err
 	}
 
@@ -285,7 +291,7 @@ func (s *AutoSetupStep) repair(context.Context) error {
 		return err
 	}
 	if !cfg.AutoSetup {
-		return fmt.Errorf("wrote auto_setup to %s, but a later config layer turns it off", shortenHome(s.Path))
+		return fmt.Errorf("wrote auto_setup to %s, but a later config layer turns it off", shortenHome(s.File.Path))
 	}
 
 	return nil

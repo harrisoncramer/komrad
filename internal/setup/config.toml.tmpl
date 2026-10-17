@@ -1,0 +1,15 @@
+{{- if .DefaultHarness}}
+default_harness = {{quote .DefaultHarness}}
+{{- end}}
+{{- if .AutoSetup}}
+auto_setup = true
+{{- end}}
+{{- if .DatabaseURL}}
+
+[connection]
+{{- if .RunPostgres}}
+run_postgres = true
+{{- end}}
+owner_database_url = {{quote .OwnerDatabaseURL}}
+database_url = {{quote .DatabaseURL}}
+{{- end}}
