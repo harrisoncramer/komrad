@@ -186,7 +186,7 @@ komrad stop
 komrad migrate
 ```
 
-A running server keeps its old build until you stop it. Open the panel again and it starts the new build. When komrad runs your Postgres, Postgres keeps running through <Command path="stop" />, so <Command path="migrate" /> can still reach it. Agents keep running throughout, because they live in tmux, not in the server.
+A running server keeps its old build until you stop it. Open the panel again and it starts the new build. The embedded Postgres keeps running through <Command path="stop" />, so <Command path="migrate" /> can still reach it. Agents keep running throughout, because they live in tmux, not in the server.
 
 ## Running the panel inside tmux
 
