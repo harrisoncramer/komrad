@@ -69,7 +69,7 @@ func TestConfigFileWriteRefusesAFileAlreadyThere(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("# mine\n"), 0o600))
 	file := &ConfigFile{Path: path}
 
-	assert.False(t, file.writable())
+	assert.False(t, file.isWritable())
 	require.ErrorIs(t, file.write(func(a *answers) { a.DefaultHarness = "codex" }), errConfigExists)
 
 	written, err := os.ReadFile(path)

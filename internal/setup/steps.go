@@ -31,7 +31,7 @@ func (s *ConfigStep) observe(ctx context.Context, check checker) observation {
 		return stopOn(failed)
 	}
 
-	if s.File.writable() {
+	if s.File.isWritable() {
 		return observation{Verdict: verdictDone, Detail: shortenHome(s.File.Path) + " will be created"}
 	}
 
@@ -116,7 +116,7 @@ func (s *HarnessStep) observe(ctx context.Context, check checker) observation {
 	}
 
 	if len(s.installed) > 0 {
-		if !s.File.writable() {
+		if !s.File.isWritable() {
 			return observation{Verdict: verdictStop, Detail: "the default harness is not on PATH; " + s.File.refusal("default_harness to one of "+strings.Join(s.installed, ", "))}
 		}
 
@@ -257,7 +257,7 @@ func (s *AutoSetupStep) observe(ctx context.Context, check checker) observation 
 	if cfg.AutoSetup {
 		return observation{Verdict: verdictDone, Detail: "set up wherever komrad is opened"}
 	}
-	if !s.File.writable() {
+	if !s.File.isWritable() {
 		return observation{Verdict: verdictSkip, Detail: "set up by hand; " + s.File.refusal("auto_setup = true")}
 	}
 

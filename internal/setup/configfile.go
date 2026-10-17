@@ -43,9 +43,8 @@ type answers struct {
 	DatabaseURL      string
 }
 
-// writable reports whether setup may write the file, which it may only while it does not exist
-// or setup made it.
-func (f *ConfigFile) writable() bool {
+// isWritable reports whether setup may write the file, which it may only while the file is missing or setup made it.
+func (f *ConfigFile) isWritable() bool {
 	if f.created {
 		return true
 	}
@@ -61,7 +60,7 @@ func (f *ConfigFile) refusal(setting string) string {
 }
 
 func (f *ConfigFile) write(answer func(*answers)) error {
-	if !f.writable() {
+	if !f.isWritable() {
 		return fmt.Errorf("%w at %s", errConfigExists, shortenHome(f.Path))
 	}
 
