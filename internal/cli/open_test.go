@@ -49,7 +49,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 		TmuxSocket:          "komrad-test",
 		CacheDir:            "/tmp/cache",
 		StateDir:            "/tmp/state",
-		RunPostgres:         true,
+		EmbeddedPostgres:    true,
 		Editor:              "nvim",
 	}}
 
@@ -63,7 +63,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 		"EDITOR":                       "nvim",
 		"KOMRAD_CACHE_DIR":             "/tmp/cache",
 		"KOMRAD_STATE_DIR":             "/tmp/state",
-		"KOMRAD_RUN_POSTGRES":          "true",
+		"KOMRAD_EMBEDDED_POSTGRES":     "true",
 	}, forwardedEnv(t, args))
 }
 
@@ -331,10 +331,10 @@ func TestIntegrationOpenStartsPostgresBesideALivePanel(t *testing.T) {
 
 	state := panelState(t, socket)
 	state.tmux.RecordPanelPane(hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}"))
-	state.env.RunPostgres = true
+	state.env.EmbeddedPostgres = true
 	state.env.StateDir = t.TempDir()
 
 	err := openHere(t.Context(), state, true, false)
 
-	require.ErrorContains(t, err, "failed to start komrad's Postgres")
+	require.ErrorContains(t, err, "failed to start the embedded Postgres")
 }

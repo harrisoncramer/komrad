@@ -14,26 +14,26 @@ const (
 var (
 	errPostgresDown = &problemError{
 		Code:    "postgres_down",
-		Message: "the Postgres komrad runs on this machine is not running",
+		Message: "the embedded Postgres is not running",
 	}
 	errPostgresNotBundled = &problemError{
 		Code:    "postgres_not_bundled",
-		Message: "this build of komrad carries no Postgres, so it cannot start the one komrad runs",
+		Message: "this build of komrad carries no embedded Postgres",
 	}
 	errNoPostgresCluster = &problemError{
 		Code:    "postgres_no_cluster",
-		Message: "the config says komrad runs Postgres here, but none is set up under the state directory",
+		Message: "the config turns on the embedded Postgres, but none is set up under the state directory",
 	}
 )
 
-// newPostgresCheck asserts the Postgres komrad runs under its state directory is up, and that
+// newPostgresCheck asserts the embedded Postgres under the state directory is up, and that
 // this build carries one to start it with.
 func newPostgresCheck() Check {
 	return Check{
 		Name:        CheckPostgres,
-		Description: "komrad runs its own Postgres on this machine, and komrad start brings it up",
+		Description: "the embedded Postgres is running, and komrad start brings it up",
 		Run: func(ctx context.Context, env Env) Result {
-			dir := postgres.Dir(env.StateDir)
+			dir := postgres.GetDir(env.StateDir)
 			running := env.IsPostgresRunning(ctx, dir)
 
 			switch {

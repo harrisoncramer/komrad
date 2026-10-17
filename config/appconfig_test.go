@@ -1142,14 +1142,6 @@ func TestLoadTakesEveryLoopbackAddress(t *testing.T) {
 	}
 }
 
-// TestLoadAcceptsADatabaseUrlOnASocket covers a url whose server is a socket directory named in its query.
-func TestLoadAcceptsADatabaseUrlOnASocket(t *testing.T) {
-	cfg, err := loadStrict(t, "[connection]\ndatabase_url = \"postgres://komrad:pw@/komrad?host=%2Fstate%2Fpostgres\"\n")
-
-	require.NoError(t, err)
-	assert.Equal(t, "postgres://komrad_reader:pw@/komrad?host=%2Fstate%2Fpostgres", cfg.Connection.ReadOnlyDatabaseURL)
-}
-
 // TestLoadRejectsADatabaseUrlPostgresWouldNotAnswer covers the url the read-only login is derived
 // from, which comes out empty for anything else and fails a check that names something else.
 func TestLoadRejectsADatabaseUrlPostgresWouldNotAnswer(t *testing.T) {

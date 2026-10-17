@@ -68,7 +68,7 @@ an agent's pane into a panel nobody is looking at.`,
 // openHere puts this engine's panel up and turns this process into the client attached to it.
 func openHere(ctx context.Context, state *app, detach, headless bool) error {
 	if !state.engine().IsRemote() {
-		if err := upPostgres(ctx, postgresDir(state.env)); err != nil {
+		if err := startEmbeddedPostgres(ctx, embeddedPostgresDir(state.env)); err != nil {
 			return err
 		}
 	}
@@ -205,7 +205,7 @@ func sessionEnvArgs(state *app) []string {
 		"-e", "EDITOR=" + state.env.Editor,
 		"-e", "KOMRAD_CACHE_DIR=" + state.env.CacheDir,
 		"-e", "KOMRAD_STATE_DIR=" + state.env.StateDir,
-		"-e", "KOMRAD_RUN_POSTGRES=" + strconv.FormatBool(state.env.RunPostgres),
+		"-e", "KOMRAD_EMBEDDED_POSTGRES=" + strconv.FormatBool(state.env.EmbeddedPostgres),
 	}
 }
 
@@ -248,11 +248,11 @@ func prepareAutoSetup(ctx context.Context, state *app) bool {
 	}
 
 	if err := ensureServer(ctx, ensureServerParams{
-		Addr:        state.env.Addr,
-		Self:        getSelfPath(),
-		LogPath:     state.env.LogPath(),
-		ConfigArgs:  configArgs(state.configStack),
-		PostgresDir: postgresDir(state.env),
+		Addr:                state.env.Addr,
+		Self:                getSelfPath(),
+		LogPath:             state.env.LogPath(),
+		ConfigArgs:          configArgs(state.configStack),
+		EmbeddedPostgresDir: embeddedPostgresDir(state.env),
 	}); err != nil {
 		warnAutoSetup(ctx, state, err)
 

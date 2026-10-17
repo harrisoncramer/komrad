@@ -80,7 +80,7 @@ the server, or call an endpoint from a script.`,
 				return err
 			}
 
-			if err := requirePostgres(cmd.Context(), cmd, env); err != nil {
+			if err := requireEmbeddedPostgres(cmd.Context(), cmd, env); err != nil {
 				return err
 			}
 
@@ -277,7 +277,7 @@ func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 		TmuxSocket:          cfg.Connection.TmuxSocket,
 		CacheDir:            cfg.Connection.CacheDir,
 		StateDir:            cfg.Connection.StateDir,
-		RunPostgres:         cfg.Connection.RunPostgres,
+		EmbeddedPostgres:    cfg.Connection.EmbeddedPostgres,
 		URL:                 cfg.Connection.URL,
 	})
 }

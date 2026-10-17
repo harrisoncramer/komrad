@@ -23,12 +23,12 @@ import (
 )
 
 // setupEngine is the engine setup makes for this machine.
-const setupEngine = "laptop"
+const setupEngine = "default"
 
 type setupFlags struct {
-	harness     string
-	runPostgres bool
-	ownerURL    string
+	harness          string
+	embeddedPostgres bool
+	ownerURL         string
 }
 
 func setupCmd(state *app) *cobra.Command {
@@ -54,9 +54,9 @@ With --no-input, or when stdin is not a terminal, nothing is asked: a step that 
 answer takes it from a flag, and names the flag when none was given.
 
 The database step runs while database_url is left at its default.
-Komrad either runs Postgres under its state directory, or takes the url of a login that owns
-a Postgres you already run; --run-postgres and --owner-database-url answer it unattended.
-Either way it migrates, makes an engine named laptop, and writes the [connection] settings.
+Komrad either runs the embedded Postgres under its state directory, or takes the url of a login that owns
+a Postgres you already run; --embedded-postgres and --owner-database-url answer it unattended.
+Either way it migrates, makes an engine named default, and writes the [connection] settings.
 
 The forge step connects github.com or gitlab.com with a pasted token once the engine is
 running, and skips until then. Unattended it skips, and komrad forge connect connects any
@@ -125,9 +125,9 @@ forge after setup.`,
 
 	cmd.Flags().BoolVar(&noInput, "no-input", false, "ask nothing, taking every answer from a flag")
 	cmd.Flags().StringVar(&flags.harness, "harness", "", "the harness new agents run, when the default one is not on PATH")
-	cmd.Flags().BoolVar(&flags.runPostgres, "run-postgres", false, "have komrad run Postgres on this machine, when no database is set up")
+	cmd.Flags().BoolVar(&flags.embeddedPostgres, "embedded-postgres", false, "run the embedded Postgres on this machine, when no database is set up")
 	cmd.Flags().StringVar(&flags.ownerURL, "owner-database-url", "", "the url of a login that owns a Postgres you already run, when no database is set up")
-	cmd.MarkFlagsMutuallyExclusive("run-postgres", "owner-database-url")
+	cmd.MarkFlagsMutuallyExclusive("embedded-postgres", "owner-database-url")
 
 	return cmd
 }
@@ -142,14 +142,14 @@ func (a *app) setupSteps(flags setupFlags) ([]setup.Step, error) {
 	return []setup.Step{
 		&setup.ConfigStep{File: file},
 		&setup.DatabaseStep{
-			File:           file,
-			Stack:          a.configStack,
-			Bundled:        postgres.IsBundled(),
-			RunFlag:        flags.runPostgres,
-			OwnerURLFlag:   flags.ownerURL,
-			CreatePostgres: a.createPostgres,
-			RemovePostgres: a.removePostgres,
-			JoinEngine:     joinEngine,
+			File:                   file,
+			Stack:                  a.configStack,
+			Bundled:                postgres.IsBundled(),
+			EmbeddedPostgresFlag:   flags.embeddedPostgres,
+			OwnerURLFlag:           flags.ownerURL,
+			CreateEmbeddedPostgres: a.createEmbeddedPostgres,
+			RemoveEmbeddedPostgres: a.removeEmbeddedPostgres,
+			MigrateAndCreateEngine: migrateAndCreateEngine,
 		},
 		&setup.TmuxStep{},
 		&setup.HarnessStep{
@@ -196,15 +196,15 @@ func (a *app) reloadConnection() error {
 	return nil
 }
 
-// createPostgres sets up the Postgres komrad runs and returns its owner's url.
-func (a *app) createPostgres(ctx context.Context) (string, error) {
+// createEmbeddedPostgres sets up the embedded Postgres and returns its owner's url.
+func (a *app) createEmbeddedPostgres(ctx context.Context) (string, error) {
 	password, err := generatePassword()
 	if err != nil {
 		return "", err
 	}
 
-	dir := postgres.Dir(a.env.StateDir)
-	err = postgres.Init(ctx, dir, password)
+	dir := postgres.GetDir(a.env.StateDir)
+	err = postgres.CreateCluster(ctx, dir, password)
 	if errors.Is(err, postgres.ErrClusterExists) {
 		return "", fmt.Errorf("%w, and no config holds its owner's password, so stop the Postgres running from %s, remove that directory, and run setup again", err, dir)
 	}
@@ -212,10 +212,10 @@ func (a *app) createPostgres(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	return postgres.OwnerURL(dir, password), nil
+	return postgres.BuildOwnerURL(dir, password), nil
 }
 
-// removePostgres deletes the Postgres createPostgres set up.
-func (a *app) removePostgres(ctx context.Context) error {
-	return postgres.Remove(ctx, postgres.Dir(a.env.StateDir))
+// removeEmbeddedPostgres deletes the Postgres createEmbeddedPostgres set up.
+func (a *app) removeEmbeddedPostgres(ctx context.Context) error {
+	return postgres.RemoveCluster(ctx, postgres.GetDir(a.env.StateDir))
 }

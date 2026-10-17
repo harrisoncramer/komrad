@@ -42,7 +42,7 @@ fi
 # Runs komrad with the connection read from the engine file alone.
 engine_komrad() {
 	env -u KOMRAD_ADDR -u KOMRAD_TMUX_SOCKET -u KOMRAD_DATABASE_URL -u KOMRAD_READONLY_DATABASE_URL \
-		-u KOMRAD_OWNER_DATABASE_URL -u KOMRAD_CACHE_DIR -u KOMRAD_STATE_DIR -u KOMRAD_RUN_POSTGRES \
+		-u KOMRAD_OWNER_DATABASE_URL -u KOMRAD_CACHE_DIR -u KOMRAD_STATE_DIR -u KOMRAD_EMBEDDED_POSTGRES \
 		"$komrad" "$@"
 }
 

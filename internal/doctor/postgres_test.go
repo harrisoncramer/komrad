@@ -62,7 +62,7 @@ func TestPostgresCheck(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			env := Env{
-				Settings:           Settings{RunPostgres: true, StateDir: "/state"},
+				Settings:           Settings{EmbeddedPostgres: true, StateDir: "/state"},
 				IsPostgresRunning:  func(context.Context, string) bool { return tt.running },
 				HasPostgresCluster: func(string) bool { return !tt.noCluster },
 				PostgresVersion:    tt.version,

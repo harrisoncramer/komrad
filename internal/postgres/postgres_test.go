@@ -33,7 +33,7 @@ func TestIsRunning(t *testing.T) {
 			t.Cleanup(func() { require.NoError(t, os.RemoveAll(dir)) })
 
 			if tt.listen {
-				listener, err := net.Listen("unix", socketPath(dir))
+				listener, err := net.Listen("unix", getSocketPath(dir))
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, listener.Close()) })
 			}

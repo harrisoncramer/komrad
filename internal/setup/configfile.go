@@ -38,7 +38,7 @@ type ConfigFile struct {
 type answers struct {
 	DefaultHarness   string
 	AutoSetup        bool
-	RunPostgres      bool
+	EmbeddedPostgres bool
 	OwnerDatabaseURL string
 	DatabaseURL      string
 }

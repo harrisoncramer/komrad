@@ -14,32 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func clearConnectionEnv(t *testing.T) {
-	t.Helper()
-
-	for _, variable := range []string{"KOMRAD_DATABASE_URL", "KOMRAD_OWNER_DATABASE_URL", "KOMRAD_RUN_POSTGRES"} {
-		t.Setenv(variable, "")
-	}
-}
-
-// homeConfig points the home directory at a temp dir and returns the config file komrad reads there when no --config is given.
-func homeConfig(t *testing.T) string {
-	t.Helper()
-
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	return filepath.Join(home, ".config", "komrad", "config.toml")
-}
-
-func failed(name string) doctor.Finding {
-	return doctor.Finding{
-		Name:   name,
-		Status: doctor.StatusFail,
-		Error:  name + " failed",
-	}
-}
-
 // TestDatabaseStep covers when the database step is done, asks, or stops.
 func TestDatabaseStep(t *testing.T) {
 	clearConnectionEnv(t)
@@ -82,8 +56,8 @@ func TestDatabaseStep(t *testing.T) {
 			verdict:  verdictStop,
 		},
 		{
-			name:   "the Postgres komrad runs being down stops",
-			config: "[connection]\nrun_postgres = true\n",
+			name:   "the embedded Postgres being down stops",
+			config: "[connection]\nembedded_postgres = true\n",
 			findings: []doctor.Finding{
 				ok(doctor.CheckConfig, ""),
 				failed(doctor.CheckPostgres),
@@ -102,14 +76,14 @@ func TestDatabaseStep(t *testing.T) {
 			verdict: verdictStop,
 		},
 		{
-			name:   "an engine in the Postgres komrad runs",
-			config: "[connection]\nrun_postgres = true\ndatabase_url = \"postgres://komrad_engine_laptop:pw@/komrad?host=%2Fstate%2Fpostgres\"\n",
+			name:   "an engine in the embedded Postgres",
+			config: "[connection]\nembedded_postgres = true\ndatabase_url = \"postgres://komrad_engine_default:pw@/komrad?host=%2Fstate%2Fpostgres\"\n",
 			findings: []doctor.Finding{
 				ok(doctor.CheckConfig, ""),
 				ok(doctor.CheckPostgres, ""),
 				ok(doctor.CheckDatabase, ""),
 				ok(doctor.CheckSchema, ""),
-				ok(doctor.CheckEngine, "laptop"),
+				ok(doctor.CheckEngine, "default"),
 			},
 			verdict: verdictDone,
 		},
@@ -142,12 +116,12 @@ func TestDatabaseStepUnattendedNamesTheFlags(t *testing.T) {
 		{
 			name:  "a build carrying no Postgres",
 			names: []string{"--owner-database-url"},
-			omits: []string{"--run-postgres"},
+			omits: []string{"--embedded-postgres"},
 		},
 		{
 			name:    "a build carrying Postgres",
 			bundled: true,
-			names:   []string{"--run-postgres", "--owner-database-url"},
+			names:   []string{"--embedded-postgres", "--owner-database-url"},
 		},
 	}
 
@@ -172,7 +146,7 @@ func TestDatabaseStepRepair(t *testing.T) {
 
 	const (
 		ownerURL  = "postgres://komrad:secret@/komrad?host=%2Fstate%2Fpostgres"
-		engineURL = "postgres://komrad_engine_laptop:pw@/komrad?host=%2Fstate%2Fpostgres"
+		engineURL = "postgres://komrad_engine_default:pw@/komrad?host=%2Fstate%2Fpostgres"
 	)
 
 	tests := []struct {
@@ -195,9 +169,9 @@ func TestDatabaseStepRepair(t *testing.T) {
 			joinErr: errors.New("migrate refused"),
 		},
 		{
-			name:  "komrad runs Postgres",
+			name:  "embedded Postgres",
 			run:   true,
-			after: "[connection]\nrun_postgres = true\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
+			after: "[connection]\nembedded_postgres = true\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
 		},
 		{
 			name:   "a Postgres the person runs",
@@ -212,17 +186,17 @@ func TestDatabaseStepRepair(t *testing.T) {
 			var joined string
 			var removed bool
 			step := &DatabaseStep{
-				File:           &ConfigFile{Path: path},
-				Stack:          config.Stack{},
-				RunFlag:        tt.run,
-				OwnerURLFlag:   tt.pasted,
-				CreatePostgres: func(context.Context) (string, error) { return ownerURL, nil },
-				RemovePostgres: func(context.Context) error {
+				File:                   &ConfigFile{Path: path},
+				Stack:                  config.Stack{},
+				EmbeddedPostgresFlag:   tt.run,
+				OwnerURLFlag:           tt.pasted,
+				CreateEmbeddedPostgres: func(context.Context) (string, error) { return ownerURL, nil },
+				RemoveEmbeddedPostgres: func(context.Context) error {
 					removed = true
 
 					return nil
 				},
-				JoinEngine: func(_ context.Context, owner string) (string, error) {
+				MigrateAndCreateEngine: func(_ context.Context, owner string) (string, error) {
 					joined = owner
 
 					return engineURL, tt.joinErr
@@ -248,5 +222,31 @@ func TestDatabaseStepRepair(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.after, string(written))
 		})
+	}
+}
+
+func clearConnectionEnv(t *testing.T) {
+	t.Helper()
+
+	for _, variable := range []string{"KOMRAD_DATABASE_URL", "KOMRAD_OWNER_DATABASE_URL", "KOMRAD_EMBEDDED_POSTGRES"} {
+		t.Setenv(variable, "")
+	}
+}
+
+// homeConfig points the home directory at a temp dir and returns the config file komrad reads there when no --config is given.
+func homeConfig(t *testing.T) string {
+	t.Helper()
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	return filepath.Join(home, ".config", "komrad", "config.toml")
+}
+
+func failed(name string) doctor.Finding {
+	return doctor.Finding{
+		Name:   name,
+		Status: doctor.StatusFail,
+		Error:  name + " failed",
 	}
 }

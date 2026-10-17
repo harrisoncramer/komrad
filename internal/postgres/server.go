@@ -7,11 +7,11 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 
+	"komrad/internal/command"
 	"komrad/internal/fail"
 
 	"github.com/jackc/pgx/v5"
@@ -27,61 +27,61 @@ const (
 	settingsFile = "komrad.conf"
 )
 
-// ErrClusterExists is what Init returns when dir already holds a cluster.
+// ErrClusterExists is what CreateCluster returns when dir already holds a cluster.
 var ErrClusterExists = fail.AlreadyExists("a Postgres cluster is already set up")
 
 var errNoCluster = fail.Precondition("no Postgres is set up")
 
-// OwnerURL is the url of the login that owns komrad's database in dir.
-func OwnerURL(dir, password string) string {
-	return ownerURL(dir, password, database)
+// BuildOwnerURL is the url of the login that owns komrad's database in dir.
+func BuildOwnerURL(dir, password string) string {
+	return buildOwnerURL(dir, password, database)
 }
 
-// Init sets up a new cluster in dir whose owner login takes password, starts it, and creates
+// CreateCluster sets up a new cluster in dir whose owner login takes password, starts it, and creates
 // komrad's database.
-func Init(ctx context.Context, dir, password string) error {
-	unlock, err := prepare(dir)
+func CreateCluster(ctx context.Context, dir, password string) error {
+	unlock, err := lockAndUnpack(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create a cluster in %s: %w", dir, err)
 	}
 	defer unlock()
 
-	data := dataDir(dir)
+	data := getDataDir(dir)
 	if HasCluster(dir) {
 		return fmt.Errorf("%w in %s", ErrClusterExists, data)
 	}
 
-	if err := initdb(ctx, dir, data, password); err != nil {
+	if err := runInitdb(ctx, dir, data, password); err != nil {
 		return fmt.Errorf("failed to create a cluster in %s: %w", data, err)
 	}
 
-	if err := start(ctx, dir); err != nil {
-		return errors.Join(fmt.Errorf("failed to start the new cluster in %s: %w", data, err), remove(context.WithoutCancel(ctx), dir))
+	if err := startServer(ctx, dir); err != nil {
+		return errors.Join(fmt.Errorf("failed to start the new cluster in %s: %w", data, err), stopAndRemoveCluster(context.WithoutCancel(ctx), dir))
 	}
 
 	if err := createDatabase(ctx, dir, password); err != nil {
-		return errors.Join(err, remove(context.WithoutCancel(ctx), dir))
+		return errors.Join(fmt.Errorf("failed to set up the new cluster in %s: %w", dir, err), stopAndRemoveCluster(context.WithoutCancel(ctx), dir))
 	}
 
 	return nil
 }
 
-// Remove stops the Postgres in dir and deletes its cluster, with every row in it.
-func Remove(ctx context.Context, dir string) error {
-	unlock, err := lock(dir)
+// RemoveCluster stops the Postgres in dir and deletes its cluster, with every row in it.
+func RemoveCluster(ctx context.Context, dir string) error {
+	unlock, err := takeLock(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to remove the cluster in %s: %w", dir, err)
 	}
 	defer unlock()
 
-	return remove(ctx, dir)
+	return stopAndRemoveCluster(ctx, dir)
 }
 
-// Up starts the Postgres in dir unless it is already running.
-func Up(ctx context.Context, dir string) error {
-	unlock, err := prepare(dir)
+// Start starts the Postgres in dir unless it is already running.
+func Start(ctx context.Context, dir string) error {
+	unlock, err := lockAndUnpack(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start Postgres in %s: %w", dir, err)
 	}
 	defer unlock()
 
@@ -94,10 +94,10 @@ func Up(ctx context.Context, dir string) error {
 	}
 
 	if err := removeStaleLockFiles(dir); err != nil {
-		return err
+		return fmt.Errorf("failed to clear the stale lock files in %s: %w", dir, err)
 	}
 
-	if err := start(ctx, dir); err != nil {
+	if err := startServer(ctx, dir); err != nil {
 		return fmt.Errorf("failed to start Postgres in %s: %w", dir, err)
 	}
 
@@ -106,19 +106,19 @@ func Up(ctx context.Context, dir string) error {
 
 // HasCluster reports whether dir holds a cluster for the Postgres this build carries.
 func HasCluster(dir string) bool {
-	_, err := os.Stat(dataDir(dir))
+	_, err := os.Stat(getDataDir(dir))
 
 	return err == nil
 }
 
-// dataDir is where the cluster of one major version lives under dir.
-func dataDir(dir string) string {
+// getDataDir is where the cluster of one major version lives under dir.
+func getDataDir(dir string) string {
 	major, _, _ := strings.Cut(Version, ".")
 
 	return filepath.Join(dir, "data-"+major)
 }
 
-func ownerURL(dir, password, name string) string {
+func buildOwnerURL(dir, password, name string) string {
 	return (&url.URL{
 		Scheme:   "postgres",
 		User:     url.UserPassword(ownerLogin, password),
@@ -127,10 +127,10 @@ func ownerURL(dir, password, name string) string {
 	}).String()
 }
 
-func remove(ctx context.Context, dir string) error {
-	data := dataDir(dir)
-	if _, err := os.Stat(pidFile(dir)); err == nil {
-		if err := run(ctx, program(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
+func stopAndRemoveCluster(ctx context.Context, dir string) error {
+	data := getDataDir(dir)
+	if _, err := os.Stat(getPIDFilePath(dir)); err == nil {
+		if err := runProgram(ctx, getProgramPath(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
 			return fmt.Errorf("failed to stop Postgres in %s: %w", data, err)
 		}
 	}
@@ -142,18 +142,18 @@ func remove(ctx context.Context, dir string) error {
 	return nil
 }
 
-// prepare takes the lock in dir and unpacks the bundled programs under it.
-func prepare(dir string) (func(), error) {
+// lockAndUnpack takes the lock in dir and unpacks the bundled programs under it.
+func lockAndUnpack(dir string) (func(), error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create %s: %w", dir, err)
 	}
 
-	unlock, err := lock(dir)
+	unlock, err := takeLock(dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to lock %s: %w", dir, err)
 	}
 
-	if err := unpack(dir); err != nil {
+	if err := unpackBundledPrograms(dir); err != nil {
 		unlock()
 
 		return nil, fmt.Errorf("failed to unpack Postgres into %s: %w", dir, err)
@@ -162,8 +162,8 @@ func prepare(dir string) (func(), error) {
 	return unlock, nil
 }
 
-// lock holds the lock every start and init in dir takes, across processes.
-func lock(dir string) (func(), error) {
+// takeLock holds the lock every start and init in dir takes, across processes.
+func takeLock(dir string) (func(), error) {
 	file, err := os.OpenFile(filepath.Join(dir, "lock"), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the Postgres lock in %s: %w", dir, err)
@@ -176,8 +176,8 @@ func lock(dir string) (func(), error) {
 	return func() { _ = file.Close() }, nil
 }
 
-// initdb creates the cluster in a staging directory and moves it into data once it is whole.
-func initdb(ctx context.Context, dir, data, password string) error {
+// runInitdb creates the cluster in a staging directory and moves it into data once it is whole.
+func runInitdb(ctx context.Context, dir, data, password string) error {
 	staging := data + ".init"
 	if err := os.RemoveAll(staging); err != nil {
 		return fmt.Errorf("failed to clear %s: %w", staging, err)
@@ -189,7 +189,7 @@ func initdb(ctx context.Context, dir, data, password string) error {
 	}
 	defer os.Remove(passwordFile) //nolint:errcheck // a leftover holds a password komrad's config already holds
 
-	if err := run(ctx, program(dir, "initdb"),
+	if err := runProgram(ctx, getProgramPath(dir, "initdb"),
 		"-D", staging,
 		"-U", ownerLogin,
 		"--pwfile", passwordFile,
@@ -199,7 +199,7 @@ func initdb(ctx context.Context, dir, data, password string) error {
 		"--locale-provider", "builtin",
 		"--builtin-locale", "C.UTF-8",
 	); err != nil {
-		return fmt.Errorf("failed to run initdb: %w", err)
+		return fmt.Errorf("failed to initialise %s: %w", staging, err)
 	}
 
 	include := fmt.Sprintf("\ninclude_if_exists = '%s'\n", settingsFile)
@@ -218,10 +218,10 @@ func initdb(ctx context.Context, dir, data, password string) error {
 func removeStaleLockFiles(dir string) error {
 	boot, err := readBootTime()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read when the machine booted: %w", err)
 	}
 
-	for _, path := range lockFiles(dir) {
+	for _, path := range getLockFilePaths(dir) {
 		info, err := os.Stat(path)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue
@@ -242,15 +242,15 @@ func removeStaleLockFiles(dir string) error {
 	return nil
 }
 
-// start writes the settings that keep Postgres off the network and on the socket in dir,
+// startServer writes the settings that keep Postgres off the network and on the socket in dir,
 // then starts it and waits for it to accept connections.
-func start(ctx context.Context, dir string) error {
-	data := dataDir(dir)
-	if err := os.WriteFile(filepath.Join(data, settingsFile), []byte(settings(dir)), 0o600); err != nil {
+func startServer(ctx context.Context, dir string) error {
+	data := getDataDir(dir)
+	if err := os.WriteFile(filepath.Join(data, settingsFile), []byte(buildSettingsFile(dir)), 0o600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", settingsFile, err)
 	}
 
-	return run(ctx, program(dir, "pg_ctl"),
+	return runProgram(ctx, getProgramPath(dir, "pg_ctl"),
 		"start",
 		"-D", data,
 		"-l", filepath.Join(dir, "postgres.log"),
@@ -259,8 +259,8 @@ func start(ctx context.Context, dir string) error {
 	)
 }
 
-// settings is the configuration file that listens on no address, only on the socket in dir.
-func settings(dir string) string {
+// buildSettingsFile is the configuration file that listens on no address, only on the socket in dir.
+func buildSettingsFile(dir string) string {
 	directories := `"` + strings.ReplaceAll(dir, `"`, `""`) + `"`
 
 	return strings.Join([]string{
@@ -272,7 +272,7 @@ func settings(dir string) string {
 }
 
 func createDatabase(ctx context.Context, dir, password string) error {
-	conn, err := pgx.Connect(ctx, ownerURL(dir, password, "postgres"))
+	conn, err := pgx.Connect(ctx, buildOwnerURL(dir, password, "postgres"))
 	if err != nil {
 		return fmt.Errorf("failed to connect to the new Postgres: %w", err)
 	}
@@ -285,21 +285,21 @@ func createDatabase(ctx context.Context, dir, password string) error {
 	return nil
 }
 
-func run(ctx context.Context, name string, args ...string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Env = environment()
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%s failed: %w: %s", filepath.Base(name), err, strings.TrimSpace(string(out)))
+func runProgram(ctx context.Context, path string, args ...string) error {
+	if err := command.Run(ctx, command.RunParams{
+		Path: path,
+		Args: args,
+		Env:  getEnvironmentWithoutPG(),
+	}); err != nil {
+		return fmt.Errorf("failed to run %s: %w", filepath.Base(path), err)
 	}
 
 	return nil
 }
 
-// environment is this process's environment without the PG variables that would point
+// getEnvironmentWithoutPG is this process's environment without the PG variables that would point
 // Postgres's own programs somewhere else.
-func environment() []string {
+func getEnvironmentWithoutPG() []string {
 	kept := make([]string, 0, len(os.Environ()))
 	for _, variable := range os.Environ() {
 		if !strings.HasPrefix(variable, "PG") {

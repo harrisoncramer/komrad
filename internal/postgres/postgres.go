@@ -14,8 +14,8 @@ const (
 	dialTimeout = time.Second
 )
 
-// Dir is the directory under stateDir that holds komrad's Postgres and its socket.
-func Dir(stateDir string) string {
+// GetDir is the directory under stateDir that holds the embedded Postgres and its socket.
+func GetDir(stateDir string) string {
 	return filepath.Join(stateDir, "postgres")
 }
 
@@ -23,7 +23,7 @@ func Dir(stateDir string) string {
 func IsRunning(ctx context.Context, dir string) bool {
 	dialer := net.Dialer{Timeout: dialTimeout}
 
-	conn, err := dialer.DialContext(ctx, "unix", socketPath(dir))
+	conn, err := dialer.DialContext(ctx, "unix", getSocketPath(dir))
 	if err != nil {
 		return false
 	}
@@ -31,17 +31,17 @@ func IsRunning(ctx context.Context, dir string) bool {
 	return conn.Close() == nil
 }
 
-// socketPath is the socket the server in dir listens on.
-func socketPath(dir string) string {
+// getSocketPath is the socket the server in dir listens on.
+func getSocketPath(dir string) string {
 	return filepath.Join(dir, ".s.PGSQL."+port)
 }
 
-// pidFile is the file the server in dir writes its PID into while it runs.
-func pidFile(dir string) string {
-	return filepath.Join(dataDir(dir), "postmaster.pid")
+// getPIDFilePath is the file the server in dir writes its PID into while it runs.
+func getPIDFilePath(dir string) string {
+	return filepath.Join(getDataDir(dir), "postmaster.pid")
 }
 
-// lockFiles are the files a server in dir leaves behind when it dies without stopping.
-func lockFiles(dir string) []string {
-	return []string{pidFile(dir), socketPath(dir) + ".lock"}
+// getLockFilePaths are the files a server in dir leaves behind when it dies without stopping.
+func getLockFilePaths(dir string) []string {
+	return []string{getPIDFilePath(dir), getSocketPath(dir) + ".lock"}
 }

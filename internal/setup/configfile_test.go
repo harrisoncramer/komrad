@@ -25,14 +25,14 @@ func TestConfigFileWrite(t *testing.T) {
 			name: "every answer",
 			answers: []func(*answers){
 				func(a *answers) {
-					a.RunPostgres = true
+					a.EmbeddedPostgres = true
 					a.OwnerDatabaseURL = "postgres://owner"
 					a.DatabaseURL = "postgres://engine"
 				},
 				func(a *answers) { a.DefaultHarness = "codex" },
 				func(a *answers) { a.AutoSetup = true },
 			},
-			after: "default_harness = \"codex\"\nauto_setup = true\n\n[connection]\nrun_postgres = true\nowner_database_url = \"postgres://owner\"\ndatabase_url = \"postgres://engine\"\n",
+			after: "default_harness = \"codex\"\nauto_setup = true\n\n[connection]\nembedded_postgres = true\nowner_database_url = \"postgres://owner\"\ndatabase_url = \"postgres://engine\"\n",
 		},
 		{
 			name: "a Postgres the person runs",

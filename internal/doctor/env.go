@@ -82,7 +82,7 @@ type Settings struct {
 	Harnesses           []harnessInfo
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
-	RunPostgres         bool
+	EmbeddedPostgres    bool
 	StateDir            string
 	Addr                string
 	EngineURL           string

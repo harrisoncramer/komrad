@@ -7,8 +7,8 @@ auto_setup = true
 {{- if .DatabaseURL}}
 
 [connection]
-{{- if .RunPostgres}}
-run_postgres = true
+{{- if .EmbeddedPostgres}}
+embedded_postgres = true
 {{- end}}
 owner_database_url = {{quote .OwnerDatabaseURL}}
 database_url = {{quote .DatabaseURL}}

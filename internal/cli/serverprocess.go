@@ -40,14 +40,14 @@ type ensureServerParams struct {
 	Self       string
 	LogPath    string
 	ConfigArgs []string
-	// PostgresDir is where komrad's own Postgres lives, and empty when komrad runs none.
-	PostgresDir string
+	// EmbeddedPostgresDir is where the embedded Postgres lives, and empty when the config turns it off.
+	EmbeddedPostgresDir string
 }
 
 func ensureServer(ctx context.Context, params ensureServerParams) error {
 	addr, logPath := params.Addr, params.LogPath
 
-	if err := upPostgres(ctx, params.PostgresDir); err != nil {
+	if err := startEmbeddedPostgres(ctx, params.EmbeddedPostgresDir); err != nil {
 		return err
 	}
 

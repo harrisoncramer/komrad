@@ -1199,9 +1199,16 @@
     "usage": "komrad setup [flags]",
     "aliases": [],
     "short": "Set this machine up for komrad, asking for whatever is missing",
-    "long": "Set this machine up for komrad, asking for whatever is missing.\n\nEach step asks the doctor whether its part of the machine is ready, and only when it is not\ndoes it ask a question and change something, then asks the doctor again. Nothing records\nwhich steps ran, so running it again after stopping part way finds the finished steps\nalready done. It ends on the doctor's full report.\n\nSetup writes the config file only when there is none, from a config template filled with\nyour answers. It never changes a config file that already exists: a step that would stops and\nnames the setting to change there.\n\nWith --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an\nanswer takes it from a flag, and names the flag when none was given.\n\nThe database step runs while database_url is left at its default.\nKomrad either runs Postgres under its state directory, or takes the url of a login that owns\na Postgres you already run; --run-postgres and --owner-database-url answer it unattended.\nEither way it migrates, makes an engine named laptop, and writes the [connection] settings.\n\nThe forge step connects github.com or gitlab.com with a pasted token once the engine is\nrunning, and skips until then. Unattended it skips, and komrad forge connect connects any\nforge after setup.",
+    "long": "Set this machine up for komrad, asking for whatever is missing.\n\nEach step asks the doctor whether its part of the machine is ready, and only when it is not\ndoes it ask a question and change something, then asks the doctor again. Nothing records\nwhich steps ran, so running it again after stopping part way finds the finished steps\nalready done. It ends on the doctor's full report.\n\nSetup writes the config file only when there is none, from a config template filled with\nyour answers. It never changes a config file that already exists: a step that would stops and\nnames the setting to change there.\n\nWith --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an\nanswer takes it from a flag, and names the flag when none was given.\n\nThe database step runs while database_url is left at its default.\nKomrad either runs the embedded Postgres under its state directory, or takes the url of a login that owns\na Postgres you already run; --embedded-postgres and --owner-database-url answer it unattended.\nEither way it migrates, makes an engine named default, and writes the [connection] settings.\n\nThe forge step connects github.com or gitlab.com with a pasted token once the engine is\nrunning, and skips until then. Unattended it skips, and komrad forge connect connects any\nforge after setup.",
     "example": "",
     "flags": [
+      {
+        "name": "embedded-postgres",
+        "shorthand": "",
+        "type": "bool",
+        "default": "false",
+        "usage": "run the embedded Postgres on this machine, when no database is set up"
+      },
       {
         "name": "harness",
         "shorthand": "",
@@ -1222,13 +1229,6 @@
         "type": "string",
         "default": "",
         "usage": "the url of a login that owns a Postgres you already run, when no database is set up"
-      },
-      {
-        "name": "run-postgres",
-        "shorthand": "",
-        "type": "bool",
-        "default": "false",
-        "usage": "have komrad run Postgres on this machine, when no database is set up"
       }
     ],
     "inherited": [
@@ -1312,7 +1312,7 @@
     "usage": "komrad start",
     "aliases": [],
     "short": "Start the server in the background if it is not already running",
-    "long": "Start the server in the background if it is not already running.\n\nIt asks the configured address who is there first. A server already answering is\nleft alone, whatever build it runs, so a rebuilt binary takes over only after\n`komrad stop`. Otherwise `komrad serve` is spawned detached, with its output\ngoing to the log file, and this waits for the address to answer before returning.\n\nWhen komrad runs its own Postgres, set by connection.run_postgres, this starts it\nfirst if it is down, even when the server is already running. Nothing else starts\nit, and `komrad stop` leaves it running.\n\nOpening the panel does the same thing on its own, so this is for scripts and for\nbringing the server up without a panel.",
+    "long": "Start the server in the background if it is not already running.\n\nIt asks the configured address who is there first. A server already answering is\nleft alone, whatever build it runs, so a rebuilt binary takes over only after\n`komrad stop`. Otherwise `komrad serve` is spawned detached, with its output\ngoing to the log file, and this waits for the address to answer before returning.\n\nWhen connection.embedded_postgres is set, this starts the embedded Postgres\nfirst if it is down, even when the server is already running. Nothing else starts\nit, and `komrad stop` leaves it running.\n\nOpening the panel does the same thing on its own, so this is for scripts and for\nbringing the server up without a panel.",
     "example": "",
     "flags": [],
     "inherited": [

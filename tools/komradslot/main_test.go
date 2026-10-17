@@ -67,7 +67,7 @@ func TestEnvThenCheck(t *testing.T) {
 	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["DB_PORT"] != "5470" || env["KOMRAD_TEST_DATABASE"] != "komrad_1" || env["KOMRAD_TEST_ENGINE"] != "slot_1" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" || env["KOMRAD_STATE_DIR"] != filepath.Join(reg.slotDir(1), "state") {
 		t.Errorf("env printed %q", out)
 	}
-	if runPostgres, ok := env["KOMRAD_RUN_POSTGRES"]; !ok || runPostgres != "" {
+	if embeddedPostgres, ok := env["KOMRAD_EMBEDDED_POSTGRES"]; !ok || embeddedPostgres != "" {
 		t.Errorf("env printed %q", out)
 	}
 

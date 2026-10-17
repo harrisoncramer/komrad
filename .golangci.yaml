@@ -1,4 +1,6 @@
 version: "2"
+# The integration tests carry a build tag, so without this the linter would not read them
+# at all and every rule below would stop at the files a unit run compiles.
 run:
   build-tags:
     - integration
@@ -63,19 +65,31 @@ linters:
     - decorder
   settings:
     errcheck:
+      # A discarded error is the same bug whether it went to _ or nowhere, so the blank
+      # form is checked too. What is excluded below is the handful of calls where the zero
+      # value genuinely is the answer.
       check-blank: true
       check-type-assertions: true
       exclude-functions:
+        # Cleanup that runs in a defer, where the caller has already returned and there is
+        # nothing left to report the failure to.
         - (github.com/jackc/pgx/v5.Tx).Rollback
         - (*github.com/jackc/pgx/v5.Conn).Close
         - (*komrad/internal/store.Pool).Close
         - (*os.File).Close
         - (io.Closer).Close
+        # Fails only with no HOME, and every caller treats the empty string as the fallback
+        # it would have chosen anyway.
         - os.UserHomeDir
     staticcheck:
       checks:
         - all
     forbidigo:
+      # Explainer: driving a real git is what makes a test slow and what makes it flake under
+      # load, so the suite is split into unit tests and integration tests, and only the
+      # packages below pay for it. The rule is written against the calls rather than the
+      # imports, since a unit test that hands over a fake still imports komrad/internal/git
+      # for the types the fake is written in.
       analyze-types: true
       forbid:
         - pattern: ^git\.NewClient$
@@ -107,6 +121,9 @@ linters:
         - pattern: ^os\.Exit$
           msg: return the error and let main exit
     depguard:
+      # The layers, as docs/src/content/guides/how-it-works.md describes them. A layer may call the one below it
+      # and may not reach past it, and the panel receives its adapters rather than
+      # importing them. These are cheap to keep and expensive to rediscover.
       rules:
         presentation:
           files:
@@ -276,13 +293,21 @@ linters:
         - pkg: komrad/proto/gen/(\w+)/v1
           alias: ${1}v1
     sloglint:
+      # Every line in komrad is written with LogAttrs, on the logger the context carries, so a
+      # line reaches the log with the request's trace on it rather than bare.
       context: all
       attr-only: true
       no-global: all
+      # The keys are OpenTelemetry names declared once in internal/logging, so a literal at
+      # the call site is a key nothing else will ever match on.
       no-raw-keys: true
+      # A message built with Sprintf is a message no query can group by, and the arguments it
+      # interpolates belong in attributes where they can be filtered.
       static-msg: true
       msg-style: lowercased
     usetesting:
+      # A test's own context is cancelled when the test ends, so work it started cannot
+      # outlive it and hold a database handle open into the next one.
       context-background: true
       context-todo: true
       os-temp-dir: true
@@ -297,6 +322,8 @@ linters:
           arguments:
             - 4
     thelper:
+      # A table row's check closure takes t too, and it is the helper's parameter position
+      # and name that are held rather than its first statement.
       test:
         begin: false
     nolintlint:
@@ -306,6 +333,8 @@ linters:
       check:
         - switch
       default-signifies-exhaustive: false
+      # A member named for an end is one past the last real state, there to give a caller walking
+      # an enum a bound that moves on its own, so no switch answers for it.
       ignore-enum-members: End$
     custom:
       komradlint:
@@ -317,6 +346,8 @@ linters:
             exclude: []
           wrap_phrase:
             skip: false
+            # Unanchored regexps over the path lint was run from. A config error names the key
+            # it is about, and the docs generator names the file it was writing.
             exclude:
               - ^config/
               - ^cmd/gen-docs/
@@ -327,32 +358,48 @@ linters:
             exclude: []
           single_append:
             skip: false
+            # Unanchored regexps over the path lint was run from. The package that defines Map,
+            # and the sqlc output nobody edits.
             exclude:
               - ^lib/xslice/
               - ^db/models/
               - ^db/testmodels/
           conversion_name:
             skip: false
+            # Unanchored regexps over the path lint was run from. The service builds proto
+            # messages, so its converters are renderX.
             render:
               - ^internal/rpc/
+            # The panel reads proto messages, so its converters are xFrom, never protoToX,
+            # xFromProto or renderX.
             from:
               - ^internal/ui/
           bare_http:
             skip: false
+            # Unanchored regexps over the path lint was run from. The one package that builds
+            # the configured client and transport everything else uses.
             exclude:
               - ^lib/xhttp/
           secret_expose:
             skip: false
+            # Where Expose may be called, spelled as types.Func.FullName spells a function. The
+            # header that sends the token and the store that keeps it, and nothing else.
             allow:
               - (komrad/internal/forge.Credential).HeaderValue
               - (*komrad/internal/forge.FileStore).Set
               - komrad/internal/cli.tokenForTheWire
           handler_shape:
             skip: false
+            # Unanchored regexps over the path lint was run from. The adapter's own signature is
+            # the one this rule looks for.
             exclude:
               - ^internal/rpcerr/
           sentinel_kind:
             skip: false
+            # Unanchored regexps over the path lint was run from. Nothing a caller reaches
+            # through the RPC layer is declared in these, so their sentinels answer no status
+            # code: the panel's own screens, the CLI's control flow, the diff the panel draws
+            # for itself, configuration, and the pool held open before a request can arrive.
             exclude:
               - ^internal/ui/
               - ^internal/errui/
@@ -363,20 +410,37 @@ linters:
               - ^db/
           black_box:
             skip: false
+            # The panel's screen tests are in package ui_test, where they can only reach the
+            # model through the harness.
             types:
               - komrad/internal/ui.model
+            # Unanchored regexps over the path lint was run from.
             exclude:
+              # This file hands the model to the harness. Something has to reach inside the
+              # package to do that, and keeping it to one file means no other test can.
               - ^internal/ui/export_test\.go$
           fake_store:
             skip: false
+            # Unanchored regexps over the path lint was run from.
             exclude:
+              # A store's own tests are the tests of the real store. A helper there that shares a
+              # method name with the store is setting up rows, not faking anything.
               - ^internal/store/
           test_beside:
             skip: false
+            # Unanchored regexps over the path lint was run from.
             exclude:
+              # Scenario files are named for the feature a user meets, such as mail or reviews,
+              # and a feature spans many source files.
               - ^internal/e2e/
+              # The harness every screen test drives the panel through. It is shared by all of
+              # them, so no single source file owns it.
               - ^internal/ui/harness_test\.go$
+              # The one file that opens the model up to the harness. Go's convention names it for
+              # what it does rather than for a source file.
               - ^internal/ui/export_test\.go$
+              # Drives the whole panel against a real service and tmux. It is a scenario for the
+              # panel as a whole, and there is no panel.go for it to sit beside.
               - ^internal/ui/panel_integration_test\.go$
           bound_key:
             skip: false
@@ -424,16 +488,22 @@ linters:
               - _test\.go$
           ctx_sleep:
             skip: false
+            # Unanchored regexps over the path lint was run from. The package that defines
+            # Sleep.
             exclude:
               - ^lib/clock/
           test_fatal_err:
             skip: false
+            # Unanchored regexps over the import path. The tools modules carry no testify.
             packages:
               - ^komrad/
           error_text:
             skip: false
           store_query:
             skip: false
+            # Unanchored regexps over the import path. The domain services, the jobs that run beside
+            # them, the server that wires stores into both, the watch broker and doctor that each hold
+            # a connection of their own, and the fixtures the tests share.
             allow:
               - ^komrad/internal/(agents|checkouts|documents|forge|mail|pullrequests|reviews|schedules|scriptrun|tasks|transcripts|worktrees)$
               - ^komrad/internal/jobs(/internaljobs)?$
@@ -443,13 +513,18 @@ linters:
             skip: false
           one_service:
             skip: false
+            # An agent handler acts through one service and then reads the row back to render it.
             readers:
               - rows
             exclude:
               - ^internal/fail/
+              # Reading the agents' logs picks between the server log and a run's log, which is a
+              # choice of source the request makes rather than a combining of two answers.
               - ^internal/rpc/log/handler\.go$
           view_split:
             skip: false
+            # Unanchored regexps over the import path. The panel keeps each screen's drawing in a
+            # file of its own that only reads what the screen holds.
             packages:
               - ^komrad/internal/ui$
       fussy:
@@ -458,6 +533,8 @@ linters:
         settings:
           comment_length:
             skip: false
+            # Unanchored regexps over the file path. The config structs' doc comments
+            # are the text of the generated config.toml, so they are prose on purpose.
             exclude:
               - /config/[^/]+\.go$
           forbid_getenv:
@@ -467,10 +544,13 @@ linters:
           comment_prefix:
             skip: false
             require: true
+          # Unanchored regexps over the file path. The panel talks to the service over HTTP,
+          # so a call of its own that never times out is a frame that never redraws.
           context_timeout:
             skip: false
             include:
               - internal/ui/
+          # Unanchored regexps over the file path, same exclusion as comment_length.
           comment_reference:
             skip: false
             exclude:
@@ -479,6 +559,8 @@ linters:
             skip: false
           params_struct:
             skip: false
+            # Structs named after a concept several functions build from rather than after one
+            # function, which the function-name half of the rule cannot fit.
             allow:
               - scriptEnvParams
               - workflowConfigParams
@@ -545,14 +627,22 @@ linters:
               - Value
               - Workflow
   exclusions:
+    # The docs site is a node project, and a package under its node_modules can ship a Go file
+    # of its own.
     paths:
       - ^docs/
     rules:
+      # The rule is about tests. Everything else constructs the real client on purpose, which
+      # is what a seam is for.
       - path-except: _test\.go$
         linters:
           - forbidigo
         text: a unit test
-      - path: internal/(git|diff|scripts|e2e|tmux|tmuxtest|cli|harness|postgres)/
+      # The integration tests: the packages whose subject is what git, tmux or the panel's own
+      # binaries actually do, which is the one case a test has to drive the real thing. It is
+      # the set mise/tasks/go/test runs for --kind integration. The fixture packages beside
+      # them, such as internal/komradtest, hold no test of their own and so need no entry.
+      - path: internal/(git|diff|scripts|e2e|tmux|tmuxtest|cli|harness)/
         linters:
           - forbidigo
         text: a unit test
@@ -568,22 +658,30 @@ linters:
         linters:
           - forbidigo
         text: db.IsNoRows
+      # A test plays the server and answers with whatever code its case needs.
       - path: (_test\.go$|^internal/rpcerr/)
         linters:
           - forbidigo
         text: answer through rpcerr
+      # A test exits from TestMain and from the stand-in processes it re-execs itself as.
       - path: ((^|/)main\.go$|_test\.go$)
         linters:
           - forbidigo
         text: let main exit
+      # A binary's package comment would be the first thing a reader of the command sees on
+      # pkg.go.dev, and these three exist to be run rather than to be read about.
       - path: (^main\.go$|^cmd/|^config/gen/)
         linters:
           - staticcheck
         text: ST1000
+      # The config package is where configuration is read from the environment, which is
+      # the thing forbidgetenv exists to funnel through it. It cannot follow its own advice.
       - path: ^config/
         linters:
           - fussy
         text: forbidgetenv
+      # A nil next-page token is the absence the proto field itself carries, and it is handed
+      # straight to the response rather than acted on, so there is nothing for a sentinel to say.
       - path: ^lib/pagination/
         linters:
           - fussy
@@ -591,22 +689,36 @@ linters:
       - path: ^tools/komradlint/
         linters:
           - nilnil
+      # Migrating the schema and setting up the engine login run before any service exists, so the
+      # commands that do them call the store themselves.
       - path: ^internal/cli/(migrate|engine)\.go$
         linters:
           - komradlint
         text: is a store query
+      # A test asserts on the assertion it just made, so an unchecked assertion fails the
+      # test on the spot rather than travelling as a wrong value the way it would in the server.
+      # The same files shell out to git and tmux to build their fixtures, where the command
+      # is bounded by the test binary's own life and has no request to be cancelled with.
+      # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
+      # failure means the throwaway server or file is already gone.
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|komradtest)/)
         linters:
           - forcetypeassert
           - noctx
           - errcheck
+      # A doctor problem is a record carrying a code and a sentence, and satisfying error is
+      # how it reaches a caller rather than what it is, so ProblemError would name the interface
+      # instead of the thing.
       - path: ^internal/doctor/
         linters:
           - errname
+      # A test helper takes t and the fixture before its own arguments, so the limit that
+      # holds a function to four does not fit one.
       - path: _test\.go$
         linters:
           - revive
         text: argument-limit
+      # A buf rule over a pair of messages takes the signature bufplugin's checkutil hands it.
       - path: ^internal/bufcheck/tighten\.go$
         linters:
           - revive

@@ -11,7 +11,7 @@ usage() {
 	echo "unit run rather than skipped inside one."
 	echo
 	echo "An integration run also embeds the Postgres build for this machine, which"
-	echo "the tests of komrad's own Postgres start."
+	echo "the tests of the embedded Postgres start."
 	echo
 	echo "Every test in a tagged file is named TestIntegration, which is how an"
 	echo "integration run picks out only those and leaves the unit tests alone."

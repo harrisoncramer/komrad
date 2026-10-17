@@ -70,6 +70,8 @@ komrad: The system as a whole, and the subject of any sentence about what the se
 
 panel: komrad's terminal interface, one client among others. Use it only in writing about the interface itself. Proto comments never mention it.
 
+embedded Postgres: The Postgres a release binary carries, which komrad runs under its state directory. Not "komrad's Postgres" or "the Postgres komrad runs".
+
 ### Roles
 
 writer: The one agent on a task that changes its checkout, for the whole life of the task.

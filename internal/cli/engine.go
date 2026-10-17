@@ -19,7 +19,7 @@ const enginePasswordVariable = "KOMRAD_ENGINE_PASSWORD"
 func engineCmd(state *app) *cobra.Command {
 	engine := &cobra.Command{
 		Use:         "engine",
-		Annotations: map[string]string{needsPostgres: ""},
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
 		Short:       "Set up the engines that share a database, and who may use them",
 		Hidden:      true,
 	}
@@ -54,7 +54,7 @@ engines had logins belongs to, hands it new logins and keeps its rows.`,
 				password = generated
 			}
 
-			engineURL, err := ensureEngine(cmd.Context(), state.env.OwnerDatabaseURL, name, password)
+			engineURL, err := createEngineLogin(cmd.Context(), state.env.OwnerDatabaseURL, name, password)
 			if err != nil {
 				return err
 			}
@@ -127,21 +127,21 @@ fresh grant and a fresh sign-in.`,
 	return engine
 }
 
-// ensureEngine creates the engine name in the database ownerURL owns, or resets its logins to
-// password, and returns the url the engine connects with.
-func ensureEngine(ctx context.Context, ownerURL, name, password string) (string, error) {
+// createEngineLogin creates the engine name with a login that takes password, or resets the login
+// of the one there, and returns the url it connects with.
+func createEngineLogin(ctx context.Context, ownerURL, name, password string) (string, error) {
 	if err := store.EnsureEngine(ctx, ownerURL, db.EnsureEngineParams{
 		Name:     name,
 		Password: password,
 	}); err != nil {
-		return "", fmt.Errorf("failed to ensure engine %s: %w", name, err)
+		return "", fmt.Errorf("failed to create engine %s: %w", name, err)
 	}
 
 	return withLogin(ownerURL, db.EngineLogin(name), password)
 }
 
-// joinEngine migrates the database ownerURL owns and ensures the engine setup makes there.
-func joinEngine(ctx context.Context, ownerURL string) (string, error) {
+// migrateAndCreateEngine migrates the database ownerURL owns and creates the default engine with a new password.
+func migrateAndCreateEngine(ctx context.Context, ownerURL string) (string, error) {
 	if err := store.Migrate(ctx, ownerURL); err != nil {
 		return "", fmt.Errorf("failed to migrate: %w", err)
 	}
@@ -151,7 +151,7 @@ func joinEngine(ctx context.Context, ownerURL string) (string, error) {
 		return "", err
 	}
 
-	return ensureEngine(ctx, ownerURL, setupEngine, password)
+	return createEngineLogin(ctx, ownerURL, setupEngine, password)
 }
 
 func generatePassword() (string, error) {

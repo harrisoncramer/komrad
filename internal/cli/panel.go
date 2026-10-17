@@ -117,11 +117,11 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				}
 			case state.configErr == nil:
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
-					Addr:        addr,
-					Self:        getSelfPath(),
-					LogPath:     logPath,
-					ConfigArgs:  configArgs(state.configStack),
-					PostgresDir: postgresDir(state.env),
+					Addr:                addr,
+					Self:                getSelfPath(),
+					LogPath:             logPath,
+					ConfigArgs:          configArgs(state.configStack),
+					EmbeddedPostgresDir: embeddedPostgresDir(state.env),
 				})
 			}
 

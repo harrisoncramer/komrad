@@ -30,7 +30,7 @@ func serveCmd(state *app) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "serve",
-		Annotations: map[string]string{needsPostgres: ""},
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
 		Short:       "Run the komrad server in the foreground",
 		Long: `Run the komrad server in the foreground.
 

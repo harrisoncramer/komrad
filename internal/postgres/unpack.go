@@ -14,20 +14,20 @@ import (
 	"komrad/internal/fail"
 )
 
-var errNotBundled = fail.Precondition("this build of komrad carries no Postgres, so install a release binary or build with mise run go:build")
+var errNotBundled = fail.Precondition("this build of komrad carries no embedded Postgres, so install a release binary or build with mise run go:build")
 
-// programDir is where the programs of one Postgres version live under dir.
-func programDir(dir, version string) string {
+// getUnpackedDir is where the programs of one Postgres version live under dir.
+func getUnpackedDir(dir, version string) string {
 	return filepath.Join(dir, version)
 }
 
-func program(dir, name string) string {
-	return filepath.Join(programDir(dir, Version), "bin", name)
+func getProgramPath(dir, name string) string {
+	return filepath.Join(getUnpackedDir(dir, Version), "bin", name)
 }
 
-// unpack writes the bundled Postgres programs under dir, once for each version.
-func unpack(dir string) error {
-	target := programDir(dir, Version)
+// unpackBundledPrograms writes the bundled Postgres programs under dir, once for each version.
+func unpackBundledPrograms(dir string) error {
+	target := getUnpackedDir(dir, Version)
 	if _, err := os.Stat(target); err == nil {
 		return nil
 	}
@@ -42,7 +42,7 @@ func unpack(dir string) error {
 	}
 	defer os.RemoveAll(staging) //nolint:errcheck // gone once renamed, and a leftover is only space
 
-	if err := extract(bytes.NewReader(bundle), staging); err != nil {
+	if err := extractGzippedTar(bytes.NewReader(bundle), staging); err != nil {
 		return fmt.Errorf("failed to unpack Postgres %s: %w", Version, err)
 	}
 
@@ -53,8 +53,8 @@ func unpack(dir string) error {
 	return nil
 }
 
-// extract writes a gzipped tar into dest, dropping the one directory every entry sits under.
-func extract(archive io.Reader, dest string) error {
+// extractGzippedTar writes a gzipped tar into dest, dropping the one directory every entry sits under.
+func extractGzippedTar(archive io.Reader, dest string) error {
 	gz, err := gzip.NewReader(archive)
 	if err != nil {
 		return fmt.Errorf("failed to read the archive as gzip: %w", err)
@@ -71,7 +71,7 @@ func extract(archive io.Reader, dest string) error {
 			return fmt.Errorf("failed to read the next entry of the archive: %w", err)
 		}
 
-		name, err := entryPath(header.Name)
+		name, err := stripArchiveTopDir(header.Name)
 		if err != nil {
 			return fmt.Errorf("failed to place %s: %w", header.Name, err)
 		}
@@ -86,7 +86,7 @@ func extract(archive io.Reader, dest string) error {
 				return fmt.Errorf("failed to create %s: %w", path, err)
 			}
 		case tar.TypeReg:
-			if err := writeEntry(path, reader, header.FileInfo().Mode().Perm()); err != nil {
+			if err := writeArchiveFile(path, reader, header.FileInfo().Mode().Perm()); err != nil {
 				return fmt.Errorf("failed to write %s: %w", path, err)
 			}
 		case tar.TypeSymlink:
@@ -102,8 +102,8 @@ func extract(archive io.Reader, dest string) error {
 	}
 }
 
-// entryPath is an entry's path below the archive's top directory, refusing one that climbs out.
-func entryPath(name string) (string, error) {
+// stripArchiveTopDir is an entry's path below the archive's top directory, refusing one that climbs out.
+func stripArchiveTopDir(name string) (string, error) {
 	_, rest, _ := strings.Cut(filepath.ToSlash(name), "/")
 	cleaned := filepath.Clean(rest)
 	if cleaned == "." {
@@ -116,7 +116,7 @@ func entryPath(name string) (string, error) {
 	return cleaned, nil
 }
 
-func writeEntry(path string, contents io.Reader, mode os.FileMode) error {
+func writeArchiveFile(path string, contents io.Reader, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("failed to create %s: %w", filepath.Dir(path), err)
 	}

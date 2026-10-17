@@ -40,7 +40,7 @@ func EngineChecks(settings Settings) []Check {
 	}
 
 	database := newDatabaseCheck()
-	if settings.RunPostgres {
+	if settings.EmbeddedPostgres {
 		checks = append(checks, newPostgresCheck())
 		database.Needs = []string{CheckPostgres}
 	}

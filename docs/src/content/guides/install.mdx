@@ -67,17 +67,13 @@ You can also use the automatic installation and reconfigure anything it auto-ins
 
 ### Create your database
 
-Komrad keeps everything in Postgres. On a laptop, komrad can run Postgres for you. Every release binary carries its own Postgres, so on a Mac there is nothing else to install. On Linux, that Postgres needs glibc 2.34 or newer and the libxml2, OpenSSL 3 and Kerberos libraries, which most desktop installs already have. On Debian or Ubuntu, `sudo apt install libxml2 libssl3 libgssapi-krb5-2` adds them.
-
-You can use the <Command path="setup" /> command to tell Komrad where your Postgres instance runs. If you tell it to, komrad will create the database under your <Setting path="connection.state_dir" label="state_dir" />, start it, create an engine named `laptop`, and write the <Setting path="connection" label="[connection]" /> block for you. Setup only writes a config file when you have none, and never changes one you already have.
-
-Pass `--run-postgres` with `--no-input` to do this without being asked.
+Every release binary carries an embedded Postgres, so a Mac needs nothing else. On Linux it needs glibc 2.34 or newer, and on Debian or Ubuntu `sudo apt install libxml2 libssl3 libgssapi-krb5-2` adds the libraries it uses. Run <Command path="setup" /> and choose "On this machine", or pass `--embedded-postgres`, and komrad creates the database, an engine named `default`, and your <Setting path="connection" label="[connection]" /> block.
 
 ```sh
-komrad setup --no-input --run-postgres
+komrad setup --no-input --embedded-postgres
 ```
 
-Komrad's Postgres listens on a socket in `~/.local/state/komrad/postgres` and on no network port. It keeps running when you close the panel or run <Command path="stop" />. After a restart, <Command path="start" /> and <Command path="open" /> bring it up again. The commands that need the database, such as <Command path="migrate" />, refuse to run while it is down and tell you to run <Command path="start" />.
+After a restart, <Command path="start" /> or <Command path="open" /> brings the embedded Postgres back up.
 
 ### Use a Postgres you already run
 
@@ -95,12 +91,12 @@ docker run --name komrad \
 
 Postgres takes a few seconds to start. Wait until `docker exec komrad pg_isready -h localhost` reports that it is accepting connections before moving on.
 
-The database needs one admin-like user. The komrad engine uses this user to run migrations each time you update your binary. Choose "A Postgres I already run" in <Command path="setup" /> and paste this user's URL, or pass it as `--owner-database-url`. To do the same by hand, provide the URL to the <Command path="migrate" /> command and create your first engine. The engine is named `laptop` here.
+The database needs one admin-like user. The komrad engine uses this user to run migrations each time you update your binary. Choose "A Postgres I already run" in <Command path="setup" /> and paste this user's URL, or pass it as `--owner-database-url`. To do the same by hand, provide the URL to the <Command path="migrate" /> command and create your first engine. The engine is named `default` here.
 
 ```sh
 export KOMRAD_OWNER_DATABASE_URL=postgres://komrad_owner:password123@localhost:5432/komrad
 komrad migrate
-komrad engine ensure laptop
+komrad engine ensure default
 ```
 
 Several engines can share one database, so multiple developers can share a Postgres database, or one developer can spread their workload across machines.
@@ -114,7 +110,7 @@ The <Command path="engine ensure" /> command prints an initial <Setting path="co
 ```toml
 [connection]
 owner_database_url = "postgres://komrad_owner:password123@localhost:5432/komrad"
-database_url = "postgres://komrad_engine_laptop:8f3a1c9e2b7d4e6f@localhost:5432/komrad"
+database_url = "postgres://komrad_engine_default:8f3a1c9e2b7d4e6f@localhost:5432/komrad"
 ```
 
 Only <Command path="migrate" />, <Command path="engine ensure" />, <Command path="engine grant" /> and <Command path="engine revoke" /> use the <Setting path="connection.owner_database_url" label="owner_database_url" />. The server itself connects with <Setting path="connection.database_url" label="database_url" />.
@@ -123,7 +119,7 @@ Only <Command path="migrate" />, <Command path="engine ensure" />, <Command path
 
 Komrad runs every agent in a tmux server of its own, so tmux must be installed. Using tmux yourself is optional.
 
-Run <Command path="open" /> to open the panel. The first open starts the server in the background, and komrad's Postgres too when komrad runs it.
+Run <Command path="open" /> to open the panel. The first open starts the server in the background, and the embedded Postgres too if you use it.
 
 <figure>
   <img

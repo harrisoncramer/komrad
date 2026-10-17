@@ -9,7 +9,7 @@ import (
 func migrateCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:         "migrate",
-		Annotations: map[string]string{needsPostgres: ""},
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
 		Short:       "Apply any pending database migrations",
 		Long: `Apply any pending database migrations, connecting as the login that owns the schema.
 
