@@ -57,7 +57,7 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 // conversationAtCursor is the conversation on the cursor's row, wrapped to inner, and none while the
 // sidebar has the keys.
 func (r reviewScreen) conversationAtCursor(m *model, inner int) (string, string, bool) {
-	if r.isBlockFocused(m) || r.isPullRequestFocused(m) {
+	if r.isBlockFocused(m) {
 		return "", "", false
 	}
 
@@ -91,7 +91,7 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		band := r.bandView(m)
 		layout := r.layoutSidebar(m, band)
 
-		cursor := paint.CountLines(band+layout.bar+layout.change+layout.pullRequest+layout.files+r.placeView()) - 1
+		cursor := paint.CountLines(band+layout.bar+layout.change+layout.side+layout.files+r.placeView()) - 1
 
 		return popupStage{
 			top:        paint.CountLines(band + layout.bar),

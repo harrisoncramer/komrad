@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"fmt"
-
 	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -24,104 +22,89 @@ type reviewDiff struct {
 	// since says how much of the diff is new to the reader.
 	since string
 	spec  diffSpec
-	// baseRound is the round the narrowed base came from, nil while there is none to offer.
+	// baseRound is the round the person last released a review against, nil while there is none.
 	baseRound *agentv1.ReviewRound
 	// baseAt is when the person released the review that round was given against, in clock terms.
 	baseAt string
-	// pinned says the diff is the snapshot the reader's unsent comments were written against
-	// rather than the work as it now stands.
-	pinned bool
 
-	// chapters are the rounds of the review the two step keys walk, oldest first.
-	chapters []reviewChapter
-	// rounds are every round of the review, which the answer key finds a comment's two ends in.
+	// rounds are every round of the review, oldest first.
 	rounds []*agentv1.ReviewRound
+	// reviews are every review on the task the reader may read, oldest first.
+	reviews []*agentv1.Review
+	// newest is the round new comments go on.
+	newest *agentv1.ReviewRound
 	landOn string
 
 	// followedMove is the move the diff last caught up on.
 	followedMove string
 
-	// showsAgentThreads says the conversations agents opened are rendered.
-	showsAgentThreads bool
+	// hidesAgentThreads says the conversations agents opened are left out.
+	hidesAgentThreads bool
 }
 
+// diffSpec is the range the diff on screen runs over.
 type diffSpec struct {
-	// base is the commit the diff on screen is measured from, empty for the point the branch
-	// left main.
-	base string
-	// label names that commit for the band, empty while the diff is measured from the fork
-	// point.
-	label string
-	// head is the commit the diff on screen is measured to, empty for the newest snapshot.
-	head string
-	// chapter is which of the review's chapters is on screen, negative for the whole change.
-	chapter int
+	// from is the round the range starts after, empty for where the task starts.
+	from string
+	// to is the round the range ends on, empty for the newest round.
+	to string
 	// answer is the answer to a comment on screen, nil while the diff is anything else.
 	answer *reviewAnswer
 	origin *reviewOrigin
+
+	// base and head are the commits the diff on screen was read between, once it has been read.
+	base string
+	head string
+	// replayed says the older side was carried across a rebase onto the newer one's base.
+	replayed bool
+	// conflicts is the paths that stopped the older side being carried across a rebase.
+	conflicts []string
 }
 
 func wholeChange() diffSpec {
-	return diffSpec{chapter: -1}
+	return diffSpec{}
 }
 
 func answerSpec(answer *reviewAnswer) diffSpec {
-	return diffSpec{
-		label:   answerLabel,
-		chapter: -1,
-		answer:  answer,
-	}
+	return diffSpec{answer: answer}
 }
 
 func originSpec(origin *reviewOrigin) diffSpec {
-	return diffSpec{
-		label:   originLabel(origin, false),
-		chapter: -1,
-		origin:  origin,
-	}
+	return diffSpec{origin: origin}
 }
 
-func (d diffSpec) isChapter() bool {
-	return d.chapter >= 0
-}
-
-// isNarrowed reports whether the diff on screen is measured over a range rather than the whole
-// change.
-func (d diffSpec) isNarrowed() bool {
-	return d.base != "" || d.head != ""
+// isRange reports whether the diff runs between two rounds rather than over an answer or an origin.
+func (d diffSpec) isRange() bool {
+	return d.answer == nil && d.origin == nil
 }
 
 func (d diffSpec) isWholeChange() bool {
-	return d.base == "" && d.answer == nil && d.origin == nil
+	return d.isRange() && d.from == "" && d.to == ""
+}
+
+// endsOnNewest reports whether the range ends on the round new comments go on.
+func (d diffSpec) endsOnNewest() bool {
+	return d.isRange() && d.to == ""
 }
 
 func (d diffSpec) doesSplitReplies() bool {
-	return d.isChapter() || d.origin != nil
+	return !d.isWholeChange() && d.answer == nil
 }
 
-func (d diffSpec) historySaid(chapters []reviewChapter) string {
-	if d.origin != nil {
-		return fmt.Sprintf("round %d", d.origin.Ordinal)
-	}
-
-	if !d.isChapter() || d.chapter >= len(chapters) {
-		return "an earlier chapter"
-	}
-
-	return fmt.Sprintf("chapter %d of %d", d.chapter+1, len(chapters))
+func (d diffSpec) isSameRange(other diffSpec) bool {
+	return d.isRange() && other.isRange() && d.from == other.from && d.to == other.to
 }
 
 func (d *diffSpec) settle(msg reviewLoadedMsg) {
+	d.base, d.head = msg.base, msg.head
+	d.replayed, d.conflicts = msg.replayed, msg.conflicts
+
 	if d.answer != nil {
 		d.base, d.head = msg.answerBase, msg.answerHead
-		d.label = answerLabel
-		if msg.replayed {
-			d.label += ", replayed across the rebase"
-		}
 	}
 
 	if d.origin != nil {
 		d.base, d.head = msg.originBase, msg.originHead
-		d.label = originLabel(d.origin, msg.originFellBack)
+		d.origin.fellBack = msg.originFellBack
 	}
 }

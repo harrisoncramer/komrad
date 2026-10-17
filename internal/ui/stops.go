@@ -17,8 +17,6 @@ const (
 	stopRecord
 	// stopTerminal is the shell opened in the pane below the stage.
 	stopTerminal
-	// stopPullRequest is the pull request rendered over the review's file tree.
-	stopPullRequest
 )
 
 // listStops lists the screen's stops in forward order, leaving out any it is not rendering.
@@ -30,10 +28,6 @@ func (m *model) listStops() []stop {
 		stops = append(stops, stopBlock)
 	case m.findFocusPane() != "":
 		stops = append(stops, stopAgent)
-	}
-
-	if p, ok := m.active().(pullRequestFocuser); ok && p.isPullRequestRendered(m) {
-		stops = append(stops, stopPullRequest)
 	}
 
 	if m.findTerminalPane() != "" {
@@ -69,12 +63,6 @@ func (m *model) enterStop(to stop) tea.Cmd {
 		} else {
 			m.focusDoc()
 		}
-	case stopPullRequest:
-		m.enterSidebar(to)
-		m.blurDetails()
-		if p, ok := m.active().(pullRequestFocuser); ok {
-			p.focusPullRequest(m)
-		}
 	case stopList:
 		m.enterSidebar(to)
 		m.blurDetails()
@@ -94,9 +82,6 @@ func (m *model) enterSidebar(to stop) {
 	if b, ok := m.active().(columnFocuser); ok && to != stopBlock {
 		b.blurBlock()
 	}
-	if p, ok := m.active().(pullRequestFocuser); ok && to != stopPullRequest {
-		p.blurPullRequest()
-	}
 	if to != stopBlock {
 		m.reading.focused = false
 	}
@@ -109,10 +94,6 @@ func (m *model) atStop() stop {
 		return stopRecord
 	case m.isDocFocused():
 		return stopBlock
-	}
-
-	if p, ok := m.active().(pullRequestFocuser); ok && p.isPullRequestFocused(m) {
-		return stopPullRequest
 	}
 
 	if b, ok := m.active().(columnFocuser); ok && b.isBlockFocused(m) {
@@ -135,9 +116,6 @@ func (m *model) toggleStop() tea.Cmd {
 	}
 
 	stops := m.listStops()
-	if at != stopPullRequest {
-		stops = slices.DeleteFunc(stops, func(s stop) bool { return s == stopPullRequest })
-	}
 
 	to := m.leftStop
 	if to == at || !slices.Contains(stops, to) {

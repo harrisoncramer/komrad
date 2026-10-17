@@ -2909,7 +2909,7 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 		return nil, s.historyErr
 	}
 
-	answer, err := s.pickRound(asked.GetFresh())
+	answer, err := s.pickRound()
 	if err != nil {
 		return nil, err
 	}
@@ -2931,6 +2931,7 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 
 	answer.Rounds = s.rounds
 	answer.Threads = s.threads
+	answer.Reviews = s.reviews
 	answer.Resolved = &agentv1.ReviewResolvedSpan{
 		BaseSha:            built.Span.BaseSHA,
 		HeadSha:            built.Span.HeadSHA,
@@ -2940,9 +2941,9 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 		OriginBaseSha:      built.Span.OriginBaseSHA,
 		OriginHeadSha:      built.Span.OriginHeadSHA,
 		OriginRoundBaseSha: built.Span.OriginRoundBaseSHA,
+		Conflicts:          built.Span.Conflicts,
 	}
 	answer.Widened = built.Widened
-	answer.Chapters = xslice.Map(built.Chapters, reviewChapterOf)
 	answer.ChangedSinceEarlier = int32(built.ChangedSinceEarlier)
 	answer.Traced = map[string]*agentv1.ReviewTracedPlace{}
 	if built.Earlier != nil {
@@ -2963,13 +2964,7 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 	return connect.NewResponse(answer), nil
 }
 
-func (s *reviewServer) pickRound(fresh bool) (*agentv1.OpenReviewHistoryResponse, error) {
-	if !fresh {
-		if round := s.findOpenBatchRound(); round != nil {
-			return &agentv1.OpenReviewHistoryResponse{Round: round, Pinned: true}, nil
-		}
-	}
-
+func (s *reviewServer) pickRound() (*agentv1.OpenReviewHistoryResponse, error) {
 	round, err := s.openRound()
 	switch {
 	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(s.rounds) > 0:
@@ -2981,26 +2976,13 @@ func (s *reviewServer) pickRound(fresh bool) (*agentv1.OpenReviewHistoryResponse
 	return &agentv1.OpenReviewHistoryResponse{Round: round}, nil
 }
 
-func (s *reviewServer) findOpenBatchRound() *agentv1.ReviewRound {
-	for _, review := range s.reviews {
-		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN || review.GetReleasedAt() != "" {
-			continue
-		}
-
-		for _, round := range s.rounds {
-			if round.GetId() == review.GetRoundId() {
-				return round
-			}
-		}
-	}
-
-	return nil
-}
-
 func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 	switch {
-	case req.GetSnapshots() != nil:
-		return history.Span{BaseSHA: req.GetSnapshots().GetBaseSha(), HeadSHA: req.GetSnapshots().GetHeadSha()}
+	case req.GetRounds() != nil:
+		return history.Span{Rounds: &history.RoundSpan{
+			FromRoundID: req.GetRounds().GetFromRoundId(),
+			ToRoundID:   req.GetRounds().GetToRoundId(),
+		}}
 	case req.GetAnswer() != nil:
 		return history.Span{Answer: &history.AnswerSpan{
 			FromRoundID: req.GetAnswer().GetFromRoundId(),
@@ -3046,26 +3028,6 @@ func historyThreadOf(thread *agentv1.ReviewThread) history.Thread {
 		NewStart: thread.GetNewStart(),
 		NewEnd:   thread.GetNewEnd(),
 	}
-}
-
-func reviewChapterOf(chapter history.Chapter) *agentv1.ReviewChapter {
-	answer := &agentv1.ReviewChapter{
-		FromSha:     chapter.FromSHA,
-		ToSha:       chapter.ToSHA,
-		Ordinal:     chapter.Ordinal,
-		Comparable:  chapter.Comparable,
-		FromBaseSha: chapter.FromBase,
-		ToBaseSha:   chapter.ToBase,
-		Rewritten:   chapter.Rewritten,
-		Replayed:    chapter.Replayed,
-		Conflicts:   chapter.Conflicts,
-		OnOlderBase: chapter.OnOlderBase,
-	}
-	if chapter.ReleasedAt != nil {
-		answer.ReleasedAt = dates.Stamp(*chapter.ReleasedAt)
-	}
-
-	return answer
 }
 
 func remoteEditSettings(t *testing.T, editor string) ui.PanelSettings {

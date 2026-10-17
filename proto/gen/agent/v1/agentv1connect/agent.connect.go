@@ -192,6 +192,9 @@ const (
 	// AgentServiceOpenReviewHistoryProcedure is the fully-qualified name of the AgentService's
 	// OpenReviewHistory RPC.
 	AgentServiceOpenReviewHistoryProcedure = "/agent.v1.AgentService/OpenReviewHistory"
+	// AgentServiceCompareReviewRoundsProcedure is the fully-qualified name of the AgentService's
+	// CompareReviewRounds RPC.
+	AgentServiceCompareReviewRoundsProcedure = "/agent.v1.AgentService/CompareReviewRounds"
 	// AgentServiceListReviewRoundsProcedure is the fully-qualified name of the AgentService's
 	// ListReviewRounds RPC.
 	AgentServiceListReviewRoundsProcedure = "/agent.v1.AgentService/ListReviewRounds"
@@ -270,6 +273,7 @@ type AgentServiceClient interface {
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
 	OpenReviewHistory(context.Context, *connect.Request[v1.OpenReviewHistoryRequest]) (*connect.Response[v1.OpenReviewHistoryResponse], error)
+	CompareReviewRounds(context.Context, *connect.Request[v1.CompareReviewRoundsRequest]) (*connect.Response[v1.CompareReviewRoundsResponse], error)
 	ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error)
 	ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error)
 	GetReview(context.Context, *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error)
@@ -660,6 +664,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("OpenReviewHistory")),
 			connect.WithClientOptions(opts...),
 		),
+		compareReviewRounds: connect.NewClient[v1.CompareReviewRoundsRequest, v1.CompareReviewRoundsResponse](
+			httpClient,
+			baseURL+AgentServiceCompareReviewRoundsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("CompareReviewRounds")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
 		listReviewRounds: connect.NewClient[v1.ListReviewRoundsRequest, v1.ListReviewRoundsResponse](
 			httpClient,
 			baseURL+AgentServiceListReviewRoundsProcedure,
@@ -763,6 +774,7 @@ type agentServiceClient struct {
 	setReviewThreadResolved  *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
 	openReviewRound          *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
 	openReviewHistory        *connect.Client[v1.OpenReviewHistoryRequest, v1.OpenReviewHistoryResponse]
+	compareReviewRounds      *connect.Client[v1.CompareReviewRoundsRequest, v1.CompareReviewRoundsResponse]
 	listReviewRounds         *connect.Client[v1.ListReviewRoundsRequest, v1.ListReviewRoundsResponse]
 	listReviews              *connect.Client[v1.ListReviewsRequest, v1.ListReviewsResponse]
 	getReview                *connect.Client[v1.GetReviewRequest, v1.GetReviewResponse]
@@ -1056,6 +1068,11 @@ func (c *agentServiceClient) OpenReviewHistory(ctx context.Context, req *connect
 	return c.openReviewHistory.CallUnary(ctx, req)
 }
 
+// CompareReviewRounds calls agent.v1.AgentService.CompareReviewRounds.
+func (c *agentServiceClient) CompareReviewRounds(ctx context.Context, req *connect.Request[v1.CompareReviewRoundsRequest]) (*connect.Response[v1.CompareReviewRoundsResponse], error) {
+	return c.compareReviewRounds.CallUnary(ctx, req)
+}
+
 // ListReviewRounds calls agent.v1.AgentService.ListReviewRounds.
 func (c *agentServiceClient) ListReviewRounds(ctx context.Context, req *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error) {
 	return c.listReviewRounds.CallUnary(ctx, req)
@@ -1145,6 +1162,7 @@ type AgentServiceHandler interface {
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
 	OpenReviewHistory(context.Context, *connect.Request[v1.OpenReviewHistoryRequest]) (*connect.Response[v1.OpenReviewHistoryResponse], error)
+	CompareReviewRounds(context.Context, *connect.Request[v1.CompareReviewRoundsRequest]) (*connect.Response[v1.CompareReviewRoundsResponse], error)
 	ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error)
 	ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error)
 	GetReview(context.Context, *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error)
@@ -1531,6 +1549,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("OpenReviewHistory")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceCompareReviewRoundsHandler := connect.NewUnaryHandler(
+		AgentServiceCompareReviewRoundsProcedure,
+		svc.CompareReviewRounds,
+		connect.WithSchema(agentServiceMethods.ByName("CompareReviewRounds")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceListReviewRoundsHandler := connect.NewUnaryHandler(
 		AgentServiceListReviewRoundsProcedure,
 		svc.ListReviewRounds,
@@ -1688,6 +1713,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceOpenReviewRoundHandler.ServeHTTP(w, r)
 		case AgentServiceOpenReviewHistoryProcedure:
 			agentServiceOpenReviewHistoryHandler.ServeHTTP(w, r)
+		case AgentServiceCompareReviewRoundsProcedure:
+			agentServiceCompareReviewRoundsHandler.ServeHTTP(w, r)
 		case AgentServiceListReviewRoundsProcedure:
 			agentServiceListReviewRoundsHandler.ServeHTTP(w, r)
 		case AgentServiceListReviewsProcedure:
@@ -1935,6 +1962,10 @@ func (UnimplementedAgentServiceHandler) OpenReviewRound(context.Context, *connec
 
 func (UnimplementedAgentServiceHandler) OpenReviewHistory(context.Context, *connect.Request[v1.OpenReviewHistoryRequest]) (*connect.Response[v1.OpenReviewHistoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.OpenReviewHistory is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) CompareReviewRounds(context.Context, *connect.Request[v1.CompareReviewRoundsRequest]) (*connect.Response[v1.CompareReviewRoundsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.CompareReviewRounds is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error) {

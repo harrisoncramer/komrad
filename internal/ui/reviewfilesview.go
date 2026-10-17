@@ -26,7 +26,7 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 
 	width := lineWidthOf(m.paneWidth())
 	tree := r.readFilesTree()
-	focused := r.isBlockFocused(m)
+	focused := r.isBlockFocused(m) && r.side == nil
 	columns := measureStatColumns(m.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	keys := make([]string, 0, len(tree.rows))

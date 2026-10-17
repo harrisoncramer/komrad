@@ -156,14 +156,6 @@ type columnFocuser interface {
 	scrollColumn(m *model, rows int) tea.Cmd
 }
 
-// pullRequestFocuser is a screen whose pull request beside the list can take the keys.
-type pullRequestFocuser interface {
-	isPullRequestRendered(m *model) bool
-	isPullRequestFocused(m *model) bool
-	focusPullRequest(m *model)
-	blurPullRequest()
-}
-
 // crumbRenderer is a screen opened from another that renders the trail back to it.
 type crumbRenderer interface {
 	// parent is the view that opened the page.

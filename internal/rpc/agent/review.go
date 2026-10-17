@@ -28,6 +28,7 @@ type reviewConversation interface {
 	OpenRound(ctx context.Context, task string, author reviews.ReviewAuthor) (*reviewstore.Round, error)
 	ListRounds(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Round, error)
 	GetHistory(ctx context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error)
+	CompareRounds(ctx context.Context, params reviews.CompareRoundsParams) (*history.Comparison, error)
 	ListReviews(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
 	GetReview(ctx context.Context, reviewID string, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
 	ReleaseReview(ctx context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error)
@@ -167,7 +168,6 @@ func (s *Handler) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRo
 func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReviewHistoryRequest) (*agentv1.OpenReviewHistoryResponse, *fail.Error) {
 	opened, err := s.review.GetHistory(ctx, reviews.GetHistoryParams{
 		Task:   req.GetTask(),
-		Fresh:  req.GetFresh(),
 		Span:   historySpanOf(req),
 		Author: reviewAuthorFrom(ctx),
 	})
@@ -180,11 +180,11 @@ func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReview
 
 func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 	switch {
-	case req.GetSnapshots() != nil:
-		return history.Span{
-			BaseSHA: req.GetSnapshots().GetBaseSha(),
-			HeadSHA: req.GetSnapshots().GetHeadSha(),
-		}
+	case req.GetRounds() != nil:
+		return history.Span{Rounds: &history.RoundSpan{
+			FromRoundID: req.GetRounds().GetFromRoundId(),
+			ToRoundID:   req.GetRounds().GetToRoundId(),
+		}}
 	case req.GetAnswer() != nil:
 		return history.Span{Answer: &history.AnswerSpan{
 			FromRoundID: req.GetAnswer().GetFromRoundId(),
@@ -318,4 +318,22 @@ func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {
 	}
 
 	return ""
+}
+
+// CompareReviewRounds reports whether the work between two rounds of a task can be read.
+func (s *Handler) CompareReviewRounds(ctx context.Context, req *agentv1.CompareReviewRoundsRequest) (*agentv1.CompareReviewRoundsResponse, *fail.Error) {
+	compared, err := s.review.CompareRounds(ctx, reviews.CompareRoundsParams{
+		Task:        req.GetTask(),
+		FromRoundID: req.GetFromRoundId(),
+		ToRoundID:   req.GetToRoundId(),
+		Author:      reviewAuthorFrom(ctx),
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to compare the rounds")
+	}
+
+	return &agentv1.CompareReviewRoundsResponse{
+		Comparable: compared.Comparable,
+		Conflicts:  compared.Conflicts,
+	}, nil
 }

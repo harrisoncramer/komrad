@@ -119,6 +119,7 @@ func (r reviewScreen) readCurrentFolder() (diffview.TreeRow, bool) {
 
 // restOnFolder puts the tree's cursor on a folder for as long as the diff cursor stays where it is.
 func (r *reviewScreen) restOnFolder(path string) {
+	r.side = nil
 	r.folderCursor = folderCursor{
 		path:    path,
 		diffRow: r.diff.Cursor(),
@@ -192,6 +193,7 @@ func (r *reviewScreen) blurBlock() {
 // stepFile moves the diff to the next file the tree renders, or the previous one for a negative
 // direction.
 func (r *reviewScreen) stepFile(m *model, direction int) tea.Cmd {
+	r.side = nil
 	keys := r.diffKeys()
 	if !r.filesFilter.isNarrowing() && len(r.closedFolders) == 0 {
 		if !keys.pane.JumpFile(direction, keys.window(m)) {
@@ -242,6 +244,10 @@ func (f filesNav) moveBy(m *model, rows int) tea.Cmd {
 		return f.r.walkFiles(m, rows)
 	}
 
+	if cmd, moved := f.r.moveSide(m, rows); moved {
+		return cmd
+	}
+
 	tree := f.r.readFilesTree()
 	if len(tree.rows) == 0 {
 		return nil
@@ -267,6 +273,12 @@ func (f filesNav) moveBy(m *model, rows int) tea.Cmd {
 }
 
 func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
+	if direction < 0 {
+		if cmd, moved := f.r.moveSideToTop(m); moved {
+			return cmd
+		}
+	}
+
 	rows := f.r.readFilesTree().rows
 	if len(rows) == 0 {
 		return nil
@@ -294,6 +306,7 @@ func (r *reviewScreen) landOnRow(m *model, row diffview.TreeRow) tea.Cmd {
 // landOnFile moves the diff to the top of a file in the tree.
 func (r *reviewScreen) landOnFile(m *model, row diffview.TreeRow) tea.Cmd {
 	r.folderCursor = folderCursor{}
+	r.side = nil
 	keys := r.diffKeys()
 	if !keys.pane.JumpToFile(row.Row, keys.window(m)) {
 		return nil

@@ -9,7 +9,6 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
-	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -37,14 +36,14 @@ type reviewLoadedMsg struct {
 	earlier *agentv1.ReviewRound
 	// earlierAt is when they released it, in clock terms, empty when there is none.
 	earlierAt string
-	// pinned says the diff is the snapshot the reader's unsent comments were written against
-	// rather than the work as it now stands.
-	pinned bool
-	// chapters are the rounds of the review as the reader can step through them, oldest first.
-	chapters []reviewChapter
-	rounds   []*agentv1.ReviewRound
+	rounds    []*agentv1.ReviewRound
+	reviews   []*agentv1.Review
+	// base and head are the commits the diff was read between.
+	base string
+	head string
 	// replayed says the older side was carried across a rebase onto the newer one's base.
-	replayed bool
+	replayed  bool
+	conflicts []string
 	// answerBase and answerHead are the snapshots an answer on screen was measured between.
 	answerBase     string
 	answerHead     string
@@ -88,9 +87,7 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
 		dir:       agent.Cwd,
 		exclude:   worktree.DiffExclude,
 		loading:   true,
-		// The whole change is what a review opens on, and it sits before the first round rather
-		// than on it, so the first press of the step key lands on the newest round.
-		diff: reviewDiff{spec: wholeChange()},
+		diff:      reviewDiff{spec: wholeChange()},
 	}
 
 	return r.loadWholeCmd(m)
@@ -155,7 +152,6 @@ type loadReviewCmdParams struct {
 	Dir     string
 	Exclude []string
 	Spec    diffSpec
-	Fresh   bool
 	Load    int
 }
 
@@ -198,10 +194,12 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			viewed:         viewed,
 			earlier:        findRound(opened.GetRounds(), opened.GetEarlierRoundId()),
 			earlierAt:      reviewTimeOf(opened.GetEarlierReleasedAt()),
-			pinned:         opened.GetPinned(),
-			chapters:       xslice.Map(opened.GetChapters(), reviewChapterOf),
 			rounds:         opened.GetRounds(),
+			reviews:        opened.GetReviews(),
+			base:           resolved.GetBaseSha(),
+			head:           resolved.GetHeadSha(),
 			replayed:       resolved.GetReplayed(),
+			conflicts:      resolved.GetConflicts(),
 			traced:         tracedOf(opened.GetTraced()),
 			answerBase:     resolved.GetAnswerBaseSha(),
 			answerHead:     resolved.GetAnswerHeadSha(),
@@ -228,8 +226,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 
 func historyRequestOf(params loadReviewCmdParams) *agentv1.OpenReviewHistoryRequest {
 	req := &agentv1.OpenReviewHistoryRequest{
-		Task:  params.TaskID,
-		Fresh: params.Fresh,
+		Task: params.TaskID,
 	}
 
 	spec := params.Spec
@@ -244,30 +241,14 @@ func historyRequestOf(params loadReviewCmdParams) *agentv1.OpenReviewHistoryRequ
 			RoundId: spec.origin.RoundID,
 			BaseSha: spec.origin.BaseSHA,
 		}}
-	case spec.isNarrowed():
-		req.Span = &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{
-			BaseSha: spec.base,
-			HeadSha: spec.head,
+	case !spec.isWholeChange():
+		req.Span = &agentv1.OpenReviewHistoryRequest_Rounds{Rounds: &agentv1.ReviewRoundSpan{
+			FromRoundId: nilIfBlank(spec.from),
+			ToRoundId:   nilIfBlank(spec.to),
 		}}
 	}
 
 	return req
-}
-
-func reviewChapterOf(chapter *agentv1.ReviewChapter) reviewChapter {
-	return reviewChapter{
-		FromSHA:     chapter.GetFromSha(),
-		ToSHA:       chapter.GetToSha(),
-		At:          reviewTimeOf(chapter.GetReleasedAt()),
-		Ordinal:     chapter.GetOrdinal(),
-		Comparable:  chapter.GetComparable(),
-		FromBase:    chapter.GetFromBaseSha(),
-		ToBase:      chapter.GetToBaseSha(),
-		Rewritten:   chapter.GetRewritten(),
-		Replayed:    chapter.GetReplayed(),
-		Conflicts:   chapter.GetConflicts(),
-		OnOlderBase: chapter.GetOnOlderBase(),
-	}
 }
 
 func tracedOf(places map[string]*agentv1.ReviewTracedPlace) map[string]diffview.Traced {
@@ -338,6 +319,8 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
+	r.diff.rounds, r.diff.reviews, r.diff.newest = msg.rounds, msg.reviews, msg.round
+
 	if msg.widened != "" {
 		r.diff.widen()
 		m.note(messageWarning, msg.widened)
@@ -348,7 +331,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	// A narrowed diff with nothing in it is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
 	if isEmpty && !r.diff.spec.isWholeChange() {
-		said := "nothing written " + r.diff.spec.label
+		said := "nothing written over " + r.diff.rangeSaid()
 		if r.diff.spec.origin != nil {
 			said = "nothing to render where this comment was written"
 		}
@@ -380,16 +363,6 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		m.report("Could not read the whole review of "+r.agentName, msg.err)
 	}
 
-	if r.diff.spec.chapter >= len(msg.chapters) {
-		r.diff.chapters = msg.chapters
-		r.diff.widen()
-		r.threads.cancelMessage()
-		r.diff.drop()
-		r.loading = true
-
-		return r.loadWholeCmd(m)
-	}
-
 	r.notice = msg.notice
 
 	r.root = msg.patch.Root
@@ -417,9 +390,9 @@ func (d *reviewDiff) drop() {
 func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	d.baseRound = msg.earlier
 	d.baseAt = msg.earlierAt
-	d.pinned = msg.pinned
-	d.chapters = msg.chapters
 	d.rounds = msg.rounds
+	d.reviews = msg.reviews
+	d.newest = msg.round
 	d.since = msg.since
 
 	d.spec.settle(msg)
@@ -428,7 +401,7 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	// takes them from the one it replaces, or from what was kept when that one was dropped.
 	view := diffview.NewView(msg.patch, isDark)
 	view.SetGlyphs(glyphs)
-	view.SetNarrowed(d.spec.base != "")
+	view.SetNarrowed(!d.spec.isWholeChange())
 	view.SetTraced(msg.traced)
 	view.SetViewed(indexViewedFiles(msg.viewed, msg.patch))
 	if d.View() != nil {
@@ -520,7 +493,7 @@ func (r *reviewScreen) applyThreads(m *model, threads []*agentv1.ReviewThread) {
 
 // toggleAgentThreads shows or hides the conversations agents opened.
 func (r *reviewScreen) toggleAgentThreads(m *model) tea.Cmd {
-	r.diff.showsAgentThreads = !r.diff.showsAgentThreads
+	r.diff.hidesAgentThreads = !r.diff.hidesAgentThreads
 
 	if r.diff.View() != nil {
 		r.applyThreads(m, r.threads.list)
@@ -529,19 +502,18 @@ func (r *reviewScreen) toggleAgentThreads(m *model) tea.Cmd {
 	return nil
 }
 
-// reload reads the worktree again, holding the place the cursor is standing so the diff comes
-// back under it.
+// catchUp takes a round of the worktree as it stands and ends the range on it.
+func (r *reviewScreen) catchUp(m *model) tea.Cmd {
+	if r.diff.spec.isRange() {
+		r.diff.spec.to = ""
+	}
+
+	return r.reload(m)
+}
+
+// reload reads the diff again, holding the place the cursor is standing so the diff comes back
+// under it.
 func (r *reviewScreen) reload(m *model) tea.Cmd {
-	return r.load(m, false)
-}
-
-// reloadFresh reads the worktree as it stands, even where unsent comments hold the diff to the
-// round they were written on.
-func (r *reviewScreen) reloadFresh(m *model) tea.Cmd {
-	return r.load(m, true)
-}
-
-func (r *reviewScreen) load(m *model, fresh bool) tea.Cmd {
 	if r.diff.View() == nil {
 		return nil
 	}
@@ -559,7 +531,6 @@ func (r *reviewScreen) load(m *model, fresh bool) tea.Cmd {
 		Dir:     r.dir,
 		Exclude: r.exclude,
 		Spec:    r.diff.spec,
-		Fresh:   fresh,
 		Load:    r.loads,
 	})
 }

@@ -114,11 +114,10 @@ func ReviewHistory(opened reviews.ReviewHistory) *agentv1.OpenReviewHistoryRespo
 		Threads: xslice.Map(opened.Threads, func(thread reviews.ReviewThreadWithMessages) *agentv1.ReviewThread {
 			return ReviewThread(thread.Thread, thread.Messages)
 		}),
-		Pinned:              opened.Pinned,
 		Notice:              opened.Notice,
 		Resolved:            reviewResolvedSpan(opened.Span),
 		Widened:             opened.Widened,
-		Chapters:            xslice.Map(opened.Chapters, reviewChapter),
+		Reviews:             xslice.Map(opened.Reviews, Review),
 		ChangedSinceEarlier: int32(opened.ChangedSinceEarlier),
 		Traced:              map[string]*agentv1.ReviewTracedPlace{},
 	}
@@ -150,25 +149,6 @@ func reviewResolvedSpan(span history.ResolvedSpan) *agentv1.ReviewResolvedSpan {
 		OriginBaseSha:      span.OriginBaseSHA,
 		OriginHeadSha:      span.OriginHeadSHA,
 		OriginRoundBaseSha: span.OriginRoundBaseSHA,
+		Conflicts:          span.Conflicts,
 	}
-}
-
-func reviewChapter(chapter history.Chapter) *agentv1.ReviewChapter {
-	answered := &agentv1.ReviewChapter{
-		FromSha:     chapter.FromSHA,
-		ToSha:       chapter.ToSHA,
-		Ordinal:     chapter.Ordinal,
-		Comparable:  chapter.Comparable,
-		FromBaseSha: chapter.FromBase,
-		ToBaseSha:   chapter.ToBase,
-		Rewritten:   chapter.Rewritten,
-		Replayed:    chapter.Replayed,
-		Conflicts:   chapter.Conflicts,
-		OnOlderBase: chapter.OnOlderBase,
-	}
-	if at := chapter.ReleasedAt; at != nil {
-		answered.ReleasedAt = dates.Stamp(*at)
-	}
-
-	return answered
 }

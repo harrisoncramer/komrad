@@ -36,8 +36,14 @@ type reviewScreen struct {
 	hold  reviewHold
 	focus reviewFocus
 
-	// pullRequestTop is the first row of the description in view.
-	pullRequestTop int
+	// side is the row over the file tree the sidebar's cursor rests on, nil while it is on the tree.
+	side *sideCursor
+	// openRounds says the rounds list shows every round.
+	openRounds bool
+	// openDescription says the pull request's description is open.
+	openDescription bool
+	// compared is what komrad said of the ranges a round in the list would set.
+	compared map[reviewStep]compareState
 
 	// filesFilter is the pattern the file tree is searched or narrowed by.
 	filesFilter filterState
@@ -52,13 +58,12 @@ type reviewScreen struct {
 	notices reviewNotices
 }
 
-// reviewFocus is which of the diff, the file tree and the pull request holds the review's keys.
+// reviewFocus is which of the diff and the sidebar holds the review's keys.
 type reviewFocus int
 
 const (
 	reviewFocusDiff reviewFocus = iota
 	reviewFocusFiles
-	reviewFocusPullRequest
 )
 
 func (r reviewScreen) parent() screen {
@@ -92,7 +97,7 @@ func (r reviewScreen) isBusy() bool {
 
 // isDiffFocused is whether the patch holds the keys.
 func (r reviewScreen) isDiffFocused(m *model) bool {
-	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m) && !r.isPullRequestFocused(m)
+	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m)
 }
 
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
@@ -108,6 +113,10 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {
 		return r.applyLoaded(m, msg)
 	case reviewPausedMsg:
 		return r.applyPaused(m, msg)
+	case reviewComparedMsg:
+		r.applyCompared(msg)
+
+		return nil
 	case reviewWroteMsg:
 		return r.applyWrote(m, msg)
 	case messageEditedMsg:
@@ -138,14 +147,13 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 }
 
 var (
-	_ columnFocuser      = (*reviewScreen)(nil)
-	_ pullRequestFocuser = (*reviewScreen)(nil)
-	_ crumbRenderer      = (*reviewScreen)(nil)
-	_ loadingReporter    = (*reviewScreen)(nil)
-	_ lineTyper          = (*reviewScreen)(nil)
-	_ listScroller       = (*reviewScreen)(nil)
-	_ editorReconciler   = (*reviewScreen)(nil)
-	_ agentPauser        = (*reviewScreen)(nil)
+	_ columnFocuser    = (*reviewScreen)(nil)
+	_ crumbRenderer    = (*reviewScreen)(nil)
+	_ loadingReporter  = (*reviewScreen)(nil)
+	_ lineTyper        = (*reviewScreen)(nil)
+	_ listScroller     = (*reviewScreen)(nil)
+	_ editorReconciler = (*reviewScreen)(nil)
+	_ agentPauser      = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) doesRenderFromListing() bool {
@@ -165,5 +173,5 @@ func (r reviewScreen) typedLine() (lineInput, bool) {
 }
 
 func (r *reviewScreen) dispatches(*model) []dispatching {
-	return []dispatching{r.diffActions(), r.filesActions(), r.pullRequestActions()}
+	return []dispatching{r.diffActions(), r.filesActions()}
 }

@@ -13,18 +13,19 @@ import (
 
 const midSequenceNotice = "a rebase or merge is part way through, so this is the work as it stood before it"
 
+var errRoundOfAnotherTask = fail.NotFound("that round is not one of this task's")
+
 type ReviewHistory struct {
 	history.Record
 	Round   reviewstore.Round
 	Rounds  []reviewstore.Round
 	Threads []ReviewThreadWithMessages
-	Pinned  bool
+	Reviews []reviewstore.Review
 	Notice  string
 }
 
 type GetHistoryParams struct {
 	Task   string
-	Fresh  bool
 	Span   history.Span
 	Author ReviewAuthor
 }
@@ -56,11 +57,8 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 	}
 
 	picked, err := s.pickRound(ctx, pickRoundParams{
-		Task:    *task,
-		Rounds:  rounds,
-		Reviews: reviews,
-		Fresh:   params.Fresh,
-		Author:  params.Author,
+		Task:   *task,
+		Rounds: rounds,
 	})
 	if err != nil {
 		return nil, err
@@ -70,7 +68,7 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		Round:   picked.Round,
 		Rounds:  picked.Rounds,
 		Threads: threads,
-		Pinned:  picked.Pinned,
+		Reviews: reviews,
 		Notice:  picked.Notice,
 	}
 	opened.Record = history.Build(ctx, history.BuildParams{
@@ -91,32 +89,17 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 type pickedRound struct {
 	Round  reviewstore.Round
 	Rounds []reviewstore.Round
-	Pinned bool
 	Notice string
 }
 
 type pickRoundParams struct {
-	Task    taskstore.Task
-	Rounds  []reviewstore.Round
-	Reviews []reviewstore.Review
-	Fresh   bool
-	Author  ReviewAuthor
+	Task   taskstore.Task
+	Rounds []reviewstore.Round
 }
 
-// pickRound settles on the round an open review was written against, or freezes the checkout as
-// it stands, falling back to the newest round while a rebase or merge is part way through.
+// pickRound freezes the checkout as it stands, falling back to the newest round while a rebase or merge is part way through.
 func (s *ReviewService) pickRound(ctx context.Context, params pickRoundParams) (*pickedRound, error) {
 	rounds := params.Rounds
-	if !params.Fresh {
-		if round := findOpenBatchRound(rounds, params.Reviews, params.Author); round != nil {
-			return &pickedRound{
-				Round:  *round,
-				Rounds: rounds,
-				Pinned: true,
-			}, nil
-		}
-	}
-
 	opened, err := s.openTaskRound(ctx, params.Task)
 	var failed *fail.Error
 	switch {
@@ -135,26 +118,6 @@ func (s *ReviewService) pickRound(ctx context.Context, params pickRoundParams) (
 	}
 
 	return &pickedRound{Round: *opened, Rounds: rounds}, nil
-}
-
-func findOpenBatchRound(rounds []reviewstore.Round, reviews []reviewstore.Review, author ReviewAuthor) *reviewstore.Round {
-	for _, review := range reviews {
-		if review.ReleasedAt != nil || !isAuthorOf(author, review) {
-			continue
-		}
-
-		return findStoreRound(rounds, review.RoundID)
-	}
-
-	return nil
-}
-
-func isAuthorOf(author ReviewAuthor, review reviewstore.Review) bool {
-	if author.isHuman() {
-		return review.AuthorKind == reviewstore.AuthorHuman
-	}
-
-	return doesOwnReviewBatch(author, review)
 }
 
 func findStoreRound(rounds []reviewstore.Round, id string) *reviewstore.Round {
@@ -202,4 +165,54 @@ func historyThreadOf(thread ReviewThreadWithMessages) history.Thread {
 		NewStart: thread.Thread.NewStart,
 		NewEnd:   thread.Thread.NewEnd,
 	}
+}
+
+type CompareRoundsParams struct {
+	Task        string
+	FromRoundID string
+	ToRoundID   string
+	Author      ReviewAuthor
+}
+
+// CompareRounds reports whether the work between two rounds of a task can be read.
+func (s *ReviewService) CompareRounds(ctx context.Context, params CompareRoundsParams) (*history.Comparison, error) {
+	task, err := s.getTask(ctx, params.Task, params.Author)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.requireMayRead(ctx, *task, params.Author); err != nil {
+		return nil, err
+	}
+
+	from, err := s.getTaskRound(ctx, task.ID, params.FromRoundID)
+	if err != nil {
+		return nil, err
+	}
+
+	to, err := s.getTaskRound(ctx, task.ID, params.ToRoundID)
+	if err != nil {
+		return nil, err
+	}
+
+	compared := history.Compare(ctx, history.CompareParams{
+		Git:  s.git,
+		Dir:  task.Checkout.Cwd,
+		From: historyRoundOf(*from),
+		To:   historyRoundOf(*to),
+	})
+
+	return &compared, nil
+}
+
+// getTaskRound reads one round, refusing a round of another task.
+func (s *ReviewService) getTaskRound(ctx context.Context, taskID, roundID string) (*reviewstore.Round, error) {
+	round, err := s.reviews.GetRound(ctx, roundID)
+	if err != nil {
+		return nil, err
+	}
+	if round.TaskID != taskID {
+		return nil, errRoundOfAnotherTask
+	}
+
+	return round, nil
 }

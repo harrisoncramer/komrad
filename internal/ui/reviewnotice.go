@@ -58,7 +58,7 @@ func (r *reviewScreen) followNotices(m *model) {
 // movedNotice is what the reader is told about the agent having written past the diff on screen.
 func (r reviewScreen) movedNotice(m *model) message {
 	moved := r.findMovedRound(m)
-	if moved == "" || r.diff.pinned || r.hold.atEditor || r.doesFollowLive(m) {
+	if moved == "" || r.hold.atEditor || r.doesFollowLive(m) {
 		return message{}
 	}
 

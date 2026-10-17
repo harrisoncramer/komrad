@@ -17,24 +17,24 @@ import (
 type zone string
 
 const (
-	zoneList        zone = "list"
-	zoneColumn      zone = "column"
-	zoneDetails     zone = "details"
-	zoneBlock       zone = "block"
-	zonePullRequest zone = "pullrequest"
-	zoneViews       zone = "views"
-	zoneKinds       zone = "kinds"
-	zoneTabs        zone = "tabs"
-	zoneFiles       zone = "files"
-	zoneSearch      zone = "search"
-	zoneMessages    zone = "messages"
-	zoneDoc         zone = "doc"
-	zoneChange      zone = "change"
-	zoneMessage     zone = "message"
-	zoneLog         zone = "log"
-	zoneDiff        zone = "diff"
-	zoneMenu        zone = "menu"
-	zoneParentMenu  zone = "parentmenu"
+	zoneList       zone = "list"
+	zoneColumn     zone = "column"
+	zoneDetails    zone = "details"
+	zoneBlock      zone = "block"
+	zoneSide       zone = "side"
+	zoneViews      zone = "views"
+	zoneKinds      zone = "kinds"
+	zoneTabs       zone = "tabs"
+	zoneFiles      zone = "files"
+	zoneSearch     zone = "search"
+	zoneMessages   zone = "messages"
+	zoneDoc        zone = "doc"
+	zoneChange     zone = "change"
+	zoneMessage    zone = "message"
+	zoneLog        zone = "log"
+	zoneDiff       zone = "diff"
+	zoneMenu       zone = "menu"
+	zoneParentMenu zone = "parentmenu"
 )
 
 // zoneMark is the invisible sequence a marked frame carries at each end of a zone.
@@ -157,10 +157,6 @@ func (m *model) findSidebarBlocks() []sidebarBlock {
 
 	if hasBlock && slices.Contains(stops, stopBlock) {
 		blocks = append(blocks, sidebarBlock{stop: stopBlock, rect: block})
-	}
-
-	if pullRequest, ok := zones[zonePullRequest]; ok && slices.Contains(stops, stopPullRequest) {
-		blocks = append(blocks, sidebarBlock{stop: stopPullRequest, rect: pullRequest})
 	}
 
 	return append([]sidebarBlock{{stop: stopList, rect: list}}, blocks...)

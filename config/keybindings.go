@@ -394,11 +394,10 @@ type ReviewKeys struct {
 	// it stood just before the writer's addressed reply to the work that reply carried, or
 	// go back to all changes from there.
 	Answer []string `mapstructure:"answer" default:"a"`
-	// Walk back a chapter through the review, from the whole change to the newest chapter and
-	// on into the older ones, stopping on the oldest.
+	// Walk back a review, from the whole change to the work since your last review and on into the
+	// older ones, stopping on the oldest.
 	Base []string `mapstructure:"base" default:"<"`
-	// Walk the other way through the chapters, towards the newest work and on to the whole
-	// change.
+	// Walk the other way through your reviews, towards the newest work and on to the whole change.
 	BaseForward []string `mapstructure:"base_forward" default:">"`
 	// From the menu, write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
@@ -406,8 +405,8 @@ type ReviewKeys struct {
 	// From the menu, open the file under the cursor in your editor, beside the diff, on the line the
 	// cursor is on. This is the task's own worktree rather than a copy of it, so what
 	// you write is what the writer finds there, and the key is refused while the writer is
-	// working rather than letting you both write at once. It is refused on a round the
-	// writer has written past, since those lines have moved on.
+	// working rather than letting you both write at once. It is drawn off on a range ending
+	// before the newest round, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
 	// From the menu, throw away a reply of yours the forge refused on the thread under the cursor. Nothing is
 	// posted.
@@ -429,11 +428,18 @@ type ReviewKeys struct {
 	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
-	// From the menu, catch up with the writer, once the band says it has written since you opened the
-	// diff. What you are reading never moves on its own, since that would take the code out
-	// from under a comment being written, so catching up is always yours to ask for.
+	// From the menu on a round in the sidebar, start the diff after that round. A round at or past
+	// the end of the diff moves the end to the newest round.
+	RangeStart []string `mapstructure:"range_start" default:"B"`
+	// From the menu on a round in the sidebar, end the diff on that round. A round at or before the
+	// start of the diff moves the start to where the task starts.
+	RangeEnd []string `mapstructure:"range_end" default:"L"`
+	// From the menu on a round in the sidebar, show that round's own work alone.
+	RangeOnly []string `mapstructure:"range_only" default:"O"`
+	// From the menu, catch up with the writer, taking a round of the worktree as it stands and ending
+	// the diff on it.
 	Reload []string `mapstructure:"reload" default:"R"`
-	// From the menu, show or hide the conversations agents opened, which are hidden whenever a
+	// From the menu, hide the conversations agents opened, or show them again. They show whenever a
 	// review opens.
 	AgentThreads []string `mapstructure:"agent_threads" default:"b"`
 	// From the menu, settle the thread under the cursor, which marks it resolved without deleting it.

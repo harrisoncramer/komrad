@@ -46,6 +46,8 @@ type submenuEntry struct {
 	keys  []string
 	// isOff says the entry would do nothing here.
 	isOff bool
+	// offSaid is why the entry would do nothing here, drawn under it.
+	offSaid string
 	// isDivider says the row is a rule between two bands of entries.
 	isDivider bool
 	// opens is the menu the entry opens to the right of its own.
@@ -136,6 +138,9 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			}
 
 			entry := level.menu.entries[*level.choice]
+			if entry.offSaid != "" {
+				return nil
+			}
 
 			switch {
 			case entry.opens != nil:
@@ -342,4 +347,16 @@ func (m *model) answerSubmenuClick(click submenuClickMsg, parents []submenuLevel
 	}
 
 	return m.pushSubmenu(parents[:click.at], parents[click.at])
+}
+
+// drawnOff is an entry drawn off with the reason it does nothing here, or the entry itself when
+// said is empty.
+func drawnOff(entry submenuEntry, said string) submenuEntry {
+	if said == "" {
+		return entry
+	}
+
+	entry.isOff, entry.offSaid = true, said
+
+	return entry
 }

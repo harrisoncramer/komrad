@@ -20,9 +20,10 @@ type reviewOrigin struct {
 	Ordinal  int32
 	BaseSHA  string
 	landed   bool
-	chapter  int
-	answer   *reviewAnswer
-	place    *diffview.Place
+	fellBack bool
+	// held is the range on screen before the jump, which the way back puts back.
+	held  diffSpec
+	place *diffview.Place
 }
 
 func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
@@ -47,8 +48,7 @@ func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 		RoundID:  round.GetId(),
 		Ordinal:  round.GetOrdinal(),
 		BaseSHA:  thread.GetBaseSha(),
-		chapter:  r.diff.spec.chapter,
-		answer:   r.diff.spec.answer,
+		held:     r.diff.spec,
 	}
 	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
 		origin.place = &place
@@ -61,14 +61,7 @@ func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 
 func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
 	origin := r.diff.spec.origin
-	r.diff.widen()
-	if origin.chapter >= 0 {
-		r.diff.showChapter(origin.chapter)
-	}
-
-	if origin.answer != nil {
-		r.diff.spec = answerSpec(origin.answer)
-	}
+	r.diff.spec = origin.held
 
 	cmd := r.reload(m)
 	r.diff.restore = origin.place
@@ -76,9 +69,9 @@ func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
 	return cmd
 }
 
-func originLabel(origin *reviewOrigin, fellBack bool) string {
-	said := fmt.Sprintf("where this comment was written, round %d", origin.Ordinal)
-	if fellBack {
+func originLabel(origin *reviewOrigin) string {
+	said := fmt.Sprintf("where the comment was read ▸ round %d", origin.Ordinal)
+	if origin.fellBack {
 		said += ", shown against the round's base"
 	}
 
@@ -109,26 +102,11 @@ func (d *reviewDiff) originPlace(view *diffview.View) (diffview.Place, bool) {
 }
 
 func (d reviewDiff) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
-	if !d.showsAgentThreads {
+	if d.hidesAgentThreads {
 		threads = withoutAgentThreads(threads)
 	}
 
-	if d.spec.origin == nil {
-		return threadsByChapter(threadsByChapterParams{
-			Threads:  threads,
-			Chapters: d.chapters,
-			At:       d.spec.chapter,
-		})
-	}
-
-	kept := make([]*agentv1.ReviewThread, 0, len(threads))
-	for _, thread := range threads {
-		if thread.GetRoundOrdinal() <= d.spec.origin.Ordinal {
-			kept = append(kept, thread)
-		}
-	}
-
-	return kept
+	return d.threadsInRange(threads)
 }
 
 type originDiff struct {

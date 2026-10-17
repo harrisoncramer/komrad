@@ -24,31 +24,7 @@ func (t reviewThreads) holdsUnsent() bool {
 	return t.unsentCount() > 0
 }
 
-// isHistory reports whether the round on screen ends before the agent's current work.
-func (r reviewScreen) isHistory() (string, bool) {
-	rendered := r.diff.spec.head
-	if r.diff.View() != nil {
-		rendered = r.diff.View().GetSnapshotSHA()
-	}
-
-	if rendered == "" || rendered == r.round.GetSnapshotSha() {
-		return "", false
-	}
-
-	return r.diff.spec.historySaid(r.diff.chapters), true
-}
-
-// doesWalk says whether the round keys have anywhere to go, which an editor holding the stage
-// takes away.
-func (r reviewScreen) doesWalk() bool {
-	return !r.hold.atEditor && len(r.diff.chapters) > 0
-}
-
-// isFrozen reports whether a held review pins the diff to its round, and which round that is.
-func (r reviewScreen) isFrozen() (*agentv1.ReviewRound, bool) {
-	if !r.diff.pinned || r.round == nil {
-		return nil, false
-	}
-
-	return r.round, true
+// isHistory reports whether the diff on screen ends before the round new comments go on.
+func (r reviewScreen) isHistory() bool {
+	return r.diff.View() != nil && r.diff.isHistory()
 }

@@ -2108,14 +2108,11 @@ type OpenReviewHistoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The task whose review history to open, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// Whether to read the worktree as it is now, even when an open review is written against an
-	// older round.
-	Fresh bool `protobuf:"varint,2,opt,name=fresh,proto3" json:"fresh,omitempty"`
 	// The part of the work to diff. Unset diffs the whole change.
 	//
 	// Types that are valid to be assigned to Span:
 	//
-	//	*OpenReviewHistoryRequest_Snapshots
+	//	*OpenReviewHistoryRequest_Rounds
 	//	*OpenReviewHistoryRequest_Answer
 	//	*OpenReviewHistoryRequest_Origin
 	Span          isOpenReviewHistoryRequest_Span `protobuf_oneof:"span"`
@@ -2160,13 +2157,6 @@ func (x *OpenReviewHistoryRequest) GetTask() string {
 	return ""
 }
 
-func (x *OpenReviewHistoryRequest) GetFresh() bool {
-	if x != nil {
-		return x.Fresh
-	}
-	return false
-}
-
 func (x *OpenReviewHistoryRequest) GetSpan() isOpenReviewHistoryRequest_Span {
 	if x != nil {
 		return x.Span
@@ -2174,10 +2164,10 @@ func (x *OpenReviewHistoryRequest) GetSpan() isOpenReviewHistoryRequest_Span {
 	return nil
 }
 
-func (x *OpenReviewHistoryRequest) GetSnapshots() *ReviewSnapshotSpan {
+func (x *OpenReviewHistoryRequest) GetRounds() *ReviewRoundSpan {
 	if x != nil {
-		if x, ok := x.Span.(*OpenReviewHistoryRequest_Snapshots); ok {
-			return x.Snapshots
+		if x, ok := x.Span.(*OpenReviewHistoryRequest_Rounds); ok {
+			return x.Rounds
 		}
 	}
 	return nil
@@ -2205,9 +2195,9 @@ type isOpenReviewHistoryRequest_Span interface {
 	isOpenReviewHistoryRequest_Span()
 }
 
-type OpenReviewHistoryRequest_Snapshots struct {
-	// A diff between two snapshots.
-	Snapshots *ReviewSnapshotSpan `protobuf:"bytes,3,opt,name=snapshots,proto3,oneof"`
+type OpenReviewHistoryRequest_Rounds struct {
+	// A diff between two rounds.
+	Rounds *ReviewRoundSpan `protobuf:"bytes,6,opt,name=rounds,proto3,oneof"`
 }
 
 type OpenReviewHistoryRequest_Answer struct {
@@ -2220,37 +2210,37 @@ type OpenReviewHistoryRequest_Origin struct {
 	Origin *ReviewOriginSpan `protobuf:"bytes,5,opt,name=origin,proto3,oneof"`
 }
 
-func (*OpenReviewHistoryRequest_Snapshots) isOpenReviewHistoryRequest_Span() {}
+func (*OpenReviewHistoryRequest_Rounds) isOpenReviewHistoryRequest_Span() {}
 
 func (*OpenReviewHistoryRequest_Answer) isOpenReviewHistoryRequest_Span() {}
 
 func (*OpenReviewHistoryRequest_Origin) isOpenReviewHistoryRequest_Span() {}
 
-// ReviewSnapshotSpan is a diff between two snapshots.
-type ReviewSnapshotSpan struct {
+// ReviewRoundSpan is the work between two rounds of a task.
+type ReviewRoundSpan struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The commit to diff from. Empty uses the round's base.
-	BaseSha string `protobuf:"bytes,1,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// The commit to diff to. Empty uses the round's snapshot.
-	HeadSha       string `protobuf:"bytes,2,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
+	// The id of the round the work starts after. Unset starts where the task starts.
+	FromRoundId *string `protobuf:"bytes,1,opt,name=from_round_id,json=fromRoundId,proto3,oneof" json:"from_round_id,omitempty"`
+	// The id of the round the work ends on. Unset ends on the newest round.
+	ToRoundId     *string `protobuf:"bytes,2,opt,name=to_round_id,json=toRoundId,proto3,oneof" json:"to_round_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ReviewSnapshotSpan) Reset() {
-	*x = ReviewSnapshotSpan{}
+func (x *ReviewRoundSpan) Reset() {
+	*x = ReviewRoundSpan{}
 	mi := &file_agent_v1_review_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReviewSnapshotSpan) String() string {
+func (x *ReviewRoundSpan) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReviewSnapshotSpan) ProtoMessage() {}
+func (*ReviewRoundSpan) ProtoMessage() {}
 
-func (x *ReviewSnapshotSpan) ProtoReflect() protoreflect.Message {
+func (x *ReviewRoundSpan) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2262,21 +2252,21 @@ func (x *ReviewSnapshotSpan) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ReviewSnapshotSpan.ProtoReflect.Descriptor instead.
-func (*ReviewSnapshotSpan) Descriptor() ([]byte, []int) {
+// Deprecated: Use ReviewRoundSpan.ProtoReflect.Descriptor instead.
+func (*ReviewRoundSpan) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{25}
 }
 
-func (x *ReviewSnapshotSpan) GetBaseSha() string {
-	if x != nil {
-		return x.BaseSha
+func (x *ReviewRoundSpan) GetFromRoundId() string {
+	if x != nil && x.FromRoundId != nil {
+		return *x.FromRoundId
 	}
 	return ""
 }
 
-func (x *ReviewSnapshotSpan) GetHeadSha() string {
-	if x != nil {
-		return x.HeadSha
+func (x *ReviewRoundSpan) GetToRoundId() string {
+	if x != nil && x.ToRoundId != nil {
+		return *x.ToRoundId
 	}
 	return ""
 }
@@ -2400,9 +2390,6 @@ type OpenReviewHistoryResponse struct {
 	Rounds []*ReviewRound `protobuf:"bytes,2,rep,name=rounds,proto3" json:"rounds,omitempty"`
 	// Every thread on the task, with its comments.
 	Threads []*ReviewThread `protobuf:"bytes,3,rep,name=threads,proto3" json:"threads,omitempty"`
-	// Whether `round` is the round an open review is written against, rather than the worktree as
-	// it is now.
-	Pinned bool `protobuf:"varint,4,opt,name=pinned,proto3" json:"pinned,omitempty"`
 	// A note about the round komrad chose. Empty when there is none.
 	Notice string `protobuf:"bytes,5,opt,name=notice,proto3" json:"notice,omitempty"`
 	// The commits the diff is between.
@@ -2410,8 +2397,8 @@ type OpenReviewHistoryResponse struct {
 	// Why komrad diffed the whole change instead of the requested span. Empty when komrad diffed
 	// the span.
 	Widened string `protobuf:"bytes,7,opt,name=widened,proto3" json:"widened,omitempty"`
-	// The work between the person's reviews, oldest first.
-	Chapters []*ReviewChapter `protobuf:"bytes,8,rep,name=chapters,proto3" json:"chapters,omitempty"`
+	// Every review on the task the caller may read, oldest first.
+	Reviews []*Review `protobuf:"bytes,13,rep,name=reviews,proto3" json:"reviews,omitempty"`
 	// The id of the round the person last released a review against. Empty when there is none or
 	// the round's base has changed since.
 	EarlierRoundId string `protobuf:"bytes,9,opt,name=earlier_round_id,json=earlierRoundId,proto3" json:"earlier_round_id,omitempty"`
@@ -2476,13 +2463,6 @@ func (x *OpenReviewHistoryResponse) GetThreads() []*ReviewThread {
 	return nil
 }
 
-func (x *OpenReviewHistoryResponse) GetPinned() bool {
-	if x != nil {
-		return x.Pinned
-	}
-	return false
-}
-
 func (x *OpenReviewHistoryResponse) GetNotice() string {
 	if x != nil {
 		return x.Notice
@@ -2504,9 +2484,9 @@ func (x *OpenReviewHistoryResponse) GetWidened() string {
 	return ""
 }
 
-func (x *OpenReviewHistoryResponse) GetChapters() []*ReviewChapter {
+func (x *OpenReviewHistoryResponse) GetReviews() []*Review {
 	if x != nil {
-		return x.Chapters
+		return x.Reviews
 	}
 	return nil
 }
@@ -2558,8 +2538,11 @@ type ReviewResolvedSpan struct {
 	OriginHeadSha string `protobuf:"bytes,7,opt,name=origin_head_sha,json=originHeadSha,proto3" json:"origin_head_sha,omitempty"`
 	// The base of the round a comment was written on. Empty for other spans.
 	OriginRoundBaseSha string `protobuf:"bytes,8,opt,name=origin_round_base_sha,json=originRoundBaseSha,proto3" json:"origin_round_base_sha,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// The paths the base branch changed under the writer that replaying the older side could not
+	// resolve. The diff is then from the older side as it was.
+	Conflicts     []string `protobuf:"bytes,9,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ReviewResolvedSpan) Reset() {
@@ -2648,141 +2631,11 @@ func (x *ReviewResolvedSpan) GetOriginRoundBaseSha() string {
 	return ""
 }
 
-// ReviewChapter is the work between two of the person's reviews, or between the last one and now.
-type ReviewChapter struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The snapshot the work starts after. For the first, the oldest round's base.
-	FromSha string `protobuf:"bytes,1,opt,name=from_sha,json=fromSha,proto3" json:"from_sha,omitempty"`
-	// The snapshot the work ends at.
-	ToSha string `protobuf:"bytes,2,opt,name=to_sha,json=toSha,proto3" json:"to_sha,omitempty"`
-	// When the person released the review that ends the work, in RFC 3339. Empty for work not yet
-	// reviewed.
-	ReleasedAt string `protobuf:"bytes,3,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
-	// The number of the round the work ends at.
-	Ordinal int32 `protobuf:"varint,4,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
-	// Whether the two ends can be compared.
-	Comparable bool `protobuf:"varint,5,opt,name=comparable,proto3" json:"comparable,omitempty"`
-	// The base commit the start was measured from.
-	FromBaseSha string `protobuf:"bytes,6,opt,name=from_base_sha,json=fromBaseSha,proto3" json:"from_base_sha,omitempty"`
-	// The base commit the end was measured from.
-	ToBaseSha string `protobuf:"bytes,7,opt,name=to_base_sha,json=toBaseSha,proto3" json:"to_base_sha,omitempty"`
-	// Whether the base at the end cannot reach the base at the start.
-	Rewritten bool `protobuf:"varint,8,opt,name=rewritten,proto3" json:"rewritten,omitempty"`
-	// Whether the start was replayed onto the end's base.
-	Replayed bool `protobuf:"varint,9,opt,name=replayed,proto3" json:"replayed,omitempty"`
-	// The paths the base branch changed under the writer that the replay could not resolve.
-	Conflicts []string `protobuf:"bytes,10,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
-	// Whether the work ends on a base older than the base of the round being read.
-	OnOlderBase   bool `protobuf:"varint,11,opt,name=on_older_base,json=onOlderBase,proto3" json:"on_older_base,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ReviewChapter) Reset() {
-	*x = ReviewChapter{}
-	mi := &file_agent_v1_review_proto_msgTypes[30]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ReviewChapter) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ReviewChapter) ProtoMessage() {}
-
-func (x *ReviewChapter) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[30]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ReviewChapter.ProtoReflect.Descriptor instead.
-func (*ReviewChapter) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{30}
-}
-
-func (x *ReviewChapter) GetFromSha() string {
-	if x != nil {
-		return x.FromSha
-	}
-	return ""
-}
-
-func (x *ReviewChapter) GetToSha() string {
-	if x != nil {
-		return x.ToSha
-	}
-	return ""
-}
-
-func (x *ReviewChapter) GetReleasedAt() string {
-	if x != nil {
-		return x.ReleasedAt
-	}
-	return ""
-}
-
-func (x *ReviewChapter) GetOrdinal() int32 {
-	if x != nil {
-		return x.Ordinal
-	}
-	return 0
-}
-
-func (x *ReviewChapter) GetComparable() bool {
-	if x != nil {
-		return x.Comparable
-	}
-	return false
-}
-
-func (x *ReviewChapter) GetFromBaseSha() string {
-	if x != nil {
-		return x.FromBaseSha
-	}
-	return ""
-}
-
-func (x *ReviewChapter) GetToBaseSha() string {
-	if x != nil {
-		return x.ToBaseSha
-	}
-	return ""
-}
-
-func (x *ReviewChapter) GetRewritten() bool {
-	if x != nil {
-		return x.Rewritten
-	}
-	return false
-}
-
-func (x *ReviewChapter) GetReplayed() bool {
-	if x != nil {
-		return x.Replayed
-	}
-	return false
-}
-
-func (x *ReviewChapter) GetConflicts() []string {
+func (x *ReviewResolvedSpan) GetConflicts() []string {
 	if x != nil {
 		return x.Conflicts
 	}
 	return nil
-}
-
-func (x *ReviewChapter) GetOnOlderBase() bool {
-	if x != nil {
-		return x.OnOlderBase
-	}
-	return false
 }
 
 // ReviewTracedPlace is where git traced a thread's lines in the diff's head.
@@ -2802,7 +2655,7 @@ type ReviewTracedPlace struct {
 
 func (x *ReviewTracedPlace) Reset() {
 	*x = ReviewTracedPlace{}
-	mi := &file_agent_v1_review_proto_msgTypes[31]
+	mi := &file_agent_v1_review_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2814,7 +2667,7 @@ func (x *ReviewTracedPlace) String() string {
 func (*ReviewTracedPlace) ProtoMessage() {}
 
 func (x *ReviewTracedPlace) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[31]
+	mi := &file_agent_v1_review_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2827,7 +2680,7 @@ func (x *ReviewTracedPlace) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewTracedPlace.ProtoReflect.Descriptor instead.
 func (*ReviewTracedPlace) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{31}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ReviewTracedPlace) GetFilePath() string {
@@ -2873,7 +2726,7 @@ type ReviewThreadInContext struct {
 
 func (x *ReviewThreadInContext) Reset() {
 	*x = ReviewThreadInContext{}
-	mi := &file_agent_v1_review_proto_msgTypes[32]
+	mi := &file_agent_v1_review_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2885,7 +2738,7 @@ func (x *ReviewThreadInContext) String() string {
 func (*ReviewThreadInContext) ProtoMessage() {}
 
 func (x *ReviewThreadInContext) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[32]
+	mi := &file_agent_v1_review_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2898,7 +2751,7 @@ func (x *ReviewThreadInContext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewThreadInContext.ProtoReflect.Descriptor instead.
 func (*ReviewThreadInContext) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{32}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ReviewThreadInContext) GetThread() *ReviewThread {
@@ -2925,7 +2778,7 @@ type GetReviewRequest struct {
 
 func (x *GetReviewRequest) Reset() {
 	*x = GetReviewRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[33]
+	mi := &file_agent_v1_review_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2937,7 +2790,7 @@ func (x *GetReviewRequest) String() string {
 func (*GetReviewRequest) ProtoMessage() {}
 
 func (x *GetReviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[33]
+	mi := &file_agent_v1_review_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2950,7 +2803,7 @@ func (x *GetReviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReviewRequest.ProtoReflect.Descriptor instead.
 func (*GetReviewRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{33}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetReviewRequest) GetReviewId() string {
@@ -2976,7 +2829,7 @@ type GetReviewResponse struct {
 
 func (x *GetReviewResponse) Reset() {
 	*x = GetReviewResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[34]
+	mi := &file_agent_v1_review_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2988,7 +2841,7 @@ func (x *GetReviewResponse) String() string {
 func (*GetReviewResponse) ProtoMessage() {}
 
 func (x *GetReviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[34]
+	mi := &file_agent_v1_review_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3001,7 +2854,7 @@ func (x *GetReviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReviewResponse.ProtoReflect.Descriptor instead.
 func (*GetReviewResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{34}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetReviewResponse) GetReview() *Review {
@@ -3035,7 +2888,7 @@ type ListReviewsRequest struct {
 
 func (x *ListReviewsRequest) Reset() {
 	*x = ListReviewsRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[35]
+	mi := &file_agent_v1_review_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3047,7 +2900,7 @@ func (x *ListReviewsRequest) String() string {
 func (*ListReviewsRequest) ProtoMessage() {}
 
 func (x *ListReviewsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[35]
+	mi := &file_agent_v1_review_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3060,7 +2913,7 @@ func (x *ListReviewsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReviewsRequest.ProtoReflect.Descriptor instead.
 func (*ListReviewsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{35}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListReviewsRequest) GetTask() string {
@@ -3080,7 +2933,7 @@ type ListReviewsResponse struct {
 
 func (x *ListReviewsResponse) Reset() {
 	*x = ListReviewsResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[36]
+	mi := &file_agent_v1_review_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3092,7 +2945,7 @@ func (x *ListReviewsResponse) String() string {
 func (*ListReviewsResponse) ProtoMessage() {}
 
 func (x *ListReviewsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[36]
+	mi := &file_agent_v1_review_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3105,7 +2958,7 @@ func (x *ListReviewsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReviewsResponse.ProtoReflect.Descriptor instead.
 func (*ListReviewsResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{36}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListReviewsResponse) GetReviews() []*Review {
@@ -3130,7 +2983,7 @@ type ReleaseReviewRequest struct {
 
 func (x *ReleaseReviewRequest) Reset() {
 	*x = ReleaseReviewRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[37]
+	mi := &file_agent_v1_review_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3142,7 +2995,7 @@ func (x *ReleaseReviewRequest) String() string {
 func (*ReleaseReviewRequest) ProtoMessage() {}
 
 func (x *ReleaseReviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[37]
+	mi := &file_agent_v1_review_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3155,7 +3008,7 @@ func (x *ReleaseReviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseReviewRequest.ProtoReflect.Descriptor instead.
 func (*ReleaseReviewRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{37}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ReleaseReviewRequest) GetTask() string {
@@ -3193,7 +3046,7 @@ type ReleaseReviewResponse struct {
 
 func (x *ReleaseReviewResponse) Reset() {
 	*x = ReleaseReviewResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[38]
+	mi := &file_agent_v1_review_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3205,7 +3058,7 @@ func (x *ReleaseReviewResponse) String() string {
 func (*ReleaseReviewResponse) ProtoMessage() {}
 
 func (x *ReleaseReviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[38]
+	mi := &file_agent_v1_review_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3218,7 +3071,7 @@ func (x *ReleaseReviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseReviewResponse.ProtoReflect.Descriptor instead.
 func (*ReleaseReviewResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{38}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ReleaseReviewResponse) GetReview() *Review {
@@ -3260,7 +3113,7 @@ type ReviewViewedFile struct {
 
 func (x *ReviewViewedFile) Reset() {
 	*x = ReviewViewedFile{}
-	mi := &file_agent_v1_review_proto_msgTypes[39]
+	mi := &file_agent_v1_review_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3272,7 +3125,7 @@ func (x *ReviewViewedFile) String() string {
 func (*ReviewViewedFile) ProtoMessage() {}
 
 func (x *ReviewViewedFile) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[39]
+	mi := &file_agent_v1_review_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3285,7 +3138,7 @@ func (x *ReviewViewedFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewViewedFile.ProtoReflect.Descriptor instead.
 func (*ReviewViewedFile) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{39}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ReviewViewedFile) GetTaskId() string {
@@ -3332,7 +3185,7 @@ type SetReviewFileViewedRequest struct {
 
 func (x *SetReviewFileViewedRequest) Reset() {
 	*x = SetReviewFileViewedRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[40]
+	mi := &file_agent_v1_review_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3344,7 +3197,7 @@ func (x *SetReviewFileViewedRequest) String() string {
 func (*SetReviewFileViewedRequest) ProtoMessage() {}
 
 func (x *SetReviewFileViewedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[40]
+	mi := &file_agent_v1_review_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3357,7 +3210,7 @@ func (x *SetReviewFileViewedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReviewFileViewedRequest.ProtoReflect.Descriptor instead.
 func (*SetReviewFileViewedRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{40}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *SetReviewFileViewedRequest) GetTask() string {
@@ -3398,7 +3251,7 @@ type SetReviewFileViewedResponse struct {
 
 func (x *SetReviewFileViewedResponse) Reset() {
 	*x = SetReviewFileViewedResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[41]
+	mi := &file_agent_v1_review_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3410,7 +3263,7 @@ func (x *SetReviewFileViewedResponse) String() string {
 func (*SetReviewFileViewedResponse) ProtoMessage() {}
 
 func (x *SetReviewFileViewedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[41]
+	mi := &file_agent_v1_review_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3423,7 +3276,7 @@ func (x *SetReviewFileViewedResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReviewFileViewedResponse.ProtoReflect.Descriptor instead.
 func (*SetReviewFileViewedResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{41}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *SetReviewFileViewedResponse) GetViewed() *ReviewViewedFile {
@@ -3443,7 +3296,7 @@ type ListReviewViewedFilesRequest struct {
 
 func (x *ListReviewViewedFilesRequest) Reset() {
 	*x = ListReviewViewedFilesRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[42]
+	mi := &file_agent_v1_review_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3455,7 +3308,7 @@ func (x *ListReviewViewedFilesRequest) String() string {
 func (*ListReviewViewedFilesRequest) ProtoMessage() {}
 
 func (x *ListReviewViewedFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[42]
+	mi := &file_agent_v1_review_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3468,7 +3321,7 @@ func (x *ListReviewViewedFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReviewViewedFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListReviewViewedFilesRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{42}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ListReviewViewedFilesRequest) GetTask() string {
@@ -3488,7 +3341,7 @@ type ListReviewViewedFilesResponse struct {
 
 func (x *ListReviewViewedFilesResponse) Reset() {
 	*x = ListReviewViewedFilesResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[43]
+	mi := &file_agent_v1_review_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3500,7 +3353,7 @@ func (x *ListReviewViewedFilesResponse) String() string {
 func (*ListReviewViewedFilesResponse) ProtoMessage() {}
 
 func (x *ListReviewViewedFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[43]
+	mi := &file_agent_v1_review_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3513,7 +3366,7 @@ func (x *ListReviewViewedFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReviewViewedFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListReviewViewedFilesResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{43}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListReviewViewedFilesResponse) GetViewed() []*ReviewViewedFile {
@@ -3553,7 +3406,7 @@ type ForgeReply struct {
 
 func (x *ForgeReply) Reset() {
 	*x = ForgeReply{}
-	mi := &file_agent_v1_review_proto_msgTypes[44]
+	mi := &file_agent_v1_review_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3565,7 +3418,7 @@ func (x *ForgeReply) String() string {
 func (*ForgeReply) ProtoMessage() {}
 
 func (x *ForgeReply) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[44]
+	mi := &file_agent_v1_review_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3578,7 +3431,7 @@ func (x *ForgeReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgeReply.ProtoReflect.Descriptor instead.
 func (*ForgeReply) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{44}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ForgeReply) GetId() string {
@@ -3663,7 +3516,7 @@ type ReplyOnForgeRequest struct {
 
 func (x *ReplyOnForgeRequest) Reset() {
 	*x = ReplyOnForgeRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[45]
+	mi := &file_agent_v1_review_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3675,7 +3528,7 @@ func (x *ReplyOnForgeRequest) String() string {
 func (*ReplyOnForgeRequest) ProtoMessage() {}
 
 func (x *ReplyOnForgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[45]
+	mi := &file_agent_v1_review_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3688,7 +3541,7 @@ func (x *ReplyOnForgeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplyOnForgeRequest.ProtoReflect.Descriptor instead.
 func (*ReplyOnForgeRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{45}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ReplyOnForgeRequest) GetThreadId() string {
@@ -3715,7 +3568,7 @@ type ReplyOnForgeResponse struct {
 
 func (x *ReplyOnForgeResponse) Reset() {
 	*x = ReplyOnForgeResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[46]
+	mi := &file_agent_v1_review_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3727,7 +3580,7 @@ func (x *ReplyOnForgeResponse) String() string {
 func (*ReplyOnForgeResponse) ProtoMessage() {}
 
 func (x *ReplyOnForgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[46]
+	mi := &file_agent_v1_review_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3740,7 +3593,7 @@ func (x *ReplyOnForgeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplyOnForgeResponse.ProtoReflect.Descriptor instead.
 func (*ReplyOnForgeResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{46}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ReplyOnForgeResponse) GetReply() *ForgeReply {
@@ -3760,7 +3613,7 @@ type RetryForgeReplyRequest struct {
 
 func (x *RetryForgeReplyRequest) Reset() {
 	*x = RetryForgeReplyRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[47]
+	mi := &file_agent_v1_review_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3772,7 +3625,7 @@ func (x *RetryForgeReplyRequest) String() string {
 func (*RetryForgeReplyRequest) ProtoMessage() {}
 
 func (x *RetryForgeReplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[47]
+	mi := &file_agent_v1_review_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3785,7 +3638,7 @@ func (x *RetryForgeReplyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryForgeReplyRequest.ProtoReflect.Descriptor instead.
 func (*RetryForgeReplyRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{47}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *RetryForgeReplyRequest) GetId() string {
@@ -3805,7 +3658,7 @@ type RetryForgeReplyResponse struct {
 
 func (x *RetryForgeReplyResponse) Reset() {
 	*x = RetryForgeReplyResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[48]
+	mi := &file_agent_v1_review_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3817,7 +3670,7 @@ func (x *RetryForgeReplyResponse) String() string {
 func (*RetryForgeReplyResponse) ProtoMessage() {}
 
 func (x *RetryForgeReplyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[48]
+	mi := &file_agent_v1_review_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3830,7 +3683,7 @@ func (x *RetryForgeReplyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryForgeReplyResponse.ProtoReflect.Descriptor instead.
 func (*RetryForgeReplyResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{48}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *RetryForgeReplyResponse) GetReply() *ForgeReply {
@@ -3850,7 +3703,7 @@ type DiscardForgeReplyRequest struct {
 
 func (x *DiscardForgeReplyRequest) Reset() {
 	*x = DiscardForgeReplyRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[49]
+	mi := &file_agent_v1_review_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3862,7 +3715,7 @@ func (x *DiscardForgeReplyRequest) String() string {
 func (*DiscardForgeReplyRequest) ProtoMessage() {}
 
 func (x *DiscardForgeReplyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[49]
+	mi := &file_agent_v1_review_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3875,7 +3728,7 @@ func (x *DiscardForgeReplyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscardForgeReplyRequest.ProtoReflect.Descriptor instead.
 func (*DiscardForgeReplyRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{49}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *DiscardForgeReplyRequest) GetId() string {
@@ -3883,6 +3736,124 @@ func (x *DiscardForgeReplyRequest) GetId() string {
 		return x.Id
 	}
 	return ""
+}
+
+type CompareReviewRoundsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The task whose rounds to compare, by id or slug.
+	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The id of the round the work starts after.
+	FromRoundId string `protobuf:"bytes,2,opt,name=from_round_id,json=fromRoundId,proto3" json:"from_round_id,omitempty"`
+	// The id of the round the work ends on.
+	ToRoundId     string `protobuf:"bytes,3,opt,name=to_round_id,json=toRoundId,proto3" json:"to_round_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompareReviewRoundsRequest) Reset() {
+	*x = CompareReviewRoundsRequest{}
+	mi := &file_agent_v1_review_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompareReviewRoundsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompareReviewRoundsRequest) ProtoMessage() {}
+
+func (x *CompareReviewRoundsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompareReviewRoundsRequest.ProtoReflect.Descriptor instead.
+func (*CompareReviewRoundsRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *CompareReviewRoundsRequest) GetTask() string {
+	if x != nil {
+		return x.Task
+	}
+	return ""
+}
+
+func (x *CompareReviewRoundsRequest) GetFromRoundId() string {
+	if x != nil {
+		return x.FromRoundId
+	}
+	return ""
+}
+
+func (x *CompareReviewRoundsRequest) GetToRoundId() string {
+	if x != nil {
+		return x.ToRoundId
+	}
+	return ""
+}
+
+type CompareReviewRoundsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Whether the work between the two rounds can be read, replaying the older round onto the newer
+	// round's base when a rebase lies between them.
+	Comparable bool `protobuf:"varint,1,opt,name=comparable,proto3" json:"comparable,omitempty"`
+	// The paths the base branch changed under the writer that the replay could not resolve.
+	Conflicts     []string `protobuf:"bytes,2,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompareReviewRoundsResponse) Reset() {
+	*x = CompareReviewRoundsResponse{}
+	mi := &file_agent_v1_review_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompareReviewRoundsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompareReviewRoundsResponse) ProtoMessage() {}
+
+func (x *CompareReviewRoundsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompareReviewRoundsResponse.ProtoReflect.Descriptor instead.
+func (*CompareReviewRoundsResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *CompareReviewRoundsResponse) GetComparable() bool {
+	if x != nil {
+		return x.Comparable
+	}
+	return false
+}
+
+func (x *CompareReviewRoundsResponse) GetConflicts() []string {
+	if x != nil {
+		return x.Conflicts
+	}
+	return nil
 }
 
 var File_agent_v1_review_proto protoreflect.FileDescriptor
@@ -4075,33 +4046,33 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
 	"\x05_task\"I\n" +
 	"\x18ListReviewRoundsResponse\x12-\n" +
-	"\x06rounds\x18\x01 \x03(\v2\x15.agent.v1.ReviewRoundR\x06rounds\"\xbb\x02\n" +
+	"\x06rounds\x18\x01 \x03(\v2\x15.agent.v1.ReviewRoundR\x06rounds\"\x9c\x02\n" +
 	"\x18OpenReviewHistoryRequest\x12W\n" +
 	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12\x14\n" +
-	"\x05fresh\x18\x02 \x01(\bR\x05fresh\x12<\n" +
-	"\tsnapshots\x18\x03 \x01(\v2\x1c.agent.v1.ReviewSnapshotSpanH\x00R\tsnapshots\x124\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x123\n" +
+	"\x06rounds\x18\x06 \x01(\v2\x19.agent.v1.ReviewRoundSpanH\x00R\x06rounds\x124\n" +
 	"\x06answer\x18\x04 \x01(\v2\x1a.agent.v1.ReviewAnswerSpanH\x00R\x06answer\x124\n" +
 	"\x06origin\x18\x05 \x01(\v2\x1a.agent.v1.ReviewOriginSpanH\x00R\x06originB\x06\n" +
-	"\x04span\"J\n" +
-	"\x12ReviewSnapshotSpan\x12\x19\n" +
-	"\bbase_sha\x18\x01 \x01(\tR\abaseSha\x12\x19\n" +
-	"\bhead_sha\x18\x02 \x01(\tR\aheadSha\"h\n" +
+	"\x04span\"\x93\x01\n" +
+	"\x0fReviewRoundSpan\x120\n" +
+	"\rfrom_round_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\vfromRoundId\x88\x01\x01\x12,\n" +
+	"\vto_round_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\ttoRoundId\x88\x01\x01B\x10\n" +
+	"\x0e_from_round_idB\x0e\n" +
+	"\f_to_round_id\"h\n" +
 	"\x10ReviewAnswerSpan\x12+\n" +
 	"\rfrom_round_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\vfromRoundId\x12'\n" +
 	"\vto_round_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoRoundId\"Q\n" +
 	"\x10ReviewOriginSpan\x12\"\n" +
 	"\bround_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aroundId\x12\x19\n" +
-	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\x91\x05\n" +
+	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\xf0\x04\n" +
 	"\x19OpenReviewHistoryResponse\x12+\n" +
 	"\x05round\x18\x01 \x01(\v2\x15.agent.v1.ReviewRoundR\x05round\x12-\n" +
 	"\x06rounds\x18\x02 \x03(\v2\x15.agent.v1.ReviewRoundR\x06rounds\x120\n" +
 	"\athreads\x18\x03 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\x12\x16\n" +
-	"\x06pinned\x18\x04 \x01(\bR\x06pinned\x12\x16\n" +
 	"\x06notice\x18\x05 \x01(\tR\x06notice\x128\n" +
 	"\bresolved\x18\x06 \x01(\v2\x1c.agent.v1.ReviewResolvedSpanR\bresolved\x12\x18\n" +
-	"\awidened\x18\a \x01(\tR\awidened\x123\n" +
-	"\bchapters\x18\b \x03(\v2\x17.agent.v1.ReviewChapterR\bchapters\x12(\n" +
+	"\awidened\x18\a \x01(\tR\awidened\x12*\n" +
+	"\areviews\x18\r \x03(\v2\x10.agent.v1.ReviewR\areviews\x12(\n" +
 	"\x10earlier_round_id\x18\t \x01(\tR\x0eearlierRoundId\x12.\n" +
 	"\x13earlier_released_at\x18\n" +
 	" \x01(\tR\x11earlierReleasedAt\x122\n" +
@@ -4109,7 +4080,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x06traced\x18\f \x03(\v2/.agent.v1.OpenReviewHistoryResponse.TracedEntryR\x06traced\x1aV\n" +
 	"\vTracedEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
-	"\x05value\x18\x02 \x01(\v2\x1b.agent.v1.ReviewTracedPlaceR\x05value:\x028\x01\"\xb9\x02\n" +
+	"\x05value\x18\x02 \x01(\v2\x1b.agent.v1.ReviewTracedPlaceR\x05value:\x028\x01\"\xd7\x02\n" +
 	"\x12ReviewResolvedSpan\x12\x19\n" +
 	"\bbase_sha\x18\x01 \x01(\tR\abaseSha\x12\x19\n" +
 	"\bhead_sha\x18\x02 \x01(\tR\aheadSha\x12\x1a\n" +
@@ -4118,23 +4089,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x0fanswer_head_sha\x18\x05 \x01(\tR\ranswerHeadSha\x12&\n" +
 	"\x0forigin_base_sha\x18\x06 \x01(\tR\roriginBaseSha\x12&\n" +
 	"\x0forigin_head_sha\x18\a \x01(\tR\roriginHeadSha\x121\n" +
-	"\x15origin_round_base_sha\x18\b \x01(\tR\x12originRoundBaseSha\"\xdc\x02\n" +
-	"\rReviewChapter\x12\x19\n" +
-	"\bfrom_sha\x18\x01 \x01(\tR\afromSha\x12\x15\n" +
-	"\x06to_sha\x18\x02 \x01(\tR\x05toSha\x12\x1f\n" +
-	"\vreleased_at\x18\x03 \x01(\tR\n" +
-	"releasedAt\x12\x18\n" +
-	"\aordinal\x18\x04 \x01(\x05R\aordinal\x12\x1e\n" +
-	"\n" +
-	"comparable\x18\x05 \x01(\bR\n" +
-	"comparable\x12\"\n" +
-	"\rfrom_base_sha\x18\x06 \x01(\tR\vfromBaseSha\x12\x1e\n" +
-	"\vto_base_sha\x18\a \x01(\tR\ttoBaseSha\x12\x1c\n" +
-	"\trewritten\x18\b \x01(\bR\trewritten\x12\x1a\n" +
-	"\breplayed\x18\t \x01(\bR\breplayed\x12\x1c\n" +
-	"\tconflicts\x18\n" +
-	" \x03(\tR\tconflicts\x12\"\n" +
-	"\ron_older_base\x18\v \x01(\bR\vonOlderBase\"\x80\x01\n" +
+	"\x15origin_round_base_sha\x18\b \x01(\tR\x12originRoundBaseSha\x12\x1c\n" +
+	"\tconflicts\x18\t \x03(\tR\tconflicts\"\x80\x01\n" +
 	"\x11ReviewTracedPlace\x12\x1b\n" +
 	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x1b\n" +
 	"\tnew_start\x18\x02 \x01(\x05R\bnewStart\x12\x1b\n" +
@@ -4212,7 +4168,17 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x17RetryForgeReplyResponse\x12*\n" +
 	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"3\n" +
 	"\x18DiscardForgeReplyRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id*\x90\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xcb\x01\n" +
+	"\x1aCompareReviewRoundsRequest\x12W\n" +
+	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12+\n" +
+	"\rfrom_round_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\vfromRoundId\x12'\n" +
+	"\vto_round_id\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoRoundId\"[\n" +
+	"\x1bCompareReviewRoundsResponse\x12\x1e\n" +
+	"\n" +
+	"comparable\x18\x01 \x01(\bR\n" +
+	"comparable\x12\x1c\n" +
+	"\tconflicts\x18\x02 \x03(\tR\tconflicts*\x90\x01\n" +
 	"\x10ReviewAuthorKind\x12\"\n" +
 	"\x1eREVIEW_AUTHOR_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18REVIEW_AUTHOR_KIND_HUMAN\x10\x01\x12\x1c\n" +
@@ -4249,7 +4215,7 @@ func file_agent_v1_review_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_agent_v1_review_proto_goTypes = []any{
 	(ReviewAuthorKind)(0),                   // 0: agent.v1.ReviewAuthorKind
 	(ReviewDeliveryState)(0),                // 1: agent.v1.ReviewDeliveryState
@@ -4280,32 +4246,33 @@ var file_agent_v1_review_proto_goTypes = []any{
 	(*ListReviewRoundsRequest)(nil),         // 26: agent.v1.ListReviewRoundsRequest
 	(*ListReviewRoundsResponse)(nil),        // 27: agent.v1.ListReviewRoundsResponse
 	(*OpenReviewHistoryRequest)(nil),        // 28: agent.v1.OpenReviewHistoryRequest
-	(*ReviewSnapshotSpan)(nil),              // 29: agent.v1.ReviewSnapshotSpan
+	(*ReviewRoundSpan)(nil),                 // 29: agent.v1.ReviewRoundSpan
 	(*ReviewAnswerSpan)(nil),                // 30: agent.v1.ReviewAnswerSpan
 	(*ReviewOriginSpan)(nil),                // 31: agent.v1.ReviewOriginSpan
 	(*OpenReviewHistoryResponse)(nil),       // 32: agent.v1.OpenReviewHistoryResponse
 	(*ReviewResolvedSpan)(nil),              // 33: agent.v1.ReviewResolvedSpan
-	(*ReviewChapter)(nil),                   // 34: agent.v1.ReviewChapter
-	(*ReviewTracedPlace)(nil),               // 35: agent.v1.ReviewTracedPlace
-	(*ReviewThreadInContext)(nil),           // 36: agent.v1.ReviewThreadInContext
-	(*GetReviewRequest)(nil),                // 37: agent.v1.GetReviewRequest
-	(*GetReviewResponse)(nil),               // 38: agent.v1.GetReviewResponse
-	(*ListReviewsRequest)(nil),              // 39: agent.v1.ListReviewsRequest
-	(*ListReviewsResponse)(nil),             // 40: agent.v1.ListReviewsResponse
-	(*ReleaseReviewRequest)(nil),            // 41: agent.v1.ReleaseReviewRequest
-	(*ReleaseReviewResponse)(nil),           // 42: agent.v1.ReleaseReviewResponse
-	(*ReviewViewedFile)(nil),                // 43: agent.v1.ReviewViewedFile
-	(*SetReviewFileViewedRequest)(nil),      // 44: agent.v1.SetReviewFileViewedRequest
-	(*SetReviewFileViewedResponse)(nil),     // 45: agent.v1.SetReviewFileViewedResponse
-	(*ListReviewViewedFilesRequest)(nil),    // 46: agent.v1.ListReviewViewedFilesRequest
-	(*ListReviewViewedFilesResponse)(nil),   // 47: agent.v1.ListReviewViewedFilesResponse
-	(*ForgeReply)(nil),                      // 48: agent.v1.ForgeReply
-	(*ReplyOnForgeRequest)(nil),             // 49: agent.v1.ReplyOnForgeRequest
-	(*ReplyOnForgeResponse)(nil),            // 50: agent.v1.ReplyOnForgeResponse
-	(*RetryForgeReplyRequest)(nil),          // 51: agent.v1.RetryForgeReplyRequest
-	(*RetryForgeReplyResponse)(nil),         // 52: agent.v1.RetryForgeReplyResponse
-	(*DiscardForgeReplyRequest)(nil),        // 53: agent.v1.DiscardForgeReplyRequest
-	nil,                                     // 54: agent.v1.OpenReviewHistoryResponse.TracedEntry
+	(*ReviewTracedPlace)(nil),               // 34: agent.v1.ReviewTracedPlace
+	(*ReviewThreadInContext)(nil),           // 35: agent.v1.ReviewThreadInContext
+	(*GetReviewRequest)(nil),                // 36: agent.v1.GetReviewRequest
+	(*GetReviewResponse)(nil),               // 37: agent.v1.GetReviewResponse
+	(*ListReviewsRequest)(nil),              // 38: agent.v1.ListReviewsRequest
+	(*ListReviewsResponse)(nil),             // 39: agent.v1.ListReviewsResponse
+	(*ReleaseReviewRequest)(nil),            // 40: agent.v1.ReleaseReviewRequest
+	(*ReleaseReviewResponse)(nil),           // 41: agent.v1.ReleaseReviewResponse
+	(*ReviewViewedFile)(nil),                // 42: agent.v1.ReviewViewedFile
+	(*SetReviewFileViewedRequest)(nil),      // 43: agent.v1.SetReviewFileViewedRequest
+	(*SetReviewFileViewedResponse)(nil),     // 44: agent.v1.SetReviewFileViewedResponse
+	(*ListReviewViewedFilesRequest)(nil),    // 45: agent.v1.ListReviewViewedFilesRequest
+	(*ListReviewViewedFilesResponse)(nil),   // 46: agent.v1.ListReviewViewedFilesResponse
+	(*ForgeReply)(nil),                      // 47: agent.v1.ForgeReply
+	(*ReplyOnForgeRequest)(nil),             // 48: agent.v1.ReplyOnForgeRequest
+	(*ReplyOnForgeResponse)(nil),            // 49: agent.v1.ReplyOnForgeResponse
+	(*RetryForgeReplyRequest)(nil),          // 50: agent.v1.RetryForgeReplyRequest
+	(*RetryForgeReplyResponse)(nil),         // 51: agent.v1.RetryForgeReplyResponse
+	(*DiscardForgeReplyRequest)(nil),        // 52: agent.v1.DiscardForgeReplyRequest
+	(*CompareReviewRoundsRequest)(nil),      // 53: agent.v1.CompareReviewRoundsRequest
+	(*CompareReviewRoundsResponse)(nil),     // 54: agent.v1.CompareReviewRoundsResponse
+	nil,                                     // 55: agent.v1.OpenReviewHistoryResponse.TracedEntry
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
@@ -4313,7 +4280,7 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	0,  // 2: agent.v1.WatchedReview.author_kind:type_name -> agent.v1.ReviewAuthorKind
 	2,  // 3: agent.v1.WatchedReview.verdict:type_name -> agent.v1.ReviewVerdict
 	8,  // 4: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
-	48, // 5: agent.v1.ReviewThread.forge_replies:type_name -> agent.v1.ForgeReply
+	47, // 5: agent.v1.ReviewThread.forge_replies:type_name -> agent.v1.ForgeReply
 	0,  // 6: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
 	1,  // 7: agent.v1.ReviewMessage.delivery:type_name -> agent.v1.ReviewDeliveryState
 	9,  // 8: agent.v1.ReviewMessage.forge:type_name -> agent.v1.ForgeOrigin
@@ -4326,28 +4293,28 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	7,  // 15: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
 	4,  // 16: agent.v1.OpenReviewRoundResponse.round:type_name -> agent.v1.ReviewRound
 	4,  // 17: agent.v1.ListReviewRoundsResponse.rounds:type_name -> agent.v1.ReviewRound
-	29, // 18: agent.v1.OpenReviewHistoryRequest.snapshots:type_name -> agent.v1.ReviewSnapshotSpan
+	29, // 18: agent.v1.OpenReviewHistoryRequest.rounds:type_name -> agent.v1.ReviewRoundSpan
 	30, // 19: agent.v1.OpenReviewHistoryRequest.answer:type_name -> agent.v1.ReviewAnswerSpan
 	31, // 20: agent.v1.OpenReviewHistoryRequest.origin:type_name -> agent.v1.ReviewOriginSpan
 	4,  // 21: agent.v1.OpenReviewHistoryResponse.round:type_name -> agent.v1.ReviewRound
 	4,  // 22: agent.v1.OpenReviewHistoryResponse.rounds:type_name -> agent.v1.ReviewRound
 	7,  // 23: agent.v1.OpenReviewHistoryResponse.threads:type_name -> agent.v1.ReviewThread
 	33, // 24: agent.v1.OpenReviewHistoryResponse.resolved:type_name -> agent.v1.ReviewResolvedSpan
-	34, // 25: agent.v1.OpenReviewHistoryResponse.chapters:type_name -> agent.v1.ReviewChapter
-	54, // 26: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
+	5,  // 25: agent.v1.OpenReviewHistoryResponse.reviews:type_name -> agent.v1.Review
+	55, // 26: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
 	7,  // 27: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
 	5,  // 28: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
 	4,  // 29: agent.v1.GetReviewResponse.round:type_name -> agent.v1.ReviewRound
-	36, // 30: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
+	35, // 30: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
 	5,  // 31: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
 	2,  // 32: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
 	5,  // 33: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
-	43, // 34: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	43, // 35: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	42, // 34: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	42, // 35: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
 	3,  // 36: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
-	48, // 37: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
-	48, // 38: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	35, // 39: agent.v1.OpenReviewHistoryResponse.TracedEntry.value:type_name -> agent.v1.ReviewTracedPlace
+	47, // 37: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
+	47, // 38: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
+	34, // 39: agent.v1.OpenReviewHistoryResponse.TracedEntry.value:type_name -> agent.v1.ReviewTracedPlace
 	40, // [40:40] is the sub-list for method output_type
 	40, // [40:40] is the sub-list for method input_type
 	40, // [40:40] is the sub-list for extension type_name
@@ -4369,20 +4336,21 @@ func file_agent_v1_review_proto_init() {
 	file_agent_v1_review_proto_msgTypes[20].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[22].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[24].OneofWrappers = []any{
-		(*OpenReviewHistoryRequest_Snapshots)(nil),
+		(*OpenReviewHistoryRequest_Rounds)(nil),
 		(*OpenReviewHistoryRequest_Answer)(nil),
 		(*OpenReviewHistoryRequest_Origin)(nil),
 	}
-	file_agent_v1_review_proto_msgTypes[35].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[37].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[44].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[25].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[34].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[36].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[43].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_review_proto_rawDesc), len(file_agent_v1_review_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   51,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

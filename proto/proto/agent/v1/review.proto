@@ -381,13 +381,10 @@ message OpenReviewHistoryRequest {
     message: "pass task, by id or by slug"
     expression: "this.size() > 0"
   }];
-  // Whether to read the worktree as it is now, even when an open review is written against an
-  // older round.
-  bool fresh = 2;
   // The part of the work to diff. Unset diffs the whole change.
   oneof span {
-    // A diff between two snapshots.
-    ReviewSnapshotSpan snapshots = 3;
+    // A diff between two rounds.
+    ReviewRoundSpan rounds = 6;
     // The change made by the reply that addressed a comment.
     ReviewAnswerSpan answer = 4;
     // The diff a comment was written against.
@@ -395,12 +392,12 @@ message OpenReviewHistoryRequest {
   }
 }
 
-// ReviewSnapshotSpan is a diff between two snapshots.
-message ReviewSnapshotSpan {
-  // The commit to diff from. Empty uses the round's base.
-  string base_sha = 1;
-  // The commit to diff to. Empty uses the round's snapshot.
-  string head_sha = 2;
+// ReviewRoundSpan is the work between two rounds of a task.
+message ReviewRoundSpan {
+  // The id of the round the work starts after. Unset starts where the task starts.
+  optional string from_round_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The id of the round the work ends on. Unset ends on the newest round.
+  optional string to_round_id = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 // ReviewAnswerSpan is the change between the round a comment was written on and the round of the
@@ -427,9 +424,6 @@ message OpenReviewHistoryResponse {
   repeated ReviewRound rounds = 2;
   // Every thread on the task, with its comments.
   repeated ReviewThread threads = 3;
-  // Whether `round` is the round an open review is written against, rather than the worktree as
-  // it is now.
-  bool pinned = 4;
   // A note about the round komrad chose. Empty when there is none.
   string notice = 5;
   // The commits the diff is between.
@@ -437,8 +431,8 @@ message OpenReviewHistoryResponse {
   // Why komrad diffed the whole change instead of the requested span. Empty when komrad diffed
   // the span.
   string widened = 7;
-  // The work between the person's reviews, oldest first.
-  repeated ReviewChapter chapters = 8;
+  // Every review on the task the caller may read, oldest first.
+  repeated Review reviews = 13;
   // The id of the round the person last released a review against. Empty when there is none or
   // the round's base has changed since.
   string earlier_round_id = 9;
@@ -468,33 +462,9 @@ message ReviewResolvedSpan {
   string origin_head_sha = 7;
   // The base of the round a comment was written on. Empty for other spans.
   string origin_round_base_sha = 8;
-}
-
-// ReviewChapter is the work between two of the person's reviews, or between the last one and now.
-message ReviewChapter {
-  // The snapshot the work starts after. For the first, the oldest round's base.
-  string from_sha = 1;
-  // The snapshot the work ends at.
-  string to_sha = 2;
-  // When the person released the review that ends the work, in RFC 3339. Empty for work not yet
-  // reviewed.
-  string released_at = 3;
-  // The number of the round the work ends at.
-  int32 ordinal = 4;
-  // Whether the two ends can be compared.
-  bool comparable = 5;
-  // The base commit the start was measured from.
-  string from_base_sha = 6;
-  // The base commit the end was measured from.
-  string to_base_sha = 7;
-  // Whether the base at the end cannot reach the base at the start.
-  bool rewritten = 8;
-  // Whether the start was replayed onto the end's base.
-  bool replayed = 9;
-  // The paths the base branch changed under the writer that the replay could not resolve.
-  repeated string conflicts = 10;
-  // Whether the work ends on a base older than the base of the round being read.
-  bool on_older_base = 11;
+  // The paths the base branch changed under the writer that replaying the older side could not
+  // resolve. The diff is then from the older side as it was.
+  repeated string conflicts = 9;
 }
 
 // ReviewTracedPlace is where git traced a thread's lines in the diff's head.
@@ -683,4 +653,25 @@ message RetryForgeReplyResponse {
 message DiscardForgeReplyRequest {
   // The failed reply to discard, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message CompareReviewRoundsRequest {
+  // The task whose rounds to compare, by id or slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
+  // The id of the round the work starts after.
+  string from_round_id = 2 [(buf.validate.field).string.min_len = 1];
+  // The id of the round the work ends on.
+  string to_round_id = 3 [(buf.validate.field).string.min_len = 1];
+}
+
+message CompareReviewRoundsResponse {
+  // Whether the work between the two rounds can be read, replaying the older round onto the newer
+  // round's base when a rebase lies between them.
+  bool comparable = 1;
+  // The paths the base branch changed under the writer that the replay could not resolve.
+  repeated string conflicts = 2;
 }

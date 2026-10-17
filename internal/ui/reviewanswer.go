@@ -15,20 +15,23 @@ type reviewAnswer struct {
 	ThreadID  string
 	FromRound string
 	ToRound   string
+	// held is the range on screen before the answer, which leaving it puts back.
+	held  diffSpec
+	place *diffview.Place
 }
 
 // toggleAnswer puts the answer to the comment under the cursor on screen, or goes back to the
-// whole change from one already there.
+// range held before it.
 func (r *reviewScreen) toggleAnswer(m *model) tea.Cmd {
 	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}
 
 	if r.diff.spec.answer != nil {
-		thread := r.diff.spec.answer.ThreadID
-		r.diff.widen()
+		answer := r.diff.spec.answer
+		r.diff.spec = answer.held
 		cmd := r.reload(m)
-		r.diff.landOn = thread
+		r.diff.restore = answer.place
 
 		return cmd
 	}
@@ -43,11 +46,17 @@ func (r *reviewScreen) toggleAnswer(m *model) tea.Cmd {
 		return nil
 	}
 
-	r.diff.spec = answerSpec(&reviewAnswer{
+	held := &reviewAnswer{
 		ThreadID:  thread.GetId(),
 		FromRound: thread.GetRoundId(),
 		ToRound:   answer,
-	})
+		held:      r.diff.spec,
+	}
+	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
+		held.place = &place
+	}
+
+	r.diff.spec = answerSpec(held)
 
 	return r.reload(m)
 }
@@ -71,7 +80,7 @@ func (r reviewScreen) doesOfferAnswer() bool {
 // answerDesc names what the answer key does from where the reader stands.
 func (d reviewDiff) answerDesc() string {
 	if d.spec.answer != nil {
-		return "all changes"
+		return "back"
 	}
 
 	return "the answer"

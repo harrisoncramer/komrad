@@ -28,7 +28,7 @@ const (
 	reviewRemovedTone   = paint.ToneDanger
 	reviewUnsentTone    = paint.TonePrimary
 	reviewSentTone      = paint.ToneWarning
-	reviewFrozenTone    = paint.ToneWarning
+	reviewHistoryTone   = paint.ToneWarning
 	reviewDeliveredTone = paint.ToneSuccess
 	reviewForgeHeldTone = paint.ToneDanger
 )
@@ -63,8 +63,8 @@ func (r reviewScreen) view(m *model) string {
 // height.
 func (r reviewScreen) sidebarView(m *model) string {
 	layout := r.layoutSidebar(m)
-	layout.files = m.markZone(zoneBlock, layout.files, lineWidthOf(m.paneWidth()))
-	layout.pullRequest = m.markZone(zonePullRequest, layout.pullRequest, lineWidthOf(m.paneWidth()))
+	layout.files = m.markZone(zoneBlock, layout.side+layout.files, lineWidthOf(m.paneWidth()))
+	layout.side = ""
 
 	return strings.TrimRight(r.renderSidebar(layout), "\n")
 }
@@ -97,23 +97,22 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 // branch, the files the change touches, where the cursor is standing, and what the reader was
 // last told.
 func (r reviewScreen) renderSidebar(layout sidebarLayout) string {
-	column := paint.PadRows(layout.change+layout.pullRequest+layout.files+r.placeView()+layout.notes, layout.spare)
+	column := paint.PadRows(layout.change+layout.side+layout.files+r.placeView()+layout.notes, layout.spare)
 
 	return layout.bar + column + layout.rule + layout.help
 }
 
 // sidebarLayout is the sidebar measured once.
 type sidebarLayout struct {
-	bar         string
-	rule        string
-	help        string
-	change      string
-	pullRequest string
-	// pullRequestRows is the rows the pull request was given, paint.Unbounded when it was given all it wants.
-	pullRequestRows int
-	files           string
-	notes           string
-	spare           int
+	bar    string
+	rule   string
+	help   string
+	change string
+	// side is the stack, the rounds, the forge, what needs the person and the description.
+	side  string
+	files string
+	notes string
+	spare int
 }
 
 // layoutSidebar gives the column to the file tree, the bar over it shrinking and then giving way
@@ -135,7 +134,7 @@ func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 		return false
 	}
 
-	if barred.spare >= 0 && paint.CountLines(barred.change+barred.pullRequest+barred.files+r.placeView()) > barred.spare {
+	if barred.spare >= 0 && paint.CountLines(barred.change+barred.side+barred.files+r.placeView()) > barred.spare {
 		return false
 	}
 
@@ -158,8 +157,7 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 
 	if spare < 0 {
 		layout.change = r.changeView(m, 0)
-		layout.pullRequestRows = paint.Unbounded
-		layout.pullRequest = r.pullRequestView(m, layout.pullRequestRows)
+		layout.side = r.sideView(m, paint.Unbounded)
 		layout.files = r.filesView(m, paint.Unbounded)
 
 		return layout
@@ -169,9 +167,8 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	room := spare - paint.CountLines(r.placeView())
 	layout.change = r.foldChange(m, room-floor)
 	room -= paint.CountLines(layout.change)
-	layout.pullRequestRows = max(room-floor, 0)
-	layout.pullRequest = r.pullRequestView(m, layout.pullRequestRows)
-	room -= paint.CountLines(layout.pullRequest)
+	layout.side = r.sideView(m, max(room-floor, 0))
+	room -= paint.CountLines(layout.side)
 	lines := max(room-paint.CountLines(layout.notes), floor)
 	layout.files = r.filesView(m, max(min(lines, room), 0))
 	layout.notes = cutNotes(layout.notes, room-paint.CountLines(layout.files))
@@ -179,10 +176,10 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 	return layout
 }
 
-// foldChange is the change block in the most rows that leave the pull request its room, else in
+// foldChange is the change block in the most rows that leave the rows under it their room, else in
 // the fewest rows that fit.
 func (r reviewScreen) foldChange(m *model, room int) string {
-	wanted := paint.CountLines(r.pullRequestView(m, paint.Unbounded))
+	wanted := paint.CountLines(r.sideView(m, paint.Unbounded))
 
 	var shortest string
 	for fold := range reviewChangeFolds {
@@ -252,7 +249,7 @@ func (r reviewScreen) notesView(m *model) string {
 		return "\n" + reviewNote(lineWidthOf(m.paneWidth()), paint.Panel.Style(reviewNoticeTone), notice)
 	}
 
-	if since := r.diff.since; since != "" && r.diff.spec.label == "" {
+	if since := r.diff.since; since != "" && r.diff.spec.isWholeChange() {
 		return "\n" + reviewNote(lineWidthOf(m.paneWidth()), dimStyle(), since)
 	}
 
@@ -462,11 +459,11 @@ func (r reviewScreen) reloadDesc(m *model) string {
 
 // agentThreadsDesc says which way the agent threads key would go.
 func (d reviewDiff) agentThreadsDesc() string {
-	if d.showsAgentThreads {
-		return "hide agents' conversations"
+	if d.hidesAgentThreads {
+		return "show agents' conversations"
 	}
 
-	return "show agents' conversations"
+	return "hide agents' conversations"
 }
 
 // resolveDesc says which way the settle key would go where the cursor is standing.
@@ -499,11 +496,11 @@ func (r reviewScreen) changeView(m *model, fold int) string {
 	var rows []string
 	switch fold {
 	case 0:
-		rows = []string{r.scopeStepView(m), stat, delivery}
+		rows = []string{r.agentName, stat, delivery}
 	case 1:
-		rows = []string{r.scopeStepView(m), joinViews(stat, delivery)}
+		rows = []string{r.agentName, joinViews(stat, delivery)}
 	default:
-		rows = []string{joinViews(r.scopeView(), stat, delivery)}
+		rows = []string{joinViews(r.agentName, stat, delivery)}
 	}
 	rows = append(rows, r.sendView(m))
 
@@ -564,46 +561,4 @@ func (d reviewDiff) statView() string {
 	}
 
 	return out
-}
-
-// scopeStepView says what the diff on screen is measured between and the other thing the base key
-// could show beside it.
-func (r reviewScreen) scopeStepView(m *model) string {
-	out := r.scopeView()
-	if out != "" && r.doesFitBaseLegend(m) {
-		out += dimStyle().Render(separated + r.stepSaid(m))
-	}
-
-	return out
-}
-
-// scopeView is what the diff on screen is measured between.
-func (r reviewScreen) scopeView() string {
-	if r.diff.View() == nil {
-		return ""
-	}
-
-	from := "all changes"
-	if r.diff.spec.label != "" {
-		from = r.diff.spec.label
-	}
-
-	return paint.Panel.Style(reviewScopeOnTone).Bold(true).Render(from)
-}
-
-// stepSaid is the way through the chapters, naming only the direction that has somewhere to go.
-func (r reviewScreen) stepSaid(m *model) string {
-	back := keyLabel(m.keys.Review.Base)
-	forward := keyLabel(m.keys.Review.BaseForward)
-
-	switch {
-	case r.diff.spec.origin != nil:
-		return m.markSpan(zoneChange, "back", m.menuChordLabel(m.keys.Review.Jump)+" back")
-	case !r.diff.spec.isChapter():
-		return m.markSpan(zoneChange, "back", back+" for the latest chapter")
-	case r.diff.spec.chapter == 0:
-		return m.markSpan(zoneChange, "forward", forward+" for a later chapter")
-	default:
-		return m.markSpan(zoneChange, "back", back+" back") + separated + m.markSpan(zoneChange, "forward", forward+" forward")
-	}
 }

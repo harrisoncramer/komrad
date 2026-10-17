@@ -35,9 +35,9 @@ func WindowAround(total, cursor, lines int) window {
 	})
 }
 
-// WindowRows is the screenful of a block taller than its pane, placed by place and carrying the
+// windowRows is the screenful of a block taller than its pane, placed by place and carrying the
 // counts of what is above and below it.
-func WindowRows(rows []string, lines int, place func(visible int) int, style lipgloss.Style) string {
+func windowRows(rows []string, lines int, place func(visible int) int, style lipgloss.Style) string {
 	window := WindowOf(len(rows), lines, place)
 
 	return RenderWindow(rows[window.Start:window.End], window, len(rows), style)
