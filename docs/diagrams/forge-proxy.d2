@@ -1,0 +1,42 @@
+...@_theme
+
+direction: down
+
+worker: Worker {
+  class: group
+
+  cli: Claude and Codex {class: leaf}
+  git: Git and gh {class: leaf}
+  runner: Runner {class: leaf}
+
+  git -> runner: placeholder
+}
+
+devbox: Dev box {
+  class: group
+
+  cli: Claude and Codex {class: leaf}
+  git: Git and gh {class: leaf}
+  runner: Runner {class: leaf}
+
+  git -> runner: placeholder
+}
+
+control: Control plane {
+  class: group
+
+  serve: Server {class: leaf}
+}
+
+models: Anthropic and OpenAI {class: leaf}
+key: App key {class: store}
+logins: People's logins {class: store}
+github: GitHub {class: leaf}
+
+worker.runner -> control.serve: stream
+devbox.runner -> control.serve: stream
+worker.cli -> models: direct
+devbox.cli -> models: direct
+control.serve -> key: read
+control.serve -> logins: decrypt
+control.serve -> github: real credential

@@ -75,6 +75,16 @@ The orchestrator writes no code of its own. You tell it what you want done, and 
 
 You don't have to go through the orchestrator. You can start a task yourself, which the [next guide](../tasks/) shows.
 
+## Workflow owners
+
+On a [remote engine](../remote/), each workflow has a workflow owner: you, or the bot, the engine's own account on GitHub. You pick it when you create the workflow, and it never changes. A workflow on your laptop always belongs to you.
+
+Your own workflow runs on your dev box. Its tasks, its orchestrator and its schedules all act as you, with your GitHub access. Nobody else sees it.
+
+A bot workflow runs each task on a worker of its own, and its orchestrator on one more. Its agents act as the bot. Everyone with access to the engine sees the workflow and can start its tasks.
+
+A bot workflow also names its repository set, the repositories its tasks may touch, which is its own origin unless you add more. Each task keeps the set it started with, and GitHub refuses its agents anything outside it.
+
 ## Shared context
 
 A workflow can carry _shared context_, which every agent it starts reads. Use it for anything you would otherwise tell each agent by hand, such as how tests run and how commits are written.
@@ -121,7 +131,7 @@ Hover the workflow, open the menu with <Key name="menu.open" /> and pick edit wi
 
 ## Archiving and restoring
 
-Archiving a workflow puts it in cold storage. Open its menu with <Key name="menu.open" /> and press <Key name="menu.archive" />. Komrad archives the workflow's orchestrator, its tasks, and every live agent in it. Nothing is deleted. The workflow moves to the archive, where you can restore it or delete it for good later.
+Archiving a workflow puts it in cold storage. Open its menu with <Key name="menu.open" /> and press <Key name="menu.archive" />. Komrad archives the workflow's orchestrator, its tasks, and every live agent in it. On a remote engine, a bot workflow's workers go away and their volumes stay. Nothing is deleted. The workflow moves to the archive, where you can restore it or delete it for good later.
 
 ## Next steps
 

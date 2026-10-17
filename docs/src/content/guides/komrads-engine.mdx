@@ -1,6 +1,6 @@
 ---
 title: Komrad's engine
-description: The AWS engine komrad's own development runs on, from the machine and its database to sign-in, the network and forge credentials.
+description: The AWS engine komrad's own development runs on, from the control plane and its boxes to the database, sign-in and the network.
 group: remote-engines
 order: 21
 ---
@@ -9,70 +9,103 @@ import Command from "../../components/Command.astro";
 import Setting from "../../components/Setting.astro";
 import { link } from "../../site";
 
-Komrad's own development runs on a single remote engine in AWS. The engine triages issues and fixes bugs on GitHub automatically. The repository holds the infrastructure code, and this guide walks through it.
+Komrad's own development runs on a remote engine in AWS. The engine triages issues and fixes bugs on GitHub automatically. The repository holds the infrastructure code, and this guide walks through it. [Running komrad remotely](../running-komrad-remotely/) explains the parts in general, and this guide shows how komrad builds each one.
 
 ## AWS resources
 
 <figure>
   <img
     src={link("/diagrams/komrads-engine.png")}
-    alt="The panel on a laptop signs in with the identity provider and reaches Tailscale on an EC2 instance over the tailnet. The host firewall lets only 443 through to Caddy, which forwards requests over loopback to the server's public listener. Agents call the loopback listener over MCP, write to the data volume, get push tokens from the credential helper and push to GitHub, and the server reads pull requests from GitHub. The server keeps grants and records in RDS Postgres. The credentials unit reads the owner password from Secrets Manager and migrates RDS, and the GitHub key unit copies the App key from Secrets Manager for the credential helper. Tailscale keeps its node key in Parameter Store. The AWS CLI and GitHub Actions reach the SSM agent through Systems Manager, and the SSM agent downloads new binaries from the state bucket that GitHub Actions uploads to, then restarts the server."
+    alt="The panel on a laptop signs in with the identity provider and reaches Tailscale on the control plane over the tailnet. Tailscale lets only 443 through to Caddy, which forwards requests over loopback to the server. The server reads keys from Secrets Manager, decrypts people's logins with KMS, keeps records in RDS Postgres, and calls GitHub with the real credential. Tailscale reads its node key from Parameter Store. The AWS CLI and GitHub Actions reach the SSM agent through Systems Manager, and the SSM agent downloads new binaries from the state bucket that GitHub Actions uploads to, then restarts the server."
   />
 </figure>
 
-In this setup, one EC2 instance runs Tailscale, Caddy, the komrad server and every agent. It boots from a Packer image that comes with the agents' tools already installed.
+One EC2 instance runs the control plane: Tailscale, Caddy and the komrad server. It boots from a Packer image and keeps its config and state on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one.
 
-The worktrees, the agent CLIs' logins and komrad's config live on a separate EBS volume. When Terraform replaces the instance, it moves the volume to the new one.
+Postgres runs on RDS, in private subnets that only the control plane can reach. RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups.
 
-An Elastic IP gives agents a fixed outbound address a forge can allowlist, and lets Tailscale connect laptops directly.
+Secrets Manager also holds the GitHub App's private key, the OpenAI admin key, the key the control plane signs model assertions with, and the key the control plane uses to join the tailnet. A KMS key encrypts each person's GitHub login in the database. The control plane's IAM role can read those exact secrets and use that key, and nothing else's.
 
-Postgres runs on RDS, in private subnets that only the instance can reach, and RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups.
+Parameter Store holds the control plane's Tailscale identity. A full image replacement joins the tailnet as the same machine. Only the control plane's role can read or write it.
 
-Secrets Manager also holds the GitHub App's private key and the key the instance uses to join the tailnet. The instance's IAM role can read those secrets and the database's, and no others.
+<figure>
+  <img
+    src={link("/diagrams/engine-boxes.png")}
+    alt="The server on the control plane launches boxes through EC2. Workers and a dev box sit in public subnets in two availability zones. Each box keeps a stream open to the server and calls Anthropic and OpenAI directly. Systems Manager opens operators' shells on the boxes in each zone."
+  />
+</figure>
 
-Finally, the Parameter Store holds the instance's Tailscale identity. This lets a full image replacement join the tailnet as the same machine. Only the instance's role can read or write it.
+Every box is its own EC2 instance with its own encrypted EBS volume. Workers and dev boxes sit in a subnet in each of several availability zones. The control plane launches, starts, stops and terminates workers through EC2. Terraform makes dev boxes.
 
-## The machine
+## The control plane
 
-Komrad's engine runs on one disposable Linux machine. Everything that has to outlive it sits on a separate data volume or in the database, so Terraform can replace the machine at any time. Any agents running at the time stop, and you resume them once the new machine is up.
+Everything on the control plane that has to outlive the instance sits on its data volume or in the database, so Terraform can replace it at any time. Agents run on boxes, so replacing the control plane stops none of them. Their runners reconnect once the new control plane is up.
 
-### The image
+### The control plane image
 
-Packer builds the image from the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). It starts from Ubuntu and installs Tailscale, Caddy, komrad and the tools the agents use, including git, tmux, Docker, mise and the agent CLIs. Projects bring their own languages, such as Go and Node, through mise. Each layer is a short shell script, so adding a tool means adding a script.
+Packer builds two images from the template in [`packer`](https://github.com/harrisoncramer/komrad/tree/main/packer). The control plane image starts from Ubuntu and installs Tailscale, Caddy and komrad. It carries no Docker, mise or agent CLIs, since no agent runs there. Each layer is a short shell script.
 
-The image carries a komrad binary so the server can start on first boot, before any deploy has run. Each deploy replaces that binary, which means the image only needs rebuilding when a tool or a boot step changes.
+The image carries a komrad binary so the server can start on first boot, before any deploy has run. Each deploy replaces that binary, which means the image only needs rebuilding when a boot step changes.
 
 ### The komrad account
 
-The server and every agent run as an account named komrad, which can't become root. Agents run whatever commands they decide to run, and the account keeps those commands away from the system and from the instance's AWS credentials. Those credentials come from the instance metadata service, and a firewall rule lets only root reach it. Another rule stops it from opening connections into the tailnet. Docker runs rootless under the komrad account, so agents can still build and run containers.
+The server runs as an account named komrad, which can't become root. No agent runs on the control plane, so the server uses the instance's role directly. The role lets it read its secrets, use the KMS key, and manage workers and their volumes. It can touch only instances and volumes tagged as this engine's boxes.
 
-Deploys, restarts and access grants need root, and they reach the machine through AWS Systems Manager. [Operator and CI access](#operator-and-ci-access) covers that path.
+Deploys, restarts and access grants need root, and they reach the instance through AWS Systems Manager. [Operator and CI access](#operator-and-ci-access) covers that path.
 
 ### The data volume
 
-The data volume holds the komrad account's home directory, which has komrad's config and the agent CLIs' logins. Every agent's worktree is on it too, along with komrad's cache and log, the tools mise installs and Caddy's state. Tailscale's identity stays off it, out of the agents' reach. When Terraform replaces the machine, the volume moves to the new one.
+The control plane's data volume holds komrad's config and hooks, its cache and log, and Caddy's state. Tailscale's identity stays off it. When Terraform replaces the instance, the volume moves to the new one.
 
 ### Boot
 
-Terraform hands the machine a short user data script. The script records which volume and database belong to the machine. It writes the identity provider into the server's config and points Caddy at the public listener. Any process on the machine can read user data, so the script carries nothing that has to stay secret. The provider's client secret is in it, but the engine hands that to every laptop that signs in anyway.
+Terraform hands the instance a short user data script. The script records which volume and database belong to it. It writes the identity provider into the server's config and points Caddy at the public listener. User data carries nothing that has to stay secret. The provider's client secret is in it, but the engine hands that to every laptop that signs in anyway.
 
-The script also writes the tailnet name into Caddy's config, starts Caddy and joins the tailnet. Tailscale keeps its identity in Parameter Store, so a replacement machine comes back as the same device. The tailnet unit fetches a key from Secrets Manager only on the first join.
+The script also writes the tailnet name into Caddy's config, starts Caddy and joins the tailnet. Tailscale keeps its identity in Parameter Store, so a replacement instance comes back as the same device and asks for a new certificate. The tailnet unit fetches a key from Secrets Manager only on the first join.
 
 Systemd starts everything else in order. The data volume mounts first, and every unit that uses it waits for the mount. If the volume is missing, the server never starts, which keeps it from writing to the root disk by mistake.
 
-Once the volume is up, the credentials unit reads the database owner's password from Secrets Manager, runs the migrations and writes the server's connection string. Alongside it, the GitHub key unit copies the App's private key from Secrets Manager into memory. The server starts after both have finished, and komrad then creates the tmux session the agents run in. Caddy waits for Tailscale, which hands it the certificate, and for the volume, where it keeps its state.
+Once the volume is up, the credentials unit reads the database owner's password from Secrets Manager, runs the migrations and writes the server's connection string. The server starts after it finishes and reads its keys from Secrets Manager. Caddy waits for Tailscale, which hands it the certificate, and for the volume, where it keeps its state.
 
-An hourly timer reruns the credentials unit, so the machine picks up the owner's new password after RDS rotates it.
+An hourly timer reruns the credentials unit, so the instance picks up the owner's new password after RDS rotates it.
 
 ### Server restarts
 
-The komrad server starts the tmux server that holds the agents, so tmux runs inside the server's systemd service. Left to its defaults, systemd would kill tmux whenever the server stopped. The server's unit tells systemd to stop only the server process, so a restart or a deploy leaves tmux and the agents running, and the new server picks them up.
+A restart or a deploy stops only the server. Every runner keeps its agents running and reconnects once the new server is up. Each lease counts from the server's start, so a restart loses no worker.
 
-Stopping or replacing the machine does stop every agent. Their conversations and worktrees stay on the volume, and you can resume them once the engine is back.
+## Boxes
+
+### The box image
+
+The second image is the box image. It carries the runner, git, tmux, Docker, mise and the agent CLIs, without the server, Caddy or Tailscale. Projects bring their own languages, such as Go and Node, through their workflow's setup command. Workers and dev boxes boot from the same image.
+
+The image is rebuilt only when an agent CLI or a system package changes. A deploy to the control plane updates every runner over its stream, as [the runner](../running-komrad-remotely/#the-runner) describes.
+
+### Accounts on a box
+
+The runner runs as an account of its own. The person and their agents share a second account, which can't read the runner's credential, its key or its files. Docker runs rootless under that second account, so agents can still build and run containers.
+
+The box's firewall lets only the runner's account reach the control plane's private address. The instance metadata service answers root only, so agents can't use the box's role. That role carries only what Systems Manager needs.
+
+### Joining
+
+A worker's user data carries a one-time join token. The runner trades it at boot for a box credential and keeps that credential where only its own account can read it. A dev box keeps its credential on its data volume, so it reads user data only the first time it boots.
+
+### Placing workers
+
+The control plane places each new worker in the zone with the most room. A worker's volume stays in that zone, so restoring an archived or lost task puts the new worker in the same zone. The engine's worker cap keeps launches under the account's EC2 vCPU quota.
+
+### Dev boxes
+
+An operator adds each person's dev box to Terraform, naming the person's sign-in issuer and subject and the box's size. Terraform makes the instance and its data volume, and replaces the instance and keeps the volume when the box image changes. The person starts and stops the box from the panel, and the control plane stops and starts the instance.
+
+### Egress
+
+Each box sits in a public subnet and gets a public address that changes each time it starts. Its security group accepts no connections from outside, so the address only lets the box reach the model providers and package registries. Forge traffic leaves from the control plane, so a forge that allowlists addresses needs only the control plane's Elastic IP.
 
 ## The database
 
-Postgres holds every record an engine keeps, including the list of people who may use it. Komrad connects with three different logins, and each one can do only what its job needs.
+Postgres holds every record an engine keeps, including the list of people who may use it. Komrad connects with three different logins, and each one can do only what its job needs. Only the control plane reaches the database. Boxes have no route or login to it, so no agent holds a database address.
 
 ### Database logins
 
@@ -80,11 +113,11 @@ The owner login owns the schema. <Command path="migrate" />, <Command path="engi
 
 The server runs as the engine login, which <Command path="engine ensure" /> creates for each engine. Postgres row-level security limits that login to its own engine's rows, so several engines can share one database without seeing each other's data.
 
-The reader login sees the same rows as the engine login and can't write any of them. When an agent queries the database through komrad's MCP tools, the query runs as the reader.
+The reader login sees the same rows as the engine login and can't write any of them. When an agent queries the database through komrad's MCP tools, the query runs as the reader on the control plane.
 
 ### Database credentials
 
-RDS creates the owner login and stores its password in Secrets Manager. The machine reads the secret each time it needs the owner, and it never writes the password to disk.
+RDS creates the owner login and stores its password in Secrets Manager. The control plane reads the secret each time it needs the owner, and it never writes the password to disk.
 
 The credentials unit runs at boot, during every deploy and once an hour. Each run migrates the database, makes sure the engine login exists, and writes the server's connection string to a file only root can read. Because the unit runs during deploys, new migrations land before the new server starts. The hourly run picks up the owner's new password after RDS rotates it.
 
@@ -94,7 +127,7 @@ RDS keeps automatic backups for seven days. Deletion protection is on, and Terra
 
 ## Access
 
-A remote engine lets in only people it can identify and whom its owner has granted access. People prove who they are by signing in with an identity provider, and the engine looks up a grant for each of them. Komrad's engine sits on a Tailscale network, so a laptop has to be on that network to reach it. Operators reach the machine itself through AWS Systems Manager, so the machine needs no open port for shells.
+A remote engine lets in only people it can identify and whom an operator has granted access. People prove who they are by signing in with an identity provider, and the engine looks up a grant for each of them. Komrad's engine sits on a Tailscale network, so a laptop has to be on that network to reach it. Operators reach the control plane and every box through AWS Systems Manager, so nothing needs an open port for shells.
 
 ### Signing in
 
@@ -106,9 +139,9 @@ komrad login --engine remote
 
 Komrad asks the engine's `/sign-in` page which identity provider it trusts and opens a browser at that provider. The person signs in there, along with any MFA the provider requires. The provider then sends the browser back to komrad on `127.0.0.1:8085` with a one-time code, and komrad trades the code for an ID token and a refresh token. Komrad checks that the answer belongs to the sign-in it started. Only the provider ever sees the person's password.
 
-The panel can sign a person in too. On an engine at a URL, the panel asks the engine whether the person has access before it shows anything. Without a sign-in it shows only a sign-in screen, and enter opens the provider's page in the browser. If nobody granted the person access, the panel says to ask the engine's owner. If the engine or the provider doesn't answer, the panel says so, and enter tries again.
+The panel can sign a person in too. On an engine at a URL, the panel asks the engine whether the person has access before it shows anything. Without a sign-in it shows only a sign-in screen, and enter opens the provider's page in the browser. If nobody granted the person access, the panel says to ask an operator. If the engine or the provider doesn't answer, the panel says so, and enter tries again.
 
-Komrad keeps both tokens in the system keychain. A machine with no keychain keeps them in a private file under komrad's state directory. <Command path="logout" /> removes them from both places. If a panel for that engine is open on the same machine, logout closes any agent terminal it was showing and restarts it at the sign-in screen. A terminal you started yourself keeps its stream until the token it holds runs out, at most an hour later. A terminal opened while the machine has no sign-in says so and attaches once you run <Command path="login" />.
+Komrad keeps both tokens in the system keychain. A laptop with no keychain keeps them in a private file under komrad's state directory. <Command path="logout" /> removes them from both places. If a panel for that engine is open on the same laptop, logout closes any agent terminal it was showing and restarts it at the sign-in screen. A terminal you started yourself keeps its stream until the token it holds runs out, at most an hour later. A terminal opened while the laptop has no sign-in says so and attaches once you run <Command path="login" />.
 
 ### Tokens
 
@@ -128,43 +161,45 @@ Next the listener looks for that person's grant on this engine, and answers 403 
 away. An email address can move to a different account, so the first time a granted person signs in with a verified
 email, the engine records the permanent id their provider uses for that account and matches on that id afterwards.
 
-A grant gives full access. A granted person can do everything the panel does, including open a shell on the machine as the account the agents run as, so grant access only to someone you would trust with a login on the machine.
+A grant lets a person use their own workflows and the bot's, as [workflow owners](../running-komrad-remotely/#workflow-owners) describes. They can open a shell on their own dev box and on any bot task's worker. Anyone in a shell on a worker can reach that task's repositories as the bot, so grant access only to someone you would trust with the bot. A grant never reaches another person's workflows or dev box.
 
-The engine caches each grant for a minute, so a revoke takes effect within a minute, open terminal sessions included. If the engine can't reach the database to check a grant, it refuses the request.
+Revoking a grant also deletes the person's stored GitHub login. The engine caches each grant for a minute, so a revoke takes effect within a minute, open terminal sessions included. If the engine can't reach the database to check a grant, it refuses the request.
 
-Both commands connect as the database owner, which on komrad's engine means running them as root. [Granting and revoking access](../standing-up-an-engine/#granting-and-revoking-access) has the commands.
+Both commands connect as the database owner, which on komrad's engine means running them as root on the control plane. [Granting and revoking access](../standing-up-an-engine/#granting-and-revoking-access) has the commands.
 
 ### Provider registration
 
-The engine's owner registers komrad with their identity provider once, as a desktop app with `http://127.0.0.1:8085` as its redirect address. The provider issues a client id. On komrad's engine, `sign_in_issuer` and `sign_in_client_id` in `terraform.tfvars` name the provider and that id, and Terraform writes them into the engine's config when it builds the machine. Changing either one replaces the machine, the same as a new image does. An engine you run yourself takes them in the <Setting path="sign_in" label="[sign_in]" /> table of its config.
+An operator registers komrad with their identity provider once, as a desktop app with `http://127.0.0.1:8085` as its redirect address. The provider issues a client id. On komrad's engine, `sign_in_issuer` and `sign_in_client_id` in `terraform.tfvars` name the provider and that id, and Terraform writes them into the engine's config when it builds the control plane. Changing either one replaces the control plane, the same as a new image does. An engine you run yourself takes them in the <Setting path="sign_in" label="[sign_in]" /> table of its config.
 
 Google also issues a client secret. The secret can't stay secret, since the engine hands it to every laptop that signs in, but Google requires one, so it goes in `sign_in_client_secret` as well. Publish the app on Google, or make it internal to your Workspace. If you leave it in testing mode, Google makes everyone sign in again every week.
 
 ### Server listeners
 
-The server listens on two loopback addresses, which only Caddy and processes on the machine can reach.
+The server listens on two loopback addresses and on the control plane's private address.
 
-The public listener takes people's requests from Caddy and runs the checks above on each one. It serves the API, plus one public page that tells a panel which identity provider to use. Komrad's MCP endpoint isn't on it, and it ignores the headers that identify an agent, so a person can't pose as one.
+The public listener, on loopback, takes people's requests from Caddy and runs the checks above on each one. It serves the API, plus one public page that tells a panel which identity provider to use.
 
-The loopback listener serves the agents' MCP tools and the CLI in a shell on the machine. It skips the identity checks, because only processes on the machine can reach it.
+The loopback listener serves the CLI in a shell on the control plane. It skips the identity checks, because only processes on the control plane can reach it, and no agent runs there.
+
+The runner listener, on the private address, takes each runner's stream. It accepts only a box's credential, and every agent's call to komrad arrives over it.
 
 ### Operator and CI access
 
-Operators reach the machine through AWS Systems Manager, which needs no open port and no keys on the machine. A session opens a shell as a user with sudo, and `sudo -u komrad -i` switches to the account the agents run as. Deploys and restarts also go through Systems Manager, whether they start on a laptop or in GitHub Actions.
+Operators reach the control plane and every box through AWS Systems Manager, which needs no open port and no keys on the instance. A session opens a shell as a user with sudo. Deploys and restarts also go through Systems Manager, whether they start on a laptop or in GitHub Actions.
 
-Anyone whose AWS credentials let them open a session or send a command to the instance has root on it. Guard those credentials the way you would guard root.
+Anyone whose AWS credentials let them open a session or send a command to an instance has root on it. Guard those credentials the way you would guard root.
 
 ## Network
 
-Komrad's engine opens no TCP ports to the internet. People reach it over a tailnet, a private network Tailscale builds between devices its owner lets in. A person needs a device on the tailnet and a grant on the engine.
+Komrad's engine opens no TCP ports to the internet. People reach the control plane over a tailnet, a private network Tailscale builds between devices an operator lets in. A person needs a device on the tailnet and a grant on the engine. Boxes stay off the tailnet.
 
 The engine's address is its tailnet name, such as `https://komrad.tail1234.ts.net`. The name resolves only through Tailscale's DNS, so the laptop needs Tailscale running with DNS on. Caddy gets the certificate for that name from Tailscale. The name appears in public certificate logs, but nothing on the internet can reach it.
 
-The security group allows Tailscale's UDP port 41641, so laptops connect directly instead of through Tailscale's relays. Setting `tailscale_direct_connections = false` closes it.
+The control plane has an Elastic IP. The security group allows Tailscale's UDP port 41641 on it, so laptops connect directly instead of through Tailscale's relays. Setting `tailscale_direct_connections = false` closes it.
 
 ### The tailnet policy
 
-The engine joins your tailnet as one device tagged `tag:komrad-engine`, and the rest of your policy stays as it is. Tailscale issues an auth key for a tag only once the policy names an owner for it, so add the tag to `tagOwners` before you create the engine's key:
+The control plane joins your tailnet as one device tagged `tag:komrad-engine`, and the rest of your policy stays as it is. Tailscale issues an auth key for a tag only once the policy names an owner for it, so add the tag to `tagOwners` before you create the engine's key:
 
 ```json
 "tagOwners": {
@@ -184,42 +219,16 @@ People reach the engine on 443. Tailscale's default policy lets every member rea
 ]
 ```
 
-The engine doesn't count on the policy to keep agents in. Its firewall does that whatever the policy allows. To have the policy say the same, keep `tag:komrad-engine` out of every grant's sources.
+### Firewalls
 
-### The host firewall
+On the Tailscale interface the control plane's firewall accepts new connections to 443 only. The engine takes no DNS settings, routes, exit nodes or SSH from Tailscale.
 
-On the Tailscale interface the machine's firewall accepts new connections to 443 only, so agents' dev servers and containers stay off the tailnet. It also stops every account but root from opening connections into the tailnet. The engine takes no DNS settings, routes, exit nodes or SSH from Tailscale.
+The control plane's security group accepts runner streams from the boxes' security group, and nothing else on its private address. The database's security group accepts only the control plane. Each box's own firewall lets only the runner's account reach the control plane.
 
 ### Outside users
 
-Someone outside the owner's tailnet needs the engine shared with them from Tailscale's admin console, plus a grant. Remove both when they leave.
+Someone outside your tailnet needs the engine shared with them from Tailscale's admin console, plus a grant. Remove both when they leave.
 
-## Forge credentials
+## Credentials
 
-Komrad's engine uses forge credentials that belong to the engine and stop working within a day. A personal token would make every agent act as the person who made it, and it would stay valid on the engine's disk for as long as the token lasts.
-
-### GitHub
-
-The engine acts as a GitHub App. It signs a request with the App's private key, and GitHub answers with a token that lasts an hour and reaches only the repositories the App is installed on.
-
-Register the App without a webhook. It needs read and write access to contents, pull requests, issues and workflows. Install it only on the repositories the engine should work in. Store its private key in Secrets Manager as `komrad/github-app`, as JSON with the key under `private_key`. The machine copies the key into memory at boot, so the key never touches the data volume or an image.
-
-The <Setting path="github_app" label="[github_app]" /> table in komrad's config names the App's id, its installation id and the path to the key. If the table is right, <Command path="github token" /> prints a token.
-
-Git gets its token from <Command path="github credential" />, which the image sets as git's credential helper for github.com. The helper mints a fresh token for each push, so the engine never stores one.
-
-The server uses the App for its own connection to GitHub as well. Connect it with <Command path="forge connect" args="github.com --method github-app --engine remote" />.
-
-### GitLab
-
-GitLab has nothing like GitHub Apps, so the engine uses a token that the server rotates. Connect it with <Command path="forge connect" args="gitlab.com --method rotating-token" /> and pipe in a personal access token with the api scope. The server rotates that token right away, so the one you piped in stops working, and from then on it rotates the token every day.
-
-Git reads the current token from <Command path="gitlab credential" />, which the image sets as the helper for gitlab.com. A self-hosted GitLab needs its own helper line, run as root:
-
-```sh
-git config --system credential.https://git.example.com.helper '!komrad gitlab credential'
-```
-
-### Rotating the App key
-
-Generate a new key in the App's settings and store it in the secret. The machine reads the key only at boot, so either reboot it or rerun the key unit, as [rotating the GitHub App key](../standing-up-an-engine/#rotating-the-github-app-key) shows. Once the new key works, delete the old one from the App.
+The control plane holds every forge and model credential the engine uses, and no box ever does. [Credentials on an engine](../engine-credentials/) covers each one, where it lives, and how a box uses it without seeing it.

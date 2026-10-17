@@ -54,7 +54,7 @@ Use one term for each idea, every time. A reader who meets two words assumes two
 
 ### People and programs
 
-person: The one human running komrad. Not "the user", "you", or "a human".
+person: A human using komrad. A remote engine has several, each signed in as themselves. Not "the user", "you", or "a human".
 
 agent: One CLI conversation that komrad runs in a pane and tracks.
 
@@ -117,6 +117,36 @@ sequence: A git operation stopped part way, such as a rebase or merge with confl
 forge: The service a repository's pull requests live on, such as GitHub or GitLab.
 
 pull request: A request to merge a branch on a forge. It includes GitLab merge requests. Not "PR" or "MR".
+
+bot: The engine's own account on the forge, a GitHub App. A bot workflow's agents act as the bot.
+
+forge proxy: The path git and `gh` on a box take to the forge. The runner takes each request, and the control plane sends it on with the real credential.
+
+### Engines
+
+engine: A komrad server, its database and wherever its agents run. A local engine is one laptop. A remote engine is a control plane and its boxes.
+
+operator: A person who runs a remote engine's infrastructure. Operators grant access, add dev boxes and deploy. Not "the engine's owner".
+
+control plane: The one machine in a remote engine that people reach. It runs the server, holds every long-lived credential and runs no agent.
+
+box: A dev box or a worker, where a remote engine's agents run. Not "machine", "VM" or "instance" in guides.
+
+dev box: A box that belongs to one person. Their workflows' agents run there and act as them.
+
+worker: A box that runs one bot task, or one bot workflow's orchestrator, and is thrown away when its task is archived.
+
+runner: The komrad program on each box. It keeps one stream open to the control plane, and everything between the two crosses it.
+
+workflow owner: The bot, or the one person, a workflow's agents act for. Always "workflow owner", never "owner" alone, since an engine's database has an owner login too.
+
+repository set: The repositories a bot workflow's tasks may touch. The workflow's origin by default.
+
+queued: Waiting for a worker, because the engine already runs as many as its cap allows. Use it for bot tasks.
+
+lease: The time a worker holds its task for, renewed over the runner's stream.
+
+lost: A worker whose stream or lease lapsed. Komrad removes the box and keeps its volume.
 
 ### Reviews
 

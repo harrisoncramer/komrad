@@ -1,0 +1,37 @@
+...@_theme
+
+direction: down
+
+control: Control plane {
+  class: group
+  serve: Server {class: leaf}
+}
+
+ec2: EC2 {class: leaf}
+ssm: Systems Manager {class: leaf}
+
+zonea: Zone a {
+  class: group
+  worker: Worker {class: leaf}
+  devbox: Dev box {class: leaf}
+}
+
+zoneb: Zone b {
+  class: group
+  worker: Worker {class: leaf}
+  more: {class: more}
+}
+
+models: Anthropic and OpenAI {class: leaf}
+
+control.serve -> ec2: launch
+ec2 -> zonea.worker
+ec2 -> zoneb.worker
+control.serve <-> zonea.devbox: stream
+control.serve <-> zonea.worker: stream
+control.serve <-> zoneb.worker: stream
+ssm -> zonea: shells
+ssm -> zoneb: shells
+zonea.worker -> models
+zonea.devbox -> models
+zoneb.worker -> models

@@ -11,7 +11,7 @@ import { media } from "../../site";
 
 Komrad can spawn or message agents on a schedule, which suits periodic work such as triage or summaries.
 
-Schedules fire on a cron expression and hand their prompts to an agent. They keep firing after you close the panel, as long as the engine is running.
+Schedules fire on a cron expression and hand their prompts to an agent. They keep firing after you close the panel, as long as the engine is running. On a remote engine, a schedule on your own workflow runs on your dev box, and records each run as skipped while the box is stopped.
 
 <Alert variant="warning">This guide uses the `neovim` workflow from the [workflows](../workflows/) guide.</Alert>
 
@@ -45,7 +45,7 @@ A task schedule never piles up work. If the writer from its last run is still wo
 
 ## Orchestrator schedules
 
-An orchestrator schedule mails its prompt to an orchestrator that is already running. Use it when the work belongs to an agent that already knows the workflow, such as asking the orchestrator each morning to hand out the day's work.
+An orchestrator schedule mails its prompt to an orchestrator that is already running. On a remote engine, mail to a bot workflow's orchestrator starts its worker if it has stopped. Use it when the work belongs to an agent that already knows the workflow, such as asking the orchestrator each morning to hand out the day's work.
 
 <figure>
   <video

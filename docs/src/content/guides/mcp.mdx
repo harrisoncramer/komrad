@@ -11,7 +11,7 @@ Komrad serves its own API over MCP, the protocol agent CLIs use to call tools, s
 
 Every agent komrad starts is already connected. You can also add the server to your own Claude or Codex session to drive komrad from a conversation.
 
-For now, the server listens only on your own machine and is unauthenticated.
+On a laptop, the server listens only on your own machine and is unauthenticated. On a remote engine, each agent reaches komrad through the runner on its box, and komrad accepts a call only for an agent on that box.
 
 For Claude agents, komrad also switches off Claude's built-in subagent tool. An agent asked to spawn help then uses komrad, so the new agent appears in the panel.
 

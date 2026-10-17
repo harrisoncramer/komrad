@@ -2,7 +2,7 @@
 title: Standing up an engine
 description: Replicate komrad's AWS engine in your own account, then run it day to day.
 group: remote-engines
-order: 22
+order: 23
 ---
 
 import Command from "../../components/Command.astro";
@@ -15,41 +15,49 @@ This guide replicates [komrad's engine](../komrads-engine/) in an AWS account of
 A replica needs its own account with each service komrad's engine depends on:
 
 - An AWS account with a named profile, and an S3 bucket for Terraform's state.
-- The Session Manager plugin for the AWS CLI, which you need to get a shell on the machine.
+- An EC2 vCPU quota large enough for the control plane, every dev box, and as many workers as you plan to run at once.
+- The Session Manager plugin for the AWS CLI, which you need to get a shell on the control plane or a box.
 - A Tailscale tailnet you administer, with Tailscale running on your laptop.
 - Komrad registered with your identity provider as a desktop app. [Komrad's engine](../komrads-engine/#provider-registration) covers the registration.
-- A GitHub App for the engine, with its private key stored in Secrets Manager as `komrad/github-app`. [Komrad's engine](../komrads-engine/#github) covers the App. The machine reads the key at boot, so store it before the first one.
+- A GitHub App for the bot, with its private key stored in Secrets Manager as `komrad/github-app`. [Credentials on an engine](../engine-credentials/#registering-the-app) covers the App. The control plane reads the key at boot, so store it before the first one.
+- A GitHub OAuth app with device flow turned on, for people to authorize. It needs no callback address and no client secret.
+- An Anthropic organisation with a service account and a workspace for the bot.
+- An OpenAI project with a service account for the bot, and an admin key for that project stored in Secrets Manager.
 
-## Building the image
+## Building the images
 
 ```sh
 mise run packer:build
 ```
 
-The build prints the image's id when it finishes, and Terraform needs that id in the next step. [Komrad's engine](../komrads-engine/#the-image) describes what the image contains.
+The build makes the control plane image and the box image, and prints each one's id when it finishes. Terraform needs both ids in a later step. [Komrad's engine](../komrads-engine/#the-control-plane-image) describes what each image contains.
 
 ## Preparing the tailnet
 
-The engine joins your tailnet as one tagged device, and the rest of the tailnet stays as it is. In Tailscale's admin console:
+The control plane joins your tailnet as one tagged device, and the rest of the tailnet stays as it is. In Tailscale's admin console:
 
 1. Under DNS, turn on MagicDNS and HTTPS certificates. The tailnet's DNS name, such as `tail1234.ts.net`, is at the top of the page.
 2. In the access policy, add `tag:komrad-engine` to `tagOwners`, as [komrad's engine](../komrads-engine/#the-tailnet-policy) shows.
-3. Under Settings, then Keys, generate an auth key. Make it single-use and pre-approved, and tag it `tag:komrad-engine`. The engine uses it only to join the first time, so a key that expires in a day is enough.
+3. Under Settings, then Keys, generate an auth key. Make it single-use and pre-approved, and tag it `tag:komrad-engine`. The control plane uses it only to join the first time, so a key that expires in a day is enough.
+
+## Making the signing key
+
+The control plane signs identity assertions for Claude on workers with a key of its own. Make an RSA key pair, and store the private key in Secrets Manager. In the Anthropic Console, register the engine as an issuer with the public key pasted in, then add a federation rule that maps any subject starting with the engine's name to the bot's service account. Note the rule's id, the organisation's id, the service account's id and the workspace's id for the next step.
 
 ## Applying the infrastructure
 
-Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, the image id, and the `sign_in_*` values from your provider. Set `tailscale_hostname` to the engine's name on the tailnet, which defaults to komrad, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. Set `tailscale_auth_key` to the auth key from the last step, which Terraform stores in Secrets Manager for the machine. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
+Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, both image ids, the subnets for each availability zone, and the `sign_in_*` values from your provider. Set `tailscale_hostname` to the engine's name on the tailnet, which defaults to komrad, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. Set `tailscale_auth_key` to the auth key from the earlier step, which Terraform stores in Secrets Manager for the control plane. Name the secrets that hold the signing key and the OpenAI admin key, so the control plane's role can read them. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
 
 ```sh
 mise run infra:engine:init
 mise run infra:engine:apply
 ```
 
-The apply prints the engine's address as `engine_url`, its instance id as `instance_id`, and the CI role as `ci_role_arn`.
+The apply prints the engine's address as `engine_url`, the control plane's instance id as `instance_id`, and the CI role as `ci_role_arn`.
 
-On first boot, the machine joins the tailnet with the auth key, mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. The key is spent once the machine joins.
+On first boot, the control plane joins the tailnet with the auth key, mounts its data volume, migrates the database, creates the engine's login, and starts the server and Caddy. The key is spent once it joins.
 
-Open a session and check that no unit failed. On a healthy machine the second command prints nothing:
+Open a session and check that no unit failed. On a healthy control plane the second command prints nothing:
 
 ```sh
 aws ssm start-session --target i-0123456789abcdef0
@@ -69,7 +77,7 @@ If you changed the stack's `name`, set `ENGINE_NAME` to match. The workflows ski
 
 ## Configuring the engine
 
-In a session on the machine, switch to the komrad account, which owns komrad's config:
+In a session on the control plane, switch to the komrad account, which owns komrad's config:
 
 ```sh
 sudo -u komrad -i
@@ -77,12 +85,15 @@ sudo -u komrad -i
 
 Edit `~/.config/komrad/config.toml`:
 
-- Add the <Setting path="github_app" label="[github_app]" /> table with the App's id, its installation id, and `/run/komrad/github.pem` as the key's path.
-- Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each agent CLI, so new agents don't stop to ask whether to trust their worktree.
+- Add the <Setting path="github_app" label="[github_app]" /> table with the App's id and its installation id.
+- Name the OAuth app's client id, so the panel can ask people to authorize GitHub.
+- Name the federation rule, the organisation, the service account and the workspace from the signing key step, and the OpenAI project and its service account.
+- Set the worker cap, the most workers the engine runs at once.
+- Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each agent CLI, so new agents don't stop to ask whether to trust their worktree. The runner applies it on each box.
 
-Check that <Command path="github token" /> prints a token. Then restart the server so it loads the new config, as [restarting](#restarting) shows.
+Then restart the server so it loads the new config, as [restarting](#restarting) shows.
 
-Still as the komrad account, start each agent CLI once and sign it in, and clone the repositories the agents will work in. The logins and the clones live on the data volume, so they survive when the instance is replaced.
+The control plane needs no agent CLI logins and no clones. Workers get model access from the control plane, and each person signs their own CLIs in on their dev box.
 
 ## Granting your own access
 
@@ -108,22 +119,28 @@ komrad open --engine remote
 
 ## Connecting the forge
 
-From your laptop, run <Command path="forge connect" args="github.com --method github-app --engine remote" />. The server mints its own tokens from the App's key, so you have nothing to paste. To connect GitLab too, follow [komrad's engine](../komrads-engine/#gitlab).
+From your laptop, run <Command path="forge connect" args="github.com --method github-app --engine remote" />. The server mints its own tokens from the App's key, so you have nothing to paste.
+
+## Adding a dev box
+
+Each person who works on the engine needs a grant and a dev box. Add the person to the dev boxes in `terraform.tfvars`, with the issuer and subject they sign in with and the box's size, and apply. A person's subject is in their ID token, which <Command path="token" /> prints once they have signed in.
+
+The person then starts the box from the panel and authorizes GitHub when the panel asks. To remove a dev box, take the person out of `terraform.tfvars` and apply. Terraform deletes the box and its volume.
 
 ## Running the engine
 
-These jobs keep komrad's engine running, and they work the same on a replica. Run them from a komrad checkout, with AWS credentials from the komrad profile or from your environment. The mise tasks look up the instance and its region in Terraform's state.
+These jobs keep komrad's engine running, and they work the same on a replica. Run them from a komrad checkout, with AWS credentials from the komrad profile or from your environment. The mise tasks look up the control plane and its region in Terraform's state.
 
 ### Getting a shell
 
-You get a shell on the machine through AWS Systems Manager, which needs the Session Manager plugin for the AWS CLI. Look up the instance's id in Terraform, then open a session:
+You get a shell on the control plane through AWS Systems Manager, which needs the Session Manager plugin for the AWS CLI. Look up the instance's id in Terraform, then open a session:
 
 ```sh
 mise run infra:engine:run output instance_id
 aws ssm start-session --target i-0123456789abcdef0
 ```
 
-The session runs as a user with sudo. Switch to the komrad account to work as komrad and its agents do. That account owns the config, the worktrees and the CLIs' logins:
+The session runs as a user with sudo. Switch to the komrad account to work as the server does. That account owns the config and the hooks:
 
 ```sh
 sudo -u komrad -i
@@ -131,15 +148,17 @@ sudo -u komrad -i
 
 `mise run remote:connect` opens the session and switches to the komrad account in one step.
 
+A box takes a session the same way, with the box's instance id from the EC2 console. People reach their own dev box and bot workers through the SSH host [remote engines](../remote/#editing-files-on-the-engine) describes, so a session on a box is for operators.
+
 ### Checking engine health
 
-When the engine's heartbeat stops, the dot beside its name in the panel turns red. Open a shell and list the failed units. On a healthy engine the command prints nothing:
+When the engine's heartbeat stops, the dot beside its name in the panel turns red. Open a shell on the control plane and list the failed units. On a healthy control plane the command prints nothing:
 
 ```sh
 systemctl list-units --state=failed --no-legend
 ```
 
-Then look at Tailscale, the server and Caddy. `tailscale status` shows whether the machine is on the tailnet. The journal shows what systemd saw, like a crash at startup or a certificate request that failed. Komrad's log shows what the server wrote while it ran.
+Then look at Tailscale, the server and Caddy. `tailscale status` shows whether the control plane is on the tailnet. The journal shows what systemd saw, like a crash at startup or a certificate request that failed. Komrad's log shows what the server wrote while it ran.
 
 ```sh
 sudo tailscale status
@@ -150,11 +169,7 @@ journalctl -u caddy -n 200 --no-pager
 tail -n 200 /var/lib/komrad/cache/komrad.log
 ```
 
-To see the agents, list the windows on komrad's tmux server as the komrad account:
-
-```sh
-tmux -L komrad list-windows -a
-```
+The panel shows a box as stuck when its runner went back to its previous build after an update. The next deploy tries the update again.
 
 ### Sign-in failures
 
@@ -170,7 +185,7 @@ If their panel says the engine is unreachable, check that Tailscale runs on thei
 
 ### Rejoining the tailnet
 
-A replaced machine keeps its tailnet identity through Parameter Store. If someone removes the engine from Tailscale's admin console, it drops off the tailnet and needs a new key. Set `tailscale_auth_key` to a new single-use, pre-approved key tagged `tag:komrad-engine` and run `mise run infra:engine:apply`. Then join again in a shell on the machine:
+A replaced control plane keeps its tailnet identity through Parameter Store. If someone removes the engine from Tailscale's admin console, it drops off the tailnet and needs a new key. Set `tailscale_auth_key` to a new single-use, pre-approved key tagged `tag:komrad-engine` and run `mise run infra:engine:apply`. Then join again in a shell on the control plane:
 
 ```sh
 sudo systemctl restart komrad-tailscale
@@ -178,17 +193,15 @@ sudo systemctl restart komrad-tailscale
 
 ### Restarting
 
-`mise run remote:restart` restarts the server and leaves the agents running. If the engine is stopped, it starts the machine instead.
-
-`mise run remote:restart --hard` also kills the tmux server and creates a new manager session, which stops every agent. Save it for when the tmux session itself is broken.
+`mise run remote:restart` restarts the server. Agents keep running on their boxes, and every runner reconnects once the server is back. If the control plane is stopped, the task starts it instead.
 
 People stay signed in through a restart, and their panels reconnect once the server is back.
 
 ### Deploying or rolling back
 
-Releases deploy on their own. To deploy the build in your checkout, run `mise run remote:deploy`.
+Releases deploy on their own. To deploy the build in your checkout, run `mise run remote:deploy`. One deploy updates the control plane, and every runner fetches the new build over its stream.
 
-To roll back, deploy an older ref. Either check it out and run `mise run remote:deploy`, or, without AWS credentials, dispatch `engine.yml` from the Actions tab on the tag or branch you want.
+To roll back, deploy an older ref. Either check it out and run `mise run remote:deploy`, or, without AWS credentials, dispatch `engine.yml` from the Actions tab on the tag or branch you want. Runners follow the control plane back to the older build.
 
 ### Stopping and starting
 
@@ -197,51 +210,64 @@ mise run remote:stop
 mise run remote:start
 ```
 
-Stopping asks you to confirm, because it stops every agent on the machine. The data volume, the database and the address stay. Starting waits until the machine passes its health checks, and then you resume the agents you need from the panel.
+Stopping asks you to confirm, because it stops the control plane and every box, and every agent with them. The volumes, the database and the address stay. Starting waits until the control plane passes its health checks. Dev boxes stay stopped until their people start them, and workers start as their tasks are resumed.
 
 ### Moving to a new image
 
-Dispatch `image.yml` from the Actions tab to build an image. When it's fine for the agents to stop, run:
+Dispatch `image.yml` from the Actions tab to build both images. Then run:
 
 ```sh
 mise run remote:reimage
 ```
 
-The task lists the agents that will stop and asks you to confirm. With no argument it uses the image `image.yml` recorded last. To use an image you built yourself with `mise run packer:build`, pass its id.
+The task replaces the control plane with the new control plane image, and records the new box image for workers the control plane makes from then on. Agents keep running on their boxes through it. With no argument it uses the images `image.yml` recorded last. To use images you built yourself with `mise run packer:build`, pass their ids.
+
+A worker keeps its image until its task is archived and restored. Dev boxes move to the new box image when you set its id in `terraform.tfvars` and apply. Terraform replaces each dev box and keeps its volume, so the person's agents stop and they resume them.
 
 ### Granting and revoking access
 
-In a shell on the machine:
+In a shell on the control plane:
 
 ```sh
 sudo komrad-access grant someone@example.com
 sudo komrad-access revoke someone@example.com
 ```
 
-A person also needs to reach the engine over the tailnet. Check that your policy lets them reach it on 443, or share the engine with them from Tailscale's admin console if they're outside your tailnet.
+A person also needs to reach the engine over the tailnet. Check that your policy lets them reach it on 443, or share the engine with them from Tailscale's admin console if they're outside your tailnet. To give them workflows of their own, [add a dev box](#adding-a-dev-box).
 
 [Komrad's engine](../komrads-engine/#access-grants) describes what a grant allows.
 
-### Rotating the GitHub App key
+### Rotating credentials
 
-Generate a new private key in the App's settings and store it in the `komrad/github-app` secret, under `private_key`. Then, in a shell on the machine:
+[Credentials on an engine](../engine-credentials/) describes each key. The control plane reads its keys at boot, so each rotation that changes a secret ends with a server restart.
 
-```sh
-sudo systemctl restart komrad-github-key
-```
+To rotate the GitHub App key, generate a new private key in the App's settings and store it in the `komrad/github-app` secret, under `private_key`. Restart the server, check that bot tasks can push, then delete the old key from the App.
 
-As the komrad account, check that <Command path="github token" /> still prints a token, then delete the old key from the App.
+To rotate the OpenAI admin key, create a new admin key for the project, store it in its secret, restart the server, then delete the old key in OpenAI. Keys the control plane already made for tasks keep working.
+
+To rotate the signing key, follow this order, so no assertion is ever signed by a key Anthropic doesn't know:
+
+1. Make a new key pair, and add the new public key to the issuer in the Anthropic Console beside the old one.
+2. Store the new private key in its secret and restart the server.
+3. Wait a few minutes, until no assertion signed with the old key can still be in use.
+4. Remove the old public key from the issuer.
+
+KMS rotates the key that encrypts people's logins once a year on its own, and keeps the old versions, so stored logins still decrypt.
 
 ### Tearing it down
+
+Delete every bot task first. Terraform doesn't own workers or their volumes, so any left behind outlive the stack. Then run:
 
 ```sh
 mise run infra:engine:destroy
 ```
 
-Terraform can't destroy the database while deletion protection is on, so set `database_deletion_protection = false` in `terraform.tfvars` and apply before you destroy. RDS takes a final snapshot of the database, and the data volume gets one too. Snapshot names have to be unique, so a second teardown needs a new snapshot name.
+Terraform can't destroy the database while deletion protection is on, so set `database_deletion_protection = false` in `terraform.tfvars` and apply before you destroy. RDS takes a final snapshot of the database, and the control plane's data volume gets one too. Snapshot names have to be unique, so a second teardown needs a new snapshot name. Terraform deletes dev boxes and their volumes with the rest.
 
 Then remove the engine from Tailscale's admin console and delete its tailnet identity. Terraform doesn't own the parameter, and its path is `/<name>/tailscale/state` for the stack's `name`:
 
 ```sh
 aws ssm delete-parameter --name /komrad-development/tailscale/state
 ```
+
+Finally, delete the issuer in the Anthropic Console and the bot's project in OpenAI.

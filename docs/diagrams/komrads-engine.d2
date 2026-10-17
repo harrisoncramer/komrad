@@ -16,56 +16,38 @@ aws: AWS {
 
   ssm: Systems Manager {class: leaf}
   bucket: State bucket {class: store}
-  secrets: Secrets Manager {class: store}
-  params: Parameter Store {class: store}
 
-  ec2: EC2 instance {
+  control: Control plane {
     class: group
 
     tailscaled: Tailscale {class: leaf}
-    firewall: Host firewall {class: leaf}
     caddy: Caddy {class: leaf}
     agent: SSM agent {class: leaf}
-    creds: Credentials unit {class: leaf}
-    key: GitHub key unit {class: leaf}
+    serve: Server {class: leaf}
 
-    serve: Server {
-      class: group
-      public: Public listener {class: leaf}
-      loopback: Loopback listener {class: leaf}
-    }
-
-    agents: Agents {class: leaf}
-    helper: Credential helper {class: leaf}
-    volume: Data volume {class: store}
-
-    tailscaled -> firewall
-    firewall -> caddy: 443 only
-    caddy -> serve.public: loopback
-    agents -> serve.loopback: MCP
-    agents -> volume
-    agents -> helper: token
-    key -> helper: App key
+    tailscaled -> caddy: 443 only
+    caddy -> serve: loopback
     agent -> serve: restart
   }
 
+  params: Parameter Store {class: store}
+  secrets: Secrets Manager {class: store}
+  kms: KMS {class: leaf}
   rds: RDS Postgres {class: store}
 
-  ssm -> ec2.agent
-  ec2.agent -> bucket: binary
-  ec2.creds -> secrets: owner password
-  ec2.creds -> rds: migrate
-  ec2.key -> secrets: App key
-  ec2.serve -> rds: grants and records
-  ec2.tailscaled -> params: node key
+  ssm -> control.agent
+  bucket -> control.agent: binary
+  params -> control.tailscaled: node key
+  control.serve -> secrets: keys
+  control.serve -> kms: logins
+  control.serve -> rds: records
 }
 
 github: GitHub {class: leaf}
 
 laptop.panel -> idp: sign in
-laptop.panel -> aws.ec2.tailscaled: tailnet
+laptop.panel -> aws.control.tailscaled: tailnet
 laptop.cli -> aws.ssm: session
 actions -> aws.ssm: deploy
 actions -> aws.bucket: upload
-aws.ec2.agents -> github: push
-aws.ec2.serve -> github: pull requests
+aws.control.serve -> github: real credential
