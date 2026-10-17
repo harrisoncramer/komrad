@@ -67,7 +67,7 @@ You can also use the automatic installation and reconfigure anything it auto-ins
 
 ### Create your database
 
-Every release binary carries an embedded Postgres, so a Mac needs nothing else. On Linux it needs glibc 2.34 or newer, and on Debian or Ubuntu `sudo apt install libxml2 libssl3 libgssapi-krb5-2` adds the libraries it uses. Run <Command path="setup" /> and choose "On this machine", or pass `--embedded-postgres`, and komrad creates the database, an engine named `default`, and your <Setting path="connection" label="[connection]" /> block.
+Every release binary carries an embedded Postgres, so you do not need to install or run it yourself. Run <Command path="setup" /> or pass `--embedded-postgres`, and komrad creates the database, an engine named `default`, and your <Setting path="connection" label="[connection]" /> block.
 
 ```sh
 komrad setup --no-input --embedded-postgres
