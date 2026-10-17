@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -53,14 +54,7 @@ engines had logins belongs to, hands it new logins and keeps its rows.`,
 				password = generated
 			}
 
-			if err := store.EnsureEngine(cmd.Context(), state.env.OwnerDatabaseURL, db.EnsureEngineParams{
-				Name:     name,
-				Password: password,
-			}); err != nil {
-				return err
-			}
-
-			engineURL, err := withLogin(state.env.OwnerDatabaseURL, db.EngineLogin(name), password)
+			engineURL, err := ensureEngine(cmd.Context(), state.env.OwnerDatabaseURL, name, password)
 			if err != nil {
 				return err
 			}
@@ -131,6 +125,33 @@ fresh grant and a fresh sign-in.`,
 	})
 
 	return engine
+}
+
+// ensureEngine creates the engine name in the database ownerURL owns, or resets its logins to
+// password, and returns the url the engine connects with.
+func ensureEngine(ctx context.Context, ownerURL, name, password string) (string, error) {
+	if err := store.EnsureEngine(ctx, ownerURL, db.EnsureEngineParams{
+		Name:     name,
+		Password: password,
+	}); err != nil {
+		return "", err
+	}
+
+	return withLogin(ownerURL, db.EngineLogin(name), password)
+}
+
+// joinEngine migrates the database ownerURL owns and ensures the engine setup makes there.
+func joinEngine(ctx context.Context, ownerURL string) (string, error) {
+	if err := store.Migrate(ctx, ownerURL); err != nil {
+		return "", err
+	}
+
+	password, err := generatePassword()
+	if err != nil {
+		return "", err
+	}
+
+	return ensureEngine(ctx, ownerURL, setupEngine, password)
 }
 
 func generatePassword() (string, error) {

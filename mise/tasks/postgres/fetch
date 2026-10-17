@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_build"
+set -euo pipefail
+#MISE description="Download the pinned Postgres builds the postgres build tag embeds."
+
+usage() {
+	echo "Usage: mise run postgres:fetch [os/arch...]"
+	echo
+	echo "Downloads the Postgres build for each platform named, or for this machine when"
+	echo "none is, into internal/postgres/bundle. Each download is checked against"
+	echo "internal/postgres/checksums.txt and kept in the dev cache by its checksum."
+	echo
+	echo "The builds that mise runs make fetch for themselves, so this is for a go build"
+	echo "or go test run by hand with -tags postgres."
+}
+
+TARGETS=()
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*/*)
+		TARGETS+=("$arg")
+		;;
+	*)
+		echo "postgres:fetch: $arg is not an os/arch" >&2
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+if ((${#TARGETS[@]} == 0)); then
+	TARGETS=("$(go env GOOS)/$(go env GOARCH)")
+fi
+
+for TARGET in "${TARGETS[@]}"; do
+	fetch_postgres "${TARGET%/*}" "${TARGET#*/}"
+done

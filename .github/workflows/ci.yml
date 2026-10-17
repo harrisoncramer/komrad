@@ -92,6 +92,7 @@ jobs:
               - '.github/workflows/ci.yml'
             integration:
               - '**/*.go'
+              - 'internal/postgres/checksums.txt'
               - 'go.mod'
               - 'go.sum'
               - 'mise/**'

@@ -30,3 +30,5 @@ tools/komradslot/komradslot
 /recordings/prod/*.webm
 /recordings/prod/*.gif
 /recordings/prod/*.png
+
+/internal/postgres/bundle/

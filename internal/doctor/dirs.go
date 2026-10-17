@@ -155,7 +155,7 @@ func newOrphanedWorktreesCheck() Check {
 	return Check{
 		Name:        "orphaned worktrees",
 		Description: "a worktree outlives its task when the task's row goes without it",
-		Needs:       []string{"config", "database"},
+		Needs:       []string{CheckConfig, CheckDatabase},
 		Run: func(ctx context.Context, env Env) Result {
 			cfg, err := env.LoadConfig()
 			if err != nil {

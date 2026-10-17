@@ -242,10 +242,11 @@ func prepareAutoSetup(ctx context.Context, state *app) bool {
 	}
 
 	if err := ensureServer(ctx, ensureServerParams{
-		Addr:       state.env.Addr,
-		Self:       getSelfPath(),
-		LogPath:    state.env.LogPath(),
-		ConfigArgs: configArgs(state.configStack),
+		Addr:        state.env.Addr,
+		Self:        getSelfPath(),
+		LogPath:     state.env.LogPath(),
+		ConfigArgs:  configArgs(state.configStack),
+		PostgresDir: postgresDir(state.env),
 	}); err != nil {
 		warnAutoSetup(ctx, state, err)
 

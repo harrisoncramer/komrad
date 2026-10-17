@@ -42,7 +42,7 @@ func EngineChecks(settings Settings) []Check {
 	database := newDatabaseCheck()
 	if settings.RunPostgres {
 		checks = append(checks, newPostgresCheck())
-		database.Needs = []string{"postgres"}
+		database.Needs = []string{CheckPostgres}
 	}
 
 	checks = append(checks,

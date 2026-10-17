@@ -194,7 +194,7 @@ func validateDatabaseURL(databaseURL string) error {
 		return fmt.Errorf("connection.database_url: %q is a %s url, and komrad stores its records in Postgres",
 			databaseURL, cmp.Or(parsed.Scheme, "schemeless"))
 	}
-	if parsed.Host == "" {
+	if parsed.Host == "" && parsed.Query().Get("host") == "" {
 		return fmt.Errorf("connection.database_url: %q names no server to connect to", databaseURL)
 	}
 
@@ -210,6 +210,11 @@ const (
 	sourceEnvironment Source = "environment"
 	sourceDerived     Source = "derived default"
 )
+
+// IsDefault reports whether a connection setting fell back to its built-in default.
+func (r *Report) IsDefault(key string) bool {
+	return r.Sources[key] == sourceDefault
+}
 
 var connectionEnvironment = map[string]string{
 	"connection.database_url":          "KOMRAD_DATABASE_URL",

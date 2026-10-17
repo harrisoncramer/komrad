@@ -69,15 +69,15 @@ You can also use the automatic installation and reconfigure anything it auto-ins
 
 Komrad keeps everything in Postgres. On a laptop, komrad can run Postgres for you. Every release binary carries its own Postgres, so there is nothing else to install.
 
-<Command path="setup" /> asks where your database lives. Choose "On this machine" and komrad creates the database under your <Setting path="connection.state_dir" label="state_dir" />, starts it, creates an engine named `laptop`, and writes the <Setting path="connection" label="[connection]" /> block for you. Pass `--run-postgres` to choose it without being asked.
+You can use the <Command path="setup" /> command to tell Komrad where your Postgres instance runs. If you tell it to, komrad will create the database under your <Setting path="connection.state_dir" label="state_dir" />, start it, create an engine named `laptop`, and write the <Setting path="connection" label="[connection]" /> block for you.
+
+Pass `--run-postgres` to do this automatically.
 
 ```sh
 komrad setup --run-postgres
 ```
 
 Komrad's Postgres listens on a socket in `~/.local/state/komrad/postgres` and on no network port. It keeps running when you close the panel or run <Command path="stop" />. After a restart, <Command path="start" /> and <Command path="open" /> bring it up again. The commands that need the database, such as <Command path="migrate" />, refuse to run while it is down and tell you to run <Command path="start" />.
-
-The setup step turns on <Setting path="connection.run_postgres" label="run_postgres" />, which is what tells komrad the database is its own to run.
 
 ### Use a Postgres you already run
 

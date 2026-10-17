@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -93,4 +94,70 @@ func writeAtomically(path string, content []byte) error {
 	}
 
 	return nil
+}
+
+// tableKey is one assignment setup writes into a table, with its value already a TOML literal.
+type tableKey struct {
+	Key     string
+	Literal string
+}
+
+// setTableKeys writes keys into a table, adding the table at the end when the file has none,
+// keeping every other line as it was.
+func setTableKeys(path, table string, keys []tableKey) error {
+	existing, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	written := string(existing)
+	for _, key := range keys {
+		written = setTableLine(written, table, key.Key, key.Literal)
+	}
+
+	var parsed map[string]any
+	if err := toml.Unmarshal([]byte(written), &parsed); err != nil {
+		return fmt.Errorf("failed to write %s, since the result would not parse: %w", path, err)
+	}
+
+	return writeAtomically(path, []byte(written))
+}
+
+func setTableLine(text, table, key, literal string) string {
+	line := key + " = " + literal
+	header := regexp.MustCompile(`^\s*\[` + regexp.QuoteMeta(table) + `\]\s*(#.*)?$`)
+	assignment := regexp.MustCompile(`^\s*` + regexp.QuoteMeta(key) + `\s*=`)
+
+	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
+	start := slices.IndexFunc(lines, header.MatchString)
+	if start < 0 {
+		if strings.TrimSpace(text) == "" {
+			return "[" + table + "]\n" + line + "\n"
+		}
+
+		return strings.Join(lines, "\n") + "\n\n[" + table + "]\n" + line + "\n"
+	}
+
+	end := len(lines)
+	for i := start + 1; i < len(lines); i++ {
+		if tableHeader.MatchString(lines[i]) {
+			end = i
+
+			break
+		}
+		if assignment.MatchString(lines[i]) {
+			lines[i] = line
+
+			return strings.Join(lines, "\n") + "\n"
+		}
+	}
+
+	last := end
+	for last > start+1 && strings.TrimSpace(lines[last-1]) == "" {
+		last--
+	}
+
+	inserted := slices.Insert(lines, last, line)
+
+	return strings.Join(inserted, "\n") + "\n"
 }

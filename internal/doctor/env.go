@@ -35,15 +35,17 @@ type Env struct {
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
 	IsPostgresRunning     func(ctx context.Context, dir string) bool
-	ReadEngine            func(ctx context.Context, url string) (string, error)
-	ReadWorktreeOwners    func(ctx context.Context, url string) (worktreeOwners, error)
-	ReadWorkflowBases     func(ctx context.Context, url string) ([]workflowBase, error)
-	ResolveBase           func(ctx context.Context, dir, base string) (string, error)
-	CheckForges           func(ctx context.Context) ([]ForgeStatus, error)
-	ProbeServer           func(ctx context.Context) (ServerStatus, error)
-	IsPanelRunning        func(ctx context.Context) bool
-	ReadTerminfo          func(ctx context.Context, term, capability string) (string, error)
-	ListFonts             func(ctx context.Context) ([]string, error)
+	// PostgresVersion is the Postgres this binary carries, and empty when it carries none.
+	PostgresVersion    string
+	ReadEngine         func(ctx context.Context, url string) (string, error)
+	ReadWorktreeOwners func(ctx context.Context, url string) (worktreeOwners, error)
+	ReadWorkflowBases  func(ctx context.Context, url string) ([]workflowBase, error)
+	ResolveBase        func(ctx context.Context, dir, base string) (string, error)
+	CheckForges        func(ctx context.Context) ([]ForgeStatus, error)
+	ProbeServer        func(ctx context.Context) (ServerStatus, error)
+	IsPanelRunning     func(ctx context.Context) bool
+	ReadTerminfo       func(ctx context.Context, term, capability string) (string, error)
+	ListFonts          func(ctx context.Context) ([]string, error)
 
 	// MeasureColumns asks the terminal how wide it drew each sample, and is left nil wherever
 	// there is no terminal to take over.
@@ -112,6 +114,7 @@ func NewEnv(settings Settings) Env {
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
 		IsPostgresRunning:     postgres.IsRunning,
+		PostgresVersion:       bundledPostgres(),
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.DatabaseURL)
 		},
@@ -142,4 +145,12 @@ func runOutput(ctx context.Context, name string, args ...string) (string, error)
 	}
 
 	return strings.TrimSpace(string(out)), nil
+}
+
+func bundledPostgres() string {
+	if !postgres.Bundled() {
+		return ""
+	}
+
+	return postgres.Version
 }
