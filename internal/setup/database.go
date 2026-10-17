@@ -135,7 +135,7 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 
 	databaseURL, err := s.JoinEngine(ctx, ownerURL)
 	if err != nil {
-		return s.undo(ctx, runPostgres, fmt.Errorf("failed to join the database: %w", err))
+		return s.undo(ctx, fmt.Errorf("failed to join the database: %w", err))
 	}
 
 	if err := s.File.write(func(a *answers) {
@@ -143,7 +143,7 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 		a.OwnerDatabaseURL = ownerURL
 		a.DatabaseURL = databaseURL
 	}); err != nil {
-		return s.undo(ctx, runPostgres, err)
+		return s.undo(ctx, err)
 	}
 
 	cfg, err := config.LoadStack(s.Stack)
@@ -158,8 +158,8 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 }
 
 // undo removes the Postgres this run created when it failed before the config held its owner.
-func (s *DatabaseStep) undo(ctx context.Context, created bool, err error) error {
-	if !created {
+func (s *DatabaseStep) undo(ctx context.Context, err error) error {
+	if s.choice != choiceRunPostgres {
 		return err
 	}
 
