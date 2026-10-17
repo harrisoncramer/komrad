@@ -22,6 +22,8 @@ const (
 
 type Env struct {
 	Settings
+	// PostgresVersion is the Postgres this binary carries, and empty when it carries none.
+	PostgresVersion       string
 	OS                    string
 	Arch                  string
 	LookPath              func(name string) (string, error)
@@ -36,17 +38,15 @@ type Env struct {
 	ConnectReadOnly       func(ctx context.Context, url string) error
 	IsPostgresRunning     func(ctx context.Context, dir string) bool
 	HasPostgresCluster    func(dir string) bool
-	// PostgresVersion is the Postgres this binary carries, and empty when it carries none.
-	PostgresVersion    string
-	ReadEngine         func(ctx context.Context, url string) (string, error)
-	ReadWorktreeOwners func(ctx context.Context, url string) (worktreeOwners, error)
-	ReadWorkflowBases  func(ctx context.Context, url string) ([]workflowBase, error)
-	ResolveBase        func(ctx context.Context, dir, base string) (string, error)
-	CheckForges        func(ctx context.Context) ([]ForgeStatus, error)
-	ProbeServer        func(ctx context.Context) (ServerStatus, error)
-	IsPanelRunning     func(ctx context.Context) bool
-	ReadTerminfo       func(ctx context.Context, term, capability string) (string, error)
-	ListFonts          func(ctx context.Context) ([]string, error)
+	ReadEngine            func(ctx context.Context, url string) (string, error)
+	ReadWorktreeOwners    func(ctx context.Context, url string) (worktreeOwners, error)
+	ReadWorkflowBases     func(ctx context.Context, url string) ([]workflowBase, error)
+	ResolveBase           func(ctx context.Context, dir, base string) (string, error)
+	CheckForges           func(ctx context.Context) ([]ForgeStatus, error)
+	ProbeServer           func(ctx context.Context) (ServerStatus, error)
+	IsPanelRunning        func(ctx context.Context) bool
+	ReadTerminfo          func(ctx context.Context, term, capability string) (string, error)
+	ListFonts             func(ctx context.Context) ([]string, error)
 
 	// MeasureColumns asks the terminal how wide it drew each sample, and is left nil wherever
 	// there is no terminal to take over.
