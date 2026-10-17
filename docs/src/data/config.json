@@ -2127,6 +2127,13 @@
           "default": "\"\""
         },
         {
+          "key": "run_postgres",
+          "path": "connection.run_postgres",
+          "type": "boolean",
+          "description": "Whether komrad runs its own Postgres on this machine, keeping it under state_dir and\nreaching it over a socket there. `komrad start` brings it up, and the commands that need\nthe database refuse to run while it is down.",
+          "default": "false"
+        },
+        {
           "key": "url",
           "path": "connection.url",
           "type": "string",

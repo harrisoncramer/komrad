@@ -73,7 +73,7 @@ var (
 // newDatabaseCheck asserts Postgres is there and will let komrad in.
 func newDatabaseCheck() Check {
 	return Check{
-		Name:        "database",
+		Name:        CheckDatabase,
 		Description: "every agent, workflow, and schedule komrad knows about lives in Postgres",
 		Run: func(ctx context.Context, env Env) Result {
 			if _, err := pgconn.ParseConfig(env.DatabaseURL); err != nil {
@@ -99,9 +99,9 @@ func newDatabaseCheck() Check {
 // behind the binary as no failure of the user's.
 func newSchemaCheck() Check {
 	return Check{
-		Name:        "schema",
+		Name:        CheckSchema,
 		Description: "the tables komrad reads have to match the build reading them",
-		Needs:       []string{"database"},
+		Needs:       []string{CheckDatabase},
 		Run: func(ctx context.Context, env Env) Result {
 			pending, err := env.ReadPendingMigrations(ctx, env.DatabaseURL)
 			if err != nil {
@@ -124,9 +124,9 @@ func newSchemaCheck() Check {
 // newEngineCheck asserts database_url is a login that belongs to an engine.
 func newEngineCheck() Check {
 	return Check{
-		Name:        "engine",
+		Name:        CheckEngine,
 		Description: "an engine connects as a login of its own, which is what keeps its rows apart",
-		Needs:       []string{"database", "schema"},
+		Needs:       []string{CheckDatabase, CheckSchema},
 		Run: func(ctx context.Context, env Env) Result {
 			name, err := env.ReadEngine(ctx, env.DatabaseURL)
 			if errors.Is(err, store.ErrNotAnEngine) {
@@ -147,7 +147,7 @@ func newReadOnlyLoginCheck() Check {
 	return Check{
 		Name:        "readonly login",
 		Description: "the MCP query tools read through a login that can only read",
-		Needs:       []string{"database"},
+		Needs:       []string{CheckDatabase},
 		Run: func(ctx context.Context, env Env) Result {
 			if env.ReadOnlyDatabaseURL == "" {
 				return fail(

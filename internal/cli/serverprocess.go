@@ -40,10 +40,16 @@ type ensureServerParams struct {
 	Self       string
 	LogPath    string
 	ConfigArgs []string
+	// PostgresDir is where komrad's own Postgres lives, and empty when komrad runs none.
+	PostgresDir string
 }
 
 func ensureServer(ctx context.Context, params ensureServerParams) error {
 	addr, logPath := params.Addr, params.LogPath
+
+	if err := upPostgres(ctx, params.PostgresDir); err != nil {
+		return err
+	}
 
 	if probeServer(ctx, xhttp.NewTransport(), formatBase(addr)).answering {
 		return nil

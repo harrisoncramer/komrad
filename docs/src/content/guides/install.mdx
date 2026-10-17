@@ -67,7 +67,21 @@ You can also use the automatic installation and reconfigure anything it auto-ins
 
 ### Create your database
 
-Komrad requires Postgres. For local development, running Postgres via Docker is the recommended approach.
+Komrad keeps everything in Postgres. On a laptop, komrad can run Postgres for you. Every release binary carries its own Postgres, so on a Mac there is nothing else to install. On Linux, that Postgres needs glibc 2.34 or newer and the libxml2, OpenSSL 3 and Kerberos libraries, which most desktop installs already have. On Debian or Ubuntu, `sudo apt install libxml2 libssl3 libgssapi-krb5-2` adds them.
+
+You can use the <Command path="setup" /> command to tell Komrad where your Postgres instance runs. If you tell it to, komrad will create the database under your <Setting path="connection.state_dir" label="state_dir" />, start it, create an engine named `laptop`, and write the <Setting path="connection" label="[connection]" /> block for you. Setup only writes a config file when you have none, and never changes one you already have.
+
+Pass `--run-postgres` with `--no-input` to do this without being asked.
+
+```sh
+komrad setup --no-input --run-postgres
+```
+
+Komrad's Postgres listens on a socket in `~/.local/state/komrad/postgres` and on no network port. It keeps running when you close the panel or run <Command path="stop" />. After a restart, <Command path="start" /> and <Command path="open" /> bring it up again. The commands that need the database, such as <Command path="migrate" />, refuse to run while it is down and tell you to run <Command path="start" />.
+
+### Use a Postgres you already run
+
+You can keep the database yourself instead, for example in Docker.
 
 ```sh
 docker run --name komrad \
@@ -81,7 +95,7 @@ docker run --name komrad \
 
 Postgres takes a few seconds to start. Wait until `docker exec komrad pg_isready -h localhost` reports that it is accepting connections before moving on.
 
-The database needs one admin-like user. The komrad engine uses this user to run migrations automatically on start and each time you update your binary. Provide your database connection string to the <Command path="migrate" /> command, and create your first engine. The engine is named `laptop` here.
+The database needs one admin-like user. The komrad engine uses this user to run migrations each time you update your binary. Choose "A Postgres I already run" in <Command path="setup" /> and paste this user's URL, or pass it as `--owner-database-url`. To do the same by hand, provide the URL to the <Command path="migrate" /> command and create your first engine. The engine is named `laptop` here.
 
 ```sh
 export KOMRAD_OWNER_DATABASE_URL=postgres://komrad_owner:password123@localhost:5432/komrad
@@ -93,7 +107,7 @@ Several engines can share one database, so multiple developers can share a Postg
 
 ### Write the config
 
-Komrad's configuration is stored in a TOML file.
+Komrad's configuration is stored in a TOML file. Setup writes this file for you when there is none. This section is for a Postgres you set up by hand, or a config file you already have.
 
 The <Command path="engine ensure" /> command prints an initial <Setting path="connection" label="[connection]" /> block with a login for the engine. Run it, put the engine block in `~/.config/komrad/config.toml`, and add the owner URL from the previous step beside it.
 
@@ -109,7 +123,7 @@ Only <Command path="migrate" />, <Command path="engine ensure" />, <Command path
 
 Komrad runs every agent in a tmux server of its own, so tmux must be installed. Using tmux yourself is optional.
 
-Run <Command path="open" /> to open the panel. The first open starts the server in the background.
+Run <Command path="open" /> to open the panel. The first open starts the server in the background, and komrad's Postgres too when komrad runs it.
 
 <figure>
   <img
@@ -176,7 +190,7 @@ komrad stop
 komrad migrate
 ```
 
-A running server keeps its old build until you stop it. Open the panel again and it starts the new build. Agents keep running throughout, because they live in tmux, not in the server.
+A running server keeps its old build until you stop it. Open the panel again and it starts the new build. When komrad runs your Postgres, Postgres keeps running through <Command path="stop" />, so <Command path="migrate" /> can still reach it. Agents keep running throughout, because they live in tmux, not in the server.
 
 ## Running the panel inside tmux
 

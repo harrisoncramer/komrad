@@ -80,6 +80,10 @@ the server, or call an endpoint from a script.`,
 				return err
 			}
 
+			if err := requirePostgres(cmd.Context(), cmd, env); err != nil {
+				return err
+			}
+
 			codexHarness := codex.NewHarness(codex.NewHarnessParams{
 				Home: codex.NamedHome(),
 			})
@@ -273,6 +277,7 @@ func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 		TmuxSocket:          cfg.Connection.TmuxSocket,
 		CacheDir:            cfg.Connection.CacheDir,
 		StateDir:            cfg.Connection.StateDir,
+		RunPostgres:         cfg.Connection.RunPostgres,
 		URL:                 cfg.Connection.URL,
 	})
 }

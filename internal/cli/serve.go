@@ -29,8 +29,9 @@ func serveCmd(state *app) *cobra.Command {
 	var addr string
 
 	cmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Run the komrad server in the foreground",
+		Use:         "serve",
+		Annotations: map[string]string{needsPostgres: ""},
+		Short:       "Run the komrad server in the foreground",
 		Long: `Run the komrad server in the foreground.
 
 It opens the database, mounts the Connect handlers and the MCP endpoint on one

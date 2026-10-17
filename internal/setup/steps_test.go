@@ -41,6 +41,7 @@ func ok(name, detail string) doctor.Finding {
 func TestHarnessStep(t *testing.T) {
 	tests := []struct {
 		name     string
+		existing bool
 		findings []doctor.Finding
 		verdict  verdict
 	}{
@@ -57,6 +58,16 @@ func TestHarnessStep(t *testing.T) {
 				ok("codex", ""),
 			},
 			verdict: verdictAsk,
+		},
+		{
+			name:     "default missing in a config file the person has stops",
+			existing: true,
+			findings: []doctor.Finding{
+				ok(doctor.CheckDefaultHarness, "claude"),
+				{Name: "claude", Status: doctor.StatusFail},
+				ok("codex", ""),
+			},
+			verdict: verdictStop,
 		},
 		{
 			name: "an unknown default with both installed asks",
@@ -84,7 +95,11 @@ func TestHarnessStep(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			step := &HarnessStep{Harnesses: []string{"claude", "codex"}}
+			path := filepath.Join(t.TempDir(), "config.toml")
+			if tt.existing {
+				require.NoError(t, os.WriteFile(path, []byte("# mine\n"), 0o600))
+			}
+			step := &HarnessStep{File: &ConfigFile{Path: path}, Harnesses: []string{"claude", "codex"}}
 
 			observation := step.observe(t.Context(), fakeChecker(tt.findings...))
 
@@ -110,7 +125,7 @@ func TestHarnessStepRepairRefusesAnOverridingLayer(t *testing.T) {
 	require.NoError(t, os.WriteFile(upper, []byte("default_harness = \"claude\"\n"), 0o600))
 
 	step := &HarnessStep{
-		Path:   lower,
+		File:   &ConfigFile{Path: lower},
 		Stack:  config.Stack{Paths: []string{lower, upper}},
 		chosen: "codex",
 	}
@@ -156,28 +171,25 @@ func TestContextStep(t *testing.T) {
 	})
 }
 
-// TestAutoSetupStep covers that only a yes writes auto_setup.
+// TestAutoSetupStep covers that only a yes writes auto_setup, and never into a config the person has.
 func TestAutoSetupStep(t *testing.T) {
-	configPath := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(configPath, []byte("default_harness = \"claude\"\n"), 0o600))
-	stack := config.Stack{Paths: []string{configPath}}
 	check := fakeChecker(ok(doctor.CheckConfig, ""))
 
 	t.Run("a no writes nothing", func(t *testing.T) {
-		step := &AutoSetupStep{Path: configPath, Stack: stack}
+		configPath := homeConfig(t)
+		step := &AutoSetupStep{File: &ConfigFile{Path: configPath}, Stack: config.Stack{}}
 		assert.Equal(t, verdictAsk, step.observe(t.Context(), check).Verdict)
 
 		require.ErrorIs(t, step.repair(t.Context()), errSkipped)
 
-		written, err := os.ReadFile(configPath)
-		require.NoError(t, err)
-		assert.Equal(t, "default_harness = \"claude\"\n", string(written))
+		assert.NoFileExists(t, configPath)
 	})
 
 	t.Run("a yes turns it on", func(t *testing.T) {
+		configPath := homeConfig(t)
 		step := &AutoSetupStep{
-			Path:   configPath,
-			Stack:  stack,
+			File:   &ConfigFile{Path: configPath},
+			Stack:  config.Stack{},
 			chosen: true,
 		}
 
@@ -185,8 +197,19 @@ func TestAutoSetupStep(t *testing.T) {
 
 		written, err := os.ReadFile(configPath)
 		require.NoError(t, err)
-		assert.Equal(t, "default_harness = \"claude\"\nauto_setup = true\n", string(written))
+		assert.Equal(t, "auto_setup = true\n", string(written))
 		assert.Equal(t, verdictDone, step.observe(t.Context(), check).Verdict)
+	})
+
+	t.Run("a config file the person has is left alone", func(t *testing.T) {
+		configPath := filepath.Join(t.TempDir(), "config.toml")
+		require.NoError(t, os.WriteFile(configPath, []byte("default_harness = \"claude\"\n"), 0o600))
+		step := &AutoSetupStep{File: &ConfigFile{Path: configPath}, Stack: config.Stack{Paths: []string{configPath}}}
+
+		observation := step.observe(t.Context(), check)
+
+		assert.Equal(t, verdictSkip, observation.Verdict)
+		assert.Contains(t, observation.Detail, "auto_setup = true")
 	})
 }
 

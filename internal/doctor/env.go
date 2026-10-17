@@ -12,6 +12,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/harness"
+	"komrad/internal/postgres"
 )
 
 const (
@@ -21,6 +22,8 @@ const (
 
 type Env struct {
 	Settings
+	// PostgresVersion is the Postgres this binary carries, and empty when it carries none.
+	PostgresVersion       string
 	OS                    string
 	Arch                  string
 	LookPath              func(name string) (string, error)
@@ -33,6 +36,8 @@ type Env struct {
 	PingDatabase          func(ctx context.Context, url string) error
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
+	IsPostgresRunning     func(ctx context.Context, dir string) bool
+	HasPostgresCluster    func(dir string) bool
 	ReadEngine            func(ctx context.Context, url string) (string, error)
 	ReadWorktreeOwners    func(ctx context.Context, url string) (worktreeOwners, error)
 	ReadWorkflowBases     func(ctx context.Context, url string) ([]workflowBase, error)
@@ -77,6 +82,8 @@ type Settings struct {
 	Harnesses           []harnessInfo
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
+	RunPostgres         bool
+	StateDir            string
 	Addr                string
 	EngineURL           string
 	EngineIsRemote      bool
@@ -107,6 +114,9 @@ func NewEnv(settings Settings) Env {
 		ReadFile:              os.ReadFile,
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
+		IsPostgresRunning:     postgres.IsRunning,
+		HasPostgresCluster:    postgres.HasCluster,
+		PostgresVersion:       bundledPostgres(),
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.DatabaseURL)
 		},
@@ -137,4 +147,12 @@ func runOutput(ctx context.Context, name string, args ...string) (string, error)
 	}
 
 	return strings.TrimSpace(string(out)), nil
+}
+
+func bundledPostgres() string {
+	if !postgres.IsBundled() {
+		return ""
+	}
+
+	return postgres.Version
 }

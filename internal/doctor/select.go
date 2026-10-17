@@ -12,6 +12,10 @@ const (
 	CheckTmux           = "tmux"
 	CheckTmuxVersion    = "tmux version"
 	CheckTmuxShell      = "tmux shell"
+	CheckPostgres       = "postgres"
+	CheckDatabase       = "database"
+	CheckSchema         = "schema"
+	CheckEngine         = "engine"
 )
 
 // The codes of the findings a caller tells apart.

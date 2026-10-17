@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"slices"
 	"testing"
 
 	"komrad/lib/xslice"
@@ -35,6 +36,10 @@ func TestChecksAreWellFormed(t *testing.T) {
 		{
 			name:   "both, when the engine is this machine",
 			checks: Checks(settings),
+		},
+		{
+			name:   "engine, running its own Postgres",
+			checks: EngineChecks(Settings{RunPostgres: true}),
 		},
 	}
 
@@ -102,4 +107,37 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 		"orphaned worktrees",
 		"claude",
 	}, names)
+}
+
+// TestDatabaseCheckWaitsOnPostgres covers a down Postgres reporting once, as the thing to start,
+// and only when komrad runs it.
+func TestDatabaseCheckWaitsOnPostgres(t *testing.T) {
+	tests := []struct {
+		name        string
+		runPostgres bool
+		wantNeeds   []string
+	}{
+		{
+			name: "a Postgres of the person's",
+		},
+		{
+			name:        "komrad runs Postgres",
+			runPostgres: true,
+			wantNeeds:   []string{CheckPostgres},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			checks := EngineChecks(Settings{RunPostgres: tt.runPostgres})
+			names := xslice.Map(checks, func(check Check) string { return check.Name })
+
+			assert.Equal(t, tt.runPostgres, slices.Contains(names, CheckPostgres))
+			for _, check := range checks {
+				if check.Name == CheckDatabase {
+					assert.Equal(t, tt.wantNeeds, check.Needs)
+				}
+			}
+		})
+	}
 }
