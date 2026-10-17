@@ -22,6 +22,15 @@ import (
 	"golang.org/x/term"
 )
 
+// setupEngine is the engine setup makes for this machine.
+const setupEngine = "laptop"
+
+type setupFlags struct {
+	harness     string
+	runPostgres bool
+	ownerURL    string
+}
+
 func setupCmd(state *app) *cobra.Command {
 	var noInput bool
 	var flags setupFlags
@@ -123,12 +132,6 @@ forge after setup.`,
 	return cmd
 }
 
-type setupFlags struct {
-	harness     string
-	runPostgres bool
-	ownerURL    string
-}
-
 func (a *app) setupSteps(flags setupFlags) ([]setup.Step, error) {
 	layers, err := config.ResolveLayers(config.Stack{Paths: a.configStack.Paths})
 	if err != nil {
@@ -174,9 +177,6 @@ func (a *app) connectForge(ctx context.Context, host string, token forge.Secret)
 		return err
 	})
 }
-
-// setupEngine is the engine setup makes for this machine.
-const setupEngine = "laptop"
 
 // reloadConnection reads the connection settings again, so checks after a step see what it wrote.
 func (a *app) reloadConnection() error {
