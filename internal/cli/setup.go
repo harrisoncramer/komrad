@@ -37,7 +37,7 @@ does it ask a question and change something, then asks the doctor again. Nothing
 which steps ran, so running it again after stopping part way finds the finished steps
 already done. It ends on the doctor's full report.
 
-Setup writes the config file only when there is none, from a starter template filled with
+Setup writes the config file only when there is none, from a config template filled with
 your answers. It never changes a config file that already exists: a step that would stops and
 names the setting to change there.
 

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestConfigFileWrite covers the file setup writes from its starter template as answers arrive.
+// TestConfigFileWrite covers the file setup writes from its config template as answers arrive.
 func TestConfigFileWrite(t *testing.T) {
 	tests := []struct {
 		name    string

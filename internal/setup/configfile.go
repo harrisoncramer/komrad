@@ -19,14 +19,14 @@ import (
 )
 
 //go:embed config.toml.tmpl
-var starterText string
+var configTemplateText string
 
-var starter = template.Must(template.New("config.toml").Funcs(template.FuncMap{"quote": strconv.Quote}).Parse(starterText))
+var configTemplate = template.Must(template.New("config.toml").Funcs(template.FuncMap{"quote": strconv.Quote}).Parse(configTemplateText))
 
 // errConfigExists is what a write returns when the config file was there before setup ran.
 var errConfigExists = fail.AlreadyExists("the config file already exists")
 
-// ConfigFile is the config file setup writes from its starter template, which it never changes
+// ConfigFile is the config file setup writes from its config template, which it never changes
 // once someone else has written it.
 type ConfigFile struct {
 	Path    string
@@ -34,7 +34,7 @@ type ConfigFile struct {
 	created bool
 }
 
-// answers are the settings setup fills the starter template with.
+// answers are the settings setup fills the config template with.
 type answers struct {
 	DefaultHarness   string
 	AutoSetup        bool
@@ -68,7 +68,7 @@ func (f *ConfigFile) write(answer func(*answers)) error {
 	answer(&next)
 
 	var rendered bytes.Buffer
-	if err := starter.Execute(&rendered, next); err != nil {
+	if err := configTemplate.Execute(&rendered, next); err != nil {
 		return fmt.Errorf("failed to fill in the config template: %w", err)
 	}
 	content := strings.TrimLeft(rendered.String(), "\n")
