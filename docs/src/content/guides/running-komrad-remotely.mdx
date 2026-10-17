@@ -20,7 +20,7 @@ This guide describes the parts a remote engine needs without assuming a cloud pr
 
 A remote engine has one control plane and many boxes.
 
-The control plane is the one machine people reach. It runs the komrad server, checks every sign-in and talks to the database. It holds every long-lived credential the engine has, and no agent runs on it.
+The control plane is the one machine people reach. It runs the komrad server, checks every sign-in and talks to the database.
 
 Agents run on boxes, and a box comes in two kinds. A dev box belongs to one person, and that person's agents run there as them. A worker runs one task for the bot, the engine's own account on the forge. Komrad makes a worker when the task needs one and throws it away when the task is archived.
 

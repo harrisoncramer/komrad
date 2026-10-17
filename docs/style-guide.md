@@ -134,7 +134,7 @@ box: A dev box or a worker, where a remote engine's agents run. Not "machine", "
 
 dev box: A box that belongs to one person. Their workflows' agents run there and act as them.
 
-worker: A box that runs one bot task, or one bot workflow's orchestrator, and is thrown away when its task is archived.
+worker: A box that runs one bot task, or one bot workflow's orchestrator. Komrad throws it away when that task or workflow is archived.
 
 runner: The komrad program on each box. It keeps one stream open to the control plane, and everything between the two crosses it.
 

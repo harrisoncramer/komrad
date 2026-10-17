@@ -46,6 +46,6 @@ worker: Worker {
 laptop.panel -> idp: sign in
 laptop.panel -> control.proxy: HTTPS
 control.serve -> postgres
-control.serve -> forge: credential added
+control.serve -> forge: real credential
 control.serve <-> devbox.runner: stream
 control.serve <-> worker.runner: stream
