@@ -49,6 +49,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 		TmuxSocket:          "komrad-test",
 		CacheDir:            "/tmp/cache",
 		StateDir:            "/tmp/state",
+		RunPostgres:         true,
 		Editor:              "nvim",
 	}}
 
@@ -62,6 +63,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 		"EDITOR":                       "nvim",
 		"KOMRAD_CACHE_DIR":             "/tmp/cache",
 		"KOMRAD_STATE_DIR":             "/tmp/state",
+		"KOMRAD_RUN_POSTGRES":          "true",
 	}, forwardedEnv(t, args))
 }
 
