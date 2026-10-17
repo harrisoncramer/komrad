@@ -67,6 +67,12 @@ an agent's pane into a panel nobody is looking at.`,
 
 // openHere puts this engine's panel up and turns this process into the client attached to it.
 func openHere(ctx context.Context, state *app, detach, headless bool) error {
+	if !state.engine().IsRemote() {
+		if err := upPostgres(ctx, postgresDir(state.env)); err != nil {
+			return err
+		}
+	}
+
 	settingUp := !headless && prepareAutoSetup(ctx, state)
 
 	if err := ensureManagerSession(ctx, state, detach, headless); err != nil {

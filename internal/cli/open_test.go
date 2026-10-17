@@ -323,3 +323,18 @@ func TestIntegrationRestartPanel(t *testing.T) {
 		})
 	}
 }
+
+// TestIntegrationOpenStartsPostgresBesideALivePanel covers reattaching to a panel whose Postgres went down.
+func TestIntegrationOpenStartsPostgresBesideALivePanel(t *testing.T) {
+	socket := throwawaySocket(t)
+	panelSession(t, socket)
+
+	state := panelState(t, socket)
+	state.tmux.RecordPanelPane(hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}"))
+	state.env.RunPostgres = true
+	state.env.StateDir = t.TempDir()
+
+	err := openHere(t.Context(), state, true, false)
+
+	require.ErrorContains(t, err, "failed to start komrad's Postgres")
+}
