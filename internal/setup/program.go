@@ -102,7 +102,7 @@ func newModel(ctx context.Context, check checker, rows []row) model {
 	}
 }
 
-// repairUnlessQuit repairs step while holding fixing, which Run takes to wait out a repair under way.
+// repairUnlessQuit repairs step while holding fixing, and does nothing once ctx is done.
 func repairUnlessQuit(ctx context.Context, fixing *sync.Mutex, step Step) error {
 	fixing.Lock()
 	defer fixing.Unlock()
