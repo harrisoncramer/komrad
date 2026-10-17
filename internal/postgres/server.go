@@ -55,13 +55,9 @@ func ownerURL(dir, password, name string) string {
 // Init sets up a new cluster in dir whose owner login takes password, starts it, and creates
 // komrad's database.
 func Init(ctx context.Context, dir, password string) error {
-	if err := unpack(dir); err != nil {
-		return fmt.Errorf("failed to unpack Postgres into %s: %w", dir, err)
-	}
-
-	unlock, err := lock(dir)
+	unlock, err := prepare(dir)
 	if err != nil {
-		return fmt.Errorf("failed to lock %s: %w", dir, err)
+		return err
 	}
 	defer unlock()
 
@@ -75,21 +71,47 @@ func Init(ctx context.Context, dir, password string) error {
 	}
 
 	if err := start(ctx, dir); err != nil {
-		return fmt.Errorf("failed to start the new cluster in %s: %w", data, err)
+		return errors.Join(fmt.Errorf("failed to start the new cluster in %s: %w", data, err), remove(context.WithoutCancel(ctx), dir))
 	}
 
-	return createDatabase(ctx, dir, password)
+	if err := createDatabase(ctx, dir, password); err != nil {
+		return errors.Join(err, remove(context.WithoutCancel(ctx), dir))
+	}
+
+	return nil
+}
+
+// Remove stops the Postgres in dir and deletes its cluster, with every row in it.
+func Remove(ctx context.Context, dir string) error {
+	unlock, err := lock(dir)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	return remove(ctx, dir)
+}
+
+func remove(ctx context.Context, dir string) error {
+	data := dataDir(dir)
+	if _, err := os.Stat(filepath.Join(data, "postmaster.pid")); err == nil {
+		if err := run(ctx, program(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
+			return fmt.Errorf("failed to stop Postgres in %s: %w", data, err)
+		}
+	}
+
+	if err := os.RemoveAll(data); err != nil {
+		return fmt.Errorf("failed to remove %s: %w", data, err)
+	}
+
+	return nil
 }
 
 // Up starts the Postgres in dir unless it is already running.
 func Up(ctx context.Context, dir string) error {
-	if err := unpack(dir); err != nil {
-		return fmt.Errorf("failed to unpack Postgres into %s: %w", dir, err)
-	}
-
-	unlock, err := lock(dir)
+	unlock, err := prepare(dir)
 	if err != nil {
-		return fmt.Errorf("failed to lock %s: %w", dir, err)
+		return err
 	}
 	defer unlock()
 
@@ -106,6 +128,26 @@ func Up(ctx context.Context, dir string) error {
 	}
 
 	return nil
+}
+
+// prepare takes the lock in dir and unpacks the bundled programs under it.
+func prepare(dir string) (func(), error) {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("failed to create %s: %w", dir, err)
+	}
+
+	unlock, err := lock(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := unpack(dir); err != nil {
+		unlock()
+
+		return nil, fmt.Errorf("failed to unpack Postgres into %s: %w", dir, err)
+	}
+
+	return unlock, nil
 }
 
 // lock holds the lock every start and init in dir takes, across processes.

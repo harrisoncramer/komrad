@@ -149,6 +149,44 @@ func TestIntegrationInitRefusesASecondCluster(t *testing.T) {
 	require.ErrorIs(t, Init(t.Context(), dir, testPassword), ErrClusterExists)
 }
 
+// TestIntegrationInitMakesOneClusterWhenTwoAskAtOnce covers two first starts unpacking and initialising one dir together.
+func TestIntegrationInitMakesOneClusterWhenTwoAskAtOnce(t *testing.T) {
+	dir, err := os.MkdirTemp("/tmp", "komrad-pg") //nolint:usetesting // a socket path under the test directory runs past the length unix allows
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(dir)) })
+	t.Cleanup(func() { _ = Remove(context.WithoutCancel(t.Context()), dir) })
+
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	for i := range errs {
+		wg.Go(func() { errs[i] = Init(t.Context(), dir, testPassword) })
+	}
+	wg.Wait()
+
+	var created int
+	for _, err := range errs {
+		if err == nil {
+			created++
+
+			continue
+		}
+		require.ErrorIs(t, err, ErrClusterExists)
+	}
+	assert.Equal(t, 1, created)
+	assert.True(t, IsRunning(t.Context(), dir))
+}
+
+// TestIntegrationRemoveLeavesRoomForANewCluster covers a removed cluster being stopped and gone, so Init can start over.
+func TestIntegrationRemoveLeavesRoomForANewCluster(t *testing.T) {
+	dir := initCluster(t)
+
+	require.NoError(t, Remove(t.Context(), dir))
+
+	assert.False(t, IsRunning(t.Context(), dir))
+	assert.NoDirExists(t, dataDir(dir))
+	require.NoError(t, Init(t.Context(), dir, testPassword))
+}
+
 // TestIntegrationEngineJoinsOverTheSocket covers komrad's schema and an engine's login working in
 // the Postgres komrad runs.
 func TestIntegrationEngineJoinsOverTheSocket(t *testing.T) {

@@ -36,10 +36,6 @@ func unpack(dir string) error {
 		return errNotBundled
 	}
 
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("failed to create %s: %w", dir, err)
-	}
-
 	staging, err := os.MkdirTemp(dir, ".unpack-")
 	if err != nil {
 		return fmt.Errorf("failed to create a directory to unpack Postgres into: %w", err)

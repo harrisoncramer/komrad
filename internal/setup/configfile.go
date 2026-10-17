@@ -57,7 +57,7 @@ func (f *ConfigFile) writable() bool {
 
 // refusal says the file is not setup's to change, and which setting to change there instead.
 func (f *ConfigFile) refusal(setting string) string {
-	return fmt.Sprintf("%s already exists, so set %s there, or move it aside and run setup again", shortenHome(f.Path), setting)
+	return fmt.Sprintf("%s already exists, so set %s there", shortenHome(f.Path), setting)
 }
 
 func (f *ConfigFile) write(answer func(*answers)) error {

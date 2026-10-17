@@ -139,6 +139,7 @@ func (a *app) setupSteps(flags setupFlags) ([]setup.Step, error) {
 			RunFlag:        flags.runPostgres,
 			OwnerURLFlag:   flags.ownerURL,
 			CreatePostgres: a.createPostgres,
+			RemovePostgres: a.removePostgres,
 			JoinEngine:     joinEngine,
 		},
 		&setup.TmuxStep{},
@@ -199,11 +200,16 @@ func (a *app) createPostgres(ctx context.Context) (string, error) {
 	dir := postgres.Dir(a.env.StateDir)
 	err = postgres.Init(ctx, dir, password)
 	if errors.Is(err, postgres.ErrClusterExists) {
-		return "", fmt.Errorf("%w, and no config names its owner, so remove %s and run setup again", err, dir)
+		return "", fmt.Errorf("%w, and no config holds its owner's password, so stop the Postgres running from %s, remove that directory, and run setup again", err, dir)
 	}
 	if err != nil {
 		return "", err
 	}
 
 	return postgres.OwnerURL(dir, password), nil
+}
+
+// removePostgres deletes the Postgres createPostgres set up.
+func (a *app) removePostgres(ctx context.Context) error {
+	return postgres.Remove(ctx, postgres.Dir(a.env.StateDir))
 }

@@ -143,7 +143,7 @@ func TestDatabaseStepUnattendedNamesTheFlags(t *testing.T) {
 	assert.ErrorContains(t, err, "--owner-database-url")
 }
 
-// TestDatabaseStepRepair covers the config each answer writes, and nothing written when joining fails.
+// TestDatabaseStepRepair covers the config each answer writes, and the Postgres it made removed when joining fails.
 func TestDatabaseStepRepair(t *testing.T) {
 	clearConnectionEnv(t)
 
@@ -157,6 +157,7 @@ func TestDatabaseStepRepair(t *testing.T) {
 		run     bool
 		pasted  string
 		joinErr error
+		removed bool
 		after   string
 	}{
 		{
@@ -170,8 +171,14 @@ func TestDatabaseStepRepair(t *testing.T) {
 			after:  "[connection]\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
 		},
 		{
-			name:    "nothing is written when joining fails",
+			name:    "the Postgres it made is removed when joining fails",
 			run:     true,
+			joinErr: errors.New("migrate refused"),
+			removed: true,
+		},
+		{
+			name:    "a Postgres the person runs is left alone when joining fails",
+			pasted:  ownerURL,
 			joinErr: errors.New("migrate refused"),
 		},
 	}
@@ -180,12 +187,18 @@ func TestDatabaseStepRepair(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			path := homeConfig(t)
 			var joined string
+			var removed bool
 			step := &DatabaseStep{
 				File:           &ConfigFile{Path: path},
 				Stack:          config.Stack{},
 				RunFlag:        tt.run,
 				OwnerURLFlag:   tt.pasted,
 				CreatePostgres: func(context.Context) (string, error) { return ownerURL, nil },
+				RemovePostgres: func(context.Context) error {
+					removed = true
+
+					return nil
+				},
 				JoinEngine: func(_ context.Context, owner string) (string, error) {
 					joined = owner
 
@@ -202,6 +215,7 @@ func TestDatabaseStepRepair(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, ownerURL, joined)
+			assert.Equal(t, tt.removed, removed)
 			if tt.after == "" {
 				assert.NoFileExists(t, path)
 

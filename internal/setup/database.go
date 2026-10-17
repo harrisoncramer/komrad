@@ -27,6 +27,7 @@ type DatabaseStep struct {
 	RunFlag        bool
 	OwnerURLFlag   string
 	CreatePostgres func(ctx context.Context) (string, error)
+	RemovePostgres func(ctx context.Context) error
 	JoinEngine     func(ctx context.Context, ownerURL string) (string, error)
 	choice         string
 	pasted         string
@@ -51,7 +52,7 @@ func (s *DatabaseStep) observe(ctx context.Context, check checker) observation {
 
 	if loaded.IsDefault("database_url") {
 		if !s.File.writable() {
-			return observation{Verdict: verdictStop, Detail: "no database is set up; " + s.File.refusal("database_url under [connection]")}
+			return observation{Verdict: verdictStop, Detail: "no database is set up; " + s.File.refusal("database_url under [connection]") + ", or move it aside and run setup again"}
 		}
 
 		return observation{Verdict: verdictAsk, Detail: "no database is set up"}
@@ -134,7 +135,7 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 
 	databaseURL, err := s.JoinEngine(ctx, ownerURL)
 	if err != nil {
-		return fmt.Errorf("failed to join the database: %w", err)
+		return s.undo(ctx, runPostgres, fmt.Errorf("failed to join the database: %w", err))
 	}
 
 	if err := s.File.write(func(a *answers) {
@@ -142,7 +143,7 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 		a.OwnerDatabaseURL = ownerURL
 		a.DatabaseURL = databaseURL
 	}); err != nil {
-		return err
+		return s.undo(ctx, runPostgres, err)
 	}
 
 	cfg, err := config.LoadStack(s.Stack)
@@ -154,4 +155,13 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// undo removes the Postgres this run created when it failed before the config held its owner.
+func (s *DatabaseStep) undo(ctx context.Context, created bool, err error) error {
+	if !created {
+		return err
+	}
+
+	return errors.Join(err, s.RemovePostgres(context.WithoutCancel(ctx)))
 }
