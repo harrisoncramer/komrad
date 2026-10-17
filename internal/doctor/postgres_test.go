@@ -22,13 +22,6 @@ func TestPostgresCheck(t *testing.T) {
 		wantFix    string
 	}{
 		{
-			name:       "running",
-			running:    true,
-			version:    "18.6.0",
-			want:       StatusOK,
-			wantDetail: "18.6.0 in /state/postgres",
-		},
-		{
 			name:       "down",
 			version:    "18.6.0",
 			want:       StatusFail,
@@ -49,6 +42,13 @@ func TestPostgresCheck(t *testing.T) {
 			want:       StatusWarn,
 			wantDetail: "/state/postgres",
 			wantCode:   "postgres_not_bundled",
+		},
+		{
+			name:       "running",
+			running:    true,
+			version:    "18.6.0",
+			want:       StatusOK,
+			wantDetail: "18.6.0 in /state/postgres",
 		},
 	}
 
