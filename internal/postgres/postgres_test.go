@@ -16,8 +16,14 @@ func TestIsRunning(t *testing.T) {
 		listen bool
 		want   bool
 	}{
-		{name: "a listening socket", listen: true, want: true},
-		{name: "no socket", listen: false, want: false},
+		{
+			name: "no socket",
+		},
+		{
+			name:   "a listening socket",
+			listen: true,
+			want:   true,
+		},
 	}
 
 	for _, tt := range tests {
