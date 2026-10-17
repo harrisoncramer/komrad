@@ -56,12 +56,12 @@ func ownerURL(dir, password, name string) string {
 // komrad's database.
 func Init(ctx context.Context, dir, password string) error {
 	if err := unpack(dir); err != nil {
-		return err
+		return fmt.Errorf("failed to unpack Postgres into %s: %w", dir, err)
 	}
 
 	unlock, err := lock(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to lock %s: %w", dir, err)
 	}
 	defer unlock()
 
@@ -71,11 +71,11 @@ func Init(ctx context.Context, dir, password string) error {
 	}
 
 	if err := initdb(ctx, dir, data, password); err != nil {
-		return err
+		return fmt.Errorf("failed to create a cluster in %s: %w", data, err)
 	}
 
 	if err := start(ctx, dir); err != nil {
-		return err
+		return fmt.Errorf("failed to start the new cluster in %s: %w", data, err)
 	}
 
 	return createDatabase(ctx, dir, password)
@@ -84,12 +84,12 @@ func Init(ctx context.Context, dir, password string) error {
 // Up starts the Postgres in dir unless it is already running.
 func Up(ctx context.Context, dir string) error {
 	if err := unpack(dir); err != nil {
-		return err
+		return fmt.Errorf("failed to unpack Postgres into %s: %w", dir, err)
 	}
 
 	unlock, err := lock(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to lock %s: %w", dir, err)
 	}
 	defer unlock()
 
@@ -101,7 +101,11 @@ func Up(ctx context.Context, dir string) error {
 		return fmt.Errorf("%w in %s, so run komrad setup", errNoCluster, dir)
 	}
 
-	return start(ctx, dir)
+	if err := start(ctx, dir); err != nil {
+		return fmt.Errorf("failed to start Postgres in %s: %w", dir, err)
+	}
+
+	return nil
 }
 
 // lock holds the lock every start and init in dir takes, across processes.
@@ -140,12 +144,12 @@ func initdb(ctx context.Context, dir, data, password string) error {
 		"--locale-provider", "builtin",
 		"--builtin-locale", "C.UTF-8",
 	); err != nil {
-		return err
+		return fmt.Errorf("failed to run initdb: %w", err)
 	}
 
 	include := fmt.Sprintf("\ninclude_if_exists = '%s'\n", settingsFile)
 	if err := appendFile(filepath.Join(staging, "postgresql.conf"), include); err != nil {
-		return err
+		return fmt.Errorf("failed to include %s from postgresql.conf: %w", settingsFile, err)
 	}
 
 	if err := os.Rename(staging, data); err != nil { //nolint:forbidigo // a directory, which xfile.WriteAtomic does not move
@@ -226,11 +230,11 @@ func environment() []string {
 func appendFile(path, text string) error {
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open %s: %w", path, err)
 	}
 
 	if _, err := file.WriteString(text); err != nil {
-		return errors.Join(err, file.Close())
+		return errors.Join(fmt.Errorf("failed to append to %s: %w", path, err), file.Close())
 	}
 
 	return file.Close()

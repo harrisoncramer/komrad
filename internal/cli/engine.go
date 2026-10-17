@@ -134,7 +134,7 @@ func ensureEngine(ctx context.Context, ownerURL, name, password string) (string,
 		Name:     name,
 		Password: password,
 	}); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to ensure engine %s: %w", name, err)
 	}
 
 	return withLogin(ownerURL, db.EngineLogin(name), password)
@@ -143,7 +143,7 @@ func ensureEngine(ctx context.Context, ownerURL, name, password string) (string,
 // joinEngine migrates the database ownerURL owns and ensures the engine setup makes there.
 func joinEngine(ctx context.Context, ownerURL string) (string, error) {
 	if err := store.Migrate(ctx, ownerURL); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to migrate: %w", err)
 	}
 
 	password, err := generatePassword()

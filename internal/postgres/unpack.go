@@ -61,7 +61,7 @@ func unpack(dir string) error {
 func extract(archive io.Reader, dest string) error {
 	gz, err := gzip.NewReader(archive)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read the archive as gzip: %w", err)
 	}
 	defer gz.Close() //nolint:errcheck // read only
 
@@ -72,12 +72,12 @@ func extract(archive io.Reader, dest string) error {
 			return nil
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read the next entry of the archive: %w", err)
 		}
 
 		name, err := entryPath(header.Name)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to place %s: %w", header.Name, err)
 		}
 		if name == "" {
 			continue
@@ -87,18 +87,18 @@ func extract(archive io.Reader, dest string) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(path, 0o755); err != nil {
-				return err
+				return fmt.Errorf("failed to create %s: %w", path, err)
 			}
 		case tar.TypeReg:
 			if err := writeEntry(path, reader, header.FileInfo().Mode().Perm()); err != nil {
-				return err
+				return fmt.Errorf("failed to write %s: %w", path, err)
 			}
 		case tar.TypeSymlink:
 			if strings.ContainsRune(header.Linkname, '/') {
 				return fmt.Errorf("%s links outside its own directory, to %s", header.Name, header.Linkname)
 			}
 			if err := os.Symlink(header.Linkname, path); err != nil {
-				return err
+				return fmt.Errorf("failed to link %s to %s: %w", path, header.Linkname, err)
 			}
 		default:
 			return fmt.Errorf("%s is neither a file, a directory nor a link", header.Name)
@@ -114,7 +114,7 @@ func entryPath(name string) (string, error) {
 		return "", nil
 	}
 	if !filepath.IsLocal(cleaned) {
-		return "", fmt.Errorf("%s is not a path inside the archive", name)
+		return "", errors.New("it is not a path inside the archive")
 	}
 
 	return cleaned, nil
@@ -122,17 +122,21 @@ func entryPath(name string) (string, error) {
 
 func writeEntry(path string, contents io.Reader, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return fmt.Errorf("failed to create %s: %w", filepath.Dir(path), err)
 	}
 
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create %s: %w", path, err)
 	}
 
 	if _, err := io.Copy(file, contents); err != nil { //nolint:gosec // the archive is the one embedded in this binary
-		return errors.Join(err, file.Close())
+		return errors.Join(fmt.Errorf("failed to copy %s out of the archive: %w", path, err), file.Close())
 	}
 
-	return file.Close()
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to close %s: %w", path, err)
+	}
+
+	return nil
 }
