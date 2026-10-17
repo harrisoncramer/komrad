@@ -12,6 +12,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/harness"
+	"komrad/internal/postgres"
 )
 
 const (
@@ -33,6 +34,7 @@ type Env struct {
 	PingDatabase          func(ctx context.Context, url string) error
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
+	IsPostgresRunning     func(ctx context.Context, dir string) bool
 	ReadEngine            func(ctx context.Context, url string) (string, error)
 	ReadWorktreeOwners    func(ctx context.Context, url string) (worktreeOwners, error)
 	ReadWorkflowBases     func(ctx context.Context, url string) ([]workflowBase, error)
@@ -77,6 +79,8 @@ type Settings struct {
 	Harnesses           []harnessInfo
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
+	RunPostgres         bool
+	StateDir            string
 	Addr                string
 	EngineURL           string
 	EngineIsRemote      bool
@@ -107,6 +111,7 @@ func NewEnv(settings Settings) Env {
 		ReadFile:              os.ReadFile,
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
+		IsPostgresRunning:     postgres.IsRunning,
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.DatabaseURL)
 		},

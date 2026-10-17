@@ -36,6 +36,10 @@ func TestChecksAreWellFormed(t *testing.T) {
 			name:   "both, when the engine is this machine",
 			checks: Checks(settings),
 		},
+		{
+			name:   "engine, running its own Postgres",
+			checks: EngineChecks(Settings{RunPostgres: true}),
+		},
 	}
 
 	for _, tt := range tests {

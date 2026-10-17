@@ -17,9 +17,10 @@ const enginePasswordVariable = "KOMRAD_ENGINE_PASSWORD"
 
 func engineCmd(state *app) *cobra.Command {
 	engine := &cobra.Command{
-		Use:    "engine",
-		Short:  "Set up the engines that share a database, and who may use them",
-		Hidden: true,
+		Use:         "engine",
+		Annotations: map[string]string{needsPostgres: ""},
+		Short:       "Set up the engines that share a database, and who may use them",
+		Hidden:      true,
 	}
 
 	engine.AddCommand(&cobra.Command{

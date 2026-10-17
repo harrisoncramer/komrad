@@ -74,6 +74,10 @@ type Connection struct {
 	// Left empty this is ~/.local/state/komrad.
 	// It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 	StateDir string `mapstructure:"state_dir"`
+	// Whether komrad runs its own Postgres on this machine, keeping it under state_dir and
+	// reaching it over a socket there. `komrad start` brings it up, and the commands that need
+	// the database refuse to run while it is down.
+	RunPostgres bool `mapstructure:"run_postgres"`
 	// The https address the engine is served on, like https://komrad.example.com. Left empty the
 	// engine is local and an agent's terminal is shown by moving its own pane into the panel. It
 	// may be plain http when its host is this machine.
@@ -215,6 +219,7 @@ var connectionEnvironment = map[string]string{
 	"connection.tmux_socket":           "KOMRAD_TMUX_SOCKET",
 	"connection.cache_dir":             "KOMRAD_CACHE_DIR",
 	"connection.state_dir":             "KOMRAD_STATE_DIR",
+	"connection.run_postgres":          "KOMRAD_RUN_POSTGRES",
 }
 
 func bindEnvironment(cfg *viper.Viper) error {

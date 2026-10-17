@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 
 	"komrad/internal/agents"
 	"komrad/internal/git"
@@ -198,6 +199,7 @@ func sessionEnvArgs(state *app) []string {
 		"-e", "EDITOR=" + state.env.Editor,
 		"-e", "KOMRAD_CACHE_DIR=" + state.env.CacheDir,
 		"-e", "KOMRAD_STATE_DIR=" + state.env.StateDir,
+		"-e", "KOMRAD_RUN_POSTGRES=" + strconv.FormatBool(state.env.RunPostgres),
 	}
 }
 

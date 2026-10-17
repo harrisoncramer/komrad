@@ -239,6 +239,8 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 		Harnesses:           harnesses,
 		DatabaseURL:         a.env.DatabaseURL,
 		ReadOnlyDatabaseURL: a.env.ReadOnlyDatabaseURL,
+		RunPostgres:         a.env.RunPostgres,
+		StateDir:            a.env.StateDir,
 		Addr:                a.env.Addr,
 		EngineURL:           a.env.URL,
 		EngineIsRemote:      a.engine().IsRemote(),
