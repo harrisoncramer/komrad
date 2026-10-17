@@ -38,7 +38,7 @@ already done. It ends on the doctor's full report.
 With --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an
 answer takes it from a flag, and names the flag when none was given.
 
-The database step runs while database_url is left at its default and nothing answers there.
+The database step runs while database_url is left at its default.
 Komrad either runs Postgres under its state directory, or takes the url of a login that owns
 a Postgres you already run; --run-postgres and --owner-database-url answer it unattended.
 Either way it migrates, makes an engine named laptop, and writes the [connection] settings.

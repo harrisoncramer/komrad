@@ -67,7 +67,7 @@ You can also use the automatic installation and reconfigure anything it auto-ins
 
 ### Create your database
 
-Komrad keeps everything in Postgres. On a laptop, komrad can run Postgres for you. Every release binary carries its own Postgres, so there is nothing else to install.
+Komrad keeps everything in Postgres. On a laptop, komrad can run Postgres for you. Every release binary carries its own Postgres, so on a Mac there is nothing else to install. On Linux, that Postgres needs glibc 2.34 or newer and the libxml2, OpenSSL 3 and Kerberos libraries, which most desktop installs already have. On Debian or Ubuntu, `sudo apt install libxml2 libssl3 libgssapi-krb5-2` adds them.
 
 You can use the <Command path="setup" /> command to tell Komrad where your Postgres instance runs. If you tell it to, komrad will create the database under your <Setting path="connection.state_dir" label="state_dir" />, start it, create an engine named `laptop`, and write the <Setting path="connection" label="[connection]" /> block for you.
 

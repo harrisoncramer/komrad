@@ -20,7 +20,7 @@ const (
 )
 
 // DatabaseStep gives this machine an engine, in a Postgres komrad runs or one the person already
-// runs, while database_url is left at its default and nothing answers there.
+// runs, while database_url is left at its default.
 type DatabaseStep struct {
 	Path           string
 	Stack          config.Stack
@@ -50,14 +50,14 @@ func (s *DatabaseStep) observe(ctx context.Context, check checker) observation {
 		return observation{Verdict: verdictStop, Detail: err.Error()}
 	}
 
-	database := findingNamed(report, doctor.CheckDatabase)
-	if database.Status == doctor.StatusFail && loaded.IsDefault("database_url") {
+	if loaded.IsDefault("database_url") {
 		return observation{Verdict: verdictAsk, Detail: "no database is set up"}
 	}
 	if failed := firstFailing(report); failed != nil {
 		return stopOn(failed)
 	}
 
+	database := findingNamed(report, doctor.CheckDatabase)
 	engine := findingNamed(report, doctor.CheckEngine)
 	if cfg.Connection.RunPostgres {
 		return observation{Verdict: verdictDone, Detail: "engine " + engine.Detail + " in the Postgres komrad runs"}

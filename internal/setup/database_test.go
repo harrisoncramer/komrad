@@ -46,6 +46,15 @@ func TestDatabaseStep(t *testing.T) {
 			verdict:  verdictAsk,
 		},
 		{
+			name: "a Postgres answering at the default url is not one the person chose",
+			findings: []doctor.Finding{
+				ok(doctor.CheckConfig, ""),
+				ok(doctor.CheckDatabase, ""),
+				failed(doctor.CheckSchema),
+			},
+			verdict: verdictAsk,
+		},
+		{
 			name:     "a url the person set that nothing answers is theirs to fix",
 			config:   "[connection]\ndatabase_url = \"postgres://komrad@db.example.com/komrad\"\n",
 			findings: []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckDatabase)},
@@ -62,7 +71,8 @@ func TestDatabaseStep(t *testing.T) {
 			verdict: verdictStop,
 		},
 		{
-			name: "a schema behind the build stops",
+			name:   "a schema behind the build stops",
+			config: "[connection]\ndatabase_url = \"postgres://komrad@db.example.com/komrad\"\n",
 			findings: []doctor.Finding{
 				ok(doctor.CheckConfig, ""),
 				ok(doctor.CheckDatabase, ""),
@@ -72,7 +82,7 @@ func TestDatabaseStep(t *testing.T) {
 		},
 		{
 			name:   "an engine in the Postgres komrad runs",
-			config: "[connection]\nrun_postgres = true\n",
+			config: "[connection]\nrun_postgres = true\ndatabase_url = \"postgres://komrad_engine_laptop:pw@/komrad?host=%2Fstate%2Fpostgres\"\n",
 			findings: []doctor.Finding{
 				ok(doctor.CheckConfig, ""),
 				ok(doctor.CheckPostgres, ""),
