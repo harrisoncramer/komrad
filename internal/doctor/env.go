@@ -148,7 +148,7 @@ func runOutput(ctx context.Context, name string, args ...string) (string, error)
 }
 
 func bundledPostgres() string {
-	if !postgres.Bundled() {
+	if !postgres.IsBundled() {
 		return ""
 	}
 

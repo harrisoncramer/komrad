@@ -32,7 +32,7 @@ func unpack(dir string) error {
 		return nil
 	}
 
-	if !Bundled() {
+	if !IsBundled() {
 		return errNotBundled
 	}
 

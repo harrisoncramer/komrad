@@ -68,7 +68,7 @@ func postmasterPID(t *testing.T, dir string) int {
 
 // TestIntegrationBundleHoldsWhatKomradRuns covers the programs and extension komrad needs being in the build.
 func TestIntegrationBundleHoldsWhatKomradRuns(t *testing.T) {
-	require.True(t, Bundled(), "integration runs build with the postgres tag")
+	require.True(t, IsBundled(), "integration runs build with the postgres tag")
 
 	dir := t.TempDir()
 	require.NoError(t, unpack(dir))

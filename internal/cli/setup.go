@@ -144,7 +144,7 @@ func (a *app) setupSteps(flags setupFlags) ([]setup.Step, error) {
 		&setup.DatabaseStep{
 			File:           file,
 			Stack:          a.configStack,
-			Bundled:        postgres.Bundled(),
+			Bundled:        postgres.IsBundled(),
 			RunFlag:        flags.runPostgres,
 			OwnerURLFlag:   flags.ownerURL,
 			CreatePostgres: a.createPostgres,
