@@ -31,25 +31,9 @@ var ErrClusterExists = fail.AlreadyExists("a Postgres cluster is already set up"
 
 var errNoCluster = fail.Precondition("no Postgres is set up")
 
-// dataDir is where the cluster of one major version lives under dir.
-func dataDir(dir string) string {
-	major, _, _ := strings.Cut(Version, ".")
-
-	return filepath.Join(dir, "data-"+major)
-}
-
 // OwnerURL is the url of the login that owns komrad's database in dir.
 func OwnerURL(dir, password string) string {
 	return ownerURL(dir, password, database)
-}
-
-func ownerURL(dir, password, name string) string {
-	return (&url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(ownerLogin, password),
-		Path:     "/" + name,
-		RawQuery: url.Values{"host": {dir}}.Encode(),
-	}).String()
 }
 
 // Init sets up a new cluster in dir whose owner login takes password, starts it, and creates
@@ -92,21 +76,6 @@ func Remove(ctx context.Context, dir string) error {
 	return remove(ctx, dir)
 }
 
-func remove(ctx context.Context, dir string) error {
-	data := dataDir(dir)
-	if _, err := os.Stat(filepath.Join(data, "postmaster.pid")); err == nil {
-		if err := run(ctx, program(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
-			return fmt.Errorf("failed to stop Postgres in %s: %w", data, err)
-		}
-	}
-
-	if err := os.RemoveAll(data); err != nil {
-		return fmt.Errorf("failed to remove %s: %w", data, err)
-	}
-
-	return nil
-}
-
 // Up starts the Postgres in dir unless it is already running.
 func Up(ctx context.Context, dir string) error {
 	unlock, err := prepare(dir)
@@ -125,6 +94,37 @@ func Up(ctx context.Context, dir string) error {
 
 	if err := start(ctx, dir); err != nil {
 		return fmt.Errorf("failed to start Postgres in %s: %w", dir, err)
+	}
+
+	return nil
+}
+
+// dataDir is where the cluster of one major version lives under dir.
+func dataDir(dir string) string {
+	major, _, _ := strings.Cut(Version, ".")
+
+	return filepath.Join(dir, "data-"+major)
+}
+
+func ownerURL(dir, password, name string) string {
+	return (&url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(ownerLogin, password),
+		Path:     "/" + name,
+		RawQuery: url.Values{"host": {dir}}.Encode(),
+	}).String()
+}
+
+func remove(ctx context.Context, dir string) error {
+	data := dataDir(dir)
+	if _, err := os.Stat(filepath.Join(data, "postmaster.pid")); err == nil {
+		if err := run(ctx, program(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
+			return fmt.Errorf("failed to stop Postgres in %s: %w", data, err)
+		}
+	}
+
+	if err := os.RemoveAll(data); err != nil {
+		return fmt.Errorf("failed to remove %s: %w", data, err)
 	}
 
 	return nil

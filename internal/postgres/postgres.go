@@ -19,11 +19,6 @@ func Dir(stateDir string) string {
 	return filepath.Join(stateDir, "postgres")
 }
 
-// socketPath is the socket the server in dir listens on.
-func socketPath(dir string) string {
-	return filepath.Join(dir, ".s.PGSQL."+port)
-}
-
 // IsRunning reports whether a Postgres server accepts connections on the socket in dir.
 func IsRunning(ctx context.Context, dir string) bool {
 	dialer := net.Dialer{Timeout: dialTimeout}
@@ -34,4 +29,9 @@ func IsRunning(ctx context.Context, dir string) bool {
 	}
 
 	return conn.Close() == nil
+}
+
+// socketPath is the socket the server in dir listens on.
+func socketPath(dir string) string {
+	return filepath.Join(dir, ".s.PGSQL."+port)
 }
