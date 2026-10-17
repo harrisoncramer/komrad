@@ -23,17 +23,63 @@ func TestRequirePostgres(t *testing.T) {
 		running     bool
 		wantErr     bool
 	}{
-		{name: "migrate with Postgres down", command: "migrate", runPostgres: true, wantErr: true},
-		{name: "engine ensure with Postgres down", command: "engine ensure", runPostgres: true, wantErr: true},
-		{name: "engine grant with Postgres down", command: "engine grant", runPostgres: true, wantErr: true},
-		{name: "engine revoke with Postgres down", command: "engine revoke", runPostgres: true, wantErr: true},
-		{name: "serve with Postgres down", command: "serve", runPostgres: true, wantErr: true},
-		{name: "migrate with Postgres up", command: "migrate", runPostgres: true, running: true},
+		{
+			name:        "migrate with Postgres down",
+			command:     "migrate",
+			runPostgres: true,
+			wantErr:     true,
+		},
+		{
+			name:        "engine ensure with Postgres down",
+			command:     "engine ensure",
+			runPostgres: true,
+			wantErr:     true,
+		},
+		{
+			name:        "engine grant with Postgres down",
+			command:     "engine grant",
+			runPostgres: true,
+			wantErr:     true,
+		},
+		{
+			name:        "engine revoke with Postgres down",
+			command:     "engine revoke",
+			runPostgres: true,
+			wantErr:     true,
+		},
+		{
+			name:        "serve with Postgres down",
+			command:     "serve",
+			runPostgres: true,
+			wantErr:     true,
+		},
+		{
+			name:        "migrate with Postgres up",
+			command:     "migrate",
+			runPostgres: true,
+			running:     true,
+		},
 		{name: "migrate against a Postgres of the person's", command: "migrate"},
-		{name: "start, which brings Postgres up", command: "start", runPostgres: true},
-		{name: "stop, which needs no database", command: "stop", runPostgres: true},
-		{name: "doctor, which reports Postgres down itself", command: "doctor", runPostgres: true},
-		{name: "panel, which starts the server the way start does", command: "panel", runPostgres: true},
+		{
+			name:        "start, which brings Postgres up",
+			command:     "start",
+			runPostgres: true,
+		},
+		{
+			name:        "stop, which needs no database",
+			command:     "stop",
+			runPostgres: true,
+		},
+		{
+			name:        "doctor, which reports Postgres down itself",
+			command:     "doctor",
+			runPostgres: true,
+		},
+		{
+			name:        "panel, which starts the server the way start does",
+			command:     "panel",
+			runPostgres: true,
+		},
 	}
 
 	for _, tt := range tests {
