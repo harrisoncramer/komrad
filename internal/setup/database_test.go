@@ -133,14 +133,37 @@ func TestDatabaseStep(t *testing.T) {
 
 // TestDatabaseStepUnattendedNamesTheFlags covers that a run with nobody to ask names only the flags this build can act on.
 func TestDatabaseStepUnattendedNamesTheFlags(t *testing.T) {
-	err := (&DatabaseStep{Bundled: true}).answerUnattended()
-	require.ErrorIs(t, err, errNeedsAnswer)
-	require.ErrorContains(t, err, "--run-postgres")
+	tests := []struct {
+		name    string
+		bundled bool
+		names   []string
+		omits   []string
+	}{
+		{
+			name:  "a build carrying no Postgres",
+			names: []string{"--owner-database-url"},
+			omits: []string{"--run-postgres"},
+		},
+		{
+			name:    "a build carrying Postgres",
+			bundled: true,
+			names:   []string{"--run-postgres", "--owner-database-url"},
+		},
+	}
 
-	err = (&DatabaseStep{}).answerUnattended()
-	require.ErrorIs(t, err, errNeedsAnswer)
-	assert.NotContains(t, err.Error(), "--run-postgres")
-	assert.ErrorContains(t, err, "--owner-database-url")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := (&DatabaseStep{Bundled: tt.bundled}).answerUnattended()
+
+			require.ErrorIs(t, err, errNeedsAnswer)
+			for _, flag := range tt.names {
+				require.ErrorContains(t, err, flag)
+			}
+			for _, flag := range tt.omits {
+				assert.NotContains(t, err.Error(), flag)
+			}
+		})
+	}
 }
 
 // TestDatabaseStepRepair covers the config each answer writes, and the Postgres it made removed when joining fails.
