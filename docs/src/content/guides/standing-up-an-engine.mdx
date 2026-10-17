@@ -20,7 +20,7 @@ A replica needs its own account with each service komrad's engine depends on:
 - A Tailscale tailnet you administer, with Tailscale running on your laptop.
 - Komrad registered with your identity provider as a desktop app. [Komrad's engine](../komrads-engine/#provider-registration) covers the registration.
 - A GitHub App for the bot, with its private key stored in Secrets Manager as `komrad/github-app`. [Credentials on an engine](../engine-credentials/#registering-the-app) covers the App. The control plane reads the key at boot, so store it before the first one.
-- A GitHub OAuth app with device flow turned on, for people to authorize. It needs no callback address and no client secret. Each organisation that restricts OAuth apps needs one of its owners to approve it before people's logins reach that organisation.
+- A GitHub OAuth app with device flow turned on, for people to authorize. Device flow uses its client id alone. Each organisation that restricts OAuth apps needs one of its owners to approve it before people's logins reach that organisation.
 - An Anthropic organisation with a service account and a workspace for the bot.
 - An OpenAI project with a service account for the bot, and an admin key for that project stored in Secrets Manager.
 
@@ -89,11 +89,11 @@ Edit `~/.config/komrad/config.toml`:
 - Name the OAuth app's client id, so the panel can ask people to authorize GitHub.
 - Name the federation rule, the organisation, the service account and the workspace from the signing key step, and the OpenAI project and its service account.
 - Set the worker cap, the most workers the engine runs at once.
-- Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each agent CLI, so new agents don't stop to ask whether to trust their worktree. The runner applies it on each box.
+- Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each agent CLI, so new agents trust their worktree as they start. The runner applies it on each box.
 
 Then restart the server so it loads the new config, as [restarting](#restarting) shows.
 
-The control plane needs no agent CLI logins and no clones. Workers get model access from the control plane, and each person signs their own CLIs in on their dev box.
+Workers get model access from the control plane, and each person signs their own CLIs in on their dev box.
 
 ## Granting your own access
 
@@ -119,7 +119,7 @@ komrad open --engine remote
 
 ## Connecting the forge
 
-From your laptop, run <Command path="forge connect" args="github.com --method github-app --engine remote" />. The server mints its own tokens from the App's key, so you have nothing to paste.
+From your laptop, run <Command path="forge connect" args="github.com --method github-app --engine remote" />. The server mints its own tokens from the App's key.
 
 ## Adding a dev box
 
@@ -245,18 +245,18 @@ To rotate the GitHub App key, generate a new private key in the App's settings a
 
 To rotate the OpenAI admin key, create a new admin key for the project, store it in its secret, restart the server, then delete the old key in OpenAI. Keys the control plane already made for tasks keep working.
 
-To rotate the signing key, follow this order, so no assertion is ever signed by a key Anthropic doesn't know:
+To rotate the signing key, follow this order, so Anthropic knows every key that signs an assertion:
 
 1. Make a new key pair, and add the new public key to the issuer in the Anthropic Console beside the old one.
 2. Store the new private key in its secret and restart the server.
-3. Wait a few minutes, until no assertion signed with the old key can still be in use.
+3. Wait a few minutes, until every assertion signed with the old key has expired.
 4. Remove the old public key from the issuer.
 
 KMS rotates the key that encrypts people's logins once a year on its own, and keeps the old versions, so stored logins still decrypt.
 
 ### Tearing it down
 
-Delete every bot workflow first, archived ones included, so komrad removes each task's worker, each orchestrator's worker and their volumes. Terraform doesn't own workers or their volumes, so any left behind outlive the stack. Then run:
+Delete every bot workflow first, archived ones included, so komrad removes each task's worker, each orchestrator's worker and their volumes. Komrad makes workers and their volumes outside Terraform, so any left behind outlive the stack. Then run:
 
 ```sh
 mise run infra:engine:destroy
@@ -264,7 +264,7 @@ mise run infra:engine:destroy
 
 Terraform can't destroy the database while deletion protection is on, so set `database_deletion_protection = false` in `terraform.tfvars` and apply before you destroy. RDS takes a final snapshot of the database, and the control plane's data volume gets one too. Snapshot names have to be unique, so a second teardown needs a new snapshot name. Terraform deletes dev boxes and their volumes with the rest.
 
-Then remove the engine from Tailscale's admin console and delete its tailnet identity. Terraform doesn't own the parameter, and its path is `/<name>/tailscale/state` for the stack's `name`:
+Then remove the engine from Tailscale's admin console and delete its tailnet identity. The parameter sits outside Terraform, and its path is `/<name>/tailscale/state` for the stack's `name`:
 
 ```sh
 aws ssm delete-parameter --name /komrad-development/tailscale/state

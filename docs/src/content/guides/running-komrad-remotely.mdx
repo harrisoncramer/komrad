@@ -10,11 +10,11 @@ import { link } from "../../site";
 
 When you install komrad on a laptop, the panel and the engine both run on it, and only you can reach them.
 
-A remote engine runs where nothing sleeps. Agents keep working after you close your laptop, and other people can point their own panels at the same engine.
+A remote engine stays up around the clock. Agents keep working after you close your laptop, and other people can point their own panels at the same engine.
 
 Komrad's own development runs on a remote engine, which triages issues and fixes bugs on GitHub automatically.
 
-This guide describes the parts a remote engine needs without assuming a cloud provider. [Komrad's engine](../komrads-engine/) describes how komrad runs its own on AWS, and [credentials on an engine](../engine-credentials/) covers every key it holds. Read the <a href={link("/guides/how-it-works")}>How it works</a> guide first if you haven't. It covers the panel, the server and the API between them.
+This guide describes the parts a remote engine needs on any cloud provider. [Komrad's engine](../komrads-engine/) describes how komrad runs its own on AWS, and [credentials on an engine](../engine-credentials/) covers every key it holds. Read the <a href={link("/guides/how-it-works")}>How it works</a> guide first if you haven't. It covers the panel, the server and the API between them.
 
 ## The control plane and its boxes
 
@@ -24,7 +24,7 @@ The control plane is the one machine people reach. It runs the komrad server, ch
 
 Agents run on boxes, and a box comes in two kinds. A dev box belongs to one person, and that person's agents run there as them. A worker runs one task for the bot, the engine's own account on the forge. Komrad makes a worker when the task needs one and throws it away when the task is archived.
 
-No agent runs on the control plane, so no agent can read the credentials kept there. An agent on a dev box can reach what its person can reach. An agent on a worker can reach only its own task's repositories.
+The control plane keeps the credentials, and agents run on boxes. An agent on a dev box reaches what its person can reach. An agent on a worker reaches its own task's repositories.
 
 <figure>
   <img
@@ -33,17 +33,17 @@ No agent runs on the control plane, so no agent can read the credentials kept th
   />
 </figure>
 
-The panel never talks to a box. Every terminal, file and review the panel shows comes from the control plane, which reaches the box over its runner's stream.
+Every terminal, file and review the panel shows comes from the control plane, which reaches the box over its runner's stream.
 
 ## Workflow owners
 
-Every [workflow](../workflows/) on a remote engine has a workflow owner, the bot or one person. The workflow owner is set when the workflow is created and never changes. It decides where the workflow's agents run and whom they act as.
+Every [workflow](../workflows/) on a remote engine has a workflow owner, the bot or one person. The workflow owner is set when the workflow is created and stays for its life. It decides where the workflow's agents run and whom they act as.
 
 A person's workflow runs on that person's dev box. Its tasks, its orchestrator and its schedules all act as the person.
 
 A bot workflow runs each task on a worker of its own, and its orchestrator on one more. Its agents act as the bot, and anyone with access to the engine can start one of its tasks.
 
-A person sees their own workflows and the bot's, with every task, agent, document and review in them. Another person's workflows never appear, and a request that names one is refused as if it didn't exist. The same holds for agents, so an agent on a dev box sees what its person sees, and an agent on a worker sees only bot workflows.
+A person sees their own workflows and the bot's, with every task, agent, document and review in them. A request that names another person's workflow is refused as not found. The same holds for agents, so an agent on a dev box sees what its person sees, and an agent on a worker sees only bot workflows.
 
 ## The control plane
 
@@ -55,7 +55,7 @@ The control plane also starts, stops and removes workers as their tasks need the
 
 ## Dev boxes
 
-An operator adds a dev box for each person who works on the engine, bound to the identity that person signs in with. The box refuses everyone else. The person starts and stops it from the panel. A person without a dev box can still use bot workflows.
+An operator adds a dev box for each person who works on the engine, bound to the identity that person signs in with. The box refuses everyone else. The person starts and stops it from the panel. Every person with a grant can use bot workflows.
 
 The dev box keeps the person's home on a volume that outlives the box. Their dotfiles, their worktrees, and their own Claude and Codex logins live there. Their agents reach the forge as them, with the same access they have on their laptop.
 
@@ -65,7 +65,7 @@ A schedule on a person's workflow runs only while their dev box is up. While the
 
 A worker runs one bot task, and every agent on that task runs there. The agents reach the forge as the bot, and only on the repositories their workflow names. A bot workflow's orchestrator gets a worker of its own on the same terms.
 
-Each worker comes from the same image and holds nothing another worker needs, so an engine runs as many at once as it has running tasks. An engine setting caps the number. A task past the cap waits as queued and starts when another worker stops.
+Each worker comes from the same image and runs on its own, so an engine runs as many at once as it has running tasks. An engine setting caps the number. A task past the cap waits as queued and starts when another worker stops.
 
 A worker stops when every agent on it has been dormant for a while, and starts again when one is resumed or gets mail. Archiving the task removes the worker and keeps its volume, so restoring the task resumes its agents on a new worker. Deleting the task removes the volume.
 
@@ -75,7 +75,7 @@ A running worker holds a lease, which its runner renews over the stream. When th
 
 Every box runs a komrad runner, under an account of its own. The runner keeps one stream open to the control plane, and everything between the two crosses it. Terminals, file edits, review snapshots, hooks and agents' calls to komrad all travel that way. The stream reconnects after the control plane restarts, and the agents keep running.
 
-Agents call komrad through the runner. The control plane accepts an agent's call only for an agent on that runner's box. Agents on the same box share an account, so one agent there could pose as another, but never as an agent on a different box.
+Agents call komrad through the runner. The control plane accepts an agent's call only for an agent on that runner's box. Agents on the same box share an account, so one agent there could pose as another on the same box.
 
 [Hooks](../hooks/) stay in the control plane's hooks directory. Komrad sends each one over the stream, and the runner runs it on the box, in the directory it would run in on a laptop.
 
@@ -92,9 +92,9 @@ No box ever holds a forge token. Git and `gh` on a box reach the forge through t
   />
 </figure>
 
-The control plane picks the credential by the box. A dev box gets the person's own login. A worker gets a token that lasts an hour and covers only its task's repositories, so the forge itself refuses anything else. Komrad's own forge calls follow the same rule, and only unattended work such as pull request sync uses the bot's wider access.
+The control plane picks the credential by the box. A dev box gets the person's own login. A worker gets a token that lasts an hour and covers its task's repositories, and the forge enforces that list. Komrad's own forge calls follow the same rule, and only unattended work such as pull request sync uses the bot's wider access.
 
-Boxes reach GitHub only. A workflow on GitLab runs on a local engine.
+Boxes reach GitHub. A workflow on GitLab runs on a local engine.
 
 ## Access
 
@@ -104,11 +104,11 @@ People sign in through an OpenID Connect provider, Google or Okta for example, a
 
 The server listens only on loopback, and the proxy in front of it should be the only thing exposed to the network. Komrad's engine uses Caddy, which gets and renews its own certificate. Any proxy that speaks HTTP/2 works.
 
-Only the runner's account on each box may reach the control plane. Agents on the box can't open a connection to it themselves.
+Only the runner's account on each box may reach the control plane.
 
 <Alert variant="info">
   Operators need a shell on the control plane and on each box for upgrades and debugging. On AWS, komrad's engine uses
-  Systems Manager for shells, so nothing opens a port for SSH.
+  Systems Manager for shells.
 </Alert>
 
 The engine can also sit on a private network instead of the internet. Komrad's engine sits on Tailscale, and Tailscale issues Caddy's certificate. Other private networks, Headscale included, need your own domain with a DNS challenge or a certificate authority every laptop trusts.
@@ -126,6 +126,6 @@ Before you stand up an engine, have each of these ready or know where it will co
 - An OpenID Connect provider with komrad registered on it.
 - A GitHub App for the bot, and an OAuth app people authorize so the control plane can act as them.
 - Model access for the bot: an Anthropic organisation with workload identity federation, and an OpenAI project.
-- A way for operators to get a shell without opening a port to the internet.
+- A way for operators to get a shell on the control plane and each box.
 
 [Standing up an engine](../standing-up-an-engine/) builds all of this on AWS the way komrad's own engine does.

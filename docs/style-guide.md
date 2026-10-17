@@ -128,7 +128,7 @@ engine: A komrad server, its database and wherever its agents run. A local engin
 
 operator: A person who runs a remote engine's infrastructure. Operators grant access, add dev boxes and deploy. Not "the engine's owner".
 
-control plane: The one machine in a remote engine that people reach. It runs the server, holds every long-lived credential and runs no agent.
+control plane: The one machine in a remote engine that people reach. It runs the server and holds every long-lived credential.
 
 box: A dev box or a worker, where a remote engine's agents run. Not "machine", "VM" or "instance" in guides.
 

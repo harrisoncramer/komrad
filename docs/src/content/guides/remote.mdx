@@ -1,6 +1,6 @@
 ---
 title: Remote engines
-description: Keep the panel on your laptop and run the agents on boxes that never sleep.
+description: Keep the panel on your laptop and run the agents on boxes that stay up.
 group: start
 order: 13
 ---
@@ -45,9 +45,9 @@ To move to another engine, close the panel and run <Command path="open" args="--
 
 ## Your workflows and the bot's
 
-Every workflow on a remote engine has a workflow owner, you or the bot. The panel lists your own workflows and the bot's, and never another person's.
+Every workflow on a remote engine has a workflow owner, you or the bot. The panel lists your own workflows and the bot's.
 
-Your own workflows run on your dev box, a box that belongs to you alone. Their agents act as you, with your GitHub access. An operator adds your dev box. You start and stop it from the panel, and it keeps your home, your worktrees and your logins while it is stopped. Without a dev box you can use only bot workflows.
+Your own workflows run on your dev box, a box that belongs to you alone. Their agents act as you, with your GitHub access. An operator adds your dev box. You start and stop it from the panel, and it keeps your home, your worktrees and your logins while it is stopped.
 
 The first time your agents or the panel need GitHub, the panel shows a code and a GitHub address. Enter the code there once, and the engine acts as you on GitHub from then on.
 
@@ -63,9 +63,9 @@ One exception is a window someone fixed at a size on the box itself, by running 
 
 ## Editing files on the engine
 
-Every agent's files live on its box, so your editor opens them there. <Command path="login" /> writes an SSH host for the engine in `~/.ssh/komrad/`, named `komrad-` and the engine's name, such as `komrad-remote`. SSH to that host travels through the engine's API on your sign-in, so no box needs an SSH port.
+Every agent's files live on its box, so your editor opens them there. <Command path="login" /> writes an SSH host for the engine in `~/.ssh/komrad/`, named `komrad-` and the engine's name, such as `komrad-remote`. SSH to that host travels through the engine's API on your sign-in.
 
-The host reaches your dev box. To reach a bot task's worker, put the task's slug before the host as the SSH user, such as `fix-login@komrad-remote`. The engine starts the worker if it is stopped. The host never reaches another person's dev box.
+The host reaches your dev box. To reach a bot task's worker, put the task's slug before the host as the SSH user, such as `fix-login@komrad-remote`. The engine starts the worker if it is stopped.
 
 The edit keys use that host and pick the agent's box for you. <Key name="menu.edit" /> on an agent and <Key name="review.edit_file" /> in a review open the file with your `$EDITOR`. A terminal editor such as `nvim` runs on the box, in the pane beside the stage, so the box needs that editor installed. VS Code, Cursor and Zed open a window on your laptop that edits the box's files over the same host, once your `~/.ssh/config` includes it as below. Sublime Text and JetBrains editors cannot open files on another machine, so the edit keys refuse them.
 
@@ -81,23 +81,23 @@ Then `ssh komrad-remote` opens a shell on your dev box. <Command path="login" />
 
 Agents on your dev box use your own Claude and Codex logins. Open a shell on your dev box, start each CLI once and log in. The logins live in your home.
 
-Workers need no logins. The engine gives each worker its model access, as [credentials on an engine](../engine-credentials/#claude-on-workers) describes.
+The engine gives each worker its model access, as [credentials on an engine](../engine-credentials/#claude-on-workers) describes.
 
 ## Dotfiles
 
 Your dev box can carry your dotfiles. Name the repository and the command that installs it in a `[dotfiles]` table in the engine's file on your laptop, then run `komrad dotfiles --engine remote`. Komrad clones the repository into your home on the dev box as you, and runs the install command in a login shell there. It refuses when your dotfiles on the box have changes you haven't pushed, or come from a different repository.
 
-Komrad doesn't clone submodules. A `.gitconfig` in your dotfiles must leave the box's credential helper alone, or git on the box stops reaching GitHub. If your dotfiles switch shells, guard the line so it only runs in a terminal, such as `[ -t 1 ] && exec zsh`. Install your editor through your global mise config, so it is on the box for the edit keys.
+A `.gitconfig` in your dotfiles must leave the box's credential helper alone, or git on the box stops reaching GitHub. If your dotfiles switch shells, guard the line so it only runs in a terminal, such as `[ -t 1 ] && exec zsh`. Install your editor through your global mise config, so it is on the box for the edit keys.
 
 ## Project tools
 
-Boxes carry mise and no languages of their own. A repository pins the ones it needs, such as Go and Node, in a `mise.toml` or `.tool-versions`, and its workflow names `mise install` as its [setup command](../workflows/#worktrees). A repository with neither file gets no languages.
+Boxes carry mise. A repository pins the languages it needs, such as Go and Node, in a `mise.toml` or `.tool-versions`, and its workflow names `mise install` as its [setup command](../workflows/#worktrees).
 
 Your dev box keeps what it installs, so only the first task to ask for a version waits while it downloads. Each worker starts empty and installs what its own task needs, which can take a minute or two.
 
 ## Stopped engines and boxes
 
-An engine costs money every hour, so parts of it may be switched off when nobody is using them.
+An engine costs money every hour, so parts of it may be switched off while idle.
 
 A stopped dev box keeps its home and worktrees. Its agents stop, and you resume the ones you want once you start it again. Your workflows' schedules skip their runs while it is stopped.
 
