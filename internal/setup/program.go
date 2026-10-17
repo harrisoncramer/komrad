@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"komrad/internal/fail"
 	"komrad/internal/glyph"
@@ -49,6 +50,7 @@ type repairedMsg struct {
 type model struct {
 	look    func(Step) observation
 	fix     func(Step) error
+	fixing  *sync.Mutex
 	rows    []row
 	current int
 	form    *huh.Form
@@ -70,7 +72,12 @@ func Run(ctx context.Context, check checker, steps []Step) error {
 		rows[i] = row{step: step}
 	}
 
-	final, err := tea.NewProgram(newModel(ctx, check, rows), tea.WithContext(ctx)).Run()
+	ctx, cancel := context.WithCancel(ctx)
+	m := newModel(ctx, check, rows)
+	final, err := tea.NewProgram(m, tea.WithContext(ctx)).Run()
+	cancel()
+	m.fixing.Lock()
+	defer m.fixing.Unlock()
 	if err != nil {
 		return err
 	}
@@ -84,12 +91,27 @@ func Run(ctx context.Context, check checker, steps []Step) error {
 }
 
 func newModel(ctx context.Context, check checker, rows []row) model {
+	fixing := &sync.Mutex{}
+
 	return model{
 		look:    func(step Step) observation { return step.observe(ctx, check) },
-		fix:     func(step Step) error { return step.repair(ctx) },
+		fix:     func(step Step) error { return repairUnlessQuit(ctx, fixing, step) },
+		fixing:  fixing,
 		rows:    rows,
 		spinner: spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 	}
+}
+
+// repairUnlessQuit repairs step while holding fixing, which Run takes to wait out a repair under way.
+func repairUnlessQuit(ctx context.Context, fixing *sync.Mutex, step Step) error {
+	fixing.Lock()
+	defer fixing.Unlock()
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	return step.repair(ctx)
 }
 
 func outcome(m model) error {

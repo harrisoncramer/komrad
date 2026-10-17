@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"komrad/config"
 	"komrad/internal/doctor"
@@ -54,7 +56,8 @@ forge after setup.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := cmd.Context()
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
 
 			steps, err := state.setupSteps(flags)
 			if err != nil {
@@ -86,6 +89,9 @@ forge after setup.`,
 			}
 			if errors.Is(err, setup.ErrAborted) {
 				return err
+			}
+			if ctx.Err() != nil {
+				return fmt.Errorf("failed to finish setup: %w", context.Cause(ctx))
 			}
 
 			if _, writeErr := fmt.Fprintln(cmd.OutOrStdout()); writeErr != nil {

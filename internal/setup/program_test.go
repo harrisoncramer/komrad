@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"komrad/internal/doctor"
@@ -124,6 +125,17 @@ func TestModelObservesRepairsAndObservesAgain(t *testing.T) {
 			assert.Equal(t, tt.repairs, tt.step.repairs)
 		})
 	}
+}
+
+// TestRepairUnlessQuit covers a repair that starts after the run quit doing nothing.
+func TestRepairUnlessQuit(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	step := &fakeStep{}
+
+	require.ErrorIs(t, repairUnlessQuit(ctx, &sync.Mutex{}, step), context.Canceled)
+
+	assert.Zero(t, step.repairs)
 }
 
 // TestRunUnattended covers the plain run stopping at the first step it cannot finish.
