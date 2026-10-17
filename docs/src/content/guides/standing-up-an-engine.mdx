@@ -20,7 +20,7 @@ A replica needs its own account with each service komrad's engine depends on:
 - A Tailscale tailnet you administer, with Tailscale running on your laptop.
 - Komrad registered with your identity provider as a desktop app. [Komrad's engine](../komrads-engine/#provider-registration) covers the registration.
 - A GitHub App for the bot, with its private key stored in Secrets Manager as `komrad/github-app`. [Credentials on an engine](../engine-credentials/#registering-the-app) covers the App. The control plane reads the key at boot, so store it before the first one.
-- A GitHub OAuth app with device flow turned on, for people to authorize. It needs no callback address and no client secret.
+- A GitHub OAuth app with device flow turned on, for people to authorize. It needs no callback address and no client secret. Each organisation that restricts OAuth apps needs one of its owners to approve it before people's logins reach that organisation.
 - An Anthropic organisation with a service account and a workspace for the bot.
 - An OpenAI project with a service account for the bot, and an admin key for that project stored in Secrets Manager.
 
@@ -256,7 +256,7 @@ KMS rotates the key that encrypts people's logins once a year on its own, and ke
 
 ### Tearing it down
 
-Delete every bot task first. Terraform doesn't own workers or their volumes, so any left behind outlive the stack. Then run:
+Delete every bot workflow first, archived ones included, so komrad removes each task's worker, each orchestrator's worker and their volumes. Terraform doesn't own workers or their volumes, so any left behind outlive the stack. Then run:
 
 ```sh
 mise run infra:engine:destroy

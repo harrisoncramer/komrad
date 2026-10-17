@@ -69,7 +69,7 @@ Each worker comes from the same image and holds nothing another worker needs, so
 
 A worker stops when every agent on it has been dormant for a while, and starts again when one is resumed or gets mail. Archiving the task removes the worker and keeps its volume, so restoring the task resumes its agents on a new worker. Deleting the task removes the volume.
 
-A worker holds its task on a lease, which its runner renews over the stream. When the stream or the lease lapses, the control plane marks the worker lost and removes it. A lost worker keeps its volume, so its task restores like an archived one.
+A running worker holds a lease, which its runner renews over the stream. When the control plane stops an idle worker, it ends the lease first. When a running worker's stream or lease lapses, the control plane marks the worker lost and removes it. A lost worker keeps its volume, so its task restores like an archived one.
 
 ## The runner
 

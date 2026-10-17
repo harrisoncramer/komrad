@@ -144,9 +144,9 @@ repository set: The repositories a bot workflow's tasks may touch. The workflow'
 
 queued: Waiting for a worker, because the engine already runs as many as its cap allows. Use it for bot tasks.
 
-lease: The time a worker holds its task for, renewed over the runner's stream.
+lease: The time a running worker holds its task for, renewed over the runner's stream. A worker the control plane stops ends its lease first.
 
-lost: A worker whose stream or lease lapsed. Komrad removes the box and keeps its volume.
+lost: A running worker whose stream or lease lapsed. Komrad removes the box and keeps its volume.
 
 ### Reviews
 
