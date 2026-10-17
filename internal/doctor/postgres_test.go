@@ -78,7 +78,7 @@ func TestDatabaseCheckWaitsOnPostgres(t *testing.T) {
 		runPostgres bool
 		wantNeeds   []string
 	}{
-		{name: "komrad runs Postgres", runPostgres: true, wantNeeds: []string{"postgres"}},
+		{name: "komrad runs Postgres", runPostgres: true, wantNeeds: []string{CheckPostgres}},
 		{name: "a Postgres of the person's", runPostgres: false, wantNeeds: nil},
 	}
 
@@ -87,9 +87,9 @@ func TestDatabaseCheckWaitsOnPostgres(t *testing.T) {
 			checks := EngineChecks(Settings{RunPostgres: tt.runPostgres})
 			names := xslice.Map(checks, func(check Check) string { return check.Name })
 
-			assert.Equal(t, tt.runPostgres, slices.Contains(names, "postgres"))
+			assert.Equal(t, tt.runPostgres, slices.Contains(names, CheckPostgres))
 			for _, check := range checks {
-				if check.Name == "database" {
+				if check.Name == CheckDatabase {
 					assert.Equal(t, tt.wantNeeds, check.Needs)
 				}
 			}
