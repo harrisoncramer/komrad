@@ -12,12 +12,22 @@ func TestPostgresCheck(t *testing.T) {
 	tests := []struct {
 		name       string
 		running    bool
+		noCluster  bool
 		version    string
 		want       Status
 		wantDetail string
 		wantCode   string
 		wantFix    string
 	}{
+		{
+			name:       "down, with no cluster set up",
+			noCluster:  true,
+			version:    "18.6.0",
+			want:       StatusFail,
+			wantDetail: "/state/postgres",
+			wantCode:   "postgres_no_cluster",
+			wantFix:    fixNoPostgresCluster,
+		},
 		{
 			name:       "down",
 			version:    "18.6.0",
@@ -52,9 +62,10 @@ func TestPostgresCheck(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			env := Env{
-				Settings:          Settings{RunPostgres: true, StateDir: "/state"},
-				IsPostgresRunning: func(context.Context, string) bool { return tt.running },
-				PostgresVersion:   tt.version,
+				Settings:           Settings{RunPostgres: true, StateDir: "/state"},
+				IsPostgresRunning:  func(context.Context, string) bool { return tt.running },
+				HasPostgresCluster: func(string) bool { return !tt.noCluster },
+				PostgresVersion:    tt.version,
 			}
 
 			result := newPostgresCheck().Run(t.Context(), env)

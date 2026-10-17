@@ -35,6 +35,7 @@ type Env struct {
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
 	IsPostgresRunning     func(ctx context.Context, dir string) bool
+	HasPostgresCluster    func(dir string) bool
 	// PostgresVersion is the Postgres this binary carries, and empty when it carries none.
 	PostgresVersion    string
 	ReadEngine         func(ctx context.Context, url string) (string, error)
@@ -114,6 +115,7 @@ func NewEnv(settings Settings) Env {
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
 		IsPostgresRunning:     postgres.IsRunning,
+		HasPostgresCluster:    postgres.HasCluster,
 		PostgresVersion:       bundledPostgres(),
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.DatabaseURL)

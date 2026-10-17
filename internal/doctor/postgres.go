@@ -6,7 +6,10 @@ import (
 	"komrad/internal/postgres"
 )
 
-const fixPostgresNotBundled = "install a release binary, or build with mise run go:build"
+const (
+	fixPostgresNotBundled = "install a release binary, or build with mise run go:build"
+	fixNoPostgresCluster  = "move your config file aside, then run komrad setup"
+)
 
 var (
 	errPostgresDown = &problemError{
@@ -16,6 +19,10 @@ var (
 	errPostgresNotBundled = &problemError{
 		Code:    "postgres_not_bundled",
 		Message: "this build of komrad carries no Postgres, so it cannot start the one komrad runs",
+	}
+	errNoPostgresCluster = &problemError{
+		Code:    "postgres_no_cluster",
+		Message: "the config says komrad runs Postgres here, but none is set up under the state directory",
 	}
 )
 
@@ -32,6 +39,8 @@ func newPostgresCheck() Check {
 			switch {
 			case !running && env.PostgresVersion == "":
 				return fail(errPostgresNotBundled, dir, fixPostgresNotBundled)
+			case !running && !env.HasPostgresCluster(dir):
+				return fail(errNoPostgresCluster, dir, fixNoPostgresCluster)
 			case !running:
 				return fail(errPostgresDown, dir, "komrad start")
 			case env.PostgresVersion == "":

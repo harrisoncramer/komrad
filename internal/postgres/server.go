@@ -88,8 +88,8 @@ func Up(ctx context.Context, dir string) error {
 		return nil
 	}
 
-	if _, err := os.Stat(dataDir(dir)); err != nil {
-		return fmt.Errorf("%w in %s, so run komrad setup", errNoCluster, dir)
+	if !HasCluster(dir) {
+		return fmt.Errorf("%w in %s, so move your config file aside and run komrad setup", errNoCluster, dir)
 	}
 
 	if err := start(ctx, dir); err != nil {
@@ -97,6 +97,13 @@ func Up(ctx context.Context, dir string) error {
 	}
 
 	return nil
+}
+
+// HasCluster reports whether dir holds a cluster for the Postgres this build carries.
+func HasCluster(dir string) bool {
+	_, err := os.Stat(dataDir(dir))
+
+	return err == nil
 }
 
 // dataDir is where the cluster of one major version lives under dir.
