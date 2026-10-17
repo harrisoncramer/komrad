@@ -17,7 +17,33 @@ The panel runs on your machine. It renders the view of komrad's state in your te
 
 The server runs your agents and records their activity in Postgres, so you can search chat history, spawn several agents at once, or have them communicate. The server, along with its database and agents, makes up an _engine_. Komrad's engines can run on your machine or on a remote box and one panel can connect to different engines.
 
-## Install the binary
+## Quick start
+
+Komrad runs its agents in tmux, so install tmux 3.3 or newer first. Then run the install script.
+
+```sh
+curl -fsSL https://github.com/harrisoncramer/komrad/releases/latest/download/install.sh | sh
+```
+
+The script downloads the newest stable release for your platform into `~/.local/bin`, checks it against the release's checksums, and runs <Command path="setup" />. Setup asks for whatever the machine is missing, such as where to keep the database, then prints a report from <Command path="doctor" />.
+
+Run <Command path="open" /> to open the panel.
+
+To install the `tip` release, set `KOMRAD_VERSION=tip` on the `sh` side of the pipe. `KOMRAD_VERSION` also takes a release tag such as `v0.3.0`. `KOMRAD_INSTALL_DIR` picks a directory other than `~/.local/bin`.
+
+```sh
+curl -fsSL https://github.com/harrisoncramer/komrad/releases/latest/download/install.sh | KOMRAD_VERSION=tip sh
+```
+
+## Manual installation
+
+The install script downloads the binary, checks it and runs setup. To do each step yourself, follow this section in order.
+
+<Alert title="Having trouble?" variant="warning">
+  Run <Command path="doctor" /> to check for configuration or installation issues.
+</Alert>
+
+### Install the binary
 
 ```sh
 mkdir -p ~/.local/bin
@@ -51,19 +77,9 @@ curl -fsSL -o ~/.local/bin/komrad https://github.com/harrisoncramer/komrad/relea
 chmod +x ~/.local/bin/komrad
 ```
 
-## Automatic installation
+### Run setup
 
-Run <Command path="setup" /> once the binary is on your PATH. It walks through the machine one step at a time.
-
-## Manual installation
-
-If you'd rather step through the installation yourself, follow the steps below in order.
-
-<Alert title="Having trouble?" variant="warning">
-  Run <Command path="doctor" /> to check for configuration or installation issues.
-</Alert>
-
-You can also use the automatic installation and reconfigure anything it auto-installs for you.
+Run <Command path="setup" /> once the binary is on your PATH. It walks through the machine one step at a time. To set the machine up by hand instead, follow the rest of this section.
 
 ### Create your database
 
@@ -179,7 +195,7 @@ Some hosts take SSH paths like `ssh.gitlab.example.com`. List each pair in <Sett
 
 ## Upgrading
 
-Download the new binary over the old one, then stop the server and migrate.
+Run the install script again, or download the new binary over the old one, then stop the server and migrate.
 
 ```sh
 komrad stop

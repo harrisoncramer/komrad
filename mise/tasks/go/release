@@ -7,7 +7,8 @@ usage() {
 	echo "Usage: mise run go:release"
 	echo
 	echo "Builds one static binary per supported platform into dist/, stamped with the"
-	echo "version the release workflow publishes, plus a checksums.txt covering them."
+	echo "version the release workflow publishes, plus a checksums.txt covering them and"
+	echo "the install script that downloads them."
 	echo
 	echo "The stamp is 'v0.0.0-main.<shortsha>' unless KOMRAD_VERSION names another one."
 }
@@ -44,6 +45,8 @@ for TARGET in "${TARGETS[@]}"; do
 
 	go_build_binary "$os" "$arch" "$VERSION" "$out"
 done
+
+cp install.sh dist/install.sh
 
 cd dist
 if command -v sha256sum >/dev/null 2>&1; then
