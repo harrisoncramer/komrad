@@ -108,7 +108,7 @@ sha256_of() {
 	fi
 }
 
-# postgres_target is the name the Postgres builds give a Go platform.
+# postgres_target is the name the embedded Postgres archives give a Go platform.
 postgres_target() {
 	case "$1/$2" in
 	darwin/arm64) echo aarch64-apple-darwin ;;
@@ -116,14 +116,14 @@ postgres_target() {
 	linux/amd64) echo x86_64-unknown-linux-gnu ;;
 	linux/arm64) echo aarch64-unknown-linux-gnu ;;
 	*)
-		echo "there is no Postgres build for $1/$2" >&2
+		echo "there is no embedded Postgres for $1/$2" >&2
 		return 1
 		;;
 	esac
 }
 
-# fetch_postgres puts the pinned Postgres build for one platform where the postgres build tag
-# embeds it from, refusing a download whose checksum is not the pinned one.
+# fetch_postgres puts the pinned embedded Postgres archive for one platform where the postgres
+# build tag embeds it from, refusing a download whose checksum is not the pinned one.
 fetch_postgres() {
 	local os="$1" arch="$2"
 	local root target line sum name release entry tmp out

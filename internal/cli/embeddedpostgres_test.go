@@ -24,47 +24,47 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 		wantErr          bool
 	}{
 		{
-			name:             "migrate with Postgres down",
+			name:             "migrate with the embedded Postgres down",
 			command:          "migrate",
 			embeddedPostgres: true,
 			wantErr:          true,
 		},
 		{
-			name:             "engine ensure with Postgres down",
+			name:             "engine ensure with the embedded Postgres down",
 			command:          "engine ensure",
 			embeddedPostgres: true,
 			wantErr:          true,
 		},
 		{
-			name:             "engine grant with Postgres down",
+			name:             "engine grant with the embedded Postgres down",
 			command:          "engine grant",
 			embeddedPostgres: true,
 			wantErr:          true,
 		},
 		{
-			name:             "engine revoke with Postgres down",
+			name:             "engine revoke with the embedded Postgres down",
 			command:          "engine revoke",
 			embeddedPostgres: true,
 			wantErr:          true,
 		},
 		{
-			name:             "serve with Postgres down",
+			name:             "serve with the embedded Postgres down",
 			command:          "serve",
 			embeddedPostgres: true,
 			wantErr:          true,
 		},
 		{
-			name:             "migrate with Postgres up",
+			name:             "migrate with the embedded Postgres up",
 			command:          "migrate",
 			embeddedPostgres: true,
 			running:          true,
 		},
 		{
-			name:    "migrate against a Postgres of the person's",
+			name:    "migrate against a Postgres the person runs",
 			command: "migrate",
 		},
 		{
-			name:             "start, which brings Postgres up",
+			name:             "start, which brings the embedded Postgres up",
 			command:          "start",
 			embeddedPostgres: true,
 		},
@@ -74,7 +74,7 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 			embeddedPostgres: true,
 		},
 		{
-			name:             "doctor, which reports Postgres down itself",
+			name:             "doctor, which reports the embedded Postgres down itself",
 			command:          "doctor",
 			embeddedPostgres: true,
 		},

@@ -324,8 +324,8 @@ func TestIntegrationRestartPanel(t *testing.T) {
 	}
 }
 
-// TestIntegrationOpenStartsPostgresBesideALivePanel covers reattaching to a panel whose Postgres went down.
-func TestIntegrationOpenStartsPostgresBesideALivePanel(t *testing.T) {
+// TestIntegrationOpenStartsEmbeddedPostgresBesideALivePanel covers reattaching to a panel whose embedded Postgres went down.
+func TestIntegrationOpenStartsEmbeddedPostgresBesideALivePanel(t *testing.T) {
 	socket := throwawaySocket(t)
 	panelSession(t, socket)
 

@@ -109,20 +109,20 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 	}, names)
 }
 
-// TestDatabaseCheckWaitsOnPostgres covers a down embedded Postgres reporting once, as the thing to start.
-func TestDatabaseCheckWaitsOnPostgres(t *testing.T) {
+// TestDatabaseCheckWaitsOnEmbeddedPostgres covers a down embedded Postgres reporting once, as the thing to start.
+func TestDatabaseCheckWaitsOnEmbeddedPostgres(t *testing.T) {
 	tests := []struct {
 		name             string
 		embeddedPostgres bool
 		wantNeeds        []string
 	}{
 		{
-			name: "a Postgres of the person's",
+			name: "a Postgres the person runs",
 		},
 		{
 			name:             "embedded Postgres",
 			embeddedPostgres: true,
-			wantNeeds:        []string{CheckPostgres},
+			wantNeeds:        []string{CheckEmbeddedPostgres},
 		},
 	}
 
@@ -131,7 +131,7 @@ func TestDatabaseCheckWaitsOnPostgres(t *testing.T) {
 			checks := EngineChecks(Settings{EmbeddedPostgres: tt.embeddedPostgres})
 			names := xslice.Map(checks, func(check Check) string { return check.Name })
 
-			assert.Equal(t, tt.embeddedPostgres, slices.Contains(names, CheckPostgres))
+			assert.Equal(t, tt.embeddedPostgres, slices.Contains(names, CheckEmbeddedPostgres))
 			for _, check := range checks {
 				if check.Name == CheckDatabase {
 					assert.Equal(t, tt.wantNeeds, check.Needs)

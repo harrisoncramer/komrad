@@ -30,20 +30,20 @@ const (
 
 // TestIntegrationBundleHoldsWhatKomradRuns covers the programs and extension komrad needs being in the build.
 func TestIntegrationBundleHoldsWhatKomradRuns(t *testing.T) {
-	require.True(t, IsBundled(), "integration runs build with the postgres tag")
+	require.True(t, IsEmbedded(), "integration runs build with the postgres tag")
 
 	dir := t.TempDir()
-	require.NoError(t, unpackBundledPrograms(dir))
+	require.NoError(t, unpackEmbeddedPrograms(dir))
 
 	for _, name := range []string{"bin/postgres", "bin/initdb", "bin/pg_ctl", "bin/pg_upgrade", "share/extension/pg_trgm.control"} {
 		assert.FileExists(t, filepath.Join(getUnpackedDir(dir, Version), name))
 	}
 }
 
-// TestIntegrationCreateClusterStartsAPostgresOnlyTheSocketReaches covers a new cluster answering the owner
+// TestIntegrationCreateClusterListensOnlyOnTheSocket covers a new cluster answering the owner
 // over its socket and nobody over the network or without a password, whatever port and locale the
 // environment names.
-func TestIntegrationCreateClusterStartsAPostgresOnlyTheSocketReaches(t *testing.T) {
+func TestIntegrationCreateClusterListensOnlyOnTheSocket(t *testing.T) {
 	t.Setenv("PGPORT", "1")
 	t.Setenv("LC_ALL", "missing.UTF-8")
 	dir := createCluster(t)
@@ -60,7 +60,7 @@ func TestIntegrationCreateClusterStartsAPostgresOnlyTheSocketReaches(t *testing.
 	require.Error(t, err, "a login without the password is refused")
 }
 
-// TestIntegrationStartKeepsOnePostgres covers Start leaving a running Postgres alone, however many
+// TestIntegrationStartKeepsOnePostgres covers Start leaving a running embedded Postgres alone, however many
 // processes ask at once.
 func TestIntegrationStartKeepsOnePostgres(t *testing.T) {
 	dir := createCluster(t)
@@ -84,7 +84,7 @@ func TestIntegrationStartKeepsOnePostgres(t *testing.T) {
 	assert.True(t, IsRunning(t.Context(), dir))
 }
 
-// TestIntegrationStartRecoversFromACrash covers rows surviving a Postgres killed without warning, and
+// TestIntegrationStartRecoversFromACrash covers rows surviving an embedded Postgres killed without warning, and
 // lock files from before a reboot whose PID a live process now holds.
 func TestIntegrationStartRecoversFromACrash(t *testing.T) {
 	dir := createCluster(t)

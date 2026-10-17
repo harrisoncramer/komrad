@@ -28,9 +28,9 @@ const (
 )
 
 // ErrClusterExists is what CreateCluster returns when dir already holds a cluster.
-var ErrClusterExists = fail.AlreadyExists("a Postgres cluster is already set up")
+var ErrClusterExists = fail.AlreadyExists("an embedded Postgres cluster is already set up")
 
-var errNoCluster = fail.Precondition("no Postgres is set up")
+var errNoCluster = fail.Precondition("no embedded Postgres is set up")
 
 // BuildOwnerURL is the url of the login that owns komrad's database in dir.
 func BuildOwnerURL(dir, password string) string {
@@ -66,7 +66,7 @@ func CreateCluster(ctx context.Context, dir, password string) error {
 	return nil
 }
 
-// RemoveCluster stops the Postgres in dir and deletes its cluster, with every row in it.
+// RemoveCluster stops the embedded Postgres in dir and deletes its cluster, with every row in it.
 func RemoveCluster(ctx context.Context, dir string) error {
 	unlock, err := takeLock(dir)
 	if err != nil {
@@ -77,11 +77,11 @@ func RemoveCluster(ctx context.Context, dir string) error {
 	return stopAndRemoveCluster(ctx, dir)
 }
 
-// Start starts the Postgres in dir unless it is already running.
+// Start starts the embedded Postgres in dir unless it is already running.
 func Start(ctx context.Context, dir string) error {
 	unlock, err := lockAndUnpack(dir)
 	if err != nil {
-		return fmt.Errorf("failed to start Postgres in %s: %w", dir, err)
+		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
 	}
 	defer unlock()
 
@@ -98,13 +98,13 @@ func Start(ctx context.Context, dir string) error {
 	}
 
 	if err := startServer(ctx, dir); err != nil {
-		return fmt.Errorf("failed to start Postgres in %s: %w", dir, err)
+		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
 	}
 
 	return nil
 }
 
-// HasCluster reports whether dir holds a cluster for the Postgres this build carries.
+// HasCluster reports whether dir holds a cluster for the embedded Postgres this build carries.
 func HasCluster(dir string) bool {
 	_, err := os.Stat(getDataDir(dir))
 
@@ -131,7 +131,7 @@ func stopAndRemoveCluster(ctx context.Context, dir string) error {
 	data := getDataDir(dir)
 	if _, err := os.Stat(getPIDFilePath(dir)); err == nil {
 		if err := runProgram(ctx, getProgramPath(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
-			return fmt.Errorf("failed to stop Postgres in %s: %w", data, err)
+			return fmt.Errorf("failed to stop the embedded Postgres in %s: %w", data, err)
 		}
 	}
 
@@ -142,7 +142,7 @@ func stopAndRemoveCluster(ctx context.Context, dir string) error {
 	return nil
 }
 
-// lockAndUnpack takes the lock in dir and unpacks the bundled programs under it.
+// lockAndUnpack takes the lock in dir and unpacks the embedded Postgres programs under it.
 func lockAndUnpack(dir string) (func(), error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create %s: %w", dir, err)
@@ -153,10 +153,10 @@ func lockAndUnpack(dir string) (func(), error) {
 		return nil, fmt.Errorf("failed to lock %s: %w", dir, err)
 	}
 
-	if err := unpackBundledPrograms(dir); err != nil {
+	if err := unpackEmbeddedPrograms(dir); err != nil {
 		unlock()
 
-		return nil, fmt.Errorf("failed to unpack Postgres into %s: %w", dir, err)
+		return nil, fmt.Errorf("failed to unpack the embedded Postgres into %s: %w", dir, err)
 	}
 
 	return unlock, nil
@@ -166,11 +166,11 @@ func lockAndUnpack(dir string) (func(), error) {
 func takeLock(dir string) (func(), error) {
 	file, err := os.OpenFile(filepath.Join(dir, "lock"), os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open the Postgres lock in %s: %w", dir, err)
+		return nil, fmt.Errorf("failed to open the embedded Postgres lock in %s: %w", dir, err)
 	}
 
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
-		return nil, errors.Join(fmt.Errorf("failed to take the Postgres lock in %s: %w", dir, err), file.Close())
+		return nil, errors.Join(fmt.Errorf("failed to take the embedded Postgres lock in %s: %w", dir, err), file.Close())
 	}
 
 	return func() { _ = file.Close() }, nil
@@ -214,7 +214,7 @@ func runInitdb(ctx context.Context, dir, data, password string) error {
 	return nil
 }
 
-// removeStaleLockFiles deletes the lock files a Postgres in dir wrote before the machine last booted.
+// removeStaleLockFiles deletes the lock files the embedded Postgres in dir wrote before the machine last booted.
 func removeStaleLockFiles(dir string) error {
 	boot, err := readBootTime()
 	if err != nil {
@@ -242,7 +242,7 @@ func removeStaleLockFiles(dir string) error {
 	return nil
 }
 
-// startServer writes the settings that keep Postgres off the network and on the socket in dir,
+// startServer writes the settings that keep the embedded Postgres off the network and on the socket in dir,
 // then starts it and waits for it to accept connections.
 func startServer(ctx context.Context, dir string) error {
 	data := getDataDir(dir)
@@ -274,7 +274,7 @@ func buildSettingsFile(dir string) string {
 func createDatabase(ctx context.Context, dir, password string) error {
 	conn, err := pgx.Connect(ctx, buildOwnerURL(dir, password, "postgres"))
 	if err != nil {
-		return fmt.Errorf("failed to connect to the new Postgres: %w", err)
+		return fmt.Errorf("failed to connect to the new embedded Postgres: %w", err)
 	}
 	defer conn.Close(ctx)
 
@@ -298,7 +298,7 @@ func runProgram(ctx context.Context, path string, args ...string) error {
 }
 
 // getEnvironmentWithoutPG is this process's environment without the PG variables that would point
-// Postgres's own programs somewhere else.
+// the embedded Postgres programs somewhere else.
 func getEnvironmentWithoutPG() []string {
 	kept := make([]string, 0, len(os.Environ()))
 	for _, variable := range os.Environ() {

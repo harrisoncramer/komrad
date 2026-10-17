@@ -1,9 +1,9 @@
 package postgres
 
-// Version is the Postgres release a build made with the postgres tag carries.
+// Version is the release of the embedded Postgres a build made with the postgres tag carries.
 const Version = "18.6.0"
 
-// IsBundled reports whether this build carries a Postgres of its own.
-func IsBundled() bool {
+// IsEmbedded reports whether this build carries the embedded Postgres.
+func IsEmbedded() bool {
 	return len(bundle) > 0
 }

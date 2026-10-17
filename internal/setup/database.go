@@ -20,7 +20,7 @@ const (
 type DatabaseStep struct {
 	File                   *ConfigFile
 	Stack                  config.Stack
-	Bundled                bool
+	HasEmbeddedPostgres    bool
 	EmbeddedPostgresFlag   bool
 	OwnerURLFlag           string
 	CreateEmbeddedPostgres func(ctx context.Context) (string, error)
@@ -35,8 +35,8 @@ func (s *DatabaseStep) name() string {
 }
 
 func (s *DatabaseStep) observe(ctx context.Context, check checker) observation {
-	report := check(ctx, doctor.CheckConfig, doctor.CheckPostgres, doctor.CheckDatabase, doctor.CheckSchema, doctor.CheckEngine)
-	for _, name := range []string{doctor.CheckConfig, doctor.CheckPostgres} {
+	report := check(ctx, doctor.CheckConfig, doctor.CheckEmbeddedPostgres, doctor.CheckDatabase, doctor.CheckSchema, doctor.CheckEngine)
+	for _, name := range []string{doctor.CheckConfig, doctor.CheckEmbeddedPostgres} {
 		if finding := findingNamed(report, name); finding.Status == doctor.StatusFail {
 			return stopOn(&finding)
 		}
@@ -71,7 +71,7 @@ func (s *DatabaseStep) answerUnattended() error {
 	case s.OwnerURLFlag != "":
 		s.choice = choiceOwnerURL
 		s.pasted = s.OwnerURLFlag
-	case s.Bundled:
+	case s.HasEmbeddedPostgres:
 		return fmt.Errorf("%w: pass --embedded-postgres, or --owner-database-url with a login that owns your database", errNeedsAnswer)
 	default:
 		return fmt.Errorf("%w: pass --owner-database-url with a login that owns your database", errNeedsAnswer)
@@ -86,7 +86,7 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 	if embeddedPostgres {
 		created, err := s.CreateEmbeddedPostgres(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to set up Postgres: %w", err)
+			return fmt.Errorf("failed to set up the embedded Postgres: %w", err)
 		}
 		ownerURL = created
 	}
@@ -115,7 +115,7 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 	return nil
 }
 
-// undo removes the Postgres this run created when it failed before the config held its owner.
+// undo removes the embedded Postgres this run created when it failed before the config held its owner.
 func (s *DatabaseStep) undo(ctx context.Context, err error) error {
 	if s.choice != choiceEmbeddedPostgres {
 		return err

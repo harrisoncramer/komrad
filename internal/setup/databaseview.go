@@ -12,7 +12,7 @@ import (
 
 func (s *DatabaseStep) question() *huh.Form {
 	options := []huh.Option[string]{huh.NewOption("A Postgres I already run. Paste its URL.", choiceOwnerURL)}
-	if s.Bundled {
+	if s.HasEmbeddedPostgres {
 		options = append([]huh.Option[string]{huh.NewOption("On this machine, in the embedded Postgres.", choiceEmbeddedPostgres)}, options...)
 	}
 	s.choice = options[0].Value

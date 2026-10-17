@@ -14,9 +14,9 @@ import (
 	"komrad/internal/fail"
 )
 
-var errNotBundled = fail.Precondition("this build of komrad carries no embedded Postgres, so install a release binary or build with mise run go:build")
+var errNotEmbedded = fail.Precondition("this build of komrad carries no embedded Postgres, so install a release binary or build with mise run go:build")
 
-// getUnpackedDir is where the programs of one Postgres version live under dir.
+// getUnpackedDir is where the programs of one embedded Postgres version live under dir.
 func getUnpackedDir(dir, version string) string {
 	return filepath.Join(dir, version)
 }
@@ -25,29 +25,29 @@ func getProgramPath(dir, name string) string {
 	return filepath.Join(getUnpackedDir(dir, Version), "bin", name)
 }
 
-// unpackBundledPrograms writes the bundled Postgres programs under dir, once for each version.
-func unpackBundledPrograms(dir string) error {
+// unpackEmbeddedPrograms writes the embedded Postgres programs under dir, once for each version.
+func unpackEmbeddedPrograms(dir string) error {
 	target := getUnpackedDir(dir, Version)
 	if _, err := os.Stat(target); err == nil {
 		return nil
 	}
 
-	if !IsBundled() {
-		return errNotBundled
+	if !IsEmbedded() {
+		return errNotEmbedded
 	}
 
 	staging, err := os.MkdirTemp(dir, ".unpack-")
 	if err != nil {
-		return fmt.Errorf("failed to create a directory to unpack Postgres into: %w", err)
+		return fmt.Errorf("failed to create a directory to unpack the embedded Postgres into: %w", err)
 	}
 	defer os.RemoveAll(staging) //nolint:errcheck // gone once renamed, and a leftover is only space
 
 	if err := extractGzippedTar(bytes.NewReader(bundle), staging); err != nil {
-		return fmt.Errorf("failed to unpack Postgres %s: %w", Version, err)
+		return fmt.Errorf("failed to unpack the embedded Postgres %s: %w", Version, err)
 	}
 
 	if err := os.Rename(staging, target); err != nil { //nolint:forbidigo // a directory, which xfile.WriteAtomic does not move
-		return fmt.Errorf("failed to move Postgres %s into %s: %w", Version, target, err)
+		return fmt.Errorf("failed to move the embedded Postgres %s into %s: %w", Version, target, err)
 	}
 
 	return nil

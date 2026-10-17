@@ -145,7 +145,7 @@ func (a *app) setupSteps(flags setupFlags) ([]setup.Step, error) {
 		&setup.DatabaseStep{
 			File:                   file,
 			Stack:                  a.configStack,
-			Bundled:                postgres.IsBundled(),
+			HasEmbeddedPostgres:    postgres.IsEmbedded(),
 			EmbeddedPostgresFlag:   flags.embeddedPostgres,
 			OwnerURLFlag:           flags.ownerURL,
 			CreateEmbeddedPostgres: a.createEmbeddedPostgres,
@@ -207,7 +207,7 @@ func (a *app) createEmbeddedPostgres(ctx context.Context) (string, error) {
 	dir := postgres.GetDir(a.env.StateDir)
 	err = postgres.CreateCluster(ctx, dir, password)
 	if errors.Is(err, postgres.ErrClusterExists) {
-		return "", fmt.Errorf("%w, and no config holds its owner's password, so stop the Postgres running from %s, remove that directory, and run setup again", err, dir)
+		return "", fmt.Errorf("%w, and no config holds its owner's password, so stop the embedded Postgres running from %s, remove that directory, and run setup again", err, dir)
 	}
 	if err != nil {
 		return "", err
@@ -216,7 +216,7 @@ func (a *app) createEmbeddedPostgres(ctx context.Context) (string, error) {
 	return postgres.BuildOwnerURL(dir, password), nil
 }
 
-// removeEmbeddedPostgres deletes the Postgres createEmbeddedPostgres set up.
+// removeEmbeddedPostgres deletes the embedded Postgres createEmbeddedPostgres set up.
 func (a *app) removeEmbeddedPostgres(ctx context.Context) error {
 	return postgres.RemoveCluster(ctx, postgres.GetDir(a.env.StateDir))
 }

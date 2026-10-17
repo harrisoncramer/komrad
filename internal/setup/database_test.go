@@ -60,7 +60,7 @@ func TestDatabaseStep(t *testing.T) {
 			config: "[connection]\nembedded_postgres = true\n",
 			findings: []doctor.Finding{
 				ok(doctor.CheckConfig, ""),
-				failed(doctor.CheckPostgres),
+				failed(doctor.CheckEmbeddedPostgres),
 				failed(doctor.CheckDatabase),
 			},
 			verdict: verdictStop,
@@ -80,7 +80,7 @@ func TestDatabaseStep(t *testing.T) {
 			config: "[connection]\nembedded_postgres = true\ndatabase_url = \"postgres://komrad_engine_default:pw@/komrad?host=%2Fstate%2Fpostgres\"\n",
 			findings: []doctor.Finding{
 				ok(doctor.CheckConfig, ""),
-				ok(doctor.CheckPostgres, ""),
+				ok(doctor.CheckEmbeddedPostgres, ""),
 				ok(doctor.CheckDatabase, ""),
 				ok(doctor.CheckSchema, ""),
 				ok(doctor.CheckEngine, "default"),
@@ -108,26 +108,26 @@ func TestDatabaseStep(t *testing.T) {
 // TestDatabaseStepUnattendedNamesTheFlags covers that a run with nobody to ask names only the flags this build can act on.
 func TestDatabaseStepUnattendedNamesTheFlags(t *testing.T) {
 	tests := []struct {
-		name    string
-		bundled bool
-		names   []string
-		omits   []string
+		name                string
+		hasEmbeddedPostgres bool
+		names               []string
+		omits               []string
 	}{
 		{
-			name:  "a build carrying no Postgres",
+			name:  "a build carrying no embedded Postgres",
 			names: []string{"--owner-database-url"},
 			omits: []string{"--embedded-postgres"},
 		},
 		{
-			name:    "a build carrying Postgres",
-			bundled: true,
-			names:   []string{"--embedded-postgres", "--owner-database-url"},
+			name:                "a build carrying the embedded Postgres",
+			hasEmbeddedPostgres: true,
+			names:               []string{"--embedded-postgres", "--owner-database-url"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := (&DatabaseStep{Bundled: tt.bundled}).answerUnattended()
+			err := (&DatabaseStep{HasEmbeddedPostgres: tt.hasEmbeddedPostgres}).answerUnattended()
 
 			require.ErrorIs(t, err, errNeedsAnswer)
 			for _, flag := range tt.names {
@@ -140,7 +140,7 @@ func TestDatabaseStepUnattendedNamesTheFlags(t *testing.T) {
 	}
 }
 
-// TestDatabaseStepRepair covers the config each answer writes, and the Postgres it made removed when creating the engine fails.
+// TestDatabaseStepRepair covers the config each answer writes, and the embedded Postgres removed when creating the engine fails.
 func TestDatabaseStepRepair(t *testing.T) {
 	clearConnectionEnv(t)
 
@@ -158,7 +158,7 @@ func TestDatabaseStepRepair(t *testing.T) {
 		after            string
 	}{
 		{
-			name:             "the Postgres it made is removed when creating the engine fails",
+			name:             "the embedded Postgres is removed when creating the engine fails",
 			embeddedPostgres: true,
 			createEngineErr:  errors.New("migrate refused"),
 			removed:          true,

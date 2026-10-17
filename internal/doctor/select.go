@@ -4,18 +4,18 @@ import "slices"
 
 // The names of the checks a caller picks out of a list by name.
 const (
-	CheckConfig         = "config"
-	CheckDefaultHarness = "default harness"
-	CheckContext        = "context"
-	CheckServer         = "server"
-	CheckForges         = "forges"
-	CheckTmux           = "tmux"
-	CheckTmuxVersion    = "tmux version"
-	CheckTmuxShell      = "tmux shell"
-	CheckPostgres       = "postgres"
-	CheckDatabase       = "database"
-	CheckSchema         = "schema"
-	CheckEngine         = "engine"
+	CheckConfig           = "config"
+	CheckDefaultHarness   = "default harness"
+	CheckContext          = "context"
+	CheckServer           = "server"
+	CheckForges           = "forges"
+	CheckTmux             = "tmux"
+	CheckTmuxVersion      = "tmux version"
+	CheckTmuxShell        = "tmux shell"
+	CheckEmbeddedPostgres = "embedded postgres"
+	CheckDatabase         = "database"
+	CheckSchema           = "schema"
+	CheckEngine           = "engine"
 )
 
 // The codes of the findings a caller tells apart.
