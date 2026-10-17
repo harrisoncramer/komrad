@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 
 	"komrad/internal/fail"
 
@@ -217,11 +216,10 @@ func initdb(ctx context.Context, dir, data, password string) error {
 
 // removeStaleLockFiles deletes the lock files a Postgres in dir wrote before the machine last booted.
 func removeStaleLockFiles(dir string) error {
-	up, err := uptime()
+	boot, err := readBootTime()
 	if err != nil {
 		return err
 	}
-	boot := time.Now().Add(-up)
 
 	for _, path := range []string{filepath.Join(dataDir(dir), "postmaster.pid"), socketPath(dir) + ".lock"} {
 		info, err := os.Stat(path)
@@ -232,7 +230,7 @@ func removeStaleLockFiles(dir string) error {
 			return fmt.Errorf("failed to read %s: %w", path, err)
 		}
 
-		if info.ModTime().After(boot) {
+		if info.ModTime().After(*boot) {
 			continue
 		}
 
