@@ -3,12 +3,18 @@ INSERT INTO tasks(
     workflow_id,
     slug,
     title,
-    goal)
+    goal,
+    stands_on_task_id,
+    stand_tip,
+    stand_pull_request_id)
 VALUES (
     sqlc.arg('workflow_id'),
     sqlc.arg('slug'),
     sqlc.arg('title'),
-    sqlc.arg('goal'))
+    sqlc.arg('goal'),
+    sqlc.narg('stands_on_task_id'),
+    sqlc.narg('stand_tip'),
+    sqlc.narg('stand_pull_request_id'))
 RETURNING
     *;
 
@@ -431,3 +437,65 @@ SELECT
     deleting_at
 FROM
     tasks;
+
+-- name: SetTaskStand :exec
+UPDATE
+    tasks
+SET
+    stands_on_task_id = sqlc.narg('stands_on_task_id'),
+    stand_tip = sqlc.narg('stand_tip'),
+    stand_pull_request_id = sqlc.narg('stand_pull_request_id'),
+    restack_blocked = NULL
+WHERE
+    id = sqlc.arg('id');
+
+-- name: SetTaskStandTip :exec
+UPDATE
+    tasks
+SET
+    stand_tip = sqlc.arg('stand_tip'),
+    restack_blocked = NULL
+WHERE
+    id = sqlc.arg('id')
+    AND stands_on_task_id IS NOT NULL;
+
+-- name: RecordTaskStandPullRequest :execrows
+UPDATE
+    tasks
+SET
+    stand_pull_request_id = sqlc.arg('stand_pull_request_id')
+WHERE
+    id = sqlc.arg('id')
+    AND stands_on_task_id IS NOT NULL
+    AND stand_pull_request_id IS NULL;
+
+-- name: ListStandingTasks :many
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    stands_on_task_id IS NOT NULL
+    AND archived_at IS NULL
+    AND deleting_at IS NULL
+ORDER BY
+    id;
+
+-- name: ListTasksStandingOn :many
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    stands_on_task_id = ANY (sqlc.arg('ids')::uuid[])
+    AND deleting_at IS NULL
+ORDER BY
+    id;
+
+-- name: SetTaskRestackBlocked :exec
+UPDATE
+    tasks
+SET
+    restack_blocked = sqlc.narg('restack_blocked')
+WHERE
+    id = sqlc.arg('id');

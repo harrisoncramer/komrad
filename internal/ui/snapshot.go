@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"komrad/internal/ui/paint"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -93,6 +94,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.AutoMerge = r.task.PullRequest.MergeReadiness.AutoMerge
 		row.LoaderFrame = params.loaderFrame
 		row.Selected = slices.Contains(params.wholeTasks, r.task.ID)
+		row.Tail = standTail(r, params.tasks)
 
 		return row
 	}
@@ -200,11 +202,11 @@ func treesOf(rows []agentRow, flat bool) []*view.Tree {
 func treeDepth(r agentRow) int {
 	switch {
 	case r.isTask():
-		return 0
+		return r.depth
 	case r.header:
 		return -1
 	case r.underTask:
-		return 1
+		return r.depth + 1
 	}
 
 	return 0
@@ -383,4 +385,24 @@ func pickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name str
 	}
 
 	return matchesIn(matcher, name)
+}
+
+// standTail is what a task's row says after its name about the task it stands on.
+func standTail(r agentRow, tasks taskIndex) view.Cell {
+	stand := r.task.Stand
+	if stand == nil {
+		return view.Cell{}
+	}
+
+	parent := tasks[stand.GetTaskId()].Slug
+	switch stand.GetBlocked() {
+	case "conflicts":
+		return view.Cell{Text: "behind " + parent + ", conflicts", Tone: paint.ToneWarning}
+	case "lost":
+		return view.Cell{Text: "lost its place on " + parent, Tone: paint.ToneWarning}
+	case "closed":
+		return view.Cell{Text: "on " + parent + ", closed unmerged", Tone: paint.ToneWarning}
+	}
+
+	return view.Cell{Text: "on " + parent, Tone: paint.ToneMuted}
 }

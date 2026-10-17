@@ -109,6 +109,43 @@ func handleAborted(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: aborted.TaskID, Mail: aborted.mail()})
 }
 
+const restackedTopic = "worktree_restacked"
+
+// restacked is komrad having moved, or failed to move, a standing task onto the task it stands on.
+type restacked struct {
+	TaskID     string                          `json:"task_id"`
+	Restacked  *eventprompts.Restacked         `json:"restacked,omitempty"`
+	Conflicted *eventprompts.RestackConflicted `json:"conflicted,omitempty"`
+	Closed     *eventprompts.ParentClosed      `json:"closed,omitempty"`
+}
+
+// Topic names the handler that tells the task's writer.
+func (restacked) Topic() string {
+	return restackedTopic
+}
+
+// NewRestackedHandler builds the handler the router calls for restacks.
+func NewRestackedHandler() events.HandlerFor[restacked] {
+	return handleRestacked
+}
+
+// handleRestacked tells the task's writer what became of its branch.
+func handleRestacked(ctx context.Context, tx store.DBTX, mailer *mail.MailService, restacked restacked) ([]river.JobArgs, error) {
+	var told eventprompts.Mail
+	switch {
+	case restacked.Restacked != nil:
+		told = *restacked.Restacked
+	case restacked.Conflicted != nil:
+		told = *restacked.Conflicted
+	case restacked.Closed != nil:
+		told = *restacked.Closed
+	default:
+		return nil, nil
+	}
+
+	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: restacked.TaskID, Mail: told})
+}
+
 // mailWriterParams is a piece of mail for whoever writes a task.
 type mailWriterParams struct {
 	TaskID string

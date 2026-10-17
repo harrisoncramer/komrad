@@ -254,7 +254,7 @@ func mergeRebaseOp(task panel.Task, params mergeParams) gitOp {
 				}
 			}
 
-			result, err := clients.rebaseWorktree(taskID)
+			result, err := clients.rebaseWorktree(taskID, false)
 
 			return func(m *model) tea.Cmd {
 				m.reportMerged(task, false, nil)

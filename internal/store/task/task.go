@@ -37,12 +37,14 @@ type Task struct {
 	Notes          string
 	NotesUpdatedAt *time.Time
 	Checkout       Checkout
-	Hidden         bool
-	ArchivedAt     *time.Time
-	DeletingAt     *time.Time
-	FailureReason  string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// Stand is the task this one stands on, nil for a task on the workflow's base branch.
+	Stand         *Stand
+	Hidden        bool
+	ArchivedAt    *time.Time
+	DeletingAt    *time.Time
+	FailureReason string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 	// FailedRun is whether a run on the task failed and nobody has opened it, which only a watch reads.
 	FailedRun bool
 	// Documents is how many documents agents have written for the task, which only a watch reads.
@@ -70,6 +72,7 @@ func fromRow(row *models.Task) Task {
 		Notes:          row.Notes,
 		NotesUpdatedAt: row.NotesUpdatedAt,
 		Checkout:       checkoutFrom(row),
+		Stand:          standFrom(row),
 		Hidden:         row.IsHidden,
 		ArchivedAt:     row.ArchivedAt,
 		DeletingAt:     row.DeletingAt,
@@ -84,6 +87,8 @@ type CreateParams struct {
 	Slug       string
 	Title      string
 	Goal       string
+	// Stand is what the new task stands on, nil for none.
+	Stand *Stand
 }
 
 // Create writes a new task, refusing a slug that is malformed or already used.
@@ -92,12 +97,19 @@ func (s *TaskStore) Create(ctx context.Context, params CreateParams) (*Task, err
 		return nil, fmt.Errorf("%w: %q", ErrBadSlug, params.Slug)
 	}
 
-	row, err := s.queries.CreateTask(ctx, models.CreateTaskParams{
+	create := models.CreateTaskParams{
 		WorkflowID: params.WorkflowID,
 		Slug:       params.Slug,
 		Title:      params.Title,
 		Goal:       params.Goal,
-	})
+	}
+	if params.Stand != nil {
+		create.StandsOnTaskID = &params.Stand.ParentID
+		create.StandTip = xptr.NonEmpty(params.Stand.Tip)
+		create.StandPullRequestID = xptr.NonEmpty(params.Stand.PullRequestID)
+	}
+
+	row, err := s.queries.CreateTask(ctx, create)
 	if db.IsUniqueViolation(err) {
 		return nil, fmt.Errorf("%w: a task is already named %q", store.ErrNameTaken, params.Slug)
 	}

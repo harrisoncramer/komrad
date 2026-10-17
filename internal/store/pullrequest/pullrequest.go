@@ -461,3 +461,48 @@ func (s *PullRequestStore) ListRecipients(ctx context.Context, id string) ([]str
 
 	return ids, nil
 }
+
+// FindStandParams names the parent's repository and branch, and when the stand on it began.
+type FindStandParams struct {
+	RepositoryURL string
+	HeadBranch    string
+	Since         time.Time
+}
+
+// FindStand is the pull request a task standing on a branch follows, the earliest open one or opened since the stand began.
+func (s *PullRequestStore) FindStand(ctx context.Context, params FindStandParams) (*PullRequest, error) {
+	row, err := s.queries.FindStandPullRequest(ctx, models.FindStandPullRequestParams{
+		RepositoryUrl: params.RepositoryURL,
+		HeadBranch:    params.HeadBranch,
+		Since:         params.Since,
+	})
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no pull request on %s", params.HeadBranch)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the pull request on %s: %w", params.HeadBranch, err)
+	}
+
+	return s.withOneMergeReadiness(ctx, row)
+}
+
+// mergeStand is where a pull request's branches stand among the tasks that stand on one another.
+type mergeStand struct {
+	// HeadStands says the pull request comes from a live task standing on another.
+	HeadStands bool
+	// BaseFinished says the pull request targets a task's branch whose own pull request merged or closed.
+	BaseFinished bool
+}
+
+// ReadMergeStand reads where the pull request at an address stands, or ErrNotFound for one komrad has not stored.
+func (s *PullRequestStore) ReadMergeStand(ctx context.Context, url string) (*mergeStand, error) {
+	row, err := s.queries.ReadMergeStand(ctx, url)
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no pull request at %s", url)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read where the pull request at %s stands: %w", url, err)
+	}
+
+	return &mergeStand{HeadStands: row.HeadStands, BaseFinished: row.BaseFinished}, nil
+}

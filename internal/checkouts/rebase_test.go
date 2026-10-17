@@ -137,7 +137,7 @@ func TestRebaseRefusals(t *testing.T) {
 			t.Cleanup(release)
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser, Locks: locks}).Rebase(t.Context(), ref)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser, Locks: locks}).Rebase(t.Context(), RebaseParams{Task: ref})
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, rebaser.Calls)
@@ -162,7 +162,7 @@ func TestRebaseWithNoWriter(t *testing.T) {
 	result, err := fixture.newService(NewServiceParams{
 		Settler: buildSettler(channel, observer),
 		Git:     rebaser,
-	}).Rebase(t.Context(), task.Slug)
+	}).Rebase(t.Context(), RebaseParams{Task: task.Slug})
 	require.NoError(t, err)
 
 	assert.False(t, result.Interrupted)
@@ -235,7 +235,7 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     &gittest.Mover{State: tt.state},
-			}).Rebase(t.Context(), *agent.TaskID)
+			}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Zero(t, channel.Interrupts, "a tree that cannot move costs the agent no turn")
@@ -290,7 +290,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{})
 
-			result, err := fixture.newService(NewServiceParams{Git: tt.rebaser}).Rebase(t.Context(), *agent.TaskID)
+			result, err := fixture.newService(NewServiceParams{Git: tt.rebaser}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantCalls, tt.rebaser.Calls)
@@ -317,7 +317,7 @@ func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 		ReplayErr:  errors.New("the post-rewrite hook failed"),
 	}
 
-	_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), *agent.TaskID)
+	_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
 
 	require.Error(t, err)
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes)
@@ -362,7 +362,7 @@ func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     rebaser,
-			}).Rebase(t.Context(), *agent.TaskID)
+			}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
 
 			require.ErrorIs(t, err, agenterr.ErrUnsettled)
 			require.ErrorContains(t, err, tt.wantSaid)
@@ -433,7 +433,7 @@ func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
 			result, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     rebaser,
-			}).Rebase(t.Context(), *agent.TaskID)
+			}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantInterrupts > 0, result.Interrupted)
@@ -497,7 +497,7 @@ func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
 			_, err := fixture.newService(NewServiceParams{
 				Settler: buildSettler(channel, observer),
 				Git:     rebaser,
-			}).Rebase(t.Context(), *agent.TaskID)
+			}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -580,7 +580,7 @@ func TestRebaseRefusesATaskInTheCallersCheckout(t *testing.T) {
 			}
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), from), *agent.TaskID)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), from), RebaseParams{Task: *agent.TaskID})
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
@@ -624,7 +624,7 @@ func TestRebaseLetsThroughAnAskerWithNoCheckout(t *testing.T) {
 			agent := fixture.seed(t, agentstore.Agent{})
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), *agent.TaskID)
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), RebaseParams{Task: *agent.TaskID})
 			require.NoError(t, err)
 
 			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
@@ -748,7 +748,7 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 	queue := fixture.events
 	service := fixture.newService(NewServiceParams{})
-	target, err := service.rebaseEligible(t.Context(), *agent.TaskID)
+	target, err := service.rebaseEligible(t.Context(), RebaseParams{Task: *agent.TaskID})
 	require.NoError(t, err)
 
 	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Failure: "the older rebase failed"}))

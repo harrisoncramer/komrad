@@ -872,12 +872,17 @@ func (s *ReviewService) interruptWriter(ctx context.Context, taskID string) {
 	s.interrupt(ctx, writer.ID)
 }
 
-// takeSnapshot freezes a task's checkout against the base branch its workflow cuts from.
+// takeSnapshot freezes a task's checkout against the parent tip it stands on, else the base branch its workflow cuts from.
 func (s *ReviewService) takeSnapshot(ctx context.Context, task taskstore.Task) (*git.Snapshot, error) {
 	base := ""
 	if flow, err := s.workflows.Get(ctx, task.WorkflowID); err == nil {
 		base = flow.Worktree.BaseBranch
 	}
 
-	return s.snapshots.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: task.Checkout.Cwd, Base: base})
+	params := git.TakeSnapshotParams{Dir: task.Checkout.Cwd, Base: base}
+	if task.Stand != nil {
+		params.BaseCommit = task.Stand.Tip
+	}
+
+	return s.snapshots.TakeSnapshot(ctx, params)
 }

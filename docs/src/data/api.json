@@ -778,6 +778,22 @@
           "response": "agent.v1.PushWorktreeResponse"
         },
         {
+          "slug": "place-stand",
+          "name": "PlaceStand",
+          "path": "/agent.v1.AgentService/PlaceStand",
+          "command": "komrad rpc place-stand",
+          "tool": "place_stand",
+          "mcp": false,
+          "roles": [],
+          "summary": "Record the commit a task's own commits sit on, for a task that stands on another and has lost its place.",
+          "description": "Record the commit a task's own commits sit on, for a task that stands on another and has lost its place. Komrad measures the task from that commit and restacks it again.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.PlaceStandRequest",
+          "response": "agent.v1.PlaceStandResponse"
+        },
+        {
           "slug": "abort-sequence",
           "name": "AbortSequence",
           "path": "/agent.v1.AgentService/AbortSequence",
@@ -2669,6 +2685,16 @@
             "at most 50000 characters"
           ],
           "description": "The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the first line of the prompt."
+        },
+        {
+          "name": "stand_on",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task the new task stands on, by id or slug, in `workflow_id`. Its branch is cut from that task's branch on origin, and komrad keeps it on that branch as it moves and merges. Unset to cut from the workflow's base branch. Cannot be set with `task`."
         }
       ]
     },
@@ -4416,6 +4442,50 @@
         }
       ]
     },
+    "agent.v1.PlaceStandRequest": {
+      "name": "PlaceStandRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task that stands on another, by id or slug."
+        },
+        {
+          "name": "commit",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The commit the task's own commits sit on, which its branch must hold. Any name git reads as a commit."
+        }
+      ]
+    },
+    "agent.v1.PlaceStandResponse": {
+      "name": "PlaceStandResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "tip",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The full name of the commit recorded."
+        }
+      ]
+    },
     "agent.v1.PlanPushRequest": {
       "name": "PlanPushRequest",
       "description": "PlanPushRequest asks what a push of a task's branch would do, without doing it.",
@@ -4501,6 +4571,16 @@
           "oneof": "",
           "rules": [],
           "description": "The task whose branch to plan a rebase of, by id or slug."
+        },
+        {
+          "name": "onto_base",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Plan a move of a task that stands on another onto the workflow's base branch, replaying only its own commits, in place of a move onto the task it stands on."
         }
       ]
     },
@@ -4773,6 +4853,16 @@
           "oneof": "",
           "rules": [],
           "description": "The task whose branch to rebase onto the base branch, by id or slug."
+        },
+        {
+          "name": "onto_base",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Move a task that stands on another onto the workflow's base branch, replaying only its own commits, so it no longer stands on that task."
         }
       ]
     },
@@ -9309,6 +9399,52 @@
         }
       ]
     },
+    "task.v1.Stand": {
+      "name": "Stand",
+      "description": "Stand is the task another task's branch was cut from, and where on it the task's own commits begin. Rounds and line counts measure from `tip`.",
+      "fields": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The id of the task stood on."
+        },
+        {
+          "name": "tip",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit of the parent's branch the task's own commits sit on."
+        },
+        {
+          "name": "pull_request_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The id of the parent's pull request the task follows. Empty until the parent has one."
+        },
+        {
+          "name": "blocked",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Why komrad cannot restack the task onto its parent: `conflicts` when replaying its commits conflicted, `lost` when its branch holds neither `tip` nor the parent's tip, and `closed` when the parent's pull request closed without merging. Empty while nothing blocks it."
+        }
+      ]
+    },
     "task.v1.Task": {
       "name": "Task",
       "description": "Task is one piece of work that agents do.",
@@ -9552,6 +9688,16 @@
           "oneof": "",
           "rules": [],
           "description": "When the newest of the task's documents was last written, in RFC 3339. Unset when the task has none."
+        },
+        {
+          "name": "stand",
+          "type": "Stand",
+          "ref": "task.v1.Stand",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task this task stands on. Unset for a task on the workflow's base branch."
         }
       ]
     },

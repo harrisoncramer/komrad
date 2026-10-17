@@ -40,7 +40,7 @@ func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) tea
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formAgent,
 		Build: func(m *model) (*huh.Form, []string) {
-			return newTaskForm(fixedKeys(), values, workflow.Worktree.Enabled)
+			return newTaskForm(fixedKeys(), values, workflow.Worktree.Enabled, m.listing.tasks.standable(workflow.ID))
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitTask(workflow, *values) }),
@@ -162,6 +162,7 @@ func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) tea.C
 		Flags:            values.Flags,
 		ProvisionEnabled: worktreeOverride(values.Worktree),
 		WorkflowID:       workflow.ID,
+		StandOn:          values.StandOn,
 	})
 }
 
@@ -214,17 +215,20 @@ type taskFormValues struct {
 	Harness  string
 	Flags    string
 	Worktree string
+	StandOn  string
 }
 
-// newTaskForm asks for the brief, and asks about the worktree only in a workflow that makes them.
-func newTaskForm(keys config.FixedKeys, values *taskFormValues, worktree bool) (*huh.Form, []string) {
+// newTaskForm asks for the brief, and asks about the worktree and the task to stand on only in a workflow that makes worktrees.
+func newTaskForm(keys config.FixedKeys, values *taskFormValues, worktree bool, standable []panel.Task) (*huh.Form, []string) {
 	fields := []huh.Field{
 		textField("prompt").Title("Brief").Description(fmt.Sprintf("what the agent is told; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
 
-	return formOf(keys, append(fields, worktreeChoice(&values.Worktree, worktree)...)...)
+	fields = append(fields, worktreeChoice(&values.Worktree, worktree)...)
+
+	return formOf(keys, append(fields, standChoice(&values.StandOn, worktree, standable)...)...)
 }
 
 // worktreeChoice asks whether an agent takes a worktree of its own, and asks nothing in a workflow
@@ -239,6 +243,20 @@ func worktreeChoice(selected *string, worktree bool) []huh.Field {
 			huh.NewOption("Same as workflow: its own worktree", inheritWorktree),
 			huh.NewOption("None: run in the workflow's directory", withoutWorktree),
 		).Value(selected)}
+}
+
+// standChoice asks which task a new task stands on, and asks nothing where no task has a branch to stand on.
+func standChoice(selected *string, worktree bool, standable []panel.Task) []huh.Field {
+	if !worktree || len(standable) == 0 {
+		return nil
+	}
+
+	options := []huh.Option[string]{huh.NewOption("The workflow's base branch", "")}
+	for _, task := range standable {
+		options = append(options, huh.NewOption(task.Slug, task.ID))
+	}
+
+	return []huh.Field{huh.NewSelect[string]().Key("stand").Title("Stands on").Options(options...).Value(selected)}
 }
 
 // taskAgentForm asks for the work a task's writer does, saying where it will run.

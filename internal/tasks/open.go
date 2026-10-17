@@ -27,6 +27,8 @@ type OpenParams struct {
 	Goal   string
 	// Hidden is whether the task is hidden as the agent joins it.
 	Hidden bool
+	// Stand is what the task made for the agent stands on, nil for none.
+	Stand *taskstore.Stand
 }
 
 // Open puts an agent about to be written in db on its task, making it one of its own when it needs one.
@@ -43,6 +45,7 @@ func (s *TaskService) Open(ctx context.Context, db store.DBTX, params OpenParams
 			Prompt:     agent.Prompt,
 			Slug:       params.Slug,
 			Goal:       params.Goal,
+			Stand:      params.Stand,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to make a task for agent %q: %w", agent.Name, err)

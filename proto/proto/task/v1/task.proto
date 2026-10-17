@@ -94,6 +94,23 @@ message Task {
   // When the newest of the task's documents was last written, in RFC 3339. Unset when the task
   // has none.
   optional string documents_updated_at = 24;
+  // The task this task stands on. Unset for a task on the workflow's base branch.
+  optional Stand stand = 25;
+}
+
+// Stand is the task another task's branch was cut from, and where on it the task's own commits
+// begin. Rounds and line counts measure from `tip`.
+message Stand {
+  // The id of the task stood on.
+  string task_id = 1;
+  // The commit of the parent's branch the task's own commits sit on.
+  string tip = 2;
+  // The id of the parent's pull request the task follows. Empty until the parent has one.
+  string pull_request_id = 3;
+  // Why komrad cannot restack the task onto its parent: `conflicts` when replaying its commits
+  // conflicted, `lost` when its branch holds neither `tip` nor the parent's tip, and `closed` when
+  // the parent's pull request closed without merging. Empty while nothing blocks it.
+  string blocked = 4;
 }
 
 message CreateTaskRequest {

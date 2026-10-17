@@ -13,6 +13,7 @@ import (
 	"komrad/lib/xstr"
 
 	agentstore "komrad/internal/store/agent"
+	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
 	runstore "komrad/internal/store/run"
 	taskstore "komrad/internal/store/task"
@@ -55,41 +56,47 @@ type snapshotReleaser interface {
 }
 
 type NewTaskServiceParams struct {
-	Tasks     *taskstore.TaskStore
-	Agents    *agentstore.AgentStore
-	Runs      *runstore.RunStore
-	Workflows *workflowstore.WorkflowStore
-	Worktrees *worktreestore.WorktreeStore
-	Reviews   *reviewstore.ReviewStore
-	Snapshots snapshotReleaser
-	Scripts   taskScriptRunner
-	Tx        txRunner
+	Tasks        *taskstore.TaskStore
+	Agents       *agentstore.AgentStore
+	Runs         *runstore.RunStore
+	Workflows    *workflowstore.WorkflowStore
+	Worktrees    *worktreestore.WorktreeStore
+	Reviews      *reviewstore.ReviewStore
+	Snapshots    snapshotReleaser
+	Scripts      taskScriptRunner
+	Tx           txRunner
+	Git          standGit
+	PullRequests *pullrequeststore.PullRequestStore
 }
 
 type TaskService struct {
-	tasks     *taskstore.TaskStore
-	agents    *agentstore.AgentStore
-	runs      *runstore.RunStore
-	workflows *workflowstore.WorkflowStore
-	worktrees *worktreestore.WorktreeStore
-	reviews   *reviewstore.ReviewStore
-	snapshots snapshotReleaser
-	scripts   taskScriptRunner
-	tx        txRunner
+	tasks        *taskstore.TaskStore
+	agents       *agentstore.AgentStore
+	runs         *runstore.RunStore
+	workflows    *workflowstore.WorkflowStore
+	worktrees    *worktreestore.WorktreeStore
+	reviews      *reviewstore.ReviewStore
+	snapshots    snapshotReleaser
+	scripts      taskScriptRunner
+	tx           txRunner
+	git          standGit
+	pullRequests *pullrequeststore.PullRequestStore
 }
 
 // NewTaskService builds the service from its dependencies.
 func NewTaskService(params NewTaskServiceParams) *TaskService {
 	return &TaskService{
-		tasks:     params.Tasks,
-		agents:    params.Agents,
-		runs:      params.Runs,
-		workflows: params.Workflows,
-		worktrees: params.Worktrees,
-		reviews:   params.Reviews,
-		snapshots: params.Snapshots,
-		scripts:   params.Scripts,
-		tx:        params.Tx,
+		tasks:        params.Tasks,
+		agents:       params.Agents,
+		runs:         params.Runs,
+		workflows:    params.Workflows,
+		worktrees:    params.Worktrees,
+		reviews:      params.Reviews,
+		snapshots:    params.Snapshots,
+		scripts:      params.Scripts,
+		tx:           params.Tx,
+		git:          params.Git,
+		pullRequests: params.PullRequests,
 	}
 }
 
@@ -242,6 +249,7 @@ type createForAgentParams struct {
 	Prompt     string
 	Slug       string
 	Goal       string
+	Stand      *taskstore.Stand
 }
 
 // createForAgent creates a task for an agent, under the slug given or one named after the agent.
@@ -266,6 +274,7 @@ func createForAgent(ctx context.Context, tasks *taskstore.TaskStore, params crea
 		Slug:       slug,
 		Title:      title,
 		Goal:       goal,
+		Stand:      params.Stand,
 	})
 }
 

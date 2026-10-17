@@ -146,6 +146,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 				checkouts.NewEventHandler(),
 				checkouts.NewPushedHandler(),
 				checkouts.NewAbortedHandler(),
+				checkouts.NewRestackedHandler(),
 				reviews.NewReleasedHandler(reviews.NewReleasedHandlerParams{ArchiveOnApproval: params.Usage.Reviewer.ArchiveOnApproval}),
 				reviews.NewAnsweredHandler(),
 			},

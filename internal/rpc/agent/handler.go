@@ -183,6 +183,7 @@ func (s *Handler) CreateAgent(ctx context.Context, req *agentv1.CreateAgentReque
 		Task:             req.GetTask(),
 		TaskSlug:         req.GetTaskSlug(),
 		TaskGoal:         req.GetTaskGoal(),
+		StandOn:          req.GetStandOn(),
 	})
 	// Create-once is what the key is for, so a key already spent answers with the agent it
 	// launched rather than an error.

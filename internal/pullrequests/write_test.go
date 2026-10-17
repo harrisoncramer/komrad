@@ -7,6 +7,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
+	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/storetest"
 	"komrad/internal/waketest"
 
@@ -78,7 +79,8 @@ func newTestWriter(t *testing.T, writing *writingForge, sync *waketest.Counter) 
 				},
 			},
 		}),
-		Sync: sync,
+		Sync:         sync,
+		PullRequests: pullrequeststore.NewPullRequestStore(stores.Pool.GetDB()),
 	})
 }
 

@@ -154,15 +154,17 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	})
 	checkoutLocks := checkouts.NewTreeLocks()
 	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{
-		Tasks:     st.tasks,
-		Agents:    st.agents,
-		Runs:      st.runs,
-		Workflows: st.workflows,
-		Worktrees: st.worktrees,
-		Reviews:   st.review,
-		Snapshots: gitClient,
-		Scripts:   scriptService,
-		Tx:        st.pool,
+		Tasks:        st.tasks,
+		Agents:       st.agents,
+		Runs:         st.runs,
+		Workflows:    st.workflows,
+		Worktrees:    st.worktrees,
+		Reviews:      st.review,
+		Snapshots:    gitClient,
+		Scripts:      scriptService,
+		Tx:           st.pool,
+		Git:          gitClient,
+		PullRequests: st.pullRequests,
 	})
 	transcriptSync := transcripts.NewTranscriptSyncer(transcripts.NewTranscriptSyncerParams{
 		Agents:      st.agents,
@@ -222,6 +224,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 				NudgeClaimer: st.agents,
 				PaneReader:   liveness,
 				Channel:      paneChannel,
+				Trees:        checkoutLocks,
 			}),
 		},
 		review: reviews.NewReviewService(reviews.NewReviewServiceParams{
@@ -563,8 +566,9 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 		}),
 		lister: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests, StatusChecks: st.statusChecks}),
 		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
-			Forges: forgeService,
-			Sync:   pullRequestSyncer,
+			Forges:       forgeService,
+			Sync:         pullRequestSyncer,
+			PullRequests: st.pullRequests,
 		}),
 	}
 }

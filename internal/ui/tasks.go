@@ -375,3 +375,16 @@ func splitChosen(l listing, chosen []panel.Agent) chosenWork {
 func (w chosenWork) affected(l listing) []panel.Agent {
 	return slices.Concat(l.agentsOnTasks(w.wholeTasks), w.loneAgents)
 }
+
+// standable is the workflow's live tasks with a branch a new task can stand on, by slug.
+func (t taskIndex) standable(workflowID string) []panel.Task {
+	var tasks []panel.Task
+	for _, task := range t {
+		if task.WorkflowID == workflowID && task.ArchivedAt == nil && task.Branch != nil && !task.WorktreeRemoved {
+			tasks = append(tasks, task)
+		}
+	}
+	slices.SortFunc(tasks, func(a, b panel.Task) int { return strings.Compare(a.Slug, b.Slug) })
+
+	return tasks
+}

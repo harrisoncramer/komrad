@@ -1400,8 +1400,8 @@ func (f *recordingAgentServices) Start(_ context.Context, workflowID, _ string) 
 	return f.answer()
 }
 
-func (f *recordingAgentServices) PlanRebase(_ context.Context, task string) (*checkouts.RebasePlan, error) {
-	f.planned = append(f.planned, task)
+func (f *recordingAgentServices) PlanRebase(_ context.Context, params checkouts.RebaseParams) (*checkouts.RebasePlan, error) {
+	f.planned = append(f.planned, params.Task)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -1414,8 +1414,8 @@ func (f *recordingAgentServices) PlanRebase(_ context.Context, task string) (*ch
 	}, nil
 }
 
-func (f *recordingAgentServices) Rebase(_ context.Context, task string) (*checkouts.RebaseResult, error) {
-	f.rebased = append(f.rebased, task)
+func (f *recordingAgentServices) Rebase(_ context.Context, params checkouts.RebaseParams) (*checkouts.RebaseResult, error) {
+	f.rebased = append(f.rebased, params.Task)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -1771,4 +1771,12 @@ func (f *recordingAgentServices) Abort(_ context.Context, task string) (*checkou
 		ParkedRef:   "refs/komrad/aborted/alpha/1",
 		Interrupted: true,
 	}, nil
+}
+
+func (f *recordingAgentServices) PlaceStand(_ context.Context, params checkouts.PlaceStandParams) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+
+	return params.Commit, nil
 }

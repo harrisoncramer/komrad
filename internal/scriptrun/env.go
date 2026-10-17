@@ -190,7 +190,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 
 	// An agent that provisions nothing is not handed KOMRAD_WORKTREE_REPO.
 	if workflow != nil && workflow.Worktree.Enabled && !agent.IsProvisionerDisabled() && task != nil {
-		worktreeEnv, err := s.worktreeEnv(*workflow, *task)
+		worktreeEnv, err := s.worktreeEnv(ctx, *workflow, *task)
 		if err != nil {
 			return nil, err
 		}
@@ -237,7 +237,7 @@ func workflowName(workflow *workflowstore.Workflow) string {
 	return workflow.Name
 }
 
-func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, task taskstore.Task) ([]string, error) {
+func (s *ScriptService) worktreeEnv(ctx context.Context, workflow workflowstore.Workflow, task taskstore.Task) ([]string, error) {
 	loaded, err := s.load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the config: %w", err)
@@ -255,10 +255,20 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, task taskst
 		}
 	}
 
+	base, baseCommit := cfg.BaseBranch, ""
+	if task.Stand != nil {
+		parent, err := s.tasks.Get(ctx, task.Stand.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the task %q stands on: %w", task.Slug, err)
+		}
+		base, baseCommit = parent.BranchName(), task.Stand.Tip
+	}
+
 	return []string{
 		"KOMRAD_WORKTREE_REPO=" + workflow.Cwd,
 		"KOMRAD_WORKTREES_DIR=" + worktreesDir,
-		"KOMRAD_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
+		"KOMRAD_WORKTREE_BASE_BRANCH=" + base,
+		"KOMRAD_WORKTREE_BASE_COMMIT=" + baseCommit,
 		"KOMRAD_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
 		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
 		"KOMRAD_WORKTREE_SETUP_COMMAND=" + cfg.SetupCommand,

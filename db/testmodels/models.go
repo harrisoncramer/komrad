@@ -1189,6 +1189,14 @@ type Task struct {
 	NotesUpdatedAt pgtype.Timestamptz
 	// Whether a person hid the task from the sidebar.
 	IsHidden bool
+	// The task in the same workflow whose branch this task's branch was cut from and is measured against, null for a task on the workflow's base branch.
+	StandsOnTaskID pgtype.UUID
+	// The commit of the parent's branch this task's own commits sit on, which rounds and line counts measure from; null while the task stands on nothing.
+	StandTip *string
+	// The parent's pull request this task follows for the parent's tip and merge, null until the parent has one or while the task stands on nothing.
+	StandPullRequestID pgtype.UUID
+	// Why komrad cannot restack a standing task onto its parent: conflicts when the replay conflicted, lost when its branch holds neither the recorded tip nor the parent's; null while nothing blocks it.
+	RestackBlocked *string
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

@@ -36,6 +36,20 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		Documents:          stored.Documents,
 		DocumentsUpdatedAt: dates.PreciseStampPtr(stored.DocumentsUpdatedAt),
 		Hidden:             stored.Hidden,
+		Stand:              standOf(stored.Stand),
+	}
+}
+
+func standOf(stand *taskstore.Stand) *taskv1.Stand {
+	if stand == nil {
+		return nil
+	}
+
+	return &taskv1.Stand{
+		TaskId:        stand.ParentID,
+		Tip:           stand.Tip,
+		PullRequestId: stand.PullRequestID,
+		Blocked:       string(stand.Blocked),
 	}
 }
 

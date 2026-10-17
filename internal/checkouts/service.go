@@ -49,6 +49,8 @@ type checkoutTarget struct {
 	task     *taskstore.Task
 	workflow *workflowstore.Workflow
 	writer   *agentstore.Agent
+	// ontoBase rebases a standing task onto the workflow's base branch, leaving the task it stands on.
+	ontoBase bool
 }
 
 // dir is the checkout the target is acted on in.
@@ -96,6 +98,9 @@ type branchMover interface {
 	ReadSequence(ctx context.Context, dir string) (git.Sequence, error)
 	ReadRebaseOnto(ctx context.Context, dir string) (string, error)
 	AbortSequence(ctx context.Context, dir string, sequence git.Sequence) error
+	FetchBranchTip(ctx context.Context, dir, branch string) (string, error)
+	IsAncestor(ctx context.Context, params git.IsAncestorParams) (bool, error)
+	ResolveCommit(ctx context.Context, dir, rev string) (string, error)
 }
 
 // NewServiceParams is what the service is built over.

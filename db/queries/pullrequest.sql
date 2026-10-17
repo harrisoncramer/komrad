@@ -235,6 +235,17 @@ WHERE
         WHERE
             a.task_id = t.id
             AND a.archived_at IS NULL)
+UNION
+SELECT
+    p.repository_url::text AS repository_url,
+    p.head_branch::text AS branch,
+    p.head_sha::text AS head_sha
+FROM
+    tasks c
+    JOIN pull_requests p ON p.id = c.stand_pull_request_id
+WHERE
+    c.archived_at IS NULL
+    AND c.deleting_at IS NULL
 ORDER BY
     repository_url,
     branch,
@@ -380,3 +391,62 @@ FROM ( SELECT DISTINCT ON (t.id)
         a.id DESC) writers
 ORDER BY
     writers.id;
+
+-- name: FindStandPullRequest :one
+SELECT
+    *
+FROM
+    pull_requests
+WHERE
+    repository_url = @repository_url
+    AND head_repository_url = @repository_url
+    AND head_branch = @head_branch
+    AND (state = 'OPEN'
+        OR opened_at >= @since::timestamptz)
+ORDER BY
+    opened_at,
+    id
+LIMIT 1;
+
+-- name: ReadMergeStand :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            tasks t
+        WHERE
+            t.repository_url = p.repository_url
+            AND t.branch = p.head_branch
+            AND t.stands_on_task_id IS NOT NULL
+            AND t.archived_at IS NULL
+            AND t.deleting_at IS NULL)::boolean AS head_stands,
+    EXISTS (
+        SELECT
+            1
+        FROM
+            tasks t
+            JOIN pull_requests q ON q.repository_url = t.repository_url
+                AND q.head_repository_url = t.repository_url
+                AND q.head_branch = p.base_branch
+        WHERE
+            t.repository_url = p.repository_url
+            AND COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text) = p.base_branch
+            AND t.deleting_at IS NULL
+            AND q.state <> 'OPEN'
+            AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    pull_requests o
+                WHERE
+                    o.repository_url = t.repository_url
+                    AND o.head_branch = p.base_branch
+                    AND o.state = 'OPEN'))::boolean AS base_finished
+FROM
+    pull_requests p
+WHERE
+    p.url = @url
+ORDER BY
+    p.first_seen_at DESC
+LIMIT 1;

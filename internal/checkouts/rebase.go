@@ -74,9 +74,17 @@ type RebaseResult struct {
 	Interrupted bool `json:"interrupted"`
 }
 
+// RebaseParams names the task to rebase and where it moves.
+type RebaseParams struct {
+	// Task is the task to rebase, by id or slug.
+	Task string
+	// OntoBase moves a standing task onto the workflow's base branch, replaying only its own commits, and leaves the task it stands on.
+	OntoBase bool
+}
+
 // PlanRebase reads what a rebase would do without touching anything.
-func (s *Service) PlanRebase(ctx context.Context, ref string) (*RebasePlan, error) {
-	target, err := s.rebaseEligible(ctx, ref)
+func (s *Service) PlanRebase(ctx context.Context, params RebaseParams) (*RebasePlan, error) {
+	target, err := s.rebaseEligible(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -86,11 +94,12 @@ func (s *Service) PlanRebase(ctx context.Context, ref string) (*RebasePlan, erro
 
 // rebaseEligible answers the task when a rebase is its to have, which a branch komrad did not
 // cut never is.
-func (s *Service) rebaseEligible(ctx context.Context, ref string) (*checkoutTarget, error) {
-	target, err := s.eligible(ctx, ref)
+func (s *Service) rebaseEligible(ctx context.Context, params RebaseParams) (*checkoutTarget, error) {
+	target, err := s.eligible(ctx, params.Task)
 	if err != nil {
 		return nil, err
 	}
+	target.ontoBase = params.OntoBase
 
 	if adopted := target.task.Checkout.AdoptedBranch; adopted != "" {
 		return nil, fmt.Errorf("%w: %s", errRebaseAdopted, adopted)
@@ -120,7 +129,12 @@ func (s *Service) planRebase(ctx context.Context, target checkoutTarget) (*Rebas
 		return nil, err
 	}
 
-	ref, sha, err := s.git.FetchBase(ctx, dir, target.workflow.Worktree.BaseBranch)
+	base, err := s.readRebaseBase(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+
+	ref, sha, err := s.git.FetchBase(ctx, dir, base)
 	if err != nil {
 		return nil, err
 	}
@@ -135,12 +149,20 @@ func (s *Service) planRebase(ctx context.Context, target checkoutTarget) (*Rebas
 		return nil, err
 	}
 
+	cutoff := prediction.Cutoff
+	if stand := target.task.Stand; stand != nil {
+		cutoff, err = s.readStandCutoff(ctx, dir, stand.Tip, prediction.Cutoff)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &RebasePlan{
 		BaseRef:       ref,
 		BaseSHA:       sha,
 		Commits:       commits,
 		Branch:        state.Branch,
-		Cutoff:        prediction.Cutoff,
+		Cutoff:        cutoff,
 		Landed:        prediction.Landed,
 		Replay:        prediction.Replay,
 		Merges:        prediction.Merges,
@@ -149,9 +171,24 @@ func (s *Service) planRebase(ctx context.Context, target checkoutTarget) (*Rebas
 	}, nil
 }
 
+// readRebaseBase is the branch a task rebases onto: the parent's while it stands on one, else the workflow's base.
+func (s *Service) readRebaseBase(ctx context.Context, target checkoutTarget) (string, error) {
+	stand := target.task.Stand
+	if stand == nil || target.ontoBase {
+		return target.workflow.Worktree.BaseBranch, nil
+	}
+
+	parent, err := s.tasks.Get(ctx, stand.ParentID)
+	if err != nil {
+		return "", err
+	}
+
+	return parent.BranchName(), nil
+}
+
 // Rebase moves the task's branch onto the latest base in place.
-func (s *Service) Rebase(ctx context.Context, ref string) (*RebaseResult, error) {
-	target, err := s.rebaseEligible(ctx, ref)
+func (s *Service) Rebase(ctx context.Context, params RebaseParams) (*RebaseResult, error) {
+	target, err := s.rebaseEligible(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -208,6 +245,12 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 		return nil, err
 	}
 	defer s.checkoutSync.Wake()
+
+	if target.ontoBase && target.task.Stand != nil {
+		if err := s.tasks.SetStand(ctx, target.task.ID, nil); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := s.moveRebase(ctx, target.dir(), result); err != nil {
 		return nil, err

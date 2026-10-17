@@ -250,6 +250,10 @@ message CreateAgentRequest {
   // The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the
   // first line of the prompt.
   string task_goal = 10 [(buf.validate.field).string.max_len = 50000];
+  // The task the new task stands on, by id or slug, in `workflow_id`. Its branch is cut from that
+  // task's branch on origin, and komrad keeps it on that branch as it moves and merges. Unset to
+  // cut from the workflow's base branch. Cannot be set with `task`.
+  optional string stand_on = 11 [(buf.validate.field).string.min_len = 1];
 }
 
 message CreateAgentResponse {
@@ -367,6 +371,9 @@ message PlanRebaseRequest {
     message: "pass task, by id or by slug"
     expression: "this.size() > 0"
   }];
+  // Plan a move of a task that stands on another onto the workflow's base branch, replaying only
+  // its own commits, in place of a move onto the task it stands on.
+  bool onto_base = 2;
 }
 
 message PlanRebaseResponse {
@@ -408,6 +415,9 @@ message RebaseWorktreeRequest {
     message: "pass task, by id or by slug"
     expression: "this.size() > 0"
   }];
+  // Move a task that stands on another onto the workflow's base branch, replaying only its own
+  // commits, so it no longer stands on that task.
+  bool onto_base = 2;
 }
 
 message RebaseWorktreeResponse {
@@ -472,6 +482,23 @@ message PushWorktreeResponse {
   bool forced = 3;
   // The commit origin's copy of the branch now points at.
   string sha = 4;
+}
+
+message PlaceStandRequest {
+  // The task that stands on another, by id or slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
+  // The commit the task's own commits sit on, which its branch must hold. Any name git reads as a
+  // commit.
+  string commit = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message PlaceStandResponse {
+  // The full name of the commit recorded.
+  string tip = 1;
 }
 
 message AbortSequenceRequest {
@@ -1273,6 +1300,15 @@ service AgentService {
       name: "push_worktree"
       description: "Push a task's branch to origin under its own name. Komrad overwrites origin's copy after a rebase only when nothing on origin would be lost."
       reason: "Agents push their own branches with git, so a push from outside is for the person."
+    };
+  }
+  rpc PlaceStand(PlaceStandRequest) returns (PlaceStandResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "place_stand"
+      description: "Record the commit a task's own commits sit on, for a task that stands on another and has lost its place. Komrad measures the task from that commit and restacks it again."
+      reason: "A task loses its place when its writer rewrote its branch, so saying where its own commits begin is for the person."
     };
   }
   rpc AbortSequence(AbortSequenceRequest) returns (AbortSequenceResponse) {

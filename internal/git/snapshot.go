@@ -93,6 +93,8 @@ type TakeSnapshotParams struct {
 	Dir string
 	// Base is the branch the worktree was cut from.
 	Base string
+	// BaseCommit is the commit a standing task was cut from, measured against in place of Base.
+	BaseCommit string
 }
 
 // TakeSnapshot writes an agent's whole worktree, tracked and untracked alike, as a commit off
@@ -112,7 +114,7 @@ func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*
 		return nil, errSequenceInProgress
 	}
 
-	base, err := resolveBase(ctx, root, params.Base)
+	base, err := snapshotBase(ctx, root, params)
 	if err != nil {
 		return nil, err
 	}
@@ -494,4 +496,18 @@ func (c *Client) Park(ctx context.Context, dir, ref string) (string, error) {
 	}
 
 	return sha, nil
+}
+
+// snapshotBase is the ref a snapshot is measured against: the commit a standing task was cut
+// from, else the workflow's base branch.
+func snapshotBase(ctx context.Context, root string, params TakeSnapshotParams) (string, error) {
+	if params.BaseCommit == "" {
+		return resolveBase(ctx, root, params.Base)
+	}
+
+	if _, err := Run(ctx, root, "rev-parse", "--verify", "--quiet", params.BaseCommit+"^{commit}"); err != nil {
+		return "", fmt.Errorf("%w: the clone does not hold %s", ErrBaseMissing, params.BaseCommit)
+	}
+
+	return params.BaseCommit, nil
 }
