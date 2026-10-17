@@ -96,10 +96,11 @@ func (s *DatabaseStep) question() *huh.Form {
 }
 
 func requireOwnerURL(pasted string) error {
-	if strings.TrimSpace(pasted) == "" {
+	ownerURL := strings.TrimSpace(pasted)
+	if ownerURL == "" {
 		return errors.New("paste a postgres:// url")
 	}
-	if _, err := pgconn.ParseConfig(strings.TrimSpace(pasted)); err != nil {
+	if _, err := pgconn.ParseConfig(ownerURL); err != nil {
 		return errors.New("that is not a url Postgres accepts")
 	}
 
