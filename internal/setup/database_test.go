@@ -65,6 +65,11 @@ func TestDatabaseStep(t *testing.T) {
 			verdict: verdictAsk,
 		},
 		{
+			name:     "a broken config stops",
+			findings: []doctor.Finding{failed(doctor.CheckConfig), failed(doctor.CheckDatabase)},
+			verdict:  verdictStop,
+		},
+		{
 			name:     "a config file the person has that names no database stops",
 			config:   "# mine\n",
 			findings: []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckDatabase)},
@@ -107,11 +112,6 @@ func TestDatabaseStep(t *testing.T) {
 				ok(doctor.CheckEngine, "laptop"),
 			},
 			verdict: verdictDone,
-		},
-		{
-			name:     "a broken config stops",
-			findings: []doctor.Finding{failed(doctor.CheckConfig), failed(doctor.CheckDatabase)},
-			verdict:  verdictStop,
 		},
 	}
 
@@ -161,16 +161,6 @@ func TestDatabaseStepRepair(t *testing.T) {
 		after   string
 	}{
 		{
-			name:  "komrad runs Postgres",
-			run:   true,
-			after: "[connection]\nrun_postgres = true\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
-		},
-		{
-			name:   "a Postgres the person runs",
-			pasted: " " + ownerURL + "\n",
-			after:  "[connection]\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
-		},
-		{
 			name:    "the Postgres it made is removed when joining fails",
 			run:     true,
 			joinErr: errors.New("migrate refused"),
@@ -180,6 +170,16 @@ func TestDatabaseStepRepair(t *testing.T) {
 			name:    "a Postgres the person runs is left alone when joining fails",
 			pasted:  ownerURL,
 			joinErr: errors.New("migrate refused"),
+		},
+		{
+			name:  "komrad runs Postgres",
+			run:   true,
+			after: "[connection]\nrun_postgres = true\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
+		},
+		{
+			name:   "a Postgres the person runs",
+			pasted: " " + ownerURL + "\n",
+			after:  "[connection]\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
 		},
 	}
 
