@@ -35,3 +35,13 @@ func IsRunning(ctx context.Context, dir string) bool {
 func socketPath(dir string) string {
 	return filepath.Join(dir, ".s.PGSQL."+port)
 }
+
+// pidFile is the file the server in dir writes its PID into while it runs.
+func pidFile(dir string) string {
+	return filepath.Join(dataDir(dir), "postmaster.pid")
+}
+
+// lockFiles are the files a server in dir leaves behind when it dies without stopping.
+func lockFiles(dir string) []string {
+	return []string{pidFile(dir), socketPath(dir) + ".lock"}
+}

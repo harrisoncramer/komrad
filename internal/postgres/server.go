@@ -129,7 +129,7 @@ func ownerURL(dir, password, name string) string {
 
 func remove(ctx context.Context, dir string) error {
 	data := dataDir(dir)
-	if _, err := os.Stat(filepath.Join(data, "postmaster.pid")); err == nil {
+	if _, err := os.Stat(pidFile(dir)); err == nil {
 		if err := run(ctx, program(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
 			return fmt.Errorf("failed to stop Postgres in %s: %w", data, err)
 		}
@@ -221,7 +221,7 @@ func removeStaleLockFiles(dir string) error {
 		return err
 	}
 
-	for _, path := range []string{filepath.Join(dataDir(dir), "postmaster.pid"), socketPath(dir) + ".lock"} {
+	for _, path := range lockFiles(dir) {
 		info, err := os.Stat(path)
 		if errors.Is(err, fs.ErrNotExist) {
 			continue

@@ -57,7 +57,7 @@ func connect(t *testing.T, url string) *pgx.Conn {
 func postmasterPID(t *testing.T, dir string) int {
 	t.Helper()
 
-	contents, err := os.ReadFile(filepath.Join(dataDir(dir), "postmaster.pid"))
+	contents, err := os.ReadFile(pidFile(dir))
 	require.NoError(t, err)
 
 	first, _, _ := strings.Cut(string(contents), "\n")
@@ -144,7 +144,7 @@ func TestIntegrationUpRecoversFromACrash(t *testing.T) {
 	require.NoError(t, live.Start())
 	t.Cleanup(func() { _ = live.Process.Kill() })
 
-	for _, path := range []string{filepath.Join(dataDir(dir), "postmaster.pid"), socketPath(dir) + ".lock"} {
+	for _, path := range lockFiles(dir) {
 		contents, err := os.ReadFile(path)
 		require.NoError(t, err)
 
