@@ -121,7 +121,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 					Self:                getSelfPath(),
 					LogPath:             logPath,
 					ConfigArgs:          configArgs(state.configStack),
-					EmbeddedPostgresDir: embeddedPostgresDir(state.env),
+					EmbeddedPostgresDir: getEmbeddedPostgresDir(state.env),
 				})
 			}
 

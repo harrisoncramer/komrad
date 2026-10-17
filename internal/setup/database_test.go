@@ -140,7 +140,7 @@ func TestDatabaseStepUnattendedNamesTheFlags(t *testing.T) {
 	}
 }
 
-// TestDatabaseStepRepair covers the config each answer writes, and the Postgres it made removed when joining fails.
+// TestDatabaseStepRepair covers the config each answer writes, and the Postgres it made removed when creating the engine fails.
 func TestDatabaseStepRepair(t *testing.T) {
 	clearConnectionEnv(t)
 
@@ -150,46 +150,46 @@ func TestDatabaseStepRepair(t *testing.T) {
 	)
 
 	tests := []struct {
-		name    string
-		run     bool
-		pasted  string
-		joinErr error
-		removed bool
-		after   string
+		name             string
+		embeddedPostgres bool
+		ownerURLFlag     string
+		createEngineErr  error
+		removed          bool
+		after            string
 	}{
 		{
-			name:    "the Postgres it made is removed when joining fails",
-			run:     true,
-			joinErr: errors.New("migrate refused"),
-			removed: true,
+			name:             "the Postgres it made is removed when creating the engine fails",
+			embeddedPostgres: true,
+			createEngineErr:  errors.New("migrate refused"),
+			removed:          true,
 		},
 		{
-			name:    "a Postgres the person runs is left alone when joining fails",
-			pasted:  ownerURL,
-			joinErr: errors.New("migrate refused"),
+			name:            "a Postgres the person runs is left alone when creating the engine fails",
+			ownerURLFlag:    ownerURL,
+			createEngineErr: errors.New("migrate refused"),
 		},
 		{
-			name:  "embedded Postgres",
-			run:   true,
-			after: "[connection]\nembedded_postgres = true\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
+			name:             "embedded Postgres",
+			embeddedPostgres: true,
+			after:            "[connection]\nembedded_postgres = true\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
 		},
 		{
-			name:   "a Postgres the person runs",
-			pasted: " " + ownerURL + "\n",
-			after:  "[connection]\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
+			name:         "a Postgres the person runs",
+			ownerURLFlag: " " + ownerURL + "\n",
+			after:        "[connection]\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			path := homeConfig(t)
-			var joined string
+			var migratedOwnerURL string
 			var removed bool
 			step := &DatabaseStep{
 				File:                   &ConfigFile{Path: path},
 				Stack:                  config.Stack{},
-				EmbeddedPostgresFlag:   tt.run,
-				OwnerURLFlag:           tt.pasted,
+				EmbeddedPostgresFlag:   tt.embeddedPostgres,
+				OwnerURLFlag:           tt.ownerURLFlag,
 				CreateEmbeddedPostgres: func(context.Context) (string, error) { return ownerURL, nil },
 				RemoveEmbeddedPostgres: func(context.Context) error {
 					removed = true
@@ -197,21 +197,21 @@ func TestDatabaseStepRepair(t *testing.T) {
 					return nil
 				},
 				MigrateAndCreateEngine: func(_ context.Context, owner string) (string, error) {
-					joined = owner
+					migratedOwnerURL = owner
 
-					return engineURL, tt.joinErr
+					return engineURL, tt.createEngineErr
 				},
 			}
 			require.NoError(t, step.answerUnattended())
 
 			err := step.repair(t.Context())
 
-			if tt.joinErr != nil {
-				require.ErrorIs(t, err, tt.joinErr)
+			if tt.createEngineErr != nil {
+				require.ErrorIs(t, err, tt.createEngineErr)
 			} else {
 				require.NoError(t, err)
 			}
-			assert.Equal(t, ownerURL, joined)
+			assert.Equal(t, ownerURL, migratedOwnerURL)
 			assert.Equal(t, tt.removed, removed)
 			if tt.after == "" {
 				assert.NoFileExists(t, path)

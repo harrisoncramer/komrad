@@ -49,7 +49,7 @@ func (s *DatabaseStep) observe(ctx context.Context, check checker) observation {
 
 	if loaded.IsDefault("database_url") {
 		if !s.File.isWritable() {
-			return observation{Verdict: verdictStop, Detail: "no database is set up; " + s.File.refusal("database_url under [connection]") + ", or move it aside and run setup again"}
+			return observation{Verdict: verdictStop, Detail: "no database is set up; " + s.File.describeRefusal("database_url under [connection]") + ", or move it aside and run setup again"}
 		}
 
 		return observation{Verdict: verdictAsk, Detail: "no database is set up"}

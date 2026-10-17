@@ -53,10 +53,11 @@ names the setting to change there.
 With --no-input, or when stdin is not a terminal, nothing is asked: a step that needs an
 answer takes it from a flag, and names the flag when none was given.
 
-The database step runs while database_url is left at its default.
-Komrad either runs the embedded Postgres under its state directory, or takes the url of a login that owns
-a Postgres you already run; --embedded-postgres and --owner-database-url answer it unattended.
-Either way it migrates, makes an engine named default, and writes the [connection] settings.
+The database step runs while database_url is left at its default. It either runs the
+embedded Postgres under the state directory, or takes the url of a login that owns a
+Postgres you already run. Unattended, --embedded-postgres or --owner-database-url answers
+it. Either way it migrates, makes an engine named default, and writes the [connection]
+settings.
 
 The forge step connects github.com or gitlab.com with a pasted token once the engine is
 running, and skips until then. Unattended it skips, and komrad forge connect connects any

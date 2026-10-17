@@ -68,7 +68,7 @@ an agent's pane into a panel nobody is looking at.`,
 // openHere puts this engine's panel up and turns this process into the client attached to it.
 func openHere(ctx context.Context, state *app, detach, headless bool) error {
 	if !state.engine().IsRemote() {
-		if err := startEmbeddedPostgres(ctx, embeddedPostgresDir(state.env)); err != nil {
+		if err := startEmbeddedPostgres(ctx, getEmbeddedPostgresDir(state.env)); err != nil {
 			return err
 		}
 	}
@@ -252,7 +252,7 @@ func prepareAutoSetup(ctx context.Context, state *app) bool {
 		Self:                getSelfPath(),
 		LogPath:             state.env.LogPath(),
 		ConfigArgs:          configArgs(state.configStack),
-		EmbeddedPostgresDir: embeddedPostgresDir(state.env),
+		EmbeddedPostgresDir: getEmbeddedPostgresDir(state.env),
 	}); err != nil {
 		warnAutoSetup(ctx, state, err)
 

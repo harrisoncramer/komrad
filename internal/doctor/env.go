@@ -116,7 +116,7 @@ func NewEnv(settings Settings) Env {
 		ReadPendingMigrations: readPendingMigrations,
 		IsPostgresRunning:     postgres.IsRunning,
 		HasPostgresCluster:    postgres.HasCluster,
-		PostgresVersion:       bundledPostgres(),
+		PostgresVersion:       getBundledPostgresVersion(),
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.DatabaseURL)
 		},
@@ -149,7 +149,7 @@ func runOutput(ctx context.Context, name string, args ...string) (string, error)
 	return strings.TrimSpace(string(out)), nil
 }
 
-func bundledPostgres() string {
+func getBundledPostgresVersion() string {
 	if !postgres.IsBundled() {
 		return ""
 	}

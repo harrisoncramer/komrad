@@ -46,7 +46,7 @@ func TestIntegrationBundleHoldsWhatKomradRuns(t *testing.T) {
 func TestIntegrationCreateClusterStartsAPostgresOnlyTheSocketReaches(t *testing.T) {
 	t.Setenv("PGPORT", "1")
 	t.Setenv("LC_ALL", "missing.UTF-8")
-	dir := initCluster(t)
+	dir := createCluster(t)
 	conn := connect(t, BuildOwnerURL(dir, testPassword))
 
 	var listen string
@@ -63,7 +63,7 @@ func TestIntegrationCreateClusterStartsAPostgresOnlyTheSocketReaches(t *testing.
 // TestIntegrationStartKeepsOnePostgres covers Start leaving a running Postgres alone, however many
 // processes ask at once.
 func TestIntegrationStartKeepsOnePostgres(t *testing.T) {
-	dir := initCluster(t)
+	dir := createCluster(t)
 	pid := postmasterPID(t, dir)
 
 	require.NoError(t, Start(t.Context(), dir))
@@ -87,7 +87,7 @@ func TestIntegrationStartKeepsOnePostgres(t *testing.T) {
 // TestIntegrationStartRecoversFromACrash covers rows surviving a Postgres killed without warning, and
 // lock files from before a reboot whose PID a live process now holds.
 func TestIntegrationStartRecoversFromACrash(t *testing.T) {
-	dir := initCluster(t)
+	dir := createCluster(t)
 
 	func() {
 		conn, err := pgx.Connect(t.Context(), BuildOwnerURL(dir, testPassword))
@@ -101,7 +101,7 @@ func TestIntegrationStartRecoversFromACrash(t *testing.T) {
 	require.NoError(t, syscall.Kill(-postmasterPID(t, dir), syscall.SIGKILL))
 	require.Eventually(t, func() bool { return !IsRunning(t.Context(), dir) }, testWait, testTick)
 
-	livePID := postmasterPID(t, initCluster(t))
+	livePID := postmasterPID(t, createCluster(t))
 
 	for _, path := range getLockFilePaths(dir) {
 		contents, err := os.ReadFile(path)
@@ -121,7 +121,7 @@ func TestIntegrationStartRecoversFromACrash(t *testing.T) {
 
 // TestIntegrationCreateClusterRefusesASecondCluster covers CreateCluster never writing over a cluster that is there.
 func TestIntegrationCreateClusterRefusesASecondCluster(t *testing.T) {
-	dir := initCluster(t)
+	dir := createCluster(t)
 
 	require.ErrorIs(t, CreateCluster(t.Context(), dir, testPassword), ErrClusterExists)
 }
@@ -153,9 +153,9 @@ func TestIntegrationCreateClusterMakesOneClusterWhenTwoAskAtOnce(t *testing.T) {
 	assert.True(t, IsRunning(t.Context(), dir))
 }
 
-// TestIntegrationRemoveLeavesRoomForANewCluster covers a removed cluster being stopped and gone, so CreateCluster can start over.
-func TestIntegrationRemoveLeavesRoomForANewCluster(t *testing.T) {
-	dir := initCluster(t)
+// TestIntegrationRemoveClusterLeavesRoomForANewOne covers a removed cluster being stopped and gone, so CreateCluster can start over.
+func TestIntegrationRemoveClusterLeavesRoomForANewOne(t *testing.T) {
+	dir := createCluster(t)
 
 	require.NoError(t, RemoveCluster(t.Context(), dir))
 
@@ -164,10 +164,10 @@ func TestIntegrationRemoveLeavesRoomForANewCluster(t *testing.T) {
 	require.NoError(t, CreateCluster(t.Context(), dir, testPassword))
 }
 
-// TestIntegrationEngineJoinsOverTheSocket covers komrad's schema and an engine's login working in
+// TestIntegrationEngineConnectsOverTheSocket covers komrad's schema and an engine's login working in
 // the embedded Postgres.
-func TestIntegrationEngineJoinsOverTheSocket(t *testing.T) {
-	dir := initCluster(t)
+func TestIntegrationEngineConnectsOverTheSocket(t *testing.T) {
+	dir := createCluster(t)
 	owner := BuildOwnerURL(dir, testPassword)
 
 	require.NoError(t, store.Migrate(t.Context(), owner))
@@ -187,7 +187,7 @@ func TestIntegrationEngineJoinsOverTheSocket(t *testing.T) {
 	assert.Equal(t, "default", pool.GetEngine().Name)
 }
 
-func initCluster(t *testing.T) string {
+func createCluster(t *testing.T) string {
 	t.Helper()
 
 	dir, err := os.MkdirTemp("/tmp", "komrad-pg") //nolint:usetesting // a socket path under the test directory runs past the length unix allows

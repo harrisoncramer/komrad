@@ -22,8 +22,8 @@ func doesNeedEmbeddedPostgres(cmd *cobra.Command) bool {
 	return false
 }
 
-// embeddedPostgresDir is where the embedded Postgres lives, and empty when the config turns it off.
-func embeddedPostgresDir(env *config.Environment) string {
+// getEmbeddedPostgresDir is where the embedded Postgres lives, and empty when the config turns it off.
+func getEmbeddedPostgresDir(env *config.Environment) string {
 	if !env.EmbeddedPostgres {
 		return ""
 	}
@@ -33,7 +33,7 @@ func embeddedPostgresDir(env *config.Environment) string {
 
 // requireEmbeddedPostgres refuses a command that needs the database while the embedded Postgres is down.
 func requireEmbeddedPostgres(ctx context.Context, cmd *cobra.Command, env *config.Environment) error {
-	dir := embeddedPostgresDir(env)
+	dir := getEmbeddedPostgresDir(env)
 	if dir == "" || !doesNeedEmbeddedPostgres(cmd) || postgres.IsRunning(ctx, dir) {
 		return nil
 	}

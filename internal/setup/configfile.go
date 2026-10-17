@@ -54,8 +54,8 @@ func (f *ConfigFile) isWritable() bool {
 	return errors.Is(err, fs.ErrNotExist)
 }
 
-// refusal says the file is not setup's to change, and which setting to change there instead.
-func (f *ConfigFile) refusal(setting string) string {
+// describeRefusal says the file is not setup's to change, and which setting to change there instead.
+func (f *ConfigFile) describeRefusal(setting string) string {
 	return fmt.Sprintf("%s already exists, so set %s there", shortenHome(f.Path), setting)
 }
 

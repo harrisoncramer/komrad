@@ -18,8 +18,8 @@ left alone, whatever build it runs, so a rebuilt binary takes over only after
 going to the log file, and this waits for the address to answer before returning.
 
 When connection.embedded_postgres is set, this starts the embedded Postgres
-first if it is down, even when the server is already running. Nothing else starts
-it, and ` + "`komrad stop`" + ` leaves it running.
+first if it is down, even when the server is already running. Only this and
+` + "`komrad open`" + ` start it, and ` + "`komrad stop`" + ` leaves it running.
 
 Opening the panel does the same thing on its own, so this is for scripts and for
 bringing the server up without a panel.`,
@@ -29,7 +29,7 @@ bringing the server up without a panel.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			addr := state.env.Addr
 
-			if err := startEmbeddedPostgres(cmd.Context(), embeddedPostgresDir(state.env)); err != nil {
+			if err := startEmbeddedPostgres(cmd.Context(), getEmbeddedPostgresDir(state.env)); err != nil {
 				return err
 			}
 

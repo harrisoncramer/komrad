@@ -38,7 +38,7 @@ func TestChecksAreWellFormed(t *testing.T) {
 			checks: Checks(settings),
 		},
 		{
-			name:   "engine, running its own Postgres",
+			name:   "engine, with the embedded Postgres",
 			checks: EngineChecks(Settings{EmbeddedPostgres: true}),
 		},
 	}
@@ -109,8 +109,7 @@ func TestChecksMakesEveryCheckOnce(t *testing.T) {
 	}, names)
 }
 
-// TestDatabaseCheckWaitsOnPostgres covers a down Postgres reporting once, as the thing to start,
-// and only when komrad runs it.
+// TestDatabaseCheckWaitsOnPostgres covers a down embedded Postgres reporting once, as the thing to start.
 func TestDatabaseCheckWaitsOnPostgres(t *testing.T) {
 	tests := []struct {
 		name             string
