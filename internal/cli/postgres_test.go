@@ -59,7 +59,10 @@ func TestRequirePostgres(t *testing.T) {
 			runPostgres: true,
 			running:     true,
 		},
-		{name: "migrate against a Postgres of the person's", command: "migrate"},
+		{
+			name:    "migrate against a Postgres of the person's",
+			command: "migrate",
+		},
 		{
 			name:        "start, which brings Postgres up",
 			command:     "start",
