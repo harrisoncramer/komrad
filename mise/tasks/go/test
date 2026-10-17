@@ -10,6 +10,9 @@ usage() {
 	echo "real komrad carries the integration build tag, so it is compiled out of a"
 	echo "unit run rather than skipped inside one."
 	echo
+	echo "An integration run also builds in the embedded Postgres for this machine,"
+	echo "which its own tests start."
+	echo
 	echo "Every test in a tagged file is named TestIntegration, which is how an"
 	echo "integration run picks out only those and leaves the unit tests alone."
 	echo
@@ -49,10 +52,10 @@ TAGS=()
 case "$KIND" in
 unit) ;;
 integration)
-	TAGS=(-tags integration -run '^TestIntegration')
+	TAGS=(-tags 'integration,postgres' -run '^TestIntegration')
 	;;
 all)
-	TAGS=(-tags integration)
+	TAGS=(-tags 'integration,postgres')
 	;;
 *)
 	echo "go:test: no kind of test called $KIND" >&2
@@ -64,6 +67,10 @@ esac
 refuse_panel_database go:test
 
 cd "$MISE_CONFIG_ROOT"
+
+if [ "$KIND" != unit ]; then
+	fetch_postgres "$(go env GOOS)" "$(go env GOARCH)"
+fi
 
 # The tools are modules of their own, so the suite below does not see them. They run
 # first because a red suite under set -e would otherwise mean they never run at all.

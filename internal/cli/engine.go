@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -17,9 +18,10 @@ const enginePasswordVariable = "KOMRAD_ENGINE_PASSWORD"
 
 func engineCmd(state *app) *cobra.Command {
 	engine := &cobra.Command{
-		Use:    "engine",
-		Short:  "Set up the engines that share a database, and who may use them",
-		Hidden: true,
+		Use:         "engine",
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
+		Short:       "Set up the engines that share a database, and who may use them",
+		Hidden:      true,
 	}
 
 	engine.AddCommand(&cobra.Command{
@@ -52,14 +54,7 @@ engines had logins belongs to, hands it new logins and keeps its rows.`,
 				password = generated
 			}
 
-			if err := store.EnsureEngine(cmd.Context(), state.env.OwnerDatabaseURL, db.EnsureEngineParams{
-				Name:     name,
-				Password: password,
-			}); err != nil {
-				return err
-			}
-
-			engineURL, err := withLogin(state.env.OwnerDatabaseURL, db.EngineLogin(name), password)
+			engineURL, err := createEngineLogin(cmd.Context(), state.env.OwnerDatabaseURL, name, password)
 			if err != nil {
 				return err
 			}
@@ -130,6 +125,33 @@ fresh grant and a fresh sign-in.`,
 	})
 
 	return engine
+}
+
+// createEngineLogin creates the engine name with a login that takes password, or resets the login
+// of the one there, and returns the url it connects with.
+func createEngineLogin(ctx context.Context, ownerURL, name, password string) (string, error) {
+	if err := store.EnsureEngine(ctx, ownerURL, db.EnsureEngineParams{
+		Name:     name,
+		Password: password,
+	}); err != nil {
+		return "", fmt.Errorf("failed to create engine %s: %w", name, err)
+	}
+
+	return withLogin(ownerURL, db.EngineLogin(name), password)
+}
+
+// migrateAndCreateEngine migrates the database ownerURL owns and creates the default engine with a new password.
+func migrateAndCreateEngine(ctx context.Context, ownerURL string) (string, error) {
+	if err := store.Migrate(ctx, ownerURL); err != nil {
+		return "", fmt.Errorf("failed to migrate: %w", err)
+	}
+
+	password, err := generatePassword()
+	if err != nil {
+		return "", err
+	}
+
+	return createEngineLogin(ctx, ownerURL, setupEngine, password)
 }
 
 func generatePassword() (string, error) {

@@ -8,8 +8,9 @@ import (
 
 func migrateCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:   "migrate",
-		Short: "Apply any pending database migrations",
+		Use:         "migrate",
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
+		Short:       "Apply any pending database migrations",
 		Long: `Apply any pending database migrations, connecting as the login that owns the schema.
 
 The server never migrates: an engine connects as a login that cannot change the schema,

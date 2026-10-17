@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"path/filepath"
+	"sync"
 	"testing"
 
 	"komrad/internal/doctor"
@@ -125,6 +127,17 @@ func TestModelObservesRepairsAndObservesAgain(t *testing.T) {
 	}
 }
 
+// TestRepairUnlessQuit covers a repair that starts after the run quit doing nothing.
+func TestRepairUnlessQuit(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	step := &fakeStep{}
+
+	require.ErrorIs(t, repairUnlessQuit(ctx, &sync.Mutex{}, step), context.Canceled)
+
+	assert.Zero(t, step.repairs)
+}
+
 // TestRunUnattended covers the plain run stopping at the first step it cannot finish.
 func TestRunUnattended(t *testing.T) {
 	t.Run("stops at the first step that cannot be made true", func(t *testing.T) {
@@ -154,7 +167,7 @@ func TestRunUnattended(t *testing.T) {
 			ok("codex", ""),
 		)
 
-		err := RunUnattended(t.Context(), &out, check, []Step{&HarnessStep{Harnesses: []string{"claude", "codex"}}})
+		err := RunUnattended(t.Context(), &out, check, []Step{&HarnessStep{File: &ConfigFile{Path: filepath.Join(t.TempDir(), "config.toml")}, Harnesses: []string{"claude", "codex"}}})
 
 		require.ErrorIs(t, err, errFailed)
 		assert.Contains(t, out.String(), "--harness")

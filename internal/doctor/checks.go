@@ -37,13 +37,22 @@ func EngineChecks(settings Settings) []Check {
 		newHooksCheck(),
 		newWorktreesCheck(),
 		newContextCheck(),
-		newDatabaseCheck(),
+	}
+
+	database := newDatabaseCheck()
+	if settings.EmbeddedPostgres {
+		checks = append(checks, newEmbeddedPostgresCheck())
+		database.Needs = []string{CheckEmbeddedPostgres}
+	}
+
+	checks = append(checks,
+		database,
 		newBasesCheck(),
 		newSchemaCheck(),
 		newEngineCheck(),
 		newReadOnlyLoginCheck(),
 		newOrphanedWorktreesCheck(),
-	}
+	)
 
 	return append(checks, xslice.Map(settings.Harnesses, newHarnessBinaryCheck)...)
 }

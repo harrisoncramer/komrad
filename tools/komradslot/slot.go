@@ -34,6 +34,7 @@ func buildSettings(slotDir string, n int) []setting {
 		{"KOMRAD_DATABASE_URL", fmt.Sprintf("postgres://%s:komrad@localhost:%d/%s?sslmode=disable&pool_max_conns=%d", getLogin(n), containerPort, database, serverMaxConns)},
 		{"KOMRAD_OWNER_DATABASE_URL", fmt.Sprintf("postgres://komrad:komrad@localhost:%d/%s?sslmode=disable", containerPort, database)},
 		{"KOMRAD_READONLY_DATABASE_URL", ""},
+		{"KOMRAD_EMBEDDED_POSTGRES", ""},
 		{"KOMRAD_ADDR", serverAddr(n)},
 		{"KOMRAD_TMUX_SOCKET", getSocket(n)},
 		{"COMPOSE_PROJECT_NAME", containerProject},

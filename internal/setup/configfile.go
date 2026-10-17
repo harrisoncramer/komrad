@@ -1,85 +1,90 @@
 package setup
 
 import (
+	"bytes"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
+	"text/template"
 
+	"komrad/internal/fail"
 	"komrad/lib/xfile"
 
 	"github.com/pelletier/go-toml/v2"
 )
 
-// setTopLevelKey writes a string key above the file's first table, keeping every other line as
-// it was.
-func setTopLevelKey(path, key, value string) error {
-	return setTopLevel(path, key, strconv.Quote(value))
+//go:embed config.toml.tmpl
+var configTemplateText string
+
+var configTemplate = template.Must(template.New("config.toml").Funcs(template.FuncMap{"quote": strconv.Quote}).Parse(configTemplateText))
+
+// errConfigExists is what a write returns when the config file was there before setup ran.
+var errConfigExists = fail.AlreadyExists("the config file already exists")
+
+// ConfigFile is the config file setup writes from its config template, which it never changes
+// once someone else has written it.
+type ConfigFile struct {
+	Path    string
+	answers answers
+	created bool
 }
 
-// setTopLevelBool writes a boolean key above the file's first table, keeping every other line as
-// it was.
-func setTopLevelBool(path, key string, value bool) error {
-	return setTopLevel(path, key, strconv.FormatBool(value))
+// answers are the settings setup fills the config template with.
+type answers struct {
+	DefaultHarness   string
+	AutoSetup        bool
+	EmbeddedPostgres bool
+	OwnerDatabaseURL string
+	DatabaseURL      string
 }
 
-func setTopLevel(path, key, literal string) error {
-	existing, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("failed to read %s: %w", path, err)
+// isWritable reports whether setup may write the file, which it may only while the file is missing or setup made it.
+func (f *ConfigFile) isWritable() bool {
+	if f.created {
+		return true
 	}
 
-	written := setKeyLine(string(existing), key, literal)
+	_, err := os.Stat(f.Path)
+
+	return errors.Is(err, fs.ErrNotExist)
+}
+
+// describeRefusal says the file is not setup's to change, and which setting to change there instead.
+func (f *ConfigFile) describeRefusal(setting string) string {
+	return fmt.Sprintf("%s already exists, so set %s there", shortenHome(f.Path), setting)
+}
+
+func (f *ConfigFile) write(answer func(*answers)) error {
+	if !f.isWritable() {
+		return fmt.Errorf("%w at %s", errConfigExists, shortenHome(f.Path))
+	}
+
+	next := f.answers
+	answer(&next)
+
+	var rendered bytes.Buffer
+	if err := configTemplate.Execute(&rendered, next); err != nil {
+		return fmt.Errorf("failed to fill in the config template: %w", err)
+	}
+	content := strings.TrimLeft(rendered.String(), "\n")
 
 	var parsed map[string]any
-	if err := toml.Unmarshal([]byte(written), &parsed); err != nil {
-		return fmt.Errorf("failed to write %s, since the result would not parse: %w", path, err)
+	if err := toml.Unmarshal([]byte(content), &parsed); err != nil {
+		return fmt.Errorf("failed to write %s, since the result would not parse: %w", f.Path, err)
 	}
 
-	return writeAtomically(path, []byte(written))
-}
-
-var tableHeader = regexp.MustCompile(`^\s*\[`)
-
-func setKeyLine(text, key, literal string) string {
-	line := key + " = " + literal
-	assignment := regexp.MustCompile(`^\s*` + regexp.QuoteMeta(key) + `\s*=`)
-
-	lines := strings.Split(text, "\n")
-	firstTable := len(lines)
-	for i, existing := range lines {
-		if tableHeader.MatchString(existing) {
-			firstTable = i
-
-			break
-		}
-		if assignment.MatchString(existing) {
-			lines[i] = line
-
-			return strings.Join(lines, "\n")
-		}
+	if err := writeAtomically(f.Path, []byte(content)); err != nil {
+		return err
 	}
+	f.answers = next
+	f.created = true
 
-	if strings.TrimSpace(text) == "" {
-		return line + "\n"
-	}
-
-	inserted := make([]string, 0, len(lines)+2)
-	if firstTable == len(lines) && lines[firstTable-1] == "" {
-		firstTable--
-	}
-	inserted = append(inserted, lines[:firstTable]...)
-	inserted = append(inserted, line)
-	if firstTable < len(lines) && tableHeader.MatchString(lines[firstTable]) {
-		inserted = append(inserted, "")
-	}
-	inserted = append(inserted, lines[firstTable:]...)
-
-	return strings.Join(inserted, "\n")
+	return nil
 }
 
 func writeAtomically(path string, content []byte) error {

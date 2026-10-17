@@ -32,7 +32,7 @@ func newBasesCheck() Check {
 	return Check{
 		Name:        "bases",
 		Description: "every workflow names a base branch, and its clone has to hold that branch for reviews and rebases to measure against",
-		Needs:       []string{"database"},
+		Needs:       []string{CheckDatabase},
 		Run: func(ctx context.Context, env Env) Result {
 			bases, err := env.ReadWorkflowBases(ctx, env.DatabaseURL)
 			if err != nil {

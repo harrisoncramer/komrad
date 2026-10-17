@@ -40,10 +40,16 @@ type ensureServerParams struct {
 	Self       string
 	LogPath    string
 	ConfigArgs []string
+	// EmbeddedPostgresDir is where the embedded Postgres lives, and empty when the config turns it off.
+	EmbeddedPostgresDir string
 }
 
 func ensureServer(ctx context.Context, params ensureServerParams) error {
 	addr, logPath := params.Addr, params.LogPath
+
+	if err := startEmbeddedPostgres(ctx, params.EmbeddedPostgresDir); err != nil {
+		return err
+	}
 
 	if probeServer(ctx, xhttp.NewTransport(), formatBase(addr)).answering {
 		return nil

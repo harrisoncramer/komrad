@@ -2127,6 +2127,13 @@
           "default": "\"\""
         },
         {
+          "key": "embedded_postgres",
+          "path": "connection.embedded_postgres",
+          "type": "boolean",
+          "description": "Whether komrad runs the embedded Postgres its binary carries, keeping it under state_dir and\nreaching it over a socket there. `komrad start` brings it up, and the commands that need\nthe database refuse to run while it is down.",
+          "default": "false"
+        },
+        {
           "key": "url",
           "path": "connection.url",
           "type": "string",

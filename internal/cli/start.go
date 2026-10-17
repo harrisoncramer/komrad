@@ -17,6 +17,10 @@ left alone, whatever build it runs, so a rebuilt binary takes over only after
 ` + "`komrad stop`" + `. Otherwise ` + "`komrad serve`" + ` is spawned detached, with its output
 going to the log file, and this waits for the address to answer before returning.
 
+When connection.embedded_postgres is set, this starts the embedded Postgres
+first if it is down, even when the server is already running. Only this and
+` + "`komrad open`" + ` start it, and ` + "`komrad stop`" + ` leaves it running.
+
 Opening the panel does the same thing on its own, so this is for scripts and for
 bringing the server up without a panel.`,
 		Args:          cobra.NoArgs,
@@ -24,6 +28,10 @@ bringing the server up without a panel.`,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			addr := state.env.Addr
+
+			if err := startEmbeddedPostgres(cmd.Context(), getEmbeddedPostgresDir(state.env)); err != nil {
+				return err
+			}
 
 			if probeServer(cmd.Context(), xhttp.NewTransport(), formatBase(addr)).answering {
 				cmd.Printf("the server at %s is already running\n", addr)

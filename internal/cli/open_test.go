@@ -49,6 +49,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 		TmuxSocket:          "komrad-test",
 		CacheDir:            "/tmp/cache",
 		StateDir:            "/tmp/state",
+		EmbeddedPostgres:    true,
 		Editor:              "nvim",
 	}}
 
@@ -62,6 +63,7 @@ func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) 
 		"EDITOR":                       "nvim",
 		"KOMRAD_CACHE_DIR":             "/tmp/cache",
 		"KOMRAD_STATE_DIR":             "/tmp/state",
+		"KOMRAD_EMBEDDED_POSTGRES":     "true",
 	}, forwardedEnv(t, args))
 }
 
@@ -320,4 +322,19 @@ func TestIntegrationRestartPanel(t *testing.T) {
 			assert.Equal(t, tt.wantSelf, strings.Contains(hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_start_command}"), state.self))
 		})
 	}
+}
+
+// TestIntegrationOpenStartsEmbeddedPostgresBesideALivePanel covers reattaching to a panel whose embedded Postgres went down.
+func TestIntegrationOpenStartsEmbeddedPostgresBesideALivePanel(t *testing.T) {
+	socket := throwawaySocket(t)
+	panelSession(t, socket)
+
+	state := panelState(t, socket)
+	state.tmux.RecordPanelPane(hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}"))
+	state.env.EmbeddedPostgres = true
+	state.env.StateDir = t.TempDir()
+
+	err := openHere(t.Context(), state, true, false)
+
+	require.ErrorContains(t, err, "failed to start the embedded Postgres")
 }

@@ -9,69 +9,70 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSetTopLevelKey covers that the key lands above the first table and every other line survives.
-func TestSetTopLevelKey(t *testing.T) {
+// TestConfigFileWrite covers the file setup writes from its config template as answers arrive.
+func TestConfigFileWrite(t *testing.T) {
 	tests := []struct {
-		name   string
-		before string
-		after  string
+		name    string
+		answers []func(*answers)
+		after   string
 	}{
 		{
-			name:   "no file",
-			before: "",
-			after:  "default_harness = \"codex\"\n",
+			name:    "a harness alone",
+			answers: []func(*answers){func(a *answers) { a.DefaultHarness = "codex" }},
+			after:   "default_harness = \"codex\"\n",
 		},
 		{
-			name:   "replaces the key and keeps comments",
-			before: "# mine\ndefault_harness = \"claude\" # old\n\n[layout]\nsidebar_width = 30\n",
-			after:  "# mine\ndefault_harness = \"codex\"\n\n[layout]\nsidebar_width = 30\n",
+			name: "every answer",
+			answers: []func(*answers){
+				func(a *answers) {
+					a.EmbeddedPostgres = true
+					a.OwnerDatabaseURL = "postgres://owner"
+					a.DatabaseURL = "postgres://engine"
+				},
+				func(a *answers) { a.DefaultHarness = "codex" },
+				func(a *answers) { a.AutoSetup = true },
+			},
+			after: "default_harness = \"codex\"\nauto_setup = true\n\n[connection]\nembedded_postgres = true\nowner_database_url = \"postgres://owner\"\ndatabase_url = \"postgres://engine\"\n",
 		},
 		{
-			name:   "goes above the first table",
-			before: "# mine\n[layout]\nsidebar_width = 30\n",
-			after:  "# mine\ndefault_harness = \"codex\"\n\n[layout]\nsidebar_width = 30\n",
-		},
-		{
-			name:   "a key of that name inside a table is not the top-level one",
-			before: "[harness.claude]\ndefault_harness = \"x\"\n",
-			after:  "default_harness = \"codex\"\n\n[harness.claude]\ndefault_harness = \"x\"\n",
-		},
-		{
-			name:   "appended when there are no tables",
-			before: "log_level = \"debug\"\n",
-			after:  "log_level = \"debug\"\ndefault_harness = \"codex\"\n",
+			name: "a Postgres the person runs",
+			answers: []func(*answers){func(a *answers) {
+				a.OwnerDatabaseURL = "postgres://owner"
+				a.DatabaseURL = "postgres://engine"
+			}},
+			after: "[connection]\nowner_database_url = \"postgres://owner\"\ndatabase_url = \"postgres://engine\"\n",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "komrad", "config.toml")
-			if tt.before != "" {
-				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
-				require.NoError(t, os.WriteFile(path, []byte(tt.before), 0o644))
+			file := &ConfigFile{Path: filepath.Join(t.TempDir(), "komrad", "config.toml")}
+
+			for _, answer := range tt.answers {
+				require.NoError(t, file.write(answer))
 			}
 
-			require.NoError(t, setTopLevelKey(path, "default_harness", "codex"))
-
-			written, err := os.ReadFile(path)
+			written, err := os.ReadFile(file.Path)
 			require.NoError(t, err)
 			assert.Equal(t, tt.after, string(written))
 
-			info, err := os.Stat(path)
+			info, err := os.Stat(file.Path)
 			require.NoError(t, err)
 			assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 		})
 	}
 }
 
-// TestSetTopLevelKeyRefusesAFileThatWillNotParse covers that a broken file is left as it was.
-func TestSetTopLevelKeyRefusesAFileThatWillNotParse(t *testing.T) {
+// TestConfigFileWriteRefusesAFileAlreadyThere covers that setup leaves a config it did not make as it was.
+func TestConfigFileWriteRefusesAFileAlreadyThere(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte("[layout\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("# mine\n"), 0o600))
+	file := &ConfigFile{Path: path}
 
-	require.Error(t, setTopLevelKey(path, "default_harness", "codex"))
+	assert.False(t, file.isWritable())
+	require.ErrorIs(t, file.write(func(a *answers) { a.DefaultHarness = "codex" }), errConfigExists)
 
 	written, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, "[layout\n", string(written), "a file setup cannot read is left as it was")
+	assert.Equal(t, "# mine\n", string(written))
 }

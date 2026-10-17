@@ -12,6 +12,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/harness"
+	"komrad/internal/postgres"
 )
 
 const (
@@ -21,27 +22,31 @@ const (
 
 type Env struct {
 	Settings
-	OS                    string
-	Arch                  string
-	LookPath              func(name string) (string, error)
-	Output                func(ctx context.Context, name string, args ...string) (string, error)
-	LoadConfig            func() (*config.Config, error)
-	DoesLayerExist        func(path string) bool
-	ValidateKeybindings   func(keys config.Keybindings) error
-	InspectDir            func(path string) (dirState, error)
-	ReadFile              func(path string) ([]byte, error)
-	PingDatabase          func(ctx context.Context, url string) error
-	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
-	ConnectReadOnly       func(ctx context.Context, url string) error
-	ReadEngine            func(ctx context.Context, url string) (string, error)
-	ReadWorktreeOwners    func(ctx context.Context, url string) (worktreeOwners, error)
-	ReadWorkflowBases     func(ctx context.Context, url string) ([]workflowBase, error)
-	ResolveBase           func(ctx context.Context, dir, base string) (string, error)
-	CheckForges           func(ctx context.Context) ([]ForgeStatus, error)
-	ProbeServer           func(ctx context.Context) (ServerStatus, error)
-	IsPanelRunning        func(ctx context.Context) bool
-	ReadTerminfo          func(ctx context.Context, term, capability string) (string, error)
-	ListFonts             func(ctx context.Context) ([]string, error)
+	// EmbeddedPostgresVersion is the version of the embedded Postgres this binary carries, and empty when it carries none.
+	EmbeddedPostgresVersion    string
+	OS                         string
+	Arch                       string
+	LookPath                   func(name string) (string, error)
+	Output                     func(ctx context.Context, name string, args ...string) (string, error)
+	LoadConfig                 func() (*config.Config, error)
+	DoesLayerExist             func(path string) bool
+	ValidateKeybindings        func(keys config.Keybindings) error
+	InspectDir                 func(path string) (dirState, error)
+	ReadFile                   func(path string) ([]byte, error)
+	PingDatabase               func(ctx context.Context, url string) error
+	ReadPendingMigrations      func(ctx context.Context, url string) ([]string, error)
+	ConnectReadOnly            func(ctx context.Context, url string) error
+	IsEmbeddedPostgresRunning  func(ctx context.Context, dir string) bool
+	HasEmbeddedPostgresCluster func(dir string) bool
+	ReadEngine                 func(ctx context.Context, url string) (string, error)
+	ReadWorktreeOwners         func(ctx context.Context, url string) (worktreeOwners, error)
+	ReadWorkflowBases          func(ctx context.Context, url string) ([]workflowBase, error)
+	ResolveBase                func(ctx context.Context, dir, base string) (string, error)
+	CheckForges                func(ctx context.Context) ([]ForgeStatus, error)
+	ProbeServer                func(ctx context.Context) (ServerStatus, error)
+	IsPanelRunning             func(ctx context.Context) bool
+	ReadTerminfo               func(ctx context.Context, term, capability string) (string, error)
+	ListFonts                  func(ctx context.Context) ([]string, error)
 
 	// MeasureColumns asks the terminal how wide it drew each sample, and is left nil wherever
 	// there is no terminal to take over.
@@ -77,6 +82,8 @@ type Settings struct {
 	Harnesses           []harnessInfo
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
+	EmbeddedPostgres    bool
+	StateDir            string
 	Addr                string
 	EngineURL           string
 	EngineIsRemote      bool
@@ -103,10 +110,13 @@ func NewEnv(settings Settings) Env {
 
 			return err == nil
 		},
-		InspectDir:            inspectDir,
-		ReadFile:              os.ReadFile,
-		PingDatabase:          pingDatabase,
-		ReadPendingMigrations: readPendingMigrations,
+		InspectDir:                 inspectDir,
+		ReadFile:                   os.ReadFile,
+		PingDatabase:               pingDatabase,
+		ReadPendingMigrations:      readPendingMigrations,
+		IsEmbeddedPostgresRunning:  postgres.IsRunning,
+		HasEmbeddedPostgresCluster: postgres.HasCluster,
+		EmbeddedPostgresVersion:    getEmbeddedPostgresVersion(),
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.DatabaseURL)
 		},
@@ -137,4 +147,12 @@ func runOutput(ctx context.Context, name string, args ...string) (string, error)
 	}
 
 	return strings.TrimSpace(string(out)), nil
+}
+
+func getEmbeddedPostgresVersion() string {
+	if !postgres.IsEmbedded() {
+		return ""
+	}
+
+	return postgres.Version
 }
