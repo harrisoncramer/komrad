@@ -715,13 +715,13 @@ SELECT
                     o.repository_url = t.repository_url
                     AND o.head_branch = p.base_branch
                     AND o.state = 'OPEN'))::boolean AS base_finished
-FROM
-    pull_requests p
-WHERE
-    p.url = $1
-ORDER BY
-    p.first_seen_at DESC
-LIMIT 1
+    FROM
+        pull_requests p
+    WHERE
+        p.url = $1
+    ORDER BY
+        p.first_seen_at DESC
+    LIMIT 1
 `
 
 type ReadMergeStandRow struct {
