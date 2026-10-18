@@ -36,6 +36,16 @@ func TestGetHistoryPicksTheRound(t *testing.T) {
 			wantPinned:  true,
 		},
 		{
+			name: "an open review on a landed round pins nothing",
+			arrange: func(t *testing.T, fx *reviewFixture) {
+				fx.writeComment(t, personAuthor, "this needs a nil check")
+				_, err := fx.reviews.MarkRoundsLanded(t.Context(), *fx.writer.TaskID, 1)
+				require.NoError(t, err)
+			},
+			wantOrdinal: 2,
+			wantRounds:  2,
+		},
+		{
 			name: "a fresh read lets go of the open review's round",
 			arrange: func(t *testing.T, fx *reviewFixture) {
 				fx.writeComment(t, personAuthor, "this needs a nil check")
