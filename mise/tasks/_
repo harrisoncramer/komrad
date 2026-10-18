@@ -11,11 +11,11 @@ migrate_database() {
 }
 
 shell_scripts() {
-	local roots=(mise/tasks internal/scripts/builtin packer/scripts packer/files)
+	local roots=(install.sh mise/tasks internal/scripts/builtin packer/scripts packer/files)
 
 	for root in "${roots[@]}"; do
-		if [ ! -d "$root" ]; then
-			echo "shell_scripts: no directory at $root" >&2
+		if [ ! -e "$root" ]; then
+			echo "shell_scripts: nothing at $root" >&2
 
 			return 1
 		fi
