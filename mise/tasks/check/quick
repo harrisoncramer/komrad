@@ -106,9 +106,7 @@ run_step "bash:check" mise run bash:check
 run_step "bash:fmt --check" mise run bash:fmt --check
 run_step "go:fmt --check" mise run go:fmt --check
 run_step "go build" go build ./...
-if [ "${MISE_ENV:-}" = test ]; then
-	run_step "komrad migrate" start_test_database
-fi
+run_step "komrad migrate" start_test_database
 run_step "go:export" mise run go:export
 
 PROTO_LINTED=false

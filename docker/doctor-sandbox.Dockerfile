@@ -33,7 +33,7 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 
 # A tmux new enough and the embedded Postgres, which komrad setup creates before the binary runs.
-# The bundled Postgres links against libraries a slim image leaves out, and it refuses to run as
+# The embedded Postgres links against libraries a slim image leaves out, and it refuses to run as
 # root, so this stage installs them and runs as a login of its own.
 FROM tmux AS postgres
 RUN apt-get update \

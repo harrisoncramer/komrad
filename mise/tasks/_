@@ -90,9 +90,7 @@ refuse_panel_database() {
 	fi
 }
 
-# start_test_database brings up the throwaway instance's embedded Postgres, migrated, under MISE_ENV=test.
+# start_test_database brings up the throwaway instance's embedded Postgres, migrated.
 start_test_database() {
-	if [ "${MISE_ENV:-}" = test ]; then
-		migrate_database >/dev/null
-	fi
+	migrate_database >/dev/null
 }
