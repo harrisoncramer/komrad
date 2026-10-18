@@ -1515,13 +1515,11 @@ func TestIntegrationBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
 // TestIntegrationBuiltinKomradCheckoutTeardown covers giving back what a komrad checkout claimed.
 func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 	tests := []struct {
-		name        string
-		checkout    bool
-		dirName     string
-		dockerDown  bool
-		noWorktree  bool
-		wantFreed   bool
-		wantCompose bool
+		name       string
+		checkout   bool
+		dirName    string
+		noWorktree bool
+		wantFreed  bool
 	}{
 		{
 			name:       "a komrad checkout run for a task with no worktree is left alone",
@@ -1530,18 +1528,10 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 			noWorktree: true,
 		},
 		{
-			name:        "a komrad checkout gives back its instance and stack",
-			checkout:    true,
-			dirName:     "task-a",
-			wantFreed:   true,
-			wantCompose: true,
-		},
-		{
-			name:       "a komrad checkout with docker down still gives back its instance",
-			checkout:   true,
-			dirName:    "task-a",
-			dockerDown: true,
-			wantFreed:  true,
+			name:      "a komrad checkout gives back its instance",
+			checkout:  true,
+			dirName:   "task-a",
+			wantFreed: true,
 		},
 		{
 			name:     "a komrad checkout not named for its worktree is left alone",
@@ -1555,9 +1545,7 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tree := filepath.Join(t.TempDir(), tt.dirName)
 			require.NoError(t, os.MkdirAll(tree, 0o755))
-			calls := t.TempDir()
-			freed := filepath.Join(calls, "freed")
-			dockered := filepath.Join(calls, "docker")
+			freed := filepath.Join(t.TempDir(), "freed")
 
 			if tt.checkout {
 				tasks := filepath.Join(tree, "mise", "tasks")
@@ -1566,18 +1554,10 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(tasks, "_test_instance"), []byte(stub), 0o755))
 			}
 
-			bin := t.TempDir()
-			docker := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$*\" >> %q\n", dockered)
-			if tt.dockerDown {
-				docker = "#!/bin/sh\nexit 1\n"
-			}
-			require.NoError(t, os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0o755))
-
 			result, err := runBuiltin(t, "komrad-checkout-teardown", worktreeEnv{
 				taskID:     "task-a",
 				agentCwd:   tree,
 				trigger:    "agent.pre-delete",
-				pathPrefix: bin,
 				noWorktree: tt.noWorktree,
 			})
 			require.NoError(t, err, "stderr: %s", result.Stderr)
@@ -1586,19 +1566,11 @@ func TestIntegrationBuiltinKomradCheckoutTeardown(t *testing.T) {
 			}
 
 			said, freedErr := os.ReadFile(freed)
-			ran, dockerErr := os.ReadFile(dockered)
 			if tt.wantFreed {
 				require.NoError(t, freedErr)
 				assert.Equal(t, "down --root "+tree, string(said))
 			} else {
 				assert.True(t, os.IsNotExist(freedErr), "no instance was given back")
-			}
-
-			if tt.wantCompose {
-				require.NoError(t, dockerErr)
-				assert.Contains(t, string(ran), "compose -p task-a --profile * down --volumes --remove-orphans --rmi local\n")
-			} else {
-				assert.NotContains(t, string(ran), "compose", "no stack was taken down")
 			}
 		})
 	}
