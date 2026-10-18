@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-#MISE description="Open a psql shell to the local development database."
+#MISE description="Open a psql shell to the embedded Postgres, the throwaway instance's under MISE_ENV=test."
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
-cd "$MISE_CONFIG_ROOT"
-exec docker compose exec db psql -U komrad -d "${KOMRAD_TEST_DATABASE:-komrad}"
+dir="${KOMRAD_STATE_DIR:-$HOME/.local/state/komrad}/postgres"
+programs=("$dir"/*/bin/psql)
+psql="${programs[${#programs[@]} - 1]}"
+if [ ! -x "$psql" ]; then
+	psql=psql
+fi
+
+exec "$psql" "host=$dir port=5432 user=komrad dbname=komrad"

@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 
+	"komrad/config"
 	"komrad/internal/command"
 	"komrad/internal/fail"
 
@@ -18,13 +18,17 @@ import (
 )
 
 const (
-	// ownerLogin is the superuser initdb creates, which owns komrad's schema.
-	ownerLogin = "komrad"
-	database   = "komrad"
 	// startTimeout is how many seconds pg_ctl waits for the server to accept connections.
 	startTimeout = "60"
 	// settingsFile holds the settings komrad rewrites on every start, which postgresql.conf includes.
 	settingsFile = "komrad.conf"
+	// signInFile holds the sign-in rule komrad rewrites on every start.
+	signInFile = "pg_hba.conf"
+	// signInRule lets every login in over the socket without a password, since only the person can
+	// open the directory that holds it.
+	signInRule = "local all all trust\n" //nolint:dupword // the database and the login columns both say all
+	// maxConnections is how many connections the embedded Postgres accepts at once.
+	maxConnections = "300"
 )
 
 // ErrClusterExists is what CreateCluster returns when dir already holds a cluster.
@@ -32,14 +36,8 @@ var ErrClusterExists = fail.AlreadyExists("an embedded Postgres cluster is alrea
 
 var errNoCluster = fail.Precondition("no embedded Postgres is set up")
 
-// BuildOwnerURL is the url of the login that owns komrad's database in dir.
-func BuildOwnerURL(dir, password string) string {
-	return buildOwnerURL(dir, password, database)
-}
-
-// CreateCluster sets up a new cluster in dir whose owner login takes password, starts it, and creates
-// komrad's database.
-func CreateCluster(ctx context.Context, dir, password string) error {
+// CreateCluster sets up a new cluster in dir, starts it, and creates komrad's database.
+func CreateCluster(ctx context.Context, dir string) error {
 	unlock, err := lockAndUnpack(dir)
 	if err != nil {
 		return fmt.Errorf("failed to create a cluster in %s: %w", dir, err)
@@ -51,7 +49,7 @@ func CreateCluster(ctx context.Context, dir, password string) error {
 		return fmt.Errorf("%w in %s", ErrClusterExists, data)
 	}
 
-	if err := runInitdb(ctx, dir, data, password); err != nil {
+	if err := runInitdb(ctx, dir, data); err != nil {
 		return fmt.Errorf("failed to create a cluster in %s: %w", data, err)
 	}
 
@@ -59,7 +57,7 @@ func CreateCluster(ctx context.Context, dir, password string) error {
 		return errors.Join(fmt.Errorf("failed to start the new cluster in %s: %w", data, err), stopAndRemoveCluster(context.WithoutCancel(ctx), dir))
 	}
 
-	if err := createDatabase(ctx, dir, password); err != nil {
+	if err := createDatabase(ctx, dir); err != nil {
 		return errors.Join(fmt.Errorf("failed to set up the new cluster in %s: %w", dir, err), stopAndRemoveCluster(context.WithoutCancel(ctx), dir))
 	}
 
@@ -77,7 +75,7 @@ func RemoveCluster(ctx context.Context, dir string) error {
 	return stopAndRemoveCluster(ctx, dir)
 }
 
-// Start starts the embedded Postgres in dir unless it is already running.
+// Start starts the embedded Postgres in dir, or has it reload its settings when it is already running.
 func Start(ctx context.Context, dir string) error {
 	unlock, err := lockAndUnpack(dir)
 	if err != nil {
@@ -86,11 +84,15 @@ func Start(ctx context.Context, dir string) error {
 	defer unlock()
 
 	if IsRunning(ctx, dir) {
+		if err := reloadServer(ctx, dir); err != nil {
+			return fmt.Errorf("failed to reload the embedded Postgres in %s: %w", dir, err)
+		}
+
 		return nil
 	}
 
 	if !HasCluster(dir) {
-		return fmt.Errorf("%w in %s, so move your config file aside and run komrad setup", errNoCluster, dir)
+		return fmt.Errorf("%w in %s, so run komrad setup", errNoCluster, dir)
 	}
 
 	if err := removeStaleLockFiles(dir); err != nil {
@@ -116,15 +118,6 @@ func getDataDir(dir string) string {
 	major, _, _ := strings.Cut(Version, ".")
 
 	return filepath.Join(dir, "data-"+major)
-}
-
-func buildOwnerURL(dir, password, name string) string {
-	return (&url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(ownerLogin, password),
-		Path:     "/" + name,
-		RawQuery: url.Values{"host": {dir}, "port": {port}}.Encode(),
-	}).String()
 }
 
 func stopAndRemoveCluster(ctx context.Context, dir string) error {
@@ -177,23 +170,16 @@ func takeLock(dir string) (func(), error) {
 }
 
 // runInitdb creates the cluster in a staging directory and moves it into data once it is whole.
-func runInitdb(ctx context.Context, dir, data, password string) error {
+func runInitdb(ctx context.Context, dir, data string) error {
 	staging := data + ".init"
 	if err := os.RemoveAll(staging); err != nil {
 		return fmt.Errorf("failed to clear %s: %w", staging, err)
 	}
 
-	passwordFile := filepath.Join(dir, ".password")
-	if err := os.WriteFile(passwordFile, []byte(password+"\n"), 0o600); err != nil {
-		return fmt.Errorf("failed to write the owner's password for initdb: %w", err)
-	}
-	defer os.Remove(passwordFile) //nolint:errcheck // a leftover holds a password komrad's config already holds
-
 	if err := runProgram(ctx, getProgramPath(dir, "initdb"),
 		"-D", staging,
-		"-U", ownerLogin,
-		"--pwfile", passwordFile,
-		"-A", "scram-sha-256",
+		"-U", config.EmbeddedPostgresOwner,
+		"-A", "trust",
 		"--encoding", "UTF8",
 		"--no-locale",
 		"--locale-provider", "builtin",
@@ -242,21 +228,44 @@ func removeStaleLockFiles(dir string) error {
 	return nil
 }
 
-// startServer writes the settings that keep the embedded Postgres off the network and on the socket in dir,
-// then starts it and waits for it to accept connections.
+// startServer writes the settings of the embedded Postgres in dir, then starts it and waits for it to
+// accept connections.
 func startServer(ctx context.Context, dir string) error {
+	if err := writeSettings(dir); err != nil {
+		return err
+	}
+
+	return runProgram(ctx, getProgramPath(dir, "pg_ctl"),
+		"start",
+		"-D", getDataDir(dir),
+		"-l", filepath.Join(dir, "postgres.log"),
+		"-w",
+		"-t", startTimeout,
+	)
+}
+
+// reloadServer writes the settings of the running embedded Postgres in dir and has it read them again.
+func reloadServer(ctx context.Context, dir string) error {
+	if err := writeSettings(dir); err != nil {
+		return err
+	}
+
+	return runProgram(ctx, getProgramPath(dir, "pg_ctl"), "reload", "-D", getDataDir(dir))
+}
+
+// writeSettings writes the settings that keep the embedded Postgres in dir off the network and let every
+// login in over its socket.
+func writeSettings(dir string) error {
 	data := getDataDir(dir)
 	if err := os.WriteFile(filepath.Join(data, settingsFile), []byte(buildSettingsFile(dir)), 0o600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", settingsFile, err)
 	}
 
-	return runProgram(ctx, getProgramPath(dir, "pg_ctl"),
-		"start",
-		"-D", data,
-		"-l", filepath.Join(dir, "postgres.log"),
-		"-w",
-		"-t", startTimeout,
-	)
+	if err := os.WriteFile(filepath.Join(data, signInFile), []byte(signInRule), 0o600); err != nil {
+		return fmt.Errorf("failed to write %s: %w", signInFile, err)
+	}
+
+	return nil
 }
 
 // buildSettingsFile is the configuration file that listens on no address, only on the socket in dir.
@@ -265,21 +274,22 @@ func buildSettingsFile(dir string) string {
 
 	return strings.Join([]string{
 		"listen_addresses = ''",
-		"port = " + port,
+		"port = " + config.EmbeddedPostgresPort,
 		"unix_socket_directories = '" + strings.ReplaceAll(directories, "'", "''") + "'",
+		"max_connections = " + maxConnections,
 		"",
 	}, "\n")
 }
 
-func createDatabase(ctx context.Context, dir, password string) error {
-	conn, err := pgx.Connect(ctx, buildOwnerURL(dir, password, "postgres"))
+func createDatabase(ctx context.Context, dir string) error {
+	conn, err := pgx.Connect(ctx, config.BuildEmbeddedPostgresURL(dir, config.EmbeddedPostgresOwner, "postgres"))
 	if err != nil {
 		return fmt.Errorf("failed to connect to the new embedded Postgres: %w", err)
 	}
 	defer conn.Close(ctx)
 
-	if _, err := conn.Exec(ctx, "CREATE DATABASE "+database); err != nil {
-		return fmt.Errorf("failed to create the %s database: %w", database, err)
+	if _, err := conn.Exec(ctx, "CREATE DATABASE "+config.EmbeddedPostgresDatabase); err != nil {
+		return fmt.Errorf("failed to create the %s database: %w", config.EmbeddedPostgresDatabase, err)
 	}
 
 	return nil

@@ -2081,14 +2081,14 @@
           "key": "database_url",
           "path": "connection.database_url",
           "type": "string",
-          "description": "The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as\nthis engine's own login, which is what keeps its rows apart from every other engine's.\n`komrad engine ensure` creates the login and prints this url.",
-          "default": "\"postgres://komrad_engine_default:komrad@localhost:5460/komrad?sslmode=disable\""
+          "description": "The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as\nthis engine's own login, which is what keeps its rows apart from every other engine's.\n`komrad engine ensure` creates the login and prints this url.\nLeft empty this is the default engine's login on the embedded Postgres under state_dir,\nwhich `komrad start` brings up.",
+          "default": "\"\""
         },
         {
           "key": "owner_database_url",
           "path": "connection.owner_database_url",
           "type": "string",
-          "description": "The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.\nLeft empty this is database_url, or the local owner while database_url is the default.",
+          "description": "The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.\nLeft empty this is database_url, or the embedded Postgres's owner while database_url is empty.",
           "default": "\"\""
         },
         {
@@ -2125,13 +2125,6 @@
           "type": "string",
           "description": "The directory where komrad keeps its own files about agents, such as generated worktrees,\nreleased reviews and forge credentials.\nLeft empty this is ~/.local/state/komrad.\nIt holds credentials and is komrad's to manage, so nothing of yours belongs here.",
           "default": "\"\""
-        },
-        {
-          "key": "embedded_postgres",
-          "path": "connection.embedded_postgres",
-          "type": "boolean",
-          "description": "Whether komrad runs the embedded Postgres its binary carries, keeping it under state_dir and\nreaching it over a socket there. `komrad start` brings it up, and the commands that need\nthe database refuse to run while it is down.",
-          "default": "false"
         },
         {
           "key": "url",

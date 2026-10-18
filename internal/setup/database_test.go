@@ -14,29 +14,74 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDatabaseStep covers when the database step is done, asks, or stops.
+// TestDatabaseStep covers when the database step is done, repairs alone, asks, or stops.
 func TestDatabaseStep(t *testing.T) {
 	clearConnectionEnv(t)
 
 	tests := []struct {
-		name     string
-		config   string
-		findings []doctor.Finding
-		verdict  verdict
+		name                 string
+		config               string
+		noEmbeddedPostgres   bool
+		noEmbeddedInTheBuild bool
+		ownerURLFlag         string
+		findings             []doctor.Finding
+		verdict              verdict
 	}{
 		{
-			name:     "nothing answers at the default url",
-			findings: []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckDatabase)},
-			verdict:  verdictAsk,
-		},
-		{
-			name: "a Postgres answering at the default url is not one the person chose",
+			name: "no embedded Postgres is set up",
 			findings: []doctor.Finding{
 				ok(doctor.CheckConfig, ""),
-				ok(doctor.CheckDatabase, ""),
-				failed(doctor.CheckSchema),
+				failed(doctor.CheckEmbeddedPostgres),
+				failed(doctor.CheckDatabase),
 			},
-			verdict: verdictAsk,
+			verdict: verdictRepair,
+		},
+		{
+			name: "an embedded Postgres with no engine",
+			findings: []doctor.Finding{
+				ok(doctor.CheckConfig, ""),
+				ok(doctor.CheckEmbeddedPostgres, ""),
+				ok(doctor.CheckDatabase, ""),
+				ok(doctor.CheckSchema, ""),
+				failed(doctor.CheckEngine),
+			},
+			verdict: verdictRepair,
+		},
+		{
+			name: "an engine in the embedded Postgres",
+			findings: []doctor.Finding{
+				ok(doctor.CheckConfig, ""),
+				ok(doctor.CheckEmbeddedPostgres, ""),
+				ok(doctor.CheckDatabase, ""),
+				ok(doctor.CheckSchema, ""),
+				ok(doctor.CheckEngine, "default"),
+			},
+			verdict: verdictDone,
+		},
+		{
+			name:               "turning the embedded Postgres off asks for the owner",
+			noEmbeddedPostgres: true,
+			findings:           []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckEmbeddedPostgres)},
+			verdict:            verdictAsk,
+		},
+		{
+			name:         "an owner url passed takes it",
+			ownerURLFlag: "postgres://komrad@db.example.com/komrad",
+			findings:     []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckEmbeddedPostgres)},
+			verdict:      verdictAsk,
+		},
+		{
+			name:                 "a build carrying no embedded Postgres asks for the owner",
+			noEmbeddedInTheBuild: true,
+			findings:             []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckEmbeddedPostgres)},
+			verdict:              verdictAsk,
+		},
+		{
+			name:               "a config file the person has stops before taking an owner url",
+			config:             "# mine\n",
+			noEmbeddedPostgres: true,
+			findings:           []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckEmbeddedPostgres)},
+			verdict:            verdictStop,
 		},
 		{
 			name:     "a broken config stops",
@@ -44,26 +89,10 @@ func TestDatabaseStep(t *testing.T) {
 			verdict:  verdictStop,
 		},
 		{
-			name:     "a config file the person has that names no database stops",
-			config:   "# mine\n",
-			findings: []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckDatabase)},
-			verdict:  verdictStop,
-		},
-		{
 			name:     "a url the person set that nothing answers is theirs to fix",
 			config:   "[connection]\ndatabase_url = \"postgres://komrad@db.example.com/komrad\"\n",
 			findings: []doctor.Finding{ok(doctor.CheckConfig, ""), failed(doctor.CheckDatabase)},
 			verdict:  verdictStop,
-		},
-		{
-			name:   "the embedded Postgres being down stops",
-			config: "[connection]\nembedded_postgres = true\n",
-			findings: []doctor.Finding{
-				ok(doctor.CheckConfig, ""),
-				failed(doctor.CheckEmbeddedPostgres),
-				failed(doctor.CheckDatabase),
-			},
-			verdict: verdictStop,
 		},
 		{
 			name:   "a schema behind the build stops",
@@ -75,18 +104,6 @@ func TestDatabaseStep(t *testing.T) {
 			},
 			verdict: verdictStop,
 		},
-		{
-			name:   "an engine in the embedded Postgres",
-			config: "[connection]\nembedded_postgres = true\ndatabase_url = \"postgres://komrad_engine_default:pw@/komrad?host=%2Fstate%2Fpostgres\"\n",
-			findings: []doctor.Finding{
-				ok(doctor.CheckConfig, ""),
-				ok(doctor.CheckEmbeddedPostgres, ""),
-				ok(doctor.CheckDatabase, ""),
-				ok(doctor.CheckSchema, ""),
-				ok(doctor.CheckEngine, "default"),
-			},
-			verdict: verdictDone,
-		},
 	}
 
 	for _, tt := range tests {
@@ -96,7 +113,13 @@ func TestDatabaseStep(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
 				require.NoError(t, os.WriteFile(path, []byte(tt.config), 0o600))
 			}
-			step := &DatabaseStep{File: &ConfigFile{Path: path}, Stack: config.Stack{}}
+			step := &DatabaseStep{
+				File:                   &ConfigFile{Path: path},
+				Stack:                  config.Stack{},
+				HasEmbeddedPostgres:    !tt.noEmbeddedInTheBuild,
+				NoEmbeddedPostgresFlag: tt.noEmbeddedPostgres,
+				OwnerURLFlag:           tt.ownerURLFlag,
+			}
 
 			observation := step.observe(t.Context(), fakeChecker(tt.findings...))
 
@@ -105,78 +128,98 @@ func TestDatabaseStep(t *testing.T) {
 	}
 }
 
-// TestDatabaseStepUnattendedNamesTheFlags covers that a run with nobody to ask names only the flags this build can act on.
-func TestDatabaseStepUnattendedNamesTheFlags(t *testing.T) {
+// TestDatabaseStepUnattended covers taking the owner's url from its flag, and naming the flag when it is missing.
+func TestDatabaseStepUnattended(t *testing.T) {
 	tests := []struct {
 		name                string
 		hasEmbeddedPostgres bool
-		names               []string
-		omits               []string
+		ownerURLFlag        string
+		wantErr             []string
 	}{
 		{
-			name:  "a build carrying no embedded Postgres",
-			names: []string{"--owner-database-url"},
-			omits: []string{"--embedded-postgres"},
+			name:    "a build carrying no embedded Postgres",
+			wantErr: []string{"carries no embedded Postgres", "--owner-database-url"},
 		},
 		{
-			name:                "a build carrying the embedded Postgres",
+			name:                "the embedded Postgres turned off",
 			hasEmbeddedPostgres: true,
-			names:               []string{"--embedded-postgres", "--owner-database-url"},
+			wantErr:             []string{"--owner-database-url"},
+		},
+		{
+			name:                "an owner url passed",
+			hasEmbeddedPostgres: true,
+			ownerURLFlag:        "postgres://owner",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := (&DatabaseStep{HasEmbeddedPostgres: tt.hasEmbeddedPostgres}).answerUnattended()
+			step := &DatabaseStep{HasEmbeddedPostgres: tt.hasEmbeddedPostgres, NoEmbeddedPostgresFlag: true, OwnerURLFlag: tt.ownerURLFlag}
 
-			require.ErrorIs(t, err, errNeedsAnswer)
-			for _, flag := range tt.names {
-				require.ErrorContains(t, err, flag)
+			err := step.answerUnattended()
+
+			if len(tt.wantErr) == 0 {
+				require.NoError(t, err)
+				assert.Equal(t, tt.ownerURLFlag, step.pasted)
+
+				return
 			}
-			for _, flag := range tt.omits {
-				assert.NotContains(t, err.Error(), flag)
+			require.ErrorIs(t, err, errNeedsAnswer)
+			for _, text := range tt.wantErr {
+				require.ErrorContains(t, err, text)
 			}
 		})
 	}
 }
 
-// TestDatabaseStepRepair covers the config each answer writes, and the embedded Postgres removed when creating the engine fails.
+// TestDatabaseStepRepair covers the config each path writes, and the embedded Postgres removed when this
+// run created it and creating the engine fails.
 func TestDatabaseStepRepair(t *testing.T) {
 	clearConnectionEnv(t)
+	t.Setenv("KOMRAD_STATE_DIR", "/state")
 
 	const (
-		ownerURL  = "postgres://komrad:secret@/komrad?host=%2Fstate%2Fpostgres"
-		engineURL = "postgres://komrad_engine_default:pw@/komrad?host=%2Fstate%2Fpostgres"
+		embeddedOwnerURL = "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432"
+		ownerURL         = "postgres://komrad:secret@db.example.com/komrad"
+		engineURL        = "postgres://komrad_engine_default:pw@db.example.com/komrad"
 	)
 
 	tests := []struct {
-		name             string
-		embeddedPostgres bool
-		ownerURLFlag     string
-		createEngineErr  error
-		removed          bool
-		after            string
+		name            string
+		ownerURLFlag    string
+		existing        bool
+		createEngineErr error
+		wantOwnerURL    string
+		removed         bool
+		after           string
 	}{
 		{
-			name:             "the embedded Postgres is removed when creating the engine fails",
-			embeddedPostgres: true,
-			createEngineErr:  errors.New("migrate refused"),
-			removed:          true,
+			name:         "the embedded Postgres",
+			wantOwnerURL: embeddedOwnerURL,
+		},
+		{
+			name:            "the embedded Postgres this run created is removed when creating the engine fails",
+			createEngineErr: errors.New("migrate refused"),
+			wantOwnerURL:    embeddedOwnerURL,
+			removed:         true,
+		},
+		{
+			name:            "an embedded Postgres that was already there is kept when creating the engine fails",
+			existing:        true,
+			createEngineErr: errors.New("migrate refused"),
+			wantOwnerURL:    embeddedOwnerURL,
+		},
+		{
+			name:         "a Postgres the person runs",
+			ownerURLFlag: " " + ownerURL + "\n",
+			wantOwnerURL: ownerURL,
+			after:        "[connection]\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
 		},
 		{
 			name:            "a Postgres the person runs is left alone when creating the engine fails",
 			ownerURLFlag:    ownerURL,
 			createEngineErr: errors.New("migrate refused"),
-		},
-		{
-			name:             "embedded Postgres",
-			embeddedPostgres: true,
-			after:            "[connection]\nembedded_postgres = true\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
-		},
-		{
-			name:         "a Postgres the person runs",
-			ownerURLFlag: " " + ownerURL + "\n",
-			after:        "[connection]\nowner_database_url = \"" + ownerURL + "\"\ndatabase_url = \"" + engineURL + "\"\n",
+			wantOwnerURL:    ownerURL,
 		},
 	}
 
@@ -188,9 +231,9 @@ func TestDatabaseStepRepair(t *testing.T) {
 			step := &DatabaseStep{
 				File:                   &ConfigFile{Path: path},
 				Stack:                  config.Stack{},
-				EmbeddedPostgresFlag:   tt.embeddedPostgres,
+				HasEmbeddedPostgres:    true,
 				OwnerURLFlag:           tt.ownerURLFlag,
-				CreateEmbeddedPostgres: func(context.Context) (string, error) { return ownerURL, nil },
+				CreateEmbeddedPostgres: func(context.Context) (bool, error) { return !tt.existing, nil },
 				RemoveEmbeddedPostgres: func(context.Context) error {
 					removed = true
 
@@ -202,7 +245,9 @@ func TestDatabaseStepRepair(t *testing.T) {
 					return engineURL, tt.createEngineErr
 				},
 			}
-			require.NoError(t, step.answerUnattended())
+			if tt.ownerURLFlag != "" {
+				require.NoError(t, step.answerUnattended())
+			}
 
 			err := step.repair(t.Context())
 
@@ -211,7 +256,7 @@ func TestDatabaseStepRepair(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-			assert.Equal(t, ownerURL, migratedOwnerURL)
+			assert.Equal(t, tt.wantOwnerURL, migratedOwnerURL)
 			assert.Equal(t, tt.removed, removed)
 			if tt.after == "" {
 				assert.NoFileExists(t, path)
@@ -228,7 +273,7 @@ func TestDatabaseStepRepair(t *testing.T) {
 func clearConnectionEnv(t *testing.T) {
 	t.Helper()
 
-	for _, variable := range []string{"KOMRAD_DATABASE_URL", "KOMRAD_OWNER_DATABASE_URL", "KOMRAD_EMBEDDED_POSTGRES"} {
+	for _, variable := range []string{"KOMRAD_DATABASE_URL", "KOMRAD_OWNER_DATABASE_URL", "KOMRAD_STATE_DIR"} {
 		t.Setenv(variable, "")
 	}
 }

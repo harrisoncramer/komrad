@@ -78,7 +78,7 @@ main() {
 	if (exec </dev/tty) 2>/dev/null; then
 		"$dir/komrad" setup </dev/tty
 	else
-		"$dir/komrad" setup --no-input --embedded-postgres
+		"$dir/komrad" setup --no-input
 	fi
 }
 

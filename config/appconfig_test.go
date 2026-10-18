@@ -782,20 +782,25 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	assert.Equal(t, sourceDerived, report.Sources["cache_dir"])
 	assert.NotEmpty(t, cfg.Connection.StateDir)
 	assert.Equal(t, sourceDerived, report.Sources["state_dir"])
+	assert.False(t, report.UsesEmbeddedPostgres())
 }
 
-// TestLoadTakesTheLocalOwnerWithTheDefaultEngine pins komrad migrate working on a checkout that sets nothing.
-func TestLoadTakesTheLocalOwnerWithTheDefaultEngine(t *testing.T) {
+// TestLoadDerivesTheEmbeddedPostgres pins a config that names no database reaching the embedded Postgres
+// under the state directory, as the default engine and as its owner.
+func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
 	clearConnectionEnvironment(t)
+	t.Setenv("KOMRAD_STATE_DIR", "/state")
 
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, nil, 0o644))
 
-	cfg, err := LoadStack(Stack{Paths: []string{path}})
+	cfg, report, err := LoadWithReport(Stack{Paths: []string{path}})
 	require.NoError(t, err)
 
-	assert.Equal(t, defaultDatabaseURL, cfg.Connection.DatabaseURL)
-	assert.Equal(t, defaultOwnerDatabaseURL, cfg.Connection.OwnerDatabaseURL)
+	assert.Equal(t, "postgres://komrad_engine_default@/komrad?host=%2Fstate%2Fpostgres&port=5432", cfg.Connection.DatabaseURL)
+	assert.Equal(t, "postgres://komrad_engine_default_reader@/komrad?host=%2Fstate%2Fpostgres&port=5432", cfg.Connection.ReadOnlyDatabaseURL)
+	assert.Equal(t, "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432", cfg.Connection.OwnerDatabaseURL)
+	assert.True(t, report.UsesEmbeddedPostgres())
 }
 
 // TestLoadRefusesAnEmptyBinding pins the one collection an empty list cannot clear, a binding
@@ -1118,7 +1123,7 @@ func TestLoadTakesTheDefaultForAnEmptyConnection(t *testing.T) {
 
 	require.NoError(t, err, "an empty value is how an unset setting reads, so it takes the default")
 	assert.Equal(t, defaultAddr, cfg.Connection.Addr)
-	assert.Equal(t, defaultDatabaseURL, cfg.Connection.DatabaseURL)
+	assert.Equal(t, BuildEmbeddedPostgresURL(GetEmbeddedPostgresDir(cfg.Connection.StateDir), defaultEngineLogin, EmbeddedPostgresDatabase), cfg.Connection.DatabaseURL)
 	assert.Equal(t, defaultTmuxSocket, cfg.Connection.TmuxSocket)
 }
 
@@ -1188,7 +1193,7 @@ func TestLoadRejectsADatabaseUrlPostgresWouldNotAnswer(t *testing.T) {
 // TestLoadTakesEitherPostgresScheme covers both spellings Postgres answers to.
 func TestLoadTakesEitherPostgresScheme(t *testing.T) {
 	for _, databaseURL := range []string{
-		"postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable",
+		"postgres://komrad:komrad@localhost:5432/komrad?sslmode=disable",
 		"postgresql://komrad@localhost/komrad",
 	} {
 		t.Run(databaseURL, func(t *testing.T) {

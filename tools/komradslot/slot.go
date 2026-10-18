@@ -10,14 +10,6 @@ import (
 // slotMax is how many throwaway instances may exist at once.
 const slotMax = 50
 
-// containerProject is the compose project of the Postgres every slot keeps its database in.
-const containerProject = "komrad-test-pg"
-
-// containerPort is where that Postgres listens on the host.
-const containerPort = 5470
-
-const serverMaxConns = 4
-
 // setting is one environment variable a slot derives.
 type setting struct {
 	name  string
@@ -25,21 +17,14 @@ type setting struct {
 }
 
 func buildSettings(slotDir string, n int) []setting {
-	database := getDatabase(n)
-
 	return []setting{
-		{"DB_PORT", fmt.Sprint(containerPort)},
-		{"KOMRAD_TEST_DATABASE", database},
-		{"KOMRAD_TEST_ENGINE", getEngine(n)},
-		{"KOMRAD_DATABASE_URL", fmt.Sprintf("postgres://%s:komrad@localhost:%d/%s?sslmode=disable&pool_max_conns=%d", getLogin(n), containerPort, database, serverMaxConns)},
-		{"KOMRAD_OWNER_DATABASE_URL", fmt.Sprintf("postgres://komrad:komrad@localhost:%d/%s?sslmode=disable", containerPort, database)},
+		{"KOMRAD_DATABASE_URL", ""},
+		{"KOMRAD_OWNER_DATABASE_URL", ""},
 		{"KOMRAD_READONLY_DATABASE_URL", ""},
-		{"KOMRAD_EMBEDDED_POSTGRES", ""},
 		{"KOMRAD_ADDR", serverAddr(n)},
 		{"KOMRAD_TMUX_SOCKET", getSocket(n)},
-		{"COMPOSE_PROJECT_NAME", containerProject},
 		{"KOMRAD_CACHE_DIR", filepath.Join(slotDir, "cache")},
-		{"KOMRAD_STATE_DIR", filepath.Join(slotDir, "state")},
+		{"KOMRAD_STATE_DIR", getStateDir(slotDir)},
 		{"KOMRAD_CONFIG", configPath(slotDir)},
 	}
 }
@@ -52,17 +37,12 @@ func getSocket(n int) string {
 	return fmt.Sprintf("komrad-test-%d", n)
 }
 
-func getDatabase(n int) string {
-	return fmt.Sprintf("komrad_%d", n)
+func getStateDir(slotDir string) string {
+	return filepath.Join(slotDir, "state")
 }
 
-// getEngine is the engine slot n's server runs as.
-func getEngine(n int) string {
-	return fmt.Sprintf("slot_%d", n)
-}
-
-func getLogin(n int) string {
-	return "komrad_engine_" + getEngine(n)
+func getPostgresDir(slotDir string) string {
+	return filepath.Join(getStateDir(slotDir), "postgres")
 }
 
 func configPath(slotDir string) string {

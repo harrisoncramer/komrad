@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"komrad/config"
@@ -28,7 +29,7 @@ func getEmbeddedPostgresDir(env *config.Environment) string {
 		return ""
 	}
 
-	return postgres.GetDir(env.StateDir)
+	return config.GetEmbeddedPostgresDir(env.StateDir)
 }
 
 // requireEmbeddedPostgres refuses a command that needs the database while the embedded Postgres is down.
@@ -52,4 +53,18 @@ func startEmbeddedPostgres(ctx context.Context, dir string) error {
 	}
 
 	return nil
+}
+
+// createOrStartEmbeddedPostgres creates the embedded Postgres in dir when there is none and starts it otherwise,
+// reporting whether it created one.
+func createOrStartEmbeddedPostgres(ctx context.Context, dir string) (bool, error) {
+	err := postgres.CreateCluster(ctx, dir)
+	if err == nil {
+		return true, nil
+	}
+	if !errors.Is(err, postgres.ErrClusterExists) {
+		return false, fmt.Errorf("failed to create the embedded Postgres: %w", err)
+	}
+
+	return false, startEmbeddedPostgres(ctx, dir)
 }

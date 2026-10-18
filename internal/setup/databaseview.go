@@ -11,27 +11,15 @@ import (
 )
 
 func (s *DatabaseStep) question() *huh.Form {
-	options := []huh.Option[string]{huh.NewOption("A Postgres I already run. Paste its URL.", choiceOwnerURL)}
-	if s.HasEmbeddedPostgres {
-		options = append([]huh.Option[string]{huh.NewOption("On this machine, in the embedded Postgres.", choiceEmbeddedPostgres)}, options...)
-	}
-	s.choice = options[0].Value
-
 	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Where should komrad keep its database?").
-				Options(options...).
-				Value(&s.choice),
-		),
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Owner URL").
-				Description("A login that owns the database. Komrad migrates with it and makes the default engine's login.").
+				Description("A login that owns the Postgres komrad keeps its database in. Komrad migrates with it and makes the default engine's login.").
 				EchoMode(huh.EchoModePassword).
 				Validate(requireOwnerURL).
 				Value(&s.pasted),
-		).WithHideFunc(func() bool { return s.choice != choiceOwnerURL }),
+		),
 	)
 }
 

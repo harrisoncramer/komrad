@@ -105,13 +105,13 @@ func freeAddr(t *testing.T) string {
 	return addr
 }
 
-// TestIntegrationEnsureServerReportsWhyItDied covers that a server which exits during startup
+// TestIntegrationStartServerReportsWhyItDied covers that a server which exits during startup
 // reports the reason it logged.
-func TestIntegrationEnsureServerReportsWhyItDied(t *testing.T) {
+func TestIntegrationStartServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "failed to reach db: connection refused")
 
-	err := ensureServer(t.Context(), ensureServerParams{
+	err := startServer(t.Context(), startServerParams{
 		Addr:    freeAddr(t),
 		Self:    self,
 		LogPath: logPath,
@@ -121,16 +121,16 @@ func TestIntegrationEnsureServerReportsWhyItDied(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to reach db: connection refused")
 }
 
-// TestIntegrationEnsureServerIgnoresOlderLogLines covers that only what this server wrote is reported:
+// TestIntegrationStartServerIgnoresOlderLogLines covers that only what this server wrote is reported:
 // the log is appended to across every run, so the previous run's failure sits above the
 // current one and would otherwise be read as the reason.
-func TestIntegrationEnsureServerIgnoresOlderLogLines(t *testing.T) {
+func TestIntegrationStartServerIgnoresOlderLogLines(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	require.NoError(t, os.WriteFile(logPath, []byte("failed to migrate db: an older run\n"), 0o644))
 
 	self := fakeServe(t, "failed to reach db: this run")
 
-	err := ensureServer(t.Context(), ensureServerParams{
+	err := startServer(t.Context(), startServerParams{
 		Addr:    freeAddr(t),
 		Self:    self,
 		LogPath: logPath,
@@ -141,13 +141,13 @@ func TestIntegrationEnsureServerIgnoresOlderLogLines(t *testing.T) {
 	assert.NotContains(t, err.Error(), "an older run")
 }
 
-// TestIntegrationEnsureServerWithoutAReason covers a server that dies saying nothing, where the error still
+// TestIntegrationStartServerWithoutAReason covers a server that dies saying nothing, where the error still
 // has to point at the log.
-func TestIntegrationEnsureServerWithoutAReason(t *testing.T) {
+func TestIntegrationStartServerWithoutAReason(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "")
 
-	err := ensureServer(t.Context(), ensureServerParams{
+	err := startServer(t.Context(), startServerParams{
 		Addr:    freeAddr(t),
 		Self:    self,
 		LogPath: logPath,
@@ -157,15 +157,15 @@ func TestIntegrationEnsureServerWithoutAReason(t *testing.T) {
 	assert.ErrorContains(t, err, logPath)
 }
 
-// TestIntegrationEnsureServerWithAnUnwritableLog covers a log that cannot be opened, where nothing
+// TestIntegrationStartServerWithAnUnwritableLog covers a log that cannot be opened, where nothing
 // spawns and the reader learns which path failed.
-func TestIntegrationEnsureServerWithAnUnwritableLog(t *testing.T) {
+func TestIntegrationStartServerWithAnUnwritableLog(t *testing.T) {
 	blocked := filepath.Join(t.TempDir(), "not-a-directory")
 	require.NoError(t, os.WriteFile(blocked, nil, 0o644))
 
 	logPath := filepath.Join(blocked, "serve.log")
 
-	err := ensureServer(t.Context(), ensureServerParams{
+	err := startServer(t.Context(), startServerParams{
 		Addr:    freeAddr(t),
 		Self:    fakeServe(t, "should not run"),
 		LogPath: logPath,
@@ -175,10 +175,10 @@ func TestIntegrationEnsureServerWithAnUnwritableLog(t *testing.T) {
 	assert.ErrorContains(t, err, logPath, "the path that could not be opened is named")
 }
 
-// TestIntegrationEnsureServerCarriesTheConfigPath covers telling the spawned server which config file
+// TestIntegrationStartServerCarriesTheConfigPath covers telling the spawned server which config file
 // to read: it loads the file for itself rather than receiving what this process parsed, so
 // a path left off here serves out of a different file than the one the caller named.
-func TestIntegrationEnsureServerCarriesTheConfigPath(t *testing.T) {
+func TestIntegrationStartServerCarriesTheConfigPath(t *testing.T) {
 	tests := []struct {
 		name  string
 		stack config.Stack
@@ -205,7 +205,7 @@ func TestIntegrationEnsureServerCarriesTheConfigPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logPath := filepath.Join(t.TempDir(), "serve.log")
 
-			err := ensureServer(t.Context(), ensureServerParams{
+			err := startServer(t.Context(), startServerParams{
 				Addr:       freeAddr(t),
 				Self:       fakeServeEchoingArgs(t),
 				LogPath:    logPath,
@@ -224,9 +224,9 @@ func TestIntegrationEnsureServerCarriesTheConfigPath(t *testing.T) {
 	}
 }
 
-// TestIntegrationEnsureServerReusesWhateverAnswers covers that nothing is spawned when a server is
+// TestIntegrationStartServerReusesWhateverAnswers covers that nothing is spawned when a server is
 // already answering, whatever build it runs, so a rebuilt binary takes over only after a restart.
-func TestIntegrationEnsureServerReusesWhateverAnswers(t *testing.T) {
+func TestIntegrationStartServerReusesWhateverAnswers(t *testing.T) {
 	tests := []struct {
 		name    string
 		status  int
@@ -258,7 +258,7 @@ func TestIntegrationEnsureServerReusesWhateverAnswers(t *testing.T) {
 			})
 			logPath := filepath.Join(t.TempDir(), "serve.log")
 
-			require.NoError(t, ensureServer(t.Context(), ensureServerParams{
+			require.NoError(t, startServer(t.Context(), startServerParams{
 				Addr:    addr,
 				Self:    fakeServe(t, "should not run"),
 				LogPath: logPath,

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Stop the Postgres every checkout keeps its test database in, for a person rather than an agent. Pass -v to drop every database in it."
-set -euo pipefail
-
-cd "$MISE_CONFIG_ROOT"
-exec docker compose -p komrad-test-pg -f docker-compose.yml -f docker-compose.test.yml down "$@"

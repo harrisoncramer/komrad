@@ -89,7 +89,7 @@ func newRootCmd(w world) *cobra.Command {
 		slotCmd("check", "Refuse unless the environment is the checkout's slot", func(_ context.Context, reg registry, checkout string, _ io.Writer) error {
 			return check(reg, checkout, w.getenv)
 		}),
-		slotCmd("drop", "Drop the database and logins of the checkout's slot", func(ctx context.Context, reg registry, checkout string, _ io.Writer) error {
+		slotCmd("drop", "Drop the database of the checkout's slot", func(ctx context.Context, reg registry, checkout string, _ io.Writer) error {
 			return drop(ctx, reg, checkout)
 		}),
 		slotCmd("down", "Take the checkout's instance down and give its slot back", func(ctx context.Context, reg registry, checkout string, _ io.Writer) error {
@@ -197,7 +197,7 @@ func check(reg registry, root string, getenv func(string) string) error {
 	return nil
 }
 
-// drop drops the database and logins of the checkout's slot and keeps the slot.
+// drop drops the database of the checkout's slot and keeps the slot.
 func drop(ctx context.Context, reg registry, root string) error {
 	n, ok, err := reg.lookup(root)
 	if err != nil {

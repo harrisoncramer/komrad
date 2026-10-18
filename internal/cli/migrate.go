@@ -8,15 +8,17 @@ import (
 
 func migrateCmd(state *app) *cobra.Command {
 	return &cobra.Command{
-		Use:         "migrate",
-		Annotations: map[string]string{needsEmbeddedPostgres: ""},
-		Short:       "Apply any pending database migrations",
+		Use:   "migrate",
+		Short: "Apply any pending database migrations",
 		Long: `Apply any pending database migrations, connecting as the login that owns the schema.
 
 The server never migrates: an engine connects as a login that cannot change the schema,
 and it refuses to start against a database missing migrations its build carries. So
 every upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE_URL)
 naming the owner, which falls back to database_url on a database no engine has joined.
+
+While database_url is left empty, this creates the embedded Postgres when there is none
+and starts it when it is down.
 
 It refuses while another komrad is connected and the build holds migrations the database
 has not seen, since a change it makes could break them. It is safe to run against a
@@ -26,6 +28,12 @@ database that is already current; it says so and exits zero.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if dir := getEmbeddedPostgresDir(state.env); dir != "" {
+				if _, err := createOrStartEmbeddedPostgres(cmd.Context(), dir); err != nil {
+					return err
+				}
+			}
+
 			if err := store.Migrate(cmd.Context(), state.env.OwnerDatabaseURL); err != nil {
 				return err
 			}

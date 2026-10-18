@@ -17,8 +17,9 @@ left alone, whatever build it runs, so a rebuilt binary takes over only after
 ` + "`komrad stop`" + `. Otherwise ` + "`komrad serve`" + ` is spawned detached, with its output
 going to the log file, and this waits for the address to answer before returning.
 
-When connection.embedded_postgres is set, this starts the embedded Postgres
-first if it is down, even when the server is already running. Only this and
+While connection.database_url is left empty, this starts the embedded Postgres
+first if it is down, and has it reload its settings when it is up, even when the
+server is already running. Only this, ` + "`komrad migrate`" + ` and
 ` + "`komrad open`" + ` start it, and ` + "`komrad stop`" + ` leaves it running.
 
 Opening the panel does the same thing on its own, so this is for scripts and for
@@ -39,7 +40,7 @@ bringing the server up without a panel.`,
 				return nil
 			}
 
-			if err := ensureServer(cmd.Context(), ensureServerParams{
+			if err := startServer(cmd.Context(), startServerParams{
 				Addr:       addr,
 				Self:       getSelfPath(),
 				LogPath:    state.env.LogPath(),

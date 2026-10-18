@@ -9,6 +9,7 @@ import (
 	"komrad/internal/store"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -132,17 +133,31 @@ func TestEnsuringAnEngineAgainKeepsItsRowsAndMovesItsPassword(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, before.Close())
+	first := readPassword(t, database.OwnerURL, db.EngineLogin(name))
 
 	require.NoError(t, store.EnsureEngine(ctx, database.OwnerURL, db.EnsureEngineParams{Name: name, Password: "second"}))
 
-	_, err = store.Open(ctx, database.EngineURL(t, name, "first"))
-	require.Error(t, err, "the old password no longer opens the engine")
+	assert.NotEqual(t, first, readPassword(t, database.OwnerURL, db.EngineLogin(name)), "ensuring the engine again moves its password")
 
 	after := openEngine(t, dbtest.Engine{Name: name, URL: database.EngineURL(t, name, "second")})
 	kept, err := workflowstore.NewWorkflowStore(after.GetDB()).List(ctx)
 	require.NoError(t, err)
 	require.Len(t, kept, 1)
 	assert.Equal(t, created.ID, kept[0].ID)
+}
+
+// readPassword is the verifier the server holds for login, which a socket login trusted without a password never checks.
+func readPassword(t *testing.T, ownerURL, login string) string {
+	t.Helper()
+
+	conn, err := pgx.Connect(t.Context(), ownerURL)
+	require.NoError(t, err)
+	defer func() { _ = conn.Close(t.Context()) }()
+
+	var password string
+	require.NoError(t, conn.QueryRow(t.Context(), "SELECT rolpassword FROM pg_authid WHERE rolname = $1", login).Scan(&password))
+
+	return password
 }
 
 // TestEnsureRefusesARoleItDidNotCreateHere pins an existing server role never being adopted, logins spanning every database on the server.

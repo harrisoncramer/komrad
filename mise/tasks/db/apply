@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-#MISE description="Apply pending migrations as the owner at KOMRAD_OWNER_DATABASE_URL."
+#MISE description="Apply pending migrations as the owner, creating or starting the embedded Postgres while connection.database_url is empty."
 set -euo pipefail
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 
-cd "$MISE_CONFIG_ROOT"
-exec go run . migrate
+migrate_database

@@ -116,7 +116,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 					setUpSSH:  state.setUpSSH,
 				}
 			case state.configErr == nil:
-				startupErr = ensureServer(cmd.Context(), ensureServerParams{
+				startupErr = startServer(cmd.Context(), startServerParams{
 					Addr:                addr,
 					Self:                getSelfPath(),
 					LogPath:             logPath,

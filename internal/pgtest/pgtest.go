@@ -100,12 +100,12 @@ type admin struct {
 func connect(t *testing.T) *admin {
 	t.Helper()
 
-	cfg, err := config.LoadStack(config.Stack{})
+	cfg, err := config.LoadStack(config.Stack{Paths: config.LayerPaths()})
 	require.NoError(t, err, "failed to load config for the test database")
 	baseURL := cfg.Connection.OwnerDatabaseURL
 
 	conn, err := pgx.Connect(t.Context(), replaceDatabase(baseURL, "postgres"))
-	require.NoError(t, err, "failed to reach postgres; is it running? try 'mise run docker:up'")
+	require.NoError(t, err, "failed to reach postgres; run the tests with MISE_ENV=test")
 
 	opened := &admin{conn: conn, baseURL: baseURL}
 	sweepOnce.Do(func() { opened.sweep(t) })

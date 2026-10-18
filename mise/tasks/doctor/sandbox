@@ -13,15 +13,12 @@ usage() {
 	echo "  bare       the binary and nothing else (default)"
 	echo "  tmux-old   a tmux below the version the panel's key binding needs"
 	echo "  tmux       a tmux new enough"
-	echo "  postgres   a tmux new enough, beside an empty Postgres of its own"
+	echo "  postgres   a tmux new enough, and the embedded Postgres komrad setup creates"
 	echo
 	echo "Anything after -- is passed to the binary, so 'sh' opens a shell on the"
 	echo "same machine to set something up by hand."
 	echo
-	echo "  clean      remove the sandbox containers and their Postgres"
-	echo
-	echo "Never tear these down with 'docker compose down -v'. From this directory"
-	echo "that also removes the db service and the volume holding your agents."
+	echo "  clean      remove the sandbox containers"
 }
 
 for arg in "$@"; do
@@ -43,7 +40,7 @@ fi
 
 if [ "$stage" = "clean" ]; then
 	docker compose --profile doctor rm --stop --force \
-		doctor-bare doctor-tmux-old doctor-tmux doctor-postgres doctor-db
+		doctor-bare doctor-tmux-old doctor-tmux doctor-postgres
 	exit 0
 fi
 
@@ -56,7 +53,7 @@ x86_64 | amd64) arch=amd64 ;;
 	;;
 esac
 
-CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -o bin/komrad-linux .
+go_build_binary linux "$arch" "" bin/komrad-linux
 
 service="doctor-$stage"
 

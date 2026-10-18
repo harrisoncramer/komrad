@@ -26,26 +26,7 @@ jobs:
     if: github.event_name != 'pull_request' || (github.event.action != 'closed' && !github.event.pull_request.draft)
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'namespace-profile-harrisoncramer' || 'ubuntu-latest' }}
 
-    # The store tests run against a real Postgres rather than a fake, and
-    # internal/pgtest creates a database per test off the server KOMRAD_DATABASE_URL
-    # points at. Credentials match docker-compose so nothing else has to change.
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: komrad
-          POSTGRES_PASSWORD: komrad
-          POSTGRES_DB: komrad
-        ports:
-          - 5460:5432
-        options: >-
-          --health-cmd "pg_isready -U komrad"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 15
-
     env:
-      KOMRAD_DATABASE_URL: postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable
       ALL: ${{ github.event_name != 'pull_request' }}
 
     steps:
@@ -165,8 +146,13 @@ jobs:
         if: env.ALL == 'true' || steps.changes.outputs.go == 'true'
         run: mise run go:lint
 
+      # The store tests run against a real Postgres rather than a fake. Under MISE_ENV=test, go:test
+      # creates or starts the throwaway instance's embedded Postgres, and internal/pgtest creates a
+      # database per test in it.
       - name: Run the unit tests
         if: env.ALL == 'true' || steps.changes.outputs.go == 'true'
+        env:
+          MISE_ENV: test
         run: mise run go:test --kind unit
 
       # A test that needs tmux fails without it rather than skipping, so this step is what
@@ -181,6 +167,8 @@ jobs:
       # that compiles them in.
       - name: Run the integration tests
         if: env.ALL == 'true' || steps.changes.outputs.integration == 'true'
+        env:
+          MISE_ENV: test
         run: mise run go:test --kind integration
 
       # The docs site: formatting, the linter, the type check, and a build.

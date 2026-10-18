@@ -65,6 +65,7 @@ all)
 esac
 
 refuse_panel_database go:test
+start_test_database
 
 cd "$MISE_CONFIG_ROOT"
 
