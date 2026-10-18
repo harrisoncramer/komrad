@@ -125,3 +125,29 @@ func (m ParentClosed) Body() string {
 		"Your task still stands on %s, and komrad will not move your branch. "+
 		"The person can move your task onto the base branch from its menu.", m.Parent, m.URL, m.Parent)
 }
+
+// RestackLost tells a standing task's writer that its branch no longer holds the commit of the task it stands on that its own commits began after.
+type RestackLost struct {
+	// Parent is the slug of the task stood on.
+	Parent string
+	// Tip is the commit the task's own commits were recorded as sitting on.
+	Tip string
+}
+
+// Kind is the kind the mail is filed under.
+func (RestackLost) Kind() mailstore.Kind {
+	return mailstore.KindWorktreeRebased
+}
+
+// Events is empty, since a lost stand starts no event.
+func (RestackLost) Events() []string {
+	return nil
+}
+
+// Body tells the agent komrad stopped moving its branch and how the person picks it up again.
+func (m RestackLost) Body() string {
+	return fmt.Sprintf("Your branch no longer holds %s, the commit of %s your own commits sat on, "+
+		"so komrad stopped moving your branch with %s.\n\n"+
+		"The person can name the commit your own work starts from, or move your task onto the base branch, from its menu.",
+		xsha.Short(m.Tip), m.Parent, m.Parent)
+}

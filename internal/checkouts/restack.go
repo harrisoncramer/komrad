@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/git"
+	"komrad/internal/logging"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -21,6 +23,8 @@ var (
 	errStandsOnNone = fail.Precondition("this task stands on no other task")
 	// errStandNotHeld is a stand placed on a commit the task's branch does not hold.
 	errStandNotHeld = fail.Precondition("the task's branch does not hold this commit, so its own commits cannot sit on it")
+	// errOntoUnmoved is a task whose own commits need not move.
+	errOntoUnmoved = fail.Precondition("the task's own commits need not move")
 )
 
 // restackOnto is where a standing task's own commits are bound.
@@ -68,13 +72,19 @@ func (s *Service) restackTask(ctx context.Context, task taskstore.Task) error {
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
+	if pr != nil && pr.MergedAt == nil && pr.ClosedAt != nil {
+		return s.tellParentClosed(ctx, task, *parent, *pr)
+	}
 
-	onto, due, err := s.readOnto(ctx, task, *parent, pr)
-	if err != nil || !due {
+	onto, err := s.findOnto(ctx, task, *parent, pr)
+	if errors.Is(err, errOntoUnmoved) {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 
-	return s.moveOnto(ctx, task, *parent, onto)
+	return s.moveOnto(ctx, task, *parent, *onto)
 }
 
 // foldIntoParent ends the stand of a task whose own pull request merged into the parent's
@@ -91,15 +101,15 @@ func (s *Service) foldIntoParent(ctx context.Context, task, parent taskstore.Tas
 		return false, nil
 	}
 
-	riders, err := s.tasks.ListStandingOn(ctx, []string{task.ID})
+	children, err := s.tasks.ListStandingOn(ctx, []string{task.ID})
 	if err != nil {
 		return false, err
 	}
 
-	for _, rider := range riders {
-		if err := s.tasks.SetStand(ctx, rider.ID, &taskstore.Stand{
+	for _, child := range children {
+		if err := s.tasks.SetStand(ctx, child.ID, &taskstore.Stand{
 			ParentID:      parent.ID,
-			Tip:           rider.Stand.Tip,
+			Tip:           child.Stand.Tip,
 			PullRequestID: task.Stand.PullRequestID,
 		}); err != nil {
 			return false, err
@@ -117,9 +127,9 @@ func (s *Service) readStandPullRequest(ctx context.Context, task, parent tasksto
 		return s.pullRequests.GetByID(ctx, id)
 	}
 
-	repository := xptr.Deref(task.Checkout.RepositoryURL)
-	if repository == "" {
-		return nil, fmt.Errorf("%w: task %q has no repository", store.ErrNotFound, task.Slug)
+	repository, err := requireRepository(task)
+	if err != nil {
+		return nil, err
 	}
 
 	found, err := s.pullRequests.GetStandPullRequest(ctx, pullrequeststore.GetStandPullRequestParams{
@@ -131,7 +141,7 @@ func (s *Service) readStandPullRequest(ctx context.Context, task, parent tasksto
 		return nil, err
 	}
 
-	if _, err := s.tasks.RecordStandPullRequest(ctx, task.ID, found.ID); err != nil {
+	if err := s.tasks.RecordStandPullRequest(ctx, task.ID, found.ID); err != nil {
 		return nil, err
 	}
 
@@ -140,9 +150,9 @@ func (s *Service) readStandPullRequest(ctx context.Context, task, parent tasksto
 
 // readPullRequest is the newest pull request from a branch of the task's repository, store.ErrNotFound when there is none.
 func (s *Service) readPullRequest(ctx context.Context, task taskstore.Task, branch string) (*pullrequeststore.PullRequest, error) {
-	repository := xptr.Deref(task.Checkout.RepositoryURL)
-	if repository == "" {
-		return nil, fmt.Errorf("%w: task %q has no repository", store.ErrNotFound, task.Slug)
+	repository, err := requireRepository(task)
+	if err != nil {
+		return nil, err
 	}
 
 	listed, err := s.pullRequests.ListPage(ctx, pullrequeststore.ListPageParams{
@@ -160,60 +170,46 @@ func (s *Service) readPullRequest(ctx context.Context, task taskstore.Task, bran
 	return &listed[0], nil
 }
 
-// readOnto is where the task's commits belong now, and whether they are due to move there.
-func (s *Service) readOnto(ctx context.Context, task, parent taskstore.Task, pr *pullrequeststore.PullRequest) (restackOnto, bool, error) {
+// requireRepository is the address of the task's repository, store.ErrNotFound while it has none.
+func requireRepository(task taskstore.Task) (string, error) {
+	repository := xptr.Deref(task.Checkout.RepositoryURL)
+	if repository == "" {
+		return "", fmt.Errorf("%w: task %q has no repository", store.ErrNotFound, task.Slug)
+	}
+
+	return repository, nil
+}
+
+// findOnto is where the task's own commits belong now, errOntoUnmoved while they need not move.
+func (s *Service) findOnto(ctx context.Context, task, parent taskstore.Task, pr *pullrequeststore.PullRequest) (*restackOnto, error) {
 	dir := task.Checkout.Cwd
 
 	if pr != nil && pr.MergedAt != nil {
 		flow, err := s.workflows.Get(ctx, task.WorkflowID)
 		if err != nil {
-			return restackOnto{}, false, err
+			return nil, err
 		}
 
 		_, sha, err := s.git.FetchBase(ctx, dir, flow.Worktree.BaseBranch)
 		if err != nil {
-			return restackOnto{}, false, err
+			return nil, err
 		}
 
-		held, err := s.git.HoldsCommit(ctx, dir, sha)
-		if err != nil {
-			return restackOnto{}, false, err
-		}
-		if held {
-			return restackOnto{}, false, s.tasks.SetStand(ctx, task.ID, nil)
-		}
-
-		return restackOnto{Branch: flow.Worktree.BaseBranch, SHA: sha, Merged: true}, true, nil
-	}
-
-	if pr != nil && pr.ClosedAt != nil {
-		return restackOnto{}, false, s.tellParentClosed(ctx, task, parent, *pr)
+		return &restackOnto{Branch: flow.Worktree.BaseBranch, SHA: sha, Merged: true}, nil
 	}
 
 	tip, err := s.git.FetchBranchTip(ctx, dir, parent.GetBranch())
 	if errors.Is(err, git.ErrBranchNotOnOrigin) {
-		return restackOnto{}, false, nil
+		return nil, errOntoUnmoved
 	}
 	if err != nil {
-		return restackOnto{}, false, err
+		return nil, err
+	}
+	if tip == task.Stand.Tip || (pr != nil && pr.HeadSHA != tip) {
+		return nil, errOntoUnmoved
 	}
 
-	if tip == task.Stand.Tip {
-		return restackOnto{}, false, nil
-	}
-	if pr != nil && pr.HeadSHA != tip {
-		return restackOnto{}, false, nil
-	}
-
-	held, err := s.git.HoldsCommit(ctx, dir, tip)
-	if err != nil {
-		return restackOnto{}, false, err
-	}
-	if held {
-		return restackOnto{}, false, s.tasks.SetStandTip(ctx, task.ID, tip)
-	}
-
-	return restackOnto{Branch: parent.GetBranch(), SHA: tip}, true, nil
+	return &restackOnto{Branch: parent.GetBranch(), SHA: tip}, nil
 }
 
 // tellParentClosed marks the task as waiting on the person and tells its writer, once.
@@ -239,18 +235,6 @@ func (s *Service) tellParentClosed(ctx context.Context, task, parent taskstore.T
 func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, onto restackOnto) error {
 	dir := task.Checkout.Cwd
 
-	holdsTip, err := s.git.HoldsCommit(ctx, dir, task.Stand.Tip)
-	if err != nil {
-		return err
-	}
-	if !holdsTip {
-		return s.tasks.SetRestackBlocked(ctx, task.ID, taskstore.RestackLost)
-	}
-
-	if task.Stand.Blocked == taskstore.RestackConflicted || task.Checkout.AdoptedBranch != "" {
-		return nil
-	}
-
 	unlock, taken := s.locks.TryLock(dir)
 	if !taken {
 		return nil
@@ -260,6 +244,26 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 	ready, err := s.isReadyToRestack(ctx, task)
 	if err != nil || !ready {
 		return err
+	}
+
+	holdsOnto, err := s.git.HoldsCommit(ctx, dir, onto.SHA)
+	if err != nil {
+		return err
+	}
+	if holdsOnto {
+		return s.recordOnto(ctx, task, onto)
+	}
+
+	if task.Stand.Blocked == taskstore.RestackConflicted || task.Checkout.AdoptedBranch != "" {
+		return nil
+	}
+
+	holdsTip, err := s.git.HoldsCommit(ctx, dir, task.Stand.Tip)
+	if err != nil {
+		return err
+	}
+	if !holdsTip {
+		return s.endStandOrTellLost(ctx, task, parent)
 	}
 
 	plan, err := s.planRestack(ctx, dir, task.Stand.Tip, onto.SHA)
@@ -275,7 +279,7 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 
 	err = s.git.RebaseOnto(ctx, dir, onto.SHA, plan.Cutoff)
 	if errors.Is(err, git.ErrRebaseConflicted) {
-		return s.backOutRestack(ctx, task, parent, restackBackOut{Onto: onto, Plan: *plan})
+		return s.backOutRestack(ctx, backOutRestackParams{Task: task, Parent: parent, Onto: onto, Plan: *plan})
 	}
 	if err != nil {
 		return err
@@ -283,17 +287,7 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 
 	s.releaseOlderParks(ctx, task, park)
 
-	if onto.Merged {
-		err = s.tasks.SetStand(ctx, task.ID, nil)
-	} else {
-		err = s.tasks.SetStandTip(ctx, task.ID, onto.SHA)
-	}
-	if err != nil {
-		return err
-	}
-
-	pushed, err := s.pushRestack(ctx, task)
-	if err != nil {
+	if err := s.recordOnto(ctx, task, onto); err != nil {
 		return err
 	}
 
@@ -305,8 +299,55 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 			SHA:    onto.SHA,
 			Replay: plan.Replay,
 			Merged: onto.Merged,
-			Pushed: pushed,
+			Pushed: s.pushRestack(ctx, task),
 		},
+	})
+
+	return nil
+}
+
+// recordOnto records that the task's own commits sit where they belong, ending its stand once its parent merged.
+func (s *Service) recordOnto(ctx context.Context, task taskstore.Task, onto restackOnto) error {
+	if onto.Merged {
+		return s.tasks.SetStand(ctx, task.ID, nil)
+	}
+
+	return s.tasks.SetStandTip(ctx, task.ID, onto.SHA)
+}
+
+// endStandOrTellLost ends the stand of a task whose branch left its parent for the workflow's base branch, and
+// marks any other branch lost and tells its writer.
+func (s *Service) endStandOrTellLost(ctx context.Context, task, parent taskstore.Task) error {
+	flow, err := s.workflows.Get(ctx, task.WorkflowID)
+	if err != nil {
+		return err
+	}
+
+	_, base, err := s.git.FetchBase(ctx, task.Checkout.Cwd, flow.Worktree.BaseBranch)
+	if err != nil {
+		return err
+	}
+
+	onBase, err := s.git.HoldsCommit(ctx, task.Checkout.Cwd, base)
+	if err != nil {
+		return err
+	}
+	if onBase {
+		return s.tasks.SetStand(ctx, task.ID, nil)
+	}
+
+	return s.tellLost(ctx, task, parent)
+}
+
+// tellLost marks the task as lost, since its branch no longer holds the commit of its parent it stood on, and tells its writer.
+func (s *Service) tellLost(ctx context.Context, task, parent taskstore.Task) error {
+	if err := s.tasks.SetRestackBlocked(ctx, task.ID, taskstore.RestackLost); err != nil {
+		return err
+	}
+
+	s.queueEvent(ctx, task.ID, restacked{
+		TaskID: task.ID,
+		Lost:   &eventprompts.RestackLost{Parent: parent.Slug, Tip: task.Stand.Tip},
 	})
 
 	return nil
@@ -370,8 +411,8 @@ func (s *Service) planRestack(ctx context.Context, dir, tip, onto string) (*rest
 	return &restackPlan{Cutoff: cutoff, Replay: replay, ConflictPaths: prediction.ConflictPaths}, nil
 }
 
-// readStandCutoff is the commit a standing task's replay starts after: the recorded tip, or the
-// predicted cutoff when that is one of the task's own commits after it.
+// readStandCutoff is the commit a standing task's replay starts after, the predicted cutoff when it
+// is one of the task's own commits past the recorded tip and the recorded tip otherwise.
 func (s *Service) readStandCutoff(ctx context.Context, dir, tip, predicted string) (string, error) {
 	if predicted == "" || predicted == tip {
 		return tip, nil
@@ -388,26 +429,28 @@ func (s *Service) readStandCutoff(ctx context.Context, dir, tip, predicted strin
 	return predicted, nil
 }
 
-// restackBackOut is a replay that conflicted, and where it was bound.
-type restackBackOut struct {
-	Onto restackOnto
-	Plan restackPlan
+// backOutRestackParams is a replay that conflicted, and where it was bound.
+type backOutRestackParams struct {
+	Task   taskstore.Task
+	Parent taskstore.Task
+	Onto   restackOnto
+	Plan   restackPlan
 }
 
 // backOutRestack aborts a conflicted replay back to where the branch was and tells the writer the exact rebase to run.
-func (s *Service) backOutRestack(ctx context.Context, task, parent taskstore.Task, params restackBackOut) error {
-	if err := s.git.AbortSequence(ctx, task.Checkout.Cwd, git.SequenceRebase); err != nil {
+func (s *Service) backOutRestack(ctx context.Context, params backOutRestackParams) error {
+	if err := s.git.AbortSequence(ctx, params.Task.Checkout.Cwd, git.SequenceRebase); err != nil {
 		return err
 	}
 
-	if err := s.tasks.SetRestackBlocked(ctx, task.ID, taskstore.RestackConflicted); err != nil {
+	if err := s.tasks.SetRestackBlocked(ctx, params.Task.ID, taskstore.RestackConflicted); err != nil {
 		return err
 	}
 
-	s.queueEvent(ctx, task.ID, restacked{
-		TaskID: task.ID,
+	s.queueEvent(ctx, params.Task.ID, restacked{
+		TaskID: params.Task.ID,
 		Conflicted: &eventprompts.RestackConflicted{
-			Parent: parent.Slug,
+			Parent: params.Parent.Slug,
 			Onto:   params.Onto.Branch,
 			SHA:    params.Onto.SHA,
 			Merged: params.Onto.Merged,
@@ -420,22 +463,35 @@ func (s *Service) backOutRestack(ctx context.Context, task, parent taskstore.Tas
 }
 
 // pushRestack force-pushes a restacked branch origin already holds, reporting whether it did.
-func (s *Service) pushRestack(ctx context.Context, task taskstore.Task) (bool, error) {
+func (s *Service) pushRestack(ctx context.Context, task taskstore.Task) bool {
 	branch := task.GetBranch()
 
 	remote, err := s.git.CountAgainstRemote(ctx, task.Checkout.Cwd, branch)
-	if err != nil || !remote.Pushed {
-		return false, err
+	if err != nil {
+		logPushRestackFailed(ctx, task, err)
+
+		return false
+	}
+	if !remote.Pushed {
+		return false
 	}
 
 	ctx = context.WithoutCancel(ctx)
 	defer s.heat(task)
 
 	if _, err := s.git.Push(ctx, git.PushParams{Dir: task.Checkout.Cwd, Branch: branch, Force: true}); err != nil {
-		return false, err
+		logPushRestackFailed(ctx, task, err)
+
+		return false
 	}
 
-	return true, nil
+	return true
+}
+
+// logPushRestackFailed logs a restacked branch komrad could not push, which its writer is then told to push.
+func logPushRestackFailed(ctx context.Context, task taskstore.Task, err error) {
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to push a restacked branch",
+		append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 }
 
 // PlaceStandParams names a standing task and the commit its own commits sit on.

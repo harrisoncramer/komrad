@@ -307,6 +307,52 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 	}
 }
 
+// TestRebaseOntoBaseEndsTheStandOnceTheMoveFinishes covers moving a standing task onto the workflow's base branch.
+func TestRebaseOntoBaseEndsTheStandOnceTheMoveFinishes(t *testing.T) {
+	tests := []struct {
+		name      string
+		replayErr error
+		wantErr   bool
+		wantStand bool
+	}{
+		{
+			name:      "a move that fails keeps the stand",
+			replayErr: errors.New("the post-rewrite hook failed"),
+			wantErr:   true,
+			wantStand: true,
+		},
+		{
+			name:      "a move stopped on conflicts keeps the stand until the branch leaves the parent",
+			replayErr: git.ErrRebaseConflicted,
+			wantStand: true,
+		},
+		{
+			name: "a move that finishes ends the stand",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newRebaseFixture(t)
+			laid := fixture.seedTaskOnParent(t, agentstore.Agent{})
+			rebaser := newChildGit(laid.parent.GetBranch(), "newtip")
+			rebaser.Prediction = git.Prediction{Replay: 2}
+			rebaser.ReplayErr = tt.replayErr
+
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: laid.task, OntoBase: true})
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantStand, got.Stand != nil)
+		})
+	}
+}
+
 // TestRebaseWakesTheCheckoutSyncWhenTheReplayFails covers a replay that failed part-way.
 func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 	fixture := newRebaseFixture(t)

@@ -163,7 +163,7 @@ func (s *Service) planRebase(ctx context.Context, target checkoutTarget) (*Rebas
 	}, nil
 }
 
-// readRebaseBase is the branch a task rebases onto: the parent's while it stands on one, else the workflow's base.
+// readRebaseBase is the branch a task rebases onto, its parent's while it stands on one and the workflow's base otherwise.
 func (s *Service) readRebaseBase(ctx context.Context, target checkoutTarget) (string, error) {
 	stand := target.task.Stand
 	if stand == nil || target.ontoBase {
@@ -246,14 +246,14 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 	}
 	defer s.checkoutSync.Wake()
 
-	if target.ontoBase && target.task.Stand != nil {
+	if err := s.moveRebase(ctx, target.dir(), result); err != nil {
+		return nil, err
+	}
+
+	if target.ontoBase && target.task.Stand != nil && !result.Conflicted {
 		if err := s.tasks.SetStand(ctx, target.task.ID, nil); err != nil {
 			return nil, err
 		}
-	}
-
-	if err := s.moveRebase(ctx, target.dir(), result); err != nil {
-		return nil, err
 	}
 
 	s.releaseOlderParks(ctx, *target.task, result.ParkedRef)

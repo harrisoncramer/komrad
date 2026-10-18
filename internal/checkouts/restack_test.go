@@ -1,22 +1,24 @@
 package checkouts
 
 import (
+	"errors"
 	"testing"
-	"time"
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
+	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
+	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// standing is a task standing on a parent, as the restack tests lay it.
-type standing struct {
+// taskOnParent is a task standing on a parent, as the restack tests lay it.
+type taskOnParent struct {
 	writer *agentstore.Agent
 	task   string
 	parent *taskstore.Task
@@ -26,86 +28,56 @@ type standing struct {
 func TestRestack(t *testing.T) {
 	tests := []struct {
 		name string
-		// writer is the standing task's writer as it is seeded.
+		// writer is the task's writer as it is seeded.
 		writer agentstore.Agent
-		// lay writes what the case needs beyond the standing task and its parent.
-		lay func(t *testing.T, fixture *rebaseFixture, laid standing)
-		// mover is the git of the standing task's checkout, told the parent's branch.
+		// lay writes what the case needs beyond the task and its parent.
+		lay func(t *testing.T, fixture *rebaseFixture, laid taskOnParent)
+		// mover is the git of the task's checkout, told the parent's branch.
 		mover func(parentBranch string) *gittest.Mover
 		// wantStand is the stand read back after the pass, nil once the task is on the base branch.
 		wantStand *taskstore.Stand
 		wantCalls []string
-		wantPush  bool
-		wantMail  string
+		// wantPush is whether komrad force-pushed the branch.
+		wantPush bool
+		wantMail string
 	}{
-		{
-			name: "a parent whose tip moved has the task's own commits replayed onto it",
-			mover: func(parentBranch string) *gittest.Mover {
-				return newRestackMover(parentBranch, "newtip")
-			},
-			wantStand: &taskstore.Stand{Tip: "newtip"},
-			wantCalls: []string{"park", "rebaseOnto"},
-			wantMail:  "parent moved to newtip. Komrad replayed your 2 commits onto it.",
-		},
-		{
-			name: "a restacked branch origin already holds is force-pushed",
-			mover: func(parentBranch string) *gittest.Mover {
-				mover := newRestackMover(parentBranch, "newtip")
-				mover.Remote = git.RemoteStanding{Pushed: true}
-
-				return mover
-			},
-			wantStand: &taskstore.Stand{Tip: "newtip"},
-			wantCalls: []string{"park", "rebaseOnto"},
-			wantPush:  true,
-			wantMail:  "onto it and pushed.",
-		},
 		{
 			name: "a parent whose tip has not moved leaves the task alone",
 			mover: func(parentBranch string) *gittest.Mover {
-				return newRestackMover(parentBranch, "oldtip")
+				return newChildGit(parentBranch, "oldtip")
 			},
 			wantStand: &taskstore.Stand{Tip: "oldtip"},
 		},
 		{
 			name: "a parent not yet on origin leaves the task alone",
 			mover: func(string) *gittest.Mover {
-				return newRestackMover("task/elsewhere", "newtip")
+				return newChildGit("task/elsewhere", "newtip")
 			},
 			wantStand: &taskstore.Stand{Tip: "oldtip"},
-		},
-		{
-			name: "a branch already holding the parent's tip records it without a replay",
-			mover: func(parentBranch string) *gittest.Mover {
-				mover := newRestackMover(parentBranch, "newtip")
-				mover.Holds = append(mover.Holds, "newtip")
-
-				return mover
-			},
-			wantStand: &taskstore.Stand{Tip: "newtip"},
-		},
-		{
-			name: "a branch holding neither tip is marked lost",
-			mover: func(parentBranch string) *gittest.Mover {
-				mover := newRestackMover(parentBranch, "newtip")
-				mover.Holds = nil
-
-				return mover
-			},
-			wantStand: &taskstore.Stand{Tip: "oldtip", Blocked: taskstore.RestackLost},
 		},
 		{
 			name:   "a writer part way through a turn is left to finish it",
 			writer: agentstore.Agent{Pane: "%1", State: agentstore.StateThinking},
 			mover: func(parentBranch string) *gittest.Mover {
-				return newRestackMover(parentBranch, "newtip")
+				return newChildGit(parentBranch, "newtip")
+			},
+			wantStand: &taskstore.Stand{Tip: "oldtip"},
+		},
+		{
+			name:   "a writer part way through a turn on a branch holding neither tip is not marked lost",
+			writer: agentstore.Agent{Pane: "%1", State: agentstore.StateThinking},
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Holds = nil
+
+				return mover
 			},
 			wantStand: &taskstore.Stand{Tip: "oldtip"},
 		},
 		{
 			name: "a worktree with changes not committed is left alone",
 			mover: func(parentBranch string) *gittest.Mover {
-				mover := newRestackMover(parentBranch, "newtip")
+				mover := newChildGit(parentBranch, "newtip")
 				mover.State.TrackedChanges = true
 
 				return mover
@@ -113,9 +85,29 @@ func TestRestack(t *testing.T) {
 			wantStand: &taskstore.Stand{Tip: "oldtip"},
 		},
 		{
+			name: "a branch holding neither tip is marked lost and the writer told",
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Holds = nil
+
+				return mover
+			},
+			wantStand: &taskstore.Stand{Tip: "oldtip", Blocked: taskstore.RestackLost},
+			wantMail:  "Your branch no longer holds oldtip, the commit of parent your own commits sat on",
+		},
+		{
+			name: "a branch that left the parent for the base branch stands on nothing",
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Holds = []string{"basesha"}
+
+				return mover
+			},
+		},
+		{
 			name: "a replay that conflicts is backed out and the writer told the rebase to run",
 			mover: func(parentBranch string) *gittest.Mover {
-				mover := newRestackMover(parentBranch, "newtip")
+				mover := newChildGit(parentBranch, "newtip")
 				mover.ReplayErr = git.ErrRebaseConflicted
 				mover.Prediction = git.Prediction{ConflictPaths: []string{"greet.go"}}
 
@@ -127,42 +119,101 @@ func TestRestack(t *testing.T) {
 		},
 		{
 			name: "a task whose replay conflicted is not replayed again",
-			lay: func(t *testing.T, fixture *rebaseFixture, laid standing) {
+			lay: func(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
 				require.NoError(t, fixture.stores.Tasks.SetRestackBlocked(t.Context(), laid.task, taskstore.RestackConflicted))
 			},
 			mover: func(parentBranch string) *gittest.Mover {
-				return newRestackMover(parentBranch, "newtip")
+				return newChildGit(parentBranch, "newtip")
 			},
 			wantStand: &taskstore.Stand{Tip: "oldtip", Blocked: taskstore.RestackConflicted},
 		},
 		{
-			name: "a parent whose pull request merged has the task moved onto the base branch",
-			lay: func(t *testing.T, fixture *rebaseFixture, laid standing) {
-				fixture.seedStandPullRequest(t, laid.parent.GetBranch(), "MERGED")
+			name: "a parent whose pull request closed without merging marks the task and tells the writer",
+			lay: func(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
+				seedParentPullRequest(t, fixture, laid, "CLOSED")
 			},
 			mover: func(parentBranch string) *gittest.Mover {
-				return newRestackMover(parentBranch, "newtip")
+				return newChildGit(parentBranch, "newtip")
+			},
+			wantStand: &taskstore.Stand{Tip: "oldtip", Blocked: taskstore.RestackParentClosed},
+			wantMail:  "The pull request of parent, the task yours stands on, closed without merging",
+		},
+		{
+			name: "a restacked branch origin refuses is left for the writer to push",
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Remote = git.RemoteStanding{Pushed: true}
+				mover.PushErr = errors.New("stale info")
+
+				return mover
+			},
+			wantStand: &taskstore.Stand{Tip: "newtip"},
+			wantCalls: []string{"park", "rebaseOnto"},
+			wantPush:  true,
+			wantMail:  "Komrad replayed your 2 commits onto it.",
+		},
+		{
+			name: "a task whose replay conflicted has the parent's tip recorded once its branch holds it",
+			lay: func(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
+				require.NoError(t, fixture.stores.Tasks.SetRestackBlocked(t.Context(), laid.task, taskstore.RestackConflicted))
+			},
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Holds = []string{"newtip"}
+
+				return mover
+			},
+			wantStand: &taskstore.Stand{Tip: "newtip"},
+		},
+		{
+			name: "a branch already holding the parent's tip records it without a replay",
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Holds = append(mover.Holds, "newtip")
+
+				return mover
+			},
+			wantStand: &taskstore.Stand{Tip: "newtip"},
+		},
+		{
+			name: "a parent whose pull request merged has the task moved onto the base branch",
+			lay: func(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
+				seedParentPullRequest(t, fixture, laid, "MERGED")
+			},
+			mover: func(parentBranch string) *gittest.Mover {
+				return newChildGit(parentBranch, "newtip")
 			},
 			wantCalls: []string{"park", "rebaseOnto"},
 			wantMail:  "parent merged into main. Komrad replayed your 2 commits onto main. Point your pull request at main.",
 		},
 		{
-			name: "a parent whose pull request closed without merging marks the task and tells the writer",
-			lay: func(t *testing.T, fixture *rebaseFixture, laid standing) {
-				fixture.seedStandPullRequest(t, laid.parent.GetBranch(), "CLOSED")
-			},
+			name: "a restacked branch origin already holds is force-pushed",
 			mover: func(parentBranch string) *gittest.Mover {
-				return newRestackMover(parentBranch, "newtip")
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Remote = git.RemoteStanding{Pushed: true}
+
+				return mover
 			},
-			wantStand: &taskstore.Stand{Tip: "oldtip", Blocked: taskstore.RestackParentClosed},
-			wantMail:  "The pull request of parent, the task yours stands on, closed without merging",
+			wantStand: &taskstore.Stand{Tip: "newtip"},
+			wantCalls: []string{"park", "rebaseOnto"},
+			wantPush:  true,
+			wantMail:  "onto it and pushed.",
+		},
+		{
+			name: "a parent whose tip moved has the task's own commits replayed onto it",
+			mover: func(parentBranch string) *gittest.Mover {
+				return newChildGit(parentBranch, "newtip")
+			},
+			wantStand: &taskstore.Stand{Tip: "newtip"},
+			wantCalls: []string{"park", "rebaseOnto"},
+			wantMail:  "parent moved to newtip. Komrad replayed your 2 commits onto it.",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
-			laid := fixture.seedStanding(t, tt.writer)
+			laid := fixture.seedTaskOnParent(t, tt.writer)
 			if tt.lay != nil {
 				tt.lay(t, fixture, laid)
 			}
@@ -174,7 +225,7 @@ func TestRestack(t *testing.T) {
 			require.NoError(t, err)
 			if tt.wantStand != nil {
 				tt.wantStand.ParentID = laid.parent.ID
-				tt.wantStand.PullRequestID = xptr.Deref(laid.pullRequestID(t, fixture))
+				tt.wantStand.PullRequestID = xptr.Deref(findPullRequestID(t, fixture, laid))
 			}
 			assert.Equal(t, tt.wantStand, got.Stand)
 			assert.Subset(t, mover.Calls, tt.wantCalls)
@@ -195,34 +246,38 @@ func TestRestack(t *testing.T) {
 	}
 }
 
-// TestRestackFoldsATaskWhosePullRequestMergedIntoItsParent covers a standing task merged into its
+// TestRestackFoldsATaskWhosePullRequestMergedIntoItsParent covers a task merged into its
 // parent's branch handing the tasks standing on it to that parent.
 func TestRestackFoldsATaskWhosePullRequestMergedIntoItsParent(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	ctx := t.Context()
-	laid := fixture.seedStanding(t, agentstore.Agent{})
-	middle, err := fixture.stores.Tasks.Get(ctx, laid.task)
+	laid := fixture.seedTaskOnParent(t, agentstore.Agent{})
+	merged, err := fixture.stores.Tasks.Get(ctx, laid.task)
 	require.NoError(t, err)
-	rider := fixture.stores.SeedTask(t, taskstore.CreateParams{
+	child := fixture.stores.SeedTask(t, taskstore.CreateParams{
 		WorkflowID: fixture.workflowID,
-		Slug:       "rider",
-		Stand:      &taskstore.Stand{ParentID: middle.ID, Tip: "middletip"},
+		Slug:       "child",
+		Stand:      &taskstore.Stand{ParentID: merged.ID, Tip: "mergedtip"},
 	})
-	merged := newStandPullRequest(middle.GetBranch(), "MERGED")
-	merged.BaseBranch = laid.parent.GetBranch()
-	_, err = fixture.stores.PullRequests.Upsert(ctx, merged)
-	require.NoError(t, err)
-	mover := newRestackMover(laid.parent.GetBranch(), "newtip")
+	fixture.stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+		RepositoryURL: pushRepository,
+		Number:        1,
+		HeadBranch:    merged.GetBranch(),
+		HeadSHA:       "mergedtip",
+		BaseBranch:    laid.parent.GetBranch(),
+		State:         "MERGED",
+	})
+	mover := newChildGit(laid.parent.GetBranch(), "newtip")
 
 	require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).Restack(ctx))
 
-	folded, err := fixture.stores.Tasks.Get(ctx, middle.ID)
+	folded, err := fixture.stores.Tasks.Get(ctx, merged.ID)
 	require.NoError(t, err)
 	assert.Nil(t, folded.Stand, "the merged task stands on nothing")
 
-	moved, err := fixture.stores.Tasks.Get(ctx, rider.ID)
+	moved, err := fixture.stores.Tasks.Get(ctx, child.ID)
 	require.NoError(t, err)
-	assert.Equal(t, &taskstore.Stand{ParentID: laid.parent.ID, Tip: "middletip"}, moved.Stand)
+	assert.Equal(t, &taskstore.Stand{ParentID: laid.parent.ID, Tip: "mergedtip"}, moved.Stand)
 	assert.NotContains(t, mover.Calls, "rebaseOnto")
 }
 
@@ -282,8 +337,8 @@ func TestPlaceStand(t *testing.T) {
 	}
 }
 
-// seedStanding records a writer on a task standing on a parent at oldtip, on a checkout that pushes to the test repository.
-func (f *rebaseFixture) seedStanding(t *testing.T, writer agentstore.Agent) standing {
+// seedTaskOnParent records a writer on a task standing on a parent at oldtip, on a checkout that pushes to the test repository.
+func (f *rebaseFixture) seedTaskOnParent(t *testing.T, writer agentstore.Agent) taskOnParent {
 	t.Helper()
 
 	parent := f.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: f.workflowID, Slug: "parent"})
@@ -291,61 +346,41 @@ func (f *rebaseFixture) seedStanding(t *testing.T, writer agentstore.Agent) stan
 	seeded := f.seedPushable(t, writer, "")
 	require.NoError(t, f.stores.Tasks.SetStand(t.Context(), *seeded.TaskID, &taskstore.Stand{ParentID: parent.ID, Tip: "oldtip"}))
 
-	return standing{writer: seeded, task: *seeded.TaskID, parent: parent}
+	return taskOnParent{writer: seeded, task: *seeded.TaskID, parent: parent}
 }
 
-// pullRequestID is the parent's pull request the standing task follows, nil while it follows none.
-func (s standing) pullRequestID(t *testing.T, fixture *rebaseFixture) *string {
+// findPullRequestID is the parent's pull request the task follows, nil while it follows none.
+func findPullRequestID(t *testing.T, fixture *rebaseFixture, laid taskOnParent) *string {
 	t.Helper()
 
 	found, err := fixture.stores.PullRequests.GetStandPullRequest(t.Context(), pullrequeststore.GetStandPullRequestParams{
 		RepositoryURL: pushRepository,
-		HeadBranch:    s.parent.GetBranch(),
+		HeadBranch:    laid.parent.GetBranch(),
 	})
-	if err != nil {
+	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}
+	require.NoError(t, err)
 
 	return &found.ID
 }
 
-// seedStandPullRequest stores a pull request from the parent's branch onto main, in the state named.
-func (f *rebaseFixture) seedStandPullRequest(t *testing.T, branch, state string) {
+// seedParentPullRequest stores a pull request from the parent's branch onto main at newtip, in the state named.
+func seedParentPullRequest(t *testing.T, fixture *rebaseFixture, laid taskOnParent, state string) {
 	t.Helper()
 
-	_, err := f.stores.PullRequests.Upsert(t.Context(), newStandPullRequest(branch, state))
-	require.NoError(t, err)
+	fixture.stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+		RepositoryURL: pushRepository,
+		Number:        1,
+		HeadBranch:    laid.parent.GetBranch(),
+		HeadSHA:       "newtip",
+		BaseBranch:    "main",
+		State:         state,
+	})
 }
 
-func newStandPullRequest(branch, state string) pullrequeststore.UpsertParams {
-	opened := time.Now()
-	params := pullrequeststore.UpsertParams{
-		Host:              "github.com",
-		Forge:             "github",
-		ProviderID:        "PR_" + branch,
-		URL:               pushRepository + "/pull/" + branch,
-		RepositoryURL:     pushRepository,
-		HeadRepositoryURL: pushRepository,
-		Number:            1,
-		HeadBranch:        branch,
-		HeadSHA:           "newtip",
-		BaseBranch:        "main",
-		State:             state,
-		OpenedAt:          opened,
-		ChangedAt:         opened,
-	}
-	if state != "OPEN" {
-		params.ClosedAt = &opened
-	}
-	if state == "MERGED" {
-		params.MergedAt = &opened
-	}
-
-	return params
-}
-
-// newRestackMover is the git of a clean checkout on oldtip, with the parent's branch on origin at tip.
-func newRestackMover(parentBranch, tip string) *gittest.Mover {
+// newChildGit is the git of a clean checkout on oldtip, with the parent's branch on origin at tip.
+func newChildGit(parentBranch, tip string) *gittest.Mover {
 	return &gittest.Mover{
 		State:   git.TreeState{Branch: "agent/a1"},
 		Holds:   []string{"oldtip"},

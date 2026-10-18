@@ -117,6 +117,7 @@ type restacked struct {
 	Restacked  *eventprompts.Restacked         `json:"restacked,omitempty"`
 	Conflicted *eventprompts.RestackConflicted `json:"conflicted,omitempty"`
 	Closed     *eventprompts.ParentClosed      `json:"closed,omitempty"`
+	Lost       *eventprompts.RestackLost       `json:"lost,omitempty"`
 }
 
 // Topic names the handler that tells the task's writer.
@@ -139,6 +140,8 @@ func handleRestacked(ctx context.Context, tx store.DBTX, mailer *mail.MailServic
 		told = *restacked.Conflicted
 	case restacked.Closed != nil:
 		told = *restacked.Closed
+	case restacked.Lost != nil:
+		told = *restacked.Lost
 	default:
 		return nil, nil
 	}

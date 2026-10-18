@@ -37,7 +37,7 @@ A task can stand on another task's branch instead of the base branch, so a large
 
 When the task it stands on pushes new commits, komrad replays the standing task's own commits onto them. Komrad waits until the writer is at rest and the worktree holds nothing uncommitted, and force-pushes the branch when origin already holds it. When that task's pull request merges, komrad moves the standing task onto the base branch the same way. A standing task merges only once it is on the base branch.
 
-Komrad stops and tells the writer when a replay conflicts, when the branch no longer holds the commit its own work starts from, or when that task's pull request closes without merging. The task's git menu moves the task onto the base branch with <Key name="git.rebase_onto_base" />, or names the commit its own work starts from with <Key name="git.place_stand" />.
+Komrad stops and tells the writer when a replay conflicts, when the branch no longer holds the commit its own work starts from, or when that task's pull request closes without merging. The task's git menu moves the task onto the base branch with <Key name="git.rebase_onto_base" />, or names the commit its own work starts from with <Key name="git.place_stand" />. Once the branch leaves that task for the base branch, the standing task stands on nothing.
 
 The review's sidebar lists every task in the stack. Move the cursor onto one and press <Key name="review.toggle_folder" /> to open its review.
 
