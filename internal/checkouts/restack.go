@@ -59,8 +59,8 @@ func (s *Service) restackTask(ctx context.Context, task taskstore.Task) error {
 		return nil
 	}
 
-	moved, err := s.finishMoveOntoBase(ctx, task)
-	if err != nil || moved {
+	handled, err := s.finishMoveOntoBase(ctx, task)
+	if err != nil || handled {
 		return err
 	}
 
@@ -326,8 +326,8 @@ func (s *Service) recordOnto(ctx context.Context, task taskstore.Task, onto rest
 }
 
 // finishMoveOntoBase settles the move onto the base branch komrad started and left stopped on conflicts once its
-// writer finishes or aborts it, ending the stand of a finished one, and reports whether the task waits on that move
-// or has finished it.
+// writer finishes or aborts it, ending the stand of a finished one, and reports whether the move claims this pass,
+// so the restack skips the task.
 func (s *Service) finishMoveOntoBase(ctx context.Context, task taskstore.Task) (bool, error) {
 	raw, err := s.tasks.GetLastRebase(ctx, task.ID)
 	if err != nil || raw == nil {
