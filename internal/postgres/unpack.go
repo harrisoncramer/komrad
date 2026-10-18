@@ -43,12 +43,11 @@ func listStalePrograms(dir string) ([]string, error) {
 		return nil, fmt.Errorf("failed to read %s: %w", dir, err)
 	}
 
-	major, _, _ := strings.Cut(Version, ".")
 	current := filepath.Base(getUnpackedDir(dir))
 
 	var stale []string
 	for _, entry := range entries {
-		if entry.IsDir() && strings.HasPrefix(entry.Name(), major+".") && entry.Name() != current {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), getMajorVersion()+".") && entry.Name() != current {
 			stale = append(stale, filepath.Join(dir, entry.Name()))
 		}
 	}

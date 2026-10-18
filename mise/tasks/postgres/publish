@@ -28,8 +28,6 @@ for arg in "$@"; do
 done
 
 ROOT="$(git rev-parse --show-toplevel)"
-WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
 
 if ! gh release view "$POSTGRES_RELEASE_TAG" --repo "$POSTGRES_RELEASE_REPO" >/dev/null 2>&1; then
 	gh release create "$POSTGRES_RELEASE_TAG" \
@@ -42,7 +40,7 @@ fi
 
 PUBLISHED="$(gh release view "$POSTGRES_RELEASE_TAG" --repo "$POSTGRES_RELEASE_REPO" --json assets --jq '.assets[].name')"
 
-for TARGET in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do
+for TARGET in "${POSTGRES_PLATFORMS[@]}"; do
 	NAME="$(postgres_target "${TARGET%/*}" "${TARGET#*/}")"
 	if ! LINE="$(grep -- "-$NAME.tar.gz\$" "$ROOT/internal/postgres/checksums.txt")"; then
 		echo "internal/postgres/checksums.txt pins no archive for $TARGET, so run postgres:build $TARGET first" >&2
@@ -59,7 +57,6 @@ for TARGET in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do
 		echo "the dev cache holds no ${LINE##* } matching its pin, so run postgres:build $TARGET first" >&2
 		exit 1
 	fi
-	cp "$ENTRY" "$WORK/$SUM.tar.gz"
-	gh release upload "$POSTGRES_RELEASE_TAG" "$WORK/$SUM.tar.gz" --repo "$POSTGRES_RELEASE_REPO"
+	gh release upload "$POSTGRES_RELEASE_TAG" "$ENTRY" --repo "$POSTGRES_RELEASE_REPO"
 	gum log --level info "published ${LINE##* } as $SUM.tar.gz"
 done

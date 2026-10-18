@@ -44,7 +44,7 @@ for arg in "$@"; do
 done
 
 if ((${#TARGETS[@]} == 0)); then
-	TARGETS=(darwin/arm64 darwin/amd64 linux/amd64 linux/arm64)
+	TARGETS=("${POSTGRES_PLATFORMS[@]}")
 fi
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -124,7 +124,7 @@ build_darwin() {
 	amd64) cpu=x86_64 ;;
 	esac
 	if [ "$arch" != "$(go env GOHOSTARCH)" ]; then
-		host=(--host="${cpu/arm64/aarch64}-apple-darwin")
+		host=(--host="$(postgres_target darwin "$arch")")
 	fi
 	dir="$WORK/darwin_$arch"
 	prefix="$dir/postgresql"

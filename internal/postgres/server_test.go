@@ -228,6 +228,15 @@ func TestIntegrationEngineConnectsOverTheSocket(t *testing.T) {
 	assert.Equal(t, "default", pool.GetEngine().Name)
 }
 
+// TestIntegrationRunProgramNamesWhatTheMachineLacks covers a program the machine has no loader for, as on a
+// Linux without glibc.
+func TestIntegrationRunProgramNamesWhatTheMachineLacks(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "initdb")
+	require.NoError(t, os.WriteFile(path, []byte("#!/missing/loader\n"), 0o700))
+
+	assert.ErrorIs(t, runProgram(t.Context(), path), errCannotRun)
+}
+
 func createCluster(t *testing.T) string {
 	t.Helper()
 
@@ -268,13 +277,4 @@ func postmasterPID(t *testing.T, dir string) int {
 	require.NoError(t, err)
 
 	return pid
-}
-
-// TestIntegrationRunProgramNamesWhatTheMachineLacks covers a program the machine has no loader for, as on a
-// Linux without glibc.
-func TestIntegrationRunProgramNamesWhatTheMachineLacks(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "initdb")
-	require.NoError(t, os.WriteFile(path, []byte("#!/missing/loader\n"), 0o700))
-
-	assert.ErrorIs(t, runProgram(t.Context(), path), errCannotRun)
 }

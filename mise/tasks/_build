@@ -108,6 +108,10 @@ sha256_of() {
 	fi
 }
 
+# POSTGRES_PLATFORMS lists the Go platforms an embedded Postgres archive is built for.
+# shellcheck disable=SC2034 # read by the postgres tasks that source this file
+POSTGRES_PLATFORMS=(darwin/arm64 darwin/amd64 linux/amd64 linux/arm64)
+
 # postgres_target is the name the embedded Postgres archives give a Go platform.
 postgres_target() {
 	case "$1/$2" in

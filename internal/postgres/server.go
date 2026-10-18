@@ -106,7 +106,7 @@ func Start(ctx context.Context, dir string) error {
 			return nil
 		}
 
-		if err := runProgram(ctx, getProgramPath(dir, "pg_ctl"), "stop", "-D", getDataDir(dir), "-m", "fast", "-w"); err != nil {
+		if err := stopServer(ctx, dir, "fast"); err != nil {
 			return fmt.Errorf("failed to stop the embedded Postgres in %s to start this build's programs: %w", dir, err)
 		}
 	}
@@ -139,15 +139,13 @@ func HasCluster(dir string) bool {
 
 // getDataDir is where the cluster of one major version lives under dir.
 func getDataDir(dir string) string {
-	major, _, _ := strings.Cut(Version, ".")
-
-	return filepath.Join(dir, "data-"+major)
+	return filepath.Join(dir, "data-"+getMajorVersion())
 }
 
 func stopAndRemoveCluster(ctx context.Context, dir string) error {
 	data := getDataDir(dir)
 	if _, err := os.Stat(getPIDFilePath(dir)); err == nil {
-		if err := runProgram(ctx, getProgramPath(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
+		if err := stopServer(ctx, dir, "immediate"); err != nil {
 			return fmt.Errorf("failed to stop the embedded Postgres in %s: %w", data, err)
 		}
 	}
@@ -279,6 +277,11 @@ func reloadServer(ctx context.Context, dir string) error {
 	}
 
 	return runProgram(ctx, getProgramPath(dir, "pg_ctl"), "reload", "-D", getDataDir(dir))
+}
+
+// stopServer stops the embedded Postgres in dir with the shutdown mode pg_ctl names, and waits for it to exit.
+func stopServer(ctx context.Context, dir, mode string) error {
+	return runProgram(ctx, getProgramPath(dir, "pg_ctl"), "stop", "-D", getDataDir(dir), "-m", mode, "-w")
 }
 
 // writeSettings writes the settings that keep the embedded Postgres in dir off the network and let every
