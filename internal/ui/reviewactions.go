@@ -207,8 +207,8 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			diffFileRow(),
 			{
 				of:   []actionID{actionReviewFolder},
-				desc: func(*model) string { return r.chooseDesc() },
-				show: func(*model) bool { return r.doesChoose() },
+				desc: func(m *model) string { return r.chooseDesc(m) },
+				show: func(m *model) bool { return r.doesChoose(m) },
 			},
 			{
 				of:   []actionID{actionFilterOpen},
@@ -239,8 +239,8 @@ const (
 
 // buildItemMenu builds the band on the thread under the diff's cursor.
 func (r *reviewScreen) buildItemMenu(m *model) (submenu, bool) {
-	if r.isBlockFocused(m) && r.side != nil {
-		return r.sideMenu(m)
+	if side, ok := r.findSide(m); ok && r.isBlockFocused(m) {
+		return r.sideMenu(m, side)
 	}
 
 	if !r.isDiffFocused(m) {

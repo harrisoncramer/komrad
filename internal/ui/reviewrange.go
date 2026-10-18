@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,15 +18,9 @@ const reviewLegendFloor = 21
 // taskStartSaid names the start of a range that runs from where the task starts.
 const taskStartSaid = "where the task starts"
 
-// reviewStep is one stop of the walk between the person's reviews.
-type reviewStep struct {
-	from string
-	to   string
-}
-
 // steps are the ranges between the person's released reviews, oldest first, the last ending on the
 // newest round when the person has not reviewed it.
-func (d reviewDiff) steps() []reviewStep {
+func (d reviewDiff) steps() []diffSpec {
 	reviewed := map[string]bool{}
 	for _, review := range d.reviews {
 		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT && review.GetReleasedAt() != "" {
@@ -40,7 +35,7 @@ func (d reviewDiff) steps() []reviewStep {
 		}
 	}
 
-	if !reviewed[d.newest.GetId()] && d.newest != nil {
+	if d.newest != nil && !reviewed[d.newest.GetId()] {
 		ends = append(ends, d.newest.GetId())
 	}
 
@@ -48,10 +43,10 @@ func (d reviewDiff) steps() []reviewStep {
 		return nil
 	}
 
-	steps := make([]reviewStep, 0, len(ends))
+	steps := make([]diffSpec, 0, len(ends))
 	from := ""
 	for _, end := range ends {
-		step := reviewStep{from: from, to: end}
+		step := diffSpec{from: from, to: end}
 		if end == d.newest.GetId() {
 			step.to = ""
 		}
@@ -64,18 +59,12 @@ func (d reviewDiff) steps() []reviewStep {
 }
 
 // stepAt is which of the steps is on screen, -1 for a range that is not one of them.
-func (d reviewDiff) stepAt(steps []reviewStep) int {
-	if !d.spec.isRange() || d.spec.isWholeChange() {
+func (d reviewDiff) stepAt(steps []diffSpec) int {
+	if d.spec.isWholeChange() {
 		return -1
 	}
 
-	for at, step := range steps {
-		if step.from == d.spec.from && step.to == d.spec.to {
-			return at
-		}
-	}
-
-	return -1
+	return slices.IndexFunc(steps, d.spec.isSameRange)
 }
 
 // stepBase walks back a review, from the whole change to the work since the person's last review
@@ -117,19 +106,6 @@ func (r *reviewScreen) stepBaseForward(m *model) tea.Cmd {
 	}
 
 	return r.showRange(m, steps[at+1].from, steps[at+1].to)
-}
-
-func (r *reviewScreen) clickChange(m *model, key string) tea.Cmd {
-	switch key {
-	case "back":
-		return r.stepBase(m)
-	case "forward":
-		return r.stepBaseForward(m)
-	case "send":
-		return r.orRefuseWrite(m, r.openRelease)
-	}
-
-	return nil
 }
 
 // showRange puts the range between two rounds on screen and reads the diff again once it has moved.

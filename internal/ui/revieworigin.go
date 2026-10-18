@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
@@ -108,6 +109,11 @@ func (d reviewDiff) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.
 	}
 
 	return d.threadsInRange(threads)
+}
+
+// isThreadOnScreen reports whether the thread is one the diff shows in the range on screen.
+func (d reviewDiff) isThreadOnScreen(threads []*agentv1.ReviewThread, id string) bool {
+	return slices.ContainsFunc(d.threadsOnScreen(threads), func(thread *agentv1.ReviewThread) bool { return thread.GetId() == id })
 }
 
 type originDiff struct {

@@ -421,6 +421,14 @@ func (r *reviewScreen) openRelease(m *model) tea.Cmd {
 	})
 }
 
+func (r *reviewScreen) clickChange(m *model, key string) tea.Cmd {
+	if key != "send" {
+		return nil
+	}
+
+	return r.orRefuseWrite(m, r.openRelease)
+}
+
 // updateRelease takes every key while the panel is up: the submit key sends, escape abandons,
 // and everything else is a word being typed about the work.
 func (r *reviewScreen) updateRelease(m *model, key tea.KeyPressMsg) tea.Cmd {

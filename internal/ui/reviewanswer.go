@@ -41,22 +41,22 @@ func (r *reviewScreen) toggleAnswer(m *model) tea.Cmd {
 		return nil
 	}
 
-	answer, ok := findAnswerRound(thread)
+	toRound, ok := findAnswerRound(thread)
 	if !ok {
 		return nil
 	}
 
-	held := &reviewAnswer{
+	answer := &reviewAnswer{
 		ThreadID:  thread.GetId(),
 		FromRound: thread.GetRoundId(),
-		ToRound:   answer,
+		ToRound:   toRound,
 		held:      r.diff.spec,
 	}
 	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
-		held.place = &place
+		answer.place = &place
 	}
 
-	r.diff.spec = answerSpec(held)
+	r.diff.spec = answerSpec(answer)
 
 	return r.reload(m)
 }

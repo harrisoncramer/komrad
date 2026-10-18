@@ -406,22 +406,22 @@ func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
 	})
 }
 
-func (a api) planRebase(id string, ontoBase bool) (*agentv1.PlanRebaseResponse, error) {
+func (a api) planRebase(request *agentv1.PlanRebaseRequest) (*agentv1.PlanRebaseResponse, error) {
 	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanRebaseResponse, error) {
-		resp, err := a.agents.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: id, OntoBase: ontoBase}))
+		resp, err := a.agents.PlanRebase(ctx, connect.NewRequest(request))
 		if err != nil {
-			return nil, fmt.Errorf("failed to work out what a rebase of task %q would do: %w", id, err)
+			return nil, fmt.Errorf("failed to work out what a rebase of task %q would do: %w", request.GetTask(), err)
 		}
 
 		return resp.Msg, nil
 	})
 }
 
-func (a api) rebaseWorktree(id string, ontoBase bool) (*agentv1.RebaseWorktreeResponse, error) {
+func (a api) rebaseWorktree(request *agentv1.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, error) {
 	return call(rebaseTimeout, func(ctx context.Context) (*agentv1.RebaseWorktreeResponse, error) {
-		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: id, OntoBase: ontoBase}))
+		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(request))
 		if err != nil {
-			return nil, fmt.Errorf("failed to rebase the worktree of task %q: %w", id, err)
+			return nil, fmt.Errorf("failed to rebase the worktree of task %q: %w", request.GetTask(), err)
 		}
 
 		return resp.Msg, nil

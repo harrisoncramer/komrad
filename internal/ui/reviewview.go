@@ -47,7 +47,7 @@ func (r reviewScreen) view(m *model) string {
 		band := r.bandView(m)
 		layout := r.layoutSidebar(m, band)
 
-		return r.overlayThread(m, strings.TrimRight(band+r.renderSidebar(layout), "\n"))
+		return r.overlayThread(m, strings.TrimRight(band+r.renderSidebar(layout, layout.block()), "\n"))
 	}
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
@@ -63,10 +63,9 @@ func (r reviewScreen) view(m *model) string {
 // height.
 func (r reviewScreen) sidebarView(m *model) string {
 	layout := r.layoutSidebar(m)
-	layout.files = m.markZone(zoneBlock, layout.side+layout.files, lineWidthOf(m.paneWidth()))
-	layout.side = ""
+	block := m.markZone(zoneBlock, layout.block(), lineWidthOf(m.paneWidth()))
 
-	return strings.TrimRight(r.renderSidebar(layout), "\n")
+	return strings.TrimRight(r.renderSidebar(layout, block), "\n")
 }
 
 // overlayThread renders the popup over an area, and leaves the area alone where the popup has
@@ -94,10 +93,10 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 }
 
 // renderSidebar is the panel's own column: what the change is, the pull request open from the
-// branch, the files the change touches, where the cursor is standing, and what the reader was
-// last told.
-func (r reviewScreen) renderSidebar(layout sidebarLayout) string {
-	column := paint.PadRows(layout.change+layout.side+layout.files+r.placeView()+layout.notes, layout.spare)
+// branch, the block the cursor moves through, where the cursor is standing, and what the reader
+// was last told.
+func (r reviewScreen) renderSidebar(layout sidebarLayout, block string) string {
+	column := paint.PadRows(layout.change+block+r.placeView()+layout.notes, layout.spare)
 
 	return layout.bar + column + layout.rule + layout.help
 }
@@ -108,11 +107,16 @@ type sidebarLayout struct {
 	rule   string
 	help   string
 	change string
-	// side is the stack, the rounds, the forge, what needs the person and the description.
+	// side is the stack, the forge, what needs the person and the description.
 	side  string
 	files string
 	notes string
 	spare int
+}
+
+// block is the side and the file tree, the rows the sidebar's cursor moves through.
+func (l sidebarLayout) block() string {
+	return l.side + l.files
 }
 
 // layoutSidebar gives the column to the file tree, the bar over it shrinking and then giving way
@@ -134,7 +138,7 @@ func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 		return false
 	}
 
-	if barred.spare >= 0 && paint.CountLines(barred.change+barred.side+barred.files+r.placeView()) > barred.spare {
+	if barred.spare >= 0 && paint.CountLines(barred.change+barred.block()+r.placeView()) > barred.spare {
 		return false
 	}
 

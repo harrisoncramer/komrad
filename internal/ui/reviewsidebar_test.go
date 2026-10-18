@@ -23,15 +23,15 @@ func TestReviewSidebar(t *testing.T) {
 	})
 
 	t.Run("the stack lists the tasks under the task and the tasks standing on it", func(t *testing.T) {
-		harness := openReviewAt(t, newStackedReviewServer(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServerOnAPI(t), panelHarnessParams{height: 40})
 
 		sidebar := readSidebar(harness.readFrame())
-		assert.Subset(t, sidebar, []string{"stack", "  base-work", "  └ auth", "    └ top-work  conflicts"})
+		assert.Subset(t, sidebar, []string{"stack", "  api", "  └ auth", "    └ billing  behind auth, conflicts"})
 	})
 
 	t.Run("choosing a task in the stack opens its review", func(t *testing.T) {
-		harness := openReviewAt(t, newStackedReviewServer(t), panelHarnessParams{height: 40})
-		require.Contains(t, harness.readFrame(), "Review · root")
+		harness := openReviewAt(t, newReviewServerOnAPI(t), panelHarnessParams{height: 40})
+		require.Contains(t, harness.readFrame(), "Review · api")
 
 		harness.press("ctrl+space", "ctrl+space", "k", "k", "o")
 
@@ -39,11 +39,11 @@ func TestReviewSidebar(t *testing.T) {
 	})
 
 	t.Run("choosing a task whose worktree is gone says so and stays", func(t *testing.T) {
-		harness := openReviewAt(t, newStackedReviewServer(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServerOnAPI(t), panelHarnessParams{height: 40})
 
 		harness.press("ctrl+space", "ctrl+space", "k", "o")
 
-		assert.Contains(t, harness.readFrame(), "Review · root")
+		assert.Contains(t, harness.readFrame(), "Review · api")
 		assert.Contains(t, readOpenMessages(harness), "its worktree is gone")
 	})
 
@@ -60,7 +60,7 @@ func TestReviewSidebar(t *testing.T) {
 	})
 
 	t.Run("needs you lists an unread reply, a held forge comment and a draft", func(t *testing.T) {
-		harness := openReviewAt(t, newNeedsServer(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServerWithThreads(t), panelHarnessParams{height: 40})
 
 		sidebar := readSidebar(harness.readFrame())
 		assert.Subset(t, sidebar, []string{
@@ -80,7 +80,7 @@ func TestReviewSidebar(t *testing.T) {
 	})
 
 	t.Run("choosing what needs the person lands on its thread", func(t *testing.T) {
-		harness := openReviewAt(t, newNeedsServer(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServerWithThreads(t), panelHarnessParams{height: 40})
 
 		harness.press("ctrl+space", "ctrl+space", "k", "o")
 
@@ -90,7 +90,7 @@ func TestReviewSidebar(t *testing.T) {
 	})
 }
 
-func newStackedReviewServer(t *testing.T) *reviewServer {
+func newReviewServerOnAPI(t *testing.T) *reviewServer {
 	t.Helper()
 
 	server := newReviewServer(t)
@@ -99,12 +99,12 @@ func newStackedReviewServer(t *testing.T) *reviewServer {
 		&taskv1.Task{
 			Id:         "t0",
 			WorkflowId: "w1",
-			Slug:       "base-work",
+			Slug:       "api",
 			Cwd:        xptr.Ptr(server.repo.Root),
 		},
 		&agentv1.Agent{
 			Id:         "a0",
-			Name:       "root",
+			Name:       "api",
 			WorkflowId: "w1",
 			Role:       agentv1.AgentRole_AGENT_ROLE_WRITER,
 			TaskId:     xptr.Ptr("t0"),
@@ -116,15 +116,15 @@ func newStackedReviewServer(t *testing.T) *reviewServer {
 		&taskv1.Task{
 			Id:         "t2",
 			WorkflowId: "w1",
-			Slug:       "top-work",
-			Stand:      &taskv1.Stand{TaskId: "t1", Blocked: "conflicts"},
+			Slug:       "billing",
+			Stand:      &taskv1.Stand{TaskId: "t1", Blocked: taskv1.RestackBlock_RESTACK_BLOCK_CONFLICTED},
 		},
 	)
 
 	return server
 }
 
-func newNeedsServer(t *testing.T) *reviewServer {
+func newReviewServerWithThreads(t *testing.T) *reviewServer {
 	t.Helper()
 
 	reply := newThreadOnLastLine(newHumanMessage("m1", "why"), newAgentMessage("m2", "because"))

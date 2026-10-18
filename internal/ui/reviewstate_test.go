@@ -41,12 +41,12 @@ func TestIsReviewHistory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := reviewDiff{
+			diff := reviewDiff{
 				spec:   tt.spec,
 				newest: &agentv1.ReviewRound{Id: "r3", Ordinal: 3},
 			}
 
-			assert.Equal(t, tt.want, d.isHistory())
+			assert.Equal(t, tt.want, diff.isHistory())
 		})
 	}
 }

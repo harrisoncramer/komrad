@@ -91,13 +91,13 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		band := r.bandView(m)
 		layout := r.layoutSidebar(m, band)
 
-		cursor := paint.CountLines(band+layout.bar+layout.change+layout.side+layout.files+r.placeView()) - 1
+		cursor := paint.CountLines(band+layout.bar+layout.change+layout.block()+r.placeView()) - 1
 
 		return popupStage{
 			top:        paint.CountLines(band + layout.bar),
 			cursor:     cursor,
 			cursorLast: cursor,
-			rows:       paint.CountLines(strings.TrimRight(band+r.renderSidebar(layout), "\n")),
+			rows:       paint.CountLines(strings.TrimRight(band+r.renderSidebar(layout, layout.block()), "\n")),
 		}
 	}
 

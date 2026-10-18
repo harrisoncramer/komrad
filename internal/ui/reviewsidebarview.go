@@ -5,7 +5,6 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
-	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -85,21 +84,4 @@ func (r reviewScreen) sideRowView(m *model, row sideRow, lit bool) string {
 	}
 
 	return prefix + text
-}
-
-// decisionSaid is the forge's review decision on the pull request, empty when it has none.
-func decisionSaid(decision pullrequestv1.ReviewDecision) string {
-	switch decision {
-	case pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED:
-		return "approved"
-	case pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED:
-		return "changes requested"
-	case pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING:
-		return "review required"
-	case pullrequestv1.ReviewDecision_REVIEW_DECISION_REREVIEW_REQUESTED:
-		return "review requested again"
-	case pullrequestv1.ReviewDecision_REVIEW_DECISION_UNSPECIFIED, pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE:
-	}
-
-	return ""
 }

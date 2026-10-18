@@ -388,3 +388,37 @@ func (t taskIndex) standable(workflowID string) []panel.Task {
 
 	return tasks
 }
+
+// parentsOf is the tasks a task stands on, the one at the root first.
+func (t taskIndex) parentsOf(task panel.Task) []panel.Task {
+	var parents []panel.Task
+	seen := map[string]bool{task.ID: true}
+	for id := task.Stand.GetTaskId(); id != "" && !seen[id]; {
+		parent, ok := t[id]
+		if !ok {
+			break
+		}
+
+		seen[id] = true
+		parents = append(parents, parent)
+		id = parent.Stand.GetTaskId()
+	}
+
+	slices.Reverse(parents)
+
+	return parents
+}
+
+// childrenOf is the live tasks standing on a task, oldest first.
+func (t taskIndex) childrenOf(id string) []panel.Task {
+	var children []panel.Task
+	for _, task := range t {
+		if task.Stand.GetTaskId() == id && task.ArchivedAt == nil {
+			children = append(children, task)
+		}
+	}
+
+	slices.SortFunc(children, func(a, b panel.Task) int { return a.CreatedAt.Compare(b.CreatedAt) })
+
+	return children
+}
