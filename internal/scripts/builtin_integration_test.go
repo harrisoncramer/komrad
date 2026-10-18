@@ -722,8 +722,9 @@ func TestIntegrationBuiltinWorktreeSetupCutsAStandingTaskFromItsStandTip(t *test
 	runGit(t, repo, "checkout", "--quiet", "-b", "task/parent")
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "parent.txt"), []byte("first\n"), 0o644))
 	commitAll(t, repo)
-	tip, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
+	out, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
 	require.NoError(t, err)
+	tip := strings.TrimSpace(string(out))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "parent.txt"), []byte("second\n"), 0o644))
 	commitAll(t, repo)
 	runGit(t, repo, "checkout", "--quiet", "main")
@@ -733,15 +734,16 @@ func TestIntegrationBuiltinWorktreeSetupCutsAStandingTaskFromItsStandTip(t *test
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		baseBranch:   "task/parent",
-		baseCommit:   strings.TrimSpace(string(tip)),
+		baseCommit:   tip,
 	})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
 
-	head, err := exec.Command("git", "-C", tree, "rev-parse", "HEAD").Output()
+	out, err = exec.Command("git", "-C", tree, "rev-parse", "HEAD").Output()
 	require.NoError(t, err)
-	assert.Equal(t, string(tip), string(head), "the branch starts at the stand tip")
-	assert.True(t, hasRef(t, repo, "refs/komrad/stand/task-child"), "a ref of the task's own holds the stand tip")
+	head := strings.TrimSpace(string(out))
+	assert.Equal(t, tip, head, "the branch starts at the stand tip")
+	assert.True(t, hasRef(t, repo, "refs/komrad/stand/task-child"), "setup keeps a ref of the task's own")
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-child", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
