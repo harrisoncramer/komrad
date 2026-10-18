@@ -31,6 +31,16 @@ The form is comprehensive, but generally you will only need to write a short bri
 
 Komrad gives each task its own slug automatically, such as `fix-login`, and you can rename it. You can also ask the workflow's orchestrator to spawn tasks on your behalf.
 
+### Stacking tasks
+
+A task can stand on another task's branch instead of the base branch, so a large change can go up as a stack of small pull requests. In a workflow that creates worktrees, pick the task to stand on in the new task form's Stands on field. The new task's worktree starts from that task's branch.
+
+When the task it stands on pushes new commits, komrad replays the standing task's own commits onto them. Komrad waits until the writer is at rest and the worktree holds nothing uncommitted, and force-pushes the branch when origin already holds it. When that task's pull request merges, komrad moves the standing task onto the base branch the same way. A standing task merges only once it is on the base branch.
+
+Komrad stops and tells the writer when a replay conflicts, when the branch no longer holds the commit its own work starts from, or when that task's pull request closes without merging. The task's git menu moves the task onto the base branch with <Key name="git.rebase_onto_base" />, or names the commit its own work starts from with <Key name="git.place_stand" />.
+
+The review's sidebar lists every task in the stack. Move the cursor onto one and press <Key name="review.toggle_folder" /> to open its review.
+
 ## Task state
 
 Each task holds a few pieces of state. This state outlives any agents working on it.

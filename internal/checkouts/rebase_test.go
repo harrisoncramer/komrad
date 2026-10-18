@@ -641,7 +641,7 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 		stores:          stores,
 		checkoutSync:    &waketest.Counter{},
 		pullRequestSync: &waketest.Counter{},
-		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler(), NewAbortedHandler()),
+		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler(), NewAbortedHandler(), NewRestackedHandler()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
 			Name:     "flow",
 			Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},

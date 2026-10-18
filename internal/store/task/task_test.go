@@ -10,6 +10,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
+	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -665,4 +666,169 @@ func hide(t *testing.T, stores *storetest.Stores, id string) {
 	changed, err := stores.Tasks.SetHidden(t.Context(), id, true)
 	require.NoError(t, err)
 	require.True(t, changed)
+}
+
+// TestStand covers what a task stands on, read back after each write to it.
+func TestStand(t *testing.T) {
+	tests := []struct {
+		name  string
+		write func(t *testing.T, stores *storetest.Stores, task *taskstore.Task)
+		want  *taskstore.Stand
+	}{
+		{
+			name:  "a task created on another reads back its parent and tip",
+			write: func(*testing.T, *storetest.Stores, *taskstore.Task) {},
+			want:  &taskstore.Stand{Tip: "abc"},
+		},
+		{
+			name: "a block reads back",
+			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
+				require.NoError(t, stores.Tasks.SetRestackBlocked(t.Context(), task.ID, taskstore.RestackLost))
+			},
+			want: &taskstore.Stand{Tip: "abc", Blocked: taskstore.RestackLost},
+		},
+		{
+			name: "a new tip clears what blocked the restack",
+			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
+				require.NoError(t, stores.Tasks.SetRestackBlocked(t.Context(), task.ID, taskstore.RestackConflicted))
+				require.NoError(t, stores.Tasks.SetStandTip(t.Context(), task.ID, "def"))
+			},
+			want: &taskstore.Stand{Tip: "def"},
+		},
+		{
+			name: "a new stand replaces the old one and clears its block",
+			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
+				require.NoError(t, stores.Tasks.SetRestackBlocked(t.Context(), task.ID, taskstore.RestackParentClosed))
+				require.NoError(t, stores.Tasks.SetStand(t.Context(), task.ID, &taskstore.Stand{ParentID: task.Stand.ParentID, Tip: "fed"}))
+			},
+			want: &taskstore.Stand{Tip: "fed"},
+		},
+		{
+			name: "a nil stand takes the task off its parent",
+			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
+				require.NoError(t, stores.Tasks.SetStand(t.Context(), task.ID, nil))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			parent := stores.SeedTask(t, taskstore.CreateParams{Slug: "parent"})
+			task := stores.SeedTask(t, taskstore.CreateParams{
+				WorkflowID: parent.WorkflowID,
+				Slug:       "child",
+				Stand:      &taskstore.Stand{ParentID: parent.ID, Tip: "abc"},
+			})
+
+			tt.write(t, stores, task)
+
+			got, err := stores.Tasks.Get(t.Context(), task.ID)
+			require.NoError(t, err)
+			if tt.want != nil {
+				tt.want.ParentID = parent.ID
+			}
+			assert.Equal(t, tt.want, got.Stand)
+		})
+	}
+}
+
+// TestSetStandTipLeavesATaskOnNoneAlone pins that a tip is never written onto a task on the base branch.
+func TestSetStandTipLeavesATaskOnNoneAlone(t *testing.T) {
+	stores := storetest.Open(t)
+	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "on-base"})
+
+	require.NoError(t, stores.Tasks.SetStandTip(t.Context(), task.ID, "abc"))
+
+	got, err := stores.Tasks.Get(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got.Stand)
+}
+
+// TestRecordStandPullRequest pins that a standing task records the first pull request it follows and keeps it.
+func TestRecordStandPullRequest(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	parent := stores.SeedTask(t, taskstore.CreateParams{Slug: "parent"})
+	task := stores.SeedTask(t, taskstore.CreateParams{
+		WorkflowID: parent.WorkflowID,
+		Slug:       "child",
+		Stand:      &taskstore.Stand{ParentID: parent.ID, Tip: "abc"},
+	})
+	first, second := seedPullRequest(t, stores, "PR_1"), seedPullRequest(t, stores, "PR_2")
+
+	recorded, err := stores.Tasks.RecordStandPullRequest(ctx, task.ID, first)
+	require.NoError(t, err)
+	assert.True(t, recorded, "the first is recorded")
+
+	recorded, err = stores.Tasks.RecordStandPullRequest(ctx, task.ID, second)
+	require.NoError(t, err)
+	assert.False(t, recorded, "a second is not")
+
+	recorded, err = stores.Tasks.RecordStandPullRequest(ctx, parent.ID, first)
+	require.NoError(t, err)
+	assert.False(t, recorded, "a task on the base branch follows none")
+
+	got, err := stores.Tasks.Get(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, first, got.Stand.PullRequestID)
+}
+
+// TestListStanding pins which tasks each listing of standing tasks holds.
+func TestListStanding(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	parent := stores.SeedTask(t, taskstore.CreateParams{Slug: "parent"})
+	seedChild := func(slug string) *taskstore.Task {
+		return stores.SeedTask(t, taskstore.CreateParams{
+			WorkflowID: parent.WorkflowID,
+			Slug:       slug,
+			Stand:      &taskstore.Stand{ParentID: parent.ID, Tip: "abc"},
+		})
+	}
+	live, archived, deleting := seedChild("live"), seedChild("archived"), seedChild("deleting")
+	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	stores.SeedTask(t, taskstore.CreateParams{WorkflowID: parent.WorkflowID, Slug: "on-base"})
+
+	standing, err := stores.Tasks.ListStanding(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{live.ID}, xslice.Map(standing, readTaskID))
+
+	standingOn, err := stores.Tasks.ListStandingOn(ctx, []string{parent.ID, "not-a-uuid"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{live.ID, archived.ID}, xslice.Map(standingOn, readTaskID))
+}
+
+func readTaskID(task taskstore.Task) string {
+	return task.ID
+}
+
+func seedPullRequest(t *testing.T, stores *storetest.Stores, providerID string) string {
+	t.Helper()
+
+	opened := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
+	_, err := stores.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
+		Host:              "github.com",
+		Forge:             "github",
+		ProviderID:        providerID,
+		URL:               "https://github.com/harrisoncramer/komrad/pull/" + providerID,
+		RepositoryURL:     "https://github.com/harrisoncramer/komrad",
+		HeadRepositoryURL: "https://github.com/harrisoncramer/komrad",
+		Number:            1,
+		Title:             "one",
+		HeadBranch:        "task/parent",
+		HeadSHA:           "abc",
+		BaseBranch:        "main",
+		BaseSHA:           "def",
+		State:             "OPEN",
+		OpenedAt:          opened,
+		ChangedAt:         opened,
+	})
+	require.NoError(t, err)
+
+	pullRequest, err := stores.PullRequests.GetByIdentity(t.Context(), "github.com", providerID)
+	require.NoError(t, err)
+
+	return pullRequest.ID
 }

@@ -816,3 +816,170 @@ func checksInUTC(checks []forge.StatusCheck) []forge.StatusCheck {
 		return check
 	})
 }
+
+// TestFindStand pins which pull request on a parent's branch a standing task follows.
+func TestFindStand(t *testing.T) {
+	began := time.Date(2026, 9, 18, 13, 0, 0, 0, time.UTC)
+	openedAfter := func(params UpsertParams, after time.Duration) UpsertParams {
+		params.OpenedAt = began.Add(after)
+
+		return params
+	}
+	fromFork := openPullRequest("PR_fork", 1, "task/parent")
+	fromFork.HeadRepositoryURL = fixture
+
+	tests := []struct {
+		name         string
+		pullRequests []UpsertParams
+		wantProvider string
+	}{
+		{
+			name:         "an open pull request is followed whenever it opened",
+			pullRequests: []UpsertParams{openPullRequest("PR_open", 1, "task/parent")},
+			wantProvider: "PR_open",
+		},
+		{
+			name:         "a pull request that finished before the stand began is not followed",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_old", 1, "task/parent")},
+		},
+		{
+			name:         "a pull request opened since the stand began is followed after it finishes",
+			pullRequests: []UpsertParams{openedAfter(finishedPullRequest("PR_new", 1, "task/parent"), time.Minute)},
+			wantProvider: "PR_new",
+		},
+		{
+			name: "the earliest of several is followed",
+			pullRequests: []UpsertParams{
+				openedAfter(openPullRequest("PR_later", 2, "task/parent"), time.Hour),
+				openPullRequest("PR_first", 1, "task/parent"),
+			},
+			wantProvider: "PR_first",
+		},
+		{
+			name:         "a pull request from a fork is not followed",
+			pullRequests: []UpsertParams{fromFork},
+		},
+		{
+			name:         "a pull request from another branch is not followed",
+			pullRequests: []UpsertParams{openPullRequest("PR_other", 1, "task/other")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			for _, params := range tt.pullRequests {
+				_, err := h.Upsert(t.Context(), params)
+				require.NoError(t, err)
+			}
+
+			found, err := h.FindStand(t.Context(), FindStandParams{
+				RepositoryURL: komrad,
+				HeadBranch:    "task/parent",
+				Since:         began,
+			})
+			if tt.wantProvider == "" {
+				require.ErrorIs(t, err, store.ErrNotFound)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantProvider, found.ProviderID)
+		})
+	}
+}
+
+// TestReadMergeStand pins where a pull request stands among tasks standing on one another.
+func TestReadMergeStand(t *testing.T) {
+	childOntoParent := openPullRequest("PR_child", 2, "task/child")
+	childOntoParent.BaseBranch = "task/parent"
+	parentReopened := openPullRequest("PR_again", 3, "task/parent")
+	parentReopened.OpenedAt = parentReopened.OpenedAt.Add(2 * time.Hour)
+
+	tests := []struct {
+		name         string
+		pullRequests []UpsertParams
+		url          string
+		want         mergeStand
+	}{
+		{
+			name:         "a pull request from a standing task onto its parent's open one stands",
+			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			url:          childOntoParent.URL,
+			want:         mergeStand{HeadStands: true},
+		},
+		{
+			name:         "a pull request onto a parent whose pull request merged targets a finished branch",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			url:          childOntoParent.URL,
+			want:         mergeStand{HeadStands: true, BaseFinished: true},
+		},
+		{
+			name:         "a parent with a pull request open again is not finished",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), parentReopened, childOntoParent},
+			url:          childOntoParent.URL,
+			want:         mergeStand{HeadStands: true},
+		},
+		{
+			name:         "a pull request from a task on the base branch stands on nothing",
+			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent")},
+			url:          openPullRequest("PR_parent", 1, "task/parent").URL,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			ctx := t.Context()
+			workflow := h.createWorkflow(t)
+			parent := h.createAgent(t, workflow, "parent", komrad, "task/parent")
+			child := h.createAgent(t, workflow, "child", komrad, "task/child")
+			require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetStand(ctx, h.taskOf(t, child), &taskstore.Stand{
+				ParentID: h.taskOf(t, parent),
+				Tip:      "abc",
+			}))
+			for _, params := range tt.pullRequests {
+				_, err := h.Upsert(ctx, params)
+				require.NoError(t, err)
+			}
+
+			got, err := h.ReadMergeStand(ctx, tt.url)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, *got)
+		})
+	}
+
+	t.Run("a pull request komrad has not stored is not found", func(t *testing.T) {
+		_, err := open(t).ReadMergeStand(t.Context(), "https://github.com/harrisoncramer/komrad/pull/404")
+
+		require.ErrorIs(t, err, store.ErrNotFound)
+	})
+}
+
+// TestSyncTargetsFollowTheStandPullRequest covers a parent's pull request staying a sync target
+// while a live task follows it, after every agent on the parent is archived.
+func TestSyncTargetsFollowTheStandPullRequest(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	workflow := h.createWorkflow(t)
+	parent := h.createAgent(t, workflow, "parent", komrad, "task/parent")
+	child := h.createAgent(t, workflow, "child", komrad, "task/child")
+	_, err := h.Upsert(ctx, openPullRequest("PR_parent", 1, "task/parent"))
+	require.NoError(t, err)
+	followed, err := h.GetByIdentity(ctx, "github.com", "PR_parent")
+	require.NoError(t, err)
+	require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetStand(ctx, h.taskOf(t, child), &taskstore.Stand{
+		ParentID:      h.taskOf(t, parent),
+		Tip:           "abc",
+		PullRequestID: followed.ID,
+	}))
+	_, err = h.agents.Archive(ctx, []string{parent})
+	require.NoError(t, err)
+
+	targets, err := h.syncs.ListTargets(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []Target{
+		{RepositoryURL: komrad, Branch: "task/child"},
+		{RepositoryURL: komrad, Branch: "task/parent", HeadSHA: "abc"},
+	}, targets)
+}
