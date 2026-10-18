@@ -714,6 +714,40 @@ func TestIntegrationBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testin
 	assert.NoDirExists(t, filepath.Join(worktreesDir, "task-bad-base"), "no worktree was made")
 }
 
+// TestIntegrationBuiltinWorktreeSetupCutsAStandingTaskFromItsStandTip covers a task standing on
+// another: its branch starts at the parent commit komrad recorded, not at the parent branch's
+// newest commit, and cleanup drops the ref that held that commit.
+func TestIntegrationBuiltinWorktreeSetupCutsAStandingTaskFromItsStandTip(t *testing.T) {
+	repo := initRepo(t)
+	runGit(t, repo, "checkout", "--quiet", "-b", "task/parent")
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "parent.txt"), []byte("first\n"), 0o644))
+	commitAll(t, repo)
+	tip, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "parent.txt"), []byte("second\n"), 0o644))
+	commitAll(t, repo)
+	runGit(t, repo, "checkout", "--quiet", "main")
+
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		taskID:       "task-child",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		baseBranch:   "task/parent",
+		baseCommit:   strings.TrimSpace(string(tip)),
+	})
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+
+	head, err := exec.Command("git", "-C", tree, "rev-parse", "HEAD").Output()
+	require.NoError(t, err)
+	assert.Equal(t, string(tip), string(head), "the branch starts at the stand tip")
+	assert.True(t, hasRef(t, repo, "refs/komrad/stand/task-child"), "a ref of the task's own holds the stand tip")
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-child", agentCwd: tree})
+	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
+	assert.False(t, hasRef(t, repo, "refs/komrad/stand/task-child"), "cleanup drops the ref")
+}
+
 // TestIntegrationBuiltinWorktreeCleanup covers the ordinary case: the worktree and its branch both
 // exist, and cleanup removes both.
 func TestIntegrationBuiltinWorktreeCleanup(t *testing.T) {
@@ -1111,6 +1145,7 @@ type worktreeEnv struct {
 	repo         string
 	worktreesDir string
 	baseBranch   string
+	baseCommit   string
 	// noBase leaves the base blank, which every other test fills with main.
 	noBase       bool
 	adoptBranch  string
@@ -1143,6 +1178,7 @@ func (e worktreeEnv) toEnv() []string {
 			"KOMRAD_WORKTREE_REPO="+e.repo,
 			"KOMRAD_WORKTREES_DIR="+e.worktreesDir,
 			"KOMRAD_WORKTREE_BASE_BRANCH="+baseBranch,
+			"KOMRAD_WORKTREE_BASE_COMMIT="+e.baseCommit,
 			"KOMRAD_WORKTREE_ADOPT_BRANCH="+e.adoptBranch,
 			"KOMRAD_WORKTREE_COPY_PATHS="+strings.Join(e.copyPaths, "\n"),
 			"KOMRAD_WORKTREE_SYMLINK_PATHS="+strings.Join(e.symlinkPaths, "\n"),
