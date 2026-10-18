@@ -89,6 +89,8 @@ komrad setup --no-input
 
 After a restart, <Command path="start" /> or <Command path="open" /> brings the embedded Postgres back up.
 
+The embedded Postgres needs no library beyond the C library. It runs on Linux with glibc 2.28 or newer, such as Debian 10, Ubuntu 20.04 or RHEL 8, and on macOS 12 or newer. It runs under any login except root. On any other machine, such as one running Alpine, keep the database in a Postgres you already run.
+
 ### Use a Postgres you already run
 
 You can keep the database yourself instead, for example in Docker.
@@ -200,7 +202,7 @@ komrad stop
 komrad migrate
 ```
 
-A running server keeps its old build until you stop it. Open the panel again and it starts the new build. The embedded Postgres keeps running through <Command path="stop" />, so <Command path="migrate" /> can still reach it. Agents keep running throughout, because they live in tmux, not in the server.
+A running server keeps its old build until you stop it. Open the panel again and it starts the new build. The embedded Postgres keeps running through <Command path="stop" />, so <Command path="migrate" /> can still reach it. The next <Command path="open" /> or <Command path="start" /> restarts the embedded Postgres on the programs the new build carries. Agents keep running throughout, because they live in tmux, not in the server.
 
 ## Running the panel inside tmux
 

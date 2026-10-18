@@ -50,6 +50,7 @@ jobs:
         run: mise run go:release
         env:
           KOMRAD_VERSION: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --generate-notes is what makes this a release. GitHub writes the changelog from the pull requests merged since the last tag.
       - name: Publish

@@ -31,6 +31,7 @@ jobs:
       - name: Build the image
         env:
           KOMRAD_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mise run packer:build | tee /tmp/packer.log
 
       - name: Record what it built

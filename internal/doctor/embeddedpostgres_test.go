@@ -12,6 +12,7 @@ func TestEmbeddedPostgresCheck(t *testing.T) {
 	tests := []struct {
 		name       string
 		running    bool
+		root       bool
 		noCluster  bool
 		version    string
 		want       Status
@@ -20,9 +21,18 @@ func TestEmbeddedPostgresCheck(t *testing.T) {
 		wantFix    string
 	}{
 		{
+			name:       "down, as root",
+			root:       true,
+			version:    "18.6",
+			want:       StatusFail,
+			wantDetail: "/state/postgres",
+			wantCode:   "embedded_postgres_root",
+			wantFix:    fixEmbeddedPostgresRoot,
+		},
+		{
 			name:       "down, with no cluster set up",
 			noCluster:  true,
-			version:    "18.6.0",
+			version:    "18.6",
 			want:       StatusFail,
 			wantDetail: "/state/postgres",
 			wantCode:   "no_embedded_postgres_cluster",
@@ -30,7 +40,7 @@ func TestEmbeddedPostgresCheck(t *testing.T) {
 		},
 		{
 			name:       "down",
-			version:    "18.6.0",
+			version:    "18.6",
 			want:       StatusFail,
 			wantDetail: "/state/postgres",
 			wantCode:   "embedded_postgres_down",
@@ -53,9 +63,9 @@ func TestEmbeddedPostgresCheck(t *testing.T) {
 		{
 			name:       "running",
 			running:    true,
-			version:    "18.6.0",
+			version:    "18.6",
 			want:       StatusOK,
-			wantDetail: "18.6.0 in /state/postgres",
+			wantDetail: "18.6 in /state/postgres",
 		},
 	}
 
@@ -66,6 +76,7 @@ func TestEmbeddedPostgresCheck(t *testing.T) {
 				IsEmbeddedPostgresRunning:  func(context.Context, string) bool { return tt.running },
 				HasEmbeddedPostgresCluster: func(string) bool { return !tt.noCluster },
 				EmbeddedPostgresVersion:    tt.version,
+				IsRoot:                     tt.root,
 			}
 
 			result := newEmbeddedPostgresCheck().Run(t.Context(), env)
