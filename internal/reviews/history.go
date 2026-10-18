@@ -143,7 +143,12 @@ func findOpenBatchRound(rounds []reviewstore.Round, reviews []reviewstore.Review
 			continue
 		}
 
-		return findStoreRound(rounds, review.RoundID)
+		round := findStoreRound(rounds, review.RoundID)
+		if round == nil || round.LandedAt != nil {
+			return nil
+		}
+
+		return round
 	}
 
 	return nil
