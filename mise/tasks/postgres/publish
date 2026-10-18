@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_build"
 set -euo pipefail
-#MISE description="Publish the pinned embedded Postgres archives as a prerelease postgres:fetch downloads from."
+#MISE description="Publish the pinned embedded Postgres archives to the prerelease postgres:fetch downloads from."
 
 usage() {
 	echo "Usage: mise run postgres:publish"
 	echo
-	echo "Uploads the four embedded Postgres archives internal/postgres/checksums.txt pins,"
-	echo "from the dev cache postgres:build keeps them in, as the postgres-<version>"
-	echo "prerelease. The prerelease is never marked latest, so the install script and the"
-	echo "changelog pass over it. A published prerelease is never replaced, so every"
-	echo "checksum a commit pins stays downloadable."
+	echo "Uploads each embedded Postgres archive internal/postgres/checksums.txt pins, from"
+	echo "the dev cache postgres:build keeps them in, to the postgres prerelease. Each"
+	echo "archive is named for its checksum, and one already there is left alone, so every"
+	echo "checksum a commit pins stays downloadable. The prerelease is never marked latest,"
+	echo "so the install script and the changelog pass over it."
 }
 
 for arg in "$@"; do
@@ -28,29 +28,38 @@ for arg in "$@"; do
 done
 
 ROOT="$(git rev-parse --show-toplevel)"
-VERSION="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' "$ROOT/internal/postgres/bundle.go")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-FILES=()
-for TARGET in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do
-	NAME="postgresql-$VERSION-$(postgres_target "${TARGET%/*}" "${TARGET#*/}").tar.gz"
-	if ! LINE="$(grep -- "  $NAME\$" "$ROOT/internal/postgres/checksums.txt")"; then
-		echo "internal/postgres/checksums.txt pins no $NAME, so run postgres:build $TARGET first" >&2
-		exit 1
-	fi
-	ENTRY="$(dev_cache)/postgres/${LINE%% *}.tar.gz"
-	if [ ! -f "$ENTRY" ] || [ "$(sha256_of "$ENTRY")" != "${LINE%% *}" ]; then
-		echo "the dev cache holds no $NAME matching its pin, so run postgres:build $TARGET first" >&2
-		exit 1
-	fi
-	cp "$ENTRY" "$WORK/$NAME"
-	FILES+=("$WORK/$NAME")
-done
+if ! gh release view "$POSTGRES_RELEASE_TAG" --repo "$POSTGRES_RELEASE_REPO" >/dev/null 2>&1; then
+	gh release create "$POSTGRES_RELEASE_TAG" \
+		--repo "$POSTGRES_RELEASE_REPO" \
+		--prerelease \
+		--latest=false \
+		--title "embedded Postgres" \
+		--notes "The embedded Postgres archives mise run postgres:build makes, each named for its checksum. Each release binary embeds the archive internal/postgres/checksums.txt pins for its platform."
+fi
 
-gh release create "$(postgres_release_tag "$VERSION")" "${FILES[@]}" \
-	--repo "$POSTGRES_RELEASE_REPO" \
-	--prerelease \
-	--latest=false \
-	--title "embedded Postgres $VERSION" \
-	--notes "Postgres $VERSION built by mise run postgres:build, linking nothing beyond the C library. The release binary embeds these archives."
+PUBLISHED="$(gh release view "$POSTGRES_RELEASE_TAG" --repo "$POSTGRES_RELEASE_REPO" --json assets --jq '.assets[].name')"
+
+for TARGET in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do
+	NAME="$(postgres_target "${TARGET%/*}" "${TARGET#*/}")"
+	if ! LINE="$(grep -- "-$NAME.tar.gz\$" "$ROOT/internal/postgres/checksums.txt")"; then
+		echo "internal/postgres/checksums.txt pins no archive for $TARGET, so run postgres:build $TARGET first" >&2
+		exit 1
+	fi
+	SUM="${LINE%% *}"
+	if grep -qx -- "$SUM.tar.gz" <<<"$PUBLISHED"; then
+		gum log --level info "${LINE##* } is already published"
+		continue
+	fi
+
+	ENTRY="$(dev_cache)/postgres/$SUM.tar.gz"
+	if [ ! -f "$ENTRY" ] || [ "$(sha256_of "$ENTRY")" != "$SUM" ]; then
+		echo "the dev cache holds no ${LINE##* } matching its pin, so run postgres:build $TARGET first" >&2
+		exit 1
+	fi
+	cp "$ENTRY" "$WORK/$SUM.tar.gz"
+	gh release upload "$POSTGRES_RELEASE_TAG" "$WORK/$SUM.tar.gz" --repo "$POSTGRES_RELEASE_REPO"
+	gum log --level info "published ${LINE##* } as $SUM.tar.gz"
+done

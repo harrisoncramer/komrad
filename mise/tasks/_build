@@ -122,33 +122,28 @@ postgres_target() {
 	esac
 }
 
-# The repository whose prereleases hold the embedded Postgres archives postgres:build publishes.
+# The prerelease that holds every embedded Postgres archive postgres:publish uploads, each named
+# for its checksum.
 POSTGRES_RELEASE_REPO="harrisoncramer/komrad"
-
-# postgres_release_tag is the prerelease that holds the embedded Postgres archives of one version.
-postgres_release_tag() {
-	echo "postgres-$1"
-}
+POSTGRES_RELEASE_TAG="postgres"
 
 # fetch_postgres puts the pinned embedded Postgres archive for one platform where the postgres
 # build tag embeds it from, refusing a download whose checksum is not the pinned one.
 fetch_postgres() {
 	local os="$1" arch="$2"
-	local root target line sum name release entry tmp out
+	local root target line sum name entry tmp out
 	root="$(git rev-parse --show-toplevel)"
 	target="$(postgres_target "$os" "$arch")"
 	line="$(grep -- "-$target.tar.gz\$" "$root/internal/postgres/checksums.txt")"
 	sum="${line%% *}"
 	name="${line##* }"
-	release="${name#postgresql-}"
-	release="${release%-"$target".tar.gz}"
 	entry="$(dev_cache)/postgres/$sum.tar.gz"
 	out="$root/internal/postgres/bundle/${os}_${arch}.tar.gz"
 
 	if [ ! -f "$entry" ]; then
 		mkdir -p "$(dirname "$entry")"
 		tmp="$(mktemp "$entry.XXXXXX")"
-		gh release download "$(postgres_release_tag "$release")" --repo "$POSTGRES_RELEASE_REPO" --pattern "$name" --output "$tmp" --clobber
+		gh release download "$POSTGRES_RELEASE_TAG" --repo "$POSTGRES_RELEASE_REPO" --pattern "$sum.tar.gz" --output "$tmp" --clobber
 		if [ "$(sha256_of "$tmp")" != "$sum" ]; then
 			rm -f "$tmp"
 			echo "the download of $name does not match the checksum pinned in internal/postgres/checksums.txt" >&2
