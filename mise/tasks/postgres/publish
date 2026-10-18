@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_build"
+set -euo pipefail
+#MISE description="Publish the pinned embedded Postgres archives to the prerelease postgres:fetch downloads from."
+
+usage() {
+	echo "Usage: mise run postgres:publish"
+	echo
+	echo "Uploads each embedded Postgres archive internal/postgres/checksums.txt pins, from"
+	echo "the dev cache postgres:build keeps them in, to the postgres prerelease. Each"
+	echo "archive is named for its checksum, and one already there is left alone, so every"
+	echo "checksum a commit pins stays downloadable. The prerelease is never marked latest,"
+	echo "so the install script and the changelog pass over it."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*)
+		echo "postgres:publish: $arg is not an argument it takes" >&2
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+if ! gh release view "$POSTGRES_RELEASE_TAG" --repo "$POSTGRES_RELEASE_REPO" >/dev/null 2>&1; then
+	gh release create "$POSTGRES_RELEASE_TAG" \
+		--repo "$POSTGRES_RELEASE_REPO" \
+		--prerelease \
+		--latest=false \
+		--title "embedded Postgres" \
+		--notes "The embedded Postgres archives mise run postgres:build makes, each named for its checksum. Each release binary embeds the archive internal/postgres/checksums.txt pins for its platform."
+fi
+
+PUBLISHED="$(gh release view "$POSTGRES_RELEASE_TAG" --repo "$POSTGRES_RELEASE_REPO" --json assets --jq '.assets[].name')"
+
+for TARGET in "${POSTGRES_PLATFORMS[@]}"; do
+	NAME="$(postgres_target "${TARGET%/*}" "${TARGET#*/}")"
+	if ! LINE="$(grep -- "-$NAME.tar.gz\$" "$ROOT/internal/postgres/checksums.txt")"; then
+		echo "internal/postgres/checksums.txt pins no archive for $TARGET, so run postgres:build $TARGET first" >&2
+		exit 1
+	fi
+	SUM="${LINE%% *}"
+	if grep -qx -- "$SUM.tar.gz" <<<"$PUBLISHED"; then
+		gum log --level info "${LINE##* } is already published"
+		continue
+	fi
+
+	ENTRY="$(dev_cache)/postgres/$SUM.tar.gz"
+	if [ ! -f "$ENTRY" ] || [ "$(sha256_of "$ENTRY")" != "$SUM" ]; then
+		echo "the dev cache holds no ${LINE##* } matching its pin, so run postgres:build $TARGET first" >&2
+		exit 1
+	fi
+	gh release upload "$POSTGRES_RELEASE_TAG" "$ENTRY" --repo "$POSTGRES_RELEASE_REPO"
+	gum log --level info "published ${LINE##* } as $SUM.tar.gz"
+done

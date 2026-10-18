@@ -4,30 +4,76 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"komrad/internal/fail"
 )
 
 var errNotEmbedded = fail.Precondition("this build of komrad carries no embedded Postgres, so install a release binary or build with mise run go:build")
 
-// getUnpackedDir is where the programs of one embedded Postgres version live under dir.
-func getUnpackedDir(dir, version string) string {
-	return filepath.Join(dir, version)
+// getBundleSum is the start of the embedded archive's checksum, which tells two builds of one version apart.
+var getBundleSum = sync.OnceValue(func() string {
+	sum := sha256.Sum256(bundle)
+
+	return hex.EncodeToString(sum[:6])
+})
+
+// getUnpackedDir is where the programs of the embedded Postgres this build carries live under dir.
+func getUnpackedDir(dir string) string {
+	return filepath.Join(dir, Version+"-"+getBundleSum())
 }
 
 func getProgramPath(dir, name string) string {
-	return filepath.Join(getUnpackedDir(dir, Version), "bin", name)
+	return filepath.Join(getUnpackedDir(dir), "bin", name)
 }
 
-// unpackEmbeddedPrograms writes the embedded Postgres programs under dir, once for each version.
+// listStalePrograms lists the directories under dir that hold programs of this major version other
+// than the ones this build carries.
+func listStalePrograms(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", dir, err)
+	}
+
+	current := filepath.Base(getUnpackedDir(dir))
+
+	var stale []string
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), getMajorVersion()+".") && entry.Name() != current {
+			stale = append(stale, filepath.Join(dir, entry.Name()))
+		}
+	}
+
+	return stale, nil
+}
+
+// removeStalePrograms deletes the directories listStalePrograms lists.
+func removeStalePrograms(dir string) error {
+	stale, err := listStalePrograms(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, path := range stale {
+		if err := os.RemoveAll(path); err != nil {
+			return fmt.Errorf("failed to remove %s: %w", path, err)
+		}
+	}
+
+	return nil
+}
+
+// unpackEmbeddedPrograms writes the embedded Postgres programs under dir, once for each archive.
 func unpackEmbeddedPrograms(dir string) error {
-	target := getUnpackedDir(dir, Version)
+	target := getUnpackedDir(dir)
 	if _, err := os.Stat(target); err == nil {
 		return nil
 	}
@@ -94,6 +140,14 @@ func extractGzippedTar(archive io.Reader, dest string) error {
 				return fmt.Errorf("%s links outside its own directory, to %s", header.Name, header.Linkname)
 			}
 			if err := os.Symlink(header.Linkname, path); err != nil {
+				return fmt.Errorf("failed to link %s to %s: %w", path, header.Linkname, err)
+			}
+		case tar.TypeLink:
+			target, err := stripArchiveTopDir(header.Linkname)
+			if err != nil || target == "" {
+				return fmt.Errorf("%s links outside the archive, to %s", header.Name, header.Linkname)
+			}
+			if err := os.Link(filepath.Join(dest, target), path); err != nil {
 				return fmt.Errorf("failed to link %s to %s: %w", path, header.Linkname, err)
 			}
 		default:

@@ -77,4 +77,5 @@ jobs:
       - name: Put this build on the engine
         env:
           KOMRAD_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mise run remote:deploy

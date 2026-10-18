@@ -9,9 +9,14 @@ import (
 const (
 	fixNoEmbeddedPostgres        = "install a release binary, or build with mise run go:build"
 	fixNoEmbeddedPostgresCluster = "komrad setup"
+	fixEmbeddedPostgresRoot      = "run komrad as a login other than root, or komrad setup --no-embedded-postgres"
 )
 
 var (
+	errEmbeddedPostgresRoot = &problemError{
+		Code:    "embedded_postgres_root",
+		Message: "the embedded Postgres refuses to run as root",
+	}
 	errEmbeddedPostgresDown = &problemError{
 		Code:    "embedded_postgres_down",
 		Message: "the embedded Postgres is not running",
@@ -37,6 +42,8 @@ func newEmbeddedPostgresCheck() Check {
 			running := env.IsEmbeddedPostgresRunning(ctx, dir)
 
 			switch {
+			case !running && env.IsRoot:
+				return fail(errEmbeddedPostgresRoot, dir, fixEmbeddedPostgresRoot)
 			case !running && env.EmbeddedPostgresVersion == "":
 				return fail(errNoEmbeddedPostgres, dir, fixNoEmbeddedPostgres)
 			case !running && !env.HasEmbeddedPostgresCluster(dir):

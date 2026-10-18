@@ -36,6 +36,10 @@ var ErrClusterExists = fail.AlreadyExists("an embedded Postgres cluster is alrea
 
 var errNoCluster = fail.Precondition("no embedded Postgres is set up")
 
+var errRunAsRoot = fail.Precondition("the embedded Postgres refuses to run as root, so run komrad as another login, or keep the database in a Postgres you already run with komrad setup --no-embedded-postgres")
+
+var errCannotRun = fail.Precondition("this machine cannot run the embedded Postgres, which needs glibc 2.28 or newer on Linux or macOS 12 or newer, so keep the database in a Postgres you already run with komrad setup --no-embedded-postgres")
+
 // CreateCluster sets up a new cluster in dir, starts it, and creates komrad's database.
 func CreateCluster(ctx context.Context, dir string) error {
 	unlock, err := lockAndUnpack(dir)
@@ -61,6 +65,10 @@ func CreateCluster(ctx context.Context, dir string) error {
 		return errors.Join(fmt.Errorf("failed to set up the new cluster in %s: %w", dir, err), stopAndRemoveCluster(context.WithoutCancel(ctx), dir))
 	}
 
+	if err := removeStalePrograms(dir); err != nil {
+		return fmt.Errorf("failed to set up the new cluster in %s: %w", dir, err)
+	}
+
 	return nil
 }
 
@@ -75,7 +83,8 @@ func RemoveCluster(ctx context.Context, dir string) error {
 	return stopAndRemoveCluster(ctx, dir)
 }
 
-// Start starts the embedded Postgres in dir, or has it reload its settings when it is already running.
+// Start starts the embedded Postgres in dir, has it reload its settings when it is already running, and
+// restarts it on this build's programs when it runs the programs another build unpacked.
 func Start(ctx context.Context, dir string) error {
 	unlock, err := lockAndUnpack(dir)
 	if err != nil {
@@ -83,12 +92,23 @@ func Start(ctx context.Context, dir string) error {
 	}
 	defer unlock()
 
+	stale, err := listStalePrograms(dir)
+	if err != nil {
+		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
+	}
+
 	if IsRunning(ctx, dir) {
-		if err := reloadServer(ctx, dir); err != nil {
-			return fmt.Errorf("failed to reload the embedded Postgres in %s: %w", dir, err)
+		if len(stale) == 0 {
+			if err := reloadServer(ctx, dir); err != nil {
+				return fmt.Errorf("failed to reload the embedded Postgres in %s: %w", dir, err)
+			}
+
+			return nil
 		}
 
-		return nil
+		if err := stopServer(ctx, dir, "fast"); err != nil {
+			return fmt.Errorf("failed to stop the embedded Postgres in %s to start this build's programs: %w", dir, err)
+		}
 	}
 
 	if !HasCluster(dir) {
@@ -100,6 +120,10 @@ func Start(ctx context.Context, dir string) error {
 	}
 
 	if err := startServer(ctx, dir); err != nil {
+		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
+	}
+
+	if err := removeStalePrograms(dir); err != nil {
 		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
 	}
 
@@ -115,15 +139,13 @@ func HasCluster(dir string) bool {
 
 // getDataDir is where the cluster of one major version lives under dir.
 func getDataDir(dir string) string {
-	major, _, _ := strings.Cut(Version, ".")
-
-	return filepath.Join(dir, "data-"+major)
+	return filepath.Join(dir, "data-"+getMajorVersion())
 }
 
 func stopAndRemoveCluster(ctx context.Context, dir string) error {
 	data := getDataDir(dir)
 	if _, err := os.Stat(getPIDFilePath(dir)); err == nil {
-		if err := runProgram(ctx, getProgramPath(dir, "pg_ctl"), "stop", "-D", data, "-m", "immediate", "-w"); err != nil {
+		if err := stopServer(ctx, dir, "immediate"); err != nil {
 			return fmt.Errorf("failed to stop the embedded Postgres in %s: %w", data, err)
 		}
 	}
@@ -137,6 +159,10 @@ func stopAndRemoveCluster(ctx context.Context, dir string) error {
 
 // lockAndUnpack takes the lock in dir and unpacks the embedded Postgres programs under it.
 func lockAndUnpack(dir string) (func(), error) {
+	if os.Geteuid() == 0 {
+		return nil, errRunAsRoot
+	}
+
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create %s: %w", dir, err)
 	}
@@ -253,6 +279,11 @@ func reloadServer(ctx context.Context, dir string) error {
 	return runProgram(ctx, getProgramPath(dir, "pg_ctl"), "reload", "-D", getDataDir(dir))
 }
 
+// stopServer stops the embedded Postgres in dir with the shutdown mode pg_ctl names, and waits for it to exit.
+func stopServer(ctx context.Context, dir, mode string) error {
+	return runProgram(ctx, getProgramPath(dir, "pg_ctl"), "stop", "-D", getDataDir(dir), "-m", mode, "-w")
+}
+
 // writeSettings writes the settings that keep the embedded Postgres in dir off the network and let every
 // login in over its socket.
 func writeSettings(dir string) error {
@@ -301,6 +332,10 @@ func runProgram(ctx context.Context, path string, args ...string) error {
 		Args: args,
 		Env:  getEnvironmentWithoutPG(),
 	}); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("failed to run %s: %w: %w", filepath.Base(path), errCannotRun, err)
+		}
+
 		return fmt.Errorf("failed to run %s: %w", filepath.Base(path), err)
 	}
 
