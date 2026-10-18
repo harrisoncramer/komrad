@@ -59,7 +59,7 @@ func (s *Service) restackTask(ctx context.Context, task taskstore.Task) error {
 		return nil
 	}
 
-	handled, err := s.finishMoveOntoBase(ctx, task)
+	handled, err := s.settleMoveOntoBase(ctx, task)
 	if err != nil || handled {
 		return err
 	}
@@ -325,10 +325,9 @@ func (s *Service) recordOnto(ctx context.Context, task taskstore.Task, onto rest
 	return s.tasks.SetStandTip(ctx, task.ID, onto.SHA)
 }
 
-// finishMoveOntoBase settles the move onto the base branch komrad started and left stopped on conflicts once its
-// writer finishes or aborts it, ending the stand of a finished one, and reports whether the move claims this pass,
-// so the restack skips the task.
-func (s *Service) finishMoveOntoBase(ctx context.Context, task taskstore.Task) (bool, error) {
+// settleMoveOntoBase settles a move onto the base branch that stopped on conflicts once the writer finishes or
+// aborts it, and reports whether the move claims this pass.
+func (s *Service) settleMoveOntoBase(ctx context.Context, task taskstore.Task) (bool, error) {
 	raw, err := s.tasks.GetLastRebase(ctx, task.ID)
 	if err != nil || raw == nil {
 		return false, err
@@ -368,11 +367,11 @@ func (s *Service) finishMoveOntoBase(ctx context.Context, task taskstore.Task) (
 	}
 
 	outcome.Settled = true
-	settled, err := json.Marshal(outcome)
+	encoded, err := json.Marshal(outcome)
 	if err != nil {
 		return false, fmt.Errorf("failed to encode the last rebase of task %q: %w", task.Slug, err)
 	}
-	if err := s.tasks.SetLastRebase(ctx, task.ID, settled); err != nil {
+	if err := s.tasks.SetLastRebase(ctx, task.ID, encoded); err != nil {
 		return false, err
 	}
 
