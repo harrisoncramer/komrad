@@ -631,11 +631,12 @@ func TestSnapshotKinds(t *testing.T) {
 				underTask: true,
 			},
 			want: view.Row{
-				Key:    "agent:a1",
-				Kind:   view.KindAgent,
-				Name:   "reviewer",
-				Nested: true,
-				Tree:   &view.Tree{Above: []bool{true}, Last: true},
+				Key:      "agent:a1",
+				Kind:     view.KindAgent,
+				Name:     "reviewer",
+				Nested:   true,
+				Reviewer: true,
+				Tree:     &view.Tree{Above: []bool{true}, Last: true},
 			},
 		},
 		{

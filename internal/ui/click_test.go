@@ -66,7 +66,7 @@ func TestClickTab(t *testing.T) {
 
 	harness.send(clickOnLine(t, harness, "f   ", "activity"))
 
-	assert.Equal(t, []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "└─ delta"}, readListRows(harness.readFrame()))
+	assert.Equal(t, []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "└─ delta"}, readListRows(harness.readFrame()))
 }
 
 // TestClickBlock covers a left click that lands on no row handing the keys to the block under it.

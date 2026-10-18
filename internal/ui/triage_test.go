@@ -69,13 +69,13 @@ func TestTriageRows(t *testing.T) {
 				newReviewer("reviewer", "reviewer", "asker"),
 				newReviewer("second-reviewer", "second-reviewer", "asker"),
 			),
-			want: []string{"asker backend", "└ second-reviewer", "└ reviewer", "backend", "├─ task-asker", "│ ├─ second-reviewer", "│ └─ reviewer", "└─ task-quiet"},
+			want: []string{"asker backend", "└ " + reviewerMark + "second-reviewer", "└ " + reviewerMark + "reviewer", "backend", "├─ task-asker", "│ ├─ " + reviewerMark + "second-reviewer", "│ └─ " + reviewerMark + "reviewer", "└─ task-quiet"},
 		},
 		{
 			name:     "a reviewer in triage brings its writer with it",
 			capacity: 2,
 			rows:     buildTriageTask()[:5],
-			want:     []string{"writer backend", "└ reviewer", "backend", "├─ task-writer", "│ └─ reviewer", "└─ quiet"},
+			want:     []string{"writer backend", "└ " + reviewerMark + "reviewer", "backend", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "└─ quiet"},
 		},
 		{
 			name:     "the most urgent tier takes the slots and the rest wait in the tree",
@@ -93,7 +93,7 @@ func TestTriageRows(t *testing.T) {
 			name:     "a task with a reviewer asking takes one slot",
 			capacity: 2,
 			rows:     append(withTasks(buildTriage()[:3]), buildTriageTask()[2:5]...),
-			want:     []string{"asker backend", "writer backend", "└ reviewer", "backend", "├─ task-asker", "├─ task-writer", "│ └─ reviewer", "└─ task-quiet"},
+			want:     []string{"asker backend", "writer backend", "└ " + reviewerMark + "reviewer", "backend", "├─ task-asker", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "└─ task-quiet"},
 		},
 		{
 			name:     "three tasks come whole with their reviewers and a fourth waits for a slot",
@@ -105,7 +105,7 @@ func TestTriageRows(t *testing.T) {
 				buildTriageTask()[4],
 				newReviewer("third-reviewer", "third-reviewer", "third"),
 			),
-			want: []string{"asker backend", "└ second-reviewer", "writer backend", "└ reviewer", "third backend", "└ third-reviewer", "+1 more waiting for a slot", "backend", "├─ task-third", "│ └─ third-reviewer", "├─ task-asker", "│ └─ second-reviewer", "├─ task-writer", "│ └─ reviewer", "├─ task-broken", "└─ task-quiet"},
+			want: []string{"asker backend", "└ " + reviewerMark + "second-reviewer", "writer backend", "└ " + reviewerMark + "reviewer", "third backend", "└ " + reviewerMark + "third-reviewer", "+1 more waiting for a slot", "backend", "├─ task-third", "│ └─ " + reviewerMark + "third-reviewer", "├─ task-asker", "│ └─ " + reviewerMark + "second-reviewer", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "├─ task-broken", "└─ task-quiet"},
 		},
 	}
 
@@ -205,7 +205,7 @@ func TestTriageSnooze(t *testing.T) {
 			press:    []string{"t", "space", "z"},
 			relisted: []proto.Message{newLiveWorkflow("w1", "backend"), newAgentAt("quiet", "w1", 1), buildTriageTask()[5]},
 			then:     buildTriageTask(),
-			want:     []string{"writer backend", "└ reviewer", "third", "backend", "├─ third", "├─ task-writer", "│ └─ reviewer", "└─ quiet"},
+			want:     []string{"writer backend", "└ " + reviewerMark + "reviewer", "third", "backend", "├─ third", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "└─ quiet"},
 		},
 		{
 			name:     "a task hidden and shown again keeps its snooze",
