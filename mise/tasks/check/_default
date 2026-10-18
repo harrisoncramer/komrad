@@ -13,8 +13,8 @@ usage() {
 	echo "here: run 'go-structs' from the dotfiles, which touches only the files"
 	echo "your branch changes."
 	echo
-	echo "The tests need Postgres, which go:test brings up under MISE_ENV=test. Run"
-	echo "'mise run db:apply' first otherwise. Drift in config.toml is caught by the"
+	echo "The tests run under MISE_ENV=test, which brings up the throwaway instance's"
+	echo "Postgres, and refuse to run without it. Drift in config.toml is caught by the"
 	echo "config tests, which regenerate it in memory and compare, so a stale file"
 	echo "fails here without needing a clean git tree."
 	echo "gen:check covers the sqlc and buf output too, but only when those paths"
@@ -57,6 +57,8 @@ unit | integration | all) ;;
 	exit 1
 	;;
 esac
+
+refuse_panel_database check
 
 cd "$MISE_CONFIG_ROOT"
 

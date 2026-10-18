@@ -29,33 +29,10 @@ services:
       target: tmux
     volumes: *doctor-sandbox-volumes
 
-  # A Postgres of the sandbox's own, on no volume and no published port, standing in for one the
-  # person runs instead of the embedded Postgres. It starts empty every run, which is also what
-  # the checks want to see.
-  doctor-db:
-    profiles: ["doctor"]
-    image: postgres:18
-    environment:
-      POSTGRES_USER: komrad
-      POSTGRES_PASSWORD: komrad
-      POSTGRES_DB: komrad
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "komrad"]
-      interval: 2s
-      timeout: 5s
-      retries: 15
-
-  # The same machine with a Postgres reachable, for the checks that need one to answer.
-  # Override KOMRAD_DATABASE_URL on the run to point it at a database that is missing, unmigrated,
-  # or refusing the password.
+  # The same machine with the embedded Postgres set up, for the checks that need one to answer.
   doctor-postgres:
     profiles: ["doctor"]
     build:
       <<: *doctor-sandbox-build
-      target: tmux
+      target: postgres
     volumes: *doctor-sandbox-volumes
-    depends_on:
-      doctor-db:
-        condition: service_healthy
-    environment:
-      KOMRAD_DATABASE_URL: postgres://komrad:komrad@doctor-db:5432/komrad?sslmode=disable

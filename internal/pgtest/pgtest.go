@@ -105,7 +105,7 @@ func connect(t *testing.T) *admin {
 	baseURL := cfg.Connection.OwnerDatabaseURL
 
 	conn, err := pgx.Connect(t.Context(), replaceDatabase(baseURL, "postgres"))
-	require.NoError(t, err, "failed to reach postgres; start it with 'mise run db:apply', or run the tests with MISE_ENV=test")
+	require.NoError(t, err, "failed to reach postgres; run the tests with MISE_ENV=test")
 
 	opened := &admin{conn: conn, baseURL: baseURL}
 	sweepOnce.Do(func() { opened.sweep(t) })

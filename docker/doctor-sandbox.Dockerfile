@@ -31,3 +31,17 @@ FROM bare AS tmux
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends tmux \
 	&& rm -rf /var/lib/apt/lists/*
+
+# A tmux new enough and the embedded Postgres, which komrad setup creates before the binary runs.
+# The bundled Postgres links against libraries a slim image leaves out, and it refuses to run as
+# root, so this stage installs them and runs as a login of its own.
+FROM tmux AS postgres
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends libgssapi-krb5-2 libreadline8 libxml2 \
+	&& rm -rf /var/lib/apt/lists/*
+RUN useradd --create-home komrad
+USER komrad
+ENV HOME=/home/komrad
+WORKDIR /home/komrad
+ENTRYPOINT ["/bin/sh", "-c", "/usr/local/bin/komrad setup --no-input; exec /usr/local/bin/komrad \"$@\"", "komrad"]
+CMD ["doctor"]

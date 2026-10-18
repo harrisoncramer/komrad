@@ -83,8 +83,8 @@ in_linked_worktree() {
 }
 
 refuse_panel_database() {
-	if [ "${MISE_ENV:-}" != test ] && in_linked_worktree; then
-		echo "$1: refusing to test against the panel's Postgres from a worktree; run it as MISE_ENV=test mise run $1" >&2
+	if [ "${MISE_ENV:-}" != test ]; then
+		echo "$1: refusing to test against the panel's Postgres; run it as MISE_ENV=test mise run $1" >&2
 
 		exit 1
 	fi

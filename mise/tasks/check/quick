@@ -20,7 +20,7 @@ usage() {
 	echo "It is not the gate. The full test suite, gen:check, and db:validate are"
 	echo "deliberately not here, and the packages that import what you changed are"
 	echo "not tested either, so a pass here says your change compiles and its own"
-	echo "packages are green. Run 'mise run check' before you push."
+	echo "packages are green. Run 'MISE_ENV=test mise run check' before you push."
 	echo
 	echo "The custom linter is only run when local/custom-gcl already exists, since"
 	echo "building it is the slow half of go:lint. Run 'mise run go:build-linter'"
@@ -154,7 +154,7 @@ if ((${#failed[@]} > 0)); then
 fi
 
 echo
-echo "check:quick passed. This is not 'mise run check'."
+echo "check:quick passed. This is not 'MISE_ENV=test mise run check'."
 echo
 
 echo "  built     every package"
@@ -206,4 +206,4 @@ echo "  formatted shell and Go, in reporting mode"
 echo
 echo "  not run   the full test suite, gen:check, db:validate"
 echo
-echo "Run 'mise run check' before you push."
+echo "Run 'MISE_ENV=test mise run check' before you push."

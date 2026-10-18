@@ -12,8 +12,8 @@ Never run `mise run db:apply`, `mise run restart`, or a bare `komrad` command fr
 without it.
 
 The tests take it too, as `MISE_ENV=test mise run check:quick`, which creates or starts the
-instance's Postgres and migrates it first. From a worktree, `go:test` and `check:quick` refuse to
-run without it, since their databases would land on the panel's Postgres.
+instance's Postgres and migrates it first. `go:test` and `check:quick` refuse to run without it,
+since their databases would land on the panel's Postgres.
 
 Each checkout gets a throwaway instance of its own, so agents testing at once do not share one.
 Each instance keeps its embedded Postgres in its own state directory. `MISE_ENV=test mise env`
