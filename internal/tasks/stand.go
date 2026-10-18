@@ -25,8 +25,8 @@ var (
 	errStoodOn = fail.Precondition("another task stands on this one, so archive it instead, or delete the tasks standing on it first")
 )
 
-// standGit reads the tip of a branch on origin.
-type standGit interface {
+// branchTipFetcher reads the tip of a branch on origin.
+type branchTipFetcher interface {
 	FetchBranchTip(ctx context.Context, dir, branch string) (string, error)
 }
 

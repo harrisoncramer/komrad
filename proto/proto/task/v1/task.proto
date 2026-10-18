@@ -27,6 +27,18 @@ enum Sequence {
   SEQUENCE_REVERT = 6;
 }
 
+// RestackBlock is why komrad cannot restack a standing task onto the task it stands on.
+enum RestackBlock {
+  // Nothing blocks the restack.
+  RESTACK_BLOCK_UNSPECIFIED = 0;
+  // Replaying the task's own commits onto its parent conflicted.
+  RESTACK_BLOCK_CONFLICTED = 1;
+  // The task's branch no longer holds the commit its own commits sit on.
+  RESTACK_BLOCK_LOST = 2;
+  // The parent's pull request closed without merging.
+  RESTACK_BLOCK_PARENT_CLOSED = 3;
+}
+
 // DiffStat counts the lines a checkout adds and removes, committed or not.
 message DiffStat {
   // How many lines the checkout adds.
@@ -107,10 +119,8 @@ message Stand {
   string tip = 2;
   // The id of the parent's pull request the task follows. Empty until the parent has one.
   string pull_request_id = 3;
-  // Why komrad cannot restack the task onto its parent: `conflicts` when replaying its commits
-  // conflicted, `lost` when its branch holds neither `tip` nor the parent's tip, and `closed` when
-  // the parent's pull request closed without merging. Empty while nothing blocks it.
-  string blocked = 4;
+  // Why komrad cannot restack the task onto its parent.
+  RestackBlock blocked = 4;
 }
 
 message CreateTaskRequest {

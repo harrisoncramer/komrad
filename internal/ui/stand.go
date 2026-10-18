@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/panel"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -23,11 +24,26 @@ func placeStandRefusal(l listing, task panel.Task) error {
 	if err := rebaseOntoBaseRefusal(l, task); err != nil {
 		return err
 	}
-	if task.Stand.GetBlocked() != "lost" {
+	if task.Stand.GetBlocked() != taskv1.RestackBlock_RESTACK_BLOCK_LOST {
 		return errStandNotLost
 	}
 
 	return nil
+}
+
+// sayRestackBlock is a task's block on the task it stands on in words, empty while nothing blocks it.
+func sayRestackBlock(block taskv1.RestackBlock, parent string) string {
+	switch block {
+	case taskv1.RestackBlock_RESTACK_BLOCK_CONFLICTED:
+		return "behind " + parent + ", conflicts"
+	case taskv1.RestackBlock_RESTACK_BLOCK_LOST:
+		return "lost its place on " + parent
+	case taskv1.RestackBlock_RESTACK_BLOCK_PARENT_CLOSED:
+		return "on " + parent + ", closed unmerged"
+	case taskv1.RestackBlock_RESTACK_BLOCK_UNSPECIFIED:
+	}
+
+	return ""
 }
 
 // openPlaceStand opens the form that names the commit a lost task's own commits sit on.

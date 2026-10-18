@@ -94,6 +94,63 @@ func (Sequence) EnumDescriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{0}
 }
 
+// RestackBlock is why komrad cannot restack a standing task onto the task it stands on.
+type RestackBlock int32
+
+const (
+	// Nothing blocks the restack.
+	RestackBlock_RESTACK_BLOCK_UNSPECIFIED RestackBlock = 0
+	// Replaying the task's own commits onto its parent conflicted.
+	RestackBlock_RESTACK_BLOCK_CONFLICTED RestackBlock = 1
+	// The task's branch no longer holds the commit its own commits sit on.
+	RestackBlock_RESTACK_BLOCK_LOST RestackBlock = 2
+	// The parent's pull request closed without merging.
+	RestackBlock_RESTACK_BLOCK_PARENT_CLOSED RestackBlock = 3
+)
+
+// Enum value maps for RestackBlock.
+var (
+	RestackBlock_name = map[int32]string{
+		0: "RESTACK_BLOCK_UNSPECIFIED",
+		1: "RESTACK_BLOCK_CONFLICTED",
+		2: "RESTACK_BLOCK_LOST",
+		3: "RESTACK_BLOCK_PARENT_CLOSED",
+	}
+	RestackBlock_value = map[string]int32{
+		"RESTACK_BLOCK_UNSPECIFIED":   0,
+		"RESTACK_BLOCK_CONFLICTED":    1,
+		"RESTACK_BLOCK_LOST":          2,
+		"RESTACK_BLOCK_PARENT_CLOSED": 3,
+	}
+)
+
+func (x RestackBlock) Enum() *RestackBlock {
+	p := new(RestackBlock)
+	*p = x
+	return p
+}
+
+func (x RestackBlock) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RestackBlock) Descriptor() protoreflect.EnumDescriptor {
+	return file_task_v1_task_proto_enumTypes[1].Descriptor()
+}
+
+func (RestackBlock) Type() protoreflect.EnumType {
+	return &file_task_v1_task_proto_enumTypes[1]
+}
+
+func (x RestackBlock) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RestackBlock.Descriptor instead.
+func (RestackBlock) EnumDescriptor() ([]byte, []int) {
+	return file_task_v1_task_proto_rawDescGZIP(), []int{1}
+}
+
 // DiffStat counts the lines a checkout adds and removes, committed or not.
 type DiffStat struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -430,10 +487,8 @@ type Stand struct {
 	Tip string `protobuf:"bytes,2,opt,name=tip,proto3" json:"tip,omitempty"`
 	// The id of the parent's pull request the task follows. Empty until the parent has one.
 	PullRequestId string `protobuf:"bytes,3,opt,name=pull_request_id,json=pullRequestId,proto3" json:"pull_request_id,omitempty"`
-	// Why komrad cannot restack the task onto its parent: `conflicts` when replaying its commits
-	// conflicted, `lost` when its branch holds neither `tip` nor the parent's tip, and `closed` when
-	// the parent's pull request closed without merging. Empty while nothing blocks it.
-	Blocked       string `protobuf:"bytes,4,opt,name=blocked,proto3" json:"blocked,omitempty"`
+	// Why komrad cannot restack the task onto its parent.
+	Blocked       RestackBlock `protobuf:"varint,4,opt,name=blocked,proto3,enum=task.v1.RestackBlock" json:"blocked,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -489,11 +544,11 @@ func (x *Stand) GetPullRequestId() string {
 	return ""
 }
 
-func (x *Stand) GetBlocked() string {
+func (x *Stand) GetBlocked() RestackBlock {
 	if x != nil {
 		return x.Blocked
 	}
-	return ""
+	return RestackBlock_RESTACK_BLOCK_UNSPECIFIED
 }
 
 type CreateTaskRequest struct {
@@ -1285,12 +1340,12 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x0f_adopted_branchB\x13\n" +
 	"\x11_notes_updated_atB\x17\n" +
 	"\x15_documents_updated_atB\b\n" +
-	"\x06_stand\"t\n" +
+	"\x06_stand\"\x8b\x01\n" +
 	"\x05Stand\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x10\n" +
 	"\x03tip\x18\x02 \x01(\tR\x03tip\x12&\n" +
-	"\x0fpull_request_id\x18\x03 \x01(\tR\rpullRequestId\x12\x18\n" +
-	"\ablocked\x18\x04 \x01(\tR\ablocked\"\xbb\x01\n" +
+	"\x0fpull_request_id\x18\x03 \x01(\tR\rpullRequestId\x12/\n" +
+	"\ablocked\x18\x04 \x01(\x0e2\x15.task.v1.RestackBlockR\ablocked\"\xbb\x01\n" +
 	"\x11CreateTaskRequest\x127\n" +
 	"\x04slug\x18\x01 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$R\x04slug\x12$\n" +
 	"\x05title\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x05title\x12\x1d\n" +
@@ -1347,7 +1402,12 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x062\xba\x11\n" +
+	"\x0fSEQUENCE_REVERT\x10\x06*\x84\x01\n" +
+	"\fRestackBlock\x12\x1d\n" +
+	"\x19RESTACK_BLOCK_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18RESTACK_BLOCK_CONFLICTED\x10\x01\x12\x16\n" +
+	"\x12RESTACK_BLOCK_LOST\x10\x02\x12\x1f\n" +
+	"\x1bRESTACK_BLOCK_PARENT_CLOSED\x10\x032\xba\x11\n" +
 	"\vTaskService\x12\xcf\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\x87\x01\x9a\xb5\x18\x82\x01\b\x01\x10\x01\x1a\vcreate_task\"jCreate a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`.(\x00:\x01\x02\x12\x96\x01\n" +
@@ -1374,61 +1434,63 @@ func file_task_v1_task_proto_rawDescGZIP() []byte {
 	return file_task_v1_task_proto_rawDescData
 }
 
-var file_task_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_task_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_task_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_task_v1_task_proto_goTypes = []any{
 	(Sequence)(0),                   // 0: task.v1.Sequence
-	(*DiffStat)(nil),                // 1: task.v1.DiffStat
-	(*Task)(nil),                    // 2: task.v1.Task
-	(*Stand)(nil),                   // 3: task.v1.Stand
-	(*CreateTaskRequest)(nil),       // 4: task.v1.CreateTaskRequest
-	(*CreateTaskResponse)(nil),      // 5: task.v1.CreateTaskResponse
-	(*GetTaskRequest)(nil),          // 6: task.v1.GetTaskRequest
-	(*GetTaskResponse)(nil),         // 7: task.v1.GetTaskResponse
-	(*ListTasksRequest)(nil),        // 8: task.v1.ListTasksRequest
-	(*ListTasksResponse)(nil),       // 9: task.v1.ListTasksResponse
-	(*UpdateTaskRequest)(nil),       // 10: task.v1.UpdateTaskRequest
-	(*UpdateTaskResponse)(nil),      // 11: task.v1.UpdateTaskResponse
-	(*SetTaskNotesRequest)(nil),     // 12: task.v1.SetTaskNotesRequest
-	(*SetTaskNotesResponse)(nil),    // 13: task.v1.SetTaskNotesResponse
-	(*ArchiveTaskRequest)(nil),      // 14: task.v1.ArchiveTaskRequest
-	(*SetTaskHiddenRequest)(nil),    // 15: task.v1.SetTaskHiddenRequest
-	(*MarkTaskRunsReadRequest)(nil), // 16: task.v1.MarkTaskRunsReadRequest
-	(*DeleteTasksRequest)(nil),      // 17: task.v1.DeleteTasksRequest
-	(*emptypb.Empty)(nil),           // 18: google.protobuf.Empty
+	(RestackBlock)(0),               // 1: task.v1.RestackBlock
+	(*DiffStat)(nil),                // 2: task.v1.DiffStat
+	(*Task)(nil),                    // 3: task.v1.Task
+	(*Stand)(nil),                   // 4: task.v1.Stand
+	(*CreateTaskRequest)(nil),       // 5: task.v1.CreateTaskRequest
+	(*CreateTaskResponse)(nil),      // 6: task.v1.CreateTaskResponse
+	(*GetTaskRequest)(nil),          // 7: task.v1.GetTaskRequest
+	(*GetTaskResponse)(nil),         // 8: task.v1.GetTaskResponse
+	(*ListTasksRequest)(nil),        // 9: task.v1.ListTasksRequest
+	(*ListTasksResponse)(nil),       // 10: task.v1.ListTasksResponse
+	(*UpdateTaskRequest)(nil),       // 11: task.v1.UpdateTaskRequest
+	(*UpdateTaskResponse)(nil),      // 12: task.v1.UpdateTaskResponse
+	(*SetTaskNotesRequest)(nil),     // 13: task.v1.SetTaskNotesRequest
+	(*SetTaskNotesResponse)(nil),    // 14: task.v1.SetTaskNotesResponse
+	(*ArchiveTaskRequest)(nil),      // 15: task.v1.ArchiveTaskRequest
+	(*SetTaskHiddenRequest)(nil),    // 16: task.v1.SetTaskHiddenRequest
+	(*MarkTaskRunsReadRequest)(nil), // 17: task.v1.MarkTaskRunsReadRequest
+	(*DeleteTasksRequest)(nil),      // 18: task.v1.DeleteTasksRequest
+	(*emptypb.Empty)(nil),           // 19: google.protobuf.Empty
 }
 var file_task_v1_task_proto_depIdxs = []int32{
 	0,  // 0: task.v1.Task.sequence:type_name -> task.v1.Sequence
-	1,  // 1: task.v1.Task.diff_stat:type_name -> task.v1.DiffStat
-	3,  // 2: task.v1.Task.stand:type_name -> task.v1.Stand
-	2,  // 3: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
-	2,  // 4: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
-	2,  // 5: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
-	2,  // 6: task.v1.UpdateTaskResponse.task:type_name -> task.v1.Task
-	2,  // 7: task.v1.SetTaskNotesResponse.task:type_name -> task.v1.Task
-	4,  // 8: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
-	6,  // 9: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
-	8,  // 10: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
-	10, // 11: task.v1.TaskService.UpdateTask:input_type -> task.v1.UpdateTaskRequest
-	12, // 12: task.v1.TaskService.SetTaskNotes:input_type -> task.v1.SetTaskNotesRequest
-	14, // 13: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
-	17, // 14: task.v1.TaskService.DeleteTasks:input_type -> task.v1.DeleteTasksRequest
-	15, // 15: task.v1.TaskService.SetTaskHidden:input_type -> task.v1.SetTaskHiddenRequest
-	16, // 16: task.v1.TaskService.MarkTaskRunsRead:input_type -> task.v1.MarkTaskRunsReadRequest
-	5,  // 17: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
-	7,  // 18: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
-	9,  // 19: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
-	11, // 20: task.v1.TaskService.UpdateTask:output_type -> task.v1.UpdateTaskResponse
-	13, // 21: task.v1.TaskService.SetTaskNotes:output_type -> task.v1.SetTaskNotesResponse
-	18, // 22: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
-	18, // 23: task.v1.TaskService.DeleteTasks:output_type -> google.protobuf.Empty
-	18, // 24: task.v1.TaskService.SetTaskHidden:output_type -> google.protobuf.Empty
-	18, // 25: task.v1.TaskService.MarkTaskRunsRead:output_type -> google.protobuf.Empty
-	17, // [17:26] is the sub-list for method output_type
-	8,  // [8:17] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	2,  // 1: task.v1.Task.diff_stat:type_name -> task.v1.DiffStat
+	4,  // 2: task.v1.Task.stand:type_name -> task.v1.Stand
+	1,  // 3: task.v1.Stand.blocked:type_name -> task.v1.RestackBlock
+	3,  // 4: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
+	3,  // 5: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
+	3,  // 6: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
+	3,  // 7: task.v1.UpdateTaskResponse.task:type_name -> task.v1.Task
+	3,  // 8: task.v1.SetTaskNotesResponse.task:type_name -> task.v1.Task
+	5,  // 9: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
+	7,  // 10: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
+	9,  // 11: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
+	11, // 12: task.v1.TaskService.UpdateTask:input_type -> task.v1.UpdateTaskRequest
+	13, // 13: task.v1.TaskService.SetTaskNotes:input_type -> task.v1.SetTaskNotesRequest
+	15, // 14: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
+	18, // 15: task.v1.TaskService.DeleteTasks:input_type -> task.v1.DeleteTasksRequest
+	16, // 16: task.v1.TaskService.SetTaskHidden:input_type -> task.v1.SetTaskHiddenRequest
+	17, // 17: task.v1.TaskService.MarkTaskRunsRead:input_type -> task.v1.MarkTaskRunsReadRequest
+	6,  // 18: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
+	8,  // 19: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
+	10, // 20: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
+	12, // 21: task.v1.TaskService.UpdateTask:output_type -> task.v1.UpdateTaskResponse
+	14, // 22: task.v1.TaskService.SetTaskNotes:output_type -> task.v1.SetTaskNotesResponse
+	19, // 23: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
+	19, // 24: task.v1.TaskService.DeleteTasks:output_type -> google.protobuf.Empty
+	19, // 25: task.v1.TaskService.SetTaskHidden:output_type -> google.protobuf.Empty
+	19, // 26: task.v1.TaskService.MarkTaskRunsRead:output_type -> google.protobuf.Empty
+	18, // [18:27] is the sub-list for method output_type
+	9,  // [9:18] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_task_v1_task_proto_init() }
@@ -1444,7 +1506,7 @@ func file_task_v1_task_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_task_v1_task_proto_rawDesc), len(file_task_v1_task_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,

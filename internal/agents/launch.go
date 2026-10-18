@@ -478,13 +478,12 @@ type launchAgentParams struct {
 }
 
 func (s *LaunchService) launchAgent(ctx context.Context, params launchAgentParams) (*agentstore.Agent, error) {
-	request, spawner := params.request, params.spawner
-	plan, err := s.planLaunch(ctx, request)
+	plan, err := s.planLaunch(ctx, params.request)
 	if err != nil {
 		return nil, err
 	}
 
-	agent, err := plan.newAgent(request, spawner)
+	agent, err := plan.newAgent(params.request, params.spawner)
 	if err != nil {
 		return nil, err
 	}
@@ -493,14 +492,14 @@ func (s *LaunchService) launchAgent(ctx context.Context, params launchAgentParam
 	placed, err := s.createUnderCeiling(ctx, creation{
 		agent:         agent,
 		task:          params.joined,
-		spawner:       spawner,
-		title:         request.Title,
-		taskSlug:      request.TaskSlug,
-		taskGoal:      request.TaskGoal,
-		adoptedBranch: request.AdoptedBranch,
-		repositoryURL: request.RepositoryURL,
+		spawner:       params.spawner,
+		title:         params.request.Title,
+		taskSlug:      params.request.TaskSlug,
+		taskGoal:      params.request.TaskGoal,
+		adoptedBranch: params.request.AdoptedBranch,
+		repositoryURL: params.request.RepositoryURL,
 		provisioner:   plan.provisioner,
-		hideTask:      request.HideTask,
+		hideTask:      params.request.HideTask,
 		stand:         params.stand,
 	})
 	if err != nil {
@@ -516,7 +515,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params launchAgentParam
 		deprovisioner:  plan.deprovisioner,
 		hooks:          plan.hooks,
 		defaultDir:     plan.dir,
-		spawner:        spawner,
+		spawner:        params.spawner,
 		claimsCheckout: isCheckoutClaimant(*agent, plan.provisioner),
 		workflow:       plan.workflow,
 		task:           placed.task,

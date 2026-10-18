@@ -49,8 +49,21 @@ func standOf(stand *taskstore.Stand) *taskv1.Stand {
 		TaskId:        stand.ParentID,
 		Tip:           stand.Tip,
 		PullRequestId: stand.PullRequestID,
-		Blocked:       string(stand.Blocked),
+		Blocked:       restackBlockOf(stand.Blocked),
 	}
+}
+
+func restackBlockOf(block taskstore.RestackBlock) taskv1.RestackBlock {
+	switch block {
+	case taskstore.RestackConflicted:
+		return taskv1.RestackBlock_RESTACK_BLOCK_CONFLICTED
+	case taskstore.RestackLost:
+		return taskv1.RestackBlock_RESTACK_BLOCK_LOST
+	case taskstore.RestackParentClosed:
+		return taskv1.RestackBlock_RESTACK_BLOCK_PARENT_CLOSED
+	}
+
+	return taskv1.RestackBlock_RESTACK_BLOCK_UNSPECIFIED
 }
 
 // SequenceOf is a stored sequence as the wire carries it.

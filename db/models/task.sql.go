@@ -1128,7 +1128,7 @@ func (q *Queries) MarkWorkflowTasksDeleting(ctx context.Context, workflowID stri
 	return err
 }
 
-const recordTaskStandPullRequest = `-- name: RecordTaskStandPullRequest :execrows
+const recordTaskStandPullRequest = `-- name: RecordTaskStandPullRequest :exec
 UPDATE
     tasks
 SET
@@ -1144,12 +1144,9 @@ type RecordTaskStandPullRequestParams struct {
 	ID                 string
 }
 
-func (q *Queries) RecordTaskStandPullRequest(ctx context.Context, arg RecordTaskStandPullRequestParams) (int64, error) {
-	result, err := q.db.Exec(ctx, recordTaskStandPullRequest, arg.StandPullRequestID, arg.ID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+func (q *Queries) RecordTaskStandPullRequest(ctx context.Context, arg RecordTaskStandPullRequestParams) error {
+	_, err := q.db.Exec(ctx, recordTaskStandPullRequest, arg.StandPullRequestID, arg.ID)
+	return err
 }
 
 const releaseTaskCheckout = `-- name: ReleaseTaskCheckout :exec

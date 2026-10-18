@@ -10,7 +10,6 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
-	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -755,23 +754,20 @@ func TestRecordStandPullRequest(t *testing.T) {
 		Slug:       "child",
 		Stand:      &taskstore.Stand{ParentID: parent.ID, Tip: "abc"},
 	})
-	first, second := seedPullRequest(t, stores, "PR_1"), seedPullRequest(t, stores, "PR_2")
+	first := stores.SeedPullRequest(t, storetest.SeedPullRequestParams{RepositoryURL: "https://github.com/acme/api", Number: 1, HeadBranch: "task/parent"}).ID
+	second := stores.SeedPullRequest(t, storetest.SeedPullRequestParams{RepositoryURL: "https://github.com/acme/api", Number: 2, HeadBranch: "task/parent"}).ID
 
-	recorded, err := stores.Tasks.RecordStandPullRequest(ctx, task.ID, first)
-	require.NoError(t, err)
-	assert.True(t, recorded, "the first is recorded")
-
-	recorded, err = stores.Tasks.RecordStandPullRequest(ctx, task.ID, second)
-	require.NoError(t, err)
-	assert.False(t, recorded, "a second is not")
-
-	recorded, err = stores.Tasks.RecordStandPullRequest(ctx, parent.ID, first)
-	require.NoError(t, err)
-	assert.False(t, recorded, "a task on the base branch follows none")
+	require.NoError(t, stores.Tasks.RecordStandPullRequest(ctx, task.ID, first))
+	require.NoError(t, stores.Tasks.RecordStandPullRequest(ctx, task.ID, second))
+	require.NoError(t, stores.Tasks.RecordStandPullRequest(ctx, parent.ID, first))
 
 	got, err := stores.Tasks.Get(ctx, task.ID)
 	require.NoError(t, err)
-	assert.Equal(t, first, got.Stand.PullRequestID)
+	assert.Equal(t, first, got.Stand.PullRequestID, "the first is kept")
+
+	base, err := stores.Tasks.Get(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Nil(t, base.Stand, "a task on the base branch follows none")
 }
 
 // TestListStanding pins which tasks each listing of standing tasks holds.
@@ -802,33 +798,4 @@ func TestListStanding(t *testing.T) {
 
 func readTaskID(task taskstore.Task) string {
 	return task.ID
-}
-
-func seedPullRequest(t *testing.T, stores *storetest.Stores, providerID string) string {
-	t.Helper()
-
-	opened := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
-	_, err := stores.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
-		Host:              "github.com",
-		Forge:             "github",
-		ProviderID:        providerID,
-		URL:               "https://github.com/harrisoncramer/komrad/pull/" + providerID,
-		RepositoryURL:     "https://github.com/harrisoncramer/komrad",
-		HeadRepositoryURL: "https://github.com/harrisoncramer/komrad",
-		Number:            1,
-		Title:             "one",
-		HeadBranch:        "task/parent",
-		HeadSHA:           "abc",
-		BaseBranch:        "main",
-		BaseSHA:           "def",
-		State:             "OPEN",
-		OpenedAt:          opened,
-		ChangedAt:         opened,
-	})
-	require.NoError(t, err)
-
-	pullRequest, err := stores.PullRequests.GetByIdentity(t.Context(), "github.com", providerID)
-	require.NoError(t, err)
-
-	return pullRequest.ID
 }

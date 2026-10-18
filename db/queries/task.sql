@@ -459,7 +459,7 @@ WHERE
     id = sqlc.arg('id')
     AND stands_on_task_id IS NOT NULL;
 
--- name: RecordTaskStandPullRequest :execrows
+-- name: RecordTaskStandPullRequest :exec
 UPDATE
     tasks
 SET

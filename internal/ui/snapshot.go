@@ -395,15 +395,10 @@ func standTail(r agentRow, tasks taskIndex) view.Cell {
 		return view.Cell{}
 	}
 
-	parent := tasks[stand.GetTaskId()].Slug
-	switch stand.GetBlocked() {
-	case "conflicts":
-		return view.Cell{Text: "behind " + parent + ", conflicts", Tone: paint.ToneWarning}
-	case "lost":
-		return view.Cell{Text: "lost its place on " + parent, Tone: paint.ToneWarning}
-	case "closed":
-		return view.Cell{Text: "on " + parent + ", closed unmerged", Tone: paint.ToneWarning}
+	said := sayRestackBlock(stand.GetBlocked(), tasks[stand.GetTaskId()].Slug)
+	if said == "" {
+		return view.Cell{}
 	}
 
-	return view.Cell{}
+	return view.Cell{Text: said, Tone: paint.ToneWarning}
 }

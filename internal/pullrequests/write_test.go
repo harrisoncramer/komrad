@@ -2,14 +2,12 @@ package pullrequests
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	forgestore "komrad/internal/store/forge"
-	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -96,7 +94,7 @@ func TestMergePullRequest(t *testing.T) {
 	tests := []struct {
 		name       string
 		address    string
-		stack      stack
+		child      childTask
 		mergeErr   error
 		wantErr    error
 		wantMerged []forge.MergeParams
@@ -113,6 +111,18 @@ func TestMergePullRequest(t *testing.T) {
 			wantErr: store.ErrNotFound,
 		},
 		{
+			name:    "a pull request from a task standing on another",
+			address: address,
+			child:   childTask{stands: true, parentState: "OPEN"},
+			wantErr: errMergeStanding,
+		},
+		{
+			name:    "a pull request onto a task whose own pull request merged",
+			address: address,
+			child:   childTask{parentState: "MERGED"},
+			wantErr: errMergeOntoFinished,
+		},
+		{
 			name:       "a pull request the forge will not merge",
 			address:    address,
 			mergeErr:   forge.ErrNotMergeable,
@@ -125,18 +135,6 @@ func TestMergePullRequest(t *testing.T) {
 			wantMerged: []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
 			wantHeated: []string{"github.com"},
 		},
-		{
-			name:    "a pull request from a task standing on another",
-			address: address,
-			stack:   stack{stands: true, parentState: "OPEN"},
-			wantErr: errMergeStanding,
-		},
-		{
-			name:    "a pull request onto a task whose own pull request merged",
-			address: address,
-			stack:   stack{parentState: "MERGED"},
-			wantErr: errMergeOntoFinished,
-		},
 	}
 
 	for _, tt := range tests {
@@ -144,7 +142,7 @@ func TestMergePullRequest(t *testing.T) {
 			writing := &writingForge{err: tt.mergeErr}
 			sync := &waketest.Counter{}
 			stores := storetest.Open(t)
-			seedStack(t, stores, tt.stack)
+			seedChildTask(t, stores, tt.child)
 			writer := newTestWriter(t, stores, writing, sync)
 
 			err := writer.MergePullRequest(t.Context(), forge.MergeParams{URL: tt.address, Method: forge.MergeMethodSquash})
@@ -281,7 +279,7 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 	tests := []struct {
 		name           string
 		params         forge.SetAutoMergeParams
-		stack          stack
+		child          childTask
 		autoMergeErr   error
 		wantErr        error
 		wantAutoMerged []forge.SetAutoMergeParams
@@ -291,6 +289,12 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 			name:    "an address with no host",
 			params:  forge.SetAutoMergeParams{URL: "harrisoncramer/komrad#1", On: true},
 			wantErr: forge.ErrNotPullRequest,
+		},
+		{
+			name:    "a pull request from a task standing on another",
+			params:  forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
+			child:   childTask{stands: true, parentState: "OPEN"},
+			wantErr: errMergeStanding,
 		},
 		{
 			name: "a pull request the forge will not queue",
@@ -322,12 +326,6 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 			wantHeated: []string{"github.com"},
 		},
 		{
-			name:    "a pull request from a task standing on another",
-			params:  forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
-			stack:   stack{stands: true, parentState: "OPEN"},
-			wantErr: errMergeStanding,
-		},
-		{
 			name:           "a pull request the forge stops waiting on",
 			params:         forge.SetAutoMergeParams{URL: address},
 			wantAutoMerged: []forge.SetAutoMergeParams{{URL: address}},
@@ -340,7 +338,7 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 			writing := &writingForge{err: tt.autoMergeErr}
 			sync := &waketest.Counter{}
 			stores := storetest.Open(t)
-			seedStack(t, stores, tt.stack)
+			seedChildTask(t, stores, tt.child)
 			writer := newTestWriter(t, stores, writing, sync)
 
 			err := writer.SetPullRequestAutoMerge(t.Context(), tt.params)
@@ -356,65 +354,54 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 	}
 }
 
-// stack is a child task's pull request at the test address onto its parent's branch, laid only once parentState names the state of the parent's own pull request.
-type stack struct {
+// childTask is a child task's pull request at the test address onto its parent's branch, laid only once parentState names the state of the parent's own pull request.
+type childTask struct {
 	stands      bool
 	parentState string
 }
 
-// seedStack records the parent and child tasks of the stack in the test repository, and their pull requests.
-func seedStack(t *testing.T, stores *storetest.Stores, laid stack) {
+// seedChildTask records the parent and child tasks in the test repository, and their pull requests.
+func seedChildTask(t *testing.T, stores *storetest.Stores, laid childTask) {
 	t.Helper()
 
 	if laid.parentState == "" {
 		return
 	}
 
-	ctx := t.Context()
-	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "stack"})
-	parent := seedStackTask(t, stores, workflow.ID, "task/parent")
-	child := seedStackTask(t, stores, workflow.ID, "task/child")
+	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "parent-and-child"})
+	parent := seedBranchTask(t, stores, workflow.ID, "task/parent")
+	child := seedBranchTask(t, stores, workflow.ID, "task/child")
 	if laid.stands {
-		require.NoError(t, stores.Tasks.SetStand(ctx, child, &taskstore.Stand{ParentID: parent, Tip: "abc"}))
+		require.NoError(t, stores.Tasks.SetStand(t.Context(), child, &taskstore.Stand{ParentID: parent, Tip: "abc"}))
 	}
 
-	parentPullRequest := newStackPullRequest(2, "task/parent", "main")
-	parentPullRequest.State = laid.parentState
-	if laid.parentState == "MERGED" {
-		parentPullRequest.MergedAt = &parentPullRequest.ChangedAt
-		parentPullRequest.ClosedAt = &parentPullRequest.ChangedAt
-	}
-	for _, params := range []pullrequeststore.UpsertParams{parentPullRequest, newStackPullRequest(1, "task/child", "task/parent")} {
-		_, err := stores.PullRequests.Upsert(ctx, params)
-		require.NoError(t, err)
-	}
+	stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+		RepositoryURL: taskRepository,
+		Number:        2,
+		HeadBranch:    "task/parent",
+		HeadSHA:       "abc",
+		BaseBranch:    "main",
+		State:         laid.parentState,
+		OpenedAt:      syncNow,
+	})
+	stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+		RepositoryURL: taskRepository,
+		Number:        1,
+		HeadBranch:    "task/child",
+		HeadSHA:       "abc",
+		BaseBranch:    "task/parent",
+		OpenedAt:      syncNow,
+	})
 }
 
-func seedStackTask(t *testing.T, stores *storetest.Stores, workflowID, branch string) string {
+// seedBranchTask records a task whose checkout is on a branch of the test repository.
+func seedBranchTask(t *testing.T, stores *storetest.Stores, workflowID, branch string) string {
 	t.Helper()
 
 	agent := stores.SeedAgent(t, agentstore.Agent{Name: branch, WorkflowID: workflowID})
-	stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{RepositoryURL: xptr.Ptr(stackRepository), Branch: xptr.Ptr(branch)})
+	stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{RepositoryURL: xptr.Ptr(taskRepository), Branch: xptr.Ptr(branch)})
 
 	return *agent.TaskID
 }
 
-const stackRepository = "https://github.com/harrisoncramer/komrad"
-
-func newStackPullRequest(number int, head, base string) pullrequeststore.UpsertParams {
-	return pullrequeststore.UpsertParams{
-		Host:              "github.com",
-		Forge:             "github",
-		ProviderID:        fmt.Sprintf("PR_%d", number),
-		URL:               fmt.Sprintf("%s/pull/%d", stackRepository, number),
-		RepositoryURL:     stackRepository,
-		HeadRepositoryURL: stackRepository,
-		Number:            number,
-		HeadBranch:        head,
-		HeadSHA:           "abc",
-		BaseBranch:        base,
-		State:             "OPEN",
-		OpenedAt:          syncNow,
-		ChangedAt:         syncNow,
-	}
-}
+const taskRepository = "https://github.com/harrisoncramer/komrad"

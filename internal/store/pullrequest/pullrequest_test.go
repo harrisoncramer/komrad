@@ -834,13 +834,21 @@ func TestGetStandPullRequest(t *testing.T) {
 		wantProvider string
 	}{
 		{
+			name:         "a pull request that finished before the stand began is not followed",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_old", 1, "task/parent")},
+		},
+		{
+			name:         "a pull request from a fork is not followed",
+			pullRequests: []UpsertParams{fromFork},
+		},
+		{
+			name:         "a pull request from another branch is not followed",
+			pullRequests: []UpsertParams{openPullRequest("PR_other", 1, "task/other")},
+		},
+		{
 			name:         "an open pull request is followed whenever it opened",
 			pullRequests: []UpsertParams{openPullRequest("PR_open", 1, "task/parent")},
 			wantProvider: "PR_open",
-		},
-		{
-			name:         "a pull request that finished before the stand began is not followed",
-			pullRequests: []UpsertParams{finishedPullRequest("PR_old", 1, "task/parent")},
 		},
 		{
 			name:         "a pull request opened since the stand began is followed after it finishes",
@@ -854,14 +862,6 @@ func TestGetStandPullRequest(t *testing.T) {
 				openPullRequest("PR_first", 1, "task/parent"),
 			},
 			wantProvider: "PR_first",
-		},
-		{
-			name:         "a pull request from a fork is not followed",
-			pullRequests: []UpsertParams{fromFork},
-		},
-		{
-			name:         "a pull request from another branch is not followed",
-			pullRequests: []UpsertParams{openPullRequest("PR_other", 1, "task/other")},
 		},
 	}
 

@@ -65,7 +65,7 @@ type NewTaskServiceParams struct {
 	Snapshots    snapshotReleaser
 	Scripts      taskScriptRunner
 	Tx           txRunner
-	Git          standGit
+	Git          branchTipFetcher
 	PullRequests *pullrequeststore.PullRequestStore
 }
 
@@ -79,7 +79,7 @@ type TaskService struct {
 	snapshots    snapshotReleaser
 	scripts      taskScriptRunner
 	tx           txRunner
-	git          standGit
+	git          branchTipFetcher
 	pullRequests *pullrequeststore.PullRequestStore
 }
 

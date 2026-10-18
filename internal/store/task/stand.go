@@ -19,8 +19,20 @@ type Stand struct {
 	// PullRequestID is the parent's pull request the task follows, empty until the parent has one.
 	PullRequestID string
 	// Blocked is why komrad cannot restack the task, empty while nothing does.
-	Blocked restackBlock
+	Blocked RestackBlock
 }
+
+// RestackBlock is why komrad cannot restack a standing task onto its parent.
+type RestackBlock string
+
+const (
+	// RestackConflicted is a replay onto the parent that conflicted.
+	RestackConflicted RestackBlock = "conflicts"
+	// RestackLost is a branch that no longer holds the recorded tip.
+	RestackLost RestackBlock = "lost"
+	// RestackParentClosed is a parent whose pull request closed without merging.
+	RestackParentClosed RestackBlock = "closed"
+)
 
 func standFrom(row *models.Task) *Stand {
 	if row.StandsOnTaskID == nil {
@@ -31,7 +43,7 @@ func standFrom(row *models.Task) *Stand {
 		ParentID:      *row.StandsOnTaskID,
 		Tip:           xptr.Deref(row.StandTip),
 		PullRequestID: xptr.Deref(row.StandPullRequestID),
-		Blocked:       restackBlock(xptr.Deref(row.RestackBlocked)),
+		Blocked:       RestackBlock(xptr.Deref(row.RestackBlocked)),
 	}
 }
 
@@ -68,22 +80,23 @@ func (s *TaskStore) SetStandTip(ctx context.Context, id, tip string) error {
 	return nil
 }
 
-// RecordStandPullRequest records the parent's pull request a standing task follows, reporting
-// false when it already follows one.
-func (s *TaskStore) RecordStandPullRequest(ctx context.Context, id, pullRequestID string) (bool, error) {
-	if !store.IsID(id) || !store.IsID(pullRequestID) {
-		return false, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
+// RecordStandPullRequest records the parent's pull request a standing task follows, keeping the one it already follows.
+func (s *TaskStore) RecordStandPullRequest(ctx context.Context, id, pullRequestID string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
+	}
+	if !store.IsID(pullRequestID) {
+		return fmt.Errorf("%w: pull request %q", store.ErrNotFound, pullRequestID)
 	}
 
-	recorded, err := s.queries.RecordTaskStandPullRequest(ctx, models.RecordTaskStandPullRequestParams{
+	if err := s.queries.RecordTaskStandPullRequest(ctx, models.RecordTaskStandPullRequestParams{
 		ID:                 id,
 		StandPullRequestID: &pullRequestID,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to record the pull request task %q follows: %w", id, err)
+	}); err != nil {
+		return fmt.Errorf("failed to record the pull request task %q follows: %w", id, err)
 	}
 
-	return recorded > 0, nil
+	return nil
 }
 
 // ListStanding returns every live task that stands on another.
@@ -111,32 +124,8 @@ func (s *TaskStore) ListStandingOn(ctx context.Context, ids []string) ([]Task, e
 	return xslice.Map(rows, fromRow), nil
 }
 
-// GetBranch is the branch a task's checkout is on, or the one komrad cuts for it while it has none.
-func (t Task) GetBranch() string {
-	if branch := xptr.Deref(t.Checkout.Branch); branch != "" {
-		return branch
-	}
-	if t.Checkout.AdoptedBranch != "" {
-		return t.Checkout.AdoptedBranch
-	}
-
-	return "task/" + t.ID
-}
-
-// restackBlock is why komrad cannot restack a standing task onto its parent.
-type restackBlock string
-
-const (
-	// RestackConflicted is a replay onto the parent that conflicted.
-	RestackConflicted restackBlock = "conflicts"
-	// RestackLost is a branch holding neither the recorded tip nor the parent's.
-	RestackLost restackBlock = "lost"
-	// RestackParentClosed is a parent whose pull request closed without merging.
-	RestackParentClosed restackBlock = "closed"
-)
-
 // SetRestackBlocked records why komrad cannot restack a task, or clears it with an empty block.
-func (s *TaskStore) SetRestackBlocked(ctx context.Context, id string, block restackBlock) error {
+func (s *TaskStore) SetRestackBlocked(ctx context.Context, id string, block RestackBlock) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
 	}

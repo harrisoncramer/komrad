@@ -53,6 +53,18 @@ type Task struct {
 	DocumentsUpdatedAt *time.Time
 }
 
+// GetBranch is the branch a task's checkout is on, or the one komrad cuts for it while it has none.
+func (t Task) GetBranch() string {
+	if branch := xptr.Deref(t.Checkout.Branch); branch != "" {
+		return branch
+	}
+	if t.Checkout.AdoptedBranch != "" {
+		return t.Checkout.AdoptedBranch
+	}
+
+	return "task/" + t.ID
+}
+
 type TaskStore struct {
 	queries *models.Queries
 }

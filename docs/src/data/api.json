@@ -9435,13 +9435,13 @@
         },
         {
           "name": "blocked",
-          "type": "string",
-          "ref": "",
+          "type": "RestackBlock",
+          "ref": "task.v1.RestackBlock",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why komrad cannot restack the task onto its parent: `conflicts` when replaying its commits conflicted, `lost` when its branch holds neither `tip` nor the parent's tip, and `closed` when the parent's pull request closed without merging. Empty while nothing blocks it."
+          "description": "Why komrad cannot restack the task onto its parent."
         }
       ]
     },
@@ -11579,6 +11579,24 @@
         {
           "name": "SCHEDULE_RUN_STATE_DISCARDED",
           "description": "Out of attempts, with the last error in the run's message."
+        }
+      ]
+    },
+    "task.v1.RestackBlock": {
+      "name": "RestackBlock",
+      "description": "RestackBlock is why komrad cannot restack a standing task onto the task it stands on.",
+      "values": [
+        {
+          "name": "RESTACK_BLOCK_CONFLICTED",
+          "description": "Replaying the task's own commits onto its parent conflicted."
+        },
+        {
+          "name": "RESTACK_BLOCK_LOST",
+          "description": "The task's branch no longer holds the commit its own commits sit on."
+        },
+        {
+          "name": "RESTACK_BLOCK_PARENT_CLOSED",
+          "description": "The parent's pull request closed without merging."
         }
       ]
     },

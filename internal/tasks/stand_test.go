@@ -2,10 +2,8 @@ package tasks
 
 import (
 	"testing"
-	"time"
 
 	"komrad/internal/gittest"
-	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -24,7 +22,6 @@ func TestPlanStand(t *testing.T) {
 		cwd     string
 		opened  bool
 		wantErr error
-		wantPR  bool
 	}{
 		{
 			name:    "a task with no worktree is refused",
@@ -47,7 +44,6 @@ func TestPlanStand(t *testing.T) {
 			branch: "task/parent",
 			cwd:    "/tree",
 			opened: true,
-			wantPR: true,
 		},
 	}
 
@@ -67,7 +63,13 @@ func TestPlanStand(t *testing.T) {
 			require.NoError(t, stores.Tasks.SetHead(ctx, parent.ID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &tt.branch}))
 			var pullRequestID string
 			if tt.opened {
-				pullRequestID = seedStandPullRequest(t, stores, tt.branch)
+				pullRequestID = stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+					RepositoryURL: standRepository,
+					Number:        1,
+					HeadBranch:    tt.branch,
+					HeadSHA:       "tip",
+					BaseBranch:    "main",
+				}).ID
 			}
 			svc := NewTaskService(NewTaskServiceParams{
 				Tasks:        stores.Tasks,
@@ -126,33 +128,4 @@ func TestRefuseStoodOn(t *testing.T) {
 			require.ErrorIs(t, err, tt.wantErr)
 		})
 	}
-}
-
-func seedStandPullRequest(t *testing.T, stores *storetest.Stores, branch string) string {
-	t.Helper()
-
-	opened := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
-	_, err := stores.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
-		Host:              "github.com",
-		Forge:             "github",
-		ProviderID:        "PR_parent",
-		URL:               standRepository + "/pull/1",
-		RepositoryURL:     standRepository,
-		HeadRepositoryURL: standRepository,
-		Number:            1,
-		Title:             "parent",
-		HeadBranch:        branch,
-		HeadSHA:           "tip",
-		BaseBranch:        "main",
-		BaseSHA:           "base",
-		State:             "OPEN",
-		OpenedAt:          opened,
-		ChangedAt:         opened,
-	})
-	require.NoError(t, err)
-
-	pullRequest, err := stores.PullRequests.GetByIdentity(t.Context(), "github.com", "PR_parent")
-	require.NoError(t, err)
-
-	return pullRequest.ID
 }
