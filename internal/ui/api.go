@@ -856,7 +856,7 @@ func (a api) pickForkPoint(id, commit string) error {
 	_, err := call(requestTimeout, func(ctx context.Context) (*agentv1.PickForkPointResponse, error) {
 		resp, err := a.agents.PickForkPoint(ctx, connect.NewRequest(&agentv1.PickForkPointRequest{Task: id, Commit: commit}))
 		if err != nil {
-			return nil, fmt.Errorf("failed to place task %q: %w", id, err)
+			return nil, fmt.Errorf("failed to pick the fork point of task %q: %w", id, err)
 		}
 
 		return resp.Msg, nil
