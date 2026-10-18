@@ -1,6 +1,7 @@
 package checkouts
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -96,13 +97,38 @@ func TestRestack(t *testing.T) {
 			wantMail:  "Your branch no longer holds oldtip, the commit of parent your own commits sat on",
 		},
 		{
-			name: "a branch that left the parent for the base branch stands on nothing",
+			name: "a branch that lost the tip but holds the base, with no move onto the base, is marked lost",
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
 				mover.Holds = []string{"basesha"}
 
 				return mover
 			},
+			wantStand: &taskstore.Stand{Tip: "oldtip", Blocked: taskstore.RestackLost},
+			wantMail:  "Your branch no longer holds oldtip, the commit of parent your own commits sat on",
+		},
+		{
+			name: "a move onto the base still stopped on conflicts is left alone",
+			lay:  seedStoppedMoveOntoBase,
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.State.InProgress = true
+				mover.Holds = []string{"basesha"}
+
+				return mover
+			},
+			wantStand: &taskstore.Stand{Tip: "oldtip"},
+		},
+		{
+			name: "a move onto the base the writer aborted keeps the stand",
+			lay:  seedStoppedMoveOntoBase,
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "oldtip")
+				mover.Holds = []string{"oldtip", "basesha"}
+
+				return mover
+			},
+			wantStand: &taskstore.Stand{Tip: "oldtip"},
 		},
 		{
 			name: "a replay that conflicts is backed out and the writer told the rebase to run",
@@ -174,6 +200,16 @@ func TestRestack(t *testing.T) {
 				return mover
 			},
 			wantStand: &taskstore.Stand{Tip: "newtip"},
+		},
+		{
+			name: "a move onto the base the writer finished ends the stand while the parent stays put",
+			lay:  seedStoppedMoveOntoBase,
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "oldtip")
+				mover.Holds = []string{"basesha"}
+
+				return mover
+			},
 		},
 		{
 			name: "a parent whose pull request merged has the task moved onto the base branch",
@@ -377,6 +413,19 @@ func seedParentPullRequest(t *testing.T, fixture *rebaseFixture, laid taskOnPare
 		BaseBranch:    "main",
 		State:         state,
 	})
+}
+
+// seedStoppedMoveOntoBase records a move of the task onto the base branch at basesha that stopped on conflicts.
+func seedStoppedMoveOntoBase(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
+	t.Helper()
+
+	raw, err := json.Marshal(rebaseOutcome{Result: &RebaseResult{
+		RebasePlan: RebasePlan{BaseRef: "origin/main", BaseSHA: "basesha"},
+		Conflicted: true,
+		OntoBase:   true,
+	}})
+	require.NoError(t, err)
+	require.NoError(t, fixture.stores.Tasks.SetLastRebase(t.Context(), laid.task, raw))
 }
 
 // newChildGit is the git of a clean checkout on oldtip, with the parent's branch on origin at tip.

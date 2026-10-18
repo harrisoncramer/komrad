@@ -2,6 +2,7 @@ package checkouts
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -54,7 +55,16 @@ func (s *Service) Restack(ctx context.Context) error {
 
 // restackTask brings one standing task up to date with the task it stands on.
 func (s *Service) restackTask(ctx context.Context, task taskstore.Task) error {
-	if !task.Checkout.IsUsable() || task.Stand.Blocked == taskstore.RestackLost {
+	if !task.Checkout.IsUsable() {
+		return nil
+	}
+
+	moved, err := s.finishMoveOntoBase(ctx, task)
+	if err != nil || moved {
+		return err
+	}
+
+	if task.Stand.Blocked == taskstore.RestackLost {
 		return nil
 	}
 
@@ -263,7 +273,7 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 		return err
 	}
 	if !holdsTip {
-		return s.endStandOrTellLost(ctx, task, parent)
+		return s.tellLost(ctx, task, parent)
 	}
 
 	plan, err := s.planRestack(ctx, dir, task.Stand.Tip, onto.SHA)
@@ -315,28 +325,48 @@ func (s *Service) recordOnto(ctx context.Context, task taskstore.Task, onto rest
 	return s.tasks.SetStandTip(ctx, task.ID, onto.SHA)
 }
 
-// endStandOrTellLost ends the stand of a task whose branch left its parent for the workflow's base branch, and
-// marks any other branch lost and tells its writer.
-func (s *Service) endStandOrTellLost(ctx context.Context, task, parent taskstore.Task) error {
-	flow, err := s.workflows.Get(ctx, task.WorkflowID)
-	if err != nil {
-		return err
+// finishMoveOntoBase ends the stand of a task once its writer finishes the move onto the base branch komrad
+// started and left stopped on conflicts, and reports whether the task waits on that move or has finished it.
+func (s *Service) finishMoveOntoBase(ctx context.Context, task taskstore.Task) (bool, error) {
+	raw, err := s.tasks.GetLastRebase(ctx, task.ID)
+	if err != nil || raw == nil {
+		return false, err
 	}
 
-	_, base, err := s.git.FetchBase(ctx, task.Checkout.Cwd, flow.Worktree.BaseBranch)
-	if err != nil {
-		return err
+	var outcome rebaseOutcome
+	if err := json.Unmarshal(raw, &outcome); err != nil {
+		return false, fmt.Errorf("failed to read the last rebase of task %q: %w", task.Slug, err)
 	}
 
-	onBase, err := s.git.HoldsCommit(ctx, task.Checkout.Cwd, base)
-	if err != nil {
-		return err
-	}
-	if onBase {
-		return s.tasks.SetStand(ctx, task.ID, nil)
+	last := outcome.Result
+	if last == nil || !last.OntoBase || !last.Conflicted {
+		return false, nil
 	}
 
-	return s.tellLost(ctx, task, parent)
+	dir := task.Checkout.Cwd
+
+	unlock, taken := s.locks.TryLock(dir)
+	if !taken {
+		return true, nil
+	}
+	defer unlock()
+
+	ready, err := s.isReadyToRestack(ctx, task)
+	if err != nil || !ready {
+		return true, err
+	}
+
+	holdsTip, err := s.git.HoldsCommit(ctx, dir, task.Stand.Tip)
+	if err != nil || holdsTip {
+		return false, err
+	}
+
+	holdsBase, err := s.git.HoldsCommit(ctx, dir, last.BaseSHA)
+	if err != nil || !holdsBase {
+		return false, err
+	}
+
+	return true, s.tasks.SetStand(ctx, task.ID, nil)
 }
 
 // tellLost marks the task as lost, since its branch no longer holds the commit of its parent it stood on, and tells its writer.

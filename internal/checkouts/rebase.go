@@ -72,6 +72,8 @@ type RebaseResult struct {
 	ParkedRef string `json:"parked_ref"`
 	// Interrupted says a turn was cut so the rebase could run.
 	Interrupted bool `json:"interrupted"`
+	// OntoBase says the rebase moved a standing task off the task it stands on and onto the workflow's base branch.
+	OntoBase bool `json:"onto_base"`
 }
 
 // PlanRebase reads what a rebase would do without touching anything.
@@ -238,7 +240,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 		return nil, err
 	}
 
-	result := &RebaseResult{RebasePlan: *plan}
+	result := &RebaseResult{RebasePlan: *plan, OntoBase: target.ontoBase && target.task.Stand != nil}
 
 	result.ParkedRef = buildParkRef(parkRebase, target.task.ID)
 	if _, err := s.git.Park(ctx, target.dir(), result.ParkedRef); err != nil {
@@ -250,7 +252,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 		return nil, err
 	}
 
-	if target.ontoBase && target.task.Stand != nil && !result.Conflicted {
+	if result.OntoBase && !result.Conflicted {
 		if err := s.tasks.SetStand(ctx, target.task.ID, nil); err != nil {
 			return nil, err
 		}
