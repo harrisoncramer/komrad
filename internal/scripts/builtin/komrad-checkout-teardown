@@ -1,5 +1,5 @@
 #!/bin/sh
-#KOMRAD description="Give back what a deleted task's komrad checkout claimed: its throwaway test instance and any docker stack it brought up. Does nothing in any other checkout."
+#KOMRAD description="Give back what a deleted task's komrad checkout claimed: its throwaway test instance. Does nothing in any other checkout."
 #KOMRAD timeout="10m"
 set -eu
 
@@ -21,19 +21,3 @@ if [ "$(basename "$tree")" != "$name" ]; then
 fi
 
 "$tree/mise/tasks/_test_instance" down --root "$tree"
-
-if ! docker info >/dev/null 2>&1; then
-	echo "teardown: docker is not reachable, so no stack was taken down"
-	exit 0
-fi
-
-project="$name"
-(cd "$tree" && docker compose -p "$project" --profile "*" down --volumes --remove-orphans --rmi local)
-
-for image in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep "^${project}[-_]" || true); do
-	docker rmi -f "$image" >/dev/null
-done
-
-for volume in $(docker volume ls --format '{{.Name}}' | grep "^${project}[-_]" || true); do
-	docker volume rm "$volume" >/dev/null
-done
