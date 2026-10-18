@@ -376,15 +376,6 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	return nil
 }
 
-// drop puts the patch down until the next one arrives, keeping the files rendered whole for it.
-func (d *reviewDiff) drop() {
-	if d.View() != nil {
-		d.expanded = d.View().GetExpanded()
-	}
-
-	d.Drop()
-}
-
 // load renders a patch just read, over the one on screen, and puts the cursor back where the
 // reader was standing.
 func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {

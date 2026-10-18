@@ -392,7 +392,7 @@ FROM ( SELECT DISTINCT ON (t.id)
 ORDER BY
     writers.id;
 
--- name: FindStandPullRequest :one
+-- name: GetStandPullRequest :one
 SELECT
     *
 FROM
@@ -408,7 +408,7 @@ ORDER BY
     id
 LIMIT 1;
 
--- name: ReadMergeStand :one
+-- name: GetMergeStand :one
 SELECT
     EXISTS (
         SELECT

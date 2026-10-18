@@ -148,7 +148,7 @@ func (w *Writer) forgeFor(ctx context.Context, address string) (string, forge.Fo
 
 // refuseStandMerge turns down a merge from a task standing on another, or into a finished task's branch.
 func (w *Writer) refuseStandMerge(ctx context.Context, address string) error {
-	stand, err := w.pullRequests.ReadMergeStand(ctx, address)
+	stand, err := w.pullRequests.GetMergeStand(ctx, address)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}

@@ -180,7 +180,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		return nil, err
 	}
 
-	return s.launchAgent(ctx, launchAgentParams{params: params, spawner: spawner, joined: joined, stand: stand})
+	return s.launchAgent(ctx, launchAgentParams{request: params, spawner: spawner, joined: joined, stand: stand})
 }
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
@@ -471,20 +471,20 @@ func (p *launchPlan) newAgent(params NewAgentParams, spawner *agentstore.Agent) 
 }
 
 type launchAgentParams struct {
-	params  NewAgentParams
+	request NewAgentParams
 	spawner *agentstore.Agent
 	joined  *taskstore.Task
 	stand   *taskstore.Stand
 }
 
-func (s *LaunchService) launchAgent(ctx context.Context, launch launchAgentParams) (*agentstore.Agent, error) {
-	params, spawner, joined := launch.params, launch.spawner, launch.joined
-	plan, err := s.planLaunch(ctx, params)
+func (s *LaunchService) launchAgent(ctx context.Context, params launchAgentParams) (*agentstore.Agent, error) {
+	request, spawner := params.request, params.spawner
+	plan, err := s.planLaunch(ctx, request)
 	if err != nil {
 		return nil, err
 	}
 
-	agent, err := plan.newAgent(params, spawner)
+	agent, err := plan.newAgent(request, spawner)
 	if err != nil {
 		return nil, err
 	}
@@ -492,16 +492,16 @@ func (s *LaunchService) launchAgent(ctx context.Context, launch launchAgentParam
 
 	placed, err := s.createUnderCeiling(ctx, creation{
 		agent:         agent,
-		task:          joined,
+		task:          params.joined,
 		spawner:       spawner,
-		title:         params.Title,
-		taskSlug:      params.TaskSlug,
-		taskGoal:      params.TaskGoal,
-		adoptedBranch: params.AdoptedBranch,
-		repositoryURL: params.RepositoryURL,
+		title:         request.Title,
+		taskSlug:      request.TaskSlug,
+		taskGoal:      request.TaskGoal,
+		adoptedBranch: request.AdoptedBranch,
+		repositoryURL: request.RepositoryURL,
 		provisioner:   plan.provisioner,
-		hideTask:      params.HideTask,
-		stand:         launch.stand,
+		hideTask:      request.HideTask,
+		stand:         params.stand,
 	})
 	if err != nil {
 		return nil, err

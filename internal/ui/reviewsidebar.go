@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/panel"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -82,7 +83,7 @@ func (r reviewScreen) sideRows(m *model) []sideRow {
 	sections := [][]sideRow{
 		r.stackRows(m),
 		r.forgeRows(m),
-		r.needRows(m),
+		r.needRows(),
 		r.descriptionRows(m),
 	}
 
@@ -235,13 +236,13 @@ func (r reviewScreen) forgeRows(m *model) []sideRow {
 		counts[login]++
 	}
 
-	for _, login := range logins {
-		rows = append(rows, sideRow{
+	rows = append(rows, xslice.Map(logins, func(login string) sideRow {
+		return sideRow{
 			sideCursor: sideCursor{kind: sideForge, id: login},
 			text:       login,
 			note:       countedThreads(counts[login]),
-		})
-	}
+		}
+	})...)
 
 	if len(rows) == 1 {
 		return nil
@@ -260,7 +261,7 @@ func countedThreads(n int) string {
 
 // needRows is what waits on the person: replies they have not read, forge comments to pass on,
 // drafts not sent, and a count of their threads waiting on the writer.
-func (r reviewScreen) needRows(m *model) []sideRow {
+func (r reviewScreen) needRows() []sideRow {
 	var rows []sideRow
 	waiting := 0
 	for _, thread := range r.threads.list {
@@ -390,15 +391,15 @@ func (r *reviewScreen) moveSide(m *model, rows int) (tea.Cmd, bool) {
 }
 
 // moveSideToTop puts the cursor on the first row over the file tree, false while the cursor is on the tree.
-func (r *reviewScreen) moveSideToTop(m *model) (tea.Cmd, bool) {
+func (r *reviewScreen) moveSideToTop(m *model) bool {
 	stops := r.sideStops(m)
 	if r.side == nil || len(stops) == 0 {
-		return nil, false
+		return false
 	}
 
 	r.restOnSide(stops[0])
 
-	return nil, true
+	return true
 }
 
 // restOnSide puts the cursor on a row over the file tree.
@@ -422,6 +423,7 @@ func (r *reviewScreen) chooseSide(m *model) (tea.Cmd, bool) {
 		return r.landOnThread(m, r.side.id), true
 	case sideTask:
 		return r.openStackedReview(m, r.side.id), true
+	case sideHeading, sideBlank, sideThisTask, sideForge, sideWaiting, sideDescriptionLine:
 	}
 
 	return nil, false
@@ -444,6 +446,7 @@ func (r reviewScreen) chooseDesc() string {
 		return "go to the comment"
 	case sideTask:
 		return "open its review"
+	case sideHeading, sideBlank, sideThisTask, sideForge, sideWaiting, sideDescriptionLine:
 	}
 
 	return ""
@@ -509,21 +512,20 @@ func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
 
 // sideMenu is the band on the row under the sidebar's cursor, false for a row with none.
 func (r *reviewScreen) sideMenu(m *model) (submenu, bool) {
-	switch r.side.kind {
-	case sideTask:
-		task := m.listing.tasks[r.side.id]
-		review := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
-			return m.review.openStackedReview(m, task.ID)
-		})
-
-		return submenu{
-			kind:    formMenu,
-			title:   task.Slug,
-			entries: []submenuEntry{drawnOff(review, r.stackedOffSaid(m, task.ID))},
-		}, true
+	if r.side.kind != sideTask {
+		return submenu{}, false
 	}
 
-	return submenu{}, false
+	task := m.listing.tasks[r.side.id]
+	review := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
+		return m.review.openStackedReview(m, task.ID)
+	})
+
+	return submenu{
+		kind:    formMenu,
+		title:   task.Slug,
+		entries: []submenuEntry{drawnOff(review, r.stackedOffSaid(m, task.ID))},
+	}, true
 }
 
 func (r *reviewScreen) clickSide(m *model, key string) tea.Cmd {

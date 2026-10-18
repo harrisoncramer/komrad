@@ -85,7 +85,7 @@ func (r *reviewScreen) orRefuseWrite(m *model, fn func(*model) tea.Cmd) tea.Cmd 
 
 func (r *reviewScreen) legend() []screenLegendRow {
 	return []screenLegendRow{
-		navMoveRow("move"),
+		navMoveRow(),
 		navPageRow(),
 		diffFileRow(),
 		{
@@ -201,7 +201,7 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 		}...),
 		legend: []screenLegendRow{
-			navMoveRow("move"),
+			navMoveRow(),
 			navPageRow(),
 			navJumpRow(),
 			diffFileRow(),

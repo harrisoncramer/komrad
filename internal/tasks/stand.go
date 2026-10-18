@@ -65,7 +65,7 @@ func (s *TaskService) PlanStand(ctx context.Context, params PlanStandParams) (*t
 
 	stand := &taskstore.Stand{ParentID: parent.ID, Tip: tip}
 
-	pullRequest, err := s.pullRequests.FindStand(ctx, pullrequeststore.FindStandParams{
+	pullRequest, err := s.pullRequests.GetStandPullRequest(ctx, pullrequeststore.GetStandPullRequestParams{
 		RepositoryURL: xptr.Deref(parent.Checkout.RepositoryURL),
 		HeadBranch:    branch,
 		Since:         time.Now(),

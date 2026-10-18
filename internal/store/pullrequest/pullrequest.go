@@ -462,16 +462,16 @@ func (s *PullRequestStore) ListRecipients(ctx context.Context, id string) ([]str
 	return ids, nil
 }
 
-// FindStandParams names the parent's repository and branch, and when the stand on it began.
-type FindStandParams struct {
+// GetStandPullRequestParams names the parent's repository and branch, and when the stand on it began.
+type GetStandPullRequestParams struct {
 	RepositoryURL string
 	HeadBranch    string
 	Since         time.Time
 }
 
-// FindStand is the pull request a task standing on a branch follows, the earliest open one or opened since the stand began.
-func (s *PullRequestStore) FindStand(ctx context.Context, params FindStandParams) (*PullRequest, error) {
-	row, err := s.queries.FindStandPullRequest(ctx, models.FindStandPullRequestParams{
+// GetStandPullRequest is the pull request a task standing on a branch follows, the earliest open one or opened since the stand began.
+func (s *PullRequestStore) GetStandPullRequest(ctx context.Context, params GetStandPullRequestParams) (*PullRequest, error) {
+	row, err := s.queries.GetStandPullRequest(ctx, models.GetStandPullRequestParams{
 		RepositoryUrl: params.RepositoryURL,
 		HeadBranch:    params.HeadBranch,
 		Since:         params.Since,
@@ -494,9 +494,9 @@ type mergeStand struct {
 	BaseFinished bool
 }
 
-// ReadMergeStand reads where the pull request at an address stands, or ErrNotFound for one komrad has not stored.
-func (s *PullRequestStore) ReadMergeStand(ctx context.Context, url string) (*mergeStand, error) {
-	row, err := s.queries.ReadMergeStand(ctx, url)
+// GetMergeStand reads where the pull request at an address stands, or ErrNotFound for one komrad has not stored.
+func (s *PullRequestStore) GetMergeStand(ctx context.Context, url string) (*mergeStand, error) {
+	row, err := s.queries.GetMergeStand(ctx, url)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no pull request at %s", url)
 	}

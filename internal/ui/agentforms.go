@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -251,10 +252,9 @@ func standChoice(selected *string, worktree bool, standable []panel.Task) []huh.
 		return nil
 	}
 
-	options := []huh.Option[string]{huh.NewOption("The workflow's base branch", "")}
-	for _, task := range standable {
-		options = append(options, huh.NewOption(task.Slug, task.ID))
-	}
+	options := append([]huh.Option[string]{huh.NewOption("The workflow's base branch", "")}, xslice.Map(standable, func(task panel.Task) huh.Option[string] {
+		return huh.NewOption(task.Slug, task.ID)
+	})...)
 
 	return []huh.Field{huh.NewSelect[string]().Key("stand").Title("Stands on").Options(options...).Value(selected)}
 }

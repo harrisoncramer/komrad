@@ -80,14 +80,14 @@ func (s *Service) restackTask(ctx context.Context, task taskstore.Task) error {
 // foldIntoParent ends the stand of a task whose own pull request merged into the parent's
 // branch, moving the tasks standing on it onto the parent, and reports whether it did.
 func (s *Service) foldIntoParent(ctx context.Context, task, parent taskstore.Task) (bool, error) {
-	own, err := s.readPullRequest(ctx, task, task.BranchName())
+	own, err := s.readPullRequest(ctx, task, task.GetBranch())
 	if errors.Is(err, store.ErrNotFound) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	if own.MergedAt == nil || own.OpenedAt.Before(task.CreatedAt) || own.BaseBranch != parent.BranchName() {
+	if own.MergedAt == nil || own.OpenedAt.Before(task.CreatedAt) || own.BaseBranch != parent.GetBranch() {
 		return false, nil
 	}
 
@@ -122,9 +122,9 @@ func (s *Service) readStandPullRequest(ctx context.Context, task, parent tasksto
 		return nil, fmt.Errorf("%w: task %q has no repository", store.ErrNotFound, task.Slug)
 	}
 
-	found, err := s.pullRequests.FindStand(ctx, pullrequeststore.FindStandParams{
+	found, err := s.pullRequests.GetStandPullRequest(ctx, pullrequeststore.GetStandPullRequestParams{
 		RepositoryURL: repository,
-		HeadBranch:    parent.BranchName(),
+		HeadBranch:    parent.GetBranch(),
 		Since:         task.CreatedAt,
 	})
 	if err != nil {
@@ -190,7 +190,7 @@ func (s *Service) readOnto(ctx context.Context, task, parent taskstore.Task, pr 
 		return restackOnto{}, false, s.tellParentClosed(ctx, task, parent, *pr)
 	}
 
-	tip, err := s.git.FetchBranchTip(ctx, dir, parent.BranchName())
+	tip, err := s.git.FetchBranchTip(ctx, dir, parent.GetBranch())
 	if errors.Is(err, git.ErrBranchNotOnOrigin) {
 		return restackOnto{}, false, nil
 	}
@@ -213,7 +213,7 @@ func (s *Service) readOnto(ctx context.Context, task, parent taskstore.Task, pr 
 		return restackOnto{}, false, s.tasks.SetStandTip(ctx, task.ID, tip)
 	}
 
-	return restackOnto{Branch: parent.BranchName(), SHA: tip}, true, nil
+	return restackOnto{Branch: parent.GetBranch(), SHA: tip}, true, nil
 }
 
 // tellParentClosed marks the task as waiting on the person and tells its writer, once.
@@ -421,7 +421,7 @@ func (s *Service) backOutRestack(ctx context.Context, task, parent taskstore.Tas
 
 // pushRestack force-pushes a restacked branch origin already holds, reporting whether it did.
 func (s *Service) pushRestack(ctx context.Context, task taskstore.Task) (bool, error) {
-	branch := task.BranchName()
+	branch := task.GetBranch()
 
 	remote, err := s.git.CountAgainstRemote(ctx, task.Checkout.Cwd, branch)
 	if err != nil || !remote.Pushed {

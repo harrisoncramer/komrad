@@ -261,7 +261,7 @@ func (s *ScriptService) worktreeEnv(ctx context.Context, workflow workflowstore.
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the task %q stands on: %w", task.Slug, err)
 		}
-		base, baseCommit = parent.BranchName(), task.Stand.Tip
+		base, baseCommit = parent.GetBranch(), task.Stand.Tip
 	}
 
 	return []string{

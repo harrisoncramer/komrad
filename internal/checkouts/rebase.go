@@ -74,14 +74,6 @@ type RebaseResult struct {
 	Interrupted bool `json:"interrupted"`
 }
 
-// RebaseParams names the task to rebase and where it moves.
-type RebaseParams struct {
-	// Task is the task to rebase, by id or slug.
-	Task string
-	// OntoBase moves a standing task onto the workflow's base branch, replaying only its own commits, and leaves the task it stands on.
-	OntoBase bool
-}
-
 // PlanRebase reads what a rebase would do without touching anything.
 func (s *Service) PlanRebase(ctx context.Context, params RebaseParams) (*RebasePlan, error) {
 	target, err := s.rebaseEligible(ctx, params)
@@ -183,7 +175,15 @@ func (s *Service) readRebaseBase(ctx context.Context, target checkoutTarget) (st
 		return "", err
 	}
 
-	return parent.BranchName(), nil
+	return parent.GetBranch(), nil
+}
+
+// RebaseParams names the task to rebase and where it moves.
+type RebaseParams struct {
+	// Task is the task to rebase, by id or slug.
+	Task string
+	// OntoBase moves a standing task onto the workflow's base branch, replaying only its own commits, and leaves the task it stands on.
+	OntoBase bool
 }
 
 // Rebase moves the task's branch onto the latest base in place.

@@ -111,8 +111,8 @@ func (s *TaskStore) ListStandingOn(ctx context.Context, ids []string) ([]Task, e
 	return xslice.Map(rows, fromRow), nil
 }
 
-// BranchName is the branch a task's checkout is on, or the one komrad cuts for it while it has none.
-func (t Task) BranchName() string {
+// GetBranch is the branch a task's checkout is on, or the one komrad cuts for it while it has none.
+func (t Task) GetBranch() string {
 	if branch := xptr.Deref(t.Checkout.Branch); branch != "" {
 		return branch
 	}

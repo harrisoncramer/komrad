@@ -138,7 +138,7 @@ func TestRestack(t *testing.T) {
 		{
 			name: "a parent whose pull request merged has the task moved onto the base branch",
 			lay: func(t *testing.T, fixture *rebaseFixture, laid standing) {
-				fixture.seedStandPullRequest(t, laid.parent.BranchName(), "MERGED")
+				fixture.seedStandPullRequest(t, laid.parent.GetBranch(), "MERGED")
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				return newRestackMover(parentBranch, "newtip")
@@ -149,7 +149,7 @@ func TestRestack(t *testing.T) {
 		{
 			name: "a parent whose pull request closed without merging marks the task and tells the writer",
 			lay: func(t *testing.T, fixture *rebaseFixture, laid standing) {
-				fixture.seedStandPullRequest(t, laid.parent.BranchName(), "CLOSED")
+				fixture.seedStandPullRequest(t, laid.parent.GetBranch(), "CLOSED")
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				return newRestackMover(parentBranch, "newtip")
@@ -166,7 +166,7 @@ func TestRestack(t *testing.T) {
 			if tt.lay != nil {
 				tt.lay(t, fixture, laid)
 			}
-			mover := tt.mover(laid.parent.BranchName())
+			mover := tt.mover(laid.parent.GetBranch())
 
 			require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).Restack(t.Context()))
 
@@ -208,11 +208,11 @@ func TestRestackFoldsATaskWhosePullRequestMergedIntoItsParent(t *testing.T) {
 		Slug:       "rider",
 		Stand:      &taskstore.Stand{ParentID: middle.ID, Tip: "middletip"},
 	})
-	merged := newStandPullRequest(middle.BranchName(), "MERGED")
-	merged.BaseBranch = laid.parent.BranchName()
+	merged := newStandPullRequest(middle.GetBranch(), "MERGED")
+	merged.BaseBranch = laid.parent.GetBranch()
 	_, err = fixture.stores.PullRequests.Upsert(ctx, merged)
 	require.NoError(t, err)
-	mover := newRestackMover(laid.parent.BranchName(), "newtip")
+	mover := newRestackMover(laid.parent.GetBranch(), "newtip")
 
 	require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).Restack(ctx))
 
@@ -298,9 +298,9 @@ func (f *rebaseFixture) seedStanding(t *testing.T, writer agentstore.Agent) stan
 func (s standing) pullRequestID(t *testing.T, fixture *rebaseFixture) *string {
 	t.Helper()
 
-	found, err := fixture.stores.PullRequests.FindStand(t.Context(), pullrequeststore.FindStandParams{
+	found, err := fixture.stores.PullRequests.GetStandPullRequest(t.Context(), pullrequeststore.GetStandPullRequestParams{
 		RepositoryURL: pushRepository,
-		HeadBranch:    s.parent.BranchName(),
+		HeadBranch:    s.parent.GetBranch(),
 	})
 	if err != nil {
 		return nil

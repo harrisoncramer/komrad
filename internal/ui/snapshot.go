@@ -1,11 +1,11 @@
 package ui
 
 import (
-	"komrad/internal/ui/paint"
 	"path/filepath"
 	"regexp"
 	"slices"
 
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"

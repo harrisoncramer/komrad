@@ -26,66 +26,59 @@ func (q *Queries) EnsurePullRequestSync(ctx context.Context, repositoryUrl strin
 	return err
 }
 
-const findStandPullRequest = `-- name: FindStandPullRequest :one
+const getMergeStand = `-- name: GetMergeStand :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body
-FROM
-    pull_requests
-WHERE
-    repository_url = $1
-    AND head_repository_url = $1
-    AND head_branch = $2
-    AND (state = 'OPEN'
-        OR opened_at >= $3::timestamptz)
-ORDER BY
-    opened_at,
-    id
-LIMIT 1
+    EXISTS (
+        SELECT
+            1
+        FROM
+            tasks t
+        WHERE
+            t.repository_url = p.repository_url
+            AND t.branch = p.head_branch
+            AND t.stands_on_task_id IS NOT NULL
+            AND t.archived_at IS NULL
+            AND t.deleting_at IS NULL)::boolean AS head_stands,
+    EXISTS (
+        SELECT
+            1
+        FROM
+            tasks t
+            JOIN pull_requests q ON q.repository_url = t.repository_url
+                AND q.head_repository_url = t.repository_url
+                AND q.head_branch = p.base_branch
+        WHERE
+            t.repository_url = p.repository_url
+            AND COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text) = p.base_branch
+            AND t.deleting_at IS NULL
+            AND q.state <> 'OPEN'
+            AND NOT EXISTS (
+                SELECT
+                    1
+                FROM
+                    pull_requests o
+                WHERE
+                    o.repository_url = t.repository_url
+                    AND o.head_branch = p.base_branch
+                    AND o.state = 'OPEN'))::boolean AS base_finished
+    FROM
+        pull_requests p
+    WHERE
+        p.url = $1
+    ORDER BY
+        p.first_seen_at DESC
+    LIMIT 1
 `
 
-type FindStandPullRequestParams struct {
-	RepositoryUrl string
-	HeadBranch    string
-	Since         time.Time
+type GetMergeStandRow struct {
+	HeadStands   bool
+	BaseFinished bool
 }
 
-func (q *Queries) FindStandPullRequest(ctx context.Context, arg FindStandPullRequestParams) (*PullRequest, error) {
-	row := q.db.QueryRow(ctx, findStandPullRequest, arg.RepositoryUrl, arg.HeadBranch, arg.Since)
-	var i PullRequest
-	err := row.Scan(
-		&i.ID,
-		&i.Host,
-		&i.Forge,
-		&i.ProviderID,
-		&i.Url,
-		&i.RepositoryUrl,
-		&i.HeadRepositoryUrl,
-		&i.Number,
-		&i.Title,
-		&i.HeadBranch,
-		&i.HeadSha,
-		&i.BaseBranch,
-		&i.BaseSha,
-		&i.Draft,
-		&i.State,
-		&i.OpenedAt,
-		&i.ChangedAt,
-		&i.MergedAt,
-		&i.ClosedAt,
-		&i.FirstSeenAt,
-		&i.EngineID,
-		&i.MergeabilityBlankSince,
-		&i.AutoMerge,
-		&i.AutoMergeable,
-		&i.LatestDecision,
-		&i.LatestHeadSha,
-		&i.LatestMergeability,
-		&i.KnownMergeability,
-		&i.KnownMergeabilitySha,
-		&i.KnownDecision,
-		&i.Author,
-		&i.Body,
-	)
+func (q *Queries) GetMergeStand(ctx context.Context, url string) (*GetMergeStandRow, error) {
+	row := q.db.QueryRow(ctx, getMergeStand, url)
+	var i GetMergeStandRow
+	err := row.Scan(&i.HeadStands, &i.BaseFinished)
 	return &i, err
 }
 
@@ -205,6 +198,69 @@ FOR UPDATE
 
 func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id string) (*PullRequest, error) {
 	row := q.db.QueryRow(ctx, getPullRequestForUpdate, id)
+	var i PullRequest
+	err := row.Scan(
+		&i.ID,
+		&i.Host,
+		&i.Forge,
+		&i.ProviderID,
+		&i.Url,
+		&i.RepositoryUrl,
+		&i.HeadRepositoryUrl,
+		&i.Number,
+		&i.Title,
+		&i.HeadBranch,
+		&i.HeadSha,
+		&i.BaseBranch,
+		&i.BaseSha,
+		&i.Draft,
+		&i.State,
+		&i.OpenedAt,
+		&i.ChangedAt,
+		&i.MergedAt,
+		&i.ClosedAt,
+		&i.FirstSeenAt,
+		&i.EngineID,
+		&i.MergeabilityBlankSince,
+		&i.AutoMerge,
+		&i.AutoMergeable,
+		&i.LatestDecision,
+		&i.LatestHeadSha,
+		&i.LatestMergeability,
+		&i.KnownMergeability,
+		&i.KnownMergeabilitySha,
+		&i.KnownDecision,
+		&i.Author,
+		&i.Body,
+	)
+	return &i, err
+}
+
+const getStandPullRequest = `-- name: GetStandPullRequest :one
+SELECT
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body
+FROM
+    pull_requests
+WHERE
+    repository_url = $1
+    AND head_repository_url = $1
+    AND head_branch = $2
+    AND (state = 'OPEN'
+        OR opened_at >= $3::timestamptz)
+ORDER BY
+    opened_at,
+    id
+LIMIT 1
+`
+
+type GetStandPullRequestParams struct {
+	RepositoryUrl string
+	HeadBranch    string
+	Since         time.Time
+}
+
+func (q *Queries) GetStandPullRequest(ctx context.Context, arg GetStandPullRequestParams) (*PullRequest, error) {
+	row := q.db.QueryRow(ctx, getStandPullRequest, arg.RepositoryUrl, arg.HeadBranch, arg.Since)
 	var i PullRequest
 	err := row.Scan(
 		&i.ID,
@@ -678,62 +734,6 @@ func (q *Queries) ObserveTaskPullRequests(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const readMergeStand = `-- name: ReadMergeStand :one
-SELECT
-    EXISTS (
-        SELECT
-            1
-        FROM
-            tasks t
-        WHERE
-            t.repository_url = p.repository_url
-            AND t.branch = p.head_branch
-            AND t.stands_on_task_id IS NOT NULL
-            AND t.archived_at IS NULL
-            AND t.deleting_at IS NULL)::boolean AS head_stands,
-    EXISTS (
-        SELECT
-            1
-        FROM
-            tasks t
-            JOIN pull_requests q ON q.repository_url = t.repository_url
-                AND q.head_repository_url = t.repository_url
-                AND q.head_branch = p.base_branch
-        WHERE
-            t.repository_url = p.repository_url
-            AND COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text) = p.base_branch
-            AND t.deleting_at IS NULL
-            AND q.state <> 'OPEN'
-            AND NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    pull_requests o
-                WHERE
-                    o.repository_url = t.repository_url
-                    AND o.head_branch = p.base_branch
-                    AND o.state = 'OPEN'))::boolean AS base_finished
-    FROM
-        pull_requests p
-    WHERE
-        p.url = $1
-    ORDER BY
-        p.first_seen_at DESC
-    LIMIT 1
-`
-
-type ReadMergeStandRow struct {
-	HeadStands   bool
-	BaseFinished bool
-}
-
-func (q *Queries) ReadMergeStand(ctx context.Context, url string) (*ReadMergeStandRow, error) {
-	row := q.db.QueryRow(ctx, readMergeStand, url)
-	var i ReadMergeStandRow
-	err := row.Scan(&i.HeadStands, &i.BaseFinished)
-	return &i, err
 }
 
 const upsertPullRequest = `-- name: UpsertPullRequest :one

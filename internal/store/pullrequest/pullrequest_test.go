@@ -817,8 +817,8 @@ func checksInUTC(checks []forge.StatusCheck) []forge.StatusCheck {
 	})
 }
 
-// TestFindStand pins which pull request on a parent's branch a standing task follows.
-func TestFindStand(t *testing.T) {
+// TestGetStandPullRequest pins which pull request on a parent's branch a standing task follows.
+func TestGetStandPullRequest(t *testing.T) {
 	began := time.Date(2026, 9, 18, 13, 0, 0, 0, time.UTC)
 	openedAfter := func(params UpsertParams, after time.Duration) UpsertParams {
 		params.OpenedAt = began.Add(after)
@@ -873,7 +873,7 @@ func TestFindStand(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			found, err := h.FindStand(t.Context(), FindStandParams{
+			found, err := h.GetStandPullRequest(t.Context(), GetStandPullRequestParams{
 				RepositoryURL: komrad,
 				HeadBranch:    "task/parent",
 				Since:         began,
@@ -889,8 +889,8 @@ func TestFindStand(t *testing.T) {
 	}
 }
 
-// TestReadMergeStand pins where a pull request stands among tasks standing on one another.
-func TestReadMergeStand(t *testing.T) {
+// TestGetMergeStand pins where a pull request stands among tasks standing on one another.
+func TestGetMergeStand(t *testing.T) {
 	childOntoParent := openPullRequest("PR_child", 2, "task/child")
 	childOntoParent.BaseBranch = "task/parent"
 	parentReopened := openPullRequest("PR_again", 3, "task/parent")
@@ -943,14 +943,14 @@ func TestReadMergeStand(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			got, err := h.ReadMergeStand(ctx, tt.url)
+			got, err := h.GetMergeStand(ctx, tt.url)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, *got)
 		})
 	}
 
 	t.Run("a pull request komrad has not stored is not found", func(t *testing.T) {
-		_, err := open(t).ReadMergeStand(t.Context(), "https://github.com/harrisoncramer/komrad/pull/404")
+		_, err := open(t).GetMergeStand(t.Context(), "https://github.com/harrisoncramer/komrad/pull/404")
 
 		require.ErrorIs(t, err, store.ErrNotFound)
 	})
