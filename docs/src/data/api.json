@@ -778,20 +778,20 @@
           "response": "agent.v1.PushWorktreeResponse"
         },
         {
-          "slug": "place-stand",
-          "name": "PlaceStand",
-          "path": "/agent.v1.AgentService/PlaceStand",
-          "command": "komrad rpc place-stand",
-          "tool": "place_stand",
+          "slug": "pick-fork-point",
+          "name": "PickForkPoint",
+          "path": "/agent.v1.AgentService/PickForkPoint",
+          "command": "komrad rpc pick-fork-point",
+          "tool": "pick_fork_point",
           "mcp": false,
           "roles": [],
-          "summary": "Record the commit a task's own commits sit on, for a task that stands on another and has lost its place.",
-          "description": "Record the commit a task's own commits sit on, for a task that stands on another and has lost its place. Komrad measures the task from that commit and restacks it again.",
+          "summary": "Record the fork point of an orphaned child, the commit its own commits sit on.",
+          "description": "Record the fork point of an orphaned child, the commit its own commits sit on. Komrad measures the child from that commit and the cascade rebases it again.",
           "readOnly": false,
           "idempotent": false,
           "destructive": true,
-          "request": "agent.v1.PlaceStandRequest",
-          "response": "agent.v1.PlaceStandResponse"
+          "request": "agent.v1.PickForkPointRequest",
+          "response": "agent.v1.PickForkPointResponse"
         },
         {
           "slug": "abort-sequence",
@@ -2687,14 +2687,14 @@
           "description": "The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the first line of the prompt."
         },
         {
-          "name": "stand_on",
+          "name": "depends_on",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task the new task stands on, by id or slug, in `workflow_id`. Its branch is cut from that task's branch on origin, and komrad keeps it on that branch as it moves and merges. Unset to cut from the workflow's base branch. Cannot be set with `task`."
+          "description": "The task the new task depends on, by id or slug, in `workflow_id`. The new task's branch starts from that task's branch on origin, and komrad rebases it as that branch moves and re-targets it onto the base branch once that task merges. Unset to start from the workflow's base branch. Cannot be set with `task`."
         }
       ]
     },
@@ -4442,8 +4442,8 @@
         }
       ]
     },
-    "agent.v1.PlaceStandRequest": {
-      "name": "PlaceStandRequest",
+    "agent.v1.PickForkPointRequest": {
+      "name": "PickForkPointRequest",
       "description": "",
       "fields": [
         {
@@ -4454,7 +4454,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task that stands on another, by id or slug."
+          "description": "The child, by id or slug."
         },
         {
           "name": "commit",
@@ -4466,16 +4466,16 @@
           "rules": [
             "required"
           ],
-          "description": "The commit the task's own commits sit on, which its branch must hold. Any name git reads as a commit."
+          "description": "The commit the child's own commits sit on, which its branch must hold. Any name git reads as a commit."
         }
       ]
     },
-    "agent.v1.PlaceStandResponse": {
-      "name": "PlaceStandResponse",
+    "agent.v1.PickForkPointResponse": {
+      "name": "PickForkPointResponse",
       "description": "",
       "fields": [
         {
-          "name": "tip",
+          "name": "fork_point",
           "type": "string",
           "ref": "",
           "repeated": false,
@@ -4580,7 +4580,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Plan a move of a task that stands on another onto the workflow's base branch, replaying only its own commits, in place of a move onto the task it stands on."
+          "description": "Plan a re-target of a child onto the workflow's base branch, rebasing only its own commits, in place of a rebase onto its parent."
         }
       ]
     },
@@ -4862,7 +4862,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Move a task that stands on another onto the workflow's base branch, replaying only its own commits, so it no longer stands on that task."
+          "description": "Re-target a child onto the workflow's base branch, rebasing only its own commits, so it no longer has a parent."
         }
       ]
     },
@@ -9313,6 +9313,52 @@
         }
       ]
     },
+    "task.v1.Parent": {
+      "name": "Parent",
+      "description": "Parent is the task a child depends on, and the fork point where the child's own commits begin on the parent's branch. Rounds and line counts measure from `fork_point`.",
+      "fields": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The id of the parent task."
+        },
+        {
+          "name": "fork_point",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit of the parent's branch the child's own commits sit on."
+        },
+        {
+          "name": "pull_request_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The id of the parent's pull request, which komrad reads for the parent's newest commit and its merge. Empty until the parent has one."
+        },
+        {
+          "name": "blocked",
+          "type": "CascadeBlock",
+          "ref": "task.v1.CascadeBlock",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Why the cascade cannot rebase the child onto its parent."
+        }
+      ]
+    },
     "task.v1.SetTaskHiddenRequest": {
       "name": "SetTaskHiddenRequest",
       "description": "",
@@ -9396,52 +9442,6 @@
           "oneof": "",
           "rules": [],
           "description": "The task, with the new notes."
-        }
-      ]
-    },
-    "task.v1.Stand": {
-      "name": "Stand",
-      "description": "Stand is the task another task's branch was cut from, and where on it the task's own commits begin. Rounds and line counts measure from `tip`.",
-      "fields": [
-        {
-          "name": "task_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The id of the task stood on."
-        },
-        {
-          "name": "tip",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The commit of the parent's branch the task's own commits sit on."
-        },
-        {
-          "name": "pull_request_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The id of the parent's pull request the task follows. Empty until the parent has one."
-        },
-        {
-          "name": "blocked",
-          "type": "RestackBlock",
-          "ref": "task.v1.RestackBlock",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Why komrad cannot restack the task onto its parent."
         }
       ]
     },
@@ -9690,14 +9690,14 @@
           "description": "When the newest of the task's documents was last written, in RFC 3339. Unset when the task has none."
         },
         {
-          "name": "stand",
-          "type": "Stand",
-          "ref": "task.v1.Stand",
+          "name": "parent",
+          "type": "Parent",
+          "ref": "task.v1.Parent",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task this task stands on. Unset for a task on the workflow's base branch."
+          "description": "The task this task depends on. Unset for a task on the workflow's base branch."
         }
       ]
     },
@@ -11582,20 +11582,20 @@
         }
       ]
     },
-    "task.v1.RestackBlock": {
-      "name": "RestackBlock",
-      "description": "RestackBlock is why komrad cannot restack a standing task onto the task it stands on.",
+    "task.v1.CascadeBlock": {
+      "name": "CascadeBlock",
+      "description": "CascadeBlock is why the cascade cannot rebase a child onto its parent.",
       "values": [
         {
-          "name": "RESTACK_BLOCK_CONFLICTED",
-          "description": "Replaying the task's own commits onto its parent conflicted."
+          "name": "CASCADE_BLOCK_CONFLICTED",
+          "description": "Rebasing the child's own commits onto its parent stopped on conflicts."
         },
         {
-          "name": "RESTACK_BLOCK_LOST",
-          "description": "The task's branch no longer holds the commit its own commits sit on."
+          "name": "CASCADE_BLOCK_ORPHANED",
+          "description": "The child is orphaned: its branch holds neither its fork point nor its parent's newest commit."
         },
         {
-          "name": "RESTACK_BLOCK_PARENT_CLOSED",
+          "name": "CASCADE_BLOCK_PARENT_CLOSED",
           "description": "The parent's pull request closed without merging."
         }
       ]

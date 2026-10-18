@@ -137,28 +137,28 @@ func (r reviewScreen) findTask(m *model) panel.Task {
 	return m.listing.tasks[r.taskID]
 }
 
-// stackRows is the tasks this one stands on, itself, and the tasks standing on it.
+// stackRows is the task's stack: its ancestors, itself, and its descendants.
 func (r reviewScreen) stackRows(m *model) []sideRow {
 	task := r.findTask(m)
 	tasks := m.listing.tasks
-	parents := tasks.parentsOf(task)
+	ancestors := tasks.ancestorsOf(task)
 	children := tasks.childrenOf(task.ID)
-	if len(parents) == 0 && len(children) == 0 {
+	if len(ancestors) == 0 && len(children) == 0 {
 		return nil
 	}
 
 	rows := []sideRow{{sideCursor: sideCursor{kind: sideHeading}, text: "stack"}}
-	for depth, parent := range parents {
-		rows = append(rows, stackRow(tasks, parent, sideTask, depth))
+	for depth, ancestor := range ancestors {
+		rows = append(rows, stackRow(tasks, ancestor, sideTask, depth))
 	}
 
-	rows = append(rows, stackRow(tasks, task, sideThisTask, len(parents)))
-	rows = appendDescendants(tasks, rows, task.ID, len(parents)+1)
+	rows = append(rows, stackRow(tasks, task, sideThisTask, len(ancestors)))
+	rows = appendDescendants(tasks, rows, task.ID, len(ancestors)+1)
 
 	return rows
 }
 
-// appendDescendants adds the tasks standing on a task and on each of those in turn, each under its parent.
+// appendDescendants adds a task's children and their children in turn, each under its parent.
 func appendDescendants(tasks taskIndex, rows []sideRow, id string, depth int) []sideRow {
 	for _, child := range tasks.childrenOf(id) {
 		if slices.ContainsFunc(rows, func(row sideRow) bool { return row.id == child.ID }) {
@@ -172,7 +172,7 @@ func appendDescendants(tasks taskIndex, rows []sideRow, id string, depth int) []
 	return rows
 }
 
-// stackRow is one task of the stack, with its pull request and what blocks its restack said after it.
+// stackRow is one task of the stack, with its pull request and what blocks its cascade said after it.
 func stackRow(tasks taskIndex, task panel.Task, kind sideKind, depth int) sideRow {
 	row := sideRow{
 		sideCursor: sideCursor{kind: kind, id: task.ID},
@@ -183,7 +183,7 @@ func stackRow(tasks taskIndex, task panel.Task, kind sideKind, depth int) sideRo
 	if task.PullRequest.Number > 0 {
 		row.note = task.PullRequest.Ref()
 	}
-	if said := restackBlockSaid(task.Stand.GetBlocked(), tasks[task.Stand.GetTaskId()].Slug); said != "" {
+	if said := cascadeBlockSaid(task.Parent.GetBlocked(), tasks[task.Parent.GetTaskId()].Slug); said != "" {
 		row.note = strings.TrimSpace(row.note + " " + said)
 	}
 

@@ -94,7 +94,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.AutoMerge = r.task.PullRequest.MergeReadiness.AutoMerge
 		row.LoaderFrame = params.loaderFrame
 		row.Selected = slices.Contains(params.wholeTasks, r.task.ID)
-		row.Tail = standTail(r, params.tasks)
+		row.Tail = parentTail(r, params.tasks)
 
 		return row
 	}
@@ -388,14 +388,14 @@ func pickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name str
 	return matchesIn(matcher, name)
 }
 
-// standTail is what a task's row says after its name when its place on the task it stands on is in trouble.
-func standTail(r agentRow, tasks taskIndex) view.Cell {
-	stand := r.task.Stand
-	if stand == nil {
+// parentTail is what a child's row says after its name while something blocks its cascade.
+func parentTail(r agentRow, tasks taskIndex) view.Cell {
+	parent := r.task.Parent
+	if parent == nil {
 		return view.Cell{}
 	}
 
-	said := restackBlockSaid(stand.GetBlocked(), tasks[stand.GetTaskId()].Slug)
+	said := cascadeBlockSaid(parent.GetBlocked(), tasks[parent.GetTaskId()].Slug)
 	if said == "" {
 		return view.Cell{}
 	}

@@ -249,7 +249,7 @@ type createForAgentParams struct {
 	Prompt     string
 	Slug       string
 	Goal       string
-	Stand      *taskstore.Stand
+	Parent     *taskstore.Parent
 }
 
 // createForAgent creates a task for an agent, under the slug given or one named after the agent.
@@ -274,7 +274,7 @@ func createForAgent(ctx context.Context, tasks *taskstore.TaskStore, params crea
 		Slug:       slug,
 		Title:      title,
 		Goal:       goal,
-		Stand:      params.Stand,
+		Parent:     params.Parent,
 	})
 }
 

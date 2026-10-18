@@ -54,7 +54,7 @@ type agentRow struct {
 	// underTask sets a reviewer in under its task's row, or under its writer's where no task row is
 	// drawn.
 	underTask bool
-	// depth is how many tasks a task's row and its reviewers stand on above them in the tree.
+	// depth is how many ancestors a task's row and its reviewers sit under in the tree.
 	depth int
 }
 
@@ -190,7 +190,7 @@ func treeRows(params treeRowsParams) []agentRow {
 }
 
 // taskRows lays out a workflow's agents, gathering those on one task under a row for it and setting
-// a task in under the task it stands on, so only an agent on no task, an orchestrator, sits at the
+// a child in under its parent, so only an agent on no task, an orchestrator, sits at the
 // agent's step.
 func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 	if tasks == nil {
@@ -204,7 +204,7 @@ func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 		}
 	}
 
-	standing := make(map[string][]string)
+	children := make(map[string][]string)
 	var order []string
 	seen := make(map[string]bool)
 	for _, row := range listed {
@@ -214,8 +214,8 @@ func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 		}
 		seen[taskID] = true
 		order = append(order, taskID)
-		if parent := standsOnListed(tasks, taskID, onTask); parent != "" {
-			standing[parent] = append(standing[parent], taskID)
+		if parent := parentListed(tasks, taskID, onTask); parent != "" {
+			children[parent] = append(children[parent], taskID)
 		}
 	}
 
@@ -240,7 +240,7 @@ func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 			reviewer.depth = depth
 			rows = append(rows, reviewer)
 		}
-		for _, child := range standing[taskID] {
+		for _, child := range children[taskID] {
 			lay(child, depth+1)
 		}
 	}
@@ -252,7 +252,7 @@ func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 
 			continue
 		}
-		if standsOnListed(tasks, taskID, onTask) != "" {
+		if parentListed(tasks, taskID, onTask) != "" {
 			continue
 		}
 		lay(taskID, 0)
@@ -266,17 +266,17 @@ func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 	return rows
 }
 
-// standsOnListed is the task one stands on when that task has a row of its own here, empty otherwise.
-func standsOnListed(tasks taskIndex, taskID string, onTask map[string][]agentRow) string {
-	stand := tasks[taskID].Stand
-	if stand == nil {
+// parentListed is a task's parent when the parent has a row of its own here, empty otherwise.
+func parentListed(tasks taskIndex, taskID string, onTask map[string][]agentRow) string {
+	parent := tasks[taskID].Parent
+	if parent == nil {
 		return ""
 	}
-	if _, ok := onTask[stand.GetTaskId()]; !ok {
+	if _, ok := onTask[parent.GetTaskId()]; !ok {
 		return ""
 	}
 
-	return stand.GetTaskId()
+	return parent.GetTaskId()
 }
 
 // taskHeader is the row for one task, standing for its writer when the writer is listed.

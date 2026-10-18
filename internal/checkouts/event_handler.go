@@ -32,7 +32,7 @@ func (rebased) Topic() string {
 type rebaseOutcome struct {
 	Result  *RebaseResult `json:"result,omitempty"`
 	Failure string        `json:"failure,omitempty"`
-	// Settled says a restack pass saw the writer finish or abort the rebase that stopped part way.
+	// Settled says a cascade pass saw the writer finish or abort the rebase that stopped part way.
 	Settled bool `json:"settled,omitempty"`
 }
 
@@ -111,44 +111,44 @@ func handleAborted(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: aborted.TaskID, Mail: aborted.mail()})
 }
 
-const restackedTopic = "worktree_restacked"
+const cascadedTopic = "worktree_cascaded"
 
-// restacked is komrad having moved, or failed to move, a standing task onto the task it stands on.
-type restacked struct {
+// cascaded is the cascade having rebased a child onto its parent, or having stopped short of it.
+type cascaded struct {
 	TaskID     string                          `json:"task_id"`
-	Restacked  *eventprompts.Restacked         `json:"restacked,omitempty"`
-	Conflicted *eventprompts.RestackConflicted `json:"conflicted,omitempty"`
+	Rebased    *eventprompts.CascadeRebased    `json:"rebased,omitempty"`
+	Conflicted *eventprompts.CascadeConflicted `json:"conflicted,omitempty"`
 	Closed     *eventprompts.ParentClosed      `json:"closed,omitempty"`
-	Lost       *eventprompts.RestackLost       `json:"lost,omitempty"`
+	Orphaned   *eventprompts.CascadeOrphaned   `json:"orphaned,omitempty"`
 }
 
 // Topic names the handler that tells the task's writer.
-func (restacked) Topic() string {
-	return restackedTopic
+func (cascaded) Topic() string {
+	return cascadedTopic
 }
 
-// NewRestackedHandler builds the handler the router calls for restacks.
-func NewRestackedHandler() events.HandlerFor[restacked] {
-	return handleRestacked
+// NewCascadedHandler builds the handler the router calls for the cascade.
+func NewCascadedHandler() events.HandlerFor[cascaded] {
+	return handleCascaded
 }
 
-// handleRestacked tells the task's writer what became of its branch.
-func handleRestacked(ctx context.Context, tx store.DBTX, mailer *mail.MailService, restacked restacked) ([]river.JobArgs, error) {
+// handleCascaded tells the child's writer what the cascade did to its branch.
+func handleCascaded(ctx context.Context, tx store.DBTX, mailer *mail.MailService, cascaded cascaded) ([]river.JobArgs, error) {
 	var told eventprompts.Mail
 	switch {
-	case restacked.Restacked != nil:
-		told = *restacked.Restacked
-	case restacked.Conflicted != nil:
-		told = *restacked.Conflicted
-	case restacked.Closed != nil:
-		told = *restacked.Closed
-	case restacked.Lost != nil:
-		told = *restacked.Lost
+	case cascaded.Rebased != nil:
+		told = *cascaded.Rebased
+	case cascaded.Conflicted != nil:
+		told = *cascaded.Conflicted
+	case cascaded.Closed != nil:
+		told = *cascaded.Closed
+	case cascaded.Orphaned != nil:
+		told = *cascaded.Orphaned
 	default:
 		return nil, nil
 	}
 
-	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: restacked.TaskID, Mail: told})
+	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: cascaded.TaskID, Mail: told})
 }
 
 // mailWriterParams is a piece of mail for whoever writes a task.

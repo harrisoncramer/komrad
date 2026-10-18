@@ -714,17 +714,17 @@ func TestIntegrationBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testin
 	assert.NoDirExists(t, filepath.Join(worktreesDir, "task-bad-base"), "no worktree was made")
 }
 
-// TestIntegrationBuiltinWorktreeSetupCutsAStandingTaskFromItsStandTip covers a task standing on
-// another: its branch starts at the parent commit komrad recorded, not at the parent branch's
-// newest commit, and cleanup drops the ref that held that commit.
-func TestIntegrationBuiltinWorktreeSetupCutsAStandingTaskFromItsStandTip(t *testing.T) {
+// TestIntegrationBuiltinWorktreeSetupStartsAChildAtItsForkPoint covers a child: its branch
+// starts at its fork point, not at the parent branch's newest commit, and cleanup drops the ref
+// that held the fork point.
+func TestIntegrationBuiltinWorktreeSetupStartsAChildAtItsForkPoint(t *testing.T) {
 	repo := initRepo(t)
 	runGit(t, repo, "checkout", "--quiet", "-b", "task/parent")
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "parent.txt"), []byte("first\n"), 0o644))
 	commitAll(t, repo)
 	out, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
 	require.NoError(t, err)
-	tip := strings.TrimSpace(string(out))
+	forkPoint := strings.TrimSpace(string(out))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "parent.txt"), []byte("second\n"), 0o644))
 	commitAll(t, repo)
 	runGit(t, repo, "checkout", "--quiet", "main")
@@ -734,7 +734,7 @@ func TestIntegrationBuiltinWorktreeSetupCutsAStandingTaskFromItsStandTip(t *test
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 		baseBranch:   "task/parent",
-		baseCommit:   tip,
+		baseCommit:   forkPoint,
 	})
 	require.NoError(t, err, "stderr: %s", setup.Stderr)
 	tree := strings.TrimSpace(string(setup.Stdout))
@@ -742,12 +742,12 @@ func TestIntegrationBuiltinWorktreeSetupCutsAStandingTaskFromItsStandTip(t *test
 	out, err = exec.Command("git", "-C", tree, "rev-parse", "HEAD").Output()
 	require.NoError(t, err)
 	head := strings.TrimSpace(string(out))
-	assert.Equal(t, tip, head, "the branch starts at the stand tip")
-	assert.True(t, hasRef(t, repo, "refs/komrad/stand/task-child"), "setup keeps a ref of the task's own")
+	assert.Equal(t, forkPoint, head, "the branch starts at the fork point")
+	assert.True(t, hasRef(t, repo, "refs/komrad/fork-point/task-child"), "setup holds the fork point under a ref of the child's own")
 
 	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-child", agentCwd: tree})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
-	assert.False(t, hasRef(t, repo, "refs/komrad/stand/task-child"), "cleanup drops the ref")
+	assert.False(t, hasRef(t, repo, "refs/komrad/fork-point/task-child"), "cleanup drops the ref")
 }
 
 // TestIntegrationBuiltinWorktreeCleanup covers the ordinary case: the worktree and its branch both

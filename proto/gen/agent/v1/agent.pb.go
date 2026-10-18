@@ -971,10 +971,11 @@ type CreateAgentRequest struct {
 	// The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the
 	// first line of the prompt.
 	TaskGoal string `protobuf:"bytes,10,opt,name=task_goal,json=taskGoal,proto3" json:"task_goal,omitempty"`
-	// The task the new task stands on, by id or slug, in `workflow_id`. Its branch is cut from that
-	// task's branch on origin, and komrad keeps it on that branch as it moves and merges. Unset to
-	// cut from the workflow's base branch. Cannot be set with `task`.
-	StandOn       *string `protobuf:"bytes,11,opt,name=stand_on,json=standOn,proto3,oneof" json:"stand_on,omitempty"`
+	// The task the new task depends on, by id or slug, in `workflow_id`. The new task's branch starts
+	// from that task's branch on origin, and komrad rebases it as that branch moves and re-targets it
+	// onto the base branch once that task merges. Unset to start from the workflow's base branch.
+	// Cannot be set with `task`.
+	DependsOn     *string `protobuf:"bytes,11,opt,name=depends_on,json=dependsOn,proto3,oneof" json:"depends_on,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1079,9 +1080,9 @@ func (x *CreateAgentRequest) GetTaskGoal() string {
 	return ""
 }
 
-func (x *CreateAgentRequest) GetStandOn() string {
-	if x != nil && x.StandOn != nil {
-		return *x.StandOn
+func (x *CreateAgentRequest) GetDependsOn() string {
+	if x != nil && x.DependsOn != nil {
+		return *x.DependsOn
 	}
 	return ""
 }
@@ -1587,8 +1588,8 @@ type PlanRebaseRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The task whose branch to plan a rebase of, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// Plan a move of a task that stands on another onto the workflow's base branch, replaying only
-	// its own commits, in place of a move onto the task it stands on.
+	// Plan a re-target of a child onto the workflow's base branch, rebasing only its own commits,
+	// in place of a rebase onto its parent.
 	OntoBase      bool `protobuf:"varint,2,opt,name=onto_base,json=ontoBase,proto3" json:"onto_base,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1850,8 +1851,8 @@ type RebaseWorktreeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The task whose branch to rebase onto the base branch, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// Move a task that stands on another onto the workflow's base branch, replaying only its own
-	// commits, so it no longer stands on that task.
+	// Re-target a child onto the workflow's base branch, rebasing only its own commits, so it no
+	// longer has a parent.
 	OntoBase      bool `protobuf:"varint,2,opt,name=onto_base,json=ontoBase,proto3" json:"onto_base,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2255,31 +2256,31 @@ func (x *PushWorktreeResponse) GetSha() string {
 	return ""
 }
 
-type PlaceStandRequest struct {
+type PickForkPointRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task that stands on another, by id or slug.
+	// The child, by id or slug.
 	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// The commit the task's own commits sit on, which its branch must hold. Any name git reads as a
-	// commit.
+	// The commit the child's own commits sit on, which its branch must hold. Any name git reads as
+	// a commit.
 	Commit        string `protobuf:"bytes,2,opt,name=commit,proto3" json:"commit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PlaceStandRequest) Reset() {
-	*x = PlaceStandRequest{}
+func (x *PickForkPointRequest) Reset() {
+	*x = PickForkPointRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PlaceStandRequest) String() string {
+func (x *PickForkPointRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PlaceStandRequest) ProtoMessage() {}
+func (*PickForkPointRequest) ProtoMessage() {}
 
-func (x *PlaceStandRequest) ProtoReflect() protoreflect.Message {
+func (x *PickForkPointRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2291,47 +2292,47 @@ func (x *PlaceStandRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PlaceStandRequest.ProtoReflect.Descriptor instead.
-func (*PlaceStandRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use PickForkPointRequest.ProtoReflect.Descriptor instead.
+func (*PickForkPointRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{24}
 }
 
-func (x *PlaceStandRequest) GetTask() string {
+func (x *PickForkPointRequest) GetTask() string {
 	if x != nil {
 		return x.Task
 	}
 	return ""
 }
 
-func (x *PlaceStandRequest) GetCommit() string {
+func (x *PickForkPointRequest) GetCommit() string {
 	if x != nil {
 		return x.Commit
 	}
 	return ""
 }
 
-type PlaceStandResponse struct {
+type PickForkPointResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The full name of the commit recorded.
-	Tip           string `protobuf:"bytes,1,opt,name=tip,proto3" json:"tip,omitempty"`
+	ForkPoint     string `protobuf:"bytes,1,opt,name=fork_point,json=forkPoint,proto3" json:"fork_point,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *PlaceStandResponse) Reset() {
-	*x = PlaceStandResponse{}
+func (x *PickForkPointResponse) Reset() {
+	*x = PickForkPointResponse{}
 	mi := &file_agent_v1_agent_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *PlaceStandResponse) String() string {
+func (x *PickForkPointResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PlaceStandResponse) ProtoMessage() {}
+func (*PickForkPointResponse) ProtoMessage() {}
 
-func (x *PlaceStandResponse) ProtoReflect() protoreflect.Message {
+func (x *PickForkPointResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2343,14 +2344,14 @@ func (x *PlaceStandResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PlaceStandResponse.ProtoReflect.Descriptor instead.
-func (*PlaceStandResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use PickForkPointResponse.ProtoReflect.Descriptor instead.
+func (*PickForkPointResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{25}
 }
 
-func (x *PlaceStandResponse) GetTip() string {
+func (x *PickForkPointResponse) GetForkPoint() string {
 	if x != nil {
-		return x.Tip
+		return x.ForkPoint
 	}
 	return ""
 }
@@ -3496,7 +3497,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12*\n" +
 	"\x06agents\x18\x01 \x03(\v2\x12.agent.v1.AgentRowR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xce\x04\n" +
+	"\x10_next_page_token\"\xd4\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\"\n" +
 	"\x05title\x18\x02 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x12\"\n" +
@@ -3510,14 +3511,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x04task\x18\b \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\x04task\x88\x01\x01\x12C\n" +
 	"\ttask_slug\x18\t \x01(\tB!\xbaH\x1er\x1c\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x03R\btaskSlug\x88\x01\x01\x12&\n" +
 	"\ttask_goal\x18\n" +
-	" \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\btaskGoal\x12'\n" +
-	"\bstand_on\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x04R\astandOn\x88\x01\x01B\x12\n" +
+	" \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\btaskGoal\x12+\n" +
+	"\n" +
+	"depends_on\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x04R\tdependsOn\x88\x01\x01B\x12\n" +
 	"\x10_idempotency_keyB\x14\n" +
 	"\x12_provision_enabledB\a\n" +
 	"\x05_taskB\f\n" +
 	"\n" +
-	"_task_slugB\v\n" +
-	"\t_stand_on\"<\n" +
+	"_task_slugB\r\n" +
+	"\v_depends_on\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xb8\x02\n" +
 	"\x14RequestReviewRequest\x12#\n" +
@@ -3612,13 +3614,14 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x18\n" +
 	"\acommits\x18\x02 \x01(\x05R\acommits\x12\x16\n" +
 	"\x06forced\x18\x03 \x01(\bR\x06forced\x12\x10\n" +
-	"\x03sha\x18\x04 \x01(\tR\x03sha\"\x8d\x01\n" +
-	"\x11PlaceStandRequest\x12W\n" +
+	"\x03sha\x18\x04 \x01(\tR\x03sha\"\x90\x01\n" +
+	"\x14PickForkPointRequest\x12W\n" +
 	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
 	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12\x1f\n" +
-	"\x06commit\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06commit\"&\n" +
-	"\x12PlaceStandResponse\x12\x10\n" +
-	"\x03tip\x18\x01 \x01(\tR\x03tip\"o\n" +
+	"\x06commit\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06commit\"6\n" +
+	"\x15PickForkPointResponse\x12\x1d\n" +
+	"\n" +
+	"fork_point\x18\x01 \x01(\tR\tforkPoint\"o\n" +
 	"\x14AbortSequenceRequest\x12W\n" +
 	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
 	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"\x9f\x01\n" +
@@ -3711,7 +3714,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062\xc1\x88\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062\xbd\x88\x01\n" +
 	"\fAgentService\x12\x82\x02\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb8\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\vlist_agents\"\x97\x01List the agents komrad tracks, most recently updated first, each with the opening of its prompt. Archived agents are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x9e\x01\n" +
@@ -3767,9 +3770,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"PlanRebase\x12\x1b.agent.v1.PlanRebaseRequest\x1a\x1c.agent.v1.PlanRebaseResponse\"\xbe\x01\x9a\xb5\x18\xb9\x01\b\x01\x10\x01\x1a\vplan_rebase\"\x9e\x01Preview a rebase of a task's branch onto its base branch without moving anything: what would be replayed, dropped and flattened, and which paths may conflict.(\x000\x01:\x01\x02\x12\xf4\x02\n" +
 	"\x0eRebaseWorktree\x12\x1f.agent.v1.RebaseWorktreeRequest\x1a .agent.v1.RebaseWorktreeResponse\"\x9e\x02\x9a\xb5\x18\x99\x02\b\x01\x10\x01\x1a\x0frebase_worktree\"\xe1\x01Rebase a task's branch onto the newest commit of its base branch. Komrad keeps the checkout at a ref first and mails the task's writer that its files moved. A rebase that conflicts stops and is left for the writer to resolve.(\x010\x00:\x01\x02J\x17Call plan_rebase first.\x12\xf1\x01\n" +
 	"\bPlanPush\x12\x19.agent.v1.PlanPushRequest\x1a\x1a.agent.v1.PlanPushResponse\"\xad\x01\x9a\xb5\x18\xa8\x01\b\x01\x1a\tplan_push\"EPreview a push of a task's branch to origin without pushing anything.BRAgents push their own branches with git, so a push from outside is for the person.\x12\xc9\x02\n" +
-	"\fPushWorktree\x12\x1d.agent.v1.PushWorktreeRequest\x1a\x1e.agent.v1.PushWorktreeResponse\"\xf9\x01\x9a\xb5\x18\xf4\x01\b\x01\x1a\rpush_worktree\"\x8c\x01Push a task's branch to origin under its own name. Komrad overwrites origin's copy after a rebase only when nothing on origin would be lost.BRAgents push their own branches with git, so a push from outside is for the person.\x12\xff\x02\n" +
-	"\n" +
-	"PlaceStand\x12\x1b.agent.v1.PlaceStandRequest\x1a\x1c.agent.v1.PlaceStandResponse\"\xb5\x02\x9a\xb5\x18\xb0\x02\b\x01\x1a\vplace_stand\"\xa9\x01Record the commit a task's own commits sit on, for a task that stands on another and has lost its place. Komrad measures the task from that commit and restacks it again.BsA task loses its place when its writer rewrote its branch, so saying where its own commits begin is for the person.\x12\xce\x02\n" +
+	"\fPushWorktree\x12\x1d.agent.v1.PushWorktreeRequest\x1a\x1e.agent.v1.PushWorktreeResponse\"\xf9\x01\x9a\xb5\x18\xf4\x01\b\x01\x1a\rpush_worktree\"\x8c\x01Push a task's branch to origin under its own name. Komrad overwrites origin's copy after a rebase only when nothing on origin would be lost.BRAgents push their own branches with git, so a push from outside is for the person.\x12\xfb\x02\n" +
+	"\rPickForkPoint\x12\x1e.agent.v1.PickForkPointRequest\x1a\x1f.agent.v1.PickForkPointResponse\"\xa8\x02\x9a\xb5\x18\xa3\x02\b\x01\x1a\x0fpick_fork_point\"\x9b\x01Record the fork point of an orphaned child, the commit its own commits sit on. Komrad measures the child from that commit and the cascade rebases it again.BpA child is orphaned when its writer rewrote its branch, so naming where its own commits begin is for the person.\x12\xce\x02\n" +
 	"\rAbortSequence\x12\x1e.agent.v1.AbortSequenceRequest\x1a\x1f.agent.v1.AbortSequenceResponse\"\xfb\x01\x9a\xb5\x18\xf6\x01\b\x01\x1a\x0eabort_sequence\"\x7fAbort the sequence in a task's checkout. Komrad keeps the checkout at a ref first and mails the task's writer what was aborted.BaAgents are told not to resolve a conflicted rebase themselves, so aborting one is for the person.\x12\xcf\x01\n" +
 	"\x11StartOrchestrator\x12\".agent.v1.StartOrchestratorRequest\x1a#.agent.v1.StartOrchestratorResponse\"q\x9a\xb5\x18j\b\x01\x10\x01\x1a\x12start_orchestrator\"KResume a workflow's orchestrator, or create one when the workflow has none.(\x00:\x01\x02\x90\x02\x02\x12\xc5\x01\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"^\x9a\xb5\x18WBUOnly the person can say they have read a thread, and komrad refuses any other caller.\x90\x02\x02\x12\xf3\x01\n" +
@@ -3826,8 +3828,8 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*PlanPushResponse)(nil),                 // 24: agent.v1.PlanPushResponse
 	(*PushWorktreeRequest)(nil),              // 25: agent.v1.PushWorktreeRequest
 	(*PushWorktreeResponse)(nil),             // 26: agent.v1.PushWorktreeResponse
-	(*PlaceStandRequest)(nil),                // 27: agent.v1.PlaceStandRequest
-	(*PlaceStandResponse)(nil),               // 28: agent.v1.PlaceStandResponse
+	(*PickForkPointRequest)(nil),             // 27: agent.v1.PickForkPointRequest
+	(*PickForkPointResponse)(nil),            // 28: agent.v1.PickForkPointResponse
 	(*AbortSequenceRequest)(nil),             // 29: agent.v1.AbortSequenceRequest
 	(*AbortSequenceResponse)(nil),            // 30: agent.v1.AbortSequenceResponse
 	(*RecordReportRequest)(nil),              // 31: agent.v1.RecordReportRequest
@@ -4010,7 +4012,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	21,  // 77: agent.v1.AgentService.RebaseWorktree:input_type -> agent.v1.RebaseWorktreeRequest
 	23,  // 78: agent.v1.AgentService.PlanPush:input_type -> agent.v1.PlanPushRequest
 	25,  // 79: agent.v1.AgentService.PushWorktree:input_type -> agent.v1.PushWorktreeRequest
-	27,  // 80: agent.v1.AgentService.PlaceStand:input_type -> agent.v1.PlaceStandRequest
+	27,  // 80: agent.v1.AgentService.PickForkPoint:input_type -> agent.v1.PickForkPointRequest
 	29,  // 81: agent.v1.AgentService.AbortSequence:input_type -> agent.v1.AbortSequenceRequest
 	19,  // 82: agent.v1.AgentService.StartOrchestrator:input_type -> agent.v1.StartOrchestratorRequest
 	84,  // 83: agent.v1.AgentService.MarkReviewThreadRead:input_type -> agent.v1.MarkReviewThreadReadRequest
@@ -4073,7 +4075,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	22,  // 140: agent.v1.AgentService.RebaseWorktree:output_type -> agent.v1.RebaseWorktreeResponse
 	24,  // 141: agent.v1.AgentService.PlanPush:output_type -> agent.v1.PlanPushResponse
 	26,  // 142: agent.v1.AgentService.PushWorktree:output_type -> agent.v1.PushWorktreeResponse
-	28,  // 143: agent.v1.AgentService.PlaceStand:output_type -> agent.v1.PlaceStandResponse
+	28,  // 143: agent.v1.AgentService.PickForkPoint:output_type -> agent.v1.PickForkPointResponse
 	30,  // 144: agent.v1.AgentService.AbortSequence:output_type -> agent.v1.AbortSequenceResponse
 	20,  // 145: agent.v1.AgentService.StartOrchestrator:output_type -> agent.v1.StartOrchestratorResponse
 	119, // 146: agent.v1.AgentService.MarkReviewThreadRead:output_type -> agent.v1.MarkReviewThreadReadResponse

@@ -284,9 +284,9 @@ func TestLiveRepositoriesAndSyncTargets(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{komrad, fixture}, repositories)
 
-	targets, err := h.syncs.ListTargets(ctx)
+	liveBranches, err := h.syncs.ListLiveBranches(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, []Target{
+	assert.Equal(t, []LiveBranch{
 		{RepositoryURL: komrad, Branch: "agent/x"},
 		{RepositoryURL: komrad, Branch: "agent/y"},
 		{
@@ -295,7 +295,7 @@ func TestLiveRepositoriesAndSyncTargets(t *testing.T) {
 			HeadSHA:       "abc",
 		},
 		{RepositoryURL: fixture, Branch: "fixture/open"},
-	}, targets)
+	}, liveBranches)
 }
 
 // finishedPullRequest is openPullRequest merged an hour after it changed.
@@ -817,8 +817,8 @@ func checksInUTC(checks []forge.StatusCheck) []forge.StatusCheck {
 	})
 }
 
-// TestGetStandPullRequest pins which pull request on a parent's branch a standing task follows.
-func TestGetStandPullRequest(t *testing.T) {
+// TestGetParentPullRequest pins which pull request on a parent's branch is the child's parent pull request.
+func TestGetParentPullRequest(t *testing.T) {
 	began := time.Date(2026, 9, 18, 13, 0, 0, 0, time.UTC)
 	openedAfter := func(params UpsertParams, after time.Duration) UpsertParams {
 		params.OpenedAt = began.Add(after)
@@ -834,7 +834,7 @@ func TestGetStandPullRequest(t *testing.T) {
 		wantProvider string
 	}{
 		{
-			name:         "a pull request that finished before the stand began is not followed",
+			name:         "a pull request that finished before the child took the parent is not its parent pull request",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_old", 1, "task/parent")},
 		},
 		{
@@ -851,7 +851,7 @@ func TestGetStandPullRequest(t *testing.T) {
 			wantProvider: "PR_open",
 		},
 		{
-			name:         "a pull request opened since the stand began is followed after it finishes",
+			name:         "a pull request opened since the child took the parent stays its parent pull request after it finishes",
 			pullRequests: []UpsertParams{openedAfter(finishedPullRequest("PR_new", 1, "task/parent"), time.Minute)},
 			wantProvider: "PR_new",
 		},
@@ -873,7 +873,7 @@ func TestGetStandPullRequest(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			found, err := h.GetStandPullRequest(t.Context(), GetStandPullRequestParams{
+			found, err := h.GetParentPullRequest(t.Context(), GetParentPullRequestParams{
 				RepositoryURL: komrad,
 				HeadBranch:    "task/parent",
 				Since:         began,
@@ -889,8 +889,8 @@ func TestGetStandPullRequest(t *testing.T) {
 	}
 }
 
-// TestGetMergeStand pins where a pull request stands among tasks standing on one another.
-func TestGetMergeStand(t *testing.T) {
+// TestGetMergeBlockers pins what turns down a merge of a pull request in a stack.
+func TestGetMergeBlockers(t *testing.T) {
 	childOntoParent := openPullRequest("PR_child", 2, "task/child")
 	childOntoParent.BaseBranch = "task/parent"
 	parentReopened := openPullRequest("PR_again", 3, "task/parent")
@@ -900,28 +900,28 @@ func TestGetMergeStand(t *testing.T) {
 		name         string
 		pullRequests []UpsertParams
 		url          string
-		want         mergeStand
+		want         mergeBlockers
 	}{
 		{
-			name:         "a pull request from a standing task onto its parent's open one stands",
+			name:         "a pull request from a child onto its parent's open one comes from a child",
 			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
 			url:          childOntoParent.URL,
-			want:         mergeStand{HeadStands: true},
+			want:         mergeBlockers{HeadHasParent: true},
 		},
 		{
 			name:         "a pull request onto a parent whose pull request merged targets a finished branch",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
 			url:          childOntoParent.URL,
-			want:         mergeStand{HeadStands: true, BaseFinished: true},
+			want:         mergeBlockers{HeadHasParent: true, BaseFinished: true},
 		},
 		{
 			name:         "a parent with a pull request open again is not finished",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), parentReopened, childOntoParent},
 			url:          childOntoParent.URL,
-			want:         mergeStand{HeadStands: true},
+			want:         mergeBlockers{HeadHasParent: true},
 		},
 		{
-			name:         "a pull request from a task on the base branch stands on nothing",
+			name:         "a pull request from a task on the base branch has no blockers",
 			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent")},
 			url:          openPullRequest("PR_parent", 1, "task/parent").URL,
 		},
@@ -934,31 +934,31 @@ func TestGetMergeStand(t *testing.T) {
 			workflow := h.createWorkflow(t)
 			parent := h.createAgent(t, workflow, "parent", komrad, "task/parent")
 			child := h.createAgent(t, workflow, "child", komrad, "task/child")
-			require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetStand(ctx, h.taskOf(t, child), &taskstore.Stand{
-				ParentID: h.taskOf(t, parent),
-				Tip:      "abc",
+			require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetParent(ctx, h.taskOf(t, child), &taskstore.Parent{
+				TaskID:    h.taskOf(t, parent),
+				ForkPoint: "abc",
 			}))
 			for _, params := range tt.pullRequests {
 				_, err := h.Upsert(ctx, params)
 				require.NoError(t, err)
 			}
 
-			got, err := h.GetMergeStand(ctx, tt.url)
+			got, err := h.GetMergeBlockers(ctx, tt.url)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, *got)
 		})
 	}
 
 	t.Run("a pull request komrad has not stored is not found", func(t *testing.T) {
-		_, err := open(t).GetMergeStand(t.Context(), "https://github.com/harrisoncramer/komrad/pull/404")
+		_, err := open(t).GetMergeBlockers(t.Context(), "https://github.com/harrisoncramer/komrad/pull/404")
 
 		require.ErrorIs(t, err, store.ErrNotFound)
 	})
 }
 
-// TestSyncTargetsFollowTheStandPullRequest covers a parent's pull request staying a sync target
+// TestLiveBranchesFollowTheParentPullRequest covers a parent's pull request staying a sync target
 // while a live task follows it, after every agent on the parent is archived.
-func TestSyncTargetsFollowTheStandPullRequest(t *testing.T) {
+func TestLiveBranchesFollowTheParentPullRequest(t *testing.T) {
 	h := open(t)
 	ctx := t.Context()
 	workflow := h.createWorkflow(t)
@@ -968,18 +968,18 @@ func TestSyncTargetsFollowTheStandPullRequest(t *testing.T) {
 	require.NoError(t, err)
 	followed, err := h.GetByIdentity(ctx, "github.com", "PR_parent")
 	require.NoError(t, err)
-	require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetStand(ctx, h.taskOf(t, child), &taskstore.Stand{
-		ParentID:      h.taskOf(t, parent),
-		Tip:           "abc",
+	require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetParent(ctx, h.taskOf(t, child), &taskstore.Parent{
+		TaskID:        h.taskOf(t, parent),
+		ForkPoint:     "abc",
 		PullRequestID: followed.ID,
 	}))
 	_, err = h.agents.Archive(ctx, []string{parent})
 	require.NoError(t, err)
 
-	targets, err := h.syncs.ListTargets(ctx)
+	liveBranches, err := h.syncs.ListLiveBranches(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, []Target{
+	assert.Equal(t, []LiveBranch{
 		{RepositoryURL: komrad, Branch: "task/child"},
 		{RepositoryURL: komrad, Branch: "task/parent", HeadSHA: "abc"},
-	}, targets)
+	}, liveBranches)
 }

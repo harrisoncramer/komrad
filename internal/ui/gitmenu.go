@@ -34,7 +34,7 @@ var (
 	errNoPullRequest        = errors.New("nobody has opened a pull request from this branch")
 	errMovedPastPullRequest = errors.New("the branch moved on after its last pull request finished, and nobody has opened a new one")
 	errPullRequestsUnread   = errors.New("komrad has not read this task's repository yet, or its checkout is not on a forge")
-	errStandsOnNone         = errors.New("this task stands on no other task, so it is already on the base branch")
+	errNoParent             = errors.New("this task does not depend on another task, so it is already on the base branch")
 )
 
 // gitMenu is the git actions on a task's checkout and pull request.
@@ -55,16 +55,16 @@ func gitMenu(m *model, task panel.Task) submenu {
 				write: run(gitChoiceRebase),
 			},
 			{
-				label: "move onto base",
+				label: "re-target onto base",
 				keys:  m.keys.Git.RebaseOntoBase,
 				isOff: rebaseOntoBaseRefusal(m.listing, task) != nil,
 				write: run(gitChoiceRebaseOntoBase),
 			},
 			{
-				label: "pick where it stands",
-				keys:  m.keys.Git.PlaceStand,
-				isOff: placeStandRefusal(m.listing, task) != nil,
-				open:  func(m *model) tea.Cmd { return m.openGitPlaceStand(taskID) },
+				label: "pick fork point",
+				keys:  m.keys.Git.PickForkPoint,
+				isOff: pickForkPointRefusal(m.listing, task) != nil,
+				open:  func(m *model) tea.Cmd { return m.openGitPickForkPoint(taskID) },
 			},
 			{
 				label: "push",
@@ -121,20 +121,20 @@ func worktreeRefusal(l listing, task panel.Task) error {
 
 // rebaseLabel names the rebase entry for the branch it moves onto.
 func rebaseLabel(l listing, task panel.Task) string {
-	if task.Stand == nil {
+	if task.Parent == nil {
 		return "rebase with base"
 	}
 
-	return "rebase onto " + l.tasks[task.Stand.GetTaskId()].Slug
+	return "rebase onto " + l.tasks[task.Parent.GetTaskId()].Slug
 }
 
-// rebaseOntoBaseRefusal returns the reason a task refuses a move onto the base branch, or nil when it allows one.
+// rebaseOntoBaseRefusal returns the reason a task refuses a re-target onto the base branch, or nil when it allows one.
 func rebaseOntoBaseRefusal(l listing, task panel.Task) error {
 	if err := worktreeRefusal(l, task); err != nil {
 		return err
 	}
-	if task.Stand == nil {
-		return errStandsOnNone
+	if task.Parent == nil {
+		return errNoParent
 	}
 
 	return nil
@@ -232,7 +232,7 @@ func (m *model) runGitChoice(taskID string, choice gitChoice) tea.Cmd {
 		return m.planGitCmd(rebaseOp(&agentv1.RebaseWorktreeRequest{Task: task.ID}, task.Slug))
 	case gitChoiceRebaseOntoBase:
 		if err := rebaseOntoBaseRefusal(m.listing, task); err != nil {
-			m.report("Could not move "+task.Slug+" onto the base branch", err)
+			m.report("Could not re-target "+task.Slug+" onto the base branch", err)
 
 			return nil
 		}
@@ -301,8 +301,8 @@ func (m *model) openGitAbort(taskID string) tea.Cmd {
 	return m.openGitConfirm(abortOp(task.ID, task.Slug, task.Sequence), abortForm(task.Slug, task.Sequence))
 }
 
-// openGitPlaceStand leaves the menu for the form that places a lost task, or says why the task is not lost.
-func (m *model) openGitPlaceStand(taskID string) tea.Cmd {
+// openGitPickForkPoint leaves the menu for the form that picks an orphaned child's fork point, or says why the task is not orphaned.
+func (m *model) openGitPickForkPoint(taskID string) tea.Cmd {
 	task, ok := m.findGitTask(taskID)
 	if !ok {
 		m.report("Could not act on the task", errTaskGone)
@@ -310,13 +310,13 @@ func (m *model) openGitPlaceStand(taskID string) tea.Cmd {
 		return m.closeForm()
 	}
 
-	if err := placeStandRefusal(m.listing, task); err != nil {
-		m.report("Could not place "+task.Slug, err)
+	if err := pickForkPointRefusal(m.listing, task); err != nil {
+		m.report("Could not pick the fork point of "+task.Slug, err)
 
 		return m.closeForm()
 	}
 
 	m.leaveForm()
 
-	return openPlaceStand(m, task)
+	return openPickForkPoint(m, task)
 }

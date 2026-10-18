@@ -71,7 +71,7 @@ func taskFrom(row assemble.TaskRow) panel.Task {
 		FailedRun:        task.GetFailedRun(),
 		Documents:        task.GetDocuments(),
 		Hidden:           task.GetHidden(),
-		Stand:            task.GetStand(),
+		Parent:           task.GetParent(),
 		Cwd:              task.GetCwd(),
 		Branch:           task.Branch,
 		DiffStat:         task.GetDiffStat(),

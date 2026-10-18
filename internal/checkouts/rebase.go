@@ -72,7 +72,7 @@ type RebaseResult struct {
 	ParkedRef string `json:"parked_ref"`
 	// Interrupted says a turn was cut so the rebase could run.
 	Interrupted bool `json:"interrupted"`
-	// OntoBase says the rebase moved a standing task off the task it stands on and onto the workflow's base branch.
+	// OntoBase says the rebase re-targeted a child onto the workflow's base branch, away from its parent.
 	OntoBase bool `json:"onto_base"`
 }
 
@@ -144,8 +144,8 @@ func (s *Service) planRebase(ctx context.Context, target checkoutTarget) (*Rebas
 	}
 
 	cutoff := prediction.Cutoff
-	if stand := target.task.Stand; stand != nil {
-		cutoff, err = s.readStandCutoff(ctx, dir, stand.Tip, prediction.Cutoff)
+	if parent := target.task.Parent; parent != nil {
+		cutoff, err = s.readForkPointCutoff(ctx, dir, parent.ForkPoint, prediction.Cutoff)
 		if err != nil {
 			return nil, err
 		}
@@ -165,14 +165,13 @@ func (s *Service) planRebase(ctx context.Context, target checkoutTarget) (*Rebas
 	}, nil
 }
 
-// readRebaseBase is the branch a task rebases onto, its parent's while it stands on one and the workflow's base otherwise.
+// readRebaseBase is the branch a task rebases onto: its parent's branch while it has a parent, and the workflow's base otherwise.
 func (s *Service) readRebaseBase(ctx context.Context, target checkoutTarget) (string, error) {
-	stand := target.task.Stand
-	if stand == nil || target.ontoBase {
+	if target.task.Parent == nil || target.ontoBase {
 		return target.workflow.Worktree.BaseBranch, nil
 	}
 
-	parent, err := s.tasks.Get(ctx, stand.ParentID)
+	parent, err := s.tasks.Get(ctx, target.task.Parent.TaskID)
 	if err != nil {
 		return "", err
 	}
@@ -184,7 +183,7 @@ func (s *Service) readRebaseBase(ctx context.Context, target checkoutTarget) (st
 type RebaseParams struct {
 	// Task is the task to rebase, by id or slug.
 	Task string
-	// OntoBase moves a standing task onto the workflow's base branch, replaying only its own commits, and leaves the task it stands on.
+	// OntoBase re-targets a child onto the workflow's base branch, rebasing only its own commits, and clears its parent.
 	OntoBase bool
 }
 
@@ -240,7 +239,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 		return nil, err
 	}
 
-	result := &RebaseResult{RebasePlan: *plan, OntoBase: target.ontoBase && target.task.Stand != nil}
+	result := &RebaseResult{RebasePlan: *plan, OntoBase: target.ontoBase && target.task.Parent != nil}
 
 	result.ParkedRef = buildParkRef(parkRebase, target.task.ID)
 	if _, err := s.git.Park(ctx, target.dir(), result.ParkedRef); err != nil {
@@ -253,7 +252,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 	}
 
 	if result.OntoBase && !result.Conflicted {
-		if err := s.tasks.SetStand(ctx, target.task.ID, nil); err != nil {
+		if err := s.tasks.SetParent(ctx, target.task.ID, nil); err != nil {
 			return nil, err
 		}
 	}

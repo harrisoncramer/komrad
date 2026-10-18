@@ -14,12 +14,13 @@ type Sync struct {
 	RepositoryURL string
 }
 
-// Target is one branch a live agent sits on in a repository, away from its workflow's base
-// branch, and the commit the agent's checkout was last seen at.
-type Target struct {
+// LiveBranch is one branch the pull request sync reads in a repository: a branch a live agent
+// works on away from its workflow's base branch, or the head of a live child's parent pull
+// request, with its last seen head commit.
+type LiveBranch struct {
 	RepositoryURL string
 	Branch        string
-	// HeadSHA is the agent's last seen head commit, empty before the checkout was read.
+	// HeadSHA is the branch's last seen head commit, empty before komrad read it.
 	HeadSHA string
 }
 
@@ -33,16 +34,15 @@ func NewPullRequestSyncStore(db store.DBTX) *PullRequestSyncStore {
 	return &PullRequestSyncStore{queries: models.New(db)}
 }
 
-// ListTargets is every branch a live agent sits on away from its workflow's base branch, with
-// each agent's head commit, by repository, branch and commit.
-func (s *PullRequestSyncStore) ListTargets(ctx context.Context) ([]Target, error) {
-	rows, err := s.queries.ListSyncTargets(ctx)
+// ListLiveBranches is every branch the pull request sync reads, by repository, branch and commit.
+func (s *PullRequestSyncStore) ListLiveBranches(ctx context.Context) ([]LiveBranch, error) {
+	rows, err := s.queries.ListLiveBranches(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the branches live agents sit on: %w", err)
+		return nil, fmt.Errorf("failed to list the live branches: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListSyncTargetsRow) Target {
-		return Target{
+	return xslice.Map(rows, func(row *models.ListLiveBranchesRow) LiveBranch {
+		return LiveBranch{
 			RepositoryURL: row.RepositoryUrl,
 			Branch:        row.Branch,
 			HeadSHA:       row.HeadSha,

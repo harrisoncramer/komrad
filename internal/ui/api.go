@@ -131,8 +131,8 @@ type createAgentParams struct {
 	ProvisionEnabled *bool
 	WorkflowID       string
 	Task             string
-	// StandOn is the task the new task stands on, empty for one on the workflow's base branch.
-	StandOn string
+	// DependsOn is the task the new task depends on, empty for one on the workflow's base branch.
+	DependsOn string
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
@@ -145,7 +145,7 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,
 			Task:             nilIfBlank(params.Task),
-			StandOn:          nilIfBlank(params.StandOn),
+			DependsOn:        nilIfBlank(params.DependsOn),
 		}))
 		if err != nil {
 			return nil, err
@@ -852,9 +852,9 @@ func (a api) wakeLoop(loop loopv1.Loop) error {
 	})
 }
 
-func (a api) placeStand(id, commit string) error {
-	_, err := call(requestTimeout, func(ctx context.Context) (*agentv1.PlaceStandResponse, error) {
-		resp, err := a.agents.PlaceStand(ctx, connect.NewRequest(&agentv1.PlaceStandRequest{Task: id, Commit: commit}))
+func (a api) pickForkPoint(id, commit string) error {
+	_, err := call(requestTimeout, func(ctx context.Context) (*agentv1.PickForkPointResponse, error) {
+		resp, err := a.agents.PickForkPoint(ctx, connect.NewRequest(&agentv1.PickForkPointRequest{Task: id, Commit: commit}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to place task %q: %w", id, err)
 		}

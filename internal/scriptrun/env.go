@@ -256,12 +256,12 @@ func (s *ScriptService) worktreeEnv(ctx context.Context, workflow workflowstore.
 	}
 
 	base, baseCommit := cfg.BaseBranch, ""
-	if task.Stand != nil {
-		parent, err := s.tasks.Get(ctx, task.Stand.ParentID)
+	if task.Parent != nil {
+		parent, err := s.tasks.Get(ctx, task.Parent.TaskID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read the task %q stands on: %w", task.Slug, err)
+			return nil, fmt.Errorf("failed to read the parent of task %q: %w", task.Slug, err)
 		}
-		base, baseCommit = parent.GetBranch(), task.Stand.Tip
+		base, baseCommit = parent.GetBranch(), task.Parent.ForkPoint
 	}
 
 	return []string{

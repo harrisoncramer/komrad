@@ -4,17 +4,17 @@ INSERT INTO tasks(
     slug,
     title,
     goal,
-    stands_on_task_id,
-    stand_tip,
-    stand_pull_request_id)
+    parent_task_id,
+    fork_point,
+    parent_pull_request_id)
 VALUES (
     sqlc.arg('workflow_id'),
     sqlc.arg('slug'),
     sqlc.arg('title'),
     sqlc.arg('goal'),
-    sqlc.narg('stands_on_task_id'),
-    sqlc.narg('stand_tip'),
-    sqlc.narg('stand_pull_request_id'))
+    sqlc.narg('parent_task_id'),
+    sqlc.narg('fork_point'),
+    sqlc.narg('parent_pull_request_id'))
 RETURNING
     *;
 
@@ -438,64 +438,64 @@ SELECT
 FROM
     tasks;
 
--- name: SetTaskStand :exec
+-- name: SetTaskParent :exec
 UPDATE
     tasks
 SET
-    stands_on_task_id = sqlc.narg('stands_on_task_id'),
-    stand_tip = sqlc.narg('stand_tip'),
-    stand_pull_request_id = sqlc.narg('stand_pull_request_id'),
-    restack_blocked = NULL
+    parent_task_id = sqlc.narg('parent_task_id'),
+    fork_point = sqlc.narg('fork_point'),
+    parent_pull_request_id = sqlc.narg('parent_pull_request_id'),
+    cascade_blocked = NULL
 WHERE
     id = sqlc.arg('id');
 
--- name: SetTaskStandTip :exec
+-- name: SetTaskForkPoint :exec
 UPDATE
     tasks
 SET
-    stand_tip = sqlc.arg('stand_tip'),
-    restack_blocked = NULL
+    fork_point = sqlc.arg('fork_point'),
+    cascade_blocked = NULL
 WHERE
     id = sqlc.arg('id')
-    AND stands_on_task_id IS NOT NULL;
+    AND parent_task_id IS NOT NULL;
 
--- name: RecordTaskStandPullRequest :exec
+-- name: RecordTaskParentPullRequest :exec
 UPDATE
     tasks
 SET
-    stand_pull_request_id = sqlc.arg('stand_pull_request_id')
+    parent_pull_request_id = sqlc.arg('parent_pull_request_id')
 WHERE
     id = sqlc.arg('id')
-    AND stands_on_task_id IS NOT NULL
-    AND stand_pull_request_id IS NULL;
+    AND parent_task_id IS NOT NULL
+    AND parent_pull_request_id IS NULL;
 
--- name: ListStandingTasks :many
+-- name: ListChildTasks :many
 SELECT
     *
 FROM
     tasks
 WHERE
-    stands_on_task_id IS NOT NULL
+    parent_task_id IS NOT NULL
     AND archived_at IS NULL
     AND deleting_at IS NULL
 ORDER BY
     id;
 
--- name: ListTasksStandingOn :many
+-- name: ListChildrenOfTasks :many
 SELECT
     *
 FROM
     tasks
 WHERE
-    stands_on_task_id = ANY (sqlc.arg('ids')::uuid[])
+    parent_task_id = ANY (sqlc.arg('ids')::uuid[])
     AND deleting_at IS NULL
 ORDER BY
     id;
 
--- name: SetTaskRestackBlocked :exec
+-- name: SetTaskCascadeBlocked :exec
 UPDATE
     tasks
 SET
-    restack_blocked = sqlc.narg('restack_blocked')
+    cascade_blocked = sqlc.narg('cascade_blocked')
 WHERE
     id = sqlc.arg('id');

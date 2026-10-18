@@ -27,7 +27,7 @@ WHERE
             a.task_id = t.id
             AND a.archived_at IS NULL)
 RETURNING
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.stands_on_task_id, t.stand_tip, t.stand_pull_request_id, t.restack_blocked
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked
 `
 
 func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []string) ([]*Task, error) {
@@ -67,10 +67,10 @@ func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []string) ([]*Task, 
 			&i.Notes,
 			&i.NotesUpdatedAt,
 			&i.IsHidden,
-			&i.StandsOnTaskID,
-			&i.StandTip,
-			&i.StandPullRequestID,
-			&i.RestackBlocked,
+			&i.ParentTaskID,
+			&i.ForkPoint,
+			&i.ParentPullRequestID,
+			&i.CascadeBlocked,
 		); err != nil {
 			return nil, err
 		}
@@ -216,9 +216,9 @@ INSERT INTO tasks(
     slug,
     title,
     goal,
-    stands_on_task_id,
-    stand_tip,
-    stand_pull_request_id)
+    parent_task_id,
+    fork_point,
+    parent_pull_request_id)
 VALUES (
     $1,
     $2,
@@ -228,17 +228,17 @@ VALUES (
     $6,
     $7)
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
 `
 
 type CreateTaskParams struct {
-	WorkflowID         string
-	Slug               string
-	Title              string
-	Goal               string
-	StandsOnTaskID     *string
-	StandTip           *string
-	StandPullRequestID *string
+	WorkflowID          string
+	Slug                string
+	Title               string
+	Goal                string
+	ParentTaskID        *string
+	ForkPoint           *string
+	ParentPullRequestID *string
 }
 
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (*Task, error) {
@@ -247,9 +247,9 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (*Task, 
 		arg.Slug,
 		arg.Title,
 		arg.Goal,
-		arg.StandsOnTaskID,
-		arg.StandTip,
-		arg.StandPullRequestID,
+		arg.ParentTaskID,
+		arg.ForkPoint,
+		arg.ParentPullRequestID,
 	)
 	var i Task
 	err := row.Scan(
@@ -280,10 +280,10 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (*Task, 
 		&i.Notes,
 		&i.NotesUpdatedAt,
 		&i.IsHidden,
-		&i.StandsOnTaskID,
-		&i.StandTip,
-		&i.StandPullRequestID,
-		&i.RestackBlocked,
+		&i.ParentTaskID,
+		&i.ForkPoint,
+		&i.ParentPullRequestID,
+		&i.CascadeBlocked,
 	)
 	return &i, err
 }
@@ -321,7 +321,7 @@ func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams
 
 const getTaskByID = `-- name: GetTaskByID :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
 FROM
     tasks
 WHERE
@@ -359,17 +359,17 @@ func (q *Queries) GetTaskByID(ctx context.Context, id string) (*Task, error) {
 		&i.Notes,
 		&i.NotesUpdatedAt,
 		&i.IsHidden,
-		&i.StandsOnTaskID,
-		&i.StandTip,
-		&i.StandPullRequestID,
-		&i.RestackBlocked,
+		&i.ParentTaskID,
+		&i.ForkPoint,
+		&i.ParentPullRequestID,
+		&i.CascadeBlocked,
 	)
 	return &i, err
 }
 
 const getTaskBySlug = `-- name: GetTaskBySlug :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
 FROM
     tasks
 WHERE
@@ -407,10 +407,10 @@ func (q *Queries) GetTaskBySlug(ctx context.Context, slug string) (*Task, error)
 		&i.Notes,
 		&i.NotesUpdatedAt,
 		&i.IsHidden,
-		&i.StandsOnTaskID,
-		&i.StandTip,
-		&i.StandPullRequestID,
-		&i.RestackBlocked,
+		&i.ParentTaskID,
+		&i.ForkPoint,
+		&i.ParentPullRequestID,
+		&i.CascadeBlocked,
 	)
 	return &i, err
 }
@@ -433,7 +433,7 @@ func (q *Queries) GetTaskLastRebase(ctx context.Context, id string) ([]byte, err
 
 const getUndeletedTaskForUpdate = `-- name: GetUndeletedTaskForUpdate :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
 FROM
     tasks
 WHERE
@@ -473,10 +473,10 @@ func (q *Queries) GetUndeletedTaskForUpdate(ctx context.Context, id string) (*Ta
 		&i.Notes,
 		&i.NotesUpdatedAt,
 		&i.IsHidden,
-		&i.StandsOnTaskID,
-		&i.StandTip,
-		&i.StandPullRequestID,
-		&i.RestackBlocked,
+		&i.ParentTaskID,
+		&i.ForkPoint,
+		&i.ParentPullRequestID,
+		&i.CascadeBlocked,
 	)
 	return &i, err
 }
@@ -499,21 +499,21 @@ func (q *Queries) IsTaskSlugTaken(ctx context.Context, slug string) (bool, error
 	return column_1, err
 }
 
-const listStandingTasks = `-- name: ListStandingTasks :many
+const listChildTasks = `-- name: ListChildTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
 FROM
     tasks
 WHERE
-    stands_on_task_id IS NOT NULL
+    parent_task_id IS NOT NULL
     AND archived_at IS NULL
     AND deleting_at IS NULL
 ORDER BY
     id
 `
 
-func (q *Queries) ListStandingTasks(ctx context.Context) ([]*Task, error) {
-	rows, err := q.db.Query(ctx, listStandingTasks)
+func (q *Queries) ListChildTasks(ctx context.Context) ([]*Task, error) {
+	rows, err := q.db.Query(ctx, listChildTasks)
 	if err != nil {
 		return nil, err
 	}
@@ -549,10 +549,74 @@ func (q *Queries) ListStandingTasks(ctx context.Context) ([]*Task, error) {
 			&i.Notes,
 			&i.NotesUpdatedAt,
 			&i.IsHidden,
-			&i.StandsOnTaskID,
-			&i.StandTip,
-			&i.StandPullRequestID,
-			&i.RestackBlocked,
+			&i.ParentTaskID,
+			&i.ForkPoint,
+			&i.ParentPullRequestID,
+			&i.CascadeBlocked,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChildrenOfTasks = `-- name: ListChildrenOfTasks :many
+SELECT
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+FROM
+    tasks
+WHERE
+    parent_task_id = ANY ($1::uuid[])
+    AND deleting_at IS NULL
+ORDER BY
+    id
+`
+
+func (q *Queries) ListChildrenOfTasks(ctx context.Context, ids []string) ([]*Task, error) {
+	rows, err := q.db.Query(ctx, listChildrenOfTasks, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkflowID,
+			&i.Slug,
+			&i.Title,
+			&i.Goal,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.EngineID,
+			&i.Cwd,
+			&i.Branch,
+			&i.AdoptedBranch,
+			&i.ProvisionEnabled,
+			&i.WorktreeRemoved,
+			&i.RepositoryUrl,
+			&i.HeadSha,
+			&i.LastRebase,
+			&i.Sequence,
+			&i.LinesAdded,
+			&i.LinesRemoved,
+			&i.MovedSinceRound,
+			&i.DeletingAt,
+			&i.CleaningAt,
+			&i.FailureReason,
+			&i.Notes,
+			&i.NotesUpdatedAt,
+			&i.IsHidden,
+			&i.ParentTaskID,
+			&i.ForkPoint,
+			&i.ParentPullRequestID,
+			&i.CascadeBlocked,
 		); err != nil {
 			return nil, err
 		}
@@ -566,7 +630,7 @@ func (q *Queries) ListStandingTasks(ctx context.Context) ([]*Task, error) {
 
 const listTaskCheckouts = `-- name: ListTaskCheckouts :many
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.stands_on_task_id, t.stand_tip, t.stand_pull_request_id, t.restack_blocked
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked
 FROM
     tasks t
 WHERE
@@ -622,10 +686,10 @@ func (q *Queries) ListTaskCheckouts(ctx context.Context) ([]*Task, error) {
 			&i.Notes,
 			&i.NotesUpdatedAt,
 			&i.IsHidden,
-			&i.StandsOnTaskID,
-			&i.StandTip,
-			&i.StandPullRequestID,
-			&i.RestackBlocked,
+			&i.ParentTaskID,
+			&i.ForkPoint,
+			&i.ParentPullRequestID,
+			&i.CascadeBlocked,
 		); err != nil {
 			return nil, err
 		}
@@ -687,7 +751,7 @@ func (q *Queries) ListTaskSummaries(ctx context.Context) ([]*ListTaskSummariesRo
 
 const listTasks = `-- name: ListTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
 FROM
     tasks
 WHERE
@@ -740,10 +804,10 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 			&i.Notes,
 			&i.NotesUpdatedAt,
 			&i.IsHidden,
-			&i.StandsOnTaskID,
-			&i.StandTip,
-			&i.StandPullRequestID,
-			&i.RestackBlocked,
+			&i.ParentTaskID,
+			&i.ForkPoint,
+			&i.ParentPullRequestID,
+			&i.CascadeBlocked,
 		); err != nil {
 			return nil, err
 		}
@@ -757,7 +821,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 
 const listTasksByID = `-- name: ListTasksByID :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
 FROM
     tasks
 WHERE
@@ -803,74 +867,10 @@ func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*Task, err
 			&i.Notes,
 			&i.NotesUpdatedAt,
 			&i.IsHidden,
-			&i.StandsOnTaskID,
-			&i.StandTip,
-			&i.StandPullRequestID,
-			&i.RestackBlocked,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTasksStandingOn = `-- name: ListTasksStandingOn :many
-SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
-FROM
-    tasks
-WHERE
-    stands_on_task_id = ANY ($1::uuid[])
-    AND deleting_at IS NULL
-ORDER BY
-    id
-`
-
-func (q *Queries) ListTasksStandingOn(ctx context.Context, ids []string) ([]*Task, error) {
-	rows, err := q.db.Query(ctx, listTasksStandingOn, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Task
-	for rows.Next() {
-		var i Task
-		if err := rows.Scan(
-			&i.ID,
-			&i.WorkflowID,
-			&i.Slug,
-			&i.Title,
-			&i.Goal,
-			&i.ArchivedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.EngineID,
-			&i.Cwd,
-			&i.Branch,
-			&i.AdoptedBranch,
-			&i.ProvisionEnabled,
-			&i.WorktreeRemoved,
-			&i.RepositoryUrl,
-			&i.HeadSha,
-			&i.LastRebase,
-			&i.Sequence,
-			&i.LinesAdded,
-			&i.LinesRemoved,
-			&i.MovedSinceRound,
-			&i.DeletingAt,
-			&i.CleaningAt,
-			&i.FailureReason,
-			&i.Notes,
-			&i.NotesUpdatedAt,
-			&i.IsHidden,
-			&i.StandsOnTaskID,
-			&i.StandTip,
-			&i.StandPullRequestID,
-			&i.RestackBlocked,
+			&i.ParentTaskID,
+			&i.ForkPoint,
+			&i.ParentPullRequestID,
+			&i.CascadeBlocked,
 		); err != nil {
 			return nil, err
 		}
@@ -940,7 +940,7 @@ written AS (
         d.task_id
 )
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.stands_on_task_id, t.stand_tip, t.stand_pull_request_id, t.restack_blocked,
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_round, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
     EXISTS (
         SELECT
         FROM
@@ -1003,10 +1003,10 @@ func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*ListW
 			&i.Task.Notes,
 			&i.Task.NotesUpdatedAt,
 			&i.Task.IsHidden,
-			&i.Task.StandsOnTaskID,
-			&i.Task.StandTip,
-			&i.Task.StandPullRequestID,
-			&i.Task.RestackBlocked,
+			&i.Task.ParentTaskID,
+			&i.Task.ForkPoint,
+			&i.Task.ParentPullRequestID,
+			&i.Task.CascadeBlocked,
 			&i.FailedRun,
 			&i.Documents,
 			&i.DocumentsUpdatedAt,
@@ -1128,24 +1128,24 @@ func (q *Queries) MarkWorkflowTasksDeleting(ctx context.Context, workflowID stri
 	return err
 }
 
-const recordTaskStandPullRequest = `-- name: RecordTaskStandPullRequest :exec
+const recordTaskParentPullRequest = `-- name: RecordTaskParentPullRequest :exec
 UPDATE
     tasks
 SET
-    stand_pull_request_id = $1
+    parent_pull_request_id = $1
 WHERE
     id = $2
-    AND stands_on_task_id IS NOT NULL
-    AND stand_pull_request_id IS NULL
+    AND parent_task_id IS NOT NULL
+    AND parent_pull_request_id IS NULL
 `
 
-type RecordTaskStandPullRequestParams struct {
-	StandPullRequestID *string
-	ID                 string
+type RecordTaskParentPullRequestParams struct {
+	ParentPullRequestID *string
+	ID                  string
 }
 
-func (q *Queries) RecordTaskStandPullRequest(ctx context.Context, arg RecordTaskStandPullRequestParams) error {
-	_, err := q.db.Exec(ctx, recordTaskStandPullRequest, arg.StandPullRequestID, arg.ID)
+func (q *Queries) RecordTaskParentPullRequest(ctx context.Context, arg RecordTaskParentPullRequestParams) error {
+	_, err := q.db.Exec(ctx, recordTaskParentPullRequest, arg.ParentPullRequestID, arg.ID)
 	return err
 }
 
@@ -1188,6 +1188,25 @@ func (q *Queries) RestoreTasks(ctx context.Context, ids []string) error {
 	return err
 }
 
+const setTaskCascadeBlocked = `-- name: SetTaskCascadeBlocked :exec
+UPDATE
+    tasks
+SET
+    cascade_blocked = $1
+WHERE
+    id = $2
+`
+
+type SetTaskCascadeBlockedParams struct {
+	CascadeBlocked *string
+	ID             string
+}
+
+func (q *Queries) SetTaskCascadeBlocked(ctx context.Context, arg SetTaskCascadeBlockedParams) error {
+	_, err := q.db.Exec(ctx, setTaskCascadeBlocked, arg.CascadeBlocked, arg.ID)
+	return err
+}
+
 const setTaskCheckoutDir = `-- name: SetTaskCheckoutDir :exec
 UPDATE
     tasks
@@ -1225,6 +1244,27 @@ type SetTaskDiffStatParams struct {
 
 func (q *Queries) SetTaskDiffStat(ctx context.Context, arg SetTaskDiffStatParams) error {
 	_, err := q.db.Exec(ctx, setTaskDiffStat, arg.LinesAdded, arg.LinesRemoved, arg.ID)
+	return err
+}
+
+const setTaskForkPoint = `-- name: SetTaskForkPoint :exec
+UPDATE
+    tasks
+SET
+    fork_point = $1,
+    cascade_blocked = NULL
+WHERE
+    id = $2
+    AND parent_task_id IS NOT NULL
+`
+
+type SetTaskForkPointParams struct {
+	ForkPoint *string
+	ID        string
+}
+
+func (q *Queries) SetTaskForkPoint(ctx context.Context, arg SetTaskForkPointParams) error {
+	_, err := q.db.Exec(ctx, setTaskForkPoint, arg.ForkPoint, arg.ID)
 	return err
 }
 
@@ -1324,22 +1364,32 @@ func (q *Queries) SetTaskMovedSinceRound(ctx context.Context, arg SetTaskMovedSi
 	return err
 }
 
-const setTaskRestackBlocked = `-- name: SetTaskRestackBlocked :exec
+const setTaskParent = `-- name: SetTaskParent :exec
 UPDATE
     tasks
 SET
-    restack_blocked = $1
+    parent_task_id = $1,
+    fork_point = $2,
+    parent_pull_request_id = $3,
+    cascade_blocked = NULL
 WHERE
-    id = $2
+    id = $4
 `
 
-type SetTaskRestackBlockedParams struct {
-	RestackBlocked *string
-	ID             string
+type SetTaskParentParams struct {
+	ParentTaskID        *string
+	ForkPoint           *string
+	ParentPullRequestID *string
+	ID                  string
 }
 
-func (q *Queries) SetTaskRestackBlocked(ctx context.Context, arg SetTaskRestackBlockedParams) error {
-	_, err := q.db.Exec(ctx, setTaskRestackBlocked, arg.RestackBlocked, arg.ID)
+func (q *Queries) SetTaskParent(ctx context.Context, arg SetTaskParentParams) error {
+	_, err := q.db.Exec(ctx, setTaskParent,
+		arg.ParentTaskID,
+		arg.ForkPoint,
+		arg.ParentPullRequestID,
+		arg.ID,
+	)
 	return err
 }
 
@@ -1362,56 +1412,6 @@ func (q *Queries) SetTaskSequence(ctx context.Context, arg SetTaskSequenceParams
 	return err
 }
 
-const setTaskStand = `-- name: SetTaskStand :exec
-UPDATE
-    tasks
-SET
-    stands_on_task_id = $1,
-    stand_tip = $2,
-    stand_pull_request_id = $3,
-    restack_blocked = NULL
-WHERE
-    id = $4
-`
-
-type SetTaskStandParams struct {
-	StandsOnTaskID     *string
-	StandTip           *string
-	StandPullRequestID *string
-	ID                 string
-}
-
-func (q *Queries) SetTaskStand(ctx context.Context, arg SetTaskStandParams) error {
-	_, err := q.db.Exec(ctx, setTaskStand,
-		arg.StandsOnTaskID,
-		arg.StandTip,
-		arg.StandPullRequestID,
-		arg.ID,
-	)
-	return err
-}
-
-const setTaskStandTip = `-- name: SetTaskStandTip :exec
-UPDATE
-    tasks
-SET
-    stand_tip = $1,
-    restack_blocked = NULL
-WHERE
-    id = $2
-    AND stands_on_task_id IS NOT NULL
-`
-
-type SetTaskStandTipParams struct {
-	StandTip *string
-	ID       string
-}
-
-func (q *Queries) SetTaskStandTip(ctx context.Context, arg SetTaskStandTipParams) error {
-	_, err := q.db.Exec(ctx, setTaskStandTip, arg.StandTip, arg.ID)
-	return err
-}
-
 const updateTask = `-- name: UpdateTask :one
 UPDATE
     tasks
@@ -1431,7 +1431,7 @@ WHERE
     AND ($4::text IS NULL
         OR notes_updated_at IS NOT DISTINCT FROM $6::timestamptz)
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, stands_on_task_id, stand_tip, stand_pull_request_id, restack_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_round, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
 `
 
 type UpdateTaskParams struct {
@@ -1481,10 +1481,10 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (*Task, 
 		&i.Notes,
 		&i.NotesUpdatedAt,
 		&i.IsHidden,
-		&i.StandsOnTaskID,
-		&i.StandTip,
-		&i.StandPullRequestID,
-		&i.RestackBlocked,
+		&i.ParentTaskID,
+		&i.ForkPoint,
+		&i.ParentPullRequestID,
+		&i.CascadeBlocked,
 	)
 	return &i, err
 }

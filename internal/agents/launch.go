@@ -104,8 +104,8 @@ type NewAgentParams struct {
 	Task             string
 	TaskSlug         string
 	TaskGoal         string
-	// StandOn is the task in the workflow the new task stands on, by id or slug, empty for none.
-	StandOn string
+	// DependsOn is the task in the workflow the new task depends on, by id or slug, empty for none.
+	DependsOn string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -146,17 +146,17 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		}
 	}
 
-	var stand *taskstore.Stand
-	if params.StandOn != "" {
+	var parent *taskstore.Parent
+	if params.DependsOn != "" {
 		if params.Task != "" {
-			return nil, tasks.ErrStandJoined
+			return nil, tasks.ErrDependsOnJoined
 		}
 
-		planned, err := s.tasks.PlanStand(ctx, tasks.PlanStandParams{WorkflowID: params.WorkflowID, Parent: params.StandOn})
+		planned, err := s.tasks.PlanParent(ctx, tasks.PlanParentParams{WorkflowID: params.WorkflowID, Parent: params.DependsOn})
 		if err != nil {
 			return nil, err
 		}
-		stand = planned
+		parent = planned
 	}
 
 	var joined *taskstore.Task
@@ -180,7 +180,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		return nil, err
 	}
 
-	return s.launchAgent(ctx, launchAgentParams{request: params, spawner: spawner, joined: joined, stand: stand})
+	return s.launchAgent(ctx, launchAgentParams{request: params, spawner: spawner, joined: joined, parent: parent})
 }
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
@@ -474,7 +474,7 @@ type launchAgentParams struct {
 	request NewAgentParams
 	spawner *agentstore.Agent
 	joined  *taskstore.Task
-	stand   *taskstore.Stand
+	parent  *taskstore.Parent
 }
 
 func (s *LaunchService) launchAgent(ctx context.Context, params launchAgentParams) (*agentstore.Agent, error) {
@@ -500,7 +500,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params launchAgentParam
 		repositoryURL: params.request.RepositoryURL,
 		provisioner:   plan.provisioner,
 		hideTask:      params.request.HideTask,
-		stand:         params.stand,
+		parent:        params.parent,
 	})
 	if err != nil {
 		return nil, err
@@ -769,7 +769,7 @@ type creation struct {
 	repositoryURL string
 	provisioner   string
 	hideTask      bool
-	stand         *taskstore.Stand
+	parent        *taskstore.Parent
 }
 
 // isCheckoutClaimant reports whether an agent's directory becomes its task's checkout, which only a
@@ -809,7 +809,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			Slug:   c.taskSlug,
 			Goal:   c.taskGoal,
 			Hidden: c.hideTask,
-			Stand:  c.stand,
+			Parent: c.parent,
 		})
 		if err != nil {
 			return err

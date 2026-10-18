@@ -16,13 +16,13 @@ import (
 // TestReviewSidebar covers the rows over the file tree: the stack, the forge and what needs the
 // person.
 func TestReviewSidebar(t *testing.T) {
-	t.Run("a task on the base branch with nothing standing on it has no stack", func(t *testing.T) {
+	t.Run("a task on the base branch without children has no stack", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40})
 
 		assert.NotContains(t, readSidebar(harness.readFrame()), "stack")
 	})
 
-	t.Run("the stack lists the tasks under the task and the tasks standing on it", func(t *testing.T) {
+	t.Run("the stack lists the task's ancestors and descendants", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServerOnAPI(t), panelHarnessParams{height: 40})
 
 		sidebar := readSidebar(harness.readFrame())
@@ -94,7 +94,7 @@ func newReviewServerOnAPI(t *testing.T) *reviewServer {
 	t.Helper()
 
 	server := newReviewServer(t)
-	server.task.Stand = &taskv1.Stand{TaskId: "t0"}
+	server.task.Parent = &taskv1.Parent{TaskId: "t0"}
 	server.forge = append(server.forge,
 		&taskv1.Task{
 			Id:         "t0",
@@ -117,7 +117,7 @@ func newReviewServerOnAPI(t *testing.T) *reviewServer {
 			Id:         "t2",
 			WorkflowId: "w1",
 			Slug:       "billing",
-			Stand:      &taskv1.Stand{TaskId: "t1", Blocked: taskv1.RestackBlock_RESTACK_BLOCK_CONFLICTED},
+			Parent:     &taskv1.Parent{TaskId: "t1", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED},
 		},
 	)
 

@@ -13,7 +13,7 @@ import (
 type worktreeRebaser interface {
 	PlanRebase(ctx context.Context, params checkouts.RebaseParams) (*checkouts.RebasePlan, error)
 	Rebase(ctx context.Context, params checkouts.RebaseParams) (*checkouts.RebaseResult, error)
-	PlaceStand(ctx context.Context, params checkouts.PlaceStandParams) (string, error)
+	PickForkPoint(ctx context.Context, params checkouts.PickForkPointParams) (string, error)
 }
 
 // PlanRebase reads what a rebase would do without doing it.
@@ -54,12 +54,12 @@ func (s *Handler) RebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktre
 	}, nil
 }
 
-// PlaceStand records the commit a standing task's own commits sit on.
-func (s *Handler) PlaceStand(ctx context.Context, req *agentv1.PlaceStandRequest) (*agentv1.PlaceStandResponse, *fail.Error) {
-	tip, err := s.rebaser.PlaceStand(ctx, checkouts.PlaceStandParams{Task: req.GetTask(), Commit: req.GetCommit()})
+// PickForkPoint records the fork point of an orphaned child.
+func (s *Handler) PickForkPoint(ctx context.Context, req *agentv1.PickForkPointRequest) (*agentv1.PickForkPointResponse, *fail.Error) {
+	forkPoint, err := s.rebaser.PickForkPoint(ctx, checkouts.PickForkPointParams{Task: req.GetTask(), Commit: req.GetCommit()})
 	if err != nil {
-		return nil, rpcerr.From(err, "failed to record the commit the task stands on")
+		return nil, rpcerr.From(err, "failed to record the fork point")
 	}
 
-	return &agentv1.PlaceStandResponse{Tip: tip}, nil
+	return &agentv1.PickForkPointResponse{ForkPoint: forkPoint}, nil
 }

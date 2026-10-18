@@ -26,41 +26,13 @@ func (q *Queries) EnsurePullRequestSync(ctx context.Context, repositoryUrl strin
 	return err
 }
 
-const getMergeStand = `-- name: GetMergeStand :one
-SELECT
-    EXISTS (
-        SELECT
-            1
-        FROM
-            tasks t
-        WHERE
-            t.repository_url = p.repository_url
-            AND t.branch = p.head_branch
-            AND t.stands_on_task_id IS NOT NULL
-            AND t.archived_at IS NULL
-            AND t.deleting_at IS NULL)::boolean AS head_stands,
-    EXISTS (
-        SELECT
-            1
-        FROM
-            tasks t
-            JOIN pull_requests q ON q.repository_url = t.repository_url
-                AND q.head_repository_url = t.repository_url
-                AND q.head_branch = p.base_branch
-        WHERE
-            t.repository_url = p.repository_url
-            AND COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text) = p.base_branch
-            AND t.deleting_at IS NULL
-            AND q.state <> 'OPEN'
-            AND NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    pull_requests o
-                WHERE
-                    o.repository_url = t.repository_url
-                    AND o.head_branch = p.base_branch
-                    AND o.state = 'OPEN'))::boolean AS base_finished
+const getMergeBlockers = `-- name: GetMergeBlockers :one
+WITH pull_request AS (
+    -- The newest pull request at the url.
+    SELECT
+        p.repository_url,
+        p.head_branch,
+        p.base_branch
     FROM
         pull_requests p
     WHERE
@@ -68,17 +40,130 @@ SELECT
     ORDER BY
         p.first_seen_at DESC
     LIMIT 1
+),
+child_heads AS (
+    -- Live children whose branch is the pull request's head. A child's pull request merges only after its parent's.
+    SELECT
+        1
+    FROM
+        tasks t
+        JOIN pull_request r ON t.repository_url = r.repository_url
+            AND t.branch = r.head_branch
+    WHERE
+        t.parent_task_id IS NOT NULL
+        AND t.archived_at IS NULL
+        AND t.deleting_at IS NULL
+),
+finished_bases AS (
+    -- Tasks whose branch is the pull request's base and whose own pull request from that branch merged or closed with none open since. A merge onto that branch never reaches the base branch.
+    SELECT
+        1
+    FROM
+        tasks t
+        JOIN pull_request r ON t.repository_url = r.repository_url
+            AND COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text) = r.base_branch
+        JOIN pull_requests q ON q.repository_url = t.repository_url
+            AND q.head_repository_url = t.repository_url
+            AND q.head_branch = r.base_branch
+    WHERE
+        t.deleting_at IS NULL
+        AND q.state <> 'OPEN'
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                pull_requests o
+            WHERE
+                o.repository_url = t.repository_url
+                AND o.head_branch = r.base_branch
+                AND o.state = 'OPEN'))
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            child_heads)::boolean AS head_has_parent,
+    EXISTS (
+        SELECT
+            1
+        FROM
+            finished_bases)::boolean AS base_finished
+FROM
+    pull_request
 `
 
-type GetMergeStandRow struct {
-	HeadStands   bool
-	BaseFinished bool
+type GetMergeBlockersRow struct {
+	HeadHasParent bool
+	BaseFinished  bool
 }
 
-func (q *Queries) GetMergeStand(ctx context.Context, url string) (*GetMergeStandRow, error) {
-	row := q.db.QueryRow(ctx, getMergeStand, url)
-	var i GetMergeStandRow
-	err := row.Scan(&i.HeadStands, &i.BaseFinished)
+func (q *Queries) GetMergeBlockers(ctx context.Context, url string) (*GetMergeBlockersRow, error) {
+	row := q.db.QueryRow(ctx, getMergeBlockers, url)
+	var i GetMergeBlockersRow
+	err := row.Scan(&i.HeadHasParent, &i.BaseFinished)
+	return &i, err
+}
+
+const getParentPullRequest = `-- name: GetParentPullRequest :one
+SELECT
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body
+FROM
+    pull_requests
+WHERE
+    repository_url = $1
+    AND head_repository_url = $1
+    AND head_branch = $2
+    AND (state = 'OPEN'
+        OR opened_at >= $3::timestamptz)
+ORDER BY
+    opened_at,
+    id
+LIMIT 1
+`
+
+type GetParentPullRequestParams struct {
+	RepositoryUrl string
+	HeadBranch    string
+	Since         time.Time
+}
+
+func (q *Queries) GetParentPullRequest(ctx context.Context, arg GetParentPullRequestParams) (*PullRequest, error) {
+	row := q.db.QueryRow(ctx, getParentPullRequest, arg.RepositoryUrl, arg.HeadBranch, arg.Since)
+	var i PullRequest
+	err := row.Scan(
+		&i.ID,
+		&i.Host,
+		&i.Forge,
+		&i.ProviderID,
+		&i.Url,
+		&i.RepositoryUrl,
+		&i.HeadRepositoryUrl,
+		&i.Number,
+		&i.Title,
+		&i.HeadBranch,
+		&i.HeadSha,
+		&i.BaseBranch,
+		&i.BaseSha,
+		&i.Draft,
+		&i.State,
+		&i.OpenedAt,
+		&i.ChangedAt,
+		&i.MergedAt,
+		&i.ClosedAt,
+		&i.FirstSeenAt,
+		&i.EngineID,
+		&i.MergeabilityBlankSince,
+		&i.AutoMerge,
+		&i.AutoMergeable,
+		&i.LatestDecision,
+		&i.LatestHeadSha,
+		&i.LatestMergeability,
+		&i.KnownMergeability,
+		&i.KnownMergeabilitySha,
+		&i.KnownDecision,
+		&i.Author,
+		&i.Body,
+	)
 	return &i, err
 }
 
@@ -236,67 +321,73 @@ func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id string) (*Pull
 	return &i, err
 }
 
-const getStandPullRequest = `-- name: GetStandPullRequest :one
-SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body
+const listLiveBranches = `-- name: ListLiveBranches :many
+SELECT DISTINCT
+    t.repository_url::text AS repository_url,
+    t.branch::text AS branch,
+    COALESCE(t.head_sha, '')::text AS head_sha
 FROM
-    pull_requests
+    tasks t
+    JOIN workflows w ON w.id = t.workflow_id
+    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
 WHERE
-    repository_url = $1
-    AND head_repository_url = $1
-    AND head_branch = $2
-    AND (state = 'OPEN'
-        OR opened_at >= $3::timestamptz)
+    t.archived_at IS NULL
+    AND t.repository_url IS NOT NULL
+    AND t.repository_url <> ''
+    AND t.branch IS NOT NULL
+    AND t.branch <> ''
+    AND (c.worktree_base_branch IS NULL
+        OR t.branch <> c.worktree_base_branch)
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents a
+        WHERE
+            a.task_id = t.id
+            AND a.archived_at IS NULL)
+UNION
+SELECT
+    p.repository_url::text AS repository_url,
+    p.head_branch::text AS branch,
+    p.head_sha::text AS head_sha
+FROM
+    tasks c
+    JOIN pull_requests p ON p.id = c.parent_pull_request_id
+WHERE
+    c.archived_at IS NULL
+    AND c.deleting_at IS NULL
 ORDER BY
-    opened_at,
-    id
-LIMIT 1
+    repository_url,
+    branch,
+    head_sha
 `
 
-type GetStandPullRequestParams struct {
+type ListLiveBranchesRow struct {
 	RepositoryUrl string
-	HeadBranch    string
-	Since         time.Time
+	Branch        string
+	HeadSha       string
 }
 
-func (q *Queries) GetStandPullRequest(ctx context.Context, arg GetStandPullRequestParams) (*PullRequest, error) {
-	row := q.db.QueryRow(ctx, getStandPullRequest, arg.RepositoryUrl, arg.HeadBranch, arg.Since)
-	var i PullRequest
-	err := row.Scan(
-		&i.ID,
-		&i.Host,
-		&i.Forge,
-		&i.ProviderID,
-		&i.Url,
-		&i.RepositoryUrl,
-		&i.HeadRepositoryUrl,
-		&i.Number,
-		&i.Title,
-		&i.HeadBranch,
-		&i.HeadSha,
-		&i.BaseBranch,
-		&i.BaseSha,
-		&i.Draft,
-		&i.State,
-		&i.OpenedAt,
-		&i.ChangedAt,
-		&i.MergedAt,
-		&i.ClosedAt,
-		&i.FirstSeenAt,
-		&i.EngineID,
-		&i.MergeabilityBlankSince,
-		&i.AutoMerge,
-		&i.AutoMergeable,
-		&i.LatestDecision,
-		&i.LatestHeadSha,
-		&i.LatestMergeability,
-		&i.KnownMergeability,
-		&i.KnownMergeabilitySha,
-		&i.KnownDecision,
-		&i.Author,
-		&i.Body,
-	)
-	return &i, err
+// The head branch of every live child's parent pull request, so the cascade sees its parent move even when no agent works on the parent.
+func (q *Queries) ListLiveBranches(ctx context.Context) ([]*ListLiveBranchesRow, error) {
+	rows, err := q.db.Query(ctx, listLiveBranches)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListLiveBranchesRow
+	for rows.Next() {
+		var i ListLiveBranchesRow
+		if err := rows.Scan(&i.RepositoryUrl, &i.Branch, &i.HeadSha); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listLiveRepositories = `-- name: ListLiveRepositories :many
@@ -473,74 +564,6 @@ func (q *Queries) ListPullRequestsPage(ctx context.Context, arg ListPullRequests
 			&i.Author,
 			&i.Body,
 		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSyncTargets = `-- name: ListSyncTargets :many
-SELECT DISTINCT
-    t.repository_url::text AS repository_url,
-    t.branch::text AS branch,
-    COALESCE(t.head_sha, '')::text AS head_sha
-FROM
-    tasks t
-    JOIN workflows w ON w.id = t.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
-WHERE
-    t.archived_at IS NULL
-    AND t.repository_url IS NOT NULL
-    AND t.repository_url <> ''
-    AND t.branch IS NOT NULL
-    AND t.branch <> ''
-    AND (c.worktree_base_branch IS NULL
-        OR t.branch <> c.worktree_base_branch)
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agents a
-        WHERE
-            a.task_id = t.id
-            AND a.archived_at IS NULL)
-UNION
-SELECT
-    p.repository_url::text AS repository_url,
-    p.head_branch::text AS branch,
-    p.head_sha::text AS head_sha
-FROM
-    tasks c
-    JOIN pull_requests p ON p.id = c.stand_pull_request_id
-WHERE
-    c.archived_at IS NULL
-    AND c.deleting_at IS NULL
-ORDER BY
-    repository_url,
-    branch,
-    head_sha
-`
-
-type ListSyncTargetsRow struct {
-	RepositoryUrl string
-	Branch        string
-	HeadSha       string
-}
-
-func (q *Queries) ListSyncTargets(ctx context.Context) ([]*ListSyncTargetsRow, error) {
-	rows, err := q.db.Query(ctx, listSyncTargets)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListSyncTargetsRow
-	for rows.Next() {
-		var i ListSyncTargetsRow
-		if err := rows.Scan(&i.RepositoryUrl, &i.Branch, &i.HeadSha); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)

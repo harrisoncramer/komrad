@@ -186,15 +186,15 @@ fresh_worktree() {
 		fetch_base || true
 	fi
 
-	# A task standing on another is cut from the commit komrad recorded of the parent's branch,
-	# which is held under a ref of the task's own so a later force-push of the parent never
+	# A child starts from its fork point, the commit komrad recorded of the parent's branch.
+	# A ref of the child's own holds that commit, so a later force-push of the parent never
 	# leaves it for git to collect.
 	if [ -n "$KOMRAD_WORKTREE_BASE_COMMIT" ]; then
 		if ! git -C "$repo" cat-file -e "$KOMRAD_WORKTREE_BASE_COMMIT^{commit}" 2>/dev/null; then
 			echo "worktree setup: $KOMRAD_WORKTREE_BASE_COMMIT of $base is not in $repo" >&2
 			exit 1
 		fi
-		git -C "$repo" update-ref "refs/komrad/stand/$KOMRAD_WORKTREE_NAME" "$KOMRAD_WORKTREE_BASE_COMMIT"
+		git -C "$repo" update-ref "refs/komrad/fork-point/$KOMRAD_WORKTREE_NAME" "$KOMRAD_WORKTREE_BASE_COMMIT"
 		point="$KOMRAD_WORKTREE_BASE_COMMIT"
 	fi
 

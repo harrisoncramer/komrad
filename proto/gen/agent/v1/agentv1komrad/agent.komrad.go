@@ -68,7 +68,7 @@ type AgentServiceImpl interface {
 	RebaseWorktree(context.Context, *v1.RebaseWorktreeRequest) (*v1.RebaseWorktreeResponse, *fail.Error)
 	PlanPush(context.Context, *v1.PlanPushRequest) (*v1.PlanPushResponse, *fail.Error)
 	PushWorktree(context.Context, *v1.PushWorktreeRequest) (*v1.PushWorktreeResponse, *fail.Error)
-	PlaceStand(context.Context, *v1.PlaceStandRequest) (*v1.PlaceStandResponse, *fail.Error)
+	PickForkPoint(context.Context, *v1.PickForkPointRequest) (*v1.PickForkPointResponse, *fail.Error)
 	AbortSequence(context.Context, *v1.AbortSequenceRequest) (*v1.AbortSequenceResponse, *fail.Error)
 	StartOrchestrator(context.Context, *v1.StartOrchestratorRequest) (*v1.StartOrchestratorResponse, *fail.Error)
 	MarkReviewThreadRead(context.Context, *v1.MarkReviewThreadReadRequest) (*v1.MarkReviewThreadReadResponse, *fail.Error)
@@ -339,9 +339,9 @@ func (a AgentServiceAdapter) PushWorktree(ctx context.Context, req *connect.Requ
 	return rpcerr.Answer(a.Impl.PushWorktree(ctx, req.Msg))
 }
 
-// PlaceStand answers the request as connect serves it.
-func (a AgentServiceAdapter) PlaceStand(ctx context.Context, req *connect.Request[v1.PlaceStandRequest]) (*connect.Response[v1.PlaceStandResponse], error) {
-	return rpcerr.Answer(a.Impl.PlaceStand(ctx, req.Msg))
+// PickForkPoint answers the request as connect serves it.
+func (a AgentServiceAdapter) PickForkPoint(ctx context.Context, req *connect.Request[v1.PickForkPointRequest]) (*connect.Response[v1.PickForkPointResponse], error) {
+	return rpcerr.Answer(a.Impl.PickForkPoint(ctx, req.Msg))
 }
 
 // AbortSequence answers the request as connect serves it.

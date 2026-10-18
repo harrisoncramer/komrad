@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const standRepository = "https://github.com/harrisoncramer/komrad"
+const parentRepository = "https://github.com/harrisoncramer/komrad"
 
-// TestPlanStand pins which tasks a new task may stand on and what it records of each.
-func TestPlanStand(t *testing.T) {
+// TestPlanParent pins which tasks a new task may depend on and what it records of each.
+func TestPlanParent(t *testing.T) {
 	tests := []struct {
 		name    string
 		branch  string
@@ -26,16 +26,16 @@ func TestPlanStand(t *testing.T) {
 		{
 			name:    "a task with no worktree is refused",
 			branch:  "task/parent",
-			wantErr: errStandNoWorktree,
+			wantErr: errParentNoWorktree,
 		},
 		{
 			name:    "a task on the base branch is refused",
 			branch:  "main",
 			cwd:     "/tree",
-			wantErr: errStandOnBase,
+			wantErr: errParentOnBase,
 		},
 		{
-			name:   "a task with no pull request records its tip on origin alone",
+			name:   "a task with no pull request records its newest commit on origin alone",
 			branch: "task/parent",
 			cwd:    "/tree",
 		},
@@ -59,15 +59,15 @@ func TestPlanStand(t *testing.T) {
 			if tt.cwd != "" {
 				require.NoError(t, stores.Tasks.SetCheckoutDir(ctx, parent.ID, tt.cwd))
 			}
-			repository := standRepository
+			repository := parentRepository
 			require.NoError(t, stores.Tasks.SetHead(ctx, parent.ID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &tt.branch}))
 			var pullRequestID string
 			if tt.opened {
 				pullRequestID = stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
-					RepositoryURL: standRepository,
+					RepositoryURL: parentRepository,
 					Number:        1,
 					HeadBranch:    tt.branch,
-					HeadSHA:       "tip",
+					HeadSHA:       "newest",
 					BaseBranch:    "main",
 				}).ID
 			}
@@ -75,30 +75,30 @@ func TestPlanStand(t *testing.T) {
 				Tasks:        stores.Tasks,
 				Workflows:    stores.Workflows,
 				PullRequests: stores.PullRequests,
-				Git:          &gittest.Mover{Tips: map[string]string{"task/parent": "tip"}},
+				Git:          &gittest.Mover{Tips: map[string]string{"task/parent": "newest"}},
 			})
 
-			stand, err := svc.PlanStand(ctx, PlanStandParams{WorkflowID: workflow.ID, Parent: "parent"})
+			planned, err := svc.PlanParent(ctx, PlanParentParams{WorkflowID: workflow.ID, Parent: "parent"})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, &taskstore.Stand{ParentID: parent.ID, Tip: "tip", PullRequestID: pullRequestID}, stand)
+			assert.Equal(t, &taskstore.Parent{TaskID: parent.ID, ForkPoint: "newest", PullRequestID: pullRequestID}, planned)
 		})
 	}
 }
 
-// TestRefuseStoodOn pins which deletes a task standing on another turns down.
-func TestRefuseStoodOn(t *testing.T) {
+// TestRefuseParentDelete pins which deletes of a parent and its children go ahead.
+func TestRefuseParentDelete(t *testing.T) {
 	stores := storetest.Open(t)
 	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks})
 	parent := stores.SeedTask(t, taskstore.CreateParams{Slug: "parent"})
 	child := stores.SeedTask(t, taskstore.CreateParams{
 		WorkflowID: parent.WorkflowID,
 		Slug:       "child",
-		Stand:      &taskstore.Stand{ParentID: parent.ID, Tip: "tip"},
+		Parent:     &taskstore.Parent{TaskID: parent.ID, ForkPoint: "abc"},
 	})
 
 	tests := []struct {
@@ -107,23 +107,23 @@ func TestRefuseStoodOn(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "a task another stands on is refused",
+			name:    "a parent is refused",
 			ids:     []string{parent.ID},
-			wantErr: errStoodOn,
+			wantErr: errHasChildren,
 		},
 		{
-			name: "a task deleted with every task standing on it goes ahead",
+			name: "a parent deleted with all its children goes ahead",
 			ids:  []string{parent.ID, child.ID},
 		},
 		{
-			name: "a task standing on another goes ahead",
+			name: "a child goes ahead",
 			ids:  []string{child.ID},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := svc.RefuseStoodOn(t.Context(), tt.ids)
+			err := svc.RefuseParentDelete(t.Context(), tt.ids)
 
 			require.ErrorIs(t, err, tt.wantErr)
 		})

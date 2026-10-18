@@ -307,27 +307,27 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 	}
 }
 
-// TestRebaseOntoBaseEndsTheStandOnceTheMoveFinishes covers moving a standing task onto the workflow's base branch.
-func TestRebaseOntoBaseEndsTheStandOnceTheMoveFinishes(t *testing.T) {
+// TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes covers re-targeting a child onto the workflow's base branch.
+func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 	tests := []struct {
-		name      string
-		replayErr error
-		wantErr   bool
-		wantStand bool
+		name       string
+		replayErr  error
+		wantErr    bool
+		wantParent bool
 	}{
 		{
-			name:      "a move that fails keeps the stand",
-			replayErr: errors.New("the post-rewrite hook failed"),
-			wantErr:   true,
-			wantStand: true,
+			name:       "a re-target that fails keeps the parent",
+			replayErr:  errors.New("the post-rewrite hook failed"),
+			wantErr:    true,
+			wantParent: true,
 		},
 		{
-			name:      "a move stopped on conflicts keeps the stand until the branch leaves the parent",
-			replayErr: git.ErrRebaseConflicted,
-			wantStand: true,
+			name:       "a re-target stopped on conflicts keeps the parent until the branch leaves it",
+			replayErr:  git.ErrRebaseConflicted,
+			wantParent: true,
 		},
 		{
-			name: "a move that finishes ends the stand",
+			name: "a re-target that finishes clears the parent",
 		},
 	}
 
@@ -348,7 +348,7 @@ func TestRebaseOntoBaseEndsTheStandOnceTheMoveFinishes(t *testing.T) {
 
 			got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantStand, got.Stand != nil)
+			assert.Equal(t, tt.wantParent, got.Parent != nil)
 		})
 	}
 }
@@ -687,7 +687,7 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 		stores:          stores,
 		checkoutSync:    &waketest.Counter{},
 		pullRequestSync: &waketest.Counter{},
-		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler(), NewAbortedHandler(), NewRestackedHandler()),
+		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler(), NewAbortedHandler(), NewCascadedHandler()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
 			Name:     "flow",
 			Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},

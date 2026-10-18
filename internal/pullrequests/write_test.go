@@ -111,10 +111,10 @@ func TestMergePullRequest(t *testing.T) {
 			wantErr: store.ErrNotFound,
 		},
 		{
-			name:    "a pull request from a task standing on another",
+			name:    "a pull request from a child",
 			address: address,
-			child:   childTask{stands: true, parentState: "OPEN"},
-			wantErr: errMergeStanding,
+			child:   childTask{hasParent: true, parentState: "OPEN"},
+			wantErr: errMergeHasParent,
 		},
 		{
 			name:    "a pull request onto a task whose own pull request merged",
@@ -291,10 +291,10 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 			wantErr: forge.ErrNotPullRequest,
 		},
 		{
-			name:    "a pull request from a task standing on another",
+			name:    "a pull request from a child",
 			params:  forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
-			child:   childTask{stands: true, parentState: "OPEN"},
-			wantErr: errMergeStanding,
+			child:   childTask{hasParent: true, parentState: "OPEN"},
+			wantErr: errMergeHasParent,
 		},
 		{
 			name: "a pull request the forge will not queue",
@@ -356,7 +356,7 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 
 // childTask is a child task's pull request at the test address onto its parent's branch, laid only once parentState names the state of the parent's own pull request.
 type childTask struct {
-	stands      bool
+	hasParent   bool
 	parentState string
 }
 
@@ -371,8 +371,8 @@ func seedChildTask(t *testing.T, stores *storetest.Stores, laid childTask) {
 	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "parent-and-child"})
 	parent := seedBranchTask(t, stores, workflow.ID, "task/parent")
 	child := seedBranchTask(t, stores, workflow.ID, "task/child")
-	if laid.stands {
-		require.NoError(t, stores.Tasks.SetStand(t.Context(), child, &taskstore.Stand{ParentID: parent, Tip: "abc"}))
+	if laid.hasParent {
+		require.NoError(t, stores.Tasks.SetParent(t.Context(), child, &taskstore.Parent{TaskID: parent, ForkPoint: "abc"}))
 	}
 
 	stores.SeedPullRequest(t, storetest.SeedPullRequestParams{

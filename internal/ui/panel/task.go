@@ -28,8 +28,8 @@ type Task struct {
 	MovedSinceRound string
 	// DiffStat is the lines its checkout adds and removes since its base, nil where there is none.
 	DiffStat *taskv1.DiffStat
-	// Stand is the task this one stands on, nil for a task on the workflow's base branch.
-	Stand *taskv1.Stand
+	// Parent is the task this one depends on, nil for a task on the workflow's base branch.
+	Parent *taskv1.Parent
 	// Hidden is whether a person hid the task from the sidebar.
 	Hidden bool
 	// FailedRun is whether a script run on the task failed and its logs have not been opened since.

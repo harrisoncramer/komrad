@@ -211,12 +211,12 @@ type GitKeys struct {
 	// Bring the hovered task's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`
-	// Move the hovered task off the task it stands on and onto the workflow's base branch, replaying
-	// only its own commits, which asks first. The entry is off for a task that stands on none.
+	// Re-target the hovered child onto the workflow's base branch, rebasing only its own commits,
+	// which asks first. The entry is off for a task without a parent.
 	RebaseOntoBase []string `mapstructure:"rebase_onto_base" default:"R"`
-	// Name the commit the hovered task's own commits sit on, for a task that stands on another and has
-	// lost its place there because its branch was rewritten.
-	PlaceStand []string `mapstructure:"place_stand" default:"s"`
+	// Pick the fork point of the hovered child, the commit its own commits sit on, once a rewrite
+	// of its branch has orphaned it.
+	PickForkPoint []string `mapstructure:"pick_fork_point" default:"s"`
 	// Ask everyone who requested changes on the hovered task's pull request to review it again.
 	RequestRereview []string `mapstructure:"request_rereview" default:"v"`
 	// Mark the hovered task's pull request a draft, or ready for review when it is one.

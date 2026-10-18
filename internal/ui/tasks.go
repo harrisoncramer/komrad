@@ -376,8 +376,8 @@ func (w chosenWork) affected(l listing) []panel.Agent {
 	return slices.Concat(l.agentsOnTasks(w.wholeTasks), w.loneAgents)
 }
 
-// standable is the workflow's live tasks with a branch a new task can stand on, by slug.
-func (t taskIndex) standable(workflowID string) []panel.Task {
+// possibleParents is the workflow's live tasks with a branch a new task can depend on, by slug.
+func (t taskIndex) possibleParents(workflowID string) []panel.Task {
 	var tasks []panel.Task
 	for _, task := range t {
 		if task.WorkflowID == workflowID && task.ArchivedAt == nil && task.Branch != nil && !task.WorktreeRemoved {
@@ -389,31 +389,31 @@ func (t taskIndex) standable(workflowID string) []panel.Task {
 	return tasks
 }
 
-// parentsOf is the tasks a task stands on, the one at the root first.
-func (t taskIndex) parentsOf(task panel.Task) []panel.Task {
-	var parents []panel.Task
+// ancestorsOf is a task's parent, that task's parent and so on, the bottom of the stack first.
+func (t taskIndex) ancestorsOf(task panel.Task) []panel.Task {
+	var ancestors []panel.Task
 	seen := map[string]bool{task.ID: true}
-	for id := task.Stand.GetTaskId(); id != "" && !seen[id]; {
+	for id := task.Parent.GetTaskId(); id != "" && !seen[id]; {
 		parent, ok := t[id]
 		if !ok {
 			break
 		}
 
 		seen[id] = true
-		parents = append(parents, parent)
-		id = parent.Stand.GetTaskId()
+		ancestors = append(ancestors, parent)
+		id = parent.Parent.GetTaskId()
 	}
 
-	slices.Reverse(parents)
+	slices.Reverse(ancestors)
 
-	return parents
+	return ancestors
 }
 
-// childrenOf is the live tasks standing on a task, oldest first.
+// childrenOf is a task's live children, oldest first.
 func (t taskIndex) childrenOf(id string) []panel.Task {
 	var children []panel.Task
 	for _, task := range t {
-		if task.Stand.GetTaskId() == id && task.ArchivedAt == nil {
+		if task.Parent.GetTaskId() == id && task.ArchivedAt == nil {
 			children = append(children, task)
 		}
 	}

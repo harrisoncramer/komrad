@@ -94,60 +94,60 @@ func (Sequence) EnumDescriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{0}
 }
 
-// RestackBlock is why komrad cannot restack a standing task onto the task it stands on.
-type RestackBlock int32
+// CascadeBlock is why the cascade cannot rebase a child onto its parent.
+type CascadeBlock int32
 
 const (
-	// Nothing blocks the restack.
-	RestackBlock_RESTACK_BLOCK_UNSPECIFIED RestackBlock = 0
-	// Replaying the task's own commits onto its parent conflicted.
-	RestackBlock_RESTACK_BLOCK_CONFLICTED RestackBlock = 1
-	// The task's branch no longer holds the commit its own commits sit on.
-	RestackBlock_RESTACK_BLOCK_LOST RestackBlock = 2
+	// Nothing blocks the cascade.
+	CascadeBlock_CASCADE_BLOCK_UNSPECIFIED CascadeBlock = 0
+	// Rebasing the child's own commits onto its parent stopped on conflicts.
+	CascadeBlock_CASCADE_BLOCK_CONFLICTED CascadeBlock = 1
+	// The child is orphaned: its branch holds neither its fork point nor its parent's newest commit.
+	CascadeBlock_CASCADE_BLOCK_ORPHANED CascadeBlock = 2
 	// The parent's pull request closed without merging.
-	RestackBlock_RESTACK_BLOCK_PARENT_CLOSED RestackBlock = 3
+	CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED CascadeBlock = 3
 )
 
-// Enum value maps for RestackBlock.
+// Enum value maps for CascadeBlock.
 var (
-	RestackBlock_name = map[int32]string{
-		0: "RESTACK_BLOCK_UNSPECIFIED",
-		1: "RESTACK_BLOCK_CONFLICTED",
-		2: "RESTACK_BLOCK_LOST",
-		3: "RESTACK_BLOCK_PARENT_CLOSED",
+	CascadeBlock_name = map[int32]string{
+		0: "CASCADE_BLOCK_UNSPECIFIED",
+		1: "CASCADE_BLOCK_CONFLICTED",
+		2: "CASCADE_BLOCK_ORPHANED",
+		3: "CASCADE_BLOCK_PARENT_CLOSED",
 	}
-	RestackBlock_value = map[string]int32{
-		"RESTACK_BLOCK_UNSPECIFIED":   0,
-		"RESTACK_BLOCK_CONFLICTED":    1,
-		"RESTACK_BLOCK_LOST":          2,
-		"RESTACK_BLOCK_PARENT_CLOSED": 3,
+	CascadeBlock_value = map[string]int32{
+		"CASCADE_BLOCK_UNSPECIFIED":   0,
+		"CASCADE_BLOCK_CONFLICTED":    1,
+		"CASCADE_BLOCK_ORPHANED":      2,
+		"CASCADE_BLOCK_PARENT_CLOSED": 3,
 	}
 )
 
-func (x RestackBlock) Enum() *RestackBlock {
-	p := new(RestackBlock)
+func (x CascadeBlock) Enum() *CascadeBlock {
+	p := new(CascadeBlock)
 	*p = x
 	return p
 }
 
-func (x RestackBlock) String() string {
+func (x CascadeBlock) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (RestackBlock) Descriptor() protoreflect.EnumDescriptor {
+func (CascadeBlock) Descriptor() protoreflect.EnumDescriptor {
 	return file_task_v1_task_proto_enumTypes[1].Descriptor()
 }
 
-func (RestackBlock) Type() protoreflect.EnumType {
+func (CascadeBlock) Type() protoreflect.EnumType {
 	return &file_task_v1_task_proto_enumTypes[1]
 }
 
-func (x RestackBlock) Number() protoreflect.EnumNumber {
+func (x CascadeBlock) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use RestackBlock.Descriptor instead.
-func (RestackBlock) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use CascadeBlock.Descriptor instead.
+func (CascadeBlock) EnumDescriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{1}
 }
 
@@ -266,8 +266,8 @@ type Task struct {
 	// When the newest of the task's documents was last written, in RFC 3339. Unset when the task
 	// has none.
 	DocumentsUpdatedAt *string `protobuf:"bytes,24,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
-	// The task this task stands on. Unset for a task on the workflow's base branch.
-	Stand         *Stand `protobuf:"bytes,25,opt,name=stand,proto3,oneof" json:"stand,omitempty"`
+	// The task this task depends on. Unset for a task on the workflow's base branch.
+	Parent        *Parent `protobuf:"bytes,25,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -470,43 +470,44 @@ func (x *Task) GetDocumentsUpdatedAt() string {
 	return ""
 }
 
-func (x *Task) GetStand() *Stand {
+func (x *Task) GetParent() *Parent {
 	if x != nil {
-		return x.Stand
+		return x.Parent
 	}
 	return nil
 }
 
-// Stand is the task another task's branch was cut from, and where on it the task's own commits
-// begin. Rounds and line counts measure from `tip`.
-type Stand struct {
+// Parent is the task a child depends on, and the fork point where the child's own commits begin on
+// the parent's branch. Rounds and line counts measure from `fork_point`.
+type Parent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The id of the task stood on.
+	// The id of the parent task.
 	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// The commit of the parent's branch the task's own commits sit on.
-	Tip string `protobuf:"bytes,2,opt,name=tip,proto3" json:"tip,omitempty"`
-	// The id of the parent's pull request the task follows. Empty until the parent has one.
+	// The commit of the parent's branch the child's own commits sit on.
+	ForkPoint string `protobuf:"bytes,2,opt,name=fork_point,json=forkPoint,proto3" json:"fork_point,omitempty"`
+	// The id of the parent's pull request, which komrad reads for the parent's newest commit and its
+	// merge. Empty until the parent has one.
 	PullRequestId string `protobuf:"bytes,3,opt,name=pull_request_id,json=pullRequestId,proto3" json:"pull_request_id,omitempty"`
-	// Why komrad cannot restack the task onto its parent.
-	Blocked       RestackBlock `protobuf:"varint,4,opt,name=blocked,proto3,enum=task.v1.RestackBlock" json:"blocked,omitempty"`
+	// Why the cascade cannot rebase the child onto its parent.
+	Blocked       CascadeBlock `protobuf:"varint,4,opt,name=blocked,proto3,enum=task.v1.CascadeBlock" json:"blocked,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Stand) Reset() {
-	*x = Stand{}
+func (x *Parent) Reset() {
+	*x = Parent{}
 	mi := &file_task_v1_task_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Stand) String() string {
+func (x *Parent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Stand) ProtoMessage() {}
+func (*Parent) ProtoMessage() {}
 
-func (x *Stand) ProtoReflect() protoreflect.Message {
+func (x *Parent) ProtoReflect() protoreflect.Message {
 	mi := &file_task_v1_task_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -518,37 +519,37 @@ func (x *Stand) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Stand.ProtoReflect.Descriptor instead.
-func (*Stand) Descriptor() ([]byte, []int) {
+// Deprecated: Use Parent.ProtoReflect.Descriptor instead.
+func (*Parent) Descriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Stand) GetTaskId() string {
+func (x *Parent) GetTaskId() string {
 	if x != nil {
 		return x.TaskId
 	}
 	return ""
 }
 
-func (x *Stand) GetTip() string {
+func (x *Parent) GetForkPoint() string {
 	if x != nil {
-		return x.Tip
+		return x.ForkPoint
 	}
 	return ""
 }
 
-func (x *Stand) GetPullRequestId() string {
+func (x *Parent) GetPullRequestId() string {
 	if x != nil {
 		return x.PullRequestId
 	}
 	return ""
 }
 
-func (x *Stand) GetBlocked() RestackBlock {
+func (x *Parent) GetBlocked() CascadeBlock {
 	if x != nil {
 		return x.Blocked
 	}
-	return RestackBlock_RESTACK_BLOCK_UNSPECIFIED
+	return CascadeBlock_CASCADE_BLOCK_UNSPECIFIED
 }
 
 type CreateTaskRequest struct {
@@ -1297,7 +1298,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xff\a\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\x83\b\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -1328,8 +1329,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"failed_run\x18\x15 \x01(\bR\tfailedRun\x12\x16\n" +
 	"\x06hidden\x18\x16 \x01(\bR\x06hidden\x12\x1c\n" +
 	"\tdocuments\x18\x17 \x01(\x05R\tdocuments\x125\n" +
-	"\x14documents_updated_at\x18\x18 \x01(\tH\bR\x12documentsUpdatedAt\x88\x01\x01\x12)\n" +
-	"\x05stand\x18\x19 \x01(\v2\x0e.task.v1.StandH\tR\x05stand\x88\x01\x01B\x0e\n" +
+	"\x14documents_updated_at\x18\x18 \x01(\tH\bR\x12documentsUpdatedAt\x88\x01\x01\x12,\n" +
+	"\x06parent\x18\x19 \x01(\v2\x0f.task.v1.ParentH\tR\x06parent\x88\x01\x01B\x0e\n" +
 	"\f_archived_atB\x06\n" +
 	"\x04_cwdB\t\n" +
 	"\a_branchB\x11\n" +
@@ -1339,13 +1340,14 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"_diff_statB\x11\n" +
 	"\x0f_adopted_branchB\x13\n" +
 	"\x11_notes_updated_atB\x17\n" +
-	"\x15_documents_updated_atB\b\n" +
-	"\x06_stand\"\x8b\x01\n" +
-	"\x05Stand\x12\x17\n" +
-	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x10\n" +
-	"\x03tip\x18\x02 \x01(\tR\x03tip\x12&\n" +
+	"\x15_documents_updated_atB\t\n" +
+	"\a_parent\"\x99\x01\n" +
+	"\x06Parent\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1d\n" +
+	"\n" +
+	"fork_point\x18\x02 \x01(\tR\tforkPoint\x12&\n" +
 	"\x0fpull_request_id\x18\x03 \x01(\tR\rpullRequestId\x12/\n" +
-	"\ablocked\x18\x04 \x01(\x0e2\x15.task.v1.RestackBlockR\ablocked\"\xbb\x01\n" +
+	"\ablocked\x18\x04 \x01(\x0e2\x15.task.v1.CascadeBlockR\ablocked\"\xbb\x01\n" +
 	"\x11CreateTaskRequest\x127\n" +
 	"\x04slug\x18\x01 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$R\x04slug\x12$\n" +
 	"\x05title\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x05title\x12\x1d\n" +
@@ -1402,12 +1404,12 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\vSEQUENCE_AM\x10\x03\x12\x12\n" +
 	"\x0eSEQUENCE_MERGE\x10\x04\x12\x18\n" +
 	"\x14SEQUENCE_CHERRY_PICK\x10\x05\x12\x13\n" +
-	"\x0fSEQUENCE_REVERT\x10\x06*\x84\x01\n" +
-	"\fRestackBlock\x12\x1d\n" +
-	"\x19RESTACK_BLOCK_UNSPECIFIED\x10\x00\x12\x1c\n" +
-	"\x18RESTACK_BLOCK_CONFLICTED\x10\x01\x12\x16\n" +
-	"\x12RESTACK_BLOCK_LOST\x10\x02\x12\x1f\n" +
-	"\x1bRESTACK_BLOCK_PARENT_CLOSED\x10\x032\xba\x11\n" +
+	"\x0fSEQUENCE_REVERT\x10\x06*\x88\x01\n" +
+	"\fCascadeBlock\x12\x1d\n" +
+	"\x19CASCADE_BLOCK_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18CASCADE_BLOCK_CONFLICTED\x10\x01\x12\x1a\n" +
+	"\x16CASCADE_BLOCK_ORPHANED\x10\x02\x12\x1f\n" +
+	"\x1bCASCADE_BLOCK_PARENT_CLOSED\x10\x032\xba\x11\n" +
 	"\vTaskService\x12\xcf\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\x87\x01\x9a\xb5\x18\x82\x01\b\x01\x10\x01\x1a\vcreate_task\"jCreate a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`.(\x00:\x01\x02\x12\x96\x01\n" +
@@ -1438,10 +1440,10 @@ var file_task_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_task_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_task_v1_task_proto_goTypes = []any{
 	(Sequence)(0),                   // 0: task.v1.Sequence
-	(RestackBlock)(0),               // 1: task.v1.RestackBlock
+	(CascadeBlock)(0),               // 1: task.v1.CascadeBlock
 	(*DiffStat)(nil),                // 2: task.v1.DiffStat
 	(*Task)(nil),                    // 3: task.v1.Task
-	(*Stand)(nil),                   // 4: task.v1.Stand
+	(*Parent)(nil),                  // 4: task.v1.Parent
 	(*CreateTaskRequest)(nil),       // 5: task.v1.CreateTaskRequest
 	(*CreateTaskResponse)(nil),      // 6: task.v1.CreateTaskResponse
 	(*GetTaskRequest)(nil),          // 7: task.v1.GetTaskRequest
@@ -1461,8 +1463,8 @@ var file_task_v1_task_proto_goTypes = []any{
 var file_task_v1_task_proto_depIdxs = []int32{
 	0,  // 0: task.v1.Task.sequence:type_name -> task.v1.Sequence
 	2,  // 1: task.v1.Task.diff_stat:type_name -> task.v1.DiffStat
-	4,  // 2: task.v1.Task.stand:type_name -> task.v1.Stand
-	1,  // 3: task.v1.Stand.blocked:type_name -> task.v1.RestackBlock
+	4,  // 2: task.v1.Task.parent:type_name -> task.v1.Parent
+	1,  // 3: task.v1.Parent.blocked:type_name -> task.v1.CascadeBlock
 	3,  // 4: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
 	3,  // 5: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
 	3,  // 6: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task

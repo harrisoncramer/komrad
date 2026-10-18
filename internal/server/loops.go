@@ -13,8 +13,8 @@ const (
 	// transcriptSyncInterval is how often an agent's log is read for new turns.
 	transcriptSyncInterval = 15 * time.Second
 	cwdSyncInterval        = 15 * time.Second
-	// restackInterval is how often komrad looks for standing tasks whose parent moved.
-	restackInterval = 15 * time.Second
+	// cascadeInterval is how often the cascade looks for children whose parent moved.
+	cascadeInterval = 15 * time.Second
 	// pullRequestSyncInterval is how often the pull request sync asks which repositories are due.
 	pullRequestSyncInterval = 5 * time.Second
 	// commentSyncInterval is how often komrad asks the forges whether review comments moved.
@@ -42,7 +42,7 @@ const (
 	mailDeliveryLoop    = "mail delivery"
 	TranscriptSyncLoop  = "transcript sync"
 	CwdSyncLoop         = "cwd sync"
-	restackLoop         = "restack"
+	cascadeLoop         = "cascade"
 	PullRequestSyncLoop = "pull request sync"
 	CommentSyncLoop     = "review comment sync"
 	WorktreeSizeLoop    = "worktree sizes"
@@ -99,10 +99,10 @@ func buildLoops(params buildLoopsParams) []*loop {
 			Waker:    params.Wakers.cwdSync,
 		}),
 		newLoop(newLoopParams{
-			Name:     restackLoop,
-			Interval: restackInterval,
+			Name:     cascadeLoop,
+			Interval: cascadeInterval,
 			Floor:    localLoopFloor,
-			Run:      params.Services.checkouts.service.Restack,
+			Run:      params.Services.checkouts.service.Cascade,
 		}),
 		newLoop(newLoopParams{
 			Name:     PullRequestSyncLoop,

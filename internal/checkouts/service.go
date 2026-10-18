@@ -49,7 +49,7 @@ type checkoutTarget struct {
 	task     *taskstore.Task
 	workflow *workflowstore.Workflow
 	writer   *agentstore.Agent
-	// ontoBase rebases a standing task onto the workflow's base branch, leaving the task it stands on.
+	// ontoBase re-targets a child onto the workflow's base branch, away from its parent.
 	ontoBase bool
 }
 

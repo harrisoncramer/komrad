@@ -536,14 +536,14 @@
               "key": "rebase_onto_base",
               "path": "keybindings.git.rebase_onto_base",
               "type": "array",
-              "description": "Move the hovered task off the task it stands on and onto the workflow's base branch, replaying\nonly its own commits, which asks first. The entry is off for a task that stands on none.",
+              "description": "Re-target the hovered child onto the workflow's base branch, rebasing only its own commits,\nwhich asks first. The entry is off for a task without a parent.",
               "default": "[\"R\"]"
             },
             {
-              "key": "place_stand",
-              "path": "keybindings.git.place_stand",
+              "key": "pick_fork_point",
+              "path": "keybindings.git.pick_fork_point",
               "type": "array",
-              "description": "Name the commit the hovered task's own commits sit on, for a task that stands on another and has\nlost its place there because its branch was rewritten.",
+              "description": "Pick the fork point of the hovered child, the commit its own commits sit on, once a rewrite\nof its branch has orphaned it.",
               "default": "[\"s\"]"
             },
             {

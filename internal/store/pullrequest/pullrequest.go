@@ -462,16 +462,16 @@ func (s *PullRequestStore) ListRecipients(ctx context.Context, id string) ([]str
 	return ids, nil
 }
 
-// GetStandPullRequestParams names the parent's repository and branch, and when the stand on it began.
-type GetStandPullRequestParams struct {
+// GetParentPullRequestParams names the parent's repository and branch, and when the child took that parent.
+type GetParentPullRequestParams struct {
 	RepositoryURL string
 	HeadBranch    string
 	Since         time.Time
 }
 
-// GetStandPullRequest is the pull request a task standing on a branch follows, the earliest open one or opened since the stand began.
-func (s *PullRequestStore) GetStandPullRequest(ctx context.Context, params GetStandPullRequestParams) (*PullRequest, error) {
-	row, err := s.queries.GetStandPullRequest(ctx, models.GetStandPullRequestParams{
+// GetParentPullRequest is a child's parent pull request on a branch: the earliest one open, or opened since the child took that parent.
+func (s *PullRequestStore) GetParentPullRequest(ctx context.Context, params GetParentPullRequestParams) (*PullRequest, error) {
+	row, err := s.queries.GetParentPullRequest(ctx, models.GetParentPullRequestParams{
 		RepositoryUrl: params.RepositoryURL,
 		HeadBranch:    params.HeadBranch,
 		Since:         params.Since,
@@ -486,23 +486,23 @@ func (s *PullRequestStore) GetStandPullRequest(ctx context.Context, params GetSt
 	return s.withOneMergeReadiness(ctx, row)
 }
 
-// mergeStand is where a pull request's branches stand among the tasks that stand on one another.
-type mergeStand struct {
-	// HeadStands says the pull request comes from a live task standing on another.
-	HeadStands bool
+// mergeBlockers is what about a pull request's branches turns its merge down.
+type mergeBlockers struct {
+	// HeadHasParent says the pull request comes from a live child, which merges only after its parent.
+	HeadHasParent bool
 	// BaseFinished says the pull request targets a task's branch whose own pull request merged or closed.
 	BaseFinished bool
 }
 
-// GetMergeStand reads where the pull request at an address stands, or ErrNotFound for one komrad has not stored.
-func (s *PullRequestStore) GetMergeStand(ctx context.Context, url string) (*mergeStand, error) {
-	row, err := s.queries.GetMergeStand(ctx, url)
+// GetMergeBlockers reads what turns down a merge of the pull request at an address, or ErrNotFound for one komrad has not stored.
+func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*mergeBlockers, error) {
+	row, err := s.queries.GetMergeBlockers(ctx, url)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no pull request at %s", url)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read where the pull request at %s stands: %w", url, err)
+		return nil, fmt.Errorf("failed to read what blocks a merge of the pull request at %s: %w", url, err)
 	}
 
-	return &mergeStand{HeadStands: row.HeadStands, BaseFinished: row.BaseFinished}, nil
+	return &mergeBlockers{HeadHasParent: row.HeadHasParent, BaseFinished: row.BaseFinished}, nil
 }

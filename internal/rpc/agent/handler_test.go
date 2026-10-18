@@ -1773,7 +1773,7 @@ func (f *recordingAgentServices) Abort(_ context.Context, task string) (*checkou
 	}, nil
 }
 
-func (f *recordingAgentServices) PlaceStand(_ context.Context, params checkouts.PlaceStandParams) (string, error) {
+func (f *recordingAgentServices) PickForkPoint(_ context.Context, params checkouts.PickForkPointParams) (string, error) {
 	if f.err != nil {
 		return "", f.err
 	}

@@ -383,7 +383,7 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, refs []string) error
 	}
 	ids = xslice.UniqueBy(ids, func(id string) string { return id })
 
-	if err := s.tasks.RefuseStoodOn(ctx, ids); err != nil {
+	if err := s.tasks.RefuseParentDelete(ctx, ids); err != nil {
 		return err
 	}
 

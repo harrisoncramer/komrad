@@ -37,8 +37,8 @@ type Task struct {
 	Notes          string
 	NotesUpdatedAt *time.Time
 	Checkout       Checkout
-	// Stand is the task this one stands on, nil for a task on the workflow's base branch.
-	Stand         *Stand
+	// Parent is the task this one depends on, nil for a task on the workflow's base branch.
+	Parent        *Parent
 	Hidden        bool
 	ArchivedAt    *time.Time
 	DeletingAt    *time.Time
@@ -53,7 +53,7 @@ type Task struct {
 	DocumentsUpdatedAt *time.Time
 }
 
-// GetBranch is the branch a task's checkout is on, or the one komrad cuts for it while it has none.
+// GetBranch is the branch a task's checkout is on, or the one komrad names for it while it has none.
 func (t Task) GetBranch() string {
 	if branch := xptr.Deref(t.Checkout.Branch); branch != "" {
 		return branch
@@ -84,7 +84,7 @@ func fromRow(row *models.Task) Task {
 		Notes:          row.Notes,
 		NotesUpdatedAt: row.NotesUpdatedAt,
 		Checkout:       checkoutFrom(row),
-		Stand:          standFrom(row),
+		Parent:         parentFrom(row),
 		Hidden:         row.IsHidden,
 		ArchivedAt:     row.ArchivedAt,
 		DeletingAt:     row.DeletingAt,
@@ -99,8 +99,8 @@ type CreateParams struct {
 	Slug       string
 	Title      string
 	Goal       string
-	// Stand is what the new task stands on, nil for none.
-	Stand *Stand
+	// Parent is the task the new task depends on, nil for none.
+	Parent *Parent
 }
 
 // Create writes a new task, refusing a slug that is malformed or already used.
@@ -115,10 +115,10 @@ func (s *TaskStore) Create(ctx context.Context, params CreateParams) (*Task, err
 		Title:      params.Title,
 		Goal:       params.Goal,
 	}
-	if params.Stand != nil {
-		create.StandsOnTaskID = &params.Stand.ParentID
-		create.StandTip = xptr.NonEmpty(params.Stand.Tip)
-		create.StandPullRequestID = xptr.NonEmpty(params.Stand.PullRequestID)
+	if params.Parent != nil {
+		create.ParentTaskID = &params.Parent.TaskID
+		create.ForkPoint = xptr.NonEmpty(params.Parent.ForkPoint)
+		create.ParentPullRequestID = xptr.NonEmpty(params.Parent.PullRequestID)
 	}
 
 	row, err := s.queries.CreateTask(ctx, create)

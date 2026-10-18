@@ -108,6 +108,20 @@ checkout: The directory an agent works in. This is the task's worktree, or the w
 
 base branch: The branch worktrees are created from and changes are measured against. Not "the base" on its own.
 
+parent: The task whose branch a task's branch starts from in place of the base branch. A task depends on its parent. Not "the task it stands on".
+
+child: A task that has a parent.
+
+stack: A chain of tasks, each the child of the one below it, from the bottom task on the base branch to the top task.
+
+fork point: The commit of the parent's branch that a child's own commits sit on. Rounds and line counts measure from it. Not "tip" or "stand tip".
+
+cascade: The pass in which komrad rebases each child onto its parent's newest commit, or onto the base branch once the parent merges. Not "restack".
+
+orphaned: A child whose branch holds neither its fork point nor its parent's newest commit, so komrad cannot tell where its own commits begin. Not "lost".
+
+re-target: To rebase a child onto the base branch, so it no longer has a parent. Not "move onto base".
+
 origin: The git remote a worktree pushes to.
 
 landed: Contained in full in the base branch. Use it for commits and rounds.

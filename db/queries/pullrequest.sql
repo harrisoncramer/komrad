@@ -210,7 +210,7 @@ WHERE
 ORDER BY
     repository_url;
 
--- name: ListSyncTargets :many
+-- name: ListLiveBranches :many
 SELECT DISTINCT
     t.repository_url::text AS repository_url,
     t.branch::text AS branch,
@@ -236,13 +236,14 @@ WHERE
             a.task_id = t.id
             AND a.archived_at IS NULL)
 UNION
+-- The head branch of every live child's parent pull request, so the cascade sees its parent move even when no agent works on the parent.
 SELECT
     p.repository_url::text AS repository_url,
     p.head_branch::text AS branch,
     p.head_sha::text AS head_sha
 FROM
     tasks c
-    JOIN pull_requests p ON p.id = c.stand_pull_request_id
+    JOIN pull_requests p ON p.id = c.parent_pull_request_id
 WHERE
     c.archived_at IS NULL
     AND c.deleting_at IS NULL
@@ -392,7 +393,7 @@ FROM ( SELECT DISTINCT ON (t.id)
 ORDER BY
     writers.id;
 
--- name: GetStandPullRequest :one
+-- name: GetParentPullRequest :one
 SELECT
     *
 FROM
@@ -408,45 +409,67 @@ ORDER BY
     id
 LIMIT 1;
 
--- name: GetMergeStand :one
-SELECT
-    EXISTS (
-        SELECT
-            1
-        FROM
-            tasks t
-        WHERE
-            t.repository_url = p.repository_url
-            AND t.branch = p.head_branch
-            AND t.stands_on_task_id IS NOT NULL
-            AND t.archived_at IS NULL
-            AND t.deleting_at IS NULL)::boolean AS head_stands,
-    EXISTS (
-        SELECT
-            1
-        FROM
-            tasks t
-            JOIN pull_requests q ON q.repository_url = t.repository_url
-                AND q.head_repository_url = t.repository_url
-                AND q.head_branch = p.base_branch
-        WHERE
-            t.repository_url = p.repository_url
-            AND COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text) = p.base_branch
-            AND t.deleting_at IS NULL
-            AND q.state <> 'OPEN'
-            AND NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    pull_requests o
-                WHERE
-                    o.repository_url = t.repository_url
-                    AND o.head_branch = p.base_branch
-                    AND o.state = 'OPEN'))::boolean AS base_finished
+-- name: GetMergeBlockers :one
+WITH pull_request AS (
+    -- The newest pull request at the url.
+    SELECT
+        p.repository_url,
+        p.head_branch,
+        p.base_branch
     FROM
         pull_requests p
     WHERE
         p.url = @url
     ORDER BY
         p.first_seen_at DESC
-    LIMIT 1;
+    LIMIT 1
+),
+child_heads AS (
+    -- Live children whose branch is the pull request's head. A child's pull request merges only after its parent's.
+    SELECT
+        1
+    FROM
+        tasks t
+        JOIN pull_request r ON t.repository_url = r.repository_url
+            AND t.branch = r.head_branch
+    WHERE
+        t.parent_task_id IS NOT NULL
+        AND t.archived_at IS NULL
+        AND t.deleting_at IS NULL
+),
+finished_bases AS (
+    -- Tasks whose branch is the pull request's base and whose own pull request from that branch merged or closed with none open since. A merge onto that branch never reaches the base branch.
+    SELECT
+        1
+    FROM
+        tasks t
+        JOIN pull_request r ON t.repository_url = r.repository_url
+            AND COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text) = r.base_branch
+        JOIN pull_requests q ON q.repository_url = t.repository_url
+            AND q.head_repository_url = t.repository_url
+            AND q.head_branch = r.base_branch
+    WHERE
+        t.deleting_at IS NULL
+        AND q.state <> 'OPEN'
+        AND NOT EXISTS (
+            SELECT
+                1
+            FROM
+                pull_requests o
+            WHERE
+                o.repository_url = t.repository_url
+                AND o.head_branch = r.base_branch
+                AND o.state = 'OPEN'))
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            child_heads)::boolean AS head_has_parent,
+    EXISTS (
+        SELECT
+            1
+        FROM
+            finished_bases)::boolean AS base_finished
+FROM
+    pull_request;
