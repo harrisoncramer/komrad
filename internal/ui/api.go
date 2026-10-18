@@ -65,7 +65,6 @@ type agentReads interface {
 	SearchDocuments(ctx context.Context, req *connect.Request[agentv1.SearchDocumentsRequest]) (*connect.Response[agentv1.SearchDocumentsResponse], error)
 	ListReviewThreads(ctx context.Context, req *connect.Request[agentv1.ListReviewThreadsRequest]) (*connect.Response[agentv1.ListReviewThreadsResponse], error)
 	OpenReviewHistory(ctx context.Context, req *connect.Request[agentv1.OpenReviewHistoryRequest]) (*connect.Response[agentv1.OpenReviewHistoryResponse], error)
-	CompareReviewRounds(ctx context.Context, req *connect.Request[agentv1.CompareReviewRoundsRequest]) (*connect.Response[agentv1.CompareReviewRoundsResponse], error)
 	ListReviewViewedFiles(ctx context.Context, req *connect.Request[agentv1.ListReviewViewedFilesRequest]) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error)
 }
 

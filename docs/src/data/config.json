@@ -848,25 +848,11 @@
               "default": "[\"T\"]"
             },
             {
-              "key": "range_start",
-              "path": "keybindings.review.range_start",
-              "type": "array",
-              "description": "From the menu on a round in the sidebar, start the diff after that round. A round at or past\nthe end of the diff moves the end to the newest round.",
-              "default": "[\"B\"]"
-            },
-            {
               "key": "range_end",
               "path": "keybindings.review.range_end",
               "type": "array",
-              "description": "From the menu on a round in the sidebar, end the diff on that round. A round at or before the\nstart of the diff moves the start to where the task starts.",
+              "description": "From the menu while the diff ends before the newest round, end it on the newest round.",
               "default": "[\"L\"]"
-            },
-            {
-              "key": "range_only",
-              "path": "keybindings.review.range_only",
-              "type": "array",
-              "description": "From the menu on a round in the sidebar, show that round's own work alone.",
-              "default": "[\"O\"]"
             },
             {
               "key": "reload",
@@ -900,7 +886,7 @@
               "key": "toggle_folder",
               "path": "keybindings.review.toggle_folder",
               "type": "array",
-              "description": "On the file tree, open the folder the cursor rests on, or close it when it is open.",
+              "description": "On the file tree, open the folder the cursor rests on, or close it when it is open. Over the\nfile tree, open the review of a task in the stack, go to a thread that needs you, or open the\npull request's description.",
               "default": "[\"o\"]"
             },
             {

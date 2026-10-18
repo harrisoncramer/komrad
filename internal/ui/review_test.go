@@ -437,26 +437,25 @@ func TestReviewThreads(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(asked, answered)}
 
 		harness := openReview(t, server)
-		harness.press("space", "b")
 
 		sidebar := readPopupProse(harness.readFrame())
 		assert.Contains(t, sidebar, "reviewer this drops the error")
 		assert.Contains(t, sidebar, "writer wrapped it")
 	})
 
-	t.Run("a conversation an agent opened is hidden until the menu shows it", func(t *testing.T) {
+	t.Run("a conversation an agent opened shows until the menu hides it", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "renamed it, is that what you meant?"))}
 		harness := openReview(t, server)
-		require.NotContains(t, harness.readFrame(), "renamed it")
+		require.Contains(t, readPopupProse(harness.readFrame()), "renamed it")
 
 		harness.press("space")
-		require.Contains(t, harness.readFrame(), "show agents' conversations")
+		require.Contains(t, harness.readFrame(), "hide agents' conversations")
 		harness.press("b")
-		assert.Contains(t, readPopupProse(harness.readFrame()), "renamed it")
+		assert.NotContains(t, harness.readFrame(), "renamed it")
 
 		harness.press("space", "b")
-		assert.NotContains(t, harness.readFrame(), "renamed it")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "renamed it")
 	})
 
 	t.Run("a conversation an agent opened stays rendered while it holds an unsent reply", func(t *testing.T) {
@@ -994,7 +993,6 @@ func TestReviewDeliveryBadge(t *testing.T) {
 			server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(tt.message)}
 
 			harness := openReview(t, server)
-			harness.press("space", "b")
 
 			sidebar := readPopupProse(harness.readFrame())
 			assert.Contains(t, sidebar, tt.want)
@@ -1391,7 +1389,7 @@ func TestReviewReload(t *testing.T) {
 		assert.Contains(t, harness.readFrame(), "written by the agent")
 	})
 
-	t.Run("a move under an unsent comment is offered rather than read", func(t *testing.T) {
+	t.Run("a move under an unsent comment is read like any other", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
 		harness := openReview(t, server)
@@ -1401,17 +1399,31 @@ func TestReviewReload(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
-		assert.NotContains(t, frame, "written by the agent")
-		assert.Contains(t, readEngineLine(frame), "the worktree has moved")
-
-		harness.watch(server.buildSnapshot())
-		assert.Equal(t, 1, strings.Count(readOpenMessages(harness), "the worktree has moved"))
+		assert.Contains(t, frame, "written by the agent")
+		assert.NotContains(t, readEngineLine(frame), "the worktree has moved")
 	})
 
-	t.Run("a writer stopping under an unsent comment turns its notice into the reload hint", func(t *testing.T) {
+	t.Run("a writer stopping catches the diff up and takes its notice down", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+		harness := openReview(t, server)
+
+		server.repo.Wrote(newRoundWrittenOver())
+		server.task.MovedSinceRound = gittest.SnapshotSHA
+		harness.watch(server.buildSnapshot())
+		require.Contains(t, readEngineLine(harness.readFrame()), "the agent is writing")
+		require.NotContains(t, harness.readFrame(), "written by the agent")
+
+		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
+		harness.watch(server.buildSnapshot())
+
+		assert.Contains(t, harness.readFrame(), "written by the agent")
+		assert.NotContains(t, readOpenMessages(harness), "the agent is writing")
+	})
+
+	t.Run("the reload key catches up while the writer is still writing", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 		harness := openReview(t, server)
 
 		server.repo.Wrote(newRoundWrittenOver())
@@ -1419,47 +1431,20 @@ func TestReviewReload(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 		require.Contains(t, readEngineLine(harness.readFrame()), "the agent is writing")
 
-		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
-		harness.watch(server.buildSnapshot())
-
-		said := readOpenMessages(harness)
-		assert.Contains(t, said, "the worktree has moved")
-		assert.NotContains(t, said, "the agent is writing")
-	})
-
-	t.Run("a writer stopping a second time under an unsent comment raises the reload hint again", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
-		harness := openReview(t, server)
-
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
-		harness.watch(server.buildSnapshot())
-		require.Contains(t, readEngineLine(harness.readFrame()), "the worktree has moved")
-
-		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-		harness.watch(server.buildSnapshot())
-		require.NotContains(t, readOpenMessages(harness), "the worktree has moved")
-
-		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
-		harness.watch(server.buildSnapshot())
-
-		assert.Contains(t, readOpenMessages(harness), "the worktree has moved")
-	})
-
-	t.Run("a move's notice comes down once the diff catches up", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
-		harness := openReview(t, server)
-
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
-		harness.watch(server.buildSnapshot())
-		require.Contains(t, readEngineLine(harness.readFrame()), "the worktree has moved")
-
 		harness.press("space", "R")
 
-		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
+		assert.Contains(t, harness.readFrame(), "written by the agent")
+		assert.NotContains(t, readOpenMessages(harness), "the agent is writing")
+	})
+
+	t.Run("the history failing to read fails the load", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.historyErr = errors.New("the server went away")
+
+		harness := openReview(t, server)
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Contains(t, readOpenMessages(harness), "the server went away")
 	})
 
 	t.Run("a move while the editor is open raises nothing", func(t *testing.T) {
@@ -1703,25 +1688,25 @@ func TestReviewRounds(t *testing.T) {
 
 		harness.press("<")
 		frame = harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "chapter 2 of 2")
+		assert.Contains(t, readStageText(frame), "round 1 ▸ round 2")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
 		assert.NotRegexp(t, `\d+/\d+ viewed`, frame)
 		assert.NotContains(t, readSidebarProse(frame), "since you last reviewed")
 
 		harness.press(">")
 		frame = harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "all changes")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
-	t.Run("a chapter the reader has already stepped past never lands", func(t *testing.T) {
+	t.Run("a range the reader has already stepped past never lands", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 		harness.hold(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 
 		harness.press("<", "<")
 		harness.release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "chapter 1 of 2")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 1")
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 
 		harness.release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
@@ -1760,16 +1745,6 @@ func TestReviewRounds(t *testing.T) {
 		assert.Contains(t, readEngineLine(frame), "nothing written")
 	})
 
-	t.Run("a round measured from another base is walked but not compared", func(t *testing.T) {
-		server := newEarlierReviewServer(t)
-		server.rounds[0].BaseSha = "0000000000000000000000000000000000000000"
-		harness := openReview(t, server)
-
-		harness.press("<")
-
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "not comparable, the base moved")
-	})
-
 	t.Run("the newest round takes a comment measured from the round reviewed before", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 
@@ -1789,24 +1764,17 @@ func TestReviewRounds(t *testing.T) {
 		})
 	})
 
-	t.Run("a finished round refuses every key that writes", func(t *testing.T) {
+	t.Run("a range ending before the newest round draws commenting off", func(t *testing.T) {
 		harness := openReviewAt(t, newEarlierReviewServer(t), panelHarnessParams{height: 50})
 		harness.press("<", "<")
-		require.Contains(t, readSidebarProse(harness.readFrame()), "chapter 1 of 2")
+		require.Contains(t, readStageText(harness.readFrame()), "where the task starts ▸ round 1")
+
 		harness.press("space")
-		assert.NotContains(t, harness.readFrame(), "send to the agent")
-		harness.press("esc")
+		assert.Contains(t, harness.readFrame(), "new comments go on round 2")
 
-		for _, key := range []string{"c", "S"} {
-			harness.press("space", key)
-
-			frame := harness.readFrame()
-			assert.NotContains(t, frame, "  Comment")
-			assert.Contains(t, readEngineLine(frame), "chapter 1 of 2 is finished")
-		}
+		harness.press("c")
+		assert.NotContains(t, harness.readFrame(), "  Comment")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
 	})
 
 	t.Run("a viewed mark taken in a round leaves the whole change's mark alone", func(t *testing.T) {
@@ -1826,11 +1794,11 @@ func TestReviewRounds(t *testing.T) {
 		require.Len(t, harness.readSent(agentv1connect.AgentServiceSetReviewFileViewedProcedure), 1)
 
 		harness.press("<")
-		require.Contains(t, readSidebarProse(harness.readFrame()), "chapter 2 of 2")
+		require.Contains(t, readStageText(harness.readFrame()), "round 1 ▸ round 2")
 		require.NotContains(t, readStageText(harness.readFrame()), "greet.go  +")
 		harness.press("space", "v")
 		frame := harness.readFrame()
-		assert.Contains(t, readOpenMessages(harness), "whole change")
+		assert.Contains(t, frame, "viewed marks belong to the whole change")
 		assert.NotContains(t, readStageText(frame), "greet.go  +")
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceSetReviewFileViewedProcedure), 1)
 
@@ -1856,90 +1824,18 @@ func TestReviewRounds(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
-	t.Run("a chapter splits the replies written after the next round from the ones before", func(t *testing.T) {
+	t.Run("a range splits the replies written after the round it ends on from the ones before", func(t *testing.T) {
 		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
 
 		harness.press("<", "<", "t")
 
 		frame := harness.readFrame()
-		require.Contains(t, readSidebarProse(frame), "chapter 1 of 2")
+		require.Contains(t, readStageText(frame), "where the task starts ▸ round 1")
 		said := readPopupProse(frame)
 		assert.Contains(t, said, "thanks")
 		assert.Less(t, strings.Index(said, "looking"), strings.Index(said, laterRule))
 		assert.Less(t, strings.Index(said, laterRule), strings.Index(said, "added it"))
 		assert.Contains(t, said, "addressed in round 2")
-	})
-}
-
-// TestReviewPin covers an open batch of comments holding the diff to the round it was written on.
-func TestReviewPin(t *testing.T) {
-	t.Run("an open batch holds the diff to its round while the agent writes on", func(t *testing.T) {
-		server := newReviewServer(t)
-		harness := openReview(t, server)
-		server.reviews = []*agentv1.Review{{
-			Id:         "v1",
-			RoundId:    "round-1",
-			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		}}
-
-		server.repo.Wrote(newRoundWrittenOver())
-		harness.press("esc", "esc", "space", "r")
-
-		assert.NotContains(t, harness.readFrame(), "written by the agent")
-	})
-
-	t.Run("the reload key catches up past an open batch", func(t *testing.T) {
-		server := newReviewServer(t)
-		harness := openReview(t, server)
-		server.reviews = []*agentv1.Review{{
-			Id:         "v1",
-			RoundId:    "round-1",
-			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		}}
-
-		server.repo.Wrote(newRoundWrittenOver())
-		harness.press("esc", "esc", "space", "r")
-		require.NotContains(t, harness.readFrame(), "written by the agent")
-
-		harness.press("space", "R")
-
-		assert.Contains(t, harness.readFrame(), "written by the agent")
-	})
-
-	t.Run("a held review says the diff is frozen and how to see the latest", func(t *testing.T) {
-		taken := time.Date(2026, 10, 9, 15, 4, 0, 0, time.UTC)
-		server := newReviewServer(t)
-		server.rounds = []*agentv1.ReviewRound{{
-			Id:          "round-1",
-			TaskId:      "t1",
-			Ordinal:     1,
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: gittest.SnapshotSHA,
-			CreatedAt:   taken.Format(time.RFC3339),
-		}}
-		server.reviews = []*agentv1.Review{{
-			Id:         "v1",
-			RoundId:    "round-1",
-			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		}}
-		harness := openReview(t, server)
-
-		assert.Contains(t, joinProse(readStage(harness.readFrame())), "Frozen on round 1 from "+
-			taken.Local().Format("Jan 2 at 3:04pm")+" until you send your review · space R shows the latest")
-
-		harness.press("space", "R")
-
-		assert.NotContains(t, harness.readFrame(), "Frozen on round")
-	})
-
-	t.Run("the history failing to read fails the load rather than moving the pin", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.historyErr = errors.New("the server went away")
-
-		harness := openReview(t, server)
-
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readOpenMessages(harness), "the server went away")
 	})
 }
 
@@ -1951,9 +1847,8 @@ func TestReviewReplay(t *testing.T) {
 		harness.press("<")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "chapter 2 of 2, not reviewed yet, the base moved, replayed")
+		assert.Contains(t, readStageText(frame), "round 1 ▸ round 2, replayed across the rebase")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
-		assert.NotContains(t, frame, "not comparable")
 	})
 
 	t.Run("a round the base rewrote under the agent is refused as conflicted", func(t *testing.T) {
@@ -1961,27 +1856,17 @@ func TestReviewReplay(t *testing.T) {
 
 		harness.press("<")
 
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "chapter 2 of 2, has conflicts")
+		assert.Contains(t, readStageText(harness.readFrame()), "round 1 ▸ round 2, conflicts in greet.go, second.go")
 	})
 
-	t.Run("a git that cannot replay leaves the refusal standing", func(t *testing.T) {
+	t.Run("a git that cannot replay says the base moved between the rounds", func(t *testing.T) {
 		harness := openReview(t, newMovedBaseServer(t, ""))
 
 		harness.press("<")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "chapter 2 of 2, not comparable, the base moved")
-		assert.NotContains(t, frame, "rebased")
-	})
-
-	t.Run("a base the branch no longer descends from is said to be rewritten", func(t *testing.T) {
-		server := newMovedBaseServer(t, replayedTree)
-		server.repo.Rewritten = map[string]bool{gittest.NamePair(olderBase, gittest.BaseSHA): true}
-		harness := openReview(t, server)
-
-		harness.press("<")
-
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "chapter 2 of 2, not reviewed yet, history was rewritten, replayed")
+		assert.Contains(t, readStageText(frame), "round 1 ▸ round 2, the base moved between these rounds")
+		assert.NotContains(t, frame, "replayed")
 	})
 
 	t.Run("the first round is measured from its own base", func(t *testing.T) {
@@ -1993,8 +1878,7 @@ func TestReviewReplay(t *testing.T) {
 		harness.press("<", "<")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "chapter 1 of 2, reviewed at ")
-		assert.Contains(t, readSidebarProse(frame), ", on an earlier base")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 1")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +1 -1")
 	})
 
@@ -2009,7 +1893,7 @@ func TestReviewReplay(t *testing.T) {
 			OldStart:    4,
 			OldEnd:      4,
 			QuotedLines: []string{"-\treturn \"nowhere\""},
-			Messages:    []*agentv1.ReviewMessage{newHumanMessage("m1", "written on the replayed chapter")},
+			Messages:    []*agentv1.ReviewMessage{newHumanMessage("m1", "written on the replayed round")},
 		}}
 		harness := openReview(t, server)
 

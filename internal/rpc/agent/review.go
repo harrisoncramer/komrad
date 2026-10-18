@@ -28,7 +28,6 @@ type reviewConversation interface {
 	OpenRound(ctx context.Context, task string, author reviews.ReviewAuthor) (*reviewstore.Round, error)
 	ListRounds(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Round, error)
 	GetHistory(ctx context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error)
-	CompareRounds(ctx context.Context, params reviews.CompareRoundsParams) (*history.Comparison, error)
 	ListReviews(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
 	GetReview(ctx context.Context, reviewID string, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
 	ReleaseReview(ctx context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error)
@@ -318,22 +317,4 @@ func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {
 	}
 
 	return ""
-}
-
-// CompareReviewRounds reports whether the work between two rounds of a task can be read.
-func (s *Handler) CompareReviewRounds(ctx context.Context, req *agentv1.CompareReviewRoundsRequest) (*agentv1.CompareReviewRoundsResponse, *fail.Error) {
-	compared, err := s.review.CompareRounds(ctx, reviews.CompareRoundsParams{
-		Task:        req.GetTask(),
-		FromRoundID: req.GetFromRoundId(),
-		ToRoundID:   req.GetToRoundId(),
-		Author:      reviewAuthorFrom(ctx),
-	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to compare the rounds")
-	}
-
-	return &agentv1.CompareReviewRoundsResponse{
-		Comparable: compared.Comparable,
-		Conflicts:  compared.Conflicts,
-	}, nil
 }

@@ -32,6 +32,8 @@ const (
 	Right = "→"
 	// Step marks the header of a step in a log.
 	Step = "▸"
+	// Span sits between where a range starts and where it ends.
+	Span = "▸"
 )
 
 // Logo is the mark beside komrad's name at the top of the panel, outside the approved set.
@@ -54,6 +56,7 @@ func Chrome() []Named {
 		{Name: "down", Text: Down},
 		{Name: "right", Text: Right},
 		{Name: "step", Text: Step},
+		{Name: "span", Text: Span},
 	}
 }
 

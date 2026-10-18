@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/glyph"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -152,31 +153,9 @@ func (d reviewDiff) endOf(id string) string {
 	return id
 }
 
-// startRangeAt starts the range after a round, moving the end to the newest round when the round
-// is at or past it.
-func (r *reviewScreen) startRangeAt(m *model, id string) tea.Cmd {
-	to := r.diff.rangeEnd()
-	if id != "" && r.diff.ordinalOf(id) >= r.diff.ordinalOf(to) {
-		to = ""
-	}
-
-	return r.showRange(m, id, to)
-}
-
-// endRangeAt ends the range on a round, moving the start to where the task starts when the round
-// is at or before it.
-func (r *reviewScreen) endRangeAt(m *model, id string) tea.Cmd {
-	from := r.diff.rangeStart()
-	if from != "" && r.diff.ordinalOf(from) >= r.diff.ordinalOf(id) {
-		from = ""
-	}
-
-	return r.showRange(m, from, id)
-}
-
-// narrowTo puts one round's own work on screen.
-func (r *reviewScreen) narrowTo(m *model, id string) tea.Cmd {
-	return r.showRange(m, r.diff.roundBefore(id), id)
+// endOnNewest keeps the start of the range on screen and ends it on the newest round.
+func (r *reviewScreen) endOnNewest(m *model) tea.Cmd {
+	return r.showRange(m, r.diff.rangeStart(), "")
 }
 
 // rangeStart is the round the range on screen starts after, as a range of rounds holds it.
@@ -195,20 +174,6 @@ func (d reviewDiff) rangeEnd() string {
 	}
 
 	return d.spec.to
-}
-
-// roundBefore is the round taken just before one, empty for the first.
-func (d reviewDiff) roundBefore(id string) string {
-	before := ""
-	for _, round := range d.rounds {
-		if round.GetId() == id {
-			return before
-		}
-
-		before = round.GetId()
-	}
-
-	return ""
 }
 
 // ordinalOf is a round's number, the newest round's for an empty end.
@@ -266,15 +231,25 @@ func (d reviewDiff) rangeSaid() string {
 		start = fmt.Sprintf("round %d", d.ordinalOf(d.spec.from))
 	}
 
-	said := start + " ▸ " + fmt.Sprintf("round %d", d.endRound().GetOrdinal())
+	said := fmt.Sprintf("%s %s round %d", start, glyph.Span, d.endRound().GetOrdinal())
 	switch {
 	case len(d.spec.conflicts) > 0:
 		said += ", conflicts in " + strings.Join(d.spec.conflicts, ", ")
 	case d.spec.replayed:
 		said += ", replayed across the rebase"
+	case d.isAcrossBases():
+		said += ", the base moved between these rounds"
 	}
 
 	return said
+}
+
+// isAcrossBases reports whether the range starts on a round taken on another base than the round it
+// ends on.
+func (d reviewDiff) isAcrossBases() bool {
+	start := findRound(d.rounds, d.rangeStart())
+
+	return start != nil && start.GetBaseSha() != d.endRound().GetBaseSha()
 }
 
 // newestSaid names the round new comments go on, empty while the range ends on it.

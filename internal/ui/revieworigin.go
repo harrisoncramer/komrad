@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"komrad/internal/diff"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -70,7 +71,7 @@ func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
 }
 
 func originLabel(origin *reviewOrigin) string {
-	said := fmt.Sprintf("where the comment was read ▸ round %d", origin.Ordinal)
+	said := fmt.Sprintf("where the comment was read %s round %d", glyph.Span, origin.Ordinal)
 	if origin.fellBack {
 		said += ", shown against the round's base"
 	}

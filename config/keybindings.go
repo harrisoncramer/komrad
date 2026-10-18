@@ -428,14 +428,8 @@ type ReviewKeys struct {
 	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
-	// From the menu on a round in the sidebar, start the diff after that round. A round at or past
-	// the end of the diff moves the end to the newest round.
-	RangeStart []string `mapstructure:"range_start" default:"B"`
-	// From the menu on a round in the sidebar, end the diff on that round. A round at or before the
-	// start of the diff moves the start to where the task starts.
+	// From the menu while the diff ends before the newest round, end it on the newest round.
 	RangeEnd []string `mapstructure:"range_end" default:"L"`
-	// From the menu on a round in the sidebar, show that round's own work alone.
-	RangeOnly []string `mapstructure:"range_only" default:"O"`
 	// From the menu, catch up with the writer, taking a round of the worktree as it stands and ending
 	// the diff on it.
 	Reload []string `mapstructure:"reload" default:"R"`
@@ -446,7 +440,9 @@ type ReviewKeys struct {
 	Resolve []string `mapstructure:"resolve" default:"r"`
 	// From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.
 	Send []string `mapstructure:"send" default:"S"`
-	// On the file tree, open the folder the cursor rests on, or close it when it is open.
+	// On the file tree, open the folder the cursor rests on, or close it when it is open. Over the
+	// file tree, open the review of a task in the stack, go to a thread that needs you, or open the
+	// pull request's description.
 	ToggleFolder []string `mapstructure:"toggle_folder" default:"o"`
 	// From the menu, fold away the file the cursor is in once you have read it, or open it again. A file
 	// the writer writes to afterwards comes back on its own.

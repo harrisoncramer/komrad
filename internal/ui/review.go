@@ -38,12 +38,8 @@ type reviewScreen struct {
 
 	// side is the row over the file tree the sidebar's cursor rests on, nil while it is on the tree.
 	side *sideCursor
-	// openRounds says the rounds list shows every round.
-	openRounds bool
 	// openDescription says the pull request's description is open.
 	openDescription bool
-	// compared is what komrad said of the ranges a round in the list would set.
-	compared map[reviewStep]compareState
 
 	// filesFilter is the pattern the file tree is searched or narrowed by.
 	filesFilter filterState
@@ -113,10 +109,6 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {
 		return r.applyLoaded(m, msg)
 	case reviewPausedMsg:
 		return r.applyPaused(m, msg)
-	case reviewComparedMsg:
-		r.applyCompared(msg)
-
-		return nil
 	case reviewWroteMsg:
 		return r.applyWrote(m, msg)
 	case messageEditedMsg:

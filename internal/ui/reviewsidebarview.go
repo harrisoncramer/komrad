@@ -5,7 +5,6 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
-	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/charmbracelet/x/ansi"
@@ -63,11 +62,7 @@ func (r reviewScreen) sideRowView(m *model, row sideRow, lit bool) string {
 		if row.kind == sideThisTask {
 			text = paint.Panel.Style(reviewScopeOnTone).Render(text)
 		}
-	case sideRound:
-		text = paint.Panel.Style(reviewScopeOnTone).Render(row.line) + " " + text
-	case sideRoundsMore:
-		text = paint.Panel.Style(reviewScopeOnTone).Render(row.line) + " " + dimStyle().Render(text)
-	case sideWorktree, sideWaiting:
+	case sideWaiting:
 		text = dimStyle().Italic(true).Render(text)
 	case sideDescription:
 		mark := glyph.FolderClosed
@@ -90,19 +85,6 @@ func (r reviewScreen) sideRowView(m *model, row sideRow, lit bool) string {
 	}
 
 	return prefix + text
-}
-
-// verdictMark is the glyph a released review's verdict wears.
-func verdictMark(m *model, verdict agentv1.ReviewVerdict) string {
-	switch verdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return paint.Panel.Style(paint.ToneSuccess).Render(m.glyphs.Spell(glyph.Approved))
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return paint.Panel.Style(paint.ToneDanger).Render(m.glyphs.Spell(glyph.ChangesRequested))
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-	}
-
-	return dimStyle().Render(m.glyphs.Spell(glyph.ThreadRead))
 }
 
 // decisionSaid is the forge's review decision on the pull request, empty when it has none.

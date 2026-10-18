@@ -1369,14 +1369,6 @@ service AgentService {
       reason: "The history is measured from the person's own reviews, so only the person reads it."
     };
   }
-  rpc CompareReviewRounds(CompareReviewRoundsRequest) returns (CompareReviewRoundsResponse) {
-    option idempotency_level = NO_SIDE_EFFECTS;
-    option (annotation.v1.surfaces) = {
-      cli: false
-      mcp: false
-      reason: "Komrad compares two rounds to say whether the person can read the work between them."
-    };
-  }
   rpc ListReviewRounds(ListReviewRoundsRequest) returns (ListReviewRoundsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {

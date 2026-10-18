@@ -654,24 +654,3 @@ message DiscardForgeReplyRequest {
   // The failed reply to discard, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
-
-message CompareReviewRoundsRequest {
-  // The task whose rounds to compare, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
-  // The id of the round the work starts after.
-  string from_round_id = 2 [(buf.validate.field).string.min_len = 1];
-  // The id of the round the work ends on.
-  string to_round_id = 3 [(buf.validate.field).string.min_len = 1];
-}
-
-message CompareReviewRoundsResponse {
-  // Whether the work between the two rounds can be read, replaying the older round onto the newer
-  // round's base when a rebase lies between them.
-  bool comparable = 1;
-  // The paths the base branch changed under the writer that the replay could not resolve.
-  repeated string conflicts = 2;
-}

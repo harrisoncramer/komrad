@@ -239,33 +239,6 @@ func resolveRounds(ctx context.Context, params BuildParams, rounds RoundSpan) (R
 	return span, nil
 }
 
-// CompareParams is two rounds of a task and the checkout they were taken of.
-type CompareParams struct {
-	Git  Git
-	Dir  string
-	From Round
-	To   Round
-}
-
-// Comparison is whether two rounds can be read against each other, and what stops them.
-type Comparison struct {
-	Comparable bool
-	Conflicts  []string
-}
-
-// Compare reports whether the work between two rounds can be read, replaying the older onto the newer base.
-func Compare(ctx context.Context, params CompareParams) Comparison {
-	compared := compareRounds(ctx, compareRoundsParams{
-		Git:      params.Git,
-		Dir:      params.Dir,
-		FromSHA:  params.From.SnapshotSHA,
-		FromBase: params.From.BaseSHA,
-		ToBase:   params.To.BaseSHA,
-	})
-
-	return Comparison{Comparable: compared.Comparable, Conflicts: compared.Conflicts}
-}
-
 func findAnswerBase(rounds []Round, comment, answer *Round) *Round {
 	base := comment
 	for i := range rounds {

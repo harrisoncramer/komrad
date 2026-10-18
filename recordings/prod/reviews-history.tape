@@ -1,5 +1,5 @@
 # The video under "Stepping through history" on the reviews guide: from all changes back
-# through the newest chapter nobody has reviewed, then the two chapters each review closed,
+# through the work nobody has reviewed, then the rounds the two reviews were written against,
 # and forward again. review-history makes the agent, its commits and the reviews.
 Source recordings/panel.tape
 Wait+Screen@30s /text-tru/

@@ -75,7 +75,6 @@ type AgentServiceImpl interface {
 	SetReviewThreadResolved(context.Context, *v1.SetReviewThreadResolvedRequest) (*v1.SetReviewThreadResolvedResponse, *fail.Error)
 	OpenReviewRound(context.Context, *v1.OpenReviewRoundRequest) (*v1.OpenReviewRoundResponse, *fail.Error)
 	OpenReviewHistory(context.Context, *v1.OpenReviewHistoryRequest) (*v1.OpenReviewHistoryResponse, *fail.Error)
-	CompareReviewRounds(context.Context, *v1.CompareReviewRoundsRequest) (*v1.CompareReviewRoundsResponse, *fail.Error)
 	ListReviewRounds(context.Context, *v1.ListReviewRoundsRequest) (*v1.ListReviewRoundsResponse, *fail.Error)
 	ListReviews(context.Context, *v1.ListReviewsRequest) (*v1.ListReviewsResponse, *fail.Error)
 	GetReview(context.Context, *v1.GetReviewRequest) (*v1.GetReviewResponse, *fail.Error)
@@ -373,11 +372,6 @@ func (a AgentServiceAdapter) OpenReviewRound(ctx context.Context, req *connect.R
 // OpenReviewHistory answers the request as connect serves it.
 func (a AgentServiceAdapter) OpenReviewHistory(ctx context.Context, req *connect.Request[v1.OpenReviewHistoryRequest]) (*connect.Response[v1.OpenReviewHistoryResponse], error) {
 	return rpcerr.Answer(a.Impl.OpenReviewHistory(ctx, req.Msg))
-}
-
-// CompareReviewRounds answers the request as connect serves it.
-func (a AgentServiceAdapter) CompareReviewRounds(ctx context.Context, req *connect.Request[v1.CompareReviewRoundsRequest]) (*connect.Response[v1.CompareReviewRoundsResponse], error) {
-	return rpcerr.Answer(a.Impl.CompareReviewRounds(ctx, req.Msg))
 }
 
 // ListReviewRounds answers the request as connect serves it.

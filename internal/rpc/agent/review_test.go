@@ -785,14 +785,6 @@ func (f *fakeReviewer) GetHistory(_ context.Context, params reviews.GetHistoryPa
 	}, nil
 }
 
-func (f *fakeReviewer) CompareRounds(context.Context, reviews.CompareRoundsParams) (*history.Comparison, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return &history.Comparison{Comparable: true}, nil
-}
-
 // ListReviews answers the review it holds.
 func (f *fakeReviewer) ListReviews(context.Context, string, reviews.ReviewAuthor) ([]reviewstore.Review, error) {
 	if f.err != nil {

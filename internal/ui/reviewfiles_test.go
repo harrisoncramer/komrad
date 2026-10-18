@@ -8,9 +8,12 @@ import (
 
 	"komrad/internal/gittest"
 	"komrad/internal/glyph"
+	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -449,4 +452,23 @@ func newPatchOfPaths(paths ...string) string {
 	}
 
 	return patch.String()
+}
+
+// wheelOverSidebar turns the wheel down over the first sidebar row holding text.
+func wheelOverSidebar(harness *panelHarness, text string) {
+	harness.t.Helper()
+
+	for y, line := range splitLines(harness.readFrame()) {
+		if strings.Contains(ansi.Truncate(line, ui.SidebarCols, ""), text) {
+			harness.send(tea.MouseWheelMsg{
+				X:      4,
+				Y:      y,
+				Button: tea.MouseWheelDown,
+			})
+
+			return
+		}
+	}
+
+	harness.t.Fatalf("no sidebar row holds %q", text)
 }

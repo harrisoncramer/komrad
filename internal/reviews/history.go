@@ -13,8 +13,6 @@ import (
 
 const midSequenceNotice = "a rebase or merge is part way through, so this is the work as it stood before it"
 
-var errRoundOfAnotherTask = fail.NotFound("that round is not one of this task's")
-
 type ReviewHistory struct {
 	history.Record
 	Round   reviewstore.Round
@@ -165,54 +163,4 @@ func historyThreadOf(thread ReviewThreadWithMessages) history.Thread {
 		NewStart: thread.Thread.NewStart,
 		NewEnd:   thread.Thread.NewEnd,
 	}
-}
-
-type CompareRoundsParams struct {
-	Task        string
-	FromRoundID string
-	ToRoundID   string
-	Author      ReviewAuthor
-}
-
-// CompareRounds reports whether the work between two rounds of a task can be read.
-func (s *ReviewService) CompareRounds(ctx context.Context, params CompareRoundsParams) (*history.Comparison, error) {
-	task, err := s.getTask(ctx, params.Task, params.Author)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.requireMayRead(ctx, *task, params.Author); err != nil {
-		return nil, err
-	}
-
-	from, err := s.getTaskRound(ctx, task.ID, params.FromRoundID)
-	if err != nil {
-		return nil, err
-	}
-
-	to, err := s.getTaskRound(ctx, task.ID, params.ToRoundID)
-	if err != nil {
-		return nil, err
-	}
-
-	compared := history.Compare(ctx, history.CompareParams{
-		Git:  s.git,
-		Dir:  task.Checkout.Cwd,
-		From: historyRoundOf(*from),
-		To:   historyRoundOf(*to),
-	})
-
-	return &compared, nil
-}
-
-// getTaskRound reads one round, refusing a round of another task.
-func (s *ReviewService) getTaskRound(ctx context.Context, taskID, roundID string) (*reviewstore.Round, error) {
-	round, err := s.reviews.GetRound(ctx, roundID)
-	if err != nil {
-		return nil, err
-	}
-	if round.TaskID != taskID {
-		return nil, errRoundOfAnotherTask
-	}
-
-	return round, nil
 }

@@ -337,14 +337,8 @@ next_open_thread = ["u"]
 prev_open_thread = ["U"]
 # Jump to the previous line carrying a review thread.
 prev_thread      = ["T"]
-# From the menu on a round in the sidebar, start the diff after that round. A round at or past
-# the end of the diff moves the end to the newest round.
-range_start      = ["B"]
-# From the menu on a round in the sidebar, end the diff on that round. A round at or before the
-# start of the diff moves the start to where the task starts.
+# From the menu while the diff ends before the newest round, end it on the newest round.
 range_end        = ["L"]
-# From the menu on a round in the sidebar, show that round's own work alone.
-range_only       = ["O"]
 # From the menu, catch up with the writer, taking a round of the worktree as it stands and ending
 # the diff on it.
 reload           = ["R"]
@@ -355,7 +349,9 @@ agent_threads    = ["b"]
 resolve          = ["r"]
 # From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.
 send             = ["S"]
-# On the file tree, open the folder the cursor rests on, or close it when it is open.
+# On the file tree, open the folder the cursor rests on, or close it when it is open. Over the
+# file tree, open the review of a task in the stack, go to a thread that needs you, or open the
+# pull request's description.
 toggle_folder    = ["o"]
 # From the menu, fold away the file the cursor is in once you have read it, or open it again. A file
 # the writer writes to afterwards comes back on its own.

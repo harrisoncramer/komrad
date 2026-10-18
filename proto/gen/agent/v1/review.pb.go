@@ -3738,124 +3738,6 @@ func (x *DiscardForgeReplyRequest) GetId() string {
 	return ""
 }
 
-type CompareReviewRoundsRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose rounds to compare, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
-	// The id of the round the work starts after.
-	FromRoundId string `protobuf:"bytes,2,opt,name=from_round_id,json=fromRoundId,proto3" json:"from_round_id,omitempty"`
-	// The id of the round the work ends on.
-	ToRoundId     string `protobuf:"bytes,3,opt,name=to_round_id,json=toRoundId,proto3" json:"to_round_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CompareReviewRoundsRequest) Reset() {
-	*x = CompareReviewRoundsRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[49]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CompareReviewRoundsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CompareReviewRoundsRequest) ProtoMessage() {}
-
-func (x *CompareReviewRoundsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[49]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CompareReviewRoundsRequest.ProtoReflect.Descriptor instead.
-func (*CompareReviewRoundsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{49}
-}
-
-func (x *CompareReviewRoundsRequest) GetTask() string {
-	if x != nil {
-		return x.Task
-	}
-	return ""
-}
-
-func (x *CompareReviewRoundsRequest) GetFromRoundId() string {
-	if x != nil {
-		return x.FromRoundId
-	}
-	return ""
-}
-
-func (x *CompareReviewRoundsRequest) GetToRoundId() string {
-	if x != nil {
-		return x.ToRoundId
-	}
-	return ""
-}
-
-type CompareReviewRoundsResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Whether the work between the two rounds can be read, replaying the older round onto the newer
-	// round's base when a rebase lies between them.
-	Comparable bool `protobuf:"varint,1,opt,name=comparable,proto3" json:"comparable,omitempty"`
-	// The paths the base branch changed under the writer that the replay could not resolve.
-	Conflicts     []string `protobuf:"bytes,2,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CompareReviewRoundsResponse) Reset() {
-	*x = CompareReviewRoundsResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[50]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CompareReviewRoundsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CompareReviewRoundsResponse) ProtoMessage() {}
-
-func (x *CompareReviewRoundsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[50]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CompareReviewRoundsResponse.ProtoReflect.Descriptor instead.
-func (*CompareReviewRoundsResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{50}
-}
-
-func (x *CompareReviewRoundsResponse) GetComparable() bool {
-	if x != nil {
-		return x.Comparable
-	}
-	return false
-}
-
-func (x *CompareReviewRoundsResponse) GetConflicts() []string {
-	if x != nil {
-		return x.Conflicts
-	}
-	return nil
-}
-
 var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
@@ -4168,17 +4050,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x17RetryForgeReplyResponse\x12*\n" +
 	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"3\n" +
 	"\x18DiscardForgeReplyRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xcb\x01\n" +
-	"\x1aCompareReviewRoundsRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12+\n" +
-	"\rfrom_round_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\vfromRoundId\x12'\n" +
-	"\vto_round_id\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoRoundId\"[\n" +
-	"\x1bCompareReviewRoundsResponse\x12\x1e\n" +
-	"\n" +
-	"comparable\x18\x01 \x01(\bR\n" +
-	"comparable\x12\x1c\n" +
-	"\tconflicts\x18\x02 \x03(\tR\tconflicts*\x90\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id*\x90\x01\n" +
 	"\x10ReviewAuthorKind\x12\"\n" +
 	"\x1eREVIEW_AUTHOR_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18REVIEW_AUTHOR_KIND_HUMAN\x10\x01\x12\x1c\n" +
@@ -4215,7 +4087,7 @@ func file_agent_v1_review_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
+var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 50)
 var file_agent_v1_review_proto_goTypes = []any{
 	(ReviewAuthorKind)(0),                   // 0: agent.v1.ReviewAuthorKind
 	(ReviewDeliveryState)(0),                // 1: agent.v1.ReviewDeliveryState
@@ -4270,9 +4142,7 @@ var file_agent_v1_review_proto_goTypes = []any{
 	(*RetryForgeReplyRequest)(nil),          // 50: agent.v1.RetryForgeReplyRequest
 	(*RetryForgeReplyResponse)(nil),         // 51: agent.v1.RetryForgeReplyResponse
 	(*DiscardForgeReplyRequest)(nil),        // 52: agent.v1.DiscardForgeReplyRequest
-	(*CompareReviewRoundsRequest)(nil),      // 53: agent.v1.CompareReviewRoundsRequest
-	(*CompareReviewRoundsResponse)(nil),     // 54: agent.v1.CompareReviewRoundsResponse
-	nil,                                     // 55: agent.v1.OpenReviewHistoryResponse.TracedEntry
+	nil,                                     // 53: agent.v1.OpenReviewHistoryResponse.TracedEntry
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
@@ -4301,7 +4171,7 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	7,  // 23: agent.v1.OpenReviewHistoryResponse.threads:type_name -> agent.v1.ReviewThread
 	33, // 24: agent.v1.OpenReviewHistoryResponse.resolved:type_name -> agent.v1.ReviewResolvedSpan
 	5,  // 25: agent.v1.OpenReviewHistoryResponse.reviews:type_name -> agent.v1.Review
-	55, // 26: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
+	53, // 26: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
 	7,  // 27: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
 	5,  // 28: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
 	4,  // 29: agent.v1.GetReviewResponse.round:type_name -> agent.v1.ReviewRound
@@ -4350,7 +4220,7 @@ func file_agent_v1_review_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_review_proto_rawDesc), len(file_agent_v1_review_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   52,
+			NumMessages:   50,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
