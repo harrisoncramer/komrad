@@ -23,7 +23,9 @@ const (
 type Env struct {
 	Settings
 	// EmbeddedPostgresVersion is the version of the embedded Postgres this binary carries, and empty when it carries none.
-	EmbeddedPostgresVersion    string
+	EmbeddedPostgresVersion string
+	// IsRoot is whether komrad runs as the root login, which the embedded Postgres refuses to run as.
+	IsRoot                     bool
 	OS                         string
 	Arch                       string
 	LookPath                   func(name string) (string, error)
@@ -117,6 +119,7 @@ func NewEnv(settings Settings) Env {
 		IsEmbeddedPostgresRunning:  postgres.IsRunning,
 		HasEmbeddedPostgresCluster: postgres.HasCluster,
 		EmbeddedPostgresVersion:    getEmbeddedPostgresVersion(),
+		IsRoot:                     os.Geteuid() == 0,
 		ConnectReadOnly: func(ctx context.Context, url string) error {
 			return connectReadOnly(ctx, url, settings.DatabaseURL)
 		},

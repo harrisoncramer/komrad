@@ -122,6 +122,14 @@ postgres_target() {
 	esac
 }
 
+# The repository whose prereleases hold the embedded Postgres archives postgres:build publishes.
+POSTGRES_RELEASE_REPO="harrisoncramer/komrad"
+
+# postgres_release_tag is the prerelease that holds the embedded Postgres archives of one version.
+postgres_release_tag() {
+	echo "postgres-$1"
+}
+
 # fetch_postgres puts the pinned embedded Postgres archive for one platform where the postgres
 # build tag embeds it from, refusing a download whose checksum is not the pinned one.
 fetch_postgres() {
@@ -140,7 +148,7 @@ fetch_postgres() {
 	if [ ! -f "$entry" ]; then
 		mkdir -p "$(dirname "$entry")"
 		tmp="$(mktemp "$entry.XXXXXX")"
-		curl -fsSL -o "$tmp" "https://github.com/theseus-rs/postgresql-binaries/releases/download/$release/$name"
+		gh release download "$(postgres_release_tag "$release")" --repo "$POSTGRES_RELEASE_REPO" --pattern "$name" --output "$tmp" --clobber
 		if [ "$(sha256_of "$tmp")" != "$sum" ]; then
 			rm -f "$tmp"
 			echo "the download of $name does not match the checksum pinned in internal/postgres/checksums.txt" >&2

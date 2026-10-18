@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_build"
+set -euo pipefail
+#MISE description="Publish the pinned embedded Postgres archives as a prerelease postgres:fetch downloads from."
+
+usage() {
+	echo "Usage: mise run postgres:publish"
+	echo
+	echo "Uploads the four embedded Postgres archives internal/postgres/checksums.txt pins,"
+	echo "from the dev cache postgres:build keeps them in, as the postgres-<version>"
+	echo "prerelease. The prerelease is never marked latest, so the install script and the"
+	echo "changelog pass over it. A published prerelease is never replaced, so every"
+	echo "checksum a commit pins stays downloadable."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*)
+		echo "postgres:publish: $arg is not an argument it takes" >&2
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+ROOT="$(git rev-parse --show-toplevel)"
+VERSION="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' "$ROOT/internal/postgres/bundle.go")"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+FILES=()
+for TARGET in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do
+	NAME="postgresql-$VERSION-$(postgres_target "${TARGET%/*}" "${TARGET#*/}").tar.gz"
+	if ! LINE="$(grep -- "  $NAME\$" "$ROOT/internal/postgres/checksums.txt")"; then
+		echo "internal/postgres/checksums.txt pins no $NAME, so run postgres:build $TARGET first" >&2
+		exit 1
+	fi
+	ENTRY="$(dev_cache)/postgres/${LINE%% *}.tar.gz"
+	if [ ! -f "$ENTRY" ] || [ "$(sha256_of "$ENTRY")" != "${LINE%% *}" ]; then
+		echo "the dev cache holds no $NAME matching its pin, so run postgres:build $TARGET first" >&2
+		exit 1
+	fi
+	cp "$ENTRY" "$WORK/$NAME"
+	FILES+=("$WORK/$NAME")
+done
+
+gh release create "$(postgres_release_tag "$VERSION")" "${FILES[@]}" \
+	--repo "$POSTGRES_RELEASE_REPO" \
+	--prerelease \
+	--latest=false \
+	--title "embedded Postgres $VERSION" \
+	--notes "Postgres $VERSION built by mise run postgres:build, linking nothing beyond the C library. The release binary embeds these archives."

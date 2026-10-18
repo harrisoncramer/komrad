@@ -26,8 +26,11 @@ jobs:
     if: github.event_name != 'pull_request' || (github.event.action != 'closed' && !github.event.pull_request.draft)
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'namespace-profile-harrisoncramer' || 'ubuntu-latest' }}
 
+    # The embedded Postgres archives every build and test embeds are prereleases of this private
+    # repository, which gh downloads with the job's token.
     env:
       ALL: ${{ github.event_name != 'pull_request' }}
+      GH_TOKEN: ${{ github.token }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

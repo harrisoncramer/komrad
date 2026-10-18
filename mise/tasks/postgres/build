@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_build"
+set -euo pipefail
+#MISE description="Build the embedded Postgres archives from the pinned Postgres source."
+
+usage() {
+	echo "Usage: mise run postgres:build [os/arch...]"
+	echo
+	echo "Builds the embedded Postgres for each platform named, or for all four when none"
+	echo "is, from the Postgres source internal/postgres/checksums.txt pins. Each archive"
+	echo "is pinned there in turn and kept in the dev cache, so the next build embeds it."
+	echo "Run postgres:publish once every platform is built."
+	echo
+	echo "Every library Postgres can link against is left out, so the programs load on a"
+	echo "machine with nothing but a C library. The Linux builds run in an AlmaLinux 8"
+	echo "container and need glibc 2.28 or newer. The macOS builds run on this machine,"
+	echo "which has to be a Mac, and need macOS 12 or newer."
+}
+
+# The Linux builds run on the oldest glibc komrad supports, so the programs run on any newer one.
+LINUX_IMAGE="almalinux:8@sha256:8b469a3a78515e8a18ea8fc727e6a3679e1d0c5ba6f58d5b30be3d0d9b86cffe"
+MACOS_TARGET="12.0"
+CONFIGURE=(
+	--without-icu --without-readline --without-zlib --without-openssl --without-gssapi
+	--without-libxml --without-libxslt --without-zstd --without-lz4 --without-ldap --without-pam
+)
+
+TARGETS=()
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*/*)
+		TARGETS+=("$arg")
+		;;
+	*)
+		echo "postgres:build: $arg is not an os/arch" >&2
+		usage >&2
+		exit 1
+		;;
+	esac
+done
+
+if ((${#TARGETS[@]} == 0)); then
+	TARGETS=(darwin/arm64 darwin/amd64 linux/amd64 linux/arm64)
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+CHECKSUMS="$ROOT/internal/postgres/checksums.txt"
+VERSION="$(sed -n 's/^const Version = "\(.*\)"$/\1/p' "$ROOT/internal/postgres/bundle.go")"
+SOURCE_NAME="postgresql-$VERSION.tar.bz2"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+# fetch_source downloads the Postgres source the checksums file pins into the dev cache, and
+# prints where it is.
+fetch_source() {
+	local line sum entry tmp
+	if ! line="$(grep -- "  $SOURCE_NAME\$" "$CHECKSUMS")"; then
+		echo "internal/postgres/checksums.txt pins no $SOURCE_NAME. Add the line from" >&2
+		echo "https://ftp.postgresql.org/pub/source/v$VERSION/$SOURCE_NAME.sha256 first." >&2
+		return 1
+	fi
+	sum="${line%% *}"
+	entry="$(dev_cache)/postgres-source/$sum.tar.bz2"
+
+	if [ ! -f "$entry" ]; then
+		mkdir -p "$(dirname "$entry")"
+		tmp="$(mktemp "$entry.XXXXXX")"
+		curl -fsSL -o "$tmp" "https://ftp.postgresql.org/pub/source/v$VERSION/$SOURCE_NAME"
+		if [ "$(sha256_of "$tmp")" != "$sum" ]; then
+			rm -f "$tmp"
+			echo "the download of $SOURCE_NAME does not match the checksum pinned in internal/postgres/checksums.txt" >&2
+			return 1
+		fi
+		mv -f "$tmp" "$entry"
+	fi
+
+	echo "$entry"
+}
+
+# build_linux builds one Linux archive in a container, with the libraries the programs share
+# found next to them wherever the archive is unpacked.
+build_linux() {
+	local arch="$1" source="$2" out="$3"
+
+	docker run --rm -i --platform "linux/$arch" \
+		-v "$source:/postgresql.tar.bz2:ro" \
+		-v "$(dirname "$out"):/out" \
+		-e VERSION="$VERSION" \
+		-e ARCHIVE="$(basename "$out")" \
+		-e CONFIGURE="${CONFIGURE[*]}" \
+		"$LINUX_IMAGE" sh -eu <<'EOF'
+run() {
+	"$@" >>/build.log 2>&1 || {
+		tail -n 40 /build.log >&2
+		exit 1
+	}
+}
+
+run dnf install -y gcc make bison flex perl bzip2 tar
+mkdir /build
+tar -xjf /postgresql.tar.bz2 -C /build
+cd "/build/postgresql-$VERSION"
+run ./configure --prefix=/opt/postgresql $CONFIGURE
+run make -j"$(nproc)" rpathdir='$$ORIGIN/../lib'
+run make install rpathdir='$$ORIGIN/../lib'
+run make -C contrib/pg_trgm install rpathdir='$$ORIGIN/../lib'
+rm -rf /opt/postgresql/include /opt/postgresql/lib/*.a
+cp COPYRIGHT /opt/postgresql/
+tar -czf "/out/$ARCHIVE" -C /opt postgresql
+EOF
+}
+
+# build_darwin builds one macOS archive on this Mac, pointing each program at the libraries
+# beside it rather than at the directory it was built in.
+build_darwin() {
+	local arch="$1" source="$2" out="$3"
+	local cpu dir prefix host=() file dep
+	case "$arch" in
+	arm64) cpu=arm64 ;;
+	amd64) cpu=x86_64 ;;
+	esac
+	if [ "$arch" != "$(go env GOHOSTARCH)" ]; then
+		host=(--host="${cpu/arm64/aarch64}-apple-darwin")
+	fi
+	dir="$WORK/darwin_$arch"
+	prefix="$dir/postgresql"
+	mkdir -p "$dir"
+	tar -xjf "$source" -C "$dir"
+
+	(
+		cd "$dir/postgresql-$VERSION"
+		export MACOSX_DEPLOYMENT_TARGET="$MACOS_TARGET" CC="clang -arch $cpu"
+		./configure --prefix="$prefix" "${host[@]}" "${CONFIGURE[@]}"
+		make -j"$(sysctl -n hw.ncpu)"
+		make install
+		make -C contrib/pg_trgm install
+	) >"$dir/build.log" 2>&1 || {
+		tail -n 40 "$dir/build.log" >&2
+		return 1
+	}
+
+	rm -rf "$prefix/include" "$prefix"/lib/*.a
+	for file in "$prefix"/bin/* "$prefix"/lib/*.dylib; do
+		if [ -L "$file" ] || ! file "$file" | grep -q Mach-O; then
+			continue
+		fi
+		if [[ "$file" == *.dylib ]]; then
+			install_name_tool -id "@loader_path/../lib/$(basename "$file")" "$file"
+		fi
+		for dep in $(otool -L "$file" | awk 'NR > 1 { print $1 }' | grep "^$prefix/"); do
+			install_name_tool -change "$dep" "@loader_path/../lib/$(basename "$dep")" "$file"
+		done
+		codesign -f -s - "$file" 2>/dev/null
+	done
+	cp "$dir/postgresql-$VERSION/COPYRIGHT" "$prefix/"
+	tar -czf "$out" -C "$dir" postgresql
+}
+
+# pin_archive keeps an archive in the dev cache by its checksum and pins it in the checksums file
+# in place of the archive it replaces.
+pin_archive() {
+	local target="$1" file="$2"
+	local name sum entry
+	name="postgresql-$VERSION-$target.tar.gz"
+	sum="$(sha256_of "$file")"
+	entry="$(dev_cache)/postgres/$sum.tar.gz"
+
+	mkdir -p "$(dirname "$entry")"
+	mv -f "$file" "$entry"
+	{
+		grep -v -- "-$target.tar.gz\$" "$CHECKSUMS" || true
+		printf '%s  %s\n' "$sum" "$name"
+	} | sort -k2 >"$WORK/checksums.txt"
+	cp "$WORK/checksums.txt" "$CHECKSUMS"
+	gum log --level info "pinned $name"
+}
+
+SOURCE="$(fetch_source)"
+for TARGET in "${TARGETS[@]}"; do
+	OS="${TARGET%/*}"
+	ARCH="${TARGET#*/}"
+	NAME="$(postgres_target "$OS" "$ARCH")"
+	OUT="$WORK/$NAME.tar.gz"
+	gum log --level info "building Postgres $VERSION for $TARGET"
+	case "$OS" in
+	linux) build_linux "$ARCH" "$SOURCE" "$OUT" ;;
+	darwin)
+		if [ "$(uname -s)" != Darwin ]; then
+			echo "postgres:build: the macOS builds need a Mac" >&2
+			exit 1
+		fi
+		build_darwin "$ARCH" "$SOURCE" "$OUT"
+		;;
+	esac
+	pin_archive "$NAME" "$OUT"
+done

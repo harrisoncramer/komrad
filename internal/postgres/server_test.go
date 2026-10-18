@@ -36,7 +36,7 @@ func TestIntegrationBundleHoldsWhatKomradRuns(t *testing.T) {
 	require.NoError(t, unpackEmbeddedPrograms(dir))
 
 	for _, name := range []string{"bin/postgres", "bin/initdb", "bin/pg_ctl", "bin/pg_upgrade", "share/extension/pg_trgm.control"} {
-		assert.FileExists(t, filepath.Join(getUnpackedDir(dir, Version), name))
+		assert.FileExists(t, filepath.Join(getUnpackedDir(dir), name))
 	}
 }
 
@@ -108,6 +108,25 @@ func TestIntegrationStartKeepsOnePostgres(t *testing.T) {
 		require.NoError(t, err)
 	}
 	assert.True(t, IsRunning(t.Context(), dir))
+}
+
+// TestIntegrationStartReplacesAnotherBuildsPrograms covers a server running the programs another build
+// unpacked being restarted on this build's programs, and the other build's programs being removed.
+func TestIntegrationStartReplacesAnotherBuildsPrograms(t *testing.T) {
+	dir := createCluster(t)
+	require.NoError(t, runProgram(t.Context(), getProgramPath(dir, "pg_ctl"), "stop", "-D", getDataDir(dir), "-w"))
+
+	other := filepath.Join(dir, Version+"-other")
+	require.NoError(t, os.Rename(getUnpackedDir(dir), other)) //nolint:forbidigo // a directory, which xfile.WriteAtomic does not move
+	require.NoError(t, runProgram(t.Context(), filepath.Join(other, "bin", "pg_ctl"), "start", "-D", getDataDir(dir), "-l", filepath.Join(dir, "postgres.log"), "-w"))
+	pid := postmasterPID(t, dir)
+
+	require.NoError(t, Start(t.Context(), dir))
+
+	assert.NotEqual(t, pid, postmasterPID(t, dir))
+	assert.True(t, IsRunning(t.Context(), dir))
+	assert.NoDirExists(t, other)
+	assert.DirExists(t, getUnpackedDir(dir))
 }
 
 // TestIntegrationStartRecoversFromACrash covers rows surviving an embedded Postgres killed without warning, and
@@ -249,4 +268,13 @@ func postmasterPID(t *testing.T, dir string) int {
 	require.NoError(t, err)
 
 	return pid
+}
+
+// TestIntegrationRunProgramNamesWhatTheMachineLacks covers a program the machine has no loader for, as on a
+// Linux without glibc.
+func TestIntegrationRunProgramNamesWhatTheMachineLacks(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "initdb")
+	require.NoError(t, os.WriteFile(path, []byte("#!/missing/loader\n"), 0o700))
+
+	assert.ErrorIs(t, runProgram(t.Context(), path), errCannotRun)
 }

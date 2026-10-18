@@ -55,6 +55,8 @@ jobs:
       # so no macOS runner is involved.
       - name: Build
         run: mise run go:release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # The tag is force-moved to this commit by full ref, so a tag and a branch of the same
       # name can never be confused for one another on the push side either.
