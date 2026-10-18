@@ -12,26 +12,30 @@ func TestDown(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		fail      string
+		postgres  bool
+		failStop  bool
+		failTmux  bool
 		wantErr   bool
 		wantKept  bool
 		wantCalls int
 	}{
 		{
-			name:      "a database that cannot be dropped keeps the claim",
-			fail:      "docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_2 WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_slot_2, komrad_engine_slot_2_reader",
+			name:      "a Postgres that cannot be stopped keeps the claim",
+			postgres:  true,
+			failStop:  true,
 			wantErr:   true,
 			wantKept:  true,
-			wantCalls: 3,
+			wantCalls: 4,
 		},
 		{
 			name:      "tmux and the server already being gone is not a failure",
-			fail:      "tmux -L komrad-test-2 kill-server",
-			wantCalls: 3,
+			failTmux:  true,
+			wantCalls: 2,
 		},
 		{
 			name:      "a slot whose database is dropped is given back",
-			wantCalls: 3,
+			postgres:  true,
+			wantCalls: 4,
 		},
 	}
 
@@ -40,9 +44,18 @@ func TestDown(t *testing.T) {
 			t.Parallel()
 
 			reg, cmds := newTestRegistry(t)
-			cmds.fail = map[string]bool{tt.fail: true}
 			holdSlot(t, reg, 2, checkout(t))
 			markDownBy(t, reg, 2, os.Getpid())
+			cmds.fail = map[string]bool{}
+			if tt.postgres {
+				runPostgres(t, reg, 2)
+			}
+			if tt.failStop {
+				cmds.fail[stopCalls(reg, 2)[1]] = true
+			}
+			if tt.failTmux {
+				cmds.fail["tmux -L komrad-test-2 kill-server"] = true
+			}
 
 			err := reg.down(t.Context(), 2)
 

@@ -23,15 +23,13 @@ const readerSuffix = "_reader"
 // file, which is where the precedence chain wants it. A tag default would sit beside the
 // environment instead and there would be no way to tell it apart from a value someone set.
 //
-// ReadOnlyDatabaseURL and CacheDir have no constant because neither is a fixed string: one
-// is derived from whichever database url wins and the other from the platform's cache
-// directory, both after the file and the environment have been resolved.
+// The database urls, ReadOnlyDatabaseURL and CacheDir have no constant because none is a fixed
+// string: the database urls name the embedded Postgres under the state directory, the read-only
+// url is derived from whichever database url wins, and the cache directory comes from the
+// platform, all after the file and the environment have been resolved.
 const (
-	// The default engine's login on the Postgres `mise run docker:up` starts and provisions,
-	// so a checkout works with nothing exported.
-	defaultDatabaseURL = "postgres://komrad_engine_default:komrad@localhost:5460/komrad?sslmode=disable"
-	// The login that owns that Postgres's schema, used while database_url is the default.
-	defaultOwnerDatabaseURL = "postgres://komrad:komrad@localhost:5460/komrad?sslmode=disable"
+	// The default engine's login, which `komrad setup` creates in the embedded Postgres.
+	defaultEngineLogin = "komrad_engine_default"
 	// Loopback, because the endpoint has no auth and its writes can spawn agents.
 	defaultAddr = "127.0.0.1:8787"
 	// The socket komrad's own tmux server listens on, named for the tool.
@@ -49,9 +47,11 @@ type Connection struct {
 	// The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as
 	// this engine's own login, which is what keeps its rows apart from every other engine's.
 	// `komrad engine ensure` creates the login and prints this url.
+	// Left empty this is the default engine's login on the embedded Postgres under state_dir,
+	// which `komrad start` brings up.
 	DatabaseURL string `mapstructure:"database_url"`
 	// The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.
-	// Left empty this is database_url, or the local owner while database_url is the default.
+	// Left empty this is database_url, or the embedded Postgres's owner while database_url is empty.
 	OwnerDatabaseURL string `mapstructure:"owner_database_url"`
 	// The least-privilege login the MCP query tools connect as.
 	// Left empty this is database_url with the engine's reader login, which is its own login
@@ -74,10 +74,6 @@ type Connection struct {
 	// Left empty this is ~/.local/state/komrad.
 	// It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 	StateDir string `mapstructure:"state_dir"`
-	// Whether komrad runs the embedded Postgres its binary carries, keeping it under state_dir and
-	// reaching it over a socket there. `komrad start` brings it up, and the commands that need
-	// the database refuse to run while it is down.
-	EmbeddedPostgres bool `mapstructure:"embedded_postgres"`
 	// The https address the engine is served on, like https://komrad.example.com. Left empty the
 	// engine is local and an agent's terminal is shown by moving its own pane into the panel. It
 	// may be plain http when its host is this machine.
@@ -87,19 +83,16 @@ type Connection struct {
 // defaultConnection is the instance a config that names none points at.
 func defaultConnection() Connection {
 	return Connection{
-		DatabaseURL: defaultDatabaseURL,
-		Addr:        defaultAddr,
-		TmuxSocket:  defaultTmuxSocket,
+		Addr:       defaultAddr,
+		TmuxSocket: defaultTmuxSocket,
 	}
 }
 
 func (c *Connection) normalize() {
 	c.URL = strings.TrimRight(c.URL, "/")
+	c.DatabaseURL = strings.TrimSpace(c.DatabaseURL)
 	if strings.TrimSpace(c.Addr) == "" {
 		c.Addr = defaultAddr
-	}
-	if strings.TrimSpace(c.DatabaseURL) == "" {
-		c.DatabaseURL = defaultDatabaseURL
 	}
 	if strings.TrimSpace(c.TmuxSocket) == "" {
 		c.TmuxSocket = defaultTmuxSocket
@@ -211,9 +204,9 @@ const (
 	sourceDerived     Source = "derived default"
 )
 
-// IsDefault reports whether a connection setting fell back to its built-in default.
-func (r *Report) IsDefault(key string) bool {
-	return r.Sources[key] == sourceDefault
+// UsesEmbeddedPostgres reports whether database_url was left empty, which names the embedded Postgres.
+func (r *Report) UsesEmbeddedPostgres() bool {
+	return r.Sources["database_url"] == sourceDerived
 }
 
 var connectionEnvironment = map[string]string{
@@ -224,7 +217,6 @@ var connectionEnvironment = map[string]string{
 	"connection.tmux_socket":           "KOMRAD_TMUX_SOCKET",
 	"connection.cache_dir":             "KOMRAD_CACHE_DIR",
 	"connection.state_dir":             "KOMRAD_STATE_DIR",
-	"connection.embedded_postgres":     "KOMRAD_EMBEDDED_POSTGRES",
 }
 
 func bindEnvironment(cfg *viper.Viper) error {
@@ -278,6 +270,12 @@ func (c *Config) resolveDerived(report *Report) error {
 		c.Connection.StateDir = ExpandHome(c.Connection.StateDir)
 	}
 
+	embeddedPostgres := GetEmbeddedPostgresDir(c.Connection.StateDir)
+	if c.Connection.DatabaseURL == "" {
+		c.Connection.DatabaseURL = BuildEmbeddedPostgresURL(embeddedPostgres, defaultEngineLogin, EmbeddedPostgresDatabase)
+		report.Sources["database_url"] = sourceDerived
+	}
+
 	if c.Connection.ReadOnlyDatabaseURL == "" {
 		c.Connection.ReadOnlyDatabaseURL = deriveReadOnlyURL(c.Connection.DatabaseURL)
 		report.Sources["readonly_database_url"] = sourceDerived
@@ -285,8 +283,8 @@ func (c *Config) resolveDerived(report *Report) error {
 
 	if c.Connection.OwnerDatabaseURL == "" {
 		c.Connection.OwnerDatabaseURL = c.Connection.DatabaseURL
-		if report.Sources["database_url"] == sourceDefault {
-			c.Connection.OwnerDatabaseURL = defaultOwnerDatabaseURL
+		if report.UsesEmbeddedPostgres() {
+			c.Connection.OwnerDatabaseURL = BuildEmbeddedPostgresURL(embeddedPostgres, EmbeddedPostgresOwner, EmbeddedPostgresDatabase)
 		}
 		report.Sources["owner_database_url"] = sourceDerived
 	}
@@ -309,8 +307,12 @@ func deriveReadOnlyURL(databaseURL string) string {
 		return ""
 	}
 
-	password, _ := parsed.User.Password()
-	parsed.User = url.UserPassword(parsed.User.Username()+readerSuffix, password)
+	login := parsed.User.Username() + readerSuffix
+	if password, set := parsed.User.Password(); set {
+		parsed.User = url.UserPassword(login, password)
+	} else {
+		parsed.User = url.User(login)
+	}
 
 	return parsed.String()
 }

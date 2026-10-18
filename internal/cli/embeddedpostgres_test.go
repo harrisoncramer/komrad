@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"komrad/config"
-	"komrad/internal/postgres"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,12 +22,6 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 		running          bool
 		wantErr          bool
 	}{
-		{
-			name:             "migrate with the embedded Postgres down",
-			command:          "migrate",
-			embeddedPostgres: true,
-			wantErr:          true,
-		},
 		{
 			name:             "engine ensure with the embedded Postgres down",
 			command:          "engine ensure",
@@ -54,14 +47,19 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 			wantErr:          true,
 		},
 		{
-			name:             "migrate with the embedded Postgres up",
-			command:          "migrate",
+			name:             "engine ensure with the embedded Postgres up",
+			command:          "engine ensure",
 			embeddedPostgres: true,
 			running:          true,
 		},
 		{
-			name:    "migrate against a Postgres the person runs",
-			command: "migrate",
+			name:    "engine ensure against a Postgres the person runs",
+			command: "engine ensure",
+		},
+		{
+			name:             "migrate, which creates or starts the embedded Postgres",
+			command:          "migrate",
+			embeddedPostgres: true,
 		},
 		{
 			name:             "start, which brings the embedded Postgres up",
@@ -92,7 +90,7 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 			t.Cleanup(func() { require.NoError(t, os.RemoveAll(stateDir)) })
 
 			if tt.running {
-				dir := postgres.GetDir(stateDir)
+				dir := config.GetEmbeddedPostgresDir(stateDir)
 				require.NoError(t, os.Mkdir(dir, 0o700))
 				listener, err := net.Listen("unix", filepath.Join(dir, ".s.PGSQL.5432"))
 				require.NoError(t, err)

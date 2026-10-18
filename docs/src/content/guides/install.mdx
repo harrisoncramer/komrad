@@ -67,10 +67,10 @@ You can also use the automatic installation and reconfigure anything it auto-ins
 
 ### Create your database
 
-Every release binary carries an embedded Postgres, so you do not need to install or run it yourself. Run <Command path="setup" /> or pass `--embedded-postgres`, and komrad creates the database, an engine named `default`, and your <Setting path="connection" label="[connection]" /> block.
+Every release binary carries an embedded Postgres, so you do not need to install or run it yourself. Komrad keeps its database there while <Setting path="connection.database_url" label="database_url" /> is left empty. Run <Command path="setup" />, and komrad creates the database and an engine named `default` under your state directory.
 
 ```sh
-komrad setup --no-input --embedded-postgres
+komrad setup --no-input
 ```
 
 After a restart, <Command path="start" /> or <Command path="open" /> brings the embedded Postgres back up.
@@ -91,7 +91,7 @@ docker run --name komrad \
 
 Postgres takes a few seconds to start. Wait until `docker exec komrad pg_isready -h localhost` reports that it is accepting connections before moving on.
 
-The database needs one admin-like user. The komrad engine uses this user to run migrations each time you update your binary. Choose "A Postgres I already run" in <Command path="setup" /> and paste this user's URL, or pass it as `--owner-database-url`. To do the same by hand, provide the URL to the <Command path="migrate" /> command and create your first engine. The engine is named `default` here.
+The database needs one admin-like user. The komrad engine uses this user to run migrations each time you update your binary. Run <Command path="setup" /> with `--no-embedded-postgres` and paste this user's URL, or pass it as `--owner-database-url`. To do the same by hand, provide the URL to the <Command path="migrate" /> command and create your first engine. The engine is named `default` here.
 
 ```sh
 export KOMRAD_OWNER_DATABASE_URL=postgres://komrad_owner:password123@localhost:5432/komrad

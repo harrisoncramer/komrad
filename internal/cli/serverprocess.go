@@ -35,7 +35,7 @@ const stopWaitFor = 30 * time.Second
 
 const stopPollInterval = 100 * time.Millisecond
 
-type ensureServerParams struct {
+type startServerParams struct {
 	Addr       string
 	Self       string
 	LogPath    string
@@ -44,7 +44,7 @@ type ensureServerParams struct {
 	EmbeddedPostgresDir string
 }
 
-func ensureServer(ctx context.Context, params ensureServerParams) error {
+func startServer(ctx context.Context, params startServerParams) error {
 	addr, logPath := params.Addr, params.LogPath
 
 	if err := startEmbeddedPostgres(ctx, params.EmbeddedPostgresDir); err != nil {

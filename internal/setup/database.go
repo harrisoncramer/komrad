@@ -10,23 +10,20 @@ import (
 	"komrad/internal/doctor"
 )
 
-const (
-	choiceEmbeddedPostgres = "run"
-	choiceOwnerURL         = "owner"
-)
-
-// DatabaseStep gives this machine an engine, in the embedded Postgres or one the person already
-// runs, while database_url is left at its default.
+// DatabaseStep gives this machine an engine, in the embedded Postgres unless the person runs a
+// Postgres of their own, while database_url is left empty.
 type DatabaseStep struct {
 	File                   *ConfigFile
 	Stack                  config.Stack
 	HasEmbeddedPostgres    bool
-	EmbeddedPostgresFlag   bool
+	NoEmbeddedPostgresFlag bool
 	OwnerURLFlag           string
-	CreateEmbeddedPostgres func(ctx context.Context) (string, error)
+	// CreateEmbeddedPostgres creates the embedded Postgres when there is none and starts it, reporting
+	// whether it created one.
+	CreateEmbeddedPostgres func(ctx context.Context) (bool, error)
 	RemoveEmbeddedPostgres func(ctx context.Context) error
 	MigrateAndCreateEngine func(ctx context.Context, ownerURL string) (string, error)
-	choice                 string
+	created                bool
 	pasted                 string
 }
 
@@ -36,43 +33,44 @@ func (s *DatabaseStep) name() string {
 
 func (s *DatabaseStep) observe(ctx context.Context, check checker) observation {
 	report := check(ctx, doctor.CheckConfig, doctor.CheckEmbeddedPostgres, doctor.CheckDatabase, doctor.CheckSchema, doctor.CheckEngine)
-	for _, name := range []string{doctor.CheckConfig, doctor.CheckEmbeddedPostgres} {
-		if finding := findingNamed(report, name); finding.Status == doctor.StatusFail {
-			return stopOn(&finding)
-		}
+	if finding := findingNamed(report, doctor.CheckConfig); finding.Status == doctor.StatusFail {
+		return stopOn(&finding)
 	}
 
-	cfg, loaded, err := config.LoadWithReport(s.Stack)
+	_, loaded, err := config.LoadWithReport(s.Stack)
 	if err != nil {
 		return observation{Verdict: verdictStop, Detail: err.Error()}
 	}
 
-	if loaded.IsDefault("database_url") {
-		if !s.File.isWritable() {
-			return observation{Verdict: verdictStop, Detail: "no database is set up; " + s.File.describeRefusal("database_url under [connection]") + ", or move it aside and run setup again"}
-		}
-
-		return observation{Verdict: verdictAsk, Detail: "no database is set up"}
-	}
-	if failed := firstFailing(report); failed != nil {
-		return stopOn(failed)
-	}
-
 	engine := findingNamed(report, doctor.CheckEngine)
 	database := findingNamed(report, doctor.CheckDatabase)
+	failed := firstFailing(report)
 
-	return observation{Verdict: verdictDone, Detail: describeEngine(engine, database, cfg.Connection.EmbeddedPostgres)}
+	switch {
+	case !loaded.UsesEmbeddedPostgres() && failed != nil:
+		return stopOn(failed)
+	case failed == nil:
+		return observation{Verdict: verdictDone, Detail: describeEngine(engine, database, loaded.UsesEmbeddedPostgres())}
+	case !s.takesOwnerURL():
+		return observation{Verdict: verdictRepair, Detail: "no database is set up"}
+	case !s.File.isWritable():
+		return observation{Verdict: verdictStop, Detail: "no database is set up; " + s.File.describeRefusal("database_url under [connection]") + ", or move it aside and run setup again"}
+	}
+
+	return observation{Verdict: verdictAsk, Detail: "no database is set up"}
+}
+
+// takesOwnerURL reports whether the engine goes in a Postgres the person runs rather than the embedded one.
+func (s *DatabaseStep) takesOwnerURL() bool {
+	return !s.HasEmbeddedPostgres || s.NoEmbeddedPostgresFlag || s.OwnerURLFlag != ""
 }
 
 func (s *DatabaseStep) answerUnattended() error {
 	switch {
-	case s.EmbeddedPostgresFlag:
-		s.choice = choiceEmbeddedPostgres
 	case s.OwnerURLFlag != "":
-		s.choice = choiceOwnerURL
 		s.pasted = s.OwnerURLFlag
-	case s.HasEmbeddedPostgres:
-		return fmt.Errorf("%w: pass --embedded-postgres, or --owner-database-url with a login that owns your database", errNeedsAnswer)
+	case !s.HasEmbeddedPostgres:
+		return fmt.Errorf("%w: this build carries no embedded Postgres, so pass --owner-database-url with a login that owns your database", errNeedsAnswer)
 	default:
 		return fmt.Errorf("%w: pass --owner-database-url with a login that owns your database", errNeedsAnswer)
 	}
@@ -81,27 +79,42 @@ func (s *DatabaseStep) answerUnattended() error {
 }
 
 func (s *DatabaseStep) repair(ctx context.Context) error {
-	ownerURL := strings.TrimSpace(s.pasted)
-	embeddedPostgres := s.choice == choiceEmbeddedPostgres
-	if embeddedPostgres {
-		created, err := s.CreateEmbeddedPostgres(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to set up the embedded Postgres: %w", err)
-		}
-		ownerURL = created
+	if s.takesOwnerURL() {
+		return s.repairOwnerURL(ctx)
 	}
 
-	databaseURL, err := s.MigrateAndCreateEngine(ctx, ownerURL)
+	created, err := s.CreateEmbeddedPostgres(ctx)
 	if err != nil {
+		return fmt.Errorf("failed to set up the embedded Postgres: %w", err)
+	}
+	s.created = created
+
+	cfg, err := config.LoadStack(s.Stack)
+	if err != nil {
+		return s.undo(ctx, fmt.Errorf("failed to read the config: %w", err))
+	}
+
+	if _, err := s.MigrateAndCreateEngine(ctx, cfg.Connection.OwnerDatabaseURL); err != nil {
 		return s.undo(ctx, fmt.Errorf("failed to create the engine: %w", err))
 	}
 
+	return nil
+}
+
+// repairOwnerURL creates the engine in the Postgres the owner's url names and writes both urls to the config.
+func (s *DatabaseStep) repairOwnerURL(ctx context.Context) error {
+	ownerURL := strings.TrimSpace(s.pasted)
+
+	databaseURL, err := s.MigrateAndCreateEngine(ctx, ownerURL)
+	if err != nil {
+		return fmt.Errorf("failed to create the engine: %w", err)
+	}
+
 	if err := s.File.write(func(a *answers) {
-		a.EmbeddedPostgres = embeddedPostgres
 		a.OwnerDatabaseURL = ownerURL
 		a.DatabaseURL = databaseURL
 	}); err != nil {
-		return s.undo(ctx, err)
+		return err
 	}
 
 	cfg, err := config.LoadStack(s.Stack)
@@ -115,9 +128,9 @@ func (s *DatabaseStep) repair(ctx context.Context) error {
 	return nil
 }
 
-// undo removes the embedded Postgres this run created when it failed before the config held its owner.
+// undo removes the embedded Postgres this run created when creating the engine in it failed.
 func (s *DatabaseStep) undo(ctx context.Context, err error) error {
-	if s.choice != choiceEmbeddedPostgres {
+	if !s.created {
 		return err
 	}
 

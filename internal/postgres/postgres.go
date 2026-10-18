@@ -6,18 +6,11 @@ import (
 	"net"
 	"path/filepath"
 	"time"
+
+	"komrad/config"
 )
 
-const (
-	// port names the socket file, since the server listens on no TCP address.
-	port        = "5432"
-	dialTimeout = time.Second
-)
-
-// GetDir is the directory under stateDir that holds the embedded Postgres and its socket.
-func GetDir(stateDir string) string {
-	return filepath.Join(stateDir, "postgres")
-}
+const dialTimeout = time.Second
 
 // IsRunning reports whether the embedded Postgres accepts connections on the socket in dir.
 func IsRunning(ctx context.Context, dir string) bool {
@@ -33,7 +26,7 @@ func IsRunning(ctx context.Context, dir string) bool {
 
 // getSocketPath is the socket the embedded Postgres in dir listens on.
 func getSocketPath(dir string) string {
-	return filepath.Join(dir, ".s.PGSQL."+port)
+	return filepath.Join(dir, ".s.PGSQL."+config.EmbeddedPostgresPort)
 }
 
 // getPIDFilePath is the file the embedded Postgres in dir writes its PID into while it runs.

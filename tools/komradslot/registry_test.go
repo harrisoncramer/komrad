@@ -71,6 +71,31 @@ func holdSlot(t *testing.T, reg registry, n int, root string) {
 	}
 }
 
+// runPostgres gives slot n an unpacked pg_ctl and a cluster for drop to stop.
+func runPostgres(t *testing.T, reg registry, n int) {
+	t.Helper()
+
+	dir := filepath.Join(getStateDir(reg.slotDir(n)), "postgres")
+	for _, sub := range []string{filepath.Join("18.6.0", "bin"), "data-18"} {
+		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "18.6.0", "bin", "pg_ctl"), nil, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// stopCalls is what drop runs to stop the Postgres runPostgres gave slot n.
+func stopCalls(reg registry, n int) []string {
+	dir := filepath.Join(getStateDir(reg.slotDir(n)), "postgres")
+	pgCtl := filepath.Join(dir, "18.6.0", "bin", "pg_ctl")
+	data := filepath.Join(dir, "data-18")
+
+	return []string{pgCtl + " status -D " + data, pgCtl + " stop -D " + data + " -m immediate -w"}
+}
+
 func markDownBy(t *testing.T, reg registry, n, pid int) {
 	t.Helper()
 
@@ -155,7 +180,6 @@ func TestClaim(t *testing.T) {
 			calls: []string{
 				"tmux -L komrad-test-7 kill-server",
 				"pkill -f komrad serve --addr 127.0.0.1:8807( |$)",
-				"docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_7 WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_slot_7, komrad_engine_slot_7_reader",
 			},
 		},
 	}
@@ -309,7 +333,6 @@ func downCalls(n int) []string {
 	return []string{
 		fmt.Sprintf("tmux -L komrad-test-%d kill-server", n),
 		fmt.Sprintf("pkill -f komrad serve --addr 127.0.0.1:88%02d( |$)", n),
-		fmt.Sprintf("docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_%d WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_slot_%d, komrad_engine_slot_%d_reader", n, n, n),
 	}
 }
 
@@ -414,7 +437,8 @@ func TestReapKeepsGoingPastASlotItCannotDrop(t *testing.T) {
 	reg, cmds := newTestRegistry(t)
 	holdSlot(t, reg, 3, filepath.Join(t.TempDir(), "gone"))
 	holdSlot(t, reg, 4, filepath.Join(t.TempDir(), "gone"))
-	cmds.fail = map[string]bool{downCalls(3)[2]: true}
+	runPostgres(t, reg, 3)
+	cmds.fail = map[string]bool{stopCalls(reg, 3)[1]: true}
 
 	if err := reg.reap(t.Context(), ""); err != nil {
 		t.Fatalf("reap() error = %v", err)

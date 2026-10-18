@@ -10,4 +10,5 @@ fi
 
 cd "$MISE_CONFIG_ROOT"
 "$MISE_CONFIG_ROOT/mise/tasks/_test_instance" drop --root "$MISE_CONFIG_ROOT"
-exec mise run docker:up
+migrate_database
+KOMRAD_ENGINE_PASSWORD=komrad go run -tags postgres . engine ensure default >/dev/null

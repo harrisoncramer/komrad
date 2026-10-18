@@ -13,9 +13,10 @@ usage() {
 	echo "here: run 'go-structs' from the dotfiles, which touches only the files"
 	echo "your branch changes."
 	echo
-	echo "The tests need Postgres, so run 'mise run docker:up' first. Drift in"
-	echo "config.toml is caught by the config tests, which regenerate it in memory"
-	echo "and compare, so a stale file fails here without needing a clean git tree."
+	echo "The tests need Postgres, which go:test brings up under MISE_ENV=test. Run"
+	echo "'mise run db:apply' first otherwise. Drift in config.toml is caught by the"
+	echo "config tests, which regenerate it in memory and compare, so a stale file"
+	echo "fails here without needing a clean git tree."
 	echo "gen:check covers the sqlc and buf output too, but only when those paths"
 	echo "have no uncommitted edits."
 	echo

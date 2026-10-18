@@ -13,10 +13,9 @@ The binary lands in `bin/komrad`.
 
 ## Testing
 
-The tests run against a throwaway instance with its own Postgres, so they never touch the komrad you use day to day. Start the test Postgres once, then check your change:
+The tests run against a throwaway instance with its own embedded Postgres, so they never touch the komrad you use day to day. Check your change with:
 
 ```sh
-mise run test:container:up
 MISE_ENV=test mise run check:quick
 ```
 

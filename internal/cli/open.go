@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strconv"
 
 	"komrad/internal/agents"
 	"komrad/internal/git"
@@ -75,7 +74,7 @@ func openHere(ctx context.Context, state *app, detach, headless bool) error {
 
 	settingUp := !headless && prepareAutoSetup(ctx, state)
 
-	if err := ensureManagerSession(ctx, state, detach, headless); err != nil {
+	if err := startPanel(ctx, state, detach, headless); err != nil {
 		return err
 	}
 
@@ -118,9 +117,9 @@ func isPanelRunning(ctx context.Context, state *app) bool {
 	return state.tmux.IsPaneAlive(state.tmux.GetPanelPane())
 }
 
-// ensureManagerSession puts a panel up, making the session when there is none and a window in
+// startPanel puts a panel up, making the session when there is none and a window in
 // the session it already has when only the panel has gone.
-func ensureManagerSession(ctx context.Context, state *app, detached, headless bool) error {
+func startPanel(ctx context.Context, state *app, detached, headless bool) error {
 	if !isManagerSessionRunning(ctx, state) {
 		if err := runTmux(ctx, state, "create the manager session",
 			buildManagerSessionArgs(state, state.selfPath(), headless)); err != nil {
@@ -196,16 +195,22 @@ func buildPanelWindowArgs(state *app, self string, detached bool) []string {
 	return append(append(args, "-t", agents.ManagerSession+":"), panelCommandArgs(state, self)...)
 }
 
+// sessionEnvArgs leaves KOMRAD_DATABASE_URL empty while the embedded Postgres is on, so the panes
+// derive it from KOMRAD_STATE_DIR and start the embedded Postgres themselves.
 func sessionEnvArgs(state *app) []string {
+	databaseURL := state.env.DatabaseURL
+	if state.env.EmbeddedPostgres {
+		databaseURL = ""
+	}
+
 	return []string{
 		"-e", "KOMRAD_TMUX_SOCKET=" + state.env.TmuxSocket,
-		"-e", "KOMRAD_DATABASE_URL=" + state.env.DatabaseURL,
+		"-e", "KOMRAD_DATABASE_URL=" + databaseURL,
 		"-e", "KOMRAD_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
 		"-e", "KOMRAD_ADDR=" + state.env.Addr,
 		"-e", "EDITOR=" + state.env.Editor,
 		"-e", "KOMRAD_CACHE_DIR=" + state.env.CacheDir,
 		"-e", "KOMRAD_STATE_DIR=" + state.env.StateDir,
-		"-e", "KOMRAD_EMBEDDED_POSTGRES=" + strconv.FormatBool(state.env.EmbeddedPostgres),
 	}
 }
 
@@ -247,7 +252,7 @@ func prepareAutoSetup(ctx context.Context, state *app) bool {
 		return false
 	}
 
-	if err := ensureServer(ctx, ensureServerParams{
+	if err := startServer(ctx, startServerParams{
 		Addr:                state.env.Addr,
 		Self:                getSelfPath(),
 		LogPath:             state.env.LogPath(),

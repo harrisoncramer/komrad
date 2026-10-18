@@ -3,12 +3,12 @@ package doctor
 import (
 	"context"
 
-	"komrad/internal/postgres"
+	"komrad/config"
 )
 
 const (
 	fixNoEmbeddedPostgres        = "install a release binary, or build with mise run go:build"
-	fixNoEmbeddedPostgresCluster = "move your config file aside, then run komrad setup"
+	fixNoEmbeddedPostgresCluster = "komrad setup"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 	}
 	errNoEmbeddedPostgresCluster = &problemError{
 		Code:    "no_embedded_postgres_cluster",
-		Message: "the config turns on the embedded Postgres, but none is set up under the state directory",
+		Message: "no embedded Postgres is set up under the state directory",
 	}
 )
 
@@ -33,7 +33,7 @@ func newEmbeddedPostgresCheck() Check {
 		Name:        CheckEmbeddedPostgres,
 		Description: "the embedded Postgres is running, and komrad start brings it up",
 		Run: func(ctx context.Context, env Env) Result {
-			dir := postgres.GetDir(env.StateDir)
+			dir := config.GetEmbeddedPostgresDir(env.StateDir)
 			running := env.IsEmbeddedPostgresRunning(ctx, dir)
 
 			switch {

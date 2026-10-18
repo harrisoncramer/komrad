@@ -64,11 +64,13 @@ func TestEnvThenCheck(t *testing.T) {
 	}
 
 	env := parseEnv(out)
-	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["DB_PORT"] != "5470" || env["KOMRAD_TEST_DATABASE"] != "komrad_1" || env["KOMRAD_TEST_ENGINE"] != "slot_1" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" || env["KOMRAD_STATE_DIR"] != filepath.Join(reg.slotDir(1), "state") {
+	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" || env["KOMRAD_STATE_DIR"] != filepath.Join(reg.slotDir(1), "state") {
 		t.Errorf("env printed %q", out)
 	}
-	if embeddedPostgres, ok := env["KOMRAD_EMBEDDED_POSTGRES"]; !ok || embeddedPostgres != "" {
-		t.Errorf("env printed %q", out)
+	for _, name := range []string{"KOMRAD_DATABASE_URL", "KOMRAD_OWNER_DATABASE_URL", "KOMRAD_READONLY_DATABASE_URL"} {
+		if url, ok := env[name]; !ok || url != "" {
+			t.Errorf("env printed %q", out)
+		}
 	}
 
 	config, err := os.ReadFile(env["KOMRAD_CONFIG"])
@@ -153,7 +155,7 @@ func TestDownGivesTheSlotBack(t *testing.T) {
 	}
 }
 
-// TestDropKeepsTheSlot drops the slot's database and logins and leaves the claim in place.
+// TestDropKeepsTheSlot stops the slot's Postgres, deletes its cluster, and leaves the claim in place.
 func TestDropKeepsTheSlot(t *testing.T) {
 	t.Parallel()
 
@@ -168,6 +170,7 @@ func TestDropKeepsTheSlot(t *testing.T) {
 		t.Fatalf("env: %v", err)
 	}
 
+	runPostgres(t, reg, 1)
 	if _, err := runSlot(t, reg, nil, "drop", "--root", root); err != nil {
 		t.Fatalf("drop: %v", err)
 	}
@@ -176,8 +179,11 @@ func TestDropKeepsTheSlot(t *testing.T) {
 		t.Errorf("slot 1 was given back by drop: %v", err)
 	}
 
-	want := "docker compose -p komrad-test-pg exec -T db psql -U komrad -d postgres -v ON_ERROR_STOP=1 -c DROP DATABASE IF EXISTS komrad_1 WITH (FORCE) -c DROP ROLE IF EXISTS komrad_engine_slot_1, komrad_engine_slot_1_reader"
-	if len(cmds.calls) != 1 || cmds.calls[0] != want {
+	if _, err := os.Stat(filepath.Join(getStateDir(reg.slotDir(1)), "postgres", "data-18")); err == nil {
+		t.Error("the cluster of slot 1 is still there after drop")
+	}
+
+	if want := stopCalls(reg, 1); strings.Join(cmds.calls, "\n") != strings.Join(want, "\n") {
 		t.Errorf("ran %q, want %q", cmds.calls, want)
 	}
 }
