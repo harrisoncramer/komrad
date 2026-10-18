@@ -126,7 +126,7 @@ func (m ParentClosed) Body() string {
 		"The person can move your task onto the base branch from its menu.", m.Parent, m.URL, m.Parent)
 }
 
-// RestackLost tells a standing task's writer that its branch no longer holds the commit of the task it stands on that its own commits began after.
+// RestackLost tells a standing task's writer that its branch no longer holds the commit its own commits sat on.
 type RestackLost struct {
 	// Parent is the slug of the task stood on.
 	Parent string
