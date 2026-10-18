@@ -1400,6 +1400,13 @@
               "type": "string",
               "description": "Beside the count of your comments holding a reply you have not read.",
               "default": "\"\""
+            },
+            {
+              "key": "reviewer",
+              "path": "glyphs.marks.reviewer",
+              "type": "string",
+              "description": "Before the name of a reviewer agent under its task.",
+              "default": "\"\""
             }
           ],
           "sections": []

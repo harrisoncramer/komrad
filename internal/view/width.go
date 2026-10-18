@@ -86,6 +86,9 @@ func roomForName(line line, width int) int {
 	if line.Lead != "" {
 		spent += len([]rune(line.Lead)) + spaceColumns
 	}
+	if !line.Role.IsBlank() {
+		spent += countCellColumns(line.Role) + spaceColumns
+	}
 
 	return width - spent
 }

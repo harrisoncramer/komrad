@@ -130,6 +130,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Documents = row.Documents && !r.underTask
 	row.Kind = snapshotKind(r, params.flat)
 	row.Nested = r.underTask
+	row.Reviewer = item.Agent.Role == panel.RoleReviewer
 	row.Name = item.Agent.Name
 	row.Matches = params.matchesOf(r, item.Agent.Name)
 	row.Repo = snapshotRepo(task.WorktreeRemoved, task.Sequence)

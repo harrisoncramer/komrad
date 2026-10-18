@@ -43,7 +43,7 @@ func renderLine(line line, list List, palette paint.Palette, width int) string {
 	gutter := strings.Join(cells, " ")
 
 	row := gutter + " " + strings.Repeat(" ", line.Indent) + renderBranch(palette, line.Branch) + renderRule(palette, line.Rule) +
-		renderLead(palette, line.Lead) + renderName(palette, line) + render.trailing(line)
+		renderLead(palette, line.Lead) + render.role(line.Role) + renderName(palette, line) + render.trailing(line)
 
 	if len(line.Comments) > 0 {
 		comments := strings.Join(xslice.Map(line.Comments, render.cell), " ")
@@ -133,6 +133,15 @@ func renderLead(palette paint.Palette, lead string) string {
 	}
 
 	return palette.Style(paint.ToneMuted).Render(lead) + " "
+}
+
+// role is the mark before a reviewer's name, with the space after it.
+func (d renderer) role(cell Cell) string {
+	if cell.IsBlank() {
+		return ""
+	}
+
+	return d.cell(cell) + " "
 }
 
 // renderDivider is a rule across the pane titled by name.
