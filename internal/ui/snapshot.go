@@ -388,7 +388,7 @@ func pickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name str
 	return matchesIn(matcher, name)
 }
 
-// standTail is what a task's row says after its name about the task it stands on.
+// standTail is what a task's row says after its name when its place on the task it stands on is in trouble.
 func standTail(r agentRow, tasks taskIndex) view.Cell {
 	stand := r.task.Stand
 	if stand == nil {
@@ -405,5 +405,5 @@ func standTail(r agentRow, tasks taskIndex) view.Cell {
 		return view.Cell{Text: "on " + parent + ", closed unmerged", Tone: paint.ToneWarning}
 	}
 
-	return view.Cell{Text: "on " + parent, Tone: paint.ToneMuted}
+	return view.Cell{}
 }
