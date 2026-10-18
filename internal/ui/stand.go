@@ -31,8 +31,8 @@ func placeStandRefusal(l listing, task panel.Task) error {
 	return nil
 }
 
-// sayRestackBlock is a task's block on the task it stands on in words, empty while nothing blocks it.
-func sayRestackBlock(block taskv1.RestackBlock, parent string) string {
+// restackBlockSaid is a task's block on the task it stands on in words, empty while nothing blocks it.
+func restackBlockSaid(block taskv1.RestackBlock, parent string) string {
 	switch block {
 	case taskv1.RestackBlock_RESTACK_BLOCK_CONFLICTED:
 		return "behind " + parent + ", conflicts"

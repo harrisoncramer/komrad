@@ -395,7 +395,7 @@ func standTail(r agentRow, tasks taskIndex) view.Cell {
 		return view.Cell{}
 	}
 
-	said := sayRestackBlock(stand.GetBlocked(), tasks[stand.GetTaskId()].Slug)
+	said := restackBlockSaid(stand.GetBlocked(), tasks[stand.GetTaskId()].Slug)
 	if said == "" {
 		return view.Cell{}
 	}

@@ -183,7 +183,7 @@ func stackRow(tasks taskIndex, task panel.Task, kind sideKind, depth int) sideRo
 	if task.PullRequest.Number > 0 {
 		row.note = task.PullRequest.Ref()
 	}
-	if said := sayRestackBlock(task.Stand.GetBlocked(), tasks[task.Stand.GetTaskId()].Slug); said != "" {
+	if said := restackBlockSaid(task.Stand.GetBlocked(), tasks[task.Stand.GetTaskId()].Slug); said != "" {
 		row.note = strings.TrimSpace(row.note + " " + said)
 	}
 
