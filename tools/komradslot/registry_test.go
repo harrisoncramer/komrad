@@ -75,7 +75,7 @@ func holdSlot(t *testing.T, reg registry, n int, root string) {
 func runPostgres(t *testing.T, reg registry, n int) {
 	t.Helper()
 
-	dir := filepath.Join(getStateDir(reg.slotDir(n)), "postgres")
+	dir := getPostgresDir(reg.slotDir(n))
 	for _, sub := range []string{filepath.Join("18.6.0", "bin"), "data-18"} {
 		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
 			t.Fatal(err)
@@ -89,7 +89,7 @@ func runPostgres(t *testing.T, reg registry, n int) {
 
 // stopCalls is what drop runs to stop the Postgres runPostgres gave slot n.
 func stopCalls(reg registry, n int) []string {
-	dir := filepath.Join(getStateDir(reg.slotDir(n)), "postgres")
+	dir := getPostgresDir(reg.slotDir(n))
 	pgCtl := filepath.Join(dir, "18.6.0", "bin", "pg_ctl")
 	data := filepath.Join(dir, "data-18")
 

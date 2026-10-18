@@ -179,7 +179,7 @@ func TestDropKeepsTheSlot(t *testing.T) {
 		t.Errorf("slot 1 was given back by drop: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(getStateDir(reg.slotDir(1)), "postgres", "data-18")); err == nil {
+	if _, err := os.Stat(filepath.Join(getPostgresDir(reg.slotDir(1)), "data-18")); err == nil {
 		t.Error("the cluster of slot 1 is still there after drop")
 	}
 

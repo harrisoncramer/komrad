@@ -64,7 +64,7 @@ func (r registry) down(ctx context.Context, n int) error {
 
 // drop stops the embedded Postgres slot n keeps its database in and deletes its cluster.
 func (r registry) drop(ctx context.Context, n int) error {
-	dir := filepath.Join(getStateDir(r.slotDir(n)), "postgres")
+	dir := getPostgresDir(r.slotDir(n))
 	clusters, err := filepath.Glob(filepath.Join(dir, "data-*"))
 	if err != nil {
 		return fmt.Errorf("failed to find the database of slot %d: %w", n, err)

@@ -41,6 +41,10 @@ func getStateDir(slotDir string) string {
 	return filepath.Join(slotDir, "state")
 }
 
+func getPostgresDir(slotDir string) string {
+	return filepath.Join(getStateDir(slotDir), "postgres")
+}
+
 func configPath(slotDir string) string {
 	return filepath.Join(slotDir, "komrad.toml")
 }

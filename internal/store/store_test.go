@@ -137,7 +137,7 @@ func TestEnsuringAnEngineAgainKeepsItsRowsAndMovesItsPassword(t *testing.T) {
 
 	require.NoError(t, store.EnsureEngine(ctx, database.OwnerURL, db.EnsureEngineParams{Name: name, Password: "second"}))
 
-	assert.NotEqual(t, first, readPassword(t, database.OwnerURL, db.EngineLogin(name)), "the old password no longer opens the engine")
+	assert.NotEqual(t, first, readPassword(t, database.OwnerURL, db.EngineLogin(name)), "ensuring the engine again moves its password")
 
 	after := openEngine(t, dbtest.Engine{Name: name, URL: database.EngineURL(t, name, "second")})
 	kept, err := workflowstore.NewWorkflowStore(after.GetDB()).List(ctx)

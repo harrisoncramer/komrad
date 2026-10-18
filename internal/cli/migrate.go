@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"komrad/config"
 	"komrad/internal/store"
 
 	"github.com/spf13/cobra"
@@ -29,8 +28,8 @@ database that is already current; it says so and exits zero.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if state.env.EmbeddedPostgres {
-				if _, err := createOrStartEmbeddedPostgres(cmd.Context(), config.GetEmbeddedPostgresDir(state.env.StateDir)); err != nil {
+			if dir := getEmbeddedPostgresDir(state.env); dir != "" {
+				if _, err := createOrStartEmbeddedPostgres(cmd.Context(), dir); err != nil {
 					return err
 				}
 			}

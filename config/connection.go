@@ -23,10 +23,9 @@ const readerSuffix = "_reader"
 // file, which is where the precedence chain wants it. A tag default would sit beside the
 // environment instead and there would be no way to tell it apart from a value someone set.
 //
-// The database urls, ReadOnlyDatabaseURL and CacheDir have no constant because none is a fixed
-// string: the database urls name the embedded Postgres under the state directory, the read-only
-// url is derived from whichever database url wins, and the cache directory comes from the
-// platform, all after the file and the environment have been resolved.
+// DatabaseURL, OwnerDatabaseURL, ReadOnlyDatabaseURL and CacheDir have no constant because each
+// is derived from the state directory, another url or the platform once the file and the
+// environment have been resolved.
 const (
 	// The default engine's login, which `komrad setup` creates in the embedded Postgres.
 	defaultEngineLogin = "komrad_engine_default"

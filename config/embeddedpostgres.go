@@ -19,8 +19,8 @@ func GetEmbeddedPostgresDir(stateDir string) string {
 	return filepath.Join(stateDir, "postgres")
 }
 
-// BuildEmbeddedPostgresURL is the url login reaches the database name at in the embedded Postgres in
-// dir, over the socket and without a password.
+// BuildEmbeddedPostgresURL is the url that reaches database name in the embedded Postgres in dir as
+// login, over its socket and without a password.
 func BuildEmbeddedPostgresURL(dir, login, name string) string {
 	return (&url.URL{
 		Scheme:   "postgres",

@@ -24,7 +24,10 @@ const (
 	settingsFile = "komrad.conf"
 	// signInFile holds the sign-in rule komrad rewrites on every start.
 	signInFile = "pg_hba.conf"
-	// maxConnections covers the store tests opening a pool per test across packages running in parallel.
+	// signInRule lets every login in over the socket without a password, since only the person can
+	// open the directory that holds it.
+	signInRule = "local all all trust\n" //nolint:dupword // the database and the login columns both say all
+	// maxConnections is how many connections the embedded Postgres accepts at once.
 	maxConnections = "300"
 )
 
@@ -258,7 +261,7 @@ func writeSettings(dir string) error {
 		return fmt.Errorf("failed to write %s: %w", settingsFile, err)
 	}
 
-	if err := os.WriteFile(filepath.Join(data, signInFile), []byte(buildSignInFile()), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(data, signInFile), []byte(signInRule), 0o600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", signInFile, err)
 	}
 
@@ -276,12 +279,6 @@ func buildSettingsFile(dir string) string {
 		"max_connections = " + maxConnections,
 		"",
 	}, "\n")
-}
-
-// buildSignInFile lets every login in over the socket without a password, since only the person can
-// open the directory that holds it.
-func buildSignInFile() string {
-	return "local all all trust\n" //nolint:dupword // the database and the login columns both say all
 }
 
 func createDatabase(ctx context.Context, dir string) error {
