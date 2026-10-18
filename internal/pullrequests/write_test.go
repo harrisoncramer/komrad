@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const taskRepository = "https://github.com/harrisoncramer/komrad"
+
 // writingForge records each merge, draft change, auto-merge change and re-review and answers err.
 type writingForge struct {
 	forge.Forge
@@ -354,24 +356,24 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 	}
 }
 
-// childTask is a child task's pull request at the test address onto its parent's branch, laid only once parentState names the state of the parent's own pull request.
+// childTask is a child task's pull request at the test address onto its parent's branch, seeded only once parentState names the state of the parent's own pull request.
 type childTask struct {
 	hasParent   bool
 	parentState string
 }
 
 // seedChildTask records the parent and child tasks in the test repository, and their pull requests.
-func seedChildTask(t *testing.T, stores *storetest.Stores, laid childTask) {
+func seedChildTask(t *testing.T, stores *storetest.Stores, seeded childTask) {
 	t.Helper()
 
-	if laid.parentState == "" {
+	if seeded.parentState == "" {
 		return
 	}
 
 	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "parent-and-child"})
 	parent := seedBranchTask(t, stores, workflow.ID, "task/parent")
 	child := seedBranchTask(t, stores, workflow.ID, "task/child")
-	if laid.hasParent {
+	if seeded.hasParent {
 		require.NoError(t, stores.Tasks.SetParent(t.Context(), child, &taskstore.Parent{TaskID: parent, ForkPoint: "abc"}))
 	}
 
@@ -381,7 +383,7 @@ func seedChildTask(t *testing.T, stores *storetest.Stores, laid childTask) {
 		HeadBranch:    "task/parent",
 		HeadSHA:       "abc",
 		BaseBranch:    "main",
-		State:         laid.parentState,
+		State:         seeded.parentState,
 		OpenedAt:      syncNow,
 	})
 	stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
@@ -403,5 +405,3 @@ func seedBranchTask(t *testing.T, stores *storetest.Stores, workflowID, branch s
 
 	return *agent.TaskID
 }
-
-const taskRepository = "https://github.com/harrisoncramer/komrad"

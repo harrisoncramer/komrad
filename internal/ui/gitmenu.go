@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"komrad/internal/ui/panel"
-	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -229,7 +228,7 @@ func (m *model) runGitChoice(taskID string, choice gitChoice) tea.Cmd {
 			return nil
 		}
 
-		return m.planGitCmd(rebaseOp(&agentv1.RebaseWorktreeRequest{Task: task.ID}, task.Slug))
+		return m.planGitCmd(rebaseOp(task.ID, task.Slug, false))
 	case gitChoiceRebaseOntoBase:
 		if err := rebaseOntoBaseRefusal(m.listing, task); err != nil {
 			m.report("Could not re-target "+task.Slug+" onto the base branch", err)
@@ -237,7 +236,7 @@ func (m *model) runGitChoice(taskID string, choice gitChoice) tea.Cmd {
 			return nil
 		}
 
-		return m.planGitCmd(rebaseOp(&agentv1.RebaseWorktreeRequest{Task: task.ID, OntoBase: true}, task.Slug))
+		return m.planGitCmd(rebaseOp(task.ID, task.Slug, true))
 	case gitChoicePush:
 		if err := pushRefusal(m.listing, task); err != nil {
 			m.report("Could not push the branch of "+task.Slug, err)

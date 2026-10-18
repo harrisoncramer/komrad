@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// taskOnParent is a child and its parent, as the cascade tests lay them.
+// taskOnParent is a child and its parent, as the cascade tests seed them.
 type taskOnParent struct {
 	writer *agentstore.Agent
 	task   string
@@ -31,8 +31,8 @@ func TestCascade(t *testing.T) {
 		name string
 		// writer is the task's writer as it is seeded.
 		writer agentstore.Agent
-		// lay writes what the case needs beyond the task and its parent.
-		lay func(t *testing.T, fixture *rebaseFixture, laid taskOnParent)
+		// seed writes what the case needs beyond the task and its parent.
+		seed func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent)
 		// mover is the git of the task's checkout, told the parent's branch.
 		mover func(parentBranch string) *gittest.Mover
 		// wantParent is the parent read back after the pass, nil once the task is on the base branch.
@@ -109,7 +109,7 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name: "a re-target onto the base still stopped on conflicts is left alone",
-			lay:  seedStoppedRetarget,
+			seed: seedStoppedRetarget,
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
 				mover.State.InProgress = true
@@ -121,7 +121,7 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name: "a re-target onto the base the writer aborted keeps the parent",
-			lay:  seedStoppedRetarget,
+			seed: seedStoppedRetarget,
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "oldtip")
 				mover.Holds = []string{"oldtip", "basesha"}
@@ -145,8 +145,8 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name: "a child whose rebase conflicted is not rebased again",
-			lay: func(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
-				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), laid.task, taskstore.CascadeConflicted))
+			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskstore.CascadeConflicted))
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				return newChildGit(parentBranch, "newtip")
@@ -155,8 +155,8 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name: "a parent pull request closed without merging blocks the child and tells the writer",
-			lay: func(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
-				seedParentPullRequest(t, fixture, laid, "CLOSED")
+			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+				seedParentPullRequest(t, fixture, seeded, "CLOSED")
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				return newChildGit(parentBranch, "newtip")
@@ -180,8 +180,8 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name: "a child whose rebase conflicted takes the parent's newest commit as its fork point once its branch holds it",
-			lay: func(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
-				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), laid.task, taskstore.CascadeConflicted))
+			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskstore.CascadeConflicted))
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
@@ -203,7 +203,7 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name: "a re-target onto the base the writer finished clears the parent while the parent stays put",
-			lay:  seedStoppedRetarget,
+			seed: seedStoppedRetarget,
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "oldtip")
 				mover.Holds = []string{"basesha"}
@@ -213,8 +213,8 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name: "a merged parent pull request has the child rebased onto the base branch",
-			lay: func(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
-				seedParentPullRequest(t, fixture, laid, "MERGED")
+			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+				seedParentPullRequest(t, fixture, seeded, "MERGED")
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				return newChildGit(parentBranch, "newtip")
@@ -249,19 +249,19 @@ func TestCascade(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
-			laid := fixture.seedTaskOnParent(t, tt.writer)
-			if tt.lay != nil {
-				tt.lay(t, fixture, laid)
+			seeded := fixture.seedTaskOnParent(t, tt.writer)
+			if tt.seed != nil {
+				tt.seed(t, fixture, seeded)
 			}
-			mover := tt.mover(laid.parent.GetBranch())
+			mover := tt.mover(seeded.parent.GetBranch())
 
 			require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).Cascade(t.Context()))
 
-			got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
+			got, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
 			require.NoError(t, err)
 			if tt.wantParent != nil {
-				tt.wantParent.TaskID = laid.parent.ID
-				tt.wantParent.PullRequestID = xptr.Deref(findPullRequestID(t, fixture, laid))
+				tt.wantParent.TaskID = seeded.parent.ID
+				tt.wantParent.PullRequestID = xptr.Deref(findPullRequestID(t, fixture, seeded))
 			}
 			assert.Equal(t, tt.wantParent, got.Parent)
 			assert.Subset(t, mover.Calls, tt.wantCalls)
@@ -270,7 +270,7 @@ func TestCascade(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantPush, len(mover.Pushed) == 1 && mover.Pushed[0].Force)
 
-			inbox := fixture.readInbox(t, laid.writer.ID)
+			inbox := fixture.readInbox(t, seeded.writer.ID)
 			if tt.wantMail == "" {
 				assert.Empty(t, inbox)
 
@@ -286,20 +286,20 @@ func TestCascade(t *testing.T) {
 // base branch, and the branch dropping its fork point on a later pass.
 func TestCascadeOrphansABranchThatAbortedARetarget(t *testing.T) {
 	fixture := newRebaseFixture(t)
-	laid := fixture.seedTaskOnParent(t, agentstore.Agent{})
-	seedStoppedRetarget(t, fixture, laid)
-	mover := newChildGit(laid.parent.GetBranch(), "oldtip")
+	seeded := fixture.seedTaskOnParent(t, agentstore.Agent{})
+	seedStoppedRetarget(t, fixture, seeded)
+	mover := newChildGit(seeded.parent.GetBranch(), "oldtip")
 	mover.Holds = []string{"oldtip", "basesha"}
 	service := fixture.newService(NewServiceParams{Git: mover})
 
 	require.NoError(t, service.Cascade(t.Context()))
 
-	mover.Tips[laid.parent.GetBranch()] = "newtip"
+	mover.Tips[seeded.parent.GetBranch()] = "newtip"
 	mover.Holds = []string{"basesha"}
 
 	require.NoError(t, service.Cascade(t.Context()))
 
-	got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
+	got, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
 	require.NoError(t, err)
 	require.NotNil(t, got.Parent)
 	assert.Equal(t, taskstore.CascadeOrphaned, got.Parent.Blocked)
@@ -310,8 +310,8 @@ func TestCascadeOrphansABranchThatAbortedARetarget(t *testing.T) {
 func TestCascadeSettlesAChildWhosePullRequestMergedIntoItsParent(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	ctx := t.Context()
-	laid := fixture.seedTaskOnParent(t, agentstore.Agent{})
-	merged, err := fixture.stores.Tasks.Get(ctx, laid.task)
+	seeded := fixture.seedTaskOnParent(t, agentstore.Agent{})
+	merged, err := fixture.stores.Tasks.Get(ctx, seeded.task)
 	require.NoError(t, err)
 	child := fixture.stores.SeedTask(t, taskstore.CreateParams{
 		WorkflowID: fixture.workflowID,
@@ -323,10 +323,10 @@ func TestCascadeSettlesAChildWhosePullRequestMergedIntoItsParent(t *testing.T) {
 		Number:        1,
 		HeadBranch:    merged.GetBranch(),
 		HeadSHA:       "mergedtip",
-		BaseBranch:    laid.parent.GetBranch(),
+		BaseBranch:    seeded.parent.GetBranch(),
 		State:         "MERGED",
 	})
-	mover := newChildGit(laid.parent.GetBranch(), "newtip")
+	mover := newChildGit(seeded.parent.GetBranch(), "newtip")
 
 	require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).Cascade(ctx))
 
@@ -336,7 +336,7 @@ func TestCascadeSettlesAChildWhosePullRequestMergedIntoItsParent(t *testing.T) {
 
 	moved, err := fixture.stores.Tasks.Get(ctx, child.ID)
 	require.NoError(t, err)
-	assert.Equal(t, &taskstore.Parent{TaskID: laid.parent.ID, ForkPoint: "mergedtip"}, moved.Parent)
+	assert.Equal(t, &taskstore.Parent{TaskID: seeded.parent.ID, ForkPoint: "mergedtip"}, moved.Parent)
 	assert.NotContains(t, mover.Calls, "rebaseOnto")
 }
 
@@ -409,12 +409,12 @@ func (f *rebaseFixture) seedTaskOnParent(t *testing.T, writer agentstore.Agent) 
 }
 
 // findPullRequestID is the child's parent pull request, nil while it has none.
-func findPullRequestID(t *testing.T, fixture *rebaseFixture, laid taskOnParent) *string {
+func findPullRequestID(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) *string {
 	t.Helper()
 
 	found, err := fixture.stores.PullRequests.GetParentPullRequest(t.Context(), pullrequeststore.GetParentPullRequestParams{
 		RepositoryURL: pushRepository,
-		HeadBranch:    laid.parent.GetBranch(),
+		HeadBranch:    seeded.parent.GetBranch(),
 	})
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
@@ -425,13 +425,13 @@ func findPullRequestID(t *testing.T, fixture *rebaseFixture, laid taskOnParent) 
 }
 
 // seedParentPullRequest stores a pull request from the parent's branch onto main at newtip, in the state named.
-func seedParentPullRequest(t *testing.T, fixture *rebaseFixture, laid taskOnParent, state string) {
+func seedParentPullRequest(t *testing.T, fixture *rebaseFixture, seeded taskOnParent, state string) {
 	t.Helper()
 
 	fixture.stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
 		RepositoryURL: pushRepository,
 		Number:        1,
-		HeadBranch:    laid.parent.GetBranch(),
+		HeadBranch:    seeded.parent.GetBranch(),
 		HeadSHA:       "newtip",
 		BaseBranch:    "main",
 		State:         state,
@@ -439,7 +439,7 @@ func seedParentPullRequest(t *testing.T, fixture *rebaseFixture, laid taskOnPare
 }
 
 // seedStoppedRetarget records a re-target of the child onto the base branch at basesha that stopped on conflicts.
-func seedStoppedRetarget(t *testing.T, fixture *rebaseFixture, laid taskOnParent) {
+func seedStoppedRetarget(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
 	t.Helper()
 
 	raw, err := json.Marshal(rebaseOutcome{Result: &RebaseResult{
@@ -448,7 +448,7 @@ func seedStoppedRetarget(t *testing.T, fixture *rebaseFixture, laid taskOnParent
 		OntoBase:   true,
 	}})
 	require.NoError(t, err)
-	require.NoError(t, fixture.stores.Tasks.SetLastRebase(t.Context(), laid.task, raw))
+	require.NoError(t, fixture.stores.Tasks.SetLastRebase(t.Context(), seeded.task, raw))
 }
 
 // newChildGit is the git of a clean checkout on oldtip, with the parent's branch on origin at newest.

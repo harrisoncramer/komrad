@@ -273,10 +273,8 @@ func (f filesNav) moveBy(m *model, rows int) tea.Cmd {
 }
 
 func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
-	if direction < 0 {
-		if f.r.moveSideToTop(m) {
-			return nil
-		}
+	if direction < 0 && f.r.moveSideToTop(m) {
+		return nil
 	}
 
 	rows := f.r.readFilesTree().rows

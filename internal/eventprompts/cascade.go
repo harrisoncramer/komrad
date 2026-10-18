@@ -39,24 +39,14 @@ func (m CascadeRebased) Events() []string {
 
 // Body tells the agent where its commits now sit and what is left for it to do.
 func (m CascadeRebased) Body() string {
-	moved := fmt.Sprintf("%s moved to %s.", m.Parent, xsha.Short(m.SHA))
-	if m.Merged {
-		moved = fmt.Sprintf("%s merged into %s.", m.Parent, m.Onto)
-	}
-
 	pushed := ""
 	if m.Pushed {
 		pushed = " and pushed"
 	}
 
-	onto := "it"
+	body := fmt.Sprintf("%s moved to %s. Komrad rebased your %d commits onto it%s.", m.Parent, xsha.Short(m.SHA), m.Commits, pushed)
 	if m.Merged {
-		onto = m.Onto
-	}
-
-	body := fmt.Sprintf("%s Komrad rebased your %d commits onto %s%s.", moved, m.Commits, onto, pushed)
-	if m.Merged {
-		body += fmt.Sprintf(" Point your pull request at %s.", m.Onto)
+		body = fmt.Sprintf("%s merged into %s. Komrad rebased your %d commits onto %s%s. Point your pull request at %s.", m.Parent, m.Onto, m.Commits, m.Onto, pushed, m.Onto)
 	}
 
 	return body + "\n\nYour files may have changed under you. Read them again rather than trusting what you remember."

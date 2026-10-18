@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
-	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -255,7 +254,7 @@ func mergeRebaseOp(task panel.Task, params mergeParams) gitOp {
 				}
 			}
 
-			result, err := clients.rebaseWorktree(&agentv1.RebaseWorktreeRequest{Task: taskID})
+			result, err := clients.rebaseWorktree(taskID, false)
 
 			return func(m *model) tea.Cmd {
 				m.reportMerged(task, false, nil)

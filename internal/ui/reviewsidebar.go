@@ -248,12 +248,12 @@ func decisionSaid(decision pullrequestv1.ReviewDecision) string {
 	return ""
 }
 
-func countedThreads(n int) string {
-	if n == 1 {
+func countedThreads(count int) string {
+	if count == 1 {
 		return "1 thread"
 	}
 
-	return fmt.Sprintf("%d threads", n)
+	return fmt.Sprintf("%d threads", count)
 }
 
 // needRows is what waits on the person: replies they have not read, forge comments to pass on,
@@ -452,13 +452,13 @@ func (r reviewScreen) chooseDesc(m *model) string {
 
 // doesChoose reports whether the open key does something where the sidebar's cursor rests.
 func (r reviewScreen) doesChoose(m *model) bool {
-	if _, ok := r.findSide(m); !ok {
-		_, ok := r.readCurrentFolder()
-
-		return ok
+	if _, ok := r.findSide(m); ok {
+		return r.chooseDesc(m) != ""
 	}
 
-	return r.chooseDesc(m) != ""
+	_, ok := r.readCurrentFolder()
+
+	return ok
 }
 
 // landOnThread puts the diff's cursor on a thread, widening the diff when the range on screen

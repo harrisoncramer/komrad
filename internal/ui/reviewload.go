@@ -381,9 +381,6 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 	d.baseRound = msg.earlier
 	d.baseAt = msg.earlierAt
-	d.rounds = msg.rounds
-	d.reviews = msg.reviews
-	d.newest = msg.round
 	d.since = msg.since
 
 	d.spec.settle(msg)
