@@ -8,7 +8,7 @@ usage() {
 	echo "Usage: mise run bash:check"
 	echo
 	echo "Finds every shell script under mise/tasks, internal/scripts/builtin and packer, plus"
-	echo "the tmux entry point, and runs shellcheck -x over them."
+	echo "install.sh, and runs shellcheck -x over them."
 }
 
 for arg in "$@"; do

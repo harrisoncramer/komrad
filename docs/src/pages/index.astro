@@ -5,12 +5,10 @@ import { codeTheme } from "../code-theme.mjs";
 import { HOME_TITLE, REPO_URL, SITE_DESCRIPTION, SITE_TITLE, SPLASH } from "../consts";
 import { canonical, link, media } from "../site";
 
-const INSTALL = `mkdir -p ~/.local/bin
-curl -fsSL -o ~/.local/bin/komrad ${REPO_URL}/releases/latest/download/komrad-darwin-arm64
-chmod +x ~/.local/bin/komrad`;
+const INSTALL = `curl -fsSL ${REPO_URL}/releases/latest/download/install.sh | sh`;
 
 const NEXT = [
-  { href: link("/guides/install"), title: "Install", text: "Set up Postgres, start the engine, open the panel." },
+  { href: link("/guides/install"), title: "Install", text: "Install by hand, connect a forge, and upgrade." },
   { href: link("/guides/how-it-works"), title: "How it works", text: "The engine, the panel, and what each one owns." },
   { href: link("/guides"), title: "Guides", text: "Everything else: agents, workflows, mail, reviews, hooks." },
 ];
@@ -59,8 +57,8 @@ const STRUCTURED_DATA = [
     <h2>Install</h2>
     <Code code={INSTALL} lang="sh" theme={codeTheme} />
     <p>
-      Swap <code>darwin-arm64</code> for your platform, then follow the{" "}
-      <a href={link("/guides/install")}>install guide</a> to set up Postgres and start the engine.
+      The script installs the binary for your platform and runs <code>komrad setup</code>. The{" "}
+      <a href={link("/guides/install")}>install guide</a> covers installing by hand.
     </p>
 
     <h2>Read next</h2>
