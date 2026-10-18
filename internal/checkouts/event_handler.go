@@ -32,6 +32,8 @@ func (rebased) Topic() string {
 type rebaseOutcome struct {
 	Result  *RebaseResult `json:"result,omitempty"`
 	Failure string        `json:"failure,omitempty"`
+	// Settled says a restack pass saw the writer finish or abort the rebase that stopped part way.
+	Settled bool `json:"settled,omitempty"`
 }
 
 // NewEventHandler builds the handler the router calls for rebases.

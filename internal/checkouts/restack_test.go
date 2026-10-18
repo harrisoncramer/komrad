@@ -282,6 +282,29 @@ func TestRestack(t *testing.T) {
 	}
 }
 
+// TestRestackMarksLostABranchThatAbortedAMoveOntoBase covers a writer aborting a stopped move onto the base
+// branch, and the branch losing its tip on a later pass.
+func TestRestackMarksLostABranchThatAbortedAMoveOntoBase(t *testing.T) {
+	fixture := newRebaseFixture(t)
+	laid := fixture.seedTaskOnParent(t, agentstore.Agent{})
+	seedStoppedMoveOntoBase(t, fixture, laid)
+	mover := newChildGit(laid.parent.GetBranch(), "oldtip")
+	mover.Holds = []string{"oldtip", "basesha"}
+	service := fixture.newService(NewServiceParams{Git: mover})
+
+	require.NoError(t, service.Restack(t.Context()))
+
+	mover.Tips[laid.parent.GetBranch()] = "newtip"
+	mover.Holds = []string{"basesha"}
+
+	require.NoError(t, service.Restack(t.Context()))
+
+	got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
+	require.NoError(t, err)
+	require.NotNil(t, got.Stand)
+	assert.Equal(t, taskstore.RestackLost, got.Stand.Blocked)
+}
+
 // TestRestackFoldsATaskWhosePullRequestMergedIntoItsParent covers a task merged into its
 // parent's branch handing the tasks standing on it to that parent.
 func TestRestackFoldsATaskWhosePullRequestMergedIntoItsParent(t *testing.T) {

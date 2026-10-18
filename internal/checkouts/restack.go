@@ -325,8 +325,9 @@ func (s *Service) recordOnto(ctx context.Context, task taskstore.Task, onto rest
 	return s.tasks.SetStandTip(ctx, task.ID, onto.SHA)
 }
 
-// finishMoveOntoBase ends the stand of a task once its writer finishes the move onto the base branch komrad
-// started and left stopped on conflicts, and reports whether the task waits on that move or has finished it.
+// finishMoveOntoBase settles the move onto the base branch komrad started and left stopped on conflicts once its
+// writer finishes or aborts it, ending the stand of a finished one, and reports whether the task waits on that move
+// or has finished it.
 func (s *Service) finishMoveOntoBase(ctx context.Context, task taskstore.Task) (bool, error) {
 	raw, err := s.tasks.GetLastRebase(ctx, task.ID)
 	if err != nil || raw == nil {
@@ -339,7 +340,7 @@ func (s *Service) finishMoveOntoBase(ctx context.Context, task taskstore.Task) (
 	}
 
 	last := outcome.Result
-	if last == nil || !last.OntoBase || !last.Conflicted {
+	if last == nil || !last.OntoBase || !last.Conflicted || outcome.Settled {
 		return false, nil
 	}
 
@@ -356,17 +357,36 @@ func (s *Service) finishMoveOntoBase(ctx context.Context, task taskstore.Task) (
 		return true, err
 	}
 
-	holdsTip, err := s.git.HoldsCommit(ctx, dir, task.Stand.Tip)
+	finished, err := s.hasLeftForBase(ctx, task, last.BaseSHA)
+	if err != nil {
+		return false, err
+	}
+	if finished {
+		if err := s.tasks.SetStand(ctx, task.ID, nil); err != nil {
+			return false, err
+		}
+	}
+
+	outcome.Settled = true
+	settled, err := json.Marshal(outcome)
+	if err != nil {
+		return false, fmt.Errorf("failed to encode the last rebase of task %q: %w", task.Slug, err)
+	}
+	if err := s.tasks.SetLastRebase(ctx, task.ID, settled); err != nil {
+		return false, err
+	}
+
+	return finished, nil
+}
+
+// hasLeftForBase reports whether the task's branch dropped the commit of its parent it stood on and holds the base commit.
+func (s *Service) hasLeftForBase(ctx context.Context, task taskstore.Task, base string) (bool, error) {
+	holdsTip, err := s.git.HoldsCommit(ctx, task.Checkout.Cwd, task.Stand.Tip)
 	if err != nil || holdsTip {
 		return false, err
 	}
 
-	holdsBase, err := s.git.HoldsCommit(ctx, dir, last.BaseSHA)
-	if err != nil || !holdsBase {
-		return false, err
-	}
-
-	return true, s.tasks.SetStand(ctx, task.ID, nil)
+	return s.git.HoldsCommit(ctx, task.Checkout.Cwd, base)
 }
 
 // tellLost marks the task as lost, since its branch no longer holds the commit of its parent it stood on, and tells its writer.
