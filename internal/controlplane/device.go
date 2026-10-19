@@ -3,6 +3,7 @@ package controlplane
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -106,7 +107,7 @@ func (d *deviceFlow) start(ctx context.Context, engine string) (*DeviceCode, err
 		return nil, err
 	}
 	if answer.DeviceCodeSecret == "" || answer.UserCode == "" {
-		return nil, fmt.Errorf("GitHub answered a device code request with no code")
+		return nil, errors.New("GitHub answered a device code request with no code")
 	}
 
 	d.mu.Lock()
