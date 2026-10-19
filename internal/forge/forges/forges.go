@@ -61,7 +61,7 @@ func ForEngine(proxy config.ForgeProxy) (map[forgev1.Kind]forge.Builder, error) 
 
 	transport, err := github.NewForgeProxyTransport(github.NewForgeProxyTransportParams{
 		ProxyURL: proxy.URL,
-		CAFile:   config.ExpandHome(proxy.CAFile),
+		CAFile:   proxy.CAFile,
 	})
 	if err != nil {
 		return nil, err

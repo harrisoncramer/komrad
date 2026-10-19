@@ -61,6 +61,8 @@ func (c *ControlPlane) normalize() {
 	if strings.TrimSpace(c.ForgeProxyAddr) == "" {
 		c.ForgeProxyAddr = defaultForgeProxyAddr
 	}
+	c.CACertFile = ExpandHome(strings.TrimSpace(c.CACertFile))
+	c.CAKeyFile = ExpandHome(strings.TrimSpace(c.CAKeyFile))
 }
 
 func (c ControlPlane) validate() error {
@@ -123,7 +125,7 @@ func (f ForgeProxy) IsConfigured() bool {
 
 func (f *ForgeProxy) normalize() {
 	f.URL = strings.TrimSpace(f.URL)
-	f.CAFile = strings.TrimSpace(f.CAFile)
+	f.CAFile = ExpandHome(strings.TrimSpace(f.CAFile))
 }
 
 func (f ForgeProxy) validate() error {
