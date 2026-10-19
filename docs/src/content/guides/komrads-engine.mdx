@@ -26,7 +26,7 @@ The control plane has an Elastic IP. Every request to GitHub leaves from it, so 
 
 Postgres runs on RDS, in private subnets that only the engines and the control plane can reach. RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups.
 
-Secrets Manager also holds the key the control plane uses to join the tailnet, each engine login's password and each person's GitHub login. Only the control plane reads the owner login's password and the GitHub logins.
+Secrets Manager also holds the key the control plane uses to join the tailnet, the forge proxy's certificate key, each engine login's password and each person's GitHub login. Only the control plane reads the owner login's password, the forge proxy's key and the GitHub logins.
 
 Parameter Store holds the control plane's Tailscale identity, so a replaced control plane joins the tailnet as the same device.
 
@@ -202,7 +202,7 @@ Someone outside your tailnet needs the control plane shared with them from Tails
 
 No engine holds a forge token. Git and `gh` on an engine send their requests to `github.com`, `api.github.com`, `uploads.github.com`, `codeload.github.com` and `raw.githubusercontent.com` through the forge proxy on the control plane, and trust its certificate for those hosts. Their credential helper and `GH_TOKEN` hand out a placeholder. The forge proxy knows which engine sent each request, strips the placeholder and adds that person's GitHub login. The server's own forge calls, such as pull request sync, take the same path.
 
-The login reaches everything the person reaches, private repositories and other organisations included. An operator registers a GitHub OAuth app for it, with the `repo`, `read:org` and `workflow` scopes.
+The login reaches everything the person reaches, private repositories and other organisations included. An operator registers a GitHub OAuth app for it with device flow turned on, and komrad asks for the `repo`, `read:org` and `workflow` scopes when the person authorizes it.
 
 The first time an engine needs GitHub, the panel shows a code and a GitHub address. The person enters the code there once. An organisation that restricts OAuth apps refuses the login until one of its owners approves the app, and one with SAML single sign-on asks the person to authorize the login for it. GitHub drops a login after a year without use, and the panel then asks again.
 
