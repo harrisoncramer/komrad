@@ -32,17 +32,18 @@ aws: AWS {
     class: group
     serve: Server {class: leaf}
     agents: Agents {class: leaf}
-    agents -> serve: MCP and git
+    agents -> serve: MCP
   }
-
 
   rds: RDS Postgres {class: store}
 
   params -> control.tailscaled: node key
   control.caddy -> engine.serve
-  control.forge <- engine.serve: git
+  engine.agents -> control.forge: git
+  engine.serve -> control.forge: pull requests
   control.forge -> secrets: logins
   engine.serve -> rds
+  engine.serve -> secrets: engine login
   control -> rds: migrations
   ssm -> control: shells and deploys
   ssm -> engine: shells and deploys

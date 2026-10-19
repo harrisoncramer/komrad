@@ -113,7 +113,7 @@ The session runs as a user with sudo. On an engine, switch to the komrad account
 sudo -u komrad -i
 ```
 
-`mise run remote:connect` opens the session and switches to the komrad account in one step.
+`mise run remote:connect harry` opens a session on the engine at `/harry` and switches to the komrad account in one step.
 
 ### Checking engine health
 
@@ -123,13 +123,20 @@ When an engine's heartbeat stops, the dot beside its name in the panel turns red
 systemctl list-units --state=failed --no-legend
 ```
 
-Then look at the server, and at Tailscale and Caddy on the control plane. `tailscale status` shows whether the control plane is on the tailnet. The journal shows what systemd saw, like a crash at startup or a certificate request that failed. Komrad's log shows what the server wrote while it ran.
+Then look at the server in the same shell. The journal shows what systemd saw, like a crash at startup. Komrad's log shows what the server wrote while it ran.
+
+```sh
+systemctl status komrad
+journalctl -u komrad -n 200 --no-pager
+tail -n 200 /var/lib/komrad/cache/komrad.log
+```
+
+If every engine is unreachable, open a shell on the control plane and look at Tailscale and Caddy. `tailscale status` shows whether the control plane is on the tailnet, and Caddy's journal shows a certificate request that failed.
 
 ```sh
 sudo tailscale status
 systemctl status tailscaled caddy
-journalctl -u komrad -n 200 --no-pager
-tail -n 200 /var/lib/komrad/cache/komrad.log
+journalctl -u caddy -n 200 --no-pager
 ```
 
 To see the agents on an engine, list the windows on komrad's tmux server as the komrad account:
@@ -160,9 +167,9 @@ sudo systemctl restart komrad-tailscale
 
 ### Restarting
 
-`mise run remote:restart` restarts an engine's server and leaves the agents running. If the engine is stopped, it starts the engine instead.
+`mise run remote:restart harry` restarts the server of the engine at `/harry` and leaves its agents running. If the engine is stopped, it starts the engine instead.
 
-`mise run remote:restart --hard` also kills the tmux server and creates a new manager session, which stops every agent on the engine. Save it for when the tmux session itself is broken.
+`mise run remote:restart harry --hard` also kills the tmux server and creates a new manager session, which stops every agent on the engine. Save it for when the tmux session itself is broken.
 
 People stay signed in through a restart, and their panels reconnect once the server is back.
 

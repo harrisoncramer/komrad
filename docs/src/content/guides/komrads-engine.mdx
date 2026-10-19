@@ -16,13 +16,13 @@ Komrad's own team works on remote engines in AWS, one for each person, with a co
 <figure>
   <img
     src={link("/diagrams/komrads-engine.png")}
-    alt="The panel on a laptop signs in with the identity provider and reaches Tailscale on the control plane over the tailnet. Tailscale lets only 443 through to Caddy, which forwards each request to the server of the person's engine. Each engine's server keeps its records in RDS Postgres, and the control plane migrates it. Git on an engine reaches the forge proxy on the control plane, which reads the person's GitHub login from Secrets Manager and calls GitHub. Tailscale keeps its node key in Parameter Store. The AWS CLI and GitHub Actions reach the control plane and each engine through Systems Manager."
+    alt="The panel on a laptop signs in with the identity provider and reaches Tailscale on the control plane over the tailnet. Tailscale lets only 443 through to Caddy, which forwards each request to the server of the person's engine. Each engine's server reads its engine login from Secrets Manager and keeps its records in RDS Postgres, and the control plane migrates it. Agents' git and the server's pull request calls reach the forge proxy on the control plane, which reads the person's GitHub login from Secrets Manager and calls GitHub. Tailscale keeps its node key in Parameter Store. The AWS CLI and GitHub Actions reach the control plane and each engine through Systems Manager."
   />
 </figure>
 
 One EC2 instance runs the control plane: Tailscale, Caddy and the forge proxy. Each engine runs on an EC2 instance of its own, which runs a komrad server and keeps its worktrees, logins and config on a separate EBS volume. When Terraform replaces an engine's instance, it moves the volume to the new one.
 
-The control plane has an Elastic IP. Every forge request leaves from it, so a forge that allowlists addresses needs only that one, and Tailscale connects laptops to it directly.
+The control plane has an Elastic IP. Every request to GitHub leaves from it, so an organisation that allowlists addresses needs only that one, and Tailscale connects laptops to it directly.
 
 Postgres runs on RDS, in private subnets that only the engines and the control plane can reach. RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups.
 
@@ -128,6 +128,8 @@ The control plane passes each request to the engine's public listener unchanged,
 
 Next the listener looks for that person's grant on this engine, and answers 403 if there isn't one. Once a request passes, the person's identity goes with it into the handler and into the log.
 
+A stopped engine has no listener, so the control plane answers for it. It serves the engine's `/sign-in` page, so a person can sign in, and tells the panel the engine is stopped. When the person asks to start the engine, the control plane checks their token the same way and looks up their grant on that engine before it starts the instance. Stopping goes through the same checks.
+
 ### Access grants
 
 <Command path="engine grant" /> gives a person access by email address, and <Command path="engine revoke" /> takes it
@@ -198,7 +200,7 @@ Someone outside your tailnet needs the control plane shared with them from Tails
 
 ## Forge credentials
 
-No engine holds a forge token. Git and `gh` on an engine send their requests for `github.com` and `api.github.com` through the forge proxy on the control plane, and trust its certificate. Their credential helper and `GH_TOKEN` hand out a placeholder. The forge proxy knows which engine sent each request, strips the placeholder and adds that person's GitHub login. The server's own forge calls, such as pull request sync, take the same path.
+No engine holds a forge token. Git and `gh` on an engine send their requests to `github.com`, `api.github.com`, `uploads.github.com`, `codeload.github.com` and `raw.githubusercontent.com` through the forge proxy on the control plane, and trust its certificate for those hosts. Their credential helper and `GH_TOKEN` hand out a placeholder. The forge proxy knows which engine sent each request, strips the placeholder and adds that person's GitHub login. The server's own forge calls, such as pull request sync, take the same path.
 
 The login reaches everything the person reaches, private repositories and other organisations included. Komrad registers a GitHub OAuth app for it, with the `repo`, `read:org` and `workflow` scopes.
 
