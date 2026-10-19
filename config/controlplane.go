@@ -14,6 +14,10 @@ const (
 	defaultForgeProxyAddr   = "127.0.0.1:8789"
 )
 
+// ForgeProxyPlaceholder is the token git, gh and the server send through the forge proxy,
+// which swaps it for the person's GitHub login.
+const ForgeProxyPlaceholder = "komrad-forge-proxy"
+
 // ControlPlane is the process in front of a team's engines, which holds people's GitHub logins
 // and runs the forge proxy.
 type ControlPlane struct {
@@ -102,10 +106,6 @@ func validatePrivateAddr(addr string) error {
 
 	return nil
 }
-
-// ForgeProxyPlaceholder is the token git, gh and the server send through the forge proxy,
-// which swaps it for the person's GitHub login.
-const ForgeProxyPlaceholder = "komrad-forge-proxy"
 
 // ForgeProxy is the forge proxy a remote engine sends its GitHub requests through.
 type ForgeProxy struct {
