@@ -42,47 +42,27 @@ func forwardedEnv(t *testing.T, args []string) map[string]string {
 // itself started with, a variable left out here quietly keeps whatever value some long-gone
 // shell had for it.
 func TestIntegrationBuildManagerSessionArgsForwardsTheEnvironment(t *testing.T) {
-	tests := []struct {
-		name             string
-		embeddedPostgres bool
-		wantDatabaseURL  string
-	}{
-		{
-			name:            "a database url",
-			wantDatabaseURL: "postgres://komrad@db/komrad",
-		},
-		{
-			name:             "the embedded Postgres",
-			embeddedPostgres: true,
-		},
-	}
+	state := &app{env: &config.Environment{
+		DatabaseURL:         "postgres://komrad@db/komrad",
+		ReadOnlyDatabaseURL: "postgres://komrad_readonly@db/komrad",
+		Addr:                "127.0.0.1:9999",
+		TmuxSocket:          "komrad-test",
+		CacheDir:            "/tmp/cache",
+		StateDir:            "/tmp/state",
+		Editor:              "nvim",
+	}}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			state := &app{env: &config.Environment{
-				DatabaseURL:         "postgres://komrad@db/komrad",
-				ReadOnlyDatabaseURL: "postgres://komrad_readonly@db/komrad",
-				Addr:                "127.0.0.1:9999",
-				TmuxSocket:          "komrad-test",
-				CacheDir:            "/tmp/cache",
-				StateDir:            "/tmp/state",
-				EmbeddedPostgres:    tt.embeddedPostgres,
-				Editor:              "nvim",
-			}}
+	args := buildManagerSessionArgs(state, "/usr/local/bin/komrad", false)
 
-			args := buildManagerSessionArgs(state, "/usr/local/bin/komrad", false)
-
-			assert.Equal(t, map[string]string{
-				"KOMRAD_DATABASE_URL":          tt.wantDatabaseURL,
-				"KOMRAD_READONLY_DATABASE_URL": "postgres://komrad_readonly@db/komrad",
-				"KOMRAD_ADDR":                  "127.0.0.1:9999",
-				"KOMRAD_TMUX_SOCKET":           "komrad-test",
-				"EDITOR":                       "nvim",
-				"KOMRAD_CACHE_DIR":             "/tmp/cache",
-				"KOMRAD_STATE_DIR":             "/tmp/state",
-			}, forwardedEnv(t, args))
-		})
-	}
+	assert.Equal(t, map[string]string{
+		"KOMRAD_DATABASE_URL":          "postgres://komrad@db/komrad",
+		"KOMRAD_READONLY_DATABASE_URL": "postgres://komrad_readonly@db/komrad",
+		"KOMRAD_ADDR":                  "127.0.0.1:9999",
+		"KOMRAD_TMUX_SOCKET":           "komrad-test",
+		"EDITOR":                       "nvim",
+		"KOMRAD_CACHE_DIR":             "/tmp/cache",
+		"KOMRAD_STATE_DIR":             "/tmp/state",
+	}, forwardedEnv(t, args))
 }
 
 // TestIntegrationBuildManagerSessionArgsCarriesTheConfigPath covers telling the panel which config

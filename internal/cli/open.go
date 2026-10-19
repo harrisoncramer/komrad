@@ -195,17 +195,10 @@ func buildPanelWindowArgs(state *app, self string, detached bool) []string {
 	return append(append(args, "-t", agents.ManagerSession+":"), panelCommandArgs(state, self)...)
 }
 
-// sessionEnvArgs leaves KOMRAD_DATABASE_URL empty while the embedded Postgres is on, so the panes
-// derive it from KOMRAD_STATE_DIR and start the embedded Postgres themselves.
 func sessionEnvArgs(state *app) []string {
-	databaseURL := state.env.DatabaseURL
-	if state.env.EmbeddedPostgres {
-		databaseURL = ""
-	}
-
 	return []string{
 		"-e", "KOMRAD_TMUX_SOCKET=" + state.env.TmuxSocket,
-		"-e", "KOMRAD_DATABASE_URL=" + databaseURL,
+		"-e", "KOMRAD_DATABASE_URL=" + state.env.DatabaseURL,
 		"-e", "KOMRAD_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
 		"-e", "KOMRAD_ADDR=" + state.env.Addr,
 		"-e", "EDITOR=" + state.env.Editor,
@@ -253,11 +246,10 @@ func prepareAutoSetup(ctx context.Context, state *app) bool {
 	}
 
 	if err := startServer(ctx, startServerParams{
-		Addr:                state.env.Addr,
-		Self:                getSelfPath(),
-		LogPath:             state.env.LogPath(),
-		ConfigArgs:          configArgs(state.configStack),
-		EmbeddedPostgresDir: getEmbeddedPostgresDir(state.env),
+		Addr:       state.env.Addr,
+		Self:       getSelfPath(),
+		LogPath:    state.env.LogPath(),
+		ConfigArgs: configArgs(state.configStack),
 	}); err != nil {
 		warnAutoSetup(ctx, state, err)
 

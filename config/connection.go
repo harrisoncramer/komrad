@@ -46,11 +46,12 @@ type Connection struct {
 	// The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as
 	// this engine's own login, which is what keeps its rows apart from every other engine's.
 	// `komrad engine ensure` creates the login and prints this url.
-	// Left empty this is the default engine's login on the embedded Postgres under state_dir,
-	// which `komrad start` brings up.
+	// Left empty this is the default engine's login on the embedded Postgres under state_dir.
+	// Whenever this reaches the socket under state_dir, the server runs the embedded Postgres and
+	// starts it again when it exits.
 	DatabaseURL string `mapstructure:"database_url"`
 	// The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.
-	// Left empty this is database_url, or the embedded Postgres's owner while database_url is empty.
+	// Left empty this is database_url, or the embedded Postgres's owner while database_url reaches it.
 	OwnerDatabaseURL string `mapstructure:"owner_database_url"`
 	// The least-privilege login the MCP query tools connect as.
 	// Left empty this is database_url with the engine's reader login, which is its own login
@@ -85,6 +86,11 @@ func defaultConnection() Connection {
 		Addr:       defaultAddr,
 		TmuxSocket: defaultTmuxSocket,
 	}
+}
+
+// UsesEmbeddedPostgres reports whether database_url reaches the embedded Postgres under state_dir.
+func (c Connection) UsesEmbeddedPostgres() bool {
+	return isEmbeddedPostgresURL(c.DatabaseURL, GetEmbeddedPostgresDir(c.StateDir))
 }
 
 func (c *Connection) normalize() {
@@ -203,11 +209,6 @@ const (
 	sourceDerived     Source = "derived default"
 )
 
-// UsesEmbeddedPostgres reports whether database_url was left empty, which names the embedded Postgres.
-func (r *Report) UsesEmbeddedPostgres() bool {
-	return r.Sources["database_url"] == sourceDerived
-}
-
 var connectionEnvironment = map[string]string{
 	"connection.database_url":          "KOMRAD_DATABASE_URL",
 	"connection.readonly_database_url": "KOMRAD_READONLY_DATABASE_URL",
@@ -282,7 +283,7 @@ func (c *Config) resolveDerived(report *Report) error {
 
 	if c.Connection.OwnerDatabaseURL == "" {
 		c.Connection.OwnerDatabaseURL = c.Connection.DatabaseURL
-		if report.UsesEmbeddedPostgres() {
+		if c.Connection.UsesEmbeddedPostgres() {
 			c.Connection.OwnerDatabaseURL = BuildEmbeddedPostgresURL(embeddedPostgres, EmbeddedPostgresOwner, EmbeddedPostgresDatabase)
 		}
 		report.Sources["owner_database_url"] = sourceDerived

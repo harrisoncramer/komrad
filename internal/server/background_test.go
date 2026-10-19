@@ -651,9 +651,10 @@ func TestLoopLogsAWokenRun(t *testing.T) {
 // would run whichever read it first.
 func TestBuildLoopsGivesEachLoopItsOwnWaker(t *testing.T) {
 	loops := buildLoops(buildLoopsParams{
-		Stores:   &stores{},
-		Services: &services{},
-		Wakers:   newLoopWakers(),
+		Stores:              &stores{},
+		Services:            &services{},
+		Wakers:              newLoopWakers(),
+		EmbeddedPostgresDir: "/state/postgres",
 	})
 
 	wakers := map[*loopWaker]string{}

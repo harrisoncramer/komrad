@@ -1,9 +1,13 @@
 package server
 
 import (
+	"context"
+	"log/slog"
 	"time"
 
 	"komrad/internal/jobs"
+	"komrad/internal/logging"
+	"komrad/internal/postgres"
 	"komrad/internal/worktrees"
 )
 
@@ -23,6 +27,8 @@ const (
 	worktreeSizeInterval = 30 * time.Second
 	// forgeRotationInterval is how often komrad checks rotating forge tokens for nearing expiry.
 	forgeRotationInterval = time.Hour
+	// embeddedPostgresInterval is how often the server checks that the embedded Postgres accepts connections.
+	embeddedPostgresInterval = 2 * time.Second
 )
 
 // localLoopFloor is the least time between the starts of two runs of a loop that reads only this
@@ -38,15 +44,16 @@ const cwdSyncFloor = 5 * time.Second
 const pullRequestSyncFloor = 5 * time.Second
 
 const (
-	ReconcileLoop       = "reconcile"
-	mailDeliveryLoop    = "mail delivery"
-	TranscriptSyncLoop  = "transcript sync"
-	CwdSyncLoop         = "cwd sync"
-	cascadeLoop         = "cascade"
-	PullRequestSyncLoop = "pull request sync"
-	CommentSyncLoop     = "review comment sync"
-	WorktreeSizeLoop    = "worktree sizes"
-	forgeRotationLoop   = "forge token rotation"
+	ReconcileLoop        = "reconcile"
+	mailDeliveryLoop     = "mail delivery"
+	TranscriptSyncLoop   = "transcript sync"
+	CwdSyncLoop          = "cwd sync"
+	cascadeLoop          = "cascade"
+	PullRequestSyncLoop  = "pull request sync"
+	CommentSyncLoop      = "review comment sync"
+	WorktreeSizeLoop     = "worktree sizes"
+	forgeRotationLoop    = "forge token rotation"
+	embeddedPostgresLoop = "embedded postgres"
 )
 
 type loopWakers struct {
@@ -68,10 +75,12 @@ type buildLoopsParams struct {
 	Services *services
 	Claimed  *jobs.WorktreeDelete
 	Wakers   *loopWakers
+	// EmbeddedPostgresDir is where the embedded Postgres lives, and empty when the config turns it off.
+	EmbeddedPostgresDir string
 }
 
 func buildLoops(params buildLoopsParams) []*loop {
-	return []*loop{
+	loops := []*loop{
 		newLoop(newLoopParams{
 			Name:     ReconcileLoop,
 			Interval: reconcileInterval,
@@ -134,5 +143,33 @@ func buildLoops(params buildLoopsParams) []*loop {
 			Floor:    pullRequestSyncFloor,
 			Run:      params.Services.pullRequests.forge.RotateTokens,
 		}),
+	}
+
+	if params.EmbeddedPostgresDir != "" {
+		loops = append(loops, newLoop(newLoopParams{
+			Name:     embeddedPostgresLoop,
+			Interval: embeddedPostgresInterval,
+			Floor:    localLoopFloor,
+			Run:      keepEmbeddedPostgresRunning(params.EmbeddedPostgresDir),
+		}))
+	}
+
+	return loops
+}
+
+// keepEmbeddedPostgresRunning starts the embedded Postgres in dir again whenever it has exited.
+func keepEmbeddedPostgresRunning(dir string) func(context.Context) error {
+	return func(ctx context.Context) error {
+		started, err := postgres.EnsureRunning(ctx, dir)
+		if err != nil {
+			return err
+		}
+
+		if started {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the embedded Postgres had exited, so the server started it again",
+				slog.String(logging.FilePath, dir))
+		}
+
+		return nil
 	}
 }

@@ -54,6 +54,8 @@ type NewServerParams struct {
 	Doctor             doctor.Settings
 	ForgeBuilders      map[string]forge.Builder
 	SignIn             config.SignIn
+	// EmbeddedPostgresDir holds the embedded Postgres the server keeps running, and is empty when the config turns it off.
+	EmbeddedPostgresDir string
 }
 
 type Server struct {
@@ -205,10 +207,11 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 	}
 
 	srv.Loops = buildLoops(buildLoopsParams{
-		Stores:   st,
-		Services: svc,
-		Claimed:  jobs.NewWorktreeDelete(svc.queue),
-		Wakers:   wakers,
+		Stores:              st,
+		Services:            svc,
+		Claimed:             jobs.NewWorktreeDelete(svc.queue),
+		Wakers:              wakers,
+		EmbeddedPostgresDir: params.EmbeddedPostgresDir,
 	})
 
 	if err := broker.Start(ctx); err != nil {

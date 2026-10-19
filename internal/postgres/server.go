@@ -130,6 +130,19 @@ func Start(ctx context.Context, dir string) error {
 	return nil
 }
 
+// EnsureRunning starts the embedded Postgres in dir when it accepts no connections, reporting whether it started it.
+func EnsureRunning(ctx context.Context, dir string) (bool, error) {
+	if IsRunning(ctx, dir) {
+		return false, nil
+	}
+
+	if err := Start(ctx, dir); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 // HasCluster reports whether dir holds a cluster for the embedded Postgres this build carries.
 func HasCluster(dir string) bool {
 	_, err := os.Stat(getDataDir(dir))

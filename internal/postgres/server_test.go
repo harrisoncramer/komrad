@@ -164,6 +164,26 @@ func TestIntegrationStartRecoversFromACrash(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
+// TestIntegrationEnsureRunning covers EnsureRunning leaving a running embedded Postgres alone and
+// starting one that was killed.
+func TestIntegrationEnsureRunning(t *testing.T) {
+	dir := createCluster(t)
+	pid := postmasterPID(t, dir)
+
+	started, err := EnsureRunning(t.Context(), dir)
+	require.NoError(t, err)
+	assert.False(t, started)
+	assert.Equal(t, pid, postmasterPID(t, dir))
+
+	require.NoError(t, syscall.Kill(-pid, syscall.SIGKILL))
+	require.Eventually(t, func() bool { return !IsRunning(t.Context(), dir) }, testWait, testTick)
+
+	started, err = EnsureRunning(t.Context(), dir)
+	require.NoError(t, err)
+	assert.True(t, started)
+	assert.True(t, IsRunning(t.Context(), dir))
+}
+
 // TestIntegrationCreateClusterRefusesASecondCluster covers CreateCluster never writing over a cluster that is there.
 func TestIntegrationCreateClusterRefusesASecondCluster(t *testing.T) {
 	dir := createCluster(t)

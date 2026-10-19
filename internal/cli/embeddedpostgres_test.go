@@ -41,12 +41,6 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 			wantErr:          true,
 		},
 		{
-			name:             "serve with the embedded Postgres down",
-			command:          "serve",
-			embeddedPostgres: true,
-			wantErr:          true,
-		},
-		{
 			name:             "engine ensure with the embedded Postgres up",
 			command:          "engine ensure",
 			embeddedPostgres: true,
@@ -59,6 +53,11 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 		{
 			name:             "migrate, which creates or starts the embedded Postgres",
 			command:          "migrate",
+			embeddedPostgres: true,
+		},
+		{
+			name:             "serve, which starts the embedded Postgres and keeps it running",
+			command:          "serve",
 			embeddedPostgres: true,
 		},
 		{
