@@ -102,13 +102,10 @@ func dirEditorContent(editor, dir string) layout.Content {
 	}
 }
 
-// pressEdit is the edit key, refused on a round the agent has written past, which stops the agent
-// before it opens the editor and closes one already open.
+// pressEdit is the edit key, which stops the agent before it opens the editor and closes one
+// already open.
 func (r *reviewScreen) pressEdit(m *model) tea.Cmd {
-	if said, history := r.isHistory(); history && !r.hold.atEditor {
-		m.note(messageWarning, said+" is finished, so the worktree no longer holds these lines"+separated+
-			keyLabel(m.keys.Review.BaseForward)+" for the current work")
-
+	if r.isHistory() && !r.hold.atEditor {
 		return nil
 	}
 
@@ -234,7 +231,7 @@ func (r *reviewScreen) closeEdit(m *model) tea.Cmd {
 	m.unstageEditor()
 	letGo := r.endHold(m, editedSaid)
 
-	return tea.Batch(letGo, r.reloadFresh(m))
+	return tea.Batch(letGo, r.catchUp(m))
 }
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the

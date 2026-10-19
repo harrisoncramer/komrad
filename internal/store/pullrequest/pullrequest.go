@@ -461,3 +461,48 @@ func (s *PullRequestStore) ListRecipients(ctx context.Context, id string) ([]str
 
 	return ids, nil
 }
+
+// GetParentPullRequestParams names the parent's repository and branch, and when the child took that parent.
+type GetParentPullRequestParams struct {
+	RepositoryURL string
+	HeadBranch    string
+	Since         time.Time
+}
+
+// GetParentPullRequest is a child's parent pull request on a branch: the earliest one open, or opened since the child took that parent.
+func (s *PullRequestStore) GetParentPullRequest(ctx context.Context, params GetParentPullRequestParams) (*PullRequest, error) {
+	row, err := s.queries.GetParentPullRequest(ctx, models.GetParentPullRequestParams{
+		RepositoryUrl: params.RepositoryURL,
+		HeadBranch:    params.HeadBranch,
+		Since:         params.Since,
+	})
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no pull request on %s", params.HeadBranch)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the pull request on %s: %w", params.HeadBranch, err)
+	}
+
+	return s.withOneMergeReadiness(ctx, row)
+}
+
+// mergeBlockers is what about a pull request's branches turns its merge down.
+type mergeBlockers struct {
+	// HeadHasParent says the pull request comes from a live child, which merges only after its parent.
+	HeadHasParent bool
+	// BaseFinished says the pull request targets a task's branch whose own pull request merged or closed.
+	BaseFinished bool
+}
+
+// GetMergeBlockers reads what turns down a merge of the pull request at an address, or ErrNotFound for one komrad has not stored.
+func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*mergeBlockers, error) {
+	row, err := s.queries.GetMergeBlockers(ctx, url)
+	if db.IsNoRows(err) {
+		return nil, store.ErrNotFound.Saying("no pull request at %s", url)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read what blocks a merge of the pull request at %s: %w", url, err)
+	}
+
+	return &mergeBlockers{HeadHasParent: row.HeadHasParent, BaseFinished: row.BaseFinished}, nil
+}

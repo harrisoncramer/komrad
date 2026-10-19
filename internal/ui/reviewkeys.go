@@ -63,34 +63,6 @@ func (r *reviewScreen) refuseWrite(m *model) {
 	m.note(messageWarning, archivedSaid)
 }
 
-// refuseHistory says why a write did not happen on a round the agent has moved past, and names
-// the key back to the work a comment could still ask it to change.
-func (r *reviewScreen) refuseHistory(m *model, said string) {
-	summary := said + " is finished"
-	back := keyLabel(m.keys.Review.BaseForward) + " until the whole change is on screen"
-	if r.diff.spec.origin != nil {
-		back = m.menuChordLabel(m.keys.Review.Jump) + " to go back to where you were, then " + back
-	}
-
-	detail := "This renders code the agent has already rewritten, so the line under the cursor is " +
-		"not in the work it has now and a comment on it could not be acted on. Press " + back +
-		", then comment there."
-
-	m.reportBrief(summary, detail)
-}
-
-// refuseViewed says why the fold key did nothing on a chapter, and names the key back to the
-// change a mark is about.
-func (r *reviewScreen) refuseViewed(m *model) {
-	summary := "a file is read in the whole change, not in one chapter"
-	detail := "This renders one chapter of the change, so the file under the cursor is a different " +
-		"diff here than it is in the whole of it and a mark taken on it would say you had read " +
-		"something else. Press " + keyLabel(m.keys.Review.BaseForward) + " until the whole change " +
-		"is on screen, then mark it there."
-
-	m.reportBrief(summary, detail)
-}
-
 // diffKeys is the review's own diff under the keys every diff pane shares, with the cursor
 // landing on a conversation it has to answer for.
 func (r *reviewScreen) diffKeys() diffKeys {
@@ -286,13 +258,8 @@ func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
 	}
 
 	layout := r.layoutSidebar(m)
-	pullRequestTop := paint.CountLines(layout.bar + layout.change)
-	filesTop := pullRequestTop + paint.CountLines(layout.pullRequest)
-
-	switch {
-	case y >= pullRequestTop && y < filesTop && r.isPullRequestRendered(m):
-		return pullRequestNav{r}, true
-	case y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(m):
+	filesTop := paint.CountLines(layout.bar + layout.change + layout.side)
+	if y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(m) {
 		return filesNav{r}, true
 	}
 

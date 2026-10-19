@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"slices"
 
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -93,6 +94,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.AutoMerge = r.task.PullRequest.MergeReadiness.AutoMerge
 		row.LoaderFrame = params.loaderFrame
 		row.Selected = slices.Contains(params.wholeTasks, r.task.ID)
+		row.Tail = parentTail(r, params.tasks)
 
 		return row
 	}
@@ -128,6 +130,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Documents = row.Documents && !r.underTask
 	row.Kind = snapshotKind(r, params.flat)
 	row.Nested = r.underTask
+	row.Reviewer = item.Agent.Role == panel.RoleReviewer
 	row.Name = item.Agent.Name
 	row.Matches = params.matchesOf(r, item.Agent.Name)
 	row.Repo = snapshotRepo(task.WorktreeRemoved, task.Sequence)
@@ -200,11 +203,11 @@ func treesOf(rows []agentRow, flat bool) []*view.Tree {
 func treeDepth(r agentRow) int {
 	switch {
 	case r.isTask():
-		return 0
+		return r.depth
 	case r.header:
 		return -1
 	case r.underTask:
-		return 1
+		return r.depth + 1
 	}
 
 	return 0
@@ -383,4 +386,19 @@ func pickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name str
 	}
 
 	return matchesIn(matcher, name)
+}
+
+// parentTail is what a child's row says after its name while something blocks its cascade.
+func parentTail(r agentRow, tasks taskIndex) view.Cell {
+	parent := r.task.Parent
+	if parent == nil {
+		return view.Cell{}
+	}
+
+	said := cascadeBlockSaid(parent.GetBlocked(), tasks[parent.GetTaskId()].Slug)
+	if said == "" {
+		return view.Cell{}
+	}
+
+	return view.Cell{Text: said, Tone: paint.ToneWarning}
 }

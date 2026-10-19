@@ -533,6 +533,20 @@
               "default": "[\"r\"]"
             },
             {
+              "key": "rebase_onto_base",
+              "path": "keybindings.git.rebase_onto_base",
+              "type": "array",
+              "description": "Re-target the hovered child onto the workflow's base branch, rebasing only its own commits,\nwhich asks first. The entry is off for a task without a parent.",
+              "default": "[\"R\"]"
+            },
+            {
+              "key": "pick_fork_point",
+              "path": "keybindings.git.pick_fork_point",
+              "type": "array",
+              "description": "Pick the fork point of the hovered child, the commit its own commits sit on, once a rewrite\nof its branch has orphaned it.",
+              "default": "[\"s\"]"
+            },
+            {
               "key": "request_rereview",
               "path": "keybindings.git.request_rereview",
               "type": "array",
@@ -753,14 +767,14 @@
               "key": "base",
               "path": "keybindings.review.base",
               "type": "array",
-              "description": "Walk back a chapter through the review, from the whole change to the newest chapter and\non into the older ones, stopping on the oldest.",
+              "description": "Walk back a review, from the whole change to the work since your last review and on into the\nolder ones, stopping on the oldest.",
               "default": "[\"\u003c\"]"
             },
             {
               "key": "base_forward",
               "path": "keybindings.review.base_forward",
               "type": "array",
-              "description": "Walk the other way through the chapters, towards the newest work and on to the whole\nchange.",
+              "description": "Walk the other way through your reviews, towards the newest work and on to the whole change.",
               "default": "[\"\u003e\"]"
             },
             {
@@ -774,7 +788,7 @@
               "key": "edit_file",
               "path": "keybindings.review.edit_file",
               "type": "array",
-              "description": "From the menu, open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the task's own worktree rather than a copy of it, so what\nyou write is what the writer finds there, and the key is refused while the writer is\nworking rather than letting you both write at once. It is refused on a round the\nwriter has written past, since those lines have moved on.",
+              "description": "From the menu, open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the task's own worktree rather than a copy of it, so what\nyou write is what the writer finds there, and the key is refused while the writer is\nworking rather than letting you both write at once. It is drawn off on a range ending\nbefore the newest round, since those lines have moved on.",
               "default": "[\"e\"]"
             },
             {
@@ -834,17 +848,24 @@
               "default": "[\"T\"]"
             },
             {
+              "key": "range_end",
+              "path": "keybindings.review.range_end",
+              "type": "array",
+              "description": "From the menu while the diff ends before the newest round, end it on the newest round.",
+              "default": "[\"L\"]"
+            },
+            {
               "key": "reload",
               "path": "keybindings.review.reload",
               "type": "array",
-              "description": "From the menu, catch up with the writer, once the band says it has written since you opened the\ndiff. What you are reading never moves on its own, since that would take the code out\nfrom under a comment being written, so catching up is always yours to ask for.",
+              "description": "From the menu, catch up with the writer, taking a round of the worktree as it stands and ending\nthe diff on it.",
               "default": "[\"R\"]"
             },
             {
               "key": "agent_threads",
               "path": "keybindings.review.agent_threads",
               "type": "array",
-              "description": "From the menu, show or hide the conversations agents opened, which are hidden whenever a\nreview opens.",
+              "description": "From the menu, hide the conversations agents opened, or show them again. They show whenever a\nreview opens.",
               "default": "[\"b\"]"
             },
             {
@@ -865,7 +886,7 @@
               "key": "toggle_folder",
               "path": "keybindings.review.toggle_folder",
               "type": "array",
-              "description": "On the file tree, open the folder the cursor rests on, or close it when it is open.",
+              "description": "On the file tree, open the folder the cursor rests on, or close it when it is open. Over the\nfile tree, open the review of a task in the stack, go to a thread that needs you, or open the\npull request's description.",
               "default": "[\"o\"]"
             },
             {
@@ -1365,6 +1386,13 @@
               "type": "string",
               "description": "Beside the count of your comments holding a reply you have not read.",
               "default": "\"\""
+            },
+            {
+              "key": "reviewer",
+              "path": "glyphs.marks.reviewer",
+              "type": "string",
+              "description": "Before the name of a reviewer agent under its task.",
+              "default": "\"\""
             }
           ],
           "sections": []

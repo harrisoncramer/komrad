@@ -1145,11 +1145,12 @@ func TestRenderTaskTree(t *testing.T) {
 			Tree:   &Tree{Above: []bool{false}},
 		},
 		{
-			Key:    "reviewer",
-			Name:   "reviewer",
-			Status: StatusThinking,
-			Nested: true,
-			Tree:   &Tree{Above: []bool{false}, Last: true},
+			Key:      "reviewer",
+			Name:     "reviewer",
+			Status:   StatusThinking,
+			Nested:   true,
+			Reviewer: true,
+			Tree:     &Tree{Above: []bool{false}, Last: true},
 		},
 		{
 			Key:     "docs",

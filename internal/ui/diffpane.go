@@ -117,7 +117,7 @@ func directionOf(pressed string, backward []string) int {
 // legend is the diff's own rows of a screen's legend, in reading order.
 func (k diffKeys) legend() []screenLegendRow {
 	return []screenLegendRow{
-		navMoveRow("move"),
+		navMoveRow(),
 		navPageRow(),
 		diffFileRow(),
 		diffSearchRow(),

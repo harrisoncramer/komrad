@@ -27,6 +27,18 @@ enum Sequence {
   SEQUENCE_REVERT = 6;
 }
 
+// CascadeBlock is why the cascade cannot rebase a child onto its parent.
+enum CascadeBlock {
+  // Nothing blocks the cascade.
+  CASCADE_BLOCK_UNSPECIFIED = 0;
+  // Rebasing the child's own commits onto its parent stopped on conflicts.
+  CASCADE_BLOCK_CONFLICTED = 1;
+  // The child is orphaned: its branch holds neither its fork point nor its parent's newest commit.
+  CASCADE_BLOCK_ORPHANED = 2;
+  // The parent's pull request closed without merging.
+  CASCADE_BLOCK_PARENT_CLOSED = 3;
+}
+
 // DiffStat counts the lines a checkout adds and removes, committed or not.
 message DiffStat {
   // How many lines the checkout adds.
@@ -94,6 +106,22 @@ message Task {
   // When the newest of the task's documents was last written, in RFC 3339. Unset when the task
   // has none.
   optional string documents_updated_at = 24;
+  // The task this task depends on. Unset for a task on the workflow's base branch.
+  optional Parent parent = 25;
+}
+
+// Parent is the task a child depends on, and the fork point where the child's own commits begin on
+// the parent's branch. Rounds and line counts measure from `fork_point`.
+message Parent {
+  // The id of the parent task.
+  string task_id = 1;
+  // The commit of the parent's branch the child's own commits sit on.
+  string fork_point = 2;
+  // The id of the parent's pull request, which komrad reads for the parent's newest commit and its
+  // merge. Empty until the parent has one.
+  string pull_request_id = 3;
+  // Why the cascade cannot rebase the child onto its parent.
+  CascadeBlock blocked = 4;
 }
 
 message CreateTaskRequest {

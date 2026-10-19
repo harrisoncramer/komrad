@@ -37,18 +37,32 @@ type Task struct {
 	Notes          string
 	NotesUpdatedAt *time.Time
 	Checkout       Checkout
-	Hidden         bool
-	ArchivedAt     *time.Time
-	DeletingAt     *time.Time
-	FailureReason  string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// Parent is the task this one depends on, nil for a task on the workflow's base branch.
+	Parent        *Parent
+	Hidden        bool
+	ArchivedAt    *time.Time
+	DeletingAt    *time.Time
+	FailureReason string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 	// FailedRun is whether a run on the task failed and nobody has opened it, which only a watch reads.
 	FailedRun bool
 	// Documents is how many documents agents have written for the task, which only a watch reads.
 	Documents int32
 	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
 	DocumentsUpdatedAt *time.Time
+}
+
+// GetBranch is the branch a task's checkout is on, or the one komrad names for it while it has none.
+func (t Task) GetBranch() string {
+	if branch := xptr.Deref(t.Checkout.Branch); branch != "" {
+		return branch
+	}
+	if t.Checkout.AdoptedBranch != "" {
+		return t.Checkout.AdoptedBranch
+	}
+
+	return "task/" + t.ID
 }
 
 type TaskStore struct {
@@ -70,6 +84,7 @@ func fromRow(row *models.Task) Task {
 		Notes:          row.Notes,
 		NotesUpdatedAt: row.NotesUpdatedAt,
 		Checkout:       checkoutFrom(row),
+		Parent:         parentFrom(row),
 		Hidden:         row.IsHidden,
 		ArchivedAt:     row.ArchivedAt,
 		DeletingAt:     row.DeletingAt,
@@ -84,6 +99,8 @@ type CreateParams struct {
 	Slug       string
 	Title      string
 	Goal       string
+	// Parent is the task the new task depends on, nil for none.
+	Parent *Parent
 }
 
 // Create writes a new task, refusing a slug that is malformed or already used.
@@ -92,12 +109,19 @@ func (s *TaskStore) Create(ctx context.Context, params CreateParams) (*Task, err
 		return nil, fmt.Errorf("%w: %q", ErrBadSlug, params.Slug)
 	}
 
-	row, err := s.queries.CreateTask(ctx, models.CreateTaskParams{
+	create := models.CreateTaskParams{
 		WorkflowID: params.WorkflowID,
 		Slug:       params.Slug,
 		Title:      params.Title,
 		Goal:       params.Goal,
-	})
+	}
+	if params.Parent != nil {
+		create.ParentTaskID = &params.Parent.TaskID
+		create.ForkPoint = xptr.NonEmpty(params.Parent.ForkPoint)
+		create.ParentPullRequestID = xptr.NonEmpty(params.Parent.PullRequestID)
+	}
+
+	row, err := s.queries.CreateTask(ctx, create)
 	if db.IsUniqueViolation(err) {
 		return nil, fmt.Errorf("%w: a task is already named %q", store.ErrNameTaken, params.Slug)
 	}

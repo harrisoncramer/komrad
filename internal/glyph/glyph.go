@@ -38,6 +38,7 @@ const (
 	ReviewerComments
 	PersonComments
 	Unread
+	Reviewer
 	Workflow
 	Archive
 	Search
@@ -92,6 +93,7 @@ var defined = [count]struct {
 	ReviewerComments:   {"marks.reviewer_comments", ""},
 	PersonComments:     {"marks.person_comments", ""},
 	Unread:             {"marks.unread", "\uf49a"},
+	Reviewer:           {"marks.reviewer", "\uf442"},
 	Workflow:           {"lists.workflow", ""},
 	Archive:            {"lists.archive", ""},
 	Search:             {"lists.search", ""},

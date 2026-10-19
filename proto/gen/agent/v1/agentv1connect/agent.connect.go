@@ -172,6 +172,9 @@ const (
 	// AgentServicePushWorktreeProcedure is the fully-qualified name of the AgentService's PushWorktree
 	// RPC.
 	AgentServicePushWorktreeProcedure = "/agent.v1.AgentService/PushWorktree"
+	// AgentServicePickForkPointProcedure is the fully-qualified name of the AgentService's
+	// PickForkPoint RPC.
+	AgentServicePickForkPointProcedure = "/agent.v1.AgentService/PickForkPoint"
 	// AgentServiceAbortSequenceProcedure is the fully-qualified name of the AgentService's
 	// AbortSequence RPC.
 	AgentServiceAbortSequenceProcedure = "/agent.v1.AgentService/AbortSequence"
@@ -261,6 +264,7 @@ type AgentServiceClient interface {
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
 	PlanPush(context.Context, *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error)
 	PushWorktree(context.Context, *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error)
+	PickForkPoint(context.Context, *connect.Request[v1.PickForkPointRequest]) (*connect.Response[v1.PickForkPointResponse], error)
 	AbortSequence(context.Context, *connect.Request[v1.AbortSequenceRequest]) (*connect.Response[v1.AbortSequenceResponse], error)
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
@@ -612,6 +616,12 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("PushWorktree")),
 			connect.WithClientOptions(opts...),
 		),
+		pickForkPoint: connect.NewClient[v1.PickForkPointRequest, v1.PickForkPointResponse](
+			httpClient,
+			baseURL+AgentServicePickForkPointProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("PickForkPoint")),
+			connect.WithClientOptions(opts...),
+		),
 		abortSequence: connect.NewClient[v1.AbortSequenceRequest, v1.AbortSequenceResponse](
 			httpClient,
 			baseURL+AgentServiceAbortSequenceProcedure,
@@ -747,6 +757,7 @@ type agentServiceClient struct {
 	rebaseWorktree           *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
 	planPush                 *connect.Client[v1.PlanPushRequest, v1.PlanPushResponse]
 	pushWorktree             *connect.Client[v1.PushWorktreeRequest, v1.PushWorktreeResponse]
+	pickForkPoint            *connect.Client[v1.PickForkPointRequest, v1.PickForkPointResponse]
 	abortSequence            *connect.Client[v1.AbortSequenceRequest, v1.AbortSequenceResponse]
 	startOrchestrator        *connect.Client[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse]
 	markReviewThreadRead     *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
@@ -1011,6 +1022,11 @@ func (c *agentServiceClient) PushWorktree(ctx context.Context, req *connect.Requ
 	return c.pushWorktree.CallUnary(ctx, req)
 }
 
+// PickForkPoint calls agent.v1.AgentService.PickForkPoint.
+func (c *agentServiceClient) PickForkPoint(ctx context.Context, req *connect.Request[v1.PickForkPointRequest]) (*connect.Response[v1.PickForkPointResponse], error) {
+	return c.pickForkPoint.CallUnary(ctx, req)
+}
+
 // AbortSequence calls agent.v1.AgentService.AbortSequence.
 func (c *agentServiceClient) AbortSequence(ctx context.Context, req *connect.Request[v1.AbortSequenceRequest]) (*connect.Response[v1.AbortSequenceResponse], error) {
 	return c.abortSequence.CallUnary(ctx, req)
@@ -1123,6 +1139,7 @@ type AgentServiceHandler interface {
 	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
 	PlanPush(context.Context, *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error)
 	PushWorktree(context.Context, *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error)
+	PickForkPoint(context.Context, *connect.Request[v1.PickForkPointRequest]) (*connect.Response[v1.PickForkPointResponse], error)
 	AbortSequence(context.Context, *connect.Request[v1.AbortSequenceRequest]) (*connect.Response[v1.AbortSequenceResponse], error)
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
@@ -1470,6 +1487,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("PushWorktree")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServicePickForkPointHandler := connect.NewUnaryHandler(
+		AgentServicePickForkPointProcedure,
+		svc.PickForkPoint,
+		connect.WithSchema(agentServiceMethods.ByName("PickForkPoint")),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceAbortSequenceHandler := connect.NewUnaryHandler(
 		AgentServiceAbortSequenceProcedure,
 		svc.AbortSequence,
@@ -1652,6 +1675,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServicePlanPushHandler.ServeHTTP(w, r)
 		case AgentServicePushWorktreeProcedure:
 			agentServicePushWorktreeHandler.ServeHTTP(w, r)
+		case AgentServicePickForkPointProcedure:
+			agentServicePickForkPointHandler.ServeHTTP(w, r)
 		case AgentServiceAbortSequenceProcedure:
 			agentServiceAbortSequenceHandler.ServeHTTP(w, r)
 		case AgentServiceStartOrchestratorProcedure:
@@ -1883,6 +1908,10 @@ func (UnimplementedAgentServiceHandler) PlanPush(context.Context, *connect.Reque
 
 func (UnimplementedAgentServiceHandler) PushWorktree(context.Context, *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.PushWorktree is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) PickForkPoint(context.Context, *connect.Request[v1.PickForkPointRequest]) (*connect.Response[v1.PickForkPointResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.PickForkPoint is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) AbortSequence(context.Context, *connect.Request[v1.AbortSequenceRequest]) (*connect.Response[v1.AbortSequenceResponse], error) {

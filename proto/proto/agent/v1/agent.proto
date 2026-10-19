@@ -250,6 +250,11 @@ message CreateAgentRequest {
   // The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the
   // first line of the prompt.
   string task_goal = 10 [(buf.validate.field).string.max_len = 50000];
+  // The task the new task depends on, by id or slug, in `workflow_id`. The new task's branch starts
+  // from that task's branch on origin, and komrad rebases it as that branch moves and re-targets it
+  // onto the base branch once that task merges. Unset to start from the workflow's base branch.
+  // Cannot be set with `task`.
+  optional string depends_on = 11 [(buf.validate.field).string.min_len = 1];
 }
 
 message CreateAgentResponse {
@@ -367,6 +372,9 @@ message PlanRebaseRequest {
     message: "pass task, by id or by slug"
     expression: "this.size() > 0"
   }];
+  // Plan a re-target of a child onto the workflow's base branch, rebasing only its own commits,
+  // in place of a rebase onto its parent.
+  bool onto_base = 2;
 }
 
 message PlanRebaseResponse {
@@ -408,6 +416,9 @@ message RebaseWorktreeRequest {
     message: "pass task, by id or by slug"
     expression: "this.size() > 0"
   }];
+  // Re-target a child onto the workflow's base branch, rebasing only its own commits, so it no
+  // longer has a parent.
+  bool onto_base = 2;
 }
 
 message RebaseWorktreeResponse {
@@ -472,6 +483,23 @@ message PushWorktreeResponse {
   bool forced = 3;
   // The commit origin's copy of the branch now points at.
   string sha = 4;
+}
+
+message PickForkPointRequest {
+  // The child, by id or slug.
+  string task = 1 [(buf.validate.field).cel = {
+    id: "task.required"
+    message: "pass task, by id or by slug"
+    expression: "this.size() > 0"
+  }];
+  // The commit the child's own commits sit on, which its branch must hold. Any name git reads as
+  // a commit.
+  string commit = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message PickForkPointResponse {
+  // The full name of the commit recorded.
+  string fork_point = 1;
 }
 
 message AbortSequenceRequest {
@@ -1273,6 +1301,15 @@ service AgentService {
       name: "push_worktree"
       description: "Push a task's branch to origin under its own name. Komrad overwrites origin's copy after a rebase only when nothing on origin would be lost."
       reason: "Agents push their own branches with git, so a push from outside is for the person."
+    };
+  }
+  rpc PickForkPoint(PickForkPointRequest) returns (PickForkPointResponse) {
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "pick_fork_point"
+      description: "Record the fork point of an orphaned child, the commit its own commits sit on. Komrad measures the child from that commit and the cascade rebases it again."
+      reason: "A child is orphaned when its writer rewrote its branch, so naming where its own commits begin is for the person."
     };
   }
   rpc AbortSequence(AbortSequenceRequest) returns (AbortSequenceResponse) {

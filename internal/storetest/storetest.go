@@ -296,3 +296,57 @@ func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge
 
 	return stored
 }
+
+// SeedPullRequestParams is a pull request on github.com from one branch of a repository onto another.
+type SeedPullRequestParams struct {
+	RepositoryURL string
+	Number        int
+	HeadBranch    string
+	HeadSHA       string
+	BaseBranch    string
+	// State is OPEN, MERGED or CLOSED, OPEN when empty.
+	State string
+	// OpenedAt is when the pull request opened, now when zero.
+	OpenedAt time.Time
+}
+
+// SeedPullRequest stores a pull request and returns it as stored.
+func (s *Stores) SeedPullRequest(t *testing.T, params SeedPullRequestParams) *pullrequeststore.PullRequest {
+	t.Helper()
+
+	opened := params.OpenedAt
+	if opened.IsZero() {
+		opened = time.Now()
+	}
+
+	upsert := pullrequeststore.UpsertParams{
+		Host:              "github.com",
+		Forge:             "github",
+		ProviderID:        fmt.Sprintf("%s/pull/%d", params.RepositoryURL, params.Number),
+		URL:               fmt.Sprintf("%s/pull/%d", params.RepositoryURL, params.Number),
+		RepositoryURL:     params.RepositoryURL,
+		HeadRepositoryURL: params.RepositoryURL,
+		Number:            params.Number,
+		Title:             params.HeadBranch,
+		HeadBranch:        params.HeadBranch,
+		HeadSHA:           params.HeadSHA,
+		BaseBranch:        params.BaseBranch,
+		State:             "OPEN",
+		OpenedAt:          opened,
+		ChangedAt:         opened,
+	}
+	switch params.State {
+	case "MERGED":
+		upsert.State, upsert.MergedAt, upsert.ClosedAt = params.State, &opened, &opened
+	case "CLOSED":
+		upsert.State, upsert.ClosedAt = params.State, &opened
+	}
+
+	_, err := s.PullRequests.Upsert(t.Context(), upsert)
+	require.NoError(t, err)
+
+	stored, err := s.PullRequests.GetByIdentity(t.Context(), upsert.Host, upsert.ProviderID)
+	require.NoError(t, err)
+
+	return stored
+}

@@ -1188,6 +1188,14 @@ type Task struct {
 	NotesUpdatedAt *time.Time
 	// Whether a person hid the task from the sidebar.
 	IsHidden bool
+	// The task in the same workflow this task depends on, whose branch this task's branch starts from and is measured against; null for a task on the workflow's base branch.
+	ParentTaskID *string
+	// The fork point, the commit of the parent's branch this task's own commits sit on, which rounds and line counts measure from; null while the task has no parent.
+	ForkPoint *string
+	// The parent's pull request, read for the parent's newest commit and its merge; null until the parent has one or while the task has no parent.
+	ParentPullRequestID *string
+	// Why the cascade cannot rebase this task onto its parent: conflicts when the rebase stopped on conflicts, orphaned when its branch holds neither its fork point nor the parent's newest commit, closed when the parent's pull request closed without merging; null while nothing blocks it.
+	CascadeBlocked *string
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

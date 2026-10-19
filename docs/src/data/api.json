@@ -778,6 +778,22 @@
           "response": "agent.v1.PushWorktreeResponse"
         },
         {
+          "slug": "pick-fork-point",
+          "name": "PickForkPoint",
+          "path": "/agent.v1.AgentService/PickForkPoint",
+          "command": "komrad rpc pick-fork-point",
+          "tool": "pick_fork_point",
+          "mcp": false,
+          "roles": [],
+          "summary": "Record the fork point of an orphaned child, the commit its own commits sit on.",
+          "description": "Record the fork point of an orphaned child, the commit its own commits sit on. Komrad measures the child from that commit and the cascade rebases it again.",
+          "readOnly": false,
+          "idempotent": false,
+          "destructive": true,
+          "request": "agent.v1.PickForkPointRequest",
+          "response": "agent.v1.PickForkPointResponse"
+        },
+        {
           "slug": "abort-sequence",
           "name": "AbortSequence",
           "path": "/agent.v1.AgentService/AbortSequence",
@@ -2669,6 +2685,16 @@
             "at most 50000 characters"
           ],
           "description": "The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the first line of the prompt."
+        },
+        {
+          "name": "depends_on",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task the new task depends on, by id or slug, in `workflow_id`. The new task's branch starts from that task's branch on origin, and komrad rebases it as that branch moves and re-targets it onto the base branch once that task merges. Unset to start from the workflow's base branch. Cannot be set with `task`."
         }
       ]
     },
@@ -4416,6 +4442,50 @@
         }
       ]
     },
+    "agent.v1.PickForkPointRequest": {
+      "name": "PickForkPointRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The child, by id or slug."
+        },
+        {
+          "name": "commit",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [
+            "required"
+          ],
+          "description": "The commit the child's own commits sit on, which its branch must hold. Any name git reads as a commit."
+        }
+      ]
+    },
+    "agent.v1.PickForkPointResponse": {
+      "name": "PickForkPointResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "fork_point",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The full name of the commit recorded."
+        }
+      ]
+    },
     "agent.v1.PlanPushRequest": {
       "name": "PlanPushRequest",
       "description": "PlanPushRequest asks what a push of a task's branch would do, without doing it.",
@@ -4501,6 +4571,16 @@
           "oneof": "",
           "rules": [],
           "description": "The task whose branch to plan a rebase of, by id or slug."
+        },
+        {
+          "name": "onto_base",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Plan a re-target of a child onto the workflow's base branch, rebasing only its own commits, in place of a rebase onto its parent."
         }
       ]
     },
@@ -4773,6 +4853,16 @@
           "oneof": "",
           "rules": [],
           "description": "The task whose branch to rebase onto the base branch, by id or slug."
+        },
+        {
+          "name": "onto_base",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Re-target a child onto the workflow's base branch, rebasing only its own commits, so it no longer has a parent."
         }
       ]
     },
@@ -9223,6 +9313,52 @@
         }
       ]
     },
+    "task.v1.Parent": {
+      "name": "Parent",
+      "description": "Parent is the task a child depends on, and the fork point where the child's own commits begin on the parent's branch. Rounds and line counts measure from `fork_point`.",
+      "fields": [
+        {
+          "name": "task_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The id of the parent task."
+        },
+        {
+          "name": "fork_point",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The commit of the parent's branch the child's own commits sit on."
+        },
+        {
+          "name": "pull_request_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The id of the parent's pull request, which komrad reads for the parent's newest commit and its merge. Empty until the parent has one."
+        },
+        {
+          "name": "blocked",
+          "type": "CascadeBlock",
+          "ref": "task.v1.CascadeBlock",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Why the cascade cannot rebase the child onto its parent."
+        }
+      ]
+    },
     "task.v1.SetTaskHiddenRequest": {
       "name": "SetTaskHiddenRequest",
       "description": "",
@@ -9552,6 +9688,16 @@
           "oneof": "",
           "rules": [],
           "description": "When the newest of the task's documents was last written, in RFC 3339. Unset when the task has none."
+        },
+        {
+          "name": "parent",
+          "type": "Parent",
+          "ref": "task.v1.Parent",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task this task depends on. Unset for a task on the workflow's base branch."
         }
       ]
     },
@@ -11433,6 +11579,24 @@
         {
           "name": "SCHEDULE_RUN_STATE_DISCARDED",
           "description": "Out of attempts, with the last error in the run's message."
+        }
+      ]
+    },
+    "task.v1.CascadeBlock": {
+      "name": "CascadeBlock",
+      "description": "CascadeBlock is why the cascade cannot rebase a child onto its parent.",
+      "values": [
+        {
+          "name": "CASCADE_BLOCK_CONFLICTED",
+          "description": "Rebasing the child's own commits onto its parent stopped on conflicts."
+        },
+        {
+          "name": "CASCADE_BLOCK_ORPHANED",
+          "description": "The child is orphaned: its branch holds neither its fork point nor its parent's newest commit."
+        },
+        {
+          "name": "CASCADE_BLOCK_PARENT_CLOSED",
+          "description": "The parent's pull request closed without merging."
         }
       ]
     },

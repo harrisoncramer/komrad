@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"komrad/internal/diff"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -20,9 +22,10 @@ type reviewOrigin struct {
 	Ordinal  int32
 	BaseSHA  string
 	landed   bool
-	chapter  int
-	answer   *reviewAnswer
-	place    *diffview.Place
+	fellBack bool
+	// held is the range on screen before the jump, which the way back puts back.
+	held  diffSpec
+	place *diffview.Place
 }
 
 func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
@@ -47,8 +50,7 @@ func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 		RoundID:  round.GetId(),
 		Ordinal:  round.GetOrdinal(),
 		BaseSHA:  thread.GetBaseSha(),
-		chapter:  r.diff.spec.chapter,
-		answer:   r.diff.spec.answer,
+		held:     r.diff.spec,
 	}
 	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
 		origin.place = &place
@@ -61,14 +63,7 @@ func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 
 func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
 	origin := r.diff.spec.origin
-	r.diff.widen()
-	if origin.chapter >= 0 {
-		r.diff.showChapter(origin.chapter)
-	}
-
-	if origin.answer != nil {
-		r.diff.spec = answerSpec(origin.answer)
-	}
+	r.diff.spec = origin.held
 
 	cmd := r.reload(m)
 	r.diff.restore = origin.place
@@ -76,9 +71,9 @@ func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
 	return cmd
 }
 
-func originLabel(origin *reviewOrigin, fellBack bool) string {
-	said := fmt.Sprintf("where this comment was written, round %d", origin.Ordinal)
-	if fellBack {
+func originLabel(origin *reviewOrigin) string {
+	said := fmt.Sprintf("where the comment was read %s round %d", glyph.Span, origin.Ordinal)
+	if origin.fellBack {
 		said += ", shown against the round's base"
 	}
 
@@ -109,26 +104,16 @@ func (d *reviewDiff) originPlace(view *diffview.View) (diffview.Place, bool) {
 }
 
 func (d reviewDiff) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
-	if !d.showsAgentThreads {
+	if d.hidesAgentThreads {
 		threads = withoutAgentThreads(threads)
 	}
 
-	if d.spec.origin == nil {
-		return threadsByChapter(threadsByChapterParams{
-			Threads:  threads,
-			Chapters: d.chapters,
-			At:       d.spec.chapter,
-		})
-	}
+	return d.threadsInRange(threads)
+}
 
-	kept := make([]*agentv1.ReviewThread, 0, len(threads))
-	for _, thread := range threads {
-		if thread.GetRoundOrdinal() <= d.spec.origin.Ordinal {
-			kept = append(kept, thread)
-		}
-	}
-
-	return kept
+// isThreadOnScreen reports whether the thread is one the diff shows in the range on screen.
+func (d reviewDiff) isThreadOnScreen(threads []*agentv1.ReviewThread, id string) bool {
+	return slices.ContainsFunc(d.threadsOnScreen(threads), func(thread *agentv1.ReviewThread) bool { return thread.GetId() == id })
 }
 
 type originDiff struct {

@@ -668,7 +668,7 @@ func (cs *CwdSyncer) remember(look cwdLook) {
 	}
 }
 
-// measure records on the look the lines the checkout adds and removes since it left its base.
+// measure records on the look the lines the checkout adds and removes since it left its base, or since its fork point.
 func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflowstore.WorktreeConfig) {
 	if errors.Is(look.baseErr, git.ErrBaseMissing) {
 		return
@@ -679,7 +679,12 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 		return
 	}
 
-	measureKey := strings.Join(append([]string{look.base.Tip}, config.DiffExclude...), "\x00")
+	ref, from := look.base.Ref, look.base.Tip
+	if look.task.Parent != nil {
+		ref, from = look.task.Parent.ForkPoint, look.task.Parent.ForkPoint
+	}
+
+	measureKey := strings.Join(append([]string{from}, config.DiffExclude...), "\x00")
 	if look.isUnchanged() && look.seen.measureKey == measureKey {
 		look.diffStat = look.seen.diffStat
 		look.measureKey = measureKey
@@ -692,7 +697,7 @@ func (cs *CwdSyncer) measure(ctx context.Context, look *cwdLook, config workflow
 
 	stat, err := cs.trees.ReadDiffStat(ctx, git.ReadDiffStatParams{
 		Dir:     look.head.Root,
-		Ref:     look.base.Ref,
+		Ref:     ref,
 		Tree:    look.tree,
 		Exclude: config.DiffExclude,
 	})

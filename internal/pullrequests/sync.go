@@ -88,12 +88,12 @@ func (s *PullRequestSyncer) Sync(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	targets, err := s.syncs.ListTargets(ctx)
+	liveBranches, err := s.syncs.ListLiveBranches(ctx)
 	if err != nil {
 		return err
 	}
 
-	due := s.pacing.pick(candidatesOf(repositories, targets), s.now())
+	due := s.pacing.pick(candidatesOf(repositories, liveBranches), s.now())
 	if len(due) == 0 {
 		return nil
 	}
@@ -120,22 +120,22 @@ func (s *PullRequestSyncer) Sync(ctx context.Context) error {
 
 // candidatesOf is every repository live agents sit on, with their branches and the fingerprint
 // of those branches and heads.
-func candidatesOf(repositories []string, targets []pullrequeststore.Target) []candidate {
+func candidatesOf(repositories []string, liveBranches []pullrequeststore.LiveBranch) []candidate {
 	type sitting struct {
 		branches    []string
 		fingerprint strings.Builder
 	}
 	byRepository := map[string]*sitting{}
-	for _, target := range targets {
-		found, ok := byRepository[target.RepositoryURL]
+	for _, live := range liveBranches {
+		found, ok := byRepository[live.RepositoryURL]
 		if !ok {
 			found = &sitting{}
-			byRepository[target.RepositoryURL] = found
+			byRepository[live.RepositoryURL] = found
 		}
-		if !slices.Contains(found.branches, target.Branch) {
-			found.branches = append(found.branches, target.Branch)
+		if !slices.Contains(found.branches, live.Branch) {
+			found.branches = append(found.branches, live.Branch)
 		}
-		found.fingerprint.WriteString(target.Branch + "@" + target.HeadSHA + "\n")
+		found.fingerprint.WriteString(live.Branch + "@" + live.HeadSHA + "\n")
 	}
 
 	candidates := make([]candidate, 0, len(repositories))

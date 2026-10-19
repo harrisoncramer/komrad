@@ -76,6 +76,8 @@ if ! git -C "$repo" worktree remove --force "$tree" >&2; then
 	exit 1
 fi
 
+git -C "$repo" update-ref -d "refs/komrad/fork-point/$KOMRAD_WORKTREE_NAME" 2>/dev/null || true
+
 # An adopted branch was somebody else's before this agent was on it, so it outlives the agent
 # whatever state it is in. Nothing below this line runs for one.
 if [ -n "$adopted" ]; then

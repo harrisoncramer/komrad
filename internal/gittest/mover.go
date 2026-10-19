@@ -36,6 +36,10 @@ type Mover struct {
 	BeforeReadTree func()
 	// Holds is every commit HEAD's history holds.
 	Holds []string
+	// Tips is the commit origin's copy of each branch names.
+	Tips map[string]string
+	// Ancestors is every commit pair, ancestor then descendant, the history holds.
+	Ancestors [][2]string
 }
 
 // ReadTreeState answers State.
@@ -151,4 +155,26 @@ func (f *Mover) RefreshRemoteBranch(context.Context, string, string) error {
 // HoldsCommit answers whether Holds names sha.
 func (f *Mover) HoldsCommit(_ context.Context, _, sha string) (bool, error) {
 	return slices.Contains(f.Holds, sha), nil
+}
+
+// FetchBranchTip answers the branch's entry in Tips, or ErrBranchNotOnOrigin when it has none.
+func (f *Mover) FetchBranchTip(_ context.Context, _, branch string) (string, error) {
+	f.Calls = append(f.Calls, "fetch "+branch)
+
+	tip, ok := f.Tips[branch]
+	if !ok {
+		return "", git.ErrBranchNotOnOrigin
+	}
+
+	return tip, nil
+}
+
+// IsAncestor answers whether Ancestors lists the pair.
+func (f *Mover) IsAncestor(_ context.Context, params git.IsAncestorParams) (bool, error) {
+	return slices.Contains(f.Ancestors, [2]string{params.MaybeAncestor, params.Of}), nil
+}
+
+// ResolveCommit answers the revision as its own full name.
+func (f *Mover) ResolveCommit(_ context.Context, _, rev string) (string, error) {
+	return rev, nil
 }

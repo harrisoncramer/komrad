@@ -167,7 +167,6 @@ func (s *Handler) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRo
 func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReviewHistoryRequest) (*agentv1.OpenReviewHistoryResponse, *fail.Error) {
 	opened, err := s.review.GetHistory(ctx, reviews.GetHistoryParams{
 		Task:   req.GetTask(),
-		Fresh:  req.GetFresh(),
 		Span:   historySpanOf(req),
 		Author: reviewAuthorFrom(ctx),
 	})
@@ -180,11 +179,11 @@ func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReview
 
 func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 	switch {
-	case req.GetSnapshots() != nil:
-		return history.Span{
-			BaseSHA: req.GetSnapshots().GetBaseSha(),
-			HeadSHA: req.GetSnapshots().GetHeadSha(),
-		}
+	case req.GetRounds() != nil:
+		return history.Span{Rounds: &history.RoundSpan{
+			FromRoundID: req.GetRounds().GetFromRoundId(),
+			ToRoundID:   req.GetRounds().GetToRoundId(),
+		}}
 	case req.GetAnswer() != nil:
 		return history.Span{Answer: &history.AnswerSpan{
 			FromRoundID: req.GetAnswer().GetFromRoundId(),

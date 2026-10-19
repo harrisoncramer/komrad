@@ -36,7 +36,34 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		Documents:          stored.Documents,
 		DocumentsUpdatedAt: dates.PreciseStampPtr(stored.DocumentsUpdatedAt),
 		Hidden:             stored.Hidden,
+		Parent:             parentOf(stored.Parent),
 	}
+}
+
+func parentOf(parent *taskstore.Parent) *taskv1.Parent {
+	if parent == nil {
+		return nil
+	}
+
+	return &taskv1.Parent{
+		TaskId:        parent.TaskID,
+		ForkPoint:     parent.ForkPoint,
+		PullRequestId: parent.PullRequestID,
+		Blocked:       cascadeBlockOf(parent.Blocked),
+	}
+}
+
+func cascadeBlockOf(block taskstore.CascadeBlock) taskv1.CascadeBlock {
+	switch block {
+	case taskstore.CascadeConflicted:
+		return taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED
+	case taskstore.CascadeOrphaned:
+		return taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED
+	case taskstore.CascadeParentClosed:
+		return taskv1.CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED
+	}
+
+	return taskv1.CascadeBlock_CASCADE_BLOCK_UNSPECIFIED
 }
 
 // SequenceOf is a stored sequence as the wire carries it.

@@ -211,6 +211,12 @@ type GitKeys struct {
 	// Bring the hovered task's worktree up to date on the latest base, which asks first and
 	// says what it would do to the branch and to the files.
 	Rebase []string `mapstructure:"rebase" default:"r"`
+	// Re-target the hovered child onto the workflow's base branch, rebasing only its own commits,
+	// which asks first. The entry is off for a task without a parent.
+	RebaseOntoBase []string `mapstructure:"rebase_onto_base" default:"R"`
+	// Pick the fork point of the hovered child, the commit its own commits sit on, once a rewrite
+	// of its branch has orphaned it.
+	PickForkPoint []string `mapstructure:"pick_fork_point" default:"s"`
 	// Ask everyone who requested changes on the hovered task's pull request to review it again.
 	RequestRereview []string `mapstructure:"request_rereview" default:"v"`
 	// Mark the hovered task's pull request a draft, or ready for review when it is one.
@@ -388,11 +394,10 @@ type ReviewKeys struct {
 	// it stood just before the writer's addressed reply to the work that reply carried, or
 	// go back to all changes from there.
 	Answer []string `mapstructure:"answer" default:"a"`
-	// Walk back a chapter through the review, from the whole change to the newest chapter and
-	// on into the older ones, stopping on the oldest.
+	// Walk back a review, from the whole change to the work since your last review and on into the
+	// older ones, stopping on the oldest.
 	Base []string `mapstructure:"base" default:"<"`
-	// Walk the other way through the chapters, towards the newest work and on to the whole
-	// change.
+	// Walk the other way through your reviews, towards the newest work and on to the whole change.
 	BaseForward []string `mapstructure:"base_forward" default:">"`
 	// From the menu, write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
@@ -400,8 +405,8 @@ type ReviewKeys struct {
 	// From the menu, open the file under the cursor in your editor, beside the diff, on the line the
 	// cursor is on. This is the task's own worktree rather than a copy of it, so what
 	// you write is what the writer finds there, and the key is refused while the writer is
-	// working rather than letting you both write at once. It is refused on a round the
-	// writer has written past, since those lines have moved on.
+	// working rather than letting you both write at once. It is drawn off on a range ending
+	// before the newest round, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
 	// From the menu, throw away a reply of yours the forge refused on the thread under the cursor. Nothing is
 	// posted.
@@ -423,18 +428,21 @@ type ReviewKeys struct {
 	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
-	// From the menu, catch up with the writer, once the band says it has written since you opened the
-	// diff. What you are reading never moves on its own, since that would take the code out
-	// from under a comment being written, so catching up is always yours to ask for.
+	// From the menu while the diff ends before the newest round, end it on the newest round.
+	RangeEnd []string `mapstructure:"range_end" default:"L"`
+	// From the menu, catch up with the writer, taking a round of the worktree as it stands and ending
+	// the diff on it.
 	Reload []string `mapstructure:"reload" default:"R"`
-	// From the menu, show or hide the conversations agents opened, which are hidden whenever a
+	// From the menu, hide the conversations agents opened, or show them again. They show whenever a
 	// review opens.
 	AgentThreads []string `mapstructure:"agent_threads" default:"b"`
 	// From the menu, settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
 	// From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.
 	Send []string `mapstructure:"send" default:"S"`
-	// On the file tree, open the folder the cursor rests on, or close it when it is open.
+	// On the file tree, open the folder the cursor rests on, or close it when it is open. Over the
+	// file tree, open the review of a task in the stack, go to a thread that needs you, or open the
+	// pull request's description.
 	ToggleFolder []string `mapstructure:"toggle_folder" default:"o"`
 	// From the menu, fold away the file the cursor is in once you have read it, or open it again. A file
 	// the writer writes to afterwards comes back on its own.

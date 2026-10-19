@@ -56,6 +56,7 @@ func prepareLine(params prepareLineParams) line {
 		Rule:     (row.Kind == KindChild || row.Nested) && row.Tree == nil,
 		Indent:   indentFor(row),
 		Lead:     row.Lead,
+		Role:     markCell(row.Reviewer, glyph.Reviewer, paint.ToneMuted),
 		Name:     row.Name,
 		Matches:  row.Matches,
 		Editing:  row.Editing,

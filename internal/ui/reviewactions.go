@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"slices"
 
 	"komrad/config"
@@ -8,11 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// actions is the keys of whichever of the diff, the file tree and the pull request holds them.
+// actions is the keys of whichever of the diff and the sidebar holds them.
 func (r *reviewScreen) actions(m *model) screenActionSpec {
-	if r.isPullRequestFocused(m) {
-		return r.pullRequestActions()
-	}
 	if r.isBlockFocused(m) {
 		return r.filesActions()
 	}
@@ -82,32 +80,12 @@ func (r *reviewScreen) orRefuseWrite(m *model, fn func(*model) tea.Cmd) tea.Cmd 
 		return nil
 	}
 
-	if said, history := r.isHistory(); history {
-		r.refuseHistory(m, said)
-
-		return nil
-	}
-
-	return fn(m)
-}
-
-func (r *reviewScreen) orRefuseComment(m *model, fn func(*model) tea.Cmd) tea.Cmd {
-	if _, replying := r.diff.threadAtCursor(); !replying {
-		return r.orRefuseWrite(m, fn)
-	}
-
-	if r.isArchived(m) {
-		r.refuseWrite(m)
-
-		return nil
-	}
-
 	return fn(m)
 }
 
 func (r *reviewScreen) legend() []screenLegendRow {
 	return []screenLegendRow{
-		navMoveRow("move"),
+		navMoveRow(),
 		navPageRow(),
 		diffFileRow(),
 		{
@@ -124,12 +102,12 @@ func (r *reviewScreen) legend() []screenLegendRow {
 		navJumpRow(),
 		{
 			of:   []actionID{actionReviewBase},
-			desc: func(*model) string { return "an earlier chapter" },
+			desc: func(*model) string { return "an earlier review" },
 			show: r.doesFitBaseLegend,
 		},
 		{
 			of:   []actionID{actionReviewBaseForward},
-			desc: func(*model) string { return "a later chapter" },
+			desc: func(*model) string { return "a later review" },
 			show: r.doesFitBaseLegend,
 		},
 		{
@@ -174,7 +152,11 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				keys: func(k config.Keybindings) []string {
 					return slices.Concat(fixedOpen(k), k.Review.ToggleFolder)
 				},
-				nav: func(*model, string) tea.Cmd {
+				nav: func(m *model, _ string) tea.Cmd {
+					if cmd, chosen := r.chooseSide(m); chosen {
+						return cmd
+					}
+
 					r.toggleFolder()
 
 					return nil
@@ -219,18 +201,14 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 			},
 		}...),
 		legend: []screenLegendRow{
-			navMoveRow("move"),
+			navMoveRow(),
 			navPageRow(),
 			navJumpRow(),
 			diffFileRow(),
 			{
 				of:   []actionID{actionReviewFolder},
-				desc: func(*model) string { return r.folderDesc() },
-				show: func(*model) bool {
-					_, ok := r.readCurrentFolder()
-
-					return ok
-				},
+				desc: func(m *model) string { return r.chooseDesc(m) },
+				show: func(m *model) bool { return r.doesChoose(m) },
 			},
 			{
 				of:   []actionID{actionFilterOpen},
@@ -261,6 +239,10 @@ const (
 
 // buildItemMenu builds the band on the thread under the diff's cursor.
 func (r *reviewScreen) buildItemMenu(m *model) (submenu, bool) {
+	if side, ok := r.findSide(m); ok && r.isBlockFocused(m) {
+		return r.sideMenu(m, side)
+	}
+
 	if !r.isDiffFocused(m) {
 		return submenu{}, false
 	}
@@ -274,30 +256,31 @@ func (r *reviewScreen) buildItemMenu(m *model) (submenu, bool) {
 	entries := []submenuEntry{}
 
 	if reachable {
-		entries = append(entries, r.composeEntry(m))
+		entries = append(entries, r.composeEntry(m, ""))
 	}
 
 	if reachable && r.doesOfferForgeReply() {
 		entries = append(entries, openEntry("reply on "+r.forgeName(m), m.keys.Review.ForgeReply, func(m *model) tea.Cmd {
-			return m.review.orRefuseComment(m, m.review.composeForge)
+			return m.review.orRefuseWrite(m, m.review.composeForge)
 		}))
 	}
 
 	entries = append(entries, openEntry(r.diff.resolveDesc(), m.keys.Review.Resolve, func(m *model) tea.Cmd { return m.review.resolveThread(m) }))
 
 	if r.doesOfferAccept() {
-		entries = append(entries, openEntry("accept the forge comment", m.keys.Review.Accept, func(m *model) tea.Cmd {
+		accept := openEntry("accept the forge comment", m.keys.Review.Accept, func(m *model) tea.Cmd {
 			return m.review.orRefuseWrite(m, m.review.acceptForge)
-		}))
+		})
+		entries = append(entries, drawnOff(accept, r.diff.newestSaid()))
 	}
 
 	if reachable && r.doesOfferForgeRetry() {
 		entries = append(entries,
 			openEntry("retry the reply", m.keys.Review.ForgePost, func(m *model) tea.Cmd {
-				return m.review.orRefuseComment(m, m.review.retryForgeReply)
+				return m.review.orRefuseWrite(m, m.review.retryForgeReply)
 			}),
 			openEntry("discard the reply", m.keys.Review.ForgeDiscard, func(m *model) tea.Cmd {
-				return m.review.orRefuseComment(m, m.review.discardForgeReply)
+				return m.review.orRefuseWrite(m, m.review.discardForgeReply)
 			}),
 		)
 	}
@@ -306,7 +289,7 @@ func (r *reviewScreen) buildItemMenu(m *model) (submenu, bool) {
 		entries = append(entries, r.answerEntry(m))
 	}
 
-	entries = append(entries, r.jumpEntry(m))
+	entries = append(entries, drawnOff(r.jumpEntry(m), r.diff.jumpOffSaid()))
 
 	return submenu{
 		kind:    formMenu,
@@ -318,19 +301,15 @@ func (r *reviewScreen) buildItemMenu(m *model) (submenu, bool) {
 // buildScreenMenu builds the review's own band, for the file in the editor, how the diff is rendered
 // and the review waiting to be sent.
 func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
-	_, history := r.isHistory()
 	reachable := !r.isArchived(m)
 	_, onThread := r.diff.threadAtCursor()
 	diffFocused := r.isDiffFocused(m)
 
 	edit := openEntry(r.hold.editorDesc(), m.keys.Review.EditFile, func(m *model) tea.Cmd { return m.review.pressEdit(m) })
-	edit.isOff = history && !r.hold.atEditor
+	entries := []submenuEntry{drawnOff(edit, r.editOffSaid())}
 
-	entries := []submenuEntry{edit}
-
-	if !r.isPullRequestFocused(m) {
-		entries = append(entries, openEntry(r.diff.viewedDesc(), m.keys.Review.ToggleViewed, func(m *model) tea.Cmd { return m.review.toggleViewed(m) }))
-	}
+	viewed := openEntry(r.diff.viewedDesc(), m.keys.Review.ToggleViewed, func(m *model) tea.Cmd { return m.review.toggleViewed(m) })
+	entries = append(entries, drawnOff(viewed, r.diff.viewedOffSaid()))
 
 	entries = append(entries,
 		openEntry(r.diffKeys().expandDesc(), m.keys.Diff.Expand, func(m *model) tea.Cmd { return m.review.diffKeys().toggleExpanded(m) }),
@@ -347,8 +326,14 @@ func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 		}
 
 		if reachable {
-			entries = append(entries, r.composeEntry(m))
+			entries = append(entries, r.composeEntry(m, r.diff.newestSaid()))
 		}
+	}
+
+	if r.isHistory() {
+		entries = append(entries, openEntry(fmt.Sprintf("end the range on round %d", r.diff.newest.GetOrdinal()), m.keys.Review.RangeEnd, func(m *model) tea.Cmd {
+			return m.review.endOnNewest(m)
+		}))
 	}
 
 	if reachable {
@@ -357,7 +342,7 @@ func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 		}))
 	}
 
-	entries = append(entries, openEntry(r.reloadDesc(m), m.keys.Review.Reload, func(m *model) tea.Cmd { return m.review.reloadFresh(m) }))
+	entries = append(entries, openEntry(r.reloadDesc(m), m.keys.Review.Reload, func(m *model) tea.Cmd { return m.review.catchUp(m) }))
 	entries = append(entries, openEntry(r.diff.agentThreadsDesc(), m.keys.Review.AgentThreads, func(m *model) tea.Cmd { return m.review.toggleAgentThreads(m) }))
 
 	return submenu{
@@ -367,10 +352,10 @@ func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 	}, true
 }
 
-func (r *reviewScreen) composeEntry(m *model) submenuEntry {
-	return openEntry(r.composeDesc(), m.keys.Review.Compose, func(m *model) tea.Cmd {
-		return m.review.orRefuseComment(m, m.review.compose)
-	})
+func (r *reviewScreen) composeEntry(m *model, said string) submenuEntry {
+	return drawnOff(openEntry(r.composeDesc(), m.keys.Review.Compose, func(m *model) tea.Cmd {
+		return m.review.orRefuseWrite(m, m.review.compose)
+	}), said)
 }
 
 func (r *reviewScreen) answerEntry(m *model) submenuEntry {

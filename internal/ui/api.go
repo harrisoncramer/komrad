@@ -131,6 +131,8 @@ type createAgentParams struct {
 	ProvisionEnabled *bool
 	WorkflowID       string
 	Task             string
+	// DependsOn is the task the new task depends on, empty for one on the workflow's base branch.
+	DependsOn string
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
@@ -143,6 +145,7 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,
 			Task:             nilIfBlank(params.Task),
+			DependsOn:        nilIfBlank(params.DependsOn),
 		}))
 		if err != nil {
 			return nil, err
@@ -403,9 +406,9 @@ func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
 	})
 }
 
-func (a api) planRebase(id string) (*agentv1.PlanRebaseResponse, error) {
+func (a api) planRebase(id string, ontoBase bool) (*agentv1.PlanRebaseResponse, error) {
 	return call(requestTimeout, func(ctx context.Context) (*agentv1.PlanRebaseResponse, error) {
-		resp, err := a.agents.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: id}))
+		resp, err := a.agents.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: id, OntoBase: ontoBase}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to work out what a rebase of task %q would do: %w", id, err)
 		}
@@ -414,9 +417,9 @@ func (a api) planRebase(id string) (*agentv1.PlanRebaseResponse, error) {
 	})
 }
 
-func (a api) rebaseWorktree(id string) (*agentv1.RebaseWorktreeResponse, error) {
+func (a api) rebaseWorktree(id string, ontoBase bool) (*agentv1.RebaseWorktreeResponse, error) {
 	return call(rebaseTimeout, func(ctx context.Context) (*agentv1.RebaseWorktreeResponse, error) {
-		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: id}))
+		resp, err := a.agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: id, OntoBase: ontoBase}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to rebase the worktree of task %q: %w", id, err)
 		}
@@ -847,4 +850,17 @@ func (a api) wakeLoop(loop loopv1.Loop) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.loops.WakeLoop(ctx, connect.NewRequest(&loopv1.WakeLoopRequest{Loop: loop}))
 	})
+}
+
+func (a api) pickForkPoint(id, commit string) error {
+	_, err := call(requestTimeout, func(ctx context.Context) (*agentv1.PickForkPointResponse, error) {
+		resp, err := a.agents.PickForkPoint(ctx, connect.NewRequest(&agentv1.PickForkPointRequest{Task: id, Commit: commit}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to pick the fork point of task %q: %w", id, err)
+		}
+
+		return resp.Msg, nil
+	})
+
+	return err
 }

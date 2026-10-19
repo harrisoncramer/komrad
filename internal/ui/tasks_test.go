@@ -25,7 +25,7 @@ func TestTasksTree(t *testing.T) {
 	t.Run("every task stands over the agents on it", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		assert.Equal(t, []string{"komrad", "├─ solo", "└─ fix-login", "   └─ follow-up"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ solo", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("enter on a task opens its writer", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestTasksTree(t *testing.T) {
 
 		harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("task:fix"), []string{"enter"})...)
 
-		assert.Equal(t, []string{"komrad", "└─ fix-login", "   └─ follow-up"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("selecting a task archives only that task", func(t *testing.T) {

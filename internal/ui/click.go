@@ -98,7 +98,9 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		if lister, ok := m.active().(activeLister); ok {
 			return m.listClicker(lister.activeList()), true
 		}
-	case zoneColumn, zoneBlock, zonePullRequest:
+	case zoneSide:
+		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.review.clickSide(m, key) })), true
+	case zoneColumn, zoneBlock:
 	}
 
 	return nil, false

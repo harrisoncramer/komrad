@@ -182,8 +182,20 @@ fresh_worktree() {
 	# other's, and the fetch is made again under a name belonging to this agent alone.
 	staged="refs/komrad/base/$KOMRAD_AGENT_ID"
 	point=
-	if [ -n "$origin" ]; then
+	if [ -n "$origin" ] && [ -z "$KOMRAD_WORKTREE_BASE_COMMIT" ]; then
 		fetch_base || true
+	fi
+
+	# A child starts from its fork point, the commit komrad recorded of the parent's branch.
+	# A ref of the child's own holds that commit, so a later force-push of the parent never
+	# leaves it for git to collect.
+	if [ -n "$KOMRAD_WORKTREE_BASE_COMMIT" ]; then
+		if ! git -C "$repo" cat-file -e "$KOMRAD_WORKTREE_BASE_COMMIT^{commit}" 2>/dev/null; then
+			echo "worktree setup: $KOMRAD_WORKTREE_BASE_COMMIT of $base is not in $repo" >&2
+			exit 1
+		fi
+		git -C "$repo" update-ref "refs/komrad/fork-point/$KOMRAD_WORKTREE_NAME" "$KOMRAD_WORKTREE_BASE_COMMIT"
+		point="$KOMRAD_WORKTREE_BASE_COMMIT"
 	fi
 
 	# Either there is no origin or it could not be reached. What git cached the last time it

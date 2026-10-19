@@ -129,10 +129,10 @@ func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
 				return len(rows) - visible - min(scroll, len(rows)-visible)
 			}
 
-			out := WindowRows(rows, lines, place, dim)
+			out := windowRows(rows, lines, place, dim)
 
 			assert.Equal(t, lines, strings.Count(out, "\n"),
-				"WindowRows rendered %d rows into %d, scroll=%d", strings.Count(out, "\n"), lines, scroll)
+				"windowRows rendered %d rows into %d, scroll=%d", strings.Count(out, "\n"), lines, scroll)
 		}
 	}
 }

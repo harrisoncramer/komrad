@@ -1,15 +1,13 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
-	"komrad/internal/ui/paint/label"
-	"komrad/lib/dates"
 
-	"charm.land/glamour/v2/ansi"
+	glamouransi "charm.land/glamour/v2/ansi"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // The words the review shows while there is no patch to render, which the sidebar's head shows as well.
@@ -37,30 +35,26 @@ func reviewColumn() columnSpec {
 	}
 }
 
-// bandView is what stands over the diff: whose work is being read, the round it is frozen on, and
-// the pattern it is searched for.
+// bandView is what stands over the diff: whose work is being read, the range it runs over, and the
+// pattern it is searched for.
 func (r reviewScreen) bandView(m *model) string {
 	return paint.Panel.Title("Review"+separated+r.agentName) + "\n" +
-		r.frozenView(m) +
+		r.rangeView(m) +
 		m.markSearch(stopList, r.measureBandWidth(m), r.diff.filter.view(m.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
-func (r reviewScreen) frozenView(m *model) string {
-	round, ok := r.isFrozen()
-	if !ok {
+// rangeView names both ends of the range on screen and, past its end, the round new comments go on.
+func (r reviewScreen) rangeView(m *model) string {
+	if r.diff.View() == nil {
 		return ""
 	}
 
-	said := fmt.Sprintf("Frozen on round %d from %s until you send your review%s%s shows the latest",
-		round.GetOrdinal(), label.Friendly(dates.Parse(round.GetCreatedAt())),
-		separated, m.menuChordLabel(m.keys.Review.Reload))
-
-	var out strings.Builder
-	for _, row := range paint.WrapRows(said, r.measureBandWidth(m)) {
-		out.WriteString(paint.Panel.Style(reviewFrozenTone).Render(row) + "\n")
+	said := paint.Panel.Style(reviewScopeOnTone).Bold(true).Render(r.diff.rangeSaid())
+	if newest := r.diff.newestSaid(); newest != "" {
+		said += "   " + paint.Panel.Style(reviewHistoryTone).Render(newest)
 	}
 
-	return out.String()
+	return ansi.Wrap(said, r.measureBandWidth(m), "") + "\n"
 }
 
 func (r reviewScreen) measureBandWidth(m *model) int {
@@ -102,6 +96,6 @@ func (r reviewScreen) diffView(m *model, split columnSplit) string {
 }
 
 // reviewColumnStyle is the markdown a notice standing in for the patch is rendered in.
-func reviewColumnStyle() ansi.StyleConfig {
+func reviewColumnStyle() glamouransi.StyleConfig {
 	return paint.Panel.Stage()
 }

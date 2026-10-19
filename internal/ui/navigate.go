@@ -57,11 +57,11 @@ func navActions(n navigable, steps navSteps) []screenAction {
 	}
 }
 
-// navMoveRow names the move keys by what they walk.
-func navMoveRow(desc string) screenLegendRow {
+// navMoveRow names the move keys.
+func navMoveRow() screenLegendRow {
 	return screenLegendRow{
 		of:    []actionID{actionMove},
-		desc:  func(*model) string { return desc },
+		desc:  func(*model) string { return "move" },
 		label: moveLabel,
 		strip: true,
 	}

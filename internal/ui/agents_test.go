@@ -78,7 +78,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "a reviewer is rendered under its task rather than where the listing put it",
 			rows: buildReviewedTasks(),
-			want: []string{"komrad", "├─ task-fix-gutter", "└─ task-writer", "   ├─ second-reviewer", "   └─ reviewer"},
+			want: []string{"komrad", "├─ task-fix-gutter", "└─ task-writer", "   ├─ " + reviewerMark + "second-reviewer", "   └─ " + reviewerMark + "reviewer"},
 		},
 		{
 			name: "a reviewer whose writer is archived stays under its task",
@@ -90,7 +90,7 @@ func TestAgentsRows(t *testing.T) {
 				newReviewer("a3", "reviewer", "writer"),
 				newReviewer("a4", "second-reviewer", "writer"),
 			},
-			want: []string{"komrad", "├─ fix-gutter", "└─ task-writer", "   ├─ second-reviewer", "   └─ reviewer"},
+			want: []string{"komrad", "├─ fix-gutter", "└─ task-writer", "   ├─ " + reviewerMark + "second-reviewer", "   └─ " + reviewerMark + "reviewer"},
 		},
 		{
 			name: "a hidden task gives its row to its workflow's count",
@@ -177,7 +177,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.press("k", "space", "h", "H")
 
-		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-writer" + hiddenMark, "   ├─ second-reviewer", "   └─ reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-writer" + hiddenMark, "   ├─ " + reviewerMark + "second-reviewer", "   └─ " + reviewerMark + "reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
@@ -257,32 +257,32 @@ func TestAgentsSort(t *testing.T) {
 	}{
 		{
 			name: "created down is the fallback, the newest task first",
-			want: []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ charlie", "   └─ bob"},
+			want: []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ " + reviewerMark + "charlie", "   └─ " + reviewerMark + "bob"},
 		},
 		{
 			name:  "created up is the oldest task first",
 			press: []string{"f", "k"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "├─ Zulu", "└─ delta"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "├─ Zulu", "└─ delta"},
 		},
 		{
 			name:  "activity down is the task whose writer changed state last first",
 			press: []string{"f", "tab", "j"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "└─ delta"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "└─ delta"},
 		},
 		{
 			name:  "name up sorts a name in capitals as its lowercase",
 			press: []string{"f", "tab", "tab", "k"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ bob", "│  └─ charlie", "├─ delta", "└─ Zulu"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "├─ delta", "└─ Zulu"},
 		},
 		{
 			name:  "name down",
 			press: []string{"f", "tab", "tab", "j"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ delta", "└─ task-alpha", "   ├─ charlie", "   └─ bob"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ delta", "└─ task-alpha", "   ├─ " + reviewerMark + "charlie", "   └─ " + reviewerMark + "bob"},
 		},
 		{
 			name:  "a flat list drops the headers and walks every workflow's tasks together",
 			press: []string{"f", "shift+tab", "j"},
-			want:  []string{"delta", "Zulu", "alpha", "  └ charlie", "  └ bob", "echo"},
+			want:  []string{"delta", "Zulu", "alpha", "  └ " + reviewerMark + "charlie", "  └ " + reviewerMark + "bob", "echo"},
 		},
 	}
 
@@ -2080,7 +2080,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 
 		harness.press("f", "shift+tab", "j")
 
-		assert.Equal(t, []string{"telescope", "  └ reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"telescope", "  └ " + reviewerMark + "reviewer"}, readListRows(harness.readFrame()))
 	})
 
 	t.Run("a workflow made in the panel comes with its orchestrator", func(t *testing.T) {
@@ -2416,6 +2416,7 @@ func readArchiveTaskRequests(ids []string) []proto.Message {
 
 const (
 	hiddenMark    = " \uf4c5"
+	reviewerMark  = "\uf442 "
 	heldAt        = "2026-09-20T12:00:00Z"
 	repositoryURL = "https://github.com/harrisoncramer/komrad"
 )

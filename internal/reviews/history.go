@@ -18,13 +18,12 @@ type ReviewHistory struct {
 	Round   reviewstore.Round
 	Rounds  []reviewstore.Round
 	Threads []ReviewThreadWithMessages
-	Pinned  bool
+	Reviews []reviewstore.Review
 	Notice  string
 }
 
 type GetHistoryParams struct {
 	Task   string
-	Fresh  bool
 	Span   history.Span
 	Author ReviewAuthor
 }
@@ -56,11 +55,8 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 	}
 
 	picked, err := s.pickRound(ctx, pickRoundParams{
-		Task:    *task,
-		Rounds:  rounds,
-		Reviews: reviews,
-		Fresh:   params.Fresh,
-		Author:  params.Author,
+		Task:   *task,
+		Rounds: rounds,
 	})
 	if err != nil {
 		return nil, err
@@ -70,7 +66,7 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		Round:   picked.Round,
 		Rounds:  picked.Rounds,
 		Threads: threads,
-		Pinned:  picked.Pinned,
+		Reviews: reviews,
 		Notice:  picked.Notice,
 	}
 	opened.Record = history.Build(ctx, history.BuildParams{
@@ -91,32 +87,17 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 type pickedRound struct {
 	Round  reviewstore.Round
 	Rounds []reviewstore.Round
-	Pinned bool
 	Notice string
 }
 
 type pickRoundParams struct {
-	Task    taskstore.Task
-	Rounds  []reviewstore.Round
-	Reviews []reviewstore.Review
-	Fresh   bool
-	Author  ReviewAuthor
+	Task   taskstore.Task
+	Rounds []reviewstore.Round
 }
 
-// pickRound settles on the round an open review was written against, or freezes the checkout as
-// it stands, falling back to the newest round while a rebase or merge is part way through.
+// pickRound freezes the checkout as it stands, falling back to the newest round while a rebase or merge is part way through.
 func (s *ReviewService) pickRound(ctx context.Context, params pickRoundParams) (*pickedRound, error) {
 	rounds := params.Rounds
-	if !params.Fresh {
-		if round := findOpenBatchRound(rounds, params.Reviews, params.Author); round != nil {
-			return &pickedRound{
-				Round:  *round,
-				Rounds: rounds,
-				Pinned: true,
-			}, nil
-		}
-	}
-
 	opened, err := s.openTaskRound(ctx, params.Task)
 	var failed *fail.Error
 	switch {
@@ -135,31 +116,6 @@ func (s *ReviewService) pickRound(ctx context.Context, params pickRoundParams) (
 	}
 
 	return &pickedRound{Round: *opened, Rounds: rounds}, nil
-}
-
-func findOpenBatchRound(rounds []reviewstore.Round, reviews []reviewstore.Review, author ReviewAuthor) *reviewstore.Round {
-	for _, review := range reviews {
-		if review.ReleasedAt != nil || !isAuthorOf(author, review) {
-			continue
-		}
-
-		round := findStoreRound(rounds, review.RoundID)
-		if round == nil || round.LandedAt != nil {
-			return nil
-		}
-
-		return round
-	}
-
-	return nil
-}
-
-func isAuthorOf(author ReviewAuthor, review reviewstore.Review) bool {
-	if author.isHuman() {
-		return review.AuthorKind == reviewstore.AuthorHuman
-	}
-
-	return doesOwnReviewBatch(author, review)
 }
 
 func findStoreRound(rounds []reviewstore.Round, id string) *reviewstore.Round {

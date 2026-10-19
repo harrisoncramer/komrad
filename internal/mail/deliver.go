@@ -30,6 +30,11 @@ type paneReader interface {
 	IsAgentRunning(agent agentstore.Agent) bool
 }
 
+// treeReader says whether komrad is moving the checkout at a directory.
+type treeReader interface {
+	IsMoving(dir string) bool
+}
+
 type nudgeClaimer interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error)
@@ -41,6 +46,7 @@ type NewDeliveryServiceParams struct {
 	NudgeClaimer nudgeClaimer
 	PaneReader   paneReader
 	Channel      harness.Channel
+	Trees        treeReader
 }
 
 type DeliveryService struct {
@@ -48,6 +54,7 @@ type DeliveryService struct {
 	nudgeClaimer nudgeClaimer
 	paneReader   paneReader
 	channel      harness.Channel
+	trees        treeReader
 }
 
 // NewDeliveryService builds the service from its dependencies.
@@ -57,6 +64,7 @@ func NewDeliveryService(params NewDeliveryServiceParams) *DeliveryService {
 		nudgeClaimer: params.NudgeClaimer,
 		paneReader:   params.PaneReader,
 		channel:      params.Channel,
+		trees:        params.Trees,
 	}
 }
 
@@ -117,6 +125,9 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	// A held agent is one a person has stopped to take its worktree, so nothing may type at it
 	// until they let it go.
 	if agent.Hold.IsHeld() {
+		return DeliveryLater, nil
+	}
+	if s.trees != nil && agent.Cwd != "" && s.trees.IsMoving(agent.Cwd) {
 		return DeliveryLater, nil
 	}
 

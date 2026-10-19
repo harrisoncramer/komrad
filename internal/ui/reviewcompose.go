@@ -354,9 +354,7 @@ func (r reviewScreen) resolveThread(m *model) tea.Cmd {
 // toggleViewed folds the file the cursor is in away once it has been read, or opens it again,
 // stepping on to the next file when it has just been folded.
 func (r *reviewScreen) toggleViewed(m *model) tea.Cmd {
-	if r.diff.spec.isNarrowed() {
-		r.refuseViewed(m)
-
+	if !r.diff.spec.isWholeChange() {
 		return nil
 	}
 
@@ -421,6 +419,14 @@ func (r *reviewScreen) openRelease(m *model) tea.Cmd {
 		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, "sends"),
 		Placeholder: "optional",
 	})
+}
+
+func (r *reviewScreen) clickChange(m *model, key string) tea.Cmd {
+	if key != "send" {
+		return nil
+	}
+
+	return r.orRefuseWrite(m, r.openRelease)
 }
 
 // updateRelease takes every key while the panel is up: the submit key sends, escape abandons,

@@ -32,6 +32,8 @@ func (rebased) Topic() string {
 type rebaseOutcome struct {
 	Result  *RebaseResult `json:"result,omitempty"`
 	Failure string        `json:"failure,omitempty"`
+	// Settled says a cascade pass saw the writer finish or abort the rebase that stopped part way.
+	Settled bool `json:"settled,omitempty"`
 }
 
 // NewEventHandler builds the handler the router calls for rebases.
@@ -107,6 +109,46 @@ func NewAbortedHandler() events.HandlerFor[aborted] {
 // handleAborted tells the task's writer what became of the sequence it had part-way through.
 func handleAborted(ctx context.Context, tx store.DBTX, mailer *mail.MailService, aborted aborted) ([]river.JobArgs, error) {
 	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: aborted.TaskID, Mail: aborted.mail()})
+}
+
+const cascadedTopic = "worktree_cascaded"
+
+// cascaded is the cascade having rebased a child onto its parent, or having stopped short of it.
+type cascaded struct {
+	TaskID     string                          `json:"task_id"`
+	Rebased    *eventprompts.CascadeRebased    `json:"rebased,omitempty"`
+	Conflicted *eventprompts.CascadeConflicted `json:"conflicted,omitempty"`
+	Closed     *eventprompts.ParentClosed      `json:"closed,omitempty"`
+	Orphaned   *eventprompts.CascadeOrphaned   `json:"orphaned,omitempty"`
+}
+
+// Topic names the handler that tells the task's writer.
+func (cascaded) Topic() string {
+	return cascadedTopic
+}
+
+// NewCascadedHandler builds the handler the router calls for the cascade.
+func NewCascadedHandler() events.HandlerFor[cascaded] {
+	return handleCascaded
+}
+
+// handleCascaded tells the child's writer what the cascade did to its branch.
+func handleCascaded(ctx context.Context, tx store.DBTX, mailer *mail.MailService, cascaded cascaded) ([]river.JobArgs, error) {
+	var told eventprompts.Mail
+	switch {
+	case cascaded.Rebased != nil:
+		told = *cascaded.Rebased
+	case cascaded.Conflicted != nil:
+		told = *cascaded.Conflicted
+	case cascaded.Closed != nil:
+		told = *cascaded.Closed
+	case cascaded.Orphaned != nil:
+		told = *cascaded.Orphaned
+	default:
+		return nil, nil
+	}
+
+	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: cascaded.TaskID, Mail: told})
 }
 
 // mailWriterParams is a piece of mail for whoever writes a task.

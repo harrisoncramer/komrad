@@ -104,6 +104,8 @@ type NewAgentParams struct {
 	Task             string
 	TaskSlug         string
 	TaskGoal         string
+	// DependsOn is the task in the workflow the new task depends on, by id or slug, empty for none.
+	DependsOn string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -144,6 +146,19 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		}
 	}
 
+	var parent *taskstore.Parent
+	if params.DependsOn != "" {
+		if params.Task != "" {
+			return nil, tasks.ErrDependsOnJoined
+		}
+
+		planned, err := s.tasks.PlanParent(ctx, tasks.PlanParentParams{WorkflowID: params.WorkflowID, Parent: params.DependsOn})
+		if err != nil {
+			return nil, err
+		}
+		parent = planned
+	}
+
 	var joined *taskstore.Task
 	if params.Task != "" {
 		found, err := s.findJoinedTask(ctx, params)
@@ -165,7 +180,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		return nil, err
 	}
 
-	return s.launchAgent(ctx, params, spawner, joined)
+	return s.launchAgent(ctx, launchAgentParams{request: params, spawner: spawner, joined: joined, parent: parent})
 }
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
@@ -455,13 +470,20 @@ func (p *launchPlan) newAgent(params NewAgentParams, spawner *agentstore.Agent) 
 	}, nil
 }
 
-func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, spawner *agentstore.Agent, joined *taskstore.Task) (*agentstore.Agent, error) {
-	plan, err := s.planLaunch(ctx, params)
+type launchAgentParams struct {
+	request NewAgentParams
+	spawner *agentstore.Agent
+	joined  *taskstore.Task
+	parent  *taskstore.Parent
+}
+
+func (s *LaunchService) launchAgent(ctx context.Context, params launchAgentParams) (*agentstore.Agent, error) {
+	plan, err := s.planLaunch(ctx, params.request)
 	if err != nil {
 		return nil, err
 	}
 
-	agent, err := plan.newAgent(params, spawner)
+	agent, err := plan.newAgent(params.request, params.spawner)
 	if err != nil {
 		return nil, err
 	}
@@ -469,15 +491,16 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 
 	placed, err := s.createUnderCeiling(ctx, creation{
 		agent:         agent,
-		task:          joined,
-		spawner:       spawner,
-		title:         params.Title,
-		taskSlug:      params.TaskSlug,
-		taskGoal:      params.TaskGoal,
-		adoptedBranch: params.AdoptedBranch,
-		repositoryURL: params.RepositoryURL,
+		task:          params.joined,
+		spawner:       params.spawner,
+		title:         params.request.Title,
+		taskSlug:      params.request.TaskSlug,
+		taskGoal:      params.request.TaskGoal,
+		adoptedBranch: params.request.AdoptedBranch,
+		repositoryURL: params.request.RepositoryURL,
 		provisioner:   plan.provisioner,
-		hideTask:      params.HideTask,
+		hideTask:      params.request.HideTask,
+		parent:        params.parent,
 	})
 	if err != nil {
 		return nil, err
@@ -492,7 +515,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, 
 		deprovisioner:  plan.deprovisioner,
 		hooks:          plan.hooks,
 		defaultDir:     plan.dir,
-		spawner:        spawner,
+		spawner:        params.spawner,
 		claimsCheckout: isCheckoutClaimant(*agent, plan.provisioner),
 		workflow:       plan.workflow,
 		task:           placed.task,
@@ -746,6 +769,7 @@ type creation struct {
 	repositoryURL string
 	provisioner   string
 	hideTask      bool
+	parent        *taskstore.Parent
 }
 
 // isCheckoutClaimant reports whether an agent's directory becomes its task's checkout, which only a
@@ -785,6 +809,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			Slug:   c.taskSlug,
 			Goal:   c.taskGoal,
 			Hidden: c.hideTask,
+			Parent: c.parent,
 		})
 		if err != nil {
 			return err

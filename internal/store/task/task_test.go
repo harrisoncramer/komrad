@@ -666,3 +666,136 @@ func hide(t *testing.T, stores *storetest.Stores, id string) {
 	require.NoError(t, err)
 	require.True(t, changed)
 }
+
+// TestParent covers a task's parent, read back after each write to it.
+func TestParent(t *testing.T) {
+	tests := []struct {
+		name  string
+		write func(t *testing.T, stores *storetest.Stores, task *taskstore.Task)
+		want  *taskstore.Parent
+	}{
+		{
+			name:  "a child reads back its parent and fork point",
+			write: func(*testing.T, *storetest.Stores, *taskstore.Task) {},
+			want:  &taskstore.Parent{ForkPoint: "abc"},
+		},
+		{
+			name: "a block reads back",
+			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
+				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskstore.CascadeOrphaned))
+			},
+			want: &taskstore.Parent{ForkPoint: "abc", Blocked: taskstore.CascadeOrphaned},
+		},
+		{
+			name: "a new fork point clears what blocked the cascade",
+			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
+				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskstore.CascadeConflicted))
+				require.NoError(t, stores.Tasks.SetForkPoint(t.Context(), task.ID, "def"))
+			},
+			want: &taskstore.Parent{ForkPoint: "def"},
+		},
+		{
+			name: "a new parent replaces the old one and clears its block",
+			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
+				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskstore.CascadeParentClosed))
+				require.NoError(t, stores.Tasks.SetParent(t.Context(), task.ID, &taskstore.Parent{TaskID: task.Parent.TaskID, ForkPoint: "fed"}))
+			},
+			want: &taskstore.Parent{ForkPoint: "fed"},
+		},
+		{
+			name: "a nil parent clears the task's parent",
+			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
+				require.NoError(t, stores.Tasks.SetParent(t.Context(), task.ID, nil))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			parent := stores.SeedTask(t, taskstore.CreateParams{Slug: "parent"})
+			task := stores.SeedTask(t, taskstore.CreateParams{
+				WorkflowID: parent.WorkflowID,
+				Slug:       "child",
+				Parent:     &taskstore.Parent{TaskID: parent.ID, ForkPoint: "abc"},
+			})
+
+			tt.write(t, stores, task)
+
+			got, err := stores.Tasks.Get(t.Context(), task.ID)
+			require.NoError(t, err)
+			if tt.want != nil {
+				tt.want.TaskID = parent.ID
+			}
+			assert.Equal(t, tt.want, got.Parent)
+		})
+	}
+}
+
+// TestSetForkPointLeavesATaskWithoutAParentAlone pins that a fork point is never written onto a task on the base branch.
+func TestSetForkPointLeavesATaskWithoutAParentAlone(t *testing.T) {
+	stores := storetest.Open(t)
+	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "on-base"})
+
+	require.NoError(t, stores.Tasks.SetForkPoint(t.Context(), task.ID, "abc"))
+
+	got, err := stores.Tasks.Get(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got.Parent)
+}
+
+// TestRecordParentPullRequest pins that a child records its first parent pull request and keeps it.
+func TestRecordParentPullRequest(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	parent := stores.SeedTask(t, taskstore.CreateParams{Slug: "parent"})
+	task := stores.SeedTask(t, taskstore.CreateParams{
+		WorkflowID: parent.WorkflowID,
+		Slug:       "child",
+		Parent:     &taskstore.Parent{TaskID: parent.ID, ForkPoint: "abc"},
+	})
+	first := stores.SeedPullRequest(t, storetest.SeedPullRequestParams{RepositoryURL: "https://github.com/acme/api", Number: 1, HeadBranch: "task/parent"}).ID
+	second := stores.SeedPullRequest(t, storetest.SeedPullRequestParams{RepositoryURL: "https://github.com/acme/api", Number: 2, HeadBranch: "task/parent"}).ID
+
+	require.NoError(t, stores.Tasks.RecordParentPullRequest(ctx, task.ID, first))
+	require.NoError(t, stores.Tasks.RecordParentPullRequest(ctx, task.ID, second))
+	require.NoError(t, stores.Tasks.RecordParentPullRequest(ctx, parent.ID, first))
+
+	got, err := stores.Tasks.Get(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, first, got.Parent.PullRequestID, "the first is kept")
+
+	base, err := stores.Tasks.Get(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Nil(t, base.Parent, "a task on the base branch records none")
+}
+
+// TestListChildren pins which tasks each listing of children holds.
+func TestListChildren(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	parent := stores.SeedTask(t, taskstore.CreateParams{Slug: "parent"})
+	seedChild := func(slug string) *taskstore.Task {
+		return stores.SeedTask(t, taskstore.CreateParams{
+			WorkflowID: parent.WorkflowID,
+			Slug:       slug,
+			Parent:     &taskstore.Parent{TaskID: parent.ID, ForkPoint: "abc"},
+		})
+	}
+	live, archived, deleting := seedChild("live"), seedChild("archived"), seedChild("deleting")
+	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	stores.SeedTask(t, taskstore.CreateParams{WorkflowID: parent.WorkflowID, Slug: "on-base"})
+
+	listed, err := stores.Tasks.ListChildren(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{live.ID}, xslice.Map(listed, readTaskID))
+
+	children, err := stores.Tasks.ListChildrenOf(ctx, []string{parent.ID, "not-a-uuid"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{live.ID, archived.ID}, xslice.Map(children, readTaskID))
+}
+
+func readTaskID(task taskstore.Task) string {
+	return task.ID
+}

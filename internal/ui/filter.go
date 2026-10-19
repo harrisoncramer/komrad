@@ -505,11 +505,11 @@ func agentRowName(row agentRow) string {
 func agentRowDepth(row agentRow) int {
 	switch {
 	case row.isTask():
-		return 1
+		return 1 + row.depth
 	case row.header:
 		return 0
 	case row.underTask:
-		return 2
+		return 2 + row.depth
 	}
 
 	return 1

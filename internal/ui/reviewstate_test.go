@@ -3,57 +3,50 @@ package ui
 import (
 	"testing"
 
-	"komrad/internal/diff"
-	"komrad/internal/ui/diffview"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 )
 
-// TestIsReviewHistory covers a comment being refused on a diff rendered to an older snapshot than its round.
+// TestIsReviewHistory covers which ranges end before the round new comments go on.
 func TestIsReviewHistory(t *testing.T) {
 	tests := []struct {
 		name string
-		diff reviewDiff
+		spec diffSpec
 		want bool
 	}{
 		{
-			name: "the chapter list was recut under an index that stood still",
-			diff: reviewDiff{
-				chapters: []reviewChapter{{ToSHA: "s3", Ordinal: 3}},
-				spec:     diffSpec{head: "s2"},
-			},
+			name: "the whole change",
+			spec: wholeChange(),
+		},
+		{
+			name: "a range ending on the newest round",
+			spec: diffSpec{from: "r1"},
+		},
+		{
+			name: "a range ending on an older round",
+			spec: diffSpec{from: "r1", to: "r2"},
 			want: true,
 		},
 		{
-			name: "the base and head were cleared under a diff still rendered to an older round",
-			diff: reviewDiff{
-				spec: wholeChange(),
-				Pane: diffview.NewPane(diffview.NewView(&diff.Patch{BaseSHA: "s1", SnapshotSHA: "s2"}, false)),
-			},
+			name: "a comment's origin on an older round",
+			spec: originSpec(&reviewOrigin{RoundID: "r2"}),
 			want: true,
 		},
 		{
-			name: "the diff stands on the round asked for",
-			diff: reviewDiff{
-				chapters: []reviewChapter{{ToSHA: "s3", Ordinal: 3}},
-				spec:     diffSpec{head: "s3"},
-			},
-			want: false,
+			name: "an answer reaching the newest round",
+			spec: answerSpec(&reviewAnswer{ToRound: "r3"}),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			screen := reviewScreen{
-				round: &agentv1.ReviewRound{Id: "r3", SnapshotSha: "s3"},
-				diff:  tt.diff,
+			diff := reviewDiff{
+				spec:   tt.spec,
+				newest: &agentv1.ReviewRound{Id: "r3", Ordinal: 3},
 			}
 
-			said, history := screen.isHistory()
-
-			assert.Equal(t, tt.want, history)
-			assert.Equal(t, tt.want, said != "")
+			assert.Equal(t, tt.want, diff.isHistory())
 		})
 	}
 }

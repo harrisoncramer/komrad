@@ -96,6 +96,26 @@ table "tasks" {
     type    = text
     comment = "The snapshot of the newest review round of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no round."
   }
+  column "parent_task_id" {
+    null    = true
+    type    = uuid
+    comment = "The task in the same workflow this task depends on, whose branch this task's branch starts from and is measured against; null for a task on the workflow's base branch."
+  }
+  column "fork_point" {
+    null    = true
+    type    = text
+    comment = "The fork point, the commit of the parent's branch this task's own commits sit on, which rounds and line counts measure from; null while the task has no parent."
+  }
+  column "parent_pull_request_id" {
+    null    = true
+    type    = uuid
+    comment = "The parent's pull request, read for the parent's newest commit and its merge; null until the parent has one or while the task has no parent."
+  }
+  column "cascade_blocked" {
+    null    = true
+    type    = text
+    comment = "Why the cascade cannot rebase this task onto its parent: conflicts when the rebase stopped on conflicts, orphaned when its branch holds neither its fork point nor the parent's newest commit, closed when the parent's pull request closed without merging; null while nothing blocks it."
+  }
   column "is_hidden" {
     null    = false
     type    = boolean
@@ -158,11 +178,26 @@ table "tasks" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
+  foreign_key "tasks_parent_task_id_fkey" {
+    columns     = [column.engine_id, column.parent_task_id]
+    ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
+  foreign_key "tasks_parent_pull_request_id_fkey" {
+    columns     = [column.engine_id, column.parent_pull_request_id]
+    ref_columns = [table.pull_requests.column.engine_id, table.pull_requests.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
   check "tasks_slug_kebab" {
     expr = "slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'"
   }
   index "tasks_workflow_id" {
     columns = [column.workflow_id]
+  }
+  index "tasks_parent_task_id" {
+    columns = [column.parent_task_id]
   }
 }
 

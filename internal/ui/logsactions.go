@@ -106,7 +106,7 @@ func (l *logsScreen) logActions() screenActionSpec {
 			},
 		}...),
 		legend: []screenLegendRow{
-			navMoveRow("move"),
+			navMoveRow(),
 			navPageRow(),
 			navJumpRow(),
 			{

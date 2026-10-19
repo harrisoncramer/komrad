@@ -19,6 +19,10 @@ var errAnswerGone = fail.NotFound("the rounds this answer stands between are gon
 
 var errCommentRoundGone = fail.NotFound("the round this comment was written on is gone")
 
+var errRangeRoundGone = fail.NotFound("a round this range stands between is gone")
+
+var errRangeBackwards = fail.InvalidArgument("the range starts on or after the round it ends on")
+
 type Git interface {
 	CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error)
 	Replay(ctx context.Context, params git.ReplayParams) (*git.Replayed, error)
@@ -48,10 +52,9 @@ type Thread struct {
 }
 
 type Span struct {
-	BaseSHA string
-	HeadSHA string
-	Answer  *AnswerSpan
-	Origin  *OriginSpan
+	Rounds *RoundSpan
+	Answer *AnswerSpan
+	Origin *OriginSpan
 }
 
 type AnswerSpan struct {
@@ -59,23 +62,14 @@ type AnswerSpan struct {
 	ToRoundID   string
 }
 
+type RoundSpan struct {
+	FromRoundID string
+	ToRoundID   string
+}
+
 type OriginSpan struct {
 	RoundID string
 	BaseSHA string
-}
-
-type Chapter struct {
-	FromSHA     string
-	ToSHA       string
-	ReleasedAt  *time.Time
-	Ordinal     int32
-	Comparable  bool
-	FromBase    string
-	ToBase      string
-	Rewritten   bool
-	Replayed    bool
-	Conflicts   []string
-	OnOlderBase bool
 }
 
 type ResolvedSpan struct {
@@ -87,12 +81,12 @@ type ResolvedSpan struct {
 	OriginBaseSHA      string
 	OriginHeadSHA      string
 	OriginRoundBaseSHA string
+	Conflicts          []string
 }
 
 type Record struct {
 	Span                ResolvedSpan
 	Widened             string
-	Chapters            []Chapter
 	Earlier             *Round
 	EarlierReleasedAt   *time.Time
 	ChangedSinceEarlier int
@@ -111,8 +105,7 @@ type BuildParams struct {
 	Span    Span
 }
 
-// Build measures the span asked for against the round on screen, cuts the chapters between the
-// person's reviews, and traces where each thread's lines now sit.
+// Build measures the span asked for against the round on screen and traces where each thread's lines now sit.
 func Build(ctx context.Context, params BuildParams) Record {
 	span, err := resolveSpan(ctx, params)
 
@@ -129,16 +122,6 @@ func Build(ctx context.Context, params BuildParams) Record {
 		Exclude: params.Exclude,
 		Earlier: record.Earlier,
 		ToSHA:   params.Round.SnapshotSHA,
-	})
-
-	record.Chapters = replayChapters(ctx, replayChaptersParams{
-		Git: params.Git,
-		Dir: params.Dir,
-		Chapters: cutChapters(cutChaptersParams{
-			Rounds:   params.Rounds,
-			Reviews:  params.Reviews,
-			OnScreen: params.Round,
-		}),
 	})
 
 	record.Traced = traceThreads(ctx, traceThreadsParams{
@@ -171,13 +154,11 @@ func (e *roundsApartError) Error() string {
 
 func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) {
 	asked := params.Span
+	if rounds := asked.Rounds; rounds != nil {
+		return resolveRounds(ctx, params, *rounds)
+	}
+
 	span := wholeSpan(params.Round)
-	if asked.BaseSHA != "" {
-		span.BaseSHA = asked.BaseSHA
-	}
-	if asked.HeadSHA != "" {
-		span.HeadSHA = asked.HeadSHA
-	}
 
 	var fromBase, toBase string
 	if answer := asked.Answer; answer != nil {
@@ -218,6 +199,42 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) 
 	}
 
 	span.BaseSHA, span.Replayed = compared.FromSHA, compared.Replayed
+
+	return span, nil
+}
+
+// resolveRounds measures the work between two rounds, from the older one as it was when its
+// replay onto the newer base conflicts.
+func resolveRounds(ctx context.Context, params BuildParams, rounds RoundSpan) (ResolvedSpan, error) {
+	to := &params.Round
+	if rounds.ToRoundID != "" {
+		to = findRound(params.Rounds, rounds.ToRoundID)
+	}
+	if to == nil {
+		return ResolvedSpan{}, errRangeRoundGone
+	}
+
+	span := wholeSpan(*to)
+	if rounds.FromRoundID == "" {
+		return span, nil
+	}
+
+	from := findRound(params.Rounds, rounds.FromRoundID)
+	switch {
+	case from == nil:
+		return ResolvedSpan{}, errRangeRoundGone
+	case from.Ordinal >= to.Ordinal:
+		return ResolvedSpan{}, errRangeBackwards
+	}
+
+	compared := compareRounds(ctx, compareRoundsParams{
+		Git:      params.Git,
+		Dir:      params.Dir,
+		FromSHA:  from.SnapshotSHA,
+		FromBase: from.BaseSHA,
+		ToBase:   to.BaseSHA,
+	})
+	span.BaseSHA, span.Replayed, span.Conflicts = compared.FromSHA, compared.Replayed, compared.Conflicts
 
 	return span, nil
 }
@@ -308,93 +325,6 @@ func countChangedSince(ctx context.Context, params countChangedSinceParams) int 
 	}
 
 	return changed
-}
-
-type cutChaptersParams struct {
-	Rounds   []Round
-	Reviews  []Review
-	OnScreen Round
-}
-
-// cutChapters cuts the rounds at every round the person released a review against, and ends the
-// last chapter at the round on screen.
-func cutChapters(params cutChaptersParams) []Chapter {
-	closed := map[int32]*time.Time{}
-	for _, review := range params.Reviews {
-		if review.Human && review.ReleasedAt != nil {
-			closed[review.RoundOrdinal] = review.ReleasedAt
-		}
-	}
-
-	milestones := make([]Round, 0, len(closed)+1)
-	for _, candidate := range params.Rounds {
-		if candidate.Ordinal > params.OnScreen.Ordinal {
-			continue
-		}
-		if _, ok := closed[candidate.Ordinal]; ok {
-			milestones = append(milestones, candidate)
-		}
-	}
-
-	// The unreviewed work ends a chapter of its own unless the newest review closed the round on screen.
-	if _, ok := closed[params.OnScreen.Ordinal]; !ok {
-		milestones = append(milestones, params.OnScreen)
-	}
-
-	if len(milestones) < 2 {
-		return nil
-	}
-
-	chapters := make([]Chapter, 0, len(milestones))
-	from := milestones[0].BaseSHA
-	fromBase := from
-	for _, milestone := range milestones {
-		chapters = append(chapters, Chapter{
-			FromSHA:     from,
-			ToSHA:       milestone.SnapshotSHA,
-			ReleasedAt:  closed[milestone.Ordinal],
-			Ordinal:     milestone.Ordinal,
-			Comparable:  fromBase == milestone.BaseSHA,
-			FromBase:    fromBase,
-			ToBase:      milestone.BaseSHA,
-			OnOlderBase: milestone.BaseSHA != params.OnScreen.BaseSHA,
-		})
-
-		from, fromBase = milestone.SnapshotSHA, milestone.BaseSHA
-	}
-
-	return chapters
-}
-
-type replayChaptersParams struct {
-	Git      Git
-	Dir      string
-	Chapters []Chapter
-}
-
-// replayChapters carries each chapter's start onto its end's base when the two bases differ.
-func replayChapters(ctx context.Context, params replayChaptersParams) []Chapter {
-	for i := range params.Chapters {
-		chapter := &params.Chapters[i]
-		if chapter.Comparable {
-			continue
-		}
-
-		compared := compareRounds(ctx, compareRoundsParams{
-			Git:      params.Git,
-			Dir:      params.Dir,
-			FromSHA:  chapter.FromSHA,
-			FromBase: chapter.FromBase,
-			ToBase:   chapter.ToBase,
-		})
-		chapter.FromSHA = compared.FromSHA
-		chapter.Comparable = compared.Comparable
-		chapter.Rewritten = compared.Rewritten
-		chapter.Replayed = compared.Replayed
-		chapter.Conflicts = compared.Conflicts
-	}
-
-	return params.Chapters
 }
 
 type roundComparison struct {

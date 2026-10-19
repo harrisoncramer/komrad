@@ -36,8 +36,10 @@ type reviewScreen struct {
 	hold  reviewHold
 	focus reviewFocus
 
-	// pullRequestTop is the first row of the description in view.
-	pullRequestTop int
+	// side is the row over the file tree the sidebar's cursor rests on, nil while it is on the tree.
+	side *sideCursor
+	// openDescription says the pull request's description is open.
+	openDescription bool
 
 	// filesFilter is the pattern the file tree is searched or narrowed by.
 	filesFilter filterState
@@ -52,13 +54,12 @@ type reviewScreen struct {
 	notices reviewNotices
 }
 
-// reviewFocus is which of the diff, the file tree and the pull request holds the review's keys.
+// reviewFocus is which of the diff and the sidebar holds the review's keys.
 type reviewFocus int
 
 const (
 	reviewFocusDiff reviewFocus = iota
 	reviewFocusFiles
-	reviewFocusPullRequest
 )
 
 func (r reviewScreen) parent() screen {
@@ -92,7 +93,7 @@ func (r reviewScreen) isBusy() bool {
 
 // isDiffFocused is whether the patch holds the keys.
 func (r reviewScreen) isDiffFocused(m *model) bool {
-	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m) && !r.isPullRequestFocused(m)
+	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m)
 }
 
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
@@ -138,14 +139,13 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 }
 
 var (
-	_ columnFocuser      = (*reviewScreen)(nil)
-	_ pullRequestFocuser = (*reviewScreen)(nil)
-	_ crumbRenderer      = (*reviewScreen)(nil)
-	_ loadingReporter    = (*reviewScreen)(nil)
-	_ lineTyper          = (*reviewScreen)(nil)
-	_ listScroller       = (*reviewScreen)(nil)
-	_ editorReconciler   = (*reviewScreen)(nil)
-	_ agentPauser        = (*reviewScreen)(nil)
+	_ columnFocuser    = (*reviewScreen)(nil)
+	_ crumbRenderer    = (*reviewScreen)(nil)
+	_ loadingReporter  = (*reviewScreen)(nil)
+	_ lineTyper        = (*reviewScreen)(nil)
+	_ listScroller     = (*reviewScreen)(nil)
+	_ editorReconciler = (*reviewScreen)(nil)
+	_ agentPauser      = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) doesRenderFromListing() bool {
@@ -165,5 +165,5 @@ func (r reviewScreen) typedLine() (lineInput, bool) {
 }
 
 func (r *reviewScreen) dispatches(*model) []dispatching {
-	return []dispatching{r.diffActions(), r.filesActions(), r.pullRequestActions()}
+	return []dispatching{r.diffActions(), r.filesActions()}
 }

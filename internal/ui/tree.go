@@ -54,6 +54,8 @@ type agentRow struct {
 	// underTask sets a reviewer in under its task's row, or under its writer's where no task row is
 	// drawn.
 	underTask bool
+	// depth is how many ancestors a task's row and its reviewers sit under in the tree.
+	depth int
 }
 
 // isTask reports whether the row is a task's header.
@@ -187,8 +189,9 @@ func treeRows(params treeRowsParams) []agentRow {
 	return rows
 }
 
-// taskRows lays out a workflow's agents, gathering those on one task under a row for it, so only an
-// agent on no task, an orchestrator, sits at the agent's step.
+// taskRows lays out a workflow's agents, gathering those on one task under a row for it and setting
+// a child in under its parent, so only an agent on no task, an orchestrator, sits at the
+// agent's step.
 func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 	if tasks == nil {
 		return listed
@@ -201,34 +204,79 @@ func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 		}
 	}
 
-	var rows []agentRow
-	laid := make(map[string]bool)
+	children := make(map[string][]string)
+	var order []string
+	seen := make(map[string]bool)
 	for _, row := range listed {
 		taskID := row.item.Agent.TaskID
-		gathered := onTask[taskID]
-		if len(gathered) == 0 {
-			rows = append(rows, row)
-
+		if taskID == "" || seen[taskID] {
 			continue
 		}
+		seen[taskID] = true
+		order = append(order, taskID)
+		if parent := parentListed(tasks, taskID, onTask); parent != "" {
+			children[parent] = append(children[parent], taskID)
+		}
+	}
+
+	var rows []agentRow
+	laid := make(map[string]bool)
+	var lay func(taskID string, depth int)
+	lay = func(taskID string, depth int) {
 		if laid[taskID] {
-			continue
+			return
 		}
 		laid[taskID] = true
 
-		header := taskHeader(gathered, tasks)
+		header := taskHeader(onTask[taskID], tasks)
+		header.depth = depth
 		rows = append(rows, header)
 		writer, _ := header.writer()
-		for _, reviewer := range gathered {
+		for _, reviewer := range onTask[taskID] {
 			if reviewer.item.Agent.ID == writer.Agent.ID {
 				continue
 			}
 			reviewer.underTask = true
+			reviewer.depth = depth
 			rows = append(rows, reviewer)
+		}
+		for _, child := range children[taskID] {
+			lay(child, depth+1)
 		}
 	}
 
+	for _, row := range listed {
+		taskID := row.item.Agent.TaskID
+		if taskID == "" {
+			rows = append(rows, row)
+
+			continue
+		}
+		if parentListed(tasks, taskID, onTask) != "" {
+			continue
+		}
+		lay(taskID, 0)
+	}
+
+	// A task whose stack loops back on itself has no root to be laid from, so it sits at the top.
+	for _, taskID := range order {
+		lay(taskID, 0)
+	}
+
 	return rows
+}
+
+// parentListed is a task's parent when the parent has a row of its own here, empty otherwise.
+func parentListed(tasks taskIndex, taskID string, onTask map[string][]agentRow) string {
+	parent := tasks[taskID].Parent
+	if parent == nil {
+		return ""
+	}
+	if _, ok := onTask[parent.GetTaskId()]; !ok {
+		return ""
+	}
+
+	return parent.GetTaskId()
 }
 
 // taskHeader is the row for one task, standing for its writer when the writer is listed.

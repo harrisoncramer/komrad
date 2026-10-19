@@ -23,7 +23,7 @@ func TestReviewAnswer(t *testing.T) {
 		require.NotContains(t, readLegend(harness.readFrame()), "the answer")
 		harness.press("?", "a")
 
-		assert.Contains(t, readSidebarProse(harness.readFrame()), "all changes")
+		assert.Contains(t, readStageText(harness.readFrame()), "where the task starts ▸ round 2")
 	})
 
 	t.Run("the answer key renders the change the answer carried", func(t *testing.T) {
@@ -36,13 +36,13 @@ func TestReviewAnswer(t *testing.T) {
 		harness.press("a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "the answer to this comment")
+		assert.Contains(t, readStageText(frame), "the answer to this comment")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
 
 		harness.press("space", "a")
 
 		frame = harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "all changes")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
@@ -77,7 +77,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness.press("t", "space", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "the answer to this comment")
+		assert.Contains(t, readStageText(frame), "the answer to this comment")
 		assert.Contains(t, frame, "tall.go")
 		assert.NotContains(t, frame, "second.go")
 	})
@@ -88,11 +88,11 @@ func TestReviewAnswer(t *testing.T) {
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
 
 		harness.press("t", "space", "a")
-		require.Contains(t, readSidebarProse(harness.readFrame()), "the answer to this comment")
+		require.Contains(t, readStageText(harness.readFrame()), "the answer to this comment")
 		harness.press("j", "space", "a")
 
 		frame := harness.readFrame()
-		require.Contains(t, readSidebarProse(frame), "all changes")
+		require.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
 		assert.Contains(t, readPopupProse(frame), "add a second file")
 	})
 
@@ -116,7 +116,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness.press("t", "space", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "the answer to this comment")
+		assert.Contains(t, readStageText(frame), "the answer to this comment")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
 	})
 
@@ -128,7 +128,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness.press("t", "space", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readSidebarProse(frame), "the answer to this comment, replayed across the rebase")
+		assert.Contains(t, readStageText(frame), "the answer to this comment, replayed across the rebase")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
 	})
 
@@ -141,7 +141,7 @@ func TestReviewAnswer(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.Contains(t, readOpenMessages(harness), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")
-		assert.Contains(t, readSidebarProse(frame), "all changes")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
 		require.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 

@@ -375,3 +375,50 @@ func splitChosen(l listing, chosen []panel.Agent) chosenWork {
 func (w chosenWork) affected(l listing) []panel.Agent {
 	return slices.Concat(l.agentsOnTasks(w.wholeTasks), w.loneAgents)
 }
+
+// possibleParents is the workflow's live tasks with a branch a new task can depend on, by slug.
+func (t taskIndex) possibleParents(workflowID string) []panel.Task {
+	var tasks []panel.Task
+	for _, task := range t {
+		if task.WorkflowID == workflowID && task.ArchivedAt == nil && task.Branch != nil && !task.WorktreeRemoved {
+			tasks = append(tasks, task)
+		}
+	}
+	slices.SortFunc(tasks, func(a, b panel.Task) int { return strings.Compare(a.Slug, b.Slug) })
+
+	return tasks
+}
+
+// ancestorsOf is a task's parent, that task's parent and so on, the bottom of the stack first.
+func (t taskIndex) ancestorsOf(task panel.Task) []panel.Task {
+	var ancestors []panel.Task
+	seen := map[string]bool{task.ID: true}
+	for id := task.Parent.GetTaskId(); id != "" && !seen[id]; {
+		parent, ok := t[id]
+		if !ok {
+			break
+		}
+
+		seen[id] = true
+		ancestors = append(ancestors, parent)
+		id = parent.Parent.GetTaskId()
+	}
+
+	slices.Reverse(ancestors)
+
+	return ancestors
+}
+
+// childrenOf is a task's live children, oldest first.
+func (t taskIndex) childrenOf(id string) []panel.Task {
+	var children []panel.Task
+	for _, task := range t {
+		if task.Parent.GetTaskId() == id && task.ArchivedAt == nil {
+			children = append(children, task)
+		}
+	}
+
+	slices.SortFunc(children, func(a, b panel.Task) int { return a.CreatedAt.Compare(b.CreatedAt) })
+
+	return children
+}

@@ -2,29 +2,43 @@ package pullrequests
 
 import (
 	"context"
+	"errors"
 	"net/url"
 
+	"komrad/internal/fail"
 	"komrad/internal/forge"
+	"komrad/internal/store"
+	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/wake"
+)
+
+var (
+	// errMergeHasParent says the pull request comes from a child, which merges only after its parent merges.
+	errMergeHasParent = fail.Precondition("this task depends on another task, so merge that task first and komrad re-targets this one onto the base branch")
+	// errMergeOntoFinished says the pull request targets a task's branch whose own pull request has merged or closed.
+	errMergeOntoFinished = fail.Precondition("this pull request targets a task's branch whose own pull request has merged or closed, so re-target it onto the base branch first")
 )
 
 // NewWriterParams is what a writer is built over.
 type NewWriterParams struct {
-	Forges *forge.Service
-	Sync   wake.Heater
+	Forges       *forge.Service
+	Sync         wake.Heater
+	PullRequests *pullrequeststore.PullRequestStore
 }
 
 // Writer changes pull requests through the connection for their host.
 type Writer struct {
-	forges *forge.Service
-	sync   wake.Heater
+	forges       *forge.Service
+	sync         wake.Heater
+	pullRequests *pullrequeststore.PullRequestStore
 }
 
 // NewWriter builds a writer over the forge service and the pull request sync.
 func NewWriter(params NewWriterParams) *Writer {
 	return &Writer{
-		forges: params.Forges,
-		sync:   params.Sync,
+		forges:       params.Forges,
+		sync:         params.Sync,
+		pullRequests: params.PullRequests,
 	}
 }
 
@@ -40,6 +54,10 @@ func (w *Writer) PlanPullRequestMerge(ctx context.Context, address string) (*for
 
 // MergePullRequest merges the pull request and heats its host in the pull request sync.
 func (w *Writer) MergePullRequest(ctx context.Context, params forge.MergeParams) error {
+	if err := w.refuseBlockedMerge(ctx, params.URL); err != nil {
+		return err
+	}
+
 	host, f, err := w.forgeFor(ctx, params.URL)
 	if err != nil {
 		return err
@@ -74,6 +92,12 @@ func (w *Writer) SetPullRequestDraft(ctx context.Context, address string, draft 
 // SetPullRequestAutoMerge asks the forge to merge the pull request once its checks and reviews
 // pass, or stops it, and heats its host in the pull request sync.
 func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
+	if params.On {
+		if err := w.refuseBlockedMerge(ctx, params.URL); err != nil {
+			return err
+		}
+	}
+
 	host, f, err := w.forgeFor(ctx, params.URL)
 	if err != nil {
 		return err
@@ -119,4 +143,24 @@ func (w *Writer) forgeFor(ctx context.Context, address string) (string, forge.Fo
 	}
 
 	return host, f, nil
+}
+
+// refuseBlockedMerge turns down a merge from a child, or onto a finished task's branch.
+func (w *Writer) refuseBlockedMerge(ctx context.Context, address string) error {
+	blockers, err := w.pullRequests.GetMergeBlockers(ctx, address)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case blockers.HeadHasParent:
+		return errMergeHasParent
+	case blockers.BaseFinished:
+		return errMergeOntoFinished
+	}
+
+	return nil
 }

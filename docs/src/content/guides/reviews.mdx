@@ -25,13 +25,15 @@ Komrad supports this with _local reviews_. You read the task's diff, leave comme
 
 <Alert variant="info">Local reviews are completely optional, you can use komrad without them.</Alert>
 
-Komrad's local review model resembles <a href="https://www.gerritcodereview.com/">Gerrit</a>'s code review. You step through the change in rounds, which komrad calls chapters, and each chapter holds the code as it stood when it was reviewed.
+Komrad's local review model resembles <a href="https://www.gerritcodereview.com/">Gerrit</a>'s code review. You step through the change in rounds, and each round holds the code as it stood when it was reviewed.
 
 ### Opening a review
 
 Hover the task, open its menu with <Key name="menu.open" />, and pick review with <Key name="menu.review" />. The main view shows everything the task's branch changed since it left the base.
 
 The sidebar holds a tree of the files the change touches, and the main view holds the diff and the conversation.
+
+The sidebar also lists what waits on you. It shows replies you have not read, forge comments to pass on, and drafts you have not sent. Move the cursor onto one and press <Key name="review.toggle_folder" /> to go to its thread. When the task has a pull request, the sidebar also shows the forge's review decision, who commented there, and the pull request's title. Press <Key name="review.toggle_folder" /> on the title to read the description.
 
 <figure>
   <video
@@ -53,7 +55,7 @@ The sidebar holds a tree of the files the change touches, and the main view hold
 
 Open the review's menu with <Key name="menu.open" /> on a line and press <Key name="review.compose" /> to comment on it.
 
-A comment stays a draft until you send your review, as on GitHub or GitLab. While you hold drafts the diff is frozen, so the lines you are commenting on do not move.
+A comment stays a draft until you send your review, as on GitHub or GitLab. A draft stays on its line while the writer keeps working, and the sidebar says when the code under it changes.
 
 ### Editing the code yourself
 
@@ -85,9 +87,9 @@ The writer answers in your threads and can settle them. To see exactly what it c
 
 ### Stepping through history
 
-Each review you send closes a chapter, which holds the code you had read when you sent it. Stepping through chapters shows each review, with the comments written on it and the code that changed as a result.
+Each review you send is written against the round you read. Press <Key name="review.base" /> to step back from the whole change to the work since your last review, and on through your older reviews. Press <Key name="review.base_forward" /> to step forward again. The top of the diff names the rounds on screen, such as round 1 to round 2.
 
-Past chapters take replies but not new comments, because their lines may no longer exist in the change.
+A range that ends before the newest round takes replies but not new comments, because new comments go on the newest round.
 
 <figure>
   <video
@@ -98,7 +100,7 @@ Past chapters take replies but not new comments, because their lines may no long
     poster={media("reviews-history.png")}
     width="1440"
     height="920"
-    aria-label="Stepping back from all changes through the newest chapter, which has not been reviewed yet, and the two chapters closed by earlier reviews, then forward again to all changes."
+    aria-label="Stepping back from the whole change through the work nobody has reviewed yet and the rounds two earlier reviews were written against, then forward again to the whole change."
   >
     <source src={media("reviews-history.webm")} type="video/webm" />
     <source src={media("reviews-history.mp4")} type="video/mp4" />

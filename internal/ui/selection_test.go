@@ -93,7 +93,7 @@ func findRenderedRows(t *testing.T, harness *panelHarness, name string) []string
 	lines := splitLines(raw)
 	var found []string
 	for _, line := range readListLines(ansi.Strip(raw)) {
-		if strings.TrimLeft(line.row, "│├└─ ") == name {
+		if strings.TrimPrefix(strings.TrimLeft(line.row, "│├└─ "), reviewerMark) == name {
 			found = append(found, lines[line.index])
 		}
 	}

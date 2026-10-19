@@ -179,6 +179,8 @@ type Row struct {
 	Faded bool
 	// Nested says the row is an agent under its task's row, which carries the gutter for it.
 	Nested bool
+	// Reviewer says the row is a reviewer agent, drawn with a mark before its name.
+	Reviewer bool
 	// Tree is where the row hangs in the tree drawn before its name, nil on a row drawn in no tree.
 	Tree *Tree
 }

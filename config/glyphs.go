@@ -80,6 +80,8 @@ type MarkGlyphs struct {
 	PersonComments string `mapstructure:"person_comments"`
 	// Beside the count of your comments holding a reply you have not read.
 	Unread string `mapstructure:"unread"`
+	// Before the name of a reviewer agent under its task.
+	Reviewer string `mapstructure:"reviewer"`
 }
 
 // ListGlyphs are drawn in the titles over the panel's lists.

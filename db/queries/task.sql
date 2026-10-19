@@ -3,12 +3,18 @@ INSERT INTO tasks(
     workflow_id,
     slug,
     title,
-    goal)
+    goal,
+    parent_task_id,
+    fork_point,
+    parent_pull_request_id)
 VALUES (
     sqlc.arg('workflow_id'),
     sqlc.arg('slug'),
     sqlc.arg('title'),
-    sqlc.arg('goal'))
+    sqlc.arg('goal'),
+    sqlc.narg('parent_task_id'),
+    sqlc.narg('fork_point'),
+    sqlc.narg('parent_pull_request_id'))
 RETURNING
     *;
 
@@ -431,3 +437,65 @@ SELECT
     deleting_at
 FROM
     tasks;
+
+-- name: SetTaskParent :exec
+UPDATE
+    tasks
+SET
+    parent_task_id = sqlc.narg('parent_task_id'),
+    fork_point = sqlc.narg('fork_point'),
+    parent_pull_request_id = sqlc.narg('parent_pull_request_id'),
+    cascade_blocked = NULL
+WHERE
+    id = sqlc.arg('id');
+
+-- name: SetTaskForkPoint :exec
+UPDATE
+    tasks
+SET
+    fork_point = sqlc.arg('fork_point'),
+    cascade_blocked = NULL
+WHERE
+    id = sqlc.arg('id')
+    AND parent_task_id IS NOT NULL;
+
+-- name: RecordTaskParentPullRequest :exec
+UPDATE
+    tasks
+SET
+    parent_pull_request_id = sqlc.arg('parent_pull_request_id')
+WHERE
+    id = sqlc.arg('id')
+    AND parent_task_id IS NOT NULL
+    AND parent_pull_request_id IS NULL;
+
+-- name: ListChildTasks :many
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    parent_task_id IS NOT NULL
+    AND archived_at IS NULL
+    AND deleting_at IS NULL
+ORDER BY
+    id;
+
+-- name: ListChildrenOfTasks :many
+SELECT
+    *
+FROM
+    tasks
+WHERE
+    parent_task_id = ANY (sqlc.arg('ids')::uuid[])
+    AND deleting_at IS NULL
+ORDER BY
+    id;
+
+-- name: SetTaskCascadeBlocked :exec
+UPDATE
+    tasks
+SET
+    cascade_blocked = sqlc.narg('cascade_blocked')
+WHERE
+    id = sqlc.arg('id');

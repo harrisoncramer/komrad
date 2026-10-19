@@ -92,6 +92,10 @@ func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
 	key := headLabel(entry.keys)
 	pad := strings.Repeat(" ", max(width-ansi.StringWidth(text)-ansi.StringWidth(key), 1))
 
+	if entry.isOff && entry.offSaid != "" {
+		return muted.Render(text+pad+key) + "\n" + muted.Italic(true).Render("  "+entry.offSaid)
+	}
+
 	if entry.isOff {
 		return muted.Render(text + pad + key)
 	}
