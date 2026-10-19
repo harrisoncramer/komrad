@@ -114,12 +114,7 @@ func TestIntegrationStartKeepsOnePostgres(t *testing.T) {
 // unpacked being restarted on this build's programs, and the other build's programs being removed.
 func TestIntegrationStartReplacesAnotherBuildsPrograms(t *testing.T) {
 	dir := createCluster(t)
-	require.NoError(t, runProgram(t.Context(), getProgramPath(dir, "pg_ctl"), "stop", "-D", getDataDir(dir), "-w"))
-
-	other := filepath.Join(dir, Version+"-other")
-	require.NoError(t, os.Rename(getUnpackedDir(dir), other)) //nolint:forbidigo // a directory, which xfile.WriteAtomic does not move
-	require.NoError(t, runProgram(t.Context(), filepath.Join(other, "bin", "pg_ctl"), "start", "-D", getDataDir(dir), "-l", filepath.Join(dir, "postgres.log"), "-w"))
-	pid := postmasterPID(t, dir)
+	other, pid := startOnAnotherBuildsPrograms(t, dir)
 
 	require.NoError(t, Start(t.Context(), dir))
 
@@ -168,12 +163,7 @@ func TestIntegrationStartRecoversFromACrash(t *testing.T) {
 // another build's programs, and starting one that was killed.
 func TestIntegrationEnsureRunning(t *testing.T) {
 	dir := createCluster(t)
-	require.NoError(t, runProgram(t.Context(), getProgramPath(dir, "pg_ctl"), "stop", "-D", getDataDir(dir), "-w"))
-
-	other := filepath.Join(dir, Version+"-other")
-	require.NoError(t, os.Rename(getUnpackedDir(dir), other)) //nolint:forbidigo // a directory, which xfile.WriteAtomic does not move
-	require.NoError(t, runProgram(t.Context(), filepath.Join(other, "bin", "pg_ctl"), "start", "-D", getDataDir(dir), "-l", filepath.Join(dir, "postgres.log"), "-w"))
-	pid := postmasterPID(t, dir)
+	other, pid := startOnAnotherBuildsPrograms(t, dir)
 
 	started, err := EnsureRunning(t.Context(), dir)
 	require.NoError(t, err)
@@ -276,6 +266,20 @@ func createCluster(t *testing.T) string {
 	})
 
 	return dir
+}
+
+// startOnAnotherBuildsPrograms restarts the cluster in dir on programs moved where another build would
+// unpack them, returning their directory and the postmaster's PID.
+func startOnAnotherBuildsPrograms(t *testing.T, dir string) (string, int) {
+	t.Helper()
+
+	require.NoError(t, runProgram(t.Context(), getProgramPath(dir, "pg_ctl"), "stop", "-D", getDataDir(dir), "-w"))
+
+	other := filepath.Join(dir, Version+"-other")
+	require.NoError(t, os.Rename(getUnpackedDir(dir), other)) //nolint:forbidigo // a directory, which xfile.WriteAtomic does not move
+	require.NoError(t, runProgram(t.Context(), filepath.Join(other, "bin", "pg_ctl"), "start", "-D", getDataDir(dir), "-l", filepath.Join(dir, "postgres.log"), "-w"))
+
+	return other, postmasterPID(t, dir)
 }
 
 func buildURL(dir, login string) string {
