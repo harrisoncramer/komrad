@@ -77,7 +77,7 @@ Each task also works in a fresh worktree, and the CLI asks whether to trust ever
 
 ## Dotfiles
 
-Your engine keeps your home, so clone and install your dotfiles there from a shell, as you would on a new laptop. Git reaches GitHub as you. A `.gitconfig` in your dotfiles must leave the engine's proxy and credential helper alone, or git stops reaching GitHub. Install your editor through your global mise config, so the edit keys find it.
+Your engine keeps your home, so clone and install your dotfiles there from a shell, as you would on a new laptop. Git reaches GitHub as you. A `.gitconfig` in your dotfiles must leave git's forge proxy and credential helper settings alone, or git stops reaching GitHub. Install your editor through your global mise config, so the edit keys find it.
 
 ## Project tools
 
@@ -85,6 +85,6 @@ The engine carries mise and no languages of its own. A repository pins the ones 
 
 ## Stopped engines
 
-An engine costs money every hour, so it may be switched off when nobody is using it. You start and stop your engine from the panel, and it is offline while stopped. Switching off keeps the disk, the database and the address. Every agent stops, and you resume the ones you want once it is back. Your schedules don't run while it is stopped.
+An engine costs money every hour, so you can stop it when nobody is using it. You start and stop your engine from the panel, and it is offline while stopped. Stopping keeps the disk, the database and the address. Every agent stops, and you resume the ones you want once it is back. Your schedules don't run while it is stopped.
 
 This guide covers using an engine. [Running komrad remotely](../running-komrad-remotely/) covers building one.

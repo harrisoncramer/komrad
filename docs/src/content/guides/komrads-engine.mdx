@@ -26,17 +26,17 @@ The control plane has an Elastic IP. Every request to GitHub leaves from it, so 
 
 Postgres runs on RDS, in private subnets that only the engines and the control plane can reach. RDS manages the owner login's password, keeps it in Secrets Manager and keeps a week of automatic backups.
 
-Secrets Manager also holds the key the control plane uses to join the tailnet, each engine's database password and each person's GitHub login. Only the control plane reads the owner's password and the GitHub logins.
+Secrets Manager also holds the key the control plane uses to join the tailnet, each engine login's password and each person's GitHub login. Only the control plane reads the owner login's password and the GitHub logins.
 
-Finally, the Parameter Store holds the control plane's Tailscale identity. This lets a full image replacement join the tailnet as the same machine.
+Parameter Store holds the control plane's Tailscale identity, so a replaced control plane joins the tailnet as the same device.
 
 ## The control plane
 
 The control plane holds no agents and no engine. It keeps only Caddy's state on a data volume, so Terraform can replace it at any time. Engines keep running while it is replaced.
 
-Its user data writes the tailnet name into Caddy's config, starts Caddy and joins the tailnet. Tailscale keeps its identity in Parameter Store, so a replacement comes back as the same device. Caddy sends each engine's path, such as `/harry`, to that person's engine.
+Its user data writes the tailnet name into Caddy's config, starts Caddy and joins the tailnet. Caddy sends each engine's path, such as `/harry`, to that person's engine.
 
-The control plane owns the database. At boot and on every deploy it runs the migrations, makes each person's engine and grants it to that person, as [database credentials](#database-credentials) shows. Its role also reads people's GitHub logins and starts and stops engines.
+The control plane owns the database. At boot and on every deploy it runs the migrations, makes each person's engine and grants it to that person, as [database credentials](#database-credentials) shows. Its IAM role also reads people's GitHub logins and starts and stops engines.
 
 ## Engine instances
 
@@ -90,7 +90,7 @@ The reader login sees the same rows as the engine login and can't write any of t
 
 RDS creates the owner login and stores its password in Secrets Manager, where only the control plane can read it. The control plane never writes the password to disk.
 
-The control plane's credentials unit runs at boot, during every deploy and once an hour. Each run migrates the database, and makes sure each person in `terraform.tfvars` has an engine, an engine login and a grant for their email. It stores each engine login's password in a secret only that engine's instance can read. A deploy updates the control plane first, so new migrations land before any engine's new server starts. The hourly run picks up the owner's new password after RDS rotates it.
+The control plane's credentials unit runs at boot, during every deploy and once an hour. Each run migrates the database, and makes sure each person in `terraform.tfvars` has an engine, an engine login and a grant for their email. It stores each engine login's password in a secret only that engine's instance can read. A deploy updates the control plane first, so new migrations land before any engine's new server starts. The hourly run picks up the owner login's new password after RDS rotates it.
 
 Each engine's instance reads its own secret at boot and writes the server's connection string to a file only root can read.
 

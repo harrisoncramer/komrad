@@ -41,7 +41,7 @@ aws: AWS {
   control.caddy -> engine.serve
   engine.agents -> control.forge: git
   engine.serve -> control.forge: pull requests
-  control.forge -> secrets: logins
+  control.forge -> secrets: GitHub logins
   engine.serve -> rds
   engine.serve -> secrets: engine login
   control -> rds: migrations
@@ -55,4 +55,4 @@ laptop.panel -> idp: sign in
 laptop.panel -> aws.control.tailscaled: tailnet
 laptop.cli -> aws.ssm
 actions -> aws.ssm
-aws.control.forge -> github: real credential
+aws.control.forge -> github: GitHub login

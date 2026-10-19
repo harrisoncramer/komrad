@@ -21,7 +21,7 @@ This guide describes the parts remote engines need without assuming a cloud prov
 <figure>
   <img
     src={link("/diagrams/running-komrad.png")}
-    alt="The panel on a laptop signs in with an identity provider and sends HTTPS requests to the control plane, which routes each one to the person's engine. Each engine runs a server and agents in tmux on a machine of its own, and keeps its records in a shared Postgres. Agents' git and the server's pull request calls reach the forge through the forge proxy on the control plane, which adds the real credential."
+    alt="The panel on a laptop signs in with an identity provider and sends HTTPS requests to the control plane, which routes each one to the person's engine. Each engine runs a server and agents in tmux on a machine of its own, and keeps its records in a shared Postgres. Agents' git and the server's pull request calls reach the forge through the forge proxy on the control plane, which adds the person's GitHub login."
   />
 </figure>
 
