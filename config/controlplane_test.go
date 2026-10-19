@@ -35,6 +35,17 @@ func TestLoadControlPlane(t *testing.T) {
 			wantEngines: map[string]string{"harry": "6f1c", "ada": "9b2e"},
 		},
 		{
+			name: "a CA under the home directory",
+			file: "[control_plane]\nca_cert_file = \"~/komrad/ca.pem\"\nca_key_file = \"~/komrad/ca.key\"\n",
+			want: ControlPlane{
+				Addr:           defaultControlPlaneAddr,
+				ForgeProxyAddr: defaultForgeProxyAddr,
+				CACertFile:     ExpandHome("~/komrad/ca.pem"),
+				CAKeyFile:      ExpandHome("~/komrad/ca.key"),
+			},
+			wantEngines: map[string]string{},
+		},
+		{
 			name:    "endpoints the network reaches directly",
 			file:    "[control_plane]\naddr = \"0.0.0.0:8790\"\n",
 			wantErr: "control_plane.addr",
@@ -101,7 +112,7 @@ func TestLoadForgeProxy(t *testing.T) {
 		{
 			name: "a forge proxy with the engine's name and credential",
 			file: "[forge_proxy]\nurl = \" http://harry:6f1c@10.0.1.5:8789 \"\nca_file = \"~/.config/komrad/ca.pem\"\n",
-			want: ForgeProxy{URL: "http://harry:6f1c@10.0.1.5:8789", CAFile: "~/.config/komrad/ca.pem"},
+			want: ForgeProxy{URL: "http://harry:6f1c@10.0.1.5:8789", CAFile: ExpandHome("~/.config/komrad/ca.pem")},
 		},
 		{
 			name:    "a CA with no forge proxy",
