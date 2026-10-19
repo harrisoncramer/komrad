@@ -22,7 +22,7 @@ engine: Engine {
   serve: Server {class: leaf}
   agents: Agents {class: leaf}
 
-  agents -> serve: MCP
+  serve <- agents: MCP
 }
 
 postgres: Postgres {class: store}
@@ -32,6 +32,6 @@ laptop.panel -> idp: sign in
 laptop.panel -> control.proxy: HTTPS
 control.proxy -> engine.serve
 engine.serve -> postgres
-engine.agents -> control.forge: git
-engine.serve -> control.forge: pull requests
+control.forge <- engine.agents: git
+control.forge <- engine.serve: pull requests
 control.forge -> github: GitHub login
