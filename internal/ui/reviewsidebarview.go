@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	// sideMarkWidth is the columns the cursor's mark takes at the start of each row over the file tree.
-	sideMarkWidth = 2
+	// sideMarkBlank holds the cursor's mark's place at the start of each row over the file tree.
+	sideMarkBlank = "  "
 	// descriptionIndent sets a description's lines in under its title.
 	descriptionIndent = "  "
 )
@@ -85,7 +85,7 @@ func (r reviewScreen) sideRowView(m *model, row sideRow, lit bool) string {
 		text += "  " + dimStyle().Render(row.note)
 	}
 
-	prefix := "  "
+	prefix := sideMarkBlank
 	if lit {
 		prefix = paint.Panel.Style(paint.TonePrimary).Bold(true).Render(glyph.Focus) + " "
 	}

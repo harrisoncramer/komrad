@@ -354,7 +354,7 @@ func (r reviewScreen) descriptionRows(m *model) []sideRow {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: "author"}, text: "@" + pullRequest.Author})
 	}
 
-	width := lineWidthOf(m.paneWidth()) - sideMarkWidth - len(descriptionIndent)
+	width := lineWidthOf(m.paneWidth()) - len(sideMarkBlank) - len(descriptionIndent)
 	for at, line := range pullRequestBodyRows(pullRequest.Body, width) {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: strconv.Itoa(at)}, text: line})
 	}
