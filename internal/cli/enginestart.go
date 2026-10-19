@@ -141,7 +141,7 @@ func readHealth(ctx context.Context, transport http.RoundTripper, base string) (
 	defer func() { _ = res.Body.Close() }()
 
 	var health server.Health
-	_ = json.NewDecoder(io.LimitReader(res.Body, maxReason)).Decode(&health) //nolint:errcheck,errchkjson // an answer that is not a health body carries no status
+	_ = json.NewDecoder(io.LimitReader(res.Body, maxReason)).Decode(&health) //nolint:errcheck // an answer that is not a health body carries no status
 
 	return res.StatusCode, health.Status
 }

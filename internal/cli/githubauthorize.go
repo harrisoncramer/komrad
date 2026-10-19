@@ -56,11 +56,7 @@ func authorizeGitHub(ctx context.Context, state *app, out io.Writer) error {
 
 	interval := code.Interval
 	for {
-		if interval <= 0 {
-			interval = defaultPollInterval
-		}
-
-		clock.Sleep(ctx, time.Duration(interval)*time.Second)
+		clock.Sleep(ctx, pollInterval(interval))
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -70,29 +66,67 @@ func authorizeGitHub(ctx context.Context, state *app, out io.Writer) error {
 			return err
 		}
 
-		switch poll.Status {
-		case controlplane.DeviceStatusAuthorized:
+		isAuthorized, err := readDevicePoll(poll)
+		if err != nil {
+			return err
+		}
+		if isAuthorized {
 			fmt.Fprintln(out, "GitHub is authorized for this engine.") //nolint:errcheck // a closed stdout is the caller going away
 
 			return nil
-		case controlplane.DeviceStatusExpired:
-			return errors.New("the code ran out before it was entered, so run this again")
-		case controlplane.DeviceStatusDenied:
-			return errors.New("the authorization was turned down at GitHub")
-		case controlplane.DeviceStatusPending:
 		}
 
 		interval = poll.Interval
 	}
 }
 
-// postControlPlane calls one of the control plane's own endpoints and reads its answer.
+// pollInterval is how long to wait before polling the device flow, given GitHub's interval in
+// seconds.
+func pollInterval(seconds int) time.Duration {
+	if seconds <= 0 {
+		seconds = defaultPollInterval
+	}
+
+	return time.Duration(seconds) * time.Second
+}
+
+// readDevicePoll reports whether a poll says GitHub is authorized, and fails when the code ran out
+// or the person turned it down.
+func readDevicePoll(poll controlplane.DevicePoll) (bool, error) {
+	switch poll.Status {
+	case controlplane.DeviceStatusAuthorized:
+		return true, nil
+	case controlplane.DeviceStatusExpired:
+		return false, errors.New("the code ran out before it was entered")
+	case controlplane.DeviceStatusDenied:
+		return false, errors.New("the authorization was turned down at GitHub")
+	case controlplane.DeviceStatusPending:
+	}
+
+	return false, nil
+}
+
+// postControlPlane asks one of the control plane's own endpoints to act and reads its answer.
 func postControlPlane(ctx context.Context, client *http.Client, endpoint string, answer any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("failed to build a request for %s: %w", endpoint, err)
 	}
 
+	return callControlPlane(client, req, answer)
+}
+
+// getControlPlane reads one of the control plane's own endpoints.
+func getControlPlane(ctx context.Context, client *http.Client, endpoint string, answer any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("failed to build a request for %s: %w", endpoint, err)
+	}
+
+	return callControlPlane(client, req, answer)
+}
+
+func callControlPlane(client *http.Client, req *http.Request, answer any) error {
 	res, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to reach the control plane: %w", err)

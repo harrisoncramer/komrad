@@ -146,3 +146,76 @@ func RenderAccessFailure(width int, url string, err error) string {
 		},
 	}.Render()
 }
+
+// RenderEngineStopped is shown instead of the panel when the control plane in front of an engine
+// at a url says the engine is stopped.
+func RenderEngineStopped(width int, url string, err error) string {
+	screen := screen{
+		Width: width,
+		Title: "Your engine is stopped",
+		Body: []string{
+			"The engine at " + url + " is stopped, so the panel shows nothing from it until it runs.",
+		},
+		Hints: []string{
+			"Press enter to start it.",
+			"Press ctrl+c to close.",
+		},
+	}
+
+	if err != nil {
+		screen.Details = []detail{{Label: "error", Value: err.Error()}}
+	}
+
+	return screen.Render()
+}
+
+// RenderEngineStarting is shown instead of the panel while it waits for a starting engine at a
+// url to answer.
+func RenderEngineStarting(width int, url string) string {
+	return screen{
+		Width: width,
+		Title: "Your engine is starting",
+		Body: []string{
+			"The panel is waiting for the engine at " + url + " to answer, and opens it once it does.",
+		},
+		Hints: []string{"Press ctrl+c to close."},
+	}.Render()
+}
+
+// RenderGitHubNeededParams is the engine to authorize GitHub for and how far the person has got.
+type RenderGitHubNeededParams struct {
+	Width           int
+	URL             string
+	UserCode        string
+	VerificationURI string
+	Err             error
+	IsAuthorizing   bool
+}
+
+// RenderGitHubNeeded is shown instead of the panel when the control plane in front of an engine
+// at a url holds no GitHub login that works for the person.
+func RenderGitHubNeeded(params RenderGitHubNeededParams) string {
+	screen := screen{
+		Width: params.Width,
+		Title: "Authorize GitHub for your engine",
+		Body: []string{
+			"The engine at " + params.URL + " reaches GitHub as you, so it needs your GitHub login before the panel opens it.",
+		},
+	}
+
+	if params.IsAuthorizing {
+		if params.UserCode != "" {
+			screen.Body = append(screen.Body, "Open "+params.VerificationURI+" and enter "+params.UserCode+".", "Waiting for GitHub...")
+		}
+		screen.Hints = append(screen.Hints, "Press ctrl+c to close.")
+
+		return screen.Render()
+	}
+
+	if params.Err != nil {
+		screen.Details = append(screen.Details, detail{Label: "error", Value: params.Err.Error()})
+	}
+	screen.Hints = append(screen.Hints, "Press enter for a new code.", "Press ctrl+c to close.")
+
+	return screen.Render()
+}

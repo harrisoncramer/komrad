@@ -29,8 +29,8 @@ const (
 	EngineStopped  EngineState = "stopped"
 )
 
-// Runner starts and stops the engines behind the control plane.
-type Runner interface {
+// runner starts and stops the engines behind the control plane.
+type runner interface {
 	// Start sets the engine starting and returns before it answers.
 	Start(ctx context.Context, engine string) error
 	// Stop sets the engine stopping and returns before it has stopped.
@@ -117,7 +117,7 @@ func (h *handler) answerUnreachable(w http.ResponseWriter, r *http.Request, fail
 func (h *handler) startEngine(w http.ResponseWriter, r *http.Request) {
 	h.run(w, r, runParams{
 		Run:      h.runner.Start,
-		Failure:  "failed to start an engine",
+		Action:   "start",
 		Accepted: "the engine is starting",
 	})
 }
@@ -125,14 +125,14 @@ func (h *handler) startEngine(w http.ResponseWriter, r *http.Request) {
 func (h *handler) stopEngine(w http.ResponseWriter, r *http.Request) {
 	h.run(w, r, runParams{
 		Run:      h.runner.Stop,
-		Failure:  "failed to stop an engine",
+		Action:   "stop",
 		Accepted: "the engine is stopping",
 	})
 }
 
 type runParams struct {
 	Run      func(ctx context.Context, engine string) error
-	Failure  string
+	Action   string
 	Accepted string
 }
 
@@ -144,8 +144,8 @@ func (h *handler) run(w http.ResponseWriter, r *http.Request, params runParams) 
 	}
 
 	if err := params.Run(r.Context(), engine); err != nil {
-		h.logger.LogAttrs(r.Context(), slog.LevelWarn, params.Failure,
-			append(logging.Err(err), slog.String(logging.EngineName, engine))...)
+		h.logger.LogAttrs(r.Context(), slog.LevelWarn, "failed to start or stop an engine",
+			append(logging.Err(err), slog.String(logging.EngineName, engine), slog.String(logging.LifecycleAction, params.Action))...)
 		writeMessage(w, http.StatusBadGateway, err.Error())
 
 		return

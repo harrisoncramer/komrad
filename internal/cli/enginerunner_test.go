@@ -66,7 +66,7 @@ func TestTheLocalRunnerSaysWhereEachEngineIs(t *testing.T) {
 
 	recorded, err := os.ReadFile(ran) //nolint:gosec // the test's own file
 	require.NoError(t, err)
-	assert.Equal(t, "start --engine ada\n", string(recorded), "a second start while one runs runs nothing")
+	assert.Equal(t, "start --engine ada\n", string(recorded), "a second start while the first is running spawns nothing")
 
 	require.NoError(t, os.Remove(release))
 	require.NoError(t, runner.Stop(t.Context(), "harry"))

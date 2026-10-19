@@ -35,7 +35,7 @@ type NewParams struct {
 	// Verifier checks people's ID tokens against the identity provider every engine trusts.
 	Verifier interceptors.TokenVerifier
 	// Runner starts and stops the engines.
-	Runner         Runner
+	Runner         runner
 	GitHubClientID string
 	// GitHub is where the device flow's endpoints live, GitHubURL outside tests.
 	GitHub string

@@ -54,14 +54,14 @@ func (h *handler) isGitHubAuthorized(ctx context.Context, engine string) (bool, 
 	if err != nil {
 		return false, fmt.Errorf("failed to build the request for GitHub's /user: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+login.Expose())
+	req.Header.Set("Authorization", formatLogin(req.URL.Host, login))
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := h.client.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("failed to reach GitHub's /user: %w", err)
 	}
-	_ = resp.Body.Close() //nolint:errcheck // only the status is read
+	_ = resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:

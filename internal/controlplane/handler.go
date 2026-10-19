@@ -31,7 +31,7 @@ type handler struct {
 	verifier  interceptors.TokenVerifier
 	grants    grantChecker
 	device    *deviceFlow
-	runner    Runner
+	runner    runner
 	logins    loginStore
 	client    *http.Client
 	githubAPI string

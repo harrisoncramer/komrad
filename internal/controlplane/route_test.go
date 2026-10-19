@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/controlplane"
 	"komrad/internal/server"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -201,18 +202,13 @@ func TestStartingAndStoppingAnEngine(t *testing.T) {
 			assert.Equal(t, tt.wantMessage, answer.Message)
 
 			started, stopped := p.runner.calls()
-			assert.Equal(t, p.names(tt.wantStarted), started)
-			assert.Equal(t, p.names(tt.wantStopped), stopped)
+			assert.ElementsMatch(t, p.names(tt.wantStarted), started)
+			assert.ElementsMatch(t, p.names(tt.wantStopped), stopped)
 		})
 	}
 }
 
 // names are the engines the people's names stand for.
 func (p *plane) names(people []string) []string {
-	var names []string
-	for _, person := range people {
-		names = append(names, p.engine(person).name)
-	}
-
-	return names
+	return xslice.Map(people, func(person string) string { return p.engine(person).name })
 }

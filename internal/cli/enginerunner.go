@@ -78,7 +78,7 @@ func (l *localRunner) State(ctx context.Context, engine string) (controlplane.En
 	if err != nil {
 		return controlplane.EngineStopped, nil //nolint:nilerr // an engine nothing answers for is stopped
 	}
-	_ = resp.Body.Close() //nolint:errcheck // only that something answered is read
+	_ = resp.Body.Close()
 
 	return controlplane.EngineRunning, nil
 }
@@ -109,8 +109,8 @@ func (l *localRunner) run(engine, command string, state controlplane.EngineState
 		l.mu.Unlock()
 
 		if err != nil {
-			l.logger.LogAttrs(context.Background(), slog.LevelWarn, "komrad "+command+" failed for an engine",
-				append(logging.Err(err), slog.String(logging.EngineName, engine), slog.String(logging.ProcessOutput, output.String()))...)
+			l.logger.LogAttrs(context.Background(), slog.LevelWarn, "komrad failed to start or stop an engine",
+				append(logging.Err(err), slog.String(logging.EngineName, engine), slog.String(logging.LifecycleAction, command), slog.String(logging.ProcessOutput, output.String()))...)
 		}
 	}()
 

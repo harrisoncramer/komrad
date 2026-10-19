@@ -36,9 +36,8 @@ type engine struct {
 var signIn = config.SignIn{Issuer: "https://idp.example.com", ClientID: "komrad"}
 
 // plane is a control plane serving harry's, ada's and grace's engines in front of a GitHub,
-// with harry's and ada's people already through the device flow and harry granted all three.
-// Harry's engine answers each request with what reached it, and ada's and grace's answer
-// nothing.
+// with harry's and ada's people through the device flow, harry granted all three, and only
+// harry's engine answering.
 type plane struct {
 	github    *controlplanetest.GitHub
 	ca        *controlplanetest.CA
@@ -127,7 +126,7 @@ func startEngine(t *testing.T) string {
 
 	engine := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(reached{ //nolint:errchkjson // the test hears a cut answer as a failed request
+		_ = json.NewEncoder(w).Encode(reached{
 			Path:          r.URL.Path,
 			Authorization: r.Header.Get("Authorization"),
 			Proto:         r.Proto,

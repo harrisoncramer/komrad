@@ -147,6 +147,7 @@ type NewPanelParams struct {
 	EngineStatus    EngineStatus
 	Loader          loader.Style
 	SignIn          SignIn
+	ControlPlane    ControlPlane
 }
 
 // NewPanel builds the panel the way komrad panel does, over a recording tmux.
@@ -214,6 +215,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			EngineStatus:    params.EngineStatus,
 			Loader:          params.Loader,
 			SignIn:          params.SignIn,
+			ControlPlane:    params.ControlPlane,
 		}, true, post),
 		post: post,
 		tmux: tmux,
