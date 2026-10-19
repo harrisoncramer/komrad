@@ -100,7 +100,7 @@ type Params struct {
 	SignIn        config.SignIn
 	// ForgeProxy sends the instance's GitHub requests through a control plane's forge proxy.
 	ForgeProxy config.ForgeProxy
-	// HookCommand is the komrad binary the instance's gh and glab stand-ins run.
+	// HookCommand is the komrad binary the instance's agents, hooks and shells run.
 	HookCommand string
 }
 
