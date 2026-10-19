@@ -98,6 +98,8 @@ type Params struct {
 	// ForgeBuilders replaces the forges the instance speaks to.
 	ForgeBuilders map[forgev1.Kind]forge.Builder
 	SignIn        config.SignIn
+	// ForgeProxy sends the instance's GitHub requests through a control plane's forge proxy.
+	ForgeProxy config.ForgeProxy
 }
 
 // Start builds the server and returns it running, torn down when the test ends.
@@ -181,6 +183,7 @@ func Start(t *testing.T, p Params) *Instance {
 		FallbackResumeRoot: filepath.Join(root, "restored"),
 		ForgeBuilders:      p.ForgeBuilders,
 		SignIn:             p.SignIn,
+		ForgeProxy:         p.ForgeProxy,
 		Doctor: doctor.Settings{
 			TmuxSocket:          env.TmuxSocket,
 			ConfigStack:         config.Stack{Paths: []string{configPath}},
@@ -328,6 +331,12 @@ func (i *Instance) reconcile() {
 func (i *Instance) SyncCwds() {
 	i.t.Helper()
 	i.runLoop(server.CwdSyncLoop)
+}
+
+// ConnectThroughForgeProxy runs one pass of the loop that keeps github.com's connection on the forge proxy's account.
+func (i *Instance) ConnectThroughForgeProxy() {
+	i.t.Helper()
+	i.runLoop(server.ForgeProxyLoop)
 }
 
 // SyncPullRequests wakes the loop that reads the forges' pull requests and runs one pass of it.
