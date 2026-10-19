@@ -100,6 +100,8 @@ type Params struct {
 	SignIn        config.SignIn
 	// ForgeProxy sends the instance's GitHub requests through a control plane's forge proxy.
 	ForgeProxy config.ForgeProxy
+	// HookCommand is the komrad binary the instance's gh and glab stand-ins run.
+	HookCommand string
 }
 
 // Start builds the server and returns it running, torn down when the test ends.
@@ -184,6 +186,7 @@ func Start(t *testing.T, p Params) *Instance {
 		ForgeBuilders:      p.ForgeBuilders,
 		SignIn:             p.SignIn,
 		ForgeProxy:         p.ForgeProxy,
+		HookCommand:        p.HookCommand,
 		Doctor: doctor.Settings{
 			TmuxSocket:          env.TmuxSocket,
 			ConfigStack:         config.Stack{Paths: []string{configPath}},
