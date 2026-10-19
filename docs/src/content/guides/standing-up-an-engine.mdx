@@ -39,7 +39,7 @@ The control plane joins your tailnet as one tagged device, and the rest of the t
 
 ## Applying the infrastructure
 
-Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, both image ids and the `sign_in_*` values from your provider. Set `tailscale_hostname` to the control plane's name on the tailnet, which defaults to komrad, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. Set `tailscale_auth_key` to the auth key from the earlier step, which Terraform stores in Secrets Manager for the control plane. Add an engine for yourself, as [adding an engine](#adding-an-engine) shows. GitHub Actions needs the `github_*` values and `state_bucket` to deploy. Then run:
+Copy `terraform.tfvars.example` and `backend.hcl.example` in [`infra/engine`](https://github.com/harrisoncramer/komrad/tree/main/infra/engine), remove the `.example`, and fill them in. The variables include your account, the region, both image ids, the `sign_in_*` values from your provider and `github_oauth_client_id`, the client id of your GitHub OAuth app. Set `tailscale_hostname` to the control plane's name on the tailnet, which defaults to komrad, and `tailscale_tailnet` to your tailnet's DNS name, such as `tail1234.ts.net`. Set `tailscale_auth_key` to the auth key from the earlier step, which Terraform stores in Secrets Manager for the control plane. Add an engine for yourself, as [adding an engine](#adding-an-engine) shows. GitHub Actions needs `github_repository`, `github_owner_id`, `github_repository_id` and `state_bucket` to deploy. Then run:
 
 ```sh
 mise run infra:engine:init
@@ -84,7 +84,7 @@ komrad login --engine dev
 komrad open --engine dev
 ```
 
-The panel offers to start your engine and asks you to authorize GitHub the first time. In a shell on the engine, start each agent CLI once and sign it in. Then turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI in `~/.config/komrad/config.toml`, so new agents don't stop to ask whether to trust their worktree, and restart the server, as [restarting](#restarting) shows.
+The panel asks you to authorize GitHub the first time. In a shell on the engine, start each agent CLI once and sign it in. Then turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI in `~/.config/komrad/config.toml`, so new agents don't stop to ask whether to trust their worktree, and restart the server, as [restarting](#restarting) shows.
 
 ## Adding an engine
 

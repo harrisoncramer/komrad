@@ -92,7 +92,7 @@ RDS creates the owner login and stores its password in Secrets Manager, where on
 
 The control plane's credentials unit runs at boot, during every deploy and once an hour. Each run migrates the database, and makes sure each person in `terraform.tfvars` has an engine, an engine login and a grant for their email. It stores each engine login's password in a secret only that engine's instance can read. A deploy updates the control plane first, so new migrations land before any engine's new server starts. The hourly run picks up the owner login's new password after RDS rotates it.
 
-Each engine's instance reads its own secret at boot and writes the server's connection string to a file only root can read.
+Each engine's credentials unit waits at boot until the control plane has written the engine's secret. It then reads the secret and writes the server's connection string to a file only root can read, and the server starts only once that file exists.
 
 ### Backups
 
@@ -142,7 +142,7 @@ The engine caches each grant for a minute, so a revoke takes effect within a min
 
 ### Provider registration
 
-An operator registers komrad with their identity provider once, as a desktop app with `http://127.0.0.1:8085` as its redirect address. The provider issues a client id. On komrad's engine, `sign_in_issuer` and `sign_in_client_id` in `terraform.tfvars` name the provider and that id, and Terraform writes them into each engine's config. Changing either one replaces every engine's instance, the same as a new image does. An engine you run yourself takes them in the <Setting path="sign_in" label="[sign_in]" /> table of its config.
+An operator registers komrad with their identity provider once, as a desktop app with `http://127.0.0.1:8085` as its redirect address. The provider issues a client id. On komrad's engine, `sign_in_issuer` and `sign_in_client_id` in `terraform.tfvars` name the provider and that id, and Terraform writes them into the control plane's config and each engine's config. Changing either one replaces the control plane and every engine's instance, the same as a new image does. An engine you run yourself takes them in the <Setting path="sign_in" label="[sign_in]" /> table of its config.
 
 Google also issues a client secret. The secret can't stay secret, since the engine hands it to every laptop that signs in, but Google requires one, so it goes in `sign_in_client_secret` as well. Publish the app on Google, or make it internal to your Workspace. If you leave it in testing mode, Google makes everyone sign in again every week.
 
@@ -202,7 +202,7 @@ Someone outside your tailnet needs the control plane shared with them from Tails
 
 No engine holds a forge token. Git and `gh` on an engine send their requests to `github.com`, `api.github.com`, `uploads.github.com`, `codeload.github.com` and `raw.githubusercontent.com` through the forge proxy on the control plane, and trust its certificate for those hosts. Their credential helper and `GH_TOKEN` hand out a placeholder. The forge proxy knows which engine sent each request, strips the placeholder and adds that person's GitHub login. The server's own forge calls, such as pull request sync, take the same path.
 
-The login reaches everything the person reaches, private repositories and other organisations included. Komrad registers a GitHub OAuth app for it, with the `repo`, `read:org` and `workflow` scopes.
+The login reaches everything the person reaches, private repositories and other organisations included. An operator registers a GitHub OAuth app for it, with the `repo`, `read:org` and `workflow` scopes.
 
 The first time an engine needs GitHub, the panel shows a code and a GitHub address. The person enters the code there once. An organisation that restricts OAuth apps refuses the login until one of its owners approves the app, and one with SAML single sign-on asks the person to authorize the login for it. GitHub drops a login after a year without use, and the panel then asks again.
 
