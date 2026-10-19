@@ -789,18 +789,24 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 // state directory, reaching the embedded Postgres, with its owner on the same database.
 func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
 	tests := []struct {
-		name      string
-		config    string
-		wantOwner string
+		name            string
+		config          string
+		wantDatabaseURL string
+		wantReadOnlyURL string
+		wantOwner       string
 	}{
 		{
-			name:      "no database_url",
-			wantOwner: "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+			name:            "no database_url",
+			wantDatabaseURL: "postgres://komrad_engine_default@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+			wantReadOnlyURL: "postgres://komrad_engine_default_reader@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+			wantOwner:       "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432",
 		},
 		{
-			name:      "a database_url on the socket under the state directory",
-			config:    "[connection]\ndatabase_url = \"postgres://komrad_engine_x@/other?host=/state/postgres&connect_timeout=5\"\n",
-			wantOwner: "postgres://komrad@/other?host=/state/postgres&connect_timeout=5",
+			name:            "a database_url on the socket under the state directory",
+			config:          "[connection]\ndatabase_url = \"postgres://komrad_engine_x@/other?host=/state/postgres&connect_timeout=5\"\n",
+			wantDatabaseURL: "postgres://komrad_engine_x@/other?host=/state/postgres&connect_timeout=5",
+			wantReadOnlyURL: "postgres://komrad_engine_x_reader@/other?host=/state/postgres&connect_timeout=5",
+			wantOwner:       "postgres://komrad@/other?host=/state/postgres&connect_timeout=5",
 		},
 	}
 
@@ -815,6 +821,8 @@ func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
 			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			require.NoError(t, err)
 
+			assert.Equal(t, tt.wantDatabaseURL, cfg.Connection.DatabaseURL)
+			assert.Equal(t, tt.wantReadOnlyURL, cfg.Connection.ReadOnlyDatabaseURL)
 			assert.Equal(t, tt.wantOwner, cfg.Connection.OwnerDatabaseURL)
 			assert.True(t, cfg.Connection.UsesEmbeddedPostgres())
 		})
