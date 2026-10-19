@@ -3,6 +3,7 @@ package github
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -35,7 +36,7 @@ type NewForgeProxyTransportParams struct {
 func NewForgeProxyTransport(params NewForgeProxyTransportParams) (*http.Transport, error) {
 	proxy, err := url.Parse(params.ProxyURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the forge proxy's url")
+		return nil, fmt.Errorf("failed to read the forge proxy's url: %w", errors.Unwrap(err))
 	}
 
 	roots, err := x509.SystemCertPool()
