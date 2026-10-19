@@ -114,6 +114,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 					opener:    browser.NewDesktop(),
 					listen:    engine.CallbackAddr,
 					setUpSSH:  state.setUpSSH,
+					ensureSSH: state.ensureSSH,
 				}
 			case state.configErr == nil:
 				startupErr = startServer(cmd.Context(), startServerParams{

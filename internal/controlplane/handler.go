@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 
+	"komrad/config"
+	"komrad/internal/engine"
 	"komrad/internal/interceptors"
 	"komrad/internal/logging"
 	"komrad/internal/store"
@@ -19,21 +22,45 @@ type grantChecker interface {
 	IsGranted(ctx context.Context, params store.IsGrantedParams) (bool, error)
 }
 
-// handler serves the control plane's own endpoints.
+// handler serves the control plane's own endpoints, and sends every other request under an
+// engine's path to the engine.
 type handler struct {
-	logger   *slog.Logger
-	engines  map[string]string
-	verifier interceptors.TokenVerifier
-	grants   grantChecker
-	device   *deviceFlow
+	logger    *slog.Logger
+	engines   map[string]config.ControlPlaneEngine
+	signIn    engine.SignInProvider
+	verifier  interceptors.TokenVerifier
+	grants    grantChecker
+	device    *deviceFlow
+	runner    Runner
+	logins    loginStore
+	client    *http.Client
+	githubAPI string
+	proxy     *httputil.ReverseProxy
 }
 
 func (h *handler) routes() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{engine}"+engine.SignInPath, h.answerSignIn)
 	mux.HandleFunc("POST /{engine}"+DevicePath, h.startDevice)
 	mux.HandleFunc("POST /{engine}"+DevicePollPath, h.pollDevice)
+	mux.HandleFunc("GET /{engine}"+GitHubPath, h.answerGitHub)
+	mux.HandleFunc("POST /{engine}"+StartPath, h.startEngine)
+	mux.HandleFunc("POST /{engine}"+StopPath, h.stopEngine)
+	mux.HandleFunc("/{engine}/", h.forward)
 
 	return mux
+}
+
+// answerSignIn answers the provider every engine behind the control plane trusts, the way an
+// engine answers its sign-in path, so a person can sign in while their engine is stopped.
+func (h *handler) answerSignIn(w http.ResponseWriter, r *http.Request) {
+	if _, known := h.engines[r.PathValue("engine")]; !known {
+		writeMessage(w, http.StatusNotFound, "the control plane has no engine by that name")
+
+		return
+	}
+
+	writeJSON(w, http.StatusOK, h.signIn)
 }
 
 func (h *handler) startDevice(w http.ResponseWriter, r *http.Request) {

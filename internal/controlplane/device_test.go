@@ -14,12 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// call posts to one of the control plane's endpoints with an ID token, answering the status
-// and the decoded body.
-func (p *plane) call(t *testing.T, path, token string, answer any) int {
+// call sends a request to the control plane with an ID token, answering the status and the
+// decoded body.
+func (p *plane) call(t *testing.T, method, path, token string, answer any) int {
 	t.Helper()
 
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, p.endpoints.URL+path, nil)
+	req, err := http.NewRequestWithContext(t.Context(), method, p.endpoints.URL+path, nil)
 	require.NoError(t, err)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -85,7 +85,7 @@ func TestTheDeviceFlowAdmitsOnlyThoseHoldingTheEnginesGrant(t *testing.T) {
 			var answer struct {
 				Message string `json:"message"`
 			}
-			assert.Equal(t, tt.wantStatus, p.call(t, tt.path, tt.token, &answer))
+			assert.Equal(t, tt.wantStatus, p.call(t, http.MethodPost, tt.path, tt.token, &answer))
 			if tt.wantMessage != "" {
 				assert.Equal(t, tt.wantMessage, answer.Message)
 			}
@@ -152,7 +152,7 @@ func TestTheDeviceFlowKeepsTheLoginThePersonAuthorized(t *testing.T) {
 
 			if !tt.skipsStart {
 				var code controlplane.DeviceCode
-				require.Equal(t, http.StatusOK, p.call(t, "/"+p.engine("grace").name+controlplane.DevicePath, harryToken, &code))
+				require.Equal(t, http.StatusOK, p.call(t, http.MethodPost, "/"+p.engine("grace").name+controlplane.DevicePath, harryToken, &code))
 				assert.Equal(t, controlplane.DeviceCode{
 					UserCode:        controlplanetest.UserCode,
 					VerificationURI: controlplanetest.VerificationURI,
@@ -165,7 +165,7 @@ func TestTheDeviceFlowKeepsTheLoginThePersonAuthorized(t *testing.T) {
 			p.clock.advance(tt.elapsed)
 
 			var poll controlplane.DevicePoll
-			require.Equal(t, http.StatusOK, p.call(t, "/"+p.engine("grace").name+controlplane.DevicePollPath, harryToken, &poll))
+			require.Equal(t, http.StatusOK, p.call(t, http.MethodPost, "/"+p.engine("grace").name+controlplane.DevicePollPath, harryToken, &poll))
 			assert.Equal(t, tt.wantPoll, poll)
 
 			login, err := p.logins.Get(t.Context(), p.engine("grace").name)

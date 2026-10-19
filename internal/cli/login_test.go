@@ -118,6 +118,7 @@ func TestIntegrationPanelSignIn(t *testing.T) {
 				opener:    oidctest.Browser{},
 				listen:    "127.0.0.1:0",
 				setUpSSH:  func(context.Context) error { return nil },
+				ensureSSH: func(context.Context) error { return nil },
 			}
 
 			if tt.isLogin {

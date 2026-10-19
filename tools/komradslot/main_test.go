@@ -64,7 +64,8 @@ func TestEnvThenCheck(t *testing.T) {
 	}
 
 	env := parseEnv(out)
-	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" || env["KOMRAD_STATE_DIR"] != filepath.Join(reg.slotDir(1), "state") {
+	if env["KOMRAD_ADDR"] != "127.0.0.1:8801" || env["KOMRAD_TMUX_SOCKET"] != "komrad-test-1" || env["KOMRAD_STATE_DIR"] != filepath.Join(reg.slotDir(1), "state") ||
+		env["KOMRAD_ENGINES_DIR"] != filepath.Join(reg.slotDir(1), "engines") {
 		t.Errorf("env printed %q", out)
 	}
 	for _, name := range []string{"KOMRAD_DATABASE_URL", "KOMRAD_OWNER_DATABASE_URL", "KOMRAD_READONLY_DATABASE_URL"} {

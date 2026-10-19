@@ -16,8 +16,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// githubAuthorizeTimeout bounds each call to the control plane's device flow endpoints.
-const githubAuthorizeTimeout = 30 * time.Second
+// controlPlaneTimeout bounds each call to the control plane's own endpoints.
+const controlPlaneTimeout = 30 * time.Second
 
 // defaultPollInterval is how many seconds to wait between polls when GitHub names no interval.
 const defaultPollInterval = 5
@@ -45,7 +45,7 @@ func authorizeGitHub(ctx context.Context, state *app, out io.Writer) error {
 		return errors.New("only an engine behind a control plane authorizes GitHub, so name one with --engine")
 	}
 
-	client := xhttp.NewClientOver(state.signTransport(xhttp.NewTransport()), githubAuthorizeTimeout)
+	client := xhttp.NewClientOver(state.signTransport(xhttp.NewTransport()), controlPlaneTimeout)
 
 	var code controlplane.DeviceCode
 	if err := postControlPlane(ctx, client, state.env.URL+controlplane.DevicePath, &code); err != nil {
@@ -86,7 +86,7 @@ func authorizeGitHub(ctx context.Context, state *app, out io.Writer) error {
 	}
 }
 
-// postControlPlane calls one of the control plane's device flow endpoints and reads its answer.
+// postControlPlane calls one of the control plane's own endpoints and reads its answer.
 func postControlPlane(ctx context.Context, client *http.Client, endpoint string, answer any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
 	if err != nil {
@@ -99,7 +99,7 @@ func postControlPlane(ctx context.Context, client *http.Client, endpoint string,
 	}
 	defer func() { _ = res.Body.Close() }()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("the control plane answered %s: %s", res.Status, readReason(res.Body))
 	}
 

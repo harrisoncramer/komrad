@@ -25,6 +25,7 @@ func buildSettings(slotDir string, n int) []setting {
 		{"KOMRAD_TMUX_SOCKET", getSocket(n)},
 		{"KOMRAD_CACHE_DIR", filepath.Join(slotDir, "cache")},
 		{"KOMRAD_STATE_DIR", getStateDir(slotDir)},
+		{"KOMRAD_ENGINES_DIR", filepath.Join(slotDir, "engines")},
 		{"KOMRAD_CONFIG", configPath(slotDir)},
 	}
 }
