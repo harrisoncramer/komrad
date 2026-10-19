@@ -27,6 +27,7 @@
     "inherited": [],
     "children": [
       "attach",
+      "control-plane",
       "doctor",
       "engine",
       "forge",
@@ -61,6 +62,64 @@
     "aliases": [],
     "short": "Attach the running panel in this terminal",
     "long": "Attach the running panel in this terminal.\n\nIt attaches the session `komrad open` puts up, so any number of terminals show the\nsame panel. Detaching gives this terminal back and leaves everything running.\n\nIt attaches a panel that is already up and refuses when there is none, since\nstarting one is what `komrad open` is for.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "control-plane",
+    "path": "komrad control-plane",
+    "parent": "",
+    "usage": "komrad control-plane",
+    "aliases": [],
+    "short": "Run the control plane in front of a team's engines",
+    "long": "",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": [
+      "control-plane/serve"
+    ]
+  },
+  {
+    "slug": "control-plane/serve",
+    "path": "komrad control-plane serve",
+    "parent": "control-plane",
+    "usage": "komrad control-plane serve",
+    "aliases": [],
+    "short": "Serve the forge proxy and the control plane's endpoints",
+    "long": "Serve the forge proxy and the control plane's endpoints.\n\nThe forge proxy listens on control_plane.forge_proxy_addr for the engines control_plane.engines\nnames, and sends their GitHub requests on with the GitHub login each engine's person authorized.\nThe control plane's endpoints listen on control_plane.addr, where a person signed in through\n[sign_in] and holding an engine's grant authorizes GitHub for it. It reads grants as\nowner_database_url.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -420,8 +479,8 @@
     "parent": "",
     "usage": "komrad github",
     "aliases": [],
-    "short": "Reach GitHub as the engine's own App",
-    "long": "Reach GitHub as the engine's own App.\n\nAn engine runs agents that write code, so it has to push. Giving it a personal\naccess token would leave a secret on the machine that works forever.\n\nInstead komrad holds a GitHub App's private key and signs a short assertion with it.\nGitHub returns a token that stops working after an hour and only reaches the\nrepositories the App was installed on.\n\nSet the App id, the installation id and the path to the key under `[github_app]`.",
+    "short": "Reach GitHub as the engine's own App, or through a control plane",
+    "long": "Reach GitHub as the engine's own App, or through a control plane.\n\nAn engine runs agents that write code, so it has to push. Giving it a personal\naccess token would leave a secret on the machine that works forever.\n\nInstead komrad holds a GitHub App's private key and signs a short assertion with it.\nGitHub returns a token that stops working after an hour and only reaches the\nrepositories the App was installed on.\n\nSet the App id, the installation id and the path to the key under `[github_app]`.\n\nAn engine behind a control plane holds no App. Its person runs authorize once, and the\nforge proxy adds their GitHub login to the engine's GitHub requests.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -441,9 +500,38 @@
       }
     ],
     "children": [
+      "github/authorize",
       "github/credential",
       "github/token"
     ]
+  },
+  {
+    "slug": "github/authorize",
+    "path": "komrad github authorize",
+    "parent": "github",
+    "usage": "komrad github authorize",
+    "aliases": [],
+    "short": "Authorize GitHub for an engine behind a control plane",
+    "long": "Authorize GitHub for an engine behind a control plane.\n\nThis prints a code and a GitHub address. Enter the code there, and the control plane keeps\nthe GitHub login the forge proxy adds to the engine's GitHub requests. It reaches the control\nplane at the engine's url, signed in as you, and needs your grant on the engine.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
   },
   {
     "slug": "github/credential",

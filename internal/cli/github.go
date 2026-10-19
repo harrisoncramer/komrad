@@ -28,8 +28,8 @@ var errNotGitHubCheckout = fail.Precondition("the checkout's origin is not on gi
 func githubCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "github",
-		Short: "Reach GitHub as the engine's own App",
-		Long: `Reach GitHub as the engine's own App.
+		Short: "Reach GitHub as the engine's own App, or through a control plane",
+		Long: `Reach GitHub as the engine's own App, or through a control plane.
 
 An engine runs agents that write code, so it has to push. Giving it a personal
 access token would leave a secret on the machine that works forever.
@@ -38,13 +38,16 @@ Instead komrad holds a GitHub App's private key and signs a short assertion with
 GitHub returns a token that stops working after an hour and only reaches the
 repositories the App was installed on.
 
-Set the App id, the installation id and the path to the key under ` + "`[github_app]`" + `.`,
+Set the App id, the installation id and the path to the key under ` + "`[github_app]`" + `.
+
+An engine behind a control plane holds no App. Its person runs authorize once, and the
+forge proxy adds their GitHub login to the engine's GitHub requests.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 
-	cmd.AddCommand(githubTokenCmd(state), githubCredentialCmd(state))
+	cmd.AddCommand(githubTokenCmd(state), githubCredentialCmd(state), githubAuthorizeCmd(state))
 
 	return cmd
 }

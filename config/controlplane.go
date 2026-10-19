@@ -101,6 +101,10 @@ func validatePrivateAddr(addr string) error {
 	return nil
 }
 
+// ForgeProxyPlaceholder is the token git, gh and the server send through the forge proxy,
+// which swaps it for the person's GitHub login.
+const ForgeProxyPlaceholder = "komrad-forge-proxy"
+
 // ForgeProxy is the forge proxy a remote engine sends its GitHub requests through.
 type ForgeProxy struct {
 	// The forge proxy's address, with this engine's name and forge proxy credential as its user

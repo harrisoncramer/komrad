@@ -15,6 +15,7 @@ import (
 	"komrad/internal/forge/forges"
 	"komrad/internal/frames"
 	"komrad/internal/git"
+	"komrad/internal/harness"
 	"komrad/internal/harness/pane"
 	"komrad/internal/jobs"
 	"komrad/internal/mail"
@@ -307,6 +308,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			shells: shells.NewShellService(shells.NewShellServiceParams{
 				Agents: st.agents,
 				Shell:  params.Env.Shell,
+				Tools: harness.WriteToolShimsParams{
+					CacheDir:     params.Env.CacheDir,
+					KomradBinary: params.HookCommand,
+					ForgeProxy:   params.ForgeProxy,
+				},
 			}),
 			attaches: attaches.NewAttachService(attaches.NewAttachServiceParams{
 				Agents:  st.agents,
@@ -388,6 +394,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		BinPath:         server.HookCommand,
 		Usage:           server.Usage,
 		TrustLaunchDirs: server.TrustDirs,
+		ForgeProxy:      server.ForgeProxy,
 	})
 	launchService := agents.NewLaunchService(agents.NewLaunchServiceParams{
 		Tmux:               server.Tmux,
