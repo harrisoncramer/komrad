@@ -29,14 +29,14 @@ const deviceGrantType = "urn:ietf:params:oauth:grant-type:device_code"
 // maxDeviceAnswer bounds what is read from GitHub's device flow endpoints.
 const maxDeviceAnswer = 64 << 10
 
-// DeviceStatus is where an engine's device flow stands after a poll.
-type DeviceStatus string
+// deviceStatus is where an engine's device flow stands after a poll.
+type deviceStatus string
 
 const (
-	DeviceStatusPending    DeviceStatus = "pending"
-	DeviceStatusAuthorized DeviceStatus = "authorized"
-	DeviceStatusExpired    DeviceStatus = "expired"
-	DeviceStatusDenied     DeviceStatus = "denied"
+	DeviceStatusPending    deviceStatus = "pending"
+	DeviceStatusAuthorized deviceStatus = "authorized"
+	DeviceStatusExpired    deviceStatus = "expired"
+	DeviceStatusDenied     deviceStatus = "denied"
 )
 
 // DeviceCode is what a person enters at GitHub to authorize an engine.
@@ -51,7 +51,7 @@ type DeviceCode struct {
 
 // DevicePoll is one poll's answer.
 type DevicePoll struct {
-	Status   DeviceStatus `json:"status"`
+	Status   deviceStatus `json:"status"`
 	Interval int          `json:"interval"`
 }
 
@@ -60,15 +60,6 @@ type pendingFlow struct {
 	deviceCode string
 	interval   int
 	expiresAt  time.Time
-}
-
-// newDeviceFlowParams names the OAuth app and where GitHub is.
-type newDeviceFlowParams struct {
-	Client   *http.Client
-	GitHub   string
-	ClientID string
-	Logins   loginStore
-	Now      func() time.Time
 }
 
 // deviceFlow runs GitHub's device flow for each engine, one pending flow per engine.
@@ -80,6 +71,15 @@ type deviceFlow struct {
 	now      func() time.Time
 	mu       sync.Mutex
 	pending  map[string]pendingFlow
+}
+
+// newDeviceFlowParams names the OAuth app and where GitHub is.
+type newDeviceFlowParams struct {
+	Client   *http.Client
+	GitHub   string
+	ClientID string
+	Logins   loginStore
+	Now      func() time.Time
 }
 
 func newDeviceFlow(params newDeviceFlowParams) *deviceFlow {

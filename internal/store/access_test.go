@@ -234,34 +234,34 @@ func TestTheOwnerReadsAGrantByAccountOrUnclaimedEmail(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		params store.HasGrantParams
+		params store.IsGrantedParams
 		want   bool
 	}{
 		{
 			name:   "the account that claimed it",
-			params: store.HasGrantParams{Engine: claimed.GetEngine().Name, Issuer: issuer, Subject: "first"},
+			params: store.IsGrantedParams{Engine: claimed.GetEngine().Name, Issuer: issuer, Subject: "first"},
 			want:   true,
 		},
 		{
 			name:   "another account with the claimed email",
-			params: store.HasGrantParams{Engine: claimed.GetEngine().Name, Email: "harry@example.com", EmailVerified: true, Issuer: issuer, Subject: "second"},
+			params: store.IsGrantedParams{Engine: claimed.GetEngine().Name, Email: "harry@example.com", EmailVerified: true, Issuer: issuer, Subject: "second"},
 		},
 		{
 			name:   "a verified email nobody claimed",
-			params: store.HasGrantParams{Engine: unclaimed, Email: "Harry@Example.com", EmailVerified: true, Issuer: issuer, Subject: "second"},
+			params: store.IsGrantedParams{Engine: unclaimed, Email: "Harry@Example.com", EmailVerified: true, Issuer: issuer, Subject: "second"},
 			want:   true,
 		},
 		{
 			name:   "an unverified email nobody claimed",
-			params: store.HasGrantParams{Engine: unclaimed, Email: "harry@example.com", Issuer: issuer, Subject: "second"},
+			params: store.IsGrantedParams{Engine: unclaimed, Email: "harry@example.com", Issuer: issuer, Subject: "second"},
 		},
 		{
 			name:   "the account on another engine",
-			params: store.HasGrantParams{Engine: unclaimed, Issuer: issuer, Subject: "first"},
+			params: store.IsGrantedParams{Engine: unclaimed, Issuer: issuer, Subject: "first"},
 		},
 		{
 			name:   "an engine nobody ensured",
-			params: store.HasGrantParams{Engine: "absent", Issuer: issuer, Subject: "first"},
+			params: store.IsGrantedParams{Engine: "absent", Issuer: issuer, Subject: "first"},
 		},
 	}
 
@@ -269,7 +269,7 @@ func TestTheOwnerReadsAGrantByAccountOrUnclaimedEmail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			granted, err := grants.HasGrant(t.Context(), tt.params)
+			granted, err := grants.IsGranted(t.Context(), tt.params)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, granted)
 		})

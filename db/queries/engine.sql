@@ -52,7 +52,7 @@ SELECT
 SELECT
     engine_access_granted(sqlc.arg(issuer), sqlc.arg(subject))::boolean AS granted;
 
--- name: HasEngineGrant :one
+-- name: IsEngineGranted :one
 SELECT
     EXISTS (
         SELECT

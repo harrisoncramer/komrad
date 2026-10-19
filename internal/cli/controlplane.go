@@ -74,7 +74,7 @@ func serveControlPlane(ctx context.Context, state *app) error {
 
 	engines, err := settings.GetEngines()
 	if err != nil {
-		return fmt.Errorf("control_plane.engines: %w", err)
+		return fmt.Errorf("failed to read control_plane.engines: %w", err)
 	}
 
 	ca, err := controlplane.LoadCA(settings.CACertFile, settings.CAKeyFile)
@@ -107,7 +107,7 @@ func serveControlPlane(ctx context.Context, state *app) error {
 		}),
 		GitHubClientID: settings.GitHubClientID,
 		GitHub:         controlplane.GitHubURL,
-		Client:         &http.Client{Transport: upstream, Timeout: deviceFlowTimeout},
+		Client:         xhttp.NewClientOver(upstream, deviceFlowTimeout),
 		Upstream:       upstream,
 		Now:            time.Now,
 	})

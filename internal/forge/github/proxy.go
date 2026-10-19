@@ -31,7 +31,7 @@ type NewForgeProxyTransportParams struct {
 }
 
 // NewForgeProxyTransport sends requests for GitHub's hosts through the forge proxy and every
-// other request directly.
+// other request the way the environment says.
 func NewForgeProxyTransport(params NewForgeProxyTransportParams) (*http.Transport, error) {
 	proxy, err := url.Parse(params.ProxyURL)
 	if err != nil {
@@ -57,7 +57,7 @@ func NewForgeProxyTransport(params NewForgeProxyTransportParams) (*http.Transpor
 			return proxy, nil
 		}
 
-		return nil, nil
+		return http.ProxyFromEnvironment(r)
 	}
 	transport.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
 

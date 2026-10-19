@@ -79,7 +79,7 @@ func shimsFor(proxy config.ForgeProxy) []toolShim {
 	return shims
 }
 
-const shimTemplate =`#!/bin/sh
+const shimTemplate = `#!/bin/sh
 # Komrad's stand-in for {tool}, handing it a credential read for this call alone.
 self={self}
 komrad={komrad}

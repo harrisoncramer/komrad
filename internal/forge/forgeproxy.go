@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/fail"
 	"komrad/internal/store"
 	"komrad/lib/xfile"
 )
@@ -20,7 +21,7 @@ import (
 const githubHost = "github.com"
 
 // errNoViewer says a forge cannot say who its credential belongs to beyond a login.
-var errNoViewer = errors.New("the forge cannot say who its credential belongs to")
+var errNoViewer = fail.Internal("the forge cannot say who its credential belongs to")
 
 // Viewer is who a credential belongs to, and the name and email they commit as.
 type Viewer struct {

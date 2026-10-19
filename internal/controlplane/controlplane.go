@@ -12,6 +12,12 @@ import (
 // GitHubURL is where GitHub's device flow endpoints live.
 const GitHubURL = "https://github.com"
 
+// controlPlane is the forge proxy and the control plane's own endpoints.
+type controlPlane struct {
+	proxy   *forgeProxy
+	handler http.Handler
+}
+
 // NewParams is what the control plane serves engines and people with.
 type NewParams struct {
 	Logger *slog.Logger
@@ -32,14 +38,8 @@ type NewParams struct {
 	Now      func() time.Time
 }
 
-// ControlPlane is the forge proxy and the control plane's own endpoints.
-type ControlPlane struct {
-	proxy   *forgeProxy
-	handler http.Handler
-}
-
 // New starts the forge proxy's tunnels and builds the control plane's endpoints.
-func New(params NewParams) *ControlPlane {
+func New(params NewParams) *controlPlane {
 	proxy := newForgeProxy(newForgeProxyParams{
 		Logger:   params.Logger,
 		Engines:  params.Engines,
@@ -63,20 +63,20 @@ func New(params NewParams) *ControlPlane {
 		}),
 	}
 
-	return &ControlPlane{proxy: proxy, handler: endpoints.routes()}
+	return &controlPlane{proxy: proxy, handler: endpoints.routes()}
 }
 
 // ForgeProxy is the handler engines reach the forge proxy on.
-func (c *ControlPlane) ForgeProxy() http.Handler {
+func (c *controlPlane) ForgeProxy() http.Handler {
 	return c.proxy
 }
 
 // Handler serves the control plane's own endpoints.
-func (c *ControlPlane) Handler() http.Handler {
+func (c *controlPlane) Handler() http.Handler {
 	return c.handler
 }
 
 // Close stops the forge proxy's open tunnels.
-func (c *ControlPlane) Close() error {
+func (c *controlPlane) Close() error {
 	return c.proxy.Close()
 }
