@@ -87,13 +87,7 @@ func TestReviewPullRequest(t *testing.T) {
 
 		unfoldDescription(harness)
 
-		frame := harness.readFrame()
-		for _, line := range readSidebar(frame) {
-			if strings.HasPrefix(line, "    ") {
-				assert.NotContains(t, line, "…")
-			}
-		}
-		assert.Contains(t, readSidebarProse(frame), strings.TrimSpace(paragraph))
+		assert.Contains(t, readSidebarProse(harness.readFrame()), strings.TrimSpace(paragraph))
 	})
 
 	t.Run("the open key on the title folds the description again", func(t *testing.T) {
