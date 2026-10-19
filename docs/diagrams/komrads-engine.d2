@@ -23,9 +23,11 @@ aws: AWS {
 
     tailscaled: Tailscale {class: leaf}
     caddy: Caddy {class: leaf}
+    komrad: Komrad {class: leaf}
     forge: Forge proxy {class: leaf}
 
     tailscaled -> caddy: 443 only
+    caddy -> komrad
   }
 
   engine: Engine {
@@ -38,7 +40,7 @@ aws: AWS {
   rds: RDS Postgres {class: store}
 
   params -> control.tailscaled: node key
-  control.caddy -> engine.serve
+  control.komrad -> engine.serve
   control.forge <- engine.agents: git
   control.forge <- engine.serve: pull requests
   control.forge -> secrets: GitHub logins

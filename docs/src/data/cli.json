@@ -119,7 +119,7 @@
     "usage": "komrad control-plane serve",
     "aliases": [],
     "short": "Serve the forge proxy and the control plane's endpoints",
-    "long": "Serve the forge proxy and the control plane's endpoints.\n\nThe forge proxy listens on control_plane.forge_proxy_addr for the engines control_plane.engines\nnames, and sends their GitHub requests on with the GitHub login each engine's person authorized.\nThe control plane's endpoints listen on control_plane.addr, where a person signed in through\n[sign_in] and holding an engine's grant authorizes GitHub for it. It reads grants as\nowner_database_url.",
+    "long": "Serve the forge proxy and the control plane's endpoints.\n\nThe forge proxy listens on control_plane.forge_proxy_addr for the engines control_plane.engines\nnames, and sends their GitHub requests on with the GitHub login each engine's person authorized.\nThe control plane's endpoints listen on control_plane.addr, where a person signed in through\n[sign_in] and holding an engine's grant authorizes GitHub for it, and starts and stops it.\nStarting or stopping an engine runs komrad start or komrad stop against its file in the\nengines directory. Every other request under an engine's path goes on to the engine at the\naddress control_plane.engines gives it, and the control plane answers for an engine that is\nstopped or starting. It reads grants as owner_database_url.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -189,7 +189,7 @@
     "parent": "",
     "usage": "komrad engine",
     "aliases": [],
-    "short": "Set up the engines that share a database, and who may use them",
+    "short": "Set up the engines that share a database, who may use them, and whether they run",
     "long": "",
     "example": "",
     "flags": [],
@@ -212,7 +212,9 @@
     "children": [
       "engine/ensure",
       "engine/grant",
-      "engine/revoke"
+      "engine/revoke",
+      "engine/start",
+      "engine/stop"
     ]
   },
   {
@@ -279,6 +281,62 @@
     "aliases": [],
     "short": "Turn a person away from an engine",
     "long": "Turn the person with an email away from an engine, connecting as owner_database_url.\n\nThis removes the grant and the account their sign-in recorded, so letting them back in takes a\nfresh grant and a fresh sign-in.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "engine/start",
+    "path": "komrad engine start",
+    "parent": "engine",
+    "usage": "komrad engine start",
+    "aliases": [],
+    "short": "Start an engine behind a control plane",
+    "long": "Start an engine behind a control plane.\n\nThis asks the control plane at the engine's url to start the engine, signed in as you, and\nneeds your grant on it. It waits up to five minutes for the engine itself to answer.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "engine/stop",
+    "path": "komrad engine stop",
+    "parent": "engine",
+    "usage": "komrad engine stop",
+    "aliases": [],
+    "short": "Stop an engine behind a control plane",
+    "long": "Stop an engine behind a control plane.\n\nThis asks the control plane at the engine's url to stop the engine, signed in as you, and\nneeds your grant on it. It waits up to five minutes for the control plane to say the engine\nis stopped.",
     "example": "",
     "flags": [],
     "inherited": [
