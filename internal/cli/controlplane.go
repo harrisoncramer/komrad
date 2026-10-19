@@ -30,10 +30,9 @@ const controlPlaneLoginsDir = "control-plane"
 
 func controlPlaneCmd(state *app) *cobra.Command {
 	controlPlane := &cobra.Command{
-		Use:         "control-plane",
-		Annotations: map[string]string{needsEmbeddedPostgres: ""},
-		Short:       "Run the control plane in front of a team's engines",
-		Hidden:      true,
+		Use:    "control-plane",
+		Short:  "Run the control plane in front of a team's engines",
+		Hidden: true,
 	}
 
 	controlPlane.AddCommand(&cobra.Command{
