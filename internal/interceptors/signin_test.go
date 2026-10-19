@@ -20,9 +20,9 @@ import (
 
 const testIssuer = "https://issuer.example"
 
-type fakeVerifier map[string]*signedIn
+type fakeVerifier map[string]*SignedIn
 
-func (v fakeVerifier) VerifyToken(_ context.Context, raw string) (*signedIn, error) {
+func (v fakeVerifier) VerifyToken(_ context.Context, raw string) (*SignedIn, error) {
 	if raw == "provider-down" {
 		return nil, rpcerr.Unavailable(errProviderUnreachable)
 	}
@@ -37,8 +37,8 @@ func (v fakeVerifier) VerifyToken(_ context.Context, raw string) (*signedIn, err
 	return &copied, nil
 }
 
-func signedInAs(subject, email string, verified bool, expiry time.Time) *signedIn {
-	return &signedIn{
+func signedInAs(subject, email string, verified bool, expiry time.Time) *SignedIn {
+	return &SignedIn{
 		Caller: caller.Caller{
 			Email:   email,
 			Issuer:  testIssuer,

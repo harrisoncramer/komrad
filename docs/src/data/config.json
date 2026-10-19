@@ -2102,6 +2102,76 @@
       "sections": []
     },
     {
+      "path": "control_plane",
+      "description": "The process in front of a team's engines, which holds people's GitHub logins and runs the\nforge proxy. Only `komrad control-plane serve` reads it.",
+      "settings": [
+        {
+          "key": "addr",
+          "path": "control_plane.addr",
+          "type": "string",
+          "description": "The address the control plane's own endpoints listen on. It has to be a loopback host,\nsince a web server on the same machine carries the network's requests to it.",
+          "default": "\"127.0.0.1:8790\""
+        },
+        {
+          "key": "forge_proxy_addr",
+          "path": "control_plane.forge_proxy_addr",
+          "type": "string",
+          "description": "The address engines reach the forge proxy on, a loopback or private address. The forge\nproxy speaks plain HTTP to engines and checks each one's forge proxy credential.",
+          "default": "\"127.0.0.1:8789\""
+        },
+        {
+          "key": "ca_cert_file",
+          "path": "control_plane.ca_cert_file",
+          "type": "string",
+          "description": "The PEM file holding the CA certificate the forge proxy signs GitHub's names with. Each\nengine trusts it through forge_proxy.ca_file.",
+          "default": "\"\""
+        },
+        {
+          "key": "ca_key_file",
+          "path": "control_plane.ca_key_file",
+          "type": "string",
+          "description": "The PEM file holding the CA's private key.",
+          "default": "\"\""
+        },
+        {
+          "key": "github_client_id",
+          "path": "control_plane.github_client_id",
+          "type": "string",
+          "description": "The client id of the GitHub OAuth app people authorize GitHub through.",
+          "default": "\"\""
+        },
+        {
+          "key": "engines",
+          "path": "control_plane.engines",
+          "type": "array",
+          "description": "Each engine the forge proxy takes requests from, written as \"name=credential\", such as\n\"harry=6f1c...\". The engine's forge_proxy.url carries the same name and credential.",
+          "default": "[]"
+        }
+      ],
+      "sections": []
+    },
+    {
+      "path": "forge_proxy",
+      "description": "The forge proxy a remote engine sends its GitHub requests through.",
+      "settings": [
+        {
+          "key": "url",
+          "path": "forge_proxy.url",
+          "type": "string",
+          "description": "The forge proxy's address, with this engine's name and forge proxy credential as its user\nand password, such as http://harry:6f1c...@10.0.1.5:8789. Left empty, the engine reaches\nGitHub directly with its own credentials.",
+          "default": "\"\""
+        },
+        {
+          "key": "ca_file",
+          "path": "forge_proxy.ca_file",
+          "type": "string",
+          "description": "The PEM file holding the control plane's CA certificate, which the forge proxy's\ncertificate for GitHub's names is signed with.",
+          "default": "\"\""
+        }
+      ],
+      "sections": []
+    },
+    {
       "path": "connection",
       "description": "Which komrad this is, by its database, its address, its tmux socket and its cache.",
       "settings": [

@@ -120,6 +120,43 @@ func (q *Queries) GrantEngineAccess(ctx context.Context, arg GrantEngineAccessPa
 	return err
 }
 
+const hasEngineGrant = `-- name: HasEngineGrant :one
+SELECT
+    EXISTS (
+        SELECT
+        FROM
+            engine_access a
+            JOIN engines e ON e.id = a.engine_id
+        WHERE
+            e.name = $1
+            AND ((a.issuer = $2::text
+                    AND a.subject = $3::text)
+                OR ($4::boolean
+                    AND a.subject IS NULL
+                    AND a.email = LOWER($5))))::boolean AS granted
+`
+
+type HasEngineGrantParams struct {
+	Engine        string
+	Issuer        string
+	Subject       string
+	EmailVerified bool
+	Email         string
+}
+
+func (q *Queries) HasEngineGrant(ctx context.Context, arg HasEngineGrantParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasEngineGrant,
+		arg.Engine,
+		arg.Issuer,
+		arg.Subject,
+		arg.EmailVerified,
+		arg.Email,
+	)
+	var granted bool
+	err := row.Scan(&granted)
+	return granted, err
+}
+
 const isEngineAccessGranted = `-- name: IsEngineAccessGranted :one
 SELECT
     engine_access_granted($1, $2)::boolean AS granted

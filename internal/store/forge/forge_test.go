@@ -58,5 +58,24 @@ func TestNotFound(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	require.ErrorIs(t, st.SetVerifiedAt(ctx, missing, nil), store.ErrNotFound)
+	require.ErrorIs(t, st.SetLogin(ctx, missing, "sally", time.Now()), store.ErrNotFound)
 	require.ErrorIs(t, st.Delete(ctx, missing), store.ErrNotFound)
+}
+
+// TestSetLoginRecordsTheAccountAndWhenItWasSeen covers a connection's credential turning out to belong to someone new.
+func TestSetLoginRecordsTheAccountAndWhenItWasSeen(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	created, err := st.Create(ctx, github(time.Now().Add(-time.Hour)))
+	require.NoError(t, err)
+
+	at := time.Now().Truncate(time.Microsecond)
+	require.NoError(t, st.SetLogin(ctx, created.ID, "sally", at))
+
+	got, err := st.Get(ctx, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, "sally", got.Login)
+	require.NotNil(t, got.VerifiedAt)
+	require.True(t, at.Equal(*got.VerifiedAt))
 }

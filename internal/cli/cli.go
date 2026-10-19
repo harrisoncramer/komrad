@@ -136,6 +136,8 @@ the server, or call an endpoint from a script.`,
 			app.autoSetup = cfg.AutoSetup
 			app.usage = cfg.Usage
 			app.signIn = cfg.SignIn
+			app.forgeProxy = cfg.ForgeProxy
+			app.controlPlane = cfg.ControlPlane
 
 			app.tmux = tmux.NewClient(env.TmuxSocket)
 
