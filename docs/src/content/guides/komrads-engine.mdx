@@ -136,7 +136,7 @@ A stopped engine has no listener, so the control plane answers for it. It serves
 away. An email address can move to a different account, so the first time a granted person signs in with a verified
 email, the engine records the permanent id their provider uses for that account and matches on that id afterwards.
 
-A grant gives full access. A granted person can do everything the panel does, including open a shell as the account the agents run as. Each engine has one grant, its person's, which the control plane sets from `terraform.tfvars` and removes with the engine.
+A grant gives full access. A granted person can do everything the panel does, including open a shell as the account the agents run as. Each engine has one grant, for the person it belongs to. The control plane sets that grant from `terraform.tfvars` and removes it with the engine.
 
 The engine caches each grant for a minute, so a revoke takes effect within a minute, open terminal sessions included. If the engine can't reach the database to check a grant, it refuses the request.
 
@@ -210,6 +210,6 @@ Commits on an engine carry the person's name and email from their GitHub profile
 
 The forge proxy serves GitHub. A workflow on GitLab runs on a local engine.
 
-## Model access
+## Agent CLI logins
 
-Agents on an engine use the person's own Claude and Codex logins, which live in the komrad account's home.
+Agents on an engine use the person's own agent CLI logins, which live in the komrad account's home.

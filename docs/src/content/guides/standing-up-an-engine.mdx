@@ -77,14 +77,14 @@ The control plane already granted your engine to your email. Check that your tai
 url = "https://komrad.tail1234.ts.net/you"
 ```
 
-Name it `dev.toml`, say. Sign in and open the panel:
+The file's name is the engine's name, so `dev.toml` makes an engine named `dev`. Sign in and open the panel:
 
 ```sh
 komrad login --engine dev
 komrad open --engine dev
 ```
 
-The panel asks you to authorize GitHub the first time. In a shell on the engine, start each agent CLI once and sign it in. Then turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI in `~/.config/komrad/config.toml`, so new agents don't stop to ask whether to trust their worktree, and restart the server, as [restarting](#restarting) shows.
+The panel asks you to authorize GitHub the first time. In a shell on the engine, start each agent CLI once and sign it in. Then turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI in `~/.config/komrad/config.toml`, so new agents don't stop to ask whether to trust their worktree. Restart the server afterwards, as [restarting](#restarting) shows.
 
 ## Adding an engine
 

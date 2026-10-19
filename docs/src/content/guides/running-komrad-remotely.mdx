@@ -35,7 +35,7 @@ You open your engine with `--engine`, as you do on a laptop. A stopped engine is
 
 Every request to a remote engine has to say who sent it. Komrad keeps no passwords.
 
-People sign in through an OpenID Connect provider, Google or Okta for example. The control plane passes each request to the engine's server, which checks the token from that sign-in against the engine's access grants. Each engine has one grant, its person's. [Komrad's engine](../komrads-engine/#access-grants) covers these grants in more detail.
+People sign in through an OpenID Connect provider, Google or Okta for example. The control plane passes each request to the engine's server, which checks the token from that sign-in against the engine's access grants. Each engine has one grant, for the person it belongs to. [Komrad's engine](../komrads-engine/#access-grants) covers these grants in more detail.
 
 Each engine's server accepts people's requests only from the control plane. The control plane runs the proxy that terminates HTTPS. Komrad's engine uses Caddy, which gets and renews its own certificate. Any proxy that speaks HTTP/2 works.
 
@@ -44,7 +44,7 @@ Each engine's server accepts people's requests only from the control plane. The 
   uses Systems Manager for shells, so no machine opens a port for SSH.
 </Alert>
 
-The control plane can also sit on a private network instead of the internet. Komrad's sits on Tailscale, and Tailscale issues Caddy's certificate. Other private networks, Headscale included, need your own domain with a DNS challenge or a certificate authority every laptop trusts.
+The control plane can also sit on a private network instead of the internet. Komrad's control plane sits on Tailscale, and Tailscale issues Caddy's certificate. Other private networks, Headscale included, need your own domain with a DNS challenge or a certificate authority every laptop trusts.
 
 ## Forge credentials
 

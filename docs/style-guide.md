@@ -134,7 +134,7 @@ forge: The service a repository's pull requests live on, such as GitHub or GitLa
 
 pull request: A request to merge a branch on a forge. It includes GitLab merge requests. Not "PR" or "MR".
 
-forge proxy: The path git, `gh` and the server's pull request calls on a remote engine take to GitHub. The control plane adds the person's GitHub login.
+forge proxy: The part of the control plane that git, `gh` and the server's pull request calls on a remote engine go through to reach GitHub. It adds the person's GitHub login.
 
 ### Engines
 
