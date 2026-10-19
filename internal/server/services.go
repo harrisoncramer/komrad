@@ -191,7 +191,15 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		LoadConfig:  loadConfig,
 	})
 	tracer := history.NewTracer(gitClient)
+	builders := params.ForgeBuilders
+	if builders == nil {
+		builders, err = forges.ForEngine(params.ForgeProxy)
+		if err != nil {
+			return nil, err
+		}
+	}
 	pullRequestGroup := buildPullRequests(buildPullRequestsParams{
+		Builders:   builders,
 		Server:     params,
 		Stores:     st,
 		Git:        gitClient,
@@ -493,6 +501,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 }
 
 type buildPullRequestsParams struct {
+	Builders   map[string]forge.Builder
 	Server     NewServerParams
 	Stores     *stores
 	Queue      *jobs.Enqueuer
@@ -505,15 +514,11 @@ type buildPullRequestsParams struct {
 func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 	server, st := params.Server, params.Stores
 
-	builders := server.ForgeBuilders
-	if builders == nil {
-		builders = forges.Builders
-	}
 	tokenCachePath := forges.TokenCachePath(server.Env.CacheDir)
 	forgeService := forge.NewService(forge.NewServiceParams{
 		Connections: st.forges,
 		Credentials: forge.NewFileStore(server.Env.StateDir),
-		Builders:    builders,
+		Builders:    params.Builders,
 		Remotes:     params.Git,
 		LoadApp: func() (forge.App, error) {
 			cfg, err := params.LoadConfig()

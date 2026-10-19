@@ -15,23 +15,41 @@ var verifyQuery string
 
 // Verify asks GitHub who the credential belongs to.
 func (f *Forge) Verify(ctx context.Context) (string, error) {
+	viewer, err := f.ReadViewer(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	return viewer.Login, nil
+}
+
+// ReadViewer asks GitHub who the credential belongs to, with the name and email they commit as.
+func (f *Forge) ReadViewer(ctx context.Context) (*forge.Viewer, error) {
 	var data struct {
 		Viewer struct {
-			Login string `json:"login"`
+			Login      string `json:"login"`
+			Name       string `json:"name"`
+			Email      string `json:"email"`
+			DatabaseID int64  `json:"databaseId"`
 		} `json:"viewer"`
 	}
 	answer, err := f.client.Query(ctx, verifyQuery, nil, &data)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if err := failureOf(answer); err != nil {
-		return "", err
+		return nil, err
 	}
 	if data.Viewer.Login == "" {
-		return "", fmt.Errorf("github answered viewer with no login")
+		return nil, fmt.Errorf("github answered viewer with no login")
 	}
 
-	return data.Viewer.Login, nil
+	return &forge.Viewer{
+		Login: data.Viewer.Login,
+		Name:  data.Viewer.Name,
+		Email: data.Viewer.Email,
+		ID:    data.Viewer.DatabaseID,
+	}, nil
 }
 
 // VerifyInstallation is how many repositories the installation the credential was minted for

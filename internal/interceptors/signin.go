@@ -41,16 +41,16 @@ var refusalStatuses = map[connect.Code]int{
 	connect.CodeUnavailable:      http.StatusServiceUnavailable,
 }
 
-// signedIn is who a verified ID token names, and when it runs out.
-type signedIn struct {
+// SignedIn is who a verified ID token names, and when it runs out.
+type SignedIn struct {
 	Caller        caller.Caller
 	EmailVerified bool
 	Expiry        time.Time
 }
 
-// tokenVerifier checks an ID token's signature, issuer, audience and expiry.
-type tokenVerifier interface {
-	VerifyToken(ctx context.Context, raw string) (*signedIn, error)
+// TokenVerifier checks an ID token's signature, issuer, audience and expiry.
+type TokenVerifier interface {
+	VerifyToken(ctx context.Context, raw string) (*SignedIn, error)
 }
 
 // AccessChecker answers whether a signed-in caller has access, and records a first sign-in.
@@ -62,7 +62,7 @@ type AccessChecker interface {
 // NewSignInGuardParams is what the guard checks each request against.
 type NewSignInGuardParams struct {
 	Logger   *slog.Logger
-	Verifier tokenVerifier
+	Verifier TokenVerifier
 	Access   AccessChecker
 	Next     http.Handler
 }
@@ -82,7 +82,7 @@ func NewSignInGuard(params NewSignInGuardParams) http.Handler {
 
 type signInGuard struct {
 	logger   *slog.Logger
-	verifier tokenVerifier
+	verifier TokenVerifier
 	access   AccessChecker
 	next     http.Handler
 	errors   *connect.ErrorWriter
@@ -120,7 +120,7 @@ func (g *signInGuard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // signIn verifies the bearer token and lets its caller in when they have access.
-func (g *signInGuard) signIn(ctx context.Context, authorization string) (*signedIn, error) {
+func (g *signInGuard) signIn(ctx context.Context, authorization string) (*SignedIn, error) {
 	raw, found := strings.CutPrefix(authorization, "Bearer ")
 	if !found || raw == "" {
 		return nil, rpcerr.Unauthenticated(errNoToken)
@@ -144,7 +144,7 @@ func (g *signInGuard) signIn(ctx context.Context, authorization string) (*signed
 
 // admit asks the database whether the caller has access, claiming a grant for their verified
 // email the first time they sign in.
-func (g *signInGuard) admit(ctx context.Context, signedIn signedIn) error {
+func (g *signInGuard) admit(ctx context.Context, signedIn SignedIn) error {
 	from := signedIn.Caller
 
 	granted, err := g.access.IsAccessGranted(ctx, from.Issuer, from.Subject)
@@ -234,7 +234,7 @@ type heldRequest struct {
 	guard    *signInGuard
 	cancel   context.CancelCauseFunc
 	mu       sync.Mutex
-	signedIn signedIn
+	signedIn SignedIn
 }
 
 // hold re-checks the caller's access every minute and ends the request when the token runs out.
@@ -299,7 +299,7 @@ func (h *heldRequest) getExpiry() time.Time {
 	return h.signedIn.Expiry
 }
 
-func (h *heldRequest) getSignedIn() signedIn {
+func (h *heldRequest) getSignedIn() SignedIn {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

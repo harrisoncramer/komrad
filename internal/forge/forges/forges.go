@@ -51,3 +51,24 @@ func AppFrom(cfg config.GitHubApp, cachePath string) (forge.App, error) {
 
 	return forge.App{Cache: githubapp.Cache{Path: cachePath, Identity: identity}}, nil
 }
+
+// ForEngine makes the forge for each kind, sending GitHub's hosts through the forge proxy when
+// the engine names one.
+func ForEngine(proxy config.ForgeProxy) (map[string]forge.Builder, error) {
+	if !proxy.IsConfigured() {
+		return Builders, nil
+	}
+
+	transport, err := github.NewForgeProxyTransport(github.NewForgeProxyTransportParams{
+		ProxyURL: proxy.URL,
+		CAFile:   config.ExpandHome(proxy.CAFile),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]forge.Builder{
+		forge.KindGitHub: github.BuildThrough(transport),
+		forge.KindGitLab: gitlab.Build,
+	}, nil
+}

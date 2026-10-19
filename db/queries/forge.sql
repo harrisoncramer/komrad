@@ -84,6 +84,15 @@ SET
 WHERE
     id = @id;
 
+-- name: SetForgeConnectionLogin :execrows
+UPDATE
+    forge_connections
+SET
+    login = @login,
+    verified_at = @verified_at
+WHERE
+    id = @id;
+
 -- name: DeleteForgeConnection :execrows
 DELETE FROM forge_connections
 WHERE id = @id;

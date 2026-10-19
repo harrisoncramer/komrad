@@ -10,6 +10,7 @@ import (
 	"komrad/internal/fail"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ErrNotAnEmail is what changing access returns for anything but a bare email address.
@@ -146,6 +147,53 @@ func (s *AccessStore) IsAccessGranted(ctx context.Context, issuer, subject strin
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to read whether %s at %s has access: %w", subject, issuer, err)
+	}
+
+	return granted, nil
+}
+
+// GrantStore answers, as the database's owner, whether a person holds the grant on an engine.
+type GrantStore struct {
+	pool    *pgxpool.Pool
+	queries *models.Queries
+}
+
+// OpenGrantStore connects to the database at ownerURL as its owner.
+func OpenGrantStore(ctx context.Context, ownerURL string) (*GrantStore, error) {
+	pool, err := openMigratedOwner(ctx, ownerURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GrantStore{pool: pool, queries: models.New(pool)}, nil
+}
+
+// Close releases the connection pool.
+func (s *GrantStore) Close() {
+	s.pool.Close()
+}
+
+// HasGrantParams names the engine and the signed-in person asking for it.
+type HasGrantParams struct {
+	Engine        string
+	Email         string
+	EmailVerified bool
+	Issuer        string
+	Subject       string
+}
+
+// HasGrant reports whether the person's sign-in matches the engine's grant, by the account a
+// sign-in recorded or by a verified email on a grant nobody has signed in with yet.
+func (s *GrantStore) HasGrant(ctx context.Context, params HasGrantParams) (bool, error) {
+	granted, err := s.queries.HasEngineGrant(ctx, models.HasEngineGrantParams{
+		Engine:        params.Engine,
+		Issuer:        params.Issuer,
+		Subject:       params.Subject,
+		EmailVerified: params.EmailVerified,
+		Email:         params.Email,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to read whether %s holds the grant on engine %s: %w", params.Subject, params.Engine, err)
 	}
 
 	return granted, nil
