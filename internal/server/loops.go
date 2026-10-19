@@ -56,7 +56,7 @@ const (
 	CommentSyncLoop      = "review comment sync"
 	WorktreeSizeLoop     = "worktree sizes"
 	forgeRotationLoop    = "forge token rotation"
-	forgeProxyLoop       = "forge proxy connection"
+	ForgeProxyLoop       = "forge proxy connection"
 	embeddedPostgresLoop = "embedded postgres"
 )
 
@@ -153,7 +153,7 @@ func buildLoops(params buildLoopsParams) []*loop {
 
 	if params.CommitIdentityPath != "" {
 		loops = append(loops, newLoop(newLoopParams{
-			Name:     forgeProxyLoop,
+			Name:     ForgeProxyLoop,
 			Interval: forgeProxyInterval,
 			Floor:    pullRequestSyncFloor,
 			Run:      connectThroughForgeProxy(params.Services.pullRequests.forge, params.CommitIdentityPath),
