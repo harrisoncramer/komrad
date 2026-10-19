@@ -2,6 +2,7 @@
 package forges
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,8 +68,8 @@ func ForEngine(proxy config.ForgeProxy) (map[string]forge.Builder, error) {
 		return nil, err
 	}
 
-	return map[string]forge.Builder{
-		forge.KindGitHub: github.BuildThrough(transport),
-		forge.KindGitLab: gitlab.Build,
-	}, nil
+	proxied := maps.Clone(builders)
+	proxied[forge.KindGitHub] = github.BuildThrough(transport)
+
+	return proxied, nil
 }
