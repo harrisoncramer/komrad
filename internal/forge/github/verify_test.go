@@ -35,6 +35,26 @@ func TestVerify(t *testing.T) {
 	assert.Equal(t, 1, auth.invalidated)
 }
 
+// TestReadViewer covers the name, public email and account id a person commits as.
+func TestReadViewer(t *testing.T) {
+	t.Parallel()
+
+	f, _, _ := serve(t, map[string]answer{"Verify": {body: `{
+	"data": {
+		"viewer": {
+			"login": "harrisoncramer",
+			"name": "Harry Cramer",
+			"email": "harry@example.com",
+			"databaseId": 7
+		}
+	}
+}`}})
+
+	viewer, err := f.ReadViewer(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, forge.Viewer{Login: "harrisoncramer", Name: "Harry Cramer", Email: "harry@example.com", ID: 7}, *viewer)
+}
+
 // TestVerifyInstallation covers the one REST call: how many repositories an installation
 // token reaches, and a refusal reaching the Authenticator.
 func TestVerifyInstallation(t *testing.T) {
