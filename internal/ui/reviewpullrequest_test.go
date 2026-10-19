@@ -81,6 +81,21 @@ func TestReviewPullRequest(t *testing.T) {
 		assert.Less(t, strings.Index(sidebar, "More context."), strings.Index(sidebar, "greet.go"))
 	})
 
+	t.Run("a long paragraph wraps between words with none of them cut off", func(t *testing.T) {
+		paragraph := strings.Repeat("Anyone who gets into the engine can read that token. ", 4)
+		harness := openReviewAt(t, newDescribedReviewServer(t, paragraph), panelHarnessParams{height: 40})
+
+		unfoldDescription(harness)
+
+		frame := harness.readFrame()
+		for _, line := range readSidebar(frame) {
+			if strings.HasPrefix(line, "    ") {
+				assert.NotContains(t, line, "…")
+			}
+		}
+		assert.Contains(t, readSidebarProse(frame), strings.TrimSpace(paragraph))
+	})
+
 	t.Run("the open key on the title folds the description again", func(t *testing.T) {
 		harness := openReviewAt(t, newDescribedReviewServer(t, "Why it changed."), panelHarnessParams{height: 40})
 		unfoldDescription(harness)

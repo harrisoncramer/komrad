@@ -9,6 +9,13 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+const (
+	// sideMarkWidth is the columns the cursor's mark takes at the start of each row over the file tree.
+	sideMarkWidth = 2
+	// descriptionIndent sets a description's lines in under its title.
+	descriptionIndent = "  "
+)
+
 // sideView is the rows over the file tree cut to lines rows, windowed on the row the cursor is on.
 func (r reviewScreen) sideView(m *model, lines int) string {
 	sideRows := r.sideRows(m)
@@ -70,7 +77,7 @@ func (r reviewScreen) sideRowView(m *model, row sideRow, lit bool) string {
 		}
 		text = m.glyphs.Spell(mark) + " " + text
 	case sideDescriptionLine:
-		text = dimStyle().Render("  " + text)
+		text = dimStyle().Render(descriptionIndent + text)
 	case sideForge, sideNeed:
 	}
 
