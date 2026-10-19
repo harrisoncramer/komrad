@@ -46,7 +46,7 @@ func (c ControlPlane) GetEngines() (map[string]string, error) {
 		name, credential, ok := strings.Cut(entry, "=")
 		name, credential = strings.TrimSpace(name), strings.TrimSpace(credential)
 		if !ok || name == "" || credential == "" || strings.ContainsAny(name, ":/ \t") {
-			return nil, fmt.Errorf("an entry is not written as name=credential with a bare engine name")
+			return nil, errors.New("an entry is not written as name=credential with a bare engine name")
 		}
 		if _, seen := engines[name]; seen {
 			return nil, fmt.Errorf("%q is named a second time", name)
