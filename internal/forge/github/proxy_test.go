@@ -17,6 +17,8 @@ import (
 func TestNewForgeProxyTransportSendsOnlyGitHubsHostsThroughTheForgeProxy(t *testing.T) {
 	t.Parallel()
 
+	const proxyURL = "http://harry:s3cret@10.0.1.5:8789"
+
 	signed := httptest.NewTLSServer(http.NotFoundHandler())
 	t.Cleanup(signed.Close)
 
@@ -24,7 +26,7 @@ func TestNewForgeProxyTransportSendsOnlyGitHubsHostsThroughTheForgeProxy(t *test
 	require.NoError(t, os.WriteFile(caFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: signed.Certificate().Raw}), 0o600))
 
 	transport, err := NewForgeProxyTransport(NewForgeProxyTransportParams{
-		ProxyURL: "http://harry:s3cret@10.0.1.5:8789",
+		ProxyURL: proxyURL,
 		CAFile:   caFile,
 	})
 	require.NoError(t, err)
@@ -34,12 +36,33 @@ func TestNewForgeProxyTransportSendsOnlyGitHubsHostsThroughTheForgeProxy(t *test
 		url       string
 		wantProxy string
 	}{
-		{name: "the api", url: "https://api.github.com/user", wantProxy: "http://harry:s3cret@10.0.1.5:8789"},
-		{name: "git on github.com, whatever its case", url: "https://GitHub.com/harrisoncramer/komrad.git/info/refs", wantProxy: "http://harry:s3cret@10.0.1.5:8789"},
-		{name: "raw files", url: "https://raw.githubusercontent.com/harrisoncramer/komrad/main/README.md", wantProxy: "http://harry:s3cret@10.0.1.5:8789"},
-		{name: "a signed download GitHub redirects to", url: "https://objects.githubusercontent.com/release"},
-		{name: "a host that is not GitHub's", url: "https://gitlab.com/api/v4/user"},
-		{name: "GitHub over plain http", url: "http://github.com/user"},
+		{
+			name: "a signed download GitHub redirects to",
+			url:  "https://objects.githubusercontent.com/release",
+		},
+		{
+			name: "a host that is not GitHub's",
+			url:  "https://gitlab.com/api/v4/user",
+		},
+		{
+			name: "GitHub over plain http",
+			url:  "http://github.com/user",
+		},
+		{
+			name:      "the api",
+			url:       "https://api.github.com/user",
+			wantProxy: proxyURL,
+		},
+		{
+			name:      "git on github.com, whatever its case",
+			url:       "https://GitHub.com/harrisoncramer/komrad.git/info/refs",
+			wantProxy: proxyURL,
+		},
+		{
+			name:      "raw files",
+			url:       "https://raw.githubusercontent.com/harrisoncramer/komrad/main/README.md",
+			wantProxy: proxyURL,
+		},
 	}
 
 	for _, tt := range tests {
