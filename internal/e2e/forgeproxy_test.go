@@ -5,8 +5,9 @@ package e2e
 import (
 	"log/slog"
 	"net/http/httptest"
+	"os"
 	"os/exec"
-	"runtime"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,7 +19,9 @@ import (
 	"komrad/internal/interceptors"
 	"komrad/internal/komradtest"
 	"komrad/internal/store"
+	agentv1 "komrad/proto/gen/agent/v1"
 	terminalv1 "komrad/proto/gen/terminal/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -60,11 +63,18 @@ func TestIntegrationForgeProxySendsEachEngineToGitHubAsItsOwnPerson(t *testing.T
 		require.NoError(t, served.Close())
 	})
 
+	// komrad stands in for the engine's binary, which gh's stand-in never runs on an engine with a forge proxy.
+	komrad := filepath.Join(t.TempDir(), "komrad")
+	require.NoError(t, os.WriteFile(komrad, []byte("#!/bin/sh\nexit 1\n"), 0o700))
+
 	for _, engine := range []string{"harry", "ada"} {
-		instance := komradtest.Start(t, komradtest.Params{ForgeProxy: config.ForgeProxy{
-			URL:    "http://" + engine + ":" + engines[engine] + "@" + proxy.Listener.Addr().String(),
-			CAFile: ca.CertFile,
-		}})
+		instance := komradtest.Start(t, komradtest.Params{
+			ForgeProxy: config.ForgeProxy{
+				URL:    "http://" + engine + ":" + engines[engine] + "@" + proxy.Listener.Addr().String(),
+				CAFile: ca.CertFile,
+			},
+			HookCommand: komrad,
+		})
 
 		t.Run(engine+"'s server connects github.com as "+engine, func(t *testing.T) {
 			instance.ConnectThroughForgeProxy()
@@ -77,15 +87,25 @@ func TestIntegrationForgeProxySendsEachEngineToGitHubAsItsOwnPerson(t *testing.T
 		})
 
 		t.Run("gh in a shell on "+engine+"'s engine reaches GitHub as "+engine, func(t *testing.T) {
-			if runtime.GOOS != "linux" {
-				t.Skip("gh trusts the control plane's CA through SSL_CERT_FILE, which Go reads on Linux only")
-			}
 			_, err := exec.LookPath("gh")
 			require.NoError(t, err)
 
-			stream, err := openShell(t, instance, t.TempDir())
+			workflow, err := instance.Workflows.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+				Name: "backend",
+				Cwd:  t.TempDir(),
+			}))
 			require.NoError(t, err)
-			require.NoError(t, stream.Send(&terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Input{Input: []byte("gh api user --jq .login; exit\n")}}))
+
+			created, err := instance.Agents.CreateAgent(t.Context(), connect.NewRequest(&agentv1.CreateAgentRequest{
+				Prompt:     "fix the flaky login test",
+				Title:      "login",
+				WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+			}))
+			require.NoError(t, err)
+
+			stream, err := openShell(t, instance, created.Msg.GetAgent().GetCwd())
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&terminalv1.ShellRequest{Message: &terminalv1.ShellRequest_Input{Input: []byte("unset GH_TOKEN GITHUB_TOKEN; gh api user --jq .login | cat; exit\n")}}))
 
 			var output []byte
 			for {
