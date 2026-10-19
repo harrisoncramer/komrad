@@ -3,7 +3,6 @@ package controlplane
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -131,7 +130,7 @@ func writeMessage(w http.ResponseWriter, status int, message string) {
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	encoded, err := json.Marshal(body)
 	if err != nil {
-		http.Error(w, errors.Join(errors.New("failed to encode the answer"), err).Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to encode the answer: "+err.Error(), http.StatusInternalServerError)
 
 		return
 	}
