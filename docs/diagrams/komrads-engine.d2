@@ -15,57 +15,44 @@ aws: AWS {
   class: group
 
   ssm: Systems Manager {class: leaf}
-  bucket: State bucket {class: store}
-  secrets: Secrets Manager {class: store}
   params: Parameter Store {class: store}
+  secrets: Secrets Manager {class: store}
 
-  ec2: EC2 instance {
+  control: Control plane {
     class: group
 
     tailscaled: Tailscale {class: leaf}
-    firewall: Host firewall {class: leaf}
     caddy: Caddy {class: leaf}
-    agent: SSM agent {class: leaf}
-    creds: Credentials unit {class: leaf}
-    key: GitHub key unit {class: leaf}
+    forge: Forge proxy {class: leaf}
 
-    serve: Server {
-      class: group
-      public: Public listener {class: leaf}
-      loopback: Loopback listener {class: leaf}
-    }
+    tailscaled -> caddy: 443 only
+  }
 
+  engine: Engine {
+    class: group
+    serve: Server {class: leaf}
     agents: Agents {class: leaf}
-    helper: Credential helper {class: leaf}
-    volume: Data volume {class: store}
-
-    tailscaled -> firewall
-    firewall -> caddy: 443 only
-    caddy -> serve.public: loopback
-    agents -> serve.loopback: MCP
-    agents -> volume
-    agents -> helper: token
-    key -> helper: App key
-    agent -> serve: restart
+    serve <- agents: MCP
   }
 
   rds: RDS Postgres {class: store}
 
-  ssm -> ec2.agent
-  ec2.agent -> bucket: binary
-  ec2.creds -> secrets: owner password
-  ec2.creds -> rds: migrate
-  ec2.key -> secrets: App key
-  ec2.serve -> rds: grants and records
-  ec2.tailscaled -> params: node key
+  params -> control.tailscaled: node key
+  control.caddy -> engine.serve
+  control.forge <- engine.agents: git
+  control.forge <- engine.serve: pull requests
+  control.forge -> secrets: GitHub logins
+  engine.serve -> rds
+  engine.serve -> secrets: engine login
+  control -> rds: migrations
+  ssm -> control: shells and deploys
+  ssm -> engine: shells and deploys
 }
 
 github: GitHub {class: leaf}
 
 laptop.panel -> idp: sign in
-laptop.panel -> aws.ec2.tailscaled: tailnet
-laptop.cli -> aws.ssm: session
-actions -> aws.ssm: deploy
-actions -> aws.bucket: upload
-aws.ec2.agents -> github: push
-aws.ec2.serve -> github: pull requests
+laptop.panel -> aws.control.tailscaled: tailnet
+laptop.cli -> aws.ssm
+actions -> aws.ssm
+aws.control.forge -> github: GitHub login

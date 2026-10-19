@@ -11,7 +11,7 @@ import Setting from "../../components/Setting.astro";
 
 [Agents](../agents/) on your laptop stop when your laptop sleeps. Komrad can run them on a remote machine instead. The panel stays on your laptop and looks the same. The engine moves: the server, the database, and every agent's terminal.
 
-Komrad's own repository works this way.
+Komrad's own team works this way. Each person has a remote engine of their own.
 
 ## Connecting
 
@@ -19,29 +19,33 @@ An engine is a small config file on your laptop in `~/.config/komrad/engines/`, 
 
 ```toml
 [connection]
-url = "https://komrad.tail1234.ts.net"
+url = "https://komrad.tail1234.ts.net/you"
 ```
 
-An engine on a tailnet needs Tailscale running on your laptop with DNS on.
+Every engine sits behind the same control plane, so each address shares a name and ends in the engine's path. An engine on a tailnet needs Tailscale running on your laptop with DNS on.
 
 ## Signing in
 
-The engine lets in only people its owner granted access. Sign in once per engine, with the email the owner granted:
+The engine lets in only people an operator granted access. Sign in once per engine, with the email the operator granted:
 
 ```sh
-komrad login --engine remote
+komrad login --engine dev
 ```
 
 A browser opens at the engine's identity provider. You can also open the panel and press enter at its sign-in screen. The panel stays signed in after that. It asks again after a long time away, or after your access ends. [Komrad's engine](../komrads-engine/#access) covers how the sign-in works and what the engine checks.
 
 ## Switching engines
 
-<Command path="open" /> opens your laptop's panel. <Command path="open" args="--engine remote" /> opens the engine named
-`remote`, and `--engine local` names your laptop.
+<Command path="open" /> opens your laptop's panel. <Command path="open" args="--engine dev" /> opens the engine named
+`dev`, and `--engine local` names your laptop.
 
 Every panel shows which engine it is on at the top of the sidebar, with the release its server runs, or its commit when it runs no release. The dot beside it is green while the engine's heartbeat arrives, and red once it stops. The message it flashes beside the engine says why, and <Key name="messages.open" /> opens the whole message with what to do.
 
 To move to another engine, close the panel and run <Command path="open" args="--engine" /> with that engine's name.
+
+## GitHub on your engine
+
+Your engine's agents act as you on GitHub, with the same access you have on your laptop. The first time they need GitHub, the panel shows a code and a GitHub address. Enter the code there once.
 
 ## Attaching to an agent
 
@@ -53,7 +57,7 @@ One exception is a window someone fixed at a size on the engine itself, for exam
 
 ## Editing files on the engine
 
-Every agent's files live on the engine, so your editor opens them there. <Command path="login" /> writes an SSH host for the engine in `~/.ssh/komrad/`, named `komrad-` and the engine's name, such as `komrad-remote`. SSH to that host travels through the engine's API on your sign-in, so the engine needs no SSH port.
+Every agent's files live on the engine, so your editor opens them there. <Command path="login" /> writes an SSH host for the engine in `~/.ssh/komrad/`, named `komrad-` and the engine's name, such as `komrad-dev`. SSH to that host travels through the engine's API on your sign-in, so the engine needs no SSH port.
 
 The edit keys use that host. <Key name="menu.edit" /> on an agent and <Key name="review.edit_file" /> in a review open the file with your `$EDITOR`. A terminal editor such as `nvim` runs on the engine, in the pane beside the stage, so the engine needs that editor installed. VS Code, Cursor and Zed open a window on your laptop that edits the engine's files over the same host, once your `~/.ssh/config` includes it as below. Sublime Text and JetBrains editors cannot open files on another machine, so the edit keys refuse them.
 
@@ -63,20 +67,24 @@ To reach the engine from any other program, such as `ssh` or your editor's remot
 Include ~/.ssh/komrad/*.conf
 ```
 
-Then `ssh komrad-remote` opens a shell on the engine. <Command path="login" /> prints the line when your `~/.ssh/config` lacks it.
+Then `ssh komrad-dev` opens a shell on your engine. <Command path="login" /> prints the line when your `~/.ssh/config` lacks it.
 
 ## Agent CLI logins
 
-Agents on the engine run a CLI that has to be logged in. Do that once on the engine: start the CLI and log in. The login lives on the engine's data disk.
+Agents on your engine run a CLI that has to be logged in. Do that once in a shell on the engine: start the CLI and log in. The login lives on the engine's data disk.
 
 Each task also works in a fresh worktree, and the CLI asks whether to trust every directory it has not seen. Turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI the engine runs, so komrad answers that question before the agent starts. Without it, every new agent sits waiting at that question.
 
+## Dotfiles
+
+Your engine keeps your home, so clone and install your dotfiles there from a shell, as you would on a new laptop. Git reaches GitHub as you. A `.gitconfig` in your dotfiles must leave git's forge proxy and credential helper settings alone, or git stops reaching GitHub. The same `.gitconfig` must not rewrite GitHub URLs to SSH. Clone repositories with their https URLs. Install your editor through your global mise config, so the edit keys find it.
+
 ## Project tools
 
-The engine carries mise and no languages of its own. A repository pins the ones it needs, such as Go and Node, in a `mise.toml` or `.tool-versions`, and its workflow names `mise install` as its [setup command](../workflows/#worktrees). The first task to ask for a version waits while it downloads, which can take a minute or two. Later tasks reuse the same copy. A repository with neither file gets no languages.
+The engine carries mise and no languages of its own. A repository pins the ones it needs, such as Go and Node, in a `mise.toml` or `.tool-versions`, and its workflow names `mise install` as its [setup command](../workflows/#worktrees). The first task to ask for a version waits while it downloads, which can take a minute or two. Later tasks on your engine reuse the same copy. A repository with neither file gets no languages.
 
 ## Stopped engines
 
-An engine costs money every hour, so it may be switched off when nobody is using it. Switching off keeps the disk, the database and the address. Every agent stops, and you resume the ones you want once it is back.
+An engine costs money every hour, so you can stop it when nobody is using it. You start and stop your engine from the panel, and every engine also stops each night. Your engine is offline while stopped. Stopping keeps the disk, the database and the address. Every agent stops, and you resume the ones you want once it is back. Your schedules don't run while it is stopped.
 
 This guide covers using an engine. [Running komrad remotely](../running-komrad-remotely/) covers building one.

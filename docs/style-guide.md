@@ -54,7 +54,7 @@ Use one term for each idea, every time. A reader who meets two words assumes two
 
 ### People and programs
 
-person: The one human running komrad. Not "the user", "you", or "a human".
+person: A human using komrad. On a team, each person has an engine of their own. Not "the user", "you", or "a human".
 
 agent: One CLI conversation that komrad runs in a pane and tracks.
 
@@ -133,6 +133,16 @@ sequence: A git operation stopped part way, such as a rebase or merge with confl
 forge: The service a repository's pull requests live on, such as GitHub or GitLab.
 
 pull request: A request to merge a branch on a forge. It includes GitLab merge requests. Not "PR" or "MR".
+
+forge proxy: The part of the control plane that git, `gh` and the server's pull request calls on a remote engine go through to reach GitHub. It adds the person's GitHub login.
+
+### Engines
+
+engine: A komrad server, its records and the machine its agents run on, either a laptop or a remote machine.
+
+operator: A person who runs komrad's remote infrastructure. Operators grant access, add engines and deploy. Not "the engine's owner".
+
+control plane: The machine in front of every remote engine. It routes each request to its engine, holds people's GitHub logins, and starts and stops engines. No engine runs on it.
 
 ### Reviews
 

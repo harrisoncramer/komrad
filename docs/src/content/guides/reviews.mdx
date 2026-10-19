@@ -174,7 +174,7 @@ The database holds only which forge and which account. The token itself sits in 
 
 Agents never hold a credential of their own, and no token is ever typed into a pane, so none can leak into a transcript. Komrad hands each tool the credential when the tool runs.
 
-For GitHub, `gh` gets a token from the App when <Setting path="github_app" label="[github_app]" /> is set. Otherwise it uses the login `gh` already has on the machine. Git reaches GitHub through <Command path="github credential" />, which the engine sets up for you. On your laptop, git uses whatever credential you already have.
+On your laptop, `gh` gets a token from the App when <Setting path="github_app" label="[github_app]" /> is set, and otherwise uses the login `gh` already has. Git uses whatever credential you already have. On a remote engine, git and `gh` hold a placeholder, and the control plane adds the person's GitHub login, as [komrad's engine](../komrads-engine/#forge-credentials) describes.
 
 For GitLab, `glab` gets the token of the connection for the checkout's host, in a config that names that host alone, so the token is never sent anywhere else. With no connection for that host, it uses the login `glab` already has. Git reaches GitLab through <Command path="gitlab credential" /> once you add a line for each host.
 

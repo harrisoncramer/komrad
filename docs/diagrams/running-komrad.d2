@@ -9,29 +9,29 @@ laptop: Laptop {
 
 idp: Identity provider {class: leaf}
 
-host: Engine host {
+control: Control plane {
   class: group
 
   proxy: HTTPS proxy {class: leaf}
+  forge: Forge proxy {class: leaf}
+}
+
+engine: Engine {
+  class: group
+
   serve: Server {class: leaf}
+  agents: Agents {class: leaf}
 
-  tmux: Tmux {
-    class: group
-    agents: Agents {class: leaf}
-  }
-
-  volume: Worktrees {class: store}
-
-  proxy -> serve: loopback
-  tmux.agents -> serve: MCP
-  tmux.agents -> volume
+  serve <- agents: MCP
 }
 
 postgres: Postgres {class: store}
-forge: Forge {class: leaf}
+github: Forge {class: leaf}
 
 laptop.panel -> idp: sign in
-laptop.panel -> host.proxy: HTTPS
-host.serve -> postgres
-host.serve -> forge: pull requests
-host.tmux.agents -> forge: git push
+laptop.panel -> control.proxy: HTTPS
+control.proxy -> engine.serve
+engine.serve -> postgres
+control.forge <- engine.agents: git
+control.forge <- engine.serve: pull requests
+control.forge -> github: GitHub login
