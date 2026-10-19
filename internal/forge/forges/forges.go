@@ -13,8 +13,8 @@ import (
 	githubapp "komrad/internal/github/app"
 )
 
-// Builders makes the forge for each kind this build knows.
-var Builders = map[string]forge.Builder{
+// builders makes the forge for each kind this build knows.
+var builders = map[string]forge.Builder{
 	forge.KindGitHub: github.Build,
 	forge.KindGitLab: gitlab.Build,
 }
@@ -56,7 +56,7 @@ func AppFrom(cfg config.GitHubApp, cachePath string) (forge.App, error) {
 // the engine names one.
 func ForEngine(proxy config.ForgeProxy) (map[string]forge.Builder, error) {
 	if !proxy.IsConfigured() {
-		return Builders, nil
+		return builders, nil
 	}
 
 	transport, err := github.NewForgeProxyTransport(github.NewForgeProxyTransportParams{

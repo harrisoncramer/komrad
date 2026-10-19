@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"komrad/internal/interceptors"
+	"komrad/internal/logging"
 	"komrad/internal/store"
 
 	"connectrpc.com/connect"
@@ -16,7 +17,7 @@ import (
 
 // grantChecker answers whether a signed-in person holds the grant on an engine.
 type grantChecker interface {
-	HasGrant(ctx context.Context, params store.HasGrantParams) (bool, error)
+	IsGranted(ctx context.Context, params store.IsGrantedParams) (bool, error)
 }
 
 // handler serves the control plane's own endpoints.
@@ -44,7 +45,8 @@ func (h *handler) startDevice(w http.ResponseWriter, r *http.Request) {
 
 	code, err := h.device.start(r.Context(), engine)
 	if err != nil {
-		h.logger.Warn("failed to start GitHub's device flow", "engine", engine, "error", err)
+		h.logger.LogAttrs(r.Context(), slog.LevelWarn, "failed to start GitHub's device flow",
+			append(logging.Err(err), slog.String(logging.EngineName, engine))...)
 		writeMessage(w, http.StatusBadGateway, "the control plane failed to get a code from GitHub")
 
 		return
@@ -61,7 +63,8 @@ func (h *handler) pollDevice(w http.ResponseWriter, r *http.Request) {
 
 	poll, err := h.device.poll(r.Context(), engine)
 	if err != nil {
-		h.logger.Warn("failed to poll GitHub's device flow", "engine", engine, "error", err)
+		h.logger.LogAttrs(r.Context(), slog.LevelWarn, "failed to poll GitHub's device flow",
+			append(logging.Err(err), slog.String(logging.EngineName, engine))...)
 		writeMessage(w, http.StatusBadGateway, "the control plane failed to ask GitHub whether the code was entered")
 
 		return
@@ -98,7 +101,7 @@ func (h *handler) admit(w http.ResponseWriter, r *http.Request) (string, bool) {
 		return "", false
 	}
 
-	granted, err := h.grants.HasGrant(r.Context(), store.HasGrantParams{
+	granted, err := h.grants.IsGranted(r.Context(), store.IsGrantedParams{
 		Engine:        engine,
 		Email:         signedIn.Caller.Email,
 		EmailVerified: signedIn.EmailVerified,
@@ -106,7 +109,8 @@ func (h *handler) admit(w http.ResponseWriter, r *http.Request) (string, bool) {
 		Subject:       signedIn.Caller.Subject,
 	})
 	if err != nil {
-		h.logger.Error("failed to read a grant", "engine", engine, "error", err)
+		h.logger.LogAttrs(r.Context(), slog.LevelError, "failed to read a grant",
+			append(logging.Err(err), slog.String(logging.EngineName, engine))...)
 		writeMessage(w, http.StatusServiceUnavailable, "the control plane failed to read whether this account holds the engine's grant")
 
 		return "", false
@@ -134,5 +138,5 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_, _ = w.Write(encoded)
+	_, _ = w.Write(encoded) //nolint:errcheck // the caller hears a cut answer as a failed request
 }

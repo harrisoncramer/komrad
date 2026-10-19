@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"komrad/internal/controlplane"
+	"komrad/lib/clock"
 	"komrad/lib/xhttp"
 
 	"github.com/spf13/cobra"
@@ -59,10 +60,9 @@ func authorizeGitHub(ctx context.Context, state *app, out io.Writer) error {
 			interval = defaultPollInterval
 		}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Duration(interval) * time.Second):
+		clock.Sleep(ctx, time.Duration(interval)*time.Second)
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 
 		var poll controlplane.DevicePoll

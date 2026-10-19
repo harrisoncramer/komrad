@@ -151,29 +151,29 @@ func (s *AccessStore) IsAccessGranted(ctx context.Context, issuer, subject strin
 	return granted, nil
 }
 
-// GrantStore answers, as the database's owner, whether a person holds the grant on an engine.
-type GrantStore struct {
+// grantStore answers, as the database's owner, whether a person holds the grant on an engine.
+type grantStore struct {
 	pool    *pgxpool.Pool
 	queries *models.Queries
 }
 
 // OpenGrantStore connects to the database at ownerURL as its owner.
-func OpenGrantStore(ctx context.Context, ownerURL string) (*GrantStore, error) {
+func OpenGrantStore(ctx context.Context, ownerURL string) (*grantStore, error) {
 	pool, err := openMigratedOwner(ctx, ownerURL)
 	if err != nil {
 		return nil, err
 	}
 
-	return &GrantStore{pool: pool, queries: models.New(pool)}, nil
+	return &grantStore{pool: pool, queries: models.New(pool)}, nil
 }
 
 // Close releases the connection pool.
-func (s *GrantStore) Close() {
+func (s *grantStore) Close() {
 	s.pool.Close()
 }
 
-// HasGrantParams names the engine and the signed-in person asking for it.
-type HasGrantParams struct {
+// IsGrantedParams names the engine and the signed-in person asking for it.
+type IsGrantedParams struct {
 	Engine        string
 	Email         string
 	EmailVerified bool
@@ -181,10 +181,10 @@ type HasGrantParams struct {
 	Subject       string
 }
 
-// HasGrant reports whether the person's sign-in matches the engine's grant, by the account a
+// IsGranted reports whether the person's sign-in matches the engine's grant, by the account a
 // sign-in recorded or by a verified email on a grant nobody has signed in with yet.
-func (s *GrantStore) HasGrant(ctx context.Context, params HasGrantParams) (bool, error) {
-	granted, err := s.queries.HasEngineGrant(ctx, models.HasEngineGrantParams{
+func (s *grantStore) IsGranted(ctx context.Context, params IsGrantedParams) (bool, error) {
+	granted, err := s.queries.IsEngineGranted(ctx, models.IsEngineGrantedParams{
 		Engine:        params.Engine,
 		Issuer:        params.Issuer,
 		Subject:       params.Subject,

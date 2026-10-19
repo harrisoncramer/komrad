@@ -61,6 +61,7 @@ const (
 	LoopWoken              = "komrad.loop.woken"
 	RepositoryURL          = "komrad.repository.url"
 	ForgeHost              = "komrad.forge.host"
+	EngineName             = "komrad.engine.name"
 	RowsInserted           = "komrad.rows.inserted"
 	RowsUpdated            = "komrad.rows.updated"
 	Observations           = "komrad.pull_request.observations"

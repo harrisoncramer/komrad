@@ -20,6 +20,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/forge/github"
+	"komrad/internal/logging"
 )
 
 // gitHost is the host git reaches GitHub on, which takes a login as basic auth.
@@ -41,6 +42,17 @@ type loginStore interface {
 	Set(ctx context.Context, engine string, login forge.Secret) error
 }
 
+// forgeProxy takes CONNECT requests from engines for GitHub's hosts and sends what comes
+// through each tunnel to GitHub with the engine's GitHub login.
+type forgeProxy struct {
+	logger    *slog.Logger
+	engines   map[string][sha256.Size]byte
+	tlsConfig *tls.Config
+	tunnels   *tunnelListener
+	inner     *http.Server
+	served    chan error
+}
+
 // newForgeProxyParams is what the forge proxy checks engines against and sends their requests on.
 type newForgeProxyParams struct {
 	Logger *slog.Logger
@@ -51,17 +63,6 @@ type newForgeProxyParams struct {
 	// Upstream sends requests to GitHub.
 	Upstream http.RoundTripper
 	Now      func() time.Time
-}
-
-// forgeProxy takes CONNECT requests from engines for GitHub's hosts and sends what comes
-// through each tunnel to GitHub with the engine's GitHub login.
-type forgeProxy struct {
-	logger    *slog.Logger
-	engines   map[string][sha256.Size]byte
-	tlsConfig *tls.Config
-	tunnels   *tunnelListener
-	inner     *http.Server
-	served    chan error
 }
 
 // newForgeProxy starts serving the tunnels it accepts, until Close.
@@ -103,7 +104,12 @@ func newForgeProxy(params newForgeProxyParams) *forgeProxy {
 		IdleTimeout:       idleTimeout,
 		ErrorLog:          slog.NewLogLogger(params.Logger.Handler(), slog.LevelWarn),
 		ConnContext: func(ctx context.Context, conn net.Conn) context.Context {
-			return withTunnel(ctx, conn.(*tunnelConn).tunnel)
+			terminated, ok := conn.(*tunnelConn)
+			if !ok {
+				return ctx
+			}
+
+			return withTunnel(ctx, terminated.tunnel)
 		},
 	}
 
@@ -138,19 +144,20 @@ func (p *forgeProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	conn, buffered, err := http.NewResponseController(w).Hijack()
 	if err != nil {
-		p.logger.Warn("failed to take over a forge proxy connection", "engine", engine, "error", err)
+		p.logger.LogAttrs(r.Context(), slog.LevelWarn, "failed to take over a forge proxy connection",
+			append(logging.Err(err), slog.String(logging.EngineName, engine))...)
 
 		return
 	}
 
 	if err := conn.SetDeadline(time.Time{}); err != nil {
-		_ = conn.Close()
+		_ = conn.Close() //nolint:errcheck // the engine hears the tunnel close either way
 
 		return
 	}
 
 	if _, err := conn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
-		_ = conn.Close()
+		_ = conn.Close() //nolint:errcheck // the engine hears the tunnel close either way
 
 		return
 	}
@@ -165,14 +172,15 @@ func (p *forgeProxy) serveTunnel(ctx context.Context, opened tunnel, conn net.Co
 
 	terminated := tls.Server(conn, p.tlsConfig)
 	if err := terminated.HandshakeContext(ctx); err != nil {
-		p.logger.Debug("a forge proxy tunnel failed its handshake", "engine", opened.engine, "host", opened.host, "error", err)
-		_ = terminated.Close()
+		p.logger.LogAttrs(ctx, slog.LevelDebug, "a forge proxy tunnel failed its handshake",
+			append(logging.Err(err), slog.String(logging.EngineName, opened.engine), slog.String(logging.ForgeHost, opened.host))...)
+		_ = terminated.Close() //nolint:errcheck // the engine hears the tunnel close either way
 
 		return
 	}
 
 	if !p.tunnels.push(&tunnelConn{Conn: terminated, tunnel: opened}) {
-		_ = terminated.Close()
+		_ = terminated.Close() //nolint:errcheck // the engine hears the tunnel close either way
 	}
 }
 
@@ -204,8 +212,7 @@ func (p *forgeProxy) authenticate(header string) (string, bool) {
 
 // Close stops serving tunnels and closes those open.
 func (p *forgeProxy) Close() error {
-	_ = p.tunnels.Close()
-	err := p.inner.Close()
+	err := errors.Join(p.tunnels.Close(), p.inner.Close())
 	if served := <-p.served; !errors.Is(served, http.ErrServerClosed) && !errors.Is(served, net.ErrClosed) {
 		return errors.Join(err, served)
 	}
@@ -241,7 +248,8 @@ func (h *loginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		h.logger.Error("failed to read an engine's GitHub login", "engine", opened.engine, "error", err)
+		h.logger.LogAttrs(r.Context(), slog.LevelError, "failed to read an engine's GitHub login",
+			append(logging.Err(err), slog.String(logging.EngineName, opened.engine))...)
 		http.Error(w, "the forge proxy failed to read this engine's GitHub login", http.StatusBadGateway)
 
 		return
@@ -263,7 +271,10 @@ func withTunnel(ctx context.Context, opened tunnel) context.Context {
 }
 
 func getTunnel(ctx context.Context) tunnel {
-	opened, _ := ctx.Value(tunnelKey{}).(tunnel)
+	opened, ok := ctx.Value(tunnelKey{}).(tunnel)
+	if !ok {
+		return tunnel{}
+	}
 
 	return opened
 }
@@ -275,7 +286,10 @@ func withLogin(ctx context.Context, login forge.Secret) context.Context {
 }
 
 func getLogin(ctx context.Context) forge.Secret {
-	login, _ := ctx.Value(loginKey{}).(forge.Secret)
+	login, ok := ctx.Value(loginKey{}).(forge.Secret)
+	if !ok {
+		return forge.Secret{}
+	}
 
 	return login
 }
@@ -343,7 +357,11 @@ func (l *tunnelListener) Addr() net.Addr {
 type tunnelAddr struct{}
 
 // Network names the listener's kind.
-func (tunnelAddr) Network() string { return "tunnel" }
+func (tunnelAddr) Network() string {
+	return "tunnel"
+}
 
 // String names the listener.
-func (tunnelAddr) String() string { return "forge proxy tunnels" }
+func (tunnelAddr) String() string {
+	return "forge proxy tunnels"
+}

@@ -120,7 +120,24 @@ func (q *Queries) GrantEngineAccess(ctx context.Context, arg GrantEngineAccessPa
 	return err
 }
 
-const hasEngineGrant = `-- name: HasEngineGrant :one
+const isEngineAccessGranted = `-- name: IsEngineAccessGranted :one
+SELECT
+    engine_access_granted($1, $2)::boolean AS granted
+`
+
+type IsEngineAccessGrantedParams struct {
+	Issuer  string
+	Subject string
+}
+
+func (q *Queries) IsEngineAccessGranted(ctx context.Context, arg IsEngineAccessGrantedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isEngineAccessGranted, arg.Issuer, arg.Subject)
+	var granted bool
+	err := row.Scan(&granted)
+	return granted, err
+}
+
+const isEngineGranted = `-- name: IsEngineGranted :one
 SELECT
     EXISTS (
         SELECT
@@ -136,7 +153,7 @@ SELECT
                     AND a.email = LOWER($5))))::boolean AS granted
 `
 
-type HasEngineGrantParams struct {
+type IsEngineGrantedParams struct {
 	Engine        string
 	Issuer        string
 	Subject       string
@@ -144,31 +161,14 @@ type HasEngineGrantParams struct {
 	Email         string
 }
 
-func (q *Queries) HasEngineGrant(ctx context.Context, arg HasEngineGrantParams) (bool, error) {
-	row := q.db.QueryRow(ctx, hasEngineGrant,
+func (q *Queries) IsEngineGranted(ctx context.Context, arg IsEngineGrantedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isEngineGranted,
 		arg.Engine,
 		arg.Issuer,
 		arg.Subject,
 		arg.EmailVerified,
 		arg.Email,
 	)
-	var granted bool
-	err := row.Scan(&granted)
-	return granted, err
-}
-
-const isEngineAccessGranted = `-- name: IsEngineAccessGranted :one
-SELECT
-    engine_access_granted($1, $2)::boolean AS granted
-`
-
-type IsEngineAccessGrantedParams struct {
-	Issuer  string
-	Subject string
-}
-
-func (q *Queries) IsEngineAccessGranted(ctx context.Context, arg IsEngineAccessGrantedParams) (bool, error) {
-	row := q.db.QueryRow(ctx, isEngineAccessGranted, arg.Issuer, arg.Subject)
 	var granted bool
 	err := row.Scan(&granted)
 	return granted, err
