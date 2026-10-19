@@ -220,7 +220,9 @@ func Start(t *testing.T, p Params) *Instance {
 
 	var publicURL string
 	if public := built.PublicHandler(); public != nil {
-		publicServer := httptest.NewServer(public)
+		publicServer := httptest.NewUnstartedServer(public)
+		publicServer.Config.Protocols = xhttp.NewServerProtocols()
+		publicServer.Start()
 		t.Cleanup(publicServer.Close)
 		publicURL = publicServer.URL
 	}
