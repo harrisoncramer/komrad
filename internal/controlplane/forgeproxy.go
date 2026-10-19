@@ -77,9 +77,7 @@ func newForgeProxy(params newForgeProxyParams) *forgeProxy {
 
 	upstream := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
-			tunnel := getTunnel(r.In.Context())
-			r.SetURL(&url.URL{Scheme: "https", Host: tunnel.host})
-			r.Out.Header.Set("Authorization", formatLogin(tunnel.host, getLogin(r.In.Context())))
+			r.SetURL(&url.URL{Scheme: "https", Host: getTunnel(r.In.Context()).host})
 		},
 		Transport:     params.Upstream,
 		FlushInterval: -1,
@@ -255,7 +253,8 @@ func (h *loginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.next.ServeHTTP(w, r.WithContext(withLogin(r.Context(), login)))
+	r.Header.Set("Authorization", formatLogin(opened.host, login))
+	h.next.ServeHTTP(w, r)
 }
 
 // tunnel is the engine that opened a tunnel and the GitHub host it asked for.
@@ -277,21 +276,6 @@ func getTunnel(ctx context.Context) tunnel {
 	}
 
 	return opened
-}
-
-type loginKey struct{}
-
-func withLogin(ctx context.Context, login forge.Secret) context.Context {
-	return context.WithValue(ctx, loginKey{}, login)
-}
-
-func getLogin(ctx context.Context) forge.Secret {
-	login, ok := ctx.Value(loginKey{}).(forge.Secret)
-	if !ok {
-		return forge.Secret{}
-	}
-
-	return login
 }
 
 // tunnelConn is a terminated tunnel and who opened it.
