@@ -67,8 +67,8 @@ func New(params NewParams) *controlPlane {
 	})
 
 	endpoints := &handler{
-		logger:    params.Logger,
-		engines:   params.Engines,
+		logger:  params.Logger,
+		engines: params.Engines,
 		signIn: engine.SignInProvider{
 			Issuer:       params.SignIn.Issuer,
 			ClientID:     params.SignIn.ClientID,

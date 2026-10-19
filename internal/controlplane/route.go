@@ -153,4 +153,3 @@ func (h *handler) run(w http.ResponseWriter, r *http.Request, params runParams) 
 
 	writeMessage(w, http.StatusAccepted, params.Accepted)
 }
-
