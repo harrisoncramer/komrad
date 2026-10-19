@@ -17,10 +17,10 @@ left alone, whatever build it runs, so a rebuilt binary takes over only after
 ` + "`komrad stop`" + `. Otherwise ` + "`komrad serve`" + ` is spawned detached, with its output
 going to the log file, and this waits for the address to answer before returning.
 
-While connection.database_url is left empty, this starts the embedded Postgres
-first if it is down, and has it reload its settings when it is up, even when the
-server is already running. Only this, ` + "`komrad migrate`" + ` and
-` + "`komrad open`" + ` start it, and ` + "`komrad stop`" + ` leaves it running.
+While connection.database_url names the embedded Postgres, this starts it first
+if it is down, and has it reload its settings when it is up, even when the
+server is already running. The server starts it again whenever it exits, and
+` + "`komrad stop`" + ` leaves it running.
 
 Opening the panel does the same thing on its own, so this is for scripts and for
 bringing the server up without a panel.`,

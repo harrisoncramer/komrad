@@ -87,7 +87,7 @@ Every release binary carries an embedded Postgres, so you do not need to install
 komrad setup --no-input
 ```
 
-After a restart, <Command path="start" /> or <Command path="open" /> brings the embedded Postgres back up.
+After a restart, <Command path="start" /> or <Command path="open" /> brings the embedded Postgres back up. While the server runs, it starts the embedded Postgres again whenever it exits.
 
 The embedded Postgres needs no library beyond the C library. It runs on Linux with glibc 2.28 or newer, such as Debian 10, Ubuntu 20.04 or RHEL 8, and on macOS 12 or newer. It runs under any login except root. On any other machine, such as one running Alpine, keep the database in a Postgres you already run.
 

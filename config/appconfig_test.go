@@ -782,25 +782,51 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	assert.Equal(t, sourceDerived, report.Sources["cache_dir"])
 	assert.NotEmpty(t, cfg.Connection.StateDir)
 	assert.Equal(t, sourceDerived, report.Sources["state_dir"])
-	assert.False(t, report.UsesEmbeddedPostgres())
+	assert.False(t, cfg.Connection.UsesEmbeddedPostgres())
 }
 
-// TestLoadDerivesTheEmbeddedPostgres pins a config that names no database reaching the embedded Postgres
-// under the state directory, as the default engine and as its owner.
+// TestLoadDerivesTheEmbeddedPostgres pins a config that names no database, or names the socket under the
+// state directory, reaching the embedded Postgres, with its owner on the same database.
 func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
-	clearConnectionEnvironment(t)
-	t.Setenv("KOMRAD_STATE_DIR", "/state")
+	tests := []struct {
+		name            string
+		config          string
+		wantDatabaseURL string
+		wantReadOnlyURL string
+		wantOwner       string
+	}{
+		{
+			name:            "no database_url",
+			wantDatabaseURL: "postgres://komrad_engine_default@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+			wantReadOnlyURL: "postgres://komrad_engine_default_reader@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+			wantOwner:       "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+		},
+		{
+			name:            "a database_url on the socket under the state directory",
+			config:          "[connection]\ndatabase_url = \"postgres://komrad_engine_x@/other?host=/state/postgres&connect_timeout=5\"\n",
+			wantDatabaseURL: "postgres://komrad_engine_x@/other?host=/state/postgres&connect_timeout=5",
+			wantReadOnlyURL: "postgres://komrad_engine_x_reader@/other?host=/state/postgres&connect_timeout=5",
+			wantOwner:       "postgres://komrad@/other?host=/state/postgres&connect_timeout=5",
+		},
+	}
 
-	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, nil, 0o644))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearConnectionEnvironment(t)
+			t.Setenv("KOMRAD_STATE_DIR", "/state")
 
-	cfg, report, err := LoadWithReport(Stack{Paths: []string{path}})
-	require.NoError(t, err)
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.config), 0o644))
 
-	assert.Equal(t, "postgres://komrad_engine_default@/komrad?host=%2Fstate%2Fpostgres&port=5432", cfg.Connection.DatabaseURL)
-	assert.Equal(t, "postgres://komrad_engine_default_reader@/komrad?host=%2Fstate%2Fpostgres&port=5432", cfg.Connection.ReadOnlyDatabaseURL)
-	assert.Equal(t, "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432", cfg.Connection.OwnerDatabaseURL)
-	assert.True(t, report.UsesEmbeddedPostgres())
+			cfg, err := LoadStack(Stack{Paths: []string{path}})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantDatabaseURL, cfg.Connection.DatabaseURL)
+			assert.Equal(t, tt.wantReadOnlyURL, cfg.Connection.ReadOnlyDatabaseURL)
+			assert.Equal(t, tt.wantOwner, cfg.Connection.OwnerDatabaseURL)
+			assert.True(t, cfg.Connection.UsesEmbeddedPostgres())
+		})
+	}
 }
 
 // TestLoadRefusesAnEmptyBinding pins the one collection an empty list cannot clear, a binding

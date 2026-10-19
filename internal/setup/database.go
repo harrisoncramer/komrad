@@ -37,7 +37,7 @@ func (s *DatabaseStep) observe(ctx context.Context, check checker) observation {
 		return stopOn(&finding)
 	}
 
-	_, loaded, err := config.LoadWithReport(s.Stack)
+	loaded, err := config.LoadStack(s.Stack)
 	if err != nil {
 		return observation{Verdict: verdictStop, Detail: err.Error()}
 	}
@@ -47,10 +47,10 @@ func (s *DatabaseStep) observe(ctx context.Context, check checker) observation {
 	failed := firstFailing(report)
 
 	switch {
-	case !loaded.UsesEmbeddedPostgres() && failed != nil:
+	case !loaded.Connection.UsesEmbeddedPostgres() && failed != nil:
 		return stopOn(failed)
 	case failed == nil:
-		return observation{Verdict: verdictDone, Detail: describeEngine(engine, database, loaded.UsesEmbeddedPostgres())}
+		return observation{Verdict: verdictDone, Detail: describeEngine(engine, database, loaded.Connection.UsesEmbeddedPostgres())}
 	case !s.takesOwnerURL():
 		return observation{Verdict: verdictRepair, Detail: "no database is set up"}
 	case !s.File.isWritable():

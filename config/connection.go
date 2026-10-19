@@ -46,11 +46,12 @@ type Connection struct {
 	// The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as
 	// this engine's own login, which is what keeps its rows apart from every other engine's.
 	// `komrad engine ensure` creates the login and prints this url.
-	// Left empty this is the default engine's login on the embedded Postgres under state_dir,
-	// which `komrad start` brings up.
+	// Left empty this is the default engine's login on the embedded Postgres under state_dir.
+	// Whenever this reaches the socket under state_dir, the server runs the embedded Postgres and
+	// starts it again when it exits.
 	DatabaseURL string `mapstructure:"database_url"`
 	// The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.
-	// Left empty this is database_url, or the embedded Postgres's owner while database_url is empty.
+	// Left empty this is database_url, or the embedded Postgres's owner while database_url reaches it.
 	OwnerDatabaseURL string `mapstructure:"owner_database_url"`
 	// The least-privilege login the MCP query tools connect as.
 	// Left empty this is database_url with the engine's reader login, which is its own login
@@ -85,6 +86,11 @@ func defaultConnection() Connection {
 		Addr:       defaultAddr,
 		TmuxSocket: defaultTmuxSocket,
 	}
+}
+
+// UsesEmbeddedPostgres reports whether database_url reaches the embedded Postgres under state_dir.
+func (c Connection) UsesEmbeddedPostgres() bool {
+	return isEmbeddedPostgresURL(c.DatabaseURL, GetEmbeddedPostgresDir(c.StateDir))
 }
 
 func (c *Connection) normalize() {
@@ -203,11 +209,6 @@ const (
 	sourceDerived     Source = "derived default"
 )
 
-// UsesEmbeddedPostgres reports whether database_url was left empty, which names the embedded Postgres.
-func (r *Report) UsesEmbeddedPostgres() bool {
-	return r.Sources["database_url"] == sourceDerived
-}
-
 var connectionEnvironment = map[string]string{
 	"connection.database_url":          "KOMRAD_DATABASE_URL",
 	"connection.readonly_database_url": "KOMRAD_READONLY_DATABASE_URL",
@@ -269,9 +270,8 @@ func (c *Config) resolveDerived(report *Report) error {
 		c.Connection.StateDir = ExpandHome(c.Connection.StateDir)
 	}
 
-	embeddedPostgres := GetEmbeddedPostgresDir(c.Connection.StateDir)
 	if c.Connection.DatabaseURL == "" {
-		c.Connection.DatabaseURL = BuildEmbeddedPostgresURL(embeddedPostgres, defaultEngineLogin, EmbeddedPostgresDatabase)
+		c.Connection.DatabaseURL = BuildEmbeddedPostgresURL(GetEmbeddedPostgresDir(c.Connection.StateDir), defaultEngineLogin, EmbeddedPostgresDatabase)
 		report.Sources["database_url"] = sourceDerived
 	}
 
@@ -282,8 +282,8 @@ func (c *Config) resolveDerived(report *Report) error {
 
 	if c.Connection.OwnerDatabaseURL == "" {
 		c.Connection.OwnerDatabaseURL = c.Connection.DatabaseURL
-		if report.UsesEmbeddedPostgres() {
-			c.Connection.OwnerDatabaseURL = BuildEmbeddedPostgresURL(embeddedPostgres, EmbeddedPostgresOwner, EmbeddedPostgresDatabase)
+		if c.Connection.UsesEmbeddedPostgres() {
+			c.Connection.OwnerDatabaseURL = replaceLogin(c.Connection.DatabaseURL, EmbeddedPostgresOwner)
 		}
 		report.Sources["owner_database_url"] = sourceDerived
 	}
@@ -312,6 +312,18 @@ func deriveReadOnlyURL(databaseURL string) string {
 	} else {
 		parsed.User = url.User(login)
 	}
+
+	return parsed.String()
+}
+
+// replaceLogin is databaseURL signing in as login with no password.
+func replaceLogin(databaseURL, login string) string {
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
+		return ""
+	}
+
+	parsed.User = url.User(login)
 
 	return parsed.String()
 }

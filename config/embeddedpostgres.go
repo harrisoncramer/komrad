@@ -29,3 +29,15 @@ func BuildEmbeddedPostgresURL(dir, login, name string) string {
 		RawQuery: url.Values{"host": {dir}, "port": {EmbeddedPostgresPort}}.Encode(),
 	}).String()
 }
+
+// isEmbeddedPostgresURL reports whether databaseURL reaches the embedded Postgres in dir over its socket.
+func isEmbeddedPostgresURL(databaseURL, dir string) bool {
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
+		return false
+	}
+
+	host := parsed.Query().Get("host")
+
+	return host != "" && filepath.Clean(host) == filepath.Clean(dir)
+}

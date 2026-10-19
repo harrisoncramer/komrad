@@ -75,7 +75,7 @@ the server, or call an endpoint from a script.`,
 				cfg, report = fallbackConfig()
 			}
 
-			env, err := loadEnvironment(cfg, report)
+			env, err := loadEnvironment(cfg)
 			if err != nil {
 				return err
 			}
@@ -268,7 +268,7 @@ func fallbackConfig() (*config.Config, *config.Report) {
 	return cfg, report
 }
 
-func loadEnvironment(cfg *config.Config, report *config.Report) (*config.Environment, error) {
+func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 	return config.LoadEnvironment(config.Environment{
 		DatabaseURL:         cfg.Connection.DatabaseURL,
 		ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
@@ -277,7 +277,7 @@ func loadEnvironment(cfg *config.Config, report *config.Report) (*config.Environ
 		TmuxSocket:          cfg.Connection.TmuxSocket,
 		CacheDir:            cfg.Connection.CacheDir,
 		StateDir:            cfg.Connection.StateDir,
-		EmbeddedPostgres:    report.UsesEmbeddedPostgres(),
+		EmbeddedPostgres:    cfg.Connection.UsesEmbeddedPostgres(),
 		URL:                 cfg.Connection.URL,
 	})
 }

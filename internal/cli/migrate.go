@@ -17,7 +17,7 @@ and it refuses to start against a database missing migrations its build carries.
 every upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE_URL)
 naming the owner, which falls back to database_url on a database no engine has joined.
 
-While database_url is left empty, this creates the embedded Postgres when there is none
+While database_url names the embedded Postgres, this creates it when there is none
 and starts it when it is down.
 
 It refuses while another komrad is connected and the build holds migrations the database

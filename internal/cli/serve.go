@@ -29,15 +29,17 @@ func serveCmd(state *app) *cobra.Command {
 	var addr string
 
 	cmd := &cobra.Command{
-		Use:         "serve",
-		Annotations: map[string]string{needsEmbeddedPostgres: ""},
-		Short:       "Run the komrad server in the foreground",
+		Use:   "serve",
+		Short: "Run the komrad server in the foreground",
 		Long: `Run the komrad server in the foreground.
 
 It opens the database, mounts the Connect handlers and the MCP endpoint on one
 address, runs the loops that read each pane's state and sync transcripts, and fires
 schedules. The panel and the rest of these commands are clients of it, so
 nothing works without it.
+
+While connection.database_url names the embedded Postgres, it starts the
+embedded Postgres first and starts it again whenever it exits.
 
 ` + "`komrad start`" + ` spawns this detached with its output going to the log file, which is
 how it usually runs. Run it here to watch that output directly. It stops on an
@@ -159,21 +161,27 @@ func serve(ctx context.Context, params serveParams) error {
 		return err
 	}
 
+	embeddedPostgresDir := getEmbeddedPostgresDir(state.env)
+	if err := startEmbeddedPostgres(ctx, embeddedPostgresDir); err != nil {
+		return err
+	}
+
 	server, err := serverPkg.NewServer(ctx, serverPkg.NewServerParams{
-		Env:            state.env,
-		ConfigStack:    state.configStack,
-		Logger:         logger,
-		Addr:           addr,
-		Tmux:           state.tmux,
-		Harnesses:      state.harnesses,
-		DefaultHarness: state.defaultHarness,
-		DefaultFlags:   state.defaultFlags,
-		TrustDirs:      state.trustDirs,
-		Usage:          state.usage,
-		SignIn:         state.signIn,
-		ContextPath:    state.contextPath,
-		HookCommand:    getHookBinaryPath(ctx),
-		Doctor:         doctorSettings,
+		Env:                 state.env,
+		ConfigStack:         state.configStack,
+		Logger:              logger,
+		Addr:                addr,
+		Tmux:                state.tmux,
+		Harnesses:           state.harnesses,
+		DefaultHarness:      state.defaultHarness,
+		DefaultFlags:        state.defaultFlags,
+		TrustDirs:           state.trustDirs,
+		Usage:               state.usage,
+		SignIn:              state.signIn,
+		ContextPath:         state.contextPath,
+		HookCommand:         getHookBinaryPath(ctx),
+		Doctor:              doctorSettings,
+		EmbeddedPostgresDir: embeddedPostgresDir,
 	})
 	if err != nil {
 		return err

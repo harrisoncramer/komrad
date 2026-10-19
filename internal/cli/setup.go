@@ -185,7 +185,7 @@ func (a *app) reloadConnection() error {
 		return err
 	}
 
-	env, err := loadEnvironment(cfg, report)
+	env, err := loadEnvironment(cfg)
 	if err != nil {
 		return err
 	}

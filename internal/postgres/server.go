@@ -111,6 +111,42 @@ func Start(ctx context.Context, dir string) error {
 		}
 	}
 
+	if err := startStoppedServer(ctx, dir); err != nil {
+		return err
+	}
+
+	if err := removeStalePrograms(dir); err != nil {
+		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
+	}
+
+	return nil
+}
+
+// EnsureRunning starts the embedded Postgres in dir when it accepts no connections, reporting whether it started it.
+func EnsureRunning(ctx context.Context, dir string) (bool, error) {
+	if IsRunning(ctx, dir) {
+		return false, nil
+	}
+
+	unlock, err := lockAndUnpack(dir)
+	if err != nil {
+		return false, fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
+	}
+	defer unlock()
+
+	if IsRunning(ctx, dir) {
+		return false, nil
+	}
+
+	if err := startStoppedServer(ctx, dir); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// startStoppedServer starts the stopped embedded Postgres in dir, clearing the lock files it left before the machine last booted.
+func startStoppedServer(ctx context.Context, dir string) error {
 	if !HasCluster(dir) {
 		return fmt.Errorf("%w in %s, so run komrad setup", errNoCluster, dir)
 	}
@@ -120,10 +156,6 @@ func Start(ctx context.Context, dir string) error {
 	}
 
 	if err := startServer(ctx, dir); err != nil {
-		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
-	}
-
-	if err := removeStalePrograms(dir); err != nil {
 		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
 	}
 
