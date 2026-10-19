@@ -161,8 +161,8 @@ func serve(ctx context.Context, params serveParams) error {
 		return err
 	}
 
-	embeddedPostgres := getEmbeddedPostgresDir(state.env)
-	if err := startEmbeddedPostgres(ctx, embeddedPostgres); err != nil {
+	embeddedPostgresDir := getEmbeddedPostgresDir(state.env)
+	if err := startEmbeddedPostgres(ctx, embeddedPostgresDir); err != nil {
 		return err
 	}
 
@@ -181,7 +181,7 @@ func serve(ctx context.Context, params serveParams) error {
 		ContextPath:         state.contextPath,
 		HookCommand:         getHookBinaryPath(ctx),
 		Doctor:              doctorSettings,
-		EmbeddedPostgresDir: embeddedPostgres,
+		EmbeddedPostgresDir: embeddedPostgresDir,
 	})
 	if err != nil {
 		return err
