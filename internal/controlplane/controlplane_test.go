@@ -126,9 +126,9 @@ func (c *clock) advance(by time.Duration) {
 
 // Tokens the verifier knows, each naming a person or failing the way a provider can.
 const (
-	harryToken    = "id-token-harry"
-	strangerToken = "id-token-stranger"
-	downToken     = "id-token-down"
+	harryToken = "id-token-harry"
+	adaToken   = "id-token-ada"
+	downToken  = "id-token-down"
 )
 
 type verifier struct{}
@@ -137,8 +137,8 @@ func (verifier) VerifyToken(_ context.Context, raw string) (*interceptors.Signed
 	switch raw {
 	case harryToken:
 		return &interceptors.SignedIn{Caller: caller.Caller{Email: "harry@example.com", Issuer: "https://idp.example.com", Subject: "harry"}, EmailVerified: true}, nil
-	case strangerToken:
-		return &interceptors.SignedIn{Caller: caller.Caller{Email: "stranger@example.com", Issuer: "https://idp.example.com", Subject: "stranger"}, EmailVerified: true}, nil
+	case adaToken:
+		return &interceptors.SignedIn{Caller: caller.Caller{Email: "ada@example.com", Issuer: "https://idp.example.com", Subject: "ada"}, EmailVerified: true}, nil
 	case downToken:
 		return nil, rpcerr.Unavailable(errors.New("the provider is down"))
 	default:

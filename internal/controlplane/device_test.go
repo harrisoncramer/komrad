@@ -74,7 +74,7 @@ func TestTheDeviceFlowAdmitsOnlyThoseHoldingTheEnginesGrant(t *testing.T) {
 		{
 			name:        "someone without the engine's grant",
 			path:        "/" + p.engine("harry").name + controlplane.DevicePath,
-			token:       strangerToken,
+			token:       adaToken,
 			wantStatus:  http.StatusForbidden,
 			wantMessage: "nobody has granted this account access to the engine",
 		},
