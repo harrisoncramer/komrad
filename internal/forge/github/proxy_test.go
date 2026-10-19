@@ -61,17 +61,50 @@ func TestNewForgeProxyTransportSendsOnlyGitHubsHostsThroughTheForgeProxy(t *test
 	}
 }
 
-// TestNewForgeProxyTransportRefusesACAFileWithNoCertificate covers a ca_file that is missing or
-// holds no PEM certificate.
-func TestNewForgeProxyTransportRefusesACAFileWithNoCertificate(t *testing.T) {
+// TestNewForgeProxyTransportRefusesWhatItCannotRead covers a forge proxy url that does not parse,
+// whose error keeps the forge proxy credential out, and a ca_file missing or holding no certificate.
+func TestNewForgeProxyTransportRefusesWhatItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
 	empty := filepath.Join(dir, "empty.pem")
 	require.NoError(t, os.WriteFile(empty, []byte("not a certificate\n"), 0o600))
 
-	for _, caFile := range []string{filepath.Join(dir, "missing.pem"), empty} {
-		_, err := NewForgeProxyTransport(NewForgeProxyTransportParams{ProxyURL: "http://harry:s3cret@10.0.1.5:8789", CAFile: caFile})
-		require.Error(t, err, caFile)
+	signed := httptest.NewTLSServer(http.NotFoundHandler())
+	t.Cleanup(signed.Close)
+
+	caFile := filepath.Join(dir, "ca.pem")
+	require.NoError(t, os.WriteFile(caFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: signed.Certificate().Raw}), 0o600))
+
+	tests := []struct {
+		name     string
+		proxyURL string
+		caFile   string
+	}{
+		{
+			name:     "a url that does not parse",
+			proxyURL: "http://harry:s3cret@10.0.1.5:87 89",
+			caFile:   caFile,
+		},
+		{
+			name:     "a missing ca_file",
+			proxyURL: "http://harry:s3cret@10.0.1.5:8789",
+			caFile:   filepath.Join(dir, "missing.pem"),
+		},
+		{
+			name:     "a ca_file holding no certificate",
+			proxyURL: "http://harry:s3cret@10.0.1.5:8789",
+			caFile:   empty,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := NewForgeProxyTransport(NewForgeProxyTransportParams{ProxyURL: tt.proxyURL, CAFile: tt.caFile})
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), "s3cret")
+		})
 	}
 }
