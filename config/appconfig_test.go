@@ -786,18 +786,21 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 }
 
 // TestLoadDerivesTheEmbeddedPostgres pins a config that names no database, or names the socket under the
-// state directory, reaching the embedded Postgres as the default engine and as its owner.
+// state directory, reaching the embedded Postgres, with its owner on the same database.
 func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
 	tests := []struct {
-		name   string
-		config string
+		name      string
+		config    string
+		wantOwner string
 	}{
 		{
-			name: "no database_url",
+			name:      "no database_url",
+			wantOwner: "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432",
 		},
 		{
-			name:   "a database_url on the socket under the state directory",
-			config: "[connection]\ndatabase_url = \"postgres://komrad_engine_default@/komrad?host=/state/postgres&port=5432\"\n",
+			name:      "a database_url on the socket under the state directory",
+			config:    "[connection]\ndatabase_url = \"postgres://komrad_engine_x@/other?host=/state/postgres&connect_timeout=5\"\n",
+			wantOwner: "postgres://komrad@/other?host=/state/postgres&connect_timeout=5",
 		},
 	}
 
@@ -812,7 +815,7 @@ func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
 			cfg, err := LoadStack(Stack{Paths: []string{path}})
 			require.NoError(t, err)
 
-			assert.Equal(t, "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432", cfg.Connection.OwnerDatabaseURL)
+			assert.Equal(t, tt.wantOwner, cfg.Connection.OwnerDatabaseURL)
 			assert.True(t, cfg.Connection.UsesEmbeddedPostgres())
 		})
 	}

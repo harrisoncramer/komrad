@@ -270,9 +270,8 @@ func (c *Config) resolveDerived(report *Report) error {
 		c.Connection.StateDir = ExpandHome(c.Connection.StateDir)
 	}
 
-	embeddedPostgres := GetEmbeddedPostgresDir(c.Connection.StateDir)
 	if c.Connection.DatabaseURL == "" {
-		c.Connection.DatabaseURL = BuildEmbeddedPostgresURL(embeddedPostgres, defaultEngineLogin, EmbeddedPostgresDatabase)
+		c.Connection.DatabaseURL = BuildEmbeddedPostgresURL(GetEmbeddedPostgresDir(c.Connection.StateDir), defaultEngineLogin, EmbeddedPostgresDatabase)
 		report.Sources["database_url"] = sourceDerived
 	}
 
@@ -284,7 +283,7 @@ func (c *Config) resolveDerived(report *Report) error {
 	if c.Connection.OwnerDatabaseURL == "" {
 		c.Connection.OwnerDatabaseURL = c.Connection.DatabaseURL
 		if c.Connection.UsesEmbeddedPostgres() {
-			c.Connection.OwnerDatabaseURL = BuildEmbeddedPostgresURL(embeddedPostgres, EmbeddedPostgresOwner, EmbeddedPostgresDatabase)
+			c.Connection.OwnerDatabaseURL = replaceLogin(c.Connection.DatabaseURL, EmbeddedPostgresOwner)
 		}
 		report.Sources["owner_database_url"] = sourceDerived
 	}
@@ -313,6 +312,18 @@ func deriveReadOnlyURL(databaseURL string) string {
 	} else {
 		parsed.User = url.User(login)
 	}
+
+	return parsed.String()
+}
+
+// replaceLogin is databaseURL signing in as login with no password.
+func replaceLogin(databaseURL, login string) string {
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
+		return ""
+	}
+
+	parsed.User = url.User(login)
 
 	return parsed.String()
 }
