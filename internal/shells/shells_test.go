@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"komrad/internal/agentdirs"
+	"komrad/internal/harness"
 	"komrad/internal/pty"
 	"komrad/internal/shells"
 	agentstore "komrad/internal/store/agent"
@@ -18,7 +19,7 @@ import (
 )
 
 // TestOpen covers a shell refused outside the agents' directories and started where its
-// directory resolves to.
+// directory resolves to, with the gh and glab stand-ins ahead of its PATH.
 func TestOpen(t *testing.T) {
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
@@ -36,7 +37,12 @@ func TestOpen(t *testing.T) {
 		WorkflowID: workflowID,
 	})
 
-	service := shells.NewShellService(shells.NewShellServiceParams{Agents: stores.Agents, Shell: "sh"})
+	cache := filepath.Join(root, "cache")
+	service := shells.NewShellService(shells.NewShellServiceParams{
+		Agents: stores.Agents,
+		Shell:  "sh",
+		Tools:  harness.WriteToolShimsParams{CacheDir: cache, KomradBinary: "/usr/local/bin/komrad"},
+	})
 
 	tests := []struct {
 		name    string
@@ -70,7 +76,7 @@ func TestOpen(t *testing.T) {
 
 			require.NoError(t, err)
 
-			_, err = terminal.Write([]byte("pwd -P; exit\n"))
+			_, err = terminal.Write([]byte("pwd -P; command -v gh; exit\n"))
 			require.NoError(t, err)
 
 			var output bytes.Buffer
@@ -89,6 +95,7 @@ func TestOpen(t *testing.T) {
 
 			assert.Equal(t, 0, code)
 			assert.Contains(t, output.String(), tt.wantPwd+"\r\n")
+			assert.Contains(t, output.String(), filepath.Join(cache, harness.ToolsDirName, "gh")+"\r\n", "gh is komrad's stand-in")
 		})
 	}
 }

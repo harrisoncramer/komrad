@@ -30,8 +30,8 @@ type handler struct {
 
 func (h *handler) routes() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /{engine}/github/device", h.startDevice)
-	mux.HandleFunc("POST /{engine}/github/device/poll", h.pollDevice)
+	mux.HandleFunc("POST /{engine}"+DevicePath, h.startDevice)
+	mux.HandleFunc("POST /{engine}"+DevicePollPath, h.pollDevice)
 
 	return mux
 }

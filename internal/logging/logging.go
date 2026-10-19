@@ -98,9 +98,10 @@ const service = "komrad"
 const ProcessName = "process.name"
 
 const (
-	ProcessServe = "serve"
-	ProcessPanel = "panel"
-	ProcessOpen  = "open"
+	ProcessServe        = "serve"
+	ProcessPanel        = "panel"
+	ProcessOpen         = "open"
+	ProcessControlPlane = "control-plane"
 )
 
 var severityNumbers = map[slog.Level]int{

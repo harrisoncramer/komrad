@@ -18,6 +18,12 @@ import (
 // organisations' membership and the workflows a push can change.
 const githubScopes = "repo read:org workflow"
 
+// DevicePath starts GitHub's device flow for the engine whose path it follows.
+const DevicePath = "/github/device"
+
+// DevicePollPath asks whether the person entered the device flow's code.
+const DevicePollPath = "/github/device/poll"
+
 const deviceGrantType = "urn:ietf:params:oauth:grant-type:device_code"
 
 // maxDeviceAnswer bounds what is read from GitHub's device flow endpoints.

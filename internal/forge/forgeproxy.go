@@ -11,13 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	"komrad/config"
 	"komrad/internal/store"
 	"komrad/lib/xfile"
 )
-
-// ForgeProxyPlaceholder is the token git, gh and the server send through the forge proxy,
-// which swaps it for the person's GitHub login.
-const ForgeProxyPlaceholder = "komrad-forge-proxy"
 
 // githubHost is the host the forge proxy connection is for.
 const githubHost = "github.com"
@@ -47,7 +44,7 @@ func (s *Service) ConnectThroughForgeProxy(ctx context.Context) (*Viewer, error)
 		return nil, errUnknownKind.Saying("this build knows no GitHub")
 	}
 
-	probe := build("", staticCredential{Header: HeaderBearer, Token: NewSecret(ForgeProxyPlaceholder)})
+	probe := build("", staticCredential{Header: HeaderBearer, Token: NewSecret(config.ForgeProxyPlaceholder)})
 	reader, ok := probe.(viewerReader)
 	if !ok {
 		return nil, errNoViewer
@@ -67,7 +64,7 @@ func (s *Service) ConnectThroughForgeProxy(ctx context.Context) (*Viewer, error)
 	}
 
 	if connection == nil {
-		if _, err := s.Connect(ctx, ConnectParams{Host: githubHost, Token: NewSecret(ForgeProxyPlaceholder)}); err != nil {
+		if _, err := s.Connect(ctx, ConnectParams{Host: githubHost, Token: NewSecret(config.ForgeProxyPlaceholder)}); err != nil {
 			return nil, err
 		}
 

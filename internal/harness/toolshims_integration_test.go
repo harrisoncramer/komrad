@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,8 +28,9 @@ func writeFakeBinary(t *testing.T, path, body string) string {
 // shimCase is one run of a stand-in: the environment it is given, what komrad answers, what
 // the tool beyond it does, and what all of that should come to.
 type shimCase struct {
-	name string
-	env  []string
+	name       string
+	env        []string
+	forgeProxy config.ForgeProxy
 	// komrad is the body of the komrad command the stand-in asks for a credential.
 	komrad string
 	// beyond is the body of the binary beyond the stand-in, an empty one writing down what it was
@@ -71,7 +74,7 @@ func runCase(t *testing.T, tool string, tt shimCase) {
 		writeFakeBinary(t, filepath.Join(beyond, shim.tool), "echo \"${GLAB_CONFIG_DIR:-}\" >"+scoped+"\n"+body)
 	}
 
-	dir, err := WriteToolShims(cache, komrad)
+	dir, err := WriteToolShims(WriteToolShimsParams{CacheDir: cache, KomradBinary: komrad, ForgeProxy: tt.forgeProxy})
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(cache, ToolsDirName), dir)
 
@@ -180,6 +183,14 @@ func TestIntegrationGHShim(t *testing.T) {
 			args:      []string{"pr", "list"},
 			wantSaw:   "pr list",
 			wantAsked: "github token --checkout {dir} --if-configured",
+		},
+		{
+			name:       "an engine behind a forge proxy, whose gh never asks komrad for a token",
+			forgeProxy: config.ForgeProxy{URL: "http://harry:s3cret@10.0.1.5:8789", CAFile: "/etc/komrad/ca.pem"},
+			komrad:     minted,
+			beyond:     "echo \"$GH_TOKEN $HTTPS_PROXY $SSL_CERT_FILE $NO_PROXY $*\"\n",
+			args:       []string{"api", "user"},
+			wantStdout: "komrad-forge-proxy http://harry:s3cret@10.0.1.5:8789 /etc/komrad/ca.pem " + signedRedirectHosts + " api user\n",
 		},
 		{
 			name:    "a GH_TOKEN somebody else set",
