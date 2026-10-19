@@ -111,16 +111,8 @@ func Start(ctx context.Context, dir string) error {
 		}
 	}
 
-	if !HasCluster(dir) {
-		return fmt.Errorf("%w in %s, so run komrad setup", errNoCluster, dir)
-	}
-
-	if err := removeStaleLockFiles(dir); err != nil {
-		return fmt.Errorf("failed to clear the stale lock files in %s: %w", dir, err)
-	}
-
-	if err := startServer(ctx, dir); err != nil {
-		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
+	if err := startStoppedServer(ctx, dir); err != nil {
+		return err
 	}
 
 	if err := removeStalePrograms(dir); err != nil {
@@ -136,11 +128,38 @@ func EnsureRunning(ctx context.Context, dir string) (bool, error) {
 		return false, nil
 	}
 
-	if err := Start(ctx, dir); err != nil {
+	unlock, err := lockAndUnpack(dir)
+	if err != nil {
+		return false, fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
+	}
+	defer unlock()
+
+	if IsRunning(ctx, dir) {
+		return false, nil
+	}
+
+	if err := startStoppedServer(ctx, dir); err != nil {
 		return false, err
 	}
 
 	return true, nil
+}
+
+// startStoppedServer starts the stopped embedded Postgres in dir, clearing the lock files it left before the machine last booted.
+func startStoppedServer(ctx context.Context, dir string) error {
+	if !HasCluster(dir) {
+		return fmt.Errorf("%w in %s, so run komrad setup", errNoCluster, dir)
+	}
+
+	if err := removeStaleLockFiles(dir); err != nil {
+		return fmt.Errorf("failed to clear the stale lock files in %s: %w", dir, err)
+	}
+
+	if err := startServer(ctx, dir); err != nil {
+		return fmt.Errorf("failed to start the embedded Postgres in %s: %w", dir, err)
+	}
+
+	return nil
 }
 
 // HasCluster reports whether dir holds a cluster for the embedded Postgres this build carries.

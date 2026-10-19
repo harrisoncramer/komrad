@@ -164,16 +164,22 @@ func TestIntegrationStartRecoversFromACrash(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
-// TestIntegrationEnsureRunning covers EnsureRunning leaving a running embedded Postgres alone and
-// starting one that was killed.
+// TestIntegrationEnsureRunning covers EnsureRunning leaving a running embedded Postgres alone, even on
+// another build's programs, and starting one that was killed.
 func TestIntegrationEnsureRunning(t *testing.T) {
 	dir := createCluster(t)
+	require.NoError(t, runProgram(t.Context(), getProgramPath(dir, "pg_ctl"), "stop", "-D", getDataDir(dir), "-w"))
+
+	other := filepath.Join(dir, Version+"-other")
+	require.NoError(t, os.Rename(getUnpackedDir(dir), other)) //nolint:forbidigo // a directory, which xfile.WriteAtomic does not move
+	require.NoError(t, runProgram(t.Context(), filepath.Join(other, "bin", "pg_ctl"), "start", "-D", getDataDir(dir), "-l", filepath.Join(dir, "postgres.log"), "-w"))
 	pid := postmasterPID(t, dir)
 
 	started, err := EnsureRunning(t.Context(), dir)
 	require.NoError(t, err)
 	assert.False(t, started)
 	assert.Equal(t, pid, postmasterPID(t, dir))
+	assert.DirExists(t, other)
 
 	require.NoError(t, syscall.Kill(-pid, syscall.SIGKILL))
 	require.Eventually(t, func() bool { return !IsRunning(t.Context(), dir) }, testWait, testTick)
