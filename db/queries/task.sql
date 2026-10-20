@@ -21,7 +21,7 @@ RETURNING
 -- name: GetTaskByID :one
 SELECT
     sqlc.embed(t),
-    (
+(
         SELECT
             COUNT(*)
         FROM
@@ -36,7 +36,7 @@ WHERE
 -- name: GetTaskBySlug :one
 SELECT
     sqlc.embed(t),
-    (
+(
         SELECT
             COUNT(*)
         FROM
@@ -51,7 +51,7 @@ WHERE
 -- name: ListTasks :many
 SELECT
     sqlc.embed(t),
-    (
+(
         SELECT
             COUNT(*)
         FROM
@@ -163,7 +163,7 @@ SELECT
             AND r.viewed_at IS NULL)::boolean AS failed_run,
     COALESCE(d.documents, 0)::integer AS documents,
     d.documents_updated_at,
-    (
+(
         SELECT
             COUNT(*)
         FROM
@@ -300,7 +300,7 @@ ORDER BY
 -- name: ListTasksByID :many
 SELECT
     sqlc.embed(t),
-    (
+(
         SELECT
             COUNT(*)
         FROM

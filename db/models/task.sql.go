@@ -342,7 +342,7 @@ func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams
 const getTaskByID = `-- name: GetTaskByID :one
 SELECT
     t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
-    (
+(
         SELECT
             COUNT(*)
         FROM
@@ -403,7 +403,7 @@ func (q *Queries) GetTaskByID(ctx context.Context, id string) (*GetTaskByIDRow, 
 const getTaskBySlug = `-- name: GetTaskBySlug :one
 SELECT
     t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
-    (
+(
         SELECT
             COUNT(*)
         FROM
@@ -798,7 +798,7 @@ func (q *Queries) ListTaskSummaries(ctx context.Context) ([]*ListTaskSummariesRo
 const listTasks = `-- name: ListTasks :many
 SELECT
     t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
-    (
+(
         SELECT
             COUNT(*)
         FROM
@@ -881,7 +881,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*ListTa
 const listTasksByID = `-- name: ListTasksByID :many
 SELECT
     t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
-    (
+(
         SELECT
             COUNT(*)
         FROM
@@ -1023,7 +1023,7 @@ SELECT
             AND r.viewed_at IS NULL)::boolean AS failed_run,
     COALESCE(d.documents, 0)::integer AS documents,
     d.documents_updated_at,
-    (
+(
         SELECT
             COUNT(*)
         FROM
