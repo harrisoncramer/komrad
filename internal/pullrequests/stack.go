@@ -85,16 +85,23 @@ func (s *PullRequestSyncer) buildStacks(ctx context.Context, host *hostRead, rep
 	return nil
 }
 
-// retargetOntoBase takes each pull request out of a GitHub stack its task has left and points it at its
-// workflow's base branch, and reports whether it moved any.
+// retargetOntoBase takes each pull request whose task was re-targeted onto the base branch out of its
+// GitHub stack and points it there, and reports whether it moved any.
 func (s *PullRequestSyncer) retargetOntoBase(ctx context.Context, stacker forge.Stacker, pullRequests []pullrequeststore.StackingPullRequest) (bool, error) {
 	retargeted := false
 	for _, pullRequest := range pullRequests {
-		if !isLeftByItsTask(pullRequest) || pullRequest.IsStackingRefused() {
+		if pullRequest.RetargetOnto == "" || pullRequest.IsStackingRefused() {
+			continue
+		}
+		if pullRequest.Stack == nil {
+			if err := s.pullRequests.ClearRetarget(ctx, pullRequest.ID); err != nil {
+				return false, err
+			}
+
 			continue
 		}
 
-		err := stacker.Retarget(ctx, pullRequest.URL, pullRequest.WorkflowBaseBranch)
+		err := stacker.Retarget(ctx, pullRequest.URL, pullRequest.RetargetOnto)
 		if errors.Is(err, forge.ErrNotStackable) {
 			if err := s.pullRequests.RecordStackingRefused(ctx, []string{pullRequest.ID}); err != nil {
 				return false, err
@@ -105,20 +112,14 @@ func (s *PullRequestSyncer) retargetOntoBase(ctx context.Context, stacker forge.
 		if err != nil {
 			return false, err
 		}
+		if err := s.pullRequests.ClearRetarget(ctx, pullRequest.ID); err != nil {
+			return false, err
+		}
 
 		retargeted = true
 	}
 
 	return retargeted, nil
-}
-
-// isLeftByItsTask says whether the pull request sits in a GitHub stack its task has left, the task having
-// no parent while the pull request targets a branch other than its workflow's base branch.
-func isLeftByItsTask(pullRequest pullrequeststore.StackingPullRequest) bool {
-	return pullRequest.Stack != nil &&
-		pullRequest.ParentTaskID == "" &&
-		pullRequest.WorkflowBaseBranch != "" &&
-		pullRequest.BaseBranch != pullRequest.WorkflowBaseBranch
 }
 
 // findRuns is, from each task without a parent, the longest run of open pull requests where each

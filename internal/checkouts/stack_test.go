@@ -208,3 +208,35 @@ func TestCascadeFollowsAGitHubStack(t *testing.T) {
 		})
 	}
 }
+
+// seedStackedPullRequest stores the child's open pull request on its parent's branch, second in a GitHub stack.
+func seedStackedPullRequest(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+	t.Helper()
+
+	child, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
+	require.NoError(t, err)
+	fixture.stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+		RepositoryURL: pushRepository,
+		Number:        2,
+		HeadBranch:    child.GetBranch(),
+		HeadSHA:       "oldtip",
+		BaseBranch:    seeded.parent.GetBranch(),
+		OpenedAt:      time.Now(),
+		Stack:         &forge.StackPlace{Number: 7, Position: 2, Size: 2},
+	})
+}
+
+// readRetargetOnto is the base branch the child's pull request waits to be pointed at, empty while it waits on none.
+func readRetargetOnto(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) string {
+	t.Helper()
+
+	stacking, err := fixture.stores.PullRequests.ListStacking(t.Context(), pushRepository)
+	require.NoError(t, err)
+	for _, pullRequest := range stacking {
+		if pullRequest.TaskID == seeded.task {
+			return pullRequest.RetargetOnto
+		}
+	}
+
+	return ""
+}

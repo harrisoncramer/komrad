@@ -250,6 +250,11 @@ table "pull_requests" {
     type    = text
     comment = "The head commit the pull request had when komrad began waiting on GitHub to rebase it, which GitHub's push moves past; null while komrad waits on nothing."
   }
+  column "retarget_onto" {
+    null    = true
+    type    = text
+    comment = "The base branch komrad points the pull request at, out of its GitHub stack, after its task was re-targeted onto it; null while nothing waits to move."
+  }
   column "engine_id" {
     null    = false
     type    = uuid

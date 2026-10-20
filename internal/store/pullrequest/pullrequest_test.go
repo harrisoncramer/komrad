@@ -1026,21 +1026,19 @@ func TestListStacking(t *testing.T) {
 			pullRequests: []UpsertParams{childOntoParent, openPullRequest("PR_parent", 1, "task/parent")},
 			want: []StackingPullRequest{
 				{
-					Number:             1,
-					URL:                "https://github.com/harrisoncramer/komrad/pull/PR_parent",
-					HeadBranch:         "task/parent",
-					BaseBranch:         "main",
-					ChangedAt:          childOntoParent.ChangedAt,
-					WorkflowBaseBranch: "main",
+					Number:     1,
+					URL:        "https://github.com/harrisoncramer/komrad/pull/PR_parent",
+					HeadBranch: "task/parent",
+					BaseBranch: "main",
+					ChangedAt:  childOntoParent.ChangedAt,
 				},
 				{
-					Number:             2,
-					URL:                "https://github.com/harrisoncramer/komrad/pull/PR_child",
-					HeadBranch:         "task/child",
-					BaseBranch:         "task/parent",
-					ChangedAt:          childOntoParent.ChangedAt,
-					Stack:              &forge.StackPlace{Number: 7, Position: 2, Size: 3},
-					WorkflowBaseBranch: "main",
+					Number:     2,
+					URL:        "https://github.com/harrisoncramer/komrad/pull/PR_child",
+					HeadBranch: "task/child",
+					BaseBranch: "task/parent",
+					ChangedAt:  childOntoParent.ChangedAt,
+					Stack:      &forge.StackPlace{Number: 7, Position: 2, Size: 3},
 				},
 			},
 		},
@@ -1109,6 +1107,32 @@ func TestRecordStackingRefused(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, changed, 1)
 	assert.False(t, changed[0].IsStackingRefused(), "a pull request that changed since GitHub refused it is asked again")
+}
+
+// TestRetarget covers a re-target onto the base branch holding across the sync's writes until it is cleared.
+func TestRetarget(t *testing.T) {
+	h := open(t)
+	ctx := t.Context()
+	workflow := h.createWorkflow(t)
+	h.createAgent(t, workflow, "child", komrad, "task/child")
+	written, err := h.Upsert(ctx, openPullRequest("PR_child", 2, "task/child"))
+	require.NoError(t, err)
+
+	require.NoError(t, h.RecordRetarget(ctx, written.ID, "main"))
+	pushed := openPullRequest("PR_child", 2, "task/child")
+	pushed.HeadSHA = "abd"
+	_, err = h.Upsert(ctx, pushed)
+	require.NoError(t, err)
+	retargeting, err := h.ListStacking(ctx, komrad)
+	require.NoError(t, err)
+	require.Len(t, retargeting, 1)
+	assert.Equal(t, "main", retargeting[0].RetargetOnto, "a write from the sync keeps the re-target")
+
+	require.NoError(t, h.ClearRetarget(ctx, written.ID))
+	cleared, err := h.ListStacking(ctx, komrad)
+	require.NoError(t, err)
+	require.Len(t, cleared, 1)
+	assert.Empty(t, cleared[0].RetargetOnto)
 }
 
 // TestRebaseAwait covers komrad waiting on GitHub to rebase the open pull requests of a GitHub stack.

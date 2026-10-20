@@ -10,6 +10,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
+	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 )
@@ -211,4 +212,26 @@ func (s *Service) recordStackOnto(ctx context.Context, task taskstore.Task, onto
 	}
 
 	return s.recordOnto(ctx, task, onto)
+}
+
+// leaveGitHubStack records that a child re-targeted onto the base branch waits for the pull request
+// sync to take its pull request out of its GitHub stack and point it there.
+func (s *Service) leaveGitHubStack(ctx context.Context, task taskstore.Task, base string) error {
+	own, err := s.readPullRequest(ctx, task, task.GetBranch())
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if own.Stack == nil || own.IsFinished() {
+		return nil
+	}
+
+	if err := s.pullRequests.RecordRetarget(ctx, own.ID, base); err != nil {
+		return err
+	}
+	s.heat(task)
+
+	return nil
 }

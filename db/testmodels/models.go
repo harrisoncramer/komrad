@@ -811,6 +811,8 @@ type PullRequest struct {
 	RebaseAwaitedSince pgtype.Timestamptz
 	// The head commit the pull request had when komrad began waiting on GitHub to rebase it, which GitHub's push moves past; null while komrad waits on nothing.
 	RebaseAwaitedFrom *string
+	// The base branch komrad points the pull request at, out of its GitHub stack, after its task was re-targeted onto it; null while nothing waits to move.
+	RetargetOnto *string
 }
 
 // One check the forge listed on a head commit of a pull request, as the latest listing for that head said it stands.

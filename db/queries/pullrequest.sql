@@ -513,11 +513,9 @@ SELECT
     p.stack_position,
     p.stack_size,
     p.stacking_refused_at,
-    c.worktree_base_branch AS workflow_base_branch
+    p.retarget_onto
 FROM
     tasks t
-    JOIN workflows w ON w.id = t.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
     JOIN LATERAL (
         SELECT
             q.*
@@ -578,5 +576,21 @@ UPDATE
 SET
     rebase_awaited_since = NULL,
     rebase_awaited_from = NULL
+WHERE
+    id = @id;
+
+-- name: RecordRetarget :exec
+UPDATE
+    pull_requests
+SET
+    retarget_onto = @onto::text
+WHERE
+    id = @id;
+
+-- name: ClearRetarget :exec
+UPDATE
+    pull_requests
+SET
+    retarget_onto = NULL
 WHERE
     id = @id;

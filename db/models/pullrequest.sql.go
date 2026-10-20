@@ -46,6 +46,20 @@ func (q *Queries) ClearRebaseAwait(ctx context.Context, id string) error {
 	return err
 }
 
+const clearRetarget = `-- name: ClearRetarget :exec
+UPDATE
+    pull_requests
+SET
+    retarget_onto = NULL
+WHERE
+    id = $1
+`
+
+func (q *Queries) ClearRetarget(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, clearRetarget, id)
+	return err
+}
+
 const ensurePullRequestSync = `-- name: EnsurePullRequestSync :exec
 INSERT INTO pull_request_syncs(
     repository_url)
@@ -145,7 +159,7 @@ func (q *Queries) GetMergeBlockers(ctx context.Context, url string) (*GetMergeBl
 
 const getParentPullRequest = `-- name: GetParentPullRequest :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body, stack_number, stack_position, stack_size, stacking_refused_at, rebase_awaited_since, rebase_awaited_from
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body, stack_number, stack_position, stack_size, stacking_refused_at, rebase_awaited_since, rebase_awaited_from, retarget_onto
 FROM
     pull_requests
 WHERE
@@ -208,13 +222,14 @@ func (q *Queries) GetParentPullRequest(ctx context.Context, arg GetParentPullReq
 		&i.StackingRefusedAt,
 		&i.RebaseAwaitedSince,
 		&i.RebaseAwaitedFrom,
+		&i.RetargetOnto,
 	)
 	return &i, err
 }
 
 const getPullRequest = `-- name: GetPullRequest :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body, stack_number, stack_position, stack_size, stacking_refused_at, rebase_awaited_since, rebase_awaited_from
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body, stack_number, stack_position, stack_size, stacking_refused_at, rebase_awaited_since, rebase_awaited_from, retarget_onto
 FROM
     pull_requests
 WHERE
@@ -263,13 +278,14 @@ func (q *Queries) GetPullRequest(ctx context.Context, id string) (*PullRequest, 
 		&i.StackingRefusedAt,
 		&i.RebaseAwaitedSince,
 		&i.RebaseAwaitedFrom,
+		&i.RetargetOnto,
 	)
 	return &i, err
 }
 
 const getPullRequestByIdentity = `-- name: GetPullRequestByIdentity :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body, stack_number, stack_position, stack_size, stacking_refused_at, rebase_awaited_since, rebase_awaited_from
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body, stack_number, stack_position, stack_size, stacking_refused_at, rebase_awaited_since, rebase_awaited_from, retarget_onto
 FROM
     pull_requests
 WHERE
@@ -324,13 +340,14 @@ func (q *Queries) GetPullRequestByIdentity(ctx context.Context, arg GetPullReque
 		&i.StackingRefusedAt,
 		&i.RebaseAwaitedSince,
 		&i.RebaseAwaitedFrom,
+		&i.RetargetOnto,
 	)
 	return &i, err
 }
 
 const getPullRequestForUpdate = `-- name: GetPullRequestForUpdate :one
 SELECT
-    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body, stack_number, stack_position, stack_size, stacking_refused_at, rebase_awaited_since, rebase_awaited_from
+    id, host, forge, provider_id, url, repository_url, head_repository_url, number, title, head_branch, head_sha, base_branch, base_sha, draft, state, opened_at, changed_at, merged_at, closed_at, first_seen_at, engine_id, mergeability_blank_since, auto_merge, auto_mergeable, latest_decision, latest_head_sha, latest_mergeability, known_mergeability, known_mergeability_sha, known_decision, author, body, stack_number, stack_position, stack_size, stacking_refused_at, rebase_awaited_since, rebase_awaited_from, retarget_onto
 FROM
     pull_requests
 WHERE
@@ -380,6 +397,7 @@ func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id string) (*Pull
 		&i.StackingRefusedAt,
 		&i.RebaseAwaitedSince,
 		&i.RebaseAwaitedFrom,
+		&i.RetargetOnto,
 	)
 	return &i, err
 }
@@ -592,7 +610,7 @@ func (q *Queries) ListPullRequestRecipients(ctx context.Context, id string) ([]s
 
 const listPullRequestsPage = `-- name: ListPullRequestsPage :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_head_sha, p.latest_mergeability, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body, p.stack_number, p.stack_position, p.stack_size, p.stacking_refused_at, p.rebase_awaited_since, p.rebase_awaited_from
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_head_sha, p.latest_mergeability, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body, p.stack_number, p.stack_position, p.stack_size, p.stacking_refused_at, p.rebase_awaited_since, p.rebase_awaited_from, p.retarget_onto
 FROM
     pull_requests p
 WHERE
@@ -679,6 +697,7 @@ func (q *Queries) ListPullRequestsPage(ctx context.Context, arg ListPullRequests
 			&i.StackingRefusedAt,
 			&i.RebaseAwaitedSince,
 			&i.RebaseAwaitedFrom,
+			&i.RetargetOnto,
 		); err != nil {
 			return nil, err
 		}
@@ -706,14 +725,12 @@ SELECT
     p.stack_position,
     p.stack_size,
     p.stacking_refused_at,
-    c.worktree_base_branch AS workflow_base_branch
+    p.retarget_onto
 FROM
     tasks t
-    JOIN workflows w ON w.id = t.workflow_id
-    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
     JOIN LATERAL (
         SELECT
-            q.id, q.host, q.forge, q.provider_id, q.url, q.repository_url, q.head_repository_url, q.number, q.title, q.head_branch, q.head_sha, q.base_branch, q.base_sha, q.draft, q.state, q.opened_at, q.changed_at, q.merged_at, q.closed_at, q.first_seen_at, q.engine_id, q.mergeability_blank_since, q.auto_merge, q.auto_mergeable, q.latest_decision, q.latest_head_sha, q.latest_mergeability, q.known_mergeability, q.known_mergeability_sha, q.known_decision, q.author, q.body, q.stack_number, q.stack_position, q.stack_size, q.stacking_refused_at, q.rebase_awaited_since, q.rebase_awaited_from
+            q.id, q.host, q.forge, q.provider_id, q.url, q.repository_url, q.head_repository_url, q.number, q.title, q.head_branch, q.head_sha, q.base_branch, q.base_sha, q.draft, q.state, q.opened_at, q.changed_at, q.merged_at, q.closed_at, q.first_seen_at, q.engine_id, q.mergeability_blank_since, q.auto_merge, q.auto_mergeable, q.latest_decision, q.latest_head_sha, q.latest_mergeability, q.known_mergeability, q.known_mergeability_sha, q.known_decision, q.author, q.body, q.stack_number, q.stack_position, q.stack_size, q.stacking_refused_at, q.rebase_awaited_since, q.rebase_awaited_from, q.retarget_onto
         FROM
             pull_requests q
         WHERE
@@ -735,21 +752,21 @@ ORDER BY
 `
 
 type ListStackingPullRequestsRow struct {
-	TaskID             string
-	ParentTaskID       *string
-	TaskCreatedAt      time.Time
-	ID                 string
-	Number             int32
-	Url                string
-	HeadBranch         string
-	BaseBranch         string
-	ChangedAt          time.Time
-	AutoMerge          *bool
-	StackNumber        *int32
-	StackPosition      *int32
-	StackSize          *int32
-	StackingRefusedAt  *time.Time
-	WorkflowBaseBranch *string
+	TaskID            string
+	ParentTaskID      *string
+	TaskCreatedAt     time.Time
+	ID                string
+	Number            int32
+	Url               string
+	HeadBranch        string
+	BaseBranch        string
+	ChangedAt         time.Time
+	AutoMerge         *bool
+	StackNumber       *int32
+	StackPosition     *int32
+	StackSize         *int32
+	StackingRefusedAt *time.Time
+	RetargetOnto      *string
 }
 
 func (q *Queries) ListStackingPullRequests(ctx context.Context, repositoryUrl string) ([]*ListStackingPullRequestsRow, error) {
@@ -776,7 +793,7 @@ func (q *Queries) ListStackingPullRequests(ctx context.Context, repositoryUrl st
 			&i.StackPosition,
 			&i.StackSize,
 			&i.StackingRefusedAt,
-			&i.WorkflowBaseBranch,
+			&i.RetargetOnto,
 		); err != nil {
 			return nil, err
 		}
@@ -831,7 +848,7 @@ func (q *Queries) ListTaskPullRequests(ctx context.Context, taskIds []string) ([
 
 const listWatchedPullRequests = `-- name: ListWatchedPullRequests :many
 SELECT
-    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_head_sha, p.latest_mergeability, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body, p.stack_number, p.stack_position, p.stack_size, p.stacking_refused_at, p.rebase_awaited_since, p.rebase_awaited_from
+    p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_head_sha, p.latest_mergeability, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body, p.stack_number, p.stack_position, p.stack_size, p.stacking_refused_at, p.rebase_awaited_since, p.rebase_awaited_from, p.retarget_onto
 FROM
     pull_requests p
 WHERE
@@ -896,6 +913,7 @@ func (q *Queries) ListWatchedPullRequests(ctx context.Context, keys []string) ([
 			&i.StackingRefusedAt,
 			&i.RebaseAwaitedSince,
 			&i.RebaseAwaitedFrom,
+			&i.RetargetOnto,
 		); err != nil {
 			return nil, err
 		}
@@ -977,6 +995,25 @@ func (q *Queries) ObserveTaskPullRequests(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const recordRetarget = `-- name: RecordRetarget :exec
+UPDATE
+    pull_requests
+SET
+    retarget_onto = $1::text
+WHERE
+    id = $2
+`
+
+type RecordRetargetParams struct {
+	Onto string
+	ID   string
+}
+
+func (q *Queries) RecordRetarget(ctx context.Context, arg RecordRetargetParams) error {
+	_, err := q.db.Exec(ctx, recordRetarget, arg.Onto, arg.ID)
+	return err
 }
 
 const recordStackingRefused = `-- name: RecordStackingRefused :exec

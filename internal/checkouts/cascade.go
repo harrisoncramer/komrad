@@ -374,6 +374,13 @@ func (s *Service) settleRetarget(ctx context.Context, task taskstore.Task) (bool
 		return false, err
 	}
 	if finished {
+		flow, err := s.workflows.Get(ctx, task.WorkflowID)
+		if err != nil {
+			return false, err
+		}
+		if err := s.leaveGitHubStack(ctx, task, flow.Worktree.BaseBranch); err != nil {
+			return false, err
+		}
 		if err := s.tasks.SetParent(ctx, task.ID, nil); err != nil {
 			return false, err
 		}

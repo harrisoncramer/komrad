@@ -575,8 +575,8 @@ type StackingPullRequest struct {
 	Stack        *forge.StackPlace
 	// StackingRefusedAt is the ChangedAt the pull request had when GitHub last refused to stack it.
 	StackingRefusedAt *time.Time
-	// WorkflowBaseBranch is the base branch of the task's workflow, empty when it names none.
-	WorkflowBaseBranch string
+	// RetargetOnto is the base branch komrad points the pull request at after its task was re-targeted onto it, empty while nothing waits to move.
+	RetargetOnto string
 }
 
 // IsStackingRefused says whether GitHub refused to stack the pull request as it stands.
@@ -593,18 +593,18 @@ func (s *PullRequestStore) ListStacking(ctx context.Context, repositoryURL strin
 
 	return xslice.Map(rows, func(row *models.ListStackingPullRequestsRow) StackingPullRequest {
 		return StackingPullRequest{
-			TaskID:             row.TaskID,
-			ParentTaskID:       xptr.Deref(row.ParentTaskID),
-			ID:                 row.ID,
-			Number:             int(row.Number),
-			URL:                row.Url,
-			HeadBranch:         row.HeadBranch,
-			BaseBranch:         row.BaseBranch,
-			ChangedAt:          row.ChangedAt,
-			AutoMerge:          xptr.Deref(row.AutoMerge),
-			Stack:              stackPlaceOf(row.StackNumber, row.StackPosition, row.StackSize),
-			StackingRefusedAt:  row.StackingRefusedAt,
-			WorkflowBaseBranch: xptr.Deref(row.WorkflowBaseBranch),
+			TaskID:            row.TaskID,
+			ParentTaskID:      xptr.Deref(row.ParentTaskID),
+			ID:                row.ID,
+			Number:            int(row.Number),
+			URL:               row.Url,
+			HeadBranch:        row.HeadBranch,
+			BaseBranch:        row.BaseBranch,
+			ChangedAt:         row.ChangedAt,
+			AutoMerge:         xptr.Deref(row.AutoMerge),
+			Stack:             stackPlaceOf(row.StackNumber, row.StackPosition, row.StackSize),
+			StackingRefusedAt: row.StackingRefusedAt,
+			RetargetOnto:      xptr.Deref(row.RetargetOnto),
 		}
 	}), nil
 }
@@ -670,6 +670,24 @@ func (s *PullRequestStore) RecordRebaseAwait(ctx context.Context, params RecordR
 func (s *PullRequestStore) ClearRebaseAwait(ctx context.Context, id string) error {
 	if err := s.queries.ClearRebaseAwait(ctx, id); err != nil {
 		return fmt.Errorf("failed to clear the wait on GitHub to rebase pull request %s: %w", id, err)
+	}
+
+	return nil
+}
+
+// RecordRetarget records that komrad points a pull request at a base branch, out of its GitHub stack, after its task was re-targeted onto it.
+func (s *PullRequestStore) RecordRetarget(ctx context.Context, id, onto string) error {
+	if err := s.queries.RecordRetarget(ctx, models.RecordRetargetParams{ID: id, Onto: onto}); err != nil {
+		return fmt.Errorf("failed to record the re-target of pull request %s onto %s: %w", id, onto, err)
+	}
+
+	return nil
+}
+
+// ClearRetarget records that a pull request no longer waits to be pointed at the base branch its task was re-targeted onto.
+func (s *PullRequestStore) ClearRetarget(ctx context.Context, id string) error {
+	if err := s.queries.ClearRetarget(ctx, id); err != nil {
+		return fmt.Errorf("failed to clear the re-target of pull request %s: %w", id, err)
 	}
 
 	return nil
