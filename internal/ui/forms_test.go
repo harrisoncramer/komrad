@@ -580,19 +580,9 @@ func TestFormsArchivePrompt(t *testing.T) {
 				}},
 			},
 			{
-				name:   "deleting chosen agents leaves the rest of their task standing",
+				name:   "delete is disabled for chosen agents short of their whole task",
 				choose: siblings,
 				press:  []string{"down", "enter", "y"},
-				wantSent: []request{
-					{
-						procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
-						msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a4", "a3"}},
-					},
-					{
-						procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
-						msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a4", "a3"}},
-					},
-				},
 			},
 			{
 				name:   "archiving every agent on a task archives the task",

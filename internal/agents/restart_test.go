@@ -2,6 +2,7 @@ package agents
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,6 +41,31 @@ func TestRestartAgentStartsANewConversation(t *testing.T) {
 	assert.Equal(t, launch.SessionID, restarted.SessionID)
 	assert.Contains(t, tmux.KilledPanes, "%1", "the earlier pane goes")
 	assert.Nil(t, restarted.InterruptedAt, "a new conversation has no cut-off turn")
+}
+
+// TestRestartAgentStartsAnOrchestratorOnANewConversation pins an orchestrator relaunched on a new
+// conversation from the panel, briefed as its workflow's orchestrator.
+func TestRestartAgentStartsAnOrchestratorOnANewConversation(t *testing.T) {
+	const earlier = "5b1d9a7e-2c4f-4f0a-8e3d-7a6c5b4e3d21"
+
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+	orchestrator := seedOrchestrator(t, st, tmux)
+	require.NoError(t, st.Agents.SetSessionID(t.Context(), orchestrator.ID, earlier))
+	service, fakeHarness := newManagerWithHarness(tmux, st, "")
+
+	restarted, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: orchestrator.ID})
+	require.NoError(t, err)
+
+	require.Len(t, fakeHarness.Launches, 1)
+	launch := fakeHarness.Launches[0]
+	assert.False(t, launch.Resume)
+	assert.Equal(t, orchestratorRestartPrompt, launch.Prompt)
+	assert.Contains(t, launch.Context, strings.TrimSpace(orchestratorDoc))
+	assert.NotContains(t, launch.Context, strings.TrimSpace(writerDoc))
+	assert.NotEqual(t, earlier, launch.SessionID)
+	assert.Equal(t, launch.SessionID, restarted.SessionID)
+	assert.Contains(t, tmux.KilledPanes, orchestrator.Pane)
 }
 
 // TestRestartAgentOntoAnotherHarnessOrFlags pins the CLI and flags a restarted writer runs on, given
@@ -168,17 +194,19 @@ func TestRestartAgentRefuses(t *testing.T) {
 	tests := []struct {
 		name      string
 		restart   string
+		by        string
 		wantErrIs error
 	}{
 		{
 			name:      "a reviewer",
 			restart:   "reviewer",
-			wantErrIs: errRestartNotWriter,
+			wantErrIs: errRestartRole,
 		},
 		{
-			name:      "an orchestrator",
+			name:      "an orchestrator asked by an agent",
 			restart:   "orchestrator",
-			wantErrIs: errRestartNotWriter,
+			by:        "orchestrator",
+			wantErrIs: errRestartOrchestratorByAgent,
 		},
 		{
 			name:      "an archived writer",
@@ -203,7 +231,7 @@ func TestRestartAgentRefuses(t *testing.T) {
 				"archived writer": archived.ID,
 			}
 
-			_, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: seeded[tt.restart]})
+			_, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: seeded[tt.restart], ByAgentID: seeded[tt.by]})
 
 			require.ErrorIs(t, err, tt.wantErrIs)
 			assert.Empty(t, fakeHarness.Launches)

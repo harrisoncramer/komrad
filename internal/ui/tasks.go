@@ -371,6 +371,15 @@ func splitChosen(l listing, chosen []panel.Agent) chosenWork {
 	}
 }
 
+// deleteOffSaid is why the work cannot be deleted, empty when it can.
+func (w chosenWork) deleteOffSaid() string {
+	if len(w.loneAgents) == 0 {
+		return ""
+	}
+
+	return "will only be deleted with its task or workflow"
+}
+
 // affected is every live agent the work takes.
 func (w chosenWork) affected(l listing) []panel.Agent {
 	return slices.Concat(l.agentsOnTasks(w.wholeTasks), w.loneAgents)

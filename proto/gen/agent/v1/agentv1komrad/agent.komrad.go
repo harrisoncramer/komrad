@@ -36,7 +36,6 @@ type AgentServiceImpl interface {
 	ResumeAgent(context.Context, *v1.ResumeAgentRequest) (*v1.ResumeAgentResponse, *fail.Error)
 	RestartAgent(context.Context, *v1.RestartAgentRequest) (*v1.RestartAgentResponse, *fail.Error)
 	RetryAgent(context.Context, *v1.RetryAgentRequest) (*v1.RetryAgentResponse, *fail.Error)
-	DeleteAgents(context.Context, *v1.DeleteAgentsRequest) (*emptypb.Empty, *fail.Error)
 	UpdateAgent(context.Context, *v1.UpdateAgentRequest) (*emptypb.Empty, *fail.Error)
 	SearchTranscripts(context.Context, *v1.SearchTranscriptsRequest) (*v1.SearchTranscriptsResponse, *fail.Error)
 	GetTranscript(context.Context, *v1.GetTranscriptRequest) (*v1.GetTranscriptResponse, *fail.Error)
@@ -177,11 +176,6 @@ func (a AgentServiceAdapter) RestartAgent(ctx context.Context, req *connect.Requ
 // RetryAgent answers the request as connect serves it.
 func (a AgentServiceAdapter) RetryAgent(ctx context.Context, req *connect.Request[v1.RetryAgentRequest]) (*connect.Response[v1.RetryAgentResponse], error) {
 	return rpcerr.Answer(a.Impl.RetryAgent(ctx, req.Msg))
-}
-
-// DeleteAgents answers the request as connect serves it.
-func (a AgentServiceAdapter) DeleteAgents(ctx context.Context, req *connect.Request[v1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.DeleteAgents(ctx, req.Msg))
 }
 
 // UpdateAgent answers the request as connect serves it.

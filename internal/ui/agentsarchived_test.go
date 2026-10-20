@@ -134,11 +134,11 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			}},
 		},
 		{
-			name:       "delete on an agent opens the confirm prompt rather than destroying",
-			rows:       buildOneArchivedAgent(),
-			press:      []string{"j", "space", "a", "d"},
+			name:       "delete on a task opens the confirm prompt rather than destroying",
+			rows:       buildArchivedTasks(),
+			press:      []string{"j", "j", "j", "space", "a", "d"},
 			wantScreen: agentsScreen,
-			wantFrame:  `Permanently delete agent "api-refactor"?`,
+			wantFrame:  `Permanently delete agent "db-tune"?`,
 		},
 		{
 			name:       "delete on an archived folder opens the confirm prompt",
@@ -189,23 +189,13 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 	}{
 		{
 			name:  "declining the delete destroys nothing",
-			rows:  buildOneArchivedAgent(),
-			press: []string{"j", "space", "a", "d", "n"},
+			rows:  buildArchivedTasks(),
+			press: []string{"j", "j", "j", "space", "a", "d", "n"},
 		},
 		{
 			name:  "declining the workflow delete destroys nothing",
 			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press: []string{"space", "a", "d", "n"},
-		},
-		{
-			name:  "confirming the delete destroys the agent it was opened on",
-			rows:  buildOneArchivedAgent(),
-			press: []string{"j", "space", "a", "d", "y"},
-			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
-				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a1"}},
-			}},
 		},
 		{
 			name:  "the delete on a task waits for its agents to leave the archive",
@@ -285,10 +275,10 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 		},
 		{
 			name:        "a refused delete",
-			rows:        buildOneArchivedAgent(),
-			refused:     agentv1connect.AgentServiceDeleteAgentsProcedure,
-			press:       []string{"j", "space", "a", "d", "y"},
-			wantSummary: `Could not delete agent "api-refactor"`,
+			rows:        buildArchivedTasks(),
+			refused:     taskv1connect.TaskServiceDeleteTasksProcedure,
+			press:       []string{"j", "j", "j", "space", "a", "d", "y"},
+			wantSummary: `Could not delete agent "db-tune"`,
 		},
 	}
 
@@ -746,12 +736,8 @@ func TestArchivedAgentsSelection(t *testing.T) {
 			}},
 		},
 		{
-			name:  "delete opens its prompt over the archived agents on the whole selection",
+			name:  "delete is disabled on a selection of agents with no task",
 			press: []string{"j", "v", "j", "v", "j", "space", "a", "d", "y"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
-				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"auth", "api"}},
-			}},
 		},
 	}
 
@@ -1292,22 +1278,15 @@ func TestArchivedTasks(t *testing.T) {
 			}},
 		},
 		{
-			name:  "delete on a live task's header deletes only its archived agents",
-			rows:  buildArchivedTasks(),
-			press: []string{"j", "space", "a", "d", "y"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
-				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a4"}},
-			}},
+			name:      "delete is disabled on a live task's header, since its archived reviewer will only be deleted with the task",
+			rows:      buildArchivedTasks(),
+			press:     []string{"j", "space", "a"},
+			wantFrame: "will only be deleted with its task or workflow",
 		},
 		{
-			name:  "delete on a live task with no live agent left still spares the task",
+			name:  "delete is disabled on a live task with no live agent left",
 			rows:  emptied,
 			press: []string{"j", "space", "a", "d", "y"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceDeleteAgentsProcedure,
-				msg:       &agentv1.DeleteAgentsRequest{Ids: []string{"a4"}},
-			}},
 		},
 		{
 			name:  "the range key takes the tasks between",

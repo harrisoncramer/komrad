@@ -66,6 +66,8 @@ Creating a workflow also starts its _orchestrator_, an agent that belongs to the
 
 The orchestrator writes no code of its own. You tell it what you want done, and it creates [tasks](../tasks/) for the work and puts agents on them. It passes messages between those agents and gathers what they find. Think of it as a lead who splits the work up and keeps track of it.
 
+To give the orchestrator a clean slate, open the workflow's menu with <Key name="menu.open" /> and pick restart orchestrator with <Key name="menu.restart" />. Komrad starts it on a new conversation and keeps the old one in its transcript, where the orchestrator can still read it.
+
 <figure>
   <img
     src={link("/diagrams/workflows.png")}

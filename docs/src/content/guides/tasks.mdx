@@ -70,6 +70,8 @@ Komrad syncs pull request information from the task's worktree branch automatica
 
 Every task has one agent that writes in its checkout, which komrad calls the task's _writer_. The writer starts with the task and stays with it until the task is deleted.
 
+To start the writer on a new conversation, open the task's menu with <Key name="menu.open" /> and pick restart with <Key name="menu.restart" />. The old conversation stays in its transcript.
+
 [Reviewers](../agents/#reviewers) can join the task too, and show up beneath it in italics. They share the task's checkout and read the change, but they never write to it.
 
 ## Archiving, restoring, and deleting tasks

@@ -213,16 +213,6 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name: "a delete naming an agent nobody holds",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: []string{alphaID}}))
-
-				return err
-			},
-			err:      fmt.Errorf("%w: %s", agenterr.ErrAgentNotFound, alphaID),
-			wantCode: connect.CodeNotFound,
-		},
-		{
 			name: "an archive naming an agent nobody holds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{alphaID}}))
@@ -574,6 +564,18 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 		},
 		{
+			name: "restarting from an agent says who asked",
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
+				_, err := svc.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{Id: ids[0]}))
+
+				return "", err
+			},
+			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+				assert.Equal(t, []agents.RestartAgentParams{{ID: ids[0], ByAgentID: betaID}}, services.restarted)
+			},
+		},
+		{
 			name: "holding from the panel",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
 				held, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: ids[0]}))
@@ -713,17 +715,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			wantAnswer: "SEQUENCE_CHERRY_PICK on agent/alpha, parked at refs/komrad/aborted/alpha/1, interrupted true",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, ids[:1], services.aborted)
-			},
-		},
-		{
-			name: "deleting takes the whole batch",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				_, err := svc.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
-
-				return "", err
-			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids, services.deleted)
 			},
 		},
 		{
@@ -1311,7 +1302,6 @@ type recordingAgentServices struct {
 	pushPlanned   []string
 	pushed        []string
 	aborted       []string
-	deleted       []string
 	archived      []agents.ArchiveAgentsParams
 	restored      []string
 	runsRead      []string
@@ -1459,12 +1449,6 @@ func (f *recordingAgentServices) Push(_ context.Context, task string) (*checkout
 	}, nil
 }
 
-func (f *recordingAgentServices) DeleteAgents(_ context.Context, ids []string) error {
-	f.deleted = append(f.deleted, ids...)
-
-	return f.err
-}
-
 func (f *recordingAgentServices) ArchiveAgents(_ context.Context, params agents.ArchiveAgentsParams) error {
 	f.archived = append(f.archived, params)
 
@@ -1551,7 +1535,6 @@ func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recor
 		Lifecycle:    services,
 		Resumer:      services,
 		Holder:       services,
-		Deleter:      services,
 		Orchestrator: services,
 		Rebaser:      services,
 		Pusher:       services,
@@ -1652,39 +1635,6 @@ func TestRequestValidation(t *testing.T) {
 				return err
 			},
 			wantErr: true,
-		},
-		{
-			name: "a delete naming no agent is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: nil}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "so is one carrying an empty id among real ones",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{
-					Ids: []string{uuid.NewString(), ""},
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a delete of however many agents is taken",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				ids := make([]string, 0, 500)
-				for range 500 {
-					ids = append(ids, uuid.NewString())
-				}
-
-				_, err := c.DeleteAgents(t.Context(), connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
-
-				return err
-			},
 		},
 		{
 			name: "an archive naming the same agent twice is refused, since it says nothing twice",

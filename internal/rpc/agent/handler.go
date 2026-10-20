@@ -75,10 +75,6 @@ type turnEndNudgeClaimer interface {
 	ClaimTurnEndNudge(ctx context.Context, agentID string) (string, error)
 }
 
-type agentDeleter interface {
-	DeleteAgents(ctx context.Context, ids []string) error
-}
-
 type NewHandlerParams struct {
 	Agents        agentReader
 	Rows          rowReader
@@ -92,7 +88,6 @@ type NewHandlerParams struct {
 	Lifecycle     agentLifecycle
 	Resumer       agentResumer
 	Holder        agentHolder
-	Deleter       agentDeleter
 	Review        reviewConversation
 	ForgeReplies  forgeReplier
 	Documents     documentReadWriter
@@ -117,7 +112,6 @@ type Handler struct {
 	lifecycle     agentLifecycle
 	resumer       agentResumer
 	holder        agentHolder
-	deleter       agentDeleter
 	review        reviewConversation
 	forgeReplies  forgeReplier
 	documents     documentReadWriter
@@ -150,7 +144,6 @@ func NewHandler(params NewHandlerParams) *Handler {
 		lifecycle:     params.Lifecycle,
 		resumer:       params.Resumer,
 		holder:        params.Holder,
-		deleter:       params.Deleter,
 		review:        params.Review,
 		forgeReplies:  params.ForgeReplies,
 		documents:     params.Documents,
@@ -429,15 +422,6 @@ func logCrossAgentRead(ctx context.Context, target, message string) {
 		slog.String(logging.TargetAgentID, target))
 }
 
-// DeleteAgents claims agents and queues their deletes.
-func (s *Handler) DeleteAgents(ctx context.Context, req *agentv1.DeleteAgentsRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.deleter.DeleteAgents(ctx, req.GetIds()); err != nil {
-		return nil, rpcerr.From(err, "failed to delete agents")
-	}
-
-	return &emptypb.Empty{}, nil
-}
-
 // ArchiveAgents stops agents and hides them, keeping the records and transcripts.
 func (s *Handler) ArchiveAgents(ctx context.Context, req *agentv1.ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.lifecycle.ArchiveAgents(ctx, agents.ArchiveAgentsParams{
@@ -485,13 +469,14 @@ func (s *Handler) ResumeAgent(ctx context.Context, req *agentv1.ResumeAgentReque
 	return &agentv1.ResumeAgentResponse{Agent: rendered}, nil
 }
 
-// RestartAgent relaunches a task's writer on a new conversation and returns it as stored.
+// RestartAgent relaunches a task's writer or a workflow's orchestrator on a new conversation and returns it as stored.
 func (s *Handler) RestartAgent(ctx context.Context, req *agentv1.RestartAgentRequest) (*agentv1.RestartAgentResponse, *fail.Error) {
 	restarted, err := s.resumer.RestartAgent(ctx, agents.RestartAgentParams{
-		ID:      req.GetId(),
-		Note:    req.GetNote(),
-		Harness: req.GetHarness(),
-		Flags:   req.GetFlags(),
+		ID:        req.GetId(),
+		Note:      req.GetNote(),
+		Harness:   req.GetHarness(),
+		Flags:     req.GetFlags(),
+		ByAgentID: caller.From(ctx).AgentID,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to restart agent")

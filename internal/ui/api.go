@@ -461,12 +461,6 @@ func (a api) abortSequence(id string) (*agentv1.AbortSequenceResponse, error) {
 	})
 }
 
-func (a api) deleteAgents(ids []string) error {
-	return mutate(func(ctx context.Context) (any, error) {
-		return a.agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
-	})
-}
-
 func (a api) createSchedule(cfg panel.ScheduleConfig) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		req := &schedulev1.CreateScheduleRequest{

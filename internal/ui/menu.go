@@ -77,10 +77,12 @@ func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		menu := rowMenu(workflow.Name)
+		var orchestrator *panel.Agent
 		if hasAgent {
 			menu = agentMenu(m, item, slices.Concat(a.closeEditEntries(m), a.snoozeEntries(m, item))...)
+			orchestrator = &item.Agent
 		}
-		menu.entries = append(menu.entries, workflowEntries(m, workflow)...)
+		menu.entries = append(menu.entries, workflowEntries(m, workflow, orchestrator)...)
 
 		menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, nil))
 
