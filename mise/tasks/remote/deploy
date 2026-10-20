@@ -101,10 +101,7 @@ OWNER_URL="$(aws s3 presign "s3://$BUCKET/$OWNER_KEY" --expires-in 900 --region 
 # The instance fetches the binary itself, so nothing large travels through the command and the
 # instance needs no permission on the bucket.
 #
-# The new build migrates from a staging directory before anything is installed, so a failed
-# migration leaves the old build on disk and serving. The service stops first because a migration
-# refuses while another komrad is connected, and the exit trap starts it again whichever way the
-# script ends.
+# The new build migrates from a staging directory with the service stopped, and the exit trap starts it again however the script ends.
 # shellcheck disable=SC2016
 COMMANDS=(
 	"set -e"
