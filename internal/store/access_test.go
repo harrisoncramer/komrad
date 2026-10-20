@@ -317,7 +317,7 @@ func TestSettingGrantsRefusesAMissingEngineOrAMalformedEmail(t *testing.T) {
 	}
 }
 
-// TestSettingGrantsLeavesEachEngineItsOneEmail pins setting grants keeping a named email's claim, letting a new email in, and turning every other email away.
+// TestSettingGrantsLeavesEachEngineItsOneEmail pins setting grants keeping a named email's claim, letting a new email in, and turning every other email away, down to naming no engine.
 func TestSettingGrantsLeavesEachEngineItsOneEmail(t *testing.T) {
 	t.Parallel()
 
@@ -343,4 +343,7 @@ func TestSettingGrantsLeavesEachEngineItsOneEmail(t *testing.T) {
 	assert.False(t, isGranted(t, changed.GetDB(), "old"), "a replaced email is turned away")
 	assert.True(t, claimAccess(t, changed.GetDB(), "new@example.com", "new"), "the new email is let in")
 	assert.False(t, claimAccess(t, unnamed.GetDB(), "sally@example.com", "sally"), "an engine not named lets nobody in")
+
+	require.NoError(t, store.SetGrants(t.Context(), store.SetGrantsParams{OwnerURL: database.OwnerURL}))
+	assert.False(t, isGranted(t, kept.GetDB(), "harry"), "naming no engine turns everyone away")
 }

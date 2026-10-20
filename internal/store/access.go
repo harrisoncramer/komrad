@@ -134,7 +134,7 @@ func SetGrants(ctx context.Context, params SetGrantsParams) error {
 		}
 	}
 
-	if err := queries.RevokeEngineAccessOutside(ctx, slices.Collect(maps.Keys(params.Grants))); err != nil {
+	if err := queries.RevokeEngineAccessOutside(ctx, slices.AppendSeq(make([]string, 0, len(params.Grants)), maps.Keys(params.Grants))); err != nil {
 		return fmt.Errorf("failed to revoke access to the engines not named: %w", err)
 	}
 
