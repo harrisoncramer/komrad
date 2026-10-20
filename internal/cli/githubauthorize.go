@@ -106,6 +106,11 @@ func readDevicePoll(poll controlplane.DevicePoll) (bool, error) {
 	return false, nil
 }
 
+// controlPlaneMessage is the control plane's answer to a start or a stop.
+type controlPlaneMessage struct {
+	Message string `json:"message"`
+}
+
 // postControlPlane asks one of the control plane's own endpoints to act and reads its answer.
 func postControlPlane(ctx context.Context, client *http.Client, endpoint string, answer any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)

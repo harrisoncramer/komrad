@@ -73,6 +73,31 @@ func TestStartingAndStoppingAnEngineBehindAControlPlane(t *testing.T) {
 		wantSleeps int32
 	}{
 		{
+			name:    "a control plane that fails to start the engine",
+			asked:   engineStart,
+			runErr:  "the instance is out of capacity",
+			wantErr: "the instance is out of capacity",
+		},
+		{
+			name:  "an engine that never starts",
+			asked: engineStart,
+			answers: []answer{
+				{status: http.StatusServiceUnavailable, health: server.HealthStarting},
+			},
+			wantErr:    "the engine did not start within five minutes",
+			wantSleeps: int32(engineStartOrStopWait / engineStartOrStopPoll),
+		},
+		{
+			name:  "an engine that stops while it starts",
+			asked: engineStart,
+			answers: []answer{
+				{status: http.StatusServiceUnavailable, health: server.HealthStarting},
+				{status: http.StatusServiceUnavailable, health: server.HealthStopped},
+			},
+			wantErr:    "the engine stopped before it answered",
+			wantSleeps: 1,
+		},
+		{
 			name:  "an engine that starts",
 			asked: engineStart,
 			answers: []answer{
@@ -103,31 +128,6 @@ func TestStartingAndStoppingAnEngineBehindAControlPlane(t *testing.T) {
 			},
 			wantOut:    "The engine is stopped.\n",
 			wantSleeps: 2,
-		},
-		{
-			name:  "an engine that stops while it starts",
-			asked: engineStart,
-			answers: []answer{
-				{status: http.StatusServiceUnavailable, health: server.HealthStarting},
-				{status: http.StatusServiceUnavailable, health: server.HealthStopped},
-			},
-			wantErr:    "the engine stopped before it answered",
-			wantSleeps: 1,
-		},
-		{
-			name:  "an engine that never starts",
-			asked: engineStart,
-			answers: []answer{
-				{status: http.StatusServiceUnavailable, health: server.HealthStarting},
-			},
-			wantErr:    "the engine did not start within five minutes",
-			wantSleeps: int32(engineStartOrStopWait / engineStartOrStopPoll),
-		},
-		{
-			name:    "a control plane that fails to start the engine",
-			asked:   engineStart,
-			runErr:  "the instance is out of capacity",
-			wantErr: "the instance is out of capacity",
 		},
 	}
 

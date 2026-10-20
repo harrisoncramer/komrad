@@ -115,9 +115,7 @@ type startOrStopEngineParams struct {
 // startOrStopEngine asks the control plane to start or stop the engine, then asks the engine's
 // health path until the answer says it is running or stopped.
 func startOrStopEngine(ctx context.Context, params startOrStopEngineParams) error {
-	var accepted struct {
-		Message string `json:"message"`
-	}
+	var accepted controlPlaneMessage
 	if err := postControlPlane(ctx, xhttp.NewClientOver(params.Transport, controlPlaneTimeout), params.URL+params.Asked.Path, &accepted); err != nil {
 		return err
 	}

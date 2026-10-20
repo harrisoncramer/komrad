@@ -224,10 +224,12 @@ var connectionEnvironment = map[string]string{
 // WithoutConnectionEnvironment is environ without the variables that override a config's connection,
 // so a komrad started with it reads the connection from its engine's file.
 func WithoutConnectionEnvironment(environ []string) []string {
+	variables := slices.Collect(maps.Values(connectionEnvironment))
+
 	return slices.DeleteFunc(slices.Clone(environ), func(entry string) bool {
 		name, _, _ := strings.Cut(entry, "=")
 
-		return slices.Contains(slices.Collect(maps.Values(connectionEnvironment)), name)
+		return slices.Contains(variables, name)
 	})
 }
 

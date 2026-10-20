@@ -20,11 +20,10 @@ func TestTheControlPlaneSaysWhetherAnEnginesGitHubLoginWorks(t *testing.T) {
 		wantAuthorized bool
 	}{
 		{
-			name:           "a login GitHub takes",
-			person:         "harry",
-			github:         func(*plane) {},
-			wantStatus:     http.StatusOK,
-			wantAuthorized: true,
+			name:       "GitHub failing",
+			person:     "harry",
+			github:     func(p *plane) { p.github.AnswerUser("gho_harry", http.StatusInternalServerError) },
+			wantStatus: http.StatusBadGateway,
 		},
 		{
 			name:       "a login the person revoked",
@@ -39,10 +38,11 @@ func TestTheControlPlaneSaysWhetherAnEnginesGitHubLoginWorks(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "GitHub failing",
-			person:     "harry",
-			github:     func(p *plane) { p.github.AnswerUser("gho_harry", http.StatusInternalServerError) },
-			wantStatus: http.StatusBadGateway,
+			name:           "a login GitHub takes",
+			person:         "harry",
+			github:         func(*plane) {},
+			wantStatus:     http.StatusOK,
+			wantAuthorized: true,
 		},
 	}
 

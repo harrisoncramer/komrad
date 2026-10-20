@@ -24,6 +24,16 @@ func TestThePanelReadsGitHubsDeviceFlowFromTheControlPlane(t *testing.T) {
 		wantErr  string
 	}{
 		{
+			name:    "a code that ran out",
+			poll:    controlplane.DevicePoll{Status: controlplane.DeviceStatusExpired},
+			wantErr: "the code ran out before it was entered",
+		},
+		{
+			name:    "an authorization turned down",
+			poll:    controlplane.DevicePoll{Status: controlplane.DeviceStatusDenied},
+			wantErr: "the authorization was turned down at GitHub",
+		},
+		{
 			name:     "a code nobody has entered yet",
 			poll:     controlplane.DevicePoll{Status: controlplane.DeviceStatusPending, Interval: 10},
 			wantPoll: &ui.GitHubPoll{Interval: 10 * time.Second},
@@ -37,16 +47,6 @@ func TestThePanelReadsGitHubsDeviceFlowFromTheControlPlane(t *testing.T) {
 			name:     "an authorized code",
 			poll:     controlplane.DevicePoll{Status: controlplane.DeviceStatusAuthorized},
 			wantPoll: &ui.GitHubPoll{IsAuthorized: true, Interval: 5 * time.Second},
-		},
-		{
-			name:    "a code that ran out",
-			poll:    controlplane.DevicePoll{Status: controlplane.DeviceStatusExpired},
-			wantErr: "the code ran out before it was entered",
-		},
-		{
-			name:    "an authorization turned down",
-			poll:    controlplane.DevicePoll{Status: controlplane.DeviceStatusDenied},
-			wantErr: "the authorization was turned down at GitHub",
 		},
 	}
 

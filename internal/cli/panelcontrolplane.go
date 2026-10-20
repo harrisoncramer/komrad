@@ -15,9 +15,7 @@ type panelControlPlane struct {
 }
 
 func (p *panelControlPlane) StartEngine(ctx context.Context) error {
-	var accepted struct {
-		Message string `json:"message"`
-	}
+	var accepted controlPlaneMessage
 
 	return postControlPlane(ctx, p.client, p.url+controlplane.StartPath, &accepted)
 }
