@@ -33,7 +33,7 @@ func TestHookQueueRunsAnAgentsMomentsInTheOrderTheyWereQueued(t *testing.T) {
 	other.Done()
 }
 
-// TestAHookTurnGivenUpEarlyKeepsItsPlace covers a moment abandoned before its turn came snapshot.
+// TestAHookTurnGivenUpEarlyKeepsItsPlace covers a moment abandoned before its turn came round.
 func TestAHookTurnGivenUpEarlyKeepsItsPlace(t *testing.T) {
 	var queue HookQueue
 
