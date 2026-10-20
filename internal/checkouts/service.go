@@ -117,6 +117,8 @@ type NewServiceParams struct {
 	Tx              txRunner
 	CheckoutSync    wake.Waker
 	PullRequestSync wake.Heater
+	// Clock is the time a wait on GitHub is counted from, time.Now when unset.
+	Clock func() time.Time
 }
 
 // Service rebases, pushes and aborts in a task's existing worktree on a person's say-so.
@@ -133,6 +135,7 @@ type Service struct {
 	tx              txRunner
 	checkoutSync    wake.Waker
 	pullRequestSync wake.Heater
+	now             func() time.Time
 }
 
 // NewService builds the service from its dependencies.
@@ -140,6 +143,10 @@ func NewService(params NewServiceParams) *Service {
 	locks := params.Locks
 	if locks == nil {
 		locks = NewTreeLocks()
+	}
+	now := params.Clock
+	if now == nil {
+		now = time.Now
 	}
 
 	return &Service{
@@ -155,6 +162,7 @@ func NewService(params NewServiceParams) *Service {
 		tx:              params.Tx,
 		checkoutSync:    params.CheckoutSync,
 		pullRequestSync: params.PullRequestSync,
+		now:             now,
 	}
 }
 

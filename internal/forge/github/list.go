@@ -14,9 +14,6 @@ const maxPerPage = 100
 //go:embed list.gql
 var listOperation string
 
-// listQuery is List with the fragment it spreads.
-var listQuery = listOperation + pullRequestFragment
-
 // List is one page of the repository's pull requests, every one from the named branch or
 // the open ones when no branch is named, and where the next page starts.
 func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page, error) {
@@ -42,7 +39,7 @@ func (f *Forge) List(ctx context.Context, params forge.ListParams) (*forge.Page,
 			PullRequests connection `json:"pullRequests"`
 		} `json:"repository"`
 	}
-	answer, err := f.client.Query(ctx, listQuery, variables, &data)
+	answer, err := f.client.Query(ctx, listOperation+pullRequestFragment+f.pickStackFragment(), variables, &data)
 	if err != nil {
 		return nil, err
 	}

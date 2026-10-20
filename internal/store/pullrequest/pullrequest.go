@@ -50,11 +50,22 @@ type PullRequest struct {
 	MergedAt    *time.Time
 	ClosedAt    *time.Time
 	FirstSeenAt time.Time
+	// Stack is where the pull request sits in a GitHub stack, nil while it is in none.
+	Stack *forge.StackPlace
+	// RebaseAwait is komrad waiting on GitHub to rebase the branch, nil while it waits on nothing.
+	RebaseAwait *rebaseAwait
 	// MergeReadiness is what komrad remembers of where the forge said the reviews, checks,
 	// mergeability and auto-merge stand.
 	MergeReadiness forge.RememberedMergeReadiness
 	// HeadStatusChecks is every status check stored on the head, or on the latest read head when the head was never read.
 	HeadStatusChecks []forge.StatusCheck
+}
+
+// rebaseAwait is komrad waiting on GitHub to rebase a pull request's branch after the one under it in its GitHub stack moved.
+type rebaseAwait struct {
+	Since time.Time
+	// From is the head the pull request had when the wait began.
+	From string
 }
 
 // IsFinished says whether the pull request merged or closed.
@@ -71,6 +82,10 @@ type outcome struct {
 	Changed bool
 	// OldState is the state the row held before a change, nil when it is new or unchanged.
 	OldState *string
+	// OldHeadSHA is the head the row held before a change, nil when it is new or unchanged.
+	OldHeadSHA *string
+	// OldBaseBranch is the base branch the row held before a change, nil when it is new or unchanged.
+	OldBaseBranch *string
 }
 
 // MergeReadinessChange is what komrad remembers of a pull request's merge readiness before and after one read.
@@ -126,11 +141,13 @@ type UpsertParams struct {
 	ChangedAt         time.Time
 	MergedAt          *time.Time
 	ClosedAt          *time.Time
+	Stack             *forge.StackPlace
 }
 
 // Upsert writes a pull request on its identity, leaving a row whose forge-owned columns already
 // match untouched, and says what it did.
 func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*outcome, error) {
+	number, position, size := stackColumnsOf(params.Stack)
 	row, err := s.queries.UpsertPullRequest(ctx, models.UpsertPullRequestParams{
 		Host:              params.Host,
 		Forge:             params.Forge,
@@ -152,16 +169,21 @@ func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*ou
 		ChangedAt:         params.ChangedAt,
 		MergedAt:          params.MergedAt,
 		ClosedAt:          params.ClosedAt,
+		StackNumber:       number,
+		StackPosition:     position,
+		StackSize:         size,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to write pull request %s on %s: %w", params.ProviderID, params.Host, err)
 	}
 
 	return &outcome{
-		ID:       row.ID,
-		Inserted: row.Inserted,
-		Changed:  row.Changed,
-		OldState: row.OldState,
+		ID:            row.ID,
+		Inserted:      row.Inserted,
+		Changed:       row.Changed,
+		OldState:      row.OldState,
+		OldHeadSHA:    row.OldHeadSha,
+		OldBaseBranch: row.OldBaseBranch,
 	}, nil
 }
 
@@ -375,9 +397,35 @@ func fromRow(row *models.PullRequest, checks StatusCheckReading) PullRequest {
 		MergedAt:          row.MergedAt,
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
+		Stack:             stackPlaceOf(row.StackNumber, row.StackPosition, row.StackSize),
+		RebaseAwait:       rebaseAwaitOf(row),
 		MergeReadiness:    rememberedMergeReadinessOf(row, checks),
 		HeadStatusChecks:  checks.StatusChecks,
 	}
+}
+
+func stackPlaceOf(number, position, size *int32) *forge.StackPlace {
+	if number == nil || position == nil || size == nil {
+		return nil
+	}
+
+	return &forge.StackPlace{Number: int(*number), Position: int(*position), Size: int(*size)}
+}
+
+func rebaseAwaitOf(row *models.PullRequest) *rebaseAwait {
+	if row.RebaseAwaitedSince == nil {
+		return nil
+	}
+
+	return &rebaseAwait{Since: *row.RebaseAwaitedSince, From: xptr.Deref(row.RebaseAwaitedFrom)}
+}
+
+func stackColumnsOf(place *forge.StackPlace) (number, position, size *int32) {
+	if place == nil {
+		return nil, nil, nil
+	}
+
+	return xptr.Ptr(int32(place.Number)), xptr.Ptr(int32(place.Position)), xptr.Ptr(int32(place.Size))
 }
 
 func rememberedMergeReadinessOf(row *models.PullRequest, checks StatusCheckReading) forge.RememberedMergeReadiness {
@@ -486,16 +534,18 @@ func (s *PullRequestStore) GetParentPullRequest(ctx context.Context, params GetP
 	return s.withOneMergeReadiness(ctx, row)
 }
 
-// mergeBlockers is what about a pull request's branches turns its merge down.
-type mergeBlockers struct {
+// MergeBlockers is what about a pull request's branches turns its merge down.
+type MergeBlockers struct {
 	// HeadHasParent says the pull request comes from a live child, which merges only after its parent.
 	HeadHasParent bool
 	// BaseFinished says the pull request targets a task's branch whose own pull request merged or closed.
 	BaseFinished bool
+	// InGitHubStack says the pull request sits in a GitHub stack, which turns down auto-merge.
+	InGitHubStack bool
 }
 
 // GetMergeBlockers reads what turns down a merge of the pull request at an address, or ErrNotFound for one komrad has not stored.
-func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*mergeBlockers, error) {
+func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*MergeBlockers, error) {
 	row, err := s.queries.GetMergeBlockers(ctx, url)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no pull request at %s", url)
@@ -504,5 +554,141 @@ func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*m
 		return nil, fmt.Errorf("failed to read what blocks a merge of the pull request at %s: %w", url, err)
 	}
 
-	return &mergeBlockers{HeadHasParent: row.HeadHasParent, BaseFinished: row.BaseFinished}, nil
+	return &MergeBlockers{
+		HeadHasParent: row.HeadHasParent,
+		BaseFinished:  row.BaseFinished,
+		InGitHubStack: row.InGithubStack,
+	}, nil
+}
+
+// StackingPullRequest is a live task's newest open pull request from its own branch in its repository.
+type StackingPullRequest struct {
+	TaskID       string
+	ParentTaskID string
+	ID           string
+	Number       int
+	URL          string
+	HeadBranch   string
+	BaseBranch   string
+	ChangedAt    time.Time
+	AutoMerge    bool
+	Stack        *forge.StackPlace
+	// StackingRefusedAt is the ChangedAt the pull request had when GitHub last refused to stack it.
+	StackingRefusedAt *time.Time
+	// RetargetOnto is the base branch komrad points the pull request at after its task was re-targeted onto it, empty while nothing waits to move.
+	RetargetOnto string
+}
+
+// IsStackingRefused says whether GitHub refused to stack the pull request as it stands.
+func (p StackingPullRequest) IsStackingRefused() bool {
+	return p.StackingRefusedAt != nil && p.StackingRefusedAt.Equal(p.ChangedAt)
+}
+
+// ListStacking is each live task's newest open pull request in a repository, oldest task first.
+func (s *PullRequestStore) ListStacking(ctx context.Context, repositoryURL string) ([]StackingPullRequest, error) {
+	rows, err := s.queries.ListStackingPullRequests(ctx, repositoryURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the pull requests of tasks on %s: %w", repositoryURL, err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListStackingPullRequestsRow) StackingPullRequest {
+		return StackingPullRequest{
+			TaskID:            row.TaskID,
+			ParentTaskID:      xptr.Deref(row.ParentTaskID),
+			ID:                row.ID,
+			Number:            int(row.Number),
+			URL:               row.Url,
+			HeadBranch:        row.HeadBranch,
+			BaseBranch:        row.BaseBranch,
+			ChangedAt:         row.ChangedAt,
+			AutoMerge:         xptr.Deref(row.AutoMerge),
+			Stack:             stackPlaceOf(row.StackNumber, row.StackPosition, row.StackSize),
+			StackingRefusedAt: row.StackingRefusedAt,
+			RetargetOnto:      xptr.Deref(row.RetargetOnto),
+		}
+	}), nil
+}
+
+// RecordStackingRefused records that GitHub refused to stack the pull requests as they stand.
+func (s *PullRequestStore) RecordStackingRefused(ctx context.Context, ids []string) error {
+	if err := s.queries.RecordStackingRefused(ctx, ids); err != nil {
+		return fmt.Errorf("failed to record that GitHub refused to stack %d pull requests: %w", len(ids), err)
+	}
+
+	return nil
+}
+
+// stackMember is one open pull request in a GitHub stack that komrad is not yet waiting on.
+type stackMember struct {
+	ID       string
+	Position int
+	HeadSHA  string
+}
+
+// ListGitHubStackParams names a GitHub stack by its repository and number.
+type ListGitHubStackParams struct {
+	RepositoryURL string
+	Number        int
+}
+
+// ListGitHubStack is each open pull request in a GitHub stack that komrad is not yet waiting on, bottom first.
+func (s *PullRequestStore) ListGitHubStack(ctx context.Context, params ListGitHubStackParams) ([]stackMember, error) {
+	rows, err := s.queries.ListGitHubStack(ctx, models.ListGitHubStackParams{
+		RepositoryUrl: params.RepositoryURL,
+		StackNumber:   int32(params.Number),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list GitHub stack %d on %s: %w", params.Number, params.RepositoryURL, err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListGitHubStackRow) stackMember {
+		return stackMember{ID: row.ID, Position: int(xptr.Deref(row.StackPosition)), HeadSHA: row.HeadSha}
+	}), nil
+}
+
+// RecordRebaseAwaitParams is a pull request komrad waits on GitHub to rebase, and the head GitHub rebases from.
+type RecordRebaseAwaitParams struct {
+	ID      string
+	Since   time.Time
+	HeadSHA string
+}
+
+// RecordRebaseAwait records that komrad waits on GitHub to rebase a pull request's branch from the head, keeping the start of a wait already begun.
+func (s *PullRequestStore) RecordRebaseAwait(ctx context.Context, params RecordRebaseAwaitParams) error {
+	if err := s.queries.AwaitRebase(ctx, models.AwaitRebaseParams{
+		ID:      params.ID,
+		Since:   params.Since,
+		HeadSha: params.HeadSHA,
+	}); err != nil {
+		return fmt.Errorf("failed to record the wait on GitHub to rebase pull request %s: %w", params.ID, err)
+	}
+
+	return nil
+}
+
+// ClearRebaseAwait records that komrad no longer waits on GitHub to rebase a pull request's branch.
+func (s *PullRequestStore) ClearRebaseAwait(ctx context.Context, id string) error {
+	if err := s.queries.ClearRebaseAwait(ctx, id); err != nil {
+		return fmt.Errorf("failed to clear the wait on GitHub to rebase pull request %s: %w", id, err)
+	}
+
+	return nil
+}
+
+// RecordRetarget records that komrad points a pull request at a base branch, out of its GitHub stack, after its task was re-targeted onto it.
+func (s *PullRequestStore) RecordRetarget(ctx context.Context, id, onto string) error {
+	if err := s.queries.RecordRetarget(ctx, models.RecordRetargetParams{ID: id, Onto: onto}); err != nil {
+		return fmt.Errorf("failed to record the re-target of pull request %s onto %s: %w", id, onto, err)
+	}
+
+	return nil
+}
+
+// ClearRetarget records that a pull request no longer waits to be pointed at the base branch its task was re-targeted onto.
+func (s *PullRequestStore) ClearRetarget(ctx context.Context, id string) error {
+	if err := s.queries.ClearRetarget(ctx, id); err != nil {
+		return fmt.Errorf("failed to clear the re-target of pull request %s: %w", id, err)
+	}
+
+	return nil
 }

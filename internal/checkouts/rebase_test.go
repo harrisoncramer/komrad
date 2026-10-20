@@ -314,6 +314,10 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 		replayErr  error
 		wantErr    bool
 		wantParent bool
+		// stacked says the child's pull request sits in a GitHub stack.
+		stacked bool
+		// wantRetargetOnto is the base branch the child's pull request waits to be pointed at, empty while it waits on none.
+		wantRetargetOnto string
 	}{
 		{
 			name:       "a re-target that fails keeps the parent",
@@ -325,9 +329,15 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			name:       "a re-target stopped on conflicts keeps the parent until the branch leaves it",
 			replayErr:  git.ErrRebaseConflicted,
 			wantParent: true,
+			stacked:    true,
 		},
 		{
 			name: "a re-target that finishes clears the parent",
+		},
+		{
+			name:             "a re-target that finishes sends the child's pull request out of its GitHub stack",
+			stacked:          true,
+			wantRetargetOnto: "main",
 		},
 	}
 
@@ -335,6 +345,9 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			laid := fixture.seedTaskOnParent(t, agentstore.Agent{})
+			if tt.stacked {
+				seedStackedPullRequest(t, fixture, laid)
+			}
 			rebaser := newChildGit(laid.parent.GetBranch(), "newtip")
 			rebaser.Prediction = git.Prediction{Replay: 2}
 			rebaser.ReplayErr = tt.replayErr
@@ -349,6 +362,7 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantParent, got.Parent != nil)
+			assert.Equal(t, tt.wantRetargetOnto, readRetargetOnto(t, fixture, laid))
 		})
 	}
 }

@@ -220,6 +220,41 @@ table "pull_requests" {
     type    = text
     comment = "The last review decision a read reported, which a blank read leaves alone."
   }
+  column "stack_number" {
+    null    = true
+    type    = integer
+    comment = "The number of the GitHub stack the pull request is in, null while it is in none."
+  }
+  column "stack_position" {
+    null    = true
+    type    = integer
+    comment = "Where the pull request sits in its GitHub stack, counting from one at the bottom, null while it is in none."
+  }
+  column "stack_size" {
+    null    = true
+    type    = integer
+    comment = "How many pull requests the GitHub stack holds, null while the pull request is in none."
+  }
+  column "stacking_refused_at" {
+    null    = true
+    type    = timestamptz
+    comment = "The changed_at the pull request had when GitHub last refused to put it in a GitHub stack, which komrad asks again only once changed_at moves past; null while nothing was refused."
+  }
+  column "rebase_awaited_since" {
+    null    = true
+    type    = timestamptz
+    comment = "When komrad began waiting on GitHub to rebase the pull request's branch after the pull request under it in its GitHub stack merged, null while komrad waits on nothing."
+  }
+  column "rebase_awaited_from" {
+    null    = true
+    type    = text
+    comment = "The head commit the pull request had when komrad began waiting on GitHub to rebase it, which GitHub's push moves past; null while komrad waits on nothing."
+  }
+  column "retarget_onto" {
+    null    = true
+    type    = text
+    comment = "The base branch komrad points the pull request at, out of its GitHub stack, after its task was re-targeted onto it; null while nothing waits to move."
+  }
   column "engine_id" {
     null    = false
     type    = uuid
