@@ -206,6 +206,8 @@ func (p Palette) formStyles(isDark bool) *huh.Styles {
 	theme.Focused.TextInput.Prompt = theme.Focused.TextInput.Prompt.Foreground(primary)
 	theme.Focused.TextInput.Placeholder = theme.Focused.TextInput.Placeholder.Foreground(muted)
 
+	theme.Group.Title = theme.Focused.Title.PaddingLeft(theme.Focused.Base.GetHorizontalFrameSize())
+
 	theme.Blurred = theme.Focused
 	theme.Blurred.Title = theme.Blurred.Title.Foreground(muted).Bold(false)
 	theme.Blurred.NoteTitle = theme.Blurred.NoteTitle.Foreground(muted).Bold(false)

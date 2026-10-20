@@ -177,6 +177,11 @@ func taskDirs(tasks []panel.Task) []string {
 	return xslice.Map(xslice.Filter(tasks, func(task panel.Task) bool { return task.Cwd != "" }), func(task panel.Task) string { return task.Cwd })
 }
 
+// hasAnyOwnWorktree reports whether any of the tasks sits in a worktree komrad cut for it.
+func (l listing) hasAnyOwnWorktree(tasks []panel.Task) bool {
+	return slices.ContainsFunc(tasks, l.hasOwnWorktree)
+}
+
 // archiveTasks archives the tasks along with the live agents on them.
 func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
 	pending := m.unstageAhead(m.listing.agentsOnTasks(tasks))
@@ -196,23 +201,25 @@ func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
 	))
 }
 
-// deleteTasks deletes the tasks for good, with their agents, documents, reviews and worktrees.
-func (m *model) deleteTasks(tasks []panel.Task) tea.Cmd {
+// deleteTasks deletes the tasks' worktrees, and with records the tasks for good with everything on them.
+func (m *model) deleteTasks(tasks []panel.Task, records bool) tea.Cmd {
 	pending := m.unstageAhead(m.listing.agentsOnTasks(tasks))
 
 	return pending.attach(m.writeCmd(
 		"deleting "+describeTasks(tasks),
 		"Could not delete "+describeTasks(tasks),
 		func(a api) error {
-			return pending.noteArchive(a.deleteTasks(taskIDs(tasks)))
+			return pending.noteArchive(a.deleteTasks(taskIDs(tasks), records))
 		},
 	))
 }
 
-// confirmDeleteTasks asks before the tasks are deleted for good.
+// confirmDeleteTasks asks what goes before the tasks are deleted.
 func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
-	return deleteTasksConfirm(tasks, len(m.listing.agentsOnTasks(tasks))).open(m, func(m *model) tea.Cmd {
-		return m.deleteTasks(tasks)
+	confirm := deleteTasksConfirm(tasks, len(m.listing.agentsOnTasks(tasks)), m.listing.hasAnyOwnWorktree(tasks))
+
+	return confirm.open(m, func(m *model) tea.Cmd {
+		return m.deleteTasks(tasks, confirm.values.deletesRecords())
 	})
 }
 

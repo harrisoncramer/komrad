@@ -264,12 +264,13 @@ func (l listing) hasOwnWorktree(task panel.Task) bool {
 		return false
 	}
 
-	index := slices.IndexFunc(l.workflows, func(w panel.Workflow) bool { return w.ID == task.WorkflowID })
+	workflows := slices.Concat(l.workflows, l.archivedWorkflows)
+	index := slices.IndexFunc(workflows, func(w panel.Workflow) bool { return w.ID == task.WorkflowID })
 	if index < 0 {
 		return false
 	}
 
-	return l.workflows[index].Worktree.Enabled
+	return workflows[index].Worktree.Enabled
 }
 
 // findGitTask returns the task the menu opened on, as the list holds it now.

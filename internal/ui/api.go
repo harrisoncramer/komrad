@@ -217,9 +217,9 @@ func (a api) updateTask(params updateTaskParams) error {
 	})
 }
 
-func (a api) deleteTasks(ids []string) error {
+func (a api) deleteTasks(ids []string, records bool) error {
 	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
-		return a.tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: ids}))
+		return a.tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: ids, Records: records}))
 	})
 }
 
@@ -628,9 +628,9 @@ func (a api) restoreWorkflow(id string) error {
 	})
 }
 
-func (a api) deleteWorkflow(id string) error {
+func (a api) deleteWorkflow(id string, records bool) error {
 	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
-		return a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
+		return a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id, Records: records}))
 	})
 }
 

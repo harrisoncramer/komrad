@@ -1249,7 +1249,10 @@ func (x *MarkTaskRunsReadRequest) GetId() string {
 type DeleteTasksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The tasks to delete, by id or slug.
-	Tasks         []string `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	Tasks []string `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	// Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too.
+	// False deletes only the tasks' worktrees and keeps the tasks archived.
+	Records       bool `protobuf:"varint,2,opt,name=records,proto3" json:"records,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1289,6 +1292,13 @@ func (x *DeleteTasksRequest) GetTasks() []string {
 		return x.Tasks
 	}
 	return nil
+}
+
+func (x *DeleteTasksRequest) GetRecords() bool {
+	if x != nil {
+		return x.Records
+	}
+	return false
 }
 
 var File_task_v1_task_proto protoreflect.FileDescriptor
@@ -1393,10 +1403,11 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task\x12\x16\n" +
 	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"2\n" +
 	"\x17MarkTaskRunsReadRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"<\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"V\n" +
 	"\x12DeleteTasksRequest\x12&\n" +
 	"\x05tasks\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x05tasks*\xa0\x01\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x05tasks\x12\x18\n" +
+	"\arecords\x18\x02 \x01(\bR\arecords*\xa0\x01\n" +
 	"\bSequence\x12\x18\n" +
 	"\x14SEQUENCE_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rSEQUENCE_NONE\x10\x01\x12\x13\n" +
@@ -1409,7 +1420,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x19CASCADE_BLOCK_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18CASCADE_BLOCK_CONFLICTED\x10\x01\x12\x1a\n" +
 	"\x16CASCADE_BLOCK_ORPHANED\x10\x02\x12\x1f\n" +
-	"\x1bCASCADE_BLOCK_PARENT_CLOSED\x10\x032\xba\x11\n" +
+	"\x1bCASCADE_BLOCK_PARENT_CLOSED\x10\x032\x99\x12\n" +
 	"\vTaskService\x12\xcf\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\x87\x01\x9a\xb5\x18\x82\x01\b\x01\x10\x01\x1a\vcreate_task\"jCreate a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`.(\x00:\x01\x02\x12\x96\x01\n" +
@@ -1419,8 +1430,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\n" +
 	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xbb\x02\x9a\xb5\x18\xb3\x02\b\x01\x10\x01\x1a\vupdate_task\"\x9a\x02Change a task's slug, title, goal or notes, by id or slug. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task.(\x00:\x01\x02\x90\x02\x02\x12\xe8\x02\n" +
 	"\fSetTaskNotes\x12\x1c.task.v1.SetTaskNotesRequest\x1a\x1d.task.v1.SetTaskNotesResponse\"\x9a\x02\x9a\xb5\x18\x92\x02\b\x01\x10\x01\x1a\x0eset_task_notes\"\xa6\x01Replace a task's notes, which every agent that joins the task starts from. The write fails with `failed_precondition` when the notes changed since `notes_updated_at`.(\x00:\x03\x03\x01\x02JLOn failed_precondition, read the task again and keep what was written since.\x90\x02\x02\x12\xd8\x01\n" +
-	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\farchive_task\"rArchive a task by id or slug, with the live agents on it. The task keeps its record, and its slug is never reused.(\x00:\x01\x02\x90\x02\x02\x12\x81\x02\n" +
-	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\xbc\x01\x9a\xb5\x18\xb4\x01\b\x01\x10\x01\x1a\fdelete_tasks\"iDelete tasks for good, by id or slug, with every agent on them and their documents, reviews and worktree.(\x01:\x01\x02J0Prefer archive_task, and delete only when asked.\x90\x02\x02\x12\x93\x02\n" +
+	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\farchive_task\"rArchive a task by id or slug, with the live agents on it. The task keeps its record, and its slug is never reused.(\x00:\x01\x02\x90\x02\x02\x12\xe0\x02\n" +
+	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\x9b\x02\x9a\xb5\x18\x93\x02\b\x01\x10\x01\x1a\fdelete_tasks\"\xc7\x01Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews.(\x01:\x01\x02J0Prefer archive_task, and delete only when asked.\x90\x02\x02\x12\x93\x02\n" +
 	"\rSetTaskHidden\x12\x1d.task.v1.SetTaskHiddenRequest\x1a\x16.google.protobuf.Empty\"\xca\x01\x9a\xb5\x18\xc2\x01\b\x01\x10\x01\x1a\x0fset_task_hidden\"\x87\x01Hide a task by id or slug, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists.(\x00:\x01\x02J\x1cHide a task only when asked.\x90\x02\x02\x12\x98\x01\n" +
 	"\x10MarkTaskRunsRead\x12 .task.v1.MarkTaskRunsReadRequest\x1a\x16.google.protobuf.Empty\"J\x9a\xb5\x18CBAOnly the person can say they have seen a task's failed hook runs.\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
 

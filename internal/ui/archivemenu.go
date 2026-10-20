@@ -215,25 +215,27 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 	))
 }
 
-// deleteChosenAgents deletes the task of each chosen writer with its agents.
-func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
+// deleteChosenAgents deletes the task of each chosen writer, with its agents when records go too.
+func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
 	pending := m.unstageAhead(work.affected(m.listing))
 	subject := describeAgents(work.chosen)
 
 	return pending.attach(m.awaitingWriteCmd(
 		"deleting "+subject,
 		"Could not delete "+subject,
-		&awaits{gone: rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)},
+		awaitDeleted(records, rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)),
 		func(a api) error {
-			return pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks)))
+			return pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks), records))
 		},
 	))
 }
 
-// confirmDeleteChosenAgents asks before the chosen agents are deleted for good.
+// confirmDeleteChosenAgents asks what goes before the chosen agents are deleted.
 func confirmDeleteChosenAgents(m *model, work chosenWork, pool []panel.Agent) tea.Cmd {
-	return deleteChosenConfirm(work, unnamedReviewers(pool, work.chosen)).open(m, func(m *model) tea.Cmd {
-		return m.deleteChosenAgents(work)
+	confirm := deleteChosenConfirm(work, unnamedReviewers(pool, work.chosen), m.listing.hasAnyOwnWorktree(work.wholeTasks))
+
+	return confirm.open(m, func(m *model) tea.Cmd {
+		return m.deleteChosenAgents(work, confirm.values.deletesRecords())
 	})
 }
 

@@ -2143,17 +2143,17 @@ func TestAgentsReviewers(t *testing.T) {
 		{
 			name:  "one task with one agent",
 			press: []string{"space", "a", "d"},
-			want:  `Permanently delete task "task-fix-gutter"?`,
+			want:  `Delete task "task-fix-gutter"?`,
 		},
 		{
 			name:  "a task whose writer has reviewers",
 			press: []string{"j", "space", "a", "d"},
-			want:  `Permanently delete task "task-writer"?`,
+			want:  `Delete task "task-writer"?`,
 		},
 		{
 			name:  "a selection names its agents and the reviewers going with them",
 			press: []string{"j", "v", "j", "v", "space", "a", "d"},
-			want:  "Permanently delete 2 agents and 1 reviewer?",
+			want:  "Komrad also deletes 2 agents and 1 reviewer.",
 		},
 	}
 
@@ -2163,7 +2163,7 @@ func TestAgentsReviewers(t *testing.T) {
 
 			harness.press(tt.press...)
 
-			assert.Contains(t, harness.readFrame(), tt.want)
+			assert.Contains(t, readFormProse(harness.readFrame()), tt.want)
 		})
 	}
 
@@ -2177,9 +2177,7 @@ func TestAgentsReviewers(t *testing.T) {
 
 		harness.press("j", "v", "j", "v", "space", "a", "d")
 
-		frame := harness.readFrame()
-		assert.Contains(t, frame, `Permanently delete agent "writer" and its reviewer?`)
-		assert.Contains(t, frame, "Komrad deletes their transcripts too")
+		assert.Contains(t, readFormProse(harness.readFrame()), `Komrad also deletes agent "writer" and its reviewer.`)
 	})
 
 	t.Run("a task offers its writer's worktree a rebase", func(t *testing.T) {

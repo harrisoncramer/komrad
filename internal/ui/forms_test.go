@@ -530,15 +530,15 @@ func TestFormsArchivePrompt(t *testing.T) {
 			},
 			{
 				name:  "one row down deletes the task once confirmed",
-				press: []string{"down", "enter", "y"},
+				press: []string{"down", "enter", "enter"},
 				wantSent: []request{{
 					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
+					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},
 				}},
 			},
 			{
 				name:  "declining the confirm deletes nothing",
-				press: []string{"down", "enter", "n"},
+				press: []string{"down", "enter", "tab", "n"},
 			},
 			{
 				name:  "the last row leaves the task where it is",
@@ -582,7 +582,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 			{
 				name:   "delete is disabled for chosen agents short of their whole task",
 				choose: siblings,
-				press:  []string{"down", "enter", "y"},
+				press:  []string{"down", "enter", "enter"},
 			},
 			{
 				name:   "archiving every agent on a task archives the task",
@@ -596,10 +596,10 @@ func TestFormsArchivePrompt(t *testing.T) {
 			{
 				name:   "deleting every agent on a task deletes the task",
 				choose: wholeTask,
-				press:  []string{"down", "enter", "y"},
+				press:  []string{"down", "enter", "enter"},
 				wantSent: []request{{
 					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-writer"}},
+					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-writer"}, Records: true},
 				}},
 			},
 		}
@@ -641,7 +641,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("a task delete keeps its form up until the watch drops the task", func(t *testing.T) {
 		harness := openTaskForms(t, newFormAuthor())
 
-		harness.press("j", "space", "a", "down", "enter", "y")
+		harness.press("j", "space", "a", "down", "enter", "enter")
 
 		require.Contains(t, harness.readFrame(), `deleting task "task-a1"`)
 
@@ -654,7 +654,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("a delete the watch never drops closes its form once the wait runs out", func(t *testing.T) {
 		harness := openTaskForms(t, newFormAuthor())
 
-		harness.press("j", "space", "a", "down", "enter", "y")
+		harness.press("j", "space", "a", "down", "enter", "enter")
 		require.Contains(t, harness.readFrame(), `deleting task "task-a1"`)
 
 		harness.panel.ExpireParked()
@@ -722,7 +722,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness.fireTimers()
 		harness.refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
 
-		harness.press("space", "a", "down", "enter", "y")
+		harness.press("space", "a", "down", "enter", "enter")
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.True(t, harness.panel.IsAgentAlive("a1"))
@@ -778,7 +778,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness := openTaskForms(t, newFormAuthor())
 		harness.refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already deleting")))
 
-		harness.press(slices.Concat([]string{"j", "space", "a", "down", "enter", "y"}, widenListPresses)...)
+		harness.press(slices.Concat([]string{"j", "space", "a", "down", "enter", "enter"}, widenListPresses)...)
 
 		assert.Contains(t, harness.readFrame(), `Could not delete task "task-a1"`)
 	})

@@ -188,8 +188,10 @@ func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
 // confirmDeleteMixed asks once before task checkouts go with their tasks and the other directories
 // through the remover.
 func confirmDeleteMixed(m *model, deletion worktreeDeletion) tea.Cmd {
-	return deleteMixedConfirm(deletion, len(m.listing.agentsOnTasks(deletion.tasks))).open(m, func(m *model) tea.Cmd {
-		return tea.Batch(m.deleteTasks(deletion.tasks), deleteWorktreesCmd(m, deletion))
+	confirm := deleteMixedConfirm(deletion, len(m.listing.agentsOnTasks(deletion.tasks)))
+
+	return confirm.open(m, func(m *model) tea.Cmd {
+		return tea.Batch(m.deleteTasks(deletion.tasks, confirm.values.deletesRecords()), deleteWorktreesCmd(m, deletion))
 	})
 }
 

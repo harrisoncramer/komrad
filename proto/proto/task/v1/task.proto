@@ -239,6 +239,9 @@ message DeleteTasksRequest {
       string: {min_len: 1}
     }
   }];
+  // Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too.
+  // False deletes only the tasks' worktrees and keeps the tasks archived.
+  bool records = 2;
 }
 
 // TaskService creates, reads and changes tasks.
@@ -325,7 +328,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "delete_tasks"
-      description: "Delete tasks for good, by id or slug, with every agent on them and their documents, reviews and worktree."
+      description: "Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews."
       mcp_guidance: "Prefer archive_task, and delete only when asked."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]

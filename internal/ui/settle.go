@@ -53,6 +53,15 @@ func rowsIn(list rowList, ids ...string) []listedRow {
 	return xslice.Map(ids, func(id string) listedRow { return listedRow{list: list, id: id} })
 }
 
+// awaitDeleted waits for the rows to leave the listing when the delete takes the records.
+func awaitDeleted(records bool, rows []listedRow) *awaits {
+	if !records {
+		return nil
+	}
+
+	return &awaits{gone: rows}
+}
+
 // awaitShown waits for the listing to hold the row a write made, with its pane warm when it has one to show.
 func (w written) awaitShown() *awaits {
 	if w.archived {

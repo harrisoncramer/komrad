@@ -1053,8 +1053,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Delete an archived workflow for good, with its archived agents, tasks and schedules.",
-          "description": "Delete an archived workflow for good, with its archived agents, tasks and schedules.",
+          "summary": "Delete the worktrees of an archived workflow's tasks.",
+          "description": "Delete the worktrees of an archived workflow's tasks. With records set, delete the workflow for good too, with its archived agents, tasks and schedules.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1802,8 +1802,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Delete tasks for good, by id or slug, with every agent on them and their documents, reviews and worktree.",
-          "description": "Delete tasks for good, by id or slug, with every agent on them and their documents, reviews and worktree.",
+          "summary": "Delete tasks' worktrees, by id or slug, archiving the tasks first.",
+          "description": "Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -9170,6 +9170,16 @@
             "required"
           ],
           "description": "The tasks to delete, by id or slug."
+        },
+        {
+          "name": "records",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too. False deletes only the tasks' worktrees and keeps the tasks archived."
         }
       ]
     },
@@ -9932,6 +9942,16 @@
             "required"
           ],
           "description": "The archived workflow to delete, by id."
+        },
+        {
+          "name": "records",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether to delete the agents, transcripts, documents, mail, notes and reviews of the workflow's tasks too. False deletes only the tasks' worktrees and keeps the workflow archived."
         }
       ]
     },

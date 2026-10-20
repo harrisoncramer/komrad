@@ -376,26 +376,17 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 	)
 }
 
-// confirmDeleteWorkflow asks before it deletes an archived workflow for good.
+// confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
 func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
-	form, confirmed := deleteWorkflowForm(workflow, m.listing.archivedCount(workflow.ID), fixedKeys())
+	confirm := deleteWorkflowConfirm(workflow, m.listing.archivedCount(workflow.ID))
 
-	return m.openForm(formState{
-		kind:   formArchiveDelete,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			if !*confirmed {
-				return nil
-			}
-
-			return m.awaitingWriteCmd(
-				"deleting "+workflow.Name,
-				fmt.Sprintf("Could not delete workflow %q", workflow.Name),
-				&awaits{gone: rowsIn(listArchivedWorkflows, workflow.ID)},
-				func(a api) error { return a.deleteWorkflow(workflow.ID) },
-			)
-		}),
+	return confirm.open(m, func(m *model) tea.Cmd {
+		return m.awaitingWriteCmd(
+			"deleting "+workflow.Name,
+			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
+			awaitDeleted(confirm.values.deletesRecords(), rowsIn(listArchivedWorkflows, workflow.ID)),
+			func(a api) error { return a.deleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
+		)
 	})
 }
 

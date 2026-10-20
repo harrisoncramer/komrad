@@ -16,6 +16,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
@@ -175,7 +176,7 @@ func TestWorktreesDelete(t *testing.T) {
 			name:         "an archived task's directory is offered the task delete",
 			row:          "reviewer",
 			press:        []string{"space", "a", "d"},
-			wantRendered: `Permanently delete task "reviewer"?`,
+			wantRendered: `Delete task "reviewer"?`,
 		},
 		{
 			name:         "a directory nothing answers for is offered the delete on its own",
@@ -243,15 +244,57 @@ func TestWorktreesDelete(t *testing.T) {
 		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
 	})
 
-	t.Run("chosen task checkouts are deleted with their tasks", func(t *testing.T) {
+	t.Run("chosen task checkouts", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t, buildTaskWorktrees()...)
-		moveToWorktree(t, harness, "alpha")
+		tests := []struct {
+			name        string
+			press       []string
+			wantRefusal string
+			wantSent    []proto.Message
+		}{
+			{
+				name:        "are kept when nothing is checked",
+				press:       []string{"x", "enter"},
+				wantRefusal: "check what to delete, or go back",
+			},
+			{
+				name:     "are deleted once something is checked after a refused confirm",
+				press:    []string{"x", "tab", "y", "x", "enter"},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
+			},
+			{
+				name:     "are deleted with their worktrees alone by default",
+				press:    []string{"enter"},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
+			},
+			{
+				name:     "are deleted with their records once records are checked",
+				press:    []string{"down", "x", "enter"},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}, Records: true}},
+			},
+			{
+				name:     "are deleted with their records when only the records are checked",
+				press:    []string{"x", "down", "x", "enter"},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}, Records: true}},
+			},
+		}
 
-		harness.press("v", "j", "v", "space", "a", "d", "y")
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
 
-		harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}})
+				harness := openWorktrees(t, buildTaskWorktrees()...)
+				moveToWorktree(t, harness, "alpha")
+
+				harness.press(append([]string{"v", "j", "v", "space", "a", "d"}, tt.press...)...)
+
+				if tt.wantRefusal != "" {
+					assert.Contains(t, harness.readFrame(), tt.wantRefusal)
+				}
+				harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, tt.wantSent...)
+			})
+		}
 	})
 
 	t.Run("a choice mixing a task checkout with the rest asks once and deletes each its own way", func(t *testing.T) {
@@ -262,9 +305,9 @@ func TestWorktreesDelete(t *testing.T) {
 
 		harness.press("v", "j", "v", "space", "a", "d")
 
-		assert.Contains(t, harness.readFrame(), "Permanently delete 2 worktrees?")
+		assert.Contains(t, harness.readFrame(), "Delete 2 worktrees?")
 
-		harness.press("y")
+		harness.press("tab", "y")
 
 		harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{Tasks: []string{"t9"}})
 		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, &worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/zz"}})
@@ -1450,16 +1493,22 @@ func newWorktreeTask(agent *agentv1.Agent) *taskv1.Task {
 // buildTaskWorktrees is two tasks' checkouts no agent answers for, beside a directory nothing does.
 func buildTaskWorktrees() []proto.Message {
 	return []proto.Message{
-		newLiveWorkflow("w1", "komrad"),
+		&workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "komrad",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+		},
 		&taskv1.Task{
 			Id:         "t8",
 			WorkflowId: "w1",
 			Slug:       "alpha",
+			Cwd:        xptr.Ptr("/trees/t8"),
 		},
 		&taskv1.Task{
 			Id:         "t9",
 			WorkflowId: "w1",
 			Slug:       "beta",
+			Cwd:        xptr.Ptr("/trees/t9"),
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:      "/trees/t8",
