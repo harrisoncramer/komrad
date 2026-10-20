@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/panel"
-	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -51,6 +50,15 @@ func (t archived) opensAgent() (*panel.Agent, error) {
 	return t.resumed, nil
 }
 
+// deleteOffSaid is why the target cannot be deleted, empty when it can.
+func (t archived) deleteOffSaid() string {
+	if t.schedule != nil || t.workflow != nil {
+		return ""
+	}
+
+	return t.work.deleteOffSaid()
+}
+
 // archiveMenu is the archive's actions on a row, opened from its menu.
 func archiveMenu(m *model, target archived) submenu {
 	restore, remove := "restore", "delete for good"
@@ -71,9 +79,9 @@ func archiveMenu(m *model, target archived) submenu {
 				isOff: err != nil,
 				write: func(m *model) tea.Cmd { return m.restoreAndOpen(target) },
 			},
-			openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+			drawnOff(openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
 				return confirmDeleteArchivedRow(m, target)
-			}),
+			}), target.deleteOffSaid()),
 		},
 	}
 }
@@ -168,8 +176,8 @@ func taskArchiveMenu(m *model, task panel.Task) submenu {
 	)
 }
 
-// chosenArchiveMenu archives the chosen agents, or deletes them for good, taking the whole task of
-// each chosen writer.
+// chosenArchiveMenu archives the chosen agents, or deletes them for good with the task of each
+// chosen writer.
 func chosenArchiveMenu(m *model, work chosenWork) submenu {
 	return liveArchiveMenu(
 		submenuEntry{
@@ -177,9 +185,9 @@ func chosenArchiveMenu(m *model, work chosenWork) submenu {
 			keys:  m.keys.ArchiveMenu.Archive,
 			write: func(m *model) tea.Cmd { return m.archiveChosenAgents(work) },
 		},
-		openEntry("archive and delete all for good", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+		drawnOff(openEntry("archive and delete all for good", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
 			return confirmDeleteChosenAgents(m, work, m.listing.liveAgents())
-		}),
+		}), work.deleteOffSaid()),
 	)
 }
 
@@ -207,8 +215,7 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 	))
 }
 
-// deleteChosenAgents deletes the task of each chosen writer with its agents and the other chosen
-// agents alone.
+// deleteChosenAgents deletes the task of each chosen writer with its agents.
 func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
 	pending := m.unstageAhead(work.affected(m.listing))
 	subject := describeAgents(work.chosen)
@@ -218,23 +225,7 @@ func (m *model) deleteChosenAgents(work chosenWork) tea.Cmd {
 		"Could not delete "+subject,
 		&awaits{gone: rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)},
 		func(a api) error {
-			if len(work.wholeTasks) > 0 {
-				if err := pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks))); err != nil {
-					return err
-				}
-			}
-			if len(work.loneAgents) == 0 {
-				return nil
-			}
-
-			live := xslice.Filter(work.loneAgents, func(agent panel.Agent) bool { return agent.ArchivedAt == nil })
-			if len(live) > 0 {
-				if err := pending.noteArchive(a.archiveAgents(panel.IDs(live))); err != nil {
-					return err
-				}
-			}
-
-			return a.deleteAgents(panel.IDs(work.loneAgents))
+			return pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks)))
 		},
 	))
 }

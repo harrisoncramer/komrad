@@ -588,51 +588,6 @@ func TestDeleteAgent(t *testing.T) {
 	}
 }
 
-// TestDeleteAgentsTakesAReviewerAndNotItsWriter pins that a delete naming a task's writer is
-// refused while one naming a reviewer goes ahead.
-func TestDeleteAgentsTakesAReviewerAndNotItsWriter(t *testing.T) {
-	tests := []struct {
-		name      string
-		target    func(writer, reviewer agentstore.Agent) string
-		wantErrIs error
-		wantKept  []string
-	}{
-		{
-			name:      "a task's writer goes only with its task",
-			target:    func(writer, _ agentstore.Agent) string { return writer.ID },
-			wantErrIs: agenterr.ErrWriterGoesWithTask,
-			wantKept:  []string{"writer", "reviewer"},
-		},
-		{
-			name:     "a reviewer goes alone",
-			target:   func(_, reviewer agentstore.Agent) string { return reviewer.ID },
-			wantKept: []string{"writer"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
-			tmux := tmuxtest.NewFake()
-			manager := newManager(tmux, st)
-
-			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
-			reviewer := seedReviewer(t, st, tmux, writer)
-
-			err := manager.lifecycle.DeleteAgents(t.Context(), []string{tt.target(writer, reviewer)})
-			if tt.wantErrIs != nil {
-				require.ErrorIs(t, err, tt.wantErrIs)
-			} else {
-				require.NoError(t, err)
-			}
-
-			all, err := st.Agents.ListAll(t.Context())
-			require.NoError(t, err)
-			assert.ElementsMatch(t, tt.wantKept, xslice.Map(all, func(a agentstore.Agent) string { return a.Name }))
-		})
-	}
-}
-
 // TestAReissuedPaneIsNotTheAgents pins every read of a stored pane id surviving reissue.
 func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	const shared = "%4"

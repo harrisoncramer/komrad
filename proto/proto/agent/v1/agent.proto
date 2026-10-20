@@ -633,16 +633,16 @@ message ResumeAgentResponse {
 }
 
 message RestartAgentRequest {
-  // The writer to restart, by id.
+  // The writer or orchestrator to restart, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // Text to add to the writer's prompt. Empty to add nothing.
+  // Text to add to the agent's prompt. Empty to add nothing.
   string note = 2 [(buf.validate.field).string.max_len = 50000];
-  // The harness to move the writer to. Empty to keep the writer's harness.
+  // The harness to move the agent to. Empty to keep the agent's harness.
   string harness = 3 [(buf.validate.field).string = {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  // The flags for the writer's CLI. Empty to keep the writer's flags, or, when `harness` changes,
+  // The flags for the agent's CLI. Empty to keep the agent's flags, or, when `harness` changes,
   // to use the workflow's flags if the workflow runs that harness and the CLI's default flags if not.
   string flags = 4 [(buf.validate.field).string = {
     max_len: 500
@@ -651,7 +651,7 @@ message RestartAgentRequest {
 }
 
 message RestartAgentResponse {
-  // The writer as restarted, running.
+  // The agent as restarted, running.
   Agent agent = 1;
 }
 
@@ -676,17 +676,6 @@ message ReleaseAgentRequest {
 message ReleaseAgentResponse {
   // The agent as released, running.
   Agent agent = 1;
-}
-
-message DeleteAgentsRequest {
-  // The agents to delete, by id.
-  repeated string ids = 1 [(buf.validate.field).repeated = {
-    min_items: 1
-    unique: true
-    items: {
-      string: {min_len: 1}
-    }
-  }];
 }
 
 message UpdateAgentRequest {
@@ -928,7 +917,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "restart_agent"
-      description: "Restart a task's writer on a new conversation, with a prompt built from the task's notes and checkout. The writer keeps its harness and flags unless others are named. The old conversation stays in its transcript, and the task's reviewers keep running."
+      description: "Restart a task's writer or a workflow's orchestrator on a new conversation. A writer's prompt is built from its task's notes and checkout. The agent keeps its harness and flags unless others are named, and its old conversation stays in its transcript. A task's reviewers keep running. An agent may not restart an orchestrator."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -940,18 +929,6 @@ service AgentService {
       name: "retry_agent"
       description: "Retry an agent whose create failed, with new flags, prompt or harness if given."
       destructive: false
-      roles: [ROLE_ORCHESTRATOR]
-    };
-  }
-  rpc DeleteAgents(DeleteAgentsRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.surfaces) = {
-      cli: true
-      mcp: true
-      name: "delete_agents"
-      description: "Delete agents for good, with their records and transcripts. The task's worktree stays until the task is deleted. Komrad refuses a task's writer, which is deleted only with its task through `delete_tasks`."
-      mcp_guidance: "Prefer archive_agents, and delete only when asked."
-      destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };
   }

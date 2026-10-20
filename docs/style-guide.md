@@ -172,7 +172,7 @@ dormant: Kept as a record with no pane. A dormant agent keeps its conversation.
 
 resume: Launch a dormant agent on its existing conversation.
 
-restart: Launch the writer on a new conversation.
+restart: Launch a writer or an orchestrator on a new conversation, its old one kept in its transcript.
 
 retry: Launch an agent again after its create failed.
 
@@ -182,7 +182,7 @@ archived: Stopped and taken out of the list, with its records kept. Restore brin
 
 hidden: Live, but left out of a client's lists. Use it only for tasks, and never for archived.
 
-deleted: Removed for good, with its transcript.
+deleted: Removed for good, with its transcript. An agent is deleted only with its task or workflow.
 
 ### Messages and records
 

@@ -271,21 +271,6 @@ func (s *LifecycleService) cleanupEmptyWorkflows(ctx context.Context, removed []
 	}
 }
 
-// DeleteAgents claims agents and queues their deletes, refusing a task's writer, which goes only
-// with its task.
-func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
-	named, err := s.requireEveryAgent(ctx, ids)
-	if err != nil {
-		return err
-	}
-
-	if err := refuseWriters(named, "delete"); err != nil {
-		return err
-	}
-
-	return s.agentDeleter.DeleteAgents(ctx, ids)
-}
-
 // ArchiveAgentsParams is the agents to archive and the agent asking.
 type ArchiveAgentsParams struct {
 	IDs []string

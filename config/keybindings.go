@@ -294,9 +294,9 @@ type MenuKeys struct {
 	// Swap the pane beside the list between the hovered task's goal and notes and its writer's pane.
 	// Escape puts the writer's pane back too. The entry is only on a task.
 	Notes []string `mapstructure:"notes" default:"n"`
-	// Restart the hovered task's writer on a new conversation in the same checkout, from a form
-	// asking for a note to it. The entry is only on a task, and does nothing on one with no live
-	// writer.
+	// Restart the hovered task's writer, or the hovered workflow's orchestrator, on a new
+	// conversation, from a form asking for a note to it. The entry does nothing on a task with no
+	// live writer.
 	Restart []string `mapstructure:"restart" default:"o"`
 	// Put an agent on a branch that already exists, in the hovered workflow.
 	Adopt []string `mapstructure:"adopt" default:"A"`

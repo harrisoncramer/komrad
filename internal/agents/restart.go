@@ -19,35 +19,43 @@ import (
 const restartPrompt = "You carry on with this task on a new conversation, and your earlier one is in your " +
 	"transcript. Read the task's notes and run git status before you change anything."
 
-// errRestartNotWriter is a restart of an agent that is not a task's writer.
-var errRestartNotWriter = fail.Precondition("only a task's writer restarts on a new conversation")
+// orchestratorRestartPrompt is what a restarted orchestrator is asked on the first turn of its new conversation.
+const orchestratorRestartPrompt = "You carry on as this workflow's orchestrator on a new conversation, and your " +
+	"earlier one is in your transcript, which get_transcript reads. Look at the workflow and the agents in it, " +
+	"then say what you see and wait."
+
+var (
+	// errRestartRole is a restart of an agent that is neither a task's writer nor a workflow's orchestrator.
+	errRestartRole = fail.Precondition("only a task's writer or a workflow's orchestrator restarts on a new conversation")
+	// errRestartOrchestratorByAgent is an agent restarting an orchestrator.
+	errRestartOrchestratorByAgent = fail.Precondition("an agent may not restart an orchestrator")
+)
 
 // transcriptSyncer copies what an agent has said so far into the store.
 type transcriptSyncer interface {
 	SyncAgent(ctx context.Context, agent agentstore.Agent) error
 }
 
-// RestartAgentParams is the writer to restart, what it is told on top of its briefing, and the CLI
-// and flags it moves onto, blank for the ones it runs.
+// RestartAgentParams is the writer or orchestrator to restart, what it is told on top of its
+// briefing, and the CLI and flags it moves onto, blank for the ones it runs.
 type RestartAgentParams struct {
 	ID      string
 	Note    string
 	Harness string
 	Flags   string
+	// ByAgentID is the agent asking, empty for the panel.
+	ByAgentID string
 }
 
-// RestartAgent relaunches a task's writer on a new conversation, briefed from its task, its earlier
-// conversation kept in its transcript.
+// RestartAgent relaunches a task's writer or a workflow's orchestrator on a new conversation, its
+// earlier conversation kept in its transcript.
 func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentParams) (*agentstore.Agent, error) {
 	agent, err := s.getByID(ctx, params.ID)
 	if err != nil {
 		return nil, err
 	}
-	if !isTaskWriter(*agent) {
-		return nil, errRestartNotWriter.Saying("%q is not a task's writer", agent.Name)
-	}
-	if agent.ArchivedAt != nil {
-		return nil, fmt.Errorf("%w: %q is archived, restore its task first", agenterr.ErrAgentArchived, agent.Name)
+	if err := refuseRestart(*agent, params.ByAgentID); err != nil {
+		return nil, err
 	}
 	if err := agent.ValidateActionable(); err != nil {
 		return nil, err
@@ -70,9 +78,11 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 	if err != nil {
 		return nil, err
 	}
-	task, err := s.tasks.GetAgentTask(ctx, *agent)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the task of %q: %w", agent.Name, err)
+	var task *taskstore.Task
+	if isTaskWriter(*agent) {
+		if task, err = s.tasks.GetAgentTask(ctx, *agent); err != nil {
+			return nil, fmt.Errorf("failed to read the task of %q: %w", agent.Name, err)
+		}
 	}
 
 	killOwnedPanes(ctx, s.tmux, []agentstore.Agent{*agent})
@@ -92,7 +102,7 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 		agent:   *agent,
 		harness: hn,
 		restart: &restartLaunch{
-			prompt:   buildRestartPrompt(params.Note),
+			prompt:   buildRestartPrompt(*agent, params.Note),
 			task:     task,
 			workflow: wf,
 			spawner:  s.findSpawner(ctx, *agent),
@@ -105,8 +115,29 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 	return s.getByID(ctx, params.ID)
 }
 
-// syncTranscript copies the last of the conversation the writer is leaving into the store, which
-// stops reading it once the writer moves on.
+// refuseRestart turns away an agent that has no restart, or a restart the caller may not make.
+func refuseRestart(agent agentstore.Agent, byAgentID string) error {
+	switch {
+	case agent.Role == agentstore.RoleOrchestrator:
+		if byAgentID != "" {
+			return errRestartOrchestratorByAgent.Saying("%q is a workflow's orchestrator", agent.Name)
+		}
+		if agent.ArchivedAt != nil {
+			return fmt.Errorf("%w: %q is archived, restore its workflow first", agenterr.ErrAgentArchived, agent.Name)
+		}
+	case isTaskWriter(agent):
+		if agent.ArchivedAt != nil {
+			return fmt.Errorf("%w: %q is archived, restore its task first", agenterr.ErrAgentArchived, agent.Name)
+		}
+	default:
+		return errRestartRole.Saying("%q is neither a task's writer nor a workflow's orchestrator", agent.Name)
+	}
+
+	return nil
+}
+
+// syncTranscript copies the last of the conversation the agent is leaving into the store, which
+// stops reading it once the agent moves on.
 func (s *ResumeService) syncTranscript(ctx context.Context, agent agentstore.Agent) {
 	if err := s.transcripts.SyncAgent(ctx, agent); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to copy the last of a restarted agent's conversation",
@@ -128,16 +159,20 @@ func (s *ResumeService) findSpawner(ctx context.Context, agent agentstore.Agent)
 	return spawner
 }
 
-// buildRestartPrompt is the restarted writer's first prompt, with the note it was restarted with.
-func buildRestartPrompt(note string) string {
+// buildRestartPrompt is the restarted agent's first prompt, with the note it was restarted with.
+func buildRestartPrompt(agent agentstore.Agent, note string) string {
+	prompt := restartPrompt
+	if agent.Role == agentstore.RoleOrchestrator {
+		prompt = orchestratorRestartPrompt
+	}
 	if note = strings.TrimSpace(note); note != "" {
-		return restartPrompt + "\n\n" + note
+		return prompt + "\n\n" + note
 	}
 
-	return restartPrompt
+	return prompt
 }
 
-// restartLaunch is what a writer restarting on a new conversation is briefed with.
+// restartLaunch is what an agent restarting on a new conversation is briefed with.
 type restartLaunch struct {
 	prompt   string
 	task     *taskstore.Task
@@ -146,7 +181,7 @@ type restartLaunch struct {
 	earlier  agentstore.Agent
 }
 
-// plan is the writer's launch on its new conversation, briefed the way it was when it was made.
+// plan is the agent's launch on its new conversation, briefed the way it was when it was made.
 func (f *restartLaunch) plan(hn harness.Harness, agent agentstore.Agent) paneLaunch {
 	launch := launchParams{
 		Pane:         agent.Pane,
@@ -156,7 +191,7 @@ func (f *restartLaunch) plan(hn harness.Harness, agent agentstore.Agent) paneLau
 		SessionID:    agent.SessionID,
 		AgentID:      agent.ID,
 		Role:         agent.Role,
-		OwnsCheckout: true,
+		OwnsCheckout: isTaskWriter(agent),
 		Task:         f.task,
 	}
 	if f.workflow != nil {

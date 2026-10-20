@@ -1117,7 +1117,7 @@
               "key": "restart",
               "path": "keybindings.menu.restart",
               "type": "array",
-              "description": "Restart the hovered task's writer on a new conversation in the same checkout, from a form\nasking for a note to it. The entry is only on a task, and does nothing on one with no live\nwriter.",
+              "description": "Restart the hovered task's writer, or the hovered workflow's orchestrator, on a new\nconversation, from a form asking for a note to it. The entry does nothing on a task with no\nlive writer.",
               "default": "[\"o\"]"
             },
             {

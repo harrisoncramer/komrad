@@ -2026,6 +2026,21 @@ func TestAgentsOrchestrator(t *testing.T) {
 		})
 	}
 
+	t.Run("a restart relaunches the orchestrator with the note", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newOrchestrator())
+		harness.answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: newOrchestrator()}), nil
+		})
+
+		harness.press(slices.Concat([]string{"space", "o"}, spellKeys("start fresh"), []string{"enter"})...)
+
+		harness.assertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
+			Id:      "o1",
+			Note:    "start fresh",
+			Harness: "claude",
+		})
+	})
+
 	t.Run("a running orchestrator whose frame reads as no harness is staged at once", func(t *testing.T) {
 		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: &harnessFrameFake{}})
 		answerWorktreeReads(harness)

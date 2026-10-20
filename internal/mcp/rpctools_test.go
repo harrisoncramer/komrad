@@ -108,7 +108,7 @@ func TestToolHints(t *testing.T) {
 			wantDestructive: xptr.Ptr(false),
 		},
 		{
-			method:          "DeleteAgents",
+			method:          "DeleteMail",
 			readOnly:        false,
 			idempotent:      true,
 			wantDestructive: xptr.Ptr(true),
