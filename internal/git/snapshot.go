@@ -18,7 +18,7 @@ import (
 var errSequenceInProgress = fail.Precondition("a rebase or merge is part way through in that checkout; finish or abort it first")
 
 // snapshotMessage is what the snapshot's commit says.
-const snapshotMessage = "komrad review snapshot"
+const snapshotMessage = "komrad review round"
 
 // parkMessage is what the commit standing behind an undo says.
 const parkMessage = "komrad parked worktree"
