@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"komrad/config"
 	"komrad/db"
@@ -123,6 +124,38 @@ fresh grant and a fresh sign-in.`,
 			}
 
 			return nil
+		},
+	})
+
+	engine.AddCommand(&cobra.Command{
+		Use:         "grants NAME=EMAIL...",
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
+		Short:       "Let one person into each engine and everyone else out",
+		Long: `Let the person with each email into the engine it follows, and turn everyone else away,
+connecting as owner_database_url.
+
+Each named engine keeps the account its email's sign-in recorded, loses every other email, and
+gains the email when it is new. Every engine left unnamed loses all of its grants.`,
+		Args:          cobra.ArbitraryArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			grants := make(map[string]string, len(args))
+			for _, arg := range args {
+				name, email, ok := strings.Cut(arg, "=")
+				if !ok || name == "" {
+					return fmt.Errorf("%q is not written as NAME=EMAIL", arg)
+				}
+				if _, seen := grants[name]; seen {
+					return fmt.Errorf("engine %s is named a second time", name)
+				}
+				grants[name] = email
+			}
+
+			return store.SetGrants(cmd.Context(), store.SetGrantsParams{
+				OwnerURL: state.env.OwnerDatabaseURL,
+				Grants:   grants,
+			})
 		},
 	})
 

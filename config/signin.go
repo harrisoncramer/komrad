@@ -22,8 +22,8 @@ type SignIn struct {
 	// The secret some providers, such as Google, hand a desktop app beside its id. Every copy of
 	// komrad carries it, so it protects nothing, and `komrad login` reads it from the engine.
 	ClientSecret string `mapstructure:"client_secret"`
-	// The address the public listener serves signed-in requests on. It has to be a loopback
-	// host, since a web server on the same machine carries the network's requests to it.
+	// The address the public listener serves signed-in requests on, a loopback or private address.
+	// A web server on the same machine or the control plane carries the network's requests to it.
 	Addr string `mapstructure:"addr"`
 }
 
@@ -41,13 +41,13 @@ func (s *SignIn) normalize() {
 }
 
 // validate rejects a provider named by half, an issuer komrad could not fetch keys from safely,
-// and a listener the network could reach directly.
+// and a listener the internet could reach directly.
 func (s SignIn) validate() error {
 	if (s.Issuer == "") != (s.ClientID == "") {
 		return errors.New("sign_in: issuer and client_id are set together, and one of them is empty")
 	}
 
-	if err := ValidateAddr(s.Addr); err != nil {
+	if err := validatePrivateAddr(s.Addr); err != nil {
 		return fmt.Errorf("sign_in.addr: %w", err)
 	}
 

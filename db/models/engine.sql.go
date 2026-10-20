@@ -192,3 +192,30 @@ func (q *Queries) RevokeEngineAccess(ctx context.Context, arg RevokeEngineAccess
 	}
 	return result.RowsAffected(), nil
 }
+
+const revokeEngineAccessOutside = `-- name: RevokeEngineAccessOutside :exec
+DELETE FROM engine_access a USING engines e
+WHERE e.id = a.engine_id
+    AND NOT (e.name = ANY ($1::text[]))
+`
+
+func (q *Queries) RevokeEngineAccessOutside(ctx context.Context, names []string) error {
+	_, err := q.db.Exec(ctx, revokeEngineAccessOutside, names)
+	return err
+}
+
+const revokeOtherEngineAccess = `-- name: RevokeOtherEngineAccess :exec
+DELETE FROM engine_access
+WHERE engine_id = $1
+    AND email <> LOWER($2)
+`
+
+type RevokeOtherEngineAccessParams struct {
+	EngineID string
+	Email    string
+}
+
+func (q *Queries) RevokeOtherEngineAccess(ctx context.Context, arg RevokeOtherEngineAccessParams) error {
+	_, err := q.db.Exec(ctx, revokeOtherEngineAccess, arg.EngineID, arg.Email)
+	return err
+}

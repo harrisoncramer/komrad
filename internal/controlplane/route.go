@@ -2,21 +2,27 @@ package controlplane
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	"komrad/internal/logging"
 	"komrad/internal/server"
 	"komrad/lib/xhttp"
 )
 
+// engineDialTimeout gives up on a stopped engine well inside the panel's health check.
+const engineDialTimeout = time.Second
+
 // NewEngineTransport reaches engines over HTTP/2 without TLS, pinging each connection so a
 // stream to an engine that vanished drops.
 func NewEngineTransport() *http.Transport {
 	transport := xhttp.NewStreamTransport()
 	transport.Proxy = nil
+	transport.DialContext = (&net.Dialer{Timeout: engineDialTimeout, KeepAlive: 30 * time.Second}).DialContext
 	transport.Protocols = new(http.Protocols)
 	transport.Protocols.SetUnencryptedHTTP2(true)
 

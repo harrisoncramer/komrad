@@ -8,7 +8,7 @@ import (
 )
 
 // TestLoadSignIn covers the provider an engine trusts, which has to be named whole, reached over
-// https unless it runs on this machine, and served behind a loopback listener.
+// https unless it runs on this machine, and served behind a loopback or private listener.
 func TestLoadSignIn(t *testing.T) {
 	type loadSignInCase struct {
 		name    string
@@ -52,6 +52,15 @@ func TestLoadSignIn(t *testing.T) {
 				Issuer:   "http://127.0.0.1:9000",
 				ClientID: "komrad",
 				Addr:     defaultSignInAddr,
+			},
+		},
+		{
+			name: "a listener on a private address, behind the control plane",
+			file: "[sign_in]\nissuer = \"https://accounts.example.com\"\nclient_id = \"komrad\"\naddr = \"10.42.0.20:8788\"\n",
+			want: SignIn{
+				Issuer:   "https://accounts.example.com",
+				ClientID: "komrad",
+				Addr:     "10.42.0.20:8788",
 			},
 		},
 		{

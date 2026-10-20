@@ -119,7 +119,7 @@
     "usage": "komrad control-plane serve",
     "aliases": [],
     "short": "Serve the forge proxy and the control plane's endpoints",
-    "long": "Serve the forge proxy and the control plane's endpoints.\n\nThe forge proxy listens on control_plane.forge_proxy_addr for the engines control_plane.engines\nnames, and sends their GitHub requests on with the GitHub login each engine's person authorized.\nThe control plane's endpoints listen on control_plane.addr, where a person signed in through\n[sign_in] and holding an engine's grant authorizes GitHub for it, and starts and stops it.\nStarting or stopping an engine runs komrad start or komrad stop against its file in the\nengines directory. Every other request under an engine's path goes on to the engine at the\naddress control_plane.engines gives it, and the control plane answers for an engine that is\nstopped or starting. It reads grants as owner_database_url.",
+    "long": "Serve the forge proxy and the control plane's endpoints.\n\nThe forge proxy listens on control_plane.forge_proxy_addr for the engines control_plane.engines\nnames, and sends their GitHub requests on with the GitHub login each engine's person authorized.\nThe control plane's endpoints listen on control_plane.addr, where a person signed in through\n[sign_in] and holding an engine's grant authorizes GitHub for it, and starts and stops it.\nWith [control_plane.aws] set, starting or stopping an engine starts or stops its EC2 instance,\nand GitHub logins sit in Secrets Manager. Otherwise starting or stopping an engine runs komrad\nstart or komrad stop against its file in the engines directory. Every other request under an\nengine's path goes on to the engine at the address control_plane.engines gives it, and the\ncontrol plane answers for an engine that is stopped or starting. It reads grants as\nowner_database_url.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -212,6 +212,7 @@
     "children": [
       "engine/ensure",
       "engine/grant",
+      "engine/grants",
       "engine/revoke",
       "engine/start",
       "engine/stop"
@@ -253,6 +254,34 @@
     "aliases": [],
     "short": "Let a person into an engine by their email",
     "long": "Let the person with an email into an engine, connecting as owner_database_url.\n\nThe first time they sign in with a verified email, the engine records the permanent id their\nidentity provider gives that account, and from then on it lets in that account alone. Anyone\ngranted access can do everything the panel does, including opening a shell on the engine's\nmachine, so grant it only to people you would give that machine. Granting an email again\nchanges nothing.",
+    "example": "",
+    "flags": [],
+    "inherited": [
+      {
+        "name": "config",
+        "shorthand": "",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
+      },
+      {
+        "name": "engine",
+        "shorthand": "",
+        "type": "string",
+        "default": "",
+        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
+      }
+    ],
+    "children": []
+  },
+  {
+    "slug": "engine/grants",
+    "path": "komrad engine grants",
+    "parent": "engine",
+    "usage": "komrad engine grants NAME=EMAIL...",
+    "aliases": [],
+    "short": "Let one person into each engine and everyone else out",
+    "long": "Let the person with each email into the engine it follows, and turn everyone else away,\nconnecting as owner_database_url.\n\nEach named engine keeps the account its email's sign-in recorded, loses every other email, and\ngains the email when it is new. Every engine left unnamed loses all of its grants.",
     "example": "",
     "flags": [],
     "inherited": [
@@ -559,7 +588,6 @@
     ],
     "children": [
       "github/authorize",
-      "github/credential",
       "github/token"
     ]
   },
@@ -571,34 +599,6 @@
     "aliases": [],
     "short": "Authorize GitHub for an engine behind a control plane",
     "long": "Authorize GitHub for an engine behind a control plane.\n\nThis prints a code and a GitHub address. Enter the code there, and the control plane keeps\nthe GitHub login the forge proxy adds to the engine's GitHub requests. It reaches the control\nplane at the engine's url, signed in as you, and needs your grant on the engine.",
-    "example": "",
-    "flags": [],
-    "inherited": [
-      {
-        "name": "config",
-        "shorthand": "",
-        "type": "stringArray",
-        "default": "[]",
-        "usage": "path to a config TOML, repeatable, later files win over earlier ones"
-      },
-      {
-        "name": "engine",
-        "shorthand": "",
-        "type": "string",
-        "default": "",
-        "usage": "engine to reach: local for this machine, or a file in the config's engines directory, layered over the config"
-      }
-    ],
-    "children": []
-  },
-  {
-    "slug": "github/credential",
-    "path": "komrad github credential",
-    "parent": "github",
-    "usage": "komrad github credential",
-    "aliases": [],
-    "short": "Answer git's credential helper protocol with an installation token",
-    "long": "Answer git when it asks for a password.\n\nGit runs this and describes what it wants to reach. This answers only for https to\ngithub.com. Anything else gets no answer, so git falls back to whatever else the\naccount has configured.\n\nNothing is stored. The token is made when git asks and stops working within the hour.\n\nSet it up with:\n\n    git config --global credential.https://github.com.helper '!komrad github credential'",
     "example": "",
     "flags": [],
     "inherited": [

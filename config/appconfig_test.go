@@ -829,6 +829,23 @@ func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
 	}
 }
 
+// TestLoadLeavesTheEmbeddedPostgresOffForAnOwnerElsewhere pins a config naming only an owner off
+// the machine, as the control plane's does, running no embedded Postgres.
+func TestLoadLeavesTheEmbeddedPostgresOffForAnOwnerElsewhere(t *testing.T) {
+	clearConnectionEnvironment(t)
+	t.Setenv("KOMRAD_STATE_DIR", "/state")
+
+	path := filepath.Join(t.TempDir(), "config.toml")
+	require.NoError(t, os.WriteFile(path, []byte(
+		"[connection]\nowner_database_url = \"postgres://komrad:secret@db.internal:5432/panel?sslmode=require\"\n",
+	), 0o644))
+
+	cfg, err := LoadStack(Stack{Paths: []string{path}})
+	require.NoError(t, err)
+
+	assert.False(t, cfg.Connection.UsesEmbeddedPostgres())
+}
+
 // TestLoadRefusesAnEmptyBinding pins the one collection an empty list cannot clear, a binding
 // naming no key being an action drawn in the legend that no press reaches.
 func TestLoadRefusesAnEmptyBinding(t *testing.T) {

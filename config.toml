@@ -798,8 +798,8 @@ client_id     = ""
 # The secret some providers, such as Google, hand a desktop app beside its id. Every copy of
 # komrad carries it, so it protects nothing, and `komrad login` reads it from the engine.
 client_secret = ""
-# The address the public listener serves signed-in requests on. It has to be a loopback
-# host, since a web server on the same machine carries the network's requests to it.
+# The address the public listener serves signed-in requests on, a loopback or private address.
+# A web server on the same machine or the control plane carries the network's requests to it.
 addr          = "127.0.0.1:8788"
 
 # The process in front of a team's engines, which holds people's GitHub logins and runs the
@@ -824,6 +824,18 @@ github_client_id = ""
 # forge_proxy.url carries the same name and credential.
 engines          = []
 
+# The AWS account the engines run in. Left empty, the control plane starts and stops each
+# engine with `komrad start` and `komrad stop` and keeps GitHub logins under state_dir.
+[control_plane.aws]
+# The region the engines and their secrets are in.
+region              = ""
+# The stack the engines belong to, which each engine's instance names in its KomradStack tag
+# beside its own name in its KomradEngine tag.
+stack               = ""
+# The start of each engine's GitHub login secret's name, which ends in the engine's name,
+# such as "komrad/logins/".
+login_secret_prefix = ""
+
 # The forge proxy a remote engine sends its GitHub requests through.
 [forge_proxy]
 # The forge proxy's address, with this engine's name and forge proxy credential as its user
@@ -840,11 +852,12 @@ ca_file = ""
 # this engine's own login, which is what keeps its rows apart from every other engine's.
 # `komrad engine ensure` creates the login and prints this url.
 # Left empty this is the default engine's login on the embedded Postgres under state_dir.
-# Whenever this reaches the socket under state_dir, the server runs the embedded Postgres and
-# starts it again when it exits.
 database_url          = ""
-# The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.
+# The login that owns the schema, used only by `komrad migrate`, the `komrad engine` commands and
+# the control plane.
 # Left empty this is database_url, or the embedded Postgres's owner while database_url reaches it.
+# Whenever this reaches the socket under state_dir, komrad runs the embedded Postgres and starts
+# it again when it exits.
 owner_database_url    = ""
 # The least-privilege login the MCP query tools connect as.
 # Left empty this is database_url with the engine's reader login, which is its own login

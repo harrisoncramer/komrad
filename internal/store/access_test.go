@@ -275,3 +275,72 @@ func TestTheOwnerReadsAGrantByAccountOrUnclaimedEmail(t *testing.T) {
 		})
 	}
 }
+
+// TestSettingGrantsRefusesAMissingEngineOrAMalformedEmail pins setting grants refusing an engine nobody ensured and anything but a bare email address, and changing nothing.
+func TestSettingGrantsRefusesAMissingEngineOrAMalformedEmail(t *testing.T) {
+	t.Parallel()
+
+	database := dbtest.New(t)
+	engine := openEngine(t, dbtest.NewEngine(t, database))
+	grantAccess(t, database.OwnerURL, engine.GetEngine().Name, "harry@example.com")
+	require.True(t, claimAccess(t, engine.GetDB(), "harry@example.com", "first"))
+
+	tests := []struct {
+		name   string
+		grants map[string]string
+		want   error
+	}{
+		{
+			name:   "an engine nobody ensured",
+			grants: map[string]string{engine.GetEngine().Name: "sally@example.com", "absent": "harry@example.com"},
+			want:   store.ErrNotFound,
+		},
+		{
+			name:   "a name beside the email",
+			grants: map[string]string{engine.GetEngine().Name: "Sally <sally@example.com>"},
+			want:   store.ErrNotAnEmail,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := store.SetGrants(t.Context(), store.SetGrantsParams{
+				OwnerURL: database.OwnerURL,
+				Grants:   tt.grants,
+			})
+
+			require.ErrorIs(t, err, tt.want)
+			assert.True(t, isGranted(t, engine.GetDB(), "first"), "the grant there before is untouched")
+		})
+	}
+}
+
+// TestSettingGrantsLeavesEachEngineItsOneEmail pins setting grants keeping a named email's claim, letting a new email in, and turning every other email away.
+func TestSettingGrantsLeavesEachEngineItsOneEmail(t *testing.T) {
+	t.Parallel()
+
+	database := dbtest.New(t)
+	kept := openEngine(t, dbtest.NewEngine(t, database))
+	changed := openEngine(t, dbtest.NewEngine(t, database))
+	unnamed := openEngine(t, dbtest.NewEngine(t, database))
+	grantAccess(t, database.OwnerURL, kept.GetEngine().Name, "harry@example.com")
+	grantAccess(t, database.OwnerURL, changed.GetEngine().Name, "old@example.com")
+	grantAccess(t, database.OwnerURL, unnamed.GetEngine().Name, "sally@example.com")
+	require.True(t, claimAccess(t, kept.GetDB(), "harry@example.com", "harry"))
+	require.True(t, claimAccess(t, changed.GetDB(), "old@example.com", "old"))
+
+	require.NoError(t, store.SetGrants(t.Context(), store.SetGrantsParams{
+		OwnerURL: database.OwnerURL,
+		Grants: map[string]string{
+			kept.GetEngine().Name:    "Harry@Example.com",
+			changed.GetEngine().Name: "new@example.com",
+		},
+	}))
+
+	assert.True(t, isGranted(t, kept.GetDB(), "harry"), "a kept email keeps its claim")
+	assert.False(t, isGranted(t, changed.GetDB(), "old"), "a replaced email is turned away")
+	assert.True(t, claimAccess(t, changed.GetDB(), "new@example.com", "new"), "the new email is let in")
+	assert.False(t, claimAccess(t, unnamed.GetDB(), "sally@example.com", "sally"), "an engine not named lets nobody in")
+}

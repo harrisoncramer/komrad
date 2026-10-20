@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/mail"
+	"slices"
 
 	"komrad/db"
 	"komrad/db/models"
@@ -81,6 +83,63 @@ func RevokeAccess(ctx context.Context, params RevokeAccessParams) error {
 
 	if revoked == 0 {
 		return ErrNotFound.Saying("%s has no access to engine %s", params.Email, params.Engine)
+	}
+
+	return nil
+}
+
+// SetGrantsParams names the database owner and the one email let into each engine, keyed by
+// the engine's name.
+type SetGrantsParams struct {
+	OwnerURL string
+	Grants   map[string]string
+}
+
+// SetGrants lets each named engine's email in and every other email out, keeping the account a
+// kept grant's sign-in recorded, and turns everyone away from the engines it does not name.
+func SetGrants(ctx context.Context, params SetGrantsParams) error {
+	for _, email := range params.Grants {
+		if err := requireEmail(email); err != nil {
+			return err
+		}
+	}
+
+	pool, err := openMigratedOwner(ctx, params.OwnerURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin setting grants: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	queries := models.New(tx)
+	for _, engine := range slices.Sorted(maps.Keys(params.Grants)) {
+		email := params.Grants[engine]
+
+		engineID, err := getEngineID(ctx, queries, engine)
+		if err != nil {
+			return err
+		}
+
+		if err := queries.GrantEngineAccess(ctx, models.GrantEngineAccessParams{EngineID: engineID, Email: email}); err != nil {
+			return fmt.Errorf("failed to grant %s access to engine %s: %w", email, engine, err)
+		}
+
+		if err := queries.RevokeOtherEngineAccess(ctx, models.RevokeOtherEngineAccessParams{EngineID: engineID, Email: email}); err != nil {
+			return fmt.Errorf("failed to revoke access to engine %s from everyone but %s: %w", engine, email, err)
+		}
+	}
+
+	if err := queries.RevokeEngineAccessOutside(ctx, slices.Collect(maps.Keys(params.Grants))); err != nil {
+		return fmt.Errorf("failed to revoke access to the engines not named: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit the grants: %w", err)
 	}
 
 	return nil
