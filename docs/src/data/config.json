@@ -1145,7 +1145,7 @@
               "key": "restore",
               "path": "keybindings.menu.restore",
               "type": "array",
-              "description": "Restore the hovered workflow on the deleted list with its orchestrator. Its deleted tasks stay\narchived.",
+              "description": "Restore the hovered workflow on the deleted list with its archived agents. The agents on a task\nwhose worktree was deleted stay archived.",
               "default": "[\"u\"]"
             },
             {

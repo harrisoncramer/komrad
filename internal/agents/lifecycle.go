@@ -429,10 +429,10 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, err
 	}
 
-	if err := s.requireTasksLive(ctx, agents); err != nil {
+	if err := s.refuseDeletedWorktrees(ctx, agents); err != nil {
 		return nil, err
 	}
-	if err := s.refuseDeletedWorktrees(ctx, agents); err != nil {
+	if err := s.requireTasksLive(ctx, agents); err != nil {
 		return nil, err
 	}
 

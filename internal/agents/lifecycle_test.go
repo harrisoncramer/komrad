@@ -1758,14 +1758,36 @@ func TestDeleteTasksWithoutRecordsOnAGoneWorktree(t *testing.T) {
 // TestRestoreAgentsRefusesATaskWhoseWorktreeWasDeleted pins a restore of an agent whose task's
 // worktree was deleted being refused, since nothing is left for it to run in.
 func TestRestoreAgentsRefusesATaskWhoseWorktreeWasDeleted(t *testing.T) {
-	fx := newTaskDeleteFixture(t, &fakeLifecycle{dir: t.TempDir()}, worktreeConfig(t, "backend"))
-	agent, task := fx.launch(t, "auth")
-	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.ID}}))
+	tests := []struct {
+		name     string
+		reviewer bool
+	}{
+		{
+			name: "its writer",
+		},
+		{
+			name:     "its reviewer",
+			reviewer: true,
+		},
+	}
 
-	_, err := fx.agents.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newTaskDeleteFixture(t, &fakeLifecycle{dir: t.TempDir()}, worktreeConfig(t, "backend"))
+			agent, task := fx.launch(t, "auth")
+			if tt.reviewer {
+				var err error
+				agent, err = fx.agents.launch.NewAgent(t.Context(), reviewerOf(*agent, "reviewer"))
+				require.NoError(t, err)
+			}
+			require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.ID}}))
 
-	require.ErrorIs(t, err, tasks.ErrWorktreeRemoved)
-	assert.NotNil(t, agentByID(t, fx.st, agent.ID).ArchivedAt, "the agent stays archived")
+			_, err := fx.agents.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+
+			require.ErrorIs(t, err, tasks.ErrWorktreeRemoved)
+			assert.NotNil(t, agentByID(t, fx.st, agent.ID).ArchivedAt, "the agent stays archived")
+		})
+	}
 }
 
 // TestRestoreWorkflowLeavesATaskWhoseWorktreeWasDeletedArchived pins a workflow restore bringing
