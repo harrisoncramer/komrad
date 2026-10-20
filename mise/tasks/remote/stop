@@ -51,15 +51,11 @@ RUNNING=()
 NAMES=()
 
 while read -r name instance; do
-	if [ "$name" = control-plane ]; then
-		continue
-	fi
-
 	if [ "$(instance_state "$instance" "$REGION")" = running ]; then
 		RUNNING+=("$instance")
 		NAMES+=("$name")
 	fi
-done <<<"$LISTED"
+done < <(engines)
 
 if [ "${#RUNNING[@]}" -eq 0 ]; then
 	gum log --level info "no engine is running"

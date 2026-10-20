@@ -57,6 +57,11 @@ instances() {
 		jq -r 'to_entries | sort_by(.key != "control-plane") | .[] | "\(.key) \(.value)"'
 }
 
+# engines prints the instances' lines for the engines alone.
+engines() {
+	instances | awk '$1 != "control-plane"'
+}
+
 # require_instance names the instance of the control plane, or of the engine at /NAME.
 require_instance() {
 	local name=$1 listed instance

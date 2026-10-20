@@ -93,10 +93,6 @@ gum log --level info "moving the control plane to $CONTROL_PLANE_AMI and the eng
 
 # Read before the instances go, since afterwards there is nothing to ask.
 while read -r name instance; do
-	if [ "$name" = control-plane ]; then
-		continue
-	fi
-
 	if [ "$(instance_state "$instance" "$REGION")" != running ]; then
 		continue
 	fi
@@ -112,7 +108,7 @@ while read -r name instance; do
 			echo "  $agent"
 		done <<<"$AGENTS"
 	fi
-done < <(instances)
+done < <(engines)
 echo
 
 if ! printf '%s\n' "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}" | grep -q -- "-auto-approve"; then

@@ -126,10 +126,6 @@ run_on_instance "$CONTROL_PLANE" "$REGION" "${CONTROL_PLANE_COMMANDS[@]}" >/dev/
 
 FAILED=()
 while read -r name instance; do
-	if [ "$name" = control-plane ]; then
-		continue
-	fi
-
 	# Systems Manager refuses an instance that is not running, so a stopped engine is skipped.
 	STATE="$(instance_state "$instance" "$REGION")"
 	if [ "$STATE" != running ]; then
@@ -141,7 +137,7 @@ while read -r name instance; do
 	if ! run_on_instance "$instance" "$REGION" "${ENGINE_COMMANDS[@]}" >/dev/null; then
 		FAILED+=("$name")
 	fi
-done < <(instances)
+done < <(engines)
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
 	echo "the install did not finish on ${FAILED[*]}" >&2
