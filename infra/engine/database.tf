@@ -16,19 +16,25 @@ resource "aws_db_subnet_group" "komrad" {
 resource "aws_security_group" "database" {
   name_prefix = "${var.name}-database-"
   vpc_id      = aws_vpc.komrad.id
-
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.komrad.id]
-  }
-
-  tags = merge(local.tags, { Name = "${var.name}-database" })
+  tags        = merge(local.tags, { Name = "${var.name}-database" })
 
   lifecycle {
     create_before_destroy = true
   }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "database" {
+  for_each = {
+    control_plane = aws_security_group.control_plane.id
+    engine        = aws_security_group.engine.id
+  }
+
+  security_group_id            = aws_security_group.database.id
+  referenced_security_group_id = each.value
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+  tags                         = local.tags
 }
 
 resource "aws_db_instance" "komrad" {
@@ -68,21 +74,3 @@ resource "aws_db_instance" "komrad" {
   tags = merge(local.tags, { Name = "${var.name}-database" })
 }
 
-# The role reads the whole komrad namespace rather than one secret, so a second secret is a new
-# entry in the store rather than an edit to IAM. It is still only this prefix, and only reading.
-resource "aws_iam_role_policy" "secrets" {
-  name = "${var.name}-secrets"
-  role = aws_iam_role.komrad.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = ["secretsmanager:GetSecretValue"]
-      Resource = [
-        "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:${var.secret_prefix}/*",
-        aws_db_instance.komrad.master_user_secret[0].secret_arn,
-      ]
-    }]
-  })
-}

@@ -32,7 +32,7 @@ Parameter Store holds the control plane's Tailscale identity, so a replaced cont
 
 ## The control plane
 
-The control plane holds no agents and no engine. It keeps only Caddy's state on a data volume, so Terraform can replace it at any time. Engines keep running while it is replaced.
+The control plane holds no agents and no engine. It keeps only Caddy's and Tailscale's certificates on a data volume, so Terraform can replace it at any time. Terraform replaces it whenever the engines in `terraform.tfvars` change, and the engines keep running while it is replaced.
 
 Its user data writes the tailnet name into Caddy's config, starts Caddy and komrad, and joins the tailnet. Caddy terminates HTTPS and hands every request to komrad. Komrad sends each engine's path, such as `/harry`, to that person's engine, and answers for an engine that is stopped or starting.
 

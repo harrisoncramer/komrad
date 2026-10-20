@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Explainer: this is everything an engine's instance cannot know until Terraform has built it.
+#
+# The machine image carries the scripts, the units and the toolchain. What it cannot carry is
+# which volume, database and secret belong to this engine, and where the control plane is,
+# because the same Terraform run creates them. User data is readable by anything on the instance
+# that reaches the metadata service, so it carries no secret's value, only its name. The sign-in
+# provider's client secret is the exception, since the engine hands it to every laptop anyway.
+#
+# The units are enabled in the image and skip cleanly while these files are missing, so starting
+# them here, in order, is what runs them on the first boot.
+
+mkdir -p /etc/komrad/nftables
+
+echo "KOMRAD_DATA_VOLUME_ID=${data_volume_id}" >/etc/komrad/data-volume.env
+
+cat >/etc/komrad/engine.env <<ENV
+AWS_REGION=${aws_region}
+KOMRAD_ENGINE_NAME=${engine}
+KOMRAD_ENGINE_SECRET=${engine_secret}
+KOMRAD_DATABASE_HOST=${database_host}
+KOMRAD_DATABASE_NAME=${database_name}
+KOMRAD_FORGE_PROXY_ADDR=${control_plane_address}:8789
+ENV
+
+cat >/etc/komrad/forge-proxy-ca.pem <<'PEM'
+${trimspace(ca_certificate)}
+PEM
+
+echo "add element inet filter control_plane { ${control_plane_address} }" >/etc/komrad/nftables/control-plane.nft
+systemctl restart nftables.service
+
+cat >/etc/komrad/sign-in.toml <<'TOML'
+[sign_in]
+issuer = ${jsonencode(sign_in_issuer)}
+client_id = ${jsonencode(sign_in_client_id)}
+client_secret = ${jsonencode(sign_in_client_secret)}
+addr = ${jsonencode("${address}:8788")}
+TOML
+
+systemctl start komrad-data-volume.service
+systemctl start komrad-engine-credentials.service
+systemctl start komrad.service

@@ -84,7 +84,7 @@ komrad login --engine dev
 komrad open --engine dev
 ```
 
-The panel asks you to authorize GitHub the first time. In a shell on the engine, clone the repositories your agents work in by their https URLs. The forge proxy carries only https. Start each agent CLI once and sign it in. Then turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI in `~/.config/komrad/config.toml`, so new agents don't stop to ask whether to trust their worktree. Restart the server afterwards, as [restarting](#restarting) shows.
+The panel asks you to authorize GitHub the first time. In a shell on the engine, clone the repositories your agents work in. Git rewrites `git@github.com:` remotes to https, since the forge proxy carries only https. Start each agent CLI once and sign it in. Then turn on <Setting path="harness.claude.trust_launch_dirs" label="trust_launch_dirs" /> for each CLI in `~/.config/komrad/config.toml`, so new agents don't stop to ask whether to trust their worktree. Restart the server afterwards, as [restarting](#restarting) shows.
 
 ## Adding an engine
 

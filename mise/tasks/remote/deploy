@@ -2,21 +2,23 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
-#MISE description="Put this checkout's komrad on the remote engine and restart it."
+#MISE description="Put this checkout's komrad on the control plane and every running engine."
 
 usage() {
-	echo "Usage: mise run remote:deploy [instance-id]"
+	echo "Usage: mise run remote:deploy"
 	echo
-	echo "Cross-compiles komrad for the engine, installs it there, migrates as the owner, and restarts the server."
+	echo "Cross-compiles komrad, installs it on the control plane, which migrates the database"
+	echo "and restarts, and then on every running engine, restarting its server. A stopped"
+	echo "engine keeps its last build until the first deploy after it starts."
+	echo
 	echo "A clean deploy carries this checkout's commit, which is what the panel compares"
 	echo "against, so a panel built from the same commit needs nothing further. A deploy"
 	echo "from a dirty tree names no commit, so it also builds a local binary at the same"
 	echo "version for you to put in place of your own komrad."
 	echo
 	echo "KOMRAD_VERSION names the version the binary reports, which is how a release deploy"
-	echo "puts its own tag on the engine. It is refused from a dirty tree."
+	echo "puts its own tag on the engines. It is refused from a dirty tree."
 	echo
-	echo "With no argument the instance is whichever one Terraform last built."
 	echo "The binaries land in dist/."
 }
 
@@ -26,6 +28,10 @@ for arg in "$@"; do
 		usage
 		exit 0
 		;;
+	*)
+		usage >&2
+		exit 1
+		;;
 	esac
 done
 
@@ -33,30 +39,15 @@ cd "$MISE_CONFIG_ROOT"
 
 use_komrad_aws_profile
 
-INSTANCE="$(require_instance "${1:-}")"
+CONTROL_PLANE="$(require_instance control-plane)"
 REGION="$(engine_region)"
 BUCKET="$(require_output state_bucket)"
-if [ -z "$BUCKET" ]; then
-	echo "no state bucket to stage the binary through" >&2
+
+STATE="$(instance_state "$CONTROL_PLANE" "$REGION")"
+if [ "$STATE" != running ]; then
+	echo "the control plane is ${STATE:-unreadable}, so nothing was deployed." >&2
 	exit 1
 fi
-
-# The engine is stopped overnight, and Systems Manager refuses an instance that is not running,
-# so a deploy in those hours skips rather than fails and the next one carries this build too.
-STATE="$(engine_state "$INSTANCE" "$REGION")"
-
-if [ -z "$STATE" ]; then
-	echo "could not read the state of $INSTANCE, so this build was not put on it." >&2
-	exit 1
-fi
-
-if [ "$STATE" = stopped ] || [ "$STATE" = stopping ]; then
-	echo "the engine is $STATE, so this build was not put on it."
-	echo "Whatever is deployed after it next starts carries this commit as well."
-	exit 0
-fi
-
-gum log --level info "deploying to $INSTANCE in $REGION"
 
 REVISION="$(git rev-parse --short HEAD)"
 DIRTY=""
@@ -84,67 +75,80 @@ else
 	rm -f dist/komrad-panel
 fi
 
-KEY="deploy/komrad-linux-arm64-$VERSION"
-aws s3 cp dist/komrad-linux-arm64 "s3://$BUCKET/$KEY" --only-show-errors
-URL="$(aws s3 presign "s3://$BUCKET/$KEY" --expires-in 900 --region "$REGION")"
+STAGE="deploy/$VERSION"
 
-CREDENTIALS_KEY="deploy/komrad-database-credentials-$VERSION"
-aws s3 cp packer/files/komrad-database-credentials "s3://$BUCKET/$CREDENTIALS_KEY" --only-show-errors
-CREDENTIALS_URL="$(aws s3 presign "s3://$BUCKET/$CREDENTIALS_KEY" --expires-in 900 --region "$REGION")"
+# stage uploads a file for the instances to fetch and prints a link to it that expires.
+stage() {
+	local file=$1 key
 
-OWNER_KEY="deploy/komrad-owner-database-url-$VERSION"
-aws s3 cp packer/files/komrad-owner-database-url "s3://$BUCKET/$OWNER_KEY" --only-show-errors
-OWNER_URL="$(aws s3 presign "s3://$BUCKET/$OWNER_KEY" --expires-in 900 --region "$REGION")"
+	key="$STAGE/$(basename "$file")"
+	aws s3 cp "$file" "s3://$BUCKET/$key" --only-show-errors
+	aws s3 presign "s3://$BUCKET/$key" --expires-in 900 --region "$REGION"
+}
 
-# The instance fetches the binary itself, so nothing large travels through the command and the
-# instance needs no permission on the bucket.
-COMMANDS=(
-	"set -e"
-	"curl -fsSL -o /tmp/komrad-new '$URL'"
-	"install -m 0755 /tmp/komrad-new /usr/local/bin/komrad"
-	"rm -f /tmp/komrad-new"
-	"curl -fsSL -o /tmp/komrad-database-credentials '$CREDENTIALS_URL'"
-	"install -m 0755 /tmp/komrad-database-credentials /usr/local/sbin/komrad-database-credentials"
-	"rm -f /tmp/komrad-database-credentials"
-	"curl -fsSL -o /tmp/komrad-owner-database-url '$OWNER_URL'"
-	"install -m 0700 /tmp/komrad-owner-database-url /usr/local/sbin/komrad-owner-database-url"
-	"rm -f /tmp/komrad-owner-database-url"
-	"/usr/local/sbin/komrad-database-credentials"
-	"systemctl restart komrad.service"
+trap 'aws s3 rm "s3://$BUCKET/$STAGE/" --recursive --only-show-errors || true' EXIT
+
+# install_command prints the commands that fetch a staged file and install it with a mode.
+install_command() {
+	local url=$1 mode=$2 path=$3
+
+	echo "curl -fsSL -o /tmp/komrad-deploy '$url'"
+	echo "install -m $mode /tmp/komrad-deploy $path"
+	echo "rm -f /tmp/komrad-deploy"
+}
+
+BINARY_URL="$(stage dist/komrad-linux-arm64)"
+OWNER_URL="$(stage packer/files/komrad-owner-database-url)"
+CONTROL_PLANE_CREDENTIALS_URL="$(stage packer/files/komrad-control-plane-credentials)"
+ENGINE_CREDENTIALS_URL="$(stage packer/files/komrad-engine-credentials)"
+
+# The instances fetch each file themselves, so nothing large travels through the command and they
+# need no permission on the bucket.
+mapfile -t CONTROL_PLANE_COMMANDS < <(
+	echo "set -e"
+	install_command "$BINARY_URL" 0755 /usr/local/bin/komrad
+	install_command "$OWNER_URL" 0700 /usr/local/sbin/komrad-owner-database-url
+	install_command "$CONTROL_PLANE_CREDENTIALS_URL" 0755 /usr/local/sbin/komrad-control-plane-credentials
+	echo "systemctl start komrad-control-plane-credentials.service"
+	echo "systemctl restart komrad-control-plane.service"
 )
 
-COMMAND_ID="$(aws ssm send-command \
-	--region "$REGION" \
-	--instance-ids "$INSTANCE" \
-	--document-name AWS-RunShellScript \
-	--parameters "$(jq -n '{commands: $ARGS.positional}' --args "${COMMANDS[@]}")" \
-	--query Command.CommandId \
-	--output text)"
+mapfile -t ENGINE_COMMANDS < <(
+	echo "set -e"
+	install_command "$BINARY_URL" 0755 /usr/local/bin/komrad
+	install_command "$ENGINE_CREDENTIALS_URL" 0755 /usr/local/sbin/komrad-engine-credentials
+	echo "systemctl start komrad-engine-credentials.service"
+	echo "systemctl restart komrad.service"
+)
 
-for _ in {1..30}; do
-	STATUS="$(aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
-		--instance-id "$INSTANCE" --query Status --output text 2>/dev/null || echo Pending)"
-	case "$STATUS" in
-	Success) break ;;
-	Failed | Cancelled | TimedOut)
-		aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" \
-			--instance-id "$INSTANCE" --query StandardErrorContent --output text >&2
-		exit 1
-		;;
-	esac
-	sleep 4
-done
+gum log --level info "deploying $VERSION to the control plane"
+run_on_instance "$CONTROL_PLANE" "$REGION" "${CONTROL_PLANE_COMMANDS[@]}" >/dev/null
 
-aws s3 rm "s3://$BUCKET/$KEY" --only-show-errors
-aws s3 rm "s3://$BUCKET/$CREDENTIALS_KEY" --only-show-errors
-aws s3 rm "s3://$BUCKET/$OWNER_KEY" --only-show-errors
+FAILED=()
+while read -r name instance; do
+	if [ "$name" = control-plane ]; then
+		continue
+	fi
 
-if [ "$STATUS" != "Success" ]; then
-	echo "the install did not finish on $INSTANCE; it was last $STATUS" >&2
+	# Systems Manager refuses an instance that is not running, so a stopped engine is skipped.
+	STATE="$(instance_state "$instance" "$REGION")"
+	if [ "$STATE" != running ]; then
+		gum log --level info "$name is ${STATE:-unreadable}, so it keeps its last build"
+		continue
+	fi
+
+	gum log --level info "deploying $VERSION to $name"
+	if ! run_on_instance "$instance" "$REGION" "${ENGINE_COMMANDS[@]}" >/dev/null; then
+		FAILED+=("$name")
+	fi
+done < <(instances)
+
+if [ "${#FAILED[@]}" -gt 0 ]; then
+	echo "the install did not finish on ${FAILED[*]}" >&2
 	exit 1
 fi
 
-echo "engine: $VERSION on $INSTANCE"
+echo "deployed: $VERSION"
 if [ -n "$DIRTY" ]; then
-	echo "panel:  dist/komrad-panel at $VERSION, since a dirty build is known by its version alone"
+	echo "panel:    dist/komrad-panel at $VERSION, since a dirty build is known by its version alone"
 fi

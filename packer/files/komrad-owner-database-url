@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source_file=/etc/komrad/database-source.env
+source_file=/etc/komrad/control-plane.env
 
 if [ ! -f "$source_file" ]; then
-	echo "$source_file is missing, so the database secret cannot be located" >&2
+	echo "$source_file is missing, so the owner login cannot be located" >&2
 	exit 1
 fi
 

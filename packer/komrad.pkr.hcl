@@ -38,7 +38,21 @@ variable "komrad_version" {
 }
 
 locals {
-  name = "komrad-${formatdate("YYYYMMDD-hhmmss", timestamp())}"
+  stamp = formatdate("YYYYMMDD-hhmmss", timestamp())
+
+  tags = {
+    Project        = "komrad"
+    ManagedBy      = "packer"
+    KomradRevision = var.komrad_revision
+    KomradVersion  = var.komrad_version
+    BaseAmi        = "{{ .SourceAMI }}"
+    BaseAmiName    = "{{ .SourceAMIName }}"
+  }
+
+  snapshot_tags = {
+    Project   = "komrad"
+    ManagedBy = "packer"
+  }
 }
 
 source "amazon-ebs" "komrad" {
@@ -46,7 +60,6 @@ source "amazon-ebs" "komrad" {
   profile       = var.aws_profile
   instance_type = var.build_instance_type
   ssh_username  = "ubuntu"
-  ami_name      = local.name
 
   source_ami_filter {
     filters = {
@@ -67,27 +80,24 @@ source "amazon-ebs" "komrad" {
   }
 
   imds_support = "v2.0"
-
-  tags = {
-    Name           = local.name
-    Project        = "komrad"
-    ManagedBy      = "packer"
-    KomradRevision = var.komrad_revision
-    KomradVersion  = var.komrad_version
-    BaseAmi        = "{{ .SourceAMI }}"
-    BaseAmiName    = "{{ .SourceAMIName }}"
-  }
-
-  snapshot_tags = {
-    Name      = local.name
-    Project   = "komrad"
-    ManagedBy = "packer"
-  }
 }
 
 build {
-  name    = "komrad"
-  sources = ["source.amazon-ebs.komrad"]
+  name = "komrad"
+
+  source "amazon-ebs.komrad" {
+    name          = "control-plane"
+    ami_name      = "komrad-control-plane-${local.stamp}"
+    tags          = merge(local.tags, { Name = "komrad-control-plane-${local.stamp}", KomradImage = "control-plane" })
+    snapshot_tags = merge(local.snapshot_tags, { Name = "komrad-control-plane-${local.stamp}" })
+  }
+
+  source "amazon-ebs.komrad" {
+    name          = "engine"
+    ami_name      = "komrad-engine-${local.stamp}"
+    tags          = merge(local.tags, { Name = "komrad-engine-${local.stamp}", KomradImage = "engine" })
+    snapshot_tags = merge(local.snapshot_tags, { Name = "komrad-engine-${local.stamp}" })
+  }
 
   provisioner "shell" {
     inline = ["mkdir -p /tmp/files"]
@@ -104,6 +114,20 @@ build {
   }
 
   provisioner "shell" {
+    only            = ["amazon-ebs.control-plane"]
+    execute_command = "sudo -E bash '{{ .Path }}'"
+    scripts = [
+      "scripts/00-base.sh",
+      "scripts/40-komrad.sh",
+      "scripts/50-caddy.sh",
+      "scripts/55-tailscale.sh",
+      "scripts/60-control-plane.sh",
+      "scripts/99-clean.sh",
+    ]
+  }
+
+  provisioner "shell" {
+    only            = ["amazon-ebs.engine"]
     execute_command = "sudo -E bash '{{ .Path }}'"
     scripts = [
       "scripts/00-base.sh",
@@ -111,9 +135,14 @@ build {
       "scripts/20-toolchain.sh",
       "scripts/30-harnesses.sh",
       "scripts/40-komrad.sh",
-      "scripts/50-caddy.sh",
-      "scripts/55-tailscale.sh",
+      "scripts/60-engine.sh",
       "scripts/99-clean.sh",
     ]
+  }
+
+  post-processor "manifest" {
+    output      = "../dist/packer-manifest.json"
+    strip_path  = true
+    custom_data = { image = source.name }
   }
 }

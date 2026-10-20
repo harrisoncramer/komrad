@@ -2,9 +2,9 @@
 
 # Explainer: what every remote task needs to know, asked of the thing that knows it.
 #
-# Terraform built the engine, so Terraform is what says where it is. Reading its outputs keeps
-# these tasks agreeing with the infrastructure rather than with a copy of it, and means none of
-# them has to read the files an operator edits.
+# Terraform built the control plane and the engines, so Terraform is what says where they are.
+# Reading its outputs keeps these tasks agreeing with the infrastructure rather than with a copy
+# of it, and means none of them has to read the files an operator edits.
 #
 # The AWS profile is komrad. Credentials already in the environment, such as CI's, win over it.
 
@@ -16,14 +16,17 @@ use_komrad_aws_profile() {
 	export AWS_PROFILE=komrad
 }
 
-terraform_output() {
-	local name=$1
-
+init_terraform() {
 	if [ ! -d infra/engine/.terraform ] && [ -f infra/engine/backend.hcl ]; then
 		terraform -chdir=infra/engine init \
 			-backend-config=backend.hcl -input=false -lockfile=readonly >/dev/null 2>&1 || true
 	fi
+}
 
+terraform_output() {
+	local name=$1
+
+	init_terraform
 	terraform -chdir=infra/engine output -raw "$name" 2>/dev/null
 }
 
@@ -36,8 +39,7 @@ require_output() {
 	if [ -z "$value" ]; then
 		echo "could not read $name from Terraform, so there is no engine to work with." >&2
 		echo >&2
-		echo "Run 'mise run infra:engine:apply' to build one, or set the matching KOMRAD_ENGINE_*" >&2
-		echo "variable to skip Terraform entirely." >&2
+		echo "Run 'mise run infra:engine:apply' to build one." >&2
 		exit 1
 	fi
 
@@ -48,34 +50,47 @@ engine_region() {
 	echo "${AWS_REGION:-$(terraform_output aws_region)}"
 }
 
-# require_instance names the engine's instance, taking an argument over the environment over state.
-require_instance() {
-	local instance=${1:-${KOMRAD_ENGINE_INSTANCE:-}}
+# instances prints a line for each instance with its name and id, the control plane's first.
+instances() {
+	init_terraform
+	terraform -chdir=infra/engine output -json instance_ids 2>/dev/null |
+		jq -r 'to_entries | sort_by(.key != "control-plane") | .[] | "\(.key) \(.value)"'
+}
 
-	if [ -z "$instance" ]; then
-		instance="$(terraform_output instance_id)"
+# require_instance names the instance of the control plane, or of the engine at /NAME.
+require_instance() {
+	local name=$1 listed instance
+
+	listed="$(instances)"
+
+	if [ -z "$listed" ]; then
+		echo "could not read the instances from Terraform." >&2
+		echo >&2
+		echo "Run 'mise run infra:engine:apply' to build them." >&2
+		exit 1
 	fi
 
+	instance="$(awk -v name="$name" '$1 == name { print $2 }' <<<"$listed")"
+
 	if [ -z "$instance" ]; then
-		echo "could not read the engine's instance from Terraform." >&2
-		echo >&2
-		echo "Run 'mise run infra:engine:apply' to build one, or set KOMRAD_ENGINE_INSTANCE." >&2
+		echo "Terraform built no instance named '$name'. Name one of these:" >&2
+		awk '{ print "  " $1 }' <<<"$listed" >&2
 		exit 1
 	fi
 
 	echo "$instance"
 }
 
-# engine_state answers with nothing rather than failing, so that a caller reading it into a
+# instance_state answers with nothing rather than failing, so that a caller reading it into a
 # variable under set -e reaches its own check instead of dying at the assignment.
-engine_state() {
+instance_state() {
 	local instance=$1 region=$2
 
 	aws ec2 describe-instances --region "$region" --instance-ids "$instance" \
 		--query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || true
 }
 
-run_on_engine() {
+run_on_instance() {
 	local instance=$1 region=$2 command_id status
 	shift 2
 

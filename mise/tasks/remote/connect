@@ -2,42 +2,67 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
-#MISE description="Open a shell on the remote engine, or run one command there."
+#MISE description="Open a shell on the control plane or an engine, or run one command there."
 
 usage() {
-	echo "Usage: mise run remote:connect [-- command...]"
+	echo "Usage: mise run remote:connect NAME [-- command...]"
 	echo
-	echo "Opens a shell on the engine as the komrad account through Systems Manager. With a"
-	echo "command after -- it runs that instead and prints what it printed, which is what a"
-	echo "script wants."
+	echo "Opens a shell through Systems Manager on the engine at /NAME, as the komrad account,"
+	echo "or on the control plane when NAME is control-plane, as root. With a command after --"
+	echo "it runs that instead and prints what it printed, which is what a script wants."
 	echo
-	echo "The instance comes from Terraform, or from KOMRAD_ENGINE_INSTANCE. The shell needs"
-	echo "the Session Manager plugin for the AWS CLI."
+	echo "The shell needs the Session Manager plugin for the AWS CLI."
 	echo
-	echo "  mise run remote:connect"
-	echo "  mise run remote:connect -- systemctl status komrad"
-	echo "  mise run remote:connect -- tmux -L komrad list-sessions"
+	echo "  mise run remote:connect harry"
+	echo "  mise run remote:connect harry -- systemctl status komrad"
+	echo "  mise run remote:connect control-plane -- journalctl -u komrad-control-plane -n 50"
 }
 
-for arg in "$@"; do
-	case "$arg" in
+NAME=""
+COMMAND=()
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
 	-h | --help)
 		usage
 		exit 0
 		;;
+	--)
+		shift
+		COMMAND=("$@")
+		break
+		;;
+	*)
+		if [ -n "$NAME" ]; then
+			usage >&2
+			exit 1
+		fi
+		NAME="$1"
+		;;
 	esac
+	shift
 done
+
+if [ -z "$NAME" ]; then
+	usage >&2
+	exit 1
+fi
 
 cd "$MISE_CONFIG_ROOT"
 
 use_komrad_aws_profile
 
-INSTANCE="$(require_instance "")"
+INSTANCE="$(require_instance "$NAME")"
 REGION="$(engine_region)"
 
-if [ "$#" -gt 0 ]; then
-	ENCODED="$(printf '%s' "$*" | base64 | tr -d '\n')"
-	run_on_engine "$INSTANCE" "$REGION" "echo $ENCODED | base64 -d | sudo -iu komrad bash"
+LOGIN="sudo -iu komrad"
+if [ "$NAME" = control-plane ]; then
+	LOGIN="sudo -i"
+fi
+
+if [ "${#COMMAND[@]}" -gt 0 ]; then
+	ENCODED="$(printf '%s' "${COMMAND[*]}" | base64 | tr -d '\n')"
+	run_on_instance "$INSTANCE" "$REGION" "echo $ENCODED | base64 -d | $LOGIN bash"
 	exit
 fi
 
@@ -45,4 +70,4 @@ exec aws ssm start-session \
 	--region "$REGION" \
 	--target "$INSTANCE" \
 	--document-name AWS-StartInteractiveCommand \
-	--parameters command="sudo -iu komrad"
+	--parameters command="$LOGIN"

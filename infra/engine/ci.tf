@@ -110,11 +110,11 @@ data "aws_iam_policy_document" "github" {
     resources = ["*"]
   }
 
-  # Where the image built by CI is recorded, since the variable naming it is not in the repository.
+  # Where the images built by CI are recorded, since the variables naming them are not in the repository.
   statement {
     actions = ["ssm:PutParameter", "ssm:GetParameter"]
     resources = [
-      "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.name}/engine/*",
+      "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.name}/images/*",
     ]
   }
 
@@ -123,16 +123,22 @@ data "aws_iam_policy_document" "github" {
     resources = ["*"]
   }
 
-  # Stopping the engine overnight is a schedule rather than a person, so CI is allowed to stop and
-  # start this one instance and nothing else in the account.
+  # Stopping the engines overnight is a schedule rather than a person, so CI may stop this stack's
+  # engines and nothing else in the account. Starting one is the control plane's job.
   statement {
-    actions   = ["ec2:StartInstances", "ec2:StopInstances"]
+    actions   = ["ec2:StopInstances"]
     resources = ["arn:aws:ec2:${var.aws_region}:${var.aws_account_id}:instance/*"]
 
     condition {
       test     = "StringEquals"
-      variable = "ec2:ResourceTag/Project"
-      values   = ["komrad"]
+      variable = "aws:ResourceTag/KomradStack"
+      values   = [var.name]
+    }
+
+    condition {
+      test     = "Null"
+      variable = "aws:ResourceTag/KomradEngine"
+      values   = ["false"]
     }
   }
 }

@@ -1,10 +1,10 @@
 name: image
 
-# The engine's machine image, on its own clock and pressed by hand.
+# The control plane's and the engines' machine images, on their own clock and pressed by hand.
 #
-# Building an image and applying one are different acts. Building is cheap and changes nothing.
-# Applying replaces the instance and stops every agent on it, which is why this records the id and
-# stops there. Set `ami_id` to it and apply when the box is free, or run `mise run remote:reimage`.
+# Building images and applying them are different acts. Building is cheap and changes nothing.
+# Applying replaces every instance and stops every agent, which is why this records the ids and
+# stops there. Run `mise run remote:reimage` when the engines are free.
 on:
   workflow_dispatch:
 
@@ -28,30 +28,25 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       # Dispatched on a release tag the image records it, and on main it falls back to the revision.
-      - name: Build the image
+      - name: Build the images
         env:
           KOMRAD_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mise run packer:build | tee /tmp/packer.log
+        run: mise run packer:build
 
       - name: Record what it built
         run: |
-          AMI="$(grep -oE 'ami-[0-9a-f]+' /tmp/packer.log | tail -1)"
-          if [ -z "$AMI" ]; then
-            echo "packer printed no ami id, so there is nothing to record" >&2
-            exit 1
-          fi
-
-          aws ssm put-parameter \
-            --name "/${{ vars.ENGINE_NAME || 'komrad-development' }}/engine/ami-id" \
-            --type String --overwrite --value "$AMI"
+          while read -r image ami; do
+            aws ssm put-parameter \
+              --name "/${{ vars.ENGINE_NAME || 'komrad-development' }}/images/$image" \
+              --type String --overwrite --value "$ami"
+          done < <(jq -r '.builds[] | "\(.custom_data.image) \(.artifact_id | split(":") | last)"' dist/packer-manifest.json)
 
           {
-            echo "### A new engine image is ready"
+            echo "### New images are ready"
             echo
-            echo "    $AMI"
+            jq -r '.builds[] | "    \(.custom_data.image): \(.artifact_id | split(":") | last)"' dist/packer-manifest.json
             echo
-            echo "Applying it replaces the instance and stops every agent on it, so it is not"
-            echo "applied here. Set \`ami_id\` to it in your \`terraform.tfvars\` and apply when"
-            echo "the box is free."
+            echo "Applying them replaces every instance and stops every agent, so they are not"
+            echo "applied here. Run \`mise run remote:reimage\` when the engines are free."
           } >>"$GITHUB_STEP_SUMMARY"

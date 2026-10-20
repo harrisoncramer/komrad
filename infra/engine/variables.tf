@@ -27,7 +27,11 @@ variable "name" {
   default = "komrad-development"
 }
 
-variable "ami_id" {
+variable "control_plane_ami_id" {
+  type = string
+}
+
+variable "engine_ami_id" {
   type = string
 }
 
@@ -50,9 +54,27 @@ variable "public_subnet_cidr" {
   default = "10.42.0.0/24"
 }
 
-variable "instance_type" {
+variable "control_plane_instance_type" {
   type    = string
-  default = "t4g.xlarge"
+  default = "t4g.small"
+}
+
+variable "engines" {
+  type = map(object({
+    email         = string
+    instance_type = optional(string, "t4g.xlarge")
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for name in keys(var.engines) : can(regex("^[a-z][a-z0-9_]{0,29}$", name))])
+    error_message = "An engine's name starts with a lowercase letter and has at most 30 lowercase letters, digits and underscores."
+  }
+
+  validation {
+    condition     = alltrue([for engine in values(var.engines) : can(regex("^[^@\\s]+@[^@\\s]+$", engine.email))])
+    error_message = "Each engine's email is the bare address its person signs in with."
+  }
 }
 
 variable "cpu_credits" {
@@ -69,8 +91,6 @@ variable "data_volume_size_gib" {
   type    = number
   default = 100
 }
-
-
 
 variable "tags" {
   type = map(string)
@@ -170,29 +190,26 @@ variable "tailscale_direct_connections" {
 }
 
 variable "sign_in_issuer" {
-  type    = string
-  default = ""
+  type = string
 
   validation {
-    condition     = var.sign_in_issuer == "" || startswith(var.sign_in_issuer, "https://")
+    condition     = startswith(var.sign_in_issuer, "https://")
     error_message = "The issuer is the provider's https address, like https://accounts.google.com."
-  }
-
-  validation {
-    condition     = (var.sign_in_issuer == "") == (var.sign_in_client_id == "")
-    error_message = "sign_in_issuer and sign_in_client_id are set together."
   }
 }
 
 variable "sign_in_client_id" {
-  type    = string
-  default = ""
+  type = string
 }
 
 variable "sign_in_client_secret" {
   type      = string
   default   = ""
   sensitive = true
+}
+
+variable "github_oauth_client_id" {
+  type = string
 }
 
 variable "github_repository" {
