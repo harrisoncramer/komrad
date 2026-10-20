@@ -88,11 +88,11 @@ Only writer agents run agent hooks. Reviewers and orchestrators do not.
 
 A task has moments of its own, which fire for the task as a whole. Hang anything that belongs to the task's worktree here instead of on an agent, because the writer can restart and reviewers come and go while the worktree stays.
 
-| Moment              | Fires                                                                                        | If it fails                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `task.pre-open`     | When the task's writer starts, whether the task is created, retried or restored.             | The writer is not started, as when its `agent.pre-launch` hook fails, or nothing is restored. |
-| `task.post-archive` | Once the task is archived, along with every agent on it.                                     | The run's log says so, and the task stays archived.                                           |
-| `task.pre-delete`   | When the task's worktree is deleted, before komrad gives it back. It runs once per task.     | The task stays archived with the reason, and its worktree stays where it was.                 |
+| Moment              | Fires                                                                                    | If it fails                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `task.pre-open`     | When the task's writer starts, whether the task is created, retried or restored.         | The writer is not started, as when its `agent.pre-launch` hook fails, or nothing is restored. |
+| `task.post-archive` | Once the task is archived, along with every agent on it.                                 | The run's log says so, and the task stays archived.                                           |
+| `task.pre-delete`   | When the task's worktree is deleted, before komrad gives it back. It runs once per task. | The task stays archived with the reason, and its worktree stays where it was.                 |
 
 `task.pre-open` and `task.post-archive` run as the agent that triggered them, but their logs sit on the task's row instead of that agent's. A task's logs list every run on it, its own hooks and those of each agent on it, and an agent's logs list only its own. `task.pre-delete` runs as no agent, so it has no `KOMRAD_AGENT_ID`. A later delete of the task's records does not run it again. A task's hooks run one at a time, so `task.pre-open` waits for a `task.post-archive` still running from the last time the task closed.
 
