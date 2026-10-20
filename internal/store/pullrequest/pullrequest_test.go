@@ -1139,7 +1139,7 @@ func TestRebaseAwait(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, awaited.RebaseAwait)
 	assert.True(t, awaited.RebaseAwait.Since.Equal(since), "a wait already begun keeps its start")
-	assert.Equal(t, "before", awaited.RebaseAwait.From)
+	assert.Equal(t, "later", awaited.RebaseAwait.From, "a wait already begun moves to the newer head")
 
 	waiting, err := h.ListGitHubStack(ctx, ListGitHubStackParams{RepositoryURL: komrad, Number: 7})
 	require.NoError(t, err)

@@ -641,14 +641,14 @@ func (s *PullRequestStore) ListGitHubStack(ctx context.Context, params ListGitHu
 	}), nil
 }
 
-// RecordRebaseAwaitParams is a pull request komrad begins waiting on GitHub to rebase, and its head when it began.
+// RecordRebaseAwaitParams is a pull request komrad waits on GitHub to rebase, and the head GitHub rebases from.
 type RecordRebaseAwaitParams struct {
 	ID      string
 	Since   time.Time
 	HeadSHA string
 }
 
-// RecordRebaseAwait records that komrad waits on GitHub to rebase a pull request's branch, unless it already waits.
+// RecordRebaseAwait records that komrad waits on GitHub to rebase a pull request's branch from the head, keeping the start of a wait already begun.
 func (s *PullRequestStore) RecordRebaseAwait(ctx context.Context, params RecordRebaseAwaitParams) error {
 	if err := s.queries.AwaitRebase(ctx, models.AwaitRebaseParams{
 		ID:      params.ID,

@@ -563,11 +563,10 @@ ORDER BY
 UPDATE
     pull_requests
 SET
-    rebase_awaited_since = @since::timestamptz,
+    rebase_awaited_since = COALESCE(rebase_awaited_since, @since::timestamptz),
     rebase_awaited_from = @head_sha::text
 WHERE
-    id = @id
-    AND rebase_awaited_since IS NULL;
+    id = @id;
 
 -- name: ClearRebaseAwait :exec
 UPDATE

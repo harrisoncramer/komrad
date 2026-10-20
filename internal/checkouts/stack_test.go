@@ -33,10 +33,11 @@ func TestCascadeFollowsAGitHubStack(t *testing.T) {
 		mover func(parentBranch, ownBranch string) *gittest.Mover
 		// wantOnParent says the task still has its parent after the pass.
 		wantOnParent bool
-		wantAwait    bool
-		wantCalls    []string
-		wantCutoff   string
-		wantMail     string
+		// wantAwaitFrom is the head komrad still waits on GitHub to rebase from, empty once it waits on nothing.
+		wantAwaitFrom string
+		wantCalls     []string
+		wantCutoff    string
+		wantMail      string
 	}{
 		{
 			name:    "a child whose parent merged a moment ago waits on GitHub to change its base branch",
@@ -54,8 +55,24 @@ func TestCascadeFollowsAGitHubStack(t *testing.T) {
 			mover: func(parentBranch, _ string) *gittest.Mover {
 				return newChildGit(parentBranch, "newtip")
 			},
-			wantOnParent: true,
-			wantAwait:    true,
+			wantOnParent:  true,
+			wantAwaitFrom: "oldhead",
+		},
+		{
+			name:      "a child whose writer pushed while it waited keeps waiting from the head it pushed",
+			ownBase:   "main",
+			ownHead:   "pushedhead",
+			awaitFrom: "oldhead",
+			mover: func(parentBranch, ownBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Tips[ownBranch] = "pushedhead"
+				mover.Holds = append(mover.Holds, "oldhead", "pushedhead")
+				mover.Ancestors = [][2]string{{"oldhead", "pushedhead"}}
+
+				return mover
+			},
+			wantOnParent:  true,
+			wantAwaitFrom: "pushedhead",
 		},
 		{
 			name:      "a child whose branch dropped what it pushed stops waiting on GitHub",
@@ -168,7 +185,11 @@ func TestCascadeFollowsAGitHubStack(t *testing.T) {
 			assert.Equal(t, tt.wantOnParent, got.Parent != nil)
 			stored, err := fixture.stores.PullRequests.GetByID(ctx, own.ID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantAwait, stored.RebaseAwait != nil)
+			awaitFrom := ""
+			if stored.RebaseAwait != nil {
+				awaitFrom = stored.RebaseAwait.From
+			}
+			assert.Equal(t, tt.wantAwaitFrom, awaitFrom)
 			if tt.wantCalls == nil {
 				assert.NotContains(t, mover.Calls, "rebaseOnto", "nothing is rebased")
 			}

@@ -14,11 +14,10 @@ const awaitRebase = `-- name: AwaitRebase :exec
 UPDATE
     pull_requests
 SET
-    rebase_awaited_since = $1::timestamptz,
+    rebase_awaited_since = COALESCE(rebase_awaited_since, $1::timestamptz),
     rebase_awaited_from = $2::text
 WHERE
     id = $3
-    AND rebase_awaited_since IS NULL
 `
 
 type AwaitRebaseParams struct {

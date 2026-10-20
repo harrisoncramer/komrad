@@ -58,7 +58,7 @@ func (s *Service) isAwaitingBaseChange(params followStackParams) bool {
 }
 
 // adoptStackRebase moves the child's worktree onto the branch GitHub rebased, replaying the writer's
-// unpushed commits on top, while its writer is at rest and its worktree holds nothing uncommitted.
+// unpushed commits on top, or keeps waiting from the head the writer pushed instead.
 func (s *Service) adoptStackRebase(ctx context.Context, params followStackParams) error {
 	task := params.Task
 	dir := task.Checkout.Cwd
@@ -77,6 +77,18 @@ func (s *Service) adoptStackRebase(ctx context.Context, params followStackParams
 	head, err := s.git.FetchBranchTip(ctx, dir, task.GetBranch())
 	if err != nil {
 		return err
+	}
+
+	pushed, err := s.git.IsAncestor(ctx, git.IsAncestorParams{Dir: dir, MaybeAncestor: params.Own.RebaseAwait.From, Of: head})
+	if err != nil {
+		return err
+	}
+	if pushed {
+		return s.pullRequests.RecordRebaseAwait(ctx, pullrequeststore.RecordRebaseAwaitParams{
+			ID:      params.Own.ID,
+			Since:   params.Own.RebaseAwait.Since,
+			HeadSHA: head,
+		})
 	}
 
 	onto, err := s.readStackOnto(ctx, task, params)
