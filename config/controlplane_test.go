@@ -88,6 +88,25 @@ func TestLoadControlPlane(t *testing.T) {
 			file:    "[control_plane]\nengines = [\"harry=6f1c@10.0.1.6:8788\", \"harry=9b2e@10.0.1.7:8788\"]\n",
 			wantErr: "named a second time",
 		},
+		{
+			name:    "an AWS region with no stack",
+			file:    "[control_plane.aws]\nregion = \"us-east-1\"\nlogin_secret_prefix = \"komrad/logins/\"\n",
+			wantErr: "control_plane.aws",
+		},
+		{
+			name: "engines in AWS",
+			file: "[control_plane.aws]\nregion = \"us-east-1\"\nstack = \"komrad\"\nlogin_secret_prefix = \"komrad/logins/\"\n",
+			want: ControlPlane{
+				Addr:           defaultControlPlaneAddr,
+				ForgeProxyAddr: defaultForgeProxyAddr,
+				AWS: ControlPlaneAWS{
+					Region:            "us-east-1",
+					Stack:             "komrad",
+					LoginSecretPrefix: "komrad/logins/",
+				},
+			},
+			wantEngines: map[string]ControlPlaneEngine{},
+		},
 	}
 
 	for _, tt := range tests {

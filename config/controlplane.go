@@ -39,6 +39,26 @@ type ControlPlane struct {
 	// engine's sign_in.addr at the address, a loopback or private host and port. The engine's
 	// forge_proxy.url carries the same name and credential.
 	Engines []string `mapstructure:"engines"`
+	// The AWS account the engines run in. Left empty, the control plane starts and stops each
+	// engine with `komrad start` and `komrad stop` and keeps GitHub logins under state_dir.
+	AWS ControlPlaneAWS `mapstructure:"aws"`
+}
+
+// ControlPlaneAWS is the AWS account a control plane's engines run in.
+type ControlPlaneAWS struct {
+	// The region the engines and their secrets are in.
+	Region string `mapstructure:"region"`
+	// The stack the engines belong to, which each engine's instance names in its KomradStack tag
+	// beside its own name in its KomradEngine tag.
+	Stack string `mapstructure:"stack"`
+	// The start of each engine's GitHub login secret's name, which ends in the engine's name,
+	// such as "komrad/logins/".
+	LoginSecretPrefix string `mapstructure:"login_secret_prefix"`
+}
+
+// IsConfigured reports whether the engines run in AWS.
+func (a ControlPlaneAWS) IsConfigured() bool {
+	return a.Region != ""
 }
 
 // ControlPlaneEngine is one engine behind the control plane.
@@ -81,6 +101,9 @@ func (c *ControlPlane) normalize() {
 	}
 	c.CACertFile = ExpandHome(strings.TrimSpace(c.CACertFile))
 	c.CAKeyFile = ExpandHome(strings.TrimSpace(c.CAKeyFile))
+	c.AWS.Region = strings.TrimSpace(c.AWS.Region)
+	c.AWS.Stack = strings.TrimSpace(c.AWS.Stack)
+	c.AWS.LoginSecretPrefix = strings.TrimSpace(c.AWS.LoginSecretPrefix)
 }
 
 func (c ControlPlane) validate() error {
@@ -95,6 +118,9 @@ func (c ControlPlane) validate() error {
 	}
 	if _, err := c.GetEngines(); err != nil {
 		return fmt.Errorf("control_plane.engines: %w", err)
+	}
+	if aws := c.AWS; aws != (ControlPlaneAWS{}) && (aws.Region == "" || aws.Stack == "" || aws.LoginSecretPrefix == "") {
+		return errors.New("control_plane.aws: region, stack and login_secret_prefix are set together, and one of them is empty")
 	}
 
 	return nil

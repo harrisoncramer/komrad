@@ -2,24 +2,25 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
-#MISE description="Restart the engine's service, and with --hard its tmux server and every agent."
+#MISE description="Restart an engine's server, and with --hard its tmux server and every agent."
 
 usage() {
-	echo "Usage: mise run remote:restart [--hard] [instance-id]"
+	echo "Usage: mise run remote:restart NAME [--hard]"
 	echo
-	echo "Restarts the komrad service on the engine. The agents keep running, because the"
+	echo "Restarts the server of the engine at /NAME. The agents keep running, because the"
 	echo "service is stopped in a way that leaves the tmux server it forked alone."
 	echo
 	echo "With --hard the tmux server goes too, which is what picks up a change to the"
-	echo "manager session itself. Every agent on the box stops and does not come back."
+	echo "manager session itself. Every agent on the engine stops and does not come back."
 	echo
 	echo "A stopped engine is started instead, since booting it starts the server fresh."
+	echo "NAME control-plane restarts the control plane's server."
 	echo
 	echo "The restart is sent through Systems Manager."
 }
 
 HARD=false
-POSITIONAL=()
+NAME=""
 
 for arg in "$@"; do
 	case "$arg" in
@@ -37,37 +38,64 @@ for arg in "$@"; do
 		exit 1
 		;;
 	*)
-		POSITIONAL+=("$arg")
+		NAME="$arg"
 		;;
 	esac
 done
+
+if [ -z "$NAME" ]; then
+	usage >&2
+	exit 1
+fi
 
 cd "$MISE_CONFIG_ROOT"
 
 use_komrad_aws_profile
 
-INSTANCE="$(require_instance "${POSITIONAL[0]:-}")"
+INSTANCE="$(require_instance "$NAME")"
 REGION="$(engine_region)"
-STATE="$(engine_state "$INSTANCE" "$REGION")"
+STATE="$(instance_state "$INSTANCE" "$REGION")"
 
 case "$STATE" in
 "")
-	echo "could not read the state of $INSTANCE, so nothing was done to it." >&2
+	echo "could not read the state of $NAME, so nothing was done to it." >&2
 	exit 1
 	;;
 running) ;;
 stopped | stopping | pending)
-	gum log --level info "the engine is $STATE, so starting it rather than restarting it"
-	exec "$MISE_CONFIG_ROOT/mise/tasks/remote/start" "$INSTANCE"
+	if [ "$NAME" = control-plane ]; then
+		echo "the control plane is $STATE, which is not a state to restart from" >&2
+		exit 1
+	fi
+
+	gum log --level info "$NAME is $STATE, so starting it rather than restarting it"
+	if [ "$STATE" = stopping ]; then
+		aws ec2 wait instance-stopped --region "$REGION" --instance-ids "$INSTANCE"
+	fi
+	if [ "$STATE" != pending ]; then
+		aws ec2 start-instances --region "$REGION" --instance-ids "$INSTANCE" >/dev/null
+	fi
+	aws ec2 wait instance-running --region "$REGION" --instance-ids "$INSTANCE"
+	gum log --level info "$NAME is starting, and its server answers within a few minutes"
+	exit 0
 	;;
 *)
-	echo "the engine is $STATE, which is not a state to restart from" >&2
+	echo "$NAME is $STATE, which is not a state to restart from" >&2
 	exit 1
 	;;
 esac
 
+if [ "$NAME" = control-plane ]; then
+	gum log --level info "restarting the control plane's server"
+	run_on_instance "$INSTANCE" "$REGION" \
+		"systemctl restart komrad-control-plane.service" \
+		"sleep 3" \
+		"systemctl is-active komrad-control-plane.service"
+	exit
+fi
+
 if [ "$HARD" = true ]; then
-	gum log --level info "restarting the engine and its tmux server on $INSTANCE, which stops every agent"
+	gum log --level info "restarting $NAME and its tmux server, which stops every agent"
 	COMMANDS=(
 		"systemctl restart komrad.service"
 		"sleep 3"
@@ -78,7 +106,7 @@ if [ "$HARD" = true ]; then
 		"sudo -u komrad tmux -L komrad list-windows -a -F \"WIN #{window_id} panes=#{window_panes} #{window_name}\" 2>&1"
 	)
 else
-	gum log --level info "restarting the engine on $INSTANCE, leaving its agents running"
+	gum log --level info "restarting $NAME, leaving its agents running"
 	COMMANDS=(
 		"systemctl restart komrad.service"
 		"sleep 4"
@@ -87,4 +115,4 @@ else
 	)
 fi
 
-run_on_engine "$INSTANCE" "$REGION" "${COMMANDS[@]}"
+run_on_instance "$INSTANCE" "$REGION" "${COMMANDS[@]}"

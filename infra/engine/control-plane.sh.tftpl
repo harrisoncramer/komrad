@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Explainer: this is everything the control plane cannot know until Terraform has built it.
+#
+# The machine image carries the scripts and the units. What it cannot carry is the stack's
+# database, secrets and engines, because the same Terraform run creates them. User data is
+# readable by anything on the instance that reaches the metadata service, so it carries no
+# secret's value, only its name. The sign-in provider's client secret is the exception, since
+# every engine hands it to every laptop anyway.
+#
+# The units are enabled in the image and skip cleanly while these files are missing, so starting
+# them here, in order, is what runs them on the first boot.
+
+mkdir -p /etc/komrad
+
+echo "KOMRAD_DATA_VOLUME_ID=${data_volume_id}" >/etc/komrad/data-volume.env
+
+cat >/etc/komrad/control-plane.env <<ENV
+AWS_REGION=${aws_region}
+KOMRAD_STACK=${stack}
+KOMRAD_DATABASE_SECRET_ARN=${database_secret_arn}
+KOMRAD_DATABASE_HOST=${database_host}
+KOMRAD_DATABASE_NAME=${database_name}
+KOMRAD_ENGINE_SECRET_PREFIX=${engine_secret_prefix}
+KOMRAD_LOGIN_SECRET_PREFIX=${login_secret_prefix}
+KOMRAD_CA_KEY_SECRET=${ca_key_secret}
+KOMRAD_GITHUB_CLIENT_ID=${github_client_id}
+KOMRAD_FORGE_PROXY_ADDR=${address}:8789
+ENV
+
+# Each line names an engine, the email its grant goes to and its server's private address.
+cat >/etc/komrad/engines <<'ENGINES'
+%{ for name, engine in engines ~}
+${name} ${engine.email} ${engine.address}:8788
+%{ endfor ~}
+ENGINES
+
+cat >/etc/komrad/forge-proxy-ca.pem <<'PEM'
+${trimspace(ca_certificate)}
+PEM
+
+cat >/etc/komrad/sign-in.toml <<'TOML'
+[sign_in]
+issuer = ${jsonencode(sign_in_issuer)}
+client_id = ${jsonencode(sign_in_client_id)}
+client_secret = ${jsonencode(sign_in_client_secret)}
+TOML
+
+cat >/etc/komrad/tailscale.env <<ENV
+KOMRAD_TAILSCALE_STATE=${tailscale_state_arn}
+KOMRAD_TAILSCALE_HOSTNAME=${tailscale_hostname}
+KOMRAD_TAILSCALE_NAME=${tailscale_name}
+KOMRAD_TAILSCALE_SECRET_ID=${tailscale_auth_key_secret}
+AWS_REGION=${aws_region}
+ENV
+
+systemctl start komrad-data-volume.service
+systemctl start komrad-control-plane-credentials.service
+systemctl start komrad-control-plane.service
+
+install -d -m 700 /var/lib/komrad/caddy
+chown -R caddy:caddy /var/lib/komrad/caddy
+cat >/etc/caddy/Caddyfile <<CADDYFILE
+{
+	storage file_system /var/lib/komrad/caddy
+	grace_period 10s
+}
+
+${tailscale_name} {
+	reverse_proxy h2c://127.0.0.1:8790
+}
+CADDYFILE
+systemctl enable --now caddy.service
+
+systemctl start komrad-tailscale.service

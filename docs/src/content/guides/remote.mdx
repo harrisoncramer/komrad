@@ -77,7 +77,7 @@ Each task also works in a fresh worktree, and the CLI asks whether to trust ever
 
 ## Dotfiles
 
-Your engine keeps your home, so clone and install your dotfiles there from a shell, as you would on a new laptop. Git reaches GitHub as you. A `.gitconfig` in your dotfiles must leave git's forge proxy and credential helper settings alone, or git stops reaching GitHub. The same `.gitconfig` must not rewrite GitHub URLs to SSH. Clone repositories with their https URLs. Install your editor through your global mise config, so the edit keys find it.
+Your engine keeps your home, so clone and install your dotfiles there from a shell, as you would on a new laptop. Git reaches GitHub as you. A `.gitconfig` in your dotfiles must leave git's forge proxy and credential helper settings alone, or git stops reaching GitHub. The same `.gitconfig` must not rewrite GitHub URLs to SSH. Git rewrites `git@github.com:` remotes to https for you. Install your editor through your global mise config, so the edit keys find it.
 
 ## Project tools
 

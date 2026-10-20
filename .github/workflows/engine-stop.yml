@@ -1,12 +1,13 @@
 name: engine stop
 
-# Puts the engine down for the night.
+# Puts every engine down for the night.
 #
-# The box bills by the hour whether or not anybody is using it, and it is used for a fraction of
+# An engine bills by the hour whether or not anybody is using it, and it is used for a fraction of
 # the day. Stopping keeps the instance rather than replacing it, so the data volume, the database
-# and the Elastic IP all follow it and the panel reaches the same address in the morning.
+# and the address all follow it, and each person starts their engine from the panel when they
+# next open it. The control plane keeps running.
 #
-# Every agent on the box stops with it. Their conversations and worktrees are on the data volume,
+# Every agent on an engine stops with it. Their conversations and worktrees are on the data volume,
 # so they can be resumed once the engine is back.
 #
 # GitHub's cron is UTC and does not follow daylight saving, so this is 10pm in New York for half
@@ -54,5 +55,5 @@ jobs:
       - name: Read the state
         run: mise run infra:engine:init -- -lockfile=readonly
 
-      - name: Stop the engine
+      - name: Stop the engines
         run: mise run remote:stop --yes

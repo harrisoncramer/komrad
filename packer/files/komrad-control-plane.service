@@ -1,0 +1,23 @@
+[Unit]
+Description=komrad control plane
+After=network-online.target komrad-data-volume.service komrad-control-plane-credentials.service
+Wants=network-online.target
+Requires=komrad-data-volume.service
+RequiresMountsFor=/var/lib/komrad
+ConditionPathExists=/etc/komrad/owner.env
+ConditionPathExists=/etc/komrad/control-plane.toml
+ConditionPathExists=/etc/komrad/sign-in.toml
+ConditionPathIsMountPoint=/var/lib/komrad
+
+[Service]
+Type=simple
+User=komrad
+Group=komrad
+EnvironmentFile=/etc/komrad/owner.env
+Environment=KOMRAD_CONFIG=/etc/komrad/control-plane.toml:/etc/komrad/sign-in.toml
+ExecStart=/usr/local/bin/komrad control-plane serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

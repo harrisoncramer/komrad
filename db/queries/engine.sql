@@ -66,3 +66,13 @@ SELECT
                 OR (sqlc.arg(email_verified)::boolean
                     AND a.subject IS NULL
                     AND a.email = LOWER(sqlc.arg(email)))))::boolean AS granted;
+
+-- name: RevokeOtherEngineAccess :exec
+DELETE FROM engine_access
+WHERE engine_id = sqlc.arg(engine_id)
+    AND email <> LOWER(sqlc.arg(email));
+
+-- name: RevokeEngineAccessOutside :exec
+DELETE FROM engine_access a USING engines e
+WHERE e.id = a.engine_id
+    AND NOT (e.name = ANY (sqlc.arg(names)::text[]));

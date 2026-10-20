@@ -11,7 +11,6 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/rand"
@@ -365,16 +364,6 @@ func (c Cache) Fetch(ctx context.Context, client *http.Client, now time.Time) (T
 	}
 
 	return token, nil
-}
-
-// CredentialReply is what a git credential helper writes back for a query it can answer.
-func CredentialReply(token string) string {
-	var out bytes.Buffer
-
-	out.WriteString("username=x-access-token\n")
-	out.WriteString("password=" + token + "\n")
-
-	return out.String()
 }
 
 // CredentialQuery is the host git is asking about, read from the key-value block it writes.

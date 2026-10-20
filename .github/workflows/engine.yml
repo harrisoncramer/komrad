@@ -1,6 +1,7 @@
 name: engine
 
-# Puts a build on the remote engine. Two ways in, and they want different things.
+# Puts a build on the control plane and every running engine. Two ways in, and they want
+# different things.
 #
 # A release calls this workflow once it has published, which is the ordinary path and the reason
 # merging and shipping are no longer the same act. A dispatch deploys main or a release tag,
@@ -8,12 +9,12 @@ name: engine
 # laptop is the broken thing. The checks run on that path and not on the release path, where the
 # commit has already passed them twice.
 #
-# CI reaches the engine through Systems Manager.
+# CI reaches the instances through Systems Manager.
 on:
   workflow_dispatch:
     inputs:
       run_checks:
-        description: Run the full suite before touching the engine
+        description: Run the full suite before touching the engines
         type: boolean
         default: true
   workflow_call:
@@ -26,7 +27,7 @@ on:
         type: string
         default: ""
 
-# One machine, so one deploy at a time. The group is a literal because github.workflow
+# One stack, so one deploy at a time. The group is a literal because github.workflow
 # resolves to the caller here, which would split the two entry points into separate groups.
 concurrency:
   group: engine
@@ -74,7 +75,7 @@ jobs:
       - name: Read the state
         run: mise run infra:engine:init -- -lockfile=readonly
 
-      - name: Put this build on the engine
+      - name: Put this build on the engines
         env:
           KOMRAD_VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

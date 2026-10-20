@@ -1,17 +1,25 @@
-aws_region                      = "us-east-1"
-aws_account_id                  = "123456789012"
-aws_profile                     = "komrad"
-aws_config_file                 = "/absolute/path/to/aws/config"
-aws_shared_credentials_file     = "/absolute/path/to/aws/credentials"
-ami_id                          = "ami-0123456789abcdef0"  # arm64 (Graviton) image, must match instance_type
-availability_zone               = "us-east-1a"
+aws_region                  = "us-east-1"
+aws_account_id              = "123456789012"
+aws_profile                 = "komrad"
+aws_config_file             = "/absolute/path/to/aws/config"
+aws_shared_credentials_file = "/absolute/path/to/aws/credentials"
+control_plane_ami_id        = "ami-0123456789abcdef0" # arm64 (Graviton) images, from mise run packer:build
+engine_ami_id               = "ami-0fedcba9876543210"
+availability_zone           = "us-east-1a"
 
-tailscale_hostname    = "komrad"
-tailscale_tailnet     = "tail1234.ts.net"
-tailscale_auth_key    = "tskey-auth-..."
-sign_in_issuer        = "https://accounts.google.com"
-sign_in_client_id     = "0000000000-abc.apps.googleusercontent.com"
-sign_in_client_secret = "GOCSPX-..."
+engines = {
+  you = {
+    email = "you@example.com"
+  }
+}
+
+tailscale_hostname     = "komrad"
+tailscale_tailnet      = "tail1234.ts.net"
+tailscale_auth_key     = "tskey-auth-..."
+sign_in_issuer         = "https://accounts.google.com"
+sign_in_client_id      = "0000000000-abc.apps.googleusercontent.com"
+sign_in_client_secret  = "GOCSPX-..."
+github_oauth_client_id = "Ov23li..."
 
 github_repository    = "owner/repo"
 github_owner_id      = "0000000"

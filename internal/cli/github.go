@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/forges"
 	"komrad/internal/git"
-	githubapp "komrad/internal/github/app"
 	"komrad/lib/xhttp"
 
 	"github.com/spf13/cobra"
@@ -47,7 +45,7 @@ forge proxy adds their GitHub login to the engine's GitHub requests.`,
 		SilenceErrors: true,
 	}
 
-	cmd.AddCommand(githubTokenCmd(state), githubCredentialCmd(state), githubAuthorizeCmd(state))
+	cmd.AddCommand(githubTokenCmd(state), githubAuthorizeCmd(state))
 
 	return cmd
 }
@@ -132,56 +130,6 @@ func requireGitHubRemote(remote *git.RemoteURL) error {
 	return errNotGitHubCheckout.Saying(
 		"%s is on %s, and komrad holds a GitHub App and nothing else, so it has no credential for that forge",
 		remote.Path, remote.Host)
-}
-
-func githubCredentialCmd(state *app) *cobra.Command {
-	return &cobra.Command{
-		Use:   "credential",
-		Short: "Answer git's credential helper protocol with an installation token",
-		Long: `Answer git when it asks for a password.
-
-Git runs this and describes what it wants to reach. This answers only for https to
-github.com. Anything else gets no answer, so git falls back to whatever else the
-account has configured.
-
-Nothing is stored. The token is made when git asks and stops working within the hour.
-
-Set it up with:
-
-    git config --global credential.https://github.com.helper '!komrad github credential'`,
-		Args:          cobra.MaximumNArgs(1),
-		SilenceUsage:  true,
-		SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			action := ""
-			if len(args) > 0 {
-				action = args[0]
-			}
-
-			if action != "get" {
-				return nil
-			}
-
-			input, err := io.ReadAll(io.LimitReader(cmd.InOrStdin(), 1<<16))
-			if err != nil {
-				return fmt.Errorf("failed to read what git asked about: %w", err)
-			}
-
-			query := githubapp.CredentialQuery(string(input))
-			if !strings.EqualFold(query["protocol"], "https") || !strings.EqualFold(query["host"], "github.com") {
-				return nil
-			}
-
-			token, err := githubToken(cmd.Context(), state)
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprint(cmd.OutOrStdout(), githubapp.CredentialReply(token)) //nolint:errcheck // git closing the pipe is not this command failing
-
-			return nil
-		},
-	}
 }
 
 // githubToken is the cached installation token, or a freshly minted one recorded for next time.

@@ -2,15 +2,15 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
-#MISE description="Stop the remote engine, which stops every agent on it and stops the bill."
+#MISE description="Stop every running engine, which stops every agent on them and stops the bill."
 
 usage() {
-	echo "Usage: mise run remote:stop [--yes] [instance-id]"
+	echo "Usage: mise run remote:stop [--yes]"
 	echo
-	echo "Stops the engine's instance. Every agent on the box stops with it, and the turn"
-	echo "each one was part way through is lost. The data volume, the database and the"
-	echo "address all survive, so 'mise run remote:start' brings the same engine back and"
-	echo "the panel needs no change."
+	echo "Stops every engine's instance that is running. Every agent on them stops too, and"
+	echo "the turn each one was part way through is lost. The data volumes, the database and"
+	echo "the addresses all survive, so each person starts their engine again from the panel."
+	echo "The control plane keeps running."
 	echo
 	echo "It asks first. Pass --yes to skip the question, which is what the schedule does."
 	echo
@@ -18,7 +18,6 @@ usage() {
 }
 
 ASSUME_YES=false
-POSITIONAL=()
 
 for arg in "$@"; do
 	case "$arg" in
@@ -30,7 +29,8 @@ for arg in "$@"; do
 		ASSUME_YES=true
 		;;
 	*)
-		POSITIONAL+=("$arg")
+		usage >&2
+		exit 1
 		;;
 	esac
 done
@@ -39,50 +39,39 @@ cd "$MISE_CONFIG_ROOT"
 
 use_komrad_aws_profile
 
-INSTANCE="$(require_instance "${POSITIONAL[0]:-}")"
 REGION="$(engine_region)"
-STATE="$(engine_state "$INSTANCE" "$REGION")"
+LISTED="$(instances)"
 
-case "$STATE" in
-"")
-	echo "could not read the state of $INSTANCE, so nothing was done to it." >&2
+if [ -z "$LISTED" ]; then
+	echo "could not read the instances from Terraform, so nothing was stopped." >&2
 	exit 1
-	;;
-stopped)
-	gum log --level info "the engine is already stopped"
+fi
+
+RUNNING=()
+NAMES=()
+
+while read -r name instance; do
+	if [ "$(instance_state "$instance" "$REGION")" = running ]; then
+		RUNNING+=("$instance")
+		NAMES+=("$name")
+	fi
+done < <(engines)
+
+if [ "${#RUNNING[@]}" -eq 0 ]; then
+	gum log --level info "no engine is running"
 	exit 0
-	;;
-stopping)
-	gum log --level info "the engine is already stopping, so waiting for it to settle"
-	aws ec2 wait instance-stopped --region "$REGION" --instance-ids "$INSTANCE"
-	exit 0
-	;;
-running) ;;
-*)
-	echo "the engine is $STATE, which is not a state to stop from" >&2
-	exit 1
-	;;
-esac
+fi
 
 if [ "$ASSUME_YES" != true ]; then
-	gum confirm "Stop the engine? Whatever agents are running on it stop too." || {
-		gum log --level info "left the engine running"
+	gum confirm "Stop ${NAMES[*]}? Whatever agents are running on them stop too." || {
+		gum log --level info "left the engines running"
 		exit 0
 	}
 fi
 
-gum log --level info "stopping $INSTANCE"
+gum log --level info "stopping ${NAMES[*]}"
 
-aws ec2 stop-instances --region "$REGION" --instance-ids "$INSTANCE" >/dev/null
-aws ec2 wait instance-stopped --region "$REGION" --instance-ids "$INSTANCE"
+aws ec2 stop-instances --region "$REGION" --instance-ids "${RUNNING[@]}" >/dev/null
+aws ec2 wait instance-stopped --region "$REGION" --instance-ids "${RUNNING[@]}"
 
-# The panel's connection to the engine is multiplexed and the far end has gone, so the socket is
-# dropped here rather than left to fail the next command that finds it.
-ADDRESS="$(terraform_output instance_public_ip)"
-
-if [ -n "$ADDRESS" ]; then
-	rm -f "/tmp/cm-komrad-komrad@$ADDRESS:22"
-fi
-
-gum log --level info "the engine is stopped"
-echo "  mise run remote:start"
+gum log --level info "stopped ${NAMES[*]}"

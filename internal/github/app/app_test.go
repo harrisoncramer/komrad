@@ -143,7 +143,6 @@ func TestCredentialQueryReadsGitsBlock(t *testing.T) {
 	query := CredentialQuery("protocol=https\nhost=github.com\n\n")
 	assert.Equal(t, "github.com", query["host"])
 	assert.Equal(t, "https", query["protocol"])
-	assert.Contains(t, CredentialReply("ghs_abc"), "password=ghs_abc")
 }
 
 // TestInstallationIDRefusesAPlaceholder covers the id copied from the guide rather than the URL.

@@ -18,6 +18,9 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xhttp"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/spf13/cobra"
 )
 
@@ -44,10 +47,12 @@ The forge proxy listens on control_plane.forge_proxy_addr for the engines contro
 names, and sends their GitHub requests on with the GitHub login each engine's person authorized.
 The control plane's endpoints listen on control_plane.addr, where a person signed in through
 [sign_in] and holding an engine's grant authorizes GitHub for it, and starts and stops it.
-Starting or stopping an engine runs komrad start or komrad stop against its file in the
-engines directory. Every other request under an engine's path goes on to the engine at the
-address control_plane.engines gives it, and the control plane answers for an engine that is
-stopped or starting. It reads grants as owner_database_url.`,
+With [control_plane.aws] set, starting or stopping an engine starts or stops its EC2 instance,
+and GitHub logins sit in Secrets Manager. Otherwise starting or stopping an engine runs komrad
+start or komrad stop against its file in the engines directory. Every other request under an
+engine's path goes on to the engine at the address control_plane.engines gives it, and the
+control plane answers for an engine that is stopped or starting. It reads grants as
+owner_database_url.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -97,18 +102,16 @@ func serveControlPlane(ctx context.Context, state *app) error {
 	upstream := xhttp.NewTransport()
 	upstream.Proxy = nil
 
-	plane := controlplane.New(controlplane.NewParams{
+	params := controlplane.NewParams{
 		Logger:  logger,
 		Engines: engines,
 		SignIn:  state.signIn,
 		CA:      ca,
-		Logins:  forge.NewFileStore(filepath.Join(state.env.StateDir, controlPlaneLoginsDir)),
 		Grants:  grants,
 		Verifier: interceptors.NewProviderVerifier(interceptors.NewProviderVerifierParams{
 			Issuer:   state.signIn.Issuer,
 			ClientID: state.signIn.ClientID,
 		}),
-		Runner:         newLocalRunner(newLocalRunnerParams{Logger: logger, Self: state.selfPath(), Engines: engines}),
 		GitHubClientID: settings.GitHubClientID,
 		GitHub:         controlplane.GitHubURL,
 		GitHubAPI:      controlplane.GitHubAPIURL,
@@ -116,7 +119,25 @@ func serveControlPlane(ctx context.Context, state *app) error {
 		Upstream:       upstream,
 		Engine:         controlplane.NewEngineTransport(),
 		Now:            time.Now,
-	})
+	}
+	if settings.AWS.IsConfigured() {
+		account, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(settings.AWS.Region))
+		if err != nil {
+			return fmt.Errorf("failed to load the AWS credentials: %w", err)
+		}
+
+		params.Logins = controlplane.NewSecretLogins(secretsmanager.NewFromConfig(account), settings.AWS.LoginSecretPrefix)
+		params.Runner = controlplane.NewEC2Runner(controlplane.NewEC2RunnerParams{
+			Instances: ec2.NewFromConfig(account),
+			Stack:     settings.AWS.Stack,
+			Now:       time.Now,
+		})
+	} else {
+		params.Logins = forge.NewFileStore(filepath.Join(state.env.StateDir, controlPlaneLoginsDir))
+		params.Runner = newLocalRunner(newLocalRunnerParams{Logger: logger, Self: state.selfPath(), Engines: engines})
+	}
+
+	plane := controlplane.New(params)
 	defer func() {
 		if err := plane.Close(); err != nil {
 			logger.LogAttrs(ctx, slog.LevelWarn, "the forge proxy's tunnels did not close cleanly", logging.Err(err)...)

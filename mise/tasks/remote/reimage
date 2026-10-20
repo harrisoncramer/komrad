@@ -2,24 +2,29 @@
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 source "$MISE_CONFIG_ROOT/mise/tasks/remote/_remote_utils"
 set -euo pipefail
-#MISE description="Rebuild the engine from a machine image, which stops every agent on it."
+#MISE description="Rebuild the control plane and every engine from new machine images, which stops every agent."
 
 usage() {
-	echo "Usage: mise run remote:reimage [ami-id] [-- <terraform args>]"
+	echo "Usage: mise run remote:reimage [control-plane-ami engine-ami] [-- <terraform args>]"
 	echo
-	echo "Moves the engine to a machine image and applies it, which replaces the instance."
-	echo "Every agent on the box stops and does not come back."
+	echo "Moves the control plane and the engines to new machine images and applies them, which"
+	echo "replaces every instance and keeps each engine's volume. Every agent on the engines stops"
+	echo "and does not come back."
+	echo "Each engine comes back running, and the nightly stop catches the ones nobody uses."
 	echo
-	echo "With no argument it uses the last image image.yml recorded. That workflow runs only when"
-	echo "dispatched with 'gh workflow run image.yml', and never applies the image, because applying"
-	echo "is this."
+	echo "With no ids it uses the last images image.yml recorded. That workflow runs only when"
+	echo "dispatched with 'gh workflow run image.yml', and never applies the images, because"
+	echo "applying is this."
 	echo
 	echo "  mise run remote:reimage"
-	echo "  mise run remote:reimage ami-0123456789abcdef0"
+	echo "  mise run remote:reimage ami-0123456789abcdef0 ami-0fedcba9876543210"
 	echo "  mise run remote:reimage -- -auto-approve"
 	echo
 	echo "Uses the komrad AWS profile, unless the environment already carries credentials."
 }
+
+AMIS=()
+TERRAFORM_ARGS=()
 
 for arg in "$@"; do
 	case "$arg" in
@@ -27,99 +32,107 @@ for arg in "$@"; do
 		usage
 		exit 0
 		;;
-	esac
-done
-
-cd "$MISE_CONFIG_ROOT"
-
-use_komrad_aws_profile
-
-REGION="$(require_output aws_region)"
-CURRENT="$(require_output instance_ami)"
-
-AMI=""
-TERRAFORM_ARGS=()
-
-for arg in "$@"; do
-	case "$arg" in
 	ami-*)
-		AMI="$arg"
+		AMIS+=("$arg")
 		;;
+	--) ;;
 	*)
 		TERRAFORM_ARGS+=("$arg")
 		;;
 	esac
 done
 
-if [ -z "$AMI" ]; then
-	PARAMETER="$(require_output ami_parameter)"
-
-	if ! AMI="$(aws ssm get-parameter --region "$REGION" --name "$PARAMETER" \
-		--query Parameter.Value --output text 2>/dev/null)"; then
-		echo "nothing is recorded at $PARAMETER, so there is no image to move to." >&2
-		echo >&2
-		echo "Record one with 'gh workflow run image.yml', build one with" >&2
-		echo "'mise run packer:build' and pass the id, or name an image yourself." >&2
-		exit 1
-	fi
-fi
-
-if [ "$CURRENT" = "$AMI" ]; then
-	gum log --level info "the engine is already on $AMI"
-	exit 0
-fi
-
-if ! aws ec2 describe-images --region "$REGION" --image-ids "$AMI" \
-	--query 'Images[0].State' --output text 2>/dev/null | grep -q available; then
-	echo "$AMI is not an image this account can use in $REGION" >&2
+if [ "${#AMIS[@]}" -ne 0 ] && [ "${#AMIS[@]}" -ne 2 ]; then
+	echo "name both images, the control plane's and then the engines', or neither." >&2
 	exit 1
 fi
 
-gum log --level info "moving the engine from $CURRENT to $AMI"
+cd "$MISE_CONFIG_ROOT"
 
-# Read before the instance goes, since afterwards there is nothing to ask.
-AGENTS="$(mise run remote:connect -- \
-	'tmux -L komrad list-windows -a -F "#{window_name}" 2>/dev/null | sort -u | grep -v "^sh$"' 2>/dev/null || true)"
+use_komrad_aws_profile
 
-if [ -n "$AGENTS" ]; then
-	echo
-	echo "These agents are running on the engine and will stop:"
+REGION="$(require_output aws_region)"
 
-	while IFS= read -r agent; do
-		echo "  $agent"
-	done <<<"$AGENTS"
+# recorded_image reads the image image.yml last recorded at an output's parameter.
+recorded_image() {
+	local parameter
 
-	echo
+	parameter="$(require_output "$1")"
+
+	if ! aws ssm get-parameter --region "$REGION" --name "$parameter" \
+		--query Parameter.Value --output text 2>/dev/null; then
+		echo "nothing is recorded at $parameter, so there is no image to move to." >&2
+		echo >&2
+		echo "Record one with 'gh workflow run image.yml', build both with" >&2
+		echo "'mise run packer:build' and pass their ids, or name images yourself." >&2
+		exit 1
+	fi
+}
+
+if [ "${#AMIS[@]}" -eq 0 ]; then
+	AMIS=("$(recorded_image control_plane_image_parameter)" "$(recorded_image engine_image_parameter)")
 fi
 
-if ! printf '%s\n' "$@" | grep -q -- "-auto-approve"; then
-	gum confirm "Replace the instance with $AMI?" || {
-		gum log --level info "left the engine as it is"
+CONTROL_PLANE_AMI="${AMIS[0]}"
+ENGINE_AMI="${AMIS[1]}"
+
+if [ "$(require_output control_plane_ami)" = "$CONTROL_PLANE_AMI" ] && [ "$(require_output engine_ami)" = "$ENGINE_AMI" ]; then
+	gum log --level info "the control plane is already on $CONTROL_PLANE_AMI and the engines on $ENGINE_AMI"
+	exit 0
+fi
+
+for ami in "$CONTROL_PLANE_AMI" "$ENGINE_AMI"; do
+	if ! aws ec2 describe-images --region "$REGION" --image-ids "$ami" \
+		--query 'Images[0].State' --output text 2>/dev/null | grep -q available; then
+		echo "$ami is not an image this account can use in $REGION" >&2
+		exit 1
+	fi
+done
+
+gum log --level info "moving the control plane to $CONTROL_PLANE_AMI and the engines to $ENGINE_AMI"
+
+# Read before the instances go, since afterwards there is nothing to ask.
+while read -r name instance; do
+	if [ "$(instance_state "$instance" "$REGION")" != running ]; then
+		continue
+	fi
+
+	AGENTS="$(mise run remote:connect "$name" -- \
+		'tmux -L komrad list-windows -a -F "#{window_name}" 2>/dev/null | sort -u | grep -v "^sh$"' 2>/dev/null || true)"
+
+	if [ -n "$AGENTS" ]; then
+		echo
+		echo "These agents are running on $name and will stop:"
+
+		while IFS= read -r agent; do
+			echo "  $agent"
+		done <<<"$AGENTS"
+	fi
+done < <(engines)
+echo
+
+if ! printf '%s\n' "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}" | grep -q -- "-auto-approve"; then
+	gum confirm "Replace every instance?" || {
+		gum log --level info "left the instances as they are"
 		exit 0
 	}
 fi
 
-python3 - "$AMI" <<'PY'
-import re
-import sys
+TFVARS=infra/engine/terraform.tfvars
+for variable in control_plane_ami_id engine_ami_id; do
+	if ! grep -Eq "^[[:space:]]*${variable}[[:space:]]*=" "$TFVARS"; then
+		echo "no $variable line to change in $TFVARS" >&2
+		exit 1
+	fi
+done
 
-path, ami = "infra/engine/terraform.tfvars", sys.argv[1]
-text = open(path).read()
-updated, count = re.subn(
-    r'(^[ \t]*ami_id[ \t]*=[ \t]*)"[^"]*"',
-    lambda match: match.group(1) + '"' + ami + '"',
-    text,
-    count=1,
-    flags=re.M,
-)
-
-if count != 1:
-    sys.exit("no ami_id line to change in " + path)
-
-open(path, "w").write(updated)
-PY
+sed -i.bak -E \
+	-e "s|^([[:space:]]*control_plane_ami_id[[:space:]]*=[[:space:]]*)\"[^\"]*\"|\1\"$CONTROL_PLANE_AMI\"|" \
+	-e "s|^([[:space:]]*engine_ami_id[[:space:]]*=[[:space:]]*)\"[^\"]*\"|\1\"$ENGINE_AMI\"|" \
+	"$TFVARS"
+rm -f "$TFVARS.bak"
 
 terraform -chdir=infra/engine apply -input=false "${TERRAFORM_ARGS[@]+"${TERRAFORM_ARGS[@]}"}"
 
-gum log --level info "the engine is on $AMI, rebuilt from the image"
-echo "  mise run remote:connect -- 'systemctl list-units --state=failed --no-legend | wc -l'"
+gum log --level info "the control plane is on $CONTROL_PLANE_AMI and the engines on $ENGINE_AMI"
+echo "  mise run remote:connect control-plane -- 'systemctl list-units --state=failed --no-legend | wc -l'"

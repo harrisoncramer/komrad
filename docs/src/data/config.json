@@ -2095,7 +2095,7 @@
           "key": "addr",
           "path": "sign_in.addr",
           "type": "string",
-          "description": "The address the public listener serves signed-in requests on. It has to be a loopback\nhost, since a web server on the same machine carries the network's requests to it.",
+          "description": "The address the public listener serves signed-in requests on, a loopback or private address.\nA web server on the same machine or the control plane carries the network's requests to it.",
           "default": "\"127.0.0.1:8788\""
         }
       ],
@@ -2148,7 +2148,36 @@
           "default": "[]"
         }
       ],
-      "sections": []
+      "sections": [
+        {
+          "path": "control_plane.aws",
+          "description": "The AWS account the engines run in. Left empty, the control plane starts and stops each\nengine with `komrad start` and `komrad stop` and keeps GitHub logins under state_dir.",
+          "settings": [
+            {
+              "key": "region",
+              "path": "control_plane.aws.region",
+              "type": "string",
+              "description": "The region the engines and their secrets are in.",
+              "default": "\"\""
+            },
+            {
+              "key": "stack",
+              "path": "control_plane.aws.stack",
+              "type": "string",
+              "description": "The stack the engines belong to, which each engine's instance names in its KomradStack tag\nbeside its own name in its KomradEngine tag.",
+              "default": "\"\""
+            },
+            {
+              "key": "login_secret_prefix",
+              "path": "control_plane.aws.login_secret_prefix",
+              "type": "string",
+              "description": "The start of each engine's GitHub login secret's name, which ends in the engine's name,\nsuch as \"komrad/logins/\".",
+              "default": "\"\""
+            }
+          ],
+          "sections": []
+        }
+      ]
     },
     {
       "path": "forge_proxy",
@@ -2179,14 +2208,14 @@
           "key": "database_url",
           "path": "connection.database_url",
           "type": "string",
-          "description": "The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as\nthis engine's own login, which is what keeps its rows apart from every other engine's.\n`komrad engine ensure` creates the login and prints this url.\nLeft empty this is the default engine's login on the embedded Postgres under state_dir.\nWhenever this reaches the socket under state_dir, the server runs the embedded Postgres and\nstarts it again when it exits.",
+          "description": "The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as\nthis engine's own login, which is what keeps its rows apart from every other engine's.\n`komrad engine ensure` creates the login and prints this url.\nLeft empty this is the default engine's login on the embedded Postgres under state_dir.",
           "default": "\"\""
         },
         {
           "key": "owner_database_url",
           "path": "connection.owner_database_url",
           "type": "string",
-          "description": "The login that owns the schema, used only by `komrad migrate` and the `komrad engine` commands.\nLeft empty this is database_url, or the embedded Postgres's owner while database_url reaches it.",
+          "description": "The login that owns the schema, used only by `komrad migrate`, the `komrad engine` commands and\nthe control plane.\nLeft empty this is database_url, or the embedded Postgres's owner while database_url reaches it.\nWhenever this reaches the socket under state_dir, komrad runs the embedded Postgres and starts\nit again when it exits.",
           "default": "\"\""
         },
         {
