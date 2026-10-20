@@ -23,6 +23,13 @@ type restartValues struct {
 	Flags   string
 }
 
+// restartTarget is the agent a restart form relaunches, what it works on, and what it is briefed from.
+type restartTarget struct {
+	agent    panel.Agent
+	on       string
+	briefing string
+}
+
 // restartEntries is the entry that restarts a task's live writer on a new conversation, and none
 // when no agent can start on the task.
 func restartEntries(m *model, task panel.Task) []submenuEntry {
@@ -68,13 +75,6 @@ func orchestratorRestartEntries(m *model, workflow panel.Workflow, orchestrator 
 	return []submenuEntry{openEntry("restart orchestrator", m.keys.Menu.Restart, func(m *model) tea.Cmd {
 		return openRestart(m, restartTarget{agent: *orchestrator, on: workflow.Name, briefing: "its briefing"})
 	})}
-}
-
-// restartTarget is the agent a restart form relaunches, what it works on, and what it is briefed from.
-type restartTarget struct {
-	agent    panel.Agent
-	on       string
-	briefing string
 }
 
 // openRestart opens the form that restarts an agent on a new conversation.
