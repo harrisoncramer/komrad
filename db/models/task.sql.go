@@ -1169,6 +1169,22 @@ func (q *Queries) RecordTaskParentPullRequest(ctx context.Context, arg RecordTas
 	return err
 }
 
+const recordTaskWorktreeRemoved = `-- name: RecordTaskWorktreeRemoved :exec
+UPDATE
+    tasks
+SET
+    worktree_removed = TRUE,
+    deleting_at = NULL,
+    cleaning_at = NULL
+WHERE
+    id = $1
+`
+
+func (q *Queries) RecordTaskWorktreeRemoved(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, recordTaskWorktreeRemoved, id)
+	return err
+}
+
 const releaseTaskCheckout = `-- name: ReleaseTaskCheckout :exec
 UPDATE
     tasks
@@ -1189,22 +1205,6 @@ SET
 
 func (q *Queries) ReleaseTaskCheckout(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, releaseTaskCheckout, id)
-	return err
-}
-
-const removeTaskWorktree = `-- name: RemoveTaskWorktree :exec
-UPDATE
-    tasks
-SET
-    worktree_removed = TRUE,
-    deleting_at = NULL,
-    cleaning_at = NULL
-WHERE
-    id = $1
-`
-
-func (q *Queries) RemoveTaskWorktree(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, removeTaskWorktree, id)
 	return err
 }
 

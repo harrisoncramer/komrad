@@ -75,7 +75,7 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 	opened.Record = history.Build(ctx, history.BuildParams{
 		Git:       s.git,
 		Tracer:    s.tracer,
-		Dir:       s.repoDir(ctx, *task),
+		Dir:       s.findSnapshotDir(ctx, *task),
 		Exclude:   s.readDiffExclude(ctx, task.WorkflowID),
 		Snapshot:  historySnapshotOf(opened.Snapshot),
 		Snapshots: xslice.Map(opened.Snapshots, historySnapshotOf),
@@ -108,7 +108,7 @@ func (s *ReviewService) pickSnapshot(ctx context.Context, params pickSnapshotPar
 		return &pickedSnapshot{
 			Snapshot:  snapshots[len(snapshots)-1],
 			Snapshots: snapshots,
-			Notice:    fallbackNotice(err),
+			Notice:    explainFallback(err),
 		}, nil
 	case err != nil:
 		return nil, err
@@ -121,8 +121,8 @@ func (s *ReviewService) pickSnapshot(ctx context.Context, params pickSnapshotPar
 	return &pickedSnapshot{Snapshot: *opened, Snapshots: snapshots}, nil
 }
 
-// fallbackNotice says why a review shows the newest snapshot rather than one taken now.
-func fallbackNotice(err error) string {
+// explainFallback says why a review shows the newest snapshot rather than one taken now.
+func explainFallback(err error) string {
 	if errors.Is(err, errReviewWorktreeRemoved) {
 		return worktreeRemovedNotice
 	}
@@ -130,9 +130,9 @@ func fallbackNotice(err error) string {
 	return midSequenceNotice
 }
 
-// repoDir is a directory holding a task's snapshots, its checkout while it stands or else its
-// workflow's repository, which keeps the snapshots once the worktree is removed.
-func (s *ReviewService) repoDir(ctx context.Context, task taskstore.Task) string {
+// findSnapshotDir finds the directory holding a task's snapshots, its checkout or else its workflow's
+// repository.
+func (s *ReviewService) findSnapshotDir(ctx context.Context, task taskstore.Task) string {
 	if !task.Checkout.WorktreeRemoved {
 		return task.Checkout.Cwd
 	}

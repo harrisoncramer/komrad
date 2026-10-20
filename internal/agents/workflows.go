@@ -321,7 +321,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, params DeleteWorkf
 	}
 
 	if !params.Records {
-		return w.lifecycle.tasks.RemoveWorkflowWorktrees(ctx, existing.ID)
+		return w.lifecycle.removeWorkflowWorktrees(ctx, existing.ID)
 	}
 
 	inside, err := w.agents.ListArchivedInWorkflow(ctx, existing.ID)

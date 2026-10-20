@@ -75,16 +75,16 @@ func TestClaimEmpty(t *testing.T) {
 func TestClaimCleanup(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
-	free := stores.SeedTask(t, taskstore.CreateParams{Slug: "free"})
-	busy := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: free.WorkflowID, Slug: "busy"})
+	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
+	busy := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "busy"})
 	stores.SeedAgent(t, agentstore.Agent{
 		Name:       "worker",
-		WorkflowID: free.WorkflowID,
+		WorkflowID: live.WorkflowID,
 		TaskID:     &busy.ID,
 	})
-	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: free.WorkflowID, Slug: "deleting"})
+	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "deleting"})
 	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
-	taken := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: free.WorkflowID, Slug: "taken"})
+	taken := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "taken"})
 	first, err := stores.Tasks.ClaimCleanup(ctx, taken.ID)
 	require.NoError(t, err)
 	require.True(t, first)
@@ -116,7 +116,7 @@ func TestClaimCleanup(t *testing.T) {
 		},
 		{
 			name: "a task no delete holds is taken",
-			id:   free.ID,
+			id:   live.ID,
 			want: true,
 		},
 	}

@@ -348,7 +348,7 @@ WHERE
     id = sqlc.arg('id')
     AND deleting_at IS NULL;
 
--- name: RemoveTaskWorktree :exec
+-- name: RecordTaskWorktreeRemoved :exec
 UPDATE
     tasks
 SET

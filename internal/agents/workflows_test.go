@@ -1017,7 +1017,8 @@ func TestDeleteWorkflowRefusesAnAgent(t *testing.T) {
 
 	got, err := st.Workflows.GetIncludingArchived(ctx, created.ID)
 	require.NoError(t, err)
-	assert.NotNil(t, got)
+	assert.NotNil(t, got.ArchivedAt)
+	assert.Nil(t, got.DeletingAt)
 }
 
 type claimOnly struct {

@@ -72,7 +72,7 @@ func (s *TaskStore) ClaimCleanup(ctx context.Context, id string) (bool, error) {
 
 // RecordWorktreeRemoved gives a task back from its delete with its worktree recorded as removed.
 func (s *TaskStore) RecordWorktreeRemoved(ctx context.Context, id string) error {
-	if err := s.queries.RemoveTaskWorktree(ctx, id); err != nil {
+	if err := s.queries.RecordTaskWorktreeRemoved(ctx, id); err != nil {
 		return fmt.Errorf("failed to record the worktree of task %q as removed: %w", id, err)
 	}
 

@@ -520,6 +520,10 @@ func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID strin
 	})
 }
 
+func (s *LifecycleService) removeWorkflowWorktrees(ctx context.Context, workflowID string) error {
+	return s.tasks.RemoveWorkflowWorktrees(ctx, workflowID)
+}
+
 // requireTasksLive refuses a reviewer coming back while its task stays archived, letting one
 // through whose writer comes back alongside it.
 func (s *LifecycleService) requireTasksLive(ctx context.Context, agents []agentstore.Agent) error {
