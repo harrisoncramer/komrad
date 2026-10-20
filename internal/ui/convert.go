@@ -78,6 +78,7 @@ func taskFrom(row assemble.TaskRow) panel.Task {
 		WorktreeRemoved:    task.GetWorktreeRemoved(),
 		Sequence:           sequenceFrom(task.GetSequence()),
 		MovedSinceSnapshot: task.GetMovedSinceSnapshot(),
+		Snapshots:          task.GetSnapshots(),
 		PullRequest:        pullRequestStandingFrom(row.PullRequest),
 		PullRequests:       xslice.Map(row.PullRequests, pullRequestFrom),
 		ReviewerComments:   row.ReviewerComments,

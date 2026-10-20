@@ -19,7 +19,7 @@ func TestClaimEmpty(t *testing.T) {
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
 	busy := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "busy"})
 	stores.SeedAgent(t, agentstore.Agent{
-		Name:       "worker",
+		Name:       "writer",
 		WorkflowID: live.WorkflowID,
 		TaskID:     &busy.ID,
 	})
@@ -78,7 +78,7 @@ func TestClaimCleanup(t *testing.T) {
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
 	busy := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "busy"})
 	stores.SeedAgent(t, agentstore.Agent{
-		Name:       "worker",
+		Name:       "writer",
 		WorkflowID: live.WorkflowID,
 		TaskID:     &busy.ID,
 	})

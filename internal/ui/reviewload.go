@@ -555,11 +555,16 @@ func (l listing) workflowFor(agent panel.Agent) panel.Workflow {
 	return panel.Workflow{}
 }
 
-// reviewDir is the checkout an agent's review reads, its workflow's once the task's worktree is removed.
+// reviewDir is the checkout an agent's review reads, its workflow's once the task's worktree is removed,
+// and empty when a removed worktree left no snapshot to read.
 func (l listing) reviewDir(agent panel.Agent) string {
-	if l.tasks.findForAgent(agent).WorktreeRemoved {
-		return l.workflowFor(agent).Cwd
+	task := l.tasks.findForAgent(agent)
+	switch {
+	case !task.WorktreeRemoved:
+		return agent.Cwd
+	case task.Snapshots == 0:
+		return ""
 	}
 
-	return agent.Cwd
+	return l.workflowFor(agent).Cwd
 }

@@ -374,7 +374,7 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			row:          "reviewer",
 			press:        []string{"space", "a", "d"},
 			answer:       answerWith(dirty),
-			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits. Deleting the worktree loses that work for good.", "a.go b.txt c.txt"},
+			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits. Deleting the worktree loses the uncommitted files.", "a.go b.txt c.txt"},
 		},
 		{
 			name:         "a clean worktree is said to be clean",
@@ -388,7 +388,7 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			row:          "task/orphan",
 			press:        []string{"space", "a", "d"},
 			answer:       answerWith(baseless),
-			wantRendered: []string{"The worktree has 1 uncommitted file. Deleting the worktree loses that work for good. Without a base, Komrad cannot count the unpushed commits of the worktree.", "notes.md"},
+			wantRendered: []string{"The worktree has 1 uncommitted file. Deleting the worktree loses the uncommitted files. Without a base, Komrad cannot count the unpushed commits of the worktree.", "notes.md"},
 		},
 		{
 			name:         "a branch never pushed counts its commits since the base and the files past ten are counted",
@@ -410,7 +410,7 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			row:          "task/orphan",
 			press:        []string{"v", "k", "v", "space", "a", "d"},
 			answer:       answerWith(dirty),
-			wantRendered: []string{"The worktrees have 6 uncommitted files and 4 unpushed commits. Deleting the worktrees loses that work for good."},
+			wantRendered: []string{"The worktrees have 6 uncommitted files and 4 unpushed commits. Deleting the worktrees loses the uncommitted files."},
 			wantAbsent:   []string{"a.go"},
 		},
 		{
@@ -425,14 +425,14 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			row:          "task/orphan",
 			press:        []string{"v", "k", "v", "space", "a", "d"},
 			answer:       answerForDir("/trees/orphan", answerWith(dirty), refuseWith(connect.CodeInternal, "git exploded")),
-			wantRendered: []string{"The 1 worktree Komrad read has 3 uncommitted files and 2 unpushed commits. Deleting the worktrees loses that work for good. Komrad could not read 1 worktree, so it cannot say what is uncommitted or unpushed there.", "a.go b.txt c.txt"},
+			wantRendered: []string{"The 1 worktree Komrad read has 3 uncommitted files and 2 unpushed commits. Deleting the worktrees loses the uncommitted files. Komrad could not read 1 worktree, so it cannot say what is uncommitted or unpushed there.", "a.go b.txt c.txt"},
 		},
 		{
 			name:         "several worktrees of which one is gone are spoken of as one",
 			row:          "task/orphan",
 			press:        []string{"v", "k", "v", "space", "a", "d"},
 			answer:       answerForDir("/trees/orphan", answerWith(dirty), refuseWith(connect.CodeNotFound, "gone")),
-			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits. Deleting the worktree loses that work for good.", "a.go b.txt c.txt"},
+			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits. Deleting the worktree loses the uncommitted files.", "a.go b.txt c.txt"},
 		},
 	}
 

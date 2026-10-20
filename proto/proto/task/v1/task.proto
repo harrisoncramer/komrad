@@ -108,6 +108,8 @@ message Task {
   optional string documents_updated_at = 24;
   // The task this task depends on. Unset for a task on the workflow's base branch.
   optional Parent parent = 25;
+  // How many snapshots komrad has taken of the task's checkout.
+  int32 snapshots = 26;
 }
 
 // Parent is the task a child depends on, and the fork point where the child's own commits begin on

@@ -80,7 +80,7 @@ When you finish a task and want to clear up space, you can _archive_ it. Archivi
 
 From the archive, restore a task to put it back in the list. Restoring a task brings back only its writer, by design.
 
-Deleting a task asks what to delete. By default komrad deletes only the task's worktree from disk. The task stays in the archive with its conversations, documents and reviews, and its review still opens on the snapshots taken before the worktree was removed. Check records too to delete the task for good, with its writer and reviewers and their conversations, its documents and its reviews. The delete prompt counts what the worktree holds that is uncommitted or unpushed, since deleting the worktree loses that work. If removing the worktree fails, the task stays in the archive with the reason for the failure.
+Deleting a task asks what to delete. By default komrad deletes only the task's worktree from disk. The task stays in the archive with its conversations, documents and reviews, and its review still opens on the snapshots taken before the worktree was removed. Check records too to delete the task for good, with its writer and reviewers and their conversations, its documents and its reviews. The delete prompt counts what the worktree holds that is uncommitted or unpushed. Deleting the worktree loses its uncommitted files, and its branch keeps any commits that are on no other branch. If removing the worktree fails, the task stays in the archive with the reason for the failure.
 
 Only you can delete a task or a workflow. Komrad refuses the delete when an agent asks for it.
 

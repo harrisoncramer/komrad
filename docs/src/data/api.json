@@ -9668,6 +9668,16 @@
           "oneof": "",
           "rules": [],
           "description": "The task this task depends on. Unset for a task on the workflow's base branch."
+        },
+        {
+          "name": "snapshots",
+          "type": "int32",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "How many snapshots komrad has taken of the task's checkout."
         }
       ]
     },

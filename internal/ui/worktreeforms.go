@@ -126,11 +126,11 @@ func describeStanding(inspections map[string]worktreeInspection, dirs []string) 
 		fmt.Fprintf(&b, " The %s %s.", label.Count(read, "worktree Komrad read has", "worktrees Komrad read have"), counts)
 	}
 	switch {
-	case len(files) == 0 && commits == 0:
+	case len(files) == 0:
 	case worktrees == 1:
-		b.WriteString(" Deleting the worktree loses that work for good.")
+		b.WriteString(" Deleting the worktree loses the uncommitted files.")
 	default:
-		b.WriteString(" Deleting the worktrees loses that work for good.")
+		b.WriteString(" Deleting the worktrees loses the uncommitted files.")
 	}
 	if uncounted > 0 {
 		fmt.Fprintf(&b, " Without a base, Komrad cannot count the unpushed commits of %s.", which(uncounted))

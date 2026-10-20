@@ -341,96 +341,122 @@ func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams
 
 const getTaskByID = `-- name: GetTaskByID :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    (
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
-    tasks
+    tasks t
 WHERE
-    id = $1
+    t.id = $1
 `
 
-func (q *Queries) GetTaskByID(ctx context.Context, id string) (*Task, error) {
+type GetTaskByIDRow struct {
+	Task      Task
+	Snapshots int32
+}
+
+func (q *Queries) GetTaskByID(ctx context.Context, id string) (*GetTaskByIDRow, error) {
 	row := q.db.QueryRow(ctx, getTaskByID, id)
-	var i Task
+	var i GetTaskByIDRow
 	err := row.Scan(
-		&i.ID,
-		&i.WorkflowID,
-		&i.Slug,
-		&i.Title,
-		&i.Goal,
-		&i.ArchivedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.EngineID,
-		&i.Cwd,
-		&i.Branch,
-		&i.AdoptedBranch,
-		&i.ProvisionEnabled,
-		&i.WorktreeRemoved,
-		&i.RepositoryUrl,
-		&i.HeadSha,
-		&i.LastRebase,
-		&i.Sequence,
-		&i.LinesAdded,
-		&i.LinesRemoved,
-		&i.MovedSinceSnapshot,
-		&i.DeletingAt,
-		&i.CleaningAt,
-		&i.FailureReason,
-		&i.Notes,
-		&i.NotesUpdatedAt,
-		&i.IsHidden,
-		&i.ParentTaskID,
-		&i.ForkPoint,
-		&i.ParentPullRequestID,
-		&i.CascadeBlocked,
+		&i.Task.ID,
+		&i.Task.WorkflowID,
+		&i.Task.Slug,
+		&i.Task.Title,
+		&i.Task.Goal,
+		&i.Task.ArchivedAt,
+		&i.Task.CreatedAt,
+		&i.Task.UpdatedAt,
+		&i.Task.EngineID,
+		&i.Task.Cwd,
+		&i.Task.Branch,
+		&i.Task.AdoptedBranch,
+		&i.Task.ProvisionEnabled,
+		&i.Task.WorktreeRemoved,
+		&i.Task.RepositoryUrl,
+		&i.Task.HeadSha,
+		&i.Task.LastRebase,
+		&i.Task.Sequence,
+		&i.Task.LinesAdded,
+		&i.Task.LinesRemoved,
+		&i.Task.MovedSinceSnapshot,
+		&i.Task.DeletingAt,
+		&i.Task.CleaningAt,
+		&i.Task.FailureReason,
+		&i.Task.Notes,
+		&i.Task.NotesUpdatedAt,
+		&i.Task.IsHidden,
+		&i.Task.ParentTaskID,
+		&i.Task.ForkPoint,
+		&i.Task.ParentPullRequestID,
+		&i.Task.CascadeBlocked,
+		&i.Snapshots,
 	)
 	return &i, err
 }
 
 const getTaskBySlug = `-- name: GetTaskBySlug :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    (
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
-    tasks
+    tasks t
 WHERE
-    slug = $1
+    t.slug = $1
 `
 
-func (q *Queries) GetTaskBySlug(ctx context.Context, slug string) (*Task, error) {
+type GetTaskBySlugRow struct {
+	Task      Task
+	Snapshots int32
+}
+
+func (q *Queries) GetTaskBySlug(ctx context.Context, slug string) (*GetTaskBySlugRow, error) {
 	row := q.db.QueryRow(ctx, getTaskBySlug, slug)
-	var i Task
+	var i GetTaskBySlugRow
 	err := row.Scan(
-		&i.ID,
-		&i.WorkflowID,
-		&i.Slug,
-		&i.Title,
-		&i.Goal,
-		&i.ArchivedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.EngineID,
-		&i.Cwd,
-		&i.Branch,
-		&i.AdoptedBranch,
-		&i.ProvisionEnabled,
-		&i.WorktreeRemoved,
-		&i.RepositoryUrl,
-		&i.HeadSha,
-		&i.LastRebase,
-		&i.Sequence,
-		&i.LinesAdded,
-		&i.LinesRemoved,
-		&i.MovedSinceSnapshot,
-		&i.DeletingAt,
-		&i.CleaningAt,
-		&i.FailureReason,
-		&i.Notes,
-		&i.NotesUpdatedAt,
-		&i.IsHidden,
-		&i.ParentTaskID,
-		&i.ForkPoint,
-		&i.ParentPullRequestID,
-		&i.CascadeBlocked,
+		&i.Task.ID,
+		&i.Task.WorkflowID,
+		&i.Task.Slug,
+		&i.Task.Title,
+		&i.Task.Goal,
+		&i.Task.ArchivedAt,
+		&i.Task.CreatedAt,
+		&i.Task.UpdatedAt,
+		&i.Task.EngineID,
+		&i.Task.Cwd,
+		&i.Task.Branch,
+		&i.Task.AdoptedBranch,
+		&i.Task.ProvisionEnabled,
+		&i.Task.WorktreeRemoved,
+		&i.Task.RepositoryUrl,
+		&i.Task.HeadSha,
+		&i.Task.LastRebase,
+		&i.Task.Sequence,
+		&i.Task.LinesAdded,
+		&i.Task.LinesRemoved,
+		&i.Task.MovedSinceSnapshot,
+		&i.Task.DeletingAt,
+		&i.Task.CleaningAt,
+		&i.Task.FailureReason,
+		&i.Task.Notes,
+		&i.Task.NotesUpdatedAt,
+		&i.Task.IsHidden,
+		&i.Task.ParentTaskID,
+		&i.Task.ForkPoint,
+		&i.Task.ParentPullRequestID,
+		&i.Task.CascadeBlocked,
+		&i.Snapshots,
 	)
 	return &i, err
 }
@@ -771,15 +797,22 @@ func (q *Queries) ListTaskSummaries(ctx context.Context) ([]*ListTaskSummariesRo
 
 const listTasks = `-- name: ListTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    (
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
-    tasks
+    tasks t
 WHERE
-    workflow_id = $1
-    AND deleting_at IS NULL
-    AND ($2::boolean) =(archived_at IS NOT NULL)
+    t.workflow_id = $1
+    AND t.deleting_at IS NULL
+    AND ($2::boolean) =(t.archived_at IS NOT NULL)
 ORDER BY
-    id DESC
+    t.id DESC
 `
 
 type ListTasksParams struct {
@@ -787,47 +820,53 @@ type ListTasksParams struct {
 	Archived   bool
 }
 
-func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, error) {
+type ListTasksRow struct {
+	Task      Task
+	Snapshots int32
+}
+
+func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*ListTasksRow, error) {
 	rows, err := q.db.Query(ctx, listTasks, arg.WorkflowID, arg.Archived)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Task
+	var items []*ListTasksRow
 	for rows.Next() {
-		var i Task
+		var i ListTasksRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.WorkflowID,
-			&i.Slug,
-			&i.Title,
-			&i.Goal,
-			&i.ArchivedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.EngineID,
-			&i.Cwd,
-			&i.Branch,
-			&i.AdoptedBranch,
-			&i.ProvisionEnabled,
-			&i.WorktreeRemoved,
-			&i.RepositoryUrl,
-			&i.HeadSha,
-			&i.LastRebase,
-			&i.Sequence,
-			&i.LinesAdded,
-			&i.LinesRemoved,
-			&i.MovedSinceSnapshot,
-			&i.DeletingAt,
-			&i.CleaningAt,
-			&i.FailureReason,
-			&i.Notes,
-			&i.NotesUpdatedAt,
-			&i.IsHidden,
-			&i.ParentTaskID,
-			&i.ForkPoint,
-			&i.ParentPullRequestID,
-			&i.CascadeBlocked,
+			&i.Task.ID,
+			&i.Task.WorkflowID,
+			&i.Task.Slug,
+			&i.Task.Title,
+			&i.Task.Goal,
+			&i.Task.ArchivedAt,
+			&i.Task.CreatedAt,
+			&i.Task.UpdatedAt,
+			&i.Task.EngineID,
+			&i.Task.Cwd,
+			&i.Task.Branch,
+			&i.Task.AdoptedBranch,
+			&i.Task.ProvisionEnabled,
+			&i.Task.WorktreeRemoved,
+			&i.Task.RepositoryUrl,
+			&i.Task.HeadSha,
+			&i.Task.LastRebase,
+			&i.Task.Sequence,
+			&i.Task.LinesAdded,
+			&i.Task.LinesRemoved,
+			&i.Task.MovedSinceSnapshot,
+			&i.Task.DeletingAt,
+			&i.Task.CleaningAt,
+			&i.Task.FailureReason,
+			&i.Task.Notes,
+			&i.Task.NotesUpdatedAt,
+			&i.Task.IsHidden,
+			&i.Task.ParentTaskID,
+			&i.Task.ForkPoint,
+			&i.Task.ParentPullRequestID,
+			&i.Task.CascadeBlocked,
+			&i.Snapshots,
 		); err != nil {
 			return nil, err
 		}
@@ -841,56 +880,69 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*Task, 
 
 const listTasksByID = `-- name: ListTasksByID :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    (
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
-    tasks
+    tasks t
 WHERE
-    id = ANY ($1::uuid[])
+    t.id = ANY ($1::uuid[])
 ORDER BY
-    id
+    t.id
 `
 
-func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*Task, error) {
+type ListTasksByIDRow struct {
+	Task      Task
+	Snapshots int32
+}
+
+func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*ListTasksByIDRow, error) {
 	rows, err := q.db.Query(ctx, listTasksByID, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*Task
+	var items []*ListTasksByIDRow
 	for rows.Next() {
-		var i Task
+		var i ListTasksByIDRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.WorkflowID,
-			&i.Slug,
-			&i.Title,
-			&i.Goal,
-			&i.ArchivedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.EngineID,
-			&i.Cwd,
-			&i.Branch,
-			&i.AdoptedBranch,
-			&i.ProvisionEnabled,
-			&i.WorktreeRemoved,
-			&i.RepositoryUrl,
-			&i.HeadSha,
-			&i.LastRebase,
-			&i.Sequence,
-			&i.LinesAdded,
-			&i.LinesRemoved,
-			&i.MovedSinceSnapshot,
-			&i.DeletingAt,
-			&i.CleaningAt,
-			&i.FailureReason,
-			&i.Notes,
-			&i.NotesUpdatedAt,
-			&i.IsHidden,
-			&i.ParentTaskID,
-			&i.ForkPoint,
-			&i.ParentPullRequestID,
-			&i.CascadeBlocked,
+			&i.Task.ID,
+			&i.Task.WorkflowID,
+			&i.Task.Slug,
+			&i.Task.Title,
+			&i.Task.Goal,
+			&i.Task.ArchivedAt,
+			&i.Task.CreatedAt,
+			&i.Task.UpdatedAt,
+			&i.Task.EngineID,
+			&i.Task.Cwd,
+			&i.Task.Branch,
+			&i.Task.AdoptedBranch,
+			&i.Task.ProvisionEnabled,
+			&i.Task.WorktreeRemoved,
+			&i.Task.RepositoryUrl,
+			&i.Task.HeadSha,
+			&i.Task.LastRebase,
+			&i.Task.Sequence,
+			&i.Task.LinesAdded,
+			&i.Task.LinesRemoved,
+			&i.Task.MovedSinceSnapshot,
+			&i.Task.DeletingAt,
+			&i.Task.CleaningAt,
+			&i.Task.FailureReason,
+			&i.Task.Notes,
+			&i.Task.NotesUpdatedAt,
+			&i.Task.IsHidden,
+			&i.Task.ParentTaskID,
+			&i.Task.ForkPoint,
+			&i.Task.ParentPullRequestID,
+			&i.Task.CascadeBlocked,
+			&i.Snapshots,
 		); err != nil {
 			return nil, err
 		}
@@ -970,7 +1022,14 @@ SELECT
             AND r.failure <> ''
             AND r.viewed_at IS NULL)::boolean AS failed_run,
     COALESCE(d.documents, 0)::integer AS documents,
-    d.documents_updated_at
+    d.documents_updated_at,
+    (
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
     watched w
     JOIN tasks t ON t.id = w.id
@@ -984,6 +1043,7 @@ type ListWatchedTasksRow struct {
 	FailedRun          bool
 	Documents          int32
 	DocumentsUpdatedAt *time.Time
+	Snapshots          int32
 }
 
 func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*ListWatchedTasksRow, error) {
@@ -1030,6 +1090,7 @@ func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*ListW
 			&i.FailedRun,
 			&i.Documents,
 			&i.DocumentsUpdatedAt,
+			&i.Snapshots,
 		); err != nil {
 			return nil, err
 		}

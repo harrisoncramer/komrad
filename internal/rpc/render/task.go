@@ -35,6 +35,7 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		FailedRun:          stored.FailedRun,
 		Documents:          stored.Documents,
 		DocumentsUpdatedAt: dates.PreciseStampPtr(stored.DocumentsUpdatedAt),
+		Snapshots:          stored.Snapshots,
 		Hidden:             stored.Hidden,
 		Parent:             parentOf(stored.Parent),
 	}

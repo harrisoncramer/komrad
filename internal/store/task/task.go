@@ -51,6 +51,8 @@ type Task struct {
 	Documents int32
 	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
 	DocumentsUpdatedAt *time.Time
+	// Snapshots is how many snapshots komrad has taken of the task's checkout.
+	Snapshots int32
 }
 
 // GetBranch is the branch a task's checkout is on, or the one komrad names for it while it has none.
@@ -72,6 +74,14 @@ type TaskStore struct {
 // NewTaskStore builds a task store over a pool or transaction.
 func NewTaskStore(db store.DBTX) *TaskStore {
 	return &TaskStore{queries: models.New(db)}
+}
+
+// fromCountedRow is a task row with how many snapshots were taken of its checkout.
+func fromCountedRow(row *models.Task, snapshots int32) Task {
+	task := fromRow(row)
+	task.Snapshots = snapshots
+
+	return task
 }
 
 func fromRow(row *models.Task) Task {
@@ -206,7 +216,7 @@ func (s *TaskStore) Get(ctx context.Context, id string) (*Task, error) {
 		return nil, fmt.Errorf("failed to get task %q: %w", id, err)
 	}
 
-	got := fromRow(row)
+	got := fromCountedRow(&row.Task, row.Snapshots)
 
 	return &got, nil
 }
@@ -251,7 +261,7 @@ func (s *TaskStore) GetBySlug(ctx context.Context, slug string) (*Task, error) {
 		return nil, fmt.Errorf("failed to get task %q: %w", slug, err)
 	}
 
-	got := fromRow(row)
+	got := fromCountedRow(&row.Task, row.Snapshots)
 
 	return &got, nil
 }
@@ -267,7 +277,7 @@ func (s *TaskStore) List(ctx context.Context, workflowID string, archived bool) 
 		return nil, fmt.Errorf("failed to list the tasks of workflow %q: %w", workflowID, err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return xslice.Map(rows, func(row *models.ListTasksRow) Task { return fromCountedRow(&row.Task, row.Snapshots) }), nil
 }
 
 // Archive takes a task out of live listings, leaving one already archived as it was.

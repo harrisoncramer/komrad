@@ -1,6 +1,7 @@
 package task_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
+	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -798,4 +800,90 @@ func TestListChildren(t *testing.T) {
 
 func readTaskID(task taskstore.Task) string {
 	return task.ID
+}
+
+// TestSnapshotsAreCounted pins that every read of a task counts the snapshots taken of its checkout,
+// and only its own.
+func TestSnapshotsAreCounted(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	reviews := reviewstore.NewReviewStore(stores.Pool.GetDB())
+	writer := stores.SeedAgent(t, agentstore.Agent{Name: "writer"})
+	elsewhere := stores.SeedAgent(t, agentstore.Agent{Name: "elsewhere", WorkflowID: writer.WorkflowID})
+	for _, sha := range []string{"first", "second"} {
+		_, err := reviews.CreateSnapshot(ctx, reviewstore.CreateSnapshotParams{
+			TaskID:  *writer.TaskID,
+			BaseSHA: "base",
+			SHA:     sha,
+		})
+		require.NoError(t, err)
+	}
+	slug := func(id string) string {
+		got, err := stores.Tasks.Get(ctx, id)
+		require.NoError(t, err)
+
+		return got.Slug
+	}
+
+	tests := []struct {
+		name string
+		read func(t *testing.T, id string) taskstore.Task
+	}{
+		{
+			name: "by id",
+			read: func(t *testing.T, id string) taskstore.Task {
+				got, err := stores.Tasks.Get(ctx, id)
+				require.NoError(t, err)
+
+				return *got
+			},
+		},
+		{
+			name: "by slug",
+			read: func(t *testing.T, id string) taskstore.Task {
+				got, err := stores.Tasks.GetBySlug(ctx, slug(id))
+				require.NoError(t, err)
+
+				return *got
+			},
+		},
+		{
+			name: "in a list of ids",
+			read: func(t *testing.T, id string) taskstore.Task {
+				listed, err := stores.Tasks.ListByID(ctx, []string{id})
+				require.NoError(t, err)
+				require.Len(t, listed, 1)
+
+				return listed[0]
+			},
+		},
+		{
+			name: "in its workflow's list",
+			read: func(t *testing.T, id string) taskstore.Task {
+				listed, err := stores.Tasks.List(ctx, writer.WorkflowID, false)
+				require.NoError(t, err)
+				at := slices.IndexFunc(listed, func(task taskstore.Task) bool { return task.ID == id })
+				require.GreaterOrEqual(t, at, 0)
+
+				return listed[at]
+			},
+		},
+		{
+			name: "by the watch",
+			read: func(t *testing.T, id string) taskstore.Task {
+				listed, err := stores.Tasks.ListWatched(ctx, []string{id})
+				require.NoError(t, err)
+				require.Len(t, listed, 1)
+
+				return listed[0]
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, int32(2), tt.read(t, *writer.TaskID).Snapshots)
+			assert.Zero(t, tt.read(t, *elsewhere.TaskID).Snapshots, "another task's snapshots are not counted")
+		})
+	}
 }

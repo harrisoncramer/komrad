@@ -267,7 +267,9 @@ type Task struct {
 	// has none.
 	DocumentsUpdatedAt *string `protobuf:"bytes,24,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
 	// The task this task depends on. Unset for a task on the workflow's base branch.
-	Parent        *Parent `protobuf:"bytes,25,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
+	Parent *Parent `protobuf:"bytes,25,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
+	// How many snapshots komrad has taken of the task's checkout.
+	Snapshots     int32 `protobuf:"varint,26,opt,name=snapshots,proto3" json:"snapshots,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -475,6 +477,13 @@ func (x *Task) GetParent() *Parent {
 		return x.Parent
 	}
 	return nil
+}
+
+func (x *Task) GetSnapshots() int32 {
+	if x != nil {
+		return x.Snapshots
+	}
+	return 0
 }
 
 // Parent is the task a child depends on, and the fork point where the child's own commits begin on
@@ -1308,7 +1317,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\x89\b\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xa7\b\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -1340,7 +1349,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x06hidden\x18\x16 \x01(\bR\x06hidden\x12\x1c\n" +
 	"\tdocuments\x18\x17 \x01(\x05R\tdocuments\x125\n" +
 	"\x14documents_updated_at\x18\x18 \x01(\tH\bR\x12documentsUpdatedAt\x88\x01\x01\x12,\n" +
-	"\x06parent\x18\x19 \x01(\v2\x0f.task.v1.ParentH\tR\x06parent\x88\x01\x01B\x0e\n" +
+	"\x06parent\x18\x19 \x01(\v2\x0f.task.v1.ParentH\tR\x06parent\x88\x01\x01\x12\x1c\n" +
+	"\tsnapshots\x18\x1a \x01(\x05R\tsnapshotsB\x0e\n" +
 	"\f_archived_atB\x06\n" +
 	"\x04_cwdB\t\n" +
 	"\a_branchB\x11\n" +

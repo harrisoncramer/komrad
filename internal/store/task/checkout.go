@@ -299,5 +299,5 @@ func (s *TaskStore) ListByID(ctx context.Context, ids []string) ([]Task, error) 
 		return nil, fmt.Errorf("failed to list %d tasks: %w", len(storable), err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return xslice.Map(rows, func(row *models.ListTasksByIDRow) Task { return fromCountedRow(&row.Task, row.Snapshots) }), nil
 }

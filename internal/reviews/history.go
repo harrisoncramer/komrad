@@ -3,6 +3,7 @@ package reviews
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"komrad/internal/fail"
 	"komrad/internal/reviews/history"
@@ -65,6 +66,11 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		return nil, err
 	}
 
+	dir, err := s.findSnapshotDir(ctx, *task)
+	if err != nil {
+		return nil, err
+	}
+
 	opened := &ReviewHistory{
 		Snapshot:  picked.Snapshot,
 		Snapshots: picked.Snapshots,
@@ -75,7 +81,7 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 	opened.Record = history.Build(ctx, history.BuildParams{
 		Git:       s.git,
 		Tracer:    s.tracer,
-		Dir:       s.findSnapshotDir(ctx, *task),
+		Dir:       dir,
 		Exclude:   s.readDiffExclude(ctx, task.WorkflowID),
 		Snapshot:  historySnapshotOf(opened.Snapshot),
 		Snapshots: xslice.Map(opened.Snapshots, historySnapshotOf),
@@ -132,17 +138,20 @@ func explainFallback(err error) string {
 
 // findSnapshotDir finds the directory holding a task's snapshots, its checkout or else its workflow's
 // repository.
-func (s *ReviewService) findSnapshotDir(ctx context.Context, task taskstore.Task) string {
+func (s *ReviewService) findSnapshotDir(ctx context.Context, task taskstore.Task) (string, error) {
 	if !task.Checkout.WorktreeRemoved {
-		return task.Checkout.Cwd
+		return task.Checkout.Cwd, nil
 	}
 
 	flow, err := s.workflows.GetIncludingArchived(ctx, task.WorkflowID)
 	if err != nil {
-		return ""
+		return "", err
+	}
+	if flow.Cwd == "" {
+		return "", fmt.Errorf("%w: %q", errReviewNoSnapshotDir, task.Slug)
 	}
 
-	return flow.Cwd
+	return flow.Cwd, nil
 }
 
 func findStoreSnapshot(snapshots []reviewstore.Snapshot, id string) *reviewstore.Snapshot {
