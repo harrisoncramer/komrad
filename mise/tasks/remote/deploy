@@ -162,7 +162,7 @@ RUNNING="$(run_on_engine "$INSTANCE" "$REGION" \
 	"sleep 5" \
 	"systemctl is-active --quiet komrad.service" \
 	'PID="$(systemctl show -p MainPID --value komrad.service)"' \
-	'"/proc/$PID/exe" version 2>/dev/null | sed -n "s/^this binary: \([^ ]*\).*/\1/p"' || true)"
+	'"/proc/$PID/exe" version 2>&1 | sed -n "s/^this binary: \([^ ]*\).*/\1/p"' || true)"
 
 if [ "$RUNNING" != "$VERSION" ]; then
 	gum log --level error "komrad.service on $INSTANCE is not running $VERSION" "running" "${RUNNING:-nothing}"
