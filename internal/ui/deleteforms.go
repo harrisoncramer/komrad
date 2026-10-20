@@ -15,12 +15,12 @@ const (
 	chooseRecords  = "records"
 )
 
-const recordsWarning = "Deleting the records deletes the transcripts, documents, mail, notes and reviews for good."
-
-var (
-	errNothingChosen          = errors.New("check what to delete, or go back")
-	errRecordsWithoutWorktree = errors.New("records will only be deleted with the worktree")
+const (
+	recordsWarning             = "Deleting the records deletes the transcripts, documents, mail, notes and reviews for good."
+	recordsWithWorktreeWarning = "Deleting the records deletes the worktree with them, and the transcripts, documents, mail, notes and reviews for good."
 )
+
+var errNothingChosen = errors.New("check what to delete, or go back")
 
 // deleteFormValues is what a delete form offers to take, and what the person has checked.
 type deleteFormValues struct {
@@ -43,13 +43,19 @@ func (v *deleteFormValues) deletesRecords() bool {
 	return slices.Contains(v.chosen, chooseRecords)
 }
 
-// check refuses a delete that takes nothing, or the records without the worktree they sit in.
+// warning says what deleting the records takes.
+func (v *deleteFormValues) warning() string {
+	if v.offersWorktree {
+		return recordsWithWorktreeWarning
+	}
+
+	return recordsWarning
+}
+
+// check refuses a delete that takes nothing.
 func (v *deleteFormValues) check() error {
-	switch {
-	case len(v.chosen) == 0:
+	if len(v.chosen) == 0 {
 		return errNothingChosen
-	case v.offersWorktree && v.deletesRecords() && !slices.Contains(v.chosen, chooseWorktree):
-		return errRecordsWithoutWorktree
 	}
 
 	return nil

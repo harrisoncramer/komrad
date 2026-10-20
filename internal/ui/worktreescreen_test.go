@@ -259,9 +259,9 @@ func TestWorktreesDelete(t *testing.T) {
 				wantRefusal: "check what to delete, or go back",
 			},
 			{
-				name:        "are kept when the records are checked without the worktree",
-				press:       []string{"x", "down", "x", "enter"},
-				wantRefusal: "records will only be deleted with the worktree",
+				name:     "are deleted once something is checked after a refused confirm",
+				press:    []string{"x", "tab", "y", "x", "enter"},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
 			},
 			{
 				name:     "are deleted with their worktrees alone by default",
@@ -271,6 +271,11 @@ func TestWorktreesDelete(t *testing.T) {
 			{
 				name:     "are deleted with their records once records are checked",
 				press:    []string{"down", "x", "enter"},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}, Records: true}},
+			},
+			{
+				name:     "are deleted with their records when only the records are checked",
+				press:    []string{"x", "down", "x", "enter"},
 				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}, Records: true}},
 			},
 		}

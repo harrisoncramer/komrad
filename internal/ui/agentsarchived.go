@@ -384,7 +384,7 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 		return m.awaitingWriteCmd(
 			"deleting "+workflow.Name,
 			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
-			&awaits{gone: rowsIn(listArchivedWorkflows, workflow.ID)},
+			awaitDeleted(confirm.values.deletesRecords(), rowsIn(listArchivedWorkflows, workflow.ID)),
 			func(a api) error { return a.deleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
 		)
 	})

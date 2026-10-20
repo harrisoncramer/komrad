@@ -45,7 +45,7 @@ func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
 				if err := c.values.check(); err != nil {
 					m.form.refusal = err.Error()
 
-					return formResized()
+					return m.rerenderFormOn(deleteFormKey)
 				}
 			}
 
@@ -60,7 +60,7 @@ func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
 		rebuild: func(m *model) (*huh.Form, []string) {
 			warning := c.warning
 			if c.values != nil {
-				warning = strings.TrimSpace(warning + " " + recordsWarning)
+				warning = strings.TrimSpace(warning + " " + c.values.warning())
 			}
 
 			confirm := confirmField(&confirmed, warning+describeStanding(m.inspections, c.dirs), "Delete")

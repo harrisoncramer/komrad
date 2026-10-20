@@ -19,6 +19,8 @@ import (
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
+	worktreev1 "komrad/proto/gen/worktree/v1"
+	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
@@ -138,7 +140,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			rows:       buildArchivedTasks(),
 			press:      []string{"j", "j", "j", "space", "a", "d"},
 			wantScreen: agentsScreen,
-			wantFrame:  `Delete agent "db-tune"?`,
+			wantFrame:  `Delete task "db-work"?`,
 		},
 		{
 			name:       "delete on an archived folder opens the confirm prompt",
@@ -180,6 +182,9 @@ func TestArchivedAgentsMenu(t *testing.T) {
 
 // TestArchivedAgentsPrompts covers answering the delete prompts.
 func TestArchivedAgentsPrompts(t *testing.T) {
+	archivedWithWorktree := newArchivedWorkflow("w1", "backend")
+	archivedWithWorktree.Worktree = &workflowv1.WorktreeConfig{Enabled: true}
+
 	tests := []struct {
 		name     string
 		rows     []proto.Message
@@ -221,6 +226,15 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
 				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1", Records: true},
+			}},
+		},
+		{
+			name:  "a workflow delete of the worktree alone closes without waiting, since the workflow stays archived",
+			rows:  []proto.Message{archivedWithWorktree},
+			press: []string{"space", "a", "d", "enter"},
+			wantSent: []request{{
+				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
+				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1"},
 			}},
 		},
 	}
@@ -1214,6 +1228,12 @@ func TestArchivedTasks(t *testing.T) {
 
 		return ok && agent.GetId() == "a5"
 	})
+	archivedWorkflow := newArchivedWorkflow("w1", "backend")
+	archivedWorkflow.Worktree = &workflowv1.WorktreeConfig{Enabled: true}
+	inArchivedWorkflow := newArchivedAgent("a1", "api-refactor", "w1")
+	inArchivedWorkflowTask := newTaskOf(inArchivedWorkflow)
+	inArchivedWorkflowTask.Cwd = xptr.Ptr("/trees/api")
+	inArchivedWorkflowTask.ArchivedAt = xptr.Ptr(archivedAt)
 	onAPIWork := []string{"j", "j", "j", "j"}
 
 	tests := []struct {
@@ -1263,10 +1283,25 @@ func TestArchivedTasks(t *testing.T) {
 			}},
 		},
 		{
-			name:      "the delete prompt on a task says the task goes",
+			name:  "delete on a task under an archived workflow deletes its worktree alone by default",
+			rows:  []proto.Message{archivedWorkflow, inArchivedWorkflow, inArchivedWorkflowTask},
+			press: []string{"j", "space", "a", "d", "enter"},
+			wantSent: []request{
+				{
+					procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
+					msg:       &worktreev1.GetWorktreeRequest{Dir: "/trees/api"},
+				},
+				{
+					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
+				},
+			},
+		},
+		{
+			name:      "the delete prompt on a task names the task",
 			rows:      buildArchivedTasks(),
 			press:     append(onAPIWork, "space", "a", "d"),
-			wantFrame: `Komrad deletes them as part of task "api-work"`,
+			wantFrame: `Delete task "api-work"?`,
 		},
 		{
 			name:  "restore on a live task's header restores only its archived agents",
@@ -1302,6 +1337,7 @@ func TestArchivedTasks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
+			answerWorktreeReads(harness)
 			answerResume(harness)
 
 			harness.press(tt.press...)

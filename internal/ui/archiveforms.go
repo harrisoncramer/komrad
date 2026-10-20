@@ -10,24 +10,16 @@ import (
 	"charm.land/huh/v2"
 )
 
-// deleteChosenConfirm asks what goes when chosen agents are deleted, naming the tasks deleted with them.
+// deleteChosenConfirm asks what goes when the tasks of chosen agents are deleted.
 func deleteChosenConfirm(work chosenWork, reviewers int, offersWorktree bool) worktreeConfirm {
-	confirm := worktreeConfirm{
+	return worktreeConfirm{
 		kind:            formArchiveDelete,
-		title:           "Delete " + promptSubject(work.chosen, reviewers) + "?",
+		title:           "Delete " + describeTasks(work.wholeTasks) + "?",
+		warning:         "With records checked, Komrad also deletes " + promptSubject(work.chosen, reviewers) + ".",
 		dirs:            taskDirs(work.wholeTasks),
 		startsConfirmed: true,
 		values:          newDeleteFormValues(offersWorktree),
 	}
-
-	switch {
-	case len(work.wholeTasks) == 1:
-		confirm.warning = fmt.Sprintf("Komrad deletes them as part of task %q.", work.wholeTasks[0].Slug)
-	case len(work.wholeTasks) > 1:
-		confirm.warning = fmt.Sprintf("Komrad deletes them as part of the %d tasks they work on.", len(work.wholeTasks))
-	}
-
-	return confirm
 }
 
 // deleteWorkflowConfirm asks what goes when an archived workflow is deleted.

@@ -223,7 +223,7 @@ func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
 	return pending.attach(m.awaitingWriteCmd(
 		"deleting "+subject,
 		"Could not delete "+subject,
-		&awaits{gone: rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)},
+		awaitDeleted(records, rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)),
 		func(a api) error {
 			return pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks), records))
 		},
