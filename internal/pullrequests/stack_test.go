@@ -218,11 +218,11 @@ func TestSyncRetargetsAPullRequestItsTaskLeft(t *testing.T) {
 			assert.Empty(t, f.forge.stacked, "the stack it left is not built again on the same read")
 			stacking, err := f.pullRequests.ListStacking(t.Context(), syncRepository)
 			require.NoError(t, err)
-			top := slices.IndexFunc(stacking, func(pullRequest pullrequeststore.StackingPullRequest) bool {
+			child := slices.IndexFunc(stacking, func(pullRequest pullrequeststore.StackingPullRequest) bool {
 				return pullRequest.Number == 2
 			})
-			require.NotEqual(t, -1, top)
-			assert.Equal(t, tt.wantOnto, stacking[top].RetargetOnto)
+			require.NotEqual(t, -1, child)
+			assert.Equal(t, tt.wantOnto, stacking[child].RetargetOnto)
 		})
 	}
 }
