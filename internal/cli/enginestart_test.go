@@ -76,7 +76,7 @@ func TestStartingAndStoppingAnEngineBehindAControlPlane(t *testing.T) {
 			name:  "an engine that starts",
 			asked: engineStart,
 			answers: []answer{
-				{status: http.StatusServiceUnavailable, health: server.HealthStopped},
+				{status: http.StatusServiceUnavailable, health: server.HealthStarting},
 				{status: http.StatusServiceUnavailable, health: server.HealthStarting},
 				{status: http.StatusOK, health: "ok"},
 			},
@@ -103,6 +103,16 @@ func TestStartingAndStoppingAnEngineBehindAControlPlane(t *testing.T) {
 			},
 			wantOut:    "The engine is stopped.\n",
 			wantSleeps: 2,
+		},
+		{
+			name:  "an engine that stops while it starts",
+			asked: engineStart,
+			answers: []answer{
+				{status: http.StatusServiceUnavailable, health: server.HealthStarting},
+				{status: http.StatusServiceUnavailable, health: server.HealthStopped},
+			},
+			wantErr:    "the engine stopped before it answered",
+			wantSleeps: 1,
 		},
 		{
 			name:  "an engine that never starts",

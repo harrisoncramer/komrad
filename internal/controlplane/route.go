@@ -105,7 +105,7 @@ func (h *handler) answerUnreachable(w http.ResponseWriter, r *http.Request, fail
 		status, message = server.HealthStarting, "the engine is starting, so try again in a moment"
 	}
 
-	if strings.TrimPrefix(r.URL.Path, "/"+name) == server.HealthPath {
+	if r.URL.Path == server.HealthPath {
 		writeJSON(w, http.StatusServiceUnavailable, server.Health{Status: status})
 
 		return

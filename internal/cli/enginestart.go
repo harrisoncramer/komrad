@@ -28,22 +28,29 @@ const engineStartOrStopPoll = 2 * time.Second
 type startOrStop struct {
 	Path string
 	// Reached reports whether an answer to the engine's health path, by its status code and the
-	// status it carries, says the engine is running or stopped as asked.
-	Reached func(status int, health string) bool
+	// status it carries, says the engine is running or stopped as asked, and fails when it says
+	// the engine will not get there.
+	Reached func(status int, health string) (bool, error)
 	Done    string
 	Timeout string
 }
 
 var engineStart = startOrStop{
-	Path:    controlplane.StartPath,
-	Reached: func(status int, _ string) bool { return status == http.StatusOK },
+	Path: controlplane.StartPath,
+	Reached: func(status int, health string) (bool, error) {
+		if health == server.HealthStopped {
+			return false, errors.New("the engine stopped before it answered")
+		}
+
+		return status == http.StatusOK, nil
+	},
 	Done:    "The engine is running.",
 	Timeout: "the engine did not start within five minutes",
 }
 
 var engineStop = startOrStop{
 	Path:    controlplane.StopPath,
-	Reached: func(_ int, health string) bool { return health == server.HealthStopped },
+	Reached: func(_ int, health string) (bool, error) { return health == server.HealthStopped, nil },
 	Done:    "The engine is stopped.",
 	Timeout: "the engine did not stop within five minutes",
 }
@@ -116,7 +123,12 @@ func startOrStopEngine(ctx context.Context, params startOrStopEngineParams) erro
 	}
 
 	for range engineStartOrStopWait / engineStartOrStopPoll {
-		if status, health := readHealth(ctx, params.Transport, params.URL); params.Asked.Reached(status, health) {
+		status, health := readHealth(ctx, params.Transport, params.URL)
+		reached, err := params.Asked.Reached(status, health)
+		if err != nil {
+			return err
+		}
+		if reached {
 			fmt.Fprintln(params.Out, params.Asked.Done) //nolint:errcheck // a closed stdout is the caller going away
 
 			return nil

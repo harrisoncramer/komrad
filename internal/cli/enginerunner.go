@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -83,12 +84,17 @@ func (l *localRunner) State(ctx context.Context, engine string) (controlplane.En
 	return controlplane.EngineRunning, nil
 }
 
-// run spawns komrad command for the engine, unless one is already running for it.
+// run spawns komrad command for the engine, unless one is already running for it the same
+// way, and refuses one going the other way.
 func (l *localRunner) run(engine, command string, state controlplane.EngineState) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if _, moving := l.moving[engine]; moving {
+	if moving, isMoving := l.moving[engine]; isMoving {
+		if moving != state {
+			return fmt.Errorf("the engine is %s, so %s it once that finishes", moving, command)
+		}
+
 		return nil
 	}
 
@@ -96,6 +102,7 @@ func (l *localRunner) run(engine, command string, state controlplane.EngineState
 	cmd := exec.Command(l.self, command, "--engine", engine) //nolint:noctx,gosec // komrad's own binary, on an engine the config names
 	var output bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &output, &output
+	cmd.Env = config.WithoutConnectionEnvironment(os.Environ())
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to run komrad %s for engine %s: %w", command, engine, err)
 	}

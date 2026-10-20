@@ -34,8 +34,10 @@ func TestTheLocalRunnerSaysWhereEachEngineIs(t *testing.T) {
 	release := filepath.Join(dir, "release")
 	ran := filepath.Join(dir, "ran")
 	self := filepath.Join(dir, "komrad")
-	script := "#!/bin/sh\necho \"$@\" >> '" + ran + "'\nwhile [ ! -e '" + release + "' ]; do sleep 0.05; done\n"
+	script := "#!/bin/sh\necho \"$@ ${KOMRAD_ADDR:-unset}\" >> '" + ran + "'\nwhile [ ! -e '" + release + "' ]; do sleep 0.05; done\n"
 	require.NoError(t, os.WriteFile(self, []byte(script), 0o700))
+
+	t.Setenv("KOMRAD_ADDR", "127.0.0.1:1")
 
 	runner := newLocalRunner(newLocalRunnerParams{
 		Logger: slog.New(slog.DiscardHandler),
@@ -59,6 +61,7 @@ func TestTheLocalRunnerSaysWhereEachEngineIs(t *testing.T) {
 	require.NoError(t, runner.Start(t.Context(), "ada"))
 	require.NoError(t, runner.Start(t.Context(), "ada"))
 	assert.Equal(t, controlplane.EngineStarting, state("ada"))
+	require.EqualError(t, runner.Stop(t.Context(), "ada"), "the engine is starting, so stop it once that finishes")
 
 	require.NoError(t, os.WriteFile(release, nil, 0o600))
 	assert.Eventually(t, func() bool { return state("ada") == controlplane.EngineStopped }, 5*time.Second, 20*time.Millisecond,
@@ -66,7 +69,8 @@ func TestTheLocalRunnerSaysWhereEachEngineIs(t *testing.T) {
 
 	recorded, err := os.ReadFile(ran) //nolint:gosec // the test's own file
 	require.NoError(t, err)
-	assert.Equal(t, "start --engine ada\n", string(recorded), "a second start while the first is running spawns nothing")
+	assert.Equal(t, "start --engine ada unset\n", string(recorded),
+		"a second start while the first is running spawns nothing, and komrad start reads the engine's connection from its file")
 
 	require.NoError(t, os.Remove(release))
 	require.NoError(t, runner.Stop(t.Context(), "harry"))
