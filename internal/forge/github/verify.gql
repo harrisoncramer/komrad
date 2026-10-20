@@ -1,5 +1,8 @@
 query Verify {
   viewer {
     login
+    name
+    email
+    databaseId
   }
 }

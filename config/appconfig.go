@@ -63,6 +63,11 @@ type Config struct {
 	// The identity provider people sign in to this engine with, and the listener their requests
 	// reach it on.
 	SignIn SignIn `mapstructure:"sign_in"`
+	// The process in front of a team's engines, which holds people's GitHub logins and runs the
+	// forge proxy. Only `komrad control-plane serve` reads it.
+	ControlPlane ControlPlane `mapstructure:"control_plane"`
+	// The forge proxy a remote engine sends its GitHub requests through.
+	ForgeProxy ForgeProxy `mapstructure:"forge_proxy"`
 	// Which komrad this is, by its database, its address, its tmux socket and its cache.
 	Connection Connection `mapstructure:"connection"`
 }
@@ -91,6 +96,10 @@ func Defaults() *Config {
 		Diff:       Diff{Wrap: true},
 		Connection: defaultConnection(),
 		SignIn:     SignIn{Addr: defaultSignInAddr},
+		ControlPlane: ControlPlane{
+			Addr:           defaultControlPlaneAddr,
+			ForgeProxyAddr: defaultForgeProxyAddr,
+		},
 	}
 }
 
@@ -108,6 +117,8 @@ func (c Config) validate() error {
 		c.Palette.validate,
 		c.Connection.validate,
 		c.SignIn.validate,
+		c.ControlPlane.validate,
+		c.ForgeProxy.validate,
 		c.Layout.validate,
 	}
 	for _, validate := range sections {
@@ -139,6 +150,8 @@ func (c *Config) normalize() {
 	c.Layout.normalize()
 	c.Connection.normalize()
 	c.SignIn.normalize()
+	c.ControlPlane.normalize()
+	c.ForgeProxy.normalize()
 	c.Log.normalize()
 	c.Debug.normalize()
 }

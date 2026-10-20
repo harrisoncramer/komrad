@@ -137,6 +137,43 @@ func (q *Queries) IsEngineAccessGranted(ctx context.Context, arg IsEngineAccessG
 	return granted, err
 }
 
+const isEngineGranted = `-- name: IsEngineGranted :one
+SELECT
+    EXISTS (
+        SELECT
+        FROM
+            engine_access a
+            JOIN engines e ON e.id = a.engine_id
+        WHERE
+            e.name = $1
+            AND ((a.issuer = $2::text
+                    AND a.subject = $3::text)
+                OR ($4::boolean
+                    AND a.subject IS NULL
+                    AND a.email = LOWER($5))))::boolean AS granted
+`
+
+type IsEngineGrantedParams struct {
+	Engine        string
+	Issuer        string
+	Subject       string
+	EmailVerified bool
+	Email         string
+}
+
+func (q *Queries) IsEngineGranted(ctx context.Context, arg IsEngineGrantedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isEngineGranted,
+		arg.Engine,
+		arg.Issuer,
+		arg.Subject,
+		arg.EmailVerified,
+		arg.Email,
+	)
+	var granted bool
+	err := row.Scan(&granted)
+	return granted, err
+}
+
 const revokeEngineAccess = `-- name: RevokeEngineAccess :execrows
 DELETE FROM engine_access
 WHERE engine_id = $1

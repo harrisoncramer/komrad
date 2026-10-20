@@ -51,7 +51,7 @@ func NewProviderVerifier(params NewProviderVerifierParams) *ProviderVerifier {
 }
 
 // VerifyToken checks the token's signature, issuer, audience and expiry, and reads who it names.
-func (p *ProviderVerifier) VerifyToken(ctx context.Context, raw string) (*signedIn, error) {
+func (p *ProviderVerifier) VerifyToken(ctx context.Context, raw string) (*SignedIn, error) {
 	verifier, err := p.getVerifier(ctx)
 	if err != nil {
 		return nil, rpcerr.Unavailable(err)
@@ -74,7 +74,7 @@ func (p *ProviderVerifier) VerifyToken(ctx context.Context, raw string) (*signed
 		return nil, rpcerr.Unauthenticated(errNoSubject)
 	}
 
-	return &signedIn{
+	return &SignedIn{
 		Caller: caller.Caller{
 			Email:   claims.Email,
 			Issuer:  token.Issuer,

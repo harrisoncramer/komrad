@@ -54,6 +54,7 @@ type NewServerParams struct {
 	Doctor             doctor.Settings
 	ForgeBuilders      map[string]forge.Builder
 	SignIn             config.SignIn
+	ForgeProxy         config.ForgeProxy
 	// EmbeddedPostgresDir holds the embedded Postgres the server keeps running, and is empty when the config turns it off.
 	EmbeddedPostgresDir string
 }
@@ -212,6 +213,7 @@ func NewServer(ctx context.Context, params NewServerParams) (*Server, error) {
 		Claimed:             jobs.NewWorktreeDelete(svc.queue),
 		Wakers:              wakers,
 		EmbeddedPostgresDir: params.EmbeddedPostgresDir,
+		CommitIdentityPath:  commitIdentityPath(params),
 	})
 
 	if err := broker.Start(ctx); err != nil {
@@ -263,4 +265,13 @@ func (s *Server) Close() {
 	}
 
 	s.closers = nil
+}
+
+// commitIdentityPath is where an engine behind the forge proxy writes who it commits as, and empty for any other.
+func commitIdentityPath(params NewServerParams) string {
+	if !params.ForgeProxy.IsConfigured() {
+		return ""
+	}
+
+	return params.Env.CommitIdentityPath()
 }

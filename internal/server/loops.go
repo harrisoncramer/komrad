@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"komrad/internal/forge"
 	"komrad/internal/jobs"
 	"komrad/internal/logging"
 	"komrad/internal/postgres"
@@ -27,6 +28,8 @@ const (
 	worktreeSizeInterval = 30 * time.Second
 	// forgeRotationInterval is how often komrad checks rotating forge tokens for nearing expiry.
 	forgeRotationInterval = time.Hour
+	// forgeProxyInterval is how often an engine behind the forge proxy asks GitHub who its login belongs to.
+	forgeProxyInterval = time.Minute
 	// embeddedPostgresInterval is how often the server checks that the embedded Postgres accepts connections.
 	embeddedPostgresInterval = 2 * time.Second
 )
@@ -53,6 +56,7 @@ const (
 	CommentSyncLoop      = "review comment sync"
 	WorktreeSizeLoop     = "worktree sizes"
 	forgeRotationLoop    = "forge token rotation"
+	ForgeProxyLoop       = "forge proxy connection"
 	embeddedPostgresLoop = "embedded postgres"
 )
 
@@ -77,6 +81,8 @@ type buildLoopsParams struct {
 	Wakers   *loopWakers
 	// EmbeddedPostgresDir is where the embedded Postgres lives, and empty when the config turns it off.
 	EmbeddedPostgresDir string
+	// CommitIdentityPath is where the engine writes who it commits as, and empty when it sends GitHub's hosts through no forge proxy.
+	CommitIdentityPath string
 }
 
 func buildLoops(params buildLoopsParams) []*loop {
@@ -145,6 +151,15 @@ func buildLoops(params buildLoopsParams) []*loop {
 		}),
 	}
 
+	if params.CommitIdentityPath != "" {
+		loops = append(loops, newLoop(newLoopParams{
+			Name:     ForgeProxyLoop,
+			Interval: forgeProxyInterval,
+			Floor:    pullRequestSyncFloor,
+			Run:      connectThroughForgeProxy(params.Services.pullRequests.forge, params.CommitIdentityPath),
+		}))
+	}
+
 	if params.EmbeddedPostgresDir != "" {
 		loops = append(loops, newLoop(newLoopParams{
 			Name:     embeddedPostgresLoop,
@@ -155,6 +170,18 @@ func buildLoops(params buildLoopsParams) []*loop {
 	}
 
 	return loops
+}
+
+// connectThroughForgeProxy keeps github.com's connection on the account the forge proxy logs the engine in as, and the engine's commits by that account.
+func connectThroughForgeProxy(service *forge.Service, identityPath string) func(context.Context) error {
+	return func(ctx context.Context) error {
+		viewer, err := service.ConnectThroughForgeProxy(ctx)
+		if err != nil {
+			return err
+		}
+
+		return forge.WriteCommitIdentity(identityPath, *viewer)
+	}
 }
 
 // keepEmbeddedPostgresRunning starts the embedded Postgres in dir again whenever it has exited.

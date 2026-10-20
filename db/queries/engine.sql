@@ -51,3 +51,18 @@ SELECT
 -- name: IsEngineAccessGranted :one
 SELECT
     engine_access_granted(sqlc.arg(issuer), sqlc.arg(subject))::boolean AS granted;
+
+-- name: IsEngineGranted :one
+SELECT
+    EXISTS (
+        SELECT
+        FROM
+            engine_access a
+            JOIN engines e ON e.id = a.engine_id
+        WHERE
+            e.name = sqlc.arg(engine)
+            AND ((a.issuer = sqlc.arg(issuer)::text
+                    AND a.subject = sqlc.arg(subject)::text)
+                OR (sqlc.arg(email_verified)::boolean
+                    AND a.subject IS NULL
+                    AND a.email = LOWER(sqlc.arg(email)))))::boolean AS granted;

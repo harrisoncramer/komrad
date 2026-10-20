@@ -15,6 +15,7 @@ import (
 	"komrad/internal/forge/forges"
 	"komrad/internal/frames"
 	"komrad/internal/git"
+	"komrad/internal/harness"
 	"komrad/internal/harness/pane"
 	"komrad/internal/jobs"
 	"komrad/internal/mail"
@@ -196,7 +197,15 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		LoadConfig:  loadConfig,
 	})
 	tracer := history.NewTracer(gitClient)
+	builders := params.ForgeBuilders
+	if builders == nil {
+		builders, err = forges.ForEngine(params.ForgeProxy)
+		if err != nil {
+			return nil, err
+		}
+	}
 	pullRequestGroup := buildPullRequests(buildPullRequestsParams{
+		Builders:   builders,
 		Server:     params,
 		Stores:     st,
 		Git:        gitClient,
@@ -299,6 +308,11 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			shells: shells.NewShellService(shells.NewShellServiceParams{
 				Agents: st.agents,
 				Shell:  params.Env.Shell,
+				Tools: harness.WriteToolShimsParams{
+					CacheDir:     params.Env.CacheDir,
+					KomradBinary: params.HookCommand,
+					ForgeProxy:   params.ForgeProxy,
+				},
 			}),
 			attaches: attaches.NewAttachService(attaches.NewAttachServiceParams{
 				Agents:  st.agents,
@@ -380,6 +394,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 		BinPath:         server.HookCommand,
 		Usage:           server.Usage,
 		TrustLaunchDirs: server.TrustDirs,
+		ForgeProxy:      server.ForgeProxy,
 	})
 	launchService := agents.NewLaunchService(agents.NewLaunchServiceParams{
 		Tmux:               server.Tmux,
@@ -499,6 +514,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 }
 
 type buildPullRequestsParams struct {
+	Builders   map[string]forge.Builder
 	Server     NewServerParams
 	Stores     *stores
 	Queue      *jobs.Enqueuer
@@ -511,15 +527,11 @@ type buildPullRequestsParams struct {
 func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 	server, st := params.Server, params.Stores
 
-	builders := server.ForgeBuilders
-	if builders == nil {
-		builders = forges.Builders
-	}
 	tokenCachePath := forges.TokenCachePath(server.Env.CacheDir)
 	forgeService := forge.NewService(forge.NewServiceParams{
 		Connections: st.forges,
 		Credentials: forge.NewFileStore(server.Env.StateDir),
-		Builders:    builders,
+		Builders:    params.Builders,
 		Remotes:     params.Git,
 		LoadApp: func() (forge.App, error) {
 			cfg, err := params.LoadConfig()
