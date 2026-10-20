@@ -26,6 +26,10 @@ type stackNode struct {
 
 // Stack puts pull requests, bottom first, in a new GitHub stack, or on top of the stack numbered.
 func (f *Forge) Stack(ctx context.Context, params forge.StackParams) error {
+	if !f.stacks {
+		return forge.ErrNotStackable.Saying("%s has no GitHub stacks", f.client.API())
+	}
+
 	owner, name, err := ownerAndName(params.Repo.Path)
 	if err != nil {
 		return err

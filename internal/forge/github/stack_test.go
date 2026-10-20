@@ -22,13 +22,21 @@ func TestStack(t *testing.T) {
 	stacked := answer{status: http.StatusCreated, body: `{"number":5,"open":true}`}
 
 	tests := []struct {
-		name     string
-		params   forge.StackParams
-		answers  map[string]answer
-		wantErr  error
-		wantPath string
-		wantBody map[string]any
+		name string
+		// enterprise says the host lacks GitHub stacks.
+		enterprise bool
+		params     forge.StackParams
+		answers    map[string]answer
+		wantErr    error
+		wantPath   string
+		wantBody   map[string]any
 	}{
+		{
+			name:       "a host without github stacks is refused before github is asked",
+			enterprise: true,
+			params:     forge.StackParams{Numbers: []int{3, 4}},
+			wantErr:    forge.ErrNotStackable,
+		},
 		{
 			name:    "github refuses pull requests that do not chain",
 			params:  forge.StackParams{Numbers: []int{3, 4}},
@@ -67,6 +75,7 @@ func TestStack(t *testing.T) {
 			t.Parallel()
 
 			f, _, fake := serve(t, tt.answers)
+			f.stacks = !tt.enterprise
 
 			params := tt.params
 			params.Repo = fixture

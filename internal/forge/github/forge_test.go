@@ -263,6 +263,7 @@ func serve(t *testing.T, answers map[string]answer) (*Forge, *fakeAuth, *fakeGit
 			return time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 		},
 	})
+	f.stacks = true
 	f.mergePoll = time.Millisecond
 
 	return f, auth, fake

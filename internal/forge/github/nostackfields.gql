@@ -1,0 +1,3 @@
+fragment stackFields on PullRequest {
+  __typename
+}

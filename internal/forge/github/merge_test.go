@@ -15,6 +15,197 @@ import (
 func TestMerge(t *testing.T) {
 	t.Parallel()
 
+	const address = "https://github.com/harrisoncramer/komrad/pull/742"
+	target := answer{body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "MERGE",
+		"mergeCommitAllowed": true,
+		"squashMergeAllowed": true,
+		"rebaseMergeAllowed": false,
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "OPEN",
+			"baseRef": {
+				"rules": {
+					"nodes": [
+						{
+							"type": "PULL_REQUEST",
+							"parameters": {
+								"allowedMergeMethods": [
+									"SQUASH"
+								]
+							}
+						},
+						{
+							"type": "DELETION",
+							"parameters": null
+						}
+					]
+				}
+			}
+		}
+	}
+}`)}
+
+	merged := answer{body: data(`{
+	"mergePullRequest": {
+		"clientMutationId": null
+	}
+}`)}
+
+	tests := []struct {
+		name          string
+		params        forge.MergeParams
+		answers       map[string]answer
+		wantErr       error
+		wantVariables map[string]any
+	}{
+		{
+			name: "the pull request merges with the method its base branch allows",
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge":       merged,
+			},
+			wantVariables: map[string]any{"id": "PR_742", "method": "SQUASH", "headline": nil, "body": nil, "head": nil},
+		},
+		{
+			name: "the pull request merges by the method and message asked for at the head the person saw",
+			params: forge.MergeParams{
+				Method:   forge.MergeMethodRebase,
+				Headline: xptr.Ptr("Land the fix"),
+				Body:     xptr.Ptr("Merges stop failing."),
+				HeadSHA:  "abc123",
+			},
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge":       merged,
+			},
+			wantVariables: map[string]any{"id": "PR_742", "method": "REBASE", "headline": "Land the fix", "body": "Merges stop failing.", "head": "abc123"},
+		},
+		{
+			name: "a headline alone leaves the body to github",
+			params: forge.MergeParams{
+				Method:   forge.MergeMethodSquash,
+				Headline: xptr.Ptr("Land the fix"),
+			},
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge":       merged,
+			},
+			wantVariables: map[string]any{"id": "PR_742", "method": "SQUASH", "headline": "Land the fix", "body": nil, "head": nil},
+		},
+		{
+			name:    "a method github does not have is refused before github is asked to merge",
+			params:  forge.MergeParams{Method: forge.MergeMethodFastForward},
+			answers: map[string]answer{"MergeTarget": target},
+			wantErr: forge.ErrNoMergeMethod,
+		},
+		{
+			name: "a pull request github will not merge",
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge": {body: `{
+	"data": {
+		"mergePullRequest": null
+	},
+	"errors": [
+		{
+			"type": "UNPROCESSABLE",
+			"path": [
+				"mergePullRequest"
+			],
+			"message": "Pull Request is not mergeable"
+		}
+	]
+}`},
+			},
+			wantErr: forge.ErrNotMergeable,
+		},
+		{
+			name: "a credential github will not let merge",
+			answers: map[string]answer{
+				"MergeTarget": target,
+				"Merge": {body: `{
+	"data": {
+		"mergePullRequest": null
+	},
+	"errors": [
+		{
+			"type": "FORBIDDEN",
+			"path": [
+				"mergePullRequest"
+			],
+			"message": "Resource not accessible by integration"
+		}
+	]
+}`},
+			},
+			wantErr: forge.ErrUnauthorized,
+		},
+		{
+			name: "a pull request that has already merged is refused before github is asked to merge it",
+			answers: map[string]answer{"MergeTarget": {body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "MERGE",
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "MERGED"
+		}
+	}
+}`)}},
+			wantErr: forge.ErrNotMergeable,
+		},
+		{
+			name: "a closed pull request is refused before github is asked to merge it",
+			answers: map[string]answer{"MergeTarget": {body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "MERGE",
+		"pullRequest": {
+			"id": "PR_742",
+			"state": "CLOSED"
+		}
+	}
+}`)}},
+			wantErr: forge.ErrNotMergeable,
+		},
+		{
+			name: "a pull request github does not have",
+			answers: map[string]answer{
+				"MergeTarget": {body: data(`{
+	"repository": {
+		"viewerDefaultMergeMethod": "MERGE",
+		"pullRequest": null
+	}
+}`)},
+			},
+			wantErr: forge.ErrNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			f, _, fake := serve(t, tt.answers)
+
+			params := tt.params
+			params.URL = address
+			err := f.Merge(t.Context(), params)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantVariables, fake.last(t).Variables)
+		})
+	}
+}
+
+// TestMergeStacked covers merging a pull request in a GitHub stack, which goes through GitHub's asynchronous merge.
+func TestMergeStacked(t *testing.T) {
+	t.Parallel()
+
 	const (
 		address = "https://github.com/harrisoncramer/komrad/pull/742"
 		stacks  = "/repos/harrisoncramer/komrad/stacks"
@@ -28,7 +219,15 @@ func TestMerge(t *testing.T) {
 		"squashMergeAllowed": true,
 		"rebaseMergeAllowed": false,
 		"pullRequest": {
+			"id": "PR_742",
 			"state": "OPEN",
+			"stack": {
+				"number": 5,
+				"size": 2
+			},
+			"stackEntry": {
+				"position": 2
+			},
 			"baseRef": {
 				"rules": {
 					"nodes": [
@@ -74,48 +273,6 @@ func TestMerge(t *testing.T) {
 		wantErr  error
 		wantBody map[string]any
 	}{
-		{
-			name:    "a method github does not have is refused before github is asked to merge",
-			params:  forge.MergeParams{Method: forge.MergeMethodFastForward},
-			answers: map[string]answer{"MergeTarget": target},
-			wantErr: forge.ErrNoMergeMethod,
-		},
-		{
-			name: "a pull request that has already merged is refused before github is asked to merge it",
-			answers: map[string]answer{"MergeTarget": {body: data(`{
-	"repository": {
-		"viewerDefaultMergeMethod": "MERGE",
-		"pullRequest": {
-			"state": "MERGED"
-		}
-	}
-}`)}},
-			wantErr: forge.ErrNotMergeable,
-		},
-		{
-			name: "a closed pull request is refused before github is asked to merge it",
-			answers: map[string]answer{"MergeTarget": {body: data(`{
-	"repository": {
-		"viewerDefaultMergeMethod": "MERGE",
-		"pullRequest": {
-			"state": "CLOSED"
-		}
-	}
-}`)}},
-			wantErr: forge.ErrNotMergeable,
-		},
-		{
-			name: "a pull request github does not have",
-			answers: map[string]answer{
-				"MergeTarget": {body: data(`{
-	"repository": {
-		"viewerDefaultMergeMethod": "MERGE",
-		"pullRequest": null
-	}
-}`)},
-			},
-			wantErr: forge.ErrNotFound,
-		},
 		{
 			name: "a pull request with an open one under it in its stack is refused before github is asked to merge it",
 			answers: map[string]answer{

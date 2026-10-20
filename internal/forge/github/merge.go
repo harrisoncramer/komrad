@@ -3,17 +3,20 @@ package github
 import (
 	"context"
 	_ "embed"
-
 	"strings"
 
 	"komrad/internal/forge"
+	"komrad/lib/xptr"
 )
 
 //go:embed mergetarget.gql
 var mergeTargetQuery string
 
-// Merge lands the pull request through GitHub's asynchronous merge, by the method asked for, or by one
-// the repository and its base branch allow when none was.
+//go:embed merge.gql
+var mergeMutation string
+
+// Merge lands the pull request by the method asked for, or by one the repository and its base branch
+// allow when none was.
 func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 	owner, name, number, err := parsePullURL(params.URL)
 	if err != nil {
@@ -24,12 +27,14 @@ func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 		Repository *struct {
 			mergeSettings
 			PullRequest *struct {
+				stackFields
+				ID      string   `json:"id"`
 				State   string   `json:"state"`
 				BaseRef *baseRef `json:"baseRef"`
 			} `json:"pullRequest"`
 		} `json:"repository"`
 	}
-	answer, err := f.client.Query(ctx, mergeTargetQuery, map[string]any{
+	answer, err := f.client.Query(ctx, mergeTargetQuery+f.pickStackFragment(), map[string]any{
 		"owner":  owner,
 		"name":   name,
 		"number": number,
@@ -52,17 +57,28 @@ func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 		return err
 	}
 
-	if err := f.refuseUnderOpen(ctx, owner, name, number); err != nil {
+	if data.Repository.PullRequest.stackPlace() != nil {
+		return f.mergeStacked(ctx, mergeStackedParams{
+			Owner:  owner,
+			Name:   name,
+			Number: number,
+			Method: strings.ToLower(method),
+			Merge:  params,
+		})
+	}
+
+	variables := messageVariables(params.Headline, params.Body)
+	variables["id"] = data.Repository.PullRequest.ID
+	variables["method"] = method
+	variables["head"] = xptr.NonEmpty(params.HeadSHA)
+
+	var merged struct{}
+	answer, err = f.client.Query(ctx, mergeMutation, variables, &merged)
+	if err != nil {
 		return err
 	}
 
-	return f.mergeAsync(ctx, mergeAsyncParams{
-		Owner:  owner,
-		Name:   name,
-		Number: number,
-		Method: strings.ToLower(method),
-		Merge:  params,
-	})
+	return mutationRefusal{sentinel: forge.ErrNotMergeable, verb: "merge"}.explain(answer, params.URL, number)
 }
 
 // finishedRefusal is why GitHub will not merge a pull request that has finished, nil for an open one.

@@ -50,8 +50,8 @@ func (f *Forge) refuseUnderOpen(ctx context.Context, owner, name string, number 
 	return nil
 }
 
-// mergeAsyncParams is the pull request to merge and the method GitHub names for it.
-type mergeAsyncParams struct {
+// mergeStackedParams is the pull request to merge and the method GitHub names for it.
+type mergeStackedParams struct {
 	Owner  string
 	Name   string
 	Number int
@@ -59,9 +59,13 @@ type mergeAsyncParams struct {
 	Merge  forge.MergeParams
 }
 
-// mergeAsync asks GitHub to merge a pull request and reads how the merge stands until it finishes or
-// mergePolls runs out, leaving a merge still pending to the pull request sync.
-func (f *Forge) mergeAsync(ctx context.Context, params mergeAsyncParams) error {
+// mergeStacked asks GitHub to merge a pull request in a GitHub stack, which only its asynchronous merge
+// does, and reads how the merge stands until it finishes or mergePolls runs out.
+func (f *Forge) mergeStacked(ctx context.Context, params mergeStackedParams) error {
+	if err := f.refuseUnderOpen(ctx, params.Owner, params.Name, params.Number); err != nil {
+		return err
+	}
+
 	address := fmt.Sprintf("%s/repos/%s/%s/pulls/%d/merge-async", f.client.API(), params.Owner, params.Name, params.Number)
 	body := map[string]string{"merge_method": params.Method}
 	if params.Merge.HeadSHA != "" {
