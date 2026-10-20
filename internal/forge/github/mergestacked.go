@@ -28,28 +28,6 @@ type mergeAsyncAnswer struct {
 	} `json:"details"`
 }
 
-// refuseUnderOpen turns down a merge of a pull request with an open one under it in its GitHub stack,
-// which GitHub would merge along with it.
-func (f *Forge) refuseUnderOpen(ctx context.Context, owner, name string, number int) error {
-	stacks, err := f.listStacks(ctx, owner, name, number)
-	if err != nil {
-		return err
-	}
-
-	for _, stack := range stacks {
-		for _, under := range stack.PullRequests {
-			if under.Number == number {
-				break
-			}
-			if under.State == "open" {
-				return forge.ErrNotMergeable.Saying("github will not merge #%d alone: #%d under it in its stack is still open", number, under.Number)
-			}
-		}
-	}
-
-	return nil
-}
-
 // mergeStackedParams is the pull request to merge and the method GitHub names for it.
 type mergeStackedParams struct {
 	Owner  string
@@ -108,6 +86,28 @@ func (f *Forge) mergeStacked(ctx context.Context, params mergeStackedParams) err
 
 	if merge.Status == "failed" {
 		return forge.ErrNotMergeable.Saying("github could not merge #%d: %s", params.Number, merge.Details.Message)
+	}
+
+	return nil
+}
+
+// refuseUnderOpen turns down a merge of a pull request with an open one under it in its GitHub stack,
+// which GitHub would merge along with it.
+func (f *Forge) refuseUnderOpen(ctx context.Context, owner, name string, number int) error {
+	stacks, err := f.listStacks(ctx, owner, name, number)
+	if err != nil {
+		return err
+	}
+
+	for _, stack := range stacks {
+		for _, under := range stack.PullRequests {
+			if under.Number == number {
+				break
+			}
+			if under.State == "open" {
+				return forge.ErrNotMergeable.Saying("github will not merge #%d alone: #%d under it in its stack is still open", number, under.Number)
+			}
+		}
 	}
 
 	return nil
