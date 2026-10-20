@@ -33,9 +33,13 @@ type archivedAgents struct {
 	renameSlot
 }
 
-// enterArchived lands the agents view on its archived kind.
+// enterArchived lands the agents view on its archived kind, or its deleted kind when that lists the
+// target.
 func (m *model) enterArchived(target screenTarget) tea.Cmd {
 	m.agents.kind = agentsArchived
+	if m.listing.isTargetOnDeletedList(target) {
+		m.agents.kind = agentsDeleted
+	}
 
 	return m.enter(screenAgents, target)
 }
@@ -257,8 +261,21 @@ func (l listing) isOnDeletedList(item panel.AgentRow) bool {
 		return l.isWorkflowOnDeletedList(item.Agent.WorkflowID)
 	}
 
-	task := l.tasks.findForAgent(item.Agent)
+	return isTaskOnDeletedList(l.tasks.findForAgent(item.Agent))
+}
 
+// isTargetOnDeletedList reports whether the deleted list holds the task or the archived agent a
+// target names.
+func (l listing) isTargetOnDeletedList(target screenTarget) bool {
+	if task, listed := l.tasks[target.taskID]; listed {
+		return isTaskOnDeletedList(task)
+	}
+	index := slices.IndexFunc(l.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.ID == target.agentID })
+
+	return index >= 0 && l.isOnDeletedList(l.archivedAgents[index])
+}
+
+func isTaskOnDeletedList(task panel.Task) bool {
 	return task.ArchivedAt != nil && task.WorktreeRemovalReason == panel.WorktreeDeleted
 }
 

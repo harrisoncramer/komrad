@@ -868,7 +868,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 
 // TestArchivedAgentsKinds covers the row of kinds switching the agents view between its live, archived and deleted agents.
 func TestArchivedAgentsKinds(t *testing.T) {
-	deleted := newArchivedAgent("a2", "billing-gone", "w1")
+	deleted := newArchivedAgent("a2", "billing", "w1")
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newAgent("a9", "auth-live", "w1"),

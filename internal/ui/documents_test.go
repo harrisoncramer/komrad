@@ -227,6 +227,24 @@ func TestDocumentsOpen(t *testing.T) {
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
 	})
+
+	t.Run("the jump menu lands on a deleted task among the deleted agents", func(t *testing.T) {
+		t.Parallel()
+
+		author := newArchivedAgent("author", "author", "w1")
+		author.Documents = 2
+		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
+		harness := newPanelHarness(t, panelHarnessParams{})
+		harness.press("F", "shift+tab", "esc")
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "komrad"), author, newDeletedTaskOf(author)))
+		newDocumentShelf().answer(harness)
+		harness.press("j", "j", "space", "J", "d")
+		harness.fireTimers()
+		harness.press("space", "J", "t")
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
+	})
 }
 
 // TestDocumentsFilter covers the qualifiers the documents filter reads.

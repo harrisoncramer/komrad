@@ -236,7 +236,8 @@ SET
     worktree_removal_reason = sqlc.narg('worktree_removal_reason'),
     "sequence" = sqlc.arg('sequence')
 WHERE
-    id = sqlc.arg('id');
+    id = sqlc.arg('id')
+    AND worktree_removal_reason IS DISTINCT FROM 'deleted';
 
 -- name: SetTaskSequence :exec
 UPDATE

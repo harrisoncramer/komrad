@@ -189,3 +189,54 @@ func TestListCheckouts(t *testing.T) {
 		})
 	}
 }
+
+// TestSetHead pins the reason a head write leaves on a task, a worktree a delete removed staying
+// deleted whatever a sync read before the delete writes.
+func TestSetHead(t *testing.T) {
+	tests := []struct {
+		name  string
+		from  taskstore.WorktreeRemovalReason
+		write taskstore.WorktreeRemovalReason
+		want  taskstore.WorktreeRemovalReason
+	}{
+		{
+			name:  "a worktree found missing is recorded gone",
+			write: taskstore.WorktreeGone,
+			want:  taskstore.WorktreeGone,
+		},
+		{
+			name:  "a gone worktree back on disk is cleared",
+			from:  taskstore.WorktreeGone,
+			write: taskstore.WorktreeOnDisk,
+			want:  taskstore.WorktreeOnDisk,
+		},
+		{
+			name:  "a deleted worktree found missing stays deleted",
+			from:  taskstore.WorktreeDeleted,
+			write: taskstore.WorktreeGone,
+			want:  taskstore.WorktreeDeleted,
+		},
+		{
+			name:  "a deleted worktree read as on disk stays deleted",
+			from:  taskstore.WorktreeDeleted,
+			write: taskstore.WorktreeOnDisk,
+			want:  taskstore.WorktreeDeleted,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			ctx := t.Context()
+			task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
+			require.NoError(t, stores.Tasks.SetCheckoutDir(ctx, task.ID, "/tmp/worktrees/work"))
+			require.NoError(t, stores.Tasks.SetHead(ctx, task.ID, taskstore.SetHeadParams{WorktreeRemovalReason: tt.from}))
+
+			require.NoError(t, stores.Tasks.SetHead(ctx, task.ID, taskstore.SetHeadParams{WorktreeRemovalReason: tt.write}))
+
+			got, err := stores.Tasks.Get(ctx, task.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.Checkout.WorktreeRemovalReason)
+		})
+	}
+}

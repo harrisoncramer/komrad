@@ -1391,6 +1391,7 @@ SET
     "sequence" = $6
 WHERE
     id = $7
+    AND worktree_removal_reason IS DISTINCT FROM 'deleted'
 `
 
 type SetTaskHeadParams struct {
