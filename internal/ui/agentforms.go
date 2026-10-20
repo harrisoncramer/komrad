@@ -330,27 +330,6 @@ func retryAgentForm(keys config.FixedKeys, values *retryFormValues) (*huh.Form, 
 	)
 }
 
-// promptSubject names what a prompt is about, counting in the reviewers that were not asked
-// about.
-func promptSubject(agents []panel.Agent, reviewers int) string {
-	subject := fmt.Sprintf("%d agents", len(agents))
-	if len(agents) == 1 {
-		subject = fmt.Sprintf("agent %q", agents[0].Name)
-	}
-
-	switch {
-	case reviewers == 0:
-	case len(agents) > 1:
-		subject += " and " + label.Count(reviewers, "reviewer", "reviewers")
-	case reviewers == 1:
-		subject += " and its reviewer"
-	default:
-		subject += fmt.Sprintf(" and its %d reviewers", reviewers)
-	}
-
-	return subject
-}
-
 // rebaseForm asks before a worktree is brought up to date, saying what will happen to the
 // branch and to the files.
 func rebaseForm(plan rebasePlan) gitConfirmForm {

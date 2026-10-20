@@ -2150,11 +2150,6 @@ func TestAgentsReviewers(t *testing.T) {
 			press: []string{"j", "space", "a", "d"},
 			want:  `Delete task "task-writer"?`,
 		},
-		{
-			name:  "a selection names its agents and the reviewers going with them",
-			press: []string{"j", "v", "j", "v", "space", "a", "d"},
-			want:  "Komrad also deletes 2 agents and 1 reviewer.",
-		},
 	}
 
 	for _, tt := range tests {
@@ -2166,19 +2161,6 @@ func TestAgentsReviewers(t *testing.T) {
 			assert.Contains(t, readFormProse(harness.readFrame()), tt.want)
 		})
 	}
-
-	t.Run("the hard delete counts the reviewers in the archive's own rows", func(t *testing.T) {
-		writer := newArchivedAgent("a1", "writer", "w1")
-		writerTask := newTaskOf(writer)
-		reviewer := newArchivedAgent("a3", "reviewer", "w1")
-		reviewer.TaskId = writer.TaskId
-		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
-		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), writer, writerTask, reviewer)
-
-		harness.press("j", "v", "j", "v", "space", "a", "d")
-
-		assert.Contains(t, readFormProse(harness.readFrame()), `Komrad also deletes agent "writer" and its reviewer.`)
-	})
 
 	t.Run("a task offers its writer's worktree a rebase", func(t *testing.T) {
 		rows := buildReviewedTasks()

@@ -205,7 +205,7 @@ func (m *model) screenNotice() string {
 func (a *archivedAgents) screenNotice(m *model) string {
 	restore := m.keys.ArchiveMenu.Restore
 	if target, ok := a.menuTarget(m); ok {
-		if _, err := target.opensAgent(); err == nil {
+		if _, err := target.opensAgent(m.listing); err == nil {
 			restore = m.keys.ArchiveMenu.RestoreOpen
 		}
 	}

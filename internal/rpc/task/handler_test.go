@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/tasks"
 	"komrad/lib/xptr"
@@ -24,6 +25,7 @@ const taskID = "01a11e6f-0000-7000-8000-00000000000a"
 type fakeTasks struct {
 	stored  taskstore.Task
 	updated []tasks.UpdateTaskParams
+	deleted []agents.DeleteTasksParams
 }
 
 // CreateTask answers the params as stored.
@@ -59,8 +61,10 @@ func (f *fakeTasks) ArchiveTask(context.Context, string) error {
 	return nil
 }
 
-// DeleteTasks answers nil.
-func (f *fakeTasks) DeleteTasks(context.Context, []string) error {
+// DeleteTasks records the params.
+func (f *fakeTasks) DeleteTasks(_ context.Context, params agents.DeleteTasksParams) error {
+	f.deleted = append(f.deleted, params)
+
 	return nil
 }
 
@@ -110,4 +114,25 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 	assert.True(t, readAt.Equal(*fake.updated[0].Fields.ReadNotesUpdatedAt))
 	assert.Equal(t, "Found it.", written.Msg.GetTask().GetNotes())
 	assert.Equal(t, writtenAt.Format(time.RFC3339Nano), written.Msg.GetTask().GetNotesUpdatedAt())
+}
+
+// TestDeleteTasksPassesDown pins that a delete hands down the tasks, the records choice and the
+// agent asking.
+func TestDeleteTasksPassesDown(t *testing.T) {
+	fake := &fakeTasks{}
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: "agent-1"})
+
+	_, err := newTaskHandler(fake).DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
+		Tasks:   []string{"fix-login"},
+		Records: true,
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []agents.DeleteTasksParams{
+		{
+			Refs:      []string{"fix-login"},
+			Records:   true,
+			ByAgentID: "agent-1",
+		},
+	}, fake.deleted)
 }

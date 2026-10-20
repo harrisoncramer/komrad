@@ -46,4 +46,6 @@ type Task struct {
 	// PersonComments counts the comments the person left on its work, nil while there are none to
 	// show.
 	PersonComments *agentv1.CommentCounts
+	// Snapshots is how many snapshots komrad has taken of its checkout.
+	Snapshots int32
 }

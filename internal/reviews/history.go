@@ -3,6 +3,7 @@ package reviews
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"komrad/internal/fail"
 	"komrad/internal/reviews/history"
@@ -11,7 +12,10 @@ import (
 	"komrad/lib/xslice"
 )
 
-const midSequenceNotice = "a rebase or merge is part way through, so this is the work as it stood before it"
+const (
+	midSequenceNotice     = "a rebase or merge is part way through, so this is the work as it stood before it"
+	worktreeRemovedNotice = "the worktree was removed, so this is the work as it stood at its last snapshot"
+)
 
 type ReviewHistory struct {
 	history.Record
@@ -62,6 +66,11 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		return nil, err
 	}
 
+	dir, err := s.findSnapshotDir(ctx, *task)
+	if err != nil {
+		return nil, err
+	}
+
 	opened := &ReviewHistory{
 		Snapshot:  picked.Snapshot,
 		Snapshots: picked.Snapshots,
@@ -72,7 +81,7 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 	opened.Record = history.Build(ctx, history.BuildParams{
 		Git:       s.git,
 		Tracer:    s.tracer,
-		Dir:       task.Checkout.Cwd,
+		Dir:       dir,
 		Exclude:   s.readDiffExclude(ctx, task.WorkflowID),
 		Snapshot:  historySnapshotOf(opened.Snapshot),
 		Snapshots: xslice.Map(opened.Snapshots, historySnapshotOf),
@@ -105,7 +114,7 @@ func (s *ReviewService) pickSnapshot(ctx context.Context, params pickSnapshotPar
 		return &pickedSnapshot{
 			Snapshot:  snapshots[len(snapshots)-1],
 			Snapshots: snapshots,
-			Notice:    midSequenceNotice,
+			Notice:    explainFallback(err),
 		}, nil
 	case err != nil:
 		return nil, err
@@ -116,6 +125,33 @@ func (s *ReviewService) pickSnapshot(ctx context.Context, params pickSnapshotPar
 	}
 
 	return &pickedSnapshot{Snapshot: *opened, Snapshots: snapshots}, nil
+}
+
+// explainFallback says why a review shows the newest snapshot rather than one taken now.
+func explainFallback(err error) string {
+	if errors.Is(err, errReviewWorktreeRemoved) {
+		return worktreeRemovedNotice
+	}
+
+	return midSequenceNotice
+}
+
+// findSnapshotDir finds the directory holding a task's snapshots, its checkout or else its workflow's
+// repository.
+func (s *ReviewService) findSnapshotDir(ctx context.Context, task taskstore.Task) (string, error) {
+	if !task.Checkout.WorktreeRemoved {
+		return task.Checkout.Cwd, nil
+	}
+
+	flow, err := s.workflows.GetIncludingArchived(ctx, task.WorkflowID)
+	if err != nil {
+		return "", err
+	}
+	if flow.Cwd == "" {
+		return "", fmt.Errorf("%w: %q", errReviewNoSnapshotDir, task.Slug)
+	}
+
+	return flow.Cwd, nil
 }
 
 func findStoreSnapshot(snapshots []reviewstore.Snapshot, id string) *reviewstore.Snapshot {

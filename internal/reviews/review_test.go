@@ -309,6 +309,19 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: errReviewWorktreeRemoved,
 		},
 		{
+			name: "reading a removed worktree's review in a workflow with no directory",
+			call: func(t *testing.T, fx *reviewFixture) error {
+				fx.removeWorktree(t, "")
+				_, err := fx.service.GetHistory(t.Context(), GetHistoryParams{
+					Task:   *fx.writer.TaskID,
+					Author: personAuthor,
+				})
+
+				return err
+			},
+			wantErr: errReviewNoSnapshotDir,
+		},
+		{
 			name: "a reviewer releasing notes with nothing in them",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
@@ -1200,6 +1213,18 @@ func (fx *reviewFixture) advanceTree(t *testing.T) *reviewstore.Snapshot {
 	require.NoError(t, err)
 
 	return snapshot
+}
+
+// removeWorktree records the writer's worktree as removed, with its workflow in dir.
+func (fx *reviewFixture) removeWorktree(t *testing.T, dir string) {
+	t.Helper()
+
+	workflow, err := fx.stores.Workflows.Get(t.Context(), fx.writer.WorkflowID)
+	require.NoError(t, err)
+	cfg := workflow.Config()
+	cfg.Cwd = dir
+	require.NoError(t, fx.stores.Workflows.Update(t.Context(), workflow.ID, cfg))
+	require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
 }
 
 // listMail is every piece of mail addressed to an agent, oldest first.

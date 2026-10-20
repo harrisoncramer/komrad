@@ -39,6 +39,9 @@ var errReviewNoTask = fail.Precondition("you work on no task, so pass task, by i
 // errReviewWorktreeRemoved is answered when a snapshot is asked for on a task whose worktree is gone.
 var errReviewWorktreeRemoved = fail.Precondition("that task's worktree was removed, so there is nothing to take a snapshot of")
 
+// errReviewNoSnapshotDir is answered when a task's worktree was removed and its workflow has no directory to read its snapshots from.
+var errReviewNoSnapshotDir = fail.Precondition("that task's worktree was removed and its workflow has no directory, so its snapshots cannot be read")
+
 // ErrReviewNotEntitled is answered when an agent asks to review a task it does not work on.
 var ErrReviewNotEntitled = fail.Denied("an agent may only review the task it works on")
 
@@ -528,6 +531,10 @@ func (s *ReviewService) ReleaseReview(
 	if err != nil {
 		return nil, err
 	}
+	dir, err := s.findSnapshotDir(ctx, *task)
+	if err != nil {
+		return nil, err
+	}
 
 	path, err := s.writeReview(ctx, writeReviewParams{
 		Task:     *task,
@@ -535,7 +542,7 @@ func (s *ReviewService) ReleaseReview(
 		Review:   *open,
 		Verdict:  verdict,
 		Body:     params.Body,
-		Threads:  s.threadsInContext(ctx, task.Checkout.Cwd, threads),
+		Threads:  s.threadsInContext(ctx, dir, threads),
 	})
 	if err != nil {
 		return nil, err
@@ -729,10 +736,15 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 		threads = readable
 	}
 
+	dir, err := s.findSnapshotDir(ctx, *task)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ReviewInFull{
 		Review:   *review,
 		Snapshot: *snapshot,
-		Threads:  s.threadsInContext(ctx, task.Checkout.Cwd, threads),
+		Threads:  s.threadsInContext(ctx, dir, threads),
 	}, nil
 }
 

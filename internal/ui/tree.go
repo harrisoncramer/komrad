@@ -633,23 +633,6 @@ func (r agentRow) key() string {
 	return rowKey(r)
 }
 
-// unnamedReviewers counts the reviewers on the named writers' tasks that are not among the named,
-// taking the pool from the screen doing the asking.
-func unnamedReviewers(pool, named []panel.Agent) int {
-	held := make(map[string]bool, len(named))
-	writing := make(map[string]bool, len(named))
-	for _, agent := range named {
-		held[agent.ID] = true
-		if agent.Role == panel.RoleWriter {
-			writing[agent.TaskID] = true
-		}
-	}
-
-	return xslice.Count(pool, func(agent panel.Agent) bool {
-		return agent.Role == panel.RoleReviewer && writing[agent.TaskID] && !held[agent.ID]
-	})
-}
-
 // liveAgents is the listing as bare rows, for what counts over the agents a screen is showing
 // rather than over the marks beside them.
 func (l listing) liveAgents() []panel.Agent {

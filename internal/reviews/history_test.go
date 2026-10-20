@@ -49,6 +49,15 @@ func TestGetHistoryPicksTheSnapshot(t *testing.T) {
 			wantSnapshots: 1,
 			wantNotice:    midSequenceNotice,
 		},
+		{
+			name: "a removed worktree reads the newest snapshot",
+			arrange: func(t *testing.T, fx *reviewFixture) {
+				fx.removeWorktree(t, "/repo")
+			},
+			wantOrdinal:   1,
+			wantSnapshots: 1,
+			wantNotice:    worktreeRemovedNotice,
+		},
 	}
 
 	for _, tt := range tests {

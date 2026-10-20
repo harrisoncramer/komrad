@@ -15,11 +15,6 @@ const (
 	chooseRecords  = "records"
 )
 
-const (
-	recordsWarning             = "Deleting the records deletes the transcripts, documents, mail, notes and reviews for good."
-	recordsWithWorktreeWarning = "Deleting the records deletes the worktree with them, and the transcripts, documents, mail, notes and reviews for good."
-)
-
 var errNothingChosen = errors.New("check what to delete, or go back")
 
 // deleteFormValues is what a delete form offers to take, and what the person has checked.
@@ -41,15 +36,6 @@ func newDeleteFormValues(offersWorktree bool) *deleteFormValues {
 // deletesRecords reports whether the person checked the records.
 func (v *deleteFormValues) deletesRecords() bool {
 	return slices.Contains(v.chosen, chooseRecords)
-}
-
-// warning says what deleting the records takes.
-func (v *deleteFormValues) warning() string {
-	if v.offersWorktree {
-		return recordsWithWorktreeWarning
-	}
-
-	return recordsWarning
 }
 
 // check refuses a delete that takes nothing.

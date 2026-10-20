@@ -30,8 +30,8 @@ var (
 	ErrNotesNotYours = fail.Denied("an agent writes only the notes of its own task or of one in the workflow it orchestrates")
 	// errHasCheckout is a launch that would make a checkout for a task that already has one.
 	errHasCheckout = fail.Precondition("this task already has a checkout, so give this agent a task of its own")
-	// ErrWorktreeRemoved is a reviewer launched onto a task whose worktree was removed.
-	ErrWorktreeRemoved = fail.Precondition("this task's worktree was removed, so there is no checkout to review")
+	// ErrWorktreeRemoved is an agent launched or relaunched onto a task whose worktree was removed.
+	ErrWorktreeRemoved = fail.Precondition("this task's worktree was removed, so there is no checkout to run in")
 	// ErrArchived is an archived task an agent was asked to join.
 	ErrArchived = fail.Precondition("an agent works only on a live task")
 	// ErrHasWriter is a writer launched onto a task another launch gave a writer first.

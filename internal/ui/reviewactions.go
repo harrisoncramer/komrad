@@ -306,7 +306,7 @@ func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 	diffFocused := r.isDiffFocused(m)
 
 	edit := openEntry(r.hold.editorDesc(), m.keys.Review.EditFile, func(m *model) tea.Cmd { return m.review.pressEdit(m) })
-	entries := []submenuEntry{drawnOff(edit, r.editOffSaid())}
+	entries := []submenuEntry{drawnOff(edit, r.editOffSaid(m))}
 
 	viewed := openEntry(r.diff.viewedDesc(), m.keys.Review.ToggleViewed, func(m *model) tea.Cmd { return m.review.toggleViewed(m) })
 	entries = append(entries, drawnOff(viewed, r.diff.viewedOffSaid()))

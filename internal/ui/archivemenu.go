@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	errNeverStarted  = errors.New("this agent never got as far as starting, so there is no conversation to open")
-	errOpensOneAgent = errors.New("restore and open works on one agent at a time")
+	errNeverStarted    = errors.New("this agent never got as far as starting, so there is no conversation to open")
+	errOpensOneAgent   = errors.New("restore and open works on one agent at a time")
+	errWorktreeRemoved = errors.New("this task's worktree was removed, so there is no checkout to run in")
 )
 
 // archived is what the archive menu acts on: chosen or hovered work, a workflow, or a schedule.
@@ -38,13 +39,17 @@ func (t archived) name() string {
 }
 
 // opensAgent is the one agent whose conversation can be put back in a pane, or why there is none.
-func (t archived) opensAgent() (*panel.Agent, error) {
+func (t archived) opensAgent(l listing) (*panel.Agent, error) {
 	if t.resumed == nil {
 		return nil, errOpensOneAgent
 	}
 
 	if !t.resumed.State.DoesPaneDecide() {
 		return nil, errNeverStarted
+	}
+
+	if l.tasks.findForAgent(*t.resumed).WorktreeRemoved {
+		return nil, errWorktreeRemoved
 	}
 
 	return t.resumed, nil
@@ -66,7 +71,7 @@ func archiveMenu(m *model, target archived) submenu {
 		restore, remove = "restore all", "delete all for good"
 	}
 
-	_, err := target.opensAgent()
+	_, err := target.opensAgent(m.listing)
 
 	return submenu{
 		kind:  formArchiveMenu,
@@ -88,7 +93,7 @@ func archiveMenu(m *model, target archived) submenu {
 
 // restoreAndOpen restores the work and puts one agent's conversation back in a pane, or says why it cannot.
 func (m *model) restoreAndOpen(target archived) tea.Cmd {
-	resumed, err := target.opensAgent()
+	resumed, err := target.opensAgent(m.listing)
 	if err != nil {
 		m.report("Could not restore and open "+target.name(), err)
 
@@ -131,7 +136,7 @@ func confirmDeleteArchivedRow(m *model, target archived) tea.Cmd {
 		return confirmDeleteWorkflow(m, *target.workflow)
 	}
 
-	return confirmDeleteChosenAgents(m, target.work, archivedAgentsOf(m.listing))
+	return confirmDeleteChosenAgents(m, target.work)
 }
 
 // liveArchiveMenu is the archive menu on a row that is not archived yet.
@@ -186,7 +191,7 @@ func chosenArchiveMenu(m *model, work chosenWork) submenu {
 			write: func(m *model) tea.Cmd { return m.archiveChosenAgents(work) },
 		},
 		drawnOff(openEntry("archive and delete all for good", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
-			return confirmDeleteChosenAgents(m, work, m.listing.liveAgents())
+			return confirmDeleteChosenAgents(m, work)
 		}), work.deleteOffSaid()),
 	)
 }
@@ -231,8 +236,8 @@ func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
 }
 
 // confirmDeleteChosenAgents asks what goes before the chosen agents are deleted.
-func confirmDeleteChosenAgents(m *model, work chosenWork, pool []panel.Agent) tea.Cmd {
-	confirm := deleteChosenConfirm(work, unnamedReviewers(pool, work.chosen), m.listing.hasAnyOwnWorktree(work.wholeTasks))
+func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
+	confirm := deleteChosenConfirm(work, m.listing.hasAnyOwnWorktree(work.wholeTasks))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return m.deleteChosenAgents(work, confirm.values.deletesRecords())

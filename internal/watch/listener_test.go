@@ -441,8 +441,8 @@ func waitForPayloads(t *testing.T, conn *pgx.Conn, count int) []string {
 }
 
 // TestAReviewIsRaisedByItsDoorbellAndSnapshot pins that claiming a review's doorbell and writing
-// its snapshot raise the review, that other mail writes raise only the mail, and that nothing on
-// the review raises its agent.
+// its snapshot raise the review, that writing the snapshot raises its task too, that other mail
+// writes raise only the mail, and that nothing on the review raises its agent.
 func TestAReviewIsRaisedByItsDoorbellAndSnapshot(t *testing.T) {
 	l := newPooled(t)
 	rows := l.seed(t)
@@ -462,8 +462,9 @@ func TestAReviewIsRaisedByItsDoorbellAndSnapshot(t *testing.T) {
 		"mail " + doorbell,
 		"reviews " + review,
 		"reviews " + review,
+		"tasks " + rows.task,
 		"reviews " + review,
-	}, waitForPayloads(t, conn, 5))
+	}, waitForPayloads(t, conn, 6))
 }
 
 // TestALookupFeederMatchesAcrossColumnTypes pins that a task's uuid reaches the worktree

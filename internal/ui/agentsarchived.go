@@ -222,11 +222,6 @@ func archivedAgentHeaders(l listing) []panel.Workflow {
 	return headers
 }
 
-// archivedAgentsOf is the archive listing as bare rows.
-func archivedAgentsOf(l listing) []panel.Agent {
-	return xslice.Map(l.archivedAgents, func(item panel.AgentRow) panel.Agent { return item.Agent })
-}
-
 func (l listing) archivedCount(workflowID string) int {
 	return xslice.Count(l.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.WorkflowID == workflowID })
 }
@@ -378,7 +373,7 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
 func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
-	confirm := deleteWorkflowConfirm(workflow, m.listing.archivedCount(workflow.ID))
+	confirm := deleteWorkflowConfirm(workflow)
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return m.awaitingWriteCmd(

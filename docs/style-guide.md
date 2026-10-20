@@ -182,7 +182,7 @@ archived: Stopped and taken out of the list, with its records kept. Restore brin
 
 hidden: Live, but left out of a client's lists. Use it only for tasks, and never for archived.
 
-deleted: Removed for good, with its transcript. An agent is only deleted when its task or workflow is deleted.
+deleted: For a task or workflow, its worktrees removed for good, and its records too when the person checks them. An agent is only deleted when the records of its task or workflow are deleted, which takes its transcript.
 
 ### Messages and records
 

@@ -24,6 +24,7 @@ func TestTaskFromCarriesTheCheckout(t *testing.T) {
 		Branch:          &branch,
 		DiffStat:        &taskv1.DiffStat{Added: 3, Removed: 1},
 		WorktreeRemoved: true,
+		Snapshots:       2,
 	}})
 
 	require.NotNil(t, converted.Branch)
@@ -31,6 +32,7 @@ func TestTaskFromCarriesTheCheckout(t *testing.T) {
 	assert.Equal(t, int32(3), converted.DiffStat.GetAdded())
 	assert.Equal(t, int32(1), converted.DiffStat.GetRemoved())
 	assert.True(t, converted.WorktreeRemoved)
+	assert.Equal(t, int32(2), converted.Snapshots)
 }
 
 // TestProtoToAgentCarriesAFailedTurn pins the text a turn an API error ended is rendered with.

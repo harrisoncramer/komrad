@@ -108,6 +108,8 @@ message Task {
   optional string documents_updated_at = 24;
   // The task this task depends on. Unset for a task on the workflow's base branch.
   optional Parent parent = 25;
+  // How many snapshots komrad has taken of the task's checkout.
+  int32 snapshots = 26;
 }
 
 // Parent is the task a child depends on, and the fork point where the child's own commits begin on
@@ -326,12 +328,11 @@ service TaskService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {
       cli: true
-      mcp: true
+      mcp: false
       name: "delete_tasks"
       description: "Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews."
-      mcp_guidance: "Prefer archive_task, and delete only when asked."
+      reason: "Only the person deletes tasks."
       destructive: true
-      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc SetTaskHidden(SetTaskHiddenRequest) returns (google.protobuf.Empty) {

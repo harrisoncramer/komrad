@@ -5,6 +5,7 @@ package task
 import (
 	"context"
 
+	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
@@ -34,7 +35,7 @@ type taskArchiver interface {
 }
 
 type taskDeleter interface {
-	DeleteTasks(ctx context.Context, refs []string) error
+	DeleteTasks(ctx context.Context, params agents.DeleteTasksParams) error
 }
 
 type NewHandlerParams struct {
@@ -139,9 +140,13 @@ func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1.ArchiveTaskReques
 	return &emptypb.Empty{}, nil
 }
 
-// DeleteTasks removes tasks for good along with every agent on them.
+// DeleteTasks removes tasks' worktrees, and with records set the tasks for good along with every agent on them.
 func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.deleter.DeleteTasks(ctx, req.GetTasks()); err != nil {
+	if err := s.deleter.DeleteTasks(ctx, agents.DeleteTasksParams{
+		Refs:      req.GetTasks(),
+		Records:   req.GetRecords(),
+		ByAgentID: caller.From(ctx).AgentID,
+	}); err != nil {
 		return nil, rpcerr.From(err, "failed to delete tasks")
 	}
 

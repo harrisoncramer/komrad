@@ -19,7 +19,7 @@ func TestClaimEmpty(t *testing.T) {
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
 	busy := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "busy"})
 	stores.SeedAgent(t, agentstore.Agent{
-		Name:       "worker",
+		Name:       "writer",
 		WorkflowID: live.WorkflowID,
 		TaskID:     &busy.ID,
 	})
@@ -69,6 +69,88 @@ func TestClaimEmpty(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// TestClaimCleanup pins which tasks a worktree's cleanup can take, and that only one delete holds each.
+func TestClaimCleanup(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
+	busy := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "busy"})
+	stores.SeedAgent(t, agentstore.Agent{
+		Name:       "writer",
+		WorkflowID: live.WorkflowID,
+		TaskID:     &busy.ID,
+	})
+	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "deleting"})
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	taken := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "taken"})
+	first, err := stores.Tasks.ClaimCleanup(ctx, taken.ID)
+	require.NoError(t, err)
+	require.True(t, first)
+
+	tests := []struct {
+		name string
+		id   string
+		want bool
+	}{
+		{
+			name: "a ref that is not an id is not taken",
+			id:   "taken",
+			want: false,
+		},
+		{
+			name: "a task another delete holds is not taken",
+			id:   deleting.ID,
+			want: false,
+		},
+		{
+			name: "a task another cleanup took is not taken again",
+			id:   taken.ID,
+			want: false,
+		},
+		{
+			name: "a task an agent is still on is taken",
+			id:   busy.ID,
+			want: true,
+		},
+		{
+			name: "a task no delete holds is taken",
+			id:   live.ID,
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := stores.Tasks.ClaimCleanup(ctx, tt.id)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestRecordWorktreeRemoved pins a task coming back from its delete with its directory kept and its
+// worktree recorded as removed.
+func TestRecordWorktreeRemoved(t *testing.T) {
+	stores := storetest.Open(t)
+	ctx := t.Context()
+	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
+	require.NoError(t, stores.Tasks.SetCheckoutDir(ctx, task.ID, "/tmp/worktrees/work"))
+	claimed, err := stores.Tasks.ClaimCleanup(ctx, task.ID)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	require.NoError(t, stores.Tasks.RecordWorktreeRemoved(ctx, task.ID))
+
+	removed, err := stores.Tasks.Get(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Nil(t, removed.DeletingAt)
+	assert.Equal(t, "/tmp/worktrees/work", removed.Checkout.Cwd)
+	assert.True(t, removed.Checkout.WorktreeRemoved)
+	again, err := stores.Tasks.ClaimCleanup(ctx, task.ID)
+	require.NoError(t, err)
+	assert.True(t, again, "the next delete can claim the task once more")
 }
 
 // TestRecordCleanupFailure pins a failed cleanup releasing the task with its reason, and the next delete

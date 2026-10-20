@@ -64,9 +64,33 @@ func TestReviewOpen(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: "t1"})
 	})
 
-	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
+	t.Run("an agent whose worktree was removed opens from its workflow's directory", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.task.WorktreeRemoved = true
+		server.task.Snapshots = 1
+		server.workflow.Cwd = server.repo.Root
+
+		harness := openReview(t, server)
+
+		assert.True(t, harness.panel.IsZoomed())
+		assert.Contains(t, readStage(harness.readFrame()), "greet.go")
+	})
+
+	t.Run("an agent whose worktree was removed in a workflow with no directory is not opened", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.task.WorktreeRemoved = true
+		server.task.Snapshots = 1
+
+		harness := openReview(t, server)
+
+		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
+	})
+
+	t.Run("an agent whose worktree was removed with no snapshot is not opened", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.task.WorktreeRemoved = true
+		server.workflow.Cwd = server.repo.Root
 
 		harness := openReview(t, server)
 
@@ -1965,6 +1989,21 @@ func TestReviewHold(t *testing.T) {
 		harness.press("space", "e")
 
 		assert.NotContains(t, harness.readFrame(), "editing")
+	})
+
+	t.Run("a removed worktree refuses the edit key and stops nothing", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.task.WorktreeRemoved = true
+		server.task.Snapshots = 1
+		server.workflow.Cwd = server.repo.Root
+		harness := openReview(t, server)
+
+		harness.press("space")
+		require.Contains(t, harness.readFrame(), "the worktree was removed, so there is no checkout")
+		harness.press("e")
+
+		assert.NotContains(t, harness.readFrame(), "editing")
+		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
 	})
 
 	t.Run("an unreadable pane refuses the edit key and stops nothing", func(t *testing.T) {

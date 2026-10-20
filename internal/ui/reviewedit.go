@@ -133,6 +133,10 @@ func (r *reviewScreen) pressEdit(m *model) tea.Cmd {
 
 // isEditRefused returns why the edit key would open nothing, before the panel stops the agent.
 func (r reviewScreen) isEditRefused(m *model) (string, bool) {
+	if r.isWorktreeRemoved(m) {
+		return worktreeRemovedSaid, true
+	}
+
 	if _, _, ok := r.diff.View().GetEditTarget(r.diff.Cursor()); !ok {
 		return "that file was deleted, so there is nothing to open", true
 	}

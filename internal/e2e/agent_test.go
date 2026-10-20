@@ -192,7 +192,8 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 
 	t.Run("deleting its task leaves nothing behind", func(t *testing.T) {
 		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
-			Tasks: []string{agent.GetTaskId()},
+			Tasks:   []string{agent.GetTaskId()},
+			Records: true,
 		}))
 		require.NoError(t, err)
 		instance.WorkQueue()

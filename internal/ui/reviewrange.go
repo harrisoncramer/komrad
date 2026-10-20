@@ -362,8 +362,13 @@ func (d reviewDiff) jumpOffSaid() string {
 }
 
 // editOffSaid is why opening the editor is drawn off, empty when it would open.
-func (r reviewScreen) editOffSaid() string {
-	if r.hold.atEditor || !r.isHistory() {
+func (r reviewScreen) editOffSaid(m *model) string {
+	switch {
+	case r.hold.atEditor:
+		return ""
+	case r.isWorktreeRemoved(m):
+		return worktreeRemovedSaid
+	case !r.isHistory():
 		return ""
 	}
 

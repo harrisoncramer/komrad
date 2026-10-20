@@ -20,31 +20,52 @@ RETURNING
 
 -- name: GetTaskByID :one
 SELECT
-    *
+    sqlc.embed(t),
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
-    tasks
+    tasks t
 WHERE
-    id = sqlc.arg('id');
+    t.id = sqlc.arg('id');
 
 -- name: GetTaskBySlug :one
 SELECT
-    *
+    sqlc.embed(t),
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
-    tasks
+    tasks t
 WHERE
-    slug = sqlc.arg('slug');
+    t.slug = sqlc.arg('slug');
 
 -- name: ListTasks :many
 SELECT
-    *
+    sqlc.embed(t),
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
-    tasks
+    tasks t
 WHERE
-    workflow_id = sqlc.arg('workflow_id')
-    AND deleting_at IS NULL
-    AND (sqlc.arg('archived')::boolean) =(archived_at IS NOT NULL)
+    t.workflow_id = sqlc.arg('workflow_id')
+    AND t.deleting_at IS NULL
+    AND (sqlc.arg('archived')::boolean) =(t.archived_at IS NOT NULL)
 ORDER BY
-    id DESC;
+    t.id DESC;
 
 -- name: ArchiveTask :execrows
 UPDATE
@@ -141,7 +162,14 @@ SELECT
             AND r.failure <> ''
             AND r.viewed_at IS NULL)::boolean AS failed_run,
     COALESCE(d.documents, 0)::integer AS documents,
-    d.documents_updated_at
+    d.documents_updated_at,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
     watched w
     JOIN tasks t ON t.id = w.id
@@ -271,13 +299,20 @@ ORDER BY
 
 -- name: ListTasksByID :many
 SELECT
-    *
+    sqlc.embed(t),
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_snapshots s
+        WHERE
+            s.task_id = t.id)::integer AS snapshots
 FROM
-    tasks
+    tasks t
 WHERE
-    id = ANY (sqlc.arg('ids')::uuid[])
+    t.id = ANY (sqlc.arg('ids')::uuid[])
 ORDER BY
-    id;
+    t.id;
 
 -- name: UpdateTask :one
 UPDATE
@@ -336,6 +371,27 @@ WHERE
             agents a
         WHERE
             a.task_id = t.id);
+
+-- name: ClaimTaskCleanup :execrows
+UPDATE
+    tasks
+SET
+    deleting_at = NOW(),
+    cleaning_at = NOW(),
+    failure_reason = ''
+WHERE
+    id = sqlc.arg('id')
+    AND deleting_at IS NULL;
+
+-- name: RecordTaskWorktreeRemoved :exec
+UPDATE
+    tasks
+SET
+    worktree_removed = TRUE,
+    deleting_at = NULL,
+    cleaning_at = NULL
+WHERE
+    id = sqlc.arg('id');
 
 -- name: ClearTaskDeleting :exec
 UPDATE

@@ -18,7 +18,9 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 
@@ -771,6 +773,21 @@ func TestResumeRefusesArchived(t *testing.T) {
 	require.ErrorIs(t, err, agenterr.ErrAgentArchived)
 	require.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
 	assert.Empty(t, tmux.NewWindows, "and opens no window")
+}
+
+// TestResumeRefusesARemovedWorktree pins a resume turning away an agent whose task's worktree was removed.
+func TestResumeRefusesARemovedWorktree(t *testing.T) {
+	tmux := tmuxtest.NewFake()
+	st := newStore(t)
+	service, fakeHarness := newManagerWithHarness(tmux, st, "")
+	writer := seed(t, st, "writer", "%0", agentstore.StateIdle)
+	require.NotNil(t, writer.TaskID)
+	require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+
+	_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: writer.ID})
+
+	require.ErrorIs(t, err, tasks.ErrWorktreeRemoved)
+	assert.Empty(t, fakeHarness.Launches)
 }
 
 // TestResumeHoldsTheCheckoutForItsLaunch keeps a relaunch out of a tree komrad is rebasing,

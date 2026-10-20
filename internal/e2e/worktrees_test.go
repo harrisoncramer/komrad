@@ -167,7 +167,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 	})
 
 	t.Run("deleting a task takes its worktree out of the listing", func(t *testing.T) {
-		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{leaver.GetTaskId()}}))
+		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{leaver.GetTaskId()}, Records: true}))
 		require.NoError(t, err)
 
 		assert.NotContains(t, listWorktrees(t, instance), leaver.GetCwd(), "the directory leaves the listing as soon as the delete claims it")

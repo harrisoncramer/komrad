@@ -355,11 +355,24 @@ func (s *LifecycleService) ArchiveTask(ctx context.Context, ref string) error {
 	return s.tasks.Archive(context.WithoutCancel(ctx), found.ID)
 }
 
-// DeleteTasks archives the tasks refs name, claims them for a delete and queues the deletes of
-// every agent on them, removing at once each task no agent is on.
-func (s *LifecycleService) DeleteTasks(ctx context.Context, refs []string) error {
-	ids := make([]string, 0, len(refs))
-	for _, ref := range refs {
+// DeleteTasksParams is the tasks to delete, whether their records go too, and the agent asking.
+type DeleteTasksParams struct {
+	Refs []string
+	// Records deletes the tasks for good, with every agent on them, rather than only their worktrees.
+	Records bool
+	// ByAgentID is the agent asking, empty for the panel.
+	ByAgentID string
+}
+
+// DeleteTasks archives the tasks params names and removes their worktrees, or with records set
+// deletes each task for good along with every agent on it.
+func (s *LifecycleService) DeleteTasks(ctx context.Context, params DeleteTasksParams) error {
+	if params.ByAgentID != "" {
+		return agenterr.ErrDeleteByAgent
+	}
+
+	ids := make([]string, 0, len(params.Refs))
+	for _, ref := range params.Refs {
 		found, err := s.tasks.GetTask(ctx, ref)
 		if err != nil {
 			return err
@@ -376,6 +389,10 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, refs []string) error
 		if err := s.ArchiveTask(ctx, id); err != nil {
 			return err
 		}
+	}
+
+	if !params.Records {
+		return s.tasks.RemoveWorktrees(ctx, ids)
 	}
 
 	if err := s.tasks.MarkDeleting(ctx, ids); err != nil {
@@ -501,6 +518,10 @@ func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID strin
 			return agentstore.NewAgentStore(db).RestoreWorkflowAgents(ctx, workflowID)
 		},
 	})
+}
+
+func (s *LifecycleService) removeWorkflowWorktrees(ctx context.Context, workflowID string) error {
+	return s.tasks.RemoveWorkflowWorktrees(ctx, workflowID)
 }
 
 // requireTasksLive refuses a reviewer coming back while its task stays archived, letting one

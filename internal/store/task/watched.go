@@ -25,6 +25,10 @@ var WatchedTasks = watch.Resource{
 			Table:  "documents",
 			Column: "task_id",
 		},
+		{
+			Table:  "review_snapshots",
+			Column: "task_id",
+		},
 	},
 }
 
@@ -40,7 +44,7 @@ func (s *TaskStore) ListWatched(ctx context.Context, keys []string) ([]Task, err
 	}
 
 	return xslice.Map(rows, func(row *models.ListWatchedTasksRow) Task {
-		task := fromRow(&row.Task)
+		task := fromCountedRow(&row.Task, row.Snapshots)
 		task.FailedRun = row.FailedRun
 		task.Documents = row.Documents
 		task.DocumentsUpdatedAt = row.DocumentsUpdatedAt
