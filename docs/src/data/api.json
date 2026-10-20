@@ -9597,7 +9597,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The snapshot commit of the task's newest snapshot, set while the checkout has changed since that snapshot. Empty otherwise."
+          "description": "The commit of the task's newest snapshot, set while the checkout has changed since that snapshot. Empty otherwise."
         },
         {
           "name": "diff_stat",

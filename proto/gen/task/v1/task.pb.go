@@ -241,7 +241,7 @@ type Task struct {
 	WorktreeRemoved bool `protobuf:"varint,13,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
 	// The git operation stopped part way in the task's checkout.
 	Sequence Sequence `protobuf:"varint,14,opt,name=sequence,proto3,enum=task.v1.Sequence" json:"sequence,omitempty"`
-	// The snapshot commit of the task's newest snapshot, set while the checkout has changed since that
+	// The commit of the task's newest snapshot, set while the checkout has changed since that
 	// snapshot. Empty otherwise.
 	MovedSinceSnapshot string `protobuf:"bytes,15,opt,name=moved_since_snapshot,json=movedSinceSnapshot,proto3" json:"moved_since_snapshot,omitempty"`
 	// How many lines the task's checkout adds and removes since it left the base branch. Unset when

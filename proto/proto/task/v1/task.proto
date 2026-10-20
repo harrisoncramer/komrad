@@ -81,7 +81,7 @@ message Task {
   bool worktree_removed = 13;
   // The git operation stopped part way in the task's checkout.
   Sequence sequence = 14;
-  // The snapshot commit of the task's newest snapshot, set while the checkout has changed since that
+  // The commit of the task's newest snapshot, set while the checkout has changed since that
   // snapshot. Empty otherwise.
   string moved_since_snapshot = 15;
   // How many lines the task's checkout adds and removes since it left the base branch. Unset when
