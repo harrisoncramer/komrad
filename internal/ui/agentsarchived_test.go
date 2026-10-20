@@ -138,21 +138,21 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			rows:       buildArchivedTasks(),
 			press:      []string{"j", "j", "j", "space", "a", "d"},
 			wantScreen: agentsScreen,
-			wantFrame:  `Permanently delete agent "db-tune"?`,
+			wantFrame:  `Delete agent "db-tune"?`,
 		},
 		{
 			name:       "delete on an archived folder opens the confirm prompt",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "d"},
 			wantScreen: agentsScreen,
-			wantFrame:  `Permanently delete workflow "backend"?`,
+			wantFrame:  `Delete workflow "backend"?`,
 		},
 		{
 			name:       "delete on an archived folder says the agent inside it goes too",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "api-refactor", "w1")},
 			press:      []string{"space", "a", "d"},
 			wantScreen: agentsScreen,
-			wantFrame:  "Komrad also deletes the one archived agent in it",
+			wantFrame:  "the one archived agent in it",
 		},
 	}
 
@@ -169,9 +169,9 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			frame := harness.readFrame()
 			assert.Equal(t, tt.wantScreen, harness.readScreen())
 			if tt.wantFrame == "" {
-				assert.NotContains(t, frame, deletePrompt)
+				assert.NotContains(t, readFormProse(frame), deleteRecordsPrompt)
 			} else {
-				assert.Contains(t, frame, tt.wantFrame)
+				assert.Contains(t, readFormProse(frame), tt.wantFrame)
 			}
 			harness.assertSent(tt.wantSent...)
 		})
@@ -190,22 +190,22 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 		{
 			name:  "declining the delete destroys nothing",
 			rows:  buildArchivedTasks(),
-			press: []string{"j", "j", "j", "space", "a", "d", "n"},
+			press: []string{"j", "j", "j", "space", "a", "d", "tab", "n"},
 		},
 		{
 			name:  "declining the workflow delete destroys nothing",
 			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
-			press: []string{"space", "a", "d", "n"},
+			press: []string{"space", "a", "d", "tab", "n"},
 		},
 		{
 			name:  "the delete on a task waits for its agents to leave the archive",
 			rows:  buildArchivedTasks(),
-			press: []string{"j", "j", "j", "space", "a", "d", "y"},
+			press: []string{"j", "j", "j", "space", "a", "d", "enter"},
 			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a3"),
 			wantSent: []request{
 				{
 					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2"}},
+					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2"}, Records: true},
 				},
 				{
 					procedure: agentv1connect.AgentServiceGetLastScreenProcedure,
@@ -216,11 +216,11 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 		{
 			name:  "confirming the workflow delete destroys the workflow it was opened on",
 			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
-			press: []string{"space", "a", "d", "y"},
+			press: []string{"space", "a", "d", "enter"},
 			gone:  buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
-				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1"},
+				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1", Records: true},
 			}},
 		},
 	}
@@ -231,13 +231,13 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 
 			harness.press(tt.press...)
 			if tt.gone != nil {
-				require.Contains(t, harness.readFrame(), deletePrompt, "the prompt waits for the row to leave")
+				require.Contains(t, readFormProse(harness.readFrame()), deleteRecordsPrompt, "the prompt waits for the row to leave")
 				harness.watch(tt.gone)
 			}
 
 			frame := harness.readFrame()
 			assert.Equal(t, agentsScreen, harness.readScreen(), "the prompt returns to the archived agents it was opened from")
-			assert.NotContains(t, frame, deletePrompt, "the prompt is down")
+			assert.NotContains(t, readFormProse(frame), deleteRecordsPrompt, "the prompt is down")
 			harness.assertSent(tt.wantSent...)
 		})
 	}
@@ -277,7 +277,7 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 			name:        "a refused delete",
 			rows:        buildArchivedTasks(),
 			refused:     taskv1connect.TaskServiceDeleteTasksProcedure,
-			press:       []string{"j", "j", "j", "space", "a", "d", "y"},
+			press:       []string{"j", "j", "j", "space", "a", "d", "enter"},
 			wantSummary: `Could not delete agent "db-tune"`,
 		},
 	}
@@ -737,7 +737,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 		},
 		{
 			name:  "delete is disabled on a selection of agents with no task",
-			press: []string{"j", "v", "j", "v", "j", "space", "a", "d", "y"},
+			press: []string{"j", "v", "j", "v", "j", "space", "a", "d", "enter"},
 		},
 	}
 
@@ -1256,17 +1256,17 @@ func TestArchivedTasks(t *testing.T) {
 		{
 			name:  "delete on a task deletes the task",
 			rows:  buildArchivedTasks(),
-			press: append(onAPIWork, "space", "a", "d", "y"),
+			press: append(onAPIWork, "space", "a", "d", "enter"),
 			wantSent: []request{{
 				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t1"}},
+				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t1"}, Records: true},
 			}},
 		},
 		{
 			name:      "the delete prompt on a task says the task goes",
 			rows:      buildArchivedTasks(),
 			press:     append(onAPIWork, "space", "a", "d"),
-			wantFrame: `It also deletes task "api-work"`,
+			wantFrame: `Komrad deletes them as part of task "api-work"`,
 		},
 		{
 			name:  "restore on a live task's header restores only its archived agents",
@@ -1286,15 +1286,15 @@ func TestArchivedTasks(t *testing.T) {
 		{
 			name:  "delete is disabled on a live task with no live agent left",
 			rows:  emptied,
-			press: []string{"j", "space", "a", "d", "y"},
+			press: []string{"j", "space", "a", "d", "enter"},
 		},
 		{
 			name:  "the range key takes the tasks between",
 			rows:  buildArchivedTasks(),
-			press: []string{"j", "j", "j", "v", "j", "V", "space", "a", "d", "y"},
+			press: []string{"j", "j", "j", "v", "j", "V", "space", "a", "d", "enter"},
 			wantSent: []request{{
 				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2", "t1"}},
+				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2", "t1"}, Records: true},
 			}},
 		},
 	}

@@ -94,9 +94,10 @@ func TestArchivedSchedules(t *testing.T) {
 }
 
 const (
-	archivedAt   = "2026-07-30T09:00:00Z"
-	agentsScreen = "the agents list"
-	deletePrompt = "Permanently delete"
+	archivedAt          = "2026-07-30T09:00:00Z"
+	agentsScreen        = "the agents list"
+	deletePrompt        = "Permanently delete"
+	deleteRecordsPrompt = "Deleting the records"
 )
 
 var widenListPresses = slices.Repeat([]string{"}"}, 10)

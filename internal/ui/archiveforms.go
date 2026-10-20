@@ -10,47 +10,44 @@ import (
 	"charm.land/huh/v2"
 )
 
-// deleteChosenConfirm asks before chosen agents are deleted, naming any task that goes whole with them.
-func deleteChosenConfirm(work chosenWork, reviewers int) worktreeConfirm {
+// deleteChosenConfirm asks what goes when chosen agents are deleted, naming the tasks deleted with them.
+func deleteChosenConfirm(work chosenWork, reviewers int, offersWorktree bool) worktreeConfirm {
 	confirm := worktreeConfirm{
 		kind:            formArchiveDelete,
-		title:           "Permanently delete " + promptSubject(work.chosen, reviewers) + "?",
-		warning:         transcriptWarning(work.chosen, reviewers),
+		title:           "Delete " + promptSubject(work.chosen, reviewers) + "?",
 		dirs:            taskDirs(work.wholeTasks),
 		startsConfirmed: true,
+		boxes:           newDeleteBoxes(offersWorktree),
 	}
 
 	switch {
 	case len(work.wholeTasks) == 1:
-		confirm.warning += fmt.Sprintf(" It also deletes task %q and its documents, reviews and worktree.", work.wholeTasks[0].Slug)
+		confirm.warning = fmt.Sprintf("Komrad deletes them as part of task %q.", work.wholeTasks[0].Slug)
 	case len(work.wholeTasks) > 1:
-		confirm.warning += fmt.Sprintf(" It also deletes %d tasks and their documents, reviews and worktrees.", len(work.wholeTasks))
+		confirm.warning = fmt.Sprintf("Komrad deletes them as part of the %d tasks they work on.", len(work.wholeTasks))
 	}
 
 	return confirm
 }
 
-// transcriptWarning says the transcripts of the agents being deleted go with them.
-func transcriptWarning(agents []panel.Agent, reviewers int) string {
-	if len(agents) == 1 && reviewers == 0 {
-		return "Komrad deletes its transcript too, so search won't find the conversation again."
+// deleteWorkflowConfirm asks what goes when an archived workflow is deleted.
+func deleteWorkflowConfirm(workflow panel.Workflow, agentCount int) worktreeConfirm {
+	agents := ""
+	switch {
+	case agentCount == 1:
+		agents = ", the one archived agent in it"
+	case agentCount > 1:
+		agents = fmt.Sprintf(", the %d archived agents in it", agentCount)
 	}
+	warning := fmt.Sprintf("With records ticked, Komrad also deletes the workflow%s and any archived schedule that launches into it.", agents)
 
-	return "Komrad deletes their transcripts too, so search won't find the conversations again."
-}
-
-func deleteWorkflowForm(workflow panel.Workflow, agentCount int, keys config.FixedKeys) (*huh.Form, *bool) {
-	title := fmt.Sprintf("Permanently delete workflow %q?", workflow.Name)
-
-	warning := "It holds no agents."
-	if agentCount == 1 {
-		warning = "Komrad also deletes the one archived agent in it, transcript included."
-	} else if agentCount > 1 {
-		warning = fmt.Sprintf("Komrad also deletes the %d archived agents in it, transcripts included.", agentCount)
+	return worktreeConfirm{
+		kind:            formArchiveDelete,
+		title:           fmt.Sprintf("Delete workflow %q?", workflow.Name),
+		warning:         warning,
+		startsConfirmed: true,
+		boxes:           newDeleteBoxes(workflow.Worktree.Enabled),
 	}
-	warning += " Komrad deletes any archived schedule that launches into it too."
-
-	return confirmForm(title, warning, "Delete", keys)
 }
 
 func deleteScheduleForm(name string, keys config.FixedKeys) (*huh.Form, *bool) {
@@ -62,21 +59,19 @@ func deleteScheduleForm(name string, keys config.FixedKeys) (*huh.Form, *bool) {
 	)
 }
 
-// deleteTasksConfirm asks before the tasks are deleted for good.
-func deleteTasksConfirm(tasks []panel.Task, agentCount int) worktreeConfirm {
-	warning := "Komrad deletes their agents, documents, reviews and worktrees too."
-	if len(tasks) == 1 {
-		warning = "Komrad deletes its agents, documents, reviews and worktree too."
-	}
+// deleteTasksConfirm asks what goes when the tasks are deleted.
+func deleteTasksConfirm(tasks []panel.Task, agentCount int, offersWorktree bool) worktreeConfirm {
+	warning := ""
 	if agentCount > 0 {
-		warning = fmt.Sprintf("%s It archives %s first.", warning, label.Count(agentCount, "live agent", "live agents"))
+		warning = fmt.Sprintf("Komrad archives %s first.", label.Count(agentCount, "live agent", "live agents"))
 	}
 
 	return worktreeConfirm{
 		kind:            formArchiveDelete,
-		title:           "Permanently delete " + describeTasks(tasks) + "?",
+		title:           "Delete " + describeTasks(tasks) + "?",
 		warning:         warning,
 		dirs:            taskDirs(tasks),
 		startsConfirmed: true,
+		boxes:           newDeleteBoxes(offersWorktree),
 	}
 }

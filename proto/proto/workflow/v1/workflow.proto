@@ -294,6 +294,9 @@ message RestoreWorkflowResponse {
 message DeleteWorkflowRequest {
   // The archived workflow to delete, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Whether to delete the records of the workflow's tasks too: their agents, transcripts, documents, mail, notes
+  // and reviews. False deletes only the tasks' worktrees and keeps the workflow archived.
+  bool records = 2;
 }
 
 // WorkflowService creates and manages workflows.
@@ -377,7 +380,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "delete_workflow"
-      description: "Delete an archived workflow for good, with its archived agents, tasks and schedules."
+      description: "Delete the worktrees of an archived workflow's tasks. With records set, delete the workflow for good too, with its archived agents, tasks and schedules."
       destructive: true
       roles: [ROLE_ORCHESTRATOR]
     };

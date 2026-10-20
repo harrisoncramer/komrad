@@ -22,6 +22,8 @@ type worktreeConfirm struct {
 	warning         string
 	dirs            []string
 	startsConfirmed bool
+	// boxes asks what the delete takes, unset where the delete takes directories alone.
+	boxes *deleteBoxes
 }
 
 // open reads each worktree afresh and puts the confirm on screen, running write once it is answered yes.
@@ -38,23 +40,41 @@ func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
 	opened := m.openForm(formState{
 		kind:   c.kind,
 		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			if !confirmed {
-				return nil
+		submit: func(m *model) tea.Cmd {
+			if confirmed && c.boxes != nil {
+				if err := c.boxes.check(); err != nil {
+					m.form.refusal = err.Error()
+
+					return formResized()
+				}
 			}
 
-			return write(m)
-		}),
+			return holdSubmit(func(m *model) tea.Cmd {
+				if !confirmed {
+					return nil
+				}
+
+				return write(m)
+			})(m)
+		},
 		rebuild: func(m *model) (*huh.Form, []string) {
-			form := confirmFormStartingOn(confirmFormStartingOnParams{
+			warning := c.warning
+			if c.boxes != nil {
+				warning = strings.TrimSpace(warning + " " + recordsWarning)
+			}
+
+			params := confirmFormStartingOnParams{
 				answer:      &confirmed,
 				title:       c.title,
-				description: c.warning + describeStanding(m.inspections, c.dirs),
+				description: warning + describeStanding(m.inspections, c.dirs),
 				affirmative: "Delete",
 				keys:        fixedKeys(),
-			})
+			}
+			if c.boxes == nil {
+				return confirmFormStartingOn(params), []string{"confirm"}
+			}
 
-			return form, []string{"confirm"}
+			return c.boxes.form(params), []string{deleteBoxesKey, "confirm"}
 		},
 	})
 
@@ -187,8 +207,7 @@ func deleteWorktreesConfirm(deletion worktreeDeletion) worktreeConfirm {
 // deleteMixedConfirm asks before task checkouts and other directories are deleted together.
 func deleteMixedConfirm(deletion worktreeDeletion, agentCount int) worktreeConfirm {
 	lines := []string{
-		"Komrad deletes each task's worktree for good, along with the task's agents, documents and reviews.",
-		"It deletes the directories no agent uses and leaves every branch alone.",
+		"Komrad deletes the directories no agent uses and leaves every branch alone.",
 	}
 	if agentCount > 0 {
 		lines = append(lines, "It archives "+label.Count(agentCount, "live agent", "live agents")+" first.")
@@ -196,8 +215,9 @@ func deleteMixedConfirm(deletion worktreeDeletion, agentCount int) worktreeConfi
 
 	return worktreeConfirm{
 		kind:    formWorktreesDelete,
-		title:   fmt.Sprintf("Permanently delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees")),
+		title:   fmt.Sprintf("Delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees")),
 		warning: strings.Join(lines, " "),
 		dirs:    slices.Concat(deletion.dirs(), taskDirs(deletion.tasks)),
+		boxes:   newDeleteBoxes(true),
 	}
 }
