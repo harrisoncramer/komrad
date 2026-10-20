@@ -233,7 +233,7 @@ func (s *AgentStore) ListArchivedInWorkflow(ctx context.Context, workflowID stri
 }
 
 // ListRestorableInWorkflow returns the archived agents a workflow's restore brings back, leaving
-// reviewers archived.
+// reviewers and the agents on a task whose worktree was deleted archived.
 func (s *AgentStore) ListRestorableInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
 	rows, err := s.queries.ListRestorableWorkflowAgents(ctx, workflowID)
 	if err != nil {

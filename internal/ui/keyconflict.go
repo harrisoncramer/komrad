@@ -166,6 +166,8 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "adopt", keys: keys.Menu.Adopt},
 		{name: "new_agent", keys: keys.Menu.NewAgent},
 		{name: "new_workflow", keys: keys.Menu.NewWorkflow},
+		{name: "restore", keys: keys.Menu.Restore},
+		{name: "delete", keys: keys.Menu.Delete},
 	}); err != nil {
 		return err
 	}

@@ -75,10 +75,10 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{worktreeRemovedNotice},
 		},
 		{
-			name: "a deleted worktree",
+			name: "a deleted worktree has nothing to say",
 			row:  buildNoticeRow(panel.AgentRow{}),
 			task: panel.Task{WorktreeRemovalReason: panel.WorktreeDeleted},
-			want: []string{worktreeDeletedNotice},
+			want: []string{},
 		},
 		{
 			name: "a stopped rebase",
@@ -315,13 +315,13 @@ func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 	}
 }
 
-// TestAgentNoticesSpeakForEveryColumnState covers every state a column renders having a sentence or being named as its baseline.
+// TestAgentNoticesSpeakForEveryColumnState covers every state a column renders having a sentence, or being named as its baseline or drawn empty.
 func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 	for state := range int(view.RepoEnd) {
 		repo := view.Repo(state)
 		_, said := repoSaid[repo]
 
-		assert.NotEqual(t, said, repo == view.RepoClean, "repo state %d is neither given a sentence nor its baseline", state)
+		assert.NotEqual(t, said, repo == view.RepoClean || repo == view.RepoDeleted, "repo state %d is neither given a sentence, its baseline nor drawn empty", state)
 	}
 
 	for state := range int(view.ForgeEnd) {

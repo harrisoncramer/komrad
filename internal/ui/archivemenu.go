@@ -91,6 +91,24 @@ func archiveMenu(m *model, target archived) submenu {
 	}
 }
 
+// deletedEntries are the deleted list's actions on a row, which restore only a workflow, since a
+// task whose worktree was deleted has nowhere left to run.
+func deletedEntries(m *model, target archived) []submenuEntry {
+	remove := "delete for good"
+	if target.chosen {
+		remove = "delete all for good"
+	}
+
+	var entries []submenuEntry
+	if target.workflow != nil {
+		entries = append(entries, writeEntry("restore", m.keys.Menu.Restore, func(m *model) tea.Cmd { return restoreArchived(m, target) }))
+	}
+
+	return append(entries, drawnOff(openEntry(remove, m.keys.Menu.Delete, func(m *model) tea.Cmd {
+		return confirmDeleteArchivedRow(m, target)
+	}), target.deleteOffSaid()))
+}
+
 // restoreAndOpen restores the work and puts one agent's conversation back in a pane, or says why it cannot.
 func (m *model) restoreAndOpen(target archived) tea.Cmd {
 	resumed, err := target.opensAgent(m.listing)

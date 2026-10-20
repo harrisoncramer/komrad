@@ -432,6 +432,9 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	if err := s.requireTasksLive(ctx, agents); err != nil {
 		return nil, err
 	}
+	if err := s.refuseDeletedWorktrees(ctx, agents); err != nil {
+		return nil, err
+	}
 
 	archived := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt != nil })
 	if len(archived) == 0 {
@@ -557,6 +560,26 @@ func refuseWriters(agents []agentstore.Agent, verb string) error {
 	for _, agent := range agents {
 		if isTaskWriter(agent) {
 			return agenterr.ErrWriterGoesWithTask.Saying("%s task %s, which %q writes for, instead", verb, *agent.TaskID, agent.Name)
+		}
+	}
+
+	return nil
+}
+
+// refuseDeletedWorktrees refuses a restore that names an archived agent on a task whose worktree
+// was deleted, since nothing is left for it to run in.
+func (s *LifecycleService) refuseDeletedWorktrees(ctx context.Context, agents []agentstore.Agent) error {
+	for _, agent := range agents {
+		if agent.TaskID == nil || agent.ArchivedAt == nil {
+			continue
+		}
+
+		task, err := s.tasks.GetTask(ctx, *agent.TaskID)
+		if err != nil {
+			return err
+		}
+		if task.Checkout.WorktreeRemovalReason == taskstore.WorktreeDeleted {
+			return tasks.ErrWorktreeRemoved.Saying("task %q's worktree was deleted, so %q cannot be restored", task.Slug, agent.Name)
 		}
 	}
 

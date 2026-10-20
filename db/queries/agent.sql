@@ -632,7 +632,15 @@ SET
 WHERE
     a.workflow_id = @workflow_id
     AND a.archived_at IS NOT NULL
-    AND a.role <> 'reviewer';
+    AND a.role <> 'reviewer'
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            tasks t
+        WHERE
+            t.id = a.task_id
+            AND t.worktree_removal_reason = 'deleted');
 
 -- name: ListRestorableWorkflowAgents :many
 SELECT
@@ -643,6 +651,14 @@ WHERE
     a.workflow_id = @workflow_id
     AND a.archived_at IS NOT NULL
     AND a.role <> 'reviewer'
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            tasks t
+        WHERE
+            t.id = a.task_id
+            AND t.worktree_removal_reason = 'deleted')
 ORDER BY
     a.id DESC;
 

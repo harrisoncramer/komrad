@@ -249,7 +249,7 @@
             "orchestrator"
           ],
           "summary": "Restore archived agents, dormant, with their workflows.",
-          "description": "Restore archived agents, dormant, with their workflows. A task's writer restores its task with it. Komrad refuses a reviewer until its task is restored.",
+          "description": "Restore archived agents, dormant, with their workflows. A task's writer restores its task with it. Komrad refuses a reviewer until its task is restored, and an agent on a task whose worktree was deleted.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1036,7 +1036,7 @@
             "orchestrator"
           ],
           "summary": "Restore an archived workflow with its agents, which stay dormant until resumed.",
-          "description": "Restore an archived workflow with its agents, which stay dormant until resumed.",
+          "description": "Restore an archived workflow with its agents, which stay dormant until resumed. The agents on a task whose worktree was deleted stay archived.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,

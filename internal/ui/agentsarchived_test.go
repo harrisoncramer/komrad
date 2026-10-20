@@ -34,6 +34,7 @@ import (
 func TestArchivedAgentsMenu(t *testing.T) {
 	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
 	neverStarted.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+	deletedAgent := newArchivedAgent("a1", "api-refactor", "w1")
 
 	tests := []struct {
 		name       string
@@ -129,6 +130,16 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			name:       "restore on an archived folder restores the workflow",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "r"},
+			wantScreen: agentsScreen,
+			wantSent: []request{{
+				procedure: workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
+				msg:       &workflowv1.RestoreWorkflowRequest{Id: "w1"},
+			}},
+		},
+		{
+			name:       "restore on a folder of the deleted list restores the workflow",
+			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), deletedAgent, newDeletedTaskOf(deletedAgent)},
+			press:      []string{"F", "tab", "esc", "space", "u"},
 			wantScreen: agentsScreen,
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
@@ -234,7 +245,7 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 		{
 			name:  "a workflow delete on the deleted list takes the records, since every worktree is already gone",
 			rows:  []proto.Message{archivedWithWorktree, deleted, newDeletedTaskOf(deleted)},
-			press: []string{"F", "tab", "esc", "space", "a", "d", "enter"},
+			press: []string{"F", "tab", "esc", "space", "d", "enter"},
 			gone:  buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
@@ -505,6 +516,42 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 			assert.NotContains(t, menu, entry)
 		}
 	})
+
+	deletedAgent := newArchivedAgent("a1", "api-refactor", "w1")
+	onDeleted := []proto.Message{newArchivedWorkflow("w1", "backend"), deletedAgent, newDeletedTaskOf(deletedAgent)}
+
+	for _, tt := range []struct {
+		name    string
+		press   []string
+		want    []*regexp.Regexp
+		wantNot []*regexp.Regexp
+	}{
+		{
+			name: "on a folder of the deleted list",
+			want: []*regexp.Regexp{regexp.MustCompile(`restore\s+u`), regexp.MustCompile(`delete for good\s+d`)},
+		},
+		{
+			name:    "on a task of the deleted list",
+			press:   []string{"j"},
+			want:    []*regexp.Regexp{regexp.MustCompile(`delete for good\s+d`)},
+			wantNot: []*regexp.Regexp{regexp.MustCompile(`restore`)},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openArchivedAgents(t, onDeleted...)
+
+			harness.press(append(append([]string{"F", "tab", "esc"}, tt.press...), "space")...)
+
+			menu := strings.Join(readStage(harness.readFrame()), "\n")
+			assert.NotRegexp(t, archiveEntry, menu)
+			for _, want := range tt.want {
+				assert.Regexp(t, want, menu)
+			}
+			for _, wantNot := range tt.wantNot {
+				assert.NotRegexp(t, wantNot, menu)
+			}
+		})
+	}
 }
 
 // TestArchivedAgentsRename covers a name typed over an archived agents row going out as its rename.
@@ -1385,7 +1432,7 @@ func TestArchivedTasks(t *testing.T) {
 		{
 			name:  "delete on a task whose worktree was deleted takes its records",
 			rows:  []proto.Message{archivedWorkflow, deletedAgent, deletedTask},
-			press: []string{"F", "tab", "esc", "j", "space", "a", "d", "enter"},
+			press: []string{"F", "tab", "esc", "j", "space", "d", "enter"},
 			wantSent: []request{{
 				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
 				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},

@@ -56,7 +56,8 @@ func (s *AgentStore) ArchiveWorkflowAgents(ctx context.Context, workflowID strin
 	}), nil
 }
 
-// RestoreWorkflowAgents restores every archived agent in a workflow.
+// RestoreWorkflowAgents restores the archived agents in a workflow, leaving reviewers and the
+// agents on a task whose worktree was deleted archived.
 func (s *AgentStore) RestoreWorkflowAgents(ctx context.Context, workflowID string) error {
 	if err := s.queries.MarkWorkflowAgentsRestored(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to restore agents of workflow %q: %w", workflowID, err)

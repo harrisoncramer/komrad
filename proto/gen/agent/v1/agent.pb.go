@@ -3666,7 +3666,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062̆\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062\xff\x86\x01\n" +
 	"\fAgentService\x12\x82\x02\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb8\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\vlist_agents\"\x97\x01List the agents komrad tracks, most recently updated first, each with the opening of its prompt. Archived agents are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x9e\x01\n" +
@@ -3681,8 +3681,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bListMail\x12\x19.agent.v1.ListMailRequest\x1a\x1a.agent.v1.ListMailResponse\"\x86\x01\x9a\xb5\x18\x7f\b\x01\x10\x01\x1a\tlist_mail\"iList an agent's mail without claiming it, most recent first. Set `direction` to list what the agent sent.:\x03\x03\x01\x02\x90\x02\x01\x12\xc1\x01\n" +
 	"\n" +
 	"DeleteMail\x12\x1b.agent.v1.DeleteMailRequest\x1a\x16.google.protobuf.Empty\"~\x9a\xb5\x18w\b\x01\x10\x01\x1a\vdelete_mail\"_Delete mail for good by id, read or not. Any unknown id fails the call, and nothing is deleted.(\x01:\x01\x02\x90\x02\x02\x12\xa5\x02\n" +
-	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xdb\x01\x9a\xb5\x18\xd3\x01\b\x01\x10\x01\x1a\x0earchive_agents\"\xb6\x01Archive agents, stopping each and keeping its record and transcript for `restore_agents`. Komrad refuses a task's writer, which is archived only with its task through `archive_task`.(\x00:\x02\x03\x02\x90\x02\x02\x12\xc1\x02\n" +
-	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xee\x01\x9a\xb5\x18\xe6\x01\b\x01\x10\x01\x1a\x0erestore_agents\"\x98\x01Restore archived agents, dormant, with their workflows. A task's writer restores its task with it. Komrad refuses a reviewer until its task is restored.(\x00:\x01\x02J0Call resume_agent on each agent that should run.\x90\x02\x02\x12\x8a\x02\n" +
+	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xdb\x01\x9a\xb5\x18\xd3\x01\b\x01\x10\x01\x1a\x0earchive_agents\"\xb6\x01Archive agents, stopping each and keeping its record and transcript for `restore_agents`. Komrad refuses a task's writer, which is archived only with its task through `archive_task`.(\x00:\x02\x03\x02\x90\x02\x02\x12\xf4\x02\n" +
+	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xa1\x02\x9a\xb5\x18\x99\x02\b\x01\x10\x01\x1a\x0erestore_agents\"\xcb\x01Restore archived agents, dormant, with their workflows. A task's writer restores its task with it. Komrad refuses a reviewer until its task is restored, and an agent on a task whose worktree was deleted.(\x00:\x01\x02J0Call resume_agent on each agent that should run.\x90\x02\x02\x12\x8a\x02\n" +
 	"\tHoldAgent\x12\x1a.agent.v1.HoldAgentRequest\x1a\x1b.agent.v1.HoldAgentResponse\"\xc3\x01\x9a\xb5\x18\xbe\x01\b\x01\x10\x01\x1a\n" +
 	"hold_agent\"\x86\x01Interrupt an agent and hold it still until `release_agent`, such as before editing files in its checkout. An agent cannot hold itself.(\x00:\x01\x02J\x1eHold an agent only when asked.\x12\xf3\x01\n" +
 	"\fReleaseAgent\x12\x1d.agent.v1.ReleaseAgentRequest\x1a\x1e.agent.v1.ReleaseAgentResponse\"\xa3\x01\x9a\xb5\x18\x9e\x01\b\x01\x10\x01\x1a\rrelease_agent\"\x83\x01Release a held agent, mailing `said` to the agent as it starts again. Komrad sends no mail when the agent's turn had already ended.(\x00:\x01\x02\x12\xe9\x02\n" +
