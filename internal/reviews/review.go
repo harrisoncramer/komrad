@@ -243,7 +243,7 @@ type CreateReviewThreadParams struct {
 	// caller's own.
 	Task string
 	// SnapshotID is the snapshot the anchor's line numbers were measured in, empty for a caller that
-	// leaves the snapshot to be worked out from the snapshot it names.
+	// leaves the snapshot to be worked out from the commit it names.
 	SnapshotID string
 	// Suggestion is replacement lines the reviewer proposes for the range, empty on an ordinary
 	// comment.
