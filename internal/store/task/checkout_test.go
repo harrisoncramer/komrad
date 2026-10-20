@@ -151,8 +151,7 @@ func TestClaimCheckoutAgain(t *testing.T) {
 	}
 }
 
-// TestListCheckouts pins which live checkouts the sync reads, a worktree gone without a delete among
-// them so it is cleared once the directory comes back.
+// TestListCheckouts pins which live checkouts the cwd sync reads, leaving out a deleted worktree.
 func TestListCheckouts(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -190,8 +189,7 @@ func TestListCheckouts(t *testing.T) {
 	}
 }
 
-// TestSetHead pins the reason a head write leaves on a task, a worktree a delete removed staying
-// deleted whatever a sync read before the delete writes.
+// TestSetHead pins the removal reason a head write leaves, which never replaces a deleted one.
 func TestSetHead(t *testing.T) {
 	tests := []struct {
 		name  string

@@ -223,7 +223,7 @@ func (a *archivedAgents) listRows(m *model) []agentRow {
 // listedAgents is the archived agents this kind lists: those on the deleted list, or every other one.
 func (a *archivedAgents) listedAgents(l listing) []panel.AgentRow {
 	return xslice.Filter(l.archivedAgents, func(item panel.AgentRow) bool {
-		return l.isOnDeletedList(item) == (a.kind == agentsDeleted)
+		return l.isAgentOnDeletedList(item) == (a.kind == agentsDeleted)
 	})
 }
 
@@ -254,9 +254,10 @@ func (a *archivedAgents) headers(l listing) []panel.Workflow {
 	return headers
 }
 
-// isOnDeletedList reports whether an archived agent shows on the deleted list: one on an archived task
-// whose worktree was deleted, or the orchestrator of an archived workflow whose every task's was.
-func (l listing) isOnDeletedList(item panel.AgentRow) bool {
+// isAgentOnDeletedList reports whether an archived agent shows on the deleted list: one on an
+// archived task whose worktree was deleted, or the orchestrator of an archived workflow whose every
+// task's was.
+func (l listing) isAgentOnDeletedList(item panel.AgentRow) bool {
 	if item.Agent.TaskID == "" {
 		return l.isWorkflowOnDeletedList(item.Agent.WorkflowID)
 	}
@@ -270,9 +271,10 @@ func (l listing) isTargetOnDeletedList(target screenTarget) bool {
 	if task, listed := l.tasks[target.taskID]; listed {
 		return isTaskOnDeletedList(task)
 	}
-	index := slices.IndexFunc(l.archivedAgents, func(item panel.AgentRow) bool { return item.Agent.ID == target.agentID })
 
-	return index >= 0 && l.isOnDeletedList(l.archivedAgents[index])
+	return slices.ContainsFunc(l.archivedAgents, func(item panel.AgentRow) bool {
+		return item.Agent.ID == target.agentID && l.isAgentOnDeletedList(item)
+	})
 }
 
 func isTaskOnDeletedList(task panel.Task) bool {
