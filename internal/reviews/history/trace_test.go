@@ -16,7 +16,7 @@ import (
 func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
 
-	rounds := []Round{
+	snapshots := []Snapshot{
 		{
 			ID:          "r1",
 			Ordinal:     1,
@@ -29,19 +29,19 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 		},
 	}
 	threads := []Thread{{
-		ID:       "t1",
-		RoundID:  "r1",
-		FilePath: tracedFile,
-		NewStart: 4,
-		NewEnd:   4,
+		ID:         "t1",
+		SnapshotID: "r1",
+		FilePath:   tracedFile,
+		NewStart:   4,
+		NewEnd:     4,
 	}}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Tracer:  NewTracer(repo),
-		Dir:     traceDir,
-		ToSHA:   secondSHA,
-		Threads: threads,
-		Rounds:  rounds,
+		Tracer:    NewTracer(repo),
+		Dir:       traceDir,
+		ToSHA:     secondSHA,
+		Threads:   threads,
+		Snapshots: snapshots,
 	})
 
 	found, ok := traced["t1"]
@@ -59,9 +59,9 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 		"the pair read is the snapshot it was written against and the one on screen")
 }
 
-// TestTraceThreadsMarksTheRoundOnScreenAsExact covers a thread written against the snapshot on
+// TestTraceThreadsMarksTheSnapshotOnScreenAsExact covers a thread written against the snapshot on
 // screen, whose numbers are counted in that tree and so need no git call to be trusted.
-func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
+func TestTraceThreadsMarksTheSnapshotOnScreenAsExact(t *testing.T) {
 	repo := &gittest.Repo{}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
@@ -69,13 +69,13 @@ func TestTraceThreadsMarksTheRoundOnScreenAsExact(t *testing.T) {
 		Dir:    traceDir,
 		ToSHA:  secondSHA,
 		Threads: []Thread{{
-			ID:       "t1",
-			RoundID:  "r2",
-			FilePath: tracedFile,
-			NewStart: 8,
-			NewEnd:   8,
+			ID:         "t1",
+			SnapshotID: "r2",
+			FilePath:   tracedFile,
+			NewStart:   8,
+			NewEnd:     8,
 		}},
-		Rounds: []Round{{
+		Snapshots: []Snapshot{{
 			ID:          "r2",
 			Ordinal:     2,
 			SnapshotSHA: secondSHA,
@@ -100,13 +100,13 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 		Dir:    traceDir,
 		ToSHA:  thirdSHA,
 		Threads: []Thread{{
-			ID:       "t1",
-			RoundID:  "r1",
-			FilePath: tracedFile,
-			NewStart: 4,
-			NewEnd:   4,
+			ID:         "t1",
+			SnapshotID: "r1",
+			FilePath:   tracedFile,
+			NewStart:   4,
+			NewEnd:     4,
 		}},
-		Rounds: []Round{{
+		Snapshots: []Snapshot{{
 			ID:          "r1",
 			Ordinal:     1,
 			SnapshotSHA: firstSHA,
@@ -120,13 +120,13 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 	assert.Zero(t, found.NewStart)
 }
 
-// TestTraceThreadsSkipsRoundsTheScreenWillNotRender covers a chapter step: the diff ends at an
-// earlier snapshot, so a thread from a later round is not rendered there and tracing it would run a
+// TestTraceThreadsSkipsSnapshotsTheScreenWillNotRender covers a chapter step: the diff ends at an
+// earlier snapshot, so a thread from a later snapshot is not rendered there and tracing it would run a
 // backwards diff of the whole tree for an answer nothing reads.
-func TestTraceThreadsSkipsRoundsTheScreenWillNotRender(t *testing.T) {
+func TestTraceThreadsSkipsSnapshotsTheScreenWillNotRender(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(secondSHA, firstSHA): insertedAHelper}}
 
-	rounds := []Round{
+	snapshots := []Snapshot{
 		{
 			ID:          "r1",
 			Ordinal:     1,
@@ -140,24 +140,24 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotRender(t *testing.T) {
 	}
 	threads := []Thread{
 		{
-			ID:       "later",
-			RoundID:  "r2",
-			FilePath: tracedFile,
-			NewStart: 8,
-			NewEnd:   8,
+			ID:         "later",
+			SnapshotID: "r2",
+			FilePath:   tracedFile,
+			NewStart:   8,
+			NewEnd:     8,
 		},
 	}
 
-	// The reader has stepped back to the first round.
+	// The reader has stepped back to the first snapshot.
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Tracer:  NewTracer(repo),
-		Dir:     traceDir,
-		ToSHA:   firstSHA,
-		Threads: threads,
-		Rounds:  rounds,
+		Tracer:    NewTracer(repo),
+		Dir:       traceDir,
+		ToSHA:     firstSHA,
+		Threads:   threads,
+		Snapshots: snapshots,
 	})
 
-	assert.Empty(t, traced, "a later round is not traced backwards into an earlier one")
+	assert.Empty(t, traced, "a later snapshot is not traced backwards into an earlier one")
 	assert.Empty(t, repo.MappingsAsked(), "and the diff it would have taken was never run")
 }
 
@@ -167,7 +167,7 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotRender(t *testing.T) {
 func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	repo := &gittest.Repo{Mappings: map[string][]position.Mapping{gittest.NamePair(firstSHA, secondSHA): insertedAHelper}}
 
-	rounds := []Round{
+	snapshots := []Snapshot{
 		{
 			ID:          "r1",
 			Ordinal:     1,
@@ -186,48 +186,48 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	}
 	threads := []Thread{
 		{
-			ID:       "readable",
-			RoundID:  "r1",
-			FilePath: tracedFile,
-			NewStart: 4,
-			NewEnd:   4,
+			ID:         "readable",
+			SnapshotID: "r1",
+			FilePath:   tracedFile,
+			NewStart:   4,
+			NewEnd:     4,
 		},
 		{
-			ID:       "unreadable",
-			RoundID:  "gone",
-			FilePath: tracedFile,
-			NewStart: 4,
-			NewEnd:   4,
+			ID:         "unreadable",
+			SnapshotID: "gone",
+			FilePath:   tracedFile,
+			NewStart:   4,
+			NewEnd:     4,
 		},
 		{
-			ID:       "onscreen",
-			RoundID:  "r3",
-			FilePath: tracedFile,
-			NewStart: 8,
-			NewEnd:   8,
+			ID:         "onscreen",
+			SnapshotID: "r3",
+			FilePath:   tracedFile,
+			NewStart:   8,
+			NewEnd:     8,
 		},
 	}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
-		Tracer:  NewTracer(repo),
-		Dir:     traceDir,
-		ToSHA:   secondSHA,
-		Threads: threads,
-		Rounds:  rounds,
+		Tracer:    NewTracer(repo),
+		Dir:       traceDir,
+		ToSHA:     secondSHA,
+		Threads:   threads,
+		Snapshots: snapshots,
 	})
 
 	assert.NotContains(t, traced, "readable", "a pair nobody could read means no tracing rather than some of it")
 	assert.NotContains(t, traced, "unreadable")
 
 	found, ok := traced["onscreen"]
-	require.True(t, ok, "the round on screen needs no git and so cannot be lost with it")
+	require.True(t, ok, "the snapshot on screen needs no git and so cannot be lost with it")
 	assert.True(t, found.Exact)
 }
 
-// TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen covers an agent that edited a file
-// and then put it back, which takes a second round carrying a snapshot an earlier round already
+// TestTraceThreadsMarksEverySnapshotHoldingTheCommitOnScreen covers an agent that edited a file
+// and then put it back, which takes a second snapshot carrying a commit an earlier snapshot already
 // held.
-func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
+func TestTraceThreadsMarksEverySnapshotHoldingTheCommitOnScreen(t *testing.T) {
 	repo := &gittest.Repo{}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{
@@ -235,13 +235,13 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 		Dir:    traceDir,
 		ToSHA:  secondSHA,
 		Threads: []Thread{{
-			ID:       "t1",
-			RoundID:  "r1",
-			FilePath: tracedFile,
-			NewStart: 8,
-			NewEnd:   8,
+			ID:         "t1",
+			SnapshotID: "r1",
+			FilePath:   tracedFile,
+			NewStart:   8,
+			NewEnd:     8,
 		}},
-		Rounds: []Round{
+		Snapshots: []Snapshot{
 			{
 				ID:          "r1",
 				Ordinal:     1,
@@ -261,10 +261,10 @@ func TestTraceThreadsMarksEveryRoundHoldingTheSnapshotOnScreen(t *testing.T) {
 	})
 
 	found, ok := traced["t1"]
-	require.True(t, ok, "the earlier round holding this snapshot is on screen too")
+	require.True(t, ok, "the earlier snapshot holding this commit is on screen too")
 	assert.True(t, found.Exact)
 	assert.Equal(t, int32(8), found.NewStart)
-	assert.Empty(t, repo.MappingsAsked(), "the round it was written against is the one on screen")
+	assert.Empty(t, repo.MappingsAsked(), "the snapshot it was written against is the one on screen")
 }
 
 const (

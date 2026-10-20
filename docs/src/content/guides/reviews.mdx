@@ -25,7 +25,7 @@ Komrad supports this with _local reviews_. You read the task's diff, leave comme
 
 <Alert variant="info">Local reviews are completely optional, you can use komrad without them.</Alert>
 
-Komrad's local review model resembles <a href="https://www.gerritcodereview.com/">Gerrit</a>'s code review. You step through the change in rounds, and each round holds the code as it stood when it was reviewed.
+Komrad's local review model resembles <a href="https://www.gerritcodereview.com/">Gerrit</a>'s code review. You step through the change in snapshots, and each snapshot holds the code as it stood when it was reviewed.
 
 ### Opening a review
 
@@ -87,9 +87,9 @@ The writer answers in your threads and can settle them. To see exactly what it c
 
 ### Stepping through history
 
-Each review you send is written against the round you read. Press <Key name="review.base" /> to step back from the whole change to the work since your last review, and on through your older reviews. Press <Key name="review.base_forward" /> to step forward again. The top of the diff names the rounds on screen, such as round 1 to round 2.
+Each review you send is written against the snapshot you read. Press <Key name="review.base" /> to step back from the whole change to the work since your last review, and on through your older reviews. Press <Key name="review.base_forward" /> to step forward again. The top of the diff names the snapshots on screen, such as snapshot 1 to snapshot 2.
 
-A range that ends before the newest round takes replies but not new comments, because new comments go on the newest round.
+A range that ends before the newest snapshot takes replies but not new comments, because new comments go on the newest snapshot.
 
 <figure>
   <video
@@ -100,7 +100,7 @@ A range that ends before the newest round takes replies but not new comments, be
     poster={media("reviews-history.png")}
     width="1440"
     height="920"
-    aria-label="Stepping back from the whole change through the work nobody has reviewed yet and the rounds two earlier reviews were written against, then forward again to the whole change."
+    aria-label="Stepping back from the whole change through the work nobody has reviewed yet and the snapshots two earlier reviews were written against, then forward again to the whole change."
   >
     <source src={media("reviews-history.webm")} type="video/webm" />
     <source src={media("reviews-history.mp4")} type="video/mp4" />

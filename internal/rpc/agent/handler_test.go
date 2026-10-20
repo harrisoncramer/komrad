@@ -1122,12 +1122,12 @@ func TestGetAgent(t *testing.T) {
 			Repositories: []pullrequeststore.Sync{{RepositoryURL: komradRepository}},
 			Reviews: []reviewstore.Review{
 				{
-					ID:               "review-1",
-					TaskID:           "task-1",
-					RoundID:          "round-1",
-					RoundOrdinal:     1,
-					RoundSnapshotSHA: "round-1-sha",
-					ReleasedAt:       xptr.Ptr(created),
+					ID:              "review-1",
+					TaskID:          "task-1",
+					SnapshotID:      "snapshot-1",
+					SnapshotOrdinal: 1,
+					SnapshotSHA:     "snapshot-1-sha",
+					ReleasedAt:      xptr.Ptr(created),
 				},
 			},
 			Workflows: []workflowstore.Workflow{{ID: "wf-1"}},
@@ -1148,7 +1148,7 @@ func TestGetAgent(t *testing.T) {
 	require.Len(t, got.Msg.GetPullRequests(), 1)
 	assert.Equal(t, int32(740), got.Msg.GetPullRequests()[0].GetNumber(), "with every pull request on its branch")
 	assert.Equal(t, int32(740), got.Msg.GetPullRequest().GetNumber(), "and the current one's standing")
-	assert.Equal(t, int32(1), got.Msg.GetLocalReviewRounds())
+	assert.Equal(t, int32(1), got.Msg.GetLocalReviewSnapshots())
 	assert.Equal(t, "agent/x", got.Msg.GetTask().GetBranch(), "and the task whose checkout it works in")
 
 	agent := got.Msg.GetAgent()

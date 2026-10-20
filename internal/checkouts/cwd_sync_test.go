@@ -270,8 +270,8 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	}
 }
 
-// TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound covers komrad writing the newest round once the tree no longer hashes to it.
-func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
+// TestCwdSyncerSyncRecordsAMoveSinceTheNewestSnapshot covers komrad writing the newest snapshot once the tree no longer hashes to it.
+func TestCwdSyncerSyncRecordsAMoveSinceTheNewestSnapshot(t *testing.T) {
 	tests := []struct {
 		name         string
 		newest       string
@@ -280,22 +280,22 @@ func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
 		want         string
 	}{
 		{
-			name:   "a round git cannot read records no move",
+			name:   "a snapshot git cannot read records no move",
 			newest: "snapshot-one",
 			probe:  "tree-moved",
 		},
 		{
-			name:  "an agent with no round records no move",
+			name:  "an agent with no snapshot records no move",
 			probe: "tree-moved",
 		},
 		{
-			name:         "a worktree that still hashes to its newest round records no move",
+			name:         "a worktree that still hashes to its newest snapshot records no move",
 			newest:       "snapshot-one",
 			snapshotTree: "tree-one",
 			probe:        "tree-one",
 		},
 		{
-			name:         "a worktree that moved records its newest round",
+			name:         "a worktree that moved records its newest snapshot",
 			newest:       "snapshot-one",
 			snapshotTree: "tree-one",
 			probe:        "tree-moved",
@@ -309,14 +309,14 @@ func TestCwdSyncerSyncRecordsAMoveSinceTheNewestRound(t *testing.T) {
 			cwd := makeCheckout(t)
 			agent := fixture.seed(t, "a", cwd)
 			if tt.newest != "" {
-				fixture.openRound(t, agent.ID, tt.newest)
+				fixture.openSnapshot(t, agent.ID, tt.newest)
 			}
 
 			heads := buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: tt.snapshotTree})
 			trees := &gittest.Trees{Probes: map[string]string{cwd: tt.probe}}
 			require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: heads, Trees: trees}).Sync(t.Context()))
 
-			assert.Equal(t, tt.want, fixture.read(t, agent.ID).MovedSinceRound)
+			assert.Equal(t, tt.want, fixture.read(t, agent.ID).MovedSinceSnapshot)
 		})
 	}
 }
@@ -326,18 +326,18 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	fixture := newSyncFixture(t)
 	cwd := makeCheckout(t)
 	agent := fixture.seed(t, "a", cwd)
-	fixture.openRound(t, agent.ID, "snapshot-one")
+	fixture.openSnapshot(t, agent.ID, "snapshot-one")
 	trees := &gittest.Trees{Probes: map[string]string{cwd: "tree-moved"}}
 	syncer := fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: "tree-one"}), Trees: trees})
 
 	require.NoError(t, syncer.Sync(t.Context()))
-	require.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceRound)
+	require.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceSnapshot)
 
 	trees.ProbeErr = errors.New("the index could not be read")
 	err := syncer.Sync(t.Context())
 
 	require.ErrorContains(t, err, "failed to hash the worktree of task")
-	assert.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceRound)
+	assert.Equal(t, "snapshot-one", fixture.read(t, agent.ID).MovedSinceSnapshot)
 }
 
 // TestCwdSyncerSyncRecordsTheDiffStat covers the lines a pass measures against the workflow's base.
@@ -385,7 +385,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			wantMeasured: true,
 		},
 		{
-			name:  "a checkout with a round measures the tree its probe already hashed",
+			name:  "a checkout with a snapshot measures the tree its probe already hashed",
 			cwd:   makeCheckout,
 			probe: "probed-tree",
 			diffStats: func(cwd string) map[string]git.DiffStat {
@@ -410,7 +410,7 @@ func TestCwdSyncerSyncRecordsTheDiffStat(t *testing.T) {
 			head := git.HeadState{Root: cwd}
 			if tt.probe != "" {
 				trees.Probes = map[string]string{cwd: tt.probe}
-				head.SnapshotTree = "round-tree"
+				head.SnapshotTree = "snapshot-tree"
 			}
 
 			heads := buildHeads(cwd, head)
@@ -751,7 +751,7 @@ func TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead(t *testing.T) {
 				heads: buildHeads(cwd, git.HeadState{
 					Root:         cwd,
 					SHA:          "head-one",
-					SnapshotTree: "round-tree",
+					SnapshotTree: "snapshot-tree",
 				}),
 				cwd: cwd,
 			}
@@ -778,9 +778,9 @@ func TestCwdSyncerSyncReusesWhatAnUnchangedWorktreeRead(t *testing.T) {
 	}
 }
 
-// TestCwdSyncerSyncLandsTheRoundsTheBaseHolds covers the walk from the newest round down to the
+// TestCwdSyncerSyncLandsTheSnapshotsTheBaseHolds covers the walk from the newest snapshot down to the
 // first one the base holds whole.
-func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
+func TestCwdSyncerSyncLandsTheSnapshotsTheBaseHolds(t *testing.T) {
 	tests := []struct {
 		name         string
 		unresolved   bool
@@ -795,19 +795,19 @@ func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
 			wantUnlanded: []int32{3, 2, 1},
 		},
 		{
-			name:         "a base holding no round walks them all and lands none",
+			name:         "a base holding no snapshot walks them all and lands none",
 			landed:       map[string]bool{},
 			wantWalked:   []string{"snapshot-three", "snapshot-two", "snapshot-one"},
 			wantUnlanded: []int32{3, 2, 1},
 		},
 		{
-			name:         "a base holding a middle round lands it and every earlier one",
+			name:         "a base holding a middle snapshot lands it and every earlier one",
 			landed:       map[string]bool{"snapshot-two": true},
 			wantWalked:   []string{"snapshot-three", "snapshot-two"},
 			wantUnlanded: []int32{3},
 		},
 		{
-			name:         "a base holding the newest round lands them all",
+			name:         "a base holding the newest snapshot lands them all",
 			landed:       map[string]bool{"snapshot-three": true},
 			wantWalked:   []string{"snapshot-three"},
 			wantUnlanded: []int32{},
@@ -836,7 +836,7 @@ func TestCwdSyncerSyncLandsTheRoundsTheBaseHolds(t *testing.T) {
 }
 
 // TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved covers a pass skipping the walk while
-// neither the base tip nor the newest round has changed.
+// neither the base tip nor the newest snapshot has changed.
 func TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved(t *testing.T) {
 	fixture := newSyncFixture(t)
 	cwd := makeCheckout(t)
@@ -852,7 +852,7 @@ func TestCwdSyncerSyncWalksTheLandingAgainOnlyWhenSomethingMoved(t *testing.T) {
 
 	fixture.release(t, agent.ID, "snapshot-two")
 	require.NoError(t, syncer.Sync(t.Context()))
-	assert.Equal(t, []string{"snapshot-one", "snapshot-two", "snapshot-one"}, trees.Walked, "a new round is walked")
+	assert.Equal(t, []string{"snapshot-one", "snapshot-two", "snapshot-one"}, trees.Walked, "a new snapshot is walked")
 
 	trees.Tips[cwd] = "tip-two"
 	trees.Landed = map[string]bool{"snapshot-two": true}
@@ -935,14 +935,14 @@ func (f *syncFixture) taskOf(t *testing.T, agentID string) string {
 	return *agent.TaskID
 }
 
-// release releases a review of a new round on the snapshot.
-func (f *syncFixture) release(t *testing.T, agentID, snapshot string) {
+// release releases a review of a new snapshot of the commit given.
+func (f *syncFixture) release(t *testing.T, agentID, sha string) {
 	t.Helper()
 
-	round := f.openRound(t, agentID, snapshot)
+	snapshot := f.openSnapshot(t, agentID, sha)
 	review, err := f.reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		TaskID:     round.TaskID,
-		RoundID:    round.ID,
+		TaskID:     snapshot.TaskID,
+		SnapshotID: snapshot.ID,
 		AuthorKind: reviewstore.AuthorHuman,
 	})
 	require.NoError(t, err)
@@ -985,17 +985,17 @@ func (f *syncFixture) merge(t *testing.T, agentID string, mergedAt time.Time) {
 	require.NoError(t, err)
 }
 
-func (f *syncFixture) openRound(t *testing.T, agentID, snapshot string) *reviewstore.Round {
+func (f *syncFixture) openSnapshot(t *testing.T, agentID, sha string) *reviewstore.Snapshot {
 	t.Helper()
 
-	round, err := f.reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		TaskID:      f.taskOf(t, agentID),
-		BaseSHA:     gittest.BaseSHA,
-		SnapshotSHA: snapshot,
+	snapshot, err := f.reviews.CreateSnapshot(t.Context(), reviewstore.CreateSnapshotParams{
+		TaskID:  f.taskOf(t, agentID),
+		BaseSHA: gittest.BaseSHA,
+		SHA:     sha,
 	})
 	require.NoError(t, err)
 
-	return round
+	return snapshot
 }
 
 type newSyncerParams struct {
@@ -1025,22 +1025,22 @@ func (f *syncFixture) newSyncer(params newSyncerParams) *CwdSyncer {
 		Heads:        params.Heads,
 		Trees:        params.Trees,
 		Checkouts:    params.Checkouts,
-		Rounds:       f.reviews,
+		Snapshots:    f.reviews,
 		Workflows:    f.stores.Workflows,
 		Worktrees:    f.worktrees,
 		PullRequests: params.PullRequests,
 	})
 }
 
-// readUnlanded is the ordinals of the task's rounds that have not landed, newest first.
+// readUnlanded is the ordinals of the task's snapshots that have not landed, newest first.
 func (f *syncFixture) readUnlanded(t *testing.T, taskID string) []int32 {
 	t.Helper()
 
-	unlanded, err := f.reviews.ListUnlandedRounds(t.Context())
+	unlanded, err := f.reviews.ListUnlandedSnapshots(t.Context())
 	require.NoError(t, err)
 
-	return xslice.Map(unlanded[taskID], func(round reviewstore.UnlandedRound) int32 {
-		return round.Ordinal
+	return xslice.Map(unlanded[taskID], func(snapshot reviewstore.UnlandedSnapshot) int32 {
+		return snapshot.Ordinal
 	})
 }
 

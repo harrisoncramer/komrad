@@ -42,7 +42,7 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 }
 
 // followWorld renders what the world now holds of the review, and reads the diff again when the
-// agent has moved past the round on screen.
+// agent has moved past the snapshot on screen.
 func (r *reviewScreen) followWorld(m *model) tea.Cmd {
 	r.followThreads(m)
 	r.followNotices(m)

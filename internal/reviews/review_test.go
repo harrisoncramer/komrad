@@ -33,7 +33,7 @@ const (
 
 var personAuthor = ReviewAuthor{Kind: reviewstore.AuthorHuman}
 
-// reviewFixture is a writer with round one taken, its reviewer, and the writer of another task.
+// reviewFixture is a writer with snapshot one taken, its reviewer, and the writer of another task.
 type reviewFixture struct {
 	service     *ReviewService
 	reviews     *reviewstore.ReviewStore
@@ -189,9 +189,9 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: ErrReviewNotEntitled,
 		},
 		{
-			name: "an unrelated agent taking a round",
+			name: "an unrelated agent taking a snapshot",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.otherWriter))
+				_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.otherWriter))
 
 				return err
 			},
@@ -289,20 +289,20 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: errReviewUnnamedTask,
 		},
 		{
-			name: "taking a round of a task with no directory",
+			name: "taking a snapshot of a task with no directory",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				homeless := fx.stores.SeedAgent(t, agentstore.Agent{Name: "homeless"})
-				_, err := fx.service.OpenRound(t.Context(), *homeless.TaskID, personAuthor)
+				_, err := fx.service.TakeSnapshot(t.Context(), *homeless.TaskID, personAuthor)
 
 				return err
 			},
-			wantErr: ErrReviewNoRound,
+			wantErr: ErrReviewNoSnapshot,
 		},
 		{
-			name: "taking a round of a task whose worktree was removed",
+			name: "taking a snapshot of a task whose worktree was removed",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
-				_, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, personAuthor)
+				_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
 
 				return err
 			},
@@ -349,7 +349,7 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: ErrReviewVerdictFromPerson,
 		},
 		{
-			name: "a comment read from a snapshot no round was taken of",
+			name: "a comment read from a commit no snapshot was taken of",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
 					Task:        *fx.writer.TaskID,
@@ -436,25 +436,25 @@ func TestReviewEntitlement(t *testing.T) {
 			},
 		},
 		{
-			name: "the agent under review listing its own rounds",
+			name: "the agent under review listing its own snapshots",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.ListRounds(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.writer))
+				_, err := fx.service.ListSnapshots(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.writer))
 
 				return err
 			},
 		},
 		{
-			name: "the agent under review taking a round of its own work",
+			name: "the agent under review taking a snapshot of its own work",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.writer))
+				_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.writer))
 
 				return err
 			},
 		},
 		{
-			name: "a reviewer naming no task taking a round of the work it reviews",
+			name: "a reviewer naming no task taking a snapshot of the work it reviews",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.OpenRound(t.Context(), "", newAgentAuthor(fx.reviewer))
+				_, err := fx.service.TakeSnapshot(t.Context(), "", newAgentAuthor(fx.reviewer))
 
 				return err
 			},
@@ -578,15 +578,15 @@ func TestListReviewThreads(t *testing.T) {
 	}
 }
 
-// TestCreateReviewThreadPicksTheRound pins which round a comment is filed under.
-func TestCreateReviewThreadPicksTheRound(t *testing.T) {
+// TestCreateReviewThreadPicksTheSnapshot pins which snapshot a comment is filed under.
+func TestCreateReviewThreadPicksTheSnapshot(t *testing.T) {
 	tests := []struct {
 		name        string
 		write       func(t *testing.T, fx *reviewFixture) *ReviewThreadWithMessages
 		wantOrdinal int32
 	}{
 		{
-			name: "naming the snapshot of a round",
+			name: "naming the commit of a snapshot",
 			write: func(t *testing.T, fx *reviewFixture) *ReviewThreadWithMessages {
 				fx.advanceTree(t)
 
@@ -595,7 +595,7 @@ func TestCreateReviewThreadPicksTheRound(t *testing.T) {
 			wantOrdinal: 1,
 		},
 		{
-			name: "naming the snapshot it holds comments on after somebody took a newer round",
+			name: "naming the snapshot it holds comments on after somebody took a newer snapshot",
 			write: func(t *testing.T, fx *reviewFixture) *ReviewThreadWithMessages {
 				fx.writeCommentOn(t, personAuthor, firstSnapshot)
 				fx.advanceTree(t)
@@ -605,7 +605,7 @@ func TestCreateReviewThreadPicksTheRound(t *testing.T) {
 			wantOrdinal: 1,
 		},
 		{
-			name: "naming no snapshot while holding comments on an older round",
+			name: "naming no snapshot while holding comments on an older snapshot",
 			write: func(t *testing.T, fx *reviewFixture) *ReviewThreadWithMessages {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 				fx.advanceTree(t)
@@ -631,9 +631,9 @@ func TestCreateReviewThreadPicksTheRound(t *testing.T) {
 
 			written := tt.write(t, fx)
 
-			round, err := fx.reviews.GetRound(t.Context(), written.Thread.RoundID)
+			snapshot, err := fx.reviews.GetSnapshot(t.Context(), written.Thread.SnapshotID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
+			assert.Equal(t, tt.wantOrdinal, snapshot.Ordinal)
 		})
 	}
 }
@@ -647,7 +647,7 @@ func TestASecondReview(t *testing.T) {
 		wantErrText string
 	}{
 		{
-			name: "the reviewer on a round it has reviewed",
+			name: "the reviewer on a snapshot it has reviewed",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 				fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
@@ -657,7 +657,7 @@ func TestASecondReview(t *testing.T) {
 			wantErr: ErrReviewAlreadyGiven,
 		},
 		{
-			name: "the reviewer going back to a round it reviewed",
+			name: "the reviewer going back to a snapshot it reviewed",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				reviewer := newAgentAuthor(fx.reviewer)
 				fx.writeComment(t, reviewer, "this needs a nil check")
@@ -671,7 +671,7 @@ func TestASecondReview(t *testing.T) {
 			wantErr: ErrReviewAlreadyGiven,
 		},
 		{
-			name: "a comment on a newer round while holding comments on an older one",
+			name: "a comment on a newer snapshot while holding comments on an older one",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 				fx.advanceTree(t)
@@ -679,10 +679,10 @@ func TestASecondReview(t *testing.T) {
 				return fx.tryComment(t, newAgentAuthor(fx.reviewer), secondSnapshot)
 			},
 			wantErr:     errReviewInFlight,
-			wantErrText: "round 1",
+			wantErrText: "snapshot 1",
 		},
 		{
-			name: "the person commenting on a newer round while holding comments on an older one",
+			name: "the person commenting on a newer snapshot while holding comments on an older one",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				fx.writeComment(t, personAuthor, "this needs a nil check")
 				fx.advanceTree(t)
@@ -691,7 +691,7 @@ func TestASecondReview(t *testing.T) {
 			},
 		},
 		{
-			name: "the person commenting on an older round while holding comments on a newer one",
+			name: "the person commenting on an older snapshot while holding comments on a newer one",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				fx.advanceTree(t)
 				fx.writeCommentOn(t, personAuthor, secondSnapshot)
@@ -1071,7 +1071,7 @@ func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *r
 		Tracer:      history.NewTracer(gittest.NoRepo{}),
 	})
 
-	_, err := service.OpenRound(t.Context(), *writer.TaskID, personAuthor)
+	_, err := service.TakeSnapshot(t.Context(), *writer.TaskID, personAuthor)
 	require.NoError(t, err)
 
 	return &reviewFixture{
@@ -1094,7 +1094,7 @@ func newAgentAuthor(agent *agentstore.Agent) ReviewAuthor {
 	}
 }
 
-// releaseFirstReview has the person release one comment on round one, returning its thread.
+// releaseFirstReview has the person release one comment on snapshot one, returning its thread.
 func (fx *reviewFixture) releaseFirstReview(t *testing.T) reviewstore.Thread {
 	t.Helper()
 
@@ -1136,7 +1136,7 @@ func (fx *reviewFixture) writeCommentOn(t *testing.T, author ReviewAuthor, snaps
 	return written
 }
 
-// tryComment writes a comment on the snapshot named, or on whatever round the author is reading when it names none.
+// tryComment writes a comment on the snapshot named, or on whatever snapshot the author is reading when it names none.
 func (fx *reviewFixture) tryComment(t *testing.T, author ReviewAuthor, snapshot string) error {
 	t.Helper()
 
@@ -1191,15 +1191,15 @@ func (fx *reviewFixture) settle(t *testing.T, threadID string, author ReviewAuth
 	return settled
 }
 
-// advanceTree has the writer write something and the person take round two of it.
-func (fx *reviewFixture) advanceTree(t *testing.T) *reviewstore.Round {
+// advanceTree has the writer write something and the person take snapshot two of it.
+func (fx *reviewFixture) advanceTree(t *testing.T) *reviewstore.Snapshot {
 	t.Helper()
 
 	fx.snapshots.SHA = secondSnapshot
-	round, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, personAuthor)
+	snapshot, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
 	require.NoError(t, err)
 
-	return round
+	return snapshot
 }
 
 // listMail is every piece of mail addressed to an agent, oldest first.

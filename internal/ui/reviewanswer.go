@@ -12,9 +12,9 @@ import (
 // reviewAnswer is the answer to one comment on screen: the change the reply that addressed it
 // carried.
 type reviewAnswer struct {
-	ThreadID  string
-	FromRound string
-	ToRound   string
+	ThreadID     string
+	FromSnapshot string
+	ToSnapshot   string
 	// held is the range on screen before the answer, which leaving it puts back.
 	held  diffSpec
 	place *diffview.Place
@@ -41,16 +41,16 @@ func (r *reviewScreen) toggleAnswer(m *model) tea.Cmd {
 		return nil
 	}
 
-	toRound, ok := findAnswerRound(thread)
+	toSnapshot, ok := findAnswerSnapshot(thread)
 	if !ok {
 		return nil
 	}
 
 	answer := &reviewAnswer{
-		ThreadID:  thread.GetId(),
-		FromRound: thread.GetRoundId(),
-		ToRound:   toRound,
-		held:      r.diff.spec,
+		ThreadID:     thread.GetId(),
+		FromSnapshot: thread.GetSnapshotId(),
+		ToSnapshot:   toSnapshot,
+		held:         r.diff.spec,
 	}
 	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
 		answer.place = &place
@@ -72,7 +72,7 @@ func (r reviewScreen) doesOfferAnswer() bool {
 		return false
 	}
 
-	_, ok = findAnswerRound(thread)
+	_, ok = findAnswerSnapshot(thread)
 
 	return ok
 }
@@ -86,21 +86,21 @@ func (d reviewDiff) answerDesc() string {
 	return "the answer"
 }
 
-// findAnswerRound is the round the newest reply that addressed a comment carried.
-func findAnswerRound(thread *agentv1.ReviewThread) (string, bool) {
+// findAnswerSnapshot is the snapshot the newest reply that addressed a comment carried.
+func findAnswerSnapshot(thread *agentv1.ReviewThread) (string, bool) {
 	answered := findAnswer(thread)
 	if answered < 0 {
 		return "", false
 	}
 
-	return thread.GetMessages()[answered].GetRoundId(), true
+	return thread.GetMessages()[answered].GetSnapshotId(), true
 }
 
 // findAnswer is where the newest reply that addressed a comment sits in its thread, -1 for none.
 func findAnswer(thread *agentv1.ReviewThread) int {
 	said := thread.GetMessages()
 	for i := len(said) - 1; i >= 0; i-- {
-		if said[i].GetRoundId() != "" {
+		if said[i].GetSnapshotId() != "" {
 			return i
 		}
 	}
@@ -108,21 +108,21 @@ func findAnswer(thread *agentv1.ReviewThread) int {
 	return -1
 }
 
-// addressedSaid names the round an addressed reply carried, empty for a round the review no
+// addressedSaid names the snapshot an addressed reply carried, empty for a snapshot the review no
 // longer lists.
 func (d reviewDiff) addressedSaid(message *agentv1.ReviewMessage) string {
-	round := findRound(d.rounds, message.GetRoundId())
-	if round == nil {
+	snapshot := findSnapshot(d.snapshots, message.GetSnapshotId())
+	if snapshot == nil {
 		return ""
 	}
 
-	return fmt.Sprintf("addressed in round %d", round.GetOrdinal())
+	return fmt.Sprintf("addressed in snapshot %d", snapshot.GetOrdinal())
 }
 
-func findRound(rounds []*agentv1.ReviewRound, id string) *agentv1.ReviewRound {
-	for _, round := range rounds {
-		if round.GetId() == id {
-			return round
+func findSnapshot(snapshots []*agentv1.ReviewSnapshot, id string) *agentv1.ReviewSnapshot {
+	for _, snapshot := range snapshots {
+		if snapshot.GetId() == id {
+			return snapshot
 		}
 	}
 

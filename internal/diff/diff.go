@@ -58,7 +58,7 @@ func (f File) Path() string {
 	return f.OldPath
 }
 
-// Patch is everything one round holds, measured against the base the round was taken against.
+// Patch is everything one snapshot holds, measured against the base the snapshot was taken against.
 type Patch struct {
 	Root        string
 	BaseSHA     string

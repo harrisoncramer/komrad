@@ -553,7 +553,7 @@ func TestASurvivingLineTracesToItself(t *testing.T) {
 		old[index] = fmt.Sprintf("original %d", index+1)
 	}
 
-	for round := range 200 {
+	for snapshot := range 200 {
 		edit := buildScript(random, fileLines)
 		next := edit.apply(old)
 
@@ -573,18 +573,18 @@ func TestASurvivingLineTracesToItself(t *testing.T) {
 			Mappings:  edit.mappings(),
 			Policy:    OmitOnConflict,
 		})
-		require.Len(t, results, len(positions), "round %d answered for the wrong number of positions", round)
+		require.Len(t, results, len(positions), "snapshot %d answered for the wrong number of positions", snapshot)
 
 		for index, result := range results {
 			require.Equal(t, Placed, result.Outcome,
-				"round %d dropped an untouched line %d", round, positions[index].Lines.Start)
+				"snapshot %d dropped an untouched line %d", snapshot, positions[index].Lines.Start)
 			require.True(t, result.Position.Lines.IsValid(),
-				"round %d placed line %d as %v", round, positions[index].Lines.Start, result.Position.Lines)
+				"snapshot %d placed line %d as %v", snapshot, positions[index].Lines.Start, result.Position.Lines)
 			require.GreaterOrEqual(t, result.Position.Lines.Start, 1)
 			require.LessOrEqual(t, result.Position.Lines.Start, len(next),
-				"round %d placed line %d past the end of the file", round, positions[index].Lines.Start)
+				"snapshot %d placed line %d past the end of the file", snapshot, positions[index].Lines.Start)
 			assert.Equal(t, wanted[index], next[result.Position.Lines.Start-1],
-				"round %d moved line %d onto the wrong content", round, positions[index].Lines.Start)
+				"snapshot %d moved line %d onto the wrong content", snapshot, positions[index].Lines.Start)
 		}
 	}
 }
@@ -605,7 +605,7 @@ func TestAnInsertionPointIsPlacedOrRefused(t *testing.T) {
 
 	const fileLines = 50
 
-	for round := range 200 {
+	for snapshot := range 200 {
 		edit := buildScript(random, fileLines)
 
 		for gap := 1; gap <= fileLines+1; gap++ {
@@ -618,17 +618,17 @@ func TestAnInsertionPointIsPlacedOrRefused(t *testing.T) {
 
 			if edit.doesSwallowGap(gap) {
 				assert.Equal(t, dropped, results[0].Outcome,
-					"round %d placed gap %d that a rewritten region swallowed", round, gap)
+					"snapshot %d placed gap %d that a rewritten region swallowed", snapshot, gap)
 
 				continue
 			}
 
 			require.Equal(t, Placed, results[0].Outcome,
-				"round %d refused gap %d that nothing swallowed", round, gap)
+				"snapshot %d refused gap %d that nothing swallowed", snapshot, gap)
 			assert.True(t, results[0].Position.Lines.IsEmpty(),
-				"round %d turned gap %d into a range of lines", round, gap)
+				"snapshot %d turned gap %d into a range of lines", snapshot, gap)
 			assert.True(t, results[0].Position.Lines.IsValid(),
-				"round %d placed gap %d as %v", round, gap, results[0].Position.Lines)
+				"snapshot %d placed gap %d as %v", snapshot, gap, results[0].Position.Lines)
 		}
 	}
 }
@@ -645,7 +645,7 @@ func TestEveryPositionIsAnsweredExactlyOnce(t *testing.T) {
 		old[index] = fmt.Sprintf("original %d", index+1)
 	}
 
-	for round := range 200 {
+	for snapshot := range 200 {
 		edit := buildScript(random, fileLines)
 
 		positions := make([]Position, 0, fileLines)
@@ -662,10 +662,10 @@ func TestEveryPositionIsAnsweredExactlyOnce(t *testing.T) {
 			require.Len(t, results, len(positions))
 
 			for index, result := range results {
-				require.Equal(t, index, result.Index, "round %d answered out of order", round)
+				require.Equal(t, index, result.Index, "snapshot %d answered out of order", snapshot)
 				if result.Outcome == Placed {
 					require.True(t, result.Position.Lines.IsValid(),
-						"round %d placed %v", round, result.Position.Lines)
+						"snapshot %d placed %v", snapshot, result.Position.Lines)
 				}
 			}
 		}
@@ -679,7 +679,7 @@ func TestOnlyARewrittenLineConflicts(t *testing.T) {
 
 	const fileLines = 50
 
-	for round := range 200 {
+	for snapshot := range 200 {
 		edit := buildScript(random, fileLines)
 
 		for line := 1; line <= fileLines; line++ {
@@ -692,13 +692,13 @@ func TestOnlyARewrittenLineConflicts(t *testing.T) {
 
 			if edit.doesTouch(line) {
 				assert.Equal(t, fileOnly, results[0].Outcome,
-					"round %d placed line %d that was written over", round, line)
+					"snapshot %d placed line %d that was written over", snapshot, line)
 
 				continue
 			}
 
 			assert.Equal(t, Placed, results[0].Outcome,
-				"round %d refused line %d that nothing touched", round, line)
+				"snapshot %d refused line %d that nothing touched", snapshot, line)
 		}
 	}
 }

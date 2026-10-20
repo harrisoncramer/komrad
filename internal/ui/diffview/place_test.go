@@ -338,7 +338,7 @@ func TestPinKeepsAMarkedQuoteOffACollidingLine(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	assert.Equal(t, adrift, view.placed[thread.GetId()],
-		"a context line the newer round renders as a deletion is gone")
+		"a context line the newer snapshot renders as a deletion is gone")
 }
 
 // TestPinSkipsTheOldSideWhenItIsForeign covers a thread whose old side was counted from another
@@ -399,7 +399,7 @@ func TestPinHoldsASpaceIndentedQuoteThatNothingTouched(t *testing.T) {
 		Hunks: []diff.Hunk{hunkOf(
 			diff.Line{
 				Kind:      diff.Addition,
-				Text:      "  int32 local_review_rounds = 40;",
+				Text:      "  int32 local_review_snapshots = 40;",
 				NewNumber: 10,
 			},
 			diff.Line{
@@ -566,7 +566,7 @@ func TestACommentOnAFileThatHasLeftTheChangeSaysSo(t *testing.T) {
 }
 
 // TestACommentOutsideANarrowedDiffIsNotGone covers the same comment on a diff that is a slice of
-// the change, where the file may be in the rounds the reader has stepped past.
+// the change, where the file may be in the snapshots the reader has stepped past.
 func TestACommentOutsideANarrowedDiffIsNotGone(t *testing.T) {
 	view := expandableView()
 	view.SetNarrowed(true)
@@ -591,7 +591,7 @@ func threadAt(id, path string, oldStart, newStart int32, quote string) *agentv1.
 	}
 }
 
-// renamedPatch is a file the round renamed, whose lines the diff renders under the new name.
+// renamedPatch is a file the snapshot renamed, whose lines the diff renders under the new name.
 func renamedPatch() *diff.Patch {
 	return patchWith(diff.File{
 		OldPath: "greet.go",

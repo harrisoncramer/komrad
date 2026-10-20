@@ -304,14 +304,14 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1.GetAgentRequest) (*
 	drawn := assemble.AgentRows(world, s.now())[0]
 
 	return &agentv1.GetAgentResponse{
-		Agent:             drawn.GetAgent(),
-		UnreadMail:        drawn.GetUnreadMail(),
-		PullRequest:       drawn.GetPullRequest(),
-		PullRequests:      drawn.GetPullRequests(),
-		LocalReviewRounds: drawn.GetLocalReviewRounds(),
-		ReviewerComments:  drawn.ReviewerComments,
-		PersonComments:    drawn.PersonComments,
-		Task:              world.Tasks[drawn.GetAgent().GetTaskId()],
+		Agent:                drawn.GetAgent(),
+		UnreadMail:           drawn.GetUnreadMail(),
+		PullRequest:          drawn.GetPullRequest(),
+		PullRequests:         drawn.GetPullRequests(),
+		LocalReviewSnapshots: drawn.GetLocalReviewSnapshots(),
+		ReviewerComments:     drawn.ReviewerComments,
+		PersonComments:       drawn.PersonComments,
+		Task:                 world.Tasks[drawn.GetAgent().GetTaskId()],
 	}, nil
 }
 

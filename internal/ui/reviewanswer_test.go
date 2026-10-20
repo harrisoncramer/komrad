@@ -16,19 +16,19 @@ import (
 func TestReviewAnswer(t *testing.T) {
 	t.Run("a comment nobody has addressed has no answer to show", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAgentMessage("m2", "why?"))}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAgentMessage("m2", "why?"))}
 		harness := openReview(t, server)
 
 		harness.press("t", "?")
 		require.NotContains(t, readLegend(harness.readFrame()), "the answer")
 		harness.press("?", "a")
 
-		assert.Contains(t, readStageText(harness.readFrame()), "where the task starts ▸ round 2")
+		assert.Contains(t, readStageText(harness.readFrame()), "where the task starts ▸ snapshot 2")
 	})
 
 	t.Run("the answer key renders the change the answer carried", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
 
 		harness.press("t", "space")
@@ -42,18 +42,18 @@ func TestReviewAnswer(t *testing.T) {
 		harness.press("space", "a")
 
 		frame = harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
-	t.Run("the answer key leaves out what earlier answers changed since the comment's round", func(t *testing.T) {
+	t.Run("the answer key leaves out what earlier answers changed since the comment's snapshot", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.rounds = append(server.rounds, &agentv1.ReviewRound{
-			Id:          "round-2",
-			TaskId:      "t1",
-			Ordinal:     2,
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: gittest.NameSnapshot(server.repo.Tree),
+		server.snapshots = append(server.snapshots, &agentv1.ReviewSnapshot{
+			Id:      "snapshot-2",
+			TaskId:  "t1",
+			Ordinal: 2,
+			BaseSha: gittest.BaseSHA,
+			Sha:     gittest.NameSnapshot(server.repo.Tree),
 		})
 		server.repo.Wrote(gittest.WroteParams{
 			Tree:  "tree-with-a-tall-file",
@@ -62,16 +62,16 @@ func TestReviewAnswer(t *testing.T) {
 		})
 		server.repo.Patches[gittest.NamePair(gittest.SnapshotSHA, gittest.NameSnapshot(server.repo.Tree))] =
 			gittest.PatchOfTheSecondFile + gittest.PatchOfATallFile
-		server.rounds = append(server.rounds, &agentv1.ReviewRound{
-			Id:          "round-3",
-			TaskId:      "t1",
-			Ordinal:     3,
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: gittest.NameSnapshot(server.repo.Tree),
+		server.snapshots = append(server.snapshots, &agentv1.ReviewSnapshot{
+			Id:      "snapshot-3",
+			TaskId:  "t1",
+			Ordinal: 3,
+			BaseSha: gittest.BaseSHA,
+			Sha:     gittest.NameSnapshot(server.repo.Tree),
 		})
 		answer := newAnswer()
-		answer.RoundId = xptr.Ptr("round-3")
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(answer)}
+		answer.SnapshotId = xptr.Ptr("snapshot-3")
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(answer)}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
 
 		harness.press("t", "space", "a")
@@ -84,7 +84,7 @@ func TestReviewAnswer(t *testing.T) {
 
 	t.Run("leaving the answer puts the cursor back on the comment", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
 
 		harness.press("t", "space", "a")
@@ -92,25 +92,25 @@ func TestReviewAnswer(t *testing.T) {
 		harness.press("j", "space", "a")
 
 		frame := harness.readFrame()
-		require.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
+		require.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
 		assert.Contains(t, readPopupProse(frame), "add a second file")
 	})
 
-	t.Run("an answer taken after the screen opened is found among the rounds listed afresh", func(t *testing.T) {
+	t.Run("an answer taken after the screen opened is found among the snapshots listed afresh", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne()}
 		harness := openReview(t, server)
 
 		answer := newAnswer()
-		answer.RoundId = xptr.Ptr("round-3")
-		server.rounds = append(server.rounds, &agentv1.ReviewRound{
-			Id:          "round-3",
-			TaskId:      "t1",
-			Ordinal:     3,
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: server.rounds[len(server.rounds)-1].GetSnapshotSha(),
+		answer.SnapshotId = xptr.Ptr("snapshot-3")
+		server.snapshots = append(server.snapshots, &agentv1.ReviewSnapshot{
+			Id:      "snapshot-3",
+			TaskId:  "t1",
+			Ordinal: 3,
+			BaseSha: gittest.BaseSHA,
+			Sha:     server.snapshots[len(server.snapshots)-1].GetSha(),
 		})
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(answer)}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(answer)}
 		harness.watch(server.buildSnapshot())
 
 		harness.press("t", "space", "a")
@@ -122,7 +122,7 @@ func TestReviewAnswer(t *testing.T) {
 
 	t.Run("an answer across a rebase is replayed onto the answer's base", func(t *testing.T) {
 		server := newMovedBaseServer(t, replayedTree)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
 		harness := openReview(t, server)
 
 		harness.press("t", "space", "a")
@@ -134,32 +134,32 @@ func TestReviewAnswer(t *testing.T) {
 
 	t.Run("an answer the rebase conflicts with is refused and names the paths", func(t *testing.T) {
 		server := newMovedBaseServer(t, "a-tree-with-markers-in-it", gittest.File, "second.go")
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
 		harness := openReview(t, server)
 
 		harness.press("t", "space", "a")
 
 		frame := harness.readFrame()
 		assert.Contains(t, readOpenMessages(harness), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
 		require.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
-	t.Run("the whole change renders no rule but still names the answer's round", func(t *testing.T) {
+	t.Run("the whole change renders no rule but still names the answer's snapshot", func(t *testing.T) {
 		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
 
 		harness.press("t")
 
 		said := readPopupProse(harness.readFrame())
 		assert.NotContains(t, said, laterRule)
-		assert.Contains(t, said, "addressed in round 2")
+		assert.Contains(t, said, "addressed in snapshot 2")
 	})
 
-	t.Run("only the newest addressed reply names its round", func(t *testing.T) {
+	t.Run("only the newest addressed reply names its snapshot", func(t *testing.T) {
 		server := newLaterRepliesServer(t)
 		earlier := newAgentMessage("m0", "first try")
 		earlier.CreatedAt = "2026-09-08T09:15:00Z"
-		earlier.RoundId = xptr.Ptr("round-1")
+		earlier.SnapshotId = xptr.Ptr("snapshot-1")
 		thread := server.threads[0]
 		thread.Messages = slices.Insert(thread.Messages, 1, earlier)
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
@@ -167,22 +167,22 @@ func TestReviewAnswer(t *testing.T) {
 		harness.press("t")
 
 		said := readPopupProse(harness.readFrame())
-		assert.NotContains(t, said, "addressed in round 1")
-		assert.Contains(t, said, "addressed in round 2")
+		assert.NotContains(t, said, "addressed in snapshot 1")
+		assert.Contains(t, said, "addressed in snapshot 2")
 	})
 }
 
-func newCommentOnRoundOne(replies ...*agentv1.ReviewMessage) *agentv1.ReviewThread {
+func newCommentOnSnapshotOne(replies ...*agentv1.ReviewMessage) *agentv1.ReviewThread {
 	thread := newThreadOnFirstLine(append([]*agentv1.ReviewMessage{newHumanMessage("m1", "add a second file")}, replies...)...)
-	thread.RoundId = "round-1"
-	thread.RoundOrdinal = 1
+	thread.SnapshotId = "snapshot-1"
+	thread.SnapshotOrdinal = 1
 
 	return thread
 }
 
 func newAnswer() *agentv1.ReviewMessage {
 	answer := newAgentMessage("m2", "added it")
-	answer.RoundId = xptr.Ptr("round-2")
+	answer.SnapshotId = xptr.Ptr("snapshot-2")
 
 	return answer
 }
@@ -193,14 +193,14 @@ func newLaterRepliesServer(t *testing.T) *reviewServer {
 	t.Helper()
 
 	server := newEarlierReviewServer(t)
-	server.rounds[0].CreatedAt = "2026-09-08T09:00:00Z"
-	server.rounds = append(server.rounds, &agentv1.ReviewRound{
-		Id:          "round-2",
-		TaskId:      "t1",
-		Ordinal:     2,
-		BaseSha:     gittest.BaseSHA,
-		SnapshotSha: gittest.NameSnapshot(server.repo.Tree),
-		CreatedAt:   "2026-09-08T10:30:00Z",
+	server.snapshots[0].CreatedAt = "2026-09-08T09:00:00Z"
+	server.snapshots = append(server.snapshots, &agentv1.ReviewSnapshot{
+		Id:        "snapshot-2",
+		TaskId:    "t1",
+		Ordinal:   2,
+		BaseSha:   gittest.BaseSHA,
+		Sha:       gittest.NameSnapshot(server.repo.Tree),
+		CreatedAt: "2026-09-08T10:30:00Z",
 	})
 
 	comment := newHumanMessage("m1", "add a second file")
@@ -209,13 +209,13 @@ func newLaterRepliesServer(t *testing.T) *reviewServer {
 	looking.CreatedAt = "2026-09-08T09:20:00Z"
 	answer := newAgentMessage("m3", "added it")
 	answer.CreatedAt = "2026-09-08T10:40:00Z"
-	answer.RoundId = xptr.Ptr("round-2")
+	answer.SnapshotId = xptr.Ptr("snapshot-2")
 	thanks := newHumanMessage("m4", "thanks")
 	thanks.CreatedAt = "2026-09-08T10:50:00Z"
 
 	thread := newThreadOnFirstLine(comment, looking, answer, thanks)
-	thread.RoundId = "round-1"
-	thread.RoundOrdinal = 1
+	thread.SnapshotId = "snapshot-1"
+	thread.SnapshotOrdinal = 1
 	server.threads = []*agentv1.ReviewThread{thread}
 
 	return server

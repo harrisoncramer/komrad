@@ -571,8 +571,8 @@ type AgentRow struct {
 	PullRequest *PullRequestStanding `protobuf:"bytes,3,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
 	// Every pull request from the agent's branch, the current one first.
 	PullRequests []*v1.PullRequest `protobuf:"bytes,4,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
-	// How many review rounds the agent's work has.
-	LocalReviewRounds int32 `protobuf:"varint,5,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
+	// How many review snapshots the agent's work has.
+	LocalReviewSnapshots int32 `protobuf:"varint,5,opt,name=local_review_snapshots,json=localReviewSnapshots,proto3" json:"local_review_snapshots,omitempty"`
 	// The comments reviewers have left on the agent's work. Unset while there are none.
 	ReviewerComments *CommentCounts `protobuf:"bytes,6,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
 	// The comments the person has left on the agent's work. Unset while there are none.
@@ -639,9 +639,9 @@ func (x *AgentRow) GetPullRequests() []*v1.PullRequest {
 	return nil
 }
 
-func (x *AgentRow) GetLocalReviewRounds() int32 {
+func (x *AgentRow) GetLocalReviewSnapshots() int32 {
 	if x != nil {
-		return x.LocalReviewRounds
+		return x.LocalReviewSnapshots
 	}
 	return 0
 }
@@ -663,9 +663,9 @@ func (x *AgentRow) GetPersonComments() *CommentCounts {
 // CommentCounts counts the comments on an agent's work.
 type CommentCounts struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// How many comments are not resolved, on any round.
+	// How many comments are not resolved, on any snapshot.
 	Open int32 `protobuf:"varint,1,opt,name=open,proto3" json:"open,omitempty"`
-	// How many comments are resolved, on rounds that have not landed.
+	// How many comments are resolved, on snapshots that have not landed.
 	Resolved int32 `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
 	// How many comments hold a reply the person has not read.
 	Unread        int32 `protobuf:"varint,3,opt,name=unread,proto3" json:"unread,omitempty"`
@@ -1485,8 +1485,8 @@ type GetAgentResponse struct {
 	PullRequest *PullRequestStanding `protobuf:"bytes,3,opt,name=pull_request,json=pullRequest,proto3" json:"pull_request,omitempty"`
 	// Every pull request from the agent's branch, the current one first.
 	PullRequests []*v1.PullRequest `protobuf:"bytes,4,rep,name=pull_requests,json=pullRequests,proto3" json:"pull_requests,omitempty"`
-	// How many review rounds the agent's work has.
-	LocalReviewRounds int32 `protobuf:"varint,5,opt,name=local_review_rounds,json=localReviewRounds,proto3" json:"local_review_rounds,omitempty"`
+	// How many review snapshots the agent's work has.
+	LocalReviewSnapshots int32 `protobuf:"varint,5,opt,name=local_review_snapshots,json=localReviewSnapshots,proto3" json:"local_review_snapshots,omitempty"`
 	// The comments reviewers have left on the agent's work. Unset while there are none.
 	ReviewerComments *CommentCounts `protobuf:"bytes,6,opt,name=reviewer_comments,json=reviewerComments,proto3,oneof" json:"reviewer_comments,omitempty"`
 	// The comments the person has left on the agent's work. Unset while there are none.
@@ -1555,9 +1555,9 @@ func (x *GetAgentResponse) GetPullRequests() []*v1.PullRequest {
 	return nil
 }
 
-func (x *GetAgentResponse) GetLocalReviewRounds() int32 {
+func (x *GetAgentResponse) GetLocalReviewSnapshots() int32 {
 	if x != nil {
-		return x.LocalReviewRounds
+		return x.LocalReviewSnapshots
 	}
 	return 0
 }
@@ -3458,14 +3458,14 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
 	"\b_task_idB\f\n" +
 	"\n" +
-	"_task_slug\"\xc2\x03\n" +
+	"_task_slug\"\xc8\x03\n" +
 	"\bAgentRow\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1f\n" +
 	"\vunread_mail\x18\x02 \x01(\bR\n" +
 	"unreadMail\x12@\n" +
 	"\fpull_request\x18\x03 \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest\x12@\n" +
-	"\rpull_requests\x18\x04 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12.\n" +
-	"\x13local_review_rounds\x18\x05 \x01(\x05R\x11localReviewRounds\x12I\n" +
+	"\rpull_requests\x18\x04 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x124\n" +
+	"\x16local_review_snapshots\x18\x05 \x01(\x05R\x14localReviewSnapshots\x12I\n" +
 	"\x11reviewer_comments\x18\x06 \x01(\v2\x17.agent.v1.CommentCountsH\x00R\x10reviewerComments\x88\x01\x01\x12E\n" +
 	"\x0fperson_comments\x18\a \x01(\v2\x17.agent.v1.CommentCountsH\x01R\x0epersonComments\x88\x01\x01B\x14\n" +
 	"\x12_reviewer_commentsB\x12\n" +
@@ -3550,14 +3550,14 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1a\n" +
 	"\bexisting\x18\x02 \x01(\bR\bexisting\"*\n" +
 	"\x0fGetAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xfb\x03\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\x81\x04\n" +
 	"\x10GetAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1f\n" +
 	"\vunread_mail\x18\x02 \x01(\bR\n" +
 	"unreadMail\x12@\n" +
 	"\fpull_request\x18\x03 \x01(\v2\x1d.agent.v1.PullRequestStandingR\vpullRequest\x12@\n" +
-	"\rpull_requests\x18\x04 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12.\n" +
-	"\x13local_review_rounds\x18\x05 \x01(\x05R\x11localReviewRounds\x12I\n" +
+	"\rpull_requests\x18\x04 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x124\n" +
+	"\x16local_review_snapshots\x18\x05 \x01(\x05R\x14localReviewSnapshots\x12I\n" +
 	"\x11reviewer_comments\x18\x06 \x01(\v2\x17.agent.v1.CommentCountsH\x00R\x10reviewerComments\x88\x01\x01\x12E\n" +
 	"\x0fperson_comments\x18\a \x01(\v2\x17.agent.v1.CommentCountsH\x01R\x0epersonComments\x88\x01\x01\x12&\n" +
 	"\x04task\x18\b \x01(\v2\r.task.v1.TaskH\x02R\x04task\x88\x01\x01B\x14\n" +
@@ -3714,7 +3714,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062\xbd\x88\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062\xef\x88\x01\n" +
 	"\fAgentService\x12\x82\x02\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb8\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\vlist_agents\"\x97\x01List the agents komrad tracks, most recently updated first, each with the opening of its prompt. Archived agents are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x9e\x01\n" +
@@ -3757,10 +3757,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12DeleteDocumentType\x12#.agent.v1.DeleteDocumentTypeRequest\x1a\x16.google.protobuf.Empty\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x1a\x14delete_document_type\"IDelete a document type. Komrad refuses while documents of the type exist.BlA document type's context is instructions every agent follows, so only the person decides which types exist.\x90\x02\x02\x12\xe9\x01\n" +
 	"\fRecordReport\x12\x1d.agent.v1.RecordReportRequest\x1a\x16.google.protobuf.Empty\"\xa1\x01\x9a\xb5\x18\x99\x01B\x96\x01Only komrad's CLI hook command calls this, to pass on what an agent's CLI did, and an agent calling it could claim its turn ended while still working.\x90\x02\x02\x12\xe0\x01\n" +
 	"\x0eClaimMailNudge\x12\x16.google.protobuf.Empty\x1a .agent.v1.ClaimMailNudgeResponse\"\x93\x01\x9a\xb5\x18\x8e\x01B\x8b\x01Only komrad's CLI hook calls this as an agent's turn ends, and an agent calling it would use up the mail notice komrad types into its pane.\x12\x93\x01\n" +
-	"\fMarkRunsRead\x12\x1d.agent.v1.MarkRunsReadRequest\x1a\x16.google.protobuf.Empty\"L\x9a\xb5\x18EBCOnly the person can say they have seen an agent's failed hook runs.\x90\x02\x02\x12\xae\x02\n" +
-	"\x11ListReviewThreads\x12\".agent.v1.ListReviewThreadsRequest\x1a#.agent.v1.ListReviewThreadsResponse\"\xcf\x01\x9a\xb5\x18\xc7\x01\b\x01\x10\x01\x1a\x13list_review_threads\"\xa6\x01List the threads on a task's diff, the caller's task by default. Line numbers are true of each thread's round, so search for the quoted lines once the code has moved.:\x03\x03\x01\x02\x90\x02\x01\x12\x9d\x03\n" +
-	"\x12CreateReviewThread\x12#.agent.v1.CreateReviewThreadRequest\x1a$.agent.v1.CreateReviewThreadResponse\"\xbb\x02\x9a\xb5\x18\xb6\x02\b\x01\x10\x01\x1a\x14create_review_thread\"\xdb\x01Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the round's `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.(\x000\x00:\x01\x01J5The body limit is a ceiling, not a length to aim for.\x12\x98\x04\n" +
-	"\x10AddReviewMessage\x12!.agent.v1.AddReviewMessageRequest\x1a\".agent.v1.AddReviewMessageResponse\"\xbc\x03\x9a\xb5\x18\xb7\x03\b\x01\x10\x01\x1a\x12add_review_message\"\xb3\x02Reply in a thread on the caller's own diff. With `addressed` set, the reply pins a new round of the worktree, and resolves a thread the person started. A thread a reviewer started stays open for that reviewer to resolve. Komrad refuses `addressed` when the worktree has not changed since the thread's round.(\x000\x00:\x03\x03\x01\x02J^Make the change before replying with addressed set. Leave addressed unset to push back or ask.\x12\xc0\x01\n" +
+	"\fMarkRunsRead\x12\x1d.agent.v1.MarkRunsReadRequest\x1a\x16.google.protobuf.Empty\"L\x9a\xb5\x18EBCOnly the person can say they have seen an agent's failed hook runs.\x90\x02\x02\x12\xb1\x02\n" +
+	"\x11ListReviewThreads\x12\".agent.v1.ListReviewThreadsRequest\x1a#.agent.v1.ListReviewThreadsResponse\"\xd2\x01\x9a\xb5\x18\xca\x01\b\x01\x10\x01\x1a\x13list_review_threads\"\xa9\x01List the threads on a task's diff, the caller's task by default. Line numbers are true of each thread's snapshot, so search for the quoted lines once the code has moved.:\x03\x03\x01\x02\x90\x02\x01\x12\xa0\x03\n" +
+	"\x12CreateReviewThread\x12#.agent.v1.CreateReviewThreadRequest\x1a$.agent.v1.CreateReviewThreadResponse\"\xbe\x02\x9a\xb5\x18\xb9\x02\b\x01\x10\x01\x1a\x14create_review_thread\"\xde\x01Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.(\x000\x00:\x01\x01J5The body limit is a ceiling, not a length to aim for.\x12\x9e\x04\n" +
+	"\x10AddReviewMessage\x12!.agent.v1.AddReviewMessageRequest\x1a\".agent.v1.AddReviewMessageResponse\"\xc2\x03\x9a\xb5\x18\xbd\x03\b\x01\x10\x01\x1a\x12add_review_message\"\xb9\x02Reply in a thread on the caller's own diff. With `addressed` set, the reply pins a new snapshot of the worktree, and resolves a thread the person started. A thread a reviewer started stays open for that reviewer to resolve. Komrad refuses `addressed` when the worktree has not changed since the thread's snapshot.(\x000\x00:\x03\x03\x01\x02J^Make the change before replying with addressed set. Leave addressed unset to push back or ask.\x12\xc0\x01\n" +
 	"\x12AcceptForgeMessage\x12#.agent.v1.AcceptForgeMessageRequest\x1a$.agent.v1.AcceptForgeMessageResponse\"_\x9a\xb5\x18[BYPassing a forge comment from someone else to an agent as review is the person's decision.\x12\xf9\x01\n" +
 	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\x9a\x01\x9a\xb5\x18\x92\x01B\x8f\x01A review message is a record of what each side knew at the time, so an agent corrects itself with another message through `add_review_message`.\x90\x02\x02\x12\xb0\x01\n" +
 	"\fReplyOnForge\x12\x1d.agent.v1.ReplyOnForgeRequest\x1a\x1e.agent.v1.ReplyOnForgeResponse\"a\x9a\xb5\x18]B[Komrad posts on the forge as the person, so only the person writes a reply that goes there.\x12\xa5\x01\n" +
@@ -3775,14 +3775,14 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\rAbortSequence\x12\x1e.agent.v1.AbortSequenceRequest\x1a\x1f.agent.v1.AbortSequenceResponse\"\xfb\x01\x9a\xb5\x18\xf6\x01\b\x01\x1a\x0eabort_sequence\"\x7fAbort the sequence in a task's checkout. Komrad keeps the checkout at a ref first and mails the task's writer what was aborted.BaAgents are told not to resolve a conflicted rebase themselves, so aborting one is for the person.\x12\xcf\x01\n" +
 	"\x11StartOrchestrator\x12\".agent.v1.StartOrchestratorRequest\x1a#.agent.v1.StartOrchestratorResponse\"q\x9a\xb5\x18j\b\x01\x10\x01\x1a\x12start_orchestrator\"KResume a workflow's orchestrator, or create one when the workflow has none.(\x00:\x01\x02\x90\x02\x02\x12\xc5\x01\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"^\x9a\xb5\x18WBUOnly the person can say they have read a thread, and komrad refuses any other caller.\x90\x02\x02\x12\xf3\x01\n" +
-	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x82\x01\x9a\xb5\x18{\b\x01\x10\x01\x1a\x15resolve_review_thread\"WResolve a thread, or reopen one. Only the thread's author or the person may resolve it.(\x000\x01:\x01\x01\x90\x02\x02\x12\xdd\x02\n" +
-	"\x0fOpenReviewRound\x12 .agent.v1.OpenReviewRoundRequest\x1a!.agent.v1.OpenReviewRoundResponse\"\x84\x02\x9a\xb5\x18\xff\x01\b\x01\x10\x01\x1a\x11open_review_round\"\xde\x01Snapshot a task's checkout as a round to review, the caller's task by default. Diff the round's `base_sha` against its `snapshot_sha` to read the change. A checkout with no change since the newest round returns that round.(\x000\x01:\x01\x01\x12\xb7\x01\n" +
-	"\x11OpenReviewHistory\x12\".agent.v1.OpenReviewHistoryRequest\x1a#.agent.v1.OpenReviewHistoryResponse\"Y\x9a\xb5\x18UBSThe history is measured from the person's own reviews, so only the person reads it.\x12\x9d\x02\n" +
-	"\x10ListReviewRounds\x12!.agent.v1.ListReviewRoundsRequest\x1a\".agent.v1.ListReviewRoundsResponse\"\xc1\x01\x9a\xb5\x18\xb9\x01\b\x01\x10\x01\x1a\x12list_review_rounds\"\x99\x01List the rounds of a task, the caller's task by default, oldest first. Diff one round's `snapshot_sha` against the next to see what changed between them.:\x03\x03\x01\x02\x90\x02\x01\x12\xd7\x01\n" +
-	"\vListReviews\x12\x1c.agent.v1.ListReviewsRequest\x1a\x1d.agent.v1.ListReviewsResponse\"\x8a\x01\x9a\xb5\x18\x82\x01\b\x01\x10\x01\x1a\flist_reviews\"iList the reviews released on a task, the caller's task by default, in round order, each with its verdict.:\x03\x03\x01\x02\x90\x02\x01\x12\xff\x01\n" +
-	"\tGetReview\x12\x1a.agent.v1.GetReviewRequest\x1a\x1b.agent.v1.GetReviewResponse\"\xb8\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\n" +
-	"get_review\"\x98\x01Read one released review in full: the verdict, the note on the work, then each thread with the code it is pinned to. Line numbers are true of the round.:\x03\x03\x01\x02\x90\x02\x01\x12\x82\x03\n" +
-	"\rReleaseReview\x12\x1e.agent.v1.ReleaseReviewRequest\x1a\x1f.agent.v1.ReleaseReviewResponse\"\xaf\x02\x9a\xb5\x18\xaa\x02\b\x01\x10\x01\x1a\x0erelease_review\"\x8c\x02Release the caller's review with a verdict: approved only when the caller started no thread on the round, changes requested when it started any. Komrad mails the agent under review once, naming the review for `get_review`. An approval tells the agent its work is done.(\x000\x00:\x01\x01\x12\xaa\x01\n" +
+	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x82\x01\x9a\xb5\x18{\b\x01\x10\x01\x1a\x15resolve_review_thread\"WResolve a thread, or reopen one. Only the thread's author or the person may resolve it.(\x000\x01:\x01\x01\x90\x02\x02\x12\xe8\x02\n" +
+	"\x12TakeReviewSnapshot\x12#.agent.v1.TakeReviewSnapshotRequest\x1a$.agent.v1.TakeReviewSnapshotResponse\"\x86\x02\x9a\xb5\x18\x81\x02\b\x01\x10\x01\x1a\x14take_review_snapshot\"\xdd\x01Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout with no change since the newest snapshot returns that snapshot.(\x000\x01:\x01\x01\x12\xb7\x01\n" +
+	"\x11OpenReviewHistory\x12\".agent.v1.OpenReviewHistoryRequest\x1a#.agent.v1.OpenReviewHistoryResponse\"Y\x9a\xb5\x18UBSThe history is measured from the person's own reviews, so only the person reads it.\x12\xaf\x02\n" +
+	"\x13ListReviewSnapshots\x12$.agent.v1.ListReviewSnapshotsRequest\x1a%.agent.v1.ListReviewSnapshotsResponse\"\xca\x01\x9a\xb5\x18\xc2\x01\b\x01\x10\x01\x1a\x15list_review_snapshots\"\x9f\x01List the snapshots of a task, the caller's task by default, oldest first. Diff one snapshot's `snapshot_sha` against the next to see what changed between them.:\x03\x03\x01\x02\x90\x02\x01\x12\xda\x01\n" +
+	"\vListReviews\x12\x1c.agent.v1.ListReviewsRequest\x1a\x1d.agent.v1.ListReviewsResponse\"\x8d\x01\x9a\xb5\x18\x85\x01\b\x01\x10\x01\x1a\flist_reviews\"lList the reviews released on a task, the caller's task by default, in snapshot order, each with its verdict.:\x03\x03\x01\x02\x90\x02\x01\x12\x82\x02\n" +
+	"\tGetReview\x12\x1a.agent.v1.GetReviewRequest\x1a\x1b.agent.v1.GetReviewResponse\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\n" +
+	"get_review\"\x9b\x01Read one released review in full: the verdict, the note on the work, then each thread with the code it is pinned to. Line numbers are true of the snapshot.:\x03\x03\x01\x02\x90\x02\x01\x12\x85\x03\n" +
+	"\rReleaseReview\x12\x1e.agent.v1.ReleaseReviewRequest\x1a\x1f.agent.v1.ReleaseReviewResponse\"\xb2\x02\x9a\xb5\x18\xad\x02\b\x01\x10\x01\x1a\x0erelease_review\"\x8f\x02Release the caller's review with a verdict: approved only when the caller started no thread on the snapshot, changes requested when it started any. Komrad mails the agent under review once, naming the review for `get_review`. An approval tells the agent its work is done.(\x000\x00:\x01\x01\x12\xaa\x01\n" +
 	"\x13SetReviewFileViewed\x12$.agent.v1.SetReviewFileViewedRequest\x1a%.agent.v1.SetReviewFileViewedResponse\"F\x9a\xb5\x18?B=Only the person can say which files of a diff they have read.\x90\x02\x02\x12\xb0\x01\n" +
 	"\x15ListReviewViewedFiles\x12&.agent.v1.ListReviewViewedFilesRequest\x1a'.agent.v1.ListReviewViewedFilesResponse\"F\x9a\xb5\x18?B=Which files the person has read is of use only to the person.\x90\x02\x01B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
@@ -3887,9 +3887,9 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*DiscardForgeReplyRequest)(nil),         // 83: agent.v1.DiscardForgeReplyRequest
 	(*MarkReviewThreadReadRequest)(nil),      // 84: agent.v1.MarkReviewThreadReadRequest
 	(*SetReviewThreadResolvedRequest)(nil),   // 85: agent.v1.SetReviewThreadResolvedRequest
-	(*OpenReviewRoundRequest)(nil),           // 86: agent.v1.OpenReviewRoundRequest
+	(*TakeReviewSnapshotRequest)(nil),        // 86: agent.v1.TakeReviewSnapshotRequest
 	(*OpenReviewHistoryRequest)(nil),         // 87: agent.v1.OpenReviewHistoryRequest
-	(*ListReviewRoundsRequest)(nil),          // 88: agent.v1.ListReviewRoundsRequest
+	(*ListReviewSnapshotsRequest)(nil),       // 88: agent.v1.ListReviewSnapshotsRequest
 	(*ListReviewsRequest)(nil),               // 89: agent.v1.ListReviewsRequest
 	(*GetReviewRequest)(nil),                 // 90: agent.v1.GetReviewRequest
 	(*ReleaseReviewRequest)(nil),             // 91: agent.v1.ReleaseReviewRequest
@@ -3922,9 +3922,9 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*RetryForgeReplyResponse)(nil),          // 118: agent.v1.RetryForgeReplyResponse
 	(*MarkReviewThreadReadResponse)(nil),     // 119: agent.v1.MarkReviewThreadReadResponse
 	(*SetReviewThreadResolvedResponse)(nil),  // 120: agent.v1.SetReviewThreadResolvedResponse
-	(*OpenReviewRoundResponse)(nil),          // 121: agent.v1.OpenReviewRoundResponse
+	(*TakeReviewSnapshotResponse)(nil),       // 121: agent.v1.TakeReviewSnapshotResponse
 	(*OpenReviewHistoryResponse)(nil),        // 122: agent.v1.OpenReviewHistoryResponse
-	(*ListReviewRoundsResponse)(nil),         // 123: agent.v1.ListReviewRoundsResponse
+	(*ListReviewSnapshotsResponse)(nil),      // 123: agent.v1.ListReviewSnapshotsResponse
 	(*ListReviewsResponse)(nil),              // 124: agent.v1.ListReviewsResponse
 	(*GetReviewResponse)(nil),                // 125: agent.v1.GetReviewResponse
 	(*ReleaseReviewResponse)(nil),            // 126: agent.v1.ReleaseReviewResponse
@@ -4017,9 +4017,9 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	19,  // 82: agent.v1.AgentService.StartOrchestrator:input_type -> agent.v1.StartOrchestratorRequest
 	84,  // 83: agent.v1.AgentService.MarkReviewThreadRead:input_type -> agent.v1.MarkReviewThreadReadRequest
 	85,  // 84: agent.v1.AgentService.SetReviewThreadResolved:input_type -> agent.v1.SetReviewThreadResolvedRequest
-	86,  // 85: agent.v1.AgentService.OpenReviewRound:input_type -> agent.v1.OpenReviewRoundRequest
+	86,  // 85: agent.v1.AgentService.TakeReviewSnapshot:input_type -> agent.v1.TakeReviewSnapshotRequest
 	87,  // 86: agent.v1.AgentService.OpenReviewHistory:input_type -> agent.v1.OpenReviewHistoryRequest
-	88,  // 87: agent.v1.AgentService.ListReviewRounds:input_type -> agent.v1.ListReviewRoundsRequest
+	88,  // 87: agent.v1.AgentService.ListReviewSnapshots:input_type -> agent.v1.ListReviewSnapshotsRequest
 	89,  // 88: agent.v1.AgentService.ListReviews:input_type -> agent.v1.ListReviewsRequest
 	90,  // 89: agent.v1.AgentService.GetReview:input_type -> agent.v1.GetReviewRequest
 	91,  // 90: agent.v1.AgentService.ReleaseReview:input_type -> agent.v1.ReleaseReviewRequest
@@ -4080,9 +4080,9 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	20,  // 145: agent.v1.AgentService.StartOrchestrator:output_type -> agent.v1.StartOrchestratorResponse
 	119, // 146: agent.v1.AgentService.MarkReviewThreadRead:output_type -> agent.v1.MarkReviewThreadReadResponse
 	120, // 147: agent.v1.AgentService.SetReviewThreadResolved:output_type -> agent.v1.SetReviewThreadResolvedResponse
-	121, // 148: agent.v1.AgentService.OpenReviewRound:output_type -> agent.v1.OpenReviewRoundResponse
+	121, // 148: agent.v1.AgentService.TakeReviewSnapshot:output_type -> agent.v1.TakeReviewSnapshotResponse
 	122, // 149: agent.v1.AgentService.OpenReviewHistory:output_type -> agent.v1.OpenReviewHistoryResponse
-	123, // 150: agent.v1.AgentService.ListReviewRounds:output_type -> agent.v1.ListReviewRoundsResponse
+	123, // 150: agent.v1.AgentService.ListReviewSnapshots:output_type -> agent.v1.ListReviewSnapshotsResponse
 	124, // 151: agent.v1.AgentService.ListReviews:output_type -> agent.v1.ListReviewsResponse
 	125, // 152: agent.v1.AgentService.GetReview:output_type -> agent.v1.GetReviewResponse
 	126, // 153: agent.v1.AgentService.ReleaseReview:output_type -> agent.v1.ReleaseReviewResponse

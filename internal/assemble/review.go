@@ -20,16 +20,16 @@ func groupReviewsByTask(reviews map[string]*agentv1.WatchedReview) map[string][]
 	return byTask
 }
 
-// countLocalReviewRounds is how many rounds of the task's work were reviewed.
-func countLocalReviewRounds(reviews []*agentv1.WatchedReview) int32 {
-	rounds := map[string]bool{}
+// countLocalReviewSnapshots is how many snapshots of the task's work were reviewed.
+func countLocalReviewSnapshots(reviews []*agentv1.WatchedReview) int32 {
+	snapshots := map[string]bool{}
 	for _, review := range reviews {
 		if review.GetReleasedAt() != "" {
-			rounds[review.GetRoundId()] = true
+			snapshots[review.GetSnapshotId()] = true
 		}
 	}
 
-	return int32(len(rounds))
+	return int32(len(snapshots))
 }
 
 // groupThreadsByTask indexes the review threads by the task whose work they are on.
@@ -43,7 +43,7 @@ func groupThreadsByTask(threads map[string]*agentv1.ReviewThread) map[string][]*
 }
 
 // countComments counts the comments on the task's work, reviewer agents apart from the person,
-// leaving out a resolved conversation once its round has landed.
+// leaving out a resolved conversation once its snapshot has landed.
 func countComments(reviews []*agentv1.WatchedReview, threads []*agentv1.ReviewThread) commentCounts {
 	released := map[string]*agentv1.WatchedReview{}
 	for _, review := range reviews {
@@ -61,7 +61,7 @@ func countComments(reviews []*agentv1.WatchedReview, threads []*agentv1.ReviewTh
 		}
 
 		isOpen := thread.GetResolvedAt() == ""
-		if !isOpen && review.GetRoundLandedAt() != "" {
+		if !isOpen && review.GetSnapshotLandedAt() != "" {
 			continue
 		}
 

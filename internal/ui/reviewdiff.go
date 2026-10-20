@@ -22,17 +22,17 @@ type reviewDiff struct {
 	// since says how much of the diff is new to the reader.
 	since string
 	spec  diffSpec
-	// baseRound is the round the person last released a review against, nil while there is none.
-	baseRound *agentv1.ReviewRound
-	// baseAt is when the person released the review that round was given against, in clock terms.
+	// baseSnapshot is the snapshot the person last released a review against, nil while there is none.
+	baseSnapshot *agentv1.ReviewSnapshot
+	// baseAt is when the person released the review that snapshot was given against, in clock terms.
 	baseAt string
 
-	// rounds are every round of the review, oldest first.
-	rounds []*agentv1.ReviewRound
+	// snapshots are every snapshot of the review, oldest first.
+	snapshots []*agentv1.ReviewSnapshot
 	// reviews are every review on the task the reader may read, oldest first.
 	reviews []*agentv1.Review
-	// newest is the round new comments go on.
-	newest *agentv1.ReviewRound
+	// newest is the snapshot new comments go on.
+	newest *agentv1.ReviewSnapshot
 	landOn string
 
 	// followedMove is the move the diff last caught up on.
@@ -44,9 +44,9 @@ type reviewDiff struct {
 
 // diffSpec is the range the diff on screen runs over.
 type diffSpec struct {
-	// from is the round the range starts after, empty for where the task starts.
+	// from is the snapshot the range starts after, empty for where the task starts.
 	from string
-	// to is the round the range ends on, empty for the newest round.
+	// to is the snapshot the range ends on, empty for the newest snapshot.
 	to string
 	// answer is the answer to a comment on screen, nil while the diff is anything else.
 	answer *reviewAnswer
@@ -73,7 +73,7 @@ func originSpec(origin *reviewOrigin) diffSpec {
 	return diffSpec{origin: origin}
 }
 
-// isRange reports whether the diff runs between two rounds rather than over an answer or an origin.
+// isRange reports whether the diff runs between two snapshots rather than over an answer or an origin.
 func (d diffSpec) isRange() bool {
 	return d.answer == nil && d.origin == nil
 }
@@ -82,7 +82,7 @@ func (d diffSpec) isWholeChange() bool {
 	return d.isRange() && d.from == "" && d.to == ""
 }
 
-// endsOnNewest reports whether the range ends on the round new comments go on.
+// endsOnNewest reports whether the range ends on the snapshot new comments go on.
 func (d diffSpec) endsOnNewest() bool {
 	return d.isRange() && d.to == ""
 }

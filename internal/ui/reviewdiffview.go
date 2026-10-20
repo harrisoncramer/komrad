@@ -43,7 +43,7 @@ func (r reviewScreen) bandView(m *model) string {
 		m.markSearch(stopList, r.measureBandWidth(m), r.diff.filter.view(m.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
-// rangeView names both ends of the range on screen and, past its end, the round new comments go on.
+// rangeView names both ends of the range on screen and, past its end, the snapshot new comments go on.
 func (r reviewScreen) rangeView(m *model) string {
 	if r.diff.View() == nil {
 		return ""

@@ -18,20 +18,20 @@ import (
 )
 
 const (
-	greetBefore = "package greet\n\nfunc Hello() {}\n"
-	greetRound1 = "package greet\n\nfunc Hello() {}\n\nfunc Agent() {}\n"
+	greetBefore    = "package greet\n\nfunc Hello() {}\n"
+	greetSnapshot1 = "package greet\n\nfunc Hello() {}\n\nfunc Agent() {}\n"
 )
 
-// roundsAcrossARebase is two rounds of one agent taken through the server either side of the
+// snapshotsAcrossARebase is two snapshots of one agent taken through the server either side of the
 // rebase key, with a review released on the first.
-type roundsAcrossARebase struct {
+type snapshotsAcrossARebase struct {
 	tree          string
-	first, second *agentv1.ReviewRound
+	first, second *agentv1.ReviewSnapshot
 }
 
-// reviewAcrossARebase takes round one, releases a review on it, lands mainsGreet on main under
-// the agent, rebases through the server, and takes round two of the agent's next edit.
-func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) roundsAcrossARebase {
+// reviewAcrossARebase takes snapshot one, releases a review on it, lands mainsGreet on main under
+// the agent, rebases through the server, and takes snapshot two of the agent's next edit.
+func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) snapshotsAcrossARebase {
 	t.Helper()
 
 	isolateGit(t)
@@ -66,11 +66,11 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	runGitIn(t, tree, "config", "user.email", "test@komrad.test")
 	runGitIn(t, tree, "config", "user.name", "komrad test")
 
-	writeIn(t, tree, "greet.go", greetRound1)
+	writeIn(t, tree, "greet.go", greetSnapshot1)
 	runGitIn(t, tree, "add", "greet.go")
-	runGitIn(t, tree, "commit", "--quiet", "-m", "round one")
+	runGitIn(t, tree, "commit", "--quiet", "-m", "snapshot one")
 
-	first, err := instance.Agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+	first, err := instance.Agents.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{
 		Task: &taskID,
 	}))
 	require.NoError(t, err)
@@ -117,53 +117,53 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) rou
 	rebasedGreet := readGitOutput(t, tree, "show", "HEAD:greet.go") + "\n"
 	writeIn(t, tree, "greet.go", strings.Replace(rebasedGreet, "func Agent() {}", "func Agent() {}\n\nfunc Again() {}", 1))
 
-	second, err := instance.Agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+	second, err := instance.Agents.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{
 		Task: &taskID,
 	}))
 	require.NoError(t, err)
-	require.NotEqual(t, first.Msg.GetRound().GetBaseSha(), second.Msg.GetRound().GetBaseSha(),
-		"the fixture has to move the base between the two rounds")
+	require.NotEqual(t, first.Msg.GetSnapshot().GetBaseSha(), second.Msg.GetSnapshot().GetBaseSha(),
+		"the fixture has to move the base between the two snapshots")
 
-	return roundsAcrossARebase{
+	return snapshotsAcrossARebase{
 		tree:   tree,
-		first:  first.Msg.GetRound(),
-		second: second.Msg.GetRound(),
+		first:  first.Msg.GetSnapshot(),
+		second: second.Msg.GetSnapshot(),
 	}
 }
 
-// TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange takes two rounds through the server
-// and the rebase key and proves what the review screen draws between them: the first round
+// TestIntegrationSnapshotsEitherSideOfARebaseReplayToTheAgentsOwnChange takes two snapshots through the server
+// and the rebase key and proves what the review screen draws between them: the first snapshot
 // carried onto the moved base, diffed against the second, is the agent's own edit and nothing
 // the base brought with it.
-func TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
-	rounds := reviewAcrossARebase(t, "// main moved\n"+greetBefore, false)
+func TestIntegrationSnapshotsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testing.T) {
+	snapshots := reviewAcrossARebase(t, "// main moved\n"+greetBefore, false)
 	client := git.NewClient(git.NewClientParams{})
 
-	naive := readGitOutput(t, rounds.tree, "diff", "--name-only",
-		rounds.first.GetSnapshotSha(), rounds.second.GetSnapshotSha())
+	naive := readGitOutput(t, snapshots.tree, "diff", "--name-only",
+		snapshots.first.GetSha(), snapshots.second.GetSha())
 	require.Contains(t, naive, "other.go", "the two snapshots' own diff carries the base's move")
 
 	forward, err := client.IsAncestor(t.Context(), git.IsAncestorParams{
-		Dir:           rounds.tree,
-		MaybeAncestor: rounds.first.GetBaseSha(),
-		Of:            rounds.second.GetBaseSha(),
+		Dir:           snapshots.tree,
+		MaybeAncestor: snapshots.first.GetBaseSha(),
+		Of:            snapshots.second.GetBaseSha(),
 	})
 	require.NoError(t, err)
 	assert.True(t, forward, "the rebase key moves the base forward rather than rewriting it")
 
 	replayed, err := client.Replay(t.Context(), git.ReplayParams{
-		Dir:         rounds.tree,
-		FromBase:    rounds.first.GetBaseSha(),
-		OntoBase:    rounds.second.GetBaseSha(),
-		SnapshotSHA: rounds.first.GetSnapshotSha(),
+		Dir:         snapshots.tree,
+		FromBase:    snapshots.first.GetBaseSha(),
+		OntoBase:    snapshots.second.GetBaseSha(),
+		SnapshotSHA: snapshots.first.GetSha(),
 	})
 	require.NoError(t, err)
 	require.Empty(t, replayed.Conflicts)
 
 	patch, err := diff.Load(t.Context(), client, diff.LoadParams{
-		Dir:         rounds.tree,
+		Dir:         snapshots.tree,
 		BaseSHA:     replayed.Tree,
-		SnapshotSHA: rounds.second.GetSnapshotSha(),
+		SnapshotSHA: snapshots.second.GetSha(),
 	})
 	require.NoError(t, err)
 
@@ -182,16 +182,16 @@ func TestIntegrationRoundsEitherSideOfARebaseReplayToTheAgentsOwnChange(t *testi
 	assert.Equal(t, []string{"", "func Again() {}"}, added, "the agent's own edit, with the base's line on neither side")
 }
 
-// TestIntegrationRoundsEitherSideOfAConflictedRebaseNameThePath covers the agent resolving a real clash during
+// TestIntegrationSnapshotsEitherSideOfAConflictedRebaseNameThePath covers the agent resolving a real clash during
 // the rebase.
-func TestIntegrationRoundsEitherSideOfAConflictedRebaseNameThePath(t *testing.T) {
-	rounds := reviewAcrossARebase(t, "package greet\n\nfunc Hello() {}\n\nfunc Main() {}\n", true)
+func TestIntegrationSnapshotsEitherSideOfAConflictedRebaseNameThePath(t *testing.T) {
+	snapshots := reviewAcrossARebase(t, "package greet\n\nfunc Hello() {}\n\nfunc Main() {}\n", true)
 
 	replayed, err := git.NewClient(git.NewClientParams{}).Replay(t.Context(), git.ReplayParams{
-		Dir:         rounds.tree,
-		FromBase:    rounds.first.GetBaseSha(),
-		OntoBase:    rounds.second.GetBaseSha(),
-		SnapshotSHA: rounds.first.GetSnapshotSha(),
+		Dir:         snapshots.tree,
+		FromBase:    snapshots.first.GetBaseSha(),
+		OntoBase:    snapshots.second.GetBaseSha(),
+		SnapshotSHA: snapshots.first.GetSha(),
 	})
 	require.NoError(t, err)
 

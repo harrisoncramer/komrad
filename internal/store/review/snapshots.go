@@ -11,11 +11,11 @@ import (
 	"komrad/lib/xslice"
 )
 
-// Verdict is what a reviewer concluded about a round.
+// Verdict is what a reviewer concluded about a snapshot.
 type Verdict string
 
 const (
-	// VerdictApproved is the reviewer saying this round is good as it stands.
+	// VerdictApproved is the reviewer saying this snapshot is good as it stands.
 	VerdictApproved Verdict = Verdict(models.ReviewVerdictApproved)
 	// VerdictChangesRequested is the reviewer saying the agent should keep working.
 	VerdictChangesRequested Verdict = Verdict(models.ReviewVerdictChangesRequested)
@@ -23,40 +23,40 @@ const (
 	VerdictCommented Verdict = Verdict(models.ReviewVerdictCommented)
 )
 
-// RoundRef is the ref a round's snapshot is held by.
-func RoundRef(taskID, snapshotSHA string) string {
-	return "refs/komrad/rounds/" + taskID + "/" + snapshotSHA
+// SnapshotRef is the ref a snapshot's commit is held by.
+func SnapshotRef(taskID, snapshotSHA string) string {
+	return "refs/komrad/snapshots/" + taskID + "/" + snapshotSHA
 }
 
-// Round is one frozen snapshot of a task's checkout, which every review and comment
+// Snapshot is one frozen copy of a task's checkout, which every review and comment
 // is anchored to.
-type Round struct {
-	ID          string
-	TaskID      string
-	Ordinal     int32
-	BaseSHA     string
-	SnapshotSHA string
-	CreatedAt   time.Time
-	// LandedAt is when the base branch was first seen holding this round or a later one whole,
+type Snapshot struct {
+	ID        string
+	TaskID    string
+	Ordinal   int32
+	BaseSHA   string
+	SHA       string
+	CreatedAt time.Time
+	// LandedAt is when the base branch was first seen holding this snapshot or a later one whole,
 	// nil until then.
 	LandedAt *time.Time
 }
 
-// Review is one reviewer's batch of comments on one round, released all at once.
+// Review is one reviewer's batch of comments on one snapshot, released all at once.
 type Review struct {
-	ID            string
-	TaskID        string
-	RoundID       string
-	RoundOrdinal  int32
-	AuthorKind    AuthorKind
-	AuthorAgentID *string
+	ID              string
+	TaskID          string
+	SnapshotID      string
+	SnapshotOrdinal int32
+	AuthorKind      AuthorKind
+	AuthorAgentID   *string
 	// ExternalLogin is the forge login of whoever wrote a review on the forge, nil for one written in komrad.
 	ExternalLogin *string
 
-	// RoundSnapshotSHA is the commit the round froze the checkout as, empty when it was not read.
-	RoundSnapshotSHA string
-	// RoundLandedAt is when the base branch was first seen holding the round whole, nil until then.
-	RoundLandedAt *time.Time
+	// SnapshotSHA is the commit the snapshot froze the checkout as, empty when it was not read.
+	SnapshotSHA string
+	// SnapshotLandedAt is when the base branch was first seen holding the snapshot whole, nil until then.
+	SnapshotLandedAt *time.Time
 	// Verdict is what the reviewer concluded, nil while the review is still open.
 	Verdict *Verdict
 	// ReleasedAt is when the review was released, nil while nothing in it has reached the agent.
@@ -85,121 +85,121 @@ func (r Review) isSettled() bool {
 	return !r.isOpen() && r.OpenThreads == 0
 }
 
-type CreateRoundParams struct {
-	TaskID      string
-	BaseSHA     string
-	SnapshotSHA string
+type CreateSnapshotParams struct {
+	TaskID  string
+	BaseSHA string
+	SHA     string
 }
 
-// CreateRound records a snapshot as the next round of a task, numbered after the rounds
+// CreateSnapshot records the next snapshot of a task, numbered after the snapshots
 // already taken.
-func (s *ReviewStore) CreateRound(ctx context.Context, params CreateRoundParams) (*Round, error) {
-	row, err := s.queries.InsertReviewRound(ctx, models.InsertReviewRoundParams{
+func (s *ReviewStore) CreateSnapshot(ctx context.Context, params CreateSnapshotParams) (*Snapshot, error) {
+	row, err := s.queries.InsertReviewSnapshot(ctx, models.InsertReviewSnapshotParams{
 		TaskID:      params.TaskID,
 		BaseSha:     params.BaseSHA,
-		SnapshotSha: params.SnapshotSHA,
+		SnapshotSha: params.SHA,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open a review round on task %q: %w", params.TaskID, err)
+		return nil, fmt.Errorf("failed to open a review snapshot on task %q: %w", params.TaskID, err)
 	}
 
-	round := roundFromRow(*row)
+	snapshot := snapshotFromRow(*row)
 
-	return &round, nil
+	return &snapshot, nil
 }
 
-// GetRound is one round, ErrNotFound for an id that names nothing.
-func (s *ReviewStore) GetRound(ctx context.Context, id string) (*Round, error) {
+// GetSnapshot is one snapshot, ErrNotFound for an id that names nothing.
+func (s *ReviewStore) GetSnapshot(ctx context.Context, id string) (*Snapshot, error) {
 	if !store.IsID(id) {
-		return nil, roundNotFound(id)
+		return nil, snapshotNotFound(id)
 	}
 
-	row, err := s.queries.GetReviewRound(ctx, id)
+	row, err := s.queries.GetReviewSnapshot(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, roundNotFound(id)
+		return nil, snapshotNotFound(id)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the review round %q: %w", id, err)
+		return nil, fmt.Errorf("failed to read the review snapshot %q: %w", id, err)
 	}
 
-	round := roundFromRow(*row)
+	snapshot := snapshotFromRow(*row)
 
-	return &round, nil
+	return &snapshot, nil
 }
 
-// GetLatestRound is the newest round taken of a task, ErrNotFound when none has been.
-func (s *ReviewStore) GetLatestRound(ctx context.Context, taskID string) (*Round, error) {
+// GetLatestSnapshot is the newest snapshot taken of a task, ErrNotFound when none has been.
+func (s *ReviewStore) GetLatestSnapshot(ctx context.Context, taskID string) (*Snapshot, error) {
 	if !store.IsID(taskID) {
-		return nil, roundNotFound(taskID)
+		return nil, snapshotNotFound(taskID)
 	}
 
-	row, err := s.queries.GetLatestReviewRound(ctx, taskID)
+	row, err := s.queries.GetLatestReviewSnapshot(ctx, taskID)
 	if db.IsNoRows(err) {
-		return nil, roundNotFound(taskID)
+		return nil, snapshotNotFound(taskID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the newest review round of task %q: %w", taskID, err)
+		return nil, fmt.Errorf("failed to read the newest review snapshot of task %q: %w", taskID, err)
 	}
 
-	round := roundFromRow(*row)
+	snapshot := snapshotFromRow(*row)
 
-	return &round, nil
+	return &snapshot, nil
 }
 
-// GetRoundBySnapshot is the round a task's snapshot was frozen as, ErrNotFound when no round
-// holds that snapshot.
-func (s *ReviewStore) GetRoundBySnapshot(ctx context.Context, taskID, snapshotSHA string) (*Round, error) {
+// GetSnapshotBySHA is the snapshot of a task saved as a commit, ErrNotFound when no snapshot
+// holds that commit.
+func (s *ReviewStore) GetSnapshotBySHA(ctx context.Context, taskID, snapshotSHA string) (*Snapshot, error) {
 	if !store.IsID(taskID) || snapshotSHA == "" {
-		return nil, roundNotFound(taskID)
+		return nil, snapshotNotFound(taskID)
 	}
 
-	row, err := s.queries.GetReviewRoundBySnapshot(ctx, models.GetReviewRoundBySnapshotParams{
+	row, err := s.queries.GetReviewSnapshotBySnapshot(ctx, models.GetReviewSnapshotBySnapshotParams{
 		TaskID:      taskID,
 		SnapshotSha: snapshotSHA,
 	})
 	if db.IsNoRows(err) {
-		return nil, roundNotFound(snapshotSHA)
+		return nil, snapshotNotFound(snapshotSHA)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the review round of task %q holding %q: %w", taskID, snapshotSHA, err)
+		return nil, fmt.Errorf("failed to read the review snapshot of task %q holding %q: %w", taskID, snapshotSHA, err)
 	}
 
-	round := roundFromRow(*row)
+	snapshot := snapshotFromRow(*row)
 
-	return &round, nil
+	return &snapshot, nil
 }
 
-// ListRounds is every round of a task, oldest first.
-func (s *ReviewStore) ListRounds(ctx context.Context, taskID string) ([]Round, error) {
+// ListSnapshots is every snapshot of a task, oldest first.
+func (s *ReviewStore) ListSnapshots(ctx context.Context, taskID string) ([]Snapshot, error) {
 	if !store.IsID(taskID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviewRounds(ctx, taskID)
+	rows, err := s.queries.ListReviewSnapshots(ctx, taskID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the review rounds of task %q: %w", taskID, err)
+		return nil, fmt.Errorf("failed to list the review snapshots of task %q: %w", taskID, err)
 	}
 
-	rounds := xslice.Map(rows, func(row *models.ReviewRound) Round {
-		return roundFromRow(*row)
+	snapshots := xslice.Map(rows, func(row *models.ReviewSnapshot) Snapshot {
+		return snapshotFromRow(*row)
 	})
 
-	return rounds, nil
+	return snapshots, nil
 }
 
 type OpenReviewParams struct {
 	TaskID        string
-	RoundID       string
+	SnapshotID    string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
 }
 
-// OpenReview starts a reviewer's batch against a round, which a unique index allows only one
+// OpenReview starts a reviewer's batch against a snapshot, which a unique index allows only one
 // of at a time.
 func (s *ReviewStore) OpenReview(ctx context.Context, params OpenReviewParams) (*Review, error) {
 	row, err := s.queries.InsertReview(ctx, models.InsertReviewParams{
 		TaskID:        params.TaskID,
-		RoundID:       params.RoundID,
+		SnapshotID:    params.SnapshotID,
 		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
 		AuthorAgentID: params.AuthorAgentID,
 	})
@@ -232,19 +232,19 @@ func (s *ReviewStore) GetReview(ctx context.Context, id string) (*Review, error)
 }
 
 type MoveOpenReviewParams struct {
-	ID      string
-	RoundID string
+	ID         string
+	SnapshotID string
 }
 
-// MoveOpenReview files an unreleased review under another round, ErrNotFound once it is released.
+// MoveOpenReview files an unreleased review under another snapshot, ErrNotFound once it is released.
 func (s *ReviewStore) MoveOpenReview(ctx context.Context, params MoveOpenReviewParams) (*Review, error) {
 	if !store.IsID(params.ID) {
 		return nil, reviewNotFound(params.ID)
 	}
 
 	row, err := s.queries.MoveOpenReview(ctx, models.MoveOpenReviewParams{
-		ID:      params.ID,
-		RoundID: params.RoundID,
+		ID:         params.ID,
+		SnapshotID: params.SnapshotID,
 	})
 	if db.IsNoRows(err) {
 		return nil, reviewNotFound(params.ID)
@@ -288,7 +288,7 @@ func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParam
 	return &review, nil
 }
 
-// ListReviews is every review of a task, in the order their rounds were taken.
+// ListReviews is every review of a task, in the order their snapshots were taken.
 func (s *ReviewStore) ListReviews(ctx context.Context, taskID string) ([]Review, error) {
 	if !store.IsID(taskID) {
 		return nil, nil
@@ -302,7 +302,7 @@ func (s *ReviewStore) ListReviews(ctx context.Context, taskID string) ([]Review,
 	reviews := make([]Review, 0, len(rows))
 	for _, row := range rows {
 		review := reviewFromRow(row.Review)
-		review.RoundOrdinal = row.RoundOrdinal
+		review.SnapshotOrdinal = row.SnapshotOrdinal
 		review.DeliveredAt = row.DeliveredAt
 		review.OpenThreads = row.OpenThreads
 
@@ -397,15 +397,15 @@ func (s *ReviewStore) DeleteReview(ctx context.Context, id string) error {
 	return nil
 }
 
-func roundFromRow(row models.ReviewRound) Round {
-	return Round{
-		ID:          row.ID,
-		TaskID:      row.TaskID,
-		Ordinal:     row.Ordinal,
-		BaseSHA:     row.BaseSha,
-		SnapshotSHA: row.SnapshotSha,
-		CreatedAt:   row.CreatedAt,
-		LandedAt:    row.LandedAt,
+func snapshotFromRow(row models.ReviewSnapshot) Snapshot {
+	return Snapshot{
+		ID:        row.ID,
+		TaskID:    row.TaskID,
+		Ordinal:   row.Ordinal,
+		BaseSHA:   row.BaseSha,
+		SHA:       row.Sha,
+		CreatedAt: row.CreatedAt,
+		LandedAt:  row.LandedAt,
 	}
 }
 
@@ -413,7 +413,7 @@ func reviewFromRow(row models.Review) Review {
 	review := Review{
 		ID:             row.ID,
 		TaskID:         row.TaskID,
-		RoundID:        row.RoundID,
+		SnapshotID:     row.SnapshotID,
 		AuthorKind:     AuthorKind(row.AuthorKind),
 		AuthorAgentID:  row.AuthorAgentID,
 		ExternalLogin:  row.ExternalLogin,
@@ -433,8 +433,8 @@ func reviewFromRow(row models.Review) Review {
 	return review
 }
 
-func roundNotFound(id string) error {
-	return fmt.Errorf("%w: review round %q", store.ErrNotFound, id)
+func snapshotNotFound(id string) error {
+	return fmt.Errorf("%w: review snapshot %q", store.ErrNotFound, id)
 }
 
 func reviewNotFound(id string) error {
@@ -443,12 +443,12 @@ func reviewNotFound(id string) error {
 
 // tally is where one task's work stands with the reviews released of it.
 type tally struct {
-	TaskID string
-	Rounds int32
+	TaskID    string
+	Snapshots int32
 	// Verdict is the last conclusion released about the task's work, nil when every released
 	// review only commented.
 	Verdict *Verdict
-	// SnapshotSHA is the round that conclusion was given on, empty when there is none.
+	// SnapshotSHA is the snapshot that conclusion was given on, empty when there is none.
 	SnapshotSHA string
 }
 
@@ -456,11 +456,11 @@ type tally struct {
 func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 	rows, err := s.queries.ListReviewTallies(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to count the rounds of review: %w", err)
+		return nil, fmt.Errorf("failed to count the snapshots of review: %w", err)
 	}
 
 	return xslice.Map(rows, func(row *models.ListReviewTalliesRow) tally {
-		tally := tally{TaskID: row.TaskID, Rounds: row.Rounds}
+		tally := tally{TaskID: row.TaskID, Snapshots: row.Snapshots}
 		if row.Verdict.Valid {
 			verdict := Verdict(row.Verdict.ReviewVerdict)
 			tally.Verdict = &verdict
@@ -473,64 +473,64 @@ func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 	}), nil
 }
 
-// newestRound is the snapshot of the newest review round of a task's agents.
-type newestRound struct {
+// newestSnapshot is the commit of the newest review snapshot of a task's agents.
+type newestSnapshot struct {
 	TaskID      string
 	SnapshotSHA string
 }
 
-// ListNewestRounds is the newest round of every task whose agents have one.
-func (s *ReviewStore) ListNewestRounds(ctx context.Context) ([]newestRound, error) {
-	rows, err := s.queries.ListNewestTaskReviewRounds(ctx)
+// ListNewestSnapshots is the newest snapshot of every task whose agents have one.
+func (s *ReviewStore) ListNewestSnapshots(ctx context.Context) ([]newestSnapshot, error) {
+	rows, err := s.queries.ListNewestTaskReviewSnapshots(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the newest review rounds: %w", err)
+		return nil, fmt.Errorf("failed to list the newest review snapshots: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListNewestTaskReviewRoundsRow) newestRound {
-		return newestRound{TaskID: row.TaskID, SnapshotSHA: row.SnapshotSha}
+	return xslice.Map(rows, func(row *models.ListNewestTaskReviewSnapshotsRow) newestSnapshot {
+		return newestSnapshot{TaskID: row.TaskID, SnapshotSHA: row.SnapshotSha}
 	}), nil
 }
 
-// UnlandedRound is a round with a released review that the base branch has not yet been seen
+// UnlandedSnapshot is a snapshot with a released review that the base branch has not yet been seen
 // holding whole.
-type UnlandedRound struct {
-	Ordinal     int32
-	BaseSHA     string
-	SnapshotSHA string
+type UnlandedSnapshot struct {
+	Ordinal int32
+	BaseSHA string
+	SHA     string
 	// MergedAt is when the task's newest merged pull request merged, nil while none has.
 	MergedAt *time.Time
 }
 
-// ListUnlandedRounds is the unlanded rounds with a released review of every task with a live
+// ListUnlandedSnapshots is the unlanded snapshots with a released review of every task with a live
 // agent, newest first, keyed by task.
-func (s *ReviewStore) ListUnlandedRounds(ctx context.Context) (map[string][]UnlandedRound, error) {
-	rows, err := s.queries.ListUnlandedReviewRounds(ctx)
+func (s *ReviewStore) ListUnlandedSnapshots(ctx context.Context) (map[string][]UnlandedSnapshot, error) {
+	rows, err := s.queries.ListUnlandedReviewSnapshots(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the unlanded review rounds: %w", err)
+		return nil, fmt.Errorf("failed to list the unlanded review snapshots: %w", err)
 	}
 
-	byTask := map[string][]UnlandedRound{}
+	byTask := map[string][]UnlandedSnapshot{}
 	for _, row := range rows {
-		byTask[row.TaskID] = append(byTask[row.TaskID], UnlandedRound{
-			Ordinal:     row.Ordinal,
-			BaseSHA:     row.BaseSha,
-			SnapshotSHA: row.SnapshotSha,
-			MergedAt:    row.MergedAt,
+		byTask[row.TaskID] = append(byTask[row.TaskID], UnlandedSnapshot{
+			Ordinal:  row.Ordinal,
+			BaseSHA:  row.BaseSha,
+			SHA:      row.Sha,
+			MergedAt: row.MergedAt,
 		})
 	}
 
 	return byTask, nil
 }
 
-// MarkRoundsLanded marks a task's round and every earlier one as landed, leaving rounds that already
+// MarkSnapshotsLanded marks a task's snapshot and every earlier one as landed, leaving snapshots that already
 // landed alone, and returns how many it marked.
-func (s *ReviewStore) MarkRoundsLanded(ctx context.Context, taskID string, ordinal int32) (int64, error) {
-	landed, err := s.queries.LandReviewRounds(ctx, models.LandReviewRoundsParams{
+func (s *ReviewStore) MarkSnapshotsLanded(ctx context.Context, taskID string, ordinal int32) (int64, error) {
+	landed, err := s.queries.LandReviewSnapshots(ctx, models.LandReviewSnapshotsParams{
 		TaskID:  taskID,
 		Ordinal: ordinal,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("failed to land round %d of task %q: %w", ordinal, taskID, err)
+		return 0, fmt.Errorf("failed to land snapshot %d of task %q: %w", ordinal, taskID, err)
 	}
 
 	return landed, nil

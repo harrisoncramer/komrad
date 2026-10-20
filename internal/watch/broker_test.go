@@ -221,16 +221,16 @@ func TestASlowWatcherIsDropped(t *testing.T) {
 	subscription, err := broker.Subscribe(t.Context())
 	require.NoError(t, err)
 
-	// Each round renames the agent and waits for its pass to be queued, so every round is a pass
+	// Each snapshot renames the agent and waits for its pass to be queued, so every snapshot is a pass
 	// nobody reads.
-	for round := range subscriberBuffer + 1 {
+	for snapshot := range subscriberBuffer + 1 {
 		row := agentRow("a")
-		row.Name = fmt.Sprintf("agent-a-%d", round)
+		row.Name = fmt.Sprintf("agent-a-%d", snapshot)
 		stores.agents.put(row)
 
 		broker.signal(t.Context(), watchv1.Resource_RESOURCE_AGENT, "a")
 		require.Eventually(t, func() bool {
-			return len(subscription.changes) == min(round+1, subscriberBuffer)
+			return len(subscription.changes) == min(snapshot+1, subscriberBuffer)
 		}, time.Second, time.Microsecond)
 	}
 

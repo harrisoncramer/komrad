@@ -96,35 +96,35 @@ type NewReviewServiceParams struct {
 // ReviewService owns the conversations pinned to the lines of a task's diff, and holds the only
 // copy.
 type ReviewService struct {
-	reviews     *reviewstore.ReviewStore
-	snapshots   reviewSnapshotter
-	workflows   *workflowstore.WorkflowStore
-	agents      *agentstore.AgentStore
-	tasks       *taskstore.TaskStore
-	taskFinder  taskFinder
-	events      eventRecorder
-	interrupter agentInterrupter
-	git         history.Git
-	tracer      *history.Tracer
-	stateDir    string
-	roundLocks  *taskLocks
+	reviews       *reviewstore.ReviewStore
+	snapshots     reviewSnapshotter
+	workflows     *workflowstore.WorkflowStore
+	agents        *agentstore.AgentStore
+	tasks         *taskstore.TaskStore
+	taskFinder    taskFinder
+	events        eventRecorder
+	interrupter   agentInterrupter
+	git           history.Git
+	tracer        *history.Tracer
+	stateDir      string
+	snapshotLocks *taskLocks
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
 func NewReviewService(params NewReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		reviews:     params.Reviews,
-		snapshots:   params.Snapshots,
-		workflows:   params.Workflows,
-		agents:      params.Agents,
-		tasks:       params.Tasks,
-		taskFinder:  params.TaskFinder,
-		events:      params.Events,
-		interrupter: params.Interrupter,
-		git:         params.Git,
-		tracer:      params.Tracer,
-		stateDir:    params.StateDir,
-		roundLocks:  newTaskLocks(),
+		reviews:       params.Reviews,
+		snapshots:     params.Snapshots,
+		workflows:     params.Workflows,
+		agents:        params.Agents,
+		tasks:         params.Tasks,
+		taskFinder:    params.TaskFinder,
+		events:        params.Events,
+		interrupter:   params.Interrupter,
+		git:           params.Git,
+		tracer:        params.Tracer,
+		stateDir:      params.StateDir,
+		snapshotLocks: newTaskLocks(),
 	}
 }
 
@@ -242,17 +242,17 @@ type CreateReviewThreadParams struct {
 	// Task is the task whose diff the thread is pinned to, by id or by slug, empty for the
 	// caller's own.
 	Task string
-	// RoundID is the round the anchor's line numbers were measured in, empty for a caller that
-	// leaves the round to be worked out from the snapshot it names.
-	RoundID string
+	// SnapshotID is the snapshot the anchor's line numbers were measured in, empty for a caller that
+	// leaves the snapshot to be worked out from the snapshot it names.
+	SnapshotID string
 	// Suggestion is replacement lines the reviewer proposes for the range, empty on an ordinary
 	// comment.
 	Suggestion []string
 	// BaseSHA is the commit the old side of these line numbers was read against, empty for the
-	// round's own base.
+	// snapshot's own base.
 	BaseSHA string
 	// SnapshotSHA is the commit the new side of these line numbers was read against, empty for a
-	// caller that read the round its own review sits on.
+	// caller that read the snapshot its own review sits on.
 	SnapshotSHA string
 	FilePath    string
 	OldStart    int32
@@ -264,7 +264,7 @@ type CreateReviewThreadParams struct {
 	Author      ReviewAuthor
 }
 
-// CreateReviewThread pins a conversation to a place in a round and writes its first message
+// CreateReviewThread pins a conversation to a place in a snapshot and writes its first message
 // under the author's open review, opening one when they have none.
 func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
@@ -287,7 +287,7 @@ func (s *ReviewService) CreateReviewThread(
 	thread, err := s.reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
 		TaskID:        task.ID,
 		ReviewID:      place.ReviewID,
-		RoundID:       place.RoundID,
+		SnapshotID:    place.SnapshotID,
 		BaseSHA:       place.BaseSHA,
 		Suggestion:    params.Suggestion,
 		FilePath:      params.FilePath,
@@ -312,14 +312,14 @@ func (s *ReviewService) CreateReviewThread(
 	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
 }
 
-// threadPlace is the review, round and base a new thread is filed under.
+// threadPlace is the review, snapshot and base a new thread is filed under.
 type threadPlace struct {
-	ReviewID string
-	RoundID  string
-	BaseSHA  string
+	ReviewID   string
+	SnapshotID string
+	BaseSHA    string
 }
 
-// placeThread finds the round a new thread's lines were measured in and the author's open review
+// placeThread finds the snapshot a new thread's lines were measured in and the author's open review
 // on it, opening or carrying one forward when needed.
 func (s *ReviewService) placeThread(
 	ctx context.Context,
@@ -330,22 +330,22 @@ func (s *ReviewService) placeThread(
 		return nil, err
 	}
 
-	round, err := s.roundFor(ctx, task.ID, params)
+	snapshot, err := s.snapshotFor(ctx, task.ID, params)
 	if err != nil {
 		return nil, err
 	}
 
 	open, err := s.openReviewFor(ctx, openReviewForParams{
-		TaskID: task.ID,
-		Author: params.Author,
-		Round:  round,
+		TaskID:   task.ID,
+		Author:   params.Author,
+		Snapshot: snapshot,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if open.RoundID != round.ID {
-		open, err = s.carryOpenReview(ctx, *open, *round, params.Author)
+	if open.SnapshotID != snapshot.ID {
+		open, err = s.carryOpenReview(ctx, *open, *snapshot, params.Author)
 		if err != nil {
 			return nil, err
 		}
@@ -353,40 +353,40 @@ func (s *ReviewService) placeThread(
 
 	baseSHA := params.BaseSHA
 	if baseSHA == "" {
-		baseSHA = round.BaseSHA
+		baseSHA = snapshot.BaseSHA
 	}
 
 	return &threadPlace{
-		ReviewID: open.ID,
-		RoundID:  round.ID,
-		BaseSHA:  baseSHA,
+		ReviewID:   open.ID,
+		SnapshotID: snapshot.ID,
+		BaseSHA:    baseSHA,
 	}, nil
 }
 
-// carryOpenReview files a person's draft under the newest round they have commented on.
+// carryOpenReview files a person's draft under the newest snapshot they have commented on.
 func (s *ReviewService) carryOpenReview(
 	ctx context.Context,
 	open reviewstore.Review,
-	round reviewstore.Round,
+	snapshot reviewstore.Snapshot,
 	author ReviewAuthor,
 ) (*reviewstore.Review, error) {
-	held, err := s.reviews.GetRound(ctx, open.RoundID)
+	held, err := s.reviews.GetSnapshot(ctx, open.SnapshotID)
 	if err != nil {
 		return nil, err
 	}
 
 	if !author.isHuman() {
-		return nil, fmt.Errorf("%w: send the comments you have on round %d first",
+		return nil, fmt.Errorf("%w: send the comments you have on snapshot %d first",
 			errReviewInFlight, held.Ordinal)
 	}
 
-	if round.Ordinal <= held.Ordinal {
+	if snapshot.Ordinal <= held.Ordinal {
 		return &open, nil
 	}
 
 	return s.reviews.MoveOpenReview(ctx, reviewstore.MoveOpenReviewParams{
-		ID:      open.ID,
-		RoundID: round.ID,
+		ID:         open.ID,
+		SnapshotID: snapshot.ID,
 	})
 }
 
@@ -447,14 +447,14 @@ func (s *ReviewService) AddReviewMessage(
 		reviewID = &open.ID
 	}
 
-	var roundID *string
+	var snapshotID *string
 	if params.Addressed {
-		answer, err := s.openAnswerRound(ctx, *thread)
+		answer, err := s.openAnswerSnapshot(ctx, *thread)
 		if err != nil {
 			return nil, err
 		}
 
-		roundID = &answer.ID
+		snapshotID = &answer.ID
 	}
 
 	var message *reviewstore.Message
@@ -463,7 +463,7 @@ func (s *ReviewService) AddReviewMessage(
 		message, err = reviewstore.NewReviewStore(tx).CreateMessage(ctx, reviewstore.CreateMessageParams{
 			ThreadID:      params.ThreadID,
 			ReviewID:      reviewID,
-			RoundID:       roundID,
+			SnapshotID:    snapshotID,
 			Suggestion:    params.Suggestion,
 			AuthorKind:    params.Author.Kind,
 			AuthorAgentID: params.Author.AgentID,

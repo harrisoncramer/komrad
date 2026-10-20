@@ -27,9 +27,9 @@ var WatchedReviews = watch.Resource{
 			},
 		},
 		{
-			Table: "review_rounds",
+			Table: "review_snapshots",
 			Lookup: &watch.Lookup{
-				ParentColumn: "round_id",
+				ParentColumn: "snapshot_id",
 				ChildColumn:  "id",
 			},
 		},
@@ -67,10 +67,10 @@ func watchedReviewFromRow(row models.ListWatchedReviewsRow) Review {
 	review := Review{
 		ID:               row.ID,
 		TaskID:           row.TaskID,
-		RoundID:          row.RoundID,
-		RoundOrdinal:     row.RoundOrdinal,
-		RoundSnapshotSHA: row.RoundSnapshotSha,
-		RoundLandedAt:    row.RoundLandedAt,
+		SnapshotID:       row.SnapshotID,
+		SnapshotOrdinal:  row.SnapshotOrdinal,
+		SnapshotSHA:      row.SnapshotSha,
+		SnapshotLandedAt: row.SnapshotLandedAt,
 		AuthorKind:       AuthorKind(row.AuthorKind),
 		AuthorAgentID:    row.AuthorAgentID,
 		ReleasedAt:       row.ReleasedAt,
@@ -168,7 +168,7 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 			ID:                  row.ID,
 			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
-			RoundID:             row.RoundID,
+			SnapshotID:          row.SnapshotID,
 			ForgeThreadID:       row.ForgeThreadID,
 			BaseSha:             row.BaseSha,
 			FilePath:            row.FilePath,
@@ -185,7 +185,7 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 			CreatedAt:           row.CreatedAt,
 			UpdatedAt:           row.UpdatedAt,
 		})
-		thread.RoundOrdinal = row.RoundOrdinal
+		thread.SnapshotOrdinal = row.SnapshotOrdinal
 		thread.UnreadByHuman = xptr.Deref(row.UnreadByHuman)
 
 		return ThreadWithMessages{

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// movedBase is two rounds of one agent's work either side of the base moving on: the first
+// movedBase is two snapshots of one agent's work either side of the base moving on: the first
 // snapshot on the old base, and the second on a base that changed the same file above the
 // agent's lines and another file the agent never touched.
 type movedBase struct {
@@ -32,7 +32,7 @@ func newMovedBase(t *testing.T) (string, movedBase) {
 
 	run(t, repo, "checkout", "--quiet", "-b", "agent")
 	fixture.oldSnapshot = commitFile(t, repo, "greet.go",
-		"package greet\n\nfunc Hello() {}\n\nfunc Agent() {}\n", "round one")
+		"package greet\n\nfunc Hello() {}\n\nfunc Agent() {}\n", "snapshot one")
 
 	run(t, repo, "checkout", "--quiet", "main")
 	writeFile(t, repo, "greet.go", "// main moved\npackage greet\n\nfunc Hello() {}\n")
@@ -45,12 +45,12 @@ func newMovedBase(t *testing.T) (string, movedBase) {
 	run(t, repo, "rebase", "--quiet", "main")
 	fixture.newSnapshot = commitFile(t, repo, "greet.go",
 		"// main moved\npackage greet\n\nfunc Hello() {}\n\nfunc Agent() {}\n\nfunc Again() {}\n",
-		"round two")
+		"snapshot two")
 
 	return repo, fixture
 }
 
-// TestIntegrationReplayCarriesOnlyTheAgentsOwnChange is the case this exists for: two rounds either side
+// TestIntegrationReplayCarriesOnlyTheAgentsOwnChange is the case this exists for: two snapshots either side
 // of a moved base compare as the agent's own work, with the base's movement gone.
 func TestIntegrationReplayCarriesOnlyTheAgentsOwnChange(t *testing.T) {
 	repo, fixture := newMovedBase(t)
@@ -69,7 +69,7 @@ func TestIntegrationReplayCarriesOnlyTheAgentsOwnChange(t *testing.T) {
 	require.Empty(t, replayed.Conflicts)
 
 	changed := out(t, repo, "diff", "--name-only", replayed.Tree, fixture.newSnapshot)
-	assert.Equal(t, "greet.go", changed, "only the file the agent touched between the rounds")
+	assert.Equal(t, "greet.go", changed, "only the file the agent touched between the snapshots")
 
 	diff := out(t, repo, "diff", "--unified=0", replayed.Tree, fixture.newSnapshot)
 	assert.Contains(t, diff, "+func Again() {}")

@@ -17,14 +17,14 @@ import (
 // part way through.
 var errSequenceInProgress = fail.Precondition("a rebase or merge is part way through in that checkout; finish or abort it first")
 
-// snapshotMessage is what the round's commit says.
-const snapshotMessage = "komrad review round"
+// snapshotMessage is what the snapshot's commit says.
+const snapshotMessage = "komrad review snapshot"
 
 // parkMessage is what the commit standing behind an undo says.
 const parkMessage = "komrad parked worktree"
 
-// snapshotIdentity is who the round's commit is by and when, both pinned so that the same
-// worktree taken twice hashes to the same commit and reads as one round.
+// snapshotIdentity is who the snapshot's commit is by and when, both pinned so that the same
+// worktree taken twice hashes to the same commit and reads as one snapshot.
 var snapshotIdentity = []string{
 	"GIT_AUTHOR_NAME=komrad",
 	"GIT_AUTHOR_EMAIL=komrad@localhost",
@@ -173,7 +173,7 @@ func (c *Client) ReleaseRef(ctx context.Context, dir, ref string) error {
 
 // tempIndexPath names a file git may write an index to, leaving nothing there.
 func tempIndexPath() (string, error) {
-	file, err := os.CreateTemp("", "komrad-round-*.index")
+	file, err := os.CreateTemp("", "komrad-snapshot-*.index")
 	if err != nil {
 		return "", fmt.Errorf("failed to make room for a snapshot index: %w", err)
 	}
@@ -390,7 +390,7 @@ func (c *Client) getTree(ctx context.Context, dir, sha string) (string, error) {
 	return tree, nil
 }
 
-// HasLandedParams names the worktree, the base branch, and the round asked about.
+// HasLandedParams names the worktree, the base branch, and the snapshot asked about.
 type HasLandedParams struct {
 	Dir         string
 	Base        string
@@ -398,7 +398,7 @@ type HasLandedParams struct {
 	SnapshotSHA string
 }
 
-// HasLanded reports whether the base branch holds a round whole.
+// HasLanded reports whether the base branch holds a snapshot whole.
 func (c *Client) HasLanded(ctx context.Context, params HasLandedParams) (bool, error) {
 	root, err := c.GetRoot(ctx, params.Dir)
 	if err != nil {

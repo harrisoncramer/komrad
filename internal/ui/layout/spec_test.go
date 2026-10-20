@@ -36,7 +36,7 @@ func TestNewSpecSizes(t *testing.T) {
 			wantInfo: "12",
 		},
 		{
-			name:     "a share of the stage rounds to a percent",
+			name:     "a share of the stage snapshots to a percent",
 			layout:   config.Layout{InfoHeight: 0.335},
 			wantNav:  config.DefaultSidebarWidth,
 			wantInfo: "34%",

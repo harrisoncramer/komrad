@@ -1,9 +1,9 @@
 // Package position moves a place in one commit to the place it has become in another. That is
 // how a comment written against an old snapshot is drawn against a newer one.
 //
-// A review comment is written against a round, a frozen commit of an agent's worktree, and the
-// agent keeps writing afterwards. To draw that comment against a later round something has to
-// say where those lines went. Both rounds are ordinary commits komrad still holds, so the answer
+// A review comment is written against a snapshot, a frozen commit of an agent's worktree, and the
+// agent keeps writing afterwards. To draw that comment against a later snapshot something has to
+// say where those lines went. Both snapshots are ordinary commits komrad still holds, so the answer
 // is in git rather than in a guess, and this package is the arithmetic that reads it.
 //
 // A range holds its start and not its end. That choice does two things. It makes a span of no

@@ -32,7 +32,7 @@ func TestAddressedReply(t *testing.T) {
 			},
 			homeless: true,
 			snapshot: secondSnapshot,
-			wantErr:  errReviewNoAnswerRound,
+			wantErr:  errReviewNoAnswerSnapshot,
 		},
 		{
 			name: "the agent under review with nothing changed",
@@ -73,11 +73,11 @@ func TestAddressedReply(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.NotNil(t, added.Message.RoundID)
+			require.NotNil(t, added.Message.SnapshotID)
 
-			round, err := fx.reviews.GetRound(t.Context(), *added.Message.RoundID)
+			snapshot, err := fx.reviews.GetSnapshot(t.Context(), *added.Message.SnapshotID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
+			assert.Equal(t, tt.wantOrdinal, snapshot.Ordinal)
 		})
 	}
 }
@@ -115,7 +115,7 @@ func TestPlainReplyHint(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantHint, added.Hint != "")
-			assert.Nil(t, added.Message.RoundID)
+			assert.Nil(t, added.Message.SnapshotID)
 		})
 	}
 }

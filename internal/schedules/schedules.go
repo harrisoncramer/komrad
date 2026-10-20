@@ -357,7 +357,7 @@ func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	}
 
 	// A date the calendar never reaches, such as February the thirtieth, parses cleanly and then
-	// never comes round.
+	// never comes snapshot.
 	if parsed.Next(time.Now()).IsZero() {
 		return nil, fmt.Errorf("%w: %q never occurs", ErrBadCron, expression)
 	}

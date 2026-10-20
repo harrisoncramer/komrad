@@ -788,7 +788,7 @@
               "key": "edit_file",
               "path": "keybindings.review.edit_file",
               "type": "array",
-              "description": "From the menu, open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the task's own worktree rather than a copy of it, so what\nyou write is what the writer finds there, and the key is refused while the writer is\nworking rather than letting you both write at once. It is drawn off on a range ending\nbefore the newest round, since those lines have moved on.",
+              "description": "From the menu, open the file under the cursor in your editor, beside the diff, on the line the\ncursor is on. This is the task's own worktree rather than a copy of it, so what\nyou write is what the writer finds there, and the key is refused while the writer is\nworking rather than letting you both write at once. It is drawn off on a range ending\nbefore the newest snapshot, since those lines have moved on.",
               "default": "[\"e\"]"
             },
             {
@@ -851,14 +851,14 @@
               "key": "range_end",
               "path": "keybindings.review.range_end",
               "type": "array",
-              "description": "From the menu while the diff ends before the newest round, end it on the newest round.",
+              "description": "From the menu while the diff ends before the newest snapshot, end it on the newest snapshot.",
               "default": "[\"L\"]"
             },
             {
               "key": "reload",
               "path": "keybindings.review.reload",
               "type": "array",
-              "description": "From the menu, catch up with the writer, taking a round of the worktree as it stands and ending\nthe diff on it.",
+              "description": "From the menu, catch up with the writer, taking a snapshot of the worktree as it stands and ending\nthe diff on it.",
               "default": "[\"R\"]"
             },
             {

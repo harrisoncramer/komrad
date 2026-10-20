@@ -229,7 +229,7 @@ func AgentRows(w World, now time.Time) []*agentv1.AgentRow {
 			PullRequests: task.PullRequests,
 		}
 		if agent.GetRole() != agentv1.AgentRole_AGENT_ROLE_REVIEWER {
-			row.LocalReviewRounds = task.LocalReviewRounds
+			row.LocalReviewSnapshots = task.LocalReviewSnapshots
 			row.ReviewerComments = task.ReviewerComments
 			row.PersonComments = task.PersonComments
 		}
@@ -250,8 +250,8 @@ type TaskRow struct {
 	Task         *taskv1.Task
 	PullRequest  *agentv1.PullRequestStanding
 	PullRequests []*pullrequestv1.PullRequest
-	// LocalReviewRounds is how many rounds of its work were reviewed.
-	LocalReviewRounds int32
+	// LocalReviewSnapshots is how many snapshots of its work were reviewed.
+	LocalReviewSnapshots int32
 	// ReviewerComments counts the comments reviewer agents left on its work, nil while there are none.
 	ReviewerComments *agentv1.CommentCounts
 	// PersonComments counts the comments the person left on its work, nil while there are none.
@@ -294,12 +294,12 @@ func (d taskDrawer) row(id string) TaskRow {
 	comments := countComments(d.reviewed[id], d.threaded[id])
 
 	return TaskRow{
-		Task:              task,
-		PullRequest:       calculatePullRequestStanding(task, d.world.Repositories[task.GetRepositoryUrl()], pullRequests),
-		PullRequests:      pullRequests,
-		LocalReviewRounds: countLocalReviewRounds(d.reviewed[id]),
-		ReviewerComments:  comments.reviewer,
-		PersonComments:    comments.person,
+		Task:                 task,
+		PullRequest:          calculatePullRequestStanding(task, d.world.Repositories[task.GetRepositoryUrl()], pullRequests),
+		PullRequests:         pullRequests,
+		LocalReviewSnapshots: countLocalReviewSnapshots(d.reviewed[id]),
+		ReviewerComments:     comments.reviewer,
+		PersonComments:       comments.person,
 	}
 }
 

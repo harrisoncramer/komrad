@@ -25,18 +25,18 @@ func (l listing) isReviewable(agent panel.Agent) bool {
 type reviewLoadedMsg struct {
 	agentID string
 	// load is the read of the diff this message answers.
-	load    int
-	round   *agentv1.ReviewRound
-	patch   *diff.Patch
-	threads []*agentv1.ReviewThread
-	viewed  []*agentv1.ReviewViewedFile
-	// since says how much of this round is new to the reader.
+	load     int
+	snapshot *agentv1.ReviewSnapshot
+	patch    *diff.Patch
+	threads  []*agentv1.ReviewThread
+	viewed   []*agentv1.ReviewViewedFile
+	// since says how much of this snapshot is new to the reader.
 	since string
-	// earlier is the round the person last released a review against, nil when there is none.
-	earlier *agentv1.ReviewRound
+	// earlier is the snapshot the person last released a review against, nil when there is none.
+	earlier *agentv1.ReviewSnapshot
 	// earlierAt is when they released it, in clock terms, empty when there is none.
 	earlierAt string
-	rounds    []*agentv1.ReviewRound
+	snapshots []*agentv1.ReviewSnapshot
 	reviews   []*agentv1.Review
 	// base and head are the commits the diff was read between.
 	base string
@@ -50,7 +50,7 @@ type reviewLoadedMsg struct {
 	originBase     string
 	originHead     string
 	originFellBack bool
-	// notice is what the load has to say about the round it settled on.
+	// notice is what the load has to say about the snapshot it settled on.
 	notice  string
 	widened string
 	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
@@ -144,7 +144,7 @@ func (r *reviewScreen) loadWholeCmd(m *model) tea.Cmd {
 	})
 }
 
-// loadReviewCmdParams says which task's round to open, for which agent on screen, where to read
+// loadReviewCmdParams says which task's snapshot to open, for which agent on screen, where to read
 // it, and what to measure it from.
 type loadReviewCmdParams struct {
 	AgentID string
@@ -155,8 +155,8 @@ type loadReviewCmdParams struct {
 	Load    int
 }
 
-// loadReviewCmd opens a round of the agent and reads that rather than the worktree, a tree that
-// has not moved giving back the round already taken of it.
+// loadReviewCmd opens a snapshot of the agent and reads that rather than the worktree, a tree that
+// has not moved giving back the snapshot already taken of it.
 func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 	agents := m.api.reads().agents
 	agentID := params.AgentID
@@ -171,7 +171,7 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 		opened := resp.Msg
 		resolved := opened.GetResolved()
 
-		loaded, err := loadRoundPatch(ctx, loadRoundPatchParams{
+		loaded, err := loadSnapshotPatch(ctx, loadSnapshotPatchParams{
 			Patches:  patches,
 			Dir:      params.Dir,
 			Exclude:  params.Exclude,
@@ -179,22 +179,22 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 		})
 		if err != nil {
 			return reviewLoadedMsg{
-				round:   opened.GetRound(),
-				widened: opened.GetWidened(),
-				err:     err,
+				snapshot: opened.GetSnapshot(),
+				widened:  opened.GetWidened(),
+				err:      err,
 			}
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, params.TaskID)
 
 		return reviewLoadedMsg{
-			round:          opened.GetRound(),
+			snapshot:       opened.GetSnapshot(),
 			patch:          loaded.patch,
 			threads:        opened.GetThreads(),
 			viewed:         viewed,
-			earlier:        findRound(opened.GetRounds(), opened.GetEarlierRoundId()),
+			earlier:        findSnapshot(opened.GetSnapshots(), opened.GetEarlierSnapshotId()),
 			earlierAt:      reviewTimeOf(opened.GetEarlierReleasedAt()),
-			rounds:         opened.GetRounds(),
+			snapshots:      opened.GetSnapshots(),
 			reviews:        opened.GetReviews(),
 			base:           resolved.GetBaseSha(),
 			head:           resolved.GetHeadSha(),
@@ -233,18 +233,18 @@ func historyRequestOf(params loadReviewCmdParams) *agentv1.OpenReviewHistoryRequ
 	switch {
 	case spec.answer != nil:
 		req.Span = &agentv1.OpenReviewHistoryRequest_Answer{Answer: &agentv1.ReviewAnswerSpan{
-			FromRoundId: spec.answer.FromRound,
-			ToRoundId:   spec.answer.ToRound,
+			FromSnapshotId: spec.answer.FromSnapshot,
+			ToSnapshotId:   spec.answer.ToSnapshot,
 		}}
 	case spec.origin != nil:
 		req.Span = &agentv1.OpenReviewHistoryRequest_Origin{Origin: &agentv1.ReviewOriginSpan{
-			RoundId: spec.origin.RoundID,
-			BaseSha: spec.origin.BaseSHA,
+			SnapshotId: spec.origin.SnapshotID,
+			BaseSha:    spec.origin.BaseSHA,
 		}}
 	case !spec.isWholeChange():
-		req.Span = &agentv1.OpenReviewHistoryRequest_Rounds{Rounds: &agentv1.ReviewRoundSpan{
-			FromRoundId: nilIfBlank(spec.from),
-			ToRoundId:   nilIfBlank(spec.to),
+		req.Span = &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{
+			FromSnapshotId: nilIfBlank(spec.from),
+			ToSnapshotId:   nilIfBlank(spec.to),
 		}}
 	}
 
@@ -265,7 +265,7 @@ func tracedOf(places map[string]*agentv1.ReviewTracedPlace) map[string]diffview.
 	return traced
 }
 
-// changedSinceSaid says how much of this round is new since the person last released a review,
+// changedSinceSaid says how much of this snapshot is new since the person last released a review,
 // saying nothing at all when none of it is.
 func changedSinceSaid(changed int32) string {
 	if changed <= 0 {
@@ -275,19 +275,19 @@ func changedSinceSaid(changed int32) string {
 	return label.Counted(int(changed), "file") + " changed since you last reviewed"
 }
 
-type roundPatch struct {
+type snapshotPatch struct {
 	patch  *diff.Patch
 	origin originDiff
 }
 
-type loadRoundPatchParams struct {
+type loadSnapshotPatchParams struct {
 	Patches  diff.Reader
 	Dir      string
 	Exclude  []string
 	Resolved *agentv1.ReviewResolvedSpan
 }
 
-func loadRoundPatch(ctx context.Context, params loadRoundPatchParams) (*roundPatch, error) {
+func loadSnapshotPatch(ctx context.Context, params loadSnapshotPatchParams) (*snapshotPatch, error) {
 	resolved := params.Resolved
 	loading := diff.LoadParams{
 		Dir:         params.Dir,
@@ -297,13 +297,13 @@ func loadRoundPatch(ctx context.Context, params loadRoundPatchParams) (*roundPat
 	}
 
 	origin := originDiff{
-		base:      resolved.GetOriginBaseSha(),
-		head:      resolved.GetOriginHeadSha(),
-		roundBase: resolved.GetOriginRoundBaseSha(),
+		base:         resolved.GetOriginBaseSha(),
+		head:         resolved.GetOriginHeadSha(),
+		snapshotBase: resolved.GetOriginSnapshotBaseSha(),
 	}
 	patch, err := diff.Load(ctx, params.Patches, loading)
 	if err != nil && origin.canFallBack() && isUnreadableBase(ctx, err) {
-		origin.base, origin.fellBack = origin.roundBase, true
+		origin.base, origin.fellBack = origin.snapshotBase, true
 		loading.BaseSHA = origin.base
 		patch, err = diff.Load(ctx, params.Patches, loading)
 	}
@@ -311,7 +311,7 @@ func loadRoundPatch(ctx context.Context, params loadRoundPatchParams) (*roundPat
 		return nil, err
 	}
 
-	return &roundPatch{patch: patch, origin: origin}, nil
+	return &snapshotPatch{patch: patch, origin: origin}, nil
 }
 
 func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
@@ -319,7 +319,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
-	r.diff.rounds, r.diff.reviews, r.diff.newest = msg.rounds, msg.reviews, msg.round
+	r.diff.snapshots, r.diff.reviews, r.diff.newest = msg.snapshots, msg.reviews, msg.snapshot
 
 	if msg.widened != "" {
 		r.diff.widen()
@@ -366,7 +366,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	r.notice = msg.notice
 
 	r.root = msg.patch.Root
-	r.round = msg.round
+	r.snapshot = msg.snapshot
 	r.diff.load(msg, m.term.isDark, m.glyphs)
 	r.threads.set(msg.threads)
 
@@ -379,7 +379,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 // load renders a patch just read, over the one on screen, and puts the cursor back where the
 // reader was standing.
 func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
-	d.baseRound = msg.earlier
+	d.baseSnapshot = msg.earlier
 	d.baseAt = msg.earlierAt
 	d.since = msg.since
 
@@ -490,7 +490,7 @@ func (r *reviewScreen) toggleAgentThreads(m *model) tea.Cmd {
 	return nil
 }
 
-// catchUp takes a round of the worktree as it stands and ends the range on it.
+// catchUp takes a snapshot of the worktree as it stands and ends the range on it.
 func (r *reviewScreen) catchUp(m *model) tea.Cmd {
 	if r.diff.spec.isRange() {
 		r.diff.spec.to = ""
@@ -510,7 +510,7 @@ func (r *reviewScreen) reload(m *model) tea.Cmd {
 		r.diff.restore = &place
 	}
 
-	r.diff.followedMove = r.findMovedRound(m)
+	r.diff.followedMove = r.findMovedSnapshot(m)
 	r.loads++
 
 	return loadReviewCmd(m, loadReviewCmdParams{

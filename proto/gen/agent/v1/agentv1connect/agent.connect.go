@@ -187,15 +187,15 @@ const (
 	// AgentServiceSetReviewThreadResolvedProcedure is the fully-qualified name of the AgentService's
 	// SetReviewThreadResolved RPC.
 	AgentServiceSetReviewThreadResolvedProcedure = "/agent.v1.AgentService/SetReviewThreadResolved"
-	// AgentServiceOpenReviewRoundProcedure is the fully-qualified name of the AgentService's
-	// OpenReviewRound RPC.
-	AgentServiceOpenReviewRoundProcedure = "/agent.v1.AgentService/OpenReviewRound"
+	// AgentServiceTakeReviewSnapshotProcedure is the fully-qualified name of the AgentService's
+	// TakeReviewSnapshot RPC.
+	AgentServiceTakeReviewSnapshotProcedure = "/agent.v1.AgentService/TakeReviewSnapshot"
 	// AgentServiceOpenReviewHistoryProcedure is the fully-qualified name of the AgentService's
 	// OpenReviewHistory RPC.
 	AgentServiceOpenReviewHistoryProcedure = "/agent.v1.AgentService/OpenReviewHistory"
-	// AgentServiceListReviewRoundsProcedure is the fully-qualified name of the AgentService's
-	// ListReviewRounds RPC.
-	AgentServiceListReviewRoundsProcedure = "/agent.v1.AgentService/ListReviewRounds"
+	// AgentServiceListReviewSnapshotsProcedure is the fully-qualified name of the AgentService's
+	// ListReviewSnapshots RPC.
+	AgentServiceListReviewSnapshotsProcedure = "/agent.v1.AgentService/ListReviewSnapshots"
 	// AgentServiceListReviewsProcedure is the fully-qualified name of the AgentService's ListReviews
 	// RPC.
 	AgentServiceListReviewsProcedure = "/agent.v1.AgentService/ListReviews"
@@ -269,9 +269,9 @@ type AgentServiceClient interface {
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
-	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
+	TakeReviewSnapshot(context.Context, *connect.Request[v1.TakeReviewSnapshotRequest]) (*connect.Response[v1.TakeReviewSnapshotResponse], error)
 	OpenReviewHistory(context.Context, *connect.Request[v1.OpenReviewHistoryRequest]) (*connect.Response[v1.OpenReviewHistoryResponse], error)
-	ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error)
+	ListReviewSnapshots(context.Context, *connect.Request[v1.ListReviewSnapshotsRequest]) (*connect.Response[v1.ListReviewSnapshotsResponse], error)
 	ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error)
 	GetReview(context.Context, *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error)
 	ReleaseReview(context.Context, *connect.Request[v1.ReleaseReviewRequest]) (*connect.Response[v1.ReleaseReviewResponse], error)
@@ -649,10 +649,10 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		openReviewRound: connect.NewClient[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse](
+		takeReviewSnapshot: connect.NewClient[v1.TakeReviewSnapshotRequest, v1.TakeReviewSnapshotResponse](
 			httpClient,
-			baseURL+AgentServiceOpenReviewRoundProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("OpenReviewRound")),
+			baseURL+AgentServiceTakeReviewSnapshotProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("TakeReviewSnapshot")),
 			connect.WithClientOptions(opts...),
 		),
 		openReviewHistory: connect.NewClient[v1.OpenReviewHistoryRequest, v1.OpenReviewHistoryResponse](
@@ -661,10 +661,10 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("OpenReviewHistory")),
 			connect.WithClientOptions(opts...),
 		),
-		listReviewRounds: connect.NewClient[v1.ListReviewRoundsRequest, v1.ListReviewRoundsResponse](
+		listReviewSnapshots: connect.NewClient[v1.ListReviewSnapshotsRequest, v1.ListReviewSnapshotsResponse](
 			httpClient,
-			baseURL+AgentServiceListReviewRoundsProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("ListReviewRounds")),
+			baseURL+AgentServiceListReviewSnapshotsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ListReviewSnapshots")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
@@ -762,9 +762,9 @@ type agentServiceClient struct {
 	startOrchestrator        *connect.Client[v1.StartOrchestratorRequest, v1.StartOrchestratorResponse]
 	markReviewThreadRead     *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
 	setReviewThreadResolved  *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
-	openReviewRound          *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
+	takeReviewSnapshot       *connect.Client[v1.TakeReviewSnapshotRequest, v1.TakeReviewSnapshotResponse]
 	openReviewHistory        *connect.Client[v1.OpenReviewHistoryRequest, v1.OpenReviewHistoryResponse]
-	listReviewRounds         *connect.Client[v1.ListReviewRoundsRequest, v1.ListReviewRoundsResponse]
+	listReviewSnapshots      *connect.Client[v1.ListReviewSnapshotsRequest, v1.ListReviewSnapshotsResponse]
 	listReviews              *connect.Client[v1.ListReviewsRequest, v1.ListReviewsResponse]
 	getReview                *connect.Client[v1.GetReviewRequest, v1.GetReviewResponse]
 	releaseReview            *connect.Client[v1.ReleaseReviewRequest, v1.ReleaseReviewResponse]
@@ -1047,9 +1047,9 @@ func (c *agentServiceClient) SetReviewThreadResolved(ctx context.Context, req *c
 	return c.setReviewThreadResolved.CallUnary(ctx, req)
 }
 
-// OpenReviewRound calls agent.v1.AgentService.OpenReviewRound.
-func (c *agentServiceClient) OpenReviewRound(ctx context.Context, req *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error) {
-	return c.openReviewRound.CallUnary(ctx, req)
+// TakeReviewSnapshot calls agent.v1.AgentService.TakeReviewSnapshot.
+func (c *agentServiceClient) TakeReviewSnapshot(ctx context.Context, req *connect.Request[v1.TakeReviewSnapshotRequest]) (*connect.Response[v1.TakeReviewSnapshotResponse], error) {
+	return c.takeReviewSnapshot.CallUnary(ctx, req)
 }
 
 // OpenReviewHistory calls agent.v1.AgentService.OpenReviewHistory.
@@ -1057,9 +1057,9 @@ func (c *agentServiceClient) OpenReviewHistory(ctx context.Context, req *connect
 	return c.openReviewHistory.CallUnary(ctx, req)
 }
 
-// ListReviewRounds calls agent.v1.AgentService.ListReviewRounds.
-func (c *agentServiceClient) ListReviewRounds(ctx context.Context, req *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error) {
-	return c.listReviewRounds.CallUnary(ctx, req)
+// ListReviewSnapshots calls agent.v1.AgentService.ListReviewSnapshots.
+func (c *agentServiceClient) ListReviewSnapshots(ctx context.Context, req *connect.Request[v1.ListReviewSnapshotsRequest]) (*connect.Response[v1.ListReviewSnapshotsResponse], error) {
+	return c.listReviewSnapshots.CallUnary(ctx, req)
 }
 
 // ListReviews calls agent.v1.AgentService.ListReviews.
@@ -1144,9 +1144,9 @@ type AgentServiceHandler interface {
 	StartOrchestrator(context.Context, *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
-	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
+	TakeReviewSnapshot(context.Context, *connect.Request[v1.TakeReviewSnapshotRequest]) (*connect.Response[v1.TakeReviewSnapshotResponse], error)
 	OpenReviewHistory(context.Context, *connect.Request[v1.OpenReviewHistoryRequest]) (*connect.Response[v1.OpenReviewHistoryResponse], error)
-	ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error)
+	ListReviewSnapshots(context.Context, *connect.Request[v1.ListReviewSnapshotsRequest]) (*connect.Response[v1.ListReviewSnapshotsResponse], error)
 	ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error)
 	GetReview(context.Context, *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error)
 	ReleaseReview(context.Context, *connect.Request[v1.ReleaseReviewRequest]) (*connect.Response[v1.ReleaseReviewResponse], error)
@@ -1520,10 +1520,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceOpenReviewRoundHandler := connect.NewUnaryHandler(
-		AgentServiceOpenReviewRoundProcedure,
-		svc.OpenReviewRound,
-		connect.WithSchema(agentServiceMethods.ByName("OpenReviewRound")),
+	agentServiceTakeReviewSnapshotHandler := connect.NewUnaryHandler(
+		AgentServiceTakeReviewSnapshotProcedure,
+		svc.TakeReviewSnapshot,
+		connect.WithSchema(agentServiceMethods.ByName("TakeReviewSnapshot")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceOpenReviewHistoryHandler := connect.NewUnaryHandler(
@@ -1532,10 +1532,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("OpenReviewHistory")),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceListReviewRoundsHandler := connect.NewUnaryHandler(
-		AgentServiceListReviewRoundsProcedure,
-		svc.ListReviewRounds,
-		connect.WithSchema(agentServiceMethods.ByName("ListReviewRounds")),
+	agentServiceListReviewSnapshotsHandler := connect.NewUnaryHandler(
+		AgentServiceListReviewSnapshotsProcedure,
+		svc.ListReviewSnapshots,
+		connect.WithSchema(agentServiceMethods.ByName("ListReviewSnapshots")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
@@ -1685,12 +1685,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceMarkReviewThreadReadHandler.ServeHTTP(w, r)
 		case AgentServiceSetReviewThreadResolvedProcedure:
 			agentServiceSetReviewThreadResolvedHandler.ServeHTTP(w, r)
-		case AgentServiceOpenReviewRoundProcedure:
-			agentServiceOpenReviewRoundHandler.ServeHTTP(w, r)
+		case AgentServiceTakeReviewSnapshotProcedure:
+			agentServiceTakeReviewSnapshotHandler.ServeHTTP(w, r)
 		case AgentServiceOpenReviewHistoryProcedure:
 			agentServiceOpenReviewHistoryHandler.ServeHTTP(w, r)
-		case AgentServiceListReviewRoundsProcedure:
-			agentServiceListReviewRoundsHandler.ServeHTTP(w, r)
+		case AgentServiceListReviewSnapshotsProcedure:
+			agentServiceListReviewSnapshotsHandler.ServeHTTP(w, r)
 		case AgentServiceListReviewsProcedure:
 			agentServiceListReviewsHandler.ServeHTTP(w, r)
 		case AgentServiceGetReviewProcedure:
@@ -1930,16 +1930,16 @@ func (UnimplementedAgentServiceHandler) SetReviewThreadResolved(context.Context,
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetReviewThreadResolved is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.OpenReviewRound is not implemented"))
+func (UnimplementedAgentServiceHandler) TakeReviewSnapshot(context.Context, *connect.Request[v1.TakeReviewSnapshotRequest]) (*connect.Response[v1.TakeReviewSnapshotResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.TakeReviewSnapshot is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) OpenReviewHistory(context.Context, *connect.Request[v1.OpenReviewHistoryRequest]) (*connect.Response[v1.OpenReviewHistoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.OpenReviewHistory is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListReviewRounds is not implemented"))
+func (UnimplementedAgentServiceHandler) ListReviewSnapshots(context.Context, *connect.Request[v1.ListReviewSnapshotsRequest]) (*connect.Response[v1.ListReviewSnapshotsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListReviewSnapshots is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error) {

@@ -26,7 +26,7 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		HeadSha:            checkout.HeadSHA,
 		WorktreeRemoved:    checkout.WorktreeRemoved,
 		Sequence:           SequenceOf(checkout.Sequence),
-		MovedSinceRound:    checkout.MovedSinceRound,
+		MovedSinceSnapshot: checkout.MovedSinceSnapshot,
 		DiffStat:           diffStatOf(checkout.DiffStat),
 		AdoptedBranch:      xptr.NonEmpty(checkout.AdoptedBranch),
 		FailureReason:      stored.FailureReason,

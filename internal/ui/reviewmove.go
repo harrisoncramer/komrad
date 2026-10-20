@@ -6,10 +6,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// followMove reads the diff again when the watch says the worktree has moved past the round on
+// followMove reads the diff again when the watch says the worktree has moved past the snapshot on
 // screen.
 func (r *reviewScreen) followMove(m *model) tea.Cmd {
-	moved := r.findMovedRound(m)
+	moved := r.findMovedSnapshot(m)
 	if moved == "" {
 		r.diff.followedMove = ""
 
@@ -23,20 +23,20 @@ func (r *reviewScreen) followMove(m *model) tea.Cmd {
 	return r.reload(m)
 }
 
-// isWorktreeMoved reports whether the agent has written since the round on screen.
+// isWorktreeMoved reports whether the agent has written since the snapshot on screen.
 func (r reviewScreen) isWorktreeMoved(m *model) bool {
-	return r.findMovedRound(m) != ""
+	return r.findMovedSnapshot(m) != ""
 }
 
-// findMovedRound is the snapshot on screen when the agent has moved past it, empty otherwise.
-func (r reviewScreen) findMovedRound(m *model) string {
+// findMovedSnapshot is the snapshot on screen when the agent has moved past it, empty otherwise.
+func (r reviewScreen) findMovedSnapshot(m *model) string {
 	item, ok := r.agentRow(m)
 	if !ok {
 		return ""
 	}
 
-	moved := m.listing.tasks.findForAgent(item.Agent).MovedSinceRound
-	if moved == "" || moved != r.round.GetSnapshotSha() {
+	moved := m.listing.tasks.findForAgent(item.Agent).MovedSinceSnapshot
+	if moved == "" || moved != r.snapshot.GetSha() {
 		return ""
 	}
 

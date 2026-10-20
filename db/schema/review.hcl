@@ -18,9 +18,9 @@ enum "forge_reply_approver_kind" {
   values = ["human"]
 }
 
-table "review_rounds" {
+table "review_snapshots" {
   schema  = schema.public
-  comment = "One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files."
+  comment = "One frozen copy of what an agent has written. A review is always given against a snapshot rather than against the working files."
   column "id" {
     null    = false
     type    = uuid
@@ -29,27 +29,27 @@ table "review_rounds" {
   column "task_id" {
     null    = false
     type    = uuid
-    comment = "The task whose checkout the round froze."
+    comment = "The task whose checkout the snapshot froze."
   }
   column "ordinal" {
     null    = false
     type    = int
-    comment = "Which round this is for its task, counting from one. The panel names the round by this number."
+    comment = "Which snapshot this is for its task, counting from one. The panel names the snapshot by this number."
   }
   column "base_sha" {
     null    = false
     type    = text
-    comment = "The commit the agent's branch started from. It is resolved once, when the round is taken, so later movement on the base branch cannot change what the round says."
+    comment = "The commit the agent's branch started from. It is resolved once, when the snapshot is taken, so later movement on the base branch cannot change what the snapshot says."
   }
-  column "snapshot_sha" {
+  column "sha" {
     null    = false
     type    = text
-    comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
+    comment = "A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/snapshots keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone."
   }
   column "landed_at" {
     null    = true
     type    = timestamptz
-    comment = "When the base branch was first seen holding this round whole, or a later round whole, null until then. A landed round's settled comments are history rather than work still under review."
+    comment = "When the base branch was first seen holding this snapshot whole, or a later snapshot whole, null until then. A landed snapshot's settled comments are history rather than work still under review."
   }
   column "created_at" {
     null    = false
@@ -64,22 +64,22 @@ table "review_rounds" {
   primary_key {
     columns = [column.id]
   }
-  unique "review_rounds_engine_id_id_key" {
+  unique "review_snapshots_engine_id_id_key" {
     columns = [column.engine_id, column.id]
   }
-  foreign_key "review_rounds_engine_id_fkey" {
+  foreign_key "review_snapshots_engine_id_fkey" {
     columns     = [column.engine_id]
     ref_columns = [table.engines.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  foreign_key "review_rounds_task_id_fkey" {
+  foreign_key "review_snapshots_task_id_fkey" {
     columns     = [column.engine_id, column.task_id]
     ref_columns = [table.tasks.column.engine_id, table.tasks.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
-  index "review_rounds_task_ordinal" {
+  index "review_snapshots_task_ordinal" {
     columns = [column.task_id, column.ordinal]
     unique  = true
   }
@@ -87,7 +87,7 @@ table "review_rounds" {
 
 table "reviews" {
   schema  = schema.public
-  comment = "One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once."
+  comment = "One reviewer's batch of comments on one snapshot. Nobody else sees it while it is being written, and it is released all at once."
   column "id" {
     null    = false
     type    = uuid
@@ -96,9 +96,9 @@ table "reviews" {
   column "task_id" {
     null    = false
     type    = uuid
-    comment = "The task being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join."
+    comment = "The task being reviewed. The snapshot already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join."
   }
-  column "round_id" {
+  column "snapshot_id" {
     null = false
     type = uuid
   }
@@ -177,9 +177,9 @@ table "reviews" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
-  foreign_key "reviews_round_id_fkey" {
-    columns     = [column.engine_id, column.round_id]
-    ref_columns = [table.review_rounds.column.engine_id, table.review_rounds.column.id]
+  foreign_key "reviews_snapshot_id_fkey" {
+    columns     = [column.engine_id, column.snapshot_id]
+    ref_columns = [table.review_snapshots.column.engine_id, table.review_snapshots.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -210,8 +210,8 @@ table "reviews" {
   index "reviews_task_id" {
     columns = [column.task_id, column.id]
   }
-  index "reviews_round_id" {
-    columns = [column.round_id, column.id]
+  index "reviews_snapshot_id" {
+    columns = [column.snapshot_id, column.id]
   }
   index "reviews_doorbell_mail_id" {
     columns = [column.doorbell_mail_id]
@@ -221,7 +221,7 @@ table "reviews" {
 
 table "review_threads" {
   schema  = schema.public
-  comment = "One conversation pinned to a file and a line range in the round its review was given against."
+  comment = "One conversation pinned to a file and a line range in the snapshot its review was given against."
   column "id" {
     null    = false
     type    = uuid
@@ -265,7 +265,7 @@ table "review_threads" {
     null    = false
     type    = sql("text[]")
     default = sql("'{}'::text[]")
-    comment = "The diff lines the thread was written against. They still say what the thread was about after the agent has rewritten that code. A later round is searched for these lines to decide whether the thread has gone outdated."
+    comment = "The diff lines the thread was written against. They still say what the thread was about after the agent has rewritten that code. A later snapshot is searched for these lines to decide whether the thread has gone outdated."
   }
   column "human_read_at" {
     null    = true
@@ -296,16 +296,16 @@ table "review_threads" {
     null = false
     type = uuid
   }
-  column "round_id" {
+  column "snapshot_id" {
     null    = false
     type    = uuid
-    comment = "The round this thread's line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one."
+    comment = "The snapshot this thread's line numbers were measured against. It is not read through the review, because a review stays open across several snapshots and would name the wrong one."
   }
   column "base_sha" {
     null    = false
     type    = text
     default = ""
-    comment = "The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the round's own base. For a thread written while the diff was narrowed to one round it is the earlier round's snapshot."
+    comment = "The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the snapshot's own base. For a thread written while the diff was narrowed to one snapshot it is the earlier snapshot's commit."
   }
   column "resolved_by_kind" {
     null    = true
@@ -357,9 +357,9 @@ table "review_threads" {
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
-  foreign_key "review_threads_round_id_fkey" {
-    columns     = [column.engine_id, column.round_id]
-    ref_columns = [table.review_rounds.column.engine_id, table.review_rounds.column.id]
+  foreign_key "review_threads_snapshot_id_fkey" {
+    columns     = [column.engine_id, column.snapshot_id]
+    ref_columns = [table.review_snapshots.column.engine_id, table.review_snapshots.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }
@@ -440,10 +440,10 @@ table "review_messages" {
     default = sql("'{}'::text[]")
     comment = "Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do."
   }
-  column "round_id" {
+  column "snapshot_id" {
     null    = true
     type    = uuid
-    comment = "The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else."
+    comment = "The snapshot an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else."
   }
   column "external_login" {
     null    = true
@@ -500,9 +500,9 @@ table "review_messages" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
-  foreign_key "review_messages_round_id_fkey" {
-    columns     = [column.engine_id, column.round_id]
-    ref_columns = [table.review_rounds.column.engine_id, table.review_rounds.column.id]
+  foreign_key "review_messages_snapshot_id_fkey" {
+    columns     = [column.engine_id, column.snapshot_id]
+    ref_columns = [table.review_snapshots.column.engine_id, table.review_snapshots.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }

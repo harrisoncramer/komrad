@@ -793,15 +793,15 @@ func TestRestoreCeiling(t *testing.T) {
 	require.NoError(t, err, "archiving one makes room again")
 }
 
-// TestDeletingATasksLastAgentKeepsItsRounds pins that a task outliving its last agent keeps the
+// TestDeletingATasksLastAgentKeepsItsSnapshots pins that a task outliving its last agent keeps the
 // snapshots its review diffs are drawn against.
-func TestDeletingATasksLastAgentKeepsItsRounds(t *testing.T) {
+func TestDeletingATasksLastAgentKeepsItsSnapshots(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
-	going := seedRoundedAgent(t, st, reviews, "going", t.TempDir(), "sha")
+	going := seedSnapshottedAgent(t, st, reviews, "going", t.TempDir(), "sha")
 	task := *agentByID(t, st, going).TaskID
 
 	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{going}))
@@ -821,43 +821,43 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 
 	root := t.TempDir()
-	worker := seedRoundedAgent(t, st, reviews, "worker", root, "worker-sha")
-	first := seedRoundedAgent(t, st, reviews, "kid-a", root, "kid-a-sha")
-	second := seedRoundedAgent(t, st, reviews, "kid-b", root, "kid-b-sha")
+	worker := seedSnapshottedAgent(t, st, reviews, "worker", root, "worker-sha")
+	first := seedSnapshottedAgent(t, st, reviews, "kid-a", root, "kid-a-sha")
+	second := seedSnapshottedAgent(t, st, reviews, "kid-b", root, "kid-b-sha")
 
-	round, err := reviews.GetLatestRound(t.Context(), *agentByID(t, st, worker).TaskID)
+	snapshot, err := reviews.GetLatestSnapshot(t.Context(), *agentByID(t, st, worker).TaskID)
 	require.NoError(t, err)
 
 	// The first reviewer has had its say and started another; the second is still writing its
 	// first.
-	released := openBatch(t, reviews, round, first)
+	released := openBatch(t, reviews, snapshot, first)
 	_, err = reviews.ReleaseReview(t.Context(), reviewstore.ReleaseReviewParams{
 		ID:      released.ID,
 		Verdict: reviewstore.VerdictChangesRequested,
-		Path:    "/tmp/round-1.md",
+		Path:    "/tmp/snapshot-1.md",
 	})
 	require.NoError(t, err)
 
-	openBatch(t, reviews, round, first)
-	openBatch(t, reviews, round, second)
+	openBatch(t, reviews, snapshot, first)
+	openBatch(t, reviews, snapshot, second)
 
 	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{first, second}),
 		"two reviewers holding open batches on one agent both delete")
 
-	left, err := reviews.ListReviews(t.Context(), round.TaskID)
+	left, err := reviews.ListReviews(t.Context(), snapshot.TaskID)
 	require.NoError(t, err)
 	require.Len(t, left, 1, "the drafts went and the released review stayed")
 	assert.Nil(t, left[0].AuthorAgentID, "with its author nulled rather than the row taken")
 	assert.NotNil(t, left[0].ReleasedAt)
 }
 
-// openBatch starts a review by one agent of a round.
-func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, round *reviewstore.Round, author string) *reviewstore.Review {
+// openBatch starts a review by one agent of a snapshot.
+func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, snapshot *reviewstore.Snapshot, author string) *reviewstore.Review {
 	t.Helper()
 
 	review, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
-		TaskID:        round.TaskID,
-		RoundID:       round.ID,
+		TaskID:        snapshot.TaskID,
+		SnapshotID:    snapshot.ID,
 		AuthorKind:    reviewstore.AuthorAgent,
 		AuthorAgentID: &author,
 	})
@@ -866,8 +866,8 @@ func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, round *reviewstor
 	return review
 }
 
-// seedRoundedAgent records an agent in a shared checkout with one round taken of it.
-func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewStore, name, root, sha string) string {
+// seedSnapshottedAgent records an agent in a shared checkout with one snapshot taken of it.
+func seedSnapshottedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewStore, name, root, sha string) string {
 	t.Helper()
 
 	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
@@ -878,10 +878,10 @@ func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewSt
 	agent, err := st.Get(t.Context(), name)
 	require.NoError(t, err)
 
-	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		TaskID:      *agent.TaskID,
-		BaseSHA:     "base",
-		SnapshotSHA: sha,
+	_, err = reviews.CreateSnapshot(t.Context(), reviewstore.CreateSnapshotParams{
+		TaskID:  *agent.TaskID,
+		BaseSHA: "base",
+		SHA:     sha,
 	})
 	require.NoError(t, err)
 
@@ -1712,7 +1712,7 @@ func TestDeleteTasksKeepsATaskWhoseCheckoutWillNotGo(t *testing.T) {
 }
 
 // TestDeleteTasksTakesItsAgentsCheckoutAndReviews pins a task going only once its agents have, with
-// its worktree given back and its review rounds gone.
+// its worktree given back and its review snapshots gone.
 func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
 	lifecycle := &fakeLifecycle{}
 	fx := newTaskDeleteFixture(t, lifecycle, worktreeConfig(t, "backend"))
@@ -1721,10 +1721,10 @@ func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
 	require.NoError(t, err)
 	_, other := fx.launch(t, "ui")
 	reviews := reviewstore.NewReviewStore(fx.st.Pool.GetDB())
-	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-		TaskID:      task.ID,
-		BaseSHA:     "base",
-		SnapshotSHA: "sha",
+	_, err = reviews.CreateSnapshot(t.Context(), reviewstore.CreateSnapshotParams{
+		TaskID:  task.ID,
+		BaseSHA: "base",
+		SHA:     "sha",
 	})
 	require.NoError(t, err)
 
@@ -1732,9 +1732,9 @@ func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
 
 	_, err = fx.st.Tasks.Get(t.Context(), task.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
-	rounds, err := reviews.ListRounds(t.Context(), task.ID)
+	snapshots, err := reviews.ListSnapshots(t.Context(), task.ID)
 	require.NoError(t, err)
-	assert.Empty(t, rounds)
+	assert.Empty(t, snapshots)
 	assert.Equal(t, []string{task.Checkout.Cwd}, lifecycle.ranTaskDeprovisions())
 	assert.Empty(t, lifecycle.ranDeprovisions(), "no agent gives back a checkout itself")
 

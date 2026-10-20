@@ -151,8 +151,8 @@ message AgentRow {
   PullRequestStanding pull_request = 3;
   // Every pull request from the agent's branch, the current one first.
   repeated pullrequest.v1.PullRequest pull_requests = 4;
-  // How many review rounds the agent's work has.
-  int32 local_review_rounds = 5;
+  // How many review snapshots the agent's work has.
+  int32 local_review_snapshots = 5;
   // The comments reviewers have left on the agent's work. Unset while there are none.
   optional CommentCounts reviewer_comments = 6;
   // The comments the person has left on the agent's work. Unset while there are none.
@@ -161,9 +161,9 @@ message AgentRow {
 
 // CommentCounts counts the comments on an agent's work.
 message CommentCounts {
-  // How many comments are not resolved, on any round.
+  // How many comments are not resolved, on any snapshot.
   int32 open = 1;
-  // How many comments are resolved, on rounds that have not landed.
+  // How many comments are resolved, on snapshots that have not landed.
   int32 resolved = 2;
   // How many comments hold a reply the person has not read.
   int32 unread = 3;
@@ -354,8 +354,8 @@ message GetAgentResponse {
   PullRequestStanding pull_request = 3;
   // Every pull request from the agent's branch, the current one first.
   repeated pullrequest.v1.PullRequest pull_requests = 4;
-  // How many review rounds the agent's work has.
-  int32 local_review_rounds = 5;
+  // How many review snapshots the agent's work has.
+  int32 local_review_snapshots = 5;
   // The comments reviewers have left on the agent's work. Unset while there are none.
   optional CommentCounts reviewer_comments = 6;
   // The comments the person has left on the agent's work. Unset while there are none.
@@ -1190,7 +1190,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_review_threads"
-      description: "List the threads on a task's diff, the caller's task by default. Line numbers are true of each thread's round, so search for the quoted lines once the code has moved."
+      description: "List the threads on a task's diff, the caller's task by default. Line numbers are true of each thread's snapshot, so search for the quoted lines once the code has moved."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -1203,7 +1203,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "create_review_thread"
-      description: "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the round's `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`."
+      description: "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`."
       mcp_guidance: "The body limit is a ceiling, not a length to aim for."
       destructive: false
       idempotent: false
@@ -1215,7 +1215,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "add_review_message"
-      description: "Reply in a thread on the caller's own diff. With `addressed` set, the reply pins a new round of the worktree, and resolves a thread the person started. A thread a reviewer started stays open for that reviewer to resolve. Komrad refuses `addressed` when the worktree has not changed since the thread's round."
+      description: "Reply in a thread on the caller's own diff. With `addressed` set, the reply pins a new snapshot of the worktree, and resolves a thread the person started. A thread a reviewer started stays open for that reviewer to resolve. Komrad refuses `addressed` when the worktree has not changed since the thread's snapshot."
       mcp_guidance: "Make the change before replying with addressed set. Leave addressed unset to push back or ask."
       destructive: false
       idempotent: false
@@ -1352,12 +1352,12 @@ service AgentService {
       roles: [ROLE_REVIEWER]
     };
   }
-  rpc OpenReviewRound(OpenReviewRoundRequest) returns (OpenReviewRoundResponse) {
+  rpc TakeReviewSnapshot(TakeReviewSnapshotRequest) returns (TakeReviewSnapshotResponse) {
     option (annotation.v1.surfaces) = {
       cli: true
       mcp: true
-      name: "open_review_round"
-      description: "Snapshot a task's checkout as a round to review, the caller's task by default. Diff the round's `base_sha` against its `snapshot_sha` to read the change. A checkout with no change since the newest round returns that round."
+      name: "take_review_snapshot"
+      description: "Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout with no change since the newest snapshot returns that snapshot."
       destructive: false
       idempotent: true
       roles: [ROLE_REVIEWER]
@@ -1370,13 +1370,13 @@ service AgentService {
       reason: "The history is measured from the person's own reviews, so only the person reads it."
     };
   }
-  rpc ListReviewRounds(ListReviewRoundsRequest) returns (ListReviewRoundsResponse) {
+  rpc ListReviewSnapshots(ListReviewSnapshotsRequest) returns (ListReviewSnapshotsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.surfaces) = {
       cli: true
       mcp: true
-      name: "list_review_rounds"
-      description: "List the rounds of a task, the caller's task by default, oldest first. Diff one round's `snapshot_sha` against the next to see what changed between them."
+      name: "list_review_snapshots"
+      description: "List the snapshots of a task, the caller's task by default, oldest first. Diff one snapshot's `snapshot_sha` against the next to see what changed between them."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -1390,7 +1390,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "list_reviews"
-      description: "List the reviews released on a task, the caller's task by default, in round order, each with its verdict."
+      description: "List the reviews released on a task, the caller's task by default, in snapshot order, each with its verdict."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -1404,7 +1404,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "get_review"
-      description: "Read one released review in full: the verdict, the note on the work, then each thread with the code it is pinned to. Line numbers are true of the round."
+      description: "Read one released review in full: the verdict, the note on the work, then each thread with the code it is pinned to. Line numbers are true of the snapshot."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -1417,7 +1417,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "release_review"
-      description: "Release the caller's review with a verdict: approved only when the caller started no thread on the round, changes requested when it started any. Komrad mails the agent under review once, naming the review for `get_review`. An approval tells the agent its work is done."
+      description: "Release the caller's review with a verdict: approved only when the caller started no thread on the snapshot, changes requested when it started any. Komrad mails the agent under review once, naming the review for `get_review`. An approval tells the agent its work is done."
       destructive: false
       idempotent: false
       roles: [ROLE_REVIEWER]

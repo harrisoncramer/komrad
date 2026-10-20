@@ -1,57 +1,57 @@
--- name: InsertReviewRound :one
-INSERT INTO review_rounds(
+-- name: InsertReviewSnapshot :one
+INSERT INTO review_snapshots(
     task_id,
     ordinal,
     base_sha,
-    snapshot_sha)
+    sha)
 SELECT
     sqlc.arg('task_id')::uuid,
     COALESCE(MAX(r.ordinal), 0) + 1,
     @base_sha,
     @snapshot_sha
 FROM
-    review_rounds r
+    review_snapshots r
 WHERE
     r.task_id = sqlc.arg('task_id')::uuid
 RETURNING
     *;
 
--- name: GetReviewRound :one
+-- name: GetReviewSnapshot :one
 SELECT
     *
 FROM
-    review_rounds r
+    review_snapshots r
 WHERE
     r.id = @id;
 
--- name: GetLatestReviewRound :one
+-- name: GetLatestReviewSnapshot :one
 SELECT
     *
 FROM
-    review_rounds r
+    review_snapshots r
 WHERE
     r.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
     r.ordinal DESC
 LIMIT 1;
 
--- name: GetReviewRoundBySnapshot :one
+-- name: GetReviewSnapshotBySnapshot :one
 SELECT
     *
 FROM
-    review_rounds r
+    review_snapshots r
 WHERE
     r.task_id = sqlc.arg('task_id')::uuid
-    AND r.snapshot_sha = @snapshot_sha
+    AND r.sha = @snapshot_sha
 ORDER BY
     r.ordinal DESC
 LIMIT 1;
 
--- name: ListReviewRounds :many
+-- name: ListReviewSnapshots :many
 SELECT
     *
 FROM
-    review_rounds r
+    review_snapshots r
 WHERE
     r.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
@@ -60,12 +60,12 @@ ORDER BY
 -- name: InsertReview :one
 INSERT INTO reviews(
     task_id,
-    round_id,
+    snapshot_id,
     author_kind,
     author_agent_id)
 VALUES (
     sqlc.arg('task_id')::uuid,
-    @round_id,
+    @snapshot_id,
     @author_kind,
     sqlc.narg('author_agent_id'))
 RETURNING
@@ -83,7 +83,7 @@ WHERE
 UPDATE
     reviews v
 SET
-    round_id = @round_id
+    snapshot_id = @snapshot_id
 WHERE
     v.id = @id
     AND v.released_at IS NULL
@@ -104,7 +104,7 @@ WHERE
 -- name: ListReviews :many
 SELECT
     sqlc.embed(v),
-    r.ordinal AS round_ordinal,
+    r.ordinal AS snapshot_ordinal,
     d.claimed_at AS delivered_at,
 (
         SELECT
@@ -116,7 +116,7 @@ SELECT
             AND t.resolved_at IS NULL)::int AS open_threads
 FROM
     reviews v
-    JOIN review_rounds r ON r.id = v.round_id
+    JOIN review_snapshots r ON r.id = v.snapshot_id
     LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
     v.task_id = sqlc.arg('task_id')::uuid
@@ -128,20 +128,20 @@ ORDER BY
 SELECT
     v.id,
     v.task_id::uuid AS task_id,
-    v.round_id,
+    v.snapshot_id,
     v.author_kind,
     v.author_agent_id,
     v.verdict,
     v.released_at,
     v.created_at,
     v.updated_at,
-    r.ordinal AS round_ordinal,
-    r.snapshot_sha AS round_snapshot_sha,
-    r.landed_at AS round_landed_at,
+    r.ordinal AS snapshot_ordinal,
+    r.sha AS snapshot_sha,
+    r.landed_at AS snapshot_landed_at,
     d.claimed_at AS delivered_at
 FROM
     reviews v
-    JOIN review_rounds r ON r.id = v.round_id
+    JOIN review_snapshots r ON r.id = v.snapshot_id
     LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
     sqlc.narg('keys')::text[] IS NULL
@@ -236,7 +236,7 @@ WITH opened AS (
     INSERT INTO review_threads(
         task_id,
         review_id,
-        round_id,
+        snapshot_id,
         base_sha,
         file_path,
         old_start,
@@ -249,7 +249,7 @@ WITH opened AS (
     VALUES (
         sqlc.arg('task_id')::uuid,
         @review_id,
-        @round_id,
+        @snapshot_id,
         @base_sha,
         @file_path,
         @old_start,
@@ -302,14 +302,14 @@ SELECT
     t.*,
     v.released_at AS review_released_at,
     v.author_agent_id AS review_author_agent_id,
-    r.ordinal AS round_ordinal,
+    r.ordinal AS snapshot_ordinal,
 (t.last_agent_activity_at IS NOT NULL
         AND (t.human_read_at IS NULL
             OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
 FROM
     review_threads t
     JOIN reviews v ON v.id = t.review_id
-    JOIN review_rounds r ON r.id = t.round_id
+    JOIN review_snapshots r ON r.id = t.snapshot_id
 WHERE
     t.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
@@ -322,13 +322,13 @@ ORDER BY
 -- name: ListWatchedReviewThreads :many
 SELECT
     t.*,
-    r.ordinal AS round_ordinal,
+    r.ordinal AS snapshot_ordinal,
 (t.last_agent_activity_at IS NOT NULL
         AND (t.human_read_at IS NULL
             OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
 FROM
     review_threads t
-    JOIN review_rounds r ON r.id = t.round_id
+    JOIN review_snapshots r ON r.id = t.snapshot_id
 WHERE
     EXISTS (
         SELECT
@@ -405,7 +405,7 @@ WITH written AS (
     INSERT INTO review_messages(
         thread_id,
         review_id,
-        round_id,
+        snapshot_id,
         author_kind,
         author_agent_id,
         body,
@@ -418,7 +418,7 @@ WITH written AS (
     VALUES (
         @thread_id,
         sqlc.narg('review_id'),
-        sqlc.narg('round_id'),
+        sqlc.narg('snapshot_id'),
         @author_kind,
         sqlc.narg('author_agent_id'),
         @body,
@@ -436,7 +436,7 @@ said AS (
         w.thread_id,
         w.author_kind,
         w.author_agent_id,
-(w.round_id IS NOT NULL
+(w.snapshot_id IS NOT NULL
             AND v.author_kind = 'human') AS resolves,
 (t.resolved_at IS NOT NULL
             AND w.author_kind = t.resolved_by_kind
@@ -627,7 +627,7 @@ ORDER BY
 WITH released AS (
     SELECT
         v.task_id::uuid AS task_id,
-        COUNT(DISTINCT v.round_id)::int AS rounds
+        COUNT(DISTINCT v.snapshot_id)::int AS snapshots
     FROM
         reviews v
     WHERE
@@ -639,10 +639,10 @@ concluded AS (
     SELECT DISTINCT ON (v.task_id)
         v.task_id,
         v.verdict,
-        n.snapshot_sha
+        n.sha AS snapshot_sha
     FROM
         reviews v
-        JOIN review_rounds n ON n.id = v.round_id
+        JOIN review_snapshots n ON n.id = v.snapshot_id
     WHERE
         v.released_at IS NOT NULL
         AND v.verdict IN ('approved', 'changes_requested')
@@ -653,32 +653,32 @@ concluded AS (
 )
 SELECT
     r.task_id,
-    r.rounds,
+    r.snapshots,
     c.verdict,
     c.snapshot_sha
 FROM
     released r
     LEFT JOIN concluded c ON c.task_id = r.task_id;
 
--- name: ListNewestTaskReviewRounds :many
+-- name: ListNewestTaskReviewSnapshots :many
 SELECT DISTINCT ON (r.task_id)
     r.task_id::uuid AS task_id,
-    r.snapshot_sha
+    r.sha AS snapshot_sha
 FROM
-    review_rounds r
+    review_snapshots r
 ORDER BY
     r.task_id,
     r.ordinal DESC;
 
--- name: ListUnlandedReviewRounds :many
+-- name: ListUnlandedReviewSnapshots :many
 SELECT
     r.task_id::uuid AS task_id,
     r.ordinal,
     r.base_sha,
-    r.snapshot_sha,
+    r.sha,
     m.merged_at
 FROM
-    review_rounds r
+    review_snapshots r
     LEFT JOIN LATERAL (
         SELECT
             p.merged_at
@@ -707,15 +707,15 @@ WHERE
         FROM
             reviews v
         WHERE
-            v.round_id = r.id
+            v.snapshot_id = r.id
             AND v.released_at IS NOT NULL)
 ORDER BY
     r.task_id,
     r.ordinal DESC;
 
--- name: LandReviewRounds :execrows
+-- name: LandReviewSnapshots :execrows
 UPDATE
-    review_rounds
+    review_snapshots
 SET
     landed_at = NOW()
 WHERE
@@ -754,13 +754,13 @@ ORDER BY
 -- name: InsertForgeReview :one
 INSERT INTO reviews(
     task_id,
-    round_id,
+    snapshot_id,
     author_kind,
     external_login,
     released_at)
 VALUES (
     sqlc.arg('task_id')::uuid,
-    @round_id,
+    @snapshot_id,
     'forge',
     @external_login,
     NOW())
@@ -802,9 +802,9 @@ ORDER BY
 SELECT
     t.id AS task_id,
     COALESCE(t.cwd, '')::text AS cwd,
-    r.id AS round_id,
+    r.id AS snapshot_id,
     r.base_sha,
-    r.snapshot_sha
+    r.sha AS snapshot_sha
 FROM
     task_pull_requests o
     JOIN tasks t ON t.id = o.task_id
@@ -812,7 +812,7 @@ FROM
         SELECT
             *
         FROM
-            review_rounds r
+            review_snapshots r
         WHERE
             r.task_id = t.id
         ORDER BY

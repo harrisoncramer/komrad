@@ -35,15 +35,15 @@ type Reader interface {
 type LoadParams struct {
 	// Dir is anywhere inside the agent's worktree.
 	Dir string
-	// BaseSHA is the commit the round was measured against.
+	// BaseSHA is the commit the snapshot was measured against.
 	BaseSHA string
-	// SnapshotSHA is the commit the round froze the worktree as.
+	// SnapshotSHA is the commit the snapshot froze the worktree as.
 	SnapshotSHA string
 	// Exclude is the paths and globs to leave out, relative to the repository root.
 	Exclude []string
 }
 
-// Load reads everything one round holds, measured against the point its branch left the base,
+// Load reads everything one snapshot holds, measured against the point its branch left the base,
 // with both sides coming out of commits so the patch is the same bytes however long afterwards.
 func Load(ctx context.Context, repo Reader, params LoadParams) (*Patch, error) {
 	root, err := repo.GetRoot(ctx, params.Dir)
@@ -86,7 +86,7 @@ func Load(ctx context.Context, repo Reader, params LoadParams) (*Patch, error) {
 	}, nil
 }
 
-// explainEmptyDiff says why a round drew nothing, telling a worktree that never moved from one
+// explainEmptyDiff says why a snapshot drew nothing, telling a worktree that never moved from one
 // whose every change is hidden.
 func explainEmptyDiff(ctx context.Context, repo Reader, root string, params LoadParams) error {
 	if len(params.Exclude) == 0 {
@@ -111,9 +111,9 @@ type parseFilesParams struct {
 	Git Reader
 	// Root is the repository the two commits live in.
 	Root string
-	// BaseSHA is the commit the round was measured against, holding the old side of every file.
+	// BaseSHA is the commit the snapshot was measured against, holding the old side of every file.
 	BaseSHA string
-	// SnapshotSHA is the commit the round froze, holding the new side.
+	// SnapshotSHA is the commit the snapshot froze, holding the new side.
 	SnapshotSHA string
 	// Raw is the patch git wrote between the two.
 	Raw []byte

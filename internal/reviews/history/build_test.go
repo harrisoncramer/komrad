@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestCountChangedSince covers how much of a round the person has not seen.
+// TestCountChangedSince covers how much of a snapshot the person has not seen.
 func TestCountChangedSince(t *testing.T) {
 	tests := []struct {
 		name    string
-		earlier *Round
+		earlier *Snapshot
 		changed int
 		refused bool
 		want    int
@@ -27,19 +27,19 @@ func TestCountChangedSince(t *testing.T) {
 		},
 		{
 			name:    "git cannot answer, so nothing is said rather than a wrong number",
-			earlier: &Round{SnapshotSHA: "earlier"},
+			earlier: &Snapshot{SnapshotSHA: "earlier"},
 			refused: true,
 			want:    0,
 		},
 		{
 			name:    "nothing changed since that review",
-			earlier: &Round{SnapshotSHA: "earlier"},
+			earlier: &Snapshot{SnapshotSHA: "earlier"},
 			changed: 0,
 			want:    0,
 		},
 		{
 			name:    "several files",
-			earlier: &Round{SnapshotSHA: "earlier"},
+			earlier: &Snapshot{SnapshotSHA: "earlier"},
 			changed: 4,
 			want:    4,
 		},
@@ -65,16 +65,16 @@ func TestCountChangedSince(t *testing.T) {
 	}
 }
 
-// TestCountChangedSinceMeasuresBetweenTheTwoRounds pins which pair of commits the count is taken
+// TestCountChangedSinceMeasuresBetweenTheTwoSnapshots pins which pair of commits the count is taken
 // across.
-func TestCountChangedSinceMeasuresBetweenTheTwoRounds(t *testing.T) {
+func TestCountChangedSinceMeasuresBetweenTheTwoSnapshots(t *testing.T) {
 	repo := &gittest.Repo{}
 
 	countChangedSince(t.Context(), countChangedSinceParams{
 		Git:     repo,
 		Dir:     "/repo",
 		Exclude: []string{"proto/gen"},
-		Earlier: &Round{SnapshotSHA: "earlier"},
+		Earlier: &Snapshot{SnapshotSHA: "earlier"},
 		ToSHA:   "current",
 	})
 

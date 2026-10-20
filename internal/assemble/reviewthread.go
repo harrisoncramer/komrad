@@ -59,10 +59,10 @@ func setDelivery(message *agentv1.ReviewMessage, reviews map[string]*agentv1.Wat
 	}
 }
 
-// compareThreads orders threads by round, then by where they sit in the diff.
+// compareThreads orders threads by snapshot, then by where they sit in the diff.
 func compareThreads(a, b *agentv1.ReviewThread) int {
 	return cmp.Or(
-		cmp.Compare(a.GetRoundOrdinal(), b.GetRoundOrdinal()),
+		cmp.Compare(a.GetSnapshotOrdinal(), b.GetSnapshotOrdinal()),
 		strings.Compare(a.GetFilePath(), b.GetFilePath()),
 		cmp.Compare(a.GetNewStart(), b.GetNewStart()),
 		cmp.Compare(a.GetOldStart(), b.GetOldStart()),

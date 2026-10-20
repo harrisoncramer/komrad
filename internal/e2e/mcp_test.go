@@ -61,7 +61,7 @@ func TestIntegrationMCPTools(t *testing.T) {
 	t.Run("a reviewer is not served the tools for spawning agents", func(t *testing.T) {
 		served := connectMCP(t, instance, reviewer.GetId()).listTools(t)
 
-		assert.Subset(t, served, []string{"send_mail", "open_review_round", "query"})
+		assert.Subset(t, served, []string{"send_mail", "take_review_snapshot", "query"})
 		assert.NotContains(t, served, "create_agent")
 	})
 

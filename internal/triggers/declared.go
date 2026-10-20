@@ -66,7 +66,7 @@ var declared = []triggeredTable{
 	{Name: "pull_requests"},
 	{Name: "review_forge_replies", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "review_messages", Triggers: []rowTrigger{setUpdatedAt}},
-	{Name: "review_rounds"},
+	{Name: "review_snapshots"},
 	{Name: "review_threads", Triggers: []rowTrigger{setUpdatedAt}},
 	{Name: "review_viewed_files"},
 	{Name: "reviews", Triggers: []rowTrigger{setUpdatedAt}},

@@ -18,9 +18,9 @@ import (
 
 // heldThread is a forge thread under a held root, with a trusted forge reply and the agent's answer.
 type heldThread struct {
-	thread *Thread
-	rootID string
-	round  *Round
+	thread   *Thread
+	rootID   string
+	snapshot *Snapshot
 }
 
 func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldThread {
@@ -28,14 +28,14 @@ func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldTh
 	ctx := t.Context()
 
 	agentID := st.seedAgent(t, "worker")
-	round := st.openRound(t, agentID, "tree-one")
-	opener := st.openForgeReview(t, round, "mallory")
-	replier := st.openForgeReview(t, round, "alice")
+	snapshot := st.openSnapshot(t, agentID, "tree-one")
+	opener := st.openForgeReview(t, snapshot, "mallory")
+	replier := st.openForgeReview(t, snapshot, "alice")
 
 	thread, err := st.CreateThread(ctx, CreateThreadParams{
 		TaskID:      st.taskOf(t, agentID),
 		ReviewID:    opener.ID,
-		RoundID:     round.ID,
+		SnapshotID:  snapshot.ID,
 		FilePath:    "internal/thing.go",
 		NewStart:    41,
 		NewEnd:      41,
@@ -65,16 +65,16 @@ func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldTh
 	require.NoError(t, err)
 
 	return heldThread{
-		thread: thread,
-		rootID: messages[0].ID,
-		round:  round,
+		thread:   thread,
+		rootID:   messages[0].ID,
+		snapshot: snapshot,
 	}
 }
 
 func (st *fixture) acceptRoot(t *testing.T, held heldThread) *Review {
 	t.Helper()
 
-	review := st.openReview(t, held.round)
+	review := st.openReview(t, held.snapshot)
 	_, err := st.CreateMessage(t.Context(), CreateMessageParams{
 		ThreadID:     held.thread.ID,
 		ReviewID:     &review.ID,
@@ -130,7 +130,7 @@ func TestHeldForgeThreads(t *testing.T) {
 			name: "the person's sent reply under a held root with no copy is held with it",
 			seed: func(t *testing.T, st *fixture) heldThread {
 				held := st.seedHeldThread(t, true, false)
-				review := st.openReview(t, held.round)
+				review := st.openReview(t, held.snapshot)
 				_, err := st.CreateMessage(t.Context(), CreateMessageParams{
 					ThreadID:   held.thread.ID,
 					ReviewID:   &review.ID,
@@ -187,13 +187,13 @@ func TestHeldForgeThreadHiddenFromReader(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	round := st.openRound(t, agentID, "tree-one")
-	opener := st.openForgeReview(t, round, "mallory")
+	snapshot := st.openSnapshot(t, agentID, "tree-one")
+	opener := st.openForgeReview(t, snapshot, "mallory")
 
 	thread, err := st.CreateThread(ctx, CreateThreadParams{
 		TaskID:      st.taskOf(t, agentID),
 		ReviewID:    opener.ID,
-		RoundID:     round.ID,
+		SnapshotID:  snapshot.ID,
 		FilePath:    "internal/thing.go",
 		NewStart:    41,
 		NewEnd:      41,
@@ -217,7 +217,7 @@ func TestListForgeMirrorTargets(t *testing.T) {
 		check func(t *testing.T, targets []ForgeMirrorTarget, taskID string)
 	}{
 		{
-			name: "an agent with no round has nothing to mirror onto",
+			name: "an agent with no snapshot has nothing to mirror onto",
 			seed: func(*testing.T, *fixture, string) {},
 			check: func(t *testing.T, targets []ForgeMirrorTarget, _ string) {
 				assert.Empty(t, targets)
@@ -226,7 +226,7 @@ func TestListForgeMirrorTargets(t *testing.T) {
 		{
 			name: "an archived agent is left out",
 			seed: func(t *testing.T, st *fixture, agentID string) {
-				st.openRound(t, agentID, "tree-one")
+				st.openSnapshot(t, agentID, "tree-one")
 				_, err := st.agents.Archive(t.Context(), []string{agentID})
 				require.NoError(t, err)
 			},
@@ -237,7 +237,7 @@ func TestListForgeMirrorTargets(t *testing.T) {
 		{
 			name: "a task with a reviewer on it is mirrored onto once",
 			seed: func(t *testing.T, st *fixture, agentID string) {
-				st.openRound(t, agentID, "tree-one")
+				st.openSnapshot(t, agentID, "tree-one")
 				st.seedAgentLike(t, agentstore.Agent{
 					Name:   "reviewer",
 					Role:   agentstore.RoleReviewer,
@@ -250,10 +250,10 @@ func TestListForgeMirrorTargets(t *testing.T) {
 			},
 		},
 		{
-			name: "an agent on the pull request is mirrored onto at its newest round",
+			name: "an agent on the pull request is mirrored onto at its newest snapshot",
 			seed: func(t *testing.T, st *fixture, agentID string) {
-				st.openRound(t, agentID, "tree-one")
-				st.openRound(t, agentID, "tree-two")
+				st.openSnapshot(t, agentID, "tree-one")
+				st.openSnapshot(t, agentID, "tree-two")
 			},
 			check: func(t *testing.T, targets []ForgeMirrorTarget, taskID string) {
 				require.Len(t, targets, 1)
@@ -278,13 +278,13 @@ func TestListForgeMirrorTargets(t *testing.T) {
 	}
 }
 
-func (st *fixture) openForgeReview(t *testing.T, round *Round, login string) *Review {
+func (st *fixture) openForgeReview(t *testing.T, snapshot *Snapshot, login string) *Review {
 	t.Helper()
 
 	review, err := st.OpenForgeReview(t.Context(), OpenForgeReviewParams{
-		TaskID:  round.TaskID,
-		RoundID: round.ID,
-		Login:   login,
+		TaskID:     snapshot.TaskID,
+		SnapshotID: snapshot.ID,
+		Login:      login,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, review)

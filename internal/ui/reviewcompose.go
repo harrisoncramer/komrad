@@ -18,7 +18,7 @@ import (
 )
 
 // compose opens the editor on the line under the cursor, replying in the thread already there
-// or opening a new one, writing prose alone rather than editing the round.
+// or opening a new one, writing prose alone rather than editing the snapshot.
 func (r *reviewScreen) compose(m *model) tea.Cmd {
 	thread, replying := r.diff.threadAtCursor()
 
@@ -220,14 +220,14 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 		place = &reviewPlace{
 			anchor: *anchor,
 			// The old side of these numbers came from whatever the diff was measured from, so the
-			// thread records that rather than leaving a later reader to assume the round's own base.
+			// thread records that rather than leaving a later reader to assume the snapshot's own base.
 			base: r.diff.View().GetBaseSHA(),
 			// The new side names the snapshot it was read from, which the server compares against
-			// the round it would file the thread under rather than trusting the numbers.
+			// the snapshot it would file the thread under rather than trusting the numbers.
 			snapshot: r.diff.View().GetSnapshotSHA(),
 		}
 		if place.snapshot == "" {
-			place.snapshot = r.round.GetSnapshotSha()
+			place.snapshot = r.snapshot.GetSha()
 		}
 	}
 

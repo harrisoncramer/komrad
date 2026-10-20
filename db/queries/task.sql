@@ -182,7 +182,7 @@ SET
         NULL,
         lines_added = NULL,
         lines_removed = NULL,
-        moved_since_round = NULL,
+        moved_since_snapshot = NULL,
         last_rebase = NULL,
         worktree_removed = NULL
     WHERE
@@ -216,11 +216,11 @@ SET
 WHERE
     id = sqlc.arg('id');
 
--- name: SetTaskMovedSinceRound :exec
+-- name: SetTaskMovedSinceSnapshot :exec
 UPDATE
     tasks
 SET
-    moved_since_round = sqlc.arg('moved_since_round')
+    moved_since_snapshot = sqlc.arg('moved_since_snapshot')
 WHERE
     id = sqlc.arg('id');
 
