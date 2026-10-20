@@ -126,7 +126,7 @@ SELECT
             1
         FROM
             finished_bases)::boolean AS base_finished,
-    (pull_request.stack_number IS NOT NULL)::boolean AS in_github_stack
+(pull_request.stack_number IS NOT NULL)::boolean AS in_github_stack
 FROM
     pull_request
 `
