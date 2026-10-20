@@ -223,20 +223,18 @@ func (a *archivedAgents) listedAgents(l listing) []panel.AgentRow {
 	})
 }
 
-// headers is every workflow this kind renders a folder for: a live one holding an agent it lists,
-// and an archived one on its side, the deleted list taking those whose every task's worktree was
-// deleted or that hold an agent it lists.
+// headers is every workflow this kind renders a folder for, live or archived.
 func (a *archivedAgents) headers(l listing) []panel.Workflow {
 	holding := xslice.KeyBy(a.listedAgents(l), func(item panel.AgentRow) string { return item.Agent.WorkflowID })
 	archived := xslice.KeyBy(l.archivedWorkflows, func(w panel.Workflow) string { return w.ID })
 
 	headers := xslice.Filter(l.archivedWorkflows, func(w panel.Workflow) bool {
 		if a.kind != agentsDeleted {
-			return !l.isWorkflowDeleted(w.ID)
+			return !l.isWorkflowOnDeletedList(w.ID)
 		}
 		_, isHolding := holding[w.ID]
 
-		return isHolding || l.isWorkflowDeleted(w.ID)
+		return isHolding || l.isWorkflowOnDeletedList(w.ID)
 	})
 	for _, w := range l.workflows {
 		_, isHolding := holding[w.ID]
@@ -256,7 +254,7 @@ func (a *archivedAgents) headers(l listing) []panel.Workflow {
 // whose worktree was deleted, or the orchestrator of an archived workflow whose every task's was.
 func (l listing) isOnDeletedList(item panel.AgentRow) bool {
 	if item.Agent.TaskID == "" {
-		return l.isWorkflowDeleted(item.Agent.WorkflowID)
+		return l.isWorkflowOnDeletedList(item.Agent.WorkflowID)
 	}
 
 	task := l.tasks.findForAgent(item.Agent)
@@ -264,14 +262,14 @@ func (l listing) isOnDeletedList(item panel.AgentRow) bool {
 	return task.ArchivedAt != nil && task.WorktreeRemovalReason == panel.WorktreeDeleted
 }
 
-// isWorkflowDeleted reports whether an archived workflow has a task and the worktree of every one
-// was deleted.
-func (l listing) isWorkflowDeleted(workflowID string) bool {
+// isWorkflowOnDeletedList reports whether an archived workflow has a task and the worktree of
+// every one was deleted.
+func (l listing) isWorkflowOnDeletedList(workflowID string) bool {
 	if !slices.ContainsFunc(l.archivedWorkflows, func(w panel.Workflow) bool { return w.ID == workflowID }) {
 		return false
 	}
 
-	held := false
+	hasTask := false
 	for _, task := range l.tasks {
 		if task.WorkflowID != workflowID {
 			continue
@@ -279,10 +277,10 @@ func (l listing) isWorkflowDeleted(workflowID string) bool {
 		if task.WorktreeRemovalReason != panel.WorktreeDeleted {
 			return false
 		}
-		held = true
+		hasTask = true
 	}
 
-	return held
+	return hasTask
 }
 
 func (l listing) archivedCount(workflowID string) int {
@@ -436,7 +434,7 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
 func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
-	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !m.listing.isWorkflowDeleted(workflow.ID))
+	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !m.listing.isWorkflowOnDeletedList(workflow.ID))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return m.awaitingWriteCmd(

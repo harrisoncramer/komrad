@@ -69,6 +69,8 @@ func cascadeBlockOf(block taskstore.CascadeBlock) taskv1.CascadeBlock {
 
 func worktreeRemovalReasonOf(reason taskstore.WorktreeRemovalReason) taskv1.WorktreeRemovalReason {
 	switch reason {
+	case taskstore.WorktreeOnDisk:
+		return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED
 	case taskstore.WorktreeDeleted:
 		return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED
 	case taskstore.WorktreeGone:

@@ -180,7 +180,7 @@ func taskDirs(tasks []panel.Task) []string {
 // hasAnyWorktreeToDelete reports whether komrad cut a worktree for any of the tasks that no delete
 // has removed yet, on disk or gone.
 func (l listing) hasAnyWorktreeToDelete(tasks []panel.Task) bool {
-	return slices.ContainsFunc(tasks, l.isWorktreeCut)
+	return slices.ContainsFunc(tasks, l.hasWorktreeToDelete)
 }
 
 // archiveTasks archives the tasks along with the live agents on them.

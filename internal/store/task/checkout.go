@@ -41,18 +41,13 @@ func (s Sequence) orNone() Sequence {
 type WorktreeRemovalReason string
 
 const (
+	// WorktreeOnDisk is a worktree still on disk, or a task without one.
+	WorktreeOnDisk WorktreeRemovalReason = ""
 	// WorktreeDeleted is a worktree a delete removed.
 	WorktreeDeleted WorktreeRemovalReason = WorktreeRemovalReason(models.WorktreeRemovalReasonDeleted)
 	// WorktreeGone is a worktree komrad found gone from disk without a delete.
 	WorktreeGone WorktreeRemovalReason = WorktreeRemovalReason(models.WorktreeRemovalReasonGone)
 )
-
-func worktreeRemovalReasonParam(reason WorktreeRemovalReason) models.NullWorktreeRemovalReason {
-	return models.NullWorktreeRemovalReason{
-		WorktreeRemovalReason: models.WorktreeRemovalReason(reason),
-		Valid:                 reason != "",
-	}
-}
 
 // DiffStat is how many lines a checkout adds and removes.
 type DiffStat struct {
@@ -90,7 +85,7 @@ func (c Checkout) IsUsable() bool {
 
 // IsWorktreeRemoved reports whether the checkout's worktree is no longer on disk, for either reason.
 func (c Checkout) IsWorktreeRemoved() bool {
-	return c.WorktreeRemovalReason != ""
+	return c.WorktreeRemovalReason != WorktreeOnDisk
 }
 
 func checkoutFrom(row *models.Task) Checkout {
@@ -118,6 +113,13 @@ func checkoutFrom(row *models.Task) Checkout {
 
 func sequenceParam(sequence Sequence) models.NullAgentSequence {
 	return models.NullAgentSequence{AgentSequence: models.AgentSequence(sequence.orNone()), Valid: true}
+}
+
+func worktreeRemovalReasonParam(reason WorktreeRemovalReason) models.NullWorktreeRemovalReason {
+	return models.NullWorktreeRemovalReason{
+		WorktreeRemovalReason: models.WorktreeRemovalReason(reason),
+		Valid:                 reason != WorktreeOnDisk,
+	}
 }
 
 // ClaimCheckoutParams is how a launch is to make a task's checkout.
@@ -213,7 +215,7 @@ func (s *TaskStore) SetHead(ctx context.Context, id string, params SetHeadParams
 		Branch:                params.Branch,
 		RepositoryUrl:         params.RepositoryURL,
 		HeadSha:               params.HeadSHA,
-		WorktreeRemoved:       xptr.Ptr(params.WorktreeRemovalReason != ""),
+		WorktreeRemoved:       xptr.Ptr(params.WorktreeRemovalReason != WorktreeOnDisk),
 		WorktreeRemovalReason: worktreeRemovalReasonParam(params.WorktreeRemovalReason),
 		Sequence:              sequenceParam(params.Sequence),
 	}); err != nil {
