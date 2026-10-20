@@ -187,7 +187,7 @@ func planStack(run []pullrequeststore.StackingPullRequest) *stackCall {
 		return nil
 	}
 	if run[0].Stack == nil {
-		if slices.ContainsFunc(run, func(member pullrequeststore.StackingPullRequest) bool { return member.Stack != nil }) {
+		if isAnyInGitHubStack(run) {
 			return nil
 		}
 
@@ -208,7 +208,7 @@ func planStack(run []pullrequeststore.StackingPullRequest) *stackCall {
 	if len(rest) == 0 || !run[stacked-1].Stack.IsTop() {
 		return nil
 	}
-	if slices.ContainsFunc(rest, func(member pullrequeststore.StackingPullRequest) bool { return member.Stack != nil }) {
+	if isAnyInGitHubStack(rest) {
 		return nil
 	}
 
@@ -224,6 +224,13 @@ func isEveryStackingRefused(members []pullrequeststore.StackingPullRequest) bool
 	}
 
 	return true
+}
+
+// isAnyInGitHubStack says whether any of the pull requests already sits in a GitHub stack.
+func isAnyInGitHubStack(members []pullrequeststore.StackingPullRequest) bool {
+	return slices.ContainsFunc(members, func(member pullrequeststore.StackingPullRequest) bool {
+		return member.Stack != nil
+	})
 }
 
 // awaitRebasesParams is the shifts one read found, each pull request's head before the read, and when it was read.
