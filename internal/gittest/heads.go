@@ -104,7 +104,7 @@ func (t *Trees) FetchBase(_ context.Context, dir, base string) (string, string, 
 	return "origin/" + base, "", nil
 }
 
-// HasLanded records the snapshot asked about and answers what Landed holds for its snapshot.
+// HasLanded records the snapshot asked about and answers what Landed holds for its commit.
 func (t *Trees) HasLanded(_ context.Context, params git.HasLandedParams) (bool, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
