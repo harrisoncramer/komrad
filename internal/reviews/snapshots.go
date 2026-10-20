@@ -59,8 +59,8 @@ var ErrReviewVerdictFromPerson = fail.InvalidArgument("a person's review carries
 // what it concluded.
 var errReviewVerdictMissing = fail.InvalidArgument("a review from an agent needs a verdict")
 
-// ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot no
-// snapshot of that task was taken of.
+// ErrReviewNotCurrent is answered when a comment's line numbers were read from a commit no
+// snapshot of that task froze.
 var ErrReviewNotCurrent = fail.Precondition("those lines were read from a snapshot komrad never froze")
 
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
