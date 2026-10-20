@@ -43,7 +43,10 @@ func TestIntegrationForgeProxySendsEachEngineToGitHubAsItsOwnPerson(t *testing.T
 	require.NoError(t, err)
 	t.Cleanup(grants.Close)
 
-	engines := map[string]string{"harry": "credential-harry", "ada": "credential-ada"}
+	engines := map[string]config.ControlPlaneEngine{
+		"harry": {Credential: "credential-harry", Addr: "127.0.0.1:1"},
+		"ada":   {Credential: "credential-ada", Addr: "127.0.0.1:1"},
+	}
 	served := controlplane.New(controlplane.NewParams{
 		Logger:         slog.New(slog.DiscardHandler),
 		Engines:        engines,
@@ -70,7 +73,7 @@ func TestIntegrationForgeProxySendsEachEngineToGitHubAsItsOwnPerson(t *testing.T
 	for _, engine := range []string{"harry", "ada"} {
 		instance := komradtest.Start(t, komradtest.Params{
 			ForgeProxy: config.ForgeProxy{
-				URL:    "http://" + engine + ":" + engines[engine] + "@" + proxy.Listener.Addr().String(),
+				URL:    "http://" + engine + ":" + engines[engine].Credential + "@" + proxy.Listener.Addr().String(),
 				CAFile: ca.CertFile,
 			},
 			HookCommand: komrad,

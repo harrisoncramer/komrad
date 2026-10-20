@@ -17,6 +17,12 @@ const HealthPath = "/healthz"
 
 const healthTimeout = 2 * time.Second
 
+// The statuses the control plane answers HealthPath with for an engine that is not running.
+const (
+	HealthStopped  = "stopped"
+	HealthStarting = "starting"
+)
+
 type Health struct {
 	Status   string `json:"status"`
 	Version  string `json:"version"`

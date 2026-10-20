@@ -117,3 +117,18 @@ func (a *app) setUpSSH(ctx context.Context) error {
 		Proxy:  append([]string{a.selfPath()}, configArgs(a.configStack)...),
 	})
 }
+
+// ensureSSH writes the ssh host for the engine this process signs in to when it has none, such
+// as after signing in while the engine was stopped.
+func (a *app) ensureSSH(ctx context.Context) error {
+	host, err := sshHostOf(a.configStack)
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(host.Config); err == nil {
+		return nil
+	}
+
+	return a.setUpSSH(ctx)
+}

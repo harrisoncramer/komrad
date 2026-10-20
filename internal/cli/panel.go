@@ -93,6 +93,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				shellCommand    []string
 				terminalCommand []string
 				signIn          ui.SignIn
+				controlPlane    ui.ControlPlane
 				ssh             *sshHost
 			)
 
@@ -114,6 +115,11 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 					opener:    browser.NewDesktop(),
 					listen:    engine.CallbackAddr,
 					setUpSSH:  state.setUpSSH,
+					ensureSSH: state.ensureSSH,
+				}
+				controlPlane = &panelControlPlane{
+					url:    remote.URL,
+					client: xhttp.NewClientOver(state.signTransport(xhttp.NewTransport()), controlPlaneTimeout),
 				}
 			case state.configErr == nil:
 				startupErr = startServer(cmd.Context(), startServerParams{
@@ -199,6 +205,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				StartupFindings: startupFindings,
 				EngineStatus:    panelEngineStatus(cmd.Context(), state, base, startupErr),
 				SignIn:          signIn,
+				ControlPlane:    controlPlane,
 			})
 		},
 	}

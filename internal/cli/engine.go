@@ -18,15 +18,15 @@ const enginePasswordVariable = "KOMRAD_ENGINE_PASSWORD"
 
 func engineCmd(state *app) *cobra.Command {
 	engine := &cobra.Command{
-		Use:         "engine",
-		Annotations: map[string]string{needsEmbeddedPostgres: ""},
-		Short:       "Set up the engines that share a database, and who may use them",
-		Hidden:      true,
+		Use:    "engine",
+		Short:  "Set up the engines that share a database, who may use them, and whether they run",
+		Hidden: true,
 	}
 
 	engine.AddCommand(&cobra.Command{
-		Use:   "ensure NAME",
-		Short: "Create an engine's identity and logins, or reset their password",
+		Use:         "ensure NAME",
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
+		Short:       "Create an engine's identity and logins, or reset their password",
 		Long: `Create an engine's identity and logins, or reset their password.
 
 An engine is one komrad server and what it owns. Everything it writes belongs to it, and
@@ -68,8 +68,9 @@ engines had logins belongs to, hands it new logins and keeps its rows.`,
 	})
 
 	engine.AddCommand(&cobra.Command{
-		Use:   "grant NAME EMAIL",
-		Short: "Let a person into an engine by their email",
+		Use:         "grant NAME EMAIL",
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
+		Short:       "Let a person into an engine by their email",
 		Long: `Let the person with an email into an engine, connecting as owner_database_url.
 
 The first time they sign in with a verified email, the engine records the permanent id their
@@ -98,8 +99,9 @@ changes nothing.`,
 	})
 
 	engine.AddCommand(&cobra.Command{
-		Use:   "revoke NAME EMAIL",
-		Short: "Turn a person away from an engine",
+		Use:         "revoke NAME EMAIL",
+		Annotations: map[string]string{needsEmbeddedPostgres: ""},
+		Short:       "Turn a person away from an engine",
 		Long: `Turn the person with an email away from an engine, connecting as owner_database_url.
 
 This removes the grant and the account their sign-in recorded, so letting them back in takes a
@@ -123,6 +125,8 @@ fresh grant and a fresh sign-in.`,
 			return nil
 		},
 	})
+
+	engine.AddCommand(engineStartCmd(state), engineStopCmd(state))
 
 	return engine
 }

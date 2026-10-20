@@ -20,6 +20,22 @@ func (m *model) signInView() string {
 		return errui.RenderAccessDenied(width, url, m.access.err)
 	case accessFailed:
 		return errui.RenderAccessFailure(width, url, m.access.err)
+	case accessStopped:
+		return errui.RenderEngineStopped(width, url, m.access.err)
+	case accessStarting:
+		return errui.RenderEngineStarting(width, url)
+	case accessGitHubNeeded, accessAuthorizingGitHub:
+		params := errui.RenderGitHubNeededParams{
+			Width:         width,
+			URL:           url,
+			Err:           m.access.err,
+			IsAuthorizing: m.access.stage == accessAuthorizingGitHub,
+		}
+		if code := m.access.githubCode; code != nil {
+			params.UserCode, params.VerificationURI = code.UserCode, code.VerificationURI
+		}
+
+		return errui.RenderGitHubNeeded(params)
 	case accessGranted:
 	}
 

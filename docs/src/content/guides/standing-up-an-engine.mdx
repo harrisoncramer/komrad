@@ -155,7 +155,7 @@ komrad login --engine dev
 
 If the engine still turns them away, check that the email on their engine in `terraform.tfvars` is the one they sign in with, and that their provider has verified it.
 
-If their panel says the engine is unreachable, check that Tailscale runs on their laptop with DNS on and that the tailnet policy lets them in. If only their engine is unreachable, it may be stopped.
+If their panel says the engine is unreachable, check that Tailscale runs on their laptop with DNS on and that the tailnet policy lets them in. When their engine is stopped, their panel says so and starts it when they press enter. If only their engine is unreachable, [check its health](#checking-engine-health).
 
 ### Rejoining the tailnet
 

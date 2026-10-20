@@ -481,9 +481,7 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case watchLostMsg:
 		return m.applyWatchLost(msg), true
 	case accessCheckedMsg:
-		m.applyAccessRechecked(msg.err)
-
-		return nil, true
+		return m.applyAccessRechecked(msg.err), true
 	case writeResult:
 		return m.applyWrite(msg), true
 	case reviewPausedMsg:

@@ -43,8 +43,11 @@ func controlPlaneCmd(state *app) *cobra.Command {
 The forge proxy listens on control_plane.forge_proxy_addr for the engines control_plane.engines
 names, and sends their GitHub requests on with the GitHub login each engine's person authorized.
 The control plane's endpoints listen on control_plane.addr, where a person signed in through
-[sign_in] and holding an engine's grant authorizes GitHub for it. It reads grants as
-owner_database_url.`,
+[sign_in] and holding an engine's grant authorizes GitHub for it, and starts and stops it.
+Starting or stopping an engine runs komrad start or komrad stop against its file in the
+engines directory. Every other request under an engine's path goes on to the engine at the
+address control_plane.engines gives it, and the control plane answers for an engine that is
+stopped or starting. It reads grants as owner_database_url.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -97,6 +100,7 @@ func serveControlPlane(ctx context.Context, state *app) error {
 	plane := controlplane.New(controlplane.NewParams{
 		Logger:  logger,
 		Engines: engines,
+		SignIn:  state.signIn,
 		CA:      ca,
 		Logins:  forge.NewFileStore(filepath.Join(state.env.StateDir, controlPlaneLoginsDir)),
 		Grants:  grants,
@@ -104,10 +108,13 @@ func serveControlPlane(ctx context.Context, state *app) error {
 			Issuer:   state.signIn.Issuer,
 			ClientID: state.signIn.ClientID,
 		}),
+		Runner:         newLocalRunner(newLocalRunnerParams{Logger: logger, Self: state.selfPath(), Engines: engines}),
 		GitHubClientID: settings.GitHubClientID,
 		GitHub:         controlplane.GitHubURL,
+		GitHubAPI:      controlplane.GitHubAPIURL,
 		Client:         xhttp.NewClientOver(upstream, deviceFlowTimeout),
 		Upstream:       upstream,
+		Engine:         controlplane.NewEngineTransport(),
 		Now:            time.Now,
 	})
 	defer func() {
