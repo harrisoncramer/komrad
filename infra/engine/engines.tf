@@ -3,16 +3,7 @@ resource "aws_iam_role" "engine" {
 
   name = "${var.name}-engine-${each.key}"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = "sts:AssumeRole"
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-    }]
-  })
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
 
   tags = merge(local.tags, { Name = "${var.name}-engine-${each.key}-role" })
 }
