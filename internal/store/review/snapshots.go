@@ -475,8 +475,8 @@ func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 
 // newestSnapshot is the commit of the newest review snapshot of a task's agents.
 type newestSnapshot struct {
-	TaskID      string
-	SnapshotSHA string
+	TaskID string
+	SHA    string
 }
 
 // ListNewestSnapshots is the newest snapshot of every task whose agents have one.
@@ -487,7 +487,7 @@ func (s *ReviewStore) ListNewestSnapshots(ctx context.Context) ([]newestSnapshot
 	}
 
 	return xslice.Map(rows, func(row *models.ListNewestTaskReviewSnapshotsRow) newestSnapshot {
-		return newestSnapshot{TaskID: row.TaskID, SnapshotSHA: row.SnapshotSha}
+		return newestSnapshot{TaskID: row.TaskID, SHA: row.Sha}
 	}), nil
 }
 

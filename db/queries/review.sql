@@ -663,7 +663,7 @@ FROM
 -- name: ListNewestTaskReviewSnapshots :many
 SELECT DISTINCT ON (r.task_id)
     r.task_id::uuid AS task_id,
-    r.sha AS snapshot_sha
+    r.sha
 FROM
     review_snapshots r
 ORDER BY

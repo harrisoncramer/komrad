@@ -235,7 +235,7 @@ func (cs *CwdSyncer) listNewestSnapshots(ctx context.Context) (map[string]string
 
 	snapshots := map[string]string{}
 	for _, snapshot := range newest {
-		snapshots[snapshot.TaskID] = snapshot.SnapshotSHA
+		snapshots[snapshot.TaskID] = snapshot.SHA
 	}
 
 	return snapshots, nil

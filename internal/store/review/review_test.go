@@ -796,12 +796,12 @@ func TestNewestSnapshotsAreEachTasksLastSnapshot(t *testing.T) {
 
 	assert.ElementsMatch(t, []newestSnapshot{
 		{
-			TaskID:      st.taskOf(t, agentID),
-			SnapshotSHA: "snapshot-tree-two",
+			TaskID: st.taskOf(t, agentID),
+			SHA:    "snapshot-tree-two",
 		},
 		{
-			TaskID:      st.taskOf(t, other),
-			SnapshotSHA: "snapshot-tree-three",
+			TaskID: st.taskOf(t, other),
+			SHA:    "snapshot-tree-three",
 		},
 	}, newest)
 }

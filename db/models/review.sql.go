@@ -984,7 +984,7 @@ func (q *Queries) ListLiveReviewers(ctx context.Context, taskID string) ([]strin
 const listNewestTaskReviewSnapshots = `-- name: ListNewestTaskReviewSnapshots :many
 SELECT DISTINCT ON (r.task_id)
     r.task_id::uuid AS task_id,
-    r.sha AS snapshot_sha
+    r.sha
 FROM
     review_snapshots r
 ORDER BY
@@ -993,8 +993,8 @@ ORDER BY
 `
 
 type ListNewestTaskReviewSnapshotsRow struct {
-	TaskID      string
-	SnapshotSha string
+	TaskID string
+	Sha    string
 }
 
 func (q *Queries) ListNewestTaskReviewSnapshots(ctx context.Context) ([]*ListNewestTaskReviewSnapshotsRow, error) {
@@ -1006,7 +1006,7 @@ func (q *Queries) ListNewestTaskReviewSnapshots(ctx context.Context) ([]*ListNew
 	var items []*ListNewestTaskReviewSnapshotsRow
 	for rows.Next() {
 		var i ListNewestTaskReviewSnapshotsRow
-		if err := rows.Scan(&i.TaskID, &i.SnapshotSha); err != nil {
+		if err := rows.Scan(&i.TaskID, &i.Sha); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)
