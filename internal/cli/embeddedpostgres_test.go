@@ -19,6 +19,7 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 		name             string
 		command          string
 		embeddedPostgres bool
+		externalOwner    bool
 		running          bool
 		wantErr          bool
 	}{
@@ -45,6 +46,12 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 			command:          "engine ensure",
 			embeddedPostgres: true,
 			running:          true,
+		},
+		{
+			name:             "engine ensure with the embedded Postgres down and the owner on another Postgres",
+			command:          "engine ensure",
+			embeddedPostgres: true,
+			externalOwner:    true,
 		},
 		{
 			name:    "engine ensure against a Postgres the person runs",
@@ -99,7 +106,11 @@ func TestRequireEmbeddedPostgres(t *testing.T) {
 			cmd, _, err := NewRootCommand().Find(strings.Fields(tt.command))
 			require.NoError(t, err)
 
-			err = requireEmbeddedPostgres(t.Context(), cmd, &config.Environment{EmbeddedPostgres: tt.embeddedPostgres, StateDir: stateDir})
+			err = requireEmbeddedPostgres(t.Context(), cmd, &config.Environment{
+				EmbeddedPostgres:      tt.embeddedPostgres,
+				OwnerEmbeddedPostgres: tt.embeddedPostgres && !tt.externalOwner,
+				StateDir:              stateDir,
+			})
 			if !tt.wantErr {
 				assert.NoError(t, err)
 

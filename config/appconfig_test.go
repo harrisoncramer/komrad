@@ -786,20 +786,29 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 }
 
 // TestLoadDerivesTheEmbeddedPostgres pins a config that names no database, or names the socket under the
-// state directory, reaching the embedded Postgres, with its owner on the same database.
+// state directory, reaching the embedded Postgres, with its owner there too unless owner_database_url names another.
 func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
 	tests := []struct {
-		name            string
-		config          string
-		wantDatabaseURL string
-		wantReadOnlyURL string
-		wantOwner       string
+		name              string
+		config            string
+		wantDatabaseURL   string
+		wantReadOnlyURL   string
+		wantOwner         string
+		wantExternalOwner bool
 	}{
 		{
 			name:            "no database_url",
 			wantDatabaseURL: "postgres://komrad_engine_default@/komrad?host=%2Fstate%2Fpostgres&port=5432",
 			wantReadOnlyURL: "postgres://komrad_engine_default_reader@/komrad?host=%2Fstate%2Fpostgres&port=5432",
 			wantOwner:       "postgres://komrad@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+		},
+		{
+			name:              "no database_url and an owner_database_url on another Postgres",
+			config:            "[connection]\nowner_database_url = \"postgres://owner:secret@db.internal:5432/komrad\"\n",
+			wantDatabaseURL:   "postgres://komrad_engine_default@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+			wantReadOnlyURL:   "postgres://komrad_engine_default_reader@/komrad?host=%2Fstate%2Fpostgres&port=5432",
+			wantOwner:         "postgres://owner:secret@db.internal:5432/komrad",
+			wantExternalOwner: true,
 		},
 		{
 			name:            "a database_url on the socket under the state directory",
@@ -825,6 +834,7 @@ func TestLoadDerivesTheEmbeddedPostgres(t *testing.T) {
 			assert.Equal(t, tt.wantReadOnlyURL, cfg.Connection.ReadOnlyDatabaseURL)
 			assert.Equal(t, tt.wantOwner, cfg.Connection.OwnerDatabaseURL)
 			assert.True(t, cfg.Connection.UsesEmbeddedPostgres())
+			assert.Equal(t, !tt.wantExternalOwner, cfg.Connection.OwnerUsesEmbeddedPostgres())
 		})
 	}
 }

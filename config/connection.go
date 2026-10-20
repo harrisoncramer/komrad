@@ -93,6 +93,11 @@ func (c Connection) UsesEmbeddedPostgres() bool {
 	return isEmbeddedPostgresURL(c.DatabaseURL, GetEmbeddedPostgresDir(c.StateDir))
 }
 
+// OwnerUsesEmbeddedPostgres reports whether owner_database_url reaches the embedded Postgres under state_dir.
+func (c Connection) OwnerUsesEmbeddedPostgres() bool {
+	return isEmbeddedPostgresURL(c.OwnerDatabaseURL, GetEmbeddedPostgresDir(c.StateDir))
+}
+
 func (c *Connection) normalize() {
 	c.URL = strings.TrimRight(c.URL, "/")
 	c.DatabaseURL = strings.TrimSpace(c.DatabaseURL)

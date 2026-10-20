@@ -32,9 +32,18 @@ func getEmbeddedPostgresDir(env *config.Environment) string {
 	return config.GetEmbeddedPostgresDir(env.StateDir)
 }
 
+// getOwnerEmbeddedPostgresDir is where the embedded Postgres lives, and empty when owner_database_url reaches another Postgres.
+func getOwnerEmbeddedPostgresDir(env *config.Environment) string {
+	if !env.OwnerEmbeddedPostgres {
+		return ""
+	}
+
+	return config.GetEmbeddedPostgresDir(env.StateDir)
+}
+
 // requireEmbeddedPostgres refuses a command that needs the database while the embedded Postgres is down.
 func requireEmbeddedPostgres(ctx context.Context, cmd *cobra.Command, env *config.Environment) error {
-	dir := getEmbeddedPostgresDir(env)
+	dir := getOwnerEmbeddedPostgresDir(env)
 	if dir == "" || !doesNeedEmbeddedPostgres(cmd) || postgres.IsRunning(ctx, dir) {
 		return nil
 	}

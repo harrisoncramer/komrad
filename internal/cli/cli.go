@@ -270,14 +270,15 @@ func fallbackConfig() (*config.Config, *config.Report) {
 
 func loadEnvironment(cfg *config.Config) (*config.Environment, error) {
 	return config.LoadEnvironment(config.Environment{
-		DatabaseURL:         cfg.Connection.DatabaseURL,
-		ReadOnlyDatabaseURL: cfg.Connection.ReadOnlyDatabaseURL,
-		OwnerDatabaseURL:    cfg.Connection.OwnerDatabaseURL,
-		Addr:                cfg.Connection.Addr,
-		TmuxSocket:          cfg.Connection.TmuxSocket,
-		CacheDir:            cfg.Connection.CacheDir,
-		StateDir:            cfg.Connection.StateDir,
-		EmbeddedPostgres:    cfg.Connection.UsesEmbeddedPostgres(),
-		URL:                 cfg.Connection.URL,
+		DatabaseURL:           cfg.Connection.DatabaseURL,
+		ReadOnlyDatabaseURL:   cfg.Connection.ReadOnlyDatabaseURL,
+		OwnerDatabaseURL:      cfg.Connection.OwnerDatabaseURL,
+		Addr:                  cfg.Connection.Addr,
+		TmuxSocket:            cfg.Connection.TmuxSocket,
+		CacheDir:              cfg.Connection.CacheDir,
+		StateDir:              cfg.Connection.StateDir,
+		EmbeddedPostgres:      cfg.Connection.UsesEmbeddedPostgres(),
+		OwnerEmbeddedPostgres: cfg.Connection.OwnerUsesEmbeddedPostgres(),
+		URL:                   cfg.Connection.URL,
 	})
 }
