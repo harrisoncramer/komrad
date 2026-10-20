@@ -28,6 +28,10 @@ git config --system credential.https://github.com.helper \
 git config --system include.path /etc/komrad/git-proxy.gitconfig
 git config --system --add include.path /var/lib/komrad/home/.local/state/komrad/git/identity
 
+# Git reaches gitlab.com with the token its forge connection holds.
+git config --system credential.https://gitlab.com.helper '!komrad gitlab credential'
+git config --system credential.https://gitlab.com.username oauth2
+
 systemctl enable komrad-engine-credentials.service
 systemctl enable komrad-manager-session.service
 systemctl enable komrad.service
