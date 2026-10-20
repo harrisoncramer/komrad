@@ -567,7 +567,7 @@ func refuseWriters(agents []agentstore.Agent, verb string) error {
 }
 
 // refuseDeletedWorktrees refuses a restore that names an archived agent on a task whose worktree
-// was deleted, since nothing is left for it to run in.
+// was deleted.
 func (s *LifecycleService) refuseDeletedWorktrees(ctx context.Context, agents []agentstore.Agent) error {
 	for _, agent := range agents {
 		if agent.TaskID == nil || agent.ArchivedAt == nil {

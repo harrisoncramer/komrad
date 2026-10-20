@@ -91,8 +91,7 @@ func archiveMenu(m *model, target archived) submenu {
 	}
 }
 
-// deletedEntries are the deleted list's actions on a row, which restore only a workflow, since a
-// task whose worktree was deleted has nowhere left to run.
+// deletedEntries are the deleted list's actions on a row, offering restore only on a workflow.
 func deletedEntries(m *model, target archived) []submenuEntry {
 	remove := "delete for good"
 	if target.chosen {

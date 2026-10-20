@@ -1755,8 +1755,8 @@ func TestDeleteTasksWithoutRecordsOnAGoneWorktree(t *testing.T) {
 	assert.Empty(t, lifecycle.ranTaskHooks())
 }
 
-// TestRestoreAgentsRefusesATaskWhoseWorktreeWasDeleted pins a restore of an agent whose task's
-// worktree was deleted being refused, since nothing is left for it to run in.
+// TestRestoreAgentsRefusesATaskWhoseWorktreeWasDeleted pins a restore refused for an agent on a
+// task whose worktree was deleted.
 func TestRestoreAgentsRefusesATaskWhoseWorktreeWasDeleted(t *testing.T) {
 	tests := []struct {
 		name     string
