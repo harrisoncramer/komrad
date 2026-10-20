@@ -377,7 +377,7 @@ func (w chosenWork) deleteOffSaid() string {
 		return ""
 	}
 
-	return "deleted only with its task or workflow"
+	return "will only be deleted with its task or workflow"
 }
 
 // affected is every live agent the work takes.

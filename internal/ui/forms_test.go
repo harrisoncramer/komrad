@@ -580,7 +580,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 				}},
 			},
 			{
-				name:   "deleting chosen agents short of their whole task stays off",
+				name:   "delete is disabled for chosen agents short of their whole task",
 				choose: siblings,
 				press:  []string{"down", "enter", "y"},
 			},

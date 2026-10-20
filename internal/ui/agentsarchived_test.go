@@ -736,7 +736,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 			}},
 		},
 		{
-			name:  "delete stays off on a selection of agents with no task",
+			name:  "delete is disabled on a selection of agents with no task",
 			press: []string{"j", "v", "j", "v", "j", "space", "a", "d", "y"},
 		},
 	}
@@ -1278,13 +1278,13 @@ func TestArchivedTasks(t *testing.T) {
 			}},
 		},
 		{
-			name:      "delete on a live task's header is off, its archived reviewer going only with the task",
+			name:      "delete is disabled on a live task's header, since its archived reviewer will only be deleted with the task",
 			rows:      buildArchivedTasks(),
 			press:     []string{"j", "space", "a"},
-			wantFrame: "deleted only with its task or workflow",
+			wantFrame: "will only be deleted with its task or workflow",
 		},
 		{
-			name:  "delete stays off on a live task with no live agent left",
+			name:  "delete is disabled on a live task with no live agent left",
 			rows:  emptied,
 			press: []string{"j", "space", "a", "d", "y"},
 		},
