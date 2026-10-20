@@ -456,7 +456,7 @@ type tally struct {
 func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 	rows, err := s.queries.ListReviewTallies(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to count the snapshots of review: %w", err)
+		return nil, fmt.Errorf("failed to count the reviewed snapshots: %w", err)
 	}
 
 	return xslice.Map(rows, func(row *models.ListReviewTalliesRow) tally {
