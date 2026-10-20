@@ -93,5 +93,5 @@ func (ThreadAnswered) Events() []string {
 // Body asks the reviewer to read the answer and release a verdict on it.
 func (m ThreadAnswered) Body() string {
 	return fmt.Sprintf("komrad: %s answered your review. Read the threads with list_review_threads, "+
-		"open a snapshot over its work as it now stands, and release a verdict on that snapshot.", m.WriterName)
+		"take a snapshot of its work as it now stands, and release a verdict on that snapshot.", m.WriterName)
 }
