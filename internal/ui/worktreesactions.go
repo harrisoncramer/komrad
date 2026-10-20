@@ -191,7 +191,7 @@ func confirmDeleteMixed(m *model, deletion worktreeDeletion) tea.Cmd {
 	confirm := deleteMixedConfirm(deletion, len(m.listing.agentsOnTasks(deletion.tasks)))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
-		return tea.Batch(m.deleteTasks(deletion.tasks, confirm.boxes.deletesRecords()), deleteWorktreesCmd(m, deletion))
+		return tea.Batch(m.deleteTasks(deletion.tasks, confirm.values.deletesRecords()), deleteWorktreesCmd(m, deletion))
 	})
 }
 

@@ -235,7 +235,7 @@ func confirmDeleteChosenAgents(m *model, work chosenWork, pool []panel.Agent) te
 	confirm := deleteChosenConfirm(work, unnamedReviewers(pool, work.chosen), m.listing.hasAnyOwnWorktree(work.wholeTasks))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
-		return m.deleteChosenAgents(work, confirm.boxes.deletesRecords())
+		return m.deleteChosenAgents(work, confirm.values.deletesRecords())
 	})
 }
 

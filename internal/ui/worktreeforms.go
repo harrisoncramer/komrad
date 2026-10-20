@@ -22,8 +22,8 @@ type worktreeConfirm struct {
 	warning         string
 	dirs            []string
 	startsConfirmed bool
-	// boxes asks what the delete takes, unset where the delete takes directories alone.
-	boxes *deleteBoxes
+	// values asks what the delete takes, unset where the delete takes directories alone.
+	values *deleteFormValues
 }
 
 // open reads each worktree afresh and puts the confirm on screen, running write once it is answered yes.
@@ -41,8 +41,8 @@ func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
 		kind:   c.kind,
 		update: (*model).updateForm,
 		submit: func(m *model) tea.Cmd {
-			if confirmed && c.boxes != nil {
-				if err := c.boxes.check(); err != nil {
+			if confirmed && c.values != nil {
+				if err := c.values.check(); err != nil {
 					m.form.refusal = err.Error()
 
 					return formResized()
@@ -59,22 +59,16 @@ func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
 		},
 		rebuild: func(m *model) (*huh.Form, []string) {
 			warning := c.warning
-			if c.boxes != nil {
+			if c.values != nil {
 				warning = strings.TrimSpace(warning + " " + recordsWarning)
 			}
 
-			params := confirmFormStartingOnParams{
-				answer:      &confirmed,
-				title:       c.title,
-				description: warning + describeStanding(m.inspections, c.dirs),
-				affirmative: "Delete",
-				keys:        fixedKeys(),
-			}
-			if c.boxes == nil {
-				return confirmFormStartingOn(params), []string{"confirm"}
+			confirm := confirmField(&confirmed, warning+describeStanding(m.inspections, c.dirs), "Delete")
+			if c.values == nil {
+				return formOf(fixedKeys(), confirm.Title(c.title))
 			}
 
-			return c.boxes.form(params), []string{deleteBoxesKey, "confirm"}
+			return c.values.form(fixedKeys(), c.title, confirm)
 		},
 	})
 
@@ -218,6 +212,6 @@ func deleteMixedConfirm(deletion worktreeDeletion, agentCount int) worktreeConfi
 		title:   fmt.Sprintf("Delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees")),
 		warning: strings.Join(lines, " "),
 		dirs:    slices.Concat(deletion.dirs(), taskDirs(deletion.tasks)),
-		boxes:   newDeleteBoxes(true),
+		values:  newDeleteFormValues(true),
 	}
 }

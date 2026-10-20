@@ -17,7 +17,7 @@ func deleteChosenConfirm(work chosenWork, reviewers int, offersWorktree bool) wo
 		title:           "Delete " + promptSubject(work.chosen, reviewers) + "?",
 		dirs:            taskDirs(work.wholeTasks),
 		startsConfirmed: true,
-		boxes:           newDeleteBoxes(offersWorktree),
+		values:          newDeleteFormValues(offersWorktree),
 	}
 
 	switch {
@@ -32,21 +32,22 @@ func deleteChosenConfirm(work chosenWork, reviewers int, offersWorktree bool) wo
 
 // deleteWorkflowConfirm asks what goes when an archived workflow is deleted.
 func deleteWorkflowConfirm(workflow panel.Workflow, agentCount int) worktreeConfirm {
-	agents := ""
+	agentsInIt := ""
 	switch {
 	case agentCount == 1:
-		agents = ", the one archived agent in it"
+		agentsInIt = ", the one archived agent in it"
 	case agentCount > 1:
-		agents = fmt.Sprintf(", the %d archived agents in it", agentCount)
+		agentsInIt = fmt.Sprintf(", the %d archived agents in it", agentCount)
 	}
-	warning := fmt.Sprintf("With records ticked, Komrad also deletes the workflow%s and any archived schedule that launches into it.", agents)
+
+	warning := fmt.Sprintf("With records checked, Komrad also deletes the workflow%s and any archived schedule that launches into it.", agentsInIt)
 
 	return worktreeConfirm{
 		kind:            formArchiveDelete,
 		title:           fmt.Sprintf("Delete workflow %q?", workflow.Name),
 		warning:         warning,
 		startsConfirmed: true,
-		boxes:           newDeleteBoxes(workflow.Worktree.Enabled),
+		values:          newDeleteFormValues(workflow.Worktree.Enabled),
 	}
 }
 
@@ -72,6 +73,6 @@ func deleteTasksConfirm(tasks []panel.Task, agentCount int, offersWorktree bool)
 		warning:         warning,
 		dirs:            taskDirs(tasks),
 		startsConfirmed: true,
-		boxes:           newDeleteBoxes(offersWorktree),
+		values:          newDeleteFormValues(offersWorktree),
 	}
 }

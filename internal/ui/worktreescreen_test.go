@@ -254,24 +254,24 @@ func TestWorktreesDelete(t *testing.T) {
 			wantSent    []proto.Message
 		}{
 			{
+				name:        "are kept when nothing is checked",
+				press:       []string{"x", "enter"},
+				wantRefusal: "check what to delete, or go back",
+			},
+			{
+				name:        "are kept when the records are checked without the worktree",
+				press:       []string{"x", "down", "x", "enter"},
+				wantRefusal: "records will only be deleted with the worktree",
+			},
+			{
 				name:     "are deleted with their worktrees alone by default",
 				press:    []string{"enter"},
 				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
 			},
 			{
-				name:     "are deleted with their records once records are ticked",
+				name:     "are deleted with their records once records are checked",
 				press:    []string{"down", "x", "enter"},
 				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}, Records: true}},
-			},
-			{
-				name:        "are kept when nothing is ticked",
-				press:       []string{"x", "enter"},
-				wantRefusal: "tick what to delete, or go back",
-			},
-			{
-				name:        "are kept when the records are ticked without the worktree",
-				press:       []string{"x", "down", "x", "enter"},
-				wantRefusal: "records will only be deleted with the worktree",
 			},
 		}
 
@@ -1488,7 +1488,11 @@ func newWorktreeTask(agent *agentv1.Agent) *taskv1.Task {
 // buildTaskWorktrees is two tasks' checkouts no agent answers for, beside a directory nothing does.
 func buildTaskWorktrees() []proto.Message {
 	return []proto.Message{
-		&workflowv1.Workflow{Id: "w1", Name: "komrad", Worktree: &workflowv1.WorktreeConfig{Enabled: true}},
+		&workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "komrad",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+		},
 		&taskv1.Task{
 			Id:         "t8",
 			WorkflowId: "w1",

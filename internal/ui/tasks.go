@@ -219,7 +219,7 @@ func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
 	confirm := deleteTasksConfirm(tasks, len(m.listing.agentsOnTasks(tasks)), m.listing.hasAnyOwnWorktree(tasks))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
-		return m.deleteTasks(tasks, confirm.boxes.deletesRecords())
+		return m.deleteTasks(tasks, confirm.values.deletesRecords())
 	})
 }
 

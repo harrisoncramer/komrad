@@ -263,7 +263,12 @@ func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 // formOf renders a group of fields as one form, and lists the keys of the fields the cursor can
 // reach, in the order they are rendered.
 func formOf(keys config.FixedKeys, fields ...huh.Field) (*huh.Form, []string) {
-	form := huh.NewForm(huh.NewGroup(fields...)).
+	return titledFormOf(keys, "", fields...)
+}
+
+// titledFormOf is formOf under a title that heads every field.
+func titledFormOf(keys config.FixedKeys, title string, fields ...huh.Field) (*huh.Form, []string) {
+	form := huh.NewForm(huh.NewGroup(fields...).Title(title)).
 		WithShowHelp(true).
 		WithKeyMap(multiFieldKeyMap(keys)).
 		WithTheme(paint.Panel.FormTheme())
@@ -336,18 +341,20 @@ type confirmFormStartingOnParams struct {
 
 // confirmFormStartingOn builds a confirmation sitting on one of its two answers.
 func confirmFormStartingOn(params confirmFormStartingOnParams) *huh.Form {
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Key("confirm").
-				Title(params.title).
-				Description(params.description).
-				Affirmative(params.affirmative).
-				Negative("Cancel").
-				WithButtonAlignment(lipgloss.Left).
-				Value(params.answer),
-		),
-	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(params.keys)).WithTheme(paint.Panel.FormTheme())
+	form, _ := formOf(params.keys, confirmField(params.answer, params.description, params.affirmative).Title(params.title))
+
+	return form
+}
+
+// confirmField asks to go ahead or cancel, writing the answer to answer.
+func confirmField(answer *bool, description, affirmative string) *huh.Confirm {
+	return huh.NewConfirm().
+		Key("confirm").
+		Description(description).
+		Affirmative(affirmative).
+		Negative("Cancel").
+		WithButtonAlignment(lipgloss.Left).
+		Value(answer)
 }
 
 // holdForm keeps the form up while the write it was submitted for is in flight, so a refusal
