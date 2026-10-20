@@ -116,8 +116,11 @@ func SetGrants(ctx context.Context, params SetGrantsParams) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	engines := slices.AppendSeq(make([]string, 0, len(params.Grants)), maps.Keys(params.Grants))
+	slices.Sort(engines)
+
 	queries := models.New(tx)
-	for _, engine := range slices.Sorted(maps.Keys(params.Grants)) {
+	for _, engine := range engines {
 		email := params.Grants[engine]
 
 		engineID, err := getEngineID(ctx, queries, engine)
@@ -134,7 +137,7 @@ func SetGrants(ctx context.Context, params SetGrantsParams) error {
 		}
 	}
 
-	if err := queries.RevokeEngineAccessOutside(ctx, slices.AppendSeq(make([]string, 0, len(params.Grants)), maps.Keys(params.Grants))); err != nil {
+	if err := queries.RevokeEngineAccessOutside(ctx, engines); err != nil {
 		return fmt.Errorf("failed to revoke access to the engines not named: %w", err)
 	}
 
