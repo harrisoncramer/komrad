@@ -384,10 +384,22 @@ func TestPrepareBlankColumnsKeepEveryOtherCell(t *testing.T) {
 // TestPrepareRepoColumn pins where an agent's own checkout stands.
 func TestPrepareRepoColumn(t *testing.T) {
 	tests := []struct {
-		name string
-		repo Repo
-		want Cell
+		name     string
+		repo     Repo
+		archived bool
+		want     Cell
 	}{
+		{
+			name: "a worktree a delete removed gets the broken glyph greyed",
+			repo: RepoDeleted,
+			want: Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneMuted},
+		},
+		{
+			name:     "an archived row whose worktree a delete removed is left out",
+			repo:     RepoDeleted,
+			archived: true,
+			want:     Cell{},
+		},
 		{
 			name: "a checkout that is gone gets the broken glyph in danger",
 			repo: RepoGone,
@@ -407,7 +419,7 @@ func TestPrepareRepoColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{Repo: tt.repo}).Columns[0])
+			assert.Equal(t, tt.want, prepareOne(t, Row{Repo: tt.repo, Archived: tt.archived}).Columns[0])
 		})
 	}
 }

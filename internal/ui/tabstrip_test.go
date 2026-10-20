@@ -28,14 +28,14 @@ func TestTabStrip(t *testing.T) {
 			name:   "the agents tree",
 			screen: agentsScreen,
 			second: "activity",
-			kinds:  "F   live  archived",
+			kinds:  "F   live  archived  deleted",
 		},
 		{
 			name:   "the archived agents",
 			press:  []string{"F", "tab", "esc"},
 			screen: agentsScreen,
 			second: "name",
-			kinds:  "F   live  archived",
+			kinds:  "F   live  archived  deleted",
 		},
 		{
 			name:   "the worktrees",

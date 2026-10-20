@@ -258,9 +258,14 @@ func (m *model) runGitChoice(taskID string, choice gitChoice) tea.Cmd {
 	return nil
 }
 
-// hasOwnWorktree reports whether a task sits in a worktree komrad cut for it.
+// hasOwnWorktree reports whether a task sits in a worktree komrad cut for it that is still on disk.
 func (l listing) hasOwnWorktree(task panel.Task) bool {
-	if task.Cwd == "" || task.WorktreeRemoved {
+	return !task.IsWorktreeRemoved() && l.isWorktreeCut(task)
+}
+
+// isWorktreeCut reports whether komrad cut a worktree for a task that no delete has removed.
+func (l listing) isWorktreeCut(task panel.Task) bool {
+	if task.Cwd == "" || task.WorktreeRemovalReason == panel.WorktreeDeleted {
 		return false
 	}
 

@@ -36,7 +36,7 @@ func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) tea.Cmd {
 	}
 
 	agent := item.Agent
-	if agent.Cwd == "" || m.listing.tasks.findForAgent(agent).WorktreeRemoved {
+	if agent.Cwd == "" || m.listing.tasks.findForAgent(agent).IsWorktreeRemoved() {
 		m.reportBrief("could not edit "+agent.Name, "it has no worktree to open")
 
 		return nil

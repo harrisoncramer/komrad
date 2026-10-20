@@ -145,7 +145,7 @@ func TestCwdSyncerSyncRecordsTheCheckout(t *testing.T) {
 			}
 
 			got := fixture.read(t, agent.ID)
-			assert.Equal(t, tt.wantRemoved, got.WorktreeRemoved)
+			assert.Equal(t, tt.wantRemoved, got.IsWorktreeRemoved())
 			assert.Equal(t, tt.wantBranch, got.Branch)
 			assert.Equal(t, tt.wantRepo, got.RepositoryURL)
 			assert.Equal(t, tt.wantSHA, got.HeadSHA)
@@ -236,7 +236,7 @@ func TestCwdSyncerSyncClearsWhatAnEarlierPassWrote(t *testing.T) {
 
 	require.NoError(t, syncer.Sync(t.Context()))
 	require.Equal(t, xptr.Ptr("main"), fixture.read(t, onBranch.ID).Branch)
-	require.True(t, fixture.read(t, removed.ID).WorktreeRemoved)
+	require.True(t, fixture.read(t, removed.ID).IsWorktreeRemoved())
 
 	for _, agent := range []*agentstore.Agent{onBranch, removed} {
 		require.NoError(t, fixture.stores.Tasks.SetCheckoutDir(t.Context(), *agent.TaskID, t.TempDir()))
@@ -245,7 +245,7 @@ func TestCwdSyncerSyncClearsWhatAnEarlierPassWrote(t *testing.T) {
 	require.NoError(t, syncer.Sync(t.Context()))
 
 	assert.Nil(t, fixture.read(t, onBranch.ID).Branch)
-	assert.False(t, fixture.read(t, removed.ID).WorktreeRemoved)
+	assert.False(t, fixture.read(t, removed.ID).IsWorktreeRemoved())
 }
 
 // TestCwdSyncerSyncSkipsArchivedAgents covers that the pass walks live agents only.
@@ -266,7 +266,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	for _, id := range ids {
 		got := fixture.read(t, id)
 		assert.Nil(t, got.Branch)
-		assert.False(t, got.WorktreeRemoved)
+		assert.False(t, got.IsWorktreeRemoved())
 	}
 }
 

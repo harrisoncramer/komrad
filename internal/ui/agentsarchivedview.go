@@ -31,7 +31,7 @@ func (a *archivedAgents) doc(m *model) string {
 	r, ok := rowAt(a.listRows(m), a.cursor)
 	switch {
 	case !ok:
-		return emptyArchiveMarkdown
+		return a.emptyMarkdown()
 	case r.isTask():
 		return taskMarkdown(*r.task)
 	case r.header:
@@ -81,4 +81,22 @@ func (a *archivedAgents) snapshot(m *model, pane listPane) view.Snapshot {
 		flat:         a.sort.flat,
 		pane:         pane.width,
 	})
+}
+
+// emptySaid is what the list says while this kind lists nothing.
+func (a *archivedAgents) emptySaid() string {
+	if a.kind == agentsDeleted {
+		return "nothing deleted"
+	}
+
+	return "nothing archived"
+}
+
+// emptyMarkdown is what renders beside the list while this kind lists nothing.
+func (a *archivedAgents) emptyMarkdown() string {
+	if a.kind == agentsDeleted {
+		return emptyDeletedMarkdown
+	}
+
+	return emptyArchiveMarkdown
 }

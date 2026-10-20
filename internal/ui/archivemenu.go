@@ -48,7 +48,7 @@ func (t archived) opensAgent(l listing) (*panel.Agent, error) {
 		return nil, errNeverStarted
 	}
 
-	if l.tasks.findForAgent(*t.resumed).WorktreeRemoved {
+	if l.tasks.findForAgent(*t.resumed).IsWorktreeRemoved() {
 		return nil, errWorktreeRemoved
 	}
 
@@ -237,7 +237,7 @@ func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
 
 // confirmDeleteChosenAgents asks what goes before the chosen agents are deleted.
 func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
-	confirm := deleteChosenConfirm(work, m.listing.hasAnyOwnWorktree(work.wholeTasks))
+	confirm := deleteChosenConfirm(work, m.listing.hasAnyWorktreeToDelete(work.wholeTasks))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return m.deleteChosenAgents(work, confirm.values.deletesRecords())

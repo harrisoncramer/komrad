@@ -560,7 +560,7 @@ func (l listing) workflowFor(agent panel.Agent) panel.Workflow {
 func (l listing) reviewDir(agent panel.Agent) string {
 	task := l.tasks.findForAgent(agent)
 	switch {
-	case !task.WorktreeRemoved:
+	case !task.IsWorktreeRemoved():
 		return agent.Cwd
 	case task.Snapshots == 0:
 		return ""

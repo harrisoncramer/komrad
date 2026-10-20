@@ -82,7 +82,7 @@ func TestRebaseRefusals(t *testing.T) {
 			name: "a task whose directory is gone",
 			lay: func(t *testing.T, fixture *rebaseFixture) string {
 				agent := fixture.seed(t, agentstore.Agent{})
-				fixture.stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemoved: true})
+				fixture.stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone})
 
 				return *agent.TaskID
 			},

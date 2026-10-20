@@ -20,18 +20,18 @@ import (
 func TestTaskFromCarriesTheCheckout(t *testing.T) {
 	branch := "fix/thing"
 	converted := taskFrom(assemble.TaskRow{Task: &taskv1.Task{
-		Id:              "t1",
-		Branch:          &branch,
-		DiffStat:        &taskv1.DiffStat{Added: 3, Removed: 1},
-		WorktreeRemoved: true,
-		Snapshots:       2,
+		Id:                    "t1",
+		Branch:                &branch,
+		DiffStat:              &taskv1.DiffStat{Added: 3, Removed: 1},
+		WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
+		Snapshots:             2,
 	}})
 
 	require.NotNil(t, converted.Branch)
 	assert.Equal(t, branch, *converted.Branch)
 	assert.Equal(t, int32(3), converted.DiffStat.GetAdded())
 	assert.Equal(t, int32(1), converted.DiffStat.GetRemoved())
-	assert.True(t, converted.WorktreeRemoved)
+	assert.Equal(t, panel.WorktreeGone, converted.WorktreeRemovalReason)
 	assert.Equal(t, int32(2), converted.Snapshots)
 }
 

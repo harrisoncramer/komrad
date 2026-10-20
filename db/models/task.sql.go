@@ -27,7 +27,7 @@ WHERE
             a.task_id = t.id
             AND a.archived_at IS NULL)
 RETURNING
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked, t.worktree_removal_reason
 `
 
 func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []string) ([]*Task, error) {
@@ -71,6 +71,7 @@ func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []string) ([]*Task, 
 			&i.ForkPoint,
 			&i.ParentPullRequestID,
 			&i.CascadeBlocked,
+			&i.WorktreeRemovalReason,
 		); err != nil {
 			return nil, err
 		}
@@ -248,7 +249,7 @@ VALUES (
     $6,
     $7)
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked, worktree_removal_reason
 `
 
 type CreateTaskParams struct {
@@ -304,6 +305,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (*Task, 
 		&i.ForkPoint,
 		&i.ParentPullRequestID,
 		&i.CascadeBlocked,
+		&i.WorktreeRemovalReason,
 	)
 	return &i, err
 }
@@ -341,7 +343,7 @@ func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams
 
 const getTaskByID = `-- name: GetTaskByID :one
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked, t.worktree_removal_reason,
 (
         SELECT
             COUNT(*)
@@ -395,6 +397,7 @@ func (q *Queries) GetTaskByID(ctx context.Context, id string) (*GetTaskByIDRow, 
 		&i.Task.ForkPoint,
 		&i.Task.ParentPullRequestID,
 		&i.Task.CascadeBlocked,
+		&i.Task.WorktreeRemovalReason,
 		&i.Snapshots,
 	)
 	return &i, err
@@ -402,7 +405,7 @@ func (q *Queries) GetTaskByID(ctx context.Context, id string) (*GetTaskByIDRow, 
 
 const getTaskBySlug = `-- name: GetTaskBySlug :one
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked, t.worktree_removal_reason,
 (
         SELECT
             COUNT(*)
@@ -456,6 +459,7 @@ func (q *Queries) GetTaskBySlug(ctx context.Context, slug string) (*GetTaskBySlu
 		&i.Task.ForkPoint,
 		&i.Task.ParentPullRequestID,
 		&i.Task.CascadeBlocked,
+		&i.Task.WorktreeRemovalReason,
 		&i.Snapshots,
 	)
 	return &i, err
@@ -479,7 +483,7 @@ func (q *Queries) GetTaskLastRebase(ctx context.Context, id string) ([]byte, err
 
 const getUndeletedTaskForUpdate = `-- name: GetUndeletedTaskForUpdate :one
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked, worktree_removal_reason
 FROM
     tasks
 WHERE
@@ -523,6 +527,7 @@ func (q *Queries) GetUndeletedTaskForUpdate(ctx context.Context, id string) (*Ta
 		&i.ForkPoint,
 		&i.ParentPullRequestID,
 		&i.CascadeBlocked,
+		&i.WorktreeRemovalReason,
 	)
 	return &i, err
 }
@@ -547,7 +552,7 @@ func (q *Queries) IsTaskSlugTaken(ctx context.Context, slug string) (bool, error
 
 const listChildTasks = `-- name: ListChildTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked, worktree_removal_reason
 FROM
     tasks
 WHERE
@@ -599,6 +604,7 @@ func (q *Queries) ListChildTasks(ctx context.Context) ([]*Task, error) {
 			&i.ForkPoint,
 			&i.ParentPullRequestID,
 			&i.CascadeBlocked,
+			&i.WorktreeRemovalReason,
 		); err != nil {
 			return nil, err
 		}
@@ -612,7 +618,7 @@ func (q *Queries) ListChildTasks(ctx context.Context) ([]*Task, error) {
 
 const listChildrenOfTasks = `-- name: ListChildrenOfTasks :many
 SELECT
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked, worktree_removal_reason
 FROM
     tasks
 WHERE
@@ -663,6 +669,7 @@ func (q *Queries) ListChildrenOfTasks(ctx context.Context, ids []string) ([]*Tas
 			&i.ForkPoint,
 			&i.ParentPullRequestID,
 			&i.CascadeBlocked,
+			&i.WorktreeRemovalReason,
 		); err != nil {
 			return nil, err
 		}
@@ -676,13 +683,14 @@ func (q *Queries) ListChildrenOfTasks(ctx context.Context, ids []string) ([]*Tas
 
 const listTaskCheckouts = `-- name: ListTaskCheckouts :many
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked, t.worktree_removal_reason
 FROM
     tasks t
 WHERE
     t.archived_at IS NULL
     AND t.cwd IS NOT NULL
     AND t.cwd <> ''
+    AND t.worktree_removal_reason IS DISTINCT FROM 'deleted'
     AND EXISTS (
         SELECT
             1
@@ -736,6 +744,7 @@ func (q *Queries) ListTaskCheckouts(ctx context.Context) ([]*Task, error) {
 			&i.ForkPoint,
 			&i.ParentPullRequestID,
 			&i.CascadeBlocked,
+			&i.WorktreeRemovalReason,
 		); err != nil {
 			return nil, err
 		}
@@ -797,7 +806,7 @@ func (q *Queries) ListTaskSummaries(ctx context.Context) ([]*ListTaskSummariesRo
 
 const listTasks = `-- name: ListTasks :many
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked, t.worktree_removal_reason,
 (
         SELECT
             COUNT(*)
@@ -866,6 +875,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*ListTa
 			&i.Task.ForkPoint,
 			&i.Task.ParentPullRequestID,
 			&i.Task.CascadeBlocked,
+			&i.Task.WorktreeRemovalReason,
 			&i.Snapshots,
 		); err != nil {
 			return nil, err
@@ -880,7 +890,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]*ListTa
 
 const listTasksByID = `-- name: ListTasksByID :many
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked, t.worktree_removal_reason,
 (
         SELECT
             COUNT(*)
@@ -942,6 +952,7 @@ func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*ListTasks
 			&i.Task.ForkPoint,
 			&i.Task.ParentPullRequestID,
 			&i.Task.CascadeBlocked,
+			&i.Task.WorktreeRemovalReason,
 			&i.Snapshots,
 		); err != nil {
 			return nil, err
@@ -1012,7 +1023,7 @@ written AS (
         d.task_id
 )
 SELECT
-    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked,
+    t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked, t.worktree_removal_reason,
     EXISTS (
         SELECT
         FROM
@@ -1087,6 +1098,7 @@ func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*ListW
 			&i.Task.ForkPoint,
 			&i.Task.ParentPullRequestID,
 			&i.Task.CascadeBlocked,
+			&i.Task.WorktreeRemovalReason,
 			&i.FailedRun,
 			&i.Documents,
 			&i.DocumentsUpdatedAt,
@@ -1235,6 +1247,7 @@ UPDATE
     tasks
 SET
     worktree_removed = TRUE,
+    worktree_removal_reason = 'deleted',
     deleting_at = NULL,
     cleaning_at = NULL
 WHERE
@@ -1259,7 +1272,8 @@ SET
         lines_removed = NULL,
         moved_since_snapshot = NULL,
         last_rebase = NULL,
-        worktree_removed = NULL
+        worktree_removed = NULL,
+        worktree_removal_reason = NULL
     WHERE
         id = $1
 `
@@ -1373,18 +1387,20 @@ SET
     repository_url = $2,
     head_sha = $3,
     worktree_removed = $4,
-    "sequence" = $5
+    worktree_removal_reason = $5,
+    "sequence" = $6
 WHERE
-    id = $6
+    id = $7
 `
 
 type SetTaskHeadParams struct {
-	Branch          *string
-	RepositoryUrl   *string
-	HeadSha         *string
-	WorktreeRemoved *bool
-	Sequence        NullAgentSequence
-	ID              string
+	Branch                *string
+	RepositoryUrl         *string
+	HeadSha               *string
+	WorktreeRemoved       *bool
+	WorktreeRemovalReason NullWorktreeRemovalReason
+	Sequence              NullAgentSequence
+	ID                    string
 }
 
 func (q *Queries) SetTaskHead(ctx context.Context, arg SetTaskHeadParams) error {
@@ -1393,6 +1409,7 @@ func (q *Queries) SetTaskHead(ctx context.Context, arg SetTaskHeadParams) error 
 		arg.RepositoryUrl,
 		arg.HeadSha,
 		arg.WorktreeRemoved,
+		arg.WorktreeRemovalReason,
 		arg.Sequence,
 		arg.ID,
 	)
@@ -1528,7 +1545,7 @@ WHERE
     AND ($4::text IS NULL
         OR notes_updated_at IS NOT DISTINCT FROM $6::timestamptz)
 RETURNING
-    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked
+    id, workflow_id, slug, title, goal, archived_at, created_at, updated_at, engine_id, cwd, branch, adopted_branch, provision_enabled, worktree_removed, repository_url, head_sha, last_rebase, sequence, lines_added, lines_removed, moved_since_snapshot, deleting_at, cleaning_at, failure_reason, notes, notes_updated_at, is_hidden, parent_task_id, fork_point, parent_pull_request_id, cascade_blocked, worktree_removal_reason
 `
 
 type UpdateTaskParams struct {
@@ -1582,6 +1599,7 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) (*Task, 
 		&i.ForkPoint,
 		&i.ParentPullRequestID,
 		&i.CascadeBlocked,
+		&i.WorktreeRemovalReason,
 	)
 	return &i, err
 }

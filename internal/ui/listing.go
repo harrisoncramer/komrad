@@ -72,10 +72,10 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	treeRow := m.agents.list().hovered(m)
 	triageSlot := m.agents.findZoneSlot(m)
 	scheduleRow := m.schedules.list().hovered(m)
-	archivedShown := m.agents.kind == agentsArchived
+	archiveShown := m.agents.shownArchive()
 	var archivedAgentRow string
-	if archivedShown {
-		archivedAgentRow = m.agents.archived.list().hovered(m)
+	if archiveShown != nil {
+		archivedAgentRow = archiveShown.list().hovered(m)
 	}
 	archivedScheduleRow := m.schedules.archived.list().hovered(m)
 	worktreeRow := m.worktrees.list().hovered(m)
@@ -90,8 +90,8 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	m.agents.followAwaitingCLI(m)
 	m.agents.landInTriage(m, treeRow, triageSlot)
 	m.schedules.apply(m, scheduleRow)
-	if archivedShown {
-		m.agents.archived.place(m, archivedAgentRow)
+	if archiveShown != nil {
+		archiveShown.place(m, archivedAgentRow)
 	}
 	m.schedules.archived.place(m, archivedScheduleRow)
 	m.applyWorktrees(m.listing.worktrees, worktreeRow)
@@ -457,6 +457,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		m.agents.settleRename(m, result.renamed, result.err)
 		m.documents.settleRename(m, result.renamed, result.err)
 		m.agents.archived.settleRename(m, result.renamed, result.err)
+		m.agents.deleted.settleRename(m, result.renamed, result.err)
 		m.schedules.settleRename(m, result.renamed, result.err)
 	}
 

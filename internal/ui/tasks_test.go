@@ -82,11 +82,11 @@ func TestTasksTree(t *testing.T) {
 			{
 				name: "is not offered once the task's worktree was removed",
 				task: &taskv1.Task{
-					Id:              "t1",
-					WorkflowId:      "w1",
-					Slug:            "fix-login",
-					Cwd:             xptr.Ptr("/worktrees/fix-login"),
-					WorktreeRemoved: true,
+					Id:                    "t1",
+					WorkflowId:            "w1",
+					Slug:                  "fix-login",
+					Cwd:                   xptr.Ptr("/worktrees/fix-login"),
+					WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
 				},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: false,

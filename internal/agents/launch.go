@@ -286,7 +286,7 @@ func (s *LaunchService) joinParams(ctx context.Context, params NewAgentParams, t
 		return params, fmt.Errorf("%w: it provisions nothing, since task %q's checkout is already there", agenterr.ErrReviewerOwnsLaunch, task.Slug)
 	case params.ScheduleID != nil:
 		return params, fmt.Errorf("%w: a schedule starts a task rather than joining one", agenterr.ErrReviewerOwnsLaunch)
-	case task.Checkout.WorktreeRemoved:
+	case task.Checkout.IsWorktreeRemoved():
 		return params, tasks.ErrWorktreeRemoved.Saying("task %q's worktree was removed, so there is no checkout to review", task.Slug)
 	}
 

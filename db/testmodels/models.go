@@ -410,6 +410,48 @@ func (ns NullScheduleKind) Value() (driver.Value, error) {
 	return string(ns.ScheduleKind), nil
 }
 
+type WorktreeRemovalReason string
+
+const (
+	WorktreeRemovalReasonDeleted WorktreeRemovalReason = "deleted"
+	WorktreeRemovalReasonGone    WorktreeRemovalReason = "gone"
+)
+
+func (e *WorktreeRemovalReason) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = WorktreeRemovalReason(s)
+	case string:
+		*e = WorktreeRemovalReason(s)
+	default:
+		return fmt.Errorf("unsupported scan type for WorktreeRemovalReason: %T", src)
+	}
+	return nil
+}
+
+type NullWorktreeRemovalReason struct {
+	WorktreeRemovalReason WorktreeRemovalReason
+	Valid                 bool // Valid is true if WorktreeRemovalReason is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullWorktreeRemovalReason) Scan(value interface{}) error {
+	if value == nil {
+		ns.WorktreeRemovalReason, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.WorktreeRemovalReason.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullWorktreeRemovalReason) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.WorktreeRemovalReason), nil
+}
+
 // One background agent, holding everything needed to start it again.
 type Agent struct {
 	ID     pgtype.UUID
@@ -1211,6 +1253,8 @@ type Task struct {
 	ParentPullRequestID pgtype.UUID
 	// Why the cascade cannot rebase this task onto its parent: conflicts when the rebase stopped on conflicts, orphaned when its branch holds neither its fork point nor the parent's newest commit, closed when the parent's pull request closed without merging; null while nothing blocks it.
 	CascadeBlocked *string
+	// Why the task's worktree is no longer on disk: deleted when a delete removed it, gone when komrad found the directory gone without one; null while it is on disk or the task has none.
+	WorktreeRemovalReason NullWorktreeRemovalReason
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

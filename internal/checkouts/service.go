@@ -194,7 +194,7 @@ func (s *Service) eligible(ctx context.Context, ref string) (*checkoutTarget, er
 	if task.DeletingAt != nil {
 		return nil, fmt.Errorf("%w: %q is being deleted", ErrNoWorktree, task.Slug)
 	}
-	if task.Checkout.Cwd == "" || task.Checkout.WorktreeRemoved {
+	if task.Checkout.Cwd == "" || task.Checkout.IsWorktreeRemoved() {
 		return nil, fmt.Errorf("%w: %q has no directory on disk", ErrNoWorktree, task.Slug)
 	}
 

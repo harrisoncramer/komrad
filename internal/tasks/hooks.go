@@ -188,7 +188,7 @@ func (p moment) toHookRun() scriptrun.HookRun {
 
 // hasLiveCheckout reports whether a task has a worktree that is still there.
 func hasLiveCheckout(task taskstore.Task) bool {
-	return task.Checkout.Cwd != "" && !task.Checkout.WorktreeRemoved && scripts.RequireUsableDir(task.Checkout.Cwd) == nil
+	return task.Checkout.Cwd != "" && !task.Checkout.IsWorktreeRemoved() && scripts.RequireUsableDir(task.Checkout.Cwd) == nil
 }
 
 // findTaskActor picks the agent among agents whose action fired a task's moment, preferring the

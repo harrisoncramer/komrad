@@ -212,7 +212,8 @@ SET
         lines_removed = NULL,
         moved_since_snapshot = NULL,
         last_rebase = NULL,
-        worktree_removed = NULL
+        worktree_removed = NULL,
+        worktree_removal_reason = NULL
     WHERE
         id = sqlc.arg('id');
 
@@ -232,6 +233,7 @@ SET
     repository_url = sqlc.narg('repository_url'),
     head_sha = sqlc.narg('head_sha'),
     worktree_removed = sqlc.arg('worktree_removed'),
+    worktree_removal_reason = sqlc.narg('worktree_removal_reason'),
     "sequence" = sqlc.arg('sequence')
 WHERE
     id = sqlc.arg('id');
@@ -286,6 +288,7 @@ WHERE
     t.archived_at IS NULL
     AND t.cwd IS NOT NULL
     AND t.cwd <> ''
+    AND t.worktree_removal_reason IS DISTINCT FROM 'deleted'
     AND EXISTS (
         SELECT
             1
@@ -388,6 +391,7 @@ UPDATE
     tasks
 SET
     worktree_removed = TRUE,
+    worktree_removal_reason = 'deleted',
     deleting_at = NULL,
     cleaning_at = NULL
 WHERE

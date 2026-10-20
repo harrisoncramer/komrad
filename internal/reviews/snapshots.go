@@ -94,7 +94,7 @@ func (s *ReviewService) TakeSnapshot(ctx context.Context, ref string, author Rev
 
 // takeTaskSnapshot freezes a task's checkout, handing back the newest snapshot when the tree has not moved since it was taken.
 func (s *ReviewService) takeTaskSnapshot(ctx context.Context, task taskstore.Task) (*reviewstore.Snapshot, error) {
-	if task.Checkout.WorktreeRemoved {
+	if task.Checkout.IsWorktreeRemoved() {
 		return nil, fmt.Errorf("%w: %q", errReviewWorktreeRemoved, task.Slug)
 	}
 	if task.Checkout.Cwd == "" {

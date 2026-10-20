@@ -80,7 +80,7 @@ func TestDeleteAgentLeavesItsTasksCheckout(t *testing.T) {
 			assert.Empty(t, lifecycle.ranTaskDeprovisions())
 			task, err := st.Tasks.Get(t.Context(), *agent.TaskID)
 			require.NoError(t, err)
-			assert.False(t, task.Checkout.WorktreeRemoved)
+			assert.False(t, task.Checkout.IsWorktreeRemoved())
 		})
 	}
 }
@@ -1720,7 +1720,7 @@ func TestDeleteTasksWithoutRecordsKeepsTheTask(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kept.ArchivedAt)
 	assert.Nil(t, kept.DeletingAt)
-	assert.True(t, kept.Checkout.WorktreeRemoved)
+	assert.Equal(t, taskstore.WorktreeDeleted, kept.Checkout.WorktreeRemovalReason)
 	assert.Equal(t, agent.Cwd, kept.Checkout.Cwd)
 	assert.NotNil(t, agentByID(t, fx.st, agent.ID).ArchivedAt, "the agent is archived, not deleted")
 	snapshots, err := reviews.ListSnapshots(t.Context(), kept.ID)
@@ -1734,6 +1734,24 @@ func TestDeleteTasksWithoutRecordsKeepsTheTask(t *testing.T) {
 	_, err = fx.st.Tasks.Get(t.Context(), kept.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
 	assert.Len(t, lifecycle.ranTaskHooks(), 1, "the pre-delete hooks ran with the worktree")
+}
+
+// TestDeleteTasksWithoutRecordsOnAGoneWorktree pins a delete of a task whose directory was already
+// gone recording its worktree as deleted, without running its pre-delete hooks.
+func TestDeleteTasksWithoutRecordsOnAGoneWorktree(t *testing.T) {
+	lifecycle := &fakeLifecycle{dir: t.TempDir()}
+	fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreDelete, true))
+	agent, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
+	require.NoError(t, err)
+	require.NoError(t, fx.st.Tasks.SetHead(t.Context(), *agent.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
+
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{*agent.TaskID}}))
+
+	kept, err := fx.st.Tasks.Get(t.Context(), *agent.TaskID)
+	require.NoError(t, err)
+	assert.Equal(t, taskstore.WorktreeDeleted, kept.Checkout.WorktreeRemovalReason)
+	assert.Equal(t, []string{agent.Cwd}, lifecycle.ranTaskDeprovisions())
+	assert.Empty(t, lifecycle.ranTaskHooks())
 }
 
 // TestDeleteTasksWithoutRecordsKeepsAWorktreeThatWillNotGo pins a failed deprovision leaving the
@@ -1750,7 +1768,7 @@ func TestDeleteTasksWithoutRecordsKeepsAWorktreeThatWillNotGo(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, kept.ArchivedAt)
 	assert.Nil(t, kept.DeletingAt)
-	assert.False(t, kept.Checkout.WorktreeRemoved)
+	assert.False(t, kept.Checkout.IsWorktreeRemoved())
 	assert.Contains(t, kept.FailureReason, "worktree is dirty")
 }
 

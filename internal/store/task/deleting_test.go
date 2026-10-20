@@ -131,7 +131,7 @@ func TestClaimCleanup(t *testing.T) {
 }
 
 // TestRecordWorktreeRemoved pins a task coming back from its delete with its directory kept and its
-// worktree recorded as removed.
+// worktree recorded as deleted.
 func TestRecordWorktreeRemoved(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
@@ -147,7 +147,7 @@ func TestRecordWorktreeRemoved(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, removed.DeletingAt)
 	assert.Equal(t, "/tmp/worktrees/work", removed.Checkout.Cwd)
-	assert.True(t, removed.Checkout.WorktreeRemoved)
+	assert.Equal(t, taskstore.WorktreeDeleted, removed.Checkout.WorktreeRemovalReason)
 	again, err := stores.Tasks.ClaimCleanup(ctx, task.ID)
 	require.NoError(t, err)
 	assert.True(t, again, "the next delete can claim the task once more")

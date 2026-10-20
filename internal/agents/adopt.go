@@ -208,7 +208,7 @@ func isKeyedReplay(key string, agent agentstore.Agent) bool {
 // isAdopted reports whether a task's checkout is on a branch right now, which rules out one whose
 // worktree is gone.
 func isAdopted(task taskstore.Task, branch string) bool {
-	return task.Checkout.AdoptedBranch == branch && !task.Checkout.WorktreeRemoved
+	return task.Checkout.AdoptedBranch == branch && !task.Checkout.IsWorktreeRemoved()
 }
 
 // isWorking reports whether an agent is still working, which rules out a create that never

@@ -1,6 +1,7 @@
 package task_test
 
 import (
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"komrad/internal/store"
+	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
@@ -42,7 +44,7 @@ func TestClaimCheckout(t *testing.T) {
 		{
 			name: "a task whose checkout was taken away is not claimed again",
 			seed: func(t *testing.T, stores *storetest.Stores, taskID string) {
-				require.NoError(t, stores.Tasks.SetHead(t.Context(), taskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+				require.NoError(t, stores.Tasks.SetHead(t.Context(), taskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 			},
 			want: false,
 		},
@@ -145,6 +147,45 @@ func TestClaimCheckoutAgain(t *testing.T) {
 				assert.Empty(t, reclaimed.Checkout.Cwd, "the directory the failed launch made is gone")
 				assert.Equal(t, xptr.Ptr("feature"), reclaimed.Checkout.Branch)
 			}
+		})
+	}
+}
+
+// TestListCheckouts pins which live checkouts the sync reads, a worktree gone without a delete among
+// them so it is cleared once the directory comes back.
+func TestListCheckouts(t *testing.T) {
+	tests := []struct {
+		name   string
+		reason taskstore.WorktreeRemovalReason
+		want   bool
+	}{
+		{
+			name: "a checkout on disk is listed",
+			want: true,
+		},
+		{
+			name:   "a worktree gone without a delete is listed",
+			reason: taskstore.WorktreeGone,
+			want:   true,
+		},
+		{
+			name:   "a worktree a delete removed is left out",
+			reason: taskstore.WorktreeDeleted,
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			ctx := t.Context()
+			agent := stores.SeedAgent(t, agentstore.Agent{Name: "writer", Role: agentstore.RoleWriter})
+			require.NoError(t, stores.Tasks.SetCheckoutDir(ctx, *agent.TaskID, "/tmp/worktrees/work"))
+			stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemovalReason: tt.reason})
+
+			listed, err := stores.Tasks.ListCheckouts(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, slices.ContainsFunc(listed, func(task taskstore.Task) bool { return task.ID == *agent.TaskID }))
 		})
 	}
 }

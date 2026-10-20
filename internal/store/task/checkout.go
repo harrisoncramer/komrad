@@ -37,6 +37,23 @@ func (s Sequence) orNone() Sequence {
 	return s
 }
 
+// WorktreeRemovalReason is why a task's worktree is no longer on disk, empty while it is.
+type WorktreeRemovalReason string
+
+const (
+	// WorktreeDeleted is a worktree a delete removed.
+	WorktreeDeleted WorktreeRemovalReason = WorktreeRemovalReason(models.WorktreeRemovalReasonDeleted)
+	// WorktreeGone is a worktree komrad found gone from disk without a delete.
+	WorktreeGone WorktreeRemovalReason = WorktreeRemovalReason(models.WorktreeRemovalReasonGone)
+)
+
+func worktreeRemovalReasonParam(reason WorktreeRemovalReason) models.NullWorktreeRemovalReason {
+	return models.NullWorktreeRemovalReason{
+		WorktreeRemovalReason: models.WorktreeRemovalReason(reason),
+		Valid:                 reason != "",
+	}
+}
+
 // DiffStat is how many lines a checkout adds and removes.
 type DiffStat struct {
 	Added   int
@@ -50,8 +67,9 @@ type Checkout struct {
 	// Branch is the branch checked out there, nil when git names none.
 	Branch *string
 	// AdoptedBranch is the branch the checkout was put on rather than one komrad made for it.
-	AdoptedBranch   string
-	WorktreeRemoved bool
+	AdoptedBranch string
+	// WorktreeRemovalReason is why the worktree is no longer on disk, empty while it is.
+	WorktreeRemovalReason WorktreeRemovalReason
 	// RepositoryURL is the canonical web address of the repository the checkout pushes to.
 	RepositoryURL *string
 	// HeadSHA is the commit the checkout has checked out.
@@ -67,7 +85,12 @@ type Checkout struct {
 
 // IsUsable reports whether the checkout is a directory on disk its task's agents can work in.
 func (c Checkout) IsUsable() bool {
-	return c.Cwd != "" && !c.WorktreeRemoved
+	return c.Cwd != "" && !c.IsWorktreeRemoved()
+}
+
+// IsWorktreeRemoved reports whether the checkout's worktree is no longer on disk, for either reason.
+func (c Checkout) IsWorktreeRemoved() bool {
+	return c.WorktreeRemovalReason != ""
 }
 
 func checkoutFrom(row *models.Task) Checkout {
@@ -75,11 +98,13 @@ func checkoutFrom(row *models.Task) Checkout {
 		Cwd:                xptr.Deref(row.Cwd),
 		Branch:             row.Branch,
 		AdoptedBranch:      xptr.Deref(row.AdoptedBranch),
-		WorktreeRemoved:    xptr.Deref(row.WorktreeRemoved),
 		RepositoryURL:      row.RepositoryUrl,
 		HeadSHA:            row.HeadSha,
 		Sequence:           SequenceNone,
 		MovedSinceSnapshot: xptr.Deref(row.MovedSinceSnapshot),
+	}
+	if row.WorktreeRemovalReason.Valid {
+		checkout.WorktreeRemovalReason = WorktreeRemovalReason(row.WorktreeRemovalReason.WorktreeRemovalReason)
 	}
 	if row.Sequence.Valid {
 		checkout.Sequence = Sequence(row.Sequence.AgentSequence)
@@ -171,9 +196,10 @@ type SetHeadParams struct {
 	// RepositoryURL is the repository the checkout pushes to, nil when it names none.
 	RepositoryURL *string
 	// HeadSHA is the commit checked out there, nil when git reads none.
-	HeadSHA         *string
-	WorktreeRemoved bool
-	Sequence        Sequence
+	HeadSHA *string
+	// WorktreeRemovalReason is WorktreeGone when the checkout's directory is gone, empty while it is there.
+	WorktreeRemovalReason WorktreeRemovalReason
+	Sequence              Sequence
 }
 
 // SetHead records what the cwd syncer read of a task's checkout.
@@ -183,12 +209,13 @@ func (s *TaskStore) SetHead(ctx context.Context, id string, params SetHeadParams
 	}
 
 	if err := s.queries.SetTaskHead(ctx, models.SetTaskHeadParams{
-		ID:              id,
-		Branch:          params.Branch,
-		RepositoryUrl:   params.RepositoryURL,
-		HeadSha:         params.HeadSHA,
-		WorktreeRemoved: &params.WorktreeRemoved,
-		Sequence:        sequenceParam(params.Sequence),
+		ID:                    id,
+		Branch:                params.Branch,
+		RepositoryUrl:         params.RepositoryURL,
+		HeadSha:               params.HeadSHA,
+		WorktreeRemoved:       xptr.Ptr(params.WorktreeRemovalReason != ""),
+		WorktreeRemovalReason: worktreeRemovalReasonParam(params.WorktreeRemovalReason),
+		Sequence:              sequenceParam(params.Sequence),
 	}); err != nil {
 		return fmt.Errorf("failed to set the head of task %q: %w", id, err)
 	}
@@ -277,7 +304,8 @@ func (s *TaskStore) GetLastRebase(ctx context.Context, id string) (json.RawMessa
 	return rebase, nil
 }
 
-// ListCheckouts returns every live task with a checkout directory and an agent still on it.
+// ListCheckouts returns every live task with a checkout directory and an agent still on it, leaving
+// out a task whose worktree was deleted.
 func (s *TaskStore) ListCheckouts(ctx context.Context) ([]Task, error) {
 	rows, err := s.queries.ListTaskCheckouts(ctx)
 	if err != nil {

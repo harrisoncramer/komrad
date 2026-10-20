@@ -1,3 +1,8 @@
+enum "worktree_removal_reason" {
+  schema = schema.public
+  values = ["deleted", "gone"]
+}
+
 table "tasks" {
   schema  = schema.public
   comment = "One outcome a person wants, which the agents linked to it work toward."
@@ -60,6 +65,11 @@ table "tasks" {
     null    = true
     type    = boolean
     comment = "Whether the task's checkout has been taken away, null while it has none."
+  }
+  column "worktree_removal_reason" {
+    null    = true
+    type    = enum.worktree_removal_reason
+    comment = "Why the task's worktree is no longer on disk: deleted when a delete removed it, gone when komrad found the directory gone without one; null while it is on disk or the task has none."
   }
   column "repository_url" {
     null    = true

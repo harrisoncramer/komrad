@@ -10,18 +10,19 @@ import (
 // Task is one task as the server listed it, with the pull requests on its branch and the comments
 // on its work.
 type Task struct {
-	ID              string
-	WorkflowID      string
-	Slug            string
-	Title           string
-	Goal            string
-	Notes           string
-	NotesUpdatedAt  *string
-	CreatedAt       time.Time
-	ArchivedAt      *time.Time
-	Cwd             string
-	Branch          *string
-	WorktreeRemoved bool
+	ID             string
+	WorkflowID     string
+	Slug           string
+	Title          string
+	Goal           string
+	Notes          string
+	NotesUpdatedAt *string
+	CreatedAt      time.Time
+	ArchivedAt     *time.Time
+	Cwd            string
+	Branch         *string
+	// WorktreeRemovalReason is why its worktree is no longer on disk, empty while it is.
+	WorktreeRemovalReason WorktreeRemovalReason
 	// Sequence is what git has part-way through its checkout and waiting on somebody.
 	Sequence Sequence
 	// MovedSinceSnapshot is the newest snapshot's commit while the checkout no longer hashes to it.
@@ -48,4 +49,21 @@ type Task struct {
 	PersonComments *agentv1.CommentCounts
 	// Snapshots is how many snapshots komrad has taken of its checkout.
 	Snapshots int32
+}
+
+// WorktreeRemovalReason is why a task's worktree is no longer on disk.
+type WorktreeRemovalReason string
+
+const (
+	// WorktreeOnDisk is a worktree still on disk, or a task without one.
+	WorktreeOnDisk WorktreeRemovalReason = ""
+	// WorktreeDeleted is a worktree a delete removed.
+	WorktreeDeleted WorktreeRemovalReason = "deleted"
+	// WorktreeGone is a worktree komrad found gone from disk without a delete.
+	WorktreeGone WorktreeRemovalReason = "gone"
+)
+
+// IsWorktreeRemoved reports whether the task's worktree is no longer on disk.
+func (t Task) IsWorktreeRemoved() bool {
+	return t.WorktreeRemovalReason != WorktreeOnDisk
 }

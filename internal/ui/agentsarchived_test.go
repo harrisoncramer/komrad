@@ -177,6 +177,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 func TestArchivedAgentsPrompts(t *testing.T) {
 	archivedWithWorktree := newArchivedWorkflow("w1", "backend")
 	archivedWithWorktree.Worktree = &workflowv1.WorktreeConfig{Enabled: true}
+	deleted := newArchivedAgent("a1", "api-refactor", "w1")
 
 	tests := []struct {
 		name     string
@@ -228,6 +229,16 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			wantSent: []request{{
 				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
 				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1"},
+			}},
+		},
+		{
+			name:  "a workflow delete on the deleted list takes the records, since every worktree is already gone",
+			rows:  []proto.Message{archivedWithWorktree, deleted, newDeletedTaskOf(deleted)},
+			press: []string{"F", "tab", "esc", "space", "a", "d", "enter"},
+			gone:  buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
+			wantSent: []request{{
+				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
+				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1", Records: true},
 			}},
 		},
 	}
@@ -302,11 +313,24 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 	}
 }
 
-// TestArchivedAgentsRows covers which folders and agents the archived agents kind renders.
+// TestArchivedAgentsRows covers which folders and agents the archived and deleted kinds render.
 func TestArchivedAgentsRows(t *testing.T) {
+	kept := newArchivedAgent("a1", "auth", "w1")
+	deleted := newArchivedAgent("a2", "billing", "w1")
+	orchestrator := &agentv1.Agent{
+		Id:         "o1",
+		Name:       "orchestrator",
+		WorkflowId: "w1",
+		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
+		ArchivedAt: xptr.Ptr(archivedAt),
+	}
+	keptAndDeleted := []proto.Message{newArchivedWorkflow("w1", "backend"), kept, newArchivedTaskOf(kept), deleted, newDeletedTaskOf(deleted)}
+	everyDeleted := []proto.Message{newArchivedWorkflow("w1", "backend"), orchestrator, deleted, newDeletedTaskOf(deleted)}
+
 	tests := []struct {
 		name     string
 		rows     []proto.Message
+		deleted  bool
 		wantRows []string
 	}{
 		{
@@ -353,11 +377,42 @@ func TestArchivedAgentsRows(t *testing.T) {
 			},
 			wantRows: []string{"backend", "└─ auth", "frontend", "└─ ui", "infra"},
 		},
+		{
+			name:     "a task whose worktree was deleted leaves the archived list",
+			rows:     keptAndDeleted,
+			wantRows: []string{"backend", "└─ task-a1"},
+		},
+		{
+			name:     "the deleted list holds a task whose worktree was deleted",
+			rows:     keptAndDeleted,
+			deleted:  true,
+			wantRows: []string{"backend", "└─ task-a2"},
+		},
+		{
+			name:     "an archived folder whose every task was deleted goes to the deleted list with its orchestrator",
+			rows:     everyDeleted,
+			deleted:  true,
+			wantRows: []string{"backend", "└─ task-a2"},
+		},
+		{
+			name:     "an archived folder whose every task was deleted leaves the archived list",
+			rows:     everyDeleted,
+			wantRows: []string{},
+		},
+		{
+			name:     "an archived folder with no tasks stays off the deleted list",
+			rows:     []proto.Message{newArchivedWorkflow("w1", "backend")},
+			deleted:  true,
+			wantRows: []string{},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
+			if tt.deleted {
+				harness.press("F", "tab", "esc")
+			}
 
 			assert.Equal(t, tt.wantRows, readListRows(harness.readFrame()))
 		})
@@ -701,7 +756,7 @@ func TestArchivedAgentsWindow(t *testing.T) {
 		)
 		require.True(t, harness.panel.IsZoomed(), "the archived agents render both columns themselves")
 
-		harness.press("F", "tab", "esc", "j")
+		harness.press("F", "shift+tab", "esc", "j")
 		harness.fireTimers()
 
 		assert.False(t, harness.panel.IsZoomed(), "leaving the archived agents for a running agent gives the other panes their share back")
@@ -811,12 +866,15 @@ func TestArchivedAgentsSelection(t *testing.T) {
 	})
 }
 
-// TestArchivedAgentsKinds covers the row of kinds switching the agents view between its live and archived agents.
+// TestArchivedAgentsKinds covers the row of kinds switching the agents view between its live, archived and deleted agents.
 func TestArchivedAgentsKinds(t *testing.T) {
+	deleted := newArchivedAgent("a2", "billing-gone", "w1")
 	rows := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
 		newAgent("a9", "auth-live", "w1"),
 		newArchivedAgent("a1", "api-refactor", "w1"),
+		deleted,
+		newDeletedTaskOf(deleted),
 	}
 
 	tests := []struct {
@@ -832,15 +890,21 @@ func TestArchivedAgentsKinds(t *testing.T) {
 			wantAbsent: "auth-live",
 		},
 		{
-			name:       "the row of kinds again goes back to the live agents",
+			name:       "tab again switches to the deleted agents",
 			press:      []string{"F", "tab", "tab", "esc"},
+			want:       "task-a2",
+			wantAbsent: "api-refactor",
+		},
+		{
+			name:       "tab past the deleted agents goes back to the live agents",
+			press:      []string{"F", "tab", "tab", "tab", "esc"},
 			want:       "auth-live",
 			wantAbsent: "api-refactor",
 		},
 		{
-			name:       "shift-tab on the row of kinds wraps to the archived agents",
+			name:       "shift-tab on the row of kinds wraps to the deleted agents",
 			press:      []string{"F", "shift+tab", "esc"},
-			want:       "api-refactor",
+			want:       "task-a2",
 			wantAbsent: "auth-live",
 		},
 		{
@@ -901,7 +965,7 @@ func TestArchivedAgentsKinds(t *testing.T) {
 		harness.press("F", "tab", "esc", "j")
 		archived := readHoveredRow(harness.readFrame())
 
-		harness.press("F", "tab", "esc")
+		harness.press("F", "shift+tab", "esc")
 		assert.Equal(t, live, readHoveredRow(harness.readFrame()))
 
 		harness.press("F", "tab", "esc")
@@ -1219,7 +1283,7 @@ func TestArchivedTasks(t *testing.T) {
 	removed := buildArchivedTasks()
 	for _, row := range removed {
 		if task, ok := row.(*taskv1.Task); ok && task.GetId() == "t1" {
-			task.WorktreeRemoved = true
+			task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
 		}
 	}
 	emptied := slices.DeleteFunc(buildArchivedTasks(), func(row proto.Message) bool {
@@ -1233,6 +1297,13 @@ func TestArchivedTasks(t *testing.T) {
 	inArchivedWorkflowTask := newTaskOf(inArchivedWorkflow)
 	inArchivedWorkflowTask.Cwd = xptr.Ptr("/trees/api")
 	inArchivedWorkflowTask.ArchivedAt = xptr.Ptr(archivedAt)
+	goneAgent := newArchivedAgent("a1", "api-refactor", "w1")
+	goneTask := newArchivedTaskOf(goneAgent)
+	goneTask.Cwd = xptr.Ptr("/trees/api")
+	goneTask.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
+	deletedAgent := newArchivedAgent("a1", "api-refactor", "w1")
+	deletedTask := newDeletedTaskOf(deletedAgent)
+	deletedTask.Cwd = xptr.Ptr("/trees/api")
 	onAPIWork := []string{"j", "j", "j", "j"}
 
 	tests := []struct {
@@ -1301,6 +1372,24 @@ func TestArchivedTasks(t *testing.T) {
 					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
 				},
 			},
+		},
+		{
+			name:  "delete on a task gone without a delete still offers its worktree, which records it as deleted",
+			rows:  []proto.Message{archivedWorkflow, goneAgent, goneTask},
+			press: []string{"j", "space", "a", "d", "enter"},
+			wantSent: []request{{
+				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
+			}},
+		},
+		{
+			name:  "delete on a task whose worktree was deleted takes its records",
+			rows:  []proto.Message{archivedWorkflow, deletedAgent, deletedTask},
+			press: []string{"F", "tab", "esc", "j", "space", "a", "d", "enter"},
+			wantSent: []request{{
+				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},
+			}},
 		},
 		{
 			name:      "the delete prompt on a task names the task",
@@ -1408,4 +1497,18 @@ func buildArchivedTasks() []proto.Message {
 			Slug:       "auth-work",
 		},
 	}
+}
+
+func newArchivedTaskOf(agent *agentv1.Agent) *taskv1.Task {
+	task := newTaskOf(agent)
+	task.ArchivedAt = xptr.Ptr(archivedAt)
+
+	return task
+}
+
+func newDeletedTaskOf(agent *agentv1.Agent) *taskv1.Task {
+	task := newArchivedTaskOf(agent)
+	task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED
+
+	return task
 }

@@ -101,13 +101,18 @@ func TestSnapshotRepo(t *testing.T) {
 	}{
 		{
 			name: "a directory that has gone beats a rebase left in it",
-			task: panel.Task{WorktreeRemoved: true, Sequence: panel.SequenceRebase},
+			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone, Sequence: panel.SequenceRebase},
 			want: view.RepoGone,
+		},
+		{
+			name: "a worktree a delete removed says so",
+			task: panel.Task{WorktreeRemovalReason: panel.WorktreeDeleted},
+			want: view.RepoDeleted,
 		},
 		{
 			name:  "a create that failed with a directory that has gone still says so",
 			agent: panel.Agent{State: panel.StateFailedToCreate},
-			task:  panel.Task{WorktreeRemoved: true},
+			task:  panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
 			want:  view.RepoGone,
 		},
 		{
@@ -678,8 +683,8 @@ func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 			},
 		},
 	}}, tasks: map[string]panel.Task{"t1": {
-		WorktreeRemoved: true,
-		PersonComments:  &agentv1.CommentCounts{Open: 1},
+		WorktreeRemovalReason: panel.WorktreeGone,
+		PersonComments:        &agentv1.CommentCounts{Open: 1},
 	}}})
 
 	assert.Equal(t, view.RepoGone, row.Repo)

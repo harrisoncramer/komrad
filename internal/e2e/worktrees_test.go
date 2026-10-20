@@ -195,7 +195,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 		for _, agent := range []*agentv1.Agent{publisher, lister, synced} {
 			fetched, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
 			require.NoError(t, err)
-			removed[agent.GetId()] = fetched.Msg.GetTask().GetWorktreeRemoved()
+			removed[agent.GetId()] = fetched.Msg.GetTask().GetWorktreeRemovalReason() != taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED
 		}
 		assert.Equal(t, map[string]bool{
 			publisher.GetId(): true,

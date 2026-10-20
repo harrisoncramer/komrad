@@ -412,11 +412,15 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		engineStatus:    deps.EngineStatus,
 		engineBuild:     deps.EngineStatus.Build,
 		screen:          screenAgents,
-		agents:          agentsScreen{triage: triageZone{capacity: deps.Layout.TriageRows}},
-		worktrees:       worktreesScreen{sort: tabsState{flat: true}},
-		warm:            newWarmupState(),
-		loading:         loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
-		reactors:        newWorldReactors(),
+		agents: agentsScreen{
+			triage:   triageZone{capacity: deps.Layout.TriageRows},
+			archived: archivedAgents{kind: agentsArchived},
+			deleted:  archivedAgents{kind: agentsDeleted},
+		},
+		worktrees: worktreesScreen{sort: tabsState{flat: true}},
+		warm:      newWarmupState(),
+		loading:   loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
+		reactors:  newWorldReactors(),
 	}
 
 	if m.fatal() != nil {

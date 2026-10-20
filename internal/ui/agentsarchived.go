@@ -20,11 +20,13 @@ type agentsKind int
 const (
 	agentsLive agentsKind = iota
 	agentsArchived
+	agentsDeleted
 )
 
-// archivedAgents is the agents view on its archived kind, holding the cursor in the archived agents
-// and how they sort.
+// archivedAgents is the agents view on its archived or deleted kind, holding the cursor in the agents
+// that kind lists and how they sort.
 type archivedAgents struct {
+	kind agentsKind
 	rowCursor
 	sort  tabsState
 	built derived[archivedRowsKey, []agentRow]
@@ -47,7 +49,7 @@ func (m *model) enterLive(target screenTarget) tea.Cmd {
 
 func (a *agentsScreen) kinds(*model) stops {
 	return stops{
-		labels: []string{"live", "archived"},
+		labels: []string{"live", "archived", "deleted"},
 		focus:  noStop,
 		lit:    int(a.kind),
 	}
@@ -72,15 +74,28 @@ func (a *agentsScreen) stepKind(m *model, delta int) tea.Cmd {
 	m.filter = filterState{}
 	a.kind = agentsKind(stepStop(int(a.kind), delta, len(a.kinds(m).labels)))
 	m.reconcileSolo()
-	if a.kind == agentsArchived {
-		a.archived.selected = selection{}
-		a.archived.stage(m)
+	if shown := a.shownArchive(); shown != nil {
+		shown.selected = selection{}
+		shown.stage(m)
 	} else {
 		a.selected = selection{}
 		m.stageSelection()
 	}
 
 	return tea.Batch(left, m.waitToStage())
+}
+
+// shownArchive is the archived or deleted agents the agents view is on, and nil on the live kind.
+func (a *agentsScreen) shownArchive() *archivedAgents {
+	switch a.kind {
+	case agentsArchived:
+		return &a.archived
+	case agentsDeleted:
+		return &a.deleted
+	case agentsLive:
+	}
+
+	return nil
 }
 
 // enter lands on the task the target names, or on its agent when no row stands for the task.
@@ -191,8 +206,8 @@ func (a *archivedAgents) listRows(m *model) []agentRow {
 
 	return a.built.read(key, func() []agentRow {
 		return narrowedAgentRows(m, treeRows(treeRowsParams{
-			workflows:         archivedAgentHeaders(m.listing),
-			agents:            sortedAgents(m.listing.archivedAgents, archivedAgentSorts, order),
+			workflows:         a.headers(m.listing),
+			agents:            sortedAgents(a.listedAgents(m.listing), archivedAgentSorts, order),
 			showHidden:        true,
 			foldOrchestrators: !a.sort.flat,
 			flat:              a.sort.flat,
@@ -201,13 +216,28 @@ func (a *archivedAgents) listRows(m *model) []agentRow {
 	})
 }
 
-// archivedAgentHeaders is every workflow the archived agents render a folder for: the archived ones, and the
-// live ones still holding an archived agent.
-func archivedAgentHeaders(l listing) []panel.Workflow {
-	holding := xslice.KeyBy(l.archivedAgents, func(item panel.AgentRow) string { return item.Agent.WorkflowID })
+// listedAgents is the archived agents this kind lists: those on the deleted list, or every other one.
+func (a *archivedAgents) listedAgents(l listing) []panel.AgentRow {
+	return xslice.Filter(l.archivedAgents, func(item panel.AgentRow) bool {
+		return l.isOnDeletedList(item) == (a.kind == agentsDeleted)
+	})
+}
+
+// headers is every workflow this kind renders a folder for: a live one holding an agent it lists,
+// and an archived one on its side, the deleted list taking those whose every task's worktree was
+// deleted or that hold an agent it lists.
+func (a *archivedAgents) headers(l listing) []panel.Workflow {
+	holding := xslice.KeyBy(a.listedAgents(l), func(item panel.AgentRow) string { return item.Agent.WorkflowID })
 	archived := xslice.KeyBy(l.archivedWorkflows, func(w panel.Workflow) string { return w.ID })
 
-	headers := slices.Clone(l.archivedWorkflows)
+	headers := xslice.Filter(l.archivedWorkflows, func(w panel.Workflow) bool {
+		if a.kind != agentsDeleted {
+			return !l.isWorkflowDeleted(w.ID)
+		}
+		_, isHolding := holding[w.ID]
+
+		return isHolding || l.isWorkflowDeleted(w.ID)
+	})
 	for _, w := range l.workflows {
 		_, isHolding := holding[w.ID]
 		_, isArchived := archived[w.ID]
@@ -220,6 +250,39 @@ func archivedAgentHeaders(l listing) []panel.Workflow {
 	slices.SortStableFunc(headers, panel.ByName)
 
 	return headers
+}
+
+// isOnDeletedList reports whether an archived agent shows on the deleted list: one on an archived task
+// whose worktree was deleted, or the orchestrator of an archived workflow whose every task's was.
+func (l listing) isOnDeletedList(item panel.AgentRow) bool {
+	if item.Agent.TaskID == "" {
+		return l.isWorkflowDeleted(item.Agent.WorkflowID)
+	}
+
+	task := l.tasks.findForAgent(item.Agent)
+
+	return task.ArchivedAt != nil && task.WorktreeRemovalReason == panel.WorktreeDeleted
+}
+
+// isWorkflowDeleted reports whether an archived workflow has a task and the worktree of every one
+// was deleted.
+func (l listing) isWorkflowDeleted(workflowID string) bool {
+	if !slices.ContainsFunc(l.archivedWorkflows, func(w panel.Workflow) bool { return w.ID == workflowID }) {
+		return false
+	}
+
+	held := false
+	for _, task := range l.tasks {
+		if task.WorkflowID != workflowID {
+			continue
+		}
+		if task.WorktreeRemovalReason != panel.WorktreeDeleted {
+			return false
+		}
+		held = true
+	}
+
+	return held
 }
 
 func (l listing) archivedCount(workflowID string) int {
@@ -373,7 +436,7 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
 func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
-	confirm := deleteWorkflowConfirm(workflow)
+	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !m.listing.isWorkflowDeleted(workflow.ID))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return m.awaitingWriteCmd(
@@ -393,7 +456,7 @@ func (a *archivedAgents) stage(m *model) {
 func (a *archivedAgents) listParams(m *model) screenListParams {
 	return screenListParams{
 		help:     a.help,
-		empty:    "nothing archived",
+		empty:    a.emptySaid(),
 		rows:     len(a.listRows(m)),
 		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(m, pane) },
 	}
