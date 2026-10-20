@@ -2884,10 +2884,10 @@ func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 
 func historySnapshotOf(snapshot *agentv1.ReviewSnapshot) history.Snapshot {
 	return history.Snapshot{
-		ID:          snapshot.GetId(),
-		Ordinal:     snapshot.GetOrdinal(),
-		BaseSHA:     snapshot.GetBaseSha(),
-		SnapshotSHA: snapshot.GetSha(),
+		ID:      snapshot.GetId(),
+		Ordinal: snapshot.GetOrdinal(),
+		BaseSHA: snapshot.GetBaseSha(),
+		SHA:     snapshot.GetSha(),
 	}
 }
 

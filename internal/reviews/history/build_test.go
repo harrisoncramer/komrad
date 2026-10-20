@@ -27,19 +27,19 @@ func TestCountChangedSince(t *testing.T) {
 		},
 		{
 			name:    "git cannot answer, so nothing is said rather than a wrong number",
-			earlier: &Snapshot{SnapshotSHA: "earlier"},
+			earlier: &Snapshot{SHA: "earlier"},
 			refused: true,
 			want:    0,
 		},
 		{
 			name:    "nothing changed since that review",
-			earlier: &Snapshot{SnapshotSHA: "earlier"},
+			earlier: &Snapshot{SHA: "earlier"},
 			changed: 0,
 			want:    0,
 		},
 		{
 			name:    "several files",
-			earlier: &Snapshot{SnapshotSHA: "earlier"},
+			earlier: &Snapshot{SHA: "earlier"},
 			changed: 4,
 			want:    4,
 		},
@@ -74,7 +74,7 @@ func TestCountChangedSinceMeasuresBetweenTheTwoSnapshots(t *testing.T) {
 		Git:     repo,
 		Dir:     "/repo",
 		Exclude: []string{"proto/gen"},
-		Earlier: &Snapshot{SnapshotSHA: "earlier"},
+		Earlier: &Snapshot{SHA: "earlier"},
 		ToSHA:   "current",
 	})
 

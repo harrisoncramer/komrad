@@ -18,14 +18,14 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 
 	snapshots := []Snapshot{
 		{
-			ID:          "r1",
-			Ordinal:     1,
-			SnapshotSHA: firstSHA,
+			ID:      "r1",
+			Ordinal: 1,
+			SHA:     firstSHA,
 		},
 		{
-			ID:          "r2",
-			Ordinal:     2,
-			SnapshotSHA: secondSHA,
+			ID:      "r2",
+			Ordinal: 2,
+			SHA:     secondSHA,
 		},
 	}
 	threads := []Thread{{
@@ -76,9 +76,9 @@ func TestTraceThreadsMarksTheSnapshotOnScreenAsExact(t *testing.T) {
 			NewEnd:     8,
 		}},
 		Snapshots: []Snapshot{{
-			ID:          "r2",
-			Ordinal:     2,
-			SnapshotSHA: secondSHA,
+			ID:      "r2",
+			Ordinal: 2,
+			SHA:     secondSHA,
 		}},
 	})
 
@@ -107,9 +107,9 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 			NewEnd:     4,
 		}},
 		Snapshots: []Snapshot{{
-			ID:          "r1",
-			Ordinal:     1,
-			SnapshotSHA: firstSHA,
+			ID:      "r1",
+			Ordinal: 1,
+			SHA:     firstSHA,
 		}},
 	})
 
@@ -128,14 +128,14 @@ func TestTraceThreadsSkipsSnapshotsTheScreenWillNotRender(t *testing.T) {
 
 	snapshots := []Snapshot{
 		{
-			ID:          "r1",
-			Ordinal:     1,
-			SnapshotSHA: firstSHA,
+			ID:      "r1",
+			Ordinal: 1,
+			SHA:     firstSHA,
 		},
 		{
-			ID:          "r2",
-			Ordinal:     2,
-			SnapshotSHA: secondSHA,
+			ID:      "r2",
+			Ordinal: 2,
+			SHA:     secondSHA,
 		},
 	}
 	threads := []Thread{
@@ -169,19 +169,19 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 
 	snapshots := []Snapshot{
 		{
-			ID:          "r1",
-			Ordinal:     1,
-			SnapshotSHA: firstSHA,
+			ID:      "r1",
+			Ordinal: 1,
+			SHA:     firstSHA,
 		},
 		{
-			ID:          "gone",
-			Ordinal:     2,
-			SnapshotSHA: unreadableSHA,
+			ID:      "gone",
+			Ordinal: 2,
+			SHA:     unreadableSHA,
 		},
 		{
-			ID:          "r3",
-			Ordinal:     3,
-			SnapshotSHA: secondSHA,
+			ID:      "r3",
+			Ordinal: 3,
+			SHA:     secondSHA,
 		},
 	}
 	threads := []Thread{
@@ -243,19 +243,19 @@ func TestTraceThreadsMarksEverySnapshotHoldingTheCommitOnScreen(t *testing.T) {
 		}},
 		Snapshots: []Snapshot{
 			{
-				ID:          "r1",
-				Ordinal:     1,
-				SnapshotSHA: secondSHA,
+				ID:      "r1",
+				Ordinal: 1,
+				SHA:     secondSHA,
 			},
 			{
-				ID:          "r2",
-				Ordinal:     2,
-				SnapshotSHA: firstSHA,
+				ID:      "r2",
+				Ordinal: 2,
+				SHA:     firstSHA,
 			},
 			{
-				ID:          "r3",
-				Ordinal:     3,
-				SnapshotSHA: secondSHA,
+				ID:      "r3",
+				Ordinal: 3,
+				SHA:     secondSHA,
 			},
 		},
 	})

@@ -30,10 +30,10 @@ type Git interface {
 }
 
 type Snapshot struct {
-	ID          string
-	Ordinal     int32
-	BaseSHA     string
-	SnapshotSHA string
+	ID      string
+	Ordinal int32
+	BaseSHA string
+	SHA     string
 }
 
 type Review struct {
@@ -121,7 +121,7 @@ func Build(ctx context.Context, params BuildParams) Record {
 		Dir:     params.Dir,
 		Exclude: params.Exclude,
 		Earlier: record.Earlier,
-		ToSHA:   params.Snapshot.SnapshotSHA,
+		ToSHA:   params.Snapshot.SHA,
 	})
 
 	record.Traced = traceThreads(ctx, traceThreadsParams{
@@ -136,7 +136,7 @@ func Build(ctx context.Context, params BuildParams) Record {
 }
 
 func wholeSpan(snapshot Snapshot) ResolvedSpan {
-	return ResolvedSpan{BaseSHA: snapshot.BaseSHA, HeadSHA: snapshot.SnapshotSHA}
+	return ResolvedSpan{BaseSHA: snapshot.BaseSHA, HeadSHA: snapshot.SHA}
 }
 
 type snapshotsApartError struct {
@@ -169,7 +169,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) 
 
 		from = findAnswerBase(params.Snapshots, from, to)
 
-		span.AnswerBaseSHA, span.AnswerHeadSHA = from.SnapshotSHA, to.SnapshotSHA
+		span.AnswerBaseSHA, span.AnswerHeadSHA = from.SHA, to.SHA
 		span.BaseSHA, span.HeadSHA = span.AnswerBaseSHA, span.AnswerHeadSHA
 		fromBase, toBase = from.BaseSHA, to.BaseSHA
 	}
@@ -180,7 +180,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) 
 			return ResolvedSpan{}, errCommentSnapshotGone
 		}
 
-		span.OriginBaseSHA, span.OriginHeadSHA, span.OriginSnapshotBaseSHA = origin.BaseSHA, snapshot.SnapshotSHA, snapshot.BaseSHA
+		span.OriginBaseSHA, span.OriginHeadSHA, span.OriginSnapshotBaseSHA = origin.BaseSHA, snapshot.SHA, snapshot.BaseSHA
 		if span.OriginBaseSHA == "" {
 			span.OriginBaseSHA = snapshot.BaseSHA
 		}
@@ -230,7 +230,7 @@ func resolveSnapshots(ctx context.Context, params BuildParams, snapshots Snapsho
 	compared := compareSnapshots(ctx, compareSnapshotsParams{
 		Git:      params.Git,
 		Dir:      params.Dir,
-		FromSHA:  from.SnapshotSHA,
+		FromSHA:  from.SHA,
 		FromBase: from.BaseSHA,
 		ToBase:   to.BaseSHA,
 	})
@@ -247,7 +247,7 @@ func findAnswerBase(snapshots []Snapshot, comment, answer *Snapshot) *Snapshot {
 			continue
 		}
 
-		if snapshot.SnapshotSHA == answer.SnapshotSHA {
+		if snapshot.SHA == answer.SHA {
 			continue
 		}
 
@@ -316,7 +316,7 @@ func countChangedSince(ctx context.Context, params countChangedSinceParams) int 
 
 	changed, err := params.Git.CountChangedFiles(ctx, git.CountChangedFilesParams{
 		Dir:     params.Dir,
-		FromSHA: params.Earlier.SnapshotSHA,
+		FromSHA: params.Earlier.SHA,
 		ToSHA:   params.ToSHA,
 		Exclude: params.Exclude,
 	})
@@ -434,7 +434,7 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]Pla
 func placeOnScreen(params traceThreadsParams) map[string]Place {
 	onScreen := map[string]bool{}
 	for _, snapshot := range params.Snapshots {
-		if snapshot.SnapshotSHA == params.ToSHA {
+		if snapshot.SHA == params.ToSHA {
 			onScreen[snapshot.ID] = true
 		}
 	}
@@ -463,10 +463,10 @@ func groupBySnapshot(params traceThreadsParams) map[string][]Thread {
 	ceiling := int32(0)
 
 	for _, snapshot := range params.Snapshots {
-		snapshots[snapshot.ID] = snapshot.SnapshotSHA
+		snapshots[snapshot.ID] = snapshot.SHA
 		ordinals[snapshot.ID] = snapshot.Ordinal
 
-		if snapshot.SnapshotSHA == params.ToSHA {
+		if snapshot.SHA == params.ToSHA {
 			ceiling = snapshot.Ordinal
 		}
 	}

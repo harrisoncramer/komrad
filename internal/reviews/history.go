@@ -139,10 +139,10 @@ func (s *ReviewService) readDiffExclude(ctx context.Context, workflowID string) 
 
 func historySnapshotOf(snapshot reviewstore.Snapshot) history.Snapshot {
 	return history.Snapshot{
-		ID:          snapshot.ID,
-		Ordinal:     snapshot.Ordinal,
-		BaseSHA:     snapshot.BaseSHA,
-		SnapshotSHA: snapshot.SHA,
+		ID:      snapshot.ID,
+		Ordinal: snapshot.Ordinal,
+		BaseSHA: snapshot.BaseSHA,
+		SHA:     snapshot.SHA,
 	}
 }
 
