@@ -114,6 +114,8 @@ child: A task that has a parent.
 
 stack: A chain of tasks, each the child of the one below it, from the bottom task on the base branch to the top task.
 
+GitHub stack: The pull requests of a stack, linked on GitHub so each shows the ones under it and GitHub rebases those above one that merges. Not "native stack".
+
 fork point: The commit of the parent's branch that a child's own commits sit on. Snapshots and line counts measure from it. Not "tip" or "stand tip".
 
 cascade: The pass in which komrad rebases each child onto its parent's newest commit, or onto the base branch once the parent merges. Not "restack".

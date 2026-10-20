@@ -308,6 +308,8 @@ type SeedPullRequestParams struct {
 	State string
 	// OpenedAt is when the pull request opened, now when zero.
 	OpenedAt time.Time
+	// Stack is where the pull request sits in a GitHub stack, nil while it is in none.
+	Stack *forge.StackPlace
 }
 
 // SeedPullRequest stores a pull request and returns it as stored.
@@ -334,6 +336,7 @@ func (s *Stores) SeedPullRequest(t *testing.T, params SeedPullRequestParams) *pu
 		State:             "OPEN",
 		OpenedAt:          opened,
 		ChangedAt:         opened,
+		Stack:             params.Stack,
 	}
 	switch params.State {
 	case "MERGED":

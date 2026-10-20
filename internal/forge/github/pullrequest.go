@@ -76,6 +76,13 @@ type pullRequestNode struct {
 	BaseRefOid     string          `json:"baseRefOid"`
 	HeadRepository *repositoryNode `json:"headRepository"`
 	BaseRepository *repositoryNode `json:"baseRepository"`
+	Stack          *struct {
+		Number int `json:"number"`
+		Size   int `json:"size"`
+	} `json:"stack"`
+	StackEntry *struct {
+		Position int `json:"position"`
+	} `json:"stackEntry"`
 }
 
 type repositoryNode struct {
@@ -131,6 +138,7 @@ func (n pullRequestNode) toPullRequest(withMergeReadiness bool) forge.PullReques
 		UpdatedAt:  n.UpdatedAt,
 		MergedAt:   n.MergedAt,
 		ClosedAt:   n.ClosedAt,
+		Stack:      n.stackPlace(),
 	}
 	if withMergeReadiness {
 		pullRequest.MergeReadiness = &forge.MergeReadiness{
@@ -141,4 +149,13 @@ func (n pullRequestNode) toPullRequest(withMergeReadiness bool) forge.PullReques
 	}
 
 	return pullRequest
+}
+
+// stackPlace is where the pull request sits in its GitHub stack, nil while it is in none.
+func (n pullRequestNode) stackPlace() *forge.StackPlace {
+	if n.Stack == nil || n.StackEntry == nil {
+		return nil
+	}
+
+	return &forge.StackPlace{Number: n.Stack.Number, Position: n.StackEntry.Position, Size: n.Stack.Size}
 }

@@ -5,7 +5,6 @@ query MergeTarget($owner: String!, $name: String!, $number: Int!) {
     squashMergeAllowed
     rebaseMergeAllowed
     pullRequest(number: $number) {
-      id
       state
       baseRef {
         branchProtectionRule {

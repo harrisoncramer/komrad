@@ -53,6 +53,10 @@ type scriptedForge struct {
 	threads  map[int]*forge.Threads
 	// reading runs inside every read.
 	reading func()
+	// stacked is every call that built a GitHub stack, in order.
+	stacked []forge.StackParams
+	// refuseStack answers in place of every call that builds a GitHub stack while set.
+	refuseStack error
 }
 
 func (f *scriptedForge) Kind() string { return forge.KindGitHub }
@@ -98,6 +102,14 @@ func (f *scriptedForge) RequestRereview(context.Context, string) error { return 
 func (f *scriptedForge) ReplyToThread(context.Context, forge.ReplyToThreadParams) (string, error) {
 	return "", nil
 }
+
+func (f *scriptedForge) Stack(_ context.Context, params forge.StackParams) error {
+	f.stacked = append(f.stacked, params)
+
+	return f.refuseStack
+}
+
+func (f *scriptedForge) Retarget(context.Context, string, string) error { return nil }
 
 func (f *scriptedForge) ReviewThreads(_ context.Context, _ git.RemoteURL, number int) (*forge.Threads, error) {
 	f.requests = append(f.requests, "threads:"+strconv.Itoa(number))

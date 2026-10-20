@@ -799,6 +799,18 @@ type PullRequest struct {
 	Author string
 	// The description as the forge has it, in markdown.
 	Body string
+	// The number of the GitHub stack the pull request is in, null while it is in none.
+	StackNumber *int32
+	// Where the pull request sits in its GitHub stack, counting from one at the bottom, null while it is in none.
+	StackPosition *int32
+	// How many pull requests the GitHub stack holds, null while the pull request is in none.
+	StackSize *int32
+	// The changed_at the pull request had when GitHub last refused to put it in a GitHub stack, which komrad asks again only once changed_at moves past; null while nothing was refused.
+	StackingRefusedAt pgtype.Timestamptz
+	// When komrad began waiting on GitHub to rebase the pull request's branch after the pull request under it in its GitHub stack merged, null while komrad waits on nothing.
+	RebaseAwaitedSince pgtype.Timestamptz
+	// The head commit the pull request had when komrad began waiting on GitHub to rebase it, which GitHub's push moves past; null while komrad waits on nothing.
+	RebaseAwaitedFrom *string
 }
 
 // One check the forge listed on a head commit of a pull request, as the latest listing for that head said it stands.

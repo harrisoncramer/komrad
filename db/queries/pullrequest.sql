@@ -1,7 +1,9 @@
 -- name: UpsertPullRequest :one
 WITH prior AS (
     SELECT
-        held.state
+        held.state,
+        held.head_sha,
+        held.base_branch
     FROM
         pull_requests held
     WHERE
@@ -29,7 +31,10 @@ written AS (
         opened_at,
         changed_at,
         merged_at,
-        closed_at)
+        closed_at,
+        stack_number,
+        stack_position,
+        stack_size)
     VALUES (
         @host,
         @forge,
@@ -50,7 +55,10 @@ written AS (
         @opened_at,
         @changed_at,
         sqlc.narg('merged_at'),
-        sqlc.narg('closed_at'))
+        sqlc.narg('closed_at'),
+        sqlc.narg('stack_number'),
+        sqlc.narg('stack_position'),
+        sqlc.narg('stack_size'))
 ON CONFLICT (
     engine_id,
     host,
@@ -72,7 +80,10 @@ ON CONFLICT (
         opened_at = EXCLUDED.opened_at,
         changed_at = EXCLUDED.changed_at,
         merged_at = EXCLUDED.merged_at,
-        closed_at = EXCLUDED.closed_at
+        closed_at = EXCLUDED.closed_at,
+        stack_number = EXCLUDED.stack_number,
+        stack_position = EXCLUDED.stack_position,
+        stack_size = EXCLUDED.stack_size
     WHERE (
         pull_requests.url,
         pull_requests.repository_url,
@@ -90,7 +101,10 @@ ON CONFLICT (
         pull_requests.opened_at,
         pull_requests.changed_at,
         pull_requests.merged_at,
-        pull_requests.closed_at) IS DISTINCT FROM (
+        pull_requests.closed_at,
+        pull_requests.stack_number,
+        pull_requests.stack_position,
+        pull_requests.stack_size) IS DISTINCT FROM (
         EXCLUDED.url,
         EXCLUDED.repository_url,
         EXCLUDED.head_repository_url,
@@ -107,7 +121,10 @@ ON CONFLICT (
         EXCLUDED.opened_at,
         EXCLUDED.changed_at,
         EXCLUDED.merged_at,
-        EXCLUDED.closed_at)
+        EXCLUDED.closed_at,
+        EXCLUDED.stack_number,
+        EXCLUDED.stack_position,
+        EXCLUDED.stack_size)
 RETURNING
     id,
     first_seen_at = NOW() AS inserted)
@@ -115,7 +132,9 @@ SELECT
     written.id,
     written.inserted,
     TRUE AS changed,
-    prior.state AS old_state
+    prior.state AS old_state,
+    prior.head_sha AS old_head_sha,
+    prior.base_branch AS old_base_branch
 FROM
     written
     LEFT JOIN prior ON TRUE
@@ -124,7 +143,9 @@ SELECT
     pull_requests.id,
     FALSE AS inserted,
     FALSE AS changed,
-    NULL::text AS old_state
+    NULL::text AS old_state,
+    NULL::text AS old_head_sha,
+    NULL::text AS old_base_branch
 FROM
     pull_requests
 WHERE
@@ -415,7 +436,8 @@ WITH pull_request AS (
     SELECT
         p.repository_url,
         p.head_branch,
-        p.base_branch
+        p.base_branch,
+        p.stack_number
     FROM
         pull_requests p
     WHERE
@@ -470,6 +492,88 @@ SELECT
         SELECT
             1
         FROM
-            finished_bases)::boolean AS base_finished
+            finished_bases)::boolean AS base_finished,
+    (pull_request.stack_number IS NOT NULL)::boolean AS in_github_stack
 FROM
     pull_request;
+
+-- name: ListStackingPullRequests :many
+SELECT
+    t.id AS task_id,
+    t.parent_task_id,
+    t.created_at AS task_created_at,
+    p.id,
+    p.number,
+    p.head_branch,
+    p.base_branch,
+    p.changed_at,
+    p.auto_merge,
+    p.stack_number,
+    p.stack_position,
+    p.stack_size,
+    p.stacking_refused_at
+FROM
+    tasks t
+    JOIN LATERAL (
+        SELECT
+            q.*
+        FROM
+            pull_requests q
+        WHERE
+            q.repository_url = t.repository_url
+            AND q.head_repository_url = t.repository_url
+            AND q.head_branch = COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text)
+            AND q.state = 'OPEN'
+        ORDER BY
+            q.opened_at DESC,
+            q.id DESC
+        LIMIT 1) p ON TRUE
+WHERE
+    t.repository_url = @repository_url::text
+    AND t.archived_at IS NULL
+    AND t.deleting_at IS NULL
+ORDER BY
+    t.created_at,
+    t.id;
+
+-- name: RecordStackingRefused :exec
+UPDATE
+    pull_requests
+SET
+    stacking_refused_at = changed_at
+WHERE
+    id = ANY (@ids::uuid[]);
+
+-- name: ListGitHubStack :many
+SELECT
+    id,
+    stack_position,
+    head_sha
+FROM
+    pull_requests
+WHERE
+    repository_url = @repository_url
+    AND stack_number = @stack_number::integer
+    AND state = 'OPEN'
+    AND rebase_awaited_since IS NULL
+ORDER BY
+    stack_position;
+
+-- name: AwaitRebase :exec
+UPDATE
+    pull_requests
+SET
+    rebase_awaited_since = @since::timestamptz,
+    rebase_awaited_from = @head_sha::text
+WHERE
+    id = @id
+    AND rebase_awaited_since IS NULL;
+
+-- name: ClearRebaseAwait :exec
+UPDATE
+    pull_requests
+SET
+    rebase_awaited_since = NULL,
+    rebase_awaited_from = NULL
+WHERE
+    id = @id;

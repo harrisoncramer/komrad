@@ -39,6 +39,8 @@ type NewForgeParams struct {
 // Forge is GitHub, spoken to over its GraphQL API.
 type Forge struct {
 	client *graphql.Client
+	// mergePoll is how long a merge waits between reads of how it stands.
+	mergePoll time.Duration
 }
 
 // NewForge builds the forge.
@@ -48,14 +50,17 @@ func NewForge(params NewForgeParams) *Forge {
 		api = defaultAPI
 	}
 
-	return &Forge{client: graphql.NewClient(graphql.NewClientParams{
-		Dialect: dialect,
-		Auth:    params.Auth,
-		API:     api,
-		Next:    params.Next,
-		Timeout: params.Timeout,
-		Now:     params.Now,
-	})}
+	return &Forge{
+		client: graphql.NewClient(graphql.NewClientParams{
+			Dialect: dialect,
+			Auth:    params.Auth,
+			API:     api,
+			Next:    params.Next,
+			Timeout: params.Timeout,
+			Now:     params.Now,
+		}),
+		mergePoll: mergePoll,
+	}
 }
 
 // Kind is what the forge answers to.

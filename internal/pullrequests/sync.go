@@ -265,6 +265,10 @@ func (s *PullRequestSyncer) readRepository(ctx context.Context, host *hostRead, 
 
 	s.pacing.read(repository, written.hotUntil)
 
+	if err := s.buildStacks(ctx, host, repository); err != nil {
+		return fmt.Errorf("failed to build GitHub stacks: %w", err)
+	}
+
 	logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "pull request sync",
 		slog.String(logging.RepositoryURL, repository.repositoryURL),
 		slog.Int(logging.Branches, len(repository.branches)),
@@ -333,6 +337,7 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 		*result = written{}
 		st := pullrequeststore.NewPullRequestStore(tx)
 		var recorded []river.JobArgs
+		awaits := awaitRebasesParams{priorHeads: map[string]string{}, readAt: readAt}
 		for _, pullRequest := range pullRequests {
 			upsert := toUpsert(pullRequest)
 			outcome, err := st.Upsert(ctx, upsert)
@@ -344,6 +349,12 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				result.inserted++
 			case outcome.Changed:
 				result.updated++
+			}
+			if outcome.OldHeadSHA != nil {
+				awaits.priorHeads[outcome.ID] = *outcome.OldHeadSHA
+			}
+			if shift := shiftOf(pullRequest, outcome.OldBaseBranch); shift != nil {
+				awaits.shifts = append(awaits.shifts, *shift)
 			}
 
 			change := &pullrequeststore.MergeReadinessChange{}
@@ -386,6 +397,10 @@ func (s *PullRequestSyncer) write(ctx context.Context, pullRequests []forge.Pull
 				}
 				recorded = append(recorded, *event)
 			}
+		}
+
+		if err := awaitRebases(ctx, st, awaits); err != nil {
+			return nil, err
 		}
 
 		return recorded, nil
@@ -442,6 +457,7 @@ func toUpsert(pullRequest forge.PullRequest) pullrequeststore.UpsertParams {
 		ChangedAt:         pullRequest.UpdatedAt,
 		MergedAt:          pullRequest.MergedAt,
 		ClosedAt:          pullRequest.ClosedAt,
+		Stack:             pullRequest.Stack,
 	}
 }
 

@@ -1,5 +1,0 @@
-mutation Merge($id: ID!, $method: PullRequestMergeMethod!, $headline: String, $body: String, $head: GitObjectID) {
-  mergePullRequest(input: {pullRequestId: $id, mergeMethod: $method, commitHeadline: $headline, commitBody: $body, expectedHeadOid: $head}) {
-    clientMutationId
-  }
-}

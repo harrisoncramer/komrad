@@ -23,4 +23,11 @@ fragment pullRequestFields on PullRequest {
   baseRepository {
     url
   }
+  stack {
+    number
+    size
+  }
+  stackEntry {
+    position
+  }
 }

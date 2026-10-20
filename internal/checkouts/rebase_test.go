@@ -310,10 +310,13 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 // TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes covers re-targeting a child onto the workflow's base branch.
 func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 	tests := []struct {
-		name       string
-		replayErr  error
-		wantErr    bool
-		wantParent bool
+		name      string
+		replayErr error
+		// stacked says the child's pull request sits in a GitHub stack.
+		stacked        bool
+		wantErr        bool
+		wantParent     bool
+		wantRetargeted []string
 	}{
 		{
 			name:       "a re-target that fails keeps the parent",
@@ -324,10 +327,16 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 		{
 			name:       "a re-target stopped on conflicts keeps the parent until the branch leaves it",
 			replayErr:  git.ErrRebaseConflicted,
+			stacked:    true,
 			wantParent: true,
 		},
 		{
 			name: "a re-target that finishes clears the parent",
+		},
+		{
+			name:           "a re-target of a child in a GitHub stack points its pull request at the base branch",
+			stacked:        true,
+			wantRetargeted: []string{pushRepository + "/pull/2 onto main"},
 		},
 	}
 
@@ -338,8 +347,12 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			rebaser := newChildGit(laid.parent.GetBranch(), "newtip")
 			rebaser.Prediction = git.Prediction{Replay: 2}
 			rebaser.ReplayErr = tt.replayErr
+			if tt.stacked {
+				seedStackedPullRequest(t, fixture, laid)
+			}
+			retargeter := &retargeting{}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: laid.task, OntoBase: true})
+			_, err := fixture.newService(NewServiceParams{Git: rebaser, Retargeter: retargeter}).Rebase(t.Context(), RebaseParams{Task: laid.task, OntoBase: true})
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -349,6 +362,7 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantParent, got.Parent != nil)
+			assert.Equal(t, tt.wantRetargeted, retargeter.retargeted)
 		})
 	}
 }

@@ -115,11 +115,12 @@ const cascadedTopic = "worktree_cascaded"
 
 // cascaded is the cascade having rebased a child onto its parent, or having stopped short of it.
 type cascaded struct {
-	TaskID     string                          `json:"task_id"`
-	Rebased    *eventprompts.CascadeRebased    `json:"rebased,omitempty"`
-	Conflicted *eventprompts.CascadeConflicted `json:"conflicted,omitempty"`
-	Closed     *eventprompts.ParentClosed      `json:"closed,omitempty"`
-	Orphaned   *eventprompts.CascadeOrphaned   `json:"orphaned,omitempty"`
+	TaskID       string                          `json:"task_id"`
+	Rebased      *eventprompts.CascadeRebased    `json:"rebased,omitempty"`
+	Conflicted   *eventprompts.CascadeConflicted `json:"conflicted,omitempty"`
+	Closed       *eventprompts.ParentClosed      `json:"closed,omitempty"`
+	Orphaned     *eventprompts.CascadeOrphaned   `json:"orphaned,omitempty"`
+	StackRebased *eventprompts.StackRebased      `json:"stack_rebased,omitempty"`
 }
 
 // Topic names the handler that tells the task's writer.
@@ -144,6 +145,8 @@ func handleCascaded(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 		told = *cascaded.Closed
 	case cascaded.Orphaned != nil:
 		told = *cascaded.Orphaned
+	case cascaded.StackRebased != nil:
+		told = *cascaded.StackRebased
 	default:
 		return nil, nil
 	}
