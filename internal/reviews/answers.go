@@ -25,8 +25,8 @@ const replyHint = "Your worktree has changed since this comment was written. " +
 	"If that change answers it, reply again with addressed set so the reviewer can read " +
 	"exactly what answered it."
 
-// openAnswerSnapshot takes the snapshot an addressed reply from an agent points at, refusing one that changed nothing.
-func (s *ReviewService) openAnswerSnapshot(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Snapshot, error) {
+// takeAnswerSnapshot takes the snapshot an addressed reply from an agent points at, refusing one that changed nothing.
+func (s *ReviewService) takeAnswerSnapshot(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Snapshot, error) {
 	written, err := s.reviews.GetSnapshot(ctx, thread.SnapshotID)
 	if err != nil {
 		return nil, err

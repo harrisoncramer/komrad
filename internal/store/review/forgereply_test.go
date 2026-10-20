@@ -43,7 +43,7 @@ func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
 	require.NoError(t, err)
 	require.Len(t, stored, 1)
 
-	snapshot := st.openSnapshot(t, agentID, "tree-one")
+	snapshot := st.takeSnapshot(t, agentID, "tree-one")
 	mirrored, err := st.CreateThread(ctx, CreateThreadParams{
 		TaskID:        st.taskOf(t, agentID),
 		ReviewID:      st.openForgeReview(t, snapshot, "alice").ID,

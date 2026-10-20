@@ -157,7 +157,7 @@ func (s *Handler) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetR
 func (s *Handler) TakeReviewSnapshot(ctx context.Context, req *agentv1.TakeReviewSnapshotRequest) (*agentv1.TakeReviewSnapshotResponse, *fail.Error) {
 	snapshot, err := s.review.TakeSnapshot(ctx, req.GetTask(), reviewAuthorFrom(ctx))
 	if err != nil {
-		return nil, rpcerr.From(err, "failed to open a review snapshot")
+		return nil, rpcerr.From(err, "failed to take a review snapshot")
 	}
 
 	return &agentv1.TakeReviewSnapshotResponse{Snapshot: render.ReviewSnapshot(*snapshot)}, nil

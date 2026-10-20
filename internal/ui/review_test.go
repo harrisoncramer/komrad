@@ -76,7 +76,7 @@ func TestReviewOpen(t *testing.T) {
 
 	t.Run("an agent part way through a rebase opens on its newest snapshot", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.openErr = connect.NewError(connect.CodeFailedPrecondition, errors.New("a rebase is part way through"))
+		server.takeErr = connect.NewError(connect.CodeFailedPrecondition, errors.New("a rebase is part way through"))
 
 		harness := openReview(t, server)
 
@@ -2302,7 +2302,7 @@ type reviewServer struct {
 	reviews    []*agentv1.Review
 	forge      []proto.Message
 	historyErr error
-	openErr    error
+	takeErr    error
 	holdErr    error
 }
 
@@ -2429,9 +2429,9 @@ func (s *reviewServer) serve(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceHoldAgentProcedure, s.hold)
 }
 
-func (s *reviewServer) openSnapshot() (*agentv1.ReviewSnapshot, error) {
-	if s.openErr != nil {
-		return nil, s.openErr
+func (s *reviewServer) takeSnapshot() (*agentv1.ReviewSnapshot, error) {
+	if s.takeErr != nil {
+		return nil, s.takeErr
 	}
 
 	sha := gittest.NameSnapshot(s.repo.Tree)
@@ -2849,7 +2849,7 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 }
 
 func (s *reviewServer) pickSnapshot() (*agentv1.OpenReviewHistoryResponse, error) {
-	snapshot, err := s.openSnapshot()
+	snapshot, err := s.takeSnapshot()
 	switch {
 	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(s.snapshots) > 0:
 		return &agentv1.OpenReviewHistoryResponse{Snapshot: s.snapshots[len(s.snapshots)-1], Notice: midSequenceNotice}, nil

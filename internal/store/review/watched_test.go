@@ -17,10 +17,10 @@ func TestListWatched(t *testing.T) {
 	worker := st.seedAgent(t, "worker")
 	other := st.seedAgent(t, "other")
 
-	released := st.openReview(t, st.openSnapshot(t, worker, "one"))
+	released := st.openReview(t, st.takeSnapshot(t, worker, "one"))
 	st.releaseReview(t, released, VerdictApproved)
-	pending := st.openReview(t, st.openSnapshot(t, worker, "two"))
-	elsewhere := st.openReview(t, st.openSnapshot(t, other, "three"))
+	pending := st.openReview(t, st.takeSnapshot(t, worker, "two"))
+	elsewhere := st.openReview(t, st.takeSnapshot(t, other, "three"))
 
 	snapshot, err := st.ListWatched(ctx, nil)
 	require.NoError(t, err)
@@ -60,9 +60,9 @@ func TestListWatchedThreads(t *testing.T) {
 	worker := st.seedAgent(t, "worker")
 	archived := st.seedAgent(t, "archived")
 
-	thread := st.openThread(t, st.openReview(t, st.openSnapshot(t, worker, "one")), "wrong greeting")
+	thread := st.openThread(t, st.openReview(t, st.takeSnapshot(t, worker, "one")), "wrong greeting")
 	st.writeAnswer(t, thread)
-	gone := st.openThread(t, st.openReview(t, st.openSnapshot(t, archived, "two")), "left behind")
+	gone := st.openThread(t, st.openReview(t, st.takeSnapshot(t, archived, "two")), "left behind")
 
 	_, err := st.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)

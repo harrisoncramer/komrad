@@ -449,7 +449,7 @@ func (s *ReviewService) AddReviewMessage(
 
 	var snapshotID *string
 	if params.Addressed {
-		answer, err := s.openAnswerSnapshot(ctx, *thread)
+		answer, err := s.takeAnswerSnapshot(ctx, *thread)
 		if err != nil {
 			return nil, err
 		}

@@ -295,7 +295,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			wantID: "thread-1",
 		},
 		{
-			name: "opening a snapshot",
+			name: "taking a snapshot",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
 				got, err := svc.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{Task: xptr.Ptr(betaTask)}))
 				if err != nil {

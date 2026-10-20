@@ -144,7 +144,7 @@ func (r *reviewScreen) loadWholeCmd(m *model) tea.Cmd {
 	})
 }
 
-// loadReviewCmdParams says which task's snapshot to open, for which agent on screen, where to read
+// loadReviewCmdParams says which task's snapshot to take, for which agent on screen, where to read
 // it, and what to measure it from.
 type loadReviewCmdParams struct {
 	AgentID string
@@ -155,7 +155,7 @@ type loadReviewCmdParams struct {
 	Load    int
 }
 
-// loadReviewCmd opens a snapshot of the agent and reads that rather than the worktree, a tree that
+// loadReviewCmd takes a snapshot of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the snapshot already taken of it.
 func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 	agents := m.api.reads().agents

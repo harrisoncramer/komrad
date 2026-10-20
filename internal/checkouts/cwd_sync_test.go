@@ -309,7 +309,7 @@ func TestCwdSyncerSyncRecordsAMoveSinceTheNewestSnapshot(t *testing.T) {
 			cwd := makeCheckout(t)
 			agent := fixture.seed(t, "a", cwd)
 			if tt.newest != "" {
-				fixture.openSnapshot(t, agent.ID, tt.newest)
+				fixture.takeSnapshot(t, agent.ID, tt.newest)
 			}
 
 			heads := buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: tt.snapshotTree})
@@ -326,7 +326,7 @@ func TestCwdSyncerSyncKeepsAMoveItCouldNotProbe(t *testing.T) {
 	fixture := newSyncFixture(t)
 	cwd := makeCheckout(t)
 	agent := fixture.seed(t, "a", cwd)
-	fixture.openSnapshot(t, agent.ID, "snapshot-one")
+	fixture.takeSnapshot(t, agent.ID, "snapshot-one")
 	trees := &gittest.Trees{Probes: map[string]string{cwd: "tree-moved"}}
 	syncer := fixture.newSyncer(newSyncerParams{Heads: buildHeads(cwd, git.HeadState{Root: cwd, SnapshotTree: "tree-one"}), Trees: trees})
 
@@ -939,7 +939,7 @@ func (f *syncFixture) taskOf(t *testing.T, agentID string) string {
 func (f *syncFixture) release(t *testing.T, agentID, sha string) {
 	t.Helper()
 
-	snapshot := f.openSnapshot(t, agentID, sha)
+	snapshot := f.takeSnapshot(t, agentID, sha)
 	review, err := f.reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
 		TaskID:     snapshot.TaskID,
 		SnapshotID: snapshot.ID,
@@ -985,7 +985,7 @@ func (f *syncFixture) merge(t *testing.T, agentID string, mergedAt time.Time) {
 	require.NoError(t, err)
 }
 
-func (f *syncFixture) openSnapshot(t *testing.T, agentID, sha string) *reviewstore.Snapshot {
+func (f *syncFixture) takeSnapshot(t *testing.T, agentID, sha string) *reviewstore.Snapshot {
 	t.Helper()
 
 	snapshot, err := f.reviews.CreateSnapshot(t.Context(), reviewstore.CreateSnapshotParams{

@@ -100,7 +100,7 @@ func (s *ReviewStore) CreateSnapshot(ctx context.Context, params CreateSnapshotP
 		Sha:     params.SHA,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open a review snapshot on task %q: %w", params.TaskID, err)
+		return nil, fmt.Errorf("failed to record a review snapshot on task %q: %w", params.TaskID, err)
 	}
 
 	snapshot := snapshotFromRow(*row)

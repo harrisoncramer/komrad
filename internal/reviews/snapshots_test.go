@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOpenSnapshot pins that a snapshot is taken only of a tree that has moved.
-func TestOpenSnapshot(t *testing.T) {
+// TestTakeSnapshot pins that a snapshot is taken only of a tree that has moved.
+func TestTakeSnapshot(t *testing.T) {
 	tests := []struct {
 		name        string
 		snapshot    string
@@ -56,9 +56,9 @@ func TestOpenSnapshot(t *testing.T) {
 	}
 }
 
-// TestOpenSnapshotReleasesTheRefOfASnapshotItFailedToWrite pins that a snapshot whose insert fails leaves
+// TestTakeSnapshotReleasesTheRefOfASnapshotItFailedToWrite pins that a snapshot whose insert fails leaves
 // no ref behind.
-func TestOpenSnapshotReleasesTheRefOfASnapshotItFailedToWrite(t *testing.T) {
+func TestTakeSnapshotReleasesTheRefOfASnapshotItFailedToWrite(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
@@ -73,9 +73,9 @@ func TestOpenSnapshotReleasesTheRefOfASnapshotItFailedToWrite(t *testing.T) {
 	assert.Equal(t, []string{reviewstore.SnapshotRef(*fx.writer.TaskID, secondSnapshot)}, fx.snapshots.Released)
 }
 
-// TestOpenSnapshotTakesOneSnapshotOfATreeOpenedTwiceAtOnce pins that two callers racing on the same
+// TestTakeSnapshotTakesOneSnapshotOfATreeAskedForTwiceAtOnce pins that two callers racing on the same
 // tree share one snapshot.
-func TestOpenSnapshotTakesOneSnapshotOfATreeOpenedTwiceAtOnce(t *testing.T) {
+func TestTakeSnapshotTakesOneSnapshotOfATreeAskedForTwiceAtOnce(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {

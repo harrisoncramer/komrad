@@ -49,9 +49,9 @@ func TestASnapshotIsNumberedAfterTheOnesBeforeIt(t *testing.T) {
 	st := openFixture(t)
 	agentID := st.seedAgent(t, "worker")
 
-	first := st.openSnapshot(t, agentID, "tree-one")
-	second := st.openSnapshot(t, agentID, "tree-two")
-	elsewhere := st.openSnapshot(t, st.seedAgent(t, "other"), "tree-one")
+	first := st.takeSnapshot(t, agentID, "tree-one")
+	second := st.takeSnapshot(t, agentID, "tree-two")
+	elsewhere := st.takeSnapshot(t, st.seedAgent(t, "other"), "tree-one")
 
 	assert.Equal(t, int32(1), first.Ordinal)
 	assert.Equal(t, int32(2), second.Ordinal)
@@ -68,7 +68,7 @@ func TestAnAuthorHoldsOneOpenReviewAtATime(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	snapshot := st.openSnapshot(t, agentID, "tree-one")
+	snapshot := st.takeSnapshot(t, agentID, "tree-one")
 
 	st.openReview(t, snapshot)
 
@@ -94,7 +94,7 @@ func TestReleasingAReviewCarriesEveryCommentInIt(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.openSnapshot(t, agentID, "tree-one"))
+	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
 
 	first := st.openThread(t, review, "this needs a nil check")
 	second := st.openThread(t, review, "and this one leaks")
@@ -115,7 +115,7 @@ func TestReleasingAReviewCarriesEveryCommentInIt(t *testing.T) {
 func TestDeliveryFollowsTheOneMail(t *testing.T) {
 	st := openFixture(t)
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.openSnapshot(t, agentID, "tree-one"))
+	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
 
 	thread := st.openThread(t, review, "this needs a nil check")
 	assert.Equal(t, DeliveryUnsent, st.readDelivery(t, thread.ID, AuthorHuman))
@@ -159,7 +159,7 @@ func TestThreadsAreReadByTask(t *testing.T) {
 			ctx := t.Context()
 			firstWriter := st.seedAgent(t, "worker")
 			taskID := st.taskOf(t, firstWriter)
-			snapshot := st.openSnapshot(t, firstWriter, "tree-one")
+			snapshot := st.takeSnapshot(t, firstWriter, "tree-one")
 			opened := st.openThread(t, st.openReview(t, snapshot), "this needs a nil check")
 			st.seedAgentLike(t, agentstore.Agent{
 				Name:   "next-worker",
@@ -189,7 +189,7 @@ func TestRewritingAReplyIsNewActivity(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.openSnapshot(t, agentID, "tree-one"))
+	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
 
 	answered := st.writeAnswer(t, st.openThread(t, review, "this needs a nil check"))
 	st.markAllRead(t, st.taskOf(t, agentID))
@@ -208,7 +208,7 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.openSnapshot(t, agentID, "tree-one"))
+	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
 
 	first := st.openThread(t, review, "first note")
 	second := st.openThread(t, review, "second note")
@@ -372,7 +372,7 @@ func TestWritingInASettledThread(t *testing.T) {
 			ctx := t.Context()
 			workerID := st.seedAgent(t, "worker")
 			reviewerID := st.seedAgent(t, "reviewer")
-			review := st.openReview(t, st.openSnapshot(t, workerID, "tree-one"))
+			review := st.openReview(t, st.takeSnapshot(t, workerID, "tree-one"))
 			thread := st.openThread(t, review, "this needs a nil check")
 
 			agentIDs := map[string]*string{
@@ -453,7 +453,7 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 			st := openFixture(t)
 			ctx := t.Context()
 			workerID := st.seedAgent(t, "worker")
-			snapshot := st.openSnapshot(t, workerID, "tree-one")
+			snapshot := st.takeSnapshot(t, workerID, "tree-one")
 			review := st.openReview(t, snapshot)
 			if tt.byReviewer {
 				review = st.openReviewBy(t, snapshot, st.seedReviewer(t, workerID))
@@ -463,7 +463,7 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 
 			var snapshotID *string
 			if tt.withSnapshot {
-				snapshotID = &st.openSnapshot(t, workerID, "tree-two").ID
+				snapshotID = &st.takeSnapshot(t, workerID, "tree-two").ID
 			}
 
 			answer, err := st.CreateMessage(ctx, CreateMessageParams{
@@ -551,7 +551,7 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 			st := openFixture(t)
 			ctx := t.Context()
 			workerID := st.seedAgent(t, "worker")
-			snapshot := st.openSnapshot(t, workerID, "tree-one")
+			snapshot := st.takeSnapshot(t, workerID, "tree-one")
 			first := st.openReview(t, snapshot)
 			thread := st.openThread(t, first, "this needs a nil check")
 			st.releaseReview(t, first, VerdictChangesRequested)
@@ -613,7 +613,7 @@ func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
 func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	st := openFixture(t)
 	agentID := st.seedAgent(t, "worker")
-	snapshot := st.openSnapshot(t, agentID, "tree-one")
+	snapshot := st.takeSnapshot(t, agentID, "tree-one")
 	review := st.openReview(t, snapshot)
 
 	thread, err := st.CreateThread(t.Context(), CreateThreadParams{
@@ -751,7 +751,7 @@ func TestListTallies(t *testing.T) {
 					continue
 				}
 				if snapshots[released.tree] == nil {
-					snapshots[released.tree] = st.openSnapshot(t, agentID, released.tree)
+					snapshots[released.tree] = st.takeSnapshot(t, agentID, released.tree)
 				}
 
 				var review *Review
@@ -787,9 +787,9 @@ func TestNewestSnapshotsAreEachTasksLastSnapshot(t *testing.T) {
 	other := st.seedAgent(t, "other")
 	st.seedAgent(t, "unreviewed")
 
-	st.openSnapshot(t, agentID, "tree-one")
-	st.openSnapshot(t, agentID, "tree-two")
-	st.openSnapshot(t, other, "tree-three")
+	st.takeSnapshot(t, agentID, "tree-one")
+	st.takeSnapshot(t, agentID, "tree-two")
+	st.takeSnapshot(t, other, "tree-three")
 
 	newest, err := st.ListNewestSnapshots(t.Context())
 	require.NoError(t, err)
@@ -815,10 +815,10 @@ func TestUnlandedSnapshotsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 	archived := st.seedAgent(t, "archived")
 
 	for _, tree := range []string{"tree-one", "tree-two", "tree-three"} {
-		st.releaseReview(t, st.openReview(t, st.openSnapshot(t, agentID, tree)), VerdictCommented)
+		st.releaseReview(t, st.openReview(t, st.takeSnapshot(t, agentID, tree)), VerdictCommented)
 	}
-	st.openReview(t, st.openSnapshot(t, agentID, "tree-draft"))
-	st.releaseReview(t, st.openReview(t, st.openSnapshot(t, archived, "tree-gone")), VerdictCommented)
+	st.openReview(t, st.takeSnapshot(t, agentID, "tree-draft"))
+	st.releaseReview(t, st.openReview(t, st.takeSnapshot(t, archived, "tree-gone")), VerdictCommented)
 	_, err := st.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
 
@@ -871,7 +871,7 @@ func TestUnlandedSnapshotsCarryTheNewestMerge(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	st.releaseReview(t, st.openReview(t, st.openSnapshot(t, agentID, "tree-one")), VerdictCommented)
+	st.releaseReview(t, st.openReview(t, st.takeSnapshot(t, agentID, "tree-one")), VerdictCommented)
 
 	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/worker"
 	st.stores.SeedTaskHead(t, agentID, taskstore.SetHeadParams{
@@ -924,7 +924,7 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	_, err := st.OpenReviewOf(ctx, author)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	review := st.openReview(t, st.openSnapshot(t, agentID, "tree-one"))
+	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
 
 	held, err := st.OpenReviewOf(ctx, author)
 	require.NoError(t, err)
@@ -941,10 +941,10 @@ func TestMovingAnOpenReview(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	first := st.openSnapshot(t, agentID, "tree-one")
+	first := st.takeSnapshot(t, agentID, "tree-one")
 	review := st.openReview(t, first)
 	thread := st.openThread(t, review, "this needs a nil check")
-	second := st.openSnapshot(t, agentID, "tree-two")
+	second := st.takeSnapshot(t, agentID, "tree-two")
 
 	moved, err := st.MoveOpenReview(ctx, MoveOpenReviewParams{ID: review.ID, SnapshotID: second.ID})
 	require.NoError(t, err)
@@ -967,9 +967,9 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	agentID := st.seedAgent(t, "worker")
 	reviewer := st.seedAgent(t, "reviewer")
 
-	released := st.openReviewBy(t, st.openSnapshot(t, agentID, "tree-one"), reviewer)
+	released := st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-one"), reviewer)
 	st.releaseReview(t, released, VerdictChangesRequested)
-	draft := st.openReviewBy(t, st.openSnapshot(t, agentID, "tree-two"), reviewer)
+	draft := st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-two"), reviewer)
 
 	require.NoError(t, st.DeleteOpenReviewsBy(ctx, []string{reviewer}))
 
@@ -991,8 +991,8 @@ func TestLiveReviewers(t *testing.T) {
 		{
 			name: "a reviewer that approved",
 			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
-				st.releaseReview(t, st.openReviewBy(t, st.openSnapshot(t, seeded.writerID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
-				st.releaseReview(t, st.openReviewBy(t, st.openSnapshot(t, seeded.writerID, "tree-two"), seeded.reviewerID), VerdictApproved)
+				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
+				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-two"), seeded.reviewerID), VerdictApproved)
 			},
 		},
 		{
@@ -1009,7 +1009,7 @@ func TestLiveReviewers(t *testing.T) {
 		{
 			name: "a reviewer that asked for changes",
 			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
-				st.releaseReview(t, st.openReviewBy(t, st.openSnapshot(t, seeded.writerID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
+				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
 			},
 			wantLive: true,
 		},
@@ -1067,7 +1067,7 @@ func TestLiveReviewersAreOldestFirst(t *testing.T) {
 func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
 	st := openFixture(t)
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.openSnapshot(t, agentID, "tree-one"))
+	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
 
 	listed := st.findListedReview(t, review)
 	assert.Zero(t, listed.OpenThreads, "a batch with no comments in it owes nothing")
@@ -1164,7 +1164,7 @@ func (st *fixture) writerOf(t *testing.T, taskID string) string {
 	return writer.ID
 }
 
-func (st *fixture) openSnapshot(t *testing.T, agentID, tree string) *Snapshot {
+func (st *fixture) takeSnapshot(t *testing.T, agentID, tree string) *Snapshot {
 	t.Helper()
 
 	snapshot, err := st.CreateSnapshot(t.Context(), CreateSnapshotParams{
