@@ -114,28 +114,6 @@ func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAu
 	return nil
 }
 
-// RetargetPullRequest takes the pull request at the address out of its GitHub stack and changes its base branch, and
-// heats its host in the pull request sync.
-func (w *Writer) RetargetPullRequest(ctx context.Context, address, base string) error {
-	host, f, err := w.forgeFor(ctx, address)
-	if err != nil {
-		return err
-	}
-
-	stacker, ok := f.(forge.Stacker)
-	if !ok {
-		return nil
-	}
-
-	if err := stacker.Retarget(ctx, address, base); err != nil {
-		return err
-	}
-
-	w.sync.Heat(host)
-
-	return nil
-}
-
 // RequestPullRequestRereview asks everyone who requested changes on the pull request at the
 // address to review it again and heats its host in the pull request sync.
 func (w *Writer) RequestPullRequestRereview(ctx context.Context, address string) error {

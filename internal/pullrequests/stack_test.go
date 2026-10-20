@@ -150,3 +150,56 @@ func TestSyncAwaitsGitHubRebasingAStack(t *testing.T) {
 	require.NotNil(t, topAwait)
 	assert.Equal(t, "top", topAwait.From, "a pull request over it waits from its head")
 }
+
+// TestSyncRetargetsAPullRequestItsTaskLeft covers the sync taking a pull request out of a GitHub stack
+// once its task no longer has a parent, and pointing it at the workflow's base branch.
+func TestSyncRetargetsAPullRequestItsTaskLeft(t *testing.T) {
+	address := syncRepository + "/pull/PR_2"
+
+	tests := []struct {
+		name string
+		// onParent says the task of the pull request on top still has its parent.
+		onParent       bool
+		refuseRetarget error
+		wantRetargeted []string
+	}{
+		{
+			name:           "a pull request GitHub would not move is not asked again while it stands as refused",
+			refuseRetarget: forge.ErrNotStackable,
+			wantRetargeted: []string{address + " onto main"},
+		},
+		{
+			name:     "a pull request whose task still has its parent stays in its stack",
+			onParent: true,
+		},
+		{
+			name:           "a pull request whose task was re-targeted leaves its stack for the base branch",
+			wantRetargeted: []string{address + " onto main"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newSyncFixture(t)
+			one := f.agentOn(t, "one", "task/one")
+			two := f.agentOn(t, "two", "task/two")
+			if tt.onParent {
+				f.parentOf(t, one, two)
+			}
+			f.forge.refuseRetarget = tt.refuseRetarget
+			f.hold(
+				stackedOn(pullRequestAt("PR_1", "task/one", syncNow.Add(-time.Hour)), "main", &forge.StackPlace{Number: 7, Position: 1, Size: 2}),
+				stackedOn(pullRequestAt("PR_2", "task/two", syncNow.Add(-time.Hour)), "task/one", &forge.StackPlace{Number: 7, Position: 2, Size: 2}),
+			)
+
+			f.sync(t)
+			if tt.refuseRetarget != nil {
+				f.syncer.Wake()
+				f.pass(t, syncNow.Add(time.Minute))
+			}
+
+			assert.Equal(t, tt.wantRetargeted, f.forge.retargeted)
+			assert.Empty(t, f.forge.stacked, "the stack it left is not built again on the same read")
+		})
+	}
+}

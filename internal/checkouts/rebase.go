@@ -255,8 +255,6 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 		if err := s.tasks.SetParent(ctx, target.task.ID, nil); err != nil {
 			return nil, err
 		}
-
-		s.retargetPullRequest(ctx, target)
 	}
 
 	s.releaseOlderParks(ctx, *target.task, result.ParkedRef)

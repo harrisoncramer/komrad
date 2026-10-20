@@ -504,6 +504,7 @@ SELECT
     t.created_at AS task_created_at,
     p.id,
     p.number,
+    p.url,
     p.head_branch,
     p.base_branch,
     p.changed_at,
@@ -511,9 +512,12 @@ SELECT
     p.stack_number,
     p.stack_position,
     p.stack_size,
-    p.stacking_refused_at
+    p.stacking_refused_at,
+    c.worktree_base_branch AS workflow_base_branch
 FROM
     tasks t
+    JOIN workflows w ON w.id = t.workflow_id
+    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
     JOIN LATERAL (
         SELECT
             q.*

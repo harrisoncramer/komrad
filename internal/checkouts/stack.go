@@ -10,7 +10,6 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
-	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 )
@@ -212,23 +211,4 @@ func (s *Service) recordStackOnto(ctx context.Context, task taskstore.Task, onto
 	}
 
 	return s.recordOnto(ctx, task, onto)
-}
-
-// retargetPullRequest takes a re-targeted child's pull request out of its GitHub stack and points it at
-// the workflow's base branch.
-func (s *Service) retargetPullRequest(ctx context.Context, target checkoutTarget) {
-	own, err := s.readPullRequest(ctx, *target.task, target.task.GetBranch())
-	if errors.Is(err, store.ErrNotFound) {
-		return
-	}
-	if err == nil && (own.Stack == nil || own.IsFinished()) {
-		return
-	}
-	if err == nil {
-		err = s.retargeter.RetargetPullRequest(ctx, own.URL, target.workflow.Worktree.BaseBranch)
-	}
-	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to point a re-targeted child's pull request at the base branch",
-			append([]slog.Attr{slog.String(logging.TaskID, target.task.ID)}, logging.Err(err)...)...)
-	}
 }

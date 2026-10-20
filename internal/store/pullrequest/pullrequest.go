@@ -567,6 +567,7 @@ type StackingPullRequest struct {
 	ParentTaskID string
 	ID           string
 	Number       int
+	URL          string
 	HeadBranch   string
 	BaseBranch   string
 	ChangedAt    time.Time
@@ -574,6 +575,8 @@ type StackingPullRequest struct {
 	Stack        *forge.StackPlace
 	// StackingRefusedAt is the ChangedAt the pull request had when GitHub last refused to stack it.
 	StackingRefusedAt *time.Time
+	// WorkflowBaseBranch is the base branch of the task's workflow, empty when it names none.
+	WorkflowBaseBranch string
 }
 
 // IsStackingRefused says whether GitHub refused to stack the pull request as it stands.
@@ -590,16 +593,18 @@ func (s *PullRequestStore) ListStacking(ctx context.Context, repositoryURL strin
 
 	return xslice.Map(rows, func(row *models.ListStackingPullRequestsRow) StackingPullRequest {
 		return StackingPullRequest{
-			TaskID:            row.TaskID,
-			ParentTaskID:      xptr.Deref(row.ParentTaskID),
-			ID:                row.ID,
-			Number:            int(row.Number),
-			HeadBranch:        row.HeadBranch,
-			BaseBranch:        row.BaseBranch,
-			ChangedAt:         row.ChangedAt,
-			AutoMerge:         xptr.Deref(row.AutoMerge),
-			Stack:             stackPlaceOf(row.StackNumber, row.StackPosition, row.StackSize),
-			StackingRefusedAt: row.StackingRefusedAt,
+			TaskID:             row.TaskID,
+			ParentTaskID:       xptr.Deref(row.ParentTaskID),
+			ID:                 row.ID,
+			Number:             int(row.Number),
+			URL:                row.Url,
+			HeadBranch:         row.HeadBranch,
+			BaseBranch:         row.BaseBranch,
+			ChangedAt:          row.ChangedAt,
+			AutoMerge:          xptr.Deref(row.AutoMerge),
+			Stack:              stackPlaceOf(row.StackNumber, row.StackPosition, row.StackSize),
+			StackingRefusedAt:  row.StackingRefusedAt,
+			WorkflowBaseBranch: xptr.Deref(row.WorkflowBaseBranch),
 		}
 	}), nil
 }

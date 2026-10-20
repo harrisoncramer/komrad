@@ -57,6 +57,10 @@ type scriptedForge struct {
 	stacked []forge.StackParams
 	// refuseStack answers in place of every call that builds a GitHub stack while set.
 	refuseStack error
+	// retargeted is every pull request taken out of its GitHub stack, as its address and the base branch it now targets.
+	retargeted []string
+	// refuseRetarget answers in place of every call that takes a pull request out of its GitHub stack while set.
+	refuseRetarget error
 }
 
 func (f *scriptedForge) Kind() string { return forge.KindGitHub }
@@ -109,7 +113,11 @@ func (f *scriptedForge) Stack(_ context.Context, params forge.StackParams) error
 	return f.refuseStack
 }
 
-func (f *scriptedForge) Retarget(context.Context, string, string) error { return nil }
+func (f *scriptedForge) Retarget(_ context.Context, address, base string) error {
+	f.retargeted = append(f.retargeted, address+" onto "+base)
+
+	return f.refuseRetarget
+}
 
 func (f *scriptedForge) ReviewThreads(_ context.Context, _ git.RemoteURL, number int) (*forge.Threads, error) {
 	f.requests = append(f.requests, "threads:"+strconv.Itoa(number))

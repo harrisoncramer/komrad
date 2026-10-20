@@ -697,6 +697,7 @@ SELECT
     t.created_at AS task_created_at,
     p.id,
     p.number,
+    p.url,
     p.head_branch,
     p.base_branch,
     p.changed_at,
@@ -704,9 +705,12 @@ SELECT
     p.stack_number,
     p.stack_position,
     p.stack_size,
-    p.stacking_refused_at
+    p.stacking_refused_at,
+    c.worktree_base_branch AS workflow_base_branch
 FROM
     tasks t
+    JOIN workflows w ON w.id = t.workflow_id
+    LEFT JOIN workflow_provisioner_configs c ON c.id = w.provisioner_config_id
     JOIN LATERAL (
         SELECT
             q.id, q.host, q.forge, q.provider_id, q.url, q.repository_url, q.head_repository_url, q.number, q.title, q.head_branch, q.head_sha, q.base_branch, q.base_sha, q.draft, q.state, q.opened_at, q.changed_at, q.merged_at, q.closed_at, q.first_seen_at, q.engine_id, q.mergeability_blank_since, q.auto_merge, q.auto_mergeable, q.latest_decision, q.latest_head_sha, q.latest_mergeability, q.known_mergeability, q.known_mergeability_sha, q.known_decision, q.author, q.body, q.stack_number, q.stack_position, q.stack_size, q.stacking_refused_at, q.rebase_awaited_since, q.rebase_awaited_from
@@ -731,19 +735,21 @@ ORDER BY
 `
 
 type ListStackingPullRequestsRow struct {
-	TaskID            string
-	ParentTaskID      *string
-	TaskCreatedAt     time.Time
-	ID                string
-	Number            int32
-	HeadBranch        string
-	BaseBranch        string
-	ChangedAt         time.Time
-	AutoMerge         *bool
-	StackNumber       *int32
-	StackPosition     *int32
-	StackSize         *int32
-	StackingRefusedAt *time.Time
+	TaskID             string
+	ParentTaskID       *string
+	TaskCreatedAt      time.Time
+	ID                 string
+	Number             int32
+	Url                string
+	HeadBranch         string
+	BaseBranch         string
+	ChangedAt          time.Time
+	AutoMerge          *bool
+	StackNumber        *int32
+	StackPosition      *int32
+	StackSize          *int32
+	StackingRefusedAt  *time.Time
+	WorkflowBaseBranch *string
 }
 
 func (q *Queries) ListStackingPullRequests(ctx context.Context, repositoryUrl string) ([]*ListStackingPullRequestsRow, error) {
@@ -761,6 +767,7 @@ func (q *Queries) ListStackingPullRequests(ctx context.Context, repositoryUrl st
 			&i.TaskCreatedAt,
 			&i.ID,
 			&i.Number,
+			&i.Url,
 			&i.HeadBranch,
 			&i.BaseBranch,
 			&i.ChangedAt,
@@ -769,6 +776,7 @@ func (q *Queries) ListStackingPullRequests(ctx context.Context, repositoryUrl st
 			&i.StackPosition,
 			&i.StackSize,
 			&i.StackingRefusedAt,
+			&i.WorkflowBaseBranch,
 		); err != nil {
 			return nil, err
 		}

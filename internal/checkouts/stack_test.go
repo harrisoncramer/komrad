@@ -1,7 +1,6 @@
 package checkouts
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -208,31 +207,4 @@ func TestCascadeFollowsAGitHubStack(t *testing.T) {
 			assert.Contains(t, inbox[0], tt.wantMail)
 		})
 	}
-}
-
-// retargeting records each pull request a re-target pointed at another base branch.
-type retargeting struct {
-	retargeted []string
-}
-
-func (r *retargeting) RetargetPullRequest(_ context.Context, address, base string) error {
-	r.retargeted = append(r.retargeted, address+" onto "+base)
-
-	return nil
-}
-
-// seedStackedPullRequest stores the child's pull request onto its parent's branch, on top of the parent's in a GitHub stack.
-func seedStackedPullRequest(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
-	t.Helper()
-
-	child, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
-	require.NoError(t, err)
-	fixture.stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
-		RepositoryURL: pushRepository,
-		Number:        2,
-		HeadBranch:    child.GetBranch(),
-		HeadSHA:       "oldhead",
-		BaseBranch:    seeded.parent.GetBranch(),
-		Stack:         &forge.StackPlace{Number: 7, Position: 2, Size: 2},
-	})
 }

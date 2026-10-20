@@ -78,11 +78,6 @@ type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
-// pullRequestRetargeter changes the base branch of a pull request, taking it out of its GitHub stack.
-type pullRequestRetargeter interface {
-	RetargetPullRequest(ctx context.Context, address, base string) error
-}
-
 // branchMover is the git a rebase, push or abort reads the checkout through and moves the branch with.
 type branchMover interface {
 	ReadTreeState(ctx context.Context, dir string) (git.TreeState, error)
@@ -122,8 +117,6 @@ type NewServiceParams struct {
 	Tx              txRunner
 	CheckoutSync    wake.Waker
 	PullRequestSync wake.Heater
-	// Retargeter changes the base branch of a re-targeted child's pull request in a GitHub stack.
-	Retargeter pullRequestRetargeter
 	// Clock is the time a wait on GitHub is counted from, time.Now when unset.
 	Clock func() time.Time
 }
@@ -142,7 +135,6 @@ type Service struct {
 	tx              txRunner
 	checkoutSync    wake.Waker
 	pullRequestSync wake.Heater
-	retargeter      pullRequestRetargeter
 	now             func() time.Time
 }
 
@@ -170,7 +162,6 @@ func NewService(params NewServiceParams) *Service {
 		tx:              params.Tx,
 		checkoutSync:    params.CheckoutSync,
 		pullRequestSync: params.PullRequestSync,
-		retargeter:      params.Retargeter,
 		now:             now,
 	}
 }

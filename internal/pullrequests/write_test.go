@@ -28,17 +28,11 @@ type writingForge struct {
 	drafted    []drafted
 	autoMerged []forge.SetAutoMergeParams
 	rereviewed []string
-	retargeted []retargeted
 }
 
 type drafted struct {
 	address string
 	draft   bool
-}
-
-type retargeted struct {
-	address string
-	base    string
 }
 
 func (f *writingForge) Merge(_ context.Context, params forge.MergeParams) error {
@@ -61,16 +55,6 @@ func (f *writingForge) SetAutoMerge(_ context.Context, params forge.SetAutoMerge
 
 func (f *writingForge) RequestRereview(_ context.Context, address string) error {
 	f.rereviewed = append(f.rereviewed, address)
-
-	return f.err
-}
-
-func (f *writingForge) Stack(context.Context, forge.StackParams) error {
-	return f.err
-}
-
-func (f *writingForge) Retarget(_ context.Context, address, base string) error {
-	f.retargeted = append(f.retargeted, retargeted{address: address, base: base})
 
 	return f.err
 }
@@ -284,58 +268,6 @@ func TestRequestPullRequestRereview(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantRereviewed, writing.rereviewed)
-			assert.Equal(t, tt.wantHeated, sync.Heated)
-		})
-	}
-}
-
-// TestRetargetPullRequest covers a pull request leaving its GitHub stack for another base branch and the
-// pull request sync heating the host once it has.
-func TestRetargetPullRequest(t *testing.T) {
-	const address = "https://github.com/harrisoncramer/komrad/pull/1"
-
-	tests := []struct {
-		name           string
-		address        string
-		retargetErr    error
-		wantErr        error
-		wantRetargeted []retargeted
-		wantHeated     []string
-	}{
-		{
-			name:    "an address with no host",
-			address: "harrisoncramer/komrad#1",
-			wantErr: forge.ErrNotPullRequest,
-		},
-		{
-			name:           "a pull request GitHub will not take out of its stack",
-			address:        address,
-			retargetErr:    forge.ErrNotStackable,
-			wantErr:        forge.ErrNotStackable,
-			wantRetargeted: []retargeted{{address: address, base: "main"}},
-		},
-		{
-			name:           "a pull request GitHub points at the base branch",
-			address:        address,
-			wantRetargeted: []retargeted{{address: address, base: "main"}},
-			wantHeated:     []string{"github.com"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			writing := &writingForge{err: tt.retargetErr}
-			sync := &waketest.Counter{}
-			writer := newTestWriter(t, storetest.Open(t), writing, sync)
-
-			err := writer.RetargetPullRequest(t.Context(), tt.address, "main")
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-			}
-			assert.Equal(t, tt.wantRetargeted, writing.retargeted)
 			assert.Equal(t, tt.wantHeated, sync.Heated)
 		})
 	}

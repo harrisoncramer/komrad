@@ -282,7 +282,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 				Tx:              st.pool,
 				CheckoutSync:    wakers.cwdSync,
 				PullRequestSync: pullRequestGroup.sync,
-				Retargeter:      pullRequestGroup.writer,
 			}),
 			cwdSync: checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 				Tasks:        st.tasks,
