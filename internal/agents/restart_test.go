@@ -9,6 +9,8 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
+	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
@@ -213,6 +215,11 @@ func TestRestartAgentRefuses(t *testing.T) {
 			restart:   "archived writer",
 			wantErrIs: agenterr.ErrAgentArchived,
 		},
+		{
+			name:      "a writer whose worktree was removed",
+			restart:   "removed writer",
+			wantErrIs: tasks.ErrWorktreeRemoved,
+		},
 	}
 
 	for _, tt := range tests {
@@ -225,10 +232,13 @@ func TestRestartAgentRefuses(t *testing.T) {
 			writer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "writer", "%1")
 			archived := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "archived writer", "%2")
 			require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []string{archived.ID}))
+			removed := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "removed writer", "%3")
+			require.NoError(t, st.Tasks.SetHead(t.Context(), *removed.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
 			seeded := map[string]string{
 				"orchestrator":    orchestrator.ID,
 				"reviewer":        seedReviewer(t, st, tmux, writer).ID,
 				"archived writer": archived.ID,
+				"removed writer":  removed.ID,
 			}
 
 			_, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: seeded[tt.restart], ByAgentID: seeded[tt.by]})

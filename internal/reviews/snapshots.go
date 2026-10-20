@@ -535,7 +535,7 @@ func (s *ReviewService) ReleaseReview(
 		Review:   *open,
 		Verdict:  verdict,
 		Body:     params.Body,
-		Threads:  s.threadsInContext(ctx, task.Checkout.Cwd, threads),
+		Threads:  s.threadsInContext(ctx, s.repoDir(ctx, *task), threads),
 	})
 	if err != nil {
 		return nil, err
@@ -732,7 +732,7 @@ func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author R
 	return &ReviewInFull{
 		Review:   *review,
 		Snapshot: *snapshot,
-		Threads:  s.threadsInContext(ctx, task.Checkout.Cwd, threads),
+		Threads:  s.threadsInContext(ctx, s.repoDir(ctx, *task), threads),
 	}, nil
 }
 

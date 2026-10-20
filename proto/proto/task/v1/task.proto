@@ -326,12 +326,11 @@ service TaskService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {
       cli: true
-      mcp: true
+      mcp: false
       name: "delete_tasks"
       description: "Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews."
-      mcp_guidance: "Prefer archive_task, and delete only when asked."
+      reason: "Only the person deletes tasks."
       destructive: true
-      roles: [ROLE_ORCHESTRATOR]
     };
   }
   rpc SetTaskHidden(SetTaskHiddenRequest) returns (google.protobuf.Empty) {

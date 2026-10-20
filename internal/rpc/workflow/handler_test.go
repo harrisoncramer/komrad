@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"komrad/internal/agents"
+	"komrad/internal/caller"
 	"komrad/internal/eventprompts"
 	"komrad/internal/rpc/render"
 	"komrad/lib/xptr"
@@ -35,6 +36,7 @@ type fakeWorkflows struct {
 	stored  []workflowstore.Workflow
 	created []workflowstore.Config
 	updated []updateCall
+	deleted []agents.DeleteWorkflowParams
 	listed  []bool
 }
 
@@ -74,8 +76,10 @@ func (f *fakeWorkflows) RestoreWorkflow(context.Context, string) (*workflowstore
 	return &f.stored[0], nil
 }
 
-// DeleteWorkflow answers nil.
-func (f *fakeWorkflows) DeleteWorkflow(context.Context, string) error {
+// DeleteWorkflow records the params.
+func (f *fakeWorkflows) DeleteWorkflow(_ context.Context, params agents.DeleteWorkflowParams) error {
+	f.deleted = append(f.deleted, params)
+
 	return nil
 }
 
@@ -208,6 +212,24 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 				{
 					id:  workflowID,
 					cfg: cfg,
+				},
+			}},
+		},
+		{
+			name: "deleting hands down the id, the records choice and the agent asking",
+			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
+				_, err := svc.DeleteWorkflow(caller.With(ctx, caller.Caller{AgentID: "agent-1"}), connect.NewRequest(&workflowv1.DeleteWorkflowRequest{
+					Id:      workflowID,
+					Records: true,
+				}))
+
+				return err
+			},
+			want: fakeWorkflows{deleted: []agents.DeleteWorkflowParams{
+				{
+					ID:        workflowID,
+					Records:   true,
+					ByAgentID: "agent-1",
 				},
 			}},
 		},

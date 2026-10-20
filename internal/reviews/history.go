@@ -11,7 +11,10 @@ import (
 	"komrad/lib/xslice"
 )
 
-const midSequenceNotice = "a rebase or merge is part way through, so this is the work as it stood before it"
+const (
+	midSequenceNotice     = "a rebase or merge is part way through, so this is the work as it stood before it"
+	worktreeRemovedNotice = "the worktree was removed, so this is the work as it stood at its last snapshot"
+)
 
 type ReviewHistory struct {
 	history.Record
@@ -72,7 +75,7 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 	opened.Record = history.Build(ctx, history.BuildParams{
 		Git:       s.git,
 		Tracer:    s.tracer,
-		Dir:       task.Checkout.Cwd,
+		Dir:       s.repoDir(ctx, *task),
 		Exclude:   s.readDiffExclude(ctx, task.WorkflowID),
 		Snapshot:  historySnapshotOf(opened.Snapshot),
 		Snapshots: xslice.Map(opened.Snapshots, historySnapshotOf),
@@ -105,7 +108,7 @@ func (s *ReviewService) pickSnapshot(ctx context.Context, params pickSnapshotPar
 		return &pickedSnapshot{
 			Snapshot:  snapshots[len(snapshots)-1],
 			Snapshots: snapshots,
-			Notice:    midSequenceNotice,
+			Notice:    fallbackNotice(err),
 		}, nil
 	case err != nil:
 		return nil, err
@@ -116,6 +119,30 @@ func (s *ReviewService) pickSnapshot(ctx context.Context, params pickSnapshotPar
 	}
 
 	return &pickedSnapshot{Snapshot: *opened, Snapshots: snapshots}, nil
+}
+
+// fallbackNotice says why a review shows the newest snapshot rather than one taken now.
+func fallbackNotice(err error) string {
+	if errors.Is(err, errReviewWorktreeRemoved) {
+		return worktreeRemovedNotice
+	}
+
+	return midSequenceNotice
+}
+
+// repoDir is a directory holding a task's snapshots, its checkout while it stands or else its
+// workflow's repository, which keeps the snapshots once the worktree is removed.
+func (s *ReviewService) repoDir(ctx context.Context, task taskstore.Task) string {
+	if !task.Checkout.WorktreeRemoved {
+		return task.Checkout.Cwd
+	}
+
+	flow, err := s.workflows.GetIncludingArchived(ctx, task.WorkflowID)
+	if err != nil {
+		return ""
+	}
+
+	return flow.Cwd
 }
 
 func findStoreSnapshot(snapshots []reviewstore.Snapshot, id string) *reviewstore.Snapshot {

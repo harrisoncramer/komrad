@@ -6,6 +6,7 @@ import (
 	"context"
 
 	"komrad/internal/agents"
+	"komrad/internal/caller"
 	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/rpc/render"
@@ -25,7 +26,7 @@ type workflowReadWriter interface {
 	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
 	ArchiveWorkflow(ctx context.Context, id string) error
 	RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	DeleteWorkflow(ctx context.Context, id string) error
+	DeleteWorkflow(ctx context.Context, params agents.DeleteWorkflowParams) error
 	ListWorkflows(ctx context.Context, params agents.ListWorkflowsParams) ([]workflowstore.Workflow, error)
 }
 
@@ -135,10 +136,15 @@ func (s *Handler) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWo
 	return &workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored, render.WorkflowOptions{}).Workflow}, nil
 }
 
-// DeleteWorkflow permanently removes an archived workflow, the archived agents still inside
-// it, and the archived schedules that launched into it.
+// DeleteWorkflow removes the worktrees of an archived workflow's tasks, and with records set the
+// workflow for good along with the archived agents still inside it and the archived schedules that
+// launched into it.
 func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.workflows.DeleteWorkflow(ctx, req.GetId()); err != nil {
+	if err := s.workflows.DeleteWorkflow(ctx, agents.DeleteWorkflowParams{
+		ID:        req.GetId(),
+		Records:   req.GetRecords(),
+		ByAgentID: caller.From(ctx).AgentID,
+	}); err != nil {
 		return nil, rpcerr.From(err, "failed to delete workflow")
 	}
 

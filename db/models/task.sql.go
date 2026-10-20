@@ -172,6 +172,26 @@ func (q *Queries) ClaimTaskCheckoutAgain(ctx context.Context, id string) (int64,
 	return result.RowsAffected(), nil
 }
 
+const claimTaskCleanup = `-- name: ClaimTaskCleanup :execrows
+UPDATE
+    tasks
+SET
+    deleting_at = NOW(),
+    cleaning_at = NOW(),
+    failure_reason = ''
+WHERE
+    id = $1
+    AND deleting_at IS NULL
+`
+
+func (q *Queries) ClaimTaskCleanup(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, claimTaskCleanup, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const clearAbandonedTasksDeleting = `-- name: ClearAbandonedTasksDeleting :exec
 UPDATE
     tasks t
@@ -1169,6 +1189,22 @@ SET
 
 func (q *Queries) ReleaseTaskCheckout(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, releaseTaskCheckout, id)
+	return err
+}
+
+const removeTaskWorktree = `-- name: RemoveTaskWorktree :exec
+UPDATE
+    tasks
+SET
+    worktree_removed = TRUE,
+    deleting_at = NULL,
+    cleaning_at = NULL
+WHERE
+    id = $1
+`
+
+func (q *Queries) RemoveTaskWorktree(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, removeTaskWorktree, id)
 	return err
 }
 

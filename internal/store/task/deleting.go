@@ -55,6 +55,30 @@ func (s *TaskStore) ClaimEmpty(ctx context.Context, id string) (bool, error) {
 	return claimed > 0, nil
 }
 
+// ClaimCleanup claims a task no delete holds for the one cleanup that removes its worktree, whatever
+// agents are on it, reporting false when another delete holds it.
+func (s *TaskStore) ClaimCleanup(ctx context.Context, id string) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	claimed, err := s.queries.ClaimTaskCleanup(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to claim task %q for its cleanup: %w", id, err)
+	}
+
+	return claimed > 0, nil
+}
+
+// RecordWorktreeRemoved gives a task back from its delete with its worktree recorded as removed.
+func (s *TaskStore) RecordWorktreeRemoved(ctx context.Context, id string) error {
+	if err := s.queries.RemoveTaskWorktree(ctx, id); err != nil {
+		return fmt.Errorf("failed to record the worktree of task %q as removed: %w", id, err)
+	}
+
+	return nil
+}
+
 // ClearDeleting takes the delete's claim off a task.
 func (s *TaskStore) ClearDeleting(ctx context.Context, id string) error {
 	if err := s.queries.ClearTaskDeleting(ctx, id); err != nil {

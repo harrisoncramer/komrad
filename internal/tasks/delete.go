@@ -65,6 +65,53 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 	return nil
 }
 
+// RemoveWorktrees removes the worktrees of archived tasks and keeps the tasks and their records,
+// leaving a task with the reason when its worktree could not be removed.
+func (s *TaskService) RemoveWorktrees(ctx context.Context, ids []string) error {
+	return errors.Join(xslice.Map(ids, func(id string) error {
+		return s.removeWorktree(ctx, id)
+	})...)
+}
+
+func (s *TaskService) removeWorktree(ctx context.Context, id string) error {
+	claimed, err := s.tasks.ClaimCleanup(ctx, id)
+	if err != nil || !claimed {
+		return err
+	}
+
+	cleanup := context.WithoutCancel(ctx)
+	found, err := s.tasks.Get(cleanup, id)
+	if err != nil {
+		return errors.Join(err, s.tasks.ClearDeleting(cleanup, id))
+	}
+	if !found.Checkout.IsUsable() {
+		return s.tasks.ClearDeleting(cleanup, found.ID)
+	}
+
+	if err := s.tearDown(cleanup, *found); err != nil {
+		failed := fmt.Errorf("%w: task %s: %w", agenterr.ErrTeardownFailed, found.Slug, err)
+
+		return errors.Join(failed, s.tasks.RecordCleanupFailure(cleanup, found.ID, err))
+	}
+
+	if err := s.worktrees.DeleteForTask(cleanup, found.ID); err != nil {
+		return errors.Join(err, s.tasks.ClearDeleting(cleanup, found.ID))
+	}
+
+	return s.tasks.RecordWorktreeRemoved(cleanup, found.ID)
+}
+
+// RemoveWorkflowWorktrees removes the worktrees of every task in an archived workflow and keeps the
+// tasks and their records.
+func (s *TaskService) RemoveWorkflowWorktrees(ctx context.Context, workflowID string) error {
+	ids, err := s.tasks.ListIDsInWorkflow(ctx, workflowID)
+	if err != nil {
+		return err
+	}
+
+	return s.RemoveWorktrees(ctx, ids)
+}
+
 // ClearWorkflow claims every task in a workflow for a delete and removes each one no agent is
 // left on, reporting whether the workflow holds no task afterwards.
 func (s *TaskService) ClearWorkflow(ctx context.Context, workflowID string) (bool, error) {
@@ -95,7 +142,8 @@ func (s *TaskService) ClearWorkflow(ctx context.Context, workflowID string) (boo
 	return len(left) == 0, nil
 }
 
-// tearDown runs a task's pre-delete hooks once any of its hooks still running have finished, then gives back its checkout.
+// tearDown gives back a task's checkout, first running its pre-delete hooks unless they ran when its
+// worktree was removed.
 func (s *TaskService) tearDown(ctx context.Context, task taskstore.Task) error {
 	if s.scripts == nil {
 		return nil
@@ -106,20 +154,26 @@ func (s *TaskService) tearDown(ctx context.Context, task taskstore.Task) error {
 		return err
 	}
 
+	if !task.Checkout.WorktreeRemoved {
+		if err := s.runPreDelete(ctx, task, flow); err != nil {
+			return err
+		}
+	}
+
+	return s.deprovision(ctx, task, flow)
+}
+
+func (s *TaskService) runPreDelete(ctx context.Context, task taskstore.Task, flow *workflowstore.Workflow) error {
 	if err := s.scripts.AwaitHooks(ctx, task.ID); err != nil {
 		return err
 	}
 
-	if err := (moment{
+	return moment{
 		scripts:  s.scripts,
 		workflow: flow,
 		task:     task,
 		event:    workflowstore.HookTaskPreDelete,
-	}.toHookRun().RunInTurn(ctx)); err != nil {
-		return err
-	}
-
-	return s.deprovision(ctx, task, flow)
+	}.toHookRun().RunInTurn(ctx)
 }
 
 func (s *TaskService) deprovision(ctx context.Context, task taskstore.Task, flow *workflowstore.Workflow) error {

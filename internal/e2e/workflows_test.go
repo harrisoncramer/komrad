@@ -88,7 +88,7 @@ func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 		_, err = instance.Workflows.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: workflowID}))
 		require.NoError(t, err)
 
-		_, err = instance.Workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID}))
+		_, err = instance.Workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID, Records: true}))
 		require.NoError(t, err)
 
 		got, err := instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)

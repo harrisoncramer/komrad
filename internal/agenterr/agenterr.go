@@ -40,4 +40,7 @@ var (
 
 	// ErrUnsettled is an agent that could not be seen to come to rest.
 	ErrUnsettled = fail.Precondition("the agent did not stop")
+
+	// ErrDeleteByAgent is an agent deleting a task or a workflow.
+	ErrDeleteByAgent = fail.Denied("only a person deletes tasks and workflows")
 )

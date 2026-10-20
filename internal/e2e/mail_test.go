@@ -110,7 +110,8 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
-			Tasks: []string{migrations.GetTaskId()},
+			Tasks:   []string{migrations.GetTaskId()},
+			Records: true,
 		}))
 		require.NoError(t, err)
 		instance.WorkQueue()

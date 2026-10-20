@@ -64,7 +64,18 @@ func TestReviewOpen(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: "t1"})
 	})
 
-	t.Run("an agent whose directory has gone is not opened", func(t *testing.T) {
+	t.Run("an agent whose worktree was removed opens from its workflow's directory", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.task.WorktreeRemoved = true
+		server.workflow.Cwd = server.repo.Root
+
+		harness := openReview(t, server)
+
+		assert.True(t, harness.panel.IsZoomed())
+		assert.Contains(t, readStage(harness.readFrame()), "greet.go")
+	})
+
+	t.Run("an agent whose worktree was removed in a workflow with no directory is not opened", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.task.WorktreeRemoved = true
 

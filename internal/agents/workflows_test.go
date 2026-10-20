@@ -889,7 +889,7 @@ func TestDeleteWorkflow(t *testing.T) {
 				require.NoError(t, workflows.ArchiveWorkflow(ctx, id))
 			}
 
-			err := workflows.DeleteWorkflow(ctx, id)
+			err := workflows.DeleteWorkflow(ctx, DeleteWorkflowParams{ID: id, Records: true})
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 
@@ -947,7 +947,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
 
-	require.NoError(t, workflows.DeleteWorkflow(ctx, created.ID))
+	require.NoError(t, workflows.DeleteWorkflow(ctx, DeleteWorkflowParams{ID: created.ID, Records: true}))
 
 	got, err := st.Workflows.GetIncludingArchived(ctx, created.ID)
 	require.NoError(t, err)
@@ -956,6 +956,68 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 
 	assert.Equal(t, agentstore.StateFailedToCleanup, agentByID(t, st, agent.ID).State)
 	assert.Empty(t, lifecycle.ranTaskDeprovisions(), "and so is the checkout of its task")
+}
+
+// TestDeleteWorkflowWithoutRecordsKeepsTheWorkflow pins a delete without records removing the
+// worktrees of the workflow's tasks and keeping the workflow, its agents and its tasks archived.
+func TestDeleteWorkflowWithoutRecordsKeepsTheWorkflow(t *testing.T) {
+	st := newStore(t)
+	tmux := tmuxtest.NewFake()
+	lifecycle := &fakeLifecycle{}
+	agentSvc := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
+	workflows := NewWorkflowService(NewWorkflowServiceParams{
+		Workflows:      st.Workflows,
+		Agents:         st.Agents,
+		AgentDeleter:   inlineDelete{lifecycle: agentSvc.lifecycle},
+		EmptyWorkflows: agentSvc.emptied,
+		Schedules:      st.Schedules,
+		Lifecycle:      agentSvc.lifecycle,
+		Tx:             st.Pool,
+	})
+	ctx := t.Context()
+
+	created, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	require.NoError(t, err)
+	agent, err := agentSvc.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
+
+	require.NoError(t, workflows.DeleteWorkflow(ctx, DeleteWorkflowParams{ID: created.ID}))
+
+	got, err := st.Workflows.GetIncludingArchived(ctx, created.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, got.ArchivedAt)
+	assert.Nil(t, got.DeletingAt)
+	assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt)
+	task, err := st.Tasks.Get(ctx, *agent.TaskID)
+	require.NoError(t, err)
+	assert.True(t, task.Checkout.WorktreeRemoved)
+	assert.Equal(t, []string{agent.Cwd}, lifecycle.ranTaskDeprovisions())
+}
+
+// TestDeleteWorkflowRefusesAnAgent pins an agent's delete leaving the workflow archived.
+func TestDeleteWorkflowRefusesAnAgent(t *testing.T) {
+	st := newStore(t)
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake()})
+	ctx := t.Context()
+	created, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
+	require.NoError(t, err)
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
+
+	err = workflows.DeleteWorkflow(ctx, DeleteWorkflowParams{
+		ID:        created.ID,
+		Records:   true,
+		ByAgentID: "01a0d228-0000-7000-8000-0000000000bb",
+	})
+	require.ErrorIs(t, err, agenterr.ErrDeleteByAgent)
+
+	got, err := st.Workflows.GetIncludingArchived(ctx, created.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, got)
 }
 
 type claimOnly struct {
@@ -997,7 +1059,7 @@ func TestDeleteWorkflowClaimsTheWorkflowWhileItsAgentsGo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
 
-	require.NoError(t, workflows.DeleteWorkflow(ctx, created.ID))
+	require.NoError(t, workflows.DeleteWorkflow(ctx, DeleteWorkflowParams{ID: created.ID, Records: true}))
 
 	page, err := st.Workflows.ListPage(ctx, 10, nil, true)
 	require.NoError(t, err)
@@ -1225,7 +1287,7 @@ func TestDeleteWorkflowGivesBackItsTasksCheckouts(t *testing.T) {
 			require.NoError(t, st.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
 			require.NoError(t, workflows.ArchiveWorkflow(t.Context(), created.ID))
 
-			err = workflows.DeleteWorkflow(t.Context(), created.ID)
+			err = workflows.DeleteWorkflow(t.Context(), DeleteWorkflowParams{ID: created.ID, Records: true})
 
 			assert.Equal(t, []string{dir}, lifecycle.ranTaskDeprovisions())
 			_, workflowErr := st.Workflows.GetIncludingArchived(t.Context(), created.ID)

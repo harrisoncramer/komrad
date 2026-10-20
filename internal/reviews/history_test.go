@@ -5,6 +5,8 @@ import (
 
 	"komrad/internal/fail"
 
+	taskstore "komrad/internal/store/task"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,6 +50,15 @@ func TestGetHistoryPicksTheSnapshot(t *testing.T) {
 			wantOrdinal:   1,
 			wantSnapshots: 1,
 			wantNotice:    midSequenceNotice,
+		},
+		{
+			name: "a removed worktree reads the newest snapshot",
+			arrange: func(t *testing.T, fx *reviewFixture) {
+				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+			},
+			wantOrdinal:   1,
+			wantSnapshots: 1,
+			wantNotice:    worktreeRemovedNotice,
 		},
 	}
 

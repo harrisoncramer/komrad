@@ -149,13 +149,6 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			wantScreen: agentsScreen,
 			wantFrame:  `Delete workflow "backend"?`,
 		},
-		{
-			name:       "delete on an archived folder says the agent inside it goes too",
-			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "api-refactor", "w1")},
-			press:      []string{"space", "a", "d"},
-			wantScreen: agentsScreen,
-			wantFrame:  "the one archived agent in it",
-		},
 	}
 
 	for _, tt := range tests {
@@ -171,7 +164,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			frame := harness.readFrame()
 			assert.Equal(t, tt.wantScreen, harness.readScreen())
 			if tt.wantFrame == "" {
-				assert.NotContains(t, readFormProse(frame), deleteRecordsPrompt)
+				assert.NotContains(t, readFormProse(frame), deleteTitle)
 			} else {
 				assert.Contains(t, readFormProse(frame), tt.wantFrame)
 			}
@@ -245,13 +238,13 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 
 			harness.press(tt.press...)
 			if tt.gone != nil {
-				require.Contains(t, readFormProse(harness.readFrame()), deleteRecordsPrompt, "the prompt waits for the row to leave")
+				require.Contains(t, readFormProse(harness.readFrame()), deleteTitle, "the prompt waits for the row to leave")
 				harness.watch(tt.gone)
 			}
 
 			frame := harness.readFrame()
 			assert.Equal(t, agentsScreen, harness.readScreen(), "the prompt returns to the archived agents it was opened from")
-			assert.NotContains(t, readFormProse(frame), deleteRecordsPrompt, "the prompt is down")
+			assert.NotContains(t, readFormProse(frame), deleteTitle, "the prompt is down")
 			harness.assertSent(tt.wantSent...)
 		})
 	}
@@ -1223,6 +1216,12 @@ func TestArchivedTasks(t *testing.T) {
 			agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 		}
 	}
+	removed := buildArchivedTasks()
+	for _, row := range removed {
+		if task, ok := row.(*taskv1.Task); ok && task.GetId() == "t1" {
+			task.WorktreeRemoved = true
+		}
+	}
 	emptied := slices.DeleteFunc(buildArchivedTasks(), func(row proto.Message) bool {
 		agent, ok := row.(*agentv1.Agent)
 
@@ -1272,6 +1271,12 @@ func TestArchivedTasks(t *testing.T) {
 			rows:      unstarted,
 			press:     append(onAPIWork, "space", "a", "o", "ctrl+g"),
 			wantFrame: "no conversation to open",
+		},
+		{
+			name:      "restore and open passes over a task whose worktree was removed",
+			rows:      removed,
+			press:     append(onAPIWork, "space", "a", "o", "ctrl+g"),
+			wantFrame: "no checkout to run in",
 		},
 		{
 			name:  "delete on a task deletes the task",

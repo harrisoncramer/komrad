@@ -121,6 +121,9 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, params ResumeAgentParam
 	if err := agent.ValidateActionable(); err != nil {
 		return nil, err
 	}
+	if err := s.refuseRemovedWorktree(ctx, *agent); err != nil {
+		return nil, err
+	}
 
 	if isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID) {
 		return agent, nil
@@ -160,6 +163,24 @@ func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID stri
 	}
 
 	return errResumeNotYours.Saying("%s may not resume %s", asker.Name, target.Name)
+}
+
+// refuseRemovedWorktree refuses relaunching an agent on a task whose worktree was removed, which
+// would start it in an empty directory.
+func (s *ResumeService) refuseRemovedWorktree(ctx context.Context, agent agentstore.Agent) error {
+	if agent.TaskID == nil {
+		return nil
+	}
+
+	task, err := s.tasks.GetAgentTask(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("failed to read the task of %q: %w", agent.Name, err)
+	}
+	if task.Checkout.WorktreeRemoved {
+		return tasks.ErrWorktreeRemoved.Saying("task %q's worktree was removed, so %q has no checkout to run in", task.Slug, agent.Name)
+	}
+
+	return nil
 }
 
 // lockTree holds a task writer's checkout for its launch, refusing one komrad is moving.

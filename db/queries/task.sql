@@ -337,6 +337,27 @@ WHERE
         WHERE
             a.task_id = t.id);
 
+-- name: ClaimTaskCleanup :execrows
+UPDATE
+    tasks
+SET
+    deleting_at = NOW(),
+    cleaning_at = NOW(),
+    failure_reason = ''
+WHERE
+    id = sqlc.arg('id')
+    AND deleting_at IS NULL;
+
+-- name: RemoveTaskWorktree :exec
+UPDATE
+    tasks
+SET
+    worktree_removed = TRUE,
+    deleting_at = NULL,
+    cleaning_at = NULL
+WHERE
+    id = sqlc.arg('id');
+
 -- name: ClearTaskDeleting :exec
 UPDATE
     tasks

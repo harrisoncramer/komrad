@@ -1380,12 +1380,12 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
 	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
 	"\x12WORKTREE_FATE_LIVE\x10\x03\x12\x1a\n" +
-	"\x16WORKTREE_FATE_DELETING\x10\x042\x89\t\n" +
+	"\x16WORKTREE_FATE_DELETING\x10\x042\xf8\b\n" +
 	"\x0fWorktreeService\x12\xe3\x01\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\x95\x01\x9a\xb5\x18\x8d\x01\b\x01\x10\x01\x1a\x0elist_worktrees\"tList every worktree with its repository, branch, agents and last measured size. The call runs no git, so it is fast.:\x01\x02\x90\x02\x01\x12\x8e\x02\n" +
 	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\fget_worktree\"\x9b\x01Read one worktree: its size and largest entries, its uncommitted changes, and how it compares with the base branch. Set `fetch` to fetch from origin first.:\x01\x02\x90\x02\x01\x12\x97\x02\n" +
-	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xa3\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"vRemove worktrees that no agent or task owns, such as those `list_worktrees` marks unowned. Branches are never deleted.(\x01:\x01\x02\x90\x02\x02\x12\xe4\x02\n" +
-	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\x93\x02\x9a\xb5\x18\x8b\x02\b\x01\x1a\x10delete_worktrees\"sQueue worktrees for deletion in the background, each as its fate says. Komrad skips any worktree with a live agent.(\x01B~The call returns no outcome, and `delete_tasks` and `remove_unowned_worktrees` already delete worktrees and report the result.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
+	"\x16RemoveUnownedWorktrees\x12*.worktree.v1.RemoveUnownedWorktreesRequest\x1a+.worktree.v1.RemoveUnownedWorktreesResponse\"\xa3\x01\x9a\xb5\x18\x9b\x01\b\x01\x10\x01\x1a\x18remove_unowned_worktrees\"vRemove worktrees that no agent or task owns, such as those `list_worktrees` marks unowned. Branches are never deleted.(\x01:\x01\x02\x90\x02\x02\x12\xd3\x02\n" +
+	"\x0fDeleteWorktrees\x12#.worktree.v1.DeleteWorktreesRequest\x1a\x16.google.protobuf.Empty\"\x82\x02\x9a\xb5\x18\xfa\x01\b\x01\x1a\x10delete_worktrees\"sQueue worktrees for deletion in the background, each as its fate says. Komrad skips any worktree with a live agent.(\x01BmThe call returns no outcome, and `remove_unowned_worktrees` already deletes worktrees and reports the result.\x90\x02\x02B)Z'komrad/proto/gen/worktree/v1;worktreev1b\x06proto3"
 
 var (
 	file_worktree_v1_worktree_proto_rawDescOnce sync.Once

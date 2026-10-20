@@ -1613,7 +1613,7 @@ func TestDeleteTasksRefusesATaskNothingHolds(t *testing.T) {
 	fx := newTaskDeleteFixture(t, &fakeLifecycle{}, worktreeConfig(t, "backend"))
 	agent, task := fx.launch(t, "auth")
 
-	err := fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.Slug, "no-such-task"})
+	err := fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.Slug, "no-such-task"}, Records: true})
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
@@ -1630,7 +1630,7 @@ func TestDeleteTasksGivesBackATaskAnAgentWillNotLeave(t *testing.T) {
 	fx := newTaskDeleteFixture(t, lifecycle, refusingConfig(t, "backend"))
 	agent, task := fx.launch(t, "auth")
 
-	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.ID}))
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.ID}, Records: true}))
 
 	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
 	require.NoError(t, err)
@@ -1647,7 +1647,7 @@ func TestDeleteTasksKeepsATaskWhoseCheckoutWillNotGo(t *testing.T) {
 	fx := newTaskDeleteFixture(t, lifecycle, worktreeConfig(t, "backend"))
 	_, task := fx.launch(t, "auth")
 
-	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.ID}), "the agent delete reports the failure itself")
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.ID}, Records: true}), "the agent delete reports the failure itself")
 
 	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
 	require.NoError(t, err)
@@ -1659,7 +1659,7 @@ func TestDeleteTasksKeepsATaskWhoseCheckoutWillNotGo(t *testing.T) {
 	assert.Len(t, archived, 1, "it is back in the archive")
 
 	lifecycle.taskDeprovisionErr = nil
-	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.ID}))
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.ID}, Records: true}))
 
 	_, err = fx.st.Tasks.Get(t.Context(), task.ID)
 	require.ErrorIs(t, err, store.ErrNotFound, "a second delete takes it")
@@ -1683,7 +1683,7 @@ func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{task.Slug}))
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.Slug}, Records: true}))
 
 	_, err = fx.st.Tasks.Get(t.Context(), task.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
@@ -1697,4 +1697,76 @@ func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, left, 1, "only the agent on the other task is left")
 	assert.Equal(t, other.ID, *left[0].TaskID)
+}
+
+// TestDeleteTasksWithoutRecordsKeepsTheTask pins a delete without records removing only the worktree,
+// and a later delete with records taking the task without running its pre-delete hooks again.
+func TestDeleteTasksWithoutRecordsKeepsTheTask(t *testing.T) {
+	lifecycle := &fakeLifecycle{dir: t.TempDir()}
+	fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreDelete, true))
+	agent, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
+	require.NoError(t, err)
+	reviews := reviewstore.NewReviewStore(fx.st.Pool.GetDB())
+	_, err = reviews.CreateSnapshot(t.Context(), reviewstore.CreateSnapshotParams{
+		TaskID:  *agent.TaskID,
+		BaseSHA: "base",
+		SHA:     "sha",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{*agent.TaskID}}))
+
+	kept, err := fx.st.Tasks.Get(t.Context(), *agent.TaskID)
+	require.NoError(t, err)
+	assert.NotNil(t, kept.ArchivedAt)
+	assert.Nil(t, kept.DeletingAt)
+	assert.True(t, kept.Checkout.WorktreeRemoved)
+	assert.Equal(t, agent.Cwd, kept.Checkout.Cwd)
+	assert.NotNil(t, agentByID(t, fx.st, agent.ID).ArchivedAt, "the agent is archived, not deleted")
+	snapshots, err := reviews.ListSnapshots(t.Context(), kept.ID)
+	require.NoError(t, err)
+	assert.Len(t, snapshots, 1)
+	assert.Equal(t, []string{agent.Cwd}, lifecycle.ranTaskDeprovisions())
+	assert.Len(t, lifecycle.ranTaskHooks(), 1)
+
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{kept.ID}, Records: true}))
+
+	_, err = fx.st.Tasks.Get(t.Context(), kept.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
+	assert.Len(t, lifecycle.ranTaskHooks(), 1, "the pre-delete hooks ran with the worktree")
+}
+
+// TestDeleteTasksWithoutRecordsKeepsAWorktreeThatWillNotGo pins a failed deprovision leaving the
+// worktree recorded in place, with the reason.
+func TestDeleteTasksWithoutRecordsKeepsAWorktreeThatWillNotGo(t *testing.T) {
+	lifecycle := &fakeLifecycle{taskDeprovisionErr: errors.New("worktree is dirty")}
+	fx := newTaskDeleteFixture(t, lifecycle, worktreeConfig(t, "backend"))
+	_, task := fx.launch(t, "auth")
+
+	err := fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.ID}})
+	require.ErrorIs(t, err, agenterr.ErrTeardownFailed)
+
+	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, kept.ArchivedAt)
+	assert.Nil(t, kept.DeletingAt)
+	assert.False(t, kept.Checkout.WorktreeRemoved)
+	assert.Contains(t, kept.FailureReason, "worktree is dirty")
+}
+
+// TestDeleteTasksRefusesAnAgent pins an agent's delete leaving the task as it was.
+func TestDeleteTasksRefusesAnAgent(t *testing.T) {
+	fx := newTaskDeleteFixture(t, &fakeLifecycle{}, worktreeConfig(t, "backend"))
+	agent, task := fx.launch(t, "auth")
+
+	err := fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{
+		Refs:      []string{task.ID},
+		Records:   true,
+		ByAgentID: agent.ID,
+	})
+	require.ErrorIs(t, err, agenterr.ErrDeleteByAgent)
+
+	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.Nil(t, kept.ArchivedAt)
 }

@@ -1159,7 +1159,7 @@ func TestTaskPreDelete(t *testing.T) {
 			if tt.deleteAgentOnly {
 				require.NoError(t, fx.agents.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 			} else {
-				require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), []string{*agent.TaskID}))
+				require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{*agent.TaskID}, Records: true}))
 			}
 
 			kept, err := fx.st.Tasks.Get(t.Context(), *agent.TaskID)

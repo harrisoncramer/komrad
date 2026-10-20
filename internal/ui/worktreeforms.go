@@ -58,12 +58,7 @@ func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
 			})(m)
 		},
 		rebuild: func(m *model) (*huh.Form, []string) {
-			warning := c.warning
-			if c.values != nil {
-				warning = strings.TrimSpace(warning + " " + c.values.warning())
-			}
-
-			confirm := confirmField(&confirmed, warning+describeStanding(m.inspections, c.dirs), "Delete")
+			confirm := confirmField(&confirmed, strings.TrimSpace(c.warning+describeStanding(m.inspections, c.dirs)), "Delete")
 			if c.values == nil {
 				return formOf(fixedKeys(), confirm.Title(c.title))
 			}
@@ -129,6 +124,13 @@ func describeStanding(inspections map[string]worktreeInspection, dirs []string) 
 		fmt.Fprintf(&b, " The worktrees have %s.", counts)
 	default:
 		fmt.Fprintf(&b, " The %s %s.", label.Count(read, "worktree Komrad read has", "worktrees Komrad read have"), counts)
+	}
+	switch {
+	case len(files) == 0 && commits == 0:
+	case worktrees == 1:
+		b.WriteString(" Deleting the worktree loses that work for good.")
+	default:
+		b.WriteString(" Deleting the worktrees loses that work for good.")
 	}
 	if uncounted > 0 {
 		fmt.Fprintf(&b, " Without a base, Komrad cannot count the unpushed commits of %s.", which(uncounted))

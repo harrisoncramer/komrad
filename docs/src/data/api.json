@@ -1049,10 +1049,8 @@
           "path": "/workflow.v1.WorkflowService/DeleteWorkflow",
           "command": "komrad rpc delete-workflow",
           "tool": "delete_workflow",
-          "mcp": true,
-          "roles": [
-            "orchestrator"
-          ],
+          "mcp": false,
+          "roles": [],
           "summary": "Delete the worktrees of an archived workflow's tasks.",
           "description": "Delete the worktrees of an archived workflow's tasks. With records set, delete the workflow for good too, with its archived agents, tasks and schedules.",
           "readOnly": false,
@@ -1798,10 +1796,8 @@
           "path": "/task.v1.TaskService/DeleteTasks",
           "command": "komrad rpc delete-tasks",
           "tool": "delete_tasks",
-          "mcp": true,
-          "roles": [
-            "orchestrator"
-          ],
+          "mcp": false,
+          "roles": [],
           "summary": "Delete tasks' worktrees, by id or slug, archiving the tasks first.",
           "description": "Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews.",
           "readOnly": false,

@@ -291,21 +291,40 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	return w.workflows.Get(ctx, id)
 }
 
-// DeleteWorkflow permanently removes an archived workflow along with whatever archived agents
-// and schedules are still inside it.
-func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
-	existing, err := w.workflows.GetIncludingArchived(ctx, id)
+// DeleteWorkflowParams is the archived workflow to delete, whether its records go too, and the
+// agent asking.
+type DeleteWorkflowParams struct {
+	ID string
+	// Records deletes the workflow for good, with its archived agents, tasks and schedules, rather
+	// than only its tasks' worktrees.
+	Records bool
+	// ByAgentID is the agent asking, empty for the panel.
+	ByAgentID string
+}
+
+// DeleteWorkflow removes the worktrees of an archived workflow's tasks, or with records set
+// deletes the workflow for good along with the archived agents and schedules inside it.
+func (w *WorkflowService) DeleteWorkflow(ctx context.Context, params DeleteWorkflowParams) error {
+	if params.ByAgentID != "" {
+		return agenterr.ErrDeleteByAgent
+	}
+
+	existing, err := w.workflows.GetIncludingArchived(ctx, params.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		return agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
+		return agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", params.ID)
 	}
 	if err != nil {
 		return err
 	}
 	if existing.ArchivedAt == nil {
-		return agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
+		return agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", params.ID)
 	}
 
-	inside, err := w.agents.ListArchivedInWorkflow(ctx, id)
+	if !params.Records {
+		return w.lifecycle.tasks.RemoveWorkflowWorktrees(ctx, existing.ID)
+	}
+
+	inside, err := w.agents.ListArchivedInWorkflow(ctx, existing.ID)
 	if err != nil {
 		return err
 	}
