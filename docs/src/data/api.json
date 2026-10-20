@@ -681,8 +681,8 @@
           "roles": [
             "reviewer"
           ],
-          "summary": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `snapshot_sha`.",
-          "description": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.",
+          "summary": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`.",
+          "description": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -876,7 +876,7 @@
             "orchestrator"
           ],
           "summary": "List the snapshots of a task, the caller's task by default, oldest first.",
-          "description": "List the snapshots of a task, the caller's task by default, oldest first. Diff one snapshot's `snapshot_sha` against the next to see what changed between them.",
+          "description": "List the snapshots of a task, the caller's task by default, oldest first. Diff one snapshot's `sha` against the next to see what changed between them.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
