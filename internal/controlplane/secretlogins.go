@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"sync"
 
+	"komrad/internal/forge"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
-
-	"komrad/internal/forge"
 )
 
 // secretReadWriter is the part of Secrets Manager the login store calls.
