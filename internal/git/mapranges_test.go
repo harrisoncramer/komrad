@@ -342,7 +342,7 @@ func TestIntegrationATracedLineHoldsItsContent(t *testing.T) {
 
 	const fileLines = 40
 
-	for round := range 40 {
+	for snapshot := range 40 {
 		root := repo(t)
 		write(t, root, "counted.go", numbered(fileLines))
 		from := commitAll(t, root, "counted")
@@ -375,11 +375,11 @@ func TestIntegrationATracedLineHoldsItsContent(t *testing.T) {
 		written := strings.Split(strings.TrimSuffix(next, "\n"), "\n")
 		for index, result := range results {
 			require.Equal(t, position.Placed, result.Outcome,
-				"round %d refused line %d, which nothing touched", round, kept[index])
+				"snapshot %d refused line %d, which nothing touched", snapshot, kept[index])
 			require.LessOrEqual(t, result.Position.Lines.Start, len(written))
 			assert.Equal(t, fmt.Sprintf("original %d", kept[index]),
 				written[result.Position.Lines.Start-1],
-				"round %d moved line %d onto the wrong content", round, kept[index])
+				"snapshot %d moved line %d onto the wrong content", snapshot, kept[index])
 		}
 	}
 }

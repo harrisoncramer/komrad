@@ -195,7 +195,7 @@ func describeThread(thread *agentv1.ReviewThread) string {
 func threadsHeading(role agentv1.AgentRole, count int) string {
 	if role == agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 		return fmt.Sprintf("Your open threads on the work you review (%d). Re-read them with list_review_threads, "+
-			"take a fresh round, and resolve each one that is settled or release another review:", count)
+			"take a fresh snapshot, and resolve each one that is settled or release another review:", count)
 	}
 
 	return fmt.Sprintf("Open review threads on your work (%d), answered with add_review_message:", count)

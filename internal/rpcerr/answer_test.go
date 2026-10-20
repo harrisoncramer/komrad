@@ -82,7 +82,7 @@ func TestWrapCodes(t *testing.T) {
 		{agenterr.ErrWriterGoesWithTask, connect.CodeFailedPrecondition},
 		{agenterr.ErrTaskArchived, connect.CodeFailedPrecondition},
 		{agenterr.ErrReviewerNeedsDirectory, connect.CodeFailedPrecondition},
-		{reviews.ErrReviewNoRound, connect.CodeFailedPrecondition},
+		{reviews.ErrReviewNoSnapshot, connect.CodeFailedPrecondition},
 		{checkouts.ErrRebaseShallow, connect.CodeFailedPrecondition},
 		{checkouts.ErrRebaseHiddenPaths, connect.CodeFailedPrecondition},
 		{agents.ErrHookFailed, connect.CodeFailedPrecondition},

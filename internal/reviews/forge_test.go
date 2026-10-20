@@ -23,7 +23,7 @@ type forgeMirrored struct {
 	released []Released
 }
 
-// TestForgeMirror covers forge threads mirrored onto the writer's round, each comment held from the agent when its author cannot push.
+// TestForgeMirror covers forge threads mirrored onto the writer's snapshot, each comment held from the agent when its author cannot push.
 func TestForgeMirror(t *testing.T) {
 	tests := []struct {
 		name        string

@@ -25,8 +25,8 @@ type reviewConversation interface {
 	EditReviewMessage(ctx context.Context, params reviews.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
 	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
-	OpenRound(ctx context.Context, task string, author reviews.ReviewAuthor) (*reviewstore.Round, error)
-	ListRounds(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Round, error)
+	TakeSnapshot(ctx context.Context, task string, author reviews.ReviewAuthor) (*reviewstore.Snapshot, error)
+	ListSnapshots(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Snapshot, error)
 	GetHistory(ctx context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error)
 	ListReviews(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
 	GetReview(ctx context.Context, reviewID string, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
@@ -153,17 +153,17 @@ func (s *Handler) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetR
 	}, nil
 }
 
-// OpenReviewRound freezes a task's checkout and records it as the task's next round.
-func (s *Handler) OpenReviewRound(ctx context.Context, req *agentv1.OpenReviewRoundRequest) (*agentv1.OpenReviewRoundResponse, *fail.Error) {
-	round, err := s.review.OpenRound(ctx, req.GetTask(), reviewAuthorFrom(ctx))
+// TakeReviewSnapshot freezes a task's checkout and records it as the task's next snapshot.
+func (s *Handler) TakeReviewSnapshot(ctx context.Context, req *agentv1.TakeReviewSnapshotRequest) (*agentv1.TakeReviewSnapshotResponse, *fail.Error) {
+	snapshot, err := s.review.TakeSnapshot(ctx, req.GetTask(), reviewAuthorFrom(ctx))
 	if err != nil {
-		return nil, rpcerr.From(err, "failed to open a review round")
+		return nil, rpcerr.From(err, "failed to take a review snapshot")
 	}
 
-	return &agentv1.OpenReviewRoundResponse{Round: render.ReviewRound(*round)}, nil
+	return &agentv1.TakeReviewSnapshotResponse{Snapshot: render.ReviewSnapshot(*snapshot)}, nil
 }
 
-// OpenReviewHistory opens a task's review as the panel draws it, freezing a round when none holds the worktree.
+// OpenReviewHistory opens a task's review as the panel draws it, freezing a snapshot when none holds the worktree.
 func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReviewHistoryRequest) (*agentv1.OpenReviewHistoryResponse, *fail.Error) {
 	opened, err := s.review.GetHistory(ctx, reviews.GetHistoryParams{
 		Task:   req.GetTask(),
@@ -179,36 +179,36 @@ func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReview
 
 func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 	switch {
-	case req.GetRounds() != nil:
-		return history.Span{Rounds: &history.RoundSpan{
-			FromRoundID: req.GetRounds().GetFromRoundId(),
-			ToRoundID:   req.GetRounds().GetToRoundId(),
+	case req.GetSnapshots() != nil:
+		return history.Span{Snapshots: &history.SnapshotSpan{
+			FromSnapshotID: req.GetSnapshots().GetFromSnapshotId(),
+			ToSnapshotID:   req.GetSnapshots().GetToSnapshotId(),
 		}}
 	case req.GetAnswer() != nil:
 		return history.Span{Answer: &history.AnswerSpan{
-			FromRoundID: req.GetAnswer().GetFromRoundId(),
-			ToRoundID:   req.GetAnswer().GetToRoundId(),
+			FromSnapshotID: req.GetAnswer().GetFromSnapshotId(),
+			ToSnapshotID:   req.GetAnswer().GetToSnapshotId(),
 		}}
 	case req.GetOrigin() != nil:
 		return history.Span{Origin: &history.OriginSpan{
-			RoundID: req.GetOrigin().GetRoundId(),
-			BaseSHA: req.GetOrigin().GetBaseSha(),
+			SnapshotID: req.GetOrigin().GetSnapshotId(),
+			BaseSHA:    req.GetOrigin().GetBaseSha(),
 		}}
 	}
 
 	return history.Span{}
 }
 
-// ListReviewRounds reads every round taken of a task.
-func (s *Handler) ListReviewRounds(ctx context.Context, req *agentv1.ListReviewRoundsRequest) (*agentv1.ListReviewRoundsResponse, *fail.Error) {
-	rounds, err := s.review.ListRounds(ctx, req.GetTask(), reviewAuthorFrom(ctx))
+// ListReviewSnapshots reads every snapshot taken of a task.
+func (s *Handler) ListReviewSnapshots(ctx context.Context, req *agentv1.ListReviewSnapshotsRequest) (*agentv1.ListReviewSnapshotsResponse, *fail.Error) {
+	snapshots, err := s.review.ListSnapshots(ctx, req.GetTask(), reviewAuthorFrom(ctx))
 	if err != nil {
-		return nil, rpcerr.From(err, "failed to list the review rounds")
+		return nil, rpcerr.From(err, "failed to list the review snapshots")
 	}
 
-	answered := xslice.Map(rounds, render.ReviewRound)
+	answered := xslice.Map(snapshots, render.ReviewSnapshot)
 
-	return &agentv1.ListReviewRoundsResponse{Rounds: answered}, nil
+	return &agentv1.ListReviewSnapshotsResponse{Snapshots: answered}, nil
 }
 
 // ListReviews reads every review given on a task.
@@ -231,9 +231,9 @@ func (s *Handler) GetReview(ctx context.Context, req *agentv1.GetReviewRequest) 
 	}
 
 	return &agentv1.GetReviewResponse{
-		Review:  render.Review(review.Review),
-		Round:   render.ReviewRound(review.Round),
-		Threads: xslice.Map(review.Threads, render.ReviewThreadInContext),
+		Review:   render.Review(review.Review),
+		Snapshot: render.ReviewSnapshot(review.Snapshot),
+		Threads:  xslice.Map(review.Threads, render.ReviewThreadInContext),
 	}, nil
 }
 

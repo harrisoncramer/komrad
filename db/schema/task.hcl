@@ -91,10 +91,10 @@ table "tasks" {
     type    = integer
     comment = "How many lines the task's checkout removes since it left its base, null whenever lines_added is."
   }
-  column "moved_since_round" {
+  column "moved_since_snapshot" {
     null    = true
     type    = text
-    comment = "The snapshot of the newest review round of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no round."
+    comment = "The commit of the newest review snapshot of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no snapshot."
   }
   column "parent_task_id" {
     null    = true
@@ -104,7 +104,7 @@ table "tasks" {
   column "fork_point" {
     null    = true
     type    = text
-    comment = "The fork point, the commit of the parent's branch this task's own commits sit on, which rounds and line counts measure from; null while the task has no parent."
+    comment = "The fork point, the commit of the parent's branch this task's own commits sit on, which snapshots and line counts measure from; null while the task has no parent."
   }
   column "parent_pull_request_id" {
     null    = true

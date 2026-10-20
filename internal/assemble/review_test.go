@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TestTaskRowsLocalReview pins the rounds a row counts: released rounds, each once, against the
+// TestTaskRowsLocalReview pins the snapshots a row counts: released snapshots, each once, against the
 // task whose work went round.
 func TestTaskRowsLocalReview(t *testing.T) {
 	t.Parallel()
@@ -24,9 +24,9 @@ func TestTaskRowsLocalReview(t *testing.T) {
 	commented := agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
 
 	tests := []struct {
-		name    string
-		reviews []*agentv1.WatchedReview
-		rounds  int32
+		name      string
+		reviews   []*agentv1.WatchedReview
+		snapshots int32
 	}{
 		{
 			name: "no review is nothing",
@@ -40,21 +40,21 @@ func TestTaskRowsLocalReview(t *testing.T) {
 			reviews: []*agentv1.WatchedReview{review("v1", older, 1, stamp(-time.Hour), commented)},
 		},
 		{
-			name: "two reviews of one round count it once",
+			name: "two reviews of one snapshot count it once",
 			reviews: []*agentv1.WatchedReview{
 				review("v1", newer, 1, stamp(-time.Hour), commented),
 				review("v2", newer, 1, stamp(-2*time.Hour), commented),
 			},
-			rounds: 1,
+			snapshots: 1,
 		},
 		{
-			name: "every released round counts",
+			name: "every released snapshot counts",
 			reviews: []*agentv1.WatchedReview{
 				review("v1", newer, 1, stamp(-3*time.Hour), commented),
 				review("v2", newer, 2, stamp(-2*time.Hour), commented),
 				review("v3", newer, 3, stamp(-time.Hour), commented),
 			},
-			rounds: 3,
+			snapshots: 3,
 		},
 	}
 	for _, tt := range tests {
@@ -69,14 +69,14 @@ func TestTaskRowsLocalReview(t *testing.T) {
 				world.Reviews[review.GetId()] = review
 			}
 
-			assert.Equal(t, tt.rounds, assemble.TaskRows(world)["task-"+newer].LocalReviewRounds)
+			assert.Equal(t, tt.snapshots, assemble.TaskRows(world)["task-"+newer].LocalReviewSnapshots)
 		})
 	}
 }
 
 // TestTaskRowsCommentCounts pins how the comments on a task's work are counted: reviewer
-// agents apart from the person, open conversations on any round, resolved ones only until their
-// round lands, and nothing from a batch still being written.
+// agents apart from the person, open conversations on any snapshot, resolved ones only until their
+// snapshot lands, and nothing from a batch still being written.
 func TestTaskRowsCommentCounts(t *testing.T) {
 	t.Parallel()
 
@@ -96,7 +96,7 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 			threads: []*agentv1.ReviewThread{thread("t1", "v1", false, true)},
 		},
 		{
-			name:    "a released review of a landed round with every conversation resolved draws nothing",
+			name:    "a released review of a landed snapshot with every conversation resolved draws nothing",
 			reviews: []*agentv1.WatchedReview{landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed)},
 			threads: []*agentv1.ReviewThread{thread("t1", "v1", true, false)},
 		},
@@ -105,7 +105,7 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, stamp(-time.Hour), commented)},
 		},
 		{
-			name: "an open conversation on a landed round still counts",
+			name: "an open conversation on a landed snapshot still counts",
 			reviews: []*agentv1.WatchedReview{
 				landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed),
 			},
@@ -190,8 +190,8 @@ func TestAgentRowsLocalReviewOnTheWriter(t *testing.T) {
 	rows := assemble.AgentRows(world, now)
 	require.Len(t, rows, 2)
 	assert.Equal(t, newer, rows[0].GetAgent().GetId())
-	assert.Equal(t, int32(1), rows[0].GetLocalReviewRounds())
-	assert.Zero(t, rows[1].GetLocalReviewRounds())
+	assert.Equal(t, int32(1), rows[0].GetLocalReviewSnapshots())
+	assert.Zero(t, rows[1].GetLocalReviewSnapshots())
 }
 
 // TestApplyReview pins that a review put and dropped by the watch is what the rows count.
@@ -202,21 +202,21 @@ func TestApplyReview(t *testing.T) {
 	world.Apply(put(agentRow(agent(newer))))
 	changed := world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Review{Review: review("v1", newer, 1, stamp(-time.Hour), agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)}}))
 	assert.Equal(t, map[watchv1.Resource][]string{watchv1.Resource_RESOURCE_REVIEW: {"v1"}}, changed.Keys)
-	assert.Equal(t, int32(1), assemble.AgentRows(world, now)[0].GetLocalReviewRounds())
+	assert.Equal(t, int32(1), assemble.AgentRows(world, now)[0].GetLocalReviewSnapshots())
 
 	world.Apply(deleted(watchv1.Resource_RESOURCE_REVIEW, "v1"))
 	assert.Empty(t, world.Reviews)
-	assert.Zero(t, assemble.AgentRows(world, now)[0].GetLocalReviewRounds())
+	assert.Zero(t, assemble.AgentRows(world, now)[0].GetLocalReviewSnapshots())
 }
 
 func review(id, agentID string, ordinal int32, releasedAt string, verdict agentv1.ReviewVerdict) *agentv1.WatchedReview {
 	watched := &agentv1.WatchedReview{
-		Id:               id,
-		TaskId:           "task-" + agentID,
-		RoundId:          agentID + "-round-" + strconv.Itoa(int(ordinal)),
-		RoundOrdinal:     ordinal,
-		RoundSnapshotSha: "snapshot-" + strconv.Itoa(int(ordinal)),
-		ReleasedAt:       releasedAt,
+		Id:              id,
+		TaskId:          "task-" + agentID,
+		SnapshotId:      agentID + "-snapshot-" + strconv.Itoa(int(ordinal)),
+		SnapshotOrdinal: ordinal,
+		SnapshotSha:     "snapshot-" + strconv.Itoa(int(ordinal)),
+		ReleasedAt:      releasedAt,
 	}
 	if releasedAt != "" {
 		watched.Verdict = verdict
@@ -226,7 +226,7 @@ func review(id, agentID string, ordinal int32, releasedAt string, verdict agentv
 }
 
 func landedOn(review *agentv1.WatchedReview, at string) *agentv1.WatchedReview {
-	review.RoundLandedAt = at
+	review.SnapshotLandedAt = at
 
 	return review
 }

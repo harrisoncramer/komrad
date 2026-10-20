@@ -43,11 +43,11 @@ func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
 	require.NoError(t, err)
 	require.Len(t, stored, 1)
 
-	round := st.openRound(t, agentID, "tree-one")
+	snapshot := st.takeSnapshot(t, agentID, "tree-one")
 	mirrored, err := st.CreateThread(ctx, CreateThreadParams{
 		TaskID:        st.taskOf(t, agentID),
-		ReviewID:      st.openForgeReview(t, round, "alice").ID,
-		RoundID:       round.ID,
+		ReviewID:      st.openForgeReview(t, snapshot, "alice").ID,
+		SnapshotID:    snapshot.ID,
 		FilePath:      "internal/thing.go",
 		NewStart:      41,
 		NewEnd:        41,
@@ -60,8 +60,8 @@ func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
 
 	local, err := st.CreateThread(ctx, CreateThreadParams{
 		TaskID:      st.taskOf(t, agentID),
-		ReviewID:    st.openReview(t, round).ID,
-		RoundID:     round.ID,
+		ReviewID:    st.openReview(t, snapshot).ID,
+		SnapshotID:  snapshot.ID,
 		FilePath:    "internal/thing.go",
 		NewStart:    41,
 		NewEnd:      41,

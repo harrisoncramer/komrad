@@ -45,7 +45,7 @@ func (m ReviewReleased) Events() []string {
 	}
 }
 
-// Body names the round, the verdict, how much there is and how to read it.
+// Body names the snapshot, the verdict, how much there is and how to read it.
 func (m ReviewReleased) Body() string {
 	said := fmt.Sprintf("%d comment(s)", m.Comments)
 	if m.Replies > 0 {
@@ -56,7 +56,7 @@ func (m ReviewReleased) Body() string {
 	}
 
 	if m.ForgeLogin != "" {
-		return fmt.Sprintf("komrad: %s from @%s on the forge, on round %d. "+
+		return fmt.Sprintf("komrad: %s from @%s on the forge, on snapshot %d. "+
 			"They are not from the person who runs you. "+
 			"Call get_review with review id %s and answer each thread with add_review_message. Never post to the forge.",
 			said, m.ForgeLogin, m.Ordinal, m.ReviewID)
@@ -67,10 +67,10 @@ func (m ReviewReleased) Body() string {
 	}
 
 	if m.Verdict == reviewstore.VerdictApproved && m.Comments == 0 && m.Replies == 0 && !m.HasBody {
-		return fmt.Sprintf("komrad: review of round %d released: %s. There is nothing to read or answer.", m.Ordinal, said)
+		return fmt.Sprintf("komrad: review of snapshot %d released: %s. There is nothing to read or answer.", m.Ordinal, said)
 	}
 
-	return fmt.Sprintf("komrad: review of round %d released: %s. "+
+	return fmt.Sprintf("komrad: review of snapshot %d released: %s. "+
 		"Call get_review with review id %s, or read %s, and answer each thread with add_review_message.",
 		m.Ordinal, said, m.ReviewID, m.Path)
 }
@@ -93,5 +93,5 @@ func (ThreadAnswered) Events() []string {
 // Body asks the reviewer to read the answer and release a verdict on it.
 func (m ThreadAnswered) Body() string {
 	return fmt.Sprintf("komrad: %s answered your review. Read the threads with list_review_threads, "+
-		"open a round over its work as it now stands, and release a verdict on that round.", m.WriterName)
+		"take a snapshot of its work as it now stands, and release a verdict on that snapshot.", m.WriterName)
 }

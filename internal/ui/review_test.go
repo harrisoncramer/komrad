@@ -74,9 +74,9 @@ func TestReviewOpen(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
 	})
 
-	t.Run("an agent part way through a rebase opens on its newest round", func(t *testing.T) {
+	t.Run("an agent part way through a rebase opens on its newest snapshot", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.openErr = connect.NewError(connect.CodeFailedPrecondition, errors.New("a rebase is part way through"))
+		server.takeErr = connect.NewError(connect.CodeFailedPrecondition, errors.New("a rebase is part way through"))
 
 		harness := openReview(t, server)
 
@@ -874,7 +874,7 @@ func TestReviewViewed(t *testing.T) {
 		assert.False(t, unmarked.GetViewed())
 	})
 
-	t.Run("a mark holds while the tree is unmoved and a new round has read nothing", func(t *testing.T) {
+	t.Run("a mark holds while the tree is unmoved and a new snapshot has read nothing", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
@@ -1305,12 +1305,12 @@ func TestReviewReload(t *testing.T) {
 		assert.True(t, harness.panel.IsZoomed())
 	})
 
-	t.Run("the reload key opens the next round where the reader stood", func(t *testing.T) {
+	t.Run("the reload key opens the next snapshot where the reader stood", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 		harness.press("j", "j")
 
-		server.repo.Wrote(newRoundWrittenOver())
+		server.repo.Wrote(newSnapshotWrittenOver())
 		harness.press("space", "R")
 
 		frame := harness.readFrame()
@@ -1351,8 +1351,8 @@ func TestReviewReload(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
@@ -1364,11 +1364,11 @@ func TestReviewReload(t *testing.T) {
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 	})
 
-	t.Run("a move from a round other than the one on screen is not followed", func(t *testing.T) {
+	t.Run("a move from a snapshot other than the one on screen is not followed", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
-		server.task.MovedSinceRound = "snapshot-of-another-round"
+		server.task.MovedSinceSnapshot = "commit-of-another-snapshot"
 		harness.watch(server.buildSnapshot())
 
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 1)
@@ -1379,8 +1379,8 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 		harness.press("/", "a")
 
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		assert.NotContains(t, harness.readFrame(), "written by the agent")
 
@@ -1394,8 +1394,8 @@ func TestReviewReload(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
 		harness := openReview(t, server)
 
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
@@ -1408,8 +1408,8 @@ func TestReviewReload(t *testing.T) {
 		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 		harness := openReview(t, server)
 
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		require.Contains(t, readEngineLine(harness.readFrame()), "the agent is writing")
 		require.NotContains(t, harness.readFrame(), "written by the agent")
@@ -1426,8 +1426,8 @@ func TestReviewReload(t *testing.T) {
 		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 		harness := openReview(t, server)
 
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		require.Contains(t, readEngineLine(harness.readFrame()), "the agent is writing")
 
@@ -1453,8 +1453,8 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 		harness.press("space", "e")
 
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 
 		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
@@ -1678,8 +1678,8 @@ func TestReviewExpand(t *testing.T) {
 	})
 }
 
-// TestReviewRounds covers walking the rounds of a review with the base keys.
-func TestReviewRounds(t *testing.T) {
+// TestReviewSnapshots covers walking the snapshots of a review with the base keys.
+func TestReviewSnapshots(t *testing.T) {
 	t.Run("the base key narrows to the work since the last review and forward widens it back", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 		frame := harness.readFrame()
@@ -1688,14 +1688,14 @@ func TestReviewRounds(t *testing.T) {
 
 		harness.press("<")
 		frame = harness.readFrame()
-		assert.Contains(t, readStageText(frame), "round 1 ▸ round 2")
+		assert.Contains(t, readStageText(frame), "snapshot 1 ▸ snapshot 2")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
 		assert.NotRegexp(t, `\d+/\d+ viewed`, frame)
 		assert.NotContains(t, readSidebarProse(frame), "since you last reviewed")
 
 		harness.press(">")
 		frame = harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
@@ -1706,7 +1706,7 @@ func TestReviewRounds(t *testing.T) {
 		harness.press("<", "<")
 		harness.release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 1")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 1")
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 
 		harness.release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
@@ -1731,7 +1731,7 @@ func TestReviewRounds(t *testing.T) {
 		assert.Contains(t, readSidebarProse(frame), "1 file changed since you last reviewed")
 	})
 
-	t.Run("narrowing onto a round with nothing new keeps the whole change and says so", func(t *testing.T) {
+	t.Run("narrowing onto a snapshot with nothing new keeps the whole change and says so", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		harness := openReview(t, server)
 		server.repo.Wrote(gittest.WroteParams{Tree: gittest.UnmovedTree, Whole: gittest.Patch})
@@ -1745,7 +1745,7 @@ func TestReviewRounds(t *testing.T) {
 		assert.Contains(t, readEngineLine(frame), "nothing written")
 	})
 
-	t.Run("the newest round takes a comment measured from the round reviewed before", func(t *testing.T) {
+	t.Run("the newest snapshot takes a comment measured from the snapshot reviewed before", func(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 
 		harness.press("<", "space", "c")
@@ -1764,20 +1764,20 @@ func TestReviewRounds(t *testing.T) {
 		})
 	})
 
-	t.Run("a range ending before the newest round draws commenting off", func(t *testing.T) {
+	t.Run("a range ending before the newest snapshot draws commenting off", func(t *testing.T) {
 		harness := openReviewAt(t, newEarlierReviewServer(t), panelHarnessParams{height: 50})
 		harness.press("<", "<")
-		require.Contains(t, readStageText(harness.readFrame()), "where the task starts ▸ round 1")
+		require.Contains(t, readStageText(harness.readFrame()), "where the task starts ▸ snapshot 1")
 
 		harness.press("space")
-		assert.Contains(t, harness.readFrame(), "new comments go on round 2")
+		assert.Contains(t, harness.readFrame(), "new comments go on snapshot 2")
 
 		harness.press("c")
 		assert.NotContains(t, harness.readFrame(), "  Comment")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
-	t.Run("a viewed mark taken in a round leaves the whole change's mark alone", func(t *testing.T) {
+	t.Run("a viewed mark taken in a snapshot leaves the whole change's mark alone", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		server.repo = gittest.NewRepo(server.repo.Root)
 		server.repo.Wrote(gittest.WroteParams{
@@ -1794,7 +1794,7 @@ func TestReviewRounds(t *testing.T) {
 		require.Len(t, harness.readSent(agentv1connect.AgentServiceSetReviewFileViewedProcedure), 1)
 
 		harness.press("<")
-		require.Contains(t, readStageText(harness.readFrame()), "round 1 ▸ round 2")
+		require.Contains(t, readStageText(harness.readFrame()), "snapshot 1 ▸ snapshot 2")
 		require.NotContains(t, readStageText(harness.readFrame()), "greet.go  +")
 		harness.press("space", "v")
 		frame := harness.readFrame()
@@ -1806,7 +1806,7 @@ func TestReviewRounds(t *testing.T) {
 		assert.Contains(t, readStageText(harness.readFrame()), "greet.go  +")
 	})
 
-	t.Run("a comment being written goes with the round a landing load takes away", func(t *testing.T) {
+	t.Run("a comment being written goes with the snapshot a landing load takes away", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		harness := openReview(t, server)
 		harness.press("<")
@@ -1824,52 +1824,52 @@ func TestReviewRounds(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
-	t.Run("a range splits the replies written after the round it ends on from the ones before", func(t *testing.T) {
+	t.Run("a range splits the replies written after the snapshot it ends on from the ones before", func(t *testing.T) {
 		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
 
 		harness.press("<", "<", "t")
 
 		frame := harness.readFrame()
-		require.Contains(t, readStageText(frame), "where the task starts ▸ round 1")
+		require.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 1")
 		said := readPopupProse(frame)
 		assert.Contains(t, said, "thanks")
 		assert.Less(t, strings.Index(said, "looking"), strings.Index(said, laterRule))
 		assert.Less(t, strings.Index(said, laterRule), strings.Index(said, "added it"))
-		assert.Contains(t, said, "addressed in round 2")
+		assert.Contains(t, said, "addressed in snapshot 2")
 	})
 }
 
-// TestReviewReplay covers a round across a moved base carried onto it before it is compared.
+// TestReviewReplay covers a snapshot across a moved base carried onto it before it is compared.
 func TestReviewReplay(t *testing.T) {
-	t.Run("a round across a moved base is replayed onto it", func(t *testing.T) {
+	t.Run("a snapshot across a moved base is replayed onto it", func(t *testing.T) {
 		harness := openReview(t, newMovedBaseServer(t, replayedTree))
 
 		harness.press("<")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "round 1 ▸ round 2, replayed across the rebase")
+		assert.Contains(t, readStageText(frame), "snapshot 1 ▸ snapshot 2, replayed across the rebase")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
 	})
 
-	t.Run("a round the base rewrote under the agent is refused as conflicted", func(t *testing.T) {
+	t.Run("a snapshot the base rewrote under the agent is refused as conflicted", func(t *testing.T) {
 		harness := openReview(t, newMovedBaseServer(t, "a-tree-with-markers-in-it", gittest.File, "second.go"))
 
 		harness.press("<")
 
-		assert.Contains(t, readStageText(harness.readFrame()), "round 1 ▸ round 2, conflicts in greet.go, second.go")
+		assert.Contains(t, readStageText(harness.readFrame()), "snapshot 1 ▸ snapshot 2, conflicts in greet.go, second.go")
 	})
 
-	t.Run("a git that cannot replay says the base moved between the rounds", func(t *testing.T) {
+	t.Run("a git that cannot replay says the base moved between the snapshots", func(t *testing.T) {
 		harness := openReview(t, newMovedBaseServer(t, ""))
 
 		harness.press("<")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "round 1 ▸ round 2, the base moved between these rounds")
+		assert.Contains(t, readStageText(frame), "snapshot 1 ▸ snapshot 2, the base moved between these snapshots")
 		assert.NotContains(t, frame, "replayed")
 	})
 
-	t.Run("the first round is measured from its own base", func(t *testing.T) {
+	t.Run("the first snapshot is measured from its own base", func(t *testing.T) {
 		server := newMovedBaseServer(t, replayedTree)
 		server.repo.Patches[gittest.NamePair(olderBase, gittest.SnapshotSHA)] = gittest.Patch
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
@@ -1878,7 +1878,7 @@ func TestReviewReplay(t *testing.T) {
 		harness.press("<", "<")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 1")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 1")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +1 -1")
 	})
 
@@ -1887,13 +1887,13 @@ func TestReviewReplay(t *testing.T) {
 		server.repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.Patch
 		server.threads = []*agentv1.ReviewThread{{
 			Id:          "t1",
-			RoundId:     "round-2",
+			SnapshotId:  "snapshot-2",
 			FilePath:    gittest.File,
 			BaseSha:     replayedTree,
 			OldStart:    4,
 			OldEnd:      4,
 			QuotedLines: []string{"-\treturn \"nowhere\""},
-			Messages:    []*agentv1.ReviewMessage{newHumanMessage("m1", "written on the replayed round")},
+			Messages:    []*agentv1.ReviewMessage{newHumanMessage("m1", "written on the replayed snapshot")},
 		}}
 		harness := openReview(t, server)
 
@@ -1978,8 +1978,8 @@ func TestReviewHold(t *testing.T) {
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
 		harness.press("esc")
 
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		assert.Contains(t, harness.readFrame(), "written by the agent")
 	})
@@ -2232,8 +2232,8 @@ func TestReviewHold(t *testing.T) {
 		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 		harness := openReview(t, server)
 
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "written by the agent")
@@ -2259,8 +2259,8 @@ func TestReviewHold(t *testing.T) {
 		require.Contains(t, readHoveredRow(harness.readFrame()), "auth")
 
 		harness.press("space", "r")
-		server.repo.Wrote(newRoundWrittenOver())
-		server.task.MovedSinceRound = gittest.SnapshotSHA
+		server.repo.Wrote(newSnapshotWrittenOver())
+		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(buildSnapshot(server.workflow, server.agent, server.task, idle))
 		assert.NotContains(t, harness.readFrame(), "written by the agent")
 
@@ -2273,7 +2273,7 @@ const (
 	reviewWidth  = 200
 	reviewHeight = 30
 	olderBase    = "1111111111111111111111111111111111111111"
-	replayedTree = "replayed-round-one"
+	replayedTree = "replayed-snapshot-one"
 	secondTree   = "tree-with-a-second-file"
 )
 
@@ -2298,11 +2298,11 @@ type reviewServer struct {
 	onTask     []*agentv1.Agent
 	threads    []*agentv1.ReviewThread
 	viewed     []*agentv1.ReviewViewedFile
-	rounds     []*agentv1.ReviewRound
+	snapshots  []*agentv1.ReviewSnapshot
 	reviews    []*agentv1.Review
 	forge      []proto.Message
 	historyErr error
-	openErr    error
+	takeErr    error
 	holdErr    error
 }
 
@@ -2399,14 +2399,14 @@ func (s *reviewServer) buildSnapshot() *watchv1.WatchEvent {
 			taskID = s.agent.GetTaskId()
 		}
 		rows = append(rows, &agentv1.WatchedReview{
-			Id:           review.GetId(),
-			TaskId:       taskID,
-			RoundId:      review.GetRoundId(),
-			RoundOrdinal: review.GetRoundOrdinal(),
-			AuthorKind:   review.GetAuthorKind(),
-			Verdict:      review.GetVerdict(),
-			ReleasedAt:   review.GetReleasedAt(),
-			DeliveredAt:  review.GetDeliveredAt(),
+			Id:              review.GetId(),
+			TaskId:          taskID,
+			SnapshotId:      review.GetSnapshotId(),
+			SnapshotOrdinal: review.GetSnapshotOrdinal(),
+			AuthorKind:      review.GetAuthorKind(),
+			Verdict:         review.GetVerdict(),
+			ReleasedAt:      review.GetReleasedAt(),
+			DeliveredAt:     review.GetDeliveredAt(),
 		})
 	}
 	rows = append(rows, s.forge...)
@@ -2429,23 +2429,23 @@ func (s *reviewServer) serve(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceHoldAgentProcedure, s.hold)
 }
 
-func (s *reviewServer) openRound() (*agentv1.ReviewRound, error) {
-	if s.openErr != nil {
-		return nil, s.openErr
+func (s *reviewServer) takeSnapshot() (*agentv1.ReviewSnapshot, error) {
+	if s.takeErr != nil {
+		return nil, s.takeErr
 	}
 
 	sha := gittest.NameSnapshot(s.repo.Tree)
-	if len(s.rounds) == 0 || s.rounds[len(s.rounds)-1].GetSnapshotSha() != sha {
-		s.rounds = append(s.rounds, &agentv1.ReviewRound{
-			Id:          fmt.Sprintf("round-%d", len(s.rounds)+1),
-			TaskId:      s.agent.GetTaskId(),
-			Ordinal:     int32(len(s.rounds) + 1),
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: sha,
+	if len(s.snapshots) == 0 || s.snapshots[len(s.snapshots)-1].GetSha() != sha {
+		s.snapshots = append(s.snapshots, &agentv1.ReviewSnapshot{
+			Id:      fmt.Sprintf("snapshot-%d", len(s.snapshots)+1),
+			TaskId:  s.agent.GetTaskId(),
+			Ordinal: int32(len(s.snapshots) + 1),
+			BaseSha: gittest.BaseSHA,
+			Sha:     sha,
 		})
 	}
 
-	return s.rounds[len(s.rounds)-1], nil
+	return s.snapshots[len(s.snapshots)-1], nil
 }
 
 func (s *reviewServer) listThreads(connect.AnyRequest) (connect.AnyResponse, error) {
@@ -2675,7 +2675,7 @@ func newHeldForgeComment(id, body string) *agentv1.ReviewMessage {
 	}
 }
 
-func newRoundWrittenOver() gittest.WroteParams {
+func newSnapshotWrittenOver() gittest.WroteParams {
 	return gittest.WroteParams{
 		Tree:  "tree-written-again",
 		Whole: gittest.PatchWrittenOver,
@@ -2724,19 +2724,19 @@ func newEarlierReviewServer(t *testing.T) *reviewServer {
 	t.Helper()
 
 	server := newReviewServer(t)
-	server.rounds = []*agentv1.ReviewRound{{
-		Id:          "round-1",
-		TaskId:      "t1",
-		Ordinal:     1,
-		BaseSha:     gittest.BaseSHA,
-		SnapshotSha: gittest.SnapshotSHA,
+	server.snapshots = []*agentv1.ReviewSnapshot{{
+		Id:      "snapshot-1",
+		TaskId:  "t1",
+		Ordinal: 1,
+		BaseSha: gittest.BaseSHA,
+		Sha:     gittest.SnapshotSHA,
 	}}
 	server.reviews = []*agentv1.Review{{
-		Id:           "v1",
-		RoundId:      "round-1",
-		RoundOrdinal: 1,
-		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		ReleasedAt:   "2026-09-08T10:00:00Z",
+		Id:              "v1",
+		SnapshotId:      "snapshot-1",
+		SnapshotOrdinal: 1,
+		AuthorKind:      agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		ReleasedAt:      "2026-09-08T10:00:00Z",
 	}}
 	server.repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
@@ -2755,7 +2755,7 @@ func newMovedBaseServer(t *testing.T, tree string, conflicts ...string) *reviewS
 	t.Helper()
 
 	server := newEarlierReviewServer(t)
-	server.rounds[0].BaseSha = olderBase
+	server.snapshots[0].BaseSha = olderBase
 	server.repo.Patches[gittest.NamePair(gittest.SnapshotSHA, gittest.NameSnapshot(secondTree))] = gittest.PatchOfBothFiles
 	server.repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.PatchOfTheSecondFile
 	if tree != "" {
@@ -2793,7 +2793,7 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 		return nil, s.historyErr
 	}
 
-	answer, err := s.pickRound()
+	answer, err := s.pickSnapshot()
 	if err != nil {
 		return nil, err
 	}
@@ -2802,36 +2802,36 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 	defer cancel()
 
 	built := history.Build(ctx, history.BuildParams{
-		Git:     s.repo,
-		Tracer:  history.NewTracer(s.repo),
-		Dir:     s.repo.Root,
-		Exclude: s.workflow.GetWorktree().GetDiffExclude(),
-		Round:   historyRoundOf(answer.GetRound()),
-		Rounds:  xslice.Map(s.rounds, historyRoundOf),
-		Reviews: xslice.Map(s.reviews, historyReviewOf),
-		Threads: xslice.Map(s.threads, historyThreadOf),
-		Span:    historySpanOf(asked),
+		Git:       s.repo,
+		Tracer:    history.NewTracer(s.repo),
+		Dir:       s.repo.Root,
+		Exclude:   s.workflow.GetWorktree().GetDiffExclude(),
+		Snapshot:  historySnapshotOf(answer.GetSnapshot()),
+		Snapshots: xslice.Map(s.snapshots, historySnapshotOf),
+		Reviews:   xslice.Map(s.reviews, historyReviewOf),
+		Threads:   xslice.Map(s.threads, historyThreadOf),
+		Span:      historySpanOf(asked),
 	})
 
-	answer.Rounds = s.rounds
+	answer.Snapshots = s.snapshots
 	answer.Threads = s.threads
 	answer.Reviews = s.reviews
 	answer.Resolved = &agentv1.ReviewResolvedSpan{
-		BaseSha:            built.Span.BaseSHA,
-		HeadSha:            built.Span.HeadSHA,
-		Replayed:           built.Span.Replayed,
-		AnswerBaseSha:      built.Span.AnswerBaseSHA,
-		AnswerHeadSha:      built.Span.AnswerHeadSHA,
-		OriginBaseSha:      built.Span.OriginBaseSHA,
-		OriginHeadSha:      built.Span.OriginHeadSHA,
-		OriginRoundBaseSha: built.Span.OriginRoundBaseSHA,
-		Conflicts:          built.Span.Conflicts,
+		BaseSha:               built.Span.BaseSHA,
+		HeadSha:               built.Span.HeadSHA,
+		Replayed:              built.Span.Replayed,
+		AnswerBaseSha:         built.Span.AnswerBaseSHA,
+		AnswerHeadSha:         built.Span.AnswerHeadSHA,
+		OriginBaseSha:         built.Span.OriginBaseSHA,
+		OriginHeadSha:         built.Span.OriginHeadSHA,
+		OriginSnapshotBaseSha: built.Span.OriginSnapshotBaseSHA,
+		Conflicts:             built.Span.Conflicts,
 	}
 	answer.Widened = built.Widened
 	answer.ChangedSinceEarlier = int32(built.ChangedSinceEarlier)
 	answer.Traced = map[string]*agentv1.ReviewTracedPlace{}
 	if built.Earlier != nil {
-		answer.EarlierRoundId = built.Earlier.ID
+		answer.EarlierSnapshotId = built.Earlier.ID
 	}
 	if built.EarlierReleasedAt != nil {
 		answer.EarlierReleasedAt = dates.Stamp(*built.EarlierReleasedAt)
@@ -2848,54 +2848,54 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 	return connect.NewResponse(answer), nil
 }
 
-func (s *reviewServer) pickRound() (*agentv1.OpenReviewHistoryResponse, error) {
-	round, err := s.openRound()
+func (s *reviewServer) pickSnapshot() (*agentv1.OpenReviewHistoryResponse, error) {
+	snapshot, err := s.takeSnapshot()
 	switch {
-	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(s.rounds) > 0:
-		return &agentv1.OpenReviewHistoryResponse{Round: s.rounds[len(s.rounds)-1], Notice: midSequenceNotice}, nil
+	case connect.CodeOf(err) == connect.CodeFailedPrecondition && len(s.snapshots) > 0:
+		return &agentv1.OpenReviewHistoryResponse{Snapshot: s.snapshots[len(s.snapshots)-1], Notice: midSequenceNotice}, nil
 	case err != nil:
 		return nil, err
 	}
 
-	return &agentv1.OpenReviewHistoryResponse{Round: round}, nil
+	return &agentv1.OpenReviewHistoryResponse{Snapshot: snapshot}, nil
 }
 
 func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 	switch {
-	case req.GetRounds() != nil:
-		return history.Span{Rounds: &history.RoundSpan{
-			FromRoundID: req.GetRounds().GetFromRoundId(),
-			ToRoundID:   req.GetRounds().GetToRoundId(),
+	case req.GetSnapshots() != nil:
+		return history.Span{Snapshots: &history.SnapshotSpan{
+			FromSnapshotID: req.GetSnapshots().GetFromSnapshotId(),
+			ToSnapshotID:   req.GetSnapshots().GetToSnapshotId(),
 		}}
 	case req.GetAnswer() != nil:
 		return history.Span{Answer: &history.AnswerSpan{
-			FromRoundID: req.GetAnswer().GetFromRoundId(),
-			ToRoundID:   req.GetAnswer().GetToRoundId(),
+			FromSnapshotID: req.GetAnswer().GetFromSnapshotId(),
+			ToSnapshotID:   req.GetAnswer().GetToSnapshotId(),
 		}}
 	case req.GetOrigin() != nil:
 		return history.Span{Origin: &history.OriginSpan{
-			RoundID: req.GetOrigin().GetRoundId(),
-			BaseSHA: req.GetOrigin().GetBaseSha(),
+			SnapshotID: req.GetOrigin().GetSnapshotId(),
+			BaseSHA:    req.GetOrigin().GetBaseSha(),
 		}}
 	}
 
 	return history.Span{}
 }
 
-func historyRoundOf(round *agentv1.ReviewRound) history.Round {
-	return history.Round{
-		ID:          round.GetId(),
-		Ordinal:     round.GetOrdinal(),
-		BaseSHA:     round.GetBaseSha(),
-		SnapshotSHA: round.GetSnapshotSha(),
+func historySnapshotOf(snapshot *agentv1.ReviewSnapshot) history.Snapshot {
+	return history.Snapshot{
+		ID:      snapshot.GetId(),
+		Ordinal: snapshot.GetOrdinal(),
+		BaseSHA: snapshot.GetBaseSha(),
+		SHA:     snapshot.GetSha(),
 	}
 }
 
 func historyReviewOf(review *agentv1.Review) history.Review {
 	answer := history.Review{
-		RoundID:      review.GetRoundId(),
-		RoundOrdinal: review.GetRoundOrdinal(),
-		Human:        review.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		SnapshotID:      review.GetSnapshotId(),
+		SnapshotOrdinal: review.GetSnapshotOrdinal(),
+		Human:           review.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 	}
 	if released, err := time.Parse(time.RFC3339, review.GetReleasedAt()); err == nil {
 		answer.ReleasedAt = &released
@@ -2906,11 +2906,11 @@ func historyReviewOf(review *agentv1.Review) history.Review {
 
 func historyThreadOf(thread *agentv1.ReviewThread) history.Thread {
 	return history.Thread{
-		ID:       thread.GetId(),
-		RoundID:  thread.GetRoundId(),
-		FilePath: thread.GetFilePath(),
-		NewStart: thread.GetNewStart(),
-		NewEnd:   thread.GetNewEnd(),
+		ID:         thread.GetId(),
+		SnapshotID: thread.GetSnapshotId(),
+		FilePath:   thread.GetFilePath(),
+		NewStart:   thread.GetNewStart(),
+		NewEnd:     thread.GetNewEnd(),
 	}
 }
 

@@ -185,9 +185,9 @@ func TestDeleteIfEmptyForgetsItsWorktree(t *testing.T) {
 	}
 }
 
-// TestDeleteIfEmptyReleasesItsRounds pins that a deleted task lets go of the refs holding its own
-// rounds' snapshots, from a checkout that still stands, and only once its checkout was given back.
-func TestDeleteIfEmptyReleasesItsRounds(t *testing.T) {
+// TestDeleteIfEmptyReleasesItsSnapshots pins that a deleted task lets go of the refs holding its own
+// snapshots' commits, from a checkout that still stands, and only once its checkout was given back.
+func TestDeleteIfEmptyReleasesItsSnapshots(t *testing.T) {
 	tests := []struct {
 		name            string
 		deprovisionErr  error
@@ -219,10 +219,10 @@ func TestDeleteIfEmptyReleasesItsRounds(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
 			for _, id := range []string{task.ID, other.ID} {
-				_, err := fx.reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
-					TaskID:      id,
-					BaseSHA:     "base",
-					SnapshotSHA: "same-sha",
+				_, err := fx.reviews.CreateSnapshot(t.Context(), reviewstore.CreateSnapshotParams{
+					TaskID:  id,
+					BaseSHA: "base",
+					SHA:     "same-sha",
 				})
 				require.NoError(t, err)
 			}
@@ -244,7 +244,7 @@ func TestDeleteIfEmptyReleasesItsRounds(t *testing.T) {
 			if tt.wantWorkflowDir {
 				want = fx.workflow.Cwd
 			}
-			assert.Equal(t, []string{reviewstore.RoundRef(task.ID, "same-sha")}, fx.snapshots.Released,
+			assert.Equal(t, []string{reviewstore.SnapshotRef(task.ID, "same-sha")}, fx.snapshots.Released,
 				"only the deleted task's ref goes, though the other task's names the same snapshot")
 			assert.Equal(t, []string{want}, fx.snapshots.ReleasedFrom)
 		})

@@ -50,7 +50,7 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 		return errors.Join(failed, s.tasks.RecordCleanupFailure(cleanup, found.ID, err))
 	}
 
-	held := s.findRoundRefs(cleanup, *found)
+	held := s.findSnapshotRefs(cleanup, *found)
 
 	if err := s.worktrees.DeleteForTask(cleanup, found.ID); err != nil {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, found.ID))
@@ -60,7 +60,7 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, found.ID))
 	}
 
-	s.releaseRoundRefs(cleanup, held)
+	s.releaseSnapshotRefs(cleanup, held)
 
 	return nil
 }
@@ -135,62 +135,62 @@ func (s *TaskService) deprovision(ctx context.Context, task taskstore.Task, flow
 	return s.scripts.RunTaskDeprovision(ctx, task, deprovisioner)
 }
 
-// roundRefs is the refs holding the snapshots of a task's rounds, and a checkout they are held in.
-type roundRefs struct {
+// snapshotRefs is the refs holding the commits of a task's snapshots, and a checkout they are held in.
+type snapshotRefs struct {
 	taskID string
 	dir    string
 	refs   []string
 }
 
-// findRoundRefs reads the refs of a task's rounds while its rows still stand, so they can be let
+// findSnapshotRefs reads the refs of a task's snapshots while its rows still stand, so they can be let
 // go of once the task is gone.
-func (s *TaskService) findRoundRefs(ctx context.Context, task taskstore.Task) roundRefs {
+func (s *TaskService) findSnapshotRefs(ctx context.Context, task taskstore.Task) snapshotRefs {
 	if s.reviews == nil {
-		return roundRefs{}
+		return snapshotRefs{}
 	}
 
-	rounds, err := s.reviews.ListRounds(ctx, task.ID)
+	snapshots, err := s.reviews.ListSnapshots(ctx, task.ID)
 	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of a task being deleted",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the snapshots of a task being deleted",
 			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 
-		return roundRefs{}
+		return snapshotRefs{}
 	}
-	if len(rounds) == 0 {
-		return roundRefs{}
+	if len(snapshots) == 0 {
+		return snapshotRefs{}
 	}
 
-	dir, err := s.findRoundRefDir(ctx, task)
+	dir, err := s.findSnapshotRefDir(ctx, task)
 	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to find a checkout holding the rounds of a task being deleted",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to find a checkout holding the snapshots of a task being deleted",
 			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 
-		return roundRefs{}
+		return snapshotRefs{}
 	}
 
-	return roundRefs{
+	return snapshotRefs{
 		taskID: task.ID,
 		dir:    dir,
-		refs: xslice.Map(rounds, func(round reviewstore.Round) string {
-			return reviewstore.RoundRef(task.ID, round.SnapshotSHA)
+		refs: xslice.Map(snapshots, func(snapshot reviewstore.Snapshot) string {
+			return reviewstore.SnapshotRef(task.ID, snapshot.SHA)
 		}),
 	}
 }
 
-// releaseRoundRefs drops the refs holding a deleted task's snapshots, which would otherwise pin a
+// releaseSnapshotRefs drops the refs holding a deleted task's snapshots, which would otherwise pin a
 // commit covering the whole worktree long after the task is gone.
-func (s *TaskService) releaseRoundRefs(ctx context.Context, held roundRefs) {
+func (s *TaskService) releaseSnapshotRefs(ctx context.Context, held snapshotRefs) {
 	for _, ref := range held.refs {
 		if err := s.snapshots.ReleaseRef(ctx, held.dir, ref); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the ref of a snapshot",
 				append([]slog.Attr{slog.String(logging.TaskID, held.taskID)}, logging.Err(err)...)...)
 		}
 	}
 }
 
-// findRoundRefDir finds a checkout holding a task's round refs, the task's own while it stands or
+// findSnapshotRefDir finds a checkout holding a task's snapshot refs, the task's own while it stands or
 // else its workflow's.
-func (s *TaskService) findRoundRefDir(ctx context.Context, task taskstore.Task) (string, error) {
+func (s *TaskService) findSnapshotRefDir(ctx context.Context, task taskstore.Task) (string, error) {
 	if info, err := os.Stat(task.Checkout.Cwd); err == nil && info.IsDir() {
 		return task.Checkout.Cwd, nil
 	}

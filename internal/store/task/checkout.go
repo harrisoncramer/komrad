@@ -58,8 +58,8 @@ type Checkout struct {
 	HeadSHA *string
 	// Sequence is what git has part-way through the checkout and waiting on somebody.
 	Sequence Sequence
-	// MovedSinceRound is the newest round's snapshot while the checkout no longer hashes to it.
-	MovedSinceRound string
+	// MovedSinceSnapshot is the newest snapshot's commit while the checkout no longer hashes to it.
+	MovedSinceSnapshot string
 	// DiffStat is the lines the checkout adds and removes since it left its base, nil where
 	// there is no base to measure against.
 	DiffStat *DiffStat
@@ -72,14 +72,14 @@ func (c Checkout) IsUsable() bool {
 
 func checkoutFrom(row *models.Task) Checkout {
 	checkout := Checkout{
-		Cwd:             xptr.Deref(row.Cwd),
-		Branch:          row.Branch,
-		AdoptedBranch:   xptr.Deref(row.AdoptedBranch),
-		WorktreeRemoved: xptr.Deref(row.WorktreeRemoved),
-		RepositoryURL:   row.RepositoryUrl,
-		HeadSHA:         row.HeadSha,
-		Sequence:        SequenceNone,
-		MovedSinceRound: xptr.Deref(row.MovedSinceRound),
+		Cwd:                xptr.Deref(row.Cwd),
+		Branch:             row.Branch,
+		AdoptedBranch:      xptr.Deref(row.AdoptedBranch),
+		WorktreeRemoved:    xptr.Deref(row.WorktreeRemoved),
+		RepositoryURL:      row.RepositoryUrl,
+		HeadSHA:            row.HeadSha,
+		Sequence:           SequenceNone,
+		MovedSinceSnapshot: xptr.Deref(row.MovedSinceSnapshot),
 	}
 	if row.Sequence.Valid {
 		checkout.Sequence = Sequence(row.Sequence.AgentSequence)
@@ -212,18 +212,18 @@ func (s *TaskStore) SetSequence(ctx context.Context, id string, sequence Sequenc
 	return nil
 }
 
-// SetMovedSinceRound records the newest round's snapshot a task's checkout has moved away from,
+// SetMovedSinceSnapshot records the newest snapshot's commit a task's checkout has moved away from,
 // or clears it with an empty one.
-func (s *TaskStore) SetMovedSinceRound(ctx context.Context, id, snapshotSHA string) error {
+func (s *TaskStore) SetMovedSinceSnapshot(ctx context.Context, id, snapshotSHA string) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
 	}
 
-	if err := s.queries.SetTaskMovedSinceRound(ctx, models.SetTaskMovedSinceRoundParams{
-		ID:              id,
-		MovedSinceRound: &snapshotSHA,
+	if err := s.queries.SetTaskMovedSinceSnapshot(ctx, models.SetTaskMovedSinceSnapshotParams{
+		ID:                 id,
+		MovedSinceSnapshot: &snapshotSHA,
 	}); err != nil {
-		return fmt.Errorf("failed to set the round task %q moved since: %w", id, err)
+		return fmt.Errorf("failed to set the snapshot task %q moved since: %w", id, err)
 	}
 
 	return nil

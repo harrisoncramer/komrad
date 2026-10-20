@@ -845,11 +845,11 @@ table "agents" {
     default = false
     comment = "Whether the agent still owns the pane its row names."
   }
-  column "moved_since_round" {
+  column "moved_since_snapshot" {
     null    = false
     type    = text
     default = ""
-    comment = "The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass."
+    comment = "The commit of the agent's newest review snapshot when its worktree no longer hashes to it, empty while it still does or when there is no snapshot. The cwd syncer rewrites it every pass."
   }
   column "lines_added" {
     null    = true

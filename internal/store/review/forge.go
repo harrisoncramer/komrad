@@ -12,8 +12,8 @@ import (
 
 // OpenForgeReviewParams is one forge reviewer's comments from one sync, gathered into a review.
 type OpenForgeReviewParams struct {
-	TaskID  string
-	RoundID string
+	TaskID     string
+	SnapshotID string
 	// Login is the forge login of whoever wrote the comments.
 	Login string
 }
@@ -22,7 +22,7 @@ type OpenForgeReviewParams struct {
 func (s *ReviewStore) OpenForgeReview(ctx context.Context, params OpenForgeReviewParams) (*Review, error) {
 	row, err := s.queries.InsertForgeReview(ctx, models.InsertForgeReviewParams{
 		TaskID:        params.TaskID,
-		RoundID:       params.RoundID,
+		SnapshotID:    params.SnapshotID,
 		ExternalLogin: &params.Login,
 	})
 	if err != nil {
@@ -113,14 +113,14 @@ func (s *ReviewStore) ListForgeMirrored(ctx context.Context, taskID string) ([]F
 // ForgeMirrorTarget is a task on a pull request that receives mirrored forge comments.
 type ForgeMirrorTarget struct {
 	TaskID string
-	// Cwd is the task's checkout, where comments are traced to its latest round.
+	// Cwd is the task's checkout, where comments are traced to its latest snapshot.
 	Cwd         string
-	RoundID     string
+	SnapshotID  string
 	BaseSHA     string
 	SnapshotSHA string
 }
 
-// ListForgeMirrorTargets is every task with a live agent on a pull request that has a round to mirror onto.
+// ListForgeMirrorTargets is every task with a live agent on a pull request that has a snapshot to mirror onto.
 func (s *ReviewStore) ListForgeMirrorTargets(ctx context.Context, pullRequestID string) ([]ForgeMirrorTarget, error) {
 	if !store.IsID(pullRequestID) {
 		return nil, nil
@@ -135,7 +135,7 @@ func (s *ReviewStore) ListForgeMirrorTargets(ctx context.Context, pullRequestID 
 		return ForgeMirrorTarget{
 			TaskID:      row.TaskID,
 			Cwd:         row.Cwd,
-			RoundID:     row.RoundID,
+			SnapshotID:  row.SnapshotID,
 			BaseSHA:     row.BaseSha,
 			SnapshotSHA: row.SnapshotSha,
 		}

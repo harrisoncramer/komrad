@@ -23,8 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOpenRound pins that a round is taken only of a tree that has moved.
-func TestOpenRound(t *testing.T) {
+// TestTakeSnapshot pins that a snapshot is taken only of a tree that has moved.
+func TestTakeSnapshot(t *testing.T) {
 	tests := []struct {
 		name        string
 		snapshot    string
@@ -47,18 +47,18 @@ func TestOpenRound(t *testing.T) {
 			fx := newReviewFixture(t)
 			fx.snapshots.SHA = tt.snapshot
 
-			round, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, personAuthor)
+			snapshot, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.wantOrdinal, round.Ordinal)
-			assert.Equal(t, tt.snapshot, round.SnapshotSHA)
+			assert.Equal(t, tt.wantOrdinal, snapshot.Ordinal)
+			assert.Equal(t, tt.snapshot, snapshot.SHA)
 		})
 	}
 }
 
-// TestOpenRoundReleasesTheRefOfARoundItFailedToWrite pins that a round whose insert fails leaves
+// TestTakeSnapshotReleasesTheRefOfASnapshotItFailedToWrite pins that a snapshot whose insert fails leaves
 // no ref behind.
-func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
+func TestTakeSnapshotReleasesTheRefOfASnapshotItFailedToWrite(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
@@ -67,15 +67,15 @@ func TestOpenRoundReleasesTheRefOfARoundItFailedToWrite(t *testing.T) {
 		require.NoError(t, fx.stores.Workflows.Delete(t.Context(), fx.writer.WorkflowID))
 	}
 
-	_, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, personAuthor)
+	_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
 	require.Error(t, err)
 
-	assert.Equal(t, []string{reviewstore.RoundRef(*fx.writer.TaskID, secondSnapshot)}, fx.snapshots.Released)
+	assert.Equal(t, []string{reviewstore.SnapshotRef(*fx.writer.TaskID, secondSnapshot)}, fx.snapshots.Released)
 }
 
-// TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce pins that two callers racing on the same
-// tree share one round.
-func TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce(t *testing.T) {
+// TestTakeSnapshotTakesOneSnapshotOfATreeAskedForTwiceAtOnce pins that two callers racing on the same
+// tree share one snapshot.
+func TestTakeSnapshotTakesOneSnapshotOfATreeAskedForTwiceAtOnce(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
@@ -87,10 +87,10 @@ func TestOpenRoundTakesOneRoundOfATreeOpenedTwiceAtOnce(t *testing.T) {
 	errs := make([]error, 2)
 	for i := range ordinals {
 		group.Go(func() {
-			round, err := fx.service.OpenRound(t.Context(), *fx.writer.TaskID, personAuthor)
+			snapshot, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
 			errs[i] = err
 			if err == nil {
-				ordinals[i] = round.Ordinal
+				ordinals[i] = snapshot.Ordinal
 			}
 		})
 	}
@@ -113,7 +113,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				return fx.releaseReview(t, personAuthor, "")
 			},
-			wantSaid:    []string{"Comments to act on", "round 1", "the person running komrad"},
+			wantSaid:    []string{"Comments to act on", "snapshot 1", "the person running komrad"},
 			wantNotSaid: []string{"Approved", "Changes requested"},
 		},
 		{
@@ -126,7 +126,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			wantSaid: []string{"Changes requested", "this needs a nil check", "greet.go:41", "reviewer"},
 		},
 		{
-			name: "a comment on a file the round holds",
+			name: "a comment on a file the snapshot holds",
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				fx.snapshots.Files["greet.go"] = buildGreetSource()
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
@@ -150,7 +150,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			wantNotSaid: []string{"line 5 of greet.go", "line 20 of greet.go"},
 		},
 		{
-			name: "a comment on a file the round cannot hand back",
+			name: "a comment on a file the snapshot cannot hand back",
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				fx.writeComment(t, personAuthor, "this needs a nil check")
 
@@ -439,7 +439,7 @@ func TestGetReview(t *testing.T) {
 
 	assert.Equal(t, "two things before it goes", whole.Review.Body)
 	assert.Empty(t, whole.Review.Path, "the agent is not told where the file is")
-	assert.Equal(t, firstSnapshot, whole.Round.SnapshotSHA)
+	assert.Equal(t, firstSnapshot, whole.Snapshot.SHA)
 
 	require.Len(t, whole.Threads, 2)
 	byFile := xslice.KeyBy(whole.Threads, func(thread ReviewThreadInContext) string {
@@ -447,7 +447,7 @@ func TestGetReview(t *testing.T) {
 	})
 	assert.Len(t, byFile["greet.go"].Context, 14, "six lines either side of the two commented")
 	assert.Contains(t, byFile["greet.go"].Context, ">> 12  line 12 of greet.go")
-	assert.Empty(t, byFile["gone.go"].Context, "a file the round cannot hand back leaves its quoted lines")
+	assert.Empty(t, byFile["gone.go"].Context, "a file the snapshot cannot hand back leaves its quoted lines")
 	assert.Equal(t, gone.Thread.QuotedLines, byFile["gone.go"].Thread.QuotedLines)
 	assert.Equal(t, []string{"this needs a nil check"}, readBodies(byFile["greet.go"].Messages),
 		"the answer and the second release belong elsewhere")
@@ -459,8 +459,8 @@ func TestGetReview(t *testing.T) {
 	assert.Equal(t, []string{"not quite, the other branch too"}, readBodies(again.Threads[0].Messages))
 }
 
-// TestAReviewCarriedAcrossRounds pins that a person's draft goes out on the newest round they commented on, each comment read against its own.
-func TestAReviewCarriedAcrossRounds(t *testing.T) {
+// TestAReviewCarriedAcrossSnapshots pins that a person's draft goes out on the newest snapshot they commented on, each comment read against its own.
+func TestAReviewCarriedAcrossSnapshots(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.FilesAt = map[string]map[string][]string{
 		firstSnapshot:  {"greet.go": {"before the edit"}},
@@ -490,7 +490,7 @@ func TestAReviewCarriedAcrossRounds(t *testing.T) {
 
 	whole, err := fx.service.GetReview(t.Context(), released.Review.ID, newAgentAuthor(fx.writer))
 	require.NoError(t, err)
-	assert.Equal(t, secondSnapshot, whole.Round.SnapshotSHA, "the review is of the newest work the person read")
+	assert.Equal(t, secondSnapshot, whole.Snapshot.SHA, "the review is of the newest work the person read")
 
 	byID := xslice.KeyBy(whole.Threads, func(thread ReviewThreadInContext) string {
 		return thread.Thread.ID
@@ -628,7 +628,7 @@ func fillMailbox(t *testing.T, fx *reviewFixture) {
 	}
 }
 
-// buildGreetSource is twenty numbered lines of the file a round holds.
+// buildGreetSource is twenty numbered lines of the file a snapshot holds.
 func buildGreetSource() []string {
 	source := make([]string, 0, 20)
 	for line := 1; line <= 20; line++ {

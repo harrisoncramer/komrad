@@ -19,19 +19,19 @@ const reviewLegendFloor = 21
 const taskStartSaid = "where the task starts"
 
 // steps are the ranges between the person's released reviews, oldest first, the last ending on the
-// newest round when the person has not reviewed it.
+// newest snapshot when the person has not reviewed it.
 func (d reviewDiff) steps() []diffSpec {
 	reviewed := map[string]bool{}
 	for _, review := range d.reviews {
 		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT && review.GetReleasedAt() != "" {
-			reviewed[review.GetRoundId()] = true
+			reviewed[review.GetSnapshotId()] = true
 		}
 	}
 
 	var ends []string
-	for _, round := range d.rounds {
-		if reviewed[round.GetId()] && round.GetOrdinal() <= d.newest.GetOrdinal() {
-			ends = append(ends, round.GetId())
+	for _, snapshot := range d.snapshots {
+		if reviewed[snapshot.GetId()] && snapshot.GetOrdinal() <= d.newest.GetOrdinal() {
+			ends = append(ends, snapshot.GetId())
 		}
 	}
 
@@ -108,7 +108,7 @@ func (r *reviewScreen) stepBaseForward(m *model) tea.Cmd {
 	return r.showRange(m, steps[at+1].from, steps[at+1].to)
 }
 
-// showRange puts the range between two rounds on screen and reads the diff again once it has moved.
+// showRange puts the range between two snapshots on screen and reads the diff again once it has moved.
 func (r *reviewScreen) showRange(m *model, from, to string) tea.Cmd {
 	next := diffSpec{from: from, to: r.diff.endOf(to)}
 	if next.isSameRange(r.diff.spec) {
@@ -120,7 +120,7 @@ func (r *reviewScreen) showRange(m *model, from, to string) tea.Cmd {
 	return r.reload(m)
 }
 
-// endOf is a round as the end of a range, the newest round standing for whichever round is newest.
+// endOf is a snapshot as the end of a range, the newest snapshot standing for whichever one is newest.
 func (d reviewDiff) endOf(id string) string {
 	if id == d.newest.GetId() {
 		return ""
@@ -129,12 +129,12 @@ func (d reviewDiff) endOf(id string) string {
 	return id
 }
 
-// endOnNewest keeps the start of the range on screen and ends it on the newest round.
+// endOnNewest keeps the start of the range on screen and ends it on the newest snapshot.
 func (r *reviewScreen) endOnNewest(m *model) tea.Cmd {
 	return r.showRange(m, r.diff.rangeStart(), "")
 }
 
-// rangeStart is the round the range on screen starts after, as a range of rounds holds it.
+// rangeStart is the snapshot the range on screen starts after, as a range of snapshots holds it.
 func (d reviewDiff) rangeStart() string {
 	if !d.spec.isRange() {
 		return ""
@@ -143,7 +143,7 @@ func (d reviewDiff) rangeStart() string {
 	return d.spec.from
 }
 
-// rangeEnd is the round the range on screen ends on, the newest one for anything but a range.
+// rangeEnd is the snapshot the range on screen ends on, the newest one for anything but a range.
 func (d reviewDiff) rangeEnd() string {
 	if !d.spec.isRange() {
 		return ""
@@ -152,37 +152,37 @@ func (d reviewDiff) rangeEnd() string {
 	return d.spec.to
 }
 
-// ordinalOf is a round's number, the newest round's for an empty end.
+// ordinalOf is a snapshot's number, the newest snapshot's for an empty end.
 func (d reviewDiff) ordinalOf(id string) int32 {
 	if id == "" {
 		return d.newest.GetOrdinal()
 	}
 
-	if round := findRound(d.rounds, id); round != nil {
-		return round.GetOrdinal()
+	if snapshot := findSnapshot(d.snapshots, id); snapshot != nil {
+		return snapshot.GetOrdinal()
 	}
 
 	return 0
 }
 
-// endRound is the round the range on screen ends on.
-func (d reviewDiff) endRound() *agentv1.ReviewRound {
+// endSnapshot is the snapshot the range on screen ends on.
+func (d reviewDiff) endSnapshot() *agentv1.ReviewSnapshot {
 	if end := d.rangeEnd(); end != "" {
-		if round := findRound(d.rounds, end); round != nil {
-			return round
+		if snapshot := findSnapshot(d.snapshots, end); snapshot != nil {
+			return snapshot
 		}
 	}
 
 	return d.newest
 }
 
-// isHistory reports whether the range ends before the round new comments go on.
+// isHistory reports whether the range ends before the snapshot new comments go on.
 func (d reviewDiff) isHistory() bool {
 	switch {
 	case d.spec.origin != nil:
-		return d.spec.origin.RoundID != d.newest.GetId()
+		return d.spec.origin.SnapshotID != d.newest.GetId()
 	case d.spec.answer != nil:
-		return d.spec.answer.ToRound != d.newest.GetId()
+		return d.spec.answer.ToSnapshot != d.newest.GetId()
 	}
 
 	return !d.spec.endsOnNewest()
@@ -204,37 +204,37 @@ func (d reviewDiff) rangeSaid() string {
 
 	start := taskStartSaid
 	if d.spec.from != "" {
-		start = fmt.Sprintf("round %d", d.ordinalOf(d.spec.from))
+		start = fmt.Sprintf("snapshot %d", d.ordinalOf(d.spec.from))
 	}
 
-	said := fmt.Sprintf("%s %s round %d", start, glyph.Span, d.endRound().GetOrdinal())
+	said := fmt.Sprintf("%s %s snapshot %d", start, glyph.Span, d.endSnapshot().GetOrdinal())
 	switch {
 	case len(d.spec.conflicts) > 0:
 		said += ", conflicts in " + strings.Join(d.spec.conflicts, ", ")
 	case d.spec.replayed:
 		said += ", replayed across the rebase"
 	case d.isAcrossBases():
-		said += ", the base moved between these rounds"
+		said += ", the base moved between these snapshots"
 	}
 
 	return said
 }
 
-// isAcrossBases reports whether the range starts on a round taken on another base than the round it
+// isAcrossBases reports whether the range starts on a snapshot taken on another base than the snapshot it
 // ends on.
 func (d reviewDiff) isAcrossBases() bool {
-	start := findRound(d.rounds, d.rangeStart())
+	start := findSnapshot(d.snapshots, d.rangeStart())
 
-	return start != nil && start.GetBaseSha() != d.endRound().GetBaseSha()
+	return start != nil && start.GetBaseSha() != d.endSnapshot().GetBaseSha()
 }
 
-// newestSaid names the round new comments go on, empty while the range ends on it.
+// newestSaid names the snapshot new comments go on, empty while the range ends on it.
 func (d reviewDiff) newestSaid() string {
 	if !d.isHistory() || d.newest == nil {
 		return ""
 	}
 
-	return fmt.Sprintf("new comments go on round %d", d.newest.GetOrdinal())
+	return fmt.Sprintf("new comments go on snapshot %d", d.newest.GetOrdinal())
 }
 
 // widen puts the diff back to the whole change.
@@ -257,9 +257,9 @@ func (r reviewScreen) doesFitBaseLegend(m *model) bool {
 	return r.doesWalk()
 }
 
-// threadsInRange drops the threads opened after the round the range ends on.
+// threadsInRange drops the threads opened after the snapshot the range ends on.
 func (d reviewDiff) threadsInRange(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
-	end := d.endRound().GetOrdinal()
+	end := d.endSnapshot().GetOrdinal()
 	if d.spec.origin != nil {
 		end = d.spec.origin.Ordinal
 	}
@@ -270,7 +270,7 @@ func (d reviewDiff) threadsInRange(threads []*agentv1.ReviewThread) []*agentv1.R
 
 	kept := make([]*agentv1.ReviewThread, 0, len(threads))
 	for _, thread := range threads {
-		if thread.GetRoundOrdinal() <= end {
+		if thread.GetSnapshotOrdinal() <= end {
 			kept = append(kept, thread)
 		}
 	}
@@ -278,9 +278,9 @@ func (d reviewDiff) threadsInRange(threads []*agentv1.ReviewThread) []*agentv1.R
 	return kept
 }
 
-// findLaterStamp is when the first round after both a thread's own round and its first message was
-// taken, empty when no round has followed it.
-func findLaterStamp(thread *agentv1.ReviewThread, rounds []*agentv1.ReviewRound) string {
+// findLaterStamp is when the first snapshot after both a thread's own snapshot and its first message was
+// taken, empty when no snapshot has followed it.
+func findLaterStamp(thread *agentv1.ReviewThread, snapshots []*agentv1.ReviewSnapshot) string {
 	said := thread.GetMessages()
 	if len(said) == 0 {
 		return ""
@@ -288,12 +288,12 @@ func findLaterStamp(thread *agentv1.ReviewThread, rounds []*agentv1.ReviewRound)
 
 	first := said[0].GetCreatedAt()
 	stamp := ""
-	for _, round := range rounds {
-		if round.GetOrdinal() <= thread.GetRoundOrdinal() || !isBefore(first, round.GetCreatedAt()) {
+	for _, snapshot := range snapshots {
+		if snapshot.GetOrdinal() <= thread.GetSnapshotOrdinal() || !isBefore(first, snapshot.GetCreatedAt()) {
 			continue
 		}
-		if stamp == "" || isBefore(round.GetCreatedAt(), stamp) {
-			stamp = round.GetCreatedAt()
+		if stamp == "" || isBefore(snapshot.GetCreatedAt(), stamp) {
+			stamp = snapshot.GetCreatedAt()
 		}
 	}
 
@@ -336,7 +336,7 @@ func (d reviewDiff) laterStamp(thread *agentv1.ReviewThread) string {
 		return ""
 	}
 
-	return findLaterStamp(thread, d.rounds)
+	return findLaterStamp(thread, d.snapshots)
 }
 
 // viewedOffSaid is why a viewed mark is drawn off, empty on the whole change.
@@ -355,7 +355,7 @@ func (d reviewDiff) jumpOffSaid() string {
 	}
 
 	if thread, ok := d.threadAtCursor(); ok && thread.GetMirrorsForge() {
-		return "a forge comment was read on the pull request, not on a round"
+		return "a forge comment was read on the pull request, not on a snapshot"
 	}
 
 	return ""
@@ -367,5 +367,5 @@ func (r reviewScreen) editOffSaid() string {
 		return ""
 	}
 
-	return fmt.Sprintf("opens the worktree, not round %d", r.diff.endRound().GetOrdinal())
+	return fmt.Sprintf("opens the worktree, not snapshot %d", r.diff.endSnapshot().GetOrdinal())
 }

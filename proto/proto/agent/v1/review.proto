@@ -33,11 +33,11 @@ enum ReviewDeliveryState {
   REVIEW_DELIVERY_STATE_HELD = 4;
 }
 
-// ReviewVerdict is what a review concludes about a round.
+// ReviewVerdict is what a review concludes about a snapshot.
 enum ReviewVerdict {
   // No verdict. An unreleased review has this value.
   REVIEW_VERDICT_UNSPECIFIED = 0;
-  // The round is good as it stands.
+  // The snapshot is good as it stands.
   REVIEW_VERDICT_APPROVED = 1;
   // The writer has more to do.
   REVIEW_VERDICT_CHANGES_REQUESTED = 2;
@@ -45,34 +45,34 @@ enum ReviewVerdict {
   REVIEW_VERDICT_COMMENTED = 3;
 }
 
-// ReviewRound is a snapshot of a task's worktree, saved as a commit, that a review is written
-// against. A round never changes.
-message ReviewRound {
-  // The round's id.
+// ReviewSnapshot is a snapshot of a task's worktree, saved as a commit, that a review is written
+// against. A snapshot never changes.
+message ReviewSnapshot {
+  // The snapshot's id.
   string id = 1;
-  // The id of the task the round was taken of.
+  // The id of the task the snapshot was taken of.
   string task_id = 2;
-  // The round's number within its task, counting from one.
+  // The snapshot's number within its task, counting from one.
   int32 ordinal = 3;
-  // The commit on the base branch that the task's branch started from when the round was taken.
+  // The commit on the base branch that the task's branch started from when the snapshot was taken.
   string base_sha = 4;
   // The commit holding the whole worktree, tracked and untracked files alike.
-  string snapshot_sha = 5;
-  // When the round was taken, in RFC 3339.
+  string sha = 5;
+  // When the snapshot was taken, in RFC 3339.
   string created_at = 6;
 }
 
-// Review is one author's comments on one round, released to the agent together. The review is
+// Review is one author's comments on one snapshot, released to the agent together. The review is
 // private until the author releases it.
 message Review {
   // The review's id.
   string id = 1;
   // The id of the task the review is on.
   string task_id = 2;
-  // The id of the round the review is written against.
-  string round_id = 3;
-  // The number of the round the review is written against.
-  int32 round_ordinal = 4;
+  // The id of the snapshot the review is written against.
+  string snapshot_id = 3;
+  // The number of the snapshot the review is written against.
+  int32 snapshot_ordinal = 4;
   // Who wrote the review.
   ReviewAuthorKind author_kind = 5;
   // The id of the agent that wrote the review. Unset when the person wrote it.
@@ -104,12 +104,12 @@ message WatchedReview {
   string id = 1;
   // The id of the task the review is on.
   string task_id = 2;
-  // The id of the round the review is written against.
-  string round_id = 3;
-  // The number of the round the review is written against.
-  int32 round_ordinal = 4;
-  // The snapshot commit of the review's round.
-  string round_snapshot_sha = 5;
+  // The id of the snapshot the review is written against.
+  string snapshot_id = 3;
+  // The number of the snapshot the review is written against.
+  int32 snapshot_ordinal = 4;
+  // The commit of the review's snapshot.
+  string snapshot_sha = 5;
   // Who wrote the review.
   ReviewAuthorKind author_kind = 6;
   // The id of the agent that wrote the review. Unset when the person wrote it.
@@ -124,13 +124,13 @@ message WatchedReview {
   string created_at = 11;
   // When the review last changed, in RFC 3339.
   string updated_at = 12;
-  // When the review's round was first seen landed, in RFC 3339. Empty until then.
-  string round_landed_at = 13;
+  // When the review's snapshot was first seen landed, in RFC 3339. Empty until then.
+  string snapshot_landed_at = 13;
   // The forge login of the author of a review copied from the forge. Empty otherwise.
   string external_login = 14;
 }
 
-// ReviewThread is a conversation pinned to a range of lines in a round.
+// ReviewThread is a conversation pinned to a range of lines in a snapshot.
 message ReviewThread {
   // The thread's id.
   string id = 1;
@@ -138,12 +138,12 @@ message ReviewThread {
   string task_id = 2;
   // The id of the review the thread was created in.
   string review_id = 3;
-  // The id of the round the thread is pinned to.
-  string round_id = 4;
-  // The number of the round the thread is pinned to.
-  int32 round_ordinal = 5;
-  // The commit the old side of the line numbers is read against. This is the round's base unless
-  // the diff was narrowed to an earlier round.
+  // The id of the snapshot the thread is pinned to.
+  string snapshot_id = 4;
+  // The number of the snapshot the thread is pinned to.
+  int32 snapshot_ordinal = 5;
+  // The commit the old side of the line numbers is read against. This is the snapshot's base unless
+  // the diff was narrowed to an earlier snapshot.
   string base_sha = 6;
   // The file's path, relative to the checkout.
   string file_path = 7;
@@ -202,8 +202,8 @@ message ReviewMessage {
   // The id of the review the comment was released with. Unset for a reply from the writer, which
   // belongs to no review.
   optional string review_id = 12;
-  // The id of the round saved with an addressed reply. Unset on every other comment.
-  optional string round_id = 13;
+  // The id of the snapshot saved with an addressed reply. Unset on every other comment.
+  optional string snapshot_id = 13;
   // The forge comment this comment was copied from. Unset for a comment written in komrad.
   optional ForgeOrigin forge = 14;
   // The id of the held forge comment the person accepted this comment as a copy of. Unset
@@ -244,9 +244,9 @@ message CreateReviewThreadRequest {
   }];
   // The file's path, relative to the checkout.
   string file_path = 2;
-  // The commit the old side of the line numbers is read against. Empty uses the round's base.
+  // The commit the old side of the line numbers is read against. Empty uses the snapshot's base.
   string base_sha = 3;
-  // The commit the new side of the line numbers is read against. Empty uses the round's snapshot.
+  // The commit the new side of the line numbers is read against. Empty uses the snapshot's commit.
   string snapshot_sha = 4;
   // The first line of the range on the old side of the diff, counting from one.
   int32 old_start = 5;
@@ -282,7 +282,7 @@ message AddReviewMessageRequest {
   }];
   // The lines proposed in place of the thread's range. Empty for a plain reply.
   repeated string suggestion = 3;
-  // Whether the reply says the change the thread asks for is made. Komrad then saves a round of
+  // Whether the reply says the change the thread asks for is made. Komrad then saves a snapshot of
   // the worktree and pins it to the reply.
   bool addressed = 4;
 }
@@ -344,9 +344,9 @@ message SetReviewThreadResolvedResponse {
   ReviewThread thread = 1;
 }
 
-// OpenReviewRoundRequest saves a task's worktree as its next round. When the worktree has not
-// changed since the newest round, the call returns that round.
-message OpenReviewRoundRequest {
+// TakeReviewSnapshotRequest saves a task's worktree as its next snapshot. When the worktree has not
+// changed since the newest snapshot, the call returns that snapshot.
+message TakeReviewSnapshotRequest {
   // The task whose worktree to save, by id or slug. Unset uses the caller's own task.
   optional string task = 1 [(buf.validate.field).cel = {
     id: "task.named"
@@ -355,13 +355,13 @@ message OpenReviewRoundRequest {
   }];
 }
 
-message OpenReviewRoundResponse {
-  // The round to review. The newest existing round when the worktree has not changed.
-  ReviewRound round = 1;
+message TakeReviewSnapshotResponse {
+  // The snapshot to review. The newest existing snapshot when the worktree has not changed.
+  ReviewSnapshot snapshot = 1;
 }
 
-message ListReviewRoundsRequest {
-  // The task whose rounds to list, by id or slug. Unset uses the caller's own task.
+message ListReviewSnapshotsRequest {
+  // The task whose snapshots to list, by id or slug. Unset uses the caller's own task.
   optional string task = 1 [(buf.validate.field).cel = {
     id: "task.named"
     message: "pass task by id or by slug, or leave it unset"
@@ -369,9 +369,9 @@ message ListReviewRoundsRequest {
   }];
 }
 
-message ListReviewRoundsResponse {
-  // Every round of the task, oldest first.
-  repeated ReviewRound rounds = 1;
+message ListReviewSnapshotsResponse {
+  // Every snapshot of the task, oldest first.
+  repeated ReviewSnapshot snapshots = 1;
 }
 
 message OpenReviewHistoryRequest {
@@ -383,8 +383,8 @@ message OpenReviewHistoryRequest {
   }];
   // The part of the work to diff. Unset diffs the whole change.
   oneof span {
-    // A diff between two rounds.
-    ReviewRoundSpan rounds = 6;
+    // A diff between two snapshots.
+    ReviewSnapshotSpan snapshots = 6;
     // The change made by the reply that addressed a comment.
     ReviewAnswerSpan answer = 4;
     // The diff a comment was written against.
@@ -392,39 +392,39 @@ message OpenReviewHistoryRequest {
   }
 }
 
-// ReviewRoundSpan is the work between two rounds of a task.
-message ReviewRoundSpan {
-  // The id of the round the work starts after. Unset starts where the task starts.
-  optional string from_round_id = 1 [(buf.validate.field).string.min_len = 1];
-  // The id of the round the work ends on. Unset ends on the newest round.
-  optional string to_round_id = 2 [(buf.validate.field).string.min_len = 1];
+// ReviewSnapshotSpan is the work between two snapshots of a task.
+message ReviewSnapshotSpan {
+  // The id of the snapshot the work starts after. Unset starts where the task starts.
+  optional string from_snapshot_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The id of the snapshot the work ends on. Unset ends on the newest snapshot.
+  optional string to_snapshot_id = 2 [(buf.validate.field).string.min_len = 1];
 }
 
-// ReviewAnswerSpan is the change between the round a comment was written on and the round of the
+// ReviewAnswerSpan is the change between the snapshot a comment was written on and the snapshot of the
 // reply that addressed it.
 message ReviewAnswerSpan {
-  // The id of the round the comment was written on.
-  string from_round_id = 1 [(buf.validate.field).string.min_len = 1];
-  // The id of the round saved with the addressed reply.
-  string to_round_id = 2 [(buf.validate.field).string.min_len = 1];
+  // The id of the snapshot the comment was written on.
+  string from_snapshot_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The id of the snapshot saved with the addressed reply.
+  string to_snapshot_id = 2 [(buf.validate.field).string.min_len = 1];
 }
 
 // ReviewOriginSpan is the diff a comment was written against.
 message ReviewOriginSpan {
-  // The id of the round the comment was written on.
-  string round_id = 1 [(buf.validate.field).string.min_len = 1];
-  // The commit the comment's old side was read against. Empty uses the round's base.
+  // The id of the snapshot the comment was written on.
+  string snapshot_id = 1 [(buf.validate.field).string.min_len = 1];
+  // The commit the comment's old side was read against. Empty uses the snapshot's base.
   string base_sha = 2;
 }
 
 message OpenReviewHistoryResponse {
-  // The round the diff is read at.
-  ReviewRound round = 1;
-  // Every round of the task, oldest first.
-  repeated ReviewRound rounds = 2;
+  // The snapshot the diff is read at.
+  ReviewSnapshot snapshot = 1;
+  // Every snapshot of the task, oldest first.
+  repeated ReviewSnapshot snapshots = 2;
   // Every thread on the task, with its comments.
   repeated ReviewThread threads = 3;
-  // A note about the round komrad chose. Empty when there is none.
+  // A note about the snapshot komrad chose. Empty when there is none.
   string notice = 5;
   // The commits the diff is between.
   ReviewResolvedSpan resolved = 6;
@@ -433,12 +433,12 @@ message OpenReviewHistoryResponse {
   string widened = 7;
   // Every review on the task the caller may read, oldest first.
   repeated Review reviews = 13;
-  // The id of the round the person last released a review against. Empty when there is none or
-  // the round's base has changed since.
-  string earlier_round_id = 9;
+  // The id of the snapshot the person last released a review against. Empty when there is none or
+  // the snapshot's base has changed since.
+  string earlier_snapshot_id = 9;
   // When the person last released a review, in RFC 3339. Empty when the person never has.
   string earlier_released_at = 10;
-  // How many files changed since `earlier_round_id`.
+  // How many files changed since `earlier_snapshot_id`.
   int32 changed_since_earlier = 11;
   // Where git traced each thread's lines in the diff's head, by thread id.
   map<string, ReviewTracedPlace> traced = 12;
@@ -460,8 +460,8 @@ message ReviewResolvedSpan {
   string origin_base_sha = 6;
   // The snapshot a comment was written on. Empty for other spans.
   string origin_head_sha = 7;
-  // The base of the round a comment was written on. Empty for other spans.
-  string origin_round_base_sha = 8;
+  // The base of the snapshot a comment was written on. Empty for other spans.
+  string origin_snapshot_base_sha = 8;
   // The paths the base branch changed under the writer that replaying the older side could not
   // resolve. The diff is then from the older side as it was.
   repeated string conflicts = 9;
@@ -480,7 +480,7 @@ message ReviewTracedPlace {
 }
 
 // ReviewThreadInContext is one thread of a released review, with the code around it from the
-// round's snapshot.
+// snapshot's commit.
 message ReviewThreadInContext {
   // The thread, with only the comments released with this review.
   ReviewThread thread = 1;
@@ -499,8 +499,8 @@ message GetReviewRequest {
 message GetReviewResponse {
   // The review, with its verdict and body.
   Review review = 1;
-  // The round the review is written against.
-  ReviewRound round = 2;
+  // The snapshot the review is written against.
+  ReviewSnapshot snapshot = 2;
   // The review's threads, by file and line.
   repeated ReviewThreadInContext threads = 3;
 }
@@ -515,7 +515,7 @@ message ListReviewsRequest {
 }
 
 message ListReviewsResponse {
-  // Every review on the task, in round order.
+  // Every review on the task, in snapshot order.
   repeated Review reviews = 1;
 }
 

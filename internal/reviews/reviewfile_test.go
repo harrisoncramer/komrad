@@ -18,7 +18,7 @@ func TestRenderReviewHeadsEachThread(t *testing.T) {
 		wantPair    string
 	}{
 		{
-			name: "a line removed since an earlier round is counted in that round's snapshot",
+			name: "a line removed since an earlier snapshot is counted in that snapshot's commit",
 			thread: reviewstore.Thread{
 				BaseSHA:  "earlier-snapshot-sha",
 				FilePath: "greet.go",
@@ -29,7 +29,7 @@ func TestRenderReviewHeadsEachThread(t *testing.T) {
 			wantPair:    "`git diff earlier-snapshot-sha snapshot-sha`",
 		},
 		{
-			name: "a line removed since the round's own base is counted there",
+			name: "a line removed since the snapshot's own base is counted there",
 			thread: reviewstore.Thread{
 				BaseSHA:  "base-sha",
 				FilePath: "greet.go",
@@ -40,7 +40,7 @@ func TestRenderReviewHeadsEachThread(t *testing.T) {
 			wantPair:    "`git diff base-sha snapshot-sha`",
 		},
 		{
-			name: "a removed line on a thread that recorded no base is counted in the round's",
+			name: "a removed line on a thread that recorded no base is counted in the snapshot's",
 			thread: reviewstore.Thread{
 				FilePath: "greet.go",
 				OldStart: 41,
@@ -70,10 +70,10 @@ func TestRenderReviewHeadsEachThread(t *testing.T) {
 					ID:   "01a0d224-0000-7000-8000-000000000001",
 					Slug: "worker",
 				},
-				Round: reviewstore.Round{
-					Ordinal:     1,
-					BaseSHA:     "base-sha",
-					SnapshotSHA: "snapshot-sha",
+				Snapshot: reviewstore.Snapshot{
+					Ordinal: 1,
+					BaseSHA: "base-sha",
+					SHA:     "snapshot-sha",
 				},
 				Verdict: reviewstore.VerdictChangesRequested,
 				Threads: []ReviewThreadInContext{{Thread: tt.thread}},
@@ -119,10 +119,10 @@ func TestRenderReviewQuotesForgeComments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			body := renderReview(renderReviewParams{
 				Task: taskstore.Task{ID: "01a0d224-0000-7000-8000-000000000001", Slug: "worker"},
-				Round: reviewstore.Round{
-					Ordinal:     1,
-					BaseSHA:     "base-sha",
-					SnapshotSHA: "snapshot-sha",
+				Snapshot: reviewstore.Snapshot{
+					Ordinal: 1,
+					BaseSHA: "base-sha",
+					SHA:     "snapshot-sha",
 				},
 				Threads: []ReviewThreadInContext{{
 					Thread: reviewstore.Thread{
@@ -206,10 +206,10 @@ func TestRenderReviewFencesEachSnippet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			body := renderReview(renderReviewParams{
 				Task: taskstore.Task{ID: "01a0d224-0000-7000-8000-000000000001", Slug: "worker"},
-				Round: reviewstore.Round{
-					Ordinal:     1,
-					BaseSHA:     "base-sha",
-					SnapshotSHA: "snapshot-sha",
+				Snapshot: reviewstore.Snapshot{
+					Ordinal: 1,
+					BaseSHA: "base-sha",
+					SHA:     "snapshot-sha",
 				},
 				Threads: []ReviewThreadInContext{tt.thread},
 			})

@@ -15,11 +15,11 @@ const midSequenceNotice = "a rebase or merge is part way through, so this is the
 
 type ReviewHistory struct {
 	history.Record
-	Round   reviewstore.Round
-	Rounds  []reviewstore.Round
-	Threads []ReviewThreadWithMessages
-	Reviews []reviewstore.Review
-	Notice  string
+	Snapshot  reviewstore.Snapshot
+	Snapshots []reviewstore.Snapshot
+	Threads   []ReviewThreadWithMessages
+	Reviews   []reviewstore.Review
+	Notice    string
 }
 
 type GetHistoryParams struct {
@@ -28,7 +28,7 @@ type GetHistoryParams struct {
 	Author ReviewAuthor
 }
 
-// GetHistory reads a task's review as the panel opens it: the round to read, the threads on it,
+// GetHistory reads a task's review as the panel opens it: the snapshot to read, the threads on it,
 // and the history built from them.
 func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams) (*ReviewHistory, error) {
 	task, err := s.getTask(ctx, params.Task, params.Author)
@@ -49,79 +49,79 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		return nil, err
 	}
 
-	rounds, err := s.reviews.ListRounds(ctx, task.ID)
+	snapshots, err := s.reviews.ListSnapshots(ctx, task.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	picked, err := s.pickRound(ctx, pickRoundParams{
-		Task:   *task,
-		Rounds: rounds,
+	picked, err := s.pickSnapshot(ctx, pickSnapshotParams{
+		Task:      *task,
+		Snapshots: snapshots,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	opened := &ReviewHistory{
-		Round:   picked.Round,
-		Rounds:  picked.Rounds,
-		Threads: threads,
-		Reviews: reviews,
-		Notice:  picked.Notice,
+		Snapshot:  picked.Snapshot,
+		Snapshots: picked.Snapshots,
+		Threads:   threads,
+		Reviews:   reviews,
+		Notice:    picked.Notice,
 	}
 	opened.Record = history.Build(ctx, history.BuildParams{
-		Git:     s.git,
-		Tracer:  s.tracer,
-		Dir:     task.Checkout.Cwd,
-		Exclude: s.readDiffExclude(ctx, task.WorkflowID),
-		Round:   historyRoundOf(opened.Round),
-		Rounds:  xslice.Map(opened.Rounds, historyRoundOf),
-		Reviews: xslice.Map(reviews, historyReviewOf),
-		Threads: xslice.Map(threads, historyThreadOf),
-		Span:    params.Span,
+		Git:       s.git,
+		Tracer:    s.tracer,
+		Dir:       task.Checkout.Cwd,
+		Exclude:   s.readDiffExclude(ctx, task.WorkflowID),
+		Snapshot:  historySnapshotOf(opened.Snapshot),
+		Snapshots: xslice.Map(opened.Snapshots, historySnapshotOf),
+		Reviews:   xslice.Map(reviews, historyReviewOf),
+		Threads:   xslice.Map(threads, historyThreadOf),
+		Span:      params.Span,
 	})
 
 	return opened, nil
 }
 
-type pickedRound struct {
-	Round  reviewstore.Round
-	Rounds []reviewstore.Round
-	Notice string
+type pickedSnapshot struct {
+	Snapshot  reviewstore.Snapshot
+	Snapshots []reviewstore.Snapshot
+	Notice    string
 }
 
-type pickRoundParams struct {
-	Task   taskstore.Task
-	Rounds []reviewstore.Round
+type pickSnapshotParams struct {
+	Task      taskstore.Task
+	Snapshots []reviewstore.Snapshot
 }
 
-// pickRound freezes the checkout as it stands, falling back to the newest round while a rebase or merge is part way through.
-func (s *ReviewService) pickRound(ctx context.Context, params pickRoundParams) (*pickedRound, error) {
-	rounds := params.Rounds
-	opened, err := s.openTaskRound(ctx, params.Task)
+// pickSnapshot freezes the checkout as it stands, falling back to the newest snapshot while a rebase or merge is part way through.
+func (s *ReviewService) pickSnapshot(ctx context.Context, params pickSnapshotParams) (*pickedSnapshot, error) {
+	snapshots := params.Snapshots
+	opened, err := s.takeTaskSnapshot(ctx, params.Task)
 	var failed *fail.Error
 	switch {
-	case errors.As(err, &failed) && failed.Kind() == fail.KindPrecondition && len(rounds) > 0:
-		return &pickedRound{
-			Round:  rounds[len(rounds)-1],
-			Rounds: rounds,
-			Notice: midSequenceNotice,
+	case errors.As(err, &failed) && failed.Kind() == fail.KindPrecondition && len(snapshots) > 0:
+		return &pickedSnapshot{
+			Snapshot:  snapshots[len(snapshots)-1],
+			Snapshots: snapshots,
+			Notice:    midSequenceNotice,
 		}, nil
 	case err != nil:
 		return nil, err
 	}
 
-	if findStoreRound(rounds, opened.ID) == nil {
-		rounds = append(rounds, *opened)
+	if findStoreSnapshot(snapshots, opened.ID) == nil {
+		snapshots = append(snapshots, *opened)
 	}
 
-	return &pickedRound{Round: *opened, Rounds: rounds}, nil
+	return &pickedSnapshot{Snapshot: *opened, Snapshots: snapshots}, nil
 }
 
-func findStoreRound(rounds []reviewstore.Round, id string) *reviewstore.Round {
-	for i := range rounds {
-		if rounds[i].ID == id {
-			return &rounds[i]
+func findStoreSnapshot(snapshots []reviewstore.Snapshot, id string) *reviewstore.Snapshot {
+	for i := range snapshots {
+		if snapshots[i].ID == id {
+			return &snapshots[i]
 		}
 	}
 
@@ -137,30 +137,30 @@ func (s *ReviewService) readDiffExclude(ctx context.Context, workflowID string) 
 	return flow.Worktree.DiffExclude
 }
 
-func historyRoundOf(round reviewstore.Round) history.Round {
-	return history.Round{
-		ID:          round.ID,
-		Ordinal:     round.Ordinal,
-		BaseSHA:     round.BaseSHA,
-		SnapshotSHA: round.SnapshotSHA,
+func historySnapshotOf(snapshot reviewstore.Snapshot) history.Snapshot {
+	return history.Snapshot{
+		ID:      snapshot.ID,
+		Ordinal: snapshot.Ordinal,
+		BaseSHA: snapshot.BaseSHA,
+		SHA:     snapshot.SHA,
 	}
 }
 
 func historyReviewOf(review reviewstore.Review) history.Review {
 	return history.Review{
-		RoundID:      review.RoundID,
-		RoundOrdinal: review.RoundOrdinal,
-		Human:        review.AuthorKind == reviewstore.AuthorHuman,
-		ReleasedAt:   review.ReleasedAt,
+		SnapshotID:      review.SnapshotID,
+		SnapshotOrdinal: review.SnapshotOrdinal,
+		Human:           review.AuthorKind == reviewstore.AuthorHuman,
+		ReleasedAt:      review.ReleasedAt,
 	}
 }
 
 func historyThreadOf(thread ReviewThreadWithMessages) history.Thread {
 	return history.Thread{
-		ID:       thread.Thread.ID,
-		RoundID:  thread.Thread.RoundID,
-		FilePath: thread.Thread.FilePath,
-		NewStart: thread.Thread.NewStart,
-		NewEnd:   thread.Thread.NewEnd,
+		ID:         thread.Thread.ID,
+		SnapshotID: thread.Thread.SnapshotID,
+		FilePath:   thread.Thread.FilePath,
+		NewStart:   thread.Thread.NewStart,
+		NewEnd:     thread.Thread.NewEnd,
 	}
 }

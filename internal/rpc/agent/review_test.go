@@ -31,7 +31,7 @@ const betaTask = "task-beta"
 type fakeReviewer struct {
 	err      error
 	review   reviewstore.Review
-	round    reviewstore.Round
+	snapshot reviewstore.Snapshot
 	thread   reviewstore.Thread
 	message  reviewstore.Message
 	viewed   *reviewstore.ViewedFile
@@ -133,19 +133,19 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodePermissionDenied,
 		},
 		{
-			name: "a round of an agent with no directory",
+			name: "a snapshot of an agent with no directory",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{Task: xptr.Ptr(betaTask)}))
+				_, err := svc.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{Task: xptr.Ptr(betaTask)}))
 
 				return err
 			},
-			err:      reviews.ErrReviewNoRound,
+			err:      reviews.ErrReviewNoSnapshot,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name: "the rounds of an agent the caller is not reviewing",
+			name: "the snapshots of an agent the caller is not reviewing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{Task: xptr.Ptr(betaTask)}))
+				_, err := svc.ListReviewSnapshots(ctx, connect.NewRequest(&agentv1.ListReviewSnapshotsRequest{Task: xptr.Ptr(betaTask)}))
 
 				return err
 			},
@@ -295,32 +295,32 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 			wantID: "thread-1",
 		},
 		{
-			name: "opening a round",
+			name: "taking a snapshot",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{Task: xptr.Ptr(betaTask)}))
+				got, err := svc.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{Task: xptr.Ptr(betaTask)}))
 				if err != nil {
 					return "", err
 				}
 
-				return got.Msg.GetRound().GetId(), nil
+				return got.Msg.GetSnapshot().GetId(), nil
 			},
-			wantID: "round-1",
+			wantID: "snapshot-1",
 		},
 		{
-			name: "listing the rounds",
+			name: "listing the snapshots",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{Task: xptr.Ptr(betaTask)}))
+				got, err := svc.ListReviewSnapshots(ctx, connect.NewRequest(&agentv1.ListReviewSnapshotsRequest{Task: xptr.Ptr(betaTask)}))
 				if err != nil {
 					return "", err
 				}
 
-				if len(got.Msg.GetRounds()) == 0 {
+				if len(got.Msg.GetSnapshots()) == 0 {
 					return "", nil
 				}
 
-				return got.Msg.GetRounds()[0].GetId(), nil
+				return got.Msg.GetSnapshots()[0].GetId(), nil
 			},
-			wantID: "round-1",
+			wantID: "snapshot-1",
 		},
 		{
 			name: "listing the reviews",
@@ -343,10 +343,10 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newReviewHandler(&fakeReviewer{
-				review:  reviewstore.Review{ID: "review-1"},
-				round:   reviewstore.Round{ID: "round-1"},
-				thread:  reviewstore.Thread{ID: "thread-1"},
-				message: reviewstore.Message{ID: "message-1"},
+				review:   reviewstore.Review{ID: "review-1"},
+				snapshot: reviewstore.Snapshot{ID: "snapshot-1"},
+				thread:   reviewstore.Thread{ID: "thread-1"},
+				message:  reviewstore.Message{ID: "message-1"},
 			})
 
 			id, err := tt.call(t.Context(), svc)
@@ -425,28 +425,28 @@ func TestOpenReviewHistoryPassesTheSpan(t *testing.T) {
 			request: &agentv1.OpenReviewHistoryRequest{Task: betaTask},
 		},
 		{
-			name: "a range of rounds",
+			name: "a range of snapshots",
 			request: &agentv1.OpenReviewHistoryRequest{
 				Task: betaTask,
-				Span: &agentv1.OpenReviewHistoryRequest_Rounds{Rounds: &agentv1.ReviewRoundSpan{FromRoundId: new("r1"), ToRoundId: new("r2")}},
+				Span: &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{FromSnapshotId: new("r1"), ToSnapshotId: new("r2")}},
 			},
-			wantSpan: history.Span{Rounds: &history.RoundSpan{FromRoundID: "r1", ToRoundID: "r2"}},
+			wantSpan: history.Span{Snapshots: &history.SnapshotSpan{FromSnapshotID: "r1", ToSnapshotID: "r2"}},
 		},
 		{
 			name: "an answer",
 			request: &agentv1.OpenReviewHistoryRequest{
 				Task: betaTask,
-				Span: &agentv1.OpenReviewHistoryRequest_Answer{Answer: &agentv1.ReviewAnswerSpan{FromRoundId: "r1", ToRoundId: "r2"}},
+				Span: &agentv1.OpenReviewHistoryRequest_Answer{Answer: &agentv1.ReviewAnswerSpan{FromSnapshotId: "r1", ToSnapshotId: "r2"}},
 			},
-			wantSpan: history.Span{Answer: &history.AnswerSpan{FromRoundID: "r1", ToRoundID: "r2"}},
+			wantSpan: history.Span{Answer: &history.AnswerSpan{FromSnapshotID: "r1", ToSnapshotID: "r2"}},
 		},
 		{
 			name: "a comment's origin",
 			request: &agentv1.OpenReviewHistoryRequest{
 				Task: betaTask,
-				Span: &agentv1.OpenReviewHistoryRequest_Origin{Origin: &agentv1.ReviewOriginSpan{RoundId: "r1", BaseSha: "a"}},
+				Span: &agentv1.OpenReviewHistoryRequest_Origin{Origin: &agentv1.ReviewOriginSpan{SnapshotId: "r1", BaseSha: "a"}},
 			},
-			wantSpan: history.Span{Origin: &history.OriginSpan{RoundID: "r1", BaseSHA: "a"}},
+			wantSpan: history.Span{Origin: &history.OriginSpan{SnapshotID: "r1", BaseSHA: "a"}},
 		},
 	}
 
@@ -470,7 +470,7 @@ func TestOpenReviewHistoryPassesTheSpan(t *testing.T) {
 func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 	released := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
 	reviewer := &fakeReviewer{
-		round: reviewstore.Round{ID: "round-2", Ordinal: 2},
+		snapshot: reviewstore.Snapshot{ID: "snapshot-2", Ordinal: 2},
 		record: history.Record{
 			Span: history.ResolvedSpan{
 				BaseSHA:   "base",
@@ -478,8 +478,8 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 				Replayed:  true,
 				Conflicts: []string{"greet.go"},
 			},
-			Widened:             "the round this comment was written on is gone",
-			Earlier:             &history.Round{ID: "round-1"},
+			Widened:             "the snapshot this comment was written on is gone",
+			Earlier:             &history.Snapshot{ID: "snapshot-1"},
 			EarlierReleasedAt:   &released,
 			ChangedSinceEarlier: 3,
 			Traced:              map[string]history.Place{"thread-1": {FilePath: "greet.go", NewStart: 8}},
@@ -491,13 +491,13 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 	require.NoError(t, err)
 
 	want := &agentv1.OpenReviewHistoryResponse{
-		Round: &agentv1.ReviewRound{
-			Id:        "round-2",
+		Snapshot: &agentv1.ReviewSnapshot{
+			Id:        "snapshot-2",
 			Ordinal:   2,
 			CreatedAt: dates.Stamp(time.Time{}),
 		},
-		Rounds: []*agentv1.ReviewRound{{
-			Id:        "round-2",
+		Snapshots: []*agentv1.ReviewSnapshot{{
+			Id:        "snapshot-2",
 			Ordinal:   2,
 			CreatedAt: dates.Stamp(time.Time{}),
 		}},
@@ -507,8 +507,8 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 			Replayed:  true,
 			Conflicts: []string{"greet.go"},
 		},
-		Widened:             "the round this comment was written on is gone",
-		EarlierRoundId:      "round-1",
+		Widened:             "the snapshot this comment was written on is gone",
+		EarlierSnapshotId:   "snapshot-1",
 		EarlierReleasedAt:   dates.Stamp(released),
 		ChangedSinceEarlier: 3,
 		Traced:              map[string]*agentv1.ReviewTracedPlace{"thread-1": {FilePath: "greet.go", NewStart: 8}},
@@ -571,27 +571,27 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 func TestGetReviewRendersTheReview(t *testing.T) {
 	reviewer := &fakeReviewer{
 		review: reviewstore.Review{
-			ID:            "review-1",
-			TaskID:        "task-beta",
-			RoundID:       "round-1",
-			RoundOrdinal:  1,
-			AuthorKind:    reviewstore.AuthorAgent,
-			AuthorAgentID: xptr.Ptr(alphaID),
-			Verdict:       xptr.Ptr(reviewstore.VerdictChangesRequested),
-			ReleasedAt:    &reviewedAt,
-			DeliveredAt:   &reviewedAt,
-			Body:          "two things before it goes",
-			OpenThreads:   1,
-			CreatedAt:     reviewedAt,
-			UpdatedAt:     reviewedAt,
+			ID:              "review-1",
+			TaskID:          "task-beta",
+			SnapshotID:      "snapshot-1",
+			SnapshotOrdinal: 1,
+			AuthorKind:      reviewstore.AuthorAgent,
+			AuthorAgentID:   xptr.Ptr(alphaID),
+			Verdict:         xptr.Ptr(reviewstore.VerdictChangesRequested),
+			ReleasedAt:      &reviewedAt,
+			DeliveredAt:     &reviewedAt,
+			Body:            "two things before it goes",
+			OpenThreads:     1,
+			CreatedAt:       reviewedAt,
+			UpdatedAt:       reviewedAt,
 		},
-		round: reviewstore.Round{
-			ID:          "round-1",
-			TaskID:      "task-beta",
-			Ordinal:     1,
-			BaseSHA:     "base-sha",
-			SnapshotSHA: "snapshot-sha",
-			CreatedAt:   reviewedAt,
+		snapshot: reviewstore.Snapshot{
+			ID:        "snapshot-1",
+			TaskID:    "task-beta",
+			Ordinal:   1,
+			BaseSHA:   "base-sha",
+			SHA:       "snapshot-sha",
+			CreatedAt: reviewedAt,
 		},
 		thread: reviewstore.Thread{
 			ID:       "thread-1",
@@ -608,27 +608,27 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 
 	assert.Empty(t, cmp.Diff(&agentv1.GetReviewResponse{
 		Review: &agentv1.Review{
-			Id:            "review-1",
-			TaskId:        "task-beta",
-			RoundId:       "round-1",
-			RoundOrdinal:  1,
-			AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
-			AuthorAgentId: xptr.Ptr(alphaID),
-			Verdict:       agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-			Body:          "two things before it goes",
-			OpenThreads:   1,
-			ReleasedAt:    "2026-09-24T09:00:00Z",
-			DeliveredAt:   "2026-09-24T09:00:00Z",
-			CreatedAt:     "2026-09-24T09:00:00Z",
-			UpdatedAt:     "2026-09-24T09:00:00Z",
+			Id:              "review-1",
+			TaskId:          "task-beta",
+			SnapshotId:      "snapshot-1",
+			SnapshotOrdinal: 1,
+			AuthorKind:      agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
+			AuthorAgentId:   xptr.Ptr(alphaID),
+			Verdict:         agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+			Body:            "two things before it goes",
+			OpenThreads:     1,
+			ReleasedAt:      "2026-09-24T09:00:00Z",
+			DeliveredAt:     "2026-09-24T09:00:00Z",
+			CreatedAt:       "2026-09-24T09:00:00Z",
+			UpdatedAt:       "2026-09-24T09:00:00Z",
 		},
-		Round: &agentv1.ReviewRound{
-			Id:          "round-1",
-			TaskId:      "task-beta",
-			Ordinal:     1,
-			BaseSha:     "base-sha",
-			SnapshotSha: "snapshot-sha",
-			CreatedAt:   "2026-09-24T09:00:00Z",
+		Snapshot: &agentv1.ReviewSnapshot{
+			Id:        "snapshot-1",
+			TaskId:    "task-beta",
+			Ordinal:   1,
+			BaseSha:   "base-sha",
+			Sha:       "snapshot-sha",
+			CreatedAt: "2026-09-24T09:00:00Z",
 		},
 		Threads: []*agentv1.ReviewThreadInContext{{
 			Thread: &agentv1.ReviewThread{
@@ -753,25 +753,25 @@ func (f *fakeReviewer) SetReviewThreadResolved(context.Context, reviews.SetRevie
 	return &f.thread, nil
 }
 
-// OpenRound answers the round it holds.
-func (f *fakeReviewer) OpenRound(context.Context, string, reviews.ReviewAuthor) (*reviewstore.Round, error) {
+// TakeSnapshot answers the snapshot it holds.
+func (f *fakeReviewer) TakeSnapshot(context.Context, string, reviews.ReviewAuthor) (*reviewstore.Snapshot, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return &f.round, nil
+	return &f.snapshot, nil
 }
 
-// ListRounds answers the round it holds.
-func (f *fakeReviewer) ListRounds(context.Context, string, reviews.ReviewAuthor) ([]reviewstore.Round, error) {
+// ListSnapshots answers the snapshot it holds.
+func (f *fakeReviewer) ListSnapshots(context.Context, string, reviews.ReviewAuthor) ([]reviewstore.Snapshot, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return []reviewstore.Round{f.round}, nil
+	return []reviewstore.Snapshot{f.snapshot}, nil
 }
 
-// GetHistory records the opening and answers the round and history it holds.
+// GetHistory records the opening and answers the snapshot and history it holds.
 func (f *fakeReviewer) GetHistory(_ context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error) {
 	f.opened = append(f.opened, params)
 	if f.err != nil {
@@ -779,9 +779,9 @@ func (f *fakeReviewer) GetHistory(_ context.Context, params reviews.GetHistoryPa
 	}
 
 	return &reviews.ReviewHistory{
-		Record: f.record,
-		Round:  f.round,
-		Rounds: []reviewstore.Round{f.round},
+		Record:    f.record,
+		Snapshot:  f.snapshot,
+		Snapshots: []reviewstore.Snapshot{f.snapshot},
 	}, nil
 }
 
@@ -794,15 +794,15 @@ func (f *fakeReviewer) ListReviews(context.Context, string, reviews.ReviewAuthor
 	return []reviewstore.Review{f.review}, nil
 }
 
-// GetReview answers the review, round and thread it holds, the thread drawn over one line of code.
+// GetReview answers the review, snapshot and thread it holds, the thread drawn over one line of code.
 func (f *fakeReviewer) GetReview(context.Context, string, reviews.ReviewAuthor) (*reviews.ReviewInFull, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
 
 	return &reviews.ReviewInFull{
-		Review: f.review,
-		Round:  f.round,
+		Review:   f.review,
+		Snapshot: f.snapshot,
 		Threads: []reviews.ReviewThreadInContext{{
 			Thread:  f.thread,
 			Context: []string{">> 1  package greet"},

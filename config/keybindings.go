@@ -406,7 +406,7 @@ type ReviewKeys struct {
 	// cursor is on. This is the task's own worktree rather than a copy of it, so what
 	// you write is what the writer finds there, and the key is refused while the writer is
 	// working rather than letting you both write at once. It is drawn off on a range ending
-	// before the newest round, since those lines have moved on.
+	// before the newest snapshot, since those lines have moved on.
 	EditFile []string `mapstructure:"edit_file" default:"e"`
 	// From the menu, throw away a reply of yours the forge refused on the thread under the cursor. Nothing is
 	// posted.
@@ -428,9 +428,9 @@ type ReviewKeys struct {
 	PrevOpenThread []string `mapstructure:"prev_open_thread" default:"U"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread" default:"T"`
-	// From the menu while the diff ends before the newest round, end it on the newest round.
+	// From the menu while the diff ends before the newest snapshot, end it on the newest snapshot.
 	RangeEnd []string `mapstructure:"range_end" default:"L"`
-	// From the menu, catch up with the writer, taking a round of the worktree as it stands and ending
+	// From the menu, catch up with the writer, taking a snapshot of the worktree as it stands and ending
 	// the diff on it.
 	Reload []string `mapstructure:"reload" default:"R"`
 	// From the menu, hide the conversations agents opened, or show them again. They show whenever a

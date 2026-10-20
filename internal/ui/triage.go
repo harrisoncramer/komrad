@@ -419,7 +419,7 @@ func isAgentOnIt(item panel.AgentRow, task panel.Task) bool {
 	// reports, keeps the agent out of triage until something else on its pull request changes.
 	//
 	// TODO(@harrisoncramer): An agent that keeps failing its checks is mailed, pushes and waits
-	// again each time, so a person never sees it however many rounds it burns.
+	// again each time, so a person never sees it however many snapshots it burns.
 	//
 	// TODO(@harrisoncramer): Mail the agent never reads keeps it out of triage for as long as it
 	// sits there unread.

@@ -24,8 +24,8 @@ type Task struct {
 	WorktreeRemoved bool
 	// Sequence is what git has part-way through its checkout and waiting on somebody.
 	Sequence Sequence
-	// MovedSinceRound is the newest round's snapshot while the checkout no longer hashes to it.
-	MovedSinceRound string
+	// MovedSinceSnapshot is the newest snapshot's commit while the checkout no longer hashes to it.
+	MovedSinceSnapshot string
 	// DiffStat is the lines its checkout adds and removes since its base, nil where there is none.
 	DiffStat *taskv1.DiffStat
 	// Parent is the task this one depends on, nil for a task on the workflow's base branch.

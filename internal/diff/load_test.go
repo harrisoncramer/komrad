@@ -53,9 +53,9 @@ func repo(t *testing.T) string {
 	return root
 }
 
-// loadRound freezes the worktree the way a round does and reads the patch back out of it, which
+// loadSnapshot freezes the worktree the way a snapshot does and reads the patch back out of it, which
 // is the only way the loader is ever called.
-func loadRound(t *testing.T, root string, exclude ...string) *Patch {
+func loadSnapshot(t *testing.T, root string, exclude ...string) *Patch {
 	t.Helper()
 
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{Dir: root, Base: "main"})
@@ -125,7 +125,7 @@ func TestIntegrationLoadHonoursExcludes(t *testing.T) {
 			write(t, root, "proto/gen/new.pb.go", "package gen\n")
 			write(t, root, "untracked.go", "package main\n")
 
-			assert.Equal(t, tt.want, paths(loadRound(t, root, tt.exclude...)))
+			assert.Equal(t, tt.want, paths(loadSnapshot(t, root, tt.exclude...)))
 		})
 	}
 }
@@ -147,7 +147,7 @@ func TestIntegrationAPathSurvivesTheUserSDiffPrefixConfig(t *testing.T) {
 
 			write(t, root, "proto/gen/api.pb.go", "package gen\n\nvar Generated = true\n")
 
-			assert.Equal(t, []string{"proto/gen/api.pb.go"}, paths(loadRound(t, root)))
+			assert.Equal(t, []string{"proto/gen/api.pb.go"}, paths(loadSnapshot(t, root)))
 		})
 	}
 }
@@ -164,7 +164,7 @@ func TestIntegrationLoadReadsBothSidesOfEveryFile(t *testing.T) {
 	require.NoError(t, os.Remove(filepath.Join(root, "proto/gen/api.pb.go")))
 
 	sources := map[string][2]string{}
-	for _, file := range loadRound(t, root).Files {
+	for _, file := range loadSnapshot(t, root).Files {
 		sources[file.Path()] = [2]string{file.OldSource, file.NewSource}
 	}
 
@@ -185,7 +185,7 @@ func capture(t *testing.T, root string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// TestIntegrationTakeHoldsCommittedAndUncommittedWorkAlike pins what a round covers.
+// TestIntegrationTakeHoldsCommittedAndUncommittedWorkAlike pins what a snapshot covers.
 func TestIntegrationTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	root := repo(t)
 	run(t, root, "checkout", "-b", "agent/one")
@@ -224,7 +224,7 @@ func changed(patch *Patch) []string {
 	return found
 }
 
-// TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn is what a round is for: the patch reads
+// TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn is what a snapshot is for: the patch reads
 // the same however far the agent has moved on since.
 func TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *testing.T) {
 	root := repo(t)
@@ -235,7 +235,7 @@ func TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *test
 		Base: "main",
 	})
 	require.NoError(t, err)
-	require.NoError(t, gitClient.HoldRef(t.Context(), root, "refs/komrad/rounds/three", snapshot.SHA))
+	require.NoError(t, gitClient.HoldRef(t.Context(), root, "refs/komrad/snapshots/three", snapshot.SHA))
 
 	write(t, root, "kept.go", "package main\n\nfunc Second() {}\n")
 	require.NoError(t, os.Remove(filepath.Join(root, "proto", "gen", "api.pb.go")))
@@ -250,7 +250,7 @@ func TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *test
 	require.Len(t, patch.Files, 1)
 	assert.Equal(t, "kept.go", patch.Files[0].Path())
 	assert.Contains(t, patch.Files[0].NewSource, "func First()")
-	assert.Equal(t, snapshot.SHA, capture(t, root, "rev-parse", "refs/komrad/rounds/three"))
+	assert.Equal(t, snapshot.SHA, capture(t, root, "rev-parse", "refs/komrad/snapshots/three"))
 }
 
 // TestIntegrationTakeIgnoresWhatGitIgnores pins that a snapshot obeys the repository's own ignores rather than
@@ -258,7 +258,7 @@ func TestIntegrationTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *test
 func TestIntegrationTakeIgnoresWhatGitIgnores(t *testing.T) {
 	root := repo(t)
 	write(t, root, ".gitignore", ".komrad/\n")
-	write(t, root, ".komrad/reviews/round-1.md", "a review\n")
+	write(t, root, ".komrad/reviews/snapshot-1.md", "a review\n")
 
 	snapshot, err := gitClient.TakeSnapshot(t.Context(), git.TakeSnapshotParams{
 		Dir:  root,
@@ -273,7 +273,7 @@ func TestIntegrationTakeIgnoresWhatGitIgnores(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.NotContains(t, changed(patch), ".komrad/reviews/round-1.md")
+	assert.NotContains(t, changed(patch), ".komrad/reviews/snapshot-1.md")
 }
 
 // TestIntegrationTakeExcludesNothingItself pins where the workflow's excludes apply.
@@ -287,7 +287,7 @@ func TestIntegrationTakeExcludesNothingItself(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// The round holds the excluded file whole.
+	// The snapshot holds the excluded file whole.
 	lines, err := gitClient.ReadFileLines(t.Context(), root, snapshot.SHA, "proto/gen/api.pb.go")
 	require.NoError(t, err)
 	assert.Contains(t, lines, "func Gen() {}")

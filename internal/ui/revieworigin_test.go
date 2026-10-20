@@ -15,11 +15,11 @@ import (
 func TestReviewJump(t *testing.T) {
 	t.Run("a comment adrift in a range lands on its line in the diff it was written against", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne()}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		harness.press("<")
-		require.Contains(t, readStageText(harness.readFrame()), "round 1 ▸ round 2")
+		require.Contains(t, readStageText(harness.readFrame()), "snapshot 1 ▸ snapshot 2")
 
 		harness.press("t")
 		frame := harness.readFrame()
@@ -28,7 +28,7 @@ func TestReviewJump(t *testing.T) {
 		harness.press("space", "J")
 
 		frame = harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where the comment was read ▸ round 1")
+		assert.Contains(t, readStageText(frame), "where the comment was read ▸ snapshot 1")
 		assert.NotContains(t, readSidebarProse(frame), "outside what is on screen")
 		assert.Contains(t, readPopupProse(frame), "add a second file")
 		assert.Contains(t, findLine(readStage(frame), "package greet"), "○")
@@ -37,7 +37,7 @@ func TestReviewJump(t *testing.T) {
 
 	t.Run("the jump key goes back to the range and the comment the reader left", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne()}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		harness.press("<", "t", "space", "J", "space", "J")
@@ -45,13 +45,13 @@ func TestReviewJump(t *testing.T) {
 		assert.Contains(t, readPopupProse(harness.readFrame()), "add a second file")
 
 		harness.press("k")
-		assert.Contains(t, readStageText(harness.readFrame()), "round 1 ▸ round 2")
+		assert.Contains(t, readStageText(harness.readFrame()), "snapshot 1 ▸ snapshot 2")
 	})
 
 	for _, key := range []string{"<", ">"} {
 		t.Run("the step key "+key+" leaves the jump for where the reader was", func(t *testing.T) {
 			server := newEarlierReviewServer(t)
-			server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
+			server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne()}
 			harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 			harness.press("<", "t", "space", "J", key)
@@ -59,29 +59,29 @@ func TestReviewJump(t *testing.T) {
 			assert.Contains(t, readPopupProse(harness.readFrame()), "add a second file")
 
 			harness.press("k")
-			assert.Contains(t, readStageText(harness.readFrame()), "round 1 ▸ round 2")
+			assert.Contains(t, readStageText(harness.readFrame()), "snapshot 1 ▸ snapshot 2")
 		})
 	}
 
 	t.Run("the answer key leaves the jump for the whole change", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		harness.press("t", "space", "J", "space", "a")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
 		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
 	})
 
 	t.Run("the jump key goes back to the answer it was pressed from", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne(newAnswer())}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		harness.press("t", "space", "a", "t", "space", "J")
-		require.Contains(t, readStageText(harness.readFrame()), "where the comment was read ▸ round 1")
+		require.Contains(t, readStageText(harness.readFrame()), "where the comment was read ▸ snapshot 1")
 		harness.press("space", "J")
 
 		frame := harness.readFrame()
@@ -89,11 +89,11 @@ func TestReviewJump(t *testing.T) {
 		assert.Contains(t, frame, "1 file, +3 -0")
 	})
 
-	t.Run("a comment written on a later round is rendered against the commit it was read on", func(t *testing.T) {
+	t.Run("a comment written on a later snapshot is rendered against the commit it was read on", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		thread := newThreadOnFirstLine(newHumanMessage("m1", "tidy the second file"))
-		thread.RoundId = "round-2"
-		thread.RoundOrdinal = 2
+		thread.SnapshotId = "snapshot-2"
+		thread.SnapshotOrdinal = 2
 		thread.BaseSha = gittest.SnapshotSHA
 		server.threads = []*agentv1.ReviewThread{thread}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
@@ -102,13 +102,13 @@ func TestReviewJump(t *testing.T) {
 		harness.press("t", "space", "J", "k")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where the comment was read ▸ round 2")
+		assert.Contains(t, readStageText(frame), "where the comment was read ▸ snapshot 2")
 		assert.Contains(t, frame, "1 file, +3 -0")
 	})
 
-	t.Run("a comment whose own base is gone is rendered against its round's base", func(t *testing.T) {
+	t.Run("a comment whose own base is gone is rendered against its snapshot's base", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		thread := newCommentOnRoundOne()
+		thread := newCommentOnSnapshotOne()
 		thread.BaseSha = "a-replayed-tree-gc-took"
 		server.threads = []*agentv1.ReviewThread{thread}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
@@ -116,27 +116,27 @@ func TestReviewJump(t *testing.T) {
 		harness.press("<", "t", "space", "J")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readStageText(frame), "where the comment was read ▸ round 1, shown against the round's base")
+		assert.Contains(t, readStageText(frame), "where the comment was read ▸ snapshot 1, shown against the snapshot's base")
 		assert.Contains(t, readPopupProse(frame), "add a second file")
 	})
 
-	t.Run("a comment whose round is gone says so and stays on the diff", func(t *testing.T) {
+	t.Run("a comment whose snapshot is gone says so and stays on the diff", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		thread := newCommentOnRoundOne()
-		thread.RoundId = "round-gone"
+		thread := newCommentOnSnapshotOne()
+		thread.SnapshotId = "snapshot-gone"
 		server.threads = []*agentv1.ReviewThread{thread}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		harness.press("t", "space", "J")
 
 		frame := harness.readFrame()
-		assert.Contains(t, readOpenMessages(harness), "the round this comment was written on is gone")
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ round 2")
+		assert.Contains(t, readOpenMessages(harness), "the snapshot this comment was written on is gone")
+		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
 	})
 
-	t.Run("a range ending before the newest round takes a reply and draws a new comment off", func(t *testing.T) {
+	t.Run("a range ending before the newest snapshot takes a reply and draws a new comment off", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newCommentOnRoundOne()}
+		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne()}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 
 		harness.press("<", "t", "space", "c")
@@ -153,7 +153,7 @@ func TestReviewJump(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "  Comment")
-		assert.Contains(t, frame, "new comments go on round 2")
+		assert.Contains(t, frame, "new comments go on snapshot 2")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateReviewThreadProcedure))
 	})
 
@@ -163,7 +163,7 @@ func TestReviewJump(t *testing.T) {
 		harness.press("t", "space", "J")
 
 		frame := harness.readFrame()
-		require.Contains(t, readStageText(frame), "where the comment was read ▸ round 1")
+		require.Contains(t, readStageText(frame), "where the comment was read ▸ snapshot 1")
 		assert.Contains(t, readPopupProse(frame), laterRule)
 	})
 }

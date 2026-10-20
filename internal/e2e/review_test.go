@@ -52,16 +52,16 @@ func TestIntegrationReviews(t *testing.T) {
 
 	var threadID string
 
-	t.Run("the reviewer takes a round of the committed branch and comments on it", func(t *testing.T) {
-		opened := connect.NewRequest(&agentv1.OpenReviewRoundRequest{})
+	t.Run("the reviewer takes a snapshot of the committed branch and comments on it", func(t *testing.T) {
+		opened := connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{})
 		callAs(opened, reviewer.GetId())
 
-		round, err := instance.Agents.OpenReviewRound(ctx, opened)
+		snapshot, err := instance.Agents.TakeReviewSnapshot(ctx, opened)
 		require.NoError(t, err)
-		assert.Equal(t, int32(1), round.Msg.GetRound().GetOrdinal())
+		assert.Equal(t, int32(1), snapshot.Msg.GetSnapshot().GetOrdinal())
 
 		written := connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-			SnapshotSha: round.Msg.GetRound().GetSnapshotSha(),
+			SnapshotSha: snapshot.Msg.GetSnapshot().GetSha(),
 			FilePath:    "greet.go",
 			NewStart:    3,
 			NewEnd:      3,
@@ -110,7 +110,7 @@ func TestIntegrationReviews(t *testing.T) {
 		assert.NotContains(t, doorbell[0].GetBody(), "say who it greets", "the mail carries no feedback")
 	})
 
-	t.Run("the worker reads the review whole, around the code as the round froze it", func(t *testing.T) {
+	t.Run("the worker reads the review whole, around the code as the snapshot froze it", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.GetReviewRequest{ReviewId: reviewID})
 		callAs(req, worker.GetId())
 
@@ -127,7 +127,7 @@ func TestIntegrationReviews(t *testing.T) {
 		}))
 	})
 
-	t.Run("the worker's row counts the round the review was given on", func(t *testing.T) {
+	t.Run("the worker's row counts the snapshot the review was given on", func(t *testing.T) {
 		listed, err := instance.Agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{}))
 		require.NoError(t, err)
 
@@ -135,8 +135,8 @@ func TestIntegrationReviews(t *testing.T) {
 		for _, row := range listed.Msg.GetAgents() {
 			rows[row.GetAgent().GetId()] = row
 		}
-		assert.Equal(t, int32(1), rows[worker.GetId()].GetLocalReviewRounds())
-		assert.Zero(t, rows[reviewer.GetId()].GetLocalReviewRounds(), "the reviewer holds no work of its own")
+		assert.Equal(t, int32(1), rows[worker.GetId()].GetLocalReviewSnapshots())
+		assert.Zero(t, rows[reviewer.GetId()].GetLocalReviewSnapshots(), "the reviewer holds no work of its own")
 	})
 
 	t.Run("the worker's answer rings the reviewer", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestIntegrationReviews(t *testing.T) {
 		}))
 	})
 
-	t.Run("the worker's addressed answer carries the round that made the change and leaves the reviewer to settle it", func(t *testing.T) {
+	t.Run("the worker's addressed answer carries the snapshot that made the change and leaves the reviewer to settle it", func(t *testing.T) {
 		writeIn(t, worker.GetCwd(), "greet.go", "package greet\n\nfunc Hello(name string) {}\n")
 
 		req := connect.NewRequest(&agentv1.AddReviewMessageRequest{
@@ -177,7 +177,7 @@ func TestIntegrationReviews(t *testing.T) {
 
 		added, err := instance.Agents.AddReviewMessage(ctx, req)
 		require.NoError(t, err)
-		assert.NotEmpty(t, added.Msg.GetMessage().GetRoundId())
+		assert.NotEmpty(t, added.Msg.GetMessage().GetSnapshotId())
 
 		listed := connect.NewRequest(&agentv1.ListReviewThreadsRequest{})
 		callAs(listed, worker.GetId())

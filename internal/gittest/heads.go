@@ -32,7 +32,7 @@ func (h *Heads) ReadHeadState(_ context.Context, params git.ReadHeadStateParams)
 	return &state, nil
 }
 
-// Trees answers what each directory's worktree hashes to and which rounds its base holds, recording every probe and every walk.
+// Trees answers what each directory's worktree hashes to and which snapshots its base holds, recording every probe and every walk.
 type Trees struct {
 	mu       sync.Mutex
 	Probes   map[string]string
@@ -104,7 +104,7 @@ func (t *Trees) FetchBase(_ context.Context, dir, base string) (string, string, 
 	return "origin/" + base, "", nil
 }
 
-// HasLanded records the round asked about and answers what Landed holds for its snapshot.
+// HasLanded records the snapshot asked about and answers what Landed holds for its commit.
 func (t *Trees) HasLanded(_ context.Context, params git.HasLandedParams) (bool, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

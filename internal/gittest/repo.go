@@ -84,7 +84,7 @@ index 0000000000000000000000000000000000000000..6f3be6f46b20679ed1c38500fd37b317
 +func Second() {}
 `
 
-// PatchOfTheSecondFile is what git reports between those two rounds.
+// PatchOfTheSecondFile is what git reports between those two snapshots.
 const PatchOfTheSecondFile = `diff --git a/second.go b/second.go
 new file mode 100644
 index 0000000000000000000000000000000000000000..6f3be6f46b20679ed1c38500fd37b317742c260e
@@ -138,7 +138,7 @@ index 0000000000000000000000000000000000000000..15c192a3393746be504c4f3ffeb5bcf2
 `
 
 const (
-	// snapshotPrefix is what a round's commit is named after the tree it froze.
+	// snapshotPrefix is what a snapshot's commit is named after the tree it froze.
 	snapshotPrefix = "snapshot-"
 	BaseSHA        = "39d09b1e629b114cf0fb9651479f2225948c20ea"
 	UnmovedTree    = "tree-unmoved"
@@ -219,7 +219,7 @@ func NewTallRepo(root string) *Repo {
 // WroteParams is one turn of an agent's work: the tree the worktree now hashes to, and what git
 // reports for it.
 type WroteParams struct {
-	// Tree is what the worktree hashes to afterwards, which names the round taken of it.
+	// Tree is what the worktree hashes to afterwards, which names the snapshot taken of it.
 	Tree string
 	// Whole is what git reports between the base and this snapshot.
 	Whole string
@@ -390,7 +390,7 @@ func (f *Repo) ReadFiles(ctx context.Context, _ string, revisions []git.FileRevi
 	return files, nil
 }
 
-// WorktreeHead answers as a round nothing has checked out yet.
+// WorktreeHead answers as a snapshot nothing has checked out yet.
 func (f *Repo) WorktreeHead(context.Context, string) (string, bool) {
 	return "", false
 }
@@ -412,7 +412,7 @@ func NameSource(sha, path string) string {
 	return sha + ":" + path
 }
 
-// NameSnapshot is the round a tree is frozen as.
+// NameSnapshot is the snapshot a tree is frozen as.
 func NameSnapshot(tree string) string {
 	return snapshotPrefix + tree
 }

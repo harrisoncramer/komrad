@@ -56,7 +56,7 @@ type NewCwdSyncerParams struct {
 	Heads        headReader
 	Trees        treeReader
 	Checkouts    *worktrees.CheckoutReader
-	Rounds       *reviewstore.ReviewStore
+	Snapshots    *reviewstore.ReviewStore
 	Workflows    *workflowstore.WorkflowStore
 	Worktrees    *worktreestore.WorktreeStore
 	PullRequests pullRequestObserver
@@ -68,13 +68,13 @@ type CwdSyncer struct {
 	heads        headReader
 	trees        treeReader
 	checkouts    *worktrees.CheckoutReader
-	rounds       *reviewstore.ReviewStore
+	snapshots    *reviewstore.ReviewStore
 	workflows    *workflowstore.WorkflowStore
 	worktrees    *worktreestore.WorktreeStore
 	pullRequests pullRequestObserver
 	// walkedMu guards walked and fetched.
 	walkedMu sync.Mutex
-	// walked is the base tip and newest unlanded round each task's landing was last walked at,
+	// walked is the base tip and newest unlanded snapshot each task's landing was last walked at,
 	// so komrad skips a walk that would find what the last one did.
 	walked map[string]string
 	// fetched is the merge each task's base was last fetched for.
@@ -92,7 +92,7 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		heads:        params.Heads,
 		trees:        params.Trees,
 		checkouts:    params.Checkouts,
-		rounds:       params.Rounds,
+		snapshots:    params.Snapshots,
 		workflows:    params.Workflows,
 		worktrees:    params.Worktrees,
 		pullRequests: params.PullRequests,
@@ -108,15 +108,15 @@ type cwdLook struct {
 	removed    bool
 	headUnread bool
 	head       git.HeadState
-	// movedSinceRound is the newest round's snapshot while the worktree no longer hashes to it.
-	movedSinceRound string
-	// landed is the newest round the base holds whole, zero when none does.
+	// movedSinceSnapshot is the newest snapshot's commit while the worktree no longer hashes to it.
+	movedSinceSnapshot string
+	// landed is the newest snapshot the base holds whole, zero when none does.
 	landed int32
-	// walkedAt is the base tip and newest round the landing walk read, empty when it was skipped.
+	// walkedAt is the base tip and newest snapshot the landing walk read, empty when it was skipped.
 	walkedAt string
 	// diffStat is the lines the checkout adds and removes since its base, nil where there is none.
 	diffStat *taskstore.DiffStat
-	// tree is the worktree as the probe hashed it, empty when there was no round to probe against.
+	// tree is the worktree as the probe hashed it, empty when there was no snapshot to probe against.
 	tree string
 	// base is the ref and tip the checkout is measured against, nil when baseErr says why it
 	// could not be read.
@@ -139,7 +139,7 @@ type cwdLook struct {
 type seenWorktree struct {
 	head        string
 	fingerprint git.Fingerprint
-	// tree is the probe's hash, empty when there was no round to probe against.
+	// tree is the probe's hash, empty when there was no snapshot to probe against.
 	tree       string
 	measureKey string
 	diffStat   *taskstore.DiffStat
@@ -159,7 +159,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return fmt.Errorf("failed to list the task checkouts for cwd sync: %w", err)
 	}
 
-	rounds, err := cs.listNewestRounds(ctx)
+	snapshots, err := cs.listNewestSnapshots(ctx)
 	if err != nil {
 		return err
 	}
@@ -169,9 +169,9 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		return err
 	}
 
-	unlanded, err := cs.rounds.ListUnlandedRounds(ctx)
+	unlanded, err := cs.snapshots.ListUnlandedSnapshots(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list the unlanded review rounds for cwd sync: %w", err)
+		return fmt.Errorf("failed to list the unlanded review snapshots for cwd sync: %w", err)
 	}
 
 	owned, err := cs.listOwnedWorktrees(ctx)
@@ -181,7 +181,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 
 	looks, err := cs.lookAtAll(ctx, lookAtAllParams{
 		Tasks:     tasks,
-		Rounds:    rounds,
+		Snapshots: snapshots,
 		Unlanded:  unlanded,
 		Worktrees: worktrees,
 		Owned:     owned,
@@ -203,7 +203,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 		if err := cs.write(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
-		if err := cs.writeMovedSinceRound(ctx, look); err != nil {
+		if err := cs.writeMovedSinceSnapshot(ctx, look); err != nil {
 			failures = append(failures, err)
 		}
 		if err := cs.writeLanded(ctx, look); err != nil {
@@ -226,19 +226,19 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-// listNewestRounds is the snapshot of the newest round of every task's agents, by task id.
-func (cs *CwdSyncer) listNewestRounds(ctx context.Context) (map[string]string, error) {
-	newest, err := cs.rounds.ListNewestRounds(ctx)
+// listNewestSnapshots is the commit of the newest snapshot of every task's agents, by task id.
+func (cs *CwdSyncer) listNewestSnapshots(ctx context.Context) (map[string]string, error) {
+	newest, err := cs.snapshots.ListNewestSnapshots(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the newest review rounds for cwd sync: %w", err)
+		return nil, fmt.Errorf("failed to list the newest review snapshots for cwd sync: %w", err)
 	}
 
-	rounds := map[string]string{}
-	for _, round := range newest {
-		rounds[round.TaskID] = round.SnapshotSHA
+	snapshots := map[string]string{}
+	for _, snapshot := range newest {
+		snapshots[snapshot.TaskID] = snapshot.SHA
 	}
 
-	return rounds, nil
+	return snapshots, nil
 }
 
 // listWorktreeConfigs is the worktree settings of each workflow, by workflow id.
@@ -272,8 +272,8 @@ func (cs *CwdSyncer) listOwnedWorktrees(ctx context.Context) (map[string]worktre
 
 type lookAtAllParams struct {
 	Tasks     []taskstore.Task
-	Rounds    map[string]string
-	Unlanded  map[string][]reviewstore.UnlandedRound
+	Snapshots map[string]string
+	Unlanded  map[string][]reviewstore.UnlandedSnapshot
 	Worktrees map[string]workflowstore.WorktreeConfig
 	Owned     map[string]worktreestore.Worktree
 }
@@ -283,7 +283,7 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 	looker, err := streamer.NewStreamer(streamer.NewStreamerParams[taskstore.Task, cwdLook]{
 		WorkerCount: cwdLookWorkers,
 		Work: func(ctx context.Context, task taskstore.Task) (cwdLook, error) {
-			look := cs.look(ctx, task, params.Rounds[task.ID])
+			look := cs.look(ctx, task, params.Snapshots[task.ID])
 			if look.headUnread {
 				return look, nil
 			}
@@ -296,8 +296,8 @@ func (cs *CwdSyncer) lookAtAll(ctx context.Context, params lookAtAllParams) ([]c
 			}
 
 			cs.walkLandings(ctx, &look, walkLandingsParams{
-				Rounds: params.Unlanded[task.ID],
-				Base:   config.BaseBranch,
+				Snapshots: params.Unlanded[task.ID],
+				Base:      config.BaseBranch,
 			})
 			cs.measure(ctx, &look, config)
 			cs.remember(look)
@@ -352,7 +352,7 @@ func (cs *CwdSyncer) look(ctx context.Context, task taskstore.Task, newest strin
 
 	probe, err := cs.probeTree(ctx, &look)
 	if err != nil {
-		look.movedSinceRound = task.Checkout.MovedSinceRound
+		look.movedSinceSnapshot = task.Checkout.MovedSinceSnapshot
 		look.err = fmt.Errorf("failed to hash the worktree of task %q: %w", task.Slug, err)
 
 		return look
@@ -360,7 +360,7 @@ func (cs *CwdSyncer) look(ctx context.Context, task taskstore.Task, newest strin
 
 	look.tree = probe
 	if look.head.SnapshotTree != "" && probe != look.head.SnapshotTree {
-		look.movedSinceRound = newest
+		look.movedSinceSnapshot = newest
 	}
 
 	return look
@@ -404,26 +404,26 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 	return nil
 }
 
-// writeMovedSinceRound records the newest round the worktree has moved away from, when the task
+// writeMovedSinceSnapshot records the newest snapshot the worktree has moved away from, when the task
 // says otherwise.
-func (cs *CwdSyncer) writeMovedSinceRound(ctx context.Context, look cwdLook) error {
-	if look.task.Checkout.MovedSinceRound == look.movedSinceRound {
+func (cs *CwdSyncer) writeMovedSinceSnapshot(ctx context.Context, look cwdLook) error {
+	if look.task.Checkout.MovedSinceSnapshot == look.movedSinceSnapshot {
 		return nil
 	}
 
-	if err := cs.tasks.SetMovedSinceRound(ctx, look.task.ID, look.movedSinceRound); err != nil {
-		return fmt.Errorf("failed to set the round the checkout of task %q moved since: %w", look.task.Slug, err)
+	if err := cs.tasks.SetMovedSinceSnapshot(ctx, look.task.ID, look.movedSinceSnapshot); err != nil {
+		return fmt.Errorf("failed to set the snapshot the checkout of task %q moved since: %w", look.task.Slug, err)
 	}
 
 	return nil
 }
 
-// writeLanded marks the round the look found landed and every earlier one of the task, then
+// writeLanded marks the snapshot the look found landed and every earlier one of the task, then
 // remembers where the walk stood so the next pass can skip it.
 func (cs *CwdSyncer) writeLanded(ctx context.Context, look cwdLook) error {
 	if look.landed > 0 {
-		if _, err := cs.rounds.MarkRoundsLanded(ctx, look.task.ID, look.landed); err != nil {
-			return fmt.Errorf("failed to land the rounds of task %q: %w", look.task.Slug, err)
+		if _, err := cs.snapshots.MarkSnapshotsLanded(ctx, look.task.ID, look.landed); err != nil {
+			return fmt.Errorf("failed to land the snapshots of task %q: %w", look.task.Slug, err)
 		}
 	}
 
@@ -462,14 +462,14 @@ func (cs *CwdSyncer) writeStanding(ctx context.Context, look cwdLook) error {
 }
 
 type walkLandingsParams struct {
-	Rounds []reviewstore.UnlandedRound
-	Base   string
+	Snapshots []reviewstore.UnlandedSnapshot
+	Base      string
 }
 
-// walkLandings walks the task's unlanded rounds, recording on the look the newest the base holds
+// walkLandings walks the task's unlanded snapshots, recording on the look the newest the base holds
 // whole.
 func (cs *CwdSyncer) walkLandings(ctx context.Context, look *cwdLook, params walkLandingsParams) {
-	if len(params.Rounds) == 0 || errors.Is(look.baseErr, git.ErrBaseMissing) {
+	if len(params.Snapshots) == 0 || errors.Is(look.baseErr, git.ErrBaseMissing) {
 		return
 	}
 	if look.baseErr != nil {
@@ -489,11 +489,11 @@ func (cs *CwdSyncer) walkLandings(ctx context.Context, look *cwdLook, params wal
 	}
 
 	landed, walkedAt, err := cs.walkLanding(ctx, walkLandingParams{
-		TaskID: look.task.ID,
-		Dir:    look.task.Checkout.Cwd,
-		Rounds: params.Rounds,
-		Base:   params.Base,
-		Tip:    tip,
+		TaskID:    look.task.ID,
+		Dir:       look.task.Checkout.Cwd,
+		Snapshots: params.Snapshots,
+		Base:      params.Base,
+		Tip:       tip,
 	})
 	if err != nil {
 		look.err = errors.Join(look.err, err)
@@ -505,21 +505,21 @@ func (cs *CwdSyncer) walkLandings(ctx context.Context, look *cwdLook, params wal
 }
 
 type walkLandingParams struct {
-	TaskID string
-	Dir    string
-	Rounds []reviewstore.UnlandedRound
-	Base   string
+	TaskID    string
+	Dir       string
+	Snapshots []reviewstore.UnlandedSnapshot
+	Base      string
 	// Tip is the commit the base points at.
 	Tip string
 }
 
-// walkLanding finds the newest of a task's unlanded rounds the base holds whole, skipping the
-// walk while neither the base tip nor the newest round has moved since the last one.
+// walkLanding finds the newest of a task's unlanded snapshots the base holds whole, skipping the
+// walk while neither the base tip nor the newest snapshot has moved since the last one.
 func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) (int32, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	walkedAt := params.Tip + ":" + params.Rounds[0].SnapshotSHA
+	walkedAt := params.Tip + ":" + params.Snapshots[0].SHA
 	cs.walkedMu.Lock()
 	isWalked := cs.walked[params.TaskID] == walkedAt
 	cs.walkedMu.Unlock()
@@ -527,18 +527,18 @@ func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) 
 		return 0, "", nil
 	}
 
-	for _, round := range params.Rounds {
+	for _, snapshot := range params.Snapshots {
 		landed, err := cs.trees.HasLanded(ctx, git.HasLandedParams{
 			Dir:         params.Dir,
 			Base:        params.Base,
-			BaseSHA:     round.BaseSHA,
-			SnapshotSHA: round.SnapshotSHA,
+			BaseSHA:     snapshot.BaseSHA,
+			SnapshotSHA: snapshot.SHA,
 		})
 		if err != nil {
-			return 0, "", fmt.Errorf("failed to read whether round %d of task %q landed: %w", round.Ordinal, params.TaskID, err)
+			return 0, "", fmt.Errorf("failed to read whether snapshot %d of task %q landed: %w", snapshot.Ordinal, params.TaskID, err)
 		}
 		if landed {
-			return round.Ordinal, walkedAt, nil
+			return snapshot.Ordinal, walkedAt, nil
 		}
 	}
 
@@ -548,7 +548,7 @@ func (cs *CwdSyncer) walkLanding(ctx context.Context, params walkLandingParams) 
 // fetchMergedBase fetches the base once for each merge of the task's pull request, so the walk
 // reads a base that holds what merged, and answers the tip it fetched, empty when it fetched none.
 func (cs *CwdSyncer) fetchMergedBase(ctx context.Context, task taskstore.Task, params walkLandingsParams) (string, error) {
-	merged := params.Rounds[0].MergedAt
+	merged := params.Snapshots[0].MergedAt
 	if merged == nil {
 		return "", nil
 	}
@@ -636,7 +636,7 @@ func (cs *CwdSyncer) readFingerprint(ctx context.Context, look *cwdLook) {
 }
 
 // probeTree hashes the worktree, reusing the last hash while the worktree is unchanged, and not
-// at all when there is no round to measure it against.
+// at all when there is no snapshot to measure it against.
 func (cs *CwdSyncer) probeTree(ctx context.Context, look *cwdLook) (string, error) {
 	if look.head.Root == "" || look.head.SnapshotTree == "" {
 		return "", nil

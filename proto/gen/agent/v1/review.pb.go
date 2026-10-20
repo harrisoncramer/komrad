@@ -141,13 +141,13 @@ func (ReviewDeliveryState) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{1}
 }
 
-// ReviewVerdict is what a review concludes about a round.
+// ReviewVerdict is what a review concludes about a snapshot.
 type ReviewVerdict int32
 
 const (
 	// No verdict. An unreleased review has this value.
 	ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED ReviewVerdict = 0
-	// The round is good as it stands.
+	// The snapshot is good as it stands.
 	ReviewVerdict_REVIEW_VERDICT_APPROVED ReviewVerdict = 1
 	// The writer has more to do.
 	ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED ReviewVerdict = 2
@@ -259,40 +259,40 @@ func (ForgeReplyState) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{3}
 }
 
-// ReviewRound is a snapshot of a task's worktree, saved as a commit, that a review is written
-// against. A round never changes.
-type ReviewRound struct {
+// ReviewSnapshot is a snapshot of a task's worktree, saved as a commit, that a review is written
+// against. A snapshot never changes.
+type ReviewSnapshot struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The round's id.
+	// The snapshot's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The id of the task the round was taken of.
+	// The id of the task the snapshot was taken of.
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// The round's number within its task, counting from one.
+	// The snapshot's number within its task, counting from one.
 	Ordinal int32 `protobuf:"varint,3,opt,name=ordinal,proto3" json:"ordinal,omitempty"`
-	// The commit on the base branch that the task's branch started from when the round was taken.
+	// The commit on the base branch that the task's branch started from when the snapshot was taken.
 	BaseSha string `protobuf:"bytes,4,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// The commit holding the whole worktree, tracked and untracked files alike.
-	SnapshotSha string `protobuf:"bytes,5,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
-	// When the round was taken, in RFC 3339.
+	Sha string `protobuf:"bytes,5,opt,name=sha,proto3" json:"sha,omitempty"`
+	// When the snapshot was taken, in RFC 3339.
 	CreatedAt     string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ReviewRound) Reset() {
-	*x = ReviewRound{}
+func (x *ReviewSnapshot) Reset() {
+	*x = ReviewSnapshot{}
 	mi := &file_agent_v1_review_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReviewRound) String() string {
+func (x *ReviewSnapshot) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReviewRound) ProtoMessage() {}
+func (*ReviewSnapshot) ProtoMessage() {}
 
-func (x *ReviewRound) ProtoReflect() protoreflect.Message {
+func (x *ReviewSnapshot) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -304,54 +304,54 @@ func (x *ReviewRound) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ReviewRound.ProtoReflect.Descriptor instead.
-func (*ReviewRound) Descriptor() ([]byte, []int) {
+// Deprecated: Use ReviewSnapshot.ProtoReflect.Descriptor instead.
+func (*ReviewSnapshot) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ReviewRound) GetId() string {
+func (x *ReviewSnapshot) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *ReviewRound) GetTaskId() string {
+func (x *ReviewSnapshot) GetTaskId() string {
 	if x != nil {
 		return x.TaskId
 	}
 	return ""
 }
 
-func (x *ReviewRound) GetOrdinal() int32 {
+func (x *ReviewSnapshot) GetOrdinal() int32 {
 	if x != nil {
 		return x.Ordinal
 	}
 	return 0
 }
 
-func (x *ReviewRound) GetBaseSha() string {
+func (x *ReviewSnapshot) GetBaseSha() string {
 	if x != nil {
 		return x.BaseSha
 	}
 	return ""
 }
 
-func (x *ReviewRound) GetSnapshotSha() string {
+func (x *ReviewSnapshot) GetSha() string {
 	if x != nil {
-		return x.SnapshotSha
+		return x.Sha
 	}
 	return ""
 }
 
-func (x *ReviewRound) GetCreatedAt() string {
+func (x *ReviewSnapshot) GetCreatedAt() string {
 	if x != nil {
 		return x.CreatedAt
 	}
 	return ""
 }
 
-// Review is one author's comments on one round, released to the agent together. The review is
+// Review is one author's comments on one snapshot, released to the agent together. The review is
 // private until the author releases it.
 type Review struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -359,10 +359,10 @@ type Review struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The id of the task the review is on.
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// The id of the round the review is written against.
-	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// The number of the round the review is written against.
-	RoundOrdinal int32 `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
+	// The id of the snapshot the review is written against.
+	SnapshotId string `protobuf:"bytes,3,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`
+	// The number of the snapshot the review is written against.
+	SnapshotOrdinal int32 `protobuf:"varint,4,opt,name=snapshot_ordinal,json=snapshotOrdinal,proto3" json:"snapshot_ordinal,omitempty"`
 	// Who wrote the review.
 	AuthorKind ReviewAuthorKind `protobuf:"varint,5,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
 	// The id of the agent that wrote the review. Unset when the person wrote it.
@@ -434,16 +434,16 @@ func (x *Review) GetTaskId() string {
 	return ""
 }
 
-func (x *Review) GetRoundId() string {
+func (x *Review) GetSnapshotId() string {
 	if x != nil {
-		return x.RoundId
+		return x.SnapshotId
 	}
 	return ""
 }
 
-func (x *Review) GetRoundOrdinal() int32 {
+func (x *Review) GetSnapshotOrdinal() int32 {
 	if x != nil {
-		return x.RoundOrdinal
+		return x.SnapshotOrdinal
 	}
 	return 0
 }
@@ -532,12 +532,12 @@ type WatchedReview struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The id of the task the review is on.
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	// The id of the round the review is written against.
-	RoundId string `protobuf:"bytes,3,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// The number of the round the review is written against.
-	RoundOrdinal int32 `protobuf:"varint,4,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	// The snapshot commit of the review's round.
-	RoundSnapshotSha string `protobuf:"bytes,5,opt,name=round_snapshot_sha,json=roundSnapshotSha,proto3" json:"round_snapshot_sha,omitempty"`
+	// The id of the snapshot the review is written against.
+	SnapshotId string `protobuf:"bytes,3,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`
+	// The number of the snapshot the review is written against.
+	SnapshotOrdinal int32 `protobuf:"varint,4,opt,name=snapshot_ordinal,json=snapshotOrdinal,proto3" json:"snapshot_ordinal,omitempty"`
+	// The commit of the review's snapshot.
+	SnapshotSha string `protobuf:"bytes,5,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
 	// Who wrote the review.
 	AuthorKind ReviewAuthorKind `protobuf:"varint,6,opt,name=author_kind,json=authorKind,proto3,enum=agent.v1.ReviewAuthorKind" json:"author_kind,omitempty"`
 	// The id of the agent that wrote the review. Unset when the person wrote it.
@@ -552,8 +552,8 @@ type WatchedReview struct {
 	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When the review last changed, in RFC 3339.
 	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// When the review's round was first seen landed, in RFC 3339. Empty until then.
-	RoundLandedAt string `protobuf:"bytes,13,opt,name=round_landed_at,json=roundLandedAt,proto3" json:"round_landed_at,omitempty"`
+	// When the review's snapshot was first seen landed, in RFC 3339. Empty until then.
+	SnapshotLandedAt string `protobuf:"bytes,13,opt,name=snapshot_landed_at,json=snapshotLandedAt,proto3" json:"snapshot_landed_at,omitempty"`
 	// The forge login of the author of a review copied from the forge. Empty otherwise.
 	ExternalLogin string `protobuf:"bytes,14,opt,name=external_login,json=externalLogin,proto3" json:"external_login,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -604,23 +604,23 @@ func (x *WatchedReview) GetTaskId() string {
 	return ""
 }
 
-func (x *WatchedReview) GetRoundId() string {
+func (x *WatchedReview) GetSnapshotId() string {
 	if x != nil {
-		return x.RoundId
+		return x.SnapshotId
 	}
 	return ""
 }
 
-func (x *WatchedReview) GetRoundOrdinal() int32 {
+func (x *WatchedReview) GetSnapshotOrdinal() int32 {
 	if x != nil {
-		return x.RoundOrdinal
+		return x.SnapshotOrdinal
 	}
 	return 0
 }
 
-func (x *WatchedReview) GetRoundSnapshotSha() string {
+func (x *WatchedReview) GetSnapshotSha() string {
 	if x != nil {
-		return x.RoundSnapshotSha
+		return x.SnapshotSha
 	}
 	return ""
 }
@@ -674,9 +674,9 @@ func (x *WatchedReview) GetUpdatedAt() string {
 	return ""
 }
 
-func (x *WatchedReview) GetRoundLandedAt() string {
+func (x *WatchedReview) GetSnapshotLandedAt() string {
 	if x != nil {
-		return x.RoundLandedAt
+		return x.SnapshotLandedAt
 	}
 	return ""
 }
@@ -688,7 +688,7 @@ func (x *WatchedReview) GetExternalLogin() string {
 	return ""
 }
 
-// ReviewThread is a conversation pinned to a range of lines in a round.
+// ReviewThread is a conversation pinned to a range of lines in a snapshot.
 type ReviewThread struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The thread's id.
@@ -697,12 +697,12 @@ type ReviewThread struct {
 	TaskId string `protobuf:"bytes,2,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The id of the review the thread was created in.
 	ReviewId string `protobuf:"bytes,3,opt,name=review_id,json=reviewId,proto3" json:"review_id,omitempty"`
-	// The id of the round the thread is pinned to.
-	RoundId string `protobuf:"bytes,4,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// The number of the round the thread is pinned to.
-	RoundOrdinal int32 `protobuf:"varint,5,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	// The commit the old side of the line numbers is read against. This is the round's base unless
-	// the diff was narrowed to an earlier round.
+	// The id of the snapshot the thread is pinned to.
+	SnapshotId string `protobuf:"bytes,4,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`
+	// The number of the snapshot the thread is pinned to.
+	SnapshotOrdinal int32 `protobuf:"varint,5,opt,name=snapshot_ordinal,json=snapshotOrdinal,proto3" json:"snapshot_ordinal,omitempty"`
+	// The commit the old side of the line numbers is read against. This is the snapshot's base unless
+	// the diff was narrowed to an earlier snapshot.
 	BaseSha string `protobuf:"bytes,6,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// The file's path, relative to the checkout.
 	FilePath string `protobuf:"bytes,7,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
@@ -786,16 +786,16 @@ func (x *ReviewThread) GetReviewId() string {
 	return ""
 }
 
-func (x *ReviewThread) GetRoundId() string {
+func (x *ReviewThread) GetSnapshotId() string {
 	if x != nil {
-		return x.RoundId
+		return x.SnapshotId
 	}
 	return ""
 }
 
-func (x *ReviewThread) GetRoundOrdinal() int32 {
+func (x *ReviewThread) GetSnapshotOrdinal() int32 {
 	if x != nil {
-		return x.RoundOrdinal
+		return x.SnapshotOrdinal
 	}
 	return 0
 }
@@ -927,8 +927,8 @@ type ReviewMessage struct {
 	// The id of the review the comment was released with. Unset for a reply from the writer, which
 	// belongs to no review.
 	ReviewId *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
-	// The id of the round saved with an addressed reply. Unset on every other comment.
-	RoundId *string `protobuf:"bytes,13,opt,name=round_id,json=roundId,proto3,oneof" json:"round_id,omitempty"`
+	// The id of the snapshot saved with an addressed reply. Unset on every other comment.
+	SnapshotId *string `protobuf:"bytes,13,opt,name=snapshot_id,json=snapshotId,proto3,oneof" json:"snapshot_id,omitempty"`
 	// The forge comment this comment was copied from. Unset for a comment written in komrad.
 	Forge *ForgeOrigin `protobuf:"bytes,14,opt,name=forge,proto3,oneof" json:"forge,omitempty"`
 	// The id of the held forge comment the person accepted this comment as a copy of. Unset
@@ -1052,9 +1052,9 @@ func (x *ReviewMessage) GetReviewId() string {
 	return ""
 }
 
-func (x *ReviewMessage) GetRoundId() string {
-	if x != nil && x.RoundId != nil {
-		return *x.RoundId
+func (x *ReviewMessage) GetSnapshotId() string {
+	if x != nil && x.SnapshotId != nil {
+		return *x.SnapshotId
 	}
 	return ""
 }
@@ -1233,9 +1233,9 @@ type CreateReviewThreadRequest struct {
 	Task *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	// The file's path, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	// The commit the old side of the line numbers is read against. Empty uses the round's base.
+	// The commit the old side of the line numbers is read against. Empty uses the snapshot's base.
 	BaseSha string `protobuf:"bytes,3,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
-	// The commit the new side of the line numbers is read against. Empty uses the round's snapshot.
+	// The commit the new side of the line numbers is read against. Empty uses the snapshot's commit.
 	SnapshotSha string `protobuf:"bytes,4,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
 	// The first line of the range on the old side of the diff, counting from one.
 	OldStart int32 `protobuf:"varint,5,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
@@ -1415,7 +1415,7 @@ type AddReviewMessageRequest struct {
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// The lines proposed in place of the thread's range. Empty for a plain reply.
 	Suggestion []string `protobuf:"bytes,3,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
-	// Whether the reply says the change the thread asks for is made. Komrad then saves a round of
+	// Whether the reply says the change the thread asks for is made. Komrad then saves a snapshot of
 	// the worktree and pins it to the reply.
 	Addressed     bool `protobuf:"varint,4,opt,name=addressed,proto3" json:"addressed,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1922,9 +1922,9 @@ func (x *SetReviewThreadResolvedResponse) GetThread() *ReviewThread {
 	return nil
 }
 
-// OpenReviewRoundRequest saves a task's worktree as its next round. When the worktree has not
-// changed since the newest round, the call returns that round.
-type OpenReviewRoundRequest struct {
+// TakeReviewSnapshotRequest saves a task's worktree as its next snapshot. When the worktree has not
+// changed since the newest snapshot, the call returns that snapshot.
+type TakeReviewSnapshotRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The task whose worktree to save, by id or slug. Unset uses the caller's own task.
 	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
@@ -1932,20 +1932,20 @@ type OpenReviewRoundRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *OpenReviewRoundRequest) Reset() {
-	*x = OpenReviewRoundRequest{}
+func (x *TakeReviewSnapshotRequest) Reset() {
+	*x = TakeReviewSnapshotRequest{}
 	mi := &file_agent_v1_review_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *OpenReviewRoundRequest) String() string {
+func (x *TakeReviewSnapshotRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*OpenReviewRoundRequest) ProtoMessage() {}
+func (*TakeReviewSnapshotRequest) ProtoMessage() {}
 
-func (x *OpenReviewRoundRequest) ProtoReflect() protoreflect.Message {
+func (x *TakeReviewSnapshotRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1957,40 +1957,40 @@ func (x *OpenReviewRoundRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use OpenReviewRoundRequest.ProtoReflect.Descriptor instead.
-func (*OpenReviewRoundRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use TakeReviewSnapshotRequest.ProtoReflect.Descriptor instead.
+func (*TakeReviewSnapshotRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *OpenReviewRoundRequest) GetTask() string {
+func (x *TakeReviewSnapshotRequest) GetTask() string {
 	if x != nil && x.Task != nil {
 		return *x.Task
 	}
 	return ""
 }
 
-type OpenReviewRoundResponse struct {
+type TakeReviewSnapshotResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The round to review. The newest existing round when the worktree has not changed.
-	Round         *ReviewRound `protobuf:"bytes,1,opt,name=round,proto3" json:"round,omitempty"`
+	// The snapshot to review. The newest existing snapshot when the worktree has not changed.
+	Snapshot      *ReviewSnapshot `protobuf:"bytes,1,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *OpenReviewRoundResponse) Reset() {
-	*x = OpenReviewRoundResponse{}
+func (x *TakeReviewSnapshotResponse) Reset() {
+	*x = TakeReviewSnapshotResponse{}
 	mi := &file_agent_v1_review_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *OpenReviewRoundResponse) String() string {
+func (x *TakeReviewSnapshotResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*OpenReviewRoundResponse) ProtoMessage() {}
+func (*TakeReviewSnapshotResponse) ProtoMessage() {}
 
-func (x *OpenReviewRoundResponse) ProtoReflect() protoreflect.Message {
+func (x *TakeReviewSnapshotResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2002,40 +2002,40 @@ func (x *OpenReviewRoundResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use OpenReviewRoundResponse.ProtoReflect.Descriptor instead.
-func (*OpenReviewRoundResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use TakeReviewSnapshotResponse.ProtoReflect.Descriptor instead.
+func (*TakeReviewSnapshotResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{21}
 }
 
-func (x *OpenReviewRoundResponse) GetRound() *ReviewRound {
+func (x *TakeReviewSnapshotResponse) GetSnapshot() *ReviewSnapshot {
 	if x != nil {
-		return x.Round
+		return x.Snapshot
 	}
 	return nil
 }
 
-type ListReviewRoundsRequest struct {
+type ListReviewSnapshotsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose rounds to list, by id or slug. Unset uses the caller's own task.
+	// The task whose snapshots to list, by id or slug. Unset uses the caller's own task.
 	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListReviewRoundsRequest) Reset() {
-	*x = ListReviewRoundsRequest{}
+func (x *ListReviewSnapshotsRequest) Reset() {
+	*x = ListReviewSnapshotsRequest{}
 	mi := &file_agent_v1_review_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListReviewRoundsRequest) String() string {
+func (x *ListReviewSnapshotsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListReviewRoundsRequest) ProtoMessage() {}
+func (*ListReviewSnapshotsRequest) ProtoMessage() {}
 
-func (x *ListReviewRoundsRequest) ProtoReflect() protoreflect.Message {
+func (x *ListReviewSnapshotsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2047,40 +2047,40 @@ func (x *ListReviewRoundsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListReviewRoundsRequest.ProtoReflect.Descriptor instead.
-func (*ListReviewRoundsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListReviewSnapshotsRequest.ProtoReflect.Descriptor instead.
+func (*ListReviewSnapshotsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *ListReviewRoundsRequest) GetTask() string {
+func (x *ListReviewSnapshotsRequest) GetTask() string {
 	if x != nil && x.Task != nil {
 		return *x.Task
 	}
 	return ""
 }
 
-type ListReviewRoundsResponse struct {
+type ListReviewSnapshotsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every round of the task, oldest first.
-	Rounds        []*ReviewRound `protobuf:"bytes,1,rep,name=rounds,proto3" json:"rounds,omitempty"`
+	// Every snapshot of the task, oldest first.
+	Snapshots     []*ReviewSnapshot `protobuf:"bytes,1,rep,name=snapshots,proto3" json:"snapshots,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListReviewRoundsResponse) Reset() {
-	*x = ListReviewRoundsResponse{}
+func (x *ListReviewSnapshotsResponse) Reset() {
+	*x = ListReviewSnapshotsResponse{}
 	mi := &file_agent_v1_review_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListReviewRoundsResponse) String() string {
+func (x *ListReviewSnapshotsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListReviewRoundsResponse) ProtoMessage() {}
+func (*ListReviewSnapshotsResponse) ProtoMessage() {}
 
-func (x *ListReviewRoundsResponse) ProtoReflect() protoreflect.Message {
+func (x *ListReviewSnapshotsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2092,14 +2092,14 @@ func (x *ListReviewRoundsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListReviewRoundsResponse.ProtoReflect.Descriptor instead.
-func (*ListReviewRoundsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListReviewSnapshotsResponse.ProtoReflect.Descriptor instead.
+func (*ListReviewSnapshotsResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{23}
 }
 
-func (x *ListReviewRoundsResponse) GetRounds() []*ReviewRound {
+func (x *ListReviewSnapshotsResponse) GetSnapshots() []*ReviewSnapshot {
 	if x != nil {
-		return x.Rounds
+		return x.Snapshots
 	}
 	return nil
 }
@@ -2112,7 +2112,7 @@ type OpenReviewHistoryRequest struct {
 	//
 	// Types that are valid to be assigned to Span:
 	//
-	//	*OpenReviewHistoryRequest_Rounds
+	//	*OpenReviewHistoryRequest_Snapshots
 	//	*OpenReviewHistoryRequest_Answer
 	//	*OpenReviewHistoryRequest_Origin
 	Span          isOpenReviewHistoryRequest_Span `protobuf_oneof:"span"`
@@ -2164,10 +2164,10 @@ func (x *OpenReviewHistoryRequest) GetSpan() isOpenReviewHistoryRequest_Span {
 	return nil
 }
 
-func (x *OpenReviewHistoryRequest) GetRounds() *ReviewRoundSpan {
+func (x *OpenReviewHistoryRequest) GetSnapshots() *ReviewSnapshotSpan {
 	if x != nil {
-		if x, ok := x.Span.(*OpenReviewHistoryRequest_Rounds); ok {
-			return x.Rounds
+		if x, ok := x.Span.(*OpenReviewHistoryRequest_Snapshots); ok {
+			return x.Snapshots
 		}
 	}
 	return nil
@@ -2195,9 +2195,9 @@ type isOpenReviewHistoryRequest_Span interface {
 	isOpenReviewHistoryRequest_Span()
 }
 
-type OpenReviewHistoryRequest_Rounds struct {
-	// A diff between two rounds.
-	Rounds *ReviewRoundSpan `protobuf:"bytes,6,opt,name=rounds,proto3,oneof"`
+type OpenReviewHistoryRequest_Snapshots struct {
+	// A diff between two snapshots.
+	Snapshots *ReviewSnapshotSpan `protobuf:"bytes,6,opt,name=snapshots,proto3,oneof"`
 }
 
 type OpenReviewHistoryRequest_Answer struct {
@@ -2210,37 +2210,37 @@ type OpenReviewHistoryRequest_Origin struct {
 	Origin *ReviewOriginSpan `protobuf:"bytes,5,opt,name=origin,proto3,oneof"`
 }
 
-func (*OpenReviewHistoryRequest_Rounds) isOpenReviewHistoryRequest_Span() {}
+func (*OpenReviewHistoryRequest_Snapshots) isOpenReviewHistoryRequest_Span() {}
 
 func (*OpenReviewHistoryRequest_Answer) isOpenReviewHistoryRequest_Span() {}
 
 func (*OpenReviewHistoryRequest_Origin) isOpenReviewHistoryRequest_Span() {}
 
-// ReviewRoundSpan is the work between two rounds of a task.
-type ReviewRoundSpan struct {
+// ReviewSnapshotSpan is the work between two snapshots of a task.
+type ReviewSnapshotSpan struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The id of the round the work starts after. Unset starts where the task starts.
-	FromRoundId *string `protobuf:"bytes,1,opt,name=from_round_id,json=fromRoundId,proto3,oneof" json:"from_round_id,omitempty"`
-	// The id of the round the work ends on. Unset ends on the newest round.
-	ToRoundId     *string `protobuf:"bytes,2,opt,name=to_round_id,json=toRoundId,proto3,oneof" json:"to_round_id,omitempty"`
+	// The id of the snapshot the work starts after. Unset starts where the task starts.
+	FromSnapshotId *string `protobuf:"bytes,1,opt,name=from_snapshot_id,json=fromSnapshotId,proto3,oneof" json:"from_snapshot_id,omitempty"`
+	// The id of the snapshot the work ends on. Unset ends on the newest snapshot.
+	ToSnapshotId  *string `protobuf:"bytes,2,opt,name=to_snapshot_id,json=toSnapshotId,proto3,oneof" json:"to_snapshot_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ReviewRoundSpan) Reset() {
-	*x = ReviewRoundSpan{}
+func (x *ReviewSnapshotSpan) Reset() {
+	*x = ReviewSnapshotSpan{}
 	mi := &file_agent_v1_review_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ReviewRoundSpan) String() string {
+func (x *ReviewSnapshotSpan) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ReviewRoundSpan) ProtoMessage() {}
+func (*ReviewSnapshotSpan) ProtoMessage() {}
 
-func (x *ReviewRoundSpan) ProtoReflect() protoreflect.Message {
+func (x *ReviewSnapshotSpan) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2252,33 +2252,33 @@ func (x *ReviewRoundSpan) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ReviewRoundSpan.ProtoReflect.Descriptor instead.
-func (*ReviewRoundSpan) Descriptor() ([]byte, []int) {
+// Deprecated: Use ReviewSnapshotSpan.ProtoReflect.Descriptor instead.
+func (*ReviewSnapshotSpan) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{25}
 }
 
-func (x *ReviewRoundSpan) GetFromRoundId() string {
-	if x != nil && x.FromRoundId != nil {
-		return *x.FromRoundId
+func (x *ReviewSnapshotSpan) GetFromSnapshotId() string {
+	if x != nil && x.FromSnapshotId != nil {
+		return *x.FromSnapshotId
 	}
 	return ""
 }
 
-func (x *ReviewRoundSpan) GetToRoundId() string {
-	if x != nil && x.ToRoundId != nil {
-		return *x.ToRoundId
+func (x *ReviewSnapshotSpan) GetToSnapshotId() string {
+	if x != nil && x.ToSnapshotId != nil {
+		return *x.ToSnapshotId
 	}
 	return ""
 }
 
-// ReviewAnswerSpan is the change between the round a comment was written on and the round of the
+// ReviewAnswerSpan is the change between the snapshot a comment was written on and the snapshot of the
 // reply that addressed it.
 type ReviewAnswerSpan struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The id of the round the comment was written on.
-	FromRoundId string `protobuf:"bytes,1,opt,name=from_round_id,json=fromRoundId,proto3" json:"from_round_id,omitempty"`
-	// The id of the round saved with the addressed reply.
-	ToRoundId     string `protobuf:"bytes,2,opt,name=to_round_id,json=toRoundId,proto3" json:"to_round_id,omitempty"`
+	// The id of the snapshot the comment was written on.
+	FromSnapshotId string `protobuf:"bytes,1,opt,name=from_snapshot_id,json=fromSnapshotId,proto3" json:"from_snapshot_id,omitempty"`
+	// The id of the snapshot saved with the addressed reply.
+	ToSnapshotId  string `protobuf:"bytes,2,opt,name=to_snapshot_id,json=toSnapshotId,proto3" json:"to_snapshot_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2313,16 +2313,16 @@ func (*ReviewAnswerSpan) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{26}
 }
 
-func (x *ReviewAnswerSpan) GetFromRoundId() string {
+func (x *ReviewAnswerSpan) GetFromSnapshotId() string {
 	if x != nil {
-		return x.FromRoundId
+		return x.FromSnapshotId
 	}
 	return ""
 }
 
-func (x *ReviewAnswerSpan) GetToRoundId() string {
+func (x *ReviewAnswerSpan) GetToSnapshotId() string {
 	if x != nil {
-		return x.ToRoundId
+		return x.ToSnapshotId
 	}
 	return ""
 }
@@ -2330,9 +2330,9 @@ func (x *ReviewAnswerSpan) GetToRoundId() string {
 // ReviewOriginSpan is the diff a comment was written against.
 type ReviewOriginSpan struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The id of the round the comment was written on.
-	RoundId string `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
-	// The commit the comment's old side was read against. Empty uses the round's base.
+	// The id of the snapshot the comment was written on.
+	SnapshotId string `protobuf:"bytes,1,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`
+	// The commit the comment's old side was read against. Empty uses the snapshot's base.
 	BaseSha       string `protobuf:"bytes,2,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2368,9 +2368,9 @@ func (*ReviewOriginSpan) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *ReviewOriginSpan) GetRoundId() string {
+func (x *ReviewOriginSpan) GetSnapshotId() string {
 	if x != nil {
-		return x.RoundId
+		return x.SnapshotId
 	}
 	return ""
 }
@@ -2384,13 +2384,13 @@ func (x *ReviewOriginSpan) GetBaseSha() string {
 
 type OpenReviewHistoryResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The round the diff is read at.
-	Round *ReviewRound `protobuf:"bytes,1,opt,name=round,proto3" json:"round,omitempty"`
-	// Every round of the task, oldest first.
-	Rounds []*ReviewRound `protobuf:"bytes,2,rep,name=rounds,proto3" json:"rounds,omitempty"`
+	// The snapshot the diff is read at.
+	Snapshot *ReviewSnapshot `protobuf:"bytes,1,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	// Every snapshot of the task, oldest first.
+	Snapshots []*ReviewSnapshot `protobuf:"bytes,2,rep,name=snapshots,proto3" json:"snapshots,omitempty"`
 	// Every thread on the task, with its comments.
 	Threads []*ReviewThread `protobuf:"bytes,3,rep,name=threads,proto3" json:"threads,omitempty"`
-	// A note about the round komrad chose. Empty when there is none.
+	// A note about the snapshot komrad chose. Empty when there is none.
 	Notice string `protobuf:"bytes,5,opt,name=notice,proto3" json:"notice,omitempty"`
 	// The commits the diff is between.
 	Resolved *ReviewResolvedSpan `protobuf:"bytes,6,opt,name=resolved,proto3" json:"resolved,omitempty"`
@@ -2399,12 +2399,12 @@ type OpenReviewHistoryResponse struct {
 	Widened string `protobuf:"bytes,7,opt,name=widened,proto3" json:"widened,omitempty"`
 	// Every review on the task the caller may read, oldest first.
 	Reviews []*Review `protobuf:"bytes,13,rep,name=reviews,proto3" json:"reviews,omitempty"`
-	// The id of the round the person last released a review against. Empty when there is none or
-	// the round's base has changed since.
-	EarlierRoundId string `protobuf:"bytes,9,opt,name=earlier_round_id,json=earlierRoundId,proto3" json:"earlier_round_id,omitempty"`
+	// The id of the snapshot the person last released a review against. Empty when there is none or
+	// the snapshot's base has changed since.
+	EarlierSnapshotId string `protobuf:"bytes,9,opt,name=earlier_snapshot_id,json=earlierSnapshotId,proto3" json:"earlier_snapshot_id,omitempty"`
 	// When the person last released a review, in RFC 3339. Empty when the person never has.
 	EarlierReleasedAt string `protobuf:"bytes,10,opt,name=earlier_released_at,json=earlierReleasedAt,proto3" json:"earlier_released_at,omitempty"`
-	// How many files changed since `earlier_round_id`.
+	// How many files changed since `earlier_snapshot_id`.
 	ChangedSinceEarlier int32 `protobuf:"varint,11,opt,name=changed_since_earlier,json=changedSinceEarlier,proto3" json:"changed_since_earlier,omitempty"`
 	// Where git traced each thread's lines in the diff's head, by thread id.
 	Traced        map[string]*ReviewTracedPlace `protobuf:"bytes,12,rep,name=traced,proto3" json:"traced,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -2442,16 +2442,16 @@ func (*OpenReviewHistoryResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{28}
 }
 
-func (x *OpenReviewHistoryResponse) GetRound() *ReviewRound {
+func (x *OpenReviewHistoryResponse) GetSnapshot() *ReviewSnapshot {
 	if x != nil {
-		return x.Round
+		return x.Snapshot
 	}
 	return nil
 }
 
-func (x *OpenReviewHistoryResponse) GetRounds() []*ReviewRound {
+func (x *OpenReviewHistoryResponse) GetSnapshots() []*ReviewSnapshot {
 	if x != nil {
-		return x.Rounds
+		return x.Snapshots
 	}
 	return nil
 }
@@ -2491,9 +2491,9 @@ func (x *OpenReviewHistoryResponse) GetReviews() []*Review {
 	return nil
 }
 
-func (x *OpenReviewHistoryResponse) GetEarlierRoundId() string {
+func (x *OpenReviewHistoryResponse) GetEarlierSnapshotId() string {
 	if x != nil {
-		return x.EarlierRoundId
+		return x.EarlierSnapshotId
 	}
 	return ""
 }
@@ -2536,8 +2536,8 @@ type ReviewResolvedSpan struct {
 	OriginBaseSha string `protobuf:"bytes,6,opt,name=origin_base_sha,json=originBaseSha,proto3" json:"origin_base_sha,omitempty"`
 	// The snapshot a comment was written on. Empty for other spans.
 	OriginHeadSha string `protobuf:"bytes,7,opt,name=origin_head_sha,json=originHeadSha,proto3" json:"origin_head_sha,omitempty"`
-	// The base of the round a comment was written on. Empty for other spans.
-	OriginRoundBaseSha string `protobuf:"bytes,8,opt,name=origin_round_base_sha,json=originRoundBaseSha,proto3" json:"origin_round_base_sha,omitempty"`
+	// The base of the snapshot a comment was written on. Empty for other spans.
+	OriginSnapshotBaseSha string `protobuf:"bytes,8,opt,name=origin_snapshot_base_sha,json=originSnapshotBaseSha,proto3" json:"origin_snapshot_base_sha,omitempty"`
 	// The paths the base branch changed under the writer that replaying the older side could not
 	// resolve. The diff is then from the older side as it was.
 	Conflicts     []string `protobuf:"bytes,9,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
@@ -2624,9 +2624,9 @@ func (x *ReviewResolvedSpan) GetOriginHeadSha() string {
 	return ""
 }
 
-func (x *ReviewResolvedSpan) GetOriginRoundBaseSha() string {
+func (x *ReviewResolvedSpan) GetOriginSnapshotBaseSha() string {
 	if x != nil {
-		return x.OriginRoundBaseSha
+		return x.OriginSnapshotBaseSha
 	}
 	return ""
 }
@@ -2712,7 +2712,7 @@ func (x *ReviewTracedPlace) GetExact() bool {
 }
 
 // ReviewThreadInContext is one thread of a released review, with the code around it from the
-// round's snapshot.
+// snapshot's commit.
 type ReviewThreadInContext struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The thread, with only the comments released with this review.
@@ -2819,8 +2819,8 @@ type GetReviewResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The review, with its verdict and body.
 	Review *Review `protobuf:"bytes,1,opt,name=review,proto3" json:"review,omitempty"`
-	// The round the review is written against.
-	Round *ReviewRound `protobuf:"bytes,2,opt,name=round,proto3" json:"round,omitempty"`
+	// The snapshot the review is written against.
+	Snapshot *ReviewSnapshot `protobuf:"bytes,2,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	// The review's threads, by file and line.
 	Threads       []*ReviewThreadInContext `protobuf:"bytes,3,rep,name=threads,proto3" json:"threads,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2864,9 +2864,9 @@ func (x *GetReviewResponse) GetReview() *Review {
 	return nil
 }
 
-func (x *GetReviewResponse) GetRound() *ReviewRound {
+func (x *GetReviewResponse) GetSnapshot() *ReviewSnapshot {
 	if x != nil {
-		return x.Round
+		return x.Snapshot
 	}
 	return nil
 }
@@ -2925,7 +2925,7 @@ func (x *ListReviewsRequest) GetTask() string {
 
 type ListReviewsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Every review on the task, in round order.
+	// Every review on the task, in snapshot order.
 	Reviews       []*Review `protobuf:"bytes,1,rep,name=reviews,proto3" json:"reviews,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3742,20 +3742,21 @@ var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xad\x01\n" +
-	"\vReviewRound\x12\x0e\n" +
+	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\x9f\x01\n" +
+	"\x0eReviewSnapshot\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x18\n" +
 	"\aordinal\x18\x03 \x01(\x05R\aordinal\x12\x19\n" +
-	"\bbase_sha\x18\x04 \x01(\tR\abaseSha\x12!\n" +
-	"\fsnapshot_sha\x18\x05 \x01(\tR\vsnapshotSha\x12\x1d\n" +
+	"\bbase_sha\x18\x04 \x01(\tR\abaseSha\x12\x10\n" +
+	"\x03sha\x18\x05 \x01(\tR\x03sha\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\x96\x04\n" +
+	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\xa2\x04\n" +
 	"\x06Review\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
-	"\bround_id\x18\x03 \x01(\tR\aroundId\x12#\n" +
-	"\rround_ordinal\x18\x04 \x01(\x05R\froundOrdinal\x12;\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x1f\n" +
+	"\vsnapshot_id\x18\x03 \x01(\tR\n" +
+	"snapshotId\x12)\n" +
+	"\x10snapshot_ordinal\x18\x04 \x01(\x05R\x0fsnapshotOrdinal\x12;\n" +
 	"\vauthor_kind\x18\x05 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
 	"authorKind\x12+\n" +
 	"\x0fauthor_agent_id\x18\x06 \x01(\tH\x00R\rauthorAgentId\x88\x01\x01\x121\n" +
@@ -3772,13 +3773,14 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
 	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreads\x12%\n" +
 	"\x0eexternal_login\x18\x0f \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_id\"\xa8\x04\n" +
+	"\x10_author_agent_id\"\xaf\x04\n" +
 	"\rWatchedReview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x19\n" +
-	"\bround_id\x18\x03 \x01(\tR\aroundId\x12#\n" +
-	"\rround_ordinal\x18\x04 \x01(\x05R\froundOrdinal\x12,\n" +
-	"\x12round_snapshot_sha\x18\x05 \x01(\tR\x10roundSnapshotSha\x12;\n" +
+	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x1f\n" +
+	"\vsnapshot_id\x18\x03 \x01(\tR\n" +
+	"snapshotId\x12)\n" +
+	"\x10snapshot_ordinal\x18\x04 \x01(\x05R\x0fsnapshotOrdinal\x12!\n" +
+	"\fsnapshot_sha\x18\x05 \x01(\tR\vsnapshotSha\x12;\n" +
 	"\vauthor_kind\x18\x06 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
 	"authorKind\x12+\n" +
 	"\x0fauthor_agent_id\x18\a \x01(\tH\x00R\rauthorAgentId\x88\x01\x01\x121\n" +
@@ -3790,16 +3792,17 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\tR\tupdatedAt\x12&\n" +
-	"\x0fround_landed_at\x18\r \x01(\tR\rroundLandedAt\x12%\n" +
+	"updated_at\x18\f \x01(\tR\tupdatedAt\x12,\n" +
+	"\x12snapshot_landed_at\x18\r \x01(\tR\x10snapshotLandedAt\x12%\n" +
 	"\x0eexternal_login\x18\x0e \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_id\"\xf7\x04\n" +
+	"\x10_author_agent_id\"\x83\x05\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x1b\n" +
-	"\treview_id\x18\x03 \x01(\tR\breviewId\x12\x19\n" +
-	"\bround_id\x18\x04 \x01(\tR\aroundId\x12#\n" +
-	"\rround_ordinal\x18\x05 \x01(\x05R\froundOrdinal\x12\x19\n" +
+	"\treview_id\x18\x03 \x01(\tR\breviewId\x12\x1f\n" +
+	"\vsnapshot_id\x18\x04 \x01(\tR\n" +
+	"snapshotId\x12)\n" +
+	"\x10snapshot_ordinal\x18\x05 \x01(\x05R\x0fsnapshotOrdinal\x12\x19\n" +
 	"\bbase_sha\x18\x06 \x01(\tR\abaseSha\x12\x1b\n" +
 	"\tfile_path\x18\a \x01(\tR\bfilePath\x12\x1b\n" +
 	"\told_start\x18\b \x01(\x05R\boldStart\x12\x17\n" +
@@ -3817,7 +3820,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x11 \x01(\tR\tupdatedAt\x12#\n" +
 	"\rmirrors_forge\x18\x12 \x01(\bR\fmirrorsForge\x129\n" +
-	"\rforge_replies\x18\x13 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeReplies\"\xf8\x04\n" +
+	"\rforge_replies\x18\x13 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeReplies\"\x81\x05\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -3836,14 +3839,15 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\asent_at\x18\n" +
 	" \x01(\tR\x06sentAt\x12!\n" +
 	"\fdelivered_at\x18\v \x01(\tR\vdeliveredAt\x12 \n" +
-	"\treview_id\x18\f \x01(\tH\x01R\breviewId\x88\x01\x01\x12\x1e\n" +
-	"\bround_id\x18\r \x01(\tH\x02R\aroundId\x88\x01\x01\x120\n" +
+	"\treview_id\x18\f \x01(\tH\x01R\breviewId\x88\x01\x01\x12$\n" +
+	"\vsnapshot_id\x18\r \x01(\tH\x02R\n" +
+	"snapshotId\x88\x01\x01\x120\n" +
 	"\x05forge\x18\x0e \x01(\v2\x15.agent.v1.ForgeOriginH\x03R\x05forge\x88\x01\x01\x12(\n" +
 	"\raccepted_from\x18\x0f \x01(\tH\x04R\facceptedFrom\x88\x01\x01B\x12\n" +
 	"\x10_author_agent_idB\f\n" +
 	"\n" +
-	"_review_idB\v\n" +
-	"\t_round_idB\b\n" +
+	"_review_idB\x0e\n" +
+	"\f_snapshot_idB\b\n" +
 	"\x06_forgeB\x10\n" +
 	"\x0e_accepted_from\"r\n" +
 	"\vForgeOrigin\x12\x14\n" +
@@ -3914,55 +3918,56 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\bR\bresolved\"Q\n" +
 	"\x1fSetReviewThreadResolvedResponse\x12.\n" +
-	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x8e\x01\n" +
-	"\x16OpenReviewRoundRequest\x12k\n" +
+	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x91\x01\n" +
+	"\x19TakeReviewSnapshotRequest\x12k\n" +
 	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
 	"\n" +
 	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
-	"\x05_task\"F\n" +
-	"\x17OpenReviewRoundResponse\x12+\n" +
-	"\x05round\x18\x01 \x01(\v2\x15.agent.v1.ReviewRoundR\x05round\"\x8f\x01\n" +
-	"\x17ListReviewRoundsRequest\x12k\n" +
+	"\x05_task\"R\n" +
+	"\x1aTakeReviewSnapshotResponse\x124\n" +
+	"\bsnapshot\x18\x01 \x01(\v2\x18.agent.v1.ReviewSnapshotR\bsnapshot\"\x92\x01\n" +
+	"\x1aListReviewSnapshotsRequest\x12k\n" +
 	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
 	"\n" +
 	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
-	"\x05_task\"I\n" +
-	"\x18ListReviewRoundsResponse\x12-\n" +
-	"\x06rounds\x18\x01 \x03(\v2\x15.agent.v1.ReviewRoundR\x06rounds\"\x9c\x02\n" +
+	"\x05_task\"U\n" +
+	"\x1bListReviewSnapshotsResponse\x126\n" +
+	"\tsnapshots\x18\x01 \x03(\v2\x18.agent.v1.ReviewSnapshotR\tsnapshots\"\xa5\x02\n" +
 	"\x18OpenReviewHistoryRequest\x12W\n" +
 	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x123\n" +
-	"\x06rounds\x18\x06 \x01(\v2\x19.agent.v1.ReviewRoundSpanH\x00R\x06rounds\x124\n" +
+	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12<\n" +
+	"\tsnapshots\x18\x06 \x01(\v2\x1c.agent.v1.ReviewSnapshotSpanH\x00R\tsnapshots\x124\n" +
 	"\x06answer\x18\x04 \x01(\v2\x1a.agent.v1.ReviewAnswerSpanH\x00R\x06answer\x124\n" +
 	"\x06origin\x18\x05 \x01(\v2\x1a.agent.v1.ReviewOriginSpanH\x00R\x06originB\x06\n" +
-	"\x04span\"\x93\x01\n" +
-	"\x0fReviewRoundSpan\x120\n" +
-	"\rfrom_round_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\vfromRoundId\x88\x01\x01\x12,\n" +
-	"\vto_round_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\ttoRoundId\x88\x01\x01B\x10\n" +
-	"\x0e_from_round_idB\x0e\n" +
-	"\f_to_round_id\"h\n" +
-	"\x10ReviewAnswerSpan\x12+\n" +
-	"\rfrom_round_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\vfromRoundId\x12'\n" +
-	"\vto_round_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoRoundId\"Q\n" +
-	"\x10ReviewOriginSpan\x12\"\n" +
-	"\bround_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aroundId\x12\x19\n" +
-	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\xf0\x04\n" +
-	"\x19OpenReviewHistoryResponse\x12+\n" +
-	"\x05round\x18\x01 \x01(\v2\x15.agent.v1.ReviewRoundR\x05round\x12-\n" +
-	"\x06rounds\x18\x02 \x03(\v2\x15.agent.v1.ReviewRoundR\x06rounds\x120\n" +
+	"\x04span\"\xa8\x01\n" +
+	"\x12ReviewSnapshotSpan\x126\n" +
+	"\x10from_snapshot_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x0efromSnapshotId\x88\x01\x01\x122\n" +
+	"\x0eto_snapshot_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\ftoSnapshotId\x88\x01\x01B\x13\n" +
+	"\x11_from_snapshot_idB\x11\n" +
+	"\x0f_to_snapshot_id\"t\n" +
+	"\x10ReviewAnswerSpan\x121\n" +
+	"\x10from_snapshot_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x0efromSnapshotId\x12-\n" +
+	"\x0eto_snapshot_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ftoSnapshotId\"W\n" +
+	"\x10ReviewOriginSpan\x12(\n" +
+	"\vsnapshot_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"snapshotId\x12\x19\n" +
+	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\x88\x05\n" +
+	"\x19OpenReviewHistoryResponse\x124\n" +
+	"\bsnapshot\x18\x01 \x01(\v2\x18.agent.v1.ReviewSnapshotR\bsnapshot\x126\n" +
+	"\tsnapshots\x18\x02 \x03(\v2\x18.agent.v1.ReviewSnapshotR\tsnapshots\x120\n" +
 	"\athreads\x18\x03 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\x12\x16\n" +
 	"\x06notice\x18\x05 \x01(\tR\x06notice\x128\n" +
 	"\bresolved\x18\x06 \x01(\v2\x1c.agent.v1.ReviewResolvedSpanR\bresolved\x12\x18\n" +
 	"\awidened\x18\a \x01(\tR\awidened\x12*\n" +
-	"\areviews\x18\r \x03(\v2\x10.agent.v1.ReviewR\areviews\x12(\n" +
-	"\x10earlier_round_id\x18\t \x01(\tR\x0eearlierRoundId\x12.\n" +
+	"\areviews\x18\r \x03(\v2\x10.agent.v1.ReviewR\areviews\x12.\n" +
+	"\x13earlier_snapshot_id\x18\t \x01(\tR\x11earlierSnapshotId\x12.\n" +
 	"\x13earlier_released_at\x18\n" +
 	" \x01(\tR\x11earlierReleasedAt\x122\n" +
 	"\x15changed_since_earlier\x18\v \x01(\x05R\x13changedSinceEarlier\x12G\n" +
 	"\x06traced\x18\f \x03(\v2/.agent.v1.OpenReviewHistoryResponse.TracedEntryR\x06traced\x1aV\n" +
 	"\vTracedEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
-	"\x05value\x18\x02 \x01(\v2\x1b.agent.v1.ReviewTracedPlaceR\x05value:\x028\x01\"\xd7\x02\n" +
+	"\x05value\x18\x02 \x01(\v2\x1b.agent.v1.ReviewTracedPlaceR\x05value:\x028\x01\"\xdd\x02\n" +
 	"\x12ReviewResolvedSpan\x12\x19\n" +
 	"\bbase_sha\x18\x01 \x01(\tR\abaseSha\x12\x19\n" +
 	"\bhead_sha\x18\x02 \x01(\tR\aheadSha\x12\x1a\n" +
@@ -3970,8 +3975,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x0fanswer_base_sha\x18\x04 \x01(\tR\ranswerBaseSha\x12&\n" +
 	"\x0fanswer_head_sha\x18\x05 \x01(\tR\ranswerHeadSha\x12&\n" +
 	"\x0forigin_base_sha\x18\x06 \x01(\tR\roriginBaseSha\x12&\n" +
-	"\x0forigin_head_sha\x18\a \x01(\tR\roriginHeadSha\x121\n" +
-	"\x15origin_round_base_sha\x18\b \x01(\tR\x12originRoundBaseSha\x12\x1c\n" +
+	"\x0forigin_head_sha\x18\a \x01(\tR\roriginHeadSha\x127\n" +
+	"\x18origin_snapshot_base_sha\x18\b \x01(\tR\x15originSnapshotBaseSha\x12\x1c\n" +
 	"\tconflicts\x18\t \x03(\tR\tconflicts\"\x80\x01\n" +
 	"\x11ReviewTracedPlace\x12\x1b\n" +
 	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x1b\n" +
@@ -3982,10 +3987,10 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\x12\x18\n" +
 	"\acontext\x18\x02 \x03(\tR\acontext\"8\n" +
 	"\x10GetReviewRequest\x12$\n" +
-	"\treview_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\breviewId\"\xa5\x01\n" +
+	"\treview_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\breviewId\"\xae\x01\n" +
 	"\x11GetReviewResponse\x12(\n" +
-	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12+\n" +
-	"\x05round\x18\x02 \x01(\v2\x15.agent.v1.ReviewRoundR\x05round\x129\n" +
+	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x124\n" +
+	"\bsnapshot\x18\x02 \x01(\v2\x18.agent.v1.ReviewSnapshotR\bsnapshot\x129\n" +
 	"\athreads\x18\x03 \x03(\v2\x1f.agent.v1.ReviewThreadInContextR\athreads\"\x8a\x01\n" +
 	"\x12ListReviewsRequest\x12k\n" +
 	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
@@ -4093,7 +4098,7 @@ var file_agent_v1_review_proto_goTypes = []any{
 	(ReviewDeliveryState)(0),                // 1: agent.v1.ReviewDeliveryState
 	(ReviewVerdict)(0),                      // 2: agent.v1.ReviewVerdict
 	(ForgeReplyState)(0),                    // 3: agent.v1.ForgeReplyState
-	(*ReviewRound)(nil),                     // 4: agent.v1.ReviewRound
+	(*ReviewSnapshot)(nil),                  // 4: agent.v1.ReviewSnapshot
 	(*Review)(nil),                          // 5: agent.v1.Review
 	(*WatchedReview)(nil),                   // 6: agent.v1.WatchedReview
 	(*ReviewThread)(nil),                    // 7: agent.v1.ReviewThread
@@ -4113,12 +4118,12 @@ var file_agent_v1_review_proto_goTypes = []any{
 	(*MarkReviewThreadReadResponse)(nil),    // 21: agent.v1.MarkReviewThreadReadResponse
 	(*SetReviewThreadResolvedRequest)(nil),  // 22: agent.v1.SetReviewThreadResolvedRequest
 	(*SetReviewThreadResolvedResponse)(nil), // 23: agent.v1.SetReviewThreadResolvedResponse
-	(*OpenReviewRoundRequest)(nil),          // 24: agent.v1.OpenReviewRoundRequest
-	(*OpenReviewRoundResponse)(nil),         // 25: agent.v1.OpenReviewRoundResponse
-	(*ListReviewRoundsRequest)(nil),         // 26: agent.v1.ListReviewRoundsRequest
-	(*ListReviewRoundsResponse)(nil),        // 27: agent.v1.ListReviewRoundsResponse
+	(*TakeReviewSnapshotRequest)(nil),       // 24: agent.v1.TakeReviewSnapshotRequest
+	(*TakeReviewSnapshotResponse)(nil),      // 25: agent.v1.TakeReviewSnapshotResponse
+	(*ListReviewSnapshotsRequest)(nil),      // 26: agent.v1.ListReviewSnapshotsRequest
+	(*ListReviewSnapshotsResponse)(nil),     // 27: agent.v1.ListReviewSnapshotsResponse
 	(*OpenReviewHistoryRequest)(nil),        // 28: agent.v1.OpenReviewHistoryRequest
-	(*ReviewRoundSpan)(nil),                 // 29: agent.v1.ReviewRoundSpan
+	(*ReviewSnapshotSpan)(nil),              // 29: agent.v1.ReviewSnapshotSpan
 	(*ReviewAnswerSpan)(nil),                // 30: agent.v1.ReviewAnswerSpan
 	(*ReviewOriginSpan)(nil),                // 31: agent.v1.ReviewOriginSpan
 	(*OpenReviewHistoryResponse)(nil),       // 32: agent.v1.OpenReviewHistoryResponse
@@ -4161,20 +4166,20 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	8,  // 13: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
 	7,  // 14: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
 	7,  // 15: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
-	4,  // 16: agent.v1.OpenReviewRoundResponse.round:type_name -> agent.v1.ReviewRound
-	4,  // 17: agent.v1.ListReviewRoundsResponse.rounds:type_name -> agent.v1.ReviewRound
-	29, // 18: agent.v1.OpenReviewHistoryRequest.rounds:type_name -> agent.v1.ReviewRoundSpan
+	4,  // 16: agent.v1.TakeReviewSnapshotResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	4,  // 17: agent.v1.ListReviewSnapshotsResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
+	29, // 18: agent.v1.OpenReviewHistoryRequest.snapshots:type_name -> agent.v1.ReviewSnapshotSpan
 	30, // 19: agent.v1.OpenReviewHistoryRequest.answer:type_name -> agent.v1.ReviewAnswerSpan
 	31, // 20: agent.v1.OpenReviewHistoryRequest.origin:type_name -> agent.v1.ReviewOriginSpan
-	4,  // 21: agent.v1.OpenReviewHistoryResponse.round:type_name -> agent.v1.ReviewRound
-	4,  // 22: agent.v1.OpenReviewHistoryResponse.rounds:type_name -> agent.v1.ReviewRound
+	4,  // 21: agent.v1.OpenReviewHistoryResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	4,  // 22: agent.v1.OpenReviewHistoryResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
 	7,  // 23: agent.v1.OpenReviewHistoryResponse.threads:type_name -> agent.v1.ReviewThread
 	33, // 24: agent.v1.OpenReviewHistoryResponse.resolved:type_name -> agent.v1.ReviewResolvedSpan
 	5,  // 25: agent.v1.OpenReviewHistoryResponse.reviews:type_name -> agent.v1.Review
 	53, // 26: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
 	7,  // 27: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
 	5,  // 28: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
-	4,  // 29: agent.v1.GetReviewResponse.round:type_name -> agent.v1.ReviewRound
+	4,  // 29: agent.v1.GetReviewResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
 	35, // 30: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
 	5,  // 31: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
 	2,  // 32: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
@@ -4206,7 +4211,7 @@ func file_agent_v1_review_proto_init() {
 	file_agent_v1_review_proto_msgTypes[20].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[22].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[24].OneofWrappers = []any{
-		(*OpenReviewHistoryRequest_Rounds)(nil),
+		(*OpenReviewHistoryRequest_Snapshots)(nil),
 		(*OpenReviewHistoryRequest_Answer)(nil),
 		(*OpenReviewHistoryRequest_Origin)(nil),
 	}

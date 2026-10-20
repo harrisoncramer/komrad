@@ -19,11 +19,11 @@ type reviewScreen struct {
 	dir       string
 	root      string
 	exclude   []string
-	round     *agentv1.ReviewRound
+	snapshot  *agentv1.ReviewSnapshot
 	loading   bool
 	// loads counts the reads of the diff started, and only the newest one lands.
 	loads int
-	// notice is what the last load had to say about the round it settled on.
+	// notice is what the last load had to say about the snapshot it settled on.
 	notice string
 
 	// diff is the patch on screen and where the reader is standing in it.

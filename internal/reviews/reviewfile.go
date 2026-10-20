@@ -16,8 +16,8 @@ const contextLines = 6
 // renderReviewParams is everything one review file has to say for itself.
 type renderReviewParams struct {
 	// Task is the task whose work was reviewed.
-	Task  taskstore.Task
-	Round reviewstore.Round
+	Task     taskstore.Task
+	Snapshot reviewstore.Snapshot
 	// Author names who gave the review, and is empty when a person gave it.
 	Author  string
 	Verdict reviewstore.Verdict
@@ -28,13 +28,13 @@ type renderReviewParams struct {
 }
 
 // renderReview writes a whole review out as the markdown the agent reads, drawing the code
-// around each comment out of the round's own source.
+// around each comment out of the snapshot's own source.
 func renderReview(params renderReviewParams) string {
-	round, verdict, threads := params.Round, params.Verdict, params.Threads
+	snapshot, verdict, threads := params.Snapshot, params.Verdict, params.Threads
 
 	var out strings.Builder
 
-	fmt.Fprintf(&out, "# Review of round %d\n\n", round.Ordinal)
+	fmt.Fprintf(&out, "# Review of snapshot %d\n\n", snapshot.Ordinal)
 	fmt.Fprintf(&out, "%s\n\n", verdictSentence(verdictSentenceParams{
 		Verdict: verdict,
 		Person:  params.Author == "",
@@ -43,7 +43,7 @@ func renderReview(params renderReviewParams) string {
 		params.Task.Slug, params.Task.ID, reviewerName(params.Author))
 	fmt.Fprintf(&out, "This review was written against the snapshot `%s`, taken from `%s`. "+
 		"To see exactly what was reviewed, run `git diff %s %s`.\n",
-		xsha.Short(round.SnapshotSHA), xsha.Short(round.BaseSHA), round.BaseSHA, round.SnapshotSHA)
+		xsha.Short(snapshot.SHA), xsha.Short(snapshot.BaseSHA), snapshot.BaseSHA, snapshot.SHA)
 
 	if said := strings.TrimSpace(params.Said); said != "" {
 		fmt.Fprintf(&out, "\n## What the reviewer said\n\n%s\n", said)
@@ -56,9 +56,9 @@ func renderReview(params renderReviewParams) string {
 	out.WriteString("\n")
 	for _, thread := range threads {
 		writeThread(&out, writeThreadParams{
-			Thread:  thread,
-			Round:   round,
-			ByHuman: params.Author == "",
+			Thread:   thread,
+			Snapshot: snapshot,
+			ByHuman:  params.Author == "",
 		})
 	}
 
@@ -68,9 +68,9 @@ func renderReview(params renderReviewParams) string {
 }
 
 type writeThreadParams struct {
-	Thread  ReviewThreadInContext
-	Round   reviewstore.Round
-	ByHuman bool
+	Thread   ReviewThreadInContext
+	Snapshot reviewstore.Snapshot
+	ByHuman  bool
 }
 
 func writeThread(out *strings.Builder, params writeThreadParams) {
@@ -80,7 +80,7 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 	fmt.Fprintf(out, "Thread `%s`\n\n", thread.ID)
 
 	if isOnOldSide(thread) {
-		fmt.Fprintf(out, "%s\n\n", oldSideSentence(thread, params.Round))
+		fmt.Fprintf(out, "%s\n\n", oldSideSentence(thread, params.Snapshot))
 	}
 
 	if len(params.Thread.Context) > 0 {
@@ -152,14 +152,14 @@ func suggestionLead(byHuman bool) string {
 	return "Suggested replacement for those lines:"
 }
 
-// hasContext reports whether the round's file holds the lines a comment was written about.
+// hasContext reports whether the snapshot's file holds the lines a comment was written about.
 func hasContext(thread reviewstore.Thread, lines []string) bool {
 	start := int(thread.NewStart)
 
 	return start > 0 && start <= len(lines)
 }
 
-// contextOf is the file around the lines a comment was written about as the round froze them,
+// contextOf is the file around the lines a comment was written about as the snapshot froze them,
 // numbered, with those lines marked, and nothing for a comment the file does not reach.
 func contextOf(thread reviewstore.Thread, lines []string) []string {
 	if !hasContext(thread, lines) {
@@ -205,15 +205,15 @@ func isOnOldSide(thread reviewstore.Thread) bool {
 	return thread.NewStart == 0 && thread.OldStart > 0
 }
 
-func oldSideSentence(thread reviewstore.Thread, round reviewstore.Round) string {
+func oldSideSentence(thread reviewstore.Thread, snapshot reviewstore.Snapshot) string {
 	base := thread.BaseSHA
 	if base == "" {
-		base = round.BaseSHA
+		base = snapshot.BaseSHA
 	}
 
 	return fmt.Sprintf("This thread's line numbers are on the old side, counted in `%s` rather than "+
 		"in the snapshot. To see those lines, run `git diff %s %s`.",
-		xsha.Short(base), base, round.SnapshotSHA)
+		xsha.Short(base), base, snapshot.SHA)
 }
 
 // reviewerName is who gave the review, spelled for somebody reading the file long afterwards,
@@ -240,7 +240,7 @@ func verdictSentence(params verdictSentenceParams) string {
 
 	switch params.Verdict {
 	case reviewstore.VerdictApproved:
-		return "Approved. This round is good as it stands."
+		return "Approved. This snapshot is good as it stands."
 	case reviewstore.VerdictChangesRequested:
 		return "Changes requested. Keep working on this."
 	case reviewstore.VerdictCommented:

@@ -24,7 +24,7 @@ func (t reviewThreads) holdsUnsent() bool {
 	return t.unsentCount() > 0
 }
 
-// isHistory reports whether the diff on screen ends before the round new comments go on.
+// isHistory reports whether the diff on screen ends before the snapshot new comments go on.
 func (r reviewScreen) isHistory() bool {
 	return r.diff.View() != nil && r.diff.isHistory()
 }

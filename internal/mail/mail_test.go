@@ -1013,7 +1013,7 @@ func exchange(t *testing.T, svc *MailService, params exchangeParams) {
 		_, err := svc.SendMail(t.Context(), SendMailParams{
 			From:      from.ID,
 			ToAgentID: to.ID,
-			Body:      "round",
+			Body:      "snapshot",
 		})
 		require.NoError(t, err)
 	}

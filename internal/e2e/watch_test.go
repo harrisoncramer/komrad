@@ -184,15 +184,15 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			name: "a review of an agent's work is released",
 			write: func(t *testing.T) {
 				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
-				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
-					TaskID:      *api.TaskID,
-					BaseSHA:     "base",
-					SnapshotSHA: "snapshot",
+				snapshot, err := reviews.CreateSnapshot(ctx, reviewstore.CreateSnapshotParams{
+					TaskID:  *api.TaskID,
+					BaseSHA: "base",
+					SHA:     "snapshot",
 				})
 				require.NoError(t, err)
 				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
 					TaskID:     *api.TaskID,
-					RoundID:    round.ID,
+					SnapshotID: snapshot.ID,
 					AuthorKind: reviewstore.AuthorHuman,
 				})
 				require.NoError(t, err)
@@ -204,22 +204,22 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.Equal(t, int32(1), stores.agents[api.ID].GetLocalReviewRounds())
+				assert.Equal(t, int32(1), stores.agents[api.ID].GetLocalReviewSnapshots())
 			},
 		},
 		{
 			name: "a reviewer agent's comment on an agent's work is released",
 			write: func(t *testing.T) {
 				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
-				round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
-					TaskID:      *base.TaskID,
-					BaseSHA:     "base",
-					SnapshotSHA: "snapshot",
+				snapshot, err := reviews.CreateSnapshot(ctx, reviewstore.CreateSnapshotParams{
+					TaskID:  *base.TaskID,
+					BaseSHA: "base",
+					SHA:     "snapshot",
 				})
 				require.NoError(t, err)
 				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
 					TaskID:        *base.TaskID,
-					RoundID:       round.ID,
+					SnapshotID:    snapshot.ID,
 					AuthorKind:    reviewstore.AuthorAgent,
 					AuthorAgentID: &api.ID,
 				})
@@ -227,7 +227,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				_, err = reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
 					TaskID:        *base.TaskID,
 					ReviewID:      review.ID,
-					RoundID:       round.ID,
+					SnapshotID:    snapshot.ID,
 					BaseSHA:       "base",
 					FilePath:      "main.go",
 					NewStart:      3,
@@ -371,13 +371,13 @@ func viewFromGets(t *testing.T, instance *komradtest.Instance, listed view) view
 		one, err := instance.Agents.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 		require.NoError(t, err)
 		got.agents[id] = &agentv1.AgentRow{
-			Agent:             one.Msg.GetAgent(),
-			UnreadMail:        one.Msg.GetUnreadMail(),
-			PullRequest:       one.Msg.GetPullRequest(),
-			PullRequests:      one.Msg.GetPullRequests(),
-			LocalReviewRounds: one.Msg.GetLocalReviewRounds(),
-			ReviewerComments:  one.Msg.ReviewerComments,
-			PersonComments:    one.Msg.PersonComments,
+			Agent:                one.Msg.GetAgent(),
+			UnreadMail:           one.Msg.GetUnreadMail(),
+			PullRequest:          one.Msg.GetPullRequest(),
+			PullRequests:         one.Msg.GetPullRequests(),
+			LocalReviewSnapshots: one.Msg.GetLocalReviewSnapshots(),
+			ReviewerComments:     one.Msg.ReviewerComments,
+			PersonComments:       one.Msg.PersonComments,
 		}
 	}
 

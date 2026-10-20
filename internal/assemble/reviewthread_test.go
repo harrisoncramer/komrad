@@ -81,7 +81,7 @@ func TestReviewThreadsWorksOutDelivery(t *testing.T) {
 	}
 }
 
-// TestReviewThreadsRunsDownTheDiff pins the order: the threads of one agent's task, by round, then file, then
+// TestReviewThreadsRunsDownTheDiff pins the order: the threads of one agent's task, by snapshot, then file, then
 // line.
 func TestReviewThreadsRunsDownTheDiff(t *testing.T) {
 	var w assemble.World
@@ -101,12 +101,12 @@ func TestReviewThreadsRunsDownTheDiff(t *testing.T) {
 	assert.Equal(t, []string{"t1", "t2", "t3", "t4"}, ids)
 }
 
-func threadOf(id, agentID string, round int32, file string, line int32) *agentv1.ReviewThread {
+func threadOf(id, agentID string, snapshot int32, file string, line int32) *agentv1.ReviewThread {
 	return &agentv1.ReviewThread{
-		Id:           id,
-		TaskId:       "task-" + agentID,
-		RoundOrdinal: round,
-		FilePath:     file,
-		NewStart:     line,
+		Id:              id,
+		TaskId:          "task-" + agentID,
+		SnapshotOrdinal: snapshot,
+		FilePath:        file,
+		NewStart:        line,
 	}
 }

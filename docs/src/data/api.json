@@ -664,7 +664,7 @@
             "orchestrator"
           ],
           "summary": "List the threads on a task's diff, the caller's task by default.",
-          "description": "List the threads on a task's diff, the caller's task by default. Line numbers are true of each thread's round, so search for the quoted lines once the code has moved.",
+          "description": "List the threads on a task's diff, the caller's task by default. Line numbers are true of each thread's snapshot, so search for the quoted lines once the code has moved.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -681,8 +681,8 @@
           "roles": [
             "reviewer"
           ],
-          "summary": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the round's `snapshot_sha`.",
-          "description": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the round's `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.",
+          "summary": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`.",
+          "description": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -702,7 +702,7 @@
             "orchestrator"
           ],
           "summary": "Reply in a thread on the caller's own diff.",
-          "description": "Reply in a thread on the caller's own diff. With `addressed` set, the reply pins a new round of the worktree, and resolves a thread the person started. A thread a reviewer started stays open for that reviewer to resolve. Komrad refuses `addressed` when the worktree has not changed since the thread's round.",
+          "description": "Reply in a thread on the caller's own diff. With `addressed` set, the reply pins a new snapshot of the worktree, and resolves a thread the person started. A thread a reviewer started stays open for that reviewer to resolve. Komrad refuses `addressed` when the worktree has not changed since the thread's snapshot.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -846,42 +846,42 @@
           "response": "agent.v1.SetReviewThreadResolvedResponse"
         },
         {
-          "slug": "open-review-round",
-          "name": "OpenReviewRound",
-          "path": "/agent.v1.AgentService/OpenReviewRound",
-          "command": "komrad rpc open-review-round",
-          "tool": "open_review_round",
+          "slug": "take-review-snapshot",
+          "name": "TakeReviewSnapshot",
+          "path": "/agent.v1.AgentService/TakeReviewSnapshot",
+          "command": "komrad rpc take-review-snapshot",
+          "tool": "take_review_snapshot",
           "mcp": true,
           "roles": [
             "reviewer"
           ],
-          "summary": "Snapshot a task's checkout as a round to review, the caller's task by default.",
-          "description": "Snapshot a task's checkout as a round to review, the caller's task by default. Diff the round's `base_sha` against its `snapshot_sha` to read the change. A checkout with no change since the newest round returns that round.",
+          "summary": "Take a snapshot of a task's checkout to review, the caller's task by default.",
+          "description": "Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout with no change since the newest snapshot returns that snapshot.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
-          "request": "agent.v1.OpenReviewRoundRequest",
-          "response": "agent.v1.OpenReviewRoundResponse"
+          "request": "agent.v1.TakeReviewSnapshotRequest",
+          "response": "agent.v1.TakeReviewSnapshotResponse"
         },
         {
-          "slug": "list-review-rounds",
-          "name": "ListReviewRounds",
-          "path": "/agent.v1.AgentService/ListReviewRounds",
-          "command": "komrad rpc list-review-rounds",
-          "tool": "list_review_rounds",
+          "slug": "list-review-snapshots",
+          "name": "ListReviewSnapshots",
+          "path": "/agent.v1.AgentService/ListReviewSnapshots",
+          "command": "komrad rpc list-review-snapshots",
+          "tool": "list_review_snapshots",
           "mcp": true,
           "roles": [
             "writer",
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the rounds of a task, the caller's task by default, oldest first.",
-          "description": "List the rounds of a task, the caller's task by default, oldest first. Diff one round's `snapshot_sha` against the next to see what changed between them.",
+          "summary": "List the snapshots of a task, the caller's task by default, oldest first.",
+          "description": "List the snapshots of a task, the caller's task by default, oldest first. Diff one snapshot's `sha` against the next to see what changed between them.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
-          "request": "agent.v1.ListReviewRoundsRequest",
-          "response": "agent.v1.ListReviewRoundsResponse"
+          "request": "agent.v1.ListReviewSnapshotsRequest",
+          "response": "agent.v1.ListReviewSnapshotsResponse"
         },
         {
           "slug": "list-reviews",
@@ -895,8 +895,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "List the reviews released on a task, the caller's task by default, in round order, each with its verdict.",
-          "description": "List the reviews released on a task, the caller's task by default, in round order, each with its verdict.",
+          "summary": "List the reviews released on a task, the caller's task by default, in snapshot order, each with its verdict.",
+          "description": "List the reviews released on a task, the caller's task by default, in snapshot order, each with its verdict.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -916,7 +916,7 @@
             "orchestrator"
           ],
           "summary": "Read one released review in full: the verdict, the note on the work, then each thread with the code it is pinned to.",
-          "description": "Read one released review in full: the verdict, the note on the work, then each thread with the code it is pinned to. Line numbers are true of the round.",
+          "description": "Read one released review in full: the verdict, the note on the work, then each thread with the code it is pinned to. Line numbers are true of the snapshot.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -933,8 +933,8 @@
           "roles": [
             "reviewer"
           ],
-          "summary": "Release the caller's review with a verdict: approved only when the caller started no thread on the round, changes requested when it started any.",
-          "description": "Release the caller's review with a verdict: approved only when the caller started no thread on the round, changes requested when it started any. Komrad mails the agent under review once, naming the review for `get_review`. An approval tells the agent its work is done.",
+          "summary": "Release the caller's review with a verdict: approved only when the caller started no thread on the snapshot, changes requested when it started any.",
+          "description": "Release the caller's review with a verdict: approved only when the caller started no thread on the snapshot, changes requested when it started any. Komrad mails the agent under review once, naming the review for `get_review`. An approval tells the agent its work is done.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1959,7 +1959,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the reply says the change the thread asks for is made. Komrad then saves a round of the worktree and pins it to the reply."
+          "description": "Whether the reply says the change the thread asks for is made. Komrad then saves a snapshot of the worktree and pins it to the reply."
         }
       ]
     },
@@ -2478,14 +2478,14 @@
           "description": "Every pull request from the agent's branch, the current one first."
         },
         {
-          "name": "local_review_rounds",
+          "name": "local_review_snapshots",
           "type": "int32",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many review rounds the agent's work has."
+          "description": "How many review snapshots the agent's work has."
         },
         {
           "name": "reviewer_comments",
@@ -2539,7 +2539,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many comments are not resolved, on any round."
+          "description": "How many comments are not resolved, on any snapshot."
         },
         {
           "name": "resolved",
@@ -2549,7 +2549,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many comments are resolved, on rounds that have not landed."
+          "description": "How many comments are resolved, on snapshots that have not landed."
         },
         {
           "name": "unread",
@@ -2746,7 +2746,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the old side of the line numbers is read against. Empty uses the round's base."
+          "description": "The commit the old side of the line numbers is read against. Empty uses the snapshot's base."
         },
         {
           "name": "snapshot_sha",
@@ -2756,7 +2756,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the new side of the line numbers is read against. Empty uses the round's snapshot."
+          "description": "The commit the new side of the line numbers is read against. Empty uses the snapshot's commit."
         },
         {
           "name": "old_start",
@@ -3546,14 +3546,14 @@
           "description": "Every pull request from the agent's branch, the current one first."
         },
         {
-          "name": "local_review_rounds",
+          "name": "local_review_snapshots",
           "type": "int32",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How many review rounds the agent's work has."
+          "description": "How many review snapshots the agent's work has."
         },
         {
           "name": "reviewer_comments",
@@ -3764,14 +3764,14 @@
           "description": "The review, with its verdict and body."
         },
         {
-          "name": "round",
-          "type": "ReviewRound",
-          "ref": "agent.v1.ReviewRound",
+          "name": "snapshot",
+          "type": "ReviewSnapshot",
+          "ref": "agent.v1.ReviewSnapshot",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The round the review is written against."
+          "description": "The snapshot the review is written against."
         },
         {
           "name": "threads",
@@ -4167,8 +4167,8 @@
         }
       ]
     },
-    "agent.v1.ListReviewRoundsRequest": {
-      "name": "ListReviewRoundsRequest",
+    "agent.v1.ListReviewSnapshotsRequest": {
+      "name": "ListReviewSnapshotsRequest",
       "description": "",
       "fields": [
         {
@@ -4179,23 +4179,23 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The task whose rounds to list, by id or slug. Unset uses the caller's own task."
+          "description": "The task whose snapshots to list, by id or slug. Unset uses the caller's own task."
         }
       ]
     },
-    "agent.v1.ListReviewRoundsResponse": {
-      "name": "ListReviewRoundsResponse",
+    "agent.v1.ListReviewSnapshotsResponse": {
+      "name": "ListReviewSnapshotsResponse",
       "description": "",
       "fields": [
         {
-          "name": "rounds",
-          "type": "ReviewRound",
-          "ref": "agent.v1.ReviewRound",
+          "name": "snapshots",
+          "type": "ReviewSnapshot",
+          "ref": "agent.v1.ReviewSnapshot",
           "repeated": true,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every round of the task, oldest first."
+          "description": "Every snapshot of the task, oldest first."
         }
       ]
     },
@@ -4259,7 +4259,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Every review on the task, in round order."
+          "description": "Every review on the task, in snapshot order."
         }
       ]
     },
@@ -4407,38 +4407,6 @@
           "oneof": "",
           "rules": [],
           "description": "Who wrote the mail and why."
-        }
-      ]
-    },
-    "agent.v1.OpenReviewRoundRequest": {
-      "name": "OpenReviewRoundRequest",
-      "description": "OpenReviewRoundRequest saves a task's worktree as its next round. When the worktree has not changed since the newest round, the call returns that round.",
-      "fields": [
-        {
-          "name": "task",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The task whose worktree to save, by id or slug. Unset uses the caller's own task."
-        }
-      ]
-    },
-    "agent.v1.OpenReviewRoundResponse": {
-      "name": "OpenReviewRoundResponse",
-      "description": "",
-      "fields": [
-        {
-          "name": "round",
-          "type": "ReviewRound",
-          "ref": "agent.v1.ReviewRound",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The round to review. The newest existing round when the worktree has not changed."
         }
       ]
     },
@@ -5386,7 +5354,7 @@
     },
     "agent.v1.Review": {
       "name": "Review",
-      "description": "Review is one author's comments on one round, released to the agent together. The review is private until the author releases it.",
+      "description": "Review is one author's comments on one snapshot, released to the agent together. The review is private until the author releases it.",
       "fields": [
         {
           "name": "id",
@@ -5409,24 +5377,24 @@
           "description": "The id of the task the review is on."
         },
         {
-          "name": "round_id",
+          "name": "snapshot_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id of the round the review is written against."
+          "description": "The id of the snapshot the review is written against."
         },
         {
-          "name": "round_ordinal",
+          "name": "snapshot_ordinal",
           "type": "int32",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number of the round the review is written against."
+          "description": "The number of the snapshot the review is written against."
         },
         {
           "name": "author_kind",
@@ -5665,14 +5633,14 @@
           "description": "The id of the review the comment was released with. Unset for a reply from the writer, which belongs to no review."
         },
         {
-          "name": "round_id",
+          "name": "snapshot_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id of the round saved with an addressed reply. Unset on every other comment."
+          "description": "The id of the snapshot saved with an addressed reply. Unset on every other comment."
         },
         {
           "name": "forge",
@@ -5696,9 +5664,9 @@
         }
       ]
     },
-    "agent.v1.ReviewRound": {
-      "name": "ReviewRound",
-      "description": "ReviewRound is a snapshot of a task's worktree, saved as a commit, that a review is written against. A round never changes.",
+    "agent.v1.ReviewSnapshot": {
+      "name": "ReviewSnapshot",
+      "description": "ReviewSnapshot is a snapshot of a task's worktree, saved as a commit, that a review is written against. A snapshot never changes.",
       "fields": [
         {
           "name": "id",
@@ -5708,7 +5676,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The round's id."
+          "description": "The snapshot's id."
         },
         {
           "name": "task_id",
@@ -5718,7 +5686,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id of the task the round was taken of."
+          "description": "The id of the task the snapshot was taken of."
         },
         {
           "name": "ordinal",
@@ -5728,7 +5696,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The round's number within its task, counting from one."
+          "description": "The snapshot's number within its task, counting from one."
         },
         {
           "name": "base_sha",
@@ -5738,10 +5706,10 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit on the base branch that the task's branch started from when the round was taken."
+          "description": "The commit on the base branch that the task's branch started from when the snapshot was taken."
         },
         {
-          "name": "snapshot_sha",
+          "name": "sha",
           "type": "string",
           "ref": "",
           "repeated": false,
@@ -5758,13 +5726,13 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "When the round was taken, in RFC 3339."
+          "description": "When the snapshot was taken, in RFC 3339."
         }
       ]
     },
     "agent.v1.ReviewThread": {
       "name": "ReviewThread",
-      "description": "ReviewThread is a conversation pinned to a range of lines in a round.",
+      "description": "ReviewThread is a conversation pinned to a range of lines in a snapshot.",
       "fields": [
         {
           "name": "id",
@@ -5797,24 +5765,24 @@
           "description": "The id of the review the thread was created in."
         },
         {
-          "name": "round_id",
+          "name": "snapshot_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id of the round the thread is pinned to."
+          "description": "The id of the snapshot the thread is pinned to."
         },
         {
-          "name": "round_ordinal",
+          "name": "snapshot_ordinal",
           "type": "int32",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The number of the round the thread is pinned to."
+          "description": "The number of the snapshot the thread is pinned to."
         },
         {
           "name": "base_sha",
@@ -5824,7 +5792,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The commit the old side of the line numbers is read against. This is the round's base unless the diff was narrowed to an earlier round."
+          "description": "The commit the old side of the line numbers is read against. This is the snapshot's base unless the diff was narrowed to an earlier snapshot."
         },
         {
           "name": "file_path",
@@ -5960,7 +5928,7 @@
     },
     "agent.v1.ReviewThreadInContext": {
       "name": "ReviewThreadInContext",
-      "description": "ReviewThreadInContext is one thread of a released review, with the code around it from the round's snapshot.",
+      "description": "ReviewThreadInContext is one thread of a released review, with the code around it from the snapshot's commit.",
       "fields": [
         {
           "name": "thread",
@@ -6398,6 +6366,38 @@
           "oneof": "",
           "rules": [],
           "description": "The orchestrator, running."
+        }
+      ]
+    },
+    "agent.v1.TakeReviewSnapshotRequest": {
+      "name": "TakeReviewSnapshotRequest",
+      "description": "TakeReviewSnapshotRequest saves a task's worktree as its next snapshot. When the worktree has not changed since the newest snapshot, the call returns that snapshot.",
+      "fields": [
+        {
+          "name": "task",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The task whose worktree to save, by id or slug. Unset uses the caller's own task."
+        }
+      ]
+    },
+    "agent.v1.TakeReviewSnapshotResponse": {
+      "name": "TakeReviewSnapshotResponse",
+      "description": "",
+      "fields": [
+        {
+          "name": "snapshot",
+          "type": "ReviewSnapshot",
+          "ref": "agent.v1.ReviewSnapshot",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The snapshot to review. The newest existing snapshot when the worktree has not changed."
         }
       ]
     },
@@ -9315,7 +9315,7 @@
     },
     "task.v1.Parent": {
       "name": "Parent",
-      "description": "Parent is the task a child depends on, and the fork point where the child's own commits begin on the parent's branch. Rounds and line counts measure from `fork_point`.",
+      "description": "Parent is the task a child depends on, and the fork point where the child's own commits begin on the parent's branch. Snapshots and line counts measure from `fork_point`.",
       "fields": [
         {
           "name": "task_id",
@@ -9590,14 +9590,14 @@
           "description": "The git operation stopped part way in the task's checkout."
         },
         {
-          "name": "moved_since_round",
+          "name": "moved_since_snapshot",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The snapshot commit of the task's newest round, set while the checkout has changed since that round. Empty otherwise."
+          "description": "The commit of the task's newest snapshot, set while the checkout has changed since that snapshot. Empty otherwise."
         },
         {
           "name": "diff_stat",
@@ -11352,11 +11352,11 @@
     },
     "agent.v1.ReviewVerdict": {
       "name": "ReviewVerdict",
-      "description": "ReviewVerdict is what a review concludes about a round.",
+      "description": "ReviewVerdict is what a review concludes about a snapshot.",
       "values": [
         {
           "name": "REVIEW_VERDICT_APPROVED",
-          "description": "The round is good as it stands."
+          "description": "The snapshot is good as it stands."
         },
         {
           "name": "REVIEW_VERDICT_CHANGES_REQUESTED",

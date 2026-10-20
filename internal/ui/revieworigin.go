@@ -14,15 +14,15 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-var errCommentRoundGone = errors.New("the round this comment was written on is gone")
+var errCommentSnapshotGone = errors.New("the snapshot this comment was written on is gone")
 
 type reviewOrigin struct {
-	ThreadID string
-	RoundID  string
-	Ordinal  int32
-	BaseSHA  string
-	landed   bool
-	fellBack bool
+	ThreadID   string
+	SnapshotID string
+	Ordinal    int32
+	BaseSHA    string
+	landed     bool
+	fellBack   bool
 	// held is the range on screen before the jump, which the way back puts back.
 	held  diffSpec
 	place *diffview.Place
@@ -38,19 +38,19 @@ func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 		return nil
 	}
 
-	round := findRound(r.diff.rounds, thread.GetRoundId())
-	if round == nil {
-		m.note(messageWarning, errCommentRoundGone.Error())
+	snapshot := findSnapshot(r.diff.snapshots, thread.GetSnapshotId())
+	if snapshot == nil {
+		m.note(messageWarning, errCommentSnapshotGone.Error())
 
 		return nil
 	}
 
 	origin := &reviewOrigin{
-		ThreadID: thread.GetId(),
-		RoundID:  round.GetId(),
-		Ordinal:  round.GetOrdinal(),
-		BaseSHA:  thread.GetBaseSha(),
-		held:     r.diff.spec,
+		ThreadID:   thread.GetId(),
+		SnapshotID: snapshot.GetId(),
+		Ordinal:    snapshot.GetOrdinal(),
+		BaseSHA:    thread.GetBaseSha(),
+		held:       r.diff.spec,
 	}
 	if place, ok := r.diff.View().GetPlace(r.diff.Cursor()); ok {
 		origin.place = &place
@@ -72,9 +72,9 @@ func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
 }
 
 func originLabel(origin *reviewOrigin) string {
-	said := fmt.Sprintf("where the comment was read %s round %d", glyph.Span, origin.Ordinal)
+	said := fmt.Sprintf("where the comment was read %s snapshot %d", glyph.Span, origin.Ordinal)
 	if origin.fellBack {
-		said += ", shown against the round's base"
+		said += ", shown against the snapshot's base"
 	}
 
 	return said
@@ -117,14 +117,14 @@ func (d reviewDiff) isThreadOnScreen(threads []*agentv1.ReviewThread, id string)
 }
 
 type originDiff struct {
-	base      string
-	head      string
-	roundBase string
-	fellBack  bool
+	base         string
+	head         string
+	snapshotBase string
+	fellBack     bool
 }
 
 func (o originDiff) canFallBack() bool {
-	return o.head != "" && !o.fellBack && o.base != o.roundBase
+	return o.head != "" && !o.fellBack && o.base != o.snapshotBase
 }
 
 func isUnreadableBase(ctx context.Context, err error) bool {

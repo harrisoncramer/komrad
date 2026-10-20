@@ -185,9 +185,9 @@ func (m *ForgeMirror) mirrorOnto(ctx context.Context, target reviewstore.ForgeMi
 			}
 
 			review, err := reviews.OpenForgeReview(ctx, reviewstore.OpenForgeReviewParams{
-				TaskID:  target.TaskID,
-				RoundID: target.RoundID,
-				Login:   comment.AuthorLogin,
+				TaskID:     target.TaskID,
+				SnapshotID: target.SnapshotID,
+				Login:      comment.AuthorLogin,
 			})
 			if err != nil {
 				return nil, err
@@ -296,7 +296,7 @@ func createForgeThread(ctx context.Context, reviews *reviewstore.ReviewStore, pa
 	thread, err := reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
 		TaskID:        params.Target.TaskID,
 		ReviewID:      review.ID,
-		RoundID:       params.Target.RoundID,
+		SnapshotID:    params.Target.SnapshotID,
 		BaseSHA:       params.Target.BaseSHA,
 		FilePath:      params.Place.FilePath,
 		NewStart:      params.Place.NewStart,
@@ -350,7 +350,7 @@ func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, param
 			return err
 		}
 
-		// Komrad writes a reply with no round so it does not reopen the thread.
+		// Komrad writes a reply with no snapshot so it does not reopen the thread.
 		if _, err := reviews.CreateMessage(ctx, reviewstore.CreateMessageParams{
 			ThreadID:   params.Mirrored.ThreadID,
 			ReviewID:   &review.ID,
@@ -417,7 +417,7 @@ func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, 
 			continue
 		}
 
-		round, err := reviews.GetRound(ctx, review.RoundID)
+		snapshot, err := reviews.GetSnapshot(ctx, review.SnapshotID)
 		if err != nil {
 			return nil, err
 		}
@@ -425,7 +425,7 @@ func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, 
 		event, err := events.NewEvent(Released{
 			ReviewID:   review.ID,
 			TaskID:     taskID,
-			Ordinal:    round.Ordinal,
+			Ordinal:    snapshot.Ordinal,
 			Verdict:    reviewstore.VerdictCommented,
 			Comments:   tally.Comments,
 			Replies:    tally.Replies,

@@ -38,12 +38,12 @@ line_of() {
 }
 
 comment() {
-	local caller="$1" file="$2" text="$3" body="$4" round line
-	round="$(as "$caller" open-review-round --task "$task" --compact)"
+	local caller="$1" file="$2" text="$3" body="$4" snapshot line
+	snapshot="$(as "$caller" take-review-snapshot --task "$task" --compact)"
 	line="$(line_of "$tree/$file" "$text")"
 	as "$caller" create-review-thread --task "$task" \
-		--base-sha "$(jq -r '.round.base_sha' <<<"$round")" \
-		--snapshot-sha "$(jq -r '.round.snapshot_sha' <<<"$round")" \
+		--base-sha "$(jq -r '.snapshot.base_sha' <<<"$snapshot")" \
+		--snapshot-sha "$(jq -r '.snapshot.sha' <<<"$snapshot")" \
 		--file-path "$file" --new-start "$line" --new-end "$line" \
 		--quoted-lines "+$(sed -n "${line}p" "$tree/$file")" \
 		--body "$body" --compact | jq -r '.thread.id'

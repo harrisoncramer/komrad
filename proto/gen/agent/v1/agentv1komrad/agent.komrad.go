@@ -73,9 +73,9 @@ type AgentServiceImpl interface {
 	StartOrchestrator(context.Context, *v1.StartOrchestratorRequest) (*v1.StartOrchestratorResponse, *fail.Error)
 	MarkReviewThreadRead(context.Context, *v1.MarkReviewThreadReadRequest) (*v1.MarkReviewThreadReadResponse, *fail.Error)
 	SetReviewThreadResolved(context.Context, *v1.SetReviewThreadResolvedRequest) (*v1.SetReviewThreadResolvedResponse, *fail.Error)
-	OpenReviewRound(context.Context, *v1.OpenReviewRoundRequest) (*v1.OpenReviewRoundResponse, *fail.Error)
+	TakeReviewSnapshot(context.Context, *v1.TakeReviewSnapshotRequest) (*v1.TakeReviewSnapshotResponse, *fail.Error)
 	OpenReviewHistory(context.Context, *v1.OpenReviewHistoryRequest) (*v1.OpenReviewHistoryResponse, *fail.Error)
-	ListReviewRounds(context.Context, *v1.ListReviewRoundsRequest) (*v1.ListReviewRoundsResponse, *fail.Error)
+	ListReviewSnapshots(context.Context, *v1.ListReviewSnapshotsRequest) (*v1.ListReviewSnapshotsResponse, *fail.Error)
 	ListReviews(context.Context, *v1.ListReviewsRequest) (*v1.ListReviewsResponse, *fail.Error)
 	GetReview(context.Context, *v1.GetReviewRequest) (*v1.GetReviewResponse, *fail.Error)
 	ReleaseReview(context.Context, *v1.ReleaseReviewRequest) (*v1.ReleaseReviewResponse, *fail.Error)
@@ -364,9 +364,9 @@ func (a AgentServiceAdapter) SetReviewThreadResolved(ctx context.Context, req *c
 	return rpcerr.Answer(a.Impl.SetReviewThreadResolved(ctx, req.Msg))
 }
 
-// OpenReviewRound answers the request as connect serves it.
-func (a AgentServiceAdapter) OpenReviewRound(ctx context.Context, req *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error) {
-	return rpcerr.Answer(a.Impl.OpenReviewRound(ctx, req.Msg))
+// TakeReviewSnapshot answers the request as connect serves it.
+func (a AgentServiceAdapter) TakeReviewSnapshot(ctx context.Context, req *connect.Request[v1.TakeReviewSnapshotRequest]) (*connect.Response[v1.TakeReviewSnapshotResponse], error) {
+	return rpcerr.Answer(a.Impl.TakeReviewSnapshot(ctx, req.Msg))
 }
 
 // OpenReviewHistory answers the request as connect serves it.
@@ -374,9 +374,9 @@ func (a AgentServiceAdapter) OpenReviewHistory(ctx context.Context, req *connect
 	return rpcerr.Answer(a.Impl.OpenReviewHistory(ctx, req.Msg))
 }
 
-// ListReviewRounds answers the request as connect serves it.
-func (a AgentServiceAdapter) ListReviewRounds(ctx context.Context, req *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error) {
-	return rpcerr.Answer(a.Impl.ListReviewRounds(ctx, req.Msg))
+// ListReviewSnapshots answers the request as connect serves it.
+func (a AgentServiceAdapter) ListReviewSnapshots(ctx context.Context, req *connect.Request[v1.ListReviewSnapshotsRequest]) (*connect.Response[v1.ListReviewSnapshotsResponse], error) {
+	return rpcerr.Answer(a.Impl.ListReviewSnapshots(ctx, req.Msg))
 }
 
 // ListReviews answers the request as connect serves it.

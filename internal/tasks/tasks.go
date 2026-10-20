@@ -50,7 +50,7 @@ type taskScriptRunner interface {
 	RunTaskDeprovision(ctx context.Context, task taskstore.Task, name string) error
 }
 
-// snapshotReleaser lets go of the ref holding a round's snapshot.
+// snapshotReleaser lets go of the ref holding a snapshot's commit.
 type snapshotReleaser interface {
 	ReleaseRef(ctx context.Context, dir, ref string) error
 }

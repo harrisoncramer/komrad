@@ -17,17 +17,17 @@ var errReviewNothingAddressed = fail.Precondition(
 	"your worktree holds the same tree this comment was written on, so there is no change to show; " +
 		"make the change first, or reply without addressed to push back or ask")
 
-// errReviewNoAnswerRound answers an addressed reply from an agent with no worktree to take a round of.
-var errReviewNoAnswerRound = fail.Precondition("you have no worktree to take a round of, so reply without addressed instead")
+// errReviewNoAnswerSnapshot answers an addressed reply from an agent with no worktree to take a snapshot of.
+var errReviewNoAnswerSnapshot = fail.Precondition("you have no worktree to take a snapshot of, so reply without addressed instead")
 
 // replyHint is what a plain reply gets back when the worktree has moved since its thread was written.
 const replyHint = "Your worktree has changed since this comment was written. " +
 	"If that change answers it, reply again with addressed set so the reviewer can read " +
 	"exactly what answered it."
 
-// openAnswerRound takes the round an addressed reply from an agent points at, refusing one that changed nothing.
-func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Round, error) {
-	written, err := s.reviews.GetRound(ctx, thread.RoundID)
+// takeAnswerSnapshot takes the snapshot an addressed reply from an agent points at, refusing one that changed nothing.
+func (s *ReviewService) takeAnswerSnapshot(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Snapshot, error) {
+	written, err := s.reviews.GetSnapshot(ctx, thread.SnapshotID)
 	if err != nil {
 		return nil, err
 	}
@@ -37,15 +37,15 @@ func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.
 		return nil, err
 	}
 
-	answer, err := s.openTaskRound(ctx, *task)
-	if errors.Is(err, ErrReviewNoRound) || errors.Is(err, errReviewWorktreeRemoved) {
-		return nil, errReviewNoAnswerRound
+	answer, err := s.takeTaskSnapshot(ctx, *task)
+	if errors.Is(err, ErrReviewNoSnapshot) || errors.Is(err, errReviewWorktreeRemoved) {
+		return nil, errReviewNoAnswerSnapshot
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to take the round that answers the comment: %w", err)
+		return nil, fmt.Errorf("failed to take the snapshot that answers the comment: %w", err)
 	}
 
-	if answer.SnapshotSHA == written.SnapshotSHA {
+	if answer.SHA == written.SHA {
 		return nil, errReviewNothingAddressed
 	}
 
@@ -55,7 +55,7 @@ func (s *ReviewService) openAnswerRound(ctx context.Context, thread reviewstore.
 // findReplyHint points a plain reply at addressed when the task's worktree no longer holds the
 // tree its thread was written on, and says nothing when that cannot be read.
 func (s *ReviewService) findReplyHint(ctx context.Context, thread reviewstore.Thread) string {
-	written, err := s.reviews.GetRound(ctx, thread.RoundID)
+	written, err := s.reviews.GetSnapshot(ctx, thread.SnapshotID)
 	if err != nil {
 		return ""
 	}
@@ -65,8 +65,8 @@ func (s *ReviewService) findReplyHint(ctx context.Context, thread reviewstore.Th
 		return ""
 	}
 
-	now, err := s.takeSnapshot(ctx, *task)
-	if err != nil || now.SHA == written.SnapshotSHA {
+	now, err := s.freezeCheckout(ctx, *task)
+	if err != nil || now.SHA == written.SHA {
 		return ""
 	}
 

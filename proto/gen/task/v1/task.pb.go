@@ -241,9 +241,9 @@ type Task struct {
 	WorktreeRemoved bool `protobuf:"varint,13,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
 	// The git operation stopped part way in the task's checkout.
 	Sequence Sequence `protobuf:"varint,14,opt,name=sequence,proto3,enum=task.v1.Sequence" json:"sequence,omitempty"`
-	// The snapshot commit of the task's newest round, set while the checkout has changed since that
-	// round. Empty otherwise.
-	MovedSinceRound string `protobuf:"bytes,15,opt,name=moved_since_round,json=movedSinceRound,proto3" json:"moved_since_round,omitempty"`
+	// The commit of the task's newest snapshot, set while the checkout has changed since that
+	// snapshot. Empty otherwise.
+	MovedSinceSnapshot string `protobuf:"bytes,15,opt,name=moved_since_snapshot,json=movedSinceSnapshot,proto3" json:"moved_since_snapshot,omitempty"`
 	// How many lines the task's checkout adds and removes since it left the base branch. Unset when
 	// there is no base branch to measure against.
 	DiffStat *DiffStat `protobuf:"bytes,16,opt,name=diff_stat,json=diffStat,proto3,oneof" json:"diff_stat,omitempty"`
@@ -400,9 +400,9 @@ func (x *Task) GetSequence() Sequence {
 	return Sequence_SEQUENCE_UNSPECIFIED
 }
 
-func (x *Task) GetMovedSinceRound() string {
+func (x *Task) GetMovedSinceSnapshot() string {
 	if x != nil {
-		return x.MovedSinceRound
+		return x.MovedSinceSnapshot
 	}
 	return ""
 }
@@ -478,7 +478,7 @@ func (x *Task) GetParent() *Parent {
 }
 
 // Parent is the task a child depends on, and the fork point where the child's own commits begin on
-// the parent's branch. Rounds and line counts measure from `fork_point`.
+// the parent's branch. Snapshots and line counts measure from `fork_point`.
 type Parent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The id of the parent task.
@@ -1298,7 +1298,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\x83\b\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\x89\b\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -1318,8 +1318,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x0erepository_url\x18\v \x01(\tH\x03R\rrepositoryUrl\x88\x01\x01\x12\x1e\n" +
 	"\bhead_sha\x18\f \x01(\tH\x04R\aheadSha\x88\x01\x01\x12)\n" +
 	"\x10worktree_removed\x18\r \x01(\bR\x0fworktreeRemoved\x12-\n" +
-	"\bsequence\x18\x0e \x01(\x0e2\x11.task.v1.SequenceR\bsequence\x12*\n" +
-	"\x11moved_since_round\x18\x0f \x01(\tR\x0fmovedSinceRound\x123\n" +
+	"\bsequence\x18\x0e \x01(\x0e2\x11.task.v1.SequenceR\bsequence\x120\n" +
+	"\x14moved_since_snapshot\x18\x0f \x01(\tR\x12movedSinceSnapshot\x123\n" +
 	"\tdiff_stat\x18\x10 \x01(\v2\x11.task.v1.DiffStatH\x05R\bdiffStat\x88\x01\x01\x12*\n" +
 	"\x0eadopted_branch\x18\x11 \x01(\tH\x06R\radoptedBranch\x88\x01\x01\x12%\n" +
 	"\x0efailure_reason\x18\x12 \x01(\tR\rfailureReason\x12\x14\n" +

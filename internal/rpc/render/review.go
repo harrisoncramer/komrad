@@ -13,15 +13,15 @@ import (
 // WatchedReview draws a review as the watch carries it, without its body.
 func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 	watched := &agentv1.WatchedReview{
-		Id:               review.ID,
-		TaskId:           review.TaskID,
-		RoundId:          review.RoundID,
-		RoundOrdinal:     review.RoundOrdinal,
-		RoundSnapshotSha: review.RoundSnapshotSHA,
-		AuthorKind:       reviewAuthorKindOf(review.AuthorKind),
-		AuthorAgentId:    review.AuthorAgentID,
-		CreatedAt:        dates.Stamp(review.CreatedAt),
-		UpdatedAt:        dates.Stamp(review.UpdatedAt),
+		Id:              review.ID,
+		TaskId:          review.TaskID,
+		SnapshotId:      review.SnapshotID,
+		SnapshotOrdinal: review.SnapshotOrdinal,
+		SnapshotSha:     review.SnapshotSHA,
+		AuthorKind:      reviewAuthorKindOf(review.AuthorKind),
+		AuthorAgentId:   review.AuthorAgentID,
+		CreatedAt:       dates.Stamp(review.CreatedAt),
+		UpdatedAt:       dates.Stamp(review.UpdatedAt),
 	}
 	if review.Verdict != nil {
 		watched.Verdict = reviewVerdictOf(*review.Verdict)
@@ -32,8 +32,8 @@ func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 	if at := review.DeliveredAt; at != nil {
 		watched.DeliveredAt = dates.Stamp(*at)
 	}
-	if at := review.RoundLandedAt; at != nil {
-		watched.RoundLandedAt = dates.Stamp(*at)
+	if at := review.SnapshotLandedAt; at != nil {
+		watched.SnapshotLandedAt = dates.Stamp(*at)
 	}
 
 	return watched
@@ -42,17 +42,17 @@ func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 // Review draws a review with its body.
 func Review(review reviewstore.Review) *agentv1.Review {
 	answered := &agentv1.Review{
-		Id:            review.ID,
-		TaskId:        review.TaskID,
-		RoundId:       review.RoundID,
-		RoundOrdinal:  review.RoundOrdinal,
-		AuthorKind:    reviewAuthorKindOf(review.AuthorKind),
-		AuthorAgentId: review.AuthorAgentID,
-		Body:          review.Body,
-		Path:          review.Path,
-		OpenThreads:   review.OpenThreads,
-		CreatedAt:     dates.Stamp(review.CreatedAt),
-		UpdatedAt:     dates.Stamp(review.UpdatedAt),
+		Id:              review.ID,
+		TaskId:          review.TaskID,
+		SnapshotId:      review.SnapshotID,
+		SnapshotOrdinal: review.SnapshotOrdinal,
+		AuthorKind:      reviewAuthorKindOf(review.AuthorKind),
+		AuthorAgentId:   review.AuthorAgentID,
+		Body:            review.Body,
+		Path:            review.Path,
+		OpenThreads:     review.OpenThreads,
+		CreatedAt:       dates.Stamp(review.CreatedAt),
+		UpdatedAt:       dates.Stamp(review.UpdatedAt),
 	}
 
 	if review.Verdict != nil {
@@ -68,15 +68,15 @@ func Review(review reviewstore.Review) *agentv1.Review {
 	return answered
 }
 
-// ReviewRound draws one frozen round of an agent's work.
-func ReviewRound(round reviewstore.Round) *agentv1.ReviewRound {
-	return &agentv1.ReviewRound{
-		Id:          round.ID,
-		TaskId:      round.TaskID,
-		Ordinal:     round.Ordinal,
-		BaseSha:     round.BaseSHA,
-		SnapshotSha: round.SnapshotSHA,
-		CreatedAt:   dates.Stamp(round.CreatedAt),
+// ReviewSnapshot draws one frozen snapshot of an agent's work.
+func ReviewSnapshot(snapshot reviewstore.Snapshot) *agentv1.ReviewSnapshot {
+	return &agentv1.ReviewSnapshot{
+		Id:        snapshot.ID,
+		TaskId:    snapshot.TaskID,
+		Ordinal:   snapshot.Ordinal,
+		BaseSha:   snapshot.BaseSHA,
+		Sha:       snapshot.SHA,
+		CreatedAt: dates.Stamp(snapshot.CreatedAt),
 	}
 }
 
@@ -109,8 +109,8 @@ func reviewAuthorKindOf(kind reviewstore.AuthorKind) agentv1.ReviewAuthorKind {
 // ReviewHistory draws a review as the panel opens it.
 func ReviewHistory(opened reviews.ReviewHistory) *agentv1.OpenReviewHistoryResponse {
 	answered := &agentv1.OpenReviewHistoryResponse{
-		Round:  ReviewRound(opened.Round),
-		Rounds: xslice.Map(opened.Rounds, ReviewRound),
+		Snapshot:  ReviewSnapshot(opened.Snapshot),
+		Snapshots: xslice.Map(opened.Snapshots, ReviewSnapshot),
 		Threads: xslice.Map(opened.Threads, func(thread reviews.ReviewThreadWithMessages) *agentv1.ReviewThread {
 			return ReviewThread(thread.Thread, thread.Messages)
 		}),
@@ -122,7 +122,7 @@ func ReviewHistory(opened reviews.ReviewHistory) *agentv1.OpenReviewHistoryRespo
 		Traced:              map[string]*agentv1.ReviewTracedPlace{},
 	}
 	if earlier := opened.Earlier; earlier != nil {
-		answered.EarlierRoundId = earlier.ID
+		answered.EarlierSnapshotId = earlier.ID
 	}
 	if at := opened.EarlierReleasedAt; at != nil {
 		answered.EarlierReleasedAt = dates.Stamp(*at)
@@ -141,14 +141,14 @@ func ReviewHistory(opened reviews.ReviewHistory) *agentv1.OpenReviewHistoryRespo
 
 func reviewResolvedSpan(span history.ResolvedSpan) *agentv1.ReviewResolvedSpan {
 	return &agentv1.ReviewResolvedSpan{
-		BaseSha:            span.BaseSHA,
-		HeadSha:            span.HeadSHA,
-		Replayed:           span.Replayed,
-		AnswerBaseSha:      span.AnswerBaseSHA,
-		AnswerHeadSha:      span.AnswerHeadSHA,
-		OriginBaseSha:      span.OriginBaseSHA,
-		OriginHeadSha:      span.OriginHeadSHA,
-		OriginRoundBaseSha: span.OriginRoundBaseSHA,
-		Conflicts:          span.Conflicts,
+		BaseSha:               span.BaseSHA,
+		HeadSha:               span.HeadSHA,
+		Replayed:              span.Replayed,
+		AnswerBaseSha:         span.AnswerBaseSHA,
+		AnswerHeadSha:         span.AnswerHeadSHA,
+		OriginBaseSha:         span.OriginBaseSHA,
+		OriginHeadSha:         span.OriginHeadSHA,
+		OriginSnapshotBaseSha: span.OriginSnapshotBaseSHA,
+		Conflicts:             span.Conflicts,
 	}
 }

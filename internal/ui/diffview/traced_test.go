@@ -148,7 +148,7 @@ func TestAnExactCoordinateKeepsItsRowFromATracedGuess(t *testing.T) {
 		},
 	})
 
-	// The listing orders by round, so the older thread is offered its row first.
+	// The listing orders by snapshot, so the older thread is offered its row first.
 	view.PinThreads([]*agentv1.ReviewThread{older, newer})
 
 	found, ok := view.GetThreadAt(2)
@@ -214,9 +214,9 @@ func TestPlacesAThreadWrittenAgainstTheSnapshotOnScreen(t *testing.T) {
 	assert.Equal(t, pinned, view.placed["t1"])
 }
 
-// TestRefusesACoordinateCountedInAnotherRound covers the comment written on an earlier round
-// whose line number the round on screen also holds, where the code at that number is unrelated.
-func TestRefusesACoordinateCountedInAnotherRound(t *testing.T) {
+// TestRefusesACoordinateCountedInAnotherSnapshot covers the comment written on an earlier snapshot
+// whose line number the snapshot on screen also holds, where the code at that number is unrelated.
+func TestRefusesACoordinateCountedInAnotherSnapshot(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "config/keys.go",
 		NewPath: "config/keys.go",

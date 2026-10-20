@@ -820,7 +820,7 @@ func TestAgentsRecordHeight(t *testing.T) {
 			want:   0,
 		},
 		{
-			name:          "a share that rounds down to no field closes it too",
+			name:          "a share that snapshots down to no field closes it too",
 			height:        19,
 			detailsHeight: 0.05,
 			want:          0,

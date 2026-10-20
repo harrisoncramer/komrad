@@ -33,12 +33,12 @@ type Thread struct {
 
 	// ReviewID is the review the thread was opened as part of.
 	ReviewID string
-	// RoundID is the round the thread's line numbers were measured against.
-	RoundID string
+	// SnapshotID is the snapshot the thread's line numbers were measured against.
+	SnapshotID string
 	// BaseSHA is the commit the old side of the line numbers was read against.
 	BaseSHA string
-	// RoundOrdinal names that round the way the panel does, zero when it was not read.
-	RoundOrdinal int32
+	// SnapshotOrdinal names that snapshot the way the panel does, zero when it was not read.
+	SnapshotOrdinal int32
 	// ReviewReleasedAt is when the review this thread came out with was released, nil while the
 	// thread is still private to its author.
 	ReviewReleasedAt *time.Time
@@ -94,8 +94,8 @@ type Message struct {
 
 	// ReviewID is the review this message went out with, nil for an answer from the agent.
 	ReviewID *string
-	// RoundID is the round an agent's reply said answers the thread, nil on any other message.
-	RoundID *string
+	// SnapshotID is the snapshot an agent's reply said answers the thread, nil on any other message.
+	SnapshotID *string
 	// Suggestion is the replacement lines the reviewer is proposing for the thread's range,
 	// empty on an ordinary comment.
 	Suggestion []string
@@ -136,7 +136,7 @@ func NewReviewStore(db store.DBTX) *ReviewStore {
 type CreateThreadParams struct {
 	TaskID        string
 	ReviewID      string
-	RoundID       string
+	SnapshotID    string
 	BaseSHA       string
 	Suggestion    []string
 	FilePath      string
@@ -162,7 +162,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
 		TaskID:         params.TaskID,
 		ReviewID:       params.ReviewID,
-		RoundID:        params.RoundID,
+		SnapshotID:     params.SnapshotID,
 		BaseSha:        params.BaseSHA,
 		Suggestion:     lines(params.Suggestion),
 		FilePath:       params.FilePath,
@@ -188,7 +188,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 		ID:                  row.ID,
 		TaskID:              row.TaskID,
 		ReviewID:            row.ReviewID,
-		RoundID:             row.RoundID,
+		SnapshotID:          row.SnapshotID,
 		BaseSHA:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
@@ -223,9 +223,9 @@ func (s *ReviewStore) ListThreads(ctx context.Context, taskID string) ([]Thread,
 			ID:                  row.ID,
 			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
-			RoundID:             row.RoundID,
+			SnapshotID:          row.SnapshotID,
 			BaseSHA:             row.BaseSha,
-			RoundOrdinal:        row.RoundOrdinal,
+			SnapshotOrdinal:     row.SnapshotOrdinal,
 			ReviewReleasedAt:    row.ReviewReleasedAt,
 			ReviewAuthorAgentID: row.ReviewAuthorAgentID,
 			ForgeThreadID:       row.ForgeThreadID,
@@ -272,7 +272,7 @@ func (s *ReviewStore) GetThread(ctx context.Context, id string) (*Thread, error)
 		ID:                  row.ID,
 		TaskID:              row.TaskID,
 		ReviewID:            row.ReviewID,
-		RoundID:             row.RoundID,
+		SnapshotID:          row.SnapshotID,
 		BaseSha:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
@@ -353,8 +353,8 @@ type CreateMessageParams struct {
 	ThreadID string
 	// ReviewID is the batch the message goes out with, nil for an answer.
 	ReviewID *string
-	// RoundID is the round a reply says answers the thread.
-	RoundID    *string
+	// SnapshotID is the snapshot a reply says answers the thread.
+	SnapshotID *string
 	Suggestion []string
 	AuthorKind AuthorKind
 	// AuthorAgentID links to the agent that wrote it, and is cleared when that agent is deleted.
@@ -374,7 +374,7 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 	row, err := s.queries.InsertReviewMessage(ctx, models.InsertReviewMessageParams{
 		ThreadID:       params.ThreadID,
 		ReviewID:       params.ReviewID,
-		RoundID:        params.RoundID,
+		SnapshotID:     params.SnapshotID,
 		Suggestion:     lines(params.Suggestion),
 		AuthorKind:     models.ReviewAuthorKind(params.AuthorKind),
 		AuthorAgentID:  params.AuthorAgentID,
@@ -393,7 +393,7 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		ReviewID:      row.ReviewID,
-		RoundID:       row.RoundID,
+		SnapshotID:    row.SnapshotID,
 		Suggestion:    row.Suggestion,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
@@ -431,7 +431,7 @@ func (s *ReviewStore) UpdateMessage(ctx context.Context, id, body string, sugges
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		ReviewID:      row.ReviewID,
-		RoundID:       row.RoundID,
+		SnapshotID:    row.SnapshotID,
 		Suggestion:    row.Suggestion,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
@@ -483,7 +483,7 @@ func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]M
 			ID:            row.ID,
 			ThreadID:      row.ThreadID,
 			ReviewID:      row.ReviewID,
-			RoundID:       row.RoundID,
+			SnapshotID:    row.SnapshotID,
 			Suggestion:    row.Suggestion,
 			AuthorKind:    AuthorKind(row.AuthorKind),
 			AuthorAgentID: row.AuthorAgentID,
@@ -607,7 +607,7 @@ func threadFromRow(row models.ReviewThread) Thread {
 		ID:                  row.ID,
 		TaskID:              row.TaskID,
 		ReviewID:            row.ReviewID,
-		RoundID:             row.RoundID,
+		SnapshotID:          row.SnapshotID,
 		BaseSHA:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
@@ -639,7 +639,7 @@ func undeliveredMessageFromRow(row models.ReviewMessage) Message {
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		ReviewID:      row.ReviewID,
-		RoundID:       row.RoundID,
+		SnapshotID:    row.SnapshotID,
 		Suggestion:    row.Suggestion,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,

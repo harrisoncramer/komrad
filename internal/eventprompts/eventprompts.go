@@ -128,7 +128,7 @@ func All() []Event {
 		},
 		{
 			Name: ReviewAnswered, Title: "Review answered", Description: "the agent under review answered in a thread, read by its reviewer",
-			DefaultPrompt: "Read the new round against your comment. Resolve the thread if it is answered, and say what is still missing if it is not.",
+			DefaultPrompt: "Read the new snapshot against your comment. Resolve the thread if it is answered, and say what is still missing if it is not.",
 		},
 	}
 }

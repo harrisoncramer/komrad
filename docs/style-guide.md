@@ -114,7 +114,7 @@ child: A task that has a parent.
 
 stack: A chain of tasks, each the child of the one below it, from the bottom task on the base branch to the top task.
 
-fork point: The commit of the parent's branch that a child's own commits sit on. Rounds and line counts measure from it. Not "tip" or "stand tip".
+fork point: The commit of the parent's branch that a child's own commits sit on. Snapshots and line counts measure from it. Not "tip" or "stand tip".
 
 cascade: The pass in which komrad rebases each child onto its parent's newest commit, or onto the base branch once the parent merges. Not "restack".
 
@@ -124,7 +124,7 @@ re-target: To rebase a child onto the base branch, so it no longer has a parent.
 
 origin: The git remote a worktree pushes to.
 
-landed: Contained in full in the base branch. Use it for commits and rounds.
+landed: Contained in full in the base branch. Use it for commits and snapshots.
 
 sequence: A git operation stopped part way, such as a rebase or merge with conflicts.
 
@@ -146,11 +146,11 @@ control plane: The machine in front of every remote engine. It routes each reque
 
 ### Reviews
 
-round: A snapshot of the writer's worktree, saved as a commit, that a review is written against. A round never changes. Not "chapter" in the reference.
+snapshot: A frozen copy of the writer's worktree, saved as a commit, that reviews and threads are pinned to. A snapshot never changes. Not "round", or "chapter" in the reference.
 
-review: One author's comments on one round, sent to the agent together.
+review: One author's comments on one snapshot, sent to the agent together.
 
-thread: A conversation pinned to a range of lines in a round.
+thread: A conversation pinned to a range of lines in a snapshot.
 
 comment: One entry in a thread.
 

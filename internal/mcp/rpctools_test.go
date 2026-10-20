@@ -119,7 +119,7 @@ func TestToolHints(t *testing.T) {
 			idempotent: true,
 		},
 		{
-			method:     "ListReviewRounds",
+			method:     "ListReviewSnapshots",
 			readOnly:   true,
 			idempotent: true,
 		},

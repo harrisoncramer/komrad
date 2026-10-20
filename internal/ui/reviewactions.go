@@ -331,7 +331,7 @@ func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 	}
 
 	if r.isHistory() {
-		entries = append(entries, openEntry(fmt.Sprintf("end the range on round %d", r.diff.newest.GetOrdinal()), m.keys.Review.RangeEnd, func(m *model) tea.Cmd {
+		entries = append(entries, openEntry(fmt.Sprintf("end the range on snapshot %d", r.diff.newest.GetOrdinal()), m.keys.Review.RangeEnd, func(m *model) tea.Cmd {
 			return m.review.endOnNewest(m)
 		}))
 	}

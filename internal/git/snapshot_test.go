@@ -47,10 +47,10 @@ func TestIntegrationTakeLeavesTheAgentsIndexAndWorktreeAlone(t *testing.T) {
 	assert.Equal(t, head, capture(t, root, "rev-parse", "HEAD"))
 }
 
-// TestIntegrationTakingTheSameTreeTwiceIsTheSameRound is why the commit's dates are pinned: a snapshot that
+// TestIntegrationTakingTheSameTreeTwiceIsTheSameSnapshot is why the commit's dates are pinned: a snapshot that
 // carried the clock would hash differently every time, so reopening a diff a second later would
-// read as a new round and lose every mark made against the first.
-func TestIntegrationTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
+// read as a new snapshot and lose every mark made against the first.
+func TestIntegrationTakingTheSameTreeTwiceIsTheSameSnapshot(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc A() {}\n")
 
@@ -62,7 +62,7 @@ func TestIntegrationTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
 	second, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	assert.Equal(t, first.SHA, second.SHA, "the same worktree is the same round however long later")
+	assert.Equal(t, first.SHA, second.SHA, "the same worktree is the same snapshot however long later")
 
 	write(t, root, "kept.go", "package main\n\nfunc B() {}\n")
 
@@ -72,7 +72,7 @@ func TestIntegrationTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
 }
 
 // TestIntegrationASnapshotIsRefusedPartWayThroughAMerge pins that a half-applied tree is never
-// frozen as a round.
+// frozen as a snapshot.
 func TestIntegrationASnapshotIsRefusedPartWayThroughAMerge(t *testing.T) {
 	root := repo(t)
 	run(t, root, "checkout", "-b", "topic")
@@ -95,24 +95,24 @@ func TestIntegrationASnapshotIsRefusedPartWayThroughAMerge(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestIntegrationReleaseDropsTheRef covers letting a round go, which leaves its commit for collection.
+// TestIntegrationReleaseDropsTheRef covers letting a snapshot go, which leaves its commit for collection.
 func TestIntegrationReleaseDropsTheRef(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc C() {}\n")
 
 	snapshot, err := client.TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
-	require.NoError(t, client.HoldRef(t.Context(), root, "refs/komrad/rounds/five", snapshot.SHA))
+	require.NoError(t, client.HoldRef(t.Context(), root, "refs/komrad/snapshots/five", snapshot.SHA))
 
-	require.NoError(t, client.ReleaseRef(t.Context(), root, "refs/komrad/rounds/five"))
+	require.NoError(t, client.ReleaseRef(t.Context(), root, "refs/komrad/snapshots/five"))
 
-	cmd := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", "refs/komrad/rounds/five")
+	cmd := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", "refs/komrad/snapshots/five")
 	require.Error(t, cmd.Run())
 }
 
-// TestIntegrationFileAtReadsTheRoundRatherThanTheWorktree is what lets a review quote the code a comment was
-// written about: the round holds its own copy, so what the agent does afterwards cannot change it.
-func TestIntegrationFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
+// TestIntegrationFileAtReadsTheSnapshotRatherThanTheWorktree is what lets a review quote the code a comment was
+// written about: the snapshot holds its own copy, so what the agent does afterwards cannot change it.
+func TestIntegrationFileAtReadsTheSnapshotRatherThanTheWorktree(t *testing.T) {
 	root := repo(t)
 	write(t, root, "greet.go", "package main\n\nfunc greet() {}\n")
 
@@ -128,10 +128,10 @@ func TestIntegrationFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
 
 	again, err := client.ReadFileLines(t.Context(), root, snapshot.SHA, "greet.go")
 	require.NoError(t, err)
-	assert.Equal(t, lines, again, "the round still holds what the comment was written about")
+	assert.Equal(t, lines, again, "the snapshot still holds what the comment was written about")
 
 	_, err = client.ReadFileLines(t.Context(), root, snapshot.SHA, "never-existed.go")
-	require.Error(t, err, "a path the round does not hold is an error the caller falls back from")
+	require.Error(t, err, "a path the snapshot does not hold is an error the caller falls back from")
 }
 
 // controlTree is the tree an index seeded from HEAD gives.
@@ -178,7 +178,7 @@ func TestIntegrationTheTreeIsTheSameHoweverTheIndexWasSeeded(t *testing.T) {
 }
 
 // TestIntegrationAnAssumeUnchangedFileIsStillHashed is why the agent's index is read only after asking about
-// its flags: it tells git to trust a recorded time over the file, and a round that did so would
+// its flags: it tells git to trust a recorded time over the file, and a snapshot that did so would
 // leave the agent's edit out of the diff it is reviewed by.
 func TestIntegrationAnAssumeUnchangedFileIsStillHashed(t *testing.T) {
 	root := repo(t)
@@ -273,7 +273,7 @@ func TestIntegrationUnflaggingKeepsTheIndexTime(t *testing.T) {
 	root := repo(t)
 	run(t, root, "update-index", "--skip-worktree", "kept.go")
 
-	index := filepath.Join(t.TempDir(), "round.index")
+	index := filepath.Join(t.TempDir(), "snapshot.index")
 	env := append(append(os.Environ(), snapshotIdentity...), "GIT_INDEX_FILE="+index)
 	require.NoError(t, copyIndex(t.Context(), root, index, env))
 
@@ -323,8 +323,8 @@ func TestIntegrationASnapshotSurvivesAnUnreadableIndex(t *testing.T) {
 	assert.Equal(t, []string{"package main"}, lines)
 }
 
-// topicRound commits one change on a topic branch and takes a round of it.
-func topicRound(t *testing.T, root string) *Snapshot {
+// topicSnapshot commits one change on a topic branch and takes a snapshot of it.
+func topicSnapshot(t *testing.T, root string) *Snapshot {
 	t.Helper()
 
 	run(t, root, "checkout", "-b", "topic")
@@ -350,7 +350,7 @@ func moveOn(t *testing.T, root string) {
 	run(t, root, "checkout", was)
 }
 
-// landOn squashes a round's content onto main the way a merge on the forge would, leaving the
+// landOn squashes a snapshot's content onto main the way a merge on the forge would, leaving the
 // checkout on the branch it was on.
 func landOn(t *testing.T, root, sha string) {
 	t.Helper()
@@ -358,11 +358,11 @@ func landOn(t *testing.T, root, sha string) {
 	was := capture(t, root, "rev-parse", "--abbrev-ref", "HEAD")
 	run(t, root, "checkout", "main")
 	run(t, root, "merge", "--squash", sha)
-	run(t, root, "commit", "-m", "landed the round")
+	run(t, root, "commit", "-m", "landed the snapshot")
 	run(t, root, "checkout", was)
 }
 
-// TestIntegrationHasLanded pins when the base branch counts as holding a round whole.
+// TestIntegrationHasLanded pins when the base branch counts as holding a snapshot whole.
 func TestIntegrationHasLanded(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -371,7 +371,7 @@ func TestIntegrationHasLanded(t *testing.T) {
 		want    bool
 	}{
 		{
-			name: "a round that changed nothing never lands",
+			name: "a snapshot that changed nothing never lands",
 			base: "main",
 			arrange: func(t *testing.T, root string) *Snapshot {
 				run(t, root, "checkout", "-b", "topic")
@@ -385,20 +385,20 @@ func TestIntegrationHasLanded(t *testing.T) {
 		{
 			name:    "a base the clone does not have is not landed",
 			base:    "nowhere",
-			arrange: topicRound,
+			arrange: topicSnapshot,
 			want:    false,
 		},
 		{
-			name:    "the worktree's own branch cannot hold the round",
+			name:    "the worktree's own branch cannot hold the snapshot",
 			base:    "topic",
-			arrange: topicRound,
+			arrange: topicSnapshot,
 			want:    false,
 		},
 		{
-			name: "a base that has not taken the round",
+			name: "a base that has not taken the snapshot",
 			base: "main",
 			arrange: func(t *testing.T, root string) *Snapshot {
-				snapshot := topicRound(t, root)
+				snapshot := topicSnapshot(t, root)
 				moveOn(t, root)
 
 				return snapshot
@@ -406,13 +406,13 @@ func TestIntegrationHasLanded(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "a base holding a later edit of the round",
+			name: "a base holding a later edit of the snapshot",
 			base: "main",
 			arrange: func(t *testing.T, root string) *Snapshot {
-				snapshot := topicRound(t, root)
+				snapshot := topicSnapshot(t, root)
 				write(t, root, "topic.go", "package main\n\nfunc Changed() {}\n")
 				run(t, root, "add", "-A")
-				run(t, root, "commit", "-m", "changed after the round")
+				run(t, root, "commit", "-m", "changed after the snapshot")
 				landOn(t, root, capture(t, root, "rev-parse", "HEAD"))
 
 				return snapshot
@@ -420,10 +420,10 @@ func TestIntegrationHasLanded(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "a round squashed onto the base",
+			name: "a snapshot squashed onto the base",
 			base: "main",
 			arrange: func(t *testing.T, root string) *Snapshot {
-				snapshot := topicRound(t, root)
+				snapshot := topicSnapshot(t, root)
 				moveOn(t, root)
 				landOn(t, root, snapshot.SHA)
 
@@ -432,10 +432,10 @@ func TestIntegrationHasLanded(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "an earlier round of work that later landed whole",
+			name: "an earlier snapshot of work that later landed whole",
 			base: "main",
 			arrange: func(t *testing.T, root string) *Snapshot {
-				snapshot := topicRound(t, root)
+				snapshot := topicSnapshot(t, root)
 				write(t, root, "more.go", "package main\n")
 				run(t, root, "add", "-A")
 				run(t, root, "commit", "-m", "more")

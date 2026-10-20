@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListWatched pins that every review is carried, released or not, with its round and when
+// TestListWatched pins that every review is carried, released or not, with its snapshot and when
 // its doorbell was claimed, and that keys and agents narrow it.
 func TestListWatched(t *testing.T) {
 	st := openFixture(t)
@@ -17,21 +17,21 @@ func TestListWatched(t *testing.T) {
 	worker := st.seedAgent(t, "worker")
 	other := st.seedAgent(t, "other")
 
-	released := st.openReview(t, st.openRound(t, worker, "one"))
+	released := st.openReview(t, st.takeSnapshot(t, worker, "one"))
 	st.releaseReview(t, released, VerdictApproved)
-	pending := st.openReview(t, st.openRound(t, worker, "two"))
-	elsewhere := st.openReview(t, st.openRound(t, other, "three"))
+	pending := st.openReview(t, st.takeSnapshot(t, worker, "two"))
+	elsewhere := st.openReview(t, st.takeSnapshot(t, other, "three"))
 
 	snapshot, err := st.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	require.Len(t, snapshot, 3)
 	byID := xslice.KeyBy(snapshot, func(review Review) string { return review.ID })
 
-	assert.Equal(t, int32(1), byID[released.ID].RoundOrdinal)
-	assert.Equal(t, "snapshot-one", byID[released.ID].RoundSnapshotSHA)
+	assert.Equal(t, int32(1), byID[released.ID].SnapshotOrdinal)
+	assert.Equal(t, "snapshot-one", byID[released.ID].SnapshotSHA)
 	assert.NotNil(t, byID[released.ID].ReleasedAt)
 	assert.Nil(t, byID[released.ID].DeliveredAt, "the doorbell is still waiting")
-	assert.Equal(t, int32(2), byID[pending.ID].RoundOrdinal)
+	assert.Equal(t, int32(2), byID[pending.ID].SnapshotOrdinal)
 	assert.Nil(t, byID[pending.ID].ReleasedAt, "an open review is carried too")
 
 	_, err = st.mail.Claim(ctx, worker, 10)
@@ -52,7 +52,7 @@ func TestListWatched(t *testing.T) {
 }
 
 // TestListWatchedThreads pins that the threads of live agents are carried with their messages
-// and round, without any message's delivery, and that an archived agent's threads leave the set.
+// and snapshot, without any message's delivery, and that an archived agent's threads leave the set.
 func TestListWatchedThreads(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
@@ -60,9 +60,9 @@ func TestListWatchedThreads(t *testing.T) {
 	worker := st.seedAgent(t, "worker")
 	archived := st.seedAgent(t, "archived")
 
-	thread := st.openThread(t, st.openReview(t, st.openRound(t, worker, "one")), "wrong greeting")
+	thread := st.openThread(t, st.openReview(t, st.takeSnapshot(t, worker, "one")), "wrong greeting")
 	st.writeAnswer(t, thread)
-	gone := st.openThread(t, st.openReview(t, st.openRound(t, archived, "two")), "left behind")
+	gone := st.openThread(t, st.openReview(t, st.takeSnapshot(t, archived, "two")), "left behind")
 
 	_, err := st.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestListWatchedThreads(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, snapshot, 1, "the archived agent's thread is not watched")
 	assert.Equal(t, thread.ID, snapshot[0].ID)
-	assert.Equal(t, int32(1), snapshot[0].RoundOrdinal)
+	assert.Equal(t, int32(1), snapshot[0].SnapshotOrdinal)
 	assert.True(t, snapshot[0].UnreadByHuman, "the agent answered since the person looked")
 	require.Len(t, snapshot[0].Messages, 2)
 	assert.Equal(t, "wrong greeting", snapshot[0].Messages[0].Body)

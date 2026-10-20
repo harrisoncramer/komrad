@@ -457,8 +457,8 @@ type Agent struct {
 	EngineID string
 	// The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch.
 	HeadSha *string
-	// The snapshot of the agent's newest review round when its worktree no longer hashes to it, empty while it still does or when there is no round. The cwd syncer rewrites it every pass.
-	MovedSinceRound string
+	// The commit of the agent's newest review snapshot when its worktree no longer hashes to it, empty while it still does or when there is no snapshot. The cwd syncer rewrites it every pass.
+	MovedSinceSnapshot string
 	// Why the agent's create or cleanup failed, empty unless it is in one of the failed states.
 	FailureReason string
 	// What the latest rebase of the agent's checkout came to, as the result or the failure; null until its first rebase.
@@ -938,10 +938,10 @@ type PullRequestSync struct {
 	EngineID string
 }
 
-// One reviewer's batch of comments on one round. Nobody else sees it while it is being written, and it is released all at once.
+// One reviewer's batch of comments on one snapshot. Nobody else sees it while it is being written, and it is released all at once.
 type Review struct {
-	ID      string
-	RoundID string
+	ID         string
+	SnapshotID string
 	// Whether a person or an agent is giving the review.
 	AuthorKind ReviewAuthorKind
 	// The agent giving the review, null when a person is giving it. Do not read null as meaning a person, because author_kind is what says that. Deleting the reviewing agent clears this column rather than deleting the review. Reviewer agents are deleted as a matter of course, and the agent they reviewed is still working from what they said.
@@ -962,7 +962,7 @@ type Review struct {
 	EngineID string
 	// The forge login of whoever wrote a review on the forge, empty when the forge no longer knew them. Null for a review written in komrad.
 	ExternalLogin *string
-	// The task being reviewed. The round already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join.
+	// The task being reviewed. The snapshot already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join.
 	TaskID string
 }
 
@@ -1017,8 +1017,8 @@ type ReviewMessage struct {
 	Suggestion []string
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
-	// The round an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else.
-	RoundID *string
+	// The snapshot an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else.
+	SnapshotID *string
 	// The forge login of whoever wrote this on the forge, for a comment that came from there, empty when the forge no longer knew them. Null for anything written in komrad.
 	ExternalLogin *string
 	// The forge comment this mirrors, null for anything written in komrad. It names no row once the forge deletes the comment, which is how the copy is known to be gone there.
@@ -1031,25 +1031,25 @@ type ReviewMessage struct {
 	AcceptedFrom *string
 }
 
-// One frozen snapshot of what an agent has written. A review is always given against a round rather than against the working files.
-type ReviewRound struct {
+// One frozen copy of what an agent has written. A review is always given against a snapshot rather than against the working files.
+type ReviewSnapshot struct {
 	ID string
-	// Which round this is for its task, counting from one. The panel names the round by this number.
+	// Which snapshot this is for its task, counting from one. The panel names the snapshot by this number.
 	Ordinal int32
-	// The commit the agent's branch started from. It is resolved once, when the round is taken, so later movement on the base branch cannot change what the round says.
+	// The commit the agent's branch started from. It is resolved once, when the snapshot is taken, so later movement on the base branch cannot change what the snapshot says.
 	BaseSha string
-	// A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/rounds keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone.
-	SnapshotSha string
-	CreatedAt   time.Time
+	// A commit covering the agent's whole checkout, tracked and untracked files alike. A ref under refs/komrad/snapshots keeps it alive so git will not collect it. Writing it leaves the agent's own branch, index and files alone.
+	Sha       string
+	CreatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
 	EngineID string
-	// When the base branch was first seen holding this round whole, or a later round whole, null until then. A landed round's settled comments are history rather than work still under review.
+	// When the base branch was first seen holding this snapshot whole, or a later snapshot whole, null until then. A landed snapshot's settled comments are history rather than work still under review.
 	LandedAt *time.Time
-	// The task whose checkout the round froze.
+	// The task whose checkout the snapshot froze.
 	TaskID string
 }
 
-// One conversation pinned to a file and a line range in the round its review was given against.
+// One conversation pinned to a file and a line range in the snapshot its review was given against.
 type ReviewThread struct {
 	ID string
 	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
@@ -1062,7 +1062,7 @@ type ReviewThread struct {
 	NewStart int32
 	// Last line of the range on the new side. It equals new_start for a thread on a single line.
 	NewEnd int32
-	// The diff lines the thread was written against. They still say what the thread was about after the agent has rewritten that code. A later round is searched for these lines to decide whether the thread has gone outdated.
+	// The diff lines the thread was written against. They still say what the thread was about after the agent has rewritten that code. A later snapshot is searched for these lines to decide whether the thread has gone outdated.
 	QuotedLines []string
 	// When the person reviewing last read this thread. It is copied from last_agent_activity_at rather than taken from the clock, so a reply written while they were reading is not marked read without having been shown.
 	HumanReadAt *time.Time
@@ -1073,9 +1073,9 @@ type ReviewThread struct {
 	// When this thread was settled, null while it is still owed an answer.
 	ResolvedAt *time.Time
 	ReviewID   string
-	// The round this thread's line numbers were measured against. It is not read through the review, because a review stays open across several rounds and would name the wrong one.
-	RoundID string
-	// The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the round's own base. For a thread written while the diff was narrowed to one round it is the earlier round's snapshot.
+	// The snapshot this thread's line numbers were measured against. It is not read through the review, because a review stays open across several snapshots and would name the wrong one.
+	SnapshotID string
+	// The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the snapshot's own base. For a thread written while the diff was narrowed to one snapshot it is the earlier snapshot's commit.
 	BaseSha string
 	// Whether a person or an agent settled this thread, null while nobody has. Two parties can settle one: the agent that wrote the comment, saying the answer was good enough, and the person, who may settle anything including a thread whose author is gone.
 	ResolvedByKind NullReviewAuthorKind
@@ -1174,8 +1174,8 @@ type Task struct {
 	LinesAdded *int32
 	// How many lines the task's checkout removes since it left its base, null whenever lines_added is.
 	LinesRemoved *int32
-	// The snapshot of the newest review round of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no round.
-	MovedSinceRound *string
+	// The commit of the newest review snapshot of the task's agents when its checkout no longer hashes to it, null or empty while it still does or when there is no snapshot.
+	MovedSinceSnapshot *string
 	// When a delete claimed the task, which keeps it out of every listing until it is gone or the delete gives it back.
 	DeletingAt *time.Time
 	// When the one cleanup that gives back a deleted task's checkout and removes the row took it, so no other cleanup runs it as well.
@@ -1190,7 +1190,7 @@ type Task struct {
 	IsHidden bool
 	// The task in the same workflow this task depends on, whose branch this task's branch starts from and is measured against; null for a task on the workflow's base branch.
 	ParentTaskID *string
-	// The fork point, the commit of the parent's branch this task's own commits sit on, which rounds and line counts measure from; null while the task has no parent.
+	// The fork point, the commit of the parent's branch this task's own commits sit on, which snapshots and line counts measure from; null while the task has no parent.
 	ForkPoint *string
 	// The parent's pull request, read for the parent's newest commit and its merge; null until the parent has one or while the task has no parent.
 	ParentPullRequestID *string
