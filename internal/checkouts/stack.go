@@ -159,12 +159,12 @@ func (s *Service) replayUnpushed(ctx context.Context, params replayUnpushedParam
 		return holdsHead, err
 	}
 
-	pushed := params.Own.RebaseAwait.From
-	holdsPushed, err := s.git.HoldsCommit(ctx, dir, pushed)
+	from := params.Own.RebaseAwait.From
+	holdsFrom, err := s.git.HoldsCommit(ctx, dir, from)
 	if err != nil {
 		return false, err
 	}
-	if !holdsPushed {
+	if !holdsFrom {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "a child's branch no longer holds what it pushed, so the cascade rebases it",
 			slog.String(logging.TaskID, task.ID))
 
@@ -177,7 +177,7 @@ func (s *Service) replayUnpushed(ctx context.Context, params replayUnpushedParam
 	}
 	defer s.checkoutSync.Wake()
 
-	err = s.git.RebaseOnto(ctx, dir, params.Head, pushed)
+	err = s.git.RebaseOnto(ctx, dir, params.Head, from)
 	if errors.Is(err, git.ErrRebaseConflicted) {
 		onto := params.Onto
 		onto.SHA = params.Head
@@ -186,7 +186,7 @@ func (s *Service) replayUnpushed(ctx context.Context, params replayUnpushedParam
 			Task:   task,
 			Parent: params.Parent,
 			Onto:   onto,
-			Plan:   cascadePlan{Cutoff: pushed},
+			Plan:   cascadePlan{Cutoff: from},
 		}); err != nil {
 			return false, err
 		}
