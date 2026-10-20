@@ -8,7 +8,7 @@ SELECT
     sqlc.arg('task_id')::uuid,
     COALESCE(MAX(r.ordinal), 0) + 1,
     @base_sha,
-    @snapshot_sha
+    @sha
 FROM
     review_snapshots r
 WHERE
@@ -35,14 +35,14 @@ ORDER BY
     r.ordinal DESC
 LIMIT 1;
 
--- name: GetReviewSnapshotBySnapshot :one
+-- name: GetReviewSnapshotBySha :one
 SELECT
     *
 FROM
     review_snapshots r
 WHERE
     r.task_id = sqlc.arg('task_id')::uuid
-    AND r.sha = @snapshot_sha
+    AND r.sha = @sha
 ORDER BY
     r.ordinal DESC
 LIMIT 1;

@@ -204,7 +204,7 @@ func (q *Queries) GetReviewSnapshot(ctx context.Context, id string) (*ReviewSnap
 	return &i, err
 }
 
-const getReviewSnapshotBySnapshot = `-- name: GetReviewSnapshotBySnapshot :one
+const getReviewSnapshotBySha = `-- name: GetReviewSnapshotBySha :one
 SELECT
     id, ordinal, base_sha, sha, created_at, engine_id, landed_at, task_id
 FROM
@@ -217,13 +217,13 @@ ORDER BY
 LIMIT 1
 `
 
-type GetReviewSnapshotBySnapshotParams struct {
-	TaskID      string
-	SnapshotSha string
+type GetReviewSnapshotByShaParams struct {
+	TaskID string
+	Sha    string
 }
 
-func (q *Queries) GetReviewSnapshotBySnapshot(ctx context.Context, arg GetReviewSnapshotBySnapshotParams) (*ReviewSnapshot, error) {
-	row := q.db.QueryRow(ctx, getReviewSnapshotBySnapshot, arg.TaskID, arg.SnapshotSha)
+func (q *Queries) GetReviewSnapshotBySha(ctx context.Context, arg GetReviewSnapshotByShaParams) (*ReviewSnapshot, error) {
+	row := q.db.QueryRow(ctx, getReviewSnapshotBySha, arg.TaskID, arg.Sha)
 	var i ReviewSnapshot
 	err := row.Scan(
 		&i.ID,
@@ -594,13 +594,13 @@ RETURNING
 `
 
 type InsertReviewSnapshotParams struct {
-	TaskID      string
-	BaseSha     string
-	SnapshotSha string
+	TaskID  string
+	BaseSha string
+	Sha     string
 }
 
 func (q *Queries) InsertReviewSnapshot(ctx context.Context, arg InsertReviewSnapshotParams) (*ReviewSnapshot, error) {
-	row := q.db.QueryRow(ctx, insertReviewSnapshot, arg.TaskID, arg.BaseSha, arg.SnapshotSha)
+	row := q.db.QueryRow(ctx, insertReviewSnapshot, arg.TaskID, arg.BaseSha, arg.Sha)
 	var i ReviewSnapshot
 	err := row.Scan(
 		&i.ID,

@@ -95,9 +95,9 @@ type CreateSnapshotParams struct {
 // already taken.
 func (s *ReviewStore) CreateSnapshot(ctx context.Context, params CreateSnapshotParams) (*Snapshot, error) {
 	row, err := s.queries.InsertReviewSnapshot(ctx, models.InsertReviewSnapshotParams{
-		TaskID:      params.TaskID,
-		BaseSha:     params.BaseSHA,
-		SnapshotSha: params.SHA,
+		TaskID:  params.TaskID,
+		BaseSha: params.BaseSHA,
+		Sha:     params.SHA,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a review snapshot on task %q: %w", params.TaskID, err)
@@ -153,9 +153,9 @@ func (s *ReviewStore) GetSnapshotBySHA(ctx context.Context, taskID, snapshotSHA 
 		return nil, snapshotNotFound(taskID)
 	}
 
-	row, err := s.queries.GetReviewSnapshotBySnapshot(ctx, models.GetReviewSnapshotBySnapshotParams{
-		TaskID:      taskID,
-		SnapshotSha: snapshotSHA,
+	row, err := s.queries.GetReviewSnapshotBySha(ctx, models.GetReviewSnapshotByShaParams{
+		TaskID: taskID,
+		Sha:    snapshotSHA,
 	})
 	if db.IsNoRows(err) {
 		return nil, snapshotNotFound(snapshotSHA)
