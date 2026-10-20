@@ -74,7 +74,7 @@ func isTaskStartable(m *model, task panel.Task) bool {
 		return false
 	}
 
-	return !task.WorktreeRemoved && (task.ArchivedAt == nil || task.Cwd != "")
+	return !task.IsWorktreeRemoved() && (task.ArchivedAt == nil || task.Cwd != "")
 }
 
 // taskJumpMenu is the jump menu of the agent that opens a task, with its documents entry landing on the
@@ -119,7 +119,7 @@ func taskTerminalEntry(m *model, dir string) submenuEntry {
 
 // taskDir is the task's worktree, or its workflow's directory when it has none.
 func taskDir(task panel.Task, workflow panel.Workflow) string {
-	if task.Cwd != "" && !task.WorktreeRemoved {
+	if task.Cwd != "" && !task.IsWorktreeRemoved() {
 		return task.Cwd
 	}
 

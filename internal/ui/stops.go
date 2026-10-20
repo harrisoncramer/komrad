@@ -131,7 +131,7 @@ func (m *model) toggleStop() tea.Cmd {
 
 // isDormantHovered reports whether the agents screen is rendering the saved screen of a dormant agent.
 func (m *model) isDormantHovered() bool {
-	if m.screen != screenAgents || m.agents.kind == agentsArchived {
+	if m.screen != screenAgents || m.agents.kind != agentsLive {
 		return false
 	}
 

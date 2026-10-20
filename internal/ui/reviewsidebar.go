@@ -498,7 +498,7 @@ func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
 	switch {
 	case r.hold.isHeld():
 		return "close the editor first"
-	case task.WorktreeRemoved || task.Cwd == "":
+	case task.IsWorktreeRemoved() || task.Cwd == "":
 		return "its worktree is gone"
 	case !ok || writer.Agent.ArchivedAt != nil:
 		return "its writer is archived"

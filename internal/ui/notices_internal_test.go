@@ -35,7 +35,7 @@ func TestAgentNotices(t *testing.T) {
 				ID:   "a2",
 				Role: panel.RoleReviewer,
 			}}),
-			task: panel.Task{WorktreeRemoved: true},
+			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
 			want: []string{},
 		},
 		{
@@ -71,8 +71,14 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "a removed worktree",
 			row:  buildNoticeRow(panel.AgentRow{}),
-			task: panel.Task{WorktreeRemoved: true},
+			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
 			want: []string{worktreeRemovedNotice},
+		},
+		{
+			name: "a deleted worktree",
+			row:  buildNoticeRow(panel.AgentRow{}),
+			task: panel.Task{WorktreeRemovalReason: panel.WorktreeDeleted},
+			want: []string{worktreeDeletedNotice},
 		},
 		{
 			name: "a stopped rebase",
@@ -179,7 +185,7 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "a failed create says where its worktree went",
 			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}}),
-			task: panel.Task{WorktreeRemoved: true},
+			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
 			want: []string{failedToCreateNotice, worktreeRemovedNotice},
 		},
 		{
@@ -190,7 +196,7 @@ func TestAgentNotices(t *testing.T) {
 				FailedRun:  true,
 				Documents:  1,
 			}),
-			task: panel.Task{WorktreeRemoved: true},
+			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
 			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, documentsNotice},
 		},
 		{
@@ -209,8 +215,8 @@ func TestAgentNotices(t *testing.T) {
 				UnreadMail: true,
 			}),
 			task: panel.Task{
-				WorktreeRemoved: true,
-				PullRequest:     panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED},
+				WorktreeRemovalReason: panel.WorktreeGone,
+				PullRequest:           panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED},
 			},
 			want: []string{unreadMailNotice, "its pull request is approved and ready to merge", worktreeRemovedNotice},
 		},
@@ -245,7 +251,7 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "an agent without a worktree still says its directory is gone",
 			row:  buildPlainRow(panel.AgentRow{Agent: panel.Agent{ID: "a1"}}),
-			task: panel.Task{WorktreeRemoved: true},
+			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
 			want: []string{worktreeRemovedNotice},
 		},
 		{

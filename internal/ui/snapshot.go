@@ -87,7 +87,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 		row.Hidden = r.task.Hidden && !row.Archived
 		row.FailedRun = row.FailedRun || r.task.FailedRun
 		row.Documents = r.task.Documents > 0
-		row.Repo = snapshotRepo(r.task.WorktreeRemoved, r.task.Sequence)
+		row.Repo = snapshotRepo(*r.task)
 		row.InWorkflowDir = isInWorkflowDir(r.task.WorkflowID, r.task.Cwd, params.workflowDirs)
 		row.ReviewerComments, row.PersonComments = convertComments(r.task.ReviewerComments), convertComments(r.task.PersonComments)
 		row.Forge = snapshotForge(r.task.PullRequest)
@@ -133,7 +133,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Reviewer = item.Agent.Role == panel.RoleReviewer
 	row.Name = item.Agent.Name
 	row.Matches = params.matchesOf(r, item.Agent.Name)
-	row.Repo = snapshotRepo(task.WorktreeRemoved, task.Sequence)
+	row.Repo = snapshotRepo(task)
 	row.InWorkflowDir = isInWorkflowDir(item.Agent.WorkflowID, item.Agent.Cwd, params.workflowDirs)
 	if item.Agent.Role != panel.RoleReviewer {
 		row.ReviewerComments, row.PersonComments = convertComments(task.ReviewerComments), convertComments(task.PersonComments)
@@ -300,13 +300,15 @@ func snapshotProcess(item panel.AgentRow) view.Process {
 	return view.ProcessAlive
 }
 
-// snapshotRepo is where a checkout stands, a directory that has gone beating a rebase left part
-// way in one that has not.
-func snapshotRepo(removed bool, sequence panel.Sequence) view.Repo {
+// snapshotRepo is where a task's checkout stands, a worktree no longer on disk beating a rebase
+// left part way in one that is.
+func snapshotRepo(task panel.Task) view.Repo {
 	switch {
-	case removed:
+	case task.WorktreeRemovalReason == panel.WorktreeDeleted:
+		return view.RepoDeleted
+	case task.WorktreeRemovalReason == panel.WorktreeGone:
 		return view.RepoGone
-	case sequence.IsInProgress():
+	case task.Sequence.IsInProgress():
 		return view.RepoRebasing
 	}
 

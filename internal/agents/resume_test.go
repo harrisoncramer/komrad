@@ -782,7 +782,7 @@ func TestResumeRefusesARemovedWorktree(t *testing.T) {
 	service, fakeHarness := newManagerWithHarness(tmux, st, "")
 	writer := seed(t, st, "writer", "%0", agentstore.StateIdle)
 	require.NotNil(t, writer.TaskID)
-	require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+	require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 
 	_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: writer.ID})
 

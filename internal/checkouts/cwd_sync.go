@@ -382,16 +382,18 @@ func (cl cwdLook) hasMovedBranch() bool {
 func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 	stored, head := look.task.Checkout, look.head
 	read := taskstore.SetHeadParams{
-		Branch:          xptr.NonEmpty(head.Branch),
-		RepositoryURL:   xptr.NonEmpty(head.RepositoryURL),
-		HeadSHA:         xptr.NonEmpty(head.SHA),
-		WorktreeRemoved: look.removed,
-		Sequence:        sequenceOf(head.Sequence),
+		Branch:        xptr.NonEmpty(head.Branch),
+		RepositoryURL: xptr.NonEmpty(head.RepositoryURL),
+		HeadSHA:       xptr.NonEmpty(head.SHA),
+		Sequence:      sequenceOf(head.Sequence),
+	}
+	if look.removed {
+		read.WorktreeRemovalReason = taskstore.WorktreeGone
 	}
 	unchanged := xptr.Equal(stored.Branch, read.Branch) &&
 		xptr.Equal(stored.RepositoryURL, read.RepositoryURL) &&
 		xptr.Equal(stored.HeadSHA, read.HeadSHA) &&
-		stored.WorktreeRemoved == read.WorktreeRemoved &&
+		stored.WorktreeRemovalReason == read.WorktreeRemovalReason &&
 		stored.Sequence == read.Sequence
 	if unchanged {
 		return nil

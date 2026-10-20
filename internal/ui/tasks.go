@@ -34,8 +34,8 @@ func taskFields(params checkoutFieldsParams, writer []recordField) []recordField
 	task := params.task
 
 	directory := label.OrDash(task.Cwd)
-	if task.WorktreeRemoved {
-		directory = "— (removed)"
+	if task.IsWorktreeRemoved() {
+		directory = "— (" + string(task.WorktreeRemovalReason) + ")"
 	}
 	fields := []recordField{{label: "directory", value: directory}}
 	fields = append(fields, checkoutFields(params)...)
@@ -172,14 +172,15 @@ func taskIDs(tasks []panel.Task) []string {
 	return xslice.Map(tasks, func(task panel.Task) string { return task.ID })
 }
 
-// taskDirs is the directories of the tasks that have one.
+// taskDirs is the directories of the tasks that have one still on disk.
 func taskDirs(tasks []panel.Task) []string {
-	return xslice.Map(xslice.Filter(tasks, func(task panel.Task) bool { return task.Cwd != "" }), func(task panel.Task) string { return task.Cwd })
+	return xslice.Map(xslice.Filter(tasks, func(task panel.Task) bool { return task.Cwd != "" && !task.IsWorktreeRemoved() }), func(task panel.Task) string { return task.Cwd })
 }
 
-// hasAnyOwnWorktree reports whether any of the tasks sits in a worktree komrad cut for it.
-func (l listing) hasAnyOwnWorktree(tasks []panel.Task) bool {
-	return slices.ContainsFunc(tasks, l.hasOwnWorktree)
+// hasAnyWorktreeToDelete reports whether komrad cut a worktree for any of the tasks that no delete
+// has removed yet, on disk or gone.
+func (l listing) hasAnyWorktreeToDelete(tasks []panel.Task) bool {
+	return slices.ContainsFunc(tasks, l.hasWorktreeToDelete)
 }
 
 // archiveTasks archives the tasks along with the live agents on them.
@@ -216,7 +217,7 @@ func (m *model) deleteTasks(tasks []panel.Task, records bool) tea.Cmd {
 
 // confirmDeleteTasks asks what goes before the tasks are deleted.
 func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
-	confirm := deleteTasksConfirm(tasks, len(m.listing.agentsOnTasks(tasks)), m.listing.hasAnyOwnWorktree(tasks))
+	confirm := deleteTasksConfirm(tasks, len(m.listing.agentsOnTasks(tasks)), m.listing.hasAnyWorktreeToDelete(tasks))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return m.deleteTasks(tasks, confirm.values.deletesRecords())
@@ -396,7 +397,7 @@ func (w chosenWork) affected(l listing) []panel.Agent {
 func (t taskIndex) possibleParents(workflowID string) []panel.Task {
 	var tasks []panel.Task
 	for _, task := range t {
-		if task.WorkflowID == workflowID && task.ArchivedAt == nil && task.Branch != nil && !task.WorktreeRemoved {
+		if task.WorkflowID == workflowID && task.ArchivedAt == nil && task.Branch != nil && !task.IsWorktreeRemoved() {
 			tasks = append(tasks, task)
 		}
 	}

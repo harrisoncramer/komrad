@@ -246,8 +246,8 @@ func (m *model) active() screenModel {
 func (m *model) screenOf(s screen) screenModel {
 	switch s {
 	case screenAgents:
-		if m.agents.kind == agentsArchived {
-			return &m.agents.archived
+		if shown := m.agents.shownArchive(); shown != nil {
+			return shown
 		}
 
 		return &m.agents

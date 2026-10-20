@@ -233,7 +233,7 @@ func TestRestartAgentRefuses(t *testing.T) {
 			archived := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "archived writer", "%2")
 			require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []string{archived.ID}))
 			removed := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "removed writer", "%3")
-			require.NoError(t, st.Tasks.SetHead(t.Context(), *removed.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+			require.NoError(t, st.Tasks.SetHead(t.Context(), *removed.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 			seeded := map[string]string{
 				"orchestrator":    orchestrator.ID,
 				"reviewer":        seedReviewer(t, st, tmux, writer).ID,

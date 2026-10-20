@@ -216,6 +216,8 @@ func scheduleDocRows(item scheduleItem, width int) []string {
 
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nKomrad keeps the agents you archive here until you delete them.\n"
 
+const emptyDeletedMarkdown = "# Deleted\n\n_nothing deleted_\n\nKomrad lists the archived tasks whose worktree was deleted here. Their records stay until you delete them too.\n"
+
 const emptyScheduleArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
 
 func archiveMarkdown(agent panel.Agent) string {

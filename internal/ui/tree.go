@@ -34,6 +34,7 @@ type agentsScreen struct {
 	kind      agentsKind
 	kindFocus bool
 	archived  archivedAgents
+	deleted   archivedAgents
 	// notes is the task whose notes are shown in place of its writer's pane, empty while none are.
 	notes string
 }

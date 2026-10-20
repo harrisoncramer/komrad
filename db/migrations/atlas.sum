@@ -1,4 +1,4 @@
-h1:nt41l8xZiOoeImKXlWx55eaUJ62bUIBXv3yFpSjh1Wk=
+h1:G/ee0+4IeXrs1fypaO4zcw1LGu3LU9JvQakT7LdIFrc=
 20261002173502_baseline.sql h1:9d8cMqM4pjaXPZ1GoiSuGxOMMRegbNB1TYG3Gw8tqYw=
 20261003155931_transcript_synced_at_default.sql h1:Jtvi8tLVWC4qxstK0x7tymn0Vno5hrw7mDHBXA3Lji4=
 20261003175808_scope_agent_idempotency_key_to_requester.sql h1:j9KesdPVx/XPRlNWbCdWkXKFKb6f6ox/88fwoSGIp8Q=
@@ -37,3 +37,4 @@ h1:nt41l8xZiOoeImKXlWx55eaUJ62bUIBXv3yFpSjh1Wk=
 20261018222840_task_parent.sql h1:JyOJgUqx/JGT+D3ZY/CraGaLqBjvF+WDyZEPlERCpjA=
 20261020004448_rename_rounds_to_snapshots.sql h1:JrNrTxlISvW4VQm38dSPRJeXXL2PHkIcbPI50EvAyJA=
 20261020032837_github_stacks.sql h1:GIh309B96pL45/a0PdQOQ8YM/iGUo9xGTsqTN1cD1Fc=
+20261020192930_worktree_removal_reason.sql h1:seLI4Ap+Er0TOub+k3Zi2lPw2rnIWsuMyAmcaQLHsfU=

@@ -9540,14 +9540,14 @@
           "description": "The commit checked out in the task's checkout. Unset when the checkout is gone or git cannot read it."
         },
         {
-          "name": "worktree_removed",
-          "type": "bool",
-          "ref": "",
+          "name": "worktree_removal_reason",
+          "type": "WorktreeRemovalReason",
+          "ref": "task.v1.WorktreeRemovalReason",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether the task's worktree has been removed."
+          "description": "Why the task's worktree is no longer on disk. Unspecified while it is."
         },
         {
           "name": "sequence",
@@ -11617,6 +11617,20 @@
         {
           "name": "SEQUENCE_REVERT",
           "description": "A revert stopped on conflicts or paused between commits."
+        }
+      ]
+    },
+    "task.v1.WorktreeRemovalReason": {
+      "name": "WorktreeRemovalReason",
+      "description": "WorktreeRemovalReason is why a task's worktree is no longer on disk.",
+      "values": [
+        {
+          "name": "WORKTREE_REMOVAL_REASON_DELETED",
+          "description": "A delete removed the worktree. Komrad never makes it again."
+        },
+        {
+          "name": "WORKTREE_REMOVAL_REASON_GONE",
+          "description": "Komrad found the worktree's directory gone without a delete."
         }
       ]
     },

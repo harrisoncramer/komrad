@@ -1429,7 +1429,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 			name: "a task whose worktree was removed",
 			prepareWriter: func(t *testing.T, st *testStore, writer agentstore.Agent) agentstore.Agent {
 				t.Helper()
-				require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+				require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 
 				return writer
 			},

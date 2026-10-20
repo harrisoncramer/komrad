@@ -59,30 +59,30 @@ func taskFrom(row assemble.TaskRow) panel.Task {
 	task := row.Task
 
 	return panel.Task{
-		ID:                 task.GetId(),
-		WorkflowID:         task.GetWorkflowId(),
-		Slug:               task.GetSlug(),
-		Title:              task.GetTitle(),
-		Goal:               task.GetGoal(),
-		Notes:              task.GetNotes(),
-		NotesUpdatedAt:     task.NotesUpdatedAt,
-		CreatedAt:          dates.Parse(task.GetCreatedAt()),
-		ArchivedAt:         dates.ParsePtr(task.GetArchivedAt()),
-		FailedRun:          task.GetFailedRun(),
-		Documents:          task.GetDocuments(),
-		Hidden:             task.GetHidden(),
-		Parent:             task.GetParent(),
-		Cwd:                task.GetCwd(),
-		Branch:             task.Branch,
-		DiffStat:           task.GetDiffStat(),
-		WorktreeRemoved:    task.GetWorktreeRemoved(),
-		Sequence:           sequenceFrom(task.GetSequence()),
-		MovedSinceSnapshot: task.GetMovedSinceSnapshot(),
-		Snapshots:          task.GetSnapshots(),
-		PullRequest:        pullRequestStandingFrom(row.PullRequest),
-		PullRequests:       xslice.Map(row.PullRequests, pullRequestFrom),
-		ReviewerComments:   row.ReviewerComments,
-		PersonComments:     row.PersonComments,
+		ID:                    task.GetId(),
+		WorkflowID:            task.GetWorkflowId(),
+		Slug:                  task.GetSlug(),
+		Title:                 task.GetTitle(),
+		Goal:                  task.GetGoal(),
+		Notes:                 task.GetNotes(),
+		NotesUpdatedAt:        task.NotesUpdatedAt,
+		CreatedAt:             dates.Parse(task.GetCreatedAt()),
+		ArchivedAt:            dates.ParsePtr(task.GetArchivedAt()),
+		FailedRun:             task.GetFailedRun(),
+		Documents:             task.GetDocuments(),
+		Hidden:                task.GetHidden(),
+		Parent:                task.GetParent(),
+		Cwd:                   task.GetCwd(),
+		Branch:                task.Branch,
+		DiffStat:              task.GetDiffStat(),
+		WorktreeRemovalReason: worktreeRemovalReasonFrom(task.GetWorktreeRemovalReason()),
+		Sequence:              sequenceFrom(task.GetSequence()),
+		MovedSinceSnapshot:    task.GetMovedSinceSnapshot(),
+		Snapshots:             task.GetSnapshots(),
+		PullRequest:           pullRequestStandingFrom(row.PullRequest),
+		PullRequests:          xslice.Map(row.PullRequests, pullRequestFrom),
+		ReviewerComments:      row.ReviewerComments,
+		PersonComments:        row.PersonComments,
 	}
 }
 
@@ -122,6 +122,19 @@ func roleFrom(role agentv1.AgentRole) panel.Role {
 	}
 
 	return ""
+}
+
+// worktreeRemovalReasonFrom is a wire removal reason as the panel keeps it.
+func worktreeRemovalReasonFrom(reason taskv1.WorktreeRemovalReason) panel.WorktreeRemovalReason {
+	switch reason {
+	case taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED:
+		return panel.WorktreeDeleted
+	case taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE:
+		return panel.WorktreeGone
+	case taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED:
+	}
+
+	return panel.WorktreeOnDisk
 }
 
 // sequenceFrom is a wire sequence as the panel keeps it.

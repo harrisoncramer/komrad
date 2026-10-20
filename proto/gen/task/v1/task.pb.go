@@ -151,6 +151,59 @@ func (CascadeBlock) EnumDescriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{1}
 }
 
+// WorktreeRemovalReason is why a task's worktree is no longer on disk.
+type WorktreeRemovalReason int32
+
+const (
+	// The worktree is on disk, or the task has none.
+	WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED WorktreeRemovalReason = 0
+	// A delete removed the worktree. Komrad never makes it again.
+	WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED WorktreeRemovalReason = 1
+	// Komrad found the worktree's directory gone without a delete.
+	WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE WorktreeRemovalReason = 2
+)
+
+// Enum value maps for WorktreeRemovalReason.
+var (
+	WorktreeRemovalReason_name = map[int32]string{
+		0: "WORKTREE_REMOVAL_REASON_UNSPECIFIED",
+		1: "WORKTREE_REMOVAL_REASON_DELETED",
+		2: "WORKTREE_REMOVAL_REASON_GONE",
+	}
+	WorktreeRemovalReason_value = map[string]int32{
+		"WORKTREE_REMOVAL_REASON_UNSPECIFIED": 0,
+		"WORKTREE_REMOVAL_REASON_DELETED":     1,
+		"WORKTREE_REMOVAL_REASON_GONE":        2,
+	}
+)
+
+func (x WorktreeRemovalReason) Enum() *WorktreeRemovalReason {
+	p := new(WorktreeRemovalReason)
+	*p = x
+	return p
+}
+
+func (x WorktreeRemovalReason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WorktreeRemovalReason) Descriptor() protoreflect.EnumDescriptor {
+	return file_task_v1_task_proto_enumTypes[2].Descriptor()
+}
+
+func (WorktreeRemovalReason) Type() protoreflect.EnumType {
+	return &file_task_v1_task_proto_enumTypes[2]
+}
+
+func (x WorktreeRemovalReason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use WorktreeRemovalReason.Descriptor instead.
+func (WorktreeRemovalReason) EnumDescriptor() ([]byte, []int) {
+	return file_task_v1_task_proto_rawDescGZIP(), []int{2}
+}
+
 // DiffStat counts the lines a checkout adds and removes, committed or not.
 type DiffStat struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -237,8 +290,8 @@ type Task struct {
 	// The commit checked out in the task's checkout. Unset when the checkout is gone or git cannot
 	// read it.
 	HeadSha *string `protobuf:"bytes,12,opt,name=head_sha,json=headSha,proto3,oneof" json:"head_sha,omitempty"`
-	// Whether the task's worktree has been removed.
-	WorktreeRemoved bool `protobuf:"varint,13,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
+	// Why the task's worktree is no longer on disk. Unspecified while it is.
+	WorktreeRemovalReason WorktreeRemovalReason `protobuf:"varint,13,opt,name=worktree_removal_reason,json=worktreeRemovalReason,proto3,enum=task.v1.WorktreeRemovalReason" json:"worktree_removal_reason,omitempty"`
 	// The git operation stopped part way in the task's checkout.
 	Sequence Sequence `protobuf:"varint,14,opt,name=sequence,proto3,enum=task.v1.Sequence" json:"sequence,omitempty"`
 	// The commit of the task's newest snapshot, set while the checkout has changed since that
@@ -388,11 +441,11 @@ func (x *Task) GetHeadSha() string {
 	return ""
 }
 
-func (x *Task) GetWorktreeRemoved() bool {
+func (x *Task) GetWorktreeRemovalReason() WorktreeRemovalReason {
 	if x != nil {
-		return x.WorktreeRemoved
+		return x.WorktreeRemovalReason
 	}
-	return false
+	return WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED
 }
 
 func (x *Task) GetSequence() Sequence {
@@ -1317,7 +1370,7 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xa7\b\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xd4\b\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
@@ -1335,8 +1388,8 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x06branch\x18\n" +
 	" \x01(\tH\x02R\x06branch\x88\x01\x01\x12*\n" +
 	"\x0erepository_url\x18\v \x01(\tH\x03R\rrepositoryUrl\x88\x01\x01\x12\x1e\n" +
-	"\bhead_sha\x18\f \x01(\tH\x04R\aheadSha\x88\x01\x01\x12)\n" +
-	"\x10worktree_removed\x18\r \x01(\bR\x0fworktreeRemoved\x12-\n" +
+	"\bhead_sha\x18\f \x01(\tH\x04R\aheadSha\x88\x01\x01\x12V\n" +
+	"\x17worktree_removal_reason\x18\r \x01(\x0e2\x1e.task.v1.WorktreeRemovalReasonR\x15worktreeRemovalReason\x12-\n" +
 	"\bsequence\x18\x0e \x01(\x0e2\x11.task.v1.SequenceR\bsequence\x120\n" +
 	"\x14moved_since_snapshot\x18\x0f \x01(\tR\x12movedSinceSnapshot\x123\n" +
 	"\tdiff_stat\x18\x10 \x01(\v2\x11.task.v1.DiffStatH\x05R\bdiffStat\x88\x01\x01\x12*\n" +
@@ -1430,7 +1483,11 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x19CASCADE_BLOCK_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18CASCADE_BLOCK_CONFLICTED\x10\x01\x12\x1a\n" +
 	"\x16CASCADE_BLOCK_ORPHANED\x10\x02\x12\x1f\n" +
-	"\x1bCASCADE_BLOCK_PARENT_CLOSED\x10\x032\x82\x12\n" +
+	"\x1bCASCADE_BLOCK_PARENT_CLOSED\x10\x03*\x87\x01\n" +
+	"\x15WorktreeRemovalReason\x12'\n" +
+	"#WORKTREE_REMOVAL_REASON_UNSPECIFIED\x10\x00\x12#\n" +
+	"\x1fWORKTREE_REMOVAL_REASON_DELETED\x10\x01\x12 \n" +
+	"\x1cWORKTREE_REMOVAL_REASON_GONE\x10\x022\x82\x12\n" +
 	"\vTaskService\x12\xcf\x01\n" +
 	"\n" +
 	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\x87\x01\x9a\xb5\x18\x82\x01\b\x01\x10\x01\x1a\vcreate_task\"jCreate a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`.(\x00:\x01\x02\x12\x96\x01\n" +
@@ -1457,63 +1514,65 @@ func file_task_v1_task_proto_rawDescGZIP() []byte {
 	return file_task_v1_task_proto_rawDescData
 }
 
-var file_task_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_task_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_task_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_task_v1_task_proto_goTypes = []any{
 	(Sequence)(0),                   // 0: task.v1.Sequence
 	(CascadeBlock)(0),               // 1: task.v1.CascadeBlock
-	(*DiffStat)(nil),                // 2: task.v1.DiffStat
-	(*Task)(nil),                    // 3: task.v1.Task
-	(*Parent)(nil),                  // 4: task.v1.Parent
-	(*CreateTaskRequest)(nil),       // 5: task.v1.CreateTaskRequest
-	(*CreateTaskResponse)(nil),      // 6: task.v1.CreateTaskResponse
-	(*GetTaskRequest)(nil),          // 7: task.v1.GetTaskRequest
-	(*GetTaskResponse)(nil),         // 8: task.v1.GetTaskResponse
-	(*ListTasksRequest)(nil),        // 9: task.v1.ListTasksRequest
-	(*ListTasksResponse)(nil),       // 10: task.v1.ListTasksResponse
-	(*UpdateTaskRequest)(nil),       // 11: task.v1.UpdateTaskRequest
-	(*UpdateTaskResponse)(nil),      // 12: task.v1.UpdateTaskResponse
-	(*SetTaskNotesRequest)(nil),     // 13: task.v1.SetTaskNotesRequest
-	(*SetTaskNotesResponse)(nil),    // 14: task.v1.SetTaskNotesResponse
-	(*ArchiveTaskRequest)(nil),      // 15: task.v1.ArchiveTaskRequest
-	(*SetTaskHiddenRequest)(nil),    // 16: task.v1.SetTaskHiddenRequest
-	(*MarkTaskRunsReadRequest)(nil), // 17: task.v1.MarkTaskRunsReadRequest
-	(*DeleteTasksRequest)(nil),      // 18: task.v1.DeleteTasksRequest
-	(*emptypb.Empty)(nil),           // 19: google.protobuf.Empty
+	(WorktreeRemovalReason)(0),      // 2: task.v1.WorktreeRemovalReason
+	(*DiffStat)(nil),                // 3: task.v1.DiffStat
+	(*Task)(nil),                    // 4: task.v1.Task
+	(*Parent)(nil),                  // 5: task.v1.Parent
+	(*CreateTaskRequest)(nil),       // 6: task.v1.CreateTaskRequest
+	(*CreateTaskResponse)(nil),      // 7: task.v1.CreateTaskResponse
+	(*GetTaskRequest)(nil),          // 8: task.v1.GetTaskRequest
+	(*GetTaskResponse)(nil),         // 9: task.v1.GetTaskResponse
+	(*ListTasksRequest)(nil),        // 10: task.v1.ListTasksRequest
+	(*ListTasksResponse)(nil),       // 11: task.v1.ListTasksResponse
+	(*UpdateTaskRequest)(nil),       // 12: task.v1.UpdateTaskRequest
+	(*UpdateTaskResponse)(nil),      // 13: task.v1.UpdateTaskResponse
+	(*SetTaskNotesRequest)(nil),     // 14: task.v1.SetTaskNotesRequest
+	(*SetTaskNotesResponse)(nil),    // 15: task.v1.SetTaskNotesResponse
+	(*ArchiveTaskRequest)(nil),      // 16: task.v1.ArchiveTaskRequest
+	(*SetTaskHiddenRequest)(nil),    // 17: task.v1.SetTaskHiddenRequest
+	(*MarkTaskRunsReadRequest)(nil), // 18: task.v1.MarkTaskRunsReadRequest
+	(*DeleteTasksRequest)(nil),      // 19: task.v1.DeleteTasksRequest
+	(*emptypb.Empty)(nil),           // 20: google.protobuf.Empty
 }
 var file_task_v1_task_proto_depIdxs = []int32{
-	0,  // 0: task.v1.Task.sequence:type_name -> task.v1.Sequence
-	2,  // 1: task.v1.Task.diff_stat:type_name -> task.v1.DiffStat
-	4,  // 2: task.v1.Task.parent:type_name -> task.v1.Parent
-	1,  // 3: task.v1.Parent.blocked:type_name -> task.v1.CascadeBlock
-	3,  // 4: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
-	3,  // 5: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
-	3,  // 6: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
-	3,  // 7: task.v1.UpdateTaskResponse.task:type_name -> task.v1.Task
-	3,  // 8: task.v1.SetTaskNotesResponse.task:type_name -> task.v1.Task
-	5,  // 9: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
-	7,  // 10: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
-	9,  // 11: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
-	11, // 12: task.v1.TaskService.UpdateTask:input_type -> task.v1.UpdateTaskRequest
-	13, // 13: task.v1.TaskService.SetTaskNotes:input_type -> task.v1.SetTaskNotesRequest
-	15, // 14: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
-	18, // 15: task.v1.TaskService.DeleteTasks:input_type -> task.v1.DeleteTasksRequest
-	16, // 16: task.v1.TaskService.SetTaskHidden:input_type -> task.v1.SetTaskHiddenRequest
-	17, // 17: task.v1.TaskService.MarkTaskRunsRead:input_type -> task.v1.MarkTaskRunsReadRequest
-	6,  // 18: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
-	8,  // 19: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
-	10, // 20: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
-	12, // 21: task.v1.TaskService.UpdateTask:output_type -> task.v1.UpdateTaskResponse
-	14, // 22: task.v1.TaskService.SetTaskNotes:output_type -> task.v1.SetTaskNotesResponse
-	19, // 23: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
-	19, // 24: task.v1.TaskService.DeleteTasks:output_type -> google.protobuf.Empty
-	19, // 25: task.v1.TaskService.SetTaskHidden:output_type -> google.protobuf.Empty
-	19, // 26: task.v1.TaskService.MarkTaskRunsRead:output_type -> google.protobuf.Empty
-	18, // [18:27] is the sub-list for method output_type
-	9,  // [9:18] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	2,  // 0: task.v1.Task.worktree_removal_reason:type_name -> task.v1.WorktreeRemovalReason
+	0,  // 1: task.v1.Task.sequence:type_name -> task.v1.Sequence
+	3,  // 2: task.v1.Task.diff_stat:type_name -> task.v1.DiffStat
+	5,  // 3: task.v1.Task.parent:type_name -> task.v1.Parent
+	1,  // 4: task.v1.Parent.blocked:type_name -> task.v1.CascadeBlock
+	4,  // 5: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
+	4,  // 6: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
+	4,  // 7: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
+	4,  // 8: task.v1.UpdateTaskResponse.task:type_name -> task.v1.Task
+	4,  // 9: task.v1.SetTaskNotesResponse.task:type_name -> task.v1.Task
+	6,  // 10: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
+	8,  // 11: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
+	10, // 12: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
+	12, // 13: task.v1.TaskService.UpdateTask:input_type -> task.v1.UpdateTaskRequest
+	14, // 14: task.v1.TaskService.SetTaskNotes:input_type -> task.v1.SetTaskNotesRequest
+	16, // 15: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
+	19, // 16: task.v1.TaskService.DeleteTasks:input_type -> task.v1.DeleteTasksRequest
+	17, // 17: task.v1.TaskService.SetTaskHidden:input_type -> task.v1.SetTaskHiddenRequest
+	18, // 18: task.v1.TaskService.MarkTaskRunsRead:input_type -> task.v1.MarkTaskRunsReadRequest
+	7,  // 19: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
+	9,  // 20: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
+	11, // 21: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
+	13, // 22: task.v1.TaskService.UpdateTask:output_type -> task.v1.UpdateTaskResponse
+	15, // 23: task.v1.TaskService.SetTaskNotes:output_type -> task.v1.SetTaskNotesResponse
+	20, // 24: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
+	20, // 25: task.v1.TaskService.DeleteTasks:output_type -> google.protobuf.Empty
+	20, // 26: task.v1.TaskService.SetTaskHidden:output_type -> google.protobuf.Empty
+	20, // 27: task.v1.TaskService.MarkTaskRunsRead:output_type -> google.protobuf.Empty
+	19, // [19:28] is the sub-list for method output_type
+	10, // [10:19] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_task_v1_task_proto_init() }
@@ -1529,7 +1588,7 @@ func file_task_v1_task_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_task_v1_task_proto_rawDesc), len(file_task_v1_task_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,

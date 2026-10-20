@@ -176,7 +176,7 @@ func (s *ResumeService) refuseRemovedWorktree(ctx context.Context, agent agentst
 	if err != nil {
 		return fmt.Errorf("failed to read the task of %q: %w", agent.Name, err)
 	}
-	if task.Checkout.WorktreeRemoved {
+	if task.Checkout.IsWorktreeRemoved() {
 		return tasks.ErrWorktreeRemoved.Saying("task %q's worktree was removed, so %q has no checkout to run in", task.Slug, agent.Name)
 	}
 

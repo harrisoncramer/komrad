@@ -22,12 +22,12 @@ func deleteChosenConfirm(work chosenWork, offersWorktree bool) worktreeConfirm {
 }
 
 // deleteWorkflowConfirm asks what goes when an archived workflow is deleted.
-func deleteWorkflowConfirm(workflow panel.Workflow) worktreeConfirm {
+func deleteWorkflowConfirm(workflow panel.Workflow, offersWorktree bool) worktreeConfirm {
 	return worktreeConfirm{
 		kind:            formArchiveDelete,
 		title:           fmt.Sprintf("Delete workflow %q?", workflow.Name),
 		startsConfirmed: true,
-		values:          newDeleteFormValues(workflow.Worktree.Enabled),
+		values:          newDeleteFormValues(offersWorktree),
 	}
 }
 

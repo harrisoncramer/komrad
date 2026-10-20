@@ -139,7 +139,7 @@ func explainFallback(err error) string {
 // findSnapshotDir finds the directory holding a task's snapshots, its checkout or else its workflow's
 // repository.
 func (s *ReviewService) findSnapshotDir(ctx context.Context, task taskstore.Task) (string, error) {
-	if !task.Checkout.WorktreeRemoved {
+	if !task.Checkout.IsWorktreeRemoved() {
 		return task.Checkout.Cwd, nil
 	}
 

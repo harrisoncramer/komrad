@@ -301,7 +301,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "taking a snapshot of a task whose worktree was removed",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 				_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
 
 				return err
@@ -1224,7 +1224,7 @@ func (fx *reviewFixture) removeWorktree(t *testing.T, dir string) {
 	cfg := workflow.Config()
 	cfg.Cwd = dir
 	require.NoError(t, fx.stores.Workflows.Update(t.Context(), workflow.ID, cfg))
-	require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemoved: true}))
+	require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 }
 
 // listMail is every piece of mail addressed to an agent, oldest first.

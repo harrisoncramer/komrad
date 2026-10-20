@@ -12,32 +12,32 @@ func Task(stored taskstore.Task) *taskv1.Task {
 	checkout := stored.Checkout
 
 	return &taskv1.Task{
-		Id:                 stored.ID,
-		WorkflowId:         stored.WorkflowID,
-		Slug:               stored.Slug,
-		Title:              stored.Title,
-		Goal:               stored.Goal,
-		CreatedAt:          dates.Stamp(stored.CreatedAt),
-		UpdatedAt:          dates.PreciseStamp(stored.UpdatedAt),
-		ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
-		Cwd:                xptr.NonEmpty(checkout.Cwd),
-		Branch:             checkout.Branch,
-		RepositoryUrl:      checkout.RepositoryURL,
-		HeadSha:            checkout.HeadSHA,
-		WorktreeRemoved:    checkout.WorktreeRemoved,
-		Sequence:           SequenceOf(checkout.Sequence),
-		MovedSinceSnapshot: checkout.MovedSinceSnapshot,
-		DiffStat:           diffStatOf(checkout.DiffStat),
-		AdoptedBranch:      xptr.NonEmpty(checkout.AdoptedBranch),
-		FailureReason:      stored.FailureReason,
-		Notes:              stored.Notes,
-		NotesUpdatedAt:     dates.PreciseStampPtr(stored.NotesUpdatedAt),
-		FailedRun:          stored.FailedRun,
-		Documents:          stored.Documents,
-		DocumentsUpdatedAt: dates.PreciseStampPtr(stored.DocumentsUpdatedAt),
-		Snapshots:          stored.Snapshots,
-		Hidden:             stored.Hidden,
-		Parent:             parentOf(stored.Parent),
+		Id:                    stored.ID,
+		WorkflowId:            stored.WorkflowID,
+		Slug:                  stored.Slug,
+		Title:                 stored.Title,
+		Goal:                  stored.Goal,
+		CreatedAt:             dates.Stamp(stored.CreatedAt),
+		UpdatedAt:             dates.PreciseStamp(stored.UpdatedAt),
+		ArchivedAt:            dates.StampPtr(stored.ArchivedAt),
+		Cwd:                   xptr.NonEmpty(checkout.Cwd),
+		Branch:                checkout.Branch,
+		RepositoryUrl:         checkout.RepositoryURL,
+		HeadSha:               checkout.HeadSHA,
+		WorktreeRemovalReason: worktreeRemovalReasonOf(checkout.WorktreeRemovalReason),
+		Sequence:              SequenceOf(checkout.Sequence),
+		MovedSinceSnapshot:    checkout.MovedSinceSnapshot,
+		DiffStat:              diffStatOf(checkout.DiffStat),
+		AdoptedBranch:         xptr.NonEmpty(checkout.AdoptedBranch),
+		FailureReason:         stored.FailureReason,
+		Notes:                 stored.Notes,
+		NotesUpdatedAt:        dates.PreciseStampPtr(stored.NotesUpdatedAt),
+		FailedRun:             stored.FailedRun,
+		Documents:             stored.Documents,
+		DocumentsUpdatedAt:    dates.PreciseStampPtr(stored.DocumentsUpdatedAt),
+		Snapshots:             stored.Snapshots,
+		Hidden:                stored.Hidden,
+		Parent:                parentOf(stored.Parent),
 	}
 }
 
@@ -65,6 +65,19 @@ func cascadeBlockOf(block taskstore.CascadeBlock) taskv1.CascadeBlock {
 	}
 
 	return taskv1.CascadeBlock_CASCADE_BLOCK_UNSPECIFIED
+}
+
+func worktreeRemovalReasonOf(reason taskstore.WorktreeRemovalReason) taskv1.WorktreeRemovalReason {
+	switch reason {
+	case taskstore.WorktreeOnDisk:
+		return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED
+	case taskstore.WorktreeDeleted:
+		return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED
+	case taskstore.WorktreeGone:
+		return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
+	}
+
+	return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED
 }
 
 // SequenceOf is a stored sequence as the wire carries it.

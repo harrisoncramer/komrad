@@ -995,7 +995,7 @@ func TestDeleteWorkflowWithoutRecordsKeepsTheWorkflow(t *testing.T) {
 	assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt)
 	task, err := st.Tasks.Get(ctx, *agent.TaskID)
 	require.NoError(t, err)
-	assert.True(t, task.Checkout.WorktreeRemoved)
+	assert.Equal(t, taskstore.WorktreeDeleted, task.Checkout.WorktreeRemovalReason)
 	assert.Equal(t, []string{agent.Cwd}, lifecycle.ranTaskDeprovisions())
 }
 

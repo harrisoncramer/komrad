@@ -84,7 +84,7 @@ func (s *TaskService) removeWorktree(ctx context.Context, id string) error {
 	if err != nil {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, id))
 	}
-	if !found.Checkout.IsUsable() {
+	if found.Checkout.Cwd == "" || found.Checkout.WorktreeRemovalReason == taskstore.WorktreeDeleted {
 		return s.tasks.ClearDeleting(cleanup, found.ID)
 	}
 
@@ -154,7 +154,7 @@ func (s *TaskService) tearDown(ctx context.Context, task taskstore.Task) error {
 		return err
 	}
 
-	if !task.Checkout.WorktreeRemoved {
+	if !task.Checkout.IsWorktreeRemoved() {
 		if err := s.runPreDelete(ctx, task, flow); err != nil {
 			return err
 		}

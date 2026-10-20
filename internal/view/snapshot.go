@@ -49,6 +49,7 @@ const (
 	RepoClean Repo = iota
 	RepoRebasing
 	RepoGone
+	RepoDeleted
 	// RepoEnd is one past the last state, so a caller walking them all gets a bound that moves
 	// when a state is added.
 	RepoEnd

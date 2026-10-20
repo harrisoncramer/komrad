@@ -66,7 +66,7 @@ func TestReviewOpen(t *testing.T) {
 
 	t.Run("an agent whose worktree was removed opens from its workflow's directory", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.task.WorktreeRemoved = true
+		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
 		server.task.Snapshots = 1
 		server.workflow.Cwd = server.repo.Root
 
@@ -78,7 +78,7 @@ func TestReviewOpen(t *testing.T) {
 
 	t.Run("an agent whose worktree was removed in a workflow with no directory is not opened", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.task.WorktreeRemoved = true
+		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
 		server.task.Snapshots = 1
 
 		harness := openReview(t, server)
@@ -89,7 +89,7 @@ func TestReviewOpen(t *testing.T) {
 
 	t.Run("an agent whose worktree was removed with no snapshot is not opened", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.task.WorktreeRemoved = true
+		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
 		server.workflow.Cwd = server.repo.Root
 
 		harness := openReview(t, server)
@@ -1993,7 +1993,7 @@ func TestReviewHold(t *testing.T) {
 
 	t.Run("a removed worktree refuses the edit key and stops nothing", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.task.WorktreeRemoved = true
+		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
 		server.task.Snapshots = 1
 		server.workflow.Cwd = server.repo.Root
 		harness := openReview(t, server)
