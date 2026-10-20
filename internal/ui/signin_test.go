@@ -448,12 +448,12 @@ func TestGitHubAuthorization(t *testing.T) {
 
 		frame := readProse(harness)
 		assert.Contains(t, frame, "Authorize GitHub for your engine")
-		assert.Contains(t, frame, "Open https://github.com/login/device and enter WDJB-MJHT.")
-		assert.Contains(t, frame, "Waiting for GitHub...")
+		assert.Contains(t, frame, "WDJB-MJHT")
+		assert.Contains(t, frame, "https://github.com/login/device")
 		assert.False(t, harness.panel.IsWatching())
 
 		harness.fireTimers()
-		assert.Contains(t, readProse(harness), "Waiting for GitHub...")
+		assert.Contains(t, readProse(harness), "WDJB-MJHT")
 
 		harness.fireTimers()
 		assert.True(t, harness.panel.IsWatching())

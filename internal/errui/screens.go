@@ -205,7 +205,8 @@ func RenderGitHubNeeded(params RenderGitHubNeededParams) string {
 
 	if params.IsAuthorizing {
 		if params.UserCode != "" {
-			screen.Body = append(screen.Body, "Open "+params.VerificationURI+" and enter "+params.UserCode+".", "Waiting for GitHub...")
+			screen.Body = append(screen.Body, "Enter the code below at GitHub's address. The panel opens once GitHub accepts it.")
+			screen.Details = append(screen.Details, detail{Label: "code", Value: params.UserCode}, detail{Label: "enter at", Value: params.VerificationURI})
 		}
 		screen.Hints = append(screen.Hints, "Press ctrl+c to close.")
 
