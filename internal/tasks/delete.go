@@ -182,7 +182,7 @@ func (s *TaskService) findSnapshotRefs(ctx context.Context, task taskstore.Task)
 func (s *TaskService) releaseSnapshotRefs(ctx context.Context, held snapshotRefs) {
 	for _, ref := range held.refs {
 		if err := s.snapshots.ReleaseRef(ctx, held.dir, ref); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the commit of a snapshot",
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the ref of a snapshot",
 				append([]slog.Attr{slog.String(logging.TaskID, held.taskID)}, logging.Err(err)...)...)
 		}
 	}
