@@ -294,8 +294,8 @@ message RestoreWorkflowResponse {
 message DeleteWorkflowRequest {
   // The archived workflow to delete, by id.
   string id = 1 [(buf.validate.field).string.min_len = 1];
-  // Whether to delete the records of the workflow's tasks too: their agents, transcripts, documents, mail, notes
-  // and reviews. False deletes only the tasks' worktrees and keeps the workflow archived.
+  // Whether to delete the agents, transcripts, documents, mail, notes and reviews of the workflow's tasks too.
+  // False deletes only the tasks' worktrees and keeps the workflow archived.
   bool records = 2;
 }
 

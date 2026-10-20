@@ -9179,7 +9179,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether to delete the tasks' records too: their agents, transcripts, documents, mail, notes and reviews. False deletes only the tasks' worktrees and keeps the tasks archived."
+          "description": "Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too. False deletes only the tasks' worktrees and keeps the tasks archived."
         }
       ]
     },
@@ -9951,7 +9951,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Whether to delete the records of the workflow's tasks too: their agents, transcripts, documents, mail, notes and reviews. False deletes only the tasks' worktrees and keeps the workflow archived."
+          "description": "Whether to delete the agents, transcripts, documents, mail, notes and reviews of the workflow's tasks too. False deletes only the tasks' worktrees and keeps the workflow archived."
         }
       ]
     },

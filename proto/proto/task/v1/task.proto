@@ -239,7 +239,7 @@ message DeleteTasksRequest {
       string: {min_len: 1}
     }
   }];
-  // Whether to delete the tasks' records too: their agents, transcripts, documents, mail, notes and reviews.
+  // Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too.
   // False deletes only the tasks' worktrees and keeps the tasks archived.
   bool records = 2;
 }

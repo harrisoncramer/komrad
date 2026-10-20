@@ -1107,8 +1107,8 @@ type DeleteWorkflowRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The archived workflow to delete, by id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Whether to delete the records of the workflow's tasks too: their agents, transcripts, documents, mail, notes
-	// and reviews. False deletes only the tasks' worktrees and keeps the workflow archived.
+	// Whether to delete the agents, transcripts, documents, mail, notes and reviews of the workflow's tasks too.
+	// False deletes only the tasks' worktrees and keeps the workflow archived.
 	Records       bool `protobuf:"varint,2,opt,name=records,proto3" json:"records,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -53,7 +53,7 @@ func rowsIn(list rowList, ids ...string) []listedRow {
 	return xslice.Map(ids, func(id string) listedRow { return listedRow{list: list, id: id} })
 }
 
-// awaitDeleted waits for the rows to leave the listing when the delete takes the records, since a delete of the worktree alone keeps them.
+// awaitDeleted waits for the rows to leave the listing when the delete takes the records.
 func awaitDeleted(records bool, rows []listedRow) *awaits {
 	if !records {
 		return nil

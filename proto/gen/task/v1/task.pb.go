@@ -1250,7 +1250,7 @@ type DeleteTasksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The tasks to delete, by id or slug.
 	Tasks []string `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
-	// Whether to delete the tasks' records too: their agents, transcripts, documents, mail, notes and reviews.
+	// Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too.
 	// False deletes only the tasks' worktrees and keeps the tasks archived.
 	Records       bool `protobuf:"varint,2,opt,name=records,proto3" json:"records,omitempty"`
 	unknownFields protoimpl.UnknownFields
