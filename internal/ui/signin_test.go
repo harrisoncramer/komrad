@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"komrad/internal/engine"
 	"komrad/internal/ui"
@@ -254,6 +255,267 @@ func TestSignInLost(t *testing.T) {
 			harness.press("enter")
 			require.True(t, harness.panel.IsWatching())
 			assert.NotContains(t, harness.readFrame(), "backend", "the panel comes back empty and waits for the engine")
+		})
+	}
+}
+
+// githubPoll is one answer the control plane gives a poll of GitHub's device flow.
+type githubPoll struct {
+	isAuthorized bool
+	err          error
+}
+
+type fakeControlPlane struct {
+	mu           sync.Mutex
+	startErr     error
+	isAuthorized bool
+	githubErr    error
+	codeErr      error
+	polls        []githubPoll
+	starts       int
+	codes        int
+}
+
+func (f *fakeControlPlane) StartEngine(context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.starts++
+
+	return f.startErr
+}
+
+func (f *fakeControlPlane) IsGitHubAuthorized(context.Context) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.isAuthorized, f.githubErr
+}
+
+func (f *fakeControlPlane) StartGitHub(context.Context) (*ui.GitHubCode, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.codes++
+	if f.codeErr != nil {
+		return nil, f.codeErr
+	}
+
+	return &ui.GitHubCode{UserCode: "WDJB-MJHT", VerificationURI: "https://github.com/login/device", Interval: 5 * time.Second}, nil
+}
+
+// PollGitHub answers each of polls in turn, holding on the last.
+func (f *fakeControlPlane) PollGitHub(context.Context) (*ui.GitHubPoll, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	next := f.polls[0]
+	if len(f.polls) > 1 {
+		f.polls = f.polls[1:]
+	}
+	if next.err != nil {
+		return nil, next.err
+	}
+
+	return &ui.GitHubPoll{IsAuthorized: next.isAuthorized, Interval: 5 * time.Second}, nil
+}
+
+func (f *fakeControlPlane) answerGitHub(codeErr error, polls ...githubPoll) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.codeErr, f.polls = codeErr, polls
+}
+
+func (f *fakeControlPlane) count() (int, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.starts, f.codes
+}
+
+// TestStoppedEngine walks a panel on an engine behind a control plane through starting the engine.
+func TestStoppedEngine(t *testing.T) {
+	t.Run("enter starts a stopped engine, and the panel opens once the engine itself answers", func(t *testing.T) {
+		signIn := &fakeSignIn{access: engine.ErrEngineStopped}
+		plane := &fakeControlPlane{isAuthorized: true}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn, controlPlane: plane})
+
+		frame := readProse(harness)
+		assert.Contains(t, frame, "Your engine is stopped")
+		assert.Contains(t, frame, "Press enter to start it")
+
+		signIn.answer(engine.ErrEngineStarting, nil)
+		harness.press("enter")
+
+		starts, _ := plane.count()
+		assert.Equal(t, 1, starts)
+		assert.Contains(t, readProse(harness), "Your engine is starting")
+
+		harness.fireTimers()
+		assert.Contains(t, readProse(harness), "Your engine is starting")
+		assert.False(t, harness.panel.IsWatching())
+
+		signIn.answer(nil, nil)
+		harness.fireTimers()
+		assert.True(t, harness.panel.IsWatching())
+	})
+
+	t.Run("an engine already starting is waited for", func(t *testing.T) {
+		signIn := &fakeSignIn{access: engine.ErrEngineStarting}
+		plane := &fakeControlPlane{isAuthorized: true}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn, controlPlane: plane})
+
+		assert.Contains(t, readProse(harness), "Your engine is starting")
+
+		signIn.answer(nil, nil)
+		harness.fireTimers()
+
+		starts, _ := plane.count()
+		assert.Zero(t, starts)
+		assert.True(t, harness.panel.IsWatching())
+	})
+
+	t.Run("a start the control plane refuses says why", func(t *testing.T) {
+		signIn := &fakeSignIn{access: engine.ErrEngineStopped}
+		plane := &fakeControlPlane{startErr: errors.New("the instance is out of capacity")}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn, controlPlane: plane})
+
+		harness.press("enter")
+
+		frame := readProse(harness)
+		assert.Contains(t, frame, "Your engine is stopped")
+		assert.Contains(t, frame, "the instance is out of capacity")
+	})
+
+	t.Run("an engine that stops while it starts says so", func(t *testing.T) {
+		signIn := &fakeSignIn{access: engine.ErrEngineStopped}
+		plane := &fakeControlPlane{}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn, controlPlane: plane})
+
+		harness.press("enter")
+		harness.fireTimers()
+
+		frame := readProse(harness)
+		assert.Contains(t, frame, "Your engine is stopped")
+		assert.Contains(t, frame, "the engine stopped before it answered")
+	})
+
+	t.Run("an engine that never answers is given five minutes, then offered again", func(t *testing.T) {
+		signIn := &fakeSignIn{access: engine.ErrEngineStopped}
+		plane := &fakeControlPlane{}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn, controlPlane: plane})
+
+		signIn.answer(engine.ErrEngineStarting, nil)
+		harness.press("enter")
+		for range int(5 * time.Minute / (2 * time.Second)) {
+			require.Contains(t, readProse(harness), "Your engine is starting")
+			harness.fireTimers()
+		}
+
+		frame := readProse(harness)
+		assert.Contains(t, frame, "the engine did not start within five minutes")
+		assert.Contains(t, frame, "Press enter to start it")
+
+		harness.press("enter")
+		starts, _ := plane.count()
+		assert.Equal(t, 2, starts)
+	})
+
+	t.Run("a running panel whose engine stops shows the stopped screen", func(t *testing.T) {
+		signIn := &fakeSignIn{}
+		plane := &fakeControlPlane{isAuthorized: true}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn, controlPlane: plane})
+		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend")))
+		require.Contains(t, harness.readFrame(), "backend")
+
+		signIn.answer(engine.ErrEngineStopped, nil)
+		harness.send(ui.NewWatchLost(errors.New("the stream ended")))
+
+		frame := readProse(harness)
+		assert.Contains(t, frame, "Your engine is stopped")
+		assert.NotContains(t, frame, "backend")
+		assert.False(t, harness.panel.IsWatching())
+	})
+}
+
+// TestGitHubAuthorization walks a panel on an engine without a working GitHub login through
+// GitHub's device flow.
+func TestGitHubAuthorization(t *testing.T) {
+	t.Run("the panel shows GitHub's code until the person enters it", func(t *testing.T) {
+		plane := &fakeControlPlane{polls: []githubPoll{{}, {isAuthorized: true}}}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: &fakeSignIn{}, controlPlane: plane})
+
+		frame := readProse(harness)
+		assert.Contains(t, frame, "Authorize GitHub for your engine")
+		assert.Contains(t, frame, "WDJB-MJHT")
+		assert.Contains(t, frame, "https://github.com/login/device")
+		assert.False(t, harness.panel.IsWatching())
+
+		harness.fireTimers()
+		assert.Contains(t, readProse(harness), "WDJB-MJHT")
+
+		harness.fireTimers()
+		assert.True(t, harness.panel.IsWatching())
+	})
+
+	t.Run("an engine whose GitHub login works opens at once", func(t *testing.T) {
+		plane := &fakeControlPlane{isAuthorized: true}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: &fakeSignIn{}, controlPlane: plane})
+
+		_, codes := plane.count()
+		assert.Zero(t, codes)
+		assert.True(t, harness.panel.IsWatching())
+	})
+
+	t.Run("a control plane that cannot ask GitHub lets the person in", func(t *testing.T) {
+		plane := &fakeControlPlane{githubErr: errors.New("the control plane answered 502 Bad Gateway")}
+		harness := newPanelHarness(t, panelHarnessParams{signIn: &fakeSignIn{}, controlPlane: plane})
+
+		assert.True(t, harness.panel.IsWatching())
+	})
+
+	tests := []struct {
+		name    string
+		codeErr error
+		polls   []githubPoll
+		wantErr string
+	}{
+		{
+			name:    "a code that runs out offers a new code",
+			polls:   []githubPoll{{err: errors.New("the code ran out before it was entered")}},
+			wantErr: "the code ran out before it was entered",
+		},
+		{
+			name:    "an authorization turned down at GitHub offers a new code",
+			polls:   []githubPoll{{err: errors.New("the authorization was turned down at GitHub")}},
+			wantErr: "the authorization was turned down at GitHub",
+		},
+		{
+			name:    "a code GitHub would not give offers a new code",
+			codeErr: errors.New("the control plane answered 502 Bad Gateway"),
+			wantErr: "the control plane answered 502 Bad Gateway",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plane := &fakeControlPlane{codeErr: tt.codeErr, polls: tt.polls}
+			harness := newPanelHarness(t, panelHarnessParams{signIn: &fakeSignIn{}, controlPlane: plane})
+			harness.fireTimers()
+
+			frame := readProse(harness)
+			assert.Contains(t, frame, tt.wantErr)
+			assert.Contains(t, frame, "Press enter for a new code")
+			assert.False(t, harness.panel.IsWatching())
+
+			plane.answerGitHub(nil, githubPoll{isAuthorized: true})
+			harness.press("enter")
+			harness.fireTimers()
+
+			_, codes := plane.count()
+			assert.Equal(t, 2, codes)
+			assert.True(t, harness.panel.IsWatching())
 		})
 	}
 }

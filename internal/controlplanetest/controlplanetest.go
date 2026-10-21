@@ -120,13 +120,14 @@ type GitHub struct {
 	mu       sync.Mutex
 	requests []Request
 	poll     map[string]any
+	users    map[string]int
 }
 
 // StartGitHub serves a GitHub on a certificate the CA signed, until the test ends.
 func StartGitHub(tb testing.TB, ca *CA) *GitHub {
 	tb.Helper()
 
-	fake := &GitHub{ca: ca, poll: map[string]any{"error": "authorization_pending"}}
+	fake := &GitHub{ca: ca, poll: map[string]any{"error": "authorization_pending"}, users: make(map[string]int)}
 
 	server := httptest.NewUnstartedServer(http.HandlerFunc(fake.serve))
 	server.TLS = &tls.Config{Certificates: []tls.Certificate{ca.sign(tb)}, MinVersion: tls.VersionTLS12}
@@ -147,6 +148,15 @@ func (g *GitHub) Authorize(token string) {
 // Refuse has the next poll answer with an OAuth error, such as slow_down or access_denied.
 func (g *GitHub) Refuse(code string, interval int) {
 	g.setPoll(map[string]any{"error": code, "interval": interval})
+}
+
+// AnswerUser has /user answer status to a request carrying token, such as 401 for a login the
+// person revoked.
+func (g *GitHub) AnswerUser(token string, status int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	g.users[token] = status
 }
 
 func (g *GitHub) setPoll(answer map[string]any) {
@@ -185,6 +195,7 @@ func (g *GitHub) serve(w http.ResponseWriter, r *http.Request) {
 	g.mu.Lock()
 	g.requests = append(g.requests, Request{Host: r.Host, Path: r.URL.Path, Authorization: r.Header.Get("Authorization")})
 	poll := g.poll
+	userStatus, refusesUser := g.users[tokenOf(r)]
 	g.mu.Unlock()
 
 	switch {
@@ -198,6 +209,8 @@ func (g *GitHub) serve(w http.ResponseWriter, r *http.Request) {
 		})
 	case r.Method == http.MethodPost && r.URL.Path == "/login/oauth/access_token":
 		writeJSON(w, poll)
+	case r.URL.Path == "/user" && refusesUser:
+		w.WriteHeader(userStatus)
 	case r.URL.Path == "/user":
 		writeJSON(w, map[string]any{"login": tokenOf(r), "id": 7})
 	case r.Method == http.MethodPost && r.URL.Path == "/graphql":

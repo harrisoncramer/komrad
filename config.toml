@@ -817,8 +817,10 @@ ca_cert_file     = ""
 ca_key_file      = ""
 # The client id of the GitHub OAuth app people authorize GitHub through.
 github_client_id = ""
-# Each engine the forge proxy takes requests from, written as "name=credential", such as
-# "harry=6f1c...". The engine's forge_proxy.url carries the same name and credential.
+# Each engine behind the control plane, written as "name=credential@address", such as
+# "harry=6f1c...@10.0.1.6:8788". The control plane sends requests under /name to the
+# engine's sign_in.addr at the address, a loopback or private host and port. The engine's
+# forge_proxy.url carries the same name and credential.
 engines          = []
 
 # The forge proxy a remote engine sends its GitHub requests through.
@@ -864,7 +866,8 @@ cache_dir             = ""
 # Left empty this is ~/.local/state/komrad.
 # It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 state_dir             = ""
-# The https address the engine is served on, like https://komrad.example.com. Left empty the
-# engine is local and an agent's terminal is shown by moving its own pane into the panel. It
-# may be plain http when its host is this machine.
+# The https address the engine is served on, the control plane's address and the engine's
+# path, like https://komrad.example.com/harry. Left empty the engine is local and an agent's
+# terminal is shown by moving its own pane into the panel. It may be plain http when its
+# host is this machine.
 url                   = ""

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -74,9 +75,10 @@ type Connection struct {
 	// Left empty this is ~/.local/state/komrad.
 	// It holds credentials and is komrad's to manage, so nothing of yours belongs here.
 	StateDir string `mapstructure:"state_dir"`
-	// The https address the engine is served on, like https://komrad.example.com. Left empty the
-	// engine is local and an agent's terminal is shown by moving its own pane into the panel. It
-	// may be plain http when its host is this machine.
+	// The https address the engine is served on, the control plane's address and the engine's
+	// path, like https://komrad.example.com/harry. Left empty the engine is local and an agent's
+	// terminal is shown by moving its own pane into the panel. It may be plain http when its
+	// host is this machine.
 	URL string `mapstructure:"url"`
 }
 
@@ -180,8 +182,8 @@ func (c Connection) validateURL() error {
 	if err != nil {
 		return fmt.Errorf("%q is not a url: %w", c.URL, err)
 	}
-	if strings.Trim(parsed.Path, "/") != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return fmt.Errorf("%q has more than a scheme and a host", c.URL)
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("%q has more than a scheme, a host and a path", c.URL)
 	}
 
 	return nil
@@ -222,6 +224,18 @@ var connectionEnvironment = map[string]string{
 	"connection.tmux_socket":           "KOMRAD_TMUX_SOCKET",
 	"connection.cache_dir":             "KOMRAD_CACHE_DIR",
 	"connection.state_dir":             "KOMRAD_STATE_DIR",
+}
+
+// WithoutConnectionEnvironment is environ without the variables that override a config's connection,
+// so a komrad started with it reads the connection from its engine's file.
+func WithoutConnectionEnvironment(environ []string) []string {
+	variables := slices.Collect(maps.Values(connectionEnvironment))
+
+	return slices.DeleteFunc(slices.Clone(environ), func(entry string) bool {
+		name, _, _ := strings.Cut(entry, "=")
+
+		return slices.Contains(variables, name)
+	})
 }
 
 func bindEnvironment(cfg *viper.Viper) error {

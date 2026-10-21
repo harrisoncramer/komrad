@@ -46,6 +46,7 @@ func TestIntegrationDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
 			engines := filepath.Join(home, ".config", "komrad", "engines")
+			t.Setenv("KOMRAD_ENGINES_DIR", engines)
 			require.NoError(t, os.MkdirAll(engines, 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"), []byte(""), 0o600))
 

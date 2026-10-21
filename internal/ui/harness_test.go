@@ -209,6 +209,7 @@ type panelHarnessParams struct {
 	engineStatus    ui.EngineStatus
 	loader          loader.Style
 	signIn          ui.SignIn
+	controlPlane    ui.ControlPlane
 }
 
 func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
@@ -311,6 +312,7 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			EngineStatus:    params.engineStatus,
 			Loader:          params.loader,
 			SignIn:          params.signIn,
+			ControlPlane:    params.controlPlane,
 		}),
 	}
 	t.Cleanup(harness.releaseParked)

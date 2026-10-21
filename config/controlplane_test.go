@@ -15,24 +15,27 @@ func TestLoadControlPlane(t *testing.T) {
 		file        string
 		wantErr     string
 		want        ControlPlane
-		wantEngines map[string]string
+		wantEngines map[string]ControlPlaneEngine
 	}{
 		{
 			name:        "nothing set listens on loopback",
 			want:        ControlPlane{Addr: defaultControlPlaneAddr, ForgeProxyAddr: defaultForgeProxyAddr},
-			wantEngines: map[string]string{},
+			wantEngines: map[string]ControlPlaneEngine{},
 		},
 		{
 			name: "a forge proxy on a private address with two engines",
-			file: "[control_plane]\nforge_proxy_addr = \"10.0.1.5:8789\"\nca_cert_file = \"/etc/komrad/ca.pem\"\nca_key_file = \"/etc/komrad/ca.key\"\nengines = [\"harry=6f1c\", \" ada = 9b2e \"]\n",
+			file: "[control_plane]\nforge_proxy_addr = \"10.0.1.5:8789\"\nca_cert_file = \"/etc/komrad/ca.pem\"\nca_key_file = \"/etc/komrad/ca.key\"\nengines = [\"harry=6f1c@10.0.1.6:8788\", \" ada = 9b2e @ 127.0.0.1:8798 \"]\n",
 			want: ControlPlane{
 				Addr:           defaultControlPlaneAddr,
 				ForgeProxyAddr: "10.0.1.5:8789",
 				CACertFile:     "/etc/komrad/ca.pem",
 				CAKeyFile:      "/etc/komrad/ca.key",
-				Engines:        []string{"harry=6f1c", " ada = 9b2e "},
+				Engines:        []string{"harry=6f1c@10.0.1.6:8788", " ada = 9b2e @ 127.0.0.1:8798 "},
 			},
-			wantEngines: map[string]string{"harry": "6f1c", "ada": "9b2e"},
+			wantEngines: map[string]ControlPlaneEngine{
+				"harry": {Credential: "6f1c", Addr: "10.0.1.6:8788"},
+				"ada":   {Credential: "9b2e", Addr: "127.0.0.1:8798"},
+			},
 		},
 		{
 			name: "a CA under the home directory",
@@ -43,7 +46,7 @@ func TestLoadControlPlane(t *testing.T) {
 				CACertFile:     ExpandHome("~/komrad/ca.pem"),
 				CAKeyFile:      ExpandHome("~/komrad/ca.key"),
 			},
-			wantEngines: map[string]string{},
+			wantEngines: map[string]ControlPlaneEngine{},
 		},
 		{
 			name:    "endpoints the network reaches directly",
@@ -66,13 +69,23 @@ func TestLoadControlPlane(t *testing.T) {
 			wantErr: "control_plane.engines",
 		},
 		{
+			name:    "an engine with no address",
+			file:    "[control_plane]\nengines = [\"harry=6f1c\"]\n",
+			wantErr: "control_plane.engines",
+		},
+		{
+			name:    "an engine on a public address",
+			file:    "[control_plane]\nengines = [\"harry=6f1c@203.0.113.7:8788\"]\n",
+			wantErr: "not a loopback or private address",
+		},
+		{
 			name:    "an engine name that would break the forge proxy url",
-			file:    "[control_plane]\nengines = [\"harry:x=6f1c\"]\n",
+			file:    "[control_plane]\nengines = [\"harry:x=6f1c@10.0.1.6:8788\"]\n",
 			wantErr: "control_plane.engines",
 		},
 		{
 			name:    "an engine named twice",
-			file:    "[control_plane]\nengines = [\"harry=6f1c\", \"harry=9b2e\"]\n",
+			file:    "[control_plane]\nengines = [\"harry=6f1c@10.0.1.6:8788\", \"harry=9b2e@10.0.1.7:8788\"]\n",
 			wantErr: "named a second time",
 		},
 	}

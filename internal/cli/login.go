@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"komrad/internal/browser"
 	"komrad/internal/engine"
 	"komrad/internal/logging"
+	"komrad/internal/server"
 
 	"github.com/spf13/cobra"
 )
@@ -150,6 +152,7 @@ type panelSignIn struct {
 	opener    browser.Opener
 	listen    string
 	setUpSSH  func(ctx context.Context) error
+	ensureSSH func(ctx context.Context) error
 }
 
 // CheckAccess asks the engine whether the token this machine holds names someone granted access.
@@ -170,10 +173,29 @@ func (s *panelSignIn) CheckAccess(ctx context.Context) error {
 	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode == http.StatusOK {
+		if err := s.ensureSSH(ctx); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "editors cannot reach the engine's files", logging.Err(err)...)
+		}
+
 		return nil
 	}
 
-	reason := readReason(res.Body)
+	raw, err := io.ReadAll(io.LimitReader(res.Body, maxReason))
+	if err != nil {
+		return fmt.Errorf("failed to read the answer from the engine at %s: %w", s.url, err)
+	}
+
+	var health server.Health
+	if res.StatusCode == http.StatusServiceUnavailable && json.Unmarshal(raw, &health) == nil {
+		switch health.Status {
+		case server.HealthStopped:
+			return engine.ErrEngineStopped
+		case server.HealthStarting:
+			return engine.ErrEngineStarting
+		}
+	}
+
+	reason := readReason(bytes.NewReader(raw))
 
 	switch res.StatusCode {
 	case http.StatusUnauthorized:

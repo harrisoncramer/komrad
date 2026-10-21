@@ -34,25 +34,39 @@ type ControlPlane struct {
 	CAKeyFile string `mapstructure:"ca_key_file"`
 	// The client id of the GitHub OAuth app people authorize GitHub through.
 	GitHubClientID string `mapstructure:"github_client_id"`
-	// Each engine the forge proxy takes requests from, written as "name=credential", such as
-	// "harry=6f1c...". The engine's forge_proxy.url carries the same name and credential.
+	// Each engine behind the control plane, written as "name=credential@address", such as
+	// "harry=6f1c...@10.0.1.6:8788". The control plane sends requests under /name to the
+	// engine's sign_in.addr at the address, a loopback or private host and port. The engine's
+	// forge_proxy.url carries the same name and credential.
 	Engines []string `mapstructure:"engines"`
 }
 
-// GetEngines is each engine's forge proxy credential keyed by the engine's name.
-func (c ControlPlane) GetEngines() (map[string]string, error) {
-	engines := make(map[string]string, len(c.Engines))
+// ControlPlaneEngine is one engine behind the control plane.
+type ControlPlaneEngine struct {
+	// Credential is the forge proxy credential the engine sends.
+	Credential string
+	// Addr is where the engine's public listener answers.
+	Addr string
+}
+
+// GetEngines is each engine behind the control plane keyed by the engine's name.
+func (c ControlPlane) GetEngines() (map[string]ControlPlaneEngine, error) {
+	engines := make(map[string]ControlPlaneEngine, len(c.Engines))
 	for _, entry := range c.Engines {
-		name, credential, ok := strings.Cut(entry, "=")
-		name, credential = strings.TrimSpace(name), strings.TrimSpace(credential)
-		if !ok || name == "" || credential == "" || strings.ContainsAny(name, ":/ \t") {
-			return nil, errors.New("an entry is not written as name=credential with a bare engine name")
+		name, rest, named := strings.Cut(entry, "=")
+		credential, addr, addressed := strings.Cut(rest, "@")
+		name, credential, addr = strings.TrimSpace(name), strings.TrimSpace(credential), strings.TrimSpace(addr)
+		if !named || !addressed || name == "" || credential == "" || strings.ContainsAny(name, ":/ \t") {
+			return nil, errors.New("an entry is not written as name=credential@address with a bare engine name")
+		}
+		if err := validatePrivateAddr(addr); err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
 		}
 		if _, seen := engines[name]; seen {
 			return nil, fmt.Errorf("%q is named a second time", name)
 		}
 
-		engines[name] = credential
+		engines[name] = ControlPlaneEngine{Credential: credential, Addr: addr}
 	}
 
 	return engines, nil

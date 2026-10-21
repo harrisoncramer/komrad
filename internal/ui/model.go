@@ -237,6 +237,7 @@ type Deps struct {
 	StartupFindings []errui.Finding
 	EngineStatus    EngineStatus
 	SignIn          SignIn
+	ControlPlane    ControlPlane
 }
 
 type model struct {
@@ -428,7 +429,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 	}
 
 	if deps.SignIn != nil {
-		m.access = accessState{signIn: deps.SignIn, deps: deps, stage: accessChecking}
+		m.access = accessState{signIn: deps.SignIn, controlPlane: deps.ControlPlane, deps: deps, stage: accessChecking}
 
 		return m
 	}

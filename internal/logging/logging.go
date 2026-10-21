@@ -56,6 +56,7 @@ const (
 	ExchangedMail          = "komrad.mail.exchanged"
 	WorkflowID             = "komrad.workflow.id"
 	ExitCode               = "process.exit.code"
+	ProcessOutput          = "komrad.process.output"
 	DurationMS             = "duration_ms"
 	Loop                   = "loop"
 	LoopWoken              = "komrad.loop.woken"

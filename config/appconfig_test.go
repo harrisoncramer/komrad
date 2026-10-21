@@ -1087,10 +1087,16 @@ func TestLoadTakesAnEngineURL(t *testing.T) {
 			want:    "",
 		},
 		{
-			name:    "a path after the host",
-			file:    "[connection]\nurl = \"https://komrad.example.com/api\"\n",
+			name:    "a query after the path",
+			file:    "[connection]\nurl = \"https://komrad.example.com/harry?x=1\"\n",
 			wantErr: true,
 			want:    "",
+		},
+		{
+			name:    "an engine's path on the control plane, kept without its trailing slash",
+			file:    "[connection]\nurl = \"https://komrad.example.com/harry/\"\n",
+			wantErr: false,
+			want:    "https://komrad.example.com/harry",
 		},
 		{
 			name:    "plain http to this machine, which never reaches the network",

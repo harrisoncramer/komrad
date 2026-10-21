@@ -150,6 +150,7 @@ func TestIntegrationResolveConfigStack(t *testing.T) {
 			t.Setenv("HOME", home)
 			t.Setenv("KOMRAD_CONFIG", tt.variable)
 			engines := filepath.Join(home, ".config", "komrad", "engines")
+			t.Setenv("KOMRAD_ENGINES_DIR", engines)
 			require.NoError(t, os.MkdirAll(engines, 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(engines, "remote.toml"), []byte(""), 0o600))
 

@@ -148,6 +148,7 @@ type NewPanelParams struct {
 	EngineStatus    EngineStatus
 	Loader          loader.Style
 	SignIn          SignIn
+	ControlPlane    ControlPlane
 }
 
 // The panes the recording tmux hands out, named for what the frame puts in them.
@@ -220,6 +221,7 @@ func NewPanel(params NewPanelParams) *Panel {
 			EngineStatus:    params.EngineStatus,
 			Loader:          params.Loader,
 			SignIn:          params.SignIn,
+			ControlPlane:    params.ControlPlane,
 		}, true, post),
 		post: post,
 		tmux: tmux,
