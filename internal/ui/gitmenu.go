@@ -74,7 +74,7 @@ func gitMenu(m *model, task panel.Task) submenu {
 	}
 }
 
-// pullRequestGitMenu is the git menu's entries on a task's pull request, without those that rewrite its worktree.
+// pullRequestGitMenu is the git menu holding only a task's pull request entries.
 func pullRequestGitMenu(m *model, task panel.Task) submenu {
 	return submenu{
 		kind:    formGit,
