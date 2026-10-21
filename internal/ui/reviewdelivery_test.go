@@ -24,13 +24,21 @@ func TestReviewDeliveryOf(t *testing.T) {
 		wantStamp string
 	}{
 		{
-			name:     "an agent's reply carries nothing",
-			message:  &agentv1.ReviewMessage{Id: "m1", AuthorKind: agent, AuthorAgentId: xptr.Ptr(writer)},
+			name: "an agent's reply carries nothing",
+			message: &agentv1.ReviewMessage{
+				Id:            "m1",
+				AuthorKind:    agent,
+				AuthorAgentId: xptr.Ptr(writer),
+			},
 			wantWord: "",
 		},
 		{
-			name:      "a comment just written is released the moment it was written",
-			message:   &agentv1.ReviewMessage{Id: "m1", AuthorKind: human, CreatedAt: "2026-09-02T10:00:00Z"},
+			name: "a comment just written is released the moment it was written",
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: human,
+				CreatedAt:  "2026-09-02T10:00:00Z",
+			},
 			wantWord:  "released",
 			wantStamp: "2026-09-02T10:00:00Z",
 		},
@@ -48,35 +56,81 @@ func TestReviewDeliveryOf(t *testing.T) {
 		{
 			name: "a comment the writer answered names the answer",
 			thread: &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{
-				{Id: "m0", AuthorKind: agent, AuthorAgentId: xptr.Ptr(writer), CreatedAt: "2026-09-02T09:00:00Z"},
-				{Id: "m1", AuthorKind: human, CreatedAt: "2026-09-02T10:00:00Z", ReadAt: "2026-09-02T10:01:00Z"},
-				{Id: "m2", AuthorKind: agent, AuthorAgentId: xptr.Ptr(writer), CreatedAt: "2026-09-02T10:02:00Z"},
+				{
+					Id:            "m0",
+					AuthorKind:    agent,
+					AuthorAgentId: xptr.Ptr(writer),
+					CreatedAt:     "2026-09-02T09:00:00Z",
+				},
+				{
+					Id:         "m1",
+					AuthorKind: human,
+					CreatedAt:  "2026-09-02T10:00:00Z",
+					ReadAt:     "2026-09-02T10:01:00Z",
+				},
+				{
+					Id:            "m2",
+					AuthorKind:    agent,
+					AuthorAgentId: xptr.Ptr(writer),
+					CreatedAt:     "2026-09-02T10:02:00Z",
+				},
 			}},
-			message:   &agentv1.ReviewMessage{Id: "m1", AuthorKind: human, ReadAt: "2026-09-02T10:01:00Z"},
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: human,
+				ReadAt:     "2026-09-02T10:01:00Z",
+			},
 			wantWord:  "answered",
 			wantStamp: "2026-09-02T10:02:00Z",
 		},
 		{
 			name: "a reviewer's words after the comment do not answer it",
 			thread: &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{
-				{Id: "m0", AuthorKind: agent, AuthorAgentId: xptr.Ptr(reviewer), CreatedAt: "2026-09-02T09:00:00Z"},
-				{Id: "m1", AuthorKind: human, CreatedAt: "2026-09-02T10:00:00Z", ReadAt: "2026-09-02T10:01:00Z"},
-				{Id: "m2", AuthorKind: agent, AuthorAgentId: xptr.Ptr(reviewer), CreatedAt: "2026-09-02T10:02:00Z"},
+				{
+					Id:            "m0",
+					AuthorKind:    agent,
+					AuthorAgentId: xptr.Ptr(reviewer),
+					CreatedAt:     "2026-09-02T09:00:00Z",
+				},
+				{
+					Id:         "m1",
+					AuthorKind: human,
+					CreatedAt:  "2026-09-02T10:00:00Z",
+					ReadAt:     "2026-09-02T10:01:00Z",
+				},
+				{
+					Id:            "m2",
+					AuthorKind:    agent,
+					AuthorAgentId: xptr.Ptr(reviewer),
+					CreatedAt:     "2026-09-02T10:02:00Z",
+				},
 			}},
-			message:   &agentv1.ReviewMessage{Id: "m1", AuthorKind: human, ReadAt: "2026-09-02T10:01:00Z"},
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: human,
+				ReadAt:     "2026-09-02T10:01:00Z",
+			},
 			wantWord:  "read",
 			wantStamp: "2026-09-02T10:01:00Z",
 		},
 		{
-			name:     "a forge comment the person has not accepted is held",
-			message:  &agentv1.ReviewMessage{Id: "m1", AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE, Held: true},
+			name: "a forge comment the person has not accepted is held",
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
+				Held:       true,
+			},
 			wantWord: "held",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := reviewDeliveryOf(reviewDeliveryParams{thread: tt.thread, message: tt.message, writerID: writer})
+			got := reviewDeliveryOf(reviewDeliveryParams{
+				thread:   tt.thread,
+				message:  tt.message,
+				writerID: writer,
+			})
 			assert.Equal(t, tt.wantWord, got.word)
 			assert.Equal(t, tt.wantStamp, got.stamp)
 		})

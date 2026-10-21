@@ -2342,8 +2342,6 @@ type OpenReviewHistoryResponse struct {
 	// Why komrad diffed the whole change instead of the requested span. Empty when komrad diffed
 	// the span.
 	Widened string `protobuf:"bytes,7,opt,name=widened,proto3" json:"widened,omitempty"`
-	// Every review on the task the caller may read, oldest first.
-	Reviews []*Review `protobuf:"bytes,13,rep,name=reviews,proto3" json:"reviews,omitempty"`
 	// The id of the snapshot the person last commented on. Empty when there is none or the
 	// snapshot's base has changed since.
 	EarlierSnapshotId string `protobuf:"bytes,9,opt,name=earlier_snapshot_id,json=earlierSnapshotId,proto3" json:"earlier_snapshot_id,omitempty"`
@@ -2427,13 +2425,6 @@ func (x *OpenReviewHistoryResponse) GetWidened() string {
 		return x.Widened
 	}
 	return ""
-}
-
-func (x *OpenReviewHistoryResponse) GetReviews() []*Review {
-	if x != nil {
-		return x.Reviews
-	}
-	return nil
 }
 
 func (x *OpenReviewHistoryResponse) GetEarlierSnapshotId() string {
@@ -3898,15 +3889,14 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x10ReviewOriginSpan\x12(\n" +
 	"\vsnapshot_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"snapshotId\x12\x19\n" +
-	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\x88\x05\n" +
+	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\xdc\x04\n" +
 	"\x19OpenReviewHistoryResponse\x124\n" +
 	"\bsnapshot\x18\x01 \x01(\v2\x18.agent.v1.ReviewSnapshotR\bsnapshot\x126\n" +
 	"\tsnapshots\x18\x02 \x03(\v2\x18.agent.v1.ReviewSnapshotR\tsnapshots\x120\n" +
 	"\athreads\x18\x03 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\x12\x16\n" +
 	"\x06notice\x18\x05 \x01(\tR\x06notice\x128\n" +
 	"\bresolved\x18\x06 \x01(\v2\x1c.agent.v1.ReviewResolvedSpanR\bresolved\x12\x18\n" +
-	"\awidened\x18\a \x01(\tR\awidened\x12*\n" +
-	"\areviews\x18\r \x03(\v2\x10.agent.v1.ReviewR\areviews\x12.\n" +
+	"\awidened\x18\a \x01(\tR\awidened\x12.\n" +
 	"\x13earlier_snapshot_id\x18\t \x01(\tR\x11earlierSnapshotId\x12.\n" +
 	"\x13earlier_released_at\x18\n" +
 	" \x01(\tR\x11earlierReleasedAt\x122\n" +
@@ -4115,26 +4105,25 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	3,  // 22: agent.v1.OpenReviewHistoryResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
 	6,  // 23: agent.v1.OpenReviewHistoryResponse.threads:type_name -> agent.v1.ReviewThread
 	32, // 24: agent.v1.OpenReviewHistoryResponse.resolved:type_name -> agent.v1.ReviewResolvedSpan
-	4,  // 25: agent.v1.OpenReviewHistoryResponse.reviews:type_name -> agent.v1.Review
-	52, // 26: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
-	6,  // 27: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
-	4,  // 28: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
-	3,  // 29: agent.v1.GetReviewResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
-	34, // 30: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
-	4,  // 31: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
-	1,  // 32: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
-	4,  // 33: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
-	41, // 34: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	41, // 35: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	2,  // 36: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
-	46, // 37: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
-	46, // 38: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	33, // 39: agent.v1.OpenReviewHistoryResponse.TracedEntry.value:type_name -> agent.v1.ReviewTracedPlace
-	40, // [40:40] is the sub-list for method output_type
-	40, // [40:40] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	52, // 25: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
+	6,  // 26: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
+	4,  // 27: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
+	3,  // 28: agent.v1.GetReviewResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	34, // 29: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
+	4,  // 30: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
+	1,  // 31: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
+	4,  // 32: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
+	41, // 33: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	41, // 34: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	2,  // 35: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
+	46, // 36: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
+	46, // 37: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
+	33, // 38: agent.v1.OpenReviewHistoryResponse.TracedEntry.value:type_name -> agent.v1.ReviewTracedPlace
+	39, // [39:39] is the sub-list for method output_type
+	39, // [39:39] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_review_proto_init() }

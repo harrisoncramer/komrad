@@ -499,7 +499,6 @@ func (s *ReviewService) ReleaseReview(
 	if params.Verdict == "" {
 		return nil, errReviewVerdictMissing
 	}
-	verdict := params.Verdict
 
 	// A release opens a batch unless it is a comment-only review with nothing in it.
 	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.OpenReviewOfParams{
@@ -508,7 +507,7 @@ func (s *ReviewService) ReleaseReview(
 		AuthorAgentID: params.Author.AgentID,
 	})
 	if errors.Is(err, store.ErrNotFound) {
-		if verdict == reviewstore.VerdictCommented {
+		if params.Verdict == reviewstore.VerdictCommented {
 			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, task.Slug)
 		}
 
@@ -531,7 +530,7 @@ func (s *ReviewService) ReleaseReview(
 	tally := tallyBatch(open.ID, threads)
 	// Notes with no conclusion have to say something, whether pinned to a line, a reply in an
 	// earlier thread, or about the work as a whole.
-	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && verdict == reviewstore.VerdictCommented {
+	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && params.Verdict == reviewstore.VerdictCommented {
 		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, task.Slug)
 	}
 
@@ -548,7 +547,7 @@ func (s *ReviewService) ReleaseReview(
 		Task:     *task,
 		Snapshot: *snapshot,
 		Review:   *open,
-		Verdict:  verdict,
+		Verdict:  params.Verdict,
 		Body:     params.Body,
 		Threads:  s.threadsInContext(ctx, dir, threads),
 	})
@@ -561,7 +560,7 @@ func (s *ReviewService) ReleaseReview(
 		var err error
 		released, err = reviewstore.NewReviewStore(tx).ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
 			ID:      open.ID,
-			Verdict: verdict,
+			Verdict: params.Verdict,
 			Body:    params.Body,
 			Path:    path,
 		})
@@ -574,7 +573,7 @@ func (s *ReviewService) ReleaseReview(
 			TaskID:     task.ID,
 			Ordinal:    snapshot.Ordinal,
 			ReviewerID: xptr.Deref(params.Author.AgentID),
-			Verdict:    verdict,
+			Verdict:    params.Verdict,
 			Comments:   tally.Comments,
 			Replies:    tally.Replies,
 			Path:       path,

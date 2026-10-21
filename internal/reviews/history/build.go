@@ -284,8 +284,7 @@ func findPreviousReviewedSnapshot(comments []Comment, snapshots []Snapshot, snap
 }
 
 // findLastComment finds the person's newest comment on the latest snapshot before the one on
-// screen, so a late reply in an old thread does not pull the earlier snapshot back to that
-// thread's.
+// screen.
 func findLastComment(comments []Comment, ordinal int32) *Comment {
 	var last *Comment
 	for i := range comments {

@@ -70,12 +70,10 @@ func (m ReviewReleased) Body() string {
 type ReviewComment struct {
 	ThreadID string
 	// Ordinal is the snapshot the comment's lines were read in.
-	Ordinal  int32
-	FilePath string
-	OldStart int32
-	OldEnd   int32
-	NewStart int32
-	NewEnd   int32
+	Ordinal int32
+	// Anchor is the file and lines the thread is pinned to, as the review file heads it, empty for
+	// a comment on the change as a whole.
+	Anchor string
 	// QuotedLines is the diff the thread was opened on, empty on a reply and on a comment on the
 	// change as a whole.
 	QuotedLines []string
@@ -106,7 +104,7 @@ func (m ReviewComment) Body() string {
 	fmt.Fprintf(&out, "komrad: %s %s, thread %s.\n\n", m.who(), m.where(), m.ThreadID)
 
 	if len(m.QuotedLines) > 0 {
-		writeFenced(&out, "diff", m.QuotedLines)
+		WriteFenced(&out, "diff", m.QuotedLines)
 	}
 
 	out.WriteString(strings.TrimSpace(m.Said))
@@ -115,7 +113,7 @@ func (m ReviewComment) Body() string {
 	if len(m.Suggestion) > 0 {
 		out.WriteString("\nThe person wrote this replacement for those lines themselves. Apply it as written. " +
 			"If it no longer applies because the code was renamed or removed, say so in the thread rather than half-applying it:\n")
-		writeFenced(&out, "", m.Suggestion)
+		WriteFenced(&out, "", m.Suggestion)
 	}
 
 	out.WriteString("\nAnswer in the thread with add_review_message, naming its id, with addressed set once you have made the change.")
@@ -137,24 +135,15 @@ func (m ReviewComment) who() string {
 
 // where names the snapshot and the lines the comment is pinned to, or the change as a whole.
 func (m ReviewComment) where() string {
-	if m.FilePath == "" {
+	if m.Anchor == "" {
 		return fmt.Sprintf("on the whole change as of snapshot %d", m.Ordinal)
 	}
 
-	start, end, side := m.NewStart, m.NewEnd, ""
-	if start == 0 && m.OldStart > 0 {
-		start, end, side = m.OldStart, m.OldEnd, " (removed)"
-	}
-
-	if end > start {
-		return fmt.Sprintf("on snapshot %d at %s:%d-%d%s", m.Ordinal, m.FilePath, start, end, side)
-	}
-
-	return fmt.Sprintf("on snapshot %d at %s:%d%s", m.Ordinal, m.FilePath, start, side)
+	return fmt.Sprintf("on snapshot %d at %s", m.Ordinal, m.Anchor)
 }
 
-// writeFenced writes lines as a code block whose fence outruns every backtick run inside it.
-func writeFenced(out *strings.Builder, info string, lines []string) {
+// WriteFenced writes lines as a code block whose fence outruns every backtick run inside it.
+func WriteFenced(out *strings.Builder, info string, lines []string) {
 	longest := 0
 	for _, line := range lines {
 		for _, run := range strings.FieldsFunc(line, func(char rune) bool { return char != '`' }) {

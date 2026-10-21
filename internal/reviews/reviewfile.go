@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"komrad/internal/eventprompts"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xsha"
@@ -101,23 +102,10 @@ func writeThread(out *strings.Builder, params writeThreadParams) {
 	}
 }
 
-// writeFenced writes lines as a code block whose fence outruns every backtick run inside it.
+// writeFenced writes lines as a code block with a blank line after it.
 func writeFenced(out *strings.Builder, info string, lines []string) {
-	longest := 0
-	for _, line := range lines {
-		for _, run := range strings.FieldsFunc(line, func(char rune) bool { return char != '`' }) {
-			longest = max(longest, len(run))
-		}
-	}
-
-	fence := strings.Repeat("`", max(longest+1, 3))
-
-	out.WriteString(fence + info + "\n")
-	for _, line := range lines {
-		out.WriteString(line)
-		out.WriteString("\n")
-	}
-	out.WriteString(fence + "\n\n")
+	eventprompts.WriteFenced(out, info, lines)
+	out.WriteString("\n")
 }
 
 func writeExternal(out *strings.Builder, message reviewstore.Message) {
@@ -170,11 +158,21 @@ func contextOf(thread reviewstore.Thread, lines []string) []string {
 	return drawn
 }
 
-// anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side, or
-// the change as a whole for a thread pinned to no file.
+// anchorOf heads a thread with where it is pinned, or with the change as a whole for a thread
+// pinned to no file.
 func anchorOf(thread reviewstore.Thread) string {
+	if anchor := lineAnchor(thread); anchor != "" {
+		return anchor
+	}
+
+	return "The whole change"
+}
+
+// lineAnchor names the file and lines a thread is pinned to in the terms the diff uses,
+// preferring the new side, empty for a thread pinned to no file.
+func lineAnchor(thread reviewstore.Thread) string {
 	if thread.FilePath == "" {
-		return "The whole change"
+		return ""
 	}
 
 	start, end, side := thread.NewStart, thread.NewEnd, ""

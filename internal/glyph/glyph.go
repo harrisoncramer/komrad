@@ -52,7 +52,6 @@ const (
 	FolderOpen
 	FolderClosed
 	Delivered
-	held
 	MessageError
 	MessageWarning
 	MessageSuccess
@@ -107,7 +106,6 @@ var defined = [count]struct {
 	FolderOpen:         {"review.folder_open", "\uf4d4"},
 	FolderClosed:       {"review.folder_closed", "\uf4d3"},
 	Delivered:          {"review.delivered", "✓"},
-	held:               {"review.held", "◇"},
 	MessageError:       {"messages.error", "✗"},
 	MessageWarning:     {"messages.warning", "!"},
 	MessageSuccess:     {"messages.success", "✓"},

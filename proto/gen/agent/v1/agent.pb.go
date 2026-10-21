@@ -3666,7 +3666,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062\xb6\x87\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062\xb7\x87\x01\n" +
 	"\fAgentService\x12\x82\x02\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb8\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\vlist_agents\"\x97\x01List the agents komrad tracks, most recently updated first, each with the opening of its prompt. Archived agents are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x9e\x01\n" +
@@ -3727,8 +3727,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x11StartOrchestrator\x12\".agent.v1.StartOrchestratorRequest\x1a#.agent.v1.StartOrchestratorResponse\"q\x9a\xb5\x18j\b\x01\x10\x01\x1a\x12start_orchestrator\"KResume a workflow's orchestrator, or create one when the workflow has none.(\x00:\x01\x02\x90\x02\x02\x12\xc5\x01\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"^\x9a\xb5\x18WBUOnly the person can say they have read a thread, and komrad refuses any other caller.\x90\x02\x02\x12\xf3\x01\n" +
 	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x82\x01\x9a\xb5\x18{\b\x01\x10\x01\x1a\x15resolve_review_thread\"WResolve a thread, or reopen one. Only the thread's author or the person may resolve it.(\x000\x01:\x01\x01\x90\x02\x02\x12\xe8\x02\n" +
-	"\x12TakeReviewSnapshot\x12#.agent.v1.TakeReviewSnapshotRequest\x1a$.agent.v1.TakeReviewSnapshotResponse\"\x86\x02\x9a\xb5\x18\x81\x02\b\x01\x10\x01\x1a\x14take_review_snapshot\"\xdd\x01Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout with no change since the newest snapshot returns that snapshot.(\x000\x01:\x01\x01\x12\xb7\x01\n" +
-	"\x11OpenReviewHistory\x12\".agent.v1.OpenReviewHistoryRequest\x1a#.agent.v1.OpenReviewHistoryResponse\"Y\x9a\xb5\x18UBSThe history is measured from the person's own reviews, so only the person reads it.\x12\xa6\x02\n" +
+	"\x12TakeReviewSnapshot\x12#.agent.v1.TakeReviewSnapshotRequest\x1a$.agent.v1.TakeReviewSnapshotResponse\"\x86\x02\x9a\xb5\x18\x81\x02\b\x01\x10\x01\x1a\x14take_review_snapshot\"\xdd\x01Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout with no change since the newest snapshot returns that snapshot.(\x000\x01:\x01\x01\x12\xb8\x01\n" +
+	"\x11OpenReviewHistory\x12\".agent.v1.OpenReviewHistoryRequest\x1a#.agent.v1.OpenReviewHistoryResponse\"Z\x9a\xb5\x18VBTThe history is measured from the person's own comments, so only the person reads it.\x12\xa6\x02\n" +
 	"\x13ListReviewSnapshots\x12$.agent.v1.ListReviewSnapshotsRequest\x1a%.agent.v1.ListReviewSnapshotsResponse\"\xc1\x01\x9a\xb5\x18\xb9\x01\b\x01\x10\x01\x1a\x15list_review_snapshots\"\x96\x01List the snapshots of a task, the caller's task by default, oldest first. Diff one snapshot's `sha` against the next to see what changed between them.:\x03\x03\x01\x02\x90\x02\x01\x12\xda\x01\n" +
 	"\vListReviews\x12\x1c.agent.v1.ListReviewsRequest\x1a\x1d.agent.v1.ListReviewsResponse\"\x8d\x01\x9a\xb5\x18\x85\x01\b\x01\x10\x01\x1a\flist_reviews\"lList the reviews released on a task, the caller's task by default, in snapshot order, each with its verdict.:\x03\x03\x01\x02\x90\x02\x01\x12\x82\x02\n" +
 	"\tGetReview\x12\x1a.agent.v1.GetReviewRequest\x1a\x1b.agent.v1.GetReviewResponse\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\n" +

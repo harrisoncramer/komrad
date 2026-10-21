@@ -423,8 +423,6 @@ message OpenReviewHistoryResponse {
   // Why komrad diffed the whole change instead of the requested span. Empty when komrad diffed
   // the span.
   string widened = 7;
-  // Every review on the task the caller may read, oldest first.
-  repeated Review reviews = 13;
   // The id of the snapshot the person last commented on. Empty when there is none or the
   // snapshot's base has changed since.
   string earlier_snapshot_id = 9;

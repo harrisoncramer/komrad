@@ -111,7 +111,6 @@ func ReviewHistory(opened reviews.ReviewHistory) *agentv1.OpenReviewHistoryRespo
 		Notice:              opened.Notice,
 		Resolved:            reviewResolvedSpan(opened.Span),
 		Widened:             opened.Widened,
-		Reviews:             xslice.Map(opened.Reviews, Review),
 		ChangedSinceEarlier: int32(opened.ChangedSinceEarlier),
 		Traced:              map[string]*agentv1.ReviewTracedPlace{},
 	}

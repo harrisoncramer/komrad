@@ -2740,7 +2740,6 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 
 	answer.Snapshots = s.snapshots
 	answer.Threads = s.threads
-	answer.Reviews = s.reviews
 	answer.Resolved = &agentv1.ReviewResolvedSpan{
 		BaseSha:               built.Span.BaseSHA,
 		HeadSha:               built.Span.HeadSHA,

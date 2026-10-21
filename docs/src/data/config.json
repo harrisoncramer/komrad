@@ -1505,13 +1505,6 @@
               "type": "string",
               "description": "A comment the agent has been given.",
               "default": "\"✓\""
-            },
-            {
-              "key": "held",
-              "path": "glyphs.review.held",
-              "type": "string",
-              "description": "A comment held back until you send it.",
-              "default": "\"◇\""
             }
           ],
           "sections": []

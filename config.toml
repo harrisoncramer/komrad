@@ -576,8 +576,6 @@ folder_open   = ""
 folder_closed = ""
 # A comment the agent has been given.
 delivered     = "✓"
-# A comment held back until you send it.
-held          = "◇"
 
 # The messages the panel shows, one for each kind.
 [glyphs.messages]

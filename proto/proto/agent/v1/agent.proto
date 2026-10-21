@@ -1344,7 +1344,7 @@ service AgentService {
     option (annotation.v1.surfaces) = {
       cli: false
       mcp: false
-      reason: "The history is measured from the person's own reviews, so only the person reads it."
+      reason: "The history is measured from the person's own comments, so only the person reads it."
     };
   }
   rpc ListReviewSnapshots(ListReviewSnapshotsRequest) returns (ListReviewSnapshotsResponse) {

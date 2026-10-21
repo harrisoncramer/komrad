@@ -22,7 +22,6 @@ type ReviewHistory struct {
 	Snapshot  reviewstore.Snapshot
 	Snapshots []reviewstore.Snapshot
 	Threads   []ReviewThreadWithMessages
-	Reviews   []reviewstore.Review
 	Notice    string
 }
 
@@ -44,11 +43,6 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 	}
 
 	threads, err := s.listThreads(ctx, task.ID, params.Author)
-	if err != nil {
-		return nil, err
-	}
-
-	reviews, err := s.listReviews(ctx, task.ID, params.Author)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +69,6 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		Snapshot:  picked.Snapshot,
 		Snapshots: picked.Snapshots,
 		Threads:   threads,
-		Reviews:   reviews,
 		Notice:    picked.Notice,
 	}
 	opened.Record = history.Build(ctx, history.BuildParams{

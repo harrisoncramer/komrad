@@ -49,11 +49,7 @@ func (s *ReviewService) mailComment(ctx context.Context, tx pgx.Tx, params mailC
 	prompt := eventprompts.ReviewComment{
 		ThreadID:   params.Thread.ID,
 		Ordinal:    snapshot.Ordinal,
-		FilePath:   params.Thread.FilePath,
-		OldStart:   params.Thread.OldStart,
-		OldEnd:     params.Thread.OldEnd,
-		NewStart:   params.Thread.NewStart,
-		NewEnd:     params.Thread.NewEnd,
+		Anchor:     lineAnchor(params.Thread),
 		Suggestion: params.Message.Suggestion,
 		Said:       params.Message.Body,
 		Reply:      params.Reply,

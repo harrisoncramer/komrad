@@ -219,8 +219,7 @@ func (s *MailStore) GetByID(ctx context.Context, id string) (*Mail, error) {
 	return &got, nil
 }
 
-// ListWaiting is up to limit of an agent's waiting mail, oldest first, which ClaimByID then takes
-// and which this leaves waiting.
+// ListWaiting lists up to limit of an agent's waiting mail, oldest first, without claiming it.
 func (s *MailStore) ListWaiting(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
