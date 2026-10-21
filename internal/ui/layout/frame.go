@@ -453,15 +453,7 @@ func (f *Frame) Beside(on bool) {
 	}
 
 	f.beside = on
-
-	// Resizing a pane in a zoomed window unzooms it.
-	if f.solo {
-		f.owed = true
-
-		return
-	}
-
-	f.move(panes.Resize(f.sidebar, f.sidebarCols()))
+	f.resizeSidebar()
 }
 
 // IsBeside reports whether the sidebar is drawn across part of the stage, with the stage beside it.
@@ -515,16 +507,9 @@ func (f *Frame) CloseColumn() bool {
 	// tmux hands the closed pane's columns to the sidebar, which leaves the stage beside it.
 	f.column, f.beside = "", true
 
-	// Resizing a pane in a zoomed window unzooms it.
-	if f.solo {
-		f.owed = true
-
-		return true
-	}
-
 	// A window resized while the pane was open leaves the sidebar short of the columns it takes
 	// beside the stage, and tmux changes nothing for a sidebar already at them.
-	f.move(panes.Resize(f.sidebar, f.sidebarCols()))
+	f.resizeSidebar()
 
 	return true
 }
@@ -570,6 +555,12 @@ func (f *Frame) Nudge(delta int) {
 	f.cols = width
 	f.stageCols = total - width - 1
 
+	f.resizeSidebar()
+}
+
+// resizeSidebar puts the sidebar at its width, or owes the resize to the zoom while the sidebar
+// holds the window.
+func (f *Frame) resizeSidebar() {
 	// Resizing a pane in a zoomed window unzooms it.
 	if f.solo {
 		f.owed = true

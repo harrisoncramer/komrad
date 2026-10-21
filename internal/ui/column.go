@@ -76,6 +76,12 @@ type columnSpec struct {
 	beside func(*model) (panel.AgentRow, bool)
 }
 
+// isHeld reports whether the screen is rendering its own block rather than handing its columns to
+// another process.
+func (s columnSpec) isHeld(m *model) bool {
+	return s.holds == nil || s.holds(m)
+}
+
 // sidebarColumns is how wide the panel's own list is rendered while it holds the window, and the
 // block it is holding it for.
 func (m *model) sidebarColumns() (int, columnSpec, bool) {
@@ -90,7 +96,7 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 		return 0, columnSpec{}, false
 	}
 
-	if spec.holds != nil && !spec.holds(m) {
+	if !spec.isHeld(m) {
 		return 0, columnSpec{}, false
 	}
 
@@ -172,7 +178,7 @@ func (m *model) holdsWindow() bool {
 		return false
 	}
 
-	return spec.holds == nil || spec.holds(m)
+	return spec.isHeld(m)
 }
 
 // wantsSolo reports whether the panel should hold the whole window.
@@ -197,18 +203,11 @@ func (m *model) isStageBeside() bool {
 	return live
 }
 
-// isBlockHeld reports whether the screen is rendering its own block rather than handing its
-// columns to another process.
-func (m *model) isBlockHeld() bool {
-	spec := m.active().column()
-
-	return spec.holds == nil || spec.holds(m)
-}
-
-// restageBeside restages the screen once whether its agent is beside its block no longer matches
-// the frame.
+// restageBeside restages the screen when the frame no longer matches whether its agent belongs
+// beside its block.
 func (m *model) restageBeside() {
-	if m.active().column().beside != nil && m.isBlockHeld() && m.isStageBeside() != m.frame.IsBeside() {
+	spec := m.active().column()
+	if spec.beside != nil && spec.isHeld(m) && m.isStageBeside() != m.frame.IsBeside() {
 		m.stageSelection()
 	}
 }
@@ -216,7 +215,7 @@ func (m *model) restageBeside() {
 // syncBeside draws the sidebar across the stage for the block while an agent is beside it, and
 // gives the stage its columns back once none is or another process has them.
 func (m *model) syncBeside() {
-	m.frame.Beside(m.isStageBeside() && m.isBlockHeld())
+	m.frame.Beside(m.isStageBeside() && m.active().column().isHeld(m))
 }
 
 // reconcileSolo settles whether the panel has the whole window, and hands it back while the info
