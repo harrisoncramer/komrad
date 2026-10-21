@@ -1,8 +1,12 @@
 package ui
 
 import (
+	"fmt"
+	"strings"
+
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
@@ -86,4 +90,34 @@ func scheduleColumns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
+}
+
+// scheduleDocRows is a schedule's document at a width: its name and next run, its firings, then
+// its prompt.
+func scheduleDocRows(item scheduleItem, width int) []string {
+	sched := item.schedule
+
+	notice := "_paused — will not run_"
+	switch {
+	case sched.ArchivedAt != nil:
+		notice = "_archived — kept until deleted_"
+	case sched.Enabled:
+		notice = fmt.Sprintf("_next run %s_", label.OrDash(label.Friendly(item.nextRun)))
+	}
+
+	prose := "_no prompt set_"
+	if strings.TrimSpace(sched.Prompt) != "" {
+		prose = sched.Prompt
+	}
+
+	if sched.HideAgents {
+		prose += "\n\nIts runs start hidden."
+	}
+
+	rows := paint.DocStyledRows(renderDocument(sched.Name, notice, "", ""), width, columnStyle())
+	if runRows := scheduleRunRows(sched.RecentRuns, width); len(runRows) > 0 {
+		rows = append(append(rows, ""), runRows...)
+	}
+
+	return append(rows, paint.DocStyledRows(prose+"\n", width, columnStyle())...)
 }

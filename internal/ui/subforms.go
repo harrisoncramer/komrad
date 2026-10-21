@@ -4,12 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"komrad/internal/ui/paint"
-	"komrad/lib/xslice"
-
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // subformsKey is the form key of the list of subforms on a form of subforms' top form.
@@ -58,18 +54,7 @@ func (s formOfSubforms) buildTop(m *model) (*huh.Form, []string) {
 }
 
 func (s formOfSubforms) subformsField() huh.Field {
-	muted := paint.Panel.Style(paint.ToneMuted)
-
-	options := xslice.Map(s.subforms, func(sub subform) huh.Option[string] {
-		label := sub.title + nestedMark
-		if sub.off() {
-			label = muted.Render(label)
-		}
-
-		return huh.NewOption(label, sub.key)
-	})
-
-	return huh.NewSelect[string]().Key(subformsKey).Title(s.title).Value(s.choice).Options(options...)
+	return huh.NewSelect[string]().Key(subformsKey).Title(s.title).Value(s.choice).Options(subformOptions(s.subforms)...)
 }
 
 // updateTop opens the subform under the cursor on enter, and hands every other message to the form.
@@ -118,20 +103,4 @@ func (s formOfSubforms) backToTop(m *model) tea.Cmd {
 
 func (f subform) off() bool {
 	return f.isOff != nil && f.isOff()
-}
-
-// renderedGray is a form's lines as it stands, without its help, rendered gray.
-func renderedGray(form *huh.Form) []string {
-	view := form.WithShowHelp(false).View()
-
-	lines := xslice.Map(strings.Split(ansi.Strip(view), "\n"), func(line string) string {
-		return strings.TrimRight(line, " ")
-	})
-	for len(lines) > 0 && lines[len(lines)-1] == "" {
-		lines = lines[:len(lines)-1]
-	}
-
-	muted := paint.Panel.Style(paint.ToneMuted)
-
-	return xslice.Map(lines, func(line string) string { return muted.Render(line) })
 }

@@ -1,9 +1,6 @@
 package ui
 
 import (
-	"strings"
-
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
@@ -25,26 +22,4 @@ func (r reviewScreen) currentPullRequest(m *model) (panel.PullRequest, bool) {
 	}
 
 	return task.PullRequests[0], true
-}
-
-// pullRequestBodyRows is a description wrapped to width, its runs of blank lines kept to one
-// and none at either end.
-func pullRequestBodyRows(body string, width int) []string {
-	var rows []string
-	blank := false
-	for line := range strings.Lines(body) {
-		line = strings.TrimRight(line, " \t\r\n")
-		if line == "" {
-			blank = len(rows) > 0
-
-			continue
-		}
-		if blank {
-			rows = append(rows, "")
-			blank = false
-		}
-		rows = append(rows, paint.WrapRows(line, width)...)
-	}
-
-	return rows
 }

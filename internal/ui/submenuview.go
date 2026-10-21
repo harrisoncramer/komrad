@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
+	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -111,4 +112,39 @@ func markParentMenu(view string, at int) string {
 	mark := keyMarkOf(zoneParentMenu, lipgloss.Width(view), 0, strconv.Itoa(at))
 
 	return strings.Join(xslice.Map(strings.Split(view, "\n"), func(line string) string { return mark + line }), "\n")
+}
+
+// submenuOptions is a menu's entries ending on the row that leaves it, or a list's entries alone.
+func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
+	if menu.isList() {
+		if len(menu.entries) == 0 {
+			return []huh.Option[int]{huh.NewOption(paint.Panel.Style(paint.ToneMuted).Render(menu.empty), submenuCancel)}
+		}
+
+		options := make([]huh.Option[int], 0, len(menu.entries))
+		for i, entry := range menu.entries {
+			options = append(options, huh.NewOption(markEntry(entry.label, i), i))
+		}
+
+		return options
+	}
+
+	labelCols, keyCols := submenuColumns(menu.entries)
+
+	options := make([]huh.Option[int], 0, len(menu.entries)+1)
+	for i, entry := range menu.entries {
+		label := submenuLabel(entry, labelCols, keyCols)
+		if !entry.isOff {
+			label = markEntry(label, i)
+		}
+
+		options = append(options, huh.NewOption(label, i))
+	}
+
+	last := "cancel"
+	if nested {
+		last = "back"
+	}
+
+	return append(options, huh.NewOption(markEntry(last, submenuCancel), submenuCancel))
 }

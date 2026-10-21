@@ -233,41 +233,6 @@ func submenuForm(level submenuLevel, nested bool, keys config.FixedKeys) *huh.Fo
 		WithShowHelp(!level.menu.isList()).WithKeyMap(submenuKeyMap(keys)).WithTheme(paint.Panel.FormTheme())
 }
 
-// submenuOptions is a menu's entries ending on the row that leaves it, or a list's entries alone.
-func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
-	if menu.isList() {
-		if len(menu.entries) == 0 {
-			return []huh.Option[int]{huh.NewOption(paint.Panel.Style(paint.ToneMuted).Render(menu.empty), submenuCancel)}
-		}
-
-		options := make([]huh.Option[int], 0, len(menu.entries))
-		for i, entry := range menu.entries {
-			options = append(options, huh.NewOption(markEntry(entry.label, i), i))
-		}
-
-		return options
-	}
-
-	labelCols, keyCols := submenuColumns(menu.entries)
-
-	options := make([]huh.Option[int], 0, len(menu.entries)+1)
-	for i, entry := range menu.entries {
-		label := submenuLabel(entry, labelCols, keyCols)
-		if !entry.isOff {
-			label = markEntry(label, i)
-		}
-
-		options = append(options, huh.NewOption(label, i))
-	}
-
-	last := "cancel"
-	if nested {
-		last = "back"
-	}
-
-	return append(options, huh.NewOption(markEntry(last, submenuCancel), submenuCancel))
-}
-
 // submenuKeyGap is the columns between an entry's label and its key.
 const submenuKeyGap = 4
 
