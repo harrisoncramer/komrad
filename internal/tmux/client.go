@@ -244,11 +244,6 @@ func (c *Client) SplitRight(anchorPane, dir, size string) string {
 	return c.split(anchorPane, dir, size, "-h")
 }
 
-// SplitLeft splits a pane left of the anchor.
-func (c *Client) SplitLeft(anchorPane, dir, size string) string {
-	return c.split(anchorPane, dir, size, "-h", "-b")
-}
-
 // SplitBelow splits a pane under the anchor.
 func (c *Client) SplitBelow(anchorPane, dir, size string) string {
 	return c.split(anchorPane, dir, size, "-v")

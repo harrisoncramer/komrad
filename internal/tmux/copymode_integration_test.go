@@ -87,7 +87,6 @@ func TestIntegrationCopyStandInHoldsThePaneSlotUntilCopyModeEnds(t *testing.T) {
 				Rows:        []string{"list│one", "list│two", "list│三x"},
 				Divider:     4,
 				Rule:        -1,
-				RuleLeft:    true,
 				Focus: panes.Rect{
 					Left:   5,
 					Width:  3,

@@ -34,19 +34,15 @@ func (m *model) renderInMode(tone paint.Tone, label string) string {
 // findModeEnd is the column of the pane the mode's label ends at, the last of the sidebar's own
 // cells short of a gutter, and never in the block rendered beside the sidebar.
 func (m *model) findModeEnd() int {
-	if m.frame.IsSidebarOnRight() {
-		return m.countInsetLeft() + m.term.width - gutter
-	}
-
 	if m.screen == screenAgents && m.listing.isEmpty() {
-		return m.countInsetLeft() + m.term.width
+		return gutter + m.term.width
 	}
 
 	if split, ok := m.columnGeometry(); ok {
-		return m.countInsetLeft() + split.sidebar
+		return gutter + split.sidebar
 	}
 
-	return m.countInsetLeft() + m.term.width
+	return gutter + m.term.width
 }
 
 // findMode is the tone and label of the mode the panel is in while it renders itself.

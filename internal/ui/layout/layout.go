@@ -25,7 +25,6 @@ type Tmux interface {
 	GetWindowWidth(pane string) int
 	GetPaneHeight(pane string) int
 	SplitRight(anchorPane, dir, size string) string
-	SplitLeft(anchorPane, dir, size string) string
 	SplitBelow(anchorPane, dir, size string) string
 	SplitAbove(anchorPane, dir, size string) string
 	ResizePane(pane, width string)

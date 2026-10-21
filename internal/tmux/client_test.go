@@ -294,11 +294,6 @@ func TestIntegrationSplitsPlaceThePaneWhereTheyAreNamedFor(t *testing.T) {
 			want:  "right",
 		},
 		{
-			name:  "to the left",
-			split: func(c *Client, anchor, dir string) string { return c.SplitLeft(anchor, dir, "50%") },
-			want:  "left",
-		},
-		{
 			name:  "above",
 			split: func(c *Client, anchor, dir string) string { return c.SplitAbove(anchor, dir, "50%") },
 			want:  "above",

@@ -22,7 +22,7 @@ type Config struct {
 	Harness   Harnesses `mapstructure:"harness"`
 	// Limits how much agents may run and how large their conversations may grow.
 	Usage Usage `mapstructure:"usage"`
-	// Sets where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
+	// Sets how much of the window the panel's sidebar, the stage beside it, and the info pane under the stage each take, and which side of the stage the info pane opens on.
 	Layout Layout `mapstructure:"layout"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`

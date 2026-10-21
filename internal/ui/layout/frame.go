@@ -606,12 +606,6 @@ func (f *Frame) ShellArgv(dir string) []string {
 	return append(slices.Clone(f.shellCommand), "--", dir)
 }
 
-// IsSidebarOnRight is the side the panel's own column sits on, so a screen rendering its own split
-// puts it where the panes it took the window from would have.
-func (f *Frame) IsSidebarOnRight() bool {
-	return f.spec.sidebarOnRight
-}
-
 // ShowGuest puts an agent's terminal in the stage, by moving its pane in when the engine is
 // this machine and by attaching to it over the engine's api when it is not.
 func (f *Frame) ShowGuest(guest Guest) {
@@ -778,10 +772,6 @@ func (f *Frame) chosenCols() int {
 }
 
 func (f *Frame) splitStage() string {
-	if f.spec.sidebarOnRight {
-		return f.tmux.SplitLeft(f.sidebar, getHomeDir(), stageSize)
-	}
-
 	return f.tmux.SplitRight(f.sidebar, getHomeDir(), stageSize)
 }
 

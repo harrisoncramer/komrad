@@ -84,11 +84,6 @@ func TestFrameLaysRegionsOutOnTheConfiguredSides(t *testing.T) {
 			want:   []string{"right %0 50%", "below %1 40%"},
 		},
 		{
-			name:   "a sidebar on the right leaves the stage the left",
-			layout: config.Layout{SidebarSide: config.SidebarSideRight},
-			want:   []string{"left %0 50%", "below %1 40%"},
-		},
-		{
 			name:   "an info pane above opens over the stage",
 			layout: config.Layout{InfoSide: config.InfoSideAbove},
 			want:   []string{"right %0 50%", "above %1 40%"},
@@ -1090,10 +1085,6 @@ func (t *recordingTmux) GetPaneHeight(string) int { return t.height }
 
 func (t *recordingTmux) SplitRight(anchor, _, size string) string {
 	return t.recordSplit("right", anchor, size)
-}
-
-func (t *recordingTmux) SplitLeft(anchor, _, size string) string {
-	return t.recordSplit("left", anchor, size)
 }
 
 func (t *recordingTmux) SplitBelow(anchor, _, size string) string {

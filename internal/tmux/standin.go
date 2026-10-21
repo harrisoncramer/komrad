@@ -45,7 +45,6 @@ type standInSpec struct {
 	Rows        []string `json:"rows"`
 	Divider     int      `json:"divider"`
 	Rule        int      `json:"rule"`
-	RuleLeft    bool     `json:"rule_left"`
 	FocusX      int      `json:"focus_x"`
 	FocusY      int      `json:"focus_y"`
 	Row         int      `json:"row"`
@@ -189,7 +188,6 @@ func restoreSidebar(outer *Client, spec *standInSpec, swapped bool) {
 func layOutTiles(spec *standInSpec) []copyTile {
 	tiles := []copyTile{{pane: "%0", rect: panes.Rect{Width: spec.Width, Height: spec.Height}}}
 
-	list := 0
 	if spec.Divider > 0 && spec.Divider < spec.Width-1 {
 		tiles = []copyTile{
 			{pane: "%0", rect: panes.Rect{Width: spec.Divider, Height: spec.Height}},
@@ -199,14 +197,11 @@ func layOutTiles(spec *standInSpec) []copyTile {
 				Height: spec.Height,
 			}},
 		}
-		if !spec.RuleLeft {
-			list = 1
-		}
 	}
 
 	if spec.Rule > 0 && spec.Rule < spec.Height-1 {
-		above := tiles[list].rect
-		tiles[list].rect.Height = spec.Rule
+		above := tiles[0].rect
+		tiles[0].rect.Height = spec.Rule
 		tiles = append(tiles, copyTile{
 			pane: "%" + strconv.Itoa(len(tiles)),
 			rect: panes.Rect{
@@ -255,7 +250,7 @@ func buildPrivateServer(spec *standInSpec, tiles []copyTile, focus copyTile, tmu
 	detach := "detach-client -s " + visualSession
 	commands = append(commands, []string{"set-hook", "-g", "client-detached", "run-shell -b -d 1 -C kill-server"})
 
-	commands = append(commands, xslice.Map(tiles[1:], func(tile copyTile) []string { return splitTile(spec, tiles, tile) })...)
+	commands = append(commands, xslice.Map(tiles[1:], func(tile copyTile) []string { return splitTile(tiles, tile) })...)
 
 	commands = append(commands, []string{
 		"set-hook", "-p", "-t", focus.pane, "pane-mode-changed",
@@ -293,17 +288,12 @@ func buildPrivateServer(spec *standInSpec, tiles []copyTile, focus copyTile, tmu
 	return args, nil
 }
 
-func splitTile(spec *standInSpec, tiles []copyTile, tile copyTile) []string {
+func splitTile(tiles []copyTile, tile copyTile) []string {
 	if tile.rect.Top == 0 {
 		return []string{"split-window", "-h", "-d", "-t", tiles[0].pane, "-l", strconv.Itoa(tile.rect.Width), tileIdle}
 	}
 
-	above := tiles[0].pane
-	if !spec.RuleLeft && len(tiles) > 2 {
-		above = tiles[1].pane
-	}
-
-	return []string{"split-window", "-v", "-d", "-t", above, "-l", strconv.Itoa(tile.rect.Height), tileIdle}
+	return []string{"split-window", "-v", "-d", "-t", tiles[0].pane, "-l", strconv.Itoa(tile.rect.Height), tileIdle}
 }
 
 func sliceTile(rows []string, rect panes.Rect) string {

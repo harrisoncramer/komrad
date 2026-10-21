@@ -141,7 +141,7 @@ func TestScreensFitTheirPane(t *testing.T) {
 			rendered: RenderConfigError(narrowPane, errors.New(
 				"failed to parse config /home/u/.config/komrad/config.toml: "+
 					"default_harnes is not a setting; the top level takes default_harness, max_agents\n"+
-					"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height")),
+					"layout.splitt is not a setting; [layout] takes sidebar_width, info_side, info_height, details_height")),
 		},
 	}
 

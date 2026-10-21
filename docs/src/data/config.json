@@ -161,15 +161,8 @@
     },
     {
       "path": "layout",
-      "description": "Sets where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.",
+      "description": "Sets how much of the window the panel's sidebar, the stage beside it, and the info pane under the stage each take, and which side of the stage the info pane opens on.",
       "settings": [
-        {
-          "key": "sidebar_side",
-          "path": "layout.sidebar_side",
-          "type": "string",
-          "description": "Which side of the window the panel's sidebar sits on, \"left\" or \"right\".",
-          "default": "\"left\""
-        },
         {
           "key": "sidebar_width",
           "path": "layout.sidebar_width",

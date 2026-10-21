@@ -98,13 +98,12 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 	// A configured width is a starting point rather than a boundary anybody placed, so it is
 	// widened to what a list of names reads in and capped at what leaves the block its floor,
 	// while a measured one is rendered where the divider is whatever that leaves either half.
-	chrome := m.countSidebarChrome()
 	if !measured {
-		sidebar = min(max(sidebar, nameWidth+chrome), m.term.width-spec.floor)
+		sidebar = min(max(sidebar, nameWidth+sidebarChrome), m.term.width-spec.floor)
 	}
 
 	// Clamped so the fold and the render are at one width.
-	return min(max(sidebar-chrome, 1), m.term.width-1-dividerCols), spec, true
+	return min(max(sidebar-sidebarChrome, 1), m.term.width-1-dividerCols), spec, true
 }
 
 // columnGeometry is how wide each half of the window is, and how many rows the block beside the
@@ -214,17 +213,7 @@ func (m *model) isOverColumn(x int) bool {
 		return false
 	}
 
-	x -= m.countInsetLeft()
-
-	if m.frame.IsSidebarOnRight() {
-		return x < split.column
-	}
-
-	return x >= split.sidebar+dividerCols
-}
-
-func (m *model) isSidebarOnRight() bool {
-	return m.frame.IsSidebarOnRight()
+	return x-gutter >= split.sidebar+dividerCols
 }
 
 // paneWidth is the column the panel renders its own list, record and legend in, which is the whole
