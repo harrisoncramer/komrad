@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/engine"
+	"komrad/internal/ui"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -226,8 +227,8 @@ func TestInfo(t *testing.T) {
 }
 
 const (
-	stagePane      = "%1"
-	infoPane       = "%2"
+	stagePane      = ui.StagePane
+	infoPane       = ui.InfoPane
 	terminalRefuse = "Could not open a te"
 )
 

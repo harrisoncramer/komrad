@@ -112,9 +112,13 @@ func (r *reviewScreen) abandon(m *model, err error) tea.Cmd {
 	return letGo
 }
 
-// drop puts the reader back on the row they opened the review from, letting go of an agent
-// stopped for the editor.
+// drop puts the reader back on the row they opened the review from, closing the editor and letting
+// go of an agent stopped for it.
 func (r *reviewScreen) drop(m *model) tea.Cmd {
+	if r.hold.atEditor {
+		m.unstageEditor()
+	}
+
 	letGo := r.endHold(m, abandonedSaid)
 
 	*r = reviewScreen{loads: r.loads}
