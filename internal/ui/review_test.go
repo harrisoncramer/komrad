@@ -2751,7 +2751,7 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 		OriginSnapshotBaseSha: built.Span.OriginSnapshotBaseSHA,
 		Conflicts:             built.Span.Conflicts,
 	}
-	answer.Widened = built.Widened
+	answer.Widened = reviewWideningOf(built.Widened)
 	answer.ChangedSinceEarlier = int32(built.ChangedSinceEarlier)
 	answer.Traced = map[string]*agentv1.ReviewTracedPlace{}
 	if built.Earlier != nil {
@@ -2804,6 +2804,22 @@ func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 	}
 
 	return history.Span{}
+}
+
+func reviewWideningOf(widened *history.Widening) *agentv1.ReviewWidening {
+	if widened == nil {
+		return nil
+	}
+
+	reasons := map[history.WidenedReason]agentv1.ReviewWidenedReason{
+		history.WidenedAnswerGone:          agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_GONE,
+		history.WidenedCommentSnapshotGone: agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE,
+		history.WidenedRangeSnapshotGone:   agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE,
+		history.WidenedRangeBackwards:      agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_BACKWARDS,
+		history.WidenedAnswerAcrossRebase:  agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE,
+	}
+
+	return &agentv1.ReviewWidening{Reason: reasons[widened.Reason], Conflicts: widened.Conflicts}
 }
 
 func historySnapshotOf(snapshot *agentv1.ReviewSnapshot) history.Snapshot {

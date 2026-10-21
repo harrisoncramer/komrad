@@ -3,10 +3,8 @@ package history
 import (
 	"context"
 	"maps"
-	"strings"
 	"time"
 
-	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/internal/position"
 	"komrad/lib/xslice"
@@ -15,13 +13,27 @@ import (
 // traceTimeout caps tracing every thread of one history together.
 const traceTimeout = 10 * time.Second
 
-var errAnswerGone = fail.NotFound("the snapshots this answer stands between are gone")
+// WidenedReason is why a history diffs the whole change instead of the span asked for.
+type WidenedReason int
 
-var errCommentSnapshotGone = fail.NotFound("the snapshot this comment was written on is gone")
+const (
+	// WidenedAnswerGone is an answer whose snapshots are gone.
+	WidenedAnswerGone WidenedReason = iota
+	// WidenedCommentSnapshotGone is a comment whose snapshot is gone.
+	WidenedCommentSnapshotGone
+	// WidenedRangeSnapshotGone is a range with a snapshot gone at either end.
+	WidenedRangeSnapshotGone
+	// WidenedRangeBackwards is a range starting on or after the snapshot it ends on.
+	WidenedRangeBackwards
+	// WidenedAnswerAcrossRebase is an answer whose older side would not replay across a rebase.
+	WidenedAnswerAcrossRebase
+)
 
-var errRangeSnapshotGone = fail.NotFound("a snapshot this range stands between is gone")
-
-var errRangeBackwards = fail.InvalidArgument("the range starts on or after the snapshot it ends on")
+// Widening is why a history diffs the whole change, with the paths that stopped a replay.
+type Widening struct {
+	Reason    WidenedReason
+	Conflicts []string
+}
 
 type Git interface {
 	CountChangedFiles(ctx context.Context, params git.CountChangedFilesParams) (int, error)
@@ -86,7 +98,7 @@ type ResolvedSpan struct {
 
 type Record struct {
 	Span                ResolvedSpan
-	Widened             string
+	Widened             *Widening
 	Earlier             *Snapshot
 	EarlierReleasedAt   *time.Time
 	ChangedSinceEarlier int
@@ -107,11 +119,10 @@ type BuildParams struct {
 
 // Build measures the span asked for against the snapshot on screen and traces where each thread's lines now sit.
 func Build(ctx context.Context, params BuildParams) Record {
-	span, err := resolveSpan(ctx, params)
+	span, widened := resolveSpan(ctx, params)
 
-	record := Record{Span: span}
-	if err != nil {
-		record.Widened = err.Error()
+	record := Record{Span: span, Widened: widened}
+	if widened != nil {
 		record.Span = wholeSpan(params.Snapshot)
 	}
 
@@ -139,20 +150,7 @@ func wholeSpan(snapshot Snapshot) ResolvedSpan {
 	return ResolvedSpan{BaseSHA: snapshot.BaseSHA, HeadSHA: snapshot.SHA}
 }
 
-type snapshotsApartError struct {
-	Conflicts []string
-}
-
-func (e *snapshotsApartError) Error() string {
-	said := "the answer can't be compared across the rebase"
-	if len(e.Conflicts) > 0 {
-		said += ", conflicts in " + strings.Join(e.Conflicts, ", ")
-	}
-
-	return said
-}
-
-func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) {
+func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, *Widening) {
 	asked := params.Span
 	if snapshots := asked.Snapshots; snapshots != nil {
 		return resolveSnapshots(ctx, params, *snapshots)
@@ -164,7 +162,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) 
 	if answer := asked.Answer; answer != nil {
 		from, to := findSnapshot(params.Snapshots, answer.FromSnapshotID), findSnapshot(params.Snapshots, answer.ToSnapshotID)
 		if from == nil || to == nil {
-			return ResolvedSpan{}, errAnswerGone
+			return ResolvedSpan{}, &Widening{Reason: WidenedAnswerGone}
 		}
 
 		from = findAnswerBase(params.Snapshots, from, to)
@@ -177,7 +175,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) 
 	if origin := asked.Origin; origin != nil {
 		snapshot := findSnapshot(params.Snapshots, origin.SnapshotID)
 		if snapshot == nil {
-			return ResolvedSpan{}, errCommentSnapshotGone
+			return ResolvedSpan{}, &Widening{Reason: WidenedCommentSnapshotGone}
 		}
 
 		span.OriginBaseSHA, span.OriginHeadSHA, span.OriginSnapshotBaseSHA = origin.BaseSHA, snapshot.SHA, snapshot.BaseSHA
@@ -195,7 +193,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) 
 		ToBase:   toBase,
 	})
 	if !compared.Comparable {
-		return ResolvedSpan{}, &snapshotsApartError{Conflicts: compared.Conflicts}
+		return ResolvedSpan{}, &Widening{Reason: WidenedAnswerAcrossRebase, Conflicts: compared.Conflicts}
 	}
 
 	span.BaseSHA, span.Replayed = compared.FromSHA, compared.Replayed
@@ -205,13 +203,13 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, error) 
 
 // resolveSnapshots measures the work between two snapshots, from the older one as it was when its
 // replay onto the newer base conflicts.
-func resolveSnapshots(ctx context.Context, params BuildParams, snapshots SnapshotSpan) (ResolvedSpan, error) {
+func resolveSnapshots(ctx context.Context, params BuildParams, snapshots SnapshotSpan) (ResolvedSpan, *Widening) {
 	to := &params.Snapshot
 	if snapshots.ToSnapshotID != "" {
 		to = findSnapshot(params.Snapshots, snapshots.ToSnapshotID)
 	}
 	if to == nil {
-		return ResolvedSpan{}, errRangeSnapshotGone
+		return ResolvedSpan{}, &Widening{Reason: WidenedRangeSnapshotGone}
 	}
 
 	span := wholeSpan(*to)
@@ -222,9 +220,9 @@ func resolveSnapshots(ctx context.Context, params BuildParams, snapshots Snapsho
 	from := findSnapshot(params.Snapshots, snapshots.FromSnapshotID)
 	switch {
 	case from == nil:
-		return ResolvedSpan{}, errRangeSnapshotGone
+		return ResolvedSpan{}, &Widening{Reason: WidenedRangeSnapshotGone}
 	case from.Ordinal >= to.Ordinal:
-		return ResolvedSpan{}, errRangeBackwards
+		return ResolvedSpan{}, &Widening{Reason: WidenedRangeBackwards}
 	}
 
 	compared := compareSnapshots(ctx, compareSnapshotsParams{

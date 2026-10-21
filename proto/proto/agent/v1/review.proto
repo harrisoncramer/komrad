@@ -420,9 +420,9 @@ message OpenReviewHistoryResponse {
   string notice = 5;
   // The commits the diff is between.
   ReviewResolvedSpan resolved = 6;
-  // Why komrad diffed the whole change instead of the requested span. Empty when komrad diffed
+  // Why komrad diffed the whole change instead of the requested span. Unset when komrad diffed
   // the span.
-  string widened = 7;
+  ReviewWidening widened = 7;
   // The id of the snapshot the person last commented on. Empty when there is none or the
   // snapshot's base has changed since.
   string earlier_snapshot_id = 9;
@@ -432,6 +432,32 @@ message OpenReviewHistoryResponse {
   int32 changed_since_earlier = 11;
   // Where git traced each thread's lines in the diff's head, by thread id.
   map<string, ReviewTracedPlace> traced = 12;
+}
+
+// ReviewWidenedReason is why komrad diffed the whole change instead of the requested span.
+enum ReviewWidenedReason {
+  // No reason was recorded. No widening has this value.
+  REVIEW_WIDENED_REASON_UNSPECIFIED = 0;
+  // The snapshots the answer stands between are gone.
+  REVIEW_WIDENED_REASON_ANSWER_GONE = 1;
+  // The snapshot the comment was written on is gone.
+  REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE = 2;
+  // A snapshot the range stands between is gone.
+  REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE = 3;
+  // The range starts on or after the snapshot it ends on.
+  REVIEW_WIDENED_REASON_RANGE_BACKWARDS = 4;
+  // The answer's older side could not be replayed across the rebase between its snapshots.
+  // `conflicts` names the paths that stopped it.
+  REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE = 5;
+}
+
+// ReviewWidening is why komrad diffed the whole change instead of the requested span.
+message ReviewWidening {
+  // Why the span was widened.
+  ReviewWidenedReason reason = 1;
+  // The paths that conflicted replaying the answer's older side. Empty unless the reason is
+  // `REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE`.
+  repeated string conflicts = 2;
 }
 
 // ReviewResolvedSpan is the pair of commits a diff is between.
