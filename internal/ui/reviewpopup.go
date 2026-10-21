@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 
-	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 )
@@ -67,9 +66,9 @@ func (r reviewScreen) placeThread(m *model, body string) popupSlot {
 	return placePopup(r.popupAnchor(m), r.measurePopupStage(m), len(splitPopupRows(body))+2)
 }
 
-// isPopupMenu reports whether the menu stands in the review's popup rather than in a column of its own.
-func (m *model) isPopupMenu() bool {
-	return m.form.isMenu && m.screen == screenReview && !m.review.hold.atEditor && !m.isMessagesFocused()
+// isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
+func (m *model) isPopupForm() bool {
+	return m.form.isOpening() && m.screen == screenReview && !m.review.hold.atEditor && !m.isMessagesFocused()
 }
 
 // measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.
@@ -104,13 +103,4 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		cursorLast: above + first + height - 1,
 		rows:       above + split.rows,
 	}
-}
-
-// withSection is a popup body with a section under it, such as the menu or the editor, or the section alone under no body.
-func withSection(body, section string, inner int) string {
-	if body == "" {
-		return section
-	}
-
-	return strings.TrimRight(body, "\n") + "\n" + dimStyle().Render(strings.Repeat(glyph.Rule, inner)) + "\n" + section
 }

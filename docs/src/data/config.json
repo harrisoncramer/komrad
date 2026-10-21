@@ -1040,7 +1040,7 @@
               "key": "git",
               "path": "keybindings.menu.git",
               "type": "array",
-              "description": "Open the git menu to the right of this one, for rebasing the task's branch or opening or\nmerging its pull request.",
+              "description": "Open the git menu to the right of this one, for rebasing the task's branch or opening or\nmerging its pull request. On the review the git menu holds only the pull request's entries.",
               "default": "[\"g\"]"
             },
             {

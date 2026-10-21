@@ -52,7 +52,7 @@ type reviewLoadedMsg struct {
 	originFellBack bool
 	// notice is what the load has to say about the snapshot it settled on.
 	notice  string
-	widened string
+	widened *agentv1.ReviewWidening
 	// traced is where git says each thread's lines went, keyed by thread id, and empty for a
 	// repository that could not answer.
 	traced map[string]diffview.Traced
@@ -324,9 +324,9 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 
 	r.diff.snapshots, r.diff.newest = msg.snapshots, msg.snapshot
 
-	if msg.widened != "" {
+	if msg.widened != nil {
 		r.diff.widen()
-		m.note(messageWarning, msg.widened)
+		m.note(messageWarning, widenedSaid(msg.widened))
 	}
 
 	isEmpty := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)

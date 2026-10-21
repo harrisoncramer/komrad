@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -93,6 +94,16 @@ func TestGitMenu(t *testing.T) {
 		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{Task: "task-a1"})
 	})
 
+	t.Run("abort sits with the worktree entries, ahead of push", func(t *testing.T) {
+		t.Parallel()
+
+		frame := openGitMenu(t, buildGitAgent()...).readFrame()
+
+		require.Contains(t, frame, "abort")
+		require.Contains(t, frame, "push")
+		assert.Less(t, strings.Index(frame, "abort"), strings.Index(frame, "push"))
+	})
+
 	t.Run("a merge request's entries are named the way GitLab does", func(t *testing.T) {
 		t.Parallel()
 
@@ -126,6 +137,42 @@ func TestGitMenu(t *testing.T) {
 
 		assert.Contains(t, readOpenMessages(harness), "the task the menu was opened on has left the list")
 		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
+	})
+}
+
+// TestGitMenuOnTheReview covers the git menu the review's own menu opens in its popup.
+func TestGitMenuOnTheReview(t *testing.T) {
+	t.Run("the menu holds the pull request's entries and none that rewrite the worktree", func(t *testing.T) {
+		harness := openReview(t, newPullRequestReviewServer(t))
+
+		harness.press("space", "g")
+
+		popup := readPopupProse(harness.readFrame())
+		assert.Contains(t, popup, "push")
+		assert.Contains(t, popup, "toggle draft on")
+		assert.Contains(t, popup, "re-request review")
+		assert.Contains(t, popup, "merge pr")
+		assert.NotContains(t, popup, "rebase")
+		assert.NotContains(t, popup, "pick fork point")
+		assert.NotContains(t, popup, "abort")
+	})
+
+	t.Run("a push asks in the popup, then pushes", func(t *testing.T) {
+		harness := openReview(t, newPullRequestReviewServer(t))
+		planned := &agentv1.PlanPushResponse{Branch: "agent/auth", Commits: 2}
+		harness.answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(planned), nil
+		})
+		harness.answerPushed(planned)
+
+		harness.press("space", "g", "p")
+
+		require.Contains(t, readPopupProse(harness.readFrame()), "Komrad pushes 2 commits")
+
+		harness.press("y")
+
+		harness.assertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, &agentv1.PushWorktreeRequest{Task: "t1"})
+		assert.Contains(t, readOpenMessages(harness), "auth: pushed agent/auth")
 	})
 }
 

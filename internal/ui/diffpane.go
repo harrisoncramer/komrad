@@ -1,13 +1,11 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 
 	"komrad/config"
 	"komrad/internal/ui/diffview"
-	"komrad/internal/ui/paint/label"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -334,39 +332,6 @@ func panStep(m *model) int {
 	}
 
 	return max(split.column/3, diffPanStep)
-}
-
-// diffMatchCount is where in the search the cursor is standing, rendered under the pattern.
-func diffMatchCount(pane *diffview.Pane, filter filterState) string {
-	view := pane.View()
-	if view == nil || !filter.isStanding() {
-		return ""
-	}
-
-	where := label.Counted(view.MatchCount(), "match")
-	if at, ok := view.MatchNumber(pane.Cursor()); ok {
-		where = label.OfCount(at, view.MatchCount())
-	}
-
-	// A match inside a file folded away is on no row, so stepping through the matches never
-	// reaches it, and it is counted apart rather than left to look like nothing was found.
-	if hidden := view.HiddenMatches(); hidden > 0 {
-		where += fmt.Sprintf(separated+"%d in viewed files", hidden)
-	}
-
-	return dimStyle().Render("  "+where) + "\n\n"
-}
-
-func (m *model) markDiff(pane *diffview.Pane, window diffview.Window, lines []string) []string {
-	if !m.term.markingZones {
-		return lines
-	}
-
-	for i, row := range pane.Rows(window) {
-		lines[i] = m.markRow(zoneDiff, window.Width, strconv.Itoa(row), lines[i])
-	}
-
-	return lines
 }
 
 func (k diffKeys) click(m *model, key string) tea.Cmd {

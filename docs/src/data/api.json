@@ -6675,13 +6675,13 @@
         },
         {
           "name": "status",
-          "type": "string",
-          "ref": "",
+          "type": "Status",
+          "ref": "doctor.v1.Status",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How the check came out: `ok`, `warn`, `fail` or `skip`."
+          "description": "How the check came out."
         },
         {
           "name": "detail",
@@ -7820,16 +7820,6 @@
           "description": "The source's id, to pass as `source` to `read_agent_logs`."
         },
         {
-          "name": "name",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The source's name, such as `service` or `003 agent.pre-launch setup`."
-        },
-        {
           "name": "run",
           "type": "int32",
           "ref": "",
@@ -7838,6 +7828,26 @@
           "oneof": "",
           "rules": [],
           "description": "The number of the hook run. Unset for the server log."
+        },
+        {
+          "name": "trigger",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The moment the hook ran at, such as `agent.pre-launch`. Empty for the server log."
+        },
+        {
+          "name": "script",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The hook's script, by file name in the hooks directory. Empty for the server log."
         },
         {
           "name": "agent_id",
@@ -10906,13 +10916,53 @@
         },
         {
           "name": "reason",
+          "type": "RefusalReason",
+          "ref": "worktree.v1.RefusalReason",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Why the worktree was kept."
+        },
+        {
+          "name": "task_slug",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why the worktree was kept, in one sentence."
+          "description": "The task the reason names. Empty unless the reason is about a task."
+        },
+        {
+          "name": "agent_name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The agent the reason names. Empty unless the reason is about an agent."
+        },
+        {
+          "name": "nested_dir",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The worktree inside this one. Empty unless the reason is `REFUSAL_REASON_NESTS_WORKTREE`."
+        },
+        {
+          "name": "error",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What failed. Empty unless a step broke."
         }
       ]
     },
@@ -11350,6 +11400,28 @@
         }
       ]
     },
+    "doctor.v1.Status": {
+      "name": "Status",
+      "description": "Status is how a doctor check came out.",
+      "values": [
+        {
+          "name": "STATUS_OK",
+          "description": "The check passed."
+        },
+        {
+          "name": "STATUS_WARN",
+          "description": "The check passed with a warning."
+        },
+        {
+          "name": "STATUS_FAIL",
+          "description": "The check failed."
+        },
+        {
+          "name": "STATUS_SKIP",
+          "description": "The check was skipped because a check it needs did not pass."
+        }
+      ]
+    },
     "forge.v1.MergeMethod": {
       "name": "MergeMethod",
       "description": "MergeMethod is how a pull request's commits land on its base branch.",
@@ -11637,6 +11709,60 @@
         {
           "name": "VIEW_FULL",
           "description": "Every field in full, however long."
+        }
+      ]
+    },
+    "worktree.v1.RefusalReason": {
+      "name": "RefusalReason",
+      "description": "RefusalReason is why komrad kept a worktree it was asked to remove.",
+      "values": [
+        {
+          "name": "REFUSAL_REASON_OUTSIDE",
+          "description": "The path is not under the worktree directories."
+        },
+        {
+          "name": "REFUSAL_REASON_UNLISTED",
+          "description": "The listing of the worktree directories does not hold the path."
+        },
+        {
+          "name": "REFUSAL_REASON_TASK_HOLDS",
+          "description": "The task `task_slug` names owns the worktree. Deleting the task removes it."
+        },
+        {
+          "name": "REFUSAL_REASON_TASK_LIVE",
+          "description": "The task `task_slug` names is live. Archiving it comes before deleting its worktree."
+        },
+        {
+          "name": "REFUSAL_REASON_TASK_DELETING",
+          "description": "The task `task_slug` names is being deleted, which removes the worktree."
+        },
+        {
+          "name": "REFUSAL_REASON_AGENT_INSIDE",
+          "description": "The agent `agent_name` names is working in the worktree."
+        },
+        {
+          "name": "REFUSAL_REASON_AGENT_BENEATH",
+          "description": "The agent `agent_name` names is working somewhere under the worktree."
+        },
+        {
+          "name": "REFUSAL_REASON_NESTS_WORKTREE",
+          "description": "The worktree `nested_dir` names sits inside this one. Removing that worktree comes first."
+        },
+        {
+          "name": "REFUSAL_REASON_UNRESOLVED",
+          "description": "Komrad could not resolve the path. `error` says why."
+        },
+        {
+          "name": "REFUSAL_REASON_LIST_FAILED",
+          "description": "Git could not list the worktrees of the worktree's repository. `error` says why."
+        },
+        {
+          "name": "REFUSAL_REASON_UNLOCK_FAILED",
+          "description": "Git could not unlock the worktree. `error` says why."
+        },
+        {
+          "name": "REFUSAL_REASON_REMOVE_FAILED",
+          "description": "Komrad could not remove the worktree's directory. `error` says why."
         }
       ]
     },

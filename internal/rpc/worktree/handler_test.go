@@ -2,6 +2,7 @@ package worktree
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 	worktreev1komrad "komrad/proto/gen/worktree/v1/worktreev1komrad"
 
 	"connectrpc.com/connect"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -25,6 +28,7 @@ type fakeWorktrees struct {
 	inspection worktrees.Inspection
 	inspected  string
 	fetched    bool
+	removal    worktrees.Removal
 	removed    []string
 	queued     []string
 }
@@ -42,7 +46,7 @@ func (f *fakeWorktrees) Inspect(_ context.Context, params worktrees.InspectParam
 func (f *fakeWorktrees) Remove(_ context.Context, dirs []string) (*worktrees.Removal, error) {
 	f.removed = dirs
 
-	return &worktrees.Removal{}, nil
+	return &f.removal, nil
 }
 
 func (f *fakeWorktrees) DeleteWorktrees(_ context.Context, dirs []string) error {
@@ -185,6 +189,35 @@ func TestGetWorktree(t *testing.T) {
 	assert.True(t, resp.Msg.GetUnpulledLanded())
 	require.Len(t, resp.Msg.GetCommits(), 1)
 	assert.Equal(t, "2026-09-19T11:00:00Z", resp.Msg.GetCommits()[0].GetCommittedAt())
+}
+
+// TestRemoveUnownedWorktrees covers each refusal rendered with its reason and the facts that reason names.
+func TestRemoveUnownedWorktrees(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeWorktrees{removal: worktrees.Removal{
+		Removed: []string{"/trees/orphan"},
+		Refused: []worktrees.Refusal{
+			{Dir: "/trees/aaaa", Reason: worktrees.RefusedTaskHolds, TaskSlug: "first-task"},
+			{Dir: "/trees/bbbb", Reason: worktrees.RefusedAgentInside, AgentName: "reviewer"},
+			{Dir: "/trees/cccc", Reason: worktrees.RefusedNestsWorktree, NestedDir: "/trees/cccc/inner"},
+			{Dir: "/trees/dddd", Reason: worktrees.RefusedUnlockFailed, Err: errors.New("git is not on the path")},
+		},
+	}}
+
+	resp, err := newService(fake).RemoveUnownedWorktrees(t.Context(), connect.NewRequest(&worktreev1.RemoveUnownedWorktreesRequest{
+		Dirs: []string{"/trees/orphan", "/trees/aaaa", "/trees/bbbb", "/trees/cccc", "/trees/dddd"},
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"/trees/orphan"}, resp.Msg.GetRemoved())
+	want := []*worktreev1.Refusal{
+		{Dir: "/trees/aaaa", Reason: worktreev1.RefusalReason_REFUSAL_REASON_TASK_HOLDS, TaskSlug: "first-task"},
+		{Dir: "/trees/bbbb", Reason: worktreev1.RefusalReason_REFUSAL_REASON_AGENT_INSIDE, AgentName: "reviewer"},
+		{Dir: "/trees/cccc", Reason: worktreev1.RefusalReason_REFUSAL_REASON_NESTS_WORKTREE, NestedDir: "/trees/cccc/inner"},
+		{Dir: "/trees/dddd", Reason: worktreev1.RefusalReason_REFUSAL_REASON_UNLOCK_FAILED, Error: "git is not on the path"},
+	}
+	assert.Empty(t, cmp.Diff(want, resp.Msg.GetRefused(), protocmp.Transform()))
 }
 
 // TestDeleteWorktrees covers the directories reaching the queue and the call removing nothing.

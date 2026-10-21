@@ -11,11 +11,9 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/searchsyntax"
-	"komrad/internal/ui/paint"
 	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 )
 
 // filterOpenKey opens the filter on every screen that renders one.
@@ -279,15 +277,6 @@ func (f filterState) holds(fits clauseFits) bool {
 	}
 
 	return true
-}
-
-// highlight lights the stretches of a row's name the search's pattern matches.
-func (f filterState) highlight(palette paint.Palette, name string, base lipgloss.Style) string {
-	if f.pattern == nil || f.broken {
-		return base.Render(name)
-	}
-
-	return palette.Highlight(name, matchesIn(f.pattern, name), base)
 }
 
 // filteredRows is every row the search can land on in the pane holding the keys, and false on a

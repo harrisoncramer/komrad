@@ -152,7 +152,9 @@ func TestIntegrationWorktrees(t *testing.T) {
 
 		assert.Equal(t, []string{orphan}, removal.Msg.GetRemoved())
 		require.Len(t, removal.Msg.GetRefused(), 1)
-		assert.Contains(t, removal.Msg.GetRefused()[0].GetReason(), lister.GetTaskSlug())
+		refusal := removal.Msg.GetRefused()[0]
+		assert.Equal(t, worktreev1.RefusalReason_REFUSAL_REASON_TASK_HOLDS, refusal.GetReason())
+		assert.Equal(t, lister.GetTaskSlug(), refusal.GetTaskSlug())
 		assert.DirExists(t, lister.GetCwd())
 		assert.NoDirExists(t, orphan)
 

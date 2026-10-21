@@ -468,7 +468,10 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 				Replayed:  true,
 				Conflicts: []string{"greet.go"},
 			},
-			Widened:             "the snapshot this comment was written on is gone",
+			Widened: &history.Widening{
+				Reason:    history.WidenedAnswerAcrossRebase,
+				Conflicts: []string{"greet.go", "second.go"},
+			},
 			Earlier:             &history.Snapshot{ID: "snapshot-1"},
 			EarlierReleasedAt:   &released,
 			ChangedSinceEarlier: 3,
@@ -497,7 +500,10 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 			Replayed:  true,
 			Conflicts: []string{"greet.go"},
 		},
-		Widened:             "the snapshot this comment was written on is gone",
+		Widened: &agentv1.ReviewWidening{
+			Reason:    agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE,
+			Conflicts: []string{"greet.go", "second.go"},
+		},
 		EarlierSnapshotId:   "snapshot-1",
 		EarlierReleasedAt:   dates.Stamp(released),
 		ChangedSinceEarlier: 3,

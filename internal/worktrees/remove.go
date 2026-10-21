@@ -2,7 +2,6 @@ package worktrees
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -14,12 +13,60 @@ import (
 	agentstore "komrad/internal/store/agent"
 )
 
-// Refusal is a directory a removal left alone, and why.
+// RefusalReason is why a removal left a directory alone.
+type RefusalReason int
+
+const (
+	// RefusedOutside is a path not under the worktree directories.
+	RefusedOutside RefusalReason = iota
+	// RefusedUnlisted is a path the listing does not hold.
+	RefusedUnlisted
+	// RefusedTaskHolds is a directory its task answers for.
+	RefusedTaskHolds
+	// RefusedTaskLive is a directory whose task is open.
+	RefusedTaskLive
+	// RefusedTaskDeleting is a directory whose task a delete has claimed.
+	RefusedTaskDeleting
+	// RefusedAgentInside is a directory an agent works in.
+	RefusedAgentInside
+	// RefusedAgentBeneath is a directory an agent works somewhere under.
+	RefusedAgentBeneath
+	// RefusedNestsWorktree is a directory holding another worktree.
+	RefusedNestsWorktree
+	// RefusedUnresolved is a path that could not be looked up.
+	RefusedUnresolved
+	// RefusedListFailed is a directory whose repository's worktrees git could not list.
+	RefusedListFailed
+	// RefusedUnlockFailed is a directory whose lock git could not lift.
+	RefusedUnlockFailed
+	// RefusedRemoveFailed is a directory the filesystem would not let go.
+	RefusedRemoveFailed
+)
+
+// Failed reports whether a step broke rather than the directory being one the remover will not take.
+func (r RefusalReason) Failed() bool {
+	switch r {
+	case RefusedUnresolved, RefusedListFailed, RefusedUnlockFailed, RefusedRemoveFailed:
+		return true
+	case RefusedOutside, RefusedUnlisted, RefusedTaskHolds, RefusedTaskLive, RefusedTaskDeleting,
+		RefusedAgentInside, RefusedAgentBeneath, RefusedNestsWorktree:
+	}
+
+	return false
+}
+
+// Refusal is a directory a removal left alone, why, and what the reason names.
 type Refusal struct {
 	Dir    string
-	Reason string
-	// Failed says a step broke rather than the directory being one the remover will not take.
-	Failed bool
+	Reason RefusalReason
+	// TaskSlug is the task a task reason names.
+	TaskSlug string
+	// AgentName is the agent an agent reason names.
+	AgentName string
+	// NestedDir is the worktree inside the directory.
+	NestedDir string
+	// Err is the step that broke, set when the reason failed.
+	Err error
 }
 
 // Removal is what one call took and what it left.
@@ -58,7 +105,7 @@ func NewRemover(params NewRemoverParams) *Remover {
 
 // RefuseForTask is the refusal of a directory its task answers for.
 func (w Worktree) RefuseForTask() Refusal {
-	return Refusal{Dir: w.Dir, Reason: fmt.Sprintf("task %s holds it; delete the task instead", w.Task.Slug)}
+	return Refusal{Dir: w.Dir, Reason: RefusedTaskHolds, TaskSlug: w.Task.Slug}
 }
 
 // Remove takes away each directory nothing answers for, refusing the rest by name.
@@ -100,8 +147,8 @@ func (r *Remover) Remove(ctx context.Context, dirs []string) (*Removal, error) {
 		if err := os.RemoveAll(dir); err != nil {
 			removal.Refused = append(removal.Refused, Refusal{
 				Dir:    dir,
-				Reason: fmt.Sprintf("could not remove it: %v", err),
-				Failed: true,
+				Reason: RefusedRemoveFailed,
+				Err:    err,
 			})
 
 			continue
@@ -126,17 +173,17 @@ func refuse(listing *Listing, rows []agentstore.AgentDir, dir string) (Refusal, 
 	if err != nil {
 		return Refusal{
 			Dir:    dir,
-			Reason: err.Error(),
-			Failed: true,
+			Reason: RefusedUnresolved,
+			Err:    err,
 		}, true
 	}
 	if !inside {
-		return Refusal{Dir: dir, Reason: "it is not under the worktree directories"}, true
+		return Refusal{Dir: dir, Reason: RefusedOutside}, true
 	}
 
 	at := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return w.Dir == dir })
 	if at < 0 {
-		return Refusal{Dir: dir, Reason: "the listing does not hold it"}, true
+		return Refusal{Dir: dir, Reason: RefusedUnlisted}, true
 	}
 
 	worktree := listing.Worktrees[at]
@@ -144,17 +191,17 @@ func refuse(listing *Listing, rows []agentstore.AgentDir, dir string) (Refusal, 
 	case FateLive, FateArchived:
 		return worktree.RefuseForTask(), true
 	case FateDeleting:
-		return Refusal{Dir: dir, Reason: fmt.Sprintf("task %s is being deleted, which takes it", worktree.Task.Slug)}, true
+		return Refusal{Dir: dir, Reason: RefusedTaskDeleting, TaskSlug: worktree.Task.Slug}, true
 	case FateUnowned:
 	}
 	if len(worktree.Occupants) > 0 {
-		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is working in it; delete the agent instead", worktree.Occupants[0].Name)}, true
+		return Refusal{Dir: dir, Reason: RefusedAgentInside, AgentName: worktree.Occupants[0].Name}, true
 	}
 	if under := slices.IndexFunc(rows, func(row agentstore.AgentDir) bool { return isBeneath(dir, row.Cwd) }); under >= 0 {
-		return Refusal{Dir: dir, Reason: fmt.Sprintf("agent %s is working under it; delete the agent instead", rows[under].Name)}, true
+		return Refusal{Dir: dir, Reason: RefusedAgentBeneath, AgentName: rows[under].Name}, true
 	}
 	if nested := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return isBeneath(dir, w.Dir) }); nested >= 0 {
-		return Refusal{Dir: dir, Reason: fmt.Sprintf("it holds the worktree %s; remove that first", listing.Worktrees[nested].Dir)}, true
+		return Refusal{Dir: dir, Reason: RefusedNestsWorktree, NestedDir: listing.Worktrees[nested].Dir}, true
 	}
 
 	return Refusal{}, false
@@ -171,14 +218,15 @@ func (r *Remover) refuseRegistered(ctx context.Context, worktree Worktree) (Refu
 	if err != nil {
 		return Refusal{
 			Dir:    worktree.Dir,
-			Reason: fmt.Sprintf("could not list the worktrees of its repository: %v", err),
-			Failed: true,
+			Reason: RefusedListFailed,
+			Err:    err,
 		}, true
 	}
 	if nested := slices.IndexFunc(registered, func(w git.Worktree) bool { return isBeneath(worktree.Dir, w.Dir) }); nested >= 0 {
 		return Refusal{
-			Dir:    worktree.Dir,
-			Reason: fmt.Sprintf("it holds the worktree %s; remove that first", registered[nested].Dir),
+			Dir:       worktree.Dir,
+			Reason:    RefusedNestsWorktree,
+			NestedDir: registered[nested].Dir,
 		}, true
 	}
 
@@ -194,8 +242,8 @@ func (r *Remover) refuseLocked(ctx context.Context, worktree Worktree) (Refusal,
 	if err := r.git.UnlockWorktree(ctx, worktree.RepoDir, worktree.Dir); err != nil {
 		return Refusal{
 			Dir:    worktree.Dir,
-			Reason: fmt.Sprintf("could not unlock it: %v", err),
-			Failed: true,
+			Reason: RefusedUnlockFailed,
+			Err:    err,
 		}, true
 	}
 

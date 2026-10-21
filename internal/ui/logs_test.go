@@ -786,16 +786,18 @@ const provisionRun = "001-agent.provision-setup.log"
 type logReads map[string]*logv1.ReadAgentLogsResponse
 
 var (
-	serverSource    = &logv1.LogSource{Id: "server", Name: "server"}
+	serverSource    = &logv1.LogSource{Id: "server"}
 	provisionSource = &logv1.LogSource{
-		Id:   provisionRun,
-		Name: "001 agent.provision setup",
-		Run:  xptr.Ptr[int32](1),
+		Id:      provisionRun,
+		Run:     xptr.Ptr[int32](1),
+		Trigger: "agent.provision",
+		Script:  "setup",
 	}
 	launchSource = &logv1.LogSource{
-		Id:   "002-agent.pre-launch-setup.log",
-		Name: "002 agent.pre-launch setup",
-		Run:  xptr.Ptr[int32](2),
+		Id:      "002-agent.pre-launch-setup.log",
+		Run:     xptr.Ptr[int32](2),
+		Trigger: "agent.pre-launch",
+		Script:  "setup",
 	}
 )
 
@@ -989,14 +991,16 @@ func taskRunSources() []*logv1.LogSource {
 	return []*logv1.LogSource{
 		{
 			Id:      "001-task.pre-open-setup.log",
-			Name:    "001 task.pre-open setup",
 			Run:     xptr.Ptr[int32](1),
+			Trigger: "task.pre-open",
+			Script:  "setup",
 			AgentId: "a2",
 		},
 		{
 			Id:      "001-agent.pre-launch-setup.log",
-			Name:    "001 agent.pre-launch setup",
 			Run:     xptr.Ptr[int32](1),
+			Trigger: "agent.pre-launch",
+			Script:  "setup",
 			AgentId: "a1",
 		},
 	}

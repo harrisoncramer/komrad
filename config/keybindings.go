@@ -265,7 +265,7 @@ type MenuKeys struct {
 	// where there is no directory.
 	Terminal []string `mapstructure:"terminal" default:"t"`
 	// Open the git menu to the right of this one, for rebasing the task's branch or opening or
-	// merging its pull request.
+	// merging its pull request. On the review the git menu holds only the pull request's entries.
 	Git []string `mapstructure:"git" default:"g"`
 	// Open the jump menu to the right of this one, for landing on the hovered row's agent or task,
 	// its worktree or its documents.

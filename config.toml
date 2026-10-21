@@ -408,7 +408,7 @@ status_checks = ["x"]
 # where there is no directory.
 terminal      = ["t"]
 # Open the git menu to the right of this one, for rebasing the task's branch or opening or
-# merging its pull request.
+# merging its pull request. On the review the git menu holds only the pull request's entries.
 git           = ["g"]
 # Open the jump menu to the right of this one, for landing on the hovered row's agent or task,
 # its worktree or its documents.

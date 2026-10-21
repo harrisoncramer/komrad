@@ -153,19 +153,41 @@ func (a *app) askEngineDoctor(ctx context.Context) ([]doctor.Finding, error) {
 		return nil, err
 	}
 
-	findings := xslice.Map(resp.Msg.GetFindings(), func(finding *doctorv1.Finding) doctor.Finding {
-		return doctor.Finding{
+	findings := make([]doctor.Finding, 0, len(resp.Msg.GetFindings()))
+	for _, finding := range resp.Msg.GetFindings() {
+		status, err := readStatus(finding.GetStatus())
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the engine's %q finding: %w", finding.GetName(), err)
+		}
+
+		findings = append(findings, doctor.Finding{
 			Name:        finding.GetName(),
 			Description: finding.GetDescription(),
-			Status:      doctor.Status(finding.GetStatus()),
+			Status:      status,
 			Detail:      finding.GetDetail(),
 			Code:        finding.GetCode(),
 			Error:       finding.GetError(),
 			Fix:         finding.GetFix(),
-		}
-	})
+		})
+	}
 
 	return findings, nil
+}
+
+func readStatus(status doctorv1.Status) (doctor.Status, error) {
+	switch status {
+	case doctorv1.Status_STATUS_OK:
+		return doctor.StatusOK, nil
+	case doctorv1.Status_STATUS_WARN:
+		return doctor.StatusWarn, nil
+	case doctorv1.Status_STATUS_FAIL:
+		return doctor.StatusFail, nil
+	case doctorv1.Status_STATUS_SKIP:
+		return doctor.StatusSkip, nil
+	case doctorv1.Status_STATUS_UNSPECIFIED:
+	}
+
+	return "", fmt.Errorf("unknown status %s", status)
 }
 
 func (a *app) buildDoctor() (doctor.Env, doctor.Settings, error) {

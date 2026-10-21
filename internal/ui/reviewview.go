@@ -76,7 +76,7 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 
 	inner := r.measurePopupInner(m)
 	body, back := r.popupBody(m, inner)
-	if m.isPopupMenu() && m.form.isActive() {
+	if m.isPopupForm() && m.form.isActive() {
 		body = withSection(body, m.heldFormView(), inner)
 		back = 0
 	}
@@ -540,4 +540,28 @@ func (d reviewDiff) statView() string {
 	}
 
 	return out
+}
+
+// widenedSaid words why the diff came back as the whole change.
+func widenedSaid(widened *agentv1.ReviewWidening) string {
+	switch widened.GetReason() {
+	case agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_GONE:
+		return "the snapshots this answer stands between are gone"
+	case agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE:
+		return "the snapshot this comment was written on is gone"
+	case agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE:
+		return "a snapshot this range stands between is gone"
+	case agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_BACKWARDS:
+		return "the range starts on or after the snapshot it ends on"
+	case agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE:
+		said := "the answer can't be compared across the rebase"
+		if conflicts := widened.GetConflicts(); len(conflicts) > 0 {
+			said += ", conflicts in " + strings.Join(conflicts, ", ")
+		}
+
+		return said
+	case agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_UNSPECIFIED:
+	}
+
+	return "komrad diffed the whole change instead"
 }
