@@ -22,11 +22,11 @@ const rebaseRefusal = "Your task is stacked on its parent, and komrad rebases th
 // gitValueOptions are git's own options that take the next word as their value.
 var gitValueOptions = []string{"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"}
 
-// rebaseResumes are the options that carry on with a rebase already stopped rather than start one.
-var rebaseResumes = []string{"--continue", "--abort", "--skip", "--quit", "--edit-todo", "--show-current-patch"}
+// rebaseResumeOptions are the options that carry on with a rebase already stopped rather than start one.
+var rebaseResumeOptions = []string{"--continue", "--abort", "--skip", "--quit", "--edit-todo", "--show-current-patch"}
 
-// wrappers are commands that run the command named after them.
-var wrappers = []string{"command", "env", "exec", "nohup", "sudo"}
+// commandWrappers are commands that run the command named after them.
+var commandWrappers = []string{"command", "env", "exec", "nohup", "sudo"}
 
 var rebaseDenial = hookOutput{HookSpecificOutput: hookContext{
 	HookEventName:            string(claude.EventPreToolUse),
@@ -88,7 +88,7 @@ func literalWords(words []*syntax.Word) []string {
 
 // gitArgs is what follows git's own options in a command's words, nil when the command does not run git.
 func gitArgs(words []string) []string {
-	for len(words) > 0 && (slices.Contains(wrappers, words[0]) || strings.Contains(words[0], "=")) {
+	for len(words) > 0 && (slices.Contains(commandWrappers, words[0]) || strings.Contains(words[0], "=")) {
 		words = words[1:]
 	}
 	if len(words) == 0 || path.Base(words[0]) != "git" {
@@ -114,7 +114,7 @@ func rebases(args []string) bool {
 	switch args[0] {
 	case "rebase":
 		return !slices.ContainsFunc(args[1:], func(arg string) bool {
-			return slices.Contains(rebaseResumes, arg)
+			return slices.Contains(rebaseResumeOptions, arg)
 		})
 	case "pull":
 		rebase := false
