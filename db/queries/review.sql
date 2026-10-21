@@ -662,17 +662,17 @@ WHERE
             WHERE
                 v.snapshot_id = r.id
                 AND v.released_at IS NOT NULL)
-        OR EXISTS (
-            SELECT
-                1
-            FROM
-                review_threads t
-            WHERE
-                t.snapshot_id = r.id
-                AND t.author_kind = 'human'))
-ORDER BY
-    r.task_id,
-    r.ordinal DESC;
+            OR EXISTS (
+                SELECT
+                    1
+                FROM
+                    review_threads t
+                WHERE
+                    t.snapshot_id = r.id
+                    AND t.author_kind = 'human'))
+    ORDER BY
+        r.task_id,
+        r.ordinal DESC;
 
 -- name: LandReviewSnapshots :execrows
 UPDATE
