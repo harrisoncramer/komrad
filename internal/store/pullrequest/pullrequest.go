@@ -507,12 +507,22 @@ func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*m
 	return &mergeBlockers{HeadHasParent: row.HeadHasParent, BaseFinished: row.BaseFinished}, nil
 }
 
-// ListTasksOntoFinishedBranches lists the live tasks with no parent whose open pull request targets a task's branch whose own pull request merged or closed.
-func (s *PullRequestStore) ListTasksOntoFinishedBranches(ctx context.Context) ([]string, error) {
-	ids, err := s.queries.ListTasksOntoFinishedBranches(ctx)
+// ListTasksOntoTaskBranches lists the live tasks with no parent whose open pull request targets another task's branch, leaving out those the forge refused to re-target as they stand.
+func (s *PullRequestStore) ListTasksOntoTaskBranches(ctx context.Context) ([]string, error) {
+	ids, err := s.queries.ListTasksOntoTaskBranches(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the tasks onto finished branches: %w", err)
+		return nil, fmt.Errorf("failed to list the tasks onto other tasks' branches: %w", err)
 	}
 
 	return ids, nil
+}
+
+// RecordRetargetRefused records that the forge refused to point the pull request at the base branch as it stands.
+func (s *PullRequestStore) RecordRetargetRefused(ctx context.Context, pr PullRequest) error {
+	err := s.queries.RecordRetargetRefused(ctx, models.RecordRetargetRefusedParams{ID: pr.ID, ChangedAt: pr.ChangedAt})
+	if err != nil {
+		return fmt.Errorf("failed to record that the forge refused to re-target %s: %w", pr.URL, err)
+	}
+
+	return nil
 }

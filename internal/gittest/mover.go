@@ -17,9 +17,11 @@ type Mover struct {
 	// ReplayErr is what a replay answers with, which is how a conflict is asked for.
 	ReplayErr error
 	// Own is how many commits the branch holds that the base does not.
-	Own     int
-	Remote  git.RemoteStanding
-	Changes git.Changes
+	Own    int
+	Remote git.RemoteStanding
+	// RemoteErr is what reading origin's copy of the branch answers with.
+	RemoteErr error
+	Changes   git.Changes
 	// PushErr is what the push answers with, and SHA what it answers when it goes through.
 	PushErr error
 	SHA     string
@@ -94,8 +96,12 @@ func (f *Mover) RebaseOnto(_ context.Context, _, _, cutoff string) error {
 	return f.ReplayErr
 }
 
-// CountAgainstRemote answers Remote.
+// CountAgainstRemote answers Remote or RemoteErr.
 func (f *Mover) CountAgainstRemote(context.Context, string, string) (*git.RemoteStanding, error) {
+	if f.RemoteErr != nil {
+		return nil, f.RemoteErr
+	}
+
 	return &f.Remote, nil
 }
 

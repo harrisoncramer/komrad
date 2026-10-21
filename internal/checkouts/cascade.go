@@ -38,7 +38,7 @@ type cascadeOnto struct {
 
 // Cascade is one pass over every child, rebasing each whose parent moved onto the parent's newest commit.
 func (s *Service) Cascade(ctx context.Context) error {
-	return errors.Join(s.cascadeChildren(ctx, ""), s.retargetOntoFinished(ctx))
+	return errors.Join(s.cascadeChildren(ctx, ""), s.retargetLeftChildren(ctx))
 }
 
 // CascadeMerged moves each child of the pull request at the address, which has just merged, onto the base branch.
@@ -365,13 +365,18 @@ func (s *Service) leaveParent(ctx context.Context, task taskstore.Task) error {
 		return err
 	}
 
-	return s.retarget(ctx, task)
+	if err := s.retarget(ctx, task); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to point a task's pull request at the base branch",
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+	}
+
+	return nil
 }
 
-// retargetOntoFinished points the pull request of each task without a parent that still targets a
-// finished task's branch at the base branch.
-func (s *Service) retargetOntoFinished(ctx context.Context) error {
-	ids, err := s.pullRequests.ListTasksOntoFinishedBranches(ctx)
+// retargetLeftChildren points the pull request of each task without a parent that still targets
+// another task's branch at the base branch.
+func (s *Service) retargetLeftChildren(ctx context.Context) error {
+	ids, err := s.pullRequests.ListTasksOntoTaskBranches(ctx)
 	if err != nil {
 		return err
 	}
@@ -406,7 +411,7 @@ func (s *Service) retargetTask(ctx context.Context, id string) error {
 }
 
 // retarget points the task's open pull request at the workflow's base branch once origin holds the
-// task's branch as it stands, and logs a forge that refuses.
+// task's branch as it stands, and tells its writer when the forge refuses.
 func (s *Service) retarget(ctx context.Context, task taskstore.Task) error {
 	own, err := s.readPullRequest(ctx, task, task.GetBranch())
 	if errors.Is(err, store.ErrNotFound) {
@@ -438,8 +443,13 @@ func (s *Service) retarget(ctx context.Context, task taskstore.Task) error {
 		err = f.SetBase(ctx, own.URL, base)
 	}
 	if err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to point a task's pull request at the base branch",
-			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+		if err := s.pullRequests.RecordRetargetRefused(ctx, *own); err != nil {
+			return err
+		}
+		s.queueEvent(ctx, task.ID, cascaded{
+			TaskID:  task.ID,
+			Refused: &eventprompts.RetargetRefused{URL: own.URL, Onto: base, Reason: err.Error()},
+		})
 
 		return nil
 	}

@@ -841,6 +841,8 @@ type PullRequest struct {
 	Author string
 	// The description as the forge has it, in markdown.
 	Body string
+	// The changed_at the pull request had when the forge last refused to point it at the base branch, which komrad asks again only once changed_at moves past; null while nothing was refused.
+	RetargetRefusedAt *time.Time
 }
 
 // One check the forge listed on a head commit of a pull request, as the latest listing for that head said it stands.

@@ -220,6 +220,11 @@ table "pull_requests" {
     type    = text
     comment = "The last review decision a read reported, which a blank read leaves alone."
   }
+  column "retarget_refused_at" {
+    null    = true
+    type    = timestamptz
+    comment = "The changed_at the pull request had when the forge last refused to point it at the base branch, which komrad asks again only once changed_at moves past; null while nothing was refused."
+  }
   column "engine_id" {
     null    = false
     type    = uuid

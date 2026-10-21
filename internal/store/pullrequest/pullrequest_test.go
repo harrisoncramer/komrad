@@ -956,18 +956,22 @@ func TestGetMergeBlockers(t *testing.T) {
 	})
 }
 
-// TestListTasksOntoFinishedBranches pins which tasks with no parent still have a pull request onto a finished task's branch.
-func TestListTasksOntoFinishedBranches(t *testing.T) {
+// TestListTasksOntoTaskBranches pins which tasks with no parent still have a pull request onto another task's branch.
+func TestListTasksOntoTaskBranches(t *testing.T) {
 	childOntoParent := openPullRequest("PR_child", 2, "task/child")
 	childOntoParent.BaseBranch = "task/parent"
 	childOntoMain := openPullRequest("PR_child", 2, "task/child")
-	parentReopened := openPullRequest("PR_again", 3, "task/parent")
-	parentReopened.OpenedAt = parentReopened.OpenedAt.Add(2 * time.Hour)
+	childOntoOther := openPullRequest("PR_child", 2, "task/child")
+	childOntoOther.BaseBranch = "release"
+	childChanged := childOntoParent
+	childChanged.ChangedAt = childChanged.ChangedAt.Add(time.Hour)
 
 	tests := []struct {
 		name         string
 		pullRequests []UpsertParams
 		hasParent    bool
+		refused      bool
+		changed      bool
 		wantChild    bool
 	}{
 		{
@@ -976,21 +980,34 @@ func TestListTasksOntoFinishedBranches(t *testing.T) {
 			wantChild:    true,
 		},
 		{
+			name:         "a pull request onto a parent whose pull request is open is listed",
+			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			wantChild:    true,
+		},
+		{
 			name:         "a task that still has its parent is left to the cascade",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
 			hasParent:    true,
 		},
 		{
-			name:         "a pull request onto a parent whose pull request is open is not listed",
-			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
-		},
-		{
-			name:         "a parent with a pull request open again is not finished",
-			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), parentReopened, childOntoParent},
-		},
-		{
 			name:         "a pull request onto the base branch is not listed",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoMain},
+		},
+		{
+			name:         "a pull request onto a branch no task holds is not listed",
+			pullRequests: []UpsertParams{childOntoOther},
+		},
+		{
+			name:         "a pull request the forge refused to re-target as it stands is not listed",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			refused:      true,
+		},
+		{
+			name:         "a pull request that changed since the forge refused is listed again",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			refused:      true,
+			changed:      true,
+			wantChild:    true,
 		},
 	}
 
@@ -1011,8 +1028,17 @@ func TestListTasksOntoFinishedBranches(t *testing.T) {
 				_, err := h.Upsert(ctx, params)
 				require.NoError(t, err)
 			}
+			if tt.refused {
+				refused, err := h.GetByIdentity(ctx, "github.com", "PR_child")
+				require.NoError(t, err)
+				require.NoError(t, h.RecordRetargetRefused(ctx, *refused))
+			}
+			if tt.changed {
+				_, err := h.Upsert(ctx, childChanged)
+				require.NoError(t, err)
+			}
 
-			got, err := h.ListTasksOntoFinishedBranches(ctx)
+			got, err := h.ListTasksOntoTaskBranches(ctx)
 			require.NoError(t, err)
 			var want []string
 			if tt.wantChild {

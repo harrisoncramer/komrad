@@ -120,6 +120,7 @@ type cascaded struct {
 	Conflicted *eventprompts.CascadeConflicted `json:"conflicted,omitempty"`
 	Closed     *eventprompts.ParentClosed      `json:"closed,omitempty"`
 	Orphaned   *eventprompts.CascadeOrphaned   `json:"orphaned,omitempty"`
+	Refused    *eventprompts.RetargetRefused   `json:"refused,omitempty"`
 }
 
 // Topic names the handler that tells the task's writer.
@@ -144,6 +145,8 @@ func handleCascaded(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 		told = *cascaded.Closed
 	case cascaded.Orphaned != nil:
 		told = *cascaded.Orphaned
+	case cascaded.Refused != nil:
+		told = *cascaded.Refused
 	default:
 		return nil, nil
 	}

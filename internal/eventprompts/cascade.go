@@ -146,3 +146,27 @@ func (m CascadeOrphaned) Body() string {
 		"The person can pick the commit your own work starts from, or re-target your task onto the base branch, from its menu.",
 		xsha.Short(m.ForkPoint), m.Parent, m.Parent)
 }
+
+// RetargetRefused tells a writer that the forge refused to point its pull request at the base branch.
+type RetargetRefused struct {
+	URL string
+	// Onto is the base branch komrad asked for.
+	Onto   string
+	Reason string
+}
+
+// Kind is the kind the mail is filed under.
+func (RetargetRefused) Kind() mailstore.Kind {
+	return mailstore.KindWorktreeRebased
+}
+
+// Events is empty, since a refused re-target starts no event.
+func (RetargetRefused) Events() []string {
+	return nil
+}
+
+// Body tells the agent to point the pull request at the base branch itself.
+func (m RetargetRefused) Body() string {
+	return fmt.Sprintf("Komrad could not point your pull request at %s: %s\n\n%s\n\n"+
+		"Point it at %s yourself. Komrad asks the forge again once the pull request changes.", m.Onto, m.URL, m.Reason, m.Onto)
+}

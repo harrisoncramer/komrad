@@ -474,7 +474,7 @@ SELECT
 FROM
     pull_request;
 
--- name: ListTasksOntoFinishedBranches :many
+-- name: ListTasksOntoTaskBranches :many
 SELECT
     t.id
 FROM
@@ -489,27 +489,18 @@ WHERE
     AND t.archived_at IS NULL
     AND t.deleting_at IS NULL
     AND p.state = 'OPEN'
+    AND p.retarget_refused_at IS DISTINCT FROM p.changed_at
+    AND b.id <> t.id
     AND b.deleting_at IS NULL
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            pull_requests q
-        WHERE
-            q.repository_url = b.repository_url
-            AND q.head_repository_url = b.repository_url
-            AND q.head_branch = p.base_branch
-            AND q.state <> 'OPEN')
-    AND NOT EXISTS (
-        SELECT
-            1
-        FROM
-            pull_requests o
-        WHERE
-            o.repository_url = b.repository_url
-            AND o.head_branch = p.base_branch
-            AND o.state = 'OPEN')
 GROUP BY
     t.id
 ORDER BY
     t.id;
+
+-- name: RecordRetargetRefused :exec
+UPDATE
+    pull_requests
+SET
+    retarget_refused_at = @changed_at::timestamptz
+WHERE
+    id = @id;
