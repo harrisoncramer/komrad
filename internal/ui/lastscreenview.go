@@ -15,6 +15,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// minScreenRows is the fewest rows a saved screen is fitted to under its document before it is
+// given the whole column to scroll to instead.
+const minScreenRows = 8
+
 type lastScreenRowsParams struct {
 	screen  *lastScreen
 	agentID string
@@ -68,10 +72,6 @@ func noticeRows(notice string, width int) []string {
 
 	return []string{bar, fill.Bold(true).PaddingLeft(padding).Render(text), bar}
 }
-
-// minScreenRows is the fewest rows a saved screen is fitted to under its document before it is
-// given the whole column to scroll to instead.
-const minScreenRows = 8
 
 // withLastScreen is a column's rows under a notice saying the agent is not running, with the
 // saved screen of the agent it screens rendered under them.
