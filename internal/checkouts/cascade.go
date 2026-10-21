@@ -38,7 +38,7 @@ type cascadeOnto struct {
 
 // Cascade is one pass over every child, rebasing each whose parent moved onto the parent's newest commit.
 func (s *Service) Cascade(ctx context.Context) error {
-	return errors.Join(s.cascadeChildren(ctx, ""), s.retargetLeftChildren(ctx))
+	return errors.Join(s.cascadeChildren(ctx, ""), s.retargetTasksLeftOnParentBranches(ctx))
 }
 
 // CascadeMerged moves each child of the pull request at the address, which has just merged, onto the base branch.
@@ -387,18 +387,18 @@ func (s *Service) leaveParent(ctx context.Context, task taskstore.Task) error {
 	return nil
 }
 
-// retargetLeftChildren points the pull request of each task that left its parent and still targets
-// the parent's branch at the base branch.
-func (s *Service) retargetLeftChildren(ctx context.Context) error {
-	left, err := s.pullRequests.ListTasksLeftOnParentBranches(ctx)
+// retargetTasksLeftOnParentBranches points the pull request of each task that left its parent and
+// still targets the parent's branch at the base branch.
+func (s *Service) retargetTasksLeftOnParentBranches(ctx context.Context) error {
+	tasks, err := s.pullRequests.ListTasksLeftOnParentBranches(ctx)
 	if err != nil {
 		return err
 	}
 
 	var errs []error
-	for _, child := range left {
-		if err := s.retargetTask(ctx, child); err != nil {
-			errs = append(errs, fmt.Errorf("failed to re-target task %q: %w", child.TaskID, err))
+	for _, left := range tasks {
+		if err := s.retargetTask(ctx, left); err != nil {
+			errs = append(errs, fmt.Errorf("failed to re-target task %q: %w", left.TaskID, err))
 		}
 	}
 
@@ -406,8 +406,8 @@ func (s *Service) retargetLeftChildren(ctx context.Context) error {
 }
 
 // retargetTask points the task's pull request at the base branch while nothing else holds its worktree.
-func (s *Service) retargetTask(ctx context.Context, child pullrequeststore.LeftParent) error {
-	task, err := s.tasks.Get(ctx, child.TaskID)
+func (s *Service) retargetTask(ctx context.Context, left pullrequeststore.LeftParent) error {
+	task, err := s.tasks.Get(ctx, left.TaskID)
 	if err != nil {
 		return err
 	}
@@ -421,7 +421,7 @@ func (s *Service) retargetTask(ctx context.Context, child pullrequeststore.LeftP
 	}
 	defer unlock()
 
-	return s.retarget(ctx, *task, child.Branch)
+	return s.retarget(ctx, *task, left.Branch)
 }
 
 // retarget points the task's open pull request off the branch it left at the workflow's base branch
