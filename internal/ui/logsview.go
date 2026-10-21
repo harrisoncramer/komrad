@@ -56,20 +56,6 @@ func (l *logsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	}
 }
 
-// nameSource is what a source is called, led by the agent that ran it when the screen lists a task's runs.
-func (l *logsScreen) nameSource(m *model, source *logv1.LogSource) string {
-	if l.taskID == "" {
-		return sourceLabel(source)
-	}
-
-	name := source.GetAgentId()
-	if item, ok := m.listing.anyAgent(name); ok {
-		name = m.listing.agentName(item.Agent)
-	}
-
-	return name + " " + sourceLabel(source)
-}
-
 func sourceLabel(source *logv1.LogSource) string {
 	if source.Run == nil {
 		return "server"
