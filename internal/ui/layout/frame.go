@@ -748,7 +748,7 @@ func (f *Frame) claimStage() {
 
 	f.abandonStage()
 
-	f.stage = f.splitStage()
+	f.stage = f.tmux.SplitRight(f.sidebar, getHomeDir(), stageSize)
 	f.forget(RegionStage)
 	f.forget(RegionInfo)
 
@@ -769,10 +769,6 @@ func (f *Frame) chosenCols() int {
 	}
 
 	return f.spec.sidebarCols
-}
-
-func (f *Frame) splitStage() string {
-	return f.tmux.SplitRight(f.sidebar, getHomeDir(), stageSize)
 }
 
 // unfoldStage splits the stage back off the info pane it gave its rows to.
