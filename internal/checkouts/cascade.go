@@ -269,8 +269,8 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 	}
 	defer unlock()
 
-	moved, err := s.hasParentMoved(ctx, task)
-	if err != nil || moved {
+	changed, err := s.hasParentChanged(ctx, task)
+	if err != nil || changed {
 		return err
 	}
 
@@ -349,8 +349,8 @@ func (s *Service) recordOnto(ctx context.Context, task taskstore.Task, onto casc
 	return s.tasks.SetForkPoint(ctx, task.ID, onto.SHA)
 }
 
-// hasParentMoved reports whether the child's parent or fork point changed since the task was read.
-func (s *Service) hasParentMoved(ctx context.Context, task taskstore.Task) (bool, error) {
+// hasParentChanged reports whether the child's parent or fork point changed since the task was read.
+func (s *Service) hasParentChanged(ctx context.Context, task taskstore.Task) (bool, error) {
 	current, err := s.tasks.Get(ctx, task.ID)
 	if err != nil {
 		return false, err
@@ -501,8 +501,8 @@ func (s *Service) settleRetarget(ctx context.Context, task taskstore.Task) (bool
 	}
 	defer unlock()
 
-	moved, err := s.hasParentMoved(ctx, task)
-	if err != nil || moved {
+	changed, err := s.hasParentChanged(ctx, task)
+	if err != nil || changed {
 		return true, err
 	}
 
