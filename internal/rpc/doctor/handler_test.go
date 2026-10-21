@@ -81,3 +81,38 @@ func TestRunDoctorRendersTheSummary(t *testing.T) {
 		})
 	}
 }
+
+// TestRunDoctorRendersEachStatus pins that each status a check concludes with reaches the finding as its own value.
+func TestRunDoctorRendersEachStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		status doctor.Status
+		want   doctorv1.Status
+	}{
+		{status: doctor.StatusOK, want: doctorv1.Status_STATUS_OK},
+		{status: doctor.StatusWarn, want: doctorv1.Status_STATUS_WARN},
+		{status: doctor.StatusFail, want: doctorv1.Status_STATUS_FAIL},
+		{status: doctor.StatusSkip, want: doctorv1.Status_STATUS_SKIP},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.status), func(t *testing.T) {
+			t.Parallel()
+
+			checks := []doctor.Check{{
+				Name: "check",
+				Run: func(context.Context, doctor.Env) doctor.Result {
+					return doctor.Result{Status: tt.status}
+				},
+			}}
+			service := doctorv1komrad.DoctorServiceAdapter{Impl: NewHandler(NewHandlerParams{Checks: checks})}
+
+			resp, err := service.RunDoctor(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+			require.NoError(t, err)
+
+			require.Len(t, resp.Msg.GetFindings(), 1)
+			assert.Equal(t, tt.want, resp.Msg.GetFindings()[0].GetStatus())
+		})
+	}
+}

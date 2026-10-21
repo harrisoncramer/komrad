@@ -6675,13 +6675,13 @@
         },
         {
           "name": "status",
-          "type": "string",
-          "ref": "",
+          "type": "Status",
+          "ref": "doctor.v1.Status",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "How the check came out: `ok`, `warn`, `fail` or `skip`."
+          "description": "How the check came out."
         },
         {
           "name": "detail",
@@ -11397,6 +11397,28 @@
         {
           "name": "REVIEW_VERDICT_COMMENTED",
           "description": "Comments with no conclusion either way."
+        }
+      ]
+    },
+    "doctor.v1.Status": {
+      "name": "Status",
+      "description": "Status is how a doctor check came out.",
+      "values": [
+        {
+          "name": "STATUS_OK",
+          "description": "The check passed."
+        },
+        {
+          "name": "STATUS_WARN",
+          "description": "The check passed with a warning."
+        },
+        {
+          "name": "STATUS_FAIL",
+          "description": "The check failed."
+        },
+        {
+          "name": "STATUS_SKIP",
+          "description": "The check was skipped because a check it needs did not pass."
         }
       ]
     },
