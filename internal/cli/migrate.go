@@ -17,7 +17,7 @@ and it refuses to start against a database missing migrations its build carries.
 every upgrade runs this first, with owner_database_url (or KOMRAD_OWNER_DATABASE_URL)
 naming the owner, which falls back to database_url on a database no engine has joined.
 
-While database_url names the embedded Postgres, this creates it when there is none
+While owner_database_url names the embedded Postgres, this creates it when there is none
 and starts it when it is down.
 
 It refuses while another komrad is connected and the build holds migrations the database
@@ -28,7 +28,7 @@ database that is already current; it says so and exits zero.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if dir := getEmbeddedPostgresDir(state.env); dir != "" {
+			if dir := getOwnerEmbeddedPostgresDir(state.env); dir != "" {
 				if _, err := createOrStartEmbeddedPostgres(cmd.Context(), dir); err != nil {
 					return err
 				}

@@ -7,7 +7,9 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run remote:deploy [instance-id]"
 	echo
-	echo "Cross-compiles komrad for the engine, installs it there, migrates as the owner, and restarts the server."
+	echo "Cross-compiles komrad for the engine, migrates with it as the owner, installs it there, restarts"
+	echo "the server, and checks the server runs the version it shipped. A failed migration leaves the"
+	echo "engine serving the build it had."
 	echo "A clean deploy carries this checkout's commit, which is what the panel compares"
 	echo "against, so a panel built from the same commit needs nothing further. A deploy"
 	echo "from a dirty tree names no commit, so it also builds a local binary at the same"
@@ -98,19 +100,24 @@ OWNER_URL="$(aws s3 presign "s3://$BUCKET/$OWNER_KEY" --expires-in 900 --region 
 
 # The instance fetches the binary itself, so nothing large travels through the command and the
 # instance needs no permission on the bucket.
+#
+# The new build migrates from a staging directory with the service stopped, and the exit trap starts it again however the script ends.
+# shellcheck disable=SC2016
 COMMANDS=(
 	"set -e"
-	"curl -fsSL -o /tmp/komrad-new '$URL'"
-	"install -m 0755 /tmp/komrad-new /usr/local/bin/komrad"
-	"rm -f /tmp/komrad-new"
-	"curl -fsSL -o /tmp/komrad-database-credentials '$CREDENTIALS_URL'"
-	"install -m 0755 /tmp/komrad-database-credentials /usr/local/sbin/komrad-database-credentials"
-	"rm -f /tmp/komrad-database-credentials"
-	"curl -fsSL -o /tmp/komrad-owner-database-url '$OWNER_URL'"
-	"install -m 0700 /tmp/komrad-owner-database-url /usr/local/sbin/komrad-owner-database-url"
-	"rm -f /tmp/komrad-owner-database-url"
-	"/usr/local/sbin/komrad-database-credentials"
-	"systemctl restart komrad.service"
+	'STAGE="$(mktemp -d)"'
+	'trap '\''rm -rf "$STAGE"'\'' EXIT'
+	"curl -fsSL -o \"\$STAGE/komrad\" '$URL'"
+	"curl -fsSL -o \"\$STAGE/komrad-database-credentials\" '$CREDENTIALS_URL'"
+	"curl -fsSL -o \"\$STAGE/komrad-owner-database-url\" '$OWNER_URL'"
+	'chmod 0755 "$STAGE/komrad" "$STAGE/komrad-database-credentials"'
+	'chmod 0700 "$STAGE/komrad-owner-database-url"'
+	"systemctl stop komrad.service"
+	'trap '\''rm -rf "$STAGE"; systemctl start komrad.service'\'' EXIT'
+	'PATH="$STAGE:$PATH" "$STAGE/komrad-database-credentials"'
+	'install -m 0755 "$STAGE/komrad" /usr/local/bin/komrad'
+	'install -m 0755 "$STAGE/komrad-database-credentials" /usr/local/sbin/komrad-database-credentials'
+	'install -m 0700 "$STAGE/komrad-owner-database-url" /usr/local/sbin/komrad-owner-database-url'
 )
 
 COMMAND_ID="$(aws ssm send-command \
@@ -141,6 +148,24 @@ aws s3 rm "s3://$BUCKET/$OWNER_KEY" --only-show-errors
 
 if [ "$STATUS" != "Success" ]; then
 	echo "the install did not finish on $INSTANCE; it was last $STATUS" >&2
+	exit 1
+fi
+
+# The process systemd runs is asked for its version through /proc, which names the binary it
+# started from even after the file on disk has been replaced.
+# shellcheck disable=SC2016
+RUNNING="$(run_on_engine "$INSTANCE" "$REGION" \
+	"set -e" \
+	"sleep 5" \
+	"systemctl is-active --quiet komrad.service" \
+	'PID="$(systemctl show -p MainPID --value komrad.service)"' \
+	'"/proc/$PID/exe" version 2>&1 | sed -n "s/^this binary: \([^ ]*\).*/\1/p"' || true)"
+
+if [ "$RUNNING" != "$VERSION" ]; then
+	gum log --level error "komrad.service on $INSTANCE is not running $VERSION" "running" "${RUNNING:-nothing}"
+	echo >&2
+	echo "The deploy installed $VERSION, and systemd is serving something else. Look at" >&2
+	echo "'journalctl -u komrad.service' on the engine before deploying again." >&2
 	exit 1
 fi
 
