@@ -414,7 +414,7 @@ func logSourceRowName(row logSourceRow) string {
 // nameSource is what a source is called, led by the agent that ran it when the screen lists a task's runs.
 func (l *logsScreen) nameSource(m *model, source *logv1.LogSource) string {
 	if l.taskID == "" {
-		return source.GetName()
+		return sourceLabel(source)
 	}
 
 	name := source.GetAgentId()
@@ -422,7 +422,7 @@ func (l *logsScreen) nameSource(m *model, source *logv1.LogSource) string {
 		name = m.listing.agentName(item.Agent)
 	}
 
-	return name + " " + source.GetName()
+	return name + " " + sourceLabel(source)
 }
 
 func (l *logsScreen) listParams(m *model) screenListParams {

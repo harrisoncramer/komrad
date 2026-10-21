@@ -3,7 +3,6 @@ package log
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"slices"
 	"strconv"
@@ -182,7 +181,7 @@ func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1.ListAgentLog
 	})
 
 	return &logv1.ListAgentLogSourcesResponse{
-		Sources: slices.Concat([]*logv1.LogSource{{Id: serverSource, Name: serverSource}}, runs),
+		Sources: slices.Concat([]*logv1.LogSource{{Id: serverSource}}, runs),
 	}, nil
 }
 
@@ -221,8 +220,9 @@ type renderRunSourceParams struct {
 func renderRunSource(params renderRunSourceParams) *logv1.LogSource {
 	return &logv1.LogSource{
 		Id:      config.RunLogName(params.number, params.trigger, params.script),
-		Name:    fmt.Sprintf("%03d %s %s", params.number, params.trigger, params.script),
 		Run:     xptr.Ptr(int32(params.number)),
+		Trigger: params.trigger,
+		Script:  params.script,
 		AgentId: params.agentID,
 	}
 }

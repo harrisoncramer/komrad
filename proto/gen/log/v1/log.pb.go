@@ -510,10 +510,12 @@ type LogSource struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The source's id, to pass as `source` to `read_agent_logs`.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The source's name, such as `service` or `003 agent.pre-launch setup`.
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The number of the hook run. Unset for the server log.
 	Run *int32 `protobuf:"varint,3,opt,name=run,proto3,oneof" json:"run,omitempty"`
+	// The moment the hook ran at, such as `agent.pre-launch`. Empty for the server log.
+	Trigger string `protobuf:"bytes,6,opt,name=trigger,proto3" json:"trigger,omitempty"`
+	// The hook's script, by file name in the hooks directory. Empty for the server log.
+	Script string `protobuf:"bytes,7,opt,name=script,proto3" json:"script,omitempty"`
 	// The id of the agent that recorded the hook run. Empty for the server log.
 	AgentId string `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// Whether the hook run failed. Set only on a task's log sources.
@@ -559,18 +561,25 @@ func (x *LogSource) GetId() string {
 	return ""
 }
 
-func (x *LogSource) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
 func (x *LogSource) GetRun() int32 {
 	if x != nil && x.Run != nil {
 		return *x.Run
 	}
 	return 0
+}
+
+func (x *LogSource) GetTrigger() string {
+	if x != nil {
+		return x.Trigger
+	}
+	return ""
+}
+
+func (x *LogSource) GetScript() string {
+	if x != nil {
+		return x.Script
+	}
+	return ""
 }
 
 func (x *LogSource) GetAgentId() string {
@@ -805,11 +814,12 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x05lines\x18\x01 \x03(\tR\x05lines\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12\x14\n" +
 	"\x05reset\x18\x03 \x01(\bR\x05reset\x12\x12\n" +
-	"\x04more\x18\x04 \x01(\bR\x04more\"\x81\x01\n" +
+	"\x04more\x18\x04 \x01(\bR\x04more\"\x9f\x01\n" +
 	"\tLogSource\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x15\n" +
-	"\x03run\x18\x03 \x01(\x05H\x00R\x03run\x88\x01\x01\x12\x19\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
+	"\x03run\x18\x03 \x01(\x05H\x00R\x03run\x88\x01\x01\x12\x18\n" +
+	"\atrigger\x18\x06 \x01(\tR\atrigger\x12\x16\n" +
+	"\x06script\x18\a \x01(\tR\x06script\x12\x19\n" +
 	"\bagent_id\x18\x04 \x01(\tR\aagentId\x12\x16\n" +
 	"\x06failed\x18\x05 \x01(\bR\x06failedB\x06\n" +
 	"\x04_run\"@\n" +
