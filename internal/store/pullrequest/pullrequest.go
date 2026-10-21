@@ -506,3 +506,13 @@ func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*m
 
 	return &mergeBlockers{HeadHasParent: row.HeadHasParent, BaseFinished: row.BaseFinished}, nil
 }
+
+// ListTasksOntoFinishedBranches lists the live tasks with no parent whose open pull request targets a task's branch whose own pull request merged or closed.
+func (s *PullRequestStore) ListTasksOntoFinishedBranches(ctx context.Context) ([]string, error) {
+	ids, err := s.queries.ListTasksOntoFinishedBranches(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the tasks onto finished branches: %w", err)
+	}
+
+	return ids, nil
+}

@@ -252,7 +252,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 	}
 
 	if result.OntoBase && !result.Conflicted {
-		if _, err := s.leaveParent(ctx, *target.task, target.workflow.Worktree.BaseBranch); err != nil {
+		if err := s.leaveParent(ctx, *target.task); err != nil {
 			return nil, err
 		}
 	}

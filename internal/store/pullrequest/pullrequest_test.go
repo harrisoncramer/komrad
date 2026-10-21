@@ -956,6 +956,73 @@ func TestGetMergeBlockers(t *testing.T) {
 	})
 }
 
+// TestListTasksOntoFinishedBranches pins which tasks with no parent still have a pull request onto a finished task's branch.
+func TestListTasksOntoFinishedBranches(t *testing.T) {
+	childOntoParent := openPullRequest("PR_child", 2, "task/child")
+	childOntoParent.BaseBranch = "task/parent"
+	childOntoMain := openPullRequest("PR_child", 2, "task/child")
+	parentReopened := openPullRequest("PR_again", 3, "task/parent")
+	parentReopened.OpenedAt = parentReopened.OpenedAt.Add(2 * time.Hour)
+
+	tests := []struct {
+		name         string
+		pullRequests []UpsertParams
+		hasParent    bool
+		wantChild    bool
+	}{
+		{
+			name:         "a pull request onto a parent whose pull request merged is listed",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			wantChild:    true,
+		},
+		{
+			name:         "a task that still has its parent is left to the cascade",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			hasParent:    true,
+		},
+		{
+			name:         "a pull request onto a parent whose pull request is open is not listed",
+			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+		},
+		{
+			name:         "a parent with a pull request open again is not finished",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), parentReopened, childOntoParent},
+		},
+		{
+			name:         "a pull request onto the base branch is not listed",
+			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoMain},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := open(t)
+			ctx := t.Context()
+			workflow := h.createWorkflow(t)
+			parent := h.createAgent(t, workflow, "parent", komrad, "task/parent")
+			child := h.createAgent(t, workflow, "child", komrad, "task/child")
+			if tt.hasParent {
+				require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetParent(ctx, h.taskOf(t, child), &taskstore.Parent{
+					TaskID:    h.taskOf(t, parent),
+					ForkPoint: "abc",
+				}))
+			}
+			for _, params := range tt.pullRequests {
+				_, err := h.Upsert(ctx, params)
+				require.NoError(t, err)
+			}
+
+			got, err := h.ListTasksOntoFinishedBranches(ctx)
+			require.NoError(t, err)
+			var want []string
+			if tt.wantChild {
+				want = []string{h.taskOf(t, child)}
+			}
+			assert.Equal(t, want, got)
+		})
+	}
+}
+
 // TestLiveBranchesFollowTheParentPullRequest covers a parent's pull request staying a sync target
 // while a live task follows it, after every agent on the parent is archived.
 func TestLiveBranchesFollowTheParentPullRequest(t *testing.T) {

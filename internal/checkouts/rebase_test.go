@@ -335,11 +335,10 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 // TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes covers re-targeting a child onto the workflow's base branch.
 func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 	tests := []struct {
-		name           string
-		replayErr      error
-		wantErr        bool
-		wantParent     bool
-		wantRetargeted []retargeted
+		name       string
+		replayErr  error
+		wantErr    bool
+		wantParent bool
 	}{
 		{
 			name:       "a re-target that fails keeps the parent",
@@ -353,8 +352,7 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			wantParent: true,
 		},
 		{
-			name:           "a re-target that finishes clears the parent and points the pull request at the base branch",
-			wantRetargeted: []retargeted{{url: pushRepository + "/pull/2", base: "main"}},
+			name: "a re-target that finishes clears the parent and leaves the pull request until origin holds the branch",
 		},
 	}
 
@@ -377,7 +375,7 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantParent, got.Parent != nil)
-			assert.Equal(t, tt.wantRetargeted, fixture.forges.retargeted)
+			assert.Empty(t, fixture.forges.retargeted)
 		})
 	}
 }

@@ -615,6 +615,67 @@ func (q *Queries) ListTaskPullRequests(ctx context.Context, taskIds []string) ([
 	return items, nil
 }
 
+const listTasksOntoFinishedBranches = `-- name: ListTasksOntoFinishedBranches :many
+SELECT
+    t.id
+FROM
+    tasks t
+    JOIN pull_requests p ON p.repository_url = t.repository_url
+        AND p.head_repository_url = t.repository_url
+        AND p.head_branch = COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text)
+    JOIN tasks b ON b.repository_url = p.repository_url
+        AND COALESCE(b.branch, b.adopted_branch, 'task/' || b.id::text) = p.base_branch
+WHERE
+    t.parent_task_id IS NULL
+    AND t.archived_at IS NULL
+    AND t.deleting_at IS NULL
+    AND p.state = 'OPEN'
+    AND b.deleting_at IS NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            pull_requests q
+        WHERE
+            q.repository_url = b.repository_url
+            AND q.head_repository_url = b.repository_url
+            AND q.head_branch = p.base_branch
+            AND q.state <> 'OPEN')
+    AND NOT EXISTS (
+        SELECT
+            1
+        FROM
+            pull_requests o
+        WHERE
+            o.repository_url = b.repository_url
+            AND o.head_branch = p.base_branch
+            AND o.state = 'OPEN')
+GROUP BY
+    t.id
+ORDER BY
+    t.id
+`
+
+func (q *Queries) ListTasksOntoFinishedBranches(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listTasksOntoFinishedBranches)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWatchedPullRequests = `-- name: ListWatchedPullRequests :many
 SELECT
     p.id, p.host, p.forge, p.provider_id, p.url, p.repository_url, p.head_repository_url, p.number, p.title, p.head_branch, p.head_sha, p.base_branch, p.base_sha, p.draft, p.state, p.opened_at, p.changed_at, p.merged_at, p.closed_at, p.first_seen_at, p.engine_id, p.mergeability_blank_since, p.auto_merge, p.auto_mergeable, p.latest_decision, p.latest_head_sha, p.latest_mergeability, p.known_mergeability, p.known_mergeability_sha, p.known_decision, p.author, p.body
