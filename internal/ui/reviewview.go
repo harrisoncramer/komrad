@@ -76,11 +76,9 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 
 	inner := r.measurePopupInner(m)
 	body, back := r.popupBody(m, inner)
-	tone := paint.ToneMuted
 	if m.isPopupMenu() && m.form.isActive() {
 		body = withSection(body, m.heldFormView(), inner)
 		back = 0
-		tone = paint.TonePrimary
 	}
 	if body == "" {
 		return area
@@ -88,7 +86,7 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 
 	slot := r.placeThread(m, body)
 
-	return overlayPopup(area, renderPopup(body, back, slot, tone), slot)
+	return overlayPopup(area, renderPopup(body, back, slot), slot)
 }
 
 // renderSidebar is the panel's own column: what the change is, the pull request open from the

@@ -127,7 +127,7 @@ func overlayPopup(area, box string, slot popupSlot) string {
 
 // renderPopup boxes a body at a slot's width and height, showing the rows back rows from its end
 // and marking what runs past the box above and below.
-func renderPopup(body string, back int, slot popupSlot, tone paint.Tone) string {
+func renderPopup(body string, back int, slot popupSlot) string {
 	room := slot.room()
 	lines := splitPopupRows(body)
 	window := paint.WindowOf(len(lines), room, func(visible int) int {
@@ -150,7 +150,7 @@ func renderPopup(body string, back int, slot popupSlot, tone paint.Tone) string 
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(paint.Panel.Color(tone)).
+		BorderForeground(paint.Panel.Color(paint.ToneMuted)).
 		Padding(0, 1).
 		Render(strings.Join(padded, "\n"))
 }
