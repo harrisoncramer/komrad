@@ -8,19 +8,15 @@ import (
 	"komrad/internal/ui/paint"
 )
 
-// popupAnchor is the columns the popup takes beside the diff's code: the sidebar, the divider and
-// the gutter when the sidebar stands to the left, the divider and the sidebar when it stands to
-// the right, and the whole pane without a split.
+// popupAnchor is the columns the popup takes beside the diff's code, which are the sidebar, the
+// divider and the gutter with a split and the whole pane without one.
 func (r reviewScreen) popupAnchor(m *model) popupAnchor {
 	split, ok := m.screenColumnSplit()
-	switch {
-	case !ok:
+	if !ok {
 		return popupAnchor{right: m.paneWidth()}
-	case m.isSidebarOnRight():
-		return popupAnchor{left: split.column, right: split.column + dividerCols + split.sidebar}
-	default:
-		return popupAnchor{right: split.sidebar + dividerCols + diffview.GutterWidth, codeOnRight: true}
 	}
+
+	return popupAnchor{right: split.sidebar + dividerCols + diffview.GutterWidth, codeOnRight: true}
 }
 
 // measurePopupInner is the room inside the popup over the review.

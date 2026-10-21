@@ -17,9 +17,8 @@ const (
 	popupChrome   = 4
 )
 
-// popupAnchor is the columns beside the code a popup fills from the side facing the code.
+// popupAnchor is the columns from the left edge a popup fills, up to the code beside them.
 type popupAnchor struct {
-	left  int
 	right int
 	// codeOnRight is set when the code lies right of the columns.
 	codeOnRight bool
@@ -28,7 +27,7 @@ type popupAnchor struct {
 // measureWidth is how wide a popup stands in the anchor's columns, running into the code only to
 // keep its narrowest width.
 func (a popupAnchor) measureWidth() int {
-	return max(min(popupWidth, a.right-a.left), popupMinWidth)
+	return max(min(popupWidth, a.right), popupMinWidth)
 }
 
 // popupSlot is where a popup stands over an area and how big it is.
@@ -105,13 +104,13 @@ func placePopup(anchor popupAnchor, stage popupStage, tall int) popupSlot {
 	}
 
 	width := anchor.measureWidth()
-	x := anchor.left
-	if anchor.codeOnRight == (width <= anchor.right-anchor.left) {
+	x := 0
+	if anchor.codeOnRight && width <= anchor.right {
 		x = anchor.right - width
 	}
 
 	return popupSlot{
-		x:      max(x, 0),
+		x:      x,
 		y:      y,
 		width:  width,
 		height: height,

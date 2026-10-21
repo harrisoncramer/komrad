@@ -79,10 +79,8 @@ auto_compaction = 150000
 # leaving max_agents as the cap.
 max_tasks       = 0
 
-# Sets where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the window each takes.
+# Sets how much of the window the panel's sidebar, the stage beside it, and the info pane each take, and which side of the stage the info pane opens on.
 [layout]
-# Which side of the window the panel's sidebar sits on, "left" or "right".
-sidebar_side   = "left"
 # The width, in columns, the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
 sidebar_width  = 47
 # Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.

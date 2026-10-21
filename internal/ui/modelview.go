@@ -63,34 +63,19 @@ func (m *model) fitFrame(view string) string {
 // gutter is the blank cells left of what the panel renders.
 const gutter = 1
 
+// sidebarChrome is the columns the gutter and the divider take from a sidebar beside the stage.
+const sidebarChrome = 2*gutter + 1
+
 // countInsetCols is the columns the gutter and the divider beside the stage take from the panel.
 func (m *model) countInsetCols() int {
 	if m.frame.IsSolo() {
 		return gutter
 	}
 
-	return m.countSidebarChrome()
+	return sidebarChrome
 }
 
-// countSidebarChrome is the columns the gutter and the divider take from a sidebar beside the stage.
-func (m *model) countSidebarChrome() int {
-	if m.frame.IsSidebarOnRight() {
-		return gutter + 1
-	}
-
-	return 2*gutter + 1
-}
-
-// countInsetLeft is the columns between the left edge of the pane and what the panel renders.
-func (m *model) countInsetLeft() int {
-	if !m.frame.IsSolo() && m.frame.IsSidebarOnRight() {
-		return gutter + 1
-	}
-
-	return gutter
-}
-
-// renderInset puts the gutter left of the frame, and the divider on the side facing the stage.
+// renderInset puts the gutter left of the frame, and the divider right of it facing the stage.
 func (m *model) renderInset(view string) string {
 	if m.term.width <= 0 {
 		return view
@@ -98,40 +83,27 @@ func (m *model) renderInset(view string) string {
 
 	pad := strings.Repeat(" ", gutter)
 	edged := !m.frame.IsSolo()
-	onRight := m.frame.IsSidebarOnRight()
 
 	lines := strings.Split(view, "\n")
 	for i, line := range lines {
 		line = ansi.Truncate(line, m.term.width, "")
 		line += strings.Repeat(" ", max(0, m.term.width-ansi.StringWidth(line)))
 
-		left, right := pad, ""
-		switch {
-		case edged && onRight:
-			left = renderEdgeRow(isRule(line), true)
-		case edged:
-			right = renderEdgeRow(isRule(line), false)
+		right := ""
+		if edged {
+			right = renderEdgeRow(isRule(line))
 		}
 
-		lines[i] = left + line + right
+		lines[i] = pad + line + right
 	}
 
 	return strings.Join(lines, "\n")
 }
 
-// renderEdgeRow is one row of the divider on the side of the panel facing the stage, joined to a rule
-// that meets it.
-func renderEdgeRow(rule, facingLeft bool) string {
+// renderEdgeRow is one row of the divider facing the stage, joined to a rule that meets it.
+func renderEdgeRow(rule bool) string {
 	if !rule {
-		if facingLeft {
-			return dimStyle().Render(dividerGlyph) + strings.Repeat(" ", gutter)
-		}
-
 		return strings.Repeat(" ", gutter) + dimStyle().Render(dividerGlyph)
-	}
-
-	if facingLeft {
-		return dimStyle().Render(glyph.TeeLeft + strings.Repeat(glyph.Rule, gutter))
 	}
 
 	return dimStyle().Render(strings.Repeat(glyph.Rule, gutter) + glyph.TeeRight)

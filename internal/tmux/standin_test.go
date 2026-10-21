@@ -51,13 +51,12 @@ func TestLayOutTiles(t *testing.T) {
 		{
 			name: "a divider parts the list from the column on its right",
 			spec: standInSpec{
-				Width:    40,
-				Height:   20,
-				Divider:  10,
-				Rule:     -1,
-				RuleLeft: true,
-				FocusX:   20,
-				FocusY:   5,
+				Width:   40,
+				Height:  20,
+				Divider: 10,
+				Rule:    -1,
+				FocusX:  20,
+				FocusY:  5,
 			},
 			want: []copyTile{
 				{pane: "%0", rect: panes.Rect{Width: 10, Height: 20}},
@@ -72,13 +71,12 @@ func TestLayOutTiles(t *testing.T) {
 		{
 			name: "a rule parts the record from the list above it",
 			spec: standInSpec{
-				Width:    40,
-				Height:   20,
-				Divider:  10,
-				Rule:     12,
-				RuleLeft: true,
-				FocusX:   3,
-				FocusY:   15,
+				Width:   40,
+				Height:  20,
+				Divider: 10,
+				Rule:    12,
+				FocusX:  3,
+				FocusY:  15,
 			},
 			want: []copyTile{
 				{pane: "%0", rect: panes.Rect{Width: 10, Height: 12}},
@@ -94,32 +92,6 @@ func TestLayOutTiles(t *testing.T) {
 				}},
 			},
 			wantFocus: "%2",
-		},
-		{
-			name: "a rule parts the list on the right when the sidebar is there",
-			spec: standInSpec{
-				Width:   40,
-				Height:  20,
-				Divider: 29,
-				Rule:    12,
-				FocusX:  35,
-				FocusY:  3,
-			},
-			want: []copyTile{
-				{pane: "%0", rect: panes.Rect{Width: 29, Height: 20}},
-				{pane: "%1", rect: panes.Rect{
-					Left:   30,
-					Width:  10,
-					Height: 12,
-				}},
-				{pane: "%2", rect: panes.Rect{
-					Left:   30,
-					Top:    13,
-					Width:  10,
-					Height: 7,
-				}},
-			},
-			wantFocus: "%1",
 		},
 		{
 			name: "a focus outside every tile lands in the first",

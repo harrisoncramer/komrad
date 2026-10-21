@@ -109,11 +109,6 @@ func TestLoadLayout(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "a side the list cannot sit on",
-			file:    "[layout]\nsidebar_side = \"top\"\n",
-			wantErr: true,
-		},
-		{
 			name:    "a side the info pane cannot open on",
 			file:    "[layout]\ninfo_side = \"right\"\n",
 			wantErr: true,
@@ -127,7 +122,6 @@ func TestLoadLayout(t *testing.T) {
 			name: "the width the user chose, with the rest left at the defaults",
 			file: "[layout]\nsidebar_width = 40\n",
 			want: Layout{
-				SidebarSide:   defaultSidebarSide,
 				SidebarWidth:  40,
 				InfoSide:      defaultInfoSide,
 				InfoHeight:    DefaultInfoHeight,
@@ -136,10 +130,9 @@ func TestLoadLayout(t *testing.T) {
 			},
 		},
 		{
-			name: "the sides the user chose for the list and the info pane",
-			file: "[layout]\nsidebar_side = \"right\"\ninfo_side = \"above\"\n",
+			name: "the side the user chose for the info pane",
+			file: "[layout]\ninfo_side = \"above\"\n",
 			want: Layout{
-				SidebarSide:   SidebarSideRight,
 				SidebarWidth:  DefaultSidebarWidth,
 				InfoSide:      InfoSideAbove,
 				InfoHeight:    DefaultInfoHeight,
@@ -151,7 +144,6 @@ func TestLoadLayout(t *testing.T) {
 			name: "the height the user chose for the info pane",
 			file: "[layout]\ninfo_height = 0.6\n",
 			want: Layout{
-				SidebarSide:   defaultSidebarSide,
 				SidebarWidth:  DefaultSidebarWidth,
 				InfoSide:      defaultInfoSide,
 				InfoHeight:    0.6,
@@ -163,7 +155,6 @@ func TestLoadLayout(t *testing.T) {
 			name: "the height the user chose for the details under the list",
 			file: "[layout]\ndetails_height = 12\n",
 			want: Layout{
-				SidebarSide:   defaultSidebarSide,
 				SidebarWidth:  DefaultSidebarWidth,
 				InfoSide:      defaultInfoSide,
 				InfoHeight:    DefaultInfoHeight,
@@ -175,7 +166,6 @@ func TestLoadLayout(t *testing.T) {
 			name: "a triage zone the user turned off",
 			file: "[layout]\ntriage_rows = 0\n",
 			want: Layout{
-				SidebarSide:   defaultSidebarSide,
 				SidebarWidth:  DefaultSidebarWidth,
 				InfoSide:      defaultInfoSide,
 				InfoHeight:    DefaultInfoHeight,

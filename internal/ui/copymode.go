@@ -80,13 +80,12 @@ func (m *model) renderCopyLayout() panes.CopyStandIn {
 	}
 
 	standIn := panes.CopyStandIn{
-		Rows:     lines,
-		Divider:  -1,
-		Rule:     -1,
-		RuleLeft: true,
-		Focus:    rect,
-		Row:      row,
-		Col:      col,
+		Rows:    lines,
+		Divider: -1,
+		Rule:    -1,
+		Focus:   rect,
+		Row:     row,
+		Col:     col,
 	}
 
 	marked := *m
@@ -95,10 +94,6 @@ func (m *model) renderCopyLayout() panes.CopyStandIn {
 
 	if column, ok := zones[zoneColumn]; ok {
 		standIn.Divider = column.Left - gutter - 1
-		standIn.RuleLeft = !m.frame.IsSidebarOnRight()
-		if !standIn.RuleLeft {
-			standIn.Divider = column.Left + column.Width + gutter
-		}
 	}
 
 	if details, ok := zones[zoneDetails]; ok {

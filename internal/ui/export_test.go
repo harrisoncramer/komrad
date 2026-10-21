@@ -128,7 +128,6 @@ type NewPanelParams struct {
 	Patches         diff.Reader
 	Keys            config.Keybindings
 	DetailsHeight   float64
-	SidebarSide     string
 	SidebarWidth    int
 	TriageRows      int
 	Width           int
@@ -171,9 +170,6 @@ func NewPanel(params NewPanelParams) *Panel {
 	layout := config.DefaultLayout()
 	if params.DetailsHeight != 0 {
 		layout.DetailsHeight = params.DetailsHeight
-	}
-	if params.SidebarSide != "" {
-		layout.SidebarSide = params.SidebarSide
 	}
 	if params.SidebarWidth != 0 {
 		layout.SidebarWidth = params.SidebarWidth
@@ -275,7 +271,7 @@ const SidebarCols = config.DefaultSidebarWidth - dividerCols
 // Inside is the columns left of the frame the panel renders inside its gutter and edge, and how wide
 // that frame is.
 func (p *Panel) Inside() (int, int) {
-	return p.model.countInsetLeft(), p.model.term.width
+	return gutter, p.model.term.width
 }
 
 // NewSizeRead is the size the frame read back off tmux after moving the panel's own pane.
@@ -699,10 +695,6 @@ func (unsplittableTmux) SplitRight(string, string, string) string {
 	return ""
 }
 
-func (unsplittableTmux) SplitLeft(string, string, string) string {
-	return ""
-}
-
 func (t *recordingTmux) ShowGlobal(name string) string {
 	return t.globals[name]
 }
@@ -839,10 +831,6 @@ func (t *recordingTmux) GetPaneHeight(string) int {
 }
 
 func (t *recordingTmux) SplitRight(string, string, string) string {
-	return t.split("%1")
-}
-
-func (t *recordingTmux) SplitLeft(string, string, string) string {
 	return t.split("%1")
 }
 
