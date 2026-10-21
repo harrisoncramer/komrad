@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/panel"
 )
 
 const (
@@ -69,6 +70,16 @@ type columnSpec struct {
 	// rows is the row budget the block is actually rendered in, and is nil on a screen with nothing
 	// standing over it.
 	rows func(*model, columnSplit) int
+
+	// beside is the agent the screen keeps on the stage beside its block, and is nil on a screen that
+	// keeps none.
+	beside func(*model) (panel.AgentRow, bool)
+}
+
+// isHeld reports whether the screen is rendering its own block rather than handing its columns to
+// another process.
+func (s columnSpec) isHeld(m *model) bool {
+	return s.holds == nil || s.holds(m)
 }
 
 // sidebarColumns is how wide the panel's own list is rendered while it holds the window, and the
@@ -85,11 +96,11 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 		return 0, columnSpec{}, false
 	}
 
-	if spec.holds != nil && !spec.holds(m) {
+	if !spec.isHeld(m) {
 		return 0, columnSpec{}, false
 	}
 
-	if !m.frame.IsSolo() {
+	if !m.frame.IsSolo() && !m.frame.IsBeside() {
 		return 0, columnSpec{}, false
 	}
 
@@ -98,13 +109,12 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 	// A configured width is a starting point rather than a boundary anybody placed, so it is
 	// widened to what a list of names reads in and capped at what leaves the block its floor,
 	// while a measured one is rendered where the divider is whatever that leaves either half.
-	chrome := m.countSidebarChrome()
 	if !measured {
-		sidebar = min(max(sidebar, nameWidth+chrome), m.term.width-spec.floor)
+		sidebar = min(max(sidebar, nameWidth+sidebarChrome), m.term.width-spec.floor)
 	}
 
 	// Clamped so the fold and the render are at one width.
-	return min(max(sidebar-chrome, 1), m.term.width-1-dividerCols), spec, true
+	return min(max(sidebar-sidebarChrome, 1), m.term.width-1-dividerCols), spec, true
 }
 
 // columnGeometry is how wide each half of the window is, and how many rows the block beside the
@@ -168,12 +178,44 @@ func (m *model) holdsWindow() bool {
 		return false
 	}
 
-	return spec.holds == nil || spec.holds(m)
+	return spec.isHeld(m)
 }
 
 // wantsSolo reports whether the panel should hold the whole window.
 func (m *model) wantsSolo() bool {
-	return m.holdsWindow() && m.terminalDir == ""
+	return m.holdsWindow() && m.terminalDir == "" && !m.isStageBeside()
+}
+
+// isStageBeside reports whether the screen keeps an agent on the stage beside its block, which it
+// does only while the agent is running and the window has room for both.
+func (m *model) isStageBeside() bool {
+	spec := m.active().column()
+	if spec.beside == nil || m.terminalDir != "" {
+		return false
+	}
+
+	if !m.frame.FitsBeside(m.term.windowCols, spec.floor) {
+		return false
+	}
+
+	_, live := spec.beside(m)
+
+	return live
+}
+
+// restageBeside restages the screen when the frame no longer matches whether its agent belongs
+// beside its block.
+func (m *model) restageBeside() {
+	spec := m.active().column()
+	if spec.beside != nil && spec.isHeld(m) && m.isStageBeside() != m.frame.IsBeside() {
+		m.stageSelection()
+	}
+}
+
+// syncBeside draws the sidebar across the stage for the block while an agent is beside it, and
+// gives the stage its columns back once none is or another process has them.
+func (m *model) syncBeside() {
+	m.frame.Beside(m.isStageBeside() && m.active().column().isHeld(m))
 }
 
 // reconcileSolo settles whether the panel has the whole window, and hands it back while the info
@@ -185,6 +227,8 @@ func (m *model) reconcileSolo() {
 	// every cursor move.
 	want := m.wantsSolo()
 	if want == m.frame.IsSolo() {
+		m.syncBeside()
+
 		return
 	}
 
@@ -194,6 +238,7 @@ func (m *model) reconcileSolo() {
 
 	m.frame.Solo(want)
 	m.term.awaitingSince = time.Now()
+	m.syncBeside()
 }
 
 func (m *model) isAwaitingSize() bool {
@@ -214,17 +259,7 @@ func (m *model) isOverColumn(x int) bool {
 		return false
 	}
 
-	x -= m.countInsetLeft()
-
-	if m.frame.IsSidebarOnRight() {
-		return x < split.column
-	}
-
-	return x >= split.sidebar+dividerCols
-}
-
-func (m *model) isSidebarOnRight() bool {
-	return m.frame.IsSidebarOnRight()
+	return x-gutter >= split.sidebar+dividerCols
 }
 
 // paneWidth is the column the panel renders its own list, record and legend in, which is the whole

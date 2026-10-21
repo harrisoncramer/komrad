@@ -97,6 +97,8 @@ type recordingTmux struct {
 	standIns      []CopyStandIn
 	standInErr    error
 	windowHooks   map[string]string
+	// staged is whether the stage has been split off and not killed since.
+	staged bool
 }
 
 // CopyStandIn is a stand-in the panel asked tmux to put in a pane's place.
@@ -128,7 +130,6 @@ type NewPanelParams struct {
 	Patches         diff.Reader
 	Keys            config.Keybindings
 	DetailsHeight   float64
-	SidebarSide     string
 	SidebarWidth    int
 	TriageRows      int
 	Width           int
@@ -149,11 +150,19 @@ type NewPanelParams struct {
 	SignIn          SignIn
 }
 
+// The panes the recording tmux hands out, named for what the frame puts in them.
+const (
+	SidebarPane = "%0"
+	StagePane   = "%1"
+	InfoPane    = "%2"
+	ColumnPane  = "%6"
+)
+
 // NewPanel builds the panel the way komrad panel does, over a recording tmux.
 func NewPanel(params NewPanelParams) *Panel {
 	settings := params.Settings
 	if settings.Pane == "" {
-		settings.Pane = "%0"
+		settings.Pane = SidebarPane
 	}
 	tmux := &recordingTmux{
 		width:       params.Width,
@@ -171,9 +180,6 @@ func NewPanel(params NewPanelParams) *Panel {
 	layout := config.DefaultLayout()
 	if params.DetailsHeight != 0 {
 		layout.DetailsHeight = params.DetailsHeight
-	}
-	if params.SidebarSide != "" {
-		layout.SidebarSide = params.SidebarSide
 	}
 	if params.SidebarWidth != 0 {
 		layout.SidebarWidth = params.SidebarWidth
@@ -275,7 +281,7 @@ const SidebarCols = config.DefaultSidebarWidth - dividerCols
 // Inside is the columns left of the frame the panel renders inside its gutter and edge, and how wide
 // that frame is.
 func (p *Panel) Inside() (int, int) {
-	return p.model.countInsetLeft(), p.model.term.width
+	return gutter, p.model.term.width
 }
 
 // NewSizeRead is the size the frame read back off tmux after moving the panel's own pane.
@@ -548,6 +554,12 @@ func (p *Panel) IsZoomed() bool {
 	return p.tmux.zoomed
 }
 
+// IsBeside reports whether the panel's pane is drawn across part of the stage for a review's diff,
+// with the stage beside it.
+func (p *Panel) IsBeside() bool {
+	return p.model.frame.IsBeside()
+}
+
 // ReadZooms is every zoom the panel has asked tmux for, in order.
 func (p *Panel) ReadZooms() []bool {
 	return p.tmux.zooms
@@ -699,10 +711,6 @@ func (unsplittableTmux) SplitRight(string, string, string) string {
 	return ""
 }
 
-func (unsplittableTmux) SplitLeft(string, string, string) string {
-	return ""
-}
-
 func (t *recordingTmux) ShowGlobal(name string) string {
 	return t.globals[name]
 }
@@ -838,24 +846,27 @@ func (t *recordingTmux) GetPaneHeight(string) int {
 	return t.height
 }
 
+// SplitRight answers the stage, and the column for a pane split off while the stage stands.
 func (t *recordingTmux) SplitRight(string, string, string) string {
-	return t.split("%1")
-}
+	if t.staged {
+		return t.split(ColumnPane)
+	}
 
-func (t *recordingTmux) SplitLeft(string, string, string) string {
-	return t.split("%1")
+	t.staged = true
+
+	return t.split(StagePane)
 }
 
 func (t *recordingTmux) SplitBelow(anchor, _, _ string) string {
 	t.belowAnchors = append(t.belowAnchors, anchor)
 
-	return t.split("%2")
+	return t.split(InfoPane)
 }
 
 func (t *recordingTmux) SplitAbove(anchor, _, _ string) string {
 	t.belowAnchors = append(t.belowAnchors, anchor)
 
-	return t.split("%2")
+	return t.split(InfoPane)
 }
 
 // split answers with the pane a split left, dropping the zoom the way tmux does.
@@ -924,6 +935,7 @@ func (t *recordingTmux) BreakPane(string) {
 
 func (t *recordingTmux) KillPane(pane string) {
 	t.killed = append(t.killed, pane)
+	t.staged = t.staged && pane != StagePane
 	t.zoomed = false
 }
 

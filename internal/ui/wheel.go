@@ -110,7 +110,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return nil
 	}
 
-	if m.screen == screenReview && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, x-m.countInsetLeft(), y, rows) {
+	if m.screen == screenReview && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, x-gutter, y, rows) {
 		return nil
 	}
 

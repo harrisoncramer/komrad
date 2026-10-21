@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/panel"
 
 	glamouransi "charm.land/glamour/v2/ansi"
 	"github.com/charmbracelet/x/ansi"
@@ -26,7 +27,8 @@ func reviewColumn() columnSpec {
 		floor: diffFloor,
 		// The editor is another process holding the stage, so the panel owns the window only while
 		// there is none.
-		holds: func(m *model) bool { return !m.review.hold.atEditor },
+		holds:  func(m *model) bool { return !m.review.hold.atEditor },
+		beside: func(m *model) (panel.AgentRow, bool) { return m.review.writerPane(m) },
 		rows: func(m *model, split columnSplit) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is rendered in and what the cursor is scrolled against.
@@ -35,11 +37,9 @@ func reviewColumn() columnSpec {
 	}
 }
 
-// bandView is what stands over the diff: whose work is being read, the range it runs over, and the
-// pattern it is searched for.
+// bandView is what stands over the diff: the range it runs over and the pattern it is searched for.
 func (r reviewScreen) bandView(m *model) string {
-	return paint.Panel.Title("Review"+separated+r.agentName) + "\n" +
-		r.rangeView(m) +
+	return r.rangeView(m) +
 		m.markSearch(stopList, r.measureBandWidth(m), r.diff.filter.view(m.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 

@@ -95,7 +95,6 @@ func (c *Client) OpenCopyStandIn(params panes.CopyStandIn) error {
 		Rows:        params.Rows,
 		Divider:     params.Divider,
 		Rule:        params.Rule,
-		RuleLeft:    params.RuleLeft,
 		FocusX:      params.Focus.Left + params.Focus.Width/2,
 		FocusY:      params.Focus.Top + params.Focus.Height/2,
 		Row:         params.Row,

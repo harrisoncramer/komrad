@@ -31,11 +31,11 @@ func TestReviewSidebar(t *testing.T) {
 
 	t.Run("choosing a task in the stack opens its review", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServerOnAPI(t), panelHarnessParams{height: 40})
-		require.Contains(t, harness.readFrame(), "Review · api")
+		require.Contains(t, harness.readFrame(), "api › review")
 
 		harness.press("ctrl+space", "ctrl+space", "k", "k", "o")
 
-		assert.Contains(t, harness.readFrame(), "Review · auth")
+		assert.Contains(t, harness.readFrame(), "auth › review")
 	})
 
 	t.Run("choosing a task whose worktree is gone says so and stays", func(t *testing.T) {
@@ -43,7 +43,7 @@ func TestReviewSidebar(t *testing.T) {
 
 		harness.press("ctrl+space", "ctrl+space", "k", "o")
 
-		assert.Contains(t, harness.readFrame(), "Review · api")
+		assert.Contains(t, harness.readFrame(), "api › review")
 		assert.Contains(t, readOpenMessages(harness), "its worktree is gone")
 	})
 

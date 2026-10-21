@@ -53,33 +53,21 @@ func TestNewSpecSizes(t *testing.T) {
 	}
 }
 
-// TestNewSpecSides covers which side each region sits on, where anything the config does not
-// name is the side the panel has always put it.
+// TestNewSpecSides covers which side of the stage the info pane opens on, below it when the config
+// names no side.
 func TestNewSpecSides(t *testing.T) {
 	tests := []struct {
 		name            string
 		layout          config.Layout
-		wantNavOnRight  bool
 		wantBottomAbove bool
 	}{
 		{
-			name:   "a layout naming no sides keeps the sidebar left and the info pane below",
+			name:   "a layout naming no side keeps the info pane below",
 			layout: config.Layout{},
-		},
-		{
-			name:           "the sidebar on the right",
-			layout:         config.Layout{SidebarSide: config.SidebarSideRight},
-			wantNavOnRight: true,
 		},
 		{
 			name:            "the info pane above the stage",
 			layout:          config.Layout{InfoSide: config.InfoSideAbove},
-			wantBottomAbove: true,
-		},
-		{
-			name:            "both moved at once",
-			layout:          config.Layout{SidebarSide: config.SidebarSideRight, InfoSide: config.InfoSideAbove},
-			wantNavOnRight:  true,
 			wantBottomAbove: true,
 		},
 	}
@@ -88,7 +76,6 @@ func TestNewSpecSides(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			spec := newSpec(tt.layout)
 
-			assert.Equal(t, tt.wantNavOnRight, spec.sidebarOnRight)
 			assert.Equal(t, tt.wantBottomAbove, spec.infoAbove)
 		})
 	}

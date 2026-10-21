@@ -189,7 +189,6 @@ type panelHarnessParams struct {
 	width         int
 	height        int
 	detailsHeight float64
-	sidebarSide   string
 	sidebarWidth  int
 	triageRows    int
 	keys          *config.Keybindings
@@ -294,7 +293,6 @@ func newPanelHarness(t *testing.T, params panelHarnessParams) *panelHarness {
 			Patches:         patches,
 			Keys:            keys,
 			DetailsHeight:   params.detailsHeight,
-			SidebarSide:     params.sidebarSide,
 			SidebarWidth:    params.sidebarWidth,
 			TriageRows:      params.triageRows,
 			Width:           width,

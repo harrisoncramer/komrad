@@ -7,7 +7,6 @@ type CopyStandIn struct {
 	Rows        []string
 	Divider     int
 	Rule        int
-	RuleLeft    bool
 	Focus       Rect
 	Row         int
 	Col         int

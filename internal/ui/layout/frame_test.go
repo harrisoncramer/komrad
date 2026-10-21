@@ -19,10 +19,10 @@ func TestFrameAttachAnchorsToTheGivenPane(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
 
-	frame.Attach("%7")
+	frame.Attach(agentPane)
 
-	assert.Equal(t, []string{"%7"}, tmux.anchors)
-	assert.Equal(t, "%7", frame.Pane(RegionSidebar))
+	assert.Equal(t, []string{agentPane}, tmux.anchors)
+	assert.Equal(t, agentPane, frame.Pane(RegionSidebar))
 }
 
 // TestFrameRerendersWhenOnlyTheHeightMoves covers the stage keeping its width while a split opens
@@ -30,7 +30,7 @@ func TestFrameAttachAnchorsToTheGivenPane(t *testing.T) {
 func TestFrameRerendersWhenOnlyTheHeightMoves(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	var heights []int
 	content := Content{
@@ -60,7 +60,7 @@ func TestFrameRerendersWhenOnlyTheHeightMoves(t *testing.T) {
 func TestFrameOpenLeavesAStandingFrameAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	frame.Open(RegionStage)
 	frame.Open(RegionStage)
@@ -81,17 +81,12 @@ func TestFrameLaysRegionsOutOnTheConfiguredSides(t *testing.T) {
 		{
 			name:   "the defaults put the stage right of the sidebar and the info pane below it",
 			layout: config.Layout{},
-			want:   []string{"right %0 50%", "below %1 40%"},
-		},
-		{
-			name:   "a sidebar on the right leaves the stage the left",
-			layout: config.Layout{SidebarSide: config.SidebarSideRight},
-			want:   []string{"left %0 50%", "below %1 40%"},
+			want:   []string{"right " + sidebarPane + " 50%", "below " + stagePane + " 40%"},
 		},
 		{
 			name:   "an info pane above opens over the stage",
 			layout: config.Layout{InfoSide: config.InfoSideAbove},
-			want:   []string{"right %0 50%", "above %1 40%"},
+			want:   []string{"right " + sidebarPane + " 50%", "above " + stagePane + " 40%"},
 		},
 	}
 
@@ -100,7 +95,7 @@ func TestFrameLaysRegionsOutOnTheConfiguredSides(t *testing.T) {
 			tmux := &recordingTmux{}
 			frame := New(tmux, tt.layout)
 
-			frame.Attach("%0")
+			frame.Attach(sidebarPane)
 			frame.Open(RegionInfo)
 
 			assert.Equal(t, tt.want, tmux.splits)
@@ -113,29 +108,29 @@ func TestFrameLaysRegionsOutOnTheConfiguredSides(t *testing.T) {
 func TestFrameSizesTheNavPaneInColumns(t *testing.T) {
 	tmux := &recordingTmux{}
 
-	New(tmux, config.Layout{SidebarWidth: 40}).Attach("%0")
+	New(tmux, config.Layout{SidebarWidth: 40}).Attach(sidebarPane)
 
-	assert.Equal(t, []string{"%0 40"}, tmux.resizes)
+	assert.Equal(t, []string{sidebarPane + " 40"}, tmux.resizes)
 }
 
 // TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild covers the stage losing its pane.
 func TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	tmux.deadPanes = map[string]bool{frame.Pane(RegionStage): true}
 	frame.Show(RegionStage, newDocument("# rebuilt"))
 
 	require.Len(t, tmux.splits, 2, "the dead stage was split again")
-	assert.Equal(t, []string{"%0 40", "%0 40"}, tmux.resizes)
+	assert.Equal(t, []string{sidebarPane + " 40", sidebarPane + " 40"}, tmux.resizes)
 }
 
 // TestFrameShowMeasuresThePane covers the width content is laid out to.
 func TestFrameShowMeasuresThePane(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	var got Target
 	frame.Show(RegionStage, newProbe("doc", true, &got))
@@ -148,7 +143,7 @@ func TestFrameShowMeasuresThePane(t *testing.T) {
 func TestFrameShowSkipsTheWidthOfContentThatIgnoresIt(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	var got Target
 	frame.Show(RegionStage, newProbe("log", false, &got))
@@ -165,7 +160,7 @@ func TestFrameShowSkipsTheWidthOfContentThatIgnoresIt(t *testing.T) {
 func TestFrameShowRerendersContentThatWrapped(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	var got Target
 	frame.Show(RegionStage, newProbe("doc", true, &got))
@@ -184,13 +179,13 @@ func TestFrameShowRerendersContentThatWrapped(t *testing.T) {
 func TestFrameShowLeavesThePagerAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	frame.Show(RegionInfo, newDocument("# auth"))
 	frame.Show(RegionInfo, newDocument("# auth"))
 
 	assert.Len(t, tmux.respawns, 1)
-	assert.Equal(t, []string{"%2"}, tmux.respawnPanes, "the record goes below, never into the stage")
+	assert.Equal(t, []string{infoPane}, tmux.respawnPanes, "the record goes below, never into the stage")
 }
 
 // TestFrameShowKeylessContentAlwaysRenders covers content that names nothing it could be compared
@@ -198,7 +193,7 @@ func TestFrameShowLeavesThePagerAlone(t *testing.T) {
 func TestFrameShowKeylessContentAlwaysRenders(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	frame.Show(RegionStage, newDocument("# auth"))
 	frame.Show(RegionStage, Content{Render: func(Target) ([]string, bool) { return []string{"flash"}, true }})
@@ -212,7 +207,7 @@ func TestFrameShowKeylessContentAlwaysRenders(t *testing.T) {
 func TestFrameShowLeavesAPaneItCouldNotRenderFor(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	frame.Show(RegionStage, newDocument("# auth"))
 	frame.Show(RegionStage, Content{Key: "text:# db", Render: func(Target) ([]string, bool) { return nil, false }})
@@ -228,7 +223,7 @@ func TestFrameShowLeavesAPaneItCouldNotRenderFor(t *testing.T) {
 func TestFrameShowRefusesTheNavRegion(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	frame.Show(RegionSidebar, newDocument("# auth"))
 
@@ -240,13 +235,13 @@ func TestFrameShowRefusesTheNavRegion(t *testing.T) {
 func TestFrameBottomRegion(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
-	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 
 	pane := frame.Open(RegionInfo)
 
-	require.Equal(t, "%2", pane)
-	assert.Equal(t, []string{"%9"}, tmux.belowAnchors, "it hangs off the pane the stage holds")
+	require.Equal(t, infoPane, pane)
+	assert.Equal(t, []string{agentPane}, tmux.belowAnchors, "it hangs off the pane the stage holds")
 	assert.True(t, frame.IsOpen(RegionInfo))
 
 	assert.Equal(t, pane, frame.Open(RegionInfo), "a second ask is the pane already open")
@@ -263,14 +258,14 @@ func TestFrameBottomRegion(t *testing.T) {
 func TestFrameBottomGoesWithARebuiltMain(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 	require.NotEmpty(t, frame.Open(RegionInfo))
 
 	tmux.deadPanes = map[string]bool{frame.Pane(RegionStage): true}
 	frame.Show(RegionStage, newDocument("# rebuilt"))
 
 	assert.False(t, frame.IsOpen(RegionInfo))
-	assert.Contains(t, tmux.killed, "%2")
+	assert.Contains(t, tmux.killed, infoPane)
 }
 
 // TestFrameGuestHoldsTheMainRegion covers an agent's own pane swapped into the stage, which the
@@ -278,22 +273,22 @@ func TestFrameBottomGoesWithARebuiltMain(t *testing.T) {
 func TestFrameGuestHoldsTheMainRegion(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
-	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 
-	assert.Equal(t, "%9", frame.GuestPane())
-	assert.Equal(t, "%1", frame.Pane(RegionStage), "the region keeps its own pane, away in the agent's window")
+	assert.Equal(t, agentPane, frame.GuestPane())
+	assert.Equal(t, stagePane, frame.Pane(RegionStage), "the region keeps its own pane, away in the agent's window")
 	require.Equal(t, 1, tmux.swaps)
 
-	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 	assert.Equal(t, 1, tmux.swaps, "the agent already staged is not swapped again")
 
 	frame.Show(RegionStage, newDocument("# auth"))
 
 	assert.Empty(t, frame.GuestPane(), "a document sends the agent back")
 	assert.Equal(t, 2, tmux.swaps)
-	assert.Equal(t, []string{"%1"}, tmux.respawnPanes, "and is rendered in the region's own pane")
+	assert.Equal(t, []string{stagePane}, tmux.respawnPanes, "and is rendered in the region's own pane")
 }
 
 // TestFrameGuestDisplacesWhatWasRendered covers a document that was on the stage before an agent
@@ -301,10 +296,10 @@ func TestFrameGuestHoldsTheMainRegion(t *testing.T) {
 func TestFrameGuestDisplacesWhatWasRendered(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	frame.Show(RegionStage, newDocument("# auth"))
-	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 	frame.Show(RegionStage, newDocument("# auth"))
 
 	assert.Len(t, tmux.respawns, 2)
@@ -315,13 +310,13 @@ func TestFrameGuestDisplacesWhatWasRendered(t *testing.T) {
 func TestFrameReleaseGuest(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
-	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 
-	frame.ReleaseGuest("%8")
-	assert.Equal(t, "%9", frame.GuestPane(), "another agent's pane is not the one staged")
+	frame.ReleaseGuest(otherPane)
+	assert.Equal(t, agentPane, frame.GuestPane(), "another agent's pane is not the one staged")
 
-	frame.ReleaseGuest("%9")
+	frame.ReleaseGuest(agentPane)
 	assert.Empty(t, frame.GuestPane())
 }
 
@@ -330,14 +325,14 @@ func TestFrameReleaseGuest(t *testing.T) {
 func TestFrameGuestOutlivingTheStageGoesHome(t *testing.T) {
 	tmux := &recordingTmux{deadPanes: map[string]bool{}}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
-	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 	require.Equal(t, 1, tmux.swaps)
 
-	tmux.deadPanes["%1"] = true
+	tmux.deadPanes[stagePane] = true
 	frame.Show(RegionStage, newDocument("# auth"))
 
-	assert.Equal(t, []string{"%9"}, tmux.broken, "the agent is returned to a window of its own")
+	assert.Equal(t, []string{agentPane}, tmux.broken, "the agent is returned to a window of its own")
 	assert.Equal(t, 1, tmux.swaps, "rather than swapped with a pane that is gone")
 	assert.Empty(t, frame.GuestPane())
 }
@@ -347,8 +342,8 @@ func TestFrameGuestOutlivingTheStageGoesHome(t *testing.T) {
 func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
-	frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 	frame.Show(RegionInfo, newDocument("# auth"))
 	require.Equal(t, 1, tmux.swaps)
 
@@ -356,7 +351,7 @@ func TestFrameVacateLeavesOnlyTheSidebar(t *testing.T) {
 
 	assert.Equal(t, 2, tmux.swaps, "the guest is swapped back to where it came from")
 	assert.Empty(t, frame.GuestPane())
-	assert.ElementsMatch(t, []string{"%1", "%2"}, tmux.killed, "the stage and the info pane are killed")
+	assert.ElementsMatch(t, []string{stagePane, infoPane}, tmux.killed, "the stage and the info pane are killed")
 	assert.False(t, frame.IsOpen(RegionStage))
 	assert.False(t, frame.IsOpen(RegionInfo))
 }
@@ -366,11 +361,11 @@ func TestFrameClearStage(t *testing.T) {
 	t.Run("with no info pane the stage is blanked", func(t *testing.T) {
 		tmux := &recordingTmux{}
 		frame := New(tmux, config.DefaultLayout())
-		frame.Attach("%0")
+		frame.Attach(sidebarPane)
 
 		frame.ClearStage()
 
-		assert.Equal(t, []string{"%1"}, tmux.respawnPanes)
+		assert.Equal(t, []string{stagePane}, tmux.respawnPanes)
 		assert.Equal(t, []string{""}, tmux.respawns, "the pane reruns what it was split with")
 		assert.Empty(t, tmux.killed)
 	})
@@ -378,15 +373,15 @@ func TestFrameClearStage(t *testing.T) {
 	t.Run("over an info pane the stage gives it its rows", func(t *testing.T) {
 		tmux := &recordingTmux{}
 		frame := New(tmux, config.DefaultLayout())
-		frame.Attach("%0")
-		frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+		frame.Attach(sidebarPane)
+		frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 		require.NotEmpty(t, frame.Open(RegionInfo))
 
 		frame.ClearStage()
 		frame.ClearStage()
 
 		assert.Equal(t, 2, tmux.swaps, "the guest goes home first")
-		assert.Equal(t, []string{"%1"}, tmux.killed, "and the stage is killed once")
+		assert.Equal(t, []string{stagePane}, tmux.killed, "and the stage is killed once")
 		assert.Empty(t, frame.GuestPane())
 		assert.Empty(t, frame.Pane(RegionStage))
 		assert.True(t, frame.IsOpen(RegionInfo))
@@ -396,10 +391,10 @@ func TestFrameClearStage(t *testing.T) {
 	t.Run("a stage already gone is not killed again", func(t *testing.T) {
 		tmux := &recordingTmux{deadPanes: map[string]bool{}}
 		frame := New(tmux, config.DefaultLayout())
-		frame.Attach("%0")
+		frame.Attach(sidebarPane)
 		require.NotEmpty(t, frame.Open(RegionInfo))
 
-		tmux.deadPanes["%1"] = true
+		tmux.deadPanes[stagePane] = true
 		frame.ClearStage()
 
 		assert.Empty(t, tmux.killed)
@@ -415,17 +410,17 @@ func TestFrameClearStage(t *testing.T) {
 			{
 				name:   "under the stage it takes the share the info pane leaves",
 				layout: config.Layout{},
-				want:   "above %2 60%",
+				want:   "above " + infoPane + " 60%",
 			},
 			{
 				name:   "over the stage it splits below",
 				layout: config.Layout{InfoSide: config.InfoSideAbove},
-				want:   "below %2 60%",
+				want:   "below " + infoPane + " 60%",
 			},
 			{
 				name:   "in rows it takes the rows the info pane leaves",
 				layout: config.Layout{InfoHeight: 10},
-				want:   "above %2 29",
+				want:   "above " + infoPane + " 29",
 			},
 		}
 
@@ -433,16 +428,16 @@ func TestFrameClearStage(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				tmux := &recordingTmux{height: 40}
 				frame := New(tmux, tt.layout)
-				frame.Attach("%0")
+				frame.Attach(sidebarPane)
 				require.NotEmpty(t, frame.Open(RegionInfo))
 				frame.ClearStage()
 
-				frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+				frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 
 				assert.Equal(t, tt.want, tmux.splits[len(tmux.splits)-1])
-				assert.Equal(t, "%3", frame.Pane(RegionStage))
-				assert.Equal(t, "%9", frame.GuestPane())
-				assert.NotContains(t, tmux.killed, "%2", "the info pane is left running")
+				assert.Equal(t, stagePane, frame.Pane(RegionStage))
+				assert.Equal(t, agentPane, frame.GuestPane())
+				assert.NotContains(t, tmux.killed, infoPane, "the info pane is left running")
 			})
 		}
 	})
@@ -450,15 +445,15 @@ func TestFrameClearStage(t *testing.T) {
 	t.Run("an info pane gone while folded puts the stage back beside the sidebar", func(t *testing.T) {
 		tmux := &recordingTmux{deadPanes: map[string]bool{}}
 		frame := New(tmux, config.DefaultLayout())
-		frame.Attach("%0")
+		frame.Attach(sidebarPane)
 		require.NotEmpty(t, frame.Open(RegionInfo))
 		frame.ClearStage()
 
-		tmux.deadPanes["%2"] = true
+		tmux.deadPanes[infoPane] = true
 		frame.Show(RegionStage, newDocument("# auth"))
 
-		assert.Equal(t, "right %0 50%", tmux.splits[len(tmux.splits)-1])
-		assert.Equal(t, "%1", frame.Pane(RegionStage))
+		assert.Equal(t, "right "+sidebarPane+" 50%", tmux.splits[len(tmux.splits)-1])
+		assert.Equal(t, stagePane, frame.Pane(RegionStage))
 	})
 }
 
@@ -467,11 +462,11 @@ func TestFrameFreeze(t *testing.T) {
 	t.Run("a hold keeps back moves without zooming", func(t *testing.T) {
 		tmux := &recordingTmux{}
 		frame := New(tmux, config.DefaultLayout())
-		frame.Attach("%0")
+		frame.Attach(sidebarPane)
 		tmux.zooms = nil
 
 		frame.Hold()
-		frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+		frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 		require.Zero(t, tmux.swaps)
 		require.Empty(t, tmux.zooms)
 
@@ -484,11 +479,11 @@ func TestFrameFreeze(t *testing.T) {
 	t.Run("a move made while frozen is sent only on thaw", func(t *testing.T) {
 		tmux := &recordingTmux{}
 		frame := New(tmux, config.DefaultLayout())
-		frame.Attach("%0")
+		frame.Attach(sidebarPane)
 		tmux.zooms = nil
 
 		frame.Freeze()
-		frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
+		frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
 		require.Zero(t, tmux.swaps)
 
 		frame.Thaw()
@@ -500,7 +495,7 @@ func TestFrameFreeze(t *testing.T) {
 	t.Run("thaw puts back a solo zoom", func(t *testing.T) {
 		tmux := &recordingTmux{}
 		frame := New(tmux, config.DefaultLayout())
-		frame.Attach("%0")
+		frame.Attach(sidebarPane)
 		frame.Solo(true)
 		tmux.zooms = nil
 
@@ -516,7 +511,7 @@ func TestFrameFreeze(t *testing.T) {
 func TestFrameClaimedForgetsWhatWasRendered(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	frame.Show(RegionInfo, newDocument("# auth"))
 	frame.Claimed(RegionInfo)
@@ -529,14 +524,14 @@ func TestFrameClaimedForgetsWhatWasRendered(t *testing.T) {
 // panes in, where a staged agent goes back to its own window and the dead pane is killed.
 func TestFrameAttachReclaimsTheWindow(t *testing.T) {
 	tmux := &recordingTmux{
-		siblings: []string{"%7", "%8"},
-		owners:   map[string]string{"%7": "019fbb22-3735-71a9-ad83-acf4aa537acb"},
+		siblings: []string{agentPane, otherPane},
+		owners:   map[string]string{agentPane: "019fbb22-3735-71a9-ad83-acf4aa537acb"},
 	}
 
-	New(tmux, config.Layout{SidebarWidth: 40}).Attach("%0")
+	New(tmux, config.Layout{SidebarWidth: 40}).Attach(sidebarPane)
 
-	assert.Equal(t, []string{"%7"}, tmux.broken, "a staged agent is returned to its own window")
-	assert.Equal(t, []string{"%8"}, tmux.killed, "the last frame's own pane is not kept")
+	assert.Equal(t, []string{agentPane}, tmux.broken, "a staged agent is returned to its own window")
+	assert.Equal(t, []string{otherPane}, tmux.killed, "the last frame's own pane is not kept")
 }
 
 // TestFrameAttachLeavesAnEmptyWindowAlone covers the ordinary first start, where there is
@@ -544,7 +539,7 @@ func TestFrameAttachReclaimsTheWindow(t *testing.T) {
 func TestFrameAttachLeavesAnEmptyWindowAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 
-	New(tmux, config.Layout{SidebarWidth: 40}).Attach("%0")
+	New(tmux, config.Layout{SidebarWidth: 40}).Attach(sidebarPane)
 
 	assert.Empty(t, tmux.broken)
 	assert.Empty(t, tmux.killed)
@@ -555,7 +550,7 @@ func TestFrameAttachLeavesAnEmptyWindowAlone(t *testing.T) {
 func TestFrameSoloTakesTheWholeWindow(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	stage := frame.Pane(RegionStage)
 	tmux.zooms = nil
@@ -574,7 +569,7 @@ func TestFrameSoloTakesTheWholeWindow(t *testing.T) {
 func TestFrameAttachGivesTheWindowBack(t *testing.T) {
 	tmux := &recordingTmux{zoomed: true}
 
-	New(tmux, config.Layout{SidebarWidth: 40}).Attach("%0")
+	New(tmux, config.Layout{SidebarWidth: 40}).Attach(sidebarPane)
 
 	assert.False(t, tmux.zoomed)
 }
@@ -624,7 +619,7 @@ func TestFrameSidebarWidthFallsBackToTheConfiguredColumns(t *testing.T) {
 func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
 	tmux := &recordingTmux{width: 120}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	width, measured := frame.SidebarWidth(200)
 	assert.Equal(t, 79, width, "the window less the stage and the divider")
@@ -660,7 +655,7 @@ func TestRestoreSplitGivesTheSidebarItsColumnsBack(t *testing.T) {
 	}{
 		{
 			name:  "beside a staged agent",
-			stage: func(frame *Frame) { frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"}) },
+			stage: func(frame *Frame) { frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane}) },
 		},
 		{
 			name: "beside an info pane the stage folded into",
@@ -675,7 +670,7 @@ func TestRestoreSplitGivesTheSidebarItsColumnsBack(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{width: 200, height: 50}
 			frame := New(tmux, config.Layout{SidebarWidth: 16})
-			frame.Attach("%0")
+			frame.Attach(sidebarPane)
 			tt.stage(frame)
 
 			tmux.resizes = nil
@@ -692,8 +687,8 @@ func TestRestoreSplitGivesTheSidebarItsColumnsBack(t *testing.T) {
 func TestRestoreSplitLeavesAZoomedSidebarAlone(t *testing.T) {
 	tmux := &recordingTmux{width: 200, height: 50}
 	frame := New(tmux, config.Layout{SidebarWidth: 16})
-	frame.Attach("%0")
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 	frame.Solo(true)
 
 	tmux.resizes = nil
@@ -716,8 +711,8 @@ func TestRestoreSplitKeepsAChosenWidth(t *testing.T) {
 		height:      50,
 	}
 	frame := New(tmux, config.Layout{SidebarWidth: 16})
-	frame.Attach("%0")
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 	frame.SyncSplit()
 
 	tmux.resizes = nil
@@ -734,12 +729,12 @@ func TestFrameNudgeResizesTheSharedSplit(t *testing.T) {
 		height:      50,
 	}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	tmux.resizes = nil
 	frame.Nudge(4)
 
-	assert.Equal(t, []string{"%0 43"}, tmux.resizes)
+	assert.Equal(t, []string{sidebarPane + " 43"}, tmux.resizes)
 
 	width, measured := frame.SidebarWidth(200)
 	assert.Equal(t, 43, width)
@@ -755,7 +750,7 @@ func TestFrameNudgeWhileZoomedIsPaidOnUnzoom(t *testing.T) {
 		height:      50,
 	}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 	frame.Solo(true)
 
 	tmux.resizes = nil
@@ -773,7 +768,7 @@ func TestFrameNudgeWhileZoomedIsPaidOnUnzoom(t *testing.T) {
 
 	frame.Solo(false)
 
-	assert.Equal(t, []string{"%0 23"}, tmux.resizes, "letting the zoom go sets the split")
+	assert.Equal(t, []string{sidebarPane + " 23"}, tmux.resizes, "letting the zoom go sets the split")
 	assert.False(t, tmux.zoomed)
 }
 
@@ -786,7 +781,7 @@ func TestFrameNudgeIsPaidWhenTmuxLetsTheZoomGo(t *testing.T) {
 		height:      50,
 	}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 	frame.Solo(true)
 	frame.Nudge(10)
 
@@ -794,7 +789,7 @@ func TestFrameNudgeIsPaidWhenTmuxLetsTheZoomGo(t *testing.T) {
 	tmux.zoomed = false
 	frame.SyncKeys()
 
-	assert.Equal(t, []string{"%0 49"}, tmux.resizes)
+	assert.Equal(t, []string{sidebarPane + " 49"}, tmux.resizes)
 }
 
 // TestFrameNudgeLeavesBothHalvesAColumn covers a key pressed past either end of the window.
@@ -805,7 +800,7 @@ func TestFrameNudgeLeavesBothHalvesAColumn(t *testing.T) {
 		height:      50,
 	}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 
 	frame.Nudge(-500)
 	width, _ := frame.SidebarWidth(200)
@@ -825,7 +820,7 @@ func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
 		height:      50,
 	}
 	frame := New(tmux, config.Layout{SidebarWidth: 16})
-	frame.Attach("%0")
+	frame.Attach(sidebarPane)
 	frame.SyncSplit()
 
 	// tmux leaves the stage its one-column minimum and gives the sidebar the rest.
@@ -837,7 +832,181 @@ func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
 	tmux.resizes = nil
 	frame.RestoreSplit()
 
-	assert.Equal(t, []string{"%0 50"}, tmux.resizes, "the width chosen before the window shrank")
+	assert.Equal(t, []string{sidebarPane + " 50"}, tmux.resizes, "the width chosen before the window shrank")
+}
+
+// TestFrameBesideDrawsTheSidebarAcrossTheStage covers the sidebar taking part of the stage, with the
+// stage beside it.
+func TestFrameBesideDrawsTheSidebarAcrossTheStage(t *testing.T) {
+	tmux := &recordingTmux{
+		width:       159,
+		windowWidth: 200,
+		height:      50,
+	}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach(sidebarPane)
+
+	tmux.resizes = nil
+	frame.Beside(true)
+
+	assert.True(t, frame.IsBeside())
+	assert.Equal(t, []string{sidebarPane + " 144"}, tmux.resizes)
+
+	width, measured := frame.SidebarWidth(200)
+	assert.Equal(t, 40, width, "the list keeps its chosen width inside the wider pane")
+	assert.True(t, measured)
+
+	frame.Beside(false)
+
+	assert.False(t, frame.IsBeside())
+	assert.Equal(t, []string{sidebarPane + " 144", sidebarPane + " 40"}, tmux.resizes)
+}
+
+// TestFrameBesideWhileZoomedIsPaidOnUnzoom covers the stage coming beside the sidebar while the
+// sidebar holds the window, where a resize would unzoom it.
+func TestFrameBesideWhileZoomedIsPaidOnUnzoom(t *testing.T) {
+	tmux := &recordingTmux{
+		width:       159,
+		windowWidth: 200,
+		height:      50,
+	}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach(sidebarPane)
+	frame.Solo(true)
+
+	tmux.resizes = nil
+	frame.Beside(true)
+
+	assert.Empty(t, tmux.resizes, "nothing is resized under the zoom")
+
+	frame.Solo(false)
+
+	assert.Equal(t, []string{sidebarPane + " 144"}, tmux.resizes)
+}
+
+// TestFrameFitsBeside covers the stage keeping its floor beside the sidebar.
+func TestFrameFitsBeside(t *testing.T) {
+	tests := []struct {
+		name   string
+		window int
+		want   bool
+	}{
+		{
+			name:   "a window narrower than the sidebar",
+			window: 30,
+			want:   false,
+		},
+		{
+			name:   "a column narrower leaves the stage short",
+			window: 135,
+			want:   false,
+		},
+		{
+			name:   "the narrowest window that leaves the stage its floor",
+			window: 136,
+			want:   true,
+		},
+		{
+			name:   "a wide window leaves the stage its floor",
+			window: 200,
+			want:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			frame := New(&recordingTmux{}, config.Layout{SidebarWidth: 40})
+
+			assert.Equal(t, tt.want, frame.FitsBeside(tt.window, 33))
+		})
+	}
+}
+
+// TestFrameOpenColumnSplitsOffTheSidebar covers a pane taking the columns the sidebar took from the
+// stage, which leaves the sidebar at its chosen width and the stage where it was.
+func TestFrameOpenColumnSplitsOffTheSidebar(t *testing.T) {
+	tmux := &recordingTmux{
+		width:       159,
+		windowWidth: 200,
+		height:      50,
+	}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach(sidebarPane)
+	frame.Beside(true)
+
+	tmux.splits = nil
+	pane := frame.OpenColumn(Content{Dir: "/work", Render: func(Target) ([]string, bool) { return []string{"nvim"}, true }})
+
+	assert.Equal(t, columnPane, pane)
+	assert.Equal(t, []string{"right " + sidebarPane + " 103"}, tmux.splits)
+	assert.Equal(t, []string{columnPane}, tmux.respawnPanes)
+	assert.Equal(t, []string{"nvim"}, tmux.respawns)
+	assert.Equal(t, []string{"/work"}, tmux.respawnDirs)
+	assert.False(t, frame.IsBeside(), "the sidebar is back at its chosen width")
+}
+
+// TestFrameOpenColumnRefusesWithoutTheStageBeside covers a sidebar with no columns of the stage to
+// give.
+func TestFrameOpenColumnRefusesWithoutTheStageBeside(t *testing.T) {
+	tests := []struct {
+		name  string
+		setUp func(*Frame)
+	}{
+		{
+			name:  "the sidebar at its chosen width",
+			setUp: func(*Frame) {},
+		},
+		{
+			name: "the sidebar holding the window",
+			setUp: func(frame *Frame) {
+				frame.Beside(true)
+				frame.Solo(true)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{
+				width:       159,
+				windowWidth: 200,
+				height:      50,
+			}
+			frame := New(tmux, config.Layout{SidebarWidth: 40})
+			frame.Attach(sidebarPane)
+			tt.setUp(frame)
+
+			tmux.splits = nil
+			pane := frame.OpenColumn(Content{Render: func(Target) ([]string, bool) { return []string{"nvim"}, true }})
+
+			assert.Empty(t, pane)
+			assert.Empty(t, tmux.splits)
+			assert.Empty(t, tmux.respawns)
+		})
+	}
+}
+
+// TestFrameCloseColumn covers the pane going, which hands its columns back to the sidebar, even after
+// the window was resized under it.
+func TestFrameCloseColumn(t *testing.T) {
+	tmux := &recordingTmux{
+		width:       159,
+		windowWidth: 200,
+		height:      50,
+	}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach(sidebarPane)
+	frame.Beside(true)
+	frame.OpenColumn(Content{Render: func(Target) ([]string, bool) { return []string{"nvim"}, true }})
+
+	tmux.resizes = nil
+	tmux.windowWidth = 140
+	require.True(t, frame.CloseColumn())
+
+	assert.Equal(t, []string{columnPane}, tmux.killed)
+	assert.Equal(t, []string{sidebarPane + " 105"}, tmux.resizes, "the sidebar takes its columns beside the stage in the narrower window")
+	assert.True(t, frame.IsBeside())
+	assert.False(t, frame.CloseColumn(), "there is no pane left to close")
 }
 
 // TestFocusPaneIsTheGuestForALocalEngine covers the focus key jumping to the agent's own pane,
@@ -845,10 +1014,10 @@ func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
 func TestFocusPaneIsTheGuestForALocalEngine(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := New(tmux, config.DefaultLayout())
-	frame.Attach("%1")
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 
-	assert.Equal(t, "%7", frame.FocusPane())
+	assert.Equal(t, agentPane, frame.FocusPane())
 }
 
 // TestFocusPaneIsTheStageForARemoteEngine covers an agent's pane belonging to another server,
@@ -857,16 +1026,16 @@ func TestFocusPaneIsTheGuestForALocalEngine(t *testing.T) {
 func TestFocusPaneIsTheStageForARemoteEngine(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := newRemoteFrame(tmux)
-	frame.Attach("%1")
+	frame.Attach(sidebarPane)
 
 	require.Empty(t, frame.FocusPane(), "nothing is staged yet")
 
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 
 	stage := frame.Pane(RegionStage)
 	require.NotEmpty(t, stage)
 	assert.Equal(t, stage, frame.FocusPane())
-	assert.NotEqual(t, "%7", frame.FocusPane(), "the agent's pane belongs to the engine")
+	assert.NotEqual(t, agentPane, frame.FocusPane(), "the agent's pane belongs to the engine")
 }
 
 // TestRemoteGuestIsNotTrackedAsAGuest covers the swap-back path never being handed a pane this
@@ -874,8 +1043,8 @@ func TestFocusPaneIsTheStageForARemoteEngine(t *testing.T) {
 func TestRemoteGuestIsNotTrackedAsAGuest(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := newRemoteFrame(tmux)
-	frame.Attach("%1")
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 
 	assert.Empty(t, frame.GuestPane())
 }
@@ -885,8 +1054,8 @@ func TestRemoteGuestIsNotTrackedAsAGuest(t *testing.T) {
 func TestFocusPaneIsEmptyOnceTheStageShowsSomethingElse(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := newRemoteFrame(tmux)
-	frame.Attach("%1")
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 	require.NotEmpty(t, frame.FocusPane())
 
 	frame.Show(RegionStage, Content{
@@ -906,19 +1075,19 @@ func TestRemoteGuestIsAttachedAgainOnceItsViewerDies(t *testing.T) {
 		deadPanes: map[string]bool{},
 	}
 	frame := newRemoteFrame(tmux)
-	frame.Attach("%1")
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.Attach(sidebarPane)
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 
 	stage := frame.Pane(RegionStage)
 	require.NotEmpty(t, stage)
 	require.Len(t, tmux.respawns, 1)
 
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 	require.Len(t, tmux.respawns, 1, "the same agent is not attached twice")
 
 	tmux.deadPanes[stage] = true
 
-	frame.ShowGuest(Guest{Agent: "agent-7", Pane: "%7"})
+	frame.ShowGuest(Guest{Agent: "agent-7", Pane: agentPane})
 
 	assert.Len(t, tmux.respawns, 2, "the viewer is run again in a fresh stage")
 	assert.Equal(t, frame.Pane(RegionStage), frame.FocusPane())
@@ -936,17 +1105,17 @@ func TestRemoteGuestAttachesOverTheAPI(t *testing.T) {
 		{
 			name:    "the stage runs komrad terminal on the agent",
 			command: []string{"komrad", "terminal"},
-			guest:   Guest{Agent: "agent-7", Pane: "%7"},
+			guest:   Guest{Agent: "agent-7", Pane: agentPane},
 			want:    []string{"komrad terminal -- agent-7"},
 		},
 		{
 			name:  "an engine the panel cannot reach leaves the stage alone",
-			guest: Guest{Agent: "agent-7", Pane: "%7"},
+			guest: Guest{Agent: "agent-7", Pane: agentPane},
 		},
 		{
 			name:    "a guest with no agent leaves the stage alone",
 			command: []string{"komrad", "terminal"},
-			guest:   Guest{Pane: "%7"},
+			guest:   Guest{Pane: agentPane},
 		},
 	}
 
@@ -954,7 +1123,7 @@ func TestRemoteGuestAttachesOverTheAPI(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{width: 80, height: 40}
 			frame := New(tmux, config.DefaultLayout(), WithEngine(remoteEngine()), WithTerminalCommand(tt.command))
-			frame.Attach("%1")
+			frame.Attach(sidebarPane)
 			frame.ShowGuest(tt.guest)
 
 			assert.Equal(t, tt.want, tmux.respawns)
@@ -985,15 +1154,15 @@ func TestFrameBegin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &recordingTmux{}
 			frame := New(tmux, config.DefaultLayout())
-			frame.Attach("%0")
+			frame.Attach(sidebarPane)
 			frame.Open(RegionStage)
 			before := tmux.moveCalls
 
 			for range tt.begins {
 				frame.Begin()
 			}
-			frame.ShowGuest(Guest{Agent: "agent-9", Pane: "%9"})
-			frame.ReleaseGuest("%9")
+			frame.ShowGuest(Guest{Agent: "agent-9", Pane: agentPane})
+			frame.ReleaseGuest(agentPane)
 
 			for _, want := range tt.wantSent {
 				frame.Flush()
@@ -1023,7 +1192,23 @@ func newProbe(key string, wraps bool, got *Target) Content {
 	}
 }
 
+// The panes the recording tmux hands out, named for what the frame puts in them.
+const (
+	sidebarPane = "%0"
+	stagePane   = "%1"
+	infoPane    = "%2"
+	columnPane  = "%3"
+)
+
+// The agents' own panes, which the frame swaps into the stage.
+const (
+	agentPane = "%9"
+	otherPane = "%8"
+)
+
 type recordingTmux struct {
+	// staged is whether the stage has been split off and not killed since.
+	staged       bool
 	width        int
 	windowWidth  int
 	height       int
@@ -1092,10 +1277,6 @@ func (t *recordingTmux) SplitRight(anchor, _, size string) string {
 	return t.recordSplit("right", anchor, size)
 }
 
-func (t *recordingTmux) SplitLeft(anchor, _, size string) string {
-	return t.recordSplit("left", anchor, size)
-}
-
 func (t *recordingTmux) SplitBelow(anchor, _, size string) string {
 	return t.recordSplit("below", anchor, size)
 }
@@ -1113,16 +1294,24 @@ func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
 	if direction == "left" || direction == "right" {
 		t.anchors = append(t.anchors, anchor)
 
-		return "%1"
+		if t.staged && !t.deadPanes[stagePane] {
+			return columnPane
+		}
+
+		t.staged = true
+
+		return stagePane
 	}
 
 	t.belowAnchors = append(t.belowAnchors, anchor)
 
-	if anchor == "%2" {
-		return "%3"
+	if anchor == infoPane {
+		t.staged = true
+
+		return stagePane
 	}
 
-	return "%2"
+	return infoPane
 }
 
 func (t *recordingTmux) ResizePane(pane, width string) {
@@ -1151,6 +1340,7 @@ func (t *recordingTmux) BreakPane(pane string) {
 
 func (t *recordingTmux) KillPane(pane string) {
 	t.killed = append(t.killed, pane)
+	t.staged = t.staged && pane != stagePane
 	t.zoomed = false
 }
 

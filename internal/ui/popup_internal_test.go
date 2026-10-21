@@ -141,14 +141,14 @@ func TestPlacePopup(t *testing.T) {
 			},
 		},
 		{
-			name:   "it stands against code on its left",
-			anchor: popupAnchor{left: 110, right: 160},
+			name:   "it stands at the left edge with no code beside it",
+			anchor: popupAnchor{right: 160},
 			cursor: 30,
 			tall:   10,
 			want: popupSlot{
-				x:      110,
+				x:      0,
 				y:      20,
-				width:  50,
+				width:  popupWidth,
 				height: 10,
 			},
 		},
@@ -159,18 +159,6 @@ func TestPlacePopup(t *testing.T) {
 			tall:   10,
 			want: popupSlot{
 				x:      0,
-				y:      20,
-				width:  popupMinWidth,
-				height: 10,
-			},
-		},
-		{
-			name:   "it runs into code on its left rather than shrink past its narrowest",
-			anchor: popupAnchor{left: 140, right: 160},
-			cursor: 30,
-			tall:   10,
-			want: popupSlot{
-				x:      120,
 				y:      20,
 				width:  popupMinWidth,
 				height: 10,
