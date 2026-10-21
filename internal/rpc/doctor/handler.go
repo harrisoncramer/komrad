@@ -36,7 +36,7 @@ func (s *Handler) RunDoctor(ctx context.Context, _ *emptypb.Empty) (*doctorv1.Ru
 		return &doctorv1.Finding{
 			Name:        finding.Name,
 			Description: finding.Description,
-			Status:      string(finding.Status),
+			Status:      renderStatus(finding.Status),
 			Detail:      finding.Detail,
 			Code:        finding.Code,
 			Error:       finding.Error,
@@ -55,4 +55,19 @@ func (s *Handler) RunDoctor(ctx context.Context, _ *emptypb.Empty) (*doctorv1.Ru
 			Healthy: report.Summary.Healthy,
 		},
 	}, nil
+}
+
+func renderStatus(status doctor.Status) doctorv1.Status {
+	switch status {
+	case doctor.StatusOK:
+		return doctorv1.Status_STATUS_OK
+	case doctor.StatusWarn:
+		return doctorv1.Status_STATUS_WARN
+	case doctor.StatusFail:
+		return doctorv1.Status_STATUS_FAIL
+	case doctor.StatusSkip:
+		return doctorv1.Status_STATUS_SKIP
+	}
+
+	return doctorv1.Status_STATUS_UNSPECIFIED
 }
