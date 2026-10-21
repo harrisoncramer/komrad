@@ -121,7 +121,7 @@ func (m ParentClosed) Body() string {
 		"The person can re-target your task onto the base branch from its menu.", m.Parent, m.URL, m.Parent)
 }
 
-// CascadeOrphaned tells a child's writer that its branch no longer holds its fork point.
+// CascadeOrphaned tells a child's writer that its branch holds neither its fork point nor any of its parent's own commits.
 type CascadeOrphaned struct {
 	// Parent is the slug of the parent.
 	Parent string
@@ -141,10 +141,10 @@ func (CascadeOrphaned) Events() []string {
 
 // Body tells the agent the cascade stopped rebasing its branch and how the person starts it again.
 func (m CascadeOrphaned) Body() string {
-	return fmt.Sprintf("Your branch no longer holds %s, the commit of %s your own commits sat on, "+
+	return fmt.Sprintf("Your branch no longer holds %s, the commit of %s your own commits sat on, or any other commit of %s's own, "+
 		"so komrad stopped rebasing your branch onto %s.\n\n"+
 		"The person can pick the commit your own work starts from, or re-target your task onto the base branch, from its menu.",
-		xsha.Short(m.ForkPoint), m.Parent, m.Parent)
+		xsha.Short(m.ForkPoint), m.Parent, m.Parent, m.Parent)
 }
 
 // RetargetRefused tells a writer that the forge refused to point its pull request at the base branch.

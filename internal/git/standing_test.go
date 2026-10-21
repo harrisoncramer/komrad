@@ -607,3 +607,53 @@ func TestIntegrationHoldsCommit(t *testing.T) {
 		})
 	}
 }
+
+// TestIntegrationReadMergeBase covers finding the newest commit HEAD shares with another commit.
+func TestIntegrationReadMergeBase(t *testing.T) {
+	t.Parallel()
+
+	root := repo(t)
+	base, err := Run(t.Context(), root, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	run(t, root, "checkout", "-q", "-b", "aside")
+	write(t, root, "aside.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-q", "-m", "aside")
+	aside, err := Run(t.Context(), root, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	run(t, root, "checkout", "-q", "--orphan", "unrelated")
+	run(t, root, "commit", "-q", "-m", "unrelated")
+	unrelated, err := Run(t.Context(), root, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	run(t, root, "checkout", "-q", "main")
+	write(t, root, "main.go", "package main\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-q", "-m", "main")
+
+	tests := []struct {
+		name    string
+		ref     string
+		want    string
+		wantErr error
+	}{
+		{name: "a commit HEAD descends from", ref: base, want: base},
+		{name: "a commit on a branch that left HEAD's history", ref: aside, want: base},
+		{name: "a commit sharing no history", ref: unrelated, wantErr: ErrBaseUnrelated},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := client.ReadMergeBase(t.Context(), root, tt.ref)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

@@ -37,6 +37,7 @@ type rebaseFixture struct {
 	events          *eventstest.Queue
 	workflowID      string
 	checkoutSync    *waketest.Counter
+	cascade         *waketest.Counter
 	pullRequestSync *waketest.Counter
 	forges          *retargetingForge
 }
@@ -713,6 +714,7 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 	return &rebaseFixture{
 		stores:          stores,
 		checkoutSync:    &waketest.Counter{},
+		cascade:         &waketest.Counter{},
 		pullRequestSync: &waketest.Counter{},
 		forges:          &retargetingForge{},
 		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler(), NewAbortedHandler(), NewCascadedHandler()),
@@ -765,6 +767,9 @@ func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 	}
 	if params.CheckoutSync == nil {
 		params.CheckoutSync = f.checkoutSync
+	}
+	if params.Cascade == nil {
+		params.Cascade = f.cascade
 	}
 	if params.Git == nil {
 		params.Git = &gittest.Mover{

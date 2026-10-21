@@ -120,3 +120,26 @@ func (h *Harness) Hooks() []string {
 
 	return hooks
 }
+
+// toolBash is the name Claude gives its shell tool.
+const toolBash = "Bash"
+
+type shellPayload struct {
+	ToolName  string `json:"tool_name"`
+	ToolInput struct {
+		Command string `json:"command"`
+	} `json:"tool_input"`
+}
+
+// ReadShellCommand is the command line a tool event's shell call runs, empty for any other tool.
+func ReadShellCommand(payload []byte) (string, error) {
+	var parsed shellPayload
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		return "", fmt.Errorf("failed to parse the tool payload: %w", err)
+	}
+	if parsed.ToolName != toolBash {
+		return "", nil
+	}
+
+	return parsed.ToolInput.Command, nil
+}

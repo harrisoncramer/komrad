@@ -52,16 +52,7 @@ meant to be run by hand.`,
 	cmd.AddCommand(stopHookCmd(state))
 	cmd.AddCommand(turnEndHookCmd(state))
 	cmd.AddCommand(compactedHookCmd(state))
-	cmd.AddCommand(payloadHookCmd(state, payloadHook{
-		use:   "pre-tool-use",
-		short: "Record the tool an agent is about to run",
-		long: `Record the tool an agent is about to run.
-
-Claude runs this before every tool call, handing it the call on stdin. Komrad
-keeps the name of the tool against the agent so the panel can say what it is
-doing, and reads nothing else: a tool's input can carry a secret.`,
-		event: claude.EventPreToolUse,
-	}))
+	cmd.AddCommand(preToolUseHookCmd(state))
 	cmd.AddCommand(payloadHookCmd(state, payloadHook{
 		use:   "post-tool-use",
 		short: "Record that an agent's tool call returned",
@@ -137,6 +128,52 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 		reportHookEvent(cmd, state, reportHookEventParams{
 			harnessID: claude.HarnessID,
 			event:     hook.event,
+			payload:   body,
+		})
+
+		return nil
+	}
+
+	return cmd
+}
+
+func preToolUseHookCmd(state *app) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pre-tool-use",
+		Short: "Record the tool an agent is about to run, and refuse a rebase on a stacked task",
+		Long: `Record the tool an agent is about to run, and refuse a rebase on a stacked task.
+
+Claude runs this before every tool call, handing it the call on stdin. Komrad
+keeps the name of the tool against the agent so the panel can say what it is
+doing, and sends nothing else: a tool's input can carry a secret.
+
+A shell call that starts a git rebase, or a git pull that rebases, is refused
+on a task stacked on another, since komrad rebases the stack itself. The command
+is read here and never leaves the hook. A rebase komrad asked for after its own
+one conflicted is let through.`,
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		body, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			reportHookProblem(cmd, state, "komrad read no hook payload, so nothing was recorded", err)
+
+			return nil
+		}
+		if state.env.AgentID == "" {
+			return nil
+		}
+
+		if refusesRebase(cmd, state, body) {
+			return json.NewEncoder(cmd.OutOrStdout()).Encode(rebaseDenial)
+		}
+
+		reportHookEvent(cmd, state, reportHookEventParams{
+			harnessID: claude.HarnessID,
+			event:     claude.EventPreToolUse,
 			payload:   body,
 		})
 

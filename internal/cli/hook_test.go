@@ -15,11 +15,14 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/harness/claude"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // TestIntegrationStopHookRecordsTheBoundary covers the hook Claude runs as a turn ends.
@@ -88,6 +91,97 @@ func TestIntegrationStopHookRecordsTheBoundary(t *testing.T) {
 			var handed hookOutput
 			require.NoError(t, json.Unmarshal(out.Bytes(), &handed))
 			assert.Equal(t, hookContext{HookEventName: "Stop", AdditionalContext: tt.wantContext}, handed.HookSpecificOutput)
+		})
+	}
+}
+
+// TestIntegrationPreToolUseHookGuardsTheStack covers the hook Claude runs before a tool call, which refuses a
+// rebase on a task komrad rebases itself.
+func TestIntegrationPreToolUseHookGuardsTheStack(t *testing.T) {
+	stacked := func(blocked taskv1.CascadeBlock) *agentv1.GetAgentResponse {
+		return &agentv1.GetAgentResponse{Task: &taskv1.Task{Parent: &taskv1.Parent{TaskId: "task-p", Blocked: blocked}}}
+	}
+	started := []recordedReport{{
+		agentID: "agent-a",
+		event:   "REPORT_EVENT_TOOL_STARTED",
+		hook:    "PreToolUse",
+		tool:    "Bash",
+	}}
+
+	tests := []struct {
+		name        string
+		command     string
+		row         *agentv1.GetAgentResponse
+		wantRefused bool
+	}{
+		{
+			name:        "a rebase on a stacked task",
+			command:     "git rebase origin/main",
+			row:         stacked(taskv1.CascadeBlock_CASCADE_BLOCK_UNSPECIFIED),
+			wantRefused: true,
+		},
+		{
+			name:        "a pull that rebases on a stacked task komrad stopped carrying",
+			command:     "git pull --rebase",
+			row:         stacked(taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED),
+			wantRefused: true,
+		},
+		{
+			name:    "the rebase komrad asked for after its own conflicted",
+			command: "git rebase --onto 3504000 7f1cd8a",
+			row:     stacked(taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED),
+		},
+		{
+			name:    "a rebase on a task with no parent",
+			command: "git rebase origin/main",
+			row:     &agentv1.GetAgentResponse{Task: &taskv1.Task{}},
+		},
+		{
+			name:    "another command on a stacked task",
+			command: "git status",
+			row:     stacked(taskv1.CascadeBlock_CASCADE_BLOCK_UNSPECIFIED),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logged []string
+			var reports []recordedReport
+			addr := fakeHookServer(t, fakeHookServerParams{
+				logged:  &logged,
+				reports: &reports,
+				row:     tt.row,
+			})
+
+			state := &app{
+				env:       &config.Environment{Addr: addr, AgentID: "agent-a"},
+				harnesses: hookHarnesses(t),
+			}
+
+			payload, err := json.Marshal(map[string]any{
+				"tool_name":  "Bash",
+				"tool_input": map[string]string{"command": tt.command},
+			})
+			require.NoError(t, err)
+
+			var out bytes.Buffer
+			cmd := hookCmd(state)
+			cmd.SetIn(bytes.NewReader(payload))
+			cmd.SetOut(&out)
+			cmd.SetArgs([]string{"pre-tool-use"})
+
+			require.NoError(t, cmd.Execute())
+			if !tt.wantRefused {
+				assert.Empty(t, out.String(), "nothing is handed back, so the call runs")
+				assert.Equal(t, started, reports)
+
+				return
+			}
+
+			var handed hookDecision
+			require.NoError(t, json.Unmarshal(out.Bytes(), &handed))
+			assert.Equal(t, rebaseDenial, handed)
+			assert.Empty(t, reports, "a refused call never starts")
 		})
 	}
 }
@@ -199,6 +293,7 @@ type fakeHookServerParams struct {
 	logged  *[]string
 	reports *[]recordedReport
 	nudge   string
+	row     *agentv1.GetAgentResponse
 }
 
 func fakeHookServer(t *testing.T, params fakeHookServerParams) string {
@@ -231,6 +326,14 @@ func fakeHookServer(t *testing.T, params fakeHookServerParams) string {
 	mux.HandleFunc(agentv1connect.AgentServiceClaimMailNudgeProcedure, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		assert.NoError(t, json.NewEncoder(w).Encode(map[string]string{"nudge": params.nudge}))
+	})
+
+	mux.HandleFunc(agentv1connect.AgentServiceGetAgentProcedure, func(w http.ResponseWriter, _ *http.Request) {
+		out, err := protojson.Marshal(params.row)
+		assert.NoError(t, err)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(out)
 	})
 
 	mux.HandleFunc(logPath, func(w http.ResponseWriter, r *http.Request) {

@@ -401,3 +401,17 @@ func (c *Client) HoldsCommit(ctx context.Context, dir, sha string) (bool, error)
 		Of:            "HEAD",
 	})
 }
+
+// ReadMergeBase is the newest commit HEAD's history shares with ref, ErrBaseUnrelated when they share none.
+func (c *Client) ReadMergeBase(ctx context.Context, dir, ref string) (string, error) {
+	mergeBase, err := Run(ctx, dir, "merge-base", ref, "HEAD")
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return "", fmt.Errorf("%w: %s", ErrBaseUnrelated, ref)
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to find what %q shares with %s: %w", dir, ref, err)
+	}
+
+	return mergeBase, nil
+}

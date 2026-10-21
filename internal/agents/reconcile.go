@@ -193,7 +193,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 			break
 		}
 
-		if agent.State == agentstore.StateSettingUp {
+		if agent.State == agentstore.StateSettingUp || agent.State == agentstore.StateIdle {
 			r.apply(ctx, agent, agentstore.StateIdle)
 
 			break

@@ -11646,7 +11646,7 @@
         },
         {
           "name": "CASCADE_BLOCK_ORPHANED",
-          "description": "The child is orphaned: its branch holds neither its fork point nor its parent's newest commit."
+          "description": "The child is orphaned: its branch holds neither its fork point nor any of its parent's own commits."
         },
         {
           "name": "CASCADE_BLOCK_PARENT_CLOSED",
