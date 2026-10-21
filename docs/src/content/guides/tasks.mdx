@@ -74,14 +74,25 @@ To start the writer on a new conversation, open the task's menu with <Key name="
 
 [Reviewers](../agents/#reviewers) can join the task too, and show up beneath it in italics. They share the task's checkout and read the change, but they never write to it.
 
-## Archiving, restoring, and deleting tasks
+## Archiving and Hiding
 
-When you finish a task and want to clear up space, you can _archive_ it. Archiving does not delete anything. The task's worktree stays on disk, and the conversations, notes, reviews and documents stay in the database. Archived tasks move out of the list to the archive, which you reach by pressing <Key name="kinds.focus" /> and switching from live to archived.
+When you finish a task, you can _archive_ it.
+
+Archiving does not delete anything. The task's worktree stays on disk, and the conversations, notes, reviews and documents stay in the database. Archived tasks move out of the list to the archive, which you reach by pressing <Key name="kinds.focus" /> and switching from live to archived.
 
 From the archive, restore a task to put it back in the list. Restoring a task brings back only its writer, by design.
 
-Deleting a task asks what to delete. By default komrad deletes only the task's worktree from disk. The task stays in the archive with its conversations, documents and reviews, and its review still opens on the snapshots taken before the worktree was removed. Check records too to delete the task for good, with its writer and reviewers and their conversations, its documents and its reviews. The delete prompt counts what the worktree holds that is uncommitted or unpushed. Deleting the worktree loses its uncommitted files, and its branch keeps any commits that are on no other branch. If removing the worktree fails, the task stays in the archive with the reason for the failure.
+You can also hide a task temporarily. Hide it from its menu with <Key name="menu.hide" />. Hidden tasks leave the list, but their agents keep running.
+
+## Deletion
+
+Komrad is deliberately pretty conservative in what it deletes.
+
+When you delete a task, komrad will ask what exactly you want to delete. By default, komrad will only delete the task's worktree from disk.
+
+Be careful: deleting the worktree loses its uncommitted files, and its branch keeps any commits that are on no other branch. If removing the worktree fails, the task stays in the archive with the reason for the failure.
+
+Deleting the worktree frees up space on your machine, without removing the task's conversations, documents and reviews, which can still be useful later, for looking back retrospectively at why a decision was made, or getting the historical changes into a decision.
 
 Only you can delete a task or a workflow. Komrad refuses the delete when an agent asks for it.
 
-You can also hide a task temporarily. Hide it from its menu with <Key name="menu.hide" />. Hidden tasks leave the list, but their agents keep running.
