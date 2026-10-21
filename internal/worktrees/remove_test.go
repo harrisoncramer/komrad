@@ -68,13 +68,14 @@ func TestRemoveTakesAGoneRegistrationWithoutPruning(t *testing.T) {
 	assert.Empty(t, fixture.git.Pruned)
 }
 
-// TestRemoveRefuses covers each directory the remover leaves alone and whether a step broke to leave it.
+// TestRemoveRefuses covers each directory the remover leaves alone, why, and what broke when a step did.
 func TestRemoveRefuses(t *testing.T) {
 	tests := []struct {
 		name       string
 		lay        func(t *testing.T, fixture *worktreeFixture) string
-		wantReason string
-		wantFailed bool
+		wantReason RefusalReason
+		wantAgent  string
+		wantErr    string
 	}{
 		{
 			name: "a directory whose task is being deleted",
@@ -84,7 +85,7 @@ func TestRemoveRefuses(t *testing.T) {
 
 				return dir
 			},
-			wantReason: "is being deleted",
+			wantReason: RefusedTaskDeleting,
 		},
 		{
 			name: "an archived task's directory",
@@ -94,7 +95,7 @@ func TestRemoveRefuses(t *testing.T) {
 
 				return dir
 			},
-			wantReason: "delete the task instead",
+			wantReason: RefusedTaskHolds,
 		},
 		{
 			name: "a live task's directory with an agent in it",
@@ -104,14 +105,14 @@ func TestRemoveRefuses(t *testing.T) {
 
 				return dir
 			},
-			wantReason: "delete the task instead",
+			wantReason: RefusedTaskHolds,
 		},
 		{
 			name: "a live task's directory no agent is left in",
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
 				return fixture.cut(t)
 			},
-			wantReason: "delete the task instead",
+			wantReason: RefusedTaskHolds,
 		},
 		{
 			name: "a directory another agent works in",
@@ -121,7 +122,8 @@ func TestRemoveRefuses(t *testing.T) {
 
 				return dir
 			},
-			wantReason: "reviewer",
+			wantReason: RefusedAgentInside,
+			wantAgent:  "reviewer",
 		},
 		{
 			name: "a directory an agent works somewhere under",
@@ -131,22 +133,23 @@ func TestRemoveRefuses(t *testing.T) {
 
 				return dir
 			},
-			wantReason: "under-agent",
+			wantReason: RefusedAgentBeneath,
+			wantAgent:  "under-agent",
 		},
 		{
 			name: "a path outside the worktree directories",
 			lay: func(t *testing.T, _ *worktreeFixture) string {
 				return t.TempDir()
 			},
-			wantReason: "not under the worktree directories",
+			wantReason: RefusedOutside,
 		},
 		{
 			name: "a path that is not there, which could not be looked up",
 			lay: func(_ *testing.T, fixture *worktreeFixture) string {
 				return filepath.Join(fixture.shared, "missing")
 			},
-			wantReason: "failed to resolve",
-			wantFailed: true,
+			wantReason: RefusedUnresolved,
+			wantErr:    "failed to resolve",
 		},
 		{
 			name: "a directory whose repository's registrations could not be read",
@@ -155,8 +158,8 @@ func TestRemoveRefuses(t *testing.T) {
 
 				return fixture.cutUnowned(t)
 			},
-			wantReason: "could not list the worktrees",
-			wantFailed: true,
+			wantReason: RefusedListFailed,
+			wantErr:    "git is not on the path",
 		},
 		{
 			name: "a directory whose lock could not be lifted",
@@ -167,8 +170,8 @@ func TestRemoveRefuses(t *testing.T) {
 
 				return dir
 			},
-			wantReason: "could not unlock it",
-			wantFailed: true,
+			wantReason: RefusedUnlockFailed,
+			wantErr:    "git is not on the path",
 		},
 		{
 			name: "a directory that could not be removed",
@@ -181,8 +184,8 @@ func TestRemoveRefuses(t *testing.T) {
 
 				return dir
 			},
-			wantReason: "could not remove it",
-			wantFailed: true,
+			wantReason: RefusedRemoveFailed,
+			wantErr:    "permission denied",
 		},
 	}
 
@@ -199,8 +202,14 @@ func TestRemoveRefuses(t *testing.T) {
 
 			assert.Empty(t, removal.Removed)
 			require.Len(t, removal.Refused, 1)
-			assert.Contains(t, removal.Refused[0].Reason, tt.wantReason)
-			assert.Equal(t, tt.wantFailed, removal.Refused[0].Failed)
+			refusal := removal.Refused[0]
+			assert.Equal(t, tt.wantReason, refusal.Reason)
+			assert.Equal(t, tt.wantAgent, refusal.AgentName)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, refusal.Err, tt.wantErr)
+			} else {
+				require.NoError(t, refusal.Err)
+			}
 			assert.Empty(t, fixture.git.Pruned)
 			if existed {
 				assert.DirExists(t, dir)
@@ -228,10 +237,10 @@ func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 
 	assert.Empty(t, removal.Removed)
 	require.Len(t, removal.Refused, 2)
-	assert.Contains(t, removal.Refused[0].Reason, inner)
-	assert.Contains(t, removal.Refused[1].Reason, byHand)
-	assert.False(t, removal.Refused[0].Failed, "a verdict about the directory, not a step that broke")
-	assert.False(t, removal.Refused[1].Failed)
+	assert.Equal(t, []Refusal{
+		{Dir: listed, Reason: RefusedNestsWorktree, NestedDir: inner},
+		{Dir: registered, Reason: RefusedNestsWorktree, NestedDir: byHand},
+	}, removal.Refused)
 	assert.DirExists(t, inner)
 	assert.DirExists(t, byHand)
 }
