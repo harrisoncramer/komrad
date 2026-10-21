@@ -214,8 +214,8 @@ func TestDeleteWorktreesRetriesAListingItCannotRead(t *testing.T) {
 	assert.Empty(t, fake.removed)
 }
 
-// TestRefusalSentenceWordsEachReason covers the sentence the job logs for every reason the remover gives.
-func TestRefusalSentenceWordsEachReason(t *testing.T) {
+// TestDescribeRefusal covers the sentence the job logs for every reason the remover gives.
+func TestDescribeRefusal(t *testing.T) {
 	broke := errors.New("git is not on the path")
 	tests := []struct {
 		name    string
@@ -286,7 +286,7 @@ func TestRefusalSentenceWordsEachReason(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, refusalSentence(tt.refusal))
+			assert.Equal(t, tt.want, describeRefusal(tt.refusal))
 		})
 	}
 }

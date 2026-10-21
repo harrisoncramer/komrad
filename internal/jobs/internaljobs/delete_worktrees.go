@@ -115,9 +115,9 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		for _, refusal := range removal.Refused {
 			switch {
 			case refusal.Reason.Failed():
-				failed = append(failed, fmt.Errorf("%s: %s", refusal.Dir, refusalSentence(refusal)))
+				failed = append(failed, fmt.Errorf("%s: %s", refusal.Dir, describeRefusal(refusal)))
 			case hasAny(refusal.Dir, tearing):
-				failed = append(failed, fmt.Errorf("%s: %s; a task's teardown is still running under it", refusal.Dir, refusalSentence(refusal)))
+				failed = append(failed, fmt.Errorf("%s: %s; a task's teardown is still running under it", refusal.Dir, describeRefusal(refusal)))
 			default:
 				refused = append(refused, refusal)
 			}
@@ -126,7 +126,7 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 
 	left := make([]error, 0, len(refused))
 	for _, refusal := range refused {
-		err := fmt.Errorf("%s was left alone: %s", refusal.Dir, refusalSentence(refusal))
+		err := fmt.Errorf("%s was left alone: %s", refusal.Dir, describeRefusal(refusal))
 		w.logger.LogAttrs(ctx, slog.LevelWarn, "left a worktree alone",
 			append([]slog.Attr{slog.String(logging.FilePath, refusal.Dir)}, logging.Err(err)...)...)
 		left = append(left, err)
@@ -141,8 +141,8 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 	return nil
 }
 
-// refusalSentence words why a removal left a directory alone.
-func refusalSentence(refusal worktrees.Refusal) string {
+// describeRefusal words why a removal left a directory alone.
+func describeRefusal(refusal worktrees.Refusal) string {
 	switch refusal.Reason {
 	case worktrees.RefusedOutside:
 		return "it is not under the worktree directories"
