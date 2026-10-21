@@ -2,7 +2,6 @@ package ui
 
 import (
 	"komrad/internal/glyph"
-	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 )
 
@@ -57,18 +56,6 @@ func (m *model) caretOf(section sidebarSection) view.Caret {
 	}
 
 	return view.CaretRendered
-}
-
-func caretGlyph(caret view.Caret) string {
-	if caret != view.CaretRendered {
-		return blankCursor
-	}
-
-	return renderedCaret()
-}
-
-func renderedCaret() string {
-	return paint.Panel.Cursor().Render(rowCursorGlyph)
 }
 
 // isListFocused reports whether the keys are the list's.

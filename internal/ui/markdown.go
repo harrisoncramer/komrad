@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -182,36 +181,6 @@ func scheduleFields(sched panel.Schedule, target scheduleTarget) []recordField {
 	fields = append(fields, recordField{label: "workflow", value: target.workflow.Name})
 
 	return append(fields, workflowConfigFields(*target.workflow)...)
-}
-
-// scheduleDocRows is a schedule's document at a width: its name and next run, its firings, then
-// its prompt.
-func scheduleDocRows(item scheduleItem, width int) []string {
-	sched := item.schedule
-
-	notice := "_paused — will not run_"
-	switch {
-	case sched.ArchivedAt != nil:
-		notice = "_archived — kept until deleted_"
-	case sched.Enabled:
-		notice = fmt.Sprintf("_next run %s_", label.OrDash(label.Friendly(item.nextRun)))
-	}
-
-	prose := "_no prompt set_"
-	if strings.TrimSpace(sched.Prompt) != "" {
-		prose = sched.Prompt
-	}
-
-	if sched.HideAgents {
-		prose += "\n\nIts runs start hidden."
-	}
-
-	rows := paint.DocStyledRows(renderDocument(sched.Name, notice, "", ""), width, columnStyle())
-	if runRows := scheduleRunRows(sched.RecentRuns, width); len(runRows) > 0 {
-		rows = append(append(rows, ""), runRows...)
-	}
-
-	return append(rows, paint.DocStyledRows(prose+"\n", width, columnStyle())...)
 }
 
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nKomrad keeps the agents you archive here until you delete them.\n"

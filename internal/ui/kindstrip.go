@@ -3,11 +3,8 @@ package ui
 import (
 	"slices"
 
-	"komrad/internal/ui/paint"
-
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // activeKinds is the kind switcher of the screen that is up, and false on a screen listing one kind.
@@ -27,22 +24,6 @@ func (m *model) isKindsFocused() bool {
 	k, ok := m.activeKinds()
 
 	return ok && *k.kindsFocused(m) && k.kindsFit(m)
-}
-
-func (m *model) kindsLine() string {
-	k, _ := m.activeKinds()
-	row := k.kinds(m)
-	row.mark = m.spanMarker(zoneKinds, row.labels)
-	if *k.kindsFocused(m) {
-		row.focus, row.lit = row.lit, noStop
-	}
-
-	line := paint.Panel.Style(paint.ToneMuted).Render(headLabel(m.keys.Kinds.Focus)) + "   " + row.view()
-	if width := m.paneWidth(); width > 0 {
-		line = ansi.Truncate(line, width, "…")
-	}
-
-	return line + "\n"
 }
 
 func (m *model) blurKinds() {
