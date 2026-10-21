@@ -142,8 +142,6 @@ func TestUpsertSaysWhatItDid(t *testing.T) {
 	assert.False(t, again.Changed, "the same row again is not written")
 	assert.Nil(t, first.OldState, "a new row replaced nothing")
 	assert.Nil(t, again.OldState, "an untouched row replaced nothing")
-	assert.Nil(t, first.OldHeadSHA, "a new row replaced no head")
-	assert.Nil(t, first.OldBaseBranch, "a new row replaced no base branch")
 
 	edited := openPullRequest("PR_1", 1, "agent/x")
 	edited.Body = "Why it exists, said better."
@@ -169,8 +167,6 @@ func TestUpsertSaysWhatItDid(t *testing.T) {
 	assert.True(t, moved.Changed)
 	require.NotNil(t, moved.OldState)
 	assert.Equal(t, "OPEN", *moved.OldState, "a changed row says what it replaced")
-	assert.Equal(t, xptr.Ptr("abc"), moved.OldHeadSHA)
-	assert.Equal(t, xptr.Ptr("main"), moved.OldBaseBranch)
 
 	stored, err := h.GetByIdentity(ctx, "github.com", "PR_1")
 	require.NoError(t, err)
@@ -904,31 +900,25 @@ func TestGetMergeBlockers(t *testing.T) {
 		name         string
 		pullRequests []UpsertParams
 		url          string
-		want         MergeBlockers
+		want         mergeBlockers
 	}{
 		{
 			name:         "a pull request from a child onto its parent's open one comes from a child",
 			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
 			url:          childOntoParent.URL,
-			want:         MergeBlockers{HeadHasParent: true},
+			want:         mergeBlockers{HeadHasParent: true},
 		},
 		{
 			name:         "a pull request onto a parent whose pull request merged targets a finished branch",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
 			url:          childOntoParent.URL,
-			want:         MergeBlockers{HeadHasParent: true, BaseFinished: true},
+			want:         mergeBlockers{HeadHasParent: true, BaseFinished: true},
 		},
 		{
 			name:         "a parent with a pull request open again is not finished",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), parentReopened, childOntoParent},
 			url:          childOntoParent.URL,
-			want:         MergeBlockers{HeadHasParent: true},
-		},
-		{
-			name:         "a pull request in a GitHub stack is in one",
-			pullRequests: []UpsertParams{inGitHubStack(openPullRequest("PR_parent", 1, "task/parent"), 1)},
-			url:          openPullRequest("PR_parent", 1, "task/parent").URL,
-			want:         MergeBlockers{InGitHubStack: true},
+			want:         mergeBlockers{HeadHasParent: true},
 		},
 		{
 			name:         "a pull request from a task on the base branch has no blockers",
@@ -992,189 +982,4 @@ func TestLiveBranchesFollowTheParentPullRequest(t *testing.T) {
 		{RepositoryURL: komrad, Branch: "task/child"},
 		{RepositoryURL: komrad, Branch: "task/parent", HeadSHA: "abc"},
 	}, liveBranches)
-}
-
-func inGitHubStack(params UpsertParams, position int) UpsertParams {
-	params.Stack = &forge.StackPlace{Number: 7, Position: position, Size: 3}
-
-	return params
-}
-
-// TestListStacking pins which pull requests komrad stacks: each live task's newest open one from its
-// own branch, oldest task first, with the task's parent.
-func TestListStacking(t *testing.T) {
-	fromFork := openPullRequest("PR_child", 2, "task/child")
-	fromFork.HeadRepositoryURL = fixture
-	childOntoParent := inGitHubStack(openPullRequest("PR_child", 2, "task/child"), 2)
-	childOntoParent.BaseBranch = "task/parent"
-
-	tests := []struct {
-		name         string
-		pullRequests []UpsertParams
-		want         []StackingPullRequest
-	}{
-		{
-			name:         "a task whose pull request finished has none to stack",
-			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent")},
-		},
-		{
-			name:         "a pull request from a fork is not the task's",
-			pullRequests: []UpsertParams{fromFork},
-		},
-		{
-			name:         "each task's open pull request comes oldest task first, with its parent and its place in a GitHub stack",
-			pullRequests: []UpsertParams{childOntoParent, openPullRequest("PR_parent", 1, "task/parent")},
-			want: []StackingPullRequest{
-				{
-					Number:     1,
-					URL:        "https://github.com/harrisoncramer/komrad/pull/PR_parent",
-					HeadBranch: "task/parent",
-					BaseBranch: "main",
-					ChangedAt:  childOntoParent.ChangedAt,
-				},
-				{
-					Number:     2,
-					URL:        "https://github.com/harrisoncramer/komrad/pull/PR_child",
-					HeadBranch: "task/child",
-					BaseBranch: "task/parent",
-					ChangedAt:  childOntoParent.ChangedAt,
-					Stack:      &forge.StackPlace{Number: 7, Position: 2, Size: 3},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := open(t)
-			ctx := t.Context()
-			workflow := h.createWorkflow(t)
-			parent := h.taskOf(t, h.createAgent(t, workflow, "parent", komrad, "task/parent"))
-			child := h.taskOf(t, h.createAgent(t, workflow, "child", komrad, "task/child"))
-			require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetParent(ctx, child, &taskstore.Parent{
-				TaskID:    parent,
-				ForkPoint: "abc",
-			}))
-			for _, params := range tt.pullRequests {
-				_, err := h.Upsert(ctx, params)
-				require.NoError(t, err)
-			}
-
-			got, err := h.ListStacking(ctx, komrad)
-			require.NoError(t, err)
-			if len(tt.want) == 0 {
-				assert.Empty(t, got)
-
-				return
-			}
-			for i := range got {
-				assert.NotEmpty(t, got[i].ID)
-				got[i].ID = ""
-				got[i].ChangedAt = got[i].ChangedAt.UTC()
-			}
-			for i := range tt.want {
-				tt.want[i].TaskID = []string{parent, child}[i]
-				if i == 1 {
-					tt.want[i].ParentTaskID = parent
-				}
-			}
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-// TestRecordStackingRefused covers a refusal holding only while the pull request stands as it was refused.
-func TestRecordStackingRefused(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-	workflow := h.createWorkflow(t)
-	h.createAgent(t, workflow, "parent", komrad, "task/parent")
-	written, err := h.Upsert(ctx, openPullRequest("PR_parent", 1, "task/parent"))
-	require.NoError(t, err)
-
-	require.NoError(t, h.RecordStackingRefused(ctx, []string{written.ID}))
-	refused, err := h.ListStacking(ctx, komrad)
-	require.NoError(t, err)
-	require.Len(t, refused, 1)
-	assert.True(t, refused[0].IsStackingRefused())
-
-	pushed := openPullRequest("PR_parent", 1, "task/parent")
-	pushed.HeadSHA = "abd"
-	pushed.ChangedAt = pushed.ChangedAt.Add(time.Minute)
-	_, err = h.Upsert(ctx, pushed)
-	require.NoError(t, err)
-	changed, err := h.ListStacking(ctx, komrad)
-	require.NoError(t, err)
-	require.Len(t, changed, 1)
-	assert.False(t, changed[0].IsStackingRefused(), "a pull request that changed since GitHub refused it is asked again")
-}
-
-// TestRetarget covers a re-target onto the base branch holding across the sync's writes until it is cleared.
-func TestRetarget(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-	workflow := h.createWorkflow(t)
-	h.createAgent(t, workflow, "child", komrad, "task/child")
-	written, err := h.Upsert(ctx, openPullRequest("PR_child", 2, "task/child"))
-	require.NoError(t, err)
-
-	require.NoError(t, h.RecordRetarget(ctx, written.ID, "main"))
-	pushed := openPullRequest("PR_child", 2, "task/child")
-	pushed.HeadSHA = "abd"
-	_, err = h.Upsert(ctx, pushed)
-	require.NoError(t, err)
-	retargeting, err := h.ListStacking(ctx, komrad)
-	require.NoError(t, err)
-	require.Len(t, retargeting, 1)
-	assert.Equal(t, "main", retargeting[0].RetargetOnto, "a write from the sync keeps the re-target")
-
-	require.NoError(t, h.ClearRetarget(ctx, written.ID))
-	cleared, err := h.ListStacking(ctx, komrad)
-	require.NoError(t, err)
-	require.Len(t, cleared, 1)
-	assert.Empty(t, cleared[0].RetargetOnto)
-}
-
-// TestRebaseAwait covers komrad waiting on GitHub to rebase the open pull requests of a GitHub stack.
-func TestRebaseAwait(t *testing.T) {
-	h := open(t)
-	ctx := t.Context()
-	since := time.Date(2026, 9, 18, 15, 0, 0, 0, time.UTC)
-	merged := inGitHubStack(finishedPullRequest("PR_1", 1, "task/one"), 1)
-	second := inGitHubStack(openPullRequest("PR_2", 2, "task/two"), 2)
-	second.HeadSHA = "two"
-	third := inGitHubStack(openPullRequest("PR_3", 3, "task/three"), 3)
-	third.HeadSHA = "three"
-	elsewhere := openPullRequest("PR_4", 4, "task/four")
-	elsewhere.Stack = &forge.StackPlace{Number: 8, Position: 1, Size: 2}
-	ids := map[string]string{}
-	for _, params := range []UpsertParams{third, merged, second, elsewhere} {
-		written, err := h.Upsert(ctx, params)
-		require.NoError(t, err)
-		ids[params.ProviderID] = written.ID
-	}
-
-	members, err := h.ListGitHubStack(ctx, ListGitHubStackParams{RepositoryURL: komrad, Number: 7})
-	require.NoError(t, err)
-	assert.Equal(t, []stackMember{
-		{ID: ids["PR_2"], Position: 2, HeadSHA: "two"},
-		{ID: ids["PR_3"], Position: 3, HeadSHA: "three"},
-	}, members, "the stack's open pull requests come bottom first")
-
-	require.NoError(t, h.RecordRebaseAwait(ctx, RecordRebaseAwaitParams{ID: ids["PR_2"], Since: since, HeadSHA: "before"}))
-	require.NoError(t, h.RecordRebaseAwait(ctx, RecordRebaseAwaitParams{ID: ids["PR_2"], Since: since.Add(time.Minute), HeadSHA: "later"}))
-	awaited, err := h.GetByIdentity(ctx, "github.com", "PR_2")
-	require.NoError(t, err)
-	require.NotNil(t, awaited.RebaseAwait)
-	assert.True(t, awaited.RebaseAwait.Since.Equal(since), "a wait already begun keeps its start")
-	assert.Equal(t, "later", awaited.RebaseAwait.From, "a wait already begun moves to the newer head")
-
-	waiting, err := h.ListGitHubStack(ctx, ListGitHubStackParams{RepositoryURL: komrad, Number: 7})
-	require.NoError(t, err)
-	assert.Equal(t, []stackMember{{ID: ids["PR_3"], Position: 3, HeadSHA: "three"}}, waiting, "a pull request already awaited is left out")
-
-	require.NoError(t, h.ClearRebaseAwait(ctx, ids["PR_2"]))
-	cleared, err := h.GetByIdentity(ctx, "github.com", "PR_2")
-	require.NoError(t, err)
-	assert.Nil(t, cleared.RebaseAwait)
 }

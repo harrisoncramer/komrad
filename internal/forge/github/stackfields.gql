@@ -1,9 +1,0 @@
-fragment stackFields on PullRequest {
-  stack {
-    number
-    size
-  }
-  stackEntry {
-    position
-  }
-}

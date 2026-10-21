@@ -1,7 +1,6 @@
 package github
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -32,7 +31,7 @@ func TestList(t *testing.T) {
 	seen := fake.last(t)
 	assert.Equal(t, "/graphql", seen.Path)
 	assert.Equal(t, "List", seen.Operation)
-	assert.Equal(t, listOperation+pullRequestFragment+stackFragment, seen.Query)
+	assert.Equal(t, listQuery, seen.Query)
 	assert.Equal(t, map[string]any{
 		"owner":  "harrisoncramer",
 		"name":   "komrad-forge-fixture",
@@ -130,65 +129,4 @@ func TestListRefusesANestedPath(t *testing.T) {
 	_, err = f.ReadBranches(t.Context(), git.RemoteURL{Host: "github.com", Path: "group/sub/repo"}, []string{"main"})
 	require.ErrorIs(t, err, forge.ErrNotRepository)
 	assert.Empty(t, fake.calls)
-}
-
-// TestListReadsWhereAPullRequestSitsInItsStack covers the stack fields each host is asked for and
-// what they read into.
-func TestListReadsWhereAPullRequestSitsInItsStack(t *testing.T) {
-	t.Parallel()
-
-	stackedPull := strings.TrimSuffix(openPull, "\n}") + `,
-	"stack": {
-		"number": 5,
-		"size": 3
-	},
-	"stackEntry": {
-		"position": 2
-	}
-}`
-
-	tests := []struct {
-		name string
-		// enterprise says the host lacks GitHub stacks.
-		enterprise   bool
-		node         string
-		wantFragment string
-		want         *forge.StackPlace
-	}{
-		{
-			name:         "a host without github stacks is not asked for them",
-			enterprise:   true,
-			node:         openPull,
-			wantFragment: noStackFragment,
-		},
-		{
-			name:         "a pull request in no stack",
-			node:         openPull,
-			wantFragment: stackFragment,
-		},
-		{
-			name:         "a pull request in a stack",
-			node:         stackedPull,
-			wantFragment: stackFragment,
-			want:         &forge.StackPlace{Number: 5, Position: 2, Size: 3},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			f, _, fake := serve(t, map[string]answer{
-				"List": {body: listing(false, "end", tt.node)},
-			})
-			f.stacks = !tt.enterprise
-
-			listed, err := f.List(t.Context(), forge.ListParams{Repo: fixture})
-			require.NoError(t, err)
-
-			assert.Contains(t, fake.last(t).Query, tt.wantFragment)
-			require.Len(t, listed.PullRequests, 1)
-			assert.Equal(t, tt.want, listed.PullRequests[0].Stack)
-		})
-	}
 }

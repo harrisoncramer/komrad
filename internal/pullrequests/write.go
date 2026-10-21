@@ -17,8 +17,6 @@ var (
 	errMergeHasParent = fail.Precondition("this task depends on another task, so merge that task first and komrad re-targets this one onto the base branch")
 	// errMergeOntoFinished says the pull request targets a task's branch whose own pull request has merged or closed.
 	errMergeOntoFinished = fail.Precondition("this pull request targets a task's branch whose own pull request has merged or closed, so re-target it onto the base branch first")
-	// errAutoMergeStacked says the pull request sits in a GitHub stack, where GitHub turns auto-merge down.
-	errAutoMergeStacked = fail.Precondition("this pull request is in a GitHub stack, which GitHub will not auto-merge, so merge it once the pull requests under it have merged")
 )
 
 // NewWriterParams is what a writer is built over.
@@ -95,7 +93,7 @@ func (w *Writer) SetPullRequestDraft(ctx context.Context, address string, draft 
 // pass, or stops it, and heats its host in the pull request sync.
 func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
 	if params.On {
-		if err := w.refuseBlockedAutoMerge(ctx, params.URL); err != nil {
+		if err := w.refuseBlockedMerge(ctx, params.URL); err != nil {
 			return err
 		}
 	}
@@ -157,27 +155,6 @@ func (w *Writer) refuseBlockedMerge(ctx context.Context, address string) error {
 		return err
 	}
 
-	return refuseBlockers(*blockers)
-}
-
-// refuseBlockedAutoMerge turns down auto-merge for a pull request that could not merge, or that sits in a GitHub stack.
-func (w *Writer) refuseBlockedAutoMerge(ctx context.Context, address string) error {
-	blockers, err := w.pullRequests.GetMergeBlockers(ctx, address)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if blockers.InGitHubStack {
-		return errAutoMergeStacked
-	}
-
-	return refuseBlockers(*blockers)
-}
-
-// refuseBlockers is why the blockers turn a merge down, nil when none does.
-func refuseBlockers(blockers pullrequeststore.MergeBlockers) error {
 	switch {
 	case blockers.HeadHasParent:
 		return errMergeHasParent

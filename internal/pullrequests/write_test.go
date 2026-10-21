@@ -299,12 +299,6 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 			wantErr: errMergeHasParent,
 		},
 		{
-			name:    "a pull request in a GitHub stack",
-			params:  forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
-			child:   childTask{parentState: "OPEN", stacked: true},
-			wantErr: errAutoMergeStacked,
-		},
-		{
 			name: "a pull request the forge will not queue",
 			params: forge.SetAutoMergeParams{
 				URL:     address,
@@ -366,7 +360,6 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 type childTask struct {
 	hasParent   bool
 	parentState string
-	stacked     bool
 }
 
 // seedChildTask records the parent and child tasks in the test repository, and their pull requests.
@@ -400,17 +393,7 @@ func seedChildTask(t *testing.T, stores *storetest.Stores, seeded childTask) {
 		HeadSHA:       "abc",
 		BaseBranch:    "task/parent",
 		OpenedAt:      syncNow,
-		Stack:         stackPlaceOf(seeded.stacked),
 	})
-}
-
-// stackPlaceOf is the child's place on top of its parent in a GitHub stack, nil when it is not stacked.
-func stackPlaceOf(stacked bool) *forge.StackPlace {
-	if !stacked {
-		return nil
-	}
-
-	return &forge.StackPlace{Number: 7, Position: 2, Size: 2}
 }
 
 // seedBranchTask records a task whose checkout is on a branch of the test repository.

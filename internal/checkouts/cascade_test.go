@@ -41,8 +41,6 @@ func TestCascade(t *testing.T) {
 		// wantPush is whether komrad force-pushed the branch.
 		wantPush bool
 		wantMail string
-		// wantRetargetOnto is the base branch the child's pull request waits to be pointed at, empty while it waits on none.
-		wantRetargetOnto string
 	}{
 		{
 			name: "a parent whose newest commit is the fork point leaves the child alone",
@@ -204,20 +202,6 @@ func TestCascade(t *testing.T) {
 			wantParent: &taskstore.Parent{ForkPoint: "newtip"},
 		},
 		{
-			name: "a re-target onto the base the writer finished sends the child's pull request out of its GitHub stack",
-			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
-				seedStoppedRetarget(t, fixture, seeded)
-				seedStackedPullRequest(t, fixture, seeded)
-			},
-			mover: func(parentBranch string) *gittest.Mover {
-				mover := newChildGit(parentBranch, "oldtip")
-				mover.Holds = []string{"basesha"}
-
-				return mover
-			},
-			wantRetargetOnto: "main",
-		},
-		{
 			name: "a re-target onto the base the writer finished clears the parent while the parent stays put",
 			seed: seedStoppedRetarget,
 			mover: func(parentBranch string) *gittest.Mover {
@@ -285,7 +269,6 @@ func TestCascade(t *testing.T) {
 				assert.NotContains(t, mover.Calls, "rebaseOnto", "nothing is rebased")
 			}
 			assert.Equal(t, tt.wantPush, len(mover.Pushed) == 1 && mover.Pushed[0].Force)
-			assert.Equal(t, tt.wantRetargetOnto, readRetargetOnto(t, fixture, seeded))
 
 			inbox := fixture.readInbox(t, seeded.writer.ID)
 			if tt.wantMail == "" {

@@ -18,16 +18,6 @@ import (
 //go:embed pullrequest.gql
 var pullRequestFragment string
 
-// stackFragment is where a pull request sits in its GitHub stack.
-//
-//go:embed stackfields.gql
-var stackFragment string
-
-// noStackFragment stands in for stackFragment on a host without GitHub stacks.
-//
-//go:embed nostackfields.gql
-var noStackFragment string
-
 // mergeReadinessFragment is what the reviews, mergeability and auto-merge of a pull request are read from.
 //
 //go:embed mergereadiness.gql
@@ -69,7 +59,6 @@ type connection = graphql.Connection[pullRequestNode]
 // pullRequestNode is the slice of GitHub's pull request node the record is built from.
 type pullRequestNode struct {
 	mergeReadinessNode
-	stackFields
 	ID             string          `json:"id"`
 	Number         int             `json:"number"`
 	Title          string          `json:"title"`
@@ -87,17 +76,6 @@ type pullRequestNode struct {
 	BaseRefOid     string          `json:"baseRefOid"`
 	HeadRepository *repositoryNode `json:"headRepository"`
 	BaseRepository *repositoryNode `json:"baseRepository"`
-}
-
-// stackFields is where a pull request sits in its GitHub stack, as the stackFields fragment reads it.
-type stackFields struct {
-	Stack *struct {
-		Number int `json:"number"`
-		Size   int `json:"size"`
-	} `json:"stack"`
-	StackEntry *struct {
-		Position int `json:"position"`
-	} `json:"stackEntry"`
 }
 
 type repositoryNode struct {
@@ -153,7 +131,6 @@ func (n pullRequestNode) toPullRequest(withMergeReadiness bool) forge.PullReques
 		UpdatedAt:  n.UpdatedAt,
 		MergedAt:   n.MergedAt,
 		ClosedAt:   n.ClosedAt,
-		Stack:      n.stackPlace(),
 	}
 	if withMergeReadiness {
 		pullRequest.MergeReadiness = &forge.MergeReadiness{
@@ -164,22 +141,4 @@ func (n pullRequestNode) toPullRequest(withMergeReadiness bool) forge.PullReques
 	}
 
 	return pullRequest
-}
-
-// stackPlace is where the pull request sits in its GitHub stack, nil while it is in none.
-func (n stackFields) stackPlace() *forge.StackPlace {
-	if n.Stack == nil || n.StackEntry == nil {
-		return nil
-	}
-
-	return &forge.StackPlace{Number: n.Stack.Number, Position: n.StackEntry.Position, Size: n.Stack.Size}
-}
-
-// pickStackFragment is the stackFields fragment the host can answer.
-func (f *Forge) pickStackFragment() string {
-	if f.stacks {
-		return stackFragment
-	}
-
-	return noStackFragment
 }
