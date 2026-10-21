@@ -34,23 +34,26 @@ var rebaseDenial = hookOutput{HookSpecificOutput: hookContext{
 	PermissionDecisionReason: rebaseRefusal,
 }}
 
-// refusesRebase reports whether a tool call starts a rebase on a task whose stack komrad rebases.
-func refusesRebase(cmd *cobra.Command, state *app, payload []byte) bool {
+// refuseRebase is the answer refusing a tool call that starts a rebase on a stacked task, nil for any other call.
+func refuseRebase(cmd *cobra.Command, state *app, payload []byte) *hookOutput {
 	command, err := claude.ReadShellCommand(payload)
 	if err != nil || !startsRebase(command) {
-		return false
+		return nil
 	}
 
 	row, err := readOwnRow(cmd.Context(), state)
 	if err != nil {
 		reportHookProblem(cmd, state, "komrad could not be reached, so the rebase was let through", err)
 
-		return false
+		return nil
 	}
 
 	parent := row.GetTask().GetParent()
+	if parent == nil || parent.GetBlocked() == taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED {
+		return nil
+	}
 
-	return parent != nil && parent.GetBlocked() != taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED
+	return &rebaseDenial
 }
 
 // startsRebase reports whether a shell command line starts a git rebase, or a git pull that rebases.
