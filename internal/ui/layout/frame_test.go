@@ -986,7 +986,8 @@ func TestFrameOpenColumnRefusesWithoutTheStageBeside(t *testing.T) {
 	}
 }
 
-// TestFrameCloseColumn covers the pane going, which hands its columns back to the sidebar.
+// TestFrameCloseColumn covers the pane going, which hands its columns back to the sidebar, even after
+// the window was resized under it.
 func TestFrameCloseColumn(t *testing.T) {
 	tmux := &recordingTmux{
 		width:       159,
@@ -999,10 +1000,11 @@ func TestFrameCloseColumn(t *testing.T) {
 	frame.OpenColumn(Content{Render: func(Target) ([]string, bool) { return []string{"nvim"}, true }})
 
 	tmux.resizes = nil
+	tmux.windowWidth = 140
 	require.True(t, frame.CloseColumn())
 
 	assert.Equal(t, []string{columnPane}, tmux.killed)
-	assert.Empty(t, tmux.resizes, "tmux gave the closed pane's columns to the sidebar")
+	assert.Equal(t, []string{sidebarPane + " 105"}, tmux.resizes, "the sidebar takes its columns beside the stage in the narrower window")
 	assert.True(t, frame.IsBeside())
 	assert.False(t, frame.CloseColumn(), "there is no pane left to close")
 }

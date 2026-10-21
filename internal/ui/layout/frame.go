@@ -515,6 +515,17 @@ func (f *Frame) CloseColumn() bool {
 	// tmux hands the closed pane's columns to the sidebar, which leaves the stage beside it.
 	f.column, f.beside = "", true
 
+	// Resizing a pane in a zoomed window unzooms it.
+	if f.solo {
+		f.owed = true
+
+		return true
+	}
+
+	// A window resized while the pane was open leaves the sidebar short of the columns it takes
+	// beside the stage, and tmux changes nothing for a sidebar already at them.
+	f.move(panes.Resize(f.sidebar, f.sidebarCols()))
+
 	return true
 }
 
