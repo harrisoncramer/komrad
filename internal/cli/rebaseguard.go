@@ -65,7 +65,7 @@ func startsRebase(line string) bool {
 
 	found := false
 	syntax.Walk(file, func(node syntax.Node) bool {
-		if call, ok := node.(*syntax.CallExpr); ok && rebases(stripGitOptions(expandLiterals(call.Args))) {
+		if call, ok := node.(*syntax.CallExpr); ok && isRebaseCall(stripGitOptions(expandLiterals(call.Args))) {
 			found = true
 		}
 
@@ -106,7 +106,7 @@ func stripGitOptions(words []string) []string {
 	return words
 }
 
-func rebases(args []string) bool {
+func isRebaseCall(args []string) bool {
 	if len(args) == 0 {
 		return false
 	}
