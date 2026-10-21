@@ -135,7 +135,7 @@ func TestReviewOpen(t *testing.T) {
 		frame := harness.readFrame()
 		assert.False(t, harness.panel.IsZoomed())
 		assert.True(t, harness.panel.IsBeside())
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, server.agent.GetPaneId(), harness.panel.ReadGuestPane())
 		assert.Equal(t, []bool{false}, harness.panel.ReadZooms()[menuUp:], "the menu's zoom is let go once")
 		assert.Contains(t, readStage(frame), "greet.go")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +1 -1")
@@ -2026,7 +2026,7 @@ func TestReviewHold(t *testing.T) {
 		editor := harness.panel.ReadRespawnPanes()
 		require.NotEmpty(t, editor)
 		assert.Equal(t, ui.ColumnPane, editor[len(editor)-1], "the editor is split off the sidebar rather than put on the stage")
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, server.agent.GetPaneId(), harness.panel.ReadGuestPane())
 		assert.Equal(t, ui.ColumnPane, harness.panel.ReadSelectedPanes()[len(harness.panel.ReadSelectedPanes())-1])
 		assert.False(t, harness.panel.IsBeside())
 	})
@@ -2256,7 +2256,8 @@ func TestReviewHold(t *testing.T) {
 	})
 
 	t.Run("closing the editor lets the agent go and says where to look", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
+		server := newReviewServer(t)
+		harness := openReview(t, server)
 
 		harness.press("space", "e", "space", "e")
 
@@ -2265,7 +2266,7 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, said, "greet.go")
 		assert.Contains(t, harness.readFrame(), "auth › review")
 		assert.Contains(t, harness.panel.ReadKilledPanes(), ui.ColumnPane)
-		assert.NotContains(t, harness.panel.ReadKilledPanes(), "%9")
+		assert.NotContains(t, harness.panel.ReadKilledPanes(), server.agent.GetPaneId())
 		assert.True(t, harness.panel.IsBeside())
 	})
 
@@ -2279,6 +2280,7 @@ func TestReviewHold(t *testing.T) {
 
 		assert.Equal(t, agentsScreen, harness.readScreen())
 		assert.Contains(t, readReleaseSaid(t, harness), "greet.go")
+		assert.Contains(t, harness.panel.ReadKilledPanes(), ui.ColumnPane, "the editor goes with the review")
 	})
 
 	t.Run("an agent paused by somebody else opens no editor", func(t *testing.T) {

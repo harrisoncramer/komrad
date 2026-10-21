@@ -512,12 +512,8 @@ func (f *Frame) CloseColumn() bool {
 		f.tmux.KillPane(f.column)
 	}
 
-	f.column = ""
-
-	// tmux hands the closed pane's columns to a pane beside it.
-	if !f.solo {
-		f.move(panes.Resize(f.sidebar, f.sidebarCols()))
-	}
+	// tmux hands the closed pane's columns to the sidebar, which leaves the stage beside it.
+	f.column, f.beside = "", true
 
 	return true
 }
