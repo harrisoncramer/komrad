@@ -636,9 +636,21 @@ func TestIntegrationReadMergeBase(t *testing.T) {
 		want    string
 		wantErr error
 	}{
-		{name: "a commit HEAD descends from", ref: base, want: base},
-		{name: "a commit on a branch that left HEAD's history", ref: aside, want: base},
-		{name: "a commit sharing no history", ref: unrelated, wantErr: ErrBaseUnrelated},
+		{
+			name: "a commit HEAD descends from",
+			ref:  base,
+			want: base,
+		},
+		{
+			name: "a commit on a branch that left HEAD's history",
+			ref:  aside,
+			want: base,
+		},
+		{
+			name:    "a commit sharing no history",
+			ref:     unrelated,
+			wantErr: ErrBaseUnrelated,
+		},
 	}
 
 	for _, tt := range tests {
