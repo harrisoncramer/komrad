@@ -451,7 +451,7 @@ enum ReviewWidenedReason {
   REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE = 5;
 }
 
-// ReviewWidening is why komrad diffed the whole change instead of the requested span.
+// ReviewWidening is why komrad diffed the whole change, with the paths that conflicted when it did.
 message ReviewWidening {
   // Why the span was widened.
   ReviewWidenedReason reason = 1;

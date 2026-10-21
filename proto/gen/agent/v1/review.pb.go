@@ -2521,7 +2521,7 @@ func (x *OpenReviewHistoryResponse) GetTraced() map[string]*ReviewTracedPlace {
 	return nil
 }
 
-// ReviewWidening is why komrad diffed the whole change instead of the requested span.
+// ReviewWidening is why komrad diffed the whole change, with the paths that conflicted when it did.
 type ReviewWidening struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Why the span was widened.
