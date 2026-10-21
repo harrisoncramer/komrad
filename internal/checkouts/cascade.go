@@ -452,24 +452,39 @@ func (s *Service) retarget(ctx context.Context, task taskstore.Task, from string
 		return nil
 	}
 
-	host, f, err := s.forges.ForAddress(ctx, own.URL)
-	if err == nil {
-		err = f.SetBase(ctx, own.URL, base)
-	}
+	host, err := s.setBase(ctx, own.URL, base)
 	if err != nil {
-		if err := s.pullRequests.RecordRetargetRefused(ctx, *own); err != nil {
-			return err
-		}
-		s.queueEvent(ctx, task.ID, cascaded{
-			TaskID:  task.ID,
-			Refused: &eventprompts.RetargetRefused{URL: own.URL, Onto: base, Reason: err.Error()},
-		})
-
-		return nil
+		return s.tellRetargetRefused(ctx, task.ID, *own, eventprompts.RetargetRefused{URL: own.URL, Onto: base, Reason: err.Error()})
 	}
 	s.pullRequestSync.ReadOften(host)
 
 	return s.tasks.ClearLeftParentBranch(ctx, task.ID)
+}
+
+// setBase points the pull request at the address at the base branch and says which host it lives on.
+func (s *Service) setBase(ctx context.Context, address, base string) (string, error) {
+	host, connection, err := s.forges.ForAddress(ctx, address)
+	if err != nil {
+		return "", err
+	}
+
+	if err := connection.SetBase(ctx, address, base); err != nil {
+		return "", err
+	}
+
+	return host, nil
+}
+
+// tellRetargetRefused records that the forge refused to point the pull request at the base branch as
+// it stands and tells the task's writer to point it themselves.
+func (s *Service) tellRetargetRefused(ctx context.Context, taskID string, pr pullrequeststore.PullRequest, refused eventprompts.RetargetRefused) error {
+	if err := s.pullRequests.RecordRetargetRefused(ctx, pr); err != nil {
+		return err
+	}
+
+	s.queueEvent(ctx, taskID, cascaded{TaskID: taskID, Refused: &refused})
+
+	return nil
 }
 
 // settleRetarget settles a re-target onto the base branch that stopped on conflicts once the writer
