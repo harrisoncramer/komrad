@@ -40,7 +40,7 @@ var (
 func gitMenu(m *model, task panel.Task) submenu {
 	taskID := task.ID
 
-	worktree := []submenuEntry{
+	worktreeEntries := []submenuEntry{
 		{
 			label: rebaseLabel(m.listing, task),
 			keys:  m.keys.Git.Rebase,
@@ -70,7 +70,7 @@ func gitMenu(m *model, task panel.Task) submenu {
 	return submenu{
 		kind:    formGit,
 		title:   "git",
-		entries: slices.Concat(worktree, pullRequestEntries(m, task)),
+		entries: slices.Concat(worktreeEntries, pullRequestEntries(m, task)),
 	}
 }
 
