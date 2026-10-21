@@ -36,11 +36,11 @@ type Snapshot struct {
 	SHA     string
 }
 
-type Review struct {
+// Comment is one comment the person released, on the snapshot its thread is pinned to.
+type Comment struct {
 	SnapshotID      string
 	SnapshotOrdinal int32
-	Human           bool
-	ReleasedAt      *time.Time
+	ReleasedAt      time.Time
 }
 
 type Thread struct {
@@ -100,7 +100,7 @@ type BuildParams struct {
 	Exclude   []string
 	Snapshot  Snapshot
 	Snapshots []Snapshot
-	Reviews   []Review
+	Comments  []Comment
 	Threads   []Thread
 	Span      Span
 }
@@ -115,7 +115,7 @@ func Build(ctx context.Context, params BuildParams) Record {
 		record.Span = wholeSpan(params.Snapshot)
 	}
 
-	record.Earlier, record.EarlierReleasedAt = findPreviousReviewedSnapshot(params.Reviews, params.Snapshots, params.Snapshot)
+	record.Earlier, record.EarlierReleasedAt = findPreviousReviewedSnapshot(params.Comments, params.Snapshots, params.Snapshot)
 	record.ChangedSinceEarlier = countChangedSince(ctx, countChangedSinceParams{
 		Git:     params.Git,
 		Dir:     params.Dir,
@@ -267,33 +267,35 @@ func findSnapshot(snapshots []Snapshot, id string) *Snapshot {
 	return nil
 }
 
-// findPreviousReviewedSnapshot finds the snapshot the person last released a review against, or nothing
-// when they never reviewed this agent or its base has moved since.
-func findPreviousReviewedSnapshot(reviews []Review, snapshots []Snapshot, snapshot Snapshot) (*Snapshot, *time.Time) {
-	last := findLastHumanReview(reviews, snapshot.Ordinal)
+// findPreviousReviewedSnapshot finds the snapshot the person last commented on, or nothing when
+// they never commented on this agent's work or its base has moved since.
+func findPreviousReviewedSnapshot(comments []Comment, snapshots []Snapshot, snapshot Snapshot) (*Snapshot, *time.Time) {
+	last := findLastComment(comments, snapshot.Ordinal)
 	if last == nil {
 		return nil, nil
 	}
 
 	earlier := findSnapshot(snapshots, last.SnapshotID)
 	if earlier == nil || earlier.BaseSHA != snapshot.BaseSHA {
-		return nil, last.ReleasedAt
+		return nil, &last.ReleasedAt
 	}
 
-	return earlier, last.ReleasedAt
+	return earlier, &last.ReleasedAt
 }
 
-// findLastHumanReview finds the newest review the person released against a snapshot before the one
-// on screen.
-func findLastHumanReview(reviews []Review, ordinal int32) *Review {
-	var last *Review
-	for i := range reviews {
-		review := &reviews[i]
-		if !review.Human || review.ReleasedAt == nil || review.SnapshotOrdinal >= ordinal {
+// findLastComment finds the person's newest comment on the latest snapshot before the one on
+// screen.
+func findLastComment(comments []Comment, ordinal int32) *Comment {
+	var last *Comment
+	for i := range comments {
+		comment := &comments[i]
+		if comment.SnapshotOrdinal >= ordinal {
 			continue
 		}
-
-		last = review
+		if last == nil || comment.SnapshotOrdinal > last.SnapshotOrdinal ||
+			comment.SnapshotOrdinal == last.SnapshotOrdinal && comment.ReleasedAt.After(last.ReleasedAt) {
+			last = comment
+		}
 	}
 
 	return last

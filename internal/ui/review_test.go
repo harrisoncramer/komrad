@@ -438,6 +438,39 @@ func TestReviewThreads(t *testing.T) {
 		assert.NotContains(t, harness.readFrame(), "  Comment")
 	})
 
+	t.Run("enter releases the comment and the thread shows released then read", func(t *testing.T) {
+		server := newReviewServer(t)
+		harness := openReview(t, server)
+
+		harness.press("space", "c")
+		typeText(harness, "this should say hello")
+		harness.press("enter")
+		harness.watch(server.buildSnapshot())
+
+		frame := harness.readFrame()
+		assert.Contains(t, readPopupProse(frame), "this should say hello")
+		assert.Contains(t, readPopupProse(frame), "→ released")
+
+		server.threads[0].Messages[0].ReadAt = "2026-09-02T10:01:00Z"
+		harness.watch(server.buildSnapshot())
+
+		assert.Contains(t, readPopupProse(harness.readFrame()), "✓ read")
+	})
+
+	t.Run("a remark on the whole change stands at the foot of the diff", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.threads = []*agentv1.ReviewThread{newWholeChangeThread("", 0, "2026-09-02T10:00:00Z")}
+		harness := openReview(t, server)
+
+		harness.press("t")
+
+		frame := harness.readFrame()
+		assert.Contains(t, readStageText(frame), "on the whole change")
+		assert.Contains(t, readSidebarProse(frame), "the whole change")
+		assert.Contains(t, readPopupProse(frame), "the shape is right")
+		assert.NotContains(t, readPopupProse(frame), "has gone")
+	})
+
 	t.Run("a comment the server refuses stays in the composer", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		harness.refuse(agentv1connect.AgentServiceCreateReviewThreadProcedure,
@@ -535,10 +568,9 @@ func TestReviewThreads(t *testing.T) {
 		assert.Contains(t, readPopupProse(harness.readFrame()), "renamed it")
 	})
 
-	t.Run("a conversation an agent opened stays rendered while it holds an unsent reply", func(t *testing.T) {
+	t.Run("a conversation an agent opened stays rendered once the person has replied in it", func(t *testing.T) {
 		server := newReviewServer(t)
 		reply := newHumanMessage("m2", "yes, keep it")
-		reply.Delivery = agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "renamed it, is that what you meant?"), reply)}
 		harness := openReview(t, server)
 
@@ -971,103 +1003,51 @@ func TestReviewViewed(t *testing.T) {
 	})
 }
 
-// TestReviewDeliveryCount covers the line counting the reader's own comments by how far each has got.
-func TestReviewDeliveryCount(t *testing.T) {
+// TestReviewDeliveryBadge covers the sidebar saying where each of the reader's comments stands with
+// the writer.
+func TestReviewDeliveryBadge(t *testing.T) {
 	tests := []struct {
 		name     string
 		messages []*agentv1.ReviewMessage
 		want     string
-		absent   []string
+		absent   string
 	}{
 		{
-			name:   "a review with nothing in it counts nothing",
-			absent: []string{"unsent", "waiting", "delivered"},
+			name:     "nothing is said of what the agent wrote",
+			messages: []*agentv1.ReviewMessage{newAgentMessage("m9", "renamed it")},
+			want:     "renamed it",
+			absent:   "released",
 		},
 		{
-			name:     "what the agent said is nobody's delivery",
-			messages: []*agentv1.ReviewMessage{newAgentMessage("m9", "done")},
-			absent:   []string{"unsent", "waiting", "delivered"},
+			name:     "a comment the writer has not read yet is released",
+			messages: []*agentv1.ReviewMessage{newReleasedComment("m1")},
+			want:     "→ released",
+			absent:   "read",
 		},
 		{
-			name:     "a comment never let go of is unsent",
-			messages: []*agentv1.ReviewMessage{newUnsentComment()},
-			want:     "1 unsent",
-			absent:   []string{"delivered"},
+			name:     "a comment the writer picked up is read",
+			messages: []*agentv1.ReviewMessage{newReadComment("m1")},
+			want:     "✓ read",
+			absent:   "released",
 		},
 		{
-			name:     "each comment is counted by how far it got",
-			messages: []*agentv1.ReviewMessage{newUnsentComment(), newSentComment("m2"), newDeliveredComment("m3")},
-			want:     "1 unsent · 1 waiting · 1 delivered",
+			name:     "a comment the writer spoke to is answered",
+			messages: []*agentv1.ReviewMessage{newReadComment("m1"), newAgentMessage("m2", "done")},
+			want:     "✓ answered",
+			absent:   "✓ read",
 		},
 		{
-			name:     "a forge comment its author could not push is counted as held",
-			messages: []*agentv1.ReviewMessage{newHeldForgeComment("f1", "use a map"), newUnsentComment()},
-			want:     "1 held · 1 unsent",
+			name:     "a forge comment its author could not push is held from the agent",
+			messages: []*agentv1.ReviewMessage{newHeldForgeComment("f1", "use a map")},
+			want:     "! held",
+			absent:   "released",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := newReviewServer(t)
-			if tt.messages != nil {
-				server.threads = []*agentv1.ReviewThread{newThreadOnLastLine(tt.messages...)}
-			}
-
-			harness := openReview(t, server)
-
-			stage := readSidebarProse(harness.readFrame())
-			assert.Contains(t, stage, tt.want)
-			for _, absent := range tt.absent {
-				assert.NotContains(t, stage, absent)
-			}
-		})
-	}
-}
-
-// TestReviewDeliveryBadge covers the sidebar saying how far each of the reader's comments got.
-func TestReviewDeliveryBadge(t *testing.T) {
-	tests := []struct {
-		name    string
-		message *agentv1.ReviewMessage
-		want    string
-		absent  string
-	}{
-		{
-			name:    "nothing is said of what the agent wrote",
-			message: newAgentMessage("m9", "renamed it"),
-			want:    "renamed it",
-			absent:  "unsent",
-		},
-		{
-			name:    "a comment not let go of is unsent",
-			message: newUnsentComment(),
-			want:    "◇ unsent",
-			absent:  "delivered",
-		},
-		{
-			name:    "a released comment whose notice is waiting says so",
-			message: newSentComment("m1"),
-			want:    "→ waiting",
-			absent:  "unsent",
-		},
-		{
-			name:    "a comment the agent picked up is delivered",
-			message: newDeliveredComment("m1"),
-			want:    "✓ delivered",
-			absent:  "waiting",
-		},
-		{
-			name:    "a forge comment its author could not push is held from the agent",
-			message: newHeldForgeComment("f1", "use a map"),
-			want:    "! held",
-			absent:  "delivered",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := newReviewServer(t)
-			server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(tt.message)}
+			server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(tt.messages...)}
 
 			harness := openReview(t, server)
 
@@ -1091,29 +1071,16 @@ func TestReviewGutter(t *testing.T) {
 		absent   string
 	}{
 		{
-			name:    "a comment only written down is marked hollow",
-			message: newUnsentComment(),
-			want:    "◇",
-			absent:  "●",
-		},
-		{
-			name:    "a draft outranks the answer waiting in it",
-			unread:  true,
-			message: newUnsentComment(),
-			want:    "◇",
-			absent:  "●",
-		},
-		{
 			name:    "an answer nobody has read is filled in",
 			unread:  true,
-			message: newDeliveredComment("m1"),
+			message: newReadComment("m1"),
 			want:    "●",
 			absent:  "○",
 		},
 		{
 			name:     "a settled thread says so",
 			resolved: "2026-09-02T11:00:00Z",
-			message:  newDeliveredComment("m1"),
+			message:  newReadComment("m1"),
 			want:     "✓",
 			absent:   "●",
 		},
@@ -1121,13 +1088,13 @@ func TestReviewGutter(t *testing.T) {
 			name:     "a settled thread the agent spoke in again is filled in",
 			resolved: "2026-09-02T11:00:00Z",
 			unread:   true,
-			message:  newDeliveredComment("m1"),
+			message:  newReadComment("m1"),
 			want:     "●",
 			absent:   "✓",
 		},
 		{
 			name:    "a comment that landed and was read is hollow",
-			message: newDeliveredComment("m1"),
+			message: newReadComment("m1"),
 			want:    "○",
 			absent:  "●",
 		},
@@ -1167,56 +1134,6 @@ func TestReviewGutter(t *testing.T) {
 	}
 }
 
-// TestReviewRelease covers sending the review to the agent.
-func TestReviewRelease(t *testing.T) {
-	t.Run("the panel sends with no verdict and says the review went", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("space", "S")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
-		harness.press("enter")
-
-		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
-			Task: xptr.Ptr("t1"),
-		})
-		assert.Contains(t, readEngineLine(harness.readFrame()), "review sent")
-	})
-
-	t.Run("the panel carries a word about the whole change", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("space", "S")
-		typeText(harness, "the shape is right")
-		harness.press("enter")
-
-		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
-			Task: xptr.Ptr("t1"),
-			Body: "the shape is right",
-		})
-	})
-
-	t.Run("escape puts the panel away and sends nothing", func(t *testing.T) {
-		harness := openReview(t, newReviewServer(t))
-
-		harness.press("space", "S", "esc", "space", "S")
-
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
-	})
-
-	t.Run("a dormant agent takes the review and the panel says it is queued", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.Alive = xptr.Ptr(false)
-		harness := openReview(t, server)
-
-		harness.press("space", "S", "enter")
-
-		harness.assertSentTo(agentv1connect.AgentServiceReleaseReviewProcedure, &agentv1.ReleaseReviewRequest{
-			Task: xptr.Ptr("t1"),
-		})
-		assert.Contains(t, readEngineLine(harness.readFrame()), "review queued for resume")
-	})
-}
-
 // TestReviewWatch covers the conversation following the watch without a keypress.
 func TestReviewWatch(t *testing.T) {
 	t.Run("an answer the watch puts is rendered", func(t *testing.T) {
@@ -1229,23 +1146,17 @@ func TestReviewWatch(t *testing.T) {
 		assert.Contains(t, readPopupProse(harness.readFrame()), "fixed it")
 	})
 
-	t.Run("a comment's delivery follows its review", func(t *testing.T) {
+	t.Run("a comment the writer reads shows read", func(t *testing.T) {
 		server := newReviewServer(t)
-		comment := newHumanMessage("m1", "wrong greeting")
-		comment.ReviewId = xptr.Ptr("r1")
+		comment := newReleasedComment("m1")
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(comment)}
-		server.reviews = []*agentv1.Review{{
-			Id:         "r1",
-			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-			ReleasedAt: "2026-09-02T10:00:00Z",
-		}}
 		harness := openReview(t, server)
-		require.Contains(t, readPopupProse(harness.readFrame()), "waiting")
+		require.Contains(t, readPopupProse(harness.readFrame()), "released")
 
-		server.reviews[0].DeliveredAt = "2026-09-02T10:05:00Z"
+		comment.ReadAt = "2026-09-02T10:05:00Z"
 		harness.watch(server.buildSnapshot())
 
-		assert.Contains(t, readPopupProse(harness.readFrame()), "delivered")
+		assert.Contains(t, readPopupProse(harness.readFrame()), "read")
 	})
 
 	t.Run("an answer arriving while the reader types waits for them to stop", func(t *testing.T) {
@@ -1270,7 +1181,7 @@ func TestReviewWatch(t *testing.T) {
 
 	t.Run("an archived agent's threads stay rendered and a settle reads them back", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newDeliveredComment("m1"))}
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newReadComment("m1"))}
 		harness := openReview(t, server)
 
 		server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
@@ -1291,7 +1202,7 @@ func TestReviewWatch(t *testing.T) {
 // TestReviewOfAnArchivedAgent covers the diff of an archived agent opening read only.
 func TestReviewOfAnArchivedAgent(t *testing.T) {
 	server := newReviewServer(t)
-	server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+	server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newReleasedComment("m1"))}
 	harness := openReviewAt(t, server, panelHarnessParams{height: 50})
 	server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
 	harness.watch(server.buildSnapshot())
@@ -1307,14 +1218,12 @@ func TestReviewOfAnArchivedAgent(t *testing.T) {
 
 	harness.press("space")
 	menu := harness.readFrame()
-	assert.NotContains(t, menu, "send to the agent")
 	assert.Contains(t, menu, "settle the thread")
 	harness.press("esc")
 
 	harness.press("space", "c")
 	assert.NotContains(t, harness.readFrame(), "  Comment")
-	harness.press("esc", "space", "S", "esc")
-	assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseReviewProcedure))
+	harness.press("esc")
 	assert.Empty(t, harness.readSent(agentv1connect.AgentServiceAddReviewMessageProcedure))
 
 	harness.press("space", "r", "space", "v")
@@ -1424,7 +1333,7 @@ func TestReviewReload(t *testing.T) {
 		assert.NotContains(t, frame, "Nothing to review")
 	})
 
-	t.Run("a move the watch reports of an idle agent is read again", func(t *testing.T) {
+	t.Run("a move the watch reports leaves the diff on its snapshot and says so", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
@@ -1433,69 +1342,26 @@ func TestReviewReload(t *testing.T) {
 		harness.watch(server.buildSnapshot())
 
 		frame := harness.readFrame()
-		assert.Contains(t, frame, "written by the agent")
-		assert.NotContains(t, readEngineLine(frame), "the worktree has moved")
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
+		assert.NotContains(t, frame, "written by the agent")
+		assert.Contains(t, readEngineLine(frame), "the worktree has moved")
+		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 1)
 
-		harness.watch(server.buildSnapshot())
+		harness.press("space", "R")
+
+		assert.Contains(t, harness.readFrame(), "written by the agent")
+		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 	})
 
-	t.Run("a move from a snapshot other than the one on screen is not followed", func(t *testing.T) {
+	t.Run("a move from a snapshot other than the one on screen raises nothing", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
 		server.task.MovedSinceSnapshot = "commit-of-another-snapshot"
 		harness.watch(server.buildSnapshot())
 
+		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 1)
-	})
-
-	t.Run("a move waits while a search is typed and is read once it is put away", func(t *testing.T) {
-		server := newReviewServer(t)
-		harness := openReview(t, server)
-		harness.press("/", "a")
-
-		server.repo.Wrote(newSnapshotWrittenOver())
-		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
-		harness.watch(server.buildSnapshot())
-		assert.NotContains(t, harness.readFrame(), "written by the agent")
-
-		harness.press("esc")
-		harness.watch(server.buildSnapshot())
-		assert.Contains(t, harness.readFrame(), "written by the agent")
-	})
-
-	t.Run("a move under an unsent comment is read like any other", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
-		harness := openReview(t, server)
-
-		server.repo.Wrote(newSnapshotWrittenOver())
-		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
-		harness.watch(server.buildSnapshot())
-
-		frame := harness.readFrame()
-		assert.Contains(t, frame, "written by the agent")
-		assert.NotContains(t, readEngineLine(frame), "the worktree has moved")
-	})
-
-	t.Run("a writer stopping catches the diff up and takes its notice down", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-		harness := openReview(t, server)
-
-		server.repo.Wrote(newSnapshotWrittenOver())
-		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
-		harness.watch(server.buildSnapshot())
-		require.Contains(t, readEngineLine(harness.readFrame()), "the agent is writing")
-		require.NotContains(t, harness.readFrame(), "written by the agent")
-
-		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
-		harness.watch(server.buildSnapshot())
-
-		assert.Contains(t, harness.readFrame(), "written by the agent")
-		assert.NotContains(t, readOpenMessages(harness), "the agent is writing")
 	})
 
 	t.Run("the reload key catches up while the writer is still writing", func(t *testing.T) {
@@ -1506,12 +1372,12 @@ func TestReviewReload(t *testing.T) {
 		server.repo.Wrote(newSnapshotWrittenOver())
 		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.watch(server.buildSnapshot())
-		require.Contains(t, readEngineLine(harness.readFrame()), "the agent is writing")
+		require.Contains(t, readEngineLine(harness.readFrame()), "the worktree has moved")
 
 		harness.press("space", "R")
 
 		assert.Contains(t, harness.readFrame(), "written by the agent")
-		assert.NotContains(t, readOpenMessages(harness), "the agent is writing")
+		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
 	})
 
 	t.Run("the history failing to read fails the load", func(t *testing.T) {
@@ -1526,7 +1392,7 @@ func TestReviewReload(t *testing.T) {
 
 	t.Run("a move while the editor is open raises nothing", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newReleasedComment("m1"))}
 		harness := openReview(t, server)
 		harness.press("space", "e")
 
@@ -1962,7 +1828,7 @@ func TestReviewReplay(t *testing.T) {
 	t.Run("an old side counted in the replayed tree pins only there", func(t *testing.T) {
 		server := newMovedBaseServer(t, replayedTree)
 		server.repo.Patches[gittest.NamePair(replayedTree, gittest.NameSnapshot(secondTree))] = gittest.Patch
-		server.threads = []*agentv1.ReviewThread{{
+		server.threads = append(server.threads, &agentv1.ReviewThread{
 			Id:          "t1",
 			SnapshotId:  "snapshot-2",
 			FilePath:    gittest.File,
@@ -1971,7 +1837,7 @@ func TestReviewReplay(t *testing.T) {
 			OldEnd:      4,
 			QuotedLines: []string{"-\treturn \"nowhere\""},
 			Messages:    []*agentv1.ReviewMessage{newHumanMessage("m1", "written on the replayed snapshot")},
-		}}
+		})
 		harness := openReview(t, server)
 
 		harness.press("<")
@@ -2075,12 +1941,6 @@ func TestReviewHold(t *testing.T) {
 
 		assert.Contains(t, readOpenMessages(harness), "cannot read this agent's pane")
 		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
-		harness.press("esc")
-
-		server.repo.Wrote(newSnapshotWrittenOver())
-		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
-		harness.watch(server.buildSnapshot())
-		assert.Contains(t, harness.readFrame(), "written by the agent")
 	})
 
 	t.Run("a dormant agent is edited without stopping anything", func(t *testing.T) {
@@ -2321,7 +2181,7 @@ func TestReviewHold(t *testing.T) {
 
 	t.Run("closing the editor renders the reader's own edits over a pinned diff", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newUnsentComment())}
+		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newReleasedComment("m1"))}
 		harness := openReview(t, server)
 
 		harness.press("space", "e")
@@ -2329,24 +2189,6 @@ func TestReviewHold(t *testing.T) {
 		harness.press("space", "e", "j")
 
 		assert.Contains(t, readStageText(harness.readFrame()), "written by the agent")
-	})
-
-	t.Run("a diff is held while the agent writes and read again when it stops", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-		harness := openReview(t, server)
-
-		server.repo.Wrote(newSnapshotWrittenOver())
-		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
-		harness.watch(server.buildSnapshot())
-		frame := harness.readFrame()
-		assert.NotContains(t, frame, "written by the agent")
-		assert.Contains(t, readEngineLine(frame), "the agent is writing")
-
-		server.agent.State = agentv1.AgentState_AGENT_STATE_IDLE
-		harness.watch(server.buildSnapshot())
-		assert.Contains(t, harness.readFrame(), "written by the agent")
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 	})
 
 	t.Run("the gate reads the agent under review rather than the first row", func(t *testing.T) {
@@ -2495,6 +2337,7 @@ func (s *reviewServer) buildSnapshot() *watchv1.WatchEvent {
 		if thread.GetTaskId() == "" {
 			thread.TaskId = s.agent.GetTaskId()
 		}
+		fillThreadAuthor(thread)
 		rows = append(rows, thread)
 	}
 	for _, review := range s.reviews {
@@ -2510,7 +2353,6 @@ func (s *reviewServer) buildSnapshot() *watchv1.WatchEvent {
 			AuthorKind:      review.GetAuthorKind(),
 			Verdict:         review.GetVerdict(),
 			ReleasedAt:      review.GetReleasedAt(),
-			DeliveredAt:     review.GetDeliveredAt(),
 		})
 	}
 	rows = append(rows, s.forge...)
@@ -2526,7 +2368,6 @@ func (s *reviewServer) serve(harness *panelHarness) {
 	harness.answer(agentv1connect.AgentServiceListReviewThreadsProcedure, s.listThreads)
 	harness.answer(agentv1connect.AgentServiceListReviewViewedFilesProcedure, s.listViewed)
 	harness.answer(agentv1connect.AgentServiceSetReviewFileViewedProcedure, s.markViewed)
-	harness.answer(agentv1connect.AgentServiceReleaseReviewProcedure, s.release)
 	harness.answer(agentv1connect.AgentServiceAddReviewMessageProcedure, s.reply)
 	harness.answer(agentv1connect.AgentServiceSetReviewThreadResolvedProcedure, s.settle)
 	harness.answer(agentv1connect.AgentServiceCreateReviewThreadProcedure, s.createThread)
@@ -2553,6 +2394,10 @@ func (s *reviewServer) takeSnapshot() (*agentv1.ReviewSnapshot, error) {
 }
 
 func (s *reviewServer) listThreads(connect.AnyRequest) (connect.AnyResponse, error) {
+	for _, thread := range s.threads {
+		fillThreadAuthor(thread)
+	}
+
 	return connect.NewResponse(&agentv1.ListReviewThreadsResponse{Threads: s.threads}), nil
 }
 
@@ -2581,20 +2426,6 @@ func (s *reviewServer) markViewed(req connect.AnyRequest) (connect.AnyResponse, 
 	return connect.NewResponse(&agentv1.SetReviewFileViewedResponse{}), nil
 }
 
-func (s *reviewServer) release(connect.AnyRequest) (connect.AnyResponse, error) {
-	var sent int32
-	for _, thread := range s.threads {
-		for _, message := range thread.GetMessages() {
-			if message.GetDelivery() == agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT {
-				message.Delivery = agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT
-				sent++
-			}
-		}
-	}
-
-	return connect.NewResponse(&agentv1.ReleaseReviewResponse{Comments: sent}), nil
-}
-
 func (s *reviewServer) reply(req connect.AnyRequest) (connect.AnyResponse, error) {
 	reply, _ := req.Any().(*agentv1.AddReviewMessageRequest)
 	message := &agentv1.ReviewMessage{
@@ -2602,7 +2433,7 @@ func (s *reviewServer) reply(req connect.AnyRequest) (connect.AnyResponse, error
 		ThreadId:   reply.GetThreadId(),
 		Body:       reply.GetBody(),
 		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
+		CreatedAt:  "2026-09-02T10:02:00Z",
 	}
 	for _, thread := range s.threads {
 		if thread.GetId() == reply.GetThreadId() {
@@ -2639,10 +2470,22 @@ func (s *reviewServer) settle(req connect.AnyRequest) (connect.AnyResponse, erro
 
 func (s *reviewServer) createThread(req connect.AnyRequest) (connect.AnyResponse, error) {
 	create, _ := req.Any().(*agentv1.CreateReviewThreadRequest)
+	comment := newHumanMessage(fmt.Sprintf("m%d", len(s.threads)+1), create.GetBody())
+	comment.CreatedAt = "2026-09-02T10:00:00Z"
+	thread := &agentv1.ReviewThread{
+		Id:          fmt.Sprintf("t%d", len(s.threads)+1),
+		TaskId:      s.agent.GetTaskId(),
+		FilePath:    create.GetFilePath(),
+		OldStart:    create.GetOldStart(),
+		OldEnd:      create.GetOldEnd(),
+		NewStart:    create.GetNewStart(),
+		NewEnd:      create.GetNewEnd(),
+		QuotedLines: create.GetQuotedLines(),
+		Messages:    []*agentv1.ReviewMessage{comment},
+	}
+	s.threads = append(s.threads, thread)
 
-	return connect.NewResponse(&agentv1.CreateReviewThreadResponse{
-		Thread: &agentv1.ReviewThread{Id: "t1", FilePath: create.GetFilePath()},
-	}), nil
+	return connect.NewResponse(&agentv1.CreateReviewThreadResponse{Thread: thread}), nil
 }
 
 func (s *reviewServer) hold(connect.AnyRequest) (connect.AnyResponse, error) {
@@ -2747,25 +2590,16 @@ func findLine(lines []string, text string) string {
 	return ""
 }
 
-func newUnsentComment() *agentv1.ReviewMessage {
-	message := newHumanMessage("m1", "")
-	message.Delivery = agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
-
-	return message
-}
-
-func newSentComment(id string) *agentv1.ReviewMessage {
+func newReleasedComment(id string) *agentv1.ReviewMessage {
 	message := newHumanMessage(id, "")
-	message.Delivery = agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT
-	message.SentAt = "2026-09-02T10:00:00Z"
+	message.CreatedAt = "2026-09-02T10:00:00Z"
 
 	return message
 }
 
-func newDeliveredComment(id string) *agentv1.ReviewMessage {
-	message := newSentComment(id)
-	message.Delivery = agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED
-	message.DeliveredAt = "2026-09-02T10:01:00Z"
+func newReadComment(id string) *agentv1.ReviewMessage {
+	message := newReleasedComment(id)
+	message.ReadAt = "2026-09-02T10:01:00Z"
 
 	return message
 }
@@ -2775,7 +2609,7 @@ func newHeldForgeComment(id, body string) *agentv1.ReviewMessage {
 		Id:         id,
 		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
 		Body:       body,
-		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD,
+		Held:       true,
 	}
 }
 
@@ -2794,12 +2628,6 @@ func newYoursServer(t *testing.T, threads ...*agentv1.ReviewThread) *reviewServe
 
 	server := newReviewServer(t)
 	server.threads = threads
-	server.reviews = []*agentv1.Review{{
-		Id:          "r1",
-		AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		ReleasedAt:  "2026-09-13T10:00:00Z",
-		OpenThreads: int32(len(threads)),
-	}}
 
 	return server
 }
@@ -2815,12 +2643,11 @@ func newYourThread(path string, line int32) *agentv1.ReviewThread {
 
 	return &agentv1.ReviewThread{
 		Id:          id,
-		ReviewId:    "r1",
 		FilePath:    path,
 		OldStart:    line,
 		NewStart:    line,
 		QuotedLines: []string{source[line]},
-		Messages:    []*agentv1.ReviewMessage{newDeliveredComment(id + "-m1")},
+		Messages:    []*agentv1.ReviewMessage{newReadComment(id + "-m1")},
 	}
 }
 
@@ -2835,13 +2662,7 @@ func newEarlierReviewServer(t *testing.T) *reviewServer {
 		BaseSha: gittest.BaseSHA,
 		Sha:     gittest.SnapshotSHA,
 	}}
-	server.reviews = []*agentv1.Review{{
-		Id:              "v1",
-		SnapshotId:      "snapshot-1",
-		SnapshotOrdinal: 1,
-		AuthorKind:      agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		ReleasedAt:      "2026-09-08T10:00:00Z",
-	}}
+	server.threads = []*agentv1.ReviewThread{newWholeChangeThread("snapshot-1", 1, "2026-09-08T10:00:00Z")}
 	server.repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
 		Whole: gittest.PatchOfBothFiles,
@@ -2912,14 +2733,13 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 		Exclude:   s.workflow.GetWorktree().GetDiffExclude(),
 		Snapshot:  historySnapshotOf(answer.GetSnapshot()),
 		Snapshots: xslice.Map(s.snapshots, historySnapshotOf),
-		Reviews:   xslice.Map(s.reviews, historyReviewOf),
+		Comments:  historyCommentsOf(s.threads, s.snapshots),
 		Threads:   xslice.Map(s.threads, historyThreadOf),
 		Span:      historySpanOf(asked),
 	})
 
 	answer.Snapshots = s.snapshots
 	answer.Threads = s.threads
-	answer.Reviews = s.reviews
 	answer.Resolved = &agentv1.ReviewResolvedSpan{
 		BaseSha:               built.Span.BaseSHA,
 		HeadSha:               built.Span.HeadSHA,
@@ -2995,17 +2815,31 @@ func historySnapshotOf(snapshot *agentv1.ReviewSnapshot) history.Snapshot {
 	}
 }
 
-func historyReviewOf(review *agentv1.Review) history.Review {
-	answer := history.Review{
-		SnapshotID:      review.GetSnapshotId(),
-		SnapshotOrdinal: review.GetSnapshotOrdinal(),
-		Human:           review.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-	}
-	if released, err := time.Parse(time.RFC3339, review.GetReleasedAt()); err == nil {
-		answer.ReleasedAt = &released
+func historyCommentsOf(threads []*agentv1.ReviewThread, snapshots []*agentv1.ReviewSnapshot) []history.Comment {
+	var comments []history.Comment
+	for _, thread := range threads {
+		for _, snapshot := range snapshots {
+			if snapshot.GetId() != thread.GetSnapshotId() {
+				continue
+			}
+			for _, message := range thread.GetMessages() {
+				if message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
+					continue
+				}
+				released, err := time.Parse(time.RFC3339, message.GetCreatedAt())
+				if err != nil {
+					continue
+				}
+				comments = append(comments, history.Comment{
+					SnapshotID:      snapshot.GetId(),
+					SnapshotOrdinal: snapshot.GetOrdinal(),
+					ReleasedAt:      released,
+				})
+			}
+		}
 	}
 
-	return answer
+	return comments
 }
 
 func historyThreadOf(thread *agentv1.ReviewThread) history.Thread {
@@ -3025,4 +2859,27 @@ func remoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
 	require.NoError(t, os.WriteFile(config, []byte("Host komrad-remote\n"), 0o600))
 
 	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: config, IsSSHIncluded: true}
+}
+
+func newWholeChangeThread(snapshotID string, ordinal int32, at string) *agentv1.ReviewThread {
+	remark := newHumanMessage("w1", "the shape is right")
+	remark.CreatedAt = at
+
+	return &agentv1.ReviewThread{
+		Id:              "w1",
+		SnapshotId:      snapshotID,
+		SnapshotOrdinal: ordinal,
+		Messages:        []*agentv1.ReviewMessage{remark},
+	}
+}
+
+// fillThreadAuthor gives a thread the author the server would, the one who opened it.
+func fillThreadAuthor(thread *agentv1.ReviewThread) {
+	if thread.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_UNSPECIFIED || len(thread.GetMessages()) == 0 {
+		return
+	}
+
+	opening := thread.GetMessages()[0]
+	thread.AuthorKind = opening.GetAuthorKind()
+	thread.AuthorAgentId = opening.AuthorAgentId
 }

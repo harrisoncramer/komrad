@@ -3,7 +3,6 @@ package ui_test
 import (
 	"testing"
 
-	"komrad/internal/gittest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -59,13 +58,12 @@ func TestReviewSidebar(t *testing.T) {
 		assert.Subset(t, sidebar, []string{"the forge", "  changes requested", "  @dana  1 thread"})
 	})
 
-	t.Run("needs you lists an unread reply, a held forge comment and a draft", func(t *testing.T) {
+	t.Run("needs you lists an unread reply and a held forge comment", func(t *testing.T) {
 		harness := openReviewAt(t, newReviewServerWithThreads(t), panelHarnessParams{height: 40})
 
 		sidebar := readSidebar(harness.readFrame())
 		assert.Subset(t, sidebar, []string{
 			"needs you",
-			"  draft on greet.go:3",
 			"  forge comment on greet.go:5",
 			"  reply on greet.go:5",
 		})
@@ -73,7 +71,7 @@ func TestReviewSidebar(t *testing.T) {
 
 	t.Run("needs you counts the person's threads waiting on the writer", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newThreadOnLastLine(newSentComment("m1"))}
+		server.threads = []*agentv1.ReviewThread{newThreadOnLastLine(newReleasedComment("m1"))}
 		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 
 		assert.Contains(t, readSidebar(harness.readFrame()), "  1 thread of yours waiting on the writer")
@@ -130,18 +128,10 @@ func newReviewServerWithThreads(t *testing.T) *reviewServer {
 	reply := newThreadOnLastLine(newHumanMessage("m1", "why"), newAgentMessage("m2", "because"))
 	reply.Id = "r1"
 	reply.UnreadByHuman = true
-	draft := &agentv1.ReviewThread{
-		Id:          "d1",
-		FilePath:    gittest.File,
-		OldStart:    3,
-		NewStart:    3,
-		QuotedLines: []string{" func Hello() string {"},
-		Messages:    []*agentv1.ReviewMessage{newUnsentComment()},
-	}
 	forge := moveToLastLine(newForgeThread())
 	forge.Id = "f1"
 	server := newReviewServer(t)
-	server.threads = []*agentv1.ReviewThread{reply, draft, forge}
+	server.threads = []*agentv1.ReviewThread{reply, forge}
 
 	return server
 }

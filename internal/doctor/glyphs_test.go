@@ -75,7 +75,7 @@ func TestGlyphCollisionCheck(t *testing.T) {
 	colliding.Glyphs.PullRequest.Draft = colliding.Glyphs.PullRequest.Open
 
 	elsewhere := config.Defaults()
-	elsewhere.Glyphs.Review.Held = elsewhere.Glyphs.Schedules.Disabled
+	elsewhere.Glyphs.Review.Delivered = elsewhere.Glyphs.Schedules.Disabled
 
 	tests := []struct {
 		name       string

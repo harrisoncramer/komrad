@@ -8,6 +8,7 @@ import (
 	"komrad/internal/eventprompts"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/internal/tmuxtest"
@@ -204,7 +205,7 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			waiting, err := st.Mail.Claim(t.Context(), recipient.ID, maxClaimedMail)
+			waiting, err := st.ClaimMail(t.Context(), recipient.ID, maxClaimedMail)
 			require.NoError(t, err)
 			require.Len(t, waiting, 1)
 			assert.Equal(t, sent.ID, waiting[0].ID)
@@ -324,7 +325,7 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 	})
 
 	t.Run("a recipient that has read the mail is told again", func(t *testing.T) {
-		_, err := st.Mail.Claim(t.Context(), writer.ID, maxPendingMail)
+		_, err := st.ClaimMail(t.Context(), writer.ID, maxPendingMail)
 		require.NoError(t, err)
 
 		refuse(t, reviewer)
@@ -508,7 +509,7 @@ func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 	assert.Equal(t, "second edit", second.Body)
 	assert.NotEqual(t, first.ID, notify(other, "edit").ID, "an edit of another document is told apart")
 
-	_, err := svc.ClaimMail(ctx, recipient.ID)
+	_, err := st.ClaimMail(ctx, recipient.ID, maxClaimedMail)
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first.ID, notify(one, "third edit").ID, "an edit after the mail was read sends another")
@@ -621,7 +622,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 			var sent *mailstore.Mail
 			for _, s := range tt.sends {
 				if s.read {
-					_, err := svc.ClaimMail(ctx, recipient.ID)
+					_, err := st.ClaimMail(ctx, recipient.ID, maxClaimedMail)
 					require.NoError(t, err)
 				}
 
@@ -650,8 +651,9 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 	}
 }
 
-// TestClaimMail pins that komrad refuses a claim for an id no agent holds and takes at most one batch otherwise.
-func TestClaimMail(t *testing.T) {
+// TestListWaitingMail pins that komrad refuses a listing for an id no agent holds and lists at most
+// one batch otherwise, claiming none of it.
+func TestListWaitingMail(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)
 	recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
@@ -665,21 +667,117 @@ func TestClaimMail(t *testing.T) {
 	}
 
 	t.Run("an id no agent holds", func(t *testing.T) {
-		claimed, err := svc.ClaimMail(t.Context(), uuid.NewString())
+		waiting, err := svc.ListWaitingMail(t.Context(), uuid.NewString())
+		require.ErrorIs(t, err, ErrAgentNotFound)
+		assert.Empty(t, waiting)
+	})
+
+	t.Run("an agent reading its own sees one batch", func(t *testing.T) {
+		waiting, err := svc.ListWaitingMail(t.Context(), recipient.ID)
+		require.NoError(t, err)
+		assert.Len(t, waiting, maxClaimedMail)
+
+		again, err := svc.ListWaitingMail(t.Context(), recipient.ID)
+		require.NoError(t, err)
+		assert.Equal(t, waiting, again, "a listing claims nothing")
+	})
+}
+
+// TestClaimMail pins that a claim refuses an id no agent holds, takes only the mail named, and in
+// the same transaction stamps the comments its review_comment mail carries as read on the snapshot,
+// leaving other mail's comments untouched.
+func TestClaimMail(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	ctx := t.Context()
+	writer := st.SeedAgent(t, agentstore.Agent{Name: "writer"})
+	reviewStore := reviewstore.NewReviewStore(st.Pool.GetDB())
+
+	snapshot, err := reviewStore.CreateSnapshot(ctx, reviewstore.CreateSnapshotParams{
+		TaskID:  *writer.TaskID,
+		BaseSHA: "base",
+		SHA:     "head",
+	})
+	require.NoError(t, err)
+	readOn, err := reviewStore.CreateSnapshot(ctx, reviewstore.CreateSnapshotParams{
+		TaskID:  *writer.TaskID,
+		BaseSHA: "base",
+		SHA:     "later",
+	})
+	require.NoError(t, err)
+
+	comment := func(body string) (string, string) {
+		opened, err := reviewStore.CreateThread(ctx, reviewstore.CreateThreadParams{
+			TaskID:     *writer.TaskID,
+			SnapshotID: snapshot.ID,
+			BaseSHA:    "base",
+			FilePath:   "main.go",
+			NewStart:   1,
+			NewEnd:     1,
+			Body:       body,
+			AuthorKind: reviewstore.AuthorHuman,
+		})
+		require.NoError(t, err)
+		sent, err := st.Mail.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
+			FromName:  "komrad",
+			ToAgentID: writer.ID,
+			Body:      body,
+			Kind:      mailstore.KindReviewComment,
+			SubjectID: opened.MessageID,
+			Deadline:  time.Hour,
+		})
+		require.NoError(t, err)
+		require.NoError(t, reviewStore.SetMessageMail(ctx, opened.MessageID, sent.ID))
+
+		return opened.ID, sent.ID
+	}
+
+	readThread, readMail := comment("first")
+	laterThread, laterMail := comment("second")
+	plain, err := svc.SendMail(ctx, SendMailParams{ToAgentID: writer.ID, Body: "hello"})
+	require.NoError(t, err)
+
+	t.Run("an id no agent holds", func(t *testing.T) {
+		claimed, err := svc.ClaimMail(ctx, ClaimMailParams{AgentID: uuid.NewString(), IDs: []string{readMail}})
 		require.ErrorIs(t, err, ErrAgentNotFound)
 		assert.Empty(t, claimed)
 	})
 
-	t.Run("an agent reading its own takes one batch", func(t *testing.T) {
-		claimed, err := svc.ClaimMail(t.Context(), recipient.ID)
+	t.Run("only the mail named is claimed and its comment stamped", func(t *testing.T) {
+		claimed, err := svc.ClaimMail(ctx, ClaimMailParams{
+			AgentID:        writer.ID,
+			IDs:            []string{readMail, plain.ID},
+			ReadSnapshotID: &readOn.ID,
+		})
 		require.NoError(t, err)
-		assert.Len(t, claimed, maxClaimedMail)
+		assert.Equal(t, []string{readMail, plain.ID}, xslice.Map(claimed, func(m mailstore.Mail) string { return m.ID }))
+
+		waiting, err := svc.ListWaitingMail(ctx, writer.ID)
+		require.NoError(t, err)
+		assert.Equal(t, []string{laterMail}, xslice.Map(waiting, func(m mailstore.Mail) string { return m.ID }))
+
+		messages, err := reviewStore.ListMessages(ctx, []string{readThread, laterThread})
+		require.NoError(t, err)
+		require.Len(t, messages, 2)
+		read, later := messages[0], messages[1]
+		if read.ThreadID != readThread {
+			read, later = later, read
+		}
+		require.NotNil(t, read.ReadAt)
+		assert.Equal(t, &readOn.ID, read.ReadSnapshotID)
+		assert.Nil(t, later.ReadAt)
+		assert.Nil(t, later.ReadSnapshotID)
 	})
 
-	t.Run("and the rest on the next read", func(t *testing.T) {
-		claimed, err := svc.ClaimMail(t.Context(), recipient.ID)
+	t.Run("a comment read with no snapshot is stamped read on none", func(t *testing.T) {
+		_, err := svc.ClaimMail(ctx, ClaimMailParams{AgentID: writer.ID, IDs: []string{laterMail}})
 		require.NoError(t, err)
-		assert.Len(t, claimed, 1)
+
+		messages, err := reviewStore.ListMessages(ctx, []string{laterThread})
+		require.NoError(t, err)
+		require.Len(t, messages, 1)
+		assert.NotNil(t, messages[0].ReadAt)
+		assert.Nil(t, messages[0].ReadSnapshotID)
 	})
 }
 
@@ -960,6 +1058,7 @@ func newMailService(st *storetest.Stores, maxExchange int) *MailService {
 		Agents:    st.Agents,
 		Workflows: st.Workflows,
 		Config:    config.Mail{MaxExchange: maxExchange},
+		Tx:        st.Pool,
 	})
 }
 

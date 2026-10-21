@@ -62,7 +62,7 @@ func TestReviewFiles(t *testing.T) {
 				server := newReviewServer(t)
 				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 				server.threads = tt.threads
-				harness := openReview(t, server)
+				harness := openReviewAt(t, server, panelHarnessParams{height: 40})
 
 				harness.press(tt.keys...)
 

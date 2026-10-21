@@ -79,7 +79,7 @@ func TestFileTree(t *testing.T) {
 				threadAt("gone", "a.go", 0, 9, "+removed"),
 			},
 			want: []string{
-				"file a.go row=0 {Unsent:0 Unread:0 Open:2 Settled:0}",
+				"file a.go row=0 {Unread:0 Open:2 Settled:0}",
 				"file b.go row=3",
 			},
 		},
@@ -98,10 +98,6 @@ func TestFileTree(t *testing.T) {
 
 // TestCountThreads covers each thread counted once, under the first state it stands in.
 func TestCountThreads(t *testing.T) {
-	unsent := threadAt("unsent", "a.go", 0, 1, "+first")
-	unsent.Messages = []*agentv1.ReviewMessage{{Delivery: agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT}}
-	unsent.UnreadByHuman = true
-
 	unread := threadAt("unread", "a.go", 0, 1, "+first")
 	unread.UnreadByHuman = true
 
@@ -117,7 +113,6 @@ func TestCountThreads(t *testing.T) {
 
 	view := NewView(patchWith(fileAt("a.go", addedLine("first"))), false)
 	view.PinThreads([]*agentv1.ReviewThread{
-		unsent,
 		unread,
 		resolvedUnread,
 		resolved,
@@ -126,7 +121,6 @@ func TestCountThreads(t *testing.T) {
 	})
 
 	want := ThreadCounts{
-		Unsent:  1,
 		Unread:  2,
 		Open:    2,
 		Settled: 1,

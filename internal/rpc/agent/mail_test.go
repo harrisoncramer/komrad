@@ -42,8 +42,7 @@ type fakeMailer struct {
 	mail       []mailstore.Mail
 	resolved   []mail.ResolveRecipientParams
 	sent       []mail.SendMailParams
-	claimed    []string
-	listed     []mail.ListMailParams
+	paged      []mail.ListMailParams
 	deleted    []string
 	dormant    bool
 }
@@ -81,19 +80,9 @@ func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*m
 	return &sent, nil
 }
 
-// ClaimMail records the mailbox and answers mail unless err refuses it.
-func (f *fakeMailer) ClaimMail(_ context.Context, agentID string) ([]mailstore.Mail, error) {
-	f.claimed = append(f.claimed, agentID)
-	if f.err != nil {
-		return nil, f.err
-	}
-
-	return f.mail, nil
-}
-
 // ListMail records the listing and answers mail unless err refuses it.
 func (f *fakeMailer) ListMail(_ context.Context, params mail.ListMailParams) ([]mailstore.Mail, error) {
-	f.listed = append(f.listed, params)
+	f.paged = append(f.paged, params)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -387,19 +376,19 @@ func TestReadMail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mailer := &fakeMailer{mail: []mailstore.Mail{{
+			reviewer := &fakeReviewer{mail: []mailstore.Mail{{
 				ID:        "mail-1",
 				ToAgentID: betaID,
 				Body:      "refunded_cents",
 			}}}
-			svc := newMailHandler(mailer)
+			svc := agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Review: reviewer})}
 			ctx, written := newLoggedCaller(t, tt.callerIs)
 
 			read, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{Id: tt.id}))
 			require.NoError(t, err)
-			assert.Equal(t, []string{tt.wantClaimed}, mailer.claimed)
+			assert.Equal(t, []string{tt.wantClaimed}, reviewer.read)
 			require.Len(t, read.Msg.GetMail(), 1)
-			assert.Empty(t, diffMail(mailer.mail[0], read.Msg.GetMail()[0]))
+			assert.Empty(t, diffMail(reviewer.mail[0], read.Msg.GetMail()[0]))
 			assertCrossAgentRead(t, assertCrossAgentReadParams{
 				Written: written.String(),
 				Body:    "agent read another agent's mail",
@@ -487,7 +476,7 @@ func TestListMail(t *testing.T) {
 
 			listed, err := svc.ListMail(ctx, connect.NewRequest(tt.req))
 			require.NoError(t, err)
-			assert.Equal(t, []mail.ListMailParams{tt.wantListed}, mailer.listed)
+			assert.Equal(t, []mail.ListMailParams{tt.wantListed}, mailer.paged)
 			require.Len(t, listed.Msg.GetMail(), tt.stored)
 			assert.Empty(t, diffMail(mailer.mail[0], listed.Msg.GetMail()[0]))
 			assert.Equal(t, tt.wantNext, listed.Msg.GetNextPageToken() != "")
@@ -512,9 +501,9 @@ func TestDeleteMail(t *testing.T) {
 	assert.Equal(t, []string{alphaID, betaID}, mailer.deleted)
 }
 
-// newMailHandler is the handler over a fake mail service.
+// newMailHandler is the handler over a fake mail service, whose reads of mail refuse as the mailer does.
 func newMailHandler(mailer *fakeMailer) agentv1komrad.AgentServiceAdapter {
-	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Mail: mailer})}
+	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Mail: mailer, Review: &fakeReviewer{err: mailer.err}})}
 }
 
 // newLoggedCaller is a context calling as the agent named, whose log lines land in the builder handed back.

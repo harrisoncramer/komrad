@@ -22,6 +22,9 @@ const outsideNotice = noticeRule + " still in the change, outside what is on scr
 // goneNotice heads the comments whose file has left the change altogether.
 const goneNotice = noticeRule + " these are holding your review, on files that have left the change " + noticeRule
 
+// wholeNotice heads the remarks on the change as a whole, which name no line.
+const wholeNotice = noticeRule + " on the whole change " + noticeRule
+
 // placement is how a thread reached the row it renders on, which separates a thread the diff
 // still agrees with from one the agent has written out from under.
 type placement uint8
@@ -225,12 +228,14 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 
 	// A comment loses its line for two unrelated reasons, and reading them in one list is what
 	// makes a narrowed diff look like it has thrown every comment away.
-	var changed, outside, gone []*agentv1.ReviewThread
+	var changed, outside, gone, whole []*agentv1.ReviewThread
 
 	for _, thread := range threads {
 		_, rendered := v.findFile(v.pathOf(thread))
 
 		switch {
+		case IsWholeChangeThread(thread):
+			whole = append(whole, thread)
 		case rendered && !v.doesExpandingRender(thread):
 			changed = append(changed, thread)
 		case rendered || v.narrowed:
@@ -243,6 +248,7 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	v.appendFootSection(changedNotice, changed)
 	v.appendFootSection(outsideNotice, outside)
 	v.appendFootSection(goneNotice, gone)
+	v.appendFootSection(wholeNotice, whole)
 }
 
 // doesExpandingRender reports whether a thread stands on a line the reader would see again by

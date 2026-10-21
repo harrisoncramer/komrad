@@ -17,7 +17,9 @@ func (reviewWorldReactor) react(m *model, changed assemble.Changed) tea.Cmd {
 		return nil
 	}
 
-	return m.review.followWorld(m)
+	m.review.followWorld(m)
+
+	return nil
 }
 
 // doesMoveReview reports whether a batch touched anything the review of an agent renders.

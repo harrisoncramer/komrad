@@ -353,3 +353,13 @@ func (s *Stores) SeedPullRequest(t *testing.T, params SeedPullRequestParams) *pu
 
 	return stored
 }
+
+// ClaimMail takes every piece of mail waiting for an agent, as a read of its mailbox does.
+func (s *Stores) ClaimMail(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error) {
+	waiting, err := s.Mail.ListWaiting(ctx, toAgentID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Mail.ClaimByID(ctx, toAgentID, xslice.Map(waiting, func(m mailstore.Mail) string { return m.ID }))
+}

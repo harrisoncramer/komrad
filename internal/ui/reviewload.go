@@ -38,7 +38,6 @@ type reviewLoadedMsg struct {
 	// earlierAt is when they released it, in clock terms, empty when there is none.
 	earlierAt string
 	snapshots []*agentv1.ReviewSnapshot
-	reviews   []*agentv1.Review
 	// base and head are the commits the diff was read between.
 	base string
 	head string
@@ -200,7 +199,6 @@ func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
 			earlier:        findSnapshot(opened.GetSnapshots(), opened.GetEarlierSnapshotId()),
 			earlierAt:      reviewTimeOf(opened.GetEarlierReleasedAt()),
 			snapshots:      opened.GetSnapshots(),
-			reviews:        opened.GetReviews(),
 			base:           resolved.GetBaseSha(),
 			head:           resolved.GetHeadSha(),
 			replayed:       resolved.GetReplayed(),
@@ -324,7 +322,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
-	r.diff.snapshots, r.diff.reviews, r.diff.newest = msg.snapshots, msg.reviews, msg.snapshot
+	r.diff.snapshots, r.diff.newest = msg.snapshots, msg.snapshot
 
 	if msg.widened != "" {
 		r.diff.widen()
@@ -515,7 +513,6 @@ func (r *reviewScreen) reload(m *model) tea.Cmd {
 		r.diff.restore = &place
 	}
 
-	r.diff.followedMove = r.findMovedSnapshot(m)
 	r.loads++
 
 	return loadReviewCmd(m, loadReviewCmdParams{

@@ -128,11 +128,6 @@ table "reviews" {
     default = ""
     comment = "The absolute path of the file the released review was written to, empty while the review is still open. The file lives in komrad's own state directory rather than in the agent's checkout."
   }
-  column "doorbell_mail_id" {
-    null    = true
-    type    = uuid
-    comment = "The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose mail was thrown away reads as undelivered."
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -189,18 +184,6 @@ table "reviews" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
-  foreign_key "reviews_doorbell_mail_id_fkey" {
-    columns     = [column.engine_id, column.doorbell_mail_id]
-    ref_columns = [table.mail.column.engine_id, table.mail.column.id]
-    on_delete   = SET_NULL
-    on_update   = NO_ACTION
-  }
-  index "reviews_open_human_task" {
-    columns = [column.task_id]
-    unique  = true
-    where   = "released_at IS NULL AND author_kind = 'human'"
-    comment = "Holds the person to one unreleased review of a task at a time, the way GitHub holds one pending review per reviewer."
-  }
   index "reviews_open_agent_task" {
     columns = [column.task_id, column.author_agent_id]
     unique  = true
@@ -212,10 +195,6 @@ table "reviews" {
   }
   index "reviews_snapshot_id" {
     columns = [column.snapshot_id, column.id]
-  }
-  index "reviews_doorbell_mail_id" {
-    columns = [column.doorbell_mail_id]
-    comment = "Finds the review a piece of mail told the agent about. Deleting that mail walks this index."
   }
 }
 
@@ -293,8 +272,19 @@ table "review_threads" {
     comment = "When this thread was settled, null while it is still owed an answer."
   }
   column "review_id" {
-    null = false
-    type = uuid
+    null    = true
+    type    = uuid
+    comment = "The review the thread was opened in, null on a thread a person opened, which belongs to no review."
+  }
+  column "author_kind" {
+    null    = false
+    type    = enum.review_author_kind
+    comment = "Who opened the thread."
+  }
+  column "author_agent_id" {
+    null    = true
+    type    = uuid
+    comment = "The agent that opened the thread, null when a person or a forge user did, or once the agent was deleted."
   }
   column "snapshot_id" {
     null    = false
@@ -361,6 +351,12 @@ table "review_threads" {
     columns     = [column.engine_id, column.snapshot_id]
     ref_columns = [table.review_snapshots.column.engine_id, table.review_snapshots.column.id]
     on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "review_threads_author_agent_id_fkey" {
+    columns     = [column.engine_id, column.author_agent_id]
+    ref_columns = [table.agents.column.engine_id, table.agents.column.id]
+    on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "review_threads_resolved_by_agent_id_fkey" {
@@ -469,7 +465,22 @@ table "review_messages" {
   column "accepted_from" {
     null    = true
     type    = uuid
-    comment = "The held forge message the person accepted this copy of, which releases that message's thread to the agent once the copy's review is sent. Null on everything else."
+    comment = "The held forge message the person accepted this copy of, which releases that message's thread to the agent. Null on everything else."
+  }
+  column "mail_id" {
+    null    = true
+    type    = uuid
+    comment = "The mail that carried a person's comment to the writer, null on an agent's or a forge user's comment. Deleting that mail clears this column and nothing else."
+  }
+  column "read_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the writer read the mail carrying a person's comment, null until then and on every other comment."
+  }
+  column "read_snapshot_id" {
+    null    = true
+    type    = uuid
+    comment = "The snapshot taken when the writer read a person's comment, which an addressed reply is compared against."
   }
   column "engine_id" {
     null    = false
@@ -518,6 +529,18 @@ table "review_messages" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
+  foreign_key "review_messages_mail_id_fkey" {
+    columns     = [column.engine_id, column.mail_id]
+    ref_columns = [table.mail.column.engine_id, table.mail.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
+  foreign_key "review_messages_read_snapshot_id_fkey" {
+    columns     = [column.engine_id, column.read_snapshot_id]
+    ref_columns = [table.review_snapshots.column.engine_id, table.review_snapshots.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
+  }
   index "review_messages_thread_id" {
     columns = [column.thread_id, column.id]
   }
@@ -526,6 +549,9 @@ table "review_messages" {
   }
   index "review_messages_review_id" {
     columns = [column.review_id]
+  }
+  index "review_messages_mail_id" {
+    columns = [column.mail_id]
   }
   index "review_messages_thread_forge_comment" {
     columns = [column.thread_id, column.forge_comment_id]

@@ -29,14 +29,9 @@ type reviewDiff struct {
 
 	// snapshots are every snapshot of the review, oldest first.
 	snapshots []*agentv1.ReviewSnapshot
-	// reviews are every review on the task the reader may read, oldest first.
-	reviews []*agentv1.Review
 	// newest is the snapshot new comments go on.
 	newest *agentv1.ReviewSnapshot
 	landOn string
-
-	// followedMove is the move the diff last caught up on.
-	followedMove string
 
 	// hidesAgentThreads says the conversations agents opened are left out.
 	hidesAgentThreads bool

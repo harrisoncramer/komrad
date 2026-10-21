@@ -22,6 +22,8 @@ func ReviewThread(thread reviewstore.Thread, messages []reviewstore.Message) *ag
 		Id:              thread.ID,
 		TaskId:          thread.TaskID,
 		ReviewId:        thread.ReviewID,
+		AuthorKind:      reviewAuthorKindOf(thread.AuthorKind),
+		AuthorAgentId:   thread.AuthorAgentID,
 		SnapshotId:      thread.SnapshotID,
 		SnapshotOrdinal: thread.SnapshotOrdinal,
 		BaseSha:         thread.BaseSHA,
@@ -48,25 +50,23 @@ func ReviewThread(thread reviewstore.Thread, messages []reviewstore.Message) *ag
 // ReviewMessage draws one thing said in a thread.
 func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	answered := &agentv1.ReviewMessage{
-		Id:            message.ID,
-		ThreadId:      message.ThreadID,
-		AuthorKind:    reviewAuthorKindOf(message.AuthorKind),
-		AuthorAgentId: message.AuthorAgentID,
-		ReviewId:      message.ReviewID,
-		SnapshotId:    message.SnapshotID,
-		Body:          message.Body,
-		Suggestion:    message.Suggestion,
-		Delivery:      reviewDeliveryStateOf(message.Delivery),
-		AcceptedFrom:  message.AcceptedFrom,
-		CreatedAt:     dates.Stamp(message.CreatedAt),
-		UpdatedAt:     dates.Stamp(message.UpdatedAt),
+		Id:             message.ID,
+		ThreadId:       message.ThreadID,
+		AuthorKind:     reviewAuthorKindOf(message.AuthorKind),
+		AuthorAgentId:  message.AuthorAgentID,
+		ReviewId:       message.ReviewID,
+		SnapshotId:     message.SnapshotID,
+		Body:           message.Body,
+		Suggestion:     message.Suggestion,
+		Held:           message.Held,
+		ReadSnapshotId: message.ReadSnapshotID,
+		AcceptedFrom:   message.AcceptedFrom,
+		CreatedAt:      dates.Stamp(message.CreatedAt),
+		UpdatedAt:      dates.Stamp(message.UpdatedAt),
 	}
 
-	if at := message.SentAt; at != nil {
-		answered.SentAt = dates.Stamp(*at)
-	}
-	if at := message.DeliveredAt; at != nil {
-		answered.DeliveredAt = dates.Stamp(*at)
+	if at := message.ReadAt; at != nil {
+		answered.ReadAt = dates.Stamp(*at)
 	}
 	if external := message.External; external != nil {
 		answered.Forge = &agentv1.ForgeOrigin{
@@ -77,21 +77,4 @@ func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	}
 
 	return answered
-}
-
-func reviewDeliveryStateOf(state reviewstore.DeliveryState) agentv1.ReviewDeliveryState {
-	switch state {
-	case reviewstore.DeliveryUnsent:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
-	case reviewstore.DeliverySent:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT
-	case reviewstore.DeliveryDelivered:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED
-	case reviewstore.DeliveryHeld:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD
-	case reviewstore.DeliveryNone:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
-	default:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
-	}
 }

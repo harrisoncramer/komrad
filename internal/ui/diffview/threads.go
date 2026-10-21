@@ -2,7 +2,6 @@ package diffview
 
 import (
 	"fmt"
-	"slices"
 
 	agentv1 "komrad/proto/gen/agent/v1"
 )
@@ -126,6 +125,10 @@ func FormatLocation(filePath string, oldStart, newStart int) string {
 
 // FormatThreadLocation formats a thread's location for a caller holding no anchor.
 func FormatThreadLocation(thread *agentv1.ReviewThread) string {
+	if IsWholeChangeThread(thread) {
+		return "the whole change"
+	}
+
 	return FormatLocation(thread.GetFilePath(), int(thread.GetOldStart()), int(thread.GetNewStart()))
 }
 
@@ -147,14 +150,13 @@ func IsAgentThread(thread *agentv1.ReviewThread) bool {
 		messages[0].GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
 }
 
-// IsHoldingUnsent reports whether a thread holds a comment the person has yet to send.
-func IsHoldingUnsent(thread *agentv1.ReviewThread) bool {
-	return slices.ContainsFunc(thread.GetMessages(), func(message *agentv1.ReviewMessage) bool {
-		return message.GetDelivery() == agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
-	})
-}
-
 // isUnsettled reports whether a conversation is one the person reviewing still owes an answer on.
 func isUnsettled(thread *agentv1.ReviewThread) bool {
 	return thread.GetResolvedAt() == "" && !IsAgentThread(thread)
+}
+
+// IsWholeChangeThread reports whether a thread is a remark on the change as a whole, with no line
+// of its own.
+func IsWholeChangeThread(thread *agentv1.ReviewThread) bool {
+	return thread.GetFilePath() == ""
 }

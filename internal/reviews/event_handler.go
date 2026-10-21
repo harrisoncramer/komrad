@@ -26,13 +26,11 @@ type Released struct {
 	ReviewID string `json:"review_id"`
 	TaskID   string `json:"task_id"`
 	Ordinal  int32  `json:"ordinal"`
-	ByPerson bool   `json:"by_person"`
-	// ReviewerID is the agent that wrote the review, blank for a person or a forge reviewer.
+	// ReviewerID is the agent that wrote the review, blank for a forge reviewer.
 	ReviewerID string              `json:"reviewer_id"`
 	Verdict    reviewstore.Verdict `json:"verdict"`
 	Comments   int                 `json:"comments"`
 	Replies    int                 `json:"replies"`
-	Reopens    int                 `json:"reopens"`
 	Path       string              `json:"path"`
 	HasBody    bool                `json:"has_body"`
 	// ForgeLogin is the forge reviewer whose mirrored comments were released, blank for a review
@@ -62,8 +60,8 @@ type NewReleasedHandlerParams struct {
 	ArchiveOnApproval bool
 }
 
-// NewReleasedHandler builds the handler that tells a task's live writer of a released review, stamping the
-// review with that mail, and archives a reviewer that approved when ArchiveOnApproval is set.
+// NewReleasedHandler builds the handler that tells a task's live writer of a released review and
+// archives a reviewer that approved when ArchiveOnApproval is set.
 func NewReleasedHandler(params NewReleasedHandlerParams) events.HandlerFor[Released] {
 	return func(ctx context.Context, tx store.DBTX, mailer *mail.MailService, released Released) ([]river.JobArgs, error) {
 		if err := tellWriter(ctx, tx, mailer, released); err != nil {
@@ -89,16 +87,13 @@ func tellWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, re
 		return err
 	}
 
-	sent, err := events.Send(ctx, mailer, mail.SendFromKomradParams{
+	_, err = events.Send(ctx, mailer, mail.SendFromKomradParams{
 		ToAgentID: writer.ID,
 		Mail:      released.mail(),
 		SubjectID: released.ReviewID,
 	})
-	if err != nil || sent == nil {
-		return err
-	}
 
-	return reviewstore.NewReviewStore(tx).SetDoorbell(ctx, released.ReviewID, sent.ID)
+	return err
 }
 
 // mail is what the writer is told of the release.
@@ -106,11 +101,9 @@ func (r Released) mail() eventprompts.ReviewReleased {
 	return eventprompts.ReviewReleased{
 		ReviewID:   r.ReviewID,
 		Ordinal:    r.Ordinal,
-		ByPerson:   r.ByPerson,
 		Verdict:    r.Verdict,
 		Comments:   r.Comments,
 		Replies:    r.Replies,
-		Reopens:    r.Reopens,
 		Path:       r.Path,
 		HasBody:    r.HasBody,
 		ForgeLogin: r.ForgeLogin,

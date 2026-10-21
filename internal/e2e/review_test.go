@@ -18,7 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIntegrationReviews walks one review loop, from the worker asking for a reviewer through the release and its doorbell to the answer that rings the reviewer back.
+// TestIntegrationReviews walks one review loop, from the worker asking for a reviewer through the
+// release and the answer that rings the reviewer back, then a comment of the person's own, which
+// reaches the worker as mail the moment it is written.
 func TestIntegrationReviews(t *testing.T) {
 	isolateGit(t)
 
@@ -186,6 +188,55 @@ func TestIntegrationReviews(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, threads.Msg.GetThreads(), 1)
 		assert.Empty(t, threads.Msg.GetThreads()[0].GetResolvedAt())
+	})
+
+	var remarkID string
+
+	t.Run("the person's comment reaches the worker as mail at once", func(t *testing.T) {
+		taskID := worker.GetTaskId()
+		remarked, err := instance.Agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
+			Task:     &taskID,
+			FilePath: "greet.go",
+			NewStart: 1,
+			NewEnd:   1,
+			Body:     "rename the package",
+		}))
+		require.NoError(t, err)
+
+		remarkID = remarked.Msg.GetThread().GetId()
+
+		comment := readMail(t, instance, worker.GetId())
+		require.Len(t, comment, 1)
+		assert.Equal(t, agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT, comment[0].GetKind())
+		assert.Contains(t, comment[0].GetBody(), "thread "+remarkID)
+		assert.Contains(t, comment[0].GetBody(), "rename the package")
+	})
+
+	t.Run("the thread shows the person the comment was read, then answered", func(t *testing.T) {
+		taskID := worker.GetTaskId()
+		listed, err := instance.Agents.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{Task: &taskID}))
+		require.NoError(t, err)
+
+		remarks := xslice.Filter(listed.Msg.GetThreads(), func(thread *agentv1.ReviewThread) bool { return thread.GetId() == remarkID })
+		require.Len(t, remarks, 1)
+		remark := remarks[0]
+		require.Len(t, remark.GetMessages(), 1)
+		assert.NotEmpty(t, remark.GetMessages()[0].GetReadAt())
+		assert.NotEmpty(t, remark.GetMessages()[0].GetReadSnapshotId())
+
+		req := connect.NewRequest(&agentv1.AddReviewMessageRequest{
+			ThreadId: remarkID,
+			Body:     "renamed it",
+		})
+		callAs(req, worker.GetId())
+
+		_, err = instance.Agents.AddReviewMessage(ctx, req)
+		require.NoError(t, err)
+
+		assert.Equal(t, []string{"say who it greets", "it greets the caller now", "takes the name now", "rename the package", "renamed it"}, listThreadBodies(t, instance, listThreadBodiesParams{
+			Task:     worker.GetTaskId(),
+			ReaderID: worker.GetId(),
+		}))
 	})
 }
 

@@ -75,8 +75,6 @@ func (m *model) clickerOf(name zone) (clicker, bool) {
 		if slices.Contains(m.listStops(), stopBlock) {
 			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickDocLine(key) })), true
 		}
-	case zoneChange:
-		return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.review.clickChange(m, key) })), true
 	case zoneLog:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.logs.clickLine(key) })), true
 	case zoneDiff:

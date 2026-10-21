@@ -55,7 +55,7 @@ func TestAddressedReply(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
-			thread := fx.releaseFirstReview(t)
+			thread := fx.releaseFirstComment(t)
 			fx.snapshots.SHA = tt.snapshot
 			if tt.homeless {
 				require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), *fx.writer.TaskID, ""))
@@ -104,7 +104,7 @@ func TestPlainReplyHint(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
-			thread := fx.releaseFirstReview(t)
+			thread := fx.releaseFirstComment(t)
 			fx.snapshots.SHA = tt.snapshot
 
 			added, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
@@ -120,11 +120,11 @@ func TestPlainReplyHint(t *testing.T) {
 	}
 }
 
-// TestReplyingToAnAnswerReopensIt pins that the person's reply to an addressed comment is a
-// release of its own, which reopens the comment and says so in the mail.
+// TestReplyingToAnAnswerReopensIt pins that the person's reply to an addressed comment reopens the
+// thread and goes to the writer as its own mail.
 func TestReplyingToAnAnswerReopensIt(t *testing.T) {
 	fx := newReviewFixture(t)
-	thread := fx.releaseFirstReview(t)
+	thread := fx.releaseFirstComment(t)
 	fx.snapshots.SHA = secondSnapshot
 	_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
 		ThreadID:  thread.ID,
@@ -140,9 +140,14 @@ func TestReplyingToAnAnswerReopensIt(t *testing.T) {
 		Author:   personAuthor,
 	})
 	require.NoError(t, err)
-	fx.releaseReview(t, personAuthor, "")
+
+	reopened, err := fx.reviews.GetThread(t.Context(), thread.ID)
+	require.NoError(t, err)
+	assert.Nil(t, reopened.ResolvedAt)
 
 	rung := fx.listMail(t, fx.writer.ID)
-	require.NotEmpty(t, rung)
-	assert.Contains(t, rung[len(rung)-1].Body, "0 comment(s), 1 reply(ies) in earlier threads, 1 of them reopening")
+	require.Len(t, rung, 2)
+	assert.Contains(t, rung[1].Body, "the person replied on snapshot 1 at greet.go:41, thread "+thread.ID)
+	assert.Contains(t, rung[1].Body, "the empty list still panics")
+	assert.NotContains(t, rung[1].Body, "greet(nil)", "a reply carries no quoted lines")
 }

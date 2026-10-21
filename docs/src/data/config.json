@@ -746,7 +746,7 @@
               "key": "accept",
               "path": "keybindings.review.accept",
               "type": "array",
-              "description": "From the menu, pass a held comment from the forge on to the writer, copied into your review as your own\nwords. A comment is held when its author cannot push to the repository, and the writer\nreads nothing in its thread until the comment opening it is accepted and the review sent.",
+              "description": "From the menu, pass a held comment from the forge on to the writer, copied as your own words and\nreleased at once. A comment is held when its author cannot push to the repository, and the\nwriter reads nothing in its thread until the comment opening it is accepted.",
               "default": "[\"A\"]"
             },
             {
@@ -867,13 +867,6 @@
               "type": "array",
               "description": "From the menu, settle the thread under the cursor, which marks it resolved without deleting it.",
               "default": "[\"r\"]"
-            },
-            {
-              "key": "send",
-              "path": "keybindings.review.send",
-              "type": "array",
-              "description": "From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.",
-              "default": "[\"S\"]"
             },
             {
               "key": "toggle_folder",
@@ -1512,13 +1505,6 @@
               "type": "string",
               "description": "A comment the agent has been given.",
               "default": "\"✓\""
-            },
-            {
-              "key": "held",
-              "path": "glyphs.review.held",
-              "type": "string",
-              "description": "A comment held back until you send it.",
-              "default": "\"◇\""
             }
           ],
           "sections": []

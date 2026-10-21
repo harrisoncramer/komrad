@@ -85,11 +85,6 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) sna
 	}))
 	require.NoError(t, err)
 
-	_, err = instance.Agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-		Task: &taskID,
-	}))
-	require.NoError(t, err)
-
 	runGitIn(t, repo, "checkout", "--quiet", "main")
 	writeIn(t, repo, "greet.go", mainsGreet)
 	writeIn(t, repo, "other.go", "package greet\n")

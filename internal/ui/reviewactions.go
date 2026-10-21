@@ -336,12 +336,6 @@ func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 		}))
 	}
 
-	if reachable {
-		entries = append(entries, openEntry(r.threads.sendDesc(), m.keys.Review.Send, func(m *model) tea.Cmd {
-			return m.review.orRefuseWrite(m, m.review.openRelease)
-		}))
-	}
-
 	entries = append(entries, openEntry(r.reloadDesc(m), m.keys.Review.Reload, func(m *model) tea.Cmd { return m.review.catchUp(m) }))
 	entries = append(entries, openEntry(r.diff.agentThreadsDesc(), m.keys.Review.AgentThreads, func(m *model) tea.Cmd { return m.review.toggleAgentThreads(m) }))
 

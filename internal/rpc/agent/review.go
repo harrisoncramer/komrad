@@ -9,6 +9,7 @@ import (
 	"komrad/internal/reviews/history"
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
+	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -26,6 +27,7 @@ type reviewConversation interface {
 	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
 	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
 	TakeSnapshot(ctx context.Context, task string, author reviews.ReviewAuthor) (*reviewstore.Snapshot, error)
+	ReadMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
 	ListSnapshots(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Snapshot, error)
 	GetHistory(ctx context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error)
 	ListReviews(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)

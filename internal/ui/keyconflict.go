@@ -120,7 +120,6 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "agent_threads", keys: keys.Review.AgentThreads},
 		{name: "toggle_viewed", keys: keys.Review.ToggleViewed},
 		{name: "compose", keys: keys.Review.Compose},
-		{name: "send", keys: keys.Review.Send},
 		{name: "forge_reply", keys: keys.Review.ForgeReply},
 		{name: "resolve", keys: keys.Review.Resolve},
 		{name: "accept", keys: keys.Review.Accept},

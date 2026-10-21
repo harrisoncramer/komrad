@@ -18,13 +18,13 @@ const reviewLegendFloor = 21
 // taskStartSaid names the start of a range that runs from where the task starts.
 const taskStartSaid = "where the task starts"
 
-// steps are the ranges between the person's released reviews, oldest first, the last ending on the
-// newest snapshot when the person has not reviewed it.
-func (d reviewDiff) steps() []diffSpec {
+// steps are the ranges between the snapshots the person commented on, oldest first, the last
+// ending on the newest snapshot when the person has not commented on it.
+func (d reviewDiff) steps(threads []*agentv1.ReviewThread) []diffSpec {
 	reviewed := map[string]bool{}
-	for _, review := range d.reviews {
-		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT && review.GetReleasedAt() != "" {
-			reviewed[review.GetSnapshotId()] = true
+	for _, thread := range threads {
+		if thread.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
+			reviewed[thread.GetSnapshotId()] = true
 		}
 	}
 
@@ -74,7 +74,7 @@ func (r *reviewScreen) stepBase(m *model) tea.Cmd {
 		return r.leaveOrigin(m)
 	}
 
-	steps := r.diff.steps()
+	steps := r.diff.steps(r.threads.list)
 	at := r.diff.stepAt(steps)
 	switch {
 	case len(steps) == 0:
@@ -96,7 +96,7 @@ func (r *reviewScreen) stepBaseForward(m *model) tea.Cmd {
 		return r.leaveOrigin(m)
 	}
 
-	steps := r.diff.steps()
+	steps := r.diff.steps(r.threads.list)
 	at := r.diff.stepAt(steps)
 	switch {
 	case r.diff.spec.isWholeChange():
@@ -245,7 +245,7 @@ func (d *reviewDiff) widen() {
 // doesWalk says whether the step keys have anywhere to go, which an editor holding the stage takes
 // away.
 func (r reviewScreen) doesWalk() bool {
-	return !r.hold.atEditor && len(r.diff.steps()) > 0
+	return !r.hold.atEditor && len(r.diff.steps(r.threads.list)) > 0
 }
 
 // doesFitBaseLegend reports whether the step keys are worth a legend row.

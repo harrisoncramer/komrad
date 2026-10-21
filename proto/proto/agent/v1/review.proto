@@ -18,21 +18,6 @@ enum ReviewAuthorKind {
   REVIEW_AUTHOR_KIND_FORGE = 3;
 }
 
-// ReviewDeliveryState is how far one of the person's comments has got toward the agent.
-enum ReviewDeliveryState {
-  // Not a comment by the person, such as one an agent wrote.
-  REVIEW_DELIVERY_STATE_UNSPECIFIED = 0;
-  // Written but not released.
-  REVIEW_DELIVERY_STATE_UNSENT = 1;
-  // Released, and the agent has not read the mail about it.
-  REVIEW_DELIVERY_STATE_SENT = 2;
-  // Released, and the agent has read the mail about it.
-  REVIEW_DELIVERY_STATE_DELIVERED = 3;
-  // Kept from the agent until the person accepts the thread's first comment, because a forge user
-  // without write access wrote the comment or its thread.
-  REVIEW_DELIVERY_STATE_HELD = 4;
-}
-
 // ReviewVerdict is what a review concludes about a snapshot.
 enum ReviewVerdict {
   // No verdict. An unreleased review has this value.
@@ -62,8 +47,8 @@ message ReviewSnapshot {
   string created_at = 6;
 }
 
-// Review is one author's comments on one snapshot, released to the agent together. The review is
-// private until the author releases it.
+// Review is a reviewer agent's comments on one snapshot, released to the writer together. The
+// review is private until the agent releases it.
 message Review {
   // The review's id.
   string id = 1;
@@ -75,7 +60,7 @@ message Review {
   int32 snapshot_ordinal = 4;
   // Who wrote the review.
   ReviewAuthorKind author_kind = 5;
-  // The id of the agent that wrote the review. Unset when the person wrote it.
+  // The id of the agent that wrote the review. Unset when a forge user wrote it.
   optional string author_agent_id = 6;
   // The review's verdict. Unspecified until the review is released.
   ReviewVerdict verdict = 7;
@@ -83,8 +68,6 @@ message Review {
   string released_at = 8;
   // The absolute path of the file the released review was written to.
   string path = 9;
-  // When the agent read the mail about the review, in RFC 3339. Empty until then.
-  string delivered_at = 10;
   // When the review was created with its first comment, in RFC 3339.
   string created_at = 11;
   // When the review last changed, in RFC 3339.
@@ -112,14 +95,12 @@ message WatchedReview {
   string snapshot_sha = 5;
   // Who wrote the review.
   ReviewAuthorKind author_kind = 6;
-  // The id of the agent that wrote the review. Unset when the person wrote it.
+  // The id of the agent that wrote the review. Unset when a forge user wrote it.
   optional string author_agent_id = 7;
   // The review's verdict. Unspecified until the review is released.
   ReviewVerdict verdict = 8;
   // When the review was released, in RFC 3339. Empty until then.
   string released_at = 9;
-  // When the agent read the mail about the review, in RFC 3339. Empty until then.
-  string delivered_at = 10;
   // When the review was created, in RFC 3339.
   string created_at = 11;
   // When the review last changed, in RFC 3339.
@@ -130,14 +111,16 @@ message WatchedReview {
   string external_login = 14;
 }
 
-// ReviewThread is a conversation pinned to a range of lines in a snapshot.
+// ReviewThread is a conversation pinned to a range of lines in a snapshot, or on the change as a
+// whole.
 message ReviewThread {
   // The thread's id.
   string id = 1;
   // The id of the task whose diff the thread is on.
   string task_id = 2;
-  // The id of the review the thread was created in.
-  string review_id = 3;
+  // The id of the review a reviewer agent opened the thread in. Unset for a thread the person
+  // opened.
+  optional string review_id = 3;
   // The id of the snapshot the thread is pinned to.
   string snapshot_id = 4;
   // The number of the snapshot the thread is pinned to.
@@ -145,7 +128,7 @@ message ReviewThread {
   // The commit the old side of the line numbers is read against. This is the snapshot's base unless
   // the diff was narrowed to an earlier snapshot.
   string base_sha = 6;
-  // The file's path, relative to the checkout.
+  // The file's path, relative to the checkout. Empty for a thread on the change as a whole.
   string file_path = 7;
   // The first line of the range on the old side of the diff, counting from one.
   int32 old_start = 8;
@@ -172,6 +155,10 @@ message ReviewThread {
   // The replies komrad has drafted, posted or failed to post to the forge thread, oldest first.
   // Only the person sees these.
   repeated ForgeReply forge_replies = 19;
+  // Who opened the thread.
+  ReviewAuthorKind author_kind = 20;
+  // The id of the agent that opened the thread. Unset when the person or a forge user opened it.
+  optional string author_agent_id = 21;
 }
 
 // ReviewMessage is one comment in a review thread.
@@ -193,14 +180,8 @@ message ReviewMessage {
   string created_at = 7;
   // When the comment was last edited, in RFC 3339.
   string updated_at = 8;
-  // How far the comment has got toward the agent.
-  ReviewDeliveryState delivery = 9;
-  // When the person released the comment, in RFC 3339. Empty until then.
-  string sent_at = 10;
-  // When the agent read the mail about the comment, in RFC 3339. Empty until then.
-  string delivered_at = 11;
-  // The id of the review the comment was released with. Unset for a reply from the writer, which
-  // belongs to no review.
+  // The id of the review a reviewer agent released the comment with. Unset for the person's comments
+  // and the writer's replies.
   optional string review_id = 12;
   // The id of the snapshot saved with an addressed reply. Unset on every other comment.
   optional string snapshot_id = 13;
@@ -209,6 +190,15 @@ message ReviewMessage {
   // The id of the held forge comment the person accepted this comment as a copy of. Unset
   // otherwise.
   optional string accepted_from = 15;
+  // Whether the comment is kept from the agent until the person accepts it, because a forge user
+  // without write access wrote the comment or its thread.
+  bool held = 16;
+  // When the agent read the person's comment, in RFC 3339. Empty until then, and on every other
+  // comment.
+  string read_at = 17;
+  // The id of the snapshot taken as the agent read the person's comment, which an addressed reply
+  // is compared against. Unset until then, and on every other comment.
+  optional string read_snapshot_id = 18;
 }
 
 // ForgeOrigin is the forge comment a review comment was copied from.
@@ -242,7 +232,8 @@ message CreateReviewThreadRequest {
     message: "pass task by id or by slug, or leave it unset"
     expression: "this.size() > 0"
   }];
-  // The file's path, relative to the checkout.
+  // The file's path, relative to the checkout. Empty for a comment on the change as a whole, with
+  // no lines.
   string file_path = 2;
   // The commit the old side of the line numbers is read against. Empty uses the snapshot's base.
   string base_sha = 3;
@@ -268,7 +259,8 @@ message CreateReviewThreadRequest {
 }
 
 message CreateReviewThreadResponse {
-  // The thread as created, private until its review is released.
+  // The thread as created. A reviewer agent's thread stays private until its review is
+  // released. The person's thread is released at once.
   ReviewThread thread = 1;
 }
 
@@ -301,7 +293,7 @@ message AcceptForgeMessageRequest {
 }
 
 message AcceptForgeMessageResponse {
-  // The copy written into the person's open review. Releasing that review releases the thread.
+  // The copy written as the person's comment and mailed to the writer.
   ReviewMessage message = 1;
 }
 
@@ -431,12 +423,10 @@ message OpenReviewHistoryResponse {
   // Why komrad diffed the whole change instead of the requested span. Empty when komrad diffed
   // the span.
   string widened = 7;
-  // Every review on the task the caller may read, oldest first.
-  repeated Review reviews = 13;
-  // The id of the snapshot the person last released a review against. Empty when there is none or
-  // the snapshot's base has changed since.
+  // The id of the snapshot the person last commented on. Empty when there is none or the
+  // snapshot's base has changed since.
   string earlier_snapshot_id = 9;
-  // When the person last released a review, in RFC 3339. Empty when the person never has.
+  // When the person last commented, in RFC 3339. Empty when the person never has.
   string earlier_released_at = 10;
   // How many files changed since `earlier_snapshot_id`.
   int32 changed_since_earlier = 11;
@@ -527,9 +517,9 @@ message ReleaseReviewRequest {
     message: "pass task by id or by slug, or leave it unset"
     expression: "this.size() > 0"
   }];
-  // The review's verdict. An agent must set it, and the person must leave it unset.
+  // The review's verdict.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
-  // What the author says about the work as a whole. The agent reads it before the threads.
+  // What the reviewer says about the work as a whole. The writer reads it before the threads.
   string body = 3 [(buf.validate.field).string.max_len = 1500];
 }
 

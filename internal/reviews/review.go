@@ -4,26 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"komrad/internal/events"
 	"komrad/internal/fail"
+	"komrad/internal/mail"
 	"komrad/internal/reviews/history"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
-	"komrad/lib/clock"
 	"komrad/lib/xslice"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
-
-// interruptSettleFor is how long the agent has to act on the interrupt keys before the
-// mail lands behind them.
-const interruptSettleFor = 200 * time.Millisecond
 
 // ErrReviewThreadNotFound answers a thread id that names nothing.
 var ErrReviewThreadNotFound = fail.NotFound("review thread not found")
@@ -36,11 +31,8 @@ var ErrReviewMessageNotFound = fail.NotFound("review message not found")
 var ErrReviewNotYours = fail.Denied("that review belongs to another agent")
 
 // ErrReviewHumanOnly answers an agent that asks for something only the person reviewing
-// does, such as opening, deleting, or releasing a review.
+// does, such as accepting a forge comment or marking a file viewed.
 var ErrReviewHumanOnly = fail.Denied("only the person reviewing can do that")
-
-// errReviewThreadNoFile answers a comment that names no file.
-var errReviewThreadNoFile = fail.InvalidArgument("a comment must be on a file")
 
 // errReviewThreadHeld answers a reply written in a forge thread whose first comment is
 // still held and not yet accepted, which the agent could not read the reply alongside.
@@ -53,10 +45,6 @@ type eventRecorder interface {
 // taskFinder reads a task by id or by slug.
 type taskFinder interface {
 	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
-}
-
-type agentInterrupter interface {
-	Interrupt(ctx context.Context, agentID string) error
 }
 
 // ReviewAuthor is who a call is, taken from the calling identity: the panel names no agent and
@@ -79,16 +67,16 @@ type ReviewThreadWithMessages struct {
 
 // NewReviewServiceParams is everything the review service reads and tells.
 type NewReviewServiceParams struct {
-	Reviews     *reviewstore.ReviewStore
-	Snapshots   reviewSnapshotter
-	Workflows   *workflowstore.WorkflowStore
-	Agents      *agentstore.AgentStore
-	Tasks       *taskstore.TaskStore
-	TaskFinder  taskFinder
-	Events      eventRecorder
-	Interrupter agentInterrupter
-	Git         history.Git
-	Tracer      *history.Tracer
+	Reviews    *reviewstore.ReviewStore
+	Snapshots  reviewSnapshotter
+	Workflows  *workflowstore.WorkflowStore
+	Agents     *agentstore.AgentStore
+	Tasks      *taskstore.TaskStore
+	TaskFinder taskFinder
+	Events     eventRecorder
+	Mailer     *mail.MailService
+	Git        history.Git
+	Tracer     *history.Tracer
 	// StateDir is where komrad keeps its own files.
 	StateDir string
 }
@@ -103,7 +91,7 @@ type ReviewService struct {
 	tasks         *taskstore.TaskStore
 	taskFinder    taskFinder
 	events        eventRecorder
-	interrupter   agentInterrupter
+	mailer        *mail.MailService
 	git           history.Git
 	tracer        *history.Tracer
 	stateDir      string
@@ -120,7 +108,7 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 		tasks:         params.Tasks,
 		taskFinder:    params.TaskFinder,
 		events:        params.Events,
-		interrupter:   params.Interrupter,
+		mailer:        params.Mailer,
 		git:           params.Git,
 		tracer:        params.Tracer,
 		stateDir:      params.StateDir,
@@ -198,37 +186,26 @@ func (s *ReviewService) listThreads(
 // may see whole.
 func doesOwnReview(author ReviewAuthor, thread reviewstore.Thread) bool {
 	return author.AgentID != nil &&
-		thread.ReviewAuthorAgentID != nil &&
-		*thread.ReviewAuthorAgentID == *author.AgentID
+		thread.AuthorAgentID != nil &&
+		*thread.AuthorAgentID == *author.AgentID
 }
 
 // releasedMessages is what an agent may be shown of a conversation, decided by the review a
 // message belongs to rather than by who wrote it.
 func releasedMessages(messages []reviewstore.Message, author ReviewAuthor) []reviewstore.Message {
-	released := make([]reviewstore.Message, 0, len(messages))
-	for _, message := range messages {
-		if !isReadableBy(message, author) {
-			continue
-		}
-
-		message.SentAt = nil
-		message.DeliveredAt = nil
-		message.Delivery = reviewstore.DeliveryNone
-
-		released = append(released, message)
-	}
-
-	return released
+	return xslice.Filter(messages, func(message reviewstore.Message) bool {
+		return isReadableBy(message, author)
+	})
 }
 
 // isReadableBy reports whether one message has been released, or is the reader's own.
 func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 	switch {
-	case message.Delivery == reviewstore.DeliveryHeld:
+	case message.Held:
 		return false
 	case message.ReviewID == nil:
 		return true
-	case message.SentAt != nil:
+	case message.ReviewReleasedAt != nil:
 		return true
 	default:
 		return message.AuthorAgentID != nil &&
@@ -254,6 +231,7 @@ type CreateReviewThreadParams struct {
 	// SnapshotSHA is the commit the new side of these line numbers was read against, empty for a
 	// caller that read the snapshot its own review sits on.
 	SnapshotSHA string
+	// FilePath is the file the thread is pinned to, empty for a remark on the change as a whole.
 	FilePath    string
 	OldStart    int32
 	OldEnd      int32
@@ -264,16 +242,11 @@ type CreateReviewThreadParams struct {
 	Author      ReviewAuthor
 }
 
-// CreateReviewThread pins a conversation to a place in a snapshot and writes its first message
-// under the author's open review, opening one when they have none.
+// CreateReviewThread pins a conversation to a place in a snapshot and writes its first message.
 func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
 ) (*ReviewThreadWithMessages, error) {
-	if params.FilePath == "" {
-		return nil, errReviewThreadNoFile
-	}
-
 	task, err := s.getTask(ctx, params.Task, params.Author)
 	if err != nil {
 		return nil, err
@@ -284,43 +257,60 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, err
 	}
 
-	thread, err := s.reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
-		TaskID:        task.ID,
-		ReviewID:      place.ReviewID,
-		SnapshotID:    place.SnapshotID,
-		BaseSHA:       place.BaseSHA,
-		Suggestion:    params.Suggestion,
-		FilePath:      params.FilePath,
-		OldStart:      params.OldStart,
-		OldEnd:        params.OldEnd,
-		NewStart:      params.NewStart,
-		NewEnd:        params.NewEnd,
-		QuotedLines:   params.QuotedLines,
-		Body:          params.Body,
-		AuthorKind:    params.Author.Kind,
-		AuthorAgentID: params.Author.AgentID,
+	var opened *reviewstore.OpenedThread
+	err = s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		var err error
+		opened, err = reviewstore.NewReviewStore(tx).CreateThread(ctx, reviewstore.CreateThreadParams{
+			TaskID:        task.ID,
+			ReviewID:      place.ReviewID,
+			SnapshotID:    place.SnapshotID,
+			BaseSHA:       place.BaseSHA,
+			Suggestion:    params.Suggestion,
+			FilePath:      params.FilePath,
+			OldStart:      params.OldStart,
+			OldEnd:        params.OldEnd,
+			NewStart:      params.NewStart,
+			NewEnd:        params.NewEnd,
+			QuotedLines:   params.QuotedLines,
+			Body:          params.Body,
+			AuthorKind:    params.Author.Kind,
+			AuthorAgentID: params.Author.AgentID,
+		})
+		if err != nil || !params.Author.isHuman() {
+			return nil, err
+		}
+
+		return nil, s.mailComment(ctx, tx, mailCommentParams{
+			Thread: opened.Thread,
+			Message: reviewstore.Message{
+				ID:         opened.MessageID,
+				Body:       params.Body,
+				Suggestion: params.Suggestion,
+			},
+		})
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	messages, err := s.reviews.ListMessages(ctx, []string{thread.ID})
+	messages, err := s.reviews.ListMessages(ctx, []string{opened.ID})
 	if err != nil {
 		return nil, err
 	}
 
-	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
+	return &ReviewThreadWithMessages{Thread: opened.Thread, Messages: messages}, nil
 }
 
 // threadPlace is the review, snapshot and base a new thread is filed under.
 type threadPlace struct {
-	ReviewID   string
+	// ReviewID is the agent's open review, nil for a person's thread.
+	ReviewID   *string
 	SnapshotID string
 	BaseSHA    string
 }
 
-// placeThread finds the snapshot a new thread's lines were measured in and the author's open review
-// on it, opening or carrying one forward when needed.
+// placeThread finds the snapshot a new thread's lines were measured in and, for an agent, its
+// open review on it, opening one when needed.
 func (s *ReviewService) placeThread(
 	ctx context.Context,
 	task taskstore.Task,
@@ -335,6 +325,14 @@ func (s *ReviewService) placeThread(
 		return nil, err
 	}
 
+	place := &threadPlace{SnapshotID: snapshot.ID, BaseSHA: params.BaseSHA}
+	if place.BaseSHA == "" {
+		place.BaseSHA = snapshot.BaseSHA
+	}
+	if params.Author.isHuman() {
+		return place, nil
+	}
+
 	open, err := s.openReviewFor(ctx, openReviewForParams{
 		TaskID:   task.ID,
 		Author:   params.Author,
@@ -343,51 +341,18 @@ func (s *ReviewService) placeThread(
 	if err != nil {
 		return nil, err
 	}
-
 	if open.SnapshotID != snapshot.ID {
-		open, err = s.carryOpenReview(ctx, *open, *snapshot, params.Author)
+		held, err := s.reviews.GetSnapshot(ctx, open.SnapshotID)
 		if err != nil {
 			return nil, err
 		}
+
+		return nil, fmt.Errorf("%w: send the comments you have on snapshot %d first", errReviewInFlight, held.Ordinal)
 	}
 
-	baseSHA := params.BaseSHA
-	if baseSHA == "" {
-		baseSHA = snapshot.BaseSHA
-	}
+	place.ReviewID = &open.ID
 
-	return &threadPlace{
-		ReviewID:   open.ID,
-		SnapshotID: snapshot.ID,
-		BaseSHA:    baseSHA,
-	}, nil
-}
-
-// carryOpenReview files a person's draft under the newest snapshot they have commented on.
-func (s *ReviewService) carryOpenReview(
-	ctx context.Context,
-	open reviewstore.Review,
-	snapshot reviewstore.Snapshot,
-	author ReviewAuthor,
-) (*reviewstore.Review, error) {
-	held, err := s.reviews.GetSnapshot(ctx, open.SnapshotID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !author.isHuman() {
-		return nil, fmt.Errorf("%w: send the comments you have on snapshot %d first",
-			errReviewInFlight, held.Ordinal)
-	}
-
-	if snapshot.Ordinal <= held.Ordinal {
-		return &open, nil
-	}
-
-	return s.reviews.MoveOpenReview(ctx, reviewstore.MoveOpenReviewParams{
-		ID:         open.ID,
-		SnapshotID: snapshot.ID,
-	})
+	return place, nil
 }
 
 // AddReviewMessageResult is the message as written and anything worth telling the one who wrote it.
@@ -407,8 +372,9 @@ type AddReviewMessageParams struct {
 	Addressed bool
 }
 
-// AddReviewMessage says something in an existing thread, filed under the review a reviewer
-// still has open and under none at all for the agent answering.
+// AddReviewMessage says something in an existing thread: under the review a reviewing agent has
+// open, under none for the agent answering, and under none for the person, whose words reach
+// the task's writer as mail at once.
 func (s *ReviewService) AddReviewMessage(
 	ctx context.Context,
 	params AddReviewMessageParams,
@@ -435,7 +401,7 @@ func (s *ReviewService) AddReviewMessage(
 	}
 
 	var reviewID *string
-	if !answering {
+	if !answering && !params.Author.isHuman() {
 		open, err := s.openReviewFor(ctx, openReviewForParams{
 			TaskID: thread.TaskID,
 			Author: params.Author,
@@ -472,14 +438,17 @@ func (s *ReviewService) AddReviewMessage(
 		if err != nil {
 			return nil, err
 		}
-		if !answering || thread.ReviewAuthorAgentID == nil {
+		if params.Author.isHuman() {
+			return nil, s.mailComment(ctx, tx, mailCommentParams{Thread: *thread, Message: *message, Reply: true})
+		}
+		if !answering || thread.AuthorAgentID == nil {
 			return nil, nil
 		}
 
 		event, err := events.NewEvent(answered{
 			TaskID:     thread.TaskID,
 			WriterID:   *params.Author.AgentID,
-			ReviewerID: *thread.ReviewAuthorAgentID,
+			ReviewerID: *thread.AuthorAgentID,
 		})
 		if err != nil {
 			return nil, err
@@ -633,16 +602,6 @@ func (s *ReviewService) ListReviewViewedFiles(
 	return s.reviews.ListViewedFiles(ctx, task.ID)
 }
 
-// interrupt stops the agent where it stands, and failing to is no reason to withhold the
-// notification.
-func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
-	if err := s.interrupter.Interrupt(ctx, agentID); err != nil {
-		return
-	}
-
-	clock.Sleep(ctx, interruptSettleFor)
-}
-
 // requireOwnThread refuses an id that names no thread, and refuses an agent reaching into a
 // review it neither writes the task of nor authored.
 func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author ReviewAuthor) error {
@@ -707,8 +666,8 @@ func doesOwnAgent(author ReviewAuthor, agentID string) bool {
 	return author.AgentID != nil && *author.AgentID == agentID
 }
 
-// isThreadHeld reports whether a thread opens with a held forge comment that no copy, sent or
-// unsent, has accepted.
+// isThreadHeld reports whether a thread opens with a held forge comment that no copy has
+// accepted.
 func (s *ReviewService) isThreadHeld(ctx context.Context, threadID string) (bool, error) {
 	messages, err := s.reviews.ListMessages(ctx, []string{threadID})
 	if err != nil {

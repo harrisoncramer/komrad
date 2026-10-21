@@ -23,7 +23,6 @@ type TreeRow struct {
 
 // ThreadCounts is how many threads stand in each state.
 type ThreadCounts struct {
-	Unsent  int
 	Unread  int
 	Open    int
 	Settled int
@@ -32,7 +31,6 @@ type ThreadCounts struct {
 // Plus is both counts added together.
 func (c ThreadCounts) Plus(other ThreadCounts) ThreadCounts {
 	return ThreadCounts{
-		Unsent:  c.Unsent + other.Unsent,
 		Unread:  c.Unread + other.Unread,
 		Open:    c.Open + other.Open,
 		Settled: c.Settled + other.Settled,
@@ -42,8 +40,6 @@ func (c ThreadCounts) Plus(other ThreadCounts) ThreadCounts {
 // add counts one thread under the first state it is in.
 func (c *ThreadCounts) add(thread *agentv1.ReviewThread) {
 	switch {
-	case IsHoldingUnsent(thread):
-		c.Unsent++
 	case thread.GetUnreadByHuman():
 		c.Unread++
 	case thread.GetResolvedAt() == "":

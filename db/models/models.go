@@ -244,6 +244,7 @@ const (
 	MailKindWorktreeRebased    MailKind = "worktree_rebased"
 	MailKindWorktreePushed     MailKind = "worktree_pushed"
 	MailKindWorktreeAborted    MailKind = "worktree_aborted"
+	MailKindReviewComment      MailKind = "review_comment"
 )
 
 func (e *MailKind) Scan(src interface{}) error {
@@ -1007,11 +1008,9 @@ type Review struct {
 	// When the review was released, null while it is still being written. None of it reaches the agent until this is set.
 	ReleasedAt *time.Time
 	// The absolute path of the file the released review was written to, empty while the review is still open. The file lives in komrad's own state directory rather than in the agent's checkout.
-	Path string
-	// The mail that told the agent a review was waiting. Deleting that mail clears this column rather than deleting the review, so a review whose mail was thrown away reads as undelivered.
-	DoorbellMailID *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	Path      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 	// What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first.
 	Body string
 	// The engine that owns this row, stamped from the login that wrote it.
@@ -1083,8 +1082,14 @@ type ReviewMessage struct {
 	ForgeEditedAt *time.Time
 	// Whether the forge author could not write to the repository when the text was written or last edited, which keeps it from the agent. A held first message holds its whole thread until the person accepts it.
 	Held bool
-	// The held forge message the person accepted this copy of, which releases that message's thread to the agent once the copy's review is sent. Null on everything else.
+	// The held forge message the person accepted this copy of, which releases that message's thread to the agent. Null on everything else.
 	AcceptedFrom *string
+	// The mail that carried a person's comment to the writer, null on an agent's or a forge user's comment. Deleting that mail clears this column and nothing else.
+	MailID *string
+	// When the writer read the mail carrying a person's comment, null until then and on every other comment.
+	ReadAt *time.Time
+	// The snapshot taken when the writer read a person's comment, which an addressed reply is compared against.
+	ReadSnapshotID *string
 }
 
 // One frozen copy of what an agent has written. A review is always given against a snapshot rather than against the working files.
@@ -1128,7 +1133,8 @@ type ReviewThread struct {
 	LastAgentActivityAt *time.Time
 	// When this thread was settled, null while it is still owed an answer.
 	ResolvedAt *time.Time
-	ReviewID   string
+	// The review the thread was opened in, null on a thread a person opened, which belongs to no review.
+	ReviewID *string
 	// The snapshot this thread's line numbers were measured against. It is not read through the review, because a review stays open across several snapshots and would name the wrong one.
 	SnapshotID string
 	// The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the snapshot's own base. For a thread written while the diff was narrowed to one snapshot it is the earlier snapshot's commit.
@@ -1145,6 +1151,10 @@ type ReviewThread struct {
 	ForgeResolved bool
 	// The task being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by task.
 	TaskID string
+	// Who opened the thread.
+	AuthorKind ReviewAuthorKind
+	// The agent that opened the thread, null when a person or a forge user did, or once the agent was deleted.
+	AuthorAgentID *string
 }
 
 // One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.

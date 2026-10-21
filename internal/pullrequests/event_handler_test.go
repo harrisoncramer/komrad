@@ -313,7 +313,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			f.sync(t)
 
 			f.setMergeReadiness(t, tt.before, "aaa", syncNow.Add(time.Minute))
-			claimed, err := f.stores.Mail.Claim(t.Context(), agentID, 10)
+			claimed, err := f.stores.ClaimMail(t.Context(), agentID, 10)
 			require.NoError(t, err)
 			require.Len(t, claimed, 1)
 
@@ -388,9 +388,9 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	require.NoError(t, json.Unmarshal(retry.Payload, &change))
 	assert.Equal(t, full, change.Recipient)
 
-	_, err := f.stores.Mail.Claim(t.Context(), full, 200)
+	_, err := f.stores.ClaimMail(t.Context(), full, 200)
 	require.NoError(t, err)
-	_, err = f.stores.Mail.Claim(t.Context(), told, 10)
+	_, err = f.stores.ClaimMail(t.Context(), told, 10)
 	require.NoError(t, err)
 	require.NoError(t, f.events.InsertTx(t.Context(), retry))
 

@@ -22,11 +22,10 @@ func heldForgeTarget(thread *agentv1.ReviewThread) (*agentv1.ReviewMessage, bool
 }
 
 func isHeldForge(message *agentv1.ReviewMessage) bool {
-	return message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE &&
-		message.GetDelivery() == agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD
+	return message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE && message.GetHeld()
 }
 
-// isAcceptedForge says whether the person has already copied a held forge comment into a review.
+// isAcceptedForge says whether the person has already accepted a held forge comment.
 func isAcceptedForge(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage) bool {
 	for _, other := range thread.GetMessages() {
 		if other.GetAcceptedFrom() == message.GetId() {
@@ -44,7 +43,7 @@ func heldForgeSaid(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage)
 	}
 
 	if isAcceptedForge(thread, message) {
-		return "accepted into your review"
+		return "accepted, released to the writer"
 	}
 
 	return "held, its author cannot push"
@@ -62,7 +61,8 @@ func (r *reviewScreen) doesOfferAccept() bool {
 	return ok
 }
 
-// acceptForge copies the held forge comment under the cursor into the person's review.
+// acceptForge accepts the held forge comment under the cursor, which releases it to the writer as
+// the person's own comment.
 func (r *reviewScreen) acceptForge(m *model) tea.Cmd {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok {

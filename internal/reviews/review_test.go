@@ -1,14 +1,15 @@
 package reviews
 
 import (
-	"context"
 	"slices"
 	"testing"
 
+	"komrad/config"
 	"komrad/internal/eventprompts"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/gittest"
 	"komrad/internal/jobs/internaljobs"
+	"komrad/internal/mail"
 	"komrad/internal/reviews/history"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -28,6 +29,7 @@ import (
 const (
 	firstSnapshot  = "1111111111111111111111111111111111111111"
 	secondSnapshot = "2222222222222222222222222222222222222222"
+	thirdSnapshot  = "3333333333333333333333333333333333333333"
 	baseSnapshot   = "0000000000000000000000000000000000000000"
 )
 
@@ -40,7 +42,6 @@ type reviewFixture struct {
 	stores      *storetest.Stores
 	snapshots   *gittest.Snapshots
 	events      *eventstest.Queue
-	interrupter *recordingInterrupter
 	writer      *agentstore.Agent
 	reviewer    *agentstore.Agent
 	otherWriter *agentstore.Agent
@@ -57,7 +58,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent replying in a review of somebody else's work",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
-					ThreadID: fx.releaseFirstReview(t).ID,
+					ThreadID: fx.releaseFirstComment(t).ID,
 					Body:     "done",
 					Author:   newAgentAuthor(fx.otherWriter),
 				})
@@ -84,7 +85,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent settling a comment on its own work",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
-					ID:       fx.releaseFirstReview(t).ID,
+					ID:       fx.releaseFirstComment(t).ID,
 					Resolved: true,
 					Author:   newAgentAuthor(fx.writer),
 				})
@@ -110,7 +111,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent marking a thread read for the person",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{
-					ID:     fx.releaseFirstReview(t).ID,
+					ID:     fx.releaseFirstComment(t).ID,
 					Author: newAgentAuthor(fx.writer),
 				})
 
@@ -121,7 +122,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "an agent rewriting what the person wrote",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				thread := fx.releaseFirstReview(t)
+				thread := fx.releaseFirstComment(t)
 				messages, err := fx.reviews.ListMessages(t.Context(), []string{thread.ID})
 				require.NoError(t, err)
 
@@ -139,7 +140,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "the person rewriting the agent's answer",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
-					ID:     fx.writeAnswer(t, fx.releaseFirstReview(t).ID).ID,
+					ID:     fx.writeAnswer(t, fx.releaseFirstComment(t).ID).ID,
 					Body:   "rewritten",
 					Author: personAuthor,
 				})
@@ -152,7 +153,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent rewriting another agent's answer",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
-					ID:     fx.writeAnswer(t, fx.releaseFirstReview(t).ID).ID,
+					ID:     fx.writeAnswer(t, fx.releaseFirstComment(t).ID).ID,
 					Body:   "rewritten",
 					Author: newAgentAuthor(fx.otherWriter),
 				})
@@ -221,7 +222,9 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "an unrelated agent reading a released review",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.GetReview(t.Context(), fx.releaseFirstReview(t).ReviewID, newAgentAuthor(fx.otherWriter))
+				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
+				released := fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+				_, err := fx.service.GetReview(t.Context(), released.Review.ID, newAgentAuthor(fx.otherWriter))
 
 				return err
 			},
@@ -348,9 +351,8 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: errReviewVerdictMissing,
 		},
 		{
-			name: "the person releasing with a verdict",
+			name: "the person releasing",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				fx.writeComment(t, personAuthor, "this needs a nil check")
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 					Task:    *fx.writer.TaskID,
 					Verdict: reviewstore.VerdictApproved,
@@ -359,7 +361,7 @@ func TestReviewEntitlement(t *testing.T) {
 
 				return err
 			},
-			wantErr: ErrReviewVerdictFromPerson,
+			wantErr: errReviewReleaseByPerson,
 		},
 		{
 			name: "a comment read from a commit no snapshot was taken of",
@@ -377,19 +379,6 @@ func TestReviewEntitlement(t *testing.T) {
 			wantErr: ErrReviewNotCurrent,
 		},
 		{
-			name: "a comment on no file",
-			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					Task:   *fx.writer.TaskID,
-					Body:   "this whole change needs a rethink",
-					Author: personAuthor,
-				})
-
-				return err
-			},
-			wantErr: errReviewThreadNoFile,
-		},
-		{
 			name: "reading a review nothing holds",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.GetReview(t.Context(), uuid.NewString(), personAuthor)
@@ -402,7 +391,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "the agent under review rewriting its own answer",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
-					ID:     fx.writeAnswer(t, fx.releaseFirstReview(t).ID).ID,
+					ID:     fx.writeAnswer(t, fx.releaseFirstComment(t).ID).ID,
 					Body:   "done, and tested",
 					Author: newAgentAuthor(fx.writer),
 				})
@@ -413,7 +402,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "the person rewriting their own comment",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				thread := fx.releaseFirstReview(t)
+				thread := fx.releaseFirstComment(t)
 				messages, err := fx.reviews.ListMessages(t.Context(), []string{thread.ID})
 				require.NoError(t, err)
 
@@ -427,10 +416,10 @@ func TestReviewEntitlement(t *testing.T) {
 			},
 		},
 		{
-			name: "the person sending with nothing written",
+			name: "the person marking a thread read",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-					Task:   *fx.writer.TaskID,
+				_, err := fx.service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{
+					ID:     fx.releaseFirstComment(t).ID,
 					Author: personAuthor,
 				})
 
@@ -438,10 +427,11 @@ func TestReviewEntitlement(t *testing.T) {
 			},
 		},
 		{
-			name: "the person marking a thread read",
+			name: "the person remarking on the change as a whole",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{
-					ID:     fx.releaseFirstReview(t).ID,
+				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+					Task:   *fx.writer.TaskID,
+					Body:   "this whole change needs a rethink",
 					Author: personAuthor,
 				})
 
@@ -510,7 +500,7 @@ func TestReviewEntitlement(t *testing.T) {
 	}
 }
 
-// TestListReviewThreads pins that an agent reads only what was released and what it wrote itself.
+// TestListReviewThreads pins that an agent reads the person's comments, what was released and what it wrote itself.
 func TestListReviewThreads(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -522,21 +512,21 @@ func TestListReviewThreads(t *testing.T) {
 			reader: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.writer)
 			},
-			wantThreads: [][]string{{"this needs a nil check", "done"}},
+			wantThreads: [][]string{{"this needs a nil check", "done", "and I have not decided about this one"}},
 		},
 		{
 			name: "an agent reading somebody else's review",
 			reader: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.otherWriter)
 			},
-			wantThreads: [][]string{{"this needs a nil check", "done"}},
+			wantThreads: [][]string{{"this needs a nil check", "done", "and I have not decided about this one"}},
 		},
 		{
 			name: "the reviewer, which reads its own draft back",
 			reader: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.reviewer)
 			},
-			wantThreads: [][]string{{"this needs a nil check", "done"}, {"and the caller above it"}},
+			wantThreads: [][]string{{"this needs a nil check", "done", "and I have not decided about this one"}, {"and the caller above it"}},
 		},
 		{
 			name: "the person, who reads every draft",
@@ -553,7 +543,7 @@ func TestListReviewThreads(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
-			released := fx.releaseFirstReview(t)
+			released := fx.releaseFirstComment(t)
 			fx.writeAnswer(t, released.ID)
 			_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
 				ThreadID: released.ID,
@@ -576,16 +566,8 @@ func TestListReviewThreads(t *testing.T) {
 			})
 			assert.Equal(t, tt.wantThreads, bodies)
 
-			if reader.isHuman() {
-				assert.NotNil(t, threads[0].Messages[0].SentAt, "the person keeps their record of when")
-
-				return
-			}
-
-			assert.False(t, threads[0].Thread.UnreadByHuman, "whether the person has read the reply is their own progress")
-			for _, message := range threads[0].Messages {
-				assert.Nil(t, message.SentAt, "when the person let a comment go is theirs to know")
-				assert.Equal(t, reviewstore.DeliveryNone, message.Delivery)
+			if !reader.isHuman() {
+				assert.False(t, threads[0].Thread.UnreadByHuman, "whether the person has read the reply is their own progress")
 			}
 		})
 	}
@@ -715,7 +697,7 @@ func TestASecondReview(t *testing.T) {
 		{
 			name: "the person answering back in the thread",
 			write: func(t *testing.T, fx *reviewFixture) error {
-				released := fx.releaseFirstReview(t)
+				released := fx.releaseFirstComment(t)
 				fx.writeAnswer(t, released.ID)
 
 				_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
@@ -730,7 +712,7 @@ func TestASecondReview(t *testing.T) {
 		{
 			name: "the person while the agent has not answered the first",
 			write: func(t *testing.T, fx *reviewFixture) error {
-				fx.releaseFirstReview(t)
+				fx.releaseFirstComment(t)
 
 				return fx.tryComment(t, personAuthor, "")
 			},
@@ -738,7 +720,7 @@ func TestASecondReview(t *testing.T) {
 		{
 			name: "the person once they settled the first",
 			write: func(t *testing.T, fx *reviewFixture) error {
-				fx.settle(t, fx.releaseFirstReview(t).ID, personAuthor)
+				fx.settle(t, fx.releaseFirstComment(t).ID, personAuthor)
 
 				return fx.tryComment(t, personAuthor, "")
 			},
@@ -746,7 +728,7 @@ func TestASecondReview(t *testing.T) {
 		{
 			name: "the person once they settled the first, whatever the agent wrote there after",
 			write: func(t *testing.T, fx *reviewFixture) error {
-				released := fx.releaseFirstReview(t)
+				released := fx.releaseFirstComment(t)
 				fx.settle(t, released.ID, personAuthor)
 				fx.writeAnswer(t, released.ID)
 
@@ -965,13 +947,13 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			}
 			opener := tt.opener(t, fx)
 			opening := personAuthor
-			verdict := reviewstore.Verdict("")
 			if opener != nil {
 				opening = newAgentAuthor(opener)
-				verdict = reviewstore.VerdictChangesRequested
 			}
 			written := fx.writeComment(t, opening, "this needs a nil check")
-			fx.releaseReview(t, opening, verdict)
+			if opener != nil {
+				fx.releaseReview(t, opening, reviewstore.VerdictChangesRequested)
+			}
 
 			_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
 				ThreadID: written.Thread.ID,
@@ -1015,23 +997,13 @@ func TestAnsweringAReviewSeveralTimesLeavesOneMail(t *testing.T) {
 		fx.writeAnswer(t, written.Thread.ID)
 	}
 
-	claimed, err := fx.stores.Mail.Claim(t.Context(), fx.reviewer.ID, 10)
+	claimed, err := fx.stores.ClaimMail(t.Context(), fx.reviewer.ID, 10)
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 
 	fx.writeAnswer(t, written.Thread.ID)
 
 	assert.Len(t, fx.listMail(t, fx.reviewer.ID), 2, "an answer after the mail was read rings again")
-}
-
-type recordingInterrupter struct {
-	interrupted []string
-}
-
-func (r *recordingInterrupter) Interrupt(_ context.Context, agentID string) error {
-	r.interrupted = append(r.interrupted, agentID)
-
-	return nil
 }
 
 func newReviewFixture(t *testing.T) *reviewFixture {
@@ -1051,8 +1023,6 @@ func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *r
 		Files:   map[string][]string{},
 	}
 	events := eventstest.NewQueue(t, stores, NewReleasedHandler(params), NewAnsweredHandler())
-	interrupter := &recordingInterrupter{}
-
 	writer := stores.SeedAgent(t, agentstore.Agent{
 		Name: "writer",
 		Cwd:  "/tree",
@@ -1071,17 +1041,23 @@ func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *r
 	require.NoError(t, stores.Tasks.SetCheckoutDir(t.Context(), *writer.TaskID, "/tree"))
 
 	service := NewReviewService(NewReviewServiceParams{
-		Reviews:     reviews,
-		Snapshots:   snapshots,
-		Workflows:   stores.Workflows,
-		Agents:      stores.Agents,
-		Tasks:       stores.Tasks,
-		TaskFinder:  tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: stores.Tasks}),
-		Events:      events,
-		Interrupter: interrupter,
-		StateDir:    t.TempDir(),
-		Git:         gittest.NoRepo{},
-		Tracer:      history.NewTracer(gittest.NoRepo{}),
+		Reviews:    reviews,
+		Snapshots:  snapshots,
+		Workflows:  stores.Workflows,
+		Agents:     stores.Agents,
+		Tasks:      stores.Tasks,
+		TaskFinder: tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: stores.Tasks}),
+		Events:     events,
+		Mailer: mail.NewMailService(mail.NewMailServiceParams{
+			Mail:      stores.Mail,
+			Agents:    stores.Agents,
+			Workflows: stores.Workflows,
+			Config:    config.Mail{},
+			Tx:        stores.Pool,
+		}),
+		StateDir: t.TempDir(),
+		Git:      gittest.NoRepo{},
+		Tracer:   history.NewTracer(gittest.NoRepo{}),
 	})
 
 	_, err := service.TakeSnapshot(t.Context(), *writer.TaskID, personAuthor)
@@ -1093,7 +1069,6 @@ func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *r
 		stores:      stores,
 		snapshots:   snapshots,
 		events:      events,
-		interrupter: interrupter,
 		writer:      writer,
 		reviewer:    reviewer,
 		otherWriter: otherWriter,
@@ -1107,14 +1082,12 @@ func newAgentAuthor(agent *agentstore.Agent) ReviewAuthor {
 	}
 }
 
-// releaseFirstReview has the person release one comment on snapshot one, returning its thread.
-func (fx *reviewFixture) releaseFirstReview(t *testing.T) reviewstore.Thread {
+// releaseFirstComment has the person write one comment on snapshot one, which releases it to the
+// writer, returning its thread.
+func (fx *reviewFixture) releaseFirstComment(t *testing.T) reviewstore.Thread {
 	t.Helper()
 
-	written := fx.writeComment(t, personAuthor, "this needs a nil check")
-	fx.releaseReview(t, personAuthor, "")
-
-	return written.Thread
+	return fx.writeComment(t, personAuthor, "this needs a nil check").Thread
 }
 
 func (fx *reviewFixture) writeComment(t *testing.T, author ReviewAuthor, body string) *ReviewThreadWithMessages {
