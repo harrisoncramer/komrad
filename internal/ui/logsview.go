@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	logv1 "komrad/proto/gen/log/v1"
 )
 
 func (l *logsScreen) view(m *model) string {
@@ -53,6 +54,28 @@ func (l *logsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 		Pane:    pane.width,
 		Columns: view.Columns{},
 	}
+}
+
+// nameSource is what a source is called, led by the agent that ran it when the screen lists a task's runs.
+func (l *logsScreen) nameSource(m *model, source *logv1.LogSource) string {
+	if l.taskID == "" {
+		return sourceLabel(source)
+	}
+
+	name := source.GetAgentId()
+	if item, ok := m.listing.anyAgent(name); ok {
+		name = m.listing.agentName(item.Agent)
+	}
+
+	return name + " " + sourceLabel(source)
+}
+
+func sourceLabel(source *logv1.LogSource) string {
+	if source.Run == nil {
+		return "server"
+	}
+
+	return fmt.Sprintf("%03d %s %s", source.GetRun(), source.GetTrigger(), source.GetScript())
 }
 
 // block is the log rendered at the width and height of the block beside the sidebar, its lines

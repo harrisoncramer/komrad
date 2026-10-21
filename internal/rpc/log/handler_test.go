@@ -379,17 +379,19 @@ func TestListAgentLogSources(t *testing.T) {
 	require.NoError(t, err)
 
 	want := &logv1.ListAgentLogSourcesResponse{Sources: []*logv1.LogSource{
-		{Id: "server", Name: "server"},
+		{Id: "server"},
 		{
 			Id:      "002-agent.pre-launch-setup.log",
-			Name:    "002 agent.pre-launch setup",
 			Run:     xptr.Ptr[int32](2),
+			Trigger: "agent.pre-launch",
+			Script:  "setup",
 			AgentId: "a1",
 		},
 		{
 			Id:      "001-agent.provision-_worktree_setup.log",
-			Name:    "001 agent.provision _worktree_setup",
 			Run:     xptr.Ptr[int32](1),
+			Trigger: "agent.provision",
+			Script:  "_worktree_setup",
 			AgentId: "a1",
 		},
 	}}
@@ -436,15 +438,17 @@ func TestListTaskLogSources(t *testing.T) {
 			want: []*logv1.LogSource{
 				{
 					Id:      "004-agent.pre-launch-setup.log",
-					Name:    "004 agent.pre-launch setup",
 					Run:     xptr.Ptr[int32](4),
+					Trigger: "agent.pre-launch",
+					Script:  "setup",
 					AgentId: "a2",
 					Failed:  true,
 				},
 				{
 					Id:      "007-task.pre-open-setup.log",
-					Name:    "007 task.pre-open setup",
 					Run:     xptr.Ptr[int32](7),
+					Trigger: "task.pre-open",
+					Script:  "setup",
 					AgentId: "a1",
 				},
 			},

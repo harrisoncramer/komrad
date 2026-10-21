@@ -97,10 +97,12 @@ message ReadAgentLogsResponse {
 message LogSource {
   // The source's id, to pass as `source` to `read_agent_logs`.
   string id = 1;
-  // The source's name, such as `service` or `003 agent.pre-launch setup`.
-  string name = 2;
   // The number of the hook run. Unset for the server log.
   optional int32 run = 3;
+  // The moment the hook ran at, such as `agent.pre-launch`. Empty for the server log.
+  string trigger = 6;
+  // The hook's script, by file name in the hooks directory. Empty for the server log.
+  string script = 7;
   // The id of the agent that recorded the hook run. Empty for the server log.
   string agent_id = 4;
   // Whether the hook run failed. Set only on a task's log sources.

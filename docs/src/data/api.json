@@ -7820,16 +7820,6 @@
           "description": "The source's id, to pass as `source` to `read_agent_logs`."
         },
         {
-          "name": "name",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The source's name, such as `service` or `003 agent.pre-launch setup`."
-        },
-        {
           "name": "run",
           "type": "int32",
           "ref": "",
@@ -7838,6 +7828,26 @@
           "oneof": "",
           "rules": [],
           "description": "The number of the hook run. Unset for the server log."
+        },
+        {
+          "name": "trigger",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The moment the hook ran at, such as `agent.pre-launch`. Empty for the server log."
+        },
+        {
+          "name": "script",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The hook's script, by file name in the hooks directory. Empty for the server log."
         },
         {
           "name": "agent_id",
