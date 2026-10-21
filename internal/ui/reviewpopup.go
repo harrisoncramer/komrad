@@ -8,8 +8,8 @@ import (
 	"komrad/internal/ui/paint"
 )
 
-// popupAnchor is the columns the popup takes beside the diff's code, the sidebar, the divider and
-// the gutter with a split and the whole pane without one.
+// popupAnchor is the columns the popup takes beside the diff's code, which are the sidebar, the
+// divider and the gutter with a split and the whole pane without one.
 func (r reviewScreen) popupAnchor(m *model) popupAnchor {
 	split, ok := m.screenColumnSplit()
 	if !ok {
