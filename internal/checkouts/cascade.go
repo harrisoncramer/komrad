@@ -38,6 +38,16 @@ type cascadeOnto struct {
 
 // Cascade is one pass over every child, rebasing each whose parent moved onto the parent's newest commit.
 func (s *Service) Cascade(ctx context.Context) error {
+	return s.cascadeChildren(ctx, "")
+}
+
+// CascadeMerged moves each child of the pull request at the address, which has just merged, onto the base branch.
+func (s *Service) CascadeMerged(ctx context.Context, address string) error {
+	return s.cascadeChildren(ctx, address)
+}
+
+// cascadeChildren brings each child up to date, only those whose parent pull request is at merged when it is set.
+func (s *Service) cascadeChildren(ctx context.Context, merged string) error {
 	children, err := s.tasks.ListChildren(ctx)
 	if err != nil {
 		return err
@@ -45,7 +55,7 @@ func (s *Service) Cascade(ctx context.Context) error {
 
 	var errs []error
 	for _, task := range children {
-		if err := s.cascadeTask(ctx, task); err != nil {
+		if err := s.cascadeTask(ctx, task, merged); err != nil {
 			errs = append(errs, fmt.Errorf("failed to cascade task %q: %w", task.Slug, err))
 		}
 	}
@@ -53,8 +63,9 @@ func (s *Service) Cascade(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-// cascadeTask brings one child up to date with its parent.
-func (s *Service) cascadeTask(ctx context.Context, task taskstore.Task) error {
+// cascadeTask brings one child up to date with its parent, taking the parent pull request at merged,
+// when it is set, as merged and skipping a child whose parent pull request is another.
+func (s *Service) cascadeTask(ctx context.Context, task taskstore.Task, merged string) error {
 	if !task.Checkout.IsUsable() {
 		return nil
 	}
@@ -73,8 +84,8 @@ func (s *Service) cascadeTask(ctx context.Context, task taskstore.Task) error {
 		return err
 	}
 
-	merged, err := s.settleMergedIntoParent(ctx, task, *parent)
-	if err != nil || merged {
+	settled, err := s.settleMergedIntoParent(ctx, task, *parent)
+	if err != nil || settled {
 		return err
 	}
 
@@ -82,11 +93,20 @@ func (s *Service) cascadeTask(ctx context.Context, task taskstore.Task) error {
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	if pr != nil && pr.MergedAt == nil && pr.ClosedAt != nil {
+	if merged != "" && (pr == nil || pr.URL != merged) {
+		return nil
+	}
+	parentMerged := pr != nil && (pr.MergedAt != nil || pr.URL == merged)
+	if pr != nil && !parentMerged && pr.ClosedAt != nil {
 		return s.tellParentClosed(ctx, task, *parent, *pr)
 	}
 
-	onto, err := s.findOnto(ctx, task, *parent, pr)
+	var onto *cascadeOnto
+	if parentMerged {
+		onto, err = s.fetchBaseOnto(ctx, task)
+	} else {
+		onto, err = s.findOnto(ctx, task, *parent, pr)
+	}
 	if errors.Is(err, errOntoUnmoved) {
 		return nil
 	}
@@ -189,25 +209,9 @@ func requireRepository(task taskstore.Task) (string, error) {
 	return repository, nil
 }
 
-// findOnto is the commit the child's own commits belong on now, errOntoUnmoved while they need not move.
+// findOnto is the parent's newest commit the child's own commits belong on, errOntoUnmoved while they need not move.
 func (s *Service) findOnto(ctx context.Context, task, parent taskstore.Task, pr *pullrequeststore.PullRequest) (*cascadeOnto, error) {
-	dir := task.Checkout.Cwd
-
-	if pr != nil && pr.MergedAt != nil {
-		flow, err := s.workflows.Get(ctx, task.WorkflowID)
-		if err != nil {
-			return nil, err
-		}
-
-		_, sha, err := s.git.FetchBase(ctx, dir, flow.Worktree.BaseBranch)
-		if err != nil {
-			return nil, err
-		}
-
-		return &cascadeOnto{Branch: flow.Worktree.BaseBranch, SHA: sha, Merged: true}, nil
-	}
-
-	newest, err := s.git.FetchBranchTip(ctx, dir, parent.GetBranch())
+	newest, err := s.git.FetchBranchTip(ctx, task.Checkout.Cwd, parent.GetBranch())
 	if errors.Is(err, git.ErrBranchNotOnOrigin) {
 		return nil, errOntoUnmoved
 	}
@@ -219,6 +223,21 @@ func (s *Service) findOnto(ctx context.Context, task, parent taskstore.Task, pr 
 	}
 
 	return &cascadeOnto{Branch: parent.GetBranch(), SHA: newest}, nil
+}
+
+// fetchBaseOnto is the newest commit of the workflow's base branch, where a child belongs once its parent merged.
+func (s *Service) fetchBaseOnto(ctx context.Context, task taskstore.Task) (*cascadeOnto, error) {
+	flow, err := s.workflows.Get(ctx, task.WorkflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, sha, err := s.git.FetchBase(ctx, task.Checkout.Cwd, flow.Worktree.BaseBranch)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cascadeOnto{Branch: flow.Worktree.BaseBranch, SHA: sha, Merged: true}, nil
 }
 
 // tellParentClosed blocks the child's cascade on its closed parent pull request and tells its writer, once.
@@ -260,7 +279,9 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 		return err
 	}
 	if holdsOnto {
-		return s.recordOnto(ctx, task, onto)
+		_, err := s.recordOnto(ctx, task, onto)
+
+		return err
 	}
 
 	if task.Parent.Blocked == taskstore.CascadeConflicted || task.Checkout.AdoptedBranch != "" {
@@ -296,32 +317,76 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 
 	s.releaseOlderParks(ctx, task, park)
 
-	if err := s.recordOnto(ctx, task, onto); err != nil {
+	pushed := s.pushCascade(ctx, task)
+	retargeted, err := s.recordOnto(ctx, task, onto)
+	if err != nil {
 		return err
 	}
 
 	s.queueEvent(ctx, task.ID, cascaded{
 		TaskID: task.ID,
 		Rebased: &eventprompts.CascadeRebased{
-			Parent:  parent.Slug,
-			Onto:    onto.Branch,
-			SHA:     onto.SHA,
-			Commits: plan.Commits,
-			Merged:  onto.Merged,
-			Pushed:  s.pushCascade(ctx, task),
+			Parent:     parent.Slug,
+			Onto:       onto.Branch,
+			SHA:        onto.SHA,
+			Commits:    plan.Commits,
+			Merged:     onto.Merged,
+			Pushed:     pushed,
+			Retargeted: retargeted,
 		},
 	})
 
 	return nil
 }
 
-// recordOnto records the child's new fork point, or clears its parent once the parent merged.
-func (s *Service) recordOnto(ctx context.Context, task taskstore.Task, onto cascadeOnto) error {
+// recordOnto records the child's new fork point, or leaves its parent once the parent merged, reporting
+// whether the child's pull request targets where its commits now sit.
+func (s *Service) recordOnto(ctx context.Context, task taskstore.Task, onto cascadeOnto) (bool, error) {
 	if onto.Merged {
-		return s.tasks.SetParent(ctx, task.ID, nil)
+		return s.leaveParent(ctx, task, onto.Branch)
 	}
 
-	return s.tasks.SetForkPoint(ctx, task.ID, onto.SHA)
+	return true, s.tasks.SetForkPoint(ctx, task.ID, onto.SHA)
+}
+
+// leaveParent points the child's open pull request at the base branch and clears its parent, reporting
+// whether the pull request, when it has one, now targets the base branch.
+func (s *Service) leaveParent(ctx context.Context, task taskstore.Task, base string) (bool, error) {
+	retargeted, err := s.retarget(ctx, task, base)
+	if err != nil {
+		return false, err
+	}
+
+	return retargeted, s.tasks.SetParent(ctx, task.ID, nil)
+}
+
+// retarget points the child's open pull request at the base branch through its forge, reporting whether
+// it now targets it, and logs a forge that refused.
+func (s *Service) retarget(ctx context.Context, task taskstore.Task, base string) (bool, error) {
+	own, err := s.readPullRequest(ctx, task, task.GetBranch())
+	if errors.Is(err, store.ErrNotFound) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if own.IsFinished() || own.BaseBranch == base {
+		return true, nil
+	}
+
+	host, f, err := s.forges.ForAddress(ctx, own.URL)
+	if err == nil {
+		err = f.SetBase(ctx, own.URL, base)
+	}
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to point a child's pull request at the base branch",
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+
+		return false, nil
+	}
+	s.pullRequestSync.ReadOften(host)
+
+	return true, nil
 }
 
 // settleRetarget settles a re-target onto the base branch that stopped on conflicts once the writer
@@ -360,7 +425,11 @@ func (s *Service) settleRetarget(ctx context.Context, task taskstore.Task) (bool
 		return false, err
 	}
 	if finished {
-		if err := s.tasks.SetParent(ctx, task.ID, nil); err != nil {
+		flow, err := s.workflows.Get(ctx, task.WorkflowID)
+		if err != nil {
+			return false, err
+		}
+		if _, err := s.leaveParent(ctx, task, flow.Worktree.BaseBranch); err != nil {
 			return false, err
 		}
 	}
@@ -526,7 +595,7 @@ func (s *Service) pushCascade(ctx context.Context, task taskstore.Task) bool {
 	}
 
 	ctx = context.WithoutCancel(ctx)
-	defer s.heat(task)
+	defer s.readOften(task)
 
 	if _, err := s.git.Push(ctx, git.PushParams{Dir: task.Checkout.Cwd, Branch: branch, Force: true}); err != nil {
 		logPushCascadeFailed(ctx, task, err)

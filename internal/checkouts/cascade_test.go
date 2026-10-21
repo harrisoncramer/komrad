@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/internal/store"
@@ -38,9 +39,12 @@ func TestCascade(t *testing.T) {
 		// wantParent is the parent read back after the pass, nil once the task is on the base branch.
 		wantParent *taskstore.Parent
 		wantCalls  []string
+		// forgeErr is what the forge answers a re-target of the child's pull request with.
+		forgeErr error
 		// wantPush is whether komrad force-pushed the branch.
-		wantPush bool
-		wantMail string
+		wantPush       bool
+		wantMail       string
+		wantRetargeted []retargeted
 	}{
 		{
 			name: "a parent whose newest commit is the fork point leaves the child alone",
@@ -220,7 +224,34 @@ func TestCascade(t *testing.T) {
 				return newChildGit(parentBranch, "newtip")
 			},
 			wantCalls: []string{"park", "rebaseOnto"},
-			wantMail:  "parent merged into main. Komrad rebased your 2 commits onto main. Point your pull request at main.",
+			wantMail:  "parent merged into main. Komrad rebased your 2 commits onto main.\n\n",
+		},
+		{
+			name: "a merged parent pull request has the child's pull request pointed at the base branch",
+			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+				seedParentPullRequest(t, fixture, seeded, "MERGED")
+				seedChildPullRequest(t, fixture, seeded)
+			},
+			mover: func(parentBranch string) *gittest.Mover {
+				return newChildGit(parentBranch, "newtip")
+			},
+			wantCalls:      []string{"park", "rebaseOnto"},
+			wantRetargeted: []retargeted{{url: pushRepository + "/pull/2", base: "main"}},
+			wantMail:       "parent merged into main. Komrad rebased your 2 commits onto main.\n\n",
+		},
+		{
+			name: "a child's pull request the forge will not point at the base branch is left to the writer",
+			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+				seedParentPullRequest(t, fixture, seeded, "MERGED")
+				seedChildPullRequest(t, fixture, seeded)
+			},
+			mover: func(parentBranch string) *gittest.Mover {
+				return newChildGit(parentBranch, "newtip")
+			},
+			forgeErr:       forge.ErrNotRetargetable,
+			wantCalls:      []string{"park", "rebaseOnto"},
+			wantRetargeted: []retargeted{{url: pushRepository + "/pull/2", base: "main"}},
+			wantMail:       "Komrad could not point your pull request at main, so point it there yourself.",
 		},
 		{
 			name: "a rebased branch origin already holds is force-pushed",
@@ -250,6 +281,7 @@ func TestCascade(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			seeded := fixture.seedTaskOnParent(t, tt.writer)
+			fixture.forges.err = tt.forgeErr
 			if tt.seed != nil {
 				tt.seed(t, fixture, seeded)
 			}
@@ -269,6 +301,7 @@ func TestCascade(t *testing.T) {
 				assert.NotContains(t, mover.Calls, "rebaseOnto", "nothing is rebased")
 			}
 			assert.Equal(t, tt.wantPush, len(mover.Pushed) == 1 && mover.Pushed[0].Force)
+			assert.Equal(t, tt.wantRetargeted, fixture.forges.retargeted)
 
 			inbox := fixture.readInbox(t, seeded.writer.ID)
 			if tt.wantMail == "" {
@@ -278,6 +311,47 @@ func TestCascade(t *testing.T) {
 			}
 			require.Len(t, inbox, 1)
 			assert.Contains(t, inbox[0], tt.wantMail)
+		})
+	}
+}
+
+// TestCascadeMerged covers moving the children of a pull request komrad merged before the pull request
+// sync reads it merged.
+func TestCascadeMerged(t *testing.T) {
+	tests := []struct {
+		name       string
+		merged     string
+		wantParent bool
+		wantCalls  []string
+	}{
+		{
+			name:      "the parent's pull request has the child rebased onto the base branch",
+			merged:    pushRepository + "/pull/1",
+			wantCalls: []string{"park", "rebaseOnto"},
+		},
+		{
+			name:       "another pull request leaves the child alone",
+			merged:     pushRepository + "/pull/9",
+			wantParent: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fixture := newRebaseFixture(t)
+			seeded := fixture.seedTaskOnParent(t, agentstore.Agent{})
+			seedParentPullRequest(t, fixture, seeded, "OPEN")
+			mover := newChildGit(seeded.parent.GetBranch(), "newtip")
+
+			require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).CascadeMerged(t.Context(), tt.merged))
+
+			got, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantParent, got.Parent != nil)
+			assert.Subset(t, mover.Calls, tt.wantCalls)
+			if tt.wantCalls == nil {
+				assert.NotContains(t, mover.Calls, "rebaseOnto", "nothing is rebased")
+			}
 		})
 	}
 }
@@ -435,6 +509,21 @@ func seedParentPullRequest(t *testing.T, fixture *rebaseFixture, seeded taskOnPa
 		HeadSHA:       "newtip",
 		BaseBranch:    "main",
 		State:         state,
+	})
+}
+
+// seedChildPullRequest stores an open pull request from the child's branch onto the parent's.
+func seedChildPullRequest(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+	t.Helper()
+
+	child, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
+	require.NoError(t, err)
+	fixture.stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+		RepositoryURL: pushRepository,
+		Number:        2,
+		HeadBranch:    child.GetBranch(),
+		HeadSHA:       "pushedsha",
+		BaseBranch:    seeded.parent.GetBranch(),
 	})
 }
 

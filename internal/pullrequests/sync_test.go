@@ -92,6 +92,8 @@ func (f *scriptedForge) Merge(context.Context, forge.MergeParams) error { return
 
 func (f *scriptedForge) SetDraft(context.Context, string, bool) error { return nil }
 
+func (f *scriptedForge) SetBase(context.Context, string, string) error { return nil }
+
 func (f *scriptedForge) SetAutoMerge(context.Context, forge.SetAutoMergeParams) error { return nil }
 
 func (f *scriptedForge) RequestRereview(context.Context, string) error { return nil }
@@ -472,7 +474,7 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 			name: "a write on the host",
 			held: pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
 			after: func(_ *testing.T, f *syncFixture, _ string) {
-				f.syncer.Heat("github.com")
+				f.syncer.ReadOften("github.com")
 			},
 			wantRead: true,
 		},
@@ -480,7 +482,7 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 			name: "a write on another host",
 			held: pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
 			after: func(_ *testing.T, f *syncFixture, _ string) {
-				f.syncer.Heat("gitlab.com")
+				f.syncer.ReadOften("gitlab.com")
 			},
 		},
 		{

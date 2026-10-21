@@ -1,0 +1,5 @@
+mutation SetBase($id: ID!, $base: String!) {
+  updatePullRequest(input: {pullRequestId: $id, baseRefName: $base}) {
+    clientMutationId
+  }
+}

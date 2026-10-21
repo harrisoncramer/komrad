@@ -255,7 +255,7 @@ func TestPushSendsTheBranch(t *testing.T) {
 				Force:  tt.wantPlan.Forced,
 			}}, tt.pusher.Pushed)
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
-			assert.Equal(t, []string{"github.com"}, fixture.pullRequestSync.Heated)
+			assert.Equal(t, []string{"github.com"}, fixture.pullRequestSync.HostsReadOften)
 
 			inbox := fixture.readInbox(t, agent.ID)
 			if !tt.wantMailed {

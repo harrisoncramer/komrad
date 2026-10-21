@@ -32,6 +32,9 @@ var ErrNoMergeMethod = fail.InvalidArgument("the forge has no such merge method"
 // ErrNotDraftable says the forge refused to change whether a pull request is a draft.
 var ErrNotDraftable = fail.Precondition("the forge will not change whether the pull request is a draft")
 
+// ErrNotRetargetable says the forge refused to change a pull request's base branch.
+var ErrNotRetargetable = fail.Precondition("the forge will not change the pull request's base branch")
+
 // ErrNoAutoMerge says the forge refused to turn auto-merge on or off for a pull request.
 var ErrNoAutoMerge = fail.Precondition("the forge will not change auto-merge on the pull request")
 
@@ -338,6 +341,8 @@ type Forge interface {
 	Merge(ctx context.Context, params MergeParams) error
 	// SetDraft marks the pull request at the web address a draft, or ready for review.
 	SetDraft(ctx context.Context, url string, draft bool) error
+	// SetBase points the pull request at the web address at another base branch.
+	SetBase(ctx context.Context, url, base string) error
 	// SetAutoMerge asks the forge to merge the pull request once its checks and reviews pass, or
 	// stops it from doing so.
 	SetAutoMerge(ctx context.Context, params SetAutoMergeParams) error

@@ -213,6 +213,28 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		LoadConfig: loadConfig,
 	})
 
+	checkoutService := checkouts.NewService(checkouts.NewServiceParams{
+		Agents:          st.agents,
+		Tasks:           st.tasks,
+		TaskFinder:      taskService,
+		Workflows:       st.workflows,
+		Settler:         settler,
+		Events:          queue,
+		Git:             gitClient,
+		PullRequests:    st.pullRequests,
+		Forges:          pullRequestGroup.forge,
+		Locks:           checkoutLocks,
+		Tx:              st.pool,
+		CheckoutSync:    wakers.cwdSync,
+		PullRequestSync: pullRequestGroup.sync,
+	})
+	pullRequestGroup.writer = pullrequests.NewWriter(pullrequests.NewWriterParams{
+		Forges:       pullRequestGroup.forge,
+		Sync:         pullRequestGroup.sync,
+		PullRequests: st.pullRequests,
+		Cascade:      checkoutService,
+	})
+
 	return &services{
 		loadConfig: loadConfig,
 		queue:      queue,
@@ -266,20 +288,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		pullRequests: pullRequestGroup,
 		git:          gitClient,
 		checkouts: checkoutServices{
-			service: checkouts.NewService(checkouts.NewServiceParams{
-				Agents:          st.agents,
-				Tasks:           st.tasks,
-				TaskFinder:      taskService,
-				Workflows:       st.workflows,
-				Settler:         settler,
-				Events:          queue,
-				Git:             gitClient,
-				PullRequests:    st.pullRequests,
-				Locks:           checkoutLocks,
-				Tx:              st.pool,
-				CheckoutSync:    wakers.cwdSync,
-				PullRequestSync: pullRequestGroup.sync,
-			}),
+			service: checkoutService,
 			cwdSync: checkouts.NewCwdSyncer(checkouts.NewCwdSyncerParams{
 				Tasks:        st.tasks,
 				Heads:        gitClient,
@@ -562,11 +571,6 @@ func buildPullRequests(params buildPullRequestsParams) pullRequestServices {
 			}),
 		}),
 		lister: pullrequests.NewLister(pullrequests.NewListerParams{PullRequests: st.pullRequests, StatusChecks: st.statusChecks}),
-		writer: pullrequests.NewWriter(pullrequests.NewWriterParams{
-			Forges:       forgeService,
-			Sync:         pullRequestSyncer,
-			PullRequests: st.pullRequests,
-		}),
 	}
 }
 

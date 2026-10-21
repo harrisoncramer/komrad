@@ -35,8 +35,8 @@ const paceSlack = time.Second
 type pacing struct {
 	mu           sync.Mutex
 	repositories map[string]*repositoryPace
-	// heated is when komrad last wrote to a pull request on each host.
-	heated map[string]time.Time
+	// wroteAt is when komrad last wrote to a pull request on each host.
+	wroteAt map[string]time.Time
 	// slowed is when each host's budget comes back after it ran low.
 	slowed map[string]time.Time
 	// woken says every repository is due on the next pass.
@@ -59,7 +59,7 @@ type repositoryPace struct {
 func newPacing() *pacing {
 	return &pacing{
 		repositories: map[string]*repositoryPace{},
-		heated:       map[string]time.Time{},
+		wroteAt:      map[string]time.Time{},
 		slowed:       map[string]time.Time{},
 	}
 }
@@ -113,7 +113,7 @@ func (p *pacing) gapFor(last *repositoryPace, host string, now time.Time) time.D
 
 	hot := now.Before(last.hotUntil) ||
 		now.Sub(last.movedAt) < movedHotWithin ||
-		now.Sub(p.heated[host]) < movedHotWithin
+		now.Sub(p.wroteAt[host]) < movedHotWithin
 	if hot {
 		return hotGap
 	}
@@ -157,12 +157,12 @@ func (p *pacing) record(repository candidate) *repositoryPace {
 	return last
 }
 
-// heat keeps every repository on the host hot for a while from now.
-func (p *pacing) heat(host string, now time.Time) {
+// readOften keeps every repository on the host hot for a while from now.
+func (p *pacing) readOften(host string, now time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.heated[host] = now
+	p.wroteAt[host] = now
 }
 
 // slow keeps every repository on the host in the slow lane until the moment.

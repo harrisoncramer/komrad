@@ -6,7 +6,7 @@ type Waker interface {
 	Wake()
 }
 
-// Heater keeps a background loop reading a host often for a while.
-type Heater interface {
-	Heat(host string)
+// HostReader is a background loop that reads a host often for a while when asked.
+type HostReader interface {
+	ReadOften(host string)
 }

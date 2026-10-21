@@ -1,6 +1,7 @@
 package checkouts
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/events/eventstest"
+	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	"komrad/internal/harness"
@@ -36,6 +38,29 @@ type rebaseFixture struct {
 	workflowID      string
 	checkoutSync    *waketest.Counter
 	pullRequestSync *waketest.Counter
+	forges          *retargetingForge
+}
+
+// retargetingForge points each pull request at another base branch, recording it, and answers err.
+type retargetingForge struct {
+	forge.Forge
+	err        error
+	retargeted []retargeted
+}
+
+type retargeted struct {
+	url  string
+	base string
+}
+
+func (f *retargetingForge) ForAddress(context.Context, string) (string, forge.Forge, error) {
+	return "github.com", f, nil
+}
+
+func (f *retargetingForge) SetBase(_ context.Context, url, base string) error {
+	f.retargeted = append(f.retargeted, retargeted{url: url, base: base})
+
+	return f.err
 }
 
 // TestRebaseRefusals covers every state of the task a rebase declines.
@@ -310,10 +335,11 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 // TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes covers re-targeting a child onto the workflow's base branch.
 func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 	tests := []struct {
-		name       string
-		replayErr  error
-		wantErr    bool
-		wantParent bool
+		name           string
+		replayErr      error
+		wantErr        bool
+		wantParent     bool
+		wantRetargeted []retargeted
 	}{
 		{
 			name:       "a re-target that fails keeps the parent",
@@ -327,7 +353,8 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			wantParent: true,
 		},
 		{
-			name: "a re-target that finishes clears the parent",
+			name:           "a re-target that finishes clears the parent and points the pull request at the base branch",
+			wantRetargeted: []retargeted{{url: pushRepository + "/pull/2", base: "main"}},
 		},
 	}
 
@@ -335,6 +362,7 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			laid := fixture.seedTaskOnParent(t, agentstore.Agent{})
+			seedChildPullRequest(t, fixture, laid)
 			rebaser := newChildGit(laid.parent.GetBranch(), "newtip")
 			rebaser.Prediction = git.Prediction{Replay: 2}
 			rebaser.ReplayErr = tt.replayErr
@@ -349,6 +377,7 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			got, err := fixture.stores.Tasks.Get(t.Context(), laid.task)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantParent, got.Parent != nil)
+			assert.Equal(t, tt.wantRetargeted, fixture.forges.retargeted)
 		})
 	}
 }
@@ -687,6 +716,7 @@ func newRebaseFixture(t *testing.T) *rebaseFixture {
 		stores:          stores,
 		checkoutSync:    &waketest.Counter{},
 		pullRequestSync: &waketest.Counter{},
+		forges:          &retargetingForge{},
 		events:          eventstest.NewQueue(t, stores, NewEventHandler(), NewPushedHandler(), NewAbortedHandler(), NewCascadedHandler()),
 		workflowID: stores.SeedWorkflow(t, workflowstore.Config{
 			Name:     "flow",
@@ -749,6 +779,9 @@ func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 		params.PullRequestSync = f.pullRequestSync
 	}
 	params.PullRequests = f.stores.PullRequests
+	if params.Forges == nil {
+		params.Forges = f.forges
+	}
 
 	return NewService(params)
 }

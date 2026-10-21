@@ -76,9 +76,9 @@ func (s *PullRequestSyncer) Wake() {
 	s.loop.Wake()
 }
 
-// Heat keeps every repository on the host in the fast lane for a while.
-func (s *PullRequestSyncer) Heat(host string) {
-	s.pacing.heat(host, s.now())
+// ReadOften keeps every repository on the host in the fast lane for a while.
+func (s *PullRequestSyncer) ReadOften(host string) {
+	s.pacing.readOften(host, s.now())
 }
 
 // Sync reads every due repository live agents sit on, and records which agents were seen beside

@@ -10,6 +10,7 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/events"
 	"komrad/internal/fail"
+	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	"komrad/internal/store"
@@ -73,6 +74,11 @@ type agentSettler interface {
 	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
 }
 
+// forgeFinder is the forge a pull request is changed through, found by its address.
+type forgeFinder interface {
+	ForAddress(ctx context.Context, address string) (string, forge.Forge, error)
+}
+
 // eventRecorder queues the event that tells an agent what became of its worktree.
 type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
@@ -113,10 +119,11 @@ type NewServiceParams struct {
 	Events          eventRecorder
 	Git             branchMover
 	PullRequests    *pullrequeststore.PullRequestStore
+	Forges          forgeFinder
 	Locks           *TreeLocks
 	Tx              txRunner
 	CheckoutSync    wake.Waker
-	PullRequestSync wake.Heater
+	PullRequestSync wake.HostReader
 }
 
 // Service rebases, pushes and aborts in a task's existing worktree on a person's say-so.
@@ -129,10 +136,11 @@ type Service struct {
 	events          eventRecorder
 	git             branchMover
 	pullRequests    *pullrequeststore.PullRequestStore
+	forges          forgeFinder
 	locks           *TreeLocks
 	tx              txRunner
 	checkoutSync    wake.Waker
-	pullRequestSync wake.Heater
+	pullRequestSync wake.HostReader
 }
 
 // NewService builds the service from its dependencies.
@@ -151,6 +159,7 @@ func NewService(params NewServiceParams) *Service {
 		events:          params.Events,
 		git:             params.Git,
 		pullRequests:    params.PullRequests,
+		forges:          params.Forges,
 		locks:           locks,
 		tx:              params.Tx,
 		checkoutSync:    params.CheckoutSync,

@@ -21,6 +21,8 @@ type CascadeRebased struct {
 	// Merged says the parent merged, so the child is now on the base branch.
 	Merged bool
 	Pushed bool
+	// Retargeted says the child's pull request, when it has one, now targets Onto.
+	Retargeted bool
 }
 
 // Kind is the kind the cascade's mail is filed under.
@@ -46,7 +48,10 @@ func (m CascadeRebased) Body() string {
 
 	body := fmt.Sprintf("%s moved to %s. Komrad rebased your %d commits onto it%s.", m.Parent, xsha.Short(m.SHA), m.Commits, pushed)
 	if m.Merged {
-		body = fmt.Sprintf("%s merged into %s. Komrad rebased your %d commits onto %s%s. Point your pull request at %s.", m.Parent, m.Onto, m.Commits, m.Onto, pushed, m.Onto)
+		body = fmt.Sprintf("%s merged into %s. Komrad rebased your %d commits onto %s%s.", m.Parent, m.Onto, m.Commits, m.Onto, pushed)
+		if !m.Retargeted {
+			body += fmt.Sprintf(" Komrad could not point your pull request at %s, so point it there yourself.", m.Onto)
+		}
 	}
 
 	return body + "\n\nYour files may have changed under you. Read them again rather than trusting what you remember."
