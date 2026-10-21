@@ -98,7 +98,7 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		case worktrees.FateDeleting:
 			tearing = append(tearing, dir)
 		case worktrees.FateLive:
-			refused = append(refused, worktrees.Refusal{Dir: dir, Reason: fmt.Sprintf("task %s is live; archive it first", worktree.Task.Slug)})
+			refused = append(refused, worktrees.Refusal{Dir: dir, Reason: worktrees.RefusedTaskLive, TaskSlug: worktree.Task.Slug})
 		case worktrees.FateArchived:
 			refused = append(refused, worktree.RefuseForTask())
 		}
@@ -114,10 +114,10 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		}
 		for _, refusal := range removal.Refused {
 			switch {
-			case refusal.Failed:
-				failed = append(failed, fmt.Errorf("%s: %s", refusal.Dir, refusal.Reason))
+			case refusal.Reason.Failed():
+				failed = append(failed, fmt.Errorf("%s: %s", refusal.Dir, describeRefusal(refusal)))
 			case hasAny(refusal.Dir, tearing):
-				failed = append(failed, fmt.Errorf("%s: %s; a task's teardown is still running under it", refusal.Dir, refusal.Reason))
+				failed = append(failed, fmt.Errorf("%s: %s; a task's teardown is still running under it", refusal.Dir, describeRefusal(refusal)))
 			default:
 				refused = append(refused, refusal)
 			}
@@ -126,7 +126,7 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 
 	left := make([]error, 0, len(refused))
 	for _, refusal := range refused {
-		err := fmt.Errorf("%s was left alone: %s", refusal.Dir, refusal.Reason)
+		err := fmt.Errorf("%s was left alone: %s", refusal.Dir, describeRefusal(refusal))
 		w.logger.LogAttrs(ctx, slog.LevelWarn, "left a worktree alone",
 			append([]slog.Attr{slog.String(logging.FilePath, refusal.Dir)}, logging.Err(err)...)...)
 		left = append(left, err)
@@ -139,6 +139,38 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 	}
 
 	return nil
+}
+
+// describeRefusal words why a removal left a directory alone.
+func describeRefusal(refusal worktrees.Refusal) string {
+	switch refusal.Reason {
+	case worktrees.RefusedOutside:
+		return "it is not under the worktree directories"
+	case worktrees.RefusedUnlisted:
+		return "the listing does not hold it"
+	case worktrees.RefusedTaskHolds:
+		return fmt.Sprintf("task %s holds it; delete the task instead", refusal.TaskSlug)
+	case worktrees.RefusedTaskLive:
+		return fmt.Sprintf("task %s is live; archive it first", refusal.TaskSlug)
+	case worktrees.RefusedTaskDeleting:
+		return fmt.Sprintf("task %s is being deleted, which takes it", refusal.TaskSlug)
+	case worktrees.RefusedAgentInside:
+		return fmt.Sprintf("agent %s is working in it; delete the agent instead", refusal.AgentName)
+	case worktrees.RefusedAgentBeneath:
+		return fmt.Sprintf("agent %s is working under it; delete the agent instead", refusal.AgentName)
+	case worktrees.RefusedNestsWorktree:
+		return fmt.Sprintf("it holds the worktree %s; remove that first", refusal.NestedDir)
+	case worktrees.RefusedUnresolved:
+		return fmt.Sprint(refusal.Err)
+	case worktrees.RefusedListFailed:
+		return fmt.Sprintf("could not list the worktrees of its repository: %v", refusal.Err)
+	case worktrees.RefusedUnlockFailed:
+		return fmt.Sprintf("could not unlock it: %v", refusal.Err)
+	case worktrees.RefusedRemoveFailed:
+		return fmt.Sprintf("could not remove it: %v", refusal.Err)
+	}
+
+	return ""
 }
 
 // deepestFirst groups the directories by depth with the deepest group first.

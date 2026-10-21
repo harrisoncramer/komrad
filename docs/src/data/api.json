@@ -10916,13 +10916,53 @@
         },
         {
           "name": "reason",
+          "type": "RefusalReason",
+          "ref": "worktree.v1.RefusalReason",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Why the worktree was kept."
+        },
+        {
+          "name": "task_slug",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "Why the worktree was kept, in one sentence."
+          "description": "The task the reason names. Empty unless the reason is about a task."
+        },
+        {
+          "name": "agent_name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The agent the reason names. Empty unless the reason is about an agent."
+        },
+        {
+          "name": "nested_dir",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The worktree inside this one. Empty unless the reason is `REFUSAL_REASON_NESTS_WORKTREE`."
+        },
+        {
+          "name": "error",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "What failed. Empty unless a step broke."
         }
       ]
     },
@@ -11647,6 +11687,60 @@
         {
           "name": "VIEW_FULL",
           "description": "Every field in full, however long."
+        }
+      ]
+    },
+    "worktree.v1.RefusalReason": {
+      "name": "RefusalReason",
+      "description": "RefusalReason is why komrad kept a worktree it was asked to remove.",
+      "values": [
+        {
+          "name": "REFUSAL_REASON_OUTSIDE",
+          "description": "The path is not under the worktree directories."
+        },
+        {
+          "name": "REFUSAL_REASON_UNLISTED",
+          "description": "The listing of the worktree directories does not hold the path."
+        },
+        {
+          "name": "REFUSAL_REASON_TASK_HOLDS",
+          "description": "The task `task_slug` names owns the worktree. Deleting the task removes it."
+        },
+        {
+          "name": "REFUSAL_REASON_TASK_LIVE",
+          "description": "The task `task_slug` names is live. Archiving it comes before deleting its worktree."
+        },
+        {
+          "name": "REFUSAL_REASON_TASK_DELETING",
+          "description": "The task `task_slug` names is being deleted, which removes the worktree."
+        },
+        {
+          "name": "REFUSAL_REASON_AGENT_INSIDE",
+          "description": "The agent `agent_name` names is working in the worktree."
+        },
+        {
+          "name": "REFUSAL_REASON_AGENT_BENEATH",
+          "description": "The agent `agent_name` names is working somewhere under the worktree."
+        },
+        {
+          "name": "REFUSAL_REASON_NESTS_WORKTREE",
+          "description": "The worktree `nested_dir` names sits inside this one. Removing that worktree comes first."
+        },
+        {
+          "name": "REFUSAL_REASON_UNRESOLVED",
+          "description": "Komrad could not resolve the path. `error` says why."
+        },
+        {
+          "name": "REFUSAL_REASON_LIST_FAILED",
+          "description": "Git could not list the worktrees of the worktree's repository. `error` says why."
+        },
+        {
+          "name": "REFUSAL_REASON_UNLOCK_FAILED",
+          "description": "Git could not unlock the worktree. `error` says why."
+        },
+        {
+          "name": "REFUSAL_REASON_REMOVE_FAILED",
+          "description": "Komrad could not remove the worktree's directory. `error` says why."
         }
       ]
     },

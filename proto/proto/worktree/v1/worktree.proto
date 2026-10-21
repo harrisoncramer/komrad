@@ -219,12 +219,50 @@ message RemoveUnownedWorktreesRequest {
   }];
 }
 
+// RefusalReason is why komrad kept a worktree it was asked to remove.
+enum RefusalReason {
+  // No reason was recorded. No refusal has this value.
+  REFUSAL_REASON_UNSPECIFIED = 0;
+  // The path is not under the worktree directories.
+  REFUSAL_REASON_OUTSIDE = 1;
+  // The listing of the worktree directories does not hold the path.
+  REFUSAL_REASON_UNLISTED = 2;
+  // The task `task_slug` names owns the worktree. Deleting the task removes it.
+  REFUSAL_REASON_TASK_HOLDS = 3;
+  // The task `task_slug` names is live. Archiving it comes before deleting its worktree.
+  REFUSAL_REASON_TASK_LIVE = 4;
+  // The task `task_slug` names is being deleted, which removes the worktree.
+  REFUSAL_REASON_TASK_DELETING = 5;
+  // The agent `agent_name` names is working in the worktree.
+  REFUSAL_REASON_AGENT_INSIDE = 6;
+  // The agent `agent_name` names is working somewhere under the worktree.
+  REFUSAL_REASON_AGENT_BENEATH = 7;
+  // The worktree `nested_dir` names sits inside this one. Removing that worktree comes first.
+  REFUSAL_REASON_NESTS_WORKTREE = 8;
+  // Komrad could not resolve the path. `error` says why.
+  REFUSAL_REASON_UNRESOLVED = 9;
+  // Git could not list the worktrees of the worktree's repository. `error` says why.
+  REFUSAL_REASON_LIST_FAILED = 10;
+  // Git could not unlock the worktree. `error` says why.
+  REFUSAL_REASON_UNLOCK_FAILED = 11;
+  // Komrad could not remove the worktree's directory. `error` says why.
+  REFUSAL_REASON_REMOVE_FAILED = 12;
+}
+
 // Refusal is a worktree komrad would not remove, and why.
 message Refusal {
   // The worktree's path.
   string dir = 1;
-  // Why the worktree was kept, in one sentence.
-  string reason = 2;
+  // Why the worktree was kept.
+  RefusalReason reason = 2;
+  // The task the reason names. Empty unless the reason is about a task.
+  string task_slug = 3;
+  // The agent the reason names. Empty unless the reason is about an agent.
+  string agent_name = 4;
+  // The worktree inside this one. Empty unless the reason is `REFUSAL_REASON_NESTS_WORKTREE`.
+  string nested_dir = 5;
+  // What failed. Empty unless a step broke.
+  string error = 6;
 }
 
 message RemoveUnownedWorktreesResponse {

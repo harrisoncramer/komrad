@@ -125,9 +125,7 @@ func (s *Handler) RemoveUnownedWorktrees(ctx context.Context, req *worktreev1.Re
 
 	return &worktreev1.RemoveUnownedWorktreesResponse{
 		Removed: removal.Removed,
-		Refused: xslice.Map(removal.Refused, func(refusal worktrees.Refusal) *worktreev1.Refusal {
-			return &worktreev1.Refusal{Dir: refusal.Dir, Reason: refusal.Reason}
-		}),
+		Refused: xslice.Map(removal.Refused, renderRefusal),
 	}, nil
 }
 
@@ -178,6 +176,52 @@ func renderFate(fate worktrees.Fate) worktreev1.WorktreeFate {
 	}
 
 	return worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED
+}
+
+func renderRefusal(refusal worktrees.Refusal) *worktreev1.Refusal {
+	rendered := &worktreev1.Refusal{
+		Dir:       refusal.Dir,
+		Reason:    renderRefusalReason(refusal.Reason),
+		TaskSlug:  refusal.TaskSlug,
+		AgentName: refusal.AgentName,
+		NestedDir: refusal.NestedDir,
+	}
+	if refusal.Err != nil {
+		rendered.Error = refusal.Err.Error()
+	}
+
+	return rendered
+}
+
+func renderRefusalReason(reason worktrees.RefusalReason) worktreev1.RefusalReason {
+	switch reason {
+	case worktrees.RefusedOutside:
+		return worktreev1.RefusalReason_REFUSAL_REASON_OUTSIDE
+	case worktrees.RefusedUnlisted:
+		return worktreev1.RefusalReason_REFUSAL_REASON_UNLISTED
+	case worktrees.RefusedTaskHolds:
+		return worktreev1.RefusalReason_REFUSAL_REASON_TASK_HOLDS
+	case worktrees.RefusedTaskLive:
+		return worktreev1.RefusalReason_REFUSAL_REASON_TASK_LIVE
+	case worktrees.RefusedTaskDeleting:
+		return worktreev1.RefusalReason_REFUSAL_REASON_TASK_DELETING
+	case worktrees.RefusedAgentInside:
+		return worktreev1.RefusalReason_REFUSAL_REASON_AGENT_INSIDE
+	case worktrees.RefusedAgentBeneath:
+		return worktreev1.RefusalReason_REFUSAL_REASON_AGENT_BENEATH
+	case worktrees.RefusedNestsWorktree:
+		return worktreev1.RefusalReason_REFUSAL_REASON_NESTS_WORKTREE
+	case worktrees.RefusedUnresolved:
+		return worktreev1.RefusalReason_REFUSAL_REASON_UNRESOLVED
+	case worktrees.RefusedListFailed:
+		return worktreev1.RefusalReason_REFUSAL_REASON_LIST_FAILED
+	case worktrees.RefusedUnlockFailed:
+		return worktreev1.RefusalReason_REFUSAL_REASON_UNLOCK_FAILED
+	case worktrees.RefusedRemoveFailed:
+		return worktreev1.RefusalReason_REFUSAL_REASON_REMOVE_FAILED
+	}
+
+	return worktreev1.RefusalReason_REFUSAL_REASON_UNSPECIFIED
 }
 
 func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {

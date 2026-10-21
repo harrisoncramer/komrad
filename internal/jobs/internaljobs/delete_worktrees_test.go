@@ -100,7 +100,7 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			name:        "the remover's refusal is cancelled rather than retried",
 			listing:     []worktrees.Worktree{{Dir: "/trees/orphan", Readable: true}},
 			dirs:        []string{"/trees/orphan"},
-			refused:     []worktrees.Refusal{{Dir: "/trees/orphan", Reason: "it holds the worktree /trees/orphan/nested; remove that first"}},
+			refused:     []worktrees.Refusal{{Dir: "/trees/orphan", Reason: worktrees.RefusedNestsWorktree, NestedDir: "/trees/orphan/nested"}},
 			wantRemoved: [][]string{{"/trees/orphan"}},
 			wantCancel:  true,
 			wantSaid:    "/trees/orphan was left alone: it holds the worktree",
@@ -111,8 +111,8 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 			dirs:    []string{"/trees/orphan"},
 			refused: []worktrees.Refusal{{
 				Dir:    "/trees/orphan",
-				Reason: "could not remove it: permission denied",
-				Failed: true,
+				Reason: worktrees.RefusedRemoveFailed,
+				Err:    errors.New("permission denied"),
 			}},
 			wantRemoved: [][]string{{"/trees/orphan"}},
 			wantErr:     true,
@@ -153,7 +153,7 @@ func TestDeleteWorktreesSendsEachDirectoryDownItsPath(t *testing.T) {
 				deletingWorktree("/trees/outer/inner"),
 			},
 			dirs:        []string{"/trees/outer", "/trees/outer/inner"},
-			refused:     []worktrees.Refusal{{Dir: "/trees/outer", Reason: "it holds the worktree /trees/outer/inner; remove that first"}},
+			refused:     []worktrees.Refusal{{Dir: "/trees/outer", Reason: worktrees.RefusedNestsWorktree, NestedDir: "/trees/outer/inner"}},
 			wantRemoved: [][]string{{"/trees/outer"}},
 			wantErr:     true,
 			wantSaid:    "a task's teardown is still running under it",
@@ -212,4 +212,81 @@ func TestDeleteWorktreesRetriesAListingItCannotRead(t *testing.T) {
 	var cancel *river.JobCancelError
 	assert.NotErrorAs(t, err, &cancel)
 	assert.Empty(t, fake.removed)
+}
+
+// TestDescribeRefusal covers the sentence the job logs for every reason the remover gives.
+func TestDescribeRefusal(t *testing.T) {
+	broke := errors.New("git is not on the path")
+	tests := []struct {
+		name    string
+		refusal worktrees.Refusal
+		want    string
+	}{
+		{
+			name:    "outside the worktree directories",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedOutside},
+			want:    "it is not under the worktree directories",
+		},
+		{
+			name:    "missing from the listing",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedUnlisted},
+			want:    "the listing does not hold it",
+		},
+		{
+			name:    "held by its task",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedTaskHolds, TaskSlug: "put-away"},
+			want:    "task put-away holds it; delete the task instead",
+		},
+		{
+			name:    "a live task's",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedTaskLive, TaskSlug: "worktree-view"},
+			want:    "task worktree-view is live; archive it first",
+		},
+		{
+			name:    "a task being deleted",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedTaskDeleting, TaskSlug: "going"},
+			want:    "task going is being deleted, which takes it",
+		},
+		{
+			name:    "an agent inside",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedAgentInside, AgentName: "reviewer"},
+			want:    "agent reviewer is working in it; delete the agent instead",
+		},
+		{
+			name:    "an agent beneath",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedAgentBeneath, AgentName: "under-agent"},
+			want:    "agent under-agent is working under it; delete the agent instead",
+		},
+		{
+			name:    "another worktree inside",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedNestsWorktree, NestedDir: "/trees/outer/inner"},
+			want:    "it holds the worktree /trees/outer/inner; remove that first",
+		},
+		{
+			name:    "a path that could not be resolved",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedUnresolved, Err: errors.New(`failed to resolve "/trees/missing"`)},
+			want:    `failed to resolve "/trees/missing"`,
+		},
+		{
+			name:    "registrations git could not list",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedListFailed, Err: broke},
+			want:    "could not list the worktrees of its repository: git is not on the path",
+		},
+		{
+			name:    "a lock git could not lift",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedUnlockFailed, Err: broke},
+			want:    "could not unlock it: git is not on the path",
+		},
+		{
+			name:    "a directory that could not be removed",
+			refusal: worktrees.Refusal{Reason: worktrees.RefusedRemoveFailed, Err: errors.New("permission denied")},
+			want:    "could not remove it: permission denied",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, describeRefusal(tt.refusal))
+		})
+	}
 }
