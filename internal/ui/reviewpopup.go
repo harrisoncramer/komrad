@@ -66,9 +66,9 @@ func (r reviewScreen) placeThread(m *model, body string) popupSlot {
 	return placePopup(r.popupAnchor(m), r.measurePopupStage(m), len(splitPopupRows(body))+2)
 }
 
-// isPopupMenu reports whether the menu stands in the review's popup rather than in a column of its own.
-func (m *model) isPopupMenu() bool {
-	return m.form.isMenu && m.screen == screenReview && !m.review.hold.atEditor && !m.isMessagesFocused()
+// isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
+func (m *model) isPopupForm() bool {
+	return m.form.isOpening() && m.screen == screenReview && !m.review.hold.atEditor && !m.isMessagesFocused()
 }
 
 // measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.

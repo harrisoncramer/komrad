@@ -149,7 +149,7 @@ func (m *model) columnSplit() (columnSplit, bool) {
 // screenColumnSplit is the split a screen's own block is rendered across, refused while a form is
 // up.
 func (m *model) screenColumnSplit() (columnSplit, bool) {
-	if (m.form.isOpening() && !m.isPopupMenu()) || m.isMessagesFocused() {
+	if (m.form.isOpening() && !m.isPopupForm()) || m.isMessagesFocused() {
 		return columnSplit{}, false
 	}
 
@@ -163,7 +163,7 @@ func (m *model) columnOf() (columnSpec, bool) {
 		return buildMessagesColumn(), true
 	}
 
-	if m.form.isOpening() && !m.isPopupMenu() {
+	if m.form.isOpening() && !m.isPopupForm() {
 		return formColumn(m.form.kind)
 	}
 

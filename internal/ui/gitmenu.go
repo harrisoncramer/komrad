@@ -39,71 +39,90 @@ var (
 // gitMenu is the git actions on a task's checkout and pull request.
 func gitMenu(m *model, task panel.Task) submenu {
 	taskID := task.ID
-	run := func(choice gitChoice) func(*model) tea.Cmd {
-		return func(m *model) tea.Cmd { return m.runGitChoice(taskID, choice) }
+
+	worktreeEntries := []submenuEntry{
+		{
+			label: rebaseLabel(m.listing, task),
+			keys:  m.keys.Git.Rebase,
+			isOff: worktreeRefusal(m.listing, task) != nil,
+			write: gitWrite(taskID, gitChoiceRebase),
+		},
+		{
+			label: "re-target onto base",
+			keys:  m.keys.Git.RebaseOntoBase,
+			isOff: rebaseOntoBaseRefusal(m.listing, task) != nil,
+			write: gitWrite(taskID, gitChoiceRebaseOntoBase),
+		},
+		{
+			label: "pick fork point",
+			keys:  m.keys.Git.PickForkPoint,
+			isOff: pickForkPointRefusal(m.listing, task) != nil,
+			open:  func(m *model) tea.Cmd { return m.openGitPickForkPoint(taskID) },
+		},
+		{
+			label: abortLabel(task),
+			keys:  m.keys.Git.Abort,
+			isOff: abortRefusal(m.listing, task) != nil,
+			open:  func(m *model) tea.Cmd { return m.openGitAbort(taskID) },
+		},
 	}
 
 	return submenu{
-		kind:  formGit,
-		title: "git",
-		entries: []submenuEntry{
-			{
-				label: rebaseLabel(m.listing, task),
-				keys:  m.keys.Git.Rebase,
-				isOff: worktreeRefusal(m.listing, task) != nil,
-				write: run(gitChoiceRebase),
-			},
-			{
-				label: "re-target onto base",
-				keys:  m.keys.Git.RebaseOntoBase,
-				isOff: rebaseOntoBaseRefusal(m.listing, task) != nil,
-				write: run(gitChoiceRebaseOntoBase),
-			},
-			{
-				label: "pick fork point",
-				keys:  m.keys.Git.PickForkPoint,
-				isOff: pickForkPointRefusal(m.listing, task) != nil,
-				open:  func(m *model) tea.Cmd { return m.openGitPickForkPoint(taskID) },
-			},
-			{
-				label: "push",
-				keys:  m.keys.Git.Push,
-				isOff: pushRefusal(m.listing, task) != nil,
-				write: run(gitChoicePush),
-			},
-			{
-				label: abortLabel(task),
-				keys:  m.keys.Git.Abort,
-				isOff: abortRefusal(m.listing, task) != nil,
-				open:  func(m *model) tea.Cmd { return m.openGitAbort(taskID) },
-			},
-			{
-				label: "open " + task.PullRequest.Abbrev(),
-				keys:  m.keys.Git.OpenPullRequest,
-				isOff: task.PullRequest.URL == "",
-				write: run(gitChoiceOpenPullRequest),
-			},
-			{
-				label: "copy " + task.PullRequest.Abbrev() + " url",
-				keys:  m.keys.Git.CopyPullRequestURL,
-				isOff: task.PullRequest.URL == "",
-				write: run(gitChoiceCopyPullRequestURL),
-			},
-			{
-				label: draftLabel(task),
-				keys:  m.keys.Git.ToggleDraft,
-				isOff: openPullRequestRefusal(task) != nil,
-				write: run(gitChoiceToggleDraft),
-			},
-			{
-				label: "re-request review",
-				keys:  m.keys.Git.RequestRereview,
-				isOff: rereviewRefusal(task) != nil,
-				write: run(gitChoiceRequestRereview),
-			},
-			nestedEntry("merge "+task.PullRequest.Abbrev(), m.keys.Git.Merge, mergeMenu(m, task)),
-		},
+		kind:    formGit,
+		title:   "git",
+		entries: slices.Concat(worktreeEntries, pullRequestEntries(m, task)),
 	}
+}
+
+// pullRequestGitMenu is the git menu holding only a task's pull request entries.
+func pullRequestGitMenu(m *model, task panel.Task) submenu {
+	return submenu{
+		kind:    formGit,
+		title:   "git",
+		entries: pullRequestEntries(m, task),
+	}
+}
+
+// pullRequestEntries are the git menu's entries that push a task's branch or act on its pull request.
+func pullRequestEntries(m *model, task panel.Task) []submenuEntry {
+	return []submenuEntry{
+		{
+			label: "push",
+			keys:  m.keys.Git.Push,
+			isOff: pushRefusal(m.listing, task) != nil,
+			write: gitWrite(task.ID, gitChoicePush),
+		},
+		{
+			label: "open " + task.PullRequest.Abbrev(),
+			keys:  m.keys.Git.OpenPullRequest,
+			isOff: task.PullRequest.URL == "",
+			write: gitWrite(task.ID, gitChoiceOpenPullRequest),
+		},
+		{
+			label: "copy " + task.PullRequest.Abbrev() + " url",
+			keys:  m.keys.Git.CopyPullRequestURL,
+			isOff: task.PullRequest.URL == "",
+			write: gitWrite(task.ID, gitChoiceCopyPullRequestURL),
+		},
+		{
+			label: draftLabel(task),
+			keys:  m.keys.Git.ToggleDraft,
+			isOff: openPullRequestRefusal(task) != nil,
+			write: gitWrite(task.ID, gitChoiceToggleDraft),
+		},
+		{
+			label: "re-request review",
+			keys:  m.keys.Git.RequestRereview,
+			isOff: rereviewRefusal(task) != nil,
+			write: gitWrite(task.ID, gitChoiceRequestRereview),
+		},
+		nestedEntry("merge "+task.PullRequest.Abbrev(), m.keys.Git.Merge, mergeMenu(m, task)),
+	}
+}
+
+// gitWrite is the write a git menu entry makes on a task.
+func gitWrite(taskID string, choice gitChoice) func(*model) tea.Cmd {
+	return func(m *model) tea.Cmd { return m.runGitChoice(taskID, choice) }
 }
 
 // worktreeRefusal returns the reason a task's worktree refuses an action, or nil when it allows one.
