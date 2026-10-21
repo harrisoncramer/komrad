@@ -343,18 +343,18 @@ func TestCascade(t *testing.T) {
 func TestCascadeMerged(t *testing.T) {
 	tests := []struct {
 		name       string
-		merged     string
+		mergedURL  string
 		wantParent bool
 		wantCalls  []string
 	}{
 		{
 			name:      "the parent's pull request has the child rebased onto the base branch",
-			merged:    pushRepository + "/pull/1",
+			mergedURL: pushRepository + "/pull/1",
 			wantCalls: []string{"park", "rebaseOnto"},
 		},
 		{
 			name:       "another pull request leaves the child alone",
-			merged:     pushRepository + "/pull/9",
+			mergedURL:  pushRepository + "/pull/9",
 			wantParent: true,
 		},
 	}
@@ -366,7 +366,7 @@ func TestCascadeMerged(t *testing.T) {
 			seedParentPullRequest(t, fixture, seeded, "OPEN")
 			mover := newChildGit(seeded.parent.GetBranch(), "newtip")
 
-			require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).CascadeMerged(t.Context(), tt.merged))
+			require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).CascadeMerged(t.Context(), tt.mergedURL))
 
 			got, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
 			require.NoError(t, err)

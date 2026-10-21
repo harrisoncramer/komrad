@@ -46,8 +46,8 @@ func (s *Service) CascadeMerged(ctx context.Context, address string) error {
 	return s.cascadeChildren(ctx, address)
 }
 
-// cascadeChildren brings each child up to date, only those whose parent pull request is at merged when it is set.
-func (s *Service) cascadeChildren(ctx context.Context, merged string) error {
+// cascadeChildren brings each child up to date, or only the children of the pull request at mergedURL when it is set.
+func (s *Service) cascadeChildren(ctx context.Context, mergedURL string) error {
 	children, err := s.tasks.ListChildren(ctx)
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (s *Service) cascadeChildren(ctx context.Context, merged string) error {
 
 	var errs []error
 	for _, task := range children {
-		if err := s.cascadeTask(ctx, task, merged); err != nil {
+		if err := s.cascadeTask(ctx, task, mergedURL); err != nil {
 			errs = append(errs, fmt.Errorf("failed to cascade task %q: %w", task.Slug, err))
 		}
 	}
@@ -63,9 +63,9 @@ func (s *Service) cascadeChildren(ctx context.Context, merged string) error {
 	return errors.Join(errs...)
 }
 
-// cascadeTask brings one child up to date with its parent, taking the parent pull request at merged,
-// when it is set, as merged and skipping a child whose parent pull request is another.
-func (s *Service) cascadeTask(ctx context.Context, task taskstore.Task, merged string) error {
+// cascadeTask brings one child up to date with its parent, treating the parent's pull request as merged
+// when it is at mergedURL.
+func (s *Service) cascadeTask(ctx context.Context, task taskstore.Task, mergedURL string) error {
 	if !task.Checkout.IsUsable() {
 		return nil
 	}
@@ -93,10 +93,10 @@ func (s *Service) cascadeTask(ctx context.Context, task taskstore.Task, merged s
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	if merged != "" && (pr == nil || pr.URL != merged) {
+	if mergedURL != "" && (pr == nil || pr.URL != mergedURL) {
 		return nil
 	}
-	parentMerged := pr != nil && (pr.MergedAt != nil || pr.URL == merged)
+	parentMerged := pr != nil && (pr.MergedAt != nil || pr.URL == mergedURL)
 	if pr != nil && !parentMerged && pr.ClosedAt != nil {
 		return s.tellParentClosed(ctx, task, *parent, *pr)
 	}
