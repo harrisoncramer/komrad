@@ -801,6 +801,36 @@ client_secret = ""
 # host, since a web server on the same machine carries the network's requests to it.
 addr          = "127.0.0.1:8788"
 
+# The process in front of a team's engines, which holds people's GitHub logins and runs the
+# forge proxy. Only `komrad control-plane serve` reads it.
+[control_plane]
+# The address the control plane's own endpoints listen on. It has to be a loopback host,
+# since a web server on the same machine carries the network's requests to it.
+addr             = "127.0.0.1:8790"
+# The address engines reach the forge proxy on, a loopback or private address. The forge
+# proxy speaks plain HTTP to engines and checks each one's forge proxy credential.
+forge_proxy_addr = "127.0.0.1:8789"
+# The PEM file holding the CA certificate the forge proxy signs GitHub's names with. Each
+# engine trusts it through forge_proxy.ca_file.
+ca_cert_file     = ""
+# The PEM file holding the CA's private key.
+ca_key_file      = ""
+# The client id of the GitHub OAuth app people authorize GitHub through.
+github_client_id = ""
+# Each engine the forge proxy takes requests from, written as "name=credential", such as
+# "harry=6f1c...". The engine's forge_proxy.url carries the same name and credential.
+engines          = []
+
+# The forge proxy a remote engine sends its GitHub requests through.
+[forge_proxy]
+# The forge proxy's address, with this engine's name and forge proxy credential as its user
+# and password, such as http://harry:6f1c...@10.0.1.5:8789. Left empty, the engine reaches
+# GitHub directly with its own credentials.
+url     = ""
+# The PEM file holding the control plane's CA certificate, which the forge proxy's
+# certificate for GitHub's names is signed with.
+ca_file = ""
+
 # Which komrad this is, by its database, its address, its tmux socket and its cache.
 [connection]
 # The Postgres komrad keeps every agent, workflow, schedule and transcript in, reached as

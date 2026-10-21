@@ -216,3 +216,62 @@ func TestTheEngineReachesAccessOnlyThroughItsFunctions(t *testing.T) {
 		})
 	}
 }
+
+// TestTheOwnerReadsAGrantByAccountOrUnclaimedEmail pins the owner's grant check matching a claimed account, or a verified email nobody has claimed, on the engine named.
+func TestTheOwnerReadsAGrantByAccountOrUnclaimedEmail(t *testing.T) {
+	t.Parallel()
+
+	database := dbtest.New(t)
+	claimed := openEngine(t, dbtest.NewEngine(t, database))
+	unclaimed := openEngine(t, dbtest.NewEngine(t, database)).GetEngine().Name
+	grantAccess(t, database.OwnerURL, claimed.GetEngine().Name, "harry@example.com")
+	grantAccess(t, database.OwnerURL, unclaimed, "harry@example.com")
+	require.True(t, claimAccess(t, claimed.GetDB(), "harry@example.com", "first"))
+
+	grants, err := store.OpenGrantStore(t.Context(), database.OwnerURL)
+	require.NoError(t, err)
+	t.Cleanup(grants.Close)
+
+	tests := []struct {
+		name   string
+		params store.IsGrantedParams
+		want   bool
+	}{
+		{
+			name:   "the account that claimed it",
+			params: store.IsGrantedParams{Engine: claimed.GetEngine().Name, Issuer: issuer, Subject: "first"},
+			want:   true,
+		},
+		{
+			name:   "another account with the claimed email",
+			params: store.IsGrantedParams{Engine: claimed.GetEngine().Name, Email: "harry@example.com", EmailVerified: true, Issuer: issuer, Subject: "second"},
+		},
+		{
+			name:   "a verified email nobody claimed",
+			params: store.IsGrantedParams{Engine: unclaimed, Email: "Harry@Example.com", EmailVerified: true, Issuer: issuer, Subject: "second"},
+			want:   true,
+		},
+		{
+			name:   "an unverified email nobody claimed",
+			params: store.IsGrantedParams{Engine: unclaimed, Email: "harry@example.com", Issuer: issuer, Subject: "second"},
+		},
+		{
+			name:   "the account on another engine",
+			params: store.IsGrantedParams{Engine: unclaimed, Issuer: issuer, Subject: "first"},
+		},
+		{
+			name:   "an engine nobody ensured",
+			params: store.IsGrantedParams{Engine: "absent", Issuer: issuer, Subject: "first"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			granted, err := grants.IsGranted(t.Context(), tt.params)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, granted)
+		})
+	}
+}

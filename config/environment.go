@@ -93,6 +93,11 @@ func (e *Environment) RunLogsDir() string {
 	return filepath.Join(e.CacheDir, "komrad-run-logs")
 }
 
+// CommitIdentityPath is the git config file naming who an engine behind the forge proxy commits as.
+func (e *Environment) CommitIdentityPath() string {
+	return filepath.Join(e.StateDir, "git", "identity")
+}
+
 // FramesDir is where the pane captures are kept when debug mode is on, one directory per agent.
 func (e *Environment) FramesDir() string {
 	return filepath.Join(e.CacheDir, "komrad-frames")

@@ -206,6 +206,30 @@ func (q *Queries) ListForgeConnections(ctx context.Context) ([]*ForgeConnection,
 	return items, nil
 }
 
+const setForgeConnectionLogin = `-- name: SetForgeConnectionLogin :execrows
+UPDATE
+    forge_connections
+SET
+    login = $1,
+    verified_at = $2
+WHERE
+    id = $3
+`
+
+type SetForgeConnectionLoginParams struct {
+	Login      string
+	VerifiedAt *time.Time
+	ID         string
+}
+
+func (q *Queries) SetForgeConnectionLogin(ctx context.Context, arg SetForgeConnectionLoginParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setForgeConnectionLogin, arg.Login, arg.VerifiedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setForgeConnectionThrottledUntil = `-- name: SetForgeConnectionThrottledUntil :execrows
 UPDATE
     forge_connections
