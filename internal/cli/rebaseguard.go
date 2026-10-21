@@ -65,7 +65,7 @@ func startsRebase(line string) bool {
 
 	found := false
 	syntax.Walk(file, func(node syntax.Node) bool {
-		if call, ok := node.(*syntax.CallExpr); ok && rebases(gitArgs(literalWords(call.Args))) {
+		if call, ok := node.(*syntax.CallExpr); ok && rebases(stripGitOptions(expandLiterals(call.Args))) {
 			found = true
 		}
 
@@ -75,7 +75,7 @@ func startsRebase(line string) bool {
 	return found
 }
 
-func literalWords(words []*syntax.Word) []string {
+func expandLiterals(words []*syntax.Word) []string {
 	return xslice.Map(words, func(word *syntax.Word) string {
 		text, err := expand.Literal(nil, word)
 		if err != nil {
@@ -86,8 +86,8 @@ func literalWords(words []*syntax.Word) []string {
 	})
 }
 
-// gitArgs is what follows git's own options in a command's words, nil when the command does not run git.
-func gitArgs(words []string) []string {
+// stripGitOptions is what follows git's own options in a command's words, nil when the command does not run git.
+func stripGitOptions(words []string) []string {
 	for len(words) > 0 && (slices.Contains(commandWrappers, words[0]) || strings.Contains(words[0], "=")) {
 		words = words[1:]
 	}
