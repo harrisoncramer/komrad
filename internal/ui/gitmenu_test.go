@@ -99,6 +99,8 @@ func TestGitMenu(t *testing.T) {
 
 		frame := openGitMenu(t, buildGitAgent()...).readFrame()
 
+		require.Contains(t, frame, "abort")
+		require.Contains(t, frame, "push")
 		assert.Less(t, strings.Index(frame, "abort"), strings.Index(frame, "push"))
 	})
 
