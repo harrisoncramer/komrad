@@ -79,7 +79,7 @@ auto_compaction = 150000
 # leaving max_agents as the cap.
 max_tasks       = 0
 
-# Sets how much of the window the panel's sidebar, the stage beside it, and the info pane under the stage each take, and which side of the stage the info pane opens on.
+# Sets how much of the window the panel's sidebar, the stage beside it, and the info pane each take, and which side of the stage the info pane opens on.
 [layout]
 # The width, in columns, the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
 sidebar_width  = 47

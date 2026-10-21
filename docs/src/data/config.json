@@ -161,7 +161,7 @@
     },
     {
       "path": "layout",
-      "description": "Sets how much of the window the panel's sidebar, the stage beside it, and the info pane under the stage each take, and which side of the stage the info pane opens on.",
+      "description": "Sets how much of the window the panel's sidebar, the stage beside it, and the info pane each take, and which side of the stage the info pane opens on.",
       "settings": [
         {
           "key": "sidebar_width",
