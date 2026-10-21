@@ -81,9 +81,9 @@ func (r reviewScreen) isSearchTyping() bool {
 	return r.diff.filter.typing || r.filesFilter.typing
 }
 
-// isWriting reports whether the reader is composing a message or asking what to send.
+// isWriting reports whether the reader is composing a message.
 func (r reviewScreen) isWriting() bool {
-	return r.threads.composing || r.threads.releasing
+	return r.threads.composing
 }
 
 // isBusy reports whether the reader is part way through something a restart would lose.
@@ -99,8 +99,9 @@ func (r reviewScreen) isDiffFocused(m *model) bool {
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
 func (r *reviewScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	cmd := r.route(m, msg)
+	r.followWorld(m)
 
-	return tea.Batch(cmd, r.followWorld(m))
+	return cmd
 }
 
 func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {

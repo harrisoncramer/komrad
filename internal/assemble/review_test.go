@@ -26,6 +26,7 @@ func TestTaskRowsLocalReview(t *testing.T) {
 	tests := []struct {
 		name      string
 		reviews   []*agentv1.WatchedReview
+		threads   []*agentv1.ReviewThread
 		snapshots int32
 	}{
 		{
@@ -56,17 +57,35 @@ func TestTaskRowsLocalReview(t *testing.T) {
 			},
 			snapshots: 3,
 		},
+		{
+			name:      "the person's comment counts its snapshot",
+			threads:   []*agentv1.ReviewThread{on(thread("t1", "", false, false), 1)},
+			snapshots: 1,
+		},
+		{
+			name:    "a reviewer's thread counts only through its released review",
+			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 2, "", commented))},
+			threads: []*agentv1.ReviewThread{
+				on(byAgent(thread("t1", "v1", false, false)), 2),
+				on(thread("t2", "", false, false), 2),
+			},
+			snapshots: 1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			world := assemble.World{
-				Tasks:   tasks(task(newer)),
-				Reviews: map[string]*agentv1.WatchedReview{},
+				Tasks:         tasks(task(newer)),
+				Reviews:       map[string]*agentv1.WatchedReview{},
+				ReviewThreads: map[string]*agentv1.ReviewThread{},
 			}
 			for _, review := range tt.reviews {
 				world.Reviews[review.GetId()] = review
+			}
+			for _, thread := range tt.threads {
+				world.ReviewThreads[thread.GetId()] = thread
 			}
 
 			assert.Equal(t, tt.snapshots, assemble.TaskRows(world)["task-"+newer].LocalReviewSnapshots)
@@ -75,8 +94,9 @@ func TestTaskRowsLocalReview(t *testing.T) {
 }
 
 // TestTaskRowsCommentCounts pins how the comments on a task's work are counted: reviewer
-// agents apart from the person, open conversations on any snapshot, resolved ones only until their
-// snapshot lands, and nothing from a batch still being written.
+// agents apart from the person, the person's comments as soon as they are written, a reviewer's
+// only once its review is released, open conversations on any snapshot, and a reviewer's resolved
+// ones only until their snapshot lands.
 func TestTaskRowsCommentCounts(t *testing.T) {
 	t.Parallel()
 
@@ -91,51 +111,54 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 		wantPerson   *agentv1.CommentCounts
 	}{
 		{
-			name:    "a batch still being written draws nothing",
-			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, "", commented)},
-			threads: []*agentv1.ReviewThread{thread("t1", "v1", false, true)},
+			name:    "a reviewer's review still being written draws nothing",
+			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 1, "", commented))},
+			threads: []*agentv1.ReviewThread{byAgent(thread("t1", "v1", false, true))},
+		},
+		{
+			name:       "the person's comment counts the moment it is written",
+			threads:    []*agentv1.ReviewThread{thread("t1", "", false, false)},
+			wantPerson: &agentv1.CommentCounts{Open: 1},
 		},
 		{
 			name:    "a released review of a landed snapshot with every conversation resolved draws nothing",
-			reviews: []*agentv1.WatchedReview{landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed)},
-			threads: []*agentv1.ReviewThread{thread("t1", "v1", true, false)},
+			reviews: []*agentv1.WatchedReview{byReviewer(landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed))},
+			threads: []*agentv1.ReviewThread{byAgent(thread("t1", "v1", true, false))},
 		},
 		{
 			name:    "a released review with no comments draws nothing",
-			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, stamp(-time.Hour), commented)},
+			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 1, stamp(-time.Hour), commented))},
 		},
 		{
 			name: "an open conversation on a landed snapshot still counts",
 			reviews: []*agentv1.WatchedReview{
-				landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed),
+				byReviewer(landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed)),
 			},
 			threads: []*agentv1.ReviewThread{
-				thread("t1", "v1", false, false),
-				thread("t2", "v1", true, true),
+				byAgent(thread("t1", "v1", false, false)),
+				byAgent(thread("t2", "v1", true, true)),
 			},
-			wantPerson: &agentv1.CommentCounts{Open: 1},
+			wantReviewer: &agentv1.CommentCounts{Open: 1},
 		},
 		{
 			name: "a reviewer agent that left no comments draws nothing beside the person's",
 			reviews: []*agentv1.WatchedReview{
-				review("v1", newer, 1, stamp(-2*time.Hour), commented),
 				byReviewer(review("v2", newer, 1, stamp(-time.Hour), commented)),
 			},
-			threads:    []*agentv1.ReviewThread{thread("t1", "v1", false, false)},
+			threads:    []*agentv1.ReviewThread{thread("t1", "", false, false)},
 			wantPerson: &agentv1.CommentCounts{Open: 1},
 		},
 		{
 			name: "reviewer agents and the person are counted apart",
 			reviews: []*agentv1.WatchedReview{
-				review("v1", newer, 1, stamp(-2*time.Hour), commented),
 				byReviewer(review("v2", newer, 1, stamp(-time.Hour), commented)),
 			},
 			threads: []*agentv1.ReviewThread{
-				thread("t1", "v1", false, true),
-				thread("t2", "v1", true, true),
-				thread("t3", "v2", false, false),
-				thread("t4", "v2", false, false),
-				thread("t5", "v2", true, false),
+				thread("t1", "", false, true),
+				thread("t2", "", true, true),
+				byAgent(thread("t3", "v2", false, false)),
+				byAgent(thread("t4", "v2", false, false)),
+				byAgent(thread("t5", "v2", true, false)),
 			},
 			wantReviewer: &agentv1.CommentCounts{
 				Open:     2,
@@ -241,12 +264,27 @@ func thread(id, reviewID string, resolved, unread bool) *agentv1.ReviewThread {
 	thread := &agentv1.ReviewThread{
 		Id:            id,
 		TaskId:        "task-" + newer,
-		ReviewId:      reviewID,
 		UnreadByHuman: unread,
+	}
+	if reviewID != "" {
+		thread.ReviewId = xptr.Ptr(reviewID)
 	}
 	if resolved {
 		thread.ResolvedAt = stamp(-time.Minute)
 	}
+
+	return thread
+}
+
+func byAgent(thread *agentv1.ReviewThread) *agentv1.ReviewThread {
+	thread.AuthorKind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
+
+	return thread
+}
+
+func on(thread *agentv1.ReviewThread, ordinal int32) *agentv1.ReviewThread {
+	thread.SnapshotId = newer + "-snapshot-" + strconv.Itoa(int(ordinal))
+	thread.SnapshotOrdinal = ordinal
 
 	return thread
 }

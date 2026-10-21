@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -257,7 +258,7 @@ func countedThreads(count int) string {
 }
 
 // needRows is what waits on the person: replies they have not read, forge comments to pass on,
-// drafts not sent, and a count of their threads waiting on the writer.
+// and a count of their threads waiting on the writer.
 func (r reviewScreen) needRows() []sideRow {
 	var rows []sideRow
 	waiting := 0
@@ -275,12 +276,6 @@ func (r reviewScreen) needRows() []sideRow {
 		switch {
 		case isHeldThread(thread):
 			rows = append(rows, r.needRow(thread, "forge comment on", ""))
-		case holdsDraft(thread):
-			note := ""
-			if r.diff.View().IsGhosted(thread) {
-				note = "the code under this has changed"
-			}
-			rows = append(rows, r.needRow(thread, "draft on", note))
 		case isPersonThread(thread) && isWaitingOnWriter(thread):
 			waiting++
 		}
@@ -303,7 +298,7 @@ func (r reviewScreen) needRows() []sideRow {
 func (r reviewScreen) needRow(thread *agentv1.ReviewThread, said, note string) sideRow {
 	return sideRow{
 		sideCursor: sideCursor{kind: sideNeed, id: thread.GetId()},
-		text:       fmt.Sprintf("%s %s:%d", said, thread.GetFilePath(), thread.GetNewStart()),
+		text:       said + " " + diffview.FormatThreadLocation(thread),
 		note:       note,
 	}
 }
@@ -320,19 +315,11 @@ func isHeldThread(thread *agentv1.ReviewThread) bool {
 	return held
 }
 
-func holdsDraft(thread *agentv1.ReviewThread) bool {
-	return slices.ContainsFunc(thread.GetMessages(), func(message *agentv1.ReviewMessage) bool {
-		return message.GetDelivery() == agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
-	})
-}
-
-// isWaitingOnWriter reports whether the person spoke last on a thread and sent it.
+// isWaitingOnWriter reports whether the person spoke last on a thread.
 func isWaitingOnWriter(thread *agentv1.ReviewThread) bool {
 	said := thread.GetMessages()
-	last := said[len(said)-1]
 
-	return last.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN &&
-		last.GetDelivery() != agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
+	return said[len(said)-1].GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 }
 
 // descriptionRows is the pull request's title, and its description once opened.

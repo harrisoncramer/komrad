@@ -391,9 +391,9 @@ type JumpMenuKeys struct {
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
 // than configured.
 type ReviewKeys struct {
-	// From the menu, pass a held comment from the forge on to the writer, copied into your review as your own
-	// words. A comment is held when its author cannot push to the repository, and the writer
-	// reads nothing in its thread until the comment opening it is accepted and the review sent.
+	// From the menu, pass a held comment from the forge on to the writer, copied as your own words and
+	// released at once. A comment is held when its author cannot push to the repository, and the
+	// writer reads nothing in its thread until the comment opening it is accepted.
 	Accept []string `mapstructure:"accept" default:"A"`
 	// From the menu, show only the change that answered the comment under the cursor, from the work as
 	// it stood just before the writer's addressed reply to the work that reply carried, or
@@ -443,8 +443,6 @@ type ReviewKeys struct {
 	AgentThreads []string `mapstructure:"agent_threads" default:"b"`
 	// From the menu, settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve" default:"r"`
-	// From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.
-	Send []string `mapstructure:"send" default:"S"`
 	// On the file tree, open the folder the cursor rests on, or close it when it is open. Over the
 	// file tree, open the review of a task in the stack, go to a thread that needs you, or open the
 	// pull request's description.

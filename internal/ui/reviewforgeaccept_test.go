@@ -33,7 +33,7 @@ func TestReviewForgeAccept(t *testing.T) {
 				newHeldForgeComment("f2", "agreed"),
 			},
 			sent: []proto.Message{&agentv1.AcceptForgeMessageRequest{MessageId: "f2"}},
-			said: "accepted into your review",
+			said: "accepted, released to the writer",
 		},
 		{
 			name:     "a thread with nothing held offers no accept",
@@ -59,7 +59,7 @@ func TestReviewForgeAccept(t *testing.T) {
 }
 
 func newAcceptedCopy(id, from string) *agentv1.ReviewMessage {
-	message := newUnsentComment()
+	message := newReleasedComment("m1")
 	message.Id = id
 	message.AcceptedFrom = xptr.Ptr(from)
 

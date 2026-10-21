@@ -25,17 +25,17 @@ func TestGetHistoryPicksTheSnapshot(t *testing.T) {
 			wantSnapshots: 2,
 		},
 		{
-			name: "an open review holds nothing",
+			name: "a person's comment holds nothing",
 			arrange: func(t *testing.T, fx *reviewFixture) {
-				fx.writeComment(t, personAuthor, "this needs a nil check")
+				fx.releaseFirstComment(t)
 			},
 			wantOrdinal:   2,
 			wantSnapshots: 2,
 		},
 		{
-			name: "a released review holds nothing",
+			name: "a reviewer's open review holds nothing",
 			arrange: func(t *testing.T, fx *reviewFixture) {
-				fx.releaseFirstReview(t)
+				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 			},
 			wantOrdinal:   2,
 			wantSnapshots: 2,
@@ -83,7 +83,7 @@ func TestGetHistoryPicksTheSnapshot(t *testing.T) {
 // TestGetHistoryMeasuresFromTheLastReview covers the history read against the person's last review.
 func TestGetHistoryMeasuresFromTheLastReview(t *testing.T) {
 	fx := newReviewFixture(t)
-	thread := fx.releaseFirstReview(t)
+	thread := fx.releaseFirstComment(t)
 	fx.advanceTree(t)
 
 	got, err := fx.service.GetHistory(t.Context(), GetHistoryParams{

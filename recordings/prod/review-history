@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# An agent on the neovim workflow with a vim.text.truncate change reviewed twice by the person
-# and once by a reviewer agent, then one more commit nobody has read. The commits, comments and
+# An agent on the neovim workflow with a vim.text.truncate change commented on twice by the person
+# and reviewed once by a reviewer agent, then one more commit nobody has read. The commits, comments and
 # answers are written here rather than by Claude so every recording starts from the same diff.
 set -euo pipefail
 
@@ -106,7 +106,6 @@ LUA
 commit "feat(text): vim.text.truncate()"
 
 bytes="$(comment "" "$text" "if #s <= width then" "This counts bytes, not columns, so a string with wide or multibyte characters gets cut in the wrong place. vim.fn.strdisplaywidth() measures what the user sees.")"
-komrad rpc release-review --task "$task" >/dev/null
 
 cat "$base/text.lua" - >"$tree/$text" <<'LUA'
 --- Truncates {s} to at most {width} columns, ending it with {marker} when it was cut.
@@ -140,7 +139,6 @@ as "$reviewer" release-review --task "$task" --verdict REVIEW_VERDICT_CHANGES_RE
 	--body "The fix reads right. One test is missing." >/dev/null
 
 news="$(comment "" "$text" "--- Truncates {s}" "New public API wants a line in runtime/doc/news.txt too.")"
-komrad rpc release-review --task "$task" >/dev/null
 
 line="$(grep -n '^LUA$' "$tree/runtime/doc/news.txt" | head -1 | cut -d: -f1)"
 sed -i '' "$((line + 1))a\\

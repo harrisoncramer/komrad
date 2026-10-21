@@ -15,6 +15,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+	reviewstore "komrad/internal/store/review"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
@@ -63,12 +64,17 @@ type mailConfigReader interface {
 	GetMaxExchange() (int, error)
 }
 
+type txRunner interface {
+	InTx(ctx context.Context, fn func(store.DBTX) error) error
+}
+
 type NewMailServiceParams struct {
 	Mail      *mailstore.MailStore
 	Agents    *agentstore.AgentStore
 	Workflows *workflowstore.WorkflowStore
 	Config    mailConfigReader
 	Panes     paneReader
+	Tx        txRunner
 }
 
 type MailService struct {
@@ -77,6 +83,7 @@ type MailService struct {
 	workflows *workflowstore.WorkflowStore
 	config    mailConfigReader
 	panes     paneReader
+	tx        txRunner
 }
 
 // NewMailService builds the service that sends, claims and lists the mail agents leave for
@@ -88,6 +95,7 @@ func NewMailService(params NewMailServiceParams) *MailService {
 		workflows: params.Workflows,
 		config:    params.Config,
 		panes:     params.Panes,
+		tx:        params.Tx,
 	}
 }
 
@@ -261,7 +269,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		if prompts.AreAllMuted(params.Mail.Events()) {
 			return nil, ErrNothingUnread
 		}
-		if err := s.requireRoom(ctx, *recipient); err != nil {
+		if err := s.requireRoomFor(ctx, *recipient, kind); err != nil {
 			return nil, err
 		}
 	}
@@ -282,6 +290,16 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		Events:    carried,
 		Deadline:  deadline,
 	})
+}
+
+// requireRoomFor refuses mail to a full mailbox, except a person's comment on the recipient's work,
+// which the person's own mail never counts against.
+func (s *MailService) requireRoomFor(ctx context.Context, recipient agentstore.Agent, kind mailstore.Kind) error {
+	if kind == mailstore.KindReviewComment {
+		return nil
+	}
+
+	return s.requireRoom(ctx, recipient)
 }
 
 // InTx is this service writing mail through a transaction.
@@ -455,8 +473,63 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 	}
 }
 
-// ClaimMail takes the mail waiting for an agent, emptying its mailbox rather than showing it.
-func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
+// ListWaitingMail is the mail waiting for an agent, as much of it as one claim takes, oldest
+// first, without claiming any of it.
+func (s *MailService) ListWaitingMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
+	agent, err := s.getAgent(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.mail.ListWaiting(ctx, agent.ID, maxClaimedMail)
+}
+
+// ClaimMailParams is the waiting mail an agent takes and the snapshot it is read on.
+type ClaimMailParams struct {
+	AgentID string
+	// IDs is the mail to claim, as ListWaitingMail listed it.
+	IDs []string
+	// ReadSnapshotID is the snapshot taken of the agent's task before the claim, which the comments
+	// its review_comment mail carries are read on, nil when the task has no worktree.
+	ReadSnapshotID *string
+}
+
+// ClaimMail takes the given mail waiting for an agent, emptying it from the mailbox rather than
+// showing it, and in the same transaction stamps the comments its review_comment mail carries as
+// read on the snapshot.
+func (s *MailService) ClaimMail(ctx context.Context, params ClaimMailParams) ([]mailstore.Mail, error) {
+	agent, err := s.getAgent(ctx, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	var claimed []mailstore.Mail
+	err = s.tx.InTx(ctx, func(tx store.DBTX) error {
+		var err error
+		claimed, err = mailstore.NewMailStore(tx).ClaimByID(ctx, agent.ID, params.IDs)
+		if err != nil {
+			return err
+		}
+
+		comments := xslice.Filter(claimed, func(m mailstore.Mail) bool { return m.Kind == mailstore.KindReviewComment })
+		if len(comments) == 0 {
+			return nil
+		}
+
+		ids := xslice.Map(comments, func(m mailstore.Mail) string { return m.ID })
+		_, err = reviewstore.NewReviewStore(tx).MarkMessagesRead(ctx, ids, params.ReadSnapshotID)
+
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return claimed, nil
+}
+
+// getAgent is the agent a mailbox belongs to.
+func (s *MailService) getAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
@@ -465,12 +538,7 @@ func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstor
 		return nil, err
 	}
 
-	claimed, err := s.mail.Claim(ctx, agent.ID, maxClaimedMail)
-	if err != nil {
-		return nil, err
-	}
-
-	return claimed, nil
+	return agent, nil
 }
 
 type ListMailParams struct {
@@ -484,10 +552,7 @@ type ListMailParams struct {
 // ListMail returns one page of one half of an agent's correspondence, most recent first and
 // without claiming any of it: the mail addressed to it, or the mail it sent.
 func (s *MailService) ListMail(ctx context.Context, params ListMailParams) ([]mailstore.Mail, error) {
-	agent, err := s.agents.GetByID(ctx, params.AgentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrAgentNotFound.Saying("no agent with id %q", params.AgentID)
-	}
+	agent, err := s.getAgent(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}

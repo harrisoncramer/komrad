@@ -38,8 +38,6 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 		}
 
 		return withSection(r.threadView(m, thread, inner), r.threads.editor.view(), inner), 0
-	case r.threads.releasing:
-		return r.threads.editor.view(), 0
 	}
 
 	id, body, ok := r.conversationAtCursor(m, inner)

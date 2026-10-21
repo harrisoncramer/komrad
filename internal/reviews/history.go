@@ -22,7 +22,6 @@ type ReviewHistory struct {
 	Snapshot  reviewstore.Snapshot
 	Snapshots []reviewstore.Snapshot
 	Threads   []ReviewThreadWithMessages
-	Reviews   []reviewstore.Review
 	Notice    string
 }
 
@@ -44,11 +43,6 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 	}
 
 	threads, err := s.listThreads(ctx, task.ID, params.Author)
-	if err != nil {
-		return nil, err
-	}
-
-	reviews, err := s.listReviews(ctx, task.ID, params.Author)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +69,6 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		Snapshot:  picked.Snapshot,
 		Snapshots: picked.Snapshots,
 		Threads:   threads,
-		Reviews:   reviews,
 		Notice:    picked.Notice,
 	}
 	opened.Record = history.Build(ctx, history.BuildParams{
@@ -85,7 +78,7 @@ func (s *ReviewService) GetHistory(ctx context.Context, params GetHistoryParams)
 		Exclude:   s.readDiffExclude(ctx, task.WorkflowID),
 		Snapshot:  historySnapshotOf(opened.Snapshot),
 		Snapshots: xslice.Map(opened.Snapshots, historySnapshotOf),
-		Reviews:   xslice.Map(reviews, historyReviewOf),
+		Comments:  historyCommentsOf(threads, opened.Snapshots),
 		Threads:   xslice.Map(threads, historyThreadOf),
 		Span:      params.Span,
 	})
@@ -182,13 +175,29 @@ func historySnapshotOf(snapshot reviewstore.Snapshot) history.Snapshot {
 	}
 }
 
-func historyReviewOf(review reviewstore.Review) history.Review {
-	return history.Review{
-		SnapshotID:      review.SnapshotID,
-		SnapshotOrdinal: review.SnapshotOrdinal,
-		Human:           review.AuthorKind == reviewstore.AuthorHuman,
-		ReleasedAt:      review.ReleasedAt,
+// historyCommentsOf is every comment the person wrote, each on the snapshot its thread is pinned to.
+func historyCommentsOf(threads []ReviewThreadWithMessages, snapshots []reviewstore.Snapshot) []history.Comment {
+	var comments []history.Comment
+	for _, thread := range threads {
+		snapshot := findStoreSnapshot(snapshots, thread.Thread.SnapshotID)
+		if snapshot == nil {
+			continue
+		}
+
+		for _, message := range thread.Messages {
+			if message.AuthorKind != reviewstore.AuthorHuman {
+				continue
+			}
+
+			comments = append(comments, history.Comment{
+				SnapshotID:      snapshot.ID,
+				SnapshotOrdinal: snapshot.Ordinal,
+				ReleasedAt:      message.CreatedAt,
+			})
+		}
 	}
+
+	return comments
 }
 
 func historyThreadOf(thread ReviewThreadWithMessages) history.Thread {

@@ -1,14 +1,5 @@
 package ui
 
-import (
-	agentv1 "komrad/proto/gen/agent/v1"
-)
-
-// unsentCount is how many comments the reader is holding.
-func (t reviewThreads) unsentCount() int {
-	return t.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
-}
-
 // archivedSaid is why a write on an archived agent's review did nothing.
 const archivedSaid = "this agent is archived" + separated + "restore it before writing to it"
 
@@ -25,11 +16,6 @@ func (r reviewScreen) isArchived(m *model) bool {
 	_, ok := r.agentRow(m)
 
 	return !ok
-}
-
-// holdsUnsent says whether the reader has comments nobody has seen.
-func (t reviewThreads) holdsUnsent() bool {
-	return t.unsentCount() > 0
 }
 
 // isHistory reports whether the diff on screen ends before the snapshot new comments go on.

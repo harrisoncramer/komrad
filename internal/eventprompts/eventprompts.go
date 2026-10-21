@@ -115,7 +115,7 @@ func All() []Event {
 			DefaultPrompt: "Answer each comment. Push back where you disagree rather than changing code just to fit.",
 		},
 		{
-			Name: ReviewCommentedByPerson, Title: "Person commented", Description: "a person released comments on the agent's work",
+			Name: ReviewCommentedByPerson, Title: "Person commented", Description: "a person commented on the agent's work",
 			DefaultPrompt: "A person's comments outrank a reviewer's. Do what they ask, and ask in the thread if anything is unclear.",
 		},
 		{

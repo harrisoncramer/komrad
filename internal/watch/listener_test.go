@@ -440,31 +440,29 @@ func waitForPayloads(t *testing.T, conn *pgx.Conn, count int) []string {
 	return payloads
 }
 
-// TestAReviewIsRaisedByItsDoorbellAndSnapshot pins that claiming a review's doorbell and writing
-// its snapshot raise the review, that writing the snapshot raises its task too, that other mail
-// writes raise only the mail, and that nothing on the review raises its agent.
-func TestAReviewIsRaisedByItsDoorbellAndSnapshot(t *testing.T) {
+// TestAReviewIsRaisedByItsSnapshot pins that writing a review's snapshot raises the review and its
+// task, that mail writes raise only the mail, and that nothing on the review raises its agent.
+func TestAReviewIsRaisedByItsSnapshot(t *testing.T) {
 	l := newPooled(t)
 	rows := l.seed(t)
-	snapshot, doorbell, review := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	snapshot, mail, review := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	l.exec(t, `INSERT INTO review_snapshots (id, task_id, ordinal, base_sha, sha) VALUES ($1, $2, 1, 'base', 'snapshot')`, snapshot, rows.task)
-	l.exec(t, `INSERT INTO mail (id, to_agent_id, body, expires_at) VALUES ($1, $2, 'komrad: review', now() + interval '1 hour')`, doorbell, rows.agent)
-	l.exec(t, `INSERT INTO reviews (id, task_id, snapshot_id, author_kind, doorbell_mail_id) VALUES ($1, $2, $3, 'human', $4)`, review, rows.task, snapshot, doorbell)
+	l.exec(t, `INSERT INTO mail (id, to_agent_id, body, expires_at) VALUES ($1, $2, 'komrad: review', now() + interval '1 hour')`, mail, rows.agent)
+	l.exec(t, `INSERT INTO reviews (id, task_id, snapshot_id, author_kind) VALUES ($1, $2, $3, 'agent')`, review, rows.task, snapshot)
 	conn := l.listenRaw(t)
 
-	l.exec(t, `UPDATE mail SET body = 'komrad: review, again' WHERE id = $1`, doorbell)
-	l.exec(t, `UPDATE mail SET claimed_at = now() WHERE id = $1`, doorbell)
+	l.exec(t, `UPDATE mail SET body = 'komrad: review, again' WHERE id = $1`, mail)
+	l.exec(t, `UPDATE mail SET claimed_at = now() WHERE id = $1`, mail)
 	l.exec(t, `UPDATE review_snapshots SET base_sha = 'rebased' WHERE id = $1`, snapshot)
 	l.exec(t, `UPDATE reviews SET verdict = 'approved', released_at = now() WHERE id = $1`, review)
 
 	assert.Equal(t, []string{
-		"mail " + doorbell,
-		"mail " + doorbell,
-		"reviews " + review,
+		"mail " + mail,
+		"mail " + mail,
 		"reviews " + review,
 		"tasks " + rows.task,
 		"reviews " + review,
-	}, waitForPayloads(t, conn, 6))
+	}, waitForPayloads(t, conn, 5))
 }
 
 // TestALookupFeederMatchesAcrossColumnTypes pins that a task's uuid reaches the worktree

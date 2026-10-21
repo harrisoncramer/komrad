@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestSendAndClaim(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			claimed, err := st.Claim(ctx, recipient, tt.limit)
+			claimed, err := st.claim(ctx, recipient, tt.limit)
 			require.NoError(t, err)
 
 			var bodies []string
@@ -99,11 +100,11 @@ func TestClaimTakesEachMailOnce(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	first, err := st.Claim(ctx, recipient, 10)
+	first, err := st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	require.Len(t, first, 1)
 
-	second, err := st.Claim(ctx, recipient, 10)
+	second, err := st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	assert.Empty(t, second)
 }
@@ -123,7 +124,7 @@ func TestClaimIgnoresOtherMailboxes(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	claimed, err := st.Claim(ctx, mine, 10)
+	claimed, err := st.claim(ctx, mine, 10)
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
 
@@ -137,7 +138,7 @@ func TestClaimIgnoresOtherMailboxes(t *testing.T) {
 func TestClaimToleratesAnIDNoColumnCouldHold(t *testing.T) {
 	st := open(t)
 
-	claimed, err := st.Claim(t.Context(), "not-an-id", 10)
+	claimed, err := st.claim(t.Context(), "not-an-id", 10)
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
 
@@ -232,7 +233,7 @@ func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	claimed, err := st.Claim(ctx, recipient, 10)
+	claimed, err := st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
 
@@ -390,7 +391,7 @@ func TestListPage(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = st.Claim(ctx, recipient, 10)
+	_, err = st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 
 	page, err := st.ListPage(ctx, recipient, 10, nil)
@@ -611,7 +612,7 @@ func TestKomradMailIsOnePerSubject(t *testing.T) {
 				})
 				require.NoError(t, err)
 				if tt.claimFirst && i == 0 {
-					_, err := st.Claim(ctx, recipient, 10)
+					_, err := st.claim(ctx, recipient, 10)
 					require.NoError(t, err)
 				}
 			}
@@ -620,7 +621,7 @@ func TestKomradMailIsOnePerSubject(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, int64(tt.wantRows), pending)
 
-			claimed, err := st.Claim(ctx, recipient, 10)
+			claimed, err := st.claim(ctx, recipient, 10)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantBodies, xslice.Map(claimed, func(m Mail) string { return m.Body }))
 		})
@@ -653,7 +654,7 @@ func TestGetUnreadAboutFindsOnlyUnreadMail(t *testing.T) {
 	require.NotNil(t, found.SubjectID)
 	assert.Equal(t, subject, *found.SubjectID)
 
-	_, err = st.Claim(ctx, recipient, 10)
+	_, err = st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	_, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.ErrorIs(t, err, store.ErrNotFound, "read mail is not unread")
@@ -683,7 +684,7 @@ func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 	_, err = NewMailStore(tx).GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
 
-	claimed, err := st.Claim(ctx, recipient, 10)
+	claimed, err := st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
 
@@ -698,7 +699,7 @@ func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
 
-	claimed, err = st.Claim(ctx, recipient, 10)
+	claimed, err = st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"checks passing"}, xslice.Map(claimed, func(m Mail) string { return m.Body }))
 }
@@ -781,7 +782,7 @@ func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
-	claimed, err := st.Claim(ctx, recipient, 10)
+	claimed, err := st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 	assert.Equal(t, "last", claimed[0].Body)
@@ -861,7 +862,7 @@ func TestExistsReadAboutCountsOnlyReadMail(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, read, "unread mail is not read")
 
-	_, err = st.Claim(ctx, recipient, 10)
+	_, err = st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 
 	read, err = st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, subject)
@@ -911,4 +912,59 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 	found, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"pull_request.behind"}, found.Events, "a rewrite replaces the events rather than adding to them")
+}
+
+// claim takes the waiting mail the way a read of the mailbox does: listed, then claimed by id.
+func (st *fixture) claim(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
+	waiting, err := st.ListWaiting(ctx, toAgentID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return st.ClaimByID(ctx, toAgentID, xslice.Map(waiting, func(m Mail) string { return m.ID }))
+}
+
+// TestListWaitingLeavesMailForTheClaim pins that a listing claims nothing, that the claim takes only
+// the ids it is given, and that mail already claimed is skipped.
+func TestListWaitingLeavesMailForTheClaim(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	var ids []string
+	for _, body := range []string{"first", "second", "third"} {
+		sent, err := st.Send(ctx, SendParams{
+			ToAgentID: recipient,
+			Body:      body,
+			Deadline:  time.Hour,
+		})
+		require.NoError(t, err)
+		ids = append(ids, sent.ID)
+	}
+
+	waiting, err := st.ListWaiting(ctx, recipient, 2)
+	require.NoError(t, err)
+	assert.Equal(t, ids[:2], xslice.Map(waiting, func(m Mail) string { return m.ID }))
+	for _, item := range waiting {
+		assert.Nil(t, item.ClaimedAt)
+	}
+
+	pending, err := st.CountPending(ctx, recipient)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), pending, "listing claims nothing")
+
+	claimed, err := st.ClaimByID(ctx, recipient, ids[:2])
+	require.NoError(t, err)
+	assert.Equal(t, ids[:2], xslice.Map(claimed, func(m Mail) string { return m.ID }))
+	for _, item := range claimed {
+		assert.NotNil(t, item.ClaimedAt)
+	}
+
+	again, err := st.ClaimByID(ctx, recipient, ids)
+	require.NoError(t, err)
+	assert.Equal(t, ids[2:], xslice.Map(again, func(m Mail) string { return m.ID }), "mail already claimed is skipped")
+
+	none, err := st.ClaimByID(ctx, seedAgent(t, st, "other"), ids)
+	require.NoError(t, err)
+	assert.Empty(t, none, "another mailbox's ids claim nothing")
 }

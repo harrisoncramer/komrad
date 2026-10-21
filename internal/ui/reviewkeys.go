@@ -27,10 +27,6 @@ func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
 		return r.updateComposer(m, key), true
 	}
 
-	if r.threads.releasing {
-		return r.updateRelease(m, key), true
-	}
-
 	if r.filesFilter.typing {
 		return r.updateFilesFilter(m, key), true
 	}

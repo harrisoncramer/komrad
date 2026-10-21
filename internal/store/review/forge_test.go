@@ -34,7 +34,7 @@ func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldTh
 
 	thread, err := st.CreateThread(ctx, CreateThreadParams{
 		TaskID:      st.taskOf(t, agentID),
-		ReviewID:    opener.ID,
+		ReviewID:    &opener.ID,
 		SnapshotID:  snapshot.ID,
 		FilePath:    "internal/thing.go",
 		NewStart:    41,
@@ -65,26 +65,10 @@ func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldTh
 	require.NoError(t, err)
 
 	return heldThread{
-		thread:   thread,
+		thread:   &thread.Thread,
 		rootID:   messages[0].ID,
 		snapshot: snapshot,
 	}
-}
-
-func (st *fixture) acceptRoot(t *testing.T, held heldThread) *Review {
-	t.Helper()
-
-	review := st.openReview(t, held.snapshot)
-	_, err := st.CreateMessage(t.Context(), CreateMessageParams{
-		ThreadID:     held.thread.ID,
-		ReviewID:     &review.ID,
-		AuthorKind:   AuthorHuman,
-		Body:         "copy",
-		AcceptedFrom: &held.rootID,
-	})
-	require.NoError(t, err)
-
-	return review
 }
 
 // TestHeldForgeThreads covers which of a forge thread's messages are held from the agent, as the
@@ -102,47 +86,6 @@ func TestHeldForgeThreads(t *testing.T) {
 				return st.seedHeldThread(t, true, false)
 			},
 			held:     []string{"root", "reply"},
-			readable: []string{"answer"},
-		},
-		{
-			name: "an unsent copy of the root releases nothing",
-			seed: func(t *testing.T, st *fixture) heldThread {
-				held := st.seedHeldThread(t, true, false)
-				st.acceptRoot(t, held)
-
-				return held
-			},
-			held:     []string{"root", "reply"},
-			readable: []string{"answer"},
-		},
-		{
-			name: "a sent copy of the root releases the thread but never the root itself",
-			seed: func(t *testing.T, st *fixture) heldThread {
-				held := st.seedHeldThread(t, true, false)
-				st.releaseReview(t, st.acceptRoot(t, held), VerdictCommented)
-
-				return held
-			},
-			held:     []string{"root"},
-			readable: []string{"reply", "answer", "copy"},
-		},
-		{
-			name: "the person's sent reply under a held root with no copy is held with it",
-			seed: func(t *testing.T, st *fixture) heldThread {
-				held := st.seedHeldThread(t, true, false)
-				review := st.openReview(t, held.snapshot)
-				_, err := st.CreateMessage(t.Context(), CreateMessageParams{
-					ThreadID:   held.thread.ID,
-					ReviewID:   &review.ID,
-					AuthorKind: AuthorHuman,
-					Body:       "mine",
-				})
-				require.NoError(t, err)
-				st.releaseReview(t, review, VerdictCommented)
-
-				return held
-			},
-			held:     []string{"root", "reply", "mine"},
 			readable: []string{"answer"},
 		},
 		{
@@ -165,7 +108,7 @@ func TestHeldForgeThreads(t *testing.T) {
 			require.NoError(t, err)
 			var listed []string
 			for _, message := range messages {
-				if message.Delivery == DeliveryHeld {
+				if message.Held {
 					listed = append(listed, message.Body)
 				}
 			}
@@ -192,7 +135,7 @@ func TestHeldForgeThreadHiddenFromReader(t *testing.T) {
 
 	thread, err := st.CreateThread(ctx, CreateThreadParams{
 		TaskID:      st.taskOf(t, agentID),
-		ReviewID:    opener.ID,
+		ReviewID:    &opener.ID,
 		SnapshotID:  snapshot.ID,
 		FilePath:    "internal/thing.go",
 		NewStart:    41,

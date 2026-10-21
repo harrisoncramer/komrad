@@ -27,6 +27,8 @@ enum MailKind {
   MAIL_KIND_WORKTREE_PUSHED = 7;
   // From komrad: the sequence stopped in the agent's worktree was aborted.
   MAIL_KIND_WORKTREE_ABORTED = 8;
+  // From komrad: the person commented on the agent's work. The mail carries the comment.
+  MAIL_KIND_REVIEW_COMMENT = 9;
 }
 
 // MailDirection is whether a listing returns the mail an agent received or sent.

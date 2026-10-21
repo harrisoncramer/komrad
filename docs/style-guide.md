@@ -158,7 +158,13 @@ comment: One entry in a thread.
 
 verdict: What a review concludes: approved, changes requested, or commented.
 
-released: Sent to the agent. Use it for reviews and comments. Not "let go of".
+released: Sent to the agent. A reviewer agent releases a review. The person's comment is released as it is written. Not "let go of".
+
+read: Claimed by the agent through its mail. Use it for the person's comments.
+
+answered: Replied to by the agent. Use it for the person's comments.
+
+addressed: Answered with a reply that carries a snapshot of the change it made. Use it for the agent's replies.
 
 resolved: Marked by its author as needing nothing more. Use it for threads. Not "settled".
 

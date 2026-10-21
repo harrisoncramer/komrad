@@ -95,7 +95,20 @@ FROM
 WHERE
     m.id = @id;
 
--- name: ClaimMail :many
+-- name: ListWaitingMail :many
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.to_agent_id = @to_agent_id
+    AND m.claimed_at IS NULL
+    AND m.expires_at > NOW()
+ORDER BY
+    m.id
+LIMIT @lim;
+
+-- name: ClaimMailByID :many
 WITH pending AS (
     SELECT
         m.id
@@ -103,11 +116,9 @@ WITH pending AS (
         mail m
     WHERE
         m.to_agent_id = @to_agent_id
+        AND m.id = ANY (@ids::uuid[])
         AND m.claimed_at IS NULL
         AND m.expires_at > NOW()
-    ORDER BY
-        m.id
-    LIMIT @lim
     FOR UPDATE
         SKIP LOCKED)
 UPDATE

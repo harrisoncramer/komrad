@@ -19,14 +19,6 @@ var WatchedReviews = watch.Resource{
 	KeyColumn: "id",
 	Feeders: []watch.Feeder{
 		{
-			Table: "mail",
-			Lookup: &watch.Lookup{
-				ParentColumn: "doorbell_mail_id",
-				ChildColumn:  "id",
-				OnChangeOf:   "claimed_at",
-			},
-		},
-		{
 			Table: "review_snapshots",
 			Lookup: &watch.Lookup{
 				ParentColumn: "snapshot_id",
@@ -74,7 +66,6 @@ func watchedReviewFromRow(row models.ListWatchedReviewsRow) Review {
 		AuthorKind:       AuthorKind(row.AuthorKind),
 		AuthorAgentID:    row.AuthorAgentID,
 		ReleasedAt:       row.ReleasedAt,
-		DeliveredAt:      row.DeliveredAt,
 		CreatedAt:        row.CreatedAt,
 		UpdatedAt:        row.UpdatedAt,
 	}
@@ -149,7 +140,7 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 
 	byThread := map[string][]Message{}
 	for _, row := range messages {
-		byThread[row.ThreadID] = append(byThread[row.ThreadID], undeliveredMessageFromRow(*row))
+		byThread[row.ReviewMessage.ThreadID] = append(byThread[row.ReviewMessage.ThreadID], messageOfThreadFromRow(*row))
 	}
 
 	replies, err := s.queries.ListForgeReplies(ctx, ids)
@@ -168,6 +159,8 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 			ID:                  row.ID,
 			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
+			AuthorKind:          row.AuthorKind,
+			AuthorAgentID:       row.AuthorAgentID,
 			SnapshotID:          row.SnapshotID,
 			ForgeThreadID:       row.ForgeThreadID,
 			BaseSha:             row.BaseSha,

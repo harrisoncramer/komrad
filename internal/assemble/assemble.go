@@ -297,7 +297,7 @@ func (d taskDrawer) row(id string) TaskRow {
 		Task:                 task,
 		PullRequest:          calculatePullRequestStanding(task, d.world.Repositories[task.GetRepositoryUrl()], pullRequests),
 		PullRequests:         pullRequests,
-		LocalReviewSnapshots: countLocalReviewSnapshots(d.reviewed[id]),
+		LocalReviewSnapshots: countLocalReviewSnapshots(d.reviewed[id], d.threaded[id]),
 		ReviewerComments:     comments.reviewer,
 		PersonComments:       comments.person,
 	}

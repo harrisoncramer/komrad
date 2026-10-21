@@ -1,63 +1,80 @@
 package ui
 
 import (
+	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// reviewDeliveryOrder lists the states a comment can stand in, ordered by how much they are owed:
-// held by the forge, never sent, waiting, landed.
-var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD,
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT,
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
-}
-
-// reviewDelivery holds how one delivery state renders: its name, the glyph a badge opens with,
-// and the colour both carry.
+// reviewDelivery is where one of the person's comments stands with the writer, as a badge under
+// the comment says it: its word, the moment it names, its colour and the glyph it opens with,
+// which is an arrow while the comment is on its way.
 type reviewDelivery struct {
-	word string
-	tone paint.Tone
+	word  string
+	stamp string
+	tone  paint.Tone
+	mark  glyph.Glyph
 }
 
-// reviewDeliveryOf returns how a state renders wherever it appears, so the count at the top of the
-// sidebar, the badge under a comment and the gutter's own mark read as one thing.
-func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
-	switch state {
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
-		return reviewDelivery{
-			word: "unsent",
-			tone: reviewUnsentTone,
-		}
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
-		return reviewDelivery{
-			word: "waiting",
-			tone: reviewSentTone,
-		}
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
-		return reviewDelivery{
-			word: "delivered",
-			tone: reviewDeliveredTone,
-		}
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_HELD:
+// reviewDeliveryParams is a comment, the thread it sits in and the writer whose answer counts.
+type reviewDeliveryParams struct {
+	thread   *agentv1.ReviewThread
+	message  *agentv1.ReviewMessage
+	writerID string
+}
+
+// reviewDeliveryOf is where a comment stands: held for a forge comment the person has not
+// accepted, then released, read or answered for the person's own, and nothing for an agent's.
+func reviewDeliveryOf(params reviewDeliveryParams) reviewDelivery {
+	message := params.message
+	switch {
+	case isHeldForge(message):
 		return reviewDelivery{
 			word: "held",
 			tone: reviewForgeHeldTone,
+			mark: glyph.MessageWarning,
 		}
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
+	case message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN:
 		return reviewDelivery{}
 	}
 
-	return reviewDelivery{}
-}
-
-// reviewDeliveryStamp is the moment a badge names: the last thing that happened to the comment,
-// not when it was written.
-func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
-	if delivered := message.GetDeliveredAt(); delivered != "" {
-		return delivered
+	if answer := findReplyTo(params); answer != nil {
+		return reviewDelivery{
+			word:  "answered",
+			stamp: answer.GetCreatedAt(),
+			tone:  reviewReadTone,
+			mark:  glyph.Delivered,
+		}
+	}
+	if read := message.GetReadAt(); read != "" {
+		return reviewDelivery{
+			word:  "read",
+			stamp: read,
+			tone:  reviewReadTone,
+			mark:  glyph.Delivered,
+		}
 	}
 
-	return message.GetSentAt()
+	return reviewDelivery{
+		word:  "released",
+		stamp: message.GetCreatedAt(),
+		tone:  reviewReleasedTone,
+	}
+}
+
+// findReplyTo is the first thing the writer said in the thread after the person's comment.
+func findReplyTo(params reviewDeliveryParams) *agentv1.ReviewMessage {
+	seen := false
+	for _, said := range params.thread.GetMessages() {
+		if said.GetId() == params.message.GetId() {
+			seen = true
+
+			continue
+		}
+		if seen && said.GetAuthorAgentId() == params.writerID {
+			return said
+		}
+	}
+
+	return nil
 }

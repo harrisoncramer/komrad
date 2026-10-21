@@ -104,7 +104,9 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
-	_, err = st.Mail.Claim(ctx, quiet.ID, 10)
+	waiting, err := st.Mail.ListWaiting(ctx, quiet.ID, 10)
+	require.NoError(t, err)
+	_, err = st.Mail.ClaimByID(ctx, quiet.ID, xslice.Map(waiting, func(m mailstore.Mail) string { return m.ID }))
 	require.NoError(t, err)
 
 	// The repository has been read, with two pull requests on api's branch, the older one
@@ -181,7 +183,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			},
 		},
 		{
-			name: "a review of an agent's work is released",
+			name: "the person comments on an agent's work",
 			write: func(t *testing.T) {
 				reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
 				snapshot, err := reviews.CreateSnapshot(ctx, reviewstore.CreateSnapshotParams{
@@ -190,16 +192,16 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 					SHA:     "snapshot",
 				})
 				require.NoError(t, err)
-				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
-					TaskID:     *api.TaskID,
-					SnapshotID: snapshot.ID,
-					AuthorKind: reviewstore.AuthorHuman,
-				})
-				require.NoError(t, err)
-				_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
-					ID:      review.ID,
-					Verdict: reviewstore.VerdictCommented,
-					Path:    "/tmp/review.md",
+				_, err = reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
+					TaskID:      *api.TaskID,
+					SnapshotID:  snapshot.ID,
+					BaseSHA:     "base",
+					FilePath:    "main.go",
+					NewStart:    1,
+					NewEnd:      1,
+					QuotedLines: []string{"package main"},
+					Body:        "name the package",
+					AuthorKind:  reviewstore.AuthorHuman,
 				})
 				require.NoError(t, err)
 			},
@@ -226,7 +228,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 				_, err = reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
 					TaskID:        *base.TaskID,
-					ReviewID:      review.ID,
+					ReviewID:      &review.ID,
 					SnapshotID:    snapshot.ID,
 					BaseSHA:       "base",
 					FilePath:      "main.go",

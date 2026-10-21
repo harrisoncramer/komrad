@@ -416,7 +416,7 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 
 			assert.Empty(t, listScheduleAgents(t, stores, schedule.ID), "an orchestrator schedule launches no agent")
 
-			waiting, err := stores.Mail.Claim(ctx, orchestrator.ID, 10)
+			waiting, err := stores.ClaimMail(ctx, orchestrator.ID, 10)
 			require.NoError(t, err)
 			if !tt.wantMailed {
 				assert.Empty(t, waiting)

@@ -118,8 +118,6 @@ type ReviewGlyphs struct {
 	FolderClosed string `mapstructure:"folder_closed"`
 	// A comment the agent has been given.
 	Delivered string `mapstructure:"delivered"`
-	// A comment held back until you send it.
-	Held string `mapstructure:"held"`
 }
 
 // MessageGlyphs are drawn before each message the panel shows.

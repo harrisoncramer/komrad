@@ -29,7 +29,6 @@ const (
 	zoneSearch     zone = "search"
 	zoneMessages   zone = "messages"
 	zoneDoc        zone = "doc"
-	zoneChange     zone = "change"
 	zoneMessage    zone = "message"
 	zoneLog        zone = "log"
 	zoneDiff       zone = "diff"

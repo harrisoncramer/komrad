@@ -45,6 +45,8 @@ const (
 	MailKind_MAIL_KIND_WORKTREE_PUSHED MailKind = 7
 	// From komrad: the sequence stopped in the agent's worktree was aborted.
 	MailKind_MAIL_KIND_WORKTREE_ABORTED MailKind = 8
+	// From komrad: the person commented on the agent's work. The mail carries the comment.
+	MailKind_MAIL_KIND_REVIEW_COMMENT MailKind = 9
 )
 
 // Enum value maps for MailKind.
@@ -59,6 +61,7 @@ var (
 		6: "MAIL_KIND_WORKTREE_REBASED",
 		7: "MAIL_KIND_WORKTREE_PUSHED",
 		8: "MAIL_KIND_WORKTREE_ABORTED",
+		9: "MAIL_KIND_REVIEW_COMMENT",
 	}
 	MailKind_value = map[string]int32{
 		"MAIL_KIND_UNSPECIFIED":          0,
@@ -70,6 +73,7 @@ var (
 		"MAIL_KIND_WORKTREE_REBASED":     6,
 		"MAIL_KIND_WORKTREE_PUSHED":      7,
 		"MAIL_KIND_WORKTREE_ABORTED":     8,
+		"MAIL_KIND_REVIEW_COMMENT":       9,
 	}
 )
 
@@ -944,7 +948,7 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"/\n" +
 	"\x11DeleteMailRequest\x12\x1a\n" +
-	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*\x9a\x02\n" +
+	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*\xb8\x02\n" +
 	"\bMailKind\x12\x19\n" +
 	"\x15MAIL_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fMAIL_KIND_PLAIN\x10\x01\x12\x1d\n" +
@@ -954,7 +958,8 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x1eMAIL_KIND_PULL_REQUEST_CHANGED\x10\x05\x12\x1e\n" +
 	"\x1aMAIL_KIND_WORKTREE_REBASED\x10\x06\x12\x1d\n" +
 	"\x19MAIL_KIND_WORKTREE_PUSHED\x10\a\x12\x1e\n" +
-	"\x1aMAIL_KIND_WORKTREE_ABORTED\x10\b*e\n" +
+	"\x1aMAIL_KIND_WORKTREE_ABORTED\x10\b\x12\x1c\n" +
+	"\x18MAIL_KIND_REVIEW_COMMENT\x10\t*e\n" +
 	"\rMailDirection\x12\x1e\n" +
 	"\x1aMAIL_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17MAIL_DIRECTION_RECEIVED\x10\x01\x12\x17\n" +

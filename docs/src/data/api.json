@@ -663,8 +663,8 @@
           "roles": [
             "reviewer"
           ],
-          "summary": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`.",
-          "description": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.",
+          "summary": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`, or on the change as a whole with no file and no lines.",
+          "description": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`, or on the change as a whole with no file and no lines. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -2714,7 +2714,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The file's path, relative to the checkout."
+          "description": "The file's path, relative to the checkout. Empty for a comment on the change as a whole, with no lines."
         },
         {
           "name": "base_sha",
@@ -2823,7 +2823,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The thread as created, private until its review is released."
+          "description": "The thread as created. A reviewer agent's thread stays private until its review is released. The person's thread is released at once."
         }
       ]
     },
@@ -4946,7 +4946,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The review's verdict. An agent must set it, and the person must leave it unset."
+          "description": "The review's verdict."
         },
         {
           "name": "body",
@@ -4958,7 +4958,7 @@
           "rules": [
             "at most 1500 characters"
           ],
-          "description": "What the author says about the work as a whole. The agent reads it before the threads."
+          "description": "What the reviewer says about the work as a whole. The writer reads it before the threads."
         }
       ]
     },
@@ -5314,7 +5314,7 @@
     },
     "agent.v1.Review": {
       "name": "Review",
-      "description": "Review is one author's comments on one snapshot, released to the agent together. The review is private until the author releases it.",
+      "description": "Review is a reviewer agent's comments on one snapshot, released to the writer together. The review is private until the agent releases it.",
       "fields": [
         {
           "name": "id",
@@ -5374,7 +5374,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id of the agent that wrote the review. Unset when the person wrote it."
+          "description": "The id of the agent that wrote the review. Unset when a forge user wrote it."
         },
         {
           "name": "verdict",
@@ -5405,16 +5405,6 @@
           "oneof": "",
           "rules": [],
           "description": "The absolute path of the file the released review was written to."
-        },
-        {
-          "name": "delivered_at",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "When the agent read the mail about the review, in RFC 3339. Empty until then."
         },
         {
           "name": "created_at",
@@ -5553,36 +5543,6 @@
           "description": "When the comment was last edited, in RFC 3339."
         },
         {
-          "name": "delivery",
-          "type": "ReviewDeliveryState",
-          "ref": "agent.v1.ReviewDeliveryState",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "How far the comment has got toward the agent."
-        },
-        {
-          "name": "sent_at",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "When the person released the comment, in RFC 3339. Empty until then."
-        },
-        {
-          "name": "delivered_at",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "When the agent read the mail about the comment, in RFC 3339. Empty until then."
-        },
-        {
           "name": "review_id",
           "type": "string",
           "ref": "",
@@ -5590,7 +5550,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id of the review the comment was released with. Unset for a reply from the writer, which belongs to no review."
+          "description": "The id of the review a reviewer agent released the comment with. Unset for the person's comments and the writer's replies."
         },
         {
           "name": "snapshot_id",
@@ -5621,6 +5581,36 @@
           "oneof": "",
           "rules": [],
           "description": "The id of the held forge comment the person accepted this comment as a copy of. Unset otherwise."
+        },
+        {
+          "name": "held",
+          "type": "bool",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Whether the comment is kept from the agent until the person accepts it, because a forge user without write access wrote the comment or its thread."
+        },
+        {
+          "name": "read_at",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "When the agent read the person's comment, in RFC 3339. Empty until then, and on every other comment."
+        },
+        {
+          "name": "read_snapshot_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The id of the snapshot taken as the agent read the person's comment, which an addressed reply is compared against. Unset until then, and on every other comment."
         }
       ]
     },
@@ -5692,7 +5682,7 @@
     },
     "agent.v1.ReviewThread": {
       "name": "ReviewThread",
-      "description": "ReviewThread is a conversation pinned to a range of lines in a snapshot.",
+      "description": "ReviewThread is a conversation pinned to a range of lines in a snapshot, or on the change as a whole.",
       "fields": [
         {
           "name": "id",
@@ -5722,7 +5712,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The id of the review the thread was created in."
+          "description": "The id of the review a reviewer agent opened the thread in. Unset for a thread the person opened."
         },
         {
           "name": "snapshot_id",
@@ -5762,7 +5752,7 @@
           "map": false,
           "oneof": "",
           "rules": [],
-          "description": "The file's path, relative to the checkout."
+          "description": "The file's path, relative to the checkout. Empty for a thread on the change as a whole."
         },
         {
           "name": "old_start",
@@ -5883,6 +5873,26 @@
           "oneof": "",
           "rules": [],
           "description": "The replies komrad has drafted, posted or failed to post to the forge thread, oldest first. Only the person sees these."
+        },
+        {
+          "name": "author_kind",
+          "type": "ReviewAuthorKind",
+          "ref": "agent.v1.ReviewAuthorKind",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "Who opened the thread."
+        },
+        {
+          "name": "author_agent_id",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The id of the agent that opened the thread. Unset when the person or a forge user opened it."
         }
       ]
     },
@@ -11297,6 +11307,10 @@
         {
           "name": "MAIL_KIND_WORKTREE_ABORTED",
           "description": "From komrad: the sequence stopped in the agent's worktree was aborted."
+        },
+        {
+          "name": "MAIL_KIND_REVIEW_COMMENT",
+          "description": "From komrad: the person commented on the agent's work. The mail carries the comment."
         }
       ]
     },
@@ -11315,28 +11329,6 @@
         {
           "name": "REVIEW_AUTHOR_KIND_FORGE",
           "description": "A forge user, whose comment komrad copied from the pull request."
-        }
-      ]
-    },
-    "agent.v1.ReviewDeliveryState": {
-      "name": "ReviewDeliveryState",
-      "description": "ReviewDeliveryState is how far one of the person's comments has got toward the agent.",
-      "values": [
-        {
-          "name": "REVIEW_DELIVERY_STATE_UNSENT",
-          "description": "Written but not released."
-        },
-        {
-          "name": "REVIEW_DELIVERY_STATE_SENT",
-          "description": "Released, and the agent has not read the mail about it."
-        },
-        {
-          "name": "REVIEW_DELIVERY_STATE_DELIVERED",
-          "description": "Released, and the agent has read the mail about it."
-        },
-        {
-          "name": "REVIEW_DELIVERY_STATE_HELD",
-          "description": "Kept from the agent until the person accepts the thread's first comment, because a forge user without write access wrote the comment or its thread."
         }
       ]
     },

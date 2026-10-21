@@ -298,8 +298,6 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	style := markStyleFor(thread)
 
 	switch {
-	case IsHoldingUnsent(thread):
-		return v.glyphs.Spell(glyph.ThreadUnsent), style
 	case holdsFailedForgeReply(thread):
 		return v.glyphs.Spell(glyph.ThreadUnsent), style
 	case thread.GetUnreadByHuman():
