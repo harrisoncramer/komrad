@@ -68,10 +68,11 @@ type Frame struct {
 	// folded is whether the stage gave its rows to the info pane for want of anything to show.
 	folded bool
 
-	// wide is whether the sidebar is drawn across part of the stage for a review's diff.
-	wide bool
+	// beside is whether the sidebar is drawn across part of the stage for a review's diff, with the
+	// stage beside it.
+	beside bool
 
-	// editor is the pane split left of the agent on the stage for your editor, empty while none is open.
+	// editor is the pane split off the sidebar for your editor, empty while none is open.
 	editor string
 }
 
@@ -526,7 +527,7 @@ func (f *Frame) IsStaleSize(width, height int) bool {
 // SidebarWidth is how many columns the sidebar renders in when it is holding a window of the given
 // width, and whether that came from the divider rather than from the config.
 func (f *Frame) SidebarWidth(total int) (int, bool) {
-	if f.wide && total > 0 {
+	if f.beside && total > 0 {
 		return min(f.chosenCols(), total), true
 	}
 
@@ -558,7 +559,7 @@ func (f *Frame) WindowCols() int {
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar rendered
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {
-	if f.owed || f.frozen || f.wide || f.editor != "" {
+	if f.owed || f.frozen || f.beside || f.editor != "" {
 		return
 	}
 
@@ -848,18 +849,18 @@ func getHomeDir() string {
 	return dir
 }
 
-// reviewShare is the part of the columns right of the sidebar a widened sidebar takes for a
-// review's diff, leaving the rest to the agent on the stage.
-const reviewShare = 65
+// diffPercent is the percent of the columns right of the sidebar the sidebar takes for a review's
+// diff while the stage is beside it, leaving the rest to the agent on the stage.
+const diffPercent = 65
 
-// Widen draws the sidebar across part of the stage as well, for a review's diff beside the agent
-// on the stage, or gives the stage those columns back.
-func (f *Frame) Widen(on bool) {
-	if f.sidebar == "" || f.wide == on {
+// Beside draws the sidebar across part of the stage as well, for a review's diff with the agent on
+// the stage beside it, or gives the stage those columns back.
+func (f *Frame) Beside(on bool) {
+	if f.sidebar == "" || f.beside == on {
 		return
 	}
 
-	f.wide = on
+	f.beside = on
 
 	// Resizing a pane in a zoomed window unzooms it.
 	if f.solo {
@@ -871,45 +872,43 @@ func (f *Frame) Widen(on bool) {
 	f.move(panes.Resize(f.sidebar, f.sidebarCols()))
 }
 
-// IsWide reports whether the sidebar is drawn across part of the stage for a review's diff.
-func (f *Frame) IsWide() bool {
-	return f.wide
+// IsBeside reports whether the sidebar is drawn across part of the stage for a review's diff, with
+// the stage beside it.
+func (f *Frame) IsBeside() bool {
+	return f.beside
 }
 
-// sidebarCols is how wide the sidebar's pane is put, its chosen width widened by the review's share
-// of the stage while it is wide.
+// sidebarCols is how wide the sidebar's pane is put, its chosen width plus the diff's columns while
+// the stage is beside it.
 func (f *Frame) sidebarCols() int {
-	if !f.wide {
+	if !f.beside {
 		return f.chosenCols()
 	}
 
-	return f.wideCols(f.WindowCols())
+	return f.besideCols(f.WindowCols())
 }
 
-// wideCols is how wide the sidebar's pane is put while it is wide in a window of this many columns.
-func (f *Frame) wideCols(window int) int {
+// besideCols is how wide the sidebar's pane is put while the stage is beside it, in a window of
+// this many columns.
+func (f *Frame) besideCols(window int) int {
 	cols := f.chosenCols()
 
-	return cols + 1 + max(window-cols-1, 0)*reviewShare/100
+	return cols + 1 + max(window-cols-1, 0)*diffPercent/100
 }
 
-// FitsWide reports whether a window of this many columns, with the sidebar wide, leaves both the
-// review's share of the stage and the pane beside it at least floor columns.
-func (f *Frame) FitsWide(window, floor int) bool {
-	wide := f.wideCols(window)
-	share := wide - f.chosenCols() - 1
-	beside := window - wide - 1
-
-	return share >= floor && beside >= floor
+// FitsBeside reports whether a window of this many columns, with the stage beside the sidebar,
+// leaves the stage at least floor columns, the stage being narrower than the diff.
+func (f *Frame) FitsBeside(window, floor int) bool {
+	return window-f.besideCols(window)-1 >= floor
 }
 
-// OpenEditor runs content in a pane split off the widened sidebar's share of the stage, which
-// puts the sidebar back at its chosen width with the editor between it and the agent, and answers
-// the pane, empty where the sidebar is not wide.
+// OpenEditor runs content in a pane split off the diff's columns of the sidebar, which puts the
+// sidebar back at its chosen width with the editor between it and the agent, and answers the pane,
+// empty where the stage is not beside the sidebar.
 func (f *Frame) OpenEditor(content Content) string {
 	f.CloseEditor()
 
-	if !f.wide || f.solo {
+	if !f.beside || f.solo {
 		return ""
 	}
 
@@ -918,14 +917,14 @@ func (f *Frame) OpenEditor(content Content) string {
 		return ""
 	}
 
-	share := f.sidebarCols() - f.chosenCols() - 1
+	diff := f.sidebarCols() - f.chosenCols() - 1
 
-	f.editor = f.tmux.SplitRight(f.sidebar, content.Dir, strconv.Itoa(share))
+	f.editor = f.tmux.SplitRight(f.sidebar, content.Dir, strconv.Itoa(diff))
 	if f.editor == "" {
 		return ""
 	}
 
-	f.wide = false
+	f.beside = false
 	f.move(panes.Respawn(f.editor, content.Dir, argv...))
 
 	return f.editor

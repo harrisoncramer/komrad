@@ -97,6 +97,8 @@ type recordingTmux struct {
 	standIns      []CopyStandIn
 	standInErr    error
 	windowHooks   map[string]string
+	// staged is whether the stage has been split off and not killed since.
+	staged bool
 }
 
 // CopyStandIn is a stand-in the panel asked tmux to put in a pane's place.
@@ -544,9 +546,10 @@ func (p *Panel) IsZoomed() bool {
 	return p.tmux.zoomed
 }
 
-// IsWide reports whether the panel's pane is drawn across part of the stage for a review's diff.
-func (p *Panel) IsWide() bool {
-	return p.model.frame.IsWide()
+// IsBeside reports whether the panel's pane is drawn across part of the stage for a review's diff,
+// with the stage beside it.
+func (p *Panel) IsBeside() bool {
+	return p.model.frame.IsBeside()
 }
 
 // ReadZooms is every zoom the panel has asked tmux for, in order.
@@ -835,7 +838,14 @@ func (t *recordingTmux) GetPaneHeight(string) int {
 	return t.height
 }
 
+// SplitRight answers %1 for the stage, and %7 for a pane split off while the stage stands.
 func (t *recordingTmux) SplitRight(string, string, string) string {
+	if t.staged {
+		return t.split("%7")
+	}
+
+	t.staged = true
+
 	return t.split("%1")
 }
 
@@ -917,6 +927,7 @@ func (t *recordingTmux) BreakPane(string) {
 
 func (t *recordingTmux) KillPane(pane string) {
 	t.killed = append(t.killed, pane)
+	t.staged = t.staged && pane != "%1"
 	t.zoomed = false
 }
 

@@ -255,7 +255,7 @@ func (m *model) resizeTo(size tea.WindowSizeMsg) {
 	m.term.windowCols = window
 
 	m.relayout()
-	m.syncReviewSplit()
+	m.restageWriterBeside()
 }
 
 // applySizeRead settles a size the frame read back, leaving a changed one to the resize the

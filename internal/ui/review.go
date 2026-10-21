@@ -132,9 +132,9 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 		return nil
 	}
 
+	opened := m.review.open(m, agent)
 	left := m.enterScreen(screenReview)
 	m.leftStop = stopList
-	opened := m.review.open(m, agent)
 	m.stageSelection()
 
 	return tea.Batch(left, opened)

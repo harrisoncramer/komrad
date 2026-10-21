@@ -835,6 +835,154 @@ func TestAWindowTooNarrowForTheChosenWidthKeepsIt(t *testing.T) {
 	assert.Equal(t, []string{"%0 50"}, tmux.resizes, "the width chosen before the window shrank")
 }
 
+// TestFrameBesideDrawsTheSidebarAcrossTheStage covers a review's diff drawn by the sidebar with
+// the agent on the stage beside it.
+func TestFrameBesideDrawsTheSidebarAcrossTheStage(t *testing.T) {
+	tmux := &recordingTmux{
+		width:       159,
+		windowWidth: 200,
+		height:      50,
+	}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+
+	tmux.resizes = nil
+	frame.Beside(true)
+
+	assert.True(t, frame.IsBeside())
+	assert.Equal(t, []string{"%0 144"}, tmux.resizes)
+
+	width, measured := frame.SidebarWidth(200)
+	assert.Equal(t, 40, width, "the list keeps its chosen width inside the wider pane")
+	assert.True(t, measured)
+
+	frame.Beside(false)
+
+	assert.False(t, frame.IsBeside())
+	assert.Equal(t, []string{"%0 144", "%0 40"}, tmux.resizes)
+}
+
+// TestFrameBesideWhileZoomedIsPaidOnUnzoom covers the stage coming beside the sidebar while the
+// sidebar holds the window, where a resize would unzoom it.
+func TestFrameBesideWhileZoomedIsPaidOnUnzoom(t *testing.T) {
+	tmux := &recordingTmux{
+		width:       159,
+		windowWidth: 200,
+		height:      50,
+	}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+	frame.Solo(true)
+
+	tmux.resizes = nil
+	frame.Beside(true)
+
+	assert.Empty(t, tmux.resizes, "nothing is resized under the zoom")
+
+	frame.Solo(false)
+
+	assert.Equal(t, []string{"%0 144"}, tmux.resizes)
+}
+
+// TestFrameFitsBeside covers the stage keeping its floor beside the sidebar's diff.
+func TestFrameFitsBeside(t *testing.T) {
+	tests := []struct {
+		name   string
+		window int
+		want   bool
+	}{
+		{name: "a wide window leaves the stage its floor", window: 200, want: true},
+		{name: "the narrowest window that leaves the stage its floor", window: 136, want: true},
+		{name: "a column narrower leaves the stage short", window: 135, want: false},
+		{name: "a window narrower than the sidebar", window: 30, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			frame := New(&recordingTmux{}, config.Layout{SidebarWidth: 40})
+
+			assert.Equal(t, tt.want, frame.FitsBeside(tt.window, 33))
+		})
+	}
+}
+
+// TestFrameOpenEditorSplitsOffTheSidebar covers your editor taking the diff's columns, which leaves
+// the sidebar at its chosen width and the agent where it was.
+func TestFrameOpenEditorSplitsOffTheSidebar(t *testing.T) {
+	tmux := &recordingTmux{
+		width:       159,
+		windowWidth: 200,
+		height:      50,
+	}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+	frame.Beside(true)
+
+	tmux.splits = nil
+	pane := frame.OpenEditor(Content{Dir: "/work", Render: func(Target) ([]string, bool) { return []string{"nvim"}, true }})
+
+	assert.Equal(t, "%1", pane)
+	assert.Equal(t, []string{"right %0 103"}, tmux.splits)
+	assert.Equal(t, []string{"%1"}, tmux.respawnPanes)
+	assert.Equal(t, []string{"nvim"}, tmux.respawns)
+	assert.Equal(t, []string{"/work"}, tmux.respawnDirs)
+	assert.False(t, frame.IsBeside(), "the sidebar is back at its chosen width")
+}
+
+// TestFrameOpenEditorRefusesWithoutTheStageBeside covers a sidebar with no diff's columns to give.
+func TestFrameOpenEditorRefusesWithoutTheStageBeside(t *testing.T) {
+	tests := []struct {
+		name  string
+		setUp func(*Frame)
+	}{
+		{name: "the sidebar at its chosen width", setUp: func(*Frame) {}},
+		{name: "the sidebar holding the window", setUp: func(frame *Frame) {
+			frame.Beside(true)
+			frame.Solo(true)
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{
+				width:       159,
+				windowWidth: 200,
+				height:      50,
+			}
+			frame := New(tmux, config.Layout{SidebarWidth: 40})
+			frame.Attach("%0")
+			tt.setUp(frame)
+
+			tmux.splits = nil
+			pane := frame.OpenEditor(Content{Render: func(Target) ([]string, bool) { return []string{"nvim"}, true }})
+
+			assert.Empty(t, pane)
+			assert.Empty(t, tmux.splits)
+			assert.Empty(t, tmux.respawns)
+		})
+	}
+}
+
+// TestFrameCloseEditor covers your editor going, which hands its columns back to the sidebar.
+func TestFrameCloseEditor(t *testing.T) {
+	tmux := &recordingTmux{
+		width:       159,
+		windowWidth: 200,
+		height:      50,
+	}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+	frame.Beside(true)
+	frame.OpenEditor(Content{Render: func(Target) ([]string, bool) { return []string{"nvim"}, true }})
+
+	tmux.resizes = nil
+	require.True(t, frame.CloseEditor())
+
+	assert.Equal(t, []string{"%1"}, tmux.killed)
+	assert.Equal(t, []string{"%0 40"}, tmux.resizes, "tmux gave the editor's columns to a pane beside it")
+	assert.False(t, frame.CloseEditor(), "there is no editor left to close")
+}
+
 // TestFocusPaneIsTheGuestForALocalEngine covers the focus key jumping to the agent's own pane,
 // which is the pane that was moved into the stage.
 func TestFocusPaneIsTheGuestForALocalEngine(t *testing.T) {

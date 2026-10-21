@@ -283,7 +283,7 @@ func (m *model) getHostPath() string {
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
 // given, empty where the split was refused.
 func (m *model) stageEditor(content layout.Content) string {
-	if m.isReviewSplit() {
+	if m.isWriterBeside() {
 		pane := m.frame.OpenEditor(content)
 		if pane != "" {
 			m.tmux.SelectPane(pane)

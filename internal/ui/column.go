@@ -89,7 +89,7 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 		return 0, columnSpec{}, false
 	}
 
-	if !m.frame.IsSolo() && !m.frame.IsWide() {
+	if !m.frame.IsSolo() && !m.frame.IsBeside() {
 		return 0, columnSpec{}, false
 	}
 
@@ -172,17 +172,17 @@ func (m *model) holdsWindow() bool {
 
 // wantsSolo reports whether the panel should hold the whole window.
 func (m *model) wantsSolo() bool {
-	return m.holdsWindow() && m.terminalDir == "" && !m.isReviewSplit()
+	return m.holdsWindow() && m.terminalDir == "" && !m.isWriterBeside()
 }
 
-// isReviewSplit reports whether the review keeps its writer on the stage beside the diff, which it
+// isWriterBeside reports whether the review keeps its writer on the stage beside the diff, which it
 // does only while the writer is running and the window has room for both.
-func (m *model) isReviewSplit() bool {
+func (m *model) isWriterBeside() bool {
 	if m.screen != screenReview || m.terminalDir != "" {
 		return false
 	}
 
-	if !m.frame.FitsWide(m.term.windowCols, diffFloor) {
+	if !m.frame.FitsBeside(m.term.windowCols, diffFloor) {
 		return false
 	}
 
@@ -191,17 +191,18 @@ func (m *model) isReviewSplit() bool {
 	return live
 }
 
-// syncReviewSplit restages the review once whether it is split no longer matches the frame.
-func (m *model) syncReviewSplit() {
-	if m.screen == screenReview && !m.review.hold.atEditor && m.isReviewSplit() != m.frame.IsWide() {
+// restageWriterBeside restages the review once whether its writer is beside the diff no longer
+// matches the frame.
+func (m *model) restageWriterBeside() {
+	if m.screen == screenReview && !m.review.hold.atEditor && m.isWriterBeside() != m.frame.IsBeside() {
 		m.stageSelection()
 	}
 }
 
-// syncWide widens the sidebar over the stage for the diff while the review is split, and gives the
-// stage its columns back once it is not or your editor has them.
-func (m *model) syncWide() {
-	m.frame.Widen(m.isReviewSplit() && !m.review.hold.atEditor)
+// syncBeside draws the sidebar across the stage for the diff while the writer is beside it, and
+// gives the stage its columns back once it is not or your editor has them.
+func (m *model) syncBeside() {
+	m.frame.Beside(m.isWriterBeside() && !m.review.hold.atEditor)
 }
 
 // reconcileSolo settles whether the panel has the whole window, and hands it back while the info
@@ -213,7 +214,7 @@ func (m *model) reconcileSolo() {
 	// every cursor move.
 	want := m.wantsSolo()
 	if want == m.frame.IsSolo() {
-		m.syncWide()
+		m.syncBeside()
 
 		return
 	}
@@ -224,7 +225,7 @@ func (m *model) reconcileSolo() {
 
 	m.frame.Solo(want)
 	m.term.awaitingSince = time.Now()
-	m.syncWide()
+	m.syncBeside()
 }
 
 func (m *model) isAwaitingSize() bool {
