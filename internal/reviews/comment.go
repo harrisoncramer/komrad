@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/eventprompts"
 	"komrad/internal/events"
+	"komrad/internal/fail"
 	"komrad/internal/mail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -104,7 +105,8 @@ func isReviewComment(m mailstore.Mail) bool {
 	return m.Kind == mailstore.KindReviewComment
 }
 
-// takeReadSnapshot freezes an agent's task as it reads a person's comment, which an addressed reply is measured from.
+// takeReadSnapshot freezes an agent's task as it reads a person's comment, which an addressed reply is
+// measured from, or settles for the newest snapshot while the checkout is part way through a rebase or merge.
 func (s *ReviewService) takeReadSnapshot(ctx context.Context, agentID string) (*reviewstore.Snapshot, error) {
 	agent, err := s.getAgent(ctx, agentID)
 	if err != nil {
@@ -120,8 +122,14 @@ func (s *ReviewService) takeReadSnapshot(ctx context.Context, agentID string) (*
 	}
 
 	snapshot, err := s.takeTaskSnapshot(ctx, *task)
-	if errors.Is(err, errReviewWorktreeRemoved) {
+	var failed *fail.Error
+	switch {
+	case errors.Is(err, errReviewWorktreeRemoved):
 		return nil, ErrReviewNoSnapshot
+	case errors.Is(err, ErrReviewNoSnapshot):
+		return nil, err
+	case errors.As(err, &failed) && failed.Kind() == fail.KindPrecondition:
+		return s.getLatestSnapshot(ctx, task.ID)
 	}
 
 	return snapshot, err

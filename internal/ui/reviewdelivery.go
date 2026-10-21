@@ -13,9 +13,17 @@ type reviewDelivery struct {
 	tone  paint.Tone
 }
 
+// reviewDeliveryParams is a comment, the thread it sits in and the writer whose answer counts.
+type reviewDeliveryParams struct {
+	thread   *agentv1.ReviewThread
+	message  *agentv1.ReviewMessage
+	writerID string
+}
+
 // reviewDeliveryOf is where a comment stands: held for a forge comment the person has not
 // accepted, then released, read or answered for the person's own, and nothing for an agent's.
-func reviewDeliveryOf(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage) reviewDelivery {
+func reviewDeliveryOf(params reviewDeliveryParams) reviewDelivery {
+	message := params.message
 	switch {
 	case isHeldForge(message):
 		return reviewDelivery{word: "held", tone: reviewForgeHeldTone}
@@ -23,7 +31,7 @@ func reviewDeliveryOf(thread *agentv1.ReviewThread, message *agentv1.ReviewMessa
 		return reviewDelivery{}
 	}
 
-	if answer, ok := findReplyTo(thread, message); ok {
+	if answer, ok := findReplyTo(params); ok {
 		return reviewDelivery{word: "answered", stamp: answer.GetCreatedAt(), tone: reviewReadTone}
 	}
 	if read := message.GetReadAt(); read != "" {
@@ -33,16 +41,17 @@ func reviewDeliveryOf(thread *agentv1.ReviewThread, message *agentv1.ReviewMessa
 	return reviewDelivery{word: "released", stamp: message.GetCreatedAt(), tone: reviewReleasedTone}
 }
 
-// findReplyTo is the first thing an agent said in the thread after the person's comment.
-func findReplyTo(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage) (*agentv1.ReviewMessage, bool) {
+// findReplyTo is the first thing the writer said in the thread after the person's comment, since
+// only the writer receives the comment and a reviewer's words do not answer it.
+func findReplyTo(params reviewDeliveryParams) (*agentv1.ReviewMessage, bool) {
 	seen := false
-	for _, said := range thread.GetMessages() {
-		if said.GetId() == message.GetId() {
+	for _, said := range params.thread.GetMessages() {
+		if said.GetId() == params.message.GetId() {
 			seen = true
 
 			continue
 		}
-		if seen && said.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
+		if seen && said.GetAuthorAgentId() == params.writerID {
 			return said, true
 		}
 	}

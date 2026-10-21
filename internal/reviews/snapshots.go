@@ -789,7 +789,7 @@ func (s *ReviewService) threadsInContext(
 	for _, thread := range threads {
 		key := [2]string{thread.Thread.SnapshotID, thread.Thread.FilePath}
 		lines, done := held[key]
-		if !done && dir != "" {
+		if !done && dir != "" && thread.Thread.FilePath != "" {
 			lines = s.readSnapshotFile(ctx, readSnapshotFileParams{
 				Dir:        dir,
 				SnapshotID: thread.Thread.SnapshotID,

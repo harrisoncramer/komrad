@@ -80,7 +80,7 @@ func (s *ReviewService) AcceptForgeMessage(
 		return nil, s.mailComment(ctx, tx, mailCommentParams{
 			Thread:     *thread,
 			Message:    *copied,
-			Reply:      true,
+			Reply:      rootOf(*message, messages).ID != message.ID,
 			ForgeLogin: message.External.Login,
 		})
 	})
@@ -94,12 +94,7 @@ func (s *ReviewService) AcceptForgeMessage(
 // requireAcceptable refuses a forge message already accepted, or a reply whose held first message
 // has no copy yet.
 func requireAcceptable(message reviewstore.Message, thread []reviewstore.Message) error {
-	root := message
-	for _, other := range thread {
-		if other.ID < root.ID {
-			root = other
-		}
-	}
+	root := rootOf(message, thread)
 
 	rootAccepted := !root.Held
 	for _, other := range thread {
@@ -119,4 +114,17 @@ func requireAcceptable(message reviewstore.Message, thread []reviewstore.Message
 	}
 
 	return nil
+}
+
+// rootOf is the message that opened a thread, the first written among the message and the rest
+// of its thread.
+func rootOf(message reviewstore.Message, thread []reviewstore.Message) reviewstore.Message {
+	root := message
+	for _, other := range thread {
+		if other.ID < root.ID {
+			root = other
+		}
+	}
+
+	return root
 }

@@ -50,6 +50,13 @@ func TestRenderReviewHeadsEachThread(t *testing.T) {
 			wantPair:    "`git diff base-sha snapshot-sha`",
 		},
 		{
+			name: "a thread pinned to no file is on the change as a whole",
+			thread: reviewstore.Thread{
+				BaseSHA: "base-sha",
+			},
+			wantHeading: "## The whole change",
+		},
+		{
 			name: "a line the snapshot holds is counted on the new side whatever base was recorded",
 			thread: reviewstore.Thread{
 				BaseSHA:  "earlier-snapshot-sha",

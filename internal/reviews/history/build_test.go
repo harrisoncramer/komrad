@@ -3,6 +3,7 @@ package history
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
@@ -84,4 +85,54 @@ func TestCountChangedSinceMeasuresBetweenTheTwoSnapshots(t *testing.T) {
 		ToSHA:   "current",
 		Exclude: []string{"proto/gen"},
 	}}, repo.CountsAsked())
+}
+
+// TestFindLastComment covers which comment the earlier snapshot is read from.
+func TestFindLastComment(t *testing.T) {
+	at := func(hour int) time.Time { return time.Date(2026, time.October, 21, hour, 0, 0, 0, time.UTC) }
+	tests := []struct {
+		name     string
+		comments []Comment
+		ordinal  int32
+		want     *Comment
+	}{
+		{
+			name:    "nothing before the snapshot on screen",
+			ordinal: 1,
+		},
+		{
+			name: "comments on the snapshot on screen are left out",
+			comments: []Comment{
+				{SnapshotID: "s1", SnapshotOrdinal: 1, ReleasedAt: at(9)},
+				{SnapshotID: "s2", SnapshotOrdinal: 2, ReleasedAt: at(10)},
+			},
+			ordinal: 2,
+			want:    &Comment{SnapshotID: "s1", SnapshotOrdinal: 1, ReleasedAt: at(9)},
+		},
+		{
+			name: "a late reply in an old thread does not pull the earlier snapshot back",
+			comments: []Comment{
+				{SnapshotID: "s1", SnapshotOrdinal: 1, ReleasedAt: at(9)},
+				{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(10)},
+				{SnapshotID: "s1", SnapshotOrdinal: 1, ReleasedAt: at(11)},
+			},
+			ordinal: 6,
+			want:    &Comment{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(10)},
+		},
+		{
+			name: "the newest comment on the latest snapshot wins",
+			comments: []Comment{
+				{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(12)},
+				{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(10)},
+			},
+			ordinal: 4,
+			want:    &Comment{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(12)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, findLastComment(tt.comments, tt.ordinal))
+		})
+	}
 }

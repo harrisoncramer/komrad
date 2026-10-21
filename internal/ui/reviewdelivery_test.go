@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,7 @@ import (
 func TestReviewDeliveryOf(t *testing.T) {
 	human := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 	agent := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
+	const writer, reviewer = "writer", "reviewer"
 
 	tests := []struct {
 		name      string
@@ -23,7 +25,7 @@ func TestReviewDeliveryOf(t *testing.T) {
 	}{
 		{
 			name:     "an agent's reply carries nothing",
-			message:  &agentv1.ReviewMessage{Id: "m1", AuthorKind: agent},
+			message:  &agentv1.ReviewMessage{Id: "m1", AuthorKind: agent, AuthorAgentId: xptr.Ptr(writer)},
 			wantWord: "",
 		},
 		{
@@ -46,13 +48,24 @@ func TestReviewDeliveryOf(t *testing.T) {
 		{
 			name: "a comment the writer answered names the answer",
 			thread: &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{
-				{Id: "m0", AuthorKind: agent, CreatedAt: "2026-09-02T09:00:00Z"},
+				{Id: "m0", AuthorKind: agent, AuthorAgentId: xptr.Ptr(writer), CreatedAt: "2026-09-02T09:00:00Z"},
 				{Id: "m1", AuthorKind: human, CreatedAt: "2026-09-02T10:00:00Z", ReadAt: "2026-09-02T10:01:00Z"},
-				{Id: "m2", AuthorKind: agent, CreatedAt: "2026-09-02T10:02:00Z"},
+				{Id: "m2", AuthorKind: agent, AuthorAgentId: xptr.Ptr(writer), CreatedAt: "2026-09-02T10:02:00Z"},
 			}},
 			message:   &agentv1.ReviewMessage{Id: "m1", AuthorKind: human, ReadAt: "2026-09-02T10:01:00Z"},
 			wantWord:  "answered",
 			wantStamp: "2026-09-02T10:02:00Z",
+		},
+		{
+			name: "a reviewer's words after the comment do not answer it",
+			thread: &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{
+				{Id: "m0", AuthorKind: agent, AuthorAgentId: xptr.Ptr(reviewer), CreatedAt: "2026-09-02T09:00:00Z"},
+				{Id: "m1", AuthorKind: human, CreatedAt: "2026-09-02T10:00:00Z", ReadAt: "2026-09-02T10:01:00Z"},
+				{Id: "m2", AuthorKind: agent, AuthorAgentId: xptr.Ptr(reviewer), CreatedAt: "2026-09-02T10:02:00Z"},
+			}},
+			message:   &agentv1.ReviewMessage{Id: "m1", AuthorKind: human, ReadAt: "2026-09-02T10:01:00Z"},
+			wantWord:  "read",
+			wantStamp: "2026-09-02T10:01:00Z",
 		},
 		{
 			name:     "a forge comment the person has not accepted is held",
@@ -63,7 +76,7 @@ func TestReviewDeliveryOf(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := reviewDeliveryOf(tt.thread, tt.message)
+			got := reviewDeliveryOf(reviewDeliveryParams{thread: tt.thread, message: tt.message, writerID: writer})
 			assert.Equal(t, tt.wantWord, got.word)
 			assert.Equal(t, tt.wantStamp, got.stamp)
 		})

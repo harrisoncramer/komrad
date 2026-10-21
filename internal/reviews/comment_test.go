@@ -6,6 +6,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/eventprompts"
+	"komrad/internal/fail"
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
 	taskstore "komrad/internal/store/task"
@@ -149,6 +150,15 @@ func TestReadMail(t *testing.T) {
 				fx.writeComment(t, personAuthor, "this needs a nil check")
 				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 			},
+			wantClaimed: 1,
+		},
+		{
+			name: "a comment read while a rebase is part way through is read on the newest snapshot",
+			arrange: func(t *testing.T, fx *reviewFixture) {
+				fx.writeComment(t, personAuthor, "this needs a nil check")
+				fx.snapshots.Err = fail.Precondition("a rebase is part way through")
+			},
+			wantReadOn:  1,
 			wantClaimed: 1,
 		},
 		{
