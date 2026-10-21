@@ -366,20 +366,17 @@ func (s *Service) leaveParent(ctx context.Context, task taskstore.Task) error {
 		return nil
 	}
 
-	branch := ""
 	parent, err := s.tasks.Get(ctx, task.Parent.TaskID)
-	if err == nil {
-		branch = parent.GetBranch()
+	if errors.Is(err, store.ErrNotFound) {
+		return s.tasks.ClearParent(ctx, task.ID, "")
 	}
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
+	if err != nil {
 		return err
 	}
 
+	branch := parent.GetBranch()
 	if err := s.tasks.ClearParent(ctx, task.ID, branch); err != nil {
 		return err
-	}
-	if branch == "" {
-		return nil
 	}
 
 	if err := s.retarget(ctx, task, branch); err != nil {
