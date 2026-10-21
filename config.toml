@@ -453,6 +453,11 @@ adopt         = ["A"]
 new_agent     = ["c"]
 # Create a workflow. The entry is only on a workflow in the agents list.
 new_workflow  = ["w"]
+# Restore the hovered workflow on the deleted list with its archived agents. The agents on a task
+# whose worktree was deleted stay archived.
+restore       = ["u"]
+# Delete the hovered row of the deleted list, or every chosen row, once you confirm.
+delete        = ["d"]
 
 # The row of tabs a screen draws over its list, and the key that hands it the cursor.
 [keybindings.tabs]

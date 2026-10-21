@@ -24,7 +24,6 @@ const (
 	failedRunNotice       = "a script komrad fired failed, log unread"
 	unreadMailNotice      = "mail waiting, it has not read it"
 	worktreeRemovedNotice = "its directory no longer exists"
-	worktreeDeletedNotice = "its worktree was deleted"
 	sequenceNotice        = "a rebase is stopped part way in it"
 	hiddenNotice          = "hidden from the sidebar"
 	documentsNotice       = "it has written documents for you to read"
@@ -44,7 +43,6 @@ var (
 	// repoSaid is what the repo column says where it stands away from its baseline.
 	repoSaid = map[view.Repo]string{
 		view.RepoGone:     worktreeRemovedNotice,
-		view.RepoDeleted:  worktreeDeletedNotice,
 		view.RepoRebasing: sequenceNotice,
 	}
 	forgeAlertSaid = map[view.Forge]string{

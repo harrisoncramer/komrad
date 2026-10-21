@@ -19,6 +19,7 @@ import (
 	rowstore "komrad/internal/store/row"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xslice"
 
@@ -1752,6 +1753,61 @@ func TestDeleteTasksWithoutRecordsOnAGoneWorktree(t *testing.T) {
 	assert.Equal(t, taskstore.WorktreeDeleted, kept.Checkout.WorktreeRemovalReason)
 	assert.Equal(t, []string{agent.Cwd}, lifecycle.ranTaskDeprovisions())
 	assert.Empty(t, lifecycle.ranTaskHooks())
+}
+
+// TestRestoreAgentsRefusesATaskWhoseWorktreeWasDeleted pins a restore refused for an agent on a
+// task whose worktree was deleted.
+func TestRestoreAgentsRefusesATaskWhoseWorktreeWasDeleted(t *testing.T) {
+	tests := []struct {
+		name     string
+		reviewer bool
+	}{
+		{
+			name: "its writer",
+		},
+		{
+			name:     "its reviewer",
+			reviewer: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fx := newTaskDeleteFixture(t, &fakeLifecycle{dir: t.TempDir()}, worktreeConfig(t, "backend"))
+			agent, task := fx.launch(t, "auth")
+			if tt.reviewer {
+				var err error
+				agent, err = fx.agents.launch.NewAgent(t.Context(), reviewerOf(*agent, "reviewer"))
+				require.NoError(t, err)
+			}
+			require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.ID}}))
+
+			_, err := fx.agents.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+
+			require.ErrorIs(t, err, tasks.ErrWorktreeRemoved)
+			assert.NotNil(t, agentByID(t, fx.st, agent.ID).ArchivedAt, "the agent stays archived")
+		})
+	}
+}
+
+// TestRestoreWorkflowLeavesATaskWhoseWorktreeWasDeletedArchived pins a workflow restore bringing
+// the workflow back and leaving a task whose worktree was deleted in the archive.
+func TestRestoreWorkflowLeavesATaskWhoseWorktreeWasDeletedArchived(t *testing.T) {
+	lifecycle := &fakeLifecycle{dir: t.TempDir()}
+	fx := newTaskDeleteFixture(t, lifecycle, worktreeConfig(t, "backend"))
+	workflows := fx.st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake(), lifecycle: lifecycle})
+	agent, task := fx.launch(t, "auth")
+	require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{task.ID}}))
+	require.NoError(t, workflows.ArchiveWorkflow(t.Context(), fx.workflow.ID))
+
+	restored, err := workflows.RestoreWorkflow(t.Context(), fx.workflow.ID)
+	require.NoError(t, err)
+
+	assert.Nil(t, restored.ArchivedAt, "the workflow comes back")
+	assert.NotNil(t, agentByID(t, fx.st, agent.ID).ArchivedAt, "its writer stays archived")
+	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, kept.ArchivedAt, "and so does its task")
 }
 
 // TestDeleteTasksWithoutRecordsKeepsAWorktreeThatWillNotGo pins a failed deprovision leaving the

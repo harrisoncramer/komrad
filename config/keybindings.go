@@ -306,6 +306,11 @@ type MenuKeys struct {
 	NewAgent []string `mapstructure:"new_agent" default:"c"`
 	// Create a workflow. The entry is only on a workflow in the agents list.
 	NewWorkflow []string `mapstructure:"new_workflow" default:"w"`
+	// Restore the hovered workflow on the deleted list with its archived agents. The agents on a task
+	// whose worktree was deleted stay archived.
+	Restore []string `mapstructure:"restore" default:"u"`
+	// Delete the hovered row of the deleted list, or every chosen row, once you confirm.
+	Delete []string `mapstructure:"delete" default:"d"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow.

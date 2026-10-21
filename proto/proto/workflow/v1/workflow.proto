@@ -368,7 +368,7 @@ service WorkflowService {
       cli: true
       mcp: true
       name: "restore_workflow"
-      description: "Restore an archived workflow with its agents, which stay dormant until resumed."
+      description: "Restore an archived workflow with its agents, which stay dormant until resumed. The agents on a task whose worktree was deleted stay archived."
       mcp_guidance: "Call resume_agent on the agents that should run."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]

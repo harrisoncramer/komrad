@@ -417,14 +417,19 @@ func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	archive := archiveMenu(m, target)
-
+	menu := rowMenu(target.name())
 	if row, ok := rowAt(a.listRows(m), a.cursor); ok && a.holdsAnAgent(m) {
 		item, _ := row.paneItem()
-		return withNested(agentMenu(m, item), "archive", m.keys.Menu.Archive, archive), true
+		menu = agentMenu(m, item)
 	}
 
-	return withNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archive), true
+	if a.kind == agentsDeleted {
+		menu.entries = append(menu.entries, deletedEntries(m, target)...)
+
+		return menu, true
+	}
+
+	return withNested(menu, "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
 }
 
 // restoreAndResumeCmd takes the agents out of the archive and puts the resumed agent's conversation back in a pane.

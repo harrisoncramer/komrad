@@ -1140,6 +1140,20 @@
               "type": "array",
               "description": "Create a workflow. The entry is only on a workflow in the agents list.",
               "default": "[\"w\"]"
+            },
+            {
+              "key": "restore",
+              "path": "keybindings.menu.restore",
+              "type": "array",
+              "description": "Restore the hovered workflow on the deleted list with its archived agents. The agents on a task\nwhose worktree was deleted stay archived.",
+              "default": "[\"u\"]"
+            },
+            {
+              "key": "delete",
+              "path": "keybindings.menu.delete",
+              "type": "array",
+              "description": "Delete the hovered row of the deleted list, or every chosen row, once you confirm.",
+              "default": "[\"d\"]"
             }
           ],
           "sections": []

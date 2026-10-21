@@ -122,8 +122,8 @@ func carriesWork(row Row) bool {
 }
 
 // RepoCell is where the directory an agent sits in stands, greyed while nothing has happened to
-// it, and empty on a row that carries no work, one in its workflow's own directory, or an archived
-// row whose worktree was deleted.
+// it, and empty on a row that carries no work, one in its workflow's own directory, or one
+// whose worktree was deleted.
 func RepoCell(row Row) Cell {
 	if !carriesWork(row) || row.InWorkflowDir {
 		return Cell{}
@@ -137,11 +137,7 @@ func RepoCell(row Row) Cell {
 	case RepoGone:
 		return Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}
 	case RepoDeleted:
-		if row.Archived {
-			return Cell{}
-		}
-
-		return Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneMuted}
+		return Cell{}
 	}
 
 	return Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}

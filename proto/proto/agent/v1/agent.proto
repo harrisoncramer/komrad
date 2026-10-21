@@ -870,7 +870,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "restore_agents"
-      description: "Restore archived agents, dormant, with their workflows. A task's writer restores its task with it. Komrad refuses a reviewer until its task is restored."
+      description: "Restore archived agents, dormant, with their workflows. A task's writer restores its task with it. Komrad refuses a reviewer until its task is restored, and an agent on a task whose worktree was deleted."
       mcp_guidance: "Call resume_agent on each agent that should run."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
