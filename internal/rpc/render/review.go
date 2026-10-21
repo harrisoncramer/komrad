@@ -110,7 +110,7 @@ func ReviewHistory(opened reviews.ReviewHistory) *agentv1.OpenReviewHistoryRespo
 		}),
 		Notice:              opened.Notice,
 		Resolved:            reviewResolvedSpan(opened.Span),
-		Widened:             opened.Widened,
+		Widened:             reviewWidening(opened.Widened),
 		ChangedSinceEarlier: int32(opened.ChangedSinceEarlier),
 		Traced:              map[string]*agentv1.ReviewTracedPlace{},
 	}
@@ -144,4 +144,32 @@ func reviewResolvedSpan(span history.ResolvedSpan) *agentv1.ReviewResolvedSpan {
 		OriginSnapshotBaseSha: span.OriginSnapshotBaseSHA,
 		Conflicts:             span.Conflicts,
 	}
+}
+
+func reviewWidening(widened *history.Widening) *agentv1.ReviewWidening {
+	if widened == nil {
+		return nil
+	}
+
+	return &agentv1.ReviewWidening{
+		Reason:    reviewWidenedReasonOf(widened.Reason),
+		Conflicts: widened.Conflicts,
+	}
+}
+
+func reviewWidenedReasonOf(reason history.WidenedReason) agentv1.ReviewWidenedReason {
+	switch reason {
+	case history.WidenedAnswerGone:
+		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_GONE
+	case history.WidenedCommentSnapshotGone:
+		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE
+	case history.WidenedRangeSnapshotGone:
+		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE
+	case history.WidenedRangeBackwards:
+		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_BACKWARDS
+	case history.WidenedAnswerAcrossRebase:
+		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE
+	}
+
+	return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_UNSPECIFIED
 }
