@@ -77,7 +77,7 @@ func (q *Queries) GetLatestReviewSnapshot(ctx context.Context, taskID string) (*
 
 const getOpenReview = `-- name: GetOpenReview :one
 SELECT
-    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login, task_id
+    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, created_at, updated_at, body, engine_id, external_login, task_id
 FROM
     reviews v
 WHERE
@@ -104,7 +104,6 @@ func (q *Queries) GetOpenReview(ctx context.Context, arg GetOpenReviewParams) (*
 		&i.Verdict,
 		&i.ReleasedAt,
 		&i.Path,
-		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Body,
@@ -117,7 +116,7 @@ func (q *Queries) GetOpenReview(ctx context.Context, arg GetOpenReviewParams) (*
 
 const getReview = `-- name: GetReview :one
 SELECT
-    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login, task_id
+    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, created_at, updated_at, body, engine_id, external_login, task_id
 FROM
     reviews v
 WHERE
@@ -135,7 +134,6 @@ func (q *Queries) GetReview(ctx context.Context, id string) (*Review, error) {
 		&i.Verdict,
 		&i.ReleasedAt,
 		&i.Path,
-		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Body,
@@ -148,7 +146,7 @@ func (q *Queries) GetReview(ctx context.Context, id string) (*Review, error) {
 
 const getReviewMessage = `-- name: GetReviewMessage :one
 SELECT
-    id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion, engine_id, snapshot_id, external_login, forge_comment_id, forge_edited_at, held, accepted_from
+    id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion, engine_id, snapshot_id, external_login, forge_comment_id, forge_edited_at, held, accepted_from, mail_id, read_at, read_snapshot_id
 FROM
     review_messages m
 WHERE
@@ -175,6 +173,9 @@ func (q *Queries) GetReviewMessage(ctx context.Context, id string) (*ReviewMessa
 		&i.ForgeEditedAt,
 		&i.Held,
 		&i.AcceptedFrom,
+		&i.MailID,
+		&i.ReadAt,
+		&i.ReadSnapshotID,
 	)
 	return &i, err
 }
@@ -240,47 +241,16 @@ func (q *Queries) GetReviewSnapshotBySha(ctx context.Context, arg GetReviewSnaps
 
 const getReviewThread = `-- name: GetReviewThread :one
 SELECT
-    t.id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.snapshot_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.engine_id, t.forge_thread_id, t.forge_resolved, t.task_id,
-    v.released_at AS review_released_at,
-    v.author_kind AS review_author_kind,
-    v.author_agent_id AS review_author_agent_id
+    t.id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.snapshot_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.engine_id, t.forge_thread_id, t.forge_resolved, t.task_id, t.author_kind, t.author_agent_id
 FROM
     review_threads t
-    JOIN reviews v ON v.id = t.review_id
 WHERE
     t.id = $1
 `
 
-type GetReviewThreadRow struct {
-	ID                  string
-	FilePath            string
-	OldStart            int32
-	OldEnd              int32
-	NewStart            int32
-	NewEnd              int32
-	QuotedLines         []string
-	HumanReadAt         *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-	LastAgentActivityAt *time.Time
-	ResolvedAt          *time.Time
-	ReviewID            string
-	SnapshotID          string
-	BaseSha             string
-	ResolvedByKind      NullReviewAuthorKind
-	ResolvedByAgentID   *string
-	EngineID            string
-	ForgeThreadID       *string
-	ForgeResolved       bool
-	TaskID              string
-	ReviewReleasedAt    *time.Time
-	ReviewAuthorKind    ReviewAuthorKind
-	ReviewAuthorAgentID *string
-}
-
-func (q *Queries) GetReviewThread(ctx context.Context, id string) (*GetReviewThreadRow, error) {
+func (q *Queries) GetReviewThread(ctx context.Context, id string) (*ReviewThread, error) {
 	row := q.db.QueryRow(ctx, getReviewThread, id)
-	var i GetReviewThreadRow
+	var i ReviewThread
 	err := row.Scan(
 		&i.ID,
 		&i.FilePath,
@@ -303,9 +273,8 @@ func (q *Queries) GetReviewThread(ctx context.Context, id string) (*GetReviewThr
 		&i.ForgeThreadID,
 		&i.ForgeResolved,
 		&i.TaskID,
-		&i.ReviewReleasedAt,
-		&i.ReviewAuthorKind,
-		&i.ReviewAuthorAgentID,
+		&i.AuthorKind,
+		&i.AuthorAgentID,
 	)
 	return &i, err
 }
@@ -324,7 +293,7 @@ VALUES (
     $3,
     NOW())
 RETURNING
-    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login, task_id
+    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, created_at, updated_at, body, engine_id, external_login, task_id
 `
 
 type InsertForgeReviewParams struct {
@@ -344,7 +313,6 @@ func (q *Queries) InsertForgeReview(ctx context.Context, arg InsertForgeReviewPa
 		&i.Verdict,
 		&i.ReleasedAt,
 		&i.Path,
-		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Body,
@@ -367,7 +335,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login, task_id
+    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, created_at, updated_at, body, engine_id, external_login, task_id
 `
 
 type InsertReviewParams struct {
@@ -393,7 +361,6 @@ func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) (*Re
 		&i.Verdict,
 		&i.ReleasedAt,
 		&i.Path,
-		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Body,
@@ -433,7 +400,7 @@ WITH written AS (
         $11,
         $12)
 RETURNING
-    id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion, engine_id, snapshot_id, external_login, forge_comment_id, forge_edited_at, held, accepted_from
+    id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion, engine_id, snapshot_id, external_login, forge_comment_id, forge_edited_at, held, accepted_from, mail_id, read_at, read_snapshot_id
 ),
 said AS (
     SELECT
@@ -441,24 +408,23 @@ said AS (
         w.author_kind,
         w.author_agent_id,
 (w.snapshot_id IS NOT NULL
-            AND v.author_kind = 'human') AS resolves,
+            AND t.author_kind = 'human') AS resolves,
 (t.resolved_at IS NOT NULL
-            AND w.author_kind = t.resolved_by_kind
-            AND w.author_kind <> 'human'
-            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
-            AND NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    agents a
-                WHERE
-                    a.id = w.author_agent_id
-                    AND a.task_id = t.task_id
-                    AND a.role = 'writer')) AS reopens
+            AND (w.author_kind = 'human'
+                OR (w.author_kind = t.resolved_by_kind
+                    AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
+                    AND NOT EXISTS (
+                        SELECT
+                            1
+                        FROM
+                            agents a
+                        WHERE
+                            a.id = w.author_agent_id
+                            AND a.task_id = t.task_id
+                            AND a.role = 'writer')))) AS reopens
         FROM
             written w
             JOIN review_threads t ON t.id = w.thread_id
-            JOIN reviews v ON v.id = t.review_id
 ),
 touched AS (
     UPDATE
@@ -498,7 +464,7 @@ touched AS (
         t.id
 )
 SELECT
-    w.id, w.thread_id, w.author_kind, w.author_agent_id, w.body, w.created_at, w.updated_at, w.review_id, w.suggestion, w.engine_id, w.snapshot_id, w.external_login, w.forge_comment_id, w.forge_edited_at, w.held, w.accepted_from
+    w.id, w.thread_id, w.author_kind, w.author_agent_id, w.body, w.created_at, w.updated_at, w.review_id, w.suggestion, w.engine_id, w.snapshot_id, w.external_login, w.forge_comment_id, w.forge_edited_at, w.held, w.accepted_from, w.mail_id, w.read_at, w.read_snapshot_id
 FROM
     written w
 `
@@ -535,6 +501,9 @@ type InsertReviewMessageRow struct {
 	ForgeEditedAt  *time.Time
 	Held           bool
 	AcceptedFrom   *string
+	MailID         *string
+	ReadAt         *time.Time
+	ReadSnapshotID *string
 }
 
 func (q *Queries) InsertReviewMessage(ctx context.Context, arg InsertReviewMessageParams) (*InsertReviewMessageRow, error) {
@@ -570,6 +539,9 @@ func (q *Queries) InsertReviewMessage(ctx context.Context, arg InsertReviewMessa
 		&i.ForgeEditedAt,
 		&i.Held,
 		&i.AcceptedFrom,
+		&i.MailID,
+		&i.ReadAt,
+		&i.ReadSnapshotID,
 	)
 	return &i, err
 }
@@ -620,6 +592,8 @@ WITH opened AS (
     INSERT INTO review_threads(
         task_id,
         review_id,
+        author_kind,
+        author_agent_id,
         snapshot_id,
         base_sha,
         file_path,
@@ -632,21 +606,23 @@ WITH opened AS (
         last_agent_activity_at)
     VALUES (
         $1::uuid,
-        $2,
-        $3,
-        $4,
+        $2::uuid,
+        $3::review_author_kind,
+        $4::uuid,
         $5,
         $6,
         $7,
         $8,
         $9,
         $10,
-        $11::uuid,
-        CASE WHEN $12::review_author_kind = 'agent' THEN
+        $11,
+        $12,
+        $13::uuid,
+        CASE WHEN $3::review_author_kind = 'agent' THEN
             NOW()
         END)
 RETURNING
-    id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, snapshot_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id
+    id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, snapshot_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id, author_kind, author_agent_id
 ),
 said AS (
     INSERT INTO review_messages(
@@ -662,9 +638,9 @@ said AS (
         held)
     SELECT
         o.id,
-        $2,
-        $12::review_author_kind,
-        $13,
+        $2::uuid,
+        $3::review_author_kind,
+        $4,
         $14,
         $15,
         $16::text,
@@ -674,17 +650,21 @@ said AS (
     FROM
         opened o
     RETURNING
-        id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion, engine_id, snapshot_id, external_login, forge_comment_id, forge_edited_at, held, accepted_from
+        id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion, engine_id, snapshot_id, external_login, forge_comment_id, forge_edited_at, held, accepted_from, mail_id, read_at, read_snapshot_id
 )
 SELECT
-    o.id, o.file_path, o.old_start, o.old_end, o.new_start, o.new_end, o.quoted_lines, o.human_read_at, o.created_at, o.updated_at, o.last_agent_activity_at, o.resolved_at, o.review_id, o.snapshot_id, o.base_sha, o.resolved_by_kind, o.resolved_by_agent_id, o.engine_id, o.forge_thread_id, o.forge_resolved, o.task_id
+    o.id, o.file_path, o.old_start, o.old_end, o.new_start, o.new_end, o.quoted_lines, o.human_read_at, o.created_at, o.updated_at, o.last_agent_activity_at, o.resolved_at, o.review_id, o.snapshot_id, o.base_sha, o.resolved_by_kind, o.resolved_by_agent_id, o.engine_id, o.forge_thread_id, o.forge_resolved, o.task_id, o.author_kind, o.author_agent_id,
+    s.id AS message_id
 FROM
     opened o
+    JOIN said s ON s.thread_id = o.id
 `
 
 type InsertReviewThreadWithMessageParams struct {
 	TaskID         string
-	ReviewID       string
+	ReviewID       *string
+	AuthorKind     ReviewAuthorKind
+	AuthorAgentID  *string
 	SnapshotID     string
 	BaseSha        string
 	FilePath       string
@@ -694,8 +674,6 @@ type InsertReviewThreadWithMessageParams struct {
 	NewEnd         int32
 	QuotedLines    []string
 	ForgeThreadID  *string
-	AuthorKind     ReviewAuthorKind
-	AuthorAgentID  *string
 	Body           string
 	Suggestion     []string
 	ExternalLogin  *string
@@ -717,7 +695,7 @@ type InsertReviewThreadWithMessageRow struct {
 	UpdatedAt           time.Time
 	LastAgentActivityAt *time.Time
 	ResolvedAt          *time.Time
-	ReviewID            string
+	ReviewID            *string
 	SnapshotID          string
 	BaseSha             string
 	ResolvedByKind      NullReviewAuthorKind
@@ -726,12 +704,17 @@ type InsertReviewThreadWithMessageRow struct {
 	ForgeThreadID       *string
 	ForgeResolved       bool
 	TaskID              string
+	AuthorKind          ReviewAuthorKind
+	AuthorAgentID       *string
+	MessageID           string
 }
 
 func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertReviewThreadWithMessageParams) (*InsertReviewThreadWithMessageRow, error) {
 	row := q.db.QueryRow(ctx, insertReviewThreadWithMessage,
 		arg.TaskID,
 		arg.ReviewID,
+		arg.AuthorKind,
+		arg.AuthorAgentID,
 		arg.SnapshotID,
 		arg.BaseSha,
 		arg.FilePath,
@@ -741,8 +724,6 @@ func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertR
 		arg.NewEnd,
 		arg.QuotedLines,
 		arg.ForgeThreadID,
-		arg.AuthorKind,
-		arg.AuthorAgentID,
 		arg.Body,
 		arg.Suggestion,
 		arg.ExternalLogin,
@@ -773,6 +754,9 @@ func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertR
 		&i.ForgeThreadID,
 		&i.ForgeResolved,
 		&i.TaskID,
+		&i.AuthorKind,
+		&i.AuthorAgentID,
+		&i.MessageID,
 	)
 	return &i, err
 }
@@ -1048,15 +1032,13 @@ func (q *Queries) ListReviewIDsOfTasks(ctx context.Context, taskIds []string) ([
 	return items, nil
 }
 
-const listReviewMessagesByThreads = `-- name: ListReviewMessagesByThreads :many
+const listReviewMessagesOfThreads = `-- name: ListReviewMessagesOfThreads :many
 SELECT
-    m.id, m.thread_id, m.author_kind, m.author_agent_id, m.body, m.created_at, m.updated_at, m.review_id, m.suggestion, m.engine_id, m.snapshot_id, m.external_login, m.forge_comment_id, m.forge_edited_at, m.held, m.accepted_from,
-    v.released_at AS review_released_at,
-    d.claimed_at AS delivered_at
+    m.id, m.thread_id, m.author_kind, m.author_agent_id, m.body, m.created_at, m.updated_at, m.review_id, m.suggestion, m.engine_id, m.snapshot_id, m.external_login, m.forge_comment_id, m.forge_edited_at, m.held, m.accepted_from, m.mail_id, m.read_at, m.read_snapshot_id,
+    v.released_at AS review_released_at
 FROM
     review_messages m
     LEFT JOIN reviews v ON v.id = m.review_id
-    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
     m.thread_id = ANY ($1::uuid[])
 ORDER BY
@@ -1064,104 +1046,41 @@ ORDER BY
     m.id
 `
 
-type ListReviewMessagesByThreadsRow struct {
-	ID               string
-	ThreadID         string
-	AuthorKind       ReviewAuthorKind
-	AuthorAgentID    *string
-	Body             string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	ReviewID         *string
-	Suggestion       []string
-	EngineID         string
-	SnapshotID       *string
-	ExternalLogin    *string
-	ForgeCommentID   *string
-	ForgeEditedAt    *time.Time
-	Held             bool
-	AcceptedFrom     *string
+type ListReviewMessagesOfThreadsRow struct {
+	ReviewMessage    ReviewMessage
 	ReviewReleasedAt *time.Time
-	DeliveredAt      *time.Time
 }
 
-func (q *Queries) ListReviewMessagesByThreads(ctx context.Context, threadIds []string) ([]*ListReviewMessagesByThreadsRow, error) {
-	rows, err := q.db.Query(ctx, listReviewMessagesByThreads, threadIds)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListReviewMessagesByThreadsRow
-	for rows.Next() {
-		var i ListReviewMessagesByThreadsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ThreadID,
-			&i.AuthorKind,
-			&i.AuthorAgentID,
-			&i.Body,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReviewID,
-			&i.Suggestion,
-			&i.EngineID,
-			&i.SnapshotID,
-			&i.ExternalLogin,
-			&i.ForgeCommentID,
-			&i.ForgeEditedAt,
-			&i.Held,
-			&i.AcceptedFrom,
-			&i.ReviewReleasedAt,
-			&i.DeliveredAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listReviewMessagesOfThreads = `-- name: ListReviewMessagesOfThreads :many
-SELECT
-    m.id, m.thread_id, m.author_kind, m.author_agent_id, m.body, m.created_at, m.updated_at, m.review_id, m.suggestion, m.engine_id, m.snapshot_id, m.external_login, m.forge_comment_id, m.forge_edited_at, m.held, m.accepted_from
-FROM
-    review_messages m
-WHERE
-    m.thread_id = ANY ($1::uuid[])
-ORDER BY
-    m.thread_id,
-    m.id
-`
-
-func (q *Queries) ListReviewMessagesOfThreads(ctx context.Context, threadIds []string) ([]*ReviewMessage, error) {
+func (q *Queries) ListReviewMessagesOfThreads(ctx context.Context, threadIds []string) ([]*ListReviewMessagesOfThreadsRow, error) {
 	rows, err := q.db.Query(ctx, listReviewMessagesOfThreads, threadIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []*ReviewMessage
+	var items []*ListReviewMessagesOfThreadsRow
 	for rows.Next() {
-		var i ReviewMessage
+		var i ListReviewMessagesOfThreadsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.ThreadID,
-			&i.AuthorKind,
-			&i.AuthorAgentID,
-			&i.Body,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReviewID,
-			&i.Suggestion,
-			&i.EngineID,
-			&i.SnapshotID,
-			&i.ExternalLogin,
-			&i.ForgeCommentID,
-			&i.ForgeEditedAt,
-			&i.Held,
-			&i.AcceptedFrom,
+			&i.ReviewMessage.ID,
+			&i.ReviewMessage.ThreadID,
+			&i.ReviewMessage.AuthorKind,
+			&i.ReviewMessage.AuthorAgentID,
+			&i.ReviewMessage.Body,
+			&i.ReviewMessage.CreatedAt,
+			&i.ReviewMessage.UpdatedAt,
+			&i.ReviewMessage.ReviewID,
+			&i.ReviewMessage.Suggestion,
+			&i.ReviewMessage.EngineID,
+			&i.ReviewMessage.SnapshotID,
+			&i.ReviewMessage.ExternalLogin,
+			&i.ReviewMessage.ForgeCommentID,
+			&i.ReviewMessage.ForgeEditedAt,
+			&i.ReviewMessage.Held,
+			&i.ReviewMessage.AcceptedFrom,
+			&i.ReviewMessage.MailID,
+			&i.ReviewMessage.ReadAt,
+			&i.ReviewMessage.ReadSnapshotID,
+			&i.ReviewReleasedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1214,16 +1133,31 @@ func (q *Queries) ListReviewSnapshots(ctx context.Context, taskID string) ([]*Re
 }
 
 const listReviewTallies = `-- name: ListReviewTallies :many
-WITH released AS (
+WITH reviewed AS (
     SELECT
-        v.task_id::uuid AS task_id,
-        COUNT(DISTINCT v.snapshot_id)::int AS snapshots
+        v.task_id,
+        v.snapshot_id
     FROM
         reviews v
     WHERE
         v.released_at IS NOT NULL
+    UNION
+    SELECT
+        t.task_id,
+        t.snapshot_id
+    FROM
+        review_threads t
+    WHERE
+        t.author_kind = 'human'
+),
+released AS (
+    SELECT
+        w.task_id::uuid AS task_id,
+        COUNT(DISTINCT w.snapshot_id)::int AS snapshots
+    FROM
+        reviewed w
     GROUP BY
-        v.task_id
+        w.task_id
 ),
 concluded AS (
     SELECT DISTINCT ON (v.task_id)
@@ -1316,16 +1250,13 @@ func (q *Queries) ListReviewThreadIDsOfTasks(ctx context.Context, taskIds []stri
 
 const listReviewThreads = `-- name: ListReviewThreads :many
 SELECT
-    t.id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.snapshot_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.engine_id, t.forge_thread_id, t.forge_resolved, t.task_id,
-    v.released_at AS review_released_at,
-    v.author_agent_id AS review_author_agent_id,
+    t.id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.snapshot_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.engine_id, t.forge_thread_id, t.forge_resolved, t.task_id, t.author_kind, t.author_agent_id,
     r.ordinal AS snapshot_ordinal,
 (t.last_agent_activity_at IS NOT NULL
         AND (t.human_read_at IS NULL
             OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
 FROM
     review_threads t
-    JOIN reviews v ON v.id = t.review_id
     JOIN review_snapshots r ON r.id = t.snapshot_id
 WHERE
     t.task_id = $1::uuid
@@ -1350,7 +1281,7 @@ type ListReviewThreadsRow struct {
 	UpdatedAt           time.Time
 	LastAgentActivityAt *time.Time
 	ResolvedAt          *time.Time
-	ReviewID            string
+	ReviewID            *string
 	SnapshotID          string
 	BaseSha             string
 	ResolvedByKind      NullReviewAuthorKind
@@ -1359,8 +1290,8 @@ type ListReviewThreadsRow struct {
 	ForgeThreadID       *string
 	ForgeResolved       bool
 	TaskID              string
-	ReviewReleasedAt    *time.Time
-	ReviewAuthorAgentID *string
+	AuthorKind          ReviewAuthorKind
+	AuthorAgentID       *string
 	SnapshotOrdinal     int32
 	UnreadByHuman       *bool
 }
@@ -1396,8 +1327,8 @@ func (q *Queries) ListReviewThreads(ctx context.Context, taskID string) ([]*List
 			&i.ForgeThreadID,
 			&i.ForgeResolved,
 			&i.TaskID,
-			&i.ReviewReleasedAt,
-			&i.ReviewAuthorAgentID,
+			&i.AuthorKind,
+			&i.AuthorAgentID,
 			&i.SnapshotOrdinal,
 			&i.UnreadByHuman,
 		); err != nil {
@@ -1450,9 +1381,8 @@ func (q *Queries) ListReviewViewedFiles(ctx context.Context, taskID string) ([]*
 
 const listReviews = `-- name: ListReviews :many
 SELECT
-    v.id, v.snapshot_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.doorbell_mail_id, v.created_at, v.updated_at, v.body, v.engine_id, v.external_login, v.task_id,
+    v.id, v.snapshot_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.created_at, v.updated_at, v.body, v.engine_id, v.external_login, v.task_id,
     r.ordinal AS snapshot_ordinal,
-    d.claimed_at AS delivered_at,
 (
         SELECT
             COUNT(*)
@@ -1464,7 +1394,6 @@ SELECT
 FROM
     reviews v
     JOIN review_snapshots r ON r.id = v.snapshot_id
-    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
     v.task_id = $1::uuid
 ORDER BY
@@ -1475,7 +1404,6 @@ ORDER BY
 type ListReviewsRow struct {
 	Review          Review
 	SnapshotOrdinal int32
-	DeliveredAt     *time.Time
 	OpenThreads     int32
 }
 
@@ -1496,7 +1424,6 @@ func (q *Queries) ListReviews(ctx context.Context, taskID string) ([]*ListReview
 			&i.Review.Verdict,
 			&i.Review.ReleasedAt,
 			&i.Review.Path,
-			&i.Review.DoorbellMailID,
 			&i.Review.CreatedAt,
 			&i.Review.UpdatedAt,
 			&i.Review.Body,
@@ -1504,7 +1431,6 @@ func (q *Queries) ListReviews(ctx context.Context, taskID string) ([]*ListReview
 			&i.Review.ExternalLogin,
 			&i.Review.TaskID,
 			&i.SnapshotOrdinal,
-			&i.DeliveredAt,
 			&i.OpenThreads,
 		); err != nil {
 			return nil, err
@@ -1548,14 +1474,22 @@ WHERE
         WHERE
             a.task_id = r.task_id
             AND a.archived_at IS NULL)
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            reviews v
-        WHERE
-            v.snapshot_id = r.id
-            AND v.released_at IS NOT NULL)
+    AND (EXISTS (
+            SELECT
+                1
+            FROM
+                reviews v
+            WHERE
+                v.snapshot_id = r.id
+                AND v.released_at IS NOT NULL)
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                review_threads t
+            WHERE
+                t.snapshot_id = r.id
+                AND t.author_kind = 'human'))
 ORDER BY
     r.task_id,
     r.ordinal DESC
@@ -1597,7 +1531,7 @@ func (q *Queries) ListUnlandedReviewSnapshots(ctx context.Context) ([]*ListUnlan
 
 const listWatchedReviewThreads = `-- name: ListWatchedReviewThreads :many
 SELECT
-    t.id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.snapshot_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.engine_id, t.forge_thread_id, t.forge_resolved, t.task_id,
+    t.id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.snapshot_id, t.base_sha, t.resolved_by_kind, t.resolved_by_agent_id, t.engine_id, t.forge_thread_id, t.forge_resolved, t.task_id, t.author_kind, t.author_agent_id,
     r.ordinal AS snapshot_ordinal,
 (t.last_agent_activity_at IS NOT NULL
         AND (t.human_read_at IS NULL
@@ -1633,7 +1567,7 @@ type ListWatchedReviewThreadsRow struct {
 	UpdatedAt           time.Time
 	LastAgentActivityAt *time.Time
 	ResolvedAt          *time.Time
-	ReviewID            string
+	ReviewID            *string
 	SnapshotID          string
 	BaseSha             string
 	ResolvedByKind      NullReviewAuthorKind
@@ -1642,6 +1576,8 @@ type ListWatchedReviewThreadsRow struct {
 	ForgeThreadID       *string
 	ForgeResolved       bool
 	TaskID              string
+	AuthorKind          ReviewAuthorKind
+	AuthorAgentID       *string
 	SnapshotOrdinal     int32
 	UnreadByHuman       *bool
 }
@@ -1677,6 +1613,8 @@ func (q *Queries) ListWatchedReviewThreads(ctx context.Context, keys []string) (
 			&i.ForgeThreadID,
 			&i.ForgeResolved,
 			&i.TaskID,
+			&i.AuthorKind,
+			&i.AuthorAgentID,
 			&i.SnapshotOrdinal,
 			&i.UnreadByHuman,
 		); err != nil {
@@ -1703,12 +1641,10 @@ SELECT
     v.updated_at,
     r.ordinal AS snapshot_ordinal,
     r.sha AS snapshot_sha,
-    r.landed_at AS snapshot_landed_at,
-    d.claimed_at AS delivered_at
+    r.landed_at AS snapshot_landed_at
 FROM
     reviews v
     JOIN review_snapshots r ON r.id = v.snapshot_id
-    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
     $1::text[] IS NULL
     OR v.id = ANY ($1::uuid[])
@@ -1729,7 +1665,6 @@ type ListWatchedReviewsRow struct {
 	SnapshotOrdinal  int32
 	SnapshotSha      string
 	SnapshotLandedAt *time.Time
-	DeliveredAt      *time.Time
 }
 
 func (q *Queries) ListWatchedReviews(ctx context.Context, keys []string) ([]*ListWatchedReviewsRow, error) {
@@ -1754,7 +1689,6 @@ func (q *Queries) ListWatchedReviews(ctx context.Context, keys []string) ([]*Lis
 			&i.SnapshotOrdinal,
 			&i.SnapshotSha,
 			&i.SnapshotLandedAt,
-			&i.DeliveredAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1804,6 +1738,64 @@ func (q *Queries) MarkReviewFileViewed(ctx context.Context, arg MarkReviewFileVi
 	return &i, err
 }
 
+const markReviewMessagesRead = `-- name: MarkReviewMessagesRead :many
+UPDATE
+    review_messages m
+SET
+    read_at = NOW(),
+    read_snapshot_id = $1
+WHERE
+    m.mail_id = ANY ($2::uuid[])
+    AND m.read_at IS NULL
+RETURNING
+    m.id, m.thread_id, m.author_kind, m.author_agent_id, m.body, m.created_at, m.updated_at, m.review_id, m.suggestion, m.engine_id, m.snapshot_id, m.external_login, m.forge_comment_id, m.forge_edited_at, m.held, m.accepted_from, m.mail_id, m.read_at, m.read_snapshot_id
+`
+
+type MarkReviewMessagesReadParams struct {
+	ReadSnapshotID *string
+	MailIds        []string
+}
+
+func (q *Queries) MarkReviewMessagesRead(ctx context.Context, arg MarkReviewMessagesReadParams) ([]*ReviewMessage, error) {
+	rows, err := q.db.Query(ctx, markReviewMessagesRead, arg.ReadSnapshotID, arg.MailIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ReviewMessage
+	for rows.Next() {
+		var i ReviewMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.ThreadID,
+			&i.AuthorKind,
+			&i.AuthorAgentID,
+			&i.Body,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReviewID,
+			&i.Suggestion,
+			&i.EngineID,
+			&i.SnapshotID,
+			&i.ExternalLogin,
+			&i.ForgeCommentID,
+			&i.ForgeEditedAt,
+			&i.Held,
+			&i.AcceptedFrom,
+			&i.MailID,
+			&i.ReadAt,
+			&i.ReadSnapshotID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markReviewThreadRead = `-- name: MarkReviewThreadRead :one
 UPDATE
     review_threads t
@@ -1812,7 +1804,7 @@ SET
 WHERE
     t.id = $1
 RETURNING
-    id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, snapshot_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id
+    id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, snapshot_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id, author_kind, author_agent_id
 `
 
 func (q *Queries) MarkReviewThreadRead(ctx context.Context, id string) (*ReviewThread, error) {
@@ -1840,45 +1832,8 @@ func (q *Queries) MarkReviewThreadRead(ctx context.Context, id string) (*ReviewT
 		&i.ForgeThreadID,
 		&i.ForgeResolved,
 		&i.TaskID,
-	)
-	return &i, err
-}
-
-const moveOpenReview = `-- name: MoveOpenReview :one
-UPDATE
-    reviews v
-SET
-    snapshot_id = $1
-WHERE
-    v.id = $2
-    AND v.released_at IS NULL
-RETURNING
-    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login, task_id
-`
-
-type MoveOpenReviewParams struct {
-	SnapshotID string
-	ID         string
-}
-
-func (q *Queries) MoveOpenReview(ctx context.Context, arg MoveOpenReviewParams) (*Review, error) {
-	row := q.db.QueryRow(ctx, moveOpenReview, arg.SnapshotID, arg.ID)
-	var i Review
-	err := row.Scan(
-		&i.ID,
-		&i.SnapshotID,
 		&i.AuthorKind,
 		&i.AuthorAgentID,
-		&i.Verdict,
-		&i.ReleasedAt,
-		&i.Path,
-		&i.DoorbellMailID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Body,
-		&i.EngineID,
-		&i.ExternalLogin,
-		&i.TaskID,
 	)
 	return &i, err
 }
@@ -1894,7 +1849,7 @@ SET
 WHERE
     id = $4
 RETURNING
-    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body, engine_id, external_login, task_id
+    id, snapshot_id, author_kind, author_agent_id, verdict, released_at, path, created_at, updated_at, body, engine_id, external_login, task_id
 `
 
 type ReleaseReviewParams struct {
@@ -1920,7 +1875,6 @@ func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*
 		&i.Verdict,
 		&i.ReleasedAt,
 		&i.Path,
-		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Body,
@@ -1929,39 +1883,6 @@ func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*
 		&i.TaskID,
 	)
 	return &i, err
-}
-
-const reopenRepliedThreads = `-- name: ReopenRepliedThreads :execrows
-UPDATE
-    review_threads t
-SET
-    resolved_at = NULL,
-    resolved_by_kind = NULL,
-    resolved_by_agent_id = NULL
-FROM
-    reviews r
-WHERE
-    r.id = $1
-    AND r.author_kind = 'human'
-    AND t.resolved_at IS NOT NULL
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            review_messages m
-        WHERE
-            m.thread_id = t.id
-            AND m.review_id = r.id
-            AND (t.resolved_by_kind IS DISTINCT FROM 'human'
-                OR m.created_at > t.resolved_at))
-`
-
-func (q *Queries) ReopenRepliedThreads(ctx context.Context, reviewID string) (int64, error) {
-	result, err := q.db.Exec(ctx, reopenRepliedThreads, reviewID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const setForgeThreadResolved = `-- name: SetForgeThreadResolved :exec
@@ -1983,22 +1904,22 @@ func (q *Queries) SetForgeThreadResolved(ctx context.Context, arg SetForgeThread
 	return err
 }
 
-const setReviewDoorbell = `-- name: SetReviewDoorbell :exec
+const setReviewMessageMail = `-- name: SetReviewMessageMail :exec
 UPDATE
-    reviews
+    review_messages
 SET
-    doorbell_mail_id = $1
+    mail_id = $1
 WHERE
     id = $2
 `
 
-type SetReviewDoorbellParams struct {
-	DoorbellMailID *string
-	ID             string
+type SetReviewMessageMailParams struct {
+	MailID *string
+	ID     string
 }
 
-func (q *Queries) SetReviewDoorbell(ctx context.Context, arg SetReviewDoorbellParams) error {
-	_, err := q.db.Exec(ctx, setReviewDoorbell, arg.DoorbellMailID, arg.ID)
+func (q *Queries) SetReviewMessageMail(ctx context.Context, arg SetReviewMessageMailParams) error {
+	_, err := q.db.Exec(ctx, setReviewMessageMail, arg.MailID, arg.ID)
 	return err
 }
 
@@ -2024,7 +1945,7 @@ SET
 WHERE
     t.id = $4
 RETURNING
-    id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, snapshot_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id
+    id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, snapshot_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id, author_kind, author_agent_id
 `
 
 type SetReviewThreadResolvedParams struct {
@@ -2064,6 +1985,8 @@ func (q *Queries) SetReviewThreadResolved(ctx context.Context, arg SetReviewThre
 		&i.ForgeThreadID,
 		&i.ForgeResolved,
 		&i.TaskID,
+		&i.AuthorKind,
+		&i.AuthorAgentID,
 	)
 	return &i, err
 }
@@ -2122,7 +2045,7 @@ WITH written AS (
     WHERE
         m.id = $3
     RETURNING
-        id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion, engine_id, snapshot_id, external_login, forge_comment_id, forge_edited_at, held, accepted_from
+        id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion, engine_id, snapshot_id, external_login, forge_comment_id, forge_edited_at, held, accepted_from, mail_id, read_at, read_snapshot_id
 ),
 said AS (
     SELECT
@@ -2177,7 +2100,7 @@ touched AS (
         t.id
 )
 SELECT
-    w.id, w.thread_id, w.author_kind, w.author_agent_id, w.body, w.created_at, w.updated_at, w.review_id, w.suggestion, w.engine_id, w.snapshot_id, w.external_login, w.forge_comment_id, w.forge_edited_at, w.held, w.accepted_from
+    w.id, w.thread_id, w.author_kind, w.author_agent_id, w.body, w.created_at, w.updated_at, w.review_id, w.suggestion, w.engine_id, w.snapshot_id, w.external_login, w.forge_comment_id, w.forge_edited_at, w.held, w.accepted_from, w.mail_id, w.read_at, w.read_snapshot_id
 FROM
     written w
 `
@@ -2205,6 +2128,9 @@ type UpdateReviewMessageBodyRow struct {
 	ForgeEditedAt  *time.Time
 	Held           bool
 	AcceptedFrom   *string
+	MailID         *string
+	ReadAt         *time.Time
+	ReadSnapshotID *string
 }
 
 func (q *Queries) UpdateReviewMessageBody(ctx context.Context, arg UpdateReviewMessageBodyParams) (*UpdateReviewMessageBodyRow, error) {
@@ -2227,6 +2153,9 @@ func (q *Queries) UpdateReviewMessageBody(ctx context.Context, arg UpdateReviewM
 		&i.ForgeEditedAt,
 		&i.Held,
 		&i.AcceptedFrom,
+		&i.MailID,
+		&i.ReadAt,
+		&i.ReadSnapshotID,
 	)
 	return &i, err
 }

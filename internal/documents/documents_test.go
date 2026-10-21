@@ -485,7 +485,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			byPerson: true,
 			creates:  true,
 			then: func(t *testing.T, author string, written *documentstore.Document) *documentstore.Document {
-				_, err := stores.Mail.Claim(t.Context(), author, 10)
+				_, err := stores.ClaimMail(t.Context(), author, 10)
 				require.NoError(t, err)
 
 				return personEdits(t, service, written)

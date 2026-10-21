@@ -293,9 +293,9 @@ up        = ["k"]
 # The review screen, which draws a task's diff in the stage and its review
 # threads in the sidebar.
 [keybindings.review]
-# From the menu, pass a held comment from the forge on to the writer, copied into your review as your own
-# words. A comment is held when its author cannot push to the repository, and the writer
-# reads nothing in its thread until the comment opening it is accepted and the review sent.
+# From the menu, pass a held comment from the forge on to the writer, copied as your own words and
+# released at once. A comment is held when its author cannot push to the repository, and the
+# writer reads nothing in its thread until the comment opening it is accepted.
 accept           = ["A"]
 # From the menu, show only the change that answered the comment under the cursor, from the work as
 # it stood just before the writer's addressed reply to the work that reply carried, or
@@ -345,8 +345,6 @@ reload           = ["R"]
 agent_threads    = ["b"]
 # From the menu, settle the thread under the cursor, which marks it resolved without deleting it.
 resolve          = ["r"]
-# From the menu, send the comments waiting in your review to the task's writer, after asking for a note on the work as a whole.
-send             = ["S"]
 # On the file tree, open the folder the cursor rests on, or close it when it is open. Over the
 # file tree, open the review of a task in the stack, go to a thread that needs you, or open the
 # pull request's description.

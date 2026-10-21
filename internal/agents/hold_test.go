@@ -203,7 +203,7 @@ func TestReleasingATurnThatWasCutSaysWhatChanged(t *testing.T) {
 	assert.Nil(t, released.Hold.At, "nobody is holding it now")
 	assert.Empty(t, channel.Sent, "nothing is typed into its pane")
 
-	waiting, err := st.Mail.Claim(t.Context(), agent.ID, 10)
+	waiting, err := st.ClaimMail(t.Context(), agent.ID, 10)
 	require.NoError(t, err)
 	require.Len(t, waiting, 1)
 	assert.Equal(t, "I changed review.go while you were held", waiting[0].Body)

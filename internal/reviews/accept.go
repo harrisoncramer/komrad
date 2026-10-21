@@ -8,6 +8,9 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	reviewstore "komrad/internal/store/review"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/riverqueue/river"
 )
 
 // errForgeMessageNotHeld answers a person who accepts a message the agent can already read.
@@ -26,8 +29,8 @@ type AcceptForgeMessageParams struct {
 	Author    ReviewAuthor
 }
 
-// AcceptForgeMessage copies a held forge comment into the person's open review, which releases it
-// to the agent as their own words once the review is sent, and reopens its thread if settled.
+// AcceptForgeMessage copies a held forge comment as the person's own comment, which releases it
+// to the writer as every comment of theirs is, and reopens its thread if settled.
 func (s *ReviewService) AcceptForgeMessage(
 	ctx context.Context,
 	params AcceptForgeMessageParams,
@@ -60,34 +63,29 @@ func (s *ReviewService) AcceptForgeMessage(
 		return nil, err
 	}
 
-	open, err := s.openReviewFor(ctx, openReviewForParams{
-		TaskID: thread.TaskID,
-		Author: params.Author,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	copied, err := s.reviews.CreateMessage(ctx, reviewstore.CreateMessageParams{
-		ThreadID:     thread.ID,
-		ReviewID:     &open.ID,
-		Suggestion:   message.Suggestion,
-		AuthorKind:   params.Author.Kind,
-		Body:         message.Body,
-		AcceptedFrom: &message.ID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if thread.ResolvedByKind != "" {
-		if _, err := s.reviews.SetThreadResolved(ctx, reviewstore.SetThreadResolvedParams{
-			ID:       thread.ID,
-			Resolved: false,
-			ByKind:   params.Author.Kind,
-		}); err != nil {
+	var copied *reviewstore.Message
+	err = s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
+		var err error
+		copied, err = reviewstore.NewReviewStore(tx).CreateMessage(ctx, reviewstore.CreateMessageParams{
+			ThreadID:     thread.ID,
+			Suggestion:   message.Suggestion,
+			AuthorKind:   params.Author.Kind,
+			Body:         message.Body,
+			AcceptedFrom: &message.ID,
+		})
+		if err != nil {
 			return nil, err
 		}
+
+		return nil, s.mailComment(ctx, tx, mailCommentParams{
+			Thread:     *thread,
+			Message:    *copied,
+			Reply:      true,
+			ForgeLogin: message.External.Login,
+		})
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return copied, nil

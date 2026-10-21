@@ -39,6 +39,8 @@ const (
 	KindWorktreePushed Kind = Kind(models.MailKindWorktreePushed)
 	// KindWorktreeAborted tells an agent that the rebase, merge or pick part-way through its worktree was aborted.
 	KindWorktreeAborted Kind = Kind(models.MailKindWorktreeAborted)
+	// KindReviewComment carries a person's comment on the recipient's work.
+	KindReviewComment Kind = Kind(models.MailKindReviewComment)
 )
 
 type Mail struct {
@@ -217,15 +219,35 @@ func (s *MailStore) GetByID(ctx context.Context, id string) (*Mail, error) {
 	return &got, nil
 }
 
-// Claim marks up to limit of an agent's waiting mail as read and returns it, oldest first.
-func (s *MailStore) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
+// ListWaiting is up to limit of an agent's waiting mail, oldest first, which ClaimByID then takes
+// and which this leaves waiting.
+func (s *MailStore) ListWaiting(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ClaimMail(ctx, models.ClaimMailParams{
+	rows, err := s.queries.ListWaitingMail(ctx, models.ListWaitingMailParams{
 		ToAgentID: toAgentID,
 		Lim:       limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the mail waiting for agent %q: %w", toAgentID, err)
+	}
+
+	return xslice.Map(rows, fromRow), nil
+}
+
+// ClaimByID marks the given mail waiting for an agent as read and returns it, oldest first,
+// leaving out any already claimed or expired.
+func (s *MailStore) ClaimByID(ctx context.Context, toAgentID string, ids []string) ([]Mail, error) {
+	storable := store.KeepIDs(ids)
+	if !store.IsID(toAgentID) || len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ClaimMailByID(ctx, models.ClaimMailByIDParams{
+		ToAgentID: toAgentID,
+		Ids:       storable,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)

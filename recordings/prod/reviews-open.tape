@@ -7,7 +7,7 @@ Type "G"
 Sleep 3s
 Space
 Type "r"
-Wait+Screen@10s /Review · text-truncate/
+Wait+Screen@10s /text-truncate › review/
 Sleep 2s
 Type "]"
 Type "]"

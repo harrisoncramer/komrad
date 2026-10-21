@@ -185,7 +185,7 @@ func seedThread(t *testing.T, st *storetest.Stores, reviewID string) string {
 
 	thread, err := reviews.CreateThread(t.Context(), reviewstore.CreateThreadParams{
 		TaskID:      review.TaskID,
-		ReviewID:    review.ID,
+		ReviewID:    &review.ID,
 		SnapshotID:  review.SnapshotID,
 		BaseSHA:     "base",
 		FilePath:    "main.go",

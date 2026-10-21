@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const claimMail = `-- name: ClaimMail :many
+const claimMailByID = `-- name: ClaimMailByID :many
 WITH pending AS (
     SELECT
         m.id
@@ -17,11 +17,9 @@ WITH pending AS (
         mail m
     WHERE
         m.to_agent_id = $1
+        AND m.id = ANY ($2::uuid[])
         AND m.claimed_at IS NULL
         AND m.expires_at > NOW()
-    ORDER BY
-        m.id
-    LIMIT $2
     FOR UPDATE
         SKIP LOCKED)
 UPDATE
@@ -38,13 +36,13 @@ RETURNING
     id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, engine_id, idempotency_key, subject_id, events
 `
 
-type ClaimMailParams struct {
+type ClaimMailByIDParams struct {
 	ToAgentID string
-	Lim       int32
+	Ids       []string
 }
 
-func (q *Queries) ClaimMail(ctx context.Context, arg ClaimMailParams) ([]*Mail, error) {
-	rows, err := q.db.Query(ctx, claimMail, arg.ToAgentID, arg.Lim)
+func (q *Queries) ClaimMailByID(ctx context.Context, arg ClaimMailByIDParams) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, claimMailByID, arg.ToAgentID, arg.Ids)
 	if err != nil {
 		return nil, err
 	}
@@ -523,6 +521,62 @@ func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]string, e
 			return nil, err
 		}
 		items = append(items, to_agent_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWaitingMail = `-- name: ListWaitingMail :many
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, engine_id, idempotency_key, subject_id, events
+FROM
+    mail m
+WHERE
+    m.to_agent_id = $1
+    AND m.claimed_at IS NULL
+    AND m.expires_at > NOW()
+ORDER BY
+    m.id
+LIMIT $2
+`
+
+type ListWaitingMailParams struct {
+	ToAgentID string
+	Lim       int32
+}
+
+func (q *Queries) ListWaitingMail(ctx context.Context, arg ListWaitingMailParams) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, listWaitingMail, arg.ToAgentID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Mail
+	for rows.Next() {
+		var i Mail
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromAgentID,
+			&i.FromName,
+			&i.ToAgentID,
+			&i.Body,
+			&i.ReplyTo,
+			&i.ClaimedAt,
+			&i.ReportedAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Kind,
+			&i.EngineID,
+			&i.IdempotencyKey,
+			&i.SubjectID,
+			&i.Events,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

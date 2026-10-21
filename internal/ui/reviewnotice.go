@@ -58,23 +58,13 @@ func (r *reviewScreen) followNotices(m *model) {
 // movedNotice is what the reader is told about the agent having written past the diff on screen.
 func (r reviewScreen) movedNotice(m *model) message {
 	moved := r.findMovedSnapshot(m)
-	if moved == "" || r.hold.atEditor || r.doesFollowLive(m) {
+	if moved == "" || r.hold.atEditor {
 		return message{}
-	}
-
-	key := "moved:" + r.agentID + ":" + moved
-	if r.isAgentWriting(m) {
-		return message{
-			kind:    messageInfo,
-			key:     key + ":writing",
-			summary: "the agent is writing",
-			detail:  "the diff catches up when it stops",
-		}
 	}
 
 	return message{
 		kind:    messageWarning,
-		key:     key + ":stopped",
+		key:     "moved:" + r.agentID + ":" + moved,
 		summary: "the worktree has moved",
 		detail:  m.menuChordLabel(m.keys.Review.Reload) + " to catch up",
 	}

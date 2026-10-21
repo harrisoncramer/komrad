@@ -79,17 +79,6 @@ FROM
 WHERE
     v.id = @id;
 
--- name: MoveOpenReview :one
-UPDATE
-    reviews v
-SET
-    snapshot_id = @snapshot_id
-WHERE
-    v.id = @id
-    AND v.released_at IS NULL
-RETURNING
-    *;
-
 -- name: GetOpenReview :one
 SELECT
     *
@@ -105,7 +94,6 @@ WHERE
 SELECT
     sqlc.embed(v),
     r.ordinal AS snapshot_ordinal,
-    d.claimed_at AS delivered_at,
 (
         SELECT
             COUNT(*)
@@ -117,7 +105,6 @@ SELECT
 FROM
     reviews v
     JOIN review_snapshots r ON r.id = v.snapshot_id
-    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
     v.task_id = sqlc.arg('task_id')::uuid
 ORDER BY
@@ -137,12 +124,10 @@ SELECT
     v.updated_at,
     r.ordinal AS snapshot_ordinal,
     r.sha AS snapshot_sha,
-    r.landed_at AS snapshot_landed_at,
-    d.claimed_at AS delivered_at
+    r.landed_at AS snapshot_landed_at
 FROM
     reviews v
     JOIN review_snapshots r ON r.id = v.snapshot_id
-    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
     sqlc.narg('keys')::text[] IS NULL
     OR v.id = ANY (sqlc.narg('keys')::uuid[])
@@ -190,38 +175,6 @@ WHERE
 RETURNING
     *;
 
--- name: ReopenRepliedThreads :execrows
-UPDATE
-    review_threads t
-SET
-    resolved_at = NULL,
-    resolved_by_kind = NULL,
-    resolved_by_agent_id = NULL
-FROM
-    reviews r
-WHERE
-    r.id = @review_id
-    AND r.author_kind = 'human'
-    AND t.resolved_at IS NOT NULL
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            review_messages m
-        WHERE
-            m.thread_id = t.id
-            AND m.review_id = r.id
-            AND (t.resolved_by_kind IS DISTINCT FROM 'human'
-                OR m.created_at > t.resolved_at));
-
--- name: SetReviewDoorbell :exec
-UPDATE
-    reviews
-SET
-    doorbell_mail_id = @doorbell_mail_id
-WHERE
-    id = @id;
-
 -- name: DeleteOpenReviewsByAuthor :exec
 DELETE FROM reviews
 WHERE author_agent_id = ANY (@author_agent_ids::uuid[])
@@ -236,6 +189,8 @@ WITH opened AS (
     INSERT INTO review_threads(
         task_id,
         review_id,
+        author_kind,
+        author_agent_id,
         snapshot_id,
         base_sha,
         file_path,
@@ -248,7 +203,9 @@ WITH opened AS (
         last_agent_activity_at)
     VALUES (
         sqlc.arg('task_id')::uuid,
-        @review_id,
+        sqlc.narg('review_id')::uuid,
+        @author_kind::review_author_kind,
+        sqlc.narg('author_agent_id')::uuid,
         @snapshot_id,
         @base_sha,
         @file_path,
@@ -278,7 +235,7 @@ said AS (
         held)
     SELECT
         o.id,
-        @review_id,
+        sqlc.narg('review_id')::uuid,
         @author_kind::review_author_kind,
         sqlc.narg('author_agent_id'),
         @body,
@@ -293,22 +250,21 @@ said AS (
         *
 )
 SELECT
-    o.*
+    o.*,
+    s.id AS message_id
 FROM
-    opened o;
+    opened o
+    JOIN said s ON s.thread_id = o.id;
 
 -- name: ListReviewThreads :many
 SELECT
     t.*,
-    v.released_at AS review_released_at,
-    v.author_agent_id AS review_author_agent_id,
     r.ordinal AS snapshot_ordinal,
 (t.last_agent_activity_at IS NOT NULL
         AND (t.human_read_at IS NULL
             OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
 FROM
     review_threads t
-    JOIN reviews v ON v.id = t.review_id
     JOIN review_snapshots r ON r.id = t.snapshot_id
 WHERE
     t.task_id = sqlc.arg('task_id')::uuid
@@ -345,9 +301,11 @@ ORDER BY
 
 -- name: ListReviewMessagesOfThreads :many
 SELECT
-    m.*
+    sqlc.embed(m),
+    v.released_at AS review_released_at
 FROM
     review_messages m
+    LEFT JOIN reviews v ON v.id = m.review_id
 WHERE
     m.thread_id = ANY (@thread_ids::uuid[])
 ORDER BY
@@ -356,13 +314,9 @@ ORDER BY
 
 -- name: GetReviewThread :one
 SELECT
-    t.*,
-    v.released_at AS review_released_at,
-    v.author_kind AS review_author_kind,
-    v.author_agent_id AS review_author_agent_id
+    t.*
 FROM
     review_threads t
-    JOIN reviews v ON v.id = t.review_id
 WHERE
     t.id = @id;
 
@@ -437,24 +391,23 @@ said AS (
         w.author_kind,
         w.author_agent_id,
 (w.snapshot_id IS NOT NULL
-            AND v.author_kind = 'human') AS resolves,
+            AND t.author_kind = 'human') AS resolves,
 (t.resolved_at IS NOT NULL
-            AND w.author_kind = t.resolved_by_kind
-            AND w.author_kind <> 'human'
-            AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
-            AND NOT EXISTS (
-                SELECT
-                    1
-                FROM
-                    agents a
-                WHERE
-                    a.id = w.author_agent_id
-                    AND a.task_id = t.task_id
-                    AND a.role = 'writer')) AS reopens
+            AND (w.author_kind = 'human'
+                OR (w.author_kind = t.resolved_by_kind
+                    AND w.author_agent_id IS NOT DISTINCT FROM t.resolved_by_agent_id
+                    AND NOT EXISTS (
+                        SELECT
+                            1
+                        FROM
+                            agents a
+                        WHERE
+                            a.id = w.author_agent_id
+                            AND a.task_id = t.task_id
+                            AND a.role = 'writer')))) AS reopens
         FROM
             written w
             JOIN review_threads t ON t.id = w.thread_id
-            JOIN reviews v ON v.id = t.review_id
 ),
 touched AS (
     UPDATE
@@ -575,21 +528,6 @@ FROM
 WHERE
     m.id = @id;
 
--- name: ListReviewMessagesByThreads :many
-SELECT
-    m.*,
-    v.released_at AS review_released_at,
-    d.claimed_at AS delivered_at
-FROM
-    review_messages m
-    LEFT JOIN reviews v ON v.id = m.review_id
-    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
-WHERE
-    m.thread_id = ANY (@thread_ids::uuid[])
-ORDER BY
-    m.thread_id,
-    m.id;
-
 -- name: MarkReviewFileViewed :one
 INSERT INTO review_viewed_files(
     task_id,
@@ -624,16 +562,31 @@ ORDER BY
     v.file_path;
 
 -- name: ListReviewTallies :many
-WITH released AS (
+WITH reviewed AS (
     SELECT
-        v.task_id::uuid AS task_id,
-        COUNT(DISTINCT v.snapshot_id)::int AS snapshots
+        v.task_id,
+        v.snapshot_id
     FROM
         reviews v
     WHERE
         v.released_at IS NOT NULL
+    UNION
+    SELECT
+        t.task_id,
+        t.snapshot_id
+    FROM
+        review_threads t
+    WHERE
+        t.author_kind = 'human'
+),
+released AS (
+    SELECT
+        w.task_id::uuid AS task_id,
+        COUNT(DISTINCT w.snapshot_id)::int AS snapshots
+    FROM
+        reviewed w
     GROUP BY
-        v.task_id
+        w.task_id
 ),
 concluded AS (
     SELECT DISTINCT ON (v.task_id)
@@ -701,14 +654,22 @@ WHERE
         WHERE
             a.task_id = r.task_id
             AND a.archived_at IS NULL)
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            reviews v
-        WHERE
-            v.snapshot_id = r.id
-            AND v.released_at IS NOT NULL)
+    AND (EXISTS (
+            SELECT
+                1
+            FROM
+                reviews v
+            WHERE
+                v.snapshot_id = r.id
+                AND v.released_at IS NOT NULL)
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                review_threads t
+            WHERE
+                t.snapshot_id = r.id
+                AND t.author_kind = 'human'))
 ORDER BY
     r.task_id,
     r.ordinal DESC;
@@ -839,3 +800,23 @@ SET
     forge_resolved = @forge_resolved
 WHERE
     id = @id;
+
+-- name: SetReviewMessageMail :exec
+UPDATE
+    review_messages
+SET
+    mail_id = @mail_id
+WHERE
+    id = @id;
+
+-- name: MarkReviewMessagesRead :many
+UPDATE
+    review_messages m
+SET
+    read_at = NOW(),
+    read_snapshot_id = @read_snapshot_id
+WHERE
+    m.mail_id = ANY (@mail_ids::uuid[])
+    AND m.read_at IS NULL
+RETURNING
+    m.*;

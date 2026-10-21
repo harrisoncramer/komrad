@@ -26,15 +26,14 @@ const (
 	reviewNoticeTone    = paint.ToneSuccess
 	reviewAddedTone     = paint.ToneSuccess
 	reviewRemovedTone   = paint.ToneDanger
-	reviewUnsentTone    = paint.TonePrimary
-	reviewSentTone      = paint.ToneWarning
+	reviewReleasedTone  = paint.ToneWarning
 	reviewHistoryTone   = paint.ToneWarning
-	reviewDeliveredTone = paint.ToneSuccess
+	reviewReadTone      = paint.ToneSuccess
 	reviewForgeHeldTone = paint.ToneDanger
 )
 
 // reviewChangeFolds is how many ways the change block can be rendered, roomiest first.
-const reviewChangeFolds = 3
+const reviewChangeFolds = 2
 
 // view renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
@@ -309,7 +308,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 			note = r.diff.addressedSaid(message)
 		}
 
-		out += r.messageView(m, message, messageViewParams{
+		out += r.messageView(m, thread, message, messageViewParams{
 			note:  note,
 			width: width,
 		})
@@ -321,7 +320,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 // originView is where a thread was written and the line it was written against, rendered only once
 // that code has moved.
 func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string {
-	if !r.diff.View().HasMoved(thread) {
+	if diffview.IsWholeChangeThread(thread) || !r.diff.View().HasMoved(thread) {
 		return ""
 	}
 
@@ -362,8 +361,9 @@ type messageViewParams struct {
 	width int
 }
 
-// messageView is one message: who wrote it and when, what it says, and how far it got.
-func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, params messageViewParams) string {
+// messageView is one message: who wrote it and when, what it says, and where it stands with the
+// writer.
+func (r reviewScreen) messageView(m *model, thread *agentv1.ReviewThread, message *agentv1.ReviewMessage, params messageViewParams) string {
 	author, tone := r.authorOf(message)
 	head := renderCommentHead(tone, author, message.GetCreatedAt())
 	if params.note != "" {
@@ -376,7 +376,7 @@ func (r reviewScreen) messageView(m *model, message *agentv1.ReviewMessage, para
 		body = plainForgeText(body)
 	}
 
-	return head + "\n" + reviewWrap(params.width, body) + "\n" + reviewDeliveryBadge(paint.Panel, m.glyphs, message) + "\n"
+	return head + "\n" + reviewWrap(params.width, body) + "\n" + r.reviewDeliveryBadge(m, thread, message) + "\n"
 }
 
 func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {
@@ -393,15 +393,6 @@ func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.To
 	}
 
 	return "reviewer", reviewerTone
-}
-
-// sendDesc says what the send key opens.
-func (t reviewThreads) sendDesc() string {
-	if t.holdsUnsent() {
-		return "send to the agent"
-	}
-
-	return "send a note"
 }
 
 func renderCommentHead(tone paint.Tone, author, writtenAt string) string {
@@ -495,18 +486,14 @@ func (d reviewDiff) viewedDesc() string {
 // changeView is what the sidebar says about the change under review, which a higher fold joins
 // onto fewer rows before they wrap.
 func (r reviewScreen) changeView(m *model, fold int) string {
-	stat, delivery := r.diff.statView(), r.threads.deliveryCountView()
+	stat := r.diff.statView()
 
 	var rows []string
-	switch fold {
-	case 0:
-		rows = []string{r.agentName, stat, delivery}
-	case 1:
-		rows = []string{r.agentName, joinViews(stat, delivery)}
-	default:
-		rows = []string{joinViews(r.agentName, stat, delivery)}
+	if fold == 0 {
+		rows = []string{r.agentName, stat}
+	} else {
+		rows = []string{joinViews(r.agentName, stat)}
 	}
-	rows = append(rows, r.sendView(m))
 
 	width := lineWidthOf(m.paneWidth())
 
@@ -533,16 +520,6 @@ func joinViews(parts ...string) string {
 	}
 
 	return strings.Join(said, dimStyle().Render(separated))
-}
-
-// sendView is how many comments the reader is holding and the key that sends them.
-func (r reviewScreen) sendView(m *model) string {
-	if !r.threads.holdsUnsent() {
-		return ""
-	}
-
-	return m.markSpan(zoneChange, "send", dimStyle().Render(m.menuChordLabel(m.keys.Review.Send)+" sends "+
-		label.Counted(r.threads.unsentCount(), "comment")+" to the agent"))
 }
 
 // statView is how big the change is, with the counts coloured the way the lines themselves are.

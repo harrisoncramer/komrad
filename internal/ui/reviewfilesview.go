@@ -179,8 +179,6 @@ func padLeft(text string, width int) string {
 // most of the reader winning.
 func formatThreadMark(glyphs glyph.Set, counts diffview.ThreadCounts) string {
 	switch {
-	case counts.Unsent > 0:
-		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadUnsent))
 	case counts.Unread > 0:
 		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadUnread))
 	case counts.Open > 0:

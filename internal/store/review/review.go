@@ -31,20 +31,19 @@ type Thread struct {
 	ID     string
 	TaskID string
 
-	// ReviewID is the review the thread was opened as part of.
-	ReviewID string
+	// ReviewID is the review the thread was opened in, nil on a thread a person opened, which
+	// belongs to no review.
+	ReviewID *string
+	// AuthorKind is who opened the thread.
+	AuthorKind AuthorKind
+	// AuthorAgentID is the agent that opened the thread, nil when a person or a forge user did.
+	AuthorAgentID *string
 	// SnapshotID is the snapshot the thread's line numbers were measured against.
 	SnapshotID string
 	// BaseSHA is the commit the old side of the line numbers was read against.
 	BaseSHA string
 	// SnapshotOrdinal names that snapshot the way the panel does, zero when it was not read.
 	SnapshotOrdinal int32
-	// ReviewReleasedAt is when the review this thread came out with was released, nil while the
-	// thread is still private to its author.
-	ReviewReleasedAt *time.Time
-	// ReviewAuthorAgentID is the agent that gave the review this thread was opened in, nil when
-	// the person reviewing did.
-	ReviewAuthorAgentID *string
 	// ForgeThreadID is the forge thread this one mirrors, nil for one opened in komrad.
 	ForgeThreadID       *string
 	FilePath            string
@@ -68,23 +67,7 @@ type Thread struct {
 	UpdatedAt     time.Time
 }
 
-// DeliveryState is how far one of the reviewer's comments has got towards the agent reading it.
-type DeliveryState string
-
-const (
-	// DeliveryNone is the empty state carried by a message the agent wrote itself.
-	DeliveryNone DeliveryState = ""
-	// DeliveryUnsent is a comment in a review nobody has released yet.
-	DeliveryUnsent DeliveryState = "unsent"
-	// DeliverySent is a comment in a released review whose mail is still waiting to be claimed.
-	DeliverySent DeliveryState = "sent"
-	// DeliveryDelivered is a comment in a released review whose mail the agent has claimed.
-	DeliveryDelivered DeliveryState = "delivered"
-	// DeliveryHeld is a forge comment kept from the agent until the person accepts its thread.
-	DeliveryHeld DeliveryState = "held"
-)
-
-// Message is one thing said in a thread, carrying how far it has got towards being read.
+// Message is one thing said in a thread.
 type Message struct {
 	ID            string
 	ThreadID      string
@@ -94,6 +77,8 @@ type Message struct {
 
 	// ReviewID is the review this message went out with, nil for an answer from the agent.
 	ReviewID *string
+	// ReviewReleasedAt is when that review was released, nil until then and on an answer.
+	ReviewReleasedAt *time.Time
 	// SnapshotID is the snapshot an agent's reply said answers the thread, nil on any other message.
 	SnapshotID *string
 	// Suggestion is the replacement lines the reviewer is proposing for the thread's range,
@@ -101,18 +86,22 @@ type Message struct {
 	Suggestion []string
 	// External is the forge comment the person copied this from, nil for anything written in komrad.
 	External *External
-	// Held is whether the forge author could not write to the repository when they wrote or last
-	// edited this.
+	// Held is whether the agent may not read this yet: a forge message whose author could not write
+	// to the repository, or anything but an agent's reply in a thread such a message opened, until
+	// the person accepts it.
 	Held bool
 	// AcceptedFrom is the held forge message this is the person's accepted copy of, nil otherwise.
 	AcceptedFrom *string
-	// SentAt is when the review carrying this comment was released, nil until then.
-	SentAt *time.Time
-	// DeliveredAt is when the agent claimed the mail raised for that review, nil until it has.
-	DeliveredAt *time.Time
-	Delivery    DeliveryState
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// MailID is the mail that carried a person's comment to the writer, nil on every other message
+	// and once that mail was deleted.
+	MailID *string
+	// ReadAt is when the writer read the mail carrying a person's comment, nil until then.
+	ReadAt *time.Time
+	// ReadSnapshotID is the snapshot taken when the writer read a person's comment, which an
+	// addressed reply is compared against.
+	ReadSnapshotID *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // External is a forge comment as it stood when the person copied it into their review.
@@ -133,9 +122,16 @@ func NewReviewStore(db store.DBTX) *ReviewStore {
 	return &ReviewStore{queries: models.New(db)}
 }
 
+// OpenedThread is a thread just opened and the id of its first message.
+type OpenedThread struct {
+	Thread
+	MessageID string
+}
+
 type CreateThreadParams struct {
-	TaskID        string
-	ReviewID      string
+	TaskID string
+	// ReviewID is the review the thread is opened in, nil for a person's thread.
+	ReviewID      *string
 	SnapshotID    string
 	BaseSHA       string
 	Suggestion    []string
@@ -158,7 +154,7 @@ type CreateThreadParams struct {
 
 // CreateThread pins a conversation to a place in a diff and writes its first message in one
 // statement.
-func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParams) (*Thread, error) {
+func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParams) (*OpenedThread, error) {
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
 		TaskID:         params.TaskID,
 		ReviewID:       params.ReviewID,
@@ -184,25 +180,31 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 		return nil, fmt.Errorf("failed to open a review thread on %q: %w", params.FilePath, err)
 	}
 
-	return &Thread{
-		ID:                  row.ID,
-		TaskID:              row.TaskID,
-		ReviewID:            row.ReviewID,
-		SnapshotID:          row.SnapshotID,
-		BaseSHA:             row.BaseSha,
-		FilePath:            row.FilePath,
-		OldStart:            row.OldStart,
-		OldEnd:              row.OldEnd,
-		NewStart:            row.NewStart,
-		NewEnd:              row.NewEnd,
-		QuotedLines:         row.QuotedLines,
-		LastAgentActivityAt: row.LastAgentActivityAt,
-		HumanReadAt:         row.HumanReadAt,
-		ResolvedAt:          row.ResolvedAt,
-		ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
-		ResolvedByAgentID:   row.ResolvedByAgentID,
-		CreatedAt:           row.CreatedAt,
-		UpdatedAt:           row.UpdatedAt,
+	return &OpenedThread{
+		Thread: Thread{
+			ID:                  row.ID,
+			TaskID:              row.TaskID,
+			ReviewID:            row.ReviewID,
+			AuthorKind:          AuthorKind(row.AuthorKind),
+			AuthorAgentID:       row.AuthorAgentID,
+			SnapshotID:          row.SnapshotID,
+			BaseSHA:             row.BaseSha,
+			FilePath:            row.FilePath,
+			OldStart:            row.OldStart,
+			OldEnd:              row.OldEnd,
+			NewStart:            row.NewStart,
+			NewEnd:              row.NewEnd,
+			QuotedLines:         row.QuotedLines,
+			LastAgentActivityAt: row.LastAgentActivityAt,
+			HumanReadAt:         row.HumanReadAt,
+			ResolvedAt:          row.ResolvedAt,
+			ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
+			ResolvedByAgentID:   row.ResolvedByAgentID,
+			ForgeThreadID:       row.ForgeThreadID,
+			CreatedAt:           row.CreatedAt,
+			UpdatedAt:           row.UpdatedAt,
+		},
+		MessageID: row.MessageID,
 	}, nil
 }
 
@@ -223,11 +225,11 @@ func (s *ReviewStore) ListThreads(ctx context.Context, taskID string) ([]Thread,
 			ID:                  row.ID,
 			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
+			AuthorKind:          AuthorKind(row.AuthorKind),
+			AuthorAgentID:       row.AuthorAgentID,
 			SnapshotID:          row.SnapshotID,
 			BaseSHA:             row.BaseSha,
 			SnapshotOrdinal:     row.SnapshotOrdinal,
-			ReviewReleasedAt:    row.ReviewReleasedAt,
-			ReviewAuthorAgentID: row.ReviewAuthorAgentID,
 			ForgeThreadID:       row.ForgeThreadID,
 			FilePath:            row.FilePath,
 			OldStart:            row.OldStart,
@@ -268,29 +270,7 @@ func (s *ReviewStore) GetThread(ctx context.Context, id string) (*Thread, error)
 		return nil, fmt.Errorf("failed to read the review thread %q: %w", id, err)
 	}
 
-	thread := threadFromRow(models.ReviewThread{
-		ID:                  row.ID,
-		TaskID:              row.TaskID,
-		ReviewID:            row.ReviewID,
-		SnapshotID:          row.SnapshotID,
-		BaseSha:             row.BaseSha,
-		FilePath:            row.FilePath,
-		OldStart:            row.OldStart,
-		OldEnd:              row.OldEnd,
-		NewStart:            row.NewStart,
-		NewEnd:              row.NewEnd,
-		QuotedLines:         row.QuotedLines,
-		LastAgentActivityAt: row.LastAgentActivityAt,
-		HumanReadAt:         row.HumanReadAt,
-		ResolvedAt:          row.ResolvedAt,
-		ResolvedByKind:      row.ResolvedByKind,
-		ResolvedByAgentID:   row.ResolvedByAgentID,
-		ForgeThreadID:       row.ForgeThreadID,
-		CreatedAt:           row.CreatedAt,
-		UpdatedAt:           row.UpdatedAt,
-	})
-	thread.ReviewReleasedAt = row.ReviewReleasedAt
-	thread.ReviewAuthorAgentID = row.ReviewAuthorAgentID
+	thread := threadFromRow(*row)
 
 	return &thread, nil
 }
@@ -389,22 +369,7 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 		return nil, fmt.Errorf("failed to write a message in the review thread %q: %w", params.ThreadID, err)
 	}
 
-	message := Message{
-		ID:            row.ID,
-		ThreadID:      row.ThreadID,
-		ReviewID:      row.ReviewID,
-		SnapshotID:    row.SnapshotID,
-		Suggestion:    row.Suggestion,
-		AuthorKind:    AuthorKind(row.AuthorKind),
-		AuthorAgentID: row.AuthorAgentID,
-		Body:          row.Body,
-		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
-		Held:          row.Held,
-		AcceptedFrom:  row.AcceptedFrom,
-		CreatedAt:     row.CreatedAt,
-		UpdatedAt:     row.UpdatedAt,
-	}
-	message.Delivery = deliveryOf(message)
+	message := messageFromRow(models.ReviewMessage(*row))
 
 	return &message, nil
 }
@@ -427,22 +392,7 @@ func (s *ReviewStore) UpdateMessage(ctx context.Context, id, body string, sugges
 		return nil, fmt.Errorf("failed to rewrite the review message %q: %w", id, err)
 	}
 
-	message := Message{
-		ID:            row.ID,
-		ThreadID:      row.ThreadID,
-		ReviewID:      row.ReviewID,
-		SnapshotID:    row.SnapshotID,
-		Suggestion:    row.Suggestion,
-		AuthorKind:    AuthorKind(row.AuthorKind),
-		AuthorAgentID: row.AuthorAgentID,
-		Body:          row.Body,
-		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
-		Held:          row.Held,
-		AcceptedFrom:  row.AcceptedFrom,
-		CreatedAt:     row.CreatedAt,
-		UpdatedAt:     row.UpdatedAt,
-	}
-	message.Delivery = deliveryOf(message)
+	message := messageFromRow(models.ReviewMessage(*row))
 
 	return &message, nil
 }
@@ -466,44 +416,53 @@ func (s *ReviewStore) GetMessage(ctx context.Context, id string) (*Message, erro
 	return &message, nil
 }
 
+// SetMessageMail records the mail that carried a person's comment to the writer.
+func (s *ReviewStore) SetMessageMail(ctx context.Context, id, mailID string) error {
+	if err := s.queries.SetReviewMessageMail(ctx, models.SetReviewMessageMailParams{ID: id, MailID: &mailID}); err != nil {
+		return fmt.Errorf("failed to record the mail that carried the review message %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// MarkMessagesRead stamps the comments the given mail carried as read now, against the snapshot
+// taken as the writer read them, nil when its task had no worktree, and returns the ones not
+// already stamped.
+func (s *ReviewStore) MarkMessagesRead(ctx context.Context, mailIDs []string, snapshotID *string) ([]Message, error) {
+	storable := store.KeepIDs(mailIDs)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.MarkReviewMessagesRead(ctx, models.MarkReviewMessagesReadParams{
+		MailIds:        storable,
+		ReadSnapshotID: snapshotID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to mark the comments of %d mail read: %w", len(storable), err)
+	}
+
+	return xslice.Map(rows, func(row *models.ReviewMessage) Message { return messageFromRow(*row) }), nil
+}
+
 // ListMessages is every message in the given threads, oldest first within each.
 func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]Message, error) {
 	if len(threadIDs) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviewMessagesByThreads(ctx, threadIDs)
+	rows, err := s.queries.ListReviewMessagesOfThreads(ctx, threadIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the messages of %d review thread(s): %w", len(threadIDs), err)
 	}
 
-	messages := make([]Message, 0, len(rows))
-	for _, row := range rows {
-		message := Message{
-			ID:            row.ID,
-			ThreadID:      row.ThreadID,
-			ReviewID:      row.ReviewID,
-			SnapshotID:    row.SnapshotID,
-			Suggestion:    row.Suggestion,
-			AuthorKind:    AuthorKind(row.AuthorKind),
-			AuthorAgentID: row.AuthorAgentID,
-			Body:          row.Body,
-			External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
-			Held:          row.Held,
-			AcceptedFrom:  row.AcceptedFrom,
-			SentAt:        row.ReviewReleasedAt,
-			DeliveredAt:   row.DeliveredAt,
-			CreatedAt:     row.CreatedAt,
-			UpdatedAt:     row.UpdatedAt,
-		}
-		message.Delivery = deliveryOf(message)
-
-		messages = append(messages, message)
-	}
+	messages := xslice.Map(rows, func(row *models.ListReviewMessagesOfThreadsRow) Message { return messageOfThreadFromRow(*row) })
 
 	return holdThreads(messages), nil
 }
 
+// holdThreads marks held everything but an agent's reply in a thread a held forge message opened,
+// until the person accepts a copy of that message.
 func holdThreads(messages []Message) []Message {
 	roots := map[string]Message{}
 	accepted := map[string]bool{}
@@ -511,17 +470,17 @@ func holdThreads(messages []Message) []Message {
 		if root, ok := roots[message.ThreadID]; !ok || message.ID < root.ID {
 			roots[message.ThreadID] = message
 		}
-		if message.AcceptedFrom != nil && message.SentAt != nil {
+		if message.AcceptedFrom != nil {
 			accepted[*message.AcceptedFrom] = true
 		}
 	}
 
 	for i, message := range messages {
 		root := roots[message.ThreadID]
-		if !root.Held || accepted[root.ID] || message.AuthorKind == AuthorAgent || message.SentAt == nil {
+		if !root.Held || accepted[root.ID] || message.AuthorKind == AuthorAgent {
 			continue
 		}
-		messages[i].Delivery = DeliveryHeld
+		messages[i].Held = true
 	}
 
 	return messages
@@ -607,6 +566,8 @@ func threadFromRow(row models.ReviewThread) Thread {
 		ID:                  row.ID,
 		TaskID:              row.TaskID,
 		ReviewID:            row.ReviewID,
+		AuthorKind:          AuthorKind(row.AuthorKind),
+		AuthorAgentID:       row.AuthorAgentID,
 		SnapshotID:          row.SnapshotID,
 		BaseSHA:             row.BaseSha,
 		FilePath:            row.FilePath,
@@ -626,45 +587,32 @@ func threadFromRow(row models.ReviewThread) Thread {
 	}
 }
 
-func messageFromRow(row models.ReviewMessage) Message {
-	message := undeliveredMessageFromRow(row)
-	message.Delivery = deliveryOf(message)
+// messageOfThreadFromRow is a listed message with the release time of the review it went out with.
+func messageOfThreadFromRow(row models.ListReviewMessagesOfThreadsRow) Message {
+	message := messageFromRow(row.ReviewMessage)
+	message.ReviewReleasedAt = row.ReviewReleasedAt
 
 	return message
 }
 
-// undeliveredMessageFromRow is a message without the state of the review it went out with.
-func undeliveredMessageFromRow(row models.ReviewMessage) Message {
+func messageFromRow(row models.ReviewMessage) Message {
 	return Message{
-		ID:            row.ID,
-		ThreadID:      row.ThreadID,
-		ReviewID:      row.ReviewID,
-		SnapshotID:    row.SnapshotID,
-		Suggestion:    row.Suggestion,
-		AuthorKind:    AuthorKind(row.AuthorKind),
-		AuthorAgentID: row.AuthorAgentID,
-		Body:          row.Body,
-		External:      externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
-		Held:          row.Held,
-		AcceptedFrom:  row.AcceptedFrom,
-		CreatedAt:     row.CreatedAt,
-		UpdatedAt:     row.UpdatedAt,
-	}
-}
-
-// deliveryOf reads a comment's state off the review it belongs to.
-func deliveryOf(message Message) DeliveryState {
-	switch {
-	case message.Held:
-		return DeliveryHeld
-	case message.ReviewID == nil:
-		return DeliveryNone
-	case message.SentAt == nil:
-		return DeliveryUnsent
-	case message.DeliveredAt != nil:
-		return DeliveryDelivered
-	default:
-		return DeliverySent
+		ID:             row.ID,
+		ThreadID:       row.ThreadID,
+		ReviewID:       row.ReviewID,
+		SnapshotID:     row.SnapshotID,
+		Suggestion:     row.Suggestion,
+		AuthorKind:     AuthorKind(row.AuthorKind),
+		AuthorAgentID:  row.AuthorAgentID,
+		Body:           row.Body,
+		External:       externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
+		Held:           row.Held,
+		AcceptedFrom:   row.AcceptedFrom,
+		MailID:         row.MailID,
+		ReadAt:         row.ReadAt,
+		ReadSnapshotID: row.ReadSnapshotID,
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
 	}
 }
 

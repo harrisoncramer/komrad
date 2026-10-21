@@ -65,10 +65,7 @@ type Review struct {
 	// empty when they said nothing.
 	Body string
 	// Path is the absolute path the released review was written to, empty while it is still open.
-	Path           string
-	DoorbellMailID *string
-	// DeliveredAt is when the agent claimed the mail that told it the review was waiting.
-	DeliveredAt *time.Time
+	Path string
 	// OpenThreads is how many of this review's conversations nobody has settled.
 	OpenThreads int32
 	CreatedAt   time.Time
@@ -231,33 +228,6 @@ func (s *ReviewStore) GetReview(ctx context.Context, id string) (*Review, error)
 	return &review, nil
 }
 
-type MoveOpenReviewParams struct {
-	ID         string
-	SnapshotID string
-}
-
-// MoveOpenReview files an unreleased review under another snapshot, ErrNotFound once it is released.
-func (s *ReviewStore) MoveOpenReview(ctx context.Context, params MoveOpenReviewParams) (*Review, error) {
-	if !store.IsID(params.ID) {
-		return nil, reviewNotFound(params.ID)
-	}
-
-	row, err := s.queries.MoveOpenReview(ctx, models.MoveOpenReviewParams{
-		ID:         params.ID,
-		SnapshotID: params.SnapshotID,
-	})
-	if db.IsNoRows(err) {
-		return nil, reviewNotFound(params.ID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to move the review %q: %w", params.ID, err)
-	}
-
-	review := reviewFromRow(*row)
-
-	return &review, nil
-}
-
 type OpenReviewOfParams struct {
 	TaskID        string
 	AuthorKind    AuthorKind
@@ -303,7 +273,6 @@ func (s *ReviewStore) ListReviews(ctx context.Context, taskID string) ([]Review,
 	for _, row := range rows {
 		review := reviewFromRow(row.Review)
 		review.SnapshotOrdinal = row.SnapshotOrdinal
-		review.DeliveredAt = row.DeliveredAt
 		review.OpenThreads = row.OpenThreads
 
 		reviews = append(reviews, review)
@@ -326,12 +295,6 @@ func (s *ReviewStore) CountOpenComments(ctx context.Context, reviewID string) (i
 	return int(count), nil
 }
 
-// ReleasedReview is a review just released and the count of resolved threads its release reopened.
-type ReleasedReview struct {
-	Review
-	Reopens int
-}
-
 type ReleaseReviewParams struct {
 	ID      string
 	Verdict Verdict
@@ -341,7 +304,7 @@ type ReleaseReviewParams struct {
 }
 
 // ReleaseReview releases a review, stamping its verdict and the file it was written to.
-func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*ReleasedReview, error) {
+func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*Review, error) {
 	if !store.IsID(params.ID) {
 		return nil, reviewNotFound(params.ID)
 	}
@@ -359,15 +322,9 @@ func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewPar
 		return nil, fmt.Errorf("failed to release the review %q: %w", params.ID, err)
 	}
 
-	reopens, err := s.queries.ReopenRepliedThreads(ctx, params.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to reopen the threads review %q replied to: %w", params.ID, err)
-	}
+	review := reviewFromRow(*row)
 
-	return &ReleasedReview{
-		Review:  reviewFromRow(*row),
-		Reopens: int(reopens),
-	}, nil
+	return &review, nil
 }
 
 // DeleteOpenReviewsBy removes the unreleased reviews these reviewers were still writing.
@@ -411,18 +368,17 @@ func snapshotFromRow(row models.ReviewSnapshot) Snapshot {
 
 func reviewFromRow(row models.Review) Review {
 	review := Review{
-		ID:             row.ID,
-		TaskID:         row.TaskID,
-		SnapshotID:     row.SnapshotID,
-		AuthorKind:     AuthorKind(row.AuthorKind),
-		AuthorAgentID:  row.AuthorAgentID,
-		ExternalLogin:  row.ExternalLogin,
-		ReleasedAt:     row.ReleasedAt,
-		Body:           row.Body,
-		Path:           row.Path,
-		DoorbellMailID: row.DoorbellMailID,
-		CreatedAt:      row.CreatedAt,
-		UpdatedAt:      row.UpdatedAt,
+		ID:            row.ID,
+		TaskID:        row.TaskID,
+		SnapshotID:    row.SnapshotID,
+		AuthorKind:    AuthorKind(row.AuthorKind),
+		AuthorAgentID: row.AuthorAgentID,
+		ExternalLogin: row.ExternalLogin,
+		ReleasedAt:    row.ReleasedAt,
+		Body:          row.Body,
+		Path:          row.Path,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
 	}
 
 	if row.Verdict.Valid {
@@ -545,13 +501,4 @@ func (s *ReviewStore) ListLiveReviewers(ctx context.Context, taskID string) ([]s
 	}
 
 	return ids, nil
-}
-
-// SetDoorbell records the mail that told the agent its review was released.
-func (s *ReviewStore) SetDoorbell(ctx context.Context, reviewID, mailID string) error {
-	if err := s.queries.SetReviewDoorbell(ctx, models.SetReviewDoorbellParams{ID: reviewID, DoorbellMailID: &mailID}); err != nil {
-		return fmt.Errorf("failed to record the mail that told of review %q: %w", reviewID, err)
-	}
-
-	return nil
 }

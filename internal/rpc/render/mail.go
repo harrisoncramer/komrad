@@ -40,6 +40,8 @@ func mailKindOf(kind mailstore.Kind) agentv1.MailKind {
 		return agentv1.MailKind_MAIL_KIND_WORKTREE_PUSHED
 	case mailstore.KindWorktreeAborted:
 		return agentv1.MailKind_MAIL_KIND_WORKTREE_ABORTED
+	case mailstore.KindReviewComment:
+		return agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT
 	}
 
 	return agentv1.MailKind_MAIL_KIND_UNSPECIFIED

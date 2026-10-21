@@ -10,6 +10,7 @@ import (
 	"komrad/internal/reviews"
 	"komrad/internal/reviews/history"
 	"komrad/internal/store"
+	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
@@ -39,6 +40,8 @@ type fakeReviewer struct {
 	released []reviews.ReleaseReviewParams
 	record   history.Record
 	opened   []reviews.GetHistoryParams
+	read     []string
+	mail     []mailstore.Mail
 }
 
 // TestReviewRefusalsMapToCodes pins the code each refusal of the review service reaches the caller as.
@@ -68,19 +71,6 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 			},
 			err:      reviews.ErrReviewNotCurrent,
 			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name: "a person releasing with a verdict",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-					Task:    xptr.Ptr(betaTask),
-					Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-				}))
-
-				return err
-			},
-			err:      reviews.ErrReviewVerdictFromPerson,
-			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name: "a reply in a thread nothing holds",
@@ -579,7 +569,6 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			AuthorAgentID:   xptr.Ptr(alphaID),
 			Verdict:         xptr.Ptr(reviewstore.VerdictChangesRequested),
 			ReleasedAt:      &reviewedAt,
-			DeliveredAt:     &reviewedAt,
 			Body:            "two things before it goes",
 			OpenThreads:     1,
 			CreatedAt:       reviewedAt,
@@ -618,7 +607,6 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			Body:            "two things before it goes",
 			OpenThreads:     1,
 			ReleasedAt:      "2026-09-24T09:00:00Z",
-			DeliveredAt:     "2026-09-24T09:00:00Z",
 			CreatedAt:       "2026-09-24T09:00:00Z",
 			UpdatedAt:       "2026-09-24T09:00:00Z",
 		},
@@ -632,9 +620,10 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 		},
 		Threads: []*agentv1.ReviewThreadInContext{{
 			Thread: &agentv1.ReviewThread{
-				Id:       "thread-1",
-				TaskId:   "task-beta",
-				FilePath: "greet.go",
+				Id:         "thread-1",
+				TaskId:     "task-beta",
+				FilePath:   "greet.go",
+				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 			},
 			Context: []string{">> 1  package greet"},
 		}},
@@ -783,6 +772,16 @@ func (f *fakeReviewer) GetHistory(_ context.Context, params reviews.GetHistoryPa
 		Snapshot:  f.snapshot,
 		Snapshots: []reviewstore.Snapshot{f.snapshot},
 	}, nil
+}
+
+// ReadMail records the mailbox and answers the mail it holds unless err refuses it.
+func (f *fakeReviewer) ReadMail(_ context.Context, agentID string) ([]mailstore.Mail, error) {
+	f.read = append(f.read, agentID)
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.mail, nil
 }
 
 // ListReviews answers the review it holds.

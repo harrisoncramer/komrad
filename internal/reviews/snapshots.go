@@ -55,8 +55,9 @@ var ErrReviewAlreadyGiven = fail.Precondition("that snapshot has already been re
 // holding unsent comments on another.
 var errReviewInFlight = fail.Precondition("you have unsent comments on an earlier snapshot")
 
-// ErrReviewVerdictFromPerson is answered when a person sends a verdict.
-var ErrReviewVerdictFromPerson = fail.InvalidArgument("a person's review carries comments and no verdict")
+// errReviewReleaseByPerson is answered when a person releases a review, whose comments were
+// released as they were written.
+var errReviewReleaseByPerson = fail.InvalidArgument("a person's comments are released as they are written, so there is no review to release")
 
 // errReviewVerdictMissing is answered when a reviewing agent releases a review without saying
 // what it concluded.
@@ -237,7 +238,7 @@ func doesOwnReviewBatch(author ReviewAuthor, review reviewstore.Review) bool {
 }
 
 // snapshotFor is the snapshot a comment's line numbers were read from: the one the caller names, the
-// one holding the commit it read, or the snapshot its own open review sits on.
+// one holding the commit it read, the snapshot an agent's own open review sits on, or the newest.
 func (s *ReviewService) snapshotFor(
 	ctx context.Context,
 	taskID string,
@@ -255,6 +256,10 @@ func (s *ReviewService) snapshotFor(
 		}
 
 		return snapshot, err
+	}
+
+	if params.Author.isHuman() {
+		return s.getLatestSnapshot(ctx, taskID)
 	}
 
 	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.OpenReviewOfParams{
@@ -466,7 +471,7 @@ type ReleaseReviewResult struct {
 type ReleaseReviewParams struct {
 	// Task is the task the review is of, by id or by slug, empty for the caller's own.
 	Task string
-	// Verdict is what a reviewing agent concluded, empty from a person, who sends comments alone.
+	// Verdict is what the reviewing agent concluded.
 	Verdict reviewstore.Verdict
 	// Body is what the reviewer says about the change as a whole rather than about any one line,
 	// empty when they said nothing.
@@ -474,12 +479,15 @@ type ReleaseReviewParams struct {
 	Author ReviewAuthor
 }
 
-// ReleaseReview releases the author's open review, writing it out as one file and sending one
-// piece of ordinary mail naming the review.
+// ReleaseReview releases a reviewer agent's open review, writing it out as one file and mailing the writer its path.
 func (s *ReviewService) ReleaseReview(
 	ctx context.Context,
 	params ReleaseReviewParams,
 ) (*ReleaseReviewResult, error) {
+	if params.Author.isHuman() {
+		return nil, errReviewReleaseByPerson
+	}
+
 	task, err := s.getTask(ctx, params.Task, params.Author)
 	if err != nil {
 		return nil, err
@@ -488,19 +496,19 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	verdict, err := resolveVerdict(params)
-	if err != nil {
-		return nil, err
+	if params.Verdict == "" {
+		return nil, errReviewVerdictMissing
 	}
+	verdict := params.Verdict
 
-	// A release opens a batch unless it is an agent's comment-only review with nothing in it.
+	// A release opens a batch unless it is a comment-only review with nothing in it.
 	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.OpenReviewOfParams{
 		TaskID:        task.ID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
 	})
 	if errors.Is(err, store.ErrNotFound) {
-		if isSayingNothing(params.Author, verdict) {
+		if verdict == reviewstore.VerdictCommented {
 			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, task.Slug)
 		}
 
@@ -521,9 +529,9 @@ func (s *ReviewService) ReleaseReview(
 	}
 
 	tally := tallyBatch(open.ID, threads)
-	// An agent's notes with no conclusion have to say something, whether pinned to a line, a
-	// reply in an earlier thread, or about the work as a whole.
-	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && isSayingNothing(params.Author, verdict) {
+	// Notes with no conclusion have to say something, whether pinned to a line, a reply in an
+	// earlier thread, or about the work as a whole.
+	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && verdict == reviewstore.VerdictCommented {
 		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, task.Slug)
 	}
 
@@ -548,12 +556,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	// A person's review stops the task's writer so it reads the comments now.
-	if params.Author.isHuman() {
-		s.interruptWriter(ctx, task.ID)
-	}
-
-	var released *reviewstore.ReleasedReview
+	var released *reviewstore.Review
 	err = s.events.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
 		var err error
 		released, err = reviewstore.NewReviewStore(tx).ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
@@ -570,12 +573,10 @@ func (s *ReviewService) ReleaseReview(
 			ReviewID:   open.ID,
 			TaskID:     task.ID,
 			Ordinal:    snapshot.Ordinal,
-			ByPerson:   params.Author.isHuman(),
 			ReviewerID: xptr.Deref(params.Author.AgentID),
 			Verdict:    verdict,
 			Comments:   tally.Comments,
 			Replies:    tally.Replies,
-			Reopens:    released.Reopens,
 			Path:       path,
 			HasBody:    strings.TrimSpace(params.Body) != "",
 		})
@@ -590,31 +591,10 @@ func (s *ReviewService) ReleaseReview(
 	}
 
 	return &ReleaseReviewResult{
-		Review:   released.Review,
+		Review:   *released,
 		Comments: comments,
 		Path:     path,
 	}, nil
-}
-
-// resolveVerdict is the verdict a release is stored with, refusing one from a person and
-// requiring one from an agent.
-func resolveVerdict(params ReleaseReviewParams) (reviewstore.Verdict, error) {
-	switch {
-	case params.Author.isHuman() && params.Verdict != "":
-		return "", ErrReviewVerdictFromPerson
-	case params.Author.isHuman():
-		return reviewstore.VerdictCommented, nil
-	case params.Verdict == "":
-		return "", errReviewVerdictMissing
-	}
-
-	return params.Verdict, nil
-}
-
-// isSayingNothing reports whether an empty release would be refused, which is true only of an
-// agent releasing as commented.
-func isSayingNothing(author ReviewAuthor, verdict reviewstore.Verdict) bool {
-	return !author.isHuman() && verdict == reviewstore.VerdictCommented
 }
 
 // batchTally is what one batch said, split by whether it opened a thread or added to one.
@@ -629,7 +609,7 @@ type batchTally struct {
 func tallyBatch(reviewID string, threads []ReviewThreadWithMessages) batchTally {
 	var tally batchTally
 	for _, thread := range threads {
-		if thread.Thread.ReviewID == reviewID {
+		if thread.Thread.ReviewID != nil && *thread.Thread.ReviewID == reviewID {
 			tally.Comments++
 
 			continue
@@ -783,8 +763,7 @@ func (s *ReviewService) writeReview(ctx context.Context, params writeReviewParam
 	return full, nil
 }
 
-// getAuthorName is what to call whoever gave a review, empty for the person and the agent's
-// name for an agent.
+// getAuthorName is the name of the agent that gave a review, or its id when it is gone.
 func (s *ReviewService) getAuthorName(ctx context.Context, review reviewstore.Review) string {
 	if review.AuthorAgentID == nil {
 		return ""
@@ -872,16 +851,6 @@ func (s *ReviewService) getAgent(ctx context.Context, agentID string) (*agentsto
 	}
 
 	return agent, nil
-}
-
-// interruptWriter stops a task's live writer where it stands, doing nothing when it has none.
-func (s *ReviewService) interruptWriter(ctx context.Context, taskID string) {
-	writer, err := s.agents.GetTaskWriter(ctx, taskID)
-	if err != nil || !writer.Alive {
-		return
-	}
-
-	s.interrupt(ctx, writer.ID)
 }
 
 // freezeCheckout freezes a task's checkout against its fork point when it has a parent, else against its workflow's base branch.

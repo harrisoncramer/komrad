@@ -29,9 +29,6 @@ func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 	if at := review.ReleasedAt; at != nil {
 		watched.ReleasedAt = dates.Stamp(*at)
 	}
-	if at := review.DeliveredAt; at != nil {
-		watched.DeliveredAt = dates.Stamp(*at)
-	}
 	if at := review.SnapshotLandedAt; at != nil {
 		watched.SnapshotLandedAt = dates.Stamp(*at)
 	}
@@ -60,9 +57,6 @@ func Review(review reviewstore.Review) *agentv1.Review {
 	}
 	if at := review.ReleasedAt; at != nil {
 		answered.ReleasedAt = dates.Stamp(*at)
-	}
-	if at := review.DeliveredAt; at != nil {
-		answered.DeliveredAt = dates.Stamp(*at)
 	}
 
 	return answered

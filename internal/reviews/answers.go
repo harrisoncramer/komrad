@@ -27,7 +27,7 @@ const replyHint = "Your worktree has changed since this comment was written. " +
 
 // takeAnswerSnapshot takes the snapshot an addressed reply from an agent points at, refusing one that changed nothing.
 func (s *ReviewService) takeAnswerSnapshot(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Snapshot, error) {
-	written, err := s.reviews.GetSnapshot(ctx, thread.SnapshotID)
+	written, err := s.getWrittenSnapshot(ctx, thread)
 	if err != nil {
 		return nil, err
 	}
@@ -52,10 +52,33 @@ func (s *ReviewService) takeAnswerSnapshot(ctx context.Context, thread reviewsto
 	return answer, nil
 }
 
+// getWrittenSnapshot is the snapshot an answer is measured from: for a person's thread the one
+// taken when the writer last read a comment in it, and the thread's own snapshot for an agent's
+// thread or one the writer has not read yet.
+func (s *ReviewService) getWrittenSnapshot(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Snapshot, error) {
+	if thread.AuthorKind != reviewstore.AuthorHuman {
+		return s.reviews.GetSnapshot(ctx, thread.SnapshotID)
+	}
+
+	messages, err := s.reviews.ListMessages(ctx, []string{thread.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	read := thread.SnapshotID
+	for _, message := range messages {
+		if message.ReadSnapshotID != nil {
+			read = *message.ReadSnapshotID
+		}
+	}
+
+	return s.reviews.GetSnapshot(ctx, read)
+}
+
 // findReplyHint points a plain reply at addressed when the task's worktree no longer holds the
 // tree its thread was written on, and says nothing when that cannot be read.
 func (s *ReviewService) findReplyHint(ctx context.Context, thread reviewstore.Thread) string {
-	written, err := s.reviews.GetSnapshot(ctx, thread.SnapshotID)
+	written, err := s.getWrittenSnapshot(ctx, thread)
 	if err != nil {
 		return ""
 	}

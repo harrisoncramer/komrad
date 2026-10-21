@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/eventprompts"
 	"komrad/internal/forge"
 	"komrad/internal/gittest"
 	"komrad/internal/reviews/history"
+	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xslice"
 
@@ -278,20 +280,28 @@ func TestAcceptingForgeComments(t *testing.T) {
 		replies []forge.ReviewComment
 		accept  func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error
 		wantErr error
-		check   func(t *testing.T, got forgeMirrored)
+		check   func(t *testing.T, fx *reviewFixture, got forgeMirrored)
 	}{
 		{
-			name: "accepting copies the comment into the person's review",
+			name: "accepting copies the comment as the person's and mails it to the writer",
 			accept: func(t *testing.T, fx *reviewFixture, held []reviewstore.Message) error {
 				return fx.acceptForge(t, held[0].ID)
 			},
-			check: func(t *testing.T, got forgeMirrored) {
+			check: func(t *testing.T, fx *reviewFixture, got forgeMirrored) {
 				require.Len(t, got.messages, 2)
 				copied := got.messages[1]
 				assert.Equal(t, reviewstore.AuthorHuman, copied.AuthorKind)
 				assert.Equal(t, "use a guard", copied.Body)
 				require.NotNil(t, copied.AcceptedFrom)
 				assert.Equal(t, got.messages[0].ID, *copied.AcceptedFrom)
+
+				rung := fx.listMail(t, fx.writer.ID)
+				require.Len(t, rung, 1)
+				assert.Equal(t, &rung[0].ID, copied.MailID)
+				assert.Equal(t, mailstore.KindReviewComment, rung[0].Kind)
+				assert.Contains(t, rung[0].Body, "the person passed on a comment @mallory wrote on the forge")
+				assert.Contains(t, rung[0].Body, "use a guard")
+				assert.Equal(t, []string{eventprompts.ReviewCommentedByPerson}, rung[0].Events)
 			},
 		},
 		{
@@ -321,7 +331,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 				require.NoError(t, fx.acceptForge(t, held[0].ID))
 				return fx.acceptForge(t, held[1].ID)
 			},
-			check: func(t *testing.T, got forgeMirrored) {
+			check: func(t *testing.T, _ *reviewFixture, got forgeMirrored) {
 				assert.Len(t, got.messages, 4)
 			},
 		},
@@ -353,7 +363,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 				fx.settle(t, held[0].ThreadID, personAuthor)
 				return fx.acceptForge(t, held[0].ID)
 			},
-			check: func(t *testing.T, got forgeMirrored) {
+			check: func(t *testing.T, _ *reviewFixture, got forgeMirrored) {
 				require.Len(t, got.threads, 1)
 				assert.Nil(t, got.threads[0].ResolvedAt)
 			},
@@ -374,7 +384,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			tt.check(t, fx.readForgeMirrored(t))
+			tt.check(t, fx, fx.readForgeMirrored(t))
 		})
 	}
 }

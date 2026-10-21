@@ -155,7 +155,7 @@ func messageDraftPath(agentID string) string {
 
 // applyMessageEdited puts what the editor wrote back into the composer.
 func (r *reviewScreen) applyMessageEdited(m *model, msg messageEditedMsg) tea.Cmd {
-	if msg.agentID != r.agentID || (!r.threads.composing && !r.threads.releasing) {
+	if msg.agentID != r.agentID || !r.threads.composing {
 		return nil
 	}
 
@@ -166,9 +166,6 @@ func (r *reviewScreen) applyMessageEdited(m *model, msg messageEditedMsg) tea.Cm
 	}
 
 	title, said := r.threads.inputHead()
-	if r.threads.releasing {
-		said = "send"
-	}
 
 	return r.openInput(m, newReviewInputParams{
 		Title:       title,
@@ -279,7 +276,7 @@ func keepUnsent(kept reviewUnsent, write tea.Cmd) tea.Cmd {
 
 // restoreMessage opens the composer again on a message the server refused.
 func (r *reviewScreen) restoreMessage(m *model, unsent reviewUnsent) tea.Cmd {
-	if r.threads.composing || r.threads.releasing {
+	if r.threads.composing {
 		return nil
 	}
 
@@ -410,92 +407,6 @@ func (r reviewScreen) markThreadReadCmd(m *model) tea.Cmd {
 	})
 }
 
-// openRelease asks what to send rather than sending.
-func (r *reviewScreen) openRelease(m *model) tea.Cmd {
-	r.threads.releasing = true
-
-	return r.openInput(m, newReviewInputParams{
-		Title:       "Anything about the work as a whole?",
-		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, "sends"),
-		Placeholder: "optional",
-	})
-}
-
-func (r *reviewScreen) clickChange(m *model, key string) tea.Cmd {
-	if key != "send" {
-		return nil
-	}
-
-	return r.orRefuseWrite(m, r.openRelease)
-}
-
-// updateRelease takes every key while the panel is up: the submit key sends, escape abandons,
-// and everything else is a word being typed about the work.
-func (r *reviewScreen) updateRelease(m *model, key tea.KeyPressMsg) tea.Cmd {
-	outcome := r.threads.editor.updateVim(key)
-	if outcome != vim.Pass && outcome != vim.Leave {
-		return nil
-	}
-
-	k := key.String()
-
-	switch {
-	case outcome == vim.Leave || isBound(k, fixedKeys().Back):
-		r.threads.closeRelease()
-
-		return nil
-	case isBound(k, fixedKeys().Quit):
-		return m.hide()
-	case isBound(k, fixedKeys().Editor):
-		return r.openMessageEditor(m)
-	case isBound(k, fixedKeys().Submit):
-		return r.send(m)
-	}
-
-	editor, cmd := r.threads.editor.update(key)
-	r.threads.editor = editor
-
-	return cmd
-}
-
-// send releases the batch with whatever was written about the work as a whole, reaching the
-// agent as one file and one piece of mail.
-func (r *reviewScreen) send(m *model) tea.Cmd {
-	body := strings.TrimSpace(r.threads.editor.value())
-
-	r.threads.closeRelease()
-
-	agents, taskID := m.clients().agents, r.taskID
-	item, _ := r.agentRow(m)
-
-	return r.sendCmd(m, "sending the review", func(ctx context.Context) (string, error) {
-		_, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-			Task: &taskID,
-			Body: body,
-		}))
-		if err != nil {
-			return "", err
-		}
-
-		return releasedNotice(item.Alive), nil
-	})
-}
-
-// closeRelease puts the release panel away, sent or not.
-func (t *reviewThreads) closeRelease() {
-	t.editor = reviewInput{}
-	t.releasing = false
-}
-
-// releasedNotice says what went.
-func releasedNotice(alive bool) string {
-	if !alive {
-		return "review queued for resume"
-	}
-
-	return "review sent"
-}
-
 // writeCmd runs one write on the review, landing the write that beginWrite counted out.
 func (r reviewScreen) writeCmd(m *model, counted int, notice string, write func(context.Context) error) tea.Cmd {
 	return r.writeMsgCmd(m, counted, func(ctx context.Context) (string, error) {
@@ -506,11 +417,6 @@ func (r reviewScreen) writeCmd(m *model, counted int, notice string, write func(
 // quietWriteCmd runs one write on the review that the panel does not count in flight.
 func (r reviewScreen) quietWriteCmd(m *model, write func(context.Context) error) tea.Cmd {
 	return r.writeCmd(m, 0, "", write)
-}
-
-// sendCmd is the write that releases a review.
-func (r reviewScreen) sendCmd(m *model, doing string, write func(context.Context) (string, error)) tea.Cmd {
-	return r.writeMsgCmd(m, m.beginWrite(doing), write)
 }
 
 // writeMsgCmd runs one write, marking whose answer it is, and reads an archived agent's threads back.

@@ -23,7 +23,6 @@ import (
 type mailer interface {
 	ResolveRecipient(ctx context.Context, params mail.ResolveRecipientParams) (*agentstore.Agent, error)
 	SendMail(ctx context.Context, params mail.SendMailParams) (*mailstore.Mail, error)
-	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
 	ListMail(ctx context.Context, params mail.ListMailParams) ([]mailstore.Mail, error)
 	DeleteMail(ctx context.Context, ids []string) error
 	IsDormant(agent agentstore.Agent) bool
@@ -74,7 +73,7 @@ func (s *Handler) ReadMail(ctx context.Context, req *agentv1.ReadMailRequest) (*
 
 	logCrossAgentRead(ctx, id, "agent read another agent's mail")
 
-	claimed, err := s.mail.ClaimMail(ctx, id)
+	claimed, err := s.review.ReadMail(ctx, id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the mail")
 	}

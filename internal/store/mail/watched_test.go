@@ -48,7 +48,7 @@ func TestListWatchedIsTheUnclaimedSet(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, none)
 
-	claimed, err := st.Claim(ctx, recipient, 10)
+	claimed, err := st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 

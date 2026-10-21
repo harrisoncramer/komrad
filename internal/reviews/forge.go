@@ -295,7 +295,7 @@ func createForgeThread(ctx context.Context, reviews *reviewstore.ReviewStore, pa
 
 	thread, err := reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
 		TaskID:        params.Target.TaskID,
-		ReviewID:      review.ID,
+		ReviewID:      &review.ID,
 		SnapshotID:    params.Target.SnapshotID,
 		BaseSHA:       params.Target.BaseSHA,
 		FilePath:      params.Place.FilePath,
@@ -448,7 +448,7 @@ func tallyForge(reviewID string, threads []reviewstore.Thread, messages []review
 
 	replied := map[string]bool{}
 	for _, message := range messages {
-		if message.ReviewID != nil && *message.ReviewID == reviewID && message.Delivery != reviewstore.DeliveryHeld {
+		if message.ReviewID != nil && *message.ReviewID == reviewID && !message.Held {
 			replied[message.ThreadID] = true
 		}
 	}
@@ -456,7 +456,7 @@ func tallyForge(reviewID string, threads []reviewstore.Thread, messages []review
 	for _, thread := range threads {
 		switch {
 		case !replied[thread.ID]:
-		case thread.ReviewID == reviewID:
+		case thread.ReviewID != nil && *thread.ReviewID == reviewID:
 			tally.Comments++
 		default:
 			tally.Replies++

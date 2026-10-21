@@ -138,7 +138,6 @@ func TestWrapCodes(t *testing.T) {
 		{schedules.ErrNotAnOrchestrator, connect.CodeInvalidArgument},
 		{schedules.ErrPromptTooLong, connect.CodeInvalidArgument},
 		{taskstore.ErrBadSlug, connect.CodeInvalidArgument},
-		{reviews.ErrReviewVerdictFromPerson, connect.CodeInvalidArgument},
 		{documents.ErrAgentWritingForAnother, connect.CodeInvalidArgument},
 		{documents.ErrNoAuthor, connect.CodeInvalidArgument},
 		{documents.ErrNoTypeVersion, connect.CodeInvalidArgument},

@@ -30,11 +30,6 @@ func TestReleasedReviewStartsTheEventForItsVerdict(t *testing.T) {
 			mail: ReviewReleased{Verdict: reviewstore.VerdictCommented},
 			want: reviewCommented,
 		},
-		{
-			name: "a person commenting",
-			mail: ReviewReleased{Verdict: reviewstore.VerdictCommented, ByPerson: true},
-			want: ReviewCommentedByPerson,
-		},
 	}
 
 	for _, tt := range tests {
@@ -42,4 +37,9 @@ func TestReleasedReviewStartsTheEventForItsVerdict(t *testing.T) {
 			assert.Equal(t, []string{tt.want}, tt.mail.Events())
 		})
 	}
+}
+
+// TestReviewCommentStartsThePersonCommentedEvent pins the event a person's comment starts.
+func TestReviewCommentStartsThePersonCommentedEvent(t *testing.T) {
+	assert.Equal(t, []string{ReviewCommentedByPerson}, ReviewComment{}.Events())
 }

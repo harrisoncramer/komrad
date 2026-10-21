@@ -31,11 +31,11 @@ type fixture struct {
 	workflow string
 }
 
-// tallyRelease is one review let go of on the tree named.
+// tallyRelease is one thing released about the tree named: the person's comment when verdict is
+// empty, and otherwise a reviewer's review with that verdict.
 type tallyRelease struct {
-	tree       string
-	byReviewer bool
-	verdict    Verdict
+	tree    string
+	verdict Verdict
 }
 
 // liveReviewerSeed is the writer and the reviewer on its task in a test of live reviewers.
@@ -63,30 +63,32 @@ func TestASnapshotIsNumberedAfterTheOnesBeforeIt(t *testing.T) {
 	assert.Equal(t, second.ID, latest.ID)
 }
 
-// TestAnAuthorHoldsOneOpenReviewAtATime pins that the database refuses a second open review by the same author.
+// TestAnAuthorHoldsOneOpenReviewAtATime pins that the database refuses a second open review by the same reviewer.
 func TestAnAuthorHoldsOneOpenReviewAtATime(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
+	reviewerID := st.seedReviewer(t, agentID)
 	snapshot := st.takeSnapshot(t, agentID, "tree-one")
 
-	st.openReview(t, snapshot)
+	st.openReviewBy(t, snapshot, reviewerID)
 
 	_, err := st.OpenReview(ctx, OpenReviewParams{
-		TaskID:     st.taskOf(t, agentID),
-		SnapshotID: snapshot.ID,
-		AuthorKind: AuthorHuman,
+		TaskID:        st.taskOf(t, agentID),
+		SnapshotID:    snapshot.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewerID,
 	})
-	require.Error(t, err, "the person cannot draft two reviews of one agent")
+	require.Error(t, err, "a reviewer cannot write two reviews of one agent at once")
 
-	reviewer := st.seedAgent(t, "reviewer")
+	other := st.seedAgent(t, "reviewer")
 	_, err = st.OpenReview(ctx, OpenReviewParams{
 		TaskID:        st.taskOf(t, agentID),
 		SnapshotID:    snapshot.ID,
 		AuthorKind:    AuthorAgent,
-		AuthorAgentID: &reviewer,
+		AuthorAgentID: &other,
 	})
-	require.NoError(t, err, "another author reviewing the same snapshot is a review of its own")
+	require.NoError(t, err, "another reviewer reviewing the same snapshot is a review of its own")
 }
 
 // TestReleasingAReviewCarriesEveryCommentInIt pins that one release stamps every comment under it and none of the agent's answers.
@@ -94,7 +96,8 @@ func TestReleasingAReviewCarriesEveryCommentInIt(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
+	reviewerID := st.seedReviewer(t, agentID)
+	review := st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-one"), reviewerID)
 
 	first := st.openThread(t, review, "this needs a nil check")
 	second := st.openThread(t, review, "and this one leaks")
@@ -106,29 +109,79 @@ func TestReleasingAReviewCarriesEveryCommentInIt(t *testing.T) {
 
 	st.releaseReview(t, review, VerdictChangesRequested)
 
-	assert.Equal(t, DeliverySent, st.readDelivery(t, first.ID, AuthorHuman))
-	assert.Equal(t, DeliverySent, st.readDelivery(t, second.ID, AuthorHuman))
-	assert.Equal(t, DeliveryNone, st.readDelivery(t, first.ID, AuthorAgent))
+	assert.NotNil(t, st.messageBy(t, first.ID, reviewerID).ReviewReleasedAt)
+	assert.NotNil(t, st.messageBy(t, second.ID, reviewerID).ReviewReleasedAt)
+	assert.Nil(t, st.messageBy(t, first.ID, agentID).ReviewReleasedAt)
 }
 
-// TestDeliveryFollowsTheOneMail pins that claiming the doorbell moves every comment in the batch at once.
-func TestDeliveryFollowsTheOneMail(t *testing.T) {
+// TestAThreadWithNoReviewIsListed pins that a person's thread, which belongs to no review, is
+// listed and fetched like any other.
+func TestAThreadWithNoReviewIsListed(t *testing.T) {
 	st := openFixture(t)
+	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
+	snapshot := st.takeSnapshot(t, agentID, "tree-one")
+	opened := st.comment(t, snapshot, "this needs a nil check")
 
-	thread := st.openThread(t, review, "this needs a nil check")
-	assert.Equal(t, DeliveryUnsent, st.readDelivery(t, thread.ID, AuthorHuman))
-
-	doorbell := st.releaseReview(t, review, VerdictChangesRequested)
-	assert.Equal(t, DeliverySent, st.readDelivery(t, thread.ID, AuthorHuman))
-
-	claimed, err := st.mail.Claim(t.Context(), agentID, 10)
+	threads, err := st.ListThreads(ctx, st.taskOf(t, agentID))
 	require.NoError(t, err)
-	require.NotEmpty(t, claimed)
-	require.Equal(t, doorbell, claimed[0].ID)
+	require.Len(t, threads, 1)
+	assert.Nil(t, threads[0].ReviewID)
+	assert.Equal(t, AuthorHuman, threads[0].AuthorKind)
+	assert.Equal(t, snapshot.ID, threads[0].SnapshotID)
 
-	assert.Equal(t, DeliveryDelivered, st.readDelivery(t, thread.ID, AuthorHuman))
+	got, err := st.GetThread(ctx, opened.ID)
+	require.NoError(t, err)
+	assert.Nil(t, got.ReviewID)
+	assert.Equal(t, AuthorHuman, got.AuthorKind)
+}
+
+// TestReadingTheMailStampsTheComment pins that the comments a mail carried are stamped read once,
+// against the snapshot taken as they were read.
+func TestReadingTheMailStampsTheComment(t *testing.T) {
+	st := openFixture(t)
+	ctx := t.Context()
+	agentID := st.seedAgent(t, "worker")
+	thread := st.comment(t, st.takeSnapshot(t, agentID, "tree-one"), "this needs a nil check")
+	sent := st.mailComment(t, thread)
+	readOn := st.takeSnapshot(t, agentID, "tree-two")
+
+	read, err := st.MarkMessagesRead(ctx, []string{sent}, &readOn.ID)
+	require.NoError(t, err)
+	require.Len(t, read, 1)
+	assert.NotNil(t, read[0].ReadAt)
+	assert.Equal(t, &readOn.ID, read[0].ReadSnapshotID)
+
+	again, err := st.MarkMessagesRead(ctx, []string{sent}, nil)
+	require.NoError(t, err)
+	assert.Empty(t, again, "a comment is read once")
+
+	messages, err := st.ListMessages(ctx, []string{thread.ID})
+	require.NoError(t, err)
+	require.Len(t, messages, 1)
+	assert.Equal(t, &sent, messages[0].MailID)
+	assert.NotNil(t, messages[0].ReadAt)
+	assert.Equal(t, &readOn.ID, messages[0].ReadSnapshotID)
+}
+
+// TestDeletingTheMailLeavesTheCommentRead pins that a comment stays read once the mail that
+// carried it is gone.
+func TestDeletingTheMailLeavesTheCommentRead(t *testing.T) {
+	st := openFixture(t)
+	ctx := t.Context()
+	agentID := st.seedAgent(t, "worker")
+	thread := st.comment(t, st.takeSnapshot(t, agentID, "tree-one"), "this needs a nil check")
+	sent := st.mailComment(t, thread)
+
+	_, err := st.MarkMessagesRead(ctx, []string{sent}, nil)
+	require.NoError(t, err)
+	require.NoError(t, st.mail.Delete(ctx, []string{sent}))
+
+	messages, err := st.ListMessages(ctx, []string{thread.ID})
+	require.NoError(t, err)
+	require.Len(t, messages, 1)
+	assert.Nil(t, messages[0].MailID)
+	assert.NotNil(t, messages[0].ReadAt)
 }
 
 // TestThreadsAreReadByTask pins that a task's threads outlive the agent they were written to and stay off other tasks.
@@ -160,7 +213,7 @@ func TestThreadsAreReadByTask(t *testing.T) {
 			firstWriter := st.seedAgent(t, "worker")
 			taskID := st.taskOf(t, firstWriter)
 			snapshot := st.takeSnapshot(t, firstWriter, "tree-one")
-			opened := st.openThread(t, st.openReview(t, snapshot), "this needs a nil check")
+			opened := st.comment(t, snapshot, "this needs a nil check")
 			st.seedAgentLike(t, agentstore.Agent{
 				Name:   "next-worker",
 				TaskID: &taskID,
@@ -189,9 +242,8 @@ func TestRewritingAReplyIsNewActivity(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
 
-	answered := st.writeAnswer(t, st.openThread(t, review, "this needs a nil check"))
+	answered := st.writeAnswer(t, st.comment(t, st.takeSnapshot(t, agentID, "tree-one"), "this needs a nil check"))
 	st.markAllRead(t, st.taskOf(t, agentID))
 
 	_, err := st.UpdateMessage(ctx, answered.ID, "rewritten", nil)
@@ -208,10 +260,10 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
+	snapshot := st.takeSnapshot(t, agentID, "tree-one")
 
-	first := st.openThread(t, review, "first note")
-	second := st.openThread(t, review, "second note")
+	first := st.comment(t, snapshot, "first note")
+	second := st.comment(t, snapshot, "second note")
 	st.writeAnswer(t, first)
 	st.writeAnswer(t, second)
 
@@ -298,8 +350,9 @@ func TestViewedMarkUsesFingerprint(t *testing.T) {
 	assert.Empty(t, viewed)
 }
 
-// TestWritingInASettledThread pins that only a reviewer agent's own words take its settling back
-// as they are written; the person's wait for the release.
+// TestWritingInASettledThread pins whose words take a thread's settling back: a new message from
+// the person always, a reviewer agent's only where it settled the thread itself, and the agent
+// under review's never.
 func TestWritingInASettledThread(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -322,17 +375,21 @@ func TestWritingInASettledThread(t *testing.T) {
 			wantSettled: true,
 		},
 		{
-			name:        "the person writing in what they settled, which waits for the release",
-			settler:     "person",
-			writer:      "person",
-			wantSettled: true,
+			name:    "the person writing in what they settled",
+			settler: "person",
+			writer:  "person",
 		},
 		{
-			name:        "the person rewriting what they said in what they settled",
+			name:        "the person rewriting what they said in what they settled, which says nothing new",
 			settler:     "person",
 			writer:      "person",
 			rewrite:     true,
 			wantSettled: true,
+		},
+		{
+			name:    "the person writing in what the agent under review settled",
+			settler: "worker",
+			writer:  "person",
 		},
 		{
 			name:        "the agent under review writing again in what its answer settled",
@@ -372,8 +429,7 @@ func TestWritingInASettledThread(t *testing.T) {
 			ctx := t.Context()
 			workerID := st.seedAgent(t, "worker")
 			reviewerID := st.seedAgent(t, "reviewer")
-			review := st.openReview(t, st.takeSnapshot(t, workerID, "tree-one"))
-			thread := st.openThread(t, review, "this needs a nil check")
+			thread := st.comment(t, st.takeSnapshot(t, workerID, "tree-one"), "this needs a nil check")
 
 			agentIDs := map[string]*string{
 				"person":   nil,
@@ -382,7 +438,6 @@ func TestWritingInASettledThread(t *testing.T) {
 			}
 			writer := CreateMessageParams{
 				ThreadID:      thread.ID,
-				ReviewID:      &review.ID,
 				Body:          "one more thing",
 				AuthorKind:    AuthorHuman,
 				AuthorAgentID: agentIDs[tt.writer],
@@ -454,12 +509,15 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 			ctx := t.Context()
 			workerID := st.seedAgent(t, "worker")
 			snapshot := st.takeSnapshot(t, workerID, "tree-one")
-			review := st.openReview(t, snapshot)
+
+			var thread *Thread
 			if tt.byReviewer {
-				review = st.openReviewBy(t, snapshot, st.seedReviewer(t, workerID))
+				review := st.openReviewBy(t, snapshot, st.seedReviewer(t, workerID))
+				thread = st.openThread(t, review, "this needs a nil check")
+				st.releaseReview(t, review, VerdictChangesRequested)
+			} else {
+				thread = st.comment(t, snapshot, "this needs a nil check")
 			}
-			thread := st.openThread(t, review, "this needs a nil check")
-			st.releaseReview(t, review, VerdictChangesRequested)
 
 			var snapshotID *string
 			if tt.withSnapshot {
@@ -497,128 +555,14 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 	}
 }
 
-// TestReleasingReopensWhatThePersonRepliedTo pins that a person's reply in a settled thread
-// reopens it once the batch carrying the reply goes out.
-func TestReleasingReopensWhatThePersonRepliedTo(t *testing.T) {
-	tests := []struct {
-		name              string
-		byReviewer        bool
-		byPerson          bool
-		reply             bool
-		thenPersonSettles bool
-		thenWorkerSettles bool
-		wantSettled       bool
-	}{
-		{
-			name:        "a settled thread the person did not reply to",
-			reply:       false,
-			wantSettled: true,
-		},
-		{
-			name:              "the person replying and then settling it before the batch goes out",
-			reply:             true,
-			thenPersonSettles: true,
-			wantSettled:       true,
-		},
-		{
-			name:        "a reviewer agent replying in a settled thread",
-			byReviewer:  true,
-			reply:       true,
-			wantSettled: true,
-		},
-		{
-			name:        "the person replying in a settled thread",
-			reply:       true,
-			wantSettled: false,
-		},
-		{
-			name:        "the person replying in a thread they settled themselves",
-			byPerson:    true,
-			reply:       true,
-			wantSettled: false,
-		},
-		{
-			name:              "the agent settling it after the person replied",
-			byPerson:          true,
-			reply:             true,
-			thenWorkerSettles: true,
-			wantSettled:       false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := openFixture(t)
-			ctx := t.Context()
-			workerID := st.seedAgent(t, "worker")
-			snapshot := st.takeSnapshot(t, workerID, "tree-one")
-			first := st.openReview(t, snapshot)
-			thread := st.openThread(t, first, "this needs a nil check")
-			st.releaseReview(t, first, VerdictChangesRequested)
-
-			settler := &workerID
-			if tt.byPerson {
-				settler = nil
-			}
-			st.settle(t, thread, settler)
-
-			author := AuthorHuman
-			var authorAgentID *string
-			var second *Review
-			if tt.byReviewer {
-				reviewerID := st.seedReviewer(t, workerID)
-				second = st.openReviewBy(t, snapshot, reviewerID)
-				author, authorAgentID = AuthorAgent, &reviewerID
-			} else {
-				second = st.openReview(t, snapshot)
-			}
-			if tt.reply {
-				_, err := st.CreateMessage(ctx, CreateMessageParams{
-					ThreadID:      thread.ID,
-					ReviewID:      &second.ID,
-					AuthorKind:    author,
-					AuthorAgentID: authorAgentID,
-					Body:          "this still panics on an empty list",
-				})
-				require.NoError(t, err)
-			}
-
-			if tt.thenPersonSettles {
-				st.settle(t, thread, nil)
-			}
-			if tt.thenWorkerSettles {
-				st.settle(t, thread, &workerID)
-			}
-
-			held, err := st.GetThread(ctx, thread.ID)
-			require.NoError(t, err)
-			require.NotNil(t, held.ResolvedAt, "the reply waits for the batch to go out")
-
-			released, err := st.ReleaseReview(ctx, ReleaseReviewParams{
-				ID:      second.ID,
-				Verdict: VerdictChangesRequested,
-				Path:    "/tmp/snapshot-1.md",
-			})
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantSettled, released.Reopens == 0)
-
-			got, err := st.GetThread(ctx, thread.ID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantSettled, got.ResolvedAt != nil)
-		})
-	}
-}
-
 // TestASuggestionIsCarriedWithTheComment pins that replacement lines survive the round trip.
 func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	st := openFixture(t)
 	agentID := st.seedAgent(t, "worker")
 	snapshot := st.takeSnapshot(t, agentID, "tree-one")
-	review := st.openReview(t, snapshot)
 
 	thread, err := st.CreateThread(t.Context(), CreateThreadParams{
 		TaskID:     st.taskOf(t, agentID),
-		ReviewID:   review.ID,
 		SnapshotID: snapshot.ID,
 		FilePath:   "internal/thing.go",
 		NewStart:   41,
@@ -644,14 +588,13 @@ func TestListTallies(t *testing.T) {
 		wantTally *tally
 	}{
 		{
-			name: "work nobody has released anything about",
+			name: "work nobody has said anything about",
 		},
 		{
-			name: "notes with no conclusion",
+			name: "the person's comment, with no conclusion",
 			releases: []tallyRelease{
 				{
-					tree:    "tree-one",
-					verdict: VerdictCommented,
+					tree: "tree-one",
 				},
 			},
 			wantTally: &tally{
@@ -662,14 +605,12 @@ func TestListTallies(t *testing.T) {
 			name: "two snapshots the reviewer sent back, and a third still being written",
 			releases: []tallyRelease{
 				{
-					tree:       "tree-one",
-					byReviewer: true,
-					verdict:    VerdictChangesRequested,
+					tree:    "tree-one",
+					verdict: VerdictChangesRequested,
 				},
 				{
-					tree:       "tree-two",
-					byReviewer: true,
-					verdict:    VerdictChangesRequested,
+					tree:    "tree-two",
+					verdict: VerdictChangesRequested,
 				},
 			},
 			openOn: "tree-three",
@@ -680,16 +621,14 @@ func TestListTallies(t *testing.T) {
 			},
 		},
 		{
-			name: "two authors on the one snapshot",
+			name: "the person and the reviewer on the one snapshot",
 			releases: []tallyRelease{
 				{
-					tree:    "tree-one",
-					verdict: VerdictCommented,
+					tree: "tree-one",
 				},
 				{
-					tree:       "tree-one",
-					byReviewer: true,
-					verdict:    VerdictChangesRequested,
+					tree:    "tree-one",
+					verdict: VerdictChangesRequested,
 				},
 			},
 			wantTally: &tally{
@@ -702,14 +641,12 @@ func TestListTallies(t *testing.T) {
 			name: "an approval after changes requested",
 			releases: []tallyRelease{
 				{
-					tree:       "tree-one",
-					byReviewer: true,
-					verdict:    VerdictChangesRequested,
+					tree:    "tree-one",
+					verdict: VerdictChangesRequested,
 				},
 				{
-					tree:       "tree-two",
-					byReviewer: true,
-					verdict:    VerdictApproved,
+					tree:    "tree-two",
+					verdict: VerdictApproved,
 				},
 			},
 			wantTally: &tally{
@@ -719,16 +656,14 @@ func TestListTallies(t *testing.T) {
 			},
 		},
 		{
-			name: "an approval with a later snapshot only commented on",
+			name: "an approval with a later snapshot the person only commented on",
 			releases: []tallyRelease{
 				{
-					tree:       "tree-one",
-					byReviewer: true,
-					verdict:    VerdictApproved,
+					tree:    "tree-one",
+					verdict: VerdictApproved,
 				},
 				{
-					tree:    "tree-two",
-					verdict: VerdictCommented,
+					tree: "tree-two",
 				},
 			},
 			wantTally: &tally{
@@ -746,23 +681,20 @@ func TestListTallies(t *testing.T) {
 			reviewerID := st.seedReviewer(t, agentID)
 
 			snapshots := map[string]*Snapshot{}
-			for _, released := range append(tt.releases, tallyRelease{tree: tt.openOn}) {
-				if released.tree == "" {
-					continue
-				}
+			for _, released := range tt.releases {
 				if snapshots[released.tree] == nil {
 					snapshots[released.tree] = st.takeSnapshot(t, agentID, released.tree)
 				}
+				if released.verdict == "" {
+					st.comment(t, snapshots[released.tree], "a note")
 
-				var review *Review
-				if released.byReviewer {
-					review = st.openReviewBy(t, snapshots[released.tree], reviewerID)
-				} else {
-					review = st.openReview(t, snapshots[released.tree])
+					continue
 				}
-				if released.verdict != "" {
-					st.releaseReview(t, review, released.verdict)
-				}
+
+				st.releaseReview(t, st.openReviewBy(t, snapshots[released.tree], reviewerID), released.verdict)
+			}
+			if tt.openOn != "" {
+				st.openReviewBy(t, st.takeSnapshot(t, agentID, tt.openOn), reviewerID)
 			}
 
 			tallies, err := st.listTallies(t.Context())
@@ -815,10 +747,10 @@ func TestUnlandedSnapshotsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 	archived := st.seedAgent(t, "archived")
 
 	for _, tree := range []string{"tree-one", "tree-two", "tree-three"} {
-		st.releaseReview(t, st.openReview(t, st.takeSnapshot(t, agentID, tree)), VerdictCommented)
+		st.comment(t, st.takeSnapshot(t, agentID, tree), "a note")
 	}
-	st.openReview(t, st.takeSnapshot(t, agentID, "tree-draft"))
-	st.releaseReview(t, st.openReview(t, st.takeSnapshot(t, archived, "tree-gone")), VerdictCommented)
+	st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-draft"), st.seedReviewer(t, agentID))
+	st.comment(t, st.takeSnapshot(t, archived, "tree-gone"), "a note")
 	_, err := st.agents.Archive(ctx, []string{archived})
 	require.NoError(t, err)
 
@@ -842,7 +774,7 @@ func TestUnlandedSnapshotsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 				SHA:     "snapshot-tree-one",
 			},
 		},
-	}, unlanded, "a draft snapshot and an archived agent's snapshots are not walked")
+	}, unlanded, "a snapshot only an open review names and an archived agent's snapshots are not walked")
 
 	landed, err := st.MarkSnapshotsLanded(ctx, st.taskOf(t, agentID), 2)
 	require.NoError(t, err)
@@ -871,7 +803,7 @@ func TestUnlandedSnapshotsCarryTheNewestMerge(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
-	st.releaseReview(t, st.openReview(t, st.takeSnapshot(t, agentID, "tree-one")), VerdictCommented)
+	st.comment(t, st.takeSnapshot(t, agentID, "tree-one"), "a note")
 
 	repository, branch := "https://github.com/harrisoncramer/komrad", "agent/worker"
 	st.stores.SeedTaskHead(t, agentID, taskstore.SetHeadParams{
@@ -916,15 +848,17 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	st := openFixture(t)
 	ctx := t.Context()
 	agentID := st.seedAgent(t, "worker")
+	reviewerID := st.seedReviewer(t, agentID)
 	author := OpenReviewOfParams{
-		TaskID:     st.taskOf(t, agentID),
-		AuthorKind: AuthorHuman,
+		TaskID:        st.taskOf(t, agentID),
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewerID,
 	}
 
 	_, err := st.OpenReviewOf(ctx, author)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
+	review := st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-one"), reviewerID)
 
 	held, err := st.OpenReviewOf(ctx, author)
 	require.NoError(t, err)
@@ -934,30 +868,6 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 
 	_, err = st.OpenReviewOf(ctx, author)
 	require.ErrorIs(t, err, store.ErrNotFound, "a batch that has gone is not still being written")
-}
-
-// TestMovingAnOpenReview pins that a draft moves to another snapshot and leaves its comments where they were written.
-func TestMovingAnOpenReview(t *testing.T) {
-	st := openFixture(t)
-	ctx := t.Context()
-	agentID := st.seedAgent(t, "worker")
-	first := st.takeSnapshot(t, agentID, "tree-one")
-	review := st.openReview(t, first)
-	thread := st.openThread(t, review, "this needs a nil check")
-	second := st.takeSnapshot(t, agentID, "tree-two")
-
-	moved, err := st.MoveOpenReview(ctx, MoveOpenReviewParams{ID: review.ID, SnapshotID: second.ID})
-	require.NoError(t, err)
-	assert.Equal(t, second.ID, moved.SnapshotID)
-
-	kept, err := st.GetThread(ctx, thread.ID)
-	require.NoError(t, err)
-	assert.Equal(t, first.ID, kept.SnapshotID, "a comment stays on the snapshot it was written against")
-
-	st.releaseReview(t, moved, VerdictCommented)
-
-	_, err = st.MoveOpenReview(ctx, MoveOpenReviewParams{ID: review.ID, SnapshotID: first.ID})
-	require.ErrorIs(t, err, store.ErrNotFound, "a released review stays where it was sent")
 }
 
 // TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased pins that a departing reviewer's draft goes and its release stays.
@@ -1067,7 +977,7 @@ func TestLiveReviewersAreOldestFirst(t *testing.T) {
 func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
 	st := openFixture(t)
 	agentID := st.seedAgent(t, "worker")
-	review := st.openReview(t, st.takeSnapshot(t, agentID, "tree-one"))
+	review := st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-one"), st.seedReviewer(t, agentID))
 
 	listed := st.findListedReview(t, review)
 	assert.Zero(t, listed.OpenThreads, "a batch with no comments in it owes nothing")
@@ -1125,10 +1035,12 @@ func (st *fixture) seedAgent(t *testing.T, name string) string {
 func (st *fixture) seedReviewer(t *testing.T, writerID string) string {
 	t.Helper()
 
+	writer, err := st.agents.GetByID(t.Context(), writerID)
+	require.NoError(t, err)
 	taskID := st.taskOf(t, writerID)
 
 	return st.seedAgentLike(t, agentstore.Agent{
-		Name:   "worker-reviewer",
+		Name:   writer.Name + "-reviewer",
 		Role:   agentstore.RoleReviewer,
 		TaskID: &taskID,
 	})
@@ -1178,21 +1090,6 @@ func (st *fixture) takeSnapshot(t *testing.T, agentID, tree string) *Snapshot {
 	return snapshot
 }
 
-// openReview opens the person's review of a snapshot.
-func (st *fixture) openReview(t *testing.T, snapshot *Snapshot) *Review {
-	t.Helper()
-
-	review, err := st.OpenReview(t.Context(), OpenReviewParams{
-		TaskID:     snapshot.TaskID,
-		SnapshotID: snapshot.ID,
-		AuthorKind: AuthorHuman,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, review)
-
-	return review
-}
-
 // openReviewBy opens a reviewing agent's review of a snapshot.
 func (st *fixture) openReviewBy(t *testing.T, snapshot *Snapshot, reviewerID string) *Review {
 	t.Helper()
@@ -1209,13 +1106,13 @@ func (st *fixture) openReviewBy(t *testing.T, snapshot *Snapshot, reviewerID str
 	return review
 }
 
-func (st *fixture) openThread(t *testing.T, review *Review, body string) *Thread {
+// comment opens the person's thread on a snapshot, which belongs to no review.
+func (st *fixture) comment(t *testing.T, snapshot *Snapshot, body string) *Thread {
 	t.Helper()
 
 	thread, err := st.CreateThread(t.Context(), CreateThreadParams{
-		TaskID:      review.TaskID,
-		ReviewID:    review.ID,
-		SnapshotID:  review.SnapshotID,
+		TaskID:      snapshot.TaskID,
+		SnapshotID:  snapshot.ID,
 		FilePath:    "internal/thing.go",
 		NewStart:    41,
 		NewEnd:      41,
@@ -1226,7 +1123,68 @@ func (st *fixture) openThread(t *testing.T, review *Review, body string) *Thread
 	require.NoError(t, err)
 	require.NotNil(t, thread)
 
-	return thread
+	return &thread.Thread
+}
+
+// mailComment sends the mail that carries the person's comment opening a thread to the writer,
+// returning the mail's id.
+func (st *fixture) mailComment(t *testing.T, thread *Thread) string {
+	t.Helper()
+
+	sent, err := st.mail.Send(t.Context(), mailstore.SendParams{
+		ToAgentID: st.writerOf(t, thread.TaskID),
+		Body:      "this needs a nil check",
+		Kind:      mailstore.KindReviewComment,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, sent)
+
+	messages, err := st.ListMessages(t.Context(), []string{thread.ID})
+	require.NoError(t, err)
+	require.NotEmpty(t, messages)
+	require.NoError(t, st.SetMessageMail(t.Context(), messages[0].ID, sent.ID))
+
+	return sent.ID
+}
+
+// messageBy is the first message an agent wrote in a thread.
+func (st *fixture) messageBy(t *testing.T, threadID, agentID string) Message {
+	t.Helper()
+
+	messages, err := st.ListMessages(t.Context(), []string{threadID})
+	require.NoError(t, err)
+
+	for _, message := range messages {
+		if message.AuthorAgentID != nil && *message.AuthorAgentID == agentID {
+			return message
+		}
+	}
+
+	t.Fatalf("no message by %q in thread %q", agentID, threadID)
+
+	return Message{}
+}
+
+// openThread opens a thread in a reviewer agent's review.
+func (st *fixture) openThread(t *testing.T, review *Review, body string) *Thread {
+	t.Helper()
+
+	thread, err := st.CreateThread(t.Context(), CreateThreadParams{
+		TaskID:        review.TaskID,
+		ReviewID:      &review.ID,
+		SnapshotID:    review.SnapshotID,
+		FilePath:      "internal/thing.go",
+		NewStart:      41,
+		NewEnd:        41,
+		QuotedLines:   []string{"+\tdoThing()"},
+		Body:          body,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: review.AuthorAgentID,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, thread)
+
+	return &thread.Thread
 }
 
 // writeAnswer has the agent under review answer in a thread, under no batch.
@@ -1262,46 +1220,16 @@ func (st *fixture) settle(t *testing.T, thread *Thread, agentID *string) {
 	require.NoError(t, err)
 }
 
-// releaseReview sends the doorbell a review is heard through and lets the review go under it, returning the mail's id.
-func (st *fixture) releaseReview(t *testing.T, review *Review, verdict Verdict) string {
+// releaseReview lets a reviewer agent's review go.
+func (st *fixture) releaseReview(t *testing.T, review *Review, verdict Verdict) {
 	t.Helper()
 
-	sent, err := st.mail.Send(t.Context(), mailstore.SendParams{
-		ToAgentID: st.writerOf(t, review.TaskID),
-		Body:      "komrad: review of snapshot 1, changes requested, 1 comment(s)",
-		Kind:      mailstore.KindReviewActivity,
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, sent)
-
-	_, err = st.ReleaseReview(t.Context(), ReleaseReviewParams{
+	_, err := st.ReleaseReview(t.Context(), ReleaseReviewParams{
 		ID:      review.ID,
 		Verdict: verdict,
 		Path:    "/tmp/snapshot-1.md",
 	})
 	require.NoError(t, err)
-	require.NoError(t, st.SetDoorbell(t.Context(), review.ID, sent.ID))
-
-	return sent.ID
-}
-
-// readDelivery is the state the list reports for a thread's first message by an author of the kind named.
-func (st *fixture) readDelivery(t *testing.T, threadID string, kind AuthorKind) DeliveryState {
-	t.Helper()
-
-	messages, err := st.ListMessages(t.Context(), []string{threadID})
-	require.NoError(t, err)
-
-	for _, message := range messages {
-		if message.AuthorKind == kind {
-			return message.Delivery
-		}
-	}
-
-	t.Fatalf("no %s message in thread %q", kind, threadID)
-
-	return DeliveryNone
 }
 
 // markAllRead reads the person up to date on every thread of a task.

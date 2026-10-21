@@ -178,6 +178,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Workflows: st.workflows,
 		Config:    mailConfig(loadConfig),
 		Panes:     liveness,
+		Tx:        st.pool,
 	})
 	agentGroup := buildAgents(buildAgentsParams{
 		Mail:        mailService,
@@ -238,11 +239,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			TaskFinder: taskService,
 			Events:     queue,
 			StateDir:   params.Env.StateDir,
-			Interrupter: agents.NewInterrupter(agents.NewInterrupterParams{
-				Agents:   st.agents,
-				Channel:  paneChannel,
-				Observer: paneChannel,
-			}),
+			Mailer:     mailService,
 		}),
 		schedule: schedules.NewScheduleService(schedules.NewScheduleServiceParams{
 			Schedules: st.schedules,
