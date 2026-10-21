@@ -284,8 +284,6 @@ func (m *model) getHostPath() string {
 // given, empty where the split was refused.
 func (m *model) stageEditor(content layout.Content) string {
 	if m.isReviewSplit() {
-		m.frame.Widen(false)
-
 		pane := m.frame.OpenEditor(content)
 		if pane != "" {
 			m.tmux.SelectPane(pane)

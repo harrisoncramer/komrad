@@ -852,10 +852,6 @@ func getHomeDir() string {
 // review's diff, leaving the rest to the agent on the stage.
 const reviewShare = 65
 
-// editorShare is the part of the stage your editor takes left of the agent while a review keeps
-// the agent on the stage.
-const editorShare = "65%"
-
 // Widen draws the sidebar across part of the stage as well, for a review's diff beside the agent
 // on the stage, or gives the stage those columns back.
 func (f *Frame) Widen(on bool) {
@@ -907,13 +903,13 @@ func (f *Frame) FitsWide(window, floor int) bool {
 	return share >= floor && beside >= floor
 }
 
-// OpenEditor runs content in a pane split left of the agent on the stage, and answers the pane,
-// empty where there is no stage to split.
+// OpenEditor runs content in a pane split off the widened sidebar's share of the stage, which
+// puts the sidebar back at its chosen width with the editor between it and the agent, and answers
+// the pane, empty where the sidebar is not wide.
 func (f *Frame) OpenEditor(content Content) string {
 	f.CloseEditor()
 
-	anchor := f.visibleStagePane()
-	if anchor == "" {
+	if !f.wide || f.solo {
 		return ""
 	}
 
@@ -922,10 +918,15 @@ func (f *Frame) OpenEditor(content Content) string {
 		return ""
 	}
 
-	f.editor = f.tmux.SplitLeft(anchor, content.Dir, editorShare)
-	if f.editor != "" {
-		f.move(panes.Respawn(f.editor, content.Dir, argv...))
+	share := f.sidebarCols() - f.chosenCols() - 1
+
+	f.editor = f.tmux.SplitRight(f.sidebar, content.Dir, strconv.Itoa(share))
+	if f.editor == "" {
+		return ""
 	}
+
+	f.wide = false
+	f.move(panes.Respawn(f.editor, content.Dir, argv...))
 
 	return f.editor
 }
