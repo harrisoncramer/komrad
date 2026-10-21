@@ -127,6 +127,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "forge_discard", keys: keys.Review.ForgeDiscard},
 		{name: "answer", keys: keys.Review.Answer},
 		{name: "jump", keys: keys.Review.Jump},
+		{name: "git", keys: keys.Menu.Git},
 	}); err != nil {
 		return err
 	}

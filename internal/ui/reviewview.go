@@ -76,7 +76,7 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 
 	inner := r.measurePopupInner(m)
 	body, back := r.popupBody(m, inner)
-	if m.isPopupMenu() && m.form.isActive() {
+	if m.isPopupForm() && m.form.isActive() {
 		body = withSection(body, m.heldFormView(), inner)
 		back = 0
 	}

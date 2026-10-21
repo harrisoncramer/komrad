@@ -339,6 +339,10 @@ func (r *reviewScreen) buildScreenMenu(m *model) (submenu, bool) {
 	entries = append(entries, openEntry(r.reloadDesc(m), m.keys.Review.Reload, func(m *model) tea.Cmd { return m.review.catchUp(m) }))
 	entries = append(entries, openEntry(r.diff.agentThreadsDesc(), m.keys.Review.AgentThreads, func(m *model) tea.Cmd { return m.review.toggleAgentThreads(m) }))
 
+	if task, ok := m.listing.tasks[r.taskID]; ok {
+		entries = append(entries, nestedEntry("git", m.keys.Menu.Git, pullRequestGitMenu(m, task)))
+	}
+
 	return submenu{
 		kind:    formMenu,
 		title:   "review",

@@ -110,7 +110,7 @@ func renderEdgeRow(rule bool) string {
 }
 
 func (m *model) screenView() string {
-	if (!m.form.isActive() || m.isPopupMenu()) && !m.isMessagesFocused() {
+	if (!m.form.isActive() || m.isPopupForm()) && !m.isMessagesFocused() {
 		return m.active().view(m)
 	}
 
