@@ -507,14 +507,23 @@ func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*m
 	return &mergeBlockers{HeadHasParent: row.HeadHasParent, BaseFinished: row.BaseFinished}, nil
 }
 
-// ListTasksOntoTaskBranches lists the live tasks with no parent whose open pull request targets another task's branch, leaving out those the forge refused to re-target as they stand.
-func (s *PullRequestStore) ListTasksOntoTaskBranches(ctx context.Context) ([]string, error) {
-	ids, err := s.queries.ListTasksOntoTaskBranches(ctx)
+// LeftParent is a task that left its parent while its open pull request still targets the parent's branch.
+type LeftParent struct {
+	TaskID string
+	// Branch is the parent's branch the pull request moves off.
+	Branch string
+}
+
+// ListTasksLeftOnParentBranches lists the live tasks whose open pull request still targets the branch of the parent they left, leaving out those the forge refused to re-target as they stand.
+func (s *PullRequestStore) ListTasksLeftOnParentBranches(ctx context.Context) ([]LeftParent, error) {
+	rows, err := s.queries.ListTasksLeftOnParentBranches(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the tasks onto other tasks' branches: %w", err)
+		return nil, fmt.Errorf("failed to list the tasks left on their parents' branches: %w", err)
 	}
 
-	return ids, nil
+	return xslice.Map(rows, func(row *models.ListTasksLeftOnParentBranchesRow) LeftParent {
+		return LeftParent{TaskID: row.ID, Branch: row.LeftParentBranch}
+	}), nil
 }
 
 // RecordRetargetRefused records that the forge refused to point the pull request at the base branch as it stands.

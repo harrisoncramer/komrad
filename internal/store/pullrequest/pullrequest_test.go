@@ -956,55 +956,54 @@ func TestGetMergeBlockers(t *testing.T) {
 	})
 }
 
-// TestListTasksOntoTaskBranches pins which tasks with no parent still have a pull request onto another task's branch.
-func TestListTasksOntoTaskBranches(t *testing.T) {
+// TestListTasksLeftOnParentBranches pins which tasks that left their parent still have a pull request onto the parent's branch.
+func TestListTasksLeftOnParentBranches(t *testing.T) {
 	childOntoParent := openPullRequest("PR_child", 2, "task/child")
 	childOntoParent.BaseBranch = "task/parent"
 	childOntoMain := openPullRequest("PR_child", 2, "task/child")
-	childOntoOther := openPullRequest("PR_child", 2, "task/child")
-	childOntoOther.BaseBranch = "release"
 	childChanged := childOntoParent
 	childChanged.ChangedAt = childChanged.ChangedAt.Add(time.Hour)
 
 	tests := []struct {
 		name         string
 		pullRequests []UpsertParams
+		left         bool
 		hasParent    bool
 		refused      bool
 		changed      bool
 		wantChild    bool
 	}{
 		{
-			name:         "a pull request onto a parent whose pull request merged is listed",
-			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
-			wantChild:    true,
-		},
-		{
-			name:         "a pull request onto a parent whose pull request is open is listed",
+			name:         "a pull request onto the parent the task left is listed",
 			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			left:         true,
 			wantChild:    true,
 		},
 		{
-			name:         "a task that still has its parent is left to the cascade",
-			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			name:         "a pull request onto another task's branch that no parent link put there is not listed",
+			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+		},
+		{
+			name:         "a task given a parent again is left to the cascade",
+			pullRequests: []UpsertParams{openPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			left:         true,
 			hasParent:    true,
 		},
 		{
-			name:         "a pull request onto the base branch is not listed",
+			name:         "a pull request already on the base branch is not listed",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoMain},
-		},
-		{
-			name:         "a pull request onto a branch no task holds is not listed",
-			pullRequests: []UpsertParams{childOntoOther},
+			left:         true,
 		},
 		{
 			name:         "a pull request the forge refused to re-target as it stands is not listed",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			left:         true,
 			refused:      true,
 		},
 		{
 			name:         "a pull request that changed since the forge refused is listed again",
 			pullRequests: []UpsertParams{finishedPullRequest("PR_parent", 1, "task/parent"), childOntoParent},
+			left:         true,
 			refused:      true,
 			changed:      true,
 			wantChild:    true,
@@ -1015,11 +1014,15 @@ func TestListTasksOntoTaskBranches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := open(t)
 			ctx := t.Context()
+			tasks := taskstore.NewTaskStore(h.pool.GetDB())
 			workflow := h.createWorkflow(t)
 			parent := h.createAgent(t, workflow, "parent", komrad, "task/parent")
 			child := h.createAgent(t, workflow, "child", komrad, "task/child")
+			if tt.left {
+				require.NoError(t, tasks.ClearParent(ctx, h.taskOf(t, child), "task/parent"))
+			}
 			if tt.hasParent {
-				require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetParent(ctx, h.taskOf(t, child), &taskstore.Parent{
+				require.NoError(t, tasks.SetParent(ctx, h.taskOf(t, child), &taskstore.Parent{
 					TaskID:    h.taskOf(t, parent),
 					ForkPoint: "abc",
 				}))
@@ -1038,13 +1041,14 @@ func TestListTasksOntoTaskBranches(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			got, err := h.ListTasksOntoTaskBranches(ctx)
+			got, err := h.ListTasksLeftOnParentBranches(ctx)
 			require.NoError(t, err)
-			var want []string
-			if tt.wantChild {
-				want = []string{h.taskOf(t, child)}
+			if !tt.wantChild {
+				assert.Empty(t, got)
+
+				return
 			}
-			assert.Equal(t, want, got)
+			assert.Equal(t, []LeftParent{{TaskID: h.taskOf(t, child), Branch: "task/parent"}}, got)
 		})
 	}
 }

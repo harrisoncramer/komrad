@@ -67,6 +67,32 @@ func (s *TaskStore) SetParent(ctx context.Context, id string, parent *Parent) er
 	return nil
 }
 
+// ClearParent clears the child's parent and records the parent's branch its pull request moves off.
+func (s *TaskStore) ClearParent(ctx context.Context, id, branch string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
+	}
+
+	if err := s.queries.ClearTaskParent(ctx, models.ClearTaskParentParams{ID: id, LeftParentBranch: xptr.NonEmpty(branch)}); err != nil {
+		return fmt.Errorf("failed to clear the parent of task %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// ClearLeftParentBranch records that the task's pull request no longer waits to move off its parent's branch.
+func (s *TaskStore) ClearLeftParentBranch(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
+	}
+
+	if err := s.queries.ClearTaskLeftParentBranch(ctx, id); err != nil {
+		return fmt.Errorf("failed to clear the branch task %q left: %w", id, err)
+	}
+
+	return nil
+}
+
 // SetForkPoint records a child's new fork point and clears what blocked its cascade.
 func (s *TaskStore) SetForkPoint(ctx context.Context, id, forkPoint string) error {
 	if !store.IsID(id) {

@@ -43,6 +43,8 @@ func TestCascade(t *testing.T) {
 		wantPush       bool
 		wantMail       string
 		wantRetargeted []retargeted
+		// wantErr is whether the pass reports an error.
+		wantErr bool
 	}{
 		{
 			name: "a parent whose newest commit is the fork point leaves the child alone",
@@ -271,6 +273,7 @@ func TestCascade(t *testing.T) {
 				return mover
 			},
 			wantCalls: []string{"park", "rebaseOnto"},
+			wantErr:   true,
 			wantMail:  "Once origin holds your branch, komrad points your pull request at main.",
 		},
 		{
@@ -306,7 +309,8 @@ func TestCascade(t *testing.T) {
 			}
 			mover := tt.mover(seeded.parent.GetBranch())
 
-			require.NoError(t, fixture.newService(NewServiceParams{Git: mover}).Cascade(t.Context()))
+			err := fixture.newService(NewServiceParams{Git: mover}).Cascade(t.Context())
+			assert.Equal(t, tt.wantErr, err != nil, "the pass reports %v", err)
 
 			got, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
 			require.NoError(t, err)
@@ -383,38 +387,40 @@ func TestCascadeRetargetsTasksThatLeftTheirParent(t *testing.T) {
 	tests := []struct {
 		name           string
 		parentState    string
+		builtByHand    bool
 		remote         git.RemoteStanding
 		forgeErr       error
-		passes         int
 		wantRetargeted []retargeted
 		wantMail       string
 	}{
 		{
-			name:           "a branch origin holds has its pull request pointed at the base branch",
+			name:           "a branch origin holds has its pull request pointed at the base branch once",
 			parentState:    "MERGED",
 			remote:         git.RemoteStanding{Pushed: true},
-			passes:         1,
 			wantRetargeted: []retargeted{onto},
 		},
 		{
 			name:           "a branch that left a parent whose pull request is open has its pull request pointed at the base branch",
 			parentState:    "OPEN",
 			remote:         git.RemoteStanding{Pushed: true},
-			passes:         1,
 			wantRetargeted: []retargeted{onto},
+		},
+		{
+			name:        "a pull request a person opened onto another task's branch is left where it is",
+			parentState: "OPEN",
+			builtByHand: true,
+			remote:      git.RemoteStanding{Pushed: true},
 		},
 		{
 			name:        "a branch with commits origin lacks is left until they are pushed",
 			parentState: "MERGED",
 			remote:      git.RemoteStanding{Pushed: true, Unpushed: 2},
-			passes:      1,
 		},
 		{
 			name:           "a forge that refuses is asked once while the pull request stands still",
 			parentState:    "MERGED",
 			remote:         git.RemoteStanding{Pushed: true},
 			forgeErr:       forge.ErrNotRetargetable,
-			passes:         2,
 			wantRetargeted: []retargeted{onto},
 			wantMail:       "Point it at main yourself.",
 		},
@@ -425,18 +431,16 @@ func TestCascadeRetargetsTasksThatLeftTheirParent(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			fixture.forges.err = tt.forgeErr
 			seeded := fixture.seedTaskOnParent(t, agentstore.Agent{})
-			claimed, err := fixture.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{
-				ID:            seeded.parent.ID,
-				RepositoryURL: pushRepository,
-			})
-			require.NoError(t, err)
-			require.True(t, claimed)
-			require.NoError(t, fixture.stores.Tasks.SetParent(t.Context(), seeded.task, nil))
+			if tt.builtByHand {
+				require.NoError(t, fixture.stores.Tasks.SetParent(t.Context(), seeded.task, nil))
+			} else {
+				require.NoError(t, fixture.stores.Tasks.ClearParent(t.Context(), seeded.task, seeded.parent.GetBranch()))
+			}
 			seedParentPullRequest(t, fixture, seeded, tt.parentState)
 			seedChildPullRequest(t, fixture, seeded)
 			service := fixture.newService(NewServiceParams{Git: &gittest.Mover{Remote: tt.remote}})
 
-			for range tt.passes {
+			for range 2 {
 				require.NoError(t, service.Cascade(t.Context()))
 			}
 

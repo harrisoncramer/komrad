@@ -359,13 +359,30 @@ func (s *Service) hasParentMoved(ctx context.Context, task taskstore.Task) (bool
 	return current.Parent == nil || current.Parent.TaskID != task.Parent.TaskID || current.Parent.ForkPoint != task.Parent.ForkPoint, nil
 }
 
-// leaveParent clears the child's parent and points its pull request at the base branch.
+// leaveParent clears the child's parent and points its pull request off the parent's branch at the
+// base branch.
 func (s *Service) leaveParent(ctx context.Context, task taskstore.Task) error {
-	if err := s.tasks.SetParent(ctx, task.ID, nil); err != nil {
+	if task.Parent == nil {
+		return nil
+	}
+
+	branch := ""
+	parent, err := s.tasks.Get(ctx, task.Parent.TaskID)
+	if err == nil {
+		branch = parent.GetBranch()
+	}
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
 
-	if err := s.retarget(ctx, task); err != nil {
+	if err := s.tasks.ClearParent(ctx, task.ID, branch); err != nil {
+		return err
+	}
+	if branch == "" {
+		return nil
+	}
+
+	if err := s.retarget(ctx, task, branch); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to point a task's pull request at the base branch",
 			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
 	}
@@ -373,18 +390,18 @@ func (s *Service) leaveParent(ctx context.Context, task taskstore.Task) error {
 	return nil
 }
 
-// retargetLeftChildren points the pull request of each task without a parent that still targets
-// another task's branch at the base branch.
+// retargetLeftChildren points the pull request of each task that left its parent and still targets
+// the parent's branch at the base branch.
 func (s *Service) retargetLeftChildren(ctx context.Context) error {
-	ids, err := s.pullRequests.ListTasksOntoTaskBranches(ctx)
+	left, err := s.pullRequests.ListTasksLeftOnParentBranches(ctx)
 	if err != nil {
 		return err
 	}
 
 	var errs []error
-	for _, id := range ids {
-		if err := s.retargetTask(ctx, id); err != nil {
-			errs = append(errs, fmt.Errorf("failed to re-target task %q: %w", id, err))
+	for _, child := range left {
+		if err := s.retargetTask(ctx, child); err != nil {
+			errs = append(errs, fmt.Errorf("failed to re-target task %q: %w", child.TaskID, err))
 		}
 	}
 
@@ -392,8 +409,8 @@ func (s *Service) retargetLeftChildren(ctx context.Context) error {
 }
 
 // retargetTask points the task's pull request at the base branch while nothing else holds its worktree.
-func (s *Service) retargetTask(ctx context.Context, id string) error {
-	task, err := s.tasks.Get(ctx, id)
+func (s *Service) retargetTask(ctx context.Context, child pullrequeststore.LeftParent) error {
+	task, err := s.tasks.Get(ctx, child.TaskID)
 	if err != nil {
 		return err
 	}
@@ -407,12 +424,12 @@ func (s *Service) retargetTask(ctx context.Context, id string) error {
 	}
 	defer unlock()
 
-	return s.retarget(ctx, *task)
+	return s.retarget(ctx, *task, child.Branch)
 }
 
-// retarget points the task's open pull request at the workflow's base branch once origin holds the
-// task's branch as it stands, and tells its writer when the forge refuses.
-func (s *Service) retarget(ctx context.Context, task taskstore.Task) error {
+// retarget points the task's open pull request off the branch it left at the workflow's base branch
+// once origin holds the task's branch as it stands, and tells its writer when the forge refuses.
+func (s *Service) retarget(ctx context.Context, task taskstore.Task, from string) error {
 	own, err := s.readPullRequest(ctx, task, task.GetBranch())
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
@@ -420,15 +437,15 @@ func (s *Service) retarget(ctx context.Context, task taskstore.Task) error {
 	if err != nil {
 		return err
 	}
+	if own.IsFinished() || own.BaseBranch != from {
+		return s.tasks.ClearLeftParentBranch(ctx, task.ID)
+	}
 
 	flow, err := s.workflows.Get(ctx, task.WorkflowID)
 	if err != nil {
 		return err
 	}
 	base := flow.Worktree.BaseBranch
-	if own.IsFinished() || own.BaseBranch == base {
-		return nil
-	}
 
 	remote, err := s.git.CountAgainstRemote(ctx, task.Checkout.Cwd, task.GetBranch())
 	if err != nil {
@@ -455,7 +472,7 @@ func (s *Service) retarget(ctx context.Context, task taskstore.Task) error {
 	}
 	s.pullRequestSync.ReadOften(host)
 
-	return nil
+	return s.tasks.ClearLeftParentBranch(ctx, task.ID)
 }
 
 // settleRetarget settles a re-target onto the base branch that stopped on conflicts once the writer

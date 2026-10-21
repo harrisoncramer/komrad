@@ -1253,6 +1253,8 @@ type Task struct {
 	CascadeBlocked *string
 	// Why the task's worktree is no longer on disk: deleted when a delete removed it, gone when komrad found the directory gone without one; null while it is on disk or the task has none.
 	WorktreeRemovalReason NullWorktreeRemovalReason
+	// The branch of the parent this task left, which komrad moves the task's pull request off onto the workflow's base branch; null once nothing waits to move.
+	LeftParentBranch *string
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

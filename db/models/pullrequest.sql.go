@@ -620,43 +620,47 @@ func (q *Queries) ListTaskPullRequests(ctx context.Context, taskIds []string) ([
 	return items, nil
 }
 
-const listTasksOntoTaskBranches = `-- name: ListTasksOntoTaskBranches :many
+const listTasksLeftOnParentBranches = `-- name: ListTasksLeftOnParentBranches :many
 SELECT
-    t.id
+    t.id,
+    t.left_parent_branch::text AS left_parent_branch
 FROM
     tasks t
     JOIN pull_requests p ON p.repository_url = t.repository_url
         AND p.head_repository_url = t.repository_url
         AND p.head_branch = COALESCE(t.branch, t.adopted_branch, 'task/' || t.id::text)
-    JOIN tasks b ON b.repository_url = p.repository_url
-        AND COALESCE(b.branch, b.adopted_branch, 'task/' || b.id::text) = p.base_branch
 WHERE
     t.parent_task_id IS NULL
+    AND t.left_parent_branch IS NOT NULL
     AND t.archived_at IS NULL
     AND t.deleting_at IS NULL
     AND p.state = 'OPEN'
+    AND p.base_branch = t.left_parent_branch
     AND p.retarget_refused_at IS DISTINCT FROM p.changed_at
-    AND b.id <> t.id
-    AND b.deleting_at IS NULL
 GROUP BY
     t.id
 ORDER BY
     t.id
 `
 
-func (q *Queries) ListTasksOntoTaskBranches(ctx context.Context) ([]string, error) {
-	rows, err := q.db.Query(ctx, listTasksOntoTaskBranches)
+type ListTasksLeftOnParentBranchesRow struct {
+	ID               string
+	LeftParentBranch string
+}
+
+func (q *Queries) ListTasksLeftOnParentBranches(ctx context.Context) ([]*ListTasksLeftOnParentBranchesRow, error) {
+	rows, err := q.db.Query(ctx, listTasksLeftOnParentBranches)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []*ListTasksLeftOnParentBranchesRow
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
+		var i ListTasksLeftOnParentBranchesRow
+		if err := rows.Scan(&i.ID, &i.LeftParentBranch); err != nil {
 			return nil, err
 		}
-		items = append(items, id)
+		items = append(items, &i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
