@@ -563,8 +563,7 @@ func (s *Service) hasLeftForBase(ctx context.Context, task taskstore.Task, base 
 	return s.git.HoldsCommit(ctx, task.Checkout.Cwd, base)
 }
 
-// findNewerForkPoint is the newest of the parent's own commits the child's branch holds, where the
-// child's own commits begin once a hand rebase dropped its fork point, and errForkPointLost when it holds none.
+// findNewerForkPoint is the newest of the parent's own commits the child's branch holds, errForkPointLost when it holds none.
 func (s *Service) findNewerForkPoint(ctx context.Context, task taskstore.Task, onto cascadeOnto) (string, error) {
 	if onto.Merged {
 		return "", errForkPointLost
