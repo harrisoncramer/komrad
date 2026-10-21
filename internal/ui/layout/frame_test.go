@@ -891,10 +891,26 @@ func TestFrameFitsBeside(t *testing.T) {
 		window int
 		want   bool
 	}{
-		{name: "a wide window leaves the stage its floor", window: 200, want: true},
-		{name: "the narrowest window that leaves the stage its floor", window: 136, want: true},
-		{name: "a column narrower leaves the stage short", window: 135, want: false},
-		{name: "a window narrower than the sidebar", window: 30, want: false},
+		{
+			name:   "a window narrower than the sidebar",
+			window: 30,
+			want:   false,
+		},
+		{
+			name:   "a column narrower leaves the stage short",
+			window: 135,
+			want:   false,
+		},
+		{
+			name:   "the narrowest window that leaves the stage its floor",
+			window: 136,
+			want:   true,
+		},
+		{
+			name:   "a wide window leaves the stage its floor",
+			window: 200,
+			want:   true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -935,11 +951,17 @@ func TestFrameOpenEditorRefusesWithoutTheStageBeside(t *testing.T) {
 		name  string
 		setUp func(*Frame)
 	}{
-		{name: "the sidebar at its chosen width", setUp: func(*Frame) {}},
-		{name: "the sidebar holding the window", setUp: func(frame *Frame) {
-			frame.Beside(true)
-			frame.Solo(true)
-		}},
+		{
+			name:  "the sidebar at its chosen width",
+			setUp: func(*Frame) {},
+		},
+		{
+			name: "the sidebar holding the window",
+			setUp: func(frame *Frame) {
+				frame.Beside(true)
+				frame.Solo(true)
+			},
+		},
 	}
 
 	for _, tt := range tests {

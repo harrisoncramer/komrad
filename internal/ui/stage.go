@@ -174,10 +174,8 @@ func (m *model) stageSelection() {
 	m.frame.Begin()
 	defer m.afterStaging()
 
-	staged, ok := m.agents.hoveredPane(m)
-	if m.screen == screenReview {
-		staged, ok = m.review.writerPane(m)
-	}
+	staged, ok := m.stagedAgent()
+
 	if !ok && m.wantsSolo() {
 		m.reclaimStageKeys()
 	}
@@ -194,6 +192,16 @@ func (m *model) stageSelection() {
 	}
 
 	m.stageTerminal()
+}
+
+// stagedAgent is the agent whose pane the stage shows, the writer on a review and the hovered agent
+// anywhere else.
+func (m *model) stagedAgent() (panel.AgentRow, bool) {
+	if m.screen == screenReview {
+		return m.review.writerPane(m)
+	}
+
+	return m.agents.hoveredPane(m)
 }
 
 // reclaimStageKeys puts the keys back on the panel when they sit on the pane in the stage.
