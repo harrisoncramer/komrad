@@ -2025,9 +2025,9 @@ func TestReviewHold(t *testing.T) {
 
 		editor := harness.panel.ReadRespawnPanes()
 		require.NotEmpty(t, editor)
-		assert.Equal(t, "%7", editor[len(editor)-1], "the editor is split off the sidebar rather than put on the stage")
+		assert.Equal(t, ui.ColumnPane, editor[len(editor)-1], "the editor is split off the sidebar rather than put on the stage")
 		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
-		assert.Equal(t, "%7", harness.panel.ReadSelectedPanes()[len(harness.panel.ReadSelectedPanes())-1])
+		assert.Equal(t, ui.ColumnPane, harness.panel.ReadSelectedPanes()[len(harness.panel.ReadSelectedPanes())-1])
 		assert.False(t, harness.panel.IsBeside())
 	})
 
@@ -2264,7 +2264,7 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, said, "let you go")
 		assert.Contains(t, said, "greet.go")
 		assert.Contains(t, harness.readFrame(), "auth › review")
-		assert.Contains(t, harness.panel.ReadKilledPanes(), "%7")
+		assert.Contains(t, harness.panel.ReadKilledPanes(), ui.ColumnPane)
 		assert.NotContains(t, harness.panel.ReadKilledPanes(), "%9")
 		assert.True(t, harness.panel.IsBeside())
 	})

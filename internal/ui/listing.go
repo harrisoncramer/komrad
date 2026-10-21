@@ -117,7 +117,7 @@ func (m *model) afterListing() tea.Cmd {
 		s.stage(m)
 	}
 
-	m.restageWriterBeside()
+	m.restageBeside()
 
 	return inspect
 }

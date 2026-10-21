@@ -194,11 +194,11 @@ func (m *model) stageSelection() {
 	m.stageTerminal()
 }
 
-// stagedAgent is the agent whose pane the stage shows, the writer on a review and the hovered agent
-// anywhere else.
+// stagedAgent is the agent whose pane the stage shows, the one the screen keeps beside its block
+// and the hovered agent on a screen that keeps none.
 func (m *model) stagedAgent() (panel.AgentRow, bool) {
-	if m.screen == screenReview {
-		return m.review.writerPane(m)
+	if beside := m.active().column().beside; beside != nil {
+		return beside(m)
 	}
 
 	return m.agents.hoveredPane(m)

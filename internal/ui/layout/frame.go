@@ -11,9 +11,9 @@ import (
 	"komrad/internal/panes"
 )
 
-// diffPercent is the percent of the columns right of the sidebar the sidebar takes for a review's
-// diff while the stage is beside it, leaving the rest to the agent on the stage.
-const diffPercent = 65
+// besidePercent is the percent of the columns right of the sidebar the sidebar takes while the stage
+// is beside it, leaving the rest to the stage.
+const besidePercent = 65
 
 type Frame struct {
 	tmux    Tmux
@@ -72,12 +72,12 @@ type Frame struct {
 	// folded is whether the stage gave its rows to the info pane for want of anything to show.
 	folded bool
 
-	// beside is whether the sidebar is drawn across part of the stage for a review's diff, with the
-	// stage beside it.
+	// beside is whether the sidebar is drawn across part of the stage, with the stage beside it.
 	beside bool
 
-	// editor is the pane split off the sidebar for your editor, empty while none is open.
-	editor string
+	// column is the pane split off the columns the sidebar took from the stage, empty while none is
+	// open.
+	column string
 }
 
 type shown struct {
@@ -445,8 +445,8 @@ func (f *Frame) IsSolo() bool {
 	return f.solo
 }
 
-// Beside draws the sidebar across part of the stage as well, for a review's diff with the agent on
-// the stage beside it, or gives the stage those columns back.
+// Beside draws the sidebar across part of the stage as well, with the stage beside it, or gives the
+// stage those columns back.
 func (f *Frame) Beside(on bool) {
 	if f.sidebar == "" || f.beside == on {
 		return
@@ -464,22 +464,21 @@ func (f *Frame) Beside(on bool) {
 	f.move(panes.Resize(f.sidebar, f.sidebarCols()))
 }
 
-// IsBeside reports whether the sidebar is drawn across part of the stage for a review's diff, with
-// the stage beside it.
+// IsBeside reports whether the sidebar is drawn across part of the stage, with the stage beside it.
 func (f *Frame) IsBeside() bool {
 	return f.beside
 }
 
 // FitsBeside reports whether a window of this many columns, with the stage beside the sidebar,
-// leaves the stage at least floor columns, the stage being narrower than the diff.
+// leaves the stage at least floor columns, the stage being the narrower of the two.
 func (f *Frame) FitsBeside(window, floor int) bool {
 	return window-f.besideCols(window)-1 >= floor
 }
 
-// OpenEditor runs content in a pane split off the diff's columns of the sidebar, and answers the
-// pane, empty where the stage is not beside the sidebar.
-func (f *Frame) OpenEditor(content Content) string {
-	f.CloseEditor()
+// OpenColumn runs content in a pane split off the columns the sidebar took from the stage, and
+// answers the pane, empty where the stage is not beside the sidebar.
+func (f *Frame) OpenColumn(content Content) string {
+	f.CloseColumn()
 
 	if !f.beside || f.solo {
 		return ""
@@ -490,32 +489,32 @@ func (f *Frame) OpenEditor(content Content) string {
 		return ""
 	}
 
-	diffCols := f.sidebarCols() - f.chosenCols() - 1
+	cols := f.sidebarCols() - f.chosenCols() - 1
 
-	f.editor = f.tmux.SplitRight(f.sidebar, content.Dir, strconv.Itoa(diffCols))
-	if f.editor == "" {
+	f.column = f.tmux.SplitRight(f.sidebar, content.Dir, strconv.Itoa(cols))
+	if f.column == "" {
 		return ""
 	}
 
 	f.beside = false
-	f.move(panes.Respawn(f.editor, content.Dir, argv...))
+	f.move(panes.Respawn(f.column, content.Dir, argv...))
 
-	return f.editor
+	return f.column
 }
 
-// CloseEditor takes away the pane OpenEditor split, and reports whether there was one.
-func (f *Frame) CloseEditor() bool {
-	if f.editor == "" {
+// CloseColumn takes away the pane OpenColumn split, and reports whether there was one.
+func (f *Frame) CloseColumn() bool {
+	if f.column == "" {
 		return false
 	}
 
-	if f.tmux.IsPaneAlive(f.editor) {
-		f.tmux.KillPane(f.editor)
+	if f.tmux.IsPaneAlive(f.column) {
+		f.tmux.KillPane(f.column)
 	}
 
-	f.editor = ""
+	f.column = ""
 
-	// tmux hands the editor's columns to a pane beside it.
+	// tmux hands the closed pane's columns to a pane beside it.
 	if !f.solo {
 		f.move(panes.Resize(f.sidebar, f.sidebarCols()))
 	}
@@ -641,7 +640,7 @@ func (f *Frame) WindowCols() int {
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar rendered
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {
-	if f.owed || f.frozen || f.beside || f.editor != "" {
+	if f.owed || f.frozen || f.beside || f.column != "" {
 		return
 	}
 
@@ -864,8 +863,8 @@ func (f *Frame) chosenCols() int {
 	return f.spec.sidebarCols
 }
 
-// sidebarCols is how wide the sidebar's pane is put, its chosen width plus the diff's columns while
-// the stage is beside it.
+// sidebarCols is how wide the sidebar's pane is put, its chosen width plus the columns it takes from
+// the stage while the stage is beside it.
 func (f *Frame) sidebarCols() int {
 	if !f.beside {
 		return f.chosenCols()
@@ -879,7 +878,7 @@ func (f *Frame) sidebarCols() int {
 func (f *Frame) besideCols(window int) int {
 	cols := f.chosenCols()
 
-	return cols + 1 + max(window-cols-1, 0)*diffPercent/100
+	return cols + 1 + max(window-cols-1, 0)*besidePercent/100
 }
 
 // unfoldStage splits the stage back off the info pane it gave its rows to.
@@ -903,7 +902,7 @@ func (f *Frame) hasStage() bool {
 }
 
 func (f *Frame) abandonStage() {
-	f.CloseEditor()
+	f.CloseColumn()
 	f.restoreGuest()
 
 	if f.stage != "" && f.tmux.IsPaneAlive(f.stage) {

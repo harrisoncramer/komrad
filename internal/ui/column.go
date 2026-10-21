@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/panel"
 )
 
 const (
@@ -69,6 +70,10 @@ type columnSpec struct {
 	// rows is the row budget the block is actually rendered in, and is nil on a screen with nothing
 	// standing over it.
 	rows func(*model, columnSplit) int
+
+	// beside is the agent the screen keeps on the stage beside its block, and is nil on a screen that
+	// keeps none.
+	beside func(*model) (panel.AgentRow, bool)
 }
 
 // sidebarColumns is how wide the panel's own list is rendered while it holds the window, and the
@@ -172,37 +177,46 @@ func (m *model) holdsWindow() bool {
 
 // wantsSolo reports whether the panel should hold the whole window.
 func (m *model) wantsSolo() bool {
-	return m.holdsWindow() && m.terminalDir == "" && !m.isWriterBeside()
+	return m.holdsWindow() && m.terminalDir == "" && !m.isStageBeside()
 }
 
-// isWriterBeside reports whether the review keeps its writer on the stage beside the diff, which it
-// does only while the writer is running and the window has room for both.
-func (m *model) isWriterBeside() bool {
-	if m.screen != screenReview || m.terminalDir != "" {
+// isStageBeside reports whether the screen keeps an agent on the stage beside its block, which it
+// does only while the agent is running and the window has room for both.
+func (m *model) isStageBeside() bool {
+	spec := m.active().column()
+	if spec.beside == nil || m.terminalDir != "" {
 		return false
 	}
 
-	if !m.frame.FitsBeside(m.term.windowCols, diffFloor) {
+	if !m.frame.FitsBeside(m.term.windowCols, spec.floor) {
 		return false
 	}
 
-	_, live := m.review.writerPane(m)
+	_, live := spec.beside(m)
 
 	return live
 }
 
-// restageWriterBeside restages the review once whether its writer is beside the diff no longer
-// matches the frame.
-func (m *model) restageWriterBeside() {
-	if m.screen == screenReview && !m.review.hold.atEditor && m.isWriterBeside() != m.frame.IsBeside() {
+// isBlockHeld reports whether the screen is rendering its own block rather than handing its
+// columns to another process.
+func (m *model) isBlockHeld() bool {
+	spec := m.active().column()
+
+	return spec.holds == nil || spec.holds(m)
+}
+
+// restageBeside restages the screen once whether its agent is beside its block no longer matches
+// the frame.
+func (m *model) restageBeside() {
+	if m.active().column().beside != nil && m.isBlockHeld() && m.isStageBeside() != m.frame.IsBeside() {
 		m.stageSelection()
 	}
 }
 
-// syncBeside draws the sidebar across the stage for the diff while the writer is beside it, and
-// gives the stage its columns back once it is not or your editor has them.
+// syncBeside draws the sidebar across the stage for the block while an agent is beside it, and
+// gives the stage its columns back once none is or another process has them.
 func (m *model) syncBeside() {
-	m.frame.Beside(m.isWriterBeside() && !m.review.hold.atEditor)
+	m.frame.Beside(m.isStageBeside() && m.isBlockHeld())
 }
 
 // reconcileSolo settles whether the panel has the whole window, and hands it back while the info

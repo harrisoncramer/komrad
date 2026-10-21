@@ -283,8 +283,8 @@ func (m *model) getHostPath() string {
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
 // given, empty where the split was refused.
 func (m *model) stageEditor(content layout.Content) string {
-	if m.isWriterBeside() {
-		pane := m.frame.OpenEditor(content)
+	if m.isStageBeside() {
+		pane := m.frame.OpenColumn(content)
 		if pane != "" {
 			m.tmux.SelectPane(pane)
 		}
@@ -307,7 +307,7 @@ func (m *model) stageEditor(content layout.Content) string {
 
 // unstageEditor takes the editor down and puts the keys back on the sidebar.
 func (m *model) unstageEditor() {
-	if !m.frame.CloseEditor() {
+	if !m.frame.CloseColumn() {
 		m.frame.ClearStage()
 	}
 
