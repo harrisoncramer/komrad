@@ -28,17 +28,7 @@ var rebaseResumes = []string{"--continue", "--abort", "--skip", "--quit", "--edi
 // wrappers are commands that run the command named after them.
 var wrappers = []string{"command", "env", "exec", "nohup", "sudo"}
 
-type hookDecision struct {
-	HookSpecificOutput decisionContext `json:"hookSpecificOutput"`
-}
-
-type decisionContext struct {
-	HookEventName            string `json:"hookEventName"`
-	PermissionDecision       string `json:"permissionDecision"`
-	PermissionDecisionReason string `json:"permissionDecisionReason"`
-}
-
-var rebaseDenial = hookDecision{HookSpecificOutput: decisionContext{
+var rebaseDenial = hookOutput{HookSpecificOutput: hookContext{
 	HookEventName:            string(claude.EventPreToolUse),
 	PermissionDecision:       "deny",
 	PermissionDecisionReason: rebaseRefusal,

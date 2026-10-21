@@ -30,8 +30,10 @@ type hookOutput struct {
 }
 
 type hookContext struct {
-	HookEventName     string `json:"hookEventName"`
-	AdditionalContext string `json:"additionalContext"`
+	HookEventName            string `json:"hookEventName"`
+	AdditionalContext        string `json:"additionalContext,omitempty"`
+	PermissionDecision       string `json:"permissionDecision,omitempty"`
+	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
 }
 
 func hookCmd(state *app) *cobra.Command {

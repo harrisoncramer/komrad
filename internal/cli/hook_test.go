@@ -178,7 +178,7 @@ func TestIntegrationPreToolUseHookGuardsTheStack(t *testing.T) {
 				return
 			}
 
-			var handed hookDecision
+			var handed hookOutput
 			require.NoError(t, json.Unmarshal(out.Bytes(), &handed))
 			assert.Equal(t, rebaseDenial, handed)
 			assert.Empty(t, reports, "a refused call never starts")
