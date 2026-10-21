@@ -544,6 +544,11 @@ func (p *Panel) IsZoomed() bool {
 	return p.tmux.zoomed
 }
 
+// IsWide reports whether the panel's pane is drawn across part of the stage for a review's diff.
+func (p *Panel) IsWide() bool {
+	return p.model.frame.IsWide()
+}
+
 // ReadZooms is every zoom the panel has asked tmux for, in order.
 func (p *Panel) ReadZooms() []bool {
 	return p.tmux.zooms

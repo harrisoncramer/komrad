@@ -60,7 +60,7 @@ func TestReviewOpen(t *testing.T) {
 
 		harness.press("space", "r")
 
-		assert.True(t, harness.panel.IsZoomed())
+		assert.True(t, harness.panel.IsWide())
 		harness.assertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: "t1"})
 	})
 
@@ -72,7 +72,7 @@ func TestReviewOpen(t *testing.T) {
 
 		harness := openReview(t, server)
 
-		assert.True(t, harness.panel.IsZoomed())
+		assert.True(t, harness.panel.IsWide())
 		assert.Contains(t, readStage(harness.readFrame()), "greet.go")
 	})
 
@@ -105,7 +105,7 @@ func TestReviewOpen(t *testing.T) {
 		harness := openReview(t, server)
 
 		frame := harness.readFrame()
-		assert.True(t, harness.panel.IsZoomed())
+		assert.True(t, harness.panel.IsWide())
 		assert.Contains(t, readSidebarProse(frame), "a rebase or merge is part way through, so this is the work as it stood before it")
 		assert.Contains(t, readSidebarProse(frame), "1 file")
 	})
@@ -122,14 +122,27 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, readOpenMessages(harness), gittest.ErrNoGit.Error())
 	})
 
-	t.Run("the diff is rendered beside the sidebar over the whole window", func(t *testing.T) {
+	t.Run("a running agent stays on the stage beside the diff", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		frame := harness.readFrame()
-		assert.True(t, harness.panel.IsZoomed())
+		assert.False(t, harness.panel.IsZoomed())
+		assert.True(t, harness.panel.IsWide())
+		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
 		assert.Contains(t, readStage(frame), "greet.go")
-		assert.Contains(t, readStage(frame), "Review · auth")
 		assert.Contains(t, readSidebarProse(frame), "1 file, +1 -1")
+		assert.Len(t, splitLines(frame), reviewHeight)
+	})
+
+	t.Run("a stopped agent's diff is rendered beside the sidebar over the whole window", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.Alive = xptr.Ptr(false)
+		harness := openReview(t, server)
+
+		frame := harness.readFrame()
+		assert.True(t, harness.panel.IsZoomed())
+		assert.False(t, harness.panel.IsWide())
+		assert.Contains(t, readStage(frame), "greet.go")
 		assert.Len(t, splitLines(frame), reviewHeight)
 	})
 
@@ -1326,7 +1339,7 @@ func TestReviewReload(t *testing.T) {
 		harness.press("space", "R")
 
 		assert.Len(t, harness.readSent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
-		assert.True(t, harness.panel.IsZoomed())
+		assert.True(t, harness.panel.IsWide())
 	})
 
 	t.Run("the reload key opens the next snapshot where the reader stood", func(t *testing.T) {
@@ -1764,7 +1777,7 @@ func TestReviewSnapshots(t *testing.T) {
 		harness.press("<")
 
 		frame := harness.readFrame()
-		assert.True(t, harness.panel.IsZoomed())
+		assert.True(t, harness.panel.IsWide())
 		assert.Contains(t, readStageText(frame), "greet.go")
 		assert.Contains(t, readEngineLine(frame), "nothing written")
 	})
@@ -2192,7 +2205,7 @@ func TestReviewHold(t *testing.T) {
 
 		frame := harness.readFrame()
 		assert.NotContains(t, frame, "editing ·")
-		assert.Contains(t, frame, "Review · auth")
+		assert.Contains(t, frame, "auth › review")
 	})
 
 	t.Run("closing the editor lets the agent go and says where to look", func(t *testing.T) {
@@ -2203,7 +2216,7 @@ func TestReviewHold(t *testing.T) {
 		said := readReleaseSaid(t, harness)
 		assert.Contains(t, said, "let you go")
 		assert.Contains(t, said, "greet.go")
-		assert.Contains(t, harness.readFrame(), "Review · auth")
+		assert.Contains(t, harness.readFrame(), "auth › review")
 	})
 
 	t.Run("a diff that stops being readable lets the agent go with the files", func(t *testing.T) {

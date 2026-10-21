@@ -67,6 +67,12 @@ type Frame struct {
 
 	// folded is whether the stage gave its rows to the info pane for want of anything to show.
 	folded bool
+
+	// wide is whether the sidebar is drawn across part of the stage for a review's diff.
+	wide bool
+
+	// editor is the pane split left of the agent on the stage for your editor, empty while none is open.
+	editor string
 }
 
 type shown struct {
@@ -482,7 +488,7 @@ func (f *Frame) Nudge(delta int) {
 		return
 	}
 
-	f.move(panes.Resize(f.sidebar, width))
+	f.move(panes.Resize(f.sidebar, f.sidebarCols()))
 }
 
 // payOwed puts the split under a zoom that has just been let go at the width chosen during it.
@@ -492,7 +498,7 @@ func (f *Frame) payOwed() {
 	}
 
 	f.owed = false
-	f.move(panes.Resize(f.sidebar, f.chosenCols()))
+	f.move(panes.Resize(f.sidebar, f.sidebarCols()))
 }
 
 // HasKeys reports whether the keyboard is on the panel's own pane rather than on a pane beside
@@ -520,6 +526,10 @@ func (f *Frame) IsStaleSize(width, height int) bool {
 // SidebarWidth is how many columns the sidebar renders in when it is holding a window of the given
 // width, and whether that came from the divider rather than from the config.
 func (f *Frame) SidebarWidth(total int) (int, bool) {
+	if f.wide && total > 0 {
+		return min(f.chosenCols(), total), true
+	}
+
 	if width := total - f.stageCols - 1; f.stageCols > 0 && width > 0 {
 		return width, true
 	}
@@ -548,7 +558,7 @@ func (f *Frame) WindowCols() int {
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar rendered
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {
-	if f.owed || f.frozen {
+	if f.owed || f.frozen || f.wide || f.editor != "" {
 		return
 	}
 
@@ -759,7 +769,7 @@ func (f *Frame) claimStage() {
 }
 
 func (f *Frame) restoredSidebar() (pane, width string) {
-	return f.sidebar, strconv.Itoa(f.chosenCols())
+	return f.sidebar, strconv.Itoa(f.sidebarCols())
 }
 
 // chosenCols is the width the sidebar is put back at, the configured one until anybody moves it.
@@ -792,6 +802,7 @@ func (f *Frame) hasStage() bool {
 }
 
 func (f *Frame) abandonStage() {
+	f.CloseEditor()
 	f.restoreGuest()
 
 	if f.stage != "" && f.tmux.IsPaneAlive(f.stage) {
@@ -835,4 +846,107 @@ func getHomeDir() string {
 	dir, _ := os.UserHomeDir()
 
 	return dir
+}
+
+// reviewShare is the part of the columns right of the sidebar a widened sidebar takes for a
+// review's diff, leaving the rest to the agent on the stage.
+const reviewShare = 65
+
+// editorShare is the part of the stage your editor takes left of the agent while a review keeps
+// the agent on the stage.
+const editorShare = "65%"
+
+// Widen draws the sidebar across part of the stage as well, for a review's diff beside the agent
+// on the stage, or gives the stage those columns back.
+func (f *Frame) Widen(on bool) {
+	if f.sidebar == "" || f.wide == on {
+		return
+	}
+
+	f.wide = on
+
+	// Resizing a pane in a zoomed window unzooms it.
+	if f.solo {
+		f.owed = true
+
+		return
+	}
+
+	f.move(panes.Resize(f.sidebar, f.sidebarCols()))
+}
+
+// IsWide reports whether the sidebar is drawn across part of the stage for a review's diff.
+func (f *Frame) IsWide() bool {
+	return f.wide
+}
+
+// sidebarCols is how wide the sidebar's pane is put, its chosen width widened by the review's share
+// of the stage while it is wide.
+func (f *Frame) sidebarCols() int {
+	if !f.wide {
+		return f.chosenCols()
+	}
+
+	return f.wideCols(f.WindowCols())
+}
+
+// wideCols is how wide the sidebar's pane is put while it is wide in a window of this many columns.
+func (f *Frame) wideCols(window int) int {
+	cols := f.chosenCols()
+
+	return cols + 1 + max(window-cols-1, 0)*reviewShare/100
+}
+
+// FitsWide reports whether a window of this many columns, with the sidebar wide, leaves both the
+// review's share of the stage and the pane beside it at least floor columns.
+func (f *Frame) FitsWide(window, floor int) bool {
+	wide := f.wideCols(window)
+	share := wide - f.chosenCols() - 1
+	beside := window - wide - 1
+
+	return share >= floor && beside >= floor
+}
+
+// OpenEditor runs content in a pane split left of the agent on the stage, and answers the pane,
+// empty where there is no stage to split.
+func (f *Frame) OpenEditor(content Content) string {
+	f.CloseEditor()
+
+	anchor := f.visibleStagePane()
+	if anchor == "" {
+		return ""
+	}
+
+	argv, ok := content.Render(Target{})
+	if !ok {
+		return ""
+	}
+
+	f.editor = f.tmux.SplitLeft(anchor, content.Dir, editorShare)
+	if f.editor != "" {
+		f.move(panes.Respawn(f.editor, content.Dir, argv...))
+	}
+
+	return f.editor
+}
+
+// CloseEditor takes away the pane OpenEditor split, and reports whether there was one.
+func (f *Frame) CloseEditor() bool {
+	if f.editor == "" {
+		return false
+	}
+
+	if f.tmux.IsPaneAlive(f.editor) {
+		f.tmux.KillPane(f.editor)
+	}
+
+	f.editor = ""
+
+	// tmux hands the editor's columns to a pane beside it, so the sidebar is put back at its own
+	// width before anything measures the divider.
+	if !f.solo {
+		f.move(panes.Resize(f.sidebar, f.sidebarCols()))
+	}
+
+	return true
 }

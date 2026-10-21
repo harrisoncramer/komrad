@@ -35,11 +35,9 @@ func reviewColumn() columnSpec {
 	}
 }
 
-// bandView is what stands over the diff: whose work is being read, the range it runs over, and the
-// pattern it is searched for.
+// bandView is what stands over the diff: the range it runs over and the pattern it is searched for.
 func (r reviewScreen) bandView(m *model) string {
-	return paint.Panel.Title("Review"+separated+r.agentName) + "\n" +
-		r.rangeView(m) +
+	return r.rangeView(m) +
 		m.markSearch(stopList, r.measureBandWidth(m), r.diff.filter.view(m.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 

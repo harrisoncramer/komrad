@@ -134,8 +134,10 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 
 	left := m.enterScreen(screenReview)
 	m.leftStop = stopList
+	opened := m.review.open(m, agent)
+	m.stageSelection()
 
-	return tea.Batch(left, m.review.open(m, agent))
+	return tea.Batch(left, opened)
 }
 
 var (
@@ -166,4 +168,17 @@ func (r reviewScreen) typedLine() (lineInput, bool) {
 
 func (r *reviewScreen) dispatches(*model) []dispatching {
 	return []dispatching{r.diffActions(), r.filesActions()}
+}
+
+// writerPane is the agent whose work is under review, which the stage keeps beside the diff while
+// its pane is running, held for your editor or not.
+func (r reviewScreen) writerPane(m *model) (panel.AgentRow, bool) {
+	for _, item := range m.listing.agents {
+		running := item.Alive && item.Agent.Pane != "" && item.Agent.State != panel.StateSettingUp && !item.Agent.State.IsFailed()
+		if item.Agent.ID == r.agentID && running {
+			return item, true
+		}
+	}
+
+	return panel.AgentRow{}, false
 }

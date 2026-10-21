@@ -283,6 +283,17 @@ func (m *model) getHostPath() string {
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
 // given, empty where the split was refused.
 func (m *model) stageEditor(content layout.Content) string {
+	if m.isReviewSplit() {
+		m.frame.Widen(false)
+
+		pane := m.frame.OpenEditor(content)
+		if pane != "" {
+			m.tmux.SelectPane(pane)
+		}
+
+		return pane
+	}
+
 	m.frame.Begin()
 	m.reconcileSolo()
 	m.frame.Show(layout.RegionStage, content)
@@ -298,7 +309,10 @@ func (m *model) stageEditor(content layout.Content) string {
 
 // unstageEditor takes the editor down and puts the keys back on the sidebar.
 func (m *model) unstageEditor() {
-	m.frame.ClearStage()
+	if !m.frame.CloseEditor() {
+		m.frame.ClearStage()
+	}
+
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionSidebar))
 }
 

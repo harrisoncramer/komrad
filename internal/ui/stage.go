@@ -175,6 +175,9 @@ func (m *model) stageSelection() {
 	defer m.afterStaging()
 
 	staged, ok := m.agents.hoveredPane(m)
+	if m.screen == screenReview {
+		staged, ok = m.review.writerPane(m)
+	}
 	if !ok && m.wantsSolo() {
 		m.reclaimStageKeys()
 	}

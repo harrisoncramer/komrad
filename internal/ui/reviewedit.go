@@ -234,6 +234,7 @@ func (r reviewScreen) agentRow(m *model) (panel.AgentRow, bool) {
 func (r *reviewScreen) closeEdit(m *model) tea.Cmd {
 	m.unstageEditor()
 	letGo := r.endHold(m, editedSaid)
+	m.stageSelection()
 
 	return tea.Batch(letGo, r.catchUp(m))
 }

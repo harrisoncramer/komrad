@@ -117,6 +117,8 @@ func (m *model) afterListing() tea.Cmd {
 		s.stage(m)
 	}
 
+	m.syncReviewSplit()
+
 	return inspect
 }
 
