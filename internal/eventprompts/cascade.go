@@ -167,6 +167,6 @@ func (RetargetRefused) Events() []string {
 
 // Body tells the agent to point the pull request at the base branch itself.
 func (m RetargetRefused) Body() string {
-	return fmt.Sprintf("Komrad could not point your pull request at %s: %s\n\n%s\n\n"+
-		"Point it at %s yourself. Komrad asks the forge again once the pull request changes.", m.Onto, m.URL, m.Reason, m.Onto)
+	return fmt.Sprintf("Komrad could not point your pull request %s at %s.\n\n%s\n\n"+
+		"Point it at %s yourself. Komrad asks the forge again once the pull request changes.", m.URL, m.Onto, m.Reason, m.Onto)
 }
