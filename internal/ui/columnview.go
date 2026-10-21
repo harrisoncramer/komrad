@@ -21,9 +21,9 @@ func (m *model) joinColumns(split columnSplit, sidebar, column string) string {
 
 	out := make([]string, rows)
 	for i := range rows {
-		l := readLineAt(sidebarLines, i, sidebarWidth)
-		r := readLineAt(columnLines, i, columnWidth)
-		out[i] = l + renderDividerRow(isRule(l), isRule(r)) + r
+		sidebarLine := readLineAt(sidebarLines, i, sidebarWidth)
+		columnLine := readLineAt(columnLines, i, columnWidth)
+		out[i] = sidebarLine + renderDividerRow(isRule(sidebarLine), isRule(columnLine)) + columnLine
 	}
 
 	return strings.Join(out, "\n")
