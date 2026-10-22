@@ -209,8 +209,8 @@ func (l Listing) ScheduledWorkflows() map[string]bool {
 	return scheduled
 }
 
-// TaskAgents is the agents on a task, the archived ones for an archived task and the live ones otherwise.
-func (l Listing) TaskAgents(task Task) []AgentRow {
+// taskAgents is the agents on a task, the archived ones for an archived task and the live ones otherwise.
+func (l Listing) taskAgents(task Task) []AgentRow {
 	pool := l.Agents
 	if task.ArchivedAt != nil {
 		pool = l.ArchivedAgents
@@ -229,7 +229,7 @@ func (l Listing) AgentsOnTasks(tasks []Task) []Agent {
 
 // FindTaskWriter is the task's writer, when the listing holds it.
 func (l Listing) FindTaskWriter(task Task) (AgentRow, bool) {
-	onTask := l.TaskAgents(task)
+	onTask := l.taskAgents(task)
 	at := slices.IndexFunc(onTask, func(item AgentRow) bool { return item.Agent.Role == RoleWriter })
 	if at < 0 {
 		return AgentRow{}, false
@@ -250,11 +250,11 @@ func (l Listing) FindWriterInCheckout(task Task) (AgentRow, bool) {
 
 // HasOwnWorktree reports whether a task sits in a worktree komrad cut for it that is still on disk.
 func (l Listing) HasOwnWorktree(task Task) bool {
-	return !task.IsWorktreeRemoved() && l.HasWorktreeToDelete(task)
+	return !task.IsWorktreeRemoved() && l.hasWorktreeToDelete(task)
 }
 
-// HasWorktreeToDelete reports whether komrad cut a worktree for a task that no delete has removed yet.
-func (l Listing) HasWorktreeToDelete(task Task) bool {
+// hasWorktreeToDelete reports whether komrad cut a worktree for a task that no delete has removed yet.
+func (l Listing) hasWorktreeToDelete(task Task) bool {
 	if task.Cwd == "" || task.WorktreeRemovalReason == WorktreeDeleted {
 		return false
 	}
@@ -271,7 +271,7 @@ func (l Listing) HasWorktreeToDelete(task Task) bool {
 // HasAnyWorktreeToDelete reports whether komrad cut a worktree for any of the tasks that no delete
 // has removed yet, on disk or gone.
 func (l Listing) HasAnyWorktreeToDelete(tasks []Task) bool {
-	return slices.ContainsFunc(tasks, l.HasWorktreeToDelete)
+	return slices.ContainsFunc(tasks, l.hasWorktreeToDelete)
 }
 
 // IsReviewable reports whether an agent has work of its own to read.

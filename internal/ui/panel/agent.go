@@ -98,8 +98,8 @@ type Agent struct {
 	Hooks []string
 }
 
-// IsCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.
-func (a Agent) IsCheckoutOwner() bool {
+// isCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.
+func (a Agent) isCheckoutOwner() bool {
 	return a.Role == RoleWriter && !a.ProvisionDisabled
 }
 
