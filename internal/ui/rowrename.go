@@ -43,7 +43,7 @@ func renameScheduleRow(item scheduleItem) *rowRename {
 }
 
 // save sends the typed name, or says there is nothing to send.
-func (r *rowRename) save(m *model) (tea.Cmd, bool) {
+func (r *rowRename) save(m *model) (screen.Request, bool) {
 	name, ok := r.Submit()
 	if !ok {
 		return nil, false
@@ -116,12 +116,12 @@ func reconcileRename[T list.Keyed](r *renameSlot, rows []T, hovered string, name
 	}
 }
 
-func (r *renameSlot) updateRename(m *model, msg tea.Msg) tea.Cmd {
+func (r *renameSlot) updateRename(m *model, msg tea.Msg) screen.Request {
 	switch r.renaming.Take(msg, m.register) {
 	case field.NameGone:
-		m.note(messageWarning, r.renaming.GoneWarning())
+		return screen.NewNote(screen.Warning, r.renaming.GoneWarning())
 	case field.NameHidden:
-		return m.apply(screen.Hide{})
+		return screen.Hide{}
 	case field.NameCancelled:
 		r.renaming = nil
 	case field.NameSubmitted:

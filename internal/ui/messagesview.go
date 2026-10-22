@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
 	"charm.land/lipgloss/v2"
@@ -29,9 +30,9 @@ func (m *model) renderMessagesFlash(width int) (string, bool) {
 }
 
 func (m *model) renderMessagesTally() string {
-	worst, count := messageInfo, 0
+	worst, count := screen.Info, 0
 	for _, held := range m.messages.items {
-		if held.kind < messageWarning {
+		if held.kind < screen.Warning {
 			continue
 		}
 
@@ -162,45 +163,45 @@ func (m *model) messagesCursorPrefix(hovered bool) string {
 	return list.RenderArrow()
 }
 
-func kindIcon(glyphs glyph.Set, kind messageKind) string {
+func kindIcon(glyphs glyph.Set, kind screen.Kind) string {
 	switch kind {
-	case messageError:
+	case screen.Error:
 		return glyphs.Spell(glyph.MessageError)
-	case messageWarning:
+	case screen.Warning:
 		return glyphs.Spell(glyph.MessageWarning)
-	case messageSuccess:
+	case screen.Success:
 		return glyphs.Spell(glyph.MessageSuccess)
-	case messageInfo:
+	case screen.Info:
 		return glyphs.Spell(glyph.MessageInfo)
 	}
 
 	return glyphs.Spell(glyph.MessageInfo)
 }
 
-func kindLabel(kind messageKind) string {
+func kindLabel(kind screen.Kind) string {
 	switch kind {
-	case messageError:
+	case screen.Error:
 		return "error"
-	case messageWarning:
+	case screen.Warning:
 		return "warning"
-	case messageSuccess:
+	case screen.Success:
 		return "done"
-	case messageInfo:
+	case screen.Info:
 		return "info"
 	}
 
 	return "info"
 }
 
-func kindTone(kind messageKind) paint.Tone {
+func kindTone(kind screen.Kind) paint.Tone {
 	switch kind {
-	case messageError:
+	case screen.Error:
 		return paint.ToneDanger
-	case messageWarning:
+	case screen.Warning:
 		return paint.ToneWarning
-	case messageSuccess:
+	case screen.Success:
 		return paint.ToneSuccess
-	case messageInfo:
+	case screen.Info:
 		return paint.ToneMuted
 	}
 
@@ -208,8 +209,8 @@ func kindTone(kind messageKind) paint.Tone {
 }
 
 // pulseTone is the colour a landing message's words blink in.
-func pulseTone(kind messageKind) paint.Tone {
-	if kind == messageInfo {
+func pulseTone(kind screen.Kind) paint.Tone {
+	if kind == screen.Info {
 		return paint.TonePrimary
 	}
 

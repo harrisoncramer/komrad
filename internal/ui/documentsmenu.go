@@ -6,8 +6,6 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // documentTypeMenu is the actions on the document type under the list's cursor.
@@ -32,7 +30,7 @@ func documentTypeMenu(m *model, t *agentv1.DocumentType) menu.Menu {
 // documentEntry is one entry of the menu on a document.
 type documentEntry struct {
 	entry menu.Entry
-	run   func(d *documentsScreen, m *model) tea.Cmd
+	run   func(d *documentsScreen, m *model) screen.Request
 }
 
 func (d *documentsScreen) buildItemMenu(m *model) (menu.Menu, bool) {
@@ -127,7 +125,7 @@ func documentMenu(m *model, d *documentsScreen) (menu.Menu, bool) {
 func documentEntries(m *model, entries []documentEntry) []menu.Entry {
 	return xslice.Map(entries, func(e documentEntry) menu.Entry {
 		entry, run := e.entry, e.run
-		entry.Pick = func() tea.Cmd { return run(&m.documents, m) }
+		entry.Pick = func() screen.Request { return run(&m.documents, m) }
 
 		return entry
 	})

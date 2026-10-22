@@ -4,12 +4,11 @@ import (
 	"errors"
 	"slices"
 
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // gitChoice is one entry of the git menu.
@@ -61,13 +60,13 @@ func gitMenu(m *model, task panel.Task) menu.Menu {
 			Label: "pick fork point",
 			Keys:  m.keys.Git.PickForkPoint,
 			Off:   pickForkPointRefusal(m.listing, task) != nil,
-			Pick:  func() tea.Cmd { return m.openGitPickForkPoint(taskID) },
+			Pick:  func() screen.Request { return m.openGitPickForkPoint(taskID) },
 		},
 		{
 			Label: abortLabel(task),
 			Keys:  m.keys.Git.Abort,
 			Off:   abortRefusal(m.listing, task) != nil,
-			Pick:  func() tea.Cmd { return m.openGitAbort(taskID) },
+			Pick:  func() screen.Request { return m.openGitAbort(taskID) },
 		},
 	}
 
@@ -128,8 +127,8 @@ func pullRequestEntries(m *model, task panel.Task) []menu.Entry {
 }
 
 // gitWrite is the write a git menu entry makes on a task.
-func gitWrite(m *model, taskID string, choice gitChoice) func() tea.Cmd {
-	return func() tea.Cmd { return m.runGitChoice(taskID, choice) }
+func gitWrite(m *model, taskID string, choice gitChoice) func() screen.Request {
+	return func() screen.Request { return m.runGitChoice(taskID, choice) }
 }
 
 // worktreeRefusal returns the reason a task's worktree refuses an action, or nil when it allows one.
@@ -238,28 +237,28 @@ func openPullRequestRefusal(task panel.Task) error {
 }
 
 // runGitChoice does what the entry asked for, or says why this task is not one to ask it of.
-func (m *model) runGitChoice(taskID string, choice gitChoice) tea.Cmd {
+func (m *model) runGitChoice(taskID string, choice gitChoice) screen.Request {
 	task, ok := m.findGitTask(taskID)
 	if !ok {
-		return m.apply(screen.Report{Summary: "Could not act on the task", Err: errTaskGone})
+		return screen.Report{Summary: "Could not act on the task", Err: errTaskGone}
 	}
 
 	switch choice {
 	case gitChoiceRebase:
 		if err := worktreeRefusal(m.listing, task); err != nil {
-			return m.apply(screen.Report{Summary: "Could not rebase the worktree of " + task.Slug, Err: err})
+			return screen.Report{Summary: "Could not rebase the worktree of " + task.Slug, Err: err}
 		}
 
 		return m.planGitCmd(rebaseOp(task.ID, task.Slug, false))
 	case gitChoiceRebaseOntoBase:
 		if err := rebaseOntoBaseRefusal(m.listing, task); err != nil {
-			return m.apply(screen.Report{Summary: "Could not re-target " + task.Slug + " onto the base branch", Err: err})
+			return screen.Report{Summary: "Could not re-target " + task.Slug + " onto the base branch", Err: err}
 		}
 
 		return m.planGitCmd(rebaseOp(task.ID, task.Slug, true))
 	case gitChoicePush:
 		if err := pushRefusal(m.listing, task); err != nil {
-			return m.apply(screen.Report{Summary: "Could not push the branch of " + task.Slug, Err: err})
+			return screen.Report{Summary: "Could not push the branch of " + task.Slug, Err: err}
 		}
 
 		return m.planGitCmd(pushOp(task))
@@ -285,41 +284,29 @@ func (m *model) findGitTask(taskID string) (panel.Task, bool) {
 }
 
 // openGitAbort leaves the menu for the abort's confirmation, or says why there is nothing to abort.
-func (m *model) openGitAbort(taskID string) tea.Cmd {
+func (m *model) openGitAbort(taskID string) screen.Request {
 	task, ok := m.findGitTask(taskID)
 	if !ok {
-		m.report("Could not act on the task", errTaskGone)
-
-		return m.closeForm()
+		return screen.Batch{screen.Report{Summary: "Could not act on the task", Err: errTaskGone}, form.Close{}}
 	}
 
 	if err := abortRefusal(m.listing, task); err != nil {
-		m.report("Could not abort what the worktree of "+task.Slug+" has in progress", err)
-
-		return m.closeForm()
+		return screen.Batch{screen.Report{Summary: "Could not abort what the worktree of " + task.Slug + " has in progress", Err: err}, form.Close{}}
 	}
-
-	m.leaveForm()
 
 	return m.openGitConfirm(abortOp(task.ID, task.Slug, task.Sequence), abortForm(task.Slug, task.Sequence))
 }
 
 // openGitPickForkPoint leaves the menu for the form that picks an orphaned child's fork point, or says why the task is not orphaned.
-func (m *model) openGitPickForkPoint(taskID string) tea.Cmd {
+func (m *model) openGitPickForkPoint(taskID string) screen.Request {
 	task, ok := m.findGitTask(taskID)
 	if !ok {
-		m.report("Could not act on the task", errTaskGone)
-
-		return m.closeForm()
+		return screen.Batch{screen.Report{Summary: "Could not act on the task", Err: errTaskGone}, form.Close{}}
 	}
 
 	if err := pickForkPointRefusal(m.listing, task); err != nil {
-		m.report("Could not pick the fork point of "+task.Slug, err)
-
-		return m.closeForm()
+		return screen.Batch{screen.Report{Summary: "Could not pick the fork point of " + task.Slug, Err: err}, form.Close{}}
 	}
-
-	m.leaveForm()
 
 	return openPickForkPoint(m, task)
 }

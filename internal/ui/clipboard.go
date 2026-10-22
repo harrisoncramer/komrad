@@ -42,6 +42,6 @@ func (m *model) flashRevertTick() tea.Cmd {
 
 func (m *model) restageScreen() {
 	if s, ok := m.active().(rowStager); ok {
-		s.stage(m)
+		m.apply(s.stage(m))
 	}
 }

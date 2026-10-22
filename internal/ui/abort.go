@@ -7,9 +7,9 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -19,20 +19,14 @@ func abortOp(taskID, name string, sequence panel.Sequence) gitOp {
 		run: func(clients api) gitReport {
 			result, err := clients.abortSequence(taskID)
 
-			return func(m *model) tea.Cmd {
-				m.reportAborted(name, sequence, result, err)
-
-				return nil
-			}
+			return func(*model) screen.Request { return reportAborted(name, sequence, result, err) }
 		},
 	}
 }
 
-func (m *model) reportAborted(name string, sequence panel.Sequence, result *agentv1.AbortSequenceResponse, err error) {
+func reportAborted(name string, sequence panel.Sequence, result *agentv1.AbortSequenceResponse, err error) screen.Request {
 	if err != nil {
-		m.report(fmt.Sprintf("Could not abort the %s of %s", sequence, name), err)
-
-		return
+		return screen.Report{Summary: fmt.Sprintf("Could not abort the %s of %s", sequence, name), Err: err}
 	}
 
 	where := "The checkout"
@@ -45,11 +39,11 @@ func (m *model) reportAborted(name string, sequence panel.Sequence, result *agen
 		lines = append(lines, "Komrad interrupted its turn first.")
 	}
 
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: fmt.Sprintf("%s: aborted the %s", name, panel.SequenceFrom(result.GetSequence())),
-		detail:  strings.Join(lines, " "),
-	})
+	return screen.Note{
+		Kind:    screen.Info,
+		Summary: fmt.Sprintf("%s: aborted the %s", name, panel.SequenceFrom(result.GetSequence())),
+		Detail:  strings.Join(lines, " "),
+	}
 }
 
 func abortForm(name string, sequence panel.Sequence) gitConfirmForm {

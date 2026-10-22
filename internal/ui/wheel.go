@@ -124,8 +124,8 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	}
 
 	if m.screen == screen.Review && !m.isOverColumn(x) {
-		if cmd, ok := m.review.scrollSidebarAt(m, y, rows); ok {
-			return cmd
+		if scrolled, ok := m.review.scrollSidebarAt(m, y, rows); ok {
+			return m.apply(scrolled)
 		}
 	}
 
@@ -136,7 +136,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	}
 
 	if screen, ok := m.active().(columnFocuser); ok && screen.doesScrollColumn(m) {
-		return tea.Batch(focus, screen.scrollColumn(m, rows*columnWheelStep))
+		return tea.Batch(focus, m.apply(screen.scrollColumn(m, rows*columnWheelStep)))
 	}
 
 	m.wheelDoc(rows * columnWheelStep)
@@ -176,7 +176,7 @@ func (m *model) scrollSidebar(rows int) tea.Cmd {
 // wheelList scrolls the screen's list, or presses the scroll key on a screen without one.
 func (m *model) wheelList(rows int) tea.Cmd {
 	if screen, ok := m.active().(listScroller); ok {
-		return screen.scrollList(m, rows)
+		return m.apply(screen.scrollList(m, rows))
 	}
 
 	return m.pressWheel(rows)

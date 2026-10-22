@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"komrad/internal/forge"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 )
 
@@ -96,7 +96,7 @@ func (r *reviewScreen) doesOfferForgeRetry() bool {
 }
 
 // retryForgeReply sends again the reply the forge refused in the thread under the cursor.
-func (r *reviewScreen) retryForgeReply(m *model) tea.Cmd {
+func (r *reviewScreen) retryForgeReply(m *model) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
@@ -142,7 +142,7 @@ func forgeReplyNotice(reply *agentv1.ForgeReply) (string, error) {
 }
 
 // discardForgeReply throws away the reply the forge refused in the thread under the cursor.
-func (r *reviewScreen) discardForgeReply(m *model) tea.Cmd {
+func (r *reviewScreen) discardForgeReply(m *model) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
@@ -165,7 +165,7 @@ func (r *reviewScreen) discardForgeReply(m *model) tea.Cmd {
 }
 
 // composeForge opens the composer on a reply to the forge.
-func (r *reviewScreen) composeForge(m *model) tea.Cmd {
+func (r *reviewScreen) composeForge(m *model) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
@@ -188,7 +188,7 @@ func (r *reviewScreen) composeForge(m *model) tea.Cmd {
 }
 
 // saveForgeReply posts what the composer holds to the forge as the person's own reply.
-func (r *reviewScreen) saveForgeReply(m *model, compose *reviewForgeCompose, body string) tea.Cmd {
+func (r *reviewScreen) saveForgeReply(m *model, compose *reviewForgeCompose, body string) screen.Request {
 	agents, threadID := m.clients().agents, r.threads.editing
 	kept := reviewUnsent{
 		editing: threadID,

@@ -84,6 +84,14 @@ func (m *model) settleTail() {
 	}
 }
 
+// placeDoc puts the reader on a line of the document with its window from top.
+func (m *model) placeDoc(line, top int) {
+	m.reading.tail = false
+	if _, _, ok := m.docLayout(); ok {
+		m.reading.Line, m.reading.Top = line, top
+	}
+}
+
 // focusDoc hands the keys to the document, keeping the cursor on a row the window renders.
 func (m *model) focusDoc() {
 	rows, height, ok := m.docLayout()
@@ -207,11 +215,11 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 
 	own := m.docActions()
 	if slices.ContainsFunc(own.Table, func(a keys.Action[*model]) bool { return keys.IsBound(k, a.Keys(m.keys)) }) {
-		return own.Dispatch(m, m.keys, k)
+		return m.apply(own.Dispatch(m, m.keys, k))
 	}
 
 	if m.screen == screen.Documents {
-		return m.documents.docKeys().Dispatch(m, m.keys, k)
+		return m.apply(m.documents.docKeys().Dispatch(m, m.keys, k))
 	}
 
 	return nil
@@ -224,7 +232,7 @@ func (m *model) docActions() keys.Spec[*model] {
 			{
 				ID:   keys.ColumnBack,
 				Keys: keys.FixedBack,
-				Nav: func(*model, string) tea.Cmd {
+				Nav: func(*model, string) screen.Request {
 					m.reading.focused = false
 
 					return nil
@@ -233,7 +241,7 @@ func (m *model) docActions() keys.Spec[*model] {
 			{
 				ID:   keys.Move,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				Nav: func(_ *model, pressed string) tea.Cmd {
+				Nav: func(_ *model, pressed string) screen.Request {
 					m.moveDocTo(m.reading.Line + keys.DirectionOf(pressed, m.keys.Nav.Up))
 
 					return nil
@@ -242,7 +250,7 @@ func (m *model) docActions() keys.Spec[*model] {
 			{
 				ID:   keys.NavPage,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				Nav: func(_ *model, pressed string) tea.Cmd {
+				Nav: func(_ *model, pressed string) screen.Request {
 					m.moveDocTo(m.reading.Line + keys.DirectionOf(pressed, m.keys.Nav.PageUp)*navPageStep)
 
 					return nil
@@ -251,7 +259,7 @@ func (m *model) docActions() keys.Spec[*model] {
 			{
 				ID:   keys.ColumnScroll,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				Nav: func(_ *model, pressed string) tea.Cmd {
+				Nav: func(_ *model, pressed string) screen.Request {
 					m.scrollDoc(keys.DirectionOf(pressed, m.keys.Column.ScrollUp) * columnWheelStep)
 
 					return nil
@@ -260,7 +268,7 @@ func (m *model) docActions() keys.Spec[*model] {
 			{
 				ID:   keys.Jump,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				Nav: func(_ *model, pressed string) tea.Cmd {
+				Nav: func(_ *model, pressed string) screen.Request {
 					line := 0
 					if rows, _, ok := m.docLayout(); ok && keys.IsBound(pressed, m.keys.Nav.Bottom) {
 						line = len(rows) - 1
@@ -273,7 +281,7 @@ func (m *model) docActions() keys.Spec[*model] {
 			{
 				ID:   keys.FilterOpen,
 				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				Nav: func(*model, string) tea.Cmd {
+				Nav: func(*model, string) screen.Request {
 					m.settleTail()
 					m.reading.filter.open(m.columnOf().searchOptions...)
 					m.reading.origin = m.reading.Line
@@ -284,7 +292,7 @@ func (m *model) docActions() keys.Spec[*model] {
 			{
 				ID:   keys.FilterMatch,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
-				Nav: func(_ *model, pressed string) tea.Cmd {
+				Nav: func(_ *model, pressed string) screen.Request {
 					m.jumpDocMatch(pressed)
 
 					return nil

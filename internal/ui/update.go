@@ -306,7 +306,7 @@ func (m *model) nudgeSidebar(delta int) {
 
 // routeScreenMessage hands a message to the screen that is up.
 func (m *model) routeScreenMessage(msg tea.Msg) tea.Cmd {
-	return m.active().update(m, msg)
+	return m.apply(m.active().update(m, msg))
 }
 
 func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
@@ -380,13 +380,13 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 
 		return nil, true
 	case logsSourcesMsg:
-		return m.applyLogsSources(msg), true
+		return m.apply(m.applyLogsSources(msg)), true
 	case logsReadMsg:
 		return m.applyLogsRead(msg), true
 	case logsTickMsg:
 		return m.applyLogsTick(msg), true
 	case logsSettledMsg:
-		return m.applyLogsSettled(msg), true
+		return m.apply(m.applyLogsSettled(msg)), true
 	case saysSettledMsg:
 		return m.applySaysSettled(msg), true
 	case saysFoundMsg:
@@ -408,9 +408,7 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 
 		return nil, true
 	case urlOpenedMsg:
-		m.applyURLOpened(msg)
-
-		return nil, true
+		return m.apply(m.applyURLOpened(msg)), true
 	case client.WatchBatch:
 		return m.applyWatch(msg), true
 	case watchLostMsg:
@@ -426,29 +424,25 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 
 		return nil, true
 	case resumeSettled:
-		m.agents.settleResume(m, msg.agentID, msg.err)
-
-		return nil, true
+		return m.apply(m.agents.settleResume(m, msg.agentID, msg.err)), true
 	case agentEditorStaged:
-		return m.agents.applyEditorStaged(m, msg), true
+		return m.apply(m.agents.applyEditorStaged(m, msg)), true
 	case documentEditorStaged:
-		m.documents.applyEditorStaged(m, msg)
-
-		return nil, true
+		return m.apply(m.documents.applyEditorStaged(msg)), true
 	case reviewEditorStaged:
-		return m.review.applyEditorStaged(m, msg), true
+		return m.apply(m.review.applyEditorStaged(m, msg)), true
 	case reviewPausedMsg:
 		if m.isPausing(msg.agentID) {
 			return nil, false
 		}
 
-		return m.releaseAbandonedPause(msg), true
+		return m.apply(m.releaseAbandonedPause(msg)), true
 	case gitPlannedMsg:
-		return m.applyGitPlanned(msg), true
+		return m.apply(m.applyGitPlanned(msg)), true
 	case gitDoneMsg:
-		return m.applyGitDone(msg), true
+		return m.apply(m.applyGitDone(msg)), true
 	case mergePlannedMsg:
-		return m.applyMergePlanned(msg), true
+		return m.apply(m.applyMergePlanned(msg)), true
 	case formFieldEditedMsg:
 		return m.applyFormFieldEdited(msg), true
 	case copyResult:
@@ -479,7 +473,7 @@ func (m *model) reconcileEditor() tea.Cmd {
 	m.reconcileTerminal()
 
 	if screen, ok := m.active().(editorReconciler); ok {
-		return screen.reconcileEditor(m)
+		return m.apply(screen.reconcileEditor(m))
 	}
 
 	return nil

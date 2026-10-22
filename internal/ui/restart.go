@@ -11,7 +11,6 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -41,9 +40,9 @@ func restartEntries(m *model, task panel.Task) []menu.Entry {
 	}
 
 	writer, refusal := findRestartableWriter(m.listing, task)
-	entry := menu.Leaving("restart", m.keys.Menu.Restart, func() tea.Cmd {
+	entry := menu.Leaving("restart", m.keys.Menu.Restart, func() screen.Request {
 		if refusal != nil {
-			return m.apply(screen.Report{Summary: "Could not restart the writer of task " + task.Slug, Err: refusal})
+			return screen.Report{Summary: "Could not restart the writer of task " + task.Slug, Err: refusal}
 		}
 
 		return openRestart(m, restartTarget{agent: *writer, on: task.Slug, briefing: "the task's notes"})
@@ -73,25 +72,25 @@ func orchestratorRestartEntries(m *model, workflow panel.Workflow, orchestrator 
 		return nil
 	}
 
-	return []menu.Entry{menu.Leaving("restart orchestrator", m.keys.Menu.Restart, func() tea.Cmd {
+	return []menu.Entry{menu.Leaving("restart orchestrator", m.keys.Menu.Restart, func() screen.Request {
 		return openRestart(m, restartTarget{agent: *orchestrator, on: workflow.Name, briefing: "its briefing"})
 	})}
 }
 
 // openRestart opens the form that restarts an agent on a new conversation.
-func openRestart(m *model, target restartTarget) tea.Cmd {
+func openRestart(m *model, target restartTarget) screen.Request {
 	values := &restartValues{
 		Harness: target.agent.Harness,
 		Flags:   target.agent.Flags,
 	}
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
 			return restartForm(fixedKeys(), values, target)
 		},
 		Editable: []form.Editable{{Key: "note", Value: &values.Note}},
 		Submit:   func(form.Inputs) screen.Request { return m.restartWrite(target.agent, *values) },
-	}})
+	}}
 }
 
 // restartWrite is the write that relaunches the agent on a new conversation in the same directory.

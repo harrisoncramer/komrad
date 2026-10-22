@@ -51,26 +51,19 @@ func (w *schedulesScreen) kindsSwitch(*model) bool {
 }
 
 // stepKind moves the schedules view to its other kind, back on the row it last stood on.
-func (w *schedulesScreen) stepKind(m *model, delta int) tea.Cmd {
-	left := m.leaveScreen()
-	m.filter = filterState{}
-	w.kind = schedulesKind(stepStop(int(w.kind), delta, len(w.kinds(m).labels)))
-	if w.kind == schedulesArchived {
-		w.archived.stage(m)
-	} else {
-		m.stageTerminal()
-	}
+func (w *schedulesScreen) stepKind(m *model, delta int) screen.Request {
+	return screen.Leave{Then: func() screen.Request {
+		w.kind = schedulesKind(stepStop(int(w.kind), delta, len(w.kinds(m).labels)))
 
-	return tea.Batch(left, m.waitToStage())
+		return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
+	}}
 }
 
-func (a *archivedSchedules) enter(m *model, _ screen.Target) tea.Cmd {
-	a.stage(m)
-
-	return m.waitToStage()
+func (a *archivedSchedules) enter(m *model, _ screen.Target) screen.Request {
+	return screen.Batch{a.stage(m), screen.Settle{}}
 }
 
-func (a *archivedSchedules) update(m *model, msg tea.Msg) tea.Cmd {
+func (a *archivedSchedules) update(m *model, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
@@ -95,7 +88,7 @@ func (a *archivedSchedules) kindsSwitch(*model) bool {
 	return true
 }
 
-func (a *archivedSchedules) stepKind(m *model, delta int) tea.Cmd {
+func (a *archivedSchedules) stepKind(m *model, delta int) screen.Request {
 	return m.schedules.stepKind(m, delta)
 }
 
@@ -106,11 +99,7 @@ func (a *archivedSchedules) list() screenList[scheduleItem] {
 		name:   func(item scheduleItem) string { return item.schedule.Name },
 		fits:   (*model).scheduleItemFits,
 		placed: a.stage,
-		moved: func(m *model) tea.Cmd {
-			a.stage(m)
-
-			return m.waitToStage()
-		},
+		moved:  func(m *model) screen.Request { return screen.Batch{a.stage(m), screen.Settle{}} },
 	}
 }
 
@@ -149,10 +138,10 @@ func (a *archivedSchedules) buildItemMenu(m *model) (menu.Menu, bool) {
 }
 
 // confirmDeleteSchedule asks before it deletes an archived schedule for good.
-func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
+func confirmDeleteSchedule(m *model, schedule panel.Schedule) screen.Request {
 	built, confirmed := deleteScheduleForm(schedule.Name, fixedKeys())
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Built: built,
 		Submit: func(form.Inputs) screen.Request {
 			if !*confirmed {
@@ -168,7 +157,7 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 		},
 		Narrow:          true,
 		ClosesOnRefusal: true,
-	}})
+	}}
 }
 
 // place keeps the cursor on the archived schedule it was on as the rows under it change.
@@ -178,8 +167,8 @@ func (a *archivedSchedules) place(m *model, hovered string) {
 }
 
 // stage keeps the info pane on the row the cursor is standing on.
-func (a *archivedSchedules) stage(m *model) {
-	m.stageTerminal()
+func (a *archivedSchedules) stage(*model) screen.Request {
+	return screen.StageTerminal{}
 }
 
 func (a *archivedSchedules) listParams(m *model) screenListParams {
@@ -247,8 +236,6 @@ func (a *archivedSchedules) dispatches(*model) []keys.Table {
 	return []keys.Table{a.actions()}
 }
 
-func (a *archivedSchedules) stageResting(m *model) tea.Cmd {
-	a.stage(m)
-
-	return nil
+func (a *archivedSchedules) stageResting(m *model) screen.Request {
+	return a.stage(m)
 }

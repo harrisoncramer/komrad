@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
 )
 
 // ID names one thing a screen does with a key.
@@ -44,18 +44,18 @@ type Action[S any] struct {
 	ID     ID
 	Keys   func(config.Keybindings) []string
 	When   func(S) bool
-	Nav    func(S, string) tea.Cmd
+	Nav    func(S, string) screen.Request
 	Direct *direct[S]
 }
 
 // direct is an arm that acts straight off its key rather than from the menu, and why.
 type direct[S any] struct {
 	Reason string
-	Run    func(S, string) tea.Cmd
+	Run    func(S, string) screen.Request
 }
 
 // Directly is an arm's direct action, with the reason it skips the menu.
-func Directly[S any](reason string, run func(S, string) tea.Cmd) *direct[S] {
+func Directly[S any](reason string, run func(S, string) screen.Request) *direct[S] {
 	return &direct[S]{Reason: reason, Run: run}
 }
 
@@ -89,7 +89,7 @@ type Table interface {
 }
 
 // Dispatch hands the press to the first arm that answers it.
-func (s Spec[S]) Dispatch(state S, bindings config.Keybindings, pressed string) tea.Cmd {
+func (s Spec[S]) Dispatch(state S, bindings config.Keybindings, pressed string) screen.Request {
 	for _, a := range s.Table {
 		if a.When != nil && !a.When(state) {
 			continue

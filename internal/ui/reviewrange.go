@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // reviewLegendFloor is the shortest pane the expanded legend fits in once it carries the step row.
@@ -69,7 +68,7 @@ func (d reviewDiff) stepAt(steps []diffSpec) int {
 
 // stepBase walks back a review, from the whole change to the work since the person's last review
 // and on into older ones, stopping on the oldest.
-func (r *reviewScreen) stepBase(m *model) tea.Cmd {
+func (r *reviewScreen) stepBase(m *model) screen.Request {
 	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}
@@ -91,7 +90,7 @@ func (r *reviewScreen) stepBase(m *model) tea.Cmd {
 }
 
 // stepBaseForward walks the other way, and stops on the whole change.
-func (r *reviewScreen) stepBaseForward(m *model) tea.Cmd {
+func (r *reviewScreen) stepBaseForward(m *model) screen.Request {
 	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}
@@ -109,7 +108,7 @@ func (r *reviewScreen) stepBaseForward(m *model) tea.Cmd {
 }
 
 // showRange puts the range between two snapshots on screen and reads the diff again once it has moved.
-func (r *reviewScreen) showRange(m *model, from, to string) tea.Cmd {
+func (r *reviewScreen) showRange(m *model, from, to string) screen.Request {
 	next := diffSpec{from: from, to: r.diff.endOf(to)}
 	if next.isSameRange(r.diff.spec) {
 		return nil
@@ -130,7 +129,7 @@ func (d reviewDiff) endOf(id string) string {
 }
 
 // endOnNewest keeps the start of the range on screen and ends it on the newest snapshot.
-func (r *reviewScreen) endOnNewest(m *model) tea.Cmd {
+func (r *reviewScreen) endOnNewest(m *model) screen.Request {
 	return r.showRange(m, r.diff.rangeStart(), "")
 }
 

@@ -4,8 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/keys"
-
-	tea "charm.land/bubbletea/v2"
+	"komrad/internal/ui/screen"
 )
 
 // actions is the archived schedules as one table and the legend that names it.
@@ -23,7 +22,7 @@ func (a *archivedSchedules) table() []keys.Action[*model] {
 		keys.Action[*model]{
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
-			Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+			Nav:  func(m *model, _ string) screen.Request { return screen.PickView{} },
 		},
 	)
 }

@@ -7,12 +7,13 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
 
-func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
+func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) screen.Request {
 	if cmd, ok := r.takeKey(m, key); ok {
 		m.dropTopPress()
 
@@ -23,7 +24,7 @@ func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
 }
 
 // takeKey handles a key before the screen's actions see it, and false for one it leaves to them.
-func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
+func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (screen.Request, bool) {
 	if r.threads.composing {
 		return r.updateComposer(m, key), true
 	}
@@ -55,11 +56,6 @@ func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
 	return nil, false
 }
 
-// refuseWrite says why a key that would write to the agent did nothing.
-func (r *reviewScreen) refuseWrite(m *model) {
-	m.note(messageWarning, archivedSaid)
-}
-
 // diffKeys is the review's own diff under the keys every diff pane shares, with the cursor
 // landing on a conversation it has to answer for.
 func (r *reviewScreen) diffKeys() diffKeys {
@@ -67,10 +63,10 @@ func (r *reviewScreen) diffKeys() diffKeys {
 		pane:   &r.diff.Pane,
 		filter: &r.diff.filter,
 		window: r.diffWindow,
-		moved: func(m *model) tea.Cmd {
+		moved: func(m *model) screen.Request {
 			r.threads.scroll.reset()
 
-			return m.waitToStage()
+			return screen.Settle{}
 		},
 		refuseExpand: r.refuseExpand,
 	}
@@ -101,12 +97,10 @@ func (r *reviewScreen) diffWindow(m *model) diffview.Window {
 }
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
-func (r *reviewScreen) jumpOpenThread(m *model, direction int) tea.Cmd {
+func (r *reviewScreen) jumpOpenThread(m *model, direction int) screen.Request {
 	next, ok := r.diff.View().JumpOpenThread(r.diff.Cursor(), direction)
 	if !ok || next == r.diff.Cursor() {
-		m.note(messageWarning, r.diff.noOpenThreadSaid())
-
-		return nil
+		return screen.NewNote(screen.Warning, r.diff.noOpenThreadSaid())
 	}
 
 	return r.moveCursor(m, next)
@@ -162,7 +156,7 @@ func (d reviewDiff) threadByID(id string) (*agentv1.ReviewThread, bool) {
 	return d.View().GetThreadAt(row)
 }
 
-func (r *reviewScreen) moveCursor(m *model, next int) tea.Cmd {
+func (r *reviewScreen) moveCursor(m *model, next int) screen.Request {
 	return r.diffKeys().moveTo(m, next)
 }
 
@@ -170,7 +164,7 @@ func (r *reviewScreen) doesScrollColumn(*model) bool {
 	return true
 }
 
-func (r *reviewScreen) scrollColumn(m *model, rows int) tea.Cmd {
+func (r *reviewScreen) scrollColumn(m *model, rows int) screen.Request {
 	if r.isWriting() || r.diff.View() == nil {
 		return nil
 	}
@@ -179,7 +173,7 @@ func (r *reviewScreen) scrollColumn(m *model, rows int) tea.Cmd {
 }
 
 // scrollList presses the scroll key once for every row, past the popup.
-func (r *reviewScreen) scrollList(m *model, rows int) tea.Cmd {
+func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 	if r.isWriting() || r.diff.View() == nil {
 		return nil
 	}
@@ -193,12 +187,12 @@ func (r *reviewScreen) scrollList(m *model, rows int) tea.Cmd {
 		return nil
 	}
 
-	var cmds []tea.Cmd
+	var requests screen.Batch
 	for range max(rows, -rows) {
-		cmds = append(cmds, r.diffActions().Dispatch(m, m.keys, pressed[0]))
+		requests = append(requests, r.diffActions().Dispatch(m, m.keys, pressed[0]))
 	}
 
-	return tea.Batch(cmds...)
+	return requests
 }
 
 // scrollPopupAt moves the conversation in the popup when the cell at x and y is inside it.
@@ -235,7 +229,7 @@ func (r *reviewScreen) scrollPopup(m *model, rows int) bool {
 
 // scrollSidebarAt walks the file tree or the pull request description when row y is inside it,
 // without focusing it.
-func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (tea.Cmd, bool) {
+func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (screen.Request, bool) {
 	section, ok := r.sidebarNavAt(m, y)
 	if !ok {
 		return nil, false

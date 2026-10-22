@@ -4,12 +4,11 @@ import (
 	"errors"
 	"slices"
 
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // subpage is one entry of the subpages menu.
@@ -49,7 +48,7 @@ func subpageEntries(m *model, item panel.AgentRow, pages []subpage) []menu.Entry
 	return xslice.Map(pages, func(page subpage) menu.Entry {
 		entry := subpageEntry(m, screen.Agents, item, page)
 		if entry.Opens == nil {
-			entry.Pick = func() tea.Cmd { return m.enterSubpage(screen.Agents, item.Agent.ID, page) }
+			entry.Pick = func() screen.Request { return m.enterSubpage(screen.Agents, item.Agent.ID, page) }
 		}
 
 		return entry
@@ -119,10 +118,10 @@ func terminalRefusal(openedFrom screen.ID, agent panel.Agent) error {
 
 // enterSubpage goes from the menu to the subpage picked, or closes it and says why the agent has
 // nothing there.
-func (m *model) enterSubpage(openedFrom screen.ID, agentID string, picked subpage) tea.Cmd {
+func (m *model) enterSubpage(openedFrom screen.ID, agentID string, picked subpage) screen.Request {
 	item, ok := m.listing.AnyAgent(agentID)
 	if !ok {
-		return m.refuseSubpage("Could not open the subpage", errAgentGone)
+		return refuseSubpage("Could not open the subpage", errAgentGone)
 	}
 
 	name := item.Agent.Name
@@ -130,35 +129,26 @@ func (m *model) enterSubpage(openedFrom screen.ID, agentID string, picked subpag
 	switch picked {
 	case subpageReview:
 		if err := reviewRefusal(m.listing, item.Agent); err != nil {
-			return m.refuseSubpage("Could not open the review of "+name, err)
+			return refuseSubpage("Could not open the review of "+name, err)
 		}
 
-		m.leaveForm()
-
-		return m.apply(screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: agentID}})
+		return screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: agentID}}
 	case subpageLogs:
-		m.leaveForm()
-
-		return m.apply(screen.Open{Screen: screen.Logs, Target: screen.Target{AgentID: agentID, OpenedFrom: openedFrom}})
+		return screen.Open{Screen: screen.Logs, Target: screen.Target{AgentID: agentID, OpenedFrom: openedFrom}}
 	case subpageChecks:
-		m.leaveForm()
-
-		return m.apply(screen.Open{Screen: screen.StatusChecks, Target: screen.Target{AgentID: agentID, OpenedFrom: openedFrom}})
+		return screen.Open{Screen: screen.StatusChecks, Target: screen.Target{AgentID: agentID, OpenedFrom: openedFrom}}
 	case subpageTerminal:
 		if err := terminalRefusal(openedFrom, item.Agent); err != nil {
-			return m.refuseSubpage("Could not open a terminal", err)
+			return refuseSubpage("Could not open a terminal", err)
 		}
 
-		return tea.Batch(m.closeForm(), m.openTerminal(item.Agent.Cwd))
+		return screen.Batch{form.Close{}, screen.OpenTerminal{Dir: item.Agent.Cwd}}
 	}
 
-	return m.closeForm()
+	return form.Close{}
 }
 
 // refuseSubpage closes the menu and says why the subpage picked did not open.
-func (m *model) refuseSubpage(title string, err error) tea.Cmd {
-	back := m.closeForm()
-	m.report(title, err)
-
-	return back
+func refuseSubpage(title string, err error) screen.Request {
+	return screen.Batch{form.Close{}, screen.Report{Summary: title, Err: err}}
 }

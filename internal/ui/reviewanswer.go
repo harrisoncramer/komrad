@@ -4,9 +4,8 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // reviewAnswer is the answer to one comment on screen: the change the reply that addressed it
@@ -22,7 +21,7 @@ type reviewAnswer struct {
 
 // toggleAnswer puts the answer to the comment under the cursor on screen, or goes back to the
 // range held before it.
-func (r *reviewScreen) toggleAnswer(m *model) tea.Cmd {
+func (r *reviewScreen) toggleAnswer(m *model) screen.Request {
 	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}

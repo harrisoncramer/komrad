@@ -10,7 +10,6 @@ import (
 	"komrad/internal/ui/screen"
 	forgev1 "komrad/proto/gen/forge/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -43,8 +42,8 @@ type mergePlannedMsg struct {
 func mergeMenu(m *model, task panel.Task) menu.Menu {
 	taskID := task.ID
 	refused := openPullRequestRefusal(task) != nil
-	run := func(choice mergeChoice) func() tea.Cmd {
-		return func() tea.Cmd { return m.runMerge(taskID, choice) }
+	run := func(choice mergeChoice) func() screen.Request {
+		return func() screen.Request { return m.runMerge(taskID, choice) }
 	}
 
 	return menu.Menu{
@@ -84,31 +83,31 @@ func mergeMenu(m *model, task panel.Task) menu.Menu {
 
 // runMerge asks the forge how the task's pull request could merge, or says why it cannot, and
 // cancels auto-merge at once.
-func (m *model) runMerge(taskID string, choice mergeChoice) tea.Cmd {
+func (m *model) runMerge(taskID string, choice mergeChoice) screen.Request {
 	// The list may have moved under the open menu.
 	task, ok := m.findGitTask(taskID)
 	if !ok {
-		return m.apply(screen.Report{Summary: "Could not act on the task", Err: errTaskGone})
+		return screen.Report{Summary: "Could not act on the task", Err: errTaskGone}
 	}
 
 	switch choice {
 	case mergeChoiceAutoMerge:
 		if err := autoMergeRefusal(task); err != nil {
-			return m.apply(screen.Report{Summary: "Could not change auto-merge on the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
+			return screen.Report{Summary: "Could not change auto-merge on the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err}
 		}
 		if task.PullRequest.MergeReadiness.AutoMerge {
-			return m.apply(m.autoMergeWrite(task, mergeParams{url: task.PullRequest.URL, headSHA: task.PullRequest.HeadSHA}, false))
+			return m.autoMergeWrite(task, mergeParams{url: task.PullRequest.URL, headSHA: task.PullRequest.HeadSHA}, false)
 		}
 	case mergeChoiceMergeRebase:
 		if err := mergeRebaseRefusal(m.listing, task); err != nil {
-			return m.apply(screen.Report{Summary: "Could not merge and rebase " + task.Slug, Err: err})
+			return screen.Report{Summary: "Could not merge and rebase " + task.Slug, Err: err}
 		}
 	case mergeChoiceMerge, mergeChoiceMergeArchive:
 		if err := openPullRequestRefusal(task); err != nil {
-			return m.apply(screen.Report{Summary: "Could not merge the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
+			return screen.Report{Summary: "Could not merge the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err}
 		}
 		if choice == mergeChoiceMergeArchive && task.ArchivedAt != nil {
-			return m.apply(screen.Report{Summary: "Could not archive " + task.Slug, Err: errArchiveArchived})
+			return screen.Report{Summary: "Could not archive " + task.Slug, Err: errArchiveArchived}
 		}
 	}
 
@@ -116,10 +115,10 @@ func (m *model) runMerge(taskID string, choice mergeChoice) tea.Cmd {
 }
 
 // planMerge asks the forge how the task's pull request could merge.
-func (m *model) planMerge(task panel.Task, choice mergeChoice) tea.Cmd {
+func (m *model) planMerge(task panel.Task, choice mergeChoice) screen.Request {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing: "planning the merge of " + task.PullRequest.Ref(),
 		Send: func() screen.Landed {
 			plan, err := clients.planPullRequestMerge(task.PullRequest.URL)
@@ -129,27 +128,25 @@ func (m *model) planMerge(task panel.Task, choice mergeChoice) tea.Cmd {
 				Then:     mergePlannedMsg{task: task, choice: choice, plan: plan, err: err},
 			}
 		},
-	})
+	}
 }
 
 // applyMergePlanned opens the merge form, or says why there is none.
-func (m *model) applyMergePlanned(msg mergePlannedMsg) tea.Cmd {
+func (m *model) applyMergePlanned(msg mergePlannedMsg) screen.Request {
 	if msg.err != nil {
-		m.report("Could not work out how "+msg.task.PullRequest.Ref()+" of "+msg.task.Slug+" can merge", msg.err)
-
-		return nil
+		return screen.Report{Summary: "Could not work out how " + msg.task.PullRequest.Ref() + " of " + msg.task.Slug + " can merge", Err: msg.err}
 	}
 
 	return m.openMergeForm(msg.task, msg.choice, msg.plan)
 }
 
 // openMergeForm opens the form that picks how the pull request merges and with what message.
-func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1.PlanForgePullRequestMergeResponse) tea.Cmd {
+func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1.PlanForgePullRequestMergeResponse) screen.Request {
 	values := &mergeFormValues{Method: plan.GetDefaultMethod()}
 	renderedMethod := values.Method
 	var filled *forgev1.CommitMessage
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
 			renderedMethod = values.Method
 			filled = values.fill(mergeOptionOf(plan, values.Method), filled)
@@ -173,7 +170,7 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 		},
 		Narrow:          true,
 		ClosesOnRefusal: true,
-	}})
+	}}
 }
 
 // mergeOptionOf is the plan's option for the method, nil when the forge offers no such method.
@@ -206,30 +203,29 @@ func mergeOp(task panel.Task, archive bool, params mergeParams) gitOp {
 		run: func(clients api) gitReport {
 			err := clients.mergePullRequest(params)
 
-			return func(m *model) tea.Cmd {
+			return func(m *model) screen.Request {
 				return m.reportMerged(task, archive, err)
 			}
 		},
 	}
 }
 
-func (m *model) reportMerged(task panel.Task, archive bool, err error) tea.Cmd {
+func (m *model) reportMerged(task panel.Task, archive bool, err error) screen.Request {
 	standing := task.PullRequest
 	if err != nil {
-		return m.apply(screen.Report{Summary: "Could not merge " + standing.Ref() + " of " + task.Slug, Err: err})
+		return screen.Report{Summary: "Could not merge " + standing.Ref() + " of " + task.Slug, Err: err}
 	}
 
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: task.Slug + ": merged " + standing.Ref(),
-		detail:  standing.Title,
-	})
-
+	merged := screen.Note{
+		Kind:    screen.Info,
+		Summary: task.Slug + ": merged " + standing.Ref(),
+		Detail:  standing.Title,
+	}
 	if !archive {
-		return nil
+		return merged
 	}
 
-	return m.archiveTasks([]panel.Task{task})
+	return screen.Batch{merged, m.archiveTasks([]panel.Task{task})}
 }
 
 func mergeRebaseOp(task panel.Task, params mergeParams) gitOp {
@@ -239,18 +235,15 @@ func mergeRebaseOp(task panel.Task, params mergeParams) gitOp {
 		running: "merging " + task.PullRequest.Ref() + " and rebasing " + name,
 		run: func(clients api) gitReport {
 			if err := clients.mergePullRequest(params); err != nil {
-				return func(m *model) tea.Cmd {
+				return func(m *model) screen.Request {
 					return m.reportMerged(task, false, err)
 				}
 			}
 
 			result, err := clients.rebaseWorktree(taskID, false)
 
-			return func(m *model) tea.Cmd {
-				m.reportMerged(task, false, nil)
-				m.reportRebased(name, result, err)
-
-				return nil
+			return func(m *model) screen.Request {
+				return screen.Batch{m.reportMerged(task, false, nil), reportRebased(name, result, err)}
 			}
 		},
 	}

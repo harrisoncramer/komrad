@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -26,17 +27,8 @@ const messagesPulseBlinks = 2
 
 const messagesFlashFor = 5 * time.Second
 
-type messageKind int
-
-const (
-	messageInfo messageKind = iota
-	messageSuccess
-	messageWarning
-	messageError
-)
-
 type message struct {
-	kind    messageKind
+	kind    screen.Kind
 	key     string
 	summary string
 	detail  string

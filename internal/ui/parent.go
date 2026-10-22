@@ -11,7 +11,6 @@ import (
 	"komrad/internal/ui/screen"
 	taskv1 "komrad/proto/gen/task/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -49,11 +48,11 @@ func cascadeBlockSaid(block taskv1.CascadeBlock, parent string) string {
 }
 
 // openPickForkPoint opens the form that picks an orphaned child's fork point.
-func openPickForkPoint(m *model, task panel.Task) tea.Cmd {
+func openPickForkPoint(m *model, task panel.Task) screen.Request {
 	values := &pickForkPointValues{}
 	parent := m.listing.Tasks[task.Parent.GetTaskId()].Slug
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
 			return pickForkPointForm(fixedKeys(), values, task.Slug, parent)
 		},
@@ -66,7 +65,7 @@ func openPickForkPoint(m *model, task panel.Task) tea.Cmd {
 				func(a api) error { return a.pickForkPoint(task.ID, commit) },
 			)
 		},
-	}})
+	}}
 }
 
 func pickForkPointForm(keys config.FixedKeys, values *pickForkPointValues, slug, parent string) (*huh.Form, []string) {

@@ -11,7 +11,6 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -25,14 +24,14 @@ type documentFormValues struct {
 }
 
 // newDocumentForm puts up the form for a document written for an agent.
-func newDocumentForm(m *model, agentID string) tea.Cmd {
+func newDocumentForm(m *model, agentID string) screen.Request {
 	owner, types := agentID, m.listing.DocumentTypeNames()
 	if item, ok := m.listing.AnyAgent(agentID); ok {
 		owner = item.Agent.Name
 	}
 	values := &documentFormValues{Type: defaultDocumentType(types)}
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Build: func(in form.Inputs) (*huh.Form, []string) {
 			return documentForm(values, in.Listing.DocumentTypeNames())
 		},
@@ -55,7 +54,7 @@ func newDocumentForm(m *model, agentID string) tea.Cmd {
 				},
 			)
 		},
-	}})
+	}}
 }
 
 func documentForm(values *documentFormValues, types []string) (*huh.Form, []string) {
@@ -95,7 +94,7 @@ func defaultDocumentType(types []string) string {
 }
 
 // pressNew puts up the form for a new document of the one agent the filter names.
-func (d *documentsScreen) pressNew(m *model) tea.Cmd {
+func (d *documentsScreen) pressNew(m *model) screen.Request {
 	agentID, ok := m.namedAgentID()
 	if d.editing != nil || !ok {
 		return nil

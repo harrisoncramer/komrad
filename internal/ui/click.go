@@ -21,6 +21,12 @@ func (f clickFunc) click(m *model, key string, nth int) tea.Cmd {
 	return f(m, key, nth)
 }
 
+type requestClick func(m *model, key string, nth int) screen.Request
+
+func (f requestClick) click(m *model, key string, nth int) tea.Cmd {
+	return m.apply(f(m, key, nth))
+}
+
 var formZones = []zone.Name{zoneMenu, zoneParentMenu}
 
 func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
@@ -80,28 +86,32 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickDocLine(key) })), true
 		}
 	case zoneLog:
-		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.logs.clickLine(key) })), true
+		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd {
+			m.logs.clickLine(key)
+
+			return nil
+		})), true
 	case zoneDiff:
 		if m.screen == screen.Review {
-			return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.review.diffKeys().click(m, key) })), true
+			return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.apply(m.review.diffKeys().click(m, key)) })), true
 		}
 		if m.screen == screen.Documents {
-			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.documents.diffKeys().click(m, key) })), true
+			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.apply(m.documents.diffKeys().click(m, key)) })), true
 		}
 	case zoneMenu:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSubmenu(key, false) }), true
 	case zoneParentMenu:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSubmenu(key, true) }), true
 	case zoneFiles:
-		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.review.clickFile(m, path) })), true
+		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.apply(m.review.clickFile(m, path)) })), true
 	case zoneDetails:
-		return m.stopClicker(stopRecord, m.detailsList()), true
+		return m.stopClicker(stopRecord, requestClick(m.detailsList().click)), true
 	case zoneList:
 		if lister, ok := m.active().(activeLister); ok {
 			return m.listClicker(lister.activeList()), true
 		}
 	case zoneSide:
-		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.review.clickSide(m, key) })), true
+		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.apply(m.review.clickSide(m, key)) })), true
 	case zoneColumn, zoneBlock:
 	}
 

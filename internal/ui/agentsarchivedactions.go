@@ -6,8 +6,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
-
-	tea "charm.land/bubbletea/v2"
+	"komrad/internal/ui/screen"
 )
 
 // actions is the archived agents as one table and the legend that names it.
@@ -26,13 +25,13 @@ func (a *archivedAgents) table() []keys.Action[*model] {
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
 			When: list.isBrowsing,
-			Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+			Nav:  func(m *model, _ string) screen.Request { return screen.PickView{} },
 		},
 		keys.Action[*model]{
 			ID:     actionArchiveRename,
 			Keys:   func(k config.Keybindings) []string { return k.Archive.Rename },
 			When:   list.isBrowsing,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m) }),
 		},
 	)
 }

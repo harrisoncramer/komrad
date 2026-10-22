@@ -100,14 +100,13 @@ func (r reviewScreen) isDiffFocused(m *model) bool {
 }
 
 // update takes the review's own answers and, once nothing in the sidebar has them, the keys.
-func (r *reviewScreen) update(m *model, msg tea.Msg) tea.Cmd {
-	cmd := r.route(m, msg)
-	r.followWorld(m)
+func (r *reviewScreen) update(m *model, msg tea.Msg) screen.Request {
+	routed := r.route(m, msg)
 
-	return cmd
+	return screen.Batch{routed, r.followWorld(m)}
 }
 
-func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {
+func (r *reviewScreen) route(m *model, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case reviewLoadedMsg:
 		return r.applyLoaded(m, msg)
@@ -125,23 +124,8 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {
 }
 
 // enter leaves the review as it stands.
-func (r *reviewScreen) enter(*model, screen.Target) tea.Cmd {
+func (r *reviewScreen) enter(*model, screen.Target) screen.Request {
 	return nil
-}
-
-// enterReview is the agents screen's way onto the review of an agent's diff, with the threads
-// in the sidebar and the diff in the stage.
-func (m *model) enterReview(agent panel.Agent) tea.Cmd {
-	if !m.listing.IsReviewable(agent) {
-		return nil
-	}
-
-	opened := m.review.open(m, agent)
-	left := m.enterScreen(screen.Review)
-	m.leftStop = stopList
-	m.stageSelection()
-
-	return tea.Batch(left, opened)
 }
 
 var (

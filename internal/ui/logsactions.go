@@ -6,8 +6,6 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the logs screen as one table and the legend that names it.
@@ -32,8 +30,8 @@ func (l *logsScreen) table() []keys.Action[*model] {
 		keys.Action[*model]{
 			ID:   actionLogsBack,
 			Keys: keys.FixedBack,
-			Nav: func(m *model, _ string) tea.Cmd {
-				return m.apply(screen.Open{Screen: l.openedFrom, Target: screen.Target{AgentID: l.agentID}})
+			Nav: func(m *model, _ string) screen.Request {
+				return screen.Open{Screen: l.openedFrom, Target: screen.Target{AgentID: l.agentID}}
 			},
 		},
 	)
@@ -70,19 +68,19 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 			{
 				ID:   actionLogsCopy,
 				Keys: func(k config.Keybindings) []string { return k.Logs.Copy },
-				Nav: func(m *model, _ string) tea.Cmd {
+				Nav: func(m *model, _ string) screen.Request {
 					line, ok := l.viewer.Current()
 					if !ok {
 						return nil
 					}
 
-					return m.copyCmd(line)
+					return screen.Copy{Text: line}
 				},
 			},
 			{
 				ID:   keys.FilterOpen,
 				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				Nav: func(*model, string) tea.Cmd {
+				Nav: func(*model, string) screen.Request {
 					l.openLogFilter()
 
 					return nil
@@ -91,7 +89,7 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 			{
 				ID:   actionLogsBack,
 				Keys: keys.FixedBack,
-				Nav: func(m *model, _ string) tea.Cmd {
+				Nav: func(m *model, _ string) screen.Request {
 					if l.logFilter.isStanding() {
 						return l.clearLogFilter(m)
 					}
@@ -104,7 +102,7 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) tea.Cmd { return m.apply(screen.Hide{}) },
+				Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
 			},
 		}...),
 		Legend: []keys.LegendRow[*model]{

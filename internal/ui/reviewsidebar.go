@@ -9,11 +9,10 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // sideKind is what a row of the sidebar over the file tree stands for.
@@ -351,7 +350,7 @@ func (r reviewScreen) descriptionRows(m *model) []sideRow {
 }
 
 // moveSide walks the rows over the file tree, false while the move stays on the tree.
-func (r *reviewScreen) moveSide(m *model, rows int) (tea.Cmd, bool) {
+func (r *reviewScreen) moveSide(m *model, rows int) (screen.Request, bool) {
 	stops := r.sideStops(m)
 	tree := r.readFilesTree()
 	at := r.sideAt(stops)
@@ -394,7 +393,7 @@ func (r *reviewScreen) restOnSide(cursor sideCursor) {
 }
 
 // chooseSide does what the row under the sidebar's cursor is for, false when it is for nothing.
-func (r *reviewScreen) chooseSide(m *model) (tea.Cmd, bool) {
+func (r *reviewScreen) chooseSide(m *model) (screen.Request, bool) {
 	side, ok := r.findSide(m)
 	if !ok {
 		return nil, false
@@ -452,7 +451,7 @@ func (r reviewScreen) doesChoose(m *model) bool {
 
 // landOnThread puts the diff's cursor on a thread, widening the diff when the range on screen
 // leaves it out.
-func (r *reviewScreen) landOnThread(m *model, id string) tea.Cmd {
+func (r *reviewScreen) landOnThread(m *model, id string) screen.Request {
 	r.blurBlock()
 	if y, ok := r.diff.View().GetThreadRow(id); ok && r.diff.isThreadOnScreen(r.threads.list, id) {
 		return r.moveCursor(m, y)
@@ -466,17 +465,15 @@ func (r *reviewScreen) landOnThread(m *model, id string) tea.Cmd {
 }
 
 // openStackedReview leaves this review for the review of another task in the stack.
-func (r *reviewScreen) openStackedReview(m *model, taskID string) tea.Cmd {
+func (r *reviewScreen) openStackedReview(m *model, taskID string) screen.Request {
 	if said := r.stackedOffSaid(m, taskID); said != "" {
-		m.note(messageWarning, said)
-
-		return nil
+		return screen.NewNote(screen.Warning, said)
 	}
 
 	writer, _ := m.listing.FindTaskWriter(m.listing.Tasks[taskID])
 	letGo := r.endHold(m, abandonedSaid)
 
-	return tea.Batch(letGo, m.enterReview(writer.Agent))
+	return screen.Batch{letGo, screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: writer.Agent.ID}}}
 }
 
 // stackedOffSaid is why the review of a task in the stack cannot open, empty when it can.
@@ -504,7 +501,7 @@ func (r *reviewScreen) sideMenu(m *model, side sideCursor) (menu.Menu, bool) {
 	}
 
 	task := m.listing.Tasks[side.id]
-	review := menu.Leaving("review", m.keys.Menu.Review, func() tea.Cmd {
+	review := menu.Leaving("review", m.keys.Menu.Review, func() screen.Request {
 		return m.review.openStackedReview(m, task.ID)
 	})
 
@@ -514,7 +511,7 @@ func (r *reviewScreen) sideMenu(m *model, side sideCursor) (menu.Menu, bool) {
 	}, true
 }
 
-func (r *reviewScreen) clickSide(m *model, key string) tea.Cmd {
+func (r *reviewScreen) clickSide(m *model, key string) screen.Request {
 	cursor, ok := parseSideKey(key)
 	if !ok || !cursor.kind.isStop() {
 		return nil

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"slices"
+
 	"komrad/config"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/form"
@@ -243,6 +245,16 @@ func (m *model) rerenderOpenForm() tea.Cmd {
 	}
 
 	return m.rerenderFormOn(key)
+}
+
+// rerenderWorktreeConfirm renders a delete confirm again once git answers for a worktree it
+// describes.
+func (m *model) rerenderWorktreeConfirm(dir string) tea.Cmd {
+	if !slices.Contains(m.form.Worktrees, dir) {
+		return nil
+	}
+
+	return m.rerenderOpenForm()
 }
 
 func (m *model) rebuildForm() tea.Cmd {

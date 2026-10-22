@@ -8,8 +8,6 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/screen"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the keys of whichever of the diff and the sidebar holds them.
@@ -40,12 +38,12 @@ func (r *reviewScreen) ownTable() []keys.Action[*model] {
 		{
 			ID:     actionReviewBack,
 			Keys:   keys.FixedBack,
-			Direct: keys.Directly(editorRelease, func(m *model, _ string) tea.Cmd { return r.backFromDiff(m) }),
+			Direct: keys.Directly(editorRelease, func(m *model, _ string) screen.Request { return r.backFromDiff(m) }),
 		},
 		{
 			ID:   keys.Quit,
 			Keys: keys.FixedQuit,
-			Nav:  func(m *model, _ string) tea.Cmd { return m.apply(screen.Hide{}) },
+			Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
 		},
 		{
 			ID:   actionReviewThread,
@@ -63,24 +61,22 @@ func (r *reviewScreen) ownTable() []keys.Action[*model] {
 			ID:   actionReviewBase,
 			Keys: func(k config.Keybindings) []string { return k.Review.Base },
 			When: func(*model) bool { return r.doesWalk() },
-			Nav:  func(m *model, _ string) tea.Cmd { return r.stepBase(m) },
+			Nav:  func(m *model, _ string) screen.Request { return r.stepBase(m) },
 		},
 		{
 			ID:   actionReviewBaseForward,
 			Keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
 			When: func(*model) bool { return r.doesWalk() },
-			Nav:  func(m *model, _ string) tea.Cmd { return r.stepBaseForward(m) },
+			Nav:  func(m *model, _ string) screen.Request { return r.stepBaseForward(m) },
 		},
 	}
 }
 
 // orRefuseWrite runs fn, which puts something in front of the agent, or says why it did not, when
 // the agent it would reach is no longer there.
-func (r *reviewScreen) orRefuseWrite(m *model, fn func(*model) tea.Cmd) tea.Cmd {
+func (r *reviewScreen) orRefuseWrite(m *model, fn func(*model) screen.Request) screen.Request {
 	if r.isArchived(m) {
-		r.refuseWrite(m)
-
-		return nil
+		return screen.NewNote(screen.Warning, archivedSaid)
 	}
 
 	return fn(m)
@@ -121,7 +117,7 @@ func (r *reviewScreen) legend() []keys.LegendRow[*model] {
 }
 
 // stepOpenThread walks the comments nobody has settled.
-func (r *reviewScreen) stepOpenThread(m *model, pressed string) tea.Cmd {
+func (r *reviewScreen) stepOpenThread(m *model, pressed string) screen.Request {
 	if keys.IsBound(pressed, m.keys.Review.PrevOpenThread) {
 		return r.jumpOpenThread(m, -1)
 	}
@@ -129,7 +125,7 @@ func (r *reviewScreen) stepOpenThread(m *model, pressed string) tea.Cmd {
 	return r.jumpOpenThread(m, 1)
 }
 
-func (r *reviewScreen) stepThread(m *model, pressed string) tea.Cmd {
+func (r *reviewScreen) stepThread(m *model, pressed string) screen.Request {
 	if keys.IsBound(pressed, m.keys.Review.PrevThread) {
 		return r.moveCursor(m, r.diff.View().JumpThread(r.diff.Cursor(), -1))
 	}
@@ -146,7 +142,7 @@ func (r *reviewScreen) filesActions() keys.Spec[*model] {
 			{
 				ID:   actionDiffFile,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Diff.NextFile, k.Diff.PrevFile) },
-				Nav: func(m *model, pressed string) tea.Cmd {
+				Nav: func(m *model, pressed string) screen.Request {
 					return r.stepFile(m, keys.DirectionOf(pressed, m.keys.Diff.PrevFile))
 				},
 			},
@@ -155,7 +151,7 @@ func (r *reviewScreen) filesActions() keys.Spec[*model] {
 				Keys: func(k config.Keybindings) []string {
 					return slices.Concat(keys.FixedOpen(k), k.Review.ToggleFolder)
 				},
-				Nav: func(m *model, _ string) tea.Cmd {
+				Nav: func(m *model, _ string) screen.Request {
 					if cmd, chosen := r.chooseSide(m); chosen {
 						return cmd
 					}
@@ -168,7 +164,7 @@ func (r *reviewScreen) filesActions() keys.Spec[*model] {
 			{
 				ID:   keys.FilterOpen,
 				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				Nav: func(*model, string) tea.Cmd {
+				Nav: func(*model, string) screen.Request {
 					r.openFilesFilter()
 
 					return nil
@@ -178,7 +174,7 @@ func (r *reviewScreen) filesActions() keys.Spec[*model] {
 				ID:   keys.FilterMatch,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				When: standing,
-				Nav: func(m *model, pressed string) tea.Cmd {
+				Nav: func(m *model, pressed string) screen.Request {
 					return r.jumpFilesMatch(m, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
 				},
 			},
@@ -186,7 +182,7 @@ func (r *reviewScreen) filesActions() keys.Spec[*model] {
 				ID:   keys.FilterClear,
 				Keys: keys.FixedBack,
 				When: standing,
-				Nav: func(*model, string) tea.Cmd {
+				Nav: func(*model, string) screen.Request {
 					r.filesFilter.abandon()
 
 					return nil
@@ -195,12 +191,12 @@ func (r *reviewScreen) filesActions() keys.Spec[*model] {
 			{
 				ID:     actionReviewBack,
 				Keys:   keys.FixedBack,
-				Direct: keys.Directly(editorRelease, func(m *model, _ string) tea.Cmd { return r.back(m) }),
+				Direct: keys.Directly(editorRelease, func(m *model, _ string) screen.Request { return r.back(m) }),
 			},
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) tea.Cmd { return m.apply(screen.Hide{}) },
+				Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
 			},
 		}...),
 		Legend: []keys.LegendRow[*model]{
@@ -263,15 +259,15 @@ func (r *reviewScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 	}
 
 	if reachable && r.doesOfferForgeReply() {
-		entries = append(entries, menu.Leaving("reply on "+r.forgeName(m), m.keys.Review.ForgeReply, func() tea.Cmd {
+		entries = append(entries, menu.Leaving("reply on "+r.forgeName(m), m.keys.Review.ForgeReply, func() screen.Request {
 			return m.review.orRefuseWrite(m, m.review.composeForge)
 		}))
 	}
 
-	entries = append(entries, menu.Leaving(r.diff.resolveDesc(), m.keys.Review.Resolve, func() tea.Cmd { return m.review.resolveThread(m) }))
+	entries = append(entries, menu.Leaving(r.diff.resolveDesc(), m.keys.Review.Resolve, func() screen.Request { return m.review.resolveThread(m) }))
 
 	if r.doesOfferAccept() {
-		accept := menu.Leaving("accept the forge comment", m.keys.Review.Accept, func() tea.Cmd {
+		accept := menu.Leaving("accept the forge comment", m.keys.Review.Accept, func() screen.Request {
 			return m.review.orRefuseWrite(m, m.review.acceptForge)
 		})
 		entries = append(entries, menu.DrawnOff(accept, r.diff.newestSaid()))
@@ -279,10 +275,10 @@ func (r *reviewScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 
 	if reachable && r.doesOfferForgeRetry() {
 		entries = append(entries,
-			menu.Leaving("retry the reply", m.keys.Review.ForgePost, func() tea.Cmd {
+			menu.Leaving("retry the reply", m.keys.Review.ForgePost, func() screen.Request {
 				return m.review.orRefuseWrite(m, m.review.retryForgeReply)
 			}),
-			menu.Leaving("discard the reply", m.keys.Review.ForgeDiscard, func() tea.Cmd {
+			menu.Leaving("discard the reply", m.keys.Review.ForgeDiscard, func() screen.Request {
 				return m.review.orRefuseWrite(m, m.review.discardForgeReply)
 			}),
 		)
@@ -307,15 +303,15 @@ func (r *reviewScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 	_, onThread := r.diff.threadAtCursor()
 	diffFocused := r.isDiffFocused(m)
 
-	edit := menu.Leaving(r.hold.editorDesc(), m.keys.Review.EditFile, func() tea.Cmd { return m.review.pressEdit(m) })
+	edit := menu.Leaving(r.hold.editorDesc(), m.keys.Review.EditFile, func() screen.Request { return m.review.pressEdit(m) })
 	entries := []menu.Entry{menu.DrawnOff(edit, r.editOffSaid(m))}
 
-	viewed := menu.Leaving(r.diff.viewedDesc(), m.keys.Review.ToggleViewed, func() tea.Cmd { return m.review.toggleViewed(m) })
+	viewed := menu.Leaving(r.diff.viewedDesc(), m.keys.Review.ToggleViewed, func() screen.Request { return m.review.toggleViewed(m) })
 	entries = append(entries, menu.DrawnOff(viewed, r.diff.viewedOffSaid()))
 
 	entries = append(entries,
-		menu.Leaving(r.diffKeys().expandDesc(), m.keys.Diff.Expand, func() tea.Cmd { return m.review.diffKeys().toggleExpanded(m) }),
-		menu.Leaving(wrapDesc(m), m.keys.Diff.Wrap, func() tea.Cmd { return m.review.diffKeys().toggleWrap(m) }),
+		menu.Leaving(r.diffKeys().expandDesc(), m.keys.Diff.Expand, func() screen.Request { return m.review.diffKeys().toggleExpanded(m) }),
+		menu.Leaving(wrapDesc(m), m.keys.Diff.Wrap, func() screen.Request { return m.review.diffKeys().toggleWrap(m) }),
 	)
 
 	if diffFocused && !onThread {
@@ -333,13 +329,13 @@ func (r *reviewScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 	}
 
 	if r.isHistory() {
-		entries = append(entries, menu.Leaving(fmt.Sprintf("end the range on snapshot %d", r.diff.newest.GetOrdinal()), m.keys.Review.RangeEnd, func() tea.Cmd {
+		entries = append(entries, menu.Leaving(fmt.Sprintf("end the range on snapshot %d", r.diff.newest.GetOrdinal()), m.keys.Review.RangeEnd, func() screen.Request {
 			return m.review.endOnNewest(m)
 		}))
 	}
 
-	entries = append(entries, menu.Leaving(r.reloadDesc(m), m.keys.Review.Reload, func() tea.Cmd { return m.review.catchUp(m) }))
-	entries = append(entries, menu.Leaving(r.diff.agentThreadsDesc(), m.keys.Review.AgentThreads, func() tea.Cmd { return m.review.toggleAgentThreads(m) }))
+	entries = append(entries, menu.Leaving(r.reloadDesc(m), m.keys.Review.Reload, func() screen.Request { return m.review.catchUp(m) }))
+	entries = append(entries, menu.Leaving(r.diff.agentThreadsDesc(), m.keys.Review.AgentThreads, func() screen.Request { return m.review.toggleAgentThreads(m) }))
 
 	if task, ok := m.listing.Tasks[r.taskID]; ok {
 		entries = append(entries, menu.Nested("git", m.keys.Menu.Git, pullRequestGitMenu(m, task)))
@@ -352,17 +348,17 @@ func (r *reviewScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 }
 
 func (r *reviewScreen) composeEntry(m *model, said string) menu.Entry {
-	return menu.DrawnOff(menu.Leaving(r.composeDesc(), m.keys.Review.Compose, func() tea.Cmd {
+	return menu.DrawnOff(menu.Leaving(r.composeDesc(), m.keys.Review.Compose, func() screen.Request {
 		return m.review.orRefuseWrite(m, m.review.compose)
 	}), said)
 }
 
 func (r *reviewScreen) answerEntry(m *model) menu.Entry {
-	return menu.Leaving(r.diff.answerDesc(), m.keys.Review.Answer, func() tea.Cmd { return m.review.toggleAnswer(m) })
+	return menu.Leaving(r.diff.answerDesc(), m.keys.Review.Answer, func() screen.Request { return m.review.toggleAnswer(m) })
 }
 
 func (r *reviewScreen) jumpEntry(m *model) menu.Entry {
-	return menu.Leaving(r.diff.jumpDesc(), m.keys.Review.Jump, func() tea.Cmd { return m.review.toggleJump(m) })
+	return menu.Leaving(r.diff.jumpDesc(), m.keys.Review.Jump, func() screen.Request { return m.review.toggleJump(m) })
 }
 
 // folderDesc says whether the folder key on the tree opens the folder or closes it.

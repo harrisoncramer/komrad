@@ -26,7 +26,7 @@ func (d *documentsScreen) renamingField() *field.NameEdit {
 }
 
 // openRename types over the name of the item under the cursor once its text has been read.
-func (d *documentsScreen) openRename(m *model) tea.Cmd {
+func (d *documentsScreen) openRename(m *model) screen.Request {
 	item, ok := d.hovered(m)
 	if !ok || d.editing != nil {
 		return nil
@@ -35,13 +35,9 @@ func (d *documentsScreen) openRename(m *model) tea.Cmd {
 	read, asked := d.bodies[item.id]
 	switch {
 	case asked && read.err != nil:
-		m.note(messageWarning, fmt.Sprintf("%q could not be read, so it cannot be renamed", item.name))
-
-		return nil
+		return screen.NewNote(screen.Warning, fmt.Sprintf("%q could not be read, so it cannot be renamed", item.name))
 	case !asked || read.version == 0:
-		m.note(messageWarning, fmt.Sprintf("%q has not been read yet, so it cannot be renamed", item.name))
-
-		return nil
+		return screen.NewNote(screen.Warning, fmt.Sprintf("%q has not been read yet, so it cannot be renamed", item.name))
 	}
 
 	d.renaming = &documentRename{
@@ -60,12 +56,12 @@ func (d *documentsScreen) reconcileRename(m *model) {
 	}
 }
 
-func (d *documentsScreen) updateRename(m *model, msg tea.Msg) tea.Cmd {
+func (d *documentsScreen) updateRename(m *model, msg tea.Msg) screen.Request {
 	switch d.renaming.Take(msg, m.register) {
 	case field.NameGone:
-		m.note(messageWarning, d.renaming.GoneWarning())
+		return screen.NewNote(screen.Warning, d.renaming.GoneWarning())
 	case field.NameHidden:
-		return m.apply(screen.Hide{})
+		return screen.Hide{}
 	case field.NameCancelled:
 		d.renaming = nil
 	case field.NameSubmitted:
@@ -76,7 +72,7 @@ func (d *documentsScreen) updateRename(m *model, msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (d *documentsScreen) saveRename(m *model) tea.Cmd {
+func (d *documentsScreen) saveRename(m *model) screen.Request {
 	rename := d.renaming
 	name, ok := rename.Submit()
 	if !ok {

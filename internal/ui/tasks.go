@@ -16,7 +16,6 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -75,23 +74,21 @@ func (a *agentsScreen) isShowingNotes(r agentRow) bool {
 // notesEntry swaps the pane beside the list between the task's notes and its writer's pane.
 func (a *agentsScreen) notesEntry(m *model, row agentRow) menu.Entry {
 	if a.notes == row.task.ID {
-		return menu.Leaving("close the notes", m.keys.Menu.Notes, func() tea.Cmd { return a.closeNotes(m) })
+		return menu.Leaving("close the notes", m.keys.Menu.Notes, func() screen.Request { return a.closeNotes() })
 	}
 
-	return menu.Leaving("notes", m.keys.Menu.Notes, func() tea.Cmd {
+	return menu.Leaving("notes", m.keys.Menu.Notes, func() screen.Request {
 		a.notes = row.task.ID
-		m.stageSelection()
 
-		return nil
+		return screen.Restage{}
 	})
 }
 
 // closeNotes puts the writer's pane back in place of the task's notes.
-func (a *agentsScreen) closeNotes(m *model) tea.Cmd {
+func (a *agentsScreen) closeNotes() screen.Request {
 	a.notes = ""
-	m.stageSelection()
 
-	return nil
+	return screen.Restage{}
 }
 
 // isLiveWriter reports whether the agent is a writer still working on its task.
@@ -114,8 +111,8 @@ func taskDirs(tasks []panel.Task) []string {
 }
 
 // archiveTasks archives the tasks along with the live agents on them.
-func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
-	return m.apply(m.archivingWrite(archivingWriteParams{
+func (m *model) archiveTasks(tasks []panel.Task) screen.Request {
+	return m.archivingWrite(archivingWriteParams{
 		doing:   "archiving " + describeTasks(tasks),
 		summary: "Could not archive " + describeTasks(tasks),
 		agents:  m.listing.AgentsOnTasks(tasks),
@@ -128,7 +125,7 @@ func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
 
 			return nil
 		},
-	}))
+	})
 }
 
 // deleteTasksWrite is the write that deletes the tasks' worktrees, and with records the tasks for
@@ -145,7 +142,7 @@ func (m *model) deleteTasksWrite(tasks []panel.Task, records bool) screen.Write 
 }
 
 // confirmDeleteTasks asks what goes before the tasks are deleted.
-func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
+func confirmDeleteTasks(m *model, tasks []panel.Task) screen.Request {
 	confirm := deleteTasksConfirm(tasks, len(m.listing.AgentsOnTasks(tasks)), m.listing.HasAnyWorktreeToDelete(tasks))
 
 	return confirm.open(m, func() screen.Request {
@@ -159,7 +156,7 @@ func isEveryTaskHidden(tasks []panel.Task) bool {
 }
 
 // hideTasks hides the tasks, or unhides them when they are all hidden.
-func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
+func hideTasks(m *model, tasks []panel.Task) screen.Request {
 	hidden := !isEveryTaskHidden(tasks)
 	changed := xslice.Filter(tasks, func(task panel.Task) bool { return task.Hidden != hidden })
 
@@ -168,7 +165,7 @@ func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
 		doing, failure = "unhiding "+describeTasks(tasks), "Could not unhide "+describeTasks(tasks)
 	}
 
-	return m.apply(m.write(doing, failure, func(a api) error {
+	return m.write(doing, failure, func(a api) error {
 		for _, task := range changed {
 			if err := a.setTaskHidden(task.ID, hidden); err != nil {
 				return err
@@ -176,7 +173,7 @@ func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
 		}
 
 		return nil
-	}))
+	})
 }
 
 // maxTaskTitle is the longest title a task takes.
@@ -189,14 +186,14 @@ type taskEditValues struct {
 }
 
 // openEditTask opens the form that edits a task's title, goal and notes.
-func openEditTask(m *model, task panel.Task) tea.Cmd {
+func openEditTask(m *model, task panel.Task) screen.Request {
 	values := &taskEditValues{
 		Title: task.Title,
 		Goal:  task.Goal,
 		Notes: task.Notes,
 	}
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
 			return editTaskForm(fixedKeys(), values, task.Slug)
 		},
@@ -222,7 +219,7 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 				func(a api) error { return a.updateTask(params) },
 			)
 		},
-	}})
+	}}
 }
 
 func editTaskForm(fixed config.FixedKeys, values *taskEditValues, slug string) (*huh.Form, []string) {

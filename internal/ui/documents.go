@@ -90,29 +90,27 @@ func (r documentTypeRow) Key() string {
 }
 
 // enter opens on every agent's documents, filtered down to the task or agent the target names when one is.
-func (d *documentsScreen) enter(m *model, target screen.Target) tea.Cmd {
-	var saved tea.Cmd
+func (d *documentsScreen) enter(m *model, target screen.Target) screen.Request {
+	var requests screen.Batch
 	if !target.Resume {
 		d.agentID, d.taskID = target.AgentID, target.TaskID
 		if target.AgentID != "" || target.TaskID != "" {
-			saved = d.closeEdit(m)
+			requests = append(requests, d.closeEdit(m))
 			d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false
 			d.Cursor = list.Cursor{}
 		}
 		switch {
 		case target.TaskID != "":
-			m.filterDocuments(taskClause(m.listing.Tasks[target.TaskID].Slug))
+			requests = append(requests, screen.Filter{Query: taskClause(m.listing.Tasks[target.TaskID].Slug)})
 		case target.AgentID != "":
-			m.filterDocuments(agentClause(findAgentName(m, target.AgentID)))
+			requests = append(requests, screen.Filter{Query: agentClause(findAgentName(m, target.AgentID))})
 		}
 	}
 
-	m.stageTerminal()
-
-	return tea.Batch(saved, m.waitToStage())
+	return append(requests, screen.StageTerminal{}, screen.Settle{})
 }
 
-func (d *documentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
+func (d *documentsScreen) update(m *model, msg tea.Msg) screen.Request {
 	d.reconcileRename(m)
 	if d.isRenaming() {
 		return d.updateRename(m, msg)
@@ -168,13 +166,13 @@ func (d *documentsScreen) kindsSwitch(*model) bool {
 }
 
 // stepKind moves the view between documents and their types.
-func (d *documentsScreen) stepKind(m *model, delta int) tea.Cmd {
+func (d *documentsScreen) stepKind(m *model, delta int) screen.Request {
 	d.kind = documentKind(stepStop(int(d.kind), delta, len(d.kinds(m).labels)))
 	d.history, d.focus = nil, false
 	m.filter = filterState{}
 	m.stageTerminal()
 
-	return m.waitToStage()
+	return screen.Settle{}
 }
 
 func (d *documentsScreen) list() screenList[documentRow] {
@@ -183,11 +181,11 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		rows:   d.rows,
 		name:   documentRowName,
 		fits:   (*model).documentRowFits,
-		placed: func(m *model) { m.stageTerminal() },
-		moved: func(m *model) tea.Cmd {
+		placed: func(*model) screen.Request { return screen.StageTerminal{} },
+		moved: func(*model) screen.Request {
 			d.history, d.focus = nil, false
 
-			return m.waitToStage()
+			return screen.Settle{}
 		},
 	}
 }
@@ -197,8 +195,8 @@ func (d *documentsScreen) documentTypeList() screenList[documentTypeRow] {
 		cursor: func() *list.Cursor { return &d.documentTypes },
 		rows:   d.documentTypeRows,
 		name:   documentTypeRowName,
-		placed: func(m *model) { m.stageTerminal() },
-		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
+		placed: func(*model) screen.Request { return screen.StageTerminal{} },
+		moved:  func(*model) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -313,8 +311,8 @@ func (d *documentsScreen) crumbs(m *model) crumbs {
 	return trail
 }
 
-func (d *documentsScreen) back(m *model) tea.Cmd {
-	return m.pickView()
+func (d *documentsScreen) back(m *model) screen.Request {
+	return screen.PickView{}
 }
 
 // findAgentName is the name of the agent an id names, live or archived, and the id when neither.
@@ -500,8 +498,8 @@ var (
 	_ recordRenderer   = (*documentsScreen)(nil)
 )
 
-func (d *documentsScreen) stage(m *model) {
-	m.stageTerminal()
+func (d *documentsScreen) stage(*model) screen.Request {
+	return screen.StageTerminal{}
 }
 
 func (d *documentsScreen) doesRenderFromListing() bool {

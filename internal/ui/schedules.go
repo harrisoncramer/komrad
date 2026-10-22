@@ -47,13 +47,13 @@ func scheduleItemName(item scheduleItem) string {
 }
 
 // enter lands the cursor once the root has put the screen up.
-func (w *schedulesScreen) enter(m *model, _ screen.Target) tea.Cmd {
+func (w *schedulesScreen) enter(m *model, _ screen.Target) screen.Request {
 	w.Row = cursor.Clamp(w.Row, len(w.listRows(m)))
 
-	return m.waitToStage()
+	return screen.Settle{}
 }
 
-func (w *schedulesScreen) update(m *model, msg tea.Msg) tea.Cmd {
+func (w *schedulesScreen) update(m *model, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && w.isRenaming() {
 		return w.updateRename(m, msg)
 	}
@@ -77,7 +77,7 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 		rows:   w.listRows,
 		name:   scheduleItemName,
 		fits:   (*model).scheduleItemFits,
-		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
+		moved:  func(*model) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -97,9 +97,11 @@ func (w *schedulesScreen) selected(m *model) (scheduleItem, bool) {
 }
 
 // apply takes a fresh listing, keeping the cursor on the schedule it was on.
-func (w *schedulesScreen) apply(m *model, hovered string) {
-	w.list().place(m, hovered)
+func (w *schedulesScreen) apply(m *model, hovered string) screen.Request {
+	placed := w.list().place(m, hovered)
 	w.reconcileRename(m)
+
+	return placed
 }
 
 func orchestratorLabel(l panel.Listing, id string) string {
@@ -128,21 +130,21 @@ func workflowByID(workflows []panel.Workflow, id string) *panel.Workflow {
 }
 
 // toggleSchedule pauses the schedule, or resumes it when it is paused.
-func toggleSchedule(m *model, schedule panel.Schedule) tea.Cmd {
+func toggleSchedule(m *model, schedule panel.Schedule) screen.Request {
 	doing, failure := "pausing "+schedule.Name, fmt.Sprintf("Could not pause schedule %q", schedule.Name)
 	if !schedule.Enabled {
 		doing, failure = "resuming "+schedule.Name, fmt.Sprintf("Could not resume schedule %q", schedule.Name)
 	}
 
-	return m.apply(m.write(doing, failure, func(a api) error {
+	return m.write(doing, failure, func(a api) error {
 		return a.setScheduleEnabled(schedule.ID, !schedule.Enabled)
-	}))
+	})
 }
 
 // newScheduleForm puts up the form for a new schedule.
-func newScheduleForm(m *model) tea.Cmd {
+func newScheduleForm(m *model) screen.Request {
 	if len(m.listing.Workflows) == 0 {
-		return m.apply(screen.Report{Summary: "Could not create a schedule", Err: errNoWorkflow})
+		return screen.Report{Summary: "Could not create a schedule", Err: errNoWorkflow}
 	}
 
 	values := panel.ScheduleConfig{
@@ -159,10 +161,10 @@ func newScheduleForm(m *model) tea.Cmd {
 
 // openScheduleForm puts up the schedule form, creating a schedule when target is nil and saving
 // over the one it names otherwise.
-func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
+func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Schedule) screen.Request {
 	renderedKind := values.Kind
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Build: func(in form.Inputs) (*huh.Form, []string) {
 			renderedKind = values.Kind
 
@@ -186,13 +188,13 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 				func(a api) error { return a.updateSchedule(target.ID, *values) },
 			)
 		},
-	}})
+	}}
 }
 
 // editScheduleForm puts up the form over a stored schedule.
-func editScheduleForm(m *model, schedule panel.Schedule) tea.Cmd {
+func editScheduleForm(m *model, schedule panel.Schedule) screen.Request {
 	if !knownScheduleKind(schedule.Kind) {
-		return m.apply(screen.Report{Summary: fmt.Sprintf("Could not edit schedule %q", schedule.Name), Err: errUnknownScheduleKind})
+		return screen.Report{Summary: fmt.Sprintf("Could not edit schedule %q", schedule.Name), Err: errUnknownScheduleKind}
 	}
 
 	values := schedulePrefill(schedule)
@@ -227,13 +229,13 @@ func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 	}
 }
 
-func (m *model) archiveSchedule(schedule panel.Schedule) tea.Cmd {
-	return m.apply(m.awaitingWrite(
+func (m *model) archiveSchedule(schedule panel.Schedule) screen.Request {
+	return m.awaitingWrite(
 		"archiving "+schedule.Name,
 		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
 		screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
 		func(a api) error { return a.archiveSchedule(schedule.ID) },
-	))
+	)
 }
 
 func (w *schedulesScreen) listParams(m *model) screenListParams {
@@ -295,7 +297,7 @@ func (w *schedulesScreen) column() columnSpec {
 	}
 }
 
-func (w *schedulesScreen) openRename(m *model) tea.Cmd {
+func (w *schedulesScreen) openRename(m *model) screen.Request {
 	if item, ok := w.selected(m); ok {
 		w.renaming = renameScheduleRow(item)
 	}

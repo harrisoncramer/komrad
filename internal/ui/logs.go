@@ -106,7 +106,7 @@ type logsSettledMsg struct {
 
 // enter starts over on the agent or task the target names, listing where its logs can be read
 // from and claiming a task's failed runs.
-func (l *logsScreen) enter(m *model, target screen.Target) tea.Cmd {
+func (l *logsScreen) enter(m *model, target screen.Target) screen.Request {
 	*l = logsScreen{
 		agentID:    target.AgentID,
 		taskID:     target.TaskID,
@@ -116,18 +116,18 @@ func (l *logsScreen) enter(m *model, target screen.Target) tea.Cmd {
 		generation: l.generation + 1,
 	}
 	if l.taskID == "" {
-		return l.listCmd(m)
+		return screen.Cmd(l.listCmd(m))
 	}
 
 	taskID := l.taskID
 
-	return tea.Batch(l.listCmd(m), m.apply(m.write("marking the task's runs read", "Could not mark the task's runs read", func(a api) error {
+	return screen.Batch{screen.Cmd(l.listCmd(m)), m.write("marking the task's runs read", "Could not mark the task's runs read", func(a api) error {
 		return a.markTaskRunsRead(taskID)
-	})))
+	})}
 }
 
 // leaveScreen ends the chain of reads.
-func (l *logsScreen) leaveScreen(*model) tea.Cmd {
+func (l *logsScreen) leaveScreen(*model) screen.Request {
 	l.generation++
 
 	return nil
@@ -187,7 +187,7 @@ func (l *logsScreen) readCmd(m *model) tea.Cmd {
 
 // applyLogsSources takes a listing of the sources, landing the first on the agent's failed run
 // and keeping the cursor on the source it was on after that.
-func (m *model) applyLogsSources(msg logsSourcesMsg) tea.Cmd {
+func (m *model) applyLogsSources(msg logsSourcesMsg) screen.Request {
 	l := &m.logs
 	if msg.generation != l.generation {
 		return nil
@@ -199,7 +199,7 @@ func (m *model) applyLogsSources(msg logsSourcesMsg) tea.Cmd {
 			return nil
 		}
 
-		return l.tickCmd(m.clock)
+		return screen.Cmd(l.tickCmd(m.clock))
 	}
 
 	hovered := list.KeyAt(l.rows(m), l.Row)
@@ -261,7 +261,7 @@ func (l *logsScreen) tickCmd(clock screen.Clock) tea.Cmd {
 }
 
 // switchSource starts the block over on the source the cursor is on, unless it is the one being read.
-func (l *logsScreen) switchSource(m *model) tea.Cmd {
+func (l *logsScreen) switchSource(m *model) screen.Request {
 	row, ok := list.At(l.rows(m), l.Row)
 	if !ok || row.Key() == sourceKey(l.reading) {
 		return nil
@@ -271,19 +271,19 @@ func (l *logsScreen) switchSource(m *model) tea.Cmd {
 	l.logFilter, l.pattern = filterState{}, ""
 	l.applyFormat(row)
 
-	return tea.Batch(l.restart(m), l.markFailedRunReadCmd(m, row))
+	return screen.Batch{screen.Cmd(l.restart(m)), l.markFailedRunReadCmd(m, row)}
 }
 
 // markFailedRunReadCmd claims the agent's failed runs once the run that failed is opened, leaving a
 // task's to the screen opening.
-func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) tea.Cmd {
+func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) screen.Request {
 	if !row.failed || l.taskID != "" {
 		return nil
 	}
 
 	agentID := l.agentID
 
-	return m.apply(m.write("marking the failed run read", "Could not mark the failed run read", func(a api) error { return a.markRunsRead(agentID) }))
+	return m.write("marking the failed run read", "Could not mark the failed run read", func(a api) error { return a.markRunsRead(agentID) })
 }
 
 // restart drops the lines held and reads the source over again with the pattern the block is read with.
@@ -311,9 +311,9 @@ func (l *logsScreen) openLogFilter() {
 
 // updateLogFilter is the prompt at the foot of the log taking keys, reading the log over once the
 // pattern sits still or the prompt is left.
-func (l *logsScreen) updateLogFilter(m *model, key tea.KeyPressMsg) tea.Cmd {
+func (l *logsScreen) updateLogFilter(m *model, key tea.KeyPressMsg) screen.Request {
 	if key.String() == "ctrl+c" {
-		return m.apply(screen.Hide{})
+		return screen.Hide{}
 	}
 
 	if !l.logFilter.takeKey(key, m.register) {
@@ -327,10 +327,10 @@ func (l *logsScreen) updateLogFilter(m *model, key tea.KeyPressMsg) tea.Cmd {
 	l.edits++
 	generation, edits := l.generation, l.edits
 
-	return m.clock.After(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} })
+	return screen.Cmd(m.clock.After(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} }))
 }
 
-func (m *model) applyLogsSettled(msg logsSettledMsg) tea.Cmd {
+func (m *model) applyLogsSettled(msg logsSettledMsg) screen.Request {
 	l := &m.logs
 	if msg.generation != l.generation || msg.edits != l.edits {
 		return nil
@@ -340,7 +340,7 @@ func (m *model) applyLogsSettled(msg logsSettledMsg) tea.Cmd {
 }
 
 // narrow reads the log over with the pattern typed, unless it is broken or already the one read with.
-func (l *logsScreen) narrow(m *model) tea.Cmd {
+func (l *logsScreen) narrow(m *model) screen.Request {
 	if l.logFilter.broken {
 		return nil
 	}
@@ -355,18 +355,18 @@ func (l *logsScreen) narrow(m *model) tea.Cmd {
 
 	l.pattern = pattern
 
-	return l.reread(m)
+	return screen.Cmd(l.reread(m))
 }
 
 // clearLogFilter drops the pattern standing over the log and reads it whole again.
-func (l *logsScreen) clearLogFilter(m *model) tea.Cmd {
+func (l *logsScreen) clearLogFilter(m *model) screen.Request {
 	l.logFilter.abandon()
 	l.logFilter.mode = filterModeFilter
 
 	return l.narrow(m)
 }
 
-func (l *logsScreen) update(m *model, msg tea.Msg) tea.Cmd {
+func (l *logsScreen) update(m *model, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok || l.viewer == nil {
 		return nil
@@ -388,7 +388,7 @@ func (l *logsScreen) list() screenList[logSourceRow] {
 		cursor: func() *list.Cursor { return &l.Cursor },
 		rows:   l.rows,
 		name:   logSourceRowName,
-		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
+		moved:  func(*model) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -520,25 +520,23 @@ func (l *logsScreen) doesScrollColumn(m *model) bool {
 	return l.isBlockRendered(m)
 }
 
-func (l *logsScreen) scrollColumn(_ *model, rows int) tea.Cmd {
+func (l *logsScreen) scrollColumn(_ *model, rows int) screen.Request {
 	l.viewer.Scroll(rows)
 
 	return nil
 }
 
-func (l *logsScreen) clickLine(key string) tea.Cmd {
+func (l *logsScreen) clickLine(key string) {
 	line, err := strconv.Atoi(key)
 	if err != nil {
-		return nil
+		return
 	}
 
 	l.viewer.MoveTo(line)
-
-	return nil
 }
 
 // move moves the log's cursor a number of lines toward the newest, or toward the oldest for a negative count.
-func (l *logsScreen) move(lines int) tea.Cmd {
+func (l *logsScreen) move(lines int) screen.Request {
 	l.viewer.Move(lines)
 
 	return nil
@@ -565,11 +563,11 @@ func (l *logsScreen) dispatches(*model) []keys.Table {
 	return []keys.Table{l.listActions(), l.logActions()}
 }
 
-func (l *logsScreen) moveBy(_ *model, rows int) tea.Cmd {
+func (l *logsScreen) moveBy(_ *model, rows int) screen.Request {
 	return l.move(rows)
 }
 
-func (l *logsScreen) moveToEnd(_ *model, direction int) tea.Cmd {
+func (l *logsScreen) moveToEnd(_ *model, direction int) screen.Request {
 	return l.move(direction * l.viewer.Len())
 }
 
@@ -600,7 +598,7 @@ func (l *logsScreen) kindsSwitch(*model) bool {
 }
 
 // stepKind renders the server log in another format.
-func (l *logsScreen) stepKind(m *model, delta int) tea.Cmd {
+func (l *logsScreen) stepKind(m *model, delta int) screen.Request {
 	l.format = logview.Format(stepStop(int(l.format), delta, len(logFormatLabels)))
 	if row, ok := list.At(l.rows(m), l.Row); ok {
 		l.applyFormat(row)

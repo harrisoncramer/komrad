@@ -38,20 +38,20 @@ type archivedAgents struct {
 
 // enterArchived lands the agents view on its archived kind, or its deleted kind when that lists the
 // target.
-func (m *model) enterArchived(target screen.Target) tea.Cmd {
+func (m *model) enterArchived(target screen.Target) screen.Request {
 	m.agents.kind = agentsArchived
 	if isTargetOnDeletedList(m.listing, target) {
 		m.agents.kind = agentsDeleted
 	}
 
-	return m.enter(screen.Agents, target)
+	return screen.Open{Screen: screen.Agents, Target: target}
 }
 
 // enterLive lands the agents view on the live kind.
-func (m *model) enterLive(target screen.Target) tea.Cmd {
+func (m *model) enterLive(target screen.Target) screen.Request {
 	m.agents.kind = agentsLive
 
-	return m.enter(screen.Agents, target)
+	return screen.Open{Screen: screen.Agents, Target: target}
 }
 
 func (a *agentsScreen) kinds(*model) stops {
@@ -76,20 +76,19 @@ func (a *agentsScreen) kindsSwitch(*model) bool {
 }
 
 // stepKind moves the agents view to its other kind, back on the row it last stood on.
-func (a *agentsScreen) stepKind(m *model, delta int) tea.Cmd {
-	left := m.leaveScreen()
-	m.filter = filterState{}
-	a.kind = agentsKind(stepStop(int(a.kind), delta, len(a.kinds(m).labels)))
-	m.reconcileSolo()
-	if shown := a.shownArchive(); shown != nil {
-		shown.Selected = list.Selection{}
-		shown.stage(m)
-	} else {
-		a.Selected = list.Selection{}
-		m.stageSelection()
-	}
+func (a *agentsScreen) stepKind(m *model, delta int) screen.Request {
+	return screen.Leave{Then: func() screen.Request {
+		a.kind = agentsKind(stepStop(int(a.kind), delta, len(a.kinds(m).labels)))
+		staged := a.stage(m)
+		if shown := a.shownArchive(); shown != nil {
+			shown.Selected = list.Selection{}
+			staged = shown.stage(m)
+		} else {
+			a.Selected = list.Selection{}
+		}
 
-	return tea.Batch(left, m.waitToStage())
+		return screen.Batch{screen.ResetFilter{}, screen.Reconcile{}, staged, screen.Settle{}}
+	}}
 }
 
 // shownArchive is the archived or deleted agents the agents view is on, and nil on the live kind.
@@ -106,7 +105,7 @@ func (a *agentsScreen) shownArchive() *archivedAgents {
 }
 
 // enter lands on the task the target names, or on its agent when no row stands for the task.
-func (a *archivedAgents) enter(m *model, target screen.Target) tea.Cmd {
+func (a *archivedAgents) enter(m *model, target screen.Target) screen.Request {
 	a.place(m, "")
 	rows := a.listRows(m)
 	if idx := list.IndexOf(rows, taskRowKey(target.TaskID)); target.TaskID != "" && idx >= 0 {
@@ -115,12 +114,10 @@ func (a *archivedAgents) enter(m *model, target screen.Target) tea.Cmd {
 		a.Row = idx
 	}
 
-	a.stage(m)
-
-	return m.waitToStage()
+	return screen.Batch{a.stage(m), screen.Settle{}}
 }
 
-func (a *archivedAgents) update(m *model, msg tea.Msg) tea.Cmd {
+func (a *archivedAgents) update(m *model, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && a.isRenaming() {
 		return a.updateRename(m, msg)
 	}
@@ -155,7 +152,7 @@ func (a *archivedAgents) kindsSwitch(*model) bool {
 	return !a.Selected.IsActive()
 }
 
-func (a *archivedAgents) stepKind(m *model, delta int) tea.Cmd {
+func (a *archivedAgents) stepKind(m *model, delta int) screen.Request {
 	return m.agents.stepKind(m, delta)
 }
 
@@ -168,11 +165,7 @@ func (a *archivedAgents) list() screenList[agentRow] {
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
-		moved: func(m *model) tea.Cmd {
-			a.stage(m)
-
-			return m.waitToStage()
-		},
+		moved:  func(m *model) screen.Request { return screen.Batch{a.stage(m), screen.Settle{}} },
 	}
 }
 
@@ -344,10 +337,8 @@ func (a *archivedAgents) isLoading(m *model) bool {
 	return slices.ContainsFunc(a.listRows(m), func(r agentRow) bool { return isRowLoading(m.listing, r) })
 }
 
-func (a *archivedAgents) stageResting(m *model) tea.Cmd {
-	a.stage(m)
-
-	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(m.clock.Now()))
+func (a *archivedAgents) stageResting(m *model) screen.Request {
+	return screen.Batch{a.stage(m), screen.ReadLastScreen{}, m.inspectTaskWorktree(m.clock.Now())}
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow
@@ -432,31 +423,31 @@ func (a *archivedAgents) buildItemMenu(m *model) (menu.Menu, bool) {
 }
 
 // restoreAndResumeCmd takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
-func restoreAndResumeCmd(m *model, agents []panel.Agent, resumed panel.Agent) tea.Cmd {
-	return m.apply(m.openingWrite("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api) (*agentv1.Agent, error) {
+func restoreAndResumeCmd(m *model, agents []panel.Agent, resumed panel.Agent) screen.Request {
+	return m.openingWrite("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
 		}
 
 		return a.resumeAgent(resumed.ID)
-	}))
+	})
 }
 
-func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
+func restoreAgentsCmd(m *model, agents []panel.Agent) screen.Request {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	return m.apply(m.awaitingWrite(
+	return m.awaitingWrite(
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
 		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
-	))
+	)
 }
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
-func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
+func confirmDeleteWorkflow(m *model, workflow panel.Workflow) screen.Request {
 	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(m.listing, workflow.ID))
 
 	return confirm.open(m, func() screen.Request {
@@ -470,8 +461,8 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 }
 
 // stage keeps the info pane on the row the cursor is standing on.
-func (a *archivedAgents) stage(m *model) {
-	m.stageTerminal()
+func (a *archivedAgents) stage(*model) screen.Request {
+	return screen.StageTerminal{}
 }
 
 func (a *archivedAgents) listParams(m *model) screenListParams {
@@ -580,7 +571,7 @@ func (a *archivedAgents) renameable(m *model) (agentRow, bool) {
 }
 
 // openRename types over the name of the agent or live folder under the cursor.
-func (a *archivedAgents) openRename(m *model) tea.Cmd {
+func (a *archivedAgents) openRename(m *model) screen.Request {
 	if row, ok := a.renameable(m); ok {
 		a.renaming = renameAgentRow(row)
 	}

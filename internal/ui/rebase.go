@@ -5,10 +5,9 @@ import (
 	"time"
 
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xsha"
 	agentv1 "komrad/proto/gen/agent/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 const rebaseTimeout = 30 * time.Second
@@ -56,51 +55,41 @@ func rebaseOp(taskID, name string, ontoBase bool) gitOp {
 		run: func(clients api) gitReport {
 			result, err := clients.rebaseWorktree(taskID, ontoBase)
 
-			return func(m *model) tea.Cmd {
-				m.reportRebased(name, result, err)
-
-				return nil
-			}
+			return func(*model) screen.Request { return reportRebased(name, result, err) }
 		},
 	}
 }
 
-func (m *model) reportRebased(name string, result *agentv1.RebaseWorktreeResponse, err error) {
+func reportRebased(name string, result *agentv1.RebaseWorktreeResponse, err error) screen.Request {
 	if err != nil {
-		m.report("Could not rebase the worktree of "+name, err)
-
-		return
+		return screen.Report{Summary: "Could not rebase the worktree of " + name, Err: err}
 	}
 
 	baseRef, baseSHA := result.GetBaseRef(), result.GetBaseSha()
 
 	// Neither a success nor a failure: the work is intact and the agent has something to do.
 	if result.GetConflicted() {
-		m.pushMessage(message{
-			kind:    messageError,
-			summary: name + ": the rebase stopped on conflicts",
-			detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree, and komrad told %s to settle it.",
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: name + ": the rebase stopped on conflicts",
+			Detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree, and komrad told %s to settle it.",
 				baseRef, xsha.Short(baseSHA), name),
-		})
-
-		return
+		}
 	}
 
 	if result.GetMoved() {
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: name + ": moved onto " + baseRef,
-			detail: fmt.Sprintf("%s. The base already had its work, so komrad dropped %s instead of replaying them.",
+		return screen.Note{
+			Kind:    screen.Info,
+			Summary: name + ": moved onto " + baseRef,
+			Detail: fmt.Sprintf("%s. The base already had its work, so komrad dropped %s instead of replaying them.",
 				xsha.Short(baseSHA), label.Count(int(result.GetLandedCommits()), "commit", "commits")),
-		})
-
-		return
+		}
 	}
 
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: name + ": rebased onto " + baseRef,
-		detail: fmt.Sprintf("%s. Komrad replayed %s.",
+	return screen.Note{
+		Kind:    screen.Info,
+		Summary: name + ": rebased onto " + baseRef,
+		Detail: fmt.Sprintf("%s. Komrad replayed %s.",
 			xsha.Short(baseSHA), label.Count(int(result.GetReplayCommits()), "commit", "commits")),
-	})
+	}
 }

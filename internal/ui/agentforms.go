@@ -14,15 +14,14 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
-func openNewTask(m *model, workflow *panel.Workflow) tea.Cmd {
+func openNewTask(m *model, workflow *panel.Workflow) screen.Request {
 	if workflow == nil {
-		return m.apply(screen.Report{Summary: "Could not start a task", Err: errNoWorkflow})
+		return screen.Report{Summary: "Could not start a task", Err: errNoWorkflow}
 	}
 
 	values := taskPrefill(*workflow)
@@ -38,19 +37,19 @@ func taskPrefill(workflow panel.Workflow) taskFormValues {
 	}
 }
 
-func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) tea.Cmd {
-	return m.apply(form.Open{Form: form.Form{
+func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) screen.Request {
+	return form.Open{Form: form.Form{
 		Build: func(in form.Inputs) (*huh.Form, []string) {
 			return newTaskForm(fixedKeys(), values, workflow.Worktree.Enabled, in.Listing.Tasks.PossibleParents(workflow.ID))
 		},
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit:   func(form.Inputs) screen.Request { return m.submitTask(workflow, *values) },
-	}})
+	}}
 }
 
 // openNewAgentOnTask opens the form that starts an agent on a task: a reviewer when it has a
 // writer, or else its writer.
-func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) tea.Cmd {
+func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) screen.Request {
 	if writer, ok := m.listing.FindTaskWriter(task); ok {
 		values := reviewerPrefill(writer.Agent)
 
@@ -59,13 +58,13 @@ func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) tea.
 
 	values := &agentFormValues{Harness: workflow.Harness}
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
 			return taskAgentForm(fixedKeys(), values, task.Slug, describeNewWriter(workflow, task))
 		},
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit:   func(form.Inputs) screen.Request { return m.submitAgentOnTask(workflow, task, *values) },
-	}})
+	}}
 }
 
 // reviewerPrefill is the reviewer form as the writer leaves it.
@@ -73,12 +72,12 @@ func reviewerPrefill(writer panel.Agent) agentFormValues {
 	return agentFormValues{Harness: writer.Harness}
 }
 
-func openReviewerForm(m *model, writer panel.Agent, task panel.Task, values *agentFormValues) tea.Cmd {
-	return m.apply(form.Open{Form: form.Form{
+func openReviewerForm(m *model, writer panel.Agent, task panel.Task, values *agentFormValues) screen.Request {
+	return form.Open{Form: form.Form{
 		Build:    func(form.Inputs) (*huh.Form, []string) { return reviewerAgentForm(fixedKeys(), values, writer, task) },
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit:   func(form.Inputs) screen.Request { return m.submitReviewer(writer, task, *values) },
-	}})
+	}}
 }
 
 // submitReviewer launches a reviewer onto the writer's task.
@@ -93,23 +92,23 @@ func (m *model) submitReviewer(writer panel.Agent, task panel.Task, values agent
 	})
 }
 
-func openRetryForm(m *model, agent panel.Agent) tea.Cmd {
+func openRetryForm(m *model, agent panel.Agent) screen.Request {
 	values := retryFormValues{
 		Prompt:  agent.Prompt,
 		Harness: agent.Harness,
 		Flags:   agent.Flags,
 	}
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Build:    func(form.Inputs) (*huh.Form, []string) { return retryAgentForm(fixedKeys(), &values) },
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit:   func(form.Inputs) screen.Request { return m.retryWrite(agent, values) },
-	}})
+	}}
 }
 
-func openAdopt(m *model, workflow *panel.Workflow) tea.Cmd {
+func openAdopt(m *model, workflow *panel.Workflow) screen.Request {
 	if workflow == nil {
-		return m.apply(screen.Report{Summary: "Could not adopt", Err: errNoWorkflow})
+		return screen.Report{Summary: "Could not adopt", Err: errNoWorkflow}
 	}
 
 	values := adoptPrefill(*workflow)
@@ -122,12 +121,12 @@ func adoptPrefill(workflow panel.Workflow) adoptFormValues {
 	return adoptFormValues{Harness: workflow.Harness}
 }
 
-func openAdoptForm(m *model, workflow panel.Workflow, values *adoptFormValues) tea.Cmd {
-	return m.apply(form.Open{Form: form.Form{
+func openAdoptForm(m *model, workflow panel.Workflow, values *adoptFormValues) screen.Request {
+	return form.Open{Form: form.Form{
 		Build:    func(form.Inputs) (*huh.Form, []string) { return adoptAgentForm(fixedKeys(), values) },
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit:   func(form.Inputs) screen.Request { return m.submitAdopt(workflow, *values) },
-	}})
+	}}
 }
 
 func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) screen.Write {
