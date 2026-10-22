@@ -414,8 +414,9 @@ archive       = ["a"]
 # task, or showing the hidden ones. The entry is only on the agents list.
 hide          = ["h"]
 # Open your editor on the files of the hovered task or agent, in place of the pane beside
-# the list. The agent working there is paused while the editor is open, and quitting the
-# editor, picking the entry again or leaving the agents list closes it and unpauses the agent.
+# the list. The entry is refused while the agent is working. Quitting the editor, picking
+# the entry again or leaving the agents list closes it and mails the agent that you had its
+# worktree open.
 # The entry is only on the agents list.
 edit          = ["e"]
 # Retry the launch of an agent that failed to create, opening a form where the flags can be
@@ -519,8 +520,6 @@ conflicting       = ""
 failed_script     = ""
 # Mail is waiting that the agent has not read.
 mail              = ""
-# The agent is paused, held by a person reading its worktree.
-paused            = ""
 # The row has been hidden from the sidebar.
 hidden            = ""
 # A schedule launches into the workflow, and the title over the schedules list.

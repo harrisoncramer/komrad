@@ -25,7 +25,6 @@ func (m *model) inputsFor(s screenModel) screen.Inputs {
 func (m *model) measuredInputsFor(s screenModel) screen.Inputs {
 	in := screen.Inputs{
 		Listing:     m.listing,
-		Holds:       m.edited,
 		Inspections: m.inspections,
 		Up:          s == m.active(),
 		Room: screen.Room{

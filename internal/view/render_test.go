@@ -164,7 +164,6 @@ func TestRenderRowShapes(t *testing.T) {
 				Name:   "pr-metadata-fixes",
 				Forge:  ForgeApproved,
 				Status: StatusWaiting,
-				Held:   true,
 			},
 		},
 		{
@@ -395,7 +394,6 @@ func TestRenderFocusedRow(t *testing.T) {
 			Kind:   KindAgent,
 			Name:   "strip-demo",
 			Status: StatusWaiting,
-			Held:   true,
 		}},
 		Focused: "strip-demo",
 		Pane:    canonicalPane,
@@ -521,7 +519,6 @@ func livePanelRows() []Row {
 			Kind:    KindAgent,
 			Name:    "dependency-audit",
 			Process: ProcessStopped,
-			Held:    true,
 		},
 		{
 			Kind:    KindChild,
@@ -532,7 +529,6 @@ func livePanelRows() []Row {
 			Kind:    KindAgent,
 			Name:    "pr-metadata-fixes",
 			Process: ProcessStopped,
-			Held:    true,
 		},
 		{
 			Kind:    KindAgent,
@@ -681,16 +677,15 @@ func reachableRows() []Row {
 
 	var rows []Row
 	for _, kind := range []RowKind{KindWorkflow, KindAgent, KindChild} {
-		for marks := range 64 {
+		for marks := range 32 {
 			row := Row{
 				Kind:       kind,
 				Name:       name,
-				Held:       marks&1 != 0,
-				UnreadMail: marks&2 != 0,
-				FailedRun:  marks&4 != 0,
-				Scheduled:  marks&8 != 0,
-				Hidden:     marks&16 != 0,
-				Documents:  marks&32 != 0,
+				UnreadMail: marks&1 != 0,
+				FailedRun:  marks&2 != 0,
+				Scheduled:  marks&4 != 0,
+				Hidden:     marks&8 != 0,
+				Documents:  marks&16 != 0,
 			}
 			if kind == KindChild {
 				row.Scheduled = false
@@ -823,7 +818,6 @@ func canonicalRows() []Row {
 			Kind:   KindAgent,
 			Name:   "strip-demo",
 			Status: StatusWaiting,
-			Held:   true,
 		},
 		{
 			Kind:        KindWorkflow,
@@ -841,7 +835,6 @@ func canonicalRows() []Row {
 			Name:       "pr-metadata-fixes",
 			Forge:      ForgeApproved,
 			Status:     StatusWaiting,
-			Held:       true,
 			UnreadMail: true,
 		},
 		{

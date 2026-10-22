@@ -27,8 +27,6 @@ type AbortResult struct {
 	ParkedRef string `json:"parked_ref"`
 	// Ours says the sequence was komrad's own rebase, stopped on conflicts.
 	Ours bool `json:"ours"`
-	// Interrupted says a turn was cut so the abort could run.
-	Interrupted bool `json:"interrupted"`
 }
 
 // Abort undoes whatever rebase, am, merge or pick is part-way through the task's worktree,
@@ -49,20 +47,14 @@ func (s *Service) Abort(ctx context.Context, ref string) (*AbortResult, error) {
 		return nil, err
 	}
 
-	interrupted, err := s.settle(ctx, *target)
-	if err != nil {
+	if err := refuseWorkingWriter(*target); err != nil {
 		return nil, err
 	}
 
 	result, err := s.abort(ctx, *target)
 	if err != nil {
-		if interrupted {
-			s.queueEvent(ctx, target.task.ID, aborted{TaskID: target.task.ID, Failure: err.Error()})
-		}
-
 		return nil, err
 	}
-	result.Interrupted = interrupted
 
 	s.queueEvent(ctx, target.task.ID, aborted{TaskID: target.task.ID, Result: result})
 

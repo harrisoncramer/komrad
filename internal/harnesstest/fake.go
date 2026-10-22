@@ -37,8 +37,6 @@ type Fake struct {
 	CommandErr error
 	Name       string
 	Naming     harness.SessionNaming
-	// InterruptWith is the keys an interrupt sends, Escape when nil.
-	InterruptWith []string
 	// Session is the id FindSession answers.
 	Session string
 	// Installed is the hooks Hooks names.
@@ -90,15 +88,6 @@ func (f *Fake) TrustDir(dir string) error {
 // SessionNaming is Naming.
 func (f *Fake) SessionNaming() harness.SessionNaming {
 	return f.Naming
-}
-
-// InterruptKeys is InterruptWith, or Escape when the test gave none.
-func (f *Fake) InterruptKeys() []string {
-	if f.InterruptWith == nil {
-		return []string{"Escape"}
-	}
-
-	return f.InterruptWith
 }
 
 // Hooks is Installed.

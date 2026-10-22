@@ -55,11 +55,6 @@ type agentResumer interface {
 	RestartAgent(ctx context.Context, params agents.RestartAgentParams) (*agentstore.Agent, error)
 }
 
-type agentHolder interface {
-	Hold(ctx context.Context, params agents.HoldParams) (*agentstore.Agent, error)
-	Release(ctx context.Context, params agents.ReleaseParams) (*agentstore.Agent, error)
-}
-
 type agentReader interface {
 	GetAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
@@ -87,7 +82,6 @@ type NewHandlerParams struct {
 	Adopter       agentAdopter
 	Lifecycle     agentLifecycle
 	Resumer       agentResumer
-	Holder        agentHolder
 	Review        reviewConversation
 	ForgeReplies  forgeReplier
 	Documents     documentReadWriter
@@ -111,7 +105,6 @@ type Handler struct {
 	adopter       agentAdopter
 	lifecycle     agentLifecycle
 	resumer       agentResumer
-	holder        agentHolder
 	review        reviewConversation
 	forgeReplies  forgeReplier
 	documents     documentReadWriter
@@ -143,7 +136,6 @@ func NewHandler(params NewHandlerParams) *Handler {
 		adopter:       params.Adopter,
 		lifecycle:     params.Lifecycle,
 		resumer:       params.Resumer,
-		holder:        params.Holder,
 		review:        params.Review,
 		forgeReplies:  params.ForgeReplies,
 		documents:     params.Documents,
@@ -508,41 +500,6 @@ func (s *Handler) RetryAgent(ctx context.Context, req *agentv1.RetryAgentRequest
 	}
 
 	return &agentv1.RetryAgentResponse{Agent: rendered}, nil
-}
-
-// HoldAgent stops an agent so a person may take its worktree, and refuses unless it sees the agent
-// come to rest or when the agent asks to hold itself.
-func (s *Handler) HoldAgent(ctx context.Context, req *agentv1.HoldAgentRequest) (*agentv1.HoldAgentResponse, *fail.Error) {
-	held, err := s.holder.Hold(ctx, agents.HoldParams{AgentID: req.GetId(), ByAgentID: caller.From(ctx).AgentID})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to hold agent")
-	}
-
-	rendered, failure := s.renderOneAgent(ctx, held.ID)
-	if failure != nil {
-		return nil, failure
-	}
-
-	return &agentv1.HoldAgentResponse{Agent: rendered}, nil
-}
-
-// ReleaseAgent lets go of a held agent, telling it what changed while it was held.
-func (s *Handler) ReleaseAgent(ctx context.Context, req *agentv1.ReleaseAgentRequest) (*agentv1.ReleaseAgentResponse, *fail.Error) {
-	released, err := s.holder.Release(ctx, agents.ReleaseParams{
-		AgentID:   req.GetId(),
-		ByAgentID: caller.From(ctx).AgentID,
-		Said:      req.GetSaid(),
-	})
-	if err != nil {
-		return nil, rpcerr.From(err, "failed to release agent")
-	}
-
-	rendered, failure := s.renderOneAgent(ctx, released.ID)
-	if failure != nil {
-		return nil, failure
-	}
-
-	return &agentv1.ReleaseAgentResponse{Agent: rendered}, nil
 }
 
 // UpdateAgent renames the agent with the given id.

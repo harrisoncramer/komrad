@@ -365,7 +365,6 @@ func TestPrepareBlankColumnsKeepEveryOtherCell(t *testing.T) {
 	row := Row{
 		Name:       "reviewer",
 		Status:     StatusThinking,
-		Held:       true,
 		UnreadMail: true,
 		FailedRun:  true,
 		Scheduled:  true,
@@ -375,7 +374,6 @@ func TestPrepareBlankColumnsKeepEveryOtherCell(t *testing.T) {
 	row.Kind = KindChild
 	child := prepareOne(t, row)
 
-	assert.Equal(t, own.Held, child.Held)
 	assert.Equal(t, own.Mail, child.Mail)
 	assert.Equal(t, own.Alert, child.Alert)
 	assert.Equal(t, own.Schedule, child.Schedule)
@@ -725,7 +723,6 @@ func TestPrepareDimRowKeepsEveryCell(t *testing.T) {
 			Open:   1,
 			Unread: 1,
 		},
-		Held:       true,
 		Hidden:     true,
 		UnreadMail: true,
 		FailedRun:  true,
@@ -743,7 +740,6 @@ func TestPrepareDimRowKeepsEveryCell(t *testing.T) {
 		require.Equal(t, EmphasisDim, greyed.Emphasis)
 
 		assert.Equal(t, lit.Columns, greyed.Columns)
-		assert.Equal(t, lit.Held, greyed.Held)
 		assert.Equal(t, lit.Hidden, greyed.Hidden)
 		assert.Equal(t, lit.Mail, greyed.Mail)
 		assert.Equal(t, lit.Alert, greyed.Alert)
@@ -789,11 +785,6 @@ func TestPrepareTrailingMarks(t *testing.T) {
 			want: line{Mail: Cell{Glyph: glyph.Mail, Tone: paint.ToneMuted}},
 		},
 		{
-			name: "a paused agent is the muted pause",
-			row:  Row{Held: true},
-			want: line{Held: Cell{Glyph: glyph.Paused, Tone: paint.ToneMuted}},
-		},
-		{
 			name: "a hidden task is the muted closed eye",
 			row:  Row{Hidden: true},
 			want: line{Hidden: Cell{Glyph: glyph.Hidden, Tone: paint.ToneMuted}},
@@ -814,7 +805,6 @@ func TestPrepareTrailingMarks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			line := prepareOne(t, tt.row)
 
-			assert.Equal(t, tt.want.Held, line.Held)
 			assert.Equal(t, tt.want.Hidden, line.Hidden)
 			assert.Equal(t, tt.want.Mail, line.Mail)
 			assert.Equal(t, tt.want.Alert, line.Alert)
@@ -1092,37 +1082,6 @@ func TestPrepareClipsMatchesWithTheName(t *testing.T) {
 	}
 }
 
-// TestPrepareHeldCell pins the pause a person took.
-func TestPrepareHeldCell(t *testing.T) {
-	tests := []struct {
-		name string
-		row  Row
-		want Cell
-	}{
-		{
-			name: "a paused agent working anyway is rendered in danger",
-			row:  Row{Held: true, HeldWorking: true},
-			want: Cell{Glyph: glyph.Paused, Tone: paint.ToneDanger},
-		},
-		{
-			name: "an ordinary pause is muted",
-			row:  Row{Held: true},
-			want: Cell{Glyph: glyph.Paused, Tone: paint.ToneMuted},
-		},
-		{
-			name: "an agent nobody paused renders nothing",
-			row:  Row{},
-			want: Cell{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, tt.row).Held)
-		})
-	}
-}
-
 // TestPrepareGivesTheTallyUpBeforeTheMarks pins what a row sheds as its pane narrows: the name
 // first, then the count of what is out of sight, and never a mark while the marks still fit.
 func TestPrepareGivesTheTallyUpBeforeTheMarks(t *testing.T) {
@@ -1225,7 +1184,7 @@ func TestPrepareGivesTheToolUpFirst(t *testing.T) {
 }
 
 // TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit pins the last thing a row gives up, on
-// the worst row a panel can hold: an agent a schedule launched, hidden, paused, with documents,
+// the worst row a panel can hold: an agent a schedule launched, hidden, with documents,
 // unread mail, and a failed run nobody has read.
 func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	worst := Row{
@@ -1233,7 +1192,6 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 		Name:       "nightly-bughunt-dispatcher",
 		Scheduled:  true,
 		Hidden:     true,
-		Held:       true,
 		Documents:  true,
 		UnreadMail: true,
 		FailedRun:  true,
@@ -1255,24 +1213,19 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			want: []glyph.Glyph{glyph.Mail, glyph.FailedScript},
 		},
 		{
-			name: "a pane one wider keeps the pause too",
+			name: "the next keeps the hiding",
 			pane: 14,
-			want: []glyph.Glyph{glyph.Paused, glyph.Mail, glyph.FailedScript},
-		},
-		{
-			name: "the next keeps the hiding, which goes before the pause",
-			pane: 16,
-			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Mail, glyph.FailedScript},
+			want: []glyph.Glyph{glyph.Hidden, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "the next keeps the documents, which go before the hiding",
-			pane: 18,
-			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript},
+			pane: 16,
+			want: []glyph.Glyph{glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "wider still keeps every mark, the schedule last",
-			pane: 20,
-			want: []glyph.Glyph{glyph.Paused, glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript, glyph.Schedule},
+			pane: 18,
+			want: []glyph.Glyph{glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript, glyph.Schedule},
 		},
 	}
 
@@ -1281,8 +1234,8 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{worst}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
-			rendered := make([]glyph.Glyph, 0, 6)
-			for _, cell := range []Cell{list.Lines[0].Held, list.Lines[0].Hidden, list.Lines[0].Document, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
+			rendered := make([]glyph.Glyph, 0, 5)
+			for _, cell := range []Cell{list.Lines[0].Hidden, list.Lines[0].Document, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
 				if !cell.IsBlank() {
 					rendered = append(rendered, cell.Glyph)
 				}

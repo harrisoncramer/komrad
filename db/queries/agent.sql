@@ -687,14 +687,6 @@ WHERE
 RETURNING
     id;
 
--- name: SetAgentNudgeSentByID :exec
-UPDATE
-    agents
-SET
-    nudge_sent_at = NOW()
-WHERE
-    id = @id;
-
 -- name: SetAgentStateByID :exec
 UPDATE
     agents
@@ -787,58 +779,6 @@ SET
     interrupted_at = sqlc.narg('interrupted_at')
 WHERE
     id = @id;
-
--- name: HoldAgentByID :many
-UPDATE
-    agents
-SET
-    held_at = @held_at,
-    held_mid_turn = @held_mid_turn,
-    held_by_agent_id = sqlc.narg(held_by_agent_id),
-    state = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
-        'idle'
-    ELSE
-        state
-    END,
-    state_changed_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
-        NOW()
-    ELSE
-        state_changed_at
-    END,
-    turn_ended_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain') THEN
-        NOW()
-    ELSE
-        turn_ended_at
-    END,
-    reported_reason = CASE WHEN state IN ('thinking', 'waiting', 'uncertain', 'idle') THEN
-        ''
-    ELSE
-        reported_reason
-    END,
-    state_seen_at = CASE WHEN state IN ('thinking', 'waiting', 'uncertain', 'idle') THEN
-        NOW()
-    ELSE
-        state_seen_at
-    END
-WHERE
-    id = @id
-    AND archived_at IS NULL
-    AND held_at IS NULL
-RETURNING
-    id;
-
--- name: ReleaseAgentByID :many
-UPDATE
-    agents
-SET
-    held_at = NULL,
-    held_mid_turn = FALSE,
-    held_by_agent_id = NULL
-WHERE
-    id = @id
-    AND held_at IS NOT NULL
-RETURNING
-    id;
 
 -- name: SetAgentHarness :exec
 UPDATE

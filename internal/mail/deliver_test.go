@@ -29,16 +29,6 @@ import (
 
 const nudgeLine = "komrad: 1 piece(s) of unread mail, call read_mail"
 
-// nudgeSentFailer is the real agent store refusing to record that a nudge was sent.
-type nudgeSentFailer struct {
-	*agentstore.AgentStore
-}
-
-// SetNudgeSent refuses the write.
-func (nudgeSentFailer) SetNudgeSent(context.Context, string) error {
-	return errors.New("no database")
-}
-
 // TestDeliver pins which agents mail is handed to and which are passed over, covering the pane, the state, and how recently it was last told.
 func TestDeliver(t *testing.T) {
 	tests := []struct {
@@ -61,17 +51,6 @@ func TestDeliver(t *testing.T) {
 				require.NoError(t, err)
 			},
 			want: DeliveryDone,
-		},
-		{
-			name: "an agent a person is holding, whose tree is not komrad's to type into",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				_, err := st.Agents.Hold(t.Context(), agentstore.HoldParams{
-					ID: id,
-					At: time.Now(),
-				})
-				require.NoError(t, err)
-			},
-			want: DeliveryLater,
 		},
 		{
 			name:   "an empty mailbox",
@@ -202,113 +181,14 @@ func TestDeliverNudgesAnAgentMidTurnThatNoPassHasConfirmed(t *testing.T) {
 	assert.Equal(t, [][]string{{nudgeLine}}, terminal.Sent[agent.Pane])
 }
 
-// TestDeliverSaysWhenANudgeWentNowhere pins which second nudge is worth a warning.
-func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
-	tests := []struct {
-		name    string
-		arrange func(t *testing.T, st *storetest.Stores, id string)
-		want    string
-	}{
-		{
-			name: "an agent that has ended no turn since the last nudge",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				require.NoError(t, st.Agents.SetTurnEnded(t.Context(), id))
-				require.NoError(t, st.Agents.SetNudgeSent(t.Context(), id))
-			},
-			want: "WARN",
-		},
-		{
-			name: "an agent that has never reported a turn at all",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				require.NoError(t, st.Agents.SetNudgeSent(t.Context(), id))
-			},
-			want: "WARN",
-		},
-		{
-			name: "an agent that ended a turn after the last nudge",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				require.NoError(t, st.Agents.SetNudgeSent(t.Context(), id))
-				require.NoError(t, st.Agents.SetTurnEnded(t.Context(), id))
-			},
-			want: "INFO",
-		},
-		{
-			name:    "an agent nobody has told before",
-			arrange: func(*testing.T, *storetest.Stores, string) {},
-			want:    "INFO",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal)
-			sendTo(t, st, agent.ID)
-			tt.arrange(t, st, agent.ID)
-
-			svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
-			ctx, records := newLoggedContext(t)
-
-			got, err := svc.Deliver(ctx, agent.ID)
-			require.NoError(t, err)
-			require.Equal(t, DeliverySoon, got)
-
-			written := records()
-			require.Len(t, written, 1)
-			assert.Equal(t, tt.want, written[0]["severity_text"])
-		})
-	}
-}
-
-// TestDeliverDoesNotWarnAfterAPassThatTypedNothing pins that a claim spent on a refused send leaves the went-nowhere warning unarmed.
-func TestDeliverDoesNotWarnAfterAPassThatTypedNothing(t *testing.T) {
-	st := storetest.Open(t)
-	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal)
-	sendTo(t, st, agent.ID)
-
-	channel := &harnesstest.Channel{RefuseSend: true}
-	svc := newDeliveryService(st, terminal, channel)
-	ctx, records := newLoggedContext(t)
-
-	got, err := svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	require.Equal(t, DeliveryLater, got)
-	require.Empty(t, channel.Sent, "the channel refused the line, so nothing was typed")
-
-	channel.RefuseSend = false
-	backdateNudge(t, st, agent.ID)
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	require.Equal(t, DeliverySoon, got)
-	require.Len(t, channel.Sent, 1)
-
-	written := records()
-	require.Len(t, written, 1)
-	assert.Equal(t, "INFO", written[0]["severity_text"], "the agent has been told once, so nothing went nowhere")
-}
-
 // TestClaimTurnEndNudge pins when an agent whose turn just ended is handed the nudge.
 func TestClaimTurnEndNudge(t *testing.T) {
 	tests := []struct {
-		name     string
-		noMail   bool
-		arrange  func(t *testing.T, st *storetest.Stores, id string)
-		want     string
-		wantSent bool
+		name    string
+		noMail  bool
+		arrange func(t *testing.T, st *storetest.Stores, id string)
+		want    string
 	}{
-		{
-			name: "an agent a person is holding",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				_, err := st.Agents.Hold(t.Context(), agentstore.HoldParams{
-					ID: id,
-					At: time.Now(),
-				})
-				require.NoError(t, err)
-			},
-		},
 		{
 			name:   "an empty mailbox",
 			noMail: true,
@@ -322,9 +202,8 @@ func TestClaimTurnEndNudge(t *testing.T) {
 			},
 		},
 		{
-			name:     "an agent with mail waiting",
-			want:     nudgeLine,
-			wantSent: true,
+			name: "an agent with mail waiting",
+			want: nudgeLine,
 		},
 	}
 
@@ -346,38 +225,8 @@ func TestClaimTurnEndNudge(t *testing.T) {
 
 			assert.Equal(t, tt.want, nudge)
 			assert.Empty(t, channel.Sent, "the hook hands the line over, so nothing is typed into the pane")
-
-			stored, err := st.Agents.GetByID(t.Context(), agent.ID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantSent, stored.NudgeSentAt != nil)
 		})
 	}
-}
-
-// TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails pins that a nudge already typed is not reported as a failed delivery.
-func TestDeliverKeepsALandedNudgeWhenTheBookkeepingFails(t *testing.T) {
-	st := storetest.Open(t)
-	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal)
-	sendTo(t, st, agent.ID)
-
-	channel := &harnesstest.Channel{}
-	svc := NewDeliveryService(NewDeliveryServiceParams{
-		Mail:         st.Mail,
-		NudgeClaimer: nudgeSentFailer{AgentStore: st.Agents},
-		PaneReader:   paneOwners{terminal: terminal},
-		Channel:      channel,
-	})
-	ctx, records := newLoggedContext(t)
-
-	got, err := svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err, "the rest of the pass goes on")
-	assert.Equal(t, DeliverySoon, got)
-	assert.Len(t, channel.Sent, 1)
-
-	written := records()
-	require.Len(t, written, 2)
-	assert.Equal(t, "ERROR", written[1]["severity_text"])
 }
 
 // TestDeliverReportsExpiredMail pins that komrad reports mail nobody read before its deadline rather than dropping it in silence.

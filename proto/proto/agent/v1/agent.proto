@@ -126,10 +126,6 @@ message Agent {
   AgentRole role = 25;
   // Whether `prompt` holds only the prompt's opening, as a summary view returns it.
   bool prompt_truncated = 26;
-  // When a caller held the agent, in RFC 3339. Empty while the agent is not held.
-  string held_at = 27;
-  // The id of the agent that holds this agent. Empty when the person holds it or nobody does.
-  string held_by_agent_id = 28;
   // The id of the agent's task. Unset for an orchestrator, or once the task is deleted.
   optional string task_id = 29;
   // The slug of the agent's task. Unset whenever `task_id` is.
@@ -518,8 +514,6 @@ message AbortSequenceResponse {
   string branch = 2;
   // The ref that keeps the checkout as it was before the abort, conflicts included.
   string parked_ref = 3;
-  // Whether komrad interrupted the agent's turn to abort.
-  bool interrupted = 4;
 }
 
 message RecordReportRequest {
@@ -652,29 +646,6 @@ message RestartAgentRequest {
 
 message RestartAgentResponse {
   // The agent as restarted, running.
-  Agent agent = 1;
-}
-
-message HoldAgentRequest {
-  // The agent to hold, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
-message HoldAgentResponse {
-  // The agent as held.
-  Agent agent = 1;
-}
-
-message ReleaseAgentRequest {
-  // The held agent to release, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-  // What happened while the agent was held, mailed to the agent from the caller. Empty to send no
-  // mail.
-  string said = 2;
-}
-
-message ReleaseAgentResponse {
-  // The agent as released, running.
   Agent agent = 1;
 }
 
@@ -872,27 +843,6 @@ service AgentService {
       name: "restore_agents"
       description: "Restore archived agents, dormant, with their workflows. A task's writer restores its task with it. Komrad refuses a reviewer until its task is restored, and an agent on a task whose worktree was deleted."
       mcp_guidance: "Call resume_agent on each agent that should run."
-      destructive: false
-      roles: [ROLE_ORCHESTRATOR]
-    };
-  }
-  rpc HoldAgent(HoldAgentRequest) returns (HoldAgentResponse) {
-    option (annotation.v1.surfaces) = {
-      cli: true
-      mcp: true
-      name: "hold_agent"
-      description: "Interrupt an agent and hold it still until `release_agent`, such as before editing files in its checkout. An agent cannot hold itself."
-      mcp_guidance: "Hold an agent only when asked."
-      destructive: false
-      roles: [ROLE_ORCHESTRATOR]
-    };
-  }
-  rpc ReleaseAgent(ReleaseAgentRequest) returns (ReleaseAgentResponse) {
-    option (annotation.v1.surfaces) = {
-      cli: true
-      mcp: true
-      name: "release_agent"
-      description: "Release a held agent, mailing `said` to the agent as it starts again. Komrad sends no mail when the agent's turn had already ended."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };

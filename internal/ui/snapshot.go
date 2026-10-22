@@ -153,8 +153,6 @@ func agentFacts(row view.Row, item panel.AgentRow) view.Row {
 	row.Status = snapshotStatus(item)
 	row.Process = snapshotProcess(item)
 	row.Archived = item.Agent.ArchivedAt != nil
-	row.Held = item.Agent.HeldAt != nil
-	row.HeldWorking = row.Held && isHeldWorking(item)
 	row.UnreadMail = item.UnreadMail
 	row.FailedRun = item.FailedRun
 	row.Documents = item.Documents > 0
@@ -237,12 +235,6 @@ func snapshotKind(r agentRow, flat bool) view.RowKind {
 // snapshotStatus is what an agent is doing this second, read off the state the row wears rather
 // than the one the store holds, so an agent whose pane has gone reads as idle.
 func snapshotStatus(item panel.AgentRow) view.Status {
-	// A pause is something a person did rather than something the agent is doing, so it wants
-	// that person however the agent was left.
-	if item.Agent.HeldAt != nil {
-		return view.StatusWaiting
-	}
-
 	switch displayState(item) {
 	case panel.StateThinking, panel.StateSettingUp:
 		return view.StatusThinking
@@ -273,23 +265,6 @@ func matchesIn(matcher *regexp.Regexp, name string) []view.Span {
 	})
 
 	return spans
-}
-
-// isHeldWorking reports whether an agent somebody paused is working anyway.
-func isHeldWorking(item panel.AgentRow) bool {
-	if !item.Alive {
-		return false
-	}
-
-	switch item.Agent.State {
-	case panel.StateThinking, panel.StateWaiting:
-		return true
-	case panel.StateIdle, panel.StateErrored, panel.StateUncertain, panel.StateSettingUp,
-		panel.StateFailedToCreate, panel.StateFailedToCleanup:
-		return false
-	}
-
-	return false
 }
 
 // snapshotProcess reports whether anything is running behind a row, which the state it wears

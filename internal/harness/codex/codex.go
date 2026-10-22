@@ -64,11 +64,6 @@ func (h *Harness) Binary() string {
 	return HarnessID
 }
 
-// InterruptKeys stops Codex where it stands.
-func (h *Harness) InterruptKeys() []string {
-	return []string{"Escape"}
-}
-
 // SessionNaming is SessionDiscovered.
 func (h *Harness) SessionNaming() harness.SessionNaming {
 	return harness.SessionDiscovered

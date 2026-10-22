@@ -116,11 +116,6 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, params ResumeAgentParam
 	if agent.ArchivedAt != nil {
 		return nil, fmt.Errorf("%w: %q is archived, restore it first", agenterr.ErrAgentArchived, agent.Name)
 	}
-
-	// Relaunching a held agent would put it back to work under whoever is holding its worktree.
-	if err := agent.ValidateActionable(); err != nil {
-		return nil, err
-	}
 	if err := s.refuseRemovedWorktree(ctx, *agent); err != nil {
 		return nil, err
 	}

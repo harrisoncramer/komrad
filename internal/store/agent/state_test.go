@@ -217,40 +217,6 @@ func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
 	}))
 }
 
-// TestAClaimedNudgeIsNotASentOne pins that the stamp the claim takes says nothing about
-// whether an agent was ever told, which only a pass that typed something records.
-func TestAClaimedNudgeIsNotASentOne(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{
-		Name:  "idler",
-		Pane:  "%1",
-		State: StateIdle,
-	}))
-	agent, err := st.Get(ctx, "idler")
-	require.NoError(t, err)
-
-	claimed, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	require.True(t, claimed)
-
-	agent, err = st.Get(ctx, "idler")
-	require.NoError(t, err)
-	require.NotNil(t, agent.NudgedAt, "the claim is stamped")
-	assert.Nil(t, agent.NudgeSentAt, "and nothing has been typed at the pane yet")
-
-	require.NoError(t, st.SetNudgeSent(ctx, agent.ID))
-
-	agent, err = st.Get(ctx, "idler")
-	require.NoError(t, err)
-	require.NotNil(t, agent.NudgeSentAt)
-
-	again, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	assert.False(t, again, "recording the nudge leaves the claim where it was")
-}
-
 func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
 	t.Helper()
 
@@ -485,71 +451,6 @@ func TestAliveFollowsThePane(t *testing.T) {
 			require.NotNil(t, cleared)
 			assert.Empty(t, cleared.Pane)
 			assert.False(t, cleared.Alive, "a row whose pane was cleared is dormant")
-		})
-	}
-}
-
-// TestHoldSettlesTheState pins that a hold records a state the pane decides as idle and leaves a
-// failure as it was.
-func TestHoldSettlesTheState(t *testing.T) {
-	tests := []struct {
-		name         string
-		state        State
-		wantState    State
-		wantReason   string
-		wantTurnEnds bool
-	}{
-		{
-			name:         "a working agent is held idle and its turn ends",
-			state:        StateThinking,
-			wantState:    StateIdle,
-			wantTurnEnds: true,
-		},
-		{
-			name:         "a waiting agent is held idle and its turn ends",
-			state:        StateWaiting,
-			wantState:    StateIdle,
-			wantTurnEnds: true,
-		},
-		{
-			name:      "an idle agent keeps the turn it last ended",
-			state:     StateIdle,
-			wantState: StateIdle,
-		},
-		{
-			name:       "a failed agent keeps its failure",
-			state:      StateFailedToCleanup,
-			wantState:  StateFailedToCleanup,
-			wantReason: "Bash",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			ctx := t.Context()
-
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: tt.state}))
-			created, err := st.Get(ctx, "agent")
-			require.NoError(t, err)
-			require.NotNil(t, created)
-			require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
-
-			held, err := st.Hold(ctx, HoldParams{
-				ID:      created.ID,
-				At:      time.Now(),
-				MidTurn: tt.wantTurnEnds,
-			})
-			require.NoError(t, err)
-			require.True(t, held)
-
-			after, err := st.Get(ctx, "agent")
-			require.NoError(t, err)
-			require.NotNil(t, after)
-			assert.NotNil(t, after.Hold.At)
-			assert.Equal(t, tt.wantState, after.State)
-			assert.Equal(t, tt.wantReason, after.ReportedReason)
-			assert.Equal(t, tt.wantTurnEnds, after.Turn.EndedAt != nil)
 		})
 	}
 }

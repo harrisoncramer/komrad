@@ -193,26 +193,6 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name: "a hold on an agent that will not stop",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: alphaID}))
-
-				return err
-			},
-			err:      agenterr.ErrUnsettled,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name: "a release of an agent nobody holds",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{Id: alphaID}))
-
-				return err
-			},
-			err:      agents.ErrNotHeld,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
 			name: "an archive naming an agent nobody holds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{alphaID}}))
@@ -576,58 +556,6 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 		},
 		{
-			name: "holding from the panel",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				held, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: ids[0]}))
-				if err != nil {
-					return "", err
-				}
-
-				return held.Msg.GetAgent().GetName(), nil
-			},
-			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, []agents.HoldParams{{AgentID: ids[0]}}, services.held)
-			},
-		},
-		{
-			name: "holding from an agent",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
-				held, err := svc.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: ids[0]}))
-				if err != nil {
-					return "", err
-				}
-
-				return held.Msg.GetAgent().GetName(), nil
-			},
-			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, []agents.HoldParams{{AgentID: ids[0], ByAgentID: betaID}}, services.held)
-			},
-		},
-		{
-			name: "releasing",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				released, err := svc.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{
-					Id:   ids[0],
-					Said: "I rebased your branch",
-				}))
-				if err != nil {
-					return "", err
-				}
-
-				return released.Msg.GetAgent().GetName(), nil
-			},
-			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, agents.ReleaseParams{
-					AgentID: ids[0],
-					Said:    "I rebased your branch",
-				}, services.released)
-			},
-		},
-		{
 			name: "starting a workflow's orchestrator",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
 				started, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: "wf-1"}))
@@ -710,9 +638,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					return "", err
 				}
 
-				return fmt.Sprintf("%s on %s, parked at %s, interrupted %t", aborted.Msg.GetSequence(), aborted.Msg.GetBranch(), aborted.Msg.GetParkedRef(), aborted.Msg.GetInterrupted()), nil
+				return fmt.Sprintf("%s on %s, parked at %s", aborted.Msg.GetSequence(), aborted.Msg.GetBranch(), aborted.Msg.GetParkedRef()), nil
 			},
-			wantAnswer: "SEQUENCE_CHERRY_PICK on agent/alpha, parked at refs/komrad/aborted/alpha/1, interrupted true",
+			wantAnswer: "SEQUENCE_CHERRY_PICK on agent/alpha, parked at refs/komrad/aborted/alpha/1",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
 				assert.Equal(t, ids[:1], services.aborted)
 			},
@@ -1288,14 +1216,12 @@ type recordingAgentServices struct {
 	adopted       agents.AdoptParams
 	adoptExisting bool
 	retried       agents.RetryCreateParams
-	released      agents.ReleaseParams
 	reported      agents.RecordReportParams
 	nudge         string
 	nudgeErr      error
 	nudgeClaimed  []string
 	resumed       []agents.ResumeAgentParams
 	restarted     []agents.RestartAgentParams
-	held          []agents.HoldParams
 	orchestrated  []string
 	planned       []string
 	rebased       []string
@@ -1368,18 +1294,6 @@ func (f *recordingAgentServices) ResumeAgent(_ context.Context, params agents.Re
 
 func (f *recordingAgentServices) RestartAgent(_ context.Context, params agents.RestartAgentParams) (*agentstore.Agent, error) {
 	f.restarted = append(f.restarted, params)
-
-	return f.answer()
-}
-
-func (f *recordingAgentServices) Hold(_ context.Context, params agents.HoldParams) (*agentstore.Agent, error) {
-	f.held = append(f.held, params)
-
-	return f.answer()
-}
-
-func (f *recordingAgentServices) Release(_ context.Context, params agents.ReleaseParams) (*agentstore.Agent, error) {
-	f.released = params
 
 	return f.answer()
 }
@@ -1534,7 +1448,6 @@ func newRecordedService(t *testing.T) (agentv1komrad.AgentServiceAdapter, *recor
 		Adopter:      services,
 		Lifecycle:    services,
 		Resumer:      services,
-		Holder:       services,
 		Orchestrator: services,
 		Rebaser:      services,
 		Pusher:       services,
@@ -1716,10 +1629,9 @@ func (f *recordingAgentServices) Abort(_ context.Context, task string) (*checkou
 	}
 
 	return &checkouts.AbortResult{
-		Sequence:    taskstore.SequenceCherryPick,
-		Branch:      "agent/alpha",
-		ParkedRef:   "refs/komrad/aborted/alpha/1",
-		Interrupted: true,
+		Sequence:  taskstore.SequenceCherryPick,
+		Branch:    "agent/alpha",
+		ParkedRef: "refs/komrad/aborted/alpha/1",
 	}, nil
 }
 

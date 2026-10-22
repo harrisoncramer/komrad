@@ -38,7 +38,6 @@ type treeReader interface {
 type nudgeClaimer interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error)
-	SetNudgeSent(ctx context.Context, id string) error
 }
 
 type NewDeliveryServiceParams struct {
@@ -122,11 +121,6 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryDone, nil
 	}
 
-	// A held agent is one a person has stopped to take its worktree, so nothing may type at it
-	// until they let it go.
-	if agent.Hold.IsHeld() {
-		return DeliveryLater, nil
-	}
 	if s.trees != nil && agent.Cwd != "" && s.trees.IsMoving(agent.Cwd) {
 		return DeliveryLater, nil
 	}
@@ -165,8 +159,6 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
-	s.recordNudgeSent(ctx, agent.ID)
-
 	return DeliverySoon, nil
 }
 
@@ -176,9 +168,6 @@ func (s *DeliveryService) ClaimTurnEndNudge(ctx context.Context, agentID string)
 	agent, err := s.nudgeClaimer.GetByID(ctx, agentID)
 	if err != nil {
 		return "", err
-	}
-	if agent.Hold.IsHeld() {
-		return "", nil
 	}
 
 	pending, err := s.mail.CountPending(ctx, agent.ID)
@@ -197,8 +186,6 @@ func (s *DeliveryService) ClaimTurnEndNudge(ctx context.Context, agentID string)
 		return "", nil
 	}
 
-	s.recordNudgeSent(ctx, agent.ID)
-
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail as its turn ended",
 		slog.String(logging.TargetAgentID, agent.ID),
 		slog.Int64(logging.UnreadMail, pending))
@@ -216,39 +203,15 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 		return false, nil
 	}
 
-	attrs := []slog.Attr{
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail",
 		slog.String(logging.TargetAgentID, agent.ID),
-		slog.Int64(logging.UnreadMail, pending),
-	}
-
-	if didLastNudgeGoNowhere(agent) {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "told an agent to read its mail again, so the last time went nowhere", attrs...)
-	} else {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail", attrs...)
-	}
+		slog.Int64(logging.UnreadMail, pending))
 
 	return true, nil
 }
 
-func (s *DeliveryService) recordNudgeSent(ctx context.Context, agentID string) {
-	if err := s.nudgeClaimer.SetNudgeSent(ctx, agentID); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the nudge komrad sent an agent, so the next one will read as a first",
-			append(logging.Err(err), slog.String(logging.TargetAgentID, agentID))...)
-	}
-}
-
 func formatNudge(pending int64) string {
 	return fmt.Sprintf("komrad: %d piece(s) of unread mail, call read_mail", pending)
-}
-
-// didLastNudgeGoNowhere reports whether the agent was told about mail before and has ended no
-// turn since.
-func didLastNudgeGoNowhere(agent agentstore.Agent) bool {
-	if agent.NudgeSentAt == nil {
-		return false
-	}
-
-	return agent.Turn.EndedAt == nil || !agent.Turn.EndedAt.After(*agent.NudgeSentAt)
 }
 
 func (s *DeliveryService) reportExpired(ctx context.Context, agent agentstore.Agent) {

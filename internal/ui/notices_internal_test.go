@@ -58,18 +58,6 @@ func TestAgentNotices(t *testing.T) {
 			want: []string{turnFailedNotice + ": Overloaded"},
 		},
 		{
-			name: "a turn an API error ended, on an agent somebody paused",
-			row: buildNoticeRow(panel.AgentRow{
-				Agent: panel.Agent{
-					State:     panel.StateErrored,
-					TurnError: "Overloaded",
-					HeldAt:    xptr.Ptr(time.Now()),
-				},
-				Alive: true,
-			}),
-			want: []string{heldNotice},
-		},
-		{
 			name: "a removed worktree",
 			row:  buildNoticeRow(panel.AgentRow{}),
 			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
@@ -286,7 +274,6 @@ func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 		Agent: panel.Agent{
 			State:  panel.StateWaiting,
 			TaskID: "t1",
-			HeldAt: xptr.Ptr(time.Now()),
 		},
 		Alive:      true,
 		UnreadMail: true,
@@ -298,11 +285,10 @@ func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(buildNoticeRow(item), snapshotParams{tasks: tasks})}}).Lines[0]
 
 	want := map[string]view.Cell{
-		failedRunNotice:    line.Alert,
-		unreadMailNotice:   line.Mail,
-		documentsNotice:    line.Document,
-		sequenceNotice:     line.Columns[0],
-		heldPromptedNotice: line.Held,
+		failedRunNotice:  line.Alert,
+		unreadMailNotice: line.Mail,
+		documentsNotice:  line.Document,
+		sequenceNotice:   line.Columns[0],
 	}
 
 	notices := agentNotices(glyph.Defaults(), "", tasks, buildNoticeRow(item))

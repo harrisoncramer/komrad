@@ -485,11 +485,6 @@ type Agent struct {
 	ReportedReason string
 	// What the agent was launched to do. It decides which review briefing the agent is given. A reviewer reads the work of its task's writer and never writes any code of its own.
 	Role AgentRole
-	// When a person stopped this agent and took the tree, null while nobody is holding it. Held is not a state, since the states are decided by reading the pane and would overwrite it.
-	HeldAt *time.Time
-	// Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it.
-	HeldMidTurn bool
-	NudgeSentAt *time.Time
 	// The canonical web address of the repository the agent's checkout pushes to, such as https://github.com/harrisoncramer/komrad. Null when the checkout is gone or its origin is not a forge. The cwd syncer rewrites it on the same pass that rewrites branch.
 	RepositoryUrl *string
 	// When a delete claimed the row. A claimed row is left out of every listing until the delete either removes it or fails, and a failure clears the claim as it records itself. The server clears every claim when it starts, since nothing survives a restart to finish one.
@@ -516,8 +511,6 @@ type Agent struct {
 	LinesAdded *int32
 	// How many lines the agent's checkout removes since it left its base, null whenever lines_added is.
 	LinesRemoved *int32
-	// The agent that took the hold, null when the panel took it.
-	HeldByAgentID *string
 	// What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
 	Sequence           AgentSequence
 	RequestedByAgentID *string

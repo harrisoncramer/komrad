@@ -66,8 +66,6 @@ type MarkGlyphs struct {
 	FailedScript string `mapstructure:"failed_script"`
 	// Mail is waiting that the agent has not read.
 	Mail string `mapstructure:"mail"`
-	// The agent is paused, held by a person reading its worktree.
-	Paused string `mapstructure:"paused"`
 	// The row has been hidden from the sidebar.
 	Hidden string `mapstructure:"hidden"`
 	// A schedule launches into the workflow, and the title over the schedules list.

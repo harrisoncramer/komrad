@@ -27,20 +27,6 @@ func (s *AgentStore) ClaimNudge(ctx context.Context, id string, retryAfter time.
 	return len(claimed) > 0, nil
 }
 
-// SetNudgeSent records that an agent was actually told about its mail, an advisory stamp the
-// claim alone does not make.
-func (s *AgentStore) SetNudgeSent(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
-	}
-
-	if err := s.queries.SetAgentNudgeSentByID(ctx, id); err != nil {
-		return fmt.Errorf("failed to record the nudge sent to agent %q: %w", id, err)
-	}
-
-	return nil
-}
-
 // SetStateByID records the state a reconcile pass observed, stamping when it was seen whether
 // or not the value moved, and clearing the reported reason when it did.
 func (s *AgentStore) SetStateByID(ctx context.Context, id string, state State) error {
@@ -162,49 +148,6 @@ func (s *AgentStore) SetHooksByID(ctx context.Context, id string, hooks []string
 	}
 
 	return nil
-}
-
-// HoldParams is the agent being held and what holding it interrupted.
-type HoldParams struct {
-	ID string
-	At time.Time
-	// MidTurn says the interrupt cut a turn that was still running.
-	MidTurn bool
-	// ByAgentID is the agent taking the hold, nil for the panel.
-	ByAgentID *string
-}
-
-// Hold records that a person has stopped an agent, and reports false when somebody already had it.
-func (s *AgentStore) Hold(ctx context.Context, params HoldParams) (bool, error) {
-	if !store.IsID(params.ID) {
-		return false, fmt.Errorf("%w: agent %q", store.ErrNotFound, params.ID)
-	}
-
-	held, err := s.queries.HoldAgentByID(ctx, models.HoldAgentByIDParams{
-		ID:            params.ID,
-		HeldAt:        &params.At,
-		HeldMidTurn:   params.MidTurn,
-		HeldByAgentID: params.ByAgentID,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to hold agent %q: %w", params.ID, err)
-	}
-
-	return len(held) > 0, nil
-}
-
-// Release lets go of an agent, and reports false when nobody was holding it.
-func (s *AgentStore) Release(ctx context.Context, id string) (bool, error) {
-	if !store.IsID(id) {
-		return false, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
-	}
-
-	released, err := s.queries.ReleaseAgentByID(ctx, id)
-	if err != nil {
-		return false, fmt.Errorf("failed to release agent %q: %w", id, err)
-	}
-
-	return len(released) > 0, nil
 }
 
 type SetHarnessParams struct {

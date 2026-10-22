@@ -31,8 +31,6 @@ type AgentServiceImpl interface {
 	DeleteMail(context.Context, *v1.DeleteMailRequest) (*emptypb.Empty, *fail.Error)
 	ArchiveAgents(context.Context, *v1.ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error)
 	RestoreAgents(context.Context, *v1.RestoreAgentsRequest) (*v1.RestoreAgentsResponse, *fail.Error)
-	HoldAgent(context.Context, *v1.HoldAgentRequest) (*v1.HoldAgentResponse, *fail.Error)
-	ReleaseAgent(context.Context, *v1.ReleaseAgentRequest) (*v1.ReleaseAgentResponse, *fail.Error)
 	ResumeAgent(context.Context, *v1.ResumeAgentRequest) (*v1.ResumeAgentResponse, *fail.Error)
 	RestartAgent(context.Context, *v1.RestartAgentRequest) (*v1.RestartAgentResponse, *fail.Error)
 	RetryAgent(context.Context, *v1.RetryAgentRequest) (*v1.RetryAgentResponse, *fail.Error)
@@ -151,16 +149,6 @@ func (a AgentServiceAdapter) ArchiveAgents(ctx context.Context, req *connect.Req
 // RestoreAgents answers the request as connect serves it.
 func (a AgentServiceAdapter) RestoreAgents(ctx context.Context, req *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error) {
 	return rpcerr.Answer(a.Impl.RestoreAgents(ctx, req.Msg))
-}
-
-// HoldAgent answers the request as connect serves it.
-func (a AgentServiceAdapter) HoldAgent(ctx context.Context, req *connect.Request[v1.HoldAgentRequest]) (*connect.Response[v1.HoldAgentResponse], error) {
-	return rpcerr.Answer(a.Impl.HoldAgent(ctx, req.Msg))
-}
-
-// ReleaseAgent answers the request as connect serves it.
-func (a AgentServiceAdapter) ReleaseAgent(ctx context.Context, req *connect.Request[v1.ReleaseAgentRequest]) (*connect.Response[v1.ReleaseAgentResponse], error) {
-	return rpcerr.Answer(a.Impl.ReleaseAgent(ctx, req.Msg))
 }
 
 // ResumeAgent answers the request as connect serves it.

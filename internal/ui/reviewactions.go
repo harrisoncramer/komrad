@@ -365,7 +365,7 @@ func pullRequestMenu() menu.Menu {
 
 // fileEntries is the entries on the file under the cursor, for the editor and whether it is viewed.
 func (r *reviewScreen) fileEntries(m *model) []menu.Entry {
-	edit := menu.Leaving(r.hold.editorDesc(), r.deps.keys.Review.EditFile, func() screen.Request { return m.review.pressEdit(m) })
+	edit := menu.Leaving(r.edit.editorDesc(), r.deps.keys.Review.EditFile, func() screen.Request { return m.review.pressEdit(m) })
 	viewed := menu.Leaving(r.diff.viewedDesc(), r.deps.keys.Review.ToggleViewed, func() screen.Request { return m.review.toggleViewed(m) })
 
 	return []menu.Entry{menu.DrawnOff(edit, r.editOffSaid(m)), menu.DrawnOff(viewed, r.diff.viewedOffSaid())}

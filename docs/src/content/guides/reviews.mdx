@@ -61,7 +61,7 @@ The thread says where your comment stands. It is released once it is sent, read 
 
 ### Editing the code yourself
 
-Sometimes fixing a line is quicker than describing the fix. Open the menu and press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` in your terminal, like vim) beside the diff. Komrad pauses the writer while you edit, since you both work in the task's checkout. When you close the editor, the writer carries on from your change.
+Sometimes fixing a line is quicker than describing the fix. Open the menu and press <Key name="review.edit_file" /> to open the file in your editor (the `$EDITOR` in your terminal, like vim) beside the diff. You both work in the task's checkout, so komrad opens the editor only while the writer is not working. When you close the editor, komrad mails the writer the files you opened, and the writer reads them again before it carries on.
 
 <figure>
   <video

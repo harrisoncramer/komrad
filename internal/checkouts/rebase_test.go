@@ -6,17 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
-	"komrad/internal/agenterr"
-	"komrad/internal/agents"
 	"komrad/internal/caller"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	"komrad/internal/gittest"
-	"komrad/internal/harness"
-	"komrad/internal/harnesstest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -25,7 +20,6 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/internal/waketest"
-	"komrad/lib/clock/clocktest"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -134,15 +128,11 @@ func TestRebaseRefusals(t *testing.T) {
 			wantErr: ErrNoWorktree,
 		},
 		{
-			name: "a held writer, before anything types at it or moves the branch",
+			name: "a writer part way through a turn, before anything moves the branch",
 			lay: func(t *testing.T, fixture *rebaseFixture) string {
-				agent := fixture.seed(t, agentstore.Agent{})
-				_, err := fixture.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: agent.ID, At: time.Now()})
-				require.NoError(t, err)
-
-				return *agent.TaskID
+				return *fixture.seed(t, agentstore.Agent{Pane: "%1", State: agentstore.StateThinking}).TaskID
 			},
-			wantErr: agenterr.ErrAgentHeld,
+			wantErr: errWriterWorking,
 		},
 		{
 			name: "a task whose tree something else is working in",
@@ -172,8 +162,8 @@ func TestRebaseRefusals(t *testing.T) {
 	}
 }
 
-// TestRebaseWithNoWriter covers a task whose writer is gone being rebased by its slug, with no
-// turn to cut and nobody to tell.
+// TestRebaseWithNoWriter covers a task whose writer is gone being rebased by its slug, with nobody
+// to tell.
 func TestRebaseWithNoWriter(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
@@ -181,18 +171,11 @@ func TestRebaseWithNoWriter(t *testing.T) {
 	require.NoError(t, err)
 	task, err := fixture.stores.Tasks.Get(t.Context(), *agent.TaskID)
 	require.NoError(t, err)
-	channel := &harnesstest.Channel{}
-	observer := harnesstest.NewActivityObserver(harness.ActivityWorking)
 	rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
 
-	result, err := fixture.newService(NewServiceParams{
-		Settler: buildSettler(channel, observer),
-		Git:     rebaser,
-	}).Rebase(t.Context(), RebaseParams{Task: task.Slug})
+	_, err = fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: task.Slug})
 	require.NoError(t, err)
 
-	assert.False(t, result.Interrupted)
-	assert.Zero(t, observer.Reads, "no writer, so no pane to read")
 	assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 	assert.Empty(t, fixture.readInbox(t, agent.ID), "the archived agent is not the writer, so it is told nothing")
 	assert.Contains(t, rebaser.Parked[0], "/"+task.ID+"/", "the park is kept under the task")
@@ -226,7 +209,7 @@ func TestTreeLocksRefuseAnEmptyPath(t *testing.T) {
 	assert.Nil(t, release)
 }
 
-// TestRebaseRefusesATreeGitWillNotMove covers the checkout's own refusals costing the agent no turn.
+// TestRebaseRefusesATreeGitWillNotMove covers the checkout's own refusals.
 func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -255,17 +238,10 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
-			channel := &harnesstest.Channel{}
-			observer := harnesstest.NewActivityObserver(harness.ActivityWorking)
 
-			_, err := fixture.newService(NewServiceParams{
-				Settler: buildSettler(channel, observer),
-				Git:     &gittest.Mover{State: tt.state},
-			}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
+			_, err := fixture.newService(NewServiceParams{Git: &gittest.Mover{State: tt.state}}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
 
 			require.ErrorIs(t, err, tt.wantErr)
-			assert.Zero(t, channel.Interrupts, "a tree that cannot move costs the agent no turn")
-			assert.Zero(t, observer.Reads)
 		})
 	}
 }
@@ -395,200 +371,6 @@ func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes)
-}
-
-// TestRebaseRefusesAnAgentThatWillNotSettle covers komrad parking or moving nothing until it sees the pane at rest.
-func TestRebaseRefusesAnAgentThatWillNotSettle(t *testing.T) {
-	tests := []struct {
-		name           string
-		readings       []harness.Activity
-		observeErr     error
-		wantSaid       string
-		wantInterrupts int
-	}{
-		{
-			name:           "an agent that will not stop",
-			readings:       []harness.Activity{harness.ActivityWorking},
-			wantSaid:       "had not stopped",
-			wantInterrupts: 1,
-		},
-		{
-			name:       "a pane that could not be read",
-			observeErr: errors.New("the frame could not be captured"),
-			wantSaid:   "could not be read",
-		},
-		{
-			name:     "a frame that matched nothing, which is no evidence of rest",
-			readings: []harness.Activity{harness.ActivityUnrecognized},
-			wantSaid: "could not be read",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fixture := newRebaseFixture(t)
-			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
-			channel := &harnesstest.Channel{}
-			observer := harnesstest.NewActivityObserver(tt.readings...)
-			observer.Err = tt.observeErr
-			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
-
-			_, err := fixture.newService(NewServiceParams{
-				Settler: buildSettler(channel, observer),
-				Git:     rebaser,
-			}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
-
-			require.ErrorIs(t, err, agenterr.ErrUnsettled)
-			require.ErrorContains(t, err, tt.wantSaid)
-			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
-			assert.Empty(t, rebaser.Calls, "nothing is parked or moved under an agent still working")
-		})
-	}
-}
-
-// TestRebaseSettlesTheAgentBeforeItMoves covers the pane being read as it is now and a turn in flight being cut.
-func TestRebaseSettlesTheAgentBeforeItMoves(t *testing.T) {
-	tests := []struct {
-		name           string
-		pane           string
-		state          agentstore.State
-		readings       []harness.Activity
-		prediction     git.Prediction
-		wantInterrupts int
-		wantReads      int
-	}{
-		{
-			name:      "an agent at rest, which is read rather than interrupted",
-			pane:      "%1",
-			readings:  []harness.Activity{harness.ActivityIdle},
-			wantReads: 1,
-		},
-		{
-			name:           "an agent its row shows working, whose turn is cut",
-			pane:           "%1",
-			state:          agentstore.StateThinking,
-			readings:       []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
-			wantInterrupts: 1,
-			wantReads:      2,
-		},
-		{
-			name:           "an agent part-way through a turn its row does not show yet",
-			pane:           "%1",
-			readings:       []harness.Activity{harness.ActivityWorking, harness.ActivityWorking, harness.ActivityIdle},
-			wantInterrupts: 1,
-			wantReads:      3,
-		},
-		{
-			name:     "an agent with no pane, which has nothing running",
-			readings: []harness.Activity{harness.ActivityWorking},
-		},
-		{
-			name:       "a working agent whose branch already holds the base, which is left alone",
-			pane:       "%1",
-			state:      agentstore.StateThinking,
-			readings:   []harness.Activity{harness.ActivityWorking},
-			prediction: git.Prediction{Contained: true},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fixture := newRebaseFixture(t)
-			agent := fixture.seed(t, agentstore.Agent{Pane: tt.pane, State: tt.state})
-			channel := &harnesstest.Channel{}
-			observer := harnesstest.NewActivityObserver(tt.readings...)
-			readsBeforeTree := 0
-			rebaser := &gittest.Mover{
-				State:          git.TreeState{Branch: "agent/a1"},
-				Prediction:     tt.prediction,
-				BeforeReadTree: func() { readsBeforeTree = observer.Reads },
-			}
-
-			result, err := fixture.newService(NewServiceParams{
-				Settler: buildSettler(channel, observer),
-				Git:     rebaser,
-			}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
-			require.NoError(t, err)
-
-			assert.Equal(t, tt.wantInterrupts > 0, result.Interrupted)
-			assert.Equal(t, tt.wantReads, observer.Reads)
-			assert.Equal(t, tt.wantReads, readsBeforeTree, "the plan reads the tree only once the agent has stopped")
-			assert.Equal(t, tt.wantInterrupts, channel.Interrupts)
-			if tt.prediction.Contained {
-				assert.Empty(t, rebaser.Calls)
-				assert.Empty(t, fixture.readInbox(t, agent.ID))
-
-				return
-			}
-			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
-		})
-	}
-}
-
-// TestRebaseRereadsTheRowOnceTheAgentSettles covers the row changing while komrad settled the agent.
-func TestRebaseRereadsTheRowOnceTheAgentSettles(t *testing.T) {
-	tests := []struct {
-		name      string
-		settling  func(t *testing.T, fixture *rebaseFixture, id string)
-		readings  []harness.Activity
-		wantErr   error
-		wantCalls []string
-		wantMail  string
-	}{
-		{
-			name:     "a hold landing on an agent whose turn was cut",
-			settling: holdWhileSettling,
-			readings: []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
-			wantErr:  agenterr.ErrAgentHeld,
-			wantMail: "interrupted",
-		},
-		{
-			name:     "a hold landing on an agent that was already at rest",
-			settling: holdWhileSettling,
-			readings: []harness.Activity{harness.ActivityIdle},
-			wantErr:  agenterr.ErrAgentHeld,
-		},
-		{
-			name: "a row stamped thinking after the interrupt",
-			settling: func(t *testing.T, fixture *rebaseFixture, id string) {
-				require.NoError(t, fixture.stores.Agents.SetStateByID(t.Context(), id, agentstore.StateThinking))
-			},
-			readings:  []harness.Activity{harness.ActivityWorking, harness.ActivityIdle},
-			wantCalls: []string{"park", "rebase"},
-			wantMail:  "Your branch is still the same branch",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fixture := newRebaseFixture(t)
-			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
-			channel := &harnesstest.Channel{}
-			observer := harnesstest.NewActivityObserver(tt.readings...)
-			observer.BeforeFirst = func() { tt.settling(t, fixture, agent.ID) }
-			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
-
-			_, err := fixture.newService(NewServiceParams{
-				Settler: buildSettler(channel, observer),
-				Git:     rebaser,
-			}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-			}
-			assert.Equal(t, tt.wantCalls, rebaser.Calls)
-			inbox := fixture.readInbox(t, agent.ID)
-			if tt.wantMail == "" {
-				assert.Empty(t, inbox)
-
-				return
-			}
-			require.Len(t, inbox, 1)
-			assert.Contains(t, inbox[0], tt.wantMail)
-		})
-	}
 }
 
 // TestRebaseRefusesATaskInTheCallersCheckout covers a caller asking to rebase the checkout it works in.
@@ -800,30 +582,6 @@ func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {
 	})
 }
 
-func holdWhileSettling(t *testing.T, fixture *rebaseFixture, id string) {
-	_, err := fixture.stores.Agents.Hold(t.Context(), agentstore.HoldParams{ID: id, At: time.Now()})
-	require.NoError(t, err)
-}
-
-// settleStep is how far the fake clock moves between two readings of the pane.
-const settleStep = 250 * time.Millisecond
-
-// buildSettler builds a settler whose clock walks the budget by itself.
-func buildSettler(channel harness.Channel, observer harness.Observer) *agents.Settler {
-	at := time.Now()
-
-	return agents.NewSettler(agents.NewSettlerParams{
-		Channel:  channel,
-		Observer: observer,
-		Clock: func() time.Time {
-			at = at.Add(settleStep)
-
-			return at
-		},
-		Sleeper: &clocktest.Sleeper{},
-	})
-}
-
 // TestALateRebaseRetryTellsTheLatestRebase pins an older rebase's event routed after a newer rebase telling the agent what the newer one did.
 func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	fixture := newRebaseFixture(t)
@@ -833,13 +591,13 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	target, err := service.rebaseEligible(t.Context(), RebaseParams{Task: *agent.TaskID})
 	require.NoError(t, err)
 
-	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Failure: "the older rebase failed"}))
+	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Result: &RebaseResult{Conflicted: true}}))
 	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
 	stale := queue.ListEvents()[0]
 	require.NoError(t, queue.InsertTx(t.Context(), stale))
 
 	inbox := fixture.readInbox(t, agent.ID)
 	require.Len(t, inbox, 1)
-	assert.NotContains(t, inbox[0], "the older rebase failed")
+	assert.NotContains(t, inbox[0], "hit conflicts")
 	assert.Contains(t, inbox[0], "already been merged")
 }

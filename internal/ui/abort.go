@@ -36,9 +36,6 @@ func reportAborted(name string, sequence panel.Sequence, result *agentv1.AbortSe
 	}
 
 	lines := []string{where + " is back where it was before.", "Komrad saved a copy of the worktree from before the abort at " + result.GetParkedRef() + "."}
-	if result.GetInterrupted() {
-		lines = append(lines, "Komrad interrupted its turn first.")
-	}
 
 	return screen.Note{
 		Kind:    screen.Info,

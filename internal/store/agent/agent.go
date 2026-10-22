@@ -3,12 +3,10 @@
 package agent
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"komrad/db/models"
-	"komrad/internal/agenterr"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
 )
@@ -98,13 +96,9 @@ type Agent struct {
 	ArchivedAt     *time.Time
 
 	// ArchiveBatchID is the archive that took this agent, shared by every agent it took.
-	ArchiveBatchID *string
-	DeletingAt     *time.Time
-	NudgedAt       *time.Time
-
-	// NudgeSentAt is when an agent was last told about its mail, which a claimed nudge that
-	// typed nothing does not set.
-	NudgeSentAt        *time.Time
+	ArchiveBatchID     *string
+	DeletingAt         *time.Time
+	NudgedAt           *time.Time
 	SpawnedByAgentID   *string
 	RequestedByAgentID *string
 
@@ -113,7 +107,6 @@ type Agent struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	InterruptedAt *time.Time
-	Hold          Hold
 
 	// Alive is whether the agent still owns the pane its row names.
 	Alive bool
@@ -138,34 +131,6 @@ func (t Turn) IsFailed() bool {
 	}
 
 	return t.EndedAt == nil || !t.FailedAt.Before(*t.EndedAt)
-}
-
-// Hold is who stopped the agent and took its worktree.
-type Hold struct {
-	// At is when a person stopped this agent and took its worktree, nil while nobody holds it.
-	At *time.Time
-	// MidTurn says the hold cut a turn that was still running.
-	MidTurn bool
-	// ByAgentID is the agent that took the hold, nil when the panel took it.
-	ByAgentID *string
-}
-
-// IsHeld reports whether somebody is holding the agent.
-func (h Hold) IsHeld() bool {
-	return h.At != nil
-}
-
-// ValidateActionable refuses an agent that is archived or that a person holds.
-func (a Agent) ValidateActionable() error {
-	if a.ArchivedAt != nil {
-		return fmt.Errorf("%w: %q", agenterr.ErrAgentArchived, a.Name)
-	}
-
-	if a.Hold.IsHeld() {
-		return agenterr.ErrAgentHeld.Saying("%q is paused, unpause it first", a.Name)
-	}
-
-	return nil
 }
 
 // IsStateUnconfirmed reports whether the agent's state was last read longer ago than the bound.
@@ -278,19 +243,13 @@ func FromRow(agent models.Agent) Agent {
 		ArchiveBatchID:     agent.ArchiveBatchID,
 		DeletingAt:         agent.DeletingAt,
 		NudgedAt:           agent.NudgedAt,
-		NudgeSentAt:        agent.NudgeSentAt,
 		SpawnedByAgentID:   agent.SpawnedByAgentID,
 		RequestedByAgentID: agent.RequestedByAgentID,
 		TaskID:             agent.TaskID,
 		CreatedAt:          agent.CreatedAt,
 		UpdatedAt:          agent.UpdatedAt,
 		InterruptedAt:      agent.InterruptedAt,
-		Hold: Hold{
-			At:        agent.HeldAt,
-			MidTurn:   agent.HeldMidTurn,
-			ByAgentID: agent.HeldByAgentID,
-		},
-		Alive: agent.Alive,
-		Hooks: agent.Hooks,
+		Alive:              agent.Alive,
+		Hooks:              agent.Hooks,
 	}
 }

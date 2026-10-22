@@ -40,7 +40,6 @@ func TestWakeAgentWorker(t *testing.T) {
 		{name: "an agent put back in a pane"},
 		{name: "an agent already being resumed", resumeErr: agenterr.ErrResumeInFlight},
 		{name: "an archived agent", resumeErr: agenterr.ErrAgentArchived},
-		{name: "a held agent", resumeErr: agenterr.ErrAgentHeld},
 		{name: "a deleted agent", resumeErr: agenterr.ErrAgentNotFound},
 		{
 			name:      "a failure that might pass",

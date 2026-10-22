@@ -29,7 +29,7 @@ func reviewColumn(m *model, in screen.Inputs) column.Spec {
 		Floor: diffFloor,
 		// The editor is another process holding the stage, so the panel owns the window only while
 		// there is none.
-		Holds:  func() bool { return !m.review.hold.atEditor },
+		Holds:  func() bool { return !m.review.edit.atEditor },
 		Beside: func() (panel.AgentRow, bool) { return m.review.writerPane(m) },
 		Rows: func(split column.Split) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is

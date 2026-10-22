@@ -57,9 +57,6 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 	if err := refuseRestart(*agent, params.ByAgentID); err != nil {
 		return nil, err
 	}
-	if err := agent.ValidateActionable(); err != nil {
-		return nil, err
-	}
 	if err := s.refuseRemovedWorktree(ctx, *agent); err != nil {
 		return nil, err
 	}

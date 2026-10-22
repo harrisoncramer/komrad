@@ -6,7 +6,6 @@ import (
 
 	"komrad/internal/ui"
 	"komrad/internal/ui/paneltest"
-	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
 
 	"github.com/stretchr/testify/assert"
@@ -110,7 +109,6 @@ func TestRebuilt(t *testing.T) {
 				t.Parallel()
 
 				server := newReviewServer(t)
-				server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 				binary := &fakeBinary{isReplaced: true}
 				harness := openReviewAt(t, server, paneltest.Params{Binary: binary})
 				harness.Press(tt.press...)

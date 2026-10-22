@@ -14,11 +14,6 @@ func TestRebaseMailStartsTheEventForItsOutcome(t *testing.T) {
 		want string
 	}{
 		{
-			name: "a rebase that failed before it finished",
-			mail: RebaseFailed{Failure: "the worktree is dirty"},
-			want: worktreeRebaseFailed,
-		},
-		{
 			name: "a rebase stopped on conflicts",
 			mail: Rebased{Conflicted: true},
 			want: worktreeRebaseConflicted,
@@ -77,17 +72,6 @@ func TestRebaseMailSaysWhatHappenedToTheBranch(t *testing.T) {
 			mail:        Rebased{Landed: 2, Replay: 1},
 			wantSaid:    "2 of your commits are no longer on the branch",
 			wantNotSaid: "A copy of the worktree",
-		},
-		{
-			name:     "a replay that cut the agent's turn",
-			mail:     Rebased{Interrupted: true},
-			wantSaid: "pick up where you were",
-		},
-		{
-			name:        "a conflict that cut the agent's turn, which waits rather than carrying on",
-			mail:        Rebased{Conflicted: true, Interrupted: true},
-			wantSaid:    "Your turn was interrupted",
-			wantNotSaid: "pick up where you were",
 		},
 	}
 

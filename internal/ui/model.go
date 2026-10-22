@@ -303,9 +303,6 @@ type model struct {
 	form        formState
 	// register is the text vim last yanked or deleted in any field, nil when vim is off.
 	register *vim.Register
-	// edited is the files a reader opened an editor on over an agent's worktree while it was
-	// paused, keyed by agent, so whoever lets that agent go can tell it where to look.
-	edited screen.Holds
 	// unstaging is the panes taken off the stage for a write still in flight that kills them.
 	unstaging    map[string]struct{}
 	helpExpanded bool

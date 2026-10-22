@@ -64,7 +64,6 @@ func prepareLine(params prepareLineParams) line {
 		Weight:   weightFor(row.Kind),
 		Emphasis: emphasisFor(row, caret),
 		Working:  workingCell(row),
-		Held:     HeldCell(row),
 		Hidden:   HiddenCell(row),
 		Document: DocumentCell(row),
 		Mail:     MailCell(row),
@@ -400,11 +399,11 @@ func fitRow(line line, width int) line {
 // shedMarks gives the marks after a name up, in the order of what a person can do without,
 // where even a nameless row will not fit the pane.
 func shedMarks(line line, width int) line {
-	// The schedule and the documents are standing facts about the row, hiding and pausing are
-	// things a person did themselves, the loader only says what the name already did, mail goes
+	// The schedule and the documents are standing facts about the row, hiding is
+	// something a person did themselves, the loader only says what the name already did, mail goes
 	// before the output nobody has read, which asks the person to look, and the failed run nobody
 	// else will mention goes last.
-	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Held, &line.Working, &line.Mail, &line.Alert} {
+	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Working, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line
 		}
@@ -447,15 +446,6 @@ func clipSpans(matches []Span, kept int) []Span {
 	}
 
 	return clipped
-}
-
-// HeldCell is the pause a person took on an agent, in danger where that agent is working anyway.
-func HeldCell(row Row) Cell {
-	if row.Held && row.HeldWorking {
-		return Cell{Glyph: glyph.Paused, Tone: paint.ToneDanger}
-	}
-
-	return markCell(row.Held, glyph.Paused, paint.ToneMuted)
 }
 
 // emphasisFor is how brightly a name renders: the row under the cursor beating greying, and

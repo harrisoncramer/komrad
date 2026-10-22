@@ -68,7 +68,7 @@ func (r *reviewScreen) followNotices(m *model) screen.Request {
 // movedNotice is what the reader is told about the agent having written past the diff on screen.
 func (r reviewScreen) movedNotice(m *model) screen.Note {
 	moved := r.findMovedSnapshot(m)
-	if moved == "" || r.hold.atEditor {
+	if moved == "" || r.edit.atEditor {
 		return screen.Note{}
 	}
 

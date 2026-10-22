@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"komrad/internal/ui/api"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
@@ -9,29 +8,27 @@ import (
 )
 
 type agentEdit struct {
-	agent    panel.Agent
-	pausing  bool
-	ourPause bool
-	pane     string
+	agent panel.Agent
+	pane  string
 }
 
 func (a *agentsScreen) isEditorOpen() bool {
 	return a.editing != nil && a.editing.pane != ""
 }
 
-// releaseEdit closes the open editor and lets its agent go, unless the agent is still pausing.
-func (a *agentsScreen) releaseEdit(in screen.Inputs) screen.Request {
-	if a.editing == nil || a.editing.pausing {
+// endEdit closes the open editor and tells its agent so.
+func (a *agentsScreen) endEdit() screen.Request {
+	if a.editing == nil {
 		return nil
 	}
 
-	return screen.Batch{a.closeEdit(in), screen.Restage{}}
+	return screen.Batch{a.closeEdit(), screen.Restage{}}
 }
 
 // pressEdit opens an editor on the agent's worktree, or closes the one already open.
 func (a *agentsScreen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.Request {
 	if a.editing != nil {
-		return a.releaseEdit(in)
+		return a.endEdit()
 	}
 
 	agent := item.Agent
@@ -47,12 +44,15 @@ func (a *agentsScreen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.R
 		return refuse("it has no worktree to open")
 	}
 
-	if item.Alive && agent.State == panel.StateUncertain {
-		return refuse("komrad cannot read its pane, so it may be writing in this worktree")
-	}
-
-	if agent.HeldAt != nil {
-		return refuse(stillPaused)
+	if item.Alive {
+		switch agent.State {
+		case panel.StateThinking:
+			return refuse("it is writing in this worktree, so stop it before you edit")
+		case panel.StateUncertain:
+			return refuse("komrad cannot read its pane, so it may be writing in this worktree")
+		case panel.StateWaiting, panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
+			panel.StateFailedToCreate, panel.StateFailedToCleanup:
+		}
 	}
 
 	if reason, refused := a.deps.editorSettings.IsRemoteEditRefused(); refused {
@@ -60,36 +60,8 @@ func (a *agentsScreen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.R
 	}
 
 	a.editing = &agentEdit{agent: agent}
-	if !item.Alive {
-		return a.openEditor()
-	}
-
-	a.editing.pausing = true
-
-	return holdAgent(a.deps.clients, agent.ID, agent.Name)
-}
-
-func (a *agentsScreen) applyPaused(msg reviewPausedMsg) screen.Request {
-	if !a.isPausing(msg.agentID) {
-		return nil
-	}
-
-	a.editing.pausing = false
-
-	if msg.err != nil {
-		refused := screen.Report{Summary: "Could not pause " + a.editing.agent.Name, Err: msg.err}
-		a.editing = nil
-
-		return refused
-	}
-
-	a.editing.ourPause = true
 
 	return a.openEditor()
-}
-
-func (a *agentsScreen) isPausing(agentID string) bool {
-	return a.editing != nil && a.editing.pausing && a.editing.agent.ID == agentID
 }
 
 // agentEditorStaged is the pane an editor over an agent's directory was given, empty where the
@@ -106,7 +78,7 @@ func (a *agentsScreen) openEditor() screen.Request {
 }
 
 // applyEditorStaged keeps the editor's pane, or gives the edit up when there was no room for it.
-func (a *agentsScreen) applyEditorStaged(in screen.Inputs, staged agentEditorStaged) screen.Request {
+func (a *agentsScreen) applyEditorStaged(staged agentEditorStaged) screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -119,7 +91,8 @@ func (a *agentsScreen) applyEditorStaged(in screen.Inputs, staged agentEditorSta
 
 	edit := *a.editing
 	a.editing = nil
-	refused := screen.Batch{
+
+	return screen.Batch{
 		screen.Note{
 			Kind:    screen.Error,
 			Summary: "could not edit " + edit.agent.Name,
@@ -127,19 +100,9 @@ func (a *agentsScreen) applyEditorStaged(in screen.Inputs, staged agentEditorSta
 		},
 		screen.Restage{},
 	}
-	if !edit.ourPause {
-		return refused
-	}
-
-	return append(refused, a.deps.clients.ReleaseWrite(api.ReleaseWriteParams{
-		Summary: "Could not let " + edit.agent.Name + " go",
-		Agent:   edit.agent,
-		Said:    abandonedSaid,
-		Edited:  in.Holds[edit.agent.ID],
-	}))
 }
 
-func (a *agentsScreen) closeEdit(in screen.Inputs) screen.Request {
+func (a *agentsScreen) closeEdit() screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -151,16 +114,7 @@ func (a *agentsScreen) closeEdit(in screen.Inputs) screen.Request {
 		return nil
 	}
 
-	if !edit.ourPause {
-		return screen.Unstage{}
-	}
-
-	return screen.Batch{screen.Unstage{}, a.deps.clients.ReleaseWrite(api.ReleaseWriteParams{
-		Summary: "Could not let " + edit.agent.Name + " go",
-		Agent:   edit.agent,
-		Said:    editedSaid,
-		Edited:  in.Holds[edit.agent.ID],
-	})}
+	return screen.Batch{screen.Unstage{}, a.deps.clients.EditedWrite(edit.agent, nil)}
 }
 
 func (a *agentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Request {
@@ -168,11 +122,11 @@ func (a *agentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Reques
 		return nil
 	}
 
-	return screen.Batch{a.closeEdit(in), screen.Restage{}}
+	return screen.Batch{a.closeEdit(), screen.Restage{}}
 }
 
 func (a *agentsScreen) leaveScreen(m *model) screen.Request {
 	a.renaming = nil
 
-	return a.closeEdit(m.inputs())
+	return a.closeEdit()
 }

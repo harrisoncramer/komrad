@@ -1,8 +1,6 @@
 package render
 
 import (
-	"time"
-
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
@@ -54,8 +52,6 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		FailedRunLog:       row.FailedRunLog,
 		Documents:          row.Documents,
 		DocumentsUpdatedAt: dates.PreciseStampPtr(row.DocumentsUpdatedAt),
-		HeldAt:             heldStamp(stored.Hold.At),
-		HeldByAgentId:      xptr.Deref(stored.Hold.ByAgentID),
 		TaskId:             stored.TaskID,
 		TaskSlug:           row.TaskSlug,
 		ProvisionDisabled:  stored.IsProvisionerDisabled(),
@@ -84,15 +80,6 @@ func reviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
 	default:
 		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 	}
-}
-
-// heldStamp is when a person took the agent's worktree, empty while nobody holds it.
-func heldStamp(at *time.Time) string {
-	if at == nil {
-		return ""
-	}
-
-	return dates.Stamp(*at)
 }
 
 // AgentStateOf is a stored state as the wire carries it.

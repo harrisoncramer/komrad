@@ -68,7 +68,6 @@ type line struct {
 	Emphasis emphasis
 	// Working is the loader turning after the name of an agent at work.
 	Working  Cell
-	Held     Cell
 	Hidden   Cell
 	Document Cell
 	Mail     Cell

@@ -1,38 +1,65 @@
 package ui
 
 import (
+	"slices"
+
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
 
-// pressEdit is the edit key, which stops the agent before it opens the editor and closes one
-// already open.
+// reviewEdit is the reader's editor over the agent's worktree, and the files it opened.
+type reviewEdit struct {
+	// touched are the files the reader opened an editor on, oldest first, which is what the agent
+	// is told about once the editor closes.
+	touched []string
+
+	// atEditor says your own editor holds the stage, so the panel renders its sidebar alone.
+	atEditor    bool
+	editingPath string
+	// editorPane is the pane the editor was given, empty where the split was refused, which is
+	// what says whether a pane going away is the editor being closed.
+	editorPane string
+}
+
+// end puts the editor down and says which files the reader opened in it.
+func (p *reviewEdit) end() []string {
+	touched := p.touched
+
+	*p = reviewEdit{}
+
+	return touched
+}
+
+// openEditor records the editor holding the stage on one file, in the pane the split gave it.
+func (p *reviewEdit) openEditor(path, pane string) {
+	p.atEditor = true
+	p.editingPath = path
+	p.editorPane = pane
+	if !slices.Contains(p.touched, path) {
+		p.touched = append(p.touched, path)
+	}
+}
+
+// pressEdit is the edit key, which opens the editor and closes one already open.
 func (r *reviewScreen) pressEdit(m *model) screen.Request {
-	if r.isHistory() && !r.hold.atEditor {
+	if r.isHistory() && !r.edit.atEditor {
 		return nil
 	}
 
-	// A press that arrives while the agent is still coming to a stop is the wait, not a second
-	// thing to do, and letting it through would open the editor the wait exists to hold shut.
-	if r.hold.pausing {
-		return screen.NewNote(screen.Warning, "the agent is still stopping")
-	}
-
-	if r.hold.atEditor {
+	if r.edit.atEditor {
 		return r.closeEdit(m)
 	}
 
-	// The refusals are read before the agent is stopped.
 	if reason, refused := r.isEditRefused(m); refused {
 		return screen.NewNote(screen.Warning, reason)
 	}
 
-	return r.startHold(m)
+	return r.editFile(m)
 }
 
-// isEditRefused returns why the edit key would open nothing, before the panel stops the agent.
+// isEditRefused returns why the edit key would open nothing.
 func (r reviewScreen) isEditRefused(m *model) (string, bool) {
 	if r.isWorktreeRemoved(m) {
 		return worktreeRemovedSaid, true
@@ -65,15 +92,15 @@ func (r reviewScreen) isAgentUnreadable(m *model) (string, bool) {
 }
 
 // editFile opens the file under the cursor in the agent's own worktree, in the stage beside the
-// sidebar, letting the agent go again when there is nothing to open it in.
+// sidebar.
 func (r *reviewScreen) editFile(m *model) screen.Request {
 	path, line, ok := r.diff.View().GetEditTarget(r.diff.Cursor())
 	if !ok {
-		return screen.Batch{screen.NewNote(screen.Warning, "that file was deleted, so there is nothing to open"), r.endHold(m, abandonedSaid)}
+		return screen.NewNote(screen.Warning, "that file was deleted, so there is nothing to open")
 	}
 
 	if reason, busy := r.isAgentBusy(m); busy {
-		return screen.Batch{screen.NewNote(screen.Warning, reason), r.endHold(m, abandonedSaid)}
+		return screen.NewNote(screen.Warning, reason)
 	}
 
 	return screen.Stage{
@@ -89,15 +116,14 @@ type reviewEditorStaged struct {
 	pane string
 }
 
-// applyEditorStaged keeps the editor's pane, or lets the agent go again when there was no room
-// for it.
+// applyEditorStaged keeps the editor's pane, or says there was no room for it.
 func (r *reviewScreen) applyEditorStaged(m *model, staged reviewEditorStaged) screen.Request {
 	path, pane := staged.path, staged.pane
 	if pane == "" {
-		return screen.Batch{screen.NewNote(screen.Warning, "there is no room beside the sidebar for an editor"), r.endHold(m, abandonedSaid)}
+		return screen.NewNote(screen.Warning, "there is no room beside the sidebar for an editor")
 	}
 
-	r.hold.openEditor(path, pane)
+	r.edit.openEditor(path, pane)
 
 	return screen.Note{
 		Kind:    screen.Info,
@@ -108,12 +134,6 @@ func (r *reviewScreen) applyEditorStaged(m *model, staged reviewEditorStaged) sc
 
 // isAgentBusy reports whether the agent may be writing in the tree the editor would open.
 func (r reviewScreen) isAgentBusy(m *model) (string, bool) {
-	// The panel stops the agent before the editor opens, and an agent seen to stop is not writing,
-	// whatever its row read as before that.
-	if r.hold.paused {
-		return "", false
-	}
-
 	item, ok := r.agentRow(m)
 	if !ok || !item.Alive {
 		return "", false
@@ -139,22 +159,37 @@ func (r reviewScreen) agentRow(m *model) (panel.AgentRow, bool) {
 	return m.listing.LiveAgent(r.agentID)
 }
 
-// closeEdit gives the stage back to the diff, lets the agent go, and reads the worktree again with
-// the reader's own writing in it.
+// closeEdit gives the stage back to the diff, tells the agent which files the reader opened, and
+// reads the worktree again with the reader's own writing in it.
 func (r *reviewScreen) closeEdit(m *model) screen.Request {
-	return screen.Batch{screen.Unstage{}, r.endHold(m, editedSaid), screen.Restage{}, r.catchUp()}
+	return screen.Batch{screen.Unstage{}, r.endEdit(m), screen.Restage{}, r.catchUp()}
+}
+
+// endEdit puts the editor down and tells the agent which files the reader opened in it.
+func (r *reviewScreen) endEdit(m *model) screen.Request {
+	touched := r.edit.end()
+	if len(touched) == 0 {
+		return nil
+	}
+
+	item, ok := r.agentRow(m)
+	if !ok {
+		return nil
+	}
+
+	return r.deps.clients.EditedWrite(item.Agent, touched)
 }
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
 func (r *reviewScreen) reconcileEditor(m *model, in screen.Inputs) screen.Request {
-	if !r.hold.atEditor {
+	if !r.edit.atEditor {
 		return nil
 	}
 
 	// A pane the split refused is not one that can go away, so nothing here reports it as the
 	// editor closing.
-	if r.hold.editorPane == "" || r.deps.panes.IsPaneAlive(r.hold.editorPane) {
+	if r.edit.editorPane == "" || r.deps.panes.IsPaneAlive(r.edit.editorPane) {
 		return nil
 	}
 
@@ -162,7 +197,7 @@ func (r *reviewScreen) reconcileEditor(m *model, in screen.Inputs) screen.Reques
 }
 
 // editorDesc says what the edit key would do.
-func (p reviewHold) editorDesc() string {
+func (p reviewEdit) editorDesc() string {
 	if p.atEditor {
 		return "close the editor"
 	}

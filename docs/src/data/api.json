@@ -257,42 +257,6 @@
           "response": "agent.v1.RestoreAgentsResponse"
         },
         {
-          "slug": "hold-agent",
-          "name": "HoldAgent",
-          "path": "/agent.v1.AgentService/HoldAgent",
-          "command": "komrad rpc hold-agent",
-          "tool": "hold_agent",
-          "mcp": true,
-          "roles": [
-            "orchestrator"
-          ],
-          "summary": "Interrupt an agent and hold it still until `release_agent`, such as before editing files in its checkout.",
-          "description": "Interrupt an agent and hold it still until `release_agent`, such as before editing files in its checkout. An agent cannot hold itself.",
-          "readOnly": false,
-          "idempotent": false,
-          "destructive": false,
-          "request": "agent.v1.HoldAgentRequest",
-          "response": "agent.v1.HoldAgentResponse"
-        },
-        {
-          "slug": "release-agent",
-          "name": "ReleaseAgent",
-          "path": "/agent.v1.AgentService/ReleaseAgent",
-          "command": "komrad rpc release-agent",
-          "tool": "release_agent",
-          "mcp": true,
-          "roles": [
-            "orchestrator"
-          ],
-          "summary": "Release a held agent, mailing `said` to the agent as it starts again.",
-          "description": "Release a held agent, mailing `said` to the agent as it starts again. Komrad sends no mail when the agent's turn had already ended.",
-          "readOnly": false,
-          "idempotent": false,
-          "destructive": false,
-          "request": "agent.v1.ReleaseAgentRequest",
-          "response": "agent.v1.ReleaseAgentResponse"
-        },
-        {
           "slug": "resume-agent",
           "name": "ResumeAgent",
           "path": "/agent.v1.AgentService/ResumeAgent",
@@ -1877,16 +1841,6 @@
           "oneof": "",
           "rules": [],
           "description": "The ref that keeps the checkout as it was before the abort, conflicts included."
-        },
-        {
-          "name": "interrupted",
-          "type": "bool",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "Whether komrad interrupted the agent's turn to abort."
         }
       ]
     },
@@ -2348,26 +2302,6 @@
           "oneof": "",
           "rules": [],
           "description": "Whether `prompt` holds only the prompt's opening, as a summary view returns it."
-        },
-        {
-          "name": "held_at",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "When a caller held the agent, in RFC 3339. Empty while the agent is not held."
-        },
-        {
-          "name": "held_by_agent_id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The id of the agent that holds this agent. Empty when the person holds it or nobody does."
         },
         {
           "name": "task_id",
@@ -3811,40 +3745,6 @@
         }
       ]
     },
-    "agent.v1.HoldAgentRequest": {
-      "name": "HoldAgentRequest",
-      "description": "",
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "The agent to hold, by id."
-        }
-      ]
-    },
-    "agent.v1.HoldAgentResponse": {
-      "name": "HoldAgentResponse",
-      "description": "",
-      "fields": [
-        {
-          "name": "agent",
-          "type": "Agent",
-          "ref": "agent.v1.Agent",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The agent as held."
-        }
-      ]
-    },
     "agent.v1.ListAgentsRequest": {
       "name": "ListAgentsRequest",
       "description": "",
@@ -4877,50 +4777,6 @@
           "oneof": "",
           "rules": [],
           "description": "How many of the branch's commits the rebase replayed."
-        }
-      ]
-    },
-    "agent.v1.ReleaseAgentRequest": {
-      "name": "ReleaseAgentRequest",
-      "description": "",
-      "fields": [
-        {
-          "name": "id",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "The held agent to release, by id."
-        },
-        {
-          "name": "said",
-          "type": "string",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "What happened while the agent was held, mailed to the agent from the caller. Empty to send no mail."
-        }
-      ]
-    },
-    "agent.v1.ReleaseAgentResponse": {
-      "name": "ReleaseAgentResponse",
-      "description": "",
-      "fields": [
-        {
-          "name": "agent",
-          "type": "Agent",
-          "ref": "agent.v1.Agent",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The agent as released, running."
         }
       ]
     },

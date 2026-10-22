@@ -70,8 +70,6 @@ type RebaseResult struct {
 	Moved bool `json:"moved"`
 	// ParkedRef holds the checkout as it stood before any of this, which is what an undo reads.
 	ParkedRef string `json:"parked_ref"`
-	// Interrupted says a turn was cut so the rebase could run.
-	Interrupted bool `json:"interrupted"`
 	// OntoBase says the rebase re-targeted a child onto the workflow's base branch, away from its parent.
 	OntoBase bool `json:"onto_base"`
 }
@@ -208,20 +206,14 @@ func (s *Service) Rebase(ctx context.Context, params RebaseParams) (*RebaseResul
 		return &RebaseResult{RebasePlan: *plan}, nil
 	}
 
-	interrupted, err := s.settle(ctx, *target)
-	if err != nil {
+	if err := refuseWorkingWriter(*target); err != nil {
 		return nil, err
 	}
 
 	result, err := s.rebase(ctx, *target)
 	if err != nil {
-		if interrupted {
-			s.tellRebaseCut(ctx, *target, err)
-		}
-
 		return nil, err
 	}
-	result.Interrupted = interrupted
 
 	s.tellRebased(ctx, *target, *result)
 
@@ -308,14 +300,6 @@ func (s *Service) recordRebaseStopped(ctx context.Context, task taskstore.Task) 
 func (s *Service) tellRebased(ctx context.Context, target checkoutTarget, result RebaseResult) {
 	if err := s.recordRebase(ctx, target, rebaseOutcome{Result: &result}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's worktree was rebased",
-			append([]slog.Attr{slog.String(logging.TaskID, target.task.ID)}, logging.Err(err)...)...)
-	}
-}
-
-// tellRebaseCut records that the writer's turn was cut for a rebase that then failed.
-func (s *Service) tellRebaseCut(ctx context.Context, target checkoutTarget, failure error) {
-	if err := s.recordRebase(ctx, target, rebaseOutcome{Failure: failure.Error()}); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a writer's turn was cut for nothing",
 			append([]slog.Attr{slog.String(logging.TaskID, target.task.ID)}, logging.Err(err)...)...)
 	}
 }

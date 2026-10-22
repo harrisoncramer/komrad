@@ -69,13 +69,12 @@ func (w *WakeAgentWorker) Timeout(*river.Job[WakeAgentArgs]) time.Duration {
 	return noJobTimeout
 }
 
-// Work resumes the agent, leaving one that is gone, held or already being resumed alone.
+// Work resumes the agent, leaving one that is gone or already being resumed alone.
 func (w *WakeAgentWorker) Work(ctx context.Context, job *river.Job[WakeAgentArgs]) error {
 	_, err := w.resumer.ResumeAgent(ctx, agents.ResumeAgentParams{ID: job.Args.AgentID})
 	switch {
 	case errors.Is(err, agenterr.ErrResumeInFlight),
 		errors.Is(err, agenterr.ErrAgentArchived),
-		errors.Is(err, agenterr.ErrAgentHeld),
 		errors.Is(err, agenterr.ErrAgentNotFound):
 		return nil
 	default:

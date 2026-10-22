@@ -148,11 +148,6 @@ func (a *archivedAgents) screenNotice(m *model, in screen.Inputs) string {
 }
 
 func (a *agentsScreen) screenNotice(m *model, in screen.Inputs) string {
-	item, ok := a.hoveredResting(m, in)
-	if ok && item.Agent.HeldAt != nil {
-		return "paused"
-	}
-
 	return "dormant" + separated + "press " + keys.Label(fixedKeys().Open) + " to restore"
 }
 

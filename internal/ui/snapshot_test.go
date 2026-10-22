@@ -54,14 +54,6 @@ func TestSnapshotStatus(t *testing.T) {
 			want: view.StatusWaiting,
 		},
 		{
-			name: "an agent somebody paused wants that person back, whatever it was doing",
-			item: panel.AgentRow{
-				Agent: panel.Agent{State: panel.StateThinking, HeldAt: xptr.Ptr(time.Now())},
-				Alive: true,
-			},
-			want: view.StatusWaiting,
-		},
-		{
 			name: "an agent whose pane has gone is idle whatever it stopped in",
 			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}},
 			want: view.StatusIdle,
@@ -335,21 +327,6 @@ func TestSnapshotMarksOnARow(t *testing.T) {
 		item panel.AgentRow
 		want view.Row
 	}{
-		{
-			name: "an agent somebody is holding says it is paused",
-			item: panel.AgentRow{Agent: panel.Agent{
-				ID:     "a1",
-				Name:   "held",
-				HeldAt: xptr.Ptr(time.Now()),
-			}},
-			want: view.Row{
-				Key:    "agent:a1",
-				Name:   "held",
-				Held:   true,
-				Status: view.StatusWaiting,
-				Tree:   &view.Tree{Last: true},
-			},
-		},
 		{
 			name: "a failed run nobody has read is an alert",
 			item: panel.AgentRow{
@@ -820,60 +797,6 @@ func TestSnapshotSearchOffMarksNothing(t *testing.T) {
 	row := snapshotOne(t, panel.AgentRow{Agent: panel.Agent{ID: "a1", Name: "view-gather"}})
 
 	assert.Nil(t, row.Matches)
-}
-
-// TestSnapshotHeldWorking pins the pause that did not take: komrad goes on reading the pane, so a
-// paused agent that is working again says so rather than the row claiming it stopped.
-func TestSnapshotHeldWorking(t *testing.T) {
-	tests := []struct {
-		name string
-		item panel.AgentRow
-		want bool
-	}{
-		{
-			name: "a paused agent that started a turn is working anyway",
-			item: panel.AgentRow{
-				Agent: panel.Agent{State: panel.StateThinking, HeldAt: xptr.Ptr(time.Now())},
-				Alive: true,
-			},
-			want: true,
-		},
-		{
-			name: "so is one stopped at a prompt, where an answer would land a write",
-			item: panel.AgentRow{
-				Agent: panel.Agent{State: panel.StateWaiting, HeldAt: xptr.Ptr(time.Now())},
-				Alive: true,
-			},
-			want: true,
-		},
-		{
-			name: "a pane nobody can read says nothing either way, so the hold stands",
-			item: panel.AgentRow{
-				Agent: panel.Agent{State: panel.StateUncertain, HeldAt: xptr.Ptr(time.Now())},
-				Alive: true,
-			},
-			want: false,
-		},
-		{
-			name: "a paused agent sitting quiet is held and nothing more",
-			item: panel.AgentRow{
-				Agent: panel.Agent{State: panel.StateIdle, HeldAt: xptr.Ptr(time.Now())},
-				Alive: true,
-			},
-			want: false,
-		},
-		{
-			name: "an agent nobody paused is never working through a hold",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}, Alive: true},
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, snapshotOne(t, tt.item).HeldWorking)
-		})
-	}
 }
 
 // TestSnapshotCarriesTheCaret pins the caret reaching the view as a fact rather than the view

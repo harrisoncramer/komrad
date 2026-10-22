@@ -31,7 +31,6 @@ const (
 	Conflicting
 	FailedScript
 	Mail
-	Paused
 	Hidden
 	Schedule
 	Document
@@ -85,7 +84,6 @@ var defined = [count]struct {
 	Conflicting:        {"pull_request.conflicting", ""},
 	FailedScript:       {"marks.failed_script", ""},
 	Mail:               {"marks.mail", ""},
-	Paused:             {"marks.paused", ""},
 	Hidden:             {"marks.hidden", ""},
 	Schedule:           {"marks.schedule", ""},
 	Document:           {"marks.document", ""},

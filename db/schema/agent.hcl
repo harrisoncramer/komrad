@@ -793,26 +793,6 @@ table "agents" {
     default = ""
     comment = "Why the agent's create or cleanup failed, empty unless it is in one of the failed states."
   }
-  column "held_at" {
-    null    = true
-    type    = timestamptz
-    comment = "When a person stopped this agent and took the tree, null while nobody is holding it. Held is not a state, since the states are decided by reading the pane and would overwrite it."
-  }
-  column "held_mid_turn" {
-    null    = false
-    type    = boolean
-    default = false
-    comment = "Whether the hold cut a turn that was still running, which is what decides whether letting go has to type the agent back into motion or merely stop holding it."
-  }
-  column "held_by_agent_id" {
-    null    = true
-    type    = uuid
-    comment = "The agent that took the hold, null when the panel took it."
-  }
-  column "nudge_sent_at" {
-    null = true
-    type = timestamptz
-  }
   column "sequence" {
     null    = false
     type    = enum.agent_sequence

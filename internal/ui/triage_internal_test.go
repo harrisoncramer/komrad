@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
-	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -83,16 +82,6 @@ func TestTriageRefresh(t *testing.T) {
 		{
 			name: "a prompt in a pane that has gone is not in triage",
 			item: panel.AgentRow{Agent: panel.Agent{ID: "a1", State: panel.StateWaiting}},
-			want: "",
-		},
-		{
-			name: "a paused agent is not in triage",
-			item: func() panel.AgentRow {
-				item := live(panel.StateWaiting)
-				item.Agent.HeldAt = xptr.Ptr(changed)
-
-				return item
-			}(),
 			want: "",
 		},
 		{

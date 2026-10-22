@@ -437,7 +437,7 @@ func (r reviewScreen) composeDesc() string {
 
 // backDesc says which of the two things the back key leaves.
 func (r reviewScreen) backDesc() string {
-	if r.hold.atEditor {
+	if r.edit.atEditor {
 		return "close the editor"
 	}
 
@@ -445,7 +445,7 @@ func (r reviewScreen) backDesc() string {
 }
 
 func (r reviewScreen) diffBackDesc(m *model, in screen.Inputs) string {
-	if r.hold.isHeld() || !r.isBlockRendered(m, in) {
+	if r.edit.atEditor || !r.isBlockRendered(m, in) {
 		return r.backDesc()
 	}
 

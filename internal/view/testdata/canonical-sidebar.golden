@@ -4,10 +4,10 @@
        research-identity-assets
       ops
       rds-backup-hardening
-›      strip-demo 
+›      strip-demo
       komrad +3 
        frozen-review-bug
-      pr-metadata-fixes  
+      pr-metadata-fixes 
        iss-582 
        gone-worktree 
       iss-641-reviewer 

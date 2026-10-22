@@ -466,9 +466,7 @@ func (r *reviewScreen) openStackedReview(m *model, in screen.Inputs, taskID stri
 	}
 
 	writer, _ := in.Listing.FindTaskWriter(in.Listing.Tasks[taskID])
-	letGo := r.endHold(m, abandonedSaid)
-
-	return screen.Batch{letGo, screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: writer.Agent.ID}}}
+	return screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: writer.Agent.ID}}
 }
 
 // stackedOffSaid is why the review of a task in the stack cannot open, empty when it can.
@@ -476,7 +474,7 @@ func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
 	task := m.listing.Tasks[taskID]
 	writer, ok := m.listing.FindTaskWriter(task)
 	switch {
-	case r.hold.isHeld():
+	case r.edit.atEditor:
 		return "close the editor first"
 	case task.IsWorktreeRemoved() || task.Cwd == "":
 		return "its worktree is gone"
