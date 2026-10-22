@@ -154,12 +154,26 @@ linters:
             - "**/internal/ui/tabs/**"
             - "**/internal/ui/record/**"
             - "**/internal/ui/filter/**"
+            - "**/internal/ui/cursor/**"
+            - "**/internal/ui/diffview/**"
+            - "**/internal/ui/layout/**"
+            - "**/internal/ui/logview/**"
+            - "**/internal/ui/paint/**"
+            - "**/internal/ui/panel/**"
+            - "**/internal/ui/reader/**"
+            - "**/internal/ui/savedscreen/**"
+            - "**/internal/ui/submitting/**"
           deny:
             - pkg: komrad/internal/ui$
               desc: a shared package sits under the panel's screens, so it never reaches back up into the root
+            - pkg: komrad/internal/ui/logs$
+              desc: a shared package sits under the screen domains, so it never imports one
+            - pkg: komrad/internal/ui/checks$
+              desc: a shared package sits under the screen domains, so it never imports one
         domains:
           files:
             - "**/internal/ui/logs/**"
+            - "**/internal/ui/checks/**"
           list-mode: lax
           allow:
             - komrad/internal/ui/api$
@@ -484,6 +498,8 @@ linters:
             types:
               - komrad/internal/ui.model
               - komrad/internal/ui/logs.Screen
+              - komrad/internal/ui/checks.Screen
+              - komrad/internal/ui/checks.Logs
             # Unanchored regexps over the path lint was run from.
             exclude:
               # Table tests over the screens' key tables, which are typed over the model. They read
