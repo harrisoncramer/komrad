@@ -1,109 +1,50 @@
 package ui
 
 import (
-	"encoding/hex"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 
 	"komrad/internal/panes"
+	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 
 	"charm.land/lipgloss/v2"
 )
 
-// zone names a block the panel renders inside its own pane.
-type zone string
-
 const (
-	zoneList       zone = "list"
-	zoneColumn     zone = "column"
-	zoneDetails    zone = "details"
-	zoneBlock      zone = "block"
-	zoneSide       zone = "side"
-	zoneViews      zone = "views"
-	zoneKinds      zone = "kinds"
-	zoneTabs       zone = "tabs"
-	zoneFiles      zone = "files"
-	zoneSearch     zone = "search"
-	zoneMessages   zone = "messages"
-	zoneDoc        zone = "doc"
-	zoneMessage    zone = "message"
-	zoneLog        zone = "log"
-	zoneDiff       zone = "diff"
-	zoneMenu       zone = "menu"
-	zoneParentMenu zone = "parentmenu"
+	zoneList       zone.Name = "list"
+	zoneColumn     zone.Name = "column"
+	zoneDetails    zone.Name = "details"
+	zoneBlock      zone.Name = "block"
+	zoneSide       zone.Name = "side"
+	zoneViews      zone.Name = "views"
+	zoneKinds      zone.Name = "kinds"
+	zoneTabs       zone.Name = "tabs"
+	zoneFiles      zone.Name = "files"
+	zoneSearch     zone.Name = "search"
+	zoneMessages   zone.Name = "messages"
+	zoneDoc        zone.Name = "doc"
+	zoneMessage    zone.Name = "message"
+	zoneLog        zone.Name = "log"
+	zoneDiff       zone.Name = "diff"
+	zoneMenu       zone.Name = "menu"
+	zoneParentMenu zone.Name = "parentmenu"
 )
-
-// zoneMark is the invisible sequence a marked frame carries at each end of a zone.
-var zoneMark = regexp.MustCompile("\x1b_kz([se]):([a-z]+):([0-9]*)\x1b\\\\")
 
 // markZone wraps a block in the marks that say where it was rendered, while the panel is rendering a
 // marked frame.
-func (m *model) markZone(name zone, block string, width int) string {
-	if !m.term.markingZones || block == "" {
+func (m *model) markZone(name zone.Name, block string, width int) string {
+	if !m.term.markingZones {
 		return block
 	}
 
-	return "\x1b_kzs:" + string(name) + ":" + strconv.Itoa(width) + "\x1b\\" + block + "\x1b_kze:" + string(name) + ":\x1b\\"
+	return zone.Block(name, block, width)
 }
 
 // isMarkingZones reports whether this frame is rendered to find where its blocks landed.
 func (m *model) isMarkingZones() bool {
 	return m.term.markingZones
-}
-
-// scanZones finds where each marked zone sits in a frame, in cells from its top left.
-func scanZones(frame string) map[zone]panes.Rect {
-	type opened struct {
-		left, top, width int
-	}
-
-	starts := map[zone]opened{}
-	found := map[zone]panes.Rect{}
-
-	for row, line := range strings.Split(frame, "\n") {
-		for _, at := range zoneMark.FindAllStringSubmatchIndex(line, -1) {
-			name := zone(line[at[4]:at[5]])
-			col := lipgloss.Width(line[:at[0]])
-
-			if line[at[2]:at[3]] == "s" {
-				width, err := strconv.Atoi(line[at[6]:at[7]])
-				if err != nil {
-					continue
-				}
-
-				starts[name] = opened{
-					left:  col,
-					top:   row,
-					width: width,
-				}
-
-				continue
-			}
-
-			start, ok := starts[name]
-			if !ok {
-				continue
-			}
-
-			bottom := row
-			if col == 0 && row > start.top {
-				bottom--
-			}
-
-			found[name] = panes.Rect{
-				Pane:   string(name),
-				Left:   start.left,
-				Top:    start.top,
-				Width:  start.width,
-				Height: bottom - start.top + 1,
-			}
-		}
-	}
-
-	return found
 }
 
 // sidebarBlock is a block the panel rendered inside its own pane that the picker can land on.
@@ -117,7 +58,7 @@ func (m *model) findSidebarBlocks() []sidebarBlock {
 	marked := *m
 	marked.term.markingZones = true
 
-	zones := scanZones(marked.renderInset(marked.insideView()))
+	zones := zone.Scan(marked.renderInset(marked.insideView()))
 	stops := m.listStops()
 	height := m.term.height
 
@@ -180,9 +121,7 @@ func isInRect(rect panes.Rect, x, y int) bool {
 	return x >= rect.Left && x < rect.Left+rect.Width && y >= rect.Top && y < rect.Top+rect.Height
 }
 
-var keyMark = regexp.MustCompile("\x1b_kzr:([a-z]+):([0-9]+):([0-9]+):([0-9a-f]*)\x1b\\\\")
-
-func (m *model) rowMarker(name zone, rows []view.Row, width int) func(int, string) string {
+func (m *model) rowMarker(name zone.Name, rows []view.Row, width int) func(int, string) string {
 	if !m.term.markingZones {
 		return nil
 	}
@@ -200,11 +139,11 @@ func (m *model) rowMarker(name zone, rows []view.Row, width int) func(int, strin
 			}
 		}
 
-		return keyMarkOf(name, width, nth, key) + row
+		return zone.Key(name, width, nth, key) + row
 	}
 }
 
-func (m *model) spanMarker(name zone, keys []string) func(int, string) string {
+func (m *model) spanMarker(name zone.Name, keys []string) func(int, string) string {
 	if !m.term.markingZones {
 		return nil
 	}
@@ -218,70 +157,34 @@ func (m *model) spanMarker(name zone, keys []string) func(int, string) string {
 	}
 }
 
-func (m *model) markSpan(name zone, key, span string) string {
+func (m *model) markSpan(name zone.Name, key, span string) string {
 	if !m.term.markingZones {
 		return span
 	}
 
-	return keyMarkOf(name, lipgloss.Width(span), 0, key) + span
+	return zone.Key(name, lipgloss.Width(span), 0, key) + span
 }
 
 func (m *model) markSearch(to stop, width int, line string) string {
 	return m.markRow(zoneSearch, width, strconv.Itoa(int(to)), line)
 }
 
-func (m *model) markRow(name zone, width int, key, row string) string {
+func (m *model) markRow(name zone.Name, width int, key, row string) string {
 	if !m.term.markingZones {
 		return row
 	}
 
-	return keyMarkOf(name, width, 0, key) + row
+	return zone.Key(name, width, 0, key) + row
 }
 
-func keyMarkOf(name zone, width, nth int, key string) string {
-	return "\x1b_kzr:" + string(name) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\"
-}
-
-type keyHit struct {
-	zone zone
-	key  string
-	nth  int
-}
-
-func (m *model) findKeyAt(x, y int) (keyHit, bool) {
+func (m *model) findKeyAt(x, y int) (zone.Hit, bool) {
 	marked := *m
 	marked.term.markingZones = true
 
 	lines := strings.Split(marked.renderInset(marked.insideView()), "\n")
 	if y < 0 || y >= len(lines) {
-		return keyHit{}, false
+		return zone.Hit{}, false
 	}
 
-	line := lines[y]
-	marks := keyMark.FindAllStringSubmatchIndex(line, -1)
-	for _, at := range slices.Backward(marks) {
-		left := lipgloss.Width(line[:at[0]])
-		width, err := strconv.Atoi(line[at[4]:at[5]])
-		if err != nil || x < left || x >= left+width {
-			continue
-		}
-
-		nth, err := strconv.Atoi(line[at[6]:at[7]])
-		if err != nil {
-			continue
-		}
-
-		key, err := hex.DecodeString(line[at[8]:at[9]])
-		if err != nil {
-			continue
-		}
-
-		return keyHit{
-			zone: zone(line[at[2]:at[3]]),
-			key:  string(key),
-			nth:  nth,
-		}, true
-	}
-
-	return keyHit{}, false
+	return zone.HitAt(lines[y], x)
 }

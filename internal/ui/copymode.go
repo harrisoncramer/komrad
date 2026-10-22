@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/panes"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/zone"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -90,7 +91,7 @@ func (m *model) renderCopyLayout() panes.CopyStandIn {
 
 	marked := *m
 	marked.term.markingZones = true
-	zones := scanZones(marked.renderInset(marked.insideView()))
+	zones := zone.Scan(marked.renderInset(marked.insideView()))
 
 	if column, ok := zones[zoneColumn]; ok {
 		standIn.Divider = column.Left - gutter - 1

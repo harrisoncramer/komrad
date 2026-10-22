@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 
@@ -642,8 +643,8 @@ func (m *model) listClicker(l keyedList) clicker {
 	})
 }
 
-func (m *model) isHoveredHit(hit keyHit) bool {
+func (m *model) isHoveredHit(hit zone.Hit) bool {
 	lister, ok := m.active().(activeLister)
 
-	return ok && hit.zone == zoneList && hit.key == lister.activeList().hovered(m)
+	return ok && hit.Zone == zoneList && hit.Key == lister.activeList().hovered(m)
 }

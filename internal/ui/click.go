@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strconv"
 
+	"komrad/internal/ui/zone"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -17,7 +19,7 @@ func (f clickFunc) click(m *model, key string, nth int) tea.Cmd {
 	return f(m, key, nth)
 }
 
-var formZones = []zone{zoneMenu, zoneParentMenu}
+var formZones = []zone.Name{zoneMenu, zoneParentMenu}
 
 func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 	if click.Button != tea.MouseLeft || m.writes.held.active {
@@ -25,7 +27,7 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 	}
 
 	hit, marked := m.findKeyAt(click.X, click.Y)
-	if m.form.isActive() && (!marked || !slices.Contains(formZones, hit.zone)) {
+	if m.form.isActive() && (!marked || !slices.Contains(formZones, hit.Zone)) {
 		if !m.form.isMenu {
 			return nil
 		}
@@ -35,14 +37,14 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 
 		return tea.Batch(m.closeForm(), m.routeClick(click))
 	}
-	if marked && hit.zone == zoneSearch && hit.key == strconv.Itoa(int(m.atStop())) && m.isSearchTyping() {
+	if marked && hit.Zone == zoneSearch && hit.Key == strconv.Itoa(int(m.atStop())) && m.isSearchTyping() {
 		return nil
 	}
 
 	settled := m.settleSearch()
 	if marked {
-		if c, ok := m.clickerOf(hit.zone); ok {
-			return tea.Batch(settled, c.click(m, hit.key, hit.nth))
+		if c, ok := m.clickerOf(hit.Zone); ok {
+			return tea.Batch(settled, c.click(m, hit.Key, hit.Nth))
 		}
 	}
 
@@ -57,7 +59,7 @@ func (m *model) settleSearch() tea.Cmd {
 	return m.route(keyMsg("enter"))
 }
 
-func (m *model) clickerOf(name zone) (clicker, bool) {
+func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 	switch name {
 	case zoneViews:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickView(key) }), true
