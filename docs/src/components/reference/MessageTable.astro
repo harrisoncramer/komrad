@@ -14,6 +14,7 @@ type Row = { field: Field; member: boolean } | { oneof: Oneof };
 const { name, message } = Astro.props;
 const id = anchor(name);
 const tone = (type: string) => (/int|fixed|float|double/.test(type) ? "number" : type);
+const typeName = (field: Field) => (field.repeated && !field.map ? `${field.type}[]` : field.type);
 const rules = (field: Field) => field.rules.filter((rule) => rule !== "required");
 
 const rows: Row[] = [];
@@ -75,13 +76,12 @@ for (const field of message.fields) {
                 <td class="type-cell" data-sep=":">
                   {row.field.map && "map of "}
                   {row.field.ref ? (
-                    <a href={`#${anchor(row.field.ref)}`}>{row.field.type}</a>
+                    <a href={`#${anchor(row.field.ref)}`}>{typeName(row.field)}</a>
                   ) : (
                     <span class="type-name" data-tone={tone(row.field.type)}>
-                      {row.field.type}
+                      {typeName(row.field)}
                     </span>
                   )}
-                  {row.field.repeated && !row.field.map && "[]"}
                   {row.field.rules.includes("required") && <Required />}
                 </td>
                 <td>

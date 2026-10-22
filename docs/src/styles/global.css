@@ -264,11 +264,9 @@
   color: color-mix(in srgb, var(--color-app-lime) 65%, var(--color-app-gray-dim));
 }
 
-.doc-content abbr.required {
+.doc-content .required {
   margin-left: 0.15rem;
-  text-decoration: none;
-  color: var(--color-app-gray-light);
-  cursor: help;
+  color: color-mix(in srgb, var(--color-app-red) 70%, var(--color-app-gray-dim));
 }
 
 .doc-content tr.oneof td {
