@@ -32,6 +32,20 @@ type ScreenList[T list.Keyed] struct {
 	Moved func(screen.Inputs) screen.Request
 }
 
+// KeyedList is a list a search narrows and a click lands in.
+type KeyedList interface {
+	// Hovered is the key of the row the cursor is on, read before the pattern changes.
+	Hovered(in screen.Inputs) string
+	// Place puts the cursor back on that row, or as near to where it was as the narrowed list
+	// allows.
+	Place(in screen.Inputs, key string) screen.Request
+	// FilterRows is every row on screen with the text a search reads, in the order they are
+	// rendered.
+	FilterRows(in screen.Inputs) []list.Row
+	// Click puts the cursor on the nth row holding key.
+	Click(in screen.Inputs, key string, nth int) screen.Request
+}
+
 // IsSelecting reports whether rows are selected.
 func (l ScreenList[T]) IsSelecting() bool {
 	return l.Cursor().Selected.IsActive()
@@ -90,6 +104,112 @@ func (l ScreenList[T]) FilterRows(in screen.Inputs) []list.Row {
 	})
 }
 
+// Click puts the cursor on the nth row holding key.
+func (l ScreenList[T]) Click(in screen.Inputs, key string, nth int) screen.Request {
+	for i, row := range l.Rows(in) {
+		if row.Key() != key {
+			continue
+		}
+
+		if nth > 0 {
+			nth--
+
+			continue
+		}
+
+		return l.jump(in, i)
+	}
+
+	return nil
+}
+
+// MoveBy moves the cursor rows down, or up when negative.
+func (l ScreenList[T]) MoveBy(in screen.Inputs, rows int) screen.Request {
+	if rows == 1 || rows == -1 {
+		return l.move(in, rows)
+	}
+
+	return l.jump(in, l.Cursor().Row+rows)
+}
+
+// MoveToEnd jumps the cursor to the last row, or the first when direction is negative.
+func (l ScreenList[T]) MoveToEnd(in screen.Inputs, direction int) screen.Request {
+	if direction > 0 {
+		return l.jump(in, len(l.Rows(in))-1)
+	}
+
+	return l.jump(in, 0)
+}
+
+// ToggleDesc names what the select key does to the hovered row.
+func (l ScreenList[T]) ToggleDesc(in screen.Inputs) string {
+	c := l.Cursor()
+	hovered, _ := list.At(l.Refs(l.Rows(in)), c.Row)
+
+	switch {
+	case hovered.Header:
+		return "select " + l.Header
+	case c.Selected.Has(hovered.Key):
+		return "deselect"
+	}
+
+	return "select"
+}
+
+// ListActions are the keys every list answers, in dispatch order.
+func ListActions[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []Action[S] {
+	var shared []Action[S]
+	if l.Refs != nil {
+		shared = append(shared, selectionActions[S](l, in)...)
+	}
+	shared = append(shared, Action[S]{
+		ID:   Quit,
+		Keys: FixedQuit,
+		Nav:  func(S, string) screen.Request { return screen.Hide{} },
+	})
+	shared = append(shared, NavActions[S](NavActionsParams{Keys: l.Keys, Nav: l, In: in, Page: NavPageStep, Scroll: 1})...)
+	if l.Name != nil {
+		shared = append(shared, filterActions[S](l, in)...)
+	}
+
+	return shared
+}
+
+// SelectionLegend is the three rows a standing selection is named by.
+func SelectionLegend[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []LegendRow[S] {
+	selecting := func(S) bool { return l.IsSelecting() }
+
+	return []LegendRow[S]{
+		{
+			Of:    []ID{SelectToggle},
+			Desc:  func(S) string { return l.ToggleDesc(in) },
+			Show:  selecting,
+			Strip: true,
+		},
+		{
+			Of:   []ID{selectRange},
+			Desc: func(S) string { return "select to nearest" },
+			Show: selecting,
+		},
+		{
+			Of:    []ID{selectClear},
+			Desc:  func(S) string { return l.clearDesc() },
+			Show:  selecting,
+			Strip: true,
+		},
+	}
+}
+
+// FilterDescOf names the filter key by the search standing in the list.
+func FilterDescOf[S any](in screen.Inputs) func(S) string {
+	return func(S) string { return filter.PatternMode(in.Room.Pattern).OpenDesc(in.Room.Pattern.Typed) }
+}
+
+// FilterClearDescOf names the key that clears the search standing.
+func FilterClearDescOf[S any](in screen.Inputs) func(S) string {
+	return func(S) string { return filter.PatternMode(in.Room.Pattern).ClearDesc() }
+}
+
 func (l ScreenList[T]) landed(in screen.Inputs) screen.Request {
 	if l.Moved != nil {
 		return l.Moved(in)
@@ -122,44 +242,6 @@ func (l ScreenList[T]) jump(in screen.Inputs, idx int) screen.Request {
 	*l.Cursor() = next
 
 	return l.landed(in)
-}
-
-// Click puts the cursor on the nth row holding key.
-func (l ScreenList[T]) Click(in screen.Inputs, key string, nth int) screen.Request {
-	for i, row := range l.Rows(in) {
-		if row.Key() != key {
-			continue
-		}
-
-		if nth > 0 {
-			nth--
-
-			continue
-		}
-
-		return l.jump(in, i)
-	}
-
-	return nil
-}
-
-// ListActions are the keys every list answers, in dispatch order.
-func ListActions[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []Action[S] {
-	var shared []Action[S]
-	if l.Refs != nil {
-		shared = append(shared, selectionActions[S](l, in)...)
-	}
-	shared = append(shared, Action[S]{
-		ID:   Quit,
-		Keys: FixedQuit,
-		Nav:  func(S, string) screen.Request { return screen.Hide{} },
-	})
-	shared = append(shared, NavActions[S](NavActionsParams{Keys: l.Keys, Nav: l, In: in, Page: NavPageStep, Scroll: 1})...)
-	if l.Name != nil {
-		shared = append(shared, filterActions[S](l, in)...)
-	}
-
-	return shared
 }
 
 func selectionActions[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []Action[S] {
@@ -211,24 +293,6 @@ func filterActions[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []Act
 	}
 }
 
-// MoveBy moves the cursor rows down, or up when negative.
-func (l ScreenList[T]) MoveBy(in screen.Inputs, rows int) screen.Request {
-	if rows == 1 || rows == -1 {
-		return l.move(in, rows)
-	}
-
-	return l.jump(in, l.Cursor().Row+rows)
-}
-
-// MoveToEnd jumps the cursor to the last row, or the first when direction is negative.
-func (l ScreenList[T]) MoveToEnd(in screen.Inputs, direction int) screen.Request {
-	if direction > 0 {
-		return l.jump(in, len(l.Rows(in))-1)
-	}
-
-	return l.jump(in, 0)
-}
-
 func (l ScreenList[T]) clearSelection() screen.Request {
 	l.Cursor().Selected = list.Selection{}
 
@@ -253,70 +317,6 @@ func (l ScreenList[T]) extendSelection(in screen.Inputs) screen.Request {
 	return nil
 }
 
-// SelectionLegend is the three rows a standing selection is named by.
-func SelectionLegend[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []LegendRow[S] {
-	selecting := func(S) bool { return l.IsSelecting() }
-
-	return []LegendRow[S]{
-		{
-			Of:    []ID{SelectToggle},
-			Desc:  func(S) string { return l.ToggleDesc(in) },
-			Show:  selecting,
-			Strip: true,
-		},
-		{
-			Of:   []ID{selectRange},
-			Desc: func(S) string { return "select to nearest" },
-			Show: selecting,
-		},
-		{
-			Of:    []ID{selectClear},
-			Desc:  func(S) string { return l.clearDesc() },
-			Show:  selecting,
-			Strip: true,
-		},
-	}
-}
-
-// ToggleDesc names what the select key does to the hovered row.
-func (l ScreenList[T]) ToggleDesc(in screen.Inputs) string {
-	c := l.Cursor()
-	hovered, _ := list.At(l.Refs(l.Rows(in)), c.Row)
-
-	switch {
-	case hovered.Header:
-		return "select " + l.Header
-	case c.Selected.Has(hovered.Key):
-		return "deselect"
-	}
-
-	return "select"
-}
-
 func (l ScreenList[T]) clearDesc() string {
 	return fmt.Sprintf("clear %d selected", len(l.Cursor().Selected.Keys))
-}
-
-// FilterDescOf names the filter key by the search standing in the list.
-func FilterDescOf[S any](in screen.Inputs) func(S) string {
-	return func(S) string { return filter.PatternMode(in.Room.Pattern).OpenDesc(in.Room.Pattern.Typed) }
-}
-
-// FilterClearDescOf names the key that clears the search standing.
-func FilterClearDescOf[S any](in screen.Inputs) func(S) string {
-	return func(S) string { return filter.PatternMode(in.Room.Pattern).ClearDesc() }
-}
-
-// KeyedList is a list a search narrows and a click lands in.
-type KeyedList interface {
-	// Hovered is the key of the row the cursor is on, read before the pattern changes.
-	Hovered(in screen.Inputs) string
-	// Place puts the cursor back on that row, or as near to where it was as the narrowed list
-	// allows.
-	Place(in screen.Inputs, key string) screen.Request
-	// FilterRows is every row on screen with the text a search reads, in the order they are
-	// rendered.
-	FilterRows(in screen.Inputs) []list.Row
-	// Click puts the cursor on the nth row holding key.
-	Click(in screen.Inputs, key string, nth int) screen.Request
 }
