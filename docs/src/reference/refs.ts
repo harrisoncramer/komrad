@@ -1,6 +1,6 @@
 import { anchor, api, commandBySlug, commandHref, config, escape, inline, referencedTypes } from ".";
 import { link } from "../site";
-import type { Section, Setting } from "./types";
+import type { Field, Section, Setting } from "./types";
 
 function collect(section: Section, into: Map<string, Section | Setting>) {
   if (section.path) into.set(section.path, section);
@@ -44,17 +44,19 @@ const pages = api.services.flatMap((service) =>
   })),
 );
 
+const fieldRef = (message: string, field: Field, href: string): Ref => ({
+  href,
+  title: `${message.split(".").pop() ?? message}.${field.name}`,
+  description: field.description,
+  detail: `${field.type}${field.repeated ? "[]" : ""}`,
+});
+
 export function fieldOf(message: string, name: string): Ref {
   const field = api.messages[message]?.fields.find((candidate) => candidate.name === name);
   if (!field) throw new Error(`api.json has no field ${name} on ${message}`);
   const page = pages.find((candidate) => candidate.types.has(message));
   if (!page) throw new Error(`no API page draws ${message}`);
-  return {
-    href: `${page.href}#${anchor(message)}-${name}`,
-    title: `${message.split(".").pop() ?? message}.${name}`,
-    description: field.description,
-    detail: `${field.type}${field.repeated ? "[]" : ""}`,
-  };
+  return fieldRef(message, field, `${page.href}#${anchor(message)}-${name}`);
 }
 
 export function commandOf(path: string): Ref {
@@ -100,14 +102,7 @@ const hookMoment = /^(agent|task)\.(pre|post)-[a-z]+$/;
 function codeRef({ messages = [], enum: enumName }: Scope, code: string): Ref | undefined {
   for (const message of messages) {
     const field = api.messages[message]?.fields.find((candidate) => candidate.name === code);
-    if (field) {
-      return {
-        href: `#${anchor(message)}-${code}`,
-        title: `${message.split(".").pop() ?? message}.${code}`,
-        description: field.description,
-        detail: `${field.type}${field.repeated ? "[]" : ""}`,
-      };
-    }
+    if (field) return fieldRef(message, field, `#${anchor(message)}-${code}`);
   }
 
   const value = enumName
