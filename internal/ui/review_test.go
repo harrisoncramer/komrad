@@ -873,6 +873,65 @@ func TestReviewPopupScroll(t *testing.T) {
 	})
 }
 
+// TestReviewFocus covers the legend and the menu following whichever of the diff, the file tree and
+// the rows over it holds the keys.
+func TestReviewFocus(t *testing.T) {
+	tests := []struct {
+		name        string
+		keys        []string
+		legend      []string
+		legendLacks []string
+		menu        []string
+		menuLacks   []string
+	}{
+		{
+			name:   "the diff offers its file, how it renders and the review",
+			legend: []string{"next/previous file", "search"},
+			menu:   []string{"mark the file viewed", "wrap lines", "read the diff again"},
+		},
+		{
+			name:      "the file tree offers the file under its cursor",
+			keys:      []string{"ctrl+space", "ctrl+space"},
+			legend:    []string{"next/previous file", "search"},
+			menu:      []string{"open in your editor", "mark the file viewed"},
+			menuLacks: []string{"wrap lines", "show the whole file", "read the diff again"},
+		},
+		{
+			name:        "the pull request offers nothing on the files",
+			keys:        []string{"ctrl+space", "ctrl+space", "k"},
+			legend:      []string{"open the description"},
+			legendLacks: []string{"next/previous file", "search"},
+			menu:        []string{"edit the title and description", "not yet"},
+			menuLacks:   []string{"open in your editor", "mark the file viewed", "wrap lines"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			harness := openReviewAt(t, newDescribedReviewServer(t, "Why it changed."), paneltest.Params{Height: 40})
+			harness.Press(tt.keys...)
+
+			harness.Press("?")
+			legend := paneltest.Legend(harness.Frame())
+			for _, want := range tt.legend {
+				assert.Contains(t, legend, want)
+			}
+			for _, lacks := range tt.legendLacks {
+				assert.NotContains(t, legend, lacks)
+			}
+
+			harness.Press("?", "space")
+			frame := harness.Frame()
+			for _, want := range tt.menu {
+				assert.Contains(t, frame, want)
+			}
+			for _, lacks := range tt.menuLacks {
+				assert.NotContains(t, frame, lacks)
+			}
+		})
+	}
+}
+
 // TestReviewFitsThePane covers the frame staying the pane's height whatever the sidebar holds.
 func TestReviewFitsThePane(t *testing.T) {
 	for _, height := range []int{10, 12, 24, 50} {
