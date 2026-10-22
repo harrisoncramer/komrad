@@ -127,9 +127,9 @@ func (a *agentsScreen) hideTasks(tasks []panel.Task) screen.Request {
 		doing, failure = "unhiding "+panel.DescribeTasks(tasks), "Could not unhide "+panel.DescribeTasks(tasks)
 	}
 
-	return a.deps.clients.Write(doing, failure, func(a api.Clients) error {
+	return a.deps.clients.Write(doing, failure, func(clients api.Clients) error {
 		for _, task := range changed {
-			if err := a.SetTaskHidden(task.ID, hidden); err != nil {
+			if err := clients.SetTaskHidden(task.ID, hidden); err != nil {
 				return err
 			}
 		}
@@ -178,7 +178,7 @@ func (a *agentsScreen) openEditTask(task panel.Task) screen.Request {
 			return a.deps.clients.Write(
 				"saving "+task.Slug,
 				fmt.Sprintf("Could not save task %q", task.Slug),
-				func(a api.Clients) error { return a.UpdateTask(params) },
+				func(clients api.Clients) error { return clients.UpdateTask(params) },
 			)
 		},
 	}}

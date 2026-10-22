@@ -96,8 +96,8 @@ func (a *agentsScreen) archiveAgents(agents []panel.Agent) screen.Request {
 		Doing:   "archiving " + describeAgents(agents),
 		Summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		Agents:  agents,
-		Write: func(a api.Clients) error {
-			return a.ArchiveAgents(panel.IDs(agents))
+		Write: func(clients api.Clients) error {
+			return clients.ArchiveAgents(panel.IDs(agents))
 		},
 	})
 }
@@ -290,8 +290,8 @@ func (a *agentsScreen) startOrchestrator(workflow panel.Workflow) screen.Request
 	return rowWrite(a.deps.clients,
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
-		func(a api.Clients) (*screen.Made, error) {
-			agent, err := a.StartOrchestrator(workflow.ID)
+		func(clients api.Clients) (*screen.Made, error) {
+			agent, err := clients.StartOrchestrator(workflow.ID)
 			if err != nil {
 				return nil, err
 			}

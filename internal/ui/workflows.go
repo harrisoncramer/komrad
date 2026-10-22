@@ -54,7 +54,7 @@ func (a *agentsScreen) openWorkflowConfigForm(values *workflowFormValues, target
 			return a.deps.clients.Write(
 				"saving "+target.Name,
 				fmt.Sprintf("Could not save workflow %q", target.Name),
-				func(a api.Clients) error { return a.UpdateWorkflow(edited) },
+				func(clients api.Clients) error { return clients.UpdateWorkflow(edited) },
 			)
 		},
 	})}
@@ -79,8 +79,8 @@ func (a *agentsScreen) archiveWorkflow(m *model, workflow panel.Workflow) screen
 		Summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
 		Agents:  m.listing.AgentsOf(workflow.ID),
 		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListWorkflows, workflow.ID)},
-		Write: func(a api.Clients) error {
-			return a.ArchiveWorkflow(workflow.ID)
+		Write: func(clients api.Clients) error {
+			return clients.ArchiveWorkflow(workflow.ID)
 		},
 	})
 }

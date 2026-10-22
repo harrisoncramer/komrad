@@ -225,9 +225,9 @@ func (a *agentsScreen) archiveChosenAgents(m *model, work chosenWork) screen.Req
 		Doing:   "archiving " + subject,
 		Summary: "Could not archive " + subject,
 		Agents:  work.affected(m.listing),
-		Write: func(a api.Clients) error {
+		Write: func(clients api.Clients) error {
 			for _, task := range work.wholeTasks {
-				if err := a.ArchiveTask(task.ID); err != nil {
+				if err := clients.ArchiveTask(task.ID); err != nil {
 					return err
 				}
 			}
@@ -235,7 +235,7 @@ func (a *agentsScreen) archiveChosenAgents(m *model, work chosenWork) screen.Req
 				return nil
 			}
 
-			return a.ArchiveAgents(panel.IDs(work.loneAgents))
+			return clients.ArchiveAgents(panel.IDs(work.loneAgents))
 		},
 	})
 }

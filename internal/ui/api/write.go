@@ -54,9 +54,9 @@ func (a Clients) ArchiveTasksWrite(tasks []panel.Task, agents []panel.Agent) scr
 		Doing:   "archiving " + panel.DescribeTasks(tasks),
 		Summary: "Could not archive " + panel.DescribeTasks(tasks),
 		Agents:  agents,
-		Write: func(a Clients) error {
+		Write: func(clients Clients) error {
 			for _, task := range tasks {
-				if err := a.ArchiveTask(task.ID); err != nil {
+				if err := clients.ArchiveTask(task.ID); err != nil {
 					return err
 				}
 			}
@@ -73,8 +73,8 @@ func (a Clients) DeleteTasksWrite(tasks []panel.Task, agents []panel.Agent, reco
 		Doing:   "deleting " + panel.DescribeTasks(tasks),
 		Summary: "Could not delete " + panel.DescribeTasks(tasks),
 		Agents:  agents,
-		Write: func(a Clients) error {
-			return a.DeleteTasks(panel.TaskIDs(tasks), records)
+		Write: func(clients Clients) error {
+			return clients.DeleteTasks(panel.TaskIDs(tasks), records)
 		},
 	})
 }

@@ -63,7 +63,7 @@ func (a *agentsScreen) openPickForkPoint(m *model, task panel.Task) screen.Reque
 			return a.deps.clients.Write(
 				"picking the fork point of "+task.Slug,
 				fmt.Sprintf("Could not pick the fork point of task %q on %s", task.Slug, parent),
-				func(a api.Clients) error { return a.PickForkPoint(task.ID, commit) },
+				func(clients api.Clients) error { return clients.PickForkPoint(task.ID, commit) },
 			)
 		},
 	}}
