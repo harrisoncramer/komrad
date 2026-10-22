@@ -148,7 +148,7 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 	renderedMethod := values.Method
 	var filled *forgev1.CommitMessage
 
-	return m.openForm(rebuildableForm(rebuildableFormParams{
+	form := rebuildableForm(rebuildableFormParams{
 		Kind: formMerge,
 		Build: func(m *model) (*huh.Form, []string) {
 			renderedMethod = values.Method
@@ -173,7 +173,10 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 
 			return holdSubmit(func(m *model) tea.Cmd { return m.sendMerge(task, choice, *params) })(m)
 		},
-	}))
+	})
+	form.keepsOnRefusal = false
+
+	return m.openForm(form)
 }
 
 // mergeOptionOf is the plan's option for the method, nil when the forge offers no such method.
