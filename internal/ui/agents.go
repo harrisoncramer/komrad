@@ -303,12 +303,17 @@ func agentsTabs() tabStrip {
 	}
 }
 
-func (a *agentsScreen) listParams(m *model, in screen.Inputs) screenListParams {
-	return screenListParams{
-		help:     a.help,
-		rows:     len(a.rows(m, in)),
-		snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(m, in, pane) },
+func (a *agentsScreen) listParams(m *model, in screen.Inputs) list.Params {
+	params := list.Params{
+		Help:     a.help(m),
+		Rows:     len(a.rows(m, in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(m, in, pane) },
 	}
+	if in.Listing.IsEmpty() {
+		params.Welcome = welcomeText(a.deps.keys)
+	}
+
+	return params
 }
 
 func (a *agentsScreen) help(m *model) legend.Help {

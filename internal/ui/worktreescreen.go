@@ -205,13 +205,13 @@ func (w *worktreesScreen) tally() string {
 	return tally
 }
 
-func (w *worktreesScreen) listParams(m *model, in screen.Inputs) screenListParams {
-	return screenListParams{
-		tally:    w.tally(),
-		help:     w.help,
-		empty:    "no worktrees",
-		rows:     len(w.rows(m, in)),
-		snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, in, pane) },
+func (w *worktreesScreen) listParams(m *model, in screen.Inputs) list.Params {
+	return list.Params{
+		Tally:    w.tally(),
+		Help:     w.help(m),
+		Empty:    "no worktrees",
+		Rows:     len(w.rows(m, in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, in, pane) },
 	}
 }
 

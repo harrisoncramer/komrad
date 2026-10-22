@@ -17,7 +17,7 @@ import (
 // maxHelpColumns is the widest the expanded legend goes.
 const maxHelpColumns = 3
 
-func (m *model) renderHelp(k legend.Help, above ...string) string {
+func (m *model) Help(k legend.Help, above ...string) string {
 	in := m.inputs()
 	if m.isDetailsFocused(in) {
 		k = m.detailsHelp()

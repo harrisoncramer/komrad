@@ -45,10 +45,6 @@ func (w *schedulesScreen) docRows(m *model, in screen.Inputs, width int) []strin
 	return scheduleDocRows(item, width)
 }
 
-func (w *schedulesScreen) view(m *model, in screen.Inputs) string {
-	return m.columnListView(w.listParams(m, in))
-}
-
 func (w *schedulesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	return scheduleSnapshot(m, pane, scheduleSnapshotParams{
 		rows:     w.listRows(m, in),

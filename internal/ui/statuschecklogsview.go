@@ -20,10 +20,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (c *statusCheckLogsScreen) view(m *model, in screen.Inputs) string {
-	return m.columnListView(c.listParams(m, in))
-}
-
 func (c *statusCheckLogsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := c.rows(m, in)
 

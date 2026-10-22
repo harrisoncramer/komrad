@@ -30,9 +30,9 @@ func (m *model) isKindsFocused(in screen.Inputs) bool {
 }
 
 func (m *model) kindsFit(in screen.Inputs) bool {
-	params, ok := m.activeListParams(in)
+	params, fits := m.listFitsTabs(in)
 
-	return ok && !params.hidesKinds && m.listFitsTabs(params)
+	return fits && !params.HidesKinds
 }
 
 func (m *model) blurKinds() {

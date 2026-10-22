@@ -37,6 +37,7 @@ func (m *model) measuredInputsFor(s screenModel) screen.Inputs {
 			HelpExpanded:    m.helpExpanded,
 			Spinner:         m.loading.frame(),
 			Now:             m.clock.Now(),
+			Marks:           m.term.markingZones,
 		},
 	}
 	in.Room.Geometry = m.columnGeometry(in)

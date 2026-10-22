@@ -15,7 +15,6 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
-	"komrad/internal/view"
 	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
@@ -313,34 +312,17 @@ func filterClearDescOf(m *model) string {
 	return m.filter.clearDesc()
 }
 
-// screenListParams is a screen's list as the root renders it: its title and tally, its own
-// legend, and the rows the window is filled from.
-type screenListParams struct {
-	title string
-	tally string
-	// help is the screen's own legend, rendered ahead of the bindings every list shares.
-	help func(*model) legend.Help
-	// empty is what the list says over no rows, and blank on a list that renders its window anyway.
-	empty string
-	// rows is how many rows the list holds.
-	rows     int
-	snapshot func(list.Pane) view.Snapshot
-	// hidesKinds keeps the row of kinds off however much room the list has.
-	hidesKinds bool
+func (m *model) activeListParams(in screen.Inputs) (list.Params, bool) {
+	return m.listParamsOn(m, in)
 }
 
-func (m *model) activeListParams(in screen.Inputs) (screenListParams, bool) {
+func (m *model) listParamsOn(probe *model, in screen.Inputs) (list.Params, bool) {
 	l, ok := m.active().(listRenderer)
 	if !ok {
-		return screenListParams{}, false
+		return list.Params{}, false
 	}
 
-	return l.listParams(m, in), true
-}
-
-// listHelpOf is a screen's legend as the root renders it under the list.
-func (m *model) listHelpOf(params screenListParams) legend.Help {
-	return m.listHelp(params.help(m))
+	return l.listParams(probe, in), true
 }
 
 // listHelp is a list screen's legend: its own rows, then the bindings every list shares.
@@ -367,8 +349,8 @@ func (m *model) listHelp(own legend.Help) legend.Help {
 // navPageStep is how many rows a page key moves the cursor.
 const navPageStep = 10
 
-// listLines is the room the list has once the chrome around it has taken its share.
-func (m *model) listLines(chrome ...string) int {
+// Lines is the room the list has once the chrome around it has taken its share.
+func (m *model) Lines(chrome ...string) int {
 	return fitLines(m.term.height, chrome...)
 }
 

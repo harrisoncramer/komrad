@@ -17,10 +17,6 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-func (d *documentsScreen) view(m *model, in screen.Inputs) string {
-	return m.columnListView(d.listParams(m, in))
-}
-
 func (d *documentsScreen) emptyLine() string {
 	switch {
 	case d.err != nil:
@@ -167,7 +163,12 @@ func (d *documentsScreen) docRows(m *model, in screen.Inputs, width int) []strin
 	window := d.diffWindow(m, in)
 	window.Width = width
 
-	return append(head, m.markDiff(&h.pane, window, h.pane.Render(window, held))...)
+	lines := h.pane.Render(window, held)
+	if in.Room.Marks {
+		lines = markDiff(&h.pane, window, lines)
+	}
+
+	return append(head, lines...)
 }
 
 // head is the rows over the change: which write it is and the search.

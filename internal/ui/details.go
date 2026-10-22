@@ -117,24 +117,23 @@ func (m *model) isDetailsRendered(in screen.Inputs, held details) bool {
 	return m.detailsFits.read(m.shownScreen(), func() bool { return m.detailsFit(in) })
 }
 
-func (m *model) detailsFit(in screen.Inputs) bool {
-	params, ok := m.activeListParams(in)
-
-	return ok && m.listFitsDetails(params)
-}
-
-// listFitsDetails is whether the record's share fits under a list, judged with the keys on the
+// detailsFit is whether the record's share fits under a list, judged with the keys on the
 // list.
-func (m *model) listFitsDetails(params screenListParams) bool {
+func (m *model) detailsFit(in screen.Inputs) bool {
 	probe := *m
 	probe.details.focused = false
-	header := probe.tabbedHeader(params.title, params.tally)
-	legend := probe.renderHelp(probe.listHelpOf(params), header)
+	params, ok := m.listParamsOn(&probe, in)
+	if !ok {
+		return false
+	}
+
+	header := probe.tabbedHeader(params.Title, params.Tally)
+	legend := probe.Help(probe.listHelp(params.Help), header)
 
 	// Only the list's legend is measured with the search; a focused record shrinks to the room
 	// its own legend leaves.
 	probe.filter = filterState{}
-	if focused := probe.renderHelp(probe.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
+	if focused := probe.Help(probe.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
 		legend = focused
 	}
 
@@ -142,10 +141,10 @@ func (m *model) listFitsDetails(params screenListParams) bool {
 }
 
 // listRecordRoom is the lines a list screen has under its header and the legend it is rendering.
-func (m *model) listRecordRoom(params screenListParams) int {
-	header := m.tabbedHeader(params.title, params.tally)
+func (m *model) listRecordRoom(params list.Params) int {
+	header := m.tabbedHeader(params.Title, params.Tally)
 
-	return m.spareLines(header, m.renderHelp(m.listHelpOf(params), header))
+	return m.spareLines(header, m.Help(m.listHelp(params.Help), header))
 }
 
 func (m *model) isDetailsFocused(in screen.Inputs) bool {

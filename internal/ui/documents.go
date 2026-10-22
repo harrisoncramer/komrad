@@ -309,21 +309,21 @@ func (d *documentsScreen) hoveredDocumentType(m *model, in screen.Inputs) *agent
 	return row.documentType
 }
 
-func (d *documentsScreen) listParams(m *model, in screen.Inputs) screenListParams {
+func (d *documentsScreen) listParams(m *model, in screen.Inputs) list.Params {
 	if d.kind == documentKindTypes {
-		return screenListParams{
-			help:     d.help,
-			empty:    "no document types",
-			rows:     len(d.documentTypeRows(m, in)),
-			snapshot: func(pane list.Pane) view.Snapshot { return d.documentTypeSnapshot(m, in, pane) },
+		return list.Params{
+			Help:     d.help(m),
+			Empty:    "no document types",
+			Rows:     len(d.documentTypeRows(m, in)),
+			Snapshot: func(pane list.Pane) view.Snapshot { return d.documentTypeSnapshot(m, in, pane) },
 		}
 	}
 
-	return screenListParams{
-		help:     d.help,
-		empty:    d.emptyLine(),
-		rows:     len(d.rows(m, in)),
-		snapshot: func(pane list.Pane) view.Snapshot { return d.snapshot(m, in, pane) },
+	return list.Params{
+		Help:     d.help(m),
+		Empty:    d.emptyLine(),
+		Rows:     len(d.rows(m, in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return d.snapshot(m, in, pane) },
 	}
 }
 

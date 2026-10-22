@@ -10,14 +10,11 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
 )
-
-func (l *logsScreen) view(m *model, in screen.Inputs) string {
-	return m.columnListView(l.listParams(m, in))
-}
 
 func (l *logsScreen) emptyLine() string {
 	if l.err != nil && !l.listed {
@@ -83,7 +80,12 @@ func (l *logsScreen) block(m *model, in screen.Inputs, width int) []string {
 		rows = append(rows, "")
 	}
 
-	return append(rows, m.markSearch(stopBlock, width, fitRow(list.Blank+l.logFilterLine(l.deps.glyphs), width)))
+	search := fitRow(list.Blank+l.logFilterLine(l.deps.glyphs), width)
+	if in.Room.Marks {
+		search = searchMark(stopBlock, width) + search
+	}
+
+	return append(rows, search)
 }
 
 // logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
@@ -116,7 +118,7 @@ func (l *logsScreen) logRows(m *model, in screen.Inputs, width, height int) []st
 
 	rows, cursor := l.viewer.Rows(width-len(list.Blank), height)
 	var lines []int
-	if m.term.markingZones {
+	if in.Room.Marks {
 		lines = l.viewer.Lines(width-len(list.Blank), height)
 	}
 	focused := l.isBlockFocused(m, in)
@@ -127,7 +129,7 @@ func (l *logsScreen) logRows(m *model, in screen.Inputs, width, height int) []st
 		}
 		rows[i] = prefix + row
 		if i < len(lines) {
-			rows[i] = m.markRow(zoneLog, width, strconv.Itoa(lines[i]), rows[i])
+			rows[i] = zone.MarkKey(zoneLog, width, 0, strconv.Itoa(lines[i])) + rows[i]
 		}
 	}
 

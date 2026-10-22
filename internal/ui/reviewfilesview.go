@@ -48,9 +48,9 @@ func (r reviewScreen) filesView(m *model, in screen.Inputs, lines int) string {
 		keys = append(keys, row.Path)
 	}
 
-	if mark := m.spanMarker(zoneFiles, keys); mark != nil {
+	if in.Room.Marks {
 		for at, row := range rows {
-			rows[at] = mark(at, row)
+			rows[at] = markKeyedSpan(zoneFiles, keys[at], row)
 		}
 	}
 
@@ -58,7 +58,11 @@ func (r reviewScreen) filesView(m *model, in screen.Inputs, lines int) string {
 		rows = append(rows, dimStyle().Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
 	}
 
-	header := m.markSearch(stopBlock, width, ansi.Truncate(r.filesFilter.line(r.deps.glyphs), max(width, 0), "…")) + "\n"
+	header := ansi.Truncate(r.filesFilter.line(r.deps.glyphs), max(width, 0), "…")
+	if in.Room.Marks {
+		header = searchMark(stopBlock, width) + header
+	}
+	header += "\n"
 	if lines < 0 {
 		return header + strings.Join(rows, "\n") + "\n"
 	}

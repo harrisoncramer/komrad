@@ -460,16 +460,16 @@ func (l *logsScreen) nameSource(in screen.Inputs, source *logv1.LogSource) strin
 	return name + " " + sourceLabel(source)
 }
 
-func (l *logsScreen) listParams(m *model, in screen.Inputs) screenListParams {
+func (l *logsScreen) listParams(m *model, in screen.Inputs) list.Params {
 	rows := l.rows(m, in)
 	row, ok := list.At(rows, l.Row)
 
-	return screenListParams{
-		help:       l.help,
-		empty:      l.emptyLine(),
-		rows:       len(rows),
-		snapshot:   func(pane list.Pane) view.Snapshot { return l.snapshot(m, in, pane) },
-		hidesKinds: !ok || !row.isServerLog(),
+	return list.Params{
+		Help:       l.help(m),
+		Empty:      l.emptyLine(),
+		Rows:       len(rows),
+		Snapshot:   func(pane list.Pane) view.Snapshot { return l.snapshot(m, in, pane) },
+		HidesKinds: !ok || !row.isServerLog(),
 	}
 }
 

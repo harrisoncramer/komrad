@@ -251,7 +251,7 @@ func (r *reviewScreen) sidebarNavAt(m *model, in screen.Inputs, y int) (navigabl
 		return nil, false
 	}
 
-	layout := r.layoutSidebar(m, in)
+	layout := r.layoutSidebar(m, in, m)
 	filesTop := paint.CountLines(layout.bar + layout.change + layout.side)
 	if y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(m, in) {
 		return filesNav{r}, true

@@ -6,6 +6,7 @@ import (
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -36,9 +37,6 @@ type screenModel interface {
 	// whether the result was the screen's own.
 	receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool)
 
-	// view renders the screen into the panel's own pane.
-	view(m *model, in screen.Inputs) string
-
 	// doesRenderFromListing reports whether the screen renders the watch's listings.
 	doesRenderFromListing() bool
 
@@ -68,7 +66,11 @@ type recordRenderer interface {
 
 // listRenderer is a screen the root renders as a list from the params it answers.
 type listRenderer interface {
-	listParams(m *model, in screen.Inputs) screenListParams
+	listParams(m *model, in screen.Inputs) list.Params
+}
+
+type chromeRenderer interface {
+	view(m *model, in screen.Inputs, chrome screen.Chrome) string
 }
 
 // activeLister is a screen whose list the user can narrow by typing a pattern.

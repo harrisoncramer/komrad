@@ -19,11 +19,11 @@ const viewsBarFloor = 20
 // viewsBar is the logo and the switcher rendered over a list, and under them the trail down to the
 // row or page the cursor is on.
 func (m *model) viewsBar() string {
-	return m.viewsBars()[0]
+	return m.Bars()[0]
 }
 
-// viewsBars is every form the bar can take, tallest first.
-func (m *model) viewsBars() []string {
+// Bars is every form the bar can take, tallest first.
+func (m *model) Bars() []string {
 	trail, _, opened := m.activeCrumbs()
 	if m.term.height > 0 && m.term.height < viewsBarFloor {
 		if m.isMessagesFlashing() && m.paneWidth() >= 3 {

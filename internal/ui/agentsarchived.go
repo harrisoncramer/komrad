@@ -475,12 +475,12 @@ func (a *archivedAgents) stage(*model, screen.Inputs) screen.Request {
 	return screen.StageTerminal{}
 }
 
-func (a *archivedAgents) listParams(m *model, in screen.Inputs) screenListParams {
-	return screenListParams{
-		help:     a.help,
-		empty:    a.emptySaid(),
-		rows:     len(a.listRows(m, in)),
-		snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(m, in, pane) },
+func (a *archivedAgents) listParams(m *model, in screen.Inputs) list.Params {
+	return list.Params{
+		Help:     a.help(m),
+		Empty:    a.emptySaid(),
+		Rows:     len(a.listRows(m, in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(m, in, pane) },
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
@@ -200,37 +201,43 @@ func (m *model) isTabsFocused(in screen.Inputs) bool {
 }
 
 func (m *model) tabsFit(in screen.Inputs) bool {
-	params, ok := m.activeListParams(in)
+	_, fits := m.listFitsTabs(in)
 
-	return ok && m.listFitsTabs(params)
+	return fits
 }
 
 // listFitsTabs is whether a list has the room to render its strips, judged with the keys on the
 // list.
-func (m *model) listFitsTabs(params screenListParams) bool {
+func (m *model) listFitsTabs(in screen.Inputs) (list.Params, bool) {
 	probe := *m
 	t, tabbed := probe.activeTabs()
 	k, kinded := probe.activeKinds()
-	if !tabbed && !kinded {
-		return false
-	}
-
-	if probe.term.height <= 0 {
-		return true
-	}
-
 	probe.details.focused, probe.helpExpanded = false, false
-	var strips string
 	if tabbed {
 		t.tabsState().focused = false
-		strips += probe.tabsLine()
 	}
 	if kinded {
 		*k.kindsFocused(&probe) = false
+	}
+
+	params, ok := m.listParamsOn(&probe, in)
+	if !ok || !tabbed && !kinded {
+		return params, false
+	}
+
+	if probe.term.height <= 0 {
+		return params, true
+	}
+
+	var strips string
+	if tabbed {
+		strips += probe.tabsLine()
+	}
+	if kinded {
 		strips += probe.kindsLine()
 	}
 
-	return probe.spareLines(probe.headerLines(params.title, params.tally, strips), probe.renderHelp(probe.listHelpOf(params))) >= 1
+	return params, probe.spareLines(probe.headerLines(params.Title, params.Tally, strips), probe.Help(probe.listHelp(params.Help))) >= 1
 }
 
 func (m *model) blurTabs() {
