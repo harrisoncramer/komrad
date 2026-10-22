@@ -7,8 +7,8 @@ func MoveLabel(k config.Keybindings) string {
 	return Label(k.Nav.Up) + "/" + Label(k.Nav.Down)
 }
 
-// JumpLabel names the keys that move the cursor to either end.
-func JumpLabel(k config.Keybindings) string {
+// jumpLabel names the keys that move the cursor to either end.
+func jumpLabel(k config.Keybindings) string {
 	return doubledLabel(k.Nav.Top) + "/" + Label(k.Nav.Bottom)
 }
 
@@ -46,7 +46,7 @@ func JumpRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
 		Of:    []ID{Jump},
 		Desc:  func(S) string { return "top/bottom" },
-		Label: JumpLabel,
+		Label: jumpLabel,
 	}
 }
 
