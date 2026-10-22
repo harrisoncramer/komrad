@@ -11,6 +11,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	schedulestore "komrad/internal/store/schedule"
+
+	"github.com/google/uuid"
 )
 
 const noJobTimeout time.Duration = -1
@@ -24,7 +26,7 @@ const (
 
 // ScheduleGetter reads the one schedule a firing names.
 type ScheduleGetter interface {
-	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
+	Get(ctx context.Context, id uuid.UUID) (*schedulestore.Schedule, error)
 }
 
 type AgentLauncher interface {
@@ -33,12 +35,12 @@ type AgentLauncher interface {
 
 // RegistrationSyncer makes a schedule's River registration match its row.
 type RegistrationSyncer interface {
-	SyncRegistration(ctx context.Context, id string) error
+	SyncRegistration(ctx context.Context, id uuid.UUID) error
 }
 
 // OrchestratorResolver answers the live orchestrator an orchestrator schedule mails.
 type OrchestratorResolver interface {
-	RequireOrchestrator(ctx context.Context, id string) (*agentstore.Agent, error)
+	RequireOrchestrator(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error)
 }
 
 type ScheduledMailer interface {
@@ -46,12 +48,12 @@ type ScheduledMailer interface {
 }
 
 type AgentDeleter interface {
-	DeleteAgent(ctx context.Context, id string, claim time.Time) error
-	FailDelete(ctx context.Context, id string, claim time.Time, cause error) error
+	DeleteAgent(ctx context.Context, id uuid.UUID, claim time.Time) error
+	FailDelete(ctx context.Context, id uuid.UUID, claim time.Time, cause error) error
 }
 
 type RunningAgentCounter interface {
-	CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error)
+	CountLiveForSchedule(ctx context.Context, scheduleID uuid.UUID) (int64, error)
 }
 
 // RunRecorder records when a firing starts and how it ends.

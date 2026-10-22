@@ -19,6 +19,7 @@ import (
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -64,8 +65,8 @@ func TestForwardLastTurnsRefusalsMapToCodes(t *testing.T) {
 			svc := newForwardHandler(&fakeTranscriptReader{err: tt.err})
 
 			_, err := svc.ForwardLastTurns(t.Context(), connect.NewRequest(&agentv1.ForwardLastTurnsRequest{
-				FromAgentId: alphaID,
-				ToAgentId:   betaID,
+				FromAgentId: alphaID.String(),
+				ToAgentId:   betaID.String(),
 			}))
 
 			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
@@ -77,9 +78,9 @@ func TestForwardLastTurnsRefusalsMapToCodes(t *testing.T) {
 func TestForwardLastTurns(t *testing.T) {
 	tests := []struct {
 		name        string
-		callerIs    string
+		callerIs    uuid.UUID
 		dormant     bool
-		wantFrom    string
+		wantFrom    uuid.UUID
 		wantWarning bool
 	}{
 		{
@@ -103,7 +104,7 @@ func TestForwardLastTurns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := &fakeTranscriptReader{forwarded: transcripts.Forwarded{
 				Mail: mailstore.Mail{
-					ID:        "mail-1",
+					ID:        mailID,
 					ToAgentID: betaID,
 					CreatedAt: time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC),
 				},
@@ -118,13 +119,13 @@ func TestForwardLastTurns(t *testing.T) {
 			svc := newForwardHandler(reader)
 
 			ctx := t.Context()
-			if tt.callerIs != "" {
+			if tt.callerIs != uuid.Nil {
 				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerIs})
 			}
 
 			got, err := svc.ForwardLastTurns(ctx, connect.NewRequest(&agentv1.ForwardLastTurnsRequest{
-				FromAgentId: alphaID,
-				ToAgentId:   betaID,
+				FromAgentId: alphaID.String(),
+				ToAgentId:   betaID.String(),
 				Turns:       xptr.Ptr[int32](2),
 				MaxBytes:    xptr.Ptr[int32](22),
 				Note:        xptr.Ptr("alpha settled the cursor question; build on it"),
@@ -149,7 +150,7 @@ func TestForwardLastTurns(t *testing.T) {
 
 			assert.Empty(t, cmp.Diff(&agentv1.ForwardLastTurnsResponse{
 				MailId:     "mail-1",
-				ToAgentId:  betaID,
+				ToAgentId:  betaID.String(),
 				CreatedAt:  "2026-09-24T09:00:00Z",
 				Turns:      3,
 				Characters: 20,
@@ -164,8 +165,8 @@ func TestForwardLastTurnsRecordsTheRead(t *testing.T) {
 	ctx, written := newLoggedCaller(t, gammaID)
 
 	_, err := svc.ForwardLastTurns(ctx, connect.NewRequest(&agentv1.ForwardLastTurnsRequest{
-		FromAgentId: alphaID,
-		ToAgentId:   betaID,
+		FromAgentId: alphaID.String(),
+		ToAgentId:   betaID.String(),
 	}))
 	require.NoError(t, err)
 	assertCrossAgentRead(t, assertCrossAgentReadParams{
@@ -190,3 +191,7 @@ func TestMaxMailBodyIsTheWireCap(t *testing.T) {
 func newForwardHandler(reader *fakeTranscriptReader) agentv1komrad.AgentServiceAdapter {
 	return agentv1komrad.AgentServiceAdapter{Impl: NewHandler(NewHandlerParams{Transcripts: reader})}
 }
+
+var (
+	mailID = uuid.New()
+)

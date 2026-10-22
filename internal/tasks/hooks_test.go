@@ -5,14 +5,15 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
 // TestIsOpening covers which agents starting on a task take it from no live agent to one.
 func TestIsOpening(t *testing.T) {
-	taskID := "task"
+	taskID := uuid.New()
 	starting := agentstore.Agent{
-		ID:     "starting",
+		ID:     startingAgentID,
 		TaskID: &taskID,
 		Role:   agentstore.RoleWriter,
 	}
@@ -25,12 +26,12 @@ func TestIsOpening(t *testing.T) {
 	}{
 		{
 			name:  "an agent on no task opens none",
-			agent: agentstore.Agent{ID: "starting"},
+			agent: agentstore.Agent{ID: startingAgentID},
 		},
 		{
 			name: "a reviewer opens nothing",
 			agent: agentstore.Agent{
-				ID:     "starting",
+				ID:     startingAgentID,
 				TaskID: &taskID,
 				Role:   agentstore.RoleReviewer,
 			},
@@ -38,12 +39,12 @@ func TestIsOpening(t *testing.T) {
 		{
 			name:  "another live agent holds the task open",
 			agent: starting,
-			live:  []agentstore.Agent{starting, {ID: "other", State: agentstore.StateIdle}},
+			live:  []agentstore.Agent{starting, {ID: otherAgentID, State: agentstore.StateIdle}},
 		},
 		{
 			name:  "an agent that failed to create holds nothing open",
 			agent: starting,
-			live:  []agentstore.Agent{starting, {ID: "other", State: agentstore.StateFailedToCreate}},
+			live:  []agentstore.Agent{starting, {ID: otherAgentID, State: agentstore.StateFailedToCreate}},
 			want:  true,
 		},
 		{
@@ -60,3 +61,8 @@ func TestIsOpening(t *testing.T) {
 		})
 	}
 }
+
+var (
+	otherAgentID    = uuid.New()
+	startingAgentID = uuid.New()
+)

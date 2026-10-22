@@ -15,16 +15,18 @@ import (
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 // MarkDeleting claims tasks for a delete.
-func (s *TaskService) MarkDeleting(ctx context.Context, ids []string) error {
+func (s *TaskService) MarkDeleting(ctx context.Context, ids []uuid.UUID) error {
 	return s.tasks.MarkDeleting(ctx, ids)
 }
 
 // ClearDeleting releases the delete claim on tasks.
-func (s *TaskService) ClearDeleting(ctx context.Context, ids []string) error {
-	return errors.Join(xslice.Map(ids, func(id string) error {
+func (s *TaskService) ClearDeleting(ctx context.Context, ids []uuid.UUID) error {
+	return errors.Join(xslice.Map(ids, func(id uuid.UUID) error {
 		return s.tasks.ClearDeleting(ctx, id)
 	})...)
 }
@@ -32,7 +34,7 @@ func (s *TaskService) ClearDeleting(ctx context.Context, ids []string) error {
 // DeleteIfEmpty permanently removes a task once it is being deleted and no agent is left on it,
 // leaving it archived and no longer deleting, with the reason, when its checkout could not be
 // given back.
-func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
+func (s *TaskService) DeleteIfEmpty(ctx context.Context, id uuid.UUID) error {
 	claimed, err := s.tasks.ClaimEmpty(ctx, id)
 	if err != nil || !claimed {
 		return err
@@ -67,13 +69,13 @@ func (s *TaskService) DeleteIfEmpty(ctx context.Context, id string) error {
 
 // RemoveWorktrees removes the worktrees of archived tasks and keeps the tasks and their records,
 // leaving a task with the reason when its worktree could not be removed.
-func (s *TaskService) RemoveWorktrees(ctx context.Context, ids []string) error {
-	return errors.Join(xslice.Map(ids, func(id string) error {
+func (s *TaskService) RemoveWorktrees(ctx context.Context, ids []uuid.UUID) error {
+	return errors.Join(xslice.Map(ids, func(id uuid.UUID) error {
 		return s.removeWorktree(ctx, id)
 	})...)
 }
 
-func (s *TaskService) removeWorktree(ctx context.Context, id string) error {
+func (s *TaskService) removeWorktree(ctx context.Context, id uuid.UUID) error {
 	claimed, err := s.tasks.ClaimCleanup(ctx, id)
 	if err != nil || !claimed {
 		return err
@@ -103,7 +105,7 @@ func (s *TaskService) removeWorktree(ctx context.Context, id string) error {
 
 // RemoveWorkflowWorktrees removes the worktrees of every task in an archived workflow and keeps the
 // tasks and their records.
-func (s *TaskService) RemoveWorkflowWorktrees(ctx context.Context, workflowID string) error {
+func (s *TaskService) RemoveWorkflowWorktrees(ctx context.Context, workflowID uuid.UUID) error {
 	ids, err := s.tasks.ListIDsInWorkflow(ctx, workflowID)
 	if err != nil {
 		return err
@@ -114,7 +116,7 @@ func (s *TaskService) RemoveWorkflowWorktrees(ctx context.Context, workflowID st
 
 // ClearWorkflow claims every task in a workflow for a delete and removes each one no agent is
 // left on, reporting whether the workflow holds no task afterwards.
-func (s *TaskService) ClearWorkflow(ctx context.Context, workflowID string) (bool, error) {
+func (s *TaskService) ClearWorkflow(ctx context.Context, workflowID uuid.UUID) (bool, error) {
 	if err := s.tasks.MarkWorkflowDeleting(ctx, workflowID); err != nil {
 		return false, err
 	}
@@ -191,7 +193,7 @@ func (s *TaskService) deprovision(ctx context.Context, task taskstore.Task, flow
 
 // snapshotRefs is the refs holding the commits of a task's snapshots, and a checkout they are held in.
 type snapshotRefs struct {
-	taskID string
+	taskID uuid.UUID
 	dir    string
 	refs   []string
 }
@@ -206,7 +208,7 @@ func (s *TaskService) findSnapshotRefs(ctx context.Context, task taskstore.Task)
 	snapshots, err := s.reviews.ListSnapshots(ctx, task.ID)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the snapshots of a task being deleted",
-			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 
 		return snapshotRefs{}
 	}
@@ -217,7 +219,7 @@ func (s *TaskService) findSnapshotRefs(ctx context.Context, task taskstore.Task)
 	dir, err := s.findSnapshotRefDir(ctx, task)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to find a checkout holding the snapshots of a task being deleted",
-			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 
 		return snapshotRefs{}
 	}
@@ -237,7 +239,7 @@ func (s *TaskService) releaseSnapshotRefs(ctx context.Context, held snapshotRefs
 	for _, ref := range held.refs {
 		if err := s.snapshots.ReleaseRef(ctx, held.dir, ref); err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the ref of a snapshot",
-				append([]slog.Attr{slog.String(logging.TaskID, held.taskID)}, logging.Err(err)...)...)
+				append([]slog.Attr{slog.String(logging.TaskID, held.taskID.String())}, logging.Err(err)...)...)
 		}
 	}
 }

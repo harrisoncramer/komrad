@@ -30,7 +30,7 @@ type addressBook struct {
 	testerKomrad  *agentstore.Agent
 	testerDocs    *agentstore.Agent
 	retired       *agentstore.Agent
-	unheldID      string
+	unheldID      uuid.UUID
 }
 
 // TestSendMailRefusals pins which sentinel each way of addressing mail wrongly comes back with.
@@ -39,7 +39,7 @@ func TestSendMailRefusals(t *testing.T) {
 		name    string
 		from    string
 		to      string
-		replyTo *string
+		replyTo *uuid.UUID
 		pending int
 		wantErr error
 	}{
@@ -75,17 +75,10 @@ func TestSendMailRefusals(t *testing.T) {
 			wantErr: ErrMailboxFull,
 		},
 		{
-			name:    "a reply_to that is not a well-formed id",
-			from:    "api",
-			to:      "migrations",
-			replyTo: xptr.Ptr("not-an-id"),
-			wantErr: ErrReplyToNotFound,
-		},
-		{
 			name:    "a reply_to naming a well-formed id nothing holds",
 			from:    "api",
 			to:      "migrations",
-			replyTo: xptr.Ptr(uuid.NewString()),
+			replyTo: xptr.Ptr(uuid.New()),
 			wantErr: ErrReplyToNotFound,
 		},
 	}
@@ -95,13 +88,13 @@ func TestSendMailRefusals(t *testing.T) {
 			st := storetest.Open(t)
 			svc := newMailService(st, config.DefaultMaxExchange)
 
-			ids := map[string]string{
+			ids := map[string]uuid.UUID{
 				"api":        st.SeedAgent(t, agentstore.Agent{Name: "api"}).ID,
 				"migrations": st.SeedAgent(t, agentstore.Agent{Name: "migrations"}).ID,
 				"archived":   st.SeedAgent(t, agentstore.Agent{Name: "archived"}).ID,
-				"ghost":      uuid.NewString(),
+				"ghost":      uuid.New(),
 			}
-			_, err := st.Agents.Archive(t.Context(), []string{ids["archived"]})
+			_, err := st.Agents.Archive(t.Context(), []uuid.UUID{ids["archived"]})
 			require.NoError(t, err)
 
 			for range tt.pending {
@@ -170,7 +163,7 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			sender := st.SeedAgent(t, agentstore.Agent{Name: "api"})
 			recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
 
-			var replyTo *string
+			var replyTo *uuid.UUID
 			if tt.reply {
 				opening, err := st.Mail.Send(t.Context(), mailstore.SendParams{
 					FromAgentID: &recipient.ID,
@@ -342,12 +335,12 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 		})
 		refuse(t, secondReviewer)
 
-		about := xslice.Map(listCappedMail(t, st, writer.ID), func(told mailstore.Mail) string {
+		about := xslice.Map(listCappedMail(t, st, writer.ID), func(told mailstore.Mail) uuid.UUID {
 			require.NotNil(t, told.SubjectID)
 
 			return *told.SubjectID
 		})
-		assert.ElementsMatch(t, []string{reviewer.ID, reviewer.ID, secondReviewer.ID}, about)
+		assert.ElementsMatch(t, []uuid.UUID{reviewer.ID, reviewer.ID, secondReviewer.ID}, about)
 	})
 }
 
@@ -460,7 +453,7 @@ func TestSendFromKomradRefusesIncompleteMail(t *testing.T) {
 			name: "a plain kind",
 			params: SendFromKomradParams{
 				Mail:      fakeMail{kind: mailstore.KindPlain, body: "hello"},
-				SubjectID: uuid.NewString(),
+				SubjectID: uuid.New(),
 			},
 			wantErr: ErrKindMissing,
 		},
@@ -490,9 +483,9 @@ func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 	svc := newMailService(st, config.DefaultMaxExchange)
 	ctx := t.Context()
 	recipient := st.SeedAgent(t, agentstore.Agent{Name: "author"})
-	one, other := uuid.NewString(), uuid.NewString()
+	one, other := uuid.New(), uuid.New()
 
-	notify := func(document, body string) *mailstore.Mail {
+	notify := func(document uuid.UUID, body string) *mailstore.Mail {
 		t.Helper()
 		sent, err := svc.SendFromKomrad(ctx, SendFromKomradParams{
 			ToAgentID: recipient.ID,
@@ -618,7 +611,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 			if tt.archived {
 				require.NoError(t, st.Workflows.Archive(ctx, workflow.ID))
 			}
-			subject := uuid.NewString()
+			subject := uuid.New()
 
 			var sent *mailstore.Mail
 			for _, s := range tt.sends {
@@ -668,7 +661,7 @@ func TestListWaitingMail(t *testing.T) {
 	}
 
 	t.Run("an id no agent holds", func(t *testing.T) {
-		waiting, err := svc.ListWaitingMail(t.Context(), uuid.NewString())
+		waiting, err := svc.ListWaitingMail(t.Context(), uuid.New())
 		require.ErrorIs(t, err, ErrAgentNotFound)
 		assert.Empty(t, waiting)
 	})
@@ -707,7 +700,7 @@ func TestClaimMail(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	comment := func(body string) (string, string) {
+	comment := func(body string) (uuid.UUID, uuid.UUID) {
 		opened, err := reviewStore.CreateThread(ctx, reviewstore.CreateThreadParams{
 			TaskID:     *writer.TaskID,
 			SnapshotID: snapshot.ID,
@@ -739,7 +732,7 @@ func TestClaimMail(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("an id no agent holds", func(t *testing.T) {
-		claimed, err := svc.ClaimMail(ctx, ClaimMailParams{AgentID: uuid.NewString(), IDs: []string{readMail}})
+		claimed, err := svc.ClaimMail(ctx, ClaimMailParams{AgentID: uuid.New(), IDs: []uuid.UUID{readMail}})
 		require.ErrorIs(t, err, ErrAgentNotFound)
 		assert.Empty(t, claimed)
 	})
@@ -747,17 +740,17 @@ func TestClaimMail(t *testing.T) {
 	t.Run("only the mail named is claimed and its comment stamped", func(t *testing.T) {
 		claimed, err := svc.ClaimMail(ctx, ClaimMailParams{
 			AgentID:        writer.ID,
-			IDs:            []string{readMail, plain.ID},
+			IDs:            []uuid.UUID{readMail, plain.ID},
 			ReadSnapshotID: &readOn.ID,
 		})
 		require.NoError(t, err)
-		assert.Equal(t, []string{readMail, plain.ID}, xslice.Map(claimed, func(m mailstore.Mail) string { return m.ID }))
+		assert.Equal(t, []uuid.UUID{readMail, plain.ID}, xslice.Map(claimed, func(m mailstore.Mail) uuid.UUID { return m.ID }))
 
 		waiting, err := svc.ListWaitingMail(ctx, writer.ID)
 		require.NoError(t, err)
-		assert.Equal(t, []string{laterMail}, xslice.Map(waiting, func(m mailstore.Mail) string { return m.ID }))
+		assert.Equal(t, []uuid.UUID{laterMail}, xslice.Map(waiting, func(m mailstore.Mail) uuid.UUID { return m.ID }))
 
-		messages, err := reviewStore.ListMessages(ctx, []string{readThread, laterThread})
+		messages, err := reviewStore.ListMessages(ctx, []uuid.UUID{readThread, laterThread})
 		require.NoError(t, err)
 		require.Len(t, messages, 2)
 		read, later := messages[0], messages[1]
@@ -771,10 +764,10 @@ func TestClaimMail(t *testing.T) {
 	})
 
 	t.Run("a comment read with no snapshot is stamped read on none", func(t *testing.T) {
-		_, err := svc.ClaimMail(ctx, ClaimMailParams{AgentID: writer.ID, IDs: []string{laterMail}})
+		_, err := svc.ClaimMail(ctx, ClaimMailParams{AgentID: writer.ID, IDs: []uuid.UUID{laterMail}})
 		require.NoError(t, err)
 
-		messages, err := reviewStore.ListMessages(ctx, []string{laterThread})
+		messages, err := reviewStore.ListMessages(ctx, []uuid.UUID{laterThread})
 		require.NoError(t, err)
 		require.Len(t, messages, 1)
 		assert.NotNil(t, messages[0].ReadAt)
@@ -805,7 +798,7 @@ func TestListMail(t *testing.T) {
 
 	t.Run("an id no agent holds", func(t *testing.T) {
 		listed, err := svc.ListMail(t.Context(), ListMailParams{
-			AgentID: uuid.NewString(),
+			AgentID: uuid.New(),
 			Limit:   10,
 		})
 		require.ErrorIs(t, err, ErrAgentNotFound)
@@ -814,7 +807,7 @@ func TestListMail(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		agentID  string
+		agentID  uuid.UUID
 		sent     bool
 		wantBody string
 	}{
@@ -870,7 +863,7 @@ func TestDeleteMail(t *testing.T) {
 			svc := newMailService(st, config.DefaultMaxExchange)
 			recipient := st.SeedAgent(t, agentstore.Agent{Name: "migrations"})
 
-			var ids []string
+			var ids []uuid.UUID
 			for range 2 {
 				sent, err := svc.SendMail(t.Context(), SendMailParams{
 					ToAgentID: recipient.ID,
@@ -880,7 +873,7 @@ func TestDeleteMail(t *testing.T) {
 				ids = append(ids, sent.ID)
 			}
 			if tt.withUnknown {
-				ids = append(ids, uuid.NewString())
+				ids = append(ids, uuid.New())
 			}
 
 			err := svc.DeleteMail(t.Context(), ids)
@@ -905,8 +898,8 @@ func TestFindRecipientByID(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		id      string
-		want    string
+		id      uuid.UUID
+		want    uuid.UUID
 		wantErr error
 	}{
 		{
@@ -929,7 +922,7 @@ func TestFindRecipientByID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := svc.FindRecipient(t.Context(), FindRecipientParams{
-				To: oneofs.To{ToAgentId: xptr.Ptr(uuid.MustParse(tt.id))},
+				To: oneofs.To{ToAgentId: xptr.Ptr(uuid.MustParse(tt.id.String()))},
 			})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -952,7 +945,7 @@ func TestFindRecipientRefusals(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		from     string
+		from     uuid.UUID
 		to       string
 		wantErr  error
 		wantSaid []string
@@ -974,17 +967,17 @@ func TestFindRecipientRefusals(t *testing.T) {
 			from:     book.sender.ID,
 			to:       "tester",
 			wantErr:  ErrRecipientAmbiguous,
-			wantSaid: []string{book.testerKomrad.ID + ` in workflow "komrad"`, book.testerDocs.ID + ` in workflow "docs"`},
+			wantSaid: []string{book.testerKomrad.ID.String() + ` in workflow "komrad"`, book.testerDocs.ID.String() + ` in workflow "docs"`},
 		},
 		{
 			name:     "a name two workflows hold, from nobody",
 			to:       "reviewer",
 			wantErr:  ErrRecipientAmbiguous,
-			wantSaid: []string{book.reviewerHere.ID + ` in workflow "gadgets"`, book.reviewerThere.ID + ` in workflow "komrad"`},
+			wantSaid: []string{book.reviewerHere.ID.String() + ` in workflow "gadgets"`, book.reviewerThere.ID.String() + ` in workflow "komrad"`},
 		},
 		{
 			name:    "a name from a sender the panel does not know",
-			from:    uuid.NewString(),
+			from:    uuid.New(),
 			to:      "migrations",
 			wantErr: ErrSenderUnknown,
 		},
@@ -1013,9 +1006,9 @@ func TestFindRecipient(t *testing.T) {
 
 	tests := []struct {
 		name string
-		from string
+		from uuid.UUID
 		to   string
-		want string
+		want uuid.UUID
 	}{
 		{
 			name: "a name held in the sender's own workflow and in another",
@@ -1056,7 +1049,7 @@ func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
 	komrad := st.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
 	docs := st.SeedWorkflow(t, workflowstore.Config{Name: "docs"})
 
-	seed := func(name, workflowID string) *agentstore.Agent {
+	seed := func(name string, workflowID uuid.UUID) *agentstore.Agent {
 		return st.SeedAgent(t, agentstore.Agent{
 			Name:       name,
 			WorkflowID: workflowID,
@@ -1071,10 +1064,10 @@ func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
 		testerKomrad:  seed("tester", komrad.ID),
 		testerDocs:    seed("tester", docs.ID),
 		retired:       seed("retired", komrad.ID),
-		unheldID:      uuid.NewString(),
+		unheldID:      uuid.New(),
 	}
 
-	_, err := st.Agents.Archive(t.Context(), []string{book.retired.ID})
+	_, err := st.Agents.Archive(t.Context(), []uuid.UUID{book.retired.ID})
 	require.NoError(t, err)
 
 	return book
@@ -1146,7 +1139,7 @@ func exchange(t *testing.T, svc *MailService, params exchangeParams) {
 	}
 }
 
-func listCappedMail(t *testing.T, st *storetest.Stores, agentID string) []mailstore.Mail {
+func listCappedMail(t *testing.T, st *storetest.Stores, agentID uuid.UUID) []mailstore.Mail {
 	t.Helper()
 
 	listed, err := st.Mail.ListPage(t.Context(), agentID, maxPendingMail, nil)
@@ -1185,7 +1178,7 @@ func TestIsDormant(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			terminal := tmuxtest.NewFake()
 			agent := agentstore.Agent{
-				ID:    uuid.NewString(),
+				ID:    uuid.New(),
 				Pane:  "%beta",
 				State: tt.state,
 			}

@@ -36,7 +36,7 @@ func Workflow(w workflowstore.Workflow, options WorkflowOptions) *workflowv1.Wor
 	}
 
 	return &workflowv1.Workflow{
-		Id:               w.ID,
+		Id:               w.ID.String(),
 		Name:             w.Name,
 		Context:          sharedContext,
 		Harness:          w.Harness,

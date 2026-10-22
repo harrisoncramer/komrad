@@ -14,6 +14,7 @@ import (
 	"komrad/internal/rpcapi"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,62 +23,64 @@ import (
 func TestRoles(t *testing.T) {
 	t.Parallel()
 
-	roles := map[string]annotationv1.Role{
-		"writer":       annotationv1.Role_ROLE_WRITER,
-		"reviewer":     annotationv1.Role_ROLE_REVIEWER,
-		"orchestrator": annotationv1.Role_ROLE_ORCHESTRATOR,
+	writer, reviewer, orchestrator := uuid.New(), uuid.New(), uuid.New()
+	unknown, unreadable := uuid.New(), uuid.New()
+	roles := map[uuid.UUID]annotationv1.Role{
+		writer:       annotationv1.Role_ROLE_WRITER,
+		reviewer:     annotationv1.Role_ROLE_REVIEWER,
+		orchestrator: annotationv1.Role_ROLE_ORCHESTRATOR,
 	}
 
 	tests := []struct {
 		name       string
-		agentID    string
+		agentID    uuid.UUID
 		procedure  string
 		wantCode   connect.Code
 		wantLookup bool
 	}{
 		{
 			name:       "a reviewer is refused a document",
-			agentID:    "reviewer",
+			agentID:    reviewer,
 			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
 			wantCode:   connect.CodePermissionDenied,
 			wantLookup: true,
 		},
 		{
 			name:       "a writer is refused a schedule",
-			agentID:    "writer",
+			agentID:    writer,
 			procedure:  schedulev1connect.ScheduleServiceCreateScheduleProcedure,
 			wantCode:   connect.CodePermissionDenied,
 			wantLookup: true,
 		},
 		{
 			name:       "an agent komrad does not know is refused",
-			agentID:    "unknown",
+			agentID:    unknown,
 			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
 			wantCode:   connect.CodePermissionDenied,
 			wantLookup: true,
 		},
 		{
 			name:       "an agent whose role cannot be read is refused until it can",
-			agentID:    "unreadable",
+			agentID:    unreadable,
 			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
 			wantCode:   connect.CodeUnavailable,
 			wantLookup: true,
 		},
 		{
 			name:       "a writer writes a document",
-			agentID:    "writer",
+			agentID:    writer,
 			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
 			wantLookup: true,
 		},
 		{
 			name:       "an orchestrator writes a document",
-			agentID:    "orchestrator",
+			agentID:    orchestrator,
 			procedure:  agentv1connect.AgentServiceWriteDocumentProcedure,
 			wantLookup: true,
 		},
 		{
 			name:      "a reviewer reads a document without its role being looked up",
-			agentID:   "reviewer",
+			agentID:   reviewer,
 			procedure: agentv1connect.AgentServiceGetDocumentProcedure,
 		},
 		{
@@ -86,7 +89,7 @@ func TestRoles(t *testing.T) {
 		},
 		{
 			name:      "a method naming no roles is open to every agent",
-			agentID:   "reviewer",
+			agentID:   reviewer,
 			procedure: agentv1connect.AgentServiceRecordReportProcedure,
 		},
 	}
@@ -96,13 +99,13 @@ func TestRoles(t *testing.T) {
 			t.Parallel()
 
 			lookedUp := false
-			interceptor := NewRoles(func(_ context.Context, agentID string) (annotationv1.Role, error) {
+			interceptor := NewRoles(func(_ context.Context, agentID uuid.UUID) (annotationv1.Role, error) {
 				lookedUp = true
 
 				switch agentID {
-				case "unknown":
+				case unknown:
 					return annotationv1.Role_ROLE_UNSPECIFIED, rpcapi.ErrUnknownCaller
-				case "unreadable":
+				case unreadable:
 					return annotationv1.Role_ROLE_UNSPECIFIED, errors.New("connection refused")
 				default:
 					return roles[agentID], nil

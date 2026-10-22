@@ -10,6 +10,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,7 @@ import (
 // heldThread is a forge thread under a held root, with a trusted forge reply and the agent's answer.
 type heldThread struct {
 	thread   *Thread
-	rootID   string
+	rootID   uuid.UUID
 	snapshot *Snapshot
 }
 
@@ -61,7 +62,7 @@ func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldTh
 	})
 	require.NoError(t, err)
 
-	messages, err := st.ListMessages(ctx, []string{thread.ID})
+	messages, err := st.ListMessages(ctx, []uuid.UUID{thread.ID})
 	require.NoError(t, err)
 
 	return heldThread{
@@ -104,7 +105,7 @@ func TestHeldForgeThreads(t *testing.T) {
 			ctx := t.Context()
 			held := tt.seed(t, st)
 
-			messages, err := st.ListMessages(ctx, []string{held.thread.ID})
+			messages, err := st.ListMessages(ctx, []uuid.UUID{held.thread.ID})
 			require.NoError(t, err)
 			var listed []string
 			for _, message := range messages {
@@ -156,30 +157,30 @@ func TestHeldForgeThreadHiddenFromReader(t *testing.T) {
 func TestListForgeMirrorTargets(t *testing.T) {
 	tests := []struct {
 		name  string
-		seed  func(t *testing.T, st *fixture, agentID string)
-		check func(t *testing.T, targets []ForgeMirrorTarget, taskID string)
+		seed  func(t *testing.T, st *fixture, agentID uuid.UUID)
+		check func(t *testing.T, targets []ForgeMirrorTarget, taskID uuid.UUID)
 	}{
 		{
 			name: "an agent with no snapshot has nothing to mirror onto",
-			seed: func(*testing.T, *fixture, string) {},
-			check: func(t *testing.T, targets []ForgeMirrorTarget, _ string) {
+			seed: func(*testing.T, *fixture, uuid.UUID) {},
+			check: func(t *testing.T, targets []ForgeMirrorTarget, _ uuid.UUID) {
 				assert.Empty(t, targets)
 			},
 		},
 		{
 			name: "an archived agent is left out",
-			seed: func(t *testing.T, st *fixture, agentID string) {
+			seed: func(t *testing.T, st *fixture, agentID uuid.UUID) {
 				st.takeSnapshot(t, agentID, "tree-one")
-				_, err := st.agents.Archive(t.Context(), []string{agentID})
+				_, err := st.agents.Archive(t.Context(), []uuid.UUID{agentID})
 				require.NoError(t, err)
 			},
-			check: func(t *testing.T, targets []ForgeMirrorTarget, _ string) {
+			check: func(t *testing.T, targets []ForgeMirrorTarget, _ uuid.UUID) {
 				assert.Empty(t, targets)
 			},
 		},
 		{
 			name: "a task with a reviewer on it is mirrored onto once",
-			seed: func(t *testing.T, st *fixture, agentID string) {
+			seed: func(t *testing.T, st *fixture, agentID uuid.UUID) {
 				st.takeSnapshot(t, agentID, "tree-one")
 				st.seedAgentLike(t, agentstore.Agent{
 					Name:   "reviewer",
@@ -187,18 +188,18 @@ func TestListForgeMirrorTargets(t *testing.T) {
 					TaskID: xptr.Ptr(st.taskOf(t, agentID)),
 				})
 			},
-			check: func(t *testing.T, targets []ForgeMirrorTarget, taskID string) {
+			check: func(t *testing.T, targets []ForgeMirrorTarget, taskID uuid.UUID) {
 				require.Len(t, targets, 1)
 				assert.Equal(t, taskID, targets[0].TaskID)
 			},
 		},
 		{
 			name: "an agent on the pull request is mirrored onto at its newest snapshot",
-			seed: func(t *testing.T, st *fixture, agentID string) {
+			seed: func(t *testing.T, st *fixture, agentID uuid.UUID) {
 				st.takeSnapshot(t, agentID, "tree-one")
 				st.takeSnapshot(t, agentID, "tree-two")
 			},
-			check: func(t *testing.T, targets []ForgeMirrorTarget, taskID string) {
+			check: func(t *testing.T, targets []ForgeMirrorTarget, taskID uuid.UUID) {
 				require.Len(t, targets, 1)
 				assert.Equal(t, taskID, targets[0].TaskID)
 				assert.Equal(t, "snapshot-tree-two", targets[0].SnapshotSHA)
@@ -236,7 +237,7 @@ func (st *fixture) openForgeReview(t *testing.T, snapshot *Snapshot, login strin
 }
 
 // seedPullRequest opens a pull request from the agent's branch and returns its id.
-func (st *fixture) seedPullRequest(t *testing.T, agentID string) string {
+func (st *fixture) seedPullRequest(t *testing.T, agentID uuid.UUID) uuid.UUID {
 	t.Helper()
 	ctx := t.Context()
 

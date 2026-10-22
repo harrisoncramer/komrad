@@ -24,6 +24,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -347,7 +348,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			assert.Equal(t, tt.adopted, values["KOMRAD_WORKTREE_ADOPT_BRANCH"])
 
 			assert.Equal(t, *seeded.TaskID, values["KOMRAD_WORKTREE_NAME"])
-			assert.Equal(t, "task/"+*seeded.TaskID, values["KOMRAD_WORKTREE_BRANCH"])
+			assert.Equal(t, "task/"+seeded.TaskID.String(), values["KOMRAD_WORKTREE_BRANCH"])
 		})
 	}
 }
@@ -490,7 +491,7 @@ func TestRunScriptOnADormantAgent(t *testing.T) {
 
 	runner := &recordingRunner{}
 	service := scriptService(t, dir, runner)
-	service.tmux = fakePaneOwner{owner: "somebody-else"}
+	service.tmux = fakePaneOwner{owner: uuid.New()}
 
 	require.NoError(t, fireScript(t.Context(), t, service))
 
@@ -855,7 +856,7 @@ func TestRunDeprovisionLogsUnderItsOwnTrigger(t *testing.T) {
 	var doneErr error
 	var doneCalled bool
 	require.NoError(t, scriptService(t, dir, runner).
-		RunDeprovision(ctx, agentstore.Agent{ID: "a2", Cwd: gone}, "cleanup", func(err error) {
+		RunDeprovision(ctx, agentstore.Agent{ID: secondAgentID, Cwd: gone}, "cleanup", func(err error) {
 			doneCalled = true
 			doneErr = err
 		}))
@@ -880,7 +881,7 @@ func TestRunDeprovisionLogsWhatAZeroExitSaid(t *testing.T) {
 	var doneErr error
 	var doneCalled bool
 	require.NoError(t, scriptService(t, dir, runner).
-		RunDeprovision(ctx, agentstore.Agent{ID: "a3", Cwd: "/repo/wt"}, "cleanup", func(err error) {
+		RunDeprovision(ctx, agentstore.Agent{ID: uuid.New(), Cwd: "/repo/wt"}, "cleanup", func(err error) {
 			doneCalled = true
 			doneErr = err
 		}))
@@ -1204,7 +1205,7 @@ func scriptServiceRecording(t *testing.T, dir string, runner scriptRunner, logsD
 func listRuns(t *testing.T, st *storetest.Stores) []*testmodels.ListAgentRunsRow {
 	t.Helper()
 
-	runs, err := testmodels.New(st.Pool.GetDB()).ListAgentRuns(t.Context(), fixtureAgentID)
+	runs, err := testmodels.New(st.Pool.GetDB()).ListAgentRuns(t.Context(), fixtureAgentID.String())
 	require.NoError(t, err)
 
 	return runs
@@ -1405,10 +1406,10 @@ func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 	assert.Contains(t, string(content), "someone else")
 }
 
-const (
+var (
 	// fixtureAgentID is the agent every script test in this file runs against.
-	fixtureAgentID = "01990000-0000-7000-8000-0000000000a1"
-	otherAgentID   = "01990000-0000-7000-8000-0000000000a2"
+	fixtureAgentID = uuid.MustParse("01990000-0000-7000-8000-0000000000a1")
+	otherAgentID   = uuid.MustParse("01990000-0000-7000-8000-0000000000a2")
 )
 
 // firedScript is the built-in the tests use when they cover the machinery every script goes
@@ -1422,7 +1423,7 @@ func fireScript(ctx context.Context, t *testing.T, svc *ScriptService) error {
 	return fireScriptFor(ctx, t, svc, fixtureAgentID)
 }
 
-func fireScriptFor(ctx context.Context, t *testing.T, svc *ScriptService, agentID string) error {
+func fireScriptFor(ctx context.Context, t *testing.T, svc *ScriptService, agentID uuid.UUID) error {
 	t.Helper()
 
 	agent, err := svc.agents.GetByID(ctx, agentID)
@@ -1764,16 +1765,16 @@ func seedFixture(t *testing.T, st *storetest.Stores, agent agentstore.Agent, wor
 }
 
 type fakePaneOwner struct {
-	owner      string
+	owner      uuid.UUID
 	hostSocket string
 	shell      string
 	infoPane   string
 }
 
-func (f fakePaneOwner) GetPaneOwner(string) string { return f.owner }
-func (f fakePaneOwner) GetHostSocket() string      { return f.hostSocket }
-func (f fakePaneOwner) GetInfoPane() string        { return f.infoPane }
-func (f fakePaneOwner) GetDefaultShell() string    { return f.shell }
+func (f fakePaneOwner) GetPaneOwner(string) uuid.UUID { return f.owner }
+func (f fakePaneOwner) GetHostSocket() string         { return f.hostSocket }
+func (f fakePaneOwner) GetInfoPane() string           { return f.infoPane }
+func (f fakePaneOwner) GetDefaultShell() string       { return f.shell }
 
 type recordingRunner struct {
 	ran     []string
@@ -2041,7 +2042,7 @@ func TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone(t *testin
 	err := svc.RunHook(t.Context(), agentstore.Agent{
 		ID:     fixtureAgentID,
 		Cwd:    gone,
-		TaskID: xptr.Ptr("01a12668-9788-70e8-b1a4-a1886fbae3f6"),
+		TaskID: xptr.Ptr(uuid.MustParse("01a12668-9788-70e8-b1a4-a1886fbae3f6")),
 	}, "forget", workflowstore.HookAgentPostDelete)
 	require.NoError(t, err)
 
@@ -2053,3 +2054,7 @@ func TestRunHookRunsPostDeleteInTheHooksDirectoryOnceTheWorktreeIsGone(t *testin
 	assert.Equal(t, resolved+"\n"+gone+"\n", string(landed), "told where the worktree was")
 	assert.Empty(t, config.ListRunLogs(logsDir, fixtureAgentID), "with no run log for a row that has gone")
 }
+
+var (
+	secondAgentID = uuid.New()
+)

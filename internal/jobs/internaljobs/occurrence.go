@@ -3,12 +3,13 @@ package internaljobs
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
 // LaunchArgsFor builds the arguments for one firing of a schedule, or nothing at all when
 // the expression has no occurrence to launch.
-func LaunchArgsFor(scheduleID string, cron river.PeriodicSchedule, now time.Time) (river.JobArgs, *river.InsertOpts) {
+func LaunchArgsFor(scheduleID uuid.UUID, cron river.PeriodicSchedule, now time.Time) (river.JobArgs, *river.InsertOpts) {
 	occurrence := occurrenceFor(cron, now)
 	if occurrence.IsZero() {
 		return nil, nil

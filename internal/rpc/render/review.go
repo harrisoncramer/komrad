@@ -13,13 +13,13 @@ import (
 // WatchedReview draws a review as the watch carries it, without its body.
 func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 	watched := &agentv1.WatchedReview{
-		Id:              review.ID,
-		TaskId:          review.TaskID,
-		SnapshotId:      review.SnapshotID,
+		Id:              review.ID.String(),
+		TaskId:          review.TaskID.String(),
+		SnapshotId:      review.SnapshotID.String(),
 		SnapshotOrdinal: review.SnapshotOrdinal,
 		SnapshotSha:     review.SnapshotSHA,
 		AuthorKind:      reviewAuthorKindOf(review.AuthorKind),
-		AuthorAgentId:   review.AuthorAgentID,
+		AuthorAgentId:   formatOptionalID(review.AuthorAgentID),
 		CreatedAt:       dates.Stamp(review.CreatedAt),
 		UpdatedAt:       dates.Stamp(review.UpdatedAt),
 	}
@@ -39,12 +39,12 @@ func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 // Review draws a review with its body.
 func Review(review reviewstore.Review) *agentv1.Review {
 	answered := &agentv1.Review{
-		Id:              review.ID,
-		TaskId:          review.TaskID,
-		SnapshotId:      review.SnapshotID,
+		Id:              review.ID.String(),
+		TaskId:          review.TaskID.String(),
+		SnapshotId:      review.SnapshotID.String(),
 		SnapshotOrdinal: review.SnapshotOrdinal,
 		AuthorKind:      reviewAuthorKindOf(review.AuthorKind),
-		AuthorAgentId:   review.AuthorAgentID,
+		AuthorAgentId:   formatOptionalID(review.AuthorAgentID),
 		Body:            review.Body,
 		Path:            review.Path,
 		OpenThreads:     review.OpenThreads,
@@ -65,8 +65,8 @@ func Review(review reviewstore.Review) *agentv1.Review {
 // ReviewSnapshot draws one frozen snapshot of an agent's work.
 func ReviewSnapshot(snapshot reviewstore.Snapshot) *agentv1.ReviewSnapshot {
 	return &agentv1.ReviewSnapshot{
-		Id:        snapshot.ID,
-		TaskId:    snapshot.TaskID,
+		Id:        snapshot.ID.String(),
+		TaskId:    snapshot.TaskID.String(),
 		Ordinal:   snapshot.Ordinal,
 		BaseSha:   snapshot.BaseSHA,
 		Sha:       snapshot.SHA,
@@ -85,7 +85,7 @@ func ReviewThreadInContext(thread reviews.ReviewThreadInContext) *agentv1.Review
 // ReviewViewedFile draws one file of a diff marked read.
 func ReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
 	return &agentv1.ReviewViewedFile{
-		TaskId:      viewed.TaskID,
+		TaskId:      viewed.TaskID.String(),
 		FilePath:    viewed.FilePath,
 		Fingerprint: viewed.Fingerprint,
 		ViewedAt:    dates.Stamp(viewed.ViewedAt),
@@ -115,13 +115,13 @@ func ReviewHistory(opened reviews.ReviewHistory) *agentv1.OpenReviewHistoryRespo
 		Traced:              map[string]*agentv1.ReviewTracedPlace{},
 	}
 	if earlier := opened.Earlier; earlier != nil {
-		answered.EarlierSnapshotId = earlier.ID
+		answered.EarlierSnapshotId = earlier.ID.String()
 	}
 	if at := opened.EarlierReleasedAt; at != nil {
 		answered.EarlierReleasedAt = dates.Stamp(*at)
 	}
 	for id, place := range opened.Traced {
-		answered.Traced[id] = &agentv1.ReviewTracedPlace{
+		answered.Traced[id.String()] = &agentv1.ReviewTracedPlace{
 			FilePath: place.FilePath,
 			NewStart: place.NewStart,
 			FileOnly: place.FileOnly,

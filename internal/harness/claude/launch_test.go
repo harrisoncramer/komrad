@@ -12,6 +12,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,13 +42,13 @@ func TestBuildCommand(t *testing.T) {
 		},
 		{
 			name:        "the agent's own ids lead the line, so they reach claude's environment",
-			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-4"},
+			launch:      harness.Launch{AgentID: launchedID, SessionID: "sess-4"},
 			wantCommand: "KOMRAD_AGENT_ID='id-1' KOMRAD_SESSION_ID='sess-4' command claude --session-id 'sess-4'",
 		},
 		{
 			name: "and they survive a resume",
 			launch: harness.Launch{
-				AgentID:   "id-1",
+				AgentID:   launchedID,
 				SessionID: "sess-5",
 				Resume:    true,
 			},
@@ -479,7 +480,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 
 	command, err := NewHarness(NewHarnessParams{CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
-		AgentID:     "agent-1",
+		AgentID:     uuid.New(),
 		SessionID:   "sess-1",
 		MCPEndpoint: "127.0.0.1:9999",
 	})
@@ -681,3 +682,7 @@ func readSettings(t *testing.T, command string) claudeSettings {
 }
 
 var settingsRef = regexp.MustCompile(` --settings '([^']+)'`)
+
+var (
+	launchedID = uuid.New()
+)

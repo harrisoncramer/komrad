@@ -14,6 +14,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 const orchestratorDirName = "orchestrators"
@@ -63,7 +65,7 @@ func NewOrchestratorService(params NewOrchestratorServiceParams) *OrchestratorSe
 
 // Start returns the workflow's orchestrator with a pane to talk to, restoring it from the
 // archive and resuming it as far as either is needed.
-func (s *OrchestratorService) Start(ctx context.Context, workflowID, prompt string) (*agentstore.Agent, error) {
+func (s *OrchestratorService) Start(ctx context.Context, workflowID uuid.UUID, prompt string) (*agentstore.Agent, error) {
 	found, err := s.agents.GetWorkflowOrchestrator(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return s.launchOrchestrator(ctx, workflowID, prompt)
@@ -79,7 +81,7 @@ func (s *OrchestratorService) Start(ctx context.Context, workflowID, prompt stri
 	}
 	// A row still holding a pane is running, whether or not it has said anything yet.
 	if !spoken && found.Pane == "" {
-		if err := s.lifecycle.deleteNow(ctx, []string{found.ID}); err != nil {
+		if err := s.lifecycle.deleteNow(ctx, []uuid.UUID{found.ID}); err != nil {
 			return nil, fmt.Errorf("failed to clear the orchestrator of workflow %q, which never ran: %w", workflowID, err)
 		}
 
@@ -87,7 +89,7 @@ func (s *OrchestratorService) Start(ctx context.Context, workflowID, prompt stri
 	}
 
 	if found.ArchivedAt != nil {
-		if _, err := s.lifecycle.RestoreAgents(ctx, []string{found.ID}); err != nil {
+		if _, err := s.lifecycle.RestoreAgents(ctx, []uuid.UUID{found.ID}); err != nil {
 			return nil, fmt.Errorf("failed to restore the orchestrator of workflow %q: %w", workflowID, err)
 		}
 	}
@@ -117,7 +119,7 @@ func (s *OrchestratorService) hasSpoken(ctx context.Context, agent agentstore.Ag
 	return hn.LogPath(agent.SessionID) != "", nil
 }
 
-func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID, prompt string) (*agentstore.Agent, error) {
+func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID uuid.UUID, prompt string) (*agentstore.Agent, error) {
 	// Ahead of the directory, so nothing is written for a workflow that could never hold an
 	// orchestrator.
 	if _, err := s.workflows.Get(ctx, workflowID); err != nil {
@@ -156,8 +158,8 @@ func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID
 }
 
 // orchestratorDir is the scratch directory an orchestrator runs in, deliberately not a checkout.
-func (s *OrchestratorService) orchestratorDir(workflowID string) (string, error) {
-	dir := filepath.Join(s.stateDir, orchestratorDirName, workflowID)
+func (s *OrchestratorService) orchestratorDir(workflowID uuid.UUID) (string, error) {
+	dir := filepath.Join(s.stateDir, orchestratorDirName, workflowID.String())
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to make a directory for the orchestrator of workflow %q: %w", workflowID, err)
 	}

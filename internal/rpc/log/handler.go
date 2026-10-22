@@ -20,8 +20,9 @@ import (
 	runstore "komrad/internal/store/run"
 	workflowstore "komrad/internal/store/workflow"
 
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/google/uuid"
 )
 
 // defaultAgentLogLimit is how many lines a read of agent logs answers when the caller names no count.
@@ -44,13 +45,13 @@ type logReader interface {
 }
 
 type runReader interface {
-	List(agentID string) []config.RunLog
+	List(agentID uuid.UUID) []config.RunLog
 	Newest(ctx context.Context, run logread.Run, query logread.Query) (*logread.Window, error)
 	Since(ctx context.Context, run logread.Run, offset int64, query logread.Query) (*logread.Window, error)
 }
 
 type taskRunLister interface {
-	ListRuns(ctx context.Context, taskID string) ([]runstore.Run, error)
+	ListRuns(ctx context.Context, taskID uuid.UUID) ([]runstore.Run, error)
 }
 
 type Handler struct {
@@ -149,9 +150,9 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1komrad.ReadAgentL
 	)
 	switch {
 	case isRun && offset < 0:
-		window, err = s.runs.Newest(ctx, logread.Run{AgentID: agentIDs[0], Name: req.Source}, query)
+		window, err = s.runs.Newest(ctx, logread.Run{AgentID: req.AgentIds[0], Name: req.Source}, query)
 	case isRun:
-		window, err = s.runs.Since(ctx, logread.Run{AgentID: agentIDs[0], Name: req.Source}, offset, query)
+		window, err = s.runs.Since(ctx, logread.Run{AgentID: req.AgentIds[0], Name: req.Source}, offset, query)
 	case offset < 0:
 		window, err = s.log.NewestAboutAgents(ctx, agentIDs, query)
 	default:
@@ -171,7 +172,7 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1komrad.ReadAgentL
 
 // ListAgentLogSources is the server log and then each script run of the agent's own moments it recorded, newest first.
 func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1komrad.ListAgentLogSourcesRequest) (*logv1.ListAgentLogSourcesResponse, *fail.Error) {
-	agentID := req.AgentId.String()
+	agentID := req.AgentId
 	owned := xslice.Filter(s.runs.List(agentID), func(run config.RunLog) bool {
 		return !workflowstore.IsTaskEvent(run.Trigger)
 	})
@@ -191,7 +192,7 @@ func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1komrad.ListAg
 
 // ListTaskLogSources is each script run recorded on the task, by any agent on it, newest first.
 func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1komrad.ListTaskLogSourcesRequest) (*logv1.ListTaskLogSourcesResponse, *fail.Error) {
-	runs, err := s.taskRuns.ListRuns(ctx, req.TaskId.String())
+	runs, err := s.taskRuns.ListRuns(ctx, req.TaskId)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the task's runs")
 	}
@@ -214,7 +215,7 @@ func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1komrad.ListT
 }
 
 type renderRunSourceParams struct {
-	agentID string
+	agentID uuid.UUID
 	number  int
 	trigger string
 	script  string
@@ -227,7 +228,7 @@ func renderRunSource(params renderRunSourceParams) *logv1.LogSource {
 		Run:     xptr.Ptr(int32(params.number)),
 		Trigger: params.trigger,
 		Script:  params.script,
-		AgentId: params.agentID,
+		AgentId: params.agentID.String(),
 	}
 }
 

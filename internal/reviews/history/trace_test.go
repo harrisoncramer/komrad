@@ -7,6 +7,7 @@ import (
 	"komrad/internal/gittest"
 	"komrad/internal/position"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,19 +19,19 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 
 	snapshots := []Snapshot{
 		{
-			ID:      "r1",
+			ID:      firstSnapshotID,
 			Ordinal: 1,
 			SHA:     firstSHA,
 		},
 		{
-			ID:      "r2",
+			ID:      secondSnapshotID,
 			Ordinal: 2,
 			SHA:     secondSHA,
 		},
 	}
 	threads := []Thread{{
-		ID:         "t1",
-		SnapshotID: "r1",
+		ID:         threadID,
+		SnapshotID: firstSnapshotID,
 		FilePath:   tracedFile,
 		NewStart:   4,
 		NewEnd:     4,
@@ -44,7 +45,7 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 		Snapshots: snapshots,
 	})
 
-	found, ok := traced["t1"]
+	found, ok := traced[threadID]
 	require.True(t, ok, "the thread was traced")
 	assert.Equal(t, tracedFile, found.FilePath)
 	assert.Equal(t, int32(8), found.NewStart, "four lines arrived above it")
@@ -69,20 +70,20 @@ func TestTraceThreadsMarksTheSnapshotOnScreenAsExact(t *testing.T) {
 		Dir:    traceDir,
 		ToSHA:  secondSHA,
 		Threads: []Thread{{
-			ID:         "t1",
-			SnapshotID: "r2",
+			ID:         threadID,
+			SnapshotID: secondSnapshotID,
 			FilePath:   tracedFile,
 			NewStart:   8,
 			NewEnd:     8,
 		}},
 		Snapshots: []Snapshot{{
-			ID:      "r2",
+			ID:      secondSnapshotID,
 			Ordinal: 2,
 			SHA:     secondSHA,
 		}},
 	})
 
-	found, ok := traced["t1"]
+	found, ok := traced[threadID]
 	require.True(t, ok, "the thread is placed rather than left to another attempt")
 	assert.Equal(t, tracedFile, found.FilePath)
 	assert.Equal(t, int32(8), found.NewStart, "the number it was written at is the number it holds")
@@ -100,20 +101,20 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 		Dir:    traceDir,
 		ToSHA:  thirdSHA,
 		Threads: []Thread{{
-			ID:         "t1",
-			SnapshotID: "r1",
+			ID:         threadID,
+			SnapshotID: firstSnapshotID,
 			FilePath:   tracedFile,
 			NewStart:   4,
 			NewEnd:     4,
 		}},
 		Snapshots: []Snapshot{{
-			ID:      "r1",
+			ID:      firstSnapshotID,
 			Ordinal: 1,
 			SHA:     firstSHA,
 		}},
 	})
 
-	found, ok := traced["t1"]
+	found, ok := traced[threadID]
 	require.True(t, ok)
 	assert.True(t, found.FileOnly, "the line it was about is gone")
 	assert.Equal(t, tracedFile, found.FilePath, "and the file it was in is not")
@@ -128,20 +129,20 @@ func TestTraceThreadsSkipsSnapshotsTheScreenWillNotRender(t *testing.T) {
 
 	snapshots := []Snapshot{
 		{
-			ID:      "r1",
+			ID:      firstSnapshotID,
 			Ordinal: 1,
 			SHA:     firstSHA,
 		},
 		{
-			ID:      "r2",
+			ID:      secondSnapshotID,
 			Ordinal: 2,
 			SHA:     secondSHA,
 		},
 	}
 	threads := []Thread{
 		{
-			ID:         "later",
-			SnapshotID: "r2",
+			ID:         laterThreadID,
+			SnapshotID: secondSnapshotID,
 			FilePath:   tracedFile,
 			NewStart:   8,
 			NewEnd:     8,
@@ -169,39 +170,39 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 
 	snapshots := []Snapshot{
 		{
-			ID:      "r1",
+			ID:      firstSnapshotID,
 			Ordinal: 1,
 			SHA:     firstSHA,
 		},
 		{
-			ID:      "gone",
+			ID:      goneSnapshotID,
 			Ordinal: 2,
 			SHA:     unreadableSHA,
 		},
 		{
-			ID:      "r3",
+			ID:      thirdSnapshotID,
 			Ordinal: 3,
 			SHA:     secondSHA,
 		},
 	}
 	threads := []Thread{
 		{
-			ID:         "readable",
-			SnapshotID: "r1",
+			ID:         readableThreadID,
+			SnapshotID: firstSnapshotID,
 			FilePath:   tracedFile,
 			NewStart:   4,
 			NewEnd:     4,
 		},
 		{
-			ID:         "unreadable",
-			SnapshotID: "gone",
+			ID:         unreadableThreadID,
+			SnapshotID: goneSnapshotID,
 			FilePath:   tracedFile,
 			NewStart:   4,
 			NewEnd:     4,
 		},
 		{
-			ID:         "onscreen",
-			SnapshotID: "r3",
+			ID:         onscreenThreadID,
+			SnapshotID: thirdSnapshotID,
 			FilePath:   tracedFile,
 			NewStart:   8,
 			NewEnd:     8,
@@ -216,10 +217,10 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 		Snapshots: snapshots,
 	})
 
-	assert.NotContains(t, traced, "readable", "a pair nobody could read means no tracing rather than some of it")
-	assert.NotContains(t, traced, "unreadable")
+	assert.NotContains(t, traced, readableThreadID, "a pair nobody could read means no tracing rather than some of it")
+	assert.NotContains(t, traced, unreadableThreadID)
 
-	found, ok := traced["onscreen"]
+	found, ok := traced[onscreenThreadID]
 	require.True(t, ok, "the snapshot on screen needs no git and so cannot be lost with it")
 	assert.True(t, found.Exact)
 }
@@ -235,32 +236,32 @@ func TestTraceThreadsMarksEverySnapshotHoldingTheCommitOnScreen(t *testing.T) {
 		Dir:    traceDir,
 		ToSHA:  secondSHA,
 		Threads: []Thread{{
-			ID:         "t1",
-			SnapshotID: "r1",
+			ID:         threadID,
+			SnapshotID: firstSnapshotID,
 			FilePath:   tracedFile,
 			NewStart:   8,
 			NewEnd:     8,
 		}},
 		Snapshots: []Snapshot{
 			{
-				ID:      "r1",
+				ID:      firstSnapshotID,
 				Ordinal: 1,
 				SHA:     secondSHA,
 			},
 			{
-				ID:      "r2",
+				ID:      secondSnapshotID,
 				Ordinal: 2,
 				SHA:     firstSHA,
 			},
 			{
-				ID:      "r3",
+				ID:      thirdSnapshotID,
 				Ordinal: 3,
 				SHA:     secondSHA,
 			},
 		},
 	})
 
-	found, ok := traced["t1"]
+	found, ok := traced[threadID]
 	require.True(t, ok, "the earlier snapshot holding this commit is on screen too")
 	assert.True(t, found.Exact)
 	assert.Equal(t, int32(8), found.NewStart)
@@ -274,6 +275,18 @@ const (
 	thirdSHA      = "3333333333333333333333333333333333333333"
 	unreadableSHA = "0000000000000000000000000000000000000000"
 	tracedFile    = "greet.go"
+)
+
+var (
+	firstSnapshotID    = uuid.New()
+	secondSnapshotID   = uuid.New()
+	thirdSnapshotID    = uuid.New()
+	goneSnapshotID     = uuid.New()
+	threadID           = uuid.New()
+	laterThreadID      = uuid.New()
+	readableThreadID   = uuid.New()
+	unreadableThreadID = uuid.New()
+	onscreenThreadID   = uuid.New()
 )
 
 // insertedAHelper is what git reports between two snapshots where the second put a four line

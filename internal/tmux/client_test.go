@@ -16,6 +16,7 @@ import (
 	"komrad/internal/panes"
 
 	"github.com/creack/pty"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -212,24 +213,25 @@ func TestIntegrationNewWindowRepeatedly(t *testing.T) {
 // that is gone has to be absent rather than reported under a stale stamp.
 func TestIntegrationPaneOwners(t *testing.T) {
 	client := testServer(t, "komrad")
+	stampedOwner := uuid.New()
 
 	stamped, err := client.NewWindow("komrad", "stamped", t.TempDir())
 	require.NoError(t, err)
-	require.NoError(t, client.SetPaneOwner(stamped, "agent-one"))
+	require.NoError(t, client.SetPaneOwner(stamped, stampedOwner))
 
 	bare, err := client.NewWindow("komrad", "bare", t.TempDir())
 	require.NoError(t, err)
 
 	killed, err := client.NewWindow("komrad", "killed", t.TempDir())
 	require.NoError(t, err)
-	require.NoError(t, client.SetPaneOwner(killed, "agent-two"))
+	require.NoError(t, client.SetPaneOwner(killed, uuid.New()))
 	client.KillPane(killed)
 
 	panes, err := client.GetPanes()
 	require.NoError(t, err)
 
-	assert.Equal(t, "agent-one", panes[stamped].Owner, "a stamped pane answers to its agent")
-	assert.Empty(t, panes[bare].Owner, "an unstamped pane answers to nobody")
+	assert.Equal(t, stampedOwner, panes[stamped].Owner, "a stamped pane answers to its agent")
+	assert.Equal(t, uuid.Nil, panes[bare].Owner, "an unstamped pane answers to nobody")
 	assert.NotContains(t, panes, killed, "a pane that is gone is absent rather than stale")
 	assert.Equal(t, client.GetPaneOwner(stamped), panes[stamped].Owner, "the batch agrees with the single lookup")
 	assert.True(t, panes[stamped].IsRunningShell(), "a pane komrad opened is a shell until something is launched in it")
@@ -501,8 +503,10 @@ func TestIntegrationPaneOwnerIsStamped(t *testing.T) {
 	client := testServer(t, "owner")
 	pane := paneAt(t, client, "owner", 0)
 
-	require.NoError(t, client.SetPaneOwner(pane, "agent-one"))
-	assert.Equal(t, "agent-one", client.GetPaneOwner(pane))
+	owner := uuid.New()
+
+	require.NoError(t, client.SetPaneOwner(pane, owner))
+	assert.Equal(t, owner, client.GetPaneOwner(pane))
 }
 
 // TestIntegrationPaneRunningCLIReadsTheForegroundProgram pins what says the harness komrad typed has started,

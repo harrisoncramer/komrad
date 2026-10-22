@@ -27,6 +27,8 @@ import (
 	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 // errArchiveNotYours is an agent other than an orchestrator archiving an agent that is neither itself
@@ -87,7 +89,7 @@ func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 
 // DeleteAgent deletes an agent and, for a writer, the reviewers on its task the same claim took,
 // and does nothing to an agent that claim no longer holds.
-func (s *LifecycleService) DeleteAgent(ctx context.Context, id string, claim time.Time) error {
+func (s *LifecycleService) DeleteAgent(ctx context.Context, id uuid.UUID, claim time.Time) error {
 	named, err := s.claimedBy(ctx, id, claim)
 	if err != nil || len(named) == 0 {
 		return err
@@ -117,7 +119,7 @@ func (s *LifecycleService) listTaskReviewers(ctx context.Context, agent agentsto
 		return nil, nil
 	}
 
-	onTask, err := s.agents.ListOnTasks(ctx, []string{*agent.TaskID})
+	onTask, err := s.agents.ListOnTasks(ctx, []uuid.UUID{*agent.TaskID})
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +130,7 @@ func (s *LifecycleService) listTaskReviewers(ctx context.Context, agent agentsto
 }
 
 // deleteNow claims agents and runs the delete of each root the claim took, as the queued jobs do.
-func (s *LifecycleService) deleteNow(ctx context.Context, ids []string) error {
+func (s *LifecycleService) deleteNow(ctx context.Context, ids []uuid.UUID) error {
 	claims, err := s.agents.MarkDeleting(ctx, ids)
 	if err != nil {
 		return err
@@ -145,7 +147,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 	// A pre-delete hook must not run against a directory a CLI is still working in.
 	killOwnedPanes(ctx, s.tmux, agents)
 
-	hooks := make(map[string][]workflowstore.Hook, len(agents))
+	hooks := make(map[uuid.UUID][]workflowstore.Hook, len(agents))
 	var torn []agentstore.Agent
 	var failed []error
 	for _, agent := range slices.Backward(agents) {
@@ -186,7 +188,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 
 // FailDelete gives up on deleting an agent the claim still holds, leaving it in the archive as
 // failed to clean up.
-func (s *LifecycleService) FailDelete(ctx context.Context, id string, claim time.Time, cause error) error {
+func (s *LifecycleService) FailDelete(ctx context.Context, id uuid.UUID, claim time.Time, cause error) error {
 	named, err := s.claimedBy(ctx, id, claim)
 	if err != nil {
 		return err
@@ -199,8 +201,8 @@ func (s *LifecycleService) FailDelete(ctx context.Context, id string, claim time
 	return nil
 }
 
-func (s *LifecycleService) claimedBy(ctx context.Context, id string, claim time.Time) ([]agentstore.Agent, error) {
-	named, err := s.agents.ListByID(ctx, []string{id})
+func (s *LifecycleService) claimedBy(ctx context.Context, id uuid.UUID, claim time.Time) ([]agentstore.Agent, error) {
+	named, err := s.agents.ListByID(ctx, []uuid.UUID{id})
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up agent %s: %w", id, err)
 	}
@@ -243,9 +245,9 @@ func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Age
 		cause:  cause,
 	})
 
-	if err := s.agents.ClearDeleting(ctx, []string{agent.ID}); err != nil {
+	if err := s.agents.ClearDeleting(ctx, []uuid.UUID{agent.ID}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release an agent whose cleanup failed",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 	}
 }
 
@@ -255,7 +257,7 @@ func (s *LifecycleService) cleanupEmptyTasks(ctx context.Context, removed []agen
 	for _, taskID := range agentstore.TaskIDs(removed) {
 		if err := s.tasks.DeleteIfEmpty(ctx, taskID); err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to delete a task a delete left with no agent on it",
-				append([]slog.Attr{slog.String(logging.TaskID, taskID)}, logging.Err(err)...)...)
+				append([]slog.Attr{slog.String(logging.TaskID, taskID.String())}, logging.Err(err)...)...)
 		}
 	}
 }
@@ -263,20 +265,20 @@ func (s *LifecycleService) cleanupEmptyTasks(ctx context.Context, removed []agen
 // cleanupEmptyWorkflows deletes each workflow among removed's that now holds nothing archived
 // inside it, logging a failure rather than returning it.
 func (s *LifecycleService) cleanupEmptyWorkflows(ctx context.Context, removed []agentstore.Agent) {
-	touched := xslice.UniqueBy(removed, func(agent agentstore.Agent) string { return agent.WorkflowID })
+	touched := xslice.UniqueBy(removed, func(agent agentstore.Agent) uuid.UUID { return agent.WorkflowID })
 	for _, agent := range touched {
 		if err := s.emptyWorkflows.DeleteIfEmpty(ctx, agent.WorkflowID); err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to delete a workflow a delete left with nothing in it",
-				append([]slog.Attr{slog.String(logging.WorkflowID, agent.WorkflowID)}, logging.Err(err)...)...)
+				append([]slog.Attr{slog.String(logging.WorkflowID, agent.WorkflowID.String())}, logging.Err(err)...)...)
 		}
 	}
 }
 
 // ArchiveAgentsParams is the agents to archive and the agent asking.
 type ArchiveAgentsParams struct {
-	IDs []string
+	IDs []uuid.UUID
 	// ByAgentID is the agent asking, empty for the panel.
-	ByAgentID string
+	ByAgentID uuid.UUID
 }
 
 // ArchiveAgents stops agents while preserving their records and workspaces, refusing a task's
@@ -346,7 +348,7 @@ func (s *LifecycleService) ArchiveTask(ctx context.Context, task oneofs.Task) er
 	return s.archiveTask(ctx, found.ID)
 }
 
-func (s *LifecycleService) archiveTask(ctx context.Context, id string) error {
+func (s *LifecycleService) archiveTask(ctx context.Context, id uuid.UUID) error {
 	live, err := s.agents.ListLiveOnTask(ctx, id)
 	if err != nil {
 		return err
@@ -366,17 +368,17 @@ type DeleteTasksParams struct {
 	// Records deletes the tasks for good, with every agent on them, rather than only their worktrees.
 	Records bool
 	// ByAgentID is the agent asking, empty for the panel.
-	ByAgentID string
+	ByAgentID uuid.UUID
 }
 
 // DeleteTasks archives the tasks params names and removes their worktrees, or with records set
 // deletes each task for good along with every agent on it.
 func (s *LifecycleService) DeleteTasks(ctx context.Context, params DeleteTasksParams) error {
-	if params.ByAgentID != "" {
+	if params.ByAgentID != uuid.Nil {
 		return agenterr.ErrDeleteByAgent
 	}
 
-	ids := make([]string, 0, len(params.Tasks))
+	ids := make([]uuid.UUID, 0, len(params.Tasks))
 	for _, task := range params.Tasks {
 		found, err := s.tasks.FindTask(ctx, task)
 		if err != nil {
@@ -384,7 +386,7 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, params DeleteTasksPa
 		}
 		ids = append(ids, found.ID)
 	}
-	ids = xslice.UniqueBy(ids, func(id string) string { return id })
+	ids = xslice.UniqueBy(ids, func(id uuid.UUID) uuid.UUID { return id })
 
 	if err := s.tasks.RefuseParentDelete(ctx, ids); err != nil {
 		return err
@@ -408,12 +410,12 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, params DeleteTasksPa
 		return errors.Join(err, s.tasks.ClearDeleting(context.WithoutCancel(ctx), ids))
 	}
 
-	return errors.Join(xslice.Map(ids, func(id string) error {
+	return errors.Join(xslice.Map(ids, func(id uuid.UUID) error {
 		return s.tasks.DeleteIfEmpty(ctx, id)
 	})...)
 }
 
-func (s *LifecycleService) deleteAgentsOnTasks(ctx context.Context, taskIDs []string) error {
+func (s *LifecycleService) deleteAgentsOnTasks(ctx context.Context, taskIDs []uuid.UUID) error {
 	onTasks, err := s.agents.ListOnTasks(ctx, taskIDs)
 	if err != nil {
 		return err
@@ -428,7 +430,7 @@ func (s *LifecycleService) deleteAgentsOnTasks(ctx context.Context, taskIDs []st
 
 // RestoreAgents returns archived agents and their workflows to live listings, a writer bringing
 // its task back with it and a reviewer waiting until its task is back.
-func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
+func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []uuid.UUID) ([]agentstore.Agent, error) {
 	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -474,7 +476,7 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	return s.agents.ListByID(ctx, agentstore.IDs(agents))
 }
 
-func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID string, live []agentstore.Agent) error {
+func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID uuid.UUID, live []agentstore.Agent) error {
 	return archiveBatch(ctx, archiveBatchParams{
 		tmux:      s.tmux,
 		scripts:   s.scripts,
@@ -506,7 +508,7 @@ func (s *LifecycleService) archiveWorkflow(ctx context.Context, workflowID strin
 	})
 }
 
-func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID string, archived []agentstore.Agent) error {
+func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID uuid.UUID, archived []agentstore.Agent) error {
 	return restoreBatch(ctx, restoreBatchParams{
 		tx:        s.tx,
 		usage:     s.usage,
@@ -528,14 +530,14 @@ func (s *LifecycleService) restoreWorkflow(ctx context.Context, workflowID strin
 	})
 }
 
-func (s *LifecycleService) removeWorkflowWorktrees(ctx context.Context, workflowID string) error {
+func (s *LifecycleService) removeWorkflowWorktrees(ctx context.Context, workflowID uuid.UUID) error {
 	return s.tasks.RemoveWorkflowWorktrees(ctx, workflowID)
 }
 
 // requireTasksLive refuses a reviewer coming back while its task stays archived, letting one
 // through whose writer comes back alongside it.
 func (s *LifecycleService) requireTasksLive(ctx context.Context, agents []agentstore.Agent) error {
-	returning := make(map[string]bool, len(agents))
+	returning := make(map[uuid.UUID]bool, len(agents))
 	for _, agent := range agents {
 		if isTaskWriter(agent) {
 			returning[*agent.TaskID] = true
@@ -591,7 +593,7 @@ func (s *LifecycleService) refuseDeletedWorktrees(ctx context.Context, agents []
 	return nil
 }
 
-func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
+func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []uuid.UUID) ([]agentstore.Agent, error) {
 	agents, err := s.agents.ListByID(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up %d agents: %w", len(ids), err)
@@ -600,26 +602,26 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 	return requireListed(ids, agents)
 }
 
-func requireListed(ids []string, agents []agentstore.Agent) ([]agentstore.Agent, error) {
+func requireListed(ids []uuid.UUID, agents []agentstore.Agent) ([]agentstore.Agent, error) {
 	if len(agents) == len(ids) {
 		return agents, nil
 	}
 
-	found := xslice.KeyBy(agents, func(agent agentstore.Agent) string { return agent.ID })
+	found := xslice.KeyBy(agents, func(agent agentstore.Agent) uuid.UUID { return agent.ID })
 
-	missing := xslice.Filter(ids, func(id string) bool {
+	missing := xslice.Filter(ids, func(id uuid.UUID) bool {
 		_, ok := found[id]
 
 		return !ok
 	})
 
-	return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, namedMissing))
+	return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(xslice.Map(missing, uuid.UUID.String), namedMissing))
 }
 
 // refuseArchivingOthers holds an agent other than an orchestrator to itself and, as a writer, the
 // reviewers on its task.
 func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params ArchiveAgentsParams, listed []agentstore.Agent) error {
-	if params.ByAgentID == "" {
+	if params.ByAgentID == uuid.Nil {
 		return nil
 	}
 
@@ -631,7 +633,7 @@ func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params Arc
 		return nil
 	}
 
-	found := xslice.KeyBy(listed, func(agent agentstore.Agent) string { return agent.ID })
+	found := xslice.KeyBy(listed, func(agent agentstore.Agent) uuid.UUID { return agent.ID })
 	for _, id := range params.IDs {
 		target, ok := found[id]
 		if id == asker.ID || !ok {
@@ -645,7 +647,7 @@ func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params Arc
 	return nil
 }
 
-func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {
+func (s *LifecycleService) removeAgents(ctx context.Context, ids []uuid.UUID) error {
 	// The drafts these agents were writing about other agents go before the rows naming them do,
 	// and outside the delete's own transaction.
 	s.dropOpenReviews(ctx, ids)
@@ -674,7 +676,7 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 
 // dropOpenReviews removes the unreleased reviews these agents were writing on other agents'
 // work.
-func (s *LifecycleService) dropOpenReviews(ctx context.Context, ids []string) {
+func (s *LifecycleService) dropOpenReviews(ctx context.Context, ids []uuid.UUID) {
 	if s.reviews == nil {
 		return
 	}
@@ -686,7 +688,7 @@ func (s *LifecycleService) dropOpenReviews(ctx context.Context, ids []string) {
 }
 
 // removeFrames drops the pane captures a recording kept for an agent once its row is gone.
-func (s *LifecycleService) removeFrames(ctx context.Context, ids []string) {
+func (s *LifecycleService) removeFrames(ctx context.Context, ids []uuid.UUID) {
 	if s.framesDir == "" {
 		return
 	}
@@ -697,7 +699,7 @@ func (s *LifecycleService) removeFrames(ctx context.Context, ids []string) {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to remove an agent's recorded frames",
 				append([]slog.Attr{
 					slog.String(logging.FilePath, path),
-					slog.String(logging.AgentID, id),
+					slog.String(logging.AgentID, id.String()),
 				}, logging.Err(err)...)...)
 		}
 	}
@@ -705,7 +707,7 @@ func (s *LifecycleService) removeFrames(ctx context.Context, ids []string) {
 
 // removeRunLogs drops the runs an agent leaves on disk once its row is gone, logging a failure
 // rather than returning it.
-func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
+func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []uuid.UUID) {
 	if s.logsDir == "" {
 		return
 	}
@@ -716,7 +718,7 @@ func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to remove an agent's run logs",
 				append([]slog.Attr{
 					slog.String(logging.FilePath, path),
-					slog.String(logging.AgentID, id),
+					slog.String(logging.AgentID, id.String()),
 				}, logging.Err(err)...)...)
 		}
 	}
@@ -737,7 +739,7 @@ func failAs(ctx context.Context, params failAsParams) {
 	if err := params.agents.Update(ctx, agent); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
 			append([]slog.Attr{
-				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.AgentID, agent.ID.String()),
 				slog.String(logging.LifecycleAction, params.verb),
 			}, logging.Err(err)...)...)
 
@@ -748,7 +750,7 @@ func failAs(ctx context.Context, params failAsParams) {
 	if _, err := params.agents.SetFailureReason(ctx, agent.ID, reason); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
 			append([]slog.Attr{
-				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.AgentID, agent.ID.String()),
 				slog.String(logging.LifecycleAction, params.verb),
 			}, logging.Err(err)...)...)
 	}
@@ -756,8 +758,8 @@ func failAs(ctx context.Context, params failAsParams) {
 
 const namedMissing = 5
 
-func workflowIDs(agents []agentstore.Agent) []string {
-	unique := xslice.UniqueBy(agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
+func workflowIDs(agents []agentstore.Agent) []uuid.UUID {
+	unique := xslice.UniqueBy(agents, func(agent agentstore.Agent) uuid.UUID { return agent.WorkflowID })
 
-	return xslice.Map(unique, func(agent agentstore.Agent) string { return agent.WorkflowID })
+	return xslice.Map(unique, func(agent agentstore.Agent) uuid.UUID { return agent.WorkflowID })
 }

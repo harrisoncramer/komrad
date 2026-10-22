@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const createForgeConnection = `-- name: CreateForgeConnection :one
@@ -77,7 +79,7 @@ DELETE FROM forge_connections
 WHERE id = $1
 `
 
-func (q *Queries) DeleteForgeConnection(ctx context.Context, id string) (int64, error) {
+func (q *Queries) DeleteForgeConnection(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteForgeConnection, id)
 	if err != nil {
 		return 0, err
@@ -103,7 +105,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) GetForgeConnection(ctx context.Context, id string) (*ForgeConnection, error) {
+func (q *Queries) GetForgeConnection(ctx context.Context, id uuid.UUID) (*ForgeConnection, error) {
 	row := q.db.QueryRow(ctx, getForgeConnection, id)
 	var i ForgeConnection
 	err := row.Scan(
@@ -217,7 +219,7 @@ WHERE
 
 type SetForgeConnectionThrottledUntilParams struct {
 	ThrottledUntil *time.Time
-	ID             string
+	ID             uuid.UUID
 }
 
 func (q *Queries) SetForgeConnectionThrottledUntil(ctx context.Context, arg SetForgeConnectionThrottledUntilParams) (int64, error) {
@@ -239,7 +241,7 @@ WHERE
 
 type SetForgeConnectionVerifiedAtParams struct {
 	VerifiedAt *time.Time
-	ID         string
+	ID         uuid.UUID
 }
 
 func (q *Queries) SetForgeConnectionVerifiedAt(ctx context.Context, arg SetForgeConnectionVerifiedAtParams) (int64, error) {

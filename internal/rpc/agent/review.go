@@ -16,6 +16,8 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
 	"komrad/proto/gen/oneofs"
+
+	"github.com/google/uuid"
 )
 
 type reviewConversation interface {
@@ -30,11 +32,11 @@ type reviewConversation interface {
 	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
 	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
 	TakeSnapshot(ctx context.Context, task oneofs.Task, author reviews.ReviewAuthor) (*reviewstore.Snapshot, error)
-	ReadMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
+	ReadMail(ctx context.Context, agentID uuid.UUID) ([]mailstore.Mail, error)
 	ListSnapshots(ctx context.Context, task oneofs.Task, author reviews.ReviewAuthor) ([]reviewstore.Snapshot, error)
 	GetHistory(ctx context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error)
 	ListReviews(ctx context.Context, task oneofs.Task, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
-	GetReview(ctx context.Context, reviewID string, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
+	GetReview(ctx context.Context, reviewID uuid.UUID, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
 	ReleaseReview(ctx context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error)
 	SetReviewFileViewed(ctx context.Context, params reviews.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
 	ListReviewViewedFiles(ctx context.Context, params reviews.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
@@ -83,7 +85,7 @@ func (s *Handler) CreateReviewThread(ctx context.Context, req *agentv1komrad.Cre
 // AddReviewMessage says something in an existing thread, as whoever is calling.
 func (s *Handler) AddReviewMessage(ctx context.Context, req *agentv1komrad.AddReviewMessageRequest) (*agentv1.AddReviewMessageResponse, *fail.Error) {
 	added, err := s.review.AddReviewMessage(ctx, reviews.AddReviewMessageParams{
-		ThreadID:   req.ThreadId.String(),
+		ThreadID:   req.ThreadId,
 		Body:       req.Body,
 		Suggestion: req.Suggestion,
 		Author:     reviewAuthorFrom(ctx),
@@ -102,7 +104,7 @@ func (s *Handler) AddReviewMessage(ctx context.Context, req *agentv1komrad.AddRe
 // EditReviewMessage rewrites what was said.
 func (s *Handler) EditReviewMessage(ctx context.Context, req *agentv1komrad.EditReviewMessageRequest) (*agentv1.EditReviewMessageResponse, *fail.Error) {
 	message, err := s.review.EditReviewMessage(ctx, reviews.EditReviewMessageParams{
-		ID:         req.Id.String(),
+		ID:         req.Id,
 		Body:       req.Body,
 		Suggestion: req.Suggestion,
 		Author:     reviewAuthorFrom(ctx),
@@ -117,7 +119,7 @@ func (s *Handler) EditReviewMessage(ctx context.Context, req *agentv1komrad.Edit
 // AcceptForgeMessage copies a held forge comment into the person's open review.
 func (s *Handler) AcceptForgeMessage(ctx context.Context, req *agentv1komrad.AcceptForgeMessageRequest) (*agentv1.AcceptForgeMessageResponse, *fail.Error) {
 	message, err := s.review.AcceptForgeMessage(ctx, reviews.AcceptForgeMessageParams{
-		MessageID: req.MessageId.String(),
+		MessageID: req.MessageId,
 		Author:    reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -130,7 +132,7 @@ func (s *Handler) AcceptForgeMessage(ctx context.Context, req *agentv1komrad.Acc
 // MarkReviewThreadRead catches the calling side up on one conversation.
 func (s *Handler) MarkReviewThreadRead(ctx context.Context, req *agentv1komrad.MarkReviewThreadReadRequest) (*agentv1.MarkReviewThreadReadResponse, *fail.Error) {
 	thread, err := s.review.MarkReviewThreadRead(ctx, reviews.MarkReviewThreadReadParams{
-		ID:     req.Id.String(),
+		ID:     req.Id,
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -145,7 +147,7 @@ func (s *Handler) MarkReviewThreadRead(ctx context.Context, req *agentv1komrad.M
 // SetReviewThreadResolved settles one conversation, or reopens it.
 func (s *Handler) SetReviewThreadResolved(ctx context.Context, req *agentv1komrad.SetReviewThreadResolvedRequest) (*agentv1.SetReviewThreadResolvedResponse, *fail.Error) {
 	thread, err := s.review.SetReviewThreadResolved(ctx, reviews.SetReviewThreadResolvedParams{
-		ID:       req.Id.String(),
+		ID:       req.Id,
 		Resolved: req.Resolved,
 		Author:   reviewAuthorFrom(ctx),
 	})
@@ -186,17 +188,17 @@ func historySpanOf(req *agentv1komrad.OpenReviewHistoryRequest) history.Span {
 	switch span := req.Span.(type) {
 	case *agentv1komrad.OpenReviewHistoryRequest_Snapshots:
 		return history.Span{Snapshots: &history.SnapshotSpan{
-			FromSnapshotID: xptr.Deref(formatOptionalID(span.Snapshots.FromSnapshotId)),
-			ToSnapshotID:   xptr.Deref(formatOptionalID(span.Snapshots.ToSnapshotId)),
+			FromSnapshotID: xptr.Deref(span.Snapshots.FromSnapshotId),
+			ToSnapshotID:   xptr.Deref(span.Snapshots.ToSnapshotId),
 		}}
 	case *agentv1komrad.OpenReviewHistoryRequest_Answer:
 		return history.Span{Answer: &history.AnswerSpan{
-			FromSnapshotID: span.Answer.FromSnapshotId.String(),
-			ToSnapshotID:   span.Answer.ToSnapshotId.String(),
+			FromSnapshotID: span.Answer.FromSnapshotId,
+			ToSnapshotID:   span.Answer.ToSnapshotId,
 		}}
 	case *agentv1komrad.OpenReviewHistoryRequest_Origin:
 		return history.Span{Origin: &history.OriginSpan{
-			SnapshotID: span.Origin.SnapshotId.String(),
+			SnapshotID: span.Origin.SnapshotId,
 			BaseSHA:    span.Origin.BaseSha,
 		}}
 	}
@@ -230,7 +232,7 @@ func (s *Handler) ListReviews(ctx context.Context, req *agentv1komrad.ListReview
 
 // GetReview reads one released review whole.
 func (s *Handler) GetReview(ctx context.Context, req *agentv1komrad.GetReviewRequest) (*agentv1.GetReviewResponse, *fail.Error) {
-	review, err := s.review.GetReview(ctx, req.ReviewId.String(), reviewAuthorFrom(ctx))
+	review, err := s.review.GetReview(ctx, req.ReviewId, reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the review")
 	}
@@ -301,7 +303,7 @@ func (s *Handler) ListReviewViewedFiles(ctx context.Context, req *agentv1komrad.
 // as the reviewer by asking to.
 func reviewAuthorFrom(ctx context.Context) reviews.ReviewAuthor {
 	from := caller.From(ctx)
-	if from.AgentID == "" {
+	if from.AgentID == uuid.Nil {
 		return reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman}
 	}
 

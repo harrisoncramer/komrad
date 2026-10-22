@@ -73,9 +73,9 @@ func TestDeleteAgentLeavesItsTasksCheckout(t *testing.T) {
 			}
 
 			if tt.archive {
-				require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{target.ID}))
+				require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []uuid.UUID{target.ID}))
 			} else {
-				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{target.ID}))
+				require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{target.ID}))
 			}
 
 			assert.Empty(t, lifecycle.ranDeprovisions())
@@ -110,7 +110,7 @@ func TestDeleteAgentGivesBackTheCheckoutsOfAnArchivedWorkflow(t *testing.T) {
 	require.NotEmpty(t, task.Checkout.Cwd)
 
 	require.NoError(t, workflows.ArchiveWorkflow(t.Context(), created.ID))
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{agent.ID}))
 
 	assert.Equal(t, []string{task.Checkout.Cwd}, lifecycle.ranTaskDeprovisions())
 	_, err = st.Tasks.Get(t.Context(), task.ID)
@@ -137,7 +137,7 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{agent.ID}))
 
 	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
@@ -183,9 +183,9 @@ func TestDeleteClaimsTheRowWhileTheTeardownRuns(t *testing.T) {
 				WorkflowID: created.ID,
 			})
 			require.NoError(t, err)
-			require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{agent.ID}))
+			require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []uuid.UUID{agent.ID}))
 
-			claims, err := st.Agents.MarkDeleting(t.Context(), []string{agent.ID})
+			claims, err := st.Agents.MarkDeleting(t.Context(), []uuid.UUID{agent.ID})
 			require.NoError(t, err)
 			require.Len(t, claims, 1)
 
@@ -227,8 +227,8 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{agent.ID}))
-	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []uuid.UUID{agent.ID}))
+	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{agent.ID}))
 
 	live, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
@@ -258,7 +258,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{agent.ID}))
 
 	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
@@ -266,7 +266,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	assert.Contains(t, agents[0].FailureReason, "worktree is dirty")
 
 	lifecycle.hookErrs[refusingHook] = errors.New("network unreachable")
-	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.Error(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{agent.ID}))
 
 	agents, err = st.Agents.List(t.Context())
 	require.NoError(t, err)
@@ -305,7 +305,7 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 
 	lifecycle.hookErrs = map[string]error{refusingHook: errors.New("container is still running")}
 
-	require.ErrorContains(t, manager.lifecycle.deleteNow(t.Context(), []string{ok.ID, bad.ID}), "container is still running")
+	require.ErrorContains(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{ok.ID, bad.ID}), "container is still running")
 
 	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
@@ -363,7 +363,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 			require.NoError(t, os.WriteFile(provisionPath, []byte("cloning\n"), 0o644))
 			require.NoError(t, os.WriteFile(deprovisionPath, []byte("dropping\n"), 0o644))
 
-			require.ErrorIs(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}), tt.cleanupErr)
+			require.ErrorIs(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{agent.ID}), tt.cleanupErr)
 
 			_, dirErr := os.Stat(logDir)
 			if tt.wantRemoved {
@@ -403,7 +403,7 @@ func TestDeleteAgentRemovesItsRecordedFrames(t *testing.T) {
 	require.NoError(t, os.MkdirAll(agentFrames, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(agentFrames, "20260904T120000.000-0001-idle.txt"), []byte("frame"), 0o600))
 
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{agent.ID}))
 
 	_, dirErr := os.Stat(agentFrames)
 	assert.True(t, os.IsNotExist(dirErr), "the frames go with a row that is really gone")
@@ -414,22 +414,24 @@ func TestDeleteAgentRemovesItsRecordedFrames(t *testing.T) {
 func TestArchiveAgent(t *testing.T) {
 	tests := []struct {
 		name      string
-		target    func(writer, reviewer agentstore.Agent) string
+		target    func(writer, reviewer agentstore.Agent) uuid.UUID
 		wantErrIs error
 	}{
 		{
-			name:      "an id nobody holds is not a quiet success",
-			target:    func(agentstore.Agent, agentstore.Agent) string { return "00000000-0000-0000-0000-000000000000" },
+			name: "an id nobody holds is not a quiet success",
+			target: func(agentstore.Agent, agentstore.Agent) uuid.UUID {
+				return uuid.MustParse("00000000-0000-0000-0000-000000000000")
+			},
 			wantErrIs: agenterr.ErrAgentNotFound,
 		},
 		{
 			name:      "a task's writer goes only with its task",
-			target:    func(writer, _ agentstore.Agent) string { return writer.ID },
+			target:    func(writer, _ agentstore.Agent) uuid.UUID { return writer.ID },
 			wantErrIs: agenterr.ErrWriterGoesWithTask,
 		},
 		{
 			name:   "a live reviewer is stopped and hidden",
-			target: func(_, reviewer agentstore.Agent) string { return reviewer.ID },
+			target: func(_, reviewer agentstore.Agent) uuid.UUID { return reviewer.ID },
 		},
 	}
 
@@ -444,7 +446,7 @@ func TestArchiveAgent(t *testing.T) {
 			require.NoError(t, st.Agents.SetStateByID(t.Context(), reviewer.ID, agentstore.StateThinking))
 			target := tt.target(writer, reviewer)
 
-			err := manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []string{target}})
+			err := manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: []uuid.UUID{target}})
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
 				assert.Nil(t, agentByID(t, st, writer.ID).ArchivedAt, "nothing is archived")
@@ -481,7 +483,7 @@ func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 
 	manager := newManager(tmux, st)
 
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{agent.ID}))
 
 	after := agentByID(t, st, agent.ID)
 	require.NotNil(t, after.ArchivedAt, "the row really is archived")
@@ -501,7 +503,7 @@ func TestArchiveFinishesAfterKillingTheCallersOwnPane(t *testing.T) {
 	defer cancel()
 	tmux.AfterKillPane = func(string) { cancel() }
 
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{agent.ID}))
 
 	after := agentByID(t, st, agent.ID)
 	assert.Contains(t, tmux.KilledPanes, "%1")
@@ -530,7 +532,7 @@ func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 		})},
 	})
 
-	require.NoError(t, manager.lifecycle.deleteNow(ctx, []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.deleteNow(ctx, []uuid.UUID{agent.ID}))
 
 	all, err := st.Agents.ListAll(ctx)
 	require.NoError(t, err)
@@ -544,18 +546,18 @@ func TestDeleteAgent(t *testing.T) {
 	tests := []struct {
 		name           string
 		archive        bool
-		target         func(seeded agentstore.Agent) string
+		target         func(seeded agentstore.Agent) uuid.UUID
 		wantPaneKilled bool
 	}{
 		{
 			name:           "a live agent is stopped and destroyed",
-			target:         func(seeded agentstore.Agent) string { return seeded.ID },
+			target:         func(seeded agentstore.Agent) uuid.UUID { return seeded.ID },
 			wantPaneKilled: true,
 		},
 		{
 			name:    "an archived agent is destroyed too",
 			archive: true,
-			target:  func(seeded agentstore.Agent) string { return seeded.ID },
+			target:  func(seeded agentstore.Agent) uuid.UUID { return seeded.ID },
 		},
 	}
 
@@ -572,7 +574,7 @@ func TestDeleteAgent(t *testing.T) {
 				require.NoError(t, st.SoftDelete(ctx, seeded.Name))
 			}
 
-			err := manager.lifecycle.deleteNow(ctx, []string{tt.target(seeded)})
+			err := manager.lifecycle.deleteNow(ctx, []uuid.UUID{tt.target(seeded)})
 
 			require.NoError(t, err)
 			if tt.wantPaneKilled {
@@ -611,13 +613,13 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 
 	t.Run("archiving it leaves the pane running", func(t *testing.T) {
 		manager, _, tmux, dormant := setup(t)
-		require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{dormant.ID}))
+		require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []uuid.UUID{dormant.ID}))
 		assert.Empty(t, tmux.KilledPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
 	t.Run("deleting it leaves the pane running", func(t *testing.T) {
 		manager, _, tmux, dormant := setup(t)
-		require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{dormant.ID}))
+		require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{dormant.ID}))
 		assert.Empty(t, tmux.KilledPanes, "killing by a stale id would stop the agent using that pane now")
 	})
 
@@ -694,7 +696,7 @@ func TestRestore(t *testing.T) {
 				}))
 			}
 
-			_, err = manager.lifecycle.RestoreAgents(ctx, []string{original.ID})
+			_, err = manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{original.ID})
 
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
@@ -739,14 +741,14 @@ func TestRestoreCeiling(t *testing.T) {
 	seed(t, st, "live-0", "%1", agentstore.StateThinking)
 	liveTwo := seed(t, st, "live-1", "%2", agentstore.StateThinking)
 
-	_, err := manager.lifecycle.RestoreAgents(ctx, []string{archived.ID})
+	_, err := manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{archived.ID})
 
 	require.ErrorIs(t, err, agenterr.ErrTooManyAgents)
 	still := agentByID(t, st, archived.ID)
 	assert.NotNil(t, still.ArchivedAt, "the refused restore leaves it in the archive")
 
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{liveTwo.ID}))
-	_, err = manager.lifecycle.RestoreAgents(ctx, []string{archived.ID})
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{liveTwo.ID}))
+	_, err = manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{archived.ID})
 	require.NoError(t, err, "archiving one makes room again")
 }
 
@@ -761,7 +763,7 @@ func TestDeletingATasksLastAgentKeepsItsSnapshots(t *testing.T) {
 	going := seedSnapshottedAgent(t, st, reviews, "going", t.TempDir(), "sha")
 	task := *agentByID(t, st, going).TaskID
 
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{going}))
+	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{going}))
 
 	_, err := st.Tasks.Get(t.Context(), task)
 	require.NoError(t, err, "the task outlives its last agent")
@@ -798,7 +800,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	openBatch(t, reviews, snapshot, first)
 	openBatch(t, reviews, snapshot, second)
 
-	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []string{first, second}),
+	require.NoError(t, manager.lifecycle.deleteNow(t.Context(), []uuid.UUID{first, second}),
 		"two reviewers holding open batches on one agent both delete")
 
 	left, err := reviews.ListReviews(t.Context(), snapshot.TaskID)
@@ -809,7 +811,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 }
 
 // openBatch starts a review by one agent of a snapshot.
-func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, snapshot *reviewstore.Snapshot, author string) *reviewstore.Review {
+func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, snapshot *reviewstore.Snapshot, author uuid.UUID) *reviewstore.Review {
 	t.Helper()
 
 	review, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
@@ -824,7 +826,7 @@ func openBatch(t *testing.T, reviews *reviewstore.ReviewStore, snapshot *reviews
 }
 
 // seedSnapshottedAgent records an agent in a shared checkout with one snapshot taken of it.
-func seedSnapshottedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewStore, name, root, sha string) string {
+func seedSnapshottedAgent(t *testing.T, st *testStore, reviews *reviewstore.ReviewStore, name, root, sha string) uuid.UUID {
 	t.Helper()
 
 	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
@@ -859,7 +861,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 
 	ui := seedInWorkflow(t, st, frontend, "ui", "", agentstore.StateIdle)
 
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{auth.ID, api.ID, ui.ID}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{auth.ID, api.ID, ui.ID}))
 
 	for _, agent := range []agentstore.Agent{auth, api, ui} {
 		assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt, "%s is archived", agent.Name)
@@ -876,15 +878,11 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 	tests := []struct {
 		name  string
-		stray string
+		stray uuid.UUID
 	}{
 		{
 			name:  "an id nobody holds",
-			stray: uuid.NewString(),
-		},
-		{
-			name:  "a value that is not an id at all",
-			stray: "not-an-id",
+			stray: uuid.New(),
 		},
 	}
 
@@ -898,10 +896,10 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 			auth := seedReviewer(t, st, tmux, seedRunning(t, st, tmux, "auth", "%1", agentstore.StateThinking))
 			api := seedReviewer(t, st, tmux, seedRunning(t, st, tmux, "api", "%2", agentstore.StateThinking))
 
-			err := manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{auth.ID, tt.stray, api.ID}})
+			err := manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []uuid.UUID{auth.ID, tt.stray, api.ID}})
 
 			require.ErrorIs(t, err, agenterr.ErrAgentNotFound)
-			require.ErrorContains(t, err, tt.stray, "the refusal names what it could not find")
+			require.ErrorContains(t, err, tt.stray.String(), "the refusal names what it could not find")
 			assert.Empty(t, tmux.KilledPanes, "nothing was stopped")
 
 			live, err := st.Agents.List(ctx)
@@ -990,16 +988,16 @@ func TestArchiveAgentsHoldsAnAgentToItselfAndItsTasksReviewers(t *testing.T) {
 			ctx := t.Context()
 
 			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
-			seeded := map[string]string{
+			seeded := map[string]uuid.UUID{
 				"writer":                   writer.ID,
 				"reviewer":                 seedReviewer(t, st, tmux, writer).ID,
 				"reviewer on another task": seedReviewer(t, st, tmux, seedRunning(t, st, tmux, "billing", "%2", agentstore.StateIdle)).ID,
 				"orchestrator":             seedOrchestrator(t, st, tmux).ID,
-				"missing":                  uuid.NewString(),
+				"missing":                  uuid.New(),
 			}
 
 			err := manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{
-				IDs:       xslice.Map(tt.archive, func(name string) string { return seeded[name] }),
+				IDs:       xslice.Map(tt.archive, func(name string) uuid.UUID { return seeded[name] }),
 				ByAgentID: seeded[tt.from],
 			})
 			if tt.wantErrIs != nil {
@@ -1031,7 +1029,7 @@ func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 		st.SeedTranscript(t, agent.ID, "something "+agent.Name+" said")
 	}
 
-	require.NoError(t, manager.lifecycle.deleteNow(ctx, []string{auth.ID, api.ID}))
+	require.NoError(t, manager.lifecycle.deleteNow(ctx, []uuid.UUID{auth.ID, api.ID}))
 
 	for _, agent := range []agentstore.Agent{auth, api} {
 		stored, err := st.GetTranscript(ctx, agent.ID)
@@ -1059,7 +1057,7 @@ func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, backend.ID))
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, frontend.ID))
 
-	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{auth.ID, ui.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{auth.ID, ui.ID})
 	require.NoError(t, err)
 	require.Len(t, restored, 2)
 
@@ -1082,7 +1080,7 @@ func TestRestoreAgentsRefusesTheWholeBatch(t *testing.T) {
 	archived := seed(t, st, "auth", "", agentstore.StateIdle)
 	require.NoError(t, st.SoftDelete(ctx, "auth"))
 
-	_, err := manager.lifecycle.RestoreAgents(ctx, []string{archived.ID, uuid.NewString()})
+	_, err := manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{archived.ID, uuid.New()})
 
 	require.ErrorIs(t, err, agenterr.ErrAgentNotFound)
 	assert.NotNil(t, agentByID(t, st, archived.ID).ArchivedAt, "the agent stays in the archive")
@@ -1096,7 +1094,7 @@ func TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling(t *testing.T) {
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	archived := make([]string, 0, 3)
+	archived := make([]uuid.UUID, 0, 3)
 	for _, name := range []string{"auth", "api", "db"} {
 		agent := seedInWorkflow(t, st, workflowID, name, "", agentstore.StateIdle)
 		archived = append(archived, agent.ID)
@@ -1149,10 +1147,10 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 			require.NoError(t, st.SoftDelete(ctx, "auth"))
 			require.NoError(t, st.SoftDelete(ctx, "api"))
 
-			batch := []string{archived.ID, other.ID}
+			batch := []uuid.UUID{archived.ID, other.ID}
 			if tt.secondNamesake {
 				second := seedInWorkflow(t, st, workflowID, "auth", "", agentstore.StateIdle)
-				_, archiveErr := st.Agents.Archive(ctx, []string{second.ID})
+				_, archiveErr := st.Agents.Archive(ctx, []uuid.UUID{second.ID})
 				require.NoError(t, archiveErr)
 				batch = append(batch, second.ID)
 			}
@@ -1180,15 +1178,15 @@ func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 	first := seedInWorkflow(t, st, backend, "auth", "", agentstore.StateIdle)
 	second := seedInWorkflow(t, st, frontend, "auth", "", agentstore.StateIdle)
 
-	_, archiveErr := st.Agents.Archive(ctx, []string{first.ID, second.ID})
+	_, archiveErr := st.Agents.Archive(ctx, []uuid.UUID{first.ID, second.ID})
 
 	require.NoError(t, archiveErr)
 
-	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{first.ID, second.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{first.ID, second.ID})
 	require.NoError(t, err)
 	assert.Len(t, restored, 2)
 
-	for _, id := range []string{first.ID, second.ID} {
+	for _, id := range []uuid.UUID{first.ID, second.ID} {
 		assert.Nil(t, agentByID(t, st, id).ArchivedAt)
 	}
 }
@@ -1204,7 +1202,7 @@ func TestRestoreAgentsPassesOverTheLiveOnes(t *testing.T) {
 	archived := seedInWorkflow(t, st, workflowID, "archived", "", agentstore.StateIdle)
 	require.NoError(t, st.SoftDelete(ctx, "archived"))
 
-	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{live.ID, archived.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{live.ID, archived.ID})
 	require.NoError(t, err)
 	require.Len(t, restored, 2)
 
@@ -1223,12 +1221,12 @@ func TestRestoreAgentsWithNothingArchived(t *testing.T) {
 	first := seedInWorkflow(t, st, workflowID, "auth", "%1", agentstore.StateThinking)
 	second := seedInWorkflow(t, st, workflowID, "api", "%2", agentstore.StateThinking)
 
-	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{first.ID, second.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{first.ID, second.ID})
 	require.NoError(t, err)
 	assert.Len(t, restored, 2)
 }
 
-func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID, name, pane string) agentstore.Agent {
+func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID uuid.UUID, name string, pane string) agentstore.Agent {
 	t.Helper()
 
 	agent := seedInWorkflow(t, st, workflowID, name, pane, agentstore.StateThinking)
@@ -1242,17 +1240,17 @@ func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmuxtest.NewFake(), st)
 
-	ids := make([]string, 0, 20)
+	ids := make([]uuid.UUID, 0, 20)
 	for range 20 {
-		ids = append(ids, uuid.NewString())
+		ids = append(ids, uuid.New())
 	}
 
 	err := manager.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: ids})
 
 	require.ErrorIs(t, err, agenterr.ErrAgentNotFound)
-	require.ErrorContains(t, err, ids[0], "the first few are named")
+	require.ErrorContains(t, err, ids[0].String(), "the first few are named")
 	require.ErrorContains(t, err, "and 15 more", "and the rest are counted")
-	assert.NotContains(t, err.Error(), ids[19], "rather than spelled out")
+	assert.NotContains(t, err.Error(), ids[19].String(), "rather than spelled out")
 }
 
 // TestRestoreOfAReviewerUnderTheReviewerCeiling pins that a reviewer comes back only while its
@@ -1273,12 +1271,12 @@ func TestRestoreOfAReviewerUnderTheReviewerCeiling(t *testing.T) {
 
 	first, err := manager.launch.NewAgent(ctx, reviewerOf(writer, "reviewer"))
 	require.NoError(t, err)
-	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{first.ID}}))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []uuid.UUID{first.ID}}))
 
 	_, err = manager.launch.NewAgent(ctx, reviewerOf(writer, "second-reviewer"))
 	require.NoError(t, err, "the ceiling frees up once one reviewer is archived")
 
-	_, err = manager.lifecycle.RestoreAgents(ctx, []string{first.ID})
+	_, err = manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{first.ID})
 	require.ErrorIs(t, err, agenterr.ErrTooManyReviewers)
 	assert.NotNil(t, agentByID(t, st, first.ID).ArchivedAt, "the refusal restores nothing")
 
@@ -1308,7 +1306,7 @@ func TestATasksWriterMovesWithItsTask(t *testing.T) {
 		{
 			name: "archiving the reviewer leaves the writer",
 			act: func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error {
-				return lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []string{reviewer.ID}})
+				return lifecycle.ArchiveAgents(ctx, ArchiveAgentsParams{IDs: []uuid.UUID{reviewer.ID}})
 			},
 			wantLive: []string{"writer"},
 			wantKept: []string{"writer", "reviewer"},
@@ -1316,13 +1314,13 @@ func TestATasksWriterMovesWithItsTask(t *testing.T) {
 		{
 			name: "deleting the writer takes the reviewer",
 			act: func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error {
-				return lifecycle.deleteNow(ctx, []string{writer.ID})
+				return lifecycle.deleteNow(ctx, []uuid.UUID{writer.ID})
 			},
 		},
 		{
 			name: "deleting the reviewer leaves the writer",
 			act: func(ctx context.Context, lifecycle *LifecycleService, writer, reviewer agentstore.Agent) error {
-				return lifecycle.deleteNow(ctx, []string{reviewer.ID})
+				return lifecycle.deleteNow(ctx, []uuid.UUID{reviewer.ID})
 			},
 			wantLive: []string{"writer"},
 			wantKept: []string{"writer"},
@@ -1334,7 +1332,7 @@ func TestATasksWriterMovesWithItsTask(t *testing.T) {
 					return err
 				}
 
-				_, err := lifecycle.RestoreAgents(ctx, []string{writer.ID})
+				_, err := lifecycle.RestoreAgents(ctx, []uuid.UUID{writer.ID})
 
 				return err
 			},
@@ -1348,7 +1346,7 @@ func TestATasksWriterMovesWithItsTask(t *testing.T) {
 					return err
 				}
 
-				_, err := lifecycle.RestoreAgents(ctx, []string{writer.ID, reviewer.ID})
+				_, err := lifecycle.RestoreAgents(ctx, []uuid.UUID{writer.ID, reviewer.ID})
 
 				return err
 			},
@@ -1430,9 +1428,9 @@ func TestDeleteAgentTakesOnlyAClaimedAgent(t *testing.T) {
 			var first time.Time
 			for i := range tt.claims {
 				if i > 0 {
-					require.NoError(t, st.Agents.ClearDeleting(ctx, []string{agent.ID}))
+					require.NoError(t, st.Agents.ClearDeleting(ctx, []uuid.UUID{agent.ID}))
 				}
-				claims, err := st.Agents.MarkDeleting(ctx, []string{agent.ID})
+				claims, err := st.Agents.MarkDeleting(ctx, []uuid.UUID{agent.ID})
 				require.NoError(t, err)
 				require.Len(t, claims, 1)
 				if i == 0 {
@@ -1473,10 +1471,10 @@ func TestDeleteWaitsOnAReviewerAnotherDeleteHolds(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	reviewerClaims, err := st.Agents.MarkDeleting(ctx, []string{reviewer.ID})
+	reviewerClaims, err := st.Agents.MarkDeleting(ctx, []uuid.UUID{reviewer.ID})
 	require.NoError(t, err)
 	require.Len(t, reviewerClaims, 1)
-	writerClaims, err := st.Agents.MarkDeleting(ctx, []string{writer.ID})
+	writerClaims, err := st.Agents.MarkDeleting(ctx, []uuid.UUID{writer.ID})
 	require.NoError(t, err)
 	require.Len(t, writerClaims, 1, "the reviewer is not taken twice")
 
@@ -1510,8 +1508,8 @@ func TestFailDeleteGivesTheRowBack(t *testing.T) {
 		WorkflowID: created.ID,
 	})
 	require.NoError(t, err)
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
-	claims, err := st.Agents.MarkDeleting(ctx, []string{agent.ID})
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{agent.ID}))
+	claims, err := st.Agents.MarkDeleting(ctx, []uuid.UUID{agent.ID})
 	require.NoError(t, err)
 	require.Len(t, claims, 1)
 
@@ -1531,7 +1529,7 @@ func TestFailDeleteGivesTheRowBack(t *testing.T) {
 	assert.Nil(t, page[0].DeletingAt)
 }
 
-func seedOnTask(t *testing.T, st *testStore, workflowID, name, taskID string) agentstore.Agent {
+func seedOnTask(t *testing.T, st *testStore, workflowID uuid.UUID, name string, taskID uuid.UUID) agentstore.Agent {
 	t.Helper()
 
 	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
@@ -1547,7 +1545,7 @@ func seedOnTask(t *testing.T, st *testStore, workflowID, name, taskID string) ag
 	return *got
 }
 
-func isTaskArchived(t *testing.T, st *testStore, id string) bool {
+func isTaskArchived(t *testing.T, st *testStore, id uuid.UUID) bool {
 	t.Helper()
 
 	got, err := st.Tasks.Get(t.Context(), id)
@@ -1615,7 +1613,7 @@ func TestDeleteTasksRefusesATaskNothingHolds(t *testing.T) {
 	fx := newTaskDeleteFixture(t, &fakeLifecycle{}, worktreeConfig(t, "backend"))
 	agent, task := fx.launch(t, "auth")
 
-	err := fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Tasks: []oneofs.Task{taskByID(task.ID), taskByID(uuid.NewString())}, Records: true})
+	err := fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Tasks: []oneofs.Task{taskByID(task.ID), taskByID(uuid.New())}, Records: true})
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	kept, err := fx.st.Tasks.Get(t.Context(), task.ID)
@@ -1783,7 +1781,7 @@ func TestRestoreAgentsRefusesATaskWhoseWorktreeWasDeleted(t *testing.T) {
 			}
 			require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Tasks: []oneofs.Task{taskByID(task.ID)}}))
 
-			_, err := fx.agents.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+			_, err := fx.agents.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{agent.ID})
 
 			require.ErrorIs(t, err, tasks.ErrWorktreeRemoved)
 			assert.NotNil(t, agentByID(t, fx.st, agent.ID).ArchivedAt, "the agent stays archived")

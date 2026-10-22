@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -33,7 +34,7 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent nothing has written to",
 			stored: agentstore.Agent{
-				ID:   "a2",
+				ID:   secondAgentID,
 				Name: "reviewer",
 			},
 			want: &agentv1.Agent{
@@ -45,7 +46,7 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose state was written",
 			stored: agentstore.Agent{
-				ID:             "a1",
+				ID:             firstAgentID,
 				Name:           "worker",
 				State:          agentstore.StateWaiting,
 				Role:           agentstore.RoleReviewer,
@@ -63,7 +64,7 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose last turn ended after one that failed",
 			stored: agentstore.Agent{
-				ID:   "a4",
+				ID:   fourthAgentID,
 				Name: "recovered",
 				Turn: agentstore.Turn{
 					EndedAt:  xptr.Ptr(changed.Add(time.Minute)),
@@ -80,7 +81,7 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose last turn failed",
 			stored: agentstore.Agent{
-				ID:    "a5",
+				ID:    fifthAgentID,
 				Name:  "failed",
 				State: agentstore.StateErrored,
 				Turn: agentstore.Turn{
@@ -100,7 +101,7 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent that has written documents, stamped to within the second",
 			stored: agentstore.Agent{
-				ID:   "a3",
+				ID:   thirdAgentID,
 				Name: "author",
 			},
 			beside: rowstore.Row{
@@ -118,7 +119,7 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose launch installed hooks",
 			stored: agentstore.Agent{
-				ID:    "a6",
+				ID:    sixthAgentID,
 				Name:  "hooked",
 				Hooks: []string{"PreToolUse", "Stop"},
 			},
@@ -171,7 +172,7 @@ func TestWatchedAgent(t *testing.T) {
 			t.Parallel()
 
 			rendered := WatchedAgent(rowOf(agentstore.Agent{
-				ID:         "a1",
+				ID:         firstAgentID,
 				Prompt:     prompt,
 				ArchivedAt: tt.archivedAt,
 			}))
@@ -221,3 +222,12 @@ func TestAgentRoleOf(t *testing.T) {
 	}
 	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, agentRoleOf(""))
 }
+
+var (
+	fifthAgentID  = uuid.New()
+	firstAgentID  = uuid.New()
+	fourthAgentID = uuid.New()
+	secondAgentID = uuid.New()
+	sixthAgentID  = uuid.New()
+	thirdAgentID  = uuid.New()
+)

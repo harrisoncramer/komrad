@@ -8,12 +8,14 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xptr"
+
+	"github.com/google/uuid"
 )
 
 // IdempotencyKey is a caller's key together with the requester it is scoped to.
 type IdempotencyKey struct {
 	Key                string
-	RequestedByAgentID *string
+	RequestedByAgentID *uuid.UUID
 }
 
 // GetByIdempotencyKey returns the live or archived agent recorded under a key.

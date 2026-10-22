@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/agenterr"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -21,14 +22,14 @@ type fakeAgentDeleter struct {
 	failed    []string
 }
 
-func (f *fakeAgentDeleter) DeleteAgent(_ context.Context, id string, _ time.Time) error {
-	f.deleted = append(f.deleted, id)
+func (f *fakeAgentDeleter) DeleteAgent(_ context.Context, id uuid.UUID, _ time.Time) error {
+	f.deleted = append(f.deleted, id.String())
 
 	return f.deleteErr
 }
 
-func (f *fakeAgentDeleter) FailDelete(_ context.Context, id string, _ time.Time, _ error) error {
-	f.failed = append(f.failed, id)
+func (f *fakeAgentDeleter) FailDelete(_ context.Context, id uuid.UUID, _ time.Time, _ error) error {
+	f.failed = append(f.failed, id.String())
 
 	return nil
 }
@@ -83,7 +84,7 @@ func TestDeleteAgentWorker(t *testing.T) {
 
 			err := worker.Work(t.Context(), &river.Job[DeleteAgentArgs]{
 				JobRow: &rivertype.JobRow{Attempt: tt.attempt, MaxAttempts: 3},
-				Args:   DeleteAgentArgs{AgentID: "a1"},
+				Args:   DeleteAgentArgs{AgentID: firstAgentID},
 			})
 
 			var snooze *river.JobSnoozeError
@@ -98,3 +99,7 @@ func TestDeleteAgentWorker(t *testing.T) {
 		})
 	}
 }
+
+var (
+	firstAgentID = uuid.New()
+)

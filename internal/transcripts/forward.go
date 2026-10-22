@@ -16,6 +16,8 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+
+	"github.com/google/uuid"
 )
 
 var errNothingToForward = fail.Precondition("the source has no turns synced yet, so there is nothing to forward")
@@ -45,9 +47,9 @@ type composition struct {
 }
 
 type ForwardLastTurnsParams struct {
-	From      string
-	SourceID  string
-	ToAgentID string
+	From      uuid.UUID
+	SourceID  uuid.UUID
+	ToAgentID uuid.UUID
 	Turns     int32
 	MaxBytes  int32
 	Note      string

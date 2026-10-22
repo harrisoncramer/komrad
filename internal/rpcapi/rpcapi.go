@@ -34,6 +34,7 @@ import (
 	"komrad/internal/fail"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -184,7 +185,7 @@ func IsDestructive(method protoreflect.MethodDescriptor, surfaces *annotationv1.
 var ErrUnknownCaller = fail.Denied("komrad knows no agent by that id")
 
 // RoleOf answers what komrad launched the agent to do.
-type RoleOf func(ctx context.Context, agentID string) (annotationv1.Role, error)
+type RoleOf func(ctx context.Context, agentID uuid.UUID) (annotationv1.Role, error)
 
 // ServesRole reports whether a method is open to a caller holding the role, every method being
 // open to a caller holding none.

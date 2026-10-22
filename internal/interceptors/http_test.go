@@ -13,6 +13,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/logtest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -168,7 +169,7 @@ func TestHTTPLoggingNamesTheCallingAgent(t *testing.T) {
 	assert.Equal(t, "sess-1", record[logging.SessionID])
 	assert.Equal(t, "create_agent", record[logging.MCPTool])
 
-	assert.Equal(t, caller.Caller{AgentID: "agent-1", SessionID: "sess-1"}, seen)
+	assert.Equal(t, caller.Caller{AgentID: firstAgentID, SessionID: "sess-1"}, seen)
 }
 
 // TestHTTPLoggingIgnoresAnUnexpandedVariable covers a CLI that passed the config through
@@ -184,3 +185,7 @@ func TestHTTPLoggingIgnoresAnUnexpandedVariable(t *testing.T) {
 
 	assert.NotContains(t, logtest.Record(t, out.String()), logging.AgentID)
 }
+
+var (
+	firstAgentID = uuid.New()
+)

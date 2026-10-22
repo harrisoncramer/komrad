@@ -34,7 +34,7 @@ func TestRowWriterRefusals(t *testing.T) {
 		{
 			name: "renaming an id nobody holds",
 			write: func(ctx context.Context, writer *RowWriter, _ agentstore.Agent) error {
-				return writer.Rename(ctx, uuid.NewString(), "renamed")
+				return writer.Rename(ctx, uuid.New(), "renamed")
 			},
 			wantErr: agenterr.ErrAgentNotFound,
 		},

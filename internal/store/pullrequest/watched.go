@@ -7,6 +7,8 @@ import (
 	"komrad/internal/watch"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // WatchedPullRequests declares the pull requests to the watch.
@@ -49,7 +51,7 @@ var WatchedPullRequests = watch.Resource{
 }
 
 // ListWatched returns the pull requests among keys that some agent has been seen with, or every one when keys is nil.
-func (s *PullRequestStore) ListWatched(ctx context.Context, keys []string) ([]PullRequest, error) {
+func (s *PullRequestStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]PullRequest, error) {
 	rows, err := s.queries.ListWatchedPullRequests(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched pull requests: %w", err)

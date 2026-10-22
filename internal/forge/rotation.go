@@ -8,6 +8,8 @@ import (
 	"time"
 
 	forgestore "komrad/internal/store/forge"
+
+	"github.com/google/uuid"
 )
 
 // rotationScope is the scope a GitLab token needs to rotate itself.
@@ -68,7 +70,7 @@ func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params 
 }
 
 // keepRotatedToken trades a pasted token for the first one komrad keeps, and stores that one.
-func (s *Service) keepRotatedToken(ctx context.Context, build Builder, params ConnectParams, connectionID string) error {
+func (s *Service) keepRotatedToken(ctx context.Context, build Builder, params ConnectParams, connectionID uuid.UUID) error {
 	rotator, err := pastedRotator(build, params)
 	if err != nil {
 		return err

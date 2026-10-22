@@ -14,6 +14,8 @@ import (
 
 	"komrad/config"
 	"komrad/internal/harness"
+
+	"github.com/google/uuid"
 )
 
 // HarnessID is the id an agent running Codex is recorded under.
@@ -23,12 +25,12 @@ const originatorEnv = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE"
 
 const homeEnv = "CODEX_HOME"
 
-func originator(agentID string) string {
-	return "komrad-" + agentID
+func originator(agentID uuid.UUID) string {
+	return "komrad-" + agentID.String()
 }
 
-func originatorPrefix(agentID string) string {
-	if agentID == "" {
+func originatorPrefix(agentID uuid.UUID) string {
+	if agentID == uuid.Nil {
 		return ""
 	}
 
@@ -118,8 +120,8 @@ type sessionMeta struct {
 
 // FindSession returns the conversation Codex started for this agent, or empty until the first
 // turn goes in.
-func (h *Harness) FindSession(agentID string) (string, error) {
-	if agentID == "" {
+func (h *Harness) FindSession(agentID uuid.UUID) (string, error) {
+	if agentID == uuid.Nil {
 		return "", nil
 	}
 

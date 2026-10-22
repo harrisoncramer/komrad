@@ -19,6 +19,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -66,18 +67,18 @@ func TestFiringIsQueuedOnce(t *testing.T) {
 	}{
 		{
 			name:   "another schedule firing at the same moment is its own job",
-			first:  internaljobs.LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: nine},
-			second: internaljobs.LaunchAgentArgs{ScheduleID: "s2", ScheduledFor: nine},
+			first:  internaljobs.LaunchAgentArgs{ScheduleID: firstScheduleID, ScheduledFor: nine},
+			second: internaljobs.LaunchAgentArgs{ScheduleID: uuid.New(), ScheduledFor: nine},
 		},
 		{
 			name:   "tomorrow's run of the same schedule is its own job",
-			first:  internaljobs.LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: nine},
-			second: internaljobs.LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: nine.Add(24 * time.Hour)},
+			first:  internaljobs.LaunchAgentArgs{ScheduleID: firstScheduleID, ScheduledFor: nine},
+			second: internaljobs.LaunchAgentArgs{ScheduleID: firstScheduleID, ScheduledFor: nine.Add(24 * time.Hour)},
 		},
 		{
 			name:          "the same occurrence inserted twice is one job",
-			first:         internaljobs.LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: nine},
-			second:        internaljobs.LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: nine},
+			first:         internaljobs.LaunchAgentArgs{ScheduleID: firstScheduleID, ScheduledFor: nine},
+			second:        internaljobs.LaunchAgentArgs{ScheduleID: firstScheduleID, ScheduledFor: nine},
 			wantDuplicate: true,
 		},
 	}
@@ -119,7 +120,7 @@ func TestFiringIsQueuedOnceAfterAnAttemptEnded(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := newRiverClient(t)
-			firing := internaljobs.LaunchAgentArgs{ScheduleID: "s1", ScheduledFor: nine}
+			firing := internaljobs.LaunchAgentArgs{ScheduleID: firstScheduleID, ScheduledFor: nine}
 
 			first, err := client.Insert(t.Context(), firing, nil)
 			require.NoError(t, err)
@@ -186,9 +187,9 @@ func TestWorktreeDeleteClaimsWhatItQueues(t *testing.T) {
 	}
 	require.NoError(t, stores.Agents.Create(ctx, live))
 	require.NoError(t, stores.Agents.Create(ctx, archived))
-	_, err = stores.Agents.Archive(ctx, []string{archived.ID})
+	_, err = stores.Agents.Archive(ctx, []uuid.UUID{archived.ID})
 	require.NoError(t, err)
-	dirs := []string{"/trees/" + *archivedTask, "/trees/" + *liveTask, "/trees/orphan"}
+	dirs := []string{"/trees/" + archivedTask.String(), "/trees/" + liveTask.String(), "/trees/orphan"}
 
 	require.NoError(t, worktreeDelete.DeleteWorktrees(ctx, dirs))
 
@@ -201,7 +202,7 @@ func TestWorktreeDeleteClaimsWhatItQueues(t *testing.T) {
 	kept, err := stores.Workflows.GetIncludingArchived(ctx, workflow.ID)
 	require.NoError(t, err)
 	assert.Nil(t, kept.DeletingAt, "a live workflow is never claimed")
-	assert.Equal(t, []string{archived.ID}, queuedDeletes(t, client), "the claimed agent's delete is queued")
+	assert.Equal(t, []uuid.UUID{archived.ID}, queuedDeletes(t, client), "the claimed agent's delete is queued")
 
 	listed, err := worktreeDelete.ListClaimedDirs(ctx)
 	require.NoError(t, err)
@@ -235,18 +236,18 @@ func TestAgentDeleteQueuesWhatItClaims(t *testing.T) {
 	})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 
-	err := agentDelete.DeleteAgents(ctx, []string{other.ID, newID(t)})
+	err := agentDelete.DeleteAgents(ctx, []uuid.UUID{other.ID, newID(t)})
 	require.ErrorIs(t, err, agenterr.ErrAgentNotFound)
 	untouched, err := stores.Agents.GetByID(ctx, other.ID)
 	require.NoError(t, err)
 	assert.Nil(t, untouched.DeletingAt, "a refused batch claims nothing")
 	assert.Empty(t, queuedDeletes(t, client))
 
-	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{writer.ID}))
-	assert.Equal(t, []string{writer.ID}, queuedDeletes(t, client), "the reviewer goes with its writer's job")
+	require.NoError(t, agentDelete.DeleteAgents(ctx, []uuid.UUID{writer.ID}))
+	assert.Equal(t, []uuid.UUID{writer.ID}, queuedDeletes(t, client), "the reviewer goes with its writer's job")
 
-	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{writer.ID, other.ID}))
-	assert.ElementsMatch(t, []string{writer.ID, other.ID}, queuedDeletes(t, client), "a second press queues only what it newly took")
+	require.NoError(t, agentDelete.DeleteAgents(ctx, []uuid.UUID{writer.ID, other.ID}))
+	assert.ElementsMatch(t, []uuid.UUID{writer.ID, other.ID}, queuedDeletes(t, client), "a second press queues only what it newly took")
 }
 
 // TestAgentDeleteResume covers a starting server queuing the deletes the last one left owed
@@ -257,43 +258,43 @@ func TestAgentDeleteResume(t *testing.T) {
 	agentDelete := NewAgentDelete(NewEnqueuer(client, stores.Pool.GetRawPool()))
 
 	queued := stores.SeedAgent(t, agentstore.Agent{Name: "queued"})
-	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{queued.ID}))
+	require.NoError(t, agentDelete.DeleteAgents(ctx, []uuid.UUID{queued.ID}))
 	owed := stores.SeedAgent(t, agentstore.Agent{Name: "owed"})
-	_, err := stores.Agents.MarkDeleting(ctx, []string{owed.ID})
+	_, err := stores.Agents.MarkDeleting(ctx, []uuid.UUID{owed.ID})
 	require.NoError(t, err)
 	reclaimed := stores.SeedAgent(t, agentstore.Agent{Name: "reclaimed"})
-	require.NoError(t, agentDelete.DeleteAgents(ctx, []string{reclaimed.ID}))
-	require.NoError(t, stores.Agents.ClearDeleting(ctx, []string{reclaimed.ID}))
-	_, err = stores.Agents.MarkDeleting(ctx, []string{reclaimed.ID})
+	require.NoError(t, agentDelete.DeleteAgents(ctx, []uuid.UUID{reclaimed.ID}))
+	require.NoError(t, stores.Agents.ClearDeleting(ctx, []uuid.UUID{reclaimed.ID}))
+	_, err = stores.Agents.MarkDeleting(ctx, []uuid.UUID{reclaimed.ID})
 	require.NoError(t, err)
 
 	abandoned, err := stores.Workflows.Create(ctx, workflowstore.Config{Name: "abandoned", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 	gone := stores.SeedAgent(t, agentstore.Agent{Name: "gone", WorkflowID: abandoned.ID})
-	_, err = stores.Agents.Archive(ctx, []string{gone.ID})
+	_, err = stores.Agents.Archive(ctx, []uuid.UUID{gone.ID})
 	require.NoError(t, err)
 	require.NoError(t, stores.Workflows.Archive(ctx, abandoned.ID))
-	_, err = stores.Agents.MarkArchivedDeletingByID(ctx, []string{gone.ID})
+	_, err = stores.Agents.MarkArchivedDeletingByID(ctx, []uuid.UUID{gone.ID})
 	require.NoError(t, err)
-	_, err = stores.Agents.Delete(ctx, []string{gone.ID})
+	_, err = stores.Agents.Delete(ctx, []uuid.UUID{gone.ID})
 	require.NoError(t, err)
 
 	require.NoError(t, agentDelete.Resume(ctx))
 
-	assert.ElementsMatch(t, []string{queued.ID, owed.ID, reclaimed.ID, reclaimed.ID}, queuedDeletes(t, client),
+	assert.ElementsMatch(t, []uuid.UUID{queued.ID, owed.ID, reclaimed.ID, reclaimed.ID}, queuedDeletes(t, client),
 		"only a claim no job covers is queued, and a job for a claim given back covers nothing")
 	released, err := stores.Workflows.GetIncludingArchived(ctx, abandoned.ID)
 	require.NoError(t, err)
 	assert.Nil(t, released.DeletingAt, "a workflow no claimed agent holds is released")
 }
 
-func queuedDeletes(t *testing.T, client *river.Client[pgx.Tx]) []string {
+func queuedDeletes(t *testing.T, client *river.Client[pgx.Tx]) []uuid.UUID {
 	t.Helper()
 
 	listed, err := client.JobList(t.Context(), river.NewJobListParams().Kinds(internaljobs.DeleteAgentArgs{}.Kind()))
 	require.NoError(t, err)
 
-	return xslice.Map(listed.Jobs, func(job *rivertype.JobRow) string {
+	return xslice.Map(listed.Jobs, func(job *rivertype.JobRow) uuid.UUID {
 		assert.Equal(t, internaljobs.QueueDeleteAgent, job.Queue)
 		var args internaljobs.DeleteAgentArgs
 		require.NoError(t, json.Unmarshal(job.EncodedArgs, &args))
@@ -302,7 +303,7 @@ func queuedDeletes(t *testing.T, client *river.Client[pgx.Tx]) []string {
 	})
 }
 
-func newID(t *testing.T) string {
+func newID(t *testing.T) uuid.UUID {
 	t.Helper()
 
 	id, err := store.NewID()
@@ -316,24 +317,25 @@ func newID(t *testing.T) string {
 func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {
 	cron, err := schedules.ParseCron("0 9 * * *", "")
 	require.NoError(t, err)
+	s1, s2, s3 := uuid.New(), uuid.New(), uuid.New()
 
 	tests := []struct {
 		name       string
-		added      []string
+		added      []uuid.UUID
 		wantAddErr bool
 	}{
 		{
 			name:       "the same id twice is refused",
-			added:      []string{"s1", "s1"},
+			added:      []uuid.UUID{s1, s1},
 			wantAddErr: true,
 		},
 		{
 			name:  "a registration comes off by the id it was added under",
-			added: []string{"s1"},
+			added: []uuid.UUID{s1},
 		},
 		{
 			name:  "and each of several does, under its own",
-			added: []string{"s1", "s2", "s3"},
+			added: []uuid.UUID{s1, s2, s3},
 		},
 	}
 
@@ -353,7 +355,7 @@ func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {
 			}
 
 			for _, id := range tt.added {
-				assert.True(t, bundle.RemoveByID(id), "a registration has to come off by the id it was added under")
+				assert.True(t, bundle.RemoveByID(id.String()), "a registration has to come off by the id it was added under")
 			}
 		})
 	}
@@ -373,7 +375,7 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 		return nil, ctx.Err()
 	}
 
-	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
+	return &agentstore.Agent{ID: uuid.New(), Name: p.Title}, nil
 }
 
 // TestStopWaitsForALaunchInFlight covers the stop waiting rather than walking away, River's
@@ -449,7 +451,7 @@ func TestEventRecordsItsFollowUps(t *testing.T) {
 	stores := storetest.Open(t)
 	require.NoError(t, db.NewRiverMigrator(stores.Pool.GetRawPool()).Migrate(t.Context(), stores.Pool.GetRiverSchema()))
 
-	wake := internaljobs.WakeAgentArgs{AgentID: "reviewer"}
+	wake := internaljobs.WakeAgentArgs{AgentID: reviewerID}
 	client, err := NewClient(NewClientParams{
 		Schema:  stores.Pool.GetRiverSchema(),
 		Pool:    stores.Pool.GetRawPool(),
@@ -474,3 +476,8 @@ func TestEventRecordsItsFollowUps(t *testing.T) {
 	require.Len(t, woken.Jobs, 1)
 	assert.Equal(t, rivertype.JobStateScheduled, woken.Jobs[0].State)
 }
+
+var (
+	firstScheduleID = uuid.New()
+	reviewerID      = uuid.New()
+)

@@ -7,6 +7,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,7 +52,7 @@ func TestDeleteIfEmpty(t *testing.T) {
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
-			id := "00000000-0000-0000-0000-000000000000"
+			id := uuid.MustParse("00000000-0000-0000-0000-000000000000")
 			if tt.create {
 				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)

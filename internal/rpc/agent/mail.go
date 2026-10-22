@@ -18,15 +18,16 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/google/uuid"
 )
 
 type mailer interface {
 	FindRecipient(ctx context.Context, params mail.FindRecipientParams) (*agentstore.Agent, error)
 	SendMail(ctx context.Context, params mail.SendMailParams) (*mailstore.Mail, error)
 	ListMail(ctx context.Context, params mail.ListMailParams) ([]mailstore.Mail, error)
-	DeleteMail(ctx context.Context, ids []string) error
+	DeleteMail(ctx context.Context, ids []uuid.UUID) error
 	IsDormant(agent agentstore.Agent) bool
 }
 
@@ -46,7 +47,7 @@ func (s *Handler) SendMail(ctx context.Context, req *agentv1komrad.SendMailReque
 		From:      from,
 		ToAgentID: recipient.ID,
 		Body:      req.Body,
-		ReplyTo:   formatOptionalID(req.ReplyTo),
+		ReplyTo:   req.ReplyTo,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to send the mail")
@@ -119,7 +120,7 @@ func (s *Handler) ListMail(ctx context.Context, req *agentv1komrad.ListMailReque
 
 // DeleteMail permanently removes mail by id, so the recipient never sees it.
 func (s *Handler) DeleteMail(ctx context.Context, req *agentv1komrad.DeleteMailRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.mail.DeleteMail(ctx, xslice.Map(req.Ids, uuid.UUID.String)); err != nil {
+	if err := s.mail.DeleteMail(ctx, req.Ids); err != nil {
 		return nil, rpcerr.From(err, "failed to delete mail")
 	}
 

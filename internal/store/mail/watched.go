@@ -7,6 +7,8 @@ import (
 	"komrad/internal/watch"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // WatchedMail declares the mail to the watch.
@@ -17,7 +19,7 @@ var WatchedMail = watch.Resource{
 }
 
 // ListWatched returns whichever of keys hold unclaimed mail, or every unclaimed piece when keys is nil.
-func (s *MailStore) ListWatched(ctx context.Context, keys []string) ([]Mail, error) {
+func (s *MailStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Mail, error) {
 	rows, err := s.queries.ListWatchedMail(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched mail: %w", err)

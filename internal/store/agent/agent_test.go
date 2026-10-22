@@ -9,6 +9,7 @@ import (
 	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +75,7 @@ type fixture struct {
 	db              store.DBTX
 	pool            *store.Pool
 	workflows       *workflowstore.WorkflowStore
-	defaultWorkflow string
+	defaultWorkflow uuid.UUID
 }
 
 // Get reads an agent back by name out of the default workflow.
@@ -88,14 +89,14 @@ func (f *fixture) archiveByName(ctx context.Context, name string) error {
 		return err
 	}
 
-	_, err = f.Archive(ctx, []string{agent.ID})
+	_, err = f.Archive(ctx, []uuid.UUID{agent.ID})
 
 	return err
 }
 
 // Create fills in the default workflow and a task when the test did not name them.
 func (f *fixture) Create(ctx context.Context, agent Agent) error {
-	if agent.WorkflowID == "" {
+	if agent.WorkflowID == uuid.Nil {
 		agent.WorkflowID = f.defaultWorkflow
 	}
 	if agent.TaskID == nil && agent.Role != RoleOrchestrator {
@@ -110,7 +111,7 @@ func (f *fixture) Create(ctx context.Context, agent Agent) error {
 }
 
 // taskFor is a task made for an agent written by a test.
-func (f *fixture) taskFor(ctx context.Context, agent Agent) (*string, error) {
+func (f *fixture) taskFor(ctx context.Context, agent Agent) (*uuid.UUID, error) {
 	return tasktest.Seed(ctx, f.db, agent.WorkflowID)
 }
 

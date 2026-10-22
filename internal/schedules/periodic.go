@@ -8,12 +8,13 @@ import (
 	"komrad/internal/store"
 	schedulestore "komrad/internal/store/schedule"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
 type periodicJobRegistrar interface {
-	Add(id string, cron river.PeriodicSchedule) error
-	Remove(id string)
+	Add(id uuid.UUID, cron river.PeriodicSchedule) error
+	Remove(id uuid.UUID)
 }
 
 type registration struct {
@@ -45,7 +46,7 @@ func (s *ScheduleService) ArmPeriodic(ctx context.Context, periodic periodicJobR
 }
 
 // SyncRegistration rereads a schedule and makes its River registration match what it now holds.
-func (s *ScheduleService) SyncRegistration(ctx context.Context, id string) error {
+func (s *ScheduleService) SyncRegistration(ctx context.Context, id uuid.UUID) error {
 	s.armMu.Lock()
 	defer s.armMu.Unlock()
 
@@ -67,7 +68,7 @@ func (s *ScheduleService) SyncRegistration(ctx context.Context, id string) error
 }
 
 // syncAfterWrite registers a committed write even when the caller has gone.
-func (s *ScheduleService) syncAfterWrite(ctx context.Context, id string) error {
+func (s *ScheduleService) syncAfterWrite(ctx context.Context, id uuid.UUID) error {
 	return s.SyncRegistration(context.WithoutCancel(ctx), id)
 }
 
@@ -95,7 +96,7 @@ func (s *ScheduleService) applyRegistration(schedule *schedulestore.Schedule) er
 	return nil
 }
 
-func (s *ScheduleService) disarm(id string) {
+func (s *ScheduleService) disarm(id uuid.UUID) {
 	if _, registered := s.armed[id]; !registered {
 		return
 	}

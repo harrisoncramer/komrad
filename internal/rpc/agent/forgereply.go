@@ -12,18 +12,20 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1komrad"
 
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/google/uuid"
 )
 
 type forgeReplier interface {
 	ReplyOnForge(ctx context.Context, params reviews.ReplyOnForgeParams) (*reviewstore.ForgeReply, error)
-	RetryForgeReply(ctx context.Context, id string, author reviews.ReviewAuthor) (*reviewstore.ForgeReply, error)
-	DiscardForgeReply(ctx context.Context, id string, author reviews.ReviewAuthor) error
+	RetryForgeReply(ctx context.Context, id uuid.UUID, author reviews.ReviewAuthor) (*reviewstore.ForgeReply, error)
+	DiscardForgeReply(ctx context.Context, id uuid.UUID, author reviews.ReviewAuthor) error
 }
 
 // ReplyOnForge posts the person's own reply on a mirrored thread.
 func (s *Handler) ReplyOnForge(ctx context.Context, req *agentv1komrad.ReplyOnForgeRequest) (*agentv1.ReplyOnForgeResponse, *fail.Error) {
 	reply, err := s.forgeReplies.ReplyOnForge(ctx, reviews.ReplyOnForgeParams{
-		ThreadID: req.ThreadId.String(),
+		ThreadID: req.ThreadId,
 		Author:   reviewAuthorFrom(ctx),
 		Body:     req.Body,
 	})
@@ -36,7 +38,7 @@ func (s *Handler) ReplyOnForge(ctx context.Context, req *agentv1komrad.ReplyOnFo
 
 // RetryForgeReply posts a failed reply again.
 func (s *Handler) RetryForgeReply(ctx context.Context, req *agentv1komrad.RetryForgeReplyRequest) (*agentv1.RetryForgeReplyResponse, *fail.Error) {
-	reply, err := s.forgeReplies.RetryForgeReply(ctx, req.Id.String(), reviewAuthorFrom(ctx))
+	reply, err := s.forgeReplies.RetryForgeReply(ctx, req.Id, reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to retry the forge reply")
 	}
@@ -46,7 +48,7 @@ func (s *Handler) RetryForgeReply(ctx context.Context, req *agentv1komrad.RetryF
 
 // DiscardForgeReply drops a failed reply without posting it.
 func (s *Handler) DiscardForgeReply(ctx context.Context, req *agentv1komrad.DiscardForgeReplyRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.forgeReplies.DiscardForgeReply(ctx, req.Id.String(), reviewAuthorFrom(ctx)); err != nil {
+	if err := s.forgeReplies.DiscardForgeReply(ctx, req.Id, reviewAuthorFrom(ctx)); err != nil {
 		return nil, rpcerr.From(err, "failed to discard the forge reply")
 	}
 

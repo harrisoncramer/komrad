@@ -223,7 +223,7 @@ FROM
     mail m
 WHERE
     m.claimed_at IS NULL
-    AND (sqlc.narg('keys')::text[] IS NULL
+    AND (sqlc.narg('keys')::uuid[] IS NULL
         OR m.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     m.id;

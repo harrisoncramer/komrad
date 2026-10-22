@@ -8,6 +8,7 @@ import (
 	"komrad/internal/frames"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +38,7 @@ func TestRecordWritesTheFrameItWasRead(t *testing.T) {
 	frame := "✻ Cogitating… (12s)\n───────\n❯ \n───────"
 
 	require.NoError(t, frames.NewRecorder(dir, on).Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    frame,
 		Activity: "working",
 	}))
@@ -56,7 +57,7 @@ func TestRecordWritesNothingWhileOff(t *testing.T) {
 	dir := t.TempDir()
 	off := func() frames.Settings { return frames.Settings{Keep: 3} }
 
-	require.NoError(t, frames.NewRecorder(dir, off).Record(frames.RecordParams{AgentID: "a1", Frame: "anything"}))
+	require.NoError(t, frames.NewRecorder(dir, off).Record(frames.RecordParams{AgentID: firstAgentID, Frame: "anything"}))
 
 	assert.Empty(t, written(t, dir, "a1"))
 }
@@ -69,7 +70,7 @@ func TestRecordSkipsAFrameItAlreadyHolds(t *testing.T) {
 
 	for range 3 {
 		require.NoError(t, recorder.Record(frames.RecordParams{
-			AgentID:  "a1",
+			AgentID:  firstAgentID,
 			Frame:    "same",
 			Activity: "idle",
 		}))
@@ -85,12 +86,12 @@ func TestRecordKeepsAFrameDisputingTheStateOnRecord(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 	}))
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 		Disputes: true,
@@ -107,7 +108,7 @@ func TestRecordSkipsAnUnrecognizedFrameItAlreadyHolds(t *testing.T) {
 
 	for range 5 {
 		require.NoError(t, recorder.Record(frames.RecordParams{
-			AgentID:  "a1",
+			AgentID:  firstAgentID,
 			Frame:    "same",
 			Activity: "unrecognized",
 		}))
@@ -125,7 +126,7 @@ func TestRecordTakesAFrameAgainAfterAFailedWrite(t *testing.T) {
 
 	recorder := frames.NewRecorder(blocked, on)
 	reading := frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 	}
@@ -145,7 +146,7 @@ func TestRecordDropsTheOldestPastTheLimit(t *testing.T) {
 
 	for _, frame := range []string{"one", "two", "three", "four", "five"} {
 		require.NoError(t, recorder.Record(frames.RecordParams{
-			AgentID:  "a1",
+			AgentID:  firstAgentID,
 			Frame:    frame,
 			Activity: "idle",
 		}))
@@ -160,12 +161,12 @@ func TestRecordSeparatesAgents(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "one",
 		Activity: "idle",
 	}))
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a2",
+		AgentID:  secondAgentID,
 		Frame:    "two",
 		Activity: "idle",
 	}))
@@ -181,16 +182,21 @@ func TestForgetDropsWhatADeletedAgentLeft(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 	}))
-	recorder.Forget(map[string]struct{}{})
+	recorder.Forget(map[uuid.UUID]struct{}{})
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 	}))
 
 	assert.Len(t, written(t, dir, "a1"), 2)
 }
+
+var (
+	firstAgentID  = uuid.New()
+	secondAgentID = uuid.New()
+)

@@ -12,6 +12,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 // archiveTaken is what an archive's write took off its rows, the panes and the tasks it archived.
@@ -21,7 +23,7 @@ type archiveTaken struct {
 }
 
 type agentName struct {
-	workflowID string
+	workflowID uuid.UUID
 	name       string
 }
 

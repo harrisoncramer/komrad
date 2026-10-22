@@ -9,6 +9,7 @@ import (
 
 	"komrad/config"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -201,6 +202,7 @@ func TestWorktreesCheck(t *testing.T) {
 // whose agent has gone stays on disk with nobody reporting it.
 func TestOrphanedWorktreesCheck(t *testing.T) {
 	const shared = "/home/u/worktrees"
+	held, stray := uuid.New(), uuid.New()
 
 	tests := []struct {
 		name      string
@@ -214,30 +216,30 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 	}{
 		{
 			name:     "a directory with no agent",
-			state:    map[string]dirState{shared: presentDir(nil, []string{"01a0", "01a1"}, true)},
-			owners:   worktreeOwners{TaskIDs: []string{"01a0"}},
+			state:    map[string]dirState{shared: presentDir(nil, []string{held.String(), stray.String()}, true)},
+			owners:   worktreeOwners{TaskIDs: []uuid.UUID{held}},
 			want:     StatusWarn,
 			wantCode: "worktrees_unowned",
-			wantIn:   []string{shared, "01a1"},
+			wantIn:   []string{shared, stray.String()},
 			// The agent that does hold a directory is not named.
-			wantNotIn: []string{"01a0"},
+			wantNotIn: []string{held.String()},
 		},
 		{
 			name:   "every directory has one",
-			state:  map[string]dirState{shared: presentDir(nil, []string{"01a0", "01a1"}, true)},
-			owners: worktreeOwners{TaskIDs: []string{"01a0", "01a1"}},
+			state:  map[string]dirState{shared: presentDir(nil, []string{held.String(), stray.String()}, true)},
+			owners: worktreeOwners{TaskIDs: []uuid.UUID{held, stray}},
 			want:   StatusOK,
 			wantIn: []string{"2 worktrees"},
 		},
 		{
 			name:   "an adopted agent running in one komrad did not name",
 			state:  map[string]dirState{shared: presentDir(nil, []string{"borrowed"}, true)},
-			owners: worktreeOwners{TaskIDs: []string{"01a0"}, AgentDirs: []string{filepath.Join(shared, "borrowed")}},
+			owners: worktreeOwners{TaskIDs: []uuid.UUID{held}, AgentDirs: []string{filepath.Join(shared, "borrowed")}},
 			want:   StatusOK,
 		},
 		{
 			name:      "the database is not reachable",
-			state:     map[string]dirState{shared: presentDir(nil, []string{"01a1"}, true)},
+			state:     map[string]dirState{shared: presentDir(nil, []string{stray.String()}, true)},
 			ownersErr: errors.New("dial tcp 127.0.0.1:5460: connect: connection refused"),
 			want:      StatusWarn,
 			wantCode:  "worktree_owners_unreadable",
@@ -280,18 +282,19 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 	const shared = "/home/u/worktrees"
 	const own = "/repos/komrad/trees"
+	held, stray := uuid.New(), uuid.New()
 
 	env := dirsEnv(configWithDirs(t, "", shared), map[string]dirState{
-		shared: presentDir(nil, []string{"01a0"}, true),
-		own:    presentDir(nil, []string{"01a9"}, true),
-	}, worktreeOwners{TaskIDs: []string{"01a0"}, WorkflowDirs: []string{own}}, nil)
+		shared: presentDir(nil, []string{held.String()}, true),
+		own:    presentDir(nil, []string{stray.String()}, true),
+	}, worktreeOwners{TaskIDs: []uuid.UUID{held}, WorkflowDirs: []string{own}}, nil)
 
 	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 
 	assert.Equal(t, StatusWarn, result.Status)
 	assert.Equal(t, "worktrees_unowned", codeOf(result.Err))
-	require.ErrorContains(t, result.Err, "1 worktree in "+own+": 01a9")
-	assert.NotContains(t, result.Err.Error(), "01a0", "the shared directory's one worktree has its agent")
+	require.ErrorContains(t, result.Err, "1 worktree in "+own+": "+stray.String())
+	assert.NotContains(t, result.Err.Error(), held.String(), "the shared directory's one worktree has its agent")
 }
 
 // TestCollectWorktreeDirsDedupes covers a workflow naming the shared directory outright,

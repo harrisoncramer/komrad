@@ -14,12 +14,14 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 var ErrAgentNotFailed = fail.Precondition("agent is not in a failed state")
 
 type RetryCreateParams struct {
-	ID      string
+	ID      uuid.UUID
 	Flags   string
 	Prompt  string
 	Harness string

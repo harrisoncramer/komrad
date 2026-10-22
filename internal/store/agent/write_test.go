@@ -7,6 +7,7 @@ import (
 	"komrad/internal/store"
 	taskstore "komrad/internal/store/task"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -80,7 +81,7 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	require.NotNil(t, writer)
 	require.NotNil(t, writer.SpawnedByAgentID)
 
-	_, deleteErr := f.Delete(ctx, []string{orchestrator.ID})
+	_, deleteErr := f.Delete(ctx, []uuid.UUID{orchestrator.ID})
 
 	require.NoError(t, deleteErr)
 
@@ -95,7 +96,7 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 func TestRename(t *testing.T) {
 	tests := []struct {
 		name         string
-		target       string
+		target       uuid.UUID
 		archiveOther bool
 		to           string
 		wantErr      error
@@ -103,12 +104,7 @@ func TestRename(t *testing.T) {
 	}{
 		{
 			name:   "an id no agent holds touches nothing",
-			target: "00000000-0000-0000-0000-0000000000ff",
-			to:     "free",
-		},
-		{
-			name:   "an id that is not an id touches nothing",
-			target: "not-a-uuid",
+			target: uuid.MustParse("00000000-0000-0000-0000-0000000000ff"),
 			to:     "free",
 		},
 		{
@@ -158,7 +154,7 @@ func TestRename(t *testing.T) {
 			require.NotNil(t, created)
 
 			target := tt.target
-			if target == "" {
+			if target == uuid.Nil {
 				target = created.ID
 			}
 
@@ -190,7 +186,7 @@ func TestDeleteInBatches(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	ids := make([]string, 0, 3)
+	ids := make([]uuid.UUID, 0, 3)
 	for _, name := range []string{"auth", "api", "db"} {
 		require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
 
@@ -200,7 +196,7 @@ func TestDeleteInBatches(t *testing.T) {
 		ids = append(ids, created.ID)
 	}
 
-	_, deleteErr := st.Delete(ctx, []string{ids[0], "not-an-id", ids[2]})
+	_, deleteErr := st.Delete(ctx, []uuid.UUID{ids[0], uuid.New(), ids[2]})
 
 	require.NoError(t, deleteErr)
 
@@ -235,7 +231,7 @@ func TestOneOrchestratorPerWorkflow(t *testing.T) {
 				first, err := st.GetInWorkflow(ctx, st.defaultWorkflow, "first")
 				require.NoError(t, err)
 				require.NotNil(t, first)
-				_, err = st.Archive(ctx, []string{first.ID})
+				_, err = st.Archive(ctx, []uuid.UUID{first.ID})
 				require.NoError(t, err)
 			}
 
@@ -271,7 +267,7 @@ func TestDeletingATaskAnAgentIsOnIsRefused(t *testing.T) {
 	worker, err := f.Get(ctx, "worker")
 	require.NoError(t, err)
 
-	require.Error(t, testmodels.New(f.db).DeleteTask(ctx, task.ID))
+	require.Error(t, testmodels.New(f.db).DeleteTask(ctx, task.ID.String()))
 
 	got, err := f.GetByID(ctx, worker.ID)
 	require.NoError(t, err)

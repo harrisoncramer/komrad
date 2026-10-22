@@ -10,19 +10,21 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // CommentSyncTarget is an open pull request a live agent links to.
 type CommentSyncTarget struct {
-	ID            string
+	ID            uuid.UUID
 	RepositoryURL string
 	Number        int
 }
 
 // ForgeThread is one review thread as the forge holds it, with its comments oldest first.
 type ForgeThread struct {
-	ID            string
-	PullRequestID string
+	ID            uuid.UUID
+	PullRequestID uuid.UUID
 	ProviderID    string
 	Path          string
 	Line          int
@@ -37,7 +39,7 @@ type ForgeThread struct {
 
 // ForgeComment is one comment in a forge review thread.
 type ForgeComment struct {
-	ID          string
+	ID          uuid.UUID
 	ProviderID  string
 	AuthorLogin string
 	AuthorIsBot bool
@@ -79,7 +81,7 @@ func (s *ForgeThreadStore) ListCommentSyncTargets(ctx context.Context) ([]Commen
 
 // SetThreadsParams is what the forge answered for one pull request's threads, read as Viewer.
 type SetThreadsParams struct {
-	PullRequestID string
+	PullRequestID uuid.UUID
 	Viewer        string
 	Threads       []forge.ReviewThread
 	Prune         bool
@@ -107,7 +109,7 @@ func (s *ForgeThreadStore) SetThreads(ctx context.Context, params SetThreadsPara
 		return fmt.Errorf("failed to list the forge threads of pull request %s: %w", params.PullRequestID, err)
 	}
 
-	ids := make(map[string]string, len(held))
+	ids := make(map[string]uuid.UUID, len(held))
 	for _, row := range held {
 		ids[row.ProviderID] = row.ID
 	}
@@ -127,7 +129,7 @@ func (s *ForgeThreadStore) SetThreads(ctx context.Context, params SetThreadsPara
 }
 
 type setCommentsParams struct {
-	ThreadID string
+	ThreadID uuid.UUID
 	Comments []forge.ReviewComment
 	Viewer   string
 	Prune    bool
@@ -167,11 +169,7 @@ func (s *ForgeThreadStore) setComments(ctx context.Context, params setCommentsPa
 }
 
 // ListOfPullRequest is every forge thread on a pull request with its comments, oldest first.
-func (s *ForgeThreadStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]ForgeThread, error) {
-	if !store.IsID(pullRequestID) {
-		return nil, nil
-	}
-
+func (s *ForgeThreadStore) ListOfPullRequest(ctx context.Context, pullRequestID uuid.UUID) ([]ForgeThread, error) {
 	rows, err := s.queries.ListForgeReviewThreadsOfPullRequest(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the forge threads of pull request %s: %w", pullRequestID, err)
@@ -180,13 +178,13 @@ func (s *ForgeThreadStore) ListOfPullRequest(ctx context.Context, pullRequestID 
 		return nil, nil
 	}
 
-	ids := xslice.Map(rows, func(row *models.ForgeReviewThread) string { return row.ID })
+	ids := xslice.Map(rows, func(row *models.ForgeReviewThread) uuid.UUID { return row.ID })
 	comments, err := s.queries.ListForgeReviewCommentsOfThreads(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the comments of %d forge thread(s): %w", len(ids), err)
 	}
 
-	byThread := map[string][]ForgeComment{}
+	byThread := map[uuid.UUID][]ForgeComment{}
 	for _, row := range comments {
 		byThread[row.ThreadID] = append(byThread[row.ThreadID], ForgeComment{
 			ID:            row.ID,
@@ -207,7 +205,7 @@ func (s *ForgeThreadStore) ListOfPullRequest(ctx context.Context, pullRequestID 
 	}), nil
 }
 
-func toThreadUpsert(pullRequestID string, thread forge.ReviewThread) models.UpsertForgeReviewThreadParams {
+func toThreadUpsert(pullRequestID uuid.UUID, thread forge.ReviewThread) models.UpsertForgeReviewThreadParams {
 	params := models.UpsertForgeReviewThreadParams{
 		PullRequestID: pullRequestID,
 		ProviderID:    thread.ProviderID,

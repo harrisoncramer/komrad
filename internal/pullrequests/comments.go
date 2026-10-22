@@ -14,6 +14,8 @@ import (
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+
+	"github.com/google/uuid"
 )
 
 // commentReadsPerPass is the most pull requests one pass reads, so the comments never spend the
@@ -57,7 +59,7 @@ func NewCommentSyncer(params NewCommentSyncerParams) *CommentSyncer {
 }
 
 type forgeMirror interface {
-	Mirror(ctx context.Context, pullRequestID string) error
+	Mirror(ctx context.Context, pullRequestID uuid.UUID) error
 }
 
 type commentHost struct {
@@ -156,7 +158,7 @@ func (s *CommentSyncer) readThreads(ctx context.Context, host *commentHost, remo
 	if err != nil {
 		return fmt.Errorf("failed to read the review threads of pull request %d: %w", target.Number, err)
 	}
-	if answer.Truncated && s.said.first(saidTruncated, target.ID) {
+	if answer.Truncated && s.said.first(saidTruncated, target.ID.String()) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "the pull request holds more review comments than one read returns, so none are removed until it holds fewer",
 			slog.String(logging.RepositoryURL, remote.Canonical()), slog.Int(logging.PullRequestNumber, target.Number))
 	}

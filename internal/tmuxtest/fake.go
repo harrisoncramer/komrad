@@ -6,12 +6,14 @@ import (
 	"sync"
 
 	"komrad/internal/tmux"
+
+	"github.com/google/uuid"
 )
 
 // Fake is a tmux that answers from its fields and records every call made of it.
 type Fake struct {
 	mu       sync.Mutex
-	Owners   map[string]string
+	Owners   map[string]uuid.UUID
 	Captures map[string]string
 	// Screens is what a pane's whole visible grid holds, and Sizes how big the pane is.
 	Screens         map[string]string
@@ -62,7 +64,7 @@ type Size struct {
 // NewFake is a tmux holding no panes.
 func NewFake() *Fake {
 	return &Fake{
-		Owners:         map[string]string{},
+		Owners:         map[string]uuid.UUID{},
 		Captures:       map[string]string{},
 		Screens:        map[string]string{},
 		Sizes:          map[string]Size{},
@@ -148,7 +150,7 @@ func (f *Fake) ShowGlobal(name string) string {
 }
 
 // GetPaneOwner answers the agent Owners names for the pane.
-func (f *Fake) GetPaneOwner(pane string) string {
+func (f *Fake) GetPaneOwner(pane string) uuid.UUID {
 	if f.BeforeGetOwner != nil {
 		f.BeforeGetOwner()
 	}
@@ -298,7 +300,7 @@ func (f *Fake) NewWindow(session, name, dir string) (string, error) {
 
 	f.NewWindows[name] = dir
 	opened := "%" + name
-	f.Owners[opened] = ""
+	f.Owners[opened] = uuid.Nil
 
 	return opened, nil
 }
@@ -312,7 +314,7 @@ func (f *Fake) WindowsOpened() int {
 }
 
 // SetPaneOwner records the pane owner.
-func (f *Fake) SetPaneOwner(pane, agentID string) error {
+func (f *Fake) SetPaneOwner(pane string, agentID uuid.UUID) error {
 	if err := f.recordOwner(pane, agentID); err != nil {
 		return err
 	}
@@ -324,7 +326,7 @@ func (f *Fake) SetPaneOwner(pane, agentID string) error {
 	return nil
 }
 
-func (f *Fake) recordOwner(pane, agentID string) error {
+func (f *Fake) recordOwner(pane string, agentID uuid.UUID) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

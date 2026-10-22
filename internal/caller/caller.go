@@ -13,6 +13,8 @@ import (
 	"net/http"
 
 	"komrad/lib/xhttp"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -22,7 +24,7 @@ const (
 )
 
 type Caller struct {
-	AgentID   string
+	AgentID   uuid.UUID
 	SessionID string
 	Email     string
 	Issuer    string
@@ -31,16 +33,25 @@ type Caller struct {
 
 // isKnown reports whether the request named an agent at all.
 func (c Caller) isKnown() bool {
-	return c.AgentID != "" || c.SessionID != ""
+	return c.AgentID != uuid.Nil || c.SessionID != ""
 }
 
 // FromHeader reads the identity a request arrived with, dropping any value that is still an
-// unexpanded shell variable.
+// unexpanded shell variable or an agent id that does not parse.
 func FromHeader(header http.Header) Caller {
 	return Caller{
-		AgentID:   expanded(header.Get(AgentHeader)),
+		AgentID:   parseAgentID(header.Get(AgentHeader)),
 		SessionID: expanded(header.Get(SessionHeader)),
 	}
+}
+
+func parseAgentID(value string) uuid.UUID {
+	id, err := uuid.Parse(value)
+	if err != nil {
+		return uuid.Nil
+	}
+
+	return id
 }
 
 func expanded(value string) string {
@@ -64,8 +75,8 @@ func FromRequest(ctx context.Context, header http.Header) Caller {
 // SetHeader writes the identity onto a request going out, and nothing for a caller that is not
 // known.
 func (c Caller) SetHeader(header http.Header) {
-	if c.AgentID != "" {
-		header.Set(AgentHeader, c.AgentID)
+	if c.AgentID != uuid.Nil {
+		header.Set(AgentHeader, c.AgentID.String())
 	}
 	if c.SessionID != "" {
 		header.Set(SessionHeader, c.SessionID)

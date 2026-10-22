@@ -332,7 +332,7 @@ func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
 	assert.NotEqual(t, first.Agent.ID, second.Agent.ID)
 }
 
-func seedWorktreeWorkflow(t *testing.T, st *testStore, repo string) string {
+func seedWorktreeWorkflow(t *testing.T, st *testStore, repo string) uuid.UUID {
 	t.Helper()
 
 	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{

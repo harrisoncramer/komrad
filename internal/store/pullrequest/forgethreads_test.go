@@ -7,6 +7,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +35,7 @@ func commentBy(providerID, login string) forge.ReviewComment {
 	}
 }
 
-func (h *harness) linkedPullRequest(t *testing.T, providerID string, number int, branch string) string {
+func (h *harness) linkedPullRequest(t *testing.T, providerID string, number int, branch string) uuid.UUID {
 	t.Helper()
 	ctx := t.Context()
 
@@ -59,7 +60,7 @@ func TestListCommentSyncTargets(t *testing.T) {
 	workflow := h.createWorkflow(t)
 	h.createAgent(t, workflow, "live", komrad, "agent/x")
 	archived := h.createAgent(t, workflow, "archived", komrad, "agent/y")
-	_, err := h.agents.Archive(ctx, []string{archived})
+	_, err := h.agents.Archive(ctx, []uuid.UUID{archived})
 	require.NoError(t, err)
 
 	_, err = h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))

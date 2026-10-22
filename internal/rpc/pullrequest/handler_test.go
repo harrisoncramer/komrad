@@ -16,16 +16,17 @@ import (
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1komrad"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
-const (
+var (
 	pullRequestID = "01a11e6f-0000-7000-8000-0000000000b1"
-	firstCheckID  = "01a11e6f-0000-7000-8000-0000000000c1"
-	secondCheckID = "01a11e6f-0000-7000-8000-0000000000c2"
-	thirdCheckID  = "01a11e6f-0000-7000-8000-0000000000c3"
+	firstCheckID  = uuid.MustParse("01a11e6f-0000-7000-8000-0000000000c1")
+	secondCheckID = uuid.MustParse("01a11e6f-0000-7000-8000-0000000000c2")
+	thirdCheckID  = uuid.MustParse("01a11e6f-0000-7000-8000-0000000000c3")
 )
 
 const komradRepository = "https://github.com/harrisoncramer/komrad"
@@ -38,8 +39,8 @@ type fakePullRequestLister struct {
 	statusChecksOf []string
 	lines          *pullrequeststore.CheckLogLines
 	search         *pullrequeststore.CheckLogSearch
-	readsOf        []string
-	searchesOf     [][]string
+	readsOf        []uuid.UUID
+	searchesOf     [][]uuid.UUID
 }
 
 // ListPullRequests records the params and answers pullRequests.
@@ -84,12 +85,12 @@ func TestListPullRequests(t *testing.T) {
 	merged := opened.Add(time.Hour)
 	reader := &fakePullRequestLister{pullRequests: []pullrequeststore.PullRequest{
 		{
-			ID:       "01a0d1d7-0000-7000-8000-000000000002",
+			ID:       uuid.MustParse("01a0d1d7-0000-7000-8000-000000000002"),
 			Number:   2,
 			OpenedAt: opened.Add(time.Hour),
 		},
 		{
-			ID:       "01a0d1d7-0000-7000-8000-000000000001",
+			ID:       uuid.MustParse("01a0d1d7-0000-7000-8000-000000000001"),
 			Number:   1,
 			OpenedAt: opened,
 			MergedAt: &merged,
@@ -130,7 +131,7 @@ func TestListPullRequests(t *testing.T) {
 			Cursor: &pullrequeststore.Cursor{
 				Finished: true,
 				OpenedAt: opened,
-				ID:       "01a0d1d7-0000-7000-8000-000000000001",
+				ID:       uuid.MustParse("01a0d1d7-0000-7000-8000-000000000001"),
 			},
 		},
 	}
@@ -138,8 +139,8 @@ func TestListPullRequests(t *testing.T) {
 }
 
 // ListStatusChecks records the pull request asked about and answers readings.
-func (f *fakePullRequestLister) ListStatusChecks(_ context.Context, pullRequestID string) ([]pullrequeststore.StatusCheckReading, error) {
-	f.statusChecksOf = append(f.statusChecksOf, pullRequestID)
+func (f *fakePullRequestLister) ListStatusChecks(_ context.Context, pullRequestID uuid.UUID) ([]pullrequeststore.StatusCheckReading, error) {
+	f.statusChecksOf = append(f.statusChecksOf, pullRequestID.String())
 
 	return f.readings, nil
 }
@@ -307,8 +308,8 @@ func TestListStatusChecks(t *testing.T) {
 					State:      forge.StatusCheckStateCompleted,
 					JobID:      xptr.Ptr(int64(9)),
 				}},
-				CheckIDs: map[string]string{"1": firstCheckID, "2": secondCheckID, "3": thirdCheckID},
-				Logs: map[string]pullrequeststore.CheckLog{
+				CheckIDs: map[string]uuid.UUID{"1": firstCheckID, "2": secondCheckID, "3": thirdCheckID},
+				Logs: map[uuid.UUID]pullrequeststore.CheckLog{
 					firstCheckID: {
 						CheckID:    firstCheckID,
 						FetchedAt:  readAt,
@@ -342,7 +343,7 @@ func TestListStatusChecks(t *testing.T) {
 				FirstReadAt: xptr.Ptr("2026-10-03T12:00:00Z"),
 				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
-					Id:         firstCheckID,
+					Id:         firstCheckID.String(),
 					ProviderId: "1",
 					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:       "test",
@@ -369,14 +370,14 @@ func TestListStatusChecks(t *testing.T) {
 						}},
 					},
 				}, {
-					Id:         secondCheckID,
+					Id:         secondCheckID.String(),
 					ProviderId: "2",
 					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:       "lint",
 					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING,
 					Log:        &pullrequestv1.CheckLog{State: pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING},
 				}, {
-					Id:         thirdCheckID,
+					Id:         thirdCheckID.String(),
 					ProviderId: "3",
 					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:       "build",
@@ -404,14 +405,14 @@ func TestListStatusChecks(t *testing.T) {
 }
 
 // ReadCheckLog records the check asked about and answers lines.
-func (f *fakePullRequestLister) ReadCheckLog(_ context.Context, checkID string, _, _ int) (*pullrequeststore.CheckLogLines, error) {
+func (f *fakePullRequestLister) ReadCheckLog(_ context.Context, checkID uuid.UUID, _, _ int) (*pullrequeststore.CheckLogLines, error) {
 	f.readsOf = append(f.readsOf, checkID)
 
 	return f.lines, nil
 }
 
 // SearchCheckLogs records the checks asked about and answers search.
-func (f *fakePullRequestLister) SearchCheckLogs(_ context.Context, checkIDs []string, _ string) (*pullrequeststore.CheckLogSearch, error) {
+func (f *fakePullRequestLister) SearchCheckLogs(_ context.Context, checkIDs []uuid.UUID, _ string) (*pullrequeststore.CheckLogSearch, error) {
 	f.searchesOf = append(f.searchesOf, checkIDs)
 
 	return f.search, nil
@@ -440,11 +441,11 @@ func TestReadCheckLog(t *testing.T) {
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
 			got, err := service.ReadCheckLog(t.Context(), connect.NewRequest(&pullrequestv1.ReadCheckLogRequest{
-				CheckId:   firstCheckID,
+				CheckId:   firstCheckID.String(),
 				FirstLine: 1,
 				Count:     2,
 			}))
-			assert.Equal(t, []string{firstCheckID}, reader.readsOf)
+			assert.Equal(t, []uuid.UUID{firstCheckID}, reader.readsOf)
 			require.NoError(t, err)
 			assert.True(t, proto.Equal(tt.want, got.Msg), "got %v", got.Msg)
 		})
@@ -480,13 +481,13 @@ func TestSearchCheckLogs(t *testing.T) {
 			want: &pullrequestv1.SearchCheckLogsResponse{
 				Hits: []*pullrequestv1.CheckLogHit{
 					{
-						CheckId:    firstCheckID,
+						CheckId:    firstCheckID.String(),
 						Line:       4,
 						StepNumber: 2,
 						Text:       "--- FAIL: TestX",
 					},
 					{
-						CheckId: secondCheckID,
+						CheckId: secondCheckID.String(),
 						Line:    1,
 						Text:    "FAIL long",
 						Cut:     true,
@@ -502,8 +503,8 @@ func TestSearchCheckLogs(t *testing.T) {
 			reader := &fakePullRequestLister{search: tt.search}
 			service := pullrequestv1komrad.PullRequestServiceAdapter{Impl: NewHandler(NewHandlerParams{PullRequests: reader})}
 
-			got, err := service.SearchCheckLogs(t.Context(), connect.NewRequest(&pullrequestv1.SearchCheckLogsRequest{CheckIds: []string{firstCheckID, secondCheckID}, Pattern: "FAIL"}))
-			assert.Equal(t, [][]string{{firstCheckID, secondCheckID}}, reader.searchesOf)
+			got, err := service.SearchCheckLogs(t.Context(), connect.NewRequest(&pullrequestv1.SearchCheckLogsRequest{CheckIds: []string{firstCheckID.String(), secondCheckID.String()}, Pattern: "FAIL"}))
+			assert.Equal(t, [][]uuid.UUID{{firstCheckID, secondCheckID}}, reader.searchesOf)
 			require.NoError(t, err)
 			assert.True(t, proto.Equal(tt.want, got.Msg), "got %v", got.Msg)
 		})

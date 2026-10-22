@@ -11,13 +11,15 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 // HookRunner runs a workflow's hooks, each in its turn among those queued under the same key.
 type HookRunner interface {
 	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
-	AwaitHooks(ctx context.Context, key string) error
-	QueueHooks(key string) *HookTurn
+	AwaitHooks(ctx context.Context, key uuid.UUID) error
+	QueueHooks(key uuid.UUID) *HookTurn
 }
 
 // HookRun is one moment's worth of work: the hooks a workflow lists, the agent they run against,
@@ -32,23 +34,23 @@ type HookRun struct {
 // HookQueue orders the hooks queued under each key, an agent's id or a task's, one moment at a time.
 type HookQueue struct {
 	mu    sync.Mutex
-	tails map[string]chan struct{}
+	tails map[uuid.UUID]chan struct{}
 }
 
 // HookTurn is one moment's place in a key's hook queue.
 type HookTurn struct {
-	key   string
+	key   uuid.UUID
 	ahead <-chan struct{}
 	done  func()
 }
 
 // QueueHooks takes the next place in a key's hook queue, which is held until Done.
-func (q *HookQueue) QueueHooks(key string) *HookTurn {
+func (q *HookQueue) QueueHooks(key uuid.UUID) *HookTurn {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	if q.tails == nil {
-		q.tails = make(map[string]chan struct{})
+		q.tails = make(map[uuid.UUID]chan struct{})
 	}
 
 	ahead := q.tails[key]
@@ -89,7 +91,7 @@ func (q *HookQueue) QueueHooks(key string) *HookTurn {
 }
 
 // AwaitHooks waits until every hook already queued under a key has finished.
-func (q *HookQueue) AwaitHooks(ctx context.Context, key string) error {
+func (q *HookQueue) AwaitHooks(ctx context.Context, key uuid.UUID) error {
 	q.mu.Lock()
 	tail := q.tails[key]
 	q.mu.Unlock()
@@ -162,14 +164,14 @@ func (r HookRun) Start(ctx context.Context) {
 			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
 				append([]slog.Attr{
 					slog.String(logging.RunTrigger, r.Event),
-					slog.String(logging.ScriptAgentID, r.Agent.ID),
+					slog.String(logging.ScriptAgentID, r.Agent.ID.String()),
 				}, logging.Err(err)...)...)
 		}
 	}()
 }
 
 // queueKey is what a moment's hooks queue under, the task's id for a moment in a task's life and the agent's otherwise.
-func (r HookRun) queueKey() string {
+func (r HookRun) queueKey() uuid.UUID {
 	if workflowstore.IsTaskEvent(r.Event) && r.Agent.TaskID != nil {
 		return *r.Agent.TaskID
 	}
@@ -182,7 +184,7 @@ func HasHookOn(hooks []workflowstore.Hook, event string) bool {
 	return slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Event == event })
 }
 
-func awaitHooks(ctx context.Context, key string, ahead <-chan struct{}) error {
+func awaitHooks(ctx context.Context, key uuid.UUID, ahead <-chan struct{}) error {
 	if ahead == nil {
 		return nil
 	}

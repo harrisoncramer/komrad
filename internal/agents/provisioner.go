@@ -31,7 +31,7 @@ func runDeprovision(ctx context.Context, params runDeprovisionParams) {
 	if err := params.deprovision.RunDeprovision(ctx, params.agent, params.name, params.done); err != nil {
 		attrs := []slog.Attr{
 			slog.String(logging.ScriptName, params.name),
-			slog.String(logging.ScriptAgentID, params.agent.ID),
+			slog.String(logging.ScriptAgentID, params.agent.ID.String()),
 			slog.String(logging.ScriptAgentCwd, params.agent.Cwd),
 		}
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovisioner would not start", append(attrs, logging.Err(err)...)...)

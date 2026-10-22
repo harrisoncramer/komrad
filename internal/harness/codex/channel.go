@@ -13,8 +13,8 @@ import (
 	"komrad/internal/harness"
 	"komrad/lib/xhttp"
 
-	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"github.com/coder/websocket"
 )
 
 const minVersion = "0.149.0"
@@ -66,7 +66,7 @@ func (c channel) Send(ctx context.Context, target harness.Target, text string) (
 	return rpc.deliver(ctx, target.SessionID, text)
 }
 
-func (c channel) dial(ctx context.Context, agentID string) (*websocket.Conn, error) {
+func (c channel) dial(ctx context.Context, agentID uuid.UUID) (*websocket.Conn, error) {
 	path := harness.SocketPath(c.cacheDir, HarnessID, agentID)
 
 	transport := xhttp.NewTransport()

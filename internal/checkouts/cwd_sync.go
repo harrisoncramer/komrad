@@ -18,6 +18,7 @@ import (
 	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/harrisoncramer/streamer"
 )
 
@@ -76,13 +77,13 @@ type CwdSyncer struct {
 	walkedMu sync.Mutex
 	// walked is the base tip and newest unlanded snapshot each task's landing was last walked at,
 	// so komrad skips a walk that would find what the last one did.
-	walked map[string]string
+	walked map[uuid.UUID]string
 	// fetched is the merge each task's base was last fetched for.
-	fetched map[string]time.Time
+	fetched map[uuid.UUID]time.Time
 	// seenMu guards seen.
 	seenMu sync.Mutex
 	// seen is what each task's worktree last fingerprinted as and what was read of it then.
-	seen map[string]seenWorktree
+	seen map[uuid.UUID]seenWorktree
 }
 
 // NewCwdSyncer builds a syncer over the task store.
@@ -96,9 +97,9 @@ func NewCwdSyncer(params NewCwdSyncerParams) *CwdSyncer {
 		workflows:    params.Workflows,
 		worktrees:    params.Worktrees,
 		pullRequests: params.PullRequests,
-		walked:       map[string]string{},
-		fetched:      map[string]time.Time{},
-		seen:         map[string]seenWorktree{},
+		walked:       map[uuid.UUID]string{},
+		fetched:      map[uuid.UUID]time.Time{},
+		seen:         map[uuid.UUID]seenWorktree{},
 	}
 }
 
@@ -227,13 +228,13 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 }
 
 // listNewestSnapshots is the commit of the newest snapshot of every task's agents, by task id.
-func (cs *CwdSyncer) listNewestSnapshots(ctx context.Context) (map[string]string, error) {
+func (cs *CwdSyncer) listNewestSnapshots(ctx context.Context) (map[uuid.UUID]string, error) {
 	newest, err := cs.snapshots.ListNewestSnapshots(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the newest review snapshots for cwd sync: %w", err)
 	}
 
-	snapshots := map[string]string{}
+	snapshots := map[uuid.UUID]string{}
 	for _, snapshot := range newest {
 		snapshots[snapshot.TaskID] = snapshot.SHA
 	}
@@ -242,13 +243,13 @@ func (cs *CwdSyncer) listNewestSnapshots(ctx context.Context) (map[string]string
 }
 
 // listWorktreeConfigs is the worktree settings of each workflow, by workflow id.
-func (cs *CwdSyncer) listWorktreeConfigs(ctx context.Context) (map[string]workflowstore.WorktreeConfig, error) {
+func (cs *CwdSyncer) listWorktreeConfigs(ctx context.Context) (map[uuid.UUID]workflowstore.WorktreeConfig, error) {
 	flows, err := cs.workflows.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the workflows for cwd sync: %w", err)
 	}
 
-	configs := map[string]workflowstore.WorktreeConfig{}
+	configs := map[uuid.UUID]workflowstore.WorktreeConfig{}
 	for _, flow := range flows {
 		configs[flow.ID] = flow.Worktree
 	}
@@ -272,9 +273,9 @@ func (cs *CwdSyncer) listOwnedWorktrees(ctx context.Context) (map[string]worktre
 
 type lookAtAllParams struct {
 	Tasks     []taskstore.Task
-	Snapshots map[string]string
-	Unlanded  map[string][]reviewstore.UnlandedSnapshot
-	Worktrees map[string]workflowstore.WorktreeConfig
+	Snapshots map[uuid.UUID]string
+	Unlanded  map[uuid.UUID][]reviewstore.UnlandedSnapshot
+	Worktrees map[uuid.UUID]workflowstore.WorktreeConfig
 	Owned     map[string]worktreestore.Worktree
 }
 
@@ -507,7 +508,7 @@ func (cs *CwdSyncer) walkLandings(ctx context.Context, look *cwdLook, params wal
 }
 
 type walkLandingParams struct {
-	TaskID    string
+	TaskID    uuid.UUID
 	Dir       string
 	Snapshots []reviewstore.UnlandedSnapshot
 	Base      string

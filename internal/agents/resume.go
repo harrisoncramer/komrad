@@ -21,6 +21,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tasks"
+
+	"github.com/google/uuid"
 )
 
 // interruptedPrompt is what a resumed agent is asked on the way back in.
@@ -67,7 +69,7 @@ type ResumeService struct {
 	tasks              *tasks.TaskService
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming.
-	inFlight   map[string]struct{}
+	inFlight   map[uuid.UUID]struct{}
 	inFlightMu sync.Mutex
 }
 
@@ -93,15 +95,15 @@ func NewResumeService(params NewResumeServiceParams) *ResumeService {
 		transcripts:        params.Transcripts,
 		tasks:              params.Tasks,
 		fallbackResumeRoot: params.FallbackResumeRoot,
-		inFlight:           map[string]struct{}{},
+		inFlight:           map[uuid.UUID]struct{}{},
 	}
 }
 
 // ResumeAgentParams is the agent to resume and the agent asking.
 type ResumeAgentParams struct {
-	ID string
+	ID uuid.UUID
 	// ByAgentID is the agent asking, empty for the panel.
-	ByAgentID string
+	ByAgentID uuid.UUID
 }
 
 // ResumeAgent relaunches a dormant agent in its previous conversation.
@@ -138,8 +140,8 @@ func (s *ResumeService) ResumeAgent(ctx context.Context, params ResumeAgentParam
 
 // refuseResumingOthers holds a reviewer to its task's writer, a writer to its task's reviewers, and
 // either to its workflow's orchestrator.
-func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID string, target agentstore.Agent) error {
-	if byAgentID == "" {
+func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID uuid.UUID, target agentstore.Agent) error {
+	if byAgentID == uuid.Nil {
 		return nil
 	}
 
@@ -197,7 +199,7 @@ func isTaskWriter(agent agentstore.Agent) bool {
 	return agent.TaskID != nil && agent.IsWriter()
 }
 
-func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {
+func (s *ResumeService) getByID(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", id)
@@ -211,7 +213,7 @@ func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Age
 
 // takeInFlight takes the right to resume one agent, reporting false when this panel is already
 // part-way through resuming it, and hands back the call that gives the right up.
-func (s *ResumeService) takeInFlight(id string) (func(), bool) {
+func (s *ResumeService) takeInFlight(id uuid.UUID) (func(), bool) {
 	s.inFlightMu.Lock()
 	defer s.inFlightMu.Unlock()
 
@@ -407,14 +409,14 @@ func (r *resumeStart) setHarness(ctx context.Context, agent agentstore.Agent) er
 func (r *resumeStart) rollBack(ctx context.Context, agent agentstore.Agent, _ error) {
 	if err := r.service.agents.SetStateByID(ctx, agent.ID, r.prior); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 	}
 	if r.restart == nil {
 		return
 	}
 	if err := r.setHarness(ctx, r.restart.earlier); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put back the conversation, CLI and flags of a writer whose restart gave up",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 	}
 }
 
@@ -431,7 +433,7 @@ func (s *ResumeService) getResumeDir(agent agentstore.Agent) string {
 		return dir
 	}
 
-	standIn := filepath.Join(s.fallbackResumeRoot, agent.ID)
+	standIn := filepath.Join(s.fallbackResumeRoot, agent.ID.String())
 	if err := os.MkdirAll(standIn, 0o755); err != nil || scripts.RequireUsableDir(standIn) != nil {
 		home, _ := os.UserHomeDir()
 

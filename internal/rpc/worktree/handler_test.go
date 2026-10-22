@@ -16,6 +16,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -251,20 +252,20 @@ func buildListedWorktree() worktrees.Worktree {
 		Branch:   "agent/aaaa",
 		Readable: true,
 		Task: &worktrees.Task{
-			ID:         "aaaa",
+			ID:         firstTaskID,
 			Slug:       "first-task",
 			Adopted:    true,
 			ArchivedAt: &archived,
 		},
 		Occupants: []worktrees.Agent{
 			{
-				ID:         "first",
+				ID:         firstWorktreeTaskID,
 				Name:       "first",
 				State:      agentstore.StateIdle,
 				ArchivedAt: &archived,
 			},
 			{
-				ID:    "bbbb",
+				ID:    uuid.New(),
 				Name:  "first-reviewer",
 				State: agentstore.StateThinking,
 			},
@@ -278,3 +279,8 @@ func buildListedWorktree() worktrees.Worktree {
 		LastActiveAt: archived,
 	}
 }
+
+var (
+	firstTaskID         = uuid.New()
+	firstWorktreeTaskID = uuid.New()
+)

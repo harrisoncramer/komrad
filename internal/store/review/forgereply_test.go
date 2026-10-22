@@ -9,16 +9,17 @@ import (
 	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // replyThreads is an agent with one thread mirrored from the forge and one opened in komrad.
 type replyThreads struct {
-	agentID       string
-	pullRequestID string
-	mirrored      string
-	local         string
+	agentID       uuid.UUID
+	pullRequestID uuid.UUID
+	mirrored      uuid.UUID
+	local         uuid.UUID
 }
 
 func (st *fixture) seedReplyThreads(t *testing.T) replyThreads {
@@ -112,13 +113,13 @@ func TestForgeReplyTransitions(t *testing.T) {
 		name  string
 		from  []ForgeReplyState
 		to    ForgeReplyState
-		apply func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error)
+		apply func(ctx context.Context, st *fixture, id uuid.UUID) (ForgeReplyState, error)
 	}{
 		{
 			name: "begin sending",
 			from: []ForgeReplyState{ForgeReplyApproved, ForgeReplyFailed},
 			to:   ForgeReplySending,
-			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
+			apply: func(ctx context.Context, st *fixture, id uuid.UUID) (ForgeReplyState, error) {
 				reply, err := st.BeginForgeReplySend(ctx, id)
 				return stateOf(reply), err
 			},
@@ -127,7 +128,7 @@ func TestForgeReplyTransitions(t *testing.T) {
 			name: "mark sent",
 			from: []ForgeReplyState{ForgeReplySending},
 			to:   ForgeReplySent,
-			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
+			apply: func(ctx context.Context, st *fixture, id uuid.UUID) (ForgeReplyState, error) {
 				reply, err := st.MarkForgeReplySent(ctx, id, "PRRC_2")
 				return stateOf(reply), err
 			},
@@ -136,7 +137,7 @@ func TestForgeReplyTransitions(t *testing.T) {
 			name: "mark failed",
 			from: []ForgeReplyState{ForgeReplySending},
 			to:   ForgeReplyFailed,
-			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
+			apply: func(ctx context.Context, st *fixture, id uuid.UUID) (ForgeReplyState, error) {
 				reply, err := st.MarkForgeReplyFailed(ctx, id, "rate limited")
 				return stateOf(reply), err
 			},
@@ -144,7 +145,7 @@ func TestForgeReplyTransitions(t *testing.T) {
 		{
 			name: "discard",
 			from: []ForgeReplyState{ForgeReplyFailed},
-			apply: func(ctx context.Context, st *fixture, id string) (ForgeReplyState, error) {
+			apply: func(ctx context.Context, st *fixture, id uuid.UUID) (ForgeReplyState, error) {
 				return "", st.DeleteForgeReply(ctx, id)
 			},
 		},
@@ -277,7 +278,7 @@ func TestForgeReplyThreads(t *testing.T) {
 		{
 			name: "a thread that does not exist takes no reply",
 			write: func(t *testing.T, st *fixture, _ replyThreads) error {
-				_, err := st.CreateForgeReply(t.Context(), "01a10000-0000-7000-8000-000000000000", "hi")
+				_, err := st.CreateForgeReply(t.Context(), uuid.MustParse("01a10000-0000-7000-8000-000000000000"), "hi")
 
 				return err
 			},
@@ -301,39 +302,37 @@ func TestForgeReplyThreads(t *testing.T) {
 
 // TestForgeReplyNotFound covers every call on a reply that does not exist.
 func TestForgeReplyNotFound(t *testing.T) {
-	calls := map[string]func(ctx context.Context, st *fixture, id string) error{
-		"get": func(ctx context.Context, st *fixture, id string) error {
+	calls := map[string]func(ctx context.Context, st *fixture, id uuid.UUID) error{
+		"get": func(ctx context.Context, st *fixture, id uuid.UUID) error {
 			_, err := st.GetForgeReply(ctx, id)
 
 			return err
 		},
-		"begin sending": func(ctx context.Context, st *fixture, id string) error {
+		"begin sending": func(ctx context.Context, st *fixture, id uuid.UUID) error {
 			_, err := st.BeginForgeReplySend(ctx, id)
 
 			return err
 		},
-		"mark sent": func(ctx context.Context, st *fixture, id string) error {
+		"mark sent": func(ctx context.Context, st *fixture, id uuid.UUID) error {
 			_, err := st.MarkForgeReplySent(ctx, id, "PRRC_1")
 
 			return err
 		},
-		"mark failed": func(ctx context.Context, st *fixture, id string) error {
+		"mark failed": func(ctx context.Context, st *fixture, id uuid.UUID) error {
 			_, err := st.MarkForgeReplyFailed(ctx, id, "x")
 
 			return err
 		},
-		"discard": func(ctx context.Context, st *fixture, id string) error {
+		"discard": func(ctx context.Context, st *fixture, id uuid.UUID) error {
 			return st.DeleteForgeReply(ctx, id)
 		},
 	}
 
 	st := openFixture(t)
 	for name, call := range calls {
-		for _, id := range []string{"01a10000-0000-7000-8000-000000000000", "not-an-id"} {
-			t.Run(name+" "+id, func(t *testing.T) {
-				assert.ErrorIs(t, call(t.Context(), st, id), store.ErrNotFound)
-			})
-		}
+		t.Run(name, func(t *testing.T) {
+			assert.ErrorIs(t, call(t.Context(), st, uuid.New()), store.ErrNotFound)
+		})
 	}
 }
 
@@ -353,7 +352,7 @@ func TestListForgeReplies(t *testing.T) {
 		WHERE id = $1`, draft.ID, threads.agentID)
 	require.NoError(t, err)
 
-	listed, err := st.ListForgeReplies(ctx, []string{threads.mirrored, threads.local})
+	listed, err := st.ListForgeReplies(ctx, []uuid.UUID{threads.mirrored, threads.local})
 	require.NoError(t, err)
 	require.Len(t, listed, 2)
 	assert.Equal(t, sending.ID, listed[0].ID)
@@ -420,7 +419,7 @@ func TestListForgeReplies(t *testing.T) {
 					Threads:       []forge.ReviewThread{thread},
 				}))
 
-				listed, err := st.ListForgeReplies(ctx, []string{threads.mirrored})
+				listed, err := st.ListForgeReplies(ctx, []uuid.UUID{threads.mirrored})
 				require.NoError(t, err)
 				require.Len(t, listed, 1)
 				if !tt.synced {
@@ -521,7 +520,7 @@ func TestGetForgeReplyTarget(t *testing.T) {
 		Number:        1,
 	}, *target)
 
-	for _, id := range []string{threads.local, "01a10000-0000-7000-8000-000000000000", "not-an-id"} {
+	for _, id := range []uuid.UUID{threads.local, uuid.New()} {
 		_, err := st.GetForgeReplyTarget(ctx, id)
 		assert.ErrorIs(t, err, errNotMirrored, id)
 	}

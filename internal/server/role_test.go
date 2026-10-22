@@ -29,34 +29,29 @@ func TestRoleOf(t *testing.T) {
 	roleOf := newRoleOf(stores.Agents)
 
 	reviewer := stores.SeedAgent(t, agentstore.Agent{
-		ID:   uuid.NewString(),
+		ID:   uuid.New(),
 		Name: "reviewer",
 		Cwd:  "/repo",
 		Role: agentstore.RoleReviewer,
 	})
 	archived := stores.SeedAgent(t, agentstore.Agent{
-		ID:   uuid.NewString(),
+		ID:   uuid.New(),
 		Name: "archived",
 		Cwd:  "/repo",
 		Role: agentstore.RoleOrchestrator,
 	})
-	_, err := stores.Agents.Archive(t.Context(), []string{archived.ID})
+	_, err := stores.Agents.Archive(t.Context(), []uuid.UUID{archived.ID})
 	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
-		agentID string
+		agentID uuid.UUID
 		want    annotationv1.Role
 		wantErr error
 	}{
 		{
 			name:    "an id no row holds is unknown",
-			agentID: uuid.NewString(),
-			wantErr: rpcapi.ErrUnknownCaller,
-		},
-		{
-			name:    "an id that is not an id is unknown",
-			agentID: "not-an-id",
+			agentID: uuid.New(),
 			wantErr: rpcapi.ErrUnknownCaller,
 		},
 		{

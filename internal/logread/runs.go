@@ -6,6 +6,8 @@ import (
 
 	"komrad/config"
 	"komrad/internal/fail"
+
+	"github.com/google/uuid"
 )
 
 // ErrNoSuchRun says the agent recorded no run by the name asked for.
@@ -13,7 +15,7 @@ var ErrNoSuchRun = fail.NotFound("the agent recorded no run by that name")
 
 // Run names one script run an agent recorded, by the file it wrote.
 type Run struct {
-	AgentID string
+	AgentID uuid.UUID
 	Name    string
 }
 
@@ -27,12 +29,8 @@ func NewRuns(dir string) *Runs {
 	return &Runs{dir: dir}
 }
 
-// List is the runs the agent has recorded, newest first, and none for an id that is not one path element.
-func (r *Runs) List(agentID string) []config.RunLog {
-	if agentID != filepath.Base(agentID) || agentID == ".." || agentID == "." {
-		return nil
-	}
-
+// List is the runs the agent has recorded, newest first.
+func (r *Runs) List(agentID uuid.UUID) []config.RunLog {
 	return config.ListRunLogs(r.dir, agentID)
 }
 

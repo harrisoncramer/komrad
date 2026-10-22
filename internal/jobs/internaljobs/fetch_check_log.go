@@ -14,6 +14,7 @@ import (
 	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -32,7 +33,7 @@ const (
 
 // FetchCheckLogArgs fetches the log of one finished check and keeps it.
 type FetchCheckLogArgs struct {
-	CheckID string `json:"check_id"`
+	CheckID uuid.UUID `json:"check_id"`
 }
 
 // Kind is the River job kind.
@@ -199,7 +200,7 @@ func (w *FetchCheckLogWorker) setLimit(host string, limit forge.RateLimit) {
 }
 
 // failOrRetry keeps the log as failed on the last attempt, and otherwise hands the error to River to retry.
-func (w *FetchCheckLogWorker) failOrRetry(ctx context.Context, job *river.Job[FetchCheckLogArgs], checkID string, err error) error {
+func (w *FetchCheckLogWorker) failOrRetry(ctx context.Context, job *river.Job[FetchCheckLogArgs], checkID uuid.UUID, err error) error {
 	if job.Attempt < job.MaxAttempts {
 		return err
 	}

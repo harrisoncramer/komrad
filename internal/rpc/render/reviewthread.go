@@ -19,12 +19,12 @@ func WatchedReviewThread(thread reviewstore.ThreadWithMessages) *agentv1.ReviewT
 // ReviewThread draws a thread with everything said in it.
 func ReviewThread(thread reviewstore.Thread, messages []reviewstore.Message) *agentv1.ReviewThread {
 	answered := &agentv1.ReviewThread{
-		Id:              thread.ID,
-		TaskId:          thread.TaskID,
-		ReviewId:        thread.ReviewID,
+		Id:              thread.ID.String(),
+		TaskId:          thread.TaskID.String(),
+		ReviewId:        formatOptionalID(thread.ReviewID),
 		AuthorKind:      reviewAuthorKindOf(thread.AuthorKind),
-		AuthorAgentId:   thread.AuthorAgentID,
-		SnapshotId:      thread.SnapshotID,
+		AuthorAgentId:   formatOptionalID(thread.AuthorAgentID),
+		SnapshotId:      thread.SnapshotID.String(),
 		SnapshotOrdinal: thread.SnapshotOrdinal,
 		BaseSha:         thread.BaseSHA,
 		FilePath:        thread.FilePath,
@@ -50,17 +50,17 @@ func ReviewThread(thread reviewstore.Thread, messages []reviewstore.Message) *ag
 // ReviewMessage draws one thing said in a thread.
 func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	answered := &agentv1.ReviewMessage{
-		Id:             message.ID,
-		ThreadId:       message.ThreadID,
+		Id:             message.ID.String(),
+		ThreadId:       message.ThreadID.String(),
 		AuthorKind:     reviewAuthorKindOf(message.AuthorKind),
-		AuthorAgentId:  message.AuthorAgentID,
-		ReviewId:       message.ReviewID,
-		SnapshotId:     message.SnapshotID,
+		AuthorAgentId:  formatOptionalID(message.AuthorAgentID),
+		ReviewId:       formatOptionalID(message.ReviewID),
+		SnapshotId:     formatOptionalID(message.SnapshotID),
 		Body:           message.Body,
 		Suggestion:     message.Suggestion,
 		Held:           message.Held,
-		ReadSnapshotId: message.ReadSnapshotID,
-		AcceptedFrom:   message.AcceptedFrom,
+		ReadSnapshotId: formatOptionalID(message.ReadSnapshotID),
+		AcceptedFrom:   formatOptionalID(message.AcceptedFrom),
 		CreatedAt:      dates.Stamp(message.CreatedAt),
 		UpdatedAt:      dates.Stamp(message.UpdatedAt),
 	}
@@ -71,7 +71,7 @@ func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	if external := message.External; external != nil {
 		answered.Forge = &agentv1.ForgeOrigin{
 			Login:     external.Login,
-			CommentId: external.CommentID,
+			CommentId: external.CommentID.String(),
 			EditedAt:  dates.StampPtr(external.EditedAt),
 		}
 	}

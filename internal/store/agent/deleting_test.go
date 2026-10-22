@@ -7,6 +7,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,13 +15,13 @@ import (
 // TestDeletingClaimHidesTheRow covers a claim taking a row and its reviewers out of the page
 // listing while the directories still hold them.
 func TestDeletingClaimHidesTheRow(t *testing.T) {
-	byID := func(ctx context.Context, f *fixture, writerID string) error {
-		_, err := f.MarkDeleting(ctx, []string{writerID})
+	byID := func(ctx context.Context, f *fixture, writerID uuid.UUID) error {
+		_, err := f.MarkDeleting(ctx, []uuid.UUID{writerID})
 
 		return err
 	}
-	archivedByID := func(ctx context.Context, f *fixture, writerID string) error {
-		_, err := f.MarkArchivedDeletingByID(ctx, []string{writerID})
+	archivedByID := func(ctx context.Context, f *fixture, writerID uuid.UUID) error {
+		_, err := f.MarkArchivedDeletingByID(ctx, []uuid.UUID{writerID})
 
 		return err
 	}
@@ -29,8 +30,8 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 		name       string
 		archive    bool
 		failed     bool
-		claim      func(ctx context.Context, f *fixture, writerID string) error
-		release    func(ctx context.Context, f *fixture, writerID string) error
+		claim      func(ctx context.Context, f *fixture, writerID uuid.UUID) error
+		release    func(ctx context.Context, f *fixture, writerID uuid.UUID) error
 		wantHidden bool
 	}{
 		{
@@ -69,8 +70,8 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 			name:    "a release by id gives the rows back",
 			archive: true,
 			claim:   archivedByID,
-			release: func(ctx context.Context, f *fixture, writerID string) error {
-				return f.ClearDeleting(ctx, []string{writerID})
+			release: func(ctx context.Context, f *fixture, writerID uuid.UUID) error {
+				return f.ClearDeleting(ctx, []uuid.UUID{writerID})
 			},
 			wantHidden: false,
 		},
@@ -95,7 +96,7 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, reviewer)
 			if tt.archive {
-				_, err := f.Archive(ctx, []string{writer.ID, reviewer.ID})
+				_, err := f.Archive(ctx, []uuid.UUID{writer.ID, reviewer.ID})
 				require.NoError(t, err)
 			}
 			if tt.failed {
@@ -129,7 +130,7 @@ func TestReleaseLeavesAnUnclaimedRowUntouched(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, before)
 
-	require.NoError(t, f.ClearDeleting(ctx, []string{before.ID}))
+	require.NoError(t, f.ClearDeleting(ctx, []uuid.UUID{before.ID}))
 
 	after, err := f.Get(ctx, "author")
 	require.NoError(t, err)
@@ -158,20 +159,20 @@ func TestDeletingClaimReturnsWhatItTook(t *testing.T) {
 	other, err := f.Get(ctx, "other")
 	require.NoError(t, err)
 
-	claims, err := f.MarkDeleting(ctx, []string{writer.ID})
+	claims, err := f.MarkDeleting(ctx, []uuid.UUID{writer.ID})
 	require.NoError(t, err)
 	require.Len(t, claims, 2)
-	assert.ElementsMatch(t, []string{writer.ID, reviewer.ID}, claimIDs(claims))
+	assert.ElementsMatch(t, []uuid.UUID{writer.ID, reviewer.ID}, claimIDs(claims))
 	assert.True(t, claims[0].DeletingAt.Equal(claims[1].DeletingAt), "one claim stamps every row it takes alike")
-	assert.Equal(t, []string{writer.ID}, claimIDs(ClaimRoots(claims)))
+	assert.Equal(t, []uuid.UUID{writer.ID}, claimIDs(ClaimRoots(claims)))
 
-	again, err := f.MarkDeleting(ctx, []string{writer.ID, other.ID})
+	again, err := f.MarkDeleting(ctx, []uuid.UUID{writer.ID, other.ID})
 	require.NoError(t, err)
-	assert.Equal(t, []string{other.ID}, claimIDs(again), "a second claim takes only what the first left")
+	assert.Equal(t, []uuid.UUID{other.ID}, claimIDs(again), "a second claim takes only what the first left")
 
 	roots, err := f.ListDeletingRoots(ctx)
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{writer.ID, other.ID}, claimIDs(roots), "a reviewer its task's writer's claim took is not a root")
+	assert.ElementsMatch(t, []uuid.UUID{writer.ID, other.ID}, claimIDs(roots), "a reviewer its task's writer's claim took is not a root")
 }
 
 // TestAReviewerClaimedBeforeItsWriterIsARoot pins a reviewer an earlier delete took keeping a delete
@@ -192,10 +193,10 @@ func TestAReviewerClaimedBeforeItsWriterIsARoot(t *testing.T) {
 	reviewer, err := f.Get(ctx, "reviewer")
 	require.NoError(t, err)
 
-	first, err := f.MarkDeleting(ctx, []string{reviewer.ID})
+	first, err := f.MarkDeleting(ctx, []uuid.UUID{reviewer.ID})
 	require.NoError(t, err)
 	require.Len(t, first, 1)
-	second, err := f.MarkDeleting(ctx, []string{writer.ID})
+	second, err := f.MarkDeleting(ctx, []uuid.UUID{writer.ID})
 	require.NoError(t, err)
 	require.Len(t, second, 1)
 
@@ -206,38 +207,38 @@ func TestAReviewerClaimedBeforeItsWriterIsARoot(t *testing.T) {
 
 // TestClaimRoots pins which claimed agents start a delete of their own.
 func TestClaimRoots(t *testing.T) {
-	task := "t"
+	task, writer, reviewer := uuid.New(), uuid.New(), uuid.New()
 	tests := []struct {
 		name   string
 		claims []Claim
-		want   []string
+		want   []uuid.UUID
 	}{
 		{
 			name:   "nothing claimed",
 			claims: nil,
-			want:   []string{},
+			want:   []uuid.UUID{},
 		},
 		{
 			name: "a reviewer claimed with its task's writer goes with it",
 			claims: []Claim{{
-				ID:     "w",
+				ID:     writer,
 				TaskID: &task,
 				Role:   RoleWriter,
 			}, {
-				ID:     "r",
+				ID:     reviewer,
 				TaskID: &task,
 				Role:   RoleReviewer,
 			}},
-			want: []string{"w"},
+			want: []uuid.UUID{writer},
 		},
 		{
 			name: "a reviewer claimed without its task's writer is a root",
 			claims: []Claim{{
-				ID:     "r",
+				ID:     reviewer,
 				TaskID: &task,
 				Role:   RoleReviewer,
 			}},
-			want: []string{"r"},
+			want: []uuid.UUID{reviewer},
 		},
 	}
 
@@ -277,14 +278,14 @@ func TestListProvisionedIDsByTask(t *testing.T) {
 	require.NoError(t, f.Create(ctx, Agent{Name: "live", State: StateIdle}))
 	live, err := f.Get(ctx, "live")
 	require.NoError(t, err)
-	_, err = f.Archive(ctx, []string{author.ID, reviewer.ID, adopter.ID})
+	_, err = f.Archive(ctx, []uuid.UUID{author.ID, reviewer.ID, adopter.ID})
 	require.NoError(t, err)
 
-	ids, err := f.ListProvisionedIDsByTask(ctx, []string{*author.TaskID, *adopter.TaskID, *live.TaskID, "not-a-task"})
+	ids, err := f.ListProvisionedIDsByTask(ctx, []uuid.UUID{*author.TaskID, *adopter.TaskID, *live.TaskID})
 	require.NoError(t, err)
-	assert.Equal(t, []string{author.ID}, ids)
+	assert.Equal(t, []uuid.UUID{author.ID}, ids)
 }
 
-func claimIDs(claims []Claim) []string {
-	return xslice.Map(claims, func(claim Claim) string { return claim.ID })
+func claimIDs(claims []Claim) []uuid.UUID {
+	return xslice.Map(claims, func(claim Claim) uuid.UUID { return claim.ID })
 }

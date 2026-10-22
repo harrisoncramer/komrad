@@ -21,6 +21,8 @@ import (
 
 	"komrad/internal/logging"
 	"komrad/internal/panes"
+
+	"github.com/google/uuid"
 )
 
 const paneOwnerOption = "@komrad_agent_id"
@@ -125,12 +127,12 @@ func (c *Client) GetPaneHeight(pane string) int {
 }
 
 // SetPaneOwner stamps a pane with the id of the agent running in it.
-func (c *Client) SetPaneOwner(pane, agentID string) error {
-	if pane == "" || agentID == "" {
+func (c *Client) SetPaneOwner(pane string, agentID uuid.UUID) error {
+	if pane == "" || agentID == uuid.Nil {
 		return errors.New("refusing to stamp a pane without both a pane and an agent")
 	}
 
-	if _, err := c.query("set-option", "-p", "-t", pane, paneOwnerOption, agentID); err != nil {
+	if _, err := c.query("set-option", "-p", "-t", pane, paneOwnerOption, agentID.String()); err != nil {
 		return fmt.Errorf("failed to stamp pane %q for agent %q: %w", pane, agentID, err)
 	}
 
@@ -138,12 +140,12 @@ func (c *Client) SetPaneOwner(pane, agentID string) error {
 }
 
 // GetPaneOwner returns the id of the agent whose pane this is.
-func (c *Client) GetPaneOwner(pane string) string {
+func (c *Client) GetPaneOwner(pane string) uuid.UUID {
 	if pane == "" {
-		return ""
+		return uuid.Nil
 	}
 
-	return c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
+	return parseOwner(c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption))
 }
 
 // HasCLIExited reports whether the CLI launched in a pane has exited.
@@ -156,7 +158,7 @@ func (c *Client) HasCLIExited(pane string) bool {
 }
 
 type PaneStatus struct {
-	Owner   string
+	Owner   uuid.UUID
 	Command string
 }
 
@@ -190,7 +192,7 @@ func (c *Client) GetPanes() (map[string]PaneStatus, error) {
 		pane, rest, _ := strings.Cut(line, " ")
 		owner, command, _ := strings.Cut(rest, " ")
 		if pane != "" {
-			panes[pane] = PaneStatus{Owner: owner, Command: command}
+			panes[pane] = PaneStatus{Owner: parseOwner(owner), Command: command}
 		}
 	}
 
@@ -719,4 +721,13 @@ func (c *Client) CheckPaneRunningCLI(pane string) (bool, error) {
 	}
 
 	return command != "" && !PaneStatus{Command: command}.IsRunningShell(), nil
+}
+
+func parseOwner(value string) uuid.UUID {
+	owner, err := uuid.Parse(value)
+	if err != nil {
+		return uuid.Nil
+	}
+
+	return owner
 }

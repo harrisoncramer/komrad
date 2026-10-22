@@ -43,8 +43,8 @@ func TestDeliver(t *testing.T) {
 	}{
 		{
 			name: "an agent archived since the mail was sent",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				_, err := st.Agents.Archive(t.Context(), []string{id})
+			arrange: func(t *testing.T, st *storetest.Stores, id uuid.UUID) {
+				_, err := st.Agents.Archive(t.Context(), []uuid.UUID{id})
 				require.NoError(t, err)
 			},
 			want: DeliveryDone,
@@ -214,7 +214,7 @@ func seedAgent(t *testing.T, st *storetest.Stores, cwd string) agentstore.Agent 
 	})
 }
 
-func sendTo(t *testing.T, st *storetest.Stores, agentID string) {
+func sendTo(t *testing.T, st *storetest.Stores, agentID uuid.UUID) {
 	t.Helper()
 
 	_, err := st.Mail.Send(t.Context(), mailstore.SendParams{

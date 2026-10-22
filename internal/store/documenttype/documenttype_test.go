@@ -92,16 +92,6 @@ func TestUpdate(t *testing.T) {
 			wantErr: store.ErrNameTaken,
 		},
 		{
-			name: "a type that does not exist is not found",
-			params: documenttypestore.UpdateParams{
-				ID:      "not-an-id",
-				Name:    "ghost",
-				Context: "none",
-				Version: 1,
-			},
-			wantErr: store.ErrNotFound,
-		},
-		{
 			name: "a rename carries the documents written as it",
 			params: documenttypestore.UpdateParams{
 				ID:      postmortem.ID,
@@ -151,7 +141,7 @@ func TestDelete(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		id      string
+		id      uuid.UUID
 		wantErr error
 	}{
 		{
@@ -234,12 +224,11 @@ func TestListVersions(t *testing.T) {
 	assert.Equal(t, "draft", first.Context)
 
 	for _, missing := range []struct {
-		id      string
+		id      uuid.UUID
 		version int32
 	}{
 		{id: draft.ID, version: 4},
-		{id: uuid.NewString(), version: 1},
-		{id: "not-an-id", version: 1},
+		{id: uuid.New(), version: 1},
 	} {
 		_, err := stores.DocumentTypes.GetVersion(ctx, missing.id, missing.version)
 		assert.ErrorIs(t, err, store.ErrNotFound, "%s at %d", missing.id, missing.version)
@@ -262,11 +251,11 @@ func TestListWatched(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"postmortem", "RFC"}, names(every))
 
-	keyed, err := stores.DocumentTypes.ListWatched(ctx, []string{postmortem.ID})
+	keyed, err := stores.DocumentTypes.ListWatched(ctx, []uuid.UUID{postmortem.ID})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"postmortem"}, names(keyed))
 
-	none, err := stores.DocumentTypes.ListWatched(ctx, []string{})
+	none, err := stores.DocumentTypes.ListWatched(ctx, []uuid.UUID{})
 	require.NoError(t, err)
 	assert.Empty(t, none)
 }

@@ -8,6 +8,8 @@ import (
 	"komrad/internal/watch"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // WatchedWorkflows declares the workflows to the watch.
@@ -42,13 +44,13 @@ var WatchedWorkflows = watch.Resource{
 }
 
 // ListWatched returns the workflows among keys that are not being deleted, or every one when keys is nil, archived ones included.
-func (s *WorkflowStore) ListWatched(ctx context.Context, keys []string) ([]Workflow, error) {
+func (s *WorkflowStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Workflow, error) {
 	rows, err := s.queries.ListWatchedWorkflows(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched workflows: %w", err)
 	}
 
-	ids := xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) string { return row.Workflow.ID })
+	ids := xslice.Map(rows, func(row *models.ListWatchedWorkflowsRow) uuid.UUID { return row.Workflow.ID })
 
 	hooks, err := s.hooksForWorkflows(ctx, ids)
 	if err != nil {

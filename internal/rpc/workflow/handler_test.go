@@ -19,15 +19,16 @@ import (
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
-const workflowID = "01a0d228-0000-7000-8000-0000000000aa"
+var workflowID = uuid.MustParse("01a0d228-0000-7000-8000-0000000000aa")
 
 type updateCall struct {
-	id  string
+	id  uuid.UUID
 	cfg workflowstore.Config
 }
 
@@ -52,12 +53,12 @@ func (f *fakeWorkflows) NewWorkflow(_ context.Context, cfg workflowstore.Config)
 }
 
 // GetWorkflow answers the first stored workflow.
-func (f *fakeWorkflows) GetWorkflow(context.Context, string) (*workflowstore.Workflow, error) {
+func (f *fakeWorkflows) GetWorkflow(context.Context, uuid.UUID) (*workflowstore.Workflow, error) {
 	return &f.stored[0], nil
 }
 
 // UpdateWorkflow records the update.
-func (f *fakeWorkflows) UpdateWorkflow(_ context.Context, id string, cfg workflowstore.Config) error {
+func (f *fakeWorkflows) UpdateWorkflow(_ context.Context, id uuid.UUID, cfg workflowstore.Config) error {
 	f.updated = append(f.updated, updateCall{
 		id:  id,
 		cfg: cfg,
@@ -67,12 +68,12 @@ func (f *fakeWorkflows) UpdateWorkflow(_ context.Context, id string, cfg workflo
 }
 
 // ArchiveWorkflow answers nil.
-func (f *fakeWorkflows) ArchiveWorkflow(context.Context, string) error {
+func (f *fakeWorkflows) ArchiveWorkflow(context.Context, uuid.UUID) error {
 	return nil
 }
 
 // RestoreWorkflow answers the first stored workflow.
-func (f *fakeWorkflows) RestoreWorkflow(context.Context, string) (*workflowstore.Workflow, error) {
+func (f *fakeWorkflows) RestoreWorkflow(context.Context, uuid.UUID) (*workflowstore.Workflow, error) {
 	return &f.stored[0], nil
 }
 
@@ -193,7 +194,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 			name: "updating hands down the id and every field",
 			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
 				_, err := svc.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-					Id:              workflowID,
+					Id:              workflowID.String(),
 					Name:            cfg.Name,
 					Context:         cfg.Context,
 					Harness:         cfg.Harness,
@@ -218,8 +219,8 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 		{
 			name: "deleting hands down the id, the records choice and the agent asking",
 			call: func(ctx context.Context, svc workflowv1komrad.WorkflowServiceAdapter) error {
-				_, err := svc.DeleteWorkflow(caller.With(ctx, caller.Caller{AgentID: "agent-1"}), connect.NewRequest(&workflowv1.DeleteWorkflowRequest{
-					Id:      workflowID,
+				_, err := svc.DeleteWorkflow(caller.With(ctx, caller.Caller{AgentID: firstAgentID}), connect.NewRequest(&workflowv1.DeleteWorkflowRequest{
+					Id:      workflowID.String(),
 					Records: true,
 				}))
 
@@ -229,7 +230,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 				{
 					ID:        workflowID,
 					Records:   true,
-					ByAgentID: "agent-1",
+					ByAgentID: firstAgentID,
 				},
 			}},
 		},
@@ -362,7 +363,7 @@ func TestListWorkflows(t *testing.T) {
 					Context: long,
 				},
 				{
-					ID:      "01a0d228-0000-7000-8000-0000000000bb",
+					ID:      uuid.MustParse("01a0d228-0000-7000-8000-0000000000bb"),
 					Name:    "beta",
 					Context: "ship it",
 				},
@@ -389,3 +390,7 @@ func TestListWorkflows(t *testing.T) {
 func newWorkflowHandler(fake *fakeWorkflows) workflowv1komrad.WorkflowServiceAdapter {
 	return workflowv1komrad.WorkflowServiceAdapter{Impl: NewHandler(NewHandlerParams{Workflows: fake})}
 }
+
+var (
+	firstAgentID = uuid.New()
+)

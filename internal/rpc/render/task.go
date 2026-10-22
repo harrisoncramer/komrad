@@ -12,8 +12,8 @@ func Task(stored taskstore.Task) *taskv1.Task {
 	checkout := stored.Checkout
 
 	return &taskv1.Task{
-		Id:                    stored.ID,
-		WorkflowId:            stored.WorkflowID,
+		Id:                    stored.ID.String(),
+		WorkflowId:            stored.WorkflowID.String(),
 		Slug:                  stored.Slug,
 		Title:                 stored.Title,
 		Goal:                  stored.Goal,
@@ -47,9 +47,9 @@ func parentOf(parent *taskstore.Parent) *taskv1.Parent {
 	}
 
 	return &taskv1.Parent{
-		TaskId:        parent.TaskID,
+		TaskId:        parent.TaskID.String(),
 		ForkPoint:     parent.ForkPoint,
-		PullRequestId: parent.PullRequestID,
+		PullRequestId: xptr.Deref(formatOptionalID(parent.PullRequestID)),
 		Blocked:       cascadeBlockOf(parent.Blocked),
 	}
 }

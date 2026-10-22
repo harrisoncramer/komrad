@@ -8,11 +8,13 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // Create inserts an agent and assigns an ID when needed.
 func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
-	if agent.ID == "" {
+	if agent.ID == uuid.Nil {
 		id, err := store.NewID()
 		if err != nil {
 			return err
@@ -67,10 +69,6 @@ func (s *AgentStore) Update(ctx context.Context, agent Agent) error {
 // UpdateIfLive rewrites an agent's row as it launches, clearing the nudges on its unread mail so
 // it is told again, and reports whether it did, refusing an archived or deleted one.
 func (s *AgentStore) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
-	if !store.IsID(agent.ID) {
-		return false, nil
-	}
-
 	updated, err := s.queries.UpdateAgentIfLive(ctx, models.UpdateAgentIfLiveParams{
 		ID:         agent.ID,
 		Cwd:        agent.Cwd,
@@ -89,15 +87,14 @@ func (s *AgentStore) UpdateIfLive(ctx context.Context, agent Agent) (bool, error
 }
 
 // Delete removes live or archived agents by ID.
-func (s *AgentStore) Delete(ctx context.Context, ids []string) ([]AgentPane, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
+func (s *AgentStore) Delete(ctx context.Context, ids []uuid.UUID) ([]AgentPane, error) {
+	if len(ids) == 0 {
 		return nil, nil
 	}
 
-	deleted, err := s.queries.DeleteAgentsByID(ctx, storable)
+	deleted, err := s.queries.DeleteAgentsByID(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete %d agents: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to delete %d agents: %w", len(ids), err)
 	}
 
 	return xslice.Map(deleted, func(row *models.DeleteAgentsByIDRow) AgentPane {
@@ -106,11 +103,7 @@ func (s *AgentStore) Delete(ctx context.Context, ids []string) ([]AgentPane, err
 }
 
 // Rename changes an agent's display name and reports whether a row changed.
-func (s *AgentStore) Rename(ctx context.Context, id, name string) (bool, error) {
-	if !store.IsID(id) {
-		return false, nil
-	}
-
+func (s *AgentStore) Rename(ctx context.Context, id uuid.UUID, name string) (bool, error) {
 	renamed, err := s.queries.RenameAgent(ctx, models.RenameAgentParams{ID: id, Name: name})
 	if db.IsUniqueViolation(err) {
 		return false, store.ErrNameTaken.Saying("an agent named %q already exists", name)

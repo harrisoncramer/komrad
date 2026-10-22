@@ -25,6 +25,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -226,7 +227,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantHidden, task.Hidden, "the run's task starts hidden when the schedule hides its runs")
 			require.NotNil(t, launched[0].IdempotencyKey)
-			assert.Equal(t, "schedule:"+schedule.ID+":2026-07-28T09:00:00Z", *launched[0].IdempotencyKey)
+			assert.Equal(t, "schedule:"+schedule.ID.String()+":2026-07-28T09:00:00Z", *launched[0].IdempotencyKey)
 		})
 	}
 }
@@ -368,7 +369,7 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 				OrchestratorAgentID: &orchestrator.ID,
 			})
 			if tt.archived {
-				_, err := stores.Agents.Archive(ctx, []string{orchestrator.ID})
+				_, err := stores.Agents.Archive(ctx, []uuid.UUID{orchestrator.ID})
 				require.NoError(t, err)
 			}
 
@@ -465,7 +466,7 @@ func newAgentService(t *testing.T, params newAgentServiceParams) *agents.LaunchS
 	})
 }
 
-func listScheduleAgents(t *testing.T, stores *storetest.Stores, scheduleID string) []agentstore.Agent {
+func listScheduleAgents(t *testing.T, stores *storetest.Stores, scheduleID uuid.UUID) []agentstore.Agent {
 	t.Helper()
 
 	listed, err := stores.Agents.List(t.Context())
@@ -483,10 +484,10 @@ func isCancel(err error) bool {
 }
 
 type syncRecorder struct {
-	synced []string
+	synced []uuid.UUID
 }
 
-func (r *syncRecorder) SyncRegistration(_ context.Context, id string) error {
+func (r *syncRecorder) SyncRegistration(_ context.Context, id uuid.UUID) error {
 	r.synced = append(r.synced, id)
 
 	return nil

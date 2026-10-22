@@ -16,6 +16,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -72,13 +73,13 @@ func (s *ReviewService) mailComment(ctx context.Context, tx pgx.Tx, params mailC
 }
 
 // ReadMail claims an agent's waiting mail, taking the snapshot a waiting comment is read on first.
-func (s *ReviewService) ReadMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
+func (s *ReviewService) ReadMail(ctx context.Context, agentID uuid.UUID) ([]mailstore.Mail, error) {
 	waiting, err := s.mailer.ListWaitingMail(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
 
-	var readSnapshotID *string
+	var readSnapshotID *uuid.UUID
 	if slices.ContainsFunc(waiting, isReviewComment) {
 		snapshot, err := s.takeReadSnapshot(ctx, agentID)
 		if err != nil && !errors.Is(err, ErrReviewNoSnapshot) {
@@ -91,7 +92,7 @@ func (s *ReviewService) ReadMail(ctx context.Context, agentID string) ([]mailsto
 
 	return s.mailer.ClaimMail(ctx, mail.ClaimMailParams{
 		AgentID:        agentID,
-		IDs:            xslice.Map(waiting, func(m mailstore.Mail) string { return m.ID }),
+		IDs:            xslice.Map(waiting, func(m mailstore.Mail) uuid.UUID { return m.ID }),
 		ReadSnapshotID: readSnapshotID,
 	})
 }
@@ -103,7 +104,7 @@ func isReviewComment(m mailstore.Mail) bool {
 
 // takeReadSnapshot freezes an agent's task as it reads a person's comment, which an addressed reply is
 // measured from, or settles for the newest snapshot while the checkout is part way through a rebase or merge.
-func (s *ReviewService) takeReadSnapshot(ctx context.Context, agentID string) (*reviewstore.Snapshot, error) {
+func (s *ReviewService) takeReadSnapshot(ctx context.Context, agentID uuid.UUID) (*reviewstore.Snapshot, error) {
 	agent, err := s.getAgent(ctx, agentID)
 	if err != nil {
 		return nil, err

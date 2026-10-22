@@ -12,6 +12,8 @@ import (
 	"komrad/lib/xslice"
 
 	agentstore "komrad/internal/store/agent"
+
+	"github.com/google/uuid"
 )
 
 // Row is an agent with the facts about it that live beside its row rather than on it.
@@ -63,8 +65,8 @@ func (s *RowStore) ListPage(ctx context.Context, page Page) ([]Row, error) {
 }
 
 // Get returns one agent's row, archived or not, or ErrNotFound when no agent has that id or a delete has claimed it.
-func (s *RowStore) Get(ctx context.Context, id string) (*Row, error) {
-	rows, err := s.ListWatched(ctx, []string{id})
+func (s *RowStore) Get(ctx context.Context, id uuid.UUID) (*Row, error) {
+	rows, err := s.ListWatched(ctx, []uuid.UUID{id})
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,8 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
 	"komrad/proto/gen/oneofs"
+
+	"github.com/google/uuid"
 )
 
 // errTaskMadeAndJoined is a launch naming a task to join and describing one to make.
@@ -95,8 +97,8 @@ type NewAgentParams struct {
 	ProvisionEnabled *bool
 	Prompt           string
 	Harness          string
-	WorkflowID       string
-	ScheduleID       *string
+	WorkflowID       uuid.UUID
+	ScheduleID       *uuid.UUID
 	HideTask         bool
 	IdempotencyKey   string
 	AdoptedBranch    string
@@ -132,7 +134,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 	}
 
 	var spawner *agentstore.Agent
-	if id := caller.From(ctx).AgentID; id != "" {
+	if id := caller.From(ctx).AgentID; id != uuid.Nil {
 		found, err := s.findSpawner(ctx, id)
 		if err != nil {
 			return nil, err
@@ -203,7 +205,7 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 func idempotencyKey(ctx context.Context, params NewAgentParams) agentstore.IdempotencyKey {
 	return agentstore.IdempotencyKey{
 		Key:                params.IdempotencyKey,
-		RequestedByAgentID: nullable(caller.From(ctx).AgentID),
+		RequestedByAgentID: xptr.NonEmpty(caller.From(ctx).AgentID),
 	}
 }
 
@@ -237,7 +239,7 @@ func (s *LaunchService) findSpawnedBy(ctx context.Context, spawner agentstore.Ag
 	return orchestrator, nil
 }
 
-func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {
+func (s *LaunchService) findSpawner(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error) {
 	spawner, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", agenterr.ErrSpawnerUnknown, id)
@@ -270,7 +272,7 @@ func (s *LaunchService) findJoinedTask(ctx context.Context, params NewAgentParam
 // joinParams makes a launch onto a task that has a writer one of its reviewers, holding it to
 // the checkout the task already has, and leaves the first agent on a task to become its writer.
 func (s *LaunchService) joinParams(ctx context.Context, params NewAgentParams, task taskstore.Task) (NewAgentParams, error) {
-	onTask, err := s.agents.ListOnTasks(ctx, []string{task.ID})
+	onTask, err := s.agents.ListOnTasks(ctx, []uuid.UUID{task.ID})
 	if err != nil {
 		return params, err
 	}
@@ -451,7 +453,7 @@ func (p *launchPlan) newAgent(params NewAgentParams, spawner *agentstore.Agent) 
 		return nil, err
 	}
 
-	var spawnedBy *string
+	var spawnedBy *uuid.UUID
 	if spawner != nil {
 		spawnedBy = &spawner.ID
 	}
@@ -491,7 +493,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, params launchAgentParam
 	if err != nil {
 		return nil, err
 	}
-	agent.RequestedByAgentID = nullable(caller.From(ctx).AgentID)
+	agent.RequestedByAgentID = xptr.NonEmpty(caller.From(ctx).AgentID)
 
 	placed, err := s.createUnderCeiling(ctx, creation{
 		agent:         agent,
@@ -695,8 +697,8 @@ func (s *LaunchService) releaseCheckout(ctx context.Context, agent agentstore.Ag
 	if err := s.tasks.ReleaseCheckout(ctx, *agent.TaskID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to release the checkout claim of a failed create",
 			append([]slog.Attr{
-				slog.String(logging.AgentID, agent.ID),
-				slog.String(logging.TaskID, *agent.TaskID),
+				slog.String(logging.AgentID, agent.ID.String()),
+				slog.String(logging.TaskID, agent.TaskID.String()),
 			}, logging.Err(err)...)...)
 	}
 }
@@ -734,14 +736,14 @@ func awaitDeprovision(ctx context.Context, deprovision agentScriptRunner, agent 
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovisioner of a failed create did not finish",
 				append([]slog.Attr{
 					slog.String(logging.ScriptName, name),
-					slog.String(logging.ScriptAgentID, agent.ID),
+					slog.String(logging.ScriptAgentID, agent.ID.String()),
 					slog.String(logging.ScriptAgentCwd, agent.Cwd),
 				}, logging.Err(deprovisionErr)...)...)
 		}
 	case <-ctx.Done():
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "gave up waiting for the deprovisioner of a failed create",
 			slog.String(logging.ScriptName, name),
-			slog.String(logging.ScriptAgentID, agent.ID),
+			slog.String(logging.ScriptAgentID, agent.ID.String()),
 			slog.String(logging.ScriptAgentCwd, agent.Cwd))
 	}
 }
@@ -855,7 +857,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 	}, nil
 }
 
-func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID, title, prompt string) string {
+func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID uuid.UUID, title string, prompt string) string {
 	base := agentstore.SanitizeName(strings.TrimSpace(title))
 	if base == "" {
 		base = xstr.Slug(xstr.FirstLine(prompt), 24)
@@ -872,11 +874,11 @@ func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID, title, 
 	return name
 }
 
-func (s *LaunchService) isNameTaken(ctx context.Context, workflowID, name string) bool {
+func (s *LaunchService) isNameTaken(ctx context.Context, workflowID uuid.UUID, name string) bool {
 	taken, err := s.agents.ExistsActiveName(ctx, workflowID, name)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to check whether an agent name is taken",
-			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID.String())}, logging.Err(err)...)...)
 	}
 
 	return taken

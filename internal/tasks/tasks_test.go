@@ -27,7 +27,7 @@ func TestSetTaskHidden(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		id      string
+		id      uuid.UUID
 		wantErr error
 	}{
 		{
@@ -70,12 +70,12 @@ func TestGetTaskForWorkflow(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		id      string
+		id      uuid.UUID
 		wantErr error
 	}{
 		{
 			name:    "an unknown task is not found",
-			id:      uuid.NewString(),
+			id:      uuid.New(),
 			wantErr: store.ErrNotFound,
 		},
 		{
@@ -118,7 +118,7 @@ func TestFindTask(t *testing.T) {
 	tests := []struct {
 		name    string
 		task    oneofs.Task
-		want    string
+		want    uuid.UUID
 		wantErr error
 	}{
 		{
@@ -128,7 +128,7 @@ func TestFindTask(t *testing.T) {
 		},
 		{
 			name:    "an unknown id is not found",
-			task:    taskByID(uuid.NewString()),
+			task:    taskByID(uuid.New()),
 			wantErr: store.ErrNotFound,
 		},
 		{
@@ -273,7 +273,7 @@ func TestUpdateTaskNotes(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		callerID string
+		callerID uuid.UUID
 		stale    bool
 		wantErr  error
 	}{
@@ -337,8 +337,8 @@ func TestUpdateTaskNotes(t *testing.T) {
 }
 
 // taskByID names a task by the id the store gave it.
-func taskByID(id string) oneofs.Task {
-	parsed := uuid.MustParse(id)
+func taskByID(id uuid.UUID) oneofs.Task {
+	parsed := uuid.MustParse(id.String())
 
 	return oneofs.Task{TaskId: &parsed}
 }

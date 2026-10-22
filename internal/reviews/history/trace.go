@@ -7,6 +7,8 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/position"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 type rangeMapper interface {
@@ -14,7 +16,7 @@ type rangeMapper interface {
 }
 
 type Anchor struct {
-	ID       string
+	ID       uuid.UUID
 	Position position.Position
 }
 
@@ -42,7 +44,7 @@ type TracePairParams struct {
 }
 
 // TracePair moves every anchor of one snapshot pair, keeping the file when the lines are gone.
-func (t *Tracer) TracePair(ctx context.Context, params TracePairParams) (map[string]Place, error) {
+func (t *Tracer) TracePair(ctx context.Context, params TracePairParams) (map[uuid.UUID]Place, error) {
 	mappings, err := t.git.MapRanges(ctx, git.MapRangesParams{
 		Dir:     params.Dir,
 		FromSHA: params.FromSHA,
@@ -63,7 +65,7 @@ func (t *Tracer) TracePair(ctx context.Context, params TracePairParams) (map[str
 		Policy:   position.FileOnConflict,
 	})
 
-	places := map[string]Place{}
+	places := map[uuid.UUID]Place{}
 	for _, result := range results {
 		if result.Index < 0 || result.Index >= len(params.Anchors) {
 			continue

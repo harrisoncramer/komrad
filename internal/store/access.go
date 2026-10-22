@@ -8,6 +8,8 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/fail"
+
+	"github.com/google/uuid"
 )
 
 // ErrNotAnEmail is what changing access returns for anything but a bare email address.
@@ -93,13 +95,13 @@ func requireEmail(email string) error {
 	return nil
 }
 
-func getEngineID(ctx context.Context, queries *models.Queries, name string) (string, error) {
+func getEngineID(ctx context.Context, queries *models.Queries, name string) (uuid.UUID, error) {
 	engineID, err := queries.GetEngineIDByName(ctx, name)
 	if db.IsNoRows(err) {
-		return "", ErrNotFound.Saying("no engine is named %s", name)
+		return uuid.Nil, ErrNotFound.Saying("no engine is named %s", name)
 	}
 	if err != nil {
-		return "", fmt.Errorf("failed to find engine %s: %w", name, err)
+		return uuid.Nil, fmt.Errorf("failed to find engine %s: %w", name, err)
 	}
 
 	return engineID, nil

@@ -133,20 +133,6 @@ func TestClaimIgnoresOtherMailboxes(t *testing.T) {
 	assert.Equal(t, int64(1), left)
 }
 
-// TestClaimToleratesAnIDNoColumnCouldHold pins that an id the uuid column could not hold
-// reads as an empty mailbox rather than as a database error.
-func TestClaimToleratesAnIDNoColumnCouldHold(t *testing.T) {
-	st := open(t)
-
-	claimed, err := st.claim(t.Context(), "not-an-id", 10)
-	require.NoError(t, err)
-	assert.Empty(t, claimed)
-
-	left, err := st.CountPending(t.Context(), "not-an-id")
-	require.NoError(t, err)
-	assert.Zero(t, left)
-}
-
 // TestGetByIdempotencyKey covers finding mail by the key it was sent with.
 func TestGetByIdempotencyKey(t *testing.T) {
 	st := open(t)
@@ -355,7 +341,7 @@ func TestListPendingMailboxesLeavesOutAnArchivedAgent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = st.agents.Archive(ctx, []string{recipient})
+	_, err = st.agents.Archive(ctx, []uuid.UUID{recipient})
 	require.NoError(t, err)
 
 	mailboxes, err := st.ListPendingMailboxes(ctx)
@@ -514,7 +500,7 @@ type fixture struct {
 	*MailStore
 	pool     *pgxpool.Pool
 	agents   *agentstore.AgentStore
-	workflow string
+	workflow uuid.UUID
 }
 
 func open(t *testing.T) *fixture {
@@ -535,7 +521,7 @@ func open(t *testing.T) *fixture {
 	}
 }
 
-func seedAgent(t *testing.T, st *fixture, name string) string {
+func seedAgent(t *testing.T, st *fixture, name string) uuid.UUID {
 	t.Helper()
 	ctx := t.Context()
 	taskID, err := tasktest.Seed(ctx, st.pool, st.workflow)
@@ -599,7 +585,7 @@ func TestKomradMailIsOnePerSubject(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 			recipient := seedAgent(t, st, "recipient")
-			subjects := map[string]string{"one": uuid.NewString(), "other": uuid.NewString()}
+			subjects := map[string]uuid.UUID{"one": uuid.New(), "other": uuid.New()}
 
 			for i, w := range tt.writes {
 				_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
@@ -633,7 +619,7 @@ func TestGetUnreadAboutFindsOnlyUnreadMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
-	subject := uuid.NewString()
+	subject := uuid.New()
 
 	_, err := st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.ErrorIs(t, err, store.ErrNotFound)
@@ -665,7 +651,7 @@ func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
-	subject := uuid.NewString()
+	subject := uuid.New()
 
 	_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
 		FromName:  "komrad",
@@ -730,7 +716,7 @@ func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
-	subject := uuid.NewString()
+	subject := uuid.New()
 
 	first, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
 		FromName:  "komrad",
@@ -798,7 +784,7 @@ func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 	reviewer := seedAgent(t, st, "reviewer")
 	stranger := seedAgent(t, st, "stranger")
 
-	send := func(from *string, to string, kind Kind) *Mail {
+	send := func(from *uuid.UUID, to uuid.UUID, kind Kind) *Mail {
 		t.Helper()
 		sent, err := st.Send(ctx, SendParams{
 			FromAgentID: from,
@@ -835,10 +821,6 @@ func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 	reversed, err := st.CountExchanged(ctx, reviewer, author)
 	require.NoError(t, err)
 	assert.EqualValues(t, 3, reversed, "the pair is unordered")
-
-	quiet, err := st.CountExchanged(ctx, author, "not-an-id")
-	require.NoError(t, err)
-	assert.Zero(t, quiet, "an id nothing holds counts nothing rather than failing")
 }
 
 // TestExistsReadAboutCountsOnlyReadMail pins which mail about a subject counts as the recipient having been told.
@@ -846,7 +828,7 @@ func TestExistsReadAboutCountsOnlyReadMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
-	subject := uuid.NewString()
+	subject := uuid.New()
 
 	_, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
 		FromName:  "komrad",
@@ -873,7 +855,7 @@ func TestExistsReadAboutCountsOnlyReadMail(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, read, "mail of another kind is not about this")
 
-	read, err = st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, uuid.NewString())
+	read, err = st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, uuid.New())
 	require.NoError(t, err)
 	assert.False(t, read, "mail about another subject is not about this")
 }
@@ -883,7 +865,7 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
-	subject := uuid.NewString()
+	subject := uuid.New()
 
 	upsert := func(events []string) *Mail {
 		t.Helper()
@@ -1045,13 +1027,13 @@ func sendNudgeMail(t *testing.T, st *fixture, recipient string, deadline time.Du
 }
 
 // claim takes the waiting mail the way a read of the mailbox does: listed, then claimed by id.
-func (st *fixture) claim(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
+func (st *fixture) claim(ctx context.Context, toAgentID uuid.UUID, limit int32) ([]Mail, error) {
 	waiting, err := st.ListWaiting(ctx, toAgentID, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return st.ClaimByID(ctx, toAgentID, xslice.Map(waiting, func(m Mail) string { return m.ID }))
+	return st.ClaimByID(ctx, toAgentID, xslice.Map(waiting, func(m Mail) uuid.UUID { return m.ID }))
 }
 
 // TestListWaitingLeavesMailForTheClaim pins that a listing claims nothing, that the claim takes only
@@ -1061,7 +1043,7 @@ func TestListWaitingLeavesMailForTheClaim(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	var ids []string
+	var ids []uuid.UUID
 	for _, body := range []string{"first", "second", "third"} {
 		sent, err := st.Send(ctx, SendParams{
 			ToAgentID: recipient,
@@ -1074,7 +1056,7 @@ func TestListWaitingLeavesMailForTheClaim(t *testing.T) {
 
 	waiting, err := st.ListWaiting(ctx, recipient, 2)
 	require.NoError(t, err)
-	assert.Equal(t, ids[:2], xslice.Map(waiting, func(m Mail) string { return m.ID }))
+	assert.Equal(t, ids[:2], xslice.Map(waiting, func(m Mail) uuid.UUID { return m.ID }))
 	for _, item := range waiting {
 		assert.Nil(t, item.ClaimedAt)
 	}
@@ -1085,14 +1067,14 @@ func TestListWaitingLeavesMailForTheClaim(t *testing.T) {
 
 	claimed, err := st.ClaimByID(ctx, recipient, ids[:2])
 	require.NoError(t, err)
-	assert.Equal(t, ids[:2], xslice.Map(claimed, func(m Mail) string { return m.ID }))
+	assert.Equal(t, ids[:2], xslice.Map(claimed, func(m Mail) uuid.UUID { return m.ID }))
 	for _, item := range claimed {
 		assert.NotNil(t, item.ClaimedAt)
 	}
 
 	again, err := st.ClaimByID(ctx, recipient, ids)
 	require.NoError(t, err)
-	assert.Equal(t, ids[2:], xslice.Map(again, func(m Mail) string { return m.ID }), "mail already claimed is skipped")
+	assert.Equal(t, ids[2:], xslice.Map(again, func(m Mail) uuid.UUID { return m.ID }), "mail already claimed is skipped")
 
 	none, err := st.ClaimByID(ctx, seedAgent(t, st, "other"), ids)
 	require.NoError(t, err)

@@ -49,7 +49,7 @@ func open(t *testing.T) *harness {
 }
 
 // createAgent puts a live agent on a branch of a repository in a workflow.
-func (h *harness) createAgent(t *testing.T, workflowID, name, repositoryURL, branch string) string {
+func (h *harness) createAgent(t *testing.T, workflowID uuid.UUID, name string, repositoryURL string, branch string) uuid.UUID {
 	t.Helper()
 	ctx := t.Context()
 
@@ -70,14 +70,14 @@ func (h *harness) createAgent(t *testing.T, workflowID, name, repositoryURL, bra
 }
 
 // setHead records what the cwd syncer would read of the checkout of an agent's task.
-func (h *harness) setHead(t *testing.T, agentID string, params taskstore.SetHeadParams) {
+func (h *harness) setHead(t *testing.T, agentID uuid.UUID, params taskstore.SetHeadParams) {
 	t.Helper()
 
 	require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetHead(t.Context(), h.taskOf(t, agentID), params))
 }
 
 // taskOf is the id of the task the agent works on.
-func (h *harness) taskOf(t *testing.T, agentID string) string {
+func (h *harness) taskOf(t *testing.T, agentID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	agent, err := h.agents.GetByID(t.Context(), agentID)
@@ -87,7 +87,7 @@ func (h *harness) taskOf(t *testing.T, agentID string) string {
 	return *agent.TaskID
 }
 
-func (h *harness) createWorkflow(t *testing.T) string {
+func (h *harness) createWorkflow(t *testing.T) uuid.UUID {
 	t.Helper()
 
 	created, err := h.workflows.Create(t.Context(), workflowstore.Config{
@@ -225,12 +225,12 @@ func TestObserveJoinsAgentsToTheirBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), written)
 
-	seen, err := h.ListObservations(ctx, []string{h.taskOf(t, onBranch)})
+	seen, err := h.ListObservations(ctx, []uuid.UUID{h.taskOf(t, onBranch)})
 	require.NoError(t, err)
 	require.Len(t, seen, 1)
 	assert.Equal(t, seen[0].FirstSeenAt, seen[0].LastSeenAt)
 
-	none, err := h.ListObservations(ctx, []string{h.taskOf(t, other), h.taskOf(t, onMain), "not-an-id"})
+	none, err := h.ListObservations(ctx, []uuid.UUID{h.taskOf(t, other), h.taskOf(t, onMain)})
 	require.NoError(t, err)
 	assert.Empty(t, none)
 
@@ -246,7 +246,7 @@ func TestObserveLinksArchivedAgents(t *testing.T) {
 
 	workflow := h.createWorkflow(t)
 	archived := h.createAgent(t, workflow, "archived", komrad, "agent/x")
-	_, err := h.agents.Archive(ctx, []string{archived})
+	_, err := h.agents.Archive(ctx, []uuid.UUID{archived})
 	require.NoError(t, err)
 	_, err = h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
@@ -270,7 +270,7 @@ func TestLiveRepositoriesAndSyncTargets(t *testing.T) {
 	h.createAgent(t, workflow, "d", komrad, "main")
 	h.createAgent(t, workflow, "e", fixture, "fixture/open")
 	archived := h.createAgent(t, workflow, "f", "https://github.com/harrisoncramer/gone", "agent/z")
-	_, err := h.agents.Archive(ctx, []string{archived})
+	_, err := h.agents.Archive(ctx, []uuid.UUID{archived})
 	require.NoError(t, err)
 	headed := h.createAgent(t, workflow, "g", komrad, "agent/y")
 	repository, branch, head := komrad, "agent/y", "abc"
@@ -384,7 +384,7 @@ func TestSetMergeReadinessOnAMissingRowChangesNothing(t *testing.T) {
 	h := open(t)
 
 	change, err := h.SetMergeReadiness(t.Context(), SetMergeReadinessParams{
-		ID:             uuid.NewString(),
+		ID:             uuid.New(),
 		MergeReadiness: forge.MergeReadiness{Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failedTest}}},
 		ReadAt:         time.Now(),
 	})
@@ -402,7 +402,7 @@ func TestListRecipients(t *testing.T) {
 	h.createAgent(t, workflow, "elsewhere", komrad, "agent/y")
 	h.createAgent(t, workflow, "other-repo", "https://github.com/someone/else", "agent/x")
 	archived := h.createAgent(t, workflow, "archived", komrad, "agent/x")
-	_, err := h.agents.Archive(ctx, []string{archived})
+	_, err := h.agents.Archive(ctx, []uuid.UUID{archived})
 	require.NoError(t, err)
 	task := h.taskOf(t, older)
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
@@ -443,7 +443,7 @@ func TestListRecipients(t *testing.T) {
 
 	recipients, err := h.ListRecipients(ctx, written.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []string{writer.ID}, recipients, "only the task's live writer on the branch is told")
+	assert.Equal(t, []uuid.UUID{writer.ID}, recipients, "only the task's live writer on the branch is told")
 }
 
 var failedTest = statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure")
@@ -1068,9 +1068,9 @@ func TestLiveBranchesFollowTheParentPullRequest(t *testing.T) {
 	require.NoError(t, taskstore.NewTaskStore(h.pool.GetDB()).SetParent(ctx, h.taskOf(t, child), &taskstore.Parent{
 		TaskID:        h.taskOf(t, parent),
 		ForkPoint:     "abc",
-		PullRequestID: followed.ID,
+		PullRequestID: &followed.ID,
 	}))
-	_, err = h.agents.Archive(ctx, []string{parent})
+	_, err = h.agents.Archive(ctx, []uuid.UUID{parent})
 	require.NoError(t, err)
 
 	liveBranches, err := h.syncs.ListLiveBranches(ctx)

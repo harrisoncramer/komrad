@@ -10,6 +10,8 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // WatchedReviews declares the reviews to the watch.
@@ -29,7 +31,7 @@ var WatchedReviews = watch.Resource{
 }
 
 // ListWatched returns whichever of keys are still reviews, or every review when keys is nil.
-func (s *ReviewStore) ListWatched(ctx context.Context, keys []string) ([]Review, error) {
+func (s *ReviewStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Review, error) {
 	rows, err := s.queries.ListWatchedReviews(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched reviews: %w", err)
@@ -41,15 +43,14 @@ func (s *ReviewStore) ListWatched(ctx context.Context, keys []string) ([]Review,
 }
 
 // ListIDsOfTasks returns the ids of every review of the given tasks.
-func (s *ReviewStore) ListIDsOfTasks(ctx context.Context, taskIDs []string) ([]string, error) {
-	storable := store.KeepIDs(taskIDs)
-	if len(storable) == 0 {
+func (s *ReviewStore) ListIDsOfTasks(ctx context.Context, taskIDs []uuid.UUID) ([]uuid.UUID, error) {
+	if len(taskIDs) == 0 {
 		return nil, nil
 	}
 
-	ids, err := s.queries.ListReviewIDsOfTasks(ctx, storable)
+	ids, err := s.queries.ListReviewIDsOfTasks(ctx, taskIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the reviews of %d tasks: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list the reviews of %d tasks: %w", len(taskIDs), err)
 	}
 
 	return ids, nil
@@ -118,11 +119,7 @@ func NewThreadStore(db store.DBTX) *ThreadStore {
 }
 
 // ListWatched returns whichever of keys are still threads on live agents, or every such thread when keys is nil.
-func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadWithMessages, error) {
-	if keys != nil {
-		keys = store.KeepIDs(keys)
-	}
-
+func (s *ThreadStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]ThreadWithMessages, error) {
 	rows, err := s.queries.ListWatchedReviewThreads(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched review threads: %w", err)
@@ -131,14 +128,14 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 		return nil, nil
 	}
 
-	ids := xslice.Map(rows, func(row *models.ListWatchedReviewThreadsRow) string { return row.ID })
+	ids := xslice.Map(rows, func(row *models.ListWatchedReviewThreadsRow) uuid.UUID { return row.ID })
 
 	messages, err := s.queries.ListReviewMessagesOfThreads(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the messages of %d watched review thread(s): %w", len(ids), err)
 	}
 
-	byThread := map[string][]Message{}
+	byThread := map[uuid.UUID][]Message{}
 	for _, row := range messages {
 		byThread[row.ReviewMessage.ThreadID] = append(byThread[row.ReviewMessage.ThreadID], messageOfThreadFromRow(*row))
 	}
@@ -148,7 +145,7 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 		return nil, fmt.Errorf("failed to list the forge replies of %d watched review thread(s): %w", len(ids), err)
 	}
 
-	repliesByThread := map[string][]ForgeReply{}
+	repliesByThread := map[uuid.UUID][]ForgeReply{}
 	for _, row := range replies {
 		reply := listedForgeReplyFromRow(row)
 		repliesByThread[reply.ThreadID] = append(repliesByThread[reply.ThreadID], reply)
@@ -190,15 +187,14 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []string) ([]ThreadW
 }
 
 // ListIDsOfTasks returns the ids of every review thread on the given tasks.
-func (s *ThreadStore) ListIDsOfTasks(ctx context.Context, taskIDs []string) ([]string, error) {
-	storable := store.KeepIDs(taskIDs)
-	if len(storable) == 0 {
+func (s *ThreadStore) ListIDsOfTasks(ctx context.Context, taskIDs []uuid.UUID) ([]uuid.UUID, error) {
+	if len(taskIDs) == 0 {
 		return nil, nil
 	}
 
-	ids, err := s.queries.ListReviewThreadIDsOfTasks(ctx, storable)
+	ids, err := s.queries.ListReviewThreadIDsOfTasks(ctx, taskIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the review threads of %d tasks: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list the review threads of %d tasks: %w", len(taskIDs), err)
 	}
 
 	return ids, nil

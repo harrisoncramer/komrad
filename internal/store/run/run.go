@@ -10,12 +10,14 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // Run is one script run komrad recorded.
 type Run struct {
-	ID        string
-	AgentID   string
+	ID        uuid.UUID
+	AgentID   uuid.UUID
 	Trigger   string
 	Script    string
 	LogNumber *int32
@@ -32,19 +34,15 @@ func NewRunStore(db store.DBTX) *RunStore {
 }
 
 type BeginParams struct {
-	AgentID   string
-	TaskID    *string
+	AgentID   uuid.UUID
+	TaskID    *uuid.UUID
 	Trigger   string
 	Script    string
 	LogNumber *int32
 }
 
 // Begin opens a row for a run about to start and returns its id.
-func (s *RunStore) Begin(ctx context.Context, params BeginParams) (string, error) {
-	if !store.IsID(params.AgentID) {
-		return "", fmt.Errorf("failed to record a run of %q: %q is not an agent id", params.Script, params.AgentID)
-	}
-
+func (s *RunStore) Begin(ctx context.Context, params BeginParams) (uuid.UUID, error) {
 	id, err := s.queries.InsertAgentRun(ctx, models.InsertAgentRunParams{
 		AgentID:   params.AgentID,
 		TaskID:    params.TaskID,
@@ -53,24 +51,20 @@ func (s *RunStore) Begin(ctx context.Context, params BeginParams) (string, error
 		LogNumber: params.LogNumber,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to record a run of %q for agent %q: %w", params.Script, params.AgentID, err)
+		return uuid.Nil, fmt.Errorf("failed to record a run of %q for agent %q: %w", params.Script, params.AgentID, err)
 	}
 
 	return id, nil
 }
 
 type FinishParams struct {
-	ID       string
+	ID       uuid.UUID
 	ExitCode *int32
 	Failure  string
 }
 
 // Finish closes a run's row with what it exited on and why it failed, if it did.
 func (s *RunStore) Finish(ctx context.Context, params FinishParams) error {
-	if !store.IsID(params.ID) {
-		return nil
-	}
-
 	if err := s.queries.FinishAgentRun(ctx, models.FinishAgentRunParams{
 		ID:       params.ID,
 		ExitCode: params.ExitCode,
@@ -83,11 +77,7 @@ func (s *RunStore) Finish(ctx context.Context, params FinishParams) error {
 }
 
 // Abandon drops the row of a run that never started.
-func (s *RunStore) Abandon(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *RunStore) Abandon(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.DeleteAgentRun(ctx, id); err != nil {
 		return fmt.Errorf("failed to drop the record of run %q: %w", id, err)
 	}
@@ -96,8 +86,8 @@ func (s *RunStore) Abandon(ctx context.Context, id string) error {
 }
 
 // Prune drops an agent's runs past the newest keep, held to the same bound as the log files.
-func (s *RunStore) Prune(ctx context.Context, agentID string, keep int) error {
-	if !store.IsID(agentID) || keep <= 0 {
+func (s *RunStore) Prune(ctx context.Context, agentID uuid.UUID, keep int) error {
+	if keep <= 0 {
 		return nil
 	}
 
@@ -112,11 +102,7 @@ func (s *RunStore) Prune(ctx context.Context, agentID string, keep int) error {
 }
 
 // MarkRead claims every failed run an agent is holding.
-func (s *RunStore) MarkRead(ctx context.Context, agentID string) error {
-	if !store.IsID(agentID) {
-		return nil
-	}
-
+func (s *RunStore) MarkRead(ctx context.Context, agentID uuid.UUID) error {
 	if err := s.queries.MarkAgentRunsRead(ctx, agentID); err != nil {
 		return fmt.Errorf("failed to claim the failed runs of agent %q: %w", agentID, err)
 	}
@@ -125,11 +111,7 @@ func (s *RunStore) MarkRead(ctx context.Context, agentID string) error {
 }
 
 // MarkTaskRead claims every failed run on a task.
-func (s *RunStore) MarkTaskRead(ctx context.Context, taskID string) error {
-	if !store.IsID(taskID) {
-		return nil
-	}
-
+func (s *RunStore) MarkTaskRead(ctx context.Context, taskID uuid.UUID) error {
 	if err := s.queries.MarkTaskRunsRead(ctx, taskID); err != nil {
 		return fmt.Errorf("failed to claim the failed runs of task %q: %w", taskID, err)
 	}
@@ -138,11 +120,7 @@ func (s *RunStore) MarkTaskRead(ctx context.Context, taskID string) error {
 }
 
 // ListByTask returns every run on a task, newest first.
-func (s *RunStore) ListByTask(ctx context.Context, taskID string) ([]Run, error) {
-	if !store.IsID(taskID) {
-		return nil, nil
-	}
-
+func (s *RunStore) ListByTask(ctx context.Context, taskID uuid.UUID) ([]Run, error) {
 	rows, err := s.queries.ListTaskRuns(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the runs of task %q: %w", taskID, err)

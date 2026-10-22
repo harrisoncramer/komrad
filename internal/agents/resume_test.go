@@ -24,6 +24,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +32,7 @@ import (
 // TestResumeDir pins that a restore produces a usable directory whatever became of the recorded
 // one.
 func TestResumeDir(t *testing.T) {
-	const sessionID = "6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11"
+	var sessionID = uuid.MustParse("6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11")
 
 	tests := []struct {
 		name    string
@@ -78,9 +79,9 @@ func TestResumeDir(t *testing.T) {
 
 			service := NewResumeService(NewResumeServiceParams{FallbackResumeRoot: fallbackResumeRoot})
 			got := service.getResumeDir(agentstore.Agent{
-				ID:        "agent-id",
+				ID:        resumedAgentID,
 				Cwd:       cwd,
-				SessionID: sessionID,
+				SessionID: sessionID.String(),
 			})
 
 			assert.Equal(t, tt.wantDir(root, fallbackResumeRoot), got)
@@ -91,17 +92,17 @@ func TestResumeDir(t *testing.T) {
 
 // TestAnInterruptedTurnIsAskedForAgain pins the resume asking again as an ordinary message.
 func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
-	const sessionID = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
+	var sessionID = uuid.MustParse("0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22")
 
-	cut := func(t *testing.T, state agentstore.State, session string) (*testAgents, *testStore, *harnesstest.Fake, agentstore.Agent) {
+	cut := func(t *testing.T, state agentstore.State, session uuid.UUID) (*testAgents, *testStore, *harnesstest.Fake, agentstore.Agent) {
 		t.Helper()
 
 		st := newStore(t)
 		tmux := tmuxtest.NewFake()
 		agent := seed(t, st, "cut", "%1", state)
-		if session != "" {
-			require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, session))
-			agent.SessionID = session
+		if session != uuid.Nil {
+			require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, session.String()))
+			agent.SessionID = session.String()
 		}
 		service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
@@ -147,15 +148,15 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		st := newStore(t)
 		tmux := tmuxtest.NewFake()
 		agent := seedRunning(t, st, tmux, "cut", "%1", agentstore.StateThinking)
-		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
+		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID.String()))
 		service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
-		require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []string{agent.ID}))
+		require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []uuid.UUID{agent.ID}))
 		archived := agentByID(t, st, agent.ID)
 		assert.Equal(t, agentstore.StateIdle, archived.State, "no reconcile pass visits an archived row, so the archive settles it")
 		require.NotNil(t, archived.InterruptedAt)
 
-		_, err := service.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+		_, err := service.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{agent.ID})
 		require.NoError(t, err)
 		assert.Equal(t, agentstore.StateIdle, agentByID(t, st, agent.ID).State, "the restore brings back a settled row")
 
@@ -173,7 +174,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 
 		st := newStore(t)
 		agent := seed(t, st, "cut", "%1", state)
-		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
+		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID.String()))
 		service, fakeHarness := newManagerWithHarness(tmuxtest.NewFake(), st, "")
 		require.Nil(t, agentByID(t, st, agent.ID).InterruptedAt, "no pass looked, so nothing recorded the turn")
 
@@ -218,7 +219,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("an agent with no conversation to reopen is not asked about a turn it cannot read", func(t *testing.T) {
-		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, "")
+		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, uuid.Nil)
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -230,7 +231,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("a turn cut off before its conversation was named is not asked about after a fresh one is", func(t *testing.T) {
-		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, "")
+		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, uuid.Nil)
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -239,8 +240,8 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 
 		// On the way back in, a Codex agent's fresh conversation matches its rollout file, and the
 		// panel adopts that id as the agent's own.
-		const learned = "9a1c7f10-2b3d-4e5f-8a9b-0c1d2e3f4a5b"
-		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, learned))
+		var learned = uuid.MustParse("9a1c7f10-2b3d-4e5f-8a9b-0c1d2e3f4a5b")
+		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, learned.String()))
 		require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateIdle))
 
 		tmux := tmuxtest.NewFake()
@@ -264,12 +265,12 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 // TestATurnCutOffWithNoTmuxServerIsAskedForAgain pins the resume making the ask itself when no
 // pass ever ran.
 func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
-	const sessionID = "1c7a3e8b-4d5f-4a6b-9c8d-7e6f5a4b3c21"
+	var sessionID = uuid.MustParse("1c7a3e8b-4d5f-4a6b-9c8d-7e6f5a4b3c21")
 
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	agent := seed(t, st, "cut", "%1", agentstore.StateThinking)
-	require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
+	require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID.String()))
 
 	service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
@@ -424,7 +425,7 @@ func TestAnArchiveBeforeTheMarkStopsTheResume(t *testing.T) {
 	var once sync.Once
 	tmux.BeforeGetOwner = func() {
 		once.Do(func() {
-			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
+			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{agent.ID}))
 		})
 	}
 
@@ -470,7 +471,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{agent.ID}))
 
 	close(lifecycle.release)
 	select {
@@ -521,7 +522,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, manager.lifecycle.deleteNow(ctx, []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.deleteNow(ctx, []uuid.UUID{agent.ID}))
 
 	close(lifecycle.release)
 	select {
@@ -919,7 +920,7 @@ func TestResumeAgentHoldsAnAgentToItsTaskAndOrchestrator(t *testing.T) {
 
 			orchestrator := seedOrchestrator(t, st, tmux)
 			writer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "writer", "%1")
-			seeded := map[string]string{
+			seeded := map[string]uuid.UUID{
 				"orchestrator":               orchestrator.ID,
 				"writer":                     writer.ID,
 				"reviewer":                   seedReviewer(t, st, tmux, writer).ID,
@@ -967,3 +968,7 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 	require.ErrorContains(t, err, "gemini")
 	assert.Empty(t, tmux.NewWindows, "nothing is opened for an agent that cannot be run")
 }
+
+var (
+	resumedAgentID = uuid.New()
+)

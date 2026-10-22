@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const countDocumentsOfType = `-- name: CountDocumentsOfType :one
@@ -31,7 +33,7 @@ DELETE FROM document_types
 WHERE id = $1
 `
 
-func (q *Queries) DeleteDocumentType(ctx context.Context, id string) (int64, error) {
+func (q *Queries) DeleteDocumentType(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteDocumentType, id)
 	if err != nil {
 		return 0, err
@@ -48,7 +50,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) GetDocumentType(ctx context.Context, id string) (*DocumentType, error) {
+func (q *Queries) GetDocumentType(ctx context.Context, id uuid.UUID) (*DocumentType, error) {
 	row := q.db.QueryRow(ctx, getDocumentType, id)
 	var i DocumentType
 	err := row.Scan(
@@ -98,7 +100,7 @@ WHERE
 `
 
 type GetDocumentTypeVersionParams struct {
-	DocumentTypeID string
+	DocumentTypeID uuid.UUID
 	Version        int32
 }
 
@@ -155,13 +157,13 @@ type InsertDocumentTypeParams struct {
 }
 
 type InsertDocumentTypeRow struct {
-	ID        string
+	ID        uuid.UUID
 	Name      string
 	Context   string
 	Version   int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	EngineID  string
+	EngineID  uuid.UUID
 }
 
 func (q *Queries) InsertDocumentType(ctx context.Context, arg InsertDocumentTypeParams) (*InsertDocumentTypeRow, error) {
@@ -198,7 +200,7 @@ type ListDocumentTypeVersionsRow struct {
 	CreatedAt time.Time
 }
 
-func (q *Queries) ListDocumentTypeVersions(ctx context.Context, documentTypeID string) ([]*ListDocumentTypeVersionsRow, error) {
+func (q *Queries) ListDocumentTypeVersions(ctx context.Context, documentTypeID uuid.UUID) ([]*ListDocumentTypeVersionsRow, error) {
 	rows, err := q.db.Query(ctx, listDocumentTypeVersions, documentTypeID)
 	if err != nil {
 		return nil, err
@@ -261,14 +263,14 @@ SELECT
     id, name, context, version, created_at, updated_at, engine_id
 FROM
     document_types
-WHERE ($1::text[] IS NULL
+WHERE ($1::uuid[] IS NULL
     OR id = ANY ($1::uuid[]))
 ORDER BY
     LOWER(name),
     name
 `
 
-func (q *Queries) ListWatchedDocumentTypes(ctx context.Context, keys []string) ([]*DocumentType, error) {
+func (q *Queries) ListWatchedDocumentTypes(ctx context.Context, keys []uuid.UUID) ([]*DocumentType, error) {
 	rows, err := q.db.Query(ctx, listWatchedDocumentTypes, keys)
 	if err != nil {
 		return nil, err
@@ -335,18 +337,18 @@ FROM
 type UpdateDocumentTypeParams struct {
 	Name        string
 	Context     string
-	ID          string
+	ID          uuid.UUID
 	ReadVersion int32
 }
 
 type UpdateDocumentTypeRow struct {
-	ID        string
+	ID        uuid.UUID
 	Name      string
 	Context   string
 	Version   int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	EngineID  string
+	EngineID  uuid.UUID
 }
 
 func (q *Queries) UpdateDocumentType(ctx context.Context, arg UpdateDocumentTypeParams) (*UpdateDocumentTypeRow, error) {

@@ -5,6 +5,7 @@ import (
 
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,8 +24,8 @@ func TestListWatchedIsTheLinkedSet(t *testing.T) {
 	orphan, err := h.Upsert(ctx, openPullRequest("PR_2", 2, "agent/nobody"))
 	require.NoError(t, err)
 
-	ids := func(pullRequests []PullRequest) []string {
-		return xslice.Map(pullRequests, func(p PullRequest) string { return p.ID })
+	ids := func(pullRequests []PullRequest) []uuid.UUID {
+		return xslice.Map(pullRequests, func(p PullRequest) uuid.UUID { return p.ID })
 	}
 
 	unlinked, err := h.ListWatched(ctx, nil)
@@ -34,22 +35,22 @@ func TestListWatchedIsTheLinkedSet(t *testing.T) {
 	_, err = h.Observe(ctx)
 	require.NoError(t, err)
 
-	listed, err := h.ListWatched(ctx, []string{held.ID, orphan.ID})
+	listed, err := h.ListWatched(ctx, []uuid.UUID{held.ID, orphan.ID})
 	require.NoError(t, err)
-	assert.Equal(t, []string{held.ID}, ids(listed), "a pull request nobody was seen with is a tombstone")
+	assert.Equal(t, []uuid.UUID{held.ID}, ids(listed), "a pull request nobody was seen with is a tombstone")
 
 	snapshot, err := h.ListWatched(ctx, nil)
 	require.NoError(t, err)
-	assert.Equal(t, []string{held.ID}, ids(snapshot))
+	assert.Equal(t, []uuid.UUID{held.ID}, ids(snapshot))
 
-	_, err = h.agents.Archive(ctx, []string{onBranch})
+	_, err = h.agents.Archive(ctx, []uuid.UUID{onBranch})
 	require.NoError(t, err)
 
-	listed, err = h.ListWatched(ctx, []string{held.ID})
+	listed, err = h.ListWatched(ctx, []uuid.UUID{held.ID})
 	require.NoError(t, err)
-	assert.Equal(t, []string{held.ID}, ids(listed), "an archived agent's pull request stays in the watched set")
+	assert.Equal(t, []uuid.UUID{held.ID}, ids(listed), "an archived agent's pull request stays in the watched set")
 
-	none, err := h.ListWatched(ctx, []string{})
+	none, err := h.ListWatched(ctx, []uuid.UUID{})
 	require.NoError(t, err)
 	assert.Empty(t, none)
 }

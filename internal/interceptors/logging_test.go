@@ -213,5 +213,5 @@ func TestLoggingHandsTheIdentityDown(t *testing.T) {
 	_, err := NewLogging(logging.New(&out, slog.LevelDebug)).WrapUnary(next)(t.Context(), req)
 	require.NoError(t, err)
 
-	assert.Equal(t, caller.Caller{AgentID: "agent-1"}, seen)
+	assert.Equal(t, caller.Caller{AgentID: firstAgentID}, seen)
 }

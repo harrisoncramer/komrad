@@ -60,7 +60,7 @@ func (f *fakeFrameRecorder) Record(params frames.RecordParams) error {
 	return nil
 }
 
-func (f *fakeFrameRecorder) Forget(map[string]struct{}) {
+func (f *fakeFrameRecorder) Forget(map[uuid.UUID]struct{}) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -87,7 +87,7 @@ func (s *testStore) createAgent(ctx context.Context, agent agentstore.Agent) err
 	if agent.Harness == "" {
 		agent.Harness = harnesstest.FakeID
 	}
-	if agent.WorkflowID == "" {
+	if agent.WorkflowID == uuid.Nil {
 		created, err := s.Workflows.Create(ctx, workflowstore.Config{Name: "workflow-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 		if err != nil {
 			return err
@@ -116,16 +116,16 @@ func (s *testStore) SoftDelete(ctx context.Context, name string) error {
 		return fmt.Errorf("no live agent called %q", name)
 	}
 
-	_, err = s.Agents.Archive(ctx, []string{agent.ID})
+	_, err = s.Agents.Archive(ctx, []uuid.UUID{agent.ID})
 
 	return err
 }
 
-func (s *testStore) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
+func (s *testStore) GetWorkflow(ctx context.Context, id uuid.UUID) (*workflowstore.Workflow, error) {
 	return s.Workflows.Get(ctx, id)
 }
 
-func (s *testStore) GetTranscript(ctx context.Context, agentID string) (string, error) {
+func (s *testStore) GetTranscript(ctx context.Context, agentID uuid.UUID) (string, error) {
 	return s.Transcripts.Get(ctx, agentID)
 }
 
@@ -512,7 +512,7 @@ type inlineDelete struct {
 	lifecycle *LifecycleService
 }
 
-func (d inlineDelete) DeleteAgents(ctx context.Context, ids []string) error {
+func (d inlineDelete) DeleteAgents(ctx context.Context, ids []uuid.UUID) error {
 	claims, err := d.lifecycle.agents.MarkDeleting(ctx, ids)
 	if err != nil {
 		return err
@@ -528,14 +528,14 @@ func (d inlineDelete) DeleteAgents(ctx context.Context, ids []string) error {
 func seed(t *testing.T, st *testStore, name, pane string, state agentstore.State) agentstore.Agent {
 	t.Helper()
 
-	return seedInWorkflow(t, st, "", name, pane, state)
+	return seedInWorkflow(t, st, uuid.Nil, name, pane, state)
 }
 
-func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane string, state agentstore.State) agentstore.Agent {
+func seedInWorkflow(t *testing.T, st *testStore, workflowID uuid.UUID, name string, pane string, state agentstore.State) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
-	if workflowID == "" {
+	if workflowID == uuid.Nil {
 		workflowID = seedWorkflow(t, st)
 	}
 
@@ -553,7 +553,7 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane string, 
 	return *got
 }
 
-func seedWithRole(t *testing.T, st *testStore, workflowID, name string, role agentstore.Role) agentstore.Agent {
+func seedWithRole(t *testing.T, st *testStore, workflowID uuid.UUID, name string, role agentstore.Role) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
@@ -616,7 +616,7 @@ func buildResumeWrite(t *testing.T, params buildResumeWriteParams) func() {
 }
 
 type paneStamper interface {
-	SetPaneOwner(pane, agentID string) error
+	SetPaneOwner(pane string, agentID uuid.UUID) error
 }
 
 func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane string, state agentstore.State) agentstore.Agent {
@@ -655,13 +655,13 @@ func seedReviewer(t *testing.T, st *testStore, tmux paneStamper, writer agentsto
 	return *got
 }
 
-func backdateStateSeen(t *testing.T, st *testStore, id string, age time.Duration) {
+func backdateStateSeen(t *testing.T, st *testStore, id uuid.UUID, age time.Duration) {
 	t.Helper()
 
 	queries := testmodels.New(st.Pool.GetDB())
 	require.NoError(t, queries.BackdateAgentStateSeen(t.Context(), testmodels.BackdateAgentStateSeenParams{
 		AgeMicros: age.Microseconds(),
-		ID:        id,
+		ID:        id.String(),
 	}))
 }
 
@@ -695,7 +695,7 @@ func newManagerWithHarness(tmux *tmuxtest.Fake, st *testStore, flags string) (*t
 	}), fakeHarness
 }
 
-func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
+func agentByID(t *testing.T, st *testStore, id uuid.UUID) agentstore.Agent {
 	t.Helper()
 
 	all, err := st.Agents.ListAll(t.Context())
@@ -712,7 +712,7 @@ func agentByID(t *testing.T, st *testStore, id string) agentstore.Agent {
 	return agentstore.Agent{}
 }
 
-func seedWorkflow(t *testing.T, st *testStore) string {
+func seedWorkflow(t *testing.T, st *testStore) uuid.UUID {
 	t.Helper()
 
 	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{Name: "workflow-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
@@ -790,7 +790,7 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 	return nil
 }
 
-func checkoutOf(t *testing.T, st *testStore, agentID string) taskstore.Checkout {
+func checkoutOf(t *testing.T, st *testStore, agentID uuid.UUID) taskstore.Checkout {
 	t.Helper()
 
 	agent := agentByID(t, st, agentID)
@@ -813,7 +813,7 @@ func (s *testStore) seedAdopted(t *testing.T, name, branch string) {
 }
 
 // archiveWriters archives the named agents by archiving their tasks.
-func archiveWriters(ctx context.Context, lifecycle *LifecycleService, ids []string) error {
+func archiveWriters(ctx context.Context, lifecycle *LifecycleService, ids []uuid.UUID) error {
 	agents, err := lifecycle.agents.ListByID(ctx, ids)
 	if err != nil {
 		return err
@@ -829,8 +829,8 @@ func archiveWriters(ctx context.Context, lifecycle *LifecycleService, ids []stri
 }
 
 // taskByID names a task by the id the store gave it.
-func taskByID(id string) oneofs.Task {
-	parsed := uuid.MustParse(id)
+func taskByID(id uuid.UUID) oneofs.Task {
+	parsed := uuid.MustParse(id.String())
 
 	return oneofs.Task{TaskId: &parsed}
 }

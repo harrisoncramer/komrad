@@ -10,6 +10,8 @@ import (
 	"komrad/internal/rpcapi"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+
+	"github.com/google/uuid"
 )
 
 // toolRoles maps what komrad launched an agent to do onto the annotation the tools declare.
@@ -21,7 +23,7 @@ var toolRoles = map[agentstore.Role]annotationv1.Role{
 
 // newRoleOf reads the role of an agent making a call.
 func newRoleOf(agents *agentstore.AgentStore) rpcapi.RoleOf {
-	return func(ctx context.Context, agentID string) (annotationv1.Role, error) {
+	return func(ctx context.Context, agentID uuid.UUID) (annotationv1.Role, error) {
 		agent, err := agents.GetByID(ctx, agentID)
 		if errors.Is(err, store.ErrNotFound) {
 			return annotationv1.Role_ROLE_UNSPECIFIED, rpcapi.ErrUnknownCaller.Saying("komrad knows no agent %q", agentID)

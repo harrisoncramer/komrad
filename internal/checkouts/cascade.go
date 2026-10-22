@@ -18,6 +18,8 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xsha"
 	"komrad/proto/gen/oneofs"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -130,7 +132,7 @@ func (s *Service) settleMergedIntoParent(ctx context.Context, task, parent tasks
 		return false, nil
 	}
 
-	children, err := s.tasks.ListChildrenOf(ctx, []string{task.ID})
+	children, err := s.tasks.ListChildrenOf(ctx, []uuid.UUID{task.ID})
 	if err != nil {
 		return false, err
 	}
@@ -151,8 +153,8 @@ func (s *Service) settleMergedIntoParent(ctx context.Context, task, parent tasks
 // readParentPullRequest is the child's parent pull request, recording the first one opened from the
 // parent's branch since the child began while none is recorded, and store.ErrNotFound while there is none.
 func (s *Service) readParentPullRequest(ctx context.Context, task, parent taskstore.Task) (*pullrequeststore.PullRequest, error) {
-	if id := task.Parent.PullRequestID; id != "" {
-		return s.pullRequests.GetByID(ctx, id)
+	if id := task.Parent.PullRequestID; id != nil {
+		return s.pullRequests.GetByID(ctx, *id)
 	}
 
 	repository, err := requireRepository(task)
@@ -390,7 +392,7 @@ func (s *Service) leaveParent(ctx context.Context, task taskstore.Task) error {
 
 	if err := s.retarget(ctx, task, branch); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to point a task's pull request at the base branch",
-			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 	}
 
 	return nil
@@ -486,7 +488,7 @@ func (s *Service) setBase(ctx context.Context, address, base string) (string, er
 
 // tellRetargetRefused records that the forge refused to point the pull request at the base branch as
 // it stands and tells the task's writer to point it themselves.
-func (s *Service) tellRetargetRefused(ctx context.Context, taskID string, pr pullrequeststore.PullRequest, refused eventprompts.RetargetRefused) error {
+func (s *Service) tellRetargetRefused(ctx context.Context, taskID uuid.UUID, pr pullrequeststore.PullRequest, refused eventprompts.RetargetRefused) error {
 	if err := s.pullRequests.RecordRetargetRefused(ctx, pr); err != nil {
 		return err
 	}
@@ -754,7 +756,7 @@ func (s *Service) pushCascade(ctx context.Context, task taskstore.Task) bool {
 // logPushCascadeFailed logs a rebased child's branch komrad could not push, which its writer is then told to push.
 func logPushCascadeFailed(ctx context.Context, task taskstore.Task, err error) {
 	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to push a child's rebased branch",
-		append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+		append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 }
 
 // PickForkPointParams names a child and its new fork point.

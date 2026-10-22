@@ -19,7 +19,7 @@ import (
 )
 
 type failingRouter struct {
-	recipient string
+	recipient uuid.UUID
 }
 
 func (r failingRouter) Route(ctx context.Context, tx store.DBTX, _ events.Event) ([]river.JobArgs, error) {
@@ -28,7 +28,7 @@ func (r failingRouter) Route(ctx context.Context, tx store.DBTX, _ events.Event)
 		ToAgentID: r.recipient,
 		Body:      "written before the handler failed",
 		Kind:      mailstore.KindPullRequestChanged,
-		SubjectID: uuid.NewString(),
+		SubjectID: uuid.New(),
 	})
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func (r failingRouter) Route(ctx context.Context, tx store.DBTX, _ events.Event)
 func TestEventWorkerRollsBackAFailedHandler(t *testing.T) {
 	stores := storetest.Open(t)
 	agent := stores.SeedAgent(t, agentstore.Agent{
-		ID:   uuid.NewString(),
+		ID:   uuid.New(),
 		Name: "a",
 		Cwd:  "/repo",
 	})

@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const activeNameExists = `-- name: ActiveNameExists :one
@@ -24,7 +26,7 @@ SELECT
 `
 
 type ActiveNameExistsParams struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Name       string
 }
 
@@ -46,7 +48,7 @@ WHERE
 
 type AdvanceTranscriptSessionParams struct {
 	SyncedOffset int64
-	ID           string
+	ID           uuid.UUID
 }
 
 func (q *Queries) AdvanceTranscriptSession(ctx context.Context, arg AdvanceTranscriptSessionParams) error {
@@ -65,7 +67,7 @@ SELECT
             id = $1)
 `
 
-func (q *Queries) AgentExists(ctx context.Context, id string) (bool, error) {
+func (q *Queries) AgentExists(ctx context.Context, id uuid.UUID) (bool, error) {
 	row := q.db.QueryRow(ctx, agentExists, id)
 	var exists bool
 	err := row.Scan(&exists)
@@ -117,7 +119,7 @@ WHERE
             released)
 `
 
-func (q *Queries) ClearAgentsDeleting(ctx context.Context, ids []string) error {
+func (q *Queries) ClearAgentsDeleting(ctx context.Context, ids []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, clearAgentsDeleting, ids)
 	return err
 }
@@ -150,7 +152,7 @@ WHERE
     AND state IN ('thinking', 'waiting', 'uncertain')
 `
 
-func (q *Queries) CountLiveScheduleAgents(ctx context.Context, scheduleID *string) (int64, error) {
+func (q *Queries) CountLiveScheduleAgents(ctx context.Context, scheduleID *uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countLiveScheduleAgents, scheduleID)
 	var count int64
 	err := row.Scan(&count)
@@ -168,7 +170,7 @@ WHERE
     AND archived_at IS NULL
 `
 
-func (q *Queries) CountLiveTaskReviewers(ctx context.Context, taskID *string) (int64, error) {
+func (q *Queries) CountLiveTaskReviewers(ctx context.Context, taskID *uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countLiveTaskReviewers, taskID)
 	var count int64
 	err := row.Scan(&count)
@@ -187,7 +189,7 @@ WHERE
     AND state NOT IN ('failed_to_create', 'failed_to_cleanup')
 `
 
-func (q *Queries) CountLiveTasksStartedBy(ctx context.Context, spawnedByAgentID *string) (int64, error) {
+func (q *Queries) CountLiveTasksStartedBy(ctx context.Context, spawnedByAgentID *uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countLiveTasksStartedBy, spawnedByAgentID)
 	var count int64
 	err := row.Scan(&count)
@@ -203,11 +205,11 @@ RETURNING
 `
 
 type DeleteAgentsByIDRow struct {
-	ID     string
+	ID     uuid.UUID
 	PaneID string
 }
 
-func (q *Queries) DeleteAgentsByID(ctx context.Context, ids []string) ([]*DeleteAgentsByIDRow, error) {
+func (q *Queries) DeleteAgentsByID(ctx context.Context, ids []uuid.UUID) ([]*DeleteAgentsByIDRow, error) {
 	rows, err := q.db.Query(ctx, deleteAgentsByID, ids)
 	if err != nil {
 		return nil, err
@@ -232,7 +234,7 @@ DELETE FROM agent_transcript_chunks
 WHERE agent_id = ANY ($1::uuid[])
 `
 
-func (q *Queries) DeleteAgentsTranscriptChunks(ctx context.Context, agentIds []string) error {
+func (q *Queries) DeleteAgentsTranscriptChunks(ctx context.Context, agentIds []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteAgentsTranscriptChunks, agentIds)
 	return err
 }
@@ -242,7 +244,7 @@ DELETE FROM agent_transcript_sessions
 WHERE agent_id = ANY ($1::uuid[])
 `
 
-func (q *Queries) DeleteAgentsTranscriptSessions(ctx context.Context, agentIds []string) error {
+func (q *Queries) DeleteAgentsTranscriptSessions(ctx context.Context, agentIds []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteAgentsTranscriptSessions, agentIds)
 	return err
 }
@@ -252,7 +254,7 @@ DELETE FROM agent_transcript_chunks
 WHERE session_id = $1
 `
 
-func (q *Queries) DeleteTranscriptSessionChunks(ctx context.Context, sessionID string) error {
+func (q *Queries) DeleteTranscriptSessionChunks(ctx context.Context, sessionID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteTranscriptSessionChunks, sessionID)
 	return err
 }
@@ -274,12 +276,12 @@ RETURNING
 
 type ForgetAgentPaneParams struct {
 	InterruptedAt *time.Time
-	ID            string
+	ID            uuid.UUID
 	PaneID        string
 	UpdatedAt     time.Time
 }
 
-func (q *Queries) ForgetAgentPane(ctx context.Context, arg ForgetAgentPaneParams) ([]string, error) {
+func (q *Queries) ForgetAgentPane(ctx context.Context, arg ForgetAgentPaneParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, forgetAgentPane,
 		arg.InterruptedAt,
 		arg.ID,
@@ -290,9 +292,9 @@ func (q *Queries) ForgetAgentPane(ctx context.Context, arg ForgetAgentPaneParams
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -314,7 +316,7 @@ WHERE
 LIMIT 1
 `
 
-func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
+func (q *Queries) GetAgentByID(ctx context.Context, id uuid.UUID) (*Agent, error) {
 	row := q.db.QueryRow(ctx, getAgentByID, id)
 	var i Agent
 	err := row.Scan(
@@ -379,7 +381,7 @@ LIMIT 1
 
 type GetAgentByIdempotencyKeyParams struct {
 	IdempotencyKey     *string
-	RequestedByAgentID *string
+	RequestedByAgentID *uuid.UUID
 }
 
 func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, arg GetAgentByIdempotencyKeyParams) (*Agent, error) {
@@ -447,7 +449,7 @@ LIMIT 1
 `
 
 type GetAgentInWorkflowParams struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Name       string
 }
 
@@ -519,7 +521,7 @@ ORDER BY
 LIMIT 1
 `
 
-func (q *Queries) GetTaskWriter(ctx context.Context, taskID string) (*Agent, error) {
+func (q *Queries) GetTaskWriter(ctx context.Context, taskID uuid.UUID) (*Agent, error) {
 	row := q.db.QueryRow(ctx, getTaskWriter, taskID)
 	var i Agent
 	err := row.Scan(
@@ -580,7 +582,7 @@ WHERE
     agent_id = $1
 `
 
-func (q *Queries) GetTranscript(ctx context.Context, agentID string) (string, error) {
+func (q *Queries) GetTranscript(ctx context.Context, agentID uuid.UUID) (string, error) {
 	row := q.db.QueryRow(ctx, getTranscript, agentID)
 	var content string
 	err := row.Scan(&content)
@@ -598,9 +600,9 @@ WHERE
 LIMIT 1
 `
 
-func (q *Queries) GetWorkflowOrchestratorID(ctx context.Context, workflowID string) (string, error) {
+func (q *Queries) GetWorkflowOrchestratorID(ctx context.Context, workflowID uuid.UUID) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getWorkflowOrchestratorID, workflowID)
-	var id string
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -649,7 +651,7 @@ RETURNING
 `
 
 type InsertAgentParams struct {
-	ID                 string
+	ID                 uuid.UUID
 	Name               string
 	Cwd                string
 	Flags              string
@@ -658,17 +660,17 @@ type InsertAgentParams struct {
 	State              AgentState
 	Harness            string
 	SessionID          string
-	WorkflowID         string
-	ScheduleID         *string
+	WorkflowID         uuid.UUID
+	ScheduleID         *uuid.UUID
 	IdempotencyKey     *string
 	ProvisionEnabled   *bool
-	SpawnedByAgentID   *string
-	RequestedByAgentID *string
+	SpawnedByAgentID   *uuid.UUID
+	RequestedByAgentID *uuid.UUID
 	Role               AgentRole
-	TaskID             *string
+	TaskID             *uuid.UUID
 }
 
-func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (string, error) {
+func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, insertAgent,
 		arg.ID,
 		arg.Name,
@@ -688,7 +690,7 @@ func (q *Queries) InsertAgent(ctx context.Context, arg InsertAgentParams) (strin
 		arg.Role,
 		arg.TaskID,
 	)
-	var id string
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -722,8 +724,8 @@ FROM
 `
 
 type InsertTranscriptChunksParams struct {
-	AgentID        string
-	SessionID      string
+	AgentID        uuid.UUID
+	SessionID      uuid.UUID
 	Seqs           []int32
 	Roles          []string
 	Contents       []string
@@ -763,16 +765,16 @@ FROM
 `
 
 type ListAgentDirsRow struct {
-	ID               string
+	ID               uuid.UUID
 	Name             string
 	Cwd              string
 	State            AgentState
 	StateChangedAt   time.Time
 	ArchivedAt       *time.Time
 	DeletingAt       *time.Time
-	WorkflowID       string
+	WorkflowID       uuid.UUID
 	CreatedAt        time.Time
-	TaskID           *string
+	TaskID           *uuid.UUID
 	Role             AgentRole
 	ProvisionEnabled *bool
 }
@@ -826,19 +828,19 @@ LIMIT $3
 
 type ListAgentPageIDsParams struct {
 	Archived bool
-	CursorID *string
+	CursorID *uuid.UUID
 	Lim      int32
 }
 
-func (q *Queries) ListAgentPageIDs(ctx context.Context, arg ListAgentPageIDsParams) ([]string, error) {
+func (q *Queries) ListAgentPageIDs(ctx context.Context, arg ListAgentPageIDsParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listAgentPageIDs, arg.Archived, arg.CursorID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -937,7 +939,7 @@ ORDER BY
     s.id DESC
 `
 
-func (q *Queries) ListAgentsByID(ctx context.Context, ids []string) ([]*Agent, error) {
+func (q *Queries) ListAgentsByID(ctx context.Context, ids []uuid.UUID) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAgentsByID, ids)
 	if err != nil {
 		return nil, err
@@ -1099,7 +1101,7 @@ ORDER BY
     id
 `
 
-func (q *Queries) ListAgentsOnTasks(ctx context.Context, taskIds []string) ([]*Agent, error) {
+func (q *Queries) ListAgentsOnTasks(ctx context.Context, taskIds []uuid.UUID) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAgentsOnTasks, taskIds)
 	if err != nil {
 		return nil, err
@@ -1250,7 +1252,7 @@ ORDER BY
     id DESC
 `
 
-func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID string) ([]*Agent, error) {
+func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID uuid.UUID) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listArchivedWorkflowAgents, workflowID)
 	if err != nil {
 		return nil, err
@@ -1340,8 +1342,8 @@ ORDER BY
 `
 
 type ListDeletingRootsRow struct {
-	ID         string
-	TaskID     *string
+	ID         uuid.UUID
+	TaskID     *uuid.UUID
 	Role       AgentRole
 	DeletingAt *time.Time
 }
@@ -1407,7 +1409,7 @@ ORDER BY
 `
 
 type ListLastTranscriptTurnsParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Role    string
 	Lim     int32
 }
@@ -1527,7 +1529,7 @@ ORDER BY
     id DESC
 `
 
-func (q *Queries) ListLiveTaskAgents(ctx context.Context, taskID *string) ([]*Agent, error) {
+func (q *Queries) ListLiveTaskAgents(ctx context.Context, taskID *uuid.UUID) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listLiveTaskAgents, taskID)
 	if err != nil {
 		return nil, err
@@ -1604,7 +1606,7 @@ ORDER BY
     id DESC
 `
 
-func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string) ([]*Agent, error) {
+func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID uuid.UUID) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listLiveWorkflowAgents, workflowID)
 	if err != nil {
 		return nil, err
@@ -1690,15 +1692,15 @@ WHERE
             AND l.archived_at IS NULL)
 `
 
-func (q *Queries) ListProvisionedAgentIDsByTask(ctx context.Context, taskIds []string) ([]string, error) {
+func (q *Queries) ListProvisionedAgentIDsByTask(ctx context.Context, taskIds []uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listProvisionedAgentIDsByTask, taskIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -1731,7 +1733,7 @@ ORDER BY
     a.id DESC
 `
 
-func (q *Queries) ListRestorableWorkflowAgents(ctx context.Context, workflowID string) ([]*Agent, error) {
+func (q *Queries) ListRestorableWorkflowAgents(ctx context.Context, workflowID uuid.UUID) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listRestorableWorkflowAgents, workflowID)
 	if err != nil {
 		return nil, err
@@ -1806,7 +1808,7 @@ WITH watched AS (
                 agents a
             WHERE
                 a.deleting_at IS NULL
-                AND ($1::text[] IS NULL
+                AND ($1::uuid[] IS NULL
                     OR a.id = ANY ($1::uuid[]))) AS ids
 ),
 failed AS (
@@ -1862,7 +1864,7 @@ type ListWatchedAgentsRow struct {
 	TaskSlug           *string
 }
 
-func (q *Queries) ListWatchedAgents(ctx context.Context, keys []string) ([]*ListWatchedAgentsRow, error) {
+func (q *Queries) ListWatchedAgents(ctx context.Context, keys []uuid.UUID) ([]*ListWatchedAgentsRow, error) {
 	rows, err := q.db.Query(ctx, listWatchedAgents, keys)
 	if err != nil {
 		return nil, err
@@ -1961,15 +1963,15 @@ RETURNING
     id
 `
 
-func (q *Queries) MarkAgentSettingUpIfFailedToCreate(ctx context.Context, id string) ([]string, error) {
+func (q *Queries) MarkAgentSettingUpIfFailedToCreate(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, markAgentSettingUpIfFailedToCreate, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -2002,15 +2004,15 @@ RETURNING
     id
 `
 
-func (q *Queries) MarkAgentSettingUpIfLive(ctx context.Context, id string) ([]string, error) {
+func (q *Queries) MarkAgentSettingUpIfLive(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, markAgentSettingUpIfLive, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -2082,11 +2084,11 @@ RETURNING
 `
 
 type MarkAgentsArchivedRow struct {
-	ID     string
+	ID     uuid.UUID
 	PaneID string
 }
 
-func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) ([]*MarkAgentsArchivedRow, error) {
+func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []uuid.UUID) ([]*MarkAgentsArchivedRow, error) {
 	rows, err := q.db.Query(ctx, markAgentsArchived, ids)
 	if err != nil {
 		return nil, err
@@ -2169,13 +2171,13 @@ marked AS (
 `
 
 type MarkAgentsDeletingRow struct {
-	ID         string
-	TaskID     *string
+	ID         uuid.UUID
+	TaskID     *uuid.UUID
 	Role       AgentRole
 	DeletingAt *time.Time
 }
 
-func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []string) ([]*MarkAgentsDeletingRow, error) {
+func (q *Queries) MarkAgentsDeleting(ctx context.Context, ids []uuid.UUID) ([]*MarkAgentsDeletingRow, error) {
 	rows, err := q.db.Query(ctx, markAgentsDeleting, ids)
 	if err != nil {
 		return nil, err
@@ -2275,13 +2277,13 @@ marked AS (
 `
 
 type MarkArchivedAgentsDeletingByIDRow struct {
-	ID         string
-	TaskID     *string
+	ID         uuid.UUID
+	TaskID     *uuid.UUID
 	Role       AgentRole
 	DeletingAt *time.Time
 }
 
-func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []string) ([]*MarkArchivedAgentsDeletingByIDRow, error) {
+func (q *Queries) MarkArchivedAgentsDeletingByID(ctx context.Context, ids []uuid.UUID) ([]*MarkArchivedAgentsDeletingByIDRow, error) {
 	rows, err := q.db.Query(ctx, markArchivedAgentsDeletingByID, ids)
 	if err != nil {
 		return nil, err
@@ -2317,7 +2319,7 @@ WHERE
 
 type MarkTranscriptSessionDrainedParams struct {
 	SyncedAt time.Time
-	ID       string
+	ID       uuid.UUID
 }
 
 func (q *Queries) MarkTranscriptSessionDrained(ctx context.Context, arg MarkTranscriptSessionDrainedParams) error {
@@ -2385,11 +2387,11 @@ RETURNING
 `
 
 type MarkWorkflowAgentsArchivedRow struct {
-	ID     string
+	ID     uuid.UUID
 	PaneID string
 }
 
-func (q *Queries) MarkWorkflowAgentsArchived(ctx context.Context, workflowID string) ([]*MarkWorkflowAgentsArchivedRow, error) {
+func (q *Queries) MarkWorkflowAgentsArchived(ctx context.Context, workflowID uuid.UUID) ([]*MarkWorkflowAgentsArchivedRow, error) {
 	rows, err := q.db.Query(ctx, markWorkflowAgentsArchived, workflowID)
 	if err != nil {
 		return nil, err
@@ -2429,7 +2431,7 @@ WHERE
             AND t.worktree_removal_reason = 'deleted')
 `
 
-func (q *Queries) MarkWorkflowAgentsRestored(ctx context.Context, workflowID string) error {
+func (q *Queries) MarkWorkflowAgentsRestored(ctx context.Context, workflowID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markWorkflowAgentsRestored, workflowID)
 	return err
 }
@@ -2449,7 +2451,7 @@ type NextTranscriptChunkRow struct {
 	ContentLength int64
 }
 
-func (q *Queries) NextTranscriptChunk(ctx context.Context, agentID string) (*NextTranscriptChunkRow, error) {
+func (q *Queries) NextTranscriptChunk(ctx context.Context, agentID uuid.UUID) (*NextTranscriptChunkRow, error) {
 	row := q.db.QueryRow(ctx, nextTranscriptChunk, agentID)
 	var i NextTranscriptChunkRow
 	err := row.Scan(&i.NextSeq, &i.ContentLength)
@@ -2477,13 +2479,13 @@ ON CONFLICT (
 `
 
 type OpenTranscriptSessionParams struct {
-	ID        string
-	AgentID   string
+	ID        uuid.UUID
+	AgentID   uuid.UUID
 	SessionID string
 }
 
 type OpenTranscriptSessionRow struct {
-	ID           string
+	ID           uuid.UUID
 	SyncedOffset int64
 	OpenedAt     time.Time
 }
@@ -2510,18 +2512,18 @@ RETURNING
 
 type ReleaseAgentIdempotencyKeyParams struct {
 	IdempotencyKey     *string
-	RequestedByAgentID *string
+	RequestedByAgentID *uuid.UUID
 }
 
-func (q *Queries) ReleaseAgentIdempotencyKey(ctx context.Context, arg ReleaseAgentIdempotencyKeyParams) ([]string, error) {
+func (q *Queries) ReleaseAgentIdempotencyKey(ctx context.Context, arg ReleaseAgentIdempotencyKeyParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, releaseAgentIdempotencyKey, arg.IdempotencyKey, arg.RequestedByAgentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -2546,18 +2548,18 @@ RETURNING
 
 type RenameAgentParams struct {
 	Name string
-	ID   string
+	ID   uuid.UUID
 }
 
-func (q *Queries) RenameAgent(ctx context.Context, arg RenameAgentParams) ([]string, error) {
+func (q *Queries) RenameAgent(ctx context.Context, arg RenameAgentParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, renameAgent, arg.Name, arg.ID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -2579,7 +2581,7 @@ WHERE
     id = ANY ($1::uuid[])
 `
 
-func (q *Queries) RestoreAgents(ctx context.Context, ids []string) error {
+func (q *Queries) RestoreAgents(ctx context.Context, ids []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, restoreAgents, ids)
 	return err
 }
@@ -2675,7 +2677,7 @@ LIMIT $4
 
 type SearchTranscriptsParams struct {
 	CursorKey     *float64
-	CursorAgentID *string
+	CursorAgentID *uuid.UUID
 	CursorSeq     *int32
 	Lim           int32
 	Wanted        string
@@ -2686,7 +2688,7 @@ type SearchTranscriptsParams struct {
 	Sort          string
 	UnknownKey    float64
 	Browse        bool
-	AgentID       *string
+	AgentID       *uuid.UUID
 	Speaker       *string
 	AgentName     *string
 	WorkflowName  *string
@@ -2697,7 +2699,7 @@ type SearchTranscriptsParams struct {
 }
 
 type SearchTranscriptsRow struct {
-	AgentID       string
+	AgentID       uuid.UUID
 	Seq           int32
 	Role          string
 	ContentOffset int64
@@ -2853,7 +2855,7 @@ LIMIT $4
 
 type SearchTranscriptsNearParams struct {
 	CursorKey     *float64
-	CursorAgentID *string
+	CursorAgentID *uuid.UUID
 	CursorSeq     *int32
 	Lim           int32
 	Terms         []string
@@ -2864,7 +2866,7 @@ type SearchTranscriptsNearParams struct {
 	Width         int32
 	Sort          string
 	UnknownKey    float64
-	AgentID       *string
+	AgentID       *uuid.UUID
 	Speaker       *string
 	AgentName     *string
 	WorkflowName  *string
@@ -2875,7 +2877,7 @@ type SearchTranscriptsNearParams struct {
 }
 
 type SearchTranscriptsNearRow struct {
-	AgentID       string
+	AgentID       uuid.UUID
 	Seq           int32
 	Role          string
 	ContentOffset int64
@@ -2952,18 +2954,18 @@ RETURNING
 
 type SetAgentFailureReasonParams struct {
 	FailureReason string
-	ID            string
+	ID            uuid.UUID
 }
 
-func (q *Queries) SetAgentFailureReason(ctx context.Context, arg SetAgentFailureReasonParams) ([]string, error) {
+func (q *Queries) SetAgentFailureReason(ctx context.Context, arg SetAgentFailureReasonParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, setAgentFailureReason, arg.FailureReason, arg.ID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -2990,7 +2992,7 @@ type SetAgentHarnessParams struct {
 	Harness   string
 	Flags     string
 	SessionID string
-	ID        string
+	ID        uuid.UUID
 }
 
 func (q *Queries) SetAgentHarness(ctx context.Context, arg SetAgentHarnessParams) error {
@@ -3014,7 +3016,7 @@ WHERE
 
 type SetAgentHooksByIDParams struct {
 	Hooks []string
-	ID    string
+	ID    uuid.UUID
 }
 
 func (q *Queries) SetAgentHooksByID(ctx context.Context, arg SetAgentHooksByIDParams) error {
@@ -3033,7 +3035,7 @@ WHERE
 
 type SetAgentInterruptedAtByIDParams struct {
 	InterruptedAt *time.Time
-	ID            string
+	ID            uuid.UUID
 }
 
 func (q *Queries) SetAgentInterruptedAtByID(ctx context.Context, arg SetAgentInterruptedAtByIDParams) error {
@@ -3052,7 +3054,7 @@ WHERE
 
 type SetAgentReportedReasonByIDParams struct {
 	ReportedReason string
-	ID             string
+	ID             uuid.UUID
 }
 
 func (q *Queries) SetAgentReportedReasonByID(ctx context.Context, arg SetAgentReportedReasonByIDParams) (int64, error) {
@@ -3083,7 +3085,7 @@ WHERE
 
 type SetAgentSessionIDParams struct {
 	SessionID string
-	ID        string
+	ID        uuid.UUID
 }
 
 func (q *Queries) SetAgentSessionID(ctx context.Context, arg SetAgentSessionIDParams) error {
@@ -3115,7 +3117,7 @@ WHERE
 
 type SetAgentStateByIDParams struct {
 	State AgentState
-	ID    string
+	ID    uuid.UUID
 }
 
 func (q *Queries) SetAgentStateByID(ctx context.Context, arg SetAgentStateByIDParams) error {
@@ -3132,7 +3134,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) SetAgentTurnEndedByID(ctx context.Context, id string) error {
+func (q *Queries) SetAgentTurnEndedByID(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setAgentTurnEndedByID, id)
 	return err
 }
@@ -3150,7 +3152,7 @@ WHERE
 
 type SetAgentTurnFailedByIDParams struct {
 	TurnError string
-	ID        string
+	ID        uuid.UUID
 }
 
 func (q *Queries) SetAgentTurnFailedByID(ctx context.Context, arg SetAgentTurnFailedByIDParams) error {
@@ -3169,7 +3171,7 @@ WHERE
 
 type SetAgentsAliveParams struct {
 	Alive bool
-	Ids   []string
+	Ids   []uuid.UUID
 }
 
 func (q *Queries) SetAgentsAlive(ctx context.Context, arg SetAgentsAliveParams) error {
@@ -3209,8 +3211,8 @@ type UpdateAgentParams struct {
 	PaneID     string
 	State      AgentState
 	SessionID  interface{}
-	WorkflowID string
-	ID         string
+	WorkflowID uuid.UUID
+	ID         uuid.UUID
 }
 
 func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) error {
@@ -3270,11 +3272,11 @@ type UpdateAgentIfLiveParams struct {
 	PaneID     string
 	State      AgentState
 	SessionID  interface{}
-	WorkflowID string
-	ID         string
+	WorkflowID uuid.UUID
+	ID         uuid.UUID
 }
 
-func (q *Queries) UpdateAgentIfLive(ctx context.Context, arg UpdateAgentIfLiveParams) ([]string, error) {
+func (q *Queries) UpdateAgentIfLive(ctx context.Context, arg UpdateAgentIfLiveParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, updateAgentIfLive,
 		arg.Cwd,
 		arg.Flags,
@@ -3289,9 +3291,9 @@ func (q *Queries) UpdateAgentIfLive(ctx context.Context, arg UpdateAgentIfLivePa
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}

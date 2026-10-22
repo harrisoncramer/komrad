@@ -9,6 +9,8 @@ import (
 	"komrad/config"
 	"komrad/internal/engine"
 	"komrad/internal/panes"
+
+	"github.com/google/uuid"
 )
 
 // besideShare is the block's share of the columns right of the sidebar's list before any nudge.
@@ -887,7 +889,7 @@ func (f *Frame) reclaim() {
 	}
 
 	for _, pane := range f.tmux.GetSiblingPanes(f.sidebar) {
-		if f.tmux.GetPaneOwner(pane) != "" {
+		if f.tmux.GetPaneOwner(pane) != uuid.Nil {
 			f.tmux.BreakPane(pane)
 
 			continue

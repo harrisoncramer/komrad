@@ -10,6 +10,8 @@ import (
 	documentstore "komrad/internal/store/document"
 	documenttypestore "komrad/internal/store/documenttype"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // ListDocumentTypes returns every document type with its context, by name.
@@ -52,18 +54,18 @@ func (s *DocumentService) unknownType(ctx context.Context, name string) error {
 
 type WriteDocumentTypeParams struct {
 	// ID is the type to rewrite, or nil to create one.
-	ID *string
+	ID *uuid.UUID
 	// Version is the version a rewrite replaces, required with ID.
 	Version *int32
 	Name    string
 	Context string
 	// ByAgentID is the agent asking, empty for a person.
-	ByAgentID string
+	ByAgentID uuid.UUID
 }
 
 // WriteDocumentType creates a document type, or renames or rewrites the one ID names.
 func (s *DocumentService) WriteDocumentType(ctx context.Context, params WriteDocumentTypeParams) (*documenttypestore.Type, error) {
-	if params.ByAgentID != "" {
+	if params.ByAgentID != uuid.Nil {
 		return nil, ErrDocumentTypeByAgent
 	}
 	if params.ID == nil {
@@ -83,14 +85,14 @@ func (s *DocumentService) WriteDocumentType(ctx context.Context, params WriteDoc
 
 // DeleteDocumentTypeParams is the type to delete and the agent asking.
 type DeleteDocumentTypeParams struct {
-	ID string
+	ID uuid.UUID
 	// ByAgentID is the agent asking, empty for a person.
-	ByAgentID string
+	ByAgentID uuid.UUID
 }
 
 // DeleteDocumentType removes a document type no document is written as.
 func (s *DocumentService) DeleteDocumentType(ctx context.Context, params DeleteDocumentTypeParams) error {
-	if params.ByAgentID != "" {
+	if params.ByAgentID != uuid.Nil {
 		return ErrDocumentTypeByAgent
 	}
 
@@ -98,7 +100,7 @@ func (s *DocumentService) DeleteDocumentType(ctx context.Context, params DeleteD
 }
 
 // ListDocumentTypeVersions returns every write of a document type, the newest first.
-func (s *DocumentService) ListDocumentTypeVersions(ctx context.Context, id string) ([]documenttypestore.Version, error) {
+func (s *DocumentService) ListDocumentTypeVersions(ctx context.Context, id uuid.UUID) ([]documenttypestore.Version, error) {
 	if _, err := s.types.Get(ctx, id); err != nil {
 		return nil, err
 	}

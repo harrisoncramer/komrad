@@ -15,7 +15,7 @@ SELECT
     sqlc.embed(s)
 FROM
     schedules s
-WHERE (sqlc.narg('keys')::text[] IS NULL
+WHERE (sqlc.narg('keys')::uuid[] IS NULL
     OR s.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     s.id DESC;

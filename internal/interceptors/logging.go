@@ -126,8 +126,8 @@ func (c *countingConn) Send(msg any) error {
 // the panel.
 func callerAttrs(from caller.Caller) []slog.Attr {
 	attrs := make([]slog.Attr, 0, 5)
-	if from.AgentID != "" {
-		attrs = append(attrs, slog.String(logging.AgentID, from.AgentID))
+	if from.AgentID != uuid.Nil {
+		attrs = append(attrs, slog.String(logging.AgentID, from.AgentID.String()))
 	}
 	if from.SessionID != "" {
 		attrs = append(attrs, slog.String(logging.SessionID, from.SessionID))

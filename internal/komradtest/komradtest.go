@@ -60,6 +60,7 @@ import (
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -304,7 +305,7 @@ func (i *Instance) WorkQueue() {
 }
 
 // Fire queues one firing of a schedule, due at scheduledFor, and works the queue until it drains.
-func (i *Instance) Fire(scheduleID string, scheduledFor time.Time) {
+func (i *Instance) Fire(scheduleID uuid.UUID, scheduledFor time.Time) {
 	i.t.Helper()
 
 	_, err := i.server.Jobs.Insert(i.t.Context(), internaljobs.LaunchAgentArgs{
@@ -370,7 +371,7 @@ func (i *Instance) MeasureWorktrees() {
 
 // Settle moves an agent to an activity and reconciles until the store agrees, so a test says
 // where an agent ends up rather than how many passes that takes.
-func (i *Instance) Settle(agentID string, activity harness.Activity, want agentstore.State) {
+func (i *Instance) Settle(agentID uuid.UUID, activity harness.Activity, want agentstore.State) {
 	i.t.Helper()
 
 	require.NoError(i.t, i.Harness.SetActivity(agentID, activity))
@@ -395,14 +396,14 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want agents
 }
 
 // WaitForHarness waits until an agent's harness has drawn in its own pane.
-func (i *Instance) WaitForHarness(agentID string) {
+func (i *Instance) WaitForHarness(agentID uuid.UUID) {
 	i.t.Helper()
 	i.WaitForActivity(agentID, harness.ActivityIdle)
 }
 
 // WaitForActivity waits until an agent's own pane says it is doing something, which anything
 // reading a frame would otherwise race against the first render.
-func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
+func (i *Instance) WaitForActivity(agentID uuid.UUID, activity harness.Activity) {
 	i.t.Helper()
 
 	client := i.Tmux.Client()
@@ -421,7 +422,7 @@ func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
 }
 
 // Deliver runs one pass of the work the delivery queue does for an agent.
-func (i *Instance) Deliver(agentID string) mail.Delivery {
+func (i *Instance) Deliver(agentID uuid.UUID) mail.Delivery {
 	i.t.Helper()
 
 	delivery, err := i.server.Delivery.Deliver(i.t.Context(), agentID)
@@ -463,7 +464,7 @@ func (i *Instance) WaitForReceived(agentID string, lines int) []string {
 
 // GetOwnedPane is the pane stamped with an agent's id, which answers what is running rather
 // than what the row claims.
-func (i *Instance) GetOwnedPane(agentID string) string {
+func (i *Instance) GetOwnedPane(agentID uuid.UUID) string {
 	i.t.Helper()
 
 	panes, err := i.Tmux.Client().GetPanes()

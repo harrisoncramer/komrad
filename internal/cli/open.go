@@ -15,6 +15,7 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -230,7 +231,7 @@ func hostPath(socket string) string {
 
 // refuseNesting stops a panel opening inside an agent's own pane.
 func refuseNesting(state *app) error {
-	if state.env.AgentID == "" {
+	if state.env.AgentID == uuid.Nil {
 		return nil
 	}
 

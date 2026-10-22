@@ -13,6 +13,8 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/lib/xfile"
+
+	"github.com/google/uuid"
 )
 
 // ErrNoCredential says a connection has no credential in the store.
@@ -52,10 +54,10 @@ type Authenticator interface {
 // credentialStore keeps each connection's token somewhere only komrad's user can read.
 type credentialStore interface {
 	// Get is the token for a connection, or ErrNoCredential.
-	Get(ctx context.Context, connectionID string) (Secret, error)
-	Set(ctx context.Context, connectionID string, secret Secret) error
+	Get(ctx context.Context, connectionID uuid.UUID) (Secret, error)
+	Set(ctx context.Context, connectionID uuid.UUID, secret Secret) error
 	// Delete takes a connection's token away, and is content when there was none.
-	Delete(ctx context.Context, connectionID string) error
+	Delete(ctx context.Context, connectionID uuid.UUID) error
 }
 
 // credentialDir is where FileStore keeps its files under the state directory.
@@ -72,12 +74,12 @@ func NewFileStore(stateDir string) *FileStore {
 }
 
 // Path is the file holding a connection's token.
-func (f *FileStore) Path(connectionID string) string {
-	return filepath.Join(f.stateDir, credentialDir, connectionID)
+func (f *FileStore) Path(connectionID uuid.UUID) string {
+	return filepath.Join(f.stateDir, credentialDir, connectionID.String())
 }
 
 // Get is the token on disk for a connection, or ErrNoCredential.
-func (f *FileStore) Get(_ context.Context, connectionID string) (Secret, error) {
+func (f *FileStore) Get(_ context.Context, connectionID uuid.UUID) (Secret, error) {
 	raw, err := os.ReadFile(f.Path(connectionID))
 	if errors.Is(err, fs.ErrNotExist) {
 		return Secret{}, ErrNoCredential.Saying("no credential file for connection %s", connectionID)
@@ -95,7 +97,7 @@ func (f *FileStore) Get(_ context.Context, connectionID string) (Secret, error) 
 }
 
 // Set puts a token on disk where only komrad's user can read it.
-func (f *FileStore) Set(_ context.Context, connectionID string, secret Secret) error {
+func (f *FileStore) Set(_ context.Context, connectionID uuid.UUID, secret Secret) error {
 	path := f.Path(connectionID)
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("failed to make the credential directory: %w", err)
@@ -109,7 +111,7 @@ func (f *FileStore) Set(_ context.Context, connectionID string, secret Secret) e
 }
 
 // Delete takes a connection's token off disk.
-func (f *FileStore) Delete(_ context.Context, connectionID string) error {
+func (f *FileStore) Delete(_ context.Context, connectionID uuid.UUID) error {
 	err := os.Remove(f.Path(connectionID))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("failed to remove the credential for connection %s: %w", connectionID, err)
@@ -120,21 +122,21 @@ func (f *FileStore) Delete(_ context.Context, connectionID string) error {
 
 // verifiedSetter is the one write an Authenticator makes back to its connection.
 type verifiedSetter interface {
-	SetVerifiedAt(ctx context.Context, id string, at *time.Time) error
+	SetVerifiedAt(ctx context.Context, id uuid.UUID, at *time.Time) error
 }
 
 // noRecord is a verifiedSetter that writes nothing, for a caller that only reports.
 type noRecord struct{}
 
 // SetVerifiedAt does nothing.
-func (noRecord) SetVerifiedAt(context.Context, string, *time.Time) error {
+func (noRecord) SetVerifiedAt(context.Context, uuid.UUID, *time.Time) error {
 	return nil
 }
 
 // storedCredential is a token a person supplied, read from the store on each use.
 type storedCredential struct {
 	store        credentialStore
-	connectionID string
+	connectionID uuid.UUID
 	header       string
 	connections  verifiedSetter
 }
@@ -142,7 +144,7 @@ type storedCredential struct {
 // newStoredCredentialParams says whose token to read and how to send it.
 type newStoredCredentialParams struct {
 	Store        credentialStore
-	ConnectionID string
+	ConnectionID uuid.UUID
 	Header       string
 	Connections  verifiedSetter
 }

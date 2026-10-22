@@ -19,14 +19,16 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/google/uuid"
 )
 
 type workflowReadWriter interface {
 	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
-	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
-	ArchiveWorkflow(ctx context.Context, id string) error
-	RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	GetWorkflow(ctx context.Context, id uuid.UUID) (*workflowstore.Workflow, error)
+	UpdateWorkflow(ctx context.Context, id uuid.UUID, cfg workflowstore.Config) error
+	ArchiveWorkflow(ctx context.Context, id uuid.UUID) error
+	RestoreWorkflow(ctx context.Context, id uuid.UUID) (*workflowstore.Workflow, error)
 	DeleteWorkflow(ctx context.Context, params agents.DeleteWorkflowParams) error
 	ListWorkflows(ctx context.Context, params agents.ListWorkflowsParams) ([]workflowstore.Workflow, error)
 }
@@ -72,7 +74,7 @@ func (s *Handler) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflo
 
 // GetWorkflow returns one workflow by id.
 func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1komrad.GetWorkflowRequest) (*workflowv1.GetWorkflowResponse, *fail.Error) {
-	found, err := s.workflows.GetWorkflow(ctx, req.Id.String())
+	found, err := s.workflows.GetWorkflow(ctx, req.Id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get workflow")
 	}
@@ -118,7 +120,7 @@ func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1komrad.Upda
 		EventPrompts:    buildEventPromptsFromProto(req.EventPrompts),
 	}
 
-	err := s.workflows.UpdateWorkflow(ctx, req.Id.String(), cfg)
+	err := s.workflows.UpdateWorkflow(ctx, req.Id, cfg)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update workflow")
 	}
@@ -128,7 +130,7 @@ func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1komrad.Upda
 
 // ArchiveWorkflow hides a workflow and archives the agents inside it.
 func (s *Handler) ArchiveWorkflow(ctx context.Context, req *workflowv1komrad.ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.workflows.ArchiveWorkflow(ctx, req.Id.String()); err != nil {
+	if err := s.workflows.ArchiveWorkflow(ctx, req.Id); err != nil {
 		return nil, rpcerr.From(err, "failed to archive workflow")
 	}
 
@@ -137,7 +139,7 @@ func (s *Handler) ArchiveWorkflow(ctx context.Context, req *workflowv1komrad.Arc
 
 // RestoreWorkflow brings a workflow back with the agents archived inside it.
 func (s *Handler) RestoreWorkflow(ctx context.Context, req *workflowv1komrad.RestoreWorkflowRequest) (*workflowv1.RestoreWorkflowResponse, *fail.Error) {
-	restored, err := s.workflows.RestoreWorkflow(ctx, req.Id.String())
+	restored, err := s.workflows.RestoreWorkflow(ctx, req.Id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to restore workflow")
 	}
@@ -150,7 +152,7 @@ func (s *Handler) RestoreWorkflow(ctx context.Context, req *workflowv1komrad.Res
 // launched into it.
 func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1komrad.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.workflows.DeleteWorkflow(ctx, agents.DeleteWorkflowParams{
-		ID:        req.Id.String(),
+		ID:        req.Id,
 		Records:   req.Records,
 		ByAgentID: caller.From(ctx).AgentID,
 	}); err != nil {

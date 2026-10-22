@@ -17,15 +17,16 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
 
-const scheduleID = "01a0d228-0000-7000-8000-00000000000a"
+var scheduleID = uuid.MustParse("01a0d228-0000-7000-8000-00000000000a")
 
 type updateCall struct {
-	id  string
+	id  uuid.UUID
 	cfg schedulestore.Config
 }
 
@@ -40,7 +41,7 @@ type fakeSchedules struct {
 }
 
 // GetSchedule answers the first stored schedule.
-func (f *fakeSchedules) GetSchedule(context.Context, string) (*schedulestore.Schedule, error) {
+func (f *fakeSchedules) GetSchedule(context.Context, uuid.UUID) (*schedulestore.Schedule, error) {
 	return &f.stored[0], nil
 }
 
@@ -61,7 +62,7 @@ func (f *fakeSchedules) NewSchedule(_ context.Context, cfg schedulestore.Config)
 }
 
 // UpdateSchedule records the update.
-func (f *fakeSchedules) UpdateSchedule(_ context.Context, id string, cfg schedulestore.Config) error {
+func (f *fakeSchedules) UpdateSchedule(_ context.Context, id uuid.UUID, cfg schedulestore.Config) error {
 	f.updated = append(f.updated, updateCall{
 		id:  id,
 		cfg: cfg,
@@ -71,22 +72,22 @@ func (f *fakeSchedules) UpdateSchedule(_ context.Context, id string, cfg schedul
 }
 
 // SetScheduleEnabled answers nil.
-func (f *fakeSchedules) SetScheduleEnabled(context.Context, string, bool) error {
+func (f *fakeSchedules) SetScheduleEnabled(context.Context, uuid.UUID, bool) error {
 	return nil
 }
 
 // ArchiveSchedule answers nil.
-func (f *fakeSchedules) ArchiveSchedule(context.Context, string) error {
+func (f *fakeSchedules) ArchiveSchedule(context.Context, uuid.UUID) error {
 	return nil
 }
 
 // RestoreSchedule answers nil.
-func (f *fakeSchedules) RestoreSchedule(context.Context, string) error {
+func (f *fakeSchedules) RestoreSchedule(context.Context, uuid.UUID) error {
 	return nil
 }
 
 // DeleteSchedule answers nil.
-func (f *fakeSchedules) DeleteSchedule(context.Context, string) error {
+func (f *fakeSchedules) DeleteSchedule(context.Context, uuid.UUID) error {
 	return nil
 }
 
@@ -143,10 +144,10 @@ func TestScheduleWritesPassDown(t *testing.T) {
 		Enabled:    true,
 		HideAgents: true,
 		Prompt:     "check CI",
-		WorkflowID: "01a0d228-0000-7000-8000-0000000000ff",
+		WorkflowID: uuid.MustParse("01a0d228-0000-7000-8000-0000000000ff"),
 		Kind:       schedulestore.KindTask,
 	}
-	orchestratorID := "01a0d228-0000-7000-8000-0000000000aa"
+	orchestratorID := uuid.MustParse("01a0d228-0000-7000-8000-0000000000aa")
 	mailing := schedulestore.Config{
 		Name:                cfg.Name,
 		Cron:                cfg.Cron,
@@ -172,7 +173,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 					Enabled:    cfg.Enabled,
 					HideAgents: cfg.HideAgents,
 					Prompt:     cfg.Prompt,
-					Target:     &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: cfg.WorkflowID},
+					Target:     &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: cfg.WorkflowID.String()},
 				}))
 
 				return err
@@ -188,7 +189,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 					Timezone: mailing.Timezone,
 					Enabled:  mailing.Enabled,
 					Prompt:   mailing.Prompt,
-					Target:   &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: orchestratorID},
+					Target:   &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: orchestratorID.String()},
 				}))
 
 				return err
@@ -199,14 +200,14 @@ func TestScheduleWritesPassDown(t *testing.T) {
 			name: "updating hands down the id and every field",
 			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
 				_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
-					Id:         scheduleID,
+					Id:         scheduleID.String(),
 					Name:       cfg.Name,
 					Cron:       cfg.Cron,
 					Timezone:   cfg.Timezone,
 					Enabled:    cfg.Enabled,
 					HideAgents: cfg.HideAgents,
 					Prompt:     cfg.Prompt,
-					Target:     &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: cfg.WorkflowID},
+					Target:     &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: cfg.WorkflowID.String()},
 				}))
 
 				return err
@@ -222,13 +223,13 @@ func TestScheduleWritesPassDown(t *testing.T) {
 			name: "updating with an orchestrator makes it an orchestrator schedule",
 			call: func(ctx context.Context, svc schedulev1komrad.ScheduleServiceAdapter) error {
 				_, err := svc.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
-					Id:       scheduleID,
+					Id:       scheduleID.String(),
 					Name:     mailing.Name,
 					Cron:     mailing.Cron,
 					Timezone: mailing.Timezone,
 					Enabled:  mailing.Enabled,
 					Prompt:   mailing.Prompt,
-					Target:   &schedulev1.UpdateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: orchestratorID},
+					Target:   &schedulev1.UpdateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: orchestratorID.String()},
 				}))
 
 				return err
@@ -366,7 +367,7 @@ func TestListSchedules(t *testing.T) {
 					Prompt: long,
 				},
 				{
-					ID:     "01a0d228-0000-7000-8000-00000000000b",
+					ID:     uuid.MustParse("01a0d228-0000-7000-8000-00000000000b"),
 					Name:   "hourly",
 					Prompt: "check CI",
 				},
@@ -399,7 +400,7 @@ func TestGetScheduleKeepsTheWholePrompt(t *testing.T) {
 		},
 	}})
 
-	got, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: scheduleID}))
+	got, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: scheduleID.String()}))
 	require.NoError(t, err)
 	assert.Equal(t, long, got.Msg.GetSchedule().GetPrompt())
 	assert.False(t, got.Msg.GetSchedule().GetPromptTruncated())
@@ -441,7 +442,7 @@ func TestListScheduleRuns(t *testing.T) {
 			svc := newScheduleHandler(recorded)
 
 			listed, err := svc.ListScheduleRuns(t.Context(), connect.NewRequest(&schedulev1.ListScheduleRunsRequest{
-				Id:    scheduleID,
+				Id:    scheduleID.String(),
 				Limit: tt.limit,
 			}))
 			require.NoError(t, err)

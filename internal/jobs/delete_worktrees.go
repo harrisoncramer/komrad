@@ -9,8 +9,8 @@ import (
 	"komrad/internal/jobs/internaljobs"
 	agentstore "komrad/internal/store/agent"
 	worktreestore "komrad/internal/store/worktree"
-	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -30,7 +30,7 @@ func NewWorktreeDelete(queue *Enqueuer) *WorktreeDelete {
 func (d *WorktreeDelete) DeleteWorktrees(ctx context.Context, dirs []string) error {
 	return d.queue.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
 		agents := agentstore.NewAgentStore(tx)
-		ids, err := agents.ListProvisionedIDsByTask(ctx, xslice.Map(dirs, filepath.Base))
+		ids, err := agents.ListProvisionedIDsByTask(ctx, parseTaskIDs(dirs))
 		if err != nil {
 			return nil, err
 		}
@@ -65,4 +65,17 @@ func (d *WorktreeDelete) ListClaimedDirs(ctx context.Context) ([]string, error) 
 	}
 
 	return dirs, nil
+}
+
+func parseTaskIDs(dirs []string) []uuid.UUID {
+	var ids []uuid.UUID
+	for _, dir := range dirs {
+		id, err := uuid.Parse(filepath.Base(dir))
+		if err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+
+	return ids
 }

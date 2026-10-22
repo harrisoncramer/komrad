@@ -11,6 +11,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 type NewEmptyWorkflowDeleterParams struct {
@@ -40,7 +42,7 @@ func NewEmptyWorkflowDeleter(params NewEmptyWorkflowDeleterParams) *EmptyWorkflo
 }
 
 // DeleteIfEmpty permanently removes a workflow once it is archived and holds no agents at all.
-func (d *EmptyWorkflowDeleter) DeleteIfEmpty(ctx context.Context, id string) error {
+func (d *EmptyWorkflowDeleter) DeleteIfEmpty(ctx context.Context, id uuid.UUID) error {
 	existing, err := d.workflows.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil

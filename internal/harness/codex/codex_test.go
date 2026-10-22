@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/harness"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,6 +20,8 @@ func TestSessionNaming(t *testing.T) {
 // TestFindSession covers adopting that conversation by the originator its launch stamped, the
 // one thing a hand-started Codex cannot accidentally match.
 func TestFindSession(t *testing.T) {
+	mine := uuid.New()
+
 	type rollout struct {
 		id         string
 		stamp      string
@@ -29,13 +32,13 @@ func TestFindSession(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		agentID  string
+		agentID  uuid.UUID
 		rollouts []rollout
 		want     string
 	}{
 		{
 			name:    "no rollouts at all, which is every pass before the CLI has written one",
-			agentID: "agent-1",
+			agentID: mine,
 		},
 		{
 			name: "an agent with no id of its own matches nothing",
@@ -43,13 +46,13 @@ func TestFindSession(t *testing.T) {
 				{
 					id:         "sess-somebody",
 					stamp:      "12-05-00",
-					originator: "komrad-agent-1",
+					originator: "komrad-" + mine.String(),
 				},
 			},
 		},
 		{
 			name:    "a rollout a person started by hand carries Codex's own originator",
-			agentID: "agent-1",
+			agentID: mine,
 			rollouts: []rollout{
 				{
 					id:         "sess-theirs",
@@ -60,64 +63,64 @@ func TestFindSession(t *testing.T) {
 		},
 		{
 			name:    "another agent's rollout carries another agent's stamp",
-			agentID: "agent-1",
+			agentID: mine,
 			rollouts: []rollout{
 				{
 					id:         "sess-theirs",
 					stamp:      "12-05-00",
-					originator: "komrad-agent-2",
+					originator: "komrad-" + uuid.NewString(),
 				},
 			},
 		},
 		{
 			name:    "a rollout caught before its opening record is complete is not yet claimable",
-			agentID: "agent-1",
+			agentID: mine,
 			rollouts: []rollout{
 				{
 					id:         "sess-partial",
 					stamp:      "12-05-00",
-					originator: "komrad-agent-1",
+					originator: "komrad-" + mine.String(),
 					unparsed:   true,
 				},
 			},
 		},
 		{
 			name:    "a file that opens with something other than a session_meta is not a conversation",
-			agentID: "agent-1",
+			agentID: mine,
 			rollouts: []rollout{
 				{
 					id:         "sess-headless",
 					stamp:      "12-05-00",
-					originator: "komrad-agent-1",
+					originator: "komrad-" + mine.String(),
 					noMeta:     true,
 				},
 			},
 		},
 		{
 			name:    "the one this agent's launch stamped",
-			agentID: "agent-1",
+			agentID: mine,
 			rollouts: []rollout{
 				{
 					id:         "sess-mine",
 					stamp:      "12-05-00",
-					originator: "komrad-agent-1",
+					originator: "komrad-" + mine.String(),
 				},
 			},
 			want: "sess-mine",
 		},
 		{
 			name:    "a relaunch leaves two, and the live one is the newer",
-			agentID: "agent-1",
+			agentID: mine,
 			rollouts: []rollout{
 				{
 					id:         "sess-abandoned",
 					stamp:      "12-05-00",
-					originator: "komrad-agent-1",
+					originator: "komrad-" + mine.String(),
 				},
 				{
 					id:         "sess-live",
 					stamp:      "12-06-00",
-					originator: "komrad-agent-1",
+					originator: "komrad-" + mine.String(),
 				},
 			},
 			want: "sess-live",

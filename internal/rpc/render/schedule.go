@@ -27,7 +27,7 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 	}
 
 	rendered := &schedulev1.Schedule{
-		Id:                  s.ID,
+		Id:                  s.ID.String(),
 		Name:                s.Name,
 		Cron:                s.Cron,
 		Timezone:            s.Timezone,
@@ -35,9 +35,9 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 		HideAgents:          s.HideAgents,
 		Prompt:              prompt,
 		PromptTruncated:     promptTruncated,
-		WorkflowId:          s.WorkflowID,
+		WorkflowId:          s.WorkflowID.String(),
 		Kind:                scheduleKinds[s.Kind],
-		OrchestratorAgentId: s.OrchestratorAgentID,
+		OrchestratorAgentId: formatOptionalID(s.OrchestratorAgentID),
 	}
 
 	if s.ArchivedAt != nil {

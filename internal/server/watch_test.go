@@ -16,6 +16,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,6 +30,7 @@ func TestEveryWatchedResourceHasOneLoader(t *testing.T) {
 
 // TestEveryWatchedRendererKeysAndWrapsItsRow pins that each renderer answers the row's key and a Row arm to carry it in.
 func TestEveryWatchedRendererKeysAndWrapsItsRow(t *testing.T) {
+	key := uuid.New()
 	tests := []struct {
 		name   string
 		render func() (string, *watchv1.Row)
@@ -36,45 +38,45 @@ func TestEveryWatchedRendererKeysAndWrapsItsRow(t *testing.T) {
 		{
 			name: "agent",
 			render: func() (string, *watchv1.Row) {
-				return renderWatchedAgent(rowstore.Row{Agent: agentstore.Agent{ID: "k"}})
+				return renderWatchedAgent(rowstore.Row{Agent: agentstore.Agent{ID: key}})
 			},
 		},
 		{
 			name: "workflow",
 			render: func() (string, *watchv1.Row) {
-				return renderWatchedWorkflow(workflowstore.Workflow{ID: "k"})
+				return renderWatchedWorkflow(workflowstore.Workflow{ID: key})
 			},
 		},
 		{
 			name: "schedule",
 			render: func() (string, *watchv1.Row) {
-				return renderWatchedSchedule(schedulestore.Schedule{ID: "k"})
+				return renderWatchedSchedule(schedulestore.Schedule{ID: key})
 			},
 		},
 		{
 			name: "task",
 			render: func() (string, *watchv1.Row) {
-				return renderWatchedTask(taskstore.Task{ID: "k"})
+				return renderWatchedTask(taskstore.Task{ID: key})
 			},
 		},
 		{
 			name: "mail",
 			render: func() (string, *watchv1.Row) {
-				return renderWatchedMail(mailstore.Mail{ID: "k"})
+				return renderWatchedMail(mailstore.Mail{ID: key})
 			},
 		},
 		{
 			name: "pull request",
 			render: func() (string, *watchv1.Row) {
-				return renderWatchedPullRequest(pullrequeststore.PullRequest{ID: "k"})
+				return renderWatchedPullRequest(pullrequeststore.PullRequest{ID: key})
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			key, row := tt.render()
+			rendered, row := tt.render()
 
-			assert.Equal(t, "k", key)
+			assert.Equal(t, key.String(), rendered)
 			assert.NotNil(t, row.GetRow())
 		})
 	}

@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const deleteForgeReviewCommentsExcept = `-- name: DeleteForgeReviewCommentsExcept :exec
@@ -17,7 +19,7 @@ WHERE thread_id = $1
 `
 
 type DeleteForgeReviewCommentsExceptParams struct {
-	ThreadID string
+	ThreadID uuid.UUID
 	Kept     []string
 }
 
@@ -33,7 +35,7 @@ WHERE pull_request_id = $1
 `
 
 type DeleteForgeReviewThreadsExceptParams struct {
-	PullRequestID string
+	PullRequestID uuid.UUID
 	Kept          []string
 }
 
@@ -68,7 +70,7 @@ ORDER BY
 `
 
 type ListCommentSyncPullRequestsRow struct {
-	ID            string
+	ID            uuid.UUID
 	RepositoryUrl string
 	Number        int32
 }
@@ -106,7 +108,7 @@ ORDER BY
     c.id
 `
 
-func (q *Queries) ListForgeReviewCommentsOfThreads(ctx context.Context, threadIds []string) ([]*ForgeReviewComment, error) {
+func (q *Queries) ListForgeReviewCommentsOfThreads(ctx context.Context, threadIds []uuid.UUID) ([]*ForgeReviewComment, error) {
 	rows, err := q.db.Query(ctx, listForgeReviewCommentsOfThreads, threadIds)
 	if err != nil {
 		return nil, err
@@ -154,11 +156,11 @@ ORDER BY
 `
 
 type ListForgeReviewThreadIDsRow struct {
-	ID         string
+	ID         uuid.UUID
 	ProviderID string
 }
 
-func (q *Queries) ListForgeReviewThreadIDs(ctx context.Context, pullRequestID string) ([]*ListForgeReviewThreadIDsRow, error) {
+func (q *Queries) ListForgeReviewThreadIDs(ctx context.Context, pullRequestID uuid.UUID) ([]*ListForgeReviewThreadIDsRow, error) {
 	rows, err := q.db.Query(ctx, listForgeReviewThreadIDs, pullRequestID)
 	if err != nil {
 		return nil, err
@@ -190,7 +192,7 @@ ORDER BY
     t.id
 `
 
-func (q *Queries) ListForgeReviewThreadsOfPullRequest(ctx context.Context, pullRequestID string) ([]*ForgeReviewThread, error) {
+func (q *Queries) ListForgeReviewThreadsOfPullRequest(ctx context.Context, pullRequestID uuid.UUID) ([]*ForgeReviewThread, error) {
 	rows, err := q.db.Query(ctx, listForgeReviewThreadsOfPullRequest, pullRequestID)
 	if err != nil {
 		return nil, err
@@ -274,7 +276,7 @@ ON CONFLICT (
 `
 
 type UpsertForgeReviewCommentParams struct {
-	ThreadID      string
+	ThreadID      uuid.UUID
 	ProviderID    string
 	AuthorLogin   string
 	AuthorIsBot   bool
@@ -351,7 +353,7 @@ ON CONFLICT (
 `
 
 type UpsertForgeReviewThreadParams struct {
-	PullRequestID string
+	PullRequestID uuid.UUID
 	ProviderID    string
 	Path          string
 	Line          *int32

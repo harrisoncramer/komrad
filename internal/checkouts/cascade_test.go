@@ -13,8 +13,8 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/storetest"
-	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +22,7 @@ import (
 // taskOnParent is a child and its parent, as the cascade tests seed them.
 type taskOnParent struct {
 	writer *agentstore.Agent
-	task   string
+	task   uuid.UUID
 	parent *taskstore.Task
 }
 
@@ -364,7 +364,7 @@ func TestCascade(t *testing.T) {
 			require.NoError(t, err)
 			if tt.wantParent != nil {
 				tt.wantParent.TaskID = seeded.parent.ID
-				tt.wantParent.PullRequestID = xptr.Deref(findPullRequestID(t, fixture, seeded))
+				tt.wantParent.PullRequestID = findPullRequestID(t, fixture, seeded)
 			}
 			assert.Equal(t, tt.wantParent, got.Parent)
 			assert.Subset(t, mover.Calls, tt.wantCalls)
@@ -656,7 +656,7 @@ func (f *rebaseFixture) seedTaskOnParent(t *testing.T, writer agentstore.Agent) 
 }
 
 // findPullRequestID is the child's parent pull request, nil while it has none.
-func findPullRequestID(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) *string {
+func findPullRequestID(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) *uuid.UUID {
 	t.Helper()
 
 	found, err := fixture.stores.PullRequests.GetParentPullRequest(t.Context(), pullrequeststore.GetParentPullRequestParams{

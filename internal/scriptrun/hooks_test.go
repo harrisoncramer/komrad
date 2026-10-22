@@ -2,6 +2,7 @@ package scriptrun
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"testing"
 	"time"
 
@@ -12,12 +13,12 @@ import (
 func TestHookQueueRunsAnAgentsMomentsInTheOrderTheyWereQueued(t *testing.T) {
 	var queue HookQueue
 
-	awaitAuth := func(ctx context.Context) error { return queue.AwaitHooks(ctx, "auth") }
-	require.NoError(t, queue.AwaitHooks(t.Context(), "auth"), "nothing is queued yet")
+	awaitAuth := func(ctx context.Context) error { return queue.AwaitHooks(ctx, authAgentID) }
+	require.NoError(t, queue.AwaitHooks(t.Context(), authAgentID), "nothing is queued yet")
 
-	first := queue.QueueHooks("auth")
-	second := queue.QueueHooks("auth")
-	other := queue.QueueHooks("billing")
+	first := queue.QueueHooks(authAgentID)
+	second := queue.QueueHooks(authAgentID)
+	other := queue.QueueHooks(uuid.New())
 
 	require.NoError(t, first.Wait(t.Context()), "the first moment waits for nothing")
 	require.NoError(t, other.Wait(t.Context()), "another agent's moment waits for nothing")
@@ -29,7 +30,7 @@ func TestHookQueueRunsAnAgentsMomentsInTheOrderTheyWereQueued(t *testing.T) {
 	require.Error(t, waitBriefly(t.Context(), awaitAuth), "the queue holds while the second runs")
 
 	second.Done()
-	require.NoError(t, queue.AwaitHooks(t.Context(), "auth"), "and empties once it has finished")
+	require.NoError(t, queue.AwaitHooks(t.Context(), authAgentID), "and empties once it has finished")
 	other.Done()
 }
 
@@ -37,9 +38,9 @@ func TestHookQueueRunsAnAgentsMomentsInTheOrderTheyWereQueued(t *testing.T) {
 func TestAHookTurnGivenUpEarlyKeepsItsPlace(t *testing.T) {
 	var queue HookQueue
 
-	first := queue.QueueHooks("auth")
-	abandoned := queue.QueueHooks("auth")
-	third := queue.QueueHooks("auth")
+	first := queue.QueueHooks(authAgentID)
+	abandoned := queue.QueueHooks(authAgentID)
+	third := queue.QueueHooks(authAgentID)
 
 	abandoned.Done()
 	require.Error(t, waitBriefly(t.Context(), third.Wait), "the third still waits for the first")
@@ -47,7 +48,7 @@ func TestAHookTurnGivenUpEarlyKeepsItsPlace(t *testing.T) {
 	first.Done()
 	require.NoError(t, third.Wait(t.Context()))
 	third.Done()
-	require.NoError(t, queue.AwaitHooks(t.Context(), "auth"))
+	require.NoError(t, queue.AwaitHooks(t.Context(), authAgentID))
 }
 
 func waitBriefly(ctx context.Context, wait func(context.Context) error) error {
@@ -56,3 +57,7 @@ func waitBriefly(ctx context.Context, wait func(context.Context) error) error {
 
 	return wait(ctx)
 }
+
+var (
+	authAgentID = uuid.New()
+)

@@ -16,6 +16,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 // moment is one moment in a task's life and the agent whose action brought it about, nil when none did.
@@ -193,7 +195,7 @@ func hasLiveCheckout(task taskstore.Task) bool {
 
 // findTaskActor picks the agent among agents whose action fired a task's moment, preferring the
 // task's writer over its reviewers.
-func findTaskActor(agents []agentstore.Agent, taskID string) *agentstore.Agent {
+func findTaskActor(agents []agentstore.Agent, taskID uuid.UUID) *agentstore.Agent {
 	var actor *agentstore.Agent
 	for _, agent := range agents {
 		if agent.TaskID == nil || *agent.TaskID != taskID {
@@ -218,14 +220,14 @@ func rankActor(agent agentstore.Agent) int {
 	}
 }
 
-func (s *TaskService) readWorkflow(ctx context.Context, workflowID string) *workflowstore.Workflow {
+func (s *TaskService) readWorkflow(ctx context.Context, workflowID uuid.UUID) *workflowstore.Workflow {
 	wf, err := s.workflows.GetIncludingArchived(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow could not be read",
-			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID.String())}, logging.Err(err)...)...)
 
 		return nil
 	}

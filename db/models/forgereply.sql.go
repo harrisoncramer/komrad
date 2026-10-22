@@ -7,6 +7,8 @@ package models
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const beginForgeReplySend = `-- name: BeginForgeReplySend :one
@@ -23,7 +25,7 @@ RETURNING
     id, thread_id, state, author_kind, author_agent_id, proposed_body, body, approver_kind, approved_at, sending_started_at, sent_at, forge_comment_provider_id, error, created_at, updated_at, engine_id
 `
 
-func (q *Queries) BeginForgeReplySend(ctx context.Context, id string) (*ReviewForgeReply, error) {
+func (q *Queries) BeginForgeReplySend(ctx context.Context, id uuid.UUID) (*ReviewForgeReply, error) {
 	row := q.db.QueryRow(ctx, beginForgeReplySend, id)
 	var i ReviewForgeReply
 	err := row.Scan(
@@ -53,7 +55,7 @@ WHERE id = $1
     AND state = 'failed'
 `
 
-func (q *Queries) DeleteForgeReply(ctx context.Context, id string) (int64, error) {
+func (q *Queries) DeleteForgeReply(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteForgeReply, id)
 	if err != nil {
 		return 0, err
@@ -70,7 +72,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) GetForgeReply(ctx context.Context, id string) (*ReviewForgeReply, error) {
+func (q *Queries) GetForgeReply(ctx context.Context, id uuid.UUID) (*ReviewForgeReply, error) {
 	row := q.db.QueryRow(ctx, getForgeReply, id)
 	var i ReviewForgeReply
 	err := row.Scan(
@@ -115,7 +117,7 @@ type GetForgeReplyTargetRow struct {
 	Number        int32
 }
 
-func (q *Queries) GetForgeReplyTarget(ctx context.Context, threadID string) (*GetForgeReplyTargetRow, error) {
+func (q *Queries) GetForgeReplyTarget(ctx context.Context, threadID uuid.UUID) (*GetForgeReplyTargetRow, error) {
 	row := q.db.QueryRow(ctx, getForgeReplyTarget, threadID)
 	var i GetForgeReplyTargetRow
 	err := row.Scan(
@@ -153,7 +155,7 @@ RETURNING
 
 type InsertForgeReplyParams struct {
 	Body     string
-	ThreadID string
+	ThreadID uuid.UUID
 }
 
 func (q *Queries) InsertForgeReply(ctx context.Context, arg InsertForgeReplyParams) (*ReviewForgeReply, error) {
@@ -199,10 +201,10 @@ ORDER BY
 
 type ListForgeRepliesRow struct {
 	ReviewForgeReply  ReviewForgeReply
-	MirroredCommentID *string
+	MirroredCommentID *uuid.UUID
 }
 
-func (q *Queries) ListForgeReplies(ctx context.Context, threadIds []string) ([]*ListForgeRepliesRow, error) {
+func (q *Queries) ListForgeReplies(ctx context.Context, threadIds []uuid.UUID) ([]*ListForgeRepliesRow, error) {
 	rows, err := q.db.Query(ctx, listForgeReplies, threadIds)
 	if err != nil {
 		return nil, err
@@ -303,7 +305,7 @@ RETURNING
 
 type MarkForgeReplyFailedParams struct {
 	Error string
-	ID    string
+	ID    uuid.UUID
 }
 
 func (q *Queries) MarkForgeReplyFailed(ctx context.Context, arg MarkForgeReplyFailedParams) (*ReviewForgeReply, error) {
@@ -346,7 +348,7 @@ RETURNING
 
 type MarkForgeReplySentParams struct {
 	ForgeCommentProviderID string
-	ID                     string
+	ID                     uuid.UUID
 }
 
 func (q *Queries) MarkForgeReplySent(ctx context.Context, arg MarkForgeReplySentParams) (*ReviewForgeReply, error) {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -27,7 +28,7 @@ func TestTask(t *testing.T) {
 		{
 			name: "a task with no checkout",
 			stored: taskstore.Task{
-				ID:        "t1",
+				ID:        firstTaskID,
 				Slug:      "fresh",
 				CreatedAt: created,
 				UpdatedAt: created,
@@ -42,7 +43,7 @@ func TestTask(t *testing.T) {
 		{
 			name: "a task the syncers have written to",
 			stored: taskstore.Task{
-				ID:            "t2",
+				ID:            secondTaskID,
 				Slug:          "worked",
 				FailureReason: "teardown exited 1",
 				CreatedAt:     created,
@@ -86,3 +87,8 @@ func TestTask(t *testing.T) {
 		})
 	}
 }
+
+var (
+	firstTaskID  = uuid.New()
+	secondTaskID = uuid.New()
+)

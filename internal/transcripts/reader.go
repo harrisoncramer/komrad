@@ -12,6 +12,8 @@ import (
 	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	"komrad/lib/xstr"
+
+	"github.com/google/uuid"
 )
 
 const assistantRole = "assistant"
@@ -54,8 +56,8 @@ type SearchTranscriptsParams struct {
 	Query   string
 	Limit   int64
 	Cursor  *transcriptstore.Cursor
-	AgentID *string
-	Caller  string
+	AgentID *uuid.UUID
+	Caller  uuid.UUID
 }
 
 // SearchTranscripts runs a search over the stored transcripts narrowed by the qualifiers the query holds.
@@ -66,7 +68,7 @@ func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params SearchT
 	}
 
 	scope := params.AgentID
-	if scope == nil && params.Caller != "" {
+	if scope == nil && params.Caller != uuid.Nil {
 		if search.widens() {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "agent searched every agent's transcript")
 		} else {
@@ -89,7 +91,7 @@ func (r *TranscriptReader) SearchTranscripts(ctx context.Context, params SearchT
 }
 
 type ReadTranscriptWindowParams struct {
-	AgentID  string
+	AgentID  uuid.UUID
 	Cursor   *transcriptstore.ContentCursor
 	MaxBytes int32
 }
@@ -117,7 +119,7 @@ type Turn struct {
 }
 
 type ListLastTurnsParams struct {
-	AgentID  string
+	AgentID  uuid.UUID
 	Turns    int32
 	MaxBytes int32
 }
@@ -158,7 +160,7 @@ func (r *TranscriptReader) ListLastTurns(ctx context.Context, params ListLastTur
 	return turns, nil
 }
 
-func (r *TranscriptReader) requireAgent(ctx context.Context, agentID string) error {
+func (r *TranscriptReader) requireAgent(ctx context.Context, agentID uuid.UUID) error {
 	exists, err := r.agents.Exists(ctx, agentID)
 	if err != nil {
 		return fmt.Errorf("failed to look up agent %q: %w", agentID, err)

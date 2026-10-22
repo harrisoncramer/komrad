@@ -28,12 +28,12 @@ import (
 
 var reviewedAt = time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC)
 
-var betaTask = oneofs.Task{TaskId: xptr.Ptr(uuid.MustParse(betaTaskID))}
+var betaTask = oneofs.Task{TaskId: xptr.Ptr(betaTaskID)}
 
-const (
-	betaTaskID       = "01a0d1d7-0000-7000-8000-0000000000fb"
-	firstSnapshotID  = "01a0d1d7-0000-7000-8000-0000000000a1"
-	secondSnapshotID = "01a0d1d7-0000-7000-8000-0000000000a2"
+var (
+	betaTaskID       = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000fb")
+	firstSnapshotID  = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000a1")
+	secondSnapshotID = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000a2")
 )
 
 // fakeReviewer answers every review call with err or with the rows it holds.
@@ -48,7 +48,7 @@ type fakeReviewer struct {
 	released []reviews.ReleaseReviewParams
 	record   history.Record
 	opened   []reviews.GetHistoryParams
-	read     []string
+	read     []uuid.UUID
 	mail     []mailstore.Mail
 }
 
@@ -73,7 +73,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a comment read from a snapshot komrad never froze",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{Task: &agentv1.CreateReviewThreadRequest_TaskId{TaskId: betaTaskID}}))
+				_, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{Task: &agentv1.CreateReviewThreadRequest_TaskId{TaskId: betaTaskID.String()}}))
 
 				return err
 			},
@@ -83,7 +83,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a reply in a thread nothing holds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: betaID}))
+				_, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: betaID.String()}))
 
 				return err
 			},
@@ -93,7 +93,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "rewriting somebody else's words",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: betaID}))
+				_, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: betaID.String()}))
 
 				return err
 			},
@@ -103,7 +103,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "accepting a forge comment already accepted",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.AcceptForgeMessage(ctx, connect.NewRequest(&agentv1.AcceptForgeMessageRequest{MessageId: betaID}))
+				_, err := svc.AcceptForgeMessage(ctx, connect.NewRequest(&agentv1.AcceptForgeMessageRequest{MessageId: betaID.String()}))
 
 				return err
 			},
@@ -113,7 +113,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent marking a thread read",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: betaID}))
+				_, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: betaID.String()}))
 
 				return err
 			},
@@ -123,7 +123,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "settling a comment on the caller's own work",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: betaID}))
+				_, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: betaID.String()}))
 
 				return err
 			},
@@ -133,7 +133,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a snapshot of an agent with no directory",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{Task: &agentv1.TakeReviewSnapshotRequest_TaskId{TaskId: betaTaskID}}))
+				_, err := svc.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{Task: &agentv1.TakeReviewSnapshotRequest_TaskId{TaskId: betaTaskID.String()}}))
 
 				return err
 			},
@@ -143,7 +143,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "the snapshots of an agent the caller is not reviewing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ListReviewSnapshots(ctx, connect.NewRequest(&agentv1.ListReviewSnapshotsRequest{Task: &agentv1.ListReviewSnapshotsRequest_TaskId{TaskId: betaTaskID}}))
+				_, err := svc.ListReviewSnapshots(ctx, connect.NewRequest(&agentv1.ListReviewSnapshotsRequest{Task: &agentv1.ListReviewSnapshotsRequest_TaskId{TaskId: betaTaskID.String()}}))
 
 				return err
 			},
@@ -153,7 +153,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "the reviews of an agent the caller is not reviewing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{Task: &agentv1.ListReviewsRequest_TaskId{TaskId: betaTaskID}}))
+				_, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{Task: &agentv1.ListReviewsRequest_TaskId{TaskId: betaTaskID.String()}}))
 
 				return err
 			},
@@ -163,7 +163,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a review nothing holds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.GetReview(ctx, connect.NewRequest(&agentv1.GetReviewRequest{ReviewId: betaID}))
+				_, err := svc.GetReview(ctx, connect.NewRequest(&agentv1.GetReviewRequest{ReviewId: betaID.String()}))
 
 				return err
 			},
@@ -173,7 +173,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "releasing notes with nothing in them",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{Task: &agentv1.ReleaseReviewRequest_TaskId{TaskId: betaTaskID}}))
+				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{Task: &agentv1.ReleaseReviewRequest_TaskId{TaskId: betaTaskID.String()}}))
 
 				return err
 			},
@@ -183,7 +183,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "releasing to an agent whose mailbox is full",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{Task: &agentv1.ReleaseReviewRequest_TaskId{TaskId: betaTaskID}}))
+				_, err := svc.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{Task: &agentv1.ReleaseReviewRequest_TaskId{TaskId: betaTaskID.String()}}))
 
 				return err
 			},
@@ -193,7 +193,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent marking a file viewed",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{Task: &agentv1.SetReviewFileViewedRequest_TaskId{TaskId: betaTaskID}}))
+				_, err := svc.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{Task: &agentv1.SetReviewFileViewedRequest_TaskId{TaskId: betaTaskID.String()}}))
 
 				return err
 			},
@@ -203,7 +203,7 @@ func TestReviewRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent listing the files viewed",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{Task: &agentv1.ListReviewViewedFilesRequest_TaskId{TaskId: betaTaskID}}))
+				_, err := svc.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{Task: &agentv1.ListReviewViewedFilesRequest_TaskId{TaskId: betaTaskID.String()}}))
 
 				return err
 			},
@@ -235,79 +235,79 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 		{
 			name: "opening a thread",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{Task: &agentv1.CreateReviewThreadRequest_TaskId{TaskId: betaTaskID}}))
+				got, err := svc.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{Task: &agentv1.CreateReviewThreadRequest_TaskId{TaskId: betaTaskID.String()}}))
 				if err != nil {
 					return "", err
 				}
 
 				return got.Msg.GetThread().GetId(), nil
 			},
-			wantID: "thread-1",
+			wantID: threadID.String(),
 		},
 		{
 			name: "replying in a thread",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: betaID}))
+				got, err := svc.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{ThreadId: betaID.String()}))
 				if err != nil {
 					return "", err
 				}
 
 				return got.Msg.GetMessage().GetId(), nil
 			},
-			wantID: "message-1",
+			wantID: messageID.String(),
 		},
 		{
 			name: "rewriting a message",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: betaID}))
+				got, err := svc.EditReviewMessage(ctx, connect.NewRequest(&agentv1.EditReviewMessageRequest{Id: betaID.String()}))
 				if err != nil {
 					return "", err
 				}
 
 				return got.Msg.GetMessage().GetId(), nil
 			},
-			wantID: "message-1",
+			wantID: messageID.String(),
 		},
 		{
 			name: "marking a thread read",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: betaID}))
+				got, err := svc.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: betaID.String()}))
 				if err != nil {
 					return "", err
 				}
 
 				return got.Msg.GetThread().GetId(), nil
 			},
-			wantID: "thread-1",
+			wantID: threadID.String(),
 		},
 		{
 			name: "settling a thread",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: betaID}))
+				got, err := svc.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{Id: betaID.String()}))
 				if err != nil {
 					return "", err
 				}
 
 				return got.Msg.GetThread().GetId(), nil
 			},
-			wantID: "thread-1",
+			wantID: threadID.String(),
 		},
 		{
 			name: "taking a snapshot",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{Task: &agentv1.TakeReviewSnapshotRequest_TaskId{TaskId: betaTaskID}}))
+				got, err := svc.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{Task: &agentv1.TakeReviewSnapshotRequest_TaskId{TaskId: betaTaskID.String()}}))
 				if err != nil {
 					return "", err
 				}
 
 				return got.Msg.GetSnapshot().GetId(), nil
 			},
-			wantID: "snapshot-1",
+			wantID: firstSnapshotID.String(),
 		},
 		{
 			name: "listing the snapshots",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.ListReviewSnapshots(ctx, connect.NewRequest(&agentv1.ListReviewSnapshotsRequest{Task: &agentv1.ListReviewSnapshotsRequest_TaskId{TaskId: betaTaskID}}))
+				got, err := svc.ListReviewSnapshots(ctx, connect.NewRequest(&agentv1.ListReviewSnapshotsRequest{Task: &agentv1.ListReviewSnapshotsRequest_TaskId{TaskId: betaTaskID.String()}}))
 				if err != nil {
 					return "", err
 				}
@@ -318,12 +318,12 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 
 				return got.Msg.GetSnapshots()[0].GetId(), nil
 			},
-			wantID: "snapshot-1",
+			wantID: firstSnapshotID.String(),
 		},
 		{
 			name: "listing the reviews",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) (string, error) {
-				got, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{Task: &agentv1.ListReviewsRequest_TaskId{TaskId: betaTaskID}}))
+				got, err := svc.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{Task: &agentv1.ListReviewsRequest_TaskId{TaskId: betaTaskID.String()}}))
 				if err != nil {
 					return "", err
 				}
@@ -334,17 +334,17 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 
 				return got.Msg.GetReviews()[0].GetId(), nil
 			},
-			wantID: "review-1",
+			wantID: reviewID.String(),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newReviewHandler(&fakeReviewer{
-				review:   reviewstore.Review{ID: "review-1"},
-				snapshot: reviewstore.Snapshot{ID: "snapshot-1"},
-				thread:   reviewstore.Thread{ID: "thread-1"},
-				message:  reviewstore.Message{ID: "message-1"},
+				review:   reviewstore.Review{ID: reviewID},
+				snapshot: reviewstore.Snapshot{ID: firstSnapshotID},
+				thread:   reviewstore.Thread{ID: threadID},
+				message:  reviewstore.Message{ID: messageID},
 			})
 
 			id, err := tt.call(t.Context(), svc)
@@ -358,7 +358,7 @@ func TestReviewCallsAnswerWhatTheServiceDid(t *testing.T) {
 func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 	tests := []struct {
 		name       string
-		callerID   string
+		callerID   uuid.UUID
 		task       *string
 		wantListed reviews.ListReviewThreadsParams
 	}{
@@ -375,7 +375,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 		{
 			name:     "an agent reading another's",
 			callerID: alphaID,
-			task:     xptr.Ptr(betaTaskID),
+			task:     xptr.Ptr(betaTaskID.String()),
 			wantListed: reviews.ListReviewThreadsParams{
 				Task: betaTask,
 				Author: reviews.ReviewAuthor{
@@ -386,7 +386,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 		},
 		{
 			name: "the panel reads as the person",
-			task: xptr.Ptr(betaTaskID),
+			task: xptr.Ptr(betaTaskID.String()),
 			wantListed: reviews.ListReviewThreadsParams{
 				Task:   betaTask,
 				Author: reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
@@ -400,7 +400,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 			svc := newReviewHandler(reviewer)
 
 			ctx := t.Context()
-			if tt.callerID != "" {
+			if tt.callerID != uuid.Nil {
 				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerID})
 			}
 
@@ -425,29 +425,29 @@ func TestOpenReviewHistoryPassesTheSpan(t *testing.T) {
 	}{
 		{
 			name:    "no span is the whole change",
-			request: &agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID}},
+			request: &agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID.String()}},
 		},
 		{
 			name: "a range of snapshots",
 			request: &agentv1.OpenReviewHistoryRequest{
-				Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID},
-				Span: &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{FromSnapshotId: new(firstSnapshotID), ToSnapshotId: new(secondSnapshotID)}},
+				Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID.String()},
+				Span: &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{FromSnapshotId: new(firstSnapshotID.String()), ToSnapshotId: new(secondSnapshotID.String())}},
 			},
 			wantSpan: history.Span{Snapshots: &history.SnapshotSpan{FromSnapshotID: firstSnapshotID, ToSnapshotID: secondSnapshotID}},
 		},
 		{
 			name: "an answer",
 			request: &agentv1.OpenReviewHistoryRequest{
-				Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID},
-				Span: &agentv1.OpenReviewHistoryRequest_Answer{Answer: &agentv1.ReviewAnswerSpan{FromSnapshotId: firstSnapshotID, ToSnapshotId: secondSnapshotID}},
+				Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID.String()},
+				Span: &agentv1.OpenReviewHistoryRequest_Answer{Answer: &agentv1.ReviewAnswerSpan{FromSnapshotId: firstSnapshotID.String(), ToSnapshotId: secondSnapshotID.String()}},
 			},
 			wantSpan: history.Span{Answer: &history.AnswerSpan{FromSnapshotID: firstSnapshotID, ToSnapshotID: secondSnapshotID}},
 		},
 		{
 			name: "a comment's origin",
 			request: &agentv1.OpenReviewHistoryRequest{
-				Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID},
-				Span: &agentv1.OpenReviewHistoryRequest_Origin{Origin: &agentv1.ReviewOriginSpan{SnapshotId: firstSnapshotID, BaseSha: "a"}},
+				Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID.String()},
+				Span: &agentv1.OpenReviewHistoryRequest_Origin{Origin: &agentv1.ReviewOriginSpan{SnapshotId: firstSnapshotID.String(), BaseSha: "a"}},
 			},
 			wantSpan: history.Span{Origin: &history.OriginSpan{SnapshotID: firstSnapshotID, BaseSHA: "a"}},
 		},
@@ -473,7 +473,7 @@ func TestOpenReviewHistoryPassesTheSpan(t *testing.T) {
 func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 	released := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
 	reviewer := &fakeReviewer{
-		snapshot: reviewstore.Snapshot{ID: "snapshot-2", Ordinal: 2},
+		snapshot: reviewstore.Snapshot{ID: secondSnapshotID, Ordinal: 2},
 		record: history.Record{
 			Span: history.ResolvedSpan{
 				BaseSHA:   "base",
@@ -485,25 +485,25 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 				Reason:    history.WidenedAnswerAcrossRebase,
 				Conflicts: []string{"greet.go", "second.go"},
 			},
-			Earlier:             &history.Snapshot{ID: "snapshot-1"},
+			Earlier:             &history.Snapshot{ID: firstSnapshotID},
 			EarlierReleasedAt:   &released,
 			ChangedSinceEarlier: 3,
-			Traced:              map[string]history.Place{"thread-1": {FilePath: "greet.go", NewStart: 8}},
+			Traced:              map[uuid.UUID]history.Place{threadID: {FilePath: "greet.go", NewStart: 8}},
 		},
 	}
 	svc := newReviewHandler(reviewer)
 
-	got, err := svc.OpenReviewHistory(t.Context(), connect.NewRequest(&agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID}}))
+	got, err := svc.OpenReviewHistory(t.Context(), connect.NewRequest(&agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: betaTaskID.String()}}))
 	require.NoError(t, err)
 
 	want := &agentv1.OpenReviewHistoryResponse{
 		Snapshot: &agentv1.ReviewSnapshot{
-			Id:        "snapshot-2",
+			Id:        secondSnapshotID.String(),
 			Ordinal:   2,
 			CreatedAt: dates.Stamp(time.Time{}),
 		},
 		Snapshots: []*agentv1.ReviewSnapshot{{
-			Id:        "snapshot-2",
+			Id:        secondSnapshotID.String(),
 			Ordinal:   2,
 			CreatedAt: dates.Stamp(time.Time{}),
 		}},
@@ -517,10 +517,10 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 			Reason:    agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE,
 			Conflicts: []string{"greet.go", "second.go"},
 		},
-		EarlierSnapshotId:   "snapshot-1",
+		EarlierSnapshotId:   firstSnapshotID.String(),
 		EarlierReleasedAt:   dates.Stamp(released),
 		ChangedSinceEarlier: 3,
-		Traced:              map[string]*agentv1.ReviewTracedPlace{"thread-1": {FilePath: "greet.go", NewStart: 8}},
+		Traced:              map[string]*agentv1.ReviewTracedPlace{threadID.String(): {FilePath: "greet.go", NewStart: 8}},
 	}
 	assert.Empty(t, cmp.Diff(want, got.Msg, protocmp.Transform()))
 }
@@ -560,7 +560,7 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 			svc := newReviewHandler(reviewer)
 
 			_, err := svc.ReleaseReview(t.Context(), connect.NewRequest(&agentv1.ReleaseReviewRequest{
-				Task:    &agentv1.ReleaseReviewRequest_TaskId{TaskId: betaTaskID},
+				Task:    &agentv1.ReleaseReviewRequest_TaskId{TaskId: betaTaskID.String()},
 				Verdict: tt.verdict,
 				Body:    "two things before it goes",
 			}))
@@ -580,9 +580,9 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 func TestGetReviewRendersTheReview(t *testing.T) {
 	reviewer := &fakeReviewer{
 		review: reviewstore.Review{
-			ID:              "review-1",
-			TaskID:          "task-beta",
-			SnapshotID:      "snapshot-1",
+			ID:              reviewID,
+			TaskID:          betaTaskID,
+			SnapshotID:      firstSnapshotID,
 			SnapshotOrdinal: 1,
 			AuthorKind:      reviewstore.AuthorAgent,
 			AuthorAgentID:   xptr.Ptr(alphaID),
@@ -594,34 +594,34 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			UpdatedAt:       reviewedAt,
 		},
 		snapshot: reviewstore.Snapshot{
-			ID:        "snapshot-1",
-			TaskID:    "task-beta",
+			ID:        firstSnapshotID,
+			TaskID:    betaTaskID,
 			Ordinal:   1,
 			BaseSHA:   "base-sha",
 			SHA:       "snapshot-sha",
 			CreatedAt: reviewedAt,
 		},
 		thread: reviewstore.Thread{
-			ID:       "thread-1",
-			TaskID:   "task-beta",
+			ID:       threadID,
+			TaskID:   betaTaskID,
 			FilePath: "greet.go",
 		},
 	}
 	svc := newReviewHandler(reviewer)
 
 	got, err := svc.GetReview(caller.With(t.Context(), caller.Caller{AgentID: betaID}), connect.NewRequest(&agentv1.GetReviewRequest{
-		ReviewId: betaID,
+		ReviewId: betaID.String(),
 	}))
 	require.NoError(t, err)
 
 	assert.Empty(t, cmp.Diff(&agentv1.GetReviewResponse{
 		Review: &agentv1.Review{
-			Id:              "review-1",
-			TaskId:          "task-beta",
-			SnapshotId:      "snapshot-1",
+			Id:              reviewID.String(),
+			TaskId:          betaTaskID.String(),
+			SnapshotId:      firstSnapshotID.String(),
 			SnapshotOrdinal: 1,
 			AuthorKind:      agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
-			AuthorAgentId:   xptr.Ptr(alphaID),
+			AuthorAgentId:   xptr.Ptr(alphaID.String()),
 			Verdict:         agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 			Body:            "two things before it goes",
 			OpenThreads:     1,
@@ -630,8 +630,8 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			UpdatedAt:       "2026-09-24T09:00:00Z",
 		},
 		Snapshot: &agentv1.ReviewSnapshot{
-			Id:        "snapshot-1",
-			TaskId:    "task-beta",
+			Id:        firstSnapshotID.String(),
+			TaskId:    betaTaskID.String(),
 			Ordinal:   1,
 			BaseSha:   "base-sha",
 			Sha:       "snapshot-sha",
@@ -639,8 +639,8 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 		},
 		Threads: []*agentv1.ReviewThreadInContext{{
 			Thread: &agentv1.ReviewThread{
-				Id:         "thread-1",
-				TaskId:     "task-beta",
+				Id:         threadID.String(),
+				TaskId:     betaTaskID.String(),
 				FilePath:   "greet.go",
 				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 			},
@@ -662,13 +662,13 @@ func TestSetReviewFileViewedRendersTheMark(t *testing.T) {
 		{
 			name: "a file marked read",
 			viewed: &reviewstore.ViewedFile{
-				TaskID:      "task-beta",
+				TaskID:      betaTaskID,
 				FilePath:    "greet.go",
 				Fingerprint: "abc123",
 				ViewedAt:    reviewedAt,
 			},
 			wantViewed: &agentv1.ReviewViewedFile{
-				TaskId:      "task-beta",
+				TaskId:      betaTaskID.String(),
 				FilePath:    "greet.go",
 				Fingerprint: "abc123",
 				ViewedAt:    "2026-09-24T09:00:00Z",
@@ -681,7 +681,7 @@ func TestSetReviewFileViewedRendersTheMark(t *testing.T) {
 			svc := newReviewHandler(&fakeReviewer{viewed: tt.viewed})
 
 			got, err := svc.SetReviewFileViewed(t.Context(), connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
-				Task:     &agentv1.SetReviewFileViewedRequest_TaskId{TaskId: betaTaskID},
+				Task:     &agentv1.SetReviewFileViewedRequest_TaskId{TaskId: betaTaskID.String()},
 				FilePath: "greet.go",
 				Viewed:   tt.viewed != nil,
 			}))
@@ -794,7 +794,7 @@ func (f *fakeReviewer) GetHistory(_ context.Context, params reviews.GetHistoryPa
 }
 
 // ReadMail records the mailbox and answers the mail it holds unless err refuses it.
-func (f *fakeReviewer) ReadMail(_ context.Context, agentID string) ([]mailstore.Mail, error) {
+func (f *fakeReviewer) ReadMail(_ context.Context, agentID uuid.UUID) ([]mailstore.Mail, error) {
 	f.read = append(f.read, agentID)
 	if f.err != nil {
 		return nil, f.err
@@ -813,7 +813,7 @@ func (f *fakeReviewer) ListReviews(context.Context, oneofs.Task, reviews.ReviewA
 }
 
 // GetReview answers the review, snapshot and thread it holds, the thread drawn over one line of code.
-func (f *fakeReviewer) GetReview(context.Context, string, reviews.ReviewAuthor) (*reviews.ReviewInFull, error) {
+func (f *fakeReviewer) GetReview(context.Context, uuid.UUID, reviews.ReviewAuthor) (*reviews.ReviewInFull, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -855,3 +855,8 @@ func (f *fakeReviewer) ListReviewViewedFiles(context.Context, reviews.ListReview
 
 	return nil, nil
 }
+
+var (
+	messageID = uuid.New()
+	reviewID  = uuid.New()
+)

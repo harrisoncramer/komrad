@@ -13,6 +13,8 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
 	"komrad/proto/gen/oneofs"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -33,7 +35,7 @@ type branchTipFetcher interface {
 
 // PlanParentParams names the workflow a new task is made in and the task it depends on.
 type PlanParentParams struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	// Parent names the task the new task depends on.
 	Parent oneofs.Task
 }
@@ -73,7 +75,7 @@ func (s *TaskService) PlanParent(ctx context.Context, params PlanParentParams) (
 	})
 	switch {
 	case err == nil:
-		planned.PullRequestID = pullRequest.ID
+		planned.PullRequestID = &pullRequest.ID
 	case !errors.Is(err, store.ErrNotFound):
 		return nil, err
 	}
@@ -82,7 +84,7 @@ func (s *TaskService) PlanParent(ctx context.Context, params PlanParentParams) (
 }
 
 // RefuseParentDelete turns down a delete of tasks with an undeleted child outside the delete.
-func (s *TaskService) RefuseParentDelete(ctx context.Context, ids []string) error {
+func (s *TaskService) RefuseParentDelete(ctx context.Context, ids []uuid.UUID) error {
 	children, err := s.tasks.ListChildrenOf(ctx, ids)
 	if err != nil {
 		return err

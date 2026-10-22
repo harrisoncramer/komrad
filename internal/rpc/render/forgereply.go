@@ -10,11 +10,11 @@ import (
 // ForgeReply draws a reply komrad posts to the forge on a mirrored thread.
 func ForgeReply(reply reviewstore.ForgeReply) *agentv1.ForgeReply {
 	drawn := &agentv1.ForgeReply{
-		Id:             reply.ID,
-		ThreadId:       reply.ThreadID,
+		Id:             reply.ID.String(),
+		ThreadId:       reply.ThreadID.String(),
 		State:          forgeReplyStateOf(reply.State),
 		Body:           reply.Body,
-		ForgeCommentId: reply.MirroredCommentID,
+		ForgeCommentId: formatOptionalID(reply.MirroredCommentID),
 		Error:          reply.Error,
 		CreatedAt:      dates.Stamp(reply.CreatedAt),
 	}

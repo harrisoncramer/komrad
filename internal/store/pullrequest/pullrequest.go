@@ -4,6 +4,7 @@ package pullrequest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,11 +14,13 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // PullRequest is one pull request as the forge last described it, owned by nobody.
 type PullRequest struct {
-	ID string
+	ID uuid.UUID
 	// Host is the forge host the repository lives on, such as github.com.
 	Host string
 	// Forge is which kind of forge the host runs, github or gitlab.
@@ -64,7 +67,7 @@ func (p PullRequest) IsFinished() bool {
 
 // outcome is what an upsert did to the row.
 type outcome struct {
-	ID string
+	ID uuid.UUID
 	// Inserted says the row is new.
 	Inserted bool
 	// Changed says the row was written, whether new or different from what was stored.
@@ -87,8 +90,8 @@ type MergeReadinessChange struct {
 
 // Observation is one task having been seen with one pull request.
 type Observation struct {
-	TaskID        string
-	PullRequestID string
+	TaskID        uuid.UUID
+	PullRequestID uuid.UUID
 	FirstSeenAt   time.Time
 	LastSeenAt    time.Time
 }
@@ -183,13 +186,13 @@ func (s *PullRequestStore) GetByIdentity(ctx context.Context, host, providerID s
 type Cursor struct {
 	Finished bool      `json:"finished"`
 	OpenedAt time.Time `json:"opened_at"`
-	ID       string    `json:"id"`
+	ID       uuid.UUID `json:"id"`
 }
 
 // Validate refuses a cursor that names no row.
 func (c Cursor) Validate() error {
-	if !store.IsID(c.ID) {
-		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	if c.ID == uuid.Nil {
+		return errors.New("cursor names no row")
 	}
 
 	return nil
@@ -227,7 +230,7 @@ func (s *PullRequestStore) ListPage(ctx context.Context, params ListPageParams) 
 
 // SetMergeReadinessParams is one read of a pull request's merge readiness.
 type SetMergeReadinessParams struct {
-	ID             string
+	ID             uuid.UUID
 	MergeReadiness forge.MergeReadiness
 	// HeadSHA is the head the merge readiness was read for.
 	HeadSHA string
@@ -244,7 +247,7 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		return nil, fmt.Errorf("failed to lock pull request %s to record its merge readiness: %w", params.ID, err)
 	}
 
-	readBefore, err := headReadings(ctx, s.queries, []string{params.ID})
+	readBefore, err := headReadings(ctx, s.queries, []uuid.UUID{params.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +265,7 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 		}
 	}
 
-	readAfter, err := headReadings(ctx, s.queries, []string{params.ID})
+	readAfter, err := headReadings(ctx, s.queries, []uuid.UUID{params.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +295,7 @@ func (s *PullRequestStore) withOneMergeReadiness(ctx context.Context, row *model
 
 // withMergeReadiness is each row as a pull request, its checks rolled up from the latest reading of them.
 func (s *PullRequestStore) withMergeReadiness(ctx context.Context, rows []*models.PullRequest) ([]PullRequest, error) {
-	readings, err := headReadings(ctx, s.queries, xslice.Map(rows, func(row *models.PullRequest) string { return row.ID }))
+	readings, err := headReadings(ctx, s.queries, xslice.Map(rows, func(row *models.PullRequest) uuid.UUID { return row.ID }))
 	if err != nil {
 		return nil, err
 	}
@@ -313,15 +316,14 @@ func (s *PullRequestStore) Observe(ctx context.Context) (int64, error) {
 }
 
 // ListObservations returns every pull request any of the given tasks has been seen with, oldest first.
-func (s *PullRequestStore) ListObservations(ctx context.Context, taskIDs []string) ([]Observation, error) {
-	storable := store.KeepIDs(taskIDs)
-	if len(storable) == 0 {
+func (s *PullRequestStore) ListObservations(ctx context.Context, taskIDs []uuid.UUID) ([]Observation, error) {
+	if len(taskIDs) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListTaskPullRequests(ctx, storable)
+	rows, err := s.queries.ListTaskPullRequests(ctx, taskIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the pull requests %d tasks were seen with: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list the pull requests %d tasks were seen with: %w", len(taskIDs), err)
 	}
 
 	return xslice.Map(rows, func(row *models.TaskPullRequest) Observation {
@@ -403,7 +405,7 @@ func rememberedMergeReadinessOf(row *models.PullRequest, checks StatusCheckReadi
 	return readiness
 }
 
-func toWriteMergeReadiness(id string, readiness forge.RememberedMergeReadiness) models.WriteMergeReadinessParams {
+func toWriteMergeReadiness(id uuid.UUID, readiness forge.RememberedMergeReadiness) models.WriteMergeReadinessParams {
 	params := models.WriteMergeReadinessParams{
 		ID:                     id,
 		LatestDecision:         latestReadOf(readiness.Decision),
@@ -431,11 +433,7 @@ func latestReadOf[T ~string](answer forge.RememberedAnswer[T]) *string {
 }
 
 // GetByID is one stored pull request, or ErrNotFound.
-func (s *PullRequestStore) GetByID(ctx context.Context, id string) (*PullRequest, error) {
-	if !store.IsID(id) {
-		return nil, store.ErrNotFound.Saying("no pull request %s", id)
-	}
-
+func (s *PullRequestStore) GetByID(ctx context.Context, id uuid.UUID) (*PullRequest, error) {
 	row, err := s.queries.GetPullRequest(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no pull request %s", id)
@@ -449,11 +447,7 @@ func (s *PullRequestStore) GetByID(ctx context.Context, id string) (*PullRequest
 
 // ListRecipients is the live writer of each task whose checkout is on a pull request's branch in its
 // repository, in agent id order.
-func (s *PullRequestStore) ListRecipients(ctx context.Context, id string) ([]string, error) {
-	if !store.IsID(id) {
-		return nil, nil
-	}
-
+func (s *PullRequestStore) ListRecipients(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
 	ids, err := s.queries.ListPullRequestRecipients(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the agents on pull request %s: %w", id, err)
@@ -509,7 +503,7 @@ func (s *PullRequestStore) GetMergeBlockers(ctx context.Context, url string) (*m
 
 // LeftParent is a task that left its parent while its open pull request still targets the parent's branch.
 type LeftParent struct {
-	TaskID string
+	TaskID uuid.UUID
 	// Branch is the parent's branch the pull request moves off.
 	Branch string
 }

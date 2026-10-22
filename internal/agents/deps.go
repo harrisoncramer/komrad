@@ -10,6 +10,8 @@ import (
 	"komrad/internal/tmux"
 
 	agentstore "komrad/internal/store/agent"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -52,7 +54,7 @@ type paneKiller interface {
 // paneOwnerReader asks tmux who owns a pane, one at a time or in a listing.
 type paneOwnerReader interface {
 	paneLister
-	GetPaneOwner(pane string) string
+	GetPaneOwner(pane string) uuid.UUID
 }
 
 // paneExitReader asks tmux whether the CLI launched in a pane has exited, and what it left on screen.
@@ -66,7 +68,7 @@ type paneController interface {
 	paneOwnerReader
 	paneExitReader
 	NewWindow(session, name, dir string) (string, error)
-	SetPaneOwner(pane, agentID string) error
+	SetPaneOwner(pane string, agentID uuid.UUID) error
 	GetHostPath() string
 }
 

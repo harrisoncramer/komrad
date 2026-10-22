@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -21,20 +22,20 @@ import (
 func TestClaimCheckout(t *testing.T) {
 	tests := []struct {
 		name    string
-		seed    func(t *testing.T, stores *storetest.Stores, taskID string)
+		seed    func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID)
 		missing bool
 		wantErr error
 		want    bool
 	}{
 		{
 			name:    "a task that is not an id is not found",
-			seed:    func(*testing.T, *storetest.Stores, string) {},
+			seed:    func(*testing.T, *storetest.Stores, uuid.UUID) {},
 			missing: true,
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a task already claimed is not claimed again",
-			seed: func(t *testing.T, stores *storetest.Stores, taskID string) {
+			seed: func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID) {
 				claimed, err := stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: taskID})
 				require.NoError(t, err)
 				require.True(t, claimed)
@@ -43,14 +44,14 @@ func TestClaimCheckout(t *testing.T) {
 		},
 		{
 			name: "a task whose checkout was taken away is not claimed again",
-			seed: func(t *testing.T, stores *storetest.Stores, taskID string) {
+			seed: func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID) {
 				require.NoError(t, stores.Tasks.SetHead(t.Context(), taskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 			},
 			want: false,
 		},
 		{
 			name: "a task with no checkout is claimed",
-			seed: func(*testing.T, *storetest.Stores, string) {},
+			seed: func(*testing.T, *storetest.Stores, uuid.UUID) {},
 			want: true,
 		},
 	}
@@ -64,7 +65,7 @@ func TestClaimCheckout(t *testing.T) {
 
 			id := task.ID
 			if tt.missing {
-				id = "work"
+				id = workTaskID
 			}
 
 			got, err := stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: id})
@@ -238,3 +239,7 @@ func TestSetHead(t *testing.T) {
 		})
 	}
 }
+
+var (
+	workTaskID = uuid.New()
+)

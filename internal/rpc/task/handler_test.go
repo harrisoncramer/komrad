@@ -21,8 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	taskID      = "01a11e6f-0000-7000-8000-00000000000a"
+var (
+	taskID      = uuid.MustParse("01a11e6f-0000-7000-8000-00000000000a")
 	otherTaskID = "01a11e6f-0000-7000-8000-00000000000b"
 )
 
@@ -50,7 +50,7 @@ func (f *fakeTasks) FindTask(context.Context, oneofs.Task) (*taskstore.Task, err
 }
 
 // ListTasks answers the stored task.
-func (f *fakeTasks) ListTasks(context.Context, string, bool) ([]taskstore.Task, error) {
+func (f *fakeTasks) ListTasks(context.Context, uuid.UUID, bool) ([]taskstore.Task, error) {
 	return []taskstore.Task{f.stored}, nil
 }
 
@@ -74,7 +74,7 @@ func (f *fakeTasks) DeleteTasks(_ context.Context, params agents.DeleteTasksPara
 }
 
 // MarkTaskRunsRead answers nil.
-func (f *fakeTasks) MarkTaskRunsRead(context.Context, string) error {
+func (f *fakeTasks) MarkTaskRunsRead(context.Context, uuid.UUID) error {
 	return nil
 }
 
@@ -102,7 +102,7 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 		Notes:          "Found it.",
 		NotesUpdatedAt: &writtenAt,
 	}}
-	ctx := caller.With(t.Context(), caller.Caller{AgentID: "agent-1"})
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: firstAgentID})
 
 	written, err := newTaskHandler(fake).SetTaskNotes(ctx, connect.NewRequest(&taskv1.SetTaskNotesRequest{
 		Task:           &taskv1.SetTaskNotesRequest_TaskSlug{TaskSlug: "fix-login"},
@@ -125,7 +125,7 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 // after those named by id, the records choice and the agent asking.
 func TestDeleteTasksPassesDown(t *testing.T) {
 	fake := &fakeTasks{stored: taskstore.Task{ID: taskID, Slug: "fix-login"}}
-	ctx := caller.With(t.Context(), caller.Caller{AgentID: "agent-1"})
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: firstAgentID})
 
 	_, err := newTaskHandler(fake).DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
 		TaskIds:   []string{otherTaskID},
@@ -141,7 +141,7 @@ func TestDeleteTasksPassesDown(t *testing.T) {
 				{TaskSlug: xptr.Ptr("fix-login")},
 			},
 			Records:   true,
-			ByAgentID: "agent-1",
+			ByAgentID: firstAgentID,
 		},
 	}, fake.deleted)
 }
@@ -154,3 +154,7 @@ func TestGetTaskRefusesAMalformedID(t *testing.T) {
 	}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }
+
+var (
+	firstAgentID = uuid.New()
+)

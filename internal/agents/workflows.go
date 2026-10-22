@@ -18,6 +18,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 var ErrWorkflowHasSchedules = fail.Precondition("workflow still has schedules")
@@ -33,7 +35,7 @@ var ErrUnknownHookScript = fail.InvalidArgument("a hook must name a script in th
 var ErrWorktreeNeedsBase = fail.InvalidArgument("a workflow's base branch cannot be blank")
 
 type workflowAgentDeleter interface {
-	DeleteAgents(ctx context.Context, ids []string) error
+	DeleteAgents(ctx context.Context, ids []uuid.UUID) error
 }
 
 type workflowHookFinder interface {
@@ -77,7 +79,7 @@ func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 }
 
 // GetWorkflow returns a workflow by id, or nil when none has that id.
-func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
+func (w *WorkflowService) GetWorkflow(ctx context.Context, id uuid.UUID) (*workflowstore.Workflow, error) {
 	found, err := w.workflows.Get(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
@@ -135,7 +137,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 
 // UpdateWorkflow replaces a workflow's editable fields, keeping the name it already has when a
 // blank one is given.
-func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
+func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id uuid.UUID, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return agenterr.ErrWorkflowNotFound.Saying("no workflow with id %q", id)
@@ -234,7 +236,7 @@ func requirePrimaryCheckout(cwd string) error {
 }
 
 // ArchiveWorkflow archives a workflow and every agent inside it.
-func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
+func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id uuid.UUID) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return agenterr.ErrWorkflowNotFound.Saying("no workflow with id %q", id)
@@ -267,7 +269,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 
 // RestoreWorkflow brings an archived workflow back with the agents its archive took, landing them
 // dormant so a folder of twelve does not start twelve CLIs.
-func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
+func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id uuid.UUID) (*workflowstore.Workflow, error) {
 	existing, err := w.workflows.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, agenterr.ErrWorkflowNotFound.Saying("no archived workflow with id %q", id)
@@ -294,18 +296,18 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 // DeleteWorkflowParams is the archived workflow to delete, whether its records go too, and the
 // agent asking.
 type DeleteWorkflowParams struct {
-	ID string
+	ID uuid.UUID
 	// Records deletes the workflow for good, with its archived agents, tasks and schedules, rather
 	// than only its tasks' worktrees.
 	Records bool
 	// ByAgentID is the agent asking, empty for the panel.
-	ByAgentID string
+	ByAgentID uuid.UUID
 }
 
 // DeleteWorkflow removes the worktrees of an archived workflow's tasks, or with records set
 // deletes the workflow for good along with the archived agents and schedules inside it.
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, params DeleteWorkflowParams) error {
-	if params.ByAgentID != "" {
+	if params.ByAgentID != uuid.Nil {
 		return agenterr.ErrDeleteByAgent
 	}
 

@@ -11,6 +11,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +47,7 @@ func TestStartOrchestratorLaunchesOne(t *testing.T) {
 	assert.Nil(t, started.TaskID, "it stands outside every task")
 	require.NotNil(t, started.ProvisionEnabled)
 	assert.False(t, *started.ProvisionEnabled)
-	assert.Equal(t, filepath.Join(stateDir, orchestratorDirName, workflow.ID), started.Cwd,
+	assert.Equal(t, filepath.Join(stateDir, orchestratorDirName, workflow.ID.String()), started.Cwd,
 		"it runs in its own scratch directory rather than a worktree the workflow would have cut")
 	assert.DirExists(t, started.Cwd)
 	assert.NoDirExists(t, filepath.Join(started.Cwd, ".git"), "its directory is not a checkout")
@@ -58,15 +59,11 @@ func TestStartOrchestratorLaunchesOne(t *testing.T) {
 func TestStartOrchestratorRefusesAWorkflowThatIsNotThere(t *testing.T) {
 	tests := []struct {
 		name       string
-		workflowID string
+		workflowID uuid.UUID
 	}{
 		{
-			name:       "an id that climbs out of the state directory",
-			workflowID: "../../../../tmp/escaped",
-		},
-		{
 			name:       "a well-formed id no workflow holds",
-			workflowID: "00000000-0000-7000-8000-000000000000",
+			workflowID: uuid.New(),
 		},
 	}
 
@@ -143,7 +140,7 @@ func TestStartOrchestratorReturnsTheOneTheWorkflowHas(t *testing.T) {
 			st.SeedTranscript(t, first.ID, "why this workflow was split three ways")
 
 			if tt.archive {
-				require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{first.ID}))
+				require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{first.ID}))
 			}
 
 			second, err := manager.orchestrator.Start(ctx, workflow, "")

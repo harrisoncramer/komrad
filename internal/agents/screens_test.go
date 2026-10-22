@@ -11,6 +11,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	screenstore "komrad/internal/store/screen"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -148,7 +149,7 @@ func TestArchiveSavesTheScreen(t *testing.T) {
 				Height:  24,
 			}))
 
-			require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{agent.ID}))
+			require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []uuid.UUID{agent.ID}))
 
 			saved, err := st.Screens.Get(t.Context(), agent.ID)
 			require.NoError(t, err)

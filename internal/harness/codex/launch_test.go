@@ -10,6 +10,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -76,13 +77,13 @@ func TestBuildCommand(t *testing.T) {
 		},
 		{
 			name:        "the agent's own id leads the line, so it reaches codex's environment",
-			launch:      harness.Launch{AgentID: "id-1", Prompt: "go"},
+			launch:      harness.Launch{AgentID: launchedID, Prompt: "go"},
 			wantContain: []string{"KOMRAD_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-id-1' command codex"},
 		},
 		{
 			name: "and it survives a resume",
 			launch: harness.Launch{
-				AgentID:   "id-1",
+				AgentID:   launchedID,
 				SessionID: "sess",
 				Resume:    true,
 			},
@@ -144,14 +145,14 @@ func TestBuildCommandPinsTheHome(t *testing.T) {
 		{
 			name:    "on a fresh launch",
 			home:    "work login",
-			launch:  harness.Launch{AgentID: "agent-1"},
+			launch:  harness.Launch{AgentID: firstAgentID},
 			wantPin: true,
 		},
 		{
 			name: "and on a resume",
 			home: "work login",
 			launch: harness.Launch{
-				AgentID:   "agent-1",
+				AgentID:   firstAgentID,
 				SessionID: "sess",
 				Resume:    true,
 			},
@@ -159,7 +160,7 @@ func TestBuildCommandPinsTheHome(t *testing.T) {
 		},
 		{
 			name:   "not at all when the CLI is left to its default",
-			launch: harness.Launch{AgentID: "agent-1"},
+			launch: harness.Launch{AgentID: firstAgentID},
 		},
 	}
 
@@ -362,7 +363,7 @@ func TestTOMLString(t *testing.T) {
 func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 	command, err := NewHarness(NewHarnessParams{CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
-		AgentID:     "agent-1",
+		AgentID:     firstAgentID,
 		SessionID:   "sess-1",
 		MCPEndpoint: "127.0.0.1:9999",
 	})
@@ -383,3 +384,8 @@ func TestMCPHeadersOnlyWithAnEndpoint(t *testing.T) {
 
 	assert.NotContains(t, command, "env_http_headers")
 }
+
+var (
+	firstAgentID = uuid.New()
+	launchedID   = uuid.New()
+)

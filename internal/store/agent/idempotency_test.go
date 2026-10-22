@@ -6,6 +6,7 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,7 +63,7 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			ids := map[string]*string{"": nil}
+			ids := map[string]*uuid.UUID{"": nil}
 			for _, name := range []string{"requester", "other requester"} {
 				require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
 				created, err := st.Get(ctx, name)

@@ -11,6 +11,8 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // Worktree is one directory as the size loop last read it.
@@ -162,8 +164,8 @@ func (s *WorktreeStore) Delete(ctx context.Context, dirs []string) error {
 }
 
 // DeleteForTask forgets the directories cut for the task.
-func (s *WorktreeStore) DeleteForTask(ctx context.Context, taskID string) error {
-	if err := s.queries.DeleteTaskWorktrees(ctx, taskID); err != nil {
+func (s *WorktreeStore) DeleteForTask(ctx context.Context, taskID uuid.UUID) error {
+	if err := s.queries.DeleteTaskWorktrees(ctx, taskID.String()); err != nil {
 		return fmt.Errorf("failed to forget the worktrees of task %q: %w", taskID, err)
 	}
 

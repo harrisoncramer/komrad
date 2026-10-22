@@ -10,6 +10,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -169,8 +170,8 @@ func TestDeleteForTaskForgetsTheTasksDirectories(t *testing.T) {
 		require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: dir}))
 	}
 
-	require.NoError(t, worktrees.DeleteForTask(t.Context(), "never"))
-	require.NoError(t, worktrees.DeleteForTask(t.Context(), "a"))
+	require.NoError(t, worktrees.DeleteForTask(t.Context(), uuid.New()))
+	require.NoError(t, worktrees.DeleteForTask(t.Context(), uuid.New()))
 
 	listed, err := worktrees.List(t.Context())
 	require.NoError(t, err)
@@ -205,11 +206,11 @@ func TestListWatchedLeavesOutADeletingTasksDirectory(t *testing.T) {
 	stores := storetest.Open(t)
 	worktrees := NewWorktreeStore(stores.Pool.GetDB())
 	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "going"})
-	dir := "/trees/" + task.ID
+	dir := "/trees/" + task.ID.String()
 	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: dir}))
 	require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: "/trees/other"}))
 
-	require.NoError(t, stores.Tasks.MarkDeleting(t.Context(), []string{task.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(t.Context(), []uuid.UUID{task.ID}))
 
 	watched, err := worktrees.ListWatched(t.Context(), nil)
 	require.NoError(t, err)

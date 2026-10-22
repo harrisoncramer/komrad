@@ -17,6 +17,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/tmuxtest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -128,7 +129,7 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 		Flags:     "--model opus",
 		Prompt:    "do the thing",
 		SessionID: "sess",
-		AgentID:   "id-1",
+		AgentID:   launchedID,
 		Resume:    true,
 	})
 	require.NoError(t, err)
@@ -313,7 +314,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 	tests := []struct {
 		name             string
-		spawnedByAgentID string
+		spawnedByAgentID uuid.UUID
 		spawnedByName    string
 		wantContain      []string
 		wantAbsent       []string
@@ -324,7 +325,7 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 		},
 		{
 			name:             "a spawned agent is told who spawned it and to report back",
-			spawnedByAgentID: "parent-id-1",
+			spawnedByAgentID: uuid.New(),
 			spawnedByName:    "reviewer",
 			wantContain:      []string{"spawned by agent reviewer (parent-id-1)", "Answer its mail", "tell it when you are done"},
 		},
@@ -639,7 +640,7 @@ func TestLaunchAnswersWithItsHooks(t *testing.T) {
 
 			hooks, err := launcher.launch(ctx, &harnesstest.Fake{Installed: []string{"PreToolUse", "Stop"}}, launchParams{
 				Pane:    "pane",
-				AgentID: "id-1",
+				AgentID: launchedID,
 			})
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantInstalled, hooks)
@@ -701,3 +702,7 @@ func TestTaskBriefing(t *testing.T) {
 		})
 	}
 }
+
+var (
+	launchedID = uuid.New()
+)

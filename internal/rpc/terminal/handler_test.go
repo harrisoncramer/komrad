@@ -23,12 +23,13 @@ import (
 	terminalv1komrad "komrad/proto/gen/terminal/v1/terminalv1komrad"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const agentID = "01a11e6f-0000-7000-8000-0000000000a1"
+var agentID = uuid.MustParse("01a11e6f-0000-7000-8000-0000000000a1")
 
 type fakeTerminal struct {
 	output  *io.PipeReader
@@ -301,9 +302,9 @@ func TestShellWhenTheCallerStops(t *testing.T) {
 	})
 }
 
-func openAttachRequest(agentID string) *terminalv1.AttachRequest {
+func openAttachRequest(agentID uuid.UUID) *terminalv1.AttachRequest {
 	return &terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Open{Open: &terminalv1.OpenAttach{
-		AgentId: agentID,
+		AgentId: agentID.String(),
 		Size:    &terminalv1.Size{Rows: 24, Cols: 80},
 		Term:    "screen-256color",
 	}}}
@@ -337,7 +338,7 @@ func TestAttachRefuses(t *testing.T) {
 		},
 		{
 			name:     "an opening that names no agent",
-			first:    openAttachRequest(""),
+			first:    openAttachRequest(uuid.Nil),
 			wantCode: connect.CodeInvalidArgument,
 		},
 	}

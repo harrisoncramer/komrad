@@ -13,6 +13,7 @@ import (
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,12 +21,12 @@ import (
 // TestRestartAgentStartsANewConversation pins a writer relaunched on a new conversation, briefed from its task,
 // on a session it has not held before.
 func TestRestartAgentStartsANewConversation(t *testing.T) {
-	const earlier = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
+	var earlier = uuid.MustParse("0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22")
 
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
-	require.NoError(t, st.Agents.SetSessionID(t.Context(), writer.ID, earlier))
+	require.NoError(t, st.Agents.SetSessionID(t.Context(), writer.ID, earlier.String()))
 	tmux.AfterKillPane = func(string) {
 		at := time.Now()
 		require.NoError(t, st.Agents.SetInterruptedAtByID(t.Context(), writer.ID, &at))
@@ -48,12 +49,12 @@ func TestRestartAgentStartsANewConversation(t *testing.T) {
 // TestRestartAgentStartsAnOrchestratorOnANewConversation pins an orchestrator relaunched on a new
 // conversation from the panel, briefed as its workflow's orchestrator.
 func TestRestartAgentStartsAnOrchestratorOnANewConversation(t *testing.T) {
-	const earlier = "5b1d9a7e-2c4f-4f0a-8e3d-7a6c5b4e3d21"
+	var earlier = uuid.MustParse("5b1d9a7e-2c4f-4f0a-8e3d-7a6c5b4e3d21")
 
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	orchestrator := seedOrchestrator(t, st, tmux)
-	require.NoError(t, st.Agents.SetSessionID(t.Context(), orchestrator.ID, earlier))
+	require.NoError(t, st.Agents.SetSessionID(t.Context(), orchestrator.ID, earlier.String()))
 	service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
 	restarted, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: orchestrator.ID})
@@ -145,7 +146,7 @@ func TestRestartAgentOntoAnotherHarnessOrFlags(t *testing.T) {
 // TestRestartAgentGivingUpKeepsTheEarlierConversation pins a writer whose restart fails left on the
 // conversation, CLI and flags it had.
 func TestRestartAgentGivingUpKeepsTheEarlierConversation(t *testing.T) {
-	const earlier = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
+	var earlier = uuid.MustParse("0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22")
 
 	tests := []struct {
 		name string
@@ -170,7 +171,7 @@ func TestRestartAgentGivingUpKeepsTheEarlierConversation(t *testing.T) {
 				ID:        writer.ID,
 				Harness:   harnesstest.FakeID,
 				Flags:     "--model opus",
-				SessionID: earlier,
+				SessionID: earlier.String(),
 			}))
 			service, _ := newManagerWithHarness(tmux, st, "")
 			tt.fail(tmux)
@@ -231,10 +232,10 @@ func TestRestartAgentRefuses(t *testing.T) {
 			orchestrator := seedOrchestrator(t, st, tmux)
 			writer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "writer", "%1")
 			archived := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "archived writer", "%2")
-			require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []string{archived.ID}))
+			require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []uuid.UUID{archived.ID}))
 			removed := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "removed writer", "%3")
 			require.NoError(t, st.Tasks.SetHead(t.Context(), *removed.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
-			seeded := map[string]string{
+			seeded := map[string]uuid.UUID{
 				"orchestrator":    orchestrator.ID,
 				"reviewer":        seedReviewer(t, st, tmux, writer).ID,
 				"archived writer": archived.ID,

@@ -15,6 +15,8 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // CheckLogOutcome is where fetching a check's log stands.
@@ -49,7 +51,7 @@ var ErrInvalidPattern = fail.InvalidArgument("the pattern is not a valid regular
 
 // CheckLog is a check's log as komrad last fetched it.
 type CheckLog struct {
-	CheckID   string
+	CheckID   uuid.UUID
 	FetchedAt time.Time
 	Outcome   CheckLogOutcome
 	// Text is every line of a fetched log followed by a newline, empty when the log was listed.
@@ -67,7 +69,7 @@ type CheckLogLines struct {
 
 // CheckLogHit is one line of a check's log a search matched.
 type CheckLogHit struct {
-	CheckID string
+	CheckID uuid.UUID
 	// Line counts from one.
 	Line int
 	// StepNumber is the step the line sits in, and 0 for a line in no step.
@@ -86,7 +88,7 @@ type CheckLogSearch struct {
 
 // checkForLogFetch is what fetching a check's log needs to know about the check.
 type checkForLogFetch struct {
-	ID            string
+	ID            uuid.UUID
 	State         string
 	JobID         *int64
 	FinishedAt    *time.Time
@@ -153,7 +155,7 @@ func (s *StatusCheckStore) RecordCheckLog(ctx context.Context, log CheckLog) err
 
 // ListCheckLogsOfReadings is the log kept for each check of the readings that has one, with its steps and
 // without its text.
-func (s *StatusCheckStore) ListCheckLogsOfReadings(ctx context.Context, readingIDs []string) ([]CheckLog, error) {
+func (s *StatusCheckStore) ListCheckLogsOfReadings(ctx context.Context, readingIDs []uuid.UUID) ([]CheckLog, error) {
 	logs, err := s.queries.ListCheckLogsOfReadings(ctx, readingIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the check logs of %d readings: %w", len(readingIDs), err)
@@ -164,7 +166,7 @@ func (s *StatusCheckStore) ListCheckLogsOfReadings(ctx context.Context, readingI
 		return nil, fmt.Errorf("failed to list the check log steps of %d readings: %w", len(readingIDs), err)
 	}
 
-	stepsOf := map[string][]checklog.StepRange{}
+	stepsOf := map[uuid.UUID][]checklog.StepRange{}
 	for _, step := range steps {
 		stepsOf[step.CheckID] = append(stepsOf[step.CheckID], checklog.StepRange{
 			Number:     int(step.Number),
@@ -190,11 +192,7 @@ func (s *StatusCheckStore) ListCheckLogsOfReadings(ctx context.Context, readingI
 
 // GetCheckLogLines is up to count lines of a check's fetched log from firstLine, counting from one, or
 // ErrNotFound when the check has no fetched log.
-func (s *StatusCheckStore) GetCheckLogLines(ctx context.Context, checkID string, firstLine, count int) (*CheckLogLines, error) {
-	if !store.IsID(checkID) {
-		return nil, store.ErrNotFound.Saying("no fetched log for check %s", checkID)
-	}
-
+func (s *StatusCheckStore) GetCheckLogLines(ctx context.Context, checkID uuid.UUID, firstLine, count int) (*CheckLogLines, error) {
 	row, err := s.queries.GetCheckLogText(ctx, checkID)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no fetched log for check %s", checkID)
@@ -212,13 +210,11 @@ func (s *StatusCheckStore) GetCheckLogLines(ctx context.Context, checkID string,
 
 // ListCheckLogHits is every line of the checks' fetched logs the RE2 pattern matches one line at a time, in
 // check and line order, up to the most hits a search answers with.
-func (s *StatusCheckStore) ListCheckLogHits(ctx context.Context, checkIDs []string, pattern string) (*CheckLogSearch, error) {
+func (s *StatusCheckStore) ListCheckLogHits(ctx context.Context, checkIDs []uuid.UUID, pattern string) (*CheckLogSearch, error) {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, ErrInvalidPattern.Saying("the pattern %q is not a valid regular expression: %v", pattern, err)
 	}
-
-	checkIDs = store.KeepIDs(checkIDs)
 
 	texts, err := s.queries.ListCheckLogTexts(ctx, checkIDs)
 	if err != nil {
@@ -230,7 +226,7 @@ func (s *StatusCheckStore) ListCheckLogHits(ctx context.Context, checkIDs []stri
 		return nil, fmt.Errorf("failed to list the log steps of %d checks: %w", len(checkIDs), err)
 	}
 
-	stepsOf := map[string][]*models.ListCheckLogStepsOfChecksRow{}
+	stepsOf := map[uuid.UUID][]*models.ListCheckLogStepsOfChecksRow{}
 	for _, step := range steps {
 		stepsOf[step.CheckID] = append(stepsOf[step.CheckID], step)
 	}
@@ -262,7 +258,7 @@ func (s *StatusCheckStore) ListCheckLogHits(ctx context.Context, checkIDs []stri
 }
 
 // GetCheckForLogFetch returns a check with the steps that map its log, or ErrNotFound.
-func (s *StatusCheckStore) GetCheckForLogFetch(ctx context.Context, checkID string) (*checkForLogFetch, error) {
+func (s *StatusCheckStore) GetCheckForLogFetch(ctx context.Context, checkID uuid.UUID) (*checkForLogFetch, error) {
 	row, err := s.queries.GetCheckForLogFetch(ctx, checkID)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no check %s", checkID)
@@ -296,7 +292,7 @@ func (s *StatusCheckStore) GetCheckForLogFetch(ctx context.Context, checkID stri
 
 // ListHeadChecksWantingLogs is the finished checks on a pull request's head commit that ran in a job and
 // have no log kept, whatever the forge answered.
-func (s *StatusCheckStore) ListHeadChecksWantingLogs(ctx context.Context, pullRequestID string) ([]string, error) {
+func (s *StatusCheckStore) ListHeadChecksWantingLogs(ctx context.Context, pullRequestID uuid.UUID) ([]uuid.UUID, error) {
 	ids, err := s.queries.ListHeadChecksWantingLogs(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the checks wanting logs of pull request %s: %w", pullRequestID, err)

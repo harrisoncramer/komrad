@@ -17,6 +17,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -87,26 +88,26 @@ func TestListSurroundings(t *testing.T) {
 	threaded := seedThread(t, st, reviewed)
 	seedThread(t, st, seedReview(t, st, elsewhere.ID))
 
-	rows, err := reader.ListRowsByID(ctx, []string{opened.ID})
+	rows, err := reader.ListRowsByID(ctx, []uuid.UUID{opened.ID})
 	require.NoError(t, err)
 
 	surroundings, err := reader.ListSurroundings(ctx, rows)
 	require.NoError(t, err)
 
 	assert.Len(t, surroundings.Mail, 1, "every unclaimed piece of mail, whoever it is to")
-	assert.Equal(t, []string{written.ID}, xslice.Map(surroundings.PullRequests, func(p pullrequeststore.PullRequest) string {
+	assert.Equal(t, []uuid.UUID{written.ID}, xslice.Map(surroundings.PullRequests, func(p pullrequeststore.PullRequest) uuid.UUID {
 		return p.ID
 	}), "only the pull requests the agents on the page were seen with")
 	assert.Equal(t, []string{readerRepository}, xslice.Map(surroundings.Repositories, func(s pullrequeststore.Sync) string {
 		return s.RepositoryURL
 	}), "only the repositories the agents on the page work in")
-	assert.Equal(t, []string{opened.WorkflowID}, xslice.Map(surroundings.Workflows, func(w workflowstore.Workflow) string {
+	assert.Equal(t, []uuid.UUID{opened.WorkflowID}, xslice.Map(surroundings.Workflows, func(w workflowstore.Workflow) uuid.UUID {
 		return w.ID
 	}), "only the workflows the agents on the page are in, never %s", bystander.ID)
-	assert.Equal(t, []string{reviewed}, xslice.Map(surroundings.Reviews, func(r reviewstore.Review) string {
+	assert.Equal(t, []uuid.UUID{reviewed}, xslice.Map(surroundings.Reviews, func(r reviewstore.Review) uuid.UUID {
 		return r.ID
 	}), "only the reviews of the agents on the page")
-	assert.Equal(t, []string{threaded}, xslice.Map(surroundings.ReviewThreads, func(thread reviewstore.ThreadWithMessages) string {
+	assert.Equal(t, []uuid.UUID{threaded}, xslice.Map(surroundings.ReviewThreads, func(thread reviewstore.ThreadWithMessages) uuid.UUID {
 		return thread.ID
 	}), "only the review threads on the work of the agents on the page")
 
@@ -126,17 +127,17 @@ func TestListRowsByID(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		ids     []string
-		wantIDs []string
+		ids     []uuid.UUID
+		wantIDs []uuid.UUID
 	}{
 		{
 			name:    "naming nobody reads nobody",
-			wantIDs: []string{},
+			wantIDs: []uuid.UUID{},
 		},
 		{
 			name:    "naming one agent reads that one",
-			ids:     []string{alpha.ID},
-			wantIDs: []string{alpha.ID},
+			ids:     []uuid.UUID{alpha.ID},
+			wantIDs: []uuid.UUID{alpha.ID},
 		},
 	}
 
@@ -144,7 +145,7 @@ func TestListRowsByID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rows, err := reader.ListRowsByID(t.Context(), tt.ids)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantIDs, xslice.Map(rows, func(row rowstore.Row) string {
+			assert.Equal(t, tt.wantIDs, xslice.Map(rows, func(row rowstore.Row) uuid.UUID {
 				return row.ID
 			}))
 		})
@@ -152,7 +153,7 @@ func TestListRowsByID(t *testing.T) {
 }
 
 // seedReview opens a review of the first snapshot of the agent's task and returns its id.
-func seedReview(t *testing.T, st *storetest.Stores, agentID string) string {
+func seedReview(t *testing.T, st *storetest.Stores, agentID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())
@@ -176,7 +177,7 @@ func seedReview(t *testing.T, st *storetest.Stores, agentID string) string {
 	return review.ID
 }
 
-func seedThread(t *testing.T, st *storetest.Stores, reviewID string) string {
+func seedThread(t *testing.T, st *storetest.Stores, reviewID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	reviews := reviewstore.NewReviewStore(st.Pool.GetDB())

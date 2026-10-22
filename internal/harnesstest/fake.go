@@ -9,6 +9,8 @@ import (
 
 	"komrad/internal/harness"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 const FakeID = "claude"
@@ -126,7 +128,7 @@ func (f *Fake) LogPath(string) string {
 }
 
 // FindSession answers Session.
-func (f *Fake) FindSession(string) (string, error) {
+func (f *Fake) FindSession(uuid.UUID) (string, error) {
 	return f.Session, nil
 }
 

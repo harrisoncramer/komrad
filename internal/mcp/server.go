@@ -24,6 +24,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/rpcapi"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -98,7 +99,7 @@ type callerRoleKey struct{}
 // getCallerRole reads the role of whoever is making the request.
 func getCallerRole(request *http.Request, roleOf rpcapi.RoleOf) (annotationv1.Role, error) {
 	agentID := caller.FromHeader(request.Header).AgentID
-	if roleOf == nil || agentID == "" {
+	if roleOf == nil || agentID == uuid.Nil {
 		return annotationv1.Role_ROLE_UNSPECIFIED, nil
 	}
 

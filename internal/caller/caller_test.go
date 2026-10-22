@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +21,7 @@ func TestFromHeader(t *testing.T) {
 		{
 			name:    "an agent naming itself",
 			headers: map[string]string{AgentHeader: "agent-1", SessionHeader: "sess-1"},
-			want:    Caller{AgentID: "agent-1", SessionID: "sess-1"},
+			want:    Caller{AgentID: firstAgentID, SessionID: "sess-1"},
 		},
 		{
 			name: "the panel, which sends nothing",
@@ -36,7 +37,7 @@ func TestFromHeader(t *testing.T) {
 		{
 			name:    "an agent with no conversation yet",
 			headers: map[string]string{AgentHeader: "agent-2"},
-			want:    Caller{AgentID: "agent-2"},
+			want:    Caller{AgentID: secondAgentID},
 		},
 	}
 
@@ -58,7 +59,7 @@ func TestFromHeader(t *testing.T) {
 // all.
 func TestSetHeaderLeavesOutWhatIsNotKnown(t *testing.T) {
 	header := http.Header{}
-	Caller{AgentID: "agent-1"}.SetHeader(header)
+	Caller{AgentID: firstAgentID}.SetHeader(header)
 
 	assert.Equal(t, "agent-1", header.Get(AgentHeader))
 	_, hasSession := header[http.CanonicalHeaderKey(SessionHeader)]
@@ -74,7 +75,7 @@ func TestTransportForwardsTheServedRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ctx := With(WithTrace(t.Context(), "trace-9"), Caller{AgentID: "agent-1", SessionID: "sess-1"})
+	ctx := With(WithTrace(t.Context(), "trace-9"), Caller{AgentID: firstAgentID, SessionID: "sess-1"})
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, nil)
 	require.NoError(t, err)
@@ -114,7 +115,7 @@ func TestTransportDoesNotEditTheCallersRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer server.Close()
 
-	ctx := With(t.Context(), Caller{AgentID: "agent-1"})
+	ctx := With(t.Context(), Caller{AgentID: firstAgentID})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, nil)
 	require.NoError(t, err)
 
@@ -128,7 +129,7 @@ func TestTransportDoesNotEditTheCallersRequest(t *testing.T) {
 // TestContextCarriesTheIdentity covers what a handler sees on its context, inside and
 // outside a request.
 func TestContextCarriesTheIdentity(t *testing.T) {
-	from := Caller{AgentID: "agent-1", SessionID: "sess-1"}
+	from := Caller{AgentID: firstAgentID, SessionID: "sess-1"}
 	ctx := With(WithTrace(t.Context(), "trace-9"), from)
 
 	assert.Equal(t, from, From(ctx))
@@ -137,3 +138,8 @@ func TestContextCarriesTheIdentity(t *testing.T) {
 	assert.Equal(t, Caller{}, From(t.Context()))
 	assert.Empty(t, Trace(t.Context()))
 }
+
+var (
+	firstAgentID  = uuid.New()
+	secondAgentID = uuid.New()
+)

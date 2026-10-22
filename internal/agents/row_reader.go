@@ -14,10 +14,12 @@ import (
 	rowstore "komrad/internal/store/row"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
-type watchedLister[R any] interface {
-	ListWatched(ctx context.Context, keys []string) ([]R, error)
+type watchedLister[K comparable, R any] interface {
+	ListWatched(ctx context.Context, keys []K) ([]R, error)
 }
 
 // NewRowReaderParams is what a row reader is built over.
@@ -73,7 +75,7 @@ type Surroundings struct {
 }
 
 // GetAgent returns one agent by id, archived or not.
-func (r *RowReader) GetAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
+func (r *RowReader) GetAgent(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error) {
 	agent, err := r.agents.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)
@@ -93,7 +95,7 @@ func (r *RowReader) ListRows(ctx context.Context, page rowstore.Page) ([]rowstor
 }
 
 // ListRowsByID returns the rows of the agents named, leaving out any that are gone.
-func (r *RowReader) ListRowsByID(ctx context.Context, ids []string) ([]rowstore.Row, error) {
+func (r *RowReader) ListRowsByID(ctx context.Context, ids []uuid.UUID) ([]rowstore.Row, error) {
 	rows, err := listWatchedByKey(ctx, r.rows, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the rows of %d agents: %w", len(ids), err)
@@ -103,7 +105,7 @@ func (r *RowReader) ListRowsByID(ctx context.Context, ids []string) ([]rowstore.
 }
 
 // GetRow returns one agent's row by id, archived or not.
-func (r *RowReader) GetRow(ctx context.Context, id string) (*rowstore.Row, error) {
+func (r *RowReader) GetRow(ctx context.Context, id uuid.UUID) (*rowstore.Row, error) {
 	row, err := r.rows.Get(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the row of agent %q: %w", id, err)
@@ -125,14 +127,14 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the tasks of the agents: %w", err)
 	}
 
-	taskIDs := xslice.Map(tasks, func(task taskstore.Task) string { return task.ID })
+	taskIDs := xslice.Map(tasks, func(task taskstore.Task) uuid.UUID { return task.ID })
 
 	observations, err := r.pullRequests.ListObservations(ctx, taskIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the pull requests the tasks were seen with: %w", err)
 	}
 
-	pullRequests, err := listWatchedByKey(ctx, r.pullRequests, xslice.Map(observations, func(o pullrequeststore.Observation) string {
+	pullRequests, err := listWatchedByKey(ctx, r.pullRequests, xslice.Map(observations, func(o pullrequeststore.Observation) uuid.UUID {
 		return o.PullRequestID
 	}))
 	if err != nil {
@@ -166,7 +168,7 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 		return nil, fmt.Errorf("failed to list the review threads: %w", err)
 	}
 
-	workflows, err := listWatchedByKey(ctx, r.workflows, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
+	workflows, err := listWatchedByKey(ctx, r.workflows, xslice.Map(rows, func(row rowstore.Row) uuid.UUID { return row.WorkflowID }))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the workflows: %w", err)
 	}
@@ -183,7 +185,7 @@ func (r *RowReader) ListSurroundings(ctx context.Context, rows []rowstore.Row) (
 }
 
 // listWatchedByKey reads the watched rows among keys, and nothing when there are none.
-func listWatchedByKey[R any](ctx context.Context, lister watchedLister[R], keys []string) ([]R, error) {
+func listWatchedByKey[K comparable, R any](ctx context.Context, lister watchedLister[K, R], keys []K) ([]R, error) {
 	if len(keys) == 0 {
 		return nil, nil
 	}

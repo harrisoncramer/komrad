@@ -25,8 +25,9 @@ import (
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
 
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/google/uuid"
 )
 
 type agentCreator interface {
@@ -43,14 +44,14 @@ type agentAdopter interface {
 // for one agent.
 type rowReader interface {
 	ListRows(ctx context.Context, page rowstore.Page) ([]rowstore.Row, error)
-	ListRowsByID(ctx context.Context, ids []string) ([]rowstore.Row, error)
-	GetRow(ctx context.Context, id string) (*rowstore.Row, error)
+	ListRowsByID(ctx context.Context, ids []uuid.UUID) ([]rowstore.Row, error)
+	GetRow(ctx context.Context, id uuid.UUID) (*rowstore.Row, error)
 	ListSurroundings(ctx context.Context, rows []rowstore.Row) (*agents.Surroundings, error)
 }
 
 type agentLifecycle interface {
 	ArchiveAgents(ctx context.Context, params agents.ArchiveAgentsParams) error
-	RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+	RestoreAgents(ctx context.Context, ids []uuid.UUID) ([]agentstore.Agent, error)
 }
 
 type agentResumer interface {
@@ -59,13 +60,13 @@ type agentResumer interface {
 }
 
 type agentReader interface {
-	GetAgent(ctx context.Context, id string) (*agentstore.Agent, error)
+	GetAgent(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error)
 }
 
 // rowWriter changes what an agent's row says.
 type rowWriter interface {
-	Rename(ctx context.Context, id, name string) error
-	MarkRunsRead(ctx context.Context, id string) error
+	Rename(ctx context.Context, id uuid.UUID, name string) error
+	MarkRunsRead(ctx context.Context, id uuid.UUID) error
 	RecordReport(ctx context.Context, params agents.RecordReportParams) error
 }
 
@@ -158,7 +159,7 @@ func (s *Handler) CreateAgent(ctx context.Context, req *agentv1komrad.CreateAgen
 		Flags:            req.Flags,
 		ProvisionEnabled: req.ProvisionEnabled,
 		Prompt:           req.Prompt,
-		WorkflowID:       req.WorkflowId.String(),
+		WorkflowID:       req.WorkflowId,
 		Harness:          req.Harness,
 		IdempotencyKey:   xptr.Deref(req.IdempotencyKey),
 		Task:             req.Task,
@@ -215,7 +216,7 @@ func (s *Handler) Adopt(ctx context.Context, req *agentv1komrad.AdoptRequest) (*
 		Title:          req.Title,
 		Flags:          req.Flags,
 		Prompt:         req.Prompt,
-		WorkflowID:     req.WorkflowId.String(),
+		WorkflowID:     req.WorkflowId,
 		Harness:        req.Harness,
 		IdempotencyKey: xptr.Deref(req.IdempotencyKey),
 	})
@@ -261,7 +262,7 @@ func (s *Handler) ListAgents(ctx context.Context, req *agentv1.ListAgentsRequest
 }
 
 // renderOneAgent reads one agent's row and renders it.
-func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent, *fail.Error) {
+func (s *Handler) renderOneAgent(ctx context.Context, id uuid.UUID) (*agentv1.Agent, *fail.Error) {
 	row, err := s.rows.GetRow(ctx, id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
@@ -272,7 +273,7 @@ func (s *Handler) renderOneAgent(ctx context.Context, id string) (*agentv1.Agent
 
 // GetAgent returns one agent by id, archived or not, assembled with what is drawn beside it.
 func (s *Handler) GetAgent(ctx context.Context, req *agentv1komrad.GetAgentRequest) (*agentv1.GetAgentResponse, *fail.Error) {
-	row, err := s.rows.GetRow(ctx, req.Id.String())
+	row, err := s.rows.GetRow(ctx, req.Id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get agent")
 	}
@@ -299,7 +300,7 @@ func (s *Handler) GetAgent(ctx context.Context, req *agentv1komrad.GetAgentReque
 // MarkRunsRead claims the failed runs an agent is holding, and carries no tool annotation
 // because an agent must not move the marks on the user's screen.
 func (s *Handler) MarkRunsRead(ctx context.Context, req *agentv1komrad.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.writer.MarkRunsRead(ctx, req.Id.String()); err != nil {
+	if err := s.writer.MarkRunsRead(ctx, req.Id); err != nil {
 		return nil, rpcerr.From(err, "failed to claim the agent's failed runs")
 	}
 
@@ -319,7 +320,7 @@ func (s *Handler) Log(ctx context.Context, req *agentv1komrad.LogRequest) (*empt
 	}
 
 	attrs := []slog.Attr{
-		slog.String(logging.TargetAgentID, agent.ID),
+		slog.String(logging.TargetAgentID, agent.ID.String()),
 		slog.String(logging.ScriptAgentCwd, agent.Cwd),
 	}
 	if script := xptr.Deref(req.Script); script != "" {
@@ -336,7 +337,7 @@ func (s *Handler) Log(ctx context.Context, req *agentv1komrad.LogRequest) (*empt
 // writes the hook call to the agent's log.
 func (s *Handler) RecordReport(ctx context.Context, req *agentv1.RecordReportRequest) (*emptypb.Empty, *fail.Error) {
 	id := caller.From(ctx).AgentID
-	if id == "" {
+	if id == uuid.Nil {
 		return nil, errCallerHasNoAgent
 	}
 
@@ -351,7 +352,7 @@ func (s *Handler) RecordReport(ctx context.Context, req *agentv1.RecordReportReq
 	}
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "an agent's hook reported",
-		slog.String(logging.TargetAgentID, id),
+		slog.String(logging.TargetAgentID, id.String()),
 		slog.String(logging.HookName, req.GetHook()),
 		slog.String(logging.HookEvent, report.Event.String()),
 		slog.String(logging.HookTool, report.Tool))
@@ -370,34 +371,34 @@ var reportEvents = map[agentv1.ReportEvent]agents.ReportEvent{
 
 // scopedAgentID is the agent a request is about, being the one it names or the calling agent
 // when it names none.
-func scopedAgentID(ctx context.Context, requested *uuid.UUID) (string, *fail.Error) {
+func scopedAgentID(ctx context.Context, requested *uuid.UUID) (uuid.UUID, *fail.Error) {
 	if requested != nil {
-		return requested.String(), nil
+		return *requested, nil
 	}
 
 	from := caller.From(ctx).AgentID
-	if from == "" {
-		return "", errNoIDToFallBackOn
+	if from == uuid.Nil {
+		return uuid.Nil, errNoIDToFallBackOn
 	}
 
 	return from, nil
 }
 
-func logCrossAgentRead(ctx context.Context, target, message string) {
+func logCrossAgentRead(ctx context.Context, target uuid.UUID, message string) {
 	from := caller.From(ctx)
-	if from.AgentID == "" || from.AgentID == target {
+	if from.AgentID == uuid.Nil || from.AgentID == target {
 		return
 	}
 
 	//nolint:sloglint // every caller passes a literal, and the helper is the indirection the check cannot see through
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, message,
-		slog.String(logging.TargetAgentID, target))
+		slog.String(logging.TargetAgentID, target.String()))
 }
 
 // ArchiveAgents stops agents and hides them, keeping the records and transcripts.
 func (s *Handler) ArchiveAgents(ctx context.Context, req *agentv1komrad.ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.lifecycle.ArchiveAgents(ctx, agents.ArchiveAgentsParams{
-		IDs:       xslice.Map(req.Ids, uuid.UUID.String),
+		IDs:       req.Ids,
 		ByAgentID: caller.From(ctx).AgentID,
 	}); err != nil {
 		return nil, rpcerr.From(err, "failed to archive agents")
@@ -408,7 +409,7 @@ func (s *Handler) ArchiveAgents(ctx context.Context, req *agentv1komrad.ArchiveA
 
 // RestoreAgents takes agents out of the archive and returns them as stored, dormant.
 func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1komrad.RestoreAgentsRequest) (*agentv1.RestoreAgentsResponse, *fail.Error) {
-	restored, err := s.lifecycle.RestoreAgents(ctx, xslice.Map(req.Ids, uuid.UUID.String))
+	restored, err := s.lifecycle.RestoreAgents(ctx, req.Ids)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to restore agents")
 	}
@@ -426,7 +427,7 @@ func (s *Handler) RestoreAgents(ctx context.Context, req *agentv1komrad.RestoreA
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
 func (s *Handler) ResumeAgent(ctx context.Context, req *agentv1komrad.ResumeAgentRequest) (*agentv1.ResumeAgentResponse, *fail.Error) {
 	resumed, err := s.resumer.ResumeAgent(ctx, agents.ResumeAgentParams{
-		ID:        req.Id.String(),
+		ID:        req.Id,
 		ByAgentID: caller.From(ctx).AgentID,
 	})
 	if err != nil {
@@ -444,7 +445,7 @@ func (s *Handler) ResumeAgent(ctx context.Context, req *agentv1komrad.ResumeAgen
 // RestartAgent relaunches a task's writer or a workflow's orchestrator on a new conversation and returns it as stored.
 func (s *Handler) RestartAgent(ctx context.Context, req *agentv1komrad.RestartAgentRequest) (*agentv1.RestartAgentResponse, *fail.Error) {
 	restarted, err := s.resumer.RestartAgent(ctx, agents.RestartAgentParams{
-		ID:        req.Id.String(),
+		ID:        req.Id,
 		Note:      req.Note,
 		Harness:   req.Harness,
 		Flags:     req.Flags,
@@ -465,7 +466,7 @@ func (s *Handler) RestartAgent(ctx context.Context, req *agentv1komrad.RestartAg
 // RetryAgent relaunches an agent that failed to create, optionally with corrected flags.
 func (s *Handler) RetryAgent(ctx context.Context, req *agentv1komrad.RetryAgentRequest) (*agentv1.RetryAgentResponse, *fail.Error) {
 	retried, err := s.creator.RetryCreate(ctx, agents.RetryCreateParams{
-		ID:      req.Id.String(),
+		ID:      req.Id,
 		Flags:   req.Flags,
 		Prompt:  req.Prompt,
 		Harness: req.Harness,
@@ -484,18 +485,9 @@ func (s *Handler) RetryAgent(ctx context.Context, req *agentv1komrad.RetryAgentR
 
 // UpdateAgent renames the agent with the given id.
 func (s *Handler) UpdateAgent(ctx context.Context, req *agentv1komrad.UpdateAgentRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.writer.Rename(ctx, req.Id.String(), req.Name); err != nil {
+	if err := s.writer.Rename(ctx, req.Id, req.Name); err != nil {
 		return nil, rpcerr.From(err, "failed to update agent")
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-// formatOptionalID returns an optional id as the services take it, nil when unset.
-func formatOptionalID(id *uuid.UUID) *string {
-	if id == nil {
-		return nil
-	}
-
-	return xptr.Ptr(id.String())
 }

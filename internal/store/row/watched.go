@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"komrad/internal/store"
 	"komrad/internal/watch"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // WatchedAgents declares the agents to the watch.
@@ -28,11 +29,7 @@ var WatchedAgents = watch.Resource{
 }
 
 // ListWatched returns the rows of the agents among keys that are not being deleted, or of every one when keys is nil.
-func (s *RowStore) ListWatched(ctx context.Context, keys []string) ([]Row, error) {
-	if keys != nil {
-		keys = store.KeepIDs(keys)
-	}
-
+func (s *RowStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Row, error) {
 	watched, err := s.queries.ListWatchedAgents(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched agent rows: %w", err)

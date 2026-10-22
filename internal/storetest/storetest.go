@@ -26,6 +26,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -104,7 +105,7 @@ func (s *Stores) SeedAccess(t *testing.T, email string) {
 func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
-	if agent.WorkflowID == "" {
+	if agent.WorkflowID == uuid.Nil {
 		agent.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + agent.Name}).ID
 	}
 
@@ -130,7 +131,7 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 }
 
 // TaskFor is a task made for an agent written by a test.
-func (s *Stores) TaskFor(ctx context.Context, agent agentstore.Agent) (*string, error) {
+func (s *Stores) TaskFor(ctx context.Context, agent agentstore.Agent) (*uuid.UUID, error) {
 	return tasktest.Seed(ctx, s.Pool.GetDB(), agent.WorkflowID)
 }
 
@@ -152,7 +153,7 @@ func (s *Stores) LiveAgentByName(ctx context.Context, name string) (*agentstore.
 }
 
 // SeedTranscript stores prompts for an agent under a session of its own.
-func (s *Stores) SeedTranscript(t *testing.T, agentID string, turns ...string) {
+func (s *Stores) SeedTranscript(t *testing.T, agentID uuid.UUID, turns ...string) {
 	t.Helper()
 
 	s.SeedTurns(t, agentID, xslice.Map(turns, func(text string) transcriptstore.Turn {
@@ -171,12 +172,12 @@ func (s *Stores) SeedDocumentTypes(t *testing.T, names ...string) {
 }
 
 // SeedTurns stores turns for an agent under a session of its own.
-func (s *Stores) SeedTurns(t *testing.T, agentID string, turns ...transcriptstore.Turn) {
+func (s *Stores) SeedTurns(t *testing.T, agentID uuid.UUID, turns ...transcriptstore.Turn) {
 	t.Helper()
 
 	session, err := s.Transcripts.OpenSession(t.Context(), transcriptstore.OpenSessionParams{
 		AgentID:   agentID,
-		SessionID: "session-" + agentID,
+		SessionID: "session-" + agentID.String(),
 	})
 	require.NoError(t, err)
 
@@ -208,7 +209,7 @@ func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflows
 func (s *Stores) SeedTask(t *testing.T, params taskstore.CreateParams) *taskstore.Task {
 	t.Helper()
 
-	if params.WorkflowID == "" {
+	if params.WorkflowID == uuid.Nil {
 		params.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + params.Slug}).ID
 	}
 	if params.Title == "" {
@@ -226,7 +227,7 @@ func (s *Stores) SeedTask(t *testing.T, params taskstore.CreateParams) *taskstor
 func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedulestore.Schedule {
 	t.Helper()
 
-	if cfg.WorkflowID == "" {
+	if cfg.WorkflowID == uuid.Nil {
 		cfg.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + cfg.Name}).ID
 	}
 
@@ -238,7 +239,7 @@ func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedules
 }
 
 // SeedTaskHead records what the cwd syncer would read of the checkout of an agent's task.
-func (s *Stores) SeedTaskHead(t *testing.T, agentID string, params taskstore.SetHeadParams) {
+func (s *Stores) SeedTaskHead(t *testing.T, agentID uuid.UUID, params taskstore.SetHeadParams) {
 	t.Helper()
 
 	agent, err := s.Agents.GetByID(t.Context(), agentID)
@@ -248,7 +249,7 @@ func (s *Stores) SeedTaskHead(t *testing.T, agentID string, params taskstore.Set
 }
 
 // SeedForgeThreads opens a pull request on the agent's branch and stores the forge's threads on it, returning them as stored.
-func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge.ReviewThread) []pullrequeststore.ForgeThread {
+func (s *Stores) SeedForgeThreads(t *testing.T, agentID uuid.UUID, threads ...forge.ReviewThread) []pullrequeststore.ForgeThread {
 	t.Helper()
 	ctx := t.Context()
 
@@ -256,11 +257,11 @@ func (s *Stores) SeedForgeThreads(t *testing.T, agentID string, threads ...forge
 	require.NoError(t, err)
 	require.NotNil(t, agent.TaskID)
 
-	repository, branch := "https://github.com/harrisoncramer/komrad", "task/"+*agent.TaskID
+	repository, branch := "https://github.com/harrisoncramer/komrad", "task/"+agent.TaskID.String()
 	s.SeedTaskHead(t, agentID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &branch})
 
 	opened := time.Date(2026, time.September, 18, 12, 0, 0, 0, time.UTC)
-	providerID := "PR_" + agentID
+	providerID := "PR_" + agentID.String()
 	_, err = s.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 		Host:              "github.com",
 		Forge:             "github",
@@ -352,11 +353,11 @@ func (s *Stores) SeedPullRequest(t *testing.T, params SeedPullRequestParams) *pu
 }
 
 // ClaimMail takes every piece of mail waiting for an agent, as a read of its mailbox does.
-func (s *Stores) ClaimMail(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error) {
+func (s *Stores) ClaimMail(ctx context.Context, toAgentID uuid.UUID, limit int32) ([]mailstore.Mail, error) {
 	waiting, err := s.Mail.ListWaiting(ctx, toAgentID, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.Mail.ClaimByID(ctx, toAgentID, xslice.Map(waiting, func(m mailstore.Mail) string { return m.ID }))
+	return s.Mail.ClaimByID(ctx, toAgentID, xslice.Map(waiting, func(m mailstore.Mail) uuid.UUID { return m.ID }))
 }

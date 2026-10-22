@@ -11,7 +11,6 @@ import (
 	"komrad/internal/rpcerr"
 	"komrad/internal/rpcpage"
 	"komrad/internal/schedules"
-	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	"komrad/proto/gen/oneofs"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -20,18 +19,20 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/google/uuid"
 )
 
 const defaultRunLimit = 20
 
 type scheduleReadWriter interface {
-	GetSchedule(ctx context.Context, id string) (*schedulestore.Schedule, error)
+	GetSchedule(ctx context.Context, id uuid.UUID) (*schedulestore.Schedule, error)
 	NewSchedule(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
-	UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error
-	SetScheduleEnabled(ctx context.Context, id string, enabled bool) error
-	ArchiveSchedule(ctx context.Context, id string) error
-	RestoreSchedule(ctx context.Context, id string) error
-	DeleteSchedule(ctx context.Context, id string) error
+	UpdateSchedule(ctx context.Context, id uuid.UUID, cfg schedulestore.Config) error
+	SetScheduleEnabled(ctx context.Context, id uuid.UUID, enabled bool) error
+	ArchiveSchedule(ctx context.Context, id uuid.UUID) error
+	RestoreSchedule(ctx context.Context, id uuid.UUID) error
+	DeleteSchedule(ctx context.Context, id uuid.UUID) error
 	ListSchedules(ctx context.Context, params schedules.ListSchedulesParams) ([]schedulestore.Schedule, error)
 	ListScheduleRuns(ctx context.Context, params schedules.ListScheduleRunsParams) ([]schedulestore.Run, error)
 }
@@ -79,7 +80,7 @@ func (s *Handler) ListSchedules(ctx context.Context, req *schedulev1.ListSchedul
 
 // GetSchedule returns one schedule by id.
 func (s *Handler) GetSchedule(ctx context.Context, req *schedulev1komrad.GetScheduleRequest) (*schedulev1.GetScheduleResponse, *fail.Error) {
-	found, err := s.schedules.GetSchedule(ctx, req.Id.String())
+	found, err := s.schedules.GetSchedule(ctx, req.Id)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get schedule")
 	}
@@ -97,7 +98,7 @@ func (s *Handler) ListScheduleRuns(ctx context.Context, req *schedulev1komrad.Li
 	}
 
 	runs, err := s.schedules.ListScheduleRuns(ctx, schedules.ListScheduleRunsParams{
-		ScheduleID: req.Id.String(),
+		ScheduleID: req.Id,
 		Limit:      limit,
 	})
 	if err != nil {
@@ -129,7 +130,7 @@ func (s *Handler) UpdateSchedule(ctx context.Context, req *schedulev1komrad.Upda
 		HideAgents: req.HideAgents,
 		Prompt:     req.Prompt,
 	}
-	err := s.schedules.UpdateSchedule(ctx, req.Id.String(), withTarget(cfg, req.Target))
+	err := s.schedules.UpdateSchedule(ctx, req.Id, withTarget(cfg, req.Target))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update schedule")
 	}
@@ -139,7 +140,7 @@ func (s *Handler) UpdateSchedule(ctx context.Context, req *schedulev1komrad.Upda
 
 // SetScheduleEnabled pauses or resumes a schedule.
 func (s *Handler) SetScheduleEnabled(ctx context.Context, req *schedulev1komrad.SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.schedules.SetScheduleEnabled(ctx, req.Id.String(), req.Enabled); err != nil {
+	if err := s.schedules.SetScheduleEnabled(ctx, req.Id, req.Enabled); err != nil {
 		return nil, rpcerr.From(err, "failed to set schedule enabled")
 	}
 
@@ -148,7 +149,7 @@ func (s *Handler) SetScheduleEnabled(ctx context.Context, req *schedulev1komrad.
 
 // ArchiveSchedule stops a schedule from firing again.
 func (s *Handler) ArchiveSchedule(ctx context.Context, req *schedulev1komrad.ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.schedules.ArchiveSchedule(ctx, req.Id.String()); err != nil {
+	if err := s.schedules.ArchiveSchedule(ctx, req.Id); err != nil {
 		return nil, rpcerr.From(err, "failed to archive schedule")
 	}
 
@@ -157,7 +158,7 @@ func (s *Handler) ArchiveSchedule(ctx context.Context, req *schedulev1komrad.Arc
 
 // RestoreSchedule takes a schedule out of the archive.
 func (s *Handler) RestoreSchedule(ctx context.Context, req *schedulev1komrad.RestoreScheduleRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.schedules.RestoreSchedule(ctx, req.Id.String()); err != nil {
+	if err := s.schedules.RestoreSchedule(ctx, req.Id); err != nil {
 		return nil, rpcerr.From(err, "failed to restore schedule")
 	}
 
@@ -166,7 +167,7 @@ func (s *Handler) RestoreSchedule(ctx context.Context, req *schedulev1komrad.Res
 
 // DeleteSchedule removes an archived schedule for good.
 func (s *Handler) DeleteSchedule(ctx context.Context, req *schedulev1komrad.DeleteScheduleRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.schedules.DeleteSchedule(ctx, req.Id.String()); err != nil {
+	if err := s.schedules.DeleteSchedule(ctx, req.Id); err != nil {
 		return nil, rpcerr.From(err, "failed to delete schedule")
 	}
 
@@ -190,14 +191,14 @@ func configFrom(req *schedulev1komrad.CreateScheduleRequest) schedulestore.Confi
 func withTarget(cfg schedulestore.Config, target oneofs.Target) schedulestore.Config {
 	if target.OrchestratorAgentId != nil {
 		cfg.Kind = schedulestore.KindOrchestrator
-		cfg.OrchestratorAgentID = xptr.Ptr(target.OrchestratorAgentId.String())
+		cfg.OrchestratorAgentID = target.OrchestratorAgentId
 
 		return cfg
 	}
 
 	cfg.Kind = schedulestore.KindTask
 	if target.WorkflowId != nil {
-		cfg.WorkflowID = target.WorkflowId.String()
+		cfg.WorkflowID = *target.WorkflowId
 	}
 
 	return cfg

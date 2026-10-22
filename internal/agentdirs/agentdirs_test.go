@@ -10,6 +10,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,7 +44,7 @@ func TestResolve(t *testing.T) {
 		Cwd:        archived,
 		WorkflowID: workflowID,
 	})
-	_, err = stores.Agents.Archive(t.Context(), []string{gone.ID})
+	_, err = stores.Agents.Archive(t.Context(), []uuid.UUID{gone.ID})
 	require.NoError(t, err)
 
 	tests := []struct {

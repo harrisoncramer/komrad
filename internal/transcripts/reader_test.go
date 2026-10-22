@@ -14,11 +14,12 @@ import (
 	agentstore "komrad/internal/store/agent"
 	transcriptstore "komrad/internal/store/transcript"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const missingAgentID = "00000000-0000-0000-0000-000000000000"
+var missingAgentID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 
 func newTranscriptReader(st *storetest.Stores) *TranscriptReader {
 	return NewTranscriptReader(NewTranscriptReaderParams{
@@ -172,8 +173,8 @@ func TestSearchTranscriptsScope(t *testing.T) {
 	tests := []struct {
 		name       string
 		query      string
-		agentID    *string
-		caller     string
+		agentID    *uuid.UUID
+		caller     uuid.UUID
 		want       []string
 		wantLogged bool
 	}{

@@ -8,31 +8,28 @@ import (
 	"komrad/db/models"
 	"komrad/internal/fail"
 	"komrad/internal/store"
+
+	"github.com/google/uuid"
 )
 
 // ErrDeleting is a task an agent was asked to join while it is being deleted.
 var ErrDeleting = fail.Precondition("an agent cannot join a task being deleted")
 
 // MarkDeleting claims tasks for a delete, leaving any already claimed as they were.
-func (s *TaskStore) MarkDeleting(ctx context.Context, ids []string) error {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
+func (s *TaskStore) MarkDeleting(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
 		return nil
 	}
 
-	if err := s.queries.MarkTasksDeleting(ctx, storable); err != nil {
-		return fmt.Errorf("failed to claim %d tasks for a delete: %w", len(storable), err)
+	if err := s.queries.MarkTasksDeleting(ctx, ids); err != nil {
+		return fmt.Errorf("failed to claim %d tasks for a delete: %w", len(ids), err)
 	}
 
 	return nil
 }
 
 // MarkWorkflowDeleting claims every task in a workflow for a delete.
-func (s *TaskStore) MarkWorkflowDeleting(ctx context.Context, workflowID string) error {
-	if !store.IsID(workflowID) {
-		return nil
-	}
-
+func (s *TaskStore) MarkWorkflowDeleting(ctx context.Context, workflowID uuid.UUID) error {
 	if err := s.queries.MarkWorkflowTasksDeleting(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to claim the tasks of workflow %q for a delete: %w", workflowID, err)
 	}
@@ -42,11 +39,7 @@ func (s *TaskStore) MarkWorkflowDeleting(ctx context.Context, workflowID string)
 
 // ClaimEmpty takes a task being deleted for the one cleanup that removes it, reporting false when
 // an agent is still on it or another cleanup took it first.
-func (s *TaskStore) ClaimEmpty(ctx context.Context, id string) (bool, error) {
-	if !store.IsID(id) {
-		return false, nil
-	}
-
+func (s *TaskStore) ClaimEmpty(ctx context.Context, id uuid.UUID) (bool, error) {
 	claimed, err := s.queries.ClaimEmptyDeletingTask(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("failed to claim task %q for its cleanup: %w", id, err)
@@ -57,11 +50,7 @@ func (s *TaskStore) ClaimEmpty(ctx context.Context, id string) (bool, error) {
 
 // ClaimCleanup claims a task no delete holds for the one cleanup that removes its worktree, whatever
 // agents are on it, reporting false when another delete holds it.
-func (s *TaskStore) ClaimCleanup(ctx context.Context, id string) (bool, error) {
-	if !store.IsID(id) {
-		return false, nil
-	}
-
+func (s *TaskStore) ClaimCleanup(ctx context.Context, id uuid.UUID) (bool, error) {
 	claimed, err := s.queries.ClaimTaskCleanup(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("failed to claim task %q for its cleanup: %w", id, err)
@@ -71,7 +60,7 @@ func (s *TaskStore) ClaimCleanup(ctx context.Context, id string) (bool, error) {
 }
 
 // RecordWorktreeRemoved gives a task back from its delete with its worktree recorded as removed.
-func (s *TaskStore) RecordWorktreeRemoved(ctx context.Context, id string) error {
+func (s *TaskStore) RecordWorktreeRemoved(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.RecordTaskWorktreeRemoved(ctx, id); err != nil {
 		return fmt.Errorf("failed to record the worktree of task %q as removed: %w", id, err)
 	}
@@ -80,7 +69,7 @@ func (s *TaskStore) RecordWorktreeRemoved(ctx context.Context, id string) error 
 }
 
 // ClearDeleting takes the delete's claim off a task.
-func (s *TaskStore) ClearDeleting(ctx context.Context, id string) error {
+func (s *TaskStore) ClearDeleting(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.ClearTaskDeleting(ctx, id); err != nil {
 		return fmt.Errorf("failed to release task %q from its delete: %w", id, err)
 	}
@@ -89,7 +78,7 @@ func (s *TaskStore) ClearDeleting(ctx context.Context, id string) error {
 }
 
 // RecordCleanupFailure gives a task back from its delete with why its checkout could not be given back.
-func (s *TaskStore) RecordCleanupFailure(ctx context.Context, id string, cause error) error {
+func (s *TaskStore) RecordCleanupFailure(ctx context.Context, id uuid.UUID, cause error) error {
 	if err := s.queries.FailTaskCleanup(ctx, models.FailTaskCleanupParams{
 		ID:            id,
 		FailureReason: store.FailureReason(cause),
@@ -110,11 +99,7 @@ func (s *TaskStore) ClearAbandonedDeleting(ctx context.Context) error {
 }
 
 // ListIDsInWorkflow returns the id of every task in a workflow, archived and deleting ones included.
-func (s *TaskStore) ListIDsInWorkflow(ctx context.Context, workflowID string) ([]string, error) {
-	if !store.IsID(workflowID) {
-		return nil, nil
-	}
-
+func (s *TaskStore) ListIDsInWorkflow(ctx context.Context, workflowID uuid.UUID) ([]uuid.UUID, error) {
 	ids, err := s.queries.ListWorkflowTaskIDs(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the tasks of workflow %q: %w", workflowID, err)
@@ -124,7 +109,7 @@ func (s *TaskStore) ListIDsInWorkflow(ctx context.Context, workflowID string) ([
 }
 
 // Delete permanently removes a task, taking its documents, reviews and pull request links with it.
-func (s *TaskStore) Delete(ctx context.Context, id string) error {
+func (s *TaskStore) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.DeleteTask(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete task %q: %w", id, err)
 	}
@@ -134,7 +119,7 @@ func (s *TaskStore) Delete(ctx context.Context, id string) error {
 
 // LockUndeleted holds a task against a delete's cleanup and any other create on it until the
 // transaction ends, refusing one already being deleted.
-func (s *TaskStore) LockUndeleted(ctx context.Context, id string) error {
+func (s *TaskStore) LockUndeleted(ctx context.Context, id uuid.UUID) error {
 	_, err := s.queries.LockUndeletedTask(ctx, id)
 	if db.IsNoRows(err) {
 		return ErrDeleting.Saying("task %q is being deleted", id)
@@ -147,7 +132,7 @@ func (s *TaskStore) LockUndeleted(ctx context.Context, id string) error {
 }
 
 // GetUndeletedForUpdate locks an undeleted task until the transaction ends and returns it.
-func (s *TaskStore) GetUndeletedForUpdate(ctx context.Context, id string) (*Task, error) {
+func (s *TaskStore) GetUndeletedForUpdate(ctx context.Context, id uuid.UUID) (*Task, error) {
 	row, err := s.queries.GetUndeletedTaskForUpdate(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, ErrDeleting.Saying("task %q is being deleted", id)
@@ -163,13 +148,13 @@ func (s *TaskStore) GetUndeletedForUpdate(ctx context.Context, id string) (*Task
 
 // ListUndeletedSlugs returns the slug of every task no delete has claimed, archived ones
 // included, keyed by the task's id.
-func (s *TaskStore) ListUndeletedSlugs(ctx context.Context) (map[string]string, error) {
+func (s *TaskStore) ListUndeletedSlugs(ctx context.Context) (map[uuid.UUID]string, error) {
 	rows, err := s.queries.ListUndeletedTaskSlugs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the tasks not being deleted: %w", err)
 	}
 
-	slugs := make(map[string]string, len(rows))
+	slugs := make(map[uuid.UUID]string, len(rows))
 	for _, row := range rows {
 		slugs[row.ID] = row.Slug
 	}

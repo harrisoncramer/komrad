@@ -14,12 +14,13 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 )
 
 type LaunchAgentArgs struct {
-	ScheduleID   string    `json:"schedule_id"`
+	ScheduleID   uuid.UUID `json:"schedule_id"`
 	ScheduledFor time.Time `json:"scheduled_for"`
 }
 
@@ -196,8 +197,8 @@ func (w *LaunchAgentWorker) launch(ctx context.Context, schedule *schedulestore.
 
 // launchKey identifies one firing of one schedule, the schedule naming the recurring launch and
 // the occurrence naming which run of it.
-func launchKey(scheduleID string, scheduledFor time.Time) string {
-	return "schedule:" + scheduleID + ":" + scheduledFor.UTC().Format(time.RFC3339)
+func launchKey(scheduleID uuid.UUID, scheduledFor time.Time) string {
+	return "schedule:" + scheduleID.String() + ":" + scheduledFor.UTC().Format(time.RFC3339)
 }
 
 func buildRunOutcome(err error, job *rivertype.JobRow) schedulestore.RunOutcome {

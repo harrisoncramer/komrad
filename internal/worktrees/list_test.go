@@ -17,6 +17,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +38,7 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	tree := listing.Worktrees[0]
 	assert.Equal(t, dir, tree.Dir)
 	assert.Equal(t, fixture.repo, tree.RepoDir)
-	assert.Equal(t, "task/"+*agent.TaskID, tree.Branch)
+	assert.Equal(t, "task/"+agent.TaskID.String(), tree.Branch)
 	assert.True(t, tree.Readable)
 	require.NotNil(t, tree.Task)
 	assert.Equal(t, *agent.TaskID, tree.Task.ID)
@@ -129,7 +130,7 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 					Name:             "kept",
 					Cwd:              fixture.repo,
 					WorkflowID:       fixture.workflowID,
-					TaskID:           xptr.Ptr(filepath.Base(dir)),
+					TaskID:           xptr.Ptr(uuid.MustParse(filepath.Base(dir))),
 					ProvisionEnabled: xptr.Ptr(false),
 				})
 
@@ -143,7 +144,7 @@ func TestListNamesTheOccupantsOfADirectory(t *testing.T) {
 					Name:       "writer",
 					Cwd:        fixture.repo,
 					WorkflowID: fixture.workflowID,
-					TaskID:     xptr.Ptr(filepath.Base(dir)),
+					TaskID:     xptr.Ptr(uuid.MustParse(filepath.Base(dir))),
 				})
 
 				return []string{"writer"}
@@ -301,7 +302,7 @@ func TestGetReadsOneDirectory(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, dir, tree.Dir)
-	assert.Equal(t, "task/"+*agent.TaskID, tree.Branch)
+	assert.Equal(t, "task/"+agent.TaskID.String(), tree.Branch)
 	require.NotNil(t, tree.Task)
 	assert.Equal(t, *agent.TaskID, tree.Task.ID)
 	require.NotNil(t, tree.Size)
@@ -499,7 +500,7 @@ type worktreeFixture struct {
 	shared     string
 	stores     *storetest.Stores
 	worktrees  *worktreestore.WorktreeStore
-	workflowID string
+	workflowID uuid.UUID
 	git        *gittest.Checkout
 	claims     *fakeClaimedDirLister
 	lister     *Lister
@@ -569,13 +570,13 @@ func (f *worktreeFixture) cut(t *testing.T) string {
 }
 
 // cutIn lays out a worktree named after a fresh task in the workflow.
-func (f *worktreeFixture) cutIn(t *testing.T, workflowID string) string {
+func (f *worktreeFixture) cutIn(t *testing.T, workflowID uuid.UUID) string {
 	t.Helper()
 
 	id, err := tasktest.Seed(t.Context(), f.stores.Pool.GetDB(), workflowID)
 	require.NoError(t, err)
 
-	return f.cutAs(t, *id, "task/"+*id)
+	return f.cutAs(t, id.String(), "task/"+id.String())
 }
 
 // cutUnowned lays out a worktree named after a task that has no row.
@@ -585,7 +586,7 @@ func (f *worktreeFixture) cutUnowned(t *testing.T) string {
 	id, err := store.NewID()
 	require.NoError(t, err)
 
-	return f.cutAs(t, id, "task/"+id)
+	return f.cutAs(t, id.String(), "task/"+id.String())
 }
 
 // cutAs lays out a worktree under a name, with HEAD on a branch.
@@ -611,9 +612,9 @@ func (f *worktreeFixture) lock(t *testing.T, dir string) {
 func (f *worktreeFixture) own(t *testing.T, dir string, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
-	agent.TaskID = xptr.Ptr(filepath.Base(dir))
+	agent.TaskID = xptr.Ptr(uuid.MustParse(filepath.Base(dir)))
 	agent.Cwd = dir
-	if agent.WorkflowID == "" {
+	if agent.WorkflowID == uuid.Nil {
 		agent.WorkflowID = f.workflowID
 	}
 
@@ -631,10 +632,10 @@ func (f *worktreeFixture) occupy(t *testing.T, cwd, name string) {
 	})
 }
 
-func (f *worktreeFixture) archive(t *testing.T, id string) {
+func (f *worktreeFixture) archive(t *testing.T, id uuid.UUID) {
 	t.Helper()
 
-	_, err := f.stores.Agents.Archive(t.Context(), []string{id})
+	_, err := f.stores.Agents.Archive(t.Context(), []uuid.UUID{id})
 	require.NoError(t, err)
 }
 
@@ -642,7 +643,7 @@ func (f *worktreeFixture) archive(t *testing.T, id string) {
 func (f *worktreeFixture) archiveTask(t *testing.T, dir string) {
 	t.Helper()
 
-	require.NoError(t, f.stores.Tasks.Archive(t.Context(), filepath.Base(dir)))
+	require.NoError(t, f.stores.Tasks.Archive(t.Context(), uuid.MustParse(filepath.Base(dir))))
 }
 
 func (f *worktreeFixture) recordSize(t *testing.T, dir string, at time.Time) {

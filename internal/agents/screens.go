@@ -11,6 +11,8 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	screenstore "komrad/internal/store/screen"
+
+	"github.com/google/uuid"
 )
 
 // screenCapturer reads a pane's whole visible grid and its size.
@@ -24,7 +26,7 @@ type screenCapturer interface {
 type screenKeeper interface {
 	Keep(ctx context.Context, params KeepParams)
 	Capture(ctx context.Context, agent agentstore.Agent)
-	Forget(listed map[string]struct{})
+	Forget(listed map[uuid.UUID]struct{})
 }
 
 type NewScreenKeeperParams struct {
@@ -39,7 +41,7 @@ type ScreenKeeper struct {
 
 	// mu guards the hash of the frame each agent's saved screen was taken on.
 	mu    sync.Mutex
-	saved map[string]uint64
+	saved map[uuid.UUID]uint64
 }
 
 // NewScreenKeeper builds a keeper capturing through panes and saving to screens.
@@ -47,7 +49,7 @@ func NewScreenKeeper(params NewScreenKeeperParams) *ScreenKeeper {
 	return &ScreenKeeper{
 		panes:   params.Panes,
 		screens: params.Screens,
-		saved:   map[string]uint64{},
+		saved:   map[uuid.UUID]uint64{},
 	}
 }
 
@@ -86,7 +88,7 @@ func (k *ScreenKeeper) Capture(ctx context.Context, agent agentstore.Agent) {
 }
 
 // Forget drops what the keeper holds for agents no longer listed.
-func (k *ScreenKeeper) Forget(listed map[string]struct{}) {
+func (k *ScreenKeeper) Forget(listed map[uuid.UUID]struct{}) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
@@ -98,7 +100,7 @@ func (k *ScreenKeeper) Forget(listed map[string]struct{}) {
 }
 
 // GetLastScreen returns the screen last saved for an agent.
-func (k *ScreenKeeper) GetLastScreen(ctx context.Context, agentID string) (*screenstore.Screen, error) {
+func (k *ScreenKeeper) GetLastScreen(ctx context.Context, agentID uuid.UUID) (*screenstore.Screen, error) {
 	return k.screens.Get(ctx, agentID)
 }
 
@@ -120,7 +122,7 @@ func (k *ScreenKeeper) save(ctx context.Context, agent agentstore.Agent) bool {
 		Height:  height,
 	}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to save an agent's screen",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 
 		return false
 	}

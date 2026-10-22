@@ -22,6 +22,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -31,7 +32,7 @@ type syncFixture struct {
 	stores     *storetest.Stores
 	reviews    *reviewstore.ReviewStore
 	worktrees  *worktreestore.WorktreeStore
-	workflowID string
+	workflowID uuid.UUID
 }
 
 // countingPullRequestObserver counts the observation passes it is asked for.
@@ -253,7 +254,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	fixture := newSyncFixture(t)
 	checkout := makeCheckout(t)
 	gone := makeRemovedDir(t)
-	ids := []string{fixture.seed(t, "checkout", checkout).ID, fixture.seed(t, "gone", gone).ID}
+	ids := []uuid.UUID{fixture.seed(t, "checkout", checkout).ID, fixture.seed(t, "gone", gone).ID}
 	_, err := fixture.stores.Agents.Archive(t.Context(), ids)
 	require.NoError(t, err)
 
@@ -915,7 +916,7 @@ func (f *syncFixture) seed(t *testing.T, name, cwd string) *agentstore.Agent {
 }
 
 // read returns the checkout of the agent's task.
-func (f *syncFixture) read(t *testing.T, agentID string) taskstore.Checkout {
+func (f *syncFixture) read(t *testing.T, agentID uuid.UUID) taskstore.Checkout {
 	t.Helper()
 
 	task, err := f.stores.Tasks.Get(t.Context(), f.taskOf(t, agentID))
@@ -925,7 +926,7 @@ func (f *syncFixture) read(t *testing.T, agentID string) taskstore.Checkout {
 }
 
 // taskOf is the task an agent works on.
-func (f *syncFixture) taskOf(t *testing.T, agentID string) string {
+func (f *syncFixture) taskOf(t *testing.T, agentID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	agent, err := f.stores.Agents.GetByID(t.Context(), agentID)
@@ -936,7 +937,7 @@ func (f *syncFixture) taskOf(t *testing.T, agentID string) string {
 }
 
 // release releases a review of a new snapshot of the commit given.
-func (f *syncFixture) release(t *testing.T, agentID, sha string) {
+func (f *syncFixture) release(t *testing.T, agentID uuid.UUID, sha string) {
 	t.Helper()
 
 	snapshot := f.takeSnapshot(t, agentID, sha)
@@ -955,7 +956,7 @@ func (f *syncFixture) release(t *testing.T, agentID, sha string) {
 }
 
 // merge puts the agent on a branch whose pull request merged at the time given.
-func (f *syncFixture) merge(t *testing.T, agentID string, mergedAt time.Time) {
+func (f *syncFixture) merge(t *testing.T, agentID uuid.UUID, mergedAt time.Time) {
 	t.Helper()
 
 	ctx := t.Context()
@@ -985,7 +986,7 @@ func (f *syncFixture) merge(t *testing.T, agentID string, mergedAt time.Time) {
 	require.NoError(t, err)
 }
 
-func (f *syncFixture) takeSnapshot(t *testing.T, agentID, sha string) *reviewstore.Snapshot {
+func (f *syncFixture) takeSnapshot(t *testing.T, agentID uuid.UUID, sha string) *reviewstore.Snapshot {
 	t.Helper()
 
 	snapshot, err := f.reviews.CreateSnapshot(t.Context(), reviewstore.CreateSnapshotParams{
@@ -1033,7 +1034,7 @@ func (f *syncFixture) newSyncer(params newSyncerParams) *CwdSyncer {
 }
 
 // readUnlanded is the ordinals of the task's snapshots that have not landed, newest first.
-func (f *syncFixture) readUnlanded(t *testing.T, taskID string) []int32 {
+func (f *syncFixture) readUnlanded(t *testing.T, taskID uuid.UUID) []int32 {
 	t.Helper()
 
 	unlanded, err := f.reviews.ListUnlandedSnapshots(t.Context())

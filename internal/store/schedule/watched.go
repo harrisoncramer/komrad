@@ -8,6 +8,8 @@ import (
 	"komrad/internal/watch"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // WatchedSchedules declares the schedules to the watch.
@@ -25,7 +27,7 @@ var WatchedSchedules = watch.Resource{
 
 // ListWatched returns the schedules among keys, archived ones included, or every one when keys
 // is nil.
-func (s *ScheduleStore) ListWatched(ctx context.Context, keys []string) ([]Schedule, error) {
+func (s *ScheduleStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Schedule, error) {
 	rows, err := s.queries.ListWatchedSchedules(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched schedules: %w", err)

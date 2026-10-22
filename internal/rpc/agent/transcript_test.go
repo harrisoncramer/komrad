@@ -24,6 +24,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -121,7 +122,7 @@ func TestGetTranscript(t *testing.T) {
 			reader := &fakeTranscriptReader{window: tt.window}
 			svc := newTranscriptHandler(reader)
 
-			tt.req.AgentId = alphaID
+			tt.req.AgentId = alphaID.String()
 			got, err := svc.GetTranscript(t.Context(), connect.NewRequest(tt.req))
 			require.NoError(t, err)
 
@@ -140,7 +141,7 @@ func TestGetTranscript(t *testing.T) {
 func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 	getTranscript := func(cursor string) func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		return func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-			req := &agentv1.GetTranscriptRequest{AgentId: alphaID}
+			req := &agentv1.GetTranscriptRequest{AgentId: alphaID.String()}
 			if cursor != "" {
 				req.Cursor = xptr.Ptr(cursor)
 			}
@@ -151,7 +152,7 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 		}
 	}
 	getLastTurns := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{AgentId: alphaID}))
+		_, err := svc.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{AgentId: alphaID.String()}))
 
 		return err
 	}
@@ -237,9 +238,9 @@ func TestTranscriptRefusalsMapToCodes(t *testing.T) {
 func TestSearchTranscriptsScope(t *testing.T) {
 	tests := []struct {
 		name        string
-		callerIs    string
-		asksFor     string
-		wantAgentID *string
+		callerIs    uuid.UUID
+		asksFor     uuid.UUID
+		wantAgentID *uuid.UUID
 	}{
 		{
 			name:     "an agent that names nobody",
@@ -267,13 +268,13 @@ func TestSearchTranscriptsScope(t *testing.T) {
 			svc := newTranscriptHandler(reader)
 
 			ctx := t.Context()
-			if tt.callerIs != "" {
+			if tt.callerIs != uuid.Nil {
 				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerIs})
 			}
 
 			req := &agentv1.SearchTranscriptsRequest{Query: "reconciler"}
-			if tt.asksFor != "" {
-				req.AgentId = xptr.Ptr(tt.asksFor)
+			if tt.asksFor != uuid.Nil {
+				req.AgentId = xptr.Ptr(tt.asksFor.String())
 			}
 
 			_, err := svc.SearchTranscripts(ctx, connect.NewRequest(req))
@@ -323,7 +324,7 @@ func TestSearchTranscripts(t *testing.T) {
 
 	want := &agentv1.SearchTranscriptsResponse{
 		Matches: []*agentv1.SearchHit{{
-			AgentId:       alphaID,
+			AgentId:       alphaID.String(),
 			Name:          "alpha",
 			Archived:      true,
 			Seq:           1,
@@ -334,7 +335,7 @@ func TestSearchTranscripts(t *testing.T) {
 			Score:         0.5,
 		}},
 		Near: []*agentv1.SearchHit{{
-			AgentId: betaID,
+			AgentId: betaID.String(),
 			Name:    "beta",
 			Role:    "assistant",
 			Snippet: "reconcilers",
@@ -366,28 +367,28 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 	searchBeta := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 			Query:   "reconciler",
-			AgentId: xptr.Ptr(betaID),
+			AgentId: xptr.Ptr(betaID.String()),
 		}))
 
 		return err
 	}
 	getBetaTranscript := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: betaID}))
+		_, err := svc.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{AgentId: betaID.String()}))
 
 		return err
 	}
 	getBetaLastTurns := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{AgentId: betaID}))
+		_, err := svc.GetLastTurns(ctx, connect.NewRequest(&agentv1.GetLastTurnsRequest{AgentId: betaID.String()}))
 
 		return err
 	}
 
 	tests := []struct {
 		name       string
-		callerIs   string
+		callerIs   uuid.UUID
 		read       func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error
 		wantBody   string
-		wantTarget string
+		wantTarget uuid.UUID
 	}{
 		{
 			name:     "an agent searching itself",
@@ -427,7 +428,7 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 
 			var written strings.Builder
 			ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
-			if tt.callerIs != "" {
+			if tt.callerIs != uuid.Nil {
 				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerIs})
 			}
 
@@ -488,7 +489,7 @@ func TestGetLastTurns(t *testing.T) {
 			reader := &fakeTranscriptReader{turns: listed}
 			svc := newTranscriptHandler(reader)
 
-			tt.req.AgentId = alphaID
+			tt.req.AgentId = alphaID.String()
 			got, err := svc.GetLastTurns(t.Context(), connect.NewRequest(tt.req))
 			require.NoError(t, err)
 

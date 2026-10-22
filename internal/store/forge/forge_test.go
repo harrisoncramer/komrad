@@ -7,6 +7,7 @@ import (
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,12 +47,9 @@ func TestCreateRefusesASecondConnectionForAHost(t *testing.T) {
 func TestNotFound(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	const missing = "00000000-0000-0000-0000-000000000000"
+	var missing = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 
 	_, err := st.Get(ctx, missing)
-	require.ErrorIs(t, err, store.ErrNotFound)
-
-	_, err = st.Get(ctx, "not-an-id")
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	_, err = st.GetByHost(ctx, "nowhere.example.com")

@@ -15,12 +15,12 @@ import (
 
 // ForwardLastTurns sends another agent's newest turns to a third agent as mail komrad composes.
 func (s *Handler) ForwardLastTurns(ctx context.Context, req *agentv1komrad.ForwardLastTurnsRequest) (*agentv1.ForwardLastTurnsResponse, *fail.Error) {
-	logCrossAgentRead(ctx, req.FromAgentId.String(), "agent read another agent's transcript")
+	logCrossAgentRead(ctx, req.FromAgentId, "agent read another agent's transcript")
 
 	forwarded, err := s.transcripts.ForwardLastTurns(ctx, transcripts.ForwardLastTurnsParams{
 		From:      caller.From(ctx).AgentID,
-		SourceID:  req.FromAgentId.String(),
-		ToAgentID: req.ToAgentId.String(),
+		SourceID:  req.FromAgentId,
+		ToAgentID: req.ToAgentId,
 		Turns:     xptr.Deref(req.Turns),
 		MaxBytes:  xptr.Deref(req.MaxBytes),
 		Note:      xptr.Deref(req.Note),
@@ -30,8 +30,8 @@ func (s *Handler) ForwardLastTurns(ctx context.Context, req *agentv1komrad.Forwa
 	}
 
 	return &agentv1.ForwardLastTurnsResponse{
-		MailId:     forwarded.Mail.ID,
-		ToAgentId:  forwarded.Mail.ToAgentID,
+		MailId:     forwarded.Mail.ID.String(),
+		ToAgentId:  forwarded.Mail.ToAgentID.String(),
 		CreatedAt:  dates.Stamp(forwarded.Mail.CreatedAt),
 		Turns:      int32(forwarded.Turns),
 		Characters: int32(forwarded.Characters),

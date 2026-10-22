@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/agenterr"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
@@ -18,7 +19,7 @@ const deleteAgentTimeout = 30 * time.Minute
 const deleteAgentWait = 10 * time.Second
 
 type DeleteAgentArgs struct {
-	AgentID string    `json:"agent_id"`
+	AgentID uuid.UUID `json:"agent_id"`
 	Claim   time.Time `json:"claim"`
 }
 

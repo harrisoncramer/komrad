@@ -10,9 +10,9 @@ import (
 // Document draws one document as the wire carries it.
 func Document(stored documentstore.Document) *agentv1.Document {
 	return &agentv1.Document{
-		Id:        stored.ID,
-		AgentId:   stored.AgentID,
-		TaskId:    stored.TaskID,
+		Id:        stored.ID.String(),
+		AgentId:   stored.AgentID.String(),
+		TaskId:    formatOptionalID(stored.TaskID),
 		Name:      stored.Name,
 		Type:      stored.Type,
 		Body:      stored.Body,
@@ -36,8 +36,8 @@ func DocumentVersion(stored documentstore.Version) *agentv1.DocumentVersion {
 // DocumentHit draws one document a search found as the wire carries it.
 func DocumentHit(hit documentstore.SearchHit) *agentv1.DocumentHit {
 	return &agentv1.DocumentHit{
-		DocumentId: hit.ID,
-		AgentId:    hit.AgentID,
+		DocumentId: hit.ID.String(),
+		AgentId:    hit.AgentID.String(),
 		Name:       hit.Name,
 		Snippet:    hit.Snippet,
 	}
@@ -46,7 +46,7 @@ func DocumentHit(hit documentstore.SearchHit) *agentv1.DocumentHit {
 // DocumentType draws one document type as the wire carries it.
 func DocumentType(stored documenttypestore.Type) *agentv1.DocumentType {
 	return &agentv1.DocumentType{
-		Id:        stored.ID,
+		Id:        stored.ID.String(),
 		Name:      stored.Name,
 		Context:   stored.Context,
 		Version:   stored.Version,

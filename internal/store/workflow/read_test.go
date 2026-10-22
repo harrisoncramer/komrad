@@ -7,6 +7,7 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,16 +19,12 @@ func TestGet(t *testing.T) {
 		name     string
 		create   bool
 		archive  bool
-		id       string
+		id       uuid.UUID
 		wantName string
 	}{
 		{
 			name: "an id nobody holds",
 			id:   missingID,
-		},
-		{
-			name: "a malformed id is not a workflow",
-			id:   "not-an-id",
 		},
 		{
 			name:    "an archived workflow is hidden",
@@ -220,14 +217,14 @@ func TestWatchedWorkflowsSpanTheArchive(t *testing.T) {
 		assert.Equal(t, hooks, w.Hooks, "workflow %s", w.Name)
 	}
 
-	byKey, err := st.ListWatched(ctx, []string{live.ID, archived.ID, missingID})
+	byKey, err := st.ListWatched(ctx, []uuid.UUID{live.ID, archived.ID, missingID})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"archived", "live"}, names(byKey))
 	for _, w := range byKey {
 		assert.Equal(t, hooks, w.Hooks, "workflow %s", w.Name)
 	}
 
-	none, err := st.ListWatched(ctx, []string{})
+	none, err := st.ListWatched(ctx, []uuid.UUID{})
 	require.NoError(t, err)
 	assert.Empty(t, none)
 }
@@ -295,7 +292,7 @@ func TestListPageIsAlphabetical(t *testing.T) {
 
 	var (
 		names  []string
-		ids    = map[string]bool{}
+		ids    = map[uuid.UUID]bool{}
 		cursor *Cursor
 	)
 	for range 10 {

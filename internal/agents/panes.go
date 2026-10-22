@@ -8,10 +8,12 @@ import (
 	"komrad/lib/xslice"
 
 	agentstore "komrad/internal/store/agent"
+
+	"github.com/google/uuid"
 )
 
-func isPaneOwnedBy(owner, agentID string) bool {
-	return agentID != "" && owner == agentID
+func isPaneOwnedBy(owner, agentID uuid.UUID) bool {
+	return agentID != uuid.Nil && owner == agentID
 }
 
 func killOwnedPanes(ctx context.Context, tmux paneKiller, agents []agentstore.Agent) {

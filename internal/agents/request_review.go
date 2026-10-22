@@ -24,7 +24,7 @@ const reviewerNameSuffix = "-reviewer"
 var errKeySpentElsewhere = fail.AlreadyExists("this idempotency key already launched an agent that is not this agent's reviewer")
 
 type RequestReviewParams struct {
-	AgentID        string
+	AgentID        uuid.UUID
 	Prompt         string
 	Title          string
 	Harness        string
@@ -63,18 +63,13 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		return nil, "", fmt.Errorf("failed to read the task of agent %q: %w", author.Name, err)
 	}
 
-	taskID, err := uuid.Parse(*author.TaskID)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to read the task of agent %q: %w", author.Name, err)
-	}
-
 	reviewer, err := s.NewAgent(ctx, NewAgentParams{
 		Title:          reviewerTitle(params.Title, author.Name),
 		Prompt:         reviewerPrompt(*author, branch, params.Prompt),
 		Harness:        params.Harness,
 		Flags:          params.Flags,
 		WorkflowID:     author.WorkflowID,
-		Task:           oneofs.Task{TaskId: &taskID},
+		Task:           oneofs.Task{TaskId: author.TaskID},
 		Role:           agentstore.RoleReviewer,
 		IdempotencyKey: params.IdempotencyKey,
 	})

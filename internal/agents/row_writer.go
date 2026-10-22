@@ -9,6 +9,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	runstore "komrad/internal/store/run"
 	"komrad/internal/wake"
+
+	"github.com/google/uuid"
 )
 
 // NewRowWriterParams is what a row writer is built over.
@@ -39,7 +41,7 @@ func NewRowWriter(params NewRowWriterParams) *RowWriter {
 }
 
 // Rename gives an agent a new display name, refusing one another agent in its workflow holds.
-func (w *RowWriter) Rename(ctx context.Context, id, name string) error {
+func (w *RowWriter) Rename(ctx context.Context, id uuid.UUID, name string) error {
 	renamed, err := w.agents.Rename(ctx, id, name)
 	if err != nil {
 		return fmt.Errorf("failed to rename agent %q: %w", id, err)
@@ -52,7 +54,7 @@ func (w *RowWriter) Rename(ctx context.Context, id, name string) error {
 }
 
 // MarkRunsRead claims the failed runs an agent is holding.
-func (w *RowWriter) MarkRunsRead(ctx context.Context, id string) error {
+func (w *RowWriter) MarkRunsRead(ctx context.Context, id uuid.UUID) error {
 	if err := w.runs.MarkRead(ctx, id); err != nil {
 		return fmt.Errorf("failed to claim the failed runs of agent %q: %w", id, err)
 	}
@@ -62,7 +64,7 @@ func (w *RowWriter) MarkRunsRead(ctx context.Context, id string) error {
 
 // RecordReportParams is what an agent's own CLI read out of one of its hook payloads.
 type RecordReportParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Report  harness.Report
 }
 

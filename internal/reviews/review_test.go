@@ -124,7 +124,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent rewriting what the person wrote",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				thread := fx.releaseFirstComment(t)
-				messages, err := fx.reviews.ListMessages(t.Context(), []string{thread.ID})
+				messages, err := fx.reviews.ListMessages(t.Context(), []uuid.UUID{thread.ID})
 				require.NoError(t, err)
 
 				_, err = fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
@@ -167,7 +167,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "rewriting a message nothing holds",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
-					ID:     uuid.NewString(),
+					ID:     uuid.New(),
 					Body:   "rewritten",
 					Author: personAuthor,
 				})
@@ -262,7 +262,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "settling a thread nothing holds",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
-					ID:       uuid.NewString(),
+					ID:       uuid.New(),
 					Resolved: true,
 					Author:   personAuthor,
 				})
@@ -275,7 +275,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "marking read a thread nothing holds",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{
-					ID:     uuid.NewString(),
+					ID:     uuid.New(),
 					Author: personAuthor,
 				})
 
@@ -382,7 +382,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "reading a review nothing holds",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.GetReview(t.Context(), uuid.NewString(), personAuthor)
+				_, err := fx.service.GetReview(t.Context(), uuid.New(), personAuthor)
 
 				return err
 			},
@@ -404,7 +404,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "the person rewriting their own comment",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				thread := fx.releaseFirstComment(t)
-				messages, err := fx.reviews.ListMessages(t.Context(), []string{thread.ID})
+				messages, err := fx.reviews.ListMessages(t.Context(), []uuid.UUID{thread.ID})
 				require.NoError(t, err)
 
 				_, err = fx.service.EditReviewMessage(t.Context(), EditReviewMessageParams{
@@ -773,7 +773,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 		settler      func(fx *reviewFixture) ReviewAuthor
 		reopen       bool
 		wantKind     reviewstore.AuthorKind
-		wantSettler  func(fx *reviewFixture) *string
+		wantSettler  func(fx *reviewFixture) *uuid.UUID
 		wantResolved bool
 	}{
 		{
@@ -782,7 +782,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 				return newAgentAuthor(fx.reviewer)
 			},
 			reopen: true,
-			wantSettler: func(*reviewFixture) *string {
+			wantSettler: func(*reviewFixture) *uuid.UUID {
 				return nil
 			},
 		},
@@ -792,7 +792,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 				return personAuthor
 			},
 			wantKind: reviewstore.AuthorHuman,
-			wantSettler: func(*reviewFixture) *string {
+			wantSettler: func(*reviewFixture) *uuid.UUID {
 				return nil
 			},
 			wantResolved: true,
@@ -803,7 +803,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 				return newAgentAuthor(fx.reviewer)
 			},
 			wantKind: reviewstore.AuthorAgent,
-			wantSettler: func(fx *reviewFixture) *string {
+			wantSettler: func(fx *reviewFixture) *uuid.UUID {
 				return &fx.reviewer.ID
 			},
 			wantResolved: true,
@@ -1152,7 +1152,7 @@ func (fx *reviewFixture) releaseReview(t *testing.T, author ReviewAuthor, verdic
 }
 
 // writeAnswer has the agent under review answer in a thread.
-func (fx *reviewFixture) writeAnswer(t *testing.T, threadID string) *reviewstore.Message {
+func (fx *reviewFixture) writeAnswer(t *testing.T, threadID uuid.UUID) *reviewstore.Message {
 	t.Helper()
 
 	answer, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
@@ -1165,7 +1165,7 @@ func (fx *reviewFixture) writeAnswer(t *testing.T, threadID string) *reviewstore
 	return &answer.Message
 }
 
-func (fx *reviewFixture) settle(t *testing.T, threadID string, author ReviewAuthor) *reviewstore.Thread {
+func (fx *reviewFixture) settle(t *testing.T, threadID uuid.UUID, author ReviewAuthor) *reviewstore.Thread {
 	t.Helper()
 
 	settled, err := fx.service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
@@ -1202,7 +1202,7 @@ func (fx *reviewFixture) removeWorktree(t *testing.T, dir string) {
 }
 
 // listMail is every piece of mail addressed to an agent, oldest first.
-func (fx *reviewFixture) listMail(t *testing.T, agentID string) []mailstore.Mail {
+func (fx *reviewFixture) listMail(t *testing.T, agentID uuid.UUID) []mailstore.Mail {
 	t.Helper()
 
 	listed, err := fx.stores.Mail.ListPage(t.Context(), agentID, 200, nil)
@@ -1214,8 +1214,8 @@ func (fx *reviewFixture) listMail(t *testing.T, agentID string) []mailstore.Mail
 }
 
 // taskByID names a task by the id the store gave it.
-func taskByID(id string) oneofs.Task {
-	parsed := uuid.MustParse(id)
+func taskByID(id uuid.UUID) oneofs.Task {
+	parsed := uuid.MustParse(id.String())
 
 	return oneofs.Task{TaskId: &parsed}
 }

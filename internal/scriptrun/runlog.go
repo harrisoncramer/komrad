@@ -15,6 +15,8 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	runstore "komrad/internal/store/run"
+
+	"github.com/google/uuid"
 )
 
 // maxLogRunAttempts bounds the walk up through numbers a second process has already taken.
@@ -23,13 +25,13 @@ const maxLogRunAttempts = 64
 // runRecord is one run as komrad is watching it.
 type runRecord struct {
 	logPath string
-	id      string
+	id      uuid.UUID
 }
 
 // claimRunLog names the file one run writes to and creates it empty, taking the number under
 // the lock and by an exclusive create.
-func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name string) (string, int) {
-	if s.logsDir == "" || agentID == "" {
+func (s *ScriptService) claimRunLog(ctx context.Context, agentID uuid.UUID, trigger string, name string) (string, int) {
+	if s.logsDir == "" || agentID == uuid.Nil {
 		return "", 0
 	}
 
@@ -75,7 +77,7 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 	}
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to name a run of a script",
-		slog.String(logging.AgentID, agentID),
+		slog.String(logging.AgentID, agentID.String()),
 		slog.String(logging.ScriptName, name))
 
 	return "", 0
@@ -86,7 +88,7 @@ func (s *ScriptService) beginRun(ctx context.Context, agent agentstore.Agent, tr
 	path, number := s.claimRunLog(ctx, agent.ID, trigger, name)
 	record := runRecord{logPath: path}
 
-	if s.runs == nil || agent.ID == "" {
+	if s.runs == nil || agent.ID == uuid.Nil {
 		return record
 	}
 
@@ -106,7 +108,7 @@ func (s *ScriptService) beginRun(ctx context.Context, agent agentstore.Agent, tr
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record a run of a script",
 			append([]slog.Attr{
-				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.AgentID, agent.ID.String()),
 				slog.String(logging.ScriptName, name),
 			}, logging.Err(err)...)...)
 
@@ -117,7 +119,7 @@ func (s *ScriptService) beginRun(ctx context.Context, agent agentstore.Agent, tr
 	// Bounded by the log-file count so a row never outlives the output it points at.
 	if err := s.runs.Prune(ctx, agent.ID, config.MaxRunLogs); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to prune an agent's runs",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 	}
 
 	return record
@@ -132,7 +134,7 @@ func (s *ScriptService) failRun(ctx context.Context, record runRecord, result sc
 
 // finishRun closes a run's row with what the script exited on and why it failed, if it did.
 func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result scripts.Result, cause error) {
-	if s.runs == nil || record.id == "" {
+	if s.runs == nil || record.id == uuid.Nil {
 		return
 	}
 
@@ -142,19 +144,19 @@ func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result 
 		Failure:  store.FailureReason(cause),
 	}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to close the record of a run",
-			append([]slog.Attr{slog.String(logging.RunID, record.id)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.RunID, record.id.String())}, logging.Err(err)...)...)
 	}
 }
 
 // abandonRun drops the row of a run that never started, alongside the empty log it claimed.
 func (s *ScriptService) abandonRun(ctx context.Context, record runRecord) {
-	if s.runs == nil || record.id == "" {
+	if s.runs == nil || record.id == uuid.Nil {
 		return
 	}
 
 	if err := s.runs.Abandon(ctx, record.id); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to drop the record of a run that never started",
-			append([]slog.Attr{slog.String(logging.RunID, record.id)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.RunID, record.id.String())}, logging.Err(err)...)...)
 	}
 }
 
@@ -169,7 +171,7 @@ func runExitCode(result scripts.Result) *int32 {
 }
 
 // pruneRunLogs drops the runs past the last MaxRunLogs.
-func pruneRunLogs(ctx context.Context, logsDir, agentID string) {
+func pruneRunLogs(ctx context.Context, logsDir string, agentID uuid.UUID) {
 	runs := config.ListRunLogs(logsDir, agentID)
 	if len(runs) <= config.MaxRunLogs {
 		return

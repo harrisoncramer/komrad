@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agents"
 	agentstore "komrad/internal/store/agent"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -23,7 +24,7 @@ const (
 
 // WakeAgentArgs puts an agent back in a pane so the mail waiting for it is read.
 type WakeAgentArgs struct {
-	AgentID string `json:"agent_id"`
+	AgentID uuid.UUID `json:"agent_id"`
 }
 
 // Kind is the River job kind.

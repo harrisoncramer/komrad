@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +17,8 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 	t.Setenv("EDITOR", "nvim")
 	t.Setenv("TMUX", "/tmp/tmux,1,0")
 	t.Setenv("TMUX_PANE", "%4")
-	t.Setenv("KOMRAD_AGENT_ID", "agent-1")
+	agentID := uuid.New()
+	t.Setenv("KOMRAD_AGENT_ID", agentID.String())
 	t.Setenv("KOMRAD_SESSION_ID", "session-1")
 
 	connection := Environment{Addr: "127.0.0.1:9999", CacheDir: "/tmp/komrad-cache"}
@@ -29,7 +31,7 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 	assert.Equal(t, "nvim", got.Editor)
 	assert.Equal(t, "/tmp/tmux,1,0", got.Tmux)
 	assert.Equal(t, "%4", got.TmuxPane)
-	assert.Equal(t, "agent-1", got.AgentID)
+	assert.Equal(t, agentID, got.AgentID)
 	assert.Equal(t, "session-1", got.SessionID)
 	assert.Equal(t, "/tmp/komrad-cache/komrad.log", got.LogPath())
 }
@@ -56,7 +58,7 @@ func TestLayerPathsUsesPlatformPathList(t *testing.T) {
 // parsed rather than sorted on.
 func TestListRunLogs(t *testing.T) {
 	dir := t.TempDir()
-	logDir := RunLogDir(dir, "a1")
+	logDir := RunLogDir(dir, uuid.MustParse("00000000-0000-7000-8000-f29bc91bbdab"))
 	require.NoError(t, os.MkdirAll(logDir, 0o755))
 
 	for _, name := range []string{
@@ -71,7 +73,7 @@ func TestListRunLogs(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
 	}
 
-	runs := ListRunLogs(dir, "a1")
+	runs := ListRunLogs(dir, uuid.MustParse("00000000-0000-7000-8000-f29bc91bbdab"))
 
 	require.Len(t, runs, 5, "only the numbered logs are runs")
 	assert.Equal(t, 1000, runs[0].Number, "the newest run is first")
@@ -88,7 +90,7 @@ func TestListRunLogs(t *testing.T) {
 
 // TestListRunLogsWithNothingToRead pins the empty answer an agent that has run no script gets.
 func TestListRunLogsWithNothingToRead(t *testing.T) {
-	assert.Empty(t, ListRunLogs(t.TempDir(), "a1"))
-	assert.Empty(t, ListRunLogs("", "a1"))
-	assert.Empty(t, ListRunLogs(t.TempDir(), ""))
+	assert.Empty(t, ListRunLogs(t.TempDir(), uuid.MustParse("00000000-0000-7000-8000-f29bc91bbdab")))
+	assert.Empty(t, ListRunLogs("", uuid.MustParse("00000000-0000-7000-8000-f29bc91bbdab")))
+	assert.Empty(t, ListRunLogs(t.TempDir(), uuid.Nil))
 }

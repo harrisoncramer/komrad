@@ -7,6 +7,8 @@ package models
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const deleteAgentRun = `-- name: DeleteAgentRun :exec
@@ -14,7 +16,7 @@ DELETE FROM agent_runs
 WHERE id = $1
 `
 
-func (q *Queries) DeleteAgentRun(ctx context.Context, id string) error {
+func (q *Queries) DeleteAgentRun(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteAgentRun, id)
 	return err
 }
@@ -33,7 +35,7 @@ WHERE
 type FinishAgentRunParams struct {
 	ExitCode *int32
 	Failure  string
-	ID       string
+	ID       uuid.UUID
 }
 
 func (q *Queries) FinishAgentRun(ctx context.Context, arg FinishAgentRunParams) error {
@@ -59,14 +61,14 @@ RETURNING
 `
 
 type InsertAgentRunParams struct {
-	AgentID   string
-	TaskID    *string
+	AgentID   uuid.UUID
+	TaskID    *uuid.UUID
 	Trigger   string
 	Script    string
 	LogNumber *int32
 }
 
-func (q *Queries) InsertAgentRun(ctx context.Context, arg InsertAgentRunParams) (string, error) {
+func (q *Queries) InsertAgentRun(ctx context.Context, arg InsertAgentRunParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, insertAgentRun,
 		arg.AgentID,
 		arg.TaskID,
@@ -74,7 +76,7 @@ func (q *Queries) InsertAgentRun(ctx context.Context, arg InsertAgentRunParams) 
 		arg.Script,
 		arg.LogNumber,
 	)
-	var id string
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -91,7 +93,7 @@ ORDER BY
     id DESC
 `
 
-func (q *Queries) ListTaskRuns(ctx context.Context, taskID string) ([]*AgentRun, error) {
+func (q *Queries) ListTaskRuns(ctx context.Context, taskID uuid.UUID) ([]*AgentRun, error) {
 	rows, err := q.db.Query(ctx, listTaskRuns, taskID)
 	if err != nil {
 		return nil, err
@@ -136,7 +138,7 @@ WHERE
     AND TRIGGER NOT LIKE 'task.%'
 `
 
-func (q *Queries) MarkAgentRunsRead(ctx context.Context, agentID string) error {
+func (q *Queries) MarkAgentRunsRead(ctx context.Context, agentID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markAgentRunsRead, agentID)
 	return err
 }
@@ -152,7 +154,7 @@ WHERE
     AND viewed_at IS NULL
 `
 
-func (q *Queries) MarkTaskRunsRead(ctx context.Context, taskID string) error {
+func (q *Queries) MarkTaskRunsRead(ctx context.Context, taskID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markTaskRunsRead, taskID)
 	return err
 }
@@ -179,7 +181,7 @@ WHERE agent_runs.agent_id = $1
 `
 
 type PruneAgentRunsParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Keep    int32
 }
 

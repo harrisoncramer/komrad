@@ -5,6 +5,7 @@ import (
 
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +27,7 @@ func TestListWatched(t *testing.T) {
 	snapshot, err := st.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	require.Len(t, snapshot, 3)
-	byID := xslice.KeyBy(snapshot, func(review Review) string { return review.ID })
+	byID := xslice.KeyBy(snapshot, func(review Review) uuid.UUID { return review.ID })
 
 	assert.Equal(t, int32(1), byID[released.ID].SnapshotOrdinal)
 	assert.Equal(t, "snapshot-one", byID[released.ID].SnapshotSHA)
@@ -34,14 +35,14 @@ func TestListWatched(t *testing.T) {
 	assert.Equal(t, int32(2), byID[pending.ID].SnapshotOrdinal)
 	assert.Nil(t, byID[pending.ID].ReleasedAt, "an open review is carried too")
 
-	listed, err := st.ListWatched(ctx, []string{released.ID})
+	listed, err := st.ListWatched(ctx, []uuid.UUID{released.ID})
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.Equal(t, released.ID, listed[0].ID)
 
-	ofOther, err := st.ListIDsOfTasks(ctx, []string{st.taskOf(t, other), "not-an-id"})
+	ofOther, err := st.ListIDsOfTasks(ctx, []uuid.UUID{st.taskOf(t, other)})
 	require.NoError(t, err)
-	assert.Equal(t, []string{elsewhere.ID}, ofOther)
+	assert.Equal(t, []uuid.UUID{elsewhere.ID}, ofOther)
 
 	ofNobody, err := st.ListIDsOfTasks(ctx, nil)
 	require.NoError(t, err)
@@ -64,13 +65,13 @@ func TestListWatchedThreads(t *testing.T) {
 	opened := st.openThread(t, st.openReviewBy(t, snapshotOne, reviewer), "name this")
 	gone := st.comment(t, st.takeSnapshot(t, archived, "two"), "left behind")
 
-	_, err := st.agents.Archive(ctx, []string{archived})
+	_, err := st.agents.Archive(ctx, []uuid.UUID{archived})
 	require.NoError(t, err)
 
 	snapshot, err := threads.ListWatched(ctx, nil)
 	require.NoError(t, err)
 	require.Len(t, snapshot, 2, "the archived agent's thread is not watched")
-	byID := xslice.KeyBy(snapshot, func(thread ThreadWithMessages) string { return thread.ID })
+	byID := xslice.KeyBy(snapshot, func(thread ThreadWithMessages) uuid.UUID { return thread.ID })
 	assert.Equal(t, AuthorHuman, byID[thread.ID].AuthorKind)
 	assert.Nil(t, byID[thread.ID].AuthorAgentID)
 	assert.Equal(t, int32(1), byID[thread.ID].SnapshotOrdinal)
@@ -80,13 +81,13 @@ func TestListWatchedThreads(t *testing.T) {
 	assert.Equal(t, AuthorAgent, byID[opened.ID].AuthorKind)
 	assert.Equal(t, &reviewer, byID[opened.ID].AuthorAgentID)
 
-	listed, err := threads.ListWatched(ctx, []string{gone.ID, "not-a-uuid"})
+	listed, err := threads.ListWatched(ctx, []uuid.UUID{gone.ID})
 	require.NoError(t, err)
 	assert.Empty(t, listed, "a key on an archived agent is gone")
 
-	ofWorker, err := threads.ListIDsOfTasks(ctx, []string{st.taskOf(t, worker), "not-an-id"})
+	ofWorker, err := threads.ListIDsOfTasks(ctx, []uuid.UUID{st.taskOf(t, worker)})
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{thread.ID, opened.ID}, ofWorker)
+	assert.ElementsMatch(t, []uuid.UUID{thread.ID, opened.ID}, ofWorker)
 
 	ofNobody, err := threads.ListIDsOfTasks(ctx, nil)
 	require.NoError(t, err)
@@ -102,7 +103,7 @@ func TestListWatchedThreadsCarriesForgeReplies(t *testing.T) {
 
 	snapshot, err := NewThreadStore(st.pool).ListWatched(t.Context(), nil)
 	require.NoError(t, err)
-	byID := xslice.KeyBy(snapshot, func(thread ThreadWithMessages) string { return thread.ID })
+	byID := xslice.KeyBy(snapshot, func(thread ThreadWithMessages) uuid.UUID { return thread.ID })
 
 	mirrored := byID[seeded.mirrored]
 	assert.NotNil(t, mirrored.ForgeThreadID)

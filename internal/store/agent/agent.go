@@ -9,6 +9,8 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // stateSeenBound is how long a reading of an agent's state stands before it is unconfirmed.
@@ -65,7 +67,7 @@ const (
 var Roles = []Role{RoleWriter, RoleReviewer, RoleOrchestrator}
 
 type Agent struct {
-	ID    string
+	ID    uuid.UUID
 	Name  string
 	Pane  string
 	Cwd   string
@@ -90,19 +92,19 @@ type Agent struct {
 	FailureReason  string
 	Harness        string
 	SessionID      string
-	WorkflowID     string
-	ScheduleID     *string
+	WorkflowID     uuid.UUID
+	ScheduleID     *uuid.UUID
 	IdempotencyKey *string
 	ArchivedAt     *time.Time
 
 	// ArchiveBatchID is the archive that took this agent, shared by every agent it took.
-	ArchiveBatchID     *string
+	ArchiveBatchID     *uuid.UUID
 	DeletingAt         *time.Time
-	SpawnedByAgentID   *string
-	RequestedByAgentID *string
+	SpawnedByAgentID   *uuid.UUID
+	RequestedByAgentID *uuid.UUID
 
 	// TaskID is the task the agent works on, nil only for an orchestrator.
-	TaskID        *string
+	TaskID        *uuid.UUID
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	InterruptedAt *time.Time
@@ -187,7 +189,7 @@ func NewAgentStore(db store.DBTX) *AgentStore {
 
 // AgentPane names a pane and the agent that owns it.
 type AgentPane struct {
-	AgentID string
+	AgentID uuid.UUID
 	Pane    string
 }
 
@@ -199,17 +201,17 @@ func fromRows(rows []*models.Agent) []Agent {
 }
 
 // IDs returns the id of each agent, in the order given.
-func IDs(agents []Agent) []string {
-	return xslice.Map(agents, func(agent Agent) string { return agent.ID })
+func IDs(agents []Agent) []uuid.UUID {
+	return xslice.Map(agents, func(agent Agent) uuid.UUID { return agent.ID })
 }
 
 // TaskIDs is the tasks the agents work on, each once.
-func TaskIDs(agents []Agent) []string {
+func TaskIDs(agents []Agent) []uuid.UUID {
 	linked := xslice.Filter(agents, func(agent Agent) bool { return agent.TaskID != nil })
 
-	ids := xslice.Map(linked, func(agent Agent) string { return *agent.TaskID })
+	ids := xslice.Map(linked, func(agent Agent) uuid.UUID { return *agent.TaskID })
 
-	return xslice.UniqueBy(ids, func(id string) string { return id })
+	return xslice.UniqueBy(ids, func(id uuid.UUID) uuid.UUID { return id })
 }
 
 // FromRow is the agent one stored row describes.

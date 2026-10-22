@@ -10,6 +10,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tmuxtest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,15 +22,15 @@ func TestOpen(t *testing.T) {
 	paneless := stores.SeedAgent(t, agentstore.Agent{Name: "paneless"})
 	stolen := stores.SeedAgent(t, agentstore.Agent{Name: "stolen", Pane: "%8"})
 	archived := stores.SeedAgent(t, agentstore.Agent{Name: "archived", Pane: "%7"})
-	_, err := stores.Agents.Archive(t.Context(), []string{archived.ID})
+	_, err := stores.Agents.Archive(t.Context(), []uuid.UUID{archived.ID})
 	require.NoError(t, err)
 	deleting := stores.SeedAgent(t, agentstore.Agent{Name: "deleting", Pane: "%6"})
-	_, err = stores.Agents.MarkDeleting(t.Context(), []string{deleting.ID})
+	_, err = stores.Agents.MarkDeleting(t.Context(), []uuid.UUID{deleting.ID})
 	require.NoError(t, err)
 
 	fake := tmuxtest.NewFake()
 	fake.Owners["%9"] = live.ID
-	fake.Owners["%8"] = "someone-else"
+	fake.Owners["%8"] = uuid.New()
 	fake.Owners["%7"] = archived.ID
 	fake.Owners["%6"] = deleting.ID
 
@@ -41,13 +42,13 @@ func TestOpen(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		agentID  string
+		agentID  uuid.UUID
 		wantErr  error
 		wantView string
 	}{
 		{
 			name:    "an agent that does not exist is refused",
-			agentID: "01a0debb-d80a-71a5-9f85-000000000000",
+			agentID: uuid.MustParse("01a0debb-d80a-71a5-9f85-000000000000"),
 			wantErr: store.ErrNotFound,
 		},
 		{

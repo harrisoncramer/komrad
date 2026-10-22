@@ -20,6 +20,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -210,7 +211,7 @@ func readWorktreeOwners(ctx context.Context, url string) (worktreeOwners, error)
 
 	var owners worktreeOwners
 	for _, agent := range agents {
-		if agent.ProvisionedTaskID != "" {
+		if agent.ProvisionedTaskID != uuid.Nil {
 			owners.TaskIDs = append(owners.TaskIDs, agent.ProvisionedTaskID)
 		}
 		if trimmed := strings.TrimSpace(agent.Cwd); trimmed != "" {

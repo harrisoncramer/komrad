@@ -7,6 +7,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,9 +15,9 @@ import (
 type checkFailureHarness struct {
 	*harness
 	checks        *StatusCheckStore
-	pullRequestID string
-	agentID       string
-	otherAgentID  string
+	pullRequestID uuid.UUID
+	agentID       uuid.UUID
+	otherAgentID  uuid.UUID
 }
 
 func openCheckFailures(t *testing.T) *checkFailureHarness {
@@ -47,7 +48,7 @@ func (h *checkFailureHarness) read(t *testing.T, headSHA string, checks ...forge
 	}))
 }
 
-func (h *checkFailureHarness) failures(agentID, headSHA string, failed ...forge.StatusCheck) ListCheckFailuresParams {
+func (h *checkFailureHarness) failures(agentID uuid.UUID, headSHA string, failed ...forge.StatusCheck) ListCheckFailuresParams {
 	return ListCheckFailuresParams{
 		PullRequestID: h.pullRequestID,
 		HeadSHA:       headSHA,
@@ -56,7 +57,7 @@ func (h *checkFailureHarness) failures(agentID, headSHA string, failed ...forge.
 	}
 }
 
-func (h *checkFailureHarness) told(agentID string, told ...forge.StatusCheck) RecordCheckFailuresParams {
+func (h *checkFailureHarness) told(agentID uuid.UUID, told ...forge.StatusCheck) RecordCheckFailuresParams {
 	return RecordCheckFailuresParams{
 		PullRequestID: h.pullRequestID,
 		HeadSHA:       "c1",

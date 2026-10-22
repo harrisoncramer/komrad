@@ -16,6 +16,8 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
+
+	"github.com/google/uuid"
 )
 
 // agentRow is an assembled row with the keyset cursor locating it.
@@ -37,7 +39,7 @@ func (s *Handler) assembleRows(ctx context.Context, rows []rowstore.Row, options
 	}
 
 	return xslice.Map(assemble.AgentRows(world, s.now()), func(row *agentv1.AgentRow) agentRow {
-		return agentRow{AgentRow: row, cursor: agentstore.Cursor{ID: row.GetAgent().GetId()}}
+		return agentRow{AgentRow: row, cursor: agentstore.Cursor{ID: uuid.MustParse(row.GetAgent().GetId())}}
 	}), nil
 }
 

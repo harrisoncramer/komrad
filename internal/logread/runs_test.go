@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ func TestRuns(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		agentID string
+		agentID uuid.UUID
 		run     string
 		pattern string
 		from    int
@@ -28,49 +29,42 @@ func TestRuns(t *testing.T) {
 	}{
 		{
 			name:    "a name the agent never wrote",
-			agentID: "a1",
+			agentID: ownerID,
 			run:     "009-agent.provision-setup.log",
 			limit:   10,
 			wantErr: ErrNoSuchRun,
 		},
 		{
 			name:    "a name that leaves the agent's directory",
-			agentID: "a1",
+			agentID: ownerID,
 			run:     "../b2/001-agent.provision-setup.log",
 			limit:   10,
 			wantErr: ErrNoSuchRun,
 		},
 		{
-			name:    "an agent id that leaves the runs directory",
-			agentID: "../outside",
-			run:     "001-agent.provision-setup.log",
-			limit:   10,
-			wantErr: ErrNoSuchRun,
-		},
-		{
 			name:    "another agent's run",
-			agentID: "b2",
+			agentID: otherID,
 			run:     "001-agent.provision-setup.log",
 			limit:   10,
 			wantErr: ErrNoSuchRun,
 		},
 		{
 			name:    "every line the run wrote, oldest first",
-			agentID: "a1",
+			agentID: ownerID,
 			run:     "001-agent.provision-setup.log",
 			limit:   10,
 			want:    output,
 		},
 		{
 			name:    "the limit keeps the newest",
-			agentID: "a1",
+			agentID: ownerID,
 			run:     "001-agent.provision-setup.log",
 			limit:   1,
 			want:    output[2:],
 		},
 		{
 			name:    "a read from an offset answers what came after it",
-			agentID: "a1",
+			agentID: ownerID,
 			run:     "001-agent.provision-setup.log",
 			from:    1,
 			limit:   10,
@@ -78,7 +72,7 @@ func TestRuns(t *testing.T) {
 		},
 		{
 			name:    "a pattern keeps only the lines it matches",
-			agentID: "a1",
+			agentID: ownerID,
 			run:     "001-agent.provision-setup.log",
 			pattern: "worktree",
 			limit:   10,
@@ -86,7 +80,7 @@ func TestRuns(t *testing.T) {
 		},
 		{
 			name:    "a half-written last line is left for the next read",
-			agentID: "a1",
+			agentID: ownerID,
 			run:     "001-agent.provision-setup.log",
 			tail:    "Container komrad-test",
 			limit:   10,
@@ -104,10 +98,9 @@ func TestRuns(t *testing.T) {
 			for _, line := range output {
 				body += line + "\n"
 			}
-			for _, agentDir := range []string{filepath.Join(dir, "a1"), filepath.Join(root, "outside")} {
-				require.NoError(t, os.MkdirAll(agentDir, 0o755))
-				require.NoError(t, os.WriteFile(filepath.Join(agentDir, "001-agent.provision-setup.log"), []byte(body+tt.tail), 0o600))
-			}
+			agentDir := filepath.Join(dir, ownerID.String())
+			require.NoError(t, os.MkdirAll(agentDir, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(agentDir, "001-agent.provision-setup.log"), []byte(body+tt.tail), 0o600))
 
 			runs := NewRuns(dir)
 			run := Run{AgentID: tt.agentID, Name: tt.run}
@@ -133,3 +126,8 @@ func TestRuns(t *testing.T) {
 		})
 	}
 }
+
+var (
+	ownerID = uuid.New()
+	otherID = uuid.New()
+)

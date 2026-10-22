@@ -10,6 +10,8 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
+
+	"github.com/google/uuid"
 )
 
 // Opened is the task an agent was put on and the place in its hook queue the agent holds when it
@@ -92,7 +94,7 @@ func requireJoinable(ctx context.Context, agents *agentstore.AgentStore, agent a
 		return nil
 	}
 
-	onTask, err := agents.ListOnTasks(ctx, []string{task.ID})
+	onTask, err := agents.ListOnTasks(ctx, []uuid.UUID{task.ID})
 	if err != nil {
 		return err
 	}
@@ -110,7 +112,7 @@ func isOwnTaskNeeded(params OpenParams) bool {
 }
 
 type ClaimCheckoutParams struct {
-	TaskID        string
+	TaskID        uuid.UUID
 	AgentName     string
 	AdoptedBranch string
 	RepositoryURL string
