@@ -1,12 +1,10 @@
 package ui
 
 import (
-	"slices"
 	"time"
 
 	"komrad/internal/client"
 	"komrad/internal/ui/keys"
-	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
@@ -304,71 +302,6 @@ func (m *model) relayout() {
 func (m *model) nudgeSidebar(delta int) {
 	m.frame.Nudge(delta)
 	m.relayout()
-}
-
-// routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
-// took the press so the screen underneath gets whatever it left alone.
-func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
-	if rendersSwitcher(m.screen) && !m.isTabsFocused() && !m.isKindsFocused() {
-		if delta := m.viewsDelta(key.String()); delta != 0 {
-			return m.openViews(delta), true
-		}
-	}
-
-	if keys.IsBound(key.String(), m.keys.Help.Toggle) {
-		m.helpExpanded = !m.helpExpanded
-
-		return nil, true
-	}
-
-	switch {
-	case keys.IsBound(key.String(), m.keys.Sidebar.Narrow):
-		m.nudgeSidebar(-sidebarStep)
-
-		return nil, true
-	case keys.IsBound(key.String(), m.keys.Sidebar.Widen):
-		m.nudgeSidebar(sidebarStep)
-
-		return nil, true
-	}
-
-	if _, ok := m.activeTabs(); ok {
-		if m.isTabsFocused() {
-			return m.updateTabs(key), true
-		}
-		if keys.IsBound(key.String(), m.keys.Tabs.Focus) {
-			m.focusTabs()
-
-			return nil, true
-		}
-	}
-
-	if m.isKindsRendered() {
-		if m.isKindsFocused() {
-			return m.updateKinds(key), true
-		}
-		if keys.IsBound(key.String(), m.keys.Kinds.Focus) {
-			m.focusKinds()
-
-			return nil, true
-		}
-	}
-
-	if slices.Contains(m.keys.Menu.Open, key.String()) {
-		if band, ok := m.buildMenu(); ok && keys.IsBound(key.String(), m.keys.Menu.Open) {
-			return m.apply(menu.Open{Menu: band}), true
-		}
-	}
-
-	if m.isDetailsScreen() && m.isDetailsFocused() {
-		return m.updateDetails(key), true
-	}
-
-	if m.isDocFocused() {
-		return m.updateDoc(key), true
-	}
-
-	return nil, false
 }
 
 // routeScreenMessage hands a message to the screen that is up.
