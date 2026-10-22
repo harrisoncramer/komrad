@@ -1068,7 +1068,7 @@ func TestFrameBesideWhileZoomedIsPaidOnUnzoom(t *testing.T) {
 	assert.Equal(t, []string{sidebarPane + " 144"}, tmux.resizes)
 }
 
-// TestFrameFitsBeside covers the stage keeping its floor beside the sidebar.
+// TestFrameFitsBeside covers the block and the stage keeping their floor beside the sidebar.
 func TestFrameFitsBeside(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -1104,6 +1104,22 @@ func TestFrameFitsBeside(t *testing.T) {
 			assert.Equal(t, tt.want, frame.FitsBeside(tt.window, 33))
 		})
 	}
+
+	t.Run("a block nudged to its floor leaves a narrower window", func(t *testing.T) {
+		tmux := &recordingTmux{
+			width:       159,
+			windowWidth: 200,
+			height:      50,
+		}
+		frame := New(tmux, config.Layout{SidebarWidth: 40})
+		frame.Attach(sidebarPane)
+		frame.Beside(true)
+		frame.NudgeStage(-500, 33)
+
+		assert.True(t, frame.FitsBeside(200, 33))
+		assert.False(t, frame.FitsBeside(160, 33))
+		assert.True(t, frame.FitsBeside(400, 33), "the split scales with the window")
+	})
 }
 
 // TestFrameOpenColumnSplitsOffTheSidebar covers a pane taking the columns the sidebar took from the
