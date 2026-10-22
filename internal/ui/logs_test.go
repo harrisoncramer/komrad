@@ -48,8 +48,9 @@ func TestLogsOpen(t *testing.T) {
 	t.Run("an orchestrator's logs are under its workflow's name", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSubpages(t, "komrad")
-		harness.Press("l")
+		harness := paneltest.OpenAgents(t, buildLogAgents()...)
+		harness.MoveToRow("komrad")
+		harness.Press("space", "l")
 
 		assert.Equal(t, screen.Logs, paneltest.Screen(harness.Frame()))
 		assert.Contains(t, harness.Frame(), "agents › komrad › logs")
