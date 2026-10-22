@@ -261,9 +261,7 @@ func Matches(matcher *regexp.Regexp, name string) []view.Span {
 		return nil
 	}
 
-	spans := xslice.Map(found, func(at []int) view.Span {
+	return xslice.Map(found, func(at []int) view.Span {
 		return view.Span{Start: at[0], End: at[1]}
 	})
-
-	return spans
 }
