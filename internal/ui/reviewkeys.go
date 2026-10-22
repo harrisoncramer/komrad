@@ -198,7 +198,7 @@ func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 	return requests
 }
 
-// scrollPopupAt moves the conversation in the popup when the cell at is inside it.
+// scrollPopupAt moves the conversation in the popup when the popup holds the cell.
 func (r *reviewScreen) scrollPopupAt(m *model, in screen.Inputs, at image.Point, rows int) bool {
 	body, _ := r.popupBody(m, in, r.measurePopupInner(m))
 	if body == "" || !r.placeThread(m, in, body).contains(at.X, at.Y) {
