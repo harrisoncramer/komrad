@@ -119,20 +119,30 @@ func (r reviewScreen) isDiffFocused(m *model) bool {
 	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m)
 }
 
-// update takes the review's own answers and, once nothing in the sidebar has them, the keys.
 func (r *reviewScreen) update(m *model, msg tea.Msg) screen.Request {
-	routed := r.route(m, msg)
+	var keyed screen.Request
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		keyed = r.updateKey(m, key)
+	}
 
-	return screen.Batch{routed, r.followWorld(m)}
+	return screen.Batch{keyed, r.followWorld(m)}
 }
 
 func (r *reviewScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
-	staged, ok := msg.(reviewEditorStaged)
-	if !ok {
-		return nil, false
+	switch msg := msg.(type) {
+	case reviewEditorStaged:
+		return r.applyEditorStaged(m, msg), true
+	case reviewLoadedMsg, reviewPausedMsg, reviewWroteMsg, messageEditedMsg:
+		if !m.isUp(r) {
+			return nil, true
+		}
+
+		routed := r.route(m, msg)
+
+		return screen.Batch{routed, r.followWorld(m)}, true
 	}
 
-	return r.applyEditorStaged(m, staged), true
+	return nil, false
 }
 
 func (r *reviewScreen) route(m *model, msg tea.Msg) screen.Request {
@@ -145,8 +155,6 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) screen.Request {
 		return r.applyWrote(m, msg)
 	case messageEditedMsg:
 		return r.applyMessageEdited(m, msg)
-	case tea.KeyPressMsg:
-		return r.updateKey(m, msg)
 	}
 
 	return nil

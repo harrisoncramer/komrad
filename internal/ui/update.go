@@ -187,8 +187,6 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		return m.form.update(m, m.formSizeOf(msg))
 	}
 
-	// The messages left over are a screen's own results, which the screen that is up reads and every
-	// other screen leaves alone.
 	if paste, ok := msg.(tea.PasteMsg); ok && m.filter.typing {
 		m.filter.input.Take(paste, m.register)
 		m.filter.compile()

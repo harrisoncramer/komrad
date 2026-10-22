@@ -206,6 +206,47 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, frame, "hide help")
 	})
 
+	t.Run("a diff that loads under the menu still lands", func(t *testing.T) {
+		server := newReviewServer(t)
+		harness := paneltest.Start(t, paneltest.Params{
+			Width:  reviewWidth,
+			Height: 40,
+			Git:    server.repo,
+		})
+		server.serve(harness)
+		harness.Watch(server.buildSnapshot())
+		harness.Hold("git.Diff")
+		harness.Press("space", "r", "space")
+		require.Contains(t, harness.Frame(), "wrap lines")
+
+		harness.Release("git.Diff")
+		harness.Press("esc")
+
+		assert.Contains(t, paneltest.Stage(harness.Frame()), "greet.go")
+	})
+
+	t.Run("an agent that has written nothing is refused under the menu, and the menu goes with the review", func(t *testing.T) {
+		repo := gittest.NewRepo(t.TempDir())
+		repo.Wrote(gittest.WroteParams{Tree: "tree-of-the-base"})
+		server := newReviewServerOver(repo)
+		harness := paneltest.Start(t, paneltest.Params{
+			Width:  reviewWidth,
+			Height: 40,
+			Git:    server.repo,
+		})
+		server.serve(harness)
+		harness.Watch(server.buildSnapshot())
+		harness.Hold("git.Diff")
+		harness.Press("space", "r", "space")
+		require.Contains(t, harness.Frame(), "wrap lines")
+
+		harness.Release("git.Diff")
+
+		frame := harness.Frame()
+		assert.Equal(t, screen.Agents, paneltest.Screen(frame))
+		assert.NotContains(t, frame, "wrap lines")
+	})
+
 	t.Run("the wheel while the diff loads moves nothing", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := paneltest.Start(t, paneltest.Params{
