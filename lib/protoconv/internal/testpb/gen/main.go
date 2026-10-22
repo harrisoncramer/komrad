@@ -1,7 +1,6 @@
 //go:build ignore
 
 // Command gen writes the Go types of the test protos and their parsed forms.
-// It runs from the testpb directory via go:generate.
 package main
 
 import (

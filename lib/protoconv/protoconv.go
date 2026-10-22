@@ -47,8 +47,8 @@ func (e *Error) Unwrap() error {
 	return e.Err
 }
 
-// UUID converts the hyphenated form protovalidate's string.uuid rule accepts.
-func UUID(value string) (uuid.UUID, error) {
+// ParseUUID converts the hyphenated form protovalidate's string.uuid rule accepts.
+func ParseUUID(value string) (uuid.UUID, error) {
 	if len(value) != hyphenatedUUIDLen {
 		return uuid.Nil, errNotUUID
 	}
@@ -61,8 +61,8 @@ func UUID(value string) (uuid.UUID, error) {
 	return parsed, nil
 }
 
-// TrimmedUUID converts the form without hyphens that protovalidate's string.tuuid rule accepts.
-func TrimmedUUID(value string) (uuid.UUID, error) {
+// ParseTrimmedUUID converts the form without hyphens that protovalidate's string.tuuid rule accepts.
+func ParseTrimmedUUID(value string) (uuid.UUID, error) {
 	if len(value) != trimmedUUIDLen {
 		return uuid.Nil, errNotTrimmedUUID
 	}
@@ -75,8 +75,8 @@ func TrimmedUUID(value string) (uuid.UUID, error) {
 	return parsed, nil
 }
 
-// BytesUUID converts the 16 bytes protovalidate's bytes.uuid rule accepts.
-func BytesUUID(value []byte) (uuid.UUID, error) {
+// ParseBytesUUID converts the 16 bytes protovalidate's bytes.uuid rule accepts.
+func ParseBytesUUID(value []byte) (uuid.UUID, error) {
 	if len(value) != binaryUUIDLen {
 		return uuid.Nil, errNotUUID
 	}
@@ -89,8 +89,8 @@ func BytesUUID(value []byte) (uuid.UUID, error) {
 	return parsed, nil
 }
 
-// Time converts a timestamp, refusing one that is missing or outside the range a timestamp may hold.
-func Time(timestamp *timestamppb.Timestamp) (time.Time, error) {
+// ParseTime converts a timestamp, refusing one that is missing or outside the range a timestamp may hold.
+func ParseTime(timestamp *timestamppb.Timestamp) (time.Time, error) {
 	if timestamp == nil {
 		return time.Time{}, ErrMissing
 	}
@@ -102,18 +102,18 @@ func Time(timestamp *timestamppb.Timestamp) (time.Time, error) {
 	return timestamp.AsTime(), nil
 }
 
-// Field puts the name of the field err came from in front of the path err already carries.
-func Field(name string, err error) error {
+// PrefixField puts the name of the field err came from in front of the path err already carries.
+func PrefixField(name string, err error) error {
 	return prefix(name, err)
 }
 
-// Index puts the position of the list element err came from in front of the path err already carries.
-func Index(index int, err error) error {
+// PrefixIndex puts the position of the list element err came from in front of the path err already carries.
+func PrefixIndex(index int, err error) error {
 	return prefix("["+strconv.Itoa(index)+"]", err)
 }
 
-// Key puts the key of the map entry err came from in front of the path err already carries.
-func Key[K comparable](key K, err error) error {
+// PrefixKey puts the key of the map entry err came from in front of the path err already carries.
+func PrefixKey[K comparable](key K, err error) error {
 	if text, ok := any(key).(string); ok {
 		return prefix("["+strconv.Quote(text)+"]", err)
 	}

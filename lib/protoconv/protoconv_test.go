@@ -17,8 +17,8 @@ import (
 
 const sample = "0192d2a1-7b3c-7def-8a12-3456789abcde"
 
-// TestUUID covers the hyphenated form, the only one string.uuid accepts.
-func TestUUID(t *testing.T) {
+// TestParseUUID covers the hyphenated form, the only one string.uuid accepts.
+func TestParseUUID(t *testing.T) {
 	tests := []struct {
 		name    string
 		value   string
@@ -69,7 +69,7 @@ func TestUUID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := protoconv.UUID(tt.value)
+			got, err := protoconv.ParseUUID(tt.value)
 			if tt.wantErr {
 				require.Error(t, err)
 
@@ -82,8 +82,8 @@ func TestUUID(t *testing.T) {
 	}
 }
 
-// TestTrimmedUUID covers the form without hyphens, the only one string.tuuid accepts.
-func TestTrimmedUUID(t *testing.T) {
+// TestParseTrimmedUUID covers the form without hyphens, the only one string.tuuid accepts.
+func TestParseTrimmedUUID(t *testing.T) {
 	tests := []struct {
 		name    string
 		value   string
@@ -114,7 +114,7 @@ func TestTrimmedUUID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := protoconv.TrimmedUUID(tt.value)
+			got, err := protoconv.ParseTrimmedUUID(tt.value)
 			if tt.wantErr {
 				require.Error(t, err)
 
@@ -127,8 +127,8 @@ func TestTrimmedUUID(t *testing.T) {
 	}
 }
 
-// TestBytesUUID covers the sixteen bytes bytes.uuid accepts.
-func TestBytesUUID(t *testing.T) {
+// TestParseBytesUUID covers the sixteen bytes bytes.uuid accepts.
+func TestParseBytesUUID(t *testing.T) {
 	want := uuid.MustParse(sample)
 	tests := []struct {
 		name    string
@@ -158,7 +158,7 @@ func TestBytesUUID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := protoconv.BytesUUID(tt.value)
+			got, err := protoconv.ParseBytesUUID(tt.value)
 			if tt.wantErr {
 				require.Error(t, err)
 
@@ -171,8 +171,8 @@ func TestBytesUUID(t *testing.T) {
 	}
 }
 
-// TestTime covers a timestamp that is missing, out of range, or converts.
-func TestTime(t *testing.T) {
+// TestParseTime covers a timestamp that is missing, out of range, or converts.
+func TestParseTime(t *testing.T) {
 	moment := time.Date(2026, 10, 22, 12, 30, 0, 500, time.UTC)
 	tests := []struct {
 		name        string
@@ -211,7 +211,7 @@ func TestTime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := protoconv.Time(tt.timestamp)
+			got, err := protoconv.ParseTime(tt.timestamp)
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantMissing, errors.Is(err, protoconv.ErrMissing))
@@ -225,8 +225,8 @@ func TestTime(t *testing.T) {
 	}
 }
 
-// TestPath covers the path an error builds as it passes up through fields, list elements and map entries.
-func TestPath(t *testing.T) {
+// TestPrefix covers the path an error builds as it passes up through fields, list elements and map entries.
+func TestPrefix(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
@@ -234,27 +234,27 @@ func TestPath(t *testing.T) {
 	}{
 		{
 			name: "a field names itself",
-			err:  protoconv.Field("id", protoconv.ErrMissing),
+			err:  protoconv.PrefixField("id", protoconv.ErrMissing),
 			want: "id",
 		},
 		{
 			name: "a nested field joins with a dot",
-			err:  protoconv.Field("single", protoconv.Field("id", protoconv.ErrMissing)),
+			err:  protoconv.PrefixField("single", protoconv.PrefixField("id", protoconv.ErrMissing)),
 			want: "single.id",
 		},
 		{
 			name: "a list element follows its field",
-			err:  protoconv.Field("many", protoconv.Index(2, protoconv.Field("id", protoconv.ErrMissing))),
+			err:  protoconv.PrefixField("many", protoconv.PrefixIndex(2, protoconv.PrefixField("id", protoconv.ErrMissing))),
 			want: "many[2].id",
 		},
 		{
 			name: "a string key is quoted",
-			err:  protoconv.Field("by_id", protoconv.Key("a\"b", protoconv.ErrMissing)),
+			err:  protoconv.PrefixField("by_id", protoconv.PrefixKey("a\"b", protoconv.ErrMissing)),
 			want: `by_id["a\"b"]`,
 		},
 		{
 			name: "a number key is bare",
-			err:  protoconv.Field("by_number", protoconv.Key(int32(-3), protoconv.ErrMissing)),
+			err:  protoconv.PrefixField("by_number", protoconv.PrefixKey(int32(-3), protoconv.ErrMissing)),
 			want: "by_number[-3]",
 		},
 	}
@@ -270,36 +270,36 @@ func TestPath(t *testing.T) {
 	}
 }
 
-// FuzzUUID holds UUID to accepting exactly what protovalidate's string.uuid rule accepts.
-func FuzzUUID(f *testing.F) {
+// FuzzParseUUID holds ParseUUID to accepting exactly what protovalidate's string.uuid rule accepts.
+func FuzzParseUUID(f *testing.F) {
 	for _, seed := range []string{"", sample, "0192d2a17b3c7def8a123456789abcde", "{" + sample + "}"} {
 		f.Add(seed)
 	}
 	validator := newValidator(f)
 
 	f.Fuzz(func(t *testing.T, value string) {
-		_, err := protoconv.UUID(value)
+		_, err := protoconv.ParseUUID(value)
 		valid := validator.Validate(&testpb.HyphenatedRule{Value: value}) == nil
 		assert.Equal(t, valid, err == nil, "value %q", value)
 	})
 }
 
-// FuzzTrimmedUUID holds TrimmedUUID to accepting exactly what protovalidate's string.tuuid rule accepts.
-func FuzzTrimmedUUID(f *testing.F) {
+// FuzzParseTrimmedUUID holds ParseTrimmedUUID to accepting exactly what protovalidate's string.tuuid rule accepts.
+func FuzzParseTrimmedUUID(f *testing.F) {
 	for _, seed := range []string{"", sample, "0192d2a17b3c7def8a123456789abcde", "0192d2a17b3c7def8a123456789abcdg"} {
 		f.Add(seed)
 	}
 	validator := newValidator(f)
 
 	f.Fuzz(func(t *testing.T, value string) {
-		_, err := protoconv.TrimmedUUID(value)
+		_, err := protoconv.ParseTrimmedUUID(value)
 		valid := validator.Validate(&testpb.TrimmedRule{Value: value}) == nil
 		assert.Equal(t, valid, err == nil, "value %q", value)
 	})
 }
 
-// FuzzBytesUUID holds BytesUUID to accepting exactly what protovalidate's bytes.uuid rule accepts.
-func FuzzBytesUUID(f *testing.F) {
+// FuzzParseBytesUUID holds ParseBytesUUID to accepting exactly what protovalidate's bytes.uuid rule accepts.
+func FuzzParseBytesUUID(f *testing.F) {
 	parsed := uuid.MustParse(sample)
 	for _, seed := range [][]byte{nil, parsed[:], parsed[:15], []byte(sample)} {
 		f.Add(seed)
@@ -307,7 +307,7 @@ func FuzzBytesUUID(f *testing.F) {
 	validator := newValidator(f)
 
 	f.Fuzz(func(t *testing.T, value []byte) {
-		_, err := protoconv.BytesUUID(value)
+		_, err := protoconv.ParseBytesUUID(value)
 		valid := validator.Validate(&testpb.BinaryRule{Value: value}) == nil
 		assert.Equal(t, valid, err == nil, "value %x", value)
 	})

@@ -35,42 +35,42 @@ func ParseSingle(m *testpb.Single) (*Single, error) {
 
 	var err error
 	parsed := &Single{}
-	if parsed.Id, err = protoconv.UUID(m.Id); err != nil {
-		return nil, protoconv.Field("id", err)
+	if parsed.Id, err = protoconv.ParseUUID(m.Id); err != nil {
+		return nil, protoconv.PrefixField("id", err)
 	}
-	if parsed.Trimmed, err = protoconv.TrimmedUUID(m.Trimmed); err != nil {
-		return nil, protoconv.Field("trimmed", err)
+	if parsed.Trimmed, err = protoconv.ParseTrimmedUUID(m.Trimmed); err != nil {
+		return nil, protoconv.PrefixField("trimmed", err)
 	}
 	if m.Maybe != nil {
-		value, err := protoconv.UUID(*m.Maybe)
+		value, err := protoconv.ParseUUID(*m.Maybe)
 		if err != nil {
-			return nil, protoconv.Field("maybe", err)
+			return nil, protoconv.PrefixField("maybe", err)
 		}
 		parsed.Maybe = &value
 	}
 	if m.BlankOk != "" {
-		value, err := protoconv.UUID(m.BlankOk)
+		value, err := protoconv.ParseUUID(m.BlankOk)
 		if err != nil {
-			return nil, protoconv.Field("blank_ok", err)
+			return nil, protoconv.PrefixField("blank_ok", err)
 		}
 		parsed.BlankOk = &value
 	}
 	parsed.Skipped = m.Skipped
-	if parsed.Binary, err = protoconv.BytesUUID(m.Binary); err != nil {
-		return nil, protoconv.Field("binary", err)
+	if parsed.Binary, err = protoconv.ParseBytesUUID(m.Binary); err != nil {
+		return nil, protoconv.PrefixField("binary", err)
 	}
 	if len(m.BinaryOk) > 0 {
-		value, err := protoconv.BytesUUID(m.BinaryOk)
+		value, err := protoconv.ParseBytesUUID(m.BinaryOk)
 		if err != nil {
-			return nil, protoconv.Field("binary_ok", err)
+			return nil, protoconv.PrefixField("binary_ok", err)
 		}
 		parsed.BinaryOk = &value
 	}
 	if m.Must == nil {
-		return nil, protoconv.Field("must", protoconv.ErrMissing)
+		return nil, protoconv.PrefixField("must", protoconv.ErrMissing)
 	}
-	if parsed.Must, err = protoconv.UUID(*m.Must); err != nil {
-		return nil, protoconv.Field("must", err)
+	if parsed.Must, err = protoconv.ParseUUID(*m.Must); err != nil {
+		return nil, protoconv.PrefixField("must", err)
 	}
 	parsed.Name = m.Name
 	parsed.Count = m.Count
@@ -97,29 +97,29 @@ func ParseTimes(m *testpb.Times) (*Times, error) {
 
 	var err error
 	parsed := &Times{}
-	if parsed.At, err = protoconv.Time(m.At); err != nil {
-		return nil, protoconv.Field("at", err)
+	if parsed.At, err = protoconv.ParseTime(m.At); err != nil {
+		return nil, protoconv.PrefixField("at", err)
 	}
 	if m.Maybe != nil {
-		value, err := protoconv.Time(m.Maybe)
+		value, err := protoconv.ParseTime(m.Maybe)
 		if err != nil {
-			return nil, protoconv.Field("maybe", err)
+			return nil, protoconv.PrefixField("maybe", err)
 		}
 		parsed.Maybe = &value
 	}
 	if m.Each != nil {
 		parsed.Each = make([]time.Time, len(m.Each))
 		for index, item := range m.Each {
-			if parsed.Each[index], err = protoconv.Time(item); err != nil {
-				return nil, protoconv.Field("each", protoconv.Index(index, err))
+			if parsed.Each[index], err = protoconv.ParseTime(item); err != nil {
+				return nil, protoconv.PrefixField("each", protoconv.PrefixIndex(index, err))
 			}
 		}
 	}
 	if m.ByName != nil {
 		parsed.ByName = make(map[string]time.Time, len(m.ByName))
 		for key, item := range m.ByName {
-			if parsed.ByName[key], err = protoconv.Time(item); err != nil {
-				return nil, protoconv.Field("by_name", protoconv.Key(key, err))
+			if parsed.ByName[key], err = protoconv.ParseTime(item); err != nil {
+				return nil, protoconv.PrefixField("by_name", protoconv.PrefixKey(key, err))
 			}
 		}
 	}
@@ -151,8 +151,8 @@ func ParseLists(m *testpb.Lists) (*Lists, error) {
 	if m.Ids != nil {
 		parsed.Ids = make([]uuid.UUID, len(m.Ids))
 		for index, item := range m.Ids {
-			if parsed.Ids[index], err = protoconv.UUID(item); err != nil {
-				return nil, protoconv.Field("ids", protoconv.Index(index, err))
+			if parsed.Ids[index], err = protoconv.ParseUUID(item); err != nil {
+				return nil, protoconv.PrefixField("ids", protoconv.PrefixIndex(index, err))
 			}
 		}
 	}
@@ -160,20 +160,20 @@ func ParseLists(m *testpb.Lists) (*Lists, error) {
 	if m.ByName != nil {
 		parsed.ByName = make(map[string]uuid.UUID, len(m.ByName))
 		for key, item := range m.ByName {
-			if parsed.ByName[key], err = protoconv.UUID(item); err != nil {
-				return nil, protoconv.Field("by_name", protoconv.Key(key, err))
+			if parsed.ByName[key], err = protoconv.ParseUUID(item); err != nil {
+				return nil, protoconv.PrefixField("by_name", protoconv.PrefixKey(key, err))
 			}
 		}
 	}
 	if m.ById != nil {
 		parsed.ById = make(map[uuid.UUID]string, len(m.ById))
 		for key, item := range m.ById {
-			converted, err := protoconv.UUID(key)
+			converted, err := protoconv.ParseUUID(key)
 			if err != nil {
-				return nil, protoconv.Field("by_id", protoconv.Key(key, err))
+				return nil, protoconv.PrefixField("by_id", protoconv.PrefixKey(key, err))
 			}
 			if _, ok := parsed.ById[converted]; ok {
-				return nil, protoconv.Field("by_id", protoconv.Key(key, protoconv.ErrDuplicateKey))
+				return nil, protoconv.PrefixField("by_id", protoconv.PrefixKey(key, protoconv.ErrDuplicateKey))
 			}
 			parsed.ById[converted] = item
 		}
@@ -181,15 +181,15 @@ func ParseLists(m *testpb.Lists) (*Lists, error) {
 	if m.Both != nil {
 		parsed.Both = make(map[uuid.UUID]uuid.UUID, len(m.Both))
 		for key, item := range m.Both {
-			converted, err := protoconv.UUID(key)
+			converted, err := protoconv.ParseUUID(key)
 			if err != nil {
-				return nil, protoconv.Field("both", protoconv.Key(key, err))
+				return nil, protoconv.PrefixField("both", protoconv.PrefixKey(key, err))
 			}
 			if _, ok := parsed.Both[converted]; ok {
-				return nil, protoconv.Field("both", protoconv.Key(key, protoconv.ErrDuplicateKey))
+				return nil, protoconv.PrefixField("both", protoconv.PrefixKey(key, protoconv.ErrDuplicateKey))
 			}
-			if parsed.Both[converted], err = protoconv.UUID(item); err != nil {
-				return nil, protoconv.Field("both", protoconv.Key(key, err))
+			if parsed.Both[converted], err = protoconv.ParseUUID(item); err != nil {
+				return nil, protoconv.PrefixField("both", protoconv.PrefixKey(key, err))
 			}
 		}
 	}
@@ -197,8 +197,8 @@ func ParseLists(m *testpb.Lists) (*Lists, error) {
 	if m.Binaries != nil {
 		parsed.Binaries = make([]uuid.UUID, len(m.Binaries))
 		for index, item := range m.Binaries {
-			if parsed.Binaries[index], err = protoconv.BytesUUID(item); err != nil {
-				return nil, protoconv.Field("binaries", protoconv.Index(index, err))
+			if parsed.Binaries[index], err = protoconv.ParseBytesUUID(item); err != nil {
+				return nil, protoconv.PrefixField("binaries", protoconv.PrefixIndex(index, err))
 			}
 		}
 	}
@@ -228,17 +228,17 @@ func ParseNested(m *testpb.Nested) (*Nested, error) {
 	parsed := &Nested{}
 	if m.Single != nil {
 		if parsed.Single, err = ParseSingle(m.Single); err != nil {
-			return nil, protoconv.Field("single", err)
+			return nil, protoconv.PrefixField("single", err)
 		}
 	}
 	if parsed.Must, err = ParseSingle(m.Must); err != nil {
-		return nil, protoconv.Field("must", err)
+		return nil, protoconv.PrefixField("must", err)
 	}
 	if m.Many != nil {
 		parsed.Many = make([]*Single, len(m.Many))
 		for index, item := range m.Many {
 			if parsed.Many[index], err = ParseSingle(item); err != nil {
-				return nil, protoconv.Field("many", protoconv.Index(index, err))
+				return nil, protoconv.PrefixField("many", protoconv.PrefixIndex(index, err))
 			}
 		}
 	}
@@ -246,14 +246,14 @@ func ParseNested(m *testpb.Nested) (*Nested, error) {
 		parsed.ByNumber = make(map[int32]*Single, len(m.ByNumber))
 		for key, item := range m.ByNumber {
 			if parsed.ByNumber[key], err = ParseSingle(item); err != nil {
-				return nil, protoconv.Field("by_number", protoconv.Key(key, err))
+				return nil, protoconv.PrefixField("by_number", protoconv.PrefixKey(key, err))
 			}
 		}
 	}
 	parsed.Plain = m.Plain
 	if m.Child != nil {
 		if parsed.Child, err = ParseNested(m.Child); err != nil {
-			return nil, protoconv.Field("child", err)
+			return nil, protoconv.PrefixField("child", err)
 		}
 	}
 	parsed.Ignored = m.Ignored
@@ -314,9 +314,9 @@ func ParseChoice(m *testpb.Choice) (*Choice, error) {
 	parsed := &Choice{}
 	switch member := m.Target.(type) {
 	case *testpb.Choice_Id:
-		value, err := protoconv.UUID(member.Id)
+		value, err := protoconv.ParseUUID(member.Id)
 		if err != nil {
-			return nil, protoconv.Field("id", err)
+			return nil, protoconv.PrefixField("id", err)
 		}
 		parsed.Target = &Choice_Id{Id: value}
 	case *testpb.Choice_Name:
@@ -324,13 +324,13 @@ func ParseChoice(m *testpb.Choice) (*Choice, error) {
 	case *testpb.Choice_Single:
 		value, err := ParseSingle(member.Single)
 		if err != nil {
-			return nil, protoconv.Field("single", err)
+			return nil, protoconv.PrefixField("single", err)
 		}
 		parsed.Target = &Choice_Single{Single: value}
 	case *testpb.Choice_At:
-		value, err := protoconv.Time(member.At)
+		value, err := protoconv.ParseTime(member.At)
 		if err != nil {
-			return nil, protoconv.Field("at", err)
+			return nil, protoconv.PrefixField("at", err)
 		}
 		parsed.Target = &Choice_At{At: value}
 	case *testpb.Choice_Plain:
@@ -354,9 +354,9 @@ func ParseEither(m *testpb.Either) (*Either, error) {
 
 	parsed := &Either{}
 	if m.Id != "" {
-		value, err := protoconv.UUID(m.Id)
+		value, err := protoconv.ParseUUID(m.Id)
 		if err != nil {
-			return nil, protoconv.Field("id", err)
+			return nil, protoconv.PrefixField("id", err)
 		}
 		parsed.Id = &value
 	}
@@ -402,38 +402,38 @@ func ParseWrapped(m *testpb.Wrapped) (*Wrapped, error) {
 	var err error
 	parsed := &Wrapped{}
 	if m.Owner != nil {
-		value, err := protoconv.UUID(m.Owner.GetValue())
+		value, err := protoconv.ParseUUID(m.Owner.GetValue())
 		if err != nil {
-			return nil, protoconv.Field("owner", err)
+			return nil, protoconv.PrefixField("owner", err)
 		}
 		parsed.Owner = &value
 	}
 	if m.Must == nil {
-		return nil, protoconv.Field("must", protoconv.ErrMissing)
+		return nil, protoconv.PrefixField("must", protoconv.ErrMissing)
 	}
-	if parsed.Must, err = protoconv.UUID(m.Must.GetValue()); err != nil {
-		return nil, protoconv.Field("must", err)
+	if parsed.Must, err = protoconv.ParseUUID(m.Must.GetValue()); err != nil {
+		return nil, protoconv.PrefixField("must", err)
 	}
 	if m.Trimmed != nil {
-		value, err := protoconv.TrimmedUUID(m.Trimmed.GetValue())
+		value, err := protoconv.ParseTrimmedUUID(m.Trimmed.GetValue())
 		if err != nil {
-			return nil, protoconv.Field("trimmed", err)
+			return nil, protoconv.PrefixField("trimmed", err)
 		}
 		parsed.Trimmed = &value
 	}
 	if m.Binary != nil {
-		value, err := protoconv.BytesUUID(m.Binary.GetValue())
+		value, err := protoconv.ParseBytesUUID(m.Binary.GetValue())
 		if err != nil {
-			return nil, protoconv.Field("binary", err)
+			return nil, protoconv.PrefixField("binary", err)
 		}
 		parsed.Binary = &value
 	}
 	parsed.Name = m.Name
 	switch member := m.Target.(type) {
 	case *testpb.Wrapped_Id:
-		value, err := protoconv.UUID(member.Id.GetValue())
+		value, err := protoconv.ParseUUID(member.Id.GetValue())
 		if err != nil {
-			return nil, protoconv.Field("id", err)
+			return nil, protoconv.PrefixField("id", err)
 		}
 		parsed.Target = &Wrapped_Id{Id: value}
 	case *testpb.Wrapped_Label:
@@ -459,7 +459,7 @@ func ParsePing(m *testpb.Ping) (*Ping, error) {
 	parsed := &Ping{}
 	if m.Pong != nil {
 		if parsed.Pong, err = ParsePong(m.Pong); err != nil {
-			return nil, protoconv.Field("pong", err)
+			return nil, protoconv.PrefixField("pong", err)
 		}
 	}
 	parsed.Name = m.Name
@@ -483,11 +483,11 @@ func ParsePong(m *testpb.Pong) (*Pong, error) {
 	parsed := &Pong{}
 	if m.Ping != nil {
 		if parsed.Ping, err = ParsePing(m.Ping); err != nil {
-			return nil, protoconv.Field("ping", err)
+			return nil, protoconv.PrefixField("ping", err)
 		}
 	}
-	if parsed.Id, err = protoconv.UUID(m.Id); err != nil {
-		return nil, protoconv.Field("id", err)
+	if parsed.Id, err = protoconv.ParseUUID(m.Id); err != nil {
+		return nil, protoconv.PrefixField("id", err)
 	}
 
 	return parsed, nil
@@ -508,7 +508,7 @@ func ParseOuter(m *testpb.Outer) (*Outer, error) {
 	parsed := &Outer{}
 	if m.Inner != nil {
 		if parsed.Inner, err = ParseOuter_Inner(m.Inner); err != nil {
-			return nil, protoconv.Field("inner", err)
+			return nil, protoconv.PrefixField("inner", err)
 		}
 	}
 
@@ -528,8 +528,8 @@ func ParseOuter_Inner(m *testpb.Outer_Inner) (*Outer_Inner, error) {
 
 	var err error
 	parsed := &Outer_Inner{}
-	if parsed.Id, err = protoconv.UUID(m.Id); err != nil {
-		return nil, protoconv.Field("id", err)
+	if parsed.Id, err = protoconv.ParseUUID(m.Id); err != nil {
+		return nil, protoconv.PrefixField("id", err)
 	}
 
 	return parsed, nil
@@ -548,8 +548,8 @@ func ParseHyphenatedRule(m *testpb.HyphenatedRule) (*HyphenatedRule, error) {
 
 	var err error
 	parsed := &HyphenatedRule{}
-	if parsed.Value, err = protoconv.UUID(m.Value); err != nil {
-		return nil, protoconv.Field("value", err)
+	if parsed.Value, err = protoconv.ParseUUID(m.Value); err != nil {
+		return nil, protoconv.PrefixField("value", err)
 	}
 
 	return parsed, nil
@@ -568,8 +568,8 @@ func ParseTrimmedRule(m *testpb.TrimmedRule) (*TrimmedRule, error) {
 
 	var err error
 	parsed := &TrimmedRule{}
-	if parsed.Value, err = protoconv.TrimmedUUID(m.Value); err != nil {
-		return nil, protoconv.Field("value", err)
+	if parsed.Value, err = protoconv.ParseTrimmedUUID(m.Value); err != nil {
+		return nil, protoconv.PrefixField("value", err)
 	}
 
 	return parsed, nil
@@ -588,8 +588,8 @@ func ParseBinaryRule(m *testpb.BinaryRule) (*BinaryRule, error) {
 
 	var err error
 	parsed := &BinaryRule{}
-	if parsed.Value, err = protoconv.BytesUUID(m.Value); err != nil {
-		return nil, protoconv.Field("value", err)
+	if parsed.Value, err = protoconv.ParseBytesUUID(m.Value); err != nil {
+		return nil, protoconv.PrefixField("value", err)
 	}
 
 	return parsed, nil
@@ -614,26 +614,26 @@ func ParseExplicit(m *testpb.Explicit) (*Explicit, error) {
 	var err error
 	parsed := &Explicit{}
 	if m.Id != nil {
-		value, err := protoconv.UUID(*m.Id)
+		value, err := protoconv.ParseUUID(*m.Id)
 		if err != nil {
-			return nil, protoconv.Field("id", err)
+			return nil, protoconv.PrefixField("id", err)
 		}
 		parsed.Id = &value
 	}
 	if m.Must == nil {
-		return nil, protoconv.Field("must", protoconv.ErrMissing)
+		return nil, protoconv.PrefixField("must", protoconv.ErrMissing)
 	}
-	if parsed.Must, err = protoconv.UUID(*m.Must); err != nil {
-		return nil, protoconv.Field("must", err)
+	if parsed.Must, err = protoconv.ParseUUID(*m.Must); err != nil {
+		return nil, protoconv.PrefixField("must", err)
 	}
-	if parsed.ImplicitId, err = protoconv.UUID(m.ImplicitId); err != nil {
-		return nil, protoconv.Field("implicit_id", err)
+	if parsed.ImplicitId, err = protoconv.ParseUUID(m.ImplicitId); err != nil {
+		return nil, protoconv.PrefixField("implicit_id", err)
 	}
 	parsed.Name = m.Name
 	parsed.Count = m.Count
 	if m.Single != nil {
 		if parsed.Single, err = ParseSingle(m.Single); err != nil {
-			return nil, protoconv.Field("single", err)
+			return nil, protoconv.PrefixField("single", err)
 		}
 	}
 

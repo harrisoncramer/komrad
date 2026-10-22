@@ -5,6 +5,7 @@ package generate
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
@@ -51,6 +52,10 @@ const (
 	leafMessage
 )
 
+func (l leaf) isUUID() bool {
+	return l == leafUUID || l == leafTrimmedUUID || l == leafBytesUUID
+}
+
 // slot is one value a field holds, as its single value, a list element, or a map key or value.
 type slot struct {
 	field   *protogen.Field
@@ -65,6 +70,12 @@ type plan struct {
 	key      slot
 	required bool
 	skipZero bool
+}
+
+// body is a conversion function's statements, held back until it is known whether they share one err.
+type body struct {
+	lines   [][]any
+	usesErr bool
 }
 
 // generator writes parsed types and their conversion functions into one generated Go file.
@@ -191,10 +202,6 @@ func (g *generator) leafOf(value slot) leaf {
 	return leafRaw
 }
 
-func (l leaf) isUUID() bool {
-	return l == leafUUID || l == leafTrimmedUUID || l == leafBytesUUID
-}
-
 // writeMessage writes one message's parsed type, its oneofs and its conversion function, returning the parsed messages it reaches.
 func (g *generator) writeMessage(message *protogen.Message) ([]*protogen.Message, error) {
 	if message.GoIdent.GoImportPath == g.path {
@@ -264,7 +271,7 @@ func (g *generator) writeType(message *protogen.Message, plans []plan) error {
 	for _, fieldPlan := range plans {
 		oneof := realOneof(fieldPlan.field)
 		if oneof == nil {
-			g.out.P(append([]any{fieldPlan.field.GoName, " "}, g.fieldType(fieldPlan)...)...)
+			g.out.P(slices.Concat([]any{fieldPlan.field.GoName, " "}, g.fieldType(fieldPlan))...)
 
 			continue
 		}
@@ -306,7 +313,7 @@ func (g *generator) writeOneof(oneof *protogen.Oneof) error {
 
 		g.out.P("// ", wrapper, " is ", field.GoIdent, " with its value converted.")
 		g.out.P("type ", wrapper, " struct {")
-		g.out.P(append([]any{field.GoName, " "}, g.memberType(planOf(field, false).value)...)...)
+		g.out.P(slices.Concat([]any{field.GoName, " "}, g.memberType(planOf(field, false).value))...)
 		g.out.P("}")
 		g.out.P()
 		g.out.P("func (*", wrapper, ") ", marker, "() {}")
@@ -318,10 +325,10 @@ func (g *generator) writeOneof(oneof *protogen.Oneof) error {
 
 func (g *generator) fieldType(fieldPlan plan) []any {
 	if fieldPlan.field.Desc.IsMap() {
-		return append(append([]any{"map["}, g.memberType(fieldPlan.key)...), append([]any{"]"}, g.memberType(fieldPlan.value)...)...)
+		return slices.Concat([]any{"map["}, g.memberType(fieldPlan.key), []any{"]"}, g.memberType(fieldPlan.value))
 	}
 	if fieldPlan.field.Desc.IsList() {
-		return append([]any{"[]"}, g.memberType(fieldPlan.value)...)
+		return slices.Concat([]any{"[]"}, g.memberType(fieldPlan.value))
 	}
 
 	switch g.leafOf(fieldPlan.value) {
@@ -341,7 +348,7 @@ func (g *generator) fieldType(fieldPlan plan) []any {
 		return g.memberType(fieldPlan.value)
 	case leafRaw:
 		if hasPointerScalar(fieldPlan.field) {
-			return append([]any{"*"}, rawType(fieldPlan.field)...)
+			return slices.Concat([]any{"*"}, rawType(fieldPlan.field))
 		}
 
 		return rawType(fieldPlan.field)
@@ -368,16 +375,16 @@ func (g *generator) memberType(value slot) []any {
 
 func (g *generator) writeParse(message *protogen.Message, plans []plan) {
 	name := message.GoIdent.GoName
-	parse := &body{}
+	statements := &body{}
 	for _, fieldPlan := range plans {
 		oneof := realOneof(fieldPlan.field)
 		if oneof == nil {
-			g.parseField(parse, fieldPlan)
+			g.parseField(statements, fieldPlan)
 
 			continue
 		}
 		if oneof.Fields[0] == fieldPlan.field {
-			g.parseOneof(parse, oneof)
+			g.parseOneof(statements, oneof)
 		}
 	}
 
@@ -387,11 +394,11 @@ func (g *generator) writeParse(message *protogen.Message, plans []plan) {
 	g.out.P("return nil, ", protoconvPackage.Ident("ErrMissing"))
 	g.out.P("}")
 	g.out.P()
-	if parse.usesErr {
+	if statements.usesErr {
 		g.out.P("var err error")
 	}
 	g.out.P("parsed := &", name, "{}")
-	for _, line := range parse.lines {
+	for _, line := range statements.lines {
 		g.out.P(line...)
 	}
 	g.out.P()
@@ -400,49 +407,46 @@ func (g *generator) writeParse(message *protogen.Message, plans []plan) {
 	g.out.P()
 }
 
-func (g *generator) parseField(parse *body, fieldPlan plan) {
+func (g *generator) parseField(statements *body, fieldPlan plan) {
 	switch {
 	case fieldPlan.field.Desc.IsMap():
-		g.parseMap(parse, fieldPlan)
+		g.parseMap(statements, fieldPlan)
 	case fieldPlan.field.Desc.IsList():
-		g.parseList(parse, fieldPlan)
+		g.parseList(statements, fieldPlan)
 	default:
-		g.parseSingular(parse, fieldPlan)
+		g.parseSingular(statements, fieldPlan)
 	}
 }
 
-func (g *generator) parseSingular(parse *body, fieldPlan plan) {
-	path := string(fieldPlan.field.Desc.Name())
-	source := "m." + fieldPlan.field.GoName
-	target := "parsed." + fieldPlan.field.GoName
+func (g *generator) parseSingular(statements *body, fieldPlan plan) {
 	conversion := g.leafOf(fieldPlan.value)
 
 	switch conversion {
 	case leafRaw:
-		parse.line(target, " = ", source)
+		statements.line(fieldPlan.target(), " = ", fieldPlan.source())
 	case leafMessage, leafTime:
-		call := g.convert(fieldPlan.value, source)
+		call := g.convert(fieldPlan.value, fieldPlan.source())
 		switch {
 		case fieldPlan.required:
-			parse.assign(target, call, path)
+			statements.assign(fieldPlan.target(), call, fieldPlan.path())
 		case conversion == leafMessage:
-			parse.line("if ", source, " != nil {")
-			parse.assign(target, call, path)
-			parse.line("}")
+			statements.line("if ", fieldPlan.source(), " != nil {")
+			statements.assign(fieldPlan.target(), call, fieldPlan.path())
+			statements.line("}")
 		default:
-			parse.line("if ", source, " != nil {")
-			parse.point(target, call, path)
-			parse.line("}")
+			statements.line("if ", fieldPlan.source(), " != nil {")
+			statements.point(fieldPlan.target(), call, fieldPlan.path())
+			statements.line("}")
 		}
 	case leafUUID, leafTrimmedUUID, leafBytesUUID:
-		g.parseUUID(parse, fieldPlan)
+		g.parseUUID(statements, fieldPlan)
 	}
 }
 
-func (g *generator) parseUUID(parse *body, fieldPlan plan) {
-	path := string(fieldPlan.field.Desc.Name())
-	source := "m." + fieldPlan.field.GoName
-	target := "parsed." + fieldPlan.field.GoName
+func (g *generator) parseUUID(statements *body, fieldPlan plan) {
+	source := fieldPlan.source()
+	target := fieldPlan.target()
+	path := fieldPlan.path()
 	explicit := fieldPlan.field.Desc.HasPresence()
 
 	value := source
@@ -453,109 +457,109 @@ func (g *generator) parseUUID(parse *body, fieldPlan plan) {
 
 	switch {
 	case explicit && fieldPlan.required:
-		parse.line("if ", source, " == nil {")
-		parse.line("return nil, ", protoconvPackage.Ident("Field"), "(", strconv.Quote(path), ", ", protoconvPackage.Ident("ErrMissing"), ")")
-		parse.line("}")
-		parse.assign(target, call, path)
+		statements.line("if ", source, " == nil {")
+		statements.fail(path, protoconvPackage.Ident("ErrMissing"))
+		statements.line("}")
+		statements.assign(target, call, path)
 	case explicit:
-		parse.line("if ", source, " != nil {")
-		parse.point(target, call, path)
-		parse.line("}")
+		statements.line("if ", source, " != nil {")
+		statements.point(target, call, path)
+		statements.line("}")
 	case fieldPlan.skipZero && fieldPlan.field.Desc.Kind() == protoreflect.BytesKind:
-		parse.line("if len(", source, ") > 0 {")
-		parse.point(target, call, path)
-		parse.line("}")
+		statements.line("if len(", source, ") > 0 {")
+		statements.point(target, call, path)
+		statements.line("}")
 	case fieldPlan.skipZero:
-		parse.line("if ", source, ` != "" {`)
-		parse.point(target, call, path)
-		parse.line("}")
+		statements.line("if ", source, ` != "" {`)
+		statements.point(target, call, path)
+		statements.line("}")
 	default:
-		parse.assign(target, call, path)
+		statements.assign(target, call, path)
 	}
 }
 
-func (g *generator) parseList(parse *body, fieldPlan plan) {
-	source := "m." + fieldPlan.field.GoName
-	target := "parsed." + fieldPlan.field.GoName
+func (g *generator) parseList(statements *body, fieldPlan plan) {
+	source := fieldPlan.source()
+	target := fieldPlan.target()
 	if g.leafOf(fieldPlan.value) == leafRaw {
-		parse.line(target, " = ", source)
+		statements.line(target, " = ", source)
 
 		return
 	}
 
-	parse.usesErr = true
-	parse.line("if ", source, " != nil {")
-	parse.line(append(append([]any{target, " = make("}, g.fieldType(fieldPlan)...), ", len(", source, "))")...)
-	parse.line("for index, item := range ", source, " {")
-	parse.line(append(append([]any{"if ", target, "[index], err = "}, g.convert(fieldPlan.value, "item")...), "; err != nil {")...)
-	parse.fail(string(fieldPlan.field.Desc.Name()), protoconvPackage.Ident("Index"), "(index, err)")
-	parse.line("}")
-	parse.line("}")
-	parse.line("}")
+	statements.usesErr = true
+	statements.line("if ", source, " != nil {")
+	statements.line(slices.Concat([]any{target, " = make("}, g.fieldType(fieldPlan), []any{", len(", source, "))"})...)
+	statements.line("for index, item := range ", source, " {")
+	statements.line(slices.Concat([]any{"if ", target, "[index], err = "}, g.convert(fieldPlan.value, "item"), []any{"; err != nil {"})...)
+	statements.fail(fieldPlan.path(), protoconvPackage.Ident("PrefixIndex"), "(index, err)")
+	statements.line("}")
+	statements.line("}")
+	statements.line("}")
 }
 
-func (g *generator) parseMap(parse *body, fieldPlan plan) {
-	path := string(fieldPlan.field.Desc.Name())
-	source := "m." + fieldPlan.field.GoName
-	target := "parsed." + fieldPlan.field.GoName
+func (g *generator) parseMap(statements *body, fieldPlan plan) {
+	source := fieldPlan.source()
+	target := fieldPlan.target()
+	path := fieldPlan.path()
 	keyConverted := g.leafOf(fieldPlan.key) != leafRaw
 	valueConverted := g.leafOf(fieldPlan.value) != leafRaw
 	if !keyConverted && !valueConverted {
-		parse.line(target, " = ", source)
+		statements.line(target, " = ", source)
 
 		return
 	}
 
-	parse.line("if ", source, " != nil {")
-	parse.line(append(append([]any{target, " = make("}, g.fieldType(fieldPlan)...), ", len(", source, "))")...)
-	parse.line("for key, item := range ", source, " {")
+	statements.line("if ", source, " != nil {")
+	statements.line(slices.Concat([]any{target, " = make("}, g.fieldType(fieldPlan), []any{", len(", source, "))"})...)
+	statements.line("for key, item := range ", source, " {")
 
 	entry := "key"
 	if keyConverted {
 		entry = "converted"
-		parse.line(append([]any{"converted, err := "}, g.convert(fieldPlan.key, "key")...)...)
-		parse.line("if err != nil {")
-		parse.fail(path, protoconvPackage.Ident("Key"), "(key, err)")
-		parse.line("}")
-		parse.line("if _, ok := ", target, "[converted]; ok {")
-		parse.fail(path, protoconvPackage.Ident("Key"), "(key, ", protoconvPackage.Ident("ErrDuplicateKey"), ")")
-		parse.line("}")
+		statements.line(slices.Concat([]any{"converted, err := "}, g.convert(fieldPlan.key, "key"))...)
+		statements.line("if err != nil {")
+		statements.fail(path, protoconvPackage.Ident("PrefixKey"), "(key, err)")
+		statements.line("}")
+		statements.line("if _, ok := ", target, "[converted]; ok {")
+		statements.fail(path, protoconvPackage.Ident("PrefixKey"), "(key, ", protoconvPackage.Ident("ErrDuplicateKey"), ")")
+		statements.line("}")
 	}
 
 	if valueConverted {
 		if !keyConverted {
-			parse.usesErr = true
+			statements.usesErr = true
 		}
-		parse.line(append(append([]any{"if ", target, "[", entry, "], err = "}, g.convert(fieldPlan.value, "item")...), "; err != nil {")...)
-		parse.fail(path, protoconvPackage.Ident("Key"), "(key, err)")
-		parse.line("}")
+		statements.line(slices.Concat([]any{"if ", target, "[", entry, "], err = "}, g.convert(fieldPlan.value, "item"), []any{"; err != nil {"})...)
+		statements.fail(path, protoconvPackage.Ident("PrefixKey"), "(key, err)")
+		statements.line("}")
 	} else {
-		parse.line(target, "[", entry, "] = item")
+		statements.line(target, "[", entry, "] = item")
 	}
 
-	parse.line("}")
-	parse.line("}")
+	statements.line("}")
+	statements.line("}")
 }
 
-func (g *generator) parseOneof(parse *body, oneof *protogen.Oneof) {
-	parse.line("switch member := m.", oneof.GoName, ".(type) {")
+func (g *generator) parseOneof(statements *body, oneof *protogen.Oneof) {
+	statements.line("switch member := m.", oneof.GoName, ".(type) {")
 	for _, field := range oneof.Fields {
 		wrapper := field.GoIdent.GoName
 		value := planOf(field, false).value
-		parse.line("case *", field.GoIdent, ":")
+		statements.line("case *", field.GoIdent, ":")
 		if g.leafOf(value) == leafRaw {
-			parse.line("parsed.", oneof.GoName, " = &", wrapper, "{", field.GoName, ": member.", field.GoName, "}")
+			statements.line("parsed.", oneof.GoName, " = &", wrapper, "{", field.GoName, ": member.", field.GoName, "}")
 
 			continue
 		}
 
-		parse.line(append([]any{"value, err := "}, g.convert(value, "member."+field.GoName)...)...)
-		parse.line("if err != nil {")
-		parse.fail(string(field.Desc.Name()), "err")
-		parse.line("}")
-		parse.line("parsed.", oneof.GoName, " = &", wrapper, "{", field.GoName, ": value}")
+		statements.line(slices.Concat([]any{"value, err := "}, g.convert(value, "member."+field.GoName))...)
+		statements.line("if err != nil {")
+		statements.fail(string(field.Desc.Name()), "err")
+		statements.line("}")
+		statements.line("parsed.", oneof.GoName, " = &", wrapper, "{", field.GoName, ": value}")
 	}
-	parse.line("}")
+	statements.line("}")
 }
 
 // convert is the call converting the value source holds.
@@ -567,13 +571,13 @@ func (g *generator) convert(value slot, source string) []any {
 
 	switch conversion {
 	case leafUUID:
-		return []any{protoconvPackage.Ident("UUID"), "(", source, ")"}
+		return []any{protoconvPackage.Ident("ParseUUID"), "(", source, ")"}
 	case leafTrimmedUUID:
-		return []any{protoconvPackage.Ident("TrimmedUUID"), "(", source, ")"}
+		return []any{protoconvPackage.Ident("ParseTrimmedUUID"), "(", source, ")"}
 	case leafBytesUUID:
-		return []any{protoconvPackage.Ident("BytesUUID"), "(", source, ")"}
+		return []any{protoconvPackage.Ident("ParseBytesUUID"), "(", source, ")"}
 	case leafTime:
-		return []any{protoconvPackage.Ident("Time"), "(", source, ")"}
+		return []any{protoconvPackage.Ident("ParseTime"), "(", source, ")"}
 	case leafMessage:
 		return []any{"Parse", value.field.Message.GoIdent.GoName, "(", source, ")"}
 	case leafRaw:
@@ -583,10 +587,16 @@ func (g *generator) convert(value slot, source string) []any {
 	return nil
 }
 
-// body is a conversion function's statements, held back until it is known whether they share one err.
-type body struct {
-	lines   [][]any
-	usesErr bool
+func (p plan) path() string {
+	return string(p.field.Desc.Name())
+}
+
+func (p plan) source() string {
+	return "m." + p.field.GoName
+}
+
+func (p plan) target() string {
+	return "parsed." + p.field.GoName
 }
 
 func (b *body) line(parts ...any) {
@@ -596,14 +606,14 @@ func (b *body) line(parts ...any) {
 // assign converts into target through the function's shared err.
 func (b *body) assign(target string, call []any, path string) {
 	b.usesErr = true
-	b.line(append(append([]any{"if ", target, ", err = "}, call...), "; err != nil {")...)
+	b.line(slices.Concat([]any{"if ", target, ", err = "}, call, []any{"; err != nil {"})...)
 	b.fail(path, "err")
 	b.line("}")
 }
 
 // point converts into a value of its own and points target at it.
 func (b *body) point(target string, call []any, path string) {
-	b.line(append([]any{"value, err := "}, call...)...)
+	b.line(slices.Concat([]any{"value, err := "}, call)...)
 	b.line("if err != nil {")
 	b.fail(path, "err")
 	b.line("}")
@@ -611,7 +621,7 @@ func (b *body) point(target string, call []any, path string) {
 }
 
 func (b *body) fail(path string, cause ...any) {
-	b.line(append(append([]any{"return nil, ", protoconvPackage.Ident("Field"), "(", strconv.Quote(path), ", "}, cause...), ")")...)
+	b.line(slices.Concat([]any{"return nil, ", protoconvPackage.Ident("PrefixField"), "(", strconv.Quote(path), ", "}, cause, []any{")"})...)
 }
 
 func planOf(field *protogen.Field, oneofRuled bool) plan {

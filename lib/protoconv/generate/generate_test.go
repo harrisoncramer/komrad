@@ -114,26 +114,36 @@ message Timed { google.protobuf.Timestamp at = 1; }`,
 			plugin, err := prototest.Compile(t.Context(), tt.sources)
 			require.NoError(t, err)
 
-			generator := generate.New(plugin.NewGeneratedFile("parsed.go", outputPath), outputPath)
-			var got []bool
-			for _, file := range plugin.Files {
-				if !file.Generate {
-					continue
-				}
+			got, err := writeAll(plugin)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
 
-				for _, message := range file.Messages {
-					written, err := generator.Write(message)
-					if err != nil {
-						require.ErrorIs(t, err, tt.wantErr)
-
-						return
-					}
-					got = append(got, written)
-				}
+				return
 			}
 
-			require.NoError(t, tt.wantErr)
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// writeAll writes every message of the files plugin generates, reporting which had something to write.
+func writeAll(plugin *protogen.Plugin) ([]bool, error) {
+	generator := generate.New(plugin.NewGeneratedFile("parsed.go", outputPath), outputPath)
+	var written []bool
+	for _, file := range plugin.Files {
+		if !file.Generate {
+			continue
+		}
+
+		for _, message := range file.Messages {
+			wrote, err := generator.Write(message)
+			if err != nil {
+				return nil, err
+			}
+			written = append(written, wrote)
+		}
+	}
+
+	return written, nil
 }

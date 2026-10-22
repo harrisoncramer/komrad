@@ -19,7 +19,6 @@ import (
 
 // Compile compiles every file in sources, keyed by import path, into a plugin generating each of them.
 func Compile(ctx context.Context, sources map[string]string) (*protogen.Plugin, error) {
-	parameter := "paths=source_relative"
 	compiler := protocompile.Compiler{
 		Resolver: protocompile.WithStandardImports(protocompile.CompositeResolver{
 			&protocompile.SourceResolver{Accessor: protocompile.SourceAccessorFromMap(sources)},
@@ -53,7 +52,7 @@ func Compile(ctx context.Context, sources map[string]string) (*protogen.Plugin, 
 
 	request, err := decodedRequest(&pluginpb.CodeGeneratorRequest{
 		FileToGenerate: names,
-		Parameter:      &parameter,
+		Parameter:      new("paths=source_relative"),
 		ProtoFile:      ordered.files,
 	})
 	if err != nil {
