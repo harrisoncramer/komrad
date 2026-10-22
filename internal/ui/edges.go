@@ -21,7 +21,7 @@ func (m *model) pushEdge(direction int) {
 	delta := direction * edgeStep
 	floor := m.edgeFloor()
 
-	switch m.keysRegion() {
+	switch m.atRegion() {
 	case regionList:
 		m.frame.Nudge(delta, floor)
 	case regionBlock:
@@ -51,8 +51,8 @@ func (m *model) edgeFloor() int {
 	return m.columnOf().floor + dividerCols
 }
 
-// keysRegion is the region holding the keys.
-func (m *model) keysRegion() keyRegion {
+// atRegion is the region holding the keys.
+func (m *model) atRegion() keyRegion {
 	switch {
 	case m.term.keysElsewhere && m.frame.HasColumnKeys():
 		return regionBlock
