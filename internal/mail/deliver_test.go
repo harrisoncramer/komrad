@@ -35,7 +35,7 @@ func TestDeliver(t *testing.T) {
 		noMail    bool
 		refuse    bool
 		sendErr   error
-		arrange   func(t *testing.T, st *storetest.Stores, id string)
+		arrange   func(t *testing.T, st *storetest.Stores, id uuid.UUID)
 		want      Delivery
 		wantErr   bool
 		wantClaim bool
@@ -66,7 +66,7 @@ func TestDeliver(t *testing.T) {
 		},
 		{
 			name: "an agent already told about the mail it holds",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+			arrange: func(t *testing.T, st *storetest.Stores, id uuid.UUID) {
 				claimed, err := st.Mail.ClaimNudge(t.Context(), id)
 				require.NoError(t, err)
 				require.True(t, claimed)
@@ -250,7 +250,7 @@ func newLoggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 	}
 }
 
-func holdsClaim(t *testing.T, st *storetest.Stores, agentID string) bool {
+func holdsClaim(t *testing.T, st *storetest.Stores, agentID uuid.UUID) bool {
 	t.Helper()
 
 	var held bool

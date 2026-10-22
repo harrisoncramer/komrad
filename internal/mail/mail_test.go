@@ -1215,5 +1215,5 @@ type paneOwners struct {
 }
 
 func (p paneOwners) IsAgentRunning(agent agentstore.Agent) bool {
-	return agent.ID != "" && p.terminal.GetPaneOwner(agent.Pane) == agent.ID
+	return agent.ID != uuid.Nil && p.terminal.GetPaneOwner(agent.Pane) == agent.ID
 }

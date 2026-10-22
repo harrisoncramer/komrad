@@ -7,6 +7,7 @@ import (
 	"komrad/internal/harnesstest"
 	"komrad/internal/tmuxtest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -114,7 +115,7 @@ func TestDoesFrameShowHarness(t *testing.T) {
 
 // target is the agent every test in this package reads.
 var target = harness.Target{
-	AgentID:   "agent-a",
+	AgentID:   uuid.New(),
 	Pane:      "%1",
 	HarnessID: harnesstest.FakeID,
 }

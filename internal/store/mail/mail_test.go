@@ -901,7 +901,7 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 func TestClaimNudge(t *testing.T) {
 	tests := []struct {
 		name    string
-		arrange func(t *testing.T, st *fixture, recipient string)
+		arrange func(t *testing.T, st *fixture, recipient uuid.UUID)
 		want    bool
 	}{
 		{
@@ -909,21 +909,21 @@ func TestClaimNudge(t *testing.T) {
 		},
 		{
 			name: "mail never told",
-			arrange: func(t *testing.T, st *fixture, recipient string) {
+			arrange: func(t *testing.T, st *fixture, recipient uuid.UUID) {
 				sendNudgeMail(t, st, recipient, time.Hour)
 			},
 			want: true,
 		},
 		{
 			name: "mail told, with nothing sent since",
-			arrange: func(t *testing.T, st *fixture, recipient string) {
+			arrange: func(t *testing.T, st *fixture, recipient uuid.UUID) {
 				sendNudgeMail(t, st, recipient, time.Hour)
 				claimNudge(t, st, recipient)
 			},
 		},
 		{
 			name: "mail told, with mail sent since",
-			arrange: func(t *testing.T, st *fixture, recipient string) {
+			arrange: func(t *testing.T, st *fixture, recipient uuid.UUID) {
 				sendNudgeMail(t, st, recipient, time.Hour)
 				claimNudge(t, st, recipient)
 				sendNudgeMail(t, st, recipient, time.Hour)
@@ -932,7 +932,7 @@ func TestClaimNudge(t *testing.T) {
 		},
 		{
 			name: "mail told, whose mail sent since was read",
-			arrange: func(t *testing.T, st *fixture, recipient string) {
+			arrange: func(t *testing.T, st *fixture, recipient uuid.UUID) {
 				sendNudgeMail(t, st, recipient, time.Hour)
 				claimNudge(t, st, recipient)
 				sendNudgeMail(t, st, recipient, time.Hour)
@@ -942,7 +942,7 @@ func TestClaimNudge(t *testing.T) {
 		},
 		{
 			name: "mail told, whose mail sent since has expired",
-			arrange: func(t *testing.T, st *fixture, recipient string) {
+			arrange: func(t *testing.T, st *fixture, recipient uuid.UUID) {
 				sendNudgeMail(t, st, recipient, time.Hour)
 				claimNudge(t, st, recipient)
 				sendNudgeMail(t, st, recipient, time.Nanosecond)
@@ -950,7 +950,7 @@ func TestClaimNudge(t *testing.T) {
 		},
 		{
 			name: "mail whose claim was given back",
-			arrange: func(t *testing.T, st *fixture, recipient string) {
+			arrange: func(t *testing.T, st *fixture, recipient uuid.UUID) {
 				sendNudgeMail(t, st, recipient, time.Hour)
 				claimNudge(t, st, recipient)
 				require.NoError(t, st.ClearNudge(t.Context(), recipient))
@@ -959,14 +959,14 @@ func TestClaimNudge(t *testing.T) {
 		},
 		{
 			name: "mail from komrad rewritten since it was told",
-			arrange: func(t *testing.T, st *fixture, recipient string) {
+			arrange: func(t *testing.T, st *fixture, recipient uuid.UUID) {
 				upsert := func() {
 					_, err := st.UpsertFromKomrad(t.Context(), UpsertFromKomradParams{
 						FromName:  "komrad",
 						ToAgentID: recipient,
 						Body:      "pull request changed",
 						Kind:      KindPullRequestChanged,
-						SubjectID: "00000000-0000-0000-0000-0000000000aa",
+						SubjectID: uuid.New(),
 						Deadline:  time.Hour,
 					})
 					require.NoError(t, err)
@@ -979,7 +979,7 @@ func TestClaimNudge(t *testing.T) {
 		},
 		{
 			name: "mail told before the recipient launched again",
-			arrange: func(t *testing.T, st *fixture, recipient string) {
+			arrange: func(t *testing.T, st *fixture, recipient uuid.UUID) {
 				sendNudgeMail(t, st, recipient, time.Hour)
 				claimNudge(t, st, recipient)
 				agent, err := st.agents.GetByID(t.Context(), recipient)
@@ -1007,7 +1007,7 @@ func TestClaimNudge(t *testing.T) {
 	}
 }
 
-func claimNudge(t *testing.T, st *fixture, recipient string) {
+func claimNudge(t *testing.T, st *fixture, recipient uuid.UUID) {
 	t.Helper()
 
 	claimed, err := st.ClaimNudge(t.Context(), recipient)
@@ -1015,7 +1015,7 @@ func claimNudge(t *testing.T, st *fixture, recipient string) {
 	require.True(t, claimed)
 }
 
-func sendNudgeMail(t *testing.T, st *fixture, recipient string, deadline time.Duration) {
+func sendNudgeMail(t *testing.T, st *fixture, recipient uuid.UUID, deadline time.Duration) {
 	t.Helper()
 
 	_, err := st.Send(t.Context(), SendParams{

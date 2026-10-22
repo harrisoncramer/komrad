@@ -13,8 +13,8 @@ import (
 	"komrad/internal/harness"
 	"komrad/lib/xhttp"
 
-	"github.com/google/uuid"
 	"github.com/coder/websocket"
+	"github.com/google/uuid"
 )
 
 const minVersion = "0.149.0"

@@ -379,7 +379,7 @@ func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 // TestMCPHeadersOnlyWithAnEndpoint covers a launch with no server to register, where no
 // override is written rather than one pointing at nothing.
 func TestMCPHeadersOnlyWithAnEndpoint(t *testing.T) {
-	command, err := NewHarness(NewHarnessParams{CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{AgentID: "agent-1"})
+	command, err := NewHarness(NewHarnessParams{CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{AgentID: firstAgentID})
 	require.NoError(t, err)
 
 	assert.NotContains(t, command, "env_http_headers")
