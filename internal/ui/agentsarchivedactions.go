@@ -115,7 +115,7 @@ func (a *archivedAgents) HoveredAgentID(in screen.Inputs) string {
 	return agent.ID
 }
 
-// Resting is no agent, since an archived agent waits on a restore before it can resume.
+// Resting is never an agent on the archive.
 func (a *archivedAgents) Resting(screen.Inputs) (panel.AgentRow, bool) {
 	return panel.AgentRow{}, false
 }
