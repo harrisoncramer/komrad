@@ -228,7 +228,7 @@ func (c *statusCheckLogsScreen) listActions() keys.Spec[*model] {
 				ID:   actionStatusCheckLogsBack,
 				Keys: keys.FixedBack,
 				Nav: func(m *model, _ string) tea.Cmd {
-					return m.apply(screen.Open{Screen: screen.StatusChecks, Target: screen.Target{}})
+					return m.apply(screen.Open{Screen: screen.StatusChecks})
 				},
 			},
 		),
