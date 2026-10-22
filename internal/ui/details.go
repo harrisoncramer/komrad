@@ -53,12 +53,6 @@ func (m *model) hoveredDetails() details {
 	return d.details(m)
 }
 
-func (m *model) isDetailsScreen() bool {
-	_, ok := m.active().(recordRenderer)
-
-	return ok
-}
-
 // detailsRows is the record's fields as its search leaves them.
 func (m *model) detailsRows(held details) []detailsRow {
 	rows := make([]detailsRow, 0, len(held.fields))

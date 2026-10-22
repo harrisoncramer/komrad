@@ -480,6 +480,7 @@ linters:
               - Fixed.Editor
             dispatchers:
               - komrad/internal/ui/keys.Spec.Dispatch
+              - komrad/internal/ui.model.routeGlobalKey
               - komrad/internal/ui.model.updateDoc
               - komrad/internal/ui.model.updateSubmenu
             inputs:
