@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"komrad/config"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/reader"
@@ -18,7 +19,7 @@ import (
 type docReader struct {
 	reader.Reader
 	// filter is the pattern the user searches the document for.
-	filter filterState
+	filter filter.State
 	// origin is the row the cursor was on when the search opened.
 	origin int
 	// said is what the last key on the document said.
@@ -155,12 +156,12 @@ func (m *model) updateDocFilter(key tea.KeyPressMsg) tea.Cmd {
 	}
 
 	r := &m.reading
-	if !r.filter.takeKey(key, m.register) {
+	if !r.filter.TakeKey(key, m.register) {
 		return nil
 	}
 
-	if !r.filter.isSettled() {
-		return r.filter.settleCmd(m.clock, func(query string) tea.Msg { return docFilterSettledMsg{query: query} })
+	if !r.filter.IsSettled() {
+		return r.filter.SettleCmd(m.clock, func(query string) tea.Msg { return docFilterSettledMsg{query: query} })
 	}
 
 	m.findDocMatch()
@@ -173,14 +174,14 @@ type docFilterSettledMsg struct {
 }
 
 func (m *model) applyDocFilterSettled(msg docFilterSettledMsg) {
-	if m.reading.filter.settle(msg.query) {
+	if m.reading.filter.Settle(msg.query) {
 		m.findDocMatch()
 	}
 }
 
 func (m *model) findDocMatch() {
 	r := &m.reading
-	if !r.filter.isSearched() {
+	if !r.filter.IsSearched() {
 		m.moveDocTo(r.origin)
 
 		return
@@ -191,7 +192,7 @@ func (m *model) findDocMatch() {
 		return
 	}
 
-	if line, found := reader.From(reader.Matches(r.filter.matcher, rows), r.origin); found {
+	if line, found := reader.From(reader.Matches(r.filter.Matcher, rows), r.origin); found {
 		m.moveDocTo(line)
 	}
 }
@@ -204,10 +205,10 @@ func (m *model) jumpDocMatch(pressed string) {
 		return
 	}
 
-	line, found := reader.Jump(reader.Matches(r.filter.matcher, rows), r.Line, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
+	line, found := reader.Jump(reader.Matches(r.filter.Matcher, rows), r.Line, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
 	if !found {
 		r.said = "nothing to search for yet"
-		if r.filter.isSearched() {
+		if r.filter.IsSearched() {
 			r.said = "no matches"
 		}
 		m.moveDocTo(r.Line)
@@ -295,10 +296,10 @@ func (m *model) docActions() keys.Spec[*model] {
 			},
 			{
 				ID:   keys.FilterOpen,
-				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				Keys: func(config.Keybindings) []string { return []string{filter.OpenKey} },
 				Nav: func(*model, string) screen.Request {
 					m.settleTail()
-					m.reading.filter.open(m.docSearchOptions()...)
+					m.reading.filter.Open(m.docSearchOptions()...)
 					m.reading.origin = m.reading.Line
 
 					return nil
@@ -375,8 +376,8 @@ func (m *model) clickDocLine(key string) tea.Cmd {
 
 // docSearchOptions is how long the search over the document waits for the typing to stop and the
 // shortest pattern it runs.
-func (m *model) docSearchOptions() []filterOption {
+func (m *model) docSearchOptions() []filter.Option {
 	spec := m.columnOf(m.inputs())
 
-	return []filterOption{withDebounce(spec.SearchDebounce), withMinLength(spec.SearchMinLength)}
+	return []filter.Option{filter.WithDebounce(spec.SearchDebounce), filter.WithMinLength(spec.SearchMinLength)}
 }

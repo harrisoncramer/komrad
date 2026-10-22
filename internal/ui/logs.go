@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/logview"
@@ -67,7 +68,7 @@ type logsScreen struct {
 	// logFocus says the picker handed the keys to the log.
 	logFocus bool
 	// logFilter is the pattern typed at the foot of the log, and pattern is the one the block was read with.
-	logFilter filterState
+	logFilter filter.State
 	pattern   string
 	edits     int
 	replacing bool
@@ -284,7 +285,7 @@ func (l *logsScreen) switchSource(in screen.Inputs) screen.Request {
 	}
 
 	l.reading, l.logFocus = row.source, false
-	l.logFilter, l.pattern = filterState{}, ""
+	l.logFilter, l.pattern = filter.State{}, ""
 	l.applyFormat(row)
 
 	return screen.Batch{screen.Cmd(l.restart()), l.markFailedRunRead(row)}
@@ -320,9 +321,9 @@ func (l *logsScreen) reread() tea.Cmd {
 
 // openLogFilter hands the keys to the prompt at the foot of the log.
 func (l *logsScreen) openLogFilter() {
-	l.logFilter.typing = true
-	l.logFilter.input.Insert()
-	l.logFilter.mode = filterModeFilter
+	l.logFilter.Typing = true
+	l.logFilter.Input.Insert()
+	l.logFilter.Mode = filter.ModeFilter
 }
 
 // updateLogFilter is the prompt at the foot of the log taking keys, reading the log over once the
@@ -332,11 +333,11 @@ func (l *logsScreen) updateLogFilter(key tea.KeyPressMsg) screen.Request {
 		return screen.Hide{}
 	}
 
-	if !l.logFilter.takeKey(key, l.deps.register) {
+	if !l.logFilter.TakeKey(key, l.deps.register) {
 		return nil
 	}
-	l.logFilter.mode = filterModeFilter
-	if !l.logFilter.typing {
+	l.logFilter.Mode = filter.ModeFilter
+	if !l.logFilter.Typing {
 		return l.narrow()
 	}
 
@@ -356,13 +357,13 @@ func (l *logsScreen) applySettled(msg logsSettledMsg) screen.Request {
 
 // narrow reads the log over with the pattern typed, unless it is broken or already the one read with.
 func (l *logsScreen) narrow() screen.Request {
-	if l.logFilter.broken {
+	if l.logFilter.Broken {
 		return nil
 	}
 
 	pattern := ""
-	if l.logFilter.matcher != nil {
-		pattern = l.logFilter.matcher.String()
+	if l.logFilter.Matcher != nil {
+		pattern = l.logFilter.Matcher.String()
 	}
 	if pattern == l.pattern {
 		return nil
@@ -375,8 +376,8 @@ func (l *logsScreen) narrow() screen.Request {
 
 // clearLogFilter drops the pattern standing over the log and reads it whole again.
 func (l *logsScreen) clearLogFilter() screen.Request {
-	l.logFilter.abandon()
-	l.logFilter.mode = filterModeFilter
+	l.logFilter.Abandon()
+	l.logFilter.Mode = filter.ModeFilter
 
 	return l.narrow()
 }
@@ -387,7 +388,7 @@ func (l *logsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 		return nil
 	}
 
-	if l.logFilter.typing {
+	if l.logFilter.Typing {
 		return l.updateLogFilter(key)
 	}
 
@@ -506,7 +507,7 @@ func (l *logsScreen) TakesEveryKey() bool {
 }
 
 func (l *logsScreen) IsSearchTyping() bool {
-	return l.logFilter.typing
+	return l.logFilter.Typing
 }
 
 func (l *logsScreen) Column(in screen.Inputs) column.Spec {
@@ -533,7 +534,7 @@ func (l *logsScreen) IsBlockFocused(in screen.Inputs) bool {
 		return false
 	}
 
-	if in.Room.Split.On && l.logFilter.isStanding() {
+	if in.Room.Split.On && l.logFilter.IsStanding() {
 		return true
 	}
 
@@ -588,7 +589,7 @@ func (l *logsScreen) ActiveList() keyedList {
 }
 
 func (l *logsScreen) TypedLine() (field.Line, bool) {
-	return l.logFilter.input, l.logFilter.typing
+	return l.logFilter.Input, l.logFilter.Typing
 }
 
 func (l *logsScreen) Dispatches() []keys.Table {

@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
@@ -80,7 +81,7 @@ func (l *logsScreen) logActions(in screen.Inputs) keys.Spec[*logsScreen] {
 			},
 			{
 				ID:   keys.FilterOpen,
-				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				Keys: func(config.Keybindings) []string { return []string{filter.OpenKey} },
 				Nav: func(*logsScreen, string) screen.Request {
 					l.openLogFilter()
 
@@ -91,7 +92,7 @@ func (l *logsScreen) logActions(in screen.Inputs) keys.Spec[*logsScreen] {
 				ID:   actionLogsBack,
 				Keys: keys.FixedBack,
 				Nav: func(*logsScreen, string) screen.Request {
-					if l.logFilter.isStanding() {
+					if l.logFilter.IsStanding() {
 						return l.clearLogFilter()
 					}
 
@@ -122,7 +123,7 @@ func (l *logsScreen) logActions(in screen.Inputs) keys.Spec[*logsScreen] {
 			{
 				Of: []keys.ID{actionLogsBack},
 				Desc: func(*logsScreen) string {
-					if l.logFilter.isStanding() {
+					if l.logFilter.IsStanding() {
 						return "clear filter"
 					}
 

@@ -6,6 +6,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
 	"komrad/internal/vim"
@@ -28,7 +29,7 @@ type diffKeys struct {
 	keys     config.Keybindings
 	register *vim.Register
 	pane     *diffview.Pane
-	filter   *filterState
+	filter   *filter.State
 	// window is the size the panel renders the pane at.
 	window func(screen.Inputs) diffview.Window
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
@@ -56,9 +57,9 @@ func diffTable[S any](k diffKeys, in screen.Inputs) []keys.Action[S] {
 		},
 		{
 			ID:   keys.FilterOpen,
-			Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+			Keys: func(config.Keybindings) []string { return []string{filter.OpenKey} },
 			Nav: func(S, string) screen.Request {
-				k.filter.open()
+				k.filter.Open()
 				k.search(in)
 
 				return nil
@@ -203,7 +204,7 @@ func (k diffKeys) updateFilter(in screen.Inputs, key tea.KeyPressMsg) screen.Req
 		return screen.Hide{}
 	}
 
-	if k.filter.takeKey(key, k.register) {
+	if k.filter.TakeKey(key, k.register) {
 		k.search(in)
 	}
 
@@ -216,7 +217,7 @@ func (k diffKeys) search(in screen.Inputs) {
 		return
 	}
 
-	k.pane.Search(k.filter.matcher, k.window(in))
+	k.pane.Search(k.filter.Matcher, k.window(in))
 }
 
 // jumpMatch steps to the next or previous line the search found, wrapping at the ends.
@@ -224,7 +225,7 @@ func (k diffKeys) jumpMatch(in screen.Inputs, direction int) screen.Request {
 	moved, found := k.pane.JumpMatch(direction, k.window(in))
 	if !found {
 		said := "nothing to search for yet"
-		if k.filter.isStanding() {
+		if k.filter.IsStanding() {
 			said = "no matches"
 		}
 

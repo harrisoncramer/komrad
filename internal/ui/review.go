@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/editor"
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -65,7 +66,7 @@ type reviewScreen struct {
 	openDescription bool
 
 	// filesFilter is the pattern the file tree is searched or narrowed by.
-	filesFilter filterState
+	filesFilter filter.State
 
 	// closedFolders is the folders of the file tree whose files are hidden, by path.
 	closedFolders map[string]bool
@@ -101,7 +102,7 @@ func (r reviewScreen) TakesEveryKey() bool {
 }
 
 func (r reviewScreen) IsSearchTyping() bool {
-	return r.diff.filter.typing || r.filesFilter.typing
+	return r.diff.filter.Typing || r.filesFilter.Typing
 }
 
 // isWriting reports whether the reader is composing a message.
@@ -178,11 +179,11 @@ func (r *reviewScreen) DoesRenderFromListing() bool {
 }
 
 func (r reviewScreen) TypedLine() (field.Line, bool) {
-	if r.filesFilter.typing {
-		return r.filesFilter.input, true
+	if r.filesFilter.Typing {
+		return r.filesFilter.Input, true
 	}
 
-	return r.diff.filter.input, r.diff.filter.typing
+	return r.diff.filter.Input, r.diff.filter.Typing
 }
 
 func (r *reviewScreen) Dispatches() []keys.Table {

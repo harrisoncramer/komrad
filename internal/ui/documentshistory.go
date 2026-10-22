@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/internal/diff"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,7 +25,7 @@ type documentHistory struct {
 	pane     diffview.Pane
 	rendered renderedChange
 	// filter is the pattern the user searches the diff for.
-	filter filterState
+	filter filter.State
 }
 
 // historyVersion is one write kept of a document: which it is, the name it had and who made it where
@@ -150,7 +151,7 @@ func (h *documentHistory) keepDiff(isDark bool) {
 
 	view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before.body, after.body)}}, isDark)
 	view.SetHeadless(true)
-	view.SetPattern(h.filter.matcher)
+	view.SetPattern(h.filter.Matcher)
 	h.pane, h.rendered = diffview.NewPane(view), rendered
 }
 

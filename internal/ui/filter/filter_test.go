@@ -1,9 +1,10 @@
-package ui
+package filter_test
 
 import (
 	"testing"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 
@@ -60,35 +61,35 @@ func TestFilterQuery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var filter filterState
-			filter.setQuery(tt.query)
+			var state filter.State
+			state.SetQuery(tt.query)
 
-			assert.Equal(t, tt.wantMatch, filter.pattern().DoesMatch(tt.row))
-			assert.Equal(t, tt.wantBroken, filter.broken)
+			assert.Equal(t, tt.wantMatch, state.Pattern().DoesMatch(tt.row))
+			assert.Equal(t, tt.wantBroken, state.Broken)
 		})
 	}
 }
 
 // TestFilterLine covers the colour of the glyph opening the filter line.
 func TestFilterLine(t *testing.T) {
-	var standing filterState
-	standing.setQuery("pay")
+	var standing filter.State
+	standing.SetQuery("pay")
 
 	tests := []struct {
 		name       string
-		filter     filterState
+		filter     filter.State
 		want       string
 		wantAbsent string
 	}{
 		{
 			name:       "an idle line is dim",
-			filter:     filterState{},
+			filter:     filter.State{},
 			want:       paint.Panel.Style(paint.ToneMuted).Render("/"),
 			wantAbsent: paint.Panel.Cursor().Render("/"),
 		},
 		{
 			name:   "an open input takes the accent",
-			filter: filterState{typing: true},
+			filter: filter.State{Typing: true},
 			want:   paint.Panel.Cursor().Render("/"),
 		},
 		{
@@ -98,9 +99,9 @@ func TestFilterLine(t *testing.T) {
 		},
 		{
 			name: "the funnel takes the cursor's colour like the slash",
-			filter: filterState{
-				typing: true,
-				mode:   filterModeFilter,
+			filter: filter.State{
+				Typing: true,
+				Mode:   filter.ModeFilter,
 			},
 			want:       paint.Panel.Cursor().Render("▽"),
 			wantAbsent: paint.Panel.Match().Render("▽"),
@@ -109,7 +110,7 @@ func TestFilterLine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			line := tt.filter.line(glyph.Defaults())
+			line := tt.filter.Line(glyph.Defaults())
 
 			assert.Contains(t, line, tt.want)
 			if tt.wantAbsent != "" {
@@ -119,37 +120,11 @@ func TestFilterLine(t *testing.T) {
 	}
 }
 
-// TestFilterHelpNamesTheOtherMode covers the legend naming what tab switches to.
-func TestFilterHelpNamesTheOtherMode(t *testing.T) {
-	tests := []struct {
-		name string
-		mode filterMode
-		want string
-	}{
-		{
-			name: "a search offers the filter",
-			mode: filterModeSearch,
-			want: "filter instead",
-		},
-		{
-			name: "a filter offers the search",
-			mode: filterModeFilter,
-			want: "search instead",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, filterHelp(tt.mode).Short[1].Help().Desc)
-		})
-	}
-}
-
 // TestReviewSearchIgnoresTab covers the review search having no mode for tab to flip.
 func TestReviewSearchIgnoresTab(t *testing.T) {
-	filter := filterState{typing: true}
+	state := filter.State{Typing: true}
 
-	assert.False(t, filter.takeKey(keys.Press("tab"), nil))
-	assert.Equal(t, filterModeSearch, filter.mode)
-	assert.Equal(t, "/", filter.mode.glyph(glyph.Defaults()))
+	assert.False(t, state.TakeKey(keys.Press("tab"), nil))
+	assert.Equal(t, filter.ModeSearch, state.Mode)
+	assert.Equal(t, "/", state.Mode.Glyph(glyph.Defaults()))
 }

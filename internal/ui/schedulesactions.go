@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
 )
@@ -18,7 +19,7 @@ func (w *schedulesScreen) actions(in screen.Inputs) keys.Spec[*schedulesScreen] 
 		Table: append([]keys.Action[*schedulesScreen]{
 			{
 				ID:   keys.FilterOpen,
-				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				Keys: func(config.Keybindings) []string { return []string{filter.OpenKey} },
 				Nav:  func(*schedulesScreen, string) screen.Request { return screen.BeginFilter{} },
 			},
 			{

@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/internal/errui"
-	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/list"
 
@@ -29,38 +27,6 @@ type queryGrammarer interface {
 	QueryGrammar() (list.Grammar, bool)
 }
 
-// saidState is the rows the server found saying the text of a says: qualifier.
-type saidState struct {
-	text    string
-	hits    map[string][]list.SaidHit
-	problem string
-	waiting bool
-	queued  bool
-}
-
-// askSaid notes a says: qualifier whose text changed, for the model to send to the server.
-func (f *filterState) askSaid() {
-	text := ""
-	for _, clause := range f.qualifiers.clauses {
-		if clause.Key == searchsyntax.KeySays {
-			text = clause.Value
-		}
-	}
-	if text == f.qualifiers.said.text {
-		if f.qualifiers.said.problem != "" {
-			f.fail(f.qualifiers.said.problem)
-		}
-
-		return
-	}
-
-	f.qualifiers.said = saidState{
-		text:    text,
-		waiting: text != "",
-		queued:  text != "",
-	}
-}
-
 type saysSettledMsg struct {
 	text string
 }
@@ -73,20 +39,18 @@ type saysFoundMsg struct {
 
 // saysCmd waits out the typing before a changed says: qualifier is sent.
 func (m *model) saysCmd() tea.Cmd {
-	said := &m.filter.qualifiers.said
-	if !said.queued {
+	text, queued := m.filter.TakeQueuedSaid()
+	if !queued {
 		return nil
 	}
-	said.queued = false
-	text := said.text
 
 	return m.clock.After(saysWait, func(time.Time) tea.Msg { return saysSettledMsg{text: text} })
 }
 
 func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
-	said := m.filter.qualifiers.said
-	grammar := m.filter.qualifiers.grammar
-	if msg.text != said.text || !said.waiting || grammar == nil {
+	said := m.filter.Pattern().Said
+	grammar, reads := m.filter.Grammar()
+	if msg.text != said.Text || !said.Waiting || !reads {
 		return nil
 	}
 
@@ -106,25 +70,18 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 }
 
 func (m *model) applySaysFound(msg saysFoundMsg) {
-	filter := &m.filter
-	if msg.text != filter.qualifiers.said.text {
+	search := &m.filter
+	if !search.FindSaid(msg.text, msg.hits, msg.err) {
 		return
 	}
 
-	filter.qualifiers.said.waiting = false
-	if msg.err != nil {
-		filter.qualifiers.said.problem = errui.GetReason(msg.err)
-		filter.fail(filter.qualifiers.said.problem)
-	} else {
-		filter.qualifiers.said.hits = msg.hits
-	}
 	m.reconcileSolo()
-	if filter.typing {
+	if search.Typing {
 		return
 	}
 
 	hovered := m.hoveredFilterKey()
-	if hovered != filter.appliedAt && (!filter.pattern().IsNarrowing() || m.isFilterRowShown(hovered)) {
+	if hovered != search.AppliedAt && (!search.Pattern().IsNarrowing() || m.isFilterRowShown(hovered)) {
 		return
 	}
 

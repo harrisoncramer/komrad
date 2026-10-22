@@ -66,7 +66,7 @@ func (m *model) listChrome(params list.Params) (string, string) {
 func (m *model) screenListView(params list.Params) string {
 	header, below := m.listChrome(params)
 
-	if params.Rows == 0 && (params.Empty != "" || m.filter.pattern().DoesNarrow(list.SectionList)) {
+	if params.Rows == 0 && (params.Empty != "" || m.filter.Pattern().DoesNarrow(list.SectionList)) {
 		return m.headedListView(header, []string{paint.Panel.Style(paint.ToneMuted).Render(m.emptyListLine(params.Empty))}, 0, below)
 	}
 
@@ -106,7 +106,7 @@ func (m *model) headerLines(title, tally, tabs string) string {
 		header += "\n"
 	}
 
-	return m.viewsBar() + header + tabs + m.markSearch(zone.SearchList, m.paneWidth(), m.filter.line(m.glyphs)) + "\n\n"
+	return m.viewsBar() + header + tabs + m.markSearch(zone.SearchList, m.paneWidth(), m.filter.Line(m.glyphs)) + "\n\n"
 }
 
 // headedListView renders a list under its header, padded out to the record and the legend under it.
@@ -118,7 +118,7 @@ func (m *model) headedListView(header string, rows []string, cursor int, help st
 
 // emptyListLine is what a screen says over no rows.
 func (m *model) emptyListLine(idle string) string {
-	return emptyLineOf(m.filter.pattern(), idle)
+	return emptyLineOf(m.filter.Pattern(), idle)
 }
 
 // emptyLineOf is what a list says over no rows, under the search standing in it.

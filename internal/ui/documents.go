@@ -142,7 +142,7 @@ func (d *documentsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 		return nil
 	}
 
-	if d.kind != documentKindTypes && d.history != nil && d.history.filter.typing {
+	if d.kind != documentKindTypes && d.history != nil && d.history.filter.Typing {
 		return d.diffKeys().updateFilter(in, key)
 	}
 
@@ -542,7 +542,7 @@ func (d *documentsScreen) TakesEveryKey() bool {
 }
 
 func (d *documentsScreen) IsSearchTyping() bool {
-	return d.history != nil && d.history.filter.typing
+	return d.history != nil && d.history.filter.Typing
 }
 
 func (d *documentsScreen) Column(in screen.Inputs) column.Spec {

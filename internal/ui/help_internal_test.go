@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
 
@@ -85,6 +86,32 @@ func TestEveryActionHasALegendRow(t *testing.T) {
 			for id, reason := range tt.excused {
 				assert.Contains(t, unnamed, id, "%s names or no longer answers action %d, so its excuse can go: %s", tt.screen, id, reason)
 			}
+		})
+	}
+}
+
+// TestFilterHelpNamesTheOtherMode covers the legend naming what tab switches to.
+func TestFilterHelpNamesTheOtherMode(t *testing.T) {
+	tests := []struct {
+		name string
+		mode filter.Mode
+		want string
+	}{
+		{
+			name: "a search offers the filter",
+			mode: filter.ModeSearch,
+			want: "filter instead",
+		},
+		{
+			name: "a filter offers the search",
+			mode: filter.ModeFilter,
+			want: "search instead",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, filterHelp(tt.mode).Short[1].Help().Desc)
 		})
 	}
 }

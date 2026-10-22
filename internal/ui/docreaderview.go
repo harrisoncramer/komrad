@@ -14,16 +14,16 @@ import (
 // the last key said.
 func (m *model) docHead(in screen.Inputs, rows []string, width int) []string {
 	r := m.reading
-	if !in.Room.Doc.Focused && !r.filter.typing && !r.filter.isStanding() {
+	if !in.Room.Doc.Focused && !r.filter.Typing && !r.filter.IsStanding() {
 		return nil
 	}
 
 	count := ""
-	if r.filter.isSearched() {
-		count = paint.Panel.Style(paint.ToneMuted).Render("  " + reader.Count(reader.Matches(r.filter.matcher, rows), r.Line))
+	if r.filter.IsSearched() {
+		count = paint.Panel.Style(paint.ToneMuted).Render("  " + reader.Count(reader.Matches(r.filter.Matcher, rows), r.Line))
 	}
 
-	return r.filter.head(headParams{glyphs: m.glyphs, marks: in.Room.Marks, count: count, said: r.said, width: width})
+	return filterHead(r.filter, filterHeadParams{glyphs: m.glyphs, marks: in.Room.Marks, count: count, said: r.said, width: width})
 }
 
 // docBlock is the document at the width of the block beside the list, under the search over it,
@@ -37,7 +37,7 @@ func (m *model) docBlock(in screen.Inputs, split column.Split) []string {
 	focused := in.Room.Doc.Focused
 	rendered := make([]string, len(rows))
 	for i, row := range rows {
-		rendered[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.matcher, row))
+		rendered[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.Matcher, row))
 		if focused && i == r.Line {
 			rendered[i] = paint.Panel.PaintRow(rendered[i], split.Column)
 		}

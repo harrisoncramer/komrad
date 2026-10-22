@@ -43,7 +43,7 @@ func (m *model) detailsView() string {
 
 	pane := m.paneWidth()
 	body := paint.Panel.Style(paint.ToneMuted).Render("  nothing matches")
-	if fields := m.detailsRows(held); len(fields) > 0 || !m.filter.pattern().DoesNarrow(list.SectionRecord) {
+	if fields := m.detailsRows(held); len(fields) > 0 || !m.filter.Pattern().DoesNarrow(list.SectionRecord) {
 		snapshot := m.detailsSnapshot(fields, m.detailsCursor(held), pane)
 		body = view.Window(view.WindowParams{
 			List:    list.Prepare(m.glyphs, snapshot),
@@ -159,7 +159,7 @@ func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snap
 				Kind:     view.KindResult,
 				Lead:     padRight(row.field.Label, labels),
 				Name:     row.field.Value,
-				Matches:  list.Matches(m.filter.matcher, row.field.Value),
+				Matches:  list.Matches(m.filter.Matcher, row.field.Value),
 				Process:  view.ProcessNone,
 				Tail:     row.field.Tail,
 				Selected: m.details.flashed > 0 && row.id == flashed,

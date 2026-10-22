@@ -84,7 +84,7 @@ func (r reviewScreen) readOpenFilesTree() filesTree {
 	}
 
 	path := view.GetTreeFocus(r.diff.Cursor())
-	tree.rows = list.Narrowed(r.filesFilter.pattern(), list.NarrowedParams[diffview.TreeRow]{
+	tree.rows = list.Narrowed(r.filesFilter.Pattern(), list.NarrowedParams[diffview.TreeRow]{
 		Rows:  view.GetFileTree(),
 		Depth: func(row diffview.TreeRow) int { return row.Depth },
 		Name:  func(row diffview.TreeRow) string { return row.Name },
@@ -197,7 +197,7 @@ func (r *reviewScreen) BlurBlock() {
 func (r *reviewScreen) stepFile(in screen.Inputs, direction int) screen.Request {
 	r.side = nil
 	keys := r.diffKeys()
-	if !r.filesFilter.pattern().IsNarrowing() && len(r.closedFolders) == 0 {
+	if !r.filesFilter.Pattern().IsNarrowing() && len(r.closedFolders) == 0 {
 		if !keys.pane.JumpFile(direction, keys.window(in)) {
 			return nil
 		}
@@ -335,28 +335,28 @@ func (r *reviewScreen) ClickFile(in screen.Inputs, path string) screen.Request {
 }
 
 func (r *reviewScreen) openFilesFilter() {
-	filter := &r.filesFilter
-	filter.open()
-	filter.openedIn = list.SectionList
+	search := &r.filesFilter
+	search.Open()
+	search.OpenedIn = list.SectionList
 }
 
 // updateFilesFilter is the tree's search prompt taking keys.
 func (r *reviewScreen) updateFilesFilter(in screen.Inputs, key tea.KeyPressMsg) screen.Request {
-	filter := &r.filesFilter
+	search := &r.filesFilter
 	switch key.String() {
 	case "ctrl+c":
 		return screen.Hide{}
 	case "tab":
-		filter.mode = filter.mode.flipped()
+		search.Mode = search.Mode.Flipped()
 
 		return nil
 	case "enter":
-		filter.typing = false
+		search.Typing = false
 
 		return r.settleFilesFilter(in)
 	}
 
-	filter.takeKey(key, r.deps.register)
+	search.TakeKey(key, r.deps.register)
 
 	return nil
 }
@@ -364,7 +364,7 @@ func (r *reviewScreen) updateFilesFilter(in screen.Inputs, key tea.KeyPressMsg) 
 // settleFilesFilter lands a search on the nearest file it matches, and a filter on the first file
 // it left when it took the current one away.
 func (r *reviewScreen) settleFilesFilter(in screen.Inputs) screen.Request {
-	if !r.filesFilter.pattern().IsNarrowing() {
+	if !r.filesFilter.Pattern().IsNarrowing() {
 		return r.jumpFilesMatch(in, 0)
 	}
 
@@ -389,7 +389,7 @@ func (r *reviewScreen) settleFilesFilter(in screen.Inputs) screen.Request {
 func (r *reviewScreen) jumpFilesMatch(in screen.Inputs, direction int) screen.Request {
 	tree := r.readOpenFilesTree()
 	count := len(tree.rows)
-	if r.filesFilter.matcher == nil || count == 0 {
+	if r.filesFilter.Matcher == nil || count == 0 {
 		return nil
 	}
 
@@ -405,7 +405,7 @@ func (r *reviewScreen) jumpFilesMatch(in screen.Inputs, direction int) screen.Re
 	for offset := first; offset <= count; offset++ {
 		at := ((origin+walk*offset)%count + count) % count
 		row := tree.rows[at]
-		if row.Folder || !r.filesFilter.pattern().DoesMatch(row.Name) {
+		if row.Folder || !r.filesFilter.Pattern().DoesMatch(row.Name) {
 			continue
 		}
 

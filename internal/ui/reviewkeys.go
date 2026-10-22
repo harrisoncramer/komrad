@@ -30,11 +30,11 @@ func (r *reviewScreen) takeKey(in screen.Inputs, key tea.KeyPressMsg) (screen.Re
 		return r.updateComposer(in, key), true
 	}
 
-	if r.filesFilter.typing {
+	if r.filesFilter.Typing {
 		return r.updateFilesFilter(in, key), true
 	}
 
-	if r.diff.filter.typing {
+	if r.diff.filter.Typing {
 		return r.diffKeys().updateFilter(in, key), true
 	}
 
@@ -55,7 +55,7 @@ func (r *reviewScreen) takeKey(in screen.Inputs, key tea.KeyPressMsg) (screen.Re
 
 // PressPopup moves the conversation in the popup on a scroll key nothing ahead of the popup takes.
 func (r *reviewScreen) PressPopup(in screen.Inputs, chrome screen.Chrome, pressed string) (screen.Request, bool) {
-	if r.threads.composing || r.filesFilter.typing || r.diff.filter.typing || r.diff.View() == nil {
+	if r.threads.composing || r.filesFilter.Typing || r.diff.filter.Typing || r.diff.View() == nil {
 		return nil, false
 	}
 

@@ -7,6 +7,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/logread"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
@@ -90,11 +91,11 @@ func (l *logsScreen) block(in screen.Inputs, width int) []string {
 
 // logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
 func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
-	if l.logFilter.typing {
-		return l.logFilter.line(glyphs)
+	if l.logFilter.Typing {
+		return l.logFilter.Line(glyphs)
 	}
 
-	return paint.Panel.Style(paint.ToneMuted).Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query())
+	return paint.Panel.Style(paint.ToneMuted).Render(filter.ModeFilter.Glyph(glyphs) + " " + l.logFilter.Query())
 }
 
 // logRows is the lines of the log rendered in height rows, or what stands in for them.

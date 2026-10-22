@@ -153,6 +153,7 @@ linters:
             - "**/internal/ui/legend/**"
             - "**/internal/ui/tabs/**"
             - "**/internal/ui/record/**"
+            - "**/internal/ui/filter/**"
           deny:
             - pkg: komrad/internal/ui$
               desc: a shared package sits under the panel's screens, so it never reaches back up into the root

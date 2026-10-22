@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
@@ -194,7 +195,7 @@ func filterActions[S any, T list.Keyed](l screenList[T], in screen.Inputs) []key
 	return []keys.Action[S]{
 		{
 			ID:   keys.FilterOpen,
-			Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+			Keys: func(config.Keybindings) []string { return []string{filter.OpenKey} },
 			When: browsing,
 			Nav:  func(S, string) screen.Request { return screen.BeginFilter{} },
 		},
@@ -300,11 +301,11 @@ func (l screenList[T]) clearDesc() string {
 
 // filterDescOf names the filter key by the search standing in the list.
 func filterDescOf[S any](in screen.Inputs) func(S) string {
-	return func(S) string { return patternMode(in.Room.Pattern).openDesc(in.Room.Pattern.Typed) }
+	return func(S) string { return filter.PatternMode(in.Room.Pattern).OpenDesc(in.Room.Pattern.Typed) }
 }
 
 func filterClearDescOf[S any](in screen.Inputs) func(S) string {
-	return func(S) string { return patternMode(in.Room.Pattern).clearDesc() }
+	return func(S) string { return filter.PatternMode(in.Room.Pattern).ClearDesc() }
 }
 
 func (m *model) activeListParams(in screen.Inputs) (list.Params, bool) {

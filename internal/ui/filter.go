@@ -1,260 +1,15 @@
 package ui
 
 import (
-	"regexp"
 	"slices"
-	"strings"
-	"time"
-	"unicode/utf8"
 
-	"komrad/internal/errui"
-	"komrad/internal/glyph"
-	"komrad/internal/searchsyntax"
-	"komrad/internal/ui/field"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
-	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
 )
-
-// filterOpenKey opens the filter on every screen that renders one.
-const filterOpenKey = "/"
-
-// filterMode is what a pattern does to the rows it does not match.
-type filterMode int
-
-const (
-	filterModeSearch filterMode = iota
-	filterModeFilter
-)
-
-func (m filterMode) flipped() filterMode {
-	if m == filterModeFilter {
-		return filterModeSearch
-	}
-
-	return filterModeFilter
-}
-
-// glyph is the character the prompt opens with.
-func (m filterMode) glyph(glyphs glyph.Set) string {
-	if m == filterModeFilter {
-		return glyphs.Spell(glyph.Filter)
-	}
-
-	return "/"
-}
-
-func (m filterMode) String() string {
-	if m == filterModeFilter {
-		return "filter"
-	}
-
-	return "search"
-}
-
-type filterState struct {
-	typing  bool
-	input   field.Line
-	matcher *regexp.Regexp
-	broken  bool
-	mode    filterMode
-	// openedIn is the section the keys were in when the search opened.
-	openedIn list.Section
-	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
-	origin string
-	// appliedAt is the row the cursor sat on when the search was last applied.
-	appliedAt     string
-	debounce      time.Duration
-	minLength     int
-	compiledQuery string
-	problem       string
-	qualifiers    qualifierState
-}
-
-// qualifierState is the qualifiers a search reads and what the server found for its says: one.
-type qualifierState struct {
-	grammar *list.Grammar
-	// clock is what the grammar reads relative dates against.
-	clock      screen.Clock
-	clauses    []searchsyntax.Clause
-	compiledAt time.Time
-	said       saidState
-}
-
-// fail marks the search broken for the reason given.
-func (f *filterState) fail(reason string) {
-	f.broken, f.problem = true, reason
-}
-
-type filterOption func(*filterState)
-
-func withDebounce(wait time.Duration) filterOption {
-	return func(f *filterState) {
-		f.debounce = wait
-	}
-}
-
-func withGrammar(grammar list.Grammar, clock screen.Clock) filterOption {
-	return func(f *filterState) {
-		f.qualifiers.grammar, f.qualifiers.clock = &grammar, clock
-	}
-}
-
-func withMinLength(length int) filterOption {
-	return func(f *filterState) {
-		f.minLength = length
-	}
-}
-
-func (f filterState) query() string {
-	return f.input.Value()
-}
-
-func (f filterState) isStanding() bool {
-	return f.query() != ""
-}
-
-func (f filterState) pattern() list.Pattern {
-	return list.Pattern{
-		Typed:      f.query(),
-		Query:      f.compiledQuery,
-		Regexp:     f.matcher,
-		Broken:     f.broken,
-		Clauses:    f.qualifiers.clauses,
-		CompiledAt: f.qualifiers.compiledAt,
-		Filtering:  f.mode == filterModeFilter && !f.typing,
-		OpenedIn:   f.openedIn,
-		Said: list.Said{
-			Text:    f.qualifiers.said.text,
-			Hits:    f.qualifiers.said.hits,
-			Waiting: f.qualifiers.said.waiting,
-		},
-	}
-}
-
-// openDesc names the key that opens the search by the pattern standing.
-func (f filterState) openDesc() string {
-	return f.mode.openDesc(f.query())
-}
-
-func (f filterState) clearDesc() string {
-	return f.mode.clearDesc()
-}
-
-func (m filterMode) openDesc(query string) string {
-	if query != "" {
-		return m.String() + ": " + query
-	}
-
-	return "search"
-}
-
-func (m filterMode) clearDesc() string {
-	return "clear " + m.String()
-}
-
-// patternMode is the mode a pattern was compiled under, read while the search is not being typed.
-func patternMode(p list.Pattern) filterMode {
-	if p.Filtering {
-		return filterModeFilter
-	}
-
-	return filterModeSearch
-}
-
-func (f *filterState) setQuery(query string) {
-	f.input.Set(query)
-	f.compile()
-}
-
-func (f *filterState) open(opts ...filterOption) {
-	f.typing = true
-	query := f.query()
-	if query == "" {
-		f.mode = filterModeSearch
-	}
-	f.debounce, f.minLength, f.qualifiers.grammar = 0, 0, nil
-	for _, opt := range opts {
-		opt(f)
-	}
-	f.setQuery(query)
-}
-
-func (f filterState) isTooShort() bool {
-	query := f.query()
-
-	return strings.TrimSpace(query) == "" || utf8.RuneCountInString(query) < f.minLength
-}
-
-func (f filterState) isSearched() bool {
-	return f.pattern().HasQuery() || f.broken
-}
-
-func (f filterState) isSettled() bool {
-	return f.compiledQuery == f.query()
-}
-
-func (f filterState) settleCmd(clock screen.Clock, settled func(query string) tea.Msg) tea.Cmd {
-	query := f.query()
-
-	return clock.After(f.debounce, func(time.Time) tea.Msg {
-		return settled(query)
-	})
-}
-
-func (f *filterState) settle(query string) bool {
-	if query != f.query() || f.isSettled() {
-		return false
-	}
-
-	f.compile()
-
-	return true
-}
-
-// compile reads the pattern out of what the user typed.
-func (f *filterState) compile() {
-	query := f.query()
-	f.matcher, f.broken, f.compiledQuery = nil, false, query
-	f.problem, f.qualifiers.clauses = "", nil
-	defer f.askSaid()
-
-	if f.isTooShort() {
-		return
-	}
-
-	expr := query
-	if f.qualifiers.grammar != nil {
-		f.qualifiers.compiledAt = f.qualifiers.clock.Now()
-		parsed, err := f.qualifiers.grammar.Parse(query, f.qualifiers.compiledAt)
-		if err != nil {
-			f.fail(errui.GetReason(err))
-
-			return
-		}
-
-		f.qualifiers.clauses, expr = parsed.Clauses, parsed.Text()
-		if expr == "" {
-			return
-		}
-	}
-
-	if strings.ToLower(expr) == expr {
-		expr = "(?i)" + expr
-	}
-
-	pattern, err := regexp.Compile(expr)
-	if err != nil {
-		f.broken = true
-
-		return
-	}
-
-	f.matcher = pattern
-}
 
 // filteredRows is every row the search can land on in the pane holding the keys, and false on a
 // screen that renders no filter.
@@ -284,17 +39,17 @@ func (m *model) filteredList() (keyedList, bool) {
 func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
-	var opts []filterOption
+	var opts []filter.Option
 	if screen, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused(m.inputs()) {
 		if grammar, reads := screen.QueryGrammar(); reads {
-			opts = append(opts, withGrammar(grammar, m.clock))
+			opts = append(opts, filter.WithGrammar(grammar, m.clock))
 		}
 	}
 
-	filter := &m.filter
-	filter.open(opts...)
-	filter.openedIn = m.keyholder(m.inputs())
-	filter.origin = origin
+	search := &m.filter
+	search.Open(opts...)
+	search.OpenedIn = m.keyholder(m.inputs())
+	search.Origin = origin
 	m.placeFilteredCursor(origin)
 }
 
@@ -308,7 +63,7 @@ func (m *model) enterScreen(next screen.ID) tea.Cmd {
 	var left tea.Cmd
 	if m.screen != next {
 		left = m.leaveScreen()
-		m.filter = filterState{}
+		m.filter = filter.State{}
 	}
 
 	m.screen = next
@@ -335,41 +90,13 @@ func (m *model) leaveScreen() tea.Cmd {
 	return nil
 }
 
-// takeKey applies one keypress to a search being typed at, with vim reading it first when
-// register is set, and reports whether it was one of the search's.
-func (f *filterState) takeKey(key tea.KeyPressMsg, register *vim.Register) bool {
-	switch f.input.Take(key, register) {
-	case field.LineLeft:
-		f.abandon()
-	case field.LineEntered:
-		f.typing = false
-		f.compile()
-	case field.LineChanged:
-		if f.debounce == 0 || f.isTooShort() {
-			f.compile()
-		}
-	case field.LineIgnored:
-		return false
-	case field.LineKept:
-	}
-
-	return true
-}
-
-// abandon drops the search and the row it was going to leave you on.
-func (f *filterState) abandon() {
-	f.typing = false
-	f.mode = filterModeSearch
-	f.setQuery("")
-}
-
 // clearFilter drops a standing search and puts the cursor back where the search opened, unless
 // the keys have since moved to the other section.
 func (m *model) clearFilter() {
-	filter := &m.filter
-	origin, openedIn := filter.origin, filter.openedIn
-	filter.abandon()
-	filter.origin = ""
+	search := &m.filter
+	origin, openedIn := search.Origin, search.OpenedIn
+	search.Abandon()
+	search.Origin = ""
 	if openedIn == m.keyholder(m.inputs()) {
 		m.placeFilteredCursor(origin)
 	}
@@ -382,16 +109,16 @@ func (m *model) updateFilterInput(key tea.KeyPressMsg) tea.Cmd {
 	}
 
 	// Typing lights what it has found and moves nothing; enter is what applies the search.
-	filter := &m.filter
+	search := &m.filter
 	switch key.String() {
 	case "tab":
-		filter.mode = filter.mode.flipped()
+		search.Mode = search.Mode.Flipped()
 	case "enter":
 		m.applyFilter()
 
 		return tea.Batch(m.waitToStage(), m.saysCmd())
 	default:
-		filter.takeKey(key, m.register)
+		search.TakeKey(key, m.register)
 		m.reconcileSolo()
 	}
 
@@ -404,16 +131,16 @@ func (m *model) updateFilterInput(key tea.KeyPressMsg) tea.Cmd {
 func (m *model) applyFilter() {
 	hovered := m.hoveredFilterKey()
 	found, ok := m.matchAt(0)
-	m.filter.typing = false
+	m.filter.Typing = false
 	if !ok {
 		found = ""
 	}
-	if m.filter.pattern().IsNarrowing() && m.isFilterRowShown(hovered) {
+	if m.filter.Pattern().IsNarrowing() && m.isFilterRowShown(hovered) {
 		found = hovered
 	}
 
 	m.placeFilteredCursor(found)
-	m.filter.appliedAt = m.hoveredFilterKey()
+	m.filter.AppliedAt = m.hoveredFilterKey()
 }
 
 // isFilterRowShown reports whether the pane holding the keys still renders a row.
@@ -494,7 +221,7 @@ func (m *model) stepFilterMatch(delta int) tea.Cmd {
 // row and wrapping at either end, the hovered row itself counting for a step of nothing.
 func (m *model) matchAt(delta int) (string, bool) {
 	rows, ok := m.filteredRows()
-	pattern := m.filter.pattern()
+	pattern := m.filter.Pattern()
 	if !ok || !pattern.HasQuery() || len(rows) == 0 {
 		return "", false
 	}
@@ -541,22 +268,22 @@ func (m *model) clickSearch(key string) tea.Cmd {
 		return entered
 	}
 
-	return tea.Batch(entered, m.route(keys.Press(filterOpenKey)))
+	return tea.Batch(entered, m.route(keys.Press(filter.OpenKey)))
 }
 
 // filterBy narrows the list up as if the user typed and applied the query, in the grammar the
 // screen up reads.
 func (m *model) filterBy(query string) {
-	var opts []filterOption
+	var opts []filter.Option
 	if s, ok := m.active().(queryGrammarer); ok {
 		if grammar, reads := s.QueryGrammar(); reads {
-			opts = append(opts, withGrammar(grammar, m.clock))
+			opts = append(opts, filter.WithGrammar(grammar, m.clock))
 		}
 	}
 
-	m.filter.open(opts...)
-	m.filter.mode = filterModeFilter
-	m.filter.openedIn = list.SectionList
-	m.filter.setQuery(query)
+	m.filter.Open(opts...)
+	m.filter.Mode = filter.ModeFilter
+	m.filter.OpenedIn = list.SectionList
+	m.filter.SetQuery(query)
 	m.applyFilter()
 }

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/filter"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -12,7 +13,7 @@ type reviewDiff struct {
 	diffview.Pane
 
 	// filter is the pattern being searched for in the diff.
-	filter filterState
+	filter filter.State
 
 	// restore is where the cursor was standing when the patch was read again.
 	restore *diffview.Place
