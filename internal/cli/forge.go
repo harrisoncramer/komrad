@@ -224,23 +224,13 @@ func printForges(out io.Writer, forges []*forgev1.Forge, problems map[string]str
 		case !f.GetHasCredential():
 			verified = "no credential"
 		case f.VerifiedAt != nil:
-			verified = describeVerifiedAt(f.GetVerifiedAt())
+			verified = dates.Read(f.GetVerifiedAt()).Local().Format("2006-01-02 15:04")
 		}
 
 		rows = append(rows, []string{f.GetHost(), f.GetKind(), f.GetLogin(), f.GetMethod(), verified})
 	}
 
 	return printTable(out, []string{"HOST", "KIND", "LOGIN", "METHOD", "VERIFIED"}, rows)
-}
-
-// describeVerifiedAt is the stamp as a person reads it, in local time.
-func describeVerifiedAt(stamp string) string {
-	parsed := dates.Parse(stamp)
-	if parsed.IsZero() {
-		return stamp
-	}
-
-	return parsed.Local().Format("2006-01-02 15:04")
 }
 
 // tokenForTheWire is the one place in the CLI a token leaves its Secret.

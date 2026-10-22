@@ -12,6 +12,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/logread"
 	"komrad/internal/rpcerr"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
@@ -83,7 +84,7 @@ func (s *Handler) GetLogLines(_ context.Context, req *logv1.GetLogLinesRequest) 
 		}
 
 		resources = append(resources, &logv1.LogLine{
-			Time:    line.Time,
+			Time:    dates.Stamp(line.Time),
 			Level:   line.Level,
 			Message: line.Message,
 			Fields:  fields,
@@ -103,7 +104,7 @@ func (s *Handler) ListRecentTraces(_ context.Context, req *logv1.ListRecentTrace
 	resources := xslice.Map(summaries, func(summary logread.Summary) *logv1.TraceSummary {
 		return &logv1.TraceSummary{
 			TraceId:   summary.Trace,
-			StartedAt: summary.StartedAt,
+			StartedAt: dates.Stamp(summary.StartedAt),
 			What:      summary.What,
 			Lines:     int32(summary.Lines),
 		}

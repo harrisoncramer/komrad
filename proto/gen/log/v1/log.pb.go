@@ -11,6 +11,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	_ "komrad/proto/gen/annotation/v1"
 	reflect "reflect"
 	sync "sync"
@@ -27,8 +28,8 @@ const (
 // LogLine is one line of the server's log.
 type LogLine struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// When the line was written, in RFC 3339.
-	Time string `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
+	// When the line was written.
+	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
 	// The line's severity, such as `INFO` or `ERROR`.
 	Level string `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`
 	// The line's message.
@@ -69,11 +70,11 @@ func (*LogLine) Descriptor() ([]byte, []int) {
 	return file_log_v1_log_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LogLine) GetTime() string {
+func (x *LogLine) GetTime() *timestamppb.Timestamp {
 	if x != nil {
 		return x.Time
 	}
-	return ""
+	return nil
 }
 
 func (x *LogLine) GetLevel() string {
@@ -192,8 +193,8 @@ type TraceSummary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The trace's id.
 	TraceId string `protobuf:"bytes,1,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
-	// When the trace's first line was written, in RFC 3339.
-	StartedAt string `protobuf:"bytes,2,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	// When the trace's first line was written.
+	StartedAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	// The RPC method or loop the trace belongs to. Empty when no line names one.
 	What string `protobuf:"bytes,3,opt,name=what,proto3" json:"what,omitempty"`
 	// How many lines the log has under the trace.
@@ -239,11 +240,11 @@ func (x *TraceSummary) GetTraceId() string {
 	return ""
 }
 
-func (x *TraceSummary) GetStartedAt() string {
+func (x *TraceSummary) GetStartedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.StartedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *TraceSummary) GetWhat() string {
@@ -780,9 +781,9 @@ var File_log_v1_log_proto protoreflect.FileDescriptor
 
 const file_log_v1_log_proto_rawDesc = "" +
 	"\n" +
-	"\x10log/v1/log.proto\x12\x06log.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/protobuf/struct.proto\"~\n" +
-	"\aLogLine\x12\x12\n" +
-	"\x04time\x18\x01 \x01(\tR\x04time\x12\x14\n" +
+	"\x10log/v1/log.proto\x12\x06log.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9a\x01\n" +
+	"\aLogLine\x12.\n" +
+	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x14\n" +
 	"\x05level\x18\x02 \x01(\tR\x05level\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12/\n" +
 	"\x06fields\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06fields\";\n" +
@@ -790,11 +791,11 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\btrace_id\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\atraceId\"<\n" +
 	"\x13GetLogLinesResponse\x12%\n" +
-	"\x05lines\x18\x01 \x03(\v2\x0f.log.v1.LogLineR\x05lines\"r\n" +
+	"\x05lines\x18\x01 \x03(\v2\x0f.log.v1.LogLineR\x05lines\"\x8e\x01\n" +
 	"\fTraceSummary\x12\x19\n" +
-	"\btrace_id\x18\x01 \x01(\tR\atraceId\x12\x1d\n" +
+	"\btrace_id\x18\x01 \x01(\tR\atraceId\x129\n" +
 	"\n" +
-	"started_at\x18\x02 \x01(\tR\tstartedAt\x12\x12\n" +
+	"started_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12\x12\n" +
 	"\x04what\x18\x03 \x01(\tR\x04what\x12\x14\n" +
 	"\x05lines\x18\x04 \x01(\x05R\x05lines\";\n" +
 	"\x17ListRecentTracesRequest\x12 \n" +
@@ -866,29 +867,32 @@ var file_log_v1_log_proto_goTypes = []any{
 	(*ListAgentLogSourcesResponse)(nil), // 10: log.v1.ListAgentLogSourcesResponse
 	(*ListTaskLogSourcesRequest)(nil),   // 11: log.v1.ListTaskLogSourcesRequest
 	(*ListTaskLogSourcesResponse)(nil),  // 12: log.v1.ListTaskLogSourcesResponse
-	(*structpb.Struct)(nil),             // 13: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),       // 13: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),             // 14: google.protobuf.Struct
 }
 var file_log_v1_log_proto_depIdxs = []int32{
-	13, // 0: log.v1.LogLine.fields:type_name -> google.protobuf.Struct
-	0,  // 1: log.v1.GetLogLinesResponse.lines:type_name -> log.v1.LogLine
-	3,  // 2: log.v1.ListRecentTracesResponse.traces:type_name -> log.v1.TraceSummary
-	8,  // 3: log.v1.ListAgentLogSourcesResponse.sources:type_name -> log.v1.LogSource
-	8,  // 4: log.v1.ListTaskLogSourcesResponse.sources:type_name -> log.v1.LogSource
-	1,  // 5: log.v1.LogService.GetLogLines:input_type -> log.v1.GetLogLinesRequest
-	4,  // 6: log.v1.LogService.ListRecentTraces:input_type -> log.v1.ListRecentTracesRequest
-	6,  // 7: log.v1.LogService.ReadAgentLogs:input_type -> log.v1.ReadAgentLogsRequest
-	9,  // 8: log.v1.LogService.ListAgentLogSources:input_type -> log.v1.ListAgentLogSourcesRequest
-	11, // 9: log.v1.LogService.ListTaskLogSources:input_type -> log.v1.ListTaskLogSourcesRequest
-	2,  // 10: log.v1.LogService.GetLogLines:output_type -> log.v1.GetLogLinesResponse
-	5,  // 11: log.v1.LogService.ListRecentTraces:output_type -> log.v1.ListRecentTracesResponse
-	7,  // 12: log.v1.LogService.ReadAgentLogs:output_type -> log.v1.ReadAgentLogsResponse
-	10, // 13: log.v1.LogService.ListAgentLogSources:output_type -> log.v1.ListAgentLogSourcesResponse
-	12, // 14: log.v1.LogService.ListTaskLogSources:output_type -> log.v1.ListTaskLogSourcesResponse
-	10, // [10:15] is the sub-list for method output_type
-	5,  // [5:10] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	13, // 0: log.v1.LogLine.time:type_name -> google.protobuf.Timestamp
+	14, // 1: log.v1.LogLine.fields:type_name -> google.protobuf.Struct
+	0,  // 2: log.v1.GetLogLinesResponse.lines:type_name -> log.v1.LogLine
+	13, // 3: log.v1.TraceSummary.started_at:type_name -> google.protobuf.Timestamp
+	3,  // 4: log.v1.ListRecentTracesResponse.traces:type_name -> log.v1.TraceSummary
+	8,  // 5: log.v1.ListAgentLogSourcesResponse.sources:type_name -> log.v1.LogSource
+	8,  // 6: log.v1.ListTaskLogSourcesResponse.sources:type_name -> log.v1.LogSource
+	1,  // 7: log.v1.LogService.GetLogLines:input_type -> log.v1.GetLogLinesRequest
+	4,  // 8: log.v1.LogService.ListRecentTraces:input_type -> log.v1.ListRecentTracesRequest
+	6,  // 9: log.v1.LogService.ReadAgentLogs:input_type -> log.v1.ReadAgentLogsRequest
+	9,  // 10: log.v1.LogService.ListAgentLogSources:input_type -> log.v1.ListAgentLogSourcesRequest
+	11, // 11: log.v1.LogService.ListTaskLogSources:input_type -> log.v1.ListTaskLogSourcesRequest
+	2,  // 12: log.v1.LogService.GetLogLines:output_type -> log.v1.GetLogLinesResponse
+	5,  // 13: log.v1.LogService.ListRecentTraces:output_type -> log.v1.ListRecentTracesResponse
+	7,  // 14: log.v1.LogService.ReadAgentLogs:output_type -> log.v1.ReadAgentLogsResponse
+	10, // 15: log.v1.LogService.ListAgentLogSources:output_type -> log.v1.ListAgentLogSourcesResponse
+	12, // 16: log.v1.LogService.ListTaskLogSources:output_type -> log.v1.ListTaskLogSourcesResponse
+	12, // [12:17] is the sub-list for method output_type
+	7,  // [7:12] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_log_v1_log_proto_init() }

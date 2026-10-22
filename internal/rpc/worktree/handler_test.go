@@ -93,19 +93,19 @@ func TestListWorktrees(t *testing.T) {
 	assert.True(t, first.GetReadable())
 	assert.Equal(t, firstTaskID.String(), first.GetTask().GetId())
 	assert.Equal(t, "first-task", first.GetTask().GetSlug())
-	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetTask().GetArchivedAt())
+	assert.Equal(t, time.Date(2026, time.September, 19, 12, 0, 0, 0, time.UTC), first.GetTask().GetArchivedAt().AsTime())
 	assert.True(t, first.GetTask().GetAdopted())
 	require.Len(t, first.GetOccupants(), 2)
 	assert.Equal(t, "first", first.GetOccupants()[0].GetName())
 	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, first.GetOccupants()[0].GetState())
-	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetOccupants()[0].GetArchivedAt())
+	assert.Equal(t, time.Date(2026, time.September, 19, 12, 0, 0, 0, time.UTC), first.GetOccupants()[0].GetArchivedAt().AsTime())
 	assert.Equal(t, "first-reviewer", first.GetOccupants()[1].GetName())
 	require.NotNil(t, first.SizeBytes)
 	assert.Equal(t, int64(49*1024*1024), first.GetSizeBytes())
 	assert.Equal(t, int64(20*1024*1024), first.GetShareBytes())
-	assert.Equal(t, "2026-09-19T13:00:00Z", first.GetMeasuredAt())
+	assert.Equal(t, time.Date(2026, time.September, 19, 13, 0, 0, 0, time.UTC), first.GetMeasuredAt().AsTime())
 	assert.Empty(t, first.GetSizeError())
-	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetLastActiveAt())
+	assert.Equal(t, time.Date(2026, time.September, 19, 12, 0, 0, 0, time.UTC), first.GetLastActiveAt().AsTime())
 	assert.Equal(t, worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED, first.GetFate())
 
 	gone := resp.Msg.GetWorktrees()[1]
@@ -114,9 +114,9 @@ func TestListWorktrees(t *testing.T) {
 	assert.False(t, gone.GetReadable())
 	assert.Nil(t, gone.SizeBytes, "a failed measurement carries no size")
 	assert.Nil(t, gone.ShareBytes)
-	assert.Equal(t, "2026-09-20T09:00:00Z", gone.GetMeasuredAt())
+	assert.Equal(t, time.Date(2026, time.September, 20, 9, 0, 0, 0, time.UTC), gone.GetMeasuredAt().AsTime())
 	assert.Equal(t, "permission denied", gone.GetSizeError())
-	assert.Equal(t, "2026-09-20T08:00:00Z", gone.GetLastActiveAt())
+	assert.Equal(t, time.Date(2026, time.September, 20, 8, 0, 0, 0, time.UTC), gone.GetLastActiveAt().AsTime())
 
 	unmeasured := resp.Msg.GetWorktrees()[2]
 	assert.Nil(t, unmeasured.SizeBytes)
@@ -189,7 +189,7 @@ func TestGetWorktree(t *testing.T) {
 	assert.Equal(t, int32(3), resp.Msg.GetUnpulled())
 	assert.True(t, resp.Msg.GetUnpulledLanded())
 	require.Len(t, resp.Msg.GetCommits(), 1)
-	assert.Equal(t, "2026-09-19T11:00:00Z", resp.Msg.GetCommits()[0].GetCommittedAt())
+	assert.Equal(t, time.Date(2026, time.September, 19, 11, 0, 0, 0, time.UTC), resp.Msg.GetCommits()[0].GetCommittedAt().AsTime())
 }
 
 // TestRemoveUnownedWorktrees covers each refusal rendered with its reason and the facts that reason names.

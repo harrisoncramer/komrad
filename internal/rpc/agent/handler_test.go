@@ -857,7 +857,7 @@ func TestListAgents(t *testing.T) {
 			check: func(t *testing.T, rows map[string]*agentv1.AgentRow, pages []rowstore.Page) {
 				require.Len(t, pages, 1)
 				assert.True(t, pages[0].Archived)
-				assert.Equal(t, "2026-09-20T12:00:00Z", rows["archived"].GetAgent().GetArchivedAt(), "in RFC 3339")
+				assert.Equal(t, time.Date(2026, time.September, 20, 12, 0, 0, 0, time.UTC), rows["archived"].GetAgent().GetArchivedAt().AsTime())
 			},
 		},
 	}
@@ -1023,7 +1023,7 @@ func TestGetAgent(t *testing.T) {
 	assert.Equal(t, int32(4), agent.GetFailedRunLog())
 	require.NotNil(t, agent.Alive, "a dormant agent says so rather than leaving it out")
 	assert.False(t, agent.GetAlive())
-	assert.Equal(t, "2026-09-20T12:00:00Z", agent.GetCreatedAt(), "the creation time is RFC 3339")
+	assert.Equal(t, time.Date(2026, time.September, 20, 12, 0, 0, 0, time.UTC), agent.GetCreatedAt().AsTime())
 }
 
 // TestGetAgentResponseMirrorsAgentRow pins that every field AgentRow draws beside an agent is

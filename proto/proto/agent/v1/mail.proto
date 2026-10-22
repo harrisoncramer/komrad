@@ -3,6 +3,7 @@ syntax = "proto3";
 package agent.v1;
 
 import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
@@ -55,12 +56,12 @@ message Mail {
   string body = 5;
   // The id of the mail this one answers. Unset when the mail starts a thread.
   optional string reply_to = 6;
-  // When the mail was sent, in RFC 3339.
-  string created_at = 7;
-  // When the recipient read the mail, in RFC 3339. Unset while it is unread.
-  optional string claimed_at = 8;
-  // When the mail expires, in RFC 3339, read or not.
-  string expires_at = 9;
+  // When the mail was sent.
+  google.protobuf.Timestamp created_at = 7;
+  // When the recipient read the mail. Unset while it is unread.
+  optional google.protobuf.Timestamp claimed_at = 8;
+  // When the mail expires, read or not.
+  google.protobuf.Timestamp expires_at = 9;
   // Who wrote the mail and why.
   MailKind kind = 10;
 }
@@ -116,8 +117,8 @@ message ForwardLastTurnsResponse {
   string mail_id = 1;
   // The id of the agent the mail is for.
   string to_agent_id = 2;
-  // When the mail was sent, in RFC 3339.
-  string created_at = 3;
+  // When the mail was sent.
+  google.protobuf.Timestamp created_at = 3;
   // How many turns the mail carries, prompts included.
   int32 turns = 4;
   // How many characters the mail's text runs to.

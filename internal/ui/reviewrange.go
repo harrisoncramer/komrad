@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/screen"
+	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -277,65 +278,47 @@ func (d reviewDiff) threadsInRange(threads []*agentv1.ReviewThread) []*agentv1.R
 	return kept
 }
 
-// findLaterStamp is when the first snapshot after both a thread's own snapshot and its first message was
-// taken, empty when no snapshot has followed it.
-func findLaterStamp(thread *agentv1.ReviewThread, snapshots []*agentv1.ReviewSnapshot) string {
+// findLaterAt is when the first snapshot after both a thread's own snapshot and its first message was
+// taken, the zero time when no snapshot has followed it.
+func findLaterAt(thread *agentv1.ReviewThread, snapshots []*agentv1.ReviewSnapshot) time.Time {
 	said := thread.GetMessages()
 	if len(said) == 0 {
-		return ""
+		return time.Time{}
 	}
 
-	first := said[0].GetCreatedAt()
-	stamp := ""
+	first := dates.Read(said[0].GetCreatedAt())
+	if first.IsZero() {
+		return time.Time{}
+	}
+
+	var later time.Time
 	for _, snapshot := range snapshots {
-		if snapshot.GetOrdinal() <= thread.GetSnapshotOrdinal() || !isBefore(first, snapshot.GetCreatedAt()) {
+		taken := dates.Read(snapshot.GetCreatedAt())
+		if snapshot.GetOrdinal() <= thread.GetSnapshotOrdinal() || !first.Before(taken) {
 			continue
 		}
-		if stamp == "" || isBefore(snapshot.GetCreatedAt(), stamp) {
-			stamp = snapshot.GetCreatedAt()
+		if later.IsZero() || taken.Before(later) {
+			later = taken
 		}
 	}
 
-	return stamp
+	return later
 }
 
-// isBefore reports whether one stamp came before another, parsed rather than compared as text.
-func isBefore(stamp, mark string) bool {
-	before, err := compareStamps(stamp, mark)
-
-	return err == nil && before
+// doesPredate reports whether something was said before a mark, and says yes for a time that is
+// not set.
+func doesPredate(at, mark time.Time) bool {
+	return at.IsZero() || at.Before(mark)
 }
 
-// doesPredate reports whether something was said before a mark, and says yes for a stamp it
-// cannot read.
-func doesPredate(stamp, mark string) bool {
-	before, err := compareStamps(stamp, mark)
-
-	return err != nil || before
-}
-
-func compareStamps(stamp, mark string) (bool, error) {
-	at, err := time.Parse(time.RFC3339, stamp)
-	if err != nil {
-		return false, err
-	}
-
-	against, err := time.Parse(time.RFC3339, mark)
-	if err != nil {
-		return false, err
-	}
-
-	return at.Before(against), nil
-}
-
-// laterStamp is the stamp a thread's later replies are split at, empty while the diff on screen
-// is the whole change or an answer.
-func (d reviewDiff) laterStamp(thread *agentv1.ReviewThread) string {
+// laterAt is the time a thread's later replies are split at, the zero time while the diff on
+// screen is the whole change or an answer.
+func (d reviewDiff) laterAt(thread *agentv1.ReviewThread) time.Time {
 	if !d.spec.doesSplitReplies() {
-		return ""
+		return time.Time{}
 	}
 
-	return findLaterStamp(thread, d.snapshots)
+	return findLaterAt(thread, d.snapshots)
 }
 
 // viewedOffSaid is why a viewed mark is drawn off, empty on the whole change.

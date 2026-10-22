@@ -75,8 +75,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		assert.Equal(t, sentID, read[0].GetId())
 		assert.Equal(t, "what is the refund column called?", read[0].GetBody())
 
-		sentAt, err := time.Parse(time.RFC3339, read[0].GetCreatedAt())
-		require.NoError(t, err)
+		sentAt := read[0].GetCreatedAt().AsTime()
 		assert.WithinDuration(t, time.Now(), sentAt, time.Minute)
 
 		assert.Empty(t, readMail(t, instance, migrations.GetId()), "mail read once is not waiting again")

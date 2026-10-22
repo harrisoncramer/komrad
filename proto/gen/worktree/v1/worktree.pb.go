@@ -11,6 +11,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	v1 "komrad/proto/gen/agent/v1"
 	_ "komrad/proto/gen/annotation/v1"
 	reflect "reflect"
@@ -188,8 +189,8 @@ type WorktreeAgent struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// The agent's state.
 	State v1.AgentState `protobuf:"varint,3,opt,name=state,proto3,enum=agent.v1.AgentState" json:"state,omitempty"`
-	// When the agent was archived, in RFC 3339. Unset while the agent is live.
-	ArchivedAt    *string `protobuf:"bytes,4,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	// When the agent was archived. Unset while the agent is live.
+	ArchivedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -245,11 +246,11 @@ func (x *WorktreeAgent) GetState() v1.AgentState {
 	return v1.AgentState(0)
 }
 
-func (x *WorktreeAgent) GetArchivedAt() string {
-	if x != nil && x.ArchivedAt != nil {
-		return *x.ArchivedAt
+func (x *WorktreeAgent) GetArchivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ArchivedAt
 	}
-	return ""
+	return nil
 }
 
 // WorktreeTask is the task a worktree belongs to.
@@ -259,8 +260,8 @@ type WorktreeTask struct {
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// The task's slug.
 	Slug string `protobuf:"bytes,2,opt,name=slug,proto3" json:"slug,omitempty"`
-	// When the task was archived, in RFC 3339. Unset while the task is live.
-	ArchivedAt *string `protobuf:"bytes,3,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	// When the task was archived. Unset while the task is live.
+	ArchivedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	// Whether the branch existed before the task was put on it. Deleting the task never deletes
 	// such a branch.
 	Adopted       bool `protobuf:"varint,4,opt,name=adopted,proto3" json:"adopted,omitempty"`
@@ -312,11 +313,11 @@ func (x *WorktreeTask) GetSlug() string {
 	return ""
 }
 
-func (x *WorktreeTask) GetArchivedAt() string {
-	if x != nil && x.ArchivedAt != nil {
-		return *x.ArchivedAt
+func (x *WorktreeTask) GetArchivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ArchivedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *WorktreeTask) GetAdopted() bool {
@@ -345,14 +346,14 @@ type Worktree struct {
 	// The disk space the worktree takes, in bytes, counting blocks and each hard-linked file once.
 	// Unset until measured and while the last measurement failed.
 	SizeBytes *int64 `protobuf:"varint,6,opt,name=size_bytes,json=sizeBytes,proto3,oneof" json:"size_bytes,omitempty"`
-	// When the worktree's size was last measured or last failed to be, in RFC 3339. Unset until
+	// When the worktree's size was last measured or last failed to be. Unset until
 	// first measured.
-	MeasuredAt *string `protobuf:"bytes,7,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
+	MeasuredAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
 	// Why the last measurement failed. Empty when it succeeded.
 	SizeError string `protobuf:"bytes,8,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
-	// When the worktree was last active, in RFC 3339. This is the newest change to its agents, else
+	// When the worktree was last active. This is the newest change to its agents, else
 	// when git last wrote its `.git` file, else its modification time.
-	LastActiveAt string `protobuf:"bytes,9,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
+	LastActiveAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_active_at,json=lastActiveAt,proto3" json:"last_active_at,omitempty"`
 	// What removes the worktree.
 	Fate WorktreeFate `protobuf:"varint,10,opt,name=fate,proto3,enum=worktree.v1.WorktreeFate" json:"fate,omitempty"`
 	// The worktree's share of `size_bytes`, with each hard-linked file split evenly across its
@@ -436,11 +437,11 @@ func (x *Worktree) GetSizeBytes() int64 {
 	return 0
 }
 
-func (x *Worktree) GetMeasuredAt() string {
-	if x != nil && x.MeasuredAt != nil {
-		return *x.MeasuredAt
+func (x *Worktree) GetMeasuredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.MeasuredAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Worktree) GetSizeError() string {
@@ -450,11 +451,11 @@ func (x *Worktree) GetSizeError() string {
 	return ""
 }
 
-func (x *Worktree) GetLastActiveAt() string {
+func (x *Worktree) GetLastActiveAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.LastActiveAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Worktree) GetFate() WorktreeFate {
@@ -493,11 +494,11 @@ type WatchedWorktree struct {
 	// The disk space the worktree takes, in bytes. Unset until measured and while the last
 	// measurement failed.
 	SizeBytes *int64 `protobuf:"varint,5,opt,name=size_bytes,json=sizeBytes,proto3,oneof" json:"size_bytes,omitempty"`
-	// When the worktree's size was last measured or last failed to be, in RFC 3339.
-	MeasuredAt *string `protobuf:"bytes,6,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
-	// When git last wrote the worktree's `.git` file, else the worktree's modification time, in RFC
-	// 3339. Empty when neither can be read.
-	ModifiedAt string `protobuf:"bytes,7,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
+	// When the worktree's size was last measured or last failed to be.
+	MeasuredAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=measured_at,json=measuredAt,proto3,oneof" json:"measured_at,omitempty"`
+	// When git last wrote the worktree's `.git` file, else the worktree's modification time. Unset
+	// when neither can be read.
+	ModifiedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
 	// Why the last measurement failed. Empty when it succeeded.
 	SizeError string `protobuf:"bytes,8,opt,name=size_error,json=sizeError,proto3" json:"size_error,omitempty"`
 	// The worktree's share of `size_bytes`, with each hard-linked file split evenly across its
@@ -574,18 +575,18 @@ func (x *WatchedWorktree) GetSizeBytes() int64 {
 	return 0
 }
 
-func (x *WatchedWorktree) GetMeasuredAt() string {
-	if x != nil && x.MeasuredAt != nil {
-		return *x.MeasuredAt
+func (x *WatchedWorktree) GetMeasuredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.MeasuredAt
 	}
-	return ""
+	return nil
 }
 
-func (x *WatchedWorktree) GetModifiedAt() string {
+func (x *WatchedWorktree) GetModifiedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ModifiedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *WatchedWorktree) GetSizeError() string {
@@ -612,8 +613,8 @@ func (x *WatchedWorktree) GetStanding() *WorktreeStanding {
 // WorktreeStanding is how a worktree compared with the base branch when git last read it.
 type WorktreeStanding struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// When git read the worktree, in RFC 3339.
-	ReadAt string `protobuf:"bytes,1,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
+	// When git read the worktree.
+	ReadAt *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
 	// Whether the worktree had modified or untracked files.
 	Dirty bool `protobuf:"varint,2,opt,name=dirty,proto3" json:"dirty,omitempty"`
 	// Whether a sequence was stopped in the worktree.
@@ -656,11 +657,11 @@ func (*WorktreeStanding) Descriptor() ([]byte, []int) {
 	return file_worktree_v1_worktree_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *WorktreeStanding) GetReadAt() string {
+func (x *WorktreeStanding) GetReadAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ReadAt
 	}
-	return ""
+	return nil
 }
 
 func (x *WorktreeStanding) GetDirty() bool {
@@ -880,8 +881,8 @@ type Commit struct {
 	Sha string `protobuf:"bytes,1,opt,name=sha,proto3" json:"sha,omitempty"`
 	// The first line of the commit's message.
 	Subject string `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
-	// When the commit was made, in RFC 3339.
-	CommittedAt   string `protobuf:"bytes,3,opt,name=committed_at,json=committedAt,proto3" json:"committed_at,omitempty"`
+	// When the commit was made.
+	CommittedAt   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=committed_at,json=committedAt,proto3" json:"committed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -930,11 +931,11 @@ func (x *Commit) GetSubject() string {
 	return ""
 }
 
-func (x *Commit) GetCommittedAt() string {
+func (x *Commit) GetCommittedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CommittedAt
 	}
-	return ""
+	return nil
 }
 
 type GetWorktreeResponse struct {
@@ -1387,21 +1388,21 @@ var File_worktree_v1_worktree_proto protoreflect.FileDescriptor
 
 const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x95\x01\n" +
+	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb1\x01\n" +
 	"\rWorktreeAgent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
-	"\x05state\x18\x03 \x01(\x0e2\x14.agent.v1.AgentStateR\x05state\x12$\n" +
-	"\varchived_at\x18\x04 \x01(\tH\x00R\n" +
+	"\x05state\x18\x03 \x01(\x0e2\x14.agent.v1.AgentStateR\x05state\x12@\n" +
+	"\varchived_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\n" +
 	"archivedAt\x88\x01\x01B\x0e\n" +
-	"\f_archived_at\"\x82\x01\n" +
+	"\f_archived_at\"\x9e\x01\n" +
 	"\fWorktreeTask\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04slug\x18\x02 \x01(\tR\x04slug\x12$\n" +
-	"\varchived_at\x18\x03 \x01(\tH\x00R\n" +
+	"\x04slug\x18\x02 \x01(\tR\x04slug\x12@\n" +
+	"\varchived_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x18\n" +
 	"\aadopted\x18\x04 \x01(\bR\aadoptedB\x0e\n" +
-	"\f_archived_at\"\xe7\x03\n" +
+	"\f_archived_at\"\x9f\x04\n" +
 	"\bWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
@@ -1409,12 +1410,12 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\breadable\x18\x04 \x01(\bR\breadable\x128\n" +
 	"\toccupants\x18\x05 \x03(\v2\x1a.worktree.v1.WorktreeAgentR\toccupants\x12\"\n" +
 	"\n" +
-	"size_bytes\x18\x06 \x01(\x03H\x00R\tsizeBytes\x88\x01\x01\x12$\n" +
-	"\vmeasured_at\x18\a \x01(\tH\x01R\n" +
+	"size_bytes\x18\x06 \x01(\x03H\x00R\tsizeBytes\x88\x01\x01\x12@\n" +
+	"\vmeasured_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x01R\n" +
 	"measuredAt\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"size_error\x18\b \x01(\tR\tsizeError\x12$\n" +
-	"\x0elast_active_at\x18\t \x01(\tR\flastActiveAt\x12-\n" +
+	"size_error\x18\b \x01(\tR\tsizeError\x12@\n" +
+	"\x0elast_active_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\flastActiveAt\x12-\n" +
 	"\x04fate\x18\n" +
 	" \x01(\x0e2\x19.worktree.v1.WorktreeFateR\x04fate\x12$\n" +
 	"\vshare_bytes\x18\v \x01(\x03H\x02R\n" +
@@ -1422,17 +1423,17 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x04task\x18\f \x01(\v2\x19.worktree.v1.WorktreeTaskR\x04taskB\r\n" +
 	"\v_size_bytesB\x0e\n" +
 	"\f_measured_atB\x0e\n" +
-	"\f_share_bytes\"\x8c\x03\n" +
+	"\f_share_bytes\"\xc4\x03\n" +
 	"\x0fWatchedWorktree\x12\x10\n" +
 	"\x03dir\x18\x01 \x01(\tR\x03dir\x12\x19\n" +
 	"\brepo_dir\x18\x02 \x01(\tR\arepoDir\x12\x16\n" +
 	"\x06branch\x18\x03 \x01(\tR\x06branch\x12\x1a\n" +
 	"\breadable\x18\x04 \x01(\bR\breadable\x12\"\n" +
 	"\n" +
-	"size_bytes\x18\x05 \x01(\x03H\x00R\tsizeBytes\x88\x01\x01\x12$\n" +
-	"\vmeasured_at\x18\x06 \x01(\tH\x01R\n" +
-	"measuredAt\x88\x01\x01\x12\x1f\n" +
-	"\vmodified_at\x18\a \x01(\tR\n" +
+	"size_bytes\x18\x05 \x01(\x03H\x00R\tsizeBytes\x88\x01\x01\x12@\n" +
+	"\vmeasured_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\n" +
+	"measuredAt\x88\x01\x01\x12;\n" +
+	"\vmodified_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"modifiedAt\x12\x1d\n" +
 	"\n" +
 	"size_error\x18\b \x01(\tR\tsizeError\x12$\n" +
@@ -1442,9 +1443,9 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	" \x01(\v2\x1d.worktree.v1.WorktreeStandingR\bstandingB\r\n" +
 	"\v_size_bytesB\x0e\n" +
 	"\f_measured_atB\x0e\n" +
-	"\f_share_bytes\"\x93\x01\n" +
-	"\x10WorktreeStanding\x12\x17\n" +
-	"\aread_at\x18\x01 \x01(\tR\x06readAt\x12\x14\n" +
+	"\f_share_bytes\"\xaf\x01\n" +
+	"\x10WorktreeStanding\x123\n" +
+	"\aread_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x06readAt\x12\x14\n" +
 	"\x05dirty\x18\x02 \x01(\bR\x05dirty\x12\x1e\n" +
 	"\n" +
 	"sequencing\x18\x03 \x01(\bR\n" +
@@ -1462,11 +1463,11 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x02 \x01(\x03R\tsizeBytes\x12\x10\n" +
-	"\x03dir\x18\x03 \x01(\bR\x03dir\"W\n" +
+	"\x03dir\x18\x03 \x01(\bR\x03dir\"s\n" +
 	"\x06Commit\x12\x10\n" +
 	"\x03sha\x18\x01 \x01(\tR\x03sha\x12\x18\n" +
-	"\asubject\x18\x02 \x01(\tR\asubject\x12!\n" +
-	"\fcommitted_at\x18\x03 \x01(\tR\vcommittedAt\"\xcd\x05\n" +
+	"\asubject\x18\x02 \x01(\tR\asubject\x12=\n" +
+	"\fcommitted_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vcommittedAt\"\xcd\x05\n" +
 	"\x13GetWorktreeResponse\x121\n" +
 	"\bworktree\x18\x01 \x01(\v2\x15.worktree.v1.WorktreeR\bworktree\x12\x1d\n" +
 	"\n" +
@@ -1569,33 +1570,42 @@ var file_worktree_v1_worktree_proto_goTypes = []any{
 	(*RemoveUnownedWorktreesResponse)(nil), // 14: worktree.v1.RemoveUnownedWorktreesResponse
 	(*DeleteWorktreesRequest)(nil),         // 15: worktree.v1.DeleteWorktreesRequest
 	(v1.AgentState)(0),                     // 16: agent.v1.AgentState
-	(*emptypb.Empty)(nil),                  // 17: google.protobuf.Empty
+	(*timestamppb.Timestamp)(nil),          // 17: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                  // 18: google.protobuf.Empty
 }
 var file_worktree_v1_worktree_proto_depIdxs = []int32{
 	16, // 0: worktree.v1.WorktreeAgent.state:type_name -> agent.v1.AgentState
-	2,  // 1: worktree.v1.Worktree.occupants:type_name -> worktree.v1.WorktreeAgent
-	0,  // 2: worktree.v1.Worktree.fate:type_name -> worktree.v1.WorktreeFate
-	3,  // 3: worktree.v1.Worktree.task:type_name -> worktree.v1.WorktreeTask
-	6,  // 4: worktree.v1.WatchedWorktree.standing:type_name -> worktree.v1.WorktreeStanding
-	4,  // 5: worktree.v1.ListWorktreesResponse.worktrees:type_name -> worktree.v1.Worktree
-	4,  // 6: worktree.v1.GetWorktreeResponse.worktree:type_name -> worktree.v1.Worktree
-	9,  // 7: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
-	10, // 8: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
-	1,  // 9: worktree.v1.Refusal.reason:type_name -> worktree.v1.RefusalReason
-	13, // 10: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
-	17, // 11: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
-	8,  // 12: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
-	12, // 13: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
-	15, // 14: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
-	7,  // 15: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
-	11, // 16: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
-	14, // 17: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
-	17, // 18: worktree.v1.WorktreeService.DeleteWorktrees:output_type -> google.protobuf.Empty
-	15, // [15:19] is the sub-list for method output_type
-	11, // [11:15] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	17, // 1: worktree.v1.WorktreeAgent.archived_at:type_name -> google.protobuf.Timestamp
+	17, // 2: worktree.v1.WorktreeTask.archived_at:type_name -> google.protobuf.Timestamp
+	2,  // 3: worktree.v1.Worktree.occupants:type_name -> worktree.v1.WorktreeAgent
+	17, // 4: worktree.v1.Worktree.measured_at:type_name -> google.protobuf.Timestamp
+	17, // 5: worktree.v1.Worktree.last_active_at:type_name -> google.protobuf.Timestamp
+	0,  // 6: worktree.v1.Worktree.fate:type_name -> worktree.v1.WorktreeFate
+	3,  // 7: worktree.v1.Worktree.task:type_name -> worktree.v1.WorktreeTask
+	17, // 8: worktree.v1.WatchedWorktree.measured_at:type_name -> google.protobuf.Timestamp
+	17, // 9: worktree.v1.WatchedWorktree.modified_at:type_name -> google.protobuf.Timestamp
+	6,  // 10: worktree.v1.WatchedWorktree.standing:type_name -> worktree.v1.WorktreeStanding
+	17, // 11: worktree.v1.WorktreeStanding.read_at:type_name -> google.protobuf.Timestamp
+	4,  // 12: worktree.v1.ListWorktreesResponse.worktrees:type_name -> worktree.v1.Worktree
+	17, // 13: worktree.v1.Commit.committed_at:type_name -> google.protobuf.Timestamp
+	4,  // 14: worktree.v1.GetWorktreeResponse.worktree:type_name -> worktree.v1.Worktree
+	9,  // 15: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
+	10, // 16: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
+	1,  // 17: worktree.v1.Refusal.reason:type_name -> worktree.v1.RefusalReason
+	13, // 18: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
+	18, // 19: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
+	8,  // 20: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
+	12, // 21: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
+	15, // 22: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
+	7,  // 23: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
+	11, // 24: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
+	14, // 25: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
+	18, // 26: worktree.v1.WorktreeService.DeleteWorktrees:output_type -> google.protobuf.Empty
+	23, // [23:27] is the sub-list for method output_type
+	19, // [19:23] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_worktree_v1_worktree_proto_init() }

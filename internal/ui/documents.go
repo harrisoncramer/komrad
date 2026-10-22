@@ -444,7 +444,7 @@ func (d *documentsScreen) listDocumentsCmd(written documentsWritten) tea.Cmd {
 					taskID:    document.GetTaskId(),
 					name:      document.GetName(),
 					typeName:  document.GetType(),
-					updatedAt: dates.Parse(document.GetUpdatedAt()),
+					updatedAt: dates.Read(document.GetUpdatedAt()),
 				}
 			}),
 		}
@@ -498,7 +498,7 @@ func (d *documentsScreen) readHoveredDocumentCmd(in screen.Inputs) tea.Cmd {
 		}
 
 		return documentReadMsg{id: item.id, read: documentBody{
-			updatedAt: dates.Parse(document.GetUpdatedAt()),
+			updatedAt: dates.Read(document.GetUpdatedAt()),
 			version:   document.GetVersion(),
 			body:      document.GetBody(),
 		}}

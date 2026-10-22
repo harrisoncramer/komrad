@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"testing"
+	"time"
 
 	"komrad/internal/engine"
 	"komrad/internal/ui/paneltest"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestTerminal covers the subpage that opens a shell in the pane under the stage.
@@ -149,7 +151,7 @@ func TestTerminal(t *testing.T) {
 		agent := newShellAgent("a1", t.TempDir())
 		agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 		task := paneltest.TaskOf(agent)
-		task.Cwd, task.ArchivedAt = xptr.Ptr(dir), xptr.Ptr(archivedAt)
+		task.Cwd, task.ArchivedAt = xptr.Ptr(dir), archivedAt
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), agent, task))
@@ -254,7 +256,7 @@ func openTerminal(t *testing.T, params paneltest.Params, agents ...*agentv1.Agen
 
 func newStagedShellAgent(dir string) *agentv1.Agent {
 	agent := newShellAgent("a1", dir)
-	agent.CreatedAt = "2026-09-20T12:01:00Z"
+	agent.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 1, 0, 0, time.UTC))
 	agent.PaneId = "%9"
 	agent.Alive = xptr.Ptr(true)
 

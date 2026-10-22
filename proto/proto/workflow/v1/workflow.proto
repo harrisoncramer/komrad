@@ -5,6 +5,7 @@ package workflow.v1;
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
 import "view/v1/view.proto";
@@ -26,8 +27,8 @@ message Workflow {
   string flags = 5;
   // The harness the workflow's agents run. Empty uses komrad's default.
   string harness = 6;
-  // When the workflow was archived, in RFC 3339. Unset while the workflow is live.
-  optional string archived_at = 7;
+  // When the workflow was archived. Unset while the workflow is live.
+  optional google.protobuf.Timestamp archived_at = 7;
   // Whether the workflow's tasks get worktrees, and how komrad creates them.
   WorktreeConfig worktree = 8;
   // The workflow's hooks, at most one for each moment.

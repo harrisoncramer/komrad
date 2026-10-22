@@ -28,9 +28,9 @@ func agentFrom(s *agentv1.Agent) Agent {
 		SessionID:         s.GetSessionId(),
 		WorkflowID:        s.GetWorkflowId(),
 		ScheduleID:        s.ScheduleId,
-		CreatedAt:         dates.Parse(s.GetCreatedAt()),
-		StateChangedAt:    dates.Parse(s.GetStateChangedAt()),
-		ArchivedAt:        dates.ParsePtr(s.GetArchivedAt()),
+		CreatedAt:         dates.Read(s.GetCreatedAt()),
+		StateChangedAt:    dates.Read(s.GetStateChangedAt()),
+		ArchivedAt:        dates.ReadPtr(s.GetArchivedAt()),
 		TaskID:            s.GetTaskId(),
 		ProvisionDisabled: s.GetProvisionDisabled(),
 		Tool:              s.GetReportedReason(),
@@ -59,9 +59,9 @@ func taskFrom(row assemble.TaskRow) Task {
 		Title:                 task.GetTitle(),
 		Goal:                  task.GetGoal(),
 		Notes:                 task.GetNotes(),
-		NotesUpdatedAt:        task.NotesUpdatedAt,
-		CreatedAt:             dates.Parse(task.GetCreatedAt()),
-		ArchivedAt:            dates.ParsePtr(task.GetArchivedAt()),
+		NotesUpdatedAt:        dates.ReadPtr(task.GetNotesUpdatedAt()),
+		CreatedAt:             dates.Read(task.GetCreatedAt()),
+		ArchivedAt:            dates.ReadPtr(task.GetArchivedAt()),
 		FailedRun:             task.GetFailedRun(),
 		Documents:             task.GetDocuments(),
 		Hidden:                task.GetHidden(),
@@ -166,7 +166,7 @@ func agentRowFrom(row *agentv1.AgentRow) AgentRow {
 		FailedRun:          agent.GetFailedRun(),
 		FailedRunLog:       agent.FailedRunLog,
 		Documents:          agent.GetDocuments(),
-		DocumentsUpdatedAt: dates.ParsePtr(agent.GetDocumentsUpdatedAt()),
+		DocumentsUpdatedAt: dates.ReadPtr(agent.GetDocumentsUpdatedAt()),
 	}
 }
 
@@ -194,9 +194,9 @@ func pullRequestFrom(pullRequest *pullrequestv1.PullRequest) PullRequest {
 		Body:           pullRequest.GetBody(),
 		State:          pullRequest.GetState(),
 		MergeReadiness: mergeReadinessFrom(pullRequest.GetMergeReadiness()),
-		OpenedAt:       dates.Parse(pullRequest.GetOpenedAt()),
-		MergedAt:       dates.ParsePtr(pullRequest.GetMergedAt()),
-		ClosedAt:       dates.ParsePtr(pullRequest.GetClosedAt()),
+		OpenedAt:       dates.Read(pullRequest.GetOpenedAt()),
+		MergedAt:       dates.ReadPtr(pullRequest.GetMergedAt()),
+		ClosedAt:       dates.ReadPtr(pullRequest.GetClosedAt()),
 	}
 }
 
@@ -236,7 +236,7 @@ func workflowFrom(w *workflowv1.Workflow) Workflow {
 				Muted:  prompt.GetMuted(),
 			}
 		}),
-		ArchivedAt: dates.ParsePtr(w.GetArchivedAt()),
+		ArchivedAt: dates.ReadPtr(w.GetArchivedAt()),
 	}
 }
 
@@ -310,21 +310,21 @@ func WorktreeFrom(w *worktreev1.Worktree) Worktree {
 		Branch:       w.GetBranch(),
 		Readable:     w.GetReadable(),
 		Occupants:    xslice.Map(w.GetOccupants(), worktreeAgentFrom),
-		LastActiveAt: dates.Parse(w.GetLastActiveAt()),
+		LastActiveAt: dates.Read(w.GetLastActiveAt()),
 		Fate:         worktreeFateFrom(w.GetFate()),
 	}
 	if task := w.GetTask(); task != nil {
 		item.Task = &Task{
 			ID:         task.GetId(),
 			Slug:       task.GetSlug(),
-			ArchivedAt: dates.ParsePtr(task.GetArchivedAt()),
+			ArchivedAt: dates.ReadPtr(task.GetArchivedAt()),
 		}
 	}
 	if w.MeasuredAt != nil {
 		item.Size = &WorktreeSize{
 			Bytes:      w.GetSizeBytes(),
 			Share:      w.GetShareBytes(),
-			MeasuredAt: dates.Parse(w.GetMeasuredAt()),
+			MeasuredAt: dates.Read(w.GetMeasuredAt()),
 			Err:        w.GetSizeError(),
 		}
 	}
@@ -352,6 +352,6 @@ func worktreeAgentFrom(a *worktreev1.WorktreeAgent) WorktreeAgent {
 		ID:         a.GetId(),
 		Name:       a.GetName(),
 		State:      stateFrom(a.GetState()),
-		ArchivedAt: dates.ParsePtr(a.GetArchivedAt()),
+		ArchivedAt: dates.ReadPtr(a.GetArchivedAt()),
 	}
 }

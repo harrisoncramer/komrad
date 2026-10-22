@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
 	sync "sync"
@@ -172,12 +173,12 @@ type Mail struct {
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
 	// The id of the mail this one answers. Unset when the mail starts a thread.
 	ReplyTo *string `protobuf:"bytes,6,opt,name=reply_to,json=replyTo,proto3,oneof" json:"reply_to,omitempty"`
-	// When the mail was sent, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the recipient read the mail, in RFC 3339. Unset while it is unread.
-	ClaimedAt *string `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
-	// When the mail expires, in RFC 3339, read or not.
-	ExpiresAt string `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// When the mail was sent.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the recipient read the mail. Unset while it is unread.
+	ClaimedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
+	// When the mail expires, read or not.
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	// Who wrote the mail and why.
 	Kind          MailKind `protobuf:"varint,10,opt,name=kind,proto3,enum=agent.v1.MailKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -256,25 +257,25 @@ func (x *Mail) GetReplyTo() string {
 	return ""
 }
 
-func (x *Mail) GetCreatedAt() string {
+func (x *Mail) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *Mail) GetClaimedAt() string {
-	if x != nil && x.ClaimedAt != nil {
-		return *x.ClaimedAt
+func (x *Mail) GetClaimedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ClaimedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *Mail) GetExpiresAt() string {
+func (x *Mail) GetExpiresAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpiresAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Mail) GetKind() MailKind {
@@ -531,8 +532,8 @@ type ForwardLastTurnsResponse struct {
 	MailId string `protobuf:"bytes,1,opt,name=mail_id,json=mailId,proto3" json:"mail_id,omitempty"`
 	// The id of the agent the mail is for.
 	ToAgentId string `protobuf:"bytes,2,opt,name=to_agent_id,json=toAgentId,proto3" json:"to_agent_id,omitempty"`
-	// When the mail was sent, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the mail was sent.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// How many turns the mail carries, prompts included.
 	Turns int32 `protobuf:"varint,4,opt,name=turns,proto3" json:"turns,omitempty"`
 	// How many characters the mail's text runs to.
@@ -587,11 +588,11 @@ func (x *ForwardLastTurnsResponse) GetToAgentId() string {
 	return ""
 }
 
-func (x *ForwardLastTurnsResponse) GetCreatedAt() string {
+func (x *ForwardLastTurnsResponse) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *ForwardLastTurnsResponse) GetTurns() int32 {
@@ -871,20 +872,20 @@ var File_agent_v1_mail_proto protoreflect.FileDescriptor
 
 const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xe8\x02\n" +
+	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xbc\x03\n" +
 	"\x04Mail\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\rfrom_agent_id\x18\x02 \x01(\tH\x00R\vfromAgentId\x88\x01\x01\x12\x1b\n" +
 	"\tfrom_name\x18\x03 \x01(\tR\bfromName\x12\x1e\n" +
 	"\vto_agent_id\x18\x04 \x01(\tR\ttoAgentId\x12\x12\n" +
 	"\x04body\x18\x05 \x01(\tR\x04body\x12\x1e\n" +
-	"\breply_to\x18\x06 \x01(\tH\x01R\areplyTo\x88\x01\x01\x12\x1d\n" +
+	"\breply_to\x18\x06 \x01(\tH\x01R\areplyTo\x88\x01\x01\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\tR\tcreatedAt\x12\"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n" +
 	"\n" +
-	"claimed_at\x18\b \x01(\tH\x02R\tclaimedAt\x88\x01\x01\x12\x1d\n" +
+	"claimed_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampH\x02R\tclaimedAt\x88\x01\x01\x129\n" +
 	"\n" +
-	"expires_at\x18\t \x01(\tR\texpiresAt\x12&\n" +
+	"expires_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12&\n" +
 	"\x04kind\x18\n" +
 	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kindB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
@@ -913,12 +914,12 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x06_turnsB\a\n" +
 	"\x05_noteB\f\n" +
 	"\n" +
-	"_max_bytes\"\xd3\x01\n" +
+	"_max_bytes\"\xef\x01\n" +
 	"\x18ForwardLastTurnsResponse\x12\x17\n" +
 	"\amail_id\x18\x01 \x01(\tR\x06mailId\x12\x1e\n" +
-	"\vto_agent_id\x18\x02 \x01(\tR\ttoAgentId\x12\x1d\n" +
+	"\vto_agent_id\x18\x02 \x01(\tR\ttoAgentId\x129\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\tR\tcreatedAt\x12\x14\n" +
+	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x14\n" +
 	"\x05turns\x18\x04 \x01(\x05R\x05turns\x12\x1e\n" +
 	"\n" +
 	"characters\x18\x05 \x01(\x05R\n" +
@@ -988,20 +989,25 @@ var file_agent_v1_mail_proto_goTypes = []any{
 	(*ListMailRequest)(nil),          // 9: agent.v1.ListMailRequest
 	(*ListMailResponse)(nil),         // 10: agent.v1.ListMailResponse
 	(*DeleteMailRequest)(nil),        // 11: agent.v1.DeleteMailRequest
-	(*v1.Pagination)(nil),            // 12: pagination.v1.Pagination
+	(*timestamppb.Timestamp)(nil),    // 12: google.protobuf.Timestamp
+	(*v1.Pagination)(nil),            // 13: pagination.v1.Pagination
 }
 var file_agent_v1_mail_proto_depIdxs = []int32{
-	0,  // 0: agent.v1.Mail.kind:type_name -> agent.v1.MailKind
-	2,  // 1: agent.v1.SendMailResponse.mail:type_name -> agent.v1.Mail
-	2,  // 2: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
-	12, // 3: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
-	1,  // 4: agent.v1.ListMailRequest.direction:type_name -> agent.v1.MailDirection
-	2,  // 5: agent.v1.ListMailResponse.mail:type_name -> agent.v1.Mail
-	6,  // [6:6] is the sub-list for method output_type
-	6,  // [6:6] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	12, // 0: agent.v1.Mail.created_at:type_name -> google.protobuf.Timestamp
+	12, // 1: agent.v1.Mail.claimed_at:type_name -> google.protobuf.Timestamp
+	12, // 2: agent.v1.Mail.expires_at:type_name -> google.protobuf.Timestamp
+	0,  // 3: agent.v1.Mail.kind:type_name -> agent.v1.MailKind
+	2,  // 4: agent.v1.SendMailResponse.mail:type_name -> agent.v1.Mail
+	12, // 5: agent.v1.ForwardLastTurnsResponse.created_at:type_name -> google.protobuf.Timestamp
+	2,  // 6: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
+	13, // 7: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
+	1,  // 8: agent.v1.ListMailRequest.direction:type_name -> agent.v1.MailDirection
+	2,  // 9: agent.v1.ListMailResponse.mail:type_name -> agent.v1.Mail
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_mail_proto_init() }

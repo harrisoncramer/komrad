@@ -3,6 +3,7 @@ package ui_test
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"komrad/internal/gittest"
 	"komrad/internal/ui/paneltest"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestReviewAnswer covers the answer key, which renders the change an addressed reply carried.
@@ -159,7 +161,7 @@ func TestReviewAnswer(t *testing.T) {
 	t.Run("only the newest addressed reply names its snapshot", func(t *testing.T) {
 		server := newLaterRepliesServer(t)
 		earlier := newAgentMessage("m0", "first try")
-		earlier.CreatedAt = "2026-09-08T09:15:00Z"
+		earlier.CreatedAt = timestamppb.New(time.Date(2026, 9, 8, 9, 15, 0, 0, time.UTC))
 		earlier.SnapshotId = xptr.Ptr("snapshot-1")
 		thread := server.threads[0]
 		thread.Messages = slices.Insert(thread.Messages, 1, earlier)
@@ -194,25 +196,25 @@ func newLaterRepliesServer(t *testing.T) *reviewServer {
 	t.Helper()
 
 	server := newEarlierReviewServer(t)
-	server.snapshots[0].CreatedAt = "2026-09-08T09:00:00Z"
+	server.snapshots[0].CreatedAt = timestamppb.New(time.Date(2026, 9, 8, 9, 0, 0, 0, time.UTC))
 	server.snapshots = append(server.snapshots, &agentv1.ReviewSnapshot{
 		Id:        "snapshot-2",
 		TaskId:    "t1",
 		Ordinal:   2,
 		BaseSha:   gittest.BaseSHA,
 		Sha:       gittest.NameSnapshot(server.repo.Tree),
-		CreatedAt: "2026-09-08T10:30:00Z",
+		CreatedAt: timestamppb.New(time.Date(2026, 9, 8, 10, 30, 0, 0, time.UTC)),
 	})
 
 	comment := newHumanMessage("m1", "add a second file")
-	comment.CreatedAt = "2026-09-08T09:10:00Z"
+	comment.CreatedAt = timestamppb.New(time.Date(2026, 9, 8, 9, 10, 0, 0, time.UTC))
 	looking := newAgentMessage("m2", "looking")
-	looking.CreatedAt = "2026-09-08T09:20:00Z"
+	looking.CreatedAt = timestamppb.New(time.Date(2026, 9, 8, 9, 20, 0, 0, time.UTC))
 	answer := newAgentMessage("m3", "added it")
-	answer.CreatedAt = "2026-09-08T10:40:00Z"
+	answer.CreatedAt = timestamppb.New(time.Date(2026, 9, 8, 10, 40, 0, 0, time.UTC))
 	answer.SnapshotId = xptr.Ptr("snapshot-2")
 	thanks := newHumanMessage("m4", "thanks")
-	thanks.CreatedAt = "2026-09-08T10:50:00Z"
+	thanks.CreatedAt = timestamppb.New(time.Date(2026, 9, 8, 10, 50, 0, 0, time.UTC))
 
 	thread := newThreadOnFirstLine(comment, looking, answer, thanks)
 	thread.SnapshotId = "snapshot-1"

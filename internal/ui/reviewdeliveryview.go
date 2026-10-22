@@ -20,7 +20,7 @@ func (r reviewScreen) reviewDeliveryBadge(thread *agentv1.ReviewThread, message 
 	}
 
 	badge := mark + " " + rendered.word
-	if when := reviewTimeOf(rendered.stamp); when != "" {
+	if when := reviewTimeOf(rendered.at); when != "" {
 		badge += " " + when
 	}
 

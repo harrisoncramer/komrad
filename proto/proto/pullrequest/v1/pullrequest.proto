@@ -4,6 +4,7 @@ package pullrequest.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/pullrequest/v1;pullrequestv1";
@@ -52,15 +53,15 @@ message PullRequest {
   bool draft = 13;
   // The pull request's state.
   PullRequestState state = 14;
-  // When the pull request was opened, in RFC 3339.
-  string opened_at = 15;
-  // When the pull request last changed on the forge, in RFC 3339.
-  string changed_at = 16;
-  // When the pull request merged, in RFC 3339. Unset until the pull request merges.
-  optional string merged_at = 17;
-  // When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is
+  // When the pull request was opened.
+  google.protobuf.Timestamp opened_at = 15;
+  // When the pull request last changed on the forge.
+  google.protobuf.Timestamp changed_at = 16;
+  // When the pull request merged. Unset until the pull request merges.
+  optional google.protobuf.Timestamp merged_at = 17;
+  // When the pull request closed, merged or not. Unset while the pull request is
   // open.
-  optional string closed_at = 18;
+  optional google.protobuf.Timestamp closed_at = 18;
   // How close the forge is to merging the pull request.
   MergeReadiness merge_readiness = 19;
   // The login of the pull request's author. Empty when the forge no longer has the account.
@@ -261,10 +262,10 @@ message CheckLogHit {
 message StatusCheckReading {
   // The head commit the status checks were read on.
   string head_sha = 1;
-  // When komrad first read the checks on the commit, in RFC 3339.
-  optional string first_read_at = 2;
-  // When komrad last asked the forge about the commit, in RFC 3339.
-  optional string read_at = 3;
+  // When komrad first read the checks on the commit.
+  optional google.protobuf.Timestamp first_read_at = 2;
+  // When komrad last asked the forge about the commit.
+  optional google.protobuf.Timestamp read_at = 3;
   // The newest run of each status check on the commit, by source, run event and name.
   repeated StatusCheck status_checks = 4;
 }
@@ -283,10 +284,10 @@ message StatusCheck {
   StatusCheckState state = 5;
   // The check's conclusion, in the forge's words. Empty until the check completes.
   string conclusion = 6;
-  // When the check started, in RFC 3339. Unset when the forge does not say.
-  optional string started_at = 7;
-  // When the check finished, in RFC 3339. Unset until the check finishes.
-  optional string finished_at = 8;
+  // When the check started. Unset when the forge does not say.
+  optional google.protobuf.Timestamp started_at = 7;
+  // When the check finished. Unset until the check finishes.
+  optional google.protobuf.Timestamp finished_at = 8;
   // Whether the pull request needs the check to pass before it merges.
   bool required = 9;
   // The check's web address.
@@ -296,9 +297,9 @@ message StatusCheck {
   // The event that started the check's CI workflow, such as `pull_request` or `push`. Empty when
   // no CI workflow ran the check.
   string run_event = 12;
-  // When the check's CI workflow run was created, in RFC 3339. Unset when no CI workflow ran the
+  // When the check's CI workflow run was created. Unset when no CI workflow ran the
   // check.
-  optional string run_started_at = 13;
+  optional google.protobuf.Timestamp run_started_at = 13;
   // The check's log, as komrad keeps it.
   CheckLog log = 14;
   // The check's id, which `ReadCheckLog` and `SearchCheckLogs` take.
@@ -311,8 +312,8 @@ message StatusCheck {
 message CheckLog {
   // The state of fetching the log.
   CheckLogState state = 1;
-  // When komrad last asked the forge for the log, in RFC 3339. Unset until komrad asks.
-  optional string fetched_at = 2;
+  // When komrad last asked the forge for the log. Unset until komrad asks.
+  optional google.protobuf.Timestamp fetched_at = 2;
   // How many lines the fetched log has.
   int32 line_count = 3;
   // How many lines of the fetched log the forge marked as errors.
@@ -370,10 +371,10 @@ message StatusCheckStep {
   StatusCheckState state = 3;
   // The step's conclusion, in the forge's words. Empty until the step completes.
   string conclusion = 4;
-  // When the step started, in RFC 3339. Unset when the forge does not say.
-  optional string started_at = 5;
-  // When the step finished, in RFC 3339. Unset until the step finishes.
-  optional string finished_at = 6;
+  // When the step started. Unset when the forge does not say.
+  optional google.protobuf.Timestamp started_at = 5;
+  // When the step finished. Unset until the step finishes.
+  optional google.protobuf.Timestamp finished_at = 6;
   // Whether the step completed with a passing conclusion, such as success, neutral or skipped.
   bool passed = 7;
 }

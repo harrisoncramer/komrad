@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -277,8 +278,8 @@ type ReviewSnapshot struct {
 	BaseSha string `protobuf:"bytes,4,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// The commit holding the whole worktree, tracked and untracked files alike.
 	Sha string `protobuf:"bytes,5,opt,name=sha,proto3" json:"sha,omitempty"`
-	// When the snapshot was taken, in RFC 3339.
-	CreatedAt     string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the snapshot was taken.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -348,11 +349,11 @@ func (x *ReviewSnapshot) GetSha() string {
 	return ""
 }
 
-func (x *ReviewSnapshot) GetCreatedAt() string {
+func (x *ReviewSnapshot) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
 // Review is a reviewer agent's comments on one snapshot, released to the writer together. The
@@ -373,14 +374,14 @@ type Review struct {
 	AuthorAgentId *string `protobuf:"bytes,6,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
 	// The review's verdict. Unspecified until the review is released.
 	Verdict ReviewVerdict `protobuf:"varint,7,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
-	// When the review was released, in RFC 3339. Empty until then.
-	ReleasedAt string `protobuf:"bytes,8,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
+	// When the review was released. Unset until then.
+	ReleasedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
 	// The absolute path of the file the released review was written to.
 	Path string `protobuf:"bytes,9,opt,name=path,proto3" json:"path,omitempty"`
-	// When the review was created with its first comment, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the review last changed, in RFC 3339.
-	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the review was created with its first comment.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the review last changed.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// What the author said about the work as a whole. Empty when the author said nothing.
 	Body string `protobuf:"bytes,13,opt,name=body,proto3" json:"body,omitempty"`
 	// How many of the review's threads are not resolved. A released review with none is finished,
@@ -471,11 +472,11 @@ func (x *Review) GetVerdict() ReviewVerdict {
 	return ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 }
 
-func (x *Review) GetReleasedAt() string {
+func (x *Review) GetReleasedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ReleasedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Review) GetPath() string {
@@ -485,18 +486,18 @@ func (x *Review) GetPath() string {
 	return ""
 }
 
-func (x *Review) GetCreatedAt() string {
+func (x *Review) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *Review) GetUpdatedAt() string {
+func (x *Review) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Review) GetBody() string {
@@ -539,14 +540,14 @@ type WatchedReview struct {
 	AuthorAgentId *string `protobuf:"bytes,7,opt,name=author_agent_id,json=authorAgentId,proto3,oneof" json:"author_agent_id,omitempty"`
 	// The review's verdict. Unspecified until the review is released.
 	Verdict ReviewVerdict `protobuf:"varint,8,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
-	// When the review was released, in RFC 3339. Empty until then.
-	ReleasedAt string `protobuf:"bytes,9,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
-	// When the review was created, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the review last changed, in RFC 3339.
-	UpdatedAt string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// When the review's snapshot was first seen landed, in RFC 3339. Empty until then.
-	SnapshotLandedAt string `protobuf:"bytes,13,opt,name=snapshot_landed_at,json=snapshotLandedAt,proto3" json:"snapshot_landed_at,omitempty"`
+	// When the review was released. Unset until then.
+	ReleasedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
+	// When the review was created.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the review last changed.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the review's snapshot was first seen landed. Unset until then.
+	SnapshotLandedAt *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=snapshot_landed_at,json=snapshotLandedAt,proto3" json:"snapshot_landed_at,omitempty"`
 	// The forge login of the author of a review copied from the forge. Empty otherwise.
 	ExternalLogin string `protobuf:"bytes,14,opt,name=external_login,json=externalLogin,proto3" json:"external_login,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -639,32 +640,32 @@ func (x *WatchedReview) GetVerdict() ReviewVerdict {
 	return ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
 }
 
-func (x *WatchedReview) GetReleasedAt() string {
+func (x *WatchedReview) GetReleasedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ReleasedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *WatchedReview) GetCreatedAt() string {
+func (x *WatchedReview) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *WatchedReview) GetUpdatedAt() string {
+func (x *WatchedReview) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *WatchedReview) GetSnapshotLandedAt() string {
+func (x *WatchedReview) GetSnapshotLandedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.SnapshotLandedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *WatchedReview) GetExternalLogin() string {
@@ -704,16 +705,16 @@ type ReviewThread struct {
 	NewEnd int32 `protobuf:"varint,11,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
 	// The diff lines the thread is about, each with its leading marker.
 	QuotedLines []string `protobuf:"bytes,12,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
-	// When the thread was resolved, in RFC 3339. Empty while the thread is open.
-	ResolvedAt string `protobuf:"bytes,13,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
+	// When the thread was resolved. Unset while the thread is open.
+	ResolvedAt *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
 	// Whether an agent has replied since the person last read the thread.
 	UnreadByHuman bool `protobuf:"varint,14,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
 	// The thread's comments, oldest first.
 	Messages []*ReviewMessage `protobuf:"bytes,15,rep,name=messages,proto3" json:"messages,omitempty"`
-	// When the thread was created, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the thread last changed, in RFC 3339.
-	UpdatedAt string `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the thread was created.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the thread last changed.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// Whether the thread is copied from a pull request, where replies are public.
 	MirrorsForge bool `protobuf:"varint,18,opt,name=mirrors_forge,json=mirrorsForge,proto3" json:"mirrors_forge,omitempty"`
 	// The replies komrad has drafted, posted or failed to post to the forge thread, oldest first.
@@ -841,11 +842,11 @@ func (x *ReviewThread) GetQuotedLines() []string {
 	return nil
 }
 
-func (x *ReviewThread) GetResolvedAt() string {
+func (x *ReviewThread) GetResolvedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ResolvedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *ReviewThread) GetUnreadByHuman() bool {
@@ -862,18 +863,18 @@ func (x *ReviewThread) GetMessages() []*ReviewMessage {
 	return nil
 }
 
-func (x *ReviewThread) GetCreatedAt() string {
+func (x *ReviewThread) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *ReviewThread) GetUpdatedAt() string {
+func (x *ReviewThread) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *ReviewThread) GetMirrorsForge() bool {
@@ -920,10 +921,10 @@ type ReviewMessage struct {
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
 	// The lines the author proposes in place of the thread's range. Empty for a plain comment.
 	Suggestion []string `protobuf:"bytes,6,rep,name=suggestion,proto3" json:"suggestion,omitempty"`
-	// When the comment was written, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the comment was last edited, in RFC 3339.
-	UpdatedAt string `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the comment was written.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the comment was last edited.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// The id of the review a reviewer agent released the comment with. Unset for the person's comments
 	// and the writer's replies.
 	ReviewId *string `protobuf:"bytes,12,opt,name=review_id,json=reviewId,proto3,oneof" json:"review_id,omitempty"`
@@ -937,9 +938,9 @@ type ReviewMessage struct {
 	// Whether the comment is kept from the agent until the person accepts it, because a forge user
 	// without write access wrote the comment or its thread.
 	Held bool `protobuf:"varint,16,opt,name=held,proto3" json:"held,omitempty"`
-	// When the agent read the person's comment, in RFC 3339. Empty until then, and on every other
+	// When the agent read the person's comment. Unset until then, and on every other
 	// comment.
-	ReadAt string `protobuf:"bytes,17,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
+	ReadAt *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
 	// The id of the snapshot taken as the agent read the person's comment, which an addressed reply
 	// is compared against. Unset until then, and on every other comment.
 	ReadSnapshotId *string `protobuf:"bytes,18,opt,name=read_snapshot_id,json=readSnapshotId,proto3,oneof" json:"read_snapshot_id,omitempty"`
@@ -1019,18 +1020,18 @@ func (x *ReviewMessage) GetSuggestion() []string {
 	return nil
 }
 
-func (x *ReviewMessage) GetCreatedAt() string {
+func (x *ReviewMessage) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *ReviewMessage) GetUpdatedAt() string {
+func (x *ReviewMessage) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *ReviewMessage) GetReviewId() string {
@@ -1068,11 +1069,11 @@ func (x *ReviewMessage) GetHeld() bool {
 	return false
 }
 
-func (x *ReviewMessage) GetReadAt() string {
+func (x *ReviewMessage) GetReadAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ReadAt
 	}
-	return ""
+	return nil
 }
 
 func (x *ReviewMessage) GetReadSnapshotId() string {
@@ -1089,8 +1090,8 @@ type ForgeOrigin struct {
 	Login string `protobuf:"bytes,1,opt,name=login,proto3" json:"login,omitempty"`
 	// The forge comment's id. The forge may have deleted the comment since.
 	CommentId string `protobuf:"bytes,2,opt,name=comment_id,json=commentId,proto3" json:"comment_id,omitempty"`
-	// When the forge comment was last edited, in RFC 3339. Unset when it was never edited.
-	EditedAt      *string `protobuf:"bytes,3,opt,name=edited_at,json=editedAt,proto3,oneof" json:"edited_at,omitempty"`
+	// When the forge comment was last edited. Unset when it was never edited.
+	EditedAt      *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=edited_at,json=editedAt,proto3,oneof" json:"edited_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1139,11 +1140,11 @@ func (x *ForgeOrigin) GetCommentId() string {
 	return ""
 }
 
-func (x *ForgeOrigin) GetEditedAt() string {
-	if x != nil && x.EditedAt != nil {
-		return *x.EditedAt
+func (x *ForgeOrigin) GetEditedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EditedAt
 	}
-	return ""
+	return nil
 }
 
 type ListReviewThreadsRequest struct {
@@ -2616,8 +2617,8 @@ type OpenReviewHistoryResponse struct {
 	// The id of the snapshot the person last commented on. Empty when there is none or the
 	// snapshot's base has changed since.
 	EarlierSnapshotId string `protobuf:"bytes,9,opt,name=earlier_snapshot_id,json=earlierSnapshotId,proto3" json:"earlier_snapshot_id,omitempty"`
-	// When the person last commented, in RFC 3339. Empty when the person never has.
-	EarlierReleasedAt string `protobuf:"bytes,10,opt,name=earlier_released_at,json=earlierReleasedAt,proto3" json:"earlier_released_at,omitempty"`
+	// When the person last commented. Unset when the person never has.
+	EarlierReleasedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=earlier_released_at,json=earlierReleasedAt,proto3" json:"earlier_released_at,omitempty"`
 	// How many files changed since `earlier_snapshot_id`.
 	ChangedSinceEarlier int32 `protobuf:"varint,11,opt,name=changed_since_earlier,json=changedSinceEarlier,proto3" json:"changed_since_earlier,omitempty"`
 	// Where git traced each thread's lines in the diff's head, by thread id.
@@ -2705,11 +2706,11 @@ func (x *OpenReviewHistoryResponse) GetEarlierSnapshotId() string {
 	return ""
 }
 
-func (x *OpenReviewHistoryResponse) GetEarlierReleasedAt() string {
+func (x *OpenReviewHistoryResponse) GetEarlierReleasedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.EarlierReleasedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *OpenReviewHistoryResponse) GetChangedSinceEarlier() int32 {
@@ -3447,8 +3448,8 @@ type ReviewViewedFile struct {
 	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The file's path, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	// When the file was marked, in RFC 3339.
-	ViewedAt string `protobuf:"bytes,3,opt,name=viewed_at,json=viewedAt,proto3" json:"viewed_at,omitempty"`
+	// When the file was marked.
+	ViewedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=viewed_at,json=viewedAt,proto3" json:"viewed_at,omitempty"`
 	// A hash of the file's diff when marked. A client shows the file as unread once the diff no
 	// longer matches it.
 	Fingerprint   string `protobuf:"bytes,4,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`
@@ -3500,11 +3501,11 @@ func (x *ReviewViewedFile) GetFilePath() string {
 	return ""
 }
 
-func (x *ReviewViewedFile) GetViewedAt() string {
+func (x *ReviewViewedFile) GetViewedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ViewedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *ReviewViewedFile) GetFingerprint() string {
@@ -3814,19 +3815,19 @@ type ForgeReply struct {
 	State ForgeReplyState `protobuf:"varint,3,opt,name=state,proto3,enum=agent.v1.ForgeReplyState" json:"state,omitempty"`
 	// The reply's text.
 	Body string `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
-	// When the person approved the reply for posting, in RFC 3339.
-	ApprovedAt string `protobuf:"bytes,5,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`
-	// When komrad last started posting the reply, in RFC 3339. Empty until then.
-	SendingStartedAt string `protobuf:"bytes,6,opt,name=sending_started_at,json=sendingStartedAt,proto3" json:"sending_started_at,omitempty"`
-	// When the forge accepted the reply, in RFC 3339. Empty until then.
-	SentAt string `protobuf:"bytes,7,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	// When the person approved the reply for posting.
+	ApprovedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`
+	// When komrad last started posting the reply. Unset until then.
+	SendingStartedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=sending_started_at,json=sendingStartedAt,proto3" json:"sending_started_at,omitempty"`
+	// When the forge accepted the reply. Unset until then.
+	SentAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
 	// The id of the comment komrad copied back from the forge for the reply. Unset until komrad
 	// copies it.
 	ForgeCommentId *string `protobuf:"bytes,8,opt,name=forge_comment_id,json=forgeCommentId,proto3,oneof" json:"forge_comment_id,omitempty"`
 	// What the forge said when it last refused the reply. Unset unless posting failed.
 	Error *string `protobuf:"bytes,9,opt,name=error,proto3,oneof" json:"error,omitempty"`
-	// When the reply was written, in RFC 3339.
-	CreatedAt     string `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the reply was written.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3889,25 +3890,25 @@ func (x *ForgeReply) GetBody() string {
 	return ""
 }
 
-func (x *ForgeReply) GetApprovedAt() string {
+func (x *ForgeReply) GetApprovedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ApprovedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *ForgeReply) GetSendingStartedAt() string {
+func (x *ForgeReply) GetSendingStartedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.SendingStartedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *ForgeReply) GetSentAt() string {
+func (x *ForgeReply) GetSentAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.SentAt
 	}
-	return ""
+	return nil
 }
 
 func (x *ForgeReply) GetForgeCommentId() string {
@@ -3924,11 +3925,11 @@ func (x *ForgeReply) GetError() string {
 	return ""
 }
 
-func (x *ForgeReply) GetCreatedAt() string {
+func (x *ForgeReply) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
 type ReplyOnForgeRequest struct {
@@ -4169,15 +4170,15 @@ var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\x9f\x01\n" +
+	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbb\x01\n" +
 	"\x0eReviewSnapshot\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x18\n" +
 	"\aordinal\x18\x03 \x01(\x05R\aordinal\x12\x19\n" +
 	"\bbase_sha\x18\x04 \x01(\tR\abaseSha\x12\x10\n" +
-	"\x03sha\x18\x05 \x01(\tR\x03sha\x12\x1d\n" +
+	"\x03sha\x18\x05 \x01(\tR\x03sha\x129\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\xff\x03\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xd3\x04\n" +
 	"\x06Review\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x1f\n" +
@@ -4187,18 +4188,18 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\vauthor_kind\x18\x05 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
 	"authorKind\x12+\n" +
 	"\x0fauthor_agent_id\x18\x06 \x01(\tH\x00R\rauthorAgentId\x88\x01\x01\x121\n" +
-	"\averdict\x18\a \x01(\x0e2\x17.agent.v1.ReviewVerdictR\averdict\x12\x1f\n" +
-	"\vreleased_at\x18\b \x01(\tR\n" +
+	"\averdict\x18\a \x01(\x0e2\x17.agent.v1.ReviewVerdictR\averdict\x12;\n" +
+	"\vreleased_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"releasedAt\x12\x12\n" +
-	"\x04path\x18\t \x01(\tR\x04path\x12\x1d\n" +
+	"\x04path\x18\t \x01(\tR\x04path\x129\n" +
 	"\n" +
-	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
+	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n" +
 	"\x04body\x18\r \x01(\tR\x04body\x12!\n" +
 	"\fopen_threads\x18\x0e \x01(\x05R\vopenThreads\x12%\n" +
 	"\x0eexternal_login\x18\x0f \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_id\"\x8c\x04\n" +
+	"\x10_author_agent_id\"\xfc\x04\n" +
 	"\rWatchedReview\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x1f\n" +
@@ -4209,16 +4210,16 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\vauthor_kind\x18\x06 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
 	"authorKind\x12+\n" +
 	"\x0fauthor_agent_id\x18\a \x01(\tH\x00R\rauthorAgentId\x88\x01\x01\x121\n" +
-	"\averdict\x18\b \x01(\x0e2\x17.agent.v1.ReviewVerdictR\averdict\x12\x1f\n" +
-	"\vreleased_at\x18\t \x01(\tR\n" +
-	"releasedAt\x12\x1d\n" +
+	"\averdict\x18\b \x01(\x0e2\x17.agent.v1.ReviewVerdictR\averdict\x12;\n" +
+	"\vreleased_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"releasedAt\x129\n" +
 	"\n" +
-	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\tR\tupdatedAt\x12,\n" +
-	"\x12snapshot_landed_at\x18\r \x01(\tR\x10snapshotLandedAt\x12%\n" +
+	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12H\n" +
+	"\x12snapshot_landed_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\x10snapshotLandedAt\x12%\n" +
 	"\x0eexternal_login\x18\x0e \x01(\tR\rexternalLoginB\x12\n" +
-	"\x10_author_agent_id\"\x94\x06\n" +
+	"\x10_author_agent_id\"\xe8\x06\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12 \n" +
@@ -4233,15 +4234,15 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\tnew_start\x18\n" +
 	" \x01(\x05R\bnewStart\x12\x17\n" +
 	"\anew_end\x18\v \x01(\x05R\x06newEnd\x12!\n" +
-	"\fquoted_lines\x18\f \x03(\tR\vquotedLines\x12\x1f\n" +
-	"\vresolved_at\x18\r \x01(\tR\n" +
+	"\fquoted_lines\x18\f \x03(\tR\vquotedLines\x12;\n" +
+	"\vresolved_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"resolvedAt\x12&\n" +
 	"\x0funread_by_human\x18\x0e \x01(\bR\runreadByHuman\x123\n" +
-	"\bmessages\x18\x0f \x03(\v2\x17.agent.v1.ReviewMessageR\bmessages\x12\x1d\n" +
+	"\bmessages\x18\x0f \x03(\v2\x17.agent.v1.ReviewMessageR\bmessages\x129\n" +
 	"\n" +
-	"created_at\x18\x10 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x11 \x01(\tR\tupdatedAt\x12#\n" +
+	"updated_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12#\n" +
 	"\rmirrors_forge\x18\x12 \x01(\bR\fmirrorsForge\x129\n" +
 	"\rforge_replies\x18\x13 \x03(\v2\x14.agent.v1.ForgeReplyR\fforgeReplies\x12;\n" +
 	"\vauthor_kind\x18\x14 \x01(\x0e2\x1a.agent.v1.ReviewAuthorKindR\n" +
@@ -4249,7 +4250,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x0fauthor_agent_id\x18\x15 \x01(\tH\x01R\rauthorAgentId\x88\x01\x01B\f\n" +
 	"\n" +
 	"_review_idB\x12\n" +
-	"\x10_author_agent_id\"\xfb\x04\n" +
+	"\x10_author_agent_id\"\xcf\x05\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -4259,18 +4260,18 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x04body\x18\x05 \x01(\tR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\x06 \x03(\tR\n" +
-	"suggestion\x12\x1d\n" +
+	"suggestion\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\tR\tupdatedAt\x12 \n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12 \n" +
 	"\treview_id\x18\f \x01(\tH\x01R\breviewId\x88\x01\x01\x12$\n" +
 	"\vsnapshot_id\x18\r \x01(\tH\x02R\n" +
 	"snapshotId\x88\x01\x01\x120\n" +
 	"\x05forge\x18\x0e \x01(\v2\x15.agent.v1.ForgeOriginH\x03R\x05forge\x88\x01\x01\x12(\n" +
 	"\raccepted_from\x18\x0f \x01(\tH\x04R\facceptedFrom\x88\x01\x01\x12\x12\n" +
-	"\x04held\x18\x10 \x01(\bR\x04held\x12\x17\n" +
-	"\aread_at\x18\x11 \x01(\tR\x06readAt\x12-\n" +
+	"\x04held\x18\x10 \x01(\bR\x04held\x123\n" +
+	"\aread_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\x06readAt\x12-\n" +
 	"\x10read_snapshot_id\x18\x12 \x01(\tH\x05R\x0ereadSnapshotId\x88\x01\x01B\x12\n" +
 	"\x10_author_agent_idB\f\n" +
 	"\n" +
@@ -4278,12 +4279,12 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\f_snapshot_idB\b\n" +
 	"\x06_forgeB\x10\n" +
 	"\x0e_accepted_fromB\x13\n" +
-	"\x11_read_snapshot_id\"r\n" +
+	"\x11_read_snapshot_id\"\x8e\x01\n" +
 	"\vForgeOrigin\x12\x14\n" +
 	"\x05login\x18\x01 \x01(\tR\x05login\x12\x1d\n" +
 	"\n" +
-	"comment_id\x18\x02 \x01(\tR\tcommentId\x12 \n" +
-	"\tedited_at\x18\x03 \x01(\tH\x00R\beditedAt\x88\x01\x01B\f\n" +
+	"comment_id\x18\x02 \x01(\tR\tcommentId\x12<\n" +
+	"\tedited_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\beditedAt\x88\x01\x01B\f\n" +
 	"\n" +
 	"_edited_at\"o\n" +
 	"\x18ListReviewThreadsRequest\x12#\n" +
@@ -4377,7 +4378,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x10ReviewOriginSpan\x12)\n" +
 	"\vsnapshot_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\n" +
 	"snapshotId\x12\x19\n" +
-	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\xf6\x04\n" +
+	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\x92\x05\n" +
 	"\x19OpenReviewHistoryResponse\x124\n" +
 	"\bsnapshot\x18\x01 \x01(\v2\x18.agent.v1.ReviewSnapshotR\bsnapshot\x126\n" +
 	"\tsnapshots\x18\x02 \x03(\v2\x18.agent.v1.ReviewSnapshotR\tsnapshots\x120\n" +
@@ -4385,9 +4386,9 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x06notice\x18\x05 \x01(\tR\x06notice\x128\n" +
 	"\bresolved\x18\x06 \x01(\v2\x1c.agent.v1.ReviewResolvedSpanR\bresolved\x122\n" +
 	"\awidened\x18\a \x01(\v2\x18.agent.v1.ReviewWideningR\awidened\x12.\n" +
-	"\x13earlier_snapshot_id\x18\t \x01(\tR\x11earlierSnapshotId\x12.\n" +
+	"\x13earlier_snapshot_id\x18\t \x01(\tR\x11earlierSnapshotId\x12J\n" +
 	"\x13earlier_released_at\x18\n" +
-	" \x01(\tR\x11earlierReleasedAt\x122\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\x11earlierReleasedAt\x122\n" +
 	"\x15changed_since_earlier\x18\v \x01(\x05R\x13changedSinceEarlier\x12G\n" +
 	"\x06traced\x18\f \x03(\v2/.agent.v1.OpenReviewHistoryResponse.TracedEntryR\x06traced\x1aV\n" +
 	"\vTracedEntry\x12\x10\n" +
@@ -4435,11 +4436,11 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\"\x87\x01\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"\xa3\x01\n" +
 	"\x10ReviewViewedFile\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
-	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x1b\n" +
-	"\tviewed_at\x18\x03 \x01(\tR\bviewedAt\x12 \n" +
+	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x127\n" +
+	"\tviewed_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\bviewedAt\x12 \n" +
 	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"\xd8\x01\n" +
 	"\x1aSetReviewFileViewedRequest\x12#\n" +
 	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
@@ -4455,22 +4456,22 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\r\n" +
 	"\x04task\x12\x05\xbaH\x02\b\x01\"S\n" +
 	"\x1dListReviewViewedFilesResponse\x122\n" +
-	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xee\x02\n" +
+	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xde\x03\n" +
 	"\n" +
 	"ForgeReply\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12/\n" +
 	"\x05state\x18\x03 \x01(\x0e2\x19.agent.v1.ForgeReplyStateR\x05state\x12\x12\n" +
-	"\x04body\x18\x04 \x01(\tR\x04body\x12\x1f\n" +
-	"\vapproved_at\x18\x05 \x01(\tR\n" +
-	"approvedAt\x12,\n" +
-	"\x12sending_started_at\x18\x06 \x01(\tR\x10sendingStartedAt\x12\x17\n" +
-	"\asent_at\x18\a \x01(\tR\x06sentAt\x12-\n" +
+	"\x04body\x18\x04 \x01(\tR\x04body\x12;\n" +
+	"\vapproved_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"approvedAt\x12H\n" +
+	"\x12sending_started_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x10sendingStartedAt\x123\n" +
+	"\asent_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\x12-\n" +
 	"\x10forge_comment_id\x18\b \x01(\tH\x00R\x0eforgeCommentId\x88\x01\x01\x12\x19\n" +
-	"\x05error\x18\t \x01(\tH\x01R\x05error\x88\x01\x01\x12\x1d\n" +
+	"\x05error\x18\t \x01(\tH\x01R\x05error\x88\x01\x01\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\tR\tcreatedAtB\x13\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x13\n" +
 	"\x11_forge_comment_idB\b\n" +
 	"\x06_error\"Y\n" +
 	"\x13ReplyOnForgeRequest\x12%\n" +
@@ -4578,54 +4579,76 @@ var file_agent_v1_review_proto_goTypes = []any{
 	(*RetryForgeReplyResponse)(nil),         // 52: agent.v1.RetryForgeReplyResponse
 	(*DiscardForgeReplyRequest)(nil),        // 53: agent.v1.DiscardForgeReplyRequest
 	nil,                                     // 54: agent.v1.OpenReviewHistoryResponse.TracedEntry
+	(*timestamppb.Timestamp)(nil),           // 55: google.protobuf.Timestamp
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
-	0,  // 0: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	1,  // 1: agent.v1.Review.verdict:type_name -> agent.v1.ReviewVerdict
-	0,  // 2: agent.v1.WatchedReview.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	1,  // 3: agent.v1.WatchedReview.verdict:type_name -> agent.v1.ReviewVerdict
-	8,  // 4: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
-	48, // 5: agent.v1.ReviewThread.forge_replies:type_name -> agent.v1.ForgeReply
-	0,  // 6: agent.v1.ReviewThread.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	0,  // 7: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	9,  // 8: agent.v1.ReviewMessage.forge:type_name -> agent.v1.ForgeOrigin
-	7,  // 9: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
-	7,  // 10: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
-	8,  // 11: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	8,  // 12: agent.v1.AcceptForgeMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	8,  // 13: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	7,  // 14: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
-	7,  // 15: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
-	4,  // 16: agent.v1.TakeReviewSnapshotResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
-	4,  // 17: agent.v1.ListReviewSnapshotsResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
-	29, // 18: agent.v1.OpenReviewHistoryRequest.snapshots:type_name -> agent.v1.ReviewSnapshotSpan
-	30, // 19: agent.v1.OpenReviewHistoryRequest.answer:type_name -> agent.v1.ReviewAnswerSpan
-	31, // 20: agent.v1.OpenReviewHistoryRequest.origin:type_name -> agent.v1.ReviewOriginSpan
-	4,  // 21: agent.v1.OpenReviewHistoryResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
-	4,  // 22: agent.v1.OpenReviewHistoryResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
-	7,  // 23: agent.v1.OpenReviewHistoryResponse.threads:type_name -> agent.v1.ReviewThread
-	34, // 24: agent.v1.OpenReviewHistoryResponse.resolved:type_name -> agent.v1.ReviewResolvedSpan
-	33, // 25: agent.v1.OpenReviewHistoryResponse.widened:type_name -> agent.v1.ReviewWidening
-	54, // 26: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
-	2,  // 27: agent.v1.ReviewWidening.reason:type_name -> agent.v1.ReviewWidenedReason
-	7,  // 28: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
-	5,  // 29: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
-	4,  // 30: agent.v1.GetReviewResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
-	36, // 31: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
-	5,  // 32: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
-	1,  // 33: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
-	5,  // 34: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
-	43, // 35: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	43, // 36: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	3,  // 37: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
-	48, // 38: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
-	48, // 39: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	35, // 40: agent.v1.OpenReviewHistoryResponse.TracedEntry.value:type_name -> agent.v1.ReviewTracedPlace
-	41, // [41:41] is the sub-list for method output_type
-	41, // [41:41] is the sub-list for method input_type
-	41, // [41:41] is the sub-list for extension type_name
-	41, // [41:41] is the sub-list for extension extendee
-	0,  // [0:41] is the sub-list for field type_name
+	55, // 0: agent.v1.ReviewSnapshot.created_at:type_name -> google.protobuf.Timestamp
+	0,  // 1: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	1,  // 2: agent.v1.Review.verdict:type_name -> agent.v1.ReviewVerdict
+	55, // 3: agent.v1.Review.released_at:type_name -> google.protobuf.Timestamp
+	55, // 4: agent.v1.Review.created_at:type_name -> google.protobuf.Timestamp
+	55, // 5: agent.v1.Review.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 6: agent.v1.WatchedReview.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	1,  // 7: agent.v1.WatchedReview.verdict:type_name -> agent.v1.ReviewVerdict
+	55, // 8: agent.v1.WatchedReview.released_at:type_name -> google.protobuf.Timestamp
+	55, // 9: agent.v1.WatchedReview.created_at:type_name -> google.protobuf.Timestamp
+	55, // 10: agent.v1.WatchedReview.updated_at:type_name -> google.protobuf.Timestamp
+	55, // 11: agent.v1.WatchedReview.snapshot_landed_at:type_name -> google.protobuf.Timestamp
+	55, // 12: agent.v1.ReviewThread.resolved_at:type_name -> google.protobuf.Timestamp
+	8,  // 13: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
+	55, // 14: agent.v1.ReviewThread.created_at:type_name -> google.protobuf.Timestamp
+	55, // 15: agent.v1.ReviewThread.updated_at:type_name -> google.protobuf.Timestamp
+	48, // 16: agent.v1.ReviewThread.forge_replies:type_name -> agent.v1.ForgeReply
+	0,  // 17: agent.v1.ReviewThread.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	0,  // 18: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	55, // 19: agent.v1.ReviewMessage.created_at:type_name -> google.protobuf.Timestamp
+	55, // 20: agent.v1.ReviewMessage.updated_at:type_name -> google.protobuf.Timestamp
+	9,  // 21: agent.v1.ReviewMessage.forge:type_name -> agent.v1.ForgeOrigin
+	55, // 22: agent.v1.ReviewMessage.read_at:type_name -> google.protobuf.Timestamp
+	55, // 23: agent.v1.ForgeOrigin.edited_at:type_name -> google.protobuf.Timestamp
+	7,  // 24: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
+	7,  // 25: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
+	8,  // 26: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	8,  // 27: agent.v1.AcceptForgeMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	8,  // 28: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	7,  // 29: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
+	7,  // 30: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
+	4,  // 31: agent.v1.TakeReviewSnapshotResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	4,  // 32: agent.v1.ListReviewSnapshotsResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
+	29, // 33: agent.v1.OpenReviewHistoryRequest.snapshots:type_name -> agent.v1.ReviewSnapshotSpan
+	30, // 34: agent.v1.OpenReviewHistoryRequest.answer:type_name -> agent.v1.ReviewAnswerSpan
+	31, // 35: agent.v1.OpenReviewHistoryRequest.origin:type_name -> agent.v1.ReviewOriginSpan
+	4,  // 36: agent.v1.OpenReviewHistoryResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	4,  // 37: agent.v1.OpenReviewHistoryResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
+	7,  // 38: agent.v1.OpenReviewHistoryResponse.threads:type_name -> agent.v1.ReviewThread
+	34, // 39: agent.v1.OpenReviewHistoryResponse.resolved:type_name -> agent.v1.ReviewResolvedSpan
+	33, // 40: agent.v1.OpenReviewHistoryResponse.widened:type_name -> agent.v1.ReviewWidening
+	55, // 41: agent.v1.OpenReviewHistoryResponse.earlier_released_at:type_name -> google.protobuf.Timestamp
+	54, // 42: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
+	2,  // 43: agent.v1.ReviewWidening.reason:type_name -> agent.v1.ReviewWidenedReason
+	7,  // 44: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
+	5,  // 45: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
+	4,  // 46: agent.v1.GetReviewResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	36, // 47: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
+	5,  // 48: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
+	1,  // 49: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
+	5,  // 50: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
+	55, // 51: agent.v1.ReviewViewedFile.viewed_at:type_name -> google.protobuf.Timestamp
+	43, // 52: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	43, // 53: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	3,  // 54: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
+	55, // 55: agent.v1.ForgeReply.approved_at:type_name -> google.protobuf.Timestamp
+	55, // 56: agent.v1.ForgeReply.sending_started_at:type_name -> google.protobuf.Timestamp
+	55, // 57: agent.v1.ForgeReply.sent_at:type_name -> google.protobuf.Timestamp
+	55, // 58: agent.v1.ForgeReply.created_at:type_name -> google.protobuf.Timestamp
+	48, // 59: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
+	48, // 60: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
+	35, // 61: agent.v1.OpenReviewHistoryResponse.TracedEntry.value:type_name -> agent.v1.ReviewTracedPlace
+	62, // [62:62] is the sub-list for method output_type
+	62, // [62:62] is the sub-list for method input_type
+	62, // [62:62] is the sub-list for extension type_name
+	62, // [62:62] is the sub-list for extension extendee
+	0,  // [0:62] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_review_proto_init() }

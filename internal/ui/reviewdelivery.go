@@ -1,8 +1,11 @@
 package ui
 
 import (
+	"time"
+
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -10,10 +13,10 @@ import (
 // the comment says it: its word, the moment it names, its colour and the glyph it opens with,
 // which is an arrow while the comment is on its way.
 type reviewDelivery struct {
-	word  string
-	stamp string
-	tone  paint.Tone
-	mark  glyph.Glyph
+	word string
+	at   time.Time
+	tone paint.Tone
+	mark glyph.Glyph
 }
 
 // reviewDeliveryParams is a comment, the thread it sits in and the writer whose answer counts.
@@ -40,25 +43,25 @@ func reviewDeliveryOf(params reviewDeliveryParams) reviewDelivery {
 
 	if answer := findReplyTo(params); answer != nil {
 		return reviewDelivery{
-			word:  "answered",
-			stamp: answer.GetCreatedAt(),
-			tone:  reviewReadTone,
-			mark:  glyph.Delivered,
+			word: "answered",
+			at:   dates.Read(answer.GetCreatedAt()),
+			tone: reviewReadTone,
+			mark: glyph.Delivered,
 		}
 	}
-	if read := message.GetReadAt(); read != "" {
+	if read := message.GetReadAt(); read != nil {
 		return reviewDelivery{
-			word:  "read",
-			stamp: read,
-			tone:  reviewReadTone,
-			mark:  glyph.Delivered,
+			word: "read",
+			at:   dates.Read(read),
+			tone: reviewReadTone,
+			mark: glyph.Delivered,
 		}
 	}
 
 	return reviewDelivery{
-		word:  "released",
-		stamp: message.GetCreatedAt(),
-		tone:  reviewReleasedTone,
+		word: "released",
+		at:   dates.Read(message.GetCreatedAt()),
+		tone: reviewReleasedTone,
 	}
 }
 

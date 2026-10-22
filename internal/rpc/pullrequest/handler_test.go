@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -189,8 +190,8 @@ func TestListStatusChecks(t *testing.T) {
 			}},
 			want: &pullrequestv1.ListStatusChecksResponse{Readings: []*pullrequestv1.StatusCheckReading{{
 				HeadSha:     "c1",
-				FirstReadAt: xptr.Ptr("2026-10-03T11:00:00Z"),
-				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
+				FirstReadAt: timestamppb.New(time.Date(2026, 10, 3, 11, 0, 0, 0, time.UTC)),
+				ReadAt:      timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
 					Id:         firstCheckID.String(),
 					ProviderId: "1",
@@ -207,14 +208,14 @@ func TestListStatusChecks(t *testing.T) {
 						Name:       "Run tests",
 						State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 						Conclusion: "failure",
-						StartedAt:  xptr.Ptr("2026-10-03T11:59:00Z"),
-						FinishedAt: xptr.Ptr("2026-10-03T12:00:00Z"),
+						StartedAt:  timestamppb.New(time.Date(2026, 10, 3, 11, 59, 0, 0, time.UTC)),
+						FinishedAt: timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
 					}},
 				}},
 			}, {
 				HeadSha:     "c2",
-				FirstReadAt: xptr.Ptr("2026-10-03T12:01:00Z"),
-				ReadAt:      xptr.Ptr("2026-10-03T12:01:00Z"),
+				FirstReadAt: timestamppb.New(time.Date(2026, 10, 3, 12, 1, 0, 0, time.UTC)),
+				ReadAt:      timestamppb.New(time.Date(2026, 10, 3, 12, 1, 0, 0, time.UTC)),
 			}}},
 		},
 		{
@@ -240,8 +241,8 @@ func TestListStatusChecks(t *testing.T) {
 			}},
 			want: &pullrequestv1.ListStatusChecksResponse{Readings: []*pullrequestv1.StatusCheckReading{{
 				HeadSha:     "c1",
-				FirstReadAt: xptr.Ptr("2026-10-03T12:00:00Z"),
-				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
+				FirstReadAt: timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
+				ReadAt:      timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
 					Id:         firstCheckID.String(),
 					ProviderId: "1",
@@ -277,8 +278,8 @@ func TestListStatusChecks(t *testing.T) {
 			}},
 			want: &pullrequestv1.ListStatusChecksResponse{Readings: []*pullrequestv1.StatusCheckReading{{
 				HeadSha:     "c1",
-				FirstReadAt: xptr.Ptr("2026-10-03T12:00:00Z"),
-				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
+				FirstReadAt: timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
+				ReadAt:      timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
 					Id:         firstCheckID.String(),
 					ProviderId: "1",
@@ -346,8 +347,8 @@ func TestListStatusChecks(t *testing.T) {
 			}},
 			want: &pullrequestv1.ListStatusChecksResponse{Readings: []*pullrequestv1.StatusCheckReading{{
 				HeadSha:     "c1",
-				FirstReadAt: xptr.Ptr("2026-10-03T12:00:00Z"),
-				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
+				FirstReadAt: timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
+				ReadAt:      timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
 					Id:         firstCheckID.String(),
 					ProviderId: "1",
@@ -356,7 +357,7 @@ func TestListStatusChecks(t *testing.T) {
 					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 					Log: &pullrequestv1.CheckLog{
 						State:      pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
-						FetchedAt:  xptr.Ptr("2026-10-03T12:00:00Z"),
+						FetchedAt:  timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
 						LineCount:  40,
 						ErrorCount: 2,
 						Steps: []*pullrequestv1.CheckLogStep{{
@@ -390,7 +391,7 @@ func TestListStatusChecks(t *testing.T) {
 					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 					Log: &pullrequestv1.CheckLog{
 						State:     pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE,
-						FetchedAt: xptr.Ptr("2026-10-03T12:00:00Z"),
+						FetchedAt: timestamppb.New(time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)),
 					},
 				}},
 			}}},

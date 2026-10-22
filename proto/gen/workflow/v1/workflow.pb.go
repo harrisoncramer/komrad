@@ -11,6 +11,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	_ "komrad/proto/gen/annotation/v1"
 	v1 "komrad/proto/gen/pagination/v1"
 	_ "komrad/proto/gen/rules/v1"
@@ -43,8 +44,8 @@ type Workflow struct {
 	Flags string `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
 	// The harness the workflow's agents run. Empty uses komrad's default.
 	Harness string `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	// When the workflow was archived, in RFC 3339. Unset while the workflow is live.
-	ArchivedAt *string `protobuf:"bytes,7,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	// When the workflow was archived. Unset while the workflow is live.
+	ArchivedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	// Whether the workflow's tasks get worktrees, and how komrad creates them.
 	Worktree *WorktreeConfig `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	// The workflow's hooks, at most one for each moment.
@@ -135,11 +136,11 @@ func (x *Workflow) GetHarness() string {
 	return ""
 }
 
-func (x *Workflow) GetArchivedAt() string {
-	if x != nil && x.ArchivedAt != nil {
-		return *x.ArchivedAt
+func (x *Workflow) GetArchivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ArchivedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Workflow) GetWorktree() *WorktreeConfig {
@@ -1162,15 +1163,15 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xf0\x03\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\x8c\x04\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\acontext\x18\x03 \x01(\tR\acontext\x12\x10\n" +
 	"\x03cwd\x18\x04 \x01(\tR\x03cwd\x12\x14\n" +
 	"\x05flags\x18\x05 \x01(\tR\x05flags\x12\x18\n" +
-	"\aharness\x18\x06 \x01(\tR\aharness\x12$\n" +
-	"\varchived_at\x18\a \x01(\tH\x00R\n" +
+	"\aharness\x18\x06 \x01(\tR\aharness\x12@\n" +
+	"\varchived_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x00R\n" +
 	"archivedAt\x88\x01\x01\x127\n" +
 	"\bworktree\x18\b \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
 	"\x05hooks\x18\t \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooks\x12+\n" +
@@ -1289,46 +1290,48 @@ var file_workflow_v1_workflow_proto_goTypes = []any{
 	(*RestoreWorkflowRequest)(nil),  // 13: workflow.v1.RestoreWorkflowRequest
 	(*RestoreWorkflowResponse)(nil), // 14: workflow.v1.RestoreWorkflowResponse
 	(*DeleteWorkflowRequest)(nil),   // 15: workflow.v1.DeleteWorkflowRequest
-	(*v1.Pagination)(nil),           // 16: pagination.v1.Pagination
-	(v11.View)(0),                   // 17: view.v1.View
-	(*emptypb.Empty)(nil),           // 18: google.protobuf.Empty
+	(*timestamppb.Timestamp)(nil),   // 16: google.protobuf.Timestamp
+	(*v1.Pagination)(nil),           // 17: pagination.v1.Pagination
+	(v11.View)(0),                   // 18: view.v1.View
+	(*emptypb.Empty)(nil),           // 19: google.protobuf.Empty
 }
 var file_workflow_v1_workflow_proto_depIdxs = []int32{
-	4,  // 0: workflow.v1.Workflow.worktree:type_name -> workflow.v1.WorktreeConfig
-	3,  // 1: workflow.v1.Workflow.hooks:type_name -> workflow.v1.WorkflowHook
-	1,  // 2: workflow.v1.Workflow.event_prompts:type_name -> workflow.v1.WorkflowEventPrompt
-	1,  // 3: workflow.v1.WorkflowEventPrompts.prompts:type_name -> workflow.v1.WorkflowEventPrompt
-	16, // 4: workflow.v1.ListWorkflowsRequest.pagination:type_name -> pagination.v1.Pagination
-	17, // 5: workflow.v1.ListWorkflowsRequest.view:type_name -> view.v1.View
-	0,  // 6: workflow.v1.ListWorkflowsResponse.workflows:type_name -> workflow.v1.Workflow
-	0,  // 7: workflow.v1.GetWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
-	4,  // 8: workflow.v1.CreateWorkflowRequest.worktree:type_name -> workflow.v1.WorktreeConfig
-	3,  // 9: workflow.v1.CreateWorkflowRequest.hooks:type_name -> workflow.v1.WorkflowHook
-	2,  // 10: workflow.v1.CreateWorkflowRequest.event_prompts:type_name -> workflow.v1.WorkflowEventPrompts
-	0,  // 11: workflow.v1.CreateWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
-	4,  // 12: workflow.v1.UpdateWorkflowRequest.worktree:type_name -> workflow.v1.WorktreeConfig
-	3,  // 13: workflow.v1.UpdateWorkflowRequest.hooks:type_name -> workflow.v1.WorkflowHook
-	1,  // 14: workflow.v1.UpdateWorkflowRequest.event_prompts:type_name -> workflow.v1.WorkflowEventPrompt
-	0,  // 15: workflow.v1.RestoreWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
-	5,  // 16: workflow.v1.WorkflowService.ListWorkflows:input_type -> workflow.v1.ListWorkflowsRequest
-	7,  // 17: workflow.v1.WorkflowService.GetWorkflow:input_type -> workflow.v1.GetWorkflowRequest
-	9,  // 18: workflow.v1.WorkflowService.CreateWorkflow:input_type -> workflow.v1.CreateWorkflowRequest
-	11, // 19: workflow.v1.WorkflowService.UpdateWorkflow:input_type -> workflow.v1.UpdateWorkflowRequest
-	12, // 20: workflow.v1.WorkflowService.ArchiveWorkflow:input_type -> workflow.v1.ArchiveWorkflowRequest
-	13, // 21: workflow.v1.WorkflowService.RestoreWorkflow:input_type -> workflow.v1.RestoreWorkflowRequest
-	15, // 22: workflow.v1.WorkflowService.DeleteWorkflow:input_type -> workflow.v1.DeleteWorkflowRequest
-	6,  // 23: workflow.v1.WorkflowService.ListWorkflows:output_type -> workflow.v1.ListWorkflowsResponse
-	8,  // 24: workflow.v1.WorkflowService.GetWorkflow:output_type -> workflow.v1.GetWorkflowResponse
-	10, // 25: workflow.v1.WorkflowService.CreateWorkflow:output_type -> workflow.v1.CreateWorkflowResponse
-	18, // 26: workflow.v1.WorkflowService.UpdateWorkflow:output_type -> google.protobuf.Empty
-	18, // 27: workflow.v1.WorkflowService.ArchiveWorkflow:output_type -> google.protobuf.Empty
-	14, // 28: workflow.v1.WorkflowService.RestoreWorkflow:output_type -> workflow.v1.RestoreWorkflowResponse
-	18, // 29: workflow.v1.WorkflowService.DeleteWorkflow:output_type -> google.protobuf.Empty
-	23, // [23:30] is the sub-list for method output_type
-	16, // [16:23] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	16, // 0: workflow.v1.Workflow.archived_at:type_name -> google.protobuf.Timestamp
+	4,  // 1: workflow.v1.Workflow.worktree:type_name -> workflow.v1.WorktreeConfig
+	3,  // 2: workflow.v1.Workflow.hooks:type_name -> workflow.v1.WorkflowHook
+	1,  // 3: workflow.v1.Workflow.event_prompts:type_name -> workflow.v1.WorkflowEventPrompt
+	1,  // 4: workflow.v1.WorkflowEventPrompts.prompts:type_name -> workflow.v1.WorkflowEventPrompt
+	17, // 5: workflow.v1.ListWorkflowsRequest.pagination:type_name -> pagination.v1.Pagination
+	18, // 6: workflow.v1.ListWorkflowsRequest.view:type_name -> view.v1.View
+	0,  // 7: workflow.v1.ListWorkflowsResponse.workflows:type_name -> workflow.v1.Workflow
+	0,  // 8: workflow.v1.GetWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
+	4,  // 9: workflow.v1.CreateWorkflowRequest.worktree:type_name -> workflow.v1.WorktreeConfig
+	3,  // 10: workflow.v1.CreateWorkflowRequest.hooks:type_name -> workflow.v1.WorkflowHook
+	2,  // 11: workflow.v1.CreateWorkflowRequest.event_prompts:type_name -> workflow.v1.WorkflowEventPrompts
+	0,  // 12: workflow.v1.CreateWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
+	4,  // 13: workflow.v1.UpdateWorkflowRequest.worktree:type_name -> workflow.v1.WorktreeConfig
+	3,  // 14: workflow.v1.UpdateWorkflowRequest.hooks:type_name -> workflow.v1.WorkflowHook
+	1,  // 15: workflow.v1.UpdateWorkflowRequest.event_prompts:type_name -> workflow.v1.WorkflowEventPrompt
+	0,  // 16: workflow.v1.RestoreWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
+	5,  // 17: workflow.v1.WorkflowService.ListWorkflows:input_type -> workflow.v1.ListWorkflowsRequest
+	7,  // 18: workflow.v1.WorkflowService.GetWorkflow:input_type -> workflow.v1.GetWorkflowRequest
+	9,  // 19: workflow.v1.WorkflowService.CreateWorkflow:input_type -> workflow.v1.CreateWorkflowRequest
+	11, // 20: workflow.v1.WorkflowService.UpdateWorkflow:input_type -> workflow.v1.UpdateWorkflowRequest
+	12, // 21: workflow.v1.WorkflowService.ArchiveWorkflow:input_type -> workflow.v1.ArchiveWorkflowRequest
+	13, // 22: workflow.v1.WorkflowService.RestoreWorkflow:input_type -> workflow.v1.RestoreWorkflowRequest
+	15, // 23: workflow.v1.WorkflowService.DeleteWorkflow:input_type -> workflow.v1.DeleteWorkflowRequest
+	6,  // 24: workflow.v1.WorkflowService.ListWorkflows:output_type -> workflow.v1.ListWorkflowsResponse
+	8,  // 25: workflow.v1.WorkflowService.GetWorkflow:output_type -> workflow.v1.GetWorkflowResponse
+	10, // 26: workflow.v1.WorkflowService.CreateWorkflow:output_type -> workflow.v1.CreateWorkflowResponse
+	19, // 27: workflow.v1.WorkflowService.UpdateWorkflow:output_type -> google.protobuf.Empty
+	19, // 28: workflow.v1.WorkflowService.ArchiveWorkflow:output_type -> google.protobuf.Empty
+	14, // 29: workflow.v1.WorkflowService.RestoreWorkflow:output_type -> workflow.v1.RestoreWorkflowResponse
+	19, // 30: workflow.v1.WorkflowService.DeleteWorkflow:output_type -> google.protobuf.Empty
+	24, // [24:31] is the sub-list for method output_type
+	17, // [17:24] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_workflow_v1_workflow_proto_init() }

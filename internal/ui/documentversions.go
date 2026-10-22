@@ -26,7 +26,7 @@ func listVersions(a api.Clients, id string) ([]historyVersion, error) {
 		return historyVersion{
 			version:   v.GetVersion(),
 			by:        by,
-			createdAt: v.GetCreatedAt(),
+			createdAt: dates.Read(v.GetCreatedAt()),
 		}
 	}), nil
 }
@@ -45,7 +45,7 @@ func documentTypeItem(t *agentv1.DocumentType) documentItem {
 	return documentItem{
 		id:        t.GetId(),
 		name:      t.GetName(),
-		updatedAt: dates.Parse(t.GetUpdatedAt()),
+		updatedAt: dates.Read(t.GetUpdatedAt()),
 	}
 }
 

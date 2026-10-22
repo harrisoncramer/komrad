@@ -451,8 +451,8 @@ func newCheck(status *pullrequestv1.StatusCheck) check {
 		state:      status.GetState(),
 		conclusion: status.GetConclusion(),
 		passed:     status.GetPassed(),
-		startedAt:  dates.Parse(status.GetStartedAt()),
-		finishedAt: dates.Parse(status.GetFinishedAt()),
+		startedAt:  dates.Read(status.GetStartedAt()),
+		finishedAt: dates.Read(status.GetFinishedAt()),
 		log:        status.GetLog(),
 		steps: xslice.Map(status.GetSteps(), func(step *pullrequestv1.StatusCheckStep) check {
 			return check{
@@ -460,8 +460,8 @@ func newCheck(status *pullrequestv1.StatusCheck) check {
 				state:      step.GetState(),
 				conclusion: step.GetConclusion(),
 				passed:     step.GetPassed(),
-				startedAt:  dates.Parse(step.GetStartedAt()),
-				finishedAt: dates.Parse(step.GetFinishedAt()),
+				startedAt:  dates.Read(step.GetStartedAt()),
+				finishedAt: dates.Read(step.GetFinishedAt()),
 			}
 		}),
 	}
@@ -483,7 +483,7 @@ func headCommit(readings []*pullrequestv1.StatusCheckReading, head string) (comm
 func newCommit(reading *pullrequestv1.StatusCheckReading) commit {
 	return commit{
 		headSHA:     reading.GetHeadSha(),
-		firstReadAt: dates.Parse(reading.GetFirstReadAt()),
+		firstReadAt: dates.Read(reading.GetFirstReadAt()),
 		items:       xslice.Map(reading.GetStatusChecks(), newCheck),
 	}
 }

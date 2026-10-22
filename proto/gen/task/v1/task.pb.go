@@ -11,6 +11,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	_ "komrad/proto/gen/annotation/v1"
 	_ "komrad/proto/gen/rules/v1"
 	reflect "reflect"
@@ -272,12 +273,12 @@ type Task struct {
 	Title string `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
 	// What the task is meant to achieve, in markdown.
 	Goal string `protobuf:"bytes,5,opt,name=goal,proto3" json:"goal,omitempty"`
-	// When the task was created, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the task last changed, in RFC 3339.
-	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// When the task was archived, in RFC 3339. Unset while the task is live.
-	ArchivedAt *string `protobuf:"bytes,8,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
+	// When the task was created.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the task last changed.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the task was archived. Unset while the task is live.
+	ArchivedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	// The directory of the task's checkout. Unset while the task has no checkout.
 	Cwd *string `protobuf:"bytes,9,opt,name=cwd,proto3,oneof" json:"cwd,omitempty"`
 	// The git branch of the task's checkout. Unset when the task has no checkout or git cannot
@@ -306,9 +307,9 @@ type Task struct {
 	FailureReason string `protobuf:"bytes,18,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
 	// The task's notes, in markdown, written by its agents and the person.
 	Notes string `protobuf:"bytes,19,opt,name=notes,proto3" json:"notes,omitempty"`
-	// When the task's notes were last written, in RFC 3339 with nanoseconds. Unset until the notes
+	// When the task's notes were last written. Unset until the notes
 	// are first written.
-	NotesUpdatedAt *string `protobuf:"bytes,20,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
+	NotesUpdatedAt *timestamppb.Timestamp `protobuf:"bytes,20,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
 	// Whether a hook run on the task failed and the person has not opened its log since.
 	FailedRun bool `protobuf:"varint,21,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
 	// Whether the task is hidden. A hidden task stays live, and clients leave it out of their
@@ -316,9 +317,9 @@ type Task struct {
 	Hidden bool `protobuf:"varint,22,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	// How many documents agents have written for the task. `list_documents` returns them.
 	Documents int32 `protobuf:"varint,23,opt,name=documents,proto3" json:"documents,omitempty"`
-	// When the newest of the task's documents was last written, in RFC 3339. Unset when the task
+	// When the newest of the task's documents was last written. Unset when the task
 	// has none.
-	DocumentsUpdatedAt *string `protobuf:"bytes,24,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
+	DocumentsUpdatedAt *timestamppb.Timestamp `protobuf:"bytes,24,opt,name=documents_updated_at,json=documentsUpdatedAt,proto3,oneof" json:"documents_updated_at,omitempty"`
 	// The task this task depends on. Unset for a task on the workflow's base branch.
 	Parent *Parent `protobuf:"bytes,25,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	// How many snapshots komrad has taken of the task's checkout.
@@ -392,25 +393,25 @@ func (x *Task) GetGoal() string {
 	return ""
 }
 
-func (x *Task) GetCreatedAt() string {
+func (x *Task) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *Task) GetUpdatedAt() string {
+func (x *Task) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *Task) GetArchivedAt() string {
-	if x != nil && x.ArchivedAt != nil {
-		return *x.ArchivedAt
+func (x *Task) GetArchivedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ArchivedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Task) GetCwd() string {
@@ -490,11 +491,11 @@ func (x *Task) GetNotes() string {
 	return ""
 }
 
-func (x *Task) GetNotesUpdatedAt() string {
-	if x != nil && x.NotesUpdatedAt != nil {
-		return *x.NotesUpdatedAt
+func (x *Task) GetNotesUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotesUpdatedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Task) GetFailedRun() bool {
@@ -518,11 +519,11 @@ func (x *Task) GetDocuments() int32 {
 	return 0
 }
 
-func (x *Task) GetDocumentsUpdatedAt() string {
-	if x != nil && x.DocumentsUpdatedAt != nil {
-		return *x.DocumentsUpdatedAt
+func (x *Task) GetDocumentsUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DocumentsUpdatedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Task) GetParent() *Parent {
@@ -979,7 +980,7 @@ type UpdateTaskRequest struct {
 	// The new notes in full, in markdown. Unchanged when unset.
 	Notes *string `protobuf:"bytes,5,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
 	// The `notes_updated_at` the notes were read with. Unset when the notes were never written.
-	NotesUpdatedAt *string `protobuf:"bytes,6,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
+	NotesUpdatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1067,11 +1068,11 @@ func (x *UpdateTaskRequest) GetNotes() string {
 	return ""
 }
 
-func (x *UpdateTaskRequest) GetNotesUpdatedAt() string {
-	if x != nil && x.NotesUpdatedAt != nil {
-		return *x.NotesUpdatedAt
+func (x *UpdateTaskRequest) GetNotesUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotesUpdatedAt
 	}
-	return ""
+	return nil
 }
 
 type isUpdateTaskRequest_Task interface {
@@ -1150,7 +1151,7 @@ type SetTaskNotesRequest struct {
 	Notes string `protobuf:"bytes,2,opt,name=notes,proto3" json:"notes,omitempty"`
 	// The `notes_updated_at` that `get_task` returned with the notes. Unset when the notes were
 	// never written.
-	NotesUpdatedAt *string `protobuf:"bytes,3,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
+	NotesUpdatedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=notes_updated_at,json=notesUpdatedAt,proto3,oneof" json:"notes_updated_at,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1217,11 +1218,11 @@ func (x *SetTaskNotesRequest) GetNotes() string {
 	return ""
 }
 
-func (x *SetTaskNotesRequest) GetNotesUpdatedAt() string {
-	if x != nil && x.NotesUpdatedAt != nil {
-		return *x.NotesUpdatedAt
+func (x *SetTaskNotesRequest) GetNotesUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NotesUpdatedAt
 	}
-	return ""
+	return nil
 }
 
 type isSetTaskNotesRequest_Task interface {
@@ -1581,22 +1582,22 @@ var File_task_v1_task_proto protoreflect.FileDescriptor
 
 const file_task_v1_task_proto_rawDesc = "" +
 	"\n" +
-	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\":\n" +
+	"\x12task/v1/task.proto\x12\atask.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x14rules/v1/rules.proto\":\n" +
 	"\bDiffStat\x12\x14\n" +
 	"\x05added\x18\x01 \x01(\x05R\x05added\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xd4\b\n" +
+	"\aremoved\x18\x02 \x01(\x05R\aremoved\"\xe0\t\n" +
 	"\x04Task\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vworkflow_id\x18\x02 \x01(\tR\n" +
 	"workflowId\x12\x12\n" +
 	"\x04slug\x18\x03 \x01(\tR\x04slug\x12\x14\n" +
 	"\x05title\x18\x04 \x01(\tR\x05title\x12\x12\n" +
-	"\x04goal\x18\x05 \x01(\tR\x04goal\x12\x1d\n" +
+	"\x04goal\x18\x05 \x01(\tR\x04goal\x129\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAt\x12$\n" +
-	"\varchived_at\x18\b \x01(\tH\x00R\n" +
+	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12@\n" +
+	"\varchived_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampH\x00R\n" +
 	"archivedAt\x88\x01\x01\x12\x15\n" +
 	"\x03cwd\x18\t \x01(\tH\x01R\x03cwd\x88\x01\x01\x12\x1b\n" +
 	"\x06branch\x18\n" +
@@ -1609,13 +1610,13 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\tdiff_stat\x18\x10 \x01(\v2\x11.task.v1.DiffStatH\x05R\bdiffStat\x88\x01\x01\x12*\n" +
 	"\x0eadopted_branch\x18\x11 \x01(\tH\x06R\radoptedBranch\x88\x01\x01\x12%\n" +
 	"\x0efailure_reason\x18\x12 \x01(\tR\rfailureReason\x12\x14\n" +
-	"\x05notes\x18\x13 \x01(\tR\x05notes\x12-\n" +
-	"\x10notes_updated_at\x18\x14 \x01(\tH\aR\x0enotesUpdatedAt\x88\x01\x01\x12\x1d\n" +
+	"\x05notes\x18\x13 \x01(\tR\x05notes\x12I\n" +
+	"\x10notes_updated_at\x18\x14 \x01(\v2\x1a.google.protobuf.TimestampH\aR\x0enotesUpdatedAt\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"failed_run\x18\x15 \x01(\bR\tfailedRun\x12\x16\n" +
 	"\x06hidden\x18\x16 \x01(\bR\x06hidden\x12\x1c\n" +
-	"\tdocuments\x18\x17 \x01(\x05R\tdocuments\x125\n" +
-	"\x14documents_updated_at\x18\x18 \x01(\tH\bR\x12documentsUpdatedAt\x88\x01\x01\x12,\n" +
+	"\tdocuments\x18\x17 \x01(\x05R\tdocuments\x12Q\n" +
+	"\x14documents_updated_at\x18\x18 \x01(\v2\x1a.google.protobuf.TimestampH\bR\x12documentsUpdatedAt\x88\x01\x01\x12,\n" +
 	"\x06parent\x18\x19 \x01(\v2\x0f.task.v1.ParentH\tR\x06parent\x88\x01\x01\x12\x1c\n" +
 	"\tsnapshots\x18\x1a \x01(\x05R\tsnapshotsB\x0e\n" +
 	"\f_archived_atB\x06\n" +
@@ -1654,15 +1655,15 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"workflowId\x12\x1a\n" +
 	"\barchived\x18\x02 \x01(\bR\barchived\"8\n" +
 	"\x11ListTasksResponse\x12#\n" +
-	"\x05tasks\x18\x01 \x03(\v2\r.task.v1.TaskR\x05tasks\"\xf1\x03\n" +
+	"\x05tasks\x18\x01 \x03(\v2\r.task.v1.TaskR\x05tasks\"\xa8\x03\n" +
 	"\x11UpdateTaskRequest\x12#\n" +
 	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
 	"\ttask_slug\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12<\n" +
 	"\x04slug\x18\x02 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x01R\x04slug\x88\x01\x01\x12)\n" +
 	"\x05title\x18\x03 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01H\x02R\x05title\x88\x01\x01\x12\"\n" +
 	"\x04goal\x18\x04 \x01(\tB\t\xbaH\x06r\x04\x18І\x03H\x03R\x04goal\x88\x01\x01\x12$\n" +
-	"\x05notes\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x18\xa0\x8d\x06H\x04R\x05notes\x88\x01\x01\x12\x91\x01\n" +
-	"\x10notes_updated_at\x18\x06 \x01(\tBb\xbaH_r]2[^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$H\x05R\x0enotesUpdatedAt\x88\x01\x01B\r\n" +
+	"\x05notes\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x18\xa0\x8d\x06H\x04R\x05notes\x88\x01\x01\x12I\n" +
+	"\x10notes_updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x05R\x0enotesUpdatedAt\x88\x01\x01B\r\n" +
 	"\x04task\x12\x05\xbaH\x02\b\x01B\a\n" +
 	"\x05_slugB\b\n" +
 	"\x06_titleB\a\n" +
@@ -1670,12 +1671,12 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x06_notesB\x13\n" +
 	"\x11_notes_updated_at\"7\n" +
 	"\x12UpdateTaskResponse\x12!\n" +
-	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"\xbb\x02\n" +
+	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"\xf2\x01\n" +
 	"\x13SetTaskNotesRequest\x12#\n" +
 	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
 	"\ttask_slug\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12\x1f\n" +
-	"\x05notes\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18\xa0\x8d\x06R\x05notes\x12\x91\x01\n" +
-	"\x10notes_updated_at\x18\x03 \x01(\tBb\xbaH_r]2[^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$H\x01R\x0enotesUpdatedAt\x88\x01\x01B\r\n" +
+	"\x05notes\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18\xa0\x8d\x06R\x05notes\x12I\n" +
+	"\x10notes_updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x0enotesUpdatedAt\x88\x01\x01B\r\n" +
 	"\x04task\x12\x05\xbaH\x02\b\x01B\x13\n" +
 	"\x11_notes_updated_at\"9\n" +
 	"\x14SetTaskNotesResponse\x12!\n" +
@@ -1763,42 +1764,50 @@ var file_task_v1_task_proto_goTypes = []any{
 	(*SetTaskHiddenRequest)(nil),    // 17: task.v1.SetTaskHiddenRequest
 	(*MarkTaskRunsReadRequest)(nil), // 18: task.v1.MarkTaskRunsReadRequest
 	(*DeleteTasksRequest)(nil),      // 19: task.v1.DeleteTasksRequest
-	(*emptypb.Empty)(nil),           // 20: google.protobuf.Empty
+	(*timestamppb.Timestamp)(nil),   // 20: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),           // 21: google.protobuf.Empty
 }
 var file_task_v1_task_proto_depIdxs = []int32{
-	2,  // 0: task.v1.Task.worktree_removal_reason:type_name -> task.v1.WorktreeRemovalReason
-	0,  // 1: task.v1.Task.sequence:type_name -> task.v1.Sequence
-	3,  // 2: task.v1.Task.diff_stat:type_name -> task.v1.DiffStat
-	5,  // 3: task.v1.Task.parent:type_name -> task.v1.Parent
-	1,  // 4: task.v1.Parent.blocked:type_name -> task.v1.CascadeBlock
-	4,  // 5: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
-	4,  // 6: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
-	4,  // 7: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
-	4,  // 8: task.v1.UpdateTaskResponse.task:type_name -> task.v1.Task
-	4,  // 9: task.v1.SetTaskNotesResponse.task:type_name -> task.v1.Task
-	6,  // 10: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
-	8,  // 11: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
-	10, // 12: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
-	12, // 13: task.v1.TaskService.UpdateTask:input_type -> task.v1.UpdateTaskRequest
-	14, // 14: task.v1.TaskService.SetTaskNotes:input_type -> task.v1.SetTaskNotesRequest
-	16, // 15: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
-	19, // 16: task.v1.TaskService.DeleteTasks:input_type -> task.v1.DeleteTasksRequest
-	17, // 17: task.v1.TaskService.SetTaskHidden:input_type -> task.v1.SetTaskHiddenRequest
-	18, // 18: task.v1.TaskService.MarkTaskRunsRead:input_type -> task.v1.MarkTaskRunsReadRequest
-	7,  // 19: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
-	9,  // 20: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
-	11, // 21: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
-	13, // 22: task.v1.TaskService.UpdateTask:output_type -> task.v1.UpdateTaskResponse
-	15, // 23: task.v1.TaskService.SetTaskNotes:output_type -> task.v1.SetTaskNotesResponse
-	20, // 24: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
-	20, // 25: task.v1.TaskService.DeleteTasks:output_type -> google.protobuf.Empty
-	20, // 26: task.v1.TaskService.SetTaskHidden:output_type -> google.protobuf.Empty
-	20, // 27: task.v1.TaskService.MarkTaskRunsRead:output_type -> google.protobuf.Empty
-	19, // [19:28] is the sub-list for method output_type
-	10, // [10:19] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	20, // 0: task.v1.Task.created_at:type_name -> google.protobuf.Timestamp
+	20, // 1: task.v1.Task.updated_at:type_name -> google.protobuf.Timestamp
+	20, // 2: task.v1.Task.archived_at:type_name -> google.protobuf.Timestamp
+	2,  // 3: task.v1.Task.worktree_removal_reason:type_name -> task.v1.WorktreeRemovalReason
+	0,  // 4: task.v1.Task.sequence:type_name -> task.v1.Sequence
+	3,  // 5: task.v1.Task.diff_stat:type_name -> task.v1.DiffStat
+	20, // 6: task.v1.Task.notes_updated_at:type_name -> google.protobuf.Timestamp
+	20, // 7: task.v1.Task.documents_updated_at:type_name -> google.protobuf.Timestamp
+	5,  // 8: task.v1.Task.parent:type_name -> task.v1.Parent
+	1,  // 9: task.v1.Parent.blocked:type_name -> task.v1.CascadeBlock
+	4,  // 10: task.v1.CreateTaskResponse.task:type_name -> task.v1.Task
+	4,  // 11: task.v1.GetTaskResponse.task:type_name -> task.v1.Task
+	4,  // 12: task.v1.ListTasksResponse.tasks:type_name -> task.v1.Task
+	20, // 13: task.v1.UpdateTaskRequest.notes_updated_at:type_name -> google.protobuf.Timestamp
+	4,  // 14: task.v1.UpdateTaskResponse.task:type_name -> task.v1.Task
+	20, // 15: task.v1.SetTaskNotesRequest.notes_updated_at:type_name -> google.protobuf.Timestamp
+	4,  // 16: task.v1.SetTaskNotesResponse.task:type_name -> task.v1.Task
+	6,  // 17: task.v1.TaskService.CreateTask:input_type -> task.v1.CreateTaskRequest
+	8,  // 18: task.v1.TaskService.GetTask:input_type -> task.v1.GetTaskRequest
+	10, // 19: task.v1.TaskService.ListTasks:input_type -> task.v1.ListTasksRequest
+	12, // 20: task.v1.TaskService.UpdateTask:input_type -> task.v1.UpdateTaskRequest
+	14, // 21: task.v1.TaskService.SetTaskNotes:input_type -> task.v1.SetTaskNotesRequest
+	16, // 22: task.v1.TaskService.ArchiveTask:input_type -> task.v1.ArchiveTaskRequest
+	19, // 23: task.v1.TaskService.DeleteTasks:input_type -> task.v1.DeleteTasksRequest
+	17, // 24: task.v1.TaskService.SetTaskHidden:input_type -> task.v1.SetTaskHiddenRequest
+	18, // 25: task.v1.TaskService.MarkTaskRunsRead:input_type -> task.v1.MarkTaskRunsReadRequest
+	7,  // 26: task.v1.TaskService.CreateTask:output_type -> task.v1.CreateTaskResponse
+	9,  // 27: task.v1.TaskService.GetTask:output_type -> task.v1.GetTaskResponse
+	11, // 28: task.v1.TaskService.ListTasks:output_type -> task.v1.ListTasksResponse
+	13, // 29: task.v1.TaskService.UpdateTask:output_type -> task.v1.UpdateTaskResponse
+	15, // 30: task.v1.TaskService.SetTaskNotes:output_type -> task.v1.SetTaskNotesResponse
+	21, // 31: task.v1.TaskService.ArchiveTask:output_type -> google.protobuf.Empty
+	21, // 32: task.v1.TaskService.DeleteTasks:output_type -> google.protobuf.Empty
+	21, // 33: task.v1.TaskService.SetTaskHidden:output_type -> google.protobuf.Empty
+	21, // 34: task.v1.TaskService.MarkTaskRunsRead:output_type -> google.protobuf.Empty
+	26, // [26:35] is the sub-list for method output_type
+	17, // [17:26] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_task_v1_task_proto_init() }

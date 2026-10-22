@@ -301,7 +301,7 @@ func (r reviewScreen) resolveThread(in screen.Inputs) screen.Request {
 		return nil
 	}
 
-	agents, id, settling := r.deps.clients.Agents, thread.GetId(), thread.GetResolvedAt() == ""
+	agents, id, settling := r.deps.clients.Agents, thread.GetId(), thread.GetResolvedAt() == nil
 
 	doing, notice := "reopening the thread", "thread reopened"
 	if settling {

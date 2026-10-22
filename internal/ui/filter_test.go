@@ -539,8 +539,8 @@ func TestFilterScreens(t *testing.T) {
 	t.Run("the archive walks its matches and clears back to where it opened", func(t *testing.T) {
 		harness := openArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
-			newArchivedAgentAt("api-refactor", "2026-07-30T09:00:00Z"),
-			newArchivedAgentAt("auth-fix", "2026-07-30T08:00:00Z"),
+			newArchivedAgentAt("api-refactor", time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)),
+			newArchivedAgentAt("auth-fix", time.Date(2026, 7, 30, 8, 0, 0, 0, time.UTC)),
 		)
 		require.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()))
 
@@ -685,7 +685,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			Readable:   true,
 			SizeBytes:  xptr.Ptr[int64](1 << 20),
 			ShareBytes: xptr.Ptr[int64](1 << 20),
-			MeasuredAt: xptr.Ptr(archivedAt),
+			MeasuredAt: archivedAt,
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:        "/trees/other",
@@ -694,7 +694,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			Readable:   true,
 			SizeBytes:  xptr.Ptr[int64](1 << 20),
 			ShareBytes: xptr.Ptr[int64](1 << 20),
-			MeasuredAt: xptr.Ptr(archivedAt),
+			MeasuredAt: archivedAt,
 		},
 	))
 	harness.Press("shift+tab", "esc", "f", "shift+tab", "j", "esc", "k")

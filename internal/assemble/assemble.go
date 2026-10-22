@@ -342,7 +342,7 @@ func groupPullRequestsByBranch(pullRequests map[string]*pullrequestv1.PullReques
 		slices.SortFunc(listed, func(a, b *pullrequestv1.PullRequest) int {
 			return cmp.Or(
 				cmp.Compare(finishedRank(a), finishedRank(b)),
-				dates.Parse(b.GetOpenedAt()).Compare(dates.Parse(a.GetOpenedAt())),
+				dates.Read(b.GetOpenedAt()).Compare(dates.Read(a.GetOpenedAt())),
 				strings.Compare(b.GetId(), a.GetId()),
 			)
 		})
@@ -402,7 +402,7 @@ func isMovedPast(task *taskv1.Task, pullRequest *pullrequestv1.PullRequest) bool
 func getAgentsWithUnreadMail(mail map[string]*agentv1.Mail, now time.Time) map[string]bool {
 	unread := map[string]bool{}
 	for _, piece := range mail {
-		if dates.Parse(piece.GetExpiresAt()).After(now) {
+		if dates.Read(piece.GetExpiresAt()).After(now) {
 			unread[piece.GetToAgentId()] = true
 		}
 	}

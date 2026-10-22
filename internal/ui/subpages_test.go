@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestSubpages covers the menu of an agent's subpages opened beside the agents list.
@@ -251,9 +252,9 @@ func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 
 	author := newArchivedAgent("author", "author", "w1")
 	author.Documents = 2
-	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
+	author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	task := paneltest.TaskOf(author)
-	task.ArchivedAt = xptr.Ptr(archivedAt)
+	task.ArchivedAt = archivedAt
 
 	harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
 	newDocumentShelf().answer(harness)

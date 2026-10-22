@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestReviewPullRequest covers the pull request open from the branch, folded into the sidebar over the
@@ -35,7 +37,7 @@ func TestReviewPullRequest(t *testing.T) {
 		server := newDescribedReviewServer(t, "Why it changed.")
 		pullRequest := server.forge[0].(*pullrequestv1.PullRequest)
 		pullRequest.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
-		pullRequest.MergedAt = xptr.Ptr("2026-09-20T12:00:00Z")
+		pullRequest.MergedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
 		pullRequest.HeadSha = "old"
 		server.task.HeadSha = xptr.Ptr("new")
 		harness := openReviewAt(t, server, paneltest.Params{Height: 40})
@@ -117,7 +119,7 @@ func newPullRequestReviewServer(t *testing.T) *reviewServer {
 		HeadBranch:        "agent/auth",
 		Number:            7,
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-		OpenedAt:          "2026-09-19T12:00:00Z",
+		OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
 	}}
 
 	return server

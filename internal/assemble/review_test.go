@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/assemble"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -34,26 +35,26 @@ func TestTaskRowsLocalReview(t *testing.T) {
 		},
 		{
 			name:    "an open review is counted against nobody",
-			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, "", commented)},
+			reviews: []*agentv1.WatchedReview{review("v1", newer, 1, time.Time{}, commented)},
 		},
 		{
 			name:    "a review of another task's work is not this task's",
-			reviews: []*agentv1.WatchedReview{review("v1", older, 1, stamp(-time.Hour), commented)},
+			reviews: []*agentv1.WatchedReview{review("v1", older, 1, now.Add(-time.Hour), commented)},
 		},
 		{
 			name: "two reviews of one snapshot count it once",
 			reviews: []*agentv1.WatchedReview{
-				review("v1", newer, 1, stamp(-time.Hour), commented),
-				review("v2", newer, 1, stamp(-2*time.Hour), commented),
+				review("v1", newer, 1, now.Add(-time.Hour), commented),
+				review("v2", newer, 1, now.Add(-2*time.Hour), commented),
 			},
 			snapshots: 1,
 		},
 		{
 			name: "every released snapshot counts",
 			reviews: []*agentv1.WatchedReview{
-				review("v1", newer, 1, stamp(-3*time.Hour), commented),
-				review("v2", newer, 2, stamp(-2*time.Hour), commented),
-				review("v3", newer, 3, stamp(-time.Hour), commented),
+				review("v1", newer, 1, now.Add(-3*time.Hour), commented),
+				review("v2", newer, 2, now.Add(-2*time.Hour), commented),
+				review("v3", newer, 3, now.Add(-time.Hour), commented),
 			},
 			snapshots: 3,
 		},
@@ -64,7 +65,7 @@ func TestTaskRowsLocalReview(t *testing.T) {
 		},
 		{
 			name:    "a reviewer's thread counts only through its released review",
-			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 2, "", commented))},
+			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 2, time.Time{}, commented))},
 			threads: []*agentv1.ReviewThread{
 				on(byAgent(thread("t1", "v1", false, false)), 2),
 				on(thread("t2", "", false, false), 2),
@@ -101,7 +102,7 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 	t.Parallel()
 
 	commented := agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
-	landed := stamp(-time.Minute)
+	landed := now.Add(-time.Minute)
 
 	tests := []struct {
 		name         string
@@ -112,7 +113,7 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 	}{
 		{
 			name:    "a reviewer's review still being written draws nothing",
-			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 1, "", commented))},
+			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 1, time.Time{}, commented))},
 			threads: []*agentv1.ReviewThread{byAgent(thread("t1", "v1", false, true))},
 		},
 		{
@@ -122,17 +123,17 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 		},
 		{
 			name:    "a released review of a landed snapshot with every conversation resolved draws nothing",
-			reviews: []*agentv1.WatchedReview{byReviewer(landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed))},
+			reviews: []*agentv1.WatchedReview{byReviewer(landedOn(review("v1", newer, 1, now.Add(-time.Hour), commented), landed))},
 			threads: []*agentv1.ReviewThread{byAgent(thread("t1", "v1", true, false))},
 		},
 		{
 			name:    "a released review with no comments draws nothing",
-			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 1, stamp(-time.Hour), commented))},
+			reviews: []*agentv1.WatchedReview{byReviewer(review("v1", newer, 1, now.Add(-time.Hour), commented))},
 		},
 		{
 			name: "an open conversation on a landed snapshot still counts",
 			reviews: []*agentv1.WatchedReview{
-				byReviewer(landedOn(review("v1", newer, 1, stamp(-time.Hour), commented), landed)),
+				byReviewer(landedOn(review("v1", newer, 1, now.Add(-time.Hour), commented), landed)),
 			},
 			threads: []*agentv1.ReviewThread{
 				byAgent(thread("t1", "v1", false, false)),
@@ -143,7 +144,7 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 		{
 			name: "a reviewer agent that left no comments draws nothing beside the person's",
 			reviews: []*agentv1.WatchedReview{
-				byReviewer(review("v2", newer, 1, stamp(-time.Hour), commented)),
+				byReviewer(review("v2", newer, 1, now.Add(-time.Hour), commented)),
 			},
 			threads:    []*agentv1.ReviewThread{thread("t1", "", false, false)},
 			wantPerson: &agentv1.CommentCounts{Open: 1},
@@ -151,7 +152,7 @@ func TestTaskRowsCommentCounts(t *testing.T) {
 		{
 			name: "reviewer agents and the person are counted apart",
 			reviews: []*agentv1.WatchedReview{
-				byReviewer(review("v2", newer, 1, stamp(-time.Hour), commented)),
+				byReviewer(review("v2", newer, 1, now.Add(-time.Hour), commented)),
 			},
 			threads: []*agentv1.ReviewThread{
 				thread("t1", "", false, true),
@@ -207,7 +208,7 @@ func TestAgentRowsLocalReviewOnTheWriter(t *testing.T) {
 		Tasks:   tasks(task(newer)),
 		Reviews: map[string]*agentv1.WatchedReview{},
 	}
-	released := review("v1", newer, 1, stamp(-time.Hour), agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED)
+	released := review("v1", newer, 1, now.Add(-time.Hour), agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED)
 	world.Reviews[released.GetId()] = released
 
 	rows := assemble.AgentRows(world, now)
@@ -223,7 +224,7 @@ func TestApplyReview(t *testing.T) {
 
 	var world assemble.World
 	world.Apply(put(agentRow(agent(newer))))
-	changed := world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Review{Review: review("v1", newer, 1, stamp(-time.Hour), agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)}}))
+	changed := world.Apply(put(&watchv1.Row{Row: &watchv1.Row_Review{Review: review("v1", newer, 1, now.Add(-time.Hour), agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)}}))
 	assert.Equal(t, map[watchv1.Resource][]string{watchv1.Resource_RESOURCE_REVIEW: {"v1"}}, changed.Keys)
 	assert.Equal(t, int32(1), assemble.AgentRows(world, now)[0].GetLocalReviewSnapshots())
 
@@ -232,24 +233,24 @@ func TestApplyReview(t *testing.T) {
 	assert.Zero(t, assemble.AgentRows(world, now)[0].GetLocalReviewSnapshots())
 }
 
-func review(id, agentID string, ordinal int32, releasedAt string, verdict agentv1.ReviewVerdict) *agentv1.WatchedReview {
+func review(id, agentID string, ordinal int32, releasedAt time.Time, verdict agentv1.ReviewVerdict) *agentv1.WatchedReview {
 	watched := &agentv1.WatchedReview{
 		Id:              id,
 		TaskId:          "task-" + agentID,
 		SnapshotId:      agentID + "-snapshot-" + strconv.Itoa(int(ordinal)),
 		SnapshotOrdinal: ordinal,
 		SnapshotSha:     "snapshot-" + strconv.Itoa(int(ordinal)),
-		ReleasedAt:      releasedAt,
+		ReleasedAt:      dates.Stamp(releasedAt),
 	}
-	if releasedAt != "" {
+	if !releasedAt.IsZero() {
 		watched.Verdict = verdict
 	}
 
 	return watched
 }
 
-func landedOn(review *agentv1.WatchedReview, at string) *agentv1.WatchedReview {
-	review.SnapshotLandedAt = at
+func landedOn(review *agentv1.WatchedReview, at time.Time) *agentv1.WatchedReview {
+	review.SnapshotLandedAt = dates.Stamp(at)
 
 	return review
 }

@@ -155,6 +155,9 @@ func valueFor(t *testing.T, message protoreflect.MessageDescriptor, path []strin
 	if field.Kind() == protoreflect.StringKind {
 		return "a value"
 	}
+	if rpcapi.IsTimestamp(field) {
+		return "2026-10-22T09:00:00Z"
+	}
 
 	return strconv.Itoa(1)
 }

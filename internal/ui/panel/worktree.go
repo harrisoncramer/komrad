@@ -150,7 +150,7 @@ func worktreeFromWatched(worktree *worktreev1.WatchedWorktree, holders worktreeH
 		item.Size = &WorktreeSize{
 			Bytes:      worktree.GetSizeBytes(),
 			Share:      worktree.GetShareBytes(),
-			MeasuredAt: dates.Parse(worktree.GetMeasuredAt()),
+			MeasuredAt: dates.Read(worktree.GetMeasuredAt()),
 			Err:        worktree.GetSizeError(),
 		}
 	}
@@ -172,7 +172,7 @@ func worktreeFromWatched(worktree *worktreev1.WatchedWorktree, holders worktreeH
 	occupants := xslice.UniqueBy(slices.Concat(holders.byTask[name], holders.byCwd[item.Dir]), func(agent Agent) string { return agent.ID })
 	slices.SortFunc(occupants, compareOccupants)
 	item.Occupants = xslice.Map(occupants, worktreeAgentOf)
-	item.LastActiveAt = lastActiveOf(occupants, dates.Parse(worktree.GetModifiedAt()))
+	item.LastActiveAt = lastActiveOf(occupants, dates.Read(worktree.GetModifiedAt()))
 
 	return item
 }

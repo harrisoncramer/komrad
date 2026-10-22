@@ -1,71 +1,49 @@
-// Package dates turns a time into the RFC 3339 stamp the wire carries, reads one back, and says how long passed between two.
+// Package dates turns a time into the timestamp the wire carries, reads one back, and says how long passed between two.
 package dates
 
 import (
 	"fmt"
 	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// Stamp renders a time as the wire spells it, an unset one as an empty string.
-func Stamp(t time.Time) string {
+// Stamp renders a time as the wire carries it, an unset one as no timestamp.
+func Stamp(t time.Time) *timestamppb.Timestamp {
 	if t.IsZero() {
-		return ""
+		return nil
 	}
 
-	return t.Format(time.RFC3339)
+	return timestamppb.New(t)
 }
 
 // StampPtr renders a time that may not be there, leaving an absent one absent.
-func StampPtr(t *time.Time) *string {
+func StampPtr(t *time.Time) *timestamppb.Timestamp {
 	if t == nil {
 		return nil
 	}
 
-	stamped := t.Format(time.RFC3339)
-
-	return &stamped
+	return timestamppb.New(*t)
 }
 
-// PreciseStamp renders a time as Stamp does but to the nanosecond.
-func PreciseStamp(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-
-	return t.Format(time.RFC3339Nano)
-}
-
-// PreciseStampPtr renders a time that may not be there to the nanosecond, leaving an absent one
-// absent.
-func PreciseStampPtr(t *time.Time) *string {
-	if t == nil {
-		return nil
-	}
-
-	stamped := t.Format(time.RFC3339Nano)
-
-	return &stamped
-}
-
-// Parse reads a wire stamp, giving back the zero time for anything that will not parse.
-func Parse(stamp string) time.Time {
-	parsed, err := time.Parse(time.RFC3339, stamp)
-	if err != nil {
+// Read reads a wire timestamp, giving back the zero time for an unset one.
+func Read(stamp *timestamppb.Timestamp) time.Time {
+	if stamp == nil {
 		return time.Time{}
 	}
 
-	return parsed
+	return stamp.AsTime()
 }
 
-// ParsePtr reads a wire stamp that may not be there, giving back nothing for an absent or
-// unreadable one.
-func ParsePtr(stamp string) *time.Time {
-	parsed, err := time.Parse(time.RFC3339, stamp)
-	if err != nil {
+// ReadPtr reads a wire timestamp that may not be there, giving back nothing for an unset one.
+func ReadPtr(stamp *timestamppb.Timestamp) *time.Time {
+	if stamp == nil {
 		return nil
 	}
 
-	return &parsed
+	read := stamp.AsTime()
+
+	return &read
 }
 
 // Between is how long passed from start to end as 42s, 3m 08s or 1h 05m, empty when either is unset.

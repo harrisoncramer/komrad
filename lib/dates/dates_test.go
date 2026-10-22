@@ -5,13 +5,16 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestStamp pins what the wire carries, where a zero time reads as no timestamp rather than as
-// the year one.
+// the year one, and a fraction of a second survives.
 func TestStamp(t *testing.T) {
-	assert.Empty(t, Stamp(time.Time{}))
-	assert.Equal(t, "2026-09-05T14:30:00Z", Stamp(time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC)))
+	assert.Nil(t, Stamp(time.Time{}))
+
+	at := time.Date(2026, 9, 5, 14, 30, 0, 250_000_000, time.UTC)
+	assert.Equal(t, at, Stamp(at).AsTime())
 }
 
 // TestStampPtr pins that an absent time stays absent.
@@ -19,46 +22,26 @@ func TestStampPtr(t *testing.T) {
 	assert.Nil(t, StampPtr(nil))
 
 	at := time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC)
-	stamped := StampPtr(&at)
-	if assert.NotNil(t, stamped) {
-		assert.Equal(t, "2026-09-05T14:30:00Z", *stamped)
-	}
+	assert.Equal(t, at, StampPtr(&at).AsTime())
 }
 
-// TestPreciseStamp pins that a fraction of a second survives.
-func TestPreciseStamp(t *testing.T) {
-	assert.Empty(t, PreciseStamp(time.Time{}))
-	assert.Equal(t, "2026-09-05T14:30:00.25Z", PreciseStamp(time.Date(2026, 9, 5, 14, 30, 0, 250_000_000, time.UTC)))
-	assert.Equal(t, time.Date(2026, 9, 5, 14, 30, 0, 250_000_000, time.UTC), Parse("2026-09-05T14:30:00.25Z").UTC())
-}
-
-// TestPreciseStampPtr pins that an absent time stays absent.
-func TestPreciseStampPtr(t *testing.T) {
-	assert.Nil(t, PreciseStampPtr(nil))
+// TestRead pins that an unset timestamp comes back as the zero time rather than as the start of
+// 1970.
+func TestRead(t *testing.T) {
+	assert.True(t, Read(nil).IsZero())
 
 	at := time.Date(2026, 9, 5, 14, 30, 0, 250_000_000, time.UTC)
-	stamped := PreciseStampPtr(&at)
-	if assert.NotNil(t, stamped) {
-		assert.Equal(t, "2026-09-05T14:30:00.25Z", *stamped)
-	}
+	assert.Equal(t, at, Read(timestamppb.New(at)))
 }
 
-// TestParse pins that a stamp komrad cannot read comes back as the zero time rather than as an
-// error the caller would have nothing to do with.
-func TestParse(t *testing.T) {
-	assert.True(t, Parse("").IsZero())
-	assert.True(t, Parse("not a time").IsZero())
-	assert.Equal(t, time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC), Parse("2026-09-05T14:30:00Z").UTC())
-}
+// TestReadPtr pins that an unset timestamp comes back as nothing.
+func TestReadPtr(t *testing.T) {
+	assert.Nil(t, ReadPtr(nil))
 
-// TestParsePtr pins that an absent or unreadable stamp comes back as nothing.
-func TestParsePtr(t *testing.T) {
-	assert.Nil(t, ParsePtr(""))
-	assert.Nil(t, ParsePtr("not a time"))
-
-	parsed := ParsePtr("2026-09-05T14:30:00Z")
-	if assert.NotNil(t, parsed) {
-		assert.Equal(t, time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC), parsed.UTC())
+	at := time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC)
+	read := ReadPtr(timestamppb.New(at))
+	if assert.NotNil(t, read) {
+		assert.Equal(t, at, *read)
 	}
 }
 

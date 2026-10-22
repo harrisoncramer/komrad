@@ -20,7 +20,7 @@ type Task struct {
 	Title          string
 	Goal           string
 	Notes          string
-	NotesUpdatedAt *string
+	NotesUpdatedAt *time.Time
 	CreatedAt      time.Time
 	ArchivedAt     *time.Time
 	Cwd            string

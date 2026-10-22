@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/diff"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestFileTree covers folders opened and merged in diff order, and what each file row carries.
@@ -102,11 +104,11 @@ func TestCountThreads(t *testing.T) {
 	unread.UnreadByHuman = true
 
 	resolvedUnread := threadAt("resolved-unread", "a.go", 0, 1, "+first")
-	resolvedUnread.ResolvedAt = "2026-09-30T00:00:00Z"
+	resolvedUnread.ResolvedAt = timestamppb.New(time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC))
 	resolvedUnread.UnreadByHuman = true
 
 	resolved := threadAt("resolved", "a.go", 0, 1, "+first")
-	resolved.ResolvedAt = "2026-09-30T00:00:00Z"
+	resolved.ResolvedAt = timestamppb.New(time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC))
 
 	agent := threadAt("agent", "a.go", 0, 1, "+first")
 	agent.Messages = []*agentv1.ReviewMessage{{AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT}}

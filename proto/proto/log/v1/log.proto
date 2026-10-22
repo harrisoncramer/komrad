@@ -5,13 +5,14 @@ package log.v1;
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "komrad/proto/gen/log/v1;logv1";
 
 // LogLine is one line of the server's log.
 message LogLine {
-  // When the line was written, in RFC 3339.
-  string time = 1;
+  // When the line was written.
+  google.protobuf.Timestamp time = 1;
   // The line's severity, such as `INFO` or `ERROR`.
   string level = 2;
   // The line's message.
@@ -37,8 +38,8 @@ message GetLogLinesResponse {
 message TraceSummary {
   // The trace's id.
   string trace_id = 1;
-  // When the trace's first line was written, in RFC 3339.
-  string started_at = 2;
+  // When the trace's first line was written.
+  google.protobuf.Timestamp started_at = 2;
   // The RPC method or loop the trace belongs to. Empty when no line names one.
   string what = 3;
   // How many lines the log has under the trace.

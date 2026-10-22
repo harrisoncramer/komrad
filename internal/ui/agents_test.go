@@ -2,7 +2,6 @@ package ui_test
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -31,6 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestAgentsRows covers which rows the agents tree renders and where.
@@ -1748,7 +1748,7 @@ func TestAgentsEdit(t *testing.T) {
 		adopter.Name = "adopter"
 		adopter.PaneId = "%8"
 		adopter.Cwd = "/work/repo"
-		adopter.CreatedAt = "2026-09-20T13:00:00Z"
+		adopter.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC))
 		adopter.ProvisionDisabled = true
 		adopter.TaskId = writer.TaskId
 		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "backend"), writer, adopter, task)
@@ -2046,7 +2046,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			HeadBranch:        "agent/other",
 			Number:            7,
 			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-			OpenedAt:          "2026-09-19T12:00:00Z",
+			OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
 		}, &pullrequestv1.PullRequest{
 			Id:                "pr-0",
 			RepositoryUrl:     repositoryURL,
@@ -2054,13 +2054,13 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			HeadBranch:        "agent/other",
 			Number:            5,
 			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
-			OpenedAt:          "2026-09-18T12:00:00Z",
-			ClosedAt:          xptr.Ptr("2026-09-18T13:00:00Z"),
+			OpenedAt:          timestamppb.New(time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)),
+			ClosedAt:          timestamppb.New(time.Date(2026, 9, 18, 13, 0, 0, 0, time.UTC)),
 		}))
 		require.Negative(t, paneltest.RecordLine(harness.Frame(), "pull requests"), "the row on another branch is untouched")
 
 		arrived, arrivedTask := newBranchAgent("a2", "web", "agent/other")
-		arrived.CreatedAt = "2026-09-20T12:00:00Z"
+		arrived.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
 		harness.Watch(paneltest.Puts(arrived, arrivedTask))
 		harness.Press("k")
 
@@ -2088,7 +2088,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			Title:             "Pull more pull request info",
 			Author:            "octocat",
 			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
-			OpenedAt:          "2026-09-19T12:00:00Z",
+			OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
 		}))
 
 		frame := harness.Frame()
@@ -2263,7 +2263,7 @@ func buildReviewedTasks() []proto.Message {
 	writer := newAgentAt("writer", "w1", 1)
 	reviewer := paneltest.Reviewer("a3", "reviewer", "writer")
 	secondReviewer := paneltest.Reviewer("a4", "second-reviewer", "writer")
-	secondReviewer.CreatedAt = "2026-09-20T12:09:00Z"
+	secondReviewer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 9, 0, 0, time.UTC))
 	writerTask := paneltest.TaskOf(writer)
 
 	return []proto.Message{
@@ -2280,7 +2280,7 @@ func buildReviewedTasks() []proto.Message {
 func buildSortable() []proto.Message {
 	newSortable := func(name, workflowID string, created, changed int) *agentv1.Agent {
 		agent := newAgentAt(name, workflowID, created)
-		agent.StateChangedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", changed)
+		agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 12, changed, 0, 0, time.UTC))
 
 		return agent
 	}
@@ -2337,7 +2337,7 @@ func withTasks(rows []proto.Message) []proto.Message {
 
 func newAgentAt(name, workflowID string, minute int) *agentv1.Agent {
 	agent := paneltest.Agent(name, name, workflowID)
-	agent.CreatedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", minute)
+	agent.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, minute, 0, 0, time.UTC))
 
 	return agent
 }
@@ -2423,7 +2423,7 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 			Branch:     "agent/x",
 			Occupants:  []*worktreev1.WorktreeAgent{{Id: "a2", Name: "reader"}},
 			SizeBytes:  xptr.Ptr[int64](1200 * 1024 * 1024),
-			MeasuredAt: xptr.Ptr(time.Now().Add(-5 * time.Minute).UTC().Format(time.RFC3339)),
+			MeasuredAt: timestamppb.New(time.Now().Add(-5 * time.Minute).UTC()),
 		},
 		Modified:           []string{"a.go", "b.go"},
 		Untracked:          []string{"notes.md"},
@@ -2439,12 +2439,12 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 			{
 				Sha:         "87a3bcc98c47",
 				Subject:     "fix(view): drop the column",
-				CommittedAt: time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339),
+				CommittedAt: timestamppb.New(time.Now().Add(-2 * time.Hour).UTC()),
 			},
 			{
 				Sha:         "1234567890ab",
 				Subject:     "feat(ui): a thing",
-				CommittedAt: time.Now().Add(-3 * time.Hour).UTC().Format(time.RFC3339),
+				CommittedAt: timestamppb.New(time.Now().Add(-3 * time.Hour).UTC()),
 			},
 		},
 	}
@@ -2508,7 +2508,7 @@ func buildRecordedTask() []proto.Message {
 	task := paneltest.TaskOf(rows[1].(*agentv1.Agent))
 	task.Cwd = xptr.Ptr("/repo")
 	task.Branch = xptr.Ptr("agent/auth")
-	task.CreatedAt = "2026-09-20T12:00:00Z"
+	task.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
 
 	return append(rows, task)
 }

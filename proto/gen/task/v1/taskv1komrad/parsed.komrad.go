@@ -9,6 +9,7 @@ import (
 	protoconv "komrad/lib/protoconv"
 	oneofs "komrad/proto/gen/oneofs"
 	v1 "komrad/proto/gen/task/v1"
+	time "time"
 )
 
 // CreateTaskRequest is v1.CreateTaskRequest with the values its rules describe converted.
@@ -93,7 +94,7 @@ type UpdateTaskRequest struct {
 	Title          *string
 	Goal           *string
 	Notes          *string
-	NotesUpdatedAt *string
+	NotesUpdatedAt *time.Time
 }
 
 // ParseUpdateTaskRequest converts a v1.UpdateTaskRequest into its parsed form.
@@ -118,7 +119,13 @@ func ParseUpdateTaskRequest(m *v1.UpdateTaskRequest) (*UpdateTaskRequest, error)
 	parsed.Title = m.Title
 	parsed.Goal = m.Goal
 	parsed.Notes = m.Notes
-	parsed.NotesUpdatedAt = m.NotesUpdatedAt
+	if m.NotesUpdatedAt != nil {
+		value, err := protoconv.ParseTime(m.NotesUpdatedAt)
+		if err != nil {
+			return nil, protoconv.PrefixField("notes_updated_at", err)
+		}
+		parsed.NotesUpdatedAt = &value
+	}
 
 	return parsed, nil
 }
@@ -127,7 +134,7 @@ func ParseUpdateTaskRequest(m *v1.UpdateTaskRequest) (*UpdateTaskRequest, error)
 type SetTaskNotesRequest struct {
 	Task           oneofs.Task
 	Notes          string
-	NotesUpdatedAt *string
+	NotesUpdatedAt *time.Time
 }
 
 // ParseSetTaskNotesRequest converts a v1.SetTaskNotesRequest into its parsed form.
@@ -149,7 +156,13 @@ func ParseSetTaskNotesRequest(m *v1.SetTaskNotesRequest) (*SetTaskNotesRequest, 
 		parsed.Task.TaskSlug = &value
 	}
 	parsed.Notes = m.Notes
-	parsed.NotesUpdatedAt = m.NotesUpdatedAt
+	if m.NotesUpdatedAt != nil {
+		value, err := protoconv.ParseTime(m.NotesUpdatedAt)
+		if err != nil {
+			return nil, protoconv.PrefixField("notes_updated_at", err)
+		}
+		parsed.NotesUpdatedAt = &value
+	}
 
 	return parsed, nil
 }

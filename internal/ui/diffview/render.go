@@ -302,7 +302,7 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 		return v.glyphs.Spell(glyph.ThreadUnsent), style
 	case thread.GetUnreadByHuman():
 		return v.glyphs.Spell(glyph.ThreadUnread), style
-	case thread.GetResolvedAt() != "":
+	case thread.GetResolvedAt() != nil:
 		return v.glyphs.Spell(glyph.ThreadSettled), style
 	case thread.GetMirrorsForge():
 		return v.glyphs.Spell(glyph.ThreadForge), style
