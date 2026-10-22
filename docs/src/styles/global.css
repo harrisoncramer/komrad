@@ -274,7 +274,7 @@
   border-bottom-color: transparent;
 }
 
-.doc-content tr.oneof td:first-child {
+.doc-content :is(tr.oneof, tr.oneof-member) td:first-child {
   box-shadow: inset 2px 0 var(--color-app-background-medium);
 }
 
@@ -285,7 +285,6 @@
 
 .doc-content tr.oneof-member td:first-child {
   padding-left: 1.75rem;
-  box-shadow: inset 2px 0 var(--color-app-background-medium);
 }
 
 .doc-content .type h3 {
