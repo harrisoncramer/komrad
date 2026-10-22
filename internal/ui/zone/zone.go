@@ -23,6 +23,7 @@ type Hit struct {
 	Nth  int
 }
 
+// A mark is a terminal command string, which the terminal draws nothing for, built from these pieces.
 const (
 	commandStart     = "\x1b_"
 	stringTerminator = "\x1b\\"
@@ -33,14 +34,19 @@ const (
 	fieldSeparator   = ":"
 )
 
+// blockMark matches either end of a marked block, such as "\x1b_kzs:list:40\x1b\\" opening a list 40
+// cells wide and "\x1b_kze:list:\x1b\\" closing it, for Scan to find blocks by.
 var blockMark = regexp.MustCompile(regexp.QuoteMeta(commandStart+markPrefix) +
 	"([" + blockStartTag + blockEndTag + "])" + fieldSeparator + "([a-z]+)" + fieldSeparator + "([0-9]*)" +
 	regexp.QuoteMeta(stringTerminator))
 
+// keyMark matches the mark opening a marked row, such as "\x1b_kzr:menu:12:0:6131\x1b\\" for the first
+// row keyed "a1" in the menu, 12 cells wide, for HitAt to read and StripKeys to remove.
 var keyMark = regexp.MustCompile(regexp.QuoteMeta(commandStart+markPrefix+rowTag) +
 	fieldSeparator + "([a-z]+)" + fieldSeparator + "([0-9]+)" + fieldSeparator + "([0-9]+)" + fieldSeparator + "([0-9a-f]*)" +
 	regexp.QuoteMeta(stringTerminator))
 
+// mark is the command string carrying one mark's tag and fields.
 func mark(tag string, fields ...string) string {
 	return commandStart + markPrefix + tag + fieldSeparator + strings.Join(fields, fieldSeparator) + stringTerminator
 }
@@ -65,6 +71,32 @@ func StripKeys(frame string) string {
 	return keyMark.ReplaceAllString(frame, "")
 }
 
+// found is one mark matched on a line, with the column it sits at and the text of each group it captured.
+type found struct {
+	left   int
+	groups []string
+}
+
+func findAll(pattern *regexp.Regexp, line string) []found {
+	var marks []found
+	for _, bounds := range pattern.FindAllStringSubmatchIndex(line, -1) {
+		matchStart := bounds[0]
+
+		var groups []string
+		for i := 2; i < len(bounds); i += 2 {
+			groupStart, groupEnd := bounds[i], bounds[i+1]
+			groups = append(groups, line[groupStart:groupEnd])
+		}
+
+		marks = append(marks, found{
+			left:   lipgloss.Width(line[:matchStart]),
+			groups: groups,
+		})
+	}
+
+	return marks
+}
+
 // Scan finds where each marked block sits in a frame, in cells from its top left.
 func Scan(frame string) map[Name]panes.Rect {
 	type opened struct {
@@ -72,21 +104,20 @@ func Scan(frame string) map[Name]panes.Rect {
 	}
 
 	starts := map[Name]opened{}
-	found := map[Name]panes.Rect{}
+	blocks := map[Name]panes.Rect{}
 
 	for row, line := range strings.Split(frame, "\n") {
-		for _, at := range blockMark.FindAllStringSubmatchIndex(line, -1) {
-			name := Name(line[at[4]:at[5]])
-			col := lipgloss.Width(line[:at[0]])
+		for _, edge := range findAll(blockMark, line) {
+			tag, name, widthField := edge.groups[0], Name(edge.groups[1]), edge.groups[2]
 
-			if line[at[2]:at[3]] == "s" {
-				width, err := strconv.Atoi(line[at[6]:at[7]])
+			if tag == blockStartTag {
+				width, err := strconv.Atoi(widthField)
 				if err != nil {
 					continue
 				}
 
 				starts[name] = opened{
-					left:  col,
+					left:  edge.left,
 					top:   row,
 					width: width,
 				}
@@ -100,11 +131,11 @@ func Scan(frame string) map[Name]panes.Rect {
 			}
 
 			bottom := row
-			if col == 0 && row > start.top {
+			if edge.left == 0 && row > start.top {
 				bottom--
 			}
 
-			found[name] = panes.Rect{
+			blocks[name] = panes.Rect{
 				Pane:   string(name),
 				Left:   start.left,
 				Top:    start.top,
@@ -114,31 +145,31 @@ func Scan(frame string) map[Name]panes.Rect {
 		}
 	}
 
-	return found
+	return blocks
 }
 
 // HitAt is the innermost marked row covering column x of one line of a frame.
 func HitAt(line string, x int) (Hit, bool) {
-	marks := keyMark.FindAllStringSubmatchIndex(line, -1)
-	for _, at := range slices.Backward(marks) {
-		left := lipgloss.Width(line[:at[0]])
-		width, err := strconv.Atoi(line[at[4]:at[5]])
-		if err != nil || x < left || x >= left+width {
+	for _, row := range slices.Backward(findAll(keyMark, line)) {
+		name, widthField, nthField, keyField := Name(row.groups[0]), row.groups[1], row.groups[2], row.groups[3]
+
+		width, err := strconv.Atoi(widthField)
+		if err != nil || x < row.left || x >= row.left+width {
 			continue
 		}
 
-		nth, err := strconv.Atoi(line[at[6]:at[7]])
+		nth, err := strconv.Atoi(nthField)
 		if err != nil {
 			continue
 		}
 
-		key, err := hex.DecodeString(line[at[8]:at[9]])
+		key, err := hex.DecodeString(keyField)
 		if err != nil {
 			continue
 		}
 
 		return Hit{
-			Zone: Name(line[at[2]:at[3]]),
+			Zone: name,
 			Key:  string(key),
 			Nth:  nth,
 		}, true
