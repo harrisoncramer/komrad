@@ -2,6 +2,7 @@ package screen
 
 import "komrad/internal/ui/list"
 
+// Derived is a value built from a key and kept until the key changes.
 type Derived[K comparable, V any] struct {
 	built bool
 	key   K
@@ -21,6 +22,7 @@ func (d *Derived[K, V]) Read(key K, build func() V) V {
 	return d.value
 }
 
+// ListingKey says which listing and filter a screen's rows were built from.
 type ListingKey struct {
 	generation int
 	filter     list.PatternKey
