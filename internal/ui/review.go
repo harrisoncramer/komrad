@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -159,7 +160,7 @@ func (r *reviewScreen) column() columnSpec {
 	return reviewColumn()
 }
 
-func (r reviewScreen) typedLine() (lineInput, bool) {
+func (r reviewScreen) typedLine() (field.Line, bool) {
 	if r.filesFilter.typing {
 		return r.filesFilter.input, true
 	}

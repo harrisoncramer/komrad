@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/logview"
 	"komrad/internal/view"
@@ -302,7 +303,7 @@ func (l *logsScreen) reread(m *model) tea.Cmd {
 // openLogFilter hands the keys to the prompt at the foot of the log.
 func (l *logsScreen) openLogFilter() {
 	l.logFilter.typing = true
-	l.logFilter.input.insert()
+	l.logFilter.input.Insert()
 	l.logFilter.mode = filterModeFilter
 }
 
@@ -554,7 +555,7 @@ func (l *logsScreen) activeList() keyedList {
 	return l.list()
 }
 
-func (l *logsScreen) typedLine() (lineInput, bool) {
+func (l *logsScreen) typedLine() (field.Line, bool) {
 	return l.logFilter.input, l.logFilter.typing
 }
 

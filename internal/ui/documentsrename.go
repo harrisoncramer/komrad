@@ -4,22 +4,24 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/ui/field"
+
 	tea "charm.land/bubbletea/v2"
 )
 
 // documentRename is a document's or a type's name as the user types over it in the list.
 type documentRename struct {
-	*nameEdit
+	*field.NameEdit
 	item documentItem
 	read documentBody
 }
 
-func (d *documentsScreen) renamingField() *nameEdit {
+func (d *documentsScreen) renamingField() *field.NameEdit {
 	if d.renaming == nil {
 		return nil
 	}
 
-	return d.renaming.nameEdit
+	return d.renaming.NameEdit
 }
 
 // openRename types over the name of the item under the cursor once its text has been read.
@@ -42,7 +44,7 @@ func (d *documentsScreen) openRename(m *model) tea.Cmd {
 	}
 
 	d.renaming = &documentRename{
-		nameEdit: openNameEdit(documentRow{item: item}.Key(), item.name),
+		NameEdit: field.NewNameEdit(documentRow{item: item}.Key(), item.name),
 		item:     item,
 		read:     read,
 	}
@@ -52,20 +54,22 @@ func (d *documentsScreen) openRename(m *model) tea.Cmd {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func (d *documentsScreen) reconcileRename(m *model) {
-	if d.renaming != nil && !reconcileNameEdit(d.renaming.nameEdit, d.rows(m), d.activeList().hovered(m), func(r documentRow) string { return r.item.name }) {
+	if d.renaming != nil && !reconcileNameEdit(d.renaming.NameEdit, d.rows(m), d.activeList().hovered(m), func(r documentRow) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }
 
 func (d *documentsScreen) updateRename(m *model, msg tea.Msg) tea.Cmd {
-	switch d.renaming.take(m, msg) {
-	case nameEditHidden:
+	switch d.renaming.Take(msg, m.register) {
+	case field.NameGone:
+		m.note(messageWarning, d.renaming.GoneWarning())
+	case field.NameHidden:
 		return m.hide()
-	case nameEditCancelled:
+	case field.NameCancelled:
 		d.renaming = nil
-	case nameEditSubmitted:
+	case field.NameSubmitted:
 		return d.saveRename(m)
-	case nameEditTyping:
+	case field.NameTyping:
 	}
 
 	return nil
@@ -73,7 +77,7 @@ func (d *documentsScreen) updateRename(m *model, msg tea.Msg) tea.Cmd {
 
 func (d *documentsScreen) saveRename(m *model) tea.Cmd {
 	rename := d.renaming
-	name, ok := rename.submit()
+	name, ok := rename.Submit()
 	if !ok {
 		d.renaming = nil
 
@@ -90,10 +94,10 @@ func (d *documentsScreen) saveRename(m *model) tea.Cmd {
 	item.name = name
 
 	return stampRename(m.writeCmd(
-		"renaming "+rename.was,
-		fmt.Sprintf("Could not rename document %q", rename.was),
+		"renaming "+rename.Was(),
+		fmt.Sprintf("Could not rename document %q", rename.Was()),
 		func(a api) error { return a.writeDocument(item, read.version, read.body) },
-	), rename.key)
+	), rename.Key())
 }
 
 // settleRename marks the field saved once its write has landed, or open for another try when it
@@ -102,22 +106,22 @@ func (d *documentsScreen) settleRename(m *model, row string, err error) {
 	if d.renaming == nil {
 		return
 	}
-	d.renaming.settle(row, err)
+	d.renaming.Settle(row, err)
 
 	d.reconcileRename(m)
 }
 
 func (d *documentsScreen) isRenaming() bool {
-	return d.renaming != nil && !d.renaming.landed
+	return d.renaming != nil && !d.renaming.IsLanded()
 }
 
-func (d *documentsScreen) typedLine() (lineInput, bool) {
+func (d *documentsScreen) typedLine() (field.Line, bool) {
 	switch {
 	case d.isRenaming():
-		return d.renaming.input, true
+		return d.renaming.Input(), true
 	case d.history != nil && d.history.filter.typing:
 		return d.history.filter.input, true
 	}
 
-	return lineInput{}, false
+	return field.Line{}, false
 }

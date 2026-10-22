@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/layout"
 
 	tea "charm.land/bubbletea/v2"
@@ -204,7 +205,7 @@ type itemMenuBuilder interface {
 
 // lineTyper is a screen with a one-row field the user can type into.
 type lineTyper interface {
-	typedLine() (lineInput, bool)
+	typedLine() (field.Line, bool)
 }
 
 type searchTyper interface {

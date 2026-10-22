@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 
@@ -12,7 +13,7 @@ import (
 // rowRename is a listed row's name being typed over: an agent's, a task's slug, a workflow's or a
 // schedule's.
 type rowRename struct {
-	*nameEdit
+	*field.NameEdit
 	agent    panel.Agent
 	task     *panel.Task
 	workflow *panel.Workflow
@@ -23,26 +24,26 @@ func renameAgentRow(row agentRow) *rowRename {
 	if row.isTask() {
 		task := *row.task
 
-		return &rowRename{nameEdit: openNameEdit(rowKey(row), task.Slug), task: &task}
+		return &rowRename{NameEdit: field.NewNameEdit(rowKey(row), task.Slug), task: &task}
 	}
 	if row.header {
 		workflow := row.workflow
 
-		return &rowRename{nameEdit: openNameEdit(rowKey(row), workflow.Name), workflow: &workflow}
+		return &rowRename{NameEdit: field.NewNameEdit(rowKey(row), workflow.Name), workflow: &workflow}
 	}
 
-	return &rowRename{nameEdit: openNameEdit(rowKey(row), row.item.Agent.Name), agent: row.item.Agent}
+	return &rowRename{NameEdit: field.NewNameEdit(rowKey(row), row.item.Agent.Name), agent: row.item.Agent}
 }
 
 func renameScheduleRow(item scheduleItem) *rowRename {
 	schedule := item.schedule
 
-	return &rowRename{nameEdit: openNameEdit(item.Key(), schedule.Name), schedule: &schedule}
+	return &rowRename{NameEdit: field.NewNameEdit(item.Key(), schedule.Name), schedule: &schedule}
 }
 
 // save sends the typed name, or says there is nothing to send.
 func (r *rowRename) save(m *model) (tea.Cmd, bool) {
-	name, ok := r.submit()
+	name, ok := r.Submit()
 	if !ok {
 		return nil, false
 	}
@@ -54,36 +55,36 @@ func (r *rowRename) save(m *model) (tea.Cmd, bool) {
 		id := r.schedule.ID
 
 		return stampRename(m.writeCmd(
-			"renaming "+r.was,
-			fmt.Sprintf("Could not rename schedule %q", r.was),
+			"renaming "+r.Was(),
+			fmt.Sprintf("Could not rename schedule %q", r.Was()),
 			func(a api) error { return a.updateSchedule(id, renamed) },
-		), r.key), true
+		), r.Key()), true
 	case r.task != nil:
 		id := r.task.ID
 
 		return stampRename(m.writeCmd(
-			"renaming "+r.was,
-			fmt.Sprintf("Could not rename task %q", r.was),
+			"renaming "+r.Was(),
+			fmt.Sprintf("Could not rename task %q", r.Was()),
 			func(a api) error { return a.updateTask(updateTaskParams{id: id, slug: &name}) },
-		), r.key), true
+		), r.Key()), true
 	case r.workflow != nil:
 		renamed := *r.workflow
 		renamed.Name = name
 
 		return stampRename(m.writeCmd(
-			"renaming "+r.was,
-			fmt.Sprintf("Could not rename workflow %q", r.was),
+			"renaming "+r.Was(),
+			fmt.Sprintf("Could not rename workflow %q", r.Was()),
 			func(a api) error { return a.updateWorkflow(renamed) },
-		), r.key), true
+		), r.Key()), true
 	}
 
 	agent := r.agent
 
 	return stampRename(m.writeCmd(
-		"renaming "+r.was,
-		fmt.Sprintf("Could not rename agent %q", r.was),
+		"renaming "+r.Was(),
+		fmt.Sprintf("Could not rename agent %q", r.Was()),
 		func(a api) error { return a.renameAgent(agent, name) },
-	), r.key), true
+	), r.Key()), true
 }
 
 // renameSlot is the rename a list screen has open, nil when none is.
@@ -92,38 +93,40 @@ type renameSlot struct {
 }
 
 func (r *renameSlot) isRenaming() bool {
-	return r.renaming != nil && !r.renaming.landed
+	return r.renaming != nil && !r.renaming.IsLanded()
 }
 
-func (r *renameSlot) renamingField() *nameEdit {
+func (r *renameSlot) renamingField() *field.NameEdit {
 	if r.renaming == nil {
 		return nil
 	}
 
-	return r.renaming.nameEdit
+	return r.renaming.NameEdit
 }
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func reconcileRename[T list.Keyed](r *renameSlot, rows []T, hovered string, name func(T) string) {
-	if r.renaming != nil && !reconcileNameEdit(r.renaming.nameEdit, rows, hovered, name) {
+	if r.renaming != nil && !reconcileNameEdit(r.renaming.NameEdit, rows, hovered, name) {
 		r.renaming = nil
 	}
 }
 
 func (r *renameSlot) updateRename(m *model, msg tea.Msg) tea.Cmd {
-	switch r.renaming.take(m, msg) {
-	case nameEditHidden:
+	switch r.renaming.Take(msg, m.register) {
+	case field.NameGone:
+		m.note(messageWarning, r.renaming.GoneWarning())
+	case field.NameHidden:
 		return m.hide()
-	case nameEditCancelled:
+	case field.NameCancelled:
 		r.renaming = nil
-	case nameEditSubmitted:
+	case field.NameSubmitted:
 		cmd, ok := r.renaming.save(m)
 		if !ok {
 			r.renaming = nil
 		}
 
 		return cmd
-	case nameEditTyping:
+	case field.NameTyping:
 	}
 
 	return nil
@@ -135,15 +138,15 @@ func (r *renameSlot) settleField(row string, err error) bool {
 	if r.renaming == nil {
 		return false
 	}
-	r.renaming.settle(row, err)
+	r.renaming.Settle(row, err)
 
 	return true
 }
 
-func (r *renameSlot) typedLine() (lineInput, bool) {
+func (r *renameSlot) typedLine() (field.Line, bool) {
 	if !r.isRenaming() {
-		return lineInput{}, false
+		return field.Line{}, false
 	}
 
-	return r.renaming.input, true
+	return r.renaming.Input(), true
 }

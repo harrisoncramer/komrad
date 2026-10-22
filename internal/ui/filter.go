@@ -11,6 +11,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/searchsyntax"
+	"komrad/internal/ui/field"
 	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
@@ -54,7 +55,7 @@ func (m filterMode) String() string {
 
 type filterState struct {
 	typing  bool
-	input   lineInput
+	input   field.Line
 	pattern *regexp.Regexp
 	broken  bool
 	mode    filterMode
@@ -105,7 +106,7 @@ func withMinLength(length int) filterOption {
 }
 
 func (f filterState) query() string {
-	return f.input.value()
+	return f.input.Value()
 }
 
 func (f filterState) isStanding() bool {
@@ -137,7 +138,7 @@ func (f filterState) doesNarrow(section sidebarSection) bool {
 }
 
 func (f *filterState) setQuery(query string) {
-	f.input.set(query)
+	f.input.Set(query)
 	f.compile()
 }
 
@@ -361,19 +362,19 @@ func (m *model) leaveScreen() tea.Cmd {
 // takeKey applies one keypress to a search being typed at, with vim reading it first when
 // register is set, and reports whether it was one of the search's.
 func (f *filterState) takeKey(key tea.KeyPressMsg, register *vim.Register) bool {
-	switch f.input.take(key, register) {
-	case lineLeft:
+	switch f.input.Take(key, register) {
+	case field.LineLeft:
 		f.abandon()
-	case lineEntered:
+	case field.LineEntered:
 		f.typing = false
 		f.compile()
-	case lineChanged:
+	case field.LineChanged:
 		if f.debounce == 0 || f.isTooShort() {
 			f.compile()
 		}
-	case lineIgnored:
+	case field.LineIgnored:
 		return false
-	case lineKept:
+	case field.LineKept:
 	}
 
 	return true

@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/config"
 
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/paint"
 
 	"charm.land/bubbles/v2/key"
@@ -61,7 +62,7 @@ type formState struct {
 	refusal        string
 
 	// vim is vim's state for the form's text fields, nil when vim is off.
-	vim *fieldVim
+	vim *field.Vim
 }
 
 // formKind names the form on screen, for the legend and for what closing it means.
@@ -109,7 +110,7 @@ func (f formState) isOpening() bool {
 func (m *model) openForm(f formState) tea.Cmd {
 	m.form = f
 	m.reconcileSolo()
-	m.form.vim = newFieldVim(m.register)
+	m.form.vim = field.NewVim(m.register)
 
 	if m.form.form == nil {
 		m.form.form, m.form.order = m.form.rebuild(m)

@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"slices"
 
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
@@ -46,7 +47,7 @@ type snapshotParams struct {
 	// pane is how many columns the list is rendered in.
 	pane int
 	// renaming is the name being typed over one row, nil when none is.
-	renaming *nameEdit
+	renaming *field.NameEdit
 }
 
 // agentsSnapshot reads the listing into the plain data the agents list renders itself from.
@@ -54,7 +55,7 @@ func agentsSnapshot(params snapshotParams) view.Snapshot {
 	rows := triageRows(params)
 	trees := treesOf(params.rows, params.flat)
 	for i, r := range params.rows {
-		row := params.renaming.renderedOver(snapshotRow(r, params))
+		row := params.renaming.RenderedOver(snapshotRow(r, params))
 		row.Tree = trees[i]
 		rows = append(rows, row)
 	}

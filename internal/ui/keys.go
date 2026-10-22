@@ -2,11 +2,8 @@ package ui
 
 import (
 	"slices"
-	"strings"
 
 	"komrad/config"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // keyProbe is the seam for asking which bindings a press reached, and is nil unless a test sets
@@ -23,11 +20,6 @@ func isBound(pressed string, keys []string) bool {
 	}
 
 	return true
-}
-
-// pastedLine is pasted text as it lands in a line of one row.
-func pastedLine(paste tea.PasteMsg) string {
-	return strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(paste.Content)
 }
 
 // isTopHeld reports whether the last press opened the doubled top key and is waiting on its pair.
