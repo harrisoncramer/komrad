@@ -228,9 +228,6 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 	return m.routeScreenMessage(key)
 }
 
-// sidebarStep is how many columns one press of a sidebar key moves its edge.
-const sidebarStep = 4
-
 // resizeTo takes the panel to the size a window message reports.
 func (m *model) resizeTo(size tea.WindowSizeMsg) {
 	width := size.Width - m.countInsetCols()
@@ -300,12 +297,6 @@ func (m *model) relayout() {
 	// A field open in the review's sidebar is rendered in a column of this window rather than in the
 	// form's, so the size is rewritten here too.
 	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m)))
-}
-
-// nudgeSidebar moves the sidebar's edge by a number of columns.
-func (m *model) nudgeSidebar(delta int) {
-	m.frame.Nudge(delta)
-	m.relayout()
 }
 
 // routeScreenMessage hands a message to the screen that is up.

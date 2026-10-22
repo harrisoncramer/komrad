@@ -14,6 +14,7 @@ type sessionTmux interface {
 	BindRootKey(key string, command ...string)
 	UnbindRootKey(key string)
 	BindTableKey(table, key string, command ...string)
+	BindRepeatTableKey(table, key string, command ...string)
 	UnbindTable(table string)
 	GetWindowID(pane string) string
 	DetachSession(name string)
@@ -74,6 +75,10 @@ func (s *Session) HoldLeader(sidebar string) {
 
 	for _, key := range leaderPanelKeys {
 		s.tmux.BindTableKey(s.leaderTable, key, "send-keys", "-t", sidebar, s.leaderKey, key)
+	}
+
+	for _, key := range leaderEdgeKeys {
+		s.tmux.BindRepeatTableKey(s.leaderTable, key, "send-keys", "-t", sidebar, s.leaderKey, key)
 	}
 
 	s.tmux.BindTableKey(s.leaderTable, copyKey, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",

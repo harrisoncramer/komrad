@@ -13,7 +13,7 @@ import (
 // TestHelp covers the legend under the list and the key that expands it.
 func TestHelp(t *testing.T) {
 	t.Run("the legend opens on one line and the help key brings the rest out", func(t *testing.T) {
-		harness := openHelp(t, paneltest.Params{}, slices.Repeat([]string{"}"}, 4)...)
+		harness := openHelp(t, paneltest.Params{}, slices.Repeat([]string{"ctrl+space", "l"}, 4)...)
 		collapsed := harness.Frame()
 
 		legend := paneltest.Legend(collapsed)

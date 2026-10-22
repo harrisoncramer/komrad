@@ -1966,7 +1966,7 @@ func TestAgentsStrandedPause(t *testing.T) {
 			answerWorktreeReads(harness)
 			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), agent))
 
-			harness.Press(slices.Repeat([]string{"}"}, 30)...)
+			harness.Press(slices.Repeat([]string{"ctrl+space", "l"}, 30)...)
 
 			record := strings.Join(paneltest.Record(harness.Frame()), "\n")
 			assert.Contains(t, record, tt.want)

@@ -949,27 +949,6 @@
           "sections": []
         },
         {
-          "path": "keybindings.sidebar",
-          "description": "The keys that move the sidebar's edge, shared by every screen.",
-          "settings": [
-            {
-              "key": "narrow",
-              "path": "keybindings.sidebar.narrow",
-              "type": "array",
-              "description": "Make the sidebar narrower.",
-              "default": "[\"{\"]"
-            },
-            {
-              "key": "widen",
-              "path": "keybindings.sidebar.widen",
-              "type": "array",
-              "description": "Make the sidebar wider.",
-              "default": "[\"}\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
           "path": "keybindings.selection",
           "description": "Choosing several agents at once, shared by the two screens that draw a tree.",
           "settings": [

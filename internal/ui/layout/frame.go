@@ -75,6 +75,9 @@ type Frame struct {
 	// beside is whether the sidebar is drawn across part of the stage, with the stage beside it.
 	beside bool
 
+	// besideStage is the width the stage beside the sidebar was settled at by a nudge, zero until one.
+	besideStage int
+
 	// column is the pane split off the columns the sidebar took from the stage, empty while none is
 	// open.
 	column string
@@ -534,8 +537,9 @@ func (f *Frame) SyncKeys() {
 	}
 }
 
-// Nudge moves the sidebar's edge by a number of columns, wider for a positive one.
-func (f *Frame) Nudge(delta int) {
+// Nudge moves the sidebar's edge by a number of columns, wider for a positive one, leaving whatever
+// is right of the edge at least floor columns.
+func (f *Frame) Nudge(delta, floor int) {
 	if f.sidebar == "" {
 		return
 	}
@@ -547,8 +551,15 @@ func (f *Frame) Nudge(delta int) {
 
 	current, _ := f.SidebarWidth(total)
 
-	width := min(max(current+delta, 1), total-2)
-	if width == current {
+	// The stage keeps its width while the edge moves into the block beside it.
+	right := total
+	if f.HasStageEdge() {
+		f.pinStage(total)
+		right = f.besideCols(total)
+	}
+
+	width := min(max(current+delta, 1), right-1-max(floor, 1))
+	if width == current || width < 1 {
 		return
 	}
 
@@ -556,6 +567,55 @@ func (f *Frame) Nudge(delta int) {
 	f.stageCols = total - width - 1
 
 	f.resizeSidebar()
+}
+
+// NudgeStage moves the edge between the block beside the sidebar's list and the stage by a number
+// of columns, narrowing the stage for a positive one, leaving both at least floor columns.
+func (f *Frame) NudgeStage(delta, floor int) {
+	if f.sidebar == "" || !f.HasStageEdge() {
+		return
+	}
+
+	total := f.WindowCols()
+	stage := total - f.besideCols(total) - 1
+	width := min(max(stage-delta, floor), total-f.chosenCols()-2-floor)
+	if width == stage || width < max(floor, 1) {
+		return
+	}
+
+	f.besideStage = width
+
+	if f.column != "" {
+		f.move(panes.Resize(f.column, f.besideCols(total)-f.chosenCols()-1))
+
+		return
+	}
+
+	f.resizeSidebar()
+}
+
+// HasStageEdge reports whether the block beside the sidebar's list has an edge of its own against
+// the stage.
+func (f *Frame) HasStageEdge() bool {
+	return f.beside || f.column != ""
+}
+
+// HasColumnKeys reports whether the keyboard is on the pane OpenColumn split.
+func (f *Frame) HasColumnKeys() bool {
+	if f.column == "" {
+		return false
+	}
+
+	active, _ := f.tmux.GetPaneFocus(f.column)
+
+	return active
+}
+
+// pinStage settles the stage beside the sidebar at the width it has now.
+func (f *Frame) pinStage(total int) {
+	if f.besideStage == 0 {
+		f.besideStage = total - f.besideCols(total) - 1
+	}
 }
 
 // resizeSidebar puts the sidebar at its width, or owes the resize to the zoom while the sidebar
@@ -875,6 +935,9 @@ func (f *Frame) sidebarCols() int {
 // this many columns.
 func (f *Frame) besideCols(window int) int {
 	cols := f.chosenCols()
+	if f.besideStage > 0 {
+		return max(window-f.besideStage-1, cols+1)
+	}
 
 	return cols + 1 + max(window-cols-1, 0)*besidePercent/100
 }

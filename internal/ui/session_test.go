@@ -94,6 +94,10 @@ func (b *bindRecorder) BindTableKey(table, key string, command ...string) {
 	b.bound[table+":"+key] = command
 }
 
+func (b *bindRecorder) BindRepeatTableKey(table, key string, command ...string) {
+	b.BindTableKey(table, key, command...)
+}
+
 func (b *bindRecorder) UnbindTable(table string) {
 	for bound := range b.bound {
 		if strings.HasPrefix(bound, table+":") {

@@ -791,7 +791,7 @@ func TestFrameNudgeResizesTheSharedSplit(t *testing.T) {
 	frame.Attach(sidebarPane)
 
 	tmux.resizes = nil
-	frame.Nudge(4)
+	frame.Nudge(4, 1)
 
 	assert.Equal(t, []string{sidebarPane + " 43"}, tmux.resizes)
 
@@ -813,8 +813,8 @@ func TestFrameNudgeWhileZoomedIsPaidOnUnzoom(t *testing.T) {
 	frame.Solo(true)
 
 	tmux.resizes = nil
-	frame.Nudge(-8)
-	frame.Nudge(-8)
+	frame.Nudge(-8, 1)
+	frame.Nudge(-8, 1)
 
 	assert.Empty(t, tmux.resizes, "nothing is resized under the zoom")
 
@@ -842,7 +842,7 @@ func TestFrameNudgeIsPaidWhenTmuxLetsTheZoomGo(t *testing.T) {
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
 	frame.Attach(sidebarPane)
 	frame.Solo(true)
-	frame.Nudge(10)
+	frame.Nudge(10, 1)
 
 	tmux.resizes = nil
 	tmux.zoomed = false
@@ -861,13 +861,138 @@ func TestFrameNudgeLeavesBothHalvesAColumn(t *testing.T) {
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
 	frame.Attach(sidebarPane)
 
-	frame.Nudge(-500)
+	frame.Nudge(-500, 1)
 	width, _ := frame.SidebarWidth(200)
 	assert.Equal(t, 1, width)
 
-	frame.Nudge(500)
+	frame.Nudge(500, 1)
 	width, _ = frame.SidebarWidth(200)
 	assert.Equal(t, 198, width)
+}
+
+// TestFrameNudgeBesideTheStage covers the sidebar's edge moving into the block while the stage is
+// beside it, which leaves the stage where it was.
+func TestFrameNudgeBesideTheStage(t *testing.T) {
+	tests := []struct {
+		name      string
+		delta     int
+		wantWidth int
+	}{
+		{
+			name:      "a narrower list widens the block",
+			delta:     -8,
+			wantWidth: 32,
+		},
+		{
+			name:      "a wider list stops at the block's floor",
+			delta:     500,
+			wantWidth: 110,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{
+				width:       159,
+				windowWidth: 200,
+				height:      50,
+			}
+			frame := New(tmux, config.Layout{SidebarWidth: 40})
+			frame.Attach(sidebarPane)
+			frame.Beside(true)
+
+			tmux.resizes = nil
+			frame.Nudge(tt.delta, 33)
+
+			width, measured := frame.SidebarWidth(200)
+			assert.Equal(t, tt.wantWidth, width)
+			assert.True(t, measured)
+			assert.Equal(t, []string{sidebarPane + " 144"}, tmux.resizes, "the stage keeps its columns")
+		})
+	}
+}
+
+// TestFrameNudgeStage covers a key moving the edge between the block and the stage beside it.
+func TestFrameNudgeStage(t *testing.T) {
+	tests := []struct {
+		name        string
+		delta       int
+		wantResizes []string
+	}{
+		{
+			name:        "a positive step narrows the stage",
+			delta:       8,
+			wantResizes: []string{sidebarPane + " 152"},
+		},
+		{
+			name:        "a negative step widens the stage",
+			delta:       -8,
+			wantResizes: []string{sidebarPane + " 136"},
+		},
+		{
+			name:        "the stage stops at its floor",
+			delta:       500,
+			wantResizes: []string{sidebarPane + " 166"},
+		},
+		{
+			name:        "the block stops at its floor",
+			delta:       -500,
+			wantResizes: []string{sidebarPane + " 74"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{
+				width:       159,
+				windowWidth: 200,
+				height:      50,
+			}
+			frame := New(tmux, config.Layout{SidebarWidth: 40})
+			frame.Attach(sidebarPane)
+			frame.Beside(true)
+
+			tmux.resizes = nil
+			frame.NudgeStage(tt.delta, 33)
+
+			assert.Equal(t, tt.wantResizes, tmux.resizes)
+
+			width, _ := frame.SidebarWidth(200)
+			assert.Equal(t, 40, width, "the list keeps its width")
+		})
+	}
+
+	t.Run("the column pane takes the step in place of the sidebar", func(t *testing.T) {
+		tmux := &recordingTmux{
+			width:       159,
+			windowWidth: 200,
+			height:      50,
+		}
+		frame := New(tmux, config.Layout{SidebarWidth: 40})
+		frame.Attach(sidebarPane)
+		frame.Beside(true)
+		frame.OpenColumn(Content{Render: func(Target) ([]string, bool) { return []string{"nvim"}, true }})
+
+		tmux.resizes = nil
+		frame.NudgeStage(8, 33)
+
+		assert.Equal(t, []string{columnPane + " 111"}, tmux.resizes)
+	})
+
+	t.Run("a stage with no block beside it is left alone", func(t *testing.T) {
+		tmux := &recordingTmux{
+			width:       159,
+			windowWidth: 200,
+			height:      50,
+		}
+		frame := New(tmux, config.Layout{SidebarWidth: 40})
+		frame.Attach(sidebarPane)
+
+		tmux.resizes = nil
+		frame.NudgeStage(8, 33)
+
+		assert.Empty(t, tmux.resizes)
+	})
 }
 
 // TestAWindowTooNarrowForTheChosenWidthKeepsIt covers tmux clamping the sidebar into a window
