@@ -1,9 +1,5 @@
 // Package keys is the panel's key tables: the actions a screen answers, the order a press is
 // offered to them, and the legend that names them.
-//
-// It holds no panel state. A table is generic over what its arms read, so a screen hands its own
-// state to the dispatch and the legend, and the root checks every screen's bindings for conflicts
-// from the arms the tables describe.
 package keys
 
 import (
