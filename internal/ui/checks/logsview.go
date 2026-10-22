@@ -69,13 +69,12 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 		return c.rendered
 	}
 
-	indent := strings.Repeat(" ", docMargin())
-	wrap := max(width-2*docMargin(), 1)
+	wrap := max(width, 1)
 	var rows []string
 	anchors := map[string]int{}
 	line := func(text string, style lipgloss.Style) {
 		rows = append(rows, xslice.Map(strings.Split(ansi.Wrap(text, wrap, ""), "\n"), func(part string) string {
-			return paint.FitRow(indent+style.Render(part), width)
+			return paint.FitRow(style.Render(part), width)
 		})...)
 	}
 
@@ -86,7 +85,7 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 
 		anchors[statusCheckLogRow{item: item}.Key()] = len(rows)
 		title := "═ " + item.name + " "
-		rows = append(rows, paint.FitRow(indent+lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(wrap-lipgloss.Width(title), 0))), width))
+		rows = append(rows, paint.FitRow(lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(wrap-lipgloss.Width(title), 0))), width))
 
 		if notice := c.logNotice(item); notice != "" {
 			line(notice, paint.Panel.Style(paint.ToneMuted))

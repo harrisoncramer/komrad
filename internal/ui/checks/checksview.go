@@ -95,7 +95,6 @@ func (c *statusChecksScreen) docRows(in screen.Inputs, width int) []string {
 	}
 
 	item := rows[c.Row].item
-	indent := strings.Repeat(" ", docMargin())
 	icon := func(item statusCheckItem) string {
 		cell := statusCheckIcon(item, in.Room.Spinner)
 		text := cell.Text
@@ -117,26 +116,26 @@ func (c *statusChecksScreen) docRows(in screen.Inputs, width int) []string {
 		notice = append(notice, label.Count(len(item.steps), "step", "steps"))
 	}
 
-	out := []string{paint.FitRow(indent+icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width)}
+	out := []string{paint.FitRow(icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width)}
 	if len(notice) > 0 {
-		out = append(out, paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render(strings.Join(notice, separated)), width))
+		out = append(out, paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render(strings.Join(notice, separated)), width))
 	}
 	out = append(out, "")
 	if len(item.steps) == 0 {
-		return append(out, paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("no steps reported"), width))
+		return append(out, paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("no steps reported"), width))
 	}
 
 	focal := slices.IndexFunc(item.steps, func(step statusCheckItem) bool { return !step.passed })
 	for i, step := range item.steps {
-		lead := indent + icon(step) + " "
+		lead := icon(step) + " "
 		duration := dates.Between(step.startedAt, step.finishedAt)
-		name := ansi.Truncate(step.name, max(width-lipgloss.Width(lead)-lipgloss.Width(duration)-docMargin()-1, 0), "…")
+		name := ansi.Truncate(step.name, max(width-lipgloss.Width(lead)-lipgloss.Width(duration)-1, 0), "…")
 		if i == focal {
 			name = lipgloss.NewStyle().Bold(true).Render(name)
 		}
 
 		left := lead + name
-		gap := max(width-lipgloss.Width(left)-lipgloss.Width(duration)-docMargin(), 1)
+		gap := max(width-lipgloss.Width(left)-lipgloss.Width(duration), 1)
 		out = append(out, paint.FitRow(left+strings.Repeat(" ", gap)+paint.Panel.Style(paint.ToneMuted).Render(duration), width))
 	}
 

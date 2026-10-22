@@ -25,21 +25,18 @@ type runOutcome struct {
 	below  string
 }
 
-// scheduleRunRows is the rows a schedule's firings take in its document, indented to the
-// document's own margin and cut to its width.
+// scheduleRunRows is the rows a schedule's firings take in its document, cut to its width.
 func scheduleRunRows(runs []panel.ScheduleRun, width int) []string {
-	indent := strings.Repeat(" ", docMargin())
-
 	if len(runs) == 0 {
-		return []string{paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("never fired"), width)}
+		return []string{paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("never fired"), width)}
 	}
 
-	under := indent + strings.Repeat(" ", len(runTimeLayout)+2+runWordWidth+2)
+	under := strings.Repeat(" ", len(runTimeLayout)+2+runWordWidth+2)
 	rows := make([]string, 0, len(runs))
 	for _, run := range runs {
 		outcome := describeRun(run)
 
-		row := indent + paint.Panel.Style(paint.ToneMuted).Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
+		row := paint.Panel.Style(paint.ToneMuted).Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
 			paint.Panel.Style(outcome.tone).Render(fmt.Sprintf("%-*s", runWordWidth, outcome.word))
 		if outcome.detail != "" {
 			row += "  " + paint.Panel.Style(paint.ToneMuted).Render(outcome.detail)
@@ -99,14 +96,4 @@ func describeRun(run panel.ScheduleRun) runOutcome {
 	}
 
 	return runOutcome{word: "pending", tone: paint.ToneMuted}
-}
-
-// docMargin is how far the stage's markdown indents its text, which rows rendered beside it match.
-func docMargin() int {
-	margin := columnStyle().Document.Margin
-	if margin == nil {
-		return 0
-	}
-
-	return int(*margin)
 }
