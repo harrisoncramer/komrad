@@ -15,7 +15,6 @@ import (
 func TestEveryActionHasALegendRow(t *testing.T) {
 	const quit = "quit is not worth a row on any screen"
 	const wheel = "the mouse wheel presses it, and paging is the only scroll the block names"
-	const filterGap = "a gap: the legend has no rows for the filter keys yet"
 
 	tests := []struct {
 		screen  screen.ID
@@ -58,22 +57,12 @@ func TestEveryActionHasALegendRow(t *testing.T) {
 			},
 		},
 		{
-			screen: screen.StatusChecks,
-			excused: map[keys.ID]string{
-				keys.Quit:        quit,
-				keys.FilterOpen:  filterGap,
-				keys.FilterClear: filterGap,
-				keys.FilterMatch: filterGap,
-			},
+			screen:  screen.StatusChecks,
+			excused: map[keys.ID]string{keys.Quit: quit},
 		},
 		{
-			screen: screen.StatusCheckLogs,
-			excused: map[keys.ID]string{
-				keys.Quit:        quit,
-				keys.FilterOpen:  filterGap,
-				keys.FilterClear: filterGap,
-				keys.FilterMatch: filterGap,
-			},
+			screen:  screen.StatusCheckLogs,
+			excused: map[keys.ID]string{keys.Quit: quit},
 		},
 	}
 

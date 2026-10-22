@@ -228,6 +228,20 @@ func (c *statusChecksScreen) listActions() keys.Spec[*model] {
 		),
 		Legend: slices.Concat(keys.NavLegend[*model](), []keys.LegendRow[*model]{
 			{
+				Of:   []keys.ID{keys.FilterOpen},
+				Desc: filterDescOf,
+			},
+			{
+				Of:    []keys.ID{keys.FilterClear},
+				Desc:  filterClearDescOf,
+				Strip: true,
+			},
+			{
+				Of:    []keys.ID{keys.FilterMatch},
+				Desc:  func(*model) string { return "next/prev match" },
+				Strip: true,
+			},
+			{
 				Of:    []keys.ID{actionStatusChecksBack},
 				Desc:  func(*model) string { return "back" },
 				Strip: true,
