@@ -219,7 +219,7 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		cursor: func() *list.Cursor { return &d.Cursor },
 		rows:   d.rows,
 		name:   documentRowName,
-		fits:   (*model).documentRowFits,
+		fits:   d.documentRowFits,
 		placed: func(*model, screen.Inputs) screen.Request { return screen.StageTerminal{} },
 		moved: func(*model, screen.Inputs) screen.Request {
 			d.history, d.focus = nil, false
@@ -251,31 +251,31 @@ type documentRowsKey struct {
 func (d *documentsScreen) rows(m *model, in screen.Inputs) []documentRow {
 	key := documentRowsKey{
 		revision: d.revision,
-		listing:  m.listingKey(in.Listing),
+		listing:  listingKeyOf(in),
 		agentID:  d.agentID,
 		taskID:   d.taskID,
 	}
 
 	return d.built.read(key, func() []documentRow {
-		return narrowed(m.filter, narrowedParams[documentRow]{
-			rows: xslice.Map(d.items, func(item documentItem) documentRow {
+		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[documentRow]{
+			Rows: xslice.Map(d.items, func(item documentItem) documentRow {
 				return documentRow{item: item}
 			}),
-			depth: func(documentRow) int { return 0 },
-			name:  documentRowName,
-			fits:  m.documentRowFits(in.Listing),
+			Depth: func(documentRow) int { return 0 },
+			Name:  documentRowName,
+			Fits:  d.documentRowFits(in),
 		})
 	})
 }
 
 func (d *documentsScreen) documentTypeRows(m *model, in screen.Inputs) []documentTypeRow {
-	return d.builtTypes.read(m.listingKey(in.Listing), func() []documentTypeRow {
-		return narrowed(m.filter, narrowedParams[documentTypeRow]{
-			rows: xslice.Map(in.Listing.DocumentTypes, func(t *agentv1.DocumentType) documentTypeRow {
+	return d.builtTypes.read(listingKeyOf(in), func() []documentTypeRow {
+		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[documentTypeRow]{
+			Rows: xslice.Map(in.Listing.DocumentTypes, func(t *agentv1.DocumentType) documentTypeRow {
 				return documentTypeRow{documentType: t}
 			}),
-			depth: func(documentTypeRow) int { return 0 },
-			name:  documentTypeRowName,
+			Depth: func(documentTypeRow) int { return 0 },
+			Name:  documentTypeRowName,
 		})
 	})
 }

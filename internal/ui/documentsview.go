@@ -35,7 +35,7 @@ func documentColumns() view.Columns {
 
 func (d *documentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := d.rows(m, in)
-	picked := pickedRows(m.filter, rows, m.documentRowFits(in.Listing))
+	picked := list.Picked(in.Room.Pattern, rows, d.documentRowFits(in))
 	now := in.Room.Now
 	caret := pane.Caret
 	if d.isDiffFocused(in) {
@@ -48,7 +48,7 @@ func (d *documentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) v
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
-				Matches: pickedMatches(m.filter.pattern, picked, r.Key(), r.item.name),
+				Matches: pickedMatches(in.Room.Pattern.Regexp, picked, r.Key(), r.item.name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
 			})
@@ -86,7 +86,7 @@ func (d *documentsScreen) documentTypeSnapshot(m *model, in screen.Inputs, pane 
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.documentType.GetName(),
-				Matches: matchesIn(m.filter.pattern, r.documentType.GetName()),
+				Matches: matchesIn(in.Room.Pattern.Regexp, r.documentType.GetName()),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{mutedCell(label.AgeAt(dates.Parse(r.documentType.GetUpdatedAt()), now))},
 			}
@@ -142,7 +142,7 @@ func (d *documentsScreen) docRows(m *model, in screen.Inputs, width int) []strin
 		return paint.DocStyledRows(d.doc(m, in), max(width, 1), columnStyle())
 	}
 	if !d.isSteppingHovered(m, in) {
-		return m.filter.markSaid(item.id, paint.DocStyledRows(d.doc(m, in), max(width, 1), columnStyle()))
+		return in.Room.Pattern.MarkSaid(item.id, paint.DocStyledRows(d.doc(m, in), max(width, 1), columnStyle()))
 	}
 
 	h := d.history

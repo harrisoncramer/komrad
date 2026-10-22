@@ -150,7 +150,7 @@ func (h *documentHistory) keepDiff(isDark bool) {
 
 	view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before.body, after.body)}}, isDark)
 	view.SetHeadless(true)
-	view.SetPattern(h.filter.pattern)
+	view.SetPattern(h.filter.matcher)
 	h.pane, h.rendered = diffview.NewPane(view), rendered
 }
 

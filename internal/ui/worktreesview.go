@@ -28,7 +28,7 @@ func (w *worktreesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) v
 		live:     in.Listing.Agents,
 		flat:     w.sort.flat,
 		caret:    pane.Caret,
-		matcher:  m.filter.pattern,
+		matcher:  in.Room.Pattern.Regexp,
 		pane:     pane.Width,
 		now:      in.Room.Now,
 	})

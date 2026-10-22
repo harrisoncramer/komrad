@@ -58,6 +58,7 @@ func (m *model) hoveredDetails(in screen.Inputs) details {
 // detailsRows is the record's fields as its search leaves them.
 func (m *model) detailsRows(held details) []detailsRow {
 	rows := make([]detailsRow, 0, len(held.fields))
+	pattern := m.filter.pattern()
 	group := ""
 	for i, field := range held.fields {
 		if field.label != "" {
@@ -65,7 +66,7 @@ func (m *model) detailsRows(held details) []detailsRow {
 		}
 
 		text := strings.TrimSpace(group + " " + field.value)
-		if m.filter.doesNarrow(sectionRecord) && !m.filter.doesMatch(text) {
+		if pattern.DoesNarrow(list.SectionRecord) && !pattern.DoesMatch(text) {
 			continue
 		}
 

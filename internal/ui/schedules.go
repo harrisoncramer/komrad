@@ -102,18 +102,18 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 		cursor: func() *list.Cursor { return &w.Cursor },
 		rows:   w.listRows,
 		name:   scheduleItemName,
-		fits:   (*model).scheduleItemFits,
+		fits:   scheduleItemFits,
 		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
 func (w *schedulesScreen) listRows(m *model, in screen.Inputs) []scheduleItem {
-	return w.built.read(m.listingKey(in.Listing), func() []scheduleItem {
-		return narrowed(m.filter, narrowedParams[scheduleItem]{
-			rows:  xslice.Map(in.Listing.Schedules, scheduleItemOf),
-			depth: func(scheduleItem) int { return 0 },
-			name:  scheduleItemName,
-			fits:  m.scheduleItemFits(in.Listing),
+	return w.built.read(listingKeyOf(in), func() []scheduleItem {
+		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[scheduleItem]{
+			Rows:  xslice.Map(in.Listing.Schedules, scheduleItemOf),
+			Depth: func(scheduleItem) int { return 0 },
+			Name:  scheduleItemName,
+			Fits:  scheduleItemFits(in),
 		})
 	})
 }

@@ -5,16 +5,17 @@ import (
 	"time"
 
 	"komrad/internal/searchsyntax"
-	"komrad/internal/ui/panel"
+	"komrad/internal/ui/list"
+	"komrad/internal/ui/screen"
 )
 
-var schedulesQuery = queryGrammar{syntax: searchsyntax.Schedules, check: checkSchedulesClause}
+var schedulesQuery = list.Grammar{Syntax: searchsyntax.Schedules, Check: checkSchedulesClause}
 
-func (w *schedulesScreen) queryGrammar() (queryGrammar, bool) {
+func (w *schedulesScreen) queryGrammar() (list.Grammar, bool) {
 	return schedulesQuery, true
 }
 
-func (a *archivedSchedules) queryGrammar() (queryGrammar, bool) {
+func (a *archivedSchedules) queryGrammar() (list.Grammar, bool) {
 	return schedulesQuery, true
 }
 
@@ -26,14 +27,14 @@ func checkSchedulesClause(clause searchsyntax.Clause, _ time.Time) error {
 	return nil
 }
 
-func (m *model) scheduleItemFits(l panel.Listing) func(scheduleItem) clauseFits {
-	return func(item scheduleItem) clauseFits {
+func scheduleItemFits(in screen.Inputs) func(scheduleItem) list.Fits {
+	return func(item scheduleItem) list.Fits {
 		return func(clause searchsyntax.Clause) bool {
 			switch clause.Key {
 			case searchsyntax.KeyName:
 				return containsFold(item.schedule.Name, clause.Value)
 			case searchsyntax.KeyWorkflow:
-				return containsFold(l.WorkflowName(item.schedule.WorkflowID), clause.Value)
+				return containsFold(in.Listing.WorkflowName(item.schedule.WorkflowID), clause.Value)
 			case searchsyntax.KeyIs:
 				return !item.schedule.Enabled
 			}

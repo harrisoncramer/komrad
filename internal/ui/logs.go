@@ -360,8 +360,8 @@ func (l *logsScreen) narrow() screen.Request {
 	}
 
 	pattern := ""
-	if l.logFilter.pattern != nil {
-		pattern = l.logFilter.pattern.String()
+	if l.logFilter.matcher != nil {
+		pattern = l.logFilter.matcher.String()
 	}
 	if pattern == l.pattern {
 		return nil
@@ -429,16 +429,16 @@ func (l *logsScreen) rows(m *model, in screen.Inputs) []logSourceRow {
 		failedRun = item.FailedRunLog
 	}
 
-	return narrowed(m.filter, narrowedParams[logSourceRow]{
-		rows: xslice.Map(l.sources, func(source *logv1.LogSource) logSourceRow {
+	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[logSourceRow]{
+		Rows: xslice.Map(l.sources, func(source *logv1.LogSource) logSourceRow {
 			return logSourceRow{
 				source: source,
 				name:   l.nameSource(in, source),
 				failed: source.GetFailed() || (source.Run != nil && failedRun != nil && *source.Run == *failedRun),
 			}
 		}),
-		depth: func(logSourceRow) int { return 0 },
-		name:  logSourceRowName,
+		Depth: func(logSourceRow) int { return 0 },
+		Name:  logSourceRowName,
 	})
 }
 

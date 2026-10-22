@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
@@ -83,10 +84,10 @@ func (r reviewScreen) readOpenFilesTree() filesTree {
 	}
 
 	path := view.GetTreeFocus(r.diff.Cursor())
-	tree.rows = narrowed(r.filesFilter, narrowedParams[diffview.TreeRow]{
-		rows:  view.GetFileTree(),
-		depth: func(row diffview.TreeRow) int { return row.Depth },
-		name:  func(row diffview.TreeRow) string { return row.Name },
+	tree.rows = list.Narrowed(r.filesFilter.pattern(), list.NarrowedParams[diffview.TreeRow]{
+		Rows:  view.GetFileTree(),
+		Depth: func(row diffview.TreeRow) int { return row.Depth },
+		Name:  func(row diffview.TreeRow) string { return row.Name },
 	})
 	for at, row := range tree.rows {
 		if !row.Folder && row.Path == path {
@@ -196,7 +197,7 @@ func (r *reviewScreen) blurBlock() {
 func (r *reviewScreen) stepFile(m *model, direction int) screen.Request {
 	r.side = nil
 	keys := r.diffKeys()
-	if !r.filesFilter.isNarrowing() && len(r.closedFolders) == 0 {
+	if !r.filesFilter.pattern().IsNarrowing() && len(r.closedFolders) == 0 {
 		if !keys.pane.JumpFile(direction, keys.window(m)) {
 			return nil
 		}
@@ -335,7 +336,7 @@ func (r *reviewScreen) clickFile(m *model, path string) screen.Request {
 func (r *reviewScreen) openFilesFilter() {
 	filter := &r.filesFilter
 	filter.open()
-	filter.openedIn = sectionList
+	filter.openedIn = list.SectionList
 }
 
 // updateFilesFilter is the tree's search prompt taking keys.
@@ -362,7 +363,7 @@ func (r *reviewScreen) updateFilesFilter(m *model, key tea.KeyPressMsg) screen.R
 // settleFilesFilter lands a search on the nearest file it matches, and a filter on the first file
 // it left when it took the current one away.
 func (r *reviewScreen) settleFilesFilter(m *model) screen.Request {
-	if !r.filesFilter.isNarrowing() {
+	if !r.filesFilter.pattern().IsNarrowing() {
 		return r.jumpFilesMatch(m, 0)
 	}
 
@@ -387,7 +388,7 @@ func (r *reviewScreen) settleFilesFilter(m *model) screen.Request {
 func (r *reviewScreen) jumpFilesMatch(m *model, direction int) screen.Request {
 	tree := r.readOpenFilesTree()
 	count := len(tree.rows)
-	if r.filesFilter.pattern == nil || count == 0 {
+	if r.filesFilter.matcher == nil || count == 0 {
 		return nil
 	}
 
@@ -403,7 +404,7 @@ func (r *reviewScreen) jumpFilesMatch(m *model, direction int) screen.Request {
 	for offset := first; offset <= count; offset++ {
 		at := ((origin+walk*offset)%count + count) % count
 		row := tree.rows[at]
-		if row.Folder || !r.filesFilter.doesMatch(row.Name) {
+		if row.Folder || !r.filesFilter.pattern().DoesMatch(row.Name) {
 			continue
 		}
 

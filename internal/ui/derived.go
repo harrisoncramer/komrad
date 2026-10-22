@@ -1,9 +1,8 @@
 package ui
 
 import (
-	"time"
-
-	"komrad/internal/ui/panel"
+	"komrad/internal/ui/list"
+	"komrad/internal/ui/screen"
 )
 
 type derived[K comparable, V any] struct {
@@ -24,33 +23,11 @@ func (d *derived[K, V]) read(key K, build func() V) V {
 	return d.value
 }
 
-type filterKey struct {
-	narrows    bool
-	query      string
-	compiledAt time.Time
-	said       string
-	waiting    bool
-}
-
-func (f filterState) key() filterKey {
-	if !f.doesNarrow(sectionList) {
-		return filterKey{}
-	}
-
-	return filterKey{
-		narrows:    true,
-		query:      f.compiledQuery,
-		compiledAt: f.qualifiers.compiledAt,
-		said:       f.qualifiers.said.text,
-		waiting:    f.qualifiers.said.waiting,
-	}
-}
-
 type listingKey struct {
 	generation int
-	filter     filterKey
+	filter     list.PatternKey
 }
 
-func (m *model) listingKey(l panel.Listing) listingKey {
-	return listingKey{generation: l.Generation, filter: m.filter.key()}
+func listingKeyOf(in screen.Inputs) listingKey {
+	return listingKey{generation: in.Listing.Generation, filter: in.Room.Pattern.Key()}
 }

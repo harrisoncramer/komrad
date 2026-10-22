@@ -96,7 +96,7 @@ func defaultDocumentType(types []string) string {
 
 // pressNew puts up the form for a new document of the one agent the filter names.
 func (d *documentsScreen) pressNew(m *model) screen.Request {
-	agentID, ok := m.namedAgentID()
+	agentID, ok := d.namedAgentID(m.inputs())
 	if d.editing != nil || !ok {
 		return nil
 	}

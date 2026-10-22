@@ -12,7 +12,6 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
-	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 	"komrad/lib/xslice"
@@ -31,7 +30,7 @@ type screenList[T list.Keyed] struct {
 	// name is the text a search reads a row by, nil on a list that renders no filter.
 	name func(T) string
 	// fits is how a row meets a qualifier, nil on a list that reads none.
-	fits func(*model, panel.Listing) func(T) clauseFits
+	fits func(screen.Inputs) func(T) list.Fits
 	// refs is the rows as the selection sees them, nil on a list nothing can be selected in.
 	refs func([]T) []list.Ref
 	// header is what the toggle key names a header row as.
@@ -76,22 +75,22 @@ func (l screenList[T]) place(m *model, in screen.Inputs, hovered string) screen.
 	return nil
 }
 
-func (l screenList[T]) filterRows(m *model, in screen.Inputs) []filterRow {
-	var fits func(T) clauseFits
+func (l screenList[T]) filterRows(m *model, in screen.Inputs) []list.Row {
+	var fits func(T) list.Fits
 	if l.fits != nil {
-		fits = l.fits(m, in.Listing)
+		fits = l.fits(in)
 	}
 
-	return xslice.Map(l.rows(m, in), func(row T) filterRow {
-		var rowFits clauseFits
+	return xslice.Map(l.rows(m, in), func(row T) list.Row {
+		var rowFits list.Fits
 		if fits != nil {
 			rowFits = fits(row)
 		}
 
-		return filterRow{
-			key:  row.Key(),
-			name: l.name(row),
-			fits: rowFits,
+		return list.Row{
+			Key:  row.Key(),
+			Name: l.name(row),
+			Fits: rowFits,
 		}
 	})
 }
@@ -194,7 +193,7 @@ func (l screenList[T]) selectionActions() []keys.Action[*model] {
 }
 
 func (l screenList[T]) filterActions() []keys.Action[*model] {
-	standing := func(m *model) bool { return l.isBrowsing(m) && m.filter.isStanding() }
+	standing := func(m *model) bool { return l.isBrowsing(m) && m.inputs().Room.Pattern.IsStanding() }
 
 	return []keys.Action[*model]{
 		{

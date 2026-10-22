@@ -82,7 +82,7 @@ func (a *agentsScreen) list() screenList[agentRow] {
 		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.rows,
 		name:   agentRowName,
-		fits:   (*model).agentRowFits,
+		fits:   agentRowFits,
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
@@ -194,7 +194,7 @@ func (a *agentsScreen) settleResume(in screen.Inputs, id string, err error) scre
 func (a *agentsScreen) relist(m *model, in screen.Inputs, relisted screen.Relisted) screen.Request {
 	before := relisted.Before(in)
 	treeRow := a.list().hovered(m, before)
-	triageSlot := a.findZoneSlot(m, before)
+	triageSlot := a.findZoneSlot(before)
 	archiveShown := a.shownArchive()
 	var archivedRow string
 	if archiveShown != nil {
@@ -266,7 +266,7 @@ func (a *agentsScreen) seeFinished(m *model, in screen.Inputs, item panel.AgentR
 // toggleSnooze snoozes or wakes the task under the key in triage, keeping the cursor in the zone.
 func (a *agentsScreen) toggleSnooze(m *model, in screen.Inputs, key string) screen.Request {
 	selected := a.list().hovered(m, in)
-	slot := a.findZoneSlot(m, in)
+	slot := a.findZoneSlot(in)
 	if !a.triage.toggleSnooze(key, in.Listing.Agents) {
 		return nil
 	}
@@ -307,7 +307,7 @@ func (a *agentsScreen) listParams(m *model, in screen.Inputs) list.Params {
 	params := list.Params{
 		Help:     a.help(m),
 		Rows:     len(a.rows(m, in)),
-		Snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(m, in, pane) },
+		Snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(in, pane) },
 	}
 	if in.Listing.IsEmpty() {
 		params.Welcome = welcomeText(a.deps.keys)
@@ -392,7 +392,7 @@ func (a *agentsScreen) column(m *model, in screen.Inputs) column.Spec {
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			if !m.agents.isHoveringNotes(m) {
-				if rows := m.saidColumnRows(m.agents.hoveredAgentID(m, in), width); rows != nil {
+				if rows := saidColumnRows(in.Room.Pattern, m.said, m.agents.hoveredAgentID(m, in), width); rows != nil {
 					return rows
 				}
 			}
@@ -400,7 +400,7 @@ func (a *agentsScreen) column(m *model, in screen.Inputs) column.Spec {
 			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(m, in), max(width, 1), columnStyle()), width)
 		},
 		Holds: func() bool {
-			return !m.agents.isEditorOpen() && (m.agents.hasNoAgentPane(m, in) || m.filter.hasSaid(m.agents.hoveredAgentID(m, in)))
+			return !m.agents.isEditorOpen() && (m.agents.hasNoAgentPane(m, in) || in.Room.Pattern.HasSaid(m.agents.hoveredAgentID(m, in)))
 		},
 	}
 }

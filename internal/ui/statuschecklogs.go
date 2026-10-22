@@ -154,16 +154,16 @@ func (c *statusCheckLogsScreen) rows(m *model, in screen.Inputs) []statusCheckLo
 		})...)
 	}
 
-	return narrowed(m.filter, narrowedParams[statusCheckLogRow]{
-		rows: rows,
-		depth: func(r statusCheckLogRow) int {
+	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[statusCheckLogRow]{
+		Rows: rows,
+		Depth: func(r statusCheckLogRow) int {
 			if r.step != nil {
 				return 1
 			}
 
 			return 0
 		},
-		name: statusCheckLogRowName,
+		Name: statusCheckLogRowName,
 	})
 }
 

@@ -54,9 +54,9 @@ func (f filterState) head(m *model, count, said string, width int) []string {
 
 // highlight lights the stretches of a row's name the search's pattern matches.
 func (f filterState) highlight(palette paint.Palette, name string, base lipgloss.Style) string {
-	if f.pattern == nil || f.broken {
+	if f.matcher == nil || f.broken {
 		return base.Render(name)
 	}
 
-	return palette.Highlight(name, matchesIn(f.pattern, name), base)
+	return palette.Highlight(name, matchesIn(f.matcher, name), base)
 }

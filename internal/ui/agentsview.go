@@ -141,8 +141,8 @@ func failedPlaceholder(agent panel.Agent) string {
 	return fmt.Sprintf("_%s failed_\n\n%s", label, reason)
 }
 
-func (a *agentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	layout := a.layout(m, in)
+func (a *agentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	layout := a.layout(in)
 	work := splitChosen(in.Listing, chosenAgents(a.Selected, layout.cursorRows()))
 
 	return agentsSnapshot(snapshotParams{
@@ -159,8 +159,8 @@ func (a *agentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view
 		focused:      list.KeyAt(layout.cursorRows(), a.Row),
 		caret:        pane.Caret,
 		loaderFrame:  in.Room.Spinner,
-		matcher:      m.filter.pattern,
-		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits(in.Listing)),
+		matcher:      in.Room.Pattern.Regexp,
+		picked:       list.Picked(in.Room.Pattern, layout.cursorRows(), agentRowFits(in)),
 		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,

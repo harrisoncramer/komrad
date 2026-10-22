@@ -45,7 +45,7 @@ func (m *model) saidAgentID() (string, bool) {
 		return "", false
 	}
 
-	return agentID, agentID != "" && m.filter.hasSaid(agentID)
+	return agentID, agentID != "" && m.filter.pattern().HasSaid(agentID)
 }
 
 // isSaidRead reports whether the column holds the conversation of the agent and text it was read for.
@@ -121,7 +121,7 @@ func (m *model) layoutSaid() bool {
 
 	m.said.rows, m.said.line = saidRows(saidRowsParams{
 		said:  m.said,
-		hits:  m.filter.saidHits(agentID),
+		hits:  m.filter.pattern().SaidHits(agentID),
 		width: split.Column,
 	})
 	m.said.width = split.Column

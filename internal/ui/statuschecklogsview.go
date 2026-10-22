@@ -30,7 +30,7 @@ func (c *statusCheckLogsScreen) snapshot(m *model, in screen.Inputs, pane list.P
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
-				Matches: matchesIn(m.filter.pattern, name),
+				Matches: matchesIn(in.Room.Pattern.Regexp, name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{statusCheckIcon(r.item, in.Room.Spinner)},
 			}

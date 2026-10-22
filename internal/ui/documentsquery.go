@@ -8,18 +8,19 @@ import (
 
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/api"
-	"komrad/internal/ui/panel"
+	"komrad/internal/ui/list"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
 )
 
-func (d *documentsScreen) queryGrammar() (queryGrammar, bool) {
+func (d *documentsScreen) queryGrammar() (list.Grammar, bool) {
 	agents := d.deps.clients.Agents
-	grammar := queryGrammar{
-		syntax: searchsyntax.Documents,
-		check:  checkDocumentsClause,
-		search: func(ctx context.Context, text string) (map[string][]saidHit, error) {
+	grammar := list.Grammar{
+		Syntax: searchsyntax.Documents,
+		Check:  checkDocumentsClause,
+		Search: func(ctx context.Context, text string) (map[string][]list.SaidHit, error) {
 			return searchDocumentsSaid(ctx, agents, text)
 		},
 	}
@@ -44,40 +45,40 @@ func checkDocumentsClause(clause searchsyntax.Clause, now time.Time) error {
 
 // documentRowFits matches a document against a qualifier, by the agent that wrote it for agent:
 // and workflow:, by its task for task:, and by what the server found it saying for says:.
-func (m *model) documentRowFits(l panel.Listing) func(documentRow) clauseFits {
-	return func(r documentRow) clauseFits {
+func (d *documentsScreen) documentRowFits(in screen.Inputs) func(documentRow) list.Fits {
+	return func(r documentRow) list.Fits {
 		return func(clause searchsyntax.Clause) bool {
 			item := r.item
 			switch clause.Key {
 			case searchsyntax.KeyAgent:
-				if agentID, ok := m.openedForAgent(l, clause.Value); ok {
+				if agentID, ok := d.openedForAgent(in, clause.Value); ok {
 					return item.agentID == agentID
 				}
 
-				return containsFold(findAgentName(l, item.agentID), clause.Value)
+				return containsFold(findAgentName(in.Listing, item.agentID), clause.Value)
 			case searchsyntax.KeyTask:
-				if taskID, ok := m.openedForTask(l, clause.Value); ok {
+				if taskID, ok := d.openedForTask(in, clause.Value); ok {
 					return item.taskID == taskID
 				}
-				task, ok := l.Tasks[item.taskID]
+				task, ok := in.Listing.Tasks[item.taskID]
 
 				return ok && containsFold(task.Slug, clause.Value)
 			case searchsyntax.KeyWorkflow:
-				agent, ok := l.AnyAgent(item.agentID)
+				agent, ok := in.Listing.AnyAgent(item.agentID)
 
-				return ok && containsFold(l.WorkflowName(agent.Agent.WorkflowID), clause.Value)
+				return ok && containsFold(in.Listing.WorkflowName(agent.Agent.WorkflowID), clause.Value)
 			case searchsyntax.KeyType:
 				return strings.EqualFold(item.typeName, clause.Value)
 			case searchsyntax.KeySince:
-				at, err := searchsyntax.ParseStart(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
+				at, err := searchsyntax.ParseStart(clause.Key, clause.Value, in.Room.Pattern.CompiledAt)
 
 				return err == nil && !item.updatedAt.Before(at)
 			case searchsyntax.KeyUntil:
-				at, err := searchsyntax.ParseEnd(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
+				at, err := searchsyntax.ParseEnd(clause.Key, clause.Value, in.Room.Pattern.CompiledAt)
 
 				return err == nil && item.updatedAt.Before(at)
 			case searchsyntax.KeySays:
-				return m.filter.hasSaid(item.id)
+				return in.Room.Pattern.HasSaid(item.id)
 			}
 
 			return false
@@ -106,25 +107,25 @@ func quoteClause(key, value string) string {
 
 // namedAgentID is the one agent the filter's agent: qualifier names exactly, or the writer of the
 // task the documents were opened for.
-func (m *model) namedAgentID() (string, bool) {
+func (d *documentsScreen) namedAgentID(in screen.Inputs) (string, bool) {
 	var names []string
-	for _, clause := range m.filter.qualifiers.clauses {
+	for _, clause := range in.Room.Pattern.Clauses {
 		if clause.Key == searchsyntax.KeyAgent && !clause.Negated {
 			names = append(names, clause.Value)
 		}
 	}
 	if len(names) == 0 {
-		return m.openedTaskWriter()
+		return d.openedTaskWriter(in)
 	}
 	if len(names) != 1 {
 		return "", false
 	}
-	if agentID, ok := m.openedForAgent(m.listing, names[0]); ok {
+	if agentID, ok := d.openedForAgent(in, names[0]); ok {
 		return agentID, true
 	}
 
 	var ids []string
-	for _, item := range slices.Concat(m.listing.Agents, m.listing.ArchivedAgents) {
+	for _, item := range slices.Concat(in.Listing.Agents, in.Listing.ArchivedAgents) {
 		if strings.EqualFold(item.Agent.Name, names[0]) {
 			ids = append(ids, item.Agent.ID)
 		}
@@ -137,9 +138,9 @@ func (m *model) namedAgentID() (string, bool) {
 }
 
 // openedForAgent is the agent the documents were opened for, when the name given is its name.
-func (m *model) openedForAgent(l panel.Listing, name string) (string, bool) {
-	agentID := m.documents.agentID
-	if agentID == "" || !strings.EqualFold(findAgentName(l, agentID), name) {
+func (d *documentsScreen) openedForAgent(in screen.Inputs, name string) (string, bool) {
+	agentID := d.agentID
+	if agentID == "" || !strings.EqualFold(findAgentName(in.Listing, agentID), name) {
 		return "", false
 	}
 
@@ -148,13 +149,13 @@ func (m *model) openedForAgent(l panel.Listing, name string) (string, bool) {
 
 // openedTaskWriter is the writer of the task the documents were opened for, while the filter still
 // names that task.
-func (m *model) openedTaskWriter() (string, bool) {
-	for _, clause := range m.filter.qualifiers.clauses {
+func (d *documentsScreen) openedTaskWriter(in screen.Inputs) (string, bool) {
+	for _, clause := range in.Room.Pattern.Clauses {
 		if clause.Key != searchsyntax.KeyTask || clause.Negated {
 			continue
 		}
-		if _, ok := m.openedForTask(m.listing, clause.Value); ok && m.documents.agentID != "" {
-			return m.documents.agentID, true
+		if _, ok := d.openedForTask(in, clause.Value); ok && d.agentID != "" {
+			return d.agentID, true
 		}
 	}
 
@@ -162,9 +163,9 @@ func (m *model) openedTaskWriter() (string, bool) {
 }
 
 // openedForTask is the task the documents were opened for, when the slug given is its slug.
-func (m *model) openedForTask(l panel.Listing, slug string) (string, bool) {
-	taskID := m.documents.taskID
-	task, ok := l.Tasks[taskID]
+func (d *documentsScreen) openedForTask(in screen.Inputs, slug string) (string, bool) {
+	taskID := d.taskID
+	task, ok := in.Listing.Tasks[taskID]
 	if taskID == "" || !ok || !strings.EqualFold(task.Slug, slug) {
 		return "", false
 	}
@@ -173,7 +174,7 @@ func (m *model) openedForTask(l panel.Listing, slug string) (string, bool) {
 }
 
 // searchDocumentsSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
-func searchDocumentsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]saidHit, error) {
+func searchDocumentsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]list.SaidHit, error) {
 	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{
 		Query: phrase(text),
 		Limit: saysLimit,
@@ -182,9 +183,9 @@ func searchDocumentsSaid(ctx context.Context, client api.AgentReads, text string
 		return nil, err
 	}
 
-	hits := map[string][]saidHit{}
+	hits := map[string][]list.SaidHit{}
 	for _, hit := range slices.Concat(resp.Msg.GetMatches(), resp.Msg.GetNear()) {
-		hits[hit.GetDocumentId()] = append(hits[hit.GetDocumentId()], saidHit{snippet: hit.GetSnippet()})
+		hits[hit.GetDocumentId()] = append(hits[hit.GetDocumentId()], list.SaidHit{Snippet: hit.GetSnippet()})
 	}
 
 	return hits, nil

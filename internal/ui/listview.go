@@ -65,7 +65,7 @@ func (m *model) listChrome(params list.Params) (string, string) {
 func (m *model) screenListView(params list.Params) string {
 	header, below := m.listChrome(params)
 
-	if params.Rows == 0 && (params.Empty != "" || m.filter.doesNarrow(sectionList)) {
+	if params.Rows == 0 && (params.Empty != "" || m.filter.pattern().DoesNarrow(list.SectionList)) {
 		return m.headedListView(header, []string{dimStyle().Render(m.emptyListLine(params.Empty))}, 0, below)
 	}
 
@@ -117,12 +117,12 @@ func (m *model) headedListView(header string, rows []string, cursor int, help st
 
 // emptyListLine is what a screen says over no rows.
 func (m *model) emptyListLine(idle string) string {
-	return emptyLineOf(m.filter, idle)
+	return emptyLineOf(m.filter.pattern(), idle)
 }
 
 // emptyLineOf is what a list says over no rows, under the search standing in it.
-func emptyLineOf(filter filterState, idle string) string {
-	if filter.doesNarrow(sectionList) {
+func emptyLineOf(pattern list.Pattern, idle string) string {
+	if pattern.DoesNarrow(list.SectionList) {
 		return "nothing matches"
 	}
 

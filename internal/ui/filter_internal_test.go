@@ -63,7 +63,7 @@ func TestFilterQuery(t *testing.T) {
 			var filter filterState
 			filter.setQuery(tt.query)
 
-			assert.Equal(t, tt.wantMatch, filter.doesMatch(tt.row))
+			assert.Equal(t, tt.wantMatch, filter.pattern().DoesMatch(tt.row))
 			assert.Equal(t, tt.wantBroken, filter.broken)
 		})
 	}

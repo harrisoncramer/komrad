@@ -42,7 +42,7 @@ func (l *logsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.S
 				Key:     row.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
-				Matches: matchesIn(m.filter.pattern, name),
+				Matches: matchesIn(in.Room.Pattern.Regexp, name),
 				Process: view.ProcessNone,
 				Tail:    tail,
 			}

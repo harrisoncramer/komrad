@@ -12,7 +12,7 @@ import (
 // named in reading order by a legend of the same ids.
 func (w *schedulesScreen) actions() keys.Spec[*model] {
 	list := w.list()
-	standing := func(m *model) bool { return m.filter.isStanding() }
+	standing := func(m *model) bool { return m.inputs().Room.Pattern.IsStanding() }
 
 	return keys.Spec[*model]{
 		Table: append([]keys.Action[*model]{
