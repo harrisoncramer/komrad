@@ -292,17 +292,8 @@ func (m *model) docActions() keys.Spec[*model] {
 			},
 		},
 		Legend: []keys.LegendRow[*model]{
-			{
-				Of:    []keys.ID{keys.Move},
-				Desc:  func(*model) string { return "move" },
-				Label: keys.MoveLabel,
-				Strip: true,
-			},
-			{
-				Of:    []keys.ID{keys.NavPage},
-				Desc:  func(*model) string { return "page" },
-				Label: keys.NavPageLabel,
-			},
+			keys.MoveRow[*model](),
+			keys.NavPageRow[*model](),
 			{
 				Of:   []keys.ID{keys.FilterOpen},
 				Desc: func(*model) string { return "search" },
