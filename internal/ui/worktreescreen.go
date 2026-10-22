@@ -23,7 +23,7 @@ func (w *worktreesScreen) enter(m *model, in screen.Inputs, target screen.Target
 	if target.AgentID != "" && !w.scope.listsAgent(in.Listing.Worktrees, target.AgentID) {
 		w.scope = scopeAll
 	}
-	w.apply(m, in, in.Listing.Worktrees, w.list().hovered(m, in))
+	w.apply(m, in, w.list().hovered(m, in))
 
 	return screen.Batch{w.stage(m, in), screen.Settle{}}
 }
@@ -43,7 +43,7 @@ func (w *worktreesScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (scre
 		return nil, false
 	}
 
-	w.apply(m, in, in.Listing.Worktrees, w.list().hovered(m, relisted.Before(in)))
+	w.apply(m, in, w.list().hovered(m, relisted.Before(in)))
 
 	return nil, true
 }
