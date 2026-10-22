@@ -54,6 +54,7 @@ func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 	if err := json.Unmarshal(raw, &outcome); err != nil {
 		return nil, fmt.Errorf("failed to read the last rebase of task %q: %w", rebased.TaskID, err)
 	}
+
 	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: rebased.TaskID, Mail: outcome.mail()})
 }
 
@@ -178,16 +179,14 @@ func mailWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, pa
 
 // mail is what the writer is told of the outcome.
 func (o rebaseOutcome) mail() eventprompts.Mail {
-	result := o.Result
-
 	return eventprompts.Rebased{
-		BaseRef:    result.BaseRef,
-		BaseSHA:    result.BaseSHA,
-		Replay:     result.Replay,
-		Landed:     result.Landed,
-		Conflicted: result.Conflicted,
-		Moved:      result.Moved,
-		ParkedRef:  result.ParkedRef,
+		BaseRef:    o.Result.BaseRef,
+		BaseSHA:    o.Result.BaseSHA,
+		Replay:     o.Result.Replay,
+		Landed:     o.Result.Landed,
+		Conflicted: o.Result.Conflicted,
+		Moved:      o.Result.Moved,
+		ParkedRef:  o.Result.ParkedRef,
 	}
 }
 
