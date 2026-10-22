@@ -60,7 +60,6 @@ type recordedTmux struct {
 	activePane        string
 	rootBinds         map[string][]string
 	tableBinds        map[string][]string
-	repeatBinds       map[string]bool
 	shown             []panes.Rect
 	screens           map[string]string
 	captured          map[string]string
@@ -229,14 +228,6 @@ func (t *recordedTmux) TableBinding(table, key string) ([]string, bool) {
 	command, bound := t.tableBinds[table+":"+key]
 
 	return command, bound
-}
-
-// IsRepeatBinding reports whether tmux keeps answering a key in a named key table after each press.
-func (t *recordedTmux) IsRepeatBinding(table, key string) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.repeatBinds[table+":"+key]
 }
 
 // SentKeys is every key send the panel has typed into a pane, its target first.
@@ -477,15 +468,6 @@ func (t *recordedTmux) BindTableKey(table, key string, command ...string) {
 
 func (t *recordedTmux) BindRepeatTableKey(table, key string, command ...string) {
 	t.BindTableKey(table, key, command...)
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.repeatBinds == nil {
-		t.repeatBinds = map[string]bool{}
-	}
-
-	t.repeatBinds[table+":"+key] = true
 }
 
 func (t *recordedTmux) UnbindTable(table string) {
@@ -495,7 +477,6 @@ func (t *recordedTmux) UnbindTable(table string) {
 	for bound := range t.tableBinds {
 		if strings.HasPrefix(bound, table+":") {
 			delete(t.tableBinds, bound)
-			delete(t.repeatBinds, bound)
 		}
 	}
 }
@@ -620,7 +601,7 @@ func (t *recordedTmux) GetPaneFocus(pane string) (focused, zoomed bool) {
 	defer t.mu.Unlock()
 
 	if t.keysElsewhere {
-		return t.activePane != "" && pane == t.activePane, false
+		return false, false
 	}
 
 	return true, t.zoomed
