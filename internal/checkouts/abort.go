@@ -47,7 +47,7 @@ func (s *Service) Abort(ctx context.Context, ref string) (*AbortResult, error) {
 		return nil, err
 	}
 
-	if err := refuseWorkingWriter(*target); err != nil {
+	if err := refuseWriterNotAtRest(*target); err != nil {
 		return nil, err
 	}
 
@@ -139,7 +139,7 @@ func (s *Service) isOwnRebase(ctx context.Context, target checkoutTarget, sequen
 	if err := json.Unmarshal(raw, &outcome); err != nil {
 		return false, fmt.Errorf("failed to read the last rebase of task %q: %w", target.task.Slug, err)
 	}
-	if outcome.Result == nil || !outcome.Result.Conflicted {
+	if !outcome.Result.Conflicted {
 		return false, nil
 	}
 

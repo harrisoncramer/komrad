@@ -206,7 +206,7 @@ func (s *Service) Rebase(ctx context.Context, params RebaseParams) (*RebaseResul
 		return &RebaseResult{RebasePlan: *plan}, nil
 	}
 
-	if err := refuseWorkingWriter(*target); err != nil {
+	if err := refuseWriterNotAtRest(*target); err != nil {
 		return nil, err
 	}
 
@@ -298,7 +298,7 @@ func (s *Service) recordRebaseStopped(ctx context.Context, task taskstore.Task) 
 
 // tellRebased records what happened for the task's writer to be told.
 func (s *Service) tellRebased(ctx context.Context, target checkoutTarget, result RebaseResult) {
-	if err := s.recordRebase(ctx, target, rebaseOutcome{Result: &result}); err != nil {
+	if err := s.recordRebase(ctx, target, rebaseOutcome{Result: result}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's worktree was rebased",
 			append([]slog.Attr{slog.String(logging.TaskID, target.task.ID)}, logging.Err(err)...)...)
 	}

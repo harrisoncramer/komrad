@@ -35,7 +35,7 @@ func TestAbortRefusals(t *testing.T) {
 			name:    "a writer part way through a turn",
 			agent:   agentstore.Agent{Pane: "%1", State: agentstore.StateThinking},
 			aborter: gittest.Mover{Sequence: git.SequenceRebase},
-			wantErr: errWriterWorking,
+			wantErr: errWriterNotAtRest,
 		},
 		{
 			name:    "a checkout with nothing part-way through",
@@ -83,7 +83,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 		wantMail   []string
 	}
 
-	conflicted := &rebaseOutcome{Result: &RebaseResult{
+	conflicted := &rebaseOutcome{Result: RebaseResult{
 		RebasePlan: RebasePlan{BaseSHA: "basesha"},
 		Conflicted: true,
 	}}

@@ -119,7 +119,7 @@ func (r *reviewScreen) drop(m *model) screen.Request {
 		unstaged = screen.Unstage{}
 	}
 
-	told := r.endEdit(m)
+	told := r.mailEdited(m)
 
 	*r = reviewScreen{deps: r.deps, loads: r.loads}
 

@@ -24,21 +24,21 @@ type reviewEdit struct {
 }
 
 // end puts the editor down and says which files the reader opened in it.
-func (p *reviewEdit) end() []string {
-	touched := p.touched
+func (e *reviewEdit) end() []string {
+	touched := e.touched
 
-	*p = reviewEdit{}
+	*e = reviewEdit{}
 
 	return touched
 }
 
 // openEditor records the editor holding the stage on one file, in the pane the split gave it.
-func (p *reviewEdit) openEditor(path, pane string) {
-	p.atEditor = true
-	p.editingPath = path
-	p.editorPane = pane
-	if !slices.Contains(p.touched, path) {
-		p.touched = append(p.touched, path)
+func (e *reviewEdit) openEditor(path, pane string) {
+	e.atEditor = true
+	e.editingPath = path
+	e.editorPane = pane
+	if !slices.Contains(e.touched, path) {
+		e.touched = append(e.touched, path)
 	}
 }
 
@@ -162,11 +162,11 @@ func (r reviewScreen) agentRow(m *model) (panel.AgentRow, bool) {
 // closeEdit gives the stage back to the diff, tells the agent which files the reader opened, and
 // reads the worktree again with the reader's own writing in it.
 func (r *reviewScreen) closeEdit(m *model) screen.Request {
-	return screen.Batch{screen.Unstage{}, r.endEdit(m), screen.Restage{}, r.catchUp()}
+	return screen.Batch{screen.Unstage{}, r.mailEdited(m), screen.Restage{}, r.catchUp()}
 }
 
-// endEdit puts the editor down and tells the agent which files the reader opened in it.
-func (r *reviewScreen) endEdit(m *model) screen.Request {
+// mailEdited puts the editor down and tells the agent which files the reader opened in it.
+func (r *reviewScreen) mailEdited(m *model) screen.Request {
 	touched := r.edit.end()
 	if len(touched) == 0 {
 		return nil
@@ -197,8 +197,8 @@ func (r *reviewScreen) reconcileEditor(m *model, in screen.Inputs) screen.Reques
 }
 
 // editorDesc says what the edit key would do.
-func (p reviewEdit) editorDesc() string {
-	if p.atEditor {
+func (e reviewEdit) editorDesc() string {
+	if e.atEditor {
 		return "close the editor"
 	}
 

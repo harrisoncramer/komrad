@@ -388,7 +388,7 @@ func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
 	}
 
 	pane := made.Pane
-	cmds = append(cmds, m.apply(m.agents.closeEdit()))
+	cmds = append(cmds, m.apply(m.agents.dropEdit()))
 	m.frame.Solo(false)
 	m.frame.ShowGuest(layout.Guest{Agent: made.Agent, Pane: pane})
 	delete(m.warm.since, pane)

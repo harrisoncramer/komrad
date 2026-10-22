@@ -16,19 +16,19 @@ func (a *agentsScreen) isEditorOpen() bool {
 	return a.editing != nil && a.editing.pane != ""
 }
 
-// endEdit closes the open editor and tells its agent so.
-func (a *agentsScreen) endEdit() screen.Request {
+// closeEdit closes the open editor and tells its agent so.
+func (a *agentsScreen) closeEdit() screen.Request {
 	if a.editing == nil {
 		return nil
 	}
 
-	return screen.Batch{a.closeEdit(), screen.Restage{}}
+	return screen.Batch{a.dropEdit(), screen.Restage{}}
 }
 
 // pressEdit opens an editor on the agent's worktree, or closes the one already open.
 func (a *agentsScreen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.Request {
 	if a.editing != nil {
-		return a.endEdit()
+		return a.closeEdit()
 	}
 
 	agent := item.Agent
@@ -102,7 +102,7 @@ func (a *agentsScreen) applyEditorStaged(staged agentEditorStaged) screen.Reques
 	}
 }
 
-func (a *agentsScreen) closeEdit() screen.Request {
+func (a *agentsScreen) dropEdit() screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -122,11 +122,11 @@ func (a *agentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Reques
 		return nil
 	}
 
-	return screen.Batch{a.closeEdit(), screen.Restage{}}
+	return screen.Batch{a.dropEdit(), screen.Restage{}}
 }
 
 func (a *agentsScreen) leaveScreen(m *model) screen.Request {
 	a.renaming = nil
 
-	return a.closeEdit()
+	return a.dropEdit()
 }

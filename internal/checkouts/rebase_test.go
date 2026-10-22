@@ -132,7 +132,7 @@ func TestRebaseRefusals(t *testing.T) {
 			lay: func(t *testing.T, fixture *rebaseFixture) string {
 				return *fixture.seed(t, agentstore.Agent{Pane: "%1", State: agentstore.StateThinking}).TaskID
 			},
-			wantErr: errWriterWorking,
+			wantErr: errWriterNotAtRest,
 		},
 		{
 			name: "a task whose tree something else is working in",
@@ -591,8 +591,8 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	target, err := service.rebaseEligible(t.Context(), RebaseParams{Task: *agent.TaskID})
 	require.NoError(t, err)
 
-	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Result: &RebaseResult{Conflicted: true}}))
-	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Result: &RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
+	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Result: RebaseResult{Conflicted: true}}))
+	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Result: RebaseResult{RebasePlan: RebasePlan{Landed: 2}, Moved: true}}))
 	stale := queue.ListEvents()[0]
 	require.NoError(t, queue.InsertTx(t.Context(), stale))
 

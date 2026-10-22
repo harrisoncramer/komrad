@@ -2637,7 +2637,6 @@ func newEditable() *agentv1.Agent {
 // TestAgentsRowShowsTheTool covers the tool an agent reported, drawn after its name while it works.
 func TestAgentsRowShowsTheTool(t *testing.T) {
 	agent := newThinking()
-	agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 	agent.ReportedReason = "WebFetch"
 	harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 

@@ -704,7 +704,7 @@ func seedChildPullRequest(t *testing.T, fixture *rebaseFixture, seeded taskOnPar
 func seedStoppedRetarget(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
 	t.Helper()
 
-	raw, err := json.Marshal(rebaseOutcome{Result: &RebaseResult{
+	raw, err := json.Marshal(rebaseOutcome{Result: RebaseResult{
 		RebasePlan: RebasePlan{BaseRef: "origin/main", BaseSHA: "basesha"},
 		Conflicted: true,
 		OntoBase:   true,

@@ -509,7 +509,7 @@ func (s *Service) settleRetarget(ctx context.Context, task taskstore.Task) (bool
 	}
 
 	last := outcome.Result
-	if last == nil || !last.OntoBase || !last.Conflicted || outcome.Settled {
+	if !last.OntoBase || !last.Conflicted || outcome.Settled {
 		return false, nil
 	}
 

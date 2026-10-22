@@ -37,8 +37,8 @@ var (
 	// errBusy says something else is already moving the worktree.
 	errBusy = fail.Precondition("something else is already moving this worktree")
 
-	// errWriterWorking says the task's writer is mid-turn, and its worktree moves only while it rests.
-	errWriterWorking = fail.Precondition("the task's writer is working")
+	// errWriterNotAtRest says the task's writer is not between turns.
+	errWriterNotAtRest = fail.Precondition("the task's writer is not at rest")
 
 	// errSelf says an agent asked komrad to act on the checkout it is working in.
 	errSelf = fail.InvalidArgument("an agent cannot rebase, push or abort in the checkout it is working in")
@@ -166,14 +166,13 @@ func NewService(params NewServiceParams) *Service {
 	}
 }
 
-// refuseWorkingWriter turns down a move while the task's writer is mid-turn, since its worktree
-// moves only while it rests.
-func refuseWorkingWriter(target checkoutTarget) error {
+// refuseWriterNotAtRest refuses a move while the task's writer is not between turns.
+func refuseWriterNotAtRest(target checkoutTarget) error {
 	if target.writer == nil || isAtRest(*target.writer) {
 		return nil
 	}
 
-	return fmt.Errorf("%w: %q has not finished its turn", errWriterWorking, target.writer.Name)
+	return fmt.Errorf("%w: %q is not between turns", errWriterNotAtRest, target.writer.Name)
 }
 
 // buildParkRef names where a checkout is held before it is moved, under the space for that kind of move.

@@ -30,7 +30,7 @@ func (rebased) Topic() string {
 
 // rebaseOutcome is what the latest rebase of a task's worktree came to.
 type rebaseOutcome struct {
-	Result *RebaseResult `json:"result,omitempty"`
+	Result RebaseResult `json:"result"`
 	// Settled says a cascade pass saw the writer finish or abort the rebase that stopped part way.
 	Settled bool `json:"settled,omitempty"`
 }
@@ -54,10 +54,6 @@ func handleRebased(ctx context.Context, tx store.DBTX, mailer *mail.MailService,
 	if err := json.Unmarshal(raw, &outcome); err != nil {
 		return nil, fmt.Errorf("failed to read the last rebase of task %q: %w", rebased.TaskID, err)
 	}
-	if outcome.Result == nil {
-		return nil, nil
-	}
-
 	return nil, mailWriter(ctx, tx, mailer, mailWriterParams{TaskID: rebased.TaskID, Mail: outcome.mail()})
 }
 
@@ -182,7 +178,7 @@ func mailWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, pa
 
 // mail is what the writer is told of the outcome.
 func (o rebaseOutcome) mail() eventprompts.Mail {
-	result := *o.Result
+	result := o.Result
 
 	return eventprompts.Rebased{
 		BaseRef:    result.BaseRef,
