@@ -186,8 +186,8 @@ func historySpanOf(req *agentv1komrad.OpenReviewHistoryRequest) history.Span {
 	switch span := req.Span.(type) {
 	case *agentv1komrad.OpenReviewHistoryRequest_Snapshots:
 		return history.Span{Snapshots: &history.SnapshotSpan{
-			FromSnapshotID: xptr.Deref(optionalID(span.Snapshots.FromSnapshotId)),
-			ToSnapshotID:   xptr.Deref(optionalID(span.Snapshots.ToSnapshotId)),
+			FromSnapshotID: xptr.Deref(formatOptionalID(span.Snapshots.FromSnapshotId)),
+			ToSnapshotID:   xptr.Deref(formatOptionalID(span.Snapshots.ToSnapshotId)),
 		}}
 	case *agentv1komrad.OpenReviewHistoryRequest_Answer:
 		return history.Span{Answer: &history.AnswerSpan{

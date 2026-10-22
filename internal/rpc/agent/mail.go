@@ -46,7 +46,7 @@ func (s *Handler) SendMail(ctx context.Context, req *agentv1komrad.SendMailReque
 		From:      from,
 		ToAgentID: recipient.ID,
 		Body:      req.Body,
-		ReplyTo:   optionalID(req.ReplyTo),
+		ReplyTo:   formatOptionalID(req.ReplyTo),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to send the mail")

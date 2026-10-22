@@ -514,8 +514,8 @@ func (s *Handler) UpdateAgent(ctx context.Context, req *agentv1komrad.UpdateAgen
 	return &emptypb.Empty{}, nil
 }
 
-// optionalID returns an optional id as the services take it, nil when unset.
-func optionalID(id *uuid.UUID) *string {
+// formatOptionalID returns an optional id as the services take it, nil when unset.
+func formatOptionalID(id *uuid.UUID) *string {
 	if id == nil {
 		return nil
 	}

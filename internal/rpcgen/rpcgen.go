@@ -53,6 +53,14 @@ type parsedPackage struct {
 	written   bool
 }
 
+// generation holds the parsed requests of each generated package in one run of the plugin, and the
+// types their oneofs share.
+type generation struct {
+	plugin   *protogen.Plugin
+	packages map[protogen.GoImportPath]*parsedPackage
+	shared   *generate.Shared
+}
+
 // request is how a method's implementation receives what the caller sent.
 type request struct {
 	raw    string
@@ -100,14 +108,6 @@ func Generate(plugin *protogen.Plugin) error {
 	}
 
 	return nil
-}
-
-// generation is one run of the plugin: the parsed requests of each generated package and the
-// types oneofs share across them.
-type generation struct {
-	plugin   *protogen.Plugin
-	packages map[protogen.GoImportPath]*parsedPackage
-	shared   *generate.Shared
 }
 
 // generateFile writes the strict interface, adapter and register function for every service in one proto file.
@@ -158,9 +158,9 @@ func writeHeader(out *protogen.GeneratedFile, file *protogen.File, pkg string) {
 	out.P()
 }
 
-// requestOf writes the parsed form of a method's request when it has one, and says how the
+// writeRequest writes the parsed form of a method's request when it has one, and says how the
 // implementation receives it.
-func (p *parsedPackage) requestOf(out *protogen.GeneratedFile, method *protogen.Method) (request, error) {
+func (p *parsedPackage) writeRequest(out *protogen.GeneratedFile, method *protogen.Method) (request, error) {
 	raw := out.QualifiedGoIdent(method.Input.GoIdent)
 	wrote, err := p.generator.Write(method.Input)
 	if err != nil {
@@ -181,6 +181,11 @@ func (p *parsedPackage) requestOf(out *protogen.GeneratedFile, method *protogen.
 	}, nil
 }
 
+// isParsed says whether the implementation receives the request parsed.
+func (r request) isParsed() bool {
+	return r.parse != ""
+}
+
 // generateService writes one service's strict interface, the adapter that answers for it, and its register function.
 func generateService(
 	out *protogen.GeneratedFile,
@@ -190,7 +195,7 @@ func generateService(
 ) error {
 	requests := make([]request, len(service.Methods))
 	for index, method := range service.Methods {
-		found, err := parsed.requestOf(out, method)
+		found, err := parsed.writeRequest(out, method)
 		if err != nil {
 			return err
 		}
@@ -211,7 +216,7 @@ func generateService(
 		input := requests[index]
 		output := out.QualifiedGoIdent(method.Output.GoIdent)
 		if method.Desc.IsStreamingClient() {
-			if input.parse != "" {
+			if input.isParsed() {
 				out.P(method.GoName, "(", context, ", *", method.GoName, "Stream) *", failure)
 
 				continue
@@ -253,7 +258,7 @@ func generateService(
 		if method.Desc.IsStreamingClient() {
 			out.P("// ", method.GoName, " serves the stream as connect opens it.")
 			out.P("func (a ", name, "Adapter) ", method.GoName, "(ctx ", context, ", stream *", bidiStream, "[", input.raw, ", ", output, "]) error {")
-			if input.parse != "" {
+			if input.isParsed() {
 				out.P("return ", answerStream, "(a.Impl.", method.GoName, "(ctx, &", method.GoName, "Stream{stream: stream}))")
 			} else {
 				out.P("return ", answerStream, "(a.Impl.", method.GoName, "(ctx, stream))")
@@ -261,7 +266,7 @@ func generateService(
 			out.P("}")
 			out.P()
 
-			if input.parse != "" {
+			if input.isParsed() {
 				writeStream(out, method, input)
 			}
 
@@ -272,7 +277,7 @@ func generateService(
 			out.P("// ", method.GoName, " serves the stream as connect opens it.")
 			out.P("func (a ", name, "Adapter) ", method.GoName, "(ctx ", context, ", req *", connectRequest, "[", input.raw,
 				"], stream *", serverStream, "[", output, "]) error {")
-			if input.parse != "" {
+			if input.isParsed() {
 				out.P("parsed, err := ", input.parse, "(req.Msg)")
 				out.P("if err != nil {")
 				out.P("return ", answerStream, "(", unparsed, "(err))")
@@ -291,7 +296,7 @@ func generateService(
 		out.P("// ", method.GoName, " answers the request as connect serves it.")
 		out.P("func (a ", name, "Adapter) ", method.GoName, "(ctx ", context, ", req *", connectRequest, "[", input.raw,
 			"]) (*", response, "[", output, "], error) {")
-		if input.parse != "" {
+		if input.isParsed() {
 			out.P("parsed, err := ", input.parse, "(req.Msg)")
 			out.P("if err != nil {")
 			out.P("return ", answer, "[", output, "](nil, ", unparsed, "(err))")

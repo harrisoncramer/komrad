@@ -4,6 +4,7 @@ package task
 
 import (
 	"context"
+	"slices"
 
 	"komrad/internal/agents"
 	"komrad/internal/caller"
@@ -145,9 +146,9 @@ func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1komrad.ArchiveTask
 
 // DeleteTasks removes tasks' worktrees, and with records set the tasks for good along with every agent on them.
 func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1komrad.DeleteTasksRequest) (*emptypb.Empty, *fail.Error) {
-	named := append(
+	named := slices.Concat(
 		xslice.Map(req.TaskIds, func(id uuid.UUID) oneofs.Task { return oneofs.Task{TaskId: &id} }),
-		xslice.Map(req.TaskSlugs, func(slug string) oneofs.Task { return oneofs.Task{TaskSlug: &slug} })...,
+		xslice.Map(req.TaskSlugs, func(slug string) oneofs.Task { return oneofs.Task{TaskSlug: &slug} }),
 	)
 
 	if err := s.deleter.DeleteTasks(ctx, agents.DeleteTasksParams{

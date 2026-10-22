@@ -1048,7 +1048,7 @@ func TestFindRecipient(t *testing.T) {
 	}
 }
 
-// seedAddressBook records the address book.
+// seedAddressBook records the agents of an address book across three workflows, archiving one.
 func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
 	t.Helper()
 

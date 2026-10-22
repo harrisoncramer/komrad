@@ -57,23 +57,17 @@ func (s *Shared) Write(out *protogen.GeneratedFile) bool {
 	return len(s.types) > 0
 }
 
-// add records the members of a oneof under the shared type named for it, refusing members that
+// add records the members of the oneof owner under the shared type name, refusing members that
 // differ from those recorded.
-func (s *Shared) add(g *Generator, oneof *protogen.Oneof) error {
-	ident, ok := g.sharedIdent(oneof)
+func (s *Shared) add(name string, owner protoreflect.FullName, members []sharedMember) error {
+	recorded, ok := s.types[name]
 	if !ok {
-		return nil
-	}
-
-	members := g.sharedMembers(oneof)
-	recorded, ok := s.types[ident.GoName]
-	if !ok {
-		s.types[ident.GoName] = &sharedType{owner: oneof.Desc.FullName(), members: members}
+		s.types[name] = &sharedType{owner: owner, members: members}
 
 		return nil
 	}
 	if !isSameShape(recorded.members, members) {
-		return fmt.Errorf("%w: %s and %s are both %s", ErrSharedShape, recorded.owner, oneof.Desc.FullName(), ident.GoName)
+		return fmt.Errorf("%w: %s and %s are both %s", ErrSharedShape, recorded.owner, owner, name)
 	}
 
 	return nil
@@ -82,7 +76,7 @@ func (s *Shared) add(g *Generator, oneof *protogen.Oneof) error {
 // sharedIdent returns the shared type a oneof is written as, reporting false for a oneof holding a
 // message, which keeps a type of its own.
 func (g *Generator) sharedIdent(oneof *protogen.Oneof) (protogen.GoIdent, bool) {
-	if g.shared == nil || oneof.Desc.IsSynthetic() {
+	if oneof.Desc.IsSynthetic() {
 		return protogen.GoIdent{}, false
 	}
 

@@ -40,7 +40,7 @@ func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1komrad.Sear
 		Query:   req.Query,
 		Limit:   paginator.Limit(),
 		Cursor:  paginator.Cursor(),
-		AgentID: optionalID(req.AgentId),
+		AgentID: formatOptionalID(req.AgentId),
 		Caller:  caller.From(ctx).AgentID,
 	})
 	if err != nil {

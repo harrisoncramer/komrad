@@ -39,17 +39,15 @@ type documentTypeKeeper interface {
 // WriteDocument creates or rewrites one of the calling agent's documents, or lets a caller that
 // is not an agent rewrite any one or create one for the agent it names.
 func (s *Handler) WriteDocument(ctx context.Context, req *agentv1komrad.WriteDocumentRequest) (*agentv1.WriteDocumentResponse, *fail.Error) {
-	params := documents.WriteDocumentParams{
+	written, err := s.documents.WriteDocument(ctx, documents.WriteDocumentParams{
 		AgentID: caller.From(ctx).AgentID,
-		For:     xptr.Deref(optionalID(req.AgentId)),
-		ID:      optionalID(req.Id),
+		For:     xptr.Deref(formatOptionalID(req.AgentId)),
+		ID:      formatOptionalID(req.Id),
 		Version: req.Version,
 		Name:    req.Name,
 		Type:    req.Type,
 		Source:  req.Source,
-	}
-
-	written, err := s.documents.WriteDocument(ctx, params)
+	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to write the document")
 	}
@@ -68,7 +66,7 @@ func (s *Handler) ListDocuments(ctx context.Context, req *agentv1komrad.ListDocu
 
 	page, failure := rpcpage.List(req.Pagination, func(limit int64, cursor *documentstore.Cursor) ([]documentPage, *fail.Error) {
 		listed, err := s.documents.ListDocuments(ctx, documents.ListDocumentsParams{
-			AgentID: optionalID(req.AgentId),
+			AgentID: formatOptionalID(req.AgentId),
 			Task:    req.Task,
 			Type:    req.Type,
 			Limit:   int32(limit),
@@ -99,7 +97,7 @@ func (s *Handler) SearchDocuments(ctx context.Context, req *agentv1komrad.Search
 
 	results, err := s.documents.SearchDocuments(ctx, documentstore.SearchParams{
 		Query:   req.Query,
-		AgentID: optionalID(req.AgentId),
+		AgentID: formatOptionalID(req.AgentId),
 		Type:    req.Type,
 		Limit:   req.Limit,
 	})
@@ -170,7 +168,7 @@ func (s *Handler) ListDocumentTypeVersions(ctx context.Context, req *agentv1komr
 // WriteDocumentType creates a document type, or renames or rewrites one.
 func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1komrad.WriteDocumentTypeRequest) (*agentv1.WriteDocumentTypeResponse, *fail.Error) {
 	written, err := s.documentTypes.WriteDocumentType(ctx, documents.WriteDocumentTypeParams{
-		ID:        optionalID(req.Id),
+		ID:        formatOptionalID(req.Id),
 		Version:   req.Version,
 		Name:      req.Name,
 		Context:   req.Context,

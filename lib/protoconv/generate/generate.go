@@ -246,7 +246,12 @@ func (g *Generator) writeMessage(message *protogen.Message) ([]*protogen.Message
 	}
 
 	for _, oneof := range message.Oneofs {
-		if err := g.shared.add(g, oneof); err != nil {
+		ident, ok := g.sharedIdent(oneof)
+		if !ok {
+			continue
+		}
+
+		if err := g.shared.add(ident.GoName, oneof.Desc.FullName(), g.sharedMembers(oneof)); err != nil {
 			return nil, err
 		}
 	}

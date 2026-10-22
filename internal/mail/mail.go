@@ -109,19 +109,6 @@ func (s *MailService) IsDormant(agent agentstore.Agent) bool {
 	return agent.State.DoesPaneDecide() && !s.panes.IsAgentRunning(agent)
 }
 
-// getRecipient returns the agent an id names.
-func (s *MailService) getRecipient(ctx context.Context, id string) (*agentstore.Agent, error) {
-	recipient, err := s.agents.GetByID(ctx, id)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, ErrRecipientNotFound.Saying("no agent holds the id %q", id)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return recipient, nil
-}
-
 type FindRecipientParams struct {
 	From string
 	To   oneofs.To
@@ -138,6 +125,19 @@ func (s *MailService) FindRecipient(ctx context.Context, params FindRecipientPar
 	}
 
 	return nil, errUnnamedRecipient
+}
+
+// getRecipient returns the agent an id names.
+func (s *MailService) getRecipient(ctx context.Context, id string) (*agentstore.Agent, error) {
+	recipient, err := s.agents.GetByID(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrRecipientNotFound.Saying("no agent holds the id %q", id)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return recipient, nil
 }
 
 // resolveRecipient returns the live agent a name names, looked for in the sender's own workflow
