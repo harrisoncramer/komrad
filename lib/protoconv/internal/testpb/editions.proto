@@ -1,0 +1,23 @@
+edition = "2023";
+
+package protoconv.test;
+
+import "buf/validate/validate.proto";
+import "shapes.proto";
+
+option go_package = "komrad/lib/protoconv/internal/testpb";
+
+message Explicit {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string must = 2 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  string implicit_id = 3 [
+    features.field_presence = IMPLICIT,
+    (buf.validate.field).string.uuid = true
+  ];
+  string name = 4;
+  int32 count = 5;
+  Single single = 6;
+}

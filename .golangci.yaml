@@ -241,6 +241,15 @@ linters:
               desc: doctor reads the glyph table from glyph, so it never pulls in the list's renderer
             - pkg: komrad/internal/ui/paint$
               desc: same reason as view
+        protoconv:
+          files:
+            - "**/lib/protoconv/**"
+          list-mode: lax
+          allow:
+            - komrad/lib/protoconv
+          deny:
+            - pkg: komrad
+              desc: protoconv does not import anything, in case I want to pull it out into it's own library
         stores:
           files:
             - "**/internal/store/**"
@@ -378,11 +387,12 @@ linters:
           single_append:
             skip: false
             # Unanchored regexps over the path lint was run from. The package that defines Map,
-            # and the sqlc output nobody edits.
+            # the sqlc output nobody edits, and protoconv, which imports nothing from komrad.
             exclude:
               - ^lib/xslice/
               - ^db/models/
               - ^db/testmodels/
+              - ^lib/protoconv/
           conversion_name:
             skip: false
             # Unanchored regexps over the path lint was run from. The service builds proto
@@ -418,7 +428,8 @@ linters:
             # Unanchored regexps over the path lint was run from. Nothing a caller reaches
             # through the RPC layer is declared in these, so their sentinels answer no status
             # code: the panel's own screens, the CLI's control flow, the diff the panel draws
-            # for itself, configuration, and the pool held open before a request can arrive.
+            # for itself, configuration, the pool held open before a request can arrive, and
+            # protoconv, which imports nothing from komrad and so cannot reach fail.
             exclude:
               - ^internal/ui/
               - ^internal/errui/
@@ -427,6 +438,7 @@ linters:
               - ^internal/interceptors/
               - ^config/
               - ^db/
+              - ^lib/protoconv/
           black_box:
             skip: false
             # The panel's screen tests are in package ui_test, where they can only reach the

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Regenerate the test messages and parsed types protoconv is tested against."
+
+usage() {
+	echo "Usage: mise run gen:protoconv"
+	echo
+	echo "Rewrites the Go types of the protos under lib/protoconv/internal/testpb and the"
+	echo "parsed types in lib/protoconv/internal/testparsed that the generator writes for them."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+go generate ./lib/protoconv/...
