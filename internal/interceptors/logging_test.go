@@ -196,6 +196,27 @@ func TestLoggingLeavesThePanelUnattributed(t *testing.T) {
 	assert.NotContains(t, record, logging.SessionID)
 }
 
+// TestLoggingRefusesAnAgentIDThatIsNotAnID covers a header naming no agent being refused rather
+// than served as the person.
+func TestLoggingRefusesAnAgentIDThatIsNotAnID(t *testing.T) {
+	req := unaryRequest("/agent.v1.AgentService/DeleteTasks", "")
+	req.Header().Set(caller.AgentHeader, "not-an-id")
+
+	served := false
+	next := func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
+		served = true
+
+		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+	}
+
+	var out bytes.Buffer
+	_, err := NewLogging(logging.New(&out, slog.LevelDebug)).WrapUnary(next)(t.Context(), req)
+
+	require.Error(t, err)
+	assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
+	assert.False(t, served)
+}
+
 // TestLoggingHandsTheIdentityDown covers an RPC that calls back out still being able to say
 // which agent it is acting for.
 func TestLoggingHandsTheIdentityDown(t *testing.T) {

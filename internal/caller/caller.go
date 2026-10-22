@@ -12,6 +12,7 @@ import (
 	"context"
 	"net/http"
 
+	"komrad/internal/fail"
 	"komrad/lib/xhttp"
 
 	"github.com/google/uuid"
@@ -22,6 +23,9 @@ const (
 	AgentHeader   = "X-Komrad-Agent-Id"
 	SessionHeader = "X-Komrad-Session-Id"
 )
+
+// ErrMalformedAgentID is a request whose agent header holds something other than an agent id.
+var ErrMalformedAgentID = fail.Denied("the agent header holds no agent id")
 
 type Caller struct {
 	AgentID   uuid.UUID
@@ -37,21 +41,31 @@ func (c Caller) isKnown() bool {
 }
 
 // FromHeader reads the identity a request arrived with, dropping any value that is still an
-// unexpanded shell variable or an agent id that does not parse.
-func FromHeader(header http.Header) Caller {
-	return Caller{
-		AgentID:   parseAgentID(header.Get(AgentHeader)),
-		SessionID: expanded(header.Get(SessionHeader)),
+// unexpanded shell variable and refusing an agent id that does not parse.
+func FromHeader(header http.Header) (Caller, error) {
+	agentID, err := parseAgentID(header.Get(AgentHeader))
+	if err != nil {
+		return Caller{}, err
 	}
+
+	return Caller{
+		AgentID:   agentID,
+		SessionID: expanded(header.Get(SessionHeader)),
+	}, nil
 }
 
-func parseAgentID(value string) uuid.UUID {
-	id, err := uuid.Parse(value)
-	if err != nil {
-		return uuid.Nil
+func parseAgentID(value string) (uuid.UUID, error) {
+	value = expanded(value)
+	if value == "" {
+		return uuid.Nil, nil
 	}
 
-	return id
+	id, err := uuid.Parse(value)
+	if err != nil {
+		return uuid.Nil, ErrMalformedAgentID.Saying("the agent id %q is not an id", value)
+	}
+
+	return id, nil
 }
 
 func expanded(value string) string {
@@ -64,12 +78,15 @@ func expanded(value string) string {
 
 // FromRequest reads the identity a request arrived with, keeping who the public listener found
 // signed in on ctx.
-func FromRequest(ctx context.Context, header http.Header) Caller {
-	from := FromHeader(header)
+func FromRequest(ctx context.Context, header http.Header) (Caller, error) {
+	from, err := FromHeader(header)
+	if err != nil {
+		return Caller{}, err
+	}
 	signedIn := From(ctx)
 	from.Email, from.Issuer, from.Subject = signedIn.Email, signedIn.Issuer, signedIn.Subject
 
-	return from
+	return from, nil
 }
 
 // SetHeader writes the identity onto a request going out, and nothing for a caller that is not

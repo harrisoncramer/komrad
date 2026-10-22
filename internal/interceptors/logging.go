@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"komrad/internal/caller"
+	"komrad/internal/fail"
 	"komrad/internal/logging"
+	"komrad/internal/rpcerr"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -29,7 +31,12 @@ func NewLogging(logger *slog.Logger) connect.Interceptor {
 
 func (l *loggingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		trace, logger, ctx := l.open(ctx, req.Spec(), req.Peer(), req.Header())
+		trace, logger, ctx, err := l.open(ctx, req.Spec(), req.Peer(), req.Header())
+		if err != nil {
+			logger.LogAttrs(ctx, slog.LevelWarn, "refused a caller", logging.Err(err)...)
+
+			return nil, withTrace(err, trace)
+		}
 
 		start := time.Now()
 		res, err := next(ctx, req)
@@ -60,12 +67,17 @@ func (l *loggingInterceptor) WrapStreamingClient(next connect.StreamingClientFun
 // long it lived and how many messages it sent.
 func (l *loggingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		trace, logger, ctx := l.open(ctx, conn.Spec(), conn.Peer(), conn.RequestHeader())
+		trace, logger, ctx, err := l.open(ctx, conn.Spec(), conn.Peer(), conn.RequestHeader())
+		if err != nil {
+			logger.LogAttrs(ctx, slog.LevelWarn, "refused a caller", logging.Err(err)...)
+
+			return withTrace(err, trace)
+		}
 		conn.ResponseHeader().Set(TraceHeader, trace)
 
 		counted := &countingConn{StreamingHandlerConn: conn}
 		start := time.Now()
-		err := next(ctx, counted)
+		err = next(ctx, counted)
 		elapsed := slog.Int64(logging.DurationMS, time.Since(start).Milliseconds())
 		sent := slog.Int64(logging.RPCMessagesSent, counted.sent.Load())
 
@@ -82,8 +94,8 @@ func (l *loggingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerF
 }
 
 // open reads the trace a caller sent or mints one, and hands back the logger and context a
-// call runs under.
-func (l *loggingInterceptor) open(ctx context.Context, spec connect.Spec, peer connect.Peer, header http.Header) (string, *slog.Logger, context.Context) {
+// call runs under, refusing a caller whose agent id does not parse.
+func (l *loggingInterceptor) open(ctx context.Context, spec connect.Spec, peer connect.Peer, header http.Header) (string, *slog.Logger, context.Context, error) {
 	trace := header.Get(TraceHeader)
 	if trace == "" {
 		trace = uuid.NewString()
@@ -98,12 +110,17 @@ func (l *loggingInterceptor) open(ctx context.Context, spec connect.Spec, peer c
 		slog.String(logging.ClientAddress, peer.Addr),
 	}
 
-	from := caller.FromRequest(ctx, header)
+	from, err := caller.FromRequest(ctx, header)
+	if err != nil {
+		logger := l.logger.With(logging.Attrs(attrs)...)
+
+		return trace, logger, logging.WithLogger(ctx, logger), rpcerr.New(fail.KindDenied, err)
+	}
 	attrs = append(attrs, callerAttrs(from)...)
 
 	logger := l.logger.With(logging.Attrs(attrs)...)
 
-	return trace, logger, caller.With(caller.WithTrace(logging.WithLogger(ctx, logger), trace), from)
+	return trace, logger, caller.With(caller.WithTrace(logging.WithLogger(ctx, logger), trace), from), nil
 }
 
 // countingConn counts the messages a handler sends down a stream.

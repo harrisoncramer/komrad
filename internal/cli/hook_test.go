@@ -196,8 +196,10 @@ func fakeHookServer(t *testing.T, params fakeHookServerParams) string {
 			TurnError string `json:"turnError"`
 		}
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&report))
+		from, err := caller.FromHeader(r.Header)
+		assert.NoError(t, err)
 		*params.reports = append(*params.reports, recordedReport{
-			agentID:   caller.FromHeader(r.Header).AgentID,
+			agentID:   from.AgentID,
 			event:     report.Event,
 			hook:      report.Hook,
 			tool:      report.Tool,

@@ -17,7 +17,13 @@ func TestFromHeader(t *testing.T) {
 		name    string
 		headers map[string]string
 		want    Caller
+		wantErr error
 	}{
+		{
+			name:    "an agent id that is not an id",
+			headers: map[string]string{AgentHeader: "not-an-id", SessionHeader: "sess-1"},
+			wantErr: ErrMalformedAgentID,
+		},
 		{
 			name:    "an agent naming itself",
 			headers: map[string]string{AgentHeader: firstAgentID.String(), SessionHeader: "sess-1"},
@@ -48,7 +54,13 @@ func TestFromHeader(t *testing.T) {
 				header.Set(key, value)
 			}
 
-			from := FromHeader(header)
+			from, err := FromHeader(header)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, from)
 			assert.Equal(t, tt.want != Caller{}, from.isKnown())
 		})
