@@ -23,9 +23,27 @@ type Hit struct {
 	Nth  int
 }
 
-var blockMark = regexp.MustCompile("\x1b_kz([se]):([a-z]+):([0-9]*)\x1b\\\\")
+const (
+	commandStart     = "\x1b_"
+	stringTerminator = "\x1b\\"
+	markPrefix       = "kz"
+	blockStartTag    = "s"
+	blockEndTag      = "e"
+	rowTag           = "r"
+	fieldSeparator   = ":"
+)
 
-var keyMark = regexp.MustCompile("\x1b_kzr:([a-z]+):([0-9]+):([0-9]+):([0-9a-f]*)\x1b\\\\")
+var blockMark = regexp.MustCompile(regexp.QuoteMeta(commandStart+markPrefix) +
+	"([" + blockStartTag + blockEndTag + "])" + fieldSeparator + "([a-z]+)" + fieldSeparator + "([0-9]*)" +
+	regexp.QuoteMeta(stringTerminator))
+
+var keyMark = regexp.MustCompile(regexp.QuoteMeta(commandStart+markPrefix+rowTag) +
+	fieldSeparator + "([a-z]+)" + fieldSeparator + "([0-9]+)" + fieldSeparator + "([0-9]+)" + fieldSeparator + "([0-9a-f]*)" +
+	regexp.QuoteMeta(stringTerminator))
+
+func mark(tag string, fields ...string) string {
+	return commandStart + markPrefix + tag + fieldSeparator + strings.Join(fields, fieldSeparator) + stringTerminator
+}
 
 // MarkBlock wraps a block in the marks that say where it was rendered and how wide it is.
 func MarkBlock(name Name, block string, width int) string {
@@ -33,13 +51,13 @@ func MarkBlock(name Name, block string, width int) string {
 		return block
 	}
 
-	return "\x1b_kzs:" + string(name) + ":" + strconv.Itoa(width) + "\x1b\\" + block + "\x1b_kze:" + string(name) + ":\x1b\\"
+	return mark(blockStartTag, string(name), strconv.Itoa(width)) + block + mark(blockEndTag, string(name), "")
 }
 
 // MarkKey is the mark that opens a row of a zone, naming its key, how wide it is, and its nth among
 // the rows sharing that key.
 func MarkKey(name Name, width, nth int, key string) string {
-	return "\x1b_kzr:" + string(name) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\"
+	return mark(rowTag, string(name), strconv.Itoa(width), strconv.Itoa(nth), hex.EncodeToString([]byte(key)))
 }
 
 // StripKeys takes the row marks out of a frame.

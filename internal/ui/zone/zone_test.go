@@ -26,7 +26,7 @@ func TestScan(t *testing.T) {
 		},
 		{
 			name:  "an end with no start is ignored",
-			frame: "\x1b_kze:list:\x1b\\",
+			frame: strings.SplitN(zone.MarkBlock("list", "row", 3), "row", 2)[1],
 			want:  map[zone.Name]panes.Rect{},
 		},
 		{
