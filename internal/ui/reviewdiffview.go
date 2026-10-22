@@ -34,15 +34,19 @@ func reviewColumn(m *model, in screen.Inputs) column.Spec {
 		Rows: func(split column.Split) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is rendered in and what the cursor is scrolled against.
-			return split.Rows - strings.Count(m.review.bandView(m, in), "\n")
+			return split.Rows - strings.Count(m.review.bandView(in), "\n")
 		},
 	}
 }
 
 // bandView is what stands over the diff: the range it runs over and the pattern it is searched for.
-func (r reviewScreen) bandView(m *model, in screen.Inputs) string {
-	return r.rangeView(in) +
-		m.markSearch(stopList, r.measureBandWidth(in), r.diff.filter.view(r.deps.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
+func (r reviewScreen) bandView(in screen.Inputs) string {
+	search := r.diff.filter.view(r.deps.glyphs)
+	if in.Room.Marks {
+		search = searchMark(stopList, r.measureBandWidth(in), search)
+	}
+
+	return r.rangeView(in) + search + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
 // rangeView names both ends of the range on screen and, past its end, the snapshot new comments go on.
@@ -94,7 +98,12 @@ func (r reviewScreen) diffView(m *model, in screen.Inputs, split column.Split) s
 
 	window := r.diffWindow(in)
 
-	return strings.Join(m.markDiff(&r.diff.Pane, window, r.diff.Render(window, held)), "\n")
+	lines := r.diff.Render(window, held)
+	if in.Room.Marks {
+		lines = markDiff(&r.diff.Pane, window, lines)
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 // reviewColumnStyle is the markdown a notice standing in for the patch is rendered in.

@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
@@ -132,13 +133,13 @@ func statusCheckRowName(row statusCheckRow) string {
 	return row.item.name
 }
 
-func (c *statusChecksScreen) listParams(m *model, in screen.Inputs) screenListParams {
-	return screenListParams{
-		tally:    c.commit.tally(c.deps.clock.Now()),
-		help:     c.help,
-		empty:    c.emptyLine(m),
-		rows:     len(c.rows(m, in)),
-		snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, in, pane) },
+func (c *statusChecksScreen) listParams(m *model, in screen.Inputs) list.Params {
+	return list.Params{
+		Tally:    c.commit.tally(c.deps.clock.Now()),
+		Help:     c.help(m),
+		Empty:    c.emptyLine(m),
+		Rows:     len(c.rows(m, in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, in, pane) },
 	}
 }
 
@@ -252,7 +253,7 @@ func (c *statusChecksScreen) listActions() keys.Spec[*model] {
 	}
 }
 
-func (c *statusChecksScreen) help(m *model) keyMap {
+func (c *statusChecksScreen) help(m *model) legend.Help {
 	return m.helpOf(c.listActions())
 }
 

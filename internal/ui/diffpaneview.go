@@ -30,14 +30,10 @@ func diffMatchCount(pane *diffview.Pane, filter filterState) string {
 	return dimStyle().Render("  "+where) + "\n\n"
 }
 
-func (m *model) markDiff(pane *diffview.Pane, window diffview.Window, lines []string) []string {
-	if !m.term.markingZones {
-		return lines
-	}
-
+func markDiff(pane *diffview.Pane, window diffview.Window, lines []string) []string {
 	marked := slices.Clone(lines)
 	for i, row := range pane.Rows(window) {
-		marked[i] = m.markRow(zoneDiff, window.Width, strconv.Itoa(row), marked[i])
+		marked[i] = markKeyedRow(zoneDiff, window.Width, strconv.Itoa(row), marked[i])
 	}
 
 	return marked

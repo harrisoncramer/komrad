@@ -113,7 +113,7 @@ func renderEdgeRow(rule bool) string {
 
 func (m *model) screenView() string {
 	if (!m.form.isActive() || m.isPopupForm()) && !m.isMessagesFocused() {
-		return m.active().view(m, m.inputs())
+		return m.activeView(m.inputs())
 	}
 
 	split := m.inputs().Room.Column
@@ -121,7 +121,7 @@ func (m *model) screenView() string {
 		return m.renderMessagesWindow(m.term.width, m.term.height).view(m.term.height)
 	}
 	if !split.On {
-		return m.heldFormView()
+		return m.Form()
 	}
 
 	// Asked for before either half is rendered, so the halves are laid out already knowing their
@@ -129,17 +129,17 @@ func (m *model) screenView() string {
 	held := m.measuredAt(split.Sidebar)
 
 	if m.isMessagesFocused() {
-		return m.joinColumns(split, held.active().view(held, held.inputs()), m.docColumnView(split))
+		return m.Join(split, held.activeView(held.inputs()), m.docColumnView(split))
 	}
 
 	// The list is rendered beside the form as the context the form was opened from, and takes none of
 	// the keys while it is there.
-	return m.joinColumns(split, held.active().view(held, held.inputs()), m.heldFormView())
+	return m.Join(split, held.activeView(held.inputs()), m.Form())
 }
 
-// heldFormView is the form with the submitting notice under it, a row the form gives up rather
+// Form is the form with the submitting notice under it, a row the form gives up rather
 // than one taken off the top of the panel.
-func (m *model) heldFormView() string {
+func (m *model) Form() string {
 	view := m.joinedFormView()
 	if m.term.markingZones {
 		return view

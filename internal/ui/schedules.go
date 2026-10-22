@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -251,16 +252,16 @@ func (w *schedulesScreen) archiveSchedule(schedule panel.Schedule) screen.Reques
 	})
 }
 
-func (w *schedulesScreen) listParams(m *model, in screen.Inputs) screenListParams {
-	return screenListParams{
-		help:     w.help,
-		empty:    "no schedules yet",
-		rows:     len(w.listRows(m, in)),
-		snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, in, pane) },
+func (w *schedulesScreen) listParams(m *model, in screen.Inputs) list.Params {
+	return list.Params{
+		Help:     w.help(m),
+		Empty:    "no schedules yet",
+		Rows:     len(w.listRows(m, in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, in, pane) },
 	}
 }
 
-func (w *schedulesScreen) help(m *model) keyMap {
+func (w *schedulesScreen) help(m *model) legend.Help {
 	return m.helpOf(w.actions())
 }
 

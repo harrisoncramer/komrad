@@ -39,10 +39,10 @@ func (r reviewScreen) sideView(m *model, in screen.Inputs, lines int) string {
 		keys = append(keys, row.key())
 	}
 
-	if mark := m.spanMarker(zoneSide, keys); mark != nil {
+	if in.Room.Marks {
 		for at, row := range rows {
 			if sideRows[at].kind.isStop() {
-				rows[at] = mark(at, row)
+				rows[at] = markKeyedSpan(zoneSide, keys[at], row)
 			}
 		}
 	}

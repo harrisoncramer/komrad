@@ -40,6 +40,7 @@ type Room struct {
 	// Spinner is the loading spinner's frame.
 	Spinner string
 	Now     time.Time
+	Marks   bool
 }
 
 // DocReader is where the reader stands in the document beside the list.

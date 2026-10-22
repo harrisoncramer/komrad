@@ -18,10 +18,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (c *statusChecksScreen) view(m *model, in screen.Inputs) string {
-	return m.columnListView(c.listParams(m, in))
-}
-
 func (c *statusChecksScreen) emptyLine(m *model) string {
 	switch {
 	case c.err != nil:

@@ -57,10 +57,6 @@ func archiveDocument(agent panel.Agent) string {
 	return archiveMarkdown(agent)
 }
 
-func (a *archivedAgents) view(m *model, in screen.Inputs) string {
-	return m.columnListView(a.listParams(m, in))
-}
-
 // snapshot is the archived agents' rows as the plain data the shared rendering reads.
 func (a *archivedAgents) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := a.listRows(m, in)

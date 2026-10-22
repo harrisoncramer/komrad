@@ -141,14 +141,6 @@ func failedPlaceholder(agent panel.Agent) string {
 	return fmt.Sprintf("_%s failed_\n\n%s", label, reason)
 }
 
-func (a *agentsScreen) view(m *model, in screen.Inputs) string {
-	if in.Listing.IsEmpty() {
-		return m.welcomeView(a.listParams(m, in), welcomeText(a.deps.keys))
-	}
-
-	return m.columnListView(a.listParams(m, in))
-}
-
 func (a *agentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	layout := a.layout(m, in)
 	work := splitChosen(in.Listing, chosenAgents(a.Selected, layout.cursorRows()))

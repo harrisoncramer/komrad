@@ -82,8 +82,8 @@ func (r reviewScreen) measurePopupRoom(m *model, in screen.Inputs) int {
 func (r reviewScreen) measurePopupStage(m *model, in screen.Inputs) popupStage {
 	split := in.Room.Split
 	if !split.On {
-		band := r.bandView(m, in)
-		layout := r.layoutSidebar(m, in, band)
+		band := r.bandView(in)
+		layout := r.layoutSidebar(m, in, m, band)
 
 		cursor := paint.CountLines(band+layout.bar+layout.change+layout.block()+r.placeView()) - 1
 
@@ -95,11 +95,11 @@ func (r reviewScreen) measurePopupStage(m *model, in screen.Inputs) popupStage {
 		}
 	}
 
-	above := strings.Count(r.bandView(m, in), "\n")
+	above := strings.Count(r.bandView(in), "\n")
 	first, height := r.diff.GetCursorLines(r.diffWindow(in))
 
 	return popupStage{
-		top:        strings.Count(r.layoutSidebar(m, in).bar, "\n"),
+		top:        strings.Count(r.layoutSidebar(m, in, m).bar, "\n"),
 		cursor:     above + first,
 		cursorLast: above + first + height - 1,
 		rows:       above + split.Rows,

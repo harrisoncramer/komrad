@@ -17,10 +17,6 @@ import (
 	"komrad/lib/xslice"
 )
 
-func (w *worktreesScreen) view(m *model, in screen.Inputs) string {
-	return m.columnListView(w.listParams(m, in))
-}
-
 func (w *worktreesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := w.rows(m, in)
 

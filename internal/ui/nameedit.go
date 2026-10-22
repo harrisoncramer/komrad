@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 
 	"charm.land/bubbles/v2/key"
@@ -19,9 +20,9 @@ func reconcileNameEdit[T list.Keyed](e *field.NameEdit, rows []T, hovered string
 	return e.Reconcile(hovered, name(rows[at]), true)
 }
 
-func renameHelp() keyMap {
+func renameHelp() legend.Help {
 	save := binding(fixedKeys().Submit, "save")
 	cancel := binding([]string{"esc"}, "cancel")
 
-	return keyMap{short: []key.Binding{save, cancel}, full: []key.Binding{save, cancel}}
+	return legend.Help{Short: []key.Binding{save, cancel}, Full: []key.Binding{save, cancel}}
 }

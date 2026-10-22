@@ -5,15 +5,11 @@ import (
 	"strings"
 
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
 )
-
-type keyMap struct {
-	short []key.Binding
-	full  []key.Binding
-}
 
 func byLabel(bindings []key.Binding) []key.Binding {
 	sorted := slices.Clone(bindings)
@@ -48,12 +44,12 @@ func (m *model) moveBinding() key.Binding {
 	)
 }
 
-func filterHelp(mode filterMode) keyMap {
+func filterHelp(mode filterMode) legend.Help {
 	done := binding([]string{"enter"}, "keep filter")
 	flip := binding([]string{"tab"}, mode.flipped().String()+" instead")
 	drop := binding([]string{"esc"}, "cancel")
 
-	return keyMap{short: []key.Binding{done, flip, drop}, full: []key.Binding{done, flip, drop}}
+	return legend.Help{Short: []key.Binding{done, flip, drop}, Full: []key.Binding{done, flip, drop}}
 }
 
 func (m *model) helpBinding() key.Binding {
@@ -98,8 +94,6 @@ func (m *model) menuChordLabel(entries ...[]string) string {
 }
 
 // helpOf is a screen's legend built from its table.
-func (m *model) helpOf(spec keys.Spec[*model]) keyMap {
-	short, full := spec.Help(m, m.keys)
-
-	return keyMap{short: short, full: full}
+func (m *model) helpOf(spec keys.Spec[*model]) legend.Help {
+	return spec.Help(m, m.keys)
 }

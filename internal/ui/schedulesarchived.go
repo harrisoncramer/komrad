@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
@@ -179,12 +180,12 @@ func (a *archivedSchedules) stage(*model, screen.Inputs) screen.Request {
 	return screen.StageTerminal{}
 }
 
-func (a *archivedSchedules) listParams(m *model, in screen.Inputs) screenListParams {
-	return screenListParams{
-		help:  a.help,
-		rows:  len(a.listRows(m, in)),
-		empty: "no archived schedules",
-		snapshot: func(pane list.Pane) view.Snapshot {
+func (a *archivedSchedules) listParams(m *model, in screen.Inputs) list.Params {
+	return list.Params{
+		Help:  a.help(m),
+		Rows:  len(a.listRows(m, in)),
+		Empty: "no archived schedules",
+		Snapshot: func(pane list.Pane) view.Snapshot {
 			return scheduleSnapshot(m, pane, scheduleSnapshotParams{
 				rows:   a.listRows(m, in),
 				cursor: a.Row,
@@ -193,7 +194,7 @@ func (a *archivedSchedules) listParams(m *model, in screen.Inputs) screenListPar
 	}
 }
 
-func (a *archivedSchedules) help(m *model) keyMap {
+func (a *archivedSchedules) help(m *model) legend.Help {
 	return m.helpOf(a.actions())
 }
 

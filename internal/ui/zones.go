@@ -42,11 +42,6 @@ func (m *model) markZone(name zone.Name, block string, width int) string {
 	return zone.MarkBlock(name, block, width)
 }
 
-// isMarkingZones reports whether this frame is rendered to find where its blocks landed.
-func (m *model) isMarkingZones() bool {
-	return m.term.markingZones
-}
-
 // sidebarBlock is a block the panel rendered inside its own pane that the picker can land on.
 type sidebarBlock struct {
 	stop stop
@@ -149,12 +144,16 @@ func (m *model) spanMarker(name zone.Name, keys []string) func(int, string) stri
 	}
 
 	return func(index int, span string) string {
-		if keys[index] == "" {
-			return span
-		}
-
-		return m.markSpan(name, keys[index], span)
+		return markKeyedSpan(name, keys[index], span)
 	}
+}
+
+func markKeyedSpan(name zone.Name, key, span string) string {
+	if key == "" {
+		return span
+	}
+
+	return zone.MarkKey(name, lipgloss.Width(span), 0, key) + span
 }
 
 func (m *model) markSpan(name zone.Name, key, span string) string {
@@ -166,7 +165,15 @@ func (m *model) markSpan(name zone.Name, key, span string) string {
 }
 
 func (m *model) markSearch(to stop, width int, line string) string {
-	return m.markRow(zoneSearch, width, strconv.Itoa(int(to)), line)
+	if !m.term.markingZones {
+		return line
+	}
+
+	return searchMark(to, width, line)
+}
+
+func searchMark(to stop, width int, line string) string {
+	return markKeyedRow(zoneSearch, width, strconv.Itoa(int(to)), line)
 }
 
 func (m *model) markRow(name zone.Name, width int, key, row string) string {
@@ -174,6 +181,10 @@ func (m *model) markRow(name zone.Name, width int, key, row string) string {
 		return row
 	}
 
+	return markKeyedRow(name, width, key, row)
+}
+
+func markKeyedRow(name zone.Name, width int, key, row string) string {
 	return zone.MarkKey(name, width, 0, key) + row
 }
 

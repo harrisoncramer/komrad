@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
@@ -29,9 +30,9 @@ func (m *model) isKindsFocused(in screen.Inputs) bool {
 }
 
 func (m *model) kindsFit(in screen.Inputs) bool {
-	params, ok := m.activeListParams(in)
+	params, fits := m.listFitsTabs(in)
 
-	return ok && !params.hidesKinds && m.listFitsTabs(params)
+	return fits && !params.HidesKinds
 }
 
 func (m *model) blurKinds() {
@@ -93,12 +94,12 @@ func (m *model) kindsBinding() key.Binding {
 	return binding(m.keys.Kinds.Focus, "kind")
 }
 
-func (m *model) kindsHelp() keyMap {
+func (m *model) kindsHelp() legend.Help {
 	kind := stopsMoveBinding("switch")
 	back := binding([]string{"enter", "esc"}, "back to the list")
 
-	return keyMap{
-		short: []key.Binding{kind, back, m.helpBinding()},
-		full:  slices.Concat([]key.Binding{kind, back}, m.fullGlobalHelp()),
+	return legend.Help{
+		Short: []key.Binding{kind, back, m.helpBinding()},
+		Full:  slices.Concat([]key.Binding{kind, back}, m.fullGlobalHelp()),
 	}
 }

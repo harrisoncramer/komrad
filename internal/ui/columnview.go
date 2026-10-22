@@ -10,8 +10,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// joinColumns lays the sidebar left of the column, having squared each off at its share first.
-func (m *model) joinColumns(split column.Split, sidebar, block string) string {
+// Join lays the sidebar left of the column, having squared each off at its share first.
+func (m *model) Join(split column.Split, sidebar, block string) string {
 	// Trimmed so the two halves are the same height.
 	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.Sidebar)
 	block = m.markZone(zoneColumn, fitColumn(block, split.Column), split.Column)
@@ -67,21 +67,6 @@ func renderDividerRow(fromLeft, fromRight bool) string {
 	}
 
 	return leftPad + dimStyle().Render(junction) + rightPad
-}
-
-// columnView renders a screen as its list beside its own block, or as the list alone on a window
-// that will not hold both.
-func (m *model) columnView(list func(*model) string) string {
-	split := m.inputs().Room.Split
-	if !split.On {
-		return list(m)
-	}
-
-	// Asked for before either half is rendered, so the halves are laid out already knowing their
-	// column.
-	held := m.measuredAt(split.Sidebar)
-
-	return m.joinColumns(split, list(held), held.docColumnView(split))
 }
 
 // docColumnView is the first screenful of the block beside the list, with a marker under it

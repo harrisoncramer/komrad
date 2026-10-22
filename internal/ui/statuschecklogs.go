@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/reader"
 	"komrad/internal/ui/screen"
@@ -196,13 +197,13 @@ func (c *statusCheckLogsScreen) reanchor(m *model, in screen.Inputs) screen.Requ
 	return c.anchor(m, in)
 }
 
-func (c *statusCheckLogsScreen) listParams(m *model, in screen.Inputs) screenListParams {
-	return screenListParams{
-		tally:    m.statusChecks.commit.tally(c.deps.clock.Now()),
-		help:     c.help,
-		empty:    m.statusChecks.emptyLine(m),
-		rows:     len(c.rows(m, in)),
-		snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, in, pane) },
+func (c *statusCheckLogsScreen) listParams(m *model, in screen.Inputs) list.Params {
+	return list.Params{
+		Tally:    m.statusChecks.commit.tally(c.deps.clock.Now()),
+		Help:     c.help(m),
+		Empty:    m.statusChecks.emptyLine(m),
+		Rows:     len(c.rows(m, in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, in, pane) },
 	}
 }
 
@@ -262,7 +263,7 @@ func (c *statusCheckLogsScreen) listActions() keys.Spec[*model] {
 	}
 }
 
-func (c *statusCheckLogsScreen) help(m *model) keyMap {
+func (c *statusCheckLogsScreen) help(m *model) legend.Help {
 	return m.helpOf(c.listActions())
 }
 

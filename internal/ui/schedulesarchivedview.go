@@ -24,7 +24,3 @@ func (a *archivedSchedules) docRows(m *model, in screen.Inputs, width int) []str
 
 	return scheduleDocRows(item, width)
 }
-
-func (a *archivedSchedules) view(m *model, in screen.Inputs) string {
-	return m.columnListView(a.listParams(m, in))
-}

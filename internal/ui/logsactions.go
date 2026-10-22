@@ -5,6 +5,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
 )
 
@@ -133,6 +134,6 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 	}
 }
 
-func (l *logsScreen) help(m *model) keyMap {
+func (l *logsScreen) help(m *model) legend.Help {
 	return m.helpOf(l.actions(m))
 }
