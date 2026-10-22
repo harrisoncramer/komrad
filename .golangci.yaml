@@ -139,6 +139,7 @@ linters:
               desc: paint is under the panel rather than beside it, so it never reaches back up
         shared:
           files:
+            - "**/internal/ui/keys/**"
             - "**/internal/ui/zone/**"
             - "**/internal/ui/list/**"
             - "**/internal/ui/field/**"
