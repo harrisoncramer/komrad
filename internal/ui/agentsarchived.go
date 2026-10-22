@@ -422,7 +422,12 @@ func (a *archivedAgents) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu
 	band := rowMenu(target.name())
 	if row, ok := list.At(a.listRows(in), a.Row); ok && a.holdsAnAgent(in) {
 		item, _ := row.paneItem()
-		band = agentMenu(agentMenuParams{in: in, nest: nest, bindings: a.deps.keys, item: item})
+		band = agentMenu(agentMenuParams{
+			in:       in,
+			nest:     nest,
+			bindings: a.deps.keys,
+			item:     item,
+		})
 	}
 
 	if a.kind == agentsDeleted {
