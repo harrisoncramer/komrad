@@ -32,11 +32,11 @@ var ErrNoMergeMethod = fail.InvalidArgument("the forge has no such merge method"
 // ErrNotDraftable says the forge refused to change whether a pull request is a draft.
 var ErrNotDraftable = fail.Precondition("the forge will not change whether the pull request is a draft")
 
+// ErrNotRetargetable says the forge refused to change a pull request's base branch.
+var ErrNotRetargetable = fail.Precondition("the forge will not change the pull request's base branch")
+
 // ErrNoAutoMerge says the forge refused to turn auto-merge on or off for a pull request.
 var ErrNoAutoMerge = fail.Precondition("the forge will not change auto-merge on the pull request")
-
-// ErrNotStackable says the forge refused to put pull requests in a stack or take them out of one.
-var ErrNotStackable = fail.Precondition("the forge will not stack these pull requests")
 
 // ErrNoRereview says the forge has nobody to ask for another review of a pull request.
 var ErrNoRereview = fail.Precondition("the forge has nobody to ask for another review")
@@ -281,25 +281,9 @@ type PullRequest struct {
 	UpdatedAt time.Time
 	MergedAt  *time.Time
 	ClosedAt  *time.Time
-	// Stack is where the pull request sits in a GitHub stack, nil while it is in none.
-	Stack *StackPlace
 	// MergeReadiness is where the reviews, checks, mergeability and auto-merge stand, nil when the call
 	// did not ask.
 	MergeReadiness *MergeReadiness
-}
-
-// StackPlace is where a pull request sits in a GitHub stack.
-type StackPlace struct {
-	Number int
-	// Position counts from one at the bottom of the stack.
-	Position int
-	// Size is how many pull requests the stack holds.
-	Size int
-}
-
-// IsTop says whether the pull request is the newest in its stack.
-func (p StackPlace) IsTop() bool {
-	return p.Position == p.Size
 }
 
 // IsFinished says whether the pull request has merged or closed.
@@ -357,6 +341,8 @@ type Forge interface {
 	Merge(ctx context.Context, params MergeParams) error
 	// SetDraft marks the pull request at the web address a draft, or ready for review.
 	SetDraft(ctx context.Context, url string, draft bool) error
+	// SetBase points the pull request at the web address at another base branch.
+	SetBase(ctx context.Context, url, base string) error
 	// SetAutoMerge asks the forge to merge the pull request once its checks and reviews pass, or
 	// stops it from doing so.
 	SetAutoMerge(ctx context.Context, params SetAutoMergeParams) error
@@ -430,23 +416,6 @@ type JobLogReader interface {
 	// JobLog is the job's log read up to maxBytes, ErrNotFound while the forge has no log ready and
 	// ErrExpired once it no longer keeps one.
 	JobLog(ctx context.Context, repo git.RemoteURL, jobID int64, maxBytes int64) (*JobLog, error)
-}
-
-// Stacker is a forge that keeps pull requests in stacks, each targeting the branch of the one under it.
-type Stacker interface {
-	// Stack puts pull requests, bottom first, in a new stack, or on top of the stack numbered.
-	Stack(ctx context.Context, params StackParams) error
-	// Retarget takes the pull request at the web address out of its stack, along with every other
-	// open one in it, and changes its base branch.
-	Retarget(ctx context.Context, url, base string) error
-}
-
-// StackParams is the pull requests to stack and the stack they go on.
-type StackParams struct {
-	Repo git.RemoteURL
-	// Stack is the number of the stack to add to, zero to create one.
-	Stack   int
-	Numbers []int
 }
 
 // JobLog is the text of one job's log, and the credential's budget after asking for it.

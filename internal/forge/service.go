@@ -446,6 +446,22 @@ func (s *Service) ConnectionFor(ctx context.Context, host string) (*forgestore.C
 	return s.connections.GetByHost(ctx, strings.ToLower(host))
 }
 
+// ForAddress is the host of the pull request at the web address and the forge for its connection.
+func (s *Service) ForAddress(ctx context.Context, address string) (string, Forge, error) {
+	parsed, err := url.Parse(address)
+	if err != nil || parsed.Hostname() == "" {
+		return "", nil, ErrNotPullRequest.Saying("%q is not a pull request's address", address)
+	}
+
+	host := parsed.Hostname()
+	f, err := s.ForHost(ctx, host)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return host, f, nil
+}
+
 // ForHost is the forge for a host's connection.
 func (s *Service) ForHost(ctx context.Context, host string) (Forge, error) {
 	connection, err := s.ConnectionFor(ctx, host)

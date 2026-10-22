@@ -74,6 +74,8 @@ func (f *fakeForge) Merge(context.Context, MergeParams) error { return nil }
 
 func (f *fakeForge) SetDraft(context.Context, string, bool) error { return nil }
 
+func (f *fakeForge) SetBase(context.Context, string, string) error { return nil }
+
 func (f *fakeForge) SetAutoMerge(context.Context, SetAutoMergeParams) error { return nil }
 
 func (f *fakeForge) RequestRereview(context.Context, string) error { return nil }

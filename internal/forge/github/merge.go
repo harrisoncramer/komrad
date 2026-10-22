@@ -3,7 +3,6 @@ package github
 import (
 	"context"
 	_ "embed"
-	"strings"
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
@@ -15,8 +14,8 @@ var mergeTargetQuery string
 //go:embed merge.gql
 var mergeMutation string
 
-// Merge lands the pull request by the method asked for, or by one the repository and its base branch
-// allow when none was.
+// Merge lands the pull request by the method asked for, or by one the repository and its base
+// branch allow when none was.
 func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 	owner, name, number, err := parsePullURL(params.URL)
 	if err != nil {
@@ -27,14 +26,13 @@ func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 		Repository *struct {
 			mergeSettings
 			PullRequest *struct {
-				stackFields
 				ID      string   `json:"id"`
 				State   string   `json:"state"`
 				BaseRef *baseRef `json:"baseRef"`
 			} `json:"pullRequest"`
 		} `json:"repository"`
 	}
-	answer, err := f.client.Query(ctx, mergeTargetQuery+f.pickStackFragment(), map[string]any{
+	answer, err := f.client.Query(ctx, mergeTargetQuery, map[string]any{
 		"owner":  owner,
 		"name":   name,
 		"number": number,
@@ -55,16 +53,6 @@ func (f *Forge) Merge(ctx context.Context, params forge.MergeParams) error {
 	method, err := data.Repository.methodFor(data.Repository.PullRequest.BaseRef, params.Method)
 	if err != nil {
 		return err
-	}
-
-	if data.Repository.PullRequest.stackPlace() != nil {
-		return f.mergeStacked(ctx, mergeStackedParams{
-			Owner:  owner,
-			Name:   name,
-			Number: number,
-			Method: strings.ToLower(method),
-			Merge:  params,
-		})
 	}
 
 	variables := messageVariables(params.Headline, params.Body)

@@ -91,7 +91,7 @@ func (s *Service) Push(ctx context.Context, ref string) (*PushResult, error) {
 	// whether or not whoever asked is still waiting.
 	ctx = context.WithoutCancel(ctx)
 	defer s.checkoutSync.Wake()
-	defer s.heat(*target.task)
+	defer s.readOften(*target.task)
 
 	sha, err := s.git.Push(ctx, git.PushParams{
 		Dir:    target.dir(),
@@ -234,13 +234,13 @@ func (s *Service) refuseFinished(ctx context.Context, target checkoutTarget, sta
 	return true, nil
 }
 
-// heat keeps the pull request sync reading the host the task's checkout pushes to often for a
+// readOften keeps the pull request sync reading the host the task's checkout pushes to often for a
 // while.
-func (s *Service) heat(task taskstore.Task) {
+func (s *Service) readOften(task taskstore.Task) {
 	remote, err := git.ParseRemoteURL(xptr.Deref(task.Checkout.RepositoryURL))
 	if err != nil || remote.Host == "" {
 		return
 	}
 
-	s.pullRequestSync.Heat(remote.Host)
+	s.pullRequestSync.ReadOften(remote.Host)
 }

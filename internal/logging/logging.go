@@ -66,6 +66,7 @@ const (
 	Observations           = "komrad.pull_request.observations"
 	ThreadsRead            = "komrad.pull_request.threads_read"
 	PullRequestNumber      = "komrad.pull_request.number"
+	PullRequestURL         = "komrad.pull_request.url"
 	Repositories           = "komrad.repositories"
 	Branches               = "komrad.branches"
 	RowsListed             = "komrad.rows.listed"

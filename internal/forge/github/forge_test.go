@@ -224,19 +224,6 @@ func (g *fakeGitHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(reply.body))
 }
 
-// sentTo is the first request the fake saw to a path.
-func (g *fakeGitHub) sentTo(t *testing.T, path string) call {
-	t.Helper()
-	for _, seen := range g.calls {
-		if seen.Path == path {
-			return seen
-		}
-	}
-	require.Failf(t, "no request", "nothing was sent to %s", path)
-
-	return call{}
-}
-
 // last is the most recent request the fake saw.
 func (g *fakeGitHub) last(t *testing.T) call {
 	t.Helper()
@@ -255,18 +242,14 @@ func serve(t *testing.T, answers map[string]answer) (*Forge, *fakeAuth, *fakeGit
 
 	auth := &fakeAuth{token: "secret"}
 
-	f := NewForge(NewForgeParams{
+	return NewForge(NewForgeParams{
 		Auth: auth,
 		API:  server.URL,
 		Next: server.Client().Transport,
 		Now: func() time.Time {
 			return time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 		},
-	})
-	f.stacks = true
-	f.mergePoll = time.Millisecond
-
-	return f, auth, fake
+	}), auth, fake
 }
 
 // data wraps nodes into the data envelope GitHub answers.

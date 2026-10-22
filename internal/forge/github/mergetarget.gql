@@ -7,7 +7,6 @@ query MergeTarget($owner: String!, $name: String!, $number: Int!) {
     pullRequest(number: $number) {
       id
       state
-      ...stackFields
       baseRef {
         branchProtectionRule {
           requiresLinearHistory

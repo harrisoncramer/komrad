@@ -252,10 +252,7 @@ func (s *Service) rebase(ctx context.Context, target checkoutTarget) (*RebaseRes
 	}
 
 	if result.OntoBase && !result.Conflicted {
-		if err := s.leaveGitHubStack(ctx, *target.task, target.workflow.Worktree.BaseBranch); err != nil {
-			return nil, err
-		}
-		if err := s.tasks.SetParent(ctx, target.task.ID, nil); err != nil {
+		if err := s.leaveParent(ctx, *target.task); err != nil {
 			return nil, err
 		}
 	}

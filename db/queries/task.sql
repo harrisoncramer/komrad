@@ -506,7 +506,28 @@ SET
     parent_task_id = sqlc.narg('parent_task_id'),
     fork_point = sqlc.narg('fork_point'),
     parent_pull_request_id = sqlc.narg('parent_pull_request_id'),
-    cascade_blocked = NULL
+    cascade_blocked = NULL,
+    left_parent_branch = NULL
+WHERE
+    id = sqlc.arg('id');
+
+-- name: ClearTaskParent :exec
+UPDATE
+    tasks
+SET
+    parent_task_id = NULL,
+    fork_point = NULL,
+    parent_pull_request_id = NULL,
+    cascade_blocked = NULL,
+    left_parent_branch = sqlc.arg('left_parent_branch')
+WHERE
+    id = sqlc.arg('id');
+
+-- name: ClearTaskLeftParentBranch :exec
+UPDATE
+    tasks
+SET
+    left_parent_branch = NULL
 WHERE
     id = sqlc.arg('id');
 

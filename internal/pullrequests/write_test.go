@@ -2,6 +2,7 @@ package pullrequests
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"komrad/internal/forge"
@@ -59,8 +60,20 @@ func (f *writingForge) RequestRereview(_ context.Context, address string) error 
 	return f.err
 }
 
+// recordingCascade records each address whose children it was asked to move and answers err.
+type recordingCascade struct {
+	err    error
+	merged []string
+}
+
+func (c *recordingCascade) CascadeMerged(_ context.Context, address string) error {
+	c.merged = append(c.merged, address)
+
+	return c.err
+}
+
 // newTestWriter is a writer over the stores and a github.com connection whose forge is the one given.
-func newTestWriter(t *testing.T, stores *storetest.Stores, writing *writingForge, sync *waketest.Counter) *Writer {
+func newTestWriter(t *testing.T, stores *storetest.Stores, writing *writingForge, sync *waketest.Counter, cascade *recordingCascade) *Writer {
 	t.Helper()
 
 	connections := forgestore.NewForgeStore(stores.Pool.GetDB())
@@ -85,22 +98,25 @@ func newTestWriter(t *testing.T, stores *storetest.Stores, writing *writingForge
 		}),
 		Sync:         sync,
 		PullRequests: stores.PullRequests,
+		Cascade:      cascade,
 	})
 }
 
 // TestMergePullRequest covers which connection a merge goes through and the pull request sync
-// heating the host only once the forge has merged.
+// reading the host often and moving the children only once the forge has merged.
 func TestMergePullRequest(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
 	tests := []struct {
-		name       string
-		address    string
-		child      childTask
-		mergeErr   error
-		wantErr    error
-		wantMerged []forge.MergeParams
-		wantHeated []string
+		name          string
+		address       string
+		child         childTask
+		mergeErr      error
+		wantErr       error
+		cascadeErr    error
+		wantMerged    []forge.MergeParams
+		wantReadOften []string
+		wantCascaded  []string
 	}{
 		{
 			name:    "an address with no host",
@@ -132,10 +148,19 @@ func TestMergePullRequest(t *testing.T) {
 			wantMerged: []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
 		},
 		{
-			name:       "a pull request the forge merges",
-			address:    address,
-			wantMerged: []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
-			wantHeated: []string{"github.com"},
+			name:          "a pull request the forge merges",
+			address:       address,
+			wantMerged:    []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
+			wantReadOften: []string{"github.com"},
+			wantCascaded:  []string{address},
+		},
+		{
+			name:          "a merged pull request whose children komrad could not move",
+			address:       address,
+			cascadeErr:    errors.New("rebase failed"),
+			wantMerged:    []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
+			wantReadOften: []string{"github.com"},
+			wantCascaded:  []string{address},
 		},
 	}
 
@@ -145,7 +170,8 @@ func TestMergePullRequest(t *testing.T) {
 			sync := &waketest.Counter{}
 			stores := storetest.Open(t)
 			seedChildTask(t, stores, tt.child)
-			writer := newTestWriter(t, stores, writing, sync)
+			cascade := &recordingCascade{err: tt.cascadeErr}
+			writer := newTestWriter(t, stores, writing, sync, cascade)
 
 			err := writer.MergePullRequest(t.Context(), forge.MergeParams{URL: tt.address, Method: forge.MergeMethodSquash})
 
@@ -155,24 +181,25 @@ func TestMergePullRequest(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantMerged, writing.merged)
-			assert.Equal(t, tt.wantHeated, sync.Heated)
+			assert.Equal(t, tt.wantReadOften, sync.HostsReadOften)
+			assert.Equal(t, tt.wantCascaded, cascade.merged)
 		})
 	}
 }
 
-// TestSetPullRequestDraft covers the pull request sync heating the host only once the forge has
+// TestSetPullRequestDraft covers the pull request sync reading the host often only once the forge has
 // changed the draft.
 func TestSetPullRequestDraft(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
 	tests := []struct {
-		name        string
-		address     string
-		draft       bool
-		draftErr    error
-		wantErr     error
-		wantDrafted []drafted
-		wantHeated  []string
+		name          string
+		address       string
+		draft         bool
+		draftErr      error
+		wantErr       error
+		wantDrafted   []drafted
+		wantReadOften []string
 	}{
 		{
 			name:    "an address with no host",
@@ -188,17 +215,17 @@ func TestSetPullRequestDraft(t *testing.T) {
 			wantDrafted: []drafted{{address: address, draft: true}},
 		},
 		{
-			name:        "a pull request the forge marks a draft",
-			address:     address,
-			draft:       true,
-			wantDrafted: []drafted{{address: address, draft: true}},
-			wantHeated:  []string{"github.com"},
+			name:          "a pull request the forge marks a draft",
+			address:       address,
+			draft:         true,
+			wantDrafted:   []drafted{{address: address, draft: true}},
+			wantReadOften: []string{"github.com"},
 		},
 		{
-			name:        "a draft the forge marks ready",
-			address:     address,
-			wantDrafted: []drafted{{address: address, draft: false}},
-			wantHeated:  []string{"github.com"},
+			name:          "a draft the forge marks ready",
+			address:       address,
+			wantDrafted:   []drafted{{address: address, draft: false}},
+			wantReadOften: []string{"github.com"},
 		},
 	}
 
@@ -206,7 +233,7 @@ func TestSetPullRequestDraft(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			writing := &writingForge{err: tt.draftErr}
 			sync := &waketest.Counter{}
-			writer := newTestWriter(t, storetest.Open(t), writing, sync)
+			writer := newTestWriter(t, storetest.Open(t), writing, sync, &recordingCascade{})
 
 			err := writer.SetPullRequestDraft(t.Context(), tt.address, tt.draft)
 
@@ -216,12 +243,12 @@ func TestSetPullRequestDraft(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantDrafted, writing.drafted)
-			assert.Equal(t, tt.wantHeated, sync.Heated)
+			assert.Equal(t, tt.wantReadOften, sync.HostsReadOften)
 		})
 	}
 }
 
-// TestRequestPullRequestRereview covers the pull request sync heating the host only once the
+// TestRequestPullRequestRereview covers the pull request sync reading the host often only once the
 // forge has asked for another review.
 func TestRequestPullRequestRereview(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
@@ -232,7 +259,7 @@ func TestRequestPullRequestRereview(t *testing.T) {
 		rereviewErr    error
 		wantErr        error
 		wantRereviewed []string
-		wantHeated     []string
+		wantReadOften  []string
 	}{
 		{
 			name:    "an address with no host",
@@ -250,7 +277,7 @@ func TestRequestPullRequestRereview(t *testing.T) {
 			name:           "a pull request the forge asks for another review of",
 			address:        address,
 			wantRereviewed: []string{address},
-			wantHeated:     []string{"github.com"},
+			wantReadOften:  []string{"github.com"},
 		},
 	}
 
@@ -258,7 +285,7 @@ func TestRequestPullRequestRereview(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			writing := &writingForge{err: tt.rereviewErr}
 			sync := &waketest.Counter{}
-			writer := newTestWriter(t, storetest.Open(t), writing, sync)
+			writer := newTestWriter(t, storetest.Open(t), writing, sync, &recordingCascade{})
 
 			err := writer.RequestPullRequestRereview(t.Context(), tt.address)
 
@@ -268,13 +295,13 @@ func TestRequestPullRequestRereview(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantRereviewed, writing.rereviewed)
-			assert.Equal(t, tt.wantHeated, sync.Heated)
+			assert.Equal(t, tt.wantReadOften, sync.HostsReadOften)
 		})
 	}
 }
 
 // TestSetPullRequestAutoMerge covers the head the person saw reaching the forge and the pull
-// request sync heating the host only once the forge has changed auto-merge.
+// request sync reading the host often only once the forge has changed auto-merge.
 func TestSetPullRequestAutoMerge(t *testing.T) {
 	const address = "https://github.com/harrisoncramer/komrad/pull/1"
 
@@ -285,7 +312,7 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 		autoMergeErr   error
 		wantErr        error
 		wantAutoMerged []forge.SetAutoMergeParams
-		wantHeated     []string
+		wantReadOften  []string
 	}{
 		{
 			name:    "an address with no host",
@@ -297,12 +324,6 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 			params:  forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
 			child:   childTask{hasParent: true, parentState: "OPEN"},
 			wantErr: errMergeHasParent,
-		},
-		{
-			name:    "a pull request in a GitHub stack",
-			params:  forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
-			child:   childTask{parentState: "OPEN", stacked: true},
-			wantErr: errAutoMergeStacked,
 		},
 		{
 			name: "a pull request the forge will not queue",
@@ -331,13 +352,13 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 				HeadSHA: "abc",
 				On:      true,
 			}},
-			wantHeated: []string{"github.com"},
+			wantReadOften: []string{"github.com"},
 		},
 		{
 			name:           "a pull request the forge stops waiting on",
 			params:         forge.SetAutoMergeParams{URL: address},
 			wantAutoMerged: []forge.SetAutoMergeParams{{URL: address}},
-			wantHeated:     []string{"github.com"},
+			wantReadOften:  []string{"github.com"},
 		},
 	}
 
@@ -347,7 +368,7 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 			sync := &waketest.Counter{}
 			stores := storetest.Open(t)
 			seedChildTask(t, stores, tt.child)
-			writer := newTestWriter(t, stores, writing, sync)
+			writer := newTestWriter(t, stores, writing, sync, &recordingCascade{})
 
 			err := writer.SetPullRequestAutoMerge(t.Context(), tt.params)
 
@@ -357,7 +378,7 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantAutoMerged, writing.autoMerged)
-			assert.Equal(t, tt.wantHeated, sync.Heated)
+			assert.Equal(t, tt.wantReadOften, sync.HostsReadOften)
 		})
 	}
 }
@@ -366,7 +387,6 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 type childTask struct {
 	hasParent   bool
 	parentState string
-	stacked     bool
 }
 
 // seedChildTask records the parent and child tasks in the test repository, and their pull requests.
@@ -400,17 +420,7 @@ func seedChildTask(t *testing.T, stores *storetest.Stores, seeded childTask) {
 		HeadSHA:       "abc",
 		BaseBranch:    "task/parent",
 		OpenedAt:      syncNow,
-		Stack:         stackPlaceOf(seeded.stacked),
 	})
-}
-
-// stackPlaceOf is the child's place on top of its parent in a GitHub stack, nil when it is not stacked.
-func stackPlaceOf(stacked bool) *forge.StackPlace {
-	if !stacked {
-		return nil
-	}
-
-	return &forge.StackPlace{Number: 7, Position: 2, Size: 2}
 }
 
 // seedBranchTask records a task whose checkout is on a branch of the test repository.

@@ -842,20 +842,8 @@ type PullRequest struct {
 	Author string
 	// The description as the forge has it, in markdown.
 	Body string
-	// The number of the GitHub stack the pull request is in, null while it is in none.
-	StackNumber *int32
-	// Where the pull request sits in its GitHub stack, counting from one at the bottom, null while it is in none.
-	StackPosition *int32
-	// How many pull requests the GitHub stack holds, null while the pull request is in none.
-	StackSize *int32
-	// The changed_at the pull request had when GitHub last refused to put it in a GitHub stack, which komrad asks again only once changed_at moves past; null while nothing was refused.
-	StackingRefusedAt pgtype.Timestamptz
-	// When komrad began waiting on GitHub to rebase the pull request's branch after the pull request under it in its GitHub stack merged, null while komrad waits on nothing.
-	RebaseAwaitedSince pgtype.Timestamptz
-	// The head commit the pull request had when komrad began waiting on GitHub to rebase it, which GitHub's push moves past; null while komrad waits on nothing.
-	RebaseAwaitedFrom *string
-	// The base branch komrad points the pull request at, out of its GitHub stack, after its task was re-targeted onto it; null while nothing waits to move.
-	RetargetOnto *string
+	// The changed_at the pull request had when the forge last refused to point it at the base branch, which komrad asks again only once changed_at moves past; null while nothing was refused.
+	RetargetRefusedAt pgtype.Timestamptz
 }
 
 // One check the forge listed on a head commit of a pull request, as the latest listing for that head said it stands.
@@ -1265,6 +1253,8 @@ type Task struct {
 	CascadeBlocked *string
 	// Why the task's worktree is no longer on disk: deleted when a delete removed it, gone when komrad found the directory gone without one; null while it is on disk or the task has none.
 	WorktreeRemovalReason NullWorktreeRemovalReason
+	// The branch of the parent this task left, which komrad moves the task's pull request off onto the workflow's base branch; null once nothing waits to move.
+	LeftParentBranch *string
 }
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.

@@ -1,0 +1,5 @@
+mutation SetBase($path: ID!, $iid: String!, $base: String!) {
+  mergeRequestUpdate(input: {projectPath: $path, iid: $iid, targetBranch: $base}) {
+    errors
+  }
+}

@@ -3,10 +3,11 @@ package pullrequests
 import (
 	"context"
 	"errors"
-	"net/url"
+	"log/slog"
 
 	"komrad/internal/fail"
 	"komrad/internal/forge"
+	"komrad/internal/logging"
 	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/wake"
@@ -17,22 +18,27 @@ var (
 	errMergeHasParent = fail.Precondition("this task depends on another task, so merge that task first and komrad re-targets this one onto the base branch")
 	// errMergeOntoFinished says the pull request targets a task's branch whose own pull request has merged or closed.
 	errMergeOntoFinished = fail.Precondition("this pull request targets a task's branch whose own pull request has merged or closed, so re-target it onto the base branch first")
-	// errAutoMergeStacked says the pull request sits in a GitHub stack, where GitHub turns auto-merge down.
-	errAutoMergeStacked = fail.Precondition("this pull request is in a GitHub stack, which GitHub will not auto-merge, so merge it once the pull requests under it have merged")
 )
+
+// cascader moves the children of a pull request that has just merged onto the base branch.
+type cascader interface {
+	CascadeMerged(ctx context.Context, address string) error
+}
 
 // NewWriterParams is what a writer is built over.
 type NewWriterParams struct {
 	Forges       *forge.Service
-	Sync         wake.Heater
+	Sync         wake.HostReader
 	PullRequests *pullrequeststore.PullRequestStore
+	Cascade      cascader
 }
 
 // Writer changes pull requests through the connection for their host.
 type Writer struct {
 	forges       *forge.Service
-	sync         wake.Heater
+	sync         wake.HostReader
 	pullRequests *pullrequeststore.PullRequestStore
+	cascade      cascader
 }
 
 // NewWriter builds a writer over the forge service and the pull request sync.
@@ -41,12 +47,13 @@ func NewWriter(params NewWriterParams) *Writer {
 		forges:       params.Forges,
 		sync:         params.Sync,
 		pullRequests: params.PullRequests,
+		cascade:      params.Cascade,
 	}
 }
 
 // PlanPullRequestMerge is the ways the pull request at the address could merge.
 func (w *Writer) PlanPullRequestMerge(ctx context.Context, address string) (*forge.MergePlan, error) {
-	_, f, err := w.forgeFor(ctx, address)
+	_, f, err := w.forges.ForAddress(ctx, address)
 	if err != nil {
 		return nil, err
 	}
@@ -54,13 +61,14 @@ func (w *Writer) PlanPullRequestMerge(ctx context.Context, address string) (*for
 	return f.PlanMerge(ctx, address)
 }
 
-// MergePullRequest merges the pull request and heats its host in the pull request sync.
+// MergePullRequest merges the pull request, has the pull request sync read its host often, and moves its
+// children onto the base branch.
 func (w *Writer) MergePullRequest(ctx context.Context, params forge.MergeParams) error {
 	if err := w.refuseBlockedMerge(ctx, params.URL); err != nil {
 		return err
 	}
 
-	host, f, err := w.forgeFor(ctx, params.URL)
+	host, f, err := w.forges.ForAddress(ctx, params.URL)
 	if err != nil {
 		return err
 	}
@@ -69,15 +77,20 @@ func (w *Writer) MergePullRequest(ctx context.Context, params forge.MergeParams)
 		return err
 	}
 
-	w.sync.Heat(host)
+	w.sync.ReadOften(host)
+
+	if err := w.cascade.CascadeMerged(context.WithoutCancel(ctx), params.URL); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to move the children of a merged pull request",
+			append([]slog.Attr{slog.String(logging.PullRequestURL, params.URL)}, logging.Err(err)...)...)
+	}
 
 	return nil
 }
 
 // SetPullRequestDraft marks the pull request at the address a draft or ready for review and
-// heats its host in the pull request sync.
+// has the pull request sync read its host often.
 func (w *Writer) SetPullRequestDraft(ctx context.Context, address string, draft bool) error {
-	host, f, err := w.forgeFor(ctx, address)
+	host, f, err := w.forges.ForAddress(ctx, address)
 	if err != nil {
 		return err
 	}
@@ -86,21 +99,21 @@ func (w *Writer) SetPullRequestDraft(ctx context.Context, address string, draft 
 		return err
 	}
 
-	w.sync.Heat(host)
+	w.sync.ReadOften(host)
 
 	return nil
 }
 
 // SetPullRequestAutoMerge asks the forge to merge the pull request once its checks and reviews
-// pass, or stops it, and heats its host in the pull request sync.
+// pass, or stops it, and has the pull request sync read its host often.
 func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error {
 	if params.On {
-		if err := w.refuseBlockedAutoMerge(ctx, params.URL); err != nil {
+		if err := w.refuseBlockedMerge(ctx, params.URL); err != nil {
 			return err
 		}
 	}
 
-	host, f, err := w.forgeFor(ctx, params.URL)
+	host, f, err := w.forges.ForAddress(ctx, params.URL)
 	if err != nil {
 		return err
 	}
@@ -109,15 +122,15 @@ func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAu
 		return err
 	}
 
-	w.sync.Heat(host)
+	w.sync.ReadOften(host)
 
 	return nil
 }
 
 // RequestPullRequestRereview asks everyone who requested changes on the pull request at the
-// address to review it again and heats its host in the pull request sync.
+// address to review it again and has the pull request sync read its host often.
 func (w *Writer) RequestPullRequestRereview(ctx context.Context, address string) error {
-	host, f, err := w.forgeFor(ctx, address)
+	host, f, err := w.forges.ForAddress(ctx, address)
 	if err != nil {
 		return err
 	}
@@ -126,25 +139,9 @@ func (w *Writer) RequestPullRequestRereview(ctx context.Context, address string)
 		return err
 	}
 
-	w.sync.Heat(host)
+	w.sync.ReadOften(host)
 
 	return nil
-}
-
-// forgeFor is the host of the pull request address and the forge connected for it.
-func (w *Writer) forgeFor(ctx context.Context, address string) (string, forge.Forge, error) {
-	parsed, err := url.Parse(address)
-	if err != nil || parsed.Hostname() == "" {
-		return "", nil, forge.ErrNotPullRequest.Saying("%q is not a pull request's address", address)
-	}
-
-	host := parsed.Hostname()
-	f, err := w.forges.ForHost(ctx, host)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return host, f, nil
 }
 
 // refuseBlockedMerge turns down a merge from a child, or onto a finished task's branch.
@@ -157,27 +154,6 @@ func (w *Writer) refuseBlockedMerge(ctx context.Context, address string) error {
 		return err
 	}
 
-	return refuseBlockers(*blockers)
-}
-
-// refuseBlockedAutoMerge turns down auto-merge for a pull request that could not merge, or that sits in a GitHub stack.
-func (w *Writer) refuseBlockedAutoMerge(ctx context.Context, address string) error {
-	blockers, err := w.pullRequests.GetMergeBlockers(ctx, address)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if blockers.InGitHubStack {
-		return errAutoMergeStacked
-	}
-
-	return refuseBlockers(*blockers)
-}
-
-// refuseBlockers is why the blockers turn a merge down, nil when none does.
-func refuseBlockers(blockers pullrequeststore.MergeBlockers) error {
 	switch {
 	case blockers.HeadHasParent:
 		return errMergeHasParent

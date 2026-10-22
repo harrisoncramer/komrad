@@ -126,6 +126,11 @@ table "tasks" {
     type    = text
     comment = "Why the cascade cannot rebase this task onto its parent: conflicts when the rebase stopped on conflicts, orphaned when its branch holds neither its fork point nor the parent's newest commit, closed when the parent's pull request closed without merging; null while nothing blocks it."
   }
+  column "left_parent_branch" {
+    null    = true
+    type    = text
+    comment = "The branch of the parent this task left, which komrad moves the task's pull request off onto the workflow's base branch; null once nothing waits to move."
+  }
   column "is_hidden" {
     null    = false
     type    = boolean

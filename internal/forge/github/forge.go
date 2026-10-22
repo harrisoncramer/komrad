@@ -34,17 +34,11 @@ type NewForgeParams struct {
 	Timeout time.Duration
 	// Now is the clock a Retry-After is counted from, time.Now when unset.
 	Now func() time.Time
-	// Stacks says the host has GitHub stacks, which github.com has and GitHub Enterprise lacks.
-	Stacks bool
 }
 
 // Forge is GitHub, spoken to over its GraphQL API.
 type Forge struct {
 	client *graphql.Client
-	// stacks says the host has GitHub stacks.
-	stacks bool
-	// mergePoll is how long a merge waits between reads of how it stands.
-	mergePoll time.Duration
 }
 
 // NewForge builds the forge.
@@ -54,18 +48,14 @@ func NewForge(params NewForgeParams) *Forge {
 		api = defaultAPI
 	}
 
-	return &Forge{
-		client: graphql.NewClient(graphql.NewClientParams{
-			Dialect: dialect,
-			Auth:    params.Auth,
-			API:     api,
-			Next:    params.Next,
-			Timeout: params.Timeout,
-			Now:     params.Now,
-		}),
-		stacks:    params.Stacks,
-		mergePoll: mergePoll,
-	}
+	return &Forge{client: graphql.NewClient(graphql.NewClientParams{
+		Dialect: dialect,
+		Auth:    params.Auth,
+		API:     api,
+		Next:    params.Next,
+		Timeout: params.Timeout,
+		Now:     params.Now,
+	})}
 }
 
 // Kind is what the forge answers to.
@@ -75,5 +65,5 @@ func (f *Forge) Kind() string {
 
 // Build is the Builder for GitHub.
 func Build(api string, auth forge.Authenticator) forge.Forge {
-	return NewForge(NewForgeParams{Auth: auth, API: api, Stacks: api == "" || api == defaultAPI})
+	return NewForge(NewForgeParams{Auth: auth, API: api})
 }
