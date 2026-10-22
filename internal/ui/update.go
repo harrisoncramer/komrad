@@ -47,6 +47,10 @@ func (m *model) Init() tea.Cmd {
 
 // Update routes a message to the screen that owns it.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if _, ok := msg.(wheelHeldMsg); ok {
+		return m, m.clock.After(wheelFrame, func(time.Time) tea.Msg { return wheelFlushMsg{} })
+	}
+
 	if _, ok := msg.(tea.KeyPressMsg); ok {
 		m.wheelHit = wheelHit{}
 	}
@@ -83,10 +87,6 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 
 	if wheel, ok := msg.(wheelMsg); ok {
 		return m.routeWheel(wheel.x, wheel.y, wheel.rows)
-	}
-
-	if _, ok := msg.(wheelHeldMsg); ok {
-		return m.clock.After(wheelFrame, func(time.Time) tea.Msg { return wheelFlushMsg{} })
 	}
 
 	if click, ok := msg.(tea.MouseClickMsg); ok {
