@@ -39,6 +39,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// RequestTimeout is how long a call to the server waits for its answer.
 const RequestTimeout = 10 * time.Second
 
 const (
@@ -55,6 +56,7 @@ const pushTimeout = 11 * time.Minute
 // ErrNoSavedScreen is an agent whose pane was never saved.
 var ErrNoSavedScreen = errors.New("no saved screen")
 
+// Clients is the panel's connection to each of the server's services.
 type Clients struct {
 	Agents       agentv1connect.AgentServiceClient
 	Workflows    workflowv1connect.WorkflowServiceClient
