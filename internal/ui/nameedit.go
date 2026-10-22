@@ -1,152 +1,23 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
-	"strings"
 
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
-	"komrad/internal/view"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 )
 
-// nameEdit is a row's name being typed over the place where the row renders.
-type nameEdit struct {
-	key   string
-	was   string
-	input lineInput
-	// gone says the row left the list while the user typed its name.
-	gone  bool
-	noted bool
-	// saving says the typed name has been sent and the field takes no keys until it lands.
-	saving bool
-	// landed says Komrad wrote the typed name and renders it until the listing shows it.
-	landed bool
-}
-
-// nameEditStep is what one message did to a name being typed.
-type nameEditStep int
-
-const (
-	nameEditTyping nameEditStep = iota
-	nameEditCancelled
-	nameEditSubmitted
-	nameEditHidden
-)
-
-func openNameEdit(key, name string) *nameEdit {
-	return &nameEdit{
-		key:   key,
-		was:   name,
-		input: newLineInput(name),
-	}
-}
-
-func (e *nameEdit) take(m *model, msg tea.Msg) nameEditStep {
-	if e.saving || e.landed {
-		return nameEditTyping
-	}
-	if e.gone {
-		return e.takeGone(m, msg)
-	}
-
-	switch msg := msg.(type) {
-	case tea.PasteMsg:
-		e.input.take(msg, m.register)
-	case tea.KeyPressMsg:
-		if msg.String() == "ctrl+c" {
-			return nameEditHidden
-		}
-
-		switch e.input.take(msg, m.register) {
-		case lineLeft:
-			return nameEditCancelled
-		case lineEntered:
-			return nameEditSubmitted
-		case lineIgnored, lineKept, lineChanged:
-		}
-	}
-
-	return nameEditTyping
-}
-
-// takeGone holds the keys of a field whose row is gone until it is let go.
-func (e *nameEdit) takeGone(m *model, msg tea.Msg) nameEditStep {
-	key, ok := msg.(tea.KeyPressMsg)
-	if !ok {
-		return nameEditTyping
-	}
-
-	switch k := key.String(); {
-	case k == "ctrl+c":
-		return nameEditHidden
-	case k == "esc" || isBound(k, fixedKeys().Submit):
-		return nameEditCancelled
-	}
-
-	if !e.noted {
-		e.noted = true
-		m.note(messageWarning, fmt.Sprintf("%q is gone, so there is nothing to rename; esc to stop", e.was))
-	}
-
-	return nameEditTyping
-}
-
 // reconcileNameEdit says whether a field stays open over rows whose cursor is on hovered.
-func reconcileNameEdit[T list.Keyed](e *nameEdit, rows []T, hovered string, name func(T) string) bool {
-	at := slices.IndexFunc(rows, func(r T) bool { return r.Key() == e.key })
-	if e.landed {
-		return at >= 0 && name(rows[at]) == e.was
-	}
-	if e.saving || e.gone || hovered == e.key {
-		return true
-	}
-	if at >= 0 {
-		return false
+func reconcileNameEdit[T list.Keyed](e *field.NameEdit, rows []T, hovered string, name func(T) string) bool {
+	at := slices.IndexFunc(rows, func(r T) bool { return r.Key() == e.Key() })
+	if at < 0 {
+		return e.Reconcile(hovered, "", false)
 	}
 
-	e.gone = true
-
-	return true
-}
-
-// submit marks the field saving and gives the name to send, or false when there is nothing to.
-func (e *nameEdit) submit() (string, bool) {
-	name := strings.TrimSpace(e.input.value())
-	if name == "" || name == e.was {
-		return "", false
-	}
-
-	e.input.set(name)
-	e.saving = true
-
-	return name, true
-}
-
-// settle marks the field saved, or open for another try, once the write for row has landed.
-func (e *nameEdit) settle(row string, err error) {
-	if !e.saving || e.key != row {
-		return
-	}
-
-	e.saving = false
-	e.landed = err == nil
-}
-
-// renderedOver renders the typed name in place of the row's own.
-func (e *nameEdit) renderedOver(row view.Row) view.Row {
-	if e == nil || e.key != row.Key {
-		return row
-	}
-
-	row.Name = e.input.value()
-	row.Matches = nil
-	row.Editing = !e.saving && !e.landed
-	row.Behind = e.input.behind()
-
-	return row
+	return e.Reconcile(hovered, name(rows[at]), true)
 }
 
 // stampRename says on a write's result which row's rename it carried.

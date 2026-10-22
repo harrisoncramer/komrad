@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/config"
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/paint"
 	"komrad/internal/vim"
 
@@ -26,7 +27,7 @@ type reviewInput struct {
 	title       string
 	description string
 	// vim is vim's state for the field, nil when vim is off.
-	vim *fieldVim
+	vim *field.Vim
 }
 
 // newReviewInputParams is what a field is opened with.
@@ -47,14 +48,14 @@ func newReviewInput(params newReviewInputParams) (reviewInput, tea.Cmd) {
 	body := new(string)
 	*body = params.Body
 
-	field := textField(reviewInputKey).
+	text := textField(reviewInputKey).
 		Title(params.Title).
 		Description(params.Description).
 		Placeholder(params.Placeholder).
 		Lines(reviewEditorHeight).
 		Value(body)
 
-	form := huh.NewForm(huh.NewGroup(field)).
+	form := huh.NewForm(huh.NewGroup(text)).
 		WithShowHelp(false).
 		WithKeyMap(reviewInputKeyMap(params.Keys)).
 		WithTheme(paint.Panel.FormTheme())
@@ -64,7 +65,7 @@ func newReviewInput(params newReviewInputParams) (reviewInput, tea.Cmd) {
 		body:        body,
 		title:       params.Title,
 		description: params.Description,
-		vim:         newFieldVim(params.Register),
+		vim:         field.NewVim(params.Register),
 	}
 
 	return input, tea.Batch(form.Init(), input.resize(params.Width))
@@ -136,7 +137,7 @@ func (i reviewInput) updateVim(key tea.KeyPressMsg) vim.Outcome {
 		return vim.Pass
 	}
 
-	outcome, ok := i.vim.press(i.form, focused, key.String())
+	outcome, ok := i.vim.Press(i.form, focused, key.String())
 	if !ok {
 		return vim.Pass
 	}
@@ -152,5 +153,5 @@ func (i reviewInput) isInserting() bool {
 
 	focused := i.form.GetFocusedField()
 
-	return focused == nil || i.vim.isInserting(focused.GetKey())
+	return focused == nil || i.vim.IsInserting(focused.GetKey())
 }

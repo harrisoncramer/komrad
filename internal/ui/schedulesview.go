@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
@@ -58,7 +59,7 @@ func (w *schedulesScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 type scheduleSnapshotParams struct {
 	rows     []scheduleItem
 	cursor   int
-	renaming *nameEdit
+	renaming *field.NameEdit
 }
 
 func scheduleSnapshot(m *model, pane list.Pane, params scheduleSnapshotParams) view.Snapshot {
@@ -70,7 +71,7 @@ func scheduleSnapshot(m *model, pane list.Pane, params scheduleSnapshotParams) v
 				process = view.ProcessStopped
 			}
 
-			return params.renaming.renderedOver(view.Row{
+			return params.renaming.RenderedOver(view.Row{
 				Key:     item.Key(),
 				Kind:    view.KindResult,
 				Name:    name,

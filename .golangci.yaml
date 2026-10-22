@@ -141,6 +141,7 @@ linters:
           files:
             - "**/internal/ui/zone/**"
             - "**/internal/ui/list/**"
+            - "**/internal/ui/field/**"
           deny:
             - pkg: komrad/internal/ui$
               desc: a shared package sits under the panel's screens, so it never reaches back up into the root
@@ -487,8 +488,8 @@ linters:
               - komrad/internal/ui.model.updateWorkflowForm
               - komrad/internal/ui.model.updateMessages
               - komrad/internal/ui.model.updateSignIn
-              - komrad/internal/ui.nameEdit.take
-              - komrad/internal/ui.nameEdit.takeGone
+              - komrad/internal/ui/field.NameEdit.Take
+              - komrad/internal/ui/field.NameEdit.takeGone
               - komrad/internal/ui.reviewScreen.updateComposer
               - komrad/internal/ui.reviewScreen.updateRelease
             exclude:
@@ -535,6 +536,7 @@ linters:
             packages:
               - ^komrad/internal/ui$
               - ^komrad/internal/ui/list$
+              - ^komrad/internal/ui/field$
       fussy:
         type: module
         description: General Go checks from fussy.

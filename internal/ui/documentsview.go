@@ -47,7 +47,7 @@ func (d *documentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r documentRow) view.Row {
-			return d.renamingField().renderedOver(view.Row{
+			return d.renamingField().RenderedOver(view.Row{
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,

@@ -16,7 +16,7 @@ func (f filterState) view(glyphs glyph.Set) string {
 
 func (f filterState) line(glyphs glyph.Set) string {
 	palette := paint.Panel
-	before, after := f.input.split()
+	before, after := f.input.Split()
 	text := lipgloss.NewStyle()
 	if f.broken {
 		text = palette.Broken()

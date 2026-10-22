@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"komrad/internal/ui/field"
 	"komrad/internal/ui/paint"
 )
 
 // The labels naming the mode that holds the panel.
 const (
 	normalModeLabel = " NORMAL "
+	editModeLabel   = "  EDIT  "
 	visualModeLabel = " VISUAL "
 	jumpModeLabel   = "  JUMP  "
 )
@@ -43,7 +45,7 @@ func (m *model) isEditing() bool {
 	if m.form.isActive() {
 		focused := m.form.form.GetFocusedField()
 
-		return focused != nil && isTextField(focused) && m.form.vim.isInserting(focused.GetKey())
+		return focused != nil && field.IsText(focused) && m.form.vim.IsInserting(focused.GetKey())
 	}
 
 	if m.screen == screenReview && m.review.isWriting() {
@@ -51,14 +53,14 @@ func (m *model) isEditing() bool {
 	}
 
 	if line, ok := m.typedLine(); ok {
-		return line.isInserting()
+		return line.IsInserting()
 	}
 
 	return m.isTyping()
 }
 
 // typedLine is the one-row field taking the keys, if one is.
-func (m *model) typedLine() (lineInput, bool) {
+func (m *model) typedLine() (field.Line, bool) {
 	switch {
 	case m.filter.typing:
 		return m.filter.input, true
@@ -70,5 +72,5 @@ func (m *model) typedLine() (lineInput, bool) {
 		return typer.typedLine()
 	}
 
-	return lineInput{}, false
+	return field.Line{}, false
 }

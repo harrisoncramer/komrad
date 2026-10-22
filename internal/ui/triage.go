@@ -691,7 +691,7 @@ func triageRows(params snapshotParams) []view.Row {
 
 	var rows []view.Row
 	for _, r := range queue.zone {
-		row := params.renaming.renderedOver(snapshotRow(r, params))
+		row := params.renaming.RenderedOver(snapshotRow(r, params))
 		row.Kind = view.KindAgent
 		if r.item.Agent.Role == panel.RoleOrchestrator {
 			row.Name = r.workflow.Name
