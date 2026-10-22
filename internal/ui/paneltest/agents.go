@@ -14,6 +14,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// WidenListPresses drags the list's border out as far as it goes.
+var WidenListPresses = slices.Repeat([]string{"ctrl+space", "l"}, 10)
+
 // OpenAgents starts a panel on the agents list over rows.
 func OpenAgents(t *testing.T, rows ...proto.Message) *Panel {
 	t.Helper()
@@ -58,5 +61,3 @@ func (p *Panel) MoveToRow(name string) {
 
 	require.Contains(p.t, strings.Fields(HoveredRow(p.Frame())), name, "no row is named %q", name)
 }
-
-var WidenListPresses = slices.Repeat([]string{"ctrl+space", "l"}, 10)
