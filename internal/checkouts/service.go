@@ -106,6 +106,7 @@ type branchMover interface {
 	AbortSequence(ctx context.Context, dir string, sequence git.Sequence) error
 	FetchBranchTip(ctx context.Context, dir, branch string) (string, error)
 	IsAncestor(ctx context.Context, params git.IsAncestorParams) (bool, error)
+	ReadMergeBase(ctx context.Context, dir, ref string) (string, error)
 	ResolveCommit(ctx context.Context, dir, rev string) (string, error)
 }
 
@@ -123,6 +124,7 @@ type NewServiceParams struct {
 	Locks           *TreeLocks
 	Tx              txRunner
 	CheckoutSync    wake.Waker
+	Cascade         wake.Waker
 	PullRequestSync wake.HostReader
 }
 
@@ -140,6 +142,7 @@ type Service struct {
 	locks           *TreeLocks
 	tx              txRunner
 	checkoutSync    wake.Waker
+	cascade         wake.Waker
 	pullRequestSync wake.HostReader
 }
 
@@ -163,6 +166,7 @@ func NewService(params NewServiceParams) *Service {
 		locks:           locks,
 		tx:              params.Tx,
 		checkoutSync:    params.CheckoutSync,
+		cascade:         params.Cascade,
 		pullRequestSync: params.PullRequestSync,
 	}
 }

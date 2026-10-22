@@ -2,6 +2,7 @@ package gittest
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"komrad/internal/git"
@@ -42,6 +43,8 @@ type Mover struct {
 	Tips map[string]string
 	// Ancestors is every commit pair, ancestor then descendant, the history holds.
 	Ancestors [][2]string
+	// MergeBase is the newest commit HEAD shares with any other, empty when it shares none.
+	MergeBase string
 }
 
 // ReadTreeState answers State.
@@ -183,4 +186,13 @@ func (f *Mover) IsAncestor(_ context.Context, params git.IsAncestorParams) (bool
 // ResolveCommit answers the revision as its own full name.
 func (f *Mover) ResolveCommit(_ context.Context, _, rev string) (string, error) {
 	return rev, nil
+}
+
+// ReadMergeBase answers MergeBase, or ErrBaseUnrelated when it is empty.
+func (f *Mover) ReadMergeBase(_ context.Context, _, ref string) (string, error) {
+	if f.MergeBase == "" {
+		return "", fmt.Errorf("%w: %s", git.ErrBaseUnrelated, ref)
+	}
+
+	return f.MergeBase, nil
 }

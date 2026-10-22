@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -772,6 +773,7 @@ func TestReconcileWithoutTmux(t *testing.T) {
 func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 	tests := []struct {
 		name          string
+		state         agentstore.State
 		harness       string
 		passes        int
 		frame         string
@@ -792,6 +794,13 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 		{
 			name:          "an idle frame confirms once it has settled the demotion",
 			passes:        reconcileMisses,
+			frame:         harnesstest.FrameIdle,
+			wantConfirmed: true,
+		},
+		{
+			name:          "an idle frame on an agent already idle confirms the state",
+			state:         agentstore.StateIdle,
+			passes:        1,
 			frame:         harnesstest.FrameIdle,
 			wantConfirmed: true,
 		},
@@ -818,7 +827,7 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 			require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 				Name:    "agent",
 				Pane:    "%1",
-				State:   agentstore.StateThinking,
+				State:   cmp.Or(tt.state, agentstore.StateThinking),
 				Harness: tt.harness,
 			}))
 			agent, err := st.Get(ctx, "agent")

@@ -28,7 +28,7 @@ type CascadeBlock string
 const (
 	// CascadeConflicted is a rebase onto the parent that stopped on conflicts.
 	CascadeConflicted CascadeBlock = "conflicts"
-	// CascadeOrphaned is a child whose branch holds neither its fork point nor its parent's newest commit.
+	// CascadeOrphaned is a child whose branch holds neither its fork point nor any of its parent's own commits.
 	CascadeOrphaned CascadeBlock = "orphaned"
 	// CascadeParentClosed is a parent whose pull request closed without merging.
 	CascadeParentClosed CascadeBlock = "closed"

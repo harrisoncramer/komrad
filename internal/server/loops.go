@@ -57,6 +57,7 @@ const (
 )
 
 type loopWakers struct {
+	cascade         *loopWaker
 	cwdSync         *loopWaker
 	pullRequestSync *loopWaker
 	transcriptSync  *loopWaker
@@ -64,6 +65,7 @@ type loopWakers struct {
 
 func newLoopWakers() *loopWakers {
 	return &loopWakers{
+		cascade:         newLoopWaker(),
 		cwdSync:         newLoopWaker(),
 		pullRequestSync: newLoopWaker(),
 		transcriptSync:  newLoopWaker(),
@@ -112,6 +114,7 @@ func buildLoops(params buildLoopsParams) []*loop {
 			Interval: cascadeInterval,
 			Floor:    localLoopFloor,
 			Run:      params.Services.checkouts.service.Cascade,
+			Waker:    params.Wakers.cascade,
 		}),
 		newLoop(newLoopParams{
 			Name:     PullRequestSyncLoop,

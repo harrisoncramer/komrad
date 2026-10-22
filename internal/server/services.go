@@ -226,6 +226,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Locks:           checkoutLocks,
 		Tx:              st.pool,
 		CheckoutSync:    wakers.cwdSync,
+		Cascade:         wakers.cascade,
 		PullRequestSync: pullRequestGroup.sync,
 	})
 	pullRequestGroup.writer = pullrequests.NewWriter(pullrequests.NewWriterParams{

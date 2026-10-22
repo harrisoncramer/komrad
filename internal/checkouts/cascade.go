@@ -26,6 +26,8 @@ var (
 	errForkPointNotHeld = fail.Precondition("the task's branch does not hold this commit, so it cannot be the fork point")
 	// errOntoUnmoved is a task whose own commits need not move.
 	errOntoUnmoved = fail.Precondition("the task's own commits need not move")
+	// errForkPointLost is a child whose branch holds none of its parent's own commits.
+	errForkPointLost = fail.Precondition("the task's branch holds none of its parent's own commits")
 )
 
 // cascadeOnto is the commit the cascade rebases a child's own commits onto.
@@ -73,10 +75,6 @@ func (s *Service) cascadeTask(ctx context.Context, task taskstore.Task, mergedUR
 	handled, err := s.settleRetarget(ctx, task)
 	if err != nil || handled {
 		return err
-	}
-
-	if task.Parent.Blocked == taskstore.CascadeOrphaned {
-		return nil
 	}
 
 	parent, err := s.tasks.Get(ctx, task.Parent.TaskID)
@@ -296,7 +294,17 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 		return err
 	}
 	if !holdsForkPoint {
-		return s.tellOrphaned(ctx, task, parent)
+		forkPoint, err := s.findNewerForkPoint(ctx, task, onto)
+		if errors.Is(err, errForkPointLost) {
+			return s.tellOrphaned(ctx, task, parent)
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.tasks.SetForkPoint(ctx, task.ID, forkPoint); err != nil {
+			return err
+		}
+		task.Parent.ForkPoint = forkPoint
 	}
 
 	plan, err := s.planCascade(ctx, dir, task.Parent.ForkPoint, onto.SHA)
@@ -555,8 +563,45 @@ func (s *Service) hasLeftForBase(ctx context.Context, task taskstore.Task, base 
 	return s.git.HoldsCommit(ctx, task.Checkout.Cwd, base)
 }
 
-// tellOrphaned marks a child whose branch no longer holds its fork point as orphaned and tells its writer.
+// findNewerForkPoint is the newest of the parent's own commits the child's branch holds, errForkPointLost when it holds none.
+func (s *Service) findNewerForkPoint(ctx context.Context, task taskstore.Task, onto cascadeOnto) (string, error) {
+	if onto.Merged {
+		return "", errForkPointLost
+	}
+
+	dir := task.Checkout.Cwd
+
+	shared, err := s.git.ReadMergeBase(ctx, dir, onto.SHA)
+	if errors.Is(err, git.ErrBaseUnrelated) {
+		return "", errForkPointLost
+	}
+	if err != nil {
+		return "", err
+	}
+
+	base, err := s.fetchBaseOnto(ctx, task)
+	if err != nil {
+		return "", err
+	}
+
+	landed, err := s.git.IsAncestor(ctx, git.IsAncestorParams{Dir: dir, MaybeAncestor: shared, Of: base.SHA})
+	if err != nil {
+		return "", err
+	}
+	if landed {
+		return "", errForkPointLost
+	}
+
+	return shared, nil
+}
+
+// tellOrphaned marks a child whose branch holds neither its fork point nor any of its parent's own
+// commits as orphaned and tells its writer, once.
 func (s *Service) tellOrphaned(ctx context.Context, task, parent taskstore.Task) error {
+	if task.Parent.Blocked == taskstore.CascadeOrphaned {
+		return nil
+	}
+
 	if err := s.tasks.SetCascadeBlocked(ctx, task.ID, taskstore.CascadeOrphaned); err != nil {
 		return err
 	}
@@ -745,6 +790,7 @@ func (s *Service) PickForkPoint(ctx context.Context, params PickForkPointParams)
 		return "", err
 	}
 	s.checkoutSync.Wake()
+	s.cascade.Wake()
 
 	return sha, nil
 }

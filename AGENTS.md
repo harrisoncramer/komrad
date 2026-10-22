@@ -38,6 +38,10 @@ and the prose around the diagram says the rest. Each renders to
 
 Commit the source and the PNG together.
 
+## Stacked tasks
+
+On a stacked task, never rebase onto the parent, and a reviewer never asks for one; komrad rebases the stack.
+
 ## Writing
 
 Load the write-komrad skill under `.claude/skills` before writing anything a person or an agent

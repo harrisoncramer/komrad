@@ -118,7 +118,7 @@ fork point: The commit of the parent's branch that a child's own commits sit on.
 
 cascade: The pass in which komrad rebases each child onto its parent's newest commit, or onto the base branch once the parent merges. Not "restack".
 
-orphaned: A child whose branch holds neither its fork point nor its parent's newest commit, so komrad cannot tell where its own commits begin. Not "lost".
+orphaned: A child whose branch holds neither its fork point nor any of its parent's own commits, so komrad cannot tell where its own commits begin. Not "lost".
 
 re-target: To rebase a child onto the base branch, so it no longer has a parent. Not "move onto base".
 

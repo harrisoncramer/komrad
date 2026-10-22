@@ -102,7 +102,7 @@ const (
 	CascadeBlock_CASCADE_BLOCK_UNSPECIFIED CascadeBlock = 0
 	// Rebasing the child's own commits onto its parent stopped on conflicts.
 	CascadeBlock_CASCADE_BLOCK_CONFLICTED CascadeBlock = 1
-	// The child is orphaned: its branch holds neither its fork point nor its parent's newest commit.
+	// The child is orphaned: its branch holds neither its fork point nor any of its parent's own commits.
 	CascadeBlock_CASCADE_BLOCK_ORPHANED CascadeBlock = 2
 	// The parent's pull request closed without merging.
 	CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED CascadeBlock = 3

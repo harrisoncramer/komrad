@@ -33,7 +33,7 @@ enum CascadeBlock {
   CASCADE_BLOCK_UNSPECIFIED = 0;
   // Rebasing the child's own commits onto its parent stopped on conflicts.
   CASCADE_BLOCK_CONFLICTED = 1;
-  // The child is orphaned: its branch holds neither its fork point nor its parent's newest commit.
+  // The child is orphaned: its branch holds neither its fork point nor any of its parent's own commits.
   CASCADE_BLOCK_ORPHANED = 2;
   // The parent's pull request closed without merging.
   CASCADE_BLOCK_PARENT_CLOSED = 3;

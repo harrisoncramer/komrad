@@ -39,6 +39,8 @@ func TestCascade(t *testing.T) {
 		// wantParent is the parent read back after the pass, nil once the task is on the base branch.
 		wantParent *taskstore.Parent
 		wantCalls  []string
+		// wantCutoff is the commit the rebase started after, unchecked when empty.
+		wantCutoff string
 		// wantPush is whether komrad force-pushed the branch.
 		wantPush       bool
 		wantMail       string
@@ -105,11 +107,57 @@ func TestCascade(t *testing.T) {
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
 				mover.Holds = []string{"basesha"}
+				mover.MergeBase = "basesha"
+				mover.Ancestors = [][2]string{{"basesha", "basesha"}}
 
 				return mover
 			},
 			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskstore.CascadeOrphaned},
 			wantMail:   "Your branch no longer holds oldtip, the commit of parent your own commits sat on",
+		},
+		{
+			name: "an orphaned child is told once",
+			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskstore.CascadeOrphaned))
+			},
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Holds = nil
+
+				return mover
+			},
+			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskstore.CascadeOrphaned},
+		},
+		{
+			name: "a branch rebased by hand onto a newer commit of its parent takes that commit as its fork point",
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Holds = []string{"midtip"}
+				mover.MergeBase = "midtip"
+
+				return mover
+			},
+			wantParent: &taskstore.Parent{ForkPoint: "newtip"},
+			wantCalls:  []string{"park", "rebaseOnto"},
+			wantCutoff: "midtip",
+			wantMail:   "parent moved to newtip. Komrad rebased your 2 commits onto it.",
+		},
+		{
+			name: "an orphaned child whose branch comes to hold a newer commit of its parent is carried again",
+			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
+				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskstore.CascadeOrphaned))
+			},
+			mover: func(parentBranch string) *gittest.Mover {
+				mover := newChildGit(parentBranch, "newtip")
+				mover.Holds = []string{"midtip"}
+				mover.MergeBase = "midtip"
+
+				return mover
+			},
+			wantParent: &taskstore.Parent{ForkPoint: "newtip"},
+			wantCalls:  []string{"park", "rebaseOnto"},
+			wantCutoff: "midtip",
+			wantMail:   "parent moved to newtip. Komrad rebased your 2 commits onto it.",
 		},
 		{
 			name: "a re-target onto the base still stopped on conflicts is left alone",
@@ -320,6 +368,9 @@ func TestCascade(t *testing.T) {
 			}
 			assert.Equal(t, tt.wantParent, got.Parent)
 			assert.Subset(t, mover.Calls, tt.wantCalls)
+			if tt.wantCutoff != "" {
+				assert.Equal(t, tt.wantCutoff, mover.Cutoff)
+			}
 			if tt.wantCalls == nil {
 				assert.NotContains(t, mover.Calls, "rebaseOnto", "nothing is rebased")
 			}
@@ -583,6 +634,7 @@ func TestPickForkPoint(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, "placed", sha)
 				assert.Equal(t, 1, fixture.checkoutSync.Wakes)
+				assert.Equal(t, 1, fixture.cascade.Wakes, "the cascade carries the child onto its parent at once")
 			}
 			if tt.wantForkPoint != "" {
 				assert.Equal(t, tt.wantForkPoint, got.Parent.ForkPoint)
