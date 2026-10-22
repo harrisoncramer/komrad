@@ -3,12 +3,12 @@ package ui
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
+	"komrad/lib/xslice"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -29,11 +29,14 @@ type schedulesScreen struct {
 
 type scheduleItem struct {
 	schedule panel.Schedule
-	nextRun  time.Time
 }
 
 func (i scheduleItem) Key() string {
 	return i.schedule.ID
+}
+
+func scheduleItemOf(schedule panel.Schedule) scheduleItem {
+	return scheduleItem{schedule: schedule}
 }
 
 func scheduleItemName(item scheduleItem) string {
@@ -78,7 +81,7 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 func (w *schedulesScreen) listRows(m *model) []scheduleItem {
 	return w.built.read(m.listingKey(), func() []scheduleItem {
 		return narrowed(m.filter, narrowedParams[scheduleItem]{
-			rows:  m.listing.schedules,
+			rows:  xslice.Map(m.listing.Schedules, scheduleItemOf),
 			depth: func(scheduleItem) int { return 0 },
 			name:  scheduleItemName,
 			fits:  m.scheduleItemFits,
@@ -96,13 +99,13 @@ func (w *schedulesScreen) apply(m *model, hovered string) {
 	w.reconcileRename(m)
 }
 
-func (l listing) orchestratorLabel(id string) string {
-	for _, row := range l.agents {
+func orchestratorLabel(l panel.Listing, id string) string {
+	for _, row := range l.Agents {
 		if row.Agent.ID == id {
 			return row.Agent.Name
 		}
 	}
-	for _, row := range l.archivedAgents {
+	for _, row := range l.ArchivedAgents {
 		if row.Agent.ID == id {
 			return row.Agent.Name + " (archived)"
 		}
@@ -135,7 +138,7 @@ func toggleSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 
 // newScheduleForm puts up the form for a new schedule.
 func newScheduleForm(m *model) tea.Cmd {
-	if len(m.listing.workflows) == 0 {
+	if len(m.listing.Workflows) == 0 {
 		m.report("Could not create a schedule", errNoWorkflow)
 
 		return nil
@@ -144,9 +147,9 @@ func newScheduleForm(m *model) tea.Cmd {
 	values := panel.ScheduleConfig{
 		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 		Enabled:    true,
-		WorkflowID: m.listing.workflows[0].ID,
+		WorkflowID: m.listing.Workflows[0].ID,
 	}
-	if orchestrators := m.listing.liveOrchestrators(); len(orchestrators) > 0 {
+	if orchestrators := m.listing.LiveOrchestrators(); len(orchestrators) > 0 {
 		values.OrchestratorID = orchestrators[0].ID
 	}
 
@@ -165,8 +168,8 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 
 			return scheduleForm(scheduleFormParams{
 				values:        values,
-				workflows:     m.listing.workflows,
-				orchestrators: m.listing.liveOrchestrators(),
+				workflows:     m.listing.Workflows,
+				orchestrators: m.listing.LiveOrchestrators(),
 				keys:          fixedKeys(),
 			})
 		},
@@ -227,18 +230,6 @@ func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 		Kind:           schedule.Kind,
 		OrchestratorID: schedule.OrchestratorID,
 	}
-}
-
-// liveOrchestrators is the orchestrators a schedule may mail.
-func (l listing) liveOrchestrators() []panel.Agent {
-	var orchestrators []panel.Agent
-	for _, row := range l.agents {
-		if row.Agent.Role == panel.RoleOrchestrator {
-			orchestrators = append(orchestrators, row.Agent)
-		}
-	}
-
-	return orchestrators
 }
 
 func (m *model) archiveSchedule(schedule panel.Schedule) tea.Cmd {

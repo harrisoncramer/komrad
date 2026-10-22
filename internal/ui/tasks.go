@@ -16,19 +16,6 @@ import (
 	"charm.land/huh/v2"
 )
 
-// taskIndex is the panel's tasks keyed by id.
-type taskIndex map[string]panel.Task
-
-// taskAgents is the agents on a task, the archived ones for an archived task and the live ones otherwise.
-func (l listing) taskAgents(task panel.Task) []panel.AgentRow {
-	pool := l.agents
-	if task.ArchivedAt != nil {
-		pool = l.archivedAgents
-	}
-
-	return xslice.Filter(pool, func(item panel.AgentRow) bool { return item.Agent.TaskID == task.ID })
-}
-
 // taskFields is a task's record, with what the record says of its writer where one is listed.
 func taskFields(params checkoutFieldsParams, writer []recordField) []recordField {
 	task := params.task
@@ -103,57 +90,6 @@ func (a *agentsScreen) closeNotes(m *model) tea.Cmd {
 	return nil
 }
 
-// agentsOnTasks is the live agents on any of the tasks, hidden ones included.
-func (l listing) agentsOnTasks(tasks []panel.Task) []panel.Agent {
-	ids := taskIDs(tasks)
-	onTasks := xslice.Filter(l.agents, func(item panel.AgentRow) bool { return slices.Contains(ids, item.Agent.TaskID) })
-
-	return xslice.Map(onTasks, func(item panel.AgentRow) panel.Agent { return item.Agent })
-}
-
-// findForAgent is the agent's task, or one spelled from the agent when the index holds none.
-func (t taskIndex) findForAgent(agent panel.Agent) panel.Task {
-	if task, ok := t[agent.TaskID]; ok {
-		return task
-	}
-
-	return panel.Task{
-		ID:         agent.TaskID,
-		WorkflowID: agent.WorkflowID,
-	}
-}
-
-// isHidden reports whether the agent works on a hidden task.
-func (t taskIndex) isHidden(agent panel.Agent) bool {
-	return t[agent.TaskID].Hidden
-}
-
-// findTaskWriter is the task's writer, when the listing holds it.
-func (l listing) findTaskWriter(task panel.Task) (panel.AgentRow, bool) {
-	onTask := l.taskAgents(task)
-	at := slices.IndexFunc(onTask, func(item panel.AgentRow) bool { return item.Agent.Role == panel.RoleWriter })
-	if at < 0 {
-		return panel.AgentRow{}, false
-	}
-
-	return onTask[at], true
-}
-
-// findWriterInCheckout is the task's writer while it works in the task's checkout.
-func (l listing) findWriterInCheckout(task panel.Task) (panel.AgentRow, bool) {
-	writer, ok := l.findTaskWriter(task)
-	if !ok || task.Cwd == "" || writer.Agent.Cwd != task.Cwd {
-		return panel.AgentRow{}, false
-	}
-
-	return writer, true
-}
-
-// isCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.
-func isCheckoutOwner(agent panel.Agent) bool {
-	return agent.Role == panel.RoleWriter && !agent.ProvisionDisabled
-}
-
 // isLiveWriter reports whether the agent is a writer still working on its task.
 func isLiveWriter(agent panel.Agent) bool {
 	return agent.ArchivedAt == nil && agent.Role == panel.RoleWriter &&
@@ -168,24 +104,14 @@ func describeTasks(tasks []panel.Task) string {
 	return fmt.Sprintf("%d tasks", len(tasks))
 }
 
-func taskIDs(tasks []panel.Task) []string {
-	return xslice.Map(tasks, func(task panel.Task) string { return task.ID })
-}
-
 // taskDirs is the directories of the tasks that have one still on disk.
 func taskDirs(tasks []panel.Task) []string {
 	return xslice.Map(xslice.Filter(tasks, func(task panel.Task) bool { return task.Cwd != "" && !task.IsWorktreeRemoved() }), func(task panel.Task) string { return task.Cwd })
 }
 
-// hasAnyWorktreeToDelete reports whether komrad cut a worktree for any of the tasks that no delete
-// has removed yet, on disk or gone.
-func (l listing) hasAnyWorktreeToDelete(tasks []panel.Task) bool {
-	return slices.ContainsFunc(tasks, l.hasWorktreeToDelete)
-}
-
 // archiveTasks archives the tasks along with the live agents on them.
 func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
-	pending := m.unstageAhead(m.listing.agentsOnTasks(tasks))
+	pending := m.unstageAhead(m.listing.AgentsOnTasks(tasks))
 
 	return pending.attach(m.writeCmd(
 		"archiving "+describeTasks(tasks),
@@ -204,20 +130,20 @@ func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
 
 // deleteTasks deletes the tasks' worktrees, and with records the tasks for good with everything on them.
 func (m *model) deleteTasks(tasks []panel.Task, records bool) tea.Cmd {
-	pending := m.unstageAhead(m.listing.agentsOnTasks(tasks))
+	pending := m.unstageAhead(m.listing.AgentsOnTasks(tasks))
 
 	return pending.attach(m.writeCmd(
 		"deleting "+describeTasks(tasks),
 		"Could not delete "+describeTasks(tasks),
 		func(a api) error {
-			return pending.noteArchive(a.deleteTasks(taskIDs(tasks), records))
+			return pending.noteArchive(a.deleteTasks(panel.TaskIDs(tasks), records))
 		},
 	))
 }
 
 // confirmDeleteTasks asks what goes before the tasks are deleted.
 func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
-	confirm := deleteTasksConfirm(tasks, len(m.listing.agentsOnTasks(tasks)), m.listing.hasAnyWorktreeToDelete(tasks))
+	confirm := deleteTasksConfirm(tasks, len(m.listing.AgentsOnTasks(tasks)), m.listing.HasAnyWorktreeToDelete(tasks))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return m.deleteTasks(tasks, confirm.values.deletesRecords())
@@ -342,10 +268,10 @@ func (a *agentsScreen) taskRowOf(m *model, row agentRow) (agentRow, bool) {
 
 	tree := treeRows(treeRowsParams{
 		workflows:         []panel.Workflow{row.workflow},
-		agents:            m.listing.agents,
+		agents:            m.listing.Agents,
 		showHidden:        a.showHidden,
 		foldOrchestrators: true,
-		tasks:             m.listing.tasks,
+		tasks:             m.listing.Tasks,
 	})
 	at := slices.IndexFunc(tree, func(laid agentRow) bool {
 		return laid.isTask() && laid.task.ID == row.item.Agent.TaskID
@@ -365,11 +291,11 @@ type chosenWork struct {
 }
 
 // splitChosen sorts the chosen agents into the tasks whose writer is chosen and the agents left over.
-func splitChosen(l listing, chosen []panel.Agent) chosenWork {
+func splitChosen(l panel.Listing, chosen []panel.Agent) chosenWork {
 	writers := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" && agent.Role == panel.RoleWriter })
-	wholeTasks := xslice.Map(xslice.UniqueBy(writers, func(agent panel.Agent) string { return agent.TaskID }), l.tasks.findForAgent)
+	wholeTasks := xslice.Map(xslice.UniqueBy(writers, func(agent panel.Agent) string { return agent.TaskID }), l.Tasks.FindForAgent)
 
-	whole := taskIDs(wholeTasks)
+	whole := panel.TaskIDs(wholeTasks)
 	loneAgents := xslice.Filter(chosen, func(agent panel.Agent) bool { return !slices.Contains(whole, agent.TaskID) })
 
 	return chosenWork{
@@ -389,53 +315,6 @@ func (w chosenWork) deleteOffSaid() string {
 }
 
 // affected is every live agent the work takes.
-func (w chosenWork) affected(l listing) []panel.Agent {
-	return slices.Concat(l.agentsOnTasks(w.wholeTasks), w.loneAgents)
-}
-
-// possibleParents is the workflow's live tasks with a branch a new task can depend on, by slug.
-func (t taskIndex) possibleParents(workflowID string) []panel.Task {
-	var tasks []panel.Task
-	for _, task := range t {
-		if task.WorkflowID == workflowID && task.ArchivedAt == nil && task.Branch != nil && !task.IsWorktreeRemoved() {
-			tasks = append(tasks, task)
-		}
-	}
-	slices.SortFunc(tasks, func(a, b panel.Task) int { return strings.Compare(a.Slug, b.Slug) })
-
-	return tasks
-}
-
-// ancestorsOf is a task's parent, that task's parent and so on, the bottom of the stack first.
-func (t taskIndex) ancestorsOf(task panel.Task) []panel.Task {
-	var ancestors []panel.Task
-	seen := map[string]bool{task.ID: true}
-	for id := task.Parent.GetTaskId(); id != "" && !seen[id]; {
-		parent, ok := t[id]
-		if !ok {
-			break
-		}
-
-		seen[id] = true
-		ancestors = append(ancestors, parent)
-		id = parent.Parent.GetTaskId()
-	}
-
-	slices.Reverse(ancestors)
-
-	return ancestors
-}
-
-// childrenOf is a task's live children, oldest first.
-func (t taskIndex) childrenOf(id string) []panel.Task {
-	var children []panel.Task
-	for _, task := range t {
-		if task.Parent.GetTaskId() == id && task.ArchivedAt == nil {
-			children = append(children, task)
-		}
-	}
-
-	slices.SortFunc(children, func(a, b panel.Task) int { return a.CreatedAt.Compare(b.CreatedAt) })
-
-	return children
+func (w chosenWork) affected(l panel.Listing) []panel.Agent {
+	return slices.Concat(l.AgentsOnTasks(w.wholeTasks), w.loneAgents)
 }

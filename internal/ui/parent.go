@@ -20,7 +20,7 @@ type pickForkPointValues struct {
 }
 
 // pickForkPointRefusal returns the reason a task refuses a new fork point, or nil when it allows one.
-func pickForkPointRefusal(l listing, task panel.Task) error {
+func pickForkPointRefusal(l panel.Listing, task panel.Task) error {
 	if err := rebaseOntoBaseRefusal(l, task); err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func cascadeBlockSaid(block taskv1.CascadeBlock, parent string) string {
 // openPickForkPoint opens the form that picks an orphaned child's fork point.
 func openPickForkPoint(m *model, task panel.Task) tea.Cmd {
 	values := &pickForkPointValues{}
-	parent := m.listing.tasks[task.Parent.GetTaskId()].Slug
+	parent := m.listing.Tasks[task.Parent.GetTaskId()].Slug
 
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind:  formTask,

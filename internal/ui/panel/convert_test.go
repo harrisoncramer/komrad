@@ -1,11 +1,10 @@
-package ui
+package panel
 
 import (
 	"testing"
 	"time"
 
 	"komrad/internal/assemble"
-	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -31,7 +30,7 @@ func TestTaskFromCarriesTheCheckout(t *testing.T) {
 	assert.Equal(t, branch, *converted.Branch)
 	assert.Equal(t, int32(3), converted.DiffStat.GetAdded())
 	assert.Equal(t, int32(1), converted.DiffStat.GetRemoved())
-	assert.Equal(t, panel.WorktreeGone, converted.WorktreeRemovalReason)
+	assert.Equal(t, WorktreeGone, converted.WorktreeRemovalReason)
 	assert.Equal(t, int32(2), converted.Snapshots)
 }
 
@@ -84,7 +83,7 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 	}})
 
 	require.Len(t, got, 1)
-	assert.Equal(t, panel.Workflow{
+	assert.Equal(t, Workflow{
 		ID:              "w1",
 		Name:            "api",
 		Context:         "shared notes",
@@ -93,12 +92,12 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		Flags:           "--model opus",
 		ReviewerHarness: "codex",
 		ReviewerFlags:   "--model gpt-5",
-		Hooks: []panel.Hook{
+		Hooks: []Hook{
 			{Event: "agent.pre-launch", Script: "install-deps"},
 			{Event: "agent.post-launch", Script: "announce"},
 		},
-		EventPrompts: []panel.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
-		Worktree: panel.WorktreeConfig{
+		EventPrompts: []EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
+		Worktree: WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",
 			SetupCommand: "mise install",
@@ -114,16 +113,16 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 func TestStateFromReadsEveryWireState(t *testing.T) {
 	t.Parallel()
 
-	states := map[agentv1.AgentState]panel.State{
-		agentv1.AgentState_AGENT_STATE_UNSPECIFIED:       panel.StateUncertain,
-		agentv1.AgentState_AGENT_STATE_IDLE:              panel.StateIdle,
-		agentv1.AgentState_AGENT_STATE_THINKING:          panel.StateThinking,
-		agentv1.AgentState_AGENT_STATE_WAITING:           panel.StateWaiting,
-		agentv1.AgentState_AGENT_STATE_SETTING_UP:        panel.StateSettingUp,
-		agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:  panel.StateFailedToCreate,
-		agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP: panel.StateFailedToCleanup,
-		agentv1.AgentState_AGENT_STATE_UNCERTAIN:         panel.StateUncertain,
-		agentv1.AgentState_AGENT_STATE_ERRORED:           panel.StateErrored,
+	states := map[agentv1.AgentState]State{
+		agentv1.AgentState_AGENT_STATE_UNSPECIFIED:       StateUncertain,
+		agentv1.AgentState_AGENT_STATE_IDLE:              StateIdle,
+		agentv1.AgentState_AGENT_STATE_THINKING:          StateThinking,
+		agentv1.AgentState_AGENT_STATE_WAITING:           StateWaiting,
+		agentv1.AgentState_AGENT_STATE_SETTING_UP:        StateSettingUp,
+		agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:  StateFailedToCreate,
+		agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP: StateFailedToCleanup,
+		agentv1.AgentState_AGENT_STATE_UNCERTAIN:         StateUncertain,
+		agentv1.AgentState_AGENT_STATE_ERRORED:           StateErrored,
 	}
 	assert.Len(t, states, len(agentv1.AgentState_name), "every wire state is answered for")
 	for wire, want := range states {
@@ -135,11 +134,11 @@ func TestStateFromReadsEveryWireState(t *testing.T) {
 func TestRoleFromReadsEveryWireRole(t *testing.T) {
 	t.Parallel()
 
-	roles := map[agentv1.AgentRole]panel.Role{
+	roles := map[agentv1.AgentRole]role{
 		agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:  "",
-		agentv1.AgentRole_AGENT_ROLE_WRITER:       panel.RoleWriter,
-		agentv1.AgentRole_AGENT_ROLE_REVIEWER:     panel.RoleReviewer,
-		agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR: panel.RoleOrchestrator,
+		agentv1.AgentRole_AGENT_ROLE_WRITER:       RoleWriter,
+		agentv1.AgentRole_AGENT_ROLE_REVIEWER:     RoleReviewer,
+		agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR: RoleOrchestrator,
 	}
 	assert.Len(t, roles, len(agentv1.AgentRole_name), "every wire role is answered for")
 	for wire, want := range roles {
@@ -150,14 +149,14 @@ func TestRoleFromReadsEveryWireRole(t *testing.T) {
 // TestWorktreeFateIsReadOffTheWire covers each fate the server names landing on the item, and
 // one it does not name reading as unowned.
 func TestWorktreeFateIsReadOffTheWire(t *testing.T) {
-	for wire, want := range map[worktreev1.WorktreeFate]worktreeFate{
-		worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:        fateLive,
-		worktreev1.WorktreeFate_WORKTREE_FATE_DELETING:    fateDeleting,
-		worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED:    fateArchived,
-		worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED:     fateUnowned,
-		worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED: fateUnowned,
+	for wire, want := range map[worktreev1.WorktreeFate]WorktreeFate{
+		worktreev1.WorktreeFate_WORKTREE_FATE_LIVE:        FateLive,
+		worktreev1.WorktreeFate_WORKTREE_FATE_DELETING:    FateDeleting,
+		worktreev1.WorktreeFate_WORKTREE_FATE_ARCHIVED:    FateArchived,
+		worktreev1.WorktreeFate_WORKTREE_FATE_UNOWNED:     FateUnowned,
+		worktreev1.WorktreeFate_WORKTREE_FATE_UNSPECIFIED: FateUnowned,
 	} {
-		item := worktreeItemFrom(&worktreev1.Worktree{Dir: "/trees/a", Fate: wire})
-		assert.Equal(t, want, item.fate, wire.String())
+		item := WorktreeFrom(&worktreev1.Worktree{Dir: "/trees/a", Fate: wire})
+		assert.Equal(t, want, item.Fate, wire.String())
 	}
 }

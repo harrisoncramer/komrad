@@ -129,7 +129,7 @@ func (r *reviewScreen) enter(*model, screenTarget) tea.Cmd {
 // enterReview is the agents screen's way onto the review of an agent's diff, with the threads
 // in the sidebar and the diff in the stage.
 func (m *model) enterReview(agent panel.Agent) tea.Cmd {
-	if !m.listing.isReviewable(agent) {
+	if !m.listing.IsReviewable(agent) {
 		return nil
 	}
 

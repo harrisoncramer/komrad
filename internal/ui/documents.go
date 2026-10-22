@@ -99,7 +99,7 @@ func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 		}
 		switch {
 		case target.taskID != "":
-			m.filterDocuments(taskClause(m.listing.tasks[target.taskID].Slug))
+			m.filterDocuments(taskClause(m.listing.Tasks[target.taskID].Slug))
 		case target.agentID != "":
 			m.filterDocuments(agentClause(findAgentName(m, target.agentID)))
 		}
@@ -230,7 +230,7 @@ func (d *documentsScreen) rows(m *model) []documentRow {
 func (d *documentsScreen) documentTypeRows(m *model) []documentTypeRow {
 	return d.builtTypes.read(m.listingKey(), func() []documentTypeRow {
 		return narrowed(m.filter, narrowedParams[documentTypeRow]{
-			rows: xslice.Map(m.listing.documentTypes, func(t *agentv1.DocumentType) documentTypeRow {
+			rows: xslice.Map(m.listing.DocumentTypes, func(t *agentv1.DocumentType) documentTypeRow {
 				return documentTypeRow{documentType: t}
 			}),
 			depth: func(documentTypeRow) int { return 0 },
@@ -294,7 +294,7 @@ func (d *documentsScreen) parent() screen {
 func (d *documentsScreen) crumbs(m *model) crumbs {
 	var trail crumbs
 	if d.kind == documentKindTypes {
-		trail.tally = fmt.Sprint(len(m.listing.documentTypes))
+		trail.tally = fmt.Sprint(len(m.listing.DocumentTypes))
 
 		return trail
 	}
@@ -317,8 +317,8 @@ func (d *documentsScreen) back(m *model) tea.Cmd {
 
 // findAgentName is the name of the agent an id names, live or archived, and the id when neither.
 func findAgentName(m *model, agentID string) string {
-	if item, ok := m.listing.anyAgent(agentID); ok {
-		return m.listing.agentName(item.Agent)
+	if item, ok := m.listing.AnyAgent(agentID); ok {
+		return m.listing.AgentName(item.Agent)
 	}
 
 	return agentID
@@ -366,7 +366,7 @@ func (m *model) readDocumentsCmd() tea.Cmd {
 // documentsWritten is what every agent has written, as their rows say.
 func (m *model) documentsWritten() documentsWritten {
 	var written documentsWritten
-	for _, item := range slices.Concat(m.listing.agents, m.listing.archivedAgents) {
+	for _, item := range slices.Concat(m.listing.Agents, m.listing.ArchivedAgents) {
 		written.count += item.Documents
 		if item.DocumentsUpdatedAt != nil && (written.newest == nil || item.DocumentsUpdatedAt.After(*written.newest)) {
 			written.newest = item.DocumentsUpdatedAt

@@ -391,7 +391,7 @@ func (l *logsScreen) list() screenList[logSourceRow] {
 
 func (l *logsScreen) rows(m *model) []logSourceRow {
 	var failedRun *int32
-	if item, ok := m.listing.anyAgent(l.agentID); ok {
+	if item, ok := m.listing.AnyAgent(l.agentID); ok {
 		failedRun = item.FailedRunLog
 	}
 
@@ -419,8 +419,8 @@ func (l *logsScreen) nameSource(m *model, source *logv1.LogSource) string {
 	}
 
 	name := source.GetAgentId()
-	if item, ok := m.listing.anyAgent(name); ok {
-		name = m.listing.agentName(item.Agent)
+	if item, ok := m.listing.AnyAgent(name); ok {
+		name = m.listing.AgentName(item.Agent)
 	}
 
 	return name + " " + sourceLabel(source)
@@ -450,13 +450,13 @@ func (l *logsScreen) parent() screen {
 }
 
 func (l *logsScreen) crumbs(m *model) crumbs {
-	if task, ok := m.listing.tasks[l.taskID]; ok {
+	if task, ok := m.listing.Tasks[l.taskID]; ok {
 		return crumbs{trail: []string{task.Slug, "logs"}}
 	}
 
 	name := l.agentID
-	if item, ok := m.listing.anyAgent(l.agentID); ok {
-		name = m.listing.agentName(item.Agent)
+	if item, ok := m.listing.AnyAgent(l.agentID); ok {
+		name = m.listing.AgentName(item.Agent)
 	}
 
 	return crumbs{trail: []string{name, "logs"}}

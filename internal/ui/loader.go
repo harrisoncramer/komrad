@@ -41,7 +41,7 @@ func (m *model) isLoading() bool {
 }
 
 func (a *agentsScreen) isLoading(m *model) bool {
-	return slices.ContainsFunc(a.rows(m), m.listing.isRowLoading)
+	return slices.ContainsFunc(a.rows(m), func(r agentRow) bool { return isRowLoading(m.listing, r) })
 }
 
 func (r reviewScreen) isLoading(m *model) bool {
@@ -49,12 +49,12 @@ func (r reviewScreen) isLoading(m *model) bool {
 		return true
 	}
 
-	item, ok := m.listing.liveAgent(r.agentID)
+	item, ok := m.listing.LiveAgent(r.agentID)
 
-	return ok && isChecksRunning(m.listing.tasks.findForAgent(item.Agent).PullRequest)
+	return ok && isChecksRunning(m.listing.Tasks.FindForAgent(item.Agent).PullRequest)
 }
 
-func (l listing) isRowLoading(r agentRow) bool {
+func isRowLoading(l panel.Listing, r agentRow) bool {
 	if r.isTask() {
 		writer, ok := r.writer()
 
@@ -64,7 +64,7 @@ func (l listing) isRowLoading(r agentRow) bool {
 		return r.orchestrator != nil && isThinking(*r.orchestrator)
 	}
 
-	return isChecksRunning(l.tasks.findForAgent(r.item.Agent).PullRequest) || isAgentLoading(r.item)
+	return isChecksRunning(l.Tasks.FindForAgent(r.item.Agent).PullRequest) || isAgentLoading(r.item)
 }
 
 // isAgentLoading reports whether an agent is setting up or at work, either of which turns the loader.

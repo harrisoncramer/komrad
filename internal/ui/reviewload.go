@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"slices"
 
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
@@ -17,11 +16,6 @@ import (
 )
 
 const reviewEditorHeight = 4
-
-// isReviewable reports whether an agent has work of its own to read.
-func (l listing) isReviewable(agent panel.Agent) bool {
-	return l.reviewDir(agent) != "" && agent.Role != panel.RoleReviewer
-}
 
 type reviewLoadedMsg struct {
 	agentID string
@@ -77,14 +71,14 @@ type reviewWroteMsg struct {
 func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
 	m.dropMessage(r.notices.moved)
 
-	workflow := m.listing.workflowFor(agent)
+	workflow := m.listing.WorkflowFor(agent)
 
 	*r = reviewScreen{
 		agentID:   agent.ID,
 		loads:     r.loads,
 		taskID:    agent.TaskID,
 		agentName: agent.Name,
-		dir:       m.listing.reviewDir(agent),
+		dir:       m.listing.ReviewDir(agent),
 		exclude:   workflow.Worktree.DiffExclude,
 		loading:   true,
 		diff:      reviewDiff{spec: wholeChange()},
@@ -544,28 +538,4 @@ func (r *reviewScreen) backFromDiff(m *model) tea.Cmd {
 	r.focusBlock(m)
 
 	return nil
-}
-
-func (l listing) workflowFor(agent panel.Agent) panel.Workflow {
-	for _, workflow := range slices.Concat(l.workflows, l.archivedWorkflows) {
-		if workflow.ID == agent.WorkflowID {
-			return workflow
-		}
-	}
-
-	return panel.Workflow{}
-}
-
-// reviewDir is the checkout an agent's review reads, its workflow's once the task's worktree is removed,
-// and empty when a removed worktree left no snapshot to read.
-func (l listing) reviewDir(agent panel.Agent) string {
-	task := l.tasks.findForAgent(agent)
-	switch {
-	case !task.IsWorktreeRemoved():
-		return agent.Cwd
-	case task.Snapshots == 0:
-		return ""
-	}
-
-	return l.workflowFor(agent).Cwd
 }

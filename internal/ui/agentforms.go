@@ -41,7 +41,7 @@ func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) tea
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind: formAgent,
 		Build: func(m *model) (*huh.Form, []string) {
-			return newTaskForm(fixedKeys(), values, workflow.Worktree.Enabled, m.listing.tasks.possibleParents(workflow.ID))
+			return newTaskForm(fixedKeys(), values, workflow.Worktree.Enabled, m.listing.Tasks.PossibleParents(workflow.ID))
 		},
 		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
 		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.submitTask(workflow, *values) }),
@@ -51,7 +51,7 @@ func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) tea
 // openNewAgentOnTask opens the form that starts an agent on a task: a reviewer when it has a
 // writer, or else its writer.
 func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) tea.Cmd {
-	if writer, ok := m.listing.findTaskWriter(task); ok {
+	if writer, ok := m.listing.FindTaskWriter(task); ok {
 		values := reviewerPrefill(writer.Agent)
 
 		return openReviewerForm(m, writer.Agent, task, &values)

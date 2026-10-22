@@ -1,19 +1,13 @@
 package ui
 
 import (
-	"cmp"
-	"maps"
 	"slices"
 	"strings"
-	"time"
 
-	"komrad/internal/assemble"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/list"
-	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
-	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
@@ -110,14 +104,14 @@ type treeRowsParams struct {
 	// flat renders the agents in the order given, with no header over them.
 	flat bool
 	// tasks are the tasks the agents work on, keyed by id, and nil renders no task headers.
-	tasks taskIndex
+	tasks panel.Tasks
 }
 
 func treeRows(params treeRowsParams) []agentRow {
 	workflows, agents := params.workflows, params.agents
 
-	writers := writersByTask(agents)
-	reviewers := reviewersByWriter(agents, writers)
+	writers := panel.WritersByTask(agents)
+	reviewers := panel.ReviewersByWriter(agents, writers)
 	rendersRow := make(map[string]bool, len(agents))
 	orchestrators := make(map[string]panel.AgentRow)
 	for _, it := range agents {
@@ -139,12 +133,12 @@ func treeRows(params treeRowsParams) []agentRow {
 
 		// A reviewer is rendered where its task's writer is, and one whose writer renders no row has
 		// nowhere to be indented under, so it stands on its own rather than going missing.
-		if writer, ok := findWriter(it, writers); ok && rendersRow[writer.Agent.ID] {
+		if writer, ok := panel.FindWriter(it, writers); ok && rendersRow[writer.Agent.ID] {
 			continue
 		}
 
 		workflowID := it.Agent.WorkflowID
-		if params.tasks.isHidden(it.Agent) {
+		if params.tasks.IsHidden(it.Agent) {
 			if !countedTasks[it.Agent.TaskID] {
 				countedTasks[it.Agent.TaskID] = true
 				hiddenCounts[workflowID]++
@@ -194,7 +188,7 @@ func treeRows(params treeRowsParams) []agentRow {
 // taskRows lays out a workflow's agents, gathering those on one task under a row for it and setting
 // a child in under its parent, so only an agent on no task, an orchestrator, sits at the
 // agent's step.
-func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
+func taskRows(listed []agentRow, tasks panel.Tasks) []agentRow {
 	if tasks == nil {
 		return listed
 	}
@@ -269,7 +263,7 @@ func taskRows(listed []agentRow, tasks taskIndex) []agentRow {
 }
 
 // parentListed is a task's parent when the parent has a row of its own here, empty otherwise.
-func parentListed(tasks taskIndex, taskID string, onTask map[string][]agentRow) string {
+func parentListed(tasks panel.Tasks, taskID string, onTask map[string][]agentRow) string {
 	parent := tasks[taskID].Parent
 	if parent == nil {
 		return ""
@@ -282,8 +276,8 @@ func parentListed(tasks taskIndex, taskID string, onTask map[string][]agentRow) 
 }
 
 // taskHeader is the row for one task, standing for its writer when the writer is listed.
-func taskHeader(gathered []agentRow, tasks taskIndex) agentRow {
-	task := tasks.findForAgent(gathered[0].item.Agent)
+func taskHeader(gathered []agentRow, tasks panel.Tasks) agentRow {
+	task := tasks.FindForAgent(gathered[0].item.Agent)
 	header := agentRow{
 		header: true,
 		task:   &task,
@@ -299,40 +293,6 @@ func taskHeader(gathered []agentRow, tasks taskIndex) agentRow {
 
 func keyAgentsByID(agents []panel.AgentRow) map[string]panel.AgentRow {
 	return xslice.KeyBy(agents, func(item panel.AgentRow) string { return item.Agent.ID })
-}
-
-// writersByTask is the writer of each task among the agents, keyed by its task.
-func writersByTask(agents []panel.AgentRow) map[string]panel.AgentRow {
-	writers := make(map[string]panel.AgentRow)
-	for _, item := range agents {
-		if item.Agent.Role == panel.RoleWriter && item.Agent.TaskID != "" {
-			writers[item.Agent.TaskID] = item
-		}
-	}
-
-	return writers
-}
-
-// findWriter is the writer of a reviewer's task, when it is among the writers.
-func findWriter(item panel.AgentRow, writers map[string]panel.AgentRow) (panel.AgentRow, bool) {
-	if item.Agent.Role != panel.RoleReviewer {
-		return panel.AgentRow{}, false
-	}
-	writer, ok := writers[item.Agent.TaskID]
-
-	return writer, ok
-}
-
-// reviewersByWriter is the reviewers on each writer's task, keyed by the writer.
-func reviewersByWriter(agents []panel.AgentRow, writers map[string]panel.AgentRow) map[string][]panel.AgentRow {
-	reviewers := make(map[string][]panel.AgentRow)
-	for _, item := range agents {
-		if writer, ok := findWriter(item, writers); ok {
-			reviewers[writer.Agent.ID] = append(reviewers[writer.Agent.ID], item)
-		}
-	}
-
-	return reviewers
 }
 
 // buildAgentRows is an agent's row with the rows of the reviewers on its task set in under it.
@@ -426,7 +386,7 @@ type agentTreeKey struct {
 func (a *agentsScreen) buildTree(m *model) []agentRow {
 	order := agentsTabs().order(a.sort)
 	key := agentTreeKey{
-		generation: m.listing.generation,
+		generation: m.listing.Generation,
 		order:      order,
 		flat:       a.sort.flat,
 		showHidden: a.showHidden,
@@ -435,12 +395,12 @@ func (a *agentsScreen) buildTree(m *model) []agentRow {
 
 	return a.tree.read(key, func() []agentRow {
 		return narrowedAgentRows(m, treeRows(treeRowsParams{
-			workflows:         m.listing.workflows,
-			agents:            sortedAgents(m.listing.agents, agentSorts, order),
+			workflows:         m.listing.Workflows,
+			agents:            sortedAgents(m.listing.Agents, agentSorts, order),
 			showHidden:        a.showHidden,
 			foldOrchestrators: true,
 			flat:              a.sort.flat,
-			tasks:             m.listing.tasks,
+			tasks:             m.listing.Tasks,
 		}))
 	})
 }
@@ -635,18 +595,6 @@ func (r agentRow) Key() string {
 	return rowKey(r)
 }
 
-// liveAgents is the listing as bare rows, for what counts over the agents a screen is showing
-// rather than over the marks beside them.
-func (l listing) liveAgents() []panel.Agent {
-	return xslice.Map(l.agents, func(it panel.AgentRow) panel.Agent { return it.Agent })
-}
-
-func (l listing) agentCount(workflowID string) int {
-	return xslice.Count(l.agents, func(it panel.AgentRow) bool {
-		return it.Agent.WorkflowID == workflowID && it.Agent.Role != panel.RoleOrchestrator
-	})
-}
-
 // displayState is the state a row wears, idle once the pane has gone even though the store
 // still holds whatever the agent stopped in.
 func displayState(item panel.AgentRow) panel.State {
@@ -656,51 +604,6 @@ func displayState(item panel.AgentRow) panel.State {
 	}
 
 	return state
-}
-
-func (l listing) liveAgent(id string) (panel.AgentRow, bool) {
-	for _, item := range l.agents {
-		if item.Agent.ID == id {
-			return item, true
-		}
-	}
-
-	return panel.AgentRow{}, false
-}
-
-// anyAgent is the agent with the id, live or archived.
-func (l listing) anyAgent(id string) (panel.AgentRow, bool) {
-	if item, ok := l.liveAgent(id); ok {
-		return item, true
-	}
-
-	for _, item := range l.archivedAgents {
-		if item.Agent.ID == id {
-			return item, true
-		}
-	}
-
-	return panel.AgentRow{}, false
-}
-
-// agentName is what an agent is called in the panel, its workflow's name for an orchestrator.
-func (l listing) agentName(agent panel.Agent) string {
-	if agent.Role == panel.RoleOrchestrator {
-		return l.workflowName(agent.WorkflowID)
-	}
-
-	return agent.Name
-}
-
-// workflowName is what a workflow is called, live or archived, or a dash when none has the id.
-func (l listing) workflowName(id string) string {
-	for _, w := range slices.Concat(l.workflows, l.archivedWorkflows) {
-		if w.ID == id {
-			return w.Name
-		}
-	}
-
-	return label.Dash
 }
 
 // apply takes a fresh listing, keeping the cursor on the row named.
@@ -731,63 +634,6 @@ func (a *agentsScreen) apply(m *model, selected string) {
 	a.reconcileRename(m)
 }
 
-// listing is what the screens render: the resources the watch has delivered, and the live and
-// archived rows assembled from them.
-type listing struct {
-	world             assemble.World
-	agents            []panel.AgentRow
-	workflows         []panel.Workflow
-	archivedAgents    []panel.AgentRow
-	archivedWorkflows []panel.Workflow
-	tasks             taskIndex
-	schedules         []scheduleItem
-	archivedSchedules []scheduleItem
-	worktrees         []worktreeItem
-	documentTypes     []*agentv1.DocumentType
-	agentsByID        map[string]panel.AgentRow
-	reviewers         map[string][]panel.AgentRow
-	generation        int
-}
-
-// assemble renders the listings, live and archived, from the world as it stands now.
-func (l *listing) assemble(now time.Time) {
-	l.generation++
-	agents := agentRowsFrom(assemble.AgentRows(l.world, now))
-	l.tasks = tasksFrom(assemble.TaskRows(l.world))
-	l.worktrees = worktreeItemsFrom(l.world.Worktrees, agents, l.tasks)
-	isArchivedAgent := func(row panel.AgentRow) bool {
-		return row.Agent.ArchivedAt != nil
-	}
-	l.agents = slices.DeleteFunc(slices.Clone(agents), isArchivedAgent)
-	l.archivedAgents = slices.DeleteFunc(agents, func(row panel.AgentRow) bool {
-		return !isArchivedAgent(row)
-	})
-	l.agentsByID = keyAgentsByID(l.agents)
-	l.reviewers = reviewersByWriter(l.agents, writersByTask(l.agents))
-
-	workflows := workflowsFrom(slices.Collect(maps.Values(l.world.Workflows)))
-	slices.SortFunc(workflows, func(a, b panel.Workflow) int {
-		return cmp.Or(strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)), strings.Compare(a.ID, b.ID))
-	})
-	isArchivedWorkflow := func(workflow panel.Workflow) bool {
-		return workflow.ArchivedAt != nil
-	}
-	l.workflows = slices.DeleteFunc(slices.Clone(workflows), isArchivedWorkflow)
-	l.archivedWorkflows = slices.DeleteFunc(workflows, func(workflow panel.Workflow) bool {
-		return !isArchivedWorkflow(workflow)
-	})
-	schedules := scheduleItemsFrom(slices.Collect(maps.Values(l.world.Schedules)))
-	slices.SortFunc(schedules, func(a, b scheduleItem) int { return strings.Compare(b.schedule.ID, a.schedule.ID) })
-	isArchivedSchedule := func(item scheduleItem) bool {
-		return item.schedule.ArchivedAt != nil
-	}
-	l.schedules = slices.DeleteFunc(slices.Clone(schedules), isArchivedSchedule)
-	l.archivedSchedules = slices.DeleteFunc(schedules, func(item scheduleItem) bool {
-		return !isArchivedSchedule(item)
-	})
-	l.documentTypes = documentTypesFrom(l.world.DocumentTypes)
-}
-
 // revealAgent puts the cursor on an agent, showing the hidden rows when it needs them.
 func (a *agentsScreen) revealAgent(m *model, id string) {
 	if toTreeRowKey(a.list().hovered(m)) == agentRowKey(id) {
@@ -804,7 +650,7 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 
 // revealTask puts the cursor on a task's row, or on its writer when the list draws no row for it.
 func (a *agentsScreen) revealTask(m *model, taskID, writerID string) {
-	if m.listing.tasks[taskID].Hidden {
+	if m.listing.Tasks[taskID].Hidden {
 		a.showHidden = true
 	}
 	if idx := list.IndexOf(a.rows(m), taskRowKey(taskID)); idx >= 0 {
@@ -818,7 +664,7 @@ func (a *agentsScreen) revealTask(m *model, taskID, writerID string) {
 
 // showHiddenFor shows the hidden tasks when the agent works on one.
 func (a *agentsScreen) showHiddenFor(m *model, id string) {
-	if m.listing.tasks.isHidden(m.listing.agentsByID[id].Agent) {
+	if m.listing.Tasks.IsHidden(m.listing.AgentsByID[id].Agent) {
 		a.showHidden = true
 	}
 }

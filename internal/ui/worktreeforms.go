@@ -92,7 +92,7 @@ func describeStanding(inspections map[string]worktreeInspection, dirs []string) 
 			settled++
 		case inspection.err != nil:
 			refusals = append(refusals, errui.GetReason(inspection.err))
-		case !inspection.item.readable:
+		case !inspection.item.Readable:
 			refusals = append(refusals, "git cannot read it")
 		default:
 			read++

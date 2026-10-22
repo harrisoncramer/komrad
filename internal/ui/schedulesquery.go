@@ -31,7 +31,7 @@ func (m *model) scheduleItemFits(item scheduleItem) clauseFits {
 		case searchsyntax.KeyName:
 			return containsFold(item.schedule.Name, clause.Value)
 		case searchsyntax.KeyWorkflow:
-			return containsFold(m.listing.workflowName(item.schedule.WorkflowID), clause.Value)
+			return containsFold(m.listing.WorkflowName(item.schedule.WorkflowID), clause.Value)
 		case searchsyntax.KeyIs:
 			return !item.schedule.Enabled
 		}

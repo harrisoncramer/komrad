@@ -135,15 +135,15 @@ func (r reviewScreen) sideAt(stops []sideCursor) int {
 
 // findTask is the task under review.
 func (r reviewScreen) findTask(m *model) panel.Task {
-	return m.listing.tasks[r.taskID]
+	return m.listing.Tasks[r.taskID]
 }
 
 // stackRows is the task's stack: its ancestors, itself, and its descendants.
 func (r reviewScreen) stackRows(m *model) []sideRow {
 	task := r.findTask(m)
-	tasks := m.listing.tasks
-	ancestors := tasks.ancestorsOf(task)
-	children := tasks.childrenOf(task.ID)
+	tasks := m.listing.Tasks
+	ancestors := tasks.AncestorsOf(task)
+	children := tasks.ChildrenOf(task.ID)
 	if len(ancestors) == 0 && len(children) == 0 {
 		return nil
 	}
@@ -160,8 +160,8 @@ func (r reviewScreen) stackRows(m *model) []sideRow {
 }
 
 // appendDescendants adds a task's children and their children in turn, each under its parent.
-func appendDescendants(tasks taskIndex, rows []sideRow, id string, depth int) []sideRow {
-	for _, child := range tasks.childrenOf(id) {
+func appendDescendants(tasks panel.Tasks, rows []sideRow, id string, depth int) []sideRow {
+	for _, child := range tasks.ChildrenOf(id) {
 		if slices.ContainsFunc(rows, func(row sideRow) bool { return row.id == child.ID }) {
 			continue
 		}
@@ -174,7 +174,7 @@ func appendDescendants(tasks taskIndex, rows []sideRow, id string, depth int) []
 }
 
 // stackRow is one task of the stack, with its pull request and what blocks its cascade said after it.
-func stackRow(tasks taskIndex, task panel.Task, kind sideKind, depth int) sideRow {
+func stackRow(tasks panel.Tasks, task panel.Task, kind sideKind, depth int) sideRow {
 	row := sideRow{
 		sideCursor: sideCursor{kind: kind, id: task.ID},
 		text:       task.Slug,
@@ -472,7 +472,7 @@ func (r *reviewScreen) openStackedReview(m *model, taskID string) tea.Cmd {
 		return nil
 	}
 
-	writer, _ := m.listing.findTaskWriter(m.listing.tasks[taskID])
+	writer, _ := m.listing.FindTaskWriter(m.listing.Tasks[taskID])
 	letGo := r.endHold(m, abandonedSaid)
 
 	return tea.Batch(letGo, m.enterReview(writer.Agent))
@@ -480,8 +480,8 @@ func (r *reviewScreen) openStackedReview(m *model, taskID string) tea.Cmd {
 
 // stackedOffSaid is why the review of a task in the stack cannot open, empty when it can.
 func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
-	task := m.listing.tasks[taskID]
-	writer, ok := m.listing.findTaskWriter(task)
+	task := m.listing.Tasks[taskID]
+	writer, ok := m.listing.FindTaskWriter(task)
 	switch {
 	case r.hold.isHeld():
 		return "close the editor first"
@@ -489,7 +489,7 @@ func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
 		return "its worktree is gone"
 	case !ok || writer.Agent.ArchivedAt != nil:
 		return "its writer is archived"
-	case !m.listing.isReviewable(writer.Agent):
+	case !m.listing.IsReviewable(writer.Agent):
 		return errReviewNoCheckout.Error()
 	}
 
@@ -502,7 +502,7 @@ func (r *reviewScreen) sideMenu(m *model, side sideCursor) (submenu, bool) {
 		return submenu{}, false
 	}
 
-	task := m.listing.tasks[side.id]
+	task := m.listing.Tasks[side.id]
 	review := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
 		return m.review.openStackedReview(m, task.ID)
 	})

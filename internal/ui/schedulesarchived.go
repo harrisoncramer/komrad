@@ -7,6 +7,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -112,7 +113,7 @@ func (a *archivedSchedules) list() screenList[scheduleItem] {
 func (a *archivedSchedules) listRows(m *model) []scheduleItem {
 	return a.built.read(m.listingKey(), func() []scheduleItem {
 		return narrowed(m.filter, narrowedParams[scheduleItem]{
-			rows:  m.listing.archivedSchedules,
+			rows:  xslice.Map(m.listing.ArchivedSchedules, scheduleItemOf),
 			depth: func(scheduleItem) int { return 0 },
 			name:  func(item scheduleItem) string { return item.schedule.Name },
 			fits:  m.scheduleItemFits,

@@ -250,8 +250,8 @@ func (c *statusCheckLogsScreen) parent() screen {
 
 func (c *statusCheckLogsScreen) crumbs(m *model) crumbs {
 	name := c.agentID
-	if item, ok := m.listing.anyAgent(c.agentID); ok {
-		name = m.listing.agentName(item.Agent)
+	if item, ok := m.listing.AnyAgent(c.agentID); ok {
+		name = m.listing.AgentName(item.Agent)
 	}
 
 	return crumbs{trail: []string{name, "status checks", "logs"}}

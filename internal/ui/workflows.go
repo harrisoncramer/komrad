@@ -17,7 +17,7 @@ func newWorkflowForm(m *model) tea.Cmd {
 			return panel.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
 		})),
 	}
-	if len(m.listing.workflows) == 0 {
+	if len(m.listing.Workflows) == 0 {
 		values.Cwd = m.getHostPath()
 	}
 
@@ -74,7 +74,7 @@ func (m *model) getAvailableHooks() []string {
 }
 
 func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
-	pending := m.unstageAhead(m.listing.agentsOf(workflow.ID))
+	pending := m.unstageAhead(m.listing.AgentsOf(workflow.ID))
 
 	return pending.attach(m.awaitingWriteCmd(
 		"archiving "+workflow.Name,
@@ -84,18 +84,6 @@ func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
 			return pending.noteArchive(a.archiveWorkflow(workflow.ID))
 		},
 	))
-}
-
-// agentsOf is the agents the last listing found inside a workflow.
-func (l listing) agentsOf(workflowID string) []panel.Agent {
-	var held []panel.Agent
-	for _, item := range l.agents {
-		if item.Agent.WorkflowID == workflowID {
-			held = append(held, item.Agent)
-		}
-	}
-
-	return held
 }
 
 // eventPromptEditables are the event prompts the panel's editor key can open.

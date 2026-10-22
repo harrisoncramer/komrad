@@ -47,7 +47,7 @@ func (m *model) reportAborted(name string, sequence panel.Sequence, result *agen
 
 	m.pushMessage(message{
 		kind:    messageInfo,
-		summary: fmt.Sprintf("%s: aborted the %s", name, sequenceFrom(result.GetSequence())),
+		summary: fmt.Sprintf("%s: aborted the %s", name, panel.SequenceFrom(result.GetSequence())),
 		detail:  strings.Join(lines, " "),
 	})
 }

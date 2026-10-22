@@ -392,7 +392,7 @@ func (p *Panel) ReadGuestPane() string {
 
 // IsAgentAlive reports whether the listing holds the agent as running.
 func (p *Panel) IsAgentAlive(id string) bool {
-	item, ok := p.model.listing.liveAgent(id)
+	item, ok := p.model.listing.LiveAgent(id)
 
 	return ok && item.Alive
 }

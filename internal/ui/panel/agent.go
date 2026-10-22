@@ -38,31 +38,31 @@ func (s State) IsFailed() bool {
 	return s == StateFailedToCreate || s == StateFailedToCleanup
 }
 
-// Role is what komrad launched an agent to do.
-type Role string
+// role is what komrad launched an agent to do.
+type role string
 
 const (
-	RoleWriter       Role = "writer"
-	RoleReviewer     Role = "reviewer"
-	RoleOrchestrator Role = "orchestrator"
+	RoleWriter       role = "writer"
+	RoleReviewer     role = "reviewer"
+	RoleOrchestrator role = "orchestrator"
 )
 
 // Sequence is what git has part-way through an agent's checkout, named as git's own command is.
 type Sequence string
 
 const (
-	SequenceNone       Sequence = ""
+	sequenceNone       Sequence = ""
 	SequenceRebase     Sequence = "rebase"
-	SequenceApply      Sequence = "am"
-	SequenceMerge      Sequence = "merge"
-	SequenceCherryPick Sequence = "cherry-pick"
-	SequenceRevert     Sequence = "revert"
-	SequenceUnknown    Sequence = "git operation"
+	sequenceApply      Sequence = "am"
+	sequenceMerge      Sequence = "merge"
+	sequenceCherryPick Sequence = "cherry-pick"
+	sequenceRevert     Sequence = "revert"
+	sequenceUnknown    Sequence = "git operation"
 )
 
 // IsInProgress reports whether anything is part-way through.
 func (s Sequence) IsInProgress() bool {
-	return s != SequenceNone
+	return s != sequenceNone
 }
 
 // Agent is one agent as the server listed it.
@@ -73,7 +73,7 @@ type Agent struct {
 	Cwd            string
 	Flags          string
 	Prompt         string
-	Role           Role
+	Role           role
 	State          State
 	StateChangedAt time.Time
 	FailureReason  string
@@ -96,6 +96,11 @@ type Agent struct {
 	Tool string
 	// Hooks is the hooks komrad installs in its CLI.
 	Hooks []string
+}
+
+// IsCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.
+func (a Agent) IsCheckoutOwner() bool {
+	return a.Role == RoleWriter && !a.ProvisionDisabled
 }
 
 // AgentRow is an agent as the listing renders it: the agent, whether its pane is alive, the mail

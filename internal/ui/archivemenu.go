@@ -39,7 +39,7 @@ func (t archived) name() string {
 }
 
 // opensAgent is the one agent whose conversation can be put back in a pane, or why there is none.
-func (t archived) opensAgent(l listing) (*panel.Agent, error) {
+func (t archived) opensAgent(l panel.Listing) (*panel.Agent, error) {
 	if t.resumed == nil {
 		return nil, errOpensOneAgent
 	}
@@ -48,7 +48,7 @@ func (t archived) opensAgent(l listing) (*panel.Agent, error) {
 		return nil, errNeverStarted
 	}
 
-	if l.tasks.findForAgent(*t.resumed).IsWorktreeRemoved() {
+	if l.Tasks.FindForAgent(*t.resumed).IsWorktreeRemoved() {
 		return nil, errWorktreeRemoved
 	}
 
@@ -247,14 +247,14 @@ func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
 		"Could not delete "+subject,
 		awaitDeleted(records, rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)),
 		func(a api) error {
-			return pending.noteArchive(a.deleteTasks(taskIDs(work.wholeTasks), records))
+			return pending.noteArchive(a.deleteTasks(panel.TaskIDs(work.wholeTasks), records))
 		},
 	))
 }
 
 // confirmDeleteChosenAgents asks what goes before the chosen agents are deleted.
 func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
-	confirm := deleteChosenConfirm(work, m.listing.hasAnyWorktreeToDelete(work.wholeTasks))
+	confirm := deleteChosenConfirm(work, m.listing.HasAnyWorktreeToDelete(work.wholeTasks))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return m.deleteChosenAgents(work, confirm.values.deletesRecords())

@@ -37,7 +37,7 @@ func restartEntries(m *model, task panel.Task) []submenuEntry {
 		return nil
 	}
 
-	writer, refusal := m.listing.findRestartableWriter(task)
+	writer, refusal := findRestartableWriter(m.listing, task)
 	entry := openEntry("restart", m.keys.Menu.Restart, func(m *model) tea.Cmd {
 		if refusal != nil {
 			m.report("Could not restart the writer of task "+task.Slug, refusal)
@@ -53,8 +53,8 @@ func restartEntries(m *model, task panel.Task) []submenuEntry {
 }
 
 // findRestartableWriter is the task's writer when it can restart, or why it cannot.
-func (l listing) findRestartableWriter(task panel.Task) (*panel.Agent, error) {
-	writer, ok := l.findTaskWriter(task)
+func findRestartableWriter(l panel.Listing, task panel.Task) (*panel.Agent, error) {
+	writer, ok := l.FindTaskWriter(task)
 	if !ok {
 		return nil, errNoWriter
 	}
@@ -99,8 +99,8 @@ func (m *model) restartAgent(agent panel.Agent, values restartValues) tea.Cmd {
 	pending := m.unstageAhead([]panel.Agent{agent})
 
 	return pending.attach(m.agentWriteCmd(
-		"restarting "+m.listing.agentName(agent),
-		fmt.Sprintf("Could not restart agent %q", m.listing.agentName(agent)),
+		"restarting "+m.listing.AgentName(agent),
+		fmt.Sprintf("Could not restart agent %q", m.listing.AgentName(agent)),
 		func(a api) (*agentv1.Agent, error) {
 			return a.restartAgent(restartAgentParams{
 				ID:      agent.ID,

@@ -24,15 +24,15 @@ type documentFormValues struct {
 
 // newDocumentForm puts up the form for a document written for an agent.
 func newDocumentForm(m *model, agentID string) tea.Cmd {
-	owner, types := agentID, m.listing.documentTypeNames()
-	if item, ok := m.listing.anyAgent(agentID); ok {
+	owner, types := agentID, m.listing.DocumentTypeNames()
+	if item, ok := m.listing.AnyAgent(agentID); ok {
 		owner = item.Agent.Name
 	}
 	values := &documentFormValues{Type: defaultDocumentType(types)}
 
 	return m.openForm(rebuildableForm(rebuildableFormParams{
 		Kind:  formDocument,
-		Build: func(m *model) (*huh.Form, []string) { return documentForm(values, m.listing.documentTypeNames()) },
+		Build: func(m *model) (*huh.Form, []string) { return documentForm(values, m.listing.DocumentTypeNames()) },
 		Submit: holdSubmit(func(m *model) tea.Cmd {
 			name, typeName := strings.TrimSpace(values.Name), values.Type
 			doing := "writing a document"

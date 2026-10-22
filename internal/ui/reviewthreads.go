@@ -47,7 +47,7 @@ func (r *reviewScreen) followThreads(m *model) {
 		return
 	}
 
-	threads := assemble.ReviewThreads(m.listing.world, r.agentID)
+	threads := assemble.ReviewThreads(m.listing.World, r.agentID)
 	if slices.EqualFunc(threads, r.threads.list, isSameThread) {
 		return
 	}

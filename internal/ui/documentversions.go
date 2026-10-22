@@ -1,11 +1,6 @@
 package ui
 
 import (
-	"cmp"
-	"maps"
-	"slices"
-	"strings"
-
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/list"
 	"komrad/lib/dates"
@@ -42,21 +37,6 @@ func readVersion(a api, item documentItem, version int32) (string, error) {
 	}
 
 	return document.GetBody(), nil
-}
-
-// documentTypesFrom is the document types the watch holds, by name.
-func documentTypesFrom(held map[string]*agentv1.DocumentType) []*agentv1.DocumentType {
-	types := slices.Collect(maps.Values(held))
-	slices.SortFunc(types, func(a, b *agentv1.DocumentType) int {
-		return cmp.Or(strings.Compare(strings.ToLower(a.GetName()), strings.ToLower(b.GetName())), strings.Compare(a.GetName(), b.GetName()))
-	})
-
-	return types
-}
-
-// documentTypeNames is the name of every document type, by name.
-func (l listing) documentTypeNames() []string {
-	return xslice.Map(l.documentTypes, func(t *agentv1.DocumentType) string { return t.GetName() })
 }
 
 func documentTypeItem(t *agentv1.DocumentType) documentItem {

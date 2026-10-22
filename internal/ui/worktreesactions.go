@@ -73,45 +73,31 @@ func (w *worktreesScreen) holdsARow(m *model) bool {
 	return ok
 }
 
-// worktreeFate is which of the delete paths a directory takes.
-type worktreeFate int
-
-const (
-	// fateUnowned is a directory no task answers for, which the remover takes.
-	fateUnowned worktreeFate = iota
-	// fateLive is a directory whose task is open, which is offered the task's archive.
-	fateLive
-	// fateArchived is a directory whose task is put away, which the task delete takes.
-	fateArchived
-	// fateDeleting is a directory whose task a delete has claimed, which nothing more is asked of.
-	fateDeleting
-)
-
-// deleteDesc names what the delete entry does to a directory of this fate, empty when it offers none.
-func (f worktreeFate) deleteDesc() string {
-	switch f {
-	case fateLive:
+// deleteDesc names what the delete entry does to a directory of the fate, empty when it offers none.
+func deleteDesc(fate panel.WorktreeFate) string {
+	switch fate {
+	case panel.FateLive:
 		return "archive the task"
-	case fateArchived:
+	case panel.FateArchived:
 		return "delete the task"
-	case fateUnowned:
+	case panel.FateUnowned:
 		return "remove"
-	case fateDeleting:
+	case panel.FateDeleting:
 	}
 
 	return ""
 }
 
 // deleteWorktree asks before a directory goes the way its fate decides.
-func deleteWorktree(m *model, item worktreeItem) tea.Cmd {
-	switch item.fate {
-	case fateLive:
-		return m.archiveTasks([]panel.Task{*item.task})
-	case fateArchived:
-		return confirmDeleteTasks(m, []panel.Task{*item.task})
-	case fateUnowned:
-		return confirmDeleteWorktrees(m, worktreeDeletion{unowned: []worktreeItem{item}})
-	case fateDeleting:
+func deleteWorktree(m *model, item panel.Worktree) tea.Cmd {
+	switch item.Fate {
+	case panel.FateLive:
+		return m.archiveTasks([]panel.Task{*item.Task})
+	case panel.FateArchived:
+		return confirmDeleteTasks(m, []panel.Task{*item.Task})
+	case panel.FateUnowned:
+		return confirmDeleteWorktrees(m, worktreeDeletion{unowned: []panel.Worktree{item}})
+	case panel.FateDeleting:
 	}
 
 	return nil
@@ -125,12 +111,12 @@ func (w *worktreesScreen) chosenDeletion(m *model) worktreeDeletion {
 			continue
 		}
 
-		switch row.item.fate {
-		case fateLive, fateArchived:
-			deletion.tasks = append(deletion.tasks, *row.item.task)
-		case fateUnowned:
+		switch row.item.Fate {
+		case panel.FateLive, panel.FateArchived:
+			deletion.tasks = append(deletion.tasks, *row.item.Task)
+		case panel.FateUnowned:
 			deletion.unowned = append(deletion.unowned, row.item)
-		case fateDeleting:
+		case panel.FateDeleting:
 		}
 	}
 
@@ -141,7 +127,7 @@ func (w *worktreesScreen) chosenDeletion(m *model) worktreeDeletion {
 func (w *worktreesScreen) clearDeletion(m *model) worktreeDeletion {
 	deletion := worktreeDeletion{}
 	for _, row := range w.rows(m) {
-		if !row.header && row.item.fate == fateUnowned {
+		if !row.header && row.item.Fate == panel.FateUnowned {
 			deletion.unowned = append(deletion.unowned, row.item)
 		}
 	}
@@ -152,7 +138,7 @@ func (w *worktreesScreen) clearDeletion(m *model) worktreeDeletion {
 // worktreeDeletion is what one delete takes: the directories the remover takes on its own, and
 // the tasks whose delete takes theirs.
 type worktreeDeletion struct {
-	unowned []worktreeItem
+	unowned []panel.Worktree
 	tasks   []panel.Task
 }
 
@@ -166,7 +152,7 @@ func (d worktreeDeletion) isEmpty() bool {
 
 // dirs is the directories the remover takes.
 func (d worktreeDeletion) dirs() []string {
-	return xslice.Map(d.unowned, func(item worktreeItem) string { return item.dir })
+	return xslice.Map(d.unowned, func(item panel.Worktree) string { return item.Dir })
 }
 
 // chosen is how many chosen directories the deletion holds, task checkouts included.
@@ -189,7 +175,7 @@ func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
 // confirmDeleteMixed asks once before task checkouts go with their tasks and the other directories
 // through the remover.
 func confirmDeleteMixed(m *model, deletion worktreeDeletion) tea.Cmd {
-	confirm := deleteMixedConfirm(deletion, len(m.listing.agentsOnTasks(deletion.tasks)))
+	confirm := deleteMixedConfirm(deletion, len(m.listing.AgentsOnTasks(deletion.tasks)))
 
 	return confirm.open(m, func(m *model) tea.Cmd {
 		return tea.Batch(m.deleteTasks(deletion.tasks, confirm.values.deletesRecords()), deleteWorktreesCmd(m, deletion))
@@ -254,14 +240,14 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 		menu = withNested(menu, "archive", m.keys.Menu.Archive, liveArchiveMenu(entry))
 	}
 
-	occupant, ok := row.item.firstOccupant()
+	occupant, ok := row.item.FirstOccupant()
 	if !ok {
 		return menu, len(menu.entries) > 0
 	}
 
-	to := screenTarget{agentID: occupant.id}
-	if row.item.task != nil {
-		to.taskID = row.item.task.ID
+	to := screenTarget{agentID: occupant.ID}
+	if row.item.Task != nil {
+		to.taskID = row.item.Task.ID
 	}
 
 	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenWorktrees, to)), true
@@ -284,15 +270,15 @@ func (w *worktreesScreen) buildScreenMenu(m *model) (submenu, bool) {
 
 // worktreeDeleteEntry is the entry that sends a directory the way its fate decides, false when
 // the fate offers none.
-func worktreeDeleteEntry(m *model, item worktreeItem) (submenuEntry, bool) {
-	desc := item.fate.deleteDesc()
+func worktreeDeleteEntry(m *model, item panel.Worktree) (submenuEntry, bool) {
+	desc := deleteDesc(item.Fate)
 	run := func(m *model) tea.Cmd { return deleteWorktree(m, item) }
-	switch item.fate {
-	case fateLive:
+	switch item.Fate {
+	case panel.FateLive:
 		return writeEntry(desc, m.keys.ArchiveMenu.Archive, run), true
-	case fateArchived, fateUnowned:
+	case panel.FateArchived, panel.FateUnowned:
 		return openEntry(desc, m.keys.ArchiveMenu.Delete, run), true
-	case fateDeleting:
+	case panel.FateDeleting:
 	}
 
 	return submenuEntry{}, false

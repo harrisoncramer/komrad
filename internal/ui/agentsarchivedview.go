@@ -20,7 +20,7 @@ func (a *archivedAgents) details(m *model) details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, m.listing.archivedCount(r.workflow.ID)),
+			fields: workflowFields(r.workflow, m.listing.ArchivedCount(r.workflow.ID)),
 		}
 	}
 
@@ -68,15 +68,15 @@ func (a *archivedAgents) snapshot(m *model, pane list.Pane) view.Snapshot {
 	return agentsSnapshot(snapshotParams{
 		rows:         rows,
 		selected:     a.Selected,
-		wholeTasks:   taskIDs(work.wholeTasks),
-		scheduled:    m.listing.scheduledWorkflows(),
-		workflowDirs: m.listing.workflowDirs(),
+		wholeTasks:   panel.TaskIDs(work.wholeTasks),
+		scheduled:    m.listing.ScheduledWorkflows(),
+		workflowDirs: m.listing.WorkflowDirs(),
 		focused:      list.KeyAt(rows, a.Row),
 		caret:        pane.Caret,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, rows, m.agentRowFits),
-		tasks:        m.listing.tasks,
+		tasks:        m.listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   true,
 		flat:         a.sort.flat,

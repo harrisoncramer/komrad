@@ -166,7 +166,7 @@ func (z *triageZone) isOn() bool {
 }
 
 // refresh reads which agents need triage from the listing, timing new waits from now.
-func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.Time) {
+func (z *triageZone) refresh(agents []panel.AgentRow, tasks panel.Tasks, now time.Time) {
 	if !z.isOn() {
 		z.entries = nil
 		z.snoozed = nil
@@ -174,12 +174,12 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.
 		return
 	}
 
-	writers := writersByTask(agents)
+	writers := panel.WritersByTask(agents)
 	thinkingWriters := findThinkingWriters(agents, writers)
 	entries := make(map[string]triageEntry)
 	for _, item := range agents {
 		id := item.Agent.ID
-		if tasks.isHidden(item.Agent) || item.Agent.HeldAt != nil {
+		if tasks.IsHidden(item.Agent) || item.Agent.HeldAt != nil {
 			continue
 		}
 
@@ -195,7 +195,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks taskIndex, now time.
 
 		rule, ok := findTriageRule(triageSubject{
 			item:                item,
-			task:                tasks.findForAgent(item.Agent),
+			task:                tasks.FindForAgent(item.Agent),
 			hasThinkingReviewer: thinkingWriters[id],
 		})
 		if !ok {
@@ -232,11 +232,11 @@ func (z *triageZone) isHeld(item panel.AgentRow, writers map[string]panel.AgentR
 }
 
 // pruneSnoozes ends every snooze whose task has left triage or now waits on something else.
-func (z *triageZone) pruneSnoozes(agents []panel.AgentRow, tasks taskIndex) {
+func (z *triageZone) pruneSnoozes(agents []panel.AgentRow, tasks panel.Tasks) {
 	byID := keyAgentsByID(agents)
 	allTriaged := z.tasksByKey(agents)
 	for key, snooze := range z.snoozed {
-		if tasks.isHidden(byID[snooze.headID].Agent) {
+		if tasks.IsHidden(byID[snooze.headID].Agent) {
 			continue
 		}
 
@@ -317,7 +317,7 @@ func (z *triageZone) snooze(triaged triageTask) {
 
 // findTask is the agent's task in triage.
 func (z *triageZone) findTask(item panel.AgentRow, agents []panel.AgentRow) (triageTask, bool) {
-	head := findTriageHead(item, writersByTask(agents))
+	head := findTriageHead(item, panel.WritersByTask(agents))
 	triaged, ok := z.tasksByKey(agents)[triageKey(head)]
 
 	return triaged, ok
@@ -349,7 +349,7 @@ func triageKey(head panel.AgentRow) string {
 
 // findTriageTasks groups the agents in triage by task, under their heads, in the listing's order.
 func findTriageTasks(entries map[string]triageEntry, agents []panel.AgentRow) []triageTask {
-	writers := writersByTask(agents)
+	writers := panel.WritersByTask(agents)
 	at := make(map[string]int)
 	var allTriaged []triageTask
 	for _, item := range agents {
@@ -377,7 +377,7 @@ func findTriageTasks(entries map[string]triageEntry, agents []panel.AgentRow) []
 
 // findTriageHead is the agent a task in triage is led by: its task's writer when the writer is listed.
 func findTriageHead(item panel.AgentRow, writers map[string]panel.AgentRow) panel.AgentRow {
-	if writer, ok := findWriter(item, writers); ok {
+	if writer, ok := panel.FindWriter(item, writers); ok {
 		return writer
 	}
 
@@ -478,7 +478,7 @@ func isFinishedWriter(s triageSubject) bool {
 func findThinkingWriters(agents []panel.AgentRow, writers map[string]panel.AgentRow) map[string]bool {
 	thinking := make(map[string]bool)
 	for _, item := range agents {
-		if writer, ok := findWriter(item, writers); ok && displayState(item) == panel.StateThinking {
+		if writer, ok := panel.FindWriter(item, writers); ok && displayState(item) == panel.StateThinking {
 			thinking[writer.Agent.ID] = true
 		}
 	}
@@ -510,13 +510,13 @@ func (l agentsLayout) cursorRow(cursor int) (agentRow, bool) {
 
 // buildZone renders the most urgent tasks the zone has slots for and counts those left waiting.
 func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
-	reviewers := m.listing.reviewers
-	allTriaged := xslice.Filter(findTriageTasks(z.entries, m.listing.agents), func(triaged triageTask) bool {
-		return (!m.listing.tasks.isHidden(triaged.head.Agent) || showHidden) && !z.isSnoozed(triageKey(triaged.head))
+	reviewers := m.listing.Reviewers
+	allTriaged := xslice.Filter(findTriageTasks(z.entries, m.listing.Agents), func(triaged triageTask) bool {
+		return (!m.listing.Tasks.IsHidden(triaged.head.Agent) || showHidden) && !z.isSnoozed(triageKey(triaged.head))
 	})
 	ordered := z.orderTasks(allTriaged)
 	slotted := ordered[:min(len(ordered), z.capacity)]
-	workflows := xslice.KeyBy(m.listing.workflows, func(w panel.Workflow) string { return w.ID })
+	workflows := xslice.KeyBy(m.listing.Workflows, func(w panel.Workflow) string { return w.ID })
 	for _, triaged := range slotted {
 		for _, row := range buildAgentRows(triaged.head, reviewers[triaged.head.Agent.ID]) {
 			row.workflow = workflows[row.item.Agent.WorkflowID]

@@ -329,7 +329,7 @@ func (m *model) selectGuest(pane string) {
 func (m *model) enter(next screen, target screenTarget) tea.Cmd {
 	// The review is the one screen that refuses a target, and it refuses before the screen goes up.
 	if next == screenReview && target.agentID != "" {
-		item, ok := m.listing.liveAgent(target.agentID)
+		item, ok := m.listing.LiveAgent(target.agentID)
 		if !ok {
 			return nil
 		}

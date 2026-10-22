@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 
 	tea "charm.land/bubbletea/v2"
@@ -18,10 +19,10 @@ const entriesShown = 10
 // the listing on its way.
 func (w *worktreesScreen) enter(m *model, target screenTarget) tea.Cmd {
 	w.focus = target.agentID
-	if target.agentID != "" && !w.scope.listsAgent(m.listing.worktrees, target.agentID) {
+	if target.agentID != "" && !w.scope.listsAgent(m.listing.Worktrees, target.agentID) {
 		w.scope = scopeAll
 	}
-	w.apply(m, m.listing.worktrees, w.list().hovered(m))
+	w.apply(m, m.listing.Worktrees, w.list().hovered(m))
 	w.stage(m)
 
 	return m.waitToStage()
@@ -70,7 +71,7 @@ func (m *model) inspectWorktreeCmd() tea.Cmd {
 		return nil
 	}
 
-	return m.readWorktreeCmd(row.item.dir)
+	return m.readWorktreeCmd(row.item.Dir)
 }
 
 // readWorktreeCmd asks the server for one directory's standing, once at a time.
@@ -108,7 +109,7 @@ func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	if _, asked := m.inspections[row.item.dir]; asked {
+	if _, asked := m.inspections[row.item.Dir]; asked {
 		return nil
 	}
 
@@ -131,10 +132,10 @@ func (m *model) applyWorktreeInspection(msg worktreeInspectedMsg) {
 
 // applyWorktrees hands the screen a fresh listing and forgets the readings of directories that
 // have left it.
-func (m *model) applyWorktrees(items []worktreeItem, hovered string) {
+func (m *model) applyWorktrees(items []panel.Worktree, hovered string) {
 	listedDirs := make(map[string]bool, len(items))
 	for _, item := range items {
-		listedDirs[item.dir] = true
+		listedDirs[item.Dir] = true
 	}
 	for dir := range m.inspections {
 		if !listedDirs[dir] {

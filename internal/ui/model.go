@@ -24,6 +24,7 @@ import (
 	"komrad/internal/loader"
 	"komrad/internal/panes"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/panel"
 	"komrad/internal/ui/submitting"
 	"komrad/internal/vim"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -264,7 +265,7 @@ type model struct {
 	details         detailsState
 	messages        messagesState
 	detailsHeight   float64
-	listing         listing
+	listing         panel.Listing
 	reactors        []worldReactor
 	agents          agentsScreen
 	schedules       schedulesScreen

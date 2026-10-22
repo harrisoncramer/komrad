@@ -10,16 +10,16 @@ import (
 // of the agent, less the screen it was opened from.
 func jumpMenu(m *model, from screen, to screenTarget) submenu {
 	agentID := to.agentID
-	_, found := m.listing.anyAgent(agentID)
+	_, found := m.listing.AnyAgent(agentID)
 	target := screenTarget{agentID: agentID}
 
 	var entries []submenuEntry
 	if from != screenAgents {
-		if task, listed := m.listing.tasks[to.taskID]; listed {
+		if task, listed := m.listing.Tasks[to.taskID]; listed {
 			entries = append(entries, taskJumpEntry(m, task))
 		} else {
 			agent := openEntry("agent", m.keys.JumpMenu.Agent, func(m *model) tea.Cmd {
-				if _, live := m.listing.liveAgent(agentID); live {
+				if _, live := m.listing.LiveAgent(agentID); live {
 					return m.enterLive(target)
 				}
 
@@ -33,7 +33,7 @@ func jumpMenu(m *model, from screen, to screenTarget) submenu {
 		worktree := openEntry("worktree", m.keys.JumpMenu.Worktree, func(m *model) tea.Cmd {
 			return m.enter(screenWorktrees, target)
 		})
-		worktree.isOff = !scopeAll.listsAgent(m.listing.worktrees, agentID)
+		worktree.isOff = !scopeAll.listsAgent(m.listing.Worktrees, agentID)
 		entries = append(entries, worktree)
 	}
 	if from != screenDocuments {
@@ -53,7 +53,7 @@ func jumpMenu(m *model, from screen, to screenTarget) submenu {
 
 // taskJumpEntry lands on a task's row, off when its writer is not listed.
 func taskJumpEntry(m *model, task panel.Task) submenuEntry {
-	writer, found := m.listing.findTaskWriter(task)
+	writer, found := m.listing.FindTaskWriter(task)
 	entry := openEntry("task", m.keys.JumpMenu.Task, func(m *model) tea.Cmd {
 		target := screenTarget{agentID: writer.Agent.ID, taskID: task.ID}
 		if task.ArchivedAt != nil {

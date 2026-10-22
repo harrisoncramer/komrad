@@ -19,7 +19,7 @@ func taskDetailsTags(m *model, task panel.Task) []string {
 
 // buildWorktreeStateTags is what is uncommitted, unpushed and unpulled in the directory.
 func buildWorktreeStateTags(read worktreeInspection) []string {
-	if !read.isRead() || !read.item.readable {
+	if !read.isRead() || !read.item.Readable {
 		return nil
 	}
 
@@ -32,7 +32,7 @@ func buildWorktreeStateTags(read worktreeInspection) []string {
 		parts = append(parts, warning.Render(label.Count(n, "untracked", "untracked")))
 	}
 	switch {
-	case read.item.branch == "":
+	case read.item.Branch == "":
 	case !read.pushed && (read.baseRef == "" || read.ahead > 0):
 		parts = append(parts, warning.Render("not pushed"))
 	case read.pushed && read.unpushed > 0 && (read.ahead > 0 || !read.unpulledLanded):

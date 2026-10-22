@@ -18,7 +18,7 @@ func (strandedHoldReactor) react(m *model, changed assemble.Changed) tea.Cmd {
 	}
 
 	var cmds []tea.Cmd
-	for _, agent := range m.listing.liveAgents() {
+	for _, agent := range m.listing.LiveAgents() {
 		if !m.isStranded(agent) {
 			continue
 		}
@@ -38,7 +38,7 @@ func (m *model) isStranded(agent panel.Agent) bool {
 		return true
 	}
 
-	_, holderLives := m.listing.liveAgent(agent.HeldByAgentID)
+	_, holderLives := m.listing.LiveAgent(agent.HeldByAgentID)
 
 	return !holderLives
 }
