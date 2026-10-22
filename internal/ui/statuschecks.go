@@ -83,6 +83,15 @@ func (c *statusChecksScreen) update(m *model, msg tea.Msg) screen.Request {
 	return c.list().update(m, key, c.listActions())
 }
 
+func (c *statusChecksScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+	listed, ok := msg.(statusChecksListedMsg)
+	if !ok {
+		return nil, false
+	}
+
+	return c.applyListed(m, listed), true
+}
+
 func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 	return screenList[statusCheckRow]{
 		cursor: func() *list.Cursor { return &c.Cursor },
@@ -337,8 +346,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 	}
 }
 
-func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
-	c := &m.statusChecks
+func (c *statusChecksScreen) applyListed(m *model, msg statusChecksListedMsg) screen.Request {
 	if msg.agentID != c.agentID {
 		return nil
 	}
@@ -353,15 +361,14 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 
 	hovered := c.list().hovered(m)
 	c.commit, c.err = msg.commit, nil
-	placed := m.apply(screen.Batch{c.list().place(m, hovered), m.statusCheckLogs.reanchor(m)})
-	reads := m.statusCheckLogs.readsCmd(m)
+	requests := screen.Batch{c.list().place(m, hovered), m.statusCheckLogs.reanchor(m), screen.Cmd(m.statusCheckLogs.readsCmd(m))}
 	if !msg.headRead {
 		c.listedHead = ""
 
-		return tea.Batch(placed, reads)
+		return requests
 	}
 
-	return tea.Batch(placed, reads, m.readStatusChecksCmd())
+	return append(requests, screen.Cmd(m.readStatusChecksCmd()))
 }
 
 func isStatusCheckFinished(item statusCheckItem) bool {

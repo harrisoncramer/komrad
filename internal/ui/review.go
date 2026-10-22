@@ -106,6 +106,15 @@ func (r *reviewScreen) update(m *model, msg tea.Msg) screen.Request {
 	return screen.Batch{routed, r.followWorld(m)}
 }
 
+func (r *reviewScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+	staged, ok := msg.(reviewEditorStaged)
+	if !ok {
+		return nil, false
+	}
+
+	return r.applyEditorStaged(m, staged), true
+}
+
 func (r *reviewScreen) route(m *model, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case reviewLoadedMsg:

@@ -136,6 +136,17 @@ func (a *archivedAgents) update(m *model, msg tea.Msg) screen.Request {
 	return a.list().update(m, key, a.actions())
 }
 
+func (a *archivedAgents) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+	settled, ok := msg.(renameSettled)
+	if !ok {
+		return nil, false
+	}
+
+	a.settleRename(m, settled.row, settled.err)
+
+	return nil, true
+}
+
 func (a *archivedAgents) kinds(m *model) stops {
 	return m.agents.kinds(m)
 }

@@ -147,6 +147,12 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		return cmd
 	}
 
+	if !isKey {
+		if cmd, owned := m.routeResult(msg); owned {
+			return cmd
+		}
+	}
+
 	// Reached before the form and before a held write.
 	if isKey && m.canReadMessages() {
 		switch {
@@ -309,6 +315,23 @@ func (m *model) routeScreenMessage(msg tea.Msg) tea.Cmd {
 	return m.apply(m.active().update(m, msg))
 }
 
+// routeResult hands a message to every screen, and reports whether any of them owned it.
+func (m *model) routeResult(msg tea.Msg) (tea.Cmd, bool) {
+	var cmds []tea.Cmd
+	owned := false
+	for _, s := range m.screens() {
+		request, ok := s.receive(m, msg)
+		if !ok {
+			continue
+		}
+
+		owned = true
+		cmds = append(cmds, m.apply(request))
+	}
+
+	return tea.Batch(cmds...), owned
+}
+
 func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tickMsg:
@@ -369,24 +392,6 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		m.applyWorktreeInspection(msg)
 
 		return m.rerenderWorktreeConfirm(msg.dir), true
-	case documentsListedMsg:
-		return m.applyDocumentsListed(msg), true
-	case statusChecksListedMsg:
-		return m.applyStatusChecksListed(msg), true
-	case statusCheckLogReadMsg:
-		return m.applyStatusCheckLogRead(msg), true
-	case documentReadMsg:
-		m.applyDocumentRead(msg)
-
-		return nil, true
-	case logsSourcesMsg:
-		return m.apply(m.applyLogsSources(msg)), true
-	case logsReadMsg:
-		return m.applyLogsRead(msg), true
-	case logsTickMsg:
-		return m.applyLogsTick(msg), true
-	case logsSettledMsg:
-		return m.apply(m.applyLogsSettled(msg)), true
 	case saysSettledMsg:
 		return m.applySaysSettled(msg), true
 	case saysFoundMsg:
@@ -401,12 +406,6 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		m.applyDocFilterSettled(msg)
 
 		return nil, true
-	case documentVersionsListedMsg:
-		return m.applyDocumentVersionsListed(msg), true
-	case documentVersionReadMsg:
-		m.applyDocumentVersionRead(msg)
-
-		return nil, true
 	case urlOpenedMsg:
 		return m.apply(m.applyURLOpened(msg)), true
 	case client.WatchBatch:
@@ -419,18 +418,6 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return nil, true
 	case writeResult:
 		return m.applyWrite(msg), true
-	case renameSettled:
-		m.settleRename(msg)
-
-		return nil, true
-	case resumeSettled:
-		return m.apply(m.agents.settleResume(m, msg.agentID, msg.err)), true
-	case agentEditorStaged:
-		return m.apply(m.agents.applyEditorStaged(m, msg)), true
-	case documentEditorStaged:
-		return m.apply(m.documents.applyEditorStaged(msg)), true
-	case reviewEditorStaged:
-		return m.apply(m.review.applyEditorStaged(m, msg)), true
 	case reviewPausedMsg:
 		if m.isPausing(msg.agentID) {
 			return nil, false

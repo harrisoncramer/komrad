@@ -71,6 +71,17 @@ func (w *schedulesScreen) update(m *model, msg tea.Msg) screen.Request {
 	return m.dispatchTop(w.actions(), key.String())
 }
 
+func (w *schedulesScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+	settled, ok := msg.(renameSettled)
+	if !ok {
+		return nil, false
+	}
+
+	w.settleRename(m, settled.row, settled.err)
+
+	return nil, true
+}
+
 func (w *schedulesScreen) list() screenList[scheduleItem] {
 	return screenList[scheduleItem]{
 		cursor: func() *list.Cursor { return &w.Cursor },

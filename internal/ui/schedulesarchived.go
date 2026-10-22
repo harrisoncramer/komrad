@@ -72,6 +72,10 @@ func (a *archivedSchedules) update(m *model, msg tea.Msg) screen.Request {
 	return a.list().update(m, key, a.actions())
 }
 
+func (a *archivedSchedules) receive(*model, tea.Msg) (screen.Request, bool) {
+	return nil, false
+}
+
 func (a *archivedSchedules) kinds(m *model) stops {
 	return m.schedules.kinds(m)
 }
