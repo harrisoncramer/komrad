@@ -210,7 +210,6 @@ func (d *documentsScreen) StepKind(in screen.Inputs, delta int) screen.Request {
 func (d *documentsScreen) list() keys.ScreenList[documentRow] {
 	return keys.ScreenList[documentRow]{
 		Keys:   d.deps.keys,
-		Top:    d.deps.top,
 		Cursor: func() *list.Cursor { return &d.Cursor },
 		Rows:   d.rows,
 		Name:   documentRowName,
@@ -227,7 +226,6 @@ func (d *documentsScreen) list() keys.ScreenList[documentRow] {
 func (d *documentsScreen) documentTypeList() keys.ScreenList[documentTypeRow] {
 	return keys.ScreenList[documentTypeRow]{
 		Keys:   d.deps.keys,
-		Top:    d.deps.top,
 		Cursor: func() *list.Cursor { return &d.documentTypes },
 		Rows:   d.documentTypeRows,
 		Name:   documentTypeRowName,

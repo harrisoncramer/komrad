@@ -115,7 +115,6 @@ func (c *statusChecksScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Requ
 func (c *statusChecksScreen) list() keys.ScreenList[statusCheckRow] {
 	return keys.ScreenList[statusCheckRow]{
 		Keys:   c.deps.keys,
-		Top:    c.deps.top,
 		Cursor: func() *list.Cursor { return &c.Cursor },
 		Rows:   c.rows,
 		Name:   statusCheckRowName,

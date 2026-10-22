@@ -16,7 +16,6 @@ import (
 // rows live, and what follows the cursor onto a row.
 type ScreenList[T list.Keyed] struct {
 	Keys   config.Keybindings
-	Top    *Top
 	Cursor func() *list.Cursor
 	Rows   func(screen.Inputs) []T
 	// Name is the text a search reads a row by, nil on a list that renders no filter.

@@ -54,7 +54,6 @@ func (w *worktreesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request
 func (w *worktreesScreen) list() keys.ScreenList[worktreeRow] {
 	return keys.ScreenList[worktreeRow]{
 		Keys:   w.deps.keys,
-		Top:    w.deps.top,
 		Cursor: func() *list.Cursor { return &w.Cursor },
 		Rows:   w.rows,
 		Name:   worktreeRow.name,

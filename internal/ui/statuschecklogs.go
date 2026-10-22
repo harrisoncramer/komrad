@@ -158,7 +158,6 @@ func (c statusCheckLogsScreen) applyListed(in screen.Inputs, msg statusChecksLis
 func (c statusCheckLogsScreen) list() keys.ScreenList[statusCheckLogRow] {
 	return keys.ScreenList[statusCheckLogRow]{
 		Keys:   c.checks.deps.keys,
-		Top:    c.checks.deps.top,
 		Cursor: func() *list.Cursor { return &c.Cursor },
 		Rows:   c.rows,
 		Name:   statusCheckLogRowName,

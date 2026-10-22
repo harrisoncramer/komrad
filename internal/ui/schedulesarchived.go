@@ -126,7 +126,6 @@ func (a *archivedSchedules) Receive(in screen.Inputs, msg tea.Msg) (screen.Reque
 func (a *archivedSchedules) list() keys.ScreenList[scheduleItem] {
 	return keys.ScreenList[scheduleItem]{
 		Keys:   a.deps.keys,
-		Top:    a.deps.top,
 		Cursor: func() *list.Cursor { return &a.Cursor },
 		Rows:   a.listRows,
 		Name:   func(item scheduleItem) string { return item.schedule.Name },

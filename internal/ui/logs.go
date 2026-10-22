@@ -413,7 +413,6 @@ func (l *logsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, boo
 func (l *logsScreen) list() keys.ScreenList[logSourceRow] {
 	return keys.ScreenList[logSourceRow]{
 		Keys:   l.deps.keys,
-		Top:    l.deps.top,
 		Cursor: func() *list.Cursor { return &l.Cursor },
 		Rows:   l.rows,
 		Name:   logSourceRowName,

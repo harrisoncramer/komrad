@@ -98,7 +98,6 @@ func (w *schedulesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request
 func (w *schedulesScreen) list() keys.ScreenList[scheduleItem] {
 	return keys.ScreenList[scheduleItem]{
 		Keys:   w.deps.keys,
-		Top:    w.deps.top,
 		Cursor: func() *list.Cursor { return &w.Cursor },
 		Rows:   w.listRows,
 		Name:   scheduleItemName,

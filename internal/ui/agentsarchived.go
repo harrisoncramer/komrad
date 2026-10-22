@@ -194,7 +194,6 @@ func (a *archivedAgents) KindsSwitch() bool {
 func (a *archivedAgents) list() keys.ScreenList[agentRow] {
 	return keys.ScreenList[agentRow]{
 		Keys:   a.deps.keys,
-		Top:    a.deps.top,
 		Cursor: func() *list.Cursor { return &a.Cursor },
 		Rows:   a.listRows,
 		Name:   agentRowName,

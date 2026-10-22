@@ -73,7 +73,6 @@ func (a *agentsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, b
 func (a *agentsScreen) list() keys.ScreenList[agentRow] {
 	return keys.ScreenList[agentRow]{
 		Keys:   a.deps.keys,
-		Top:    a.deps.top,
 		Cursor: func() *list.Cursor { return &a.Cursor },
 		Rows:   a.rows,
 		Name:   agentRowName,
