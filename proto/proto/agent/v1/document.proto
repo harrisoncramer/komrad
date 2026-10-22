@@ -3,6 +3,7 @@ syntax = "proto3";
 package agent.v1;
 
 import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
 
@@ -20,10 +21,10 @@ message Document {
   string type = 4;
   // The document's text, in markdown. Empty in a listing.
   string body = 5;
-  // When the document was created, in RFC 3339.
-  string created_at = 6;
-  // When the document was last written, in RFC 3339.
-  string updated_at = 7;
+  // When the document was created.
+  google.protobuf.Timestamp created_at = 6;
+  // When the document was last written.
+  google.protobuf.Timestamp updated_at = 7;
   // How many times the document has been written.
   int32 version = 8;
   // The id of the task the agent was on when the document was created. Unset for an
@@ -117,8 +118,8 @@ message DocumentVersion {
   string type = 3;
   // Whether the person wrote this version, rather than the agent that owns the document.
   bool by_person = 4;
-  // When this version was written, in RFC 3339.
-  string created_at = 5;
+  // When this version was written.
+  google.protobuf.Timestamp created_at = 5;
 }
 
 message ListDocumentVersionsRequest {
@@ -141,8 +142,8 @@ message DocumentType {
   string context = 3;
   // How many times the document type has been written.
   int32 version = 4;
-  // When the document type was last written, in RFC 3339.
-  string updated_at = 5;
+  // When the document type was last written.
+  google.protobuf.Timestamp updated_at = 5;
 }
 
 message ListDocumentTypesResponse {
@@ -168,8 +169,8 @@ message DocumentTypeVersion {
   int32 version = 1;
   // The document type's name at this version.
   string name = 2;
-  // When this version was written, in RFC 3339.
-  string created_at = 3;
+  // When this version was written.
+  google.protobuf.Timestamp created_at = 3;
 }
 
 message ListDocumentTypeVersionsRequest {

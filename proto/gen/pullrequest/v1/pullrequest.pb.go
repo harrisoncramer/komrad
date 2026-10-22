@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	_ "komrad/proto/gen/annotation/v1"
 	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
@@ -613,15 +614,15 @@ type PullRequest struct {
 	Draft bool `protobuf:"varint,13,opt,name=draft,proto3" json:"draft,omitempty"`
 	// The pull request's state.
 	State PullRequestState `protobuf:"varint,14,opt,name=state,proto3,enum=pullrequest.v1.PullRequestState" json:"state,omitempty"`
-	// When the pull request was opened, in RFC 3339.
-	OpenedAt string `protobuf:"bytes,15,opt,name=opened_at,json=openedAt,proto3" json:"opened_at,omitempty"`
-	// When the pull request last changed on the forge, in RFC 3339.
-	ChangedAt string `protobuf:"bytes,16,opt,name=changed_at,json=changedAt,proto3" json:"changed_at,omitempty"`
-	// When the pull request merged, in RFC 3339. Unset until the pull request merges.
-	MergedAt *string `protobuf:"bytes,17,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
-	// When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is
+	// When the pull request was opened.
+	OpenedAt *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=opened_at,json=openedAt,proto3" json:"opened_at,omitempty"`
+	// When the pull request last changed on the forge.
+	ChangedAt *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=changed_at,json=changedAt,proto3" json:"changed_at,omitempty"`
+	// When the pull request merged. Unset until the pull request merges.
+	MergedAt *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
+	// When the pull request closed, merged or not. Unset while the pull request is
 	// open.
-	ClosedAt *string `protobuf:"bytes,18,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
+	ClosedAt *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
 	// How close the forge is to merging the pull request.
 	MergeReadiness *MergeReadiness `protobuf:"bytes,19,opt,name=merge_readiness,json=mergeReadiness,proto3" json:"merge_readiness,omitempty"`
 	// The login of the pull request's author. Empty when the forge no longer has the account.
@@ -760,32 +761,32 @@ func (x *PullRequest) GetState() PullRequestState {
 	return PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED
 }
 
-func (x *PullRequest) GetOpenedAt() string {
+func (x *PullRequest) GetOpenedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.OpenedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *PullRequest) GetChangedAt() string {
+func (x *PullRequest) GetChangedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ChangedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *PullRequest) GetMergedAt() string {
-	if x != nil && x.MergedAt != nil {
-		return *x.MergedAt
+func (x *PullRequest) GetMergedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.MergedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *PullRequest) GetClosedAt() string {
-	if x != nil && x.ClosedAt != nil {
-		return *x.ClosedAt
+func (x *PullRequest) GetClosedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ClosedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *PullRequest) GetMergeReadiness() *MergeReadiness {
@@ -1451,10 +1452,10 @@ type StatusCheckReading struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The head commit the status checks were read on.
 	HeadSha string `protobuf:"bytes,1,opt,name=head_sha,json=headSha,proto3" json:"head_sha,omitempty"`
-	// When komrad first read the checks on the commit, in RFC 3339.
-	FirstReadAt *string `protobuf:"bytes,2,opt,name=first_read_at,json=firstReadAt,proto3,oneof" json:"first_read_at,omitempty"`
-	// When komrad last asked the forge about the commit, in RFC 3339.
-	ReadAt *string `protobuf:"bytes,3,opt,name=read_at,json=readAt,proto3,oneof" json:"read_at,omitempty"`
+	// When komrad first read the checks on the commit.
+	FirstReadAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=first_read_at,json=firstReadAt,proto3,oneof" json:"first_read_at,omitempty"`
+	// When komrad last asked the forge about the commit.
+	ReadAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=read_at,json=readAt,proto3,oneof" json:"read_at,omitempty"`
 	// The newest run of each status check on the commit, by source, run event and name.
 	StatusChecks  []*StatusCheck `protobuf:"bytes,4,rep,name=status_checks,json=statusChecks,proto3" json:"status_checks,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1498,18 +1499,18 @@ func (x *StatusCheckReading) GetHeadSha() string {
 	return ""
 }
 
-func (x *StatusCheckReading) GetFirstReadAt() string {
-	if x != nil && x.FirstReadAt != nil {
-		return *x.FirstReadAt
+func (x *StatusCheckReading) GetFirstReadAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FirstReadAt
 	}
-	return ""
+	return nil
 }
 
-func (x *StatusCheckReading) GetReadAt() string {
-	if x != nil && x.ReadAt != nil {
-		return *x.ReadAt
+func (x *StatusCheckReading) GetReadAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ReadAt
 	}
-	return ""
+	return nil
 }
 
 func (x *StatusCheckReading) GetStatusChecks() []*StatusCheck {
@@ -1534,10 +1535,10 @@ type StatusCheck struct {
 	State StatusCheckState `protobuf:"varint,5,opt,name=state,proto3,enum=pullrequest.v1.StatusCheckState" json:"state,omitempty"`
 	// The check's conclusion, in the forge's words. Empty until the check completes.
 	Conclusion string `protobuf:"bytes,6,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
-	// When the check started, in RFC 3339. Unset when the forge does not say.
-	StartedAt *string `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
-	// When the check finished, in RFC 3339. Unset until the check finishes.
-	FinishedAt *string `protobuf:"bytes,8,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
+	// When the check started. Unset when the forge does not say.
+	StartedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
+	// When the check finished. Unset until the check finishes.
+	FinishedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
 	// Whether the pull request needs the check to pass before it merges.
 	Required bool `protobuf:"varint,9,opt,name=required,proto3" json:"required,omitempty"`
 	// The check's web address.
@@ -1547,9 +1548,9 @@ type StatusCheck struct {
 	// The event that started the check's CI workflow, such as `pull_request` or `push`. Empty when
 	// no CI workflow ran the check.
 	RunEvent string `protobuf:"bytes,12,opt,name=run_event,json=runEvent,proto3" json:"run_event,omitempty"`
-	// When the check's CI workflow run was created, in RFC 3339. Unset when no CI workflow ran the
+	// When the check's CI workflow run was created. Unset when no CI workflow ran the
 	// check.
-	RunStartedAt *string `protobuf:"bytes,13,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
+	RunStartedAt *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
 	// The check's log, as komrad keeps it.
 	Log *CheckLog `protobuf:"bytes,14,opt,name=log,proto3" json:"log,omitempty"`
 	// The check's id, which `ReadCheckLog` and `SearchCheckLogs` take.
@@ -1632,18 +1633,18 @@ func (x *StatusCheck) GetConclusion() string {
 	return ""
 }
 
-func (x *StatusCheck) GetStartedAt() string {
-	if x != nil && x.StartedAt != nil {
-		return *x.StartedAt
+func (x *StatusCheck) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *StatusCheck) GetFinishedAt() string {
-	if x != nil && x.FinishedAt != nil {
-		return *x.FinishedAt
+func (x *StatusCheck) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *StatusCheck) GetRequired() bool {
@@ -1674,11 +1675,11 @@ func (x *StatusCheck) GetRunEvent() string {
 	return ""
 }
 
-func (x *StatusCheck) GetRunStartedAt() string {
-	if x != nil && x.RunStartedAt != nil {
-		return *x.RunStartedAt
+func (x *StatusCheck) GetRunStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RunStartedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *StatusCheck) GetLog() *CheckLog {
@@ -1707,8 +1708,8 @@ type CheckLog struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The state of fetching the log.
 	State CheckLogState `protobuf:"varint,1,opt,name=state,proto3,enum=pullrequest.v1.CheckLogState" json:"state,omitempty"`
-	// When komrad last asked the forge for the log, in RFC 3339. Unset until komrad asks.
-	FetchedAt *string `protobuf:"bytes,2,opt,name=fetched_at,json=fetchedAt,proto3,oneof" json:"fetched_at,omitempty"`
+	// When komrad last asked the forge for the log. Unset until komrad asks.
+	FetchedAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=fetched_at,json=fetchedAt,proto3,oneof" json:"fetched_at,omitempty"`
 	// How many lines the fetched log has.
 	LineCount int32 `protobuf:"varint,3,opt,name=line_count,json=lineCount,proto3" json:"line_count,omitempty"`
 	// How many lines of the fetched log the forge marked as errors.
@@ -1757,11 +1758,11 @@ func (x *CheckLog) GetState() CheckLogState {
 	return CheckLogState_CHECK_LOG_STATE_UNSPECIFIED
 }
 
-func (x *CheckLog) GetFetchedAt() string {
-	if x != nil && x.FetchedAt != nil {
-		return *x.FetchedAt
+func (x *CheckLog) GetFetchedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FetchedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *CheckLog) GetLineCount() int32 {
@@ -1896,10 +1897,10 @@ type StatusCheckStep struct {
 	State StatusCheckState `protobuf:"varint,3,opt,name=state,proto3,enum=pullrequest.v1.StatusCheckState" json:"state,omitempty"`
 	// The step's conclusion, in the forge's words. Empty until the step completes.
 	Conclusion string `protobuf:"bytes,4,opt,name=conclusion,proto3" json:"conclusion,omitempty"`
-	// When the step started, in RFC 3339. Unset when the forge does not say.
-	StartedAt *string `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
-	// When the step finished, in RFC 3339. Unset until the step finishes.
-	FinishedAt *string `protobuf:"bytes,6,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
+	// When the step started. Unset when the forge does not say.
+	StartedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=started_at,json=startedAt,proto3,oneof" json:"started_at,omitempty"`
+	// When the step finished. Unset until the step finishes.
+	FinishedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=finished_at,json=finishedAt,proto3,oneof" json:"finished_at,omitempty"`
 	// Whether the step completed with a passing conclusion, such as success, neutral or skipped.
 	Passed        bool `protobuf:"varint,7,opt,name=passed,proto3" json:"passed,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1964,18 +1965,18 @@ func (x *StatusCheckStep) GetConclusion() string {
 	return ""
 }
 
-func (x *StatusCheckStep) GetStartedAt() string {
-	if x != nil && x.StartedAt != nil {
-		return *x.StartedAt
+func (x *StatusCheckStep) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *StatusCheckStep) GetFinishedAt() string {
-	if x != nil && x.FinishedAt != nil {
-		return *x.FinishedAt
+func (x *StatusCheckStep) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *StatusCheckStep) GetPassed() bool {
@@ -1989,7 +1990,7 @@ var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
 	"\x17ListPullRequestsRequest\x121\n" +
 	"\x0erepository_url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\rrepositoryUrl\x12)\n" +
@@ -1998,7 +1999,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\xc2\x05\n" +
+	"\v_pagination\"\xb2\x06\n" +
 	"\vPullRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
@@ -2017,12 +2018,12 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"baseBranch\x12\x19\n" +
 	"\bbase_sha\x18\f \x01(\tR\abaseSha\x12\x14\n" +
 	"\x05draft\x18\r \x01(\bR\x05draft\x126\n" +
-	"\x05state\x18\x0e \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x12\x1b\n" +
-	"\topened_at\x18\x0f \x01(\tR\bopenedAt\x12\x1d\n" +
+	"\x05state\x18\x0e \x01(\x0e2 .pullrequest.v1.PullRequestStateR\x05state\x127\n" +
+	"\topened_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\bopenedAt\x129\n" +
 	"\n" +
-	"changed_at\x18\x10 \x01(\tR\tchangedAt\x12 \n" +
-	"\tmerged_at\x18\x11 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
-	"\tclosed_at\x18\x12 \x01(\tH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
+	"changed_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\tchangedAt\x12<\n" +
+	"\tmerged_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\bmergedAt\x88\x01\x01\x12<\n" +
+	"\tclosed_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\bclosedAt\x88\x01\x01\x12G\n" +
 	"\x0fmerge_readiness\x18\x13 \x01(\v2\x1e.pullrequest.v1.MergeReadinessR\x0emergeReadiness\x12\x16\n" +
 	"\x06author\x18\x14 \x01(\tR\x06author\x12\x12\n" +
 	"\x04body\x18\x15 \x01(\tR\x04bodyB\f\n" +
@@ -2074,15 +2075,15 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\vstep_number\x18\x03 \x01(\x05R\n" +
 	"stepNumber\x12\x12\n" +
 	"\x04text\x18\x04 \x01(\tR\x04text\x12\x10\n" +
-	"\x03cut\x18\x05 \x01(\bR\x03cut\"\xd6\x01\n" +
+	"\x03cut\x18\x05 \x01(\bR\x03cut\"\x8e\x02\n" +
 	"\x12StatusCheckReading\x12\x19\n" +
-	"\bhead_sha\x18\x01 \x01(\tR\aheadSha\x12'\n" +
-	"\rfirst_read_at\x18\x02 \x01(\tH\x00R\vfirstReadAt\x88\x01\x01\x12\x1c\n" +
-	"\aread_at\x18\x03 \x01(\tH\x01R\x06readAt\x88\x01\x01\x12@\n" +
+	"\bhead_sha\x18\x01 \x01(\tR\aheadSha\x12C\n" +
+	"\rfirst_read_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\vfirstReadAt\x88\x01\x01\x128\n" +
+	"\aread_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\x06readAt\x88\x01\x01\x12@\n" +
 	"\rstatus_checks\x18\x04 \x03(\v2\x1b.pullrequest.v1.StatusCheckR\fstatusChecksB\x10\n" +
 	"\x0e_first_read_atB\n" +
 	"\n" +
-	"\b_read_at\"\xe4\x04\n" +
+	"\b_read_at\"\xb8\x05\n" +
 	"\vStatusCheck\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x123\n" +
@@ -2092,27 +2093,27 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x05state\x18\x05 \x01(\x0e2 .pullrequest.v1.StatusCheckStateR\x05state\x12\x1e\n" +
 	"\n" +
 	"conclusion\x18\x06 \x01(\tR\n" +
-	"conclusion\x12\"\n" +
+	"conclusion\x12>\n" +
 	"\n" +
-	"started_at\x18\a \x01(\tH\x00R\tstartedAt\x88\x01\x01\x12$\n" +
-	"\vfinished_at\x18\b \x01(\tH\x01R\n" +
+	"started_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tstartedAt\x88\x01\x01\x12@\n" +
+	"\vfinished_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampH\x01R\n" +
 	"finishedAt\x88\x01\x01\x12\x1a\n" +
 	"\brequired\x18\t \x01(\bR\brequired\x12\x10\n" +
 	"\x03url\x18\n" +
 	" \x01(\tR\x03url\x125\n" +
 	"\x05steps\x18\v \x03(\v2\x1f.pullrequest.v1.StatusCheckStepR\x05steps\x12\x1b\n" +
-	"\trun_event\x18\f \x01(\tR\brunEvent\x12)\n" +
-	"\x0erun_started_at\x18\r \x01(\tH\x02R\frunStartedAt\x88\x01\x01\x12*\n" +
+	"\trun_event\x18\f \x01(\tR\brunEvent\x12E\n" +
+	"\x0erun_started_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampH\x02R\frunStartedAt\x88\x01\x01\x12*\n" +
 	"\x03log\x18\x0e \x01(\v2\x18.pullrequest.v1.CheckLogR\x03log\x12\x0e\n" +
 	"\x02id\x18\x0f \x01(\tR\x02id\x12\x16\n" +
 	"\x06passed\x18\x10 \x01(\bR\x06passedB\r\n" +
 	"\v_started_atB\x0e\n" +
 	"\f_finished_atB\x11\n" +
-	"\x0f_run_started_at\"\xe6\x01\n" +
+	"\x0f_run_started_at\"\x82\x02\n" +
 	"\bCheckLog\x123\n" +
-	"\x05state\x18\x01 \x01(\x0e2\x1d.pullrequest.v1.CheckLogStateR\x05state\x12\"\n" +
+	"\x05state\x18\x01 \x01(\x0e2\x1d.pullrequest.v1.CheckLogStateR\x05state\x12>\n" +
 	"\n" +
-	"fetched_at\x18\x02 \x01(\tH\x00R\tfetchedAt\x88\x01\x01\x12\x1d\n" +
+	"fetched_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tfetchedAt\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"line_count\x18\x03 \x01(\x05R\tlineCount\x12\x1f\n" +
 	"\verror_count\x18\x04 \x01(\x05R\n" +
@@ -2131,17 +2132,17 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"line_count\x18\x05 \x01(\x05R\tlineCount\x12\x1f\n" +
 	"\verror_count\x18\x06 \x01(\x05R\n" +
 	"errorCount\x12\x16\n" +
-	"\x06passed\x18\a \x01(\bR\x06passed\"\x96\x02\n" +
+	"\x06passed\x18\a \x01(\bR\x06passed\"\xce\x02\n" +
 	"\x0fStatusCheckStep\x12\x16\n" +
 	"\x06number\x18\x01 \x01(\x05R\x06number\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x126\n" +
 	"\x05state\x18\x03 \x01(\x0e2 .pullrequest.v1.StatusCheckStateR\x05state\x12\x1e\n" +
 	"\n" +
 	"conclusion\x18\x04 \x01(\tR\n" +
-	"conclusion\x12\"\n" +
+	"conclusion\x12>\n" +
 	"\n" +
-	"started_at\x18\x05 \x01(\tH\x00R\tstartedAt\x88\x01\x01\x12$\n" +
-	"\vfinished_at\x18\x06 \x01(\tH\x01R\n" +
+	"started_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tstartedAt\x88\x01\x01\x12@\n" +
+	"\vfinished_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\n" +
 	"finishedAt\x88\x01\x01\x12\x16\n" +
 	"\x06passed\x18\a \x01(\bR\x06passedB\r\n" +
 	"\v_started_atB\x0e\n" +
@@ -2252,39 +2253,52 @@ var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(*CheckLogStep)(nil),             // 23: pullrequest.v1.CheckLogStep
 	(*StatusCheckStep)(nil),          // 24: pullrequest.v1.StatusCheckStep
 	(*v1.Pagination)(nil),            // 25: pagination.v1.Pagination
+	(*timestamppb.Timestamp)(nil),    // 26: google.protobuf.Timestamp
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
 	25, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	9,  // 2: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
-	2,  // 3: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
-	3,  // 4: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
-	1,  // 5: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
-	8,  // 6: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	20, // 7: pullrequest.v1.ListStatusChecksResponse.readings:type_name -> pullrequest.v1.StatusCheckReading
-	16, // 8: pullrequest.v1.ReadCheckLogResponse.lines:type_name -> pullrequest.v1.CheckLogLine
-	19, // 9: pullrequest.v1.SearchCheckLogsResponse.hits:type_name -> pullrequest.v1.CheckLogHit
-	21, // 10: pullrequest.v1.StatusCheckReading.status_checks:type_name -> pullrequest.v1.StatusCheck
-	5,  // 11: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
-	6,  // 12: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
-	24, // 13: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
-	22, // 14: pullrequest.v1.StatusCheck.log:type_name -> pullrequest.v1.CheckLog
-	4,  // 15: pullrequest.v1.CheckLog.state:type_name -> pullrequest.v1.CheckLogState
-	23, // 16: pullrequest.v1.CheckLog.steps:type_name -> pullrequest.v1.CheckLogStep
-	6,  // 17: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
-	7,  // 18: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	12, // 19: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
-	14, // 20: pullrequest.v1.PullRequestService.ReadCheckLog:input_type -> pullrequest.v1.ReadCheckLogRequest
-	17, // 21: pullrequest.v1.PullRequestService.SearchCheckLogs:input_type -> pullrequest.v1.SearchCheckLogsRequest
-	11, // 22: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	13, // 23: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
-	15, // 24: pullrequest.v1.PullRequestService.ReadCheckLog:output_type -> pullrequest.v1.ReadCheckLogResponse
-	18, // 25: pullrequest.v1.PullRequestService.SearchCheckLogs:output_type -> pullrequest.v1.SearchCheckLogsResponse
-	22, // [22:26] is the sub-list for method output_type
-	18, // [18:22] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	26, // 2: pullrequest.v1.PullRequest.opened_at:type_name -> google.protobuf.Timestamp
+	26, // 3: pullrequest.v1.PullRequest.changed_at:type_name -> google.protobuf.Timestamp
+	26, // 4: pullrequest.v1.PullRequest.merged_at:type_name -> google.protobuf.Timestamp
+	26, // 5: pullrequest.v1.PullRequest.closed_at:type_name -> google.protobuf.Timestamp
+	9,  // 6: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
+	2,  // 7: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
+	3,  // 8: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
+	1,  // 9: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
+	8,  // 10: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	20, // 11: pullrequest.v1.ListStatusChecksResponse.readings:type_name -> pullrequest.v1.StatusCheckReading
+	16, // 12: pullrequest.v1.ReadCheckLogResponse.lines:type_name -> pullrequest.v1.CheckLogLine
+	19, // 13: pullrequest.v1.SearchCheckLogsResponse.hits:type_name -> pullrequest.v1.CheckLogHit
+	26, // 14: pullrequest.v1.StatusCheckReading.first_read_at:type_name -> google.protobuf.Timestamp
+	26, // 15: pullrequest.v1.StatusCheckReading.read_at:type_name -> google.protobuf.Timestamp
+	21, // 16: pullrequest.v1.StatusCheckReading.status_checks:type_name -> pullrequest.v1.StatusCheck
+	5,  // 17: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
+	6,  // 18: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
+	26, // 19: pullrequest.v1.StatusCheck.started_at:type_name -> google.protobuf.Timestamp
+	26, // 20: pullrequest.v1.StatusCheck.finished_at:type_name -> google.protobuf.Timestamp
+	24, // 21: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
+	26, // 22: pullrequest.v1.StatusCheck.run_started_at:type_name -> google.protobuf.Timestamp
+	22, // 23: pullrequest.v1.StatusCheck.log:type_name -> pullrequest.v1.CheckLog
+	4,  // 24: pullrequest.v1.CheckLog.state:type_name -> pullrequest.v1.CheckLogState
+	26, // 25: pullrequest.v1.CheckLog.fetched_at:type_name -> google.protobuf.Timestamp
+	23, // 26: pullrequest.v1.CheckLog.steps:type_name -> pullrequest.v1.CheckLogStep
+	6,  // 27: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
+	26, // 28: pullrequest.v1.StatusCheckStep.started_at:type_name -> google.protobuf.Timestamp
+	26, // 29: pullrequest.v1.StatusCheckStep.finished_at:type_name -> google.protobuf.Timestamp
+	7,  // 30: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	12, // 31: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
+	14, // 32: pullrequest.v1.PullRequestService.ReadCheckLog:input_type -> pullrequest.v1.ReadCheckLogRequest
+	17, // 33: pullrequest.v1.PullRequestService.SearchCheckLogs:input_type -> pullrequest.v1.SearchCheckLogsRequest
+	11, // 34: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	13, // 35: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
+	15, // 36: pullrequest.v1.PullRequestService.ReadCheckLog:output_type -> pullrequest.v1.ReadCheckLogResponse
+	18, // 37: pullrequest.v1.PullRequestService.SearchCheckLogs:output_type -> pullrequest.v1.SearchCheckLogsResponse
+	34, // [34:38] is the sub-list for method output_type
+	30, // [30:34] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }

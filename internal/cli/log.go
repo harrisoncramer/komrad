@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/lib/dates"
 	"komrad/lib/xhttp"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1connect"
@@ -94,7 +95,7 @@ func listRecentTraces(ctx context.Context, out io.Writer, client logv1connect.Lo
 	var written strings.Builder
 	for _, trace := range traces {
 		fmt.Fprintf(&written, "%s  %-36s  %-28s  %d line(s)\n",
-			shortTime(trace.GetStartedAt()), trace.GetTraceId(), trace.GetWhat(), trace.GetLines())
+			shortTime(dates.Read(trace.GetStartedAt())), trace.GetTraceId(), trace.GetWhat(), trace.GetLines())
 	}
 
 	return writeOut(out, written.String())
@@ -111,7 +112,7 @@ func writeOut(out io.Writer, body string) error {
 func renderLogLine(line *logv1.LogLine) string {
 	var out strings.Builder
 
-	out.WriteString(shortTime(line.GetTime()))
+	out.WriteString(shortTime(dates.Read(line.GetTime())))
 	out.WriteString("  ")
 	fmt.Fprintf(&out, "%-5s", strings.ToLower(line.GetLevel()))
 	out.WriteString("  ")
@@ -131,10 +132,10 @@ func renderLogLine(line *logv1.LogLine) string {
 	return out.String()
 }
 
-func shortTime(stamp string) string {
-	if len(stamp) < 19 {
-		return stamp
+func shortTime(at time.Time) string {
+	if at.IsZero() {
+		return ""
 	}
 
-	return stamp[11:19]
+	return at.Local().Format(time.TimeOnly)
 }

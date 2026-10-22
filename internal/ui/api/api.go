@@ -10,6 +10,7 @@ import (
 
 	"komrad/internal/client"
 	"komrad/internal/ui/panel"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -209,7 +210,7 @@ type UpdateTaskParams struct {
 	Title          *string
 	Goal           *string
 	Notes          *string
-	NotesUpdatedAt *string
+	NotesUpdatedAt *time.Time
 }
 
 // UpdateTask changes what the params name of a task.
@@ -221,7 +222,7 @@ func (a Clients) UpdateTask(params UpdateTaskParams) error {
 			Title:          params.Title,
 			Goal:           params.Goal,
 			Notes:          params.Notes,
-			NotesUpdatedAt: params.NotesUpdatedAt,
+			NotesUpdatedAt: dates.StampPtr(params.NotesUpdatedAt),
 		}))
 	})
 }

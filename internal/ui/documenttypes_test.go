@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestDocumentTypesList covers the types listed on the documents view, each rendered
@@ -229,7 +230,7 @@ func newDocumentType(id, name string) *agentv1.DocumentType {
 		Name:      name,
 		Context:   "How to write " + article + " " + name + ".",
 		Version:   2,
-		UpdatedAt: "2026-09-25T12:00:00Z",
+		UpdatedAt: timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
 	}
 }
 

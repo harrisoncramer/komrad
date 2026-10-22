@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
@@ -61,7 +62,7 @@ func TestAgent(t *testing.T) {
 				Name:           "worker",
 				State:          agentv1.AgentState_AGENT_STATE_WAITING,
 				Role:           agentv1.AgentRole_AGENT_ROLE_REVIEWER,
-				StateChangedAt: changed.Format(time.RFC3339),
+				StateChangedAt: timestamppb.New(changed),
 				Alive:          xptr.Ptr(false),
 			},
 		},
@@ -123,7 +124,7 @@ func TestAgent(t *testing.T) {
 				Name:               "author",
 				Alive:              xptr.Ptr(false),
 				Documents:          2,
-				DocumentsUpdatedAt: xptr.Ptr("2026-09-01T09:09:00.25Z"),
+				DocumentsUpdatedAt: timestamppb.New(time.Date(2026, 9, 1, 9, 9, 0, 250_000_000, time.UTC)),
 			},
 		},
 		{

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"regexp"
 	"testing"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/logread"
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	runstore "komrad/internal/store/run"
 )
@@ -148,7 +150,7 @@ func (f *fakeLogReader) RecentTraces(int) ([]logread.Summary, error) {
 // TestGetLogLines pins that a line's bookkeeping keys and unrenderable values leave its fields.
 func TestGetLogLines(t *testing.T) {
 	reader := &fakeLogReader{lines: []logread.Line{{
-		Time:    "2026-08-06T22:47:32.293Z",
+		Time:    time.Date(2026, 8, 6, 22, 47, 32, 293_000_000, time.UTC),
 		Level:   "ERROR",
 		Message: "rpc failed",
 		Trace:   "trace-one",
@@ -171,7 +173,7 @@ func TestGetLogLines(t *testing.T) {
 	require.NoError(t, err)
 
 	want := &logv1.GetLogLinesResponse{Lines: []*logv1.LogLine{{
-		Time:    "2026-08-06T22:47:32.293Z",
+		Time:    timestamppb.New(time.Date(2026, 8, 6, 22, 47, 32, 293_000_000, time.UTC)),
 		Level:   "ERROR",
 		Message: "rpc failed",
 		Fields:  fields,

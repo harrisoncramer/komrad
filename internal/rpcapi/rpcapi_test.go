@@ -6,6 +6,7 @@ import (
 
 	agentv1 "komrad/proto/gen/agent/v1"
 	annotationv1 "komrad/proto/gen/annotation/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,6 +50,27 @@ func TestIsRequired(t *testing.T) {
 			field := tt.message.Fields().ByName(protoreflect.Name(tt.field))
 			require.NotNil(t, field)
 			assert.Equal(t, tt.want, IsRequired(field))
+		})
+	}
+}
+
+// TestIsTimestamp checks only a google.protobuf.Timestamp counts, not any message.
+func TestIsTimestamp(t *testing.T) {
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		field   string
+		want    bool
+	}{
+		{message: (&agentv1.ListAgentsRequest{}).ProtoReflect().Descriptor(), field: "pagination", want: false},
+		{message: (&taskv1.SetTaskNotesRequest{}).ProtoReflect().Descriptor(), field: "notes", want: false},
+		{message: (&taskv1.SetTaskNotesRequest{}).ProtoReflect().Descriptor(), field: "notes_updated_at", want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.message.Name())+"."+tt.field, func(t *testing.T) {
+			field := tt.message.Fields().ByName(protoreflect.Name(tt.field))
+			require.NotNil(t, field)
+			assert.Equal(t, tt.want, IsTimestamp(field))
 		})
 	}
 }

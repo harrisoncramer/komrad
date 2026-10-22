@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/loader"
 	"komrad/internal/ui/paneltest"
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestLoaderSpinsWhileChecksRun covers a pull request with checks running rendering the configured loader a frame a tick.
@@ -44,7 +46,7 @@ func TestLoaderSpinsForATaskWithoutItsWriter(t *testing.T) {
 	task.Id, task.Slug, task.Title = "t1", "fix-login", "Fix login"
 	writer.TaskId = xptr.Ptr("t1")
 	writer.TaskSlug = xptr.Ptr("fix-login")
-	writer.CreatedAt = "2026-09-20T12:05:00Z"
+	writer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 5, 0, 0, time.UTC))
 	other := newAgentAt("checker", "w1", 0)
 	other.TaskId = xptr.Ptr("t1")
 	other.TaskSlug = xptr.Ptr("fix-login")
@@ -198,7 +200,7 @@ func openArchiveWithChecksRunning(t *testing.T) *paneltest.Panel {
 	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING)
 	agent, ok := rows[0].(*agentv1.Agent)
 	require.True(t, ok)
-	agent.ArchivedAt = xptr.Ptr(archivedAt)
+	agent.ArchivedAt = archivedAt
 
 	return openArchivedAgents(t, append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...)
 }

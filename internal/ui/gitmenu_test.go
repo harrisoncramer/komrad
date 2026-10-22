@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
@@ -23,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestGitMenu covers the menu of git actions rendered over the agent the cursor is on.
@@ -1099,14 +1101,14 @@ func newOpenPullRequest() *pullrequestv1.PullRequest {
 		Number:            740,
 		Url:               pullRequestURL,
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
-		OpenedAt:          "2026-09-19T12:00:00Z",
+		OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
 	}
 }
 
 func newMergedPullRequest() *pullrequestv1.PullRequest {
 	merged := newOpenPullRequest()
 	merged.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
-	merged.MergedAt = xptr.Ptr("2026-09-20T12:00:00Z")
+	merged.MergedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
 	merged.HeadSha = "old"
 
 	return merged

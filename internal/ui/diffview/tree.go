@@ -42,7 +42,7 @@ func (c *ThreadCounts) add(thread *agentv1.ReviewThread) {
 	switch {
 	case thread.GetUnreadByHuman():
 		c.Unread++
-	case thread.GetResolvedAt() == "":
+	case thread.GetResolvedAt() == nil:
 		c.Open++
 	default:
 		c.Settled++

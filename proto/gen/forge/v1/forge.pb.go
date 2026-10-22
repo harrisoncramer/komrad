@@ -11,6 +11,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	_ "komrad/proto/gen/annotation/v1"
 	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
@@ -101,13 +102,13 @@ type Forge struct {
 	Method string `protobuf:"bytes,5,opt,name=method,proto3" json:"method,omitempty"`
 	// The account the forge says the credential belongs to, a user login or an App's name.
 	Login string `protobuf:"bytes,6,opt,name=login,proto3" json:"login,omitempty"`
-	// When the forge last accepted the credential, in RFC 3339. Unset once the forge refuses it.
-	VerifiedAt *string `protobuf:"bytes,7,opt,name=verified_at,json=verifiedAt,proto3,oneof" json:"verified_at,omitempty"`
+	// When the forge last accepted the credential. Unset once the forge refuses it.
+	VerifiedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=verified_at,json=verifiedAt,proto3,oneof" json:"verified_at,omitempty"`
 	// Whether this machine still has the credential. A `token` connection needs its token file,
 	// and a `github_app` connection always has its credential.
 	HasCredential bool `protobuf:"varint,8,opt,name=has_credential,json=hasCredential,proto3" json:"has_credential,omitempty"`
-	// When the connection was created, in RFC 3339.
-	CreatedAt     string `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the connection was created.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -184,11 +185,11 @@ func (x *Forge) GetLogin() string {
 	return ""
 }
 
-func (x *Forge) GetVerifiedAt() string {
-	if x != nil && x.VerifiedAt != nil {
-		return *x.VerifiedAt
+func (x *Forge) GetVerifiedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.VerifiedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Forge) GetHasCredential() bool {
@@ -198,11 +199,11 @@ func (x *Forge) GetHasCredential() bool {
 	return false
 }
 
-func (x *Forge) GetCreatedAt() string {
+func (x *Forge) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
 type ConnectForgeRequest struct {
@@ -626,15 +627,15 @@ type ForgePullRequest struct {
 	Draft bool `protobuf:"varint,12,opt,name=draft,proto3" json:"draft,omitempty"`
 	// The state the forge reports, `OPEN`, `CLOSED` or `MERGED`.
 	State string `protobuf:"bytes,13,opt,name=state,proto3" json:"state,omitempty"`
-	// When the pull request was opened, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the pull request last changed on the forge, in RFC 3339.
-	UpdatedAt string `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	// When the pull request merged, in RFC 3339. Unset until the pull request merges.
-	MergedAt *string `protobuf:"bytes,16,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
-	// When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is
+	// When the pull request was opened.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the pull request last changed on the forge.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the pull request merged. Unset until the pull request merges.
+	MergedAt *timestamppb.Timestamp `protobuf:"bytes,16,opt,name=merged_at,json=mergedAt,proto3,oneof" json:"merged_at,omitempty"`
+	// When the pull request closed, merged or not. Unset while the pull request is
 	// open.
-	ClosedAt      *string `protobuf:"bytes,17,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
+	ClosedAt      *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=closed_at,json=closedAt,proto3,oneof" json:"closed_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -760,32 +761,32 @@ func (x *ForgePullRequest) GetState() string {
 	return ""
 }
 
-func (x *ForgePullRequest) GetCreatedAt() string {
+func (x *ForgePullRequest) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *ForgePullRequest) GetUpdatedAt() string {
+func (x *ForgePullRequest) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *ForgePullRequest) GetMergedAt() string {
-	if x != nil && x.MergedAt != nil {
-		return *x.MergedAt
+func (x *ForgePullRequest) GetMergedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.MergedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *ForgePullRequest) GetClosedAt() string {
-	if x != nil && x.ClosedAt != nil {
-		return *x.ClosedAt
+func (x *ForgePullRequest) GetClosedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ClosedAt
 	}
-	return ""
+	return nil
 }
 
 // CommitMessage is the text of the commit a merge writes.
@@ -1349,19 +1350,19 @@ var File_forge_v1_forge_proto protoreflect.FileDescriptor
 
 const file_forge_v1_forge_proto_rawDesc = "" +
 	"\n" +
-	"\x14forge/v1/forge.proto\x12\bforge.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\"\x82\x02\n" +
+	"\x14forge/v1/forge.proto\x12\bforge.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xba\x02\n" +
 	"\x05Forge\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
 	"\x04host\x18\x03 \x01(\tR\x04host\x12\x17\n" +
 	"\aapi_url\x18\x04 \x01(\tR\x06apiUrl\x12\x16\n" +
 	"\x06method\x18\x05 \x01(\tR\x06method\x12\x14\n" +
-	"\x05login\x18\x06 \x01(\tR\x05login\x12$\n" +
-	"\vverified_at\x18\a \x01(\tH\x00R\n" +
+	"\x05login\x18\x06 \x01(\tR\x05login\x12@\n" +
+	"\vverified_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampH\x00R\n" +
 	"verifiedAt\x88\x01\x01\x12%\n" +
-	"\x0ehas_credential\x18\b \x01(\bR\rhasCredential\x12\x1d\n" +
+	"\x0ehas_credential\x18\b \x01(\bR\rhasCredential\x129\n" +
 	"\n" +
-	"created_at\x18\t \x01(\tR\tcreatedAtB\x0e\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x0e\n" +
 	"\f_verified_at\"\x84\x01\n" +
 	"\x13ConnectForgeRequest\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x12\n" +
@@ -1390,7 +1391,7 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\xa2\x04\n" +
+	"\v_pagination\"\x92\x05\n" +
 	"\x10ForgePullRequest\x12\x14\n" +
 	"\x05forge\x18\x01 \x01(\tR\x05forge\x12\x1f\n" +
 	"\vprovider_id\x18\x02 \x01(\tR\n" +
@@ -1408,13 +1409,13 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"baseBranch\x12\x19\n" +
 	"\bbase_sha\x18\v \x01(\tR\abaseSha\x12\x14\n" +
 	"\x05draft\x18\f \x01(\bR\x05draft\x12\x14\n" +
-	"\x05state\x18\r \x01(\tR\x05state\x12\x1d\n" +
+	"\x05state\x18\r \x01(\tR\x05state\x129\n" +
 	"\n" +
-	"created_at\x18\x0e \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0f \x01(\tR\tupdatedAt\x12 \n" +
-	"\tmerged_at\x18\x10 \x01(\tH\x00R\bmergedAt\x88\x01\x01\x12 \n" +
-	"\tclosed_at\x18\x11 \x01(\tH\x01R\bclosedAt\x88\x01\x01B\f\n" +
+	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12<\n" +
+	"\tmerged_at\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampH\x00R\bmergedAt\x88\x01\x01\x12<\n" +
+	"\tclosed_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\bclosedAt\x88\x01\x01B\f\n" +
 	"\n" +
 	"_merged_atB\f\n" +
 	"\n" +
@@ -1520,47 +1521,54 @@ var file_forge_v1_forge_proto_goTypes = []any{
 	(*RequestForgePullRequestRereviewRequest)(nil), // 16: forge.v1.RequestForgePullRequestRereviewRequest
 	(*SetForgePullRequestAutoMergeRequest)(nil),    // 17: forge.v1.SetForgePullRequestAutoMergeRequest
 	(*ListForgePullRequestsResponse)(nil),          // 18: forge.v1.ListForgePullRequestsResponse
-	(*v1.Pagination)(nil),                          // 19: pagination.v1.Pagination
-	(*emptypb.Empty)(nil),                          // 20: google.protobuf.Empty
+	(*timestamppb.Timestamp)(nil),                  // 19: google.protobuf.Timestamp
+	(*v1.Pagination)(nil),                          // 20: pagination.v1.Pagination
+	(*emptypb.Empty)(nil),                          // 21: google.protobuf.Empty
 }
 var file_forge_v1_forge_proto_depIdxs = []int32{
-	1,  // 0: forge.v1.ConnectForgeResponse.forge:type_name -> forge.v1.Forge
-	1,  // 1: forge.v1.ListForgesResponse.forges:type_name -> forge.v1.Forge
-	7,  // 2: forge.v1.CheckForgesResponse.checks:type_name -> forge.v1.ForgeCheck
-	1,  // 3: forge.v1.ForgeCheck.forge:type_name -> forge.v1.Forge
-	19, // 4: forge.v1.ListForgePullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	0,  // 5: forge.v1.MergeOption.method:type_name -> forge.v1.MergeMethod
-	10, // 6: forge.v1.MergeOption.message:type_name -> forge.v1.CommitMessage
-	11, // 7: forge.v1.PlanForgePullRequestMergeResponse.options:type_name -> forge.v1.MergeOption
-	0,  // 8: forge.v1.PlanForgePullRequestMergeResponse.default_method:type_name -> forge.v1.MergeMethod
-	0,  // 9: forge.v1.MergeForgePullRequestRequest.method:type_name -> forge.v1.MergeMethod
-	0,  // 10: forge.v1.SetForgePullRequestAutoMergeRequest.method:type_name -> forge.v1.MergeMethod
-	9,  // 11: forge.v1.ListForgePullRequestsResponse.pull_requests:type_name -> forge.v1.ForgePullRequest
-	2,  // 12: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
-	20, // 13: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
-	20, // 14: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
-	8,  // 15: forge.v1.ForgeService.ListForgePullRequests:input_type -> forge.v1.ListForgePullRequestsRequest
-	12, // 16: forge.v1.ForgeService.PlanForgePullRequestMerge:input_type -> forge.v1.PlanForgePullRequestMergeRequest
-	14, // 17: forge.v1.ForgeService.MergeForgePullRequest:input_type -> forge.v1.MergeForgePullRequestRequest
-	15, // 18: forge.v1.ForgeService.SetForgePullRequestDraft:input_type -> forge.v1.SetForgePullRequestDraftRequest
-	17, // 19: forge.v1.ForgeService.SetForgePullRequestAutoMerge:input_type -> forge.v1.SetForgePullRequestAutoMergeRequest
-	16, // 20: forge.v1.ForgeService.RequestForgePullRequestRereview:input_type -> forge.v1.RequestForgePullRequestRereviewRequest
-	5,  // 21: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
-	3,  // 22: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
-	4,  // 23: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
-	6,  // 24: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
-	18, // 25: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
-	13, // 26: forge.v1.ForgeService.PlanForgePullRequestMerge:output_type -> forge.v1.PlanForgePullRequestMergeResponse
-	20, // 27: forge.v1.ForgeService.MergeForgePullRequest:output_type -> google.protobuf.Empty
-	20, // 28: forge.v1.ForgeService.SetForgePullRequestDraft:output_type -> google.protobuf.Empty
-	20, // 29: forge.v1.ForgeService.SetForgePullRequestAutoMerge:output_type -> google.protobuf.Empty
-	20, // 30: forge.v1.ForgeService.RequestForgePullRequestRereview:output_type -> google.protobuf.Empty
-	20, // 31: forge.v1.ForgeService.DisconnectForge:output_type -> google.protobuf.Empty
-	22, // [22:32] is the sub-list for method output_type
-	12, // [12:22] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	19, // 0: forge.v1.Forge.verified_at:type_name -> google.protobuf.Timestamp
+	19, // 1: forge.v1.Forge.created_at:type_name -> google.protobuf.Timestamp
+	1,  // 2: forge.v1.ConnectForgeResponse.forge:type_name -> forge.v1.Forge
+	1,  // 3: forge.v1.ListForgesResponse.forges:type_name -> forge.v1.Forge
+	7,  // 4: forge.v1.CheckForgesResponse.checks:type_name -> forge.v1.ForgeCheck
+	1,  // 5: forge.v1.ForgeCheck.forge:type_name -> forge.v1.Forge
+	20, // 6: forge.v1.ListForgePullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	19, // 7: forge.v1.ForgePullRequest.created_at:type_name -> google.protobuf.Timestamp
+	19, // 8: forge.v1.ForgePullRequest.updated_at:type_name -> google.protobuf.Timestamp
+	19, // 9: forge.v1.ForgePullRequest.merged_at:type_name -> google.protobuf.Timestamp
+	19, // 10: forge.v1.ForgePullRequest.closed_at:type_name -> google.protobuf.Timestamp
+	0,  // 11: forge.v1.MergeOption.method:type_name -> forge.v1.MergeMethod
+	10, // 12: forge.v1.MergeOption.message:type_name -> forge.v1.CommitMessage
+	11, // 13: forge.v1.PlanForgePullRequestMergeResponse.options:type_name -> forge.v1.MergeOption
+	0,  // 14: forge.v1.PlanForgePullRequestMergeResponse.default_method:type_name -> forge.v1.MergeMethod
+	0,  // 15: forge.v1.MergeForgePullRequestRequest.method:type_name -> forge.v1.MergeMethod
+	0,  // 16: forge.v1.SetForgePullRequestAutoMergeRequest.method:type_name -> forge.v1.MergeMethod
+	9,  // 17: forge.v1.ListForgePullRequestsResponse.pull_requests:type_name -> forge.v1.ForgePullRequest
+	2,  // 18: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
+	21, // 19: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
+	21, // 20: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
+	8,  // 21: forge.v1.ForgeService.ListForgePullRequests:input_type -> forge.v1.ListForgePullRequestsRequest
+	12, // 22: forge.v1.ForgeService.PlanForgePullRequestMerge:input_type -> forge.v1.PlanForgePullRequestMergeRequest
+	14, // 23: forge.v1.ForgeService.MergeForgePullRequest:input_type -> forge.v1.MergeForgePullRequestRequest
+	15, // 24: forge.v1.ForgeService.SetForgePullRequestDraft:input_type -> forge.v1.SetForgePullRequestDraftRequest
+	17, // 25: forge.v1.ForgeService.SetForgePullRequestAutoMerge:input_type -> forge.v1.SetForgePullRequestAutoMergeRequest
+	16, // 26: forge.v1.ForgeService.RequestForgePullRequestRereview:input_type -> forge.v1.RequestForgePullRequestRereviewRequest
+	5,  // 27: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
+	3,  // 28: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
+	4,  // 29: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
+	6,  // 30: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
+	18, // 31: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
+	13, // 32: forge.v1.ForgeService.PlanForgePullRequestMerge:output_type -> forge.v1.PlanForgePullRequestMergeResponse
+	21, // 33: forge.v1.ForgeService.MergeForgePullRequest:output_type -> google.protobuf.Empty
+	21, // 34: forge.v1.ForgeService.SetForgePullRequestDraft:output_type -> google.protobuf.Empty
+	21, // 35: forge.v1.ForgeService.SetForgePullRequestAutoMerge:output_type -> google.protobuf.Empty
+	21, // 36: forge.v1.ForgeService.RequestForgePullRequestRereview:output_type -> google.protobuf.Empty
+	21, // 37: forge.v1.ForgeService.DisconnectForge:output_type -> google.protobuf.Empty
+	28, // [28:38] is the sub-list for method output_type
+	18, // [18:28] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_forge_v1_forge_proto_init() }

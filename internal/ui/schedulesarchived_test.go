@@ -96,10 +96,11 @@ func TestArchivedSchedules(t *testing.T) {
 }
 
 const (
-	archivedAt   = "2026-07-30T09:00:00Z"
 	deletePrompt = "Permanently delete"
 	deleteTitle  = "Delete "
 )
+
+var archivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
 
 var widenListPresses = slices.Repeat([]string{"ctrl+space", "l"}, 10)
 

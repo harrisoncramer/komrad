@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -295,8 +296,8 @@ func TestSendMail(t *testing.T) {
 			ToAgentId:   betaID.String(),
 			Body:        "which column holds the refund?",
 			ReplyTo:     xptr.Ptr(earlierMailID.String()),
-			CreatedAt:   "2026-09-24T09:00:00Z",
-			ExpiresAt:   "2026-09-24T12:00:00Z",
+			CreatedAt:   timestamppb.New(time.Date(2026, 9, 24, 9, 0, 0, 0, time.UTC)),
+			ExpiresAt:   timestamppb.New(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)),
 			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
 		},
 	}, sent.Msg, protocmp.Transform()), "an agent running in its pane draws no warning")

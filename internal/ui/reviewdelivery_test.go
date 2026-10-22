@@ -2,11 +2,13 @@ package ui
 
 import (
 	"testing"
+	"time"
 
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestReviewDeliveryOf covers the word under a comment and the moment it names: the last thing
@@ -17,11 +19,11 @@ func TestReviewDeliveryOf(t *testing.T) {
 	const writer, reviewer = "writer", "reviewer"
 
 	tests := []struct {
-		name      string
-		thread    *agentv1.ReviewThread
-		message   *agentv1.ReviewMessage
-		wantWord  string
-		wantStamp string
+		name     string
+		thread   *agentv1.ReviewThread
+		message  *agentv1.ReviewMessage
+		wantWord string
+		wantAt   time.Time
 	}{
 		{
 			name: "an agent's reply carries nothing",
@@ -37,21 +39,21 @@ func TestReviewDeliveryOf(t *testing.T) {
 			message: &agentv1.ReviewMessage{
 				Id:         "m1",
 				AuthorKind: human,
-				CreatedAt:  "2026-09-02T10:00:00Z",
+				CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
 			},
-			wantWord:  "released",
-			wantStamp: "2026-09-02T10:00:00Z",
+			wantWord: "released",
+			wantAt:   time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC),
 		},
 		{
 			name: "a comment the writer read names when it was read",
 			message: &agentv1.ReviewMessage{
 				Id:         "m1",
 				AuthorKind: human,
-				CreatedAt:  "2026-09-02T10:00:00Z",
-				ReadAt:     "2026-09-02T10:01:00Z",
+				CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
+				ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
 			},
-			wantWord:  "read",
-			wantStamp: "2026-09-02T10:01:00Z",
+			wantWord: "read",
+			wantAt:   time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC),
 		},
 		{
 			name: "a comment the writer answered names the answer",
@@ -60,28 +62,28 @@ func TestReviewDeliveryOf(t *testing.T) {
 					Id:            "m0",
 					AuthorKind:    agent,
 					AuthorAgentId: xptr.Ptr(writer),
-					CreatedAt:     "2026-09-02T09:00:00Z",
+					CreatedAt:     timestamppb.New(time.Date(2026, 9, 2, 9, 0, 0, 0, time.UTC)),
 				},
 				{
 					Id:         "m1",
 					AuthorKind: human,
-					CreatedAt:  "2026-09-02T10:00:00Z",
-					ReadAt:     "2026-09-02T10:01:00Z",
+					CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
+					ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
 				},
 				{
 					Id:            "m2",
 					AuthorKind:    agent,
 					AuthorAgentId: xptr.Ptr(writer),
-					CreatedAt:     "2026-09-02T10:02:00Z",
+					CreatedAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 2, 0, 0, time.UTC)),
 				},
 			}},
 			message: &agentv1.ReviewMessage{
 				Id:         "m1",
 				AuthorKind: human,
-				ReadAt:     "2026-09-02T10:01:00Z",
+				ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
 			},
-			wantWord:  "answered",
-			wantStamp: "2026-09-02T10:02:00Z",
+			wantWord: "answered",
+			wantAt:   time.Date(2026, 9, 2, 10, 2, 0, 0, time.UTC),
 		},
 		{
 			name: "a reviewer's words after the comment do not answer it",
@@ -90,28 +92,28 @@ func TestReviewDeliveryOf(t *testing.T) {
 					Id:            "m0",
 					AuthorKind:    agent,
 					AuthorAgentId: xptr.Ptr(reviewer),
-					CreatedAt:     "2026-09-02T09:00:00Z",
+					CreatedAt:     timestamppb.New(time.Date(2026, 9, 2, 9, 0, 0, 0, time.UTC)),
 				},
 				{
 					Id:         "m1",
 					AuthorKind: human,
-					CreatedAt:  "2026-09-02T10:00:00Z",
-					ReadAt:     "2026-09-02T10:01:00Z",
+					CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
+					ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
 				},
 				{
 					Id:            "m2",
 					AuthorKind:    agent,
 					AuthorAgentId: xptr.Ptr(reviewer),
-					CreatedAt:     "2026-09-02T10:02:00Z",
+					CreatedAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 2, 0, 0, time.UTC)),
 				},
 			}},
 			message: &agentv1.ReviewMessage{
 				Id:         "m1",
 				AuthorKind: human,
-				ReadAt:     "2026-09-02T10:01:00Z",
+				ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
 			},
-			wantWord:  "read",
-			wantStamp: "2026-09-02T10:01:00Z",
+			wantWord: "read",
+			wantAt:   time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC),
 		},
 		{
 			name: "a forge comment the person has not accepted is held",
@@ -132,7 +134,7 @@ func TestReviewDeliveryOf(t *testing.T) {
 				writerID: writer,
 			})
 			assert.Equal(t, tt.wantWord, got.word)
-			assert.Equal(t, tt.wantStamp, got.stamp)
+			assert.Equal(t, tt.wantAt, got.at)
 		})
 	}
 }

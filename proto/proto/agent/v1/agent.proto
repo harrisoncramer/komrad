@@ -10,6 +10,7 @@ import "agent/v1/transcript.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 import "pullrequest/v1/pullrequest.proto";
 import "rules/v1/rules.proto";
@@ -92,10 +93,10 @@ message Agent {
   string harness = 9;
   // The id of the workflow the agent belongs to.
   string workflow_id = 10;
-  // When the agent was created, in RFC 3339.
-  string created_at = 11;
-  // When the agent was archived, in RFC 3339. Unset while the agent is live.
-  optional string archived_at = 12;
+  // When the agent was created.
+  google.protobuf.Timestamp created_at = 11;
+  // When the agent was archived. Unset while the agent is live.
+  optional google.protobuf.Timestamp archived_at = 12;
   // The id of the schedule that created the agent. Unset when a person or an agent created it.
   optional string schedule_id = 13;
   // Whether the agent's pane exists. A dormant agent has none.
@@ -110,11 +111,11 @@ message Agent {
   optional int32 failed_run_log = 18;
   // How many documents the agent has written. `list_documents` returns them.
   int32 documents = 19;
-  // When the newest of the agent's documents was last written, in RFC 3339. Unset when the agent
+  // When the newest of the agent's documents was last written. Unset when the agent
   // has none.
-  optional string documents_updated_at = 20;
-  // When the agent's state last changed, in RFC 3339.
-  string state_changed_at = 21;
+  optional google.protobuf.Timestamp documents_updated_at = 20;
+  // When the agent's state last changed.
+  google.protobuf.Timestamp state_changed_at = 21;
   // What the agent's CLI hooks last reported the agent doing.
   string reported_reason = 22;
   // Why the agent's create or cleanup last failed. Empty when neither has failed.

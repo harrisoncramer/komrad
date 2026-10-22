@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestReviewOpen covers which agents the review key opens a diff for and what it renders.
@@ -495,7 +496,7 @@ func TestReviewThreads(t *testing.T) {
 		assert.Contains(t, paneltest.PopupProse(frame), "this should say hello")
 		assert.Contains(t, paneltest.PopupProse(frame), "→ released")
 
-		server.threads[0].Messages[0].ReadAt = "2026-09-02T10:01:00Z"
+		server.threads[0].Messages[0].ReadAt = timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC))
 		harness.Watch(server.buildSnapshot())
 
 		assert.Contains(t, paneltest.PopupProse(harness.Frame()), "✓ read")
@@ -503,7 +504,7 @@ func TestReviewThreads(t *testing.T) {
 
 	t.Run("a remark on the whole change stands at the foot of the diff", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.threads = []*agentv1.ReviewThread{newWholeChangeThread("", 0, "2026-09-02T10:00:00Z")}
+		server.threads = []*agentv1.ReviewThread{newWholeChangeThread("", 0, time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC))}
 		harness := openReview(t, server)
 
 		harness.Press("t")
@@ -1166,7 +1167,7 @@ func TestReviewGutter(t *testing.T) {
 	tests := []struct {
 		name     string
 		unread   bool
-		resolved string
+		resolved *timestamppb.Timestamp
 		mirrors  bool
 		replies  []*agentv1.ForgeReply
 		message  *agentv1.ReviewMessage
@@ -1182,14 +1183,14 @@ func TestReviewGutter(t *testing.T) {
 		},
 		{
 			name:     "a settled thread says so",
-			resolved: "2026-09-02T11:00:00Z",
+			resolved: timestamppb.New(time.Date(2026, 9, 2, 11, 0, 0, 0, time.UTC)),
 			message:  newReadComment("m1"),
 			want:     "✓",
 			absent:   "●",
 		},
 		{
 			name:     "a settled thread the agent spoke in again is filled in",
-			resolved: "2026-09-02T11:00:00Z",
+			resolved: timestamppb.New(time.Date(2026, 9, 2, 11, 0, 0, 0, time.UTC)),
 			unread:   true,
 			message:  newReadComment("m1"),
 			want:     "●",
@@ -1256,7 +1257,7 @@ func TestReviewWatch(t *testing.T) {
 		harness := openReview(t, server)
 		require.Contains(t, paneltest.PopupProse(harness.Frame()), "released")
 
-		comment.ReadAt = "2026-09-02T10:05:00Z"
+		comment.ReadAt = timestamppb.New(time.Date(2026, 9, 2, 10, 5, 0, 0, time.UTC))
 		harness.Watch(server.buildSnapshot())
 
 		assert.Contains(t, paneltest.PopupProse(harness.Frame()), "read")
@@ -1287,7 +1288,7 @@ func TestReviewWatch(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newReadComment("m1"))}
 		harness := openReview(t, server)
 
-		server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
+		server.agent.ArchivedAt = timestamppb.New(time.Date(2026, 9, 2, 11, 0, 0, 0, time.UTC))
 		harness.Watch(paneltest.Snapshot(server.workflow, server.agent, server.task))
 		require.Contains(t, findLine(paneltest.Stage(harness.Frame()), "package greet"), "○")
 
@@ -1307,7 +1308,7 @@ func TestReviewOfAnArchivedAgent(t *testing.T) {
 	server := newReviewServer(t)
 	server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newReleasedComment("m1"))}
 	harness := openReviewAt(t, server, paneltest.Params{Height: 50})
-	server.agent.ArchivedAt = xptr.Ptr("2026-09-02T11:00:00Z")
+	server.agent.ArchivedAt = timestamppb.New(time.Date(2026, 9, 2, 11, 0, 0, 0, time.UTC))
 	harness.Watch(server.buildSnapshot())
 
 	frame := harness.Frame()
@@ -1576,7 +1577,7 @@ func TestReviewOwnComments(t *testing.T) {
 
 	t.Run("the open comment key says why it moved nowhere", func(t *testing.T) {
 		settled := newYourThread(gittest.File, 2)
-		settled.ResolvedAt = "2026-09-13T12:00:00Z"
+		settled.ResolvedAt = timestamppb.New(time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC))
 		tests := []struct {
 			name    string
 			threads []*agentv1.ReviewThread
@@ -2452,7 +2453,7 @@ func (s *reviewServer) reply(req connect.AnyRequest) (connect.AnyResponse, error
 		ThreadId:   reply.GetThreadId(),
 		Body:       reply.GetBody(),
 		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		CreatedAt:  "2026-09-02T10:02:00Z",
+		CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 2, 0, 0, time.UTC)),
 	}
 	for _, thread := range s.threads {
 		if thread.GetId() == reply.GetThreadId() {
@@ -2469,15 +2470,15 @@ func (s *reviewServer) settle(req connect.AnyRequest) (connect.AnyResponse, erro
 		if thread.GetId() != settle.GetId() {
 			continue
 		}
-		thread.ResolvedAt = ""
+		thread.ResolvedAt = nil
 		if settle.GetResolved() {
-			thread.ResolvedAt = "2026-08-27T12:00:00Z"
+			thread.ResolvedAt = timestamppb.New(time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC))
 		}
 	}
 	for _, review := range s.reviews {
 		var open int32
 		for _, thread := range s.threads {
-			if thread.GetReviewId() == review.GetId() && thread.GetResolvedAt() == "" {
+			if thread.GetReviewId() == review.GetId() && thread.GetResolvedAt() == nil {
 				open++
 			}
 		}
@@ -2490,7 +2491,7 @@ func (s *reviewServer) settle(req connect.AnyRequest) (connect.AnyResponse, erro
 func (s *reviewServer) createThread(req connect.AnyRequest) (connect.AnyResponse, error) {
 	create, _ := req.Any().(*agentv1.CreateReviewThreadRequest)
 	comment := newHumanMessage(fmt.Sprintf("m%d", len(s.threads)+1), create.GetBody())
-	comment.CreatedAt = "2026-09-02T10:00:00Z"
+	comment.CreatedAt = timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC))
 	thread := &agentv1.ReviewThread{
 		Id:          fmt.Sprintf("t%d", len(s.threads)+1),
 		TaskId:      s.agent.GetTaskId(),
@@ -2599,14 +2600,14 @@ func findLine(lines []string, text string) string {
 
 func newReleasedComment(id string) *agentv1.ReviewMessage {
 	message := newHumanMessage(id, "")
-	message.CreatedAt = "2026-09-02T10:00:00Z"
+	message.CreatedAt = timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC))
 
 	return message
 }
 
 func newReadComment(id string) *agentv1.ReviewMessage {
 	message := newReleasedComment(id)
-	message.ReadAt = "2026-09-02T10:01:00Z"
+	message.ReadAt = timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC))
 
 	return message
 }
@@ -2669,7 +2670,7 @@ func newEarlierReviewServer(t *testing.T) *reviewServer {
 		BaseSha: gittest.BaseSHA,
 		Sha:     gittest.SnapshotSHA,
 	}}
-	server.threads = []*agentv1.ReviewThread{newWholeChangeThread("snapshot-1", 1, "2026-09-08T10:00:00Z")}
+	server.threads = []*agentv1.ReviewThread{newWholeChangeThread("snapshot-1", 1, time.Date(2026, 9, 8, 10, 0, 0, 0, time.UTC))}
 	server.repo.Wrote(gittest.WroteParams{
 		Tree:  "tree-with-a-second-file",
 		Whole: gittest.PatchOfBothFiles,
@@ -2864,10 +2865,7 @@ func historyCommentsOf(threads []*agentv1.ReviewThread, snapshots []*agentv1.Rev
 				if message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
 					continue
 				}
-				released, err := time.Parse(time.RFC3339, message.GetCreatedAt())
-				if err != nil {
-					continue
-				}
+				released := message.GetCreatedAt().AsTime()
 				comments = append(comments, history.Comment{
 					SnapshotID:      historyID(snapshot.GetId()),
 					SnapshotOrdinal: snapshot.GetOrdinal(),
@@ -2899,9 +2897,9 @@ func remoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
 	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: config, IsSSHIncluded: true}
 }
 
-func newWholeChangeThread(snapshotID string, ordinal int32, at string) *agentv1.ReviewThread {
+func newWholeChangeThread(snapshotID string, ordinal int32, at time.Time) *agentv1.ReviewThread {
 	remark := newHumanMessage("w1", "the shape is right")
-	remark.CreatedAt = at
+	remark.CreatedAt = dates.Stamp(at)
 
 	return &agentv1.ReviewThread{
 		Id:              "w1",

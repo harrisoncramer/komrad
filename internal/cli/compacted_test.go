@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/harness"
@@ -23,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestCompactedHookRemindsTheAgent pins what the hook hands an agent once it has compacted.
@@ -62,7 +64,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 				{
 					Id:         "thread-settled",
 					FilePath:   "config/appconfig.go",
-					ResolvedAt: "2026-09-25T10:00:00Z",
+					ResolvedAt: timestamppb.New(time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)),
 				},
 			},
 			wantThreadsTask: "task-a",

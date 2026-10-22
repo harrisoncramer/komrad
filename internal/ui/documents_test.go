@@ -12,6 +12,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -23,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestDocumentsOpen covers the screen opening on the documents of the row the cursor was on.
@@ -40,7 +42,7 @@ func TestDocumentsOpen(t *testing.T) {
 			Name:      "Quiet notes",
 			Type:      "notes",
 			Version:   1,
-			UpdatedAt: "2026-09-20T12:00:00Z",
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)),
 		})
 		harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
@@ -68,7 +70,7 @@ func TestDocumentsOpen(t *testing.T) {
 			Name:      "Workflow plan",
 			Type:      "notes",
 			Version:   1,
-			UpdatedAt: "2026-09-20T12:00:00Z",
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)),
 		})
 		harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
@@ -112,7 +114,7 @@ func TestDocumentsOpen(t *testing.T) {
 			Name:      "Login plan",
 			Type:      "RFC",
 			Version:   1,
-			UpdatedAt: "2026-09-20T12:00:00Z",
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)),
 		})
 		docs.add(&agentv1.Document{
 			Id:        "d4",
@@ -121,7 +123,7 @@ func TestDocumentsOpen(t *testing.T) {
 			Name:      "Solo notes",
 			Type:      "notes",
 			Version:   1,
-			UpdatedAt: "2026-09-21T12:00:00Z",
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)),
 		})
 		rows := buildTasks()
 		rows[2].(*taskv1.Task).Slug = "fix-login-2"
@@ -235,7 +237,7 @@ func TestDocumentsOpen(t *testing.T) {
 
 		author := newArchivedAgent("author", "author", "w1")
 		author.Documents = 2
-		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
+		author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.Press("F", "shift+tab", "esc")
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "komrad"), author, newDeletedTaskOf(author)))
@@ -319,7 +321,7 @@ func TestDocumentsFilter(t *testing.T) {
 				Name:      "Quiet notes",
 				Type:      "notes",
 				Version:   1,
-				UpdatedAt: "2026-09-20T12:00:00Z",
+				UpdatedAt: timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)),
 			})
 			harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 			docs.answer(harness)
@@ -415,10 +417,10 @@ func TestDocumentsRead(t *testing.T) {
 		t.Parallel()
 
 		harness, docs := openDocuments(t)
-		docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
+		docs.rewrite("d1", "The cache is cold now.", time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
-		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
+		author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
 		harness.Watch(paneltest.Puts(author))
 
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
@@ -429,10 +431,10 @@ func TestDocumentsRead(t *testing.T) {
 		t.Parallel()
 
 		harness, docs := openDocuments(t)
-		docs.rewrite("d1", "The cache is cold now.", "2026-09-25T12:00:00.5Z")
+		docs.rewrite("d1", "The cache is cold now.", time.Date(2026, 9, 25, 12, 0, 0, 500_000_000, time.UTC))
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
-		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00.5Z")
+		author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 500_000_000, time.UTC))
 		harness.Watch(paneltest.Puts(author))
 
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceGetDocumentProcedure), 2)
@@ -449,7 +451,7 @@ func TestDocumentsRead(t *testing.T) {
 			TaskId:    xptr.Ptr("task-author"),
 			Name:      "Cache notes",
 			Type:      "notes",
-			UpdatedAt: "2026-09-25T12:00:00Z",
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
 		})
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
@@ -512,9 +514,9 @@ func TestDocumentsEdit(t *testing.T) {
 			name:  "a write refused because the agent rewrote it meanwhile keeps the copy",
 			write: "Rewritten.",
 			between: func(h *paneltest.Panel, docs *documentShelf) {
-				docs.rewrite("d1", "The agent's own rewrite.", "2026-09-26T12:00:00Z")
+				docs.rewrite("d1", "The agent's own rewrite.", time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
 				author := buildDocumentAuthors()[2].(*agentv1.Agent)
-				author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
+				author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
 				h.Watch(paneltest.Puts(author))
 			},
 			refuse:    true,
@@ -1065,10 +1067,10 @@ func TestDocumentsReadingKeepsTheCursorShown(t *testing.T) {
 			for range 80 {
 				lines = append(lines, "Filler paragraph.\n")
 			}
-			docs.rewrite("d2", strings.Join(append(lines, "The last line."), "\n"), "2026-09-26T12:00:00Z")
+			docs.rewrite("d2", strings.Join(append(lines, "The last line."), "\n"), time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
 
 			author := buildDocumentAuthors()[2].(*agentv1.Agent)
-			author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
+			author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
 			harness.Watch(paneltest.Puts(author))
 
 			harness.Press("j")
@@ -1178,11 +1180,11 @@ func openEveryDocument(t *testing.T) *paneltest.Panel {
 func buildDocumentAuthors() []proto.Message {
 	orchestrator := paneltest.Orchestrator()
 	orchestrator.Documents = 2
-	orchestrator.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
+	orchestrator.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 
 	author := paneltest.Agent("author", "author", "w1")
 	author.Documents = 2
-	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
+	author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	quiet := paneltest.Agent("quiet", "quiet", "w1")
 
 	return []proto.Message{
@@ -1228,7 +1230,7 @@ func newDocumentShelf() *documentShelf {
 				Name:      "Design the cache",
 				Type:      "RFC",
 				Version:   3,
-				UpdatedAt: "2026-09-25T12:00:00Z",
+				UpdatedAt: timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
 			},
 			{
 				Id:        "d2",
@@ -1237,7 +1239,7 @@ func newDocumentShelf() *documentShelf {
 				Name:      "Rollout report",
 				Type:      "report",
 				Version:   5,
-				UpdatedAt: "2026-09-24T12:00:00Z",
+				UpdatedAt: timestamppb.New(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)),
 			},
 		},
 		bodies: map[string]string{
@@ -1263,14 +1265,14 @@ func newDocumentShelf() *documentShelf {
 }
 
 // rewrite changes a document's text and moves it to the top, as a write does.
-func (d *documentShelf) rewrite(id, body, at string) {
+func (d *documentShelf) rewrite(id, body string, at time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	d.bodies[id] = body
 	for _, document := range d.listed {
 		if document.GetId() == id {
-			document.UpdatedAt = at
+			document.UpdatedAt = dates.Stamp(at)
 			document.Version++
 			d.writes[id] = append(d.writes[id], documentWrite{version: document.GetVersion(), body: body})
 		}
@@ -1278,14 +1280,14 @@ func (d *documentShelf) rewrite(id, body, at string) {
 }
 
 // rename is the document given a new name at the time given.
-func (d *documentShelf) rename(id, name, at string) {
+func (d *documentShelf) rename(id, name string, at time.Time) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	for _, document := range d.listed {
 		if document.GetId() == id {
 			document.Name = name
-			document.UpdatedAt = at
+			document.UpdatedAt = dates.Stamp(at)
 		}
 	}
 }
@@ -1355,7 +1357,7 @@ func (d *documentShelf) answer(harness *paneltest.Panel) {
 			versions = append(versions, &agentv1.DocumentVersion{
 				Version:   writes[i].version,
 				ByPerson:  writes[i].byPerson,
-				CreatedAt: "2026-09-25T12:00:00Z",
+				CreatedAt: timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
 			})
 		}
 

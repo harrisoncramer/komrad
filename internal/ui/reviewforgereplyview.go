@@ -5,6 +5,7 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
@@ -47,7 +48,7 @@ func (r reviewScreen) forgeReplyView(in screen.Inputs, reply *agentv1.ForgeReply
 		posting = paint.Panel.Style(paint.ToneMuted).Render("  "+glyph.Right+" posting to "+name) + "\n"
 	}
 
-	return forgeMark(r.deps.glyphs) + renderCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" +
+	return forgeMark(r.deps.glyphs) + renderCommentHead(reviewHumanTone, "you", dates.Read(reply.GetCreatedAt())) + "\n" +
 		reviewWrap(width, reply.GetBody()) + "\n" + posting + "\n"
 }
 

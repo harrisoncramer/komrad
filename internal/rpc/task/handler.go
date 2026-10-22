@@ -12,7 +12,6 @@ import (
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	"komrad/internal/tasks"
-	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	"komrad/proto/gen/oneofs"
@@ -107,7 +106,7 @@ func (s *Handler) UpdateTask(ctx context.Context, req *taskv1komrad.UpdateTaskRe
 			Title:              req.Title,
 			Goal:               req.Goal,
 			Notes:              req.Notes,
-			ReadNotesUpdatedAt: dates.ParsePtr(xptr.Deref(req.NotesUpdatedAt)),
+			ReadNotesUpdatedAt: req.NotesUpdatedAt,
 		},
 		CallerAgentID: caller.From(ctx).AgentID,
 	})
@@ -124,7 +123,7 @@ func (s *Handler) SetTaskNotes(ctx context.Context, req *taskv1komrad.SetTaskNot
 		Task: req.Task,
 		Fields: taskstore.UpdateParams{
 			Notes:              xptr.Ptr(req.Notes),
-			ReadNotesUpdatedAt: dates.ParsePtr(xptr.Deref(req.NotesUpdatedAt)),
+			ReadNotesUpdatedAt: req.NotesUpdatedAt,
 		},
 		CallerAgentID: caller.From(ctx).AgentID,
 	})

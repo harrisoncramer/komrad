@@ -3,15 +3,18 @@ package ui_test
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestDocumentsRename covers a document's name typed over its row in the list.
@@ -114,10 +117,10 @@ func TestDocumentsRenameField(t *testing.T) {
 			Name:      "Notes",
 			Type:      "notes",
 			Version:   1,
-			UpdatedAt: "2026-09-20T12:00:00Z",
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)),
 		})
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
-		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
+		author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
 		harness.Watch(paneltest.Puts(author))
 
 		harness.Press("G", "space", "r", "x")
@@ -136,10 +139,10 @@ func TestDocumentsRenameField(t *testing.T) {
 		harness.Press(slices.Concat([]string{"space", "r"}, spellKeys(" now"), []string{"enter"})...)
 		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Design the cache now", "not the old name before the list is read again")
 
-		docs.rename("d1", "Design the cache now", "2026-09-26T12:00:00Z")
-		listAgain(harness, "2026-09-26T12:00:00Z")
-		docs.rename("d1", "Design the cache later", "2026-09-27T12:00:00Z")
-		listAgain(harness, "2026-09-27T12:00:00Z")
+		docs.rename("d1", "Design the cache now", time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
+		listAgain(harness, time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
+		docs.rename("d1", "Design the cache later", time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC))
+		listAgain(harness, time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC))
 		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Design the cache later", "the list renders the name once it has caught up")
 	})
 
@@ -166,14 +169,14 @@ func TestDocumentsRenameField(t *testing.T) {
 }
 
 // listAgain is the watch saying the author wrote at the time given.
-func listAgain(harness *paneltest.Panel, at string) {
+func listAgain(harness *paneltest.Panel, at time.Time) {
 	author := buildDocumentAuthors()[2].(*agentv1.Agent)
-	author.DocumentsUpdatedAt = xptr.Ptr(at)
+	author.DocumentsUpdatedAt = dates.Stamp(at)
 	harness.Watch(paneltest.Puts(author))
 }
 
 // rewriteAsTheAgent is the author rewriting the first document and the watch saying so.
 func rewriteAsTheAgent(harness *paneltest.Panel, docs *documentShelf) {
-	docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
-	listAgain(harness, "2026-09-26T12:00:00Z")
+	docs.rewrite("d1", "The cache is cold now.", time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
+	listAgain(harness, time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC))
 }

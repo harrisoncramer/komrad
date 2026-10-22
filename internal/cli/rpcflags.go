@@ -65,7 +65,7 @@ func (f *requestFields) bind(cmd *cobra.Command, message protoreflect.MessageDes
 			continue
 		}
 
-		if field.Kind() == protoreflect.MessageKind && !field.IsList() {
+		if field.Kind() == protoreflect.MessageKind && !field.IsList() && !rpcapi.IsTimestamp(field) {
 			if len(into.name) >= nestingLimit {
 				f.skipped = append(f.skipped, flag)
 
@@ -159,7 +159,15 @@ func declareFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, flag st
 		flags.String(flag, "", usage)
 
 		return func(set *pflag.FlagSet) (any, error) { return set.GetString(flag) }
-	case protoreflect.BytesKind, protoreflect.MessageKind, protoreflect.GroupKind:
+	case protoreflect.MessageKind:
+		if !rpcapi.IsTimestamp(field) {
+			return nil
+		}
+
+		flags.String(flag, "", usage)
+
+		return func(set *pflag.FlagSet) (any, error) { return set.GetString(flag) }
+	case protoreflect.BytesKind, protoreflect.GroupKind:
 		return nil
 	default:
 		return nil
@@ -200,6 +208,9 @@ func describeField(field protoreflect.FieldDescriptor) string {
 	parts := []string{field.Kind().String()}
 	if field.Kind() == protoreflect.EnumKind {
 		parts = []string{strings.Join(rpcapi.EnumNames(field.Enum()), "|")}
+	}
+	if rpcapi.IsTimestamp(field) {
+		parts = []string{"RFC 3339 timestamp"}
 	}
 
 	return strings.Join(append(parts, rpcapi.DescribeRules(field)...), ", ")

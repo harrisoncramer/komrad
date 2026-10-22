@@ -11,7 +11,6 @@ import (
 	"komrad/internal/engine"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
-	"komrad/lib/xptr"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -23,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestScreensStage covers what the panel shows beside the hovered row and how much of the window it holds.
@@ -441,9 +441,9 @@ func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
 		}
 
 		agent := paneltest.Agent("a"+name, name, "w1")
-		agent.CreatedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", crowdedCount-i)
+		agent.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, crowdedCount-i, 0, 0, time.UTC))
 		archived := newArchivedAgent("r"+name, name, "w1")
-		archived.ArchivedAt = xptr.Ptr(fmt.Sprintf("2026-07-30T09:%02d:00Z", crowdedCount-i))
+		archived.ArchivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, crowdedCount-i, 0, 0, time.UTC))
 		schedule := newNamedSchedule("s"+name, name)
 		schedule.Cron = ""
 		worktree := &worktreev1.WatchedWorktree{

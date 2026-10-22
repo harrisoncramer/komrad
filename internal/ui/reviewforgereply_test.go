@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
@@ -11,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestReviewForgeReply covers replying on a forge thread, and retrying and discarding a reply the
@@ -237,6 +239,6 @@ func newSentReply(state agentv1.ForgeReplyState) *agentv1.ForgeReply {
 		ThreadId:  "t1",
 		State:     state,
 		Body:      "a map it is",
-		CreatedAt: "2026-09-02T10:00:00Z",
+		CreatedAt: timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
 	}
 }

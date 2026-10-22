@@ -18,7 +18,7 @@ func Document(stored documentstore.Document) *agentv1.Document {
 		Body:      stored.Body,
 		Version:   stored.Version,
 		CreatedAt: dates.Stamp(stored.CreatedAt),
-		UpdatedAt: dates.PreciseStamp(stored.UpdatedAt),
+		UpdatedAt: dates.Stamp(stored.UpdatedAt),
 	}
 }
 
@@ -29,7 +29,7 @@ func DocumentVersion(stored documentstore.Version) *agentv1.DocumentVersion {
 		Name:      stored.Name,
 		Type:      stored.Type,
 		ByPerson:  stored.ByPerson,
-		CreatedAt: dates.PreciseStamp(stored.CreatedAt),
+		CreatedAt: dates.Stamp(stored.CreatedAt),
 	}
 }
 
@@ -50,7 +50,7 @@ func DocumentType(stored documenttypestore.Type) *agentv1.DocumentType {
 		Name:      stored.Name,
 		Context:   stored.Context,
 		Version:   stored.Version,
-		UpdatedAt: dates.PreciseStamp(stored.UpdatedAt),
+		UpdatedAt: dates.Stamp(stored.UpdatedAt),
 	}
 }
 
@@ -59,6 +59,6 @@ func DocumentTypeVersion(stored documenttypestore.Version) *agentv1.DocumentType
 	return &agentv1.DocumentTypeVersion{
 		Version:   stored.Version,
 		Name:      stored.Name,
-		CreatedAt: dates.PreciseStamp(stored.CreatedAt),
+		CreatedAt: dates.Stamp(stored.CreatedAt),
 	}
 }

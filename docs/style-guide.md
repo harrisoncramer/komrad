@@ -28,7 +28,7 @@ Start with the name, then say what it is in one sentence: "Task is one piece of 
 
 ### Fields
 
-Open with the shape that fits the type. A value is a noun phrase, such as "The task's goal, in markdown." A bool opens with "Whether", a count with "How many", and a timestamp with "When" and ends "in RFC 3339". A request field naming a record says which record and how: "The task to archive, by id or slug."
+Open with the shape that fits the type. A value is a noun phrase, such as "The task's goal, in markdown." A bool opens with "Whether", a count with "How many", and a timestamp with "When". A request field naming a record says which record and how: "The task to archive, by id or slug."
 
 Then say what an empty or unset value means, if it means anything. Two sentences at most. Behaviour the call performs belongs in the method description, not on its fields.
 
@@ -36,7 +36,7 @@ Name the owner rather than saying "its". Write "The branch of the task's checkou
 
 Do not restate validation. The reference prints each field's rules beside its comment.
 
-Every field needs a comment, even an obvious one. Use the plain form for those. An `id` on a record is "The task's id." A `created_at` is "When the task was created, in RFC 3339." An `updated_at` is "When the task last changed, in RFC 3339." An `archived_at` is "When the task was archived, in RFC 3339. Unset while the task is live."
+Every field needs a comment, even an obvious one. Use the plain form for those. An `id` on a record is "The task's id." A `created_at` is "When the task was created." An `updated_at` is "When the task last changed." An `archived_at` is "When the task was archived. Unset while the task is live."
 
 ### Enum values
 
@@ -210,7 +210,7 @@ empty: A string or list with nothing in it. Use it for fields without presence.
 
 unset: An optional field or message field the caller did not set. Not "absent", "blank", or "missing".
 
-RFC 3339: The format of every timestamp in a string field. Say it on each such field, as "in RFC 3339". A google.protobuf.Timestamp field needs no format note.
+timestamp: A google.protobuf.Timestamp field. Its comment names no format.
 
 ## Words not to use
 

@@ -152,7 +152,7 @@ func IsAgentThread(thread *agentv1.ReviewThread) bool {
 
 // isUnsettled reports whether a conversation is one the person reviewing still owes an answer on.
 func isUnsettled(thread *agentv1.ReviewThread) bool {
-	return thread.GetResolvedAt() == "" && !IsAgentThread(thread)
+	return thread.GetResolvedAt() == nil && !IsAgentThread(thread)
 }
 
 // IsWholeChangeThread reports whether a thread is a remark on the change as a whole, with no line
