@@ -53,7 +53,7 @@ export function fieldOf(message: string, name: string): Ref {
     href: `${page.href}#${anchor(message)}-${name}`,
     title: `${message.split(".").pop() ?? message}.${name}`,
     description: field.description,
-    detail: `${field.repeated ? "list of " : ""}${field.type}`,
+    detail: `${field.type}${field.repeated ? "[]" : ""}`,
   };
 }
 
