@@ -30,16 +30,19 @@ var typedCursor = regexp.MustCompile(`\x1b\[(?:[0-9]+;)*7(?:;[0-9]+)*m(.)\x1b\[m
 
 var reviewCursorLine = regexp.MustCompile(`^[^ ]+:\d+`)
 
-var taggedRule = regexp.MustCompile(`^─+ [^│┤┼]*[^─│┤┼ ] ─`)
+// ruleEdges are the joins a rule can meet.
+const ruleEdges = glyph.Divider + glyph.TeeRight + glyph.Cross
+
+var taggedRule = regexp.MustCompile(`^` + glyph.Rule + `+ [^` + ruleEdges + `]*[^` + glyph.Rule + ruleEdges + ` ] ` + glyph.Rule)
 
 // listDivider is a rule the list renders among its own rows.
-var listDivider = regexp.MustCompile(`^─+ (Triage|All Agents) ─`)
+var listDivider = regexp.MustCompile(`^` + glyph.Rule + `+ (Triage|All Agents) ` + glyph.Rule)
 
 // gutterToken is what a list's gutter holds: the focus, a glyph, a loader frame or a figure.
-var gutterToken = regexp.MustCompile(`^(›|[\x{E000}-\x{F8FF}\x{F0000}-\x{FFFFD}\x{2800}-\x{28FF}]|[0-9][0-9.]*[KMGTkhdwmsy]?|—)$`)
+var gutterToken = regexp.MustCompile(`^(` + glyph.Focus + `|[\x{E000}-\x{F8FF}\x{F0000}-\x{FFFFD}\x{2800}-\x{28FF}]|[0-9][0-9.]*[KMGTkhdwmsy]?|—)$`)
 
 // scrollCount is the line a scrolled list says how many rows lie past its edge on.
-var scrollCount = regexp.MustCompile(`^\s*[↑↓] [0-9]+ more`)
+var scrollCount = regexp.MustCompile(`^\s*[` + glyph.Up + glyph.Down + `] [0-9]+ more`)
 
 // listRowIndent is the most a row leaves blank before its first cell.
 const listRowIndent = 16
@@ -83,7 +86,7 @@ func findDivider(lines []string) (int, bool) {
 	for _, line := range lines {
 		col := 0
 		for _, r := range ansi.Strip(line) {
-			if strings.ContainsRune("│┼┤├", r) {
+			if strings.ContainsRune(glyph.Divider+glyph.Cross+glyph.TeeRight+glyph.TeeLeft, r) {
 				counts[col]++
 			}
 			col += ansi.StringWidth(string(r))
@@ -185,15 +188,15 @@ func ListRows(frame string) []string {
 // HoveredRow is the list row the cursor stands on.
 func HoveredRow(frame string) string {
 	for _, line := range ListLines(frame) {
-		if strings.HasPrefix(line.List, "›") {
+		if strings.HasPrefix(line.List, glyph.Focus) {
 			return line.Row
 		}
 	}
 
 	width := ListWidth(frame)
 	for _, line := range SplitLines(frame) {
-		if strings.HasPrefix(line, "›") {
-			return strings.TrimSpace(strings.TrimPrefix(ansi.Truncate(line, width, ""), "›"))
+		if strings.HasPrefix(line, glyph.Focus) {
+			return strings.TrimSpace(strings.TrimPrefix(ansi.Truncate(line, width, ""), glyph.Focus))
 		}
 	}
 
@@ -208,7 +211,7 @@ func ListLines(frame string) []ListLine {
 	start := slices.IndexFunc(lines, func(line string) bool {
 		prompt := strings.TrimSpace(ansi.Truncate(line, width, ""))
 
-		return strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, "▽")
+		return strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, glyph.Defaults().Spell(glyph.Filter))
 	})
 	if start < 0 {
 		return nil
@@ -217,7 +220,7 @@ func ListLines(frame string) []ListLine {
 	var found []ListLine
 	for i := start + 1; i < len(lines); i++ {
 		list := strings.TrimRight(ansi.Truncate(lines[i], width, ""), " ")
-		if strings.HasPrefix(list, "─") {
+		if strings.HasPrefix(list, glyph.Rule) {
 			if listDivider.MatchString(list) {
 				continue
 			}
@@ -252,7 +255,7 @@ func ListLines(frame string) []ListLine {
 func isListRow(list string) bool {
 	indent := len(list) - len(strings.TrimLeft(list, " "))
 
-	return list != "" && !scrollCount.MatchString(list) && indent <= listRowIndent && (indent > 0 || strings.HasPrefix(list, "›"))
+	return list != "" && !scrollCount.MatchString(list) && indent <= listRowIndent && (indent > 0 || strings.HasPrefix(list, glyph.Focus))
 }
 
 // findNameColumn is the column a row's name opens at, past every token of the gutter.
@@ -304,11 +307,11 @@ func CutStyled(line string, width int) string {
 // RuleWidth is the columns a rule runs across before it meets the divider.
 func RuleWidth(line string) int {
 	if tagged := taggedRule.FindString(line); tagged != "" {
-		line = strings.Repeat("─", ansi.StringWidth(tagged)) + line[len(tagged):]
+		line = strings.Repeat(glyph.Rule, ansi.StringWidth(tagged)) + line[len(tagged):]
 	}
-	rest := strings.TrimLeft(line, "─")
+	rest := strings.TrimLeft(line, glyph.Rule)
 	width := ansi.StringWidth(line) - ansi.StringWidth(rest)
-	if strings.HasPrefix(rest, "┤") || strings.HasPrefix(rest, "┼") {
+	if strings.HasPrefix(rest, glyph.TeeRight) || strings.HasPrefix(rest, glyph.Cross) {
 		width--
 	}
 
@@ -319,7 +322,7 @@ func cutRecord(frame string) ([]string, bool) {
 	var record []string
 	width, rules := 0, 0
 	for _, line := range SplitLines(frame) {
-		if strings.HasPrefix(line, "─") {
+		if strings.HasPrefix(line, glyph.Rule) {
 			rules++
 			if rules == 2 {
 				break
@@ -338,7 +341,7 @@ func cutRecord(frame string) ([]string, bool) {
 	if len(record) == 0 {
 		return nil, true
 	}
-	if !strings.HasPrefix(record[0], "  ") && !strings.HasPrefix(record[0], "› ") {
+	if !strings.HasPrefix(record[0], "  ") && !strings.HasPrefix(record[0], glyph.Focus+" ") {
 		return nil, false
 	}
 
@@ -348,7 +351,7 @@ func cutRecord(frame string) ([]string, bool) {
 // RecordField is the value the record renders beside a label.
 func RecordField(frame, label string) string {
 	for _, line := range Record(frame) {
-		field := strings.TrimLeft(line, "› ")
+		field := strings.TrimLeft(line, glyph.Focus+" ")
 		if value, isField := strings.CutPrefix(field, label+" "); isField {
 			return strings.TrimSpace(value)
 		}
@@ -360,7 +363,7 @@ func RecordField(frame, label string) string {
 // RecordCursor is the record field the cursor stands on.
 func RecordCursor(frame string) string {
 	for _, line := range Record(frame) {
-		if field, isHovered := strings.CutPrefix(line, "› "); isHovered {
+		if field, isHovered := strings.CutPrefix(line, glyph.Focus+" "); isHovered {
 			return field
 		}
 	}
@@ -371,7 +374,7 @@ func RecordCursor(frame string) string {
 // RecordLine is the frame line the record renders a label on, -1 where it renders none.
 func RecordLine(frame, label string) int {
 	for i, line := range SplitLines(frame) {
-		if strings.HasPrefix(strings.TrimLeft(line, "› "), label+" ") {
+		if strings.HasPrefix(strings.TrimLeft(line, glyph.Focus+" "), label+" ") {
 			return i
 		}
 	}
@@ -383,7 +386,7 @@ func RecordLine(frame, label string) int {
 func Legend(frame string) string {
 	rows := SplitLines(frame)
 	for i := len(rows) - 1; i >= 0; i-- {
-		if strings.HasPrefix(rows[i], "─") {
+		if strings.HasPrefix(rows[i], glyph.Rule) {
 			return strings.Join(rows[i+1:], "\n")
 		}
 	}
@@ -422,7 +425,7 @@ func Popup(frame string) []string {
 				return rows
 			}
 
-			rows = append(rows, strings.TrimSpace(strings.Trim(cell, "│")))
+			rows = append(rows, strings.TrimSpace(strings.Trim(cell, glyph.Divider)))
 		}
 
 		return rows
