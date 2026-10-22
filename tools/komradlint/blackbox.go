@@ -3,16 +3,17 @@ package komradlint
 import (
 	"go/ast"
 	"go/types"
+	"strings"
 
 	"komradlint/config"
 
 	"golang.org/x/tools/go/analysis"
 )
 
-const blackBoxDoc = "Checks that a test inside a package never drives the types held behind " +
-	"its external test package, so a screen test asserts on what the panel draws and sends."
+const blackBoxDoc = "Checks that no test drives the types held behind the harness, " +
+	"so a screen test asserts on what the panel draws and sends."
 
-// newBlackBox builds the rule that only the external test package drives the configured types.
+// newBlackBox builds the rule that no test drives the configured types.
 func newBlackBox(settings config.BlackBoxConfig) (*analysis.Analyzer, error) {
 	excluded, err := compile(settings.Exclude)
 	if err != nil {
@@ -68,7 +69,11 @@ func reportBlackBox(pass *analysis.Pass, file *ast.File, held map[string]struct{
 			return true
 		}
 
-		pass.Reportf(ident.Pos(), "a test inside %s drives %s; write it in package %s_test and drive it through the harness", pass.Pkg.Name(), named.Obj().Name(), pass.Pkg.Name())
+		if strings.HasSuffix(pass.Pkg.Name(), "_test") {
+			pass.Reportf(ident.Pos(), "a story in %s drives %s; drive it through the harness", pass.Pkg.Name(), named.Obj().Name())
+		} else {
+			pass.Reportf(ident.Pos(), "a test inside %s drives %s; write it in package %s_test and drive it through the harness", pass.Pkg.Name(), named.Obj().Name(), pass.Pkg.Name())
+		}
 		reported = true
 
 		return false
