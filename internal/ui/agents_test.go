@@ -1683,7 +1683,7 @@ func TestAgentsEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere the edit key opens the worktree there, through its ssh host", func(t *testing.T) {
-		harness := openAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "nvim")}, paneltest.Workflow("w1", "backend"), newEditable())
+		harness := paneltest.OpenAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "nvim")}, paneltest.Workflow("w1", "backend"), newEditable())
 
 		harness.Press("space", "e")
 
@@ -1693,7 +1693,7 @@ func TestAgentsEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere an editor that cannot reach it opens nothing", func(t *testing.T) {
-		harness := openAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "subl")}, paneltest.Workflow("w1", "backend"), newEditable())
+		harness := paneltest.OpenAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "subl")}, paneltest.Workflow("w1", "backend"), newEditable())
 
 		harness.Press("space", "e")
 
@@ -2031,7 +2031,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 
 	t.Run("a pull request for a branch nobody is on waits for the task that arrives on it", func(t *testing.T) {
 		agent, task := newBranchAgent("a1", "api", "agent/x")
-		harness := openAgentsWith(t, paneltest.Params{DetailsHeight: 14},
+		harness := paneltest.OpenAgentsWith(t, paneltest.Params{DetailsHeight: 14},
 			paneltest.Workflow("w1", "api"),
 			agent,
 			task,
@@ -2071,7 +2071,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 
 	t.Run("a pull request's title and author reach the record of the task on its branch", func(t *testing.T) {
 		agent, task := newBranchAgent("a1", "api", "agent/x")
-		harness := openAgentsWith(t, paneltest.Params{DetailsHeight: 14},
+		harness := paneltest.OpenAgentsWith(t, paneltest.Params{DetailsHeight: 14},
 			paneltest.Workflow("w1", "api"),
 			agent,
 			task,
@@ -2246,16 +2246,6 @@ const (
 	heldAt        = "2026-09-20T12:00:00Z"
 	repositoryURL = "https://github.com/harrisoncramer/komrad"
 )
-
-func openAgentsWith(t *testing.T, params paneltest.Params, rows ...proto.Message) *paneltest.Panel {
-	t.Helper()
-
-	harness := paneltest.Start(t, params)
-	harness.AnswerWorktreeReads()
-	harness.Watch(paneltest.Snapshot(rows...))
-
-	return harness
-}
 
 func buildCursorable() []proto.Message {
 	return []proto.Message{

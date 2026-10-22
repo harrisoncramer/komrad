@@ -18,7 +18,14 @@ import (
 func OpenAgents(t *testing.T, rows ...proto.Message) *Panel {
 	t.Helper()
 
-	harness := Start(t, Params{})
+	return OpenAgentsWith(t, Params{}, rows...)
+}
+
+// OpenAgentsWith starts a panel built over params on the agents list over rows.
+func OpenAgentsWith(t *testing.T, params Params, rows ...proto.Message) *Panel {
+	t.Helper()
+
+	harness := Start(t, params)
 	harness.AnswerWorktreeReads()
 	harness.Watch(Snapshot(rows...))
 
