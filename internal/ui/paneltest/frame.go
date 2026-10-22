@@ -407,7 +407,7 @@ func Sidebar(frame string) []string {
 func Search(frame string) string {
 	for _, line := range BelowViews(frame) {
 		prompt := strings.TrimSpace(ansi.Truncate(line, ListWidth(frame), ""))
-		if strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, "▽") {
+		if strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, glyph.Defaults().Spell(glyph.Filter)) {
 			return prompt
 		}
 	}
