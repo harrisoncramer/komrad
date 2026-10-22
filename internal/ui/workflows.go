@@ -46,12 +46,12 @@ func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.
 		Hooks:     m.getAvailableHooks,
 		Submit: func(form.Inputs) screen.Request {
 			if target == nil {
-				return m.createWorkflowWrite(values.toConfig())
+				return createWorkflowWrite(m.api, values.toConfig())
 			}
 
 			edited := values.toConfig().Workflow(target.ID)
 
-			return m.write(
+			return m.api.Write(
 				"saving "+target.Name,
 				fmt.Sprintf("Could not save workflow %q", target.Name),
 				func(a api.Clients) error { return a.UpdateWorkflow(edited) },
@@ -74,12 +74,12 @@ func (m *model) getAvailableHooks() []string {
 }
 
 func (m *model) archiveWorkflow(workflow panel.Workflow) screen.Request {
-	return m.archivingWrite(archivingWriteParams{
-		doing:   "archiving " + workflow.Name,
-		summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
-		agents:  m.listing.AgentsOf(workflow.ID),
-		awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListWorkflows, workflow.ID)},
-		write: func(a api.Clients) error {
+	return m.api.ArchivingWrite(api.ArchivingWriteParams{
+		Doing:   "archiving " + workflow.Name,
+		Summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
+		Agents:  m.listing.AgentsOf(workflow.ID),
+		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListWorkflows, workflow.ID)},
+		Write: func(a api.Clients) error {
 			return a.ArchiveWorkflow(workflow.ID)
 		},
 	})

@@ -23,7 +23,7 @@ func (strandedHoldReactor) react(m *model, changed assemble.Changed) tea.Cmd {
 			continue
 		}
 
-		cmds = append(cmds, m.apply(m.releaseWrite("Could not let "+agent.Name+" go", agent, strandedSaid)))
+		cmds = append(cmds, m.apply(m.api.ReleaseWrite("Could not let "+agent.Name+" go", agent, strandedSaid, m.edited[agent.ID])))
 	}
 
 	return tea.Batch(cmds...)

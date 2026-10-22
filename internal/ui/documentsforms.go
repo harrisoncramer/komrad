@@ -43,7 +43,7 @@ func newDocumentForm(m *model, agentID string) screen.Request {
 				doing = "writing " + name
 			}
 
-			return m.write(
+			return m.api.Write(
 				doing,
 				fmt.Sprintf("Could not write a document for %s", owner),
 				func(a api.Clients) error {

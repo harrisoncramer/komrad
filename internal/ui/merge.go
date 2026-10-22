@@ -223,7 +223,9 @@ func (m *model) reportMerged(task panel.Task, archive bool, err error) screen.Re
 		return merged
 	}
 
-	return screen.Batch{merged, m.archiveTasks([]panel.Task{task})}
+	tasks := []panel.Task{task}
+
+	return screen.Batch{merged, m.api.ArchiveTasksWrite(tasks, m.listing.AgentsOnTasks(tasks))}
 }
 
 func mergeRebaseOp(task panel.Task, params api.MergeParams) gitOp {

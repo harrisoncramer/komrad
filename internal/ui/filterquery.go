@@ -166,7 +166,7 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 		return nil
 	}
 
-	client, search := m.api.Reads().Agents, grammar.search
+	client, search := m.api.Agents, grammar.search
 
 	return func() tea.Msg {
 		hits, err := api.Call(agentsTimeout, func(ctx context.Context) (map[string][]saidHit, error) {

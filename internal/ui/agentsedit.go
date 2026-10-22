@@ -130,7 +130,7 @@ func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) scr
 		return refused
 	}
 
-	return append(refused, m.releaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid))
+	return append(refused, m.api.ReleaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid, m.edited[edit.agent.ID]))
 }
 
 func (a *agentsScreen) closeEdit(m *model) screen.Request {
@@ -149,7 +149,7 @@ func (a *agentsScreen) closeEdit(m *model) screen.Request {
 		return screen.Unstage{}
 	}
 
-	return screen.Batch{screen.Unstage{}, m.releaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid)}
+	return screen.Batch{screen.Unstage{}, m.api.ReleaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid, m.edited[edit.agent.ID])}
 }
 
 func (a *agentsScreen) reconcileEditor(m *model) screen.Request {

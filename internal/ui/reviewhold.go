@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	"komrad/internal/ui/screen"
@@ -100,7 +99,7 @@ func (r *reviewScreen) startHold(m *model) screen.Request {
 
 // holdAgent asks for the agent to stop and reports what came back.
 func holdAgent(m *model, agentID, name string) screen.Request {
-	agents := m.clients().Agents
+	agents := m.api.Agents
 
 	return screen.Write{
 		Doing: "pausing " + name,
@@ -153,7 +152,7 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) screen.Request {
 		return nil
 	}
 
-	return m.releaseWrite("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid)
+	return m.api.ReleaseWrite("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid, m.edited[item.Agent.ID])
 }
 
 // endHold lets the agent go and tells it which files the reader opened while it was stopped.
@@ -174,36 +173,6 @@ func (r *reviewScreen) endHold(m *model, said string) screen.Request {
 
 	agent, name := item.Agent, r.agentName
 
-	return m.releaseWrite("Could not let "+name+" go", agent, said)
+	return m.api.ReleaseWrite("Could not let "+name+" go", agent, said, m.edited[agent.ID])
 }
 
-// touchedSaid names the files the reader opened an editor on.
-func touchedSaid(touched []string) string {
-	if len(touched) == 0 {
-		return ""
-	}
-
-	return fmt.Sprintf(" I had these files open in an editor while you were paused, so read them "+
-		"before you trust what you remember of them: %s.", joinList(touched))
-}
-
-// joinList is a list of paths as a sentence rather than as a slice.
-func joinList(items []string) string {
-	switch len(items) {
-	case 1:
-		return items[0]
-	case 2:
-		return items[0] + " and " + items[1]
-	}
-
-	said := ""
-	for i, item := range items[:len(items)-1] {
-		if i > 0 {
-			said += ", "
-		}
-
-		said += item
-	}
-
-	return said + " and " + items[len(items)-1]
-}

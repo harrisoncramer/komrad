@@ -60,7 +60,7 @@ func openPickForkPoint(m *model, task panel.Task) screen.Request {
 		Submit: func(form.Inputs) screen.Request {
 			commit := strings.TrimSpace(values.Commit)
 
-			return m.write(
+			return m.api.Write(
 				"picking the fork point of "+task.Slug,
 				fmt.Sprintf("Could not pick the fork point of task %q on %s", task.Slug, parent),
 				func(a api.Clients) error { return a.PickForkPoint(task.ID, commit) },

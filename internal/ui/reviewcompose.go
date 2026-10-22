@@ -179,7 +179,7 @@ func (r *reviewScreen) saveMessage(m *model) screen.Request {
 		return r.saveForgeReply(m, forge, body)
 	}
 
-	agents, threadID := m.clients().Agents, r.threads.editing
+	agents, threadID := m.api.Agents, r.threads.editing
 	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
 		// Nothing is said back: the reply is rendered in the thread it went into.
@@ -273,7 +273,7 @@ func (t *reviewThreads) cancelMessage() {
 }
 
 func (r reviewScreen) createThread(m *model, place reviewPlace, kept reviewUnsent) screen.Request {
-	agents, taskID, body := m.clients().Agents, r.taskID, kept.body
+	agents, taskID, body := m.api.Agents, r.taskID, kept.body
 	anchor := place.anchor
 
 	return r.writeMsg(m, "opening a thread", &kept, func(ctx context.Context) (string, error) {
@@ -301,7 +301,7 @@ func (r reviewScreen) resolveThread(m *model) screen.Request {
 		return nil
 	}
 
-	agents, id, settling := m.clients().Agents, thread.GetId(), thread.GetResolvedAt() == ""
+	agents, id, settling := m.api.Agents, thread.GetId(), thread.GetResolvedAt() == ""
 
 	doing, notice := "reopening the thread", "thread reopened"
 	if settling {
@@ -346,7 +346,7 @@ func (r *reviewScreen) toggleViewed(m *model) screen.Request {
 
 	r.scrollToCursor(m)
 
-	agents, taskID := m.clients().Agents, r.taskID
+	agents, taskID := m.api.Agents, r.taskID
 	fingerprint := file.Fingerprint()
 
 	return r.write(m, doing, notice, func(ctx context.Context) error {
@@ -368,7 +368,7 @@ func (r reviewScreen) markThreadRead(m *model) screen.Request {
 		return nil
 	}
 
-	agents, id := m.clients().Agents, thread.GetId()
+	agents, id := m.api.Agents, thread.GetId()
 
 	return r.quietWrite(m, func(ctx context.Context) error {
 		_, err := agents.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: id}))
@@ -392,7 +392,7 @@ func (r reviewScreen) quietWrite(m *model, write func(context.Context) error) sc
 // writeMsg runs one write, marking whose answer it is, handing back the message a refused write
 // carried, and reading an archived agent's threads back.
 func (r reviewScreen) writeMsg(m *model, doing string, unsent *reviewUnsent, write func(context.Context) (string, error)) screen.Request {
-	agents, agentID, taskID := m.api.Reads().Agents, r.agentID, r.taskID
+	agents, agentID, taskID := m.api.Agents, r.agentID, r.taskID
 	_, live := r.agentRow(m)
 
 	return screen.Write{

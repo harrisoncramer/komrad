@@ -58,8 +58,8 @@ func (a *agentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
 		return a.applyEditorStaged(m, msg), true
 	case resumeSettled:
 		return a.settleResume(m, msg.agentID, msg.err), true
-	case renameSettled:
-		a.settleRename(m, msg.row, msg.err)
+	case api.RenameSettled:
+		a.settleRename(m, msg.Row, msg.Err)
 
 		return nil, true
 	}
@@ -90,11 +90,11 @@ func (m *model) archiveAgents(agents []panel.Agent) screen.Request {
 		return nil
 	}
 
-	return m.archivingWrite(archivingWriteParams{
-		doing:   "archiving " + describeAgents(agents),
-		summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
-		agents:  agents,
-		write: func(a api.Clients) error {
+	return m.api.ArchivingWrite(api.ArchivingWriteParams{
+		Doing:   "archiving " + describeAgents(agents),
+		Summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
+		Agents:  agents,
+		Write: func(a api.Clients) error {
 			return a.ArchiveAgents(panel.IDs(agents))
 		},
 	})
@@ -285,7 +285,7 @@ func (a *agentsScreen) help(m *model) keyMap {
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
 func startOrchestrator(m *model, workflow panel.Workflow) screen.Request {
-	return m.rowWrite(
+	return rowWrite(m.api, 
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(a api.Clients) (*screen.Made, error) {

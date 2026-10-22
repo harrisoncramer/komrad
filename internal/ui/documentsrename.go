@@ -91,7 +91,7 @@ func (d *documentsScreen) saveRename(m *model) screen.Request {
 	}
 	item.name = name
 
-	return m.rename(
+	return m.api.RenameWrite(
 		"renaming "+rename.Was(),
 		fmt.Sprintf("Could not rename document %q", rename.Was()),
 		rename.Key(),

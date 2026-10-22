@@ -61,7 +61,7 @@ func (m *model) readSaidCmd() tea.Cmd {
 	}
 
 	m.said = saidTranscript{agentID: agentID, text: text}
-	agents := m.api.Reads().Agents
+	agents := m.api.Agents
 
 	return func() tea.Msg {
 		content, err := api.Call(saidTimeout, func(ctx context.Context) (string, error) {

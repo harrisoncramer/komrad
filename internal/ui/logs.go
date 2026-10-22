@@ -122,7 +122,7 @@ func (l *logsScreen) enter(m *model, target screen.Target) screen.Request {
 
 	taskID := l.taskID
 
-	return screen.Batch{screen.Cmd(l.listCmd(m)), m.write("marking the task's runs read", "Could not mark the task's runs read", func(a api.Clients) error {
+	return screen.Batch{screen.Cmd(l.listCmd(m)), m.api.Write("marking the task's runs read", "Could not mark the task's runs read", func(a api.Clients) error {
 		return a.MarkTaskRunsRead(taskID)
 	})}
 }
@@ -139,7 +139,7 @@ func (l *logsScreen) listCmd(m *model) tea.Cmd {
 		return nil
 	}
 
-	agentID, taskID, generation, clients := l.agentID, l.taskID, l.generation, m.api.Reads()
+	agentID, taskID, generation, clients := l.agentID, l.taskID, l.generation, m.api
 
 	return func() tea.Msg {
 		list := clients.ListAgentLogSources
@@ -173,7 +173,7 @@ func (l *logsScreen) readCmd(m *model) tea.Cmd {
 		Source:   l.reading.GetId(),
 		Pattern:  l.pattern,
 	}
-	generation, clients := l.generation, m.api.Reads()
+	generation, clients := l.generation, m.api
 
 	return func() tea.Msg {
 		resp, err := clients.ReadAgentLogs(req)
@@ -282,7 +282,7 @@ func (l *logsScreen) markFailedRunRead(m *model, row logSourceRow) screen.Reques
 
 	agentID := l.agentID
 
-	return m.write("marking the failed run read", "Could not mark the failed run read", func(a api.Clients) error { return a.MarkRunsRead(agentID) })
+	return m.api.Write("marking the failed run read", "Could not mark the failed run read", func(a api.Clients) error { return a.MarkRunsRead(agentID) })
 }
 
 // restart drops the lines held and reads the source over again with the pattern the block is read with.

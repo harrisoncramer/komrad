@@ -83,7 +83,7 @@ func openReviewerForm(m *model, writer panel.Agent, task panel.Task, values *age
 
 // submitReviewer launches a reviewer onto the writer's task.
 func (m *model) submitReviewer(writer panel.Agent, task panel.Task, values agentFormValues) screen.Write {
-	return m.createWrite(api.CreateAgentParams{
+	return createWrite(m.api, api.CreateAgentParams{
 		Prompt:     values.Prompt,
 		Title:      values.Title,
 		Harness:    values.Harness,
@@ -103,7 +103,7 @@ func openRetryForm(m *model, agent panel.Agent) screen.Request {
 	return form.Open{Form: form.Form{
 		Build:    func(form.Inputs) (*huh.Form, []string) { return retryAgentForm(fixedKeys(), &values) },
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
-		Submit:   func(form.Inputs) screen.Request { return m.retryWrite(agent, values) },
+		Submit:   func(form.Inputs) screen.Request { return retryWrite(m.api, agent, values) },
 	}}
 }
 
@@ -131,7 +131,7 @@ func openAdoptForm(m *model, workflow panel.Workflow, values *adoptFormValues) s
 }
 
 func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) screen.Write {
-	return m.adoptWrite(api.AdoptParams{
+	return adoptWrite(m.api, api.AdoptParams{
 		Ref:        values.Ref,
 		Prompt:     values.Prompt,
 		Title:      values.Title,
@@ -143,7 +143,7 @@ func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) scr
 
 // submitTask starts the agent along with the task it works on.
 func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) screen.Write {
-	return m.createWrite(api.CreateAgentParams{
+	return createWrite(m.api, api.CreateAgentParams{
 		Prompt:           values.Prompt,
 		Harness:          values.Harness,
 		Flags:            values.Flags,
@@ -155,7 +155,7 @@ func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) scree
 
 // submitAgentOnTask starts a task's writer.
 func (m *model) submitAgentOnTask(workflow panel.Workflow, task panel.Task, values agentFormValues) screen.Write {
-	return m.createWrite(api.CreateAgentParams{
+	return createWrite(m.api, api.CreateAgentParams{
 		Prompt:     values.Prompt,
 		Title:      values.Title,
 		Harness:    values.Harness,

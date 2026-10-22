@@ -5,6 +5,7 @@ import (
 	"slices"
 	"time"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
@@ -152,8 +153,8 @@ func (d *documentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) 
 		return nil, true
 	case documentEditorStaged:
 		return d.applyEditorStaged(msg), true
-	case renameSettled:
-		d.settleRename(m, msg.row, msg.err)
+	case api.RenameSettled:
+		d.settleRename(m, msg.Row, msg.Err)
 
 		return nil, true
 	}

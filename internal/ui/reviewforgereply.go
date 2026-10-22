@@ -107,7 +107,7 @@ func (r *reviewScreen) retryForgeReply(m *model) screen.Request {
 		return nil
 	}
 
-	agents, id := m.clients().Agents, reply.GetId()
+	agents, id := m.api.Agents, reply.GetId()
 
 	return r.writeMsg(m, "retrying the reply", nil, func(ctx context.Context) (string, error) {
 		res, err := agents.RetryForgeReply(ctx, connect.NewRequest(&agentv1.RetryForgeReplyRequest{
@@ -153,7 +153,7 @@ func (r *reviewScreen) discardForgeReply(m *model) screen.Request {
 		return nil
 	}
 
-	agents, id := m.clients().Agents, reply.GetId()
+	agents, id := m.api.Agents, reply.GetId()
 
 	return r.write(m, "discarding the reply", "reply discarded", func(ctx context.Context) error {
 		_, err := agents.DiscardForgeReply(ctx, connect.NewRequest(&agentv1.DiscardForgeReplyRequest{
@@ -189,7 +189,7 @@ func (r *reviewScreen) composeForge(m *model) screen.Request {
 
 // saveForgeReply posts what the composer holds to the forge as the person's own reply.
 func (r *reviewScreen) saveForgeReply(m *model, compose *reviewForgeCompose, body string) screen.Request {
-	agents, threadID := m.clients().Agents, r.threads.editing
+	agents, threadID := m.api.Agents, r.threads.editing
 	kept := reviewUnsent{
 		editing: threadID,
 		body:    body,

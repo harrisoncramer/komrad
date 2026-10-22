@@ -138,12 +138,12 @@ func (a *archivedAgents) update(m *model, msg tea.Msg) screen.Request {
 }
 
 func (a *archivedAgents) receive(m *model, msg tea.Msg) (screen.Request, bool) {
-	settled, ok := msg.(renameSettled)
+	settled, ok := msg.(api.RenameSettled)
 	if !ok {
 		return nil, false
 	}
 
-	a.settleRename(m, settled.row, settled.err)
+	a.settleRename(m, settled.Row, settled.Err)
 
 	return nil, true
 }
@@ -437,7 +437,7 @@ func (a *archivedAgents) buildItemMenu(m *model) (menu.Menu, bool) {
 
 // restoreAndResume takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
 func restoreAndResume(m *model, agents []panel.Agent, resumed panel.Agent) screen.Request {
-	return m.openingWrite("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api.Clients) (*agentv1.Agent, error) {
+	return openingWrite(m.api, "restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api.Clients) (*agentv1.Agent, error) {
 		if err := a.RestoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
 		}
@@ -451,7 +451,7 @@ func restoreAgents(m *model, agents []panel.Agent) screen.Request {
 		return nil
 	}
 
-	return m.awaitingWrite(
+	return m.api.AwaitingWrite(
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
@@ -464,7 +464,7 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) screen.Request {
 	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(m.listing, workflow.ID))
 
 	return confirm.open(m, func() screen.Request {
-		return m.awaitingWrite(
+		return m.api.AwaitingWrite(
 			"deleting "+workflow.Name,
 			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 			awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),

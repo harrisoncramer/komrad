@@ -77,7 +77,7 @@ func documentTypeFormOf(m *model, params documentTypeFormOfParams) form.Form {
 				doing, summary = params.doing+" "+name, fmt.Sprintf("%s document type %q", params.refused, name)
 			}
 
-			return m.write(
+			return m.api.Write(
 				doing,
 				summary,
 				func(a api.Clients) error {
@@ -117,7 +117,7 @@ func deleteTypeForm(m *model, item documentItem) form.Form {
 				return nil
 			}
 
-			return m.write(
+			return m.api.Write(
 				"deleting "+item.name,
 				fmt.Sprintf("Could not delete document type %q", item.name),
 				func(a api.Clients) error { return a.DeleteDocumentType(item.id) },

@@ -153,7 +153,7 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) screen.Request {
 				return nil
 			}
 
-			return m.awaitingWrite(
+			return m.api.AwaitingWrite(
 				"deleting "+schedule.Name,
 				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
 				screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},

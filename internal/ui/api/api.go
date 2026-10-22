@@ -68,12 +68,6 @@ type Clients struct {
 	Tasks        taskv1connect.TaskServiceClient
 }
 
-// Reads is the half of the server a screen reads through.
-type Reads struct {
-	Agents AgentReads
-	Logs   logv1connect.LogServiceClient
-}
-
 // AgentReads is the part of the agent service a screen reads through.
 type AgentReads interface {
 	client.TranscriptGetter
@@ -82,11 +76,6 @@ type AgentReads interface {
 	ListReviewThreads(ctx context.Context, req *connect.Request[agentv1.ListReviewThreadsRequest]) (*connect.Response[agentv1.ListReviewThreadsResponse], error)
 	OpenReviewHistory(ctx context.Context, req *connect.Request[agentv1.OpenReviewHistoryRequest]) (*connect.Response[agentv1.OpenReviewHistoryResponse], error)
 	ListReviewViewedFiles(ctx context.Context, req *connect.Request[agentv1.ListReviewViewedFilesRequest]) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error)
-}
-
-// Reads is the half of the server a screen reads through.
-func (a Clients) Reads() Reads {
-	return Reads{Agents: a.Agents, Logs: a.Logs}
 }
 
 // Call runs work under its own deadline.
@@ -877,7 +866,7 @@ func (a Clients) DeleteDocumentType(id string) error {
 }
 
 // ReadAgentLogs reads some lines of agents' logs.
-func (a Reads) ReadAgentLogs(req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, error) {
+func (a Clients) ReadAgentLogs(req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, error) {
 	return Call(RequestTimeout, func(ctx context.Context) (*logv1.ReadAgentLogsResponse, error) {
 		resp, err := a.Logs.ReadAgentLogs(ctx, connect.NewRequest(req))
 		if err != nil {
@@ -889,7 +878,7 @@ func (a Reads) ReadAgentLogs(req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentL
 }
 
 // ListAgentLogSources lists the logs an agent writes.
-func (a Reads) ListAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
+func (a Clients) ListAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 	return Call(RequestTimeout, func(ctx context.Context) ([]*logv1.LogSource, error) {
 		resp, err := a.Logs.ListAgentLogSources(ctx, connect.NewRequest(&logv1.ListAgentLogSourcesRequest{AgentId: agentID}))
 		if err != nil {
@@ -901,7 +890,7 @@ func (a Reads) ListAgentLogSources(agentID string) ([]*logv1.LogSource, error) {
 }
 
 // ListTaskLogSources lists the logs a task's agents write.
-func (a Reads) ListTaskLogSources(taskID string) ([]*logv1.LogSource, error) {
+func (a Clients) ListTaskLogSources(taskID string) ([]*logv1.LogSource, error) {
 	return Call(RequestTimeout, func(ctx context.Context) ([]*logv1.LogSource, error) {
 		resp, err := a.Logs.ListTaskLogSources(ctx, connect.NewRequest(&logv1.ListTaskLogSourcesRequest{TaskId: taskID}))
 		if err != nil {

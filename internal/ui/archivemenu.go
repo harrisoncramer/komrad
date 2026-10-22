@@ -124,7 +124,7 @@ func restoreArchived(m *model, target archived) screen.Request {
 	case target.schedule != nil:
 		schedule := *target.schedule
 
-		return m.awaitingWrite(
+		return m.api.AwaitingWrite(
 			"restoring "+schedule.Name,
 			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
 			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
@@ -133,7 +133,7 @@ func restoreArchived(m *model, target archived) screen.Request {
 	case target.workflow != nil:
 		workflow := *target.workflow
 
-		return m.awaitingWrite(
+		return m.api.AwaitingWrite(
 			"restoring "+workflow.Name,
 			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
 			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
@@ -191,7 +191,7 @@ func taskArchiveMenu(m *model, task panel.Task) menu.Menu {
 			Label: "archive with its agents",
 			Keys:  m.keys.ArchiveMenu.Archive,
 			After: menu.Hold,
-			Pick:  func() screen.Request { return m.archiveTasks(tasks) },
+			Pick:  func() screen.Request { return m.api.ArchiveTasksWrite(tasks, m.listing.AgentsOnTasks(tasks)) },
 		},
 		menu.Leaving("archive and delete for good", m.keys.ArchiveMenu.Delete, func() screen.Request {
 			return confirmDeleteTasks(m, tasks)
@@ -220,11 +220,11 @@ func chosenArchiveMenu(m *model, work chosenWork) menu.Menu {
 func (m *model) archiveChosenAgents(work chosenWork) screen.Request {
 	subject := describeAgents(work.chosen)
 
-	return m.archivingWrite(archivingWriteParams{
-		doing:   "archiving " + subject,
-		summary: "Could not archive " + subject,
-		agents:  work.affected(m.listing),
-		write: func(a api.Clients) error {
+	return m.api.ArchivingWrite(api.ArchivingWriteParams{
+		Doing:   "archiving " + subject,
+		Summary: "Could not archive " + subject,
+		Agents:  work.affected(m.listing),
+		Write: func(a api.Clients) error {
 			for _, task := range work.wholeTasks {
 				if err := a.ArchiveTask(task.ID); err != nil {
 					return err
@@ -244,12 +244,12 @@ func (m *model) archiveChosenAgents(work chosenWork) screen.Request {
 func (m *model) deleteChosenWrite(work chosenWork, records bool) screen.Write {
 	subject := describeAgents(work.chosen)
 
-	return m.archivingWrite(archivingWriteParams{
-		doing:   "deleting " + subject,
-		summary: "Could not delete " + subject,
-		agents:  work.affected(m.listing),
-		awaits:  awaitDeleted(records, screen.RowsIn(screen.ListArchivedAgents, panel.IDs(work.chosen)...)),
-		write: func(a api.Clients) error {
+	return m.api.ArchivingWrite(api.ArchivingWriteParams{
+		Doing:   "deleting " + subject,
+		Summary: "Could not delete " + subject,
+		Agents:  work.affected(m.listing),
+		Awaits:  awaitDeleted(records, screen.RowsIn(screen.ListArchivedAgents, panel.IDs(work.chosen)...)),
+		Write: func(a api.Clients) error {
 			return a.DeleteTasks(panel.TaskIDs(work.wholeTasks), records)
 		},
 	})

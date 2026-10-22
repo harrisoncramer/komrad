@@ -56,7 +56,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 		renamed.Name = name
 		id := r.schedule.ID
 
-		return m.rename(
+		return m.api.RenameWrite(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename schedule %q", r.Was()),
 			r.Key(),
@@ -65,7 +65,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 	case r.task != nil:
 		id := r.task.ID
 
-		return m.rename(
+		return m.api.RenameWrite(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename task %q", r.Was()),
 			r.Key(),
@@ -75,7 +75,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 		renamed := *r.workflow
 		renamed.Name = name
 
-		return m.rename(
+		return m.api.RenameWrite(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename workflow %q", r.Was()),
 			r.Key(),
@@ -85,7 +85,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 
 	agent := r.agent
 
-	return m.rename(
+	return m.api.RenameWrite(
 		"renaming "+r.Was(),
 		fmt.Sprintf("Could not rename agent %q", r.Was()),
 		r.Key(),

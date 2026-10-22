@@ -161,7 +161,7 @@ type loadReviewCmdParams struct {
 // loadReviewCmd takes a snapshot of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the snapshot already taken of it.
 func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
-	agents := m.api.Reads().Agents
+	agents := m.api.Agents
 	agentID := params.AgentID
 	patches := m.patches
 

@@ -93,7 +93,9 @@ func deleteDesc(fate panel.WorktreeFate) string {
 func deleteWorktree(m *model, item panel.Worktree) screen.Request {
 	switch item.Fate {
 	case panel.FateLive:
-		return m.archiveTasks([]panel.Task{*item.Task})
+		tasks := []panel.Task{*item.Task}
+
+		return m.api.ArchiveTasksWrite(tasks, m.listing.AgentsOnTasks(tasks))
 	case panel.FateArchived:
 		return confirmDeleteTasks(m, []panel.Task{*item.Task})
 	case panel.FateUnowned:
@@ -179,7 +181,7 @@ func confirmDeleteMixed(m *model, deletion worktreeDeletion) screen.Request {
 	confirm := deleteMixedConfirm(deletion, len(m.listing.AgentsOnTasks(deletion.tasks)))
 
 	return confirm.open(m, func() screen.Request {
-		return screen.Batch{m.deleteTasksWrite(deletion.tasks, confirm.values.deletesRecords()), deleteWorktreesWrite(m, deletion)}
+		return screen.Batch{m.api.DeleteTasksWrite(deletion.tasks, m.listing.AgentsOnTasks(deletion.tasks), confirm.values.deletesRecords()), deleteWorktreesWrite(m, deletion)}
 	})
 }
 

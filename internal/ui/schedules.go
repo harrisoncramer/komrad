@@ -70,12 +70,12 @@ func (w *schedulesScreen) update(m *model, msg tea.Msg) screen.Request {
 }
 
 func (w *schedulesScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
-	settled, ok := msg.(renameSettled)
+	settled, ok := msg.(api.RenameSettled)
 	if !ok {
 		return nil, false
 	}
 
-	w.settleRename(m, settled.row, settled.err)
+	w.settleRename(m, settled.Row, settled.Err)
 
 	return nil, true
 }
@@ -145,7 +145,7 @@ func toggleSchedule(m *model, schedule panel.Schedule) screen.Request {
 		doing, failure = "resuming "+schedule.Name, fmt.Sprintf("Could not resume schedule %q", schedule.Name)
 	}
 
-	return m.write(doing, failure, func(a api.Clients) error {
+	return m.api.Write(doing, failure, func(a api.Clients) error {
 		return a.SetScheduleEnabled(schedule.ID, !schedule.Enabled)
 	})
 }
@@ -188,10 +188,10 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit: func(form.Inputs) screen.Request {
 			if target == nil {
-				return m.write("creating schedule "+values.Name, "Could not create the schedule", func(a api.Clients) error { return a.CreateSchedule(*values) })
+				return m.api.Write("creating schedule "+values.Name, "Could not create the schedule", func(a api.Clients) error { return a.CreateSchedule(*values) })
 			}
 
-			return m.write(
+			return m.api.Write(
 				"saving "+target.Name,
 				fmt.Sprintf("Could not save schedule %q", target.Name),
 				func(a api.Clients) error { return a.UpdateSchedule(target.ID, *values) },
@@ -227,7 +227,7 @@ func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 }
 
 func (m *model) archiveSchedule(schedule panel.Schedule) screen.Request {
-	return m.awaitingWrite(
+	return m.api.AwaitingWrite(
 		"archiving "+schedule.Name,
 		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
 		screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
