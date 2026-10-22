@@ -13,6 +13,7 @@ import (
 // TestEveryActionHasALegendRow covers each table a screen dispatches through naming every action it
 // answers in its own legend.
 func TestEveryActionHasALegendRow(t *testing.T) {
+	const quit = "quit is not worth a row on any screen"
 	const wheel = "the mouse wheel presses it, and paging is the only scroll the block names"
 	const filterGap = "a gap: the legend has no rows for the filter keys yet"
 
@@ -23,43 +24,43 @@ func TestEveryActionHasALegendRow(t *testing.T) {
 		{
 			screen: screen.Agents,
 			excused: map[keys.ID]string{
-				keys.Quit:        "quit is not worth a row on any screen",
+				keys.Quit:        quit,
 				actionAgentsBack: "on the root list this is the quit key by another name",
 			},
 		},
 		{
 			screen:  screen.Schedules,
-			excused: map[keys.ID]string{keys.Quit: "quit is not worth a row on any screen"},
+			excused: map[keys.ID]string{keys.Quit: quit},
 		},
 		{
 			screen: screen.Review,
 			excused: map[keys.ID]string{
-				keys.Quit:         "quit is not worth a row on any screen",
+				keys.Quit:         quit,
 				keys.ColumnScroll: wheel,
 			},
 		},
 		{
 			screen:  screen.Worktrees,
-			excused: map[keys.ID]string{keys.Quit: "quit is not worth a row on any screen"},
+			excused: map[keys.ID]string{keys.Quit: quit},
 		},
 		{
 			screen: screen.Documents,
 			excused: map[keys.ID]string{
-				keys.Quit:         "quit is not worth a row on any screen",
+				keys.Quit:         quit,
 				keys.ColumnScroll: wheel,
 			},
 		},
 		{
 			screen: screen.Logs,
 			excused: map[keys.ID]string{
-				keys.Quit:         "quit is not worth a row on any screen",
+				keys.Quit:         quit,
 				keys.ColumnScroll: wheel,
 			},
 		},
 		{
 			screen: screen.StatusChecks,
 			excused: map[keys.ID]string{
-				keys.Quit:        "quit is not worth a row on any screen",
+				keys.Quit:        quit,
 				keys.FilterOpen:  filterGap,
 				keys.FilterClear: filterGap,
 				keys.FilterMatch: filterGap,
@@ -68,7 +69,7 @@ func TestEveryActionHasALegendRow(t *testing.T) {
 		{
 			screen: screen.StatusCheckLogs,
 			excused: map[keys.ID]string{
-				keys.Quit:        "quit is not worth a row on any screen",
+				keys.Quit:        quit,
 				keys.FilterOpen:  filterGap,
 				keys.FilterClear: filterGap,
 				keys.FilterMatch: filterGap,
