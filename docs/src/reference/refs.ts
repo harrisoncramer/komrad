@@ -105,16 +105,16 @@ function codeRef({ messages = [], enum: enumName }: Scope, code: string): Ref | 
     if (field) return fieldRef(message, field, `#${anchor(message)}-${code}`);
   }
 
-  const value = enumName
-    ? api.enums[enumName]?.values.find(({ name }) => name === code || name.endsWith(`_${code}`))
-    : undefined;
-  if (enumName && value) {
-    return {
-      href: `#${anchor(enumName)}-${value.name}`,
-      title: value.name,
-      description: value.description,
-      detail: "",
-    };
+  if (enumName) {
+    const value = api.enums[enumName]?.values.find(({ name }) => name === code || name.endsWith(`_${code}`));
+    if (value) {
+      return {
+        href: `#${anchor(enumName)}-${value.name}`,
+        title: value.name,
+        description: value.description,
+        detail: "",
+      };
+    }
   }
 
   const method = methods.get(code);
