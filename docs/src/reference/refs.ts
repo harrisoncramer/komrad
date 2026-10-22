@@ -125,8 +125,9 @@ function codeRef({ messages = [], enum: enumName }: Scope, code: string): Ref | 
 
   if (code.includes(".") && settings.has(code)) return settingOf(code);
 
-  const moment = hookMoment.exec(code);
-  if (moment) return { href: link(`/guides/hooks#${moment[1]}-lifecycle`), title: code, description: "", detail: "" };
+  const lifecycle = hookMoment.exec(code)?.[1];
+  if (lifecycle)
+    return { href: link(`/guides/hooks#${lifecycle}-lifecycle`), title: code, description: "", detail: "" };
 
   return undefined;
 }
