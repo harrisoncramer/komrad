@@ -129,13 +129,16 @@ func (g *generator) decide(root *protogen.Message) {
 	var reached []*protogen.Message
 	g.reach(root, map[protoreflect.FullName]bool{}, &reached)
 
-	for changed := true; changed; {
-		changed = false
+	for {
+		changed := false
 		for _, message := range reached {
 			if !g.parsed[message.Desc.FullName()] && g.hasConversion(message) {
 				g.parsed[message.Desc.FullName()] = true
 				changed = true
 			}
+		}
+		if !changed {
+			break
 		}
 	}
 
