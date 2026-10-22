@@ -466,6 +466,7 @@ func (r *reviewScreen) openStackedReview(m *model, in screen.Inputs, taskID stri
 	}
 
 	writer, _ := in.Listing.FindTaskWriter(in.Listing.Tasks[taskID])
+
 	return screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: writer.Agent.ID}}
 }
 
