@@ -20,9 +20,9 @@ func (a *archivedAgents) actions(in screen.Inputs) keys.Spec[*archivedAgents] {
 
 func (a *archivedAgents) table(in screen.Inputs) []keys.Action[*archivedAgents] {
 	list := a.list()
-	browsing := func(*archivedAgents) bool { return list.isBrowsing() }
+	browsing := func(*archivedAgents) bool { return list.IsBrowsing() }
 
-	return append(listActions[*archivedAgents](list, in),
+	return append(keys.ListActions[*archivedAgents](list, in),
 		keys.Action[*archivedAgents]{
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
@@ -41,7 +41,7 @@ func (a *archivedAgents) table(in screen.Inputs) []keys.Action[*archivedAgents] 
 func (a *archivedAgents) legend(in screen.Inputs) []keys.LegendRow[*archivedAgents] {
 	list := a.list()
 
-	return slices.Concat(selectionLegend[*archivedAgents](list, in), []keys.LegendRow[*archivedAgents]{
+	return slices.Concat(keys.SelectionLegend[*archivedAgents](list, in), []keys.LegendRow[*archivedAgents]{
 		{
 			Of:    []keys.ID{actionArchiveRename},
 			Desc:  func(*archivedAgents) string { return "rename" },
@@ -50,12 +50,12 @@ func (a *archivedAgents) legend(in screen.Inputs) []keys.LegendRow[*archivedAgen
 		},
 		{
 			Of:   []keys.ID{keys.SelectToggle},
-			Desc: func(*archivedAgents) string { return list.toggleDesc(in) },
+			Desc: func(*archivedAgents) string { return list.ToggleDesc(in) },
 			Show: func(*archivedAgents) bool { return a.holdsAChoosable(in) },
 		},
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf[*archivedAgents](in),
+			Desc: keys.FilterDescOf[*archivedAgents](in),
 		},
 	}, keys.NavLegend[*archivedAgents](), []keys.LegendRow[*archivedAgents]{
 		{
@@ -64,7 +64,7 @@ func (a *archivedAgents) legend(in screen.Inputs) []keys.LegendRow[*archivedAgen
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  filterClearDescOf[*archivedAgents](in),
+			Desc:  keys.FilterClearDescOf[*archivedAgents](in),
 			Strip: true,
 		},
 		{

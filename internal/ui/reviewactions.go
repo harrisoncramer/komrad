@@ -144,7 +144,7 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 	standing := func(*reviewScreen) bool { return r.filesFilter.IsStanding() }
 
 	return keys.Spec[*reviewScreen]{
-		Table: append(navActions[*reviewScreen](navActionsParams{keys: r.deps.keys, nav: filesNav{r}, in: in, page: navPageStep, scroll: 1}), []keys.Action[*reviewScreen]{
+		Table: append(keys.NavActions[*reviewScreen](keys.NavActionsParams{Keys: r.deps.keys, Nav: filesNav{r}, In: in, Page: keys.NavPageStep, Scroll: 1}), []keys.Action[*reviewScreen]{
 			{
 				ID:   actionDiffFile,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Diff.NextFile, k.Diff.PrevFile) },
@@ -240,7 +240,7 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 // sideActions is the keys on the rows over the file tree, which walk them and on down into the tree.
 func (r *reviewScreen) sideActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 	return keys.Spec[*reviewScreen]{
-		Table: append(navActions[*reviewScreen](navActionsParams{keys: r.deps.keys, nav: filesNav{r}, in: in, page: navPageStep, scroll: 1}), []keys.Action[*reviewScreen]{
+		Table: append(keys.NavActions[*reviewScreen](keys.NavActionsParams{Keys: r.deps.keys, Nav: filesNav{r}, In: in, Page: keys.NavPageStep, Scroll: 1}), []keys.Action[*reviewScreen]{
 			{
 				ID: actionReviewSide,
 				Keys: func(k config.Keybindings) []string {

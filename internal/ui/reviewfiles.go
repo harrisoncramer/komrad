@@ -241,7 +241,7 @@ func (r *reviewScreen) walkFiles(in screen.Inputs, files int) screen.Request {
 // following onto each file, and the wheel walking it a file at a time while it does not.
 type filesNav struct{ r *reviewScreen }
 
-func (f filesNav) moveBy(in screen.Inputs, rows int) screen.Request {
+func (f filesNav) MoveBy(in screen.Inputs, rows int) screen.Request {
 	if f.r.focus != reviewFocusFiles {
 		return f.r.walkFiles(in, rows)
 	}
@@ -274,7 +274,7 @@ func (f filesNav) moveBy(in screen.Inputs, rows int) screen.Request {
 	return f.r.landOnRow(in, row)
 }
 
-func (f filesNav) moveToEnd(in screen.Inputs, direction int) screen.Request {
+func (f filesNav) MoveToEnd(in screen.Inputs, direction int) screen.Request {
 	if direction < 0 && f.r.moveSideToTop(in) {
 		return nil
 	}

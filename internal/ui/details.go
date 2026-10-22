@@ -82,12 +82,12 @@ func (m *model) detailsCursor(held record.Details) int {
 	return cursor.Clamp(m.details.Row, len(m.detailsRows(held)))
 }
 
-func (m *model) detailsList() screenList[detailsRow] {
-	return screenList[detailsRow]{
-		keys:   m.keys,
-		cursor: m.detailsRowCursor,
-		rows:   func(in screen.Inputs) []detailsRow { return m.detailsRows(m.hoveredDetails(in)) },
-		name:   func(row detailsRow) string { return row.text },
+func (m *model) detailsList() keys.ScreenList[detailsRow] {
+	return keys.ScreenList[detailsRow]{
+		Keys:   m.keys,
+		Cursor: m.detailsRowCursor,
+		Rows:   func(in screen.Inputs) []detailsRow { return m.detailsRows(m.hoveredDetails(in)) },
+		Name:   func(row detailsRow) string { return row.text },
 	}
 }
 
@@ -183,7 +183,7 @@ func (m *model) updateDetails(key tea.KeyPressMsg) tea.Cmd {
 
 func (m *model) detailsActions() keys.Spec[*model] {
 	return keys.Spec[*model]{
-		Table: append(listActions[*model](m.detailsList(), m.inputs()), []keys.Action[*model]{
+		Table: append(keys.ListActions[*model](m.detailsList(), m.inputs()), []keys.Action[*model]{
 			{
 				ID:   keys.Details,
 				Keys: keys.FixedBack,

@@ -18,7 +18,7 @@ func (a *archivedSchedules) actions(in screen.Inputs) keys.Spec[*archivedSchedul
 func (a *archivedSchedules) table(in screen.Inputs) []keys.Action[*archivedSchedules] {
 	list := a.list()
 
-	return append(listActions[*archivedSchedules](list, in),
+	return append(keys.ListActions[*archivedSchedules](list, in),
 		keys.Action[*archivedSchedules]{
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
@@ -31,7 +31,7 @@ func (a *archivedSchedules) legend(in screen.Inputs) []keys.LegendRow[*archivedS
 	return slices.Concat([]keys.LegendRow[*archivedSchedules]{
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf[*archivedSchedules](in),
+			Desc: keys.FilterDescOf[*archivedSchedules](in),
 		},
 	}, keys.NavLegend[*archivedSchedules](), []keys.LegendRow[*archivedSchedules]{
 		{
@@ -40,7 +40,7 @@ func (a *archivedSchedules) legend(in screen.Inputs) []keys.LegendRow[*archivedS
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  filterClearDescOf[*archivedSchedules](in),
+			Desc:  keys.FilterClearDescOf[*archivedSchedules](in),
 			Strip: true,
 		},
 		{

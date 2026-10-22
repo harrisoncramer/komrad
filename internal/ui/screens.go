@@ -83,22 +83,7 @@ type chromeRenderer interface {
 
 // activeLister is a screen whose list the user can narrow by typing a pattern.
 type activeLister interface {
-	ActiveList() keyedList
-}
-
-type keyedList interface {
-	// Hovered is the key of the row the cursor is on, read before the pattern changes.
-	Hovered(in screen.Inputs) string
-
-	// Place puts the cursor back on that row, or as near to where it was as the narrowed list
-	// allows.
-	Place(in screen.Inputs, key string) screen.Request
-
-	// FilterRows is every row on screen with the text a search reads, in the order they are
-	// rendered.
-	FilterRows(in screen.Inputs) []list.Row
-
-	Click(in screen.Inputs, key string, nth int) screen.Request
+	ActiveList() keys.KeyedList
 }
 
 // kindSwitcher is a screen that lists more than one kind of resource and switches between them

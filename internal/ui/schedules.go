@@ -95,15 +95,15 @@ func (w *schedulesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request
 	return nil, false
 }
 
-func (w *schedulesScreen) list() screenList[scheduleItem] {
-	return screenList[scheduleItem]{
-		keys:   w.deps.keys,
-		top:    w.deps.top,
-		cursor: func() *list.Cursor { return &w.Cursor },
-		rows:   w.listRows,
-		name:   scheduleItemName,
-		fits:   scheduleItemFits,
-		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+func (w *schedulesScreen) list() keys.ScreenList[scheduleItem] {
+	return keys.ScreenList[scheduleItem]{
+		Keys:   w.deps.keys,
+		Top:    w.deps.top,
+		Cursor: func() *list.Cursor { return &w.Cursor },
+		Rows:   w.listRows,
+		Name:   scheduleItemName,
+		Fits:   scheduleItemFits,
+		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -284,12 +284,12 @@ func (w *schedulesScreen) TakesEveryKey() bool {
 	return w.IsRenaming()
 }
 
-func (w *schedulesScreen) ActiveList() keyedList {
+func (w *schedulesScreen) ActiveList() keys.KeyedList {
 	return w.list()
 }
 
 func (w *schedulesScreen) HoveredName(in screen.Inputs) string {
-	return w.list().hoveredName(in)
+	return w.list().HoveredName(in)
 }
 
 // Column is the hovered schedule's own record rendered beside the list.

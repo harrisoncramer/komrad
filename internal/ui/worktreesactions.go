@@ -24,11 +24,11 @@ func (w *worktreesScreen) actions(in screen.Inputs) keys.Spec[*worktreesScreen] 
 func (w *worktreesScreen) table(in screen.Inputs) []keys.Action[*worktreesScreen] {
 	list := w.list()
 
-	return append(listActions[*worktreesScreen](list, in),
+	return append(keys.ListActions[*worktreesScreen](list, in),
 		keys.Action[*worktreesScreen]{
 			ID:   actionWorktreesBack,
 			Keys: keys.FixedBack,
-			When: func(*worktreesScreen) bool { return list.isBrowsing() },
+			When: func(*worktreesScreen) bool { return list.IsBrowsing() },
 			Nav:  func(*worktreesScreen, string) screen.Request { return screen.PickView{} },
 		},
 	)
@@ -37,15 +37,15 @@ func (w *worktreesScreen) table(in screen.Inputs) []keys.Action[*worktreesScreen
 func (w *worktreesScreen) legend(in screen.Inputs) []keys.LegendRow[*worktreesScreen] {
 	list := w.list()
 
-	return slices.Concat(selectionLegend[*worktreesScreen](list, in), []keys.LegendRow[*worktreesScreen]{
+	return slices.Concat(keys.SelectionLegend[*worktreesScreen](list, in), []keys.LegendRow[*worktreesScreen]{
 		{
 			Of:   []keys.ID{keys.SelectToggle},
-			Desc: func(*worktreesScreen) string { return list.toggleDesc(in) },
+			Desc: func(*worktreesScreen) string { return list.ToggleDesc(in) },
 			Show: func(*worktreesScreen) bool { return w.holdsARow(in) },
 		},
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf[*worktreesScreen](in),
+			Desc: keys.FilterDescOf[*worktreesScreen](in),
 		},
 	}, keys.NavLegend[*worktreesScreen](), []keys.LegendRow[*worktreesScreen]{
 		{
@@ -54,7 +54,7 @@ func (w *worktreesScreen) legend(in screen.Inputs) []keys.LegendRow[*worktreesSc
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  filterClearDescOf[*worktreesScreen](in),
+			Desc:  keys.FilterClearDescOf[*worktreesScreen](in),
 			Strip: true,
 		},
 		{
@@ -221,7 +221,7 @@ func (w *worktreesScreen) deleteWorktreesWrite(deletion worktreeDeletion) screen
 }
 
 func (w *worktreesScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
-	if w.list().isSelecting() {
+	if w.list().IsSelecting() {
 		deletion := w.chosenDeletion(in)
 		if deletion.chosen() == 0 {
 			return menu.Menu{}, false

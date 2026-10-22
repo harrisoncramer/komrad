@@ -48,7 +48,7 @@ func guarded[S any](when func(S) bool, actions []keys.Action[S]) []keys.Action[S
 }
 
 func (d *documentsScreen) documentTypeTable(in screen.Inputs) []keys.Action[*documentsScreen] {
-	return append(listActions[*documentsScreen](d.documentTypeList(), in),
+	return append(keys.ListActions[*documentsScreen](d.documentTypeList(), in),
 		keys.Action[*documentsScreen]{
 			ID:   actionDocumentsBack,
 			Keys: keys.FixedBack,
@@ -58,7 +58,7 @@ func (d *documentsScreen) documentTypeTable(in screen.Inputs) []keys.Action[*doc
 }
 
 func (d *documentsScreen) documentTable(in screen.Inputs) []keys.Action[*documentsScreen] {
-	return slices.Concat(listActions[*documentsScreen](d.list(), in), []keys.Action[*documentsScreen]{
+	return slices.Concat(keys.ListActions[*documentsScreen](d.list(), in), []keys.Action[*documentsScreen]{
 		{
 			ID:   actionDocumentsOlder,
 			Keys: func(k config.Keybindings) []string { return k.Documents.Older },
@@ -89,7 +89,7 @@ func (d *documentsScreen) legend(in screen.Inputs) []keys.LegendRow[*documentsSc
 	return slices.Concat(keys.NavLegend[*documentsScreen](), []keys.LegendRow[*documentsScreen]{
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf[*documentsScreen](in),
+			Desc: keys.FilterDescOf[*documentsScreen](in),
 		},
 		{
 			Of:   []keys.ID{actionDocumentsOlder},
@@ -103,7 +103,7 @@ func (d *documentsScreen) legend(in screen.Inputs) []keys.LegendRow[*documentsSc
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  filterClearDescOf[*documentsScreen](in),
+			Desc:  keys.FilterClearDescOf[*documentsScreen](in),
 			Strip: true,
 		},
 		{
@@ -237,7 +237,7 @@ func (d *documentsScreen) DoesScrollColumn(in screen.Inputs) bool {
 }
 
 func (d *documentsScreen) ScrollColumn(in screen.Inputs, rows int) screen.Request {
-	return d.diffKeys().moveBy(in, rows)
+	return d.diffKeys().MoveBy(in, rows)
 }
 
 // docSpec steps through the writes from the document as it stands, handing the keys to the diff.

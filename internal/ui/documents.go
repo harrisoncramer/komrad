@@ -207,16 +207,16 @@ func (d *documentsScreen) StepKind(in screen.Inputs, delta int) screen.Request {
 	return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
 }
 
-func (d *documentsScreen) list() screenList[documentRow] {
-	return screenList[documentRow]{
-		keys:   d.deps.keys,
-		top:    d.deps.top,
-		cursor: func() *list.Cursor { return &d.Cursor },
-		rows:   d.rows,
-		name:   documentRowName,
-		fits:   d.documentRowFits,
-		placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
-		moved: func(screen.Inputs) screen.Request {
+func (d *documentsScreen) list() keys.ScreenList[documentRow] {
+	return keys.ScreenList[documentRow]{
+		Keys:   d.deps.keys,
+		Top:    d.deps.top,
+		Cursor: func() *list.Cursor { return &d.Cursor },
+		Rows:   d.rows,
+		Name:   documentRowName,
+		Fits:   d.documentRowFits,
+		Placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
+		Moved: func(screen.Inputs) screen.Request {
 			d.history, d.focus = nil, false
 
 			return screen.Settle{}
@@ -224,15 +224,15 @@ func (d *documentsScreen) list() screenList[documentRow] {
 	}
 }
 
-func (d *documentsScreen) documentTypeList() screenList[documentTypeRow] {
-	return screenList[documentTypeRow]{
-		keys:   d.deps.keys,
-		top:    d.deps.top,
-		cursor: func() *list.Cursor { return &d.documentTypes },
-		rows:   d.documentTypeRows,
-		name:   documentTypeRowName,
-		placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
-		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+func (d *documentsScreen) documentTypeList() keys.ScreenList[documentTypeRow] {
+	return keys.ScreenList[documentTypeRow]{
+		Keys:   d.deps.keys,
+		Top:    d.deps.top,
+		Cursor: func() *list.Cursor { return &d.documentTypes },
+		Rows:   d.documentTypeRows,
+		Name:   documentTypeRowName,
+		Placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -556,7 +556,7 @@ func (d *documentsScreen) Column(in screen.Inputs) column.Spec {
 	}
 }
 
-func (d *documentsScreen) ActiveList() keyedList {
+func (d *documentsScreen) ActiveList() keys.KeyedList {
 	if d.kind == documentKindTypes {
 		return d.documentTypeList()
 	}

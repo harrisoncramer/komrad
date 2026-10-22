@@ -112,14 +112,14 @@ func (c *statusChecksScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Requ
 	return c.applyListed(in, listed), true
 }
 
-func (c *statusChecksScreen) list() screenList[statusCheckRow] {
-	return screenList[statusCheckRow]{
-		keys:   c.deps.keys,
-		top:    c.deps.top,
-		cursor: func() *list.Cursor { return &c.Cursor },
-		rows:   c.rows,
-		name:   statusCheckRowName,
-		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+func (c *statusChecksScreen) list() keys.ScreenList[statusCheckRow] {
+	return keys.ScreenList[statusCheckRow]{
+		Keys:   c.deps.keys,
+		Top:    c.deps.top,
+		Cursor: func() *list.Cursor { return &c.Cursor },
+		Rows:   c.rows,
+		Name:   statusCheckRowName,
+		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -212,7 +212,7 @@ func (c *statusChecksScreen) StepKind(in screen.Inputs, delta int) screen.Reques
 
 func (c *statusChecksScreen) listActions(in screen.Inputs) keys.Spec[*statusChecksScreen] {
 	return keys.Spec[*statusChecksScreen]{
-		Table: append(listActions[*statusChecksScreen](c.list(), in),
+		Table: append(keys.ListActions[*statusChecksScreen](c.list(), in),
 			keys.Action[*statusChecksScreen]{
 				ID:   actionStatusChecksBack,
 				Keys: keys.FixedBack,
@@ -231,11 +231,11 @@ func (c *statusChecksScreen) listActions(in screen.Inputs) keys.Spec[*statusChec
 		Legend: slices.Concat(keys.NavLegend[*statusChecksScreen](), []keys.LegendRow[*statusChecksScreen]{
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: filterDescOf[*statusChecksScreen](in),
+				Desc: keys.FilterDescOf[*statusChecksScreen](in),
 			},
 			{
 				Of:    []keys.ID{keys.FilterClear},
-				Desc:  filterClearDescOf[*statusChecksScreen](in),
+				Desc:  keys.FilterClearDescOf[*statusChecksScreen](in),
 				Strip: true,
 			},
 			{
@@ -304,7 +304,7 @@ var (
 	_ loadingReporter = (*statusChecksScreen)(nil)
 )
 
-func (c *statusChecksScreen) ActiveList() keyedList {
+func (c *statusChecksScreen) ActiveList() keys.KeyedList {
 	return c.list()
 }
 
